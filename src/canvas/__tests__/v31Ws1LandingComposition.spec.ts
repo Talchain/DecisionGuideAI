@@ -37,7 +37,8 @@ import {
   cardWidthCapForTier,
 } from '../utils/nodeLayoutConstants'
 import { resolveLayeredEdgeLeads, layeredLeadPath, type RouteBox } from '../edges/sameRowRoute'
-import { resolvePolarityGlyphOffset, GLYPH_PAINTED_BOX_FLOW, paintedGlyphDyFlow } from '../utils/edgeGlyphPlacement'
+import { resolveArrivalSlot, resolvePolarityGlyphOnPath, glyphMetricsAt } from '../utils/edgeGlyphPlacement'
+import { flattenSvgPath } from '../edges/fragileCuePlacement'
 import { deriveTierLanes, tierLaneTitleBoxFor } from '../utils/tierLanes'
 import { cornerMarksTitleSpacerCss } from '../nodes/shared/canvasGlyphScale'
 import { farTitleScale, labelCounterScale, FAR_TITLE_PX, FAR_TITLE_MAX_SCALE, MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE } from '../utils/zoomLegibility'
@@ -384,64 +385,78 @@ describe('WS1 #27 — one row-end prompt per band', () => {
 /* ── #28 ──────────────────────────────────────────────────────────────────── */
 
 describe('WS1 #28 — a polarity glyph keeps off the band title', () => {
-  // ⭐ RE-PINNED 27 Sep 2026 (glyph row, DIFF item 4): the resolved offset is
-  // now in GLYPH units and is multiplied by `--canvas-glyph-scale` on paint, so
-  // it is compared with the title's box AT THE BOUND (`boxAtBound`, the frame
-  // the keep-out is handed in) — offset × MAX_GLYPH_COUNTER_SCALE, and the glyph
-  // box at the same bound. Comparing the scale-1 offset with a bound-frame box
-  // mixed two frames. (`GLYPH_PAINTED_BOX_FLOW` is already the box AT the bound.)
-  //
-  // ⚠ RE-PINNED 28 Sep 2026 (review r08 note 2): the y is the PAINTED one,
-  // `paintedGlyphDyFlow` — code-review F1 bounded the row's rise, so the
-  // unbounded `dy × MAX_GLYPH_COUNTER_SCALE` judged a spot the glyph no longer
-  // stands at. `hitsAtBound` in the placement module judges the same painted y.
-  const half = GLYPH_PAINTED_BOX_FLOW / 2
-  const atBound = (o: { dx: number; dy: number }) => ({ dx: o.dx * MAX_GLYPH_COUNTER_SCALE, dy: paintedGlyphDyFlow(o.dy, MAX_GLYPH_COUNTER_SCALE) })
-  const clear = (u: { dx: number; dy: number }, k: { x0: number; y0: number; x1: number; y1: number }) => {
-    const o = atBound(u)
-    return o.dx + half <= k.x0 || o.dx - half >= k.x1 || o.dy + half <= k.y0 || o.dy - half >= k.y1
-  }
+  // ⚠ RE-WRITTEN 28 Sep 2026 (canvas/paul-test-edges): the sign no longer stands
+  // in a row that the title shifts sideways by whole slots — that shift is what
+  // left a `+` 130 flow units off its own line on Paul's `pa_vs_ai`. Each sign
+  // now sits ON its own line (`edgeGlyphPlacement.ts` rule B) and slides ALONG
+  // it off the title; and a card whose apex the title covers takes its link just
+  // past the word (rule A). Judged at the bound: the title box is `boxAtBound`,
+  // the sign's box `GLYPH_PAINTED_BOX_FLOW`, the head the widest band's.
+  const AT_BOUND = glyphMetricsAt(3, MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE)
+  const reach = AT_BOUND.halfBox + AT_BOUND.gap
+  const clear = (p: { x: number; y: number }, k: { x0: number; y0: number; x1: number; y1: number }) =>
+    p.x + reach <= k.x0 || p.x - reach >= k.x1 || p.y + reach <= k.y0 || p.y - reach >= k.y1
+  /** A link falling into a card whose top is y 1000, from up and to the right. */
+  const LINE = flattenSvgPath('M300,940 C300,970 100,970 100,1000')!
 
-  it('a glyph whose natural spot is on the title moves off it', () => {
-    const target = { x: 0, y: 60 }
-    const siblings = [{ id: 'e1', sourceCentre: { x: 0, y: -400 } }]
-    const freeUnits = resolvePolarityGlyphOffset('e1', target, siblings)
-    const free = atBound(freeUnits)
-    // A title box covering the natural spot.
-    const keepOut = { x0: free.dx - 40, y0: free.dy - 15, x1: free.dx + 40, y1: free.dy + 15 }
-    expect(clear(freeUnits, keepOut)).toBe(false) // CONTRAST: without the keep-out it IS on the title
-    const moved = resolvePolarityGlyphOffset('e1', target, siblings, keepOut)
-    expect(clear(moved, keepOut)).toBe(true)
+  it('a sign whose natural spot is on the title slides along its own line off it', () => {
+    const free = resolvePolarityGlyphOnPath(LINE, 1000, AT_BOUND)
+    const title = { x0: free.x - 40, y0: free.y - 15, x1: free.x + 40, y1: free.y + 15 }
+    expect(clear(free, title)).toBe(false) // CONTRAST: without the keep-out it IS on the title
+    const moved = resolvePolarityGlyphOnPath(LINE, 1000, AT_BOUND, [title])
+    expect(moved.clear).toBe(true)
+    expect(clear(moved, title)).toBe(true)
+    // ON its own line: within a unit of the flattened path's nearest segment.
+    let off = Infinity
+    for (let k = 1; k < LINE.points.length; k++) {
+      const a = LINE.points[k - 1]
+      const b = LINE.points[k]
+      const vx = b.x - a.x
+      const vy = b.y - a.y
+      const t = Math.max(0, Math.min(1, ((moved.x - a.x) * vx + (moved.y - a.y) * vy) / (vx * vx + vy * vy)))
+      off = Math.min(off, Math.hypot(moved.x - (a.x + t * vx), moved.y - (a.y + t * vy)))
+    }
+    expect(off).toBeLessThan(1)
   })
 
-  /**
-   * ⭐ The keep-out is judged where the glyph PAINTS (review r08 note 2). A title
-   * strip only ±2 around the painted centre (21.36 up at the bound) is missed by
-   * a check at the unbounded 38: the resolver would leave the sign on the title.
-   */
-  it('a thin title over the PAINTED spot (not the unbounded one) still moves the glyph (F1 keep-out twin)', () => {
-    const target = { x: 0, y: 60 }
-    const siblings = [{ id: 'e1', sourceCentre: { x: 0, y: -400 } }]
-    const freeUnits = resolvePolarityGlyphOffset('e1', target, siblings)
-    const free = atBound(freeUnits)
-    expect(free.dy).toBeGreaterThan(freeUnits.dy * MAX_GLYPH_COUNTER_SCALE + 10) // PRECONDITION: the bound is active here (−21.36 vs −38)
-    const keepOut = { x0: free.dx - 40, y0: free.dy - 2, x1: free.dx + 40, y1: free.dy + 2 }
-    expect(clear(freeUnits, keepOut)).toBe(false) // CONTRAST: the painted glyph IS on it
-    expect(clear(resolvePolarityGlyphOffset('e1', target, siblings, keepOut), keepOut)).toBe(true)
+  it('a thin title strip over the sign\'s spot still moves it', () => {
+    const free = resolvePolarityGlyphOnPath(LINE, 1000, AT_BOUND)
+    const title = { x0: free.x - 40, y0: free.y - 2, x1: free.x + 40, y1: free.y + 2 }
+    expect(clear(free, title)).toBe(false)
+    expect(clear(resolvePolarityGlyphOnPath(LINE, 1000, AT_BOUND, [title]), title)).toBe(true)
   })
 
-  it('two edges approaching from the same direction still get distinct spots under a keep-out', () => {
-    const target = { x: 0, y: 60 }
+  it('two links from the same place into one card still get distinct arrivals, and distinct signs under a keep-out', () => {
+    const card = { x: 0, width: 720 }
     const siblings = [
-      { id: 'a', sourceCentre: { x: 0, y: -400 } },
-      { id: 'b', sourceCentre: { x: 0, y: -400 } },
+      { id: 'a', sourceCentre: { x: 360, y: -400 } },
+      { id: 'b', sourceCentre: { x: 360, y: -400 } },
     ]
-    const base = atBound(resolvePolarityGlyphOffset('a', target, siblings))
-    const keepOut = { x0: base.dx - 40, y0: base.dy - 15, x1: base.dx + 40, y1: base.dy + 15 }
-    const a = resolvePolarityGlyphOffset('a', target, siblings, keepOut)
-    const b = resolvePolarityGlyphOffset('b', target, siblings, keepOut)
+    const a = resolveArrivalSlot('a', card, siblings)
+    const b = resolveArrivalSlot('b', card, siblings)
     expect(a).not.toEqual(b)
-    expect(clear(a, keepOut) && clear(b, keepOut)).toBe(true)
+    const lineOf = (dx: number) => flattenSvgPath(`M360,700 C360,850 ${360 + dx},850 ${360 + dx},1000`)!
+    const title = { x0: 300, y0: 940, x1: 420, y1: 960 }
+    const ga = resolvePolarityGlyphOnPath(lineOf(a.dx), 1000, AT_BOUND, [title])
+    const gb = resolvePolarityGlyphOnPath(lineOf(b.dx), 1000, AT_BOUND, [title])
+    expect(Math.hypot(ga.x - gb.x, ga.y - gb.y)).toBeGreaterThan(2 * AT_BOUND.halfBox)
+    expect(clear(ga, title) && clear(gb, title)).toBe(true)
+  })
+
+  it('on a laid-out board, the first consequence card\'s one link arrives past its row\'s band word', async () => {
+    const { nodes, edges, heights } = board({ options: 2, factors: 2, outcomes: 2, risks: 1 }, () => 150)
+    const out = await layoutGraph(nodes, edges, { heightAtLabelBound: heights })
+    const laid = out.nodes.map((n) => ({ ...n, measured: { width: REPEATED_CARD_W, height: heights.get(n.id) } })) as Node[]
+    const lane = deriveTierLanes(laid).find((l) => l.tier === TIER_BY_KIND.outcome)!
+    const first = laid.filter((n) => TIER_BY_KIND[n.type as string] === lane.tier).sort((p, q) => p.position.x - q.position.x)[0]
+    const title = tierLaneTitleBoxFor(laid, first.id)!
+    const cx = first.position.x + REPEATED_CARD_W / 2
+    // PRECONDITION: the word stands over that card's apex.
+    expect(title.x0).toBeLessThan(cx)
+    expect(title.x1).toBeGreaterThan(cx)
+    const slot = resolveArrivalSlot('e', { x: first.position.x, width: REPEATED_CARD_W }, [{ id: 'e', sourceCentre: { x: cx + 300, y: 0 } }], title)
+    expect(slot.onKindShape).toBe(false)
+    expect(cx + slot.dx).toBeGreaterThan(title.x1)
   })
 
   it('the title box is the band label\'s own, left-anchored at the board column, above the row', async () => {

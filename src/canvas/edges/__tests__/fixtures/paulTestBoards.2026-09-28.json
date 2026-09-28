@@ -1,0 +1,102 @@
+{
+  "_provenance": {
+    "source": "Paul's two real models on staging, 28 Sep 2026, as handed to the Canvas lane in the edge-legibility brief (canvas/paul-test-edges): node id, kind, label; edges with source s, target t, effect direction dir and strength mean m. Copied verbatim.",
+    "heightsByKind": "Card heights the specs lay these boards out at, per kind, in flow units: the SMALLEST height the S5 browser capture recorded for that kind across the five starters (src/canvas/__tests__/__fixtures__/starter-node-heights.browser-capture-2026-09-24-s5.json). These boards were not captured in a browser, so a height is an approximation; row positions come from the tallest card in a row, and every card of one kind shares one height here.",
+    "landingHandleOffsets": "The handle offsets at the 1280-wide landing (zoom 0.5, --canvas-label-scale 1.64), measured in Chromium on mrr-90b8f080 (src/canvas/edges/__tests__/fixtures/fragileCueLanding.geometry.json, edge e-6): the source port 5.015625 below its card's bottom, the target handle 26.359375 above its card's top."
+  },
+  "heightsByKind": { "decision": 91, "goal": 96, "option": 148, "factor": 156, "outcome": 169, "risk": 169 },
+  "landingHandleOffsets": { "sourceDy": 5.015625, "targetDy": -26.359375 },
+  "boards": {
+    "pa_vs_ai": {
+      "nodes": [
+        {"id":"help_me_decide_whether_to_hire_a_personal_assistant_or_use_an_ai_assistant_to_save_money","kind":"decision","label":"Help me decide whether to hire…"},
+        {"id":"ability_to_focus_on_high_value_tasks","kind":"goal","label":"ability to focus on high-value…"},
+        {"id":"human_assistant_capacity","kind":"factor","label":"Human assistant capacity"},
+        {"id":"ai_assistant_use","kind":"factor","label":"AI assistant use"},
+        {"id":"annual_assistant_tool_cost","kind":"factor","label":"Annual assistant-tool cost"},
+        {"id":"delegable_routine_workload","kind":"factor","label":"Delegable routine workload"},
+        {"id":"ai_output_error_risk","kind":"risk","label":"AI output error risk"},
+        {"id":"assistant_coordination_overhead","kind":"risk","label":"Assistant coordination overhead"},
+        {"id":"delegation_quality","kind":"outcome","label":"Delegation quality"},
+        {"id":"routine_work_hours_delegated","kind":"outcome","label":"Routine-work hours delegated"},
+        {"id":"current_approach","kind":"option","label":"Current approach"},
+        {"id":"personal_assistant","kind":"option","label":"Personal assistant"},
+        {"id":"ai_assistant","kind":"option","label":"AI assistant"},
+        {"id":"personal_assistant_plus_ai","kind":"option","label":"Personal assistant plus AI"}
+      ],
+      "edges": [
+        {"id":"e-0","s":"help_me_decide_whether_to_hire_a_personal_assistant_or_use_an_ai_assistant_to_save_money","t":"current_approach","dir":"positive","m":1},
+        {"id":"e-1","s":"help_me_decide_whether_to_hire_a_personal_assistant_or_use_an_ai_assistant_to_save_money","t":"personal_assistant","dir":"positive","m":1},
+        {"id":"e-2","s":"help_me_decide_whether_to_hire_a_personal_assistant_or_use_an_ai_assistant_to_save_money","t":"ai_assistant","dir":"positive","m":1},
+        {"id":"e-3","s":"help_me_decide_whether_to_hire_a_personal_assistant_or_use_an_ai_assistant_to_save_money","t":"personal_assistant_plus_ai","dir":"positive","m":1},
+        {"id":"e-4","s":"personal_assistant","t":"human_assistant_capacity","dir":"positive","m":1},
+        {"id":"e-5","s":"personal_assistant","t":"ai_assistant_use","dir":"positive","m":1},
+        {"id":"e-6","s":"personal_assistant","t":"annual_assistant_tool_cost","dir":"positive","m":1},
+        {"id":"e-7","s":"ai_assistant","t":"human_assistant_capacity","dir":"positive","m":1},
+        {"id":"e-8","s":"ai_assistant","t":"ai_assistant_use","dir":"positive","m":1},
+        {"id":"e-9","s":"ai_assistant","t":"annual_assistant_tool_cost","dir":"positive","m":1},
+        {"id":"e-10","s":"personal_assistant_plus_ai","t":"human_assistant_capacity","dir":"positive","m":1},
+        {"id":"e-11","s":"personal_assistant_plus_ai","t":"ai_assistant_use","dir":"positive","m":1},
+        {"id":"e-12","s":"personal_assistant_plus_ai","t":"annual_assistant_tool_cost","dir":"positive","m":1},
+        {"id":"e-13","s":"current_approach","t":"human_assistant_capacity","dir":"positive","m":1},
+        {"id":"e-14","s":"current_approach","t":"ai_assistant_use","dir":"positive","m":1},
+        {"id":"e-15","s":"current_approach","t":"annual_assistant_tool_cost","dir":"positive","m":1},
+        {"id":"e-16","s":"human_assistant_capacity","t":"delegation_quality","dir":"positive","m":0.5},
+        {"id":"e-17","s":"human_assistant_capacity","t":"assistant_coordination_overhead","dir":"positive","m":0.5},
+        {"id":"e-18","s":"ai_assistant_use","t":"delegation_quality","dir":"positive","m":0.5},
+        {"id":"e-19","s":"ai_assistant_use","t":"ai_output_error_risk","dir":"positive","m":0.5},
+        {"id":"e-20","s":"annual_assistant_tool_cost","t":"ability_to_focus_on_high_value_tasks","dir":"negative","m":0.5},
+        {"id":"e-21","s":"delegable_routine_workload","t":"routine_work_hours_delegated","dir":"positive","m":0.5},
+        {"id":"e-22","s":"delegation_quality","t":"routine_work_hours_delegated","dir":"positive","m":0.5},
+        {"id":"e-23","s":"ai_output_error_risk","t":"delegation_quality","dir":"negative","m":0.5},
+        {"id":"e-24","s":"assistant_coordination_overhead","t":"delegation_quality","dir":"negative","m":0.5},
+        {"id":"e-25","s":"routine_work_hours_delegated","t":"ability_to_focus_on_high_value_tasks","dir":"positive","m":0.5}
+      ]
+    },
+    "tech_lead": {
+      "nodes": [
+        {"id":"should_i_hire_a_tech_lead_or_two_developers_to_increase_productivity_by_at_least_10_while_maintainin","kind":"decision","label":"Should I hire a Tech lead or…"},
+        {"id":"productivity","kind":"goal","label":"productivity"},
+        {"id":"new_tech_lead_hires","kind":"factor","label":"New Tech lead hires"},
+        {"id":"new_developer_hires","kind":"factor","label":"New developer hires"},
+        {"id":"delivery_capacity","kind":"factor","label":"Delivery capacity"},
+        {"id":"leadership_coverage","kind":"factor","label":"Leadership coverage"},
+        {"id":"hiring_cost","kind":"factor","label":"Hiring cost"},
+        {"id":"code_quality_change","kind":"factor","label":"Code quality change"},
+        {"id":"onboarding_drag","kind":"risk","label":"Onboarding drag"},
+        {"id":"risk_team_resentment_about_an_externally_hired_tech_lead","kind":"risk","label":"Team resentment about an externally hired Tech lead"},
+        {"id":"hire_a_tech_lead","kind":"option","label":"Hire a Tech lead"},
+        {"id":"hire_two_developers","kind":"option","label":"Hire two developers"},
+        {"id":"carry_on_as_now","kind":"option","label":"Carry on as now"},
+        {"id":"6c006f03","kind":"option","label":"Assess the midweight developer’s technical and leadership capabilities for near-term promotion"}
+      ],
+      "edges": [
+        {"id":"e-0","s":"should_i_hire_a_tech_lead_or_two_developers_to_increase_productivity_by_at_least_10_while_maintainin","t":"hire_a_tech_lead","dir":"positive","m":1},
+        {"id":"e-1","s":"should_i_hire_a_tech_lead_or_two_developers_to_increase_productivity_by_at_least_10_while_maintainin","t":"hire_two_developers","dir":"positive","m":1},
+        {"id":"e-2","s":"should_i_hire_a_tech_lead_or_two_developers_to_increase_productivity_by_at_least_10_while_maintainin","t":"carry_on_as_now","dir":"positive","m":1},
+        {"id":"e-3","s":"hire_a_tech_lead","t":"new_tech_lead_hires","dir":"positive","m":1},
+        {"id":"e-4","s":"hire_a_tech_lead","t":"hiring_cost","dir":"positive","m":1},
+        {"id":"e-5","s":"hire_two_developers","t":"new_developer_hires","dir":"positive","m":1},
+        {"id":"e-6","s":"hire_two_developers","t":"hiring_cost","dir":"positive","m":1},
+        {"id":"e-7","s":"carry_on_as_now","t":"new_tech_lead_hires","dir":"positive","m":1},
+        {"id":"e-8","s":"carry_on_as_now","t":"hiring_cost","dir":"positive","m":1},
+        {"id":"e-9","s":"carry_on_as_now","t":"new_developer_hires","dir":"positive","m":1},
+        {"id":"e-10","s":"new_tech_lead_hires","t":"leadership_coverage","dir":"positive","m":0.85},
+        {"id":"e-11","s":"new_developer_hires","t":"delivery_capacity","dir":"positive","m":0.5},
+        {"id":"e-12","s":"new_developer_hires","t":"onboarding_drag","dir":"positive","m":0.5},
+        {"id":"e-13","s":"delivery_capacity","t":"productivity","dir":"positive","m":0.5},
+        {"id":"e-14","s":"leadership_coverage","t":"productivity","dir":"positive","m":0.5},
+        {"id":"e-15","s":"leadership_coverage","t":"code_quality_change","dir":"positive","m":0.2},
+        {"id":"e-16","s":"leadership_coverage","t":"onboarding_drag","dir":"negative","m":0.5},
+        {"id":"e-17","s":"onboarding_drag","t":"productivity","dir":"negative","m":0.5},
+        {"id":"e-18","s":"onboarding_drag","t":"code_quality_change","dir":"negative","m":0.5},
+        {"id":"e-19","s":"code_quality_change","t":"productivity","dir":"positive","m":0.5},
+        {"id":"e-20","s":"hiring_cost","t":"productivity","dir":"negative","m":0.24},
+        {"id":"e-0-a","s":"risk_team_resentment_about_an_externally_hired_tech_lead","t":"productivity","dir":"negative","m":0.5},
+        {"id":"e-1-a","s":"new_tech_lead_hires","t":"risk_team_resentment_about_an_externally_hired_tech_lead","dir":"positive","m":0.5},
+        {"id":"e-0-a-a","s":"should_i_hire_a_tech_lead_or_two_developers_to_increase_productivity_by_at_least_10_while_maintainin","t":"6c006f03","dir":"positive","m":1},
+        {"id":"e-1-a-a","s":"6c006f03","t":"leadership_coverage","dir":"positive","m":1}
+      ]
+    }
+  }
+}

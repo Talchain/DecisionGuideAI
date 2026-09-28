@@ -26,14 +26,25 @@
  * CLAIM SCOPE: graph-unit geometry at the landing zoom (0.5 / 0.51) of the
  * layout at staging b40d5436 (re-captured 28 Sep 2026), with the disc at the
  * label scale the page carried (`--canvas-label-scale` 1.64).
+ *
+ * ⚠ 28 Sep 2026 (canvas/paul-test-edges): the capture PREDATES spread arrivals
+ * and on-line signs (`edgeGlyphPlacement.ts` rules A and B). So this file
+ * rebuilds the capture's OWN paths (every link to its card's apex, no arrival
+ * slot) — the geometry Chromium drew and this file checks against — and hands
+ * the pass the marks the way `StyledEdge` now builds them: each card's kind
+ * column, and every causal link's head and sign as the last stretch of its own
+ * path (`arrivalMarkBoxes`), in place of the old glyph row's span. The painted
+ * glyph boxes in the capture are where the OLD row put the signs; the
+ * clearance claim against them below is therefore a claim about that paint.
+ * The spread-arrival geometry is proven on Paul's 28 Sep boards
+ * (`StyledEdge.paulTestBoards.edgeLegibility.spec.tsx`).
  */
 import { describe, it, expect } from 'vitest'
 import geometry from './fixtures/fragileCueLanding.geometry.json'
 import fx90b8 from '../../../../e2e/geometry/fixtures/mrr-90b8f080.fixture.json'
 import fx17d1 from '../../../../e2e/geometry/fixtures/mrr-17d1cd3a.fixture.json'
-import type { Node } from '@xyflow/react'
 import {
-  arrivalGlyphRowSpan,
+  arrivalMarkBoxes,
   cardEdgePathFromBoxes,
   flattenSvgPath,
   fragileCueSpotIsClear,
@@ -47,7 +58,6 @@ import {
 import { layeredLeadPath, resolveLayeredEdgeLeads, type RouteBox } from '../sameRowRoute'
 import { TIER_BY_KIND } from '../../utils/nodeLayoutConstants'
 import { isGhostNode } from '../../utils/fitTargets'
-import { tierLaneTitleBoxFor } from '../../utils/tierLanes'
 
 type Box = { x: number; y: number; width: number; height: number }
 type GeoNode = { id: string; type: string | null; hidden: boolean; box: Box; painted: Box }
@@ -84,22 +94,25 @@ function boxesOf(b: Board) {
   return { routeBoxes, tieredBoxes }
 }
 
-/** Each card's arrival glyph row, exactly as `StyledEdge` builds it for the pass. */
-function rowsOf(b: Board, routeBoxes: RouteBox[], targetDy: number) {
-  const asNodes = b.nodes.map((n) => ({
-    id: n.id, type: n.type ?? undefined, position: { x: n.box.x, y: n.box.y },
-    measured: { width: n.box.width, height: n.box.height }, data: {},
-  })) as unknown as Node[]
-  const rows = new Map<string, { dxMin: number; dxMax: number } | null>()
-  for (const c of routeBoxes) {
-    const n = b.arrivals[c.id] ?? 0
-    const hx = c.x + c.width / 2
-    const hy = c.y + targetDy
-    const title = n > 0 ? tierLaneTitleBoxFor(asNodes, c.id) : undefined
-    const keepOut = title ? { x0: title.x0 - hx, y0: title.y0 - hy, x1: title.x1 - hx, y1: title.y1 - hy } : undefined
-    rows.set(c.id, arrivalGlyphRowSpan(n, keepOut))
-  }
-  return rows
+/** Each card's kind column, as `StyledEdge` builds `rows` for the pass: no span. */
+function rowsOf(routeBoxes: RouteBox[]) {
+  return new Map<string, { dxMin: number; dxMax: number } | null>(routeBoxes.map((c) => [c.id, null]))
+}
+
+/**
+ * Every causal link's arrival marks, as `StyledEdge` builds them — from the
+ * capture's own paths (see the header): every draft link that is not
+ * structural (decision → option, option → factor), rebuilt from the boxes.
+ */
+function marksOf(board: string, b: Board, routeBoxes: RouteBox[], tieredBoxes: Array<RouteBox & { tier: number }>, ends: { sourceDy: number; targetDy: number }) {
+  const kind = new Map(b.nodes.map((n) => [n.id, n.type]))
+  const draft = (WIRE[board] as unknown as { draft: { edges: Array<{ from: string; to: string }> } }).draft
+  const causal = draft.edges.filter((e) => {
+    const sk = kind.get(e.from)
+    const tk = kind.get(e.to)
+    return !((sk === 'decision' && tk === 'option') || (sk === 'option' && tk === 'factor'))
+  })
+  return arrivalMarkBoxes(causal.map((e) => cardEdgePathFromBoxes(e.from, e.to, routeBoxes, tieredBoxes, ends)))
 }
 
 /** The handle offsets, read off ONE edge's drawn endpoints — what `StyledEdge` reads off its own props. */
@@ -172,7 +185,8 @@ describe.each(['mrr-90b8f080', 'mrr-17d1cd3a'])('%s — the real landing layout'
   const top = b.fragileEdges.find((e) => e.source === 'pro_plan_price' && e.target === 'mrr')!
   const ends = endsFrom(top, routeBoxes)
   const cues = b.fragileEdges.map((e) => ({ id: e.id, path: cardEdgePathFromBoxes(e.source, e.target, routeBoxes, tieredBoxes, ends) }))
-  const placed = resolveFragileCuePlacements(cues, routeBoxes, ends.targetDy, rowsOf(b, routeBoxes, ends.targetDy))
+  const marks = marksOf(board, b, routeBoxes, tieredBoxes, ends)
+  const placed = resolveFragileCuePlacements(cues, routeBoxes, ends.targetDy, rowsOf(routeBoxes), marks)
   const drawnPoint = (e: GeoEdge) => pointAtFraction(flattenSvgPath(e.d)!, placed.get(e.id)!.fraction)
 
   it('PRECONDITION: exactly two visible fragile edges on the wire, each one drawn connection on the canvas', () => {
@@ -211,7 +225,7 @@ describe.each(['mrr-90b8f080', 'mrr-17d1cd3a'])('%s — the real landing layout'
         expect(Math.hypot(q.x - e.midGraph.x, q.y - e.midGraph.y), e.id).toBeLessThan(0.5)
       } else {
         // Moved only because the midpoint itself is not clear.
-        expect(fragileCueSpotIsClear(pointAtFraction(rebuilt, 0.5), routeBoxes, before, ends.targetDy, rowsOf(b, routeBoxes, ends.targetDy)), e.id).toBe(false)
+        expect(fragileCueSpotIsClear(pointAtFraction(rebuilt, 0.5), routeBoxes, before, ends.targetDy, rowsOf(routeBoxes), marks), e.id).toBe(false)
       }
       before.push(onRebuilt)
     }

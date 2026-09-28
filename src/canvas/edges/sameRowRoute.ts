@@ -38,26 +38,20 @@
  * SAME anchor (`PlacementEdge.anchor`), so the chip's dodge is computed from
  * where the chip actually sits.
  *
- * ⚠ GLYPHS STAY DISTINCT. Only the adjacent card on each side can take the
+ * ⚠ ENTRIES STAY DISTINCT. Only the adjacent card on each side can take the
  * `side` route into a target. Two `under` routes into one target from the same
  * side have different numbers of cards between them, and each extra card moves
  * the entry one glyph ring step outward and the run one step deeper — so
- * neither the leads nor the glyphs coincide.
+ * neither the leads nor the signs coincide. Since 28 Sep 2026 a route carries
+ * no sign position of its own: `StyledEdge` stands every link's `+` / `−` ON
+ * that link's drawn path, just behind its arrowhead (`edgeGlyphPlacement.ts`
+ * rule B), and a route's sign is placed like any other. The route used to hold
+ * it 14 units off its line (half a box and the mark gap), which put it more
+ * than 6 units from the link it names.
  */
-import { GLYPH_BOX_GAP_FLOW, GLYPH_PAINTED_BOX_FLOW, GLYPH_RING_STEP } from '../utils/edgeGlyphPlacement'
+import { GLYPH_BOX_GAP_FLOW, GLYPH_RING_STEP } from '../utils/edgeGlyphPlacement'
 import { ROW_PROMPT_H, ROW_PROMPT_W, TIER_BY_KIND } from '../utils/nodeLayoutConstants'
 import { isGhostNode } from '../utils/fitTargets'
-
-/**
- * How far back from the arrow tip the `side` route's glyph stands, in graph
- * units: the length of the fixed 12-unit arrowhead this route was written
- * against. ⚠ Since 27 Sep 2026 the head scales with its line and the glyph
- * counter-scale (`edgeArrowheadSize`, contract DIFF item 13) and this setback
- * does not follow it, so on a strong line near the landing zoom the head can
- * reach under this glyph. Value unchanged; the same-row routes are outside the
- * top-arrival glyph row (DIFF item 4).
- */
-const SIDE_ROUTE_GLYPH_SETBACK = 12
 
 /** A card's box in graph units. */
 export interface RouteBox {
@@ -74,9 +68,6 @@ export interface SameRowRoute {
   kind: SameRowRouteKind
   /** SVG path `d`. */
   path: string
-  /** Absolute centre of the +/− glyph for this route. */
-  glyphX: number
-  glyphY: number
   /**
    * Where the causal label is anchored, ON the drawn path — or `null` to keep
    * the handle midpoint (`side`, where that midpoint is already on the line).
@@ -201,9 +192,6 @@ export function resolveSameRowRoute(
     return {
       kind: 'side',
       path: `M${sFace},${y} L${endX},${y}`,
-      // In the gutter, just behind the arrowhead, clear above the line.
-      glyphX: r2(endX - dir * SIDE_ROUTE_GLYPH_SETBACK),
-      glyphY: r2(y - (GLYPH_PAINTED_BOX_FLOW / 2 + GLYPH_BOX_GAP_FLOW)),
       labelAnchor: null,
     }
   }
@@ -238,13 +226,9 @@ export function resolveSameRowRoute(
     .map((o) => o.y)
   const hRoom = belowTops.length > 0 ? (Math.min(...belowTops) - UNDER_ROW_CLEARANCE - base) / 0.75 : Infinity
   const h = r2(Math.max(hClear, Math.min(wanted, hRoom)))
-  const glyphSide = GLYPH_PAINTED_BOX_FLOW / 2 + GLYPH_BOX_GAP_FLOW
   return {
     kind: 'under',
     path: `M${sx},${sBottom} C${sx},${r2(sBottom + h)} ${tx},${r2(ty + h)} ${tx},${ty}`,
-    // Beside the rising lead, on the side away from the arc.
-    glyphX: r2(tx + dir * glyphSide),
-    glyphY: r2(ty + glyphSide),
     // The arc's own midpoint (t = 0.5): x is the ends' mean because each control
     // point shares its end's x; y is the ends' mean plus 0.75·h.
     labelAnchor: { x: r2((sx + tx) / 2), y: r2((sBottom + ty) / 2 + 0.75 * h) },
@@ -455,7 +439,6 @@ export function resolveRisingRoute(
     }
   }
   const { g } = best!
-  const side = g.tx >= g.sx ? 1 : -1
   const r = (n: number) => r2(n)
   const outY = r(g.outY)
   const inY = r(g.inY)
@@ -464,13 +447,9 @@ export function resolveRisingRoute(
     (outY < g.sy ? `M${g.sx},${g.sy} L${g.sx},${outY} ` : `M${g.sx},${g.sy} `) +
     `C${g.sx},${r(outY - bend)} ${g.tx},${r(inY + bend)} ${g.tx},${inY}` +
     (inY > g.ty ? ` L${g.tx},${g.ty}` : '')
-  const glyphSide = GLYPH_PAINTED_BOX_FLOW / 2 + GLYPH_BOX_GAP_FLOW
   return {
     kind: 'rise',
     path,
-    // Beside the rising lead, on the side away from where the curve comes in.
-    glyphX: r2(g.tx + side * glyphSide),
-    glyphY: r2(g.ty + glyphSide),
     // The cubic's t = 0.5 point — on the drawn line (control points share
     // their end's x, and the bends cancel).
     labelAnchor: { x: r2((g.sx + g.tx) / 2), y: r2((outY + inY) / 2) },

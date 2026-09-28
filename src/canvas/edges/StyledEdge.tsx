@@ -36,7 +36,7 @@ import {
 } from './edgeLabelVisibility'
 import { computeDirectionStroke } from './directionStroke'
 import { resolveCardEdgeRoute, routeBoxOf, resolveLayeredEdgeLeads, layeredLeadPath, layeredRouteBoxes, contractLayeredPath, type RouteBox, type SameRowRoute, type LayeredEdgeLeads } from './sameRowRoute'
-import { arrivalGlyphRowSpan, cardEdgeLabelAnchorFromBoxes, cardEdgePathFromBoxes, flattenSvgPath, pointAtFraction, resolveFragileCuePlacements, FRAGILE_CUE_DISC_PX } from './fragileCuePlacement'
+import { arrivalMarkBoxes, cardEdgeLabelAnchorFromBoxes, cardEdgePathFromBoxes, flattenSvgPath, pointAtFraction, resolveFragileCuePlacements, FRAGILE_CUE_DISC_PX } from './fragileCuePlacement'
 import { TIER_BY_KIND } from '../utils/nodeLayoutConstants'
 import { isGhostNode } from '../utils/fitTargets'
 import {
@@ -86,7 +86,7 @@ import { lensFragileEdgeLabel } from '../../components/results/utils/fragileEdge
 import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate, type FragileEdgeMatchContext } from '../utils/fragileEdgeMatch'
 import { resolveExistenceDash, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth, UNCERTAINTY_BAND_STROKE, UNCERTAINTY_BAND_OPACITY } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
-import { selectLodBodyHidden } from '../utils/zoomLegibility'
+import { selectLodBodyHidden, glyphCounterScale, labelCounterScale } from '../utils/zoomLegibility'
 import {
   fragileEdgeSentence,
   DIRECTION_DISPUTED_SENTENCE,
@@ -100,9 +100,20 @@ import { registerEdgeHover, routeEdgeHover, routeEdgeHoverOnMove, endEdgeHover, 
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
+import { useCanvasNodeHoverStore } from '../stores/canvasNodeHoverStore'
 import { openEdgeStrengthEditor } from '../utils/openEdgeStrengthEditor'
+import {
+  resolveArrivalSlotOnBoard,
+  resolvePolarityGlyphOnPath,
+  glyphMetricsAt,
+  arrivalHeadKeepOut,
+  polarityGlyphTransform,
+  GLYPH_PAINTED_BOX_FLOW,
+  type ArrivalBox,
+  type ArrivalSlot,
+  type GlyphKeepOut,
+} from '../utils/edgeGlyphPlacement'
 import { CANVAS_ONLY_LINK_MARK, isCanvasOnlyLink } from '../utils/canvasOnlyLink'
-import { resolvePolarityGlyphOffset, polarityGlyphTransform, GLYPH_ROW_RISE, type GlyphSibling } from '../utils/edgeGlyphPlacement'
 import { tierLaneTitleBoxFor } from '../utils/tierLanes'
 
 /**
@@ -250,6 +261,40 @@ function parallelEdgeIdsOf(
   edgeTarget: string,
 ): string[] {
   return (edges ?? []).filter(e => e.source === edgeSource && e.target === edgeTarget).map(e => e.id)
+}
+
+/**
+ * Is a link STRUCTURAL (no arrowhead, no sign)? The same resolution order as
+ * this component's own `isStructuralEdge` memo: an explicit `edge_type` wins
+ * ('structural' → yes; any other value → no), else decision → option and
+ * option → factor are. Read by the fragile-cue pass for every OTHER link.
+ */
+function linkIsStructural(srcKind: unknown, tgtKind: unknown, data: unknown): boolean {
+  const explicit = (data as Record<string, unknown> | undefined)?.edge_type
+  if (explicit === 'structural') return true
+  if (explicit != null && explicit !== '') return false
+  return (srcKind === 'decision' && tgtKind === 'option') || (srcKind === 'option' && tgtKind === 'factor')
+}
+
+/**
+ * The `carriesSign` test `resolveArrivalSlotOnBoard` takes, over these nodes: a
+ * link carries a sign unless it is structural (`linkIsStructural`).
+ */
+function signCarrierOver(
+  nodes: ReadonlyArray<{ id: string; type?: string; data?: unknown }>,
+): (e: { source: string; target: string; data?: unknown }) => boolean {
+  const kindById = new Map<string, unknown>()
+  for (const n of nodes) kindById.set(n.id, n.type ?? (n.data as Record<string, unknown> | undefined)?.kind)
+  return (e) => !linkIsStructural(kindById.get(e.source), kindById.get(e.target), e.data)
+}
+
+/** A per-target cache for one pass: each card's band title is derived once. */
+function memoByTarget<T>(compute: (targetId: string) => T): (targetId: string) => T {
+  const cache = new Map<string, T>()
+  return (targetId) => {
+    if (!cache.has(targetId)) cache.set(targetId, compute(targetId))
+    return cache.get(targetId) as T
+  }
 }
 
 function fragileEdgesOf(report: unknown): FragileEdgeCandidate[] {
@@ -924,6 +969,55 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   )
 
   /**
+   * ⭐⭐ THIS LINK'S ARRIVAL SLOT (Paul's staging test, 28 Sep 2026 — Canvas
+   * lead's ruling; `edgeGlyphPlacement.ts` rule A). Links entering one card from
+   * above no longer all end at its kind apex: each takes its own slot along the
+   * card's top, ordered by where its source sits, so six links into a goal are
+   * six arrowheads, not one pile. The ONE owner is `resolveArrivalSlotOnBoard`;
+   * the fragile-cue and label passes read the same function for every other
+   * link, so no two readers draw one connection two ways.
+   *
+   * A SUBSCRIPTION for the reason the glyph's used to be: a sibling's SOURCE
+   * moving changes MY slot without moving my endpoints, and every instance must
+   * read one snapshot or two can take one slot. Returned as a string: `useStore`
+   * compares by reference. '' — no slot (a single arrival keeps the apex, and
+   * any non-layered geometry keeps xyflow's handle).
+   */
+  const arrivalKey = useStore((st) => {
+    if (pathType === 'straight' || pathType === 'smoothstep') return ''
+    if (sourcePosition !== Position.Bottom || targetPosition !== Position.Top || !(targetY > sourceY)) return ''
+    // Tolerate a partial store slice (see the fragile pass's note on specs).
+    const storeNodes = Array.isArray(st.nodes) ? st.nodes : []
+    const storeEdges = Array.isArray(st.edges) ? st.edges : []
+    // `id as string` etc.: the file's pre-existing `EdgeProps` typing break —
+    // React Flow supplies them as strings.
+    const selfId = id as string
+    const boxes = new Map<string, ArrivalBox>()
+    for (const n of storeNodes) {
+      const box = routeBoxOf(n as Parameters<typeof routeBoxOf>[0])
+      if (box) boxes.set(n.id, box)
+    }
+    const tgt = boxes.get(target as string)
+    if (!tgt) return ''
+    // This edge is rendering, so it exists — even if the slice has not caught up.
+    const edges = storeEdges.some((e) => e.id === selfId)
+      ? storeEdges
+      : [...storeEdges, { id: selfId, source: source as string, target: target as string, data }]
+    // The row's band title takes no signed arrival (WS1 #28's keep-out, on the arrival).
+    const title = tierLaneTitleBoxFor(storeNodes, target as string)
+    const slot = resolveArrivalSlotOnBoard(selfId, target as string, boxes, edges, title, signCarrierOver(storeNodes))
+    if (slot.dx === 0 && slot.onKindShape) return ''
+    const r2 = (v: number) => Math.round(v * 100) / 100
+    return `${r2(slot.dx)},${slot.onKindShape ? 1 : 0},${r2(tgt.y)}`
+  })
+  /** The link's END: its arrival slot, else xyflow's handle (the kind apex). */
+  const [endX, endY] = useMemo((): [number, number] => {
+    if (arrivalKey === '') return [targetX, targetY]
+    const [dx, onKind, cardTop] = arrivalKey.split(',').map(Number)
+    return [targetX + dx, onKind === 1 ? targetY : cardTop]
+  }, [arrivalKey, targetX, targetY])
+
+  /**
    * v3.1 WS1 #10 — the layered edge's vertical leads (see `resolveLayeredEdgeLeads`):
    * out past the lowest card of its source's row, in from above its target's
    * row. A subscription for the same reason as the same-row route above.
@@ -939,7 +1033,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     )
     // `route`, not `leads`: the no-contest copy sweep reads a bare "leads" on a
     // line with a template literal as a ranking verb (noContestFraming.canvas).
-    const route = resolveLayeredEdgeLeads(source as string, target as string, sourceX, sourceY, targetX, targetY, boxes)
+    const route = resolveLayeredEdgeLeads(source as string, target as string, sourceX, sourceY, endX, endY, boxes)
     if (!route) return ''
     const r2 = (v: number) => Math.round(v * 100) / 100
     // POM-6: a detour's column rides in the same key, so the path re-derives when it moves.
@@ -1006,16 +1100,18 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
          * UPWARD pair were routed above (`sameRowRoute.ts`).
          */
         if (sourcePosition === Position.Bottom && targetPosition === Position.Top && targetY > sourceY) {
+          // 28 Sep 2026: to this link's ARRIVAL SLOT (`endX`/`endY`, above),
+          // not the shared handle — see `edgeGlyphPlacement.ts` rule A.
           if (layeredLeads) {
-            const [path, lx, ly] = layeredLeadPath(sourceX, sourceY, targetX, targetY, layeredLeads)
-            return [path, lx, ly, Math.abs(targetX - sourceX) / 2, Math.abs(targetY - sourceY) / 2] as [string, number, number, number, number]
+            const [path, lx, ly] = layeredLeadPath(sourceX, sourceY, endX, endY, layeredLeads)
+            return [path, lx, ly, Math.abs(endX - sourceX) / 2, Math.abs(endY - sourceY) / 2] as [string, number, number, number, number]
           }
           return [
-            contractLayeredPath(sourceX, sourceY, targetX, targetY),
-            (sourceX + targetX) / 2,
-            (sourceY + targetY) / 2,
-            Math.abs(targetX - sourceX) / 2,
-            Math.abs(targetY - sourceY) / 2,
+            contractLayeredPath(sourceX, sourceY, endX, endY),
+            (sourceX + endX) / 2,
+            (sourceY + endY) / 2,
+            Math.abs(endX - sourceX) / 2,
+            Math.abs(endY - sourceY) / 2,
           ] as [string, number, number, number, number]
         }
         return getBezierPath({
@@ -1029,7 +1125,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         })
       }
     }
-  }, [sameRowRoute, layeredLeads, pathType, sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, visualProps.curvature])
+  }, [sameRowRoute, layeredLeads, pathType, sourceX, sourceY, sourcePosition, targetX, targetY, endX, endY, targetPosition, visualProps.curvature])
   
   // Improved accessible name using node titles
   const sourceNode = getNode(source)
@@ -1210,35 +1306,61 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   //   2. Otherwise infer from source / target node kinds
   // Returns the tooltip text differentiated by sub-type so the hitbox can
   // attach a native browser tooltip.
-  const { isStructuralEdge, structuralTooltip } = useMemo(() => {
+  const { isStructuralEdge, structuralTooltip, isOptionFactorLink } = useMemo(() => {
     const explicit = (data as Record<string, unknown> | undefined)?.edge_type as string | undefined
     const srcKind = sourceNode?.type || (sourceNode?.data as Record<string, unknown>)?.kind
     const tgtKind = targetNode?.type || (targetNode?.data as Record<string, unknown>)?.kind
     if (explicit === 'structural') {
       // Use sub-type for tooltip text where possible
       if (srcKind === 'decision' && tgtKind === 'option') {
-        return { isStructuralEdge: true, structuralTooltip: 'Option of this decision' }
+        return { isStructuralEdge: true, structuralTooltip: 'Option of this decision', isOptionFactorLink: false }
       }
       if (srcKind === 'option' && tgtKind === 'factor') {
-        return { isStructuralEdge: true, structuralTooltip: 'This option affects this factor' }
+        return { isStructuralEdge: true, structuralTooltip: 'This option affects this factor', isOptionFactorLink: true }
       }
-      return { isStructuralEdge: true, structuralTooltip: 'Structural link (not analysed)' }
+      return { isStructuralEdge: true, structuralTooltip: 'Structural link (not analysed)', isOptionFactorLink: false }
     }
     // Any other explicit edge_type disables structural inference. This means a
     // graph that has tagged option→factor edges as 'causal' (overriding the
     // default intervention semantics) keeps full causal styling.
     if (explicit != null && explicit !== '') {
-      return { isStructuralEdge: false, structuralTooltip: null }
+      return { isStructuralEdge: false, structuralTooltip: null, isOptionFactorLink: false }
     }
     // No explicit value — infer from node kinds.
     if (srcKind === 'decision' && tgtKind === 'option') {
-      return { isStructuralEdge: true, structuralTooltip: 'Option of this decision' }
+      return { isStructuralEdge: true, structuralTooltip: 'Option of this decision', isOptionFactorLink: false }
     }
     if (srcKind === 'option' && tgtKind === 'factor') {
-      return { isStructuralEdge: true, structuralTooltip: 'This option affects this factor' }
+      return { isStructuralEdge: true, structuralTooltip: 'This option affects this factor', isOptionFactorLink: true }
     }
-    return { isStructuralEdge: false, structuralTooltip: null }
+    return { isStructuralEdge: false, structuralTooltip: null, isOptionFactorLink: false }
   }, [data, sourceNode, targetNode])
+
+  /**
+   * ⭐⭐ AN OPTION → FACTOR LINK RESTS AT LOW EMPHASIS (Canvas lead's ruling,
+   * Paul's staging test 28 Sep 2026). On `pa_vs_ai` four options × three
+   * factors drew twelve thin grey links that crossed into a web between the
+   * ALTERNATIVES and FACTORS rows — and each option card already lists the
+   * changes it makes. At rest the link draws at the canvas's existing DIM
+   * (`EDGE_SELECTION_DIM_OPACITY`, the contract's `.edge-group.dimmed`), on the
+   * wrapping group, so its hit area is untouched and it stays hoverable and
+   * clickable. It returns to full emphasis while its option or its factor is
+   * hovered (`canvasNodeHoverStore`) or selected, or while the link itself is.
+   *
+   * ⚠ THIS DEPARTS FROM CONTRACT v3.1, which draws option links always on.
+   * Why: a 4 × 3 web of always-on links hides the causal links below it, and
+   * the option cards' rows already carry the changes those links stand for.
+   * Question → option links are unchanged.
+   */
+  const optionLinkEndpointHovered = useCanvasNodeHoverStore((s) =>
+    isOptionFactorLink && s.hoveredNodeId !== null && (s.hoveredNodeId === source || s.hoveredNodeId === target),
+  )
+  const optionLinkEndpointSelected = useCanvasStore((s) =>
+    isOptionFactorLink &&
+    (s.selection?.nodeIds?.has(source as string) === true || s.selection?.nodeIds?.has(target as string) === true),
+  )
+  const isOptionLinkAtRest =
+    isOptionFactorLink && !optionLinkEndpointHovered && !optionLinkEndpointSelected && !isHovered && !selected
 
   /**
    * ⭐⭐ A13 — THE KEYBOARD PATH. This component had none, in any form.
@@ -1691,21 +1813,47 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       const box = routeBoxOf(n as Parameters<typeof routeBoxOf>[0])
       if (box) routeBoxes.push(box)
     }
+    // 28 Sep 2026: every link's ARRIVAL SLOT (`edgeGlyphPlacement.ts` rule A),
+    // over every measured card — the boxes the slot selector reads.
+    const slotBoxes = new Map<string, ArrivalBox>()
+    for (const n of getNodes()) {
+      const box = routeBoxOf(n as Parameters<typeof routeBoxOf>[0])
+      if (box) slotBoxes.set(n.id, box)
+    }
+    const allEdgesNow = getEdges()
+    const nodesForTitles = getNodes()
+    const titleOf = memoByTarget((t) => tierLaneTitleBoxFor(nodesForTitles, t))
+    const carriesSignNow = signCarrierOver(nodesForTitles)
+    /**
+     * A layered link that arrives off the apex draws its label at the midpoint
+     * of its source port and its SLOT, not the shared handle — so its anchor is
+     * that point for every instance, on the same rect basis the resolver uses
+     * (source bottom-centre; the slot on the target's top border, `dx` along).
+     */
+    const slotAnchorFor = (src: RouteBox, tgt: RouteBox, e: { id: string; target: string }) => {
+      if (!(src.y + src.height < tgt.y)) return undefined
+      const slot = resolveArrivalSlotOnBoard(e.id, e.target, slotBoxes, allEdgesNow, titleOf(e.target), carriesSignNow)
+      if (slot.dx === 0) return undefined
+      return { x: (src.x + src.width / 2 + tgt.x + tgt.width / 2 + slot.dx) / 2, y: (src.y + src.height + tgt.y) / 2 }
+    }
     const routeAnchorFor = (e: { id: string; source: string; target: string; data?: unknown }) => {
-      // This edge: exactly the route it renders (its own handle positions
-      // decide whether it routes at all — a Right→Left edge never does).
-      if (e.id === id) return sameRowRoute?.labelAnchor ?? undefined
       const pt = (e.data as { pathType?: EdgePathType } | undefined)?.pathType ?? 'bezier'
-      if (pt === 'straight' || pt === 'smoothstep') return undefined
       const src = routeBoxes.find((b) => b.id === e.source)
       const tgt = routeBoxes.find((b) => b.id === e.target)
+      // This edge: exactly the route it renders (its own handle positions
+      // decide whether it routes at all — a Right→Left edge never does).
+      if (e.id === id) {
+        if (sameRowRoute) return sameRowRoute.labelAnchor ?? undefined
+        return arrivalKey !== '' && src && tgt ? slotAnchorFor(src, tgt, e) : undefined
+      }
+      if (pt === 'straight' || pt === 'smoothstep') return undefined
       if (!src || !tgt) return undefined
       // Another edge: BaseNode and the ghost nodes declare one source handle
       // (Bottom) and one target handle (Top), so its render guard reduces to
       // the handle-height test — which both resolvers already imply (a shared
       // row band, or a target wholly above: target top above source bottom).
       const others = routeBoxes.filter((b) => b.id !== e.source && b.id !== e.target)
-      return resolveCardEdgeRoute(src, tgt, others)?.labelAnchor ?? undefined
+      return resolveCardEdgeRoute(src, tgt, others)?.labelAnchor ?? slotAnchorFor(src, tgt, e)
     }
     const placementEdges: PlacementEdge[] = []
     for (const e of getEdges()) {
@@ -1731,7 +1879,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     // nodeRectsSignature is the recompute trigger for node movement (the
     // whole placement is derived from node geometry, so it covers this
     // edge's own endpoints too).
-  }, [isPersistentChipEdge, topStrengthIds, fragileLabelIds, getEdges, getNode, getNodes, id, lensHiddenNodeIds, lensHiddenEdgeIds, nodeRectsSignature, sameRowRoute])
+  }, [isPersistentChipEdge, topStrengthIds, fragileLabelIds, getEdges, getNode, getNodes, id, lensHiddenNodeIds, lensHiddenEdgeIds, nodeRectsSignature, sameRowRoute, arrivalKey])
   const collisionOffset = labelPlacements.get(id as string) ?? { dx: 0, dy: 0 }
 
   // Total label displacement (Task 9c proximity nudge + collision stack),
@@ -1781,36 +1929,44 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       ? { sourceDy: sourceY - (ownSrc.y + ownSrc.height), targetDy: targetY - ownTgt.y }
       : { sourceDy: 0, targetDy: 0 }
     const allEdges = getEdges()
-    // Each card's arrival glyph row, as the glyphs themselves are placed: one
-    // slot per edge into the card (every edge, as `resolvePolarityGlyphOffset`'s
-    // siblings are), shifted off the band title exactly as the glyph selector
-    // shifts it — so the cue keeps clear of the row's real span.
-    const arrivals = new Map<string, number>()
-    for (const e of allEdges) arrivals.set(e.target, (arrivals.get(e.target) ?? 0) + 1)
     const nodesNow = getNodes()
-    const rows = new Map<string, { dxMin: number; dxMax: number } | null>()
-    for (const c of routeBoxes) {
-      const n = arrivals.get(c.id) ?? 0
-      const hx = c.x + c.width / 2
-      const hy = c.y + ends.targetDy
-      const title = n > 0 ? tierLaneTitleBoxFor(nodesNow, c.id) : undefined
-      const keepOut = title ? { x0: title.x0 - hx, y0: title.y0 - hy, x1: title.x1 - hx, y1: title.y1 - hy } : undefined
-      rows.set(c.id, arrivalGlyphRowSpan(n, keepOut))
+    // Every link's ARRIVAL SLOT, exactly as each `StyledEdge` draws its own
+    // (`edgeGlyphPlacement.ts` rule A): the same function over the same boxes
+    // (every measured card, as the slot selector reads them).
+    const slotBoxes = new Map<string, ArrivalBox>()
+    const kindById = new Map<string, unknown>()
+    for (const n of nodesNow) {
+      kindById.set(n.id, n.type ?? (n.data as Record<string, unknown> | undefined)?.kind)
+      const box = routeBoxOf(n as Parameters<typeof routeBoxOf>[0])
+      if (box) slotBoxes.set(n.id, box)
     }
+    const titleOf = memoByTarget((t) => tierLaneTitleBoxFor(nodesNow, t))
+    const carriesSign = signCarrierOver(nodesNow)
+    const slotOf = (e: { id: string; target: string }): ArrivalSlot =>
+      resolveArrivalSlotOnBoard(e.id, e.target, slotBoxes, allEdges, titleOf(e.target), carriesSign)
+    // Each card keeps its kind-shape column (an apex arrival's head and sign);
+    // every causal link's head and sign are marks on the last stretch of its
+    // own path, wherever its slot put its end (rule B).
+    const rows = new Map<string, { dxMin: number; dxMax: number } | null>(routeBoxes.map((c) => [c.id, null]))
+    const arrivalMarks = arrivalMarkBoxes(
+      allEdges
+        .filter((e) => !lensHiddenEdgeIds.has(e.id) && !linkIsStructural(kindById.get(e.source), kindById.get(e.target), e.data))
+        .map((e) => cardEdgePathFromBoxes(e.source, e.target, routeBoxes, tieredBoxes, ends, slotOf(e))),
+    )
     // Every strength chip the label pass PINNED (Detailed view only — none in
     // Standard), as the box it clears: its rendered anchor plus its offset.
-    const chips: RouteBox[] = []
+    const chips: RouteBox[] = [...arrivalMarks]
     for (const e of allEdges) {
       if (!topStrengthIds.has(e.id) || lensHiddenEdgeIds.has(e.id)) continue
       const off = labelPlacements.get(e.id)
-      const at = off ? cardEdgeLabelAnchorFromBoxes(e.source, e.target, routeBoxes, tieredBoxes, ends) : null
+      const at = off ? cardEdgeLabelAnchorFromBoxes(e.source, e.target, routeBoxes, tieredBoxes, ends, slotOf(e)) : null
       if (!off || !at) continue
       const halfH = labelHalfHeightForRows(fragileLabelIds.has(e.id) ? 2 : 1)
       chips.push({ id: e.id, x: at.x + off.dx - LABEL_HALF_WIDTH, y: at.y + off.dy - halfH, width: 2 * LABEL_HALF_WIDTH, height: 2 * halfH })
     }
     const cues = allEdges
       .filter((e) => discIds.includes(e.id))
-      .map((e) => ({ id: e.id, path: cardEdgePathFromBoxes(e.source, e.target, routeBoxes, tieredBoxes, ends) }))
+      .map((e) => ({ id: e.id, path: cardEdgePathFromBoxes(e.source, e.target, routeBoxes, tieredBoxes, ends, slotOf(e)) }))
     return resolveFragileCuePlacements(cues, routeBoxes, ends.targetDy, rows, chips).get(id as string) ?? null
     // nodeRectsSignature: re-place when any card moves (the same trigger the label pass uses);
     // the endpoints: the handles move with the zoom.
@@ -1945,116 +2101,64 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     !strengthLabelTruncated
 
   /**
-   * ⭐⭐ WHERE THE POLARITY GLYPH SITS — P0, AND THE ONE STATE THIS COMPONENT
-   * MUST NOT GET WRONG.
+   * ⭐⭐ WHERE THE POLARITY GLYPH SITS — ON ITS OWN LINE, just above its own
+   * arrowhead (Paul's staging test, 28 Sep 2026; `edgeGlyphPlacement.ts` rule
+   * B). The row this replaces stood every sign of a card in one row above a
+   * shared arrival point, and a band-title keep-out could shift the whole row:
+   * on `pa_vs_ai` a `+` sat ~65px from its own arrowhead, on no line at all.
    *
-   * It used to sit at `translate(targetX - 18, targetY - 18)`. `targetX/targetY`
-   * are `getHandlePosition(targetNode, targetHandle, targetPosition)` and take
-   * NO EDGE INPUT (`@xyflow/system@0.0.76` `dist/esm/index.mjs:1420-1438`), so
-   * every edge into a node painted its glyph at the same point. Measured on the
-   * geometry harness at `a1fd39cc`: 14 glyphs at 5 sites (`vendor-selection`),
-   * 18 at 6 (`market-entry`), 21 of 21 stacks resolving to exactly one target —
-   * and on every starter at least two stacks held BOTH a `+` and a `−`, so the
-   * visible mark was whichever painted last. See `edgeGlyphPlacement.ts`.
+   * Read off THIS edge's drawn path (so it follows the arrival slot above and
+   * any lead or detour), at the zoom it paints at: the head and the mark gap
+   * carry the glyph counter-scale, the sign's box the text scale. It slides
+   * along its own line — never off it — to clear every card and the target
+   * row's band title, and never rises past the tier gap's bound.
    *
-   * ⚠ THIS SUBSCRIBES TO THE STORE RATHER THAN READING `getNode` IMPERATIVELY,
-   * AND THAT IS LOAD-BEARING, NOT TIDINESS. The resolution is only stable if
-   * every sibling instance computes it from the SAME node snapshot. A sibling's
-   * SOURCE node moving changes MY slot in the row (the row is ordered by source
-   * position), but does not move MY endpoints and so would not re-render me: two
-   * instances on two snapshots can each conclude they hold the same slot, and
-   * the stack comes back. The subscription is what keeps
-   * one snapshot under all of them.
-   *
-   * Returned as a STRING, not an object — `useStore` compares by reference, and
-   * a fresh `{dx, dy}` per store event would re-render every edge on every
-   * pointer move.
+   * ⭐ STILL P0-SAFE: two edges into one card end at distinct arrival slots
+   * (`resolveArrivalSlot`'s one total order), so two signs on their own paths
+   * cannot share a spot at that card — the stack this module once existed for
+   * (21 of 21 at `a1fd39cc`) needs two paths to share an end.
    */
-  const glyphOffsetKey = useStore((st) => {
-    // Cheap gate: the two conditions knowable inside a store selector. The
-    // render below applies the full predicate; this only avoids paying for a
-    // computation whose result is thrown away.
-    if ((!statedDirection && !isSignDisputed) || isStructuralEdge) return ''
-    // ⚠ TOLERATE A PARTIAL STORE SLICE. Eleven existing edge suites hand
-    // `useStore` a hand-built object with `nodes` and no `edges`, and an
-    // unguarded `for (const e of st.edges)` throws inside render — it took out
-    // 82 tests. The product always supplies both; a mock need not, and a
-    // component that crashes on a narrower slice than it expected is brittle
-    // regardless of who supplied it.
-    const storeNodes = Array.isArray(st.nodes) ? st.nodes : []
-    const storeEdges = Array.isArray(st.edges) ? st.edges : []
-    // ⚠ NOT A CLAIM ABOUT THESE VALUES — a local narrowing around a PRE-EXISTING
-    // typing break in this file. `EdgeProps<EdgeData>` does not resolve here, so
-    // `id`, `source` and `target` all arrive as `unknown` and several of this
-    // file's 27 baseline type errors are exactly that. React Flow supplies them
-    // as strings; narrowing locally keeps the ratchet honest instead of adding
-    // four more errors to a file that already carries the problem.
-    const selfId = id as string
-    const selfSource = source as string
-    const selfTarget = target as string
-    const nodeById = new Map(storeNodes.map((n) => [n.id, n]))
-    const centreOf = (nodeId: string): { x: number; y: number } | null => {
-      const n = nodeById.get(nodeId)
-      if (!n) return null
-      const w = n.measured?.width ?? n.width ?? 200
-      const h = n.measured?.height ?? n.height ?? 80
-      // `position` is the parent-relative top-left; `internals.positionAbsolute`
-      // is what React Flow itself uses to place the handles this offset is
-      // applied at, so it is the basis that cannot disagree with `targetX/Y`.
-      // Read structurally because the store types `nodes` as `Node`, which does
-      // not carry `internals` — and `position` is the correct answer anyway
-      // wherever nothing is parented, which is every node this app builds.
-      const internals = (n as { internals?: { positionAbsolute?: { x: number; y: number } } }).internals
-      const pos = internals?.positionAbsolute ?? n.position
-      if (!pos) return null
-      return { x: pos.x + w / 2, y: pos.y + h / 2 }
+  const glyphPlacement = useMemo(() => {
+    // Only where a sign can render (the render predicate below is a subset).
+    if ((!statedDirection && !isSignDisputed) || isStructuralEdge) return null
+    const poly = flattenSvgPath(edgePath)
+    if (!poly) return null
+    const glyphScale = glyphCounterScale(edgeTooltipZoom)
+    const keepOuts: GlyphKeepOut[] = []
+    let cardTop = endY
+    const nodesNow = getNodes()
+    const slotBoxes = new Map<string, ArrivalBox>()
+    const kindById = new Map<string, unknown>()
+    for (const n of nodesNow) {
+      kindById.set(n.id, n.type ?? (n.data as Record<string, unknown> | undefined)?.kind)
+      const box = routeBoxOf(n as Parameters<typeof routeBoxOf>[0])
+      if (!box) continue
+      slotBoxes.set(n.id, box)
+      if (n.hidden || lensHiddenNodeIds.has(n.id)) continue
+      if (n.id === target) cardTop = box.y
+      keepOuts.push({ x0: box.x, y0: box.y, x1: box.x + box.width, y1: box.y + box.height })
     }
-    // ⚠ A MISSING TARGET NODE MUST NOT COLLAPSE BACK TO ONE POINT. An earlier
-    // draft returned a single constant offset here, which is the ORIGINAL
-    // DEFECT wearing a fallback's clothes — every edge into the node would
-    // share it again. Instead the whole group is handed null directions, which
-    // is the resolver's degraded branch: id-ordered row slots, still pairwise
-    // distinct. A fallback for an unreachable state is still a state.
-    const targetCentre = centreOf(selfTarget)
-    const siblings: GlyphSibling[] = []
-    for (const e of storeEdges) {
-      // Every edge into this target, INCLUDING structural ones and ones whose
-      // glyph is suppressed. Deliberate: the assignment must not shift when a
-      // neighbour's chip appears on hover, or the glyph would jump under the
-      // pointer. A reserved-but-unused slot costs nothing.
-      if (e.target !== selfTarget) continue
-      siblings.push({ id: e.id, sourceCentre: targetCentre ? centreOf(e.source) : null })
+    // v3.1 WS1 #28: keep the sign off the target row's band title.
+    const titleBox = tierLaneTitleBoxFor(nodesNow, target as string)
+    if (titleBox) keepOuts.push(titleBox)
+    // A layered arrival: keep the sign off every OTHER arrowhead at this card,
+    // each at its own slot (the same function the slot selector runs).
+    if (!sameRowRoute && sourcePosition === Position.Bottom && targetPosition === Position.Top && targetY > sourceY) {
+      const allEdges = getEdges()
+      const carriesSign = signCarrierOver(nodesNow)
+      for (const e of allEdges) {
+        if (e.target !== target || e.id === id || lensHiddenEdgeIds.has(e.id)) continue
+        const src = slotBoxes.get(e.source)
+        if (!src || !(src.y + src.height < cardTop)) continue
+        if (linkIsStructural(kindById.get(e.source), kindById.get(e.target), e.data)) continue
+        const slot = resolveArrivalSlotOnBoard(e.id, e.target, slotBoxes, allEdges, titleBox, carriesSign)
+        keepOuts.push(arrivalHeadKeepOut({ x: targetX + slot.dx, y: slot.onKindShape ? targetY : cardTop }, glyphScale))
+      }
     }
-    // This edge is rendering, so it exists — even if the store slice handed to
-    // the selector has not caught up. Without this the resolver takes its
-    // caller-bug path and every such edge shares one offset.
-    if (!siblings.some((sib) => sib.id === selfId)) {
-      siblings.push({ id: selfId, sourceCentre: targetCentre ? centreOf(selfSource) : null })
-    }
-    // v3.1 WS1 #28: keep the glyph off the target row's band title.
-    const titleBox = tierLaneTitleBoxFor(storeNodes, selfTarget)
-    const keepOut = titleBox
-      ? { x0: titleBox.x0 - targetX, y0: titleBox.y0 - targetY, x1: titleBox.x1 - targetX, y1: titleBox.y1 - targetY }
-      : undefined
-    const { dx, dy } = resolvePolarityGlyphOffset(selfId, targetCentre ?? { x: 0, y: 0 }, siblings, keepOut)
-    return `${Math.round(dx * 100) / 100},${Math.round(dy * 100) / 100}`
-  })
-
-  const glyphOffset = useMemo(() => {
-    if (glyphOffsetKey === '') {
-      // ⚠ REACHED ONLY WHERE NO GLYPH RENDERS. The selector returns '' from its
-      // opening gate and nowhere else, and that gate is a subset of the render
-      // predicate below (`statedDirection && !isStructuralEdge && ...`). So this
-      // constant is never the placement of a PAINTED glyph — which matters,
-      // because a constant here would be the original defect returning by the
-      // back door. Kept non-zero anyway rather than left to imply the handle
-      // anchor itself. If a future edit adds an early '' return on a path that
-      // DOES render, that edit has to come back and change this.
-      return { dx: 0, dy: -GLYPH_ROW_RISE }
-    }
-    const [dx, dy] = glyphOffsetKey.split(',').map(Number)
-    return { dx, dy }
-  }, [glyphOffsetKey])
+    const metrics = glyphMetricsAt(edgeStrokeWidth, glyphScale, labelCounterScale(edgeTooltipZoom))
+    return resolvePolarityGlyphOnPath(poly, cardTop, metrics, keepOuts)
+    // nodeRectsSignature: re-place when any card moves.
+  }, [statedDirection, isSignDisputed, isStructuralEdge, sameRowRoute, edgePath, endY, getNodes, getEdges, lensHiddenNodeIds, lensHiddenEdgeIds, id, target, sourcePosition, targetPosition, sourceY, targetX, targetY, edgeStrokeWidth, edgeTooltipZoom, nodeRectsSignature])
 
   // ── Stroke + dash, from the one authority ────────────────────────────────
   //
@@ -2292,9 +2396,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         data-analysis-fragile={isAnalysisFragileEdge && !isStructuralEdge ? 'true' : undefined}
         data-assistant-focused={isAssistantFocused ? 'true' : undefined}
         data-selection-dimmed={isSelectionDimmed ? 'true' : undefined}
+        data-option-link-rest={isOptionLinkAtRest ? 'true' : undefined}
         data-same-row-route={sameRowRoute?.kind}
         style={{
-          opacity: isSelectionDimmed ? EDGE_SELECTION_DIM_OPACITY : undefined,
+          // An option → factor link at rest takes the same dim (see
+          // `isOptionLinkAtRest`); one value, never compounded.
+          opacity: isSelectionDimmed || isOptionLinkAtRest ? EDGE_SELECTION_DIM_OPACITY : undefined,
           transition: prefersReducedMotion ? 'none' : 'opacity 300ms ease',
         }}
       >
@@ -2679,11 +2786,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           <div
             style={{
               position: 'absolute',
-              // A same-row route ends away from the top handle, so its glyph sits
-              // where that route's arrow is (`sameRowRoute.ts`).
-              transform: sameRowRoute
-                ? `translate(-50%, -50%) translate(${sameRowRoute.glyphX}px,${sameRowRoute.glyphY}px)`
-                : polarityGlyphTransform(targetX, targetY, glyphOffset),
+              // On its own drawn line, whichever route drew it (a same-row or
+              // rising route ends away from the top handle; the sign follows).
+              transform: glyphPlacement
+                ? polarityGlyphTransform(glyphPlacement.x, glyphPlacement.y)
+                // An unreadable path (never one this canvas draws): just above its end.
+                : polarityGlyphTransform(endX, endY - GLYPH_PAINTED_BOX_FLOW),
               pointerEvents: 'none',
               // contract v3.1 (E2/T09): the glyph knocks the line out behind it.
               textShadow: POLARITY_GLYPH_HALO,

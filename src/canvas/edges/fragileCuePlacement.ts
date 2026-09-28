@@ -24,9 +24,12 @@
  *     not a guess further away.
  *   · Sizes are GRAPH units at the counter-scale BOUND (the landing floor), the
  *     conservative figure the label resolver and the glyph keep-out use too: the
- *     disc is `FRAGILE_CUE_DISC_PX × MAX_LABEL_COUNTER_SCALE` across and the
- *     glyph row stands `GLYPH_ROW_RISE × MAX_GLYPH_COUNTER_SCALE` above a card's
- *     ARRIVAL POINT, across the row's own span (`arrivalGlyphRowSpan`).
+ *     disc is `FRAGILE_CUE_DISC_PX × MAX_LABEL_COUNTER_SCALE` across; a card's
+ *     kind shape and its apex arrival reach `GLYPH_ROW_BAND_FLOW` above its
+ *     ARRIVAL POINT, and every link's arrowhead and sign stand on the last
+ *     stretch of its own path (`arrivalMarkBoxes`, 28 Sep 2026 — links into
+ *     one card arrive spread along its top and each sign sits on its own line:
+ *     `edgeGlyphPlacement.ts`).
  *   · Paths are rebuilt from the card boxes by the helpers `StyledEdge` draws
  *     with (`cardEdgePathFromBoxes`), from the handle points xyflow gives: the
  *     offsets are read off the asking edge's own endpoints.
@@ -43,13 +46,14 @@
  * however many cues that rule admits, so widening the budget is a one-line
  * membership change, not a placement one.
  */
-import { MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE } from '../utils/zoomLegibility'
+import { MAX_LABEL_COUNTER_SCALE } from '../utils/zoomLegibility'
 import {
+  ARRIVAL_HEAD_MAX_FLOW,
   GLYPH_BOX_GAP_FLOW,
   GLYPH_PAINTED_BOX_FLOW,
-  GLYPH_ROW_RISE,
-  resolvePolarityGlyphOffset,
-  type GlyphKeepOut,
+  GLYPH_ROW_RISE_MAX_FLOW,
+  pointBackFromEnd,
+  type ArrivalSlot,
 } from '../utils/edgeGlyphPlacement'
 import { KIND_GLYPH_PX } from '../utils/nodeLayoutConstants'
 import {
@@ -70,10 +74,12 @@ export const FRAGILE_CUE_RADIUS_FLOW = (FRAGILE_CUE_DISC_PX / 2) * MAX_LABEL_COU
 export const FRAGILE_CUE_CLEARANCE_FLOW = GLYPH_BOX_GAP_FLOW
 
 /**
- * How far above a card's top its arrival glyph row reaches, at the bound: the
- * row's centre (`GLYPH_ROW_RISE`, scaled) plus half a painted glyph box.
+ * How far above a card's kind apex its APEX arrival's marks reach, at the
+ * bound: the widest head, or the sign's box at the rise bound, whichever
+ * stands higher (40). Spread arrivals are covered mark by mark
+ * (`arrivalMarkBoxes`), not by this band.
  */
-export const GLYPH_ROW_BAND_FLOW = GLYPH_ROW_RISE * MAX_GLYPH_COUNTER_SCALE + GLYPH_PAINTED_BOX_FLOW / 2
+export const GLYPH_ROW_BAND_FLOW = Math.max(ARRIVAL_HEAD_MAX_FLOW, GLYPH_ROW_RISE_MAX_FLOW + GLYPH_PAINTED_BOX_FLOW / 2)
 
 /** The search step, as a fraction of the path's length. */
 const SLIDE_STEP = 0.01
@@ -237,30 +243,43 @@ function distanceToRect(px: number, py: number, r: { x: number; y: number; width
 }
 
 /**
- * A card's arrival glyph row, as the span of its slot centres from the arrival
- * point in GLYPH units (`dxMin` … `dxMax`), for `n` arriving edges — the same
- * `resolvePolarityGlyphOffset` the glyphs are placed by, so the row's width and
- * its band-title shift (`keepOut`) are the glyphs' own. `null` for `n = 0`.
+ * ⭐ THE MARKS AT A LINK'S ARRIVAL, as boxes the cue must clear: the stretch of
+ * its drawn path from the tip back as far as its sign can stand at the bound
+ * (the widest head, the mark gap and a sign's box — `resolvePolarityGlyphOnPath`
+ * stands the sign one head, one gap and half a box back), every sample grown by
+ * half the widest head. Read off the path, so a spread arrival's marks are
+ * where that link actually ends (`edgeGlyphPlacement.ts`, rule A) and its sign
+ * where it actually stands (rule B). Conservative: the widest head for every
+ * link. `null` / unreadable paths contribute nothing.
  */
-export function arrivalGlyphRowSpan(n: number, keepOut?: GlyphKeepOut): { dxMin: number; dxMax: number } | null {
-  if (!(n > 0)) return null
-  const siblings = Array.from({ length: n }, (_, k) => ({ id: `slot-${String(k).padStart(4, '0')}`, sourceCentre: null }))
-  const first = resolvePolarityGlyphOffset(siblings[0].id, { x: 0, y: 0 }, siblings, keepOut)
-  const last = resolvePolarityGlyphOffset(siblings[n - 1].id, { x: 0, y: 0 }, siblings, keepOut)
-  return { dxMin: first.dx, dxMax: last.dx }
+export function arrivalMarkBoxes(paths: ReadonlyArray<string | null>): RouteBox[] {
+  const reach = ARRIVAL_HEAD_MAX_FLOW + GLYPH_BOX_GAP_FLOW + GLYPH_PAINTED_BOX_FLOW
+  const half = Math.max(ARRIVAL_HEAD_MAX_FLOW, GLYPH_PAINTED_BOX_FLOW) / 2
+  const out: RouteBox[] = []
+  paths.forEach((d, i) => {
+    const poly = flattenSvgPath(d)
+    if (!poly) return
+    const len = Math.min(reach, poly.length / 2)
+    for (let s = 0; s <= len + 1e-9; s += half) {
+      const p = pointBackFromEnd(poly, s)
+      out.push({ id: `arrival-mark-${i}-${s}`, x: p.x - half, y: p.y - half, width: 2 * half, height: 2 * half })
+    }
+  })
+  return out
 }
 
 /** Half the kind shape's width at the counter-scale bound — it stands on every card's top border. */
 const KIND_SHAPE_HALF_FLOW = (KIND_GLYPH_PX * MAX_LABEL_COUNTER_SCALE) / 2
 
 /**
- * Is a cue disc centred at `p` clear of every card, every card's arrival marks
- * and every cue already placed? A card's arrival marks are its kind shape and
- * its glyph row: the band from its top up past its ARRIVAL POINT (`arrivalDy`
- * above the top — the handle stands on the kind shape, which scales with the
- * zoom) by `GLYPH_ROW_BAND_FLOW`, across the row's own span (`rows`, from
- * `arrivalGlyphRowSpan`) and the kind shape's width. A card with no entry in
- * `rows` keeps the whole card width — over-covering, never missing.
+ * Is a cue disc centred at `p` clear of every card, every mark in `chips` (a
+ * pinned strength chip; a link's arrival marks, `arrivalMarkBoxes`) and every
+ * cue already placed? Each card also keeps a band from its top up past its
+ * ARRIVAL POINT (`arrivalDy` above the top — the handle stands on the kind
+ * shape, which scales with the zoom) by `GLYPH_ROW_BAND_FLOW`: across the kind
+ * shape's width, widened to `rows`' span (FLOW units from the card's centre)
+ * when one is given. A card with no entry in `rows` keeps the whole card
+ * width — over-covering, never missing.
  */
 export function fragileCueSpotIsClear(
   p: { x: number; y: number },
@@ -271,7 +290,8 @@ export function fragileCueSpotIsClear(
   chips: readonly RouteBox[] = [],
 ): boolean {
   const reach = FRAGILE_CUE_RADIUS_FLOW + FRAGILE_CUE_CLEARANCE_FLOW
-  // A strength chip the label pass pinned (Detailed view) is a mark like a card.
+  // A strength chip the label pass pinned (Detailed view), and a link's
+  // arrowhead and sign, are marks like a card.
   for (const c of chips) if (distanceToRect(p.x, p.y, c) < reach) return false
   const rise = GLYPH_ROW_BAND_FLOW + Math.max(0, -arrivalDy)
   for (const c of cards) {
@@ -284,8 +304,8 @@ export function fragileCueSpotIsClear(
       x0 = cx - KIND_SHAPE_HALF_FLOW
       x1 = cx + KIND_SHAPE_HALF_FLOW
       if (span) {
-        x0 = Math.min(x0, cx + span.dxMin * MAX_GLYPH_COUNTER_SCALE - GLYPH_PAINTED_BOX_FLOW / 2)
-        x1 = Math.max(x1, cx + span.dxMax * MAX_GLYPH_COUNTER_SCALE + GLYPH_PAINTED_BOX_FLOW / 2)
+        x0 = Math.min(x0, cx + span.dxMin - GLYPH_PAINTED_BOX_FLOW / 2)
+        x1 = Math.max(x1, cx + span.dxMax + GLYPH_PAINTED_BOX_FLOW / 2)
       }
     }
     const band = { x: x0, y: c.y - rise, width: x1 - x0, height: rise }
@@ -355,6 +375,13 @@ export interface CardHandleOffsets {
   targetDy: number
 }
 
+/** A layered link's end: its arrival slot on the target (`arrival`), else the kind apex. */
+function arrivalEnd(tgt: RouteBox, handleY: number, arrival?: ArrivalSlot): { tx: number; ty: number } {
+  const hx = tgt.x + tgt.width / 2
+  if (!arrival) return { tx: hx, ty: handleY }
+  return { tx: hx + arrival.dx, ty: arrival.onKindShape ? handleY : tgt.y }
+}
+
 /**
  * The path `StyledEdge` draws for a bottom-port → top-handle connection, from
  * the card boxes alone — the same three helpers in the same order: a target at
@@ -363,6 +390,12 @@ export interface CardHandleOffsets {
  * near-straight cubic. Handles are the boxes' bottom-centre and top-centre,
  * moved by `ends` (`CardHandleOffsets`, read by the caller off its own edge).
  * `null` when either box is unknown or no route applies.
+ *
+ * `arrival` is the link's ARRIVAL SLOT on its target's top
+ * (`resolveArrivalSlotOnBoard`, `edgeGlyphPlacement.ts` rule A): a layered link
+ * ends `dx` along the card's top border — or on the kind apex for the apex
+ * slot — exactly as `StyledEdge` draws it. Omitted, the link ends on the apex
+ * (the geometry before 28 Sep 2026, which the dated browser captures hold).
  *
  * `routeBoxes` is every visible card (the same-row resolver's obstacles);
  * `tieredBoxes` the non-ghost cards with their tier (the layered resolver's).
@@ -373,18 +406,19 @@ export function cardEdgePathFromBoxes(
   routeBoxes: readonly RouteBox[],
   tieredBoxes: ReadonlyArray<RouteBox & { tier: number }>,
   ends: CardHandleOffsets = { sourceDy: 0, targetDy: 0 },
+  arrival?: ArrivalSlot,
 ): string | null {
   const src = routeBoxes.find((b) => b.id === sourceId)
   const tgt = routeBoxes.find((b) => b.id === targetId)
   if (!src || !tgt) return null
   const sx = src.x + src.width / 2
   const sy = src.y + src.height + ends.sourceDy
-  const tx = tgt.x + tgt.width / 2
-  const ty = tgt.y + ends.targetDy
-  if (!(ty > sy)) {
+  const hy = tgt.y + ends.targetDy
+  if (!(hy > sy)) {
     const others = routeBoxes.filter((b) => b.id !== sourceId && b.id !== targetId)
     return resolveCardEdgeRoute(src, tgt, others)?.path ?? null
   }
+  const { tx, ty } = arrivalEnd(tgt, hy, arrival)
   const leads = resolveLayeredEdgeLeads(sourceId, targetId, sx, sy, tx, ty, tieredBoxes)
   if (leads) return layeredLeadPath(sx, sy, tx, ty, leads)[0]
   return contractLayeredPath(sx, sy, tx, ty)
@@ -395,7 +429,7 @@ export function cardEdgePathFromBoxes(
  * chip is offset from), from the card boxes — the same branches as its path:
  * a same-row / rising route's own anchor, else the handle midpoint; a lead
  * path's short cubic's t = 0.5 point; else the handle midpoint. `null` when
- * either box is unknown.
+ * either box is unknown. `arrival`: as for `cardEdgePathFromBoxes`.
  */
 export function cardEdgeLabelAnchorFromBoxes(
   sourceId: string,
@@ -403,18 +437,20 @@ export function cardEdgeLabelAnchorFromBoxes(
   routeBoxes: readonly RouteBox[],
   tieredBoxes: ReadonlyArray<RouteBox & { tier: number }>,
   ends: CardHandleOffsets = { sourceDy: 0, targetDy: 0 },
+  arrival?: ArrivalSlot,
 ): { x: number; y: number } | null {
   const src = routeBoxes.find((b) => b.id === sourceId)
   const tgt = routeBoxes.find((b) => b.id === targetId)
   if (!src || !tgt) return null
   const sx = src.x + src.width / 2
   const sy = src.y + src.height + ends.sourceDy
-  const tx = tgt.x + tgt.width / 2
-  const ty = tgt.y + ends.targetDy
-  if (!(ty > sy)) {
+  const hx = tgt.x + tgt.width / 2
+  const hy = tgt.y + ends.targetDy
+  if (!(hy > sy)) {
     const others = routeBoxes.filter((b) => b.id !== sourceId && b.id !== targetId)
-    return resolveCardEdgeRoute(src, tgt, others)?.labelAnchor ?? { x: (sx + tx) / 2, y: (sy + ty) / 2 }
+    return resolveCardEdgeRoute(src, tgt, others)?.labelAnchor ?? { x: (sx + hx) / 2, y: (sy + hy) / 2 }
   }
+  const { tx, ty } = arrivalEnd(tgt, hy, arrival)
   const leads = resolveLayeredEdgeLeads(sourceId, targetId, sx, sy, tx, ty, tieredBoxes)
   if (leads) {
     const [, lx, ly] = layeredLeadPath(sx, sy, tx, ty, leads)
