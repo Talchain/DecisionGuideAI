@@ -233,6 +233,15 @@ export function goalConstraintTextUsesQuote(constraint: CEEGoalConstraint): bool
  */
 export type LimitChangeFrame = 'change_abs' | 'change_rel'
 
+/**
+ * The four frames this UI can read (`@talchain/schemas` 0.61.0). A frame that is PRESENT but not one of these means the
+ * UI does not know what the number measures, so the writers refuse it rather than keep it as a level (PR Review
+ * 5880865579). Absent is a level, as before.
+ */
+export function isKnownLimitFrame(frame: unknown): frame is 'level' | 'delta' | 'change_abs' | 'change_rel' {
+  return frame === 'level' || frame === 'delta' || frame === 'change_abs' || frame === 'change_rel'
+}
+
 export function limitChangeFrameOf(constraint: CEEGoalConstraint): LimitChangeFrame | null {
   const frame: unknown = constraint.value_frame
   return frame === 'change_abs' || frame === 'change_rel' ? frame : null

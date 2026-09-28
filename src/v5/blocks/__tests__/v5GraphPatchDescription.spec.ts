@@ -272,6 +272,14 @@ describe('buildV5PatchReceipt — add_constraint', () => {
     expect(r.changeSummary).toBe('no more than £5,000 above today')
   })
 
+  it('RED (PR Review 5880865579): an unknown frame states no bound — never "at most 0.1"', () => {
+    const r = buildV5PatchReceipt(
+      block({ after: { label: 'Total monthly cloud cost', value: 0.1, operator: '<=', value_frame: 'bogus' } }),
+      makeDeps(),
+    )
+    expect(r.changeSummary).toBe('')
+  })
+
   it('renders updated constraint with before → after', () => {
     const r = buildV5PatchReceipt(
       block({

@@ -98,7 +98,7 @@ import {
 import { ceeAnalysisReadyContainment } from '../canvas/utils/ceeAnalysisReadyValidation'
 import { readServerStatedStrength } from '../canvas/domain/edges'
 import { USER_VALUE_STAMP } from '../canvas/domain/valueProvenance'
-import { limitChangeFrameOf } from '../canvas/utils/goalConstraintText'
+import { isKnownLimitFrame, limitChangeFrameOf } from '../canvas/utils/goalConstraintText'
 import { logger } from '../lib/logger'
 
 /**
@@ -722,14 +722,7 @@ function normaliseAddConstraintPatch(
   }
   // ⭐ R1 S4-core (CEE #2261; PR Review 5880215622 blocking 1): the frame the value is stated in. Without it a limit
   // added in the chat as "no more than 10% above today" (`change_rel` 0.1) reached every reader as the level "≤ 0.1".
-  if (
-    after.value_frame === 'level' ||
-    after.value_frame === 'delta' ||
-    after.value_frame === 'change_abs' ||
-    after.value_frame === 'change_rel'
-  ) {
-    constraint.value_frame = after.value_frame
-  }
+  if (isKnownLimitFrame(after.value_frame)) constraint.value_frame = after.value_frame
   return constraint
 }
 
@@ -1229,6 +1222,17 @@ export function applyV5State(
               reason: 'add_constraint_store_lacks_setter',
               block,
               detail: 'Applicator store has no setGoalConstraints; constraint not applied.',
+            })
+            break
+          }
+          // ⛔ R1 S4-core (PR Review 5880865579): a `value_frame` that is present but not one this UI reads means it does
+          // not know what the number measures. Defer — never store the limit, or mirror it onto the goal, as a level.
+          const afterFrame = (block.after as Record<string, unknown> | null)?.value_frame
+          if (afterFrame !== undefined && !isKnownLimitFrame(afterFrame)) {
+            deferred.push({
+              reason: 'add_constraint_unknown_value_frame',
+              block,
+              detail: 'value_frame is not one this UI reads (level, delta, change_abs, change_rel); constraint not applied.',
             })
             break
           }

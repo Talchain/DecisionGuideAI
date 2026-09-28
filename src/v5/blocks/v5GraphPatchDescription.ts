@@ -25,7 +25,7 @@ import { RAW_ID_PATTERN } from '../../canvas/conversation/friendlyOperation'
 import { classifyUnit, formatMoneyFigure } from '../../utils/unitClassifier'
 import type { V5GraphPatchBlock } from '../../canvas/conversation/types'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
-import { limitChangeSentence } from '../../canvas/utils/goalConstraintText'
+import { isKnownLimitFrame, limitChangeSentence } from '../../canvas/utils/goalConstraintText'
 
 // ---------------------------------------------------------------------------
 // Operation labels (already friendlied; kept here as the single source of truth
@@ -368,6 +368,11 @@ export function buildV5PatchReceipt(
         typeof after?.unit === 'string' ? after.unit : null,
       )
       let changeSummary = ''
+      // ⛔ A frame the UI cannot read: the number's meaning is unknown, so the receipt states no bound at all rather
+      // than a level (PR Review 5880865579). The applicator defers the same patch.
+      const frameUnread = (side: { value_frame?: unknown } | null): boolean =>
+        side !== null && side.value_frame !== undefined && !isKnownLimitFrame(side.value_frame)
+      if (frameUnread(after)) return { actionLabel, entityLabel, changeSummary, status }
       // ⭐ R1 S4-core (CEE #2261; PR Review 5880215622 blocking 2): a limit stated as a CHANGE from today is said as
       // the change ("no more than 10% above today"), by the same sayer as the cards — never "at most 0.1".
       const afterChange = saidLimitChange(after)
@@ -379,7 +384,7 @@ export function buildV5PatchReceipt(
         changeSummary = valueStr
       }
       // On an applied update (before existed), prefix the prior value — each side in its own frame.
-      if (status === 'applied' && before && changeSummary) {
+      if (status === 'applied' && before && changeSummary && !frameUnread(before)) {
         const beforeChange = saidLimitChange(before)
         const beforeOpPhrase = CONSTRAINT_OPERATOR_PHRASES[
           typeof before.operator === 'string' ? before.operator : ''

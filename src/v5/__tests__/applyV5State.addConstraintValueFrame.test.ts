@@ -93,8 +93,17 @@ describe('applyV5State — add_constraint keeps value_frame (patch → store →
     expect(stored(store).value_frame).toBe('change_abs')
   })
 
-  it('⛔ CONTRAST: a level keeps "level"; no frame adds no key; an unknown frame is not carried', () => {
-    for (const [frame, want] of [['level', 'level'], [undefined, undefined], ['bogus', undefined]] as const) {
+  it('RED (PR Review 5880865579): a present but unknown frame DEFERS — nothing stored, nothing mirrored', () => {
+    for (const frame of ['bogus', null, 'CHANGE_REL', 1]) {
+      const store = makeStore(null)
+      const result = applyV5State(baseResponse({ blocks: [constraintPatch({ ...CHANGE_REL, value_frame: frame }, 'fac_cost')] }), store)
+      expect(store.setGoalConstraints, String(frame)).not.toHaveBeenCalled()
+      expect(result.deferred.some((d) => d.reason === 'add_constraint_unknown_value_frame'), String(frame)).toBe(true)
+    }
+  })
+
+  it('⛔ CONTRAST: a level keeps "level"; no frame (legacy level) adds no key', () => {
+    for (const [frame, want] of [['level', 'level'], [undefined, undefined]] as const) {
       const store = makeStore(null)
       const after: Record<string, unknown> = { ...CHANGE_REL, value: 250000, unit: 'GBP' }
       if (frame === undefined) delete after.value_frame; else after.value_frame = frame
@@ -117,6 +126,13 @@ describe('applyV5State — a change limit on the goal is never mirrored as its l
   it('RED: a ">=" change_abs limit with a unit does not stamp goal_threshold_raw', () => {
     const store = goalStore()
     applyV5State(baseResponse({ blocks: [onGoal({ value_frame: 'change_abs' })] }), store)
+    expect(store.updateNode).not.toHaveBeenCalled()
+    expect((store as unknown as { setGoalThreshold: ReturnType<typeof vi.fn> }).setGoalThreshold).not.toHaveBeenCalled()
+  })
+
+  it('RED (PR Review 5880865579): a ">=" limit with an UNKNOWN frame on the goal is never mirrored as its level', () => {
+    const store = goalStore()
+    applyV5State(baseResponse({ blocks: [onGoal({ value_frame: 'bogus' })] }), store)
     expect(store.updateNode).not.toHaveBeenCalled()
     expect((store as unknown as { setGoalThreshold: ReturnType<typeof vi.fn> }).setGoalThreshold).not.toHaveBeenCalled()
   })
