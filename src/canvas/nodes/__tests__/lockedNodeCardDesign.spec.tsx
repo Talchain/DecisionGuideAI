@@ -486,17 +486,23 @@ describe('Option — "what this option changes": ≤3 rows in ONE shared order, 
     const bundleRows = within(face('Bundle seats')).getByTestId('option-change-rows-opt-bundle')
     const bundleOrder = [...bundleRows.querySelectorAll('dd')].map(d => d.getAttribute('data-testid'))
     // fac-price (set by both) leads, then fac-seats (set by both) — shared across
-    // the row; opt-raise's own fac-conv follows.
+    // the row; opt-raise's own fac-conv follows. ⚠ RE-PINNED 28 Sep (Paul's
+    // staging test 64c5eccc; Canvas owner): at the landing bound none of these
+    // amounts fits beside 12 characters of its name, so each row is two lines
+    // and the card's six row lines hold price (2) + seats (3); fac-conv, next in
+    // the SAME order, is counted by `+1 more`.
     expect(raiseOrder).toEqual([
       'option-change-row-opt-raise-fac-price',
       'option-change-row-opt-raise-fac-seats',
-      'option-change-row-opt-raise-fac-conv',
     ])
+    expect(within(raiseFace).getByTestId('option-change-more-opt-raise').textContent).toBe('+1 more')
     expect(bundleOrder).toEqual(['option-change-row-opt-bundle-fac-price', 'option-change-row-opt-bundle-fac-seats'])
   })
 
-  it('+N more counts from the ONE total (4 targets − 3 rows = +1), and the from→to uses the baseline option', () => {
-    // A fourth target, so one change is behind `+1 more` (three rows at rest).
+  it('+N more counts from the ONE total (4 targets − 2 rows = +2), and the from→to uses the baseline option', () => {
+    // A fourth target. ⚠ RE-PINNED 28 Sep (Paul's staging test 64c5eccc): the
+    // rows are two-line at the bound, so two fit the card's six row lines and
+    // `+2 more` counts the other two (was three rows + `+1 more`).
     const cee = {
       ...CEE,
       options: CEE.options.map(o => (o.id === 'opt-raise'
@@ -506,7 +512,7 @@ describe('Option — "what this option changes": ≤3 rows in ONE shared order, 
     setState({ phase: 'pre', over: { ceeAnalysisReady: cee } })
     renderCard(OptionNode as never, 'opt-raise')
     const more = within(face('Raise the plan price')).getByTestId('option-change-more-opt-raise')
-    expect(more.textContent).toBe('+1 more')
+    expect(more.textContent).toBe('+2 more')
     expect(cardRows('opt-raise').getByTestId('option-change-more-opt-raise')).toBe(more)
     expect(cardRows('opt-raise').getByTestId('option-change-row-opt-raise-fac-price').textContent).toContain('£49 → £59')
   })

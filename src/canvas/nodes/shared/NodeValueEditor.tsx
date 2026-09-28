@@ -152,10 +152,33 @@ export interface NodeValueEditorProps {
   editNoteShort?: string
   ariaLabel: string
   testId: string
+  /**
+   * ⭐ HOW THE RESTING VALUE FLOWS (Paul's staging test, 28 Sep 2026, export
+   * 64c5eccc). `'box'` (the default, every panel caller) is the `<button>` it
+   * always was — and a `<button>` is ALWAYS an atomic inline-block (HTML's
+   * button layout turns `display:inline` into `inline-block`), so a value that
+   * wraps fills its whole line and whatever follows it drops below: on the
+   * factor card, `est.` stood alone on the next line under "No ai assistant
+   * use in place".
+   *
+   * `'inline'` rests as INLINE TEXT that is still a control: a `<span
+   * role="button" tabIndex={0}>` with the same classes, name, title and click,
+   * and Enter / Space opening the field as a native button would. Its words
+   * wrap like any text, so `trailing` (the card's glue + source mark) follows
+   * the value's LAST WORD. The open field is unchanged.
+   */
+  restingFlow?: 'box' | 'inline'
+  /**
+   * Rendered straight after the resting value, in its flow, and before any
+   * settlement words — so a mark glued to the value can never be pushed past
+   * "Not saved". Only read in the `'inline'` resting flow.
+   */
+  trailing?: React.ReactNode
 }
 
 export function NodeValueEditor({
   value, readout, onCommit, readCommittedValue, min, max, outOfRangeCopy, scaleHint, editNote, editNoteShort, ariaLabel, testId,
+  restingFlow = 'box', trailing,
 }: NodeValueEditorProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -247,6 +270,46 @@ export function NodeValueEditor({
   // it moves nothing. `controls.editableResting` stays the inspector's.
   if (!isEditing) {
     const settlementCopy = settlement ? VALUE_COMMIT_SETTLEMENT_COPY[settlement] : null
+    const settlementWords = settlementCopy && (
+      <span
+        role={settlementCopy.role}
+        data-testid={`${testId}-settlement`}
+        className={`${restingFlow === 'inline' ? 'block ' : ''}${typography.edgeLabel} ${
+          settlementCopy.role === 'alert' ? 'text-text-body' : 'text-text-light'
+        }`}
+      >
+        {settlementCopy.message}
+      </span>
+    )
+    if (restingFlow === 'inline') {
+      // Inline text, still a control (see `restingFlow`). `whitespace-normal`
+      // is explicit: the card's value row is `nowrap` so the mark's glue holds,
+      // and the value must re-open its own spaces to wrap inside the card.
+      return (
+        <>
+          <span
+            role="button"
+            tabIndex={0}
+            data-testid={testId}
+            className={`nodrag nopan ${typography.nodeValue} group whitespace-normal ${controls.editableRestingCanvas}`}
+            aria-label={`${ariaLabel} — click to edit${editNote ? `. ${editNote}` : ''}`}
+            title={editNote}
+            {...guard}
+            onClick={(e) => { e.stopPropagation(); open() }}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter' && e.key !== ' ') return
+              e.preventDefault()
+              e.stopPropagation()
+              open()
+            }}
+          >
+            {readout}
+          </span>
+          {trailing}
+          {settlementWords}
+        </>
+      )
+    }
     return (
       <span className="inline-flex flex-col items-start gap-0.5">
         <button
@@ -264,22 +327,12 @@ export function NodeValueEditor({
             `dispatched` commit is not a settled one (see this file's header);
             this is the ONLY new visible state, since `refusal` below already
             covers the two synchronous outcomes. */}
-        {settlementCopy && (
-          <span
-            role={settlementCopy.role}
-            data-testid={`${testId}-settlement`}
-            className={`${typography.edgeLabel} ${
-              settlementCopy.role === 'alert' ? 'text-text-body' : 'text-text-light'
-            }`}
-          >
-            {settlementCopy.message}
-          </span>
-        )}
+        {settlementWords}
       </span>
     )
   }
 
-  return (
+  const editingBox = (
     <span className="nodrag nopan inline-flex flex-col items-start gap-0.5" {...guard}>
       <span className="inline-flex items-baseline gap-1">
         <input
@@ -355,4 +408,7 @@ export function NodeValueEditor({
       )}
     </span>
   )
+  // The inline resting flow keeps its `trailing` (the card's mark) beside the
+  // open field too, exactly where it sat beside the box before this flow.
+  return restingFlow === 'inline' ? <>{editingBox}{trailing}</> : editingBox
 }

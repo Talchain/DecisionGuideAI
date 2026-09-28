@@ -336,6 +336,22 @@ export const FactorNode = memo((props: NodeProps) => {
     valueSourceMark === null ? null
       : valueSourceMark.kind === 'olumi' ? <EstimateMarker onOpenSource={openSourceDetail} />
         : <ValueSourceMark mark={valueSourceMark} testId={`factor-value-source-${props.id}`} subject={cleanedLabel} onOpenSource={openSourceDetail} />
+  // The on-graph editor holds the value — the SAME predicate as the value
+  // line's editable branch below (kept inline there for its type narrowing).
+  const valueHeldByEditor = nodeCategory === 'controllable' && typeof observedState?.value === 'number'
+  // The value line's join + mark slot: ONE space, then the mark. In Standard
+  // that space belongs to a `nowrap` row, so it is NOT a break opportunity
+  // (CSS Text: a space's own box decides) and nor is the edge of the atomic
+  // mark (their common ancestor decides) — the mark can only wrap WITH the
+  // value's last word. In Detailed the flex row drops the space anyway.
+  const valueMarkJoin = valueSourceMark === null ? null : (
+    <>
+      {' '}
+      <span data-testid={`factor-value-mark-slot-${props.id}`} className="whitespace-nowrap">
+        {renderValueSourceMark()}
+      </span>
+    </>
+  )
 
   // ⭐ WHO PUT THIS NUMBER HERE — read from the EXISTING owners, never re-derived.
   //
@@ -1311,11 +1327,22 @@ export const FactorNode = memo((props: NodeProps) => {
             line of its own; the editable value is an atomic box (a button),
             so there a wrapped value still puts the mark under it. Detailed
             keeps the wrapping flex row it had. */}
+        {/* ⭐ AND THE MARK NEVER STANDS ALONE (Paul's staging test, 28 Sep
+            2026, export 64c5eccc: "No ai assistant use in place" / `est.` alone
+            on the next line). The join above was ONE BREAKABLE space, and the
+            controllable factor's value was an atomic `<button>` — so a value
+            that filled its line pushed the mark onto a line of its own. In
+            STANDARD the row is now `whitespace-nowrap` (so its one joining
+            space is no break opportunity), the value re-opens its own spaces
+            (`whitespace-normal`), and the editor rests as inline text
+            (`NodeValueEditor restingFlow="inline"`, the glue and mark passed as
+            its `trailing`): the mark can only wrap WITH the value's last word.
+            The option rows' N5 rule: the break is governed by the nowrap cell. */}
         {valueDisplay !== null && !bareModelValue && (
           <div
             className={isDetailed
               ? `${typography.nodeValue} text-text-body flex max-w-full flex-wrap items-baseline gap-x-1.5`
-              : `${typography.nodeValue} text-text-body max-w-full min-w-0 break-words`}
+              : `${typography.nodeValue} text-text-body max-w-full min-w-0 break-words whitespace-nowrap`}
             data-testid="factor-recorded-value"
           >
             {/* ⭐⭐ EDITABLE ON THE GRAPH — and ONLY where an edit reaches the
@@ -1405,22 +1432,19 @@ export const FactorNode = memo((props: NodeProps) => {
                     : {})}
                   ariaLabel={`Value for ${props.data?.label ?? 'this factor'}`}
                   testId={`node-value-editor-${props.id}`}
+                  {...(isDetailed ? {} : { restingFlow: 'inline' as const, trailing: valueMarkJoin })}
                 />
               </span>
             ) : (
-              <span className="min-w-0 break-words">
+              <span className={isDetailed ? 'min-w-0 break-words' : 'min-w-0 break-words whitespace-normal'}>
                 <FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} />
               </span>
             )}
-            {/* The gap: one breakable space (inline flow in Standard; a flex
-                row drops whitespace between its items, so Detailed keeps its
-                6px `gap-x-1.5`). */}
-            {valueSourceMark !== null && ' '}
-            {valueSourceMark !== null && (
-              <span data-testid={`factor-value-mark-slot-${props.id}`} className="whitespace-nowrap">
-                {renderValueSourceMark()}
-              </span>
-            )}
+            {/* The join, then the mark. Standard: ONE space inside a `nowrap`
+                row (see above) — unless the inline editor already carries it
+                as its `trailing`. Detailed: a flex row drops the whitespace
+                between its items and keeps its 6px `gap-x-1.5`. */}
+            {!(valueHeldByEditor && !isDetailed) && valueMarkJoin}
           </div>
         )}
         {/* ⭐ #20's number is omitted; its PROVENANCE is not (review F1, #2085).

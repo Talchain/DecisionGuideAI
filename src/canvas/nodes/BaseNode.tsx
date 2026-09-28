@@ -11,6 +11,7 @@
 
 import { memo, useState, useCallback, useEffect, useMemo, type ReactNode, type CSSProperties } from 'react'
 import { nodeTitleChannels } from './shared/nodeRenameAffordance'
+import { nodeCardTitle } from './shared/nodeCardTitle'
 import { optionsWereAssessed } from '../domain/optionAssessment'
 import { linkedOptionIds } from '../domain/linkedOptions'
 import { Handle, Position, type NodeProps, useUpdateNodeInternals } from '@xyflow/react'
@@ -377,6 +378,17 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // lives on the Goal)" — the factor card no longer repeats the Goal's boundary.
   const showConstraintLines = nodeType !== 'goal' && nodeType !== 'factor' && constraintLines.length > 0
   const description = typeof data?.description === 'string' ? data.description : undefined
+  /**
+   * ⭐ THE ONE TITLE OWNER (Paul's staging test, 28 Sep 2026, export 64c5eccc):
+   * the producer's own cut ("Help me decide whether to hire…") recovered from
+   * the description it was cut from, and an all-lower-case first word raised
+   * ("ability …" → "Ability …") — `shared/nodeCardTitle.ts`. DISPLAY ONLY: the
+   * store keeps the label. Every place the card states its name reads this —
+   * the visible title, the causal-lens title, the name tooltip and the
+   * accessible name — so no channel keeps the cut. `titleOverride` still
+   * replaces only the visible words.
+   */
+  const cardTitle = nodeCardTitle(label, description)
 
   // Phase 3: Get node colours from new system
   const colors = nodeColors[nodeType as keyof typeof nodeColors] || nodeColors.factor
@@ -996,7 +1008,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // answers a different, narrower question (what does opening this card do),
   // so this gap follows the contract literally rather than inventing a
   // longer hybrid sentence.
-  const accessibleNameWithoutAffordance = `${NODE_REGISTRY[nodeType].label}: ${label}. Open details.`
+  const accessibleNameWithoutAffordance = `${NODE_REGISTRY[nodeType].label}: ${cardTitle}. Open details.`
   /**
    * ⭐⭐⭐ AND THE ONE EDIT EVERY KIND SUPPORTS IS NOW SAID OUT LOUD — on all
    * six, from here, because here is the only place all six pass through.
@@ -1011,7 +1023,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * why it promises the interaction only.
    */
   const titleChannels = nodeTitleChannels({
-    label,
+    label: cardTitle,
     accessibleName: accessibleNameWithoutAffordance,
   })
   const accessibleName = titleChannels.accessibleName
@@ -1498,7 +1510,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // v3.1 WS1 #17: the yield is decided by THIS title's first word, not the
   // corpus's widest (see `CornerMarksTitleBox.firstWordPx`).
   // Not a hook: this runs after the lens early return. Cached per word inside.
-  const firstTitleWordPx = cornerMarkCount > 0 ? titleFirstWordPx(titleOverride ?? label) : undefined
+  const firstTitleWordPx = cornerMarkCount > 0 ? titleFirstWordPx(titleOverride ?? cardTitle) : undefined
   const cornerTitleSpacer = cornerMarksTitleSpacerCss(cornerMarkCount, {
     measurePx: titleBoxMeasurePx,
     rightToFramePx: renderedCardW - 2 * CANVAS_CARD_FRAME_PX - cardPaddingLeftPx - titleBoxMeasurePx,
@@ -2576,7 +2588,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                 style={{ float: 'right', width: cornerTitleSpacer.width, height: cornerTitleSpacer.height }}
               />
             )}
-            {titleOverride ?? label}
+            {titleOverride ?? cardTitle}
           </div>
           </Tooltip>
         </div>
@@ -2729,7 +2741,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               style={{ float: 'right', width: causalTitleSpacer.width, height: causalTitleSpacer.height }}
             />
           )}
-          {label}
+          {cardTitle}
         </div>
       )}
 

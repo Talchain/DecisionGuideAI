@@ -59,7 +59,7 @@ import {
   readFactorDisplayValue,
 } from '../../../utils/formatFactorDisplayValue'
 import { collapseEstimateDisplay } from './collapseEstimateDisplay'
-import { interventionTargetSourceMark, type FactorValueSourceMark } from './valueSourceMark'
+import { interventionTargetSourceMark, VALUE_SOURCE_MARK_TOKEN, type FactorValueSourceMark } from './valueSourceMark'
 
 /**
  * ⭐ THREE, NOT TWO — Paul, 25 Sep 2026, from live screenshots: the card must
@@ -336,6 +336,60 @@ export function buildOptionNeedsInputRow({
   }
 }
 
+/**
+ * ⭐ A YES/NO FACTOR'S ROW STATES BOTH ENDS (Paul's staging test, 28 Sep 2026,
+ * export 64c5eccc: "AI assistant use → on" — CEE's bare `display_value` "on",
+ * and no "from", because the factor card's reading for 0 is the formatter's own
+ * guess, "No AI assistant use in place", which `carriedFactorCardReading`
+ * rightly refuses as a "from").
+ *
+ * A factor is binary when its unit or type SAYS so ("binary adoption",
+ * `factor_type: binary`). When both ends of the row are 0/1 and differ, the row
+ * reads the factor's OWN value labels (`encoding_map` for 0 and 1 — the
+ * producer's words, as everywhere else), else the two state words below.
+ *
+ * ⛔ CEE'S WORDS STAY CEE'S. The default words replace a producer reading ONLY
+ * when it is a bare switch word ("on", "off", "yes", "no", "true", "false",
+ * "0", "1") — a state token, not a phrase. Any other reading ("Adopted", "Not
+ * adopted") is kept verbatim by the ordinary path below. The row's `target`
+ * (the inspector's reading) is untouched: this is the card's row only.
+ */
+export const BINARY_STATE_WORDS: Readonly<Record<0 | 1, string>> = Object.freeze({ 0: 'Not in use', 1: 'In use' })
+
+const BARE_SWITCH_WORD = /^(?:on|off|yes|no|true|false|0|1)$/i
+
+function isBinaryFactor(factor: Pick<FactorContext, 'unit' | 'factorType'>): boolean {
+  return factor.factorType?.toLowerCase().trim() === 'binary' || /\bbinary\b/i.test(factor.unit ?? '')
+}
+
+const binaryEnd = (v: number | null | undefined): 0 | 1 | null => (v === 0 ? 0 : v === 1 ? 1 : null)
+
+function binaryChangeEnds({
+  factor,
+  target,
+  baselineOptionTarget,
+}: {
+  factor: FactorContext
+  target: OptionTargetLike
+  baselineOptionTarget: OptionTargetLike | null
+}): { from: string; to: string } | null {
+  if (!isBinaryFactor(factor)) return null
+  const to = binaryEnd(target.value)
+  const from = binaryEnd(baselineOptionTarget ? baselineOptionTarget.value : factor.observedValue)
+  if (to === null || from === null || from === to) return null
+  const encoding = (factor.factorData as Record<string, unknown> | null | undefined)?.encoding_map
+  const own0 = encodingMapPhrase(encoding, 0)
+  const own1 = encodingMapPhrase(encoding, 1)
+  if (own0 !== null && own1 !== null) {
+    const own = [own0, own1] as const
+    return { from: own[from], to: own[to] }
+  }
+  const producerWords = [target.displayValue, baselineOptionTarget?.displayValue]
+    .filter((d): d is string => typeof d === 'string' && d.trim() !== '')
+  if (producerWords.some(d => !BARE_SWITCH_WORD.test(d.trim()))) return null
+  return { from: BINARY_STATE_WORDS[from], to: BINARY_STATE_WORDS[to] }
+}
+
 export function buildOptionChangeRow({
   factorId,
   target,
@@ -381,6 +435,24 @@ export function buildOptionChangeRow({
     formatInterventionTargetText({ ...context, value: t.value, displayValue: t.displayValue ?? undefined })
   const targetFull = unitless(formatTarget(target))
   const targetText = rest(targetFull)
+  const binary = binaryChangeEnds({ factor, target, baselineOptionTarget })
+  if (binary) {
+    const change = `${binary.from} → ${binary.to}`
+    return {
+      factorId,
+      label,
+      fullLabel,
+      change,
+      before: binary.from,
+      after: binary.to,
+      fullChange: change,
+      target: targetFull || binary.to,
+      reference: baselineOptionTarget ? 'baseline_option' : 'current_value',
+      estimated,
+      targetSource,
+      sameAsReference: false,
+    }
+  }
   let fromFull = ''
 
   // "from": the baseline OPTION's own target where one exists (the reference
@@ -520,6 +592,87 @@ export function buildOptionChangeRow({
 export function fitRowsToBudget(rows: OptionChangeRow[]): OptionChangeRow[] {
   if (rows.length <= 1) return rows
   return rows.some(r => r.change.length > OPTION_ROW_CHANGE_BUDGET_CHARS) ? rows.slice(0, 1) : rows
+}
+
+/**
+ * ⭐⭐ ONE LINE, OR THE NAME ON ITS OWN LINE — a deterministic character budget
+ * at the landing bound (Paul's staging test, 28 Sep 2026, export 64c5eccc;
+ * Canvas owner decision).
+ *
+ * SERVED at landing (`--canvas-label-scale` 1.64): "Human as… 0 hours/week →
+ * 20 hours/week est." — the one-line grid gave the amount everything but a
+ * ~6em label floor, so the factor's name was unreadable AND the amount wrapped
+ * to a second line anyway.
+ *
+ * THE RULE, in characters of the row's own type (`typography.edgeLabel`, the
+ * label's and the amount's size) at the bound, where the row holds
+ * `NODE_ROW_AMOUNT_MAX_CHARS` (23):
+ *
+ *   one-line  ⇔  min(name, OPTION_ROW_NAME_MIN_CHARS) + 1 + amount ≤ 23
+ *
+ * where `amount` is the row's `change` plus the glued mark (" est.", " brief",
+ * " you", …; none on a `Needs input` row) and 1 is the grid's 8px column gap.
+ * `OPTION_ROW_NAME_MIN_CHARS` = 12 is the old grid's 6em label floor in
+ * characters (6em ÷ the measured 0.493em a character, `AVG_CHAR_EM`): the
+ * least of the name a one-line row may keep. Otherwise the row is TWO lines —
+ * the name alone, full width (truncating only past the card), then the amount
+ * with its mark. No DOM measurement: the rule has no zoom term, so it never
+ * re-lays a board as the camera moves — the estate's "size for the bound" rule.
+ */
+export const OPTION_ROW_NAME_MIN_CHARS = 12
+
+/** The grid's 8px column gap, in characters at the bound (≈ 0.9 of one). */
+const OPTION_ROW_GAP_CHARS = 1
+
+export type OptionRowForm = 'one-line' | 'two-line'
+
+/** The characters a row's amount occupies at the bound: its `change`, the glue and the mark's token. */
+export function optionRowAmountChars(row: OptionChangeRow): number {
+  const mark = row.needsInput ? '' : VALUE_SOURCE_MARK_TOKEN[row.targetSource.kind]
+  return row.change.length + (mark ? 1 + mark.length : 0)
+}
+
+export function optionRowForm(row: OptionChangeRow): OptionRowForm {
+  const name = Math.min(row.fullLabel.length, OPTION_ROW_NAME_MIN_CHARS)
+  return name + OPTION_ROW_GAP_CHARS + optionRowAmountChars(row) <= NODE_ROW_AMOUNT_MAX_CHARS ? 'one-line' : 'two-line'
+}
+
+/**
+ * Lines a row takes at the bound: one for a one-line row; for a two-line row
+ * the name's line plus the amount's (an amount longer than the row wraps — it
+ * breaks only before its arrow — so it is counted in whole row-widths).
+ */
+export function optionRowLineCount(row: OptionChangeRow): number {
+  if (optionRowForm(row) === 'one-line') return 1
+  return 1 + Math.max(1, Math.ceil(optionRowAmountChars(row) / NODE_ROW_AMOUNT_MAX_CHARS))
+}
+
+/**
+ * ⭐ THE LINES A CARD SPENDS ON ROWS — the three rows it reserves, at the two
+ * lines a grid row reached at the bound whenever its amount could not sit in
+ * the ~10 characters the 6em floor left it (every `from → to`: 23 of 23 landing
+ * rows measured stacked before the grid, and the grid kept the amount's wrap).
+ * So the two-line form never makes the rows taller than three rows already
+ * were: a row that would overrun the budget is not shown, and `+N more` counts
+ * it. The `+N more` line itself is the one line it always was.
+ */
+export const OPTION_CARD_ROW_LINE_BUDGET = 2 * OPTION_CARD_ROW_LIMIT
+
+/**
+ * The rows that fit `OPTION_CARD_ROW_LINE_BUDGET`: a PREFIX of the shared order
+ * (a later short row never jumps a longer one — options compare like with
+ * like), and never zero rows (ED 02:31Z D2: fewer rows before a cut value).
+ */
+export function fitRowsToLineBudget(rows: OptionChangeRow[]): OptionChangeRow[] {
+  const out: OptionChangeRow[] = []
+  let used = 0
+  for (const row of rows) {
+    const lines = optionRowLineCount(row)
+    if (out.length > 0 && used + lines > OPTION_CARD_ROW_LINE_BUDGET) break
+    out.push(row)
+    used += lines
+  }
+  return out
 }
 
 /**
