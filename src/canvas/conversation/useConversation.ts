@@ -2567,7 +2567,7 @@ const MAX_FLUSH_ATTEMPTS = 3
  * arrow; the key itself is unchanged.
  */
 export function printableDeferredKey(key: string): string {
-  return key.replace(/\u0000/g, '→')
+  return key.split('\u0000').join('→')
 }
 
 export const SEND_DEFERRED = 'send_deferred' as const
