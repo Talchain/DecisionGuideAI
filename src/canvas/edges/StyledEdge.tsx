@@ -35,7 +35,10 @@ import {
   type RankedCausalEdge,
 } from './edgeLabelVisibility'
 import { computeDirectionStroke } from './directionStroke'
-import { resolveCardEdgeRoute, routeBoxOf, resolveLayeredEdgeLeads, layeredLeadPath, layeredRouteBoxes, type RouteBox, type SameRowRoute, type LayeredEdgeLeads } from './sameRowRoute'
+import { resolveCardEdgeRoute, routeBoxOf, resolveLayeredEdgeLeads, layeredLeadPath, layeredRouteBoxes, contractLayeredPath, type RouteBox, type SameRowRoute, type LayeredEdgeLeads } from './sameRowRoute'
+import { arrivalGlyphRowSpan, cardEdgeLabelAnchorFromBoxes, cardEdgePathFromBoxes, flattenSvgPath, pointAtFraction, resolveFragileCuePlacements, FRAGILE_CUE_DISC_PX } from './fragileCuePlacement'
+import { TIER_BY_KIND } from '../utils/nodeLayoutConstants'
+import { isGhostNode } from '../utils/fitTargets'
 import {
   readContestedState,
   resolveEdgeStroke,
@@ -50,7 +53,9 @@ import {
 } from './edgePresentation'
 import {
   resolvePersistentLabelPlacements,
+  labelHalfHeightForRows,
   LABEL_DECLARED_HALF_WIDTH,
+  LABEL_HALF_WIDTH,
   type PlacementEdge,
   type LabelRowCount,
   LABEL_ROW_GAP_PX,
@@ -210,10 +215,10 @@ export const POLARITY_GLYPH_HALO =
 /**
  * contract v3.1 (E10): the fragility cue disc — the contract's `r="8"` circle,
  * 16px ON SCREEN because it carries the same counter-scale as the text beside
- * it. At the worst-case scale (`MAX_LABEL_COUNTER_SCALE` = 2) it is 32 graph
- * units, inside the 36-unit one-row box `labelHalfHeightForRows(1)` clears.
+ * it. Its place is the connection's own midpoint (`fragileCuePlacement.ts`),
+ * which sizes its clearances from the same `FRAGILE_CUE_DISC_PX`.
  */
-const FRAGILE_CUE_DISC_SIZE = 'calc(16px * var(--canvas-label-scale, 1))'
+const FRAGILE_CUE_DISC_SIZE = `calc(${FRAGILE_CUE_DISC_PX}px * var(--canvas-label-scale, 1))`
 
 export const EDGE_GLOW = Object.freeze({
   selected: edgeGlow(2, 35),
@@ -984,9 +989,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             const [path, lx, ly] = layeredLeadPath(sourceX, sourceY, targetX, targetY, layeredLeads)
             return [path, lx, ly, Math.abs(targetX - sourceX) / 2, Math.abs(targetY - sourceY) / 2] as [string, number, number, number, number]
           }
-          const bend = Math.max(6, Math.min(30, (targetY - sourceY) / 2))
           return [
-            `M${sourceX},${sourceY} C${sourceX},${sourceY + bend} ${targetX},${targetY - bend} ${targetX},${targetY}`,
+            contractLayeredPath(sourceX, sourceY, targetX, targetY),
             (sourceX + targetX) / 2,
             (sourceY + targetY) / 2,
             Math.abs(targetX - sourceX) / 2,
@@ -1636,8 +1640,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // proximity nudge feeds the resolver rather than being summed afterwards,
   // so it can never push a cleared label back under a card. The returned
   // offset is the TOTAL displacement (nudge + collision stack).
-  const collisionOffset = useMemo(() => {
-    if (!isPersistentChipEdge) return { dx: 0, dy: 0 }
+  const labelPlacements = useMemo((): ReadonlyMap<string, { dx: number; dy: number }> => {
+    if (!isPersistentChipEdge) return new Map()
     // How many stacked rows a given edge's chip renders. A chip with both a
     // strength row and a fragility row is TALLER, and the resolver clears the
     // box it is actually given.
@@ -1699,16 +1703,109 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       // RF `hidden` kept as belt-and-braces (never set by this app).
       .filter((n) => !n.hidden && !lensHiddenNodeIds.has(n.id))
       .map(rectOf)
-    return resolvePersistentLabelPlacements(placementEdges, nodeRects).get(id) ?? { dx: 0, dy: 0 }
+    // The WHOLE assignment: this edge takes its own offset below, and the
+    // fragile-cue pass reads where every pinned strength chip landed.
+    return resolvePersistentLabelPlacements(placementEdges, nodeRects)
     // nodeRectsSignature is the recompute trigger for node movement (the
     // whole placement is derived from node geometry, so it covers this
     // edge's own endpoints too).
   }, [isPersistentChipEdge, topStrengthIds, fragileLabelIds, getEdges, getNode, getNodes, id, lensHiddenNodeIds, lensHiddenEdgeIds, nodeRectsSignature, sameRowRoute])
+  const collisionOffset = labelPlacements.get(id as string) ?? { dx: 0, dy: 0 }
 
   // Total label displacement (Task 9c proximity nudge + collision stack),
   // relative to the rendered label anchor (labelX/labelY).
   const labelOffsetX = collisionOffset.dx
   const labelOffsetY = collisionOffset.dy
+
+  /**
+   * ⭐ THE CUE DISC SITS AT ITS CONNECTION'S MIDPOINT (post-run DIFF item 12;
+   * contract v3.1 `renderEdges`: the `edge-cue` at `(ax+bx)/2, (ay+by)/2`) — see
+   * `fragileCuePlacement.ts`. It used to ride the LABEL placement above: the
+   * label anchor moved by a resolver clearing a strength-chip box 22× the
+   * disc's width, which on `mrr-90b8f080` put the disc on the Goal card beside
+   * its arrival glyphs, 0.95 of the way along "Pro plan price → MRR".
+   *
+   * Which edges are DISCS at rest: every member of the fragile set
+   * (`fragileLabelIds`, the budget — unchanged) except one that also carries a
+   * pinned strength row, whose fragility row stays inside that two-row chip
+   * (Detailed view only: `topStrengthIds` is empty in Standard). One pass over
+   * every disc from the same store snapshot, so each edge takes its own
+   * answer; the fraction it returns is then read off THIS edge's drawn path.
+   * The label placement pass is untouched, so no strength chip moves.
+   */
+  const fragileCuePlacement = useMemo(() => {
+    if (!showFragileRow) return null
+    const discIds = [...fragileLabelIds].filter((eid) => !topStrengthIds.has(eid) && !lensHiddenEdgeIds.has(eid))
+    // `id as string`: the file's pre-existing `EdgeProps` typing break (see the
+    // glyph selector's note) — React Flow supplies it as a string.
+    if (!discIds.includes(id as string)) return null
+    const routeBoxes: RouteBox[] = []
+    const tieredBoxes: Array<RouteBox & { tier: number }> = []
+    for (const n of getNodes()) {
+      if (n.hidden || lensHiddenNodeIds.has(n.id)) continue
+      const box = routeBoxOf(n as Parameters<typeof routeBoxOf>[0])
+      if (!box) continue
+      routeBoxes.push(box)
+      const tier = typeof n.type === 'string' ? TIER_BY_KIND[n.type] : undefined
+      if (tier !== undefined && !isGhostNode(n.id)) tieredBoxes.push({ ...box, tier })
+    }
+    // Where the handles stand against the boxes, read off THIS edge's own
+    // endpoints (the target handle is on the kind shape, which stands above the
+    // card by an amount that scales with the zoom) and applied to every cue's
+    // path, so each is drawn from the points xyflow gives it.
+    const ownSrc = routeBoxes.find((b) => b.id === source)
+    const ownTgt = routeBoxes.find((b) => b.id === target)
+    const ends = ownSrc && ownTgt && sourcePosition === Position.Bottom && targetPosition === Position.Top
+      ? { sourceDy: sourceY - (ownSrc.y + ownSrc.height), targetDy: targetY - ownTgt.y }
+      : { sourceDy: 0, targetDy: 0 }
+    const allEdges = getEdges()
+    // Each card's arrival glyph row, as the glyphs themselves are placed: one
+    // slot per edge into the card (every edge, as `resolvePolarityGlyphOffset`'s
+    // siblings are), shifted off the band title exactly as the glyph selector
+    // shifts it — so the cue keeps clear of the row's real span.
+    const arrivals = new Map<string, number>()
+    for (const e of allEdges) arrivals.set(e.target, (arrivals.get(e.target) ?? 0) + 1)
+    const nodesNow = getNodes()
+    const rows = new Map<string, { dxMin: number; dxMax: number } | null>()
+    for (const c of routeBoxes) {
+      const n = arrivals.get(c.id) ?? 0
+      const hx = c.x + c.width / 2
+      const hy = c.y + ends.targetDy
+      const title = n > 0 ? tierLaneTitleBoxFor(nodesNow, c.id) : undefined
+      const keepOut = title ? { x0: title.x0 - hx, y0: title.y0 - hy, x1: title.x1 - hx, y1: title.y1 - hy } : undefined
+      rows.set(c.id, arrivalGlyphRowSpan(n, keepOut))
+    }
+    // Every strength chip the label pass PINNED (Detailed view only — none in
+    // Standard), as the box it clears: its rendered anchor plus its offset.
+    const chips: RouteBox[] = []
+    for (const e of allEdges) {
+      if (!topStrengthIds.has(e.id) || lensHiddenEdgeIds.has(e.id)) continue
+      const off = labelPlacements.get(e.id)
+      const at = off ? cardEdgeLabelAnchorFromBoxes(e.source, e.target, routeBoxes, tieredBoxes, ends) : null
+      if (!off || !at) continue
+      const halfH = labelHalfHeightForRows(fragileLabelIds.has(e.id) ? 2 : 1)
+      chips.push({ id: e.id, x: at.x + off.dx - LABEL_HALF_WIDTH, y: at.y + off.dy - halfH, width: 2 * LABEL_HALF_WIDTH, height: 2 * halfH })
+    }
+    const cues = allEdges
+      .filter((e) => discIds.includes(e.id))
+      .map((e) => ({ id: e.id, path: cardEdgePathFromBoxes(e.source, e.target, routeBoxes, tieredBoxes, ends) }))
+    return resolveFragileCuePlacements(cues, routeBoxes, ends.targetDy, rows, chips).get(id as string) ?? null
+    // nodeRectsSignature: re-place when any card moves (the same trigger the label pass uses);
+    // the endpoints: the handles move with the zoom.
+  }, [showFragileRow, fragileLabelIds, topStrengthIds, lensHiddenEdgeIds, lensHiddenNodeIds, id, source, target, sourceY, targetY, sourcePosition, targetPosition, getNodes, getEdges, nodeRectsSignature, labelPlacements])
+
+  /**
+   * The disc's point on THIS edge's drawn path; the midpoint when the pass had
+   * no answer for it. To 0.01 graph units, as the route keys are, so the
+   * flattening's float noise never reaches the transform.
+   */
+  const fragileCuePoint = useMemo(() => {
+    if (!showFragileRow) return null
+    const poly = flattenSvgPath(edgePath)
+    if (!poly) return null
+    const p = pointAtFraction(poly, fragileCuePlacement?.fraction ?? 0.5)
+    return { x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 }
+  }, [showFragileRow, edgePath, fragileCuePlacement])
 
   // C1: label-visibility policy (see edgeLabelVisibility.ts). contract v3.1
   // (U10) withdrew E2: the default (standard) view paints no strength label;
@@ -2685,14 +2782,19 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           <div
             style={{
               position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${labelX + labelOffsetX}px,${labelY + labelOffsetY}px)`,
+              // A cue-only disc sits ON its connection at the midpoint
+              // (`fragileCuePoint`); a chip with a strength row keeps the label
+              // placement.
+              transform: fragileCueOnly && fragileCuePoint
+                ? `translate(-50%, -50%) translate(${fragileCuePoint.x}px,${fragileCuePoint.y}px)`
+                : `translate(-50%, -50%) translate(${labelX + labelOffsetX}px,${labelY + labelOffsetY}px)`,
               pointerEvents: 'all',
               // contract v3.1 (E10): a cue-only chip is the contract's 16px
               // disc (`<circle class="cue-bg" r="8"/>`), counter-scaled like the
               // text so it is 16px ON SCREEN; with a strength row it keeps the
-              // row form. The disc sits inside the one-row box the placement
-              // pass already clears (`labelHalfHeightForRows(1)`), so no
-              // neighbouring chip moves.
+              // row form. The disc is placed on its connection
+              // (`fragileCuePoint`), and the label pass still reserves the
+              // one-row slot it always reserved, so no neighbouring chip moves.
               ...(fragileCueOnly
                 ? {
                     padding: 0,
@@ -2769,6 +2871,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             onClick={fragileCueOnly ? handleFragileCueActivate : undefined}
             onKeyDown={fragileCueOnly ? handleFragileCueKeyDown : undefined}
             data-fragile-cue={fragileCueOnly ? 'disc' : undefined}
+            // Identity binding, as the polarity glyph's `data-edge-id`: which
+            // connection this chip belongs to, without reading portal order
+            // (trap 19). Its own name, so a `[data-edge-id]` glyph query never
+            // meets a chip.
+            data-cue-edge-id={id}
             data-testid="edge-influence-label"
             // ⭐ THE CUE IS NAMED ON THE ASSISTIVE CHANNEL WHEN IT SHARES A CHIP.
             // `aria-label` REPLACES descendant text, so on a chip carrying BOTH
