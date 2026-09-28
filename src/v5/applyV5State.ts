@@ -98,6 +98,7 @@ import {
 import { ceeAnalysisReadyContainment } from '../canvas/utils/ceeAnalysisReadyValidation'
 import { readServerStatedStrength } from '../canvas/domain/edges'
 import { USER_VALUE_STAMP } from '../canvas/domain/valueProvenance'
+import { limitChangeFrameOf } from '../canvas/utils/goalConstraintText'
 import { logger } from '../lib/logger'
 
 /**
@@ -719,6 +720,16 @@ function normaliseAddConstraintPatch(
   ) {
     constraint.provenance = after.provenance
   }
+  // ⭐ R1 S4-core (CEE #2261; PR Review 5880215622 blocking 1): the frame the value is stated in. Without it a limit
+  // added in the chat as "no more than 10% above today" (`change_rel` 0.1) reached every reader as the level "≤ 0.1".
+  if (
+    after.value_frame === 'level' ||
+    after.value_frame === 'delta' ||
+    after.value_frame === 'change_abs' ||
+    after.value_frame === 'change_rel'
+  ) {
+    constraint.value_frame = after.value_frame
+  }
   return constraint
 }
 
@@ -1243,7 +1254,8 @@ export function applyV5State(
           // semantics until a new run actually arrives.
           const goal = store.nodes.find(n => n.id === target)
           const goalKind = goal?.data?.kind ?? goal?.type
-          if (goal && goalKind === 'goal' && constraint.node_id === target &&
+          // ⛔ R1 S4-core: a limit stated as a CHANGE from today is not a level target, so it is never mirrored as one.
+          if (goal && goalKind === 'goal' && constraint.node_id === target && limitChangeFrameOf(constraint) === null &&
               constraint.operator === '>=' && constraint.value > 0 &&
               typeof constraint.unit === 'string' && constraint.unit.trim() !== '') {
             const old = goal.data
