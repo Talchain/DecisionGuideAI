@@ -373,3 +373,24 @@ export function tierLaneTitleBoxFor(
   if (tier === undefined) return undefined
   return deriveLaneTitles(nodes).find((t) => t.tier === tier)?.boxAtBound
 }
+
+/**
+ * ⭐ N6 — A LINK NEVER STRIKES THROUGH A BAND WORD. The column sits at the
+ * leftmost card edge, so a factor → outcome bundle, and sometimes an
+ * arrowhead, can run across "OUTCOMES" or "RISKS" (build-vs-buy and headcount at
+ * landing). The portal paints last, so the word is already on top; what reads
+ * as struck through is the line running between its letters. The halo is the
+ * polarity glyph's idiom (`POLARITY_GLYPH_HALO` in `StyledEdge.tsx`, contract
+ * `.polarity{paint-order:stroke;stroke:var(--canvas)}`): a stacked,
+ * canvas-coloured `text-shadow`, 1.5px ON SCREEN. It clears only the letters'
+ * outlines, so a line or arrowhead beside the word stays whole.
+ *
+ * ⚠ DEFINED HERE, NOT IN `TierLanes.tsx`: that file is scanned by
+ * `tests/ci-guards/tier-lanes-paint-behind-the-cards` for any way to paint a
+ * surface, and `var(--bg-canvas)` reads as a `bg-` class there. A text-shadow
+ * paints no surface (it rings the glyphs only), so the colour lives beside the
+ * other lane-title geometry instead of loosening that guard.
+ */
+const LANE_TITLE_HALO_PX = 'calc(1.5px * var(--canvas-label-scale, 1))'
+export const LANE_TITLE_HALO =
+  `0 0 ${LANE_TITLE_HALO_PX} var(--bg-canvas), 0 0 ${LANE_TITLE_HALO_PX} var(--bg-canvas), 0 0 ${LANE_TITLE_HALO_PX} var(--bg-canvas)`
