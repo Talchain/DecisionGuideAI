@@ -4,7 +4,7 @@
  */
 
 import { memo, useState, useMemo, useCallback } from 'react'
-import { goalConstraintText, constraintWithEditedValue, auditedFigureOf, constraintWithEditedAuditedFigure } from '../../../utils/goalConstraintText'
+import { goalConstraintText, constraintWithEditedValue, auditedFigureOf, constraintWithEditedAuditedFigure, limitChangeFrameOf } from '../../../utils/goalConstraintText'
 import { useCanvasStore } from '../../../store'
 import { useGoalConstraints, useConditionalProbabilities } from '../useAnalysisResults'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
@@ -923,7 +923,17 @@ export const GoalPanel = memo(function GoalPanel({
                           </div>
                         )
                       })()}
-                      {prob === null && (
+                      {prob === null && limitChangeFrameOf(c) !== null && (
+                        /* ⛔ R1 S4-core (CEE #2261): NO number input for a limit stated as a CHANGE from today. The
+                           input below writes the figure into `value` in the row's own frame, and a `change_rel`
+                           value is a FRACTION of today's level — "15" typed for 15% would store a 1,500% rise.
+                           CEE's own edit door refuses the same write by name (`limit_is_a_change`). */
+                        <p
+                          data-testid={`goal-constraint-${c.constraint_id ?? c.id ?? i}-change-note`}
+                          className={`${typography.panelMeta} text-text-light mt-0.5`}
+                        >Set as a change from today. To change it, ask in the chat.</p>
+                      )}
+                      {prob === null && limitChangeFrameOf(c) === null && (
                         /* `setGoalConstraints` is not a `system_event` carrier;
                            the edit stays behind the pane's fence, exactly as it
                            sat behind the Router's. */
