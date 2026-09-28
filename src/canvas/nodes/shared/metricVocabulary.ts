@@ -892,6 +892,59 @@ export const DRIVER_LINE_COPY = {
       : [`${bare} ranked in this run`, `${bare} ranked`, bare]
   },
   /**
+   * ⭐ PJ-B3 — A RANKED FACTOR THE RUN HAD NO VALUE FOR (Canvas owner, 28 Sep
+   * 2026; R&C #72 5866297058). The run's `factor_sensitivity` row carries no
+   * `value_source` while other rows carry one (`unvaluedDriver.ts`), so the
+   * rank comes from how the model is built, not from the user's figures. The
+   * rank STAYS and is never hidden; the card adds these words. Same caption
+   * style, no new colour or badge.
+   */
+  noValueYet: 'no value yet',
+  /**
+   * The owner's in-slot forms for that factor, LONGEST FIRST; the caller owns
+   * the `LAST_RUN_PREFIX`, and `restingUnvaluedDriverCaption`
+   * (driverCaptionFit.ts) picks the longest that fits at the landing bound.
+   *   fresh  "Driver N of M ranked · no value yet" → "Driver N of M · no value yet" → "Driver N · no value yet"
+   *   stale  "Last run · Driver N of M · no value yet" → "Last run · no value yet"
+   * "no value yet" ends EVERY form and the LAST form of each list carries no
+   * rank words: "if even the shortest form does not fit, drop the rank words,
+   * never the 'no value yet'". The full sentence is `rankNoValueSentence`.
+   */
+  rankSlotFormsNoValue: (rank: number, rankedCount: number, fromLastRun = false): readonly string[] => {
+    const tail = ` · ${DRIVER_LINE_COPY.noValueYet}`
+    return fromLastRun
+      ? [`Driver ${rank} of ${rankedCount}${tail}`, DRIVER_LINE_COPY.noValueYet]
+      : [
+          `Driver ${rank} of ${rankedCount} ranked${tail}`,
+          `Driver ${rank} of ${rankedCount}${tail}`,
+          `Driver ${rank}${tail}`,
+          DRIVER_LINE_COPY.noValueYet,
+        ]
+  },
+  /**
+   * The free-flowing (wrapping) caption — Detailed and the popover, which keep
+   * the whole `rank` sentence: `Driver N of M ranked in this run · no value
+   * yet` (stale `Driver N of M ranked · no value yet`; the caller prefixes
+   * `LAST_RUN_PREFIX`).
+   */
+  rankNoValue: (rank: number, rankedCount: number, fromLastRun = false): string =>
+    `${DRIVER_LINE_COPY.rank(rank, rankedCount, fromLastRun)} · ${DRIVER_LINE_COPY.noValueYet}`,
+  /**
+   * The owner's full sentence, carried by the accessible name and the hover
+   * (and by the "Worth reviewing" reason): "Driver N of M ranked in this run —
+   * ranked by how the model is built; this factor has no value yet". It
+   * replaces `rankBasis` for this factor: the ordering did not come from its
+   * figures, because it has none.
+   */
+  rankNoValueSentence: (rank: number, rankedCount: number, fromLastRun = false): string =>
+    `${DRIVER_LINE_COPY.rank(rank, rankedCount, fromLastRun)} — ranked by how the model is built; this factor has no value yet`,
+  /**
+   * The question an unvalued ranked factor raises — CEE #2154's own ask
+   * ("What is “X” today?"). `question` ("How sure are you of its value?")
+   * presupposes a value this factor does not have.
+   */
+  noValueQuestion: 'What is its value today?',
+  /**
    * The contract's `driver()` definition of M, the hover and the accessible
    * description. The second sentence keeps Paul pt 5's "never imply a missing
    * rank is accidentally omitted" for the factors OUTSIDE the M: Olumi names at

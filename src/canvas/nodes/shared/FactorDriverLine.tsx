@@ -8,6 +8,10 @@
  *   (in the card's one-line slot, the longest form that fits at the landing
  *   bound — `Driver 1 of 3 ranked`, `Last run · Driver 1 of 3` at 1.64; see
  *   `inSlot` and `driverCaptionFit.ts`)
+ *   `Driver 2 · no value yet  ▬▬`   the same rank for a factor the run held NO
+ *                                   value for (PJ-B3, Canvas owner 28 Sep 2026;
+ *                                   see `noValueYet`) — the rank stays, the
+ *                                   words say it is not from the user's figures
  *   (nothing on the card)           unranked — "If the producer withholds a
  *                                   rank, render no substitute" (ED 5806207128);
  *                                   `FactorDriverNotRanked` says "Not ranked in
@@ -81,7 +85,7 @@ import Tooltip from '../../../components/Tooltip'
 import { typography } from '../../../styles/typography'
 import { MAX_BADGED_RANK } from '../../../components/results/driverDisplayModel'
 import { DRIVER_LINE_COPY, LAST_RUN_PREFIX } from './metricVocabulary'
-import { restingDriverCaption } from './driverCaptionFit'
+import { restingDriverCaption, restingUnvaluedDriverCaption } from './driverCaptionFit'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { openNodeInspector } from './openNodeInspector'
 
@@ -105,6 +109,17 @@ export interface FactorDriverLineProps {
    * name `Last run · `; it never decides whether the line shows.
    */
   fromLastRun?: boolean
+  /**
+   * ⭐ PJ-B3 (Canvas owner, 28 Sep 2026): the run ranked this factor but held NO
+   * value for it — its `factor_sensitivity` row carries no `value_source` while
+   * other rows carry one (`unvaluedDriver.ts`, via the card's
+   * `useFactorRunCues`). The rank stays; the caption adds "no value yet"
+   * (in the slot, the longest `rankSlotFormsNoValue` form that fits at the
+   * landing bound, so "no value yet" is always visible), and the accessible
+   * name and the hover open with `rankNoValueSentence`. Same caption style,
+   * no new colour or badge. Omitted → false: the line is unchanged.
+   */
+  noValueYet?: boolean
   testId?: string
   /**
    * ⭐ THE CARD'S RESERVED ONE-LINE SLOT (DL #70 5849644637; `FactorNode`'s
@@ -167,21 +182,35 @@ function barPercent(value: number | null): number | null {
  * Current: `Driver N of M ranked in this run`; from the last run: `Driver N of M
  * ranked` (the contract's stale form drops "in this run" so it fits).
  */
-export function driverLineCaption(rank: FactorDriverLineProps['rank'], fromLastRun = false): string {
-  return DRIVER_LINE_COPY.rank(rank.rank, rank.setSize, fromLastRun)
+export function driverLineCaption(rank: FactorDriverLineProps['rank'], fromLastRun = false, noValueYet = false): string {
+  return noValueYet
+    ? DRIVER_LINE_COPY.rankNoValue(rank.rank, rank.setSize, fromLastRun)
+    : DRIVER_LINE_COPY.rank(rank.rank, rank.setSize, fromLastRun)
 }
 
+/**
+ * The accessible name and the hover. For a factor the run held no value for
+ * (PJ-B3) it opens with the owner's full sentence, `rankNoValueSentence`, in
+ * place of the rank basis, and drops `question` ("How sure are you of its
+ * value?"), which presupposes a value this factor does not have. The bar's
+ * sentence is unchanged: the bar is drawn either way.
+ */
 export function driverLineExplanation({
   rank,
   value,
   fromLastRun = false,
-}: Pick<FactorDriverLineProps, 'rank' | 'value' | 'fromLastRun'>): string {
+  noValueYet = false,
+}: Pick<FactorDriverLineProps, 'rank' | 'value' | 'fromLastRun' | 'noValueYet'>): string {
   const pct = barPercent(value)
+  const bar = pct === null
+    ? []
+    : [`Bar: ${DRIVER_LINE_COPY.barNoun}, ${pct}% ${DRIVER_LINE_COPY.barRelativeTo}. ${DRIVER_LINE_COPY.relativeDisclosure}`]
+  if (noValueYet) {
+    return [`${DRIVER_LINE_COPY.rankNoValueSentence(rank.rank, rank.setSize, fromLastRun)}.`, ...bar].join(' ')
+  }
   return [
     `${driverLineCaption(rank, fromLastRun)}. ${DRIVER_LINE_COPY.rankBasis}`,
-    ...(pct === null
-      ? []
-      : [`Bar: ${DRIVER_LINE_COPY.barNoun}, ${pct}% ${DRIVER_LINE_COPY.barRelativeTo}. ${DRIVER_LINE_COPY.relativeDisclosure}`]),
+    ...bar,
     DRIVER_LINE_COPY.question,
   ].join(' ')
 }
@@ -222,19 +251,23 @@ export function FactorDriverLine({
   rank,
   value,
   fromLastRun = false,
+  noValueYet = false,
   testId = 'factor-driver-line',
   inSlot = false,
 }: FactorDriverLineProps) {
   const pct = barPercent(value)
   const lastRun = fromLastRun ? LAST_RUN_PREFIX : ''
   // In the card's one-line slot: the longest form that fits it at the landing
-  // bound (`restingDriverCaption`, Canvas owner 27 Sep 2026). Free-flowing
-  // (Detailed, popover) the line wraps, so it keeps the full sentence. The
-  // accessible name and the hover keep the full sentence either way.
+  // bound (`restingDriverCaption`, Canvas owner 27 Sep 2026; for a factor the
+  // run held no value for, `restingUnvaluedDriverCaption`, 28 Sep 2026).
+  // Free-flowing (Detailed, popover) the line wraps, so it keeps the full
+  // sentence. The accessible name and the hover keep the full sentence either way.
   const caption = inSlot
-    ? restingDriverCaption(rank, fromLastRun)
-    : `${lastRun}${driverLineCaption(rank, fromLastRun)}`
-  const explanation = `${lastRun}${driverLineExplanation({ rank, value, fromLastRun })}`
+    ? noValueYet
+      ? restingUnvaluedDriverCaption(rank, fromLastRun)
+      : restingDriverCaption(rank, fromLastRun)
+    : `${lastRun}${driverLineCaption(rank, fromLastRun, noValueYet)}`
+  const explanation = `${lastRun}${driverLineExplanation({ rank, value, fromLastRun, noValueYet })}`
   const denominatorNote = driverLineDenominatorNote(rank, fromLastRun)
   return (
     <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={`${explanation} ${denominatorNote}`}>

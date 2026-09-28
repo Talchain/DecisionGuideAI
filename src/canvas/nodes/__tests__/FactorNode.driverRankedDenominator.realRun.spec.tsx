@@ -158,10 +158,19 @@ describe('item 3 — M is the ranked set, and every one of the M ranks is shown'
   it('90b8 (6 factors, 3 ranked): 1, 2 and 3 "of 3 ranked in this run", and exactly 3 cards show a rank', () => {
     renderBoard(fx90b8)
     expect(semantic()).toBe('current')
-    expect(caption('fac_existing_customers_grandfathered')).toBe('Driver 1 of 3 ranked')
+    // ⭐ RE-PINNED 28 Sep 2026 (PJ-B3, Canvas owner): rank 1 "Existing
+    // customers grandfathered" is a factor this run held NO value for — its
+    // `factor_sensitivity` row carries no `value_source` while the other five
+    // carry one, and its served node has `observed_state: null`. The rank
+    // stays; the slot adds "no value yet" in the longest owner form that fits
+    // at the landing bound (`unvaluedDriver.noValueYet.spec.ts`).
+    expect(caption('fac_existing_customers_grandfathered')).toBe('Driver 1 · no value yet')
+    expect(nameOf('fac_existing_customers_grandfathered')).toMatch(
+      /^Driver 1 of 3 ranked in this run — ranked by how the model is built; this factor has no value yet\. /,
+    )
     expect(caption('other_mrr_growth')).toBe('Driver 2 of 3 ranked')
     expect(caption('pro_paying_subscribers')).toBe('Driver 3 of 3 ranked')
-    for (const [id, n] of [['fac_existing_customers_grandfathered', 1], ['other_mrr_growth', 2], ['pro_paying_subscribers', 3]] as const) {
+    for (const [id, n] of [['other_mrr_growth', 2], ['pro_paying_subscribers', 3]] as const) {
       expect(nameOf(id)).toMatch(new RegExp(`^Driver ${n} of 3 ranked in this run\\. `))
     }
     expect(shownRanks(fx90b8)).toHaveLength(3)
@@ -218,7 +227,10 @@ describe('item 11 — the slot prints the longest form that fits at the landing 
     act(() => useCanvasStore.setState({ analysisFreshnessDirty: true }))
     expect(semantic()).toBe('changed')
     // At the 1.64 bound the stale "… ranked" no longer fits; "Last run · Driver N of M" does.
-    expect(caption('fac_existing_customers_grandfathered')).toBe('Last run · Driver 1 of 3')
+    // PJ-B3 (28 Sep 2026): rank 1 has no value in this run — its stale form is
+    // the owner's "Last run · no value yet"; the name keeps its rank.
+    expect(caption('fac_existing_customers_grandfathered')).toBe('Last run · no value yet')
+    expect(nameOf('fac_existing_customers_grandfathered')).toMatch(/^Last run · Driver 1 of 3 ranked — ranked by how the model is built; this factor has no value yet\. /)
     expect(caption('other_mrr_growth')).toBe('Last run · Driver 2 of 3')
     expect(caption('pro_paying_subscribers')).toBe('Last run · Driver 3 of 3')
     expect(lineOf('other_mrr_growth').getAttribute('aria-label')).toMatch(/^Last run · Driver 2 of 3 ranked\. /)
@@ -254,8 +266,25 @@ describe('item 11 — the slot prints the longest form that fits at the landing 
           expect(captionWidthPx(text, MAX_LABEL_COUNTER_SCALE), text).toBeLessThanOrEqual(FACTOR_SLOT_MEASURE_PX)
           // The visible words open the accessible name, which keeps the full sentence.
           const name = line.getAttribute('aria-label') ?? ''
-          expect(name.startsWith(text), name).toBe(true)
-          expect(name, name).toMatch(stale ? /^Last run · Driver \d of \d ranked\. / : /^Driver \d of \d ranked in this run\. /)
+          if (text.endsWith('no value yet')) {
+            // PJ-B3 (28 Sep 2026): 90b8's rank 1 has no value in this run. The
+            // name opens with the owner's full sentence, and the visible words
+            // appear in it in order (label in name) — the short form is not a
+            // prefix, because "no value yet" ends the sentence.
+            expect(name, name).toMatch(stale
+              ? /^Last run · Driver \d of \d ranked — ranked by how the model is built; this factor has no value yet\. /
+              : /^Driver \d of \d ranked in this run — ranked by how the model is built; this factor has no value yet\. /)
+            const words = text.split(' · ').map((w) => w.trim())
+            let at = 0
+            for (const w of words) {
+              const i = name.indexOf(w, at)
+              expect(i, `${w} in ${name}`).toBeGreaterThanOrEqual(0)
+              at = i + w.length
+            }
+          } else {
+            expect(name.startsWith(text), name).toBe(true)
+            expect(name, name).toMatch(stale ? /^Last run · Driver \d of \d ranked\. / : /^Driver \d of \d ranked in this run\. /)
+          }
           // The bar never shrinks, so its fill always reads against the whole track.
           const bar = within(line).getByTestId('factor-driver-line-bar').className.split(/\s+/)
           expect(bar).toContain('shrink-0')
@@ -266,7 +295,10 @@ describe('item 11 — the slot prints the longest form that fits at the landing 
     }
     // Positive control: both forms were actually measured (2 + 3 ranked cards, fresh and stale).
     expect(seen).toHaveLength(10)
-    expect(seen).toContain('Driver 1 of 3 ranked')
+    expect(seen).toContain('Driver 2 of 3 ranked')
     expect(seen).toContain('Last run · Driver 1 of 2')
+    // …and the unvalued rank 1 of 90b8 (PJ-B3), fresh and stale.
+    expect(seen).toContain('Driver 1 · no value yet')
+    expect(seen).toContain('Last run · no value yet')
   })
 })

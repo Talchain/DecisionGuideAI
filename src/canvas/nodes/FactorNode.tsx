@@ -1013,6 +1013,7 @@ export const FactorNode = memo((props: NodeProps) => {
               rank={driverLine.rank}
               value={driverLine.value}
               fromLastRun={resultsFromLastRun}
+              noValueYet={driverLine.noValueYet}
             />
           )}
           {/* Confidence — gated upstream by the shared display policy
@@ -1528,6 +1529,7 @@ export const FactorNode = memo((props: NodeProps) => {
                 rank={driverLine.rank}
                 value={driverLine.value}
                 fromLastRun={resultsFromLastRun}
+                noValueYet={driverLine.noValueYet}
                 inSlot
               />
             ) : noAnalysisYet ? (

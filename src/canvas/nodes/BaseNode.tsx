@@ -649,7 +649,13 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         resultsFromLastRun,
         displayMetadata.influenceRankedCount,
       )
-      return { influenceRank, driverRank, influenceFromLastRun: resultsFromLastRun }
+      return {
+        influenceRank,
+        driverRank,
+        influenceFromLastRun: resultsFromLastRun,
+        // PJ-B3: the run held no value for this factor — the reduced line says so.
+        driverNoValueYet: displayMetadata.unvaluedInRun === true,
+      }
     }
     if (nodeType !== 'option') return undefined
     return {
@@ -662,7 +668,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       }),
       optionResultCaption: resultCaption ?? null,
     }
-  }, [bodyReduced, nodeType, id, ceeAnalysisReady, graphHasDeclaredBaseline, data, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, resultCaption, resultsFromLastRun])
+  }, [bodyReduced, nodeType, id, ceeAnalysisReady, graphHasDeclaredBaseline, data, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, displayMetadata.unvaluedInRun, resultCaption, resultsFromLastRun])
 
   const lodBody = useMemo<{ text: string | null; unconfirmedEstimate: boolean }>(() => {
     if (!bodyReduced) return { text: null, unconfirmedEstimate: false }
