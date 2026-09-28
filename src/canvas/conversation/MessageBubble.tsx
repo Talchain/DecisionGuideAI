@@ -457,7 +457,7 @@ export const MessageBubble = memo(function MessageBubble({
             data-streaming={isStreaming || undefined}
             data-body-segments-withheld={dedupedBody.suppressedCount || undefined}
             data-testid="message-body-text"
-            // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li; br.md-gap for rule degradation)
+            // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li, span; span.md-gap is the paragraph gap)
             dangerouslySetInnerHTML={{
               __html: safeRichText(
                 truncatedContent && !expanded ? truncatedContent : displayContent,

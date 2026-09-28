@@ -132,14 +132,12 @@
 
 .messageBubbleUser {
   composes: messageBubble;
-  /* DS v5 §21.1: the user's message sits on the right. `align-self` alone
-     never did: ChatMessage wraps every message in a BLOCK div, where it has
-     no effect, so the bubble sat on the left (the same cause #2059 fixed for
-     `.chipActionIndicator`). A box of its own width, pushed right, is what
-     moves it; `align-self` stays for any flex parent. */
-  align-self: flex-end;
-  width: fit-content;
-  margin-left: auto;
+  /* Paul, 28 Sep: once sent, the user's message runs the FULL WIDTH of the
+     chat column. Its panel fill already sets it apart from Olumi's unframed
+     reply, so pushing it right only narrowed it and wasted the column. This
+     replaces DS v5 §21.1's right-aligned bubble. */
+  width: 100%;
+  max-width: 100%;
   background: var(--bg-panel, #FEFEFE);
   color: var(--text-body, #3F3F3E);
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06);
@@ -225,12 +223,11 @@
  *   --radius-sm            → --radius-pill (999px, better for inline indicator)
  */
 .chipActionIndicator {
-  /* ChatMessage wraps every message in a BLOCK div, where align-self does
-     nothing and an inline box cannot be pushed: a block box of its own width,
-     pushed right, is what puts a chip-sent message on the user's side. */
+  /* A chip-sent message starts at the left like a typed one (Paul, 28 Sep:
+     the user's messages run full width, not pushed right). It stays its own
+     width: a one-line chip echo stretched across the column reads as a bar. */
   display: flex;
   width: fit-content;
-  margin-left: auto;
   align-items: center;
   background: var(--bg-panel-hover, #FEF9F3);
   color: var(--text-light, #6E6B6B);

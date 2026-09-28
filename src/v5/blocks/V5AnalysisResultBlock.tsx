@@ -498,7 +498,9 @@ function V5AnalysisResultBlockImpl({
         data-presentation="inline"
         data-has-decision-review={hasReview ? 'true' : 'false'}
         data-decision-review-state={reviewState.kind}
-        className="space-y-1"
+        // Paul, 28 Sep: "Details" needs room before and after it. 12px above it (space-y-3) and 12px below it
+        // (pb-3), the same step as a paragraph gap, so it no longer sits tight under the uncertainty line.
+        className="space-y-3 pb-3"
       >
         {shownUncertaintyCopy && (
           <p
