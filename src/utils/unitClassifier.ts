@@ -247,6 +247,8 @@ export function compactUnitParts(figure: string, unit: string | null | undefined
 
   const currencyHead = currencyHeadParts(figure, trimmed)
   if (currencyHead !== undefined) return currencyHead
+  const percentHead = percentHeadParts(figure, trimmed)
+  if (percentHead !== undefined) return percentHead
 
   const rate = COMPOUND_RATE_UNIT.exec(trimmed)
   if (!rate) return null
@@ -325,6 +327,34 @@ function currencyHeadParts(figure: string, unit: string): CompactUnitParts | und
   }
   if (/\/|\bper\b/i.test(rest)) return undefined
   return { figure: `${glyph}${figure}`, unit: rest }
+}
+
+/**
+ * ⭐ `<percent> <words>` → the sign on the figure, the words after it: `3%` +
+ * `monthly churn`, `4.5%` + `of qualified prospects / month`. Served a6200164
+ * (Paul's pricing brief), the factor card read "3 % monthly churn": the rate arm
+ * owned `% per month` but not a percent followed by words.
+ *
+ * Mirrors `currencyHeadParts`: a rest that is itself a rate (`% per month`) is
+ * the rate arm's; a compound head or a slashed word rate is left as written.
+ * NOTATION ONLY — the figure is never scaled (UI-SEM-093's ×100 is the plain
+ * percent class's, not a compound's).
+ */
+function percentHeadParts(figure: string, unit: string): CompactUnitParts | undefined {
+  const m = CURRENCY_HEAD_UNIT.exec(unit)
+  if (m === null || classifyUnit(m[1]).kind !== 'percent') return undefined
+  const rest = m[2].trim()
+  if (/^(per\b|\/|\d)/i.test(rest)) return undefined
+  const sign = applyUnitPlacement(figure, m[1])
+  const restRate = COMPOUND_RATE_UNIT.exec(rest)
+  if (restRate !== null) {
+    const restHead = restRate[1].trim()
+    if (/\/|\bper\b/i.test(restHead)) return undefined
+    if (restRate[2].includes('/')) return { figure: sign, unit: rest }
+    return { figure: sign, unit: `${restHead} / ${restRate[3]}` }
+  }
+  if (/\/|\bper\b/i.test(rest)) return undefined
+  return { figure: sign, unit: rest }
 }
 
 /** The visible text of `compactUnitParts` — figure and unit words joined by one space. */
