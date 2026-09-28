@@ -8,6 +8,8 @@ import { DotProgression } from './DotProgression'
 import { HealthIndicators } from './HealthIndicators'
 import { deriveLeaderClaim, optionProbabilityIn } from './leaderClaim'
 import type { AnalysisSnapshot } from './types'
+import { SavedGoalCaveatLine } from './SavedGoalCaveatLine'
+import { savedGoalFigure } from './savedGoalCaveat'
 
 interface TrajectorySectionProps {
   snapshots: AnalysisSnapshot[]
@@ -118,7 +120,7 @@ export interface TrajectoryDatum {
   winner: number | null
   /** null ⇒ this run had no runner-up, or the engine did not score it. */
   runnerUp: number | null
-  /** null ⇒ goal attainment was not assessed for this run. */
+  /** null ⇒ goal attainment was not assessed for this run, or its basis was never recorded (withheld). */
   goal: number | null
 }
 
@@ -154,7 +156,7 @@ export function buildTrajectoryData(
     run: s.runNumber,
     winner: optionProbabilityIn(s, leaderOptionId),
     runnerUp: s.runnerUpProbability,
-    goal: s.goalProbability,
+    goal: savedGoalFigure(s),
   }))
 }
 
@@ -267,7 +269,11 @@ export function TrajectorySection({ snapshots, showExpert }: TrajectorySectionPr
       {open && (
         <div className="px-4 pb-2.5">
           {useChart ? (
-            <TrajectoryChart snapshots={snapshots} />
+            <>
+              <TrajectoryChart snapshots={snapshots} />
+              {/* ISL #207: the dashed goal line's figures carry their base caveat. */}
+              <SavedGoalCaveatLine runs={snapshots} testId="trajectory-goal-caveat" className="mt-1" />
+            </>
           ) : (
             <DotProgression snapshots={snapshots} />
           )}

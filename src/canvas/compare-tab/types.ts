@@ -7,6 +7,7 @@
 
 import type { DecisionVerdict } from '../../lib/decisionVerdict'
 import type { GraphProjection, GraphChangeVerdict, GraphChangeKind } from './graphChangeDiff'
+import type { GoalFitBaseCaveat } from '../../components/results/utils/selectGoalProbability'
 
 // ---------------------------------------------------------------------------
 // Snapshot types
@@ -246,6 +247,17 @@ export interface AnalysisSnapshot {
   // Goal
   goalProbability: number | null
   jointGoalProbability: number | null
+  /**
+   * Which caveat the saved `goalProbability` needs, or null — the chooser's `goalFitBaseCaveat` for
+   * this run (ISL #207: a goal level Olumi worked out, not one the user gave). A surface that shows
+   * the saved goal figure shows this caveat beside it (CODEX DELIVERY LEAD #72 5879597435); read it
+   * through `snapshotGoalBaseCaveat`, never directly.
+   *
+   * Optional because snapshots saved before this field existed do not carry it. ABSENT ≠ null: an
+   * explicit null means the chooser found no caveat due; an absent key means the basis was never
+   * recorded, so Compare withholds that run's goal figure (`savedGoalFigure`), never shows it bare.
+   */
+  goalBaseCaveat?: GoalFitBaseCaveat | null
 
   // ISL fields (may be empty arrays when ISL doesn't provide them)
   inferenceWarnings: string[]
@@ -528,6 +540,11 @@ export interface Transition {
   robustnessFrom: string | null
   robustnessTo: string | null
   goalProbDelta: number | null
+  /**
+   * ISL #207: the base caveat(s) for the two saved goal figures the delta subtracts, as sentences
+   * (`savedGoalCaveatLines`); empty when neither needs one or there is no delta.
+   */
+  goalProbCaveatLines: string[]
   /** Node IDs of affected factors */
   affectedFactorIds: string[]
   /** Labels for display */
