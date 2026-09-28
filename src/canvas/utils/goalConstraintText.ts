@@ -294,6 +294,16 @@ function sayLimitChange(change: LimitChange): string {
   return `${changeWords(change.operator, change.rising)} ${change.magnitude} ${change.rising ? 'above' : 'below'} today`
 }
 
+/**
+ * The change a limit states, in CEE's words, or `null` for a level (the caller says it exactly as before). For readers
+ * that phrase a limit themselves — the chat receipt (`v5GraphPatchDescription`, PR Review 5880215622 blocking 2) — so
+ * no surface can print a change as "at most 0.1". The operator must already be ASCII (`<=`, `<`, `>=`, `>`).
+ */
+export function limitChangeSentence(constraint: CEEGoalConstraint): string | null {
+  const change = sayableLimitChange(constraint)
+  return change === null ? null : sayLimitChange(change)
+}
+
 /** The pill's short form: the level pill's `<op><figure>` with the change signed and anchored — "≤+10% vs today". */
 function sayLimitChangeShort(change: LimitChange): string {
   return `${renderLimitOperator(change.operator)}${change.rising ? '+' : '−'}${change.magnitude} vs today`

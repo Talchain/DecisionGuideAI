@@ -244,6 +244,34 @@ describe('buildV5PatchReceipt — add_constraint', () => {
     expectNoLeak(`${r.actionLabel} ${r.entityLabel} ${r.changeSummary}`)
   })
 
+  it('RED (R1 S4-core, PR Review 5880215622 blocking 2): a change_rel limit is said as the change, never "at most 0.1"', () => {
+    const r = buildV5PatchReceipt(
+      block({ after: { label: 'Total monthly cloud cost', value: 0.1, operator: '<=', value_frame: 'change_rel' } }),
+      makeDeps(),
+    )
+    expect(r.changeSummary).toBe('no more than 10% above today')
+    expectNoLeak(r.changeSummary)
+  })
+
+  it('RED: the before → after arm says each side in its own frame', () => {
+    const r = buildV5PatchReceipt(
+      block({
+        before: { value: 0.1, operator: 'lte', value_frame: 'change_rel' },
+        after: { label: 'Total monthly cloud cost', value: -0.15, operator: 'lte', value_frame: 'change_rel' },
+      }),
+      makeDeps(),
+    )
+    expect(r.changeSummary).toBe('no more than 10% above today → at least 15% below today')
+  })
+
+  it('RED: change_abs keeps its money figure — "no more than £5,000 above today"', () => {
+    const r = buildV5PatchReceipt(
+      block({ after: { label: 'Total monthly cloud cost', value: 5000, unit: 'GBP', operator: '<=', value_frame: 'change_abs' } }),
+      makeDeps(),
+    )
+    expect(r.changeSummary).toBe('no more than £5,000 above today')
+  })
+
   it('renders updated constraint with before → after', () => {
     const r = buildV5PatchReceipt(
       block({
