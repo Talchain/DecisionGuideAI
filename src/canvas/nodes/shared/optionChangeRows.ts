@@ -337,6 +337,26 @@ export function buildOptionNeedsInputRow({
 }
 
 /**
+ * The INSPECTOR's reading of a yes/no factor's target, in the card's words: the
+ * factor's own value labels (`encoding_map`), else "In use" / "Not in use".
+ * The card row states both ends (`binaryChangeEnds`); the inspector's "This
+ * option sets …" line states the target alone, and printed CEE's bare "on"
+ * (Paul's test, 28 Sep). Null unless the factor is binary AND the reading is a
+ * bare switch word, so any phrase of CEE's own stays CEE's.
+ */
+export function binaryTargetReading(factorData: unknown, reading: string): string | null {
+  const d = (factorData ?? {}) as Record<string, unknown>
+  const obs = (d.observedState ?? d.observed_state) as Record<string, unknown> | undefined
+  const unit = typeof obs?.unit === 'string' ? obs.unit : typeof d.unit === 'string' ? d.unit : undefined
+  const factorType = typeof obs?.factor_type === 'string' ? obs.factor_type : typeof d.factor_type === 'string' ? d.factor_type : undefined
+  if (!isBinaryFactor({ unit, factorType })) return null
+  const word = reading.trim()
+  if (!BARE_SWITCH_WORD.test(word)) return null
+  const v: 0 | 1 = /^(?:on|yes|true|1)$/i.test(word) ? 1 : 0
+  return encodingMapPhrase(d.encoding_map, v) ?? BINARY_STATE_WORDS[v]
+}
+
+/**
  * ⭐ A YES/NO FACTOR'S ROW STATES BOTH ENDS (Paul's staging test, 28 Sep 2026,
  * export 64c5eccc: "AI assistant use → on" — CEE's bare `display_value` "on",
  * and no "from", because the factor card's reading for 0 is the formatter's own
