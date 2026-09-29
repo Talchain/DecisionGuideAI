@@ -206,6 +206,18 @@ describe('the two lenses', () => {
     expect(screen.queryAllByTestId(`${T}-goal`)).toHaveLength(0)
   })
 
+  // CEE #2270/#2280: an UNEARNED 0/1 goal figure is withheld by the chooser, which empties the goal-fit lens; the
+  // producer's sentence is the visible reason (DL 5887061638).
+  it('an unearned certainty: the lens is locked and the producer’s sentence is the visible reason', () => {
+    const SAY = "I can't yet say how likely 'Raise to £59' is to reach the target: it depends on how 'Pro plan price' moves 'MRR', which isn't sized yet."
+    const data = dataFor({ goals: false })
+    const rec = (data as unknown as { recommendation: { allOptions: Array<Record<string, unknown>> } }).recommendation
+    rec.allOptions = rec.allOptions.map((o, i) => (i === 0 ? { ...o, goalCertaintyUnearned: { say: SAY } } : o))
+    renderRun(data)
+    expect(screen.getByTestId(`${T}-goal-withheld`)).toHaveTextContent(SAY)
+    expect(screen.getByTestId(`${T}-lens-goal`)).toHaveAttribute('data-locked', 'true')
+  })
+
   // PLoT #416 / AIQ #72 5885033487 (2): the producer withheld every goal figure for an unevaluated identity; the
   // locked arm carries ITS words (typed code), not the generic "did not return one". Contrast: the row above.
   it('PLoT #416: the producer withheld every goal figure → the locked arm states the producer’s words', () => {

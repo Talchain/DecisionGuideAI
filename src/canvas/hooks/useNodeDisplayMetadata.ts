@@ -293,6 +293,11 @@ export interface NodeDisplayMetadata {
    * path was not evaluated, with AIQ's words. Goal nodes only; OPTIONAL for the reason `goalFitAvailable` is.
    */
   goalIdentityWithheld?: GoalIdentityWithheld | null
+  /**
+   * CEE #2270/#2280: the recommended option's 0/1 goal figure is UNEARNED (the chooser withheld it). The producer's
+   * sentence, or null for the fallback. Goal nodes only; OPTIONAL for the reason `goalFitAvailable` is.
+   */
+  achievementCertaintyUnearned?: { say: string | null } | null
   /** Recommendation stability (0-1) - fallback for Goal nodes when probability unavailable */
   stabilityPercentage: number | null
   /** Win rate for options (0-1) */
@@ -542,6 +547,7 @@ export function useNodeDisplayMetadata(
     let jointGoalProbabilityIsModelledBasis = false
     let stabilityPercentage: number | null = null
     let goalFitAvailable = false
+    let achievementCertaintyUnearned: { say: string | null } | null = null
 
     if (nodeType === 'outcome' || nodeType === 'goal') {
       const optionProbabilities = report.option_probabilities ?? {}
@@ -578,6 +584,7 @@ export function useNodeDisplayMetadata(
           // SAME decision — never a second read of the raw record.
           jointGoalProbability = decision.jointGoalProbability
           jointGoalProbabilityIsModelledBasis = decision.jointGoalIsModelledBasis
+          achievementCertaintyUnearned = decision.goalCertaintyUnearned ?? null
         }
       }
 
@@ -737,6 +744,7 @@ export function useNodeDisplayMetadata(
       jointGoalProbabilityIsModelledBasis,
       goalFitAvailable,
       goalIdentityWithheld: nodeType === 'goal' ? readGoalIdentityWithheld(report) : null,
+      achievementCertaintyUnearned,
       stabilityPercentage,
       winRate,
       winComputationFailed,

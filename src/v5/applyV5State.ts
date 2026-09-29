@@ -51,6 +51,7 @@ import {
   readLimitVerdicts,
   type LimitVerdictsWrite,
 } from '../canvas/state/storedLimitVerdicts'
+import { goalCertaintyFromResponse, readGoalCertainty } from '../canvas/state/storedGoalCertainty'
 import type { RunDelta } from '@talchain/schemas/boundary'
 import { readEvidenceAssessment, type EvidenceAssessment } from './evidenceAssessment'
 import { AnalysisStateV1Schema, Stage } from '@talchain/schemas/boundary'
@@ -2338,7 +2339,10 @@ export function applyV5State(
         skip_reason: 'not_about_current_graph',
       })
     } else if (typeof store.resultsComplete === 'function') {
-      const report = mapV5AnalysisToReport(analysisBlock)
+      // CEE #2270/#2280: the Run's stored goal-certainty fact rides beside it; unearned 0/1 figures are stamped.
+      const report = mapV5AnalysisToReport(analysisBlock, {
+        goalCertainty: readGoalCertainty(goalCertaintyFromResponse(response)),
+      })
       const hash = report.model_card.response_hash
       const prevHash = store.currentResultsHash ?? null
       if (hash !== prevHash) {

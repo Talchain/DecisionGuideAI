@@ -62,6 +62,7 @@ import type { LimitVerdictView } from './limitVerdictView'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import { deriveComparisonScope } from '../utils/goalAnchorCopy'
 import { readGoalIdentityWithheld } from '../utils/goalIdentityWithheld'
+import { GOAL_CERTAINTY_UNEARNED_FALLBACK } from '../../../canvas/state/storedGoalCertainty'
 import { notAnalysedReasonCopy, notComputedReasonCopy } from '../utils/notAnalysedCopy'
 import { optionComputationFailed, type NotAnalysedReason } from '../utils/notAnalysedOptions'
 // The two existing warning surfaces' OWN selectors, imported rather than
@@ -3406,7 +3407,12 @@ function buildOptionsComparison(
   }
 
   const goalWithheld = readGoalIdentityWithheld({ inference_warnings: data.confidence?.inferenceWarnings })
-  return { rows, totalCount: allOptions.length, ...(goalWithheld !== null ? { goalWithheldMessage: goalWithheld.message } : {}) }
+  // CEE #2270/#2280: an UNEARNED 0/1 figure is withheld by the chooser, which empties the goal-fit lens (the
+  // complete-field rule above); its sentence is the lens's reason, after the identity withhold.
+  const unearned = allOptions.find((o) => o.goalCertaintyUnearned)?.goalCertaintyUnearned
+  const goalWithheldMessage =
+    goalWithheld?.message ?? (unearned ? (unearned.say ?? GOAL_CERTAINTY_UNEARNED_FALLBACK) : null)
+  return { rows, totalCount: allOptions.length, ...(goalWithheldMessage !== null ? { goalWithheldMessage } : {}) }
 }
 
 /**

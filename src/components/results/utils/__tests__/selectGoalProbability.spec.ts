@@ -34,6 +34,8 @@ describe('selectGoalProbability — gate-independent behaviour', () => {
       // L62: nothing was available to withhold here — 'none' means the run
       // carried no joint figure either.
       jointSubstitutionWithheld: false,
+      // CEE #2270/#2280 (goal-certainty consumer): no unearned certainty stamped on this input.
+      goalCertaintyUnearned: null,
     }
     // Exact shape, deliberately: the selection is a CONTRACT, and a field that
     // appears (or vanishes) without a decision here is a field some surface will

@@ -35,6 +35,7 @@ import { ConnectionRow } from '../shared/ConnectionRow'
 import { ProbabilityArc } from '../shared/ProbabilityArc'
 import { DataBar } from '../../shared/DataBar'
 import { ResultsLink } from '../shared/ResultsLink'
+import { GOAL_CERTAINTY_UNEARNED_FALLBACK } from '../../../state/storedGoalCertainty'
 import type { InspectorPanelProps } from '../types'
 import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
 import type { ConditionalProbability } from '../../../../types/constraints'
@@ -553,6 +554,13 @@ export const GoalPanel = memo(function GoalPanel({
    * evaluated). Its words, verbatim from the typed warning; the mappers already removed every goal figure.
    */
   const identityWithheld = isResultsMode ? (displayMetadata.goalIdentityWithheld ?? null) : null
+  /** CEE #2270/#2280: the recommended option's 0/1 figure is UNEARNED; the producer's sentence (or the fallback). */
+  const certaintyUnearned = isResultsMode ? (displayMetadata.achievementCertaintyUnearned ?? null) : null
+  const certaintyUnearnedLine = (testId: string) => (
+    <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid={testId}>
+      {certaintyUnearned?.say ?? GOAL_CERTAINTY_UNEARNED_FALLBACK}
+    </p>
+  )
   const identityWithheldLine = (testId: string) => (
     <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid={testId}>
       {identityWithheld?.message}
@@ -584,6 +592,8 @@ export const GoalPanel = memo(function GoalPanel({
     </p>
   ) : identityWithheld !== null ? (
     identityWithheldLine('goal-probability-withheld-identity')
+  ) : certaintyUnearned !== null ? (
+    certaintyUnearnedLine('goal-probability-certainty-unearned')
   ) : perOptionOnly ? perOptionOnlyLine('goal-probability-per-option') : (
     /* v3.1 (DESIGN-GAP-v31 row 33): the contract has no simulation wording,
        and an absence is stated, not turned into an instruction. Before any
@@ -1245,6 +1255,8 @@ export const GoalPanel = memo(function GoalPanel({
             </StaleGuardBanner>
           ) : identityWithheld !== null ? (
             identityWithheldLine('goal-impact-withheld-identity')
+          ) : certaintyUnearned !== null ? (
+            certaintyUnearnedLine('goal-impact-certainty-unearned')
           ) : perOptionOnly ? (
             perOptionOnlyLine('goal-impact-per-option')
           ) : (

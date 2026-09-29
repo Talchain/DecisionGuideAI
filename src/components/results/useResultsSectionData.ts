@@ -2299,6 +2299,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         goalProbability,
         goalFitIsModelledBasis,
         goalFitBaseCaveat,
+        ...(goalDecision.goalCertaintyUnearned ? { goalCertaintyUnearned: goalDecision.goalCertaintyUnearned } : {}),
         // Which quantity `goalProbability` actually IS, carried to the render
         // layer so prose can name it honestly (see types.ts).
         //

@@ -90,6 +90,7 @@ import {
 import { selectAnalysisReadinessAuthority } from '../state/analysisStateSelector'
 import { readinessObjectsToRun } from '../utils/canRunAnalysis'
 import { readLimitVerdicts, type LimitVerdictsWrite } from '../state/storedLimitVerdicts'
+import { readGoalCertainty } from '../state/storedGoalCertainty'
 
 /**
  * Which producer fact withdrew the leading-option designation.
@@ -360,6 +361,8 @@ export type ScenarioAnalysisApplyOutcome =
 export interface ApplyScenarioAnalysisReadInput {
   readonly analysisState: AnalysisStateV1 | null
   readonly analysisResult: unknown
+  /** The read's `analysis_goal_certainty`, raw (CEE #2280); parsed by the SAME reader the turn leg uses. */
+  readonly goalCertainty?: unknown
   /** The read's `analysis_limit_verdicts`, raw; parsed by the SAME reader the turn leg uses. */
   readonly limitVerdicts?: unknown
   readonly store: ScenarioAnalysisApplyStore
@@ -483,7 +486,7 @@ export function applyScenarioAnalysisRead(
   let resultsHydrated = false
   const block = input.analysisResult
   if (block !== null && block !== undefined && typeof input.store.resultsComplete === 'function') {
-    const report = mapV5AnalysisToReport(block as AnalysisResultBlock)
+    const report = mapV5AnalysisToReport(block as AnalysisResultBlock, { goalCertainty: readGoalCertainty(input.goalCertainty) })
     const hash = report.model_card.response_hash
     // The SAME hash dedupe the turn applier uses: a re-read of an analysis we
     // already display must not re-write the slice (it would restart animations
