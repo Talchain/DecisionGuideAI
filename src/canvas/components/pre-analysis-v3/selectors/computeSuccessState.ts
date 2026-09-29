@@ -226,7 +226,12 @@ export function computeSuccessState(
     // compares numbers; a stated `'200k'` cannot be matched against one, so it
     // keeps the Olumi attribution rather than borrowing the user's voice —
     // which is what that helper's own header demands of every unmatched case.
-    const userStated = numeric !== null && matchesExplicitConstraint(numeric, goalConstraints)
+    //
+    // ⭐ OR CEE STAMPED IT FROM THE BRIEF: `threshold_source: 'brief_extraction'` is written ONLY when the brief
+    // writes this figure in the goal's unit (CEE `holdStatedGoalAttributes`, `figureTheUserWrote`). It is on the NODE,
+    // so it holds only for the node's own `goal_threshold_raw`, never for the analysis-ready fallback.
+    const briefStamped = rawCandidate === data.goal_threshold_raw && data.threshold_source === 'brief_extraction'
+    const userStated = briefStamped || (numeric !== null && matchesExplicitConstraint(numeric, goalConstraints))
     return {
       isSet: true,
       displayText: numeric !== null ? sayTarget(numeric) : String(rawCandidate).trim(),
