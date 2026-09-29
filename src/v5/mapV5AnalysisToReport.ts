@@ -43,7 +43,7 @@ import {
 import type { DecisionVerdictReportLike } from '../lib/decisionVerdict'
 import { goalLevelFromIdentityCaveat } from '../components/results/utils/goalLevelFromIdentity'
 import { readGoalIdentityWithheld } from '../components/results/utils/goalIdentityWithheld'
-import { unearnedCertaintyById, type GoalCertaintyEntry } from '../canvas/state/storedGoalCertainty'
+import { goalCertaintyStamp, type GoalCertaintyEntry } from '../canvas/state/storedGoalCertainty'
 import { readInfluenceGatedBy } from '../components/results/driverDisplayModel'
 import {
   factorDirectionToPolarity,
@@ -1087,7 +1087,6 @@ export function mapV5AnalysisToReport(
   }
   const goalLevelAuthor = goalLevelFromIdentityCaveat(enrichment)
   const goalIdentityWithheld = readGoalIdentityWithheld(enrichment) !== null
-  const unearnedCertainty = unearnedCertaintyById(options.goalCertainty)
   const option_probabilities: Record<string, ResultsOptionProbability> = {}
 
   // Resolution path A: option_comparison is the canonical source.
@@ -1185,6 +1184,11 @@ export function mapV5AnalysisToReport(
     // 'samples'` fabrication the note below refuses.
     const computeStatus = narrowOptionComputeStatus(enriched?.status)
     const computeStatusReason = narrowOptionComputeStatusReason(enriched?.status_reason)
+    // The goal figure this mapper writes out (the attested wire boundary below), read ONCE so the certainty stamp binds
+    // to exactly the figure that is displayed.
+    const displayedGoalProbability = safeFiniteNumber(enriched?.probability_of_goal)
+    // CEE #2270/#2280: is a displayed 0/1 attested by the Run's stored decision? (`goalCertaintyStamp`, the contract.)
+    const certaintyStamp = goalCertaintyStamp(displayedGoalProbability, optionId, options.goalCertainty)
 
     option_probabilities[optionId] = {
       /**
@@ -1197,9 +1201,7 @@ export function mapV5AnalysisToReport(
        *   `selectGoalProbability`. Suppressed count is baselined and ratcheted.
        */
       // No silent defaults — undefined when missing.
-      ...(safeFiniteNumber(enriched?.probability_of_goal) !== undefined
-        ? { goal_probability: safeFiniteNumber(enriched?.probability_of_goal) }
-        : {}),
+      ...(displayedGoalProbability !== undefined ? { goal_probability: displayedGoalProbability } : {}),
       ...(safeFiniteNumber(enriched?.probability_of_joint_goal) !== undefined
         ? {
             probability_of_joint_goal: safeFiniteNumber(
@@ -1214,7 +1216,7 @@ export function mapV5AnalysisToReport(
       // ISL #207 — the run's goal base is Olumi's estimate (fail-closed, see the helper).
       ...(goalLevelAuthor !== null ? { goalLevelAuthor } : {}),
       ...(goalIdentityWithheld ? { goalIdentityWithheld: true as const } : {}),
-      ...(unearnedCertainty.has(optionId) ? { goalCertaintyUnearned: { say: unearnedCertainty.get(optionId)!.say } } : {}),
+      ...(certaintyStamp !== null ? { goalCertaintyUnearned: certaintyStamp } : {}),
       confidence: 0.5,
       ...(winProb !== undefined ? { win_probability: winProb } : {}),
       ...(expected !== undefined ? { expected } : {}),
