@@ -51,6 +51,7 @@ import {
   type OptionInterventionProposalOutcome,
   type OptionInterventionSendSettlement,
 } from '../../../hooks/useModelEditAuthority'
+import { OPTION_INTERVENTION_NEEDS_FRESH_BASE, OPTION_INTERVENTION_NOT_ENCODABLE } from './optionInterventionCopy'
 import type { SystemEventSendSettlementDetail } from '../../../conversation/settleSystemEventSend'
 import { fenceRefusalCopyForCategory } from '../../../../v5/failureTypeRetryability'
 import { isDisplaySafeReason } from '../../../conversation/ceeRecovery'
@@ -77,10 +78,8 @@ import { isDisplaySafeReason } from '../../../conversation/ceeRecovery'
  * The copy lives here rather than at each surface for the same reason the hook
  * does: the panel's rows and `OptionAdvancedEditor` describe one refusal one way.
  */
-export const OPTION_INTERVENTION_NEEDS_FRESH_BASE =
-  'Not sent · Olumi has not seen this model this session. Ask it anything, then set this again.'
-export const OPTION_INTERVENTION_NOT_ENCODABLE =
-  'Not sent · this effect cannot be recorded on this model.'
+// The two synchronous refusals' words live in a leaf so the option CARD says them too without importing this hook.
+export { OPTION_INTERVENTION_NEEDS_FRESH_BASE, OPTION_INTERVENTION_NOT_ENCODABLE } from './optionInterventionCopy'
 
 /**
  * `SEND_BLOCKED` — the busy lock refused the dispatch, so no request was built.

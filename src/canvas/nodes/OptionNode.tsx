@@ -1,4 +1,4 @@
-import { Fragment, memo, useMemo, useCallback } from 'react'
+import { Fragment, memo, useMemo, useCallback, type ReactNode } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { Pencil } from 'lucide-react'
 import Tooltip from '../../components/Tooltip'
@@ -9,6 +9,10 @@ import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbs
 import { useOptionAbsentFromRunShown, useOptionLeftOutOfRun } from '../hooks/useOptionLeftOutOfRun'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
+import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
+import { NodeValueEditor } from './shared/NodeValueEditor'
+import { optionValueInPlace } from './shared/optionValueInPlace'
+import { OPTION_INTERVENTION_NEEDS_FRESH_BASE, OPTION_INTERVENTION_NOT_ENCODABLE } from '../ui/inspector-v2/shared/optionInterventionCopy'
 import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
 import { useAnchorRailFloorStore, selectAtOrAboveIconLegibleZoom } from './shared/anchorRailFloor'
 import { collapseEstimateDisplay } from './shared/collapseEstimateDisplay'
@@ -726,6 +730,8 @@ export const OptionNode = memo((props: NodeProps) => {
   const scienceIcons = useScienceIcons(props.id, 'option')
 
   const nodes = useCanvasStore(state => state.nodes)
+  // ⭐ E1b: the option's values are edited ON the card, through the inspector's own writer (`option_intervention_edit`).
+  const optionEditAuthority = useModelEditAuthority(props.id)
   const resultsReport = useCanvasStore(state => state.results.report)
   /**
    * The Run's typed fact that it KEPT this Olumi-proposed option only because some of the user's options could not be
@@ -2090,6 +2096,40 @@ export const OptionNode = memo((props: NodeProps) => {
    * `+N more` → inspector. No rung term: byte-identical at Normal and landing
    * (no rung-triggered re-layout).
    */
+  /**
+   * ⭐ E1b: the row's amount is the control that edits what this option sets for that factor — the inspector's frame
+   * (`optionValueInPlace`) and writer (`proposeOptionIntervention`), at the row's own type size. A row with no
+   * numeric target keeps its text.
+   */
+  const withValueEditor = (factorId: string, readout: ReactNode): ReactNode => {
+    const chip = allInterventionChips.find(c => c.factorId === factorId)
+    const inPlace = chip ? optionValueInPlace(chip) : null
+    if (!chip || !inPlace) return readout
+    return (
+      <NodeValueEditor
+        value={chip.value}
+        readout={readout}
+        seedText={inPlace.seedText}
+        prefix={inPlace.prefix}
+        scaleHint={inPlace.scaleHint}
+        admit={inPlace.admit}
+        restingFlow="inline"
+        restingTypography={typography.edgeLabel}
+        ariaLabel={`${chip.label}, as this option sets it`}
+        testId={`option-value-editor-${props.id}-${factorId}`}
+        readCommittedValue={() => {
+          const n = useCanvasStore.getState().nodes.find(x => x.id === props.id)
+          return unwrapInterventionValue((n?.data as Record<string, any> | undefined)?.interventions?.[factorId]).value ?? null
+        }}
+        onCommit={(v, { onSendSettled }) => {
+          const outcome = optionEditAuthority.proposeOptionIntervention(factorId, v, { onSendSettled: (st) => onSendSettled(st) })
+          if (outcome === 'dispatched') return 'dispatched'
+          return { refused: outcome === 'needs_fresh_base' ? OPTION_INTERVENTION_NEEDS_FRESH_BASE : OPTION_INTERVENTION_NOT_ENCODABLE }
+        }}
+      />
+    )
+  }
+
   const renderChangeAmount = (r: OptionChangeRow, align: 'left' | 'right', resting: boolean) => {
     // The mark is glued to the value's last run, so that run is held whole only
     // while it fits one line of the row budget WITH the mark (#2119's rule,
@@ -2155,7 +2195,7 @@ export const OptionNode = memo((props: NodeProps) => {
               fits (optionAmountSegmentNoWrap). ED 02:31Z D2: a wrapped from → to
               is accepted; a cut value is not. The text is byte-identical to
               r.change either way. */}
-          {r.before !== undefined && r.after !== undefined ? (
+          {withValueEditor(r.factorId, r.before !== undefined && r.after !== undefined ? (
             <>
               <span className={resting && optionAmountSegmentNoWrap(r.before) ? 'whitespace-nowrap' : undefined}>
                 <span
@@ -2177,7 +2217,7 @@ export const OptionNode = memo((props: NodeProps) => {
             <span className={resting && amountRunNoWrap(r.change) ? 'whitespace-nowrap' : undefined}>
               {r.change}
             </span>
-          )}
+          ))}
         </span>
       )}
       {/* ⭐ Paul 23 Sep contract feedback point 7: `8% → 7%` must say

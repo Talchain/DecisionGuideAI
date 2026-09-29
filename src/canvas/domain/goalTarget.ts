@@ -350,7 +350,9 @@ export function goalTargetInPlaceEdit(data: GoalTargetSource | null | undefined)
   const unit = declaredGoalUnit(data).trim()
   if (unit === '') return null
   const held = goalHeldComparatorOf(data?.goal_direction)
-  const direction = held === '>=' ? 'at_least' : held === '<=' ? 'at_most' : null
+  // PoC (Paul 29 Sep 17:48Z, speed): "above"/"below" edit in place too. The wire's direction has no strict form, so
+  // an edit restates "above 110%" as "at least 110%" — the same side of the target, stated inclusively.
+  const direction = held === '>=' || held === '>' ? 'at_least' : held === '<=' || held === '<' ? 'at_most' : null
   if (direction === null) return null
   return { value, unit, direction }
 }
