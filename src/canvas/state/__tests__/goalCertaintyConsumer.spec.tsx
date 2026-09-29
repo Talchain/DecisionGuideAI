@@ -140,6 +140,14 @@ describe('GoalPanel — the unearned 100% is said as the producer’s sentence, 
     expect(getByTestId('goal-probability-certainty-unearned').textContent).toBe(GOAL_CERTAINTY_UNEARNED_FALLBACK)
     expect(container.textContent ?? '').not.toMatch(/100% of model runs/)
   })
+  it('AIQ 5888121329: an identity-mismatch certainty with no sentence names no cause (never "sized")', () => {
+    const mismatch = { option_id: 'raise_to_59', probability_of_goal: 1, earned: false, identity_mismatch: { node_id: 'mrr', reason: 'operand_not_parent' }, no_break_even: 'operand_not_parent' }
+    const { getByTestId } = renderWith(turnReport({ goal_certainty: [mismatch] }))
+    const text = getByTestId('goal-probability-certainty-unearned').textContent ?? ''
+    expect(text).toBe(GOAL_CERTAINTY_UNEARNED_FALLBACK)
+    expect(text).not.toMatch(/sized/i)
+  })
+
   it('CONTROL: an EARNED 100% keeps the figure', () => {
     const { queryByTestId, container } = renderWith(turnReport({ goal_certainty: [{ option_id: 'raise_to_59', probability_of_goal: 1, earned: true }] }))
     expect(queryByTestId('goal-probability-certainty-unearned')).toBeNull()

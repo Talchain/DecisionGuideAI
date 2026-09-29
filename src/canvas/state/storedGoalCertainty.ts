@@ -59,6 +59,9 @@ export function unearnedCertaintyById(entries: readonly GoalCertaintyEntry[] | n
   return out
 }
 
-/** Shown in place of an unearned figure when the producer's sentence is missing or unsafe. Asks nothing of the user. */
-export const GOAL_CERTAINTY_UNEARNED_FALLBACK =
-  "Not shown as certain: a link this figure depends on hasn't been sized yet, so it could still go the other way."
+/**
+ * Shown in place of an unearned figure when the producer's sentence is missing or unsafe. It names NO cause: an unearned
+ * certainty has three (`unsized_path`, `identity_mismatch`, `unchecked`), and the producer's `say` carries the real one
+ * (AIQ #72 5888121329). Asks nothing of the user.
+ */
+export const GOAL_CERTAINTY_UNEARNED_FALLBACK = "Not shown as certain: Olumi can't yet confirm this result."
