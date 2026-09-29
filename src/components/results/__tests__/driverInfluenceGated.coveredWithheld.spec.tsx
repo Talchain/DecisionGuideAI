@@ -225,16 +225,20 @@ describe('(f) the live carrier: enrichment.factor_sensitivity[].gated_by survive
     const report = mapV5AnalysisToReport(shaped(['incremental_growth_spend']) as never)
     setCompleteReport(report as unknown as Record<string, unknown>)
     const data = panelRows()
-    // Six rows > 5, so the panel's existing zero-elasticity filter keeps the two
-    // rows with a magnitude; the point is their BASIS, which was the fallback.
+    // Five RANKED rows (the gated one is listed apart), so the >5-rows zero-elasticity filter does not
+    // apply; the point is their BASIS, which was the fallback. Order: displayed influence, then |elasticity|.
     expect(data.drivers.map((d) => [d.factorKey, d.displayProvenance])).toEqual([
       ['pro_paying_subscribers', 'influence_score'],
+      ['pro_plan_price', 'influence_score'],
+      ['new_feature_release_intensity', 'influence_score'],
       ['monthly_churn', 'influence_score'],
+      ['incremental_growth_spend', 'influence_score'],
     ])
     expect(canvasFor('pro_paying_subscribers').influenceProvenance).toBe('influence_score')
     expect(canvasFor('advertising_investment_share').sensitivityRank).toBeNull()
     expect(canvasFor('advertising_investment_share').influence).toBeNull()
     render(<DriversSection data={data} />)
+    fireEvent.click(screen.getByRole('button', { name: 'See all factors (+3 more)' })) // 5 ranked rows; the gated row follows them
     expect(screen.getByTestId('driver-gated-row-advertising_investment_share').textContent).toContain(GATED_WORDS)
   })
 
@@ -304,6 +308,11 @@ describe('(g) PLoT #408 egress rows through mapV5AnalysisToReport → panel and 
     expect(g.influence_score).toBeUndefined()
   })
 
+  it('⛔ CONTRAST: an INVALID gate (non-string member) with no magnitude is dropped — admission is the shared reader', () => {
+    const report = mapV5AnalysisToReport(block([scoredP('pro_paying_subscribers', 0.9, 1), { factor_id: 'monthly_churn', importance_basis: 'isl_structural', influence_gated_by: [7] }]) as never) as unknown as { factor_sensitivity: Array<Record<string, unknown>> }
+    expect(report.factor_sensitivity.map((r) => r.factor_id)).toEqual(['pro_paying_subscribers'])
+  })
+
   it('⛔ CONTRAST: a NON-gated row with no usable magnitude is still dropped, as before', () => {
     const report = mapV5AnalysisToReport(block([scoredP('pro_paying_subscribers', 0.9, 1), { factor_id: 'monthly_churn', importance_basis: 'isl_structural' }]) as never) as unknown as { factor_sensitivity: Array<Record<string, unknown>> }
     expect(report.factor_sensitivity.map((r) => r.factor_id)).toEqual(['pro_paying_subscribers'])
@@ -331,7 +340,7 @@ describe('(h) the REAL PLoT #408 egress (R3-B, unmodified rows) replayed through
     run()
     const data = panelRows()
     render(<DriversSection data={data} />)
-    fireEvent.click(screen.getByRole('button', { name: 'See all factors (+2 more)' })) // 2 scored + 1 gated fit the collapsed 3
+    fireEvent.click(screen.getByRole('button', { name: 'See all factors (+3 more)' })) // 3 scored fill the collapsed 3
     for (const id of gatedIds) {
       expect(canvasFor(id).inSensitivityAnalysis, id).toBe(true) // precondition: the row IS in the run
       expect(canvasFor(id).sensitivityRank, id).toBeNull()
@@ -343,16 +352,20 @@ describe('(h) the REAL PLoT #408 egress (R3-B, unmodified rows) replayed through
     expect(data.drivers.map((d) => d.factorKey).filter((k) => gatedIds.includes(k))).toEqual([])
   })
 
-  it('the scored rows keep the producer basis; panel order and the canvas Driver 1 agree', () => {
+  it('the 3 scored rows keep the producer basis in the panel; the badge ranks only what the tie doctrine licenses', () => {
     run()
     const data = panelRows()
-    // ⚠ Pinned as TODAY's behaviour, not endorsed: pro_plan_price (influence_score 1, elasticity 0 at price 0
-    // today) is not listed — the panel's existing >5-rows zero-elasticity filter, same as served journey C.
-    // Whether a zero-sensitivity lever is listed is an AI QUALITY meaning call, raised on #72, not this PR's.
+    // 3 ranked rows (the 3 gated are listed apart), so the >5-rows zero-elasticity filter no longer hides
+    // pro_plan_price (influence_score 1, elasticity 0 at price 0 today).
     expect(data.drivers.map((d) => [d.factorKey, d.displayProvenance])).toEqual([
+      ['pro_plan_price', 'influence_score'],
       ['fac_existing_customers_grandfathered', 'influence_score'],
       ['other_mrr_growth', 'influence_score'],
     ])
-    expect(canvasFor('fac_existing_customers_grandfathered').sensitivityRank).toBe(1)
+    // The badge orders by |elasticity| and withholds ranks past a tie on either basis (rankFactor.ts): the two
+    // runners-up tie at influence 0.1667, as PLoT's own driver_order.separability says (basis_value_exact_tie).
+    expect(['fac_existing_customers_grandfathered', 'other_mrr_growth', 'pro_plan_price'].map((id) => canvasFor(id).sensitivityRank)).toEqual([1, null, null])
+    expect(canvasFor('fac_existing_customers_grandfathered').influenceRankedCount).toBe(1)
+    expect(plot408Zero.driver_order.separability.method).toBe('basis_value_exact_tie')
   })
 })

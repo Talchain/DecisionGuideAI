@@ -3115,8 +3115,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     })
     const driverItems: DriverItem[] = factorsWithKeys
       .filter(f => {
-        // Always keep if we have few factors
-        if (rawFactors.length <= 5) return true
+        // Always keep if we have few factors — counted over the RANKED rows: a covered-withheld row is listed
+        // apart and never ranked, so it must not tip this filter (PLoT #408 egress: 3 scored + 3 gated hid Driver 1).
+        if (factorsWithKeys.length <= 5) return true
         // Always keep if this factor has elasticity data
         if (Math.abs(f.rawElasticity) > 0) return true
         // If NO factors have elasticity data, keep all (fallback display)

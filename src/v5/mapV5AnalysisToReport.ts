@@ -42,6 +42,7 @@ import {
 } from '../adapters/plot/optionComputeStatus'
 import type { DecisionVerdictReportLike } from '../lib/decisionVerdict'
 import { goalLevelFromIdentityCaveat } from '../components/results/utils/goalLevelFromIdentity'
+import { readInfluenceGatedBy } from '../components/results/driverDisplayModel'
 import {
   factorDirectionToPolarity,
   normaliseFactorDirection,
@@ -300,7 +301,9 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
   const gatedRaw = Array.isArray(entry.influence_gated_by)
     ? entry.influence_gated_by
     : Array.isArray(entry.gated_by) ? entry.gated_by : undefined
-  const gatedRow = gatedRaw !== undefined && gatedRaw.length > 0 && safeFiniteNumber(entry.influence_score) === undefined
+  // Admission asks THE shared reader, so the mapper cannot keep a magnitude-free row the panel then reads as NOT
+  // gated (e.g. `influence_gated_by: [7]`) — PR Review #2290 @6f2b74c8 item 1. `gatedRaw` is still carried verbatim.
+  const gatedRow = readInfluenceGatedBy(entry) !== null
   if (rawMagnitude === undefined && !gatedRow) return null
 
   const factorId =
