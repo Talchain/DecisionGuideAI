@@ -92,6 +92,7 @@ import { readinessObjectsToRun } from '../utils/canRunAnalysis'
 import { readLimitVerdicts, type LimitVerdictsWrite } from '../state/storedLimitVerdicts'
 import { readGoalCertainty } from '../state/storedGoalCertainty'
 import { differentKnownAnalysisRun, sameAnalysisRunReceipt, withAnalysisRunReceipt } from '../../v5/analysisRunReceipt'
+import { readOptionParticipation } from '../state/storedOptionParticipation'
 
 /**
  * Which producer fact withdrew the leading-option designation.
@@ -366,6 +367,8 @@ export interface ApplyScenarioAnalysisReadInput {
   readonly analysisResult: unknown
   /** The read's `analysis_goal_certainty`, raw (CEE #2280); parsed by the SAME reader the turn leg uses. */
   readonly goalCertainty?: unknown
+  /** The read's `analysis_option_participation`, raw (Runtime 5888341208); parsed by the SAME reader the turn leg uses. */
+  readonly optionParticipation?: unknown
   /** The read's `analysis_limit_verdicts`, raw; parsed by the SAME reader the turn leg uses. */
   readonly limitVerdicts?: unknown
   readonly store: ScenarioAnalysisApplyStore
@@ -491,7 +494,10 @@ export function applyScenarioAnalysisRead(
   const block = input.analysisResult
   if (block !== null && block !== undefined && typeof input.store.resultsComplete === 'function') {
     const goalCertainty = readGoalCertainty(input.goalCertainty)
-    const report = withAnalysisRunReceipt(mapV5AnalysisToReport(block as AnalysisResultBlock, { goalCertainty }), {
+    const report = withAnalysisRunReceipt(mapV5AnalysisToReport(block as AnalysisResultBlock, {
+      goalCertainty,
+      optionParticipation: readOptionParticipation(input.optionParticipation),
+    }), {
       scenarioId: input.store.currentScenarioId, block: block as AnalysisResultBlock, state: verdict, goalCertainty,
     })
     const hash = report.model_card.response_hash

@@ -144,7 +144,10 @@ import {
   NOT_COMPUTED_BADGE,
   notAnalysedReasonCopy,
   notComputedReasonCopy,
+  OLUMI_SUGGESTION_TAG,
+  olumiProposedKeptCopy,
 } from '../../components/results/utils/notAnalysedCopy'
+import { optionParticipationOf } from '../state/storedOptionParticipation'
 import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
@@ -721,6 +724,19 @@ export const OptionNode = memo((props: NodeProps) => {
 
   const nodes = useCanvasStore(state => state.nodes)
   const resultsReport = useCanvasStore(state => state.results.report)
+  /**
+   * The Run's typed fact that it KEPT this Olumi-proposed option only because some of the user's options could not be
+   * analysed (Runtime #72 5888341208). A primitive (the sentence, or null), so the card re-renders only when it changes.
+   */
+  const keptProvisionalSentence = useCanvasStore((state): string | null => {
+    const entry = optionParticipationOf(state.results.report as { option_participation?: never } | null, props.id)
+    if (entry?.state !== 'kept_olumi_provisional') return null
+    const labels = entry.unanalysableUserOptionIds
+      .map((id) => (state.nodes.find((n) => n.id === id)?.data as { label?: unknown } | undefined)?.label)
+      .filter((l): l is string => typeof l === 'string' && l.trim().length > 0)
+      .map((l) => l.trim())
+    return olumiProposedKeptCopy(labels)
+  })
   const resultsStatus = useCanvasStore(state => state.results.status)
   // Wave 4 / §6.4: the identity-anchored option number (Wave F-A store),
   // rendered on the canvas node so it matches the Analysis panel's "Option N"
@@ -2949,6 +2965,15 @@ export const OptionNode = memo((props: NodeProps) => {
                 </span>
               </span>
             )}
+            {leftOutOfRunReason === 'excluded_olumi_proposed' && (
+              <span
+                className={`${typography.edgeLabel} text-text-light whitespace-nowrap pl-[0.3em]`}
+                aria-hidden="true"
+                data-testid={`option-not-analysed-olumi-${props.id}`}
+              >
+                · {OLUMI_SUGGESTION_TAG}
+              </span>
+            )}
             <span className={typography.screenReaderOnly}>
               {notAnalysedSentence}
             </span>
@@ -2957,6 +2982,17 @@ export const OptionNode = memo((props: NodeProps) => {
         </div>
         {/* Row 22: Detailed carries the stale state inline (Standard: popover). */}
         {isDetailed && staleStateLine}
+        {/* The Run kept Olumi's proposal in a provisional comparison (typed fact; never an authorship guess). */}
+        {displayMetadata.isResultsMode && keptProvisionalSentence !== null && (
+          <div
+            className={`${typography.edgeLabel} text-text-light`}
+            title={keptProvisionalSentence}
+            data-testid={`option-participation-kept-${props.id}`}
+          >
+            <span aria-hidden="true">{OLUMI_SUGGESTION_TAG} · provisional</span>
+            <span className={typography.screenReaderOnly}>{keptProvisionalSentence}</span>
+          </div>
+        )}
 
         {/* ⭐ THE OPTION THE ANALYSIS RAN ON AND COULD NOT COMPUTE.
             Mutually exclusive with the readout above by construction, not by a

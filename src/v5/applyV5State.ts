@@ -53,6 +53,7 @@ import {
 } from '../canvas/state/storedLimitVerdicts'
 import { goalCertaintyFromResponse, readGoalCertainty } from '../canvas/state/storedGoalCertainty'
 import { differentKnownAnalysisRun, sameAnalysisRunReceipt, withAnalysisRunReceipt } from './analysisRunReceipt'
+import { optionParticipationFromResponse, readOptionParticipation } from '../canvas/state/storedOptionParticipation'
 import type { RunDelta } from '@talchain/schemas/boundary'
 import { readEvidenceAssessment, type EvidenceAssessment } from './evidenceAssessment'
 import { AnalysisStateV1Schema, Stage } from '@talchain/schemas/boundary'
@@ -2345,7 +2346,10 @@ export function applyV5State(
     } else if (typeof store.resultsComplete === 'function') {
       // CEE #2270/#2280: the Run's stored goal-certainty fact rides beside it; unearned 0/1 figures are stamped.
       const goalCertainty = readGoalCertainty(goalCertaintyFromResponse(response))
-      const report = withAnalysisRunReceipt(mapV5AnalysisToReport(analysisBlock, { goalCertainty }), {
+      const report = withAnalysisRunReceipt(mapV5AnalysisToReport(analysisBlock, {
+        goalCertainty,
+        optionParticipation: readOptionParticipation(optionParticipationFromResponse(response)),
+      }), {
         scenarioId: store.currentScenarioId, block: analysisBlock, state: turnVerdict, goalCertainty,
       })
       const hash = report.model_card.response_hash

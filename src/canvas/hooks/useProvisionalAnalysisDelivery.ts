@@ -296,6 +296,7 @@ export async function runProvisionalDeliverySchedule(deps: {
       analysisResult: result.analysisResult,
       limitVerdicts: result.limitVerdicts,
       goalCertainty: result.goalCertainty,
+      optionParticipation: result.optionParticipation,
       store: getStore(),
     })
     if (outcome.outcome === 'applied') {

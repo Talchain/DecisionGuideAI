@@ -114,6 +114,7 @@ import { resolveOptionInterventionCount } from '../nodes/shared/optionInterventi
 import { useAnalysisResultsAreCurrent } from './useAnalysisResultsAreCurrent'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
 import type { ResultsReport } from '../../components/results/types'
+import { optionParticipationOf } from '../state/storedOptionParticipation'
 import {
   deriveNotAnalysedReason,
   isAnalysedOption,
@@ -300,6 +301,7 @@ export function useOptionAbsentFromRunShown(optionNodeId: string): NotAnalysedRe
         ceeOptions: state.ceeAnalysisReady?.options,
         nodeInterventions: (state.nodes.find((n) => n.id === oid)?.data as { interventions?: unknown } | undefined)?.interventions,
       }),
+      (oid) => optionParticipationOf(report as unknown as ResultsReport, oid)?.state === 'excluded_olumi_proposed',
     )
   })
 }

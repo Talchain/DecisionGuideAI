@@ -48,9 +48,24 @@ export const NOT_ANALYSED_BADGE = 'Not analysed'
  * why reads as a decision.
  */
 export function notAnalysedReasonCopy(reason: NotAnalysedReason): string {
+  if (reason === 'excluded_olumi_proposed') return OLUMI_PROPOSED_EXCLUDED_COPY
   return reason === 'no_interventions'
     ? 'This option has no values set yet, so it was left out of the comparison. It has no rank and no probability.'
     : 'The analysis returned no result for this option, so it has no rank and no probability.'
+}
+
+/**
+ * The Run's typed participation fact (Runtime #72 5888341208), said as it is. Olumi's proposal is never presented as the
+ * user's option or as endorsed (AIQ 5887015488, DL 5887510885). Meaning: AIQ.
+ */
+export const OLUMI_SUGGESTION_TAG = "Olumi's suggestion"
+export const OLUMI_PROPOSED_EXCLUDED_COPY =
+  "Olumi suggested this option. It isn't one of yours, so this run compared your options without it. It has no rank and no probability."
+/** `kept_olumi_provisional`: the comparison kept Olumi's option only because some of the user's could not be analysed. */
+export function olumiProposedKeptCopy(unanalysableLabels: readonly string[]): string {
+  const named = unanalysableLabels.map((l) => `\u2018${l}\u2019`)
+  const who = named.length === 0 ? 'some of your options' : named.length === 1 ? named[0] : `${named.slice(0, -1).join(', ')} and ${named[named.length - 1]}`
+  return `Olumi suggested this option. It is compared only because ${who} can't be analysed yet, so this run puts no option forward.`
 }
 
 /*
