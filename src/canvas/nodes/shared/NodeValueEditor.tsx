@@ -83,6 +83,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { typography } from '../../../styles/typography'
 import { controls } from '../../../styles/controls'
+import { EditPencilCue } from './EditPencilCue'
 import { admitNumericField, NUMERIC_FIELD_REFUSAL } from '../../ui/inspector-v2/shared/numericFieldAdmission'
 import {
   valueCommitSettlementWord,
@@ -91,6 +92,9 @@ import {
   type ValueCommitSettlementWord,
 } from '../../conversation/valueCommitSettlement'
 import type { SystemEventSendSettlement } from '../../conversation/settleSystemEventSend'
+
+/** What a typed entry admits to: the value to commit, or the sentence saying why not. */
+export type NodeValueEntryAdmission = { ok: true; value: number } | { ok: false; reason: string }
 
 export interface NodeValueEditorProps {
   /**
@@ -111,7 +115,21 @@ export interface NodeValueEditorProps {
   onCommit: (
     value: number,
     opts: { onSendSettled: (settlement: SystemEventSendSettlement) => void },
-  ) => 'dispatched' | 'local_only' | 'not_encodable'
+  ) => 'dispatched' | 'local_only' | 'not_encodable' | { refused: string }
+  /**
+   * ⭐ E1b — AN ENTRY NOT ON `value`'S OWN SCALE. An option target is typed in the factor's unit ("£80,000", "80k")
+   * and committed on the model scale; the one rule for that is `optionTargetEntry` (`admitOptionTargetEntry`), the
+   * inspector's own. With `admit` the field is a TEXT field seeded with `seedText`, and a refusal shows `admit`'s
+   * sentence. Without them nothing changes: a number field seeded with `String(value)`, admitted by
+   * `admitNumericField` with `min`/`max`.
+   */
+  admit?: (draft: string) => NodeValueEntryAdmission
+  seedText?: string
+  /** The unit printed BEFORE the open field (`£`), where the card prints it. */
+  prefix?: string
+  /** Type for the INLINE resting readout; defaults to `typography.nodeValue`. A row that sits in smaller type (an option
+   *  card's change row) passes its own, so becoming a control changes no size on the card. */
+  restingTypography?: string
   /**
    * The model's CURRENT value, read at settlement time from the store rather
    * than from this render's prop, which may not have re-rendered yet when the
@@ -178,7 +196,7 @@ export interface NodeValueEditorProps {
 
 export function NodeValueEditor({
   value, readout, onCommit, readCommittedValue, min, max, outOfRangeCopy, scaleHint, editNote, editNoteShort, ariaLabel, testId,
-  restingFlow = 'box', trailing,
+  restingFlow = 'box', trailing, admit, seedText, prefix, restingTypography,
 }: NodeValueEditorProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -208,19 +226,20 @@ export function NodeValueEditor({
     // stale "Not saved" must not survive past the edit that supersedes it.
     commitSeqRef.current += 1
     setSettlement(null)
-    setDraft(value != null ? String(value) : '')
+    setDraft(seedText ?? (value != null ? String(value) : ''))
     setRefusal(null)
     setIsEditing(true)
-  }, [value])
+  }, [value, seedText])
 
   const commit = useCallback(() => {
     if (draft.trim().length === 0) { setIsEditing(false); return }
-    const admission = admitNumericField(draft, { min, max })
+    const admission = admit ? admit(draft) : admitNumericField(draft, { min, max })
     if (!admission.ok) {
       // A number outside the bounds gets the caller's sentence; a non-number
-      // keeps the admission's own reason — it is not a range question.
+      // keeps the admission's own reason — it is not a range question. A
+      // caller's own `admit` always speaks for itself.
       setRefusal(
-        outOfRangeCopy && admission.reason !== NUMERIC_FIELD_REFUSAL.NOT_FINITE
+        !admit && outOfRangeCopy && admission.reason !== NUMERIC_FIELD_REFUSAL.NOT_FINITE
           ? outOfRangeCopy
           : admission.reason,
       )
@@ -250,11 +269,13 @@ export function NodeValueEditor({
     }
     // ⛔ STAY OPEN. See the header: a refusal must not read as a save.
     setRefusal(
-      outcome === 'not_encodable'
-        ? VALUE_NOT_ENCODABLE_COPY
-        : VALUE_COMMIT_SETTLEMENT_COPY.local_only.message,
+      typeof outcome === 'object'
+        ? outcome.refused
+        : outcome === 'not_encodable'
+          ? VALUE_NOT_ENCODABLE_COPY
+          : VALUE_COMMIT_SETTLEMENT_COPY.local_only.message,
     )
-  }, [draft, min, max, outOfRangeCopy, value, onCommit, readCommittedValue])
+  }, [draft, min, max, outOfRangeCopy, value, onCommit, readCommittedValue, admit])
 
   // `nodrag nopan` and the pointer stop are not optional: without them React
   // Flow treats a drag inside the field as a node drag and the caret never
@@ -291,7 +312,7 @@ export function NodeValueEditor({
             role="button"
             tabIndex={0}
             data-testid={testId}
-            className={`nodrag nopan ${typography.nodeValue} group whitespace-normal ${controls.editableRestingCanvas}`}
+            className={`nodrag nopan ${restingTypography ?? typography.nodeValue} group group/edit whitespace-normal ${controls.editableRestingCanvas}`}
             aria-label={`${ariaLabel} — click to edit${editNote ? `. ${editNote}` : ''}`}
             title={editNote}
             {...guard}
@@ -304,6 +325,7 @@ export function NodeValueEditor({
             }}
           >
             {readout}
+            <EditPencilCue testId={`${testId}-pencil`} />
           </span>
           {trailing}
           {settlementWords}
@@ -315,13 +337,14 @@ export function NodeValueEditor({
         <button
           type="button"
           data-testid={testId}
-          className={`nodrag nopan ${typography.nodeValue} group inline-flex items-baseline ${controls.editableRestingCanvas}`}
+          className={`nodrag nopan ${typography.nodeValue} group group/edit inline-flex items-baseline ${controls.editableRestingCanvas}`}
           aria-label={`${ariaLabel} — click to edit${editNote ? `. ${editNote}` : ''}`}
           title={editNote}
           {...guard}
           onClick={(e) => { e.stopPropagation(); open() }}
         >
           <span className="min-w-0">{readout}</span>
+          <EditPencilCue testId={`${testId}-pencil`} />
         </button>
         {/* DESIGN-GAP-AUDIT row 37 — the truth strip's words, on the card. A
             `dispatched` commit is not a settled one (see this file's header);
@@ -335,13 +358,16 @@ export function NodeValueEditor({
   const editingBox = (
     <span className="nodrag nopan inline-flex flex-col items-start gap-0.5" {...guard}>
       <span className="inline-flex items-baseline gap-1">
+        {prefix && (
+          <span data-testid={`${testId}-prefix`} className={`${typography.nodeValue} text-text-light`}>{prefix}</span>
+        )}
         <input
           ref={inputRef}
-          type="number"
+          type={admit ? 'text' : 'number'}
           inputMode="decimal"
-          step="any"
-          min={min}
-          max={max}
+          step={admit ? undefined : 'any'}
+          min={admit ? undefined : min}
+          max={admit ? undefined : max}
           value={draft}
           data-testid={`${testId}-input`}
           aria-label={ariaLabel}

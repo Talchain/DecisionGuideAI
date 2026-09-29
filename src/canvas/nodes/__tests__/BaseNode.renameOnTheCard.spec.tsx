@@ -40,6 +40,15 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('the title is renamed on the card', () => {
+  it('E1d: the title carries the pencil cue for its own hover, and the rename field does not', () => {
+    renderCard()
+    const title = screen.getByTestId('node-title')
+    expect(title.contains(screen.getByTestId('node-title-pencil'))).toBe(true)
+    expect(title.className).toMatch(/(^|\s)group\/edit(\s|$)/)
+    fireEvent.doubleClick(title)
+    expect(screen.queryByTestId('node-title-pencil')).toBeNull()
+  })
+
   it('double-click → the editor opens in place; Enter commits through store.updateNodeLabel', () => {
     renderCard()
     fireEvent.doubleClick(screen.getByTestId('node-title'))

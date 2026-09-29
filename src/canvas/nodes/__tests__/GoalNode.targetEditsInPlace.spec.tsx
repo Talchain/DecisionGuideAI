@@ -94,6 +94,19 @@ describe('the goal card edits its target in place when the goal already states u
   })
 })
 
+describe('PoC widening (Paul 29 Sep): "above"/"below" also edit in place, on the same side of the target', () => {
+  it('strict > : proposes at_least', () => {
+    renderGoal({ ...LEVEL, goal_direction: '>' })
+    editTo('90000')
+    expect(proposeGoalTarget.mock.calls[0].slice(0, 4)).toEqual(['90000', 'GBP/month', 'scn-1', 'at_least'])
+  })
+  it('strict < : proposes at_most', () => {
+    renderGoal({ ...LEVEL, goal_direction: '<' })
+    editTo('70000')
+    expect(proposeGoalTarget.mock.calls[0].slice(0, 4)).toEqual(['70000', 'GBP/month', 'scn-1', 'at_most'])
+  })
+})
+
 describe('CONTROLS: the card keeps the route to the full editor, and proposes nothing, when it would have to choose', () => {
   const routeOnly = (data: Record<string, unknown>) => {
     renderGoal(data)
@@ -102,7 +115,6 @@ describe('CONTROLS: the card keeps the route to the full editor, and proposes no
     expect(proposeGoalTarget).not.toHaveBeenCalled()
   }
   it('no held comparator', () => routeOnly(LEVEL))
-  it('a strict > (no ConstraintType says it without loss)', () => routeOnly({ ...LEVEL, goal_direction: '>' }))
   it('no declared unit', () => routeOnly({ goal_threshold_raw: 85000, goal_direction: '>=' }))
   it('the typed route is not available', () => { dispatchAvailable = false; routeOnly({ ...LEVEL, goal_direction: '>=' }) })
   it('a change target is not edited as a level', () => {

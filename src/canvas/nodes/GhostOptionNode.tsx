@@ -59,7 +59,7 @@ import { memo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { Handle, Position } from '@xyflow/react'
 import { Plus } from 'lucide-react'
-import { requestAsk } from '../ui/inspector-v2/askSemantic'
+import { openWhatElseFromDoor } from '../components/WhatElseChooser'
 import { typography } from '../../styles/typography'
 import { GHOST_OPTION_DOOR_LABEL } from '../utils/ghostTiers'
 import { useCanvasStore } from '../store'
@@ -73,12 +73,11 @@ export const GhostOptionNode = memo((props: NodeProps) => {
   // predicate the cards read. Hidden, not unmounted: the box stays reserved.
   const farRung = useCanvasStore(selectLodBodyHidden)
 
-  const handleClick = useCallback(() => {
+  // ⭐ E4: the door opens the "What else…?" chooser; its Option chip keeps this door's own question. ⛔ Never
+  // `_sendMessage`: the chooser fills the composer (or the Ask drawer) through `requestAsk`; the person sends.
+  const handleClick = useCallback((e: { clientX?: number; clientY?: number; currentTarget: EventTarget | null }) => {
     if (!prompt) return
-    // ⛔ Never `_sendMessage`: that put a sentence in the user's transcript,
-    // under their name, that they had not said. `requestAsk` fills the
-    // composer (or the Ask drawer) and reveals Olumi; the person sends.
-    requestAsk({ text: prompt, label: GHOST_OPTION_DOOR_LABEL, source: 'ghost-door' })
+    openWhatElseFromDoor(e, 'option', prompt)
   }, [prompt])
 
   return (
@@ -149,7 +148,7 @@ export const GhostOptionNode = memo((props: NodeProps) => {
         visibility: farRung ? 'hidden' : undefined,
       }}
       onClick={handleClick}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick() }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick(e) }}
     >
       {/* Hidden handles so React Flow doesn't warn about missing handles */}
       <Handle type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />

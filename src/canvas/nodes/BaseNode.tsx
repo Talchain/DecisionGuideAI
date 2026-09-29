@@ -24,6 +24,7 @@ import { UnknownKindWarning } from '../components/UnknownKindWarning'
 import { NodeCoachingMarker, useNodeCoachingMarkerShown } from './shared/NodeCoachingMarker'
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
+import { EditPencilCue } from './shared/EditPencilCue'
 import { useCanvasStore } from '../store'
 import { EditableLabel } from '../ui/inspector-v2/shared/EditableLabel'
 import { TITLE_DOUBLE_CLICK_WINDOW_MS, handTitleClickToCard } from './shared/titleClickHandBack'
@@ -2627,7 +2628,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             onClick={lodBodyHidden ? undefined : onTitleClick}
             onDoubleClick={lodBodyHidden ? undefined : (e) => { e.stopPropagation(); cancelTitleClick(); setRenamingOnCard(true) }}
             {...(lodBodyHidden ? { [LOD_FAR_TITLE_ATTR]: 'true' } : {})}
-            className={
+            className={'group/edit ' + (
               /* ⭐ v3.1 WS1 #2 (26 Sep 2026): NO CLAMP AT A READING RUNG. The
                  contract's `.node h3` wraps (`overflow-wrap:break-word`) and never
                  clips; `line-clamp-2` ellipsised 2–12 titles per starter at the
@@ -2654,7 +2655,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                 : isAnchorCard
                   ? `${typography.nodeTitleWide} font-semibold text-text-body break-words`
                   : `${typography.nodeTitle} text-text-body break-words`
-            }
+            )}
             /* ⭐ CONTRACT `.node h3{font-weight:610}` — EVERY card's title, set
                inline so it cannot lose a cascade race with the size token's
                `font-medium`. Measured before landing (24 Sep, local dev build,
@@ -2676,6 +2677,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               />
             )}
             {titleOverride ?? cardTitle}
+            {/* E1d: the pencil says the title renames in place (double-click). Zero-width; see `EditPencilCue`. */}
+            {!lodBodyHidden && <EditPencilCue testId="node-title-pencil" />}
           </div>
           </Tooltip>
           )}

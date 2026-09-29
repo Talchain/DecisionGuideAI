@@ -69,7 +69,9 @@ describe('instrument checks (not claims)', () => {
     // Both calls live INSIDE these bodies; a body cut short at a stray brace
     // would read as "no call". (Thresholds sit below the base bodies' own
     // lengths, so a revert fails the claims below, not this check.)
-    expect(CLICK as string).toMatch(/onCanvasInteraction\?\.\(\)[\s\S]*setShowFullInspector\(true\)\s*\}$/)
+    // E2 (#2322): the body now ends by closing the full inspector — a click opens the link mini-editor, and the
+    // full inspector is the double-click (PR Review 5897538379).
+    expect(CLICK as string).toMatch(/onCanvasInteraction\?\.\(\)[\s\S]*setShowFullInspector\(false\)\s*\}$/)
     expect(MENU as string).toMatch(/event\.preventDefault\(\)[\s\S]*setContextMenuTarget\(/)
     expect((MENU as string).length).toBeGreaterThan(300)
   })
