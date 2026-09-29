@@ -158,6 +158,8 @@ export interface StrengthenState {
    * with no stated ground is the same silence in a different costume.
    */
   dispute: (key: RecordKey, reason: string, now?: number) => void
+  /** D1: drop this decision's phase-3 records whose target is not in its graph (see `namesForeignTarget`). */
+  pruneForeignTargets: () => void
   /** Test/reset seam. */
   _reset: () => void
 }
@@ -320,10 +322,53 @@ function persist(records: Record<string, RecRecord>, priorityOrder: string[]): v
   }
 }
 
+/**
+ * ⭐ D1 — A PHASE-3 FINDING'S TARGET MUST EXIST IN THE GRAPH IT IS RECORDED AGAINST (DL #72 5894237381).
+ *
+ * Served (R3-B 5894061171): after "Start new model", a record keyed to the NEW scenario carried the previous model's
+ * phase-3 finding (target `customer_success_deployment→nps_change_from_today`, in neither of the new model's nodes nor
+ * edges), and this store's sessionStorage copy re-served it after a cold reload. So:
+ *  - WRITE: `reconcile` / `seedIfAbsent` never record a phase-3 finding whose target the graph on screen does not hold;
+ *  - READ: `pruneForeignTargets` removes such a record already persisted, once that decision's graph is on screen.
+ * The graph is read through a context the canvas installs (`strengthenGraphGuard.ts`), the same pattern as
+ * `setGuidancePersistenceContext`; "does this target exist" is `resolveModelTarget`, the ONE resolution focusing uses.
+ * Only the decision ON SCREEN is judged, and only once its graph has loaded: anything else cannot be checked, so it is
+ * left exactly as before.
+ */
+export interface StrengthenGraphContext {
+  readonly scenarioId: string | null
+  /** False while the canvas holds no nodes (booting, hydrating): nothing can be judged against an empty graph. */
+  readonly graphReady: boolean
+  readonly targetExists: (targetId: string) => boolean
+}
+let graphContextProvider: (() => StrengthenGraphContext) | null = null
+export function setStrengthenGraphContext(provider: (() => StrengthenGraphContext) | null): void {
+  graphContextProvider = provider
+}
+const PHASE3_ID_PREFIX = 'strengthen:phase3:'
+function judgeableContext(scenarioId: string | null | undefined): StrengthenGraphContext | null {
+  if (!graphContextProvider) return null
+  let ctx: StrengthenGraphContext
+  try {
+    ctx = graphContextProvider()
+  } catch {
+    return null
+  }
+  return ctx.graphReady && ctx.scenarioId === (scenarioId ?? null) ? ctx : null
+}
+/** True only for a phase-3 finding whose target the (judgeable) graph of `scenarioId` does not hold. */
+export function namesForeignTarget(rec: Pick<Recommendation, 'id' | 'targetId'>, scenarioId: string | null | undefined): boolean {
+  if (!rec.id.startsWith(PHASE3_ID_PREFIX) || !rec.targetId) return false
+  const ctx = judgeableContext(scenarioId)
+  return ctx !== null && !ctx.targetExists(rec.targetId)
+}
+
 export const useStrengthenStore = create<StrengthenState>((set, get) => ({
   ...loadPersisted(),
 
-  reconcile: (recs, analysisHash, scenarioId, now = Date.now()) => {
+  reconcile: (incoming, analysisHash, scenarioId, now = Date.now()) => {
+    // D1: a phase-3 finding about an element this decision's graph does not hold is never recorded.
+    const recs = incoming.filter((r) => !namesForeignTarget(r, scenarioId))
     const records = { ...get().records }
     const firingIds = new Set(recs.map((r) => r.id))
 
@@ -462,6 +507,7 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
        held that id — so a user acting on the same finding under a second
        decision minted no record, and every act they then performed was filed
        against the FIRST decision's record. */
+    if (namesForeignTarget(rec, scenarioId)) return // D1: never seed a finding about another graph's element
     const key = recordKey(scenarioId, rec.id)
     if (get().records[key]) return
     const records = {
@@ -545,6 +591,21 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
     set({ records, priorityOrder })
   },
 
+  pruneForeignTargets: () => {
+    const { records, priorityOrder } = get()
+    const dropped = new Set<string>()
+    for (const [key, record] of Object.entries(records)) {
+      if (namesForeignTarget(record.snapshot ?? { id: record.id, targetId: null }, record.scenarioId ?? decisionOfKey(key) ?? null)) {
+        dropped.add(key)
+      }
+    }
+    if (dropped.size === 0) return
+    const kept: Record<string, RecRecord> = {}
+    for (const [key, record] of Object.entries(records)) if (!dropped.has(key)) kept[key] = record
+    const order = priorityOrder.filter((k) => !dropped.has(k))
+    persist(kept, order)
+    set({ records: kept, priorityOrder: order })
+  },
   _reset: () => {
     try { sessionStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
     set({ records: {}, priorityOrder: [] })
