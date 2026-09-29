@@ -38,6 +38,18 @@ describe('the mounted chat receipt never shows a carried level label beside a ch
     expect(container.textContent ?? '').not.toMatch(/0\.1|<=/)
   })
 
+  it('RED (PR Review 5882050813): a recognised change_abs with no sayable sentence — the quote, no stale label, no level', () => {
+    useCanvasStore.setState({ nodes: NODES, edges: [] } as never)
+    const block = {
+      type: 'v5_graph_patch', status: 'applied', operation: 'add_constraint', target_id: 'fac_cost', before: null,
+      after: { label: 'Cloud cost <= 0.02', node_id: 'fac_cost', operator: '<=', value: 0.02, unit: 'fraction', value_frame: 'change_abs', source_quote: 'within 2 percentage points of today' },
+    } as never
+    const { container } = render(<V5GraphPatchBlock block={block} />)
+    const text = container.textContent ?? ''
+    expect(text).toContain('within 2 percentage points of today')
+    expect(text).not.toMatch(/0\.02|at most|<=/)
+  })
+
   it('⛔ CONTRAST: a level limit keeps its carried label', () => {
     useCanvasStore.setState({ nodes: NODES, edges: [] } as never)
     const { container } = render(<V5GraphPatchBlock block={patch('level', 'Cloud cost <= 50000')} />)

@@ -25,7 +25,7 @@ import { RAW_ID_PATTERN } from '../../canvas/conversation/friendlyOperation'
 import { classifyUnit, formatMoneyFigure } from '../../utils/unitClassifier'
 import type { V5GraphPatchBlock } from '../../canvas/conversation/types'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
-import { isKnownLimitFrame, labelAlreadyStatesLimit, limitChangeSentence } from '../../canvas/utils/goalConstraintText'
+import { isKnownLimitFrame, labelAlreadyStatesLimit, limitChangeFrameOf, limitChangeSentence } from '../../canvas/utils/goalConstraintText'
 
 // ---------------------------------------------------------------------------
 // Operation labels (already friendlied; kept here as the single source of truth
@@ -354,11 +354,18 @@ export function buildV5PatchReceipt(
       // not from a node label lookup (constraints aren't graph nodes
       // with a separate label cache — they live on the goal node).
       const after = block.after as
-        | { label?: unknown; node_id?: unknown; value?: unknown; unit?: unknown; operator?: unknown; value_frame?: unknown }
+        | { label?: unknown; node_id?: unknown; value?: unknown; unit?: unknown; operator?: unknown; value_frame?: unknown; source_quote?: unknown }
         | null
       const before = block.before as
-        | { value?: unknown; unit?: unknown; operator?: unknown; value_frame?: unknown }
+        | { value?: unknown; unit?: unknown; operator?: unknown; value_frame?: unknown; source_quote?: unknown }
         | null
+      // ⛔ PR Review 5882050813: the FRAME decides, not the sayer's success. A recognised change the shared sayer
+      // declines (a change_abs in a rewritten-scale / percent unit whose quote answers, no audited figure) is said by
+      // its quote — the card's own rung — or not at all. Never the level fallback, never the stale level label.
+      const isChangeFrame = (side: { value_frame?: unknown } | null): boolean =>
+        side !== null && limitChangeFrameOf(side as unknown as CEEGoalConstraint) !== null
+      const quoteOf = (side: { source_quote?: unknown } | null): string =>
+        typeof side?.source_quote === 'string' && side.source_quote.trim() ? `“${side.source_quote.trim()}”` : ''
       const labelRaw = typeof after?.label === 'string' ? after.label : ''
       const carriedLabel = labelRaw && !RAW_ID_PATTERN.test(labelRaw) ? labelRaw : ''
       // ⛔ PR Review 5881464028 blocking 2 + DL 5881499189: beside a CHANGE, or an unread frame, a carried label that
@@ -388,6 +395,9 @@ export function buildV5PatchReceipt(
       if (afterChange !== null) {
         changeSummary = afterChange
         entityLabel = levelLabelBesideNonLevel()
+      } else if (isChangeFrame(after)) {
+        changeSummary = quoteOf(after)
+        entityLabel = levelLabelBesideNonLevel()
       } else if (operatorPhrase && valueStr && valueStr !== '—') {
         changeSummary = `${operatorPhrase} ${valueStr}`.trim()
       } else if (valueStr && valueStr !== '—') {
@@ -403,8 +413,8 @@ export function buildV5PatchReceipt(
           before.value,
           typeof before.unit === 'string' ? before.unit : null,
         )
-        const beforeStr = beforeChange ?? `${beforeOpPhrase} ${beforeValue}`.trim()
-        if (beforeStr && beforeStr !== changeSummary && (beforeChange !== null || beforeValue !== '—')) {
+        const beforeStr = beforeChange ?? (isChangeFrame(before) ? quoteOf(before) : `${beforeOpPhrase} ${beforeValue}`.trim())
+        if (beforeStr && beforeStr !== changeSummary && (beforeChange !== null || isChangeFrame(before) || beforeValue !== '—')) {
           changeSummary = `${beforeStr} → ${changeSummary}`
         }
       }

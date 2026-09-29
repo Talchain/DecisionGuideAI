@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest'
 
 import type { V5GraphPatchBlock } from '../../../canvas/conversation/types'
 import { RAW_ID_PATTERN } from '../../../canvas/conversation/friendlyOperation'
+import { goalConstraintText } from '../../../canvas/utils/goalConstraintText'
 import {
   buildV5PatchReceipt,
   buildV5PatchDeps,
@@ -309,6 +310,39 @@ describe('buildV5PatchReceipt — add_constraint', () => {
     expect(r.changeSummary).toBe('')
     expect(r.entityLabel).toBe('Total monthly cloud cost')
     expect(r.entityLabel).not.toMatch(/0\.1|<=/)
+  })
+
+  // ⛔ PR Review 5882050813: a RECOGNISED change whose sentence is unavailable (change_abs in a rewritten-scale /
+  // percent unit, a source_quote but no audited figure) fell through to the LEVEL fallback: the stale "<= 0.02"
+  // label beside "at most 0.02 fraction". The frame decides, not the sayer's success.
+  const UNSAYABLE = { label: 'Cloud cost <= 0.02', node_id: 'fac_cost', operator: '<=', value: 0.02, unit: 'fraction', value_frame: 'change_abs' }
+  it('RED: a recognised change with no sayable sentence says its quote — never the level, never the stale label', () => {
+    const r = buildV5PatchReceipt(
+      block({ after: { ...UNSAYABLE, source_quote: 'within 2 percentage points of today' } }),
+      makeDeps([{ id: 'fac_cost', label: 'Total monthly cloud cost' }]),
+    )
+    expect(r.entityLabel).toBe('Total monthly cloud cost')
+    expect(r.changeSummary).toBe('“within 2 percentage points of today”')
+    expect(`${r.entityLabel} ${r.changeSummary}`).not.toMatch(/0\.02|at most|<=/)
+  })
+
+  it('⛔ CONTRAST: with no quote the receipt says what the card says (one sayer) — a change, never the level', () => {
+    const r = buildV5PatchReceipt(block({ after: UNSAYABLE }), makeDeps())
+    expect(r.changeSummary).toBe(goalConstraintText({ ...UNSAYABLE } as never, [], { omitLabel: true }))
+    expect(r.changeSummary).not.toMatch(/^at most/)
+    expect(r.entityLabel).toBe('')
+  })
+
+  it('RED: an unsayable change on the BEFORE side is never prefixed as a level — its quote, or nothing', () => {
+    const r = buildV5PatchReceipt(
+      block({
+        before: { value: 0.02, unit: 'fraction', operator: '<=', value_frame: 'change_abs', source_quote: 'within 2 points' },
+        after: { label: 'Total monthly cloud cost', value: 0.1, operator: '<=', value_frame: 'change_rel' },
+      }),
+      makeDeps(),
+    )
+    expect(r.changeSummary).toBe('“within 2 points” → no more than 10% above today')
+    expect(r.changeSummary).not.toMatch(/at most|0\.02/)
   })
 
   it('⛔ CONTRAST: an ordinary subject label stays beside a change; a LEVEL keeps its carried label', () => {
