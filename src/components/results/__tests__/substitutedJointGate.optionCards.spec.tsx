@@ -17,7 +17,7 @@
  * `mayUsePossessiveGoalFraming: false`.
  *
  * Six surfaces honour that withhold. `OptionCards` did not: it rendered the
- * substituted number as "Hits target" and "< 1% likely to reach target",
+ * substituted number as "Hits target" and "Reaches the target in < 1% of model runs",
  * possessive wording naming a target the number does not answer. On the
  * witnessed run the shipped 0.0054 answers "is the uplift >= £6M?" while the
  * user asked "is the uplift >= £2M?" (~0.55) — a ~100x understatement, in
@@ -47,7 +47,7 @@
  * by testing nothing.
  *
  * RED-first: tests 2 and 3 fail at `fef179ce` (the tip this was written
- * against), where the rendered card carries "< 1% likely to reach target"
+ * against), where the rendered card carries "Reaches the target in < 1% of model runs"
  * and "Hits target".
  *
  * Mutual exclusivity is pinned in BOTH directions: tests 4 and 5 supply a
@@ -97,7 +97,7 @@ import {
 
 /** The two possessive forms this card shipped, quoted for the assertions. */
 const POSSESSIVE_BAR_LABEL = 'Hits target'
-const POSSESSIVE_BADGE_TAIL = 'likely to reach target'
+const POSSESSIVE_BADGE_TAIL = 'of model runs'
 
 /**
  * The five options exactly as the producer sent them on the witnessed run.
@@ -227,7 +227,7 @@ describe('OptionCards — possessive gate on a substituted joint goal figure (RO
     const text = container.textContent ?? ''
 
     // The 2.282 assertions, unchanged: the possessive must not appear.
-    expect(text).not.toContain('< 1% likely to reach target')
+    expect(text).not.toContain('Reaches the target in < 1% of model runs')
     expect(text).not.toContain(POSSESSIVE_BADGE_TAIL)
 
     // ⭐ INVERTED. 2.282 required the badge to SURVIVE, carrying the register's

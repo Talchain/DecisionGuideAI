@@ -1720,7 +1720,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     if (successThreshold === null && (hasQuantitativeGoalHint || userClearedTarget)) {
       checks.push({
         id: 'no_target',
-        message: "No success target: results rank options but can't show probability of success",
+        message: "No success target: results rank options but can't show how often each one reaches a target",
         cta: 'Set target',
         ctaAction: 'set_target',
         pill: 'framing',

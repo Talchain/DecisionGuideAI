@@ -549,9 +549,8 @@ export const GoalPanel = memo(function GoalPanel({
           the only adaptation is the joining comma, which the
           register's own no-full-stop `phrase()` form is designed
           to accept. Permitted arm byte-identical. */}
-      {goalFitSubstituted
-        ? `${GOAL_ANCHOR_COPY.phrase(`${Math.round(probGoal * 100)}%`, goalFitSubstituted)}, based on the current model.`
-        : `${Math.round(probGoal * 100)}% chance of reaching this target based on the current model.`}
+      {/* AIQ #72 5885116642: one register sentence — "Reaches the target in N% of model runs." ("model runs" says "based on the current model"). */}
+      {GOAL_ANCHOR_COPY.sentence(`${Math.round(probGoal * 100)}%`, goalFitSubstituted)}
       {/* ISL #207 (AIQ #72 5877139338): never bare when the goal's level today was worked out. */}
       {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
         <span className={`block ${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-fit-base-caveat-goal-panel-target">
@@ -1020,7 +1019,7 @@ export const GoalPanel = memo(function GoalPanel({
                     two are genuinely different quantities and this line stays. */}
                 {typeof probJoint === 'number' && !goalFitSubstituted && (
                   <p className={`${typography.panelBody} text-text-body mt-1`}>
-                    {GOAL_CONSTRAINT_COPY.jointProbability}: <strong>{Math.round(probJoint * 100)}%</strong>
+                    {GOAL_CONSTRAINT_COPY.jointProbabilityLead} <strong>{Math.round(probJoint * 100)}%</strong> {GOAL_CONSTRAINT_COPY.jointProbabilityTail}
                   </p>
                 )}
                 {typeof probJoint === 'number' && !goalFitSubstituted && displayMetadata.jointGoalProbabilityIsModelledBasis === true && (
@@ -1161,9 +1160,7 @@ export const GoalPanel = memo(function GoalPanel({
                       claim; over a substituted joint figure it takes the
                       register's compact readout instead. */}
                   <div className={`${typography.panelHeader}`}>
-                    {goalFitSubstituted
-                      ? GOAL_ANCHOR_COPY.phrase(`${Math.round(probGoal * 100)}%`, goalFitSubstituted)
-                      : `${Math.round(probGoal * 100)}% chance of success`}
+                    {GOAL_ANCHOR_COPY.readout(`${Math.round(probGoal * 100)}%`, goalFitSubstituted)}
                   </div>
                   {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
                     <div className={`${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-fit-base-caveat-goal-panel-impact">
@@ -1192,7 +1189,7 @@ export const GoalPanel = memo(function GoalPanel({
                           .clause and .leadNoMagnitude were both added to prevent.
                           The register owns the wording; call sites never re-type
                           it. */}
-                      {GOAL_CONSTRAINT_COPY.jointProbability}: <strong>{Math.round(probJoint * 100)}%</strong>
+                      {GOAL_CONSTRAINT_COPY.jointProbabilityLead} <strong>{Math.round(probJoint * 100)}%</strong> {GOAL_CONSTRAINT_COPY.jointProbabilityTail}
                     </div>
                   )}
                   {/* AIQ 5883088747: the modelled-basis caveat moves WITH the joint number, beside it. */}

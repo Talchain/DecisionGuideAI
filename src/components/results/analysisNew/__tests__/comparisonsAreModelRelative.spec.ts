@@ -115,7 +115,7 @@ describe('What your model implies', () => {
   it('reading two: the goal claim', () => {
     expectModelRelative(
       COPY.implications.goalClaim('Raise price', '40%'),
-      'In this model, Raise price has the highest chance of meeting every target this run scored: 40%.',
+      'In this model, Raise price meets every target this run scored in the most model runs (40%).',
     )
   })
 

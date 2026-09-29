@@ -990,12 +990,14 @@ export const GOAL_CONSTRAINT_COPY = {
   errorSelectFactor:   'Select a factor',
   errorInvalidNumber:  'Enter a valid number',
   // AIQ #72 5882498938: `probability_of_joint_goal` is P(all limits jointly hold) — never the goal chance.
-  jointProbability:    'Chance all your limits hold',
+  // AIQ #72 5885033487: "All your limits hold in N% of model runs" — a share of model runs, never a chance.
+  jointProbabilityLead: 'All your limits hold in',
+  jointProbabilityTail: 'of model runs',
   addConstraintButton: '+ Add constraint',
   // v3.1 (DESIGN-GAP-v31 row 33): no "simulation" wording. This is the
   // COMPLETE-results arm only — `GoalPanel` shows `EMPTY_STATES.noAnalysis`
   // before any results exist, so neither sentence claims something false.
-  runForProbability:   'No probability of reaching this target is available from this run.',
+  runForProbability:   'This run did not return the share of model runs that reach this target.',
   targetUnlocks:       'Adding a specific target unlocks probability calculations.',
   // Canonical State Copy (see DESIGN_SYSTEM.md): honest status for GUEST
   // sessions. A guest's canvas graph lives only in the browser — the client

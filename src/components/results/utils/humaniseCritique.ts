@@ -249,7 +249,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     title: genuine
       ? `The limit on ${label} can't be checked reliably`
       : "A limit on your model can't be checked reliably",
-    description: 'This limit could not be checked against this model, so the probability of meeting it was withheld for this run rather than shown as a meaningless number.',
+    description: 'This limit could not be checked against this model, so the share of model runs that meet it was withheld for this run rather than shown as a meaningless number.',
     suggestion: '',
   }),
   // 1.52 follow-up — producer WARNING-severity codes (PLoT constraint
@@ -482,14 +482,14 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // ══════════════════════════════════════════════════════════════════════════
   GOAL_THRESHOLD_NOT_CONVERTIBLE: () => ({
     title:
-      "Your goal's target was recorded, but it couldn't be compared with where the goal stands today, so the probability of reaching it was withheld rather than guessed.",
+      "Your goal's target was recorded, but it couldn't be compared with where the goal stands today, so the share of model runs that reach it was withheld rather than guessed.",
     description:
-      "Your target was captured. What this run couldn't do is compare it with where the goal stands today, for example when no current level is recorded for the goal. The probability of reaching your target was withheld rather than guessed.",
+      "Your target was captured. What this run couldn't do is compare it with where the goal stands today, for example when no current level is recorded for the goal. The share of model runs that reach your target was withheld rather than guessed.",
     // No suggestion: there is no action the user can take until ROADMAP 2.281.
   }),
   GOAL_THRESHOLD_FRAME_UNSPECIFIED: () => ({
     title: "Your goal's target could mean a level or a change. Restate the target as a level to reach or a change from your current level.",
-    description: "The target doesn't say whether it's a level to reach or a change from today, so the probability of reaching it was withheld for this run rather than guessed.",
+    description: "The target doesn't say whether it's a level to reach or a change from today, so the share of model runs that reach it was withheld for this run rather than guessed.",
     suggestion: 'Restate the target as a level to reach or a change from your current level',
   }),
 
@@ -583,7 +583,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // three.
   EVPI_UNAVAILABLE: () => ({
     title:
-      'Which unknowns most affect each option\'s chance of hitting your goal wasn\'t computed. Your results stand; re-run, and if it repeats check each success target says whether it\'s a level or a change.',
+      'Which unknowns most affect how often each option reaches the target wasn\'t computed. Your results stand; re-run, and if it repeats check each success target says whether it\'s a level or a change.',
     description:
       'Win-probability sensitivity was skipped. Either the request budget ran out, or a goal constraint could not be resolved into its target\'s frame. The rest of the analysis is unaffected.',
   }),

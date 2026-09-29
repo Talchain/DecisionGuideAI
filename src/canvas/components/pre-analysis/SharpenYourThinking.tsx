@@ -82,7 +82,7 @@ function buildFramingCards({
     cards.push({
       kind: 'no_target',
       question:
-        'No success target set. Analysis can rank options but cannot show probability of success.',
+        'No success target set. Analysis can rank options but cannot show how often each one reaches a target.',
       chipLabel: 'Set target',
       onAction: onSetTarget,
     })

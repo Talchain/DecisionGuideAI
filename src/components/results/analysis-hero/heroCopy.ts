@@ -92,7 +92,7 @@ export const HERO_COPY = {
      * gains the arm this string goes RED instead of staying a quiet duplicate.
      */
     goalWithLimits: (label: string, readout: string) =>
-      `${label} has the highest chance of meeting your goal and limits: ${readout}.`,
+      `${label} meets your goal and limits in the most model runs (${readout}).`,
     /**
      * GOAL-ATTAINMENT IDENTITY, interim wording (family 2, slice −1) — the
      * same claim, in the same words, as `caption.goalOnly` and
@@ -342,7 +342,7 @@ export const HERO_COPY = {
     /** Grounded lines from existing adapted fields — never authored prose. */
     range: (low: string, high: string) => `Realistic range: ${low} to ${high}.`,
     goalFit: (readout: string) => GOAL_ANCHOR_COPY.sentence(readout, false),
-    goalFitWithLimits: (readout: string) => `${readout} chance of meeting your goal and limits.`,
+    goalFitWithLimits: (readout: string) => `Meets your goal and limits in ${readout} of model runs.`,
     /**
      * Goal-probability IDENTITY: the voice for a row whose number is
      * `probability_of_joint_goal` STANDING IN for an absent

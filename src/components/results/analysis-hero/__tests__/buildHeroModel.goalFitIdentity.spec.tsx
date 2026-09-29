@@ -26,18 +26,19 @@ function chart(model: ReturnType<typeof buildHeroModel>): HeroChartModel {
 }
 
 describe('buildHeroModel — goal-fit detail line identity', () => {
-  it('POSITIVE CONTROL: the possessive line is what the hero prints by default', () => {
+  it('POSITIVE CONTROL: the target line is what the hero prints by default', () => {
     // Fixes the un-flagged behaviour first, so the assertions below cannot
-    // pass by the line being absent rather than being re-voiced.
+    // pass by the line being absent rather than being re-voiced. The plain arm
+    // says "Reaches the target in N% of model runs" (AIQ #72 5885033487).
     const m = chart(buildHeroModel(makeHeroData()))
-    expect(m.rows[0].detail.goalFit).toContain('your goal')
+    expect(m.rows[0].detail.goalFit).toContain('Reaches the target')
   })
 
   it('drops the possessive framing when the number is a substituted joint figure', () => {
     const a = makeOption({ ...OPTION_A, goalFitIsSubstitutedJoint: true })
     const b = makeOption({ ...OPTION_B, goalFitIsSubstitutedJoint: true })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    expect(m.rows[0].detail.goalFit).not.toContain('your goal')
+    expect(m.rows[0].detail.goalFit).not.toContain('Reaches the target')
     expect(m.rows[0].detail.goalFit).toBe(
       HERO_COPY.detail.goalFitJointBasis(m.rows[0].goal.readout),
     )
@@ -51,13 +52,13 @@ describe('buildHeroModel — goal-fit detail line identity', () => {
     expect(plain.rows[0].goal.readout).toBe(control.rows[0].goal.readout)
   })
 
-  it('keeps the possessive framing for rows that are NOT substituted', () => {
+  it('keeps the target framing for rows that are NOT substituted', () => {
     const a = makeOption({ ...OPTION_A, goalFitIsSubstitutedJoint: true })
     const b = makeOption({ ...OPTION_B, goalFitIsSubstitutedJoint: false })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     const rowA = m.rows.find((r) => r.id === OPTION_A.id)
     const rowB = m.rows.find((r) => r.id === OPTION_B.id)
-    expect(rowA?.detail.goalFit).not.toContain('your goal')
-    expect(rowB?.detail.goalFit).toContain('your goal')
+    expect(rowA?.detail.goalFit).not.toContain('Reaches the target')
+    expect(rowB?.detail.goalFit).toContain('Reaches the target')
   })
 })

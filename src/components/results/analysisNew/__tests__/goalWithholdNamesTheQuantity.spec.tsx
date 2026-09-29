@@ -97,10 +97,10 @@ const CLAIMS_RESULTS_WITHHELD = /goal-fit\s+results\s+(were|are)\s+withheld/i
  * THE NARROW QUANTITY the run genuinely did not produce, named so it cannot be
  * read as a ranking OR as the win-share beside it. "Scored highest in 48% of
  * simulated futures" is also a probability, so naming only "probability" would
- * not have separated them; what the run withheld is the probability of
- * REACHING THE TARGET.
+ * not have separated them; what the run withheld is the share of model runs
+ * that REACH THE TARGET (AIQ #72 5885033487: a goal figure is a share of model runs).
  */
-const NAMES_THE_QUANTITY = /probability of reaching/i
+const NAMES_THE_QUANTITY = /share of model runs that reach/i
 
 const NODES = [
   { id: 'g1', type: 'goal', data: { label: 'Sustained margin' } },
@@ -220,7 +220,7 @@ describe('the goal withhold names its quantity, so it cannot deny the ranking be
     ).toBe(true)
     // ...and it must NOT fire on the narrow naming, or it forbids the fix too.
     expect(
-      CLAIMS_RESULTS_WITHHELD.test('the probability of reaching it was withheld rather than guessed'),
+      CLAIMS_RESULTS_WITHHELD.test('the share of model runs that reach it was withheld rather than guessed'),
       'matcher must not catch the narrow quantity naming',
     ).toBe(false)
 
