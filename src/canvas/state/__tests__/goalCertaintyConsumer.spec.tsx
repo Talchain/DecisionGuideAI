@@ -125,6 +125,16 @@ describe('fresh Run (turn) and cold reload (read): the same Run yields the same 
     expect(r.raise_to_54.goalCertaintyUnearned).toBeUndefined()
     expect(selectGoalProbability(r.raise_to_54 as never).goalProbability).toBe(0.8311)
   })
+  it('a CONFLICTING record (two valid decisions for one option and endpoint) is never earned — either order, both legs', () => {
+    const unearnedAlt = { option_id: 'raise_to_59', probability_of_goal: 1, earned: false, unsized_path: { from: 'pro_plan_price', enters_goal_through: 'pro_plan_price' }, no_break_even: 'no_exact_figure', say: SAY }
+    const earned59 = { option_id: 'raise_to_59', probability_of_goal: 1, earned: true }
+    for (const record of [[earned59, unearnedAlt], [unearnedAlt, earned59]]) {
+      expect(optionsOf(turnReport({ goal_certainty: record })).raise_to_59.goalCertaintyUnearned).toEqual({ say: null })
+      expect(optionsOf(readReport(record)).raise_to_59.goalCertaintyUnearned).toEqual({ say: null })
+    }
+    // control: one earned decision alone shows the figure
+    expect(optionsOf(turnReport({ goal_certainty: [earned59] })).raise_to_59.goalCertaintyUnearned).toBeUndefined()
+  })
   it('a decision binds by (option, endpoint): an earned decision for the OPPOSITE endpoint attests nothing', () => {
     const opposite = { option_id: 'raise_to_59', probability_of_goal: 0, earned: true }
     expect(optionsOf(turnReport({ goal_certainty: [opposite, EARNED_49] })).raise_to_59.goalCertaintyUnearned).toEqual({ say: null })

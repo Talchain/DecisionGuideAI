@@ -125,8 +125,9 @@ export function readGoalCertainty(raw: unknown): readonly GoalCertaintyEntry[] |
  * THE STAMP for one option's DISPLAYED goal figure — the contract, applied once. `null` = show the figure as it is.
  *   - an interior figure (or none) → null: there is no certainty to attest;
  *   - a displayed 0/1 with NO record (`entries` null/undefined) → withheld, fallback (absent is never earned);
- *   - a displayed 0/1 with a decision for THIS option at THIS endpoint → earned: null; unearned: its `say`;
- *   - a displayed 0/1 with no decision at this endpoint (none, or only the opposite one) → withheld, fallback.
+ *   - a displayed 0/1 with exactly ONE decision for this option at this endpoint → earned: null; unearned: its `say`;
+ *   - a displayed 0/1 with no decision at this endpoint (none, or only the opposite one), or MORE than one (a
+ *     conflicting record) → withheld, fallback.
  */
 export function goalCertaintyStamp(
   displayed: number | undefined,
@@ -134,9 +135,13 @@ export function goalCertaintyStamp(
   entries: readonly GoalCertaintyEntry[] | null | undefined,
 ): { say: string | null } | null {
   if (displayed !== 0 && displayed !== 1) return null
-  const match = entries?.find((e) => e.optionId === optionId && e.endpoint === displayed)
-  if (match?.earned === true) return null
-  return { say: match?.say ?? null }
+  // ONE unambiguous decision attests a figure. Two for the same option and endpoint — even both schema-valid, e.g. an
+  // earned row and an unearned one — are a conflicting record, and a conflict is never earned (DL CHANGES_REQUIRED on
+  // #2307 @ eb365403): the figure is withheld and no sentence is chosen between them.
+  const matches = (entries ?? []).filter((e) => e.optionId === optionId && e.endpoint === displayed)
+  if (matches.length !== 1) return { say: null }
+  const [match] = matches
+  return match.earned ? null : { say: match.say }
 }
 
 /**
