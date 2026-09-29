@@ -94,6 +94,13 @@ const OPTION_B = 'opt_defer'
 const PRODUCER_REASON =
   'none of the factors we could test changed which option leads on its own, and this result mostly held up under the other changes we tested'
 
+type AdmissionMode = 'quantified_provisional' | 'comparative_leader'
+type SeedOptions = {
+  currentMode?: AdmissionMode
+  runMode?: AdmissionMode
+  verdict?: 'robust' | 'moderate'
+}
+
 /**
  * ⭐⭐ ONE REPORT, ONE VARIABLE. The two arms below differ by
  * `producer_leader_permission` AND BY NOTHING ELSE — same options, same win
@@ -106,7 +113,7 @@ const PRODUCER_REASON =
  * leader: without a producer signal `deriveDecisionVerdict` makes no claim at
  * all, and both arms would withhold for the same uninteresting reason.
  */
-const reportWith = (withheld: boolean): Record<string, unknown> => ({
+const reportWith = (withheld: boolean, { runMode, verdict = 'moderate' }: SeedOptions = {}): Record<string, unknown> => ({
   results: { conservative: 10, likely: 20, optimistic: 30, units: 'percent', unitSymbol: '%' },
   run: { bands: { p10: 10, p50: 20, p90: 30 } },
   option_probabilities: {
@@ -116,9 +123,10 @@ const reportWith = (withheld: boolean): Record<string, unknown> => ({
   robustness: {
     recommendation_stability: 0.42,
     near_tie: { is_tie: false, top_option_id: OPTION_A },
-    display_verdict: 'moderate',
+    display_verdict: verdict,
     display_verdict_reason: PRODUCER_REASON,
   },
+  ...(runMode ? { run_analysis_admission: { permitted_analysis_mode: runMode, reasons: [] } } : {}),
   ...(withheld
     ? {
         producer_leader_permission: {
@@ -153,7 +161,7 @@ function ensureMatchMedia() {
  * not have are filtered out and the run reads as unranked — which would satisfy
  * the withheld assertion for the WRONG reason.
  */
-function seedPostRun(withheld: boolean) {
+function seedPostRun(withheld: boolean, options: SeedOptions = {}) {
   useCanvasStore.setState({
     currentScenarioFraming: null,
     currentScenarioLastResultHash: null,
@@ -166,7 +174,11 @@ function seedPostRun(withheld: boolean) {
     ],
     edges: [{ id: 'e1', source: 'factor-1', target: 'goal-1', data: { weight: 0.7, direction: 'positive' } }],
     graphHealth: { status: 'healthy', score: 100, issues: [] },
-    results: { status: 'complete', report: reportWith(withheld) },
+    results: { status: 'complete', report: reportWith(withheld, options) },
+    ceeAnalysisReady: options.currentMode
+      ? { goal_node_id: 'goal-1', options: [], analysis_admission: { permitted_analysis_mode: options.currentMode, reasons: [] } }
+      : null,
+    retainedAnalysisAdmission: null,
     analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match', computedAt: 1 },
     analysisFreshnessDirty: false,
     v5AnalysisFact: null,
@@ -251,5 +263,38 @@ describe('the dock footer may not explain a verdict by a ranking the run withhel
     render(<OutputsDock />)
 
     expect(footer().textContent).toContain(derivePostFooterStatus('moderate').label)
+  })
+})
+
+describe('the dock footer obeys Q-STABILITY as well as the producer verdict', () => {
+  it.each([
+    { currentMode: 'quantified_provisional', runMode: 'comparative_leader' },
+    { currentMode: 'comparative_leader', runMode: 'quantified_provisional' },
+  ] as const)('withholds a strength word when $currentMode / $runMode admissions disagree', (options) => {
+    seedPostRun(false, { ...options, verdict: 'robust' })
+    render(<OutputsDock />)
+
+    const status = footer()
+    expect(status).toHaveTextContent('Robustness not established')
+    expect(status).not.toHaveTextContent('Stable ranking')
+    expect(status).not.toHaveTextContent(PRODUCER_REASON)
+    expect(status.querySelector('.text-success')).toBeNull()
+    expect(within(status).getByTestId('results-analysis-footer-action')).toBeInTheDocument()
+  })
+
+  it('keeps the producer verdict when both admissions license stability', () => {
+    seedPostRun(false, { currentMode: 'comparative_leader', runMode: 'comparative_leader', verdict: 'robust' })
+    render(<OutputsDock />)
+
+    expect(footer()).toHaveTextContent('Stable ranking')
+    expect(footer()).toHaveTextContent(PRODUCER_REASON)
+  })
+
+  it('does not turn leader separation into a stability ban when both admissions license it', () => {
+    seedPostRun(true, { currentMode: 'comparative_leader', runMode: 'comparative_leader', verdict: 'robust' })
+    render(<OutputsDock />)
+
+    expect(footer()).toHaveTextContent('Stable ranking')
+    expect(footer()).not.toHaveTextContent(PRODUCER_REASON)
   })
 })

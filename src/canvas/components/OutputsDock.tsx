@@ -184,6 +184,7 @@ import {
   deriveRerunActionLabel,
 } from './utils/postAnalysisFooter'
 import { rankingWasWithheld } from '../../components/results/leaderDesignation'
+import { analysisClaimPolicy } from '../../components/results/analysisClaimPolicy'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
 import {
   selectAnalysisReadinessAuthority,
@@ -2067,7 +2068,13 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // from raw stability (which contradicted the glyph on the same tab). Raw
   // stability is retained only as neutral metadata in derivePostFooterMeta
   // below. See ./utils/postAnalysisFooter.ts + ROBUSTNESS-VERDICT-CONTRACT.
-  const postFooterStatus = derivePostFooterStatus(resultsSectionData.recommendation.robustnessVerdict)
+  // Q-STABILITY is separate from leader separation: only the current and
+  // run-own admissions can license a strength word about this ranking.
+  const footerStabilityLicensed = analysisClaimPolicy(resultsSectionData.recommendation).mayStateStability
+  const footerRobustnessVerdict = footerStabilityLicensed
+    ? resultsSectionData.recommendation.robustnessVerdict
+    : undefined
+  const postFooterStatus = derivePostFooterStatus(footerRobustnessVerdict, footerStabilityLicensed)
   const POST_FOOTER_ICONS = { check: CheckCircle, warning: AlertTriangle, unknown: HelpCircle } as const
   const postRunFooter = {
     icon: POST_FOOTER_ICONS[postFooterStatus.icon],
@@ -2080,7 +2087,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     // that lived here (a "Robustness unknown · 59% stability" self-contradiction,
     // whose number was the leader's win probability rather than a robustness
     // verdict) is preserved in `./utils/postAnalysisFooter.ts`'s header.
-    robustnessVerdict: resultsSectionData.recommendation.robustnessVerdict,
+    robustnessVerdict: footerRobustnessVerdict,
     /**
      * Producer-owned reason phrase, rendered verbatim as the leading meta
      * segment (never authored in the UI).

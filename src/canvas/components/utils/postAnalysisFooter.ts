@@ -128,7 +128,15 @@ export interface PostFooterMetaInput {
  */
 export function derivePostFooterStatus(
   robustnessVerdict: RobustnessDisplayVerdict | null | undefined,
+  stabilityLicensed = true,
 ): PostFooterStatus {
+  // The producer may have assessed robustness while CEE's admission withholds
+  // permission to state a strength word about this model. This is neither
+  // "not assessed" nor an unknown verdict; keep the same neutral wording as
+  // the checks glyph on this Analysis tab.
+  if (!stabilityLicensed) {
+    return { icon: 'unknown', iconClass: 'text-text-light', label: 'Robustness not established' }
+  }
   if (robustnessVerdict === 'robust') {
     return { icon: 'check', iconClass: 'text-success', label: 'Stable ranking' }
   }
