@@ -57,6 +57,16 @@ function typeInto(text: string) {
 beforeEach(() => { proposeOptionIntervention.mockClear(); outcome = 'dispatched' })
 
 describe('an option value is edited on the card', () => {
+  it('E1d: the editable value carries its pencil cue (hover/focus of its own named group, never the card\'s)', () => {
+    renderCard()
+    const control = screen.getByTestId(TESTID)
+    const pencil = screen.getByTestId(`${TESTID}-pencil`)
+    expect(control.contains(pencil)).toBe(true)
+    expect(control.className).toMatch(/(^|\s)group\/edit(\s|$)/)
+    expect(pencil.getAttribute('aria-hidden')).toBe('true')
+    expect(pencil.querySelector('svg')!.getAttribute('class')).toMatch(/opacity-0 .*group-hover\/edit:opacity-100/)
+  })
+
   it('opens seeded in the factor\'s unit, and "£90k" proposes 0.9 for that factor', () => {
     renderCard()
     fireEvent.click(screen.getByTestId(TESTID))

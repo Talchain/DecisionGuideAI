@@ -83,6 +83,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { typography } from '../../../styles/typography'
 import { controls } from '../../../styles/controls'
+import { EditPencilCue } from './EditPencilCue'
 import { admitNumericField, NUMERIC_FIELD_REFUSAL } from '../../ui/inspector-v2/shared/numericFieldAdmission'
 import {
   valueCommitSettlementWord,
@@ -311,7 +312,7 @@ export function NodeValueEditor({
             role="button"
             tabIndex={0}
             data-testid={testId}
-            className={`nodrag nopan ${restingTypography ?? typography.nodeValue} group whitespace-normal ${controls.editableRestingCanvas}`}
+            className={`nodrag nopan ${restingTypography ?? typography.nodeValue} group group/edit whitespace-normal ${controls.editableRestingCanvas}`}
             aria-label={`${ariaLabel} — click to edit${editNote ? `. ${editNote}` : ''}`}
             title={editNote}
             {...guard}
@@ -324,6 +325,7 @@ export function NodeValueEditor({
             }}
           >
             {readout}
+            <EditPencilCue testId={`${testId}-pencil`} />
           </span>
           {trailing}
           {settlementWords}
@@ -335,13 +337,14 @@ export function NodeValueEditor({
         <button
           type="button"
           data-testid={testId}
-          className={`nodrag nopan ${typography.nodeValue} group inline-flex items-baseline ${controls.editableRestingCanvas}`}
+          className={`nodrag nopan ${typography.nodeValue} group group/edit inline-flex items-baseline ${controls.editableRestingCanvas}`}
           aria-label={`${ariaLabel} — click to edit${editNote ? `. ${editNote}` : ''}`}
           title={editNote}
           {...guard}
           onClick={(e) => { e.stopPropagation(); open() }}
         >
           <span className="min-w-0">{readout}</span>
+          <EditPencilCue testId={`${testId}-pencil`} />
         </button>
         {/* DESIGN-GAP-AUDIT row 37 — the truth strip's words, on the card. A
             `dispatched` commit is not a settled one (see this file's header);

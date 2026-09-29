@@ -32,6 +32,8 @@ import { join } from 'node:path'
 import { GhostOptionNode } from '../GhostOptionNode'
 import { GHOST_OPTION_NODE_ID, GHOST_OPTION_DOOR_LABEL, ghostOptionPrompt } from '../../utils/ghostTiers'
 import { useGuidanceStore } from '../../stores/guidanceStore'
+import { chooseWhatElse } from './chooseWhatElse'
+import { useWhatElseStore } from '../../components/WhatElseChooser'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -112,6 +114,7 @@ describe('the pre-analysis option door puts the model-aware sentence in the comp
     const sent = captureSends()
     mount({ prompt: ghostOptionPrompt(MODEL) })
     fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
+    chooseWhatElse('option')
 
     expect(sent.calls).toHaveLength(1)
     expect(sent.calls[0]).toBe(ghostOptionPrompt(MODEL))
@@ -127,6 +130,7 @@ describe('the pre-analysis option door puts the model-aware sentence in the comp
     const sent = captureSends()
     mount({ prompt: ghostOptionPrompt(MODEL) })
     fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
+    chooseWhatElse('option')
 
     const text = sent.calls[0]
     expect(text).toContain('Segment')
@@ -139,6 +143,7 @@ describe('the pre-analysis option door puts the model-aware sentence in the comp
     const sent = captureSends()
     mount({ prompt: ghostOptionPrompt(MODEL) })
     fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
+    chooseWhatElse('option')
 
     expect(sent.calls[0]).not.toContain(STATIC_SENTENCE)
     expect(sent.calls[0]).not.toContain('an additional option I haven')
@@ -157,11 +162,13 @@ describe('the pre-analysis option door puts the model-aware sentence in the comp
     const first = captureSends()
     const a = mount({ prompt: ghostOptionPrompt(MODEL) })
     fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
+    chooseWhatElse('option')
     a.unmount()
 
     const second = captureSends()
     mount({ prompt: ghostOptionPrompt(other) })
     fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
+    chooseWhatElse('option')
 
     expect(first.calls[0]).not.toBe(second.calls[0])
     expect(second.calls[0]).toContain('Snowplow')
@@ -181,6 +188,8 @@ describe('the pre-analysis option door puts the model-aware sentence in the comp
     const sent = captureSends()
     mount({})
     fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
+    // E4: with no prompt the door does not even open the chooser.
+    expect(useWhatElseStore.getState().open).toBeNull()
 
     expect(sent.calls).toEqual([])
     expect(sent.sent).toEqual([])

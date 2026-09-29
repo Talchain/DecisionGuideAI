@@ -42,7 +42,21 @@ describe('the link mini-editor', () => {
     seed({})
     mount()
     expect(screen.getByTestId('link-quick-editor-no-strength')).toBeDefined()
+    expect(screen.queryByTestId('link-quick-editor-direction')).toBeNull()
     expect(setStrength).not.toHaveBeenCalled()
+  })
+
+  it('direction: "Decreases" sends the SIGNED strength (direction not preserved); the pressed direction sends nothing', () => {
+    seed({ weight: 0.4, strength_mean: 0.4, direction: 'positive' })
+    setStrength.mockReturnValue('dispatched')
+    mount()
+    expect(screen.getByTestId('link-quick-editor-direction-positive').getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByTestId('link-quick-editor-direction-positive'))
+    expect(setStrength).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByTestId('link-quick-editor-direction-negative'))
+    expect(setStrength).toHaveBeenCalledTimes(1)
+    expect(setStrength.mock.calls[0][0]).toBe(-0.4)
+    expect(setStrength.mock.calls[0][1]).toMatchObject({ preserveDirection: false })
   })
 })
 

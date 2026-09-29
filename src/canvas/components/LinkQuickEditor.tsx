@@ -9,6 +9,9 @@
  * The word under the bands is settled on the send (`valueCommitSettlementWord`, shared with the cards): "Saving…",
  * then "Saved" only when the store holds the new strength after the reply, or the estate's "Not saved" sentence.
  * A link with no stated strength says so rather than showing a band it does not have.
+ *
+ * Direction ("Increases" / "Decreases") is the same writer on its SIGNED path — `setStrength(±|strength|)` without
+ * `preserveDirection` — which is what the inspector's signed slider sends: stating a sign IS stating a direction.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
@@ -60,13 +63,13 @@ export function LinkQuickEditor({ edgeId, x, y, onClose, onMoreDetail }: LinkQui
     return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('pointerdown', onDown, true) }
   }, [onClose])
 
-  const onChange = useCallback((v: number) => {
+  const commit = useCallback((v: number, preserveDirection: boolean) => {
     const mine = ++seq.current
     const before = storedSigned(edgeId)
     setLocal(v)
     setWord('saving')
     const outcome = mutations.setStrength(v, {
-      preserveDirection: true,
+      preserveDirection,
       onSendSettled: (settlement) => {
         if (mine !== seq.current) return
         const w = valueCommitSettlementWord(settlement, before, v, () => storedSigned(edgeId))
@@ -76,6 +79,7 @@ export function LinkQuickEditor({ edgeId, x, y, onClose, onMoreDetail }: LinkQui
     })
     if (outcome !== 'dispatched') setWord('local_only')
   }, [edgeId, mutations])
+  const onChange = useCallback((v: number) => commit(v, true), [commit])
 
   if (!edge) return null
   const left = Math.min(x + 8, (typeof window !== 'undefined' ? window.innerWidth : 1440) - 280)
@@ -96,7 +100,27 @@ export function LinkQuickEditor({ edgeId, x, y, onClose, onMoreDetail }: LinkQui
         {fromLabel} → {toLabel}
       </p>
       {display.show ? (
-        <StrengthBandButtons value={local} onChange={onChange} />
+        <>
+          <div role="group" aria-label="Direction" className="mb-2 flex gap-1" data-testid="link-quick-editor-direction">
+            {(['positive', 'negative'] as const).map((dir) => {
+              const current = (edge.data as Record<string, unknown> | undefined)?.direction
+              const pressed = current === dir
+              return (
+                <button
+                  key={dir}
+                  type="button"
+                  aria-pressed={pressed}
+                  data-testid={`link-quick-editor-direction-${dir}`}
+                  className={`${typography.panelMeta} rounded border px-2 py-0.5 ${pressed ? 'border-info bg-panel-hover text-text-body' : 'border-panel-border text-text-light hover:bg-panel-hover'}`}
+                  onClick={() => { if (!pressed) commit(dir === 'negative' ? -Math.abs(local) : Math.abs(local), false) }}
+                >
+                  {dir === 'positive' ? 'Increases' : 'Decreases'}
+                </button>
+              )
+            })}
+          </div>
+          <StrengthBandButtons value={local} onChange={onChange} />
+        </>
       ) : (
         <p className={`${typography.panelMeta} text-text-light m-0`} data-testid="link-quick-editor-no-strength">
           No strength on record for this link yet. Open more detail to set one.

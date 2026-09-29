@@ -27,6 +27,7 @@ import { GhostTierNode, GHOST_TIER_TESTID } from '../GhostTierNode'
 import { GhostOptionNode } from '../GhostOptionNode'
 import { GHOST_OPTION_DOOR_LABEL } from '../../utils/ghostTiers'
 import { useGuidanceStore } from '../../stores/guidanceStore'
+import { chooseWhatElse } from './chooseWhatElse'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -64,6 +65,7 @@ describe('row-end tier door (Factor / Outcome / Risk): prefill, never send', () 
     const c = channels()
     mountTier({ label: 'What else drives this?', prompt: TIER_PROMPT, tier: 'factor' })
     fireEvent.click(screen.getByTestId(GHOST_TIER_TESTID))
+    chooseWhatElse('factor')
     expect(c.prefilled).toEqual([TIER_PROMPT])
     expect(c.sent).toEqual([])
   })
@@ -72,6 +74,7 @@ describe('row-end tier door (Factor / Outcome / Risk): prefill, never send', () 
     const c = channels()
     mountTier({ label: 'What else could go wrong?', prompt: TIER_PROMPT, tier: 'risk' })
     fireEvent.keyDown(screen.getByTestId(GHOST_TIER_TESTID), { key: 'Enter' })
+    chooseWhatElse('risk')
     expect(c.prefilled).toEqual([TIER_PROMPT])
     expect(c.sent).toEqual([])
   })
@@ -90,6 +93,7 @@ describe('option ghost door ("What else could you do?"): prefill, never send', (
     const c = channels()
     mountOption({ prompt: OPTION_PROMPT })
     fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
+    chooseWhatElse('option')
     expect(c.prefilled).toEqual([OPTION_PROMPT])
     expect(c.sent).toEqual([])
   })
@@ -101,6 +105,7 @@ describe('option ghost door ("What else could you do?"): prefill, never send', (
     useGuidanceStore.setState({ _prefillChat: null, _sendMessage: (t: string) => { sent.push(t) } })
     mountOption({ prompt: OPTION_PROMPT })
     fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
+    chooseWhatElse('option')
     expect(sent).toEqual([])
   })
 })

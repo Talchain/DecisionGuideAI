@@ -30,7 +30,7 @@ import { memo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { Handle, Position } from '@xyflow/react'
 import { Plus } from 'lucide-react'
-import { requestAsk } from '../ui/inspector-v2/askSemantic'
+import { openWhatElseFromDoor } from '../components/WhatElseChooser'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { selectLodBodyHidden } from '../utils/zoomLegibility'
@@ -79,12 +79,13 @@ export const GhostTierNode = memo((props: NodeProps) => {
    */
   const farRung = useCanvasStore(selectLodBodyHidden)
 
-  const open = useCallback(() => {
+  // ⭐ E4: the door opens the "What else…?" chooser (Factor / Risk / Option / Outcome + free text); this door's kind
+  // keeps this door's own question. ⛔ Still never `_sendMessage` — the chooser prefills through `requestAsk`
+  // (Experience Design, #63 5807363175).
+  const open = useCallback((e: { clientX?: number; clientY?: number; currentTarget: EventTarget | null }) => {
     if (!prompt || !label) return
-    // ⛔ Never `_sendMessage` — prefill-and-confirm (Experience Design, #63
-    // 5807363175). Same seam as the option ghost door.
-    requestAsk({ text: prompt, label, source: 'ghost-door' })
-  }, [prompt, label])
+    openWhatElseFromDoor(e, data.tier, prompt)
+  }, [prompt, label, data.tier])
 
   return (
     <div
@@ -98,7 +99,7 @@ export const GhostTierNode = memo((props: NodeProps) => {
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          open()
+          open(e)
         }
       }}
       // A flex ROW: `items-center` is the VERTICAL axis (icon beside a two- or

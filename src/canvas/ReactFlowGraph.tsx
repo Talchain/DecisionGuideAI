@@ -1,4 +1,5 @@
 import { LinkQuickEditorHost, openLinkQuickEditForClick, useLinkQuickEditStore } from './components/LinkQuickEditor'
+import { WhatElseChooserHost } from './components/WhatElseChooser'
 import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo } from 'react'
 import { resolveRestoredFreshnessUpdate } from './store/analysisFreshness'
 import { X } from 'lucide-react'
@@ -3022,6 +3023,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       )}
       {/* ⭐ E2: a link click opens a small strength editor at the pointer; "More detail" opens the inspector. */}
       <LinkQuickEditorHost onMoreDetail={() => setShowFullInspector(true)} />
+      {/* ⭐ E4: a ghost door's "What else…?" chooser (it only prefills the ask). */}
+      <WhatElseChooserHost />
       {/* S.1: Compact popover removed — single-click now opens full inspector directly */}
       {showFullInspector && (
         <PanelErrorBoundary panel="Inspector">
