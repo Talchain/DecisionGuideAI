@@ -25,6 +25,7 @@ import { NodeCoachingMarker, useNodeCoachingMarkerShown } from './shared/NodeCoa
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
 import { useCanvasStore } from '../store'
+import { EditableLabel } from '../ui/inspector-v2/shared/EditableLabel'
 import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
 import { selectLodBodyHidden, selectLensDetailActive, LOD_BLANKED_BODY_ATTR, LOD_FAR_TITLE_ATTR, NODE_BODY_BOUND_STYLE_ATTR, NODE_RUNG_PADDING_ATTR } from '../utils/zoomLegibility'
 import { useLayoutStore } from '../layoutStore'
@@ -404,6 +405,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
   // Local state for expand/collapse (no persistence per spec)
   const [isExpanded, setIsExpanded] = useState(false)
+  // ⭐ E1c — the title is renamed ON THE CARD (Paul 29 Sep: "click the title … to rename"), through the inspector's own
+  // rename route (`store.updateNodeLabel`: the durable `structural_rename` capture) and its own editor (`EditableLabel`).
+  const [renamingOnCard, setRenamingOnCard] = useState(false)
   const updateNodeInternals = useUpdateNodeInternals()
 
   // Phase 3: Node highlighting
@@ -2559,6 +2563,24 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               row 6, "a click opens only the inspector"): the hover delay could
               elapse after the click and stand the tooltip beside the
               inspector, whose title is the full, unclipped name. */}
+          {renamingOnCard && !lodBodyHidden ? (
+            <div
+              data-testid="node-title-rename"
+              className="nodrag nopan"
+              style={{ fontWeight: NODE_TITLE_WEIGHT }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+            >
+              <EditableLabel
+                value={label}
+                onSave={(next) => useCanvasStore.getState().updateNodeLabel(id, next)}
+                autoEdit
+                onEditEnd={() => setRenamingOnCard(false)}
+                className={`${isAnchorCard ? typography.nodeTitleWide : typography.nodeTitle} text-text-body`}
+                wrap
+              />
+            </div>
+          ) : (
           <Tooltip
             asChild
             delay={NODE_TOOLTIP_DELAY_MS}
@@ -2571,6 +2593,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           <div
             data-testid="node-title"
             data-node-tooltip
+            onDoubleClick={lodBodyHidden ? undefined : (e) => { e.stopPropagation(); setRenamingOnCard(true) }}
             {...(lodBodyHidden ? { [LOD_FAR_TITLE_ATTR]: 'true' } : {})}
             className={
               /* ⭐ v3.1 WS1 #2 (26 Sep 2026): NO CLAMP AT A READING RUNG. The
@@ -2623,6 +2646,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             {titleOverride ?? cardTitle}
           </div>
           </Tooltip>
+          )}
         </div>
 
         {/* S1-UNK: Warning chip for unknown backend kinds */}

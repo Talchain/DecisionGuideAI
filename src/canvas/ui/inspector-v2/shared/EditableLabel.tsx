@@ -28,7 +28,7 @@ import { useState, useCallback, useRef, useEffect, type KeyboardEvent } from 're
 import { Pencil } from 'lucide-react'
 
 import { typography } from '../../../../styles/typography'
-import { NODE_LABEL_MAX_LENGTH } from '../useInspectorMutations'
+import { NODE_LABEL_MAX_LENGTH } from '../nodeLabelLimits'
 
 /** Characters remaining at which the counter appears. */
 const COUNTER_REVEAL_MARGIN = 20
@@ -49,6 +49,9 @@ interface EditableLabelProps {
    * reopens the editor on every later re-render and follows the user around.
    */
   onAutoEditConsumed?: () => void
+  /** Called when an edit ends, saved or cancelled. A host that shows this editor only WHILE editing (the card's
+   *  in-place rename, E1c) swaps back to its own title on it. Optional; the inspector passes nothing. */
+  onEditEnd?: () => void
 }
 
 export function EditableLabel({
@@ -60,6 +63,7 @@ export function EditableLabel({
   wrap = false,
   autoEdit = false,
   onAutoEditConsumed,
+  onEditEnd,
 }: EditableLabelProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState(value)
@@ -109,6 +113,7 @@ export function EditableLabel({
     if (cancelledRef.current) {
       cancelledRef.current = false
       setIsEditing(false)
+      onEditEnd?.()
       return
     }
     // The input already caps at `maxLength`; the slice is defensive only, and
@@ -118,7 +123,8 @@ export function EditableLabel({
       onSave(trimmed)
     }
     setIsEditing(false)
-  }, [draft, maxLength, value, onSave])
+    onEditEnd?.()
+  }, [draft, maxLength, value, onSave, onEditEnd])
 
   const revert = useCallback(() => {
     cancelledRef.current = true
