@@ -119,6 +119,8 @@ export interface AnalysisReadinessBarProps {
   nothingHasAnswered: boolean
   /** OutputsDock's `handleRunAnalysis` — the canonical runner. */
   onAnalyse: () => void
+  /** `selectRunOnRecord` — the SAME flag the Analysis footer takes, so the two controls never name the run differently. */
+  runOnRecord?: boolean
 }
 
 export function AnalysisReadinessBar({
@@ -130,6 +132,7 @@ export function AnalysisReadinessBar({
   readinessCheck = null,
   nothingHasAnswered,
   onAnalyse,
+  runOnRecord = false,
 }: AnalysisReadinessBarProps) {
   // Outside the pre-run window the Analysis surface itself shows no readiness
   // panel, so there is nothing to carry and a bar here would be a claim no
@@ -206,7 +209,7 @@ export function AnalysisReadinessBar({
         title={blocked ? gateBlockedSubline(blockedReason) : undefined}
         data-testid="analysis-readiness-bar-analyse"
       >
-        {isAnalysing ? FOOTER_COPY.analysing : FOOTER_COPY.analyse}
+        {isAnalysing ? FOOTER_COPY.analysing : runOnRecord ? FOOTER_COPY.reanalyse : FOOTER_COPY.analyse}
       </Button>
     </>
   )

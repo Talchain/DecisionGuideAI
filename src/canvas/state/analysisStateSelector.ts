@@ -1012,3 +1012,16 @@ export function useAnalysisReadinessAuthority(): AnalysisReadinessAuthority | nu
   const analysisState = useCanvasStore((s) => s.analysisStateV1)
   return useMemo(() => selectAnalysisReadinessAuthority(analysisState), [analysisState])
 }
+
+/**
+ * HAS THIS SCENARIO A RUN ON RECORD? The server's own run state says so: a Run completed and is either still current
+ * (`complete_current`) or has since been overtaken by an edit (`complete_stale`). The run control then offers to run
+ * AGAIN, never a "first pass" — a stale cold reload restores the `complete_stale` verdict
+ * (`BOOT_RESTORABLE_RUN_STATE_KINDS`) without the result block, and the pre-run surface used to call its button
+ * "Analyse first pass" over a scenario that had been Run (P0 Shared Data builder, #72 5890601642). No verdict, a
+ * `never_run`, a run in flight or a failure are not a Run on record.
+ */
+export function selectRunOnRecord(state: AnalysisStateV1 | null | undefined): boolean {
+  const kind = (state?.run_state as { kind?: unknown } | undefined)?.kind
+  return kind === 'complete_current' || kind === 'complete_stale'
+}
