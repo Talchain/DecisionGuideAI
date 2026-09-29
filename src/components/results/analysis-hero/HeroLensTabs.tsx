@@ -46,15 +46,28 @@ export const USER_ACTIONABLE_WHEN_UNAVAILABLE: readonly HeroLens[] = ['goal']
  * The lenses the strip renders. Pure and exported so the rule is testable
  * without a DOM, and so a mutant that widens it is visible.
  */
-export function selectVisibleLenses(available: readonly HeroLens[]): HeroLens[] {
+export function selectVisibleLenses(
+  available: readonly HeroLens[],
+  /**
+   * Lenses the MODEL says are user-actionable on THIS run although empty. W3 (AIQ #72 5894808343 (3)): "Likely
+   * outcome" withheld because the goal has no today's level says so and is unlocked by stating that level — hiding
+   * the tab would hide the only sentence explaining why no outcome is shown.
+   */
+  alsoVisible: readonly HeroLens[] = [],
+): HeroLens[] {
   return ALL_HERO_LENSES.filter(
-    (lens) => available.includes(lens) || USER_ACTIONABLE_WHEN_UNAVAILABLE.includes(lens),
+    (lens) =>
+      available.includes(lens) ||
+      USER_ACTIONABLE_WHEN_UNAVAILABLE.includes(lens) ||
+      alsoVisible.includes(lens),
   )
 }
 
 export interface HeroLensTabsProps {
   /** DATA-BEARING lenses; every other lens renders muted but selectable. */
   available: HeroLens[]
+  /** Empty lenses that stay visible on this run because their empty state is user-actionable. */
+  alsoVisible?: HeroLens[]
   active: HeroLens
   onSelect: (lens: HeroLens) => void
   /** id of the tabpanel the tabs control. */
@@ -72,6 +85,7 @@ export function tabId(panelId: string, lens: HeroLens): string {
 
 export function HeroLensTabs({
   available,
+  alsoVisible = [],
   active,
   onSelect,
   panelId,
@@ -80,7 +94,7 @@ export function HeroLensTabs({
   // Roving focus must walk the RENDERED tabs, not the full lens enum — arrowing
   // onto a tab that is not in the DOM focuses nothing and strands the keyboard
   // user (the `refs.current[next]?.focus()` below would silently no-op).
-  const visibleLenses = selectVisibleLenses(available)
+  const visibleLenses = selectVisibleLenses(available, alsoVisible)
 
   const moveTo = (index: number) => {
     const count = visibleLenses.length

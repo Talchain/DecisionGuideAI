@@ -33,7 +33,13 @@ export const OPT_BOLD = 'opt_bold'
 const NODES = [
   { id: OPT_HEDGE, type: 'option', position: { x: 0, y: 0 }, data: { kind: 'option', label: OPT_HEDGE_LABEL } },
   { id: OPT_BOLD, type: 'option', position: { x: 0, y: 0 }, data: { kind: 'option', label: 'Go big in one step' } },
-  { id: 'goal_1', type: 'goal', position: { x: 0, y: 0 }, data: { kind: 'goal', label: 'Reach £30k MRR' } },
+  // The goal holds a level in its own units (a cap from outside the target), so the run's outcomes are in £, not
+  // unitless scores. This harness tests the LICENCE; without the level the hero now withholds every outcome figure
+  // and crown on the run (W3, AIQ #72 5894808343 (3)), and every licence arm would be about that instead.
+  {
+    id: 'goal_1', type: 'goal', position: { x: 0, y: 0 },
+    data: { kind: 'goal', label: 'Reach £30k MRR', goal_threshold_cap: 40000, goal_threshold_cap_provenance: 'inherited' },
+  },
 ]
 
 /**

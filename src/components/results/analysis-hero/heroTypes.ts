@@ -482,6 +482,14 @@ export interface HeroChartModel {
    */
   outcomeDomain: { min: number; max: number } | null
   /**
+   * W3 (AIQ #72 5894808343 (3)): the outcomes are UNITLESS model scores (`isNormalised`: no today's level of the goal
+   * to express them in its units), so no outcome figure is shown and the outcome lens says why. A unitless score is
+   * never shown to the user, least of all as a "% change" (served: "Stay on AWS −22%" for a goal with no today level).
+   */
+  outcomeWithheldNoTodayLevel: boolean
+  /** The outcome lens's "Not shown: …" sentence when {@link outcomeWithheldNoTodayLevel}, naming the goal; else null. */
+  outcomeWithheldBody: string | null
+  /**
    * Number of rows that draw a p10-p90 range line — gates the outcome
    * caption so it never describes lines (or overlap) that are not
    * rendered: 0 → dots-only wording, 1 → singular "The line shows…"

@@ -333,7 +333,9 @@ export function AnalysisHeroPanel({
       ? model.showGoalHint
         ? HERO_COPY.lensUnavailable.goalNoTarget
         : HERO_COPY.lensUnavailable.goalProducerGap
-      : HERO_COPY.lensUnavailable[lens]
+      : lens === 'outcome'
+        ? (model.outcomeWithheldBody ?? HERO_COPY.lensUnavailable.outcome)
+        : HERO_COPY.lensUnavailable[lens]
     : null
 
   const leaderId = model.leaders[lens]
@@ -436,6 +438,7 @@ export function AnalysisHeroPanel({
             data are muted but selectable and explain themselves below. */}
         <HeroLensTabs
           available={model.lenses}
+          alsoVisible={model.outcomeWithheldBody != null ? ['outcome'] : []}
           active={lens}
           onSelect={setLensState}
           panelId={panelId}
