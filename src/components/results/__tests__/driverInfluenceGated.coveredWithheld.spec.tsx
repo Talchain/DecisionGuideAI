@@ -36,6 +36,7 @@ import { extractPolicyRow, selectDriverDisplayModel } from '../driverDisplayMode
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import servedC from '../../../canvas/nodes/__tests__/fixtures/served-pj-c-213830Z.unvalued-drivers.json'
 import plot408Zero from './fixtures/plot408-gated-egress-ZERO.json'
+import { INFLUENCE_STRUCTURAL_BASIS_NOTE } from '../influenceScaleCopy'
 
 const GATED_WORDS = 'Depends on the option chosen'
 
@@ -367,5 +368,18 @@ describe('(h) the REAL PLoT #408 egress (R3-B, unmodified rows) replayed through
     expect(['fac_existing_customers_grandfathered', 'other_mrr_growth', 'pro_plan_price'].map((id) => canvasFor(id).sensitivityRank)).toEqual([1, null, null])
     expect(canvasFor('fac_existing_customers_grandfathered').influenceRankedCount).toBe(1)
     expect(plot408Zero.driver_order.separability.method).toBe('basis_value_exact_tie')
+  })
+
+  // ⚠ WANTED, NOT YET TRUE (it.fails flips when fixed): the V5 mapper does not carry `importance_basis`, so every
+  // served driver arrives UNSTAMPED and `influenceQuantityRunDisclosureForRun`'s fail-closed gate never engages. Served
+  // PLoT stamps `isl_structural` on every row (29 Sep), so the panel prints "These show structural influence…" on a
+  // basis the code does not handle. Needs AI QUALITY's noun ruling for isl_structural + the mapper carrier (#72).
+  it.fails('WANTED: an isl_structural payload withholds the structural disclosure until that basis is ruled', () => {
+    run()
+    const data = panelRows()
+    expect(rows.every((r) => r.importance_basis === 'isl_structural')).toBe(true) // premise, by identity
+    const { container } = render(<DriversSection data={data} />)
+    expect(container.textContent ?? '').not.toContain(INFLUENCE_STRUCTURAL_BASIS_NOTE)
+    expect(container.textContent ?? '').not.toMatch(/structural influence/i)
   })
 })
