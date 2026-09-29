@@ -51,6 +51,7 @@ import {
   INFLUENCE_QUANTITY_BY_BASIS,
   importanceBasisTrust,
   influenceQuantity,
+  influenceStructuralBasisNote,
   influenceQuantityForRun,
   influenceQuantityRunDisclosure,
   influenceQuantityRunDisclosureForRun,
@@ -59,6 +60,15 @@ import {
   selectDriverDisplayModel,
   type DriverDisplayProvenance,
 } from '../driverDisplayModel'
+
+/**
+ * ⚠ A STAMP THE CORPUS CARRIES THAT THE CODE DELIBERATELY DOES NOT HANDLE (DL #72 5884273833, 29 Sep 2026).
+ * The real PLoT #408 egress (R3-B, ISL #213 structural influence; fixture `plot408-gated-egress-ZERO.json`, #2290)
+ * stamps `isl_structural`. Whether it earns the noun "structural" is AI QUALITY's ruling; until then it stays
+ * UNRECOGNISED and fails closed (no structural note, no basis noun). Declared HERE, not in production code, so the
+ * product still withholds it; moving it into `HANDLED_IMPORTANCE_BASES` needs that ruling and removes it from this set.
+ */
+const WITHHELD_PENDING_RULING = ['isl_structural'] as const
 
 const SRC_ROOT = join(__dirname, '..', '..', '..')
 
@@ -290,7 +300,8 @@ describe('influence quantity vocabulary — the corpus says the two quantities d
       .map((row) => row.importance_basis)
       .filter((v): v is string => typeof v === 'string')
     expect(stamps.length, 'no importance_basis stamp found — probe blind').toBeGreaterThanOrEqual(50)
-    expect([...new Set(stamps)].sort()).toEqual(['graph_structural'])
+    // The second value is the real ISL #213 / PLoT #408 egress; see WITHHELD_PENDING_RULING. Any THIRD value REDs.
+    expect([...new Set(stamps)].sort()).toEqual(['graph_structural', 'isl_structural'])
   })
 
   /**
@@ -360,7 +371,20 @@ describe('importance_basis — the producer stamp is read, and fails closed', ()
       .map((row) => row.importance_basis)
       .filter((v): v is string => typeof v === 'string')
     expect(stamps.length, 'no importance_basis stamp found — probe blind').toBeGreaterThanOrEqual(50)
-    expect([...new Set(stamps)].sort()).toEqual([...HANDLED_IMPORTANCE_BASES].sort())
+    // Both directions still hold: every stamp is handled OR explicitly withheld, and nothing is claimed as handled
+    // that the corpus never stamps. A value in neither set — or in both — REDs.
+    expect([...new Set(stamps)].sort()).toEqual([...HANDLED_IMPORTANCE_BASES, ...WITHHELD_PENDING_RULING].sort())
+  })
+
+  it('isl_structural is WITHHELD, not handled: it fails closed and earns no structural note (pending AIQ)', () => {
+    for (const b of WITHHELD_PENDING_RULING) {
+      expect(HANDLED_IMPORTANCE_BASES as readonly string[]).not.toContain(b)
+      expect(importanceBasisTrust([b])).toBe('unrecognised')
+      expect(importanceBasisTrust([IMPORTANCE_BASIS_GRAPH_STRUCTURAL, b])).toBe('unrecognised')
+      expect(influenceStructuralBasisNote('influence_score', b)).toBeNull()
+    }
+    // CONTROL: the handled stamp still earns its note, so the null above is the withholding, not a dead arm.
+    expect(influenceStructuralBasisNote('influence_score', IMPORTANCE_BASIS_GRAPH_STRUCTURAL)).not.toBeNull()
   })
 
   it('the handled value is the one the corpus actually stamps', () => {
