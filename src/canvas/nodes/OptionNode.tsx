@@ -389,7 +389,9 @@ function computeBehindReason(
     const { value: winnerVal } = unwrapInterventionValue(ctx.winnerInterventions[ctx.topFactorId])
     const { value: thisVal } = unwrapInterventionValue(thisInterventions[ctx.topFactorId])
     if (winnerVal != null && thisVal != null && Math.abs(winnerVal - thisVal) >= 1e-6) {
-      return `${ctx.strippedLabel.toLowerCase()} lower`
+      // The direction is READ, never assumed: this arm said "lower" whenever the two values differed at all, so an
+      // option setting the top factor HIGHER than the leader was described as lower (graph audit 29 Sep).
+      return `${ctx.strippedLabel.toLowerCase()} ${thisVal < winnerVal ? 'lower' : 'higher'}`
     }
   }
 
