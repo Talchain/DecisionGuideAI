@@ -3779,6 +3779,8 @@ function buildChecks(
       leaderCode === 'leader_not_assessed' &&
       typeof producerWithholdReason === 'string' &&
       producerWithholdReason.trim() === 'unrequested_analysis_withheld',
+    provisionalOptionWithheld:
+      leaderCode === 'leader_not_assessed' && token === 'olumi_option_provisional',
     /**
      * ⭐⭐⭐ A DIFFERENT QUESTION AGAIN: WOULD RUNNING IT AGAIN CHANGE THIS?
      *
@@ -4091,7 +4093,7 @@ export function buildAnalysisNewViewModel(
         // distinction matters downstream — the glance ribbon uses this to
         // decide whether a re-run could help, and pre-run there is no result
         // for it to be about.
-        { items: [], leaderWithholdCause: null, leaderWithheld: false, leaderWithholdDetail: null, sharesExcludeLimits: false, firstPassWithheld: false, rerunWouldNotHelp: false }
+        { items: [], leaderWithholdCause: null, leaderWithheld: false, leaderWithholdDetail: null, sharesExcludeLimits: false, firstPassWithheld: false, provisionalOptionWithheld: false, rerunWouldNotHelp: false }
       : buildChecks(data, inputs.producerLeaderWithholdReason, inputs.staleReason),
   }
 }

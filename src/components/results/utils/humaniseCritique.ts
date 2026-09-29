@@ -710,13 +710,11 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // ── The objective sense: WHAT "this option wins" MEANT on this run ──────
   //
   // Producer: ISL `services/robustness_analyzer_v2.py:4205` at `staging`
-  // c9ab543d93ef4fa3b760fe192dc36603bb05b41c. Fires whenever the request
-  // carried no `goal_direction` — i.e. on every run today, because no producer
-  // in the estate stamps that field yet (measured 2026-09-19 with contrast
-  // controls in the same sweep: `goal_direction` ZERO in this repo, ZERO in
-  // CEE `staging` 84abbb92 and ZERO in PLoT `staging` 350b0fb6, against
-  // `goal_threshold` 177 here and 76 in PLoT. The contract is `olumi-schemas`
-  // PR #48, open and CONFLICTING; the transport is PLoT PR #352, open).
+  // c9ab543d93ef4fa3b760fe192dc36603bb05b41c. Fires when the request
+  // carried no objective-sense `goal_direction`. A saved goal can still hold
+  // the user's target comparator (`>=`, `<=`, `>` or `<`): that is a different
+  // field meaning. The original zero-wire sweep was measured on 19 Sep 2026;
+  // CEE now sends `minimise` for some attested ceilings.
   //
   // ISL's own model states what it means: `win_probability` has always been
   // "the fraction of draws on which this option produced the largest goal-node
@@ -753,17 +751,17 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // improves the copy rather than constraining it: "scored highest" is exactly
   // what the maximiser did, with none of the contest reading.
   //
-  // ⛔ AND IT NEVER NAMES A DIRECTION. Inferring "minimise" from a label like
-  // "churn" is exactly what the contract forbids (`GoalDirection`'s block in
-  // `olumi-schemas` PR #48: "PRODUCERS MUST NOT INFER THIS FROM A NODE
-  // LABEL"). A wrong inferred aim would be worse than the honest disclosure it
-  // replaced.
+  // AI Quality #75 (30 Sep): CEE can hold the user's target comparator on the
+  // goal node while omitting the separate objective-sense wire field. This UI
+  // receives neither a selected-Run-bound comparator nor a licence to say the
+  // user omitted their direction. Describe the ranking method without turning
+  // an absent wire field into an assertion about the user's stated goal.
   GOAL_DIRECTION_UNATTESTED: () => ({
     title:
-      'Your options were ordered by which one produces the largest value at your goal, because the model does not say which way your goal should go. If you want it lower, or held at a particular level, that ordering answers a different question.',
+      'This run ordered options by the largest value at your goal. A goal to lower it or stay near a target asks a different question.',
     description:
-      'Every other number in this analysis stands. What is missing is the objective sense: on this run, the option that scored highest was simply the one that produced the largest number at your goal on the most draws, and nothing confirmed that is the question you are asking.',
-    // No suggestion — see the block above. There is no writer for this.
+      'If no direction was stated, this assumes you want your goal value as high as possible. A stated minimum points upward; a goal to lower the value or stay near a target asks a different question.',
+    // No suggestion: Results has no user action that writes the PLoT objective sense.
   }),
 
   /**
@@ -976,15 +974,14 @@ export type InferenceWarningKind =
  * `OBJECTIVE_RANKING_WITHHELD` (`:4239`). Both carry a `detail.message`, so
  * PLoT forwards both (`run.ts:3967`) and both reach this UI's surfaces.
  *
- * `GOAL_DIRECTION_UNATTESTED` is classified below: it fires on EVERY run today
- * and it fired on both of the 2026-09-19 founder sessions.
+ * `GOAL_DIRECTION_UNATTESTED` is classified below: it fires when the selected
+ * Run omitted the objective-sense wire field, including the held-floor case.
  *
  * ⛔ `OBJECTIVE_RANKING_WITHHELD` IS DELIBERATELY NOT CLASSIFIED YET, and the
  * omission is a measurement rather than an oversight. ISL emits it ONLY on
- * `goal_direction == "target"` (`:4232`), and its own comment records that
- * this "today has zero live traffic (no producer sends the field yet)" —
- * confirmed here: `goal_direction` reads ZERO in this repo, ZERO in CEE
- * `staging` 84abbb92 and ZERO in PLoT `staging` 350b0fb6. Classifying it would
+ * `goal_direction == "target"` (`:4232`). The 19 Sep 2026 sweep found zero
+ * producer traffic for that value; CEE's later `minimise` wire does not send
+ * `target`. Classifying it would
  * be copy nobody can reach, unwitnessable at any rung, in a file where every
  * template records the run it was derived from. It belongs with the producer
  * train (`olumi-schemas` PR #48 + PLoT PR #352), which is where the argument
@@ -1025,8 +1022,8 @@ export const ISL_INFERENCE_WARNING_KINDS: Readonly<Record<string, InferenceWarni
   // Added 2026-09-19: post-dates the 28fe0c95 AST walk (ISL
   // `robustness_analyzer_v2.py:4205` at `staging` c9ab543d). `model_shape`
   // because the limit is a fact about the request, not a compute failure —
-  // but it is in `NO_ROUTE_EXISTS`: the user CANNOT act, because nothing in
-  // the estate writes `goal_direction`.
+  // but it is in `NO_ROUTE_EXISTS`: this UI has no user-facing editor for the
+  // separate objective-sense wire field.
   GOAL_DIRECTION_UNATTESTED: 'model_shape',
   // Added 2026-09-21: code 30, witnessed live on run `95b92672`. Sits beside
   // its direct sibling `E_VALUES_UNAVAILABLE` — the EVENT is an E-value output

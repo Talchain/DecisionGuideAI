@@ -1404,7 +1404,7 @@ export function AnalysisNewTabBody({
          lives: it receives one handler or `undefined`, exactly as before,
          and `reviewEstimates` is `undefined` when there is neither an
          in-page act nor a route. */
-      onReviewEstimates={reviewEstimates}
+      onReviewEstimates={vm.checks.provisionalOptionWithheld ? undefined : reviewEstimates}
       isStale={vm.status.isStale && !vm.status.isPreRun}
       staleKind={vm.status.staleKind}
       runNote={

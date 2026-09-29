@@ -1202,6 +1202,8 @@ export interface ChecksSection {
    * commitment synthesis, which says so instead of "could not confirm".
    */
   firstPassWithheld: boolean
+  /** This run included an unadopted Olumi option; an estimate edit cannot resolve that cause. */
+  provisionalOptionWithheld: boolean
   /**
    * ⭐ THE PRODUCER'S TYPED REASON THE RECOMMENDATION WAS WITHHELD, AS ONE
    * SENTENCE — or null. Paul's manual test `1a298d6d`: the run carried

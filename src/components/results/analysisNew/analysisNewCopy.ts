@@ -273,6 +273,8 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
   // AIQ #72 5886555442. The ‹label› parenthetical waits for Canonical's carrier to name the option ids.
   options_not_reconciled_with_brief:
     "Olumi added an option your brief didn't name, so this run doesn't put one forward. You can remove it and re-run.",
+  olumi_option_provisional:
+    "This run included an option Olumi suggested that you have not added to the comparison, so it cannot put one forward. To include it, ask Olumi for the Add to comparison card and confirm it.",
 }
 
 /**
