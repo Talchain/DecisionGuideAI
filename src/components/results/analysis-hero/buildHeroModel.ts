@@ -362,6 +362,11 @@ export function buildHeroModel(
   if (options.length === 0) return { kind: 'empty' }
 
   const { outcomeUnit, outcomeUnitSymbol, isNormalised, goalThreshold } = recommendation
+  // W3 (AIQ #72 5894808343 (3)): normalised outcomes are unitless model scores (no today's level of the goal to express
+  // them in its units). A unitless score is never shown — `formatThreshold` would print it as a "% shift" ("Stay on AWS
+  // −22%" served for a goal with no today's level) — so every outcome figure is withheld at source, and the outcome
+  // lens says why (`outcomeWithheldNoTodayLevel`).
+  const outcomeIsUnitless = isNormalised === true
 
   // UI-SEM-071: null-target goal-claim suppression. Goal-fit display is
   // gated on the USER success target (goalThreshold), NEVER on producer
@@ -403,9 +408,9 @@ export function buildHeroModel(
     // all key off this value, so a synthesized goalProbability cannot
     // bypass the gate anywhere.
     const goalValue = hasUserTarget ? (o.goalProbability ?? null) : null
-    const centre = outcomeCentre(o)
-    const p10 = outcomeP10(o)
-    const p90 = outcomeP90(o)
+    const centre = outcomeIsUnitless ? null : outcomeCentre(o)
+    const p10 = outcomeIsUnitless ? null : outcomeP10(o)
+    const p90 = outcomeIsUnitless ? null : outcomeP90(o)
     const why = recommendation.storyHeadlines?.[o.id]
     const couldChangeIf = couldChangeIfLine(o, o.id === recommendedId, usableFlips)
     const winReadout =
@@ -524,7 +529,9 @@ export function buildHeroModel(
   if (goalAvailable) lenses.push('goal')
   if (outcomeAvailable) lenses.push('outcome')
   // Options exist but nothing displayable — the hero has nothing honest to say.
-  if (lenses.length === 0) return { kind: 'empty' }
+  // W3: EXCEPT when the outcomes were withheld as unitless scores. Then the hero has one honest thing to say — why no
+  // outcome is shown and what unlocks it — and an empty hero would drop that sentence (the outcome lens carries it).
+  if (lenses.length === 0 && !outcomeIsUnitless) return { kind: 'empty' }
 
   // Outcome leader: highest existing centre; strict `>` keeps the earliest
   // row on ties (deterministic shared-display-order tie-break).
@@ -1460,6 +1467,13 @@ export function buildHeroModel(
       whatChanged: null,
     },
     outcomeDomain,
+    outcomeWithheldNoTodayLevel: outcomeIsUnitless,
+    outcomeWithheldBody: outcomeIsUnitless
+      ? HERO_COPY.lensUnavailable.outcomeNoTodayLevel(
+          stripEncodingNotation(recommendation.goalLabel ?? ''),
+          outcomeUnitSymbol?.trim() || null,
+        )
+      : null,
     // Caption honesty: only describe range lines (and overlap) the chart
     // actually draws — 0/1/2+ ranged rows pick the caption wording.
     outcomeRangedRowCount: rows.filter(

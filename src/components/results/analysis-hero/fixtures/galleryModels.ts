@@ -63,6 +63,9 @@ function fixtureChart(o: Partial<HeroChartModel>): HeroChartModel {
     leaders: { goal: null, outcome: null, stability: null, whatChanged: null },
     outcomeDomain: null,
     outcomeRangedRowCount: 0,
+    // The gallery's runs are in the goal's units, so no outcome is withheld for want of today's level (W3).
+    outcomeWithheldNoTodayLevel: false,
+    outcomeWithheldBody: null,
     showGoalHint: false,
     mainReason: null,
     quickLinks: { mainDriver: null, topFlipRisk: null },

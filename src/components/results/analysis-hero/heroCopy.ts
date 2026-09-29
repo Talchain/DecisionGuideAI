@@ -54,6 +54,10 @@ export const HERO_COPY = {
     goalDefineSuccess: GOAL_ANCHOR_COPY.noTargetCta,
     goalProducerGap: 'Goal fit is not available for this run.',
     outcome: 'Likely outcome is not available for this run.',
+    /** W3 (AIQ #72 5894808343 (3)): the outcomes are unitless scores because the goal has no today's level, so they
+     *  are not shown — never as a "% change". AIQ's words, naming the goal; the unit is named only when the run has one. */
+    outcomeNoTodayLevel: (goalLabel: string, unitSymbol: string | null): string =>
+      `Not shown: Olumi doesn't hold today's level of ${goalLabel.trim() ? `‘${goalLabel.trim()}’` : 'the goal'}, so these outcomes can't be given ${unitSymbol ? `in ${unitSymbol}` : "in the goal's units"} or as a change.`,
     stability:
       'This view needs per-option stability data, which the analysis does not provide yet.',
     /**
