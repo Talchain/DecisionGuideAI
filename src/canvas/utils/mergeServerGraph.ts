@@ -346,6 +346,8 @@ export function mergeServerGraphOnHydrate(
   if (rawNodes.length === 0 && rawEdges.length === 0) return refused('emptyServerGraph')
 
   const store = useCanvasStore.getState()
+  // Read BEFORE anything is written: an empty canvas here means this merge can only ADD — see `adoptingIntoEmptyCanvas`.
+  const canvasWasEmpty = store.nodes.length === 0 && store.edges.length === 0
 
   // ROADMAP 2.467/2.503 — refuse while the canvas holds an UNREGISTERED import.
   // Placed AFTER the shape guards (an unusable or empty server graph is still
@@ -883,7 +885,24 @@ export function mergeServerGraphOnHydrate(
   // and equivalent option-record acquisition are stored without invalidating
   // unchanged analysis; real overwrites, additions AND removals still
   // invalidate it — a removal is a model change like any other.
-  if (modelChanged) useCanvasStore.getState().markGraphStructurallyEdited?.()
+  //
+  // ⭐ ADOPTION INTO AN EMPTY BROWSER IS NOT AN EDIT (fresh browser; Canvas #72, served `7f1be5d8`, scenario
+  // `0c238873`). The question above is about "the graph the current freshness verdict was established against". When
+  // the canvas was EMPTY before this merge and the browser holds NO verdict, freshness, result or Run of its own, there
+  // is no such graph and nothing can have been overwritten or removed: the canvas is adopting the server's model.
+  // Marking that an edit made the boot decline the server's own `complete_current` Run as `edited_since_read` on every
+  // fresh browser, so a saved Run never showed on a second device. A canvas that held ANY model keeps the mark exactly
+  // as before (its local content may just have been overwritten or removed), and so does anything held.
+  const held = useCanvasStore.getState()
+  const adoptingIntoEmptyCanvas =
+    canvasWasEmpty &&
+    held.analysisStateV1 == null &&
+    held.analysisFreshness == null &&
+    held.v5AnalysisFact == null &&
+    held.hasCompletedFirstRun !== true &&
+    held.results?.status !== 'complete' &&
+    held.results?.report == null
+  if (modelChanged && !adoptingIntoEmptyCanvas) useCanvasStore.getState().markGraphStructurallyEdited?.()
 
   // ── DISCLOSURE: never move a number the user is looking at in silence ──────
   //
