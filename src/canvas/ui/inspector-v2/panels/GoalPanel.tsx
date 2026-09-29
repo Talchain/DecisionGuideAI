@@ -541,6 +541,20 @@ export const GoalPanel = memo(function GoalPanel({
    * The probability sentence under a stated target. One element, two readers:
    * the readout arm below and the mounted target block, so the two cannot drift.
    */
+  /**
+   * Served f5d503b0 (29 Sep): with no option put forward there is no recommended option,
+   * so `probGoal` is null, yet the run carried every option's goal figure (Analysis
+   * showed < 1% / 99% / 83%). `goalFitAvailable` is the hook's own answer (the same
+   * selector, per option). The panel says where the figures are, never picks one.
+   */
+  const perOptionOnly = isResultsMode && typeof probGoal !== 'number' && displayMetadata.goalFitAvailable === true
+  const perOptionOnlyLine = (testId: string) => (
+    <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid={testId}>
+      {GOAL_CONSTRAINT_COPY.perOptionOnly}{' '}
+      <ResultsLink label={GOAL_CONSTRAINT_COPY.perOptionOnlyLink} tab="analysisNew" />
+    </p>
+  )
+
   const targetProbabilityLine = typeof probGoal === 'number' ? (
     <p className={`${typography.panelBody} text-text-body mt-1`}>
       {/* ROADMAP 2.282. Withheld arm: the shared register's
@@ -558,7 +572,7 @@ export const GoalPanel = memo(function GoalPanel({
         </span>
       )}
     </p>
-  ) : (
+  ) : perOptionOnly ? perOptionOnlyLine('goal-probability-per-option') : (
     /* v3.1 (DESIGN-GAP-v31 row 33): the contract has no simulation wording,
        and an absence is stated, not turned into an instruction. Before any
        results: "No analysis results yet." With complete results that carry no
@@ -1217,6 +1231,8 @@ export const GoalPanel = memo(function GoalPanel({
                 </div>
               </div>
             </StaleGuardBanner>
+          ) : perOptionOnly ? (
+            perOptionOnlyLine('goal-impact-per-option')
           ) : (
             <p className={`${typography.panelMeta} text-text-light`}>{GOAL_STRINGS.impactUnavailable}</p>
           )}

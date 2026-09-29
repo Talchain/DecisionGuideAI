@@ -1650,6 +1650,8 @@ export const ANALYSIS_NEW_COPY = {
    * question either answers, which is worse than one. So the goal figure is
    * NAMED and the comparative one is named beside it, and neither ships alone.
    *
+   * ⚠ SUPERSEDED 29 Sep (AIQ #72 5885033487): the label is now the register's
+   * "Share of model runs that reach the target". The note below is kept for provenance.
    * ⚠ "Reaches your target" IS POSSESSIVE ON PURPOSE. It names the target the
    * USER set, which is the only case this surface renders (a substituted joint
    * figure is suppressed upstream rather than relabelled — see the view model).
@@ -1666,7 +1668,8 @@ export const ANALYSIS_NEW_COPY = {
     /** Model-scale axis ends: direction only, no numbers (#2133 omits the ticks). */
     axisLower: 'Lower',
     axisHigher: 'Higher',
-    goalLabel: 'Reaches your target',
+    // AIQ #72 5885033487 / 5885116642: a goal figure is a share of model runs; the register's label.
+    goalLabel: GOAL_ANCHOR_COPY.label(false),
     winLabel: 'Highest in this model',
     /**
      * ⭐ SAYS WHAT THE PICTURE IS, AND NOTHING ELSE. It states that the segments
