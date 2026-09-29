@@ -82,10 +82,18 @@ describe('readGoalCertainty — one reader, both legs', () => {
   })
   it('reads earned and unearned; an unreadable certainty is UNEARNED with no sentence (fail-closed)', () => {
     expect(readGoalCertainty([UNEARNED_59, EARNED_49])).toEqual([
-      { optionId: 'raise_to_59', earned: false, say: SAY },
-      { optionId: 'keep_49_price', earned: true, say: null },
+      { optionId: 'raise_to_59', endpoint: 1, earned: false, say: SAY },
+      { optionId: 'keep_49_price', endpoint: 0, earned: true, say: null },
     ])
-    expect(readGoalCertainty([{ option_id: 'x', probability_of_goal: 0.5, earned: true }])).toEqual([{ optionId: 'x', earned: false, say: null }])
+  })
+  it('CONTRACT REFUSED → absent (the whole record): the published schema, mirrored — never a field-by-field repair', () => {
+    expect(readGoalCertainty([{ option_id: 'x', probability_of_goal: 1, earned: 'yes' }])).toBeNull()
+    expect(readGoalCertainty([{ option_id: 'x', probability_of_goal: 1 }])).toBeNull()
+    expect(readGoalCertainty([{ option_id: 'x', probability_of_goal: 0.5, earned: true }])).toBeNull()
+    // builder 5889098845: CEE refuses an earned certainty that carries a sentence, so the UI does too
+    expect(readGoalCertainty([{ option_id: 'x', probability_of_goal: 1, earned: true, say: 'It will reach the target.' }])).toBeNull()
+    // one bad entry refuses the record, not just itself
+    expect(readGoalCertainty([EARNED_49, { ...UNEARNED_59, say: undefined }])).toBeNull()
   })
   it('the turn key is read top level first, then the additive sidecar', () => {
     expect(goalCertaintyFromResponse({ goal_certainty: [EARNED_49] })).toEqual([EARNED_49])
@@ -104,9 +112,23 @@ describe('fresh Run (turn) and cold reload (read): the same Run yields the same 
     }
     expect(turn.raise_to_59).toEqual(read.raise_to_59)
   })
-  it('CONTROL: no fact on either leg → no stamp (today’s behaviour stands)', () => {
-    expect(optionsOf(turnReport({})).raise_to_59.goalCertaintyUnearned).toBeUndefined()
-    expect(optionsOf(readReport(undefined)).raise_to_59.goalCertaintyUnearned).toBeUndefined()
+  it('ABSENT is never earned (schemas 0.63.0): on both legs every displayed 0/1 is withheld behind the fallback; the interior figure is not', () => {
+    for (const r of [optionsOf(turnReport({})), optionsOf(readReport(undefined))]) {
+      expect(r.raise_to_59.goalCertaintyUnearned).toEqual({ say: null })
+      expect(r.keep_49_price.goalCertaintyUnearned).toEqual({ say: null })
+      expect(r.raise_to_54.goalCertaintyUnearned).toBeUndefined()
+    }
+  })
+  it('RECORDED [] attests no 0/1: the 0/1 figures are withheld, the interior figure shows (absent vs [] differ only by the record)', () => {
+    const r = optionsOf(turnReport({ goal_certainty: [] }))
+    expect(r.raise_to_59.goalCertaintyUnearned).toEqual({ say: null })
+    expect(r.raise_to_54.goalCertaintyUnearned).toBeUndefined()
+    expect(selectGoalProbability(r.raise_to_54 as never).goalProbability).toBe(0.8311)
+  })
+  it('a decision binds by (option, endpoint): an earned decision for the OPPOSITE endpoint attests nothing', () => {
+    const opposite = { option_id: 'raise_to_59', probability_of_goal: 0, earned: true }
+    expect(optionsOf(turnReport({ goal_certainty: [opposite, EARNED_49] })).raise_to_59.goalCertaintyUnearned).toEqual({ say: null })
+    expect(optionsOf(turnReport({ goal_certainty: [{ ...opposite, probability_of_goal: 1 }, EARNED_49] })).raise_to_59.goalCertaintyUnearned).toBeUndefined()
   })
   it('the chooser withholds ONLY the unearned figure', () => {
     const r = optionsOf(turnReport({ goal_certainty: [UNEARNED_59, EARNED_49] }))
