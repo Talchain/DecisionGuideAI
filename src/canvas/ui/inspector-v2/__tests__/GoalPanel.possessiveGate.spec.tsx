@@ -48,6 +48,7 @@
  * The gate is scoped to `joint_goal_substituted` ONLY. `joint_goal_
  * constrained` — the user's own goal AND their own limits — keeps the
  * possessive, and the last test pins that so a blanket copy deletion fails.
+ * 29 Sep 2026 (AIQ 5882498938): `joint_goal_constrained` is retired; the constrained fixture now carries a goal figure.
  *
  * RED-first (2.296 item 5): at pristine tip 925eb818 every PRESENCE assertion
  * on a mapper-built report fails — the panel renders no probability at all.
@@ -152,11 +153,25 @@ const REAL_GOAL_REPORT = analysisReport({
 })
 
 /**
- * The CONSTRAINED joint case — possessive earned, must survive. INTERNAL
+ * The CONSTRAINED case — possessive earned, must survive. INTERNAL
  * post-mapper shape, declared above: the V5 mapper cannot emit per-option
  * `constraint_analysis`, so this pins the panel's basis-narrowing only.
+ * 29 Sep 2026 (AIQ 5882498938): carries the GOAL figure (0.3, distinct from the joint 0.42) — the slot reads it alone.
  */
 const CONSTRAINED_REPORT = {
+  option_probabilities: {
+    opt_a: {
+      goal_probability: 0.3,
+      probability_of_joint_goal: 0.42,
+      constraint_analysis: { constraints: [{ id: 'c1' }] },
+      confidence: 0.5,
+    },
+  },
+  robustness: { recommended_option_id: 'opt_a', display_verdict: 'fragile' },
+}
+
+/** The same constraints with NO goal figure — withheld, exactly like the substituted run. */
+const CONSTRAINED_NO_GOAL_REPORT = {
   option_probabilities: {
     opt_a: {
       probability_of_joint_goal: 0.42,
@@ -214,8 +229,9 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     expect(sub.jointGoalProbability).toBe(0.0054)
 
     expect(selectGoalProbability(recordOf(REAL_GOAL_REPORT)).basis).toBe('goal_probability')
-    expect(selectGoalProbability(recordOf(CONSTRAINED_REPORT)).basis).toBe(
-      'joint_goal_constrained',
+    expect(selectGoalProbability(recordOf(CONSTRAINED_REPORT)).basis).toBe('goal_probability')
+    expect(selectGoalProbability(recordOf(CONSTRAINED_NO_GOAL_REPORT)).basis).toBe(
+      'joint_goal_withheld',
     )
   })
 
@@ -271,16 +287,37 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     expect(text).toContain('55% chance of success')
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('55%', true))
     // The joint line is a genuinely DIFFERENT quantity here, so it stays.
-    expect(text).toContain('Chance of hitting every target')
+    // 29 Sep 2026 (AIQ 5882498938): its label is "Chance all your limits hold".
+    expect(text).toContain('Chance all your limits hold')
   })
 
-  it('positive control: the CONSTRAINED joint basis KEEPS the possessive wording (the gate is basis-scoped, not joint-scoped)', () => {
+  // 29 Sep 2026 (AIQ 5882498938): was "the CONSTRAINED joint basis keeps the possessive" — now the GOAL figure on a constrained option does.
+  it('positive control: the GOAL figure on a constrained option KEEPS the possessive wording — never the joint figure', () => {
     setStore(CONSTRAINED_REPORT)
     const { container } = renderPanel()
     const text = container.textContent ?? ''
 
-    expect(text).toContain('42% chance of success')
-    expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('42%', true))
+    expect(text).toContain('30% chance of success')
+    expect(text).not.toContain('42% chance of success')
+    expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('30%', true))
+  })
+
+  it('AIQ 5882498938: the joint figure sits beside "Chance all your limits hold" — its own row, never the goal slot', () => {
+    setStore(CONSTRAINED_REPORT)
+    const text = renderPanel().container.textContent ?? ''
+    expect(text).toContain('Chance all your limits hold: 42%')
+    expect(text).not.toContain('Chance of hitting every target')
+  })
+
+  it('a constrained option with NO goal figure: the goal slot is withheld; the joint figure keeps only its own row', () => {
+    setStore(CONSTRAINED_NO_GOAL_REPORT)
+    const { container } = renderPanel()
+    const impact = container.querySelector('[data-panel-group="impact"]')
+    expect(impact).not.toBeNull()
+    const impactText = impact?.textContent ?? ''
+    expect(impactText).toContain(GOAL_STRINGS.impactUnavailable)
+    expect(impactText).not.toContain('chance of success')
+    expect(impactText).not.toContain('42%')
   })
 
   it('L62 — techMode: the diagnostic states NO goal field for a withheld run, and above all does not name `probability_of_goal`', () => {
@@ -388,13 +425,21 @@ describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283, real
     expect(renderPanel().container.textContent ?? '').toContain(JOINT_LINE)
   })
 
-  it('positive control: the CONSTRAINED basis KEEPS the Constraints line (basis-scoped, not joint-scoped)', () => {
+  // 29 Sep 2026 (AIQ 5882498938): the constrained fixture now carries its goal figure; without one, only the Constraints line survives.
+  it('positive control: a constrained option with its goal figure KEEPS both joint lines; without one, only the Constraints line', () => {
     // COUNTED, NOT `toContain` — both sites must render on this basis, so the
     // count is 2 and dropping either one REDs (the mutation lesson recorded in
     // this file's previous revision).
     setStoreWithConstraints(CONSTRAINED_REPORT)
-    const text = renderPanel().container.textContent ?? ''
+    const { container, unmount } = renderPanel()
+    const text = container.textContent ?? ''
     expect(text.split(JOINT_LINE).length - 1).toBe(2)
+    unmount()
+    // No goal figure → the Impact block is withheld, so the joint figure is stated once, under its own label.
+    setStoreWithConstraints(CONSTRAINED_NO_GOAL_REPORT)
+    const withheld = renderPanel().container.textContent ?? ''
+    expect(withheld.split(JOINT_LINE).length - 1).toBe(1)
+    expect(withheld).not.toContain('chance of success')
   })
 
   it('DEDUP: both sites render the REGISTER string — neither re-types the literal', () => {

@@ -1374,6 +1374,30 @@ describe('OptionNode', () => {
       ],
     })
 
+  // 29 Sep 2026 (AIQ 5882498938): the same constrained option WITH its goal figure (0.03, distinct from the joint 0.05) —
+  // the badge reads the goal figure only; the joint (all-limits) figure never stands in.
+  const makeConstrainedGoalAndJointStore = () =>
+    makeStoreState({
+      goalThreshold: 0.6,
+      results: {
+        status: 'complete',
+        report: {
+          option_probabilities: {
+            'option-1': {
+              confidence: 0.5,
+              win_probability: 0.5,
+              goal_probability: 0.03,
+              probability_of_joint_goal: 0.05,
+              constraint_analysis: { constraints: [{ id: 'c1' }], joint_probability: 0.05 },
+            },
+          },
+        },
+      },
+      nodes: [
+        { id: 'option-1', type: 'option', data: { type: 'option' } },
+      ],
+    })
+
   const mockResultsModeMetadata = () =>
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -1399,16 +1423,25 @@ describe('OptionNode', () => {
     expect(screen.queryByText(/chance of target\./)).toBeNull()
   })
 
-  it('POSITIVE CONTROL (gate OFF): shows "chance of target" badge from probability_of_joint_goal when goal_probability is absent', () => {
+  // 29 Sep 2026 (AIQ 5882498938): was "shows the badge from probability_of_joint_goal when goal_probability is absent".
+  it('POSITIVE CONTROL (gate OFF): the badge shows the GOAL figure on a constrained run; with no goal figure the joint is withheld', () => {
     mockTrust.suspect = false
     mockResultsModeMetadata()
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeConstrainedGoalAndJointStore() as any)
+    )
+    const first = renderOption()
+    // 3% < 10% threshold → the warning line renders with the GOAL value, never the joint 5%.
+    expect(screen.getByText(/3% chance of target\./)).toBeDefined()
+    expect(screen.queryByText(/5% chance of target\./)).toBeNull()
+    first.unmount()
+
+    // The constrained joint-only fixture: no goal figure → no badge, constraints or not.
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeConstrainedJointOnlyStore() as any)
     )
     renderOption()
-    // 5% < 10% threshold → the warning line renders with the joint value,
-    // matching what OptionCards/hero derive via useResultsSectionData.
-    expect(screen.getByText(/5% chance of target\./)).toBeDefined()
+    expect(screen.queryByText(/chance of target\./)).toBeNull()
   })
 
   // ISL #207 (AIQ #72 5877139338): the goal badge is never bare when the goal's
@@ -1450,6 +1483,7 @@ describe('OptionNode', () => {
 
   // ─────────────────────────────────────────────────────────────────────────
   // THE POSSESSIVE GATE (ROADMAP 2.282)
+  // 29 Sep 2026 (AIQ 5882498938): `joint_goal_constrained` is retired — the "CONSTRAINED" twin below now carries a goal figure.
   //
   // The two tests above are the CONSTRAINED case (`constraint_analysis`
   // present ⇒ basis `joint_goal_constrained`), where the joint figure covers
@@ -1503,13 +1537,23 @@ describe('OptionNode', () => {
     // makes the render assertion below an ABSENCE rather than a rewording.
     expect(substituted.goalProbability).toBeNull()
 
-    // …and the neighbouring fixture is genuinely the OTHER basis.
+    // 29 Sep 2026 (AIQ 5882498938): the constrained joint-only fixture is withheld too; only a goal figure earns a number.
     const constrained = selectGoalProbability({
       probability_of_joint_goal: 0.05,
       constraint_analysis: { constraints: [{ id: 'c1' }] },
     })
-    expect(constrained.basis).toBe('joint_goal_constrained')
-    expect(constrained.mayUsePossessiveGoalFraming).toBe(true)
+    expect(constrained.basis).toBe('joint_goal_withheld')
+    expect(constrained.goalProbability).toBeNull()
+    expect(constrained.mayUsePossessiveGoalFraming).toBe(false)
+    // …and the goal-carrying constrained fixture is genuinely the OTHER basis.
+    const constrainedWithGoal = selectGoalProbability({
+      goal_probability: 0.03,
+      probability_of_joint_goal: 0.05,
+      constraint_analysis: { constraints: [{ id: 'c1' }] },
+    })
+    expect(constrainedWithGoal.basis).toBe('goal_probability')
+    expect(constrainedWithGoal.goalProbability).toBe(0.03)
+    expect(constrainedWithGoal.mayUsePossessiveGoalFraming).toBe(true)
   })
 
   /**
@@ -1532,14 +1576,16 @@ describe('OptionNode', () => {
     expect(container.textContent ?? '').not.toContain('< 1%')
   })
 
-  it('positive control: the CONSTRAINED joint figure KEEPS the possessive wording (the gate is basis-scoped, not joint-scoped)', () => {
+  // 29 Sep 2026 (AIQ 5882498938): the retired premise was "the constrained JOINT figure keeps the possessive"; now the GOAL figure does.
+  it('positive control: the GOAL figure on a constrained option KEEPS the possessive wording — never the joint figure', () => {
     mockTrust.suspect = false
     mockResultsModeMetadata()
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeConstrainedJointOnlyStore() as any)
+      selector(makeConstrainedGoalAndJointStore() as any)
     )
     renderOption()
-    expect(screen.getByText(/5% chance of target\./)).toBeDefined()
+    expect(screen.getByText(/3% chance of target\./)).toBeDefined()
+    expect(screen.queryByText(/5% chance of target\./)).toBeNull()
     expect(screen.queryByText(new RegExp(GOAL_ANCHOR_COPY.label(true).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))))
       .toBeNull()
   })

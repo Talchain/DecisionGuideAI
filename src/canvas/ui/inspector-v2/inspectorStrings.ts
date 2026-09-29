@@ -989,7 +989,8 @@ export const GOAL_CONSTRAINT_COPY = {
   cancelButton:        'Cancel',
   errorSelectFactor:   'Select a factor',
   errorInvalidNumber:  'Enter a valid number',
-  jointProbability:    'Chance of hitting every target',
+  // AIQ #72 5882498938: `probability_of_joint_goal` is P(all limits jointly hold) — never the goal chance.
+  jointProbability:    'Chance all your limits hold',
   addConstraintButton: '+ Add constraint',
   // v3.1 (DESIGN-GAP-v31 row 33): no "simulation" wording. This is the
   // COMPLETE-results arm only — `GoalPanel` shows `EMPTY_STATES.noAnalysis`

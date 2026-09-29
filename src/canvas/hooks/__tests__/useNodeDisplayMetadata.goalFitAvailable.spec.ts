@@ -262,7 +262,8 @@ describe('useNodeDisplayMetadata — goalFitAvailable (REAL hook)', () => {
         opt_bristol: {
           probability_of_goal: 0.0002,
           constraint_analysis: { constraints: [{ id: 'c1' }] },
-          probability_of_joint_goal: 0.0002,
+          // 29 Sep 2026 (AIQ 5882498938): a joint figure DISTINCT from the goal, so "the slot reads the goal" discriminates.
+          probability_of_joint_goal: 0.0009,
           goal_fit_basis: {
             scored_from: 'modelled_outcome_distribution',
             node_ids: ['goal_capacity'],
@@ -274,7 +275,9 @@ describe('useNodeDisplayMetadata — goalFitAvailable (REAL hook)', () => {
     const { result } = renderHook(() => useNodeDisplayMetadata('goal_capacity', 'goal'))
 
     expect(result.current.achievementProbability).toBe(0.0002)
-    expect(result.current.achievementProbabilityIsModelledBasis).toBe(true)
+    expect(result.current.achievementProbability).not.toBe(0.0009) // never the joint (all-limits) figure
+    // The modelled-basis caveat qualifies a displayed JOINT figure; the goal figure never carries it.
+    expect(result.current.achievementProbabilityIsModelledBasis).toBe(false)
     expect(result.current.goalFitAvailable).toBe(false)
   })
 })

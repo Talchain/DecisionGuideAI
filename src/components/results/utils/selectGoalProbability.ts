@@ -361,7 +361,9 @@ export function selectGoalProbability(
           'joint_goal_withheld'
         : 'none'
 
-  const goalProbabilityIsJoint = basis === 'joint_goal_constrained'
+  // AIQ 5882498938: no arm above produces 'joint_goal_constrained' any more, so this is always false. The
+  // widening cast keeps the retired literal compiling (TS2367 on the narrowed const) until the member is removed.
+  const goalProbabilityIsJoint = (basis as GoalProbabilityBasis) === 'joint_goal_constrained'
 
   // Derived FROM the basis (never computed in parallel with it), so the
   // number and the statement of which quantity it is cannot diverge.

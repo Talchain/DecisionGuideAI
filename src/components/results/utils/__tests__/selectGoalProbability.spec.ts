@@ -59,14 +59,18 @@ describe('selectGoalProbability — CURRENT STATE: seam 1 RESTORED (PLOT_JOINT_H
     mockTrust.headlineSuspect = false
   })
 
-  it('prefers probability_of_joint_goal when constraints exist (A3 fix deployed — joint is correct at source)', () => {
+  // 29 Sep 2026 (AIQ 5882498938): was "prefers probability_of_joint_goal when constraints exist" — the joint figure is P(all limits hold), never the goal.
+  it('reads goal_probability, never probability_of_joint_goal, when constraints exist', () => {
     const result = selectGoalProbability({
       goal_probability: 0.42,
       probability_of_joint_goal: 0.07,
       constraint_analysis: { constraints: [{ id: 'c1' }] },
     })
-    expect(result.goalProbability).toBe(0.07)
-    expect(result.goalProbabilityIsJoint).toBe(true)
+    expect(result.goalProbability).toBe(0.42)
+    expect(result.goalProbability).not.toBe(0.07) // the discriminating contrast: never the joint figure
+    expect(result.goalProbabilityIsJoint).toBe(false)
+    expect(result.basis).toBe('goal_probability')
+    expect(result.jointGoalProbability).toBe(0.07) // …which keeps its own row
   })
 
   /**
@@ -151,14 +155,16 @@ describe('selectGoalProbability — basis and framing permission', () => {
     expect(result.mayUsePossessiveGoalFraming).toBe(true)
   })
 
-  it('an option carrying its own constraints yields the constrained joint basis', () => {
+  // 29 Sep 2026 (AIQ 5882498938): the constrained joint basis is retired — constraints never put the joint figure in the goal slot.
+  it('an option carrying its own constraints yields the GOAL basis, and the goal figure keeps the possessive', () => {
     const result = selectGoalProbability({
       goal_probability: 0.42,
       probability_of_joint_goal: 0.07,
       constraint_analysis: { constraints: [{ id: 'c1' }] },
     })
-    expect(result.basis).toBe('joint_goal_constrained')
-    expect(result.goalProbability).toBe(0.07)
+    expect(result.basis).toBe('goal_probability')
+    expect(result.goalProbability).toBe(0.42)
+    expect(result.goalProbability).not.toBe(0.07)
     expect(result.mayUsePossessiveGoalFraming).toBe(true)
   })
 
@@ -175,19 +181,22 @@ describe('selectGoalProbability — basis and framing permission', () => {
     expect(result.jointGoalProbability).toBe(0.62)
   })
 
-  it('carries the modelled-basis caveat on a CONSTRAINED joint figure the producer marked as modelled', () => {
-    // ⭐ L62 amended the INPUT, not the rule. The caveat still rides a joint
-    // figure marked `modelled_outcome_distribution` — but only one that is
-    // actually DISPLAYED, which after L62 means the constrained basis. A
-    // caveat rendered beside a withheld number would be a hedge about a value
-    // the user cannot see.
+  // 29 Sep 2026 (AIQ 5882498938): the modelled-basis caveat qualifies a DISPLAYED joint figure, and none is displayed any more.
+  it('a CONSTRAINED option marked as modelled shows its goal figure, with no joint modelled-basis caveat', () => {
+    // ⭐ L62 amended the INPUT, not the rule: the caveat rides only a joint
+    // figure that is actually DISPLAYED in the goal slot. The ruling leaves no
+    // such basis, so a constrained, modelled option shows the goal figure and
+    // the joint caveat does not attach to it.
     const result = selectGoalProbability({
+      goal_probability: 0.42,
       probability_of_joint_goal: 0.62,
       constraint_analysis: { constraints: [{ id: 'c1' }] },
       goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
     })
-    expect(result.basis).toBe('joint_goal_constrained')
-    expect(result.goalFitIsModelledBasis).toBe(true)
+    expect(result.basis).toBe('goal_probability')
+    expect(result.goalProbability).toBe(0.42)
+    expect(result.goalProbability).not.toBe(0.62)
+    expect(result.goalFitIsModelledBasis).toBe(false)
   })
 
   it('L62: no modelled-basis caveat over a WITHHELD figure — there is nothing for it to qualify', () => {

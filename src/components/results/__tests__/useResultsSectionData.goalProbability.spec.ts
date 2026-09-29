@@ -233,7 +233,8 @@ describe('useResultsSectionData — goalProbability collapse — POSITIVE CONTRO
     expect(probs.opt_b).toBe(0.7)
   })
 
-  it('prefers the joint probability when the option carries constraint_analysis constraints', () => {
+  // 29 Sep 2026 (AIQ 5882498938): was "prefers the joint probability" — the joint figure is P(all limits hold), never the goal.
+  it('reads the goal probability, never the joint, even when the option carries constraint_analysis constraints', () => {
     setStoreWithMappedReport(makeV2Response(
       {
         probability_of_goal: 0.4,
@@ -246,7 +247,8 @@ describe('useResultsSectionData — goalProbability collapse — POSITIVE CONTRO
       { probability_of_goal: 0.7 },
     ))
     const probs = adaptedGoalProbabilities()
-    expect(probs.opt_a).toBe(0.2)
+    expect(probs.opt_a).toBe(0.4)
+    expect(probs.opt_a).not.toBe(0.2) // the discriminating contrast: never the joint figure
     expect(probs.opt_b).toBe(0.7)
   })
 })
@@ -321,27 +323,24 @@ describe('useResultsSectionData — goalFitIsSubstitutedJoint (ROADMAP 2.282, th
     expect(adaptedGoalProbabilities().opt_a).toBeNull()
   })
 
-  it('CONSTRAINED: the same joint figure WITH constraint_analysis → flag FALSE (possessive earned)', () => {
+  // 29 Sep 2026 (AIQ 5882498938): constraints no longer license the joint figure — the discriminator is now `probability_of_goal`.
+  it('CONSTRAINED: goal figure present → the goal number (never the joint); goal absent → withheld, constraints or not', () => {
+    const constraintAnalysis = {
+      constraints: [{ constraint_id: 'c1', node_id: 'n1', direction: 'max', threshold: 1 }],
+      joint_probability: 0.2,
+    }
     setStoreWithMappedReport(makeV2Response(
-      {
-        probability_of_joint_goal: 0.2,
-        constraint_analysis: {
-          constraints: [{ constraint_id: 'c1', node_id: 'n1', direction: 'max', threshold: 1 }],
-          joint_probability: 0.2,
-        },
-      },
-      { probability_of_joint_goal: 0.2 },
+      { probability_of_goal: 0.4, probability_of_joint_goal: 0.2, constraint_analysis: constraintAnalysis },
+      { probability_of_joint_goal: 0.2, constraint_analysis: constraintAnalysis },
     ))
-    // ⭐ L62: the DISCRIMINATION this test exists for is unchanged and is what
-    // proves the gate is not a blanket ban on joint figures — one payload
-    // shape apart, opposite outcomes. Only the name of opt_b's state moved.
+    // One field apart (`probability_of_goal`), opposite outcomes.
     const flags = adaptedSubstitutedFlags()
-    // opt_a carries its own constraints → 'joint_goal_constrained' → the
-    // possessive is EARNED and the number is still shown.
+    // opt_a: the goal figure fills the slot; the joint figure is not its number.
     expect(flags.opt_a).toBe(false)
-    expect(adaptedGoalProbabilities().opt_a).toBe(0.2)
+    expect(adaptedGoalProbabilities().opt_a).toBe(0.4)
+    expect(adaptedGoalProbabilities().opt_a).not.toBe(0.2)
     expect(adaptedWithheldFlags().opt_a).toBe(false)
-    // opt_b has the identical joint number and NO constraints → withheld.
+    // opt_b: the identical joint number AND its own constraints, but no goal figure → withheld.
     expect(flags.opt_b).toBe(false)
     expect(adaptedWithheldFlags().opt_b).toBe(true)
     expect(adaptedGoalProbabilities().opt_b).toBeNull()
