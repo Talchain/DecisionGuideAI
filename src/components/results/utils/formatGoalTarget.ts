@@ -75,17 +75,36 @@
  */
 import { classifyUnit, compactUnitParts, ISO_CURRENCY_GLYPHS, joinCompactUnitParts, unitIsDisplayable } from '../../../utils/unitClassifier'
 import { formatTargetValue } from './formatTargetValue'
+import { goalHeldComparatorOf, goalTargetChangeFrameOf, goalTargetFrameIsUnread, type GoalTargetChangeFrame } from '../../../canvas/domain/goalTarget'
 
 /**
  * Render a goal target magnitude with its unit.
  *
  * @param value - the target magnitude, in the units `unit` describes
  * @param unit  - the unit string as the producer sent it (may be absent)
+ * @param frame - the node's `goal_threshold_frame` (`@talchain/schemas` 0.61.0). A change from today is said as the
+ *                change (R1 S4-core, below); absent, `level`, legacy `delta` or unknown → the level, byte-identical.
  * @returns the display string, or `null` when `value` is not a finite number —
  *          callers show no target rather than "≥ NaN".
  */
-export function formatGoalTarget(value: number, unit: string | null | undefined): string | null {
+export function formatGoalTarget(value: number, unit: string | null | undefined, frame?: unknown): string | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null
+
+  /**
+   * ⭐⭐ R1 S4-core — A TARGET STATED AS A CHANGE FROM TODAY IS SAID AS THE CHANGE (MG 5879952291).
+   *
+   * "Cut the cloud bill by 15%" is `change_rel` −0.15 beside the METRIC's unit (GBP/month). Read as a level it
+   * printed "-0.15 GBP/month" — a price nobody stated. `change_rel` is a fraction BY CONTRACT, so it is said as a
+   * percentage of today and the metric's unit is not said at all; `change_abs` is said in the metric's unit through
+   * this same function, unsigned, with the direction in words. Never raw × cap.
+   */
+  // ⛔ A frame this UI cannot read: the figure's meaning is unknown, so no number (AIQ 5880974047).
+  if (goalTargetFrameIsUnread(frame)) return null
+  const change = goalTargetChangeFrameOf(frame)
+  if (change !== null) {
+    const { direction, size } = goalChangeParts(value, unit, change)
+    return `${direction} ${size} from today`
+  }
 
   const { kind, canonical } = classifyUnit(unit ?? null)
 
@@ -167,6 +186,37 @@ export function formatGoalTarget(value: number, unit: string | null | undefined)
   const compact = compactUnitParts(value.toLocaleString(), canonical)
   if (compact !== null) return joinCompactUnitParts(compact)
   return `${value.toLocaleString()} ${canonical}`
+}
+
+function goalChangeParts(value: number, unit: string | null | undefined, change: GoalTargetChangeFrame): { direction: string; size: string } {
+  return {
+    direction: value < 0 ? 'down' : 'up',
+    size: change === 'change_rel'
+      ? `${Math.round(Math.abs(value) * 100 * 1e6) / 1e6}%`
+      : (formatGoalTarget(Math.abs(value), unit) ?? String(Math.abs(value))),
+  }
+}
+
+/**
+ * A change target as a BOUND, for a sentence about what success means (AIQ 5880974047). `formatGoalTarget` alone reads
+ * as an exact figure.
+ *
+ * ⛔ The bound is said from the node's HELD COMPARATOR (`goal_direction`, UI #2287 review + DL ruling) — `change <op> v`:
+ * `<=` −0.15 → "down at least 15%", `<=` +0.1 → "up no more than 10%" (a ceiling), and `>` / `<` say "more than" /
+ * "less than". There is no node strict bit: strictness IS the comparator. The authored comparator is said as held —
+ * no typed objective sense reaches this surface to contradict it.
+ * `null` — say no number — for a level, an unread frame, a non-finite or zero change, or no readable comparator.
+ */
+export function formatGoalChangeBound(value: number, unit: string | null | undefined, frame: unknown, comparator: unknown): string | null {
+  const change = goalTargetChangeFrameOf(frame)
+  const held = goalHeldComparatorOf(comparator)
+  if (change === null || held === null || typeof value !== 'number' || !Number.isFinite(value) || value === 0) return null
+  const { direction, size } = goalChangeParts(value, unit, change)
+  const strict = held === '>' || held === '<'
+  // The comparator points the way the change moves (≥ a rise, ≤ a fall) → a floor on the move; otherwise a ceiling.
+  const floor = (held === '>=' || held === '>') === (value > 0)
+  const words = floor ? (strict ? 'more than' : 'at least') : (strict ? 'less than' : 'no more than')
+  return `${direction} ${words} ${size} from today`
 }
 
 /** A currency token with a magnitude letter written onto it, then optional words: `£M ARR`, `$k`, `£bn revenue`. */

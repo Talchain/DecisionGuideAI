@@ -43,6 +43,7 @@ import { LAST_RUN_PREFIX, METRIC_NOUN } from './shared/metricVocabulary'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
 import {
   canCaptureGoalTarget,
+  goalTargetChangeFrameOf,
   statedGoalTargetRaw,
   type GoalTargetSource,
 } from '../domain/goalTarget'
@@ -504,6 +505,8 @@ export const GoalNode = memo((props: NodeProps) => {
   // place, so this card holds none.
   const thresholdRaw = statedGoalTargetRaw(props.data as GoalTargetSource)
   const thresholdUnit = props.data?.goal_threshold_unit as string | undefined
+  // R1 S4-core (MG 5879952291): a target stated as a change from today is said as the change (`formatGoalTarget`).
+  const thresholdFrame = (props.data as GoalTargetSource | undefined)?.goal_threshold_frame
   // ⚠ ONE CALL, TWO READINGS, AND THEY CANNOT DISAGREE. `hasThreshold` is the
   // negation of the admission by construction — never a parallel predicate.
   const canCaptureTarget = canCaptureGoalTarget(props.data as GoalTargetSource)
@@ -714,8 +717,8 @@ export const GoalNode = memo((props: NodeProps) => {
     if (!hasThreshold) return null
     const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
     if (Number.isNaN(raw)) return String(thresholdRaw)
-    return formatGoalTarget(raw, thresholdUnit) ?? String(thresholdRaw)
-  }, [hasThreshold, thresholdRaw, thresholdUnit])
+    return formatGoalTarget(raw, thresholdUnit, thresholdFrame) ?? String(thresholdRaw)
+  }, [hasThreshold, thresholdRaw, thresholdUnit, thresholdFrame])
 
   /**
    * ⭐⭐ ONE OWNER FOR WHAT THIS CARD SAYS ABOUT ITS TARGET — AT EVERY ZOOM.
@@ -977,8 +980,12 @@ export const GoalNode = memo((props: NodeProps) => {
   const noTargetChannels = goalNoTargetChannels({ diagnostic: noTargetDiagnostic })
   const targetSourceMark =
     targetLine !== null ? goalTargetSourceMark(props.data as GoalTargetSource) : null
+  // ⛔ R1 S4-core: a change target is not edited as a level (the Model tab row is read-only for one, CEE refuses the
+  // write by name), so its line is plain text — never a button promising "change it in the Model tab".
   const targetRouteChannels =
-    targetLine !== null ? goalTargetRouteChannels({ targetLine, sourceLabel: targetSourceMark?.label }) : null
+    targetLine !== null && goalTargetChangeFrameOf(thresholdFrame) === null
+      ? goalTargetRouteChannels({ targetLine, sourceLabel: targetSourceMark?.label })
+      : null
   const noTargetStatusChip = (
     <button
       type="button"

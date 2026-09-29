@@ -19,7 +19,8 @@
 
 import type { Node } from '@xyflow/react'
 import { classifyUnit } from '../../../utils/labelUtils'
-import { isStatedTargetValue, statedTargetNumber } from '../../../domain/goalTarget'
+import { goalTargetChangeFrameOf, goalTargetFrameIsUnread, isStatedTargetValue, statedTargetNumber } from '../../../domain/goalTarget'
+import { formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
 import type { Attribution } from '../types'
 
 export interface SuccessState {
@@ -134,6 +135,16 @@ export function computeSuccessState(
     (typeof analysisReady?.goal_threshold_unit === 'string' &&
       (analysisReady.goal_threshold_unit as string)) ||
     null
+  /**
+   * ⭐ R1 S4-core (MG 5879952291): a target stated as a CHANGE from today is said as the change by the one sayer
+   * (`formatGoalTarget`, CEE's `sayGoalChange` words) — never the fraction beside the metric's unit ("-0.15 GBP/month").
+   * A level is said exactly as before.
+   */
+  const changeFrame = goalTargetChangeFrameOf(data.goal_threshold_frame)
+  // ⛔ AIQ 5880974047: a frame this UI cannot read — the figure's meaning is unknown, so no measure is claimed.
+  if (goalTargetFrameIsUnread(data.goal_threshold_frame)) return unset
+  const sayTarget = (n: number): string =>
+    (changeFrame !== null ? formatGoalTarget(n, unit, changeFrame) : null) ?? formatWithUnit(n, unit)
 
   /**
    * ⭐⭐ EXISTENCE IS DECIDED NON-NUMERICALLY; THE NUMBER STAYS STRICT. This
@@ -191,7 +202,7 @@ export function computeSuccessState(
     return {
       isSet: true,
       displayText:
-        numeric !== null ? formatWithUnit(numeric, unit) : String(userStatedTarget).trim(),
+        numeric !== null ? sayTarget(numeric) : String(userStatedTarget).trim(),
       rawValue: numeric,
       unit,
       attribution: currentUser ?? { kind: 'person', displayName: 'You' },
@@ -218,7 +229,7 @@ export function computeSuccessState(
     const userStated = numeric !== null && matchesExplicitConstraint(numeric, goalConstraints)
     return {
       isSet: true,
-      displayText: numeric !== null ? formatWithUnit(numeric, unit) : String(rawCandidate).trim(),
+      displayText: numeric !== null ? sayTarget(numeric) : String(rawCandidate).trim(),
       rawValue: numeric,
       unit,
       attribution: userStated
