@@ -9,7 +9,8 @@ import { AdvancedField } from '../shared/AdvancedField'
 import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
 import { typography } from '../../../../styles/typography'
 import { goalConstraintText } from '../../../utils/goalConstraintText'
-import { goalTargetChangeFrameOf } from '../../../domain/goalTarget'
+import { goalTargetChangeFrameOf, goalTargetFrameIsUnread, resolveGoalTarget, type GoalTargetSource } from '../../../domain/goalTarget'
+import { formatGoalChangeBound } from '../../../../components/results/utils/formatGoalTarget'
 import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
 
 interface GoalAdvancedEditorProps {
@@ -32,9 +33,19 @@ export function GoalAdvancedEditor({ nodeId }: GoalAdvancedEditorProps) {
   const goalThresholdUnit = (data?.goal_threshold_unit as string) ?? ''
   const goalThresholdCap = data?.goal_threshold_cap as number | undefined
   const goalThreshold = data?.goal_threshold as number | undefined
-  // R1 S4-core (MG 5879952291): for a target stated as a relative CHANGE, `goal_threshold` is the fraction r itself —
-  // scale-free, NOT raw / cap — and for an absolute change it is the change ÷ cap. The label says which.
-  const changeFrame = goalTargetChangeFrameOf(data?.goal_threshold_frame)
+  /**
+   * ⛔ UI #2287 review — THE LEVEL ROWS ARE A LEVEL'S, and the frame authority is `goalTarget.ts`'s, as on every other
+   * surface. An UNREAD frame shows no number ("Target not captured"); a CHANGE frame is said as its bound from the
+   * held comparator ("down at least 15% from today"; unreadable pair → "Bound not captured"). Neither offers the
+   * Raw threshold / unit writers: `setThreshold` writes a LEVEL figure over the target.
+   */
+  const goalData = data as GoalTargetSource | undefined
+  const frameUnread = goalTargetFrameIsUnread(goalData?.goal_threshold_frame)
+  const changeFrame = goalTargetChangeFrameOf(goalData?.goal_threshold_frame)
+  const changeTarget = changeFrame !== null ? resolveGoalTarget(goalData) : null
+  const changeBound = changeTarget?.frame != null
+    ? formatGoalChangeBound(Number(changeTarget.raw), changeTarget.unit, changeTarget.frame, goalData?.goal_direction)
+    : null
 
   /**
    * ⚠ THE STORE SLICE, not the node's data bag — and the distinction was a DEAD
@@ -65,25 +76,33 @@ export function GoalAdvancedEditor({ nodeId }: GoalAdvancedEditorProps) {
   return (
     <div className="space-y-1">
       <AdvancedFieldGroup title="Threshold parameters">
-        <AdvancedField
-          label={changeFrame === 'change_rel' ? 'Change from today (fraction)' : changeFrame === 'change_abs' ? 'Change from today ÷ cap' : 'Normalised threshold'}
-          value={goalThreshold}
-          type="readonly"
-          helperText={changeFrame === 'change_rel' ? 'The relative change itself, not raw / cap.' : 'Computed from raw / cap.'}
-        />
-        <AdvancedField
-          label="Raw threshold"
-          value={goalThresholdRaw}
-          onChange={v => mutations.setThreshold(v as number, goalThresholdUnit)}
-          type="number"
-        />
-        <AdvancedField
-          label="Threshold unit"
-          value={goalThresholdUnit}
-          onChange={v => mutations.setThreshold(goalThresholdRaw ?? 0, v as string)}
-          type="text"
-          placeholder="e.g. revenue, users"
-        />
+        {frameUnread ? (
+          <AdvancedField label="Target" value="Target not captured" type="readonly" />
+        ) : changeFrame !== null ? (
+          <AdvancedField label="Success bound" value={changeBound ?? 'Bound not captured'} type="readonly" />
+        ) : (
+          <>
+            <AdvancedField
+              label="Normalised threshold"
+              value={goalThreshold}
+              type="readonly"
+              helperText="Computed from raw / cap."
+            />
+            <AdvancedField
+              label="Raw threshold"
+              value={goalThresholdRaw}
+              onChange={v => mutations.setThreshold(v as number, goalThresholdUnit)}
+              type="number"
+            />
+            <AdvancedField
+              label="Threshold unit"
+              value={goalThresholdUnit}
+              onChange={v => mutations.setThreshold(goalThresholdRaw ?? 0, v as string)}
+              type="text"
+              placeholder="e.g. revenue, users"
+            />
+          </>
+        )}
         <AdvancedField
           label="Scale cap"
           value={goalThresholdCap}

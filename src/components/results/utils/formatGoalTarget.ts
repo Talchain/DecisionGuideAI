@@ -75,7 +75,7 @@
  */
 import { classifyUnit, compactUnitParts, ISO_CURRENCY_GLYPHS, joinCompactUnitParts, unitIsDisplayable } from '../../../utils/unitClassifier'
 import { formatTargetValue } from './formatTargetValue'
-import { goalTargetChangeFrameOf, goalTargetFrameIsUnread, type GoalTargetChangeFrame } from '../../../canvas/domain/goalTarget'
+import { goalHeldComparatorOf, goalTargetChangeFrameOf, goalTargetFrameIsUnread, type GoalTargetChangeFrame } from '../../../canvas/domain/goalTarget'
 
 /**
  * Render a goal target magnitude with its unit.
@@ -198,15 +198,25 @@ function goalChangeParts(value: number, unit: string | null | undefined, change:
 }
 
 /**
- * A change target as a BOUND, for a sentence about what success means (AIQ 5880974047): "down at least 15% from today",
- * or "more than" when the goal is strict (`goal_threshold_strict`, ISL #209). `formatGoalTarget` alone reads as an
- * exact figure. `null` for a level, an unread frame or a non-finite value.
+ * A change target as a BOUND, for a sentence about what success means (AIQ 5880974047). `formatGoalTarget` alone reads
+ * as an exact figure.
+ *
+ * ⛔ The bound is said from the node's HELD COMPARATOR (`goal_direction`, UI #2287 review + DL ruling) — `change <op> v`:
+ * `<=` −0.15 → "down at least 15%", `<=` +0.1 → "up no more than 10%" (a ceiling), and `>` / `<` say "more than" /
+ * "less than". There is no node strict bit: strictness IS the comparator. The authored comparator is said as held —
+ * no typed objective sense reaches this surface to contradict it.
+ * `null` — say no number — for a level, an unread frame, a non-finite or zero change, or no readable comparator.
  */
-export function formatGoalChangeBound(value: number, unit: string | null | undefined, frame: unknown, strict: boolean): string | null {
+export function formatGoalChangeBound(value: number, unit: string | null | undefined, frame: unknown, comparator: unknown): string | null {
   const change = goalTargetChangeFrameOf(frame)
-  if (change === null || typeof value !== 'number' || !Number.isFinite(value)) return null
+  const held = goalHeldComparatorOf(comparator)
+  if (change === null || held === null || typeof value !== 'number' || !Number.isFinite(value) || value === 0) return null
   const { direction, size } = goalChangeParts(value, unit, change)
-  return `${direction} ${strict ? 'more than' : 'at least'} ${size} from today`
+  const strict = held === '>' || held === '<'
+  // The comparator points the way the change moves (≥ a rise, ≤ a fall) → a floor on the move; otherwise a ceiling.
+  const floor = (held === '>=' || held === '>') === (value > 0)
+  const words = floor ? (strict ? 'more than' : 'at least') : (strict ? 'less than' : 'no more than')
+  return `${direction} ${words} ${size} from today`
 }
 
 /** A currency token with a magnitude letter written onto it, then optional words: `£M ARR`, `$k`, `£bn revenue`. */

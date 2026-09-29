@@ -335,6 +335,11 @@ export const GoalPanel = memo(function GoalPanel({
     if (Number.isNaN(raw)) return String(resolvedTarget.raw)
     return formatGoalTarget(raw, resolvedTarget.unit, resolvedTarget.frame) ?? String(resolvedTarget.raw)
   })()
+  /** A change target's success bound, from the node's held comparator (UI #2287 review); `null` → say no number. */
+  const changeBound = resolvedTarget?.frame != null
+    ? formatGoalChangeBound(Number(resolvedTarget.raw), resolvedTarget.unit, resolvedTarget.frame,
+      (node?.data as GoalTargetSource | undefined)?.goal_direction)
+    : null
   /**
    * ⛔⛔ TWO QUESTIONS, AND THEY MUST NOT SHARE A NAME (CLAUDE.md trap 21).
    *
@@ -701,10 +706,12 @@ export const GoalPanel = memo(function GoalPanel({
             <div>
               <p className={`${typography.panelBody} text-text-body`}>
                 {/* R1 S4-core (MG 5879952291): a change target is not a level to reach "≥" — "Success means going
-                    down 15% from today". */}
+                    down at least 15% from today". ⛔ UI #2287 review (DL ruling): the bound is said from the node's HELD
+                    comparator `goal_direction` with its frame; an unreadable pair says no number, never the bare figure. */}
                 {resolvedTarget?.frame != null
-                  ? `Success means going ${formatGoalChangeBound(Number(resolvedTarget.raw), resolvedTarget.unit, resolvedTarget.frame,
-                    (node?.data as { goal_threshold_strict?: unknown } | undefined)?.goal_threshold_strict === true) ?? targetDisplay}`
+                  ? (changeBound !== null
+                    ? `Success means going ${changeBound}`
+                    : 'Success is a change from today \u2014 its bound was not captured')
                   : <>Success means reaching {'\u2265'} {targetDisplay}</>}
               </p>
               {/* Contextual probability when analysis exists */}

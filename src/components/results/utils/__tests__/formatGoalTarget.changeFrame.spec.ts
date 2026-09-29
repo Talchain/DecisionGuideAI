@@ -11,7 +11,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { formatGoalChangeBound, formatGoalTarget } from '../formatGoalTarget'
-import { resolveGoalTarget, goalTargetChangeFrameOf, goalTargetFrameIsUnread, statedGoalTargetRaw } from '../../../../canvas/domain/goalTarget'
+import { resolveGoalTarget, goalHeldComparatorOf, goalTargetChangeFrameOf, goalTargetFrameIsUnread, statedGoalTargetRaw } from '../../../../canvas/domain/goalTarget'
 
 describe('formatGoalTarget says a change-framed target as the change', () => {
   it('RED: change_rel −0.15 on a GBP/month metric → "down 15% from today", never "-0.15 GBP per month"', () => {
@@ -64,16 +64,31 @@ describe('⛔ AIQ 5880974047 — a frame this UI cannot read fails CLOSED: no nu
   })
 })
 
-describe('AIQ 5880974047 — "what success means" states the change as a bound', () => {
-  it('RED: "down at least 15% from today"; "more than" when the goal is strict', () => {
-    expect(formatGoalChangeBound(-0.15, 'GBP/month', 'change_rel', false)).toBe('down at least 15% from today')
-    expect(formatGoalChangeBound(-0.15, 'GBP/month', 'change_rel', true)).toBe('down more than 15% from today')
-    expect(formatGoalChangeBound(5000, 'GBP', 'change_abs', false)).toBe('up at least £5,000 from today')
+describe('UI #2287 review — "what success means" is the bound the node\'s HELD comparator states', () => {
+  it('a comparator with the move is a floor: `<=` −15% → "down at least", `<` → "down more than", `>=` +£5,000 → "up at least"', () => {
+    expect(formatGoalChangeBound(-0.15, 'GBP/month', 'change_rel', '<=')).toBe('down at least 15% from today')
+    expect(formatGoalChangeBound(-0.15, 'GBP/month', 'change_rel', '<')).toBe('down more than 15% from today')
+    expect(formatGoalChangeBound(5000, 'GBP', 'change_abs', '>=')).toBe('up at least £5,000 from today')
+  })
+
+  it('a comparator against the move is a CEILING: `<=` +10% → "up no more than", `>` −15% → "down less than"', () => {
+    expect(formatGoalChangeBound(0.1, '%', 'change_rel', '<=')).toBe('up no more than 10% from today')
+    expect(formatGoalChangeBound(0.1, '%', 'change_rel', '<')).toBe('up less than 10% from today')
+    expect(formatGoalChangeBound(-0.15, '%', 'change_rel', '>=')).toBe('down no more than 15% from today')
+    expect(formatGoalChangeBound(-0.15, '%', 'change_rel', '>')).toBe('down less than 15% from today')
+  })
+
+  it('⛔ no readable comparator, or a zero change → null (the caller says no number)', () => {
+    for (const op of [undefined, null, true, 'minimise', '\u2265', '=>', '=']) {
+      expect(formatGoalChangeBound(-0.15, 'GBP/month', 'change_rel', op), String(op)).toBeNull()
+      expect(goalHeldComparatorOf(op), String(op)).toBeNull()
+    }
+    expect(formatGoalChangeBound(0, '%', 'change_rel', '>=')).toBeNull()
   })
 
   it('CONTRAST: a level (or an unread frame) is not a change bound', () => {
-    expect(formatGoalChangeBound(38000, 'GBP', 'level', false)).toBeNull()
-    expect(formatGoalChangeBound(-0.15, 'GBP', 'bogus', false)).toBeNull()
+    expect(formatGoalChangeBound(38000, 'GBP', 'level', '>=')).toBeNull()
+    expect(formatGoalChangeBound(-0.15, 'GBP', 'bogus', '<=')).toBeNull()
   })
 })
 

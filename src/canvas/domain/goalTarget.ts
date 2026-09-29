@@ -33,6 +33,20 @@ export interface GoalTargetSource {
   goal_threshold_unit?: unknown
   /** `@talchain/schemas` 0.61.0: the frame the target is stated in — read only through `goalTargetChangeFrameOf`. */
   goal_threshold_frame?: unknown
+  /** `@talchain/schemas` 0.61.0: the goal node's HELD COMPARATOR — read only through `goalHeldComparatorOf`. */
+  goal_direction?: unknown
+}
+
+/**
+ * ⭐ THE GOAL'S HELD COMPARATOR (`goal_direction`; CEE writes `>=` / `<=` / `>` / `<` — `graph-hash-contract`, 0.61.0).
+ * It is what a change target's success BOUND is said from (UI #2287 review; DL ruling: the same authored input CEE
+ * scores against, never the label and never a UI-only strict bit). Anything else — absent, the objective's sense
+ * (`minimise`), a glyph — is `null`: no bound is said.
+ */
+export type GoalHeldComparator = '>=' | '<=' | '>' | '<'
+
+export function goalHeldComparatorOf(value: unknown): GoalHeldComparator | null {
+  return value === '>=' || value === '<=' || value === '>' || value === '<' ? value : null
 }
 
 /**
