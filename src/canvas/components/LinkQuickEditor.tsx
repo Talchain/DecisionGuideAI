@@ -10,15 +10,17 @@
  * then "Saved" only when the store holds the new strength after the reply, or the estate's "Not saved" sentence.
  * A link with no stated strength says so rather than showing a band it does not have.
  *
- * Direction ("Increases" / "Decreases") is the same writer on its SIGNED path — `setStrength(±|strength|)` without
- * `preserveDirection` — which is what the inspector's signed slider sends: stating a sign IS stating a direction.
+ * Direction ("Increases" / "Decreases") goes through the DIRECTION-ONLY writer, `setDirection` (its own
+ * `direction_intent`), never a signed strength: a zero magnitude cannot carry a sign (−0 reads as positive), PR Review
+ * 5897803345. The pressed button is the PROVENANCE-GATED direction (`resolveEdgeDirectionDisplay`): a defaulted
+ * `positive` nobody stated, or a producer's explicit `unknown`, presses neither.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { useCanvasStore } from '../store'
 import { useEdgeMutations } from '../ui/inspector-v2/useInspectorMutations'
 import { StrengthBandButtons } from '../ui/inspector-v2/shared/StrengthBandButtons'
-import { resolveEdgeSignedStrengthDisplay } from '../domain/edgeValueProvenance'
+import { resolveEdgeDirectionDisplay, resolveEdgeSignedStrengthDisplay } from '../domain/edgeValueProvenance'
 import { resolveElementLabel } from '../domain/elementLabel'
 import {
   VALUE_COMMIT_SETTLEMENT_COPY,
@@ -34,6 +36,13 @@ export interface LinkQuickEditorProps {
   y: number
   onClose: () => void
   onMoreDetail: () => void
+}
+
+/** The STATED direction as ±1, or null when no one stated it (provenance-gated, the read-side contract). */
+function storedDirectionSign(edgeId: string): 1 | -1 | null {
+  const d = useCanvasStore.getState().edges.find((e) => e.id === edgeId)?.data as Record<string, unknown> | undefined
+  const shown = resolveEdgeDirectionDisplay(d)
+  return shown.show ? (shown.direction === 'negative' ? -1 : 1) : null
 }
 
 function storedSigned(edgeId: string): number | null {
@@ -80,6 +89,21 @@ export function LinkQuickEditor({ edgeId, x, y, onClose, onMoreDetail }: LinkQui
     if (outcome !== 'dispatched') setWord('local_only')
   }, [edgeId, mutations])
   const onChange = useCallback((v: number) => commit(v, true), [commit])
+  const onDirection = useCallback((dir: 'positive' | 'negative') => {
+    const mine = ++seq.current
+    const before = storedDirectionSign(edgeId)
+    const to = dir === 'negative' ? -1 : 1
+    setWord('saving')
+    const outcome = mutations.setDirection(dir, {
+      onSendSettled: (settlement) => {
+        if (mine !== seq.current) return
+        setWord(valueCommitSettlementWord(settlement, before, to, () => storedDirectionSign(edgeId)) ?? 'saved')
+        setLocal(storedSigned(edgeId) ?? 0)
+      },
+    })
+    if (outcome !== 'dispatched') setWord('local_only')
+  }, [edgeId, mutations])
+  const statedDirection = resolveEdgeDirectionDisplay(edge?.data as Record<string, unknown> | undefined)
 
   if (!edge) return null
   const left = Math.min(x + 8, (typeof window !== 'undefined' ? window.innerWidth : 1440) - 280)
@@ -103,8 +127,7 @@ export function LinkQuickEditor({ edgeId, x, y, onClose, onMoreDetail }: LinkQui
         <>
           <div role="group" aria-label="Direction" className="mb-2 flex gap-1" data-testid="link-quick-editor-direction">
             {(['positive', 'negative'] as const).map((dir) => {
-              const current = (edge.data as Record<string, unknown> | undefined)?.direction
-              const pressed = current === dir
+              const pressed = statedDirection.show && statedDirection.direction === dir
               return (
                 <button
                   key={dir}
@@ -112,7 +135,7 @@ export function LinkQuickEditor({ edgeId, x, y, onClose, onMoreDetail }: LinkQui
                   aria-pressed={pressed}
                   data-testid={`link-quick-editor-direction-${dir}`}
                   className={`${typography.panelMeta} rounded border px-2 py-0.5 ${pressed ? 'border-info bg-panel-hover text-text-body' : 'border-panel-border text-text-light hover:bg-panel-hover'}`}
-                  onClick={() => { if (!pressed) commit(dir === 'negative' ? -Math.abs(local) : Math.abs(local), false) }}
+                  onClick={() => { if (!pressed) onDirection(dir) }}
                 >
                   {dir === 'positive' ? 'Increases' : 'Decreases'}
                 </button>

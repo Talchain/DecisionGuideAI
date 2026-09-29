@@ -9,8 +9,9 @@ import { LinkQuickEditor, LinkQuickEditorHost, openLinkQuickEditForClick, useLin
 import { useCanvasStore } from '../../store'
 
 const setStrength = vi.fn()
+const setDirection = vi.fn()
 let mutationsFor: string | null = null
-vi.mock('../../ui/inspector-v2/useInspectorMutations', () => ({ useEdgeMutations: (id: string) => { mutationsFor = id; return { setStrength } } }))
+vi.mock('../../ui/inspector-v2/useInspectorMutations', () => ({ useEdgeMutations: (id: string) => { mutationsFor = id; return { setStrength, setDirection } } }))
 
 function seed(data: Record<string, unknown>) {
   useCanvasStore.setState({
@@ -19,7 +20,7 @@ function seed(data: Record<string, unknown>) {
   } as never)
 }
 const mount = () => render(<LinkQuickEditor edgeId="e1" x={100} y={100} onClose={vi.fn()} onMoreDetail={vi.fn()} />)
-beforeEach(() => { setStrength.mockReset() })
+beforeEach(() => { setStrength.mockReset(); setDirection.mockReset() })
 
 describe('the link mini-editor', () => {
   it('names the link and sets its strength through setStrength (preserving direction); "Saved" only once the store holds it', () => {
@@ -46,17 +47,49 @@ describe('the link mini-editor', () => {
     expect(setStrength).not.toHaveBeenCalled()
   })
 
-  it('direction: "Decreases" sends the SIGNED strength (direction not preserved); the pressed direction sends nothing', () => {
-    seed({ weight: 0.4, strength_mean: 0.4, direction: 'positive' })
-    setStrength.mockReturnValue('dispatched')
+  it('direction goes through the DIRECTION-ONLY writer, even on a zero strength (−0 never carries the sign) — PR Review 5897803345', () => {
+    seed({ weight: 0, weightSource: 'user', direction: 'positive', directionSource: 'user' })
+    let settle: (s: string) => void = () => {}
+    setDirection.mockImplementation((_d: string, opts: { onSendSettled: (s: string) => void }) => { settle = opts.onSendSettled; return 'dispatched' })
     mount()
     expect(screen.getByTestId('link-quick-editor-direction-positive').getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(screen.getByTestId('link-quick-editor-direction-positive'))
-    expect(setStrength).not.toHaveBeenCalled()
+    expect(setDirection).not.toHaveBeenCalled()
     fireEvent.click(screen.getByTestId('link-quick-editor-direction-negative'))
-    expect(setStrength).toHaveBeenCalledTimes(1)
-    expect(setStrength.mock.calls[0][0]).toBe(-0.4)
-    expect(setStrength.mock.calls[0][1]).toMatchObject({ preserveDirection: false })
+    expect(setDirection).toHaveBeenCalledTimes(1)
+    expect(setDirection.mock.calls[0][0]).toBe('negative')
+    expect(setStrength).not.toHaveBeenCalled()
+    // Settled, and the store now holds the stated negative → "Saved" and the pressed button follows the store.
+    act(() => { useCanvasStore.setState({ edges: [{ id: 'e1', source: 'price', target: 'churn', data: { weight: 0, weightSource: 'user', direction: 'negative', directionSource: 'user' } }] } as never); settle('sent') })
+    expect(screen.getByTestId('link-quick-editor-saved')).toBeDefined()
+    expect(screen.getByTestId('link-quick-editor-direction-negative').getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('a sent direction the store does NOT hold afterwards is never "Saved"', () => {
+    seed({ weight: 0.3, weightSource: 'user', direction: 'positive', directionSource: 'user' })
+    let settle: (s: string) => void = () => {}
+    setDirection.mockImplementation((_d: string, opts: { onSendSettled: (s: string) => void }) => { settle = opts.onSendSettled; return 'dispatched' })
+    mount()
+    fireEvent.click(screen.getByTestId('link-quick-editor-direction-negative'))
+    act(() => { settle('sent') }) // the store still says positive
+    expect(screen.queryByTestId('link-quick-editor-saved')).toBeNull()
+    expect(screen.getByTestId('link-quick-editor-settlement')).toBeDefined()
+  })
+
+  it('a DEFAULTED direction nobody stated presses neither button', () => {
+    seed({ weight: 0.3, weightSource: 'user', direction: 'positive' })
+    mount()
+    expect(screen.getByTestId('link-quick-editor-direction-positive').getAttribute('aria-pressed')).toBe('false')
+    expect(screen.getByTestId('link-quick-editor-direction-negative').getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it("the producer's explicit `unknown` presses neither button, and choosing one still states it through setDirection", () => {
+    seed({ weight: 0.3, weightSource: 'user', direction: 'positive', effect_direction: 'unknown' })
+    setDirection.mockReturnValue('dispatched')
+    mount()
+    expect(screen.getByTestId('link-quick-editor-direction-positive').getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(screen.getByTestId('link-quick-editor-direction-positive'))
+    expect(setDirection).toHaveBeenCalledWith('positive', expect.anything())
   })
 })
 
