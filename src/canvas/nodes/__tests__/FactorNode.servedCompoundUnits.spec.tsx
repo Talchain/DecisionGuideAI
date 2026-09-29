@@ -91,6 +91,13 @@ const SERVED: Array<[string, string, Record<string, unknown>, string, string]> =
   ['ai_feature_perceived_value', 'AI feature perceived value',
     { unit: 'score out of 100', value: 0.6, source: 'cee_inference', raw_value: 60, extractionType: 'inferred' },
     '60', '/ 100'],
+  // R3 #72 5887848246 / AIQ 5887805333 (2): the drafter's per-subscriber price unit (CEE #2291), both served spellings.
+  ['pro_price_per_sub', 'Pro price',
+    { cap: 200, unit: 'GBP per subscriber per month', value: 0.245, source: 'brief_extraction', raw_value: 49, declared_scale: 'unit_interval' },
+    '£49', 'per subscriber / month'],
+  ['pro_price_per_sub_slash', 'Pro price',
+    { cap: 200, unit: 'GBP/subscriber/month', value: 0.245, source: 'brief_extraction', raw_value: 49, declared_scale: 'unit_interval' },
+    '£49', 'per subscriber / month'],
 ]
 
 describe('served cd6a82e4 — a factor card reads its compound unit compactly', () => {
