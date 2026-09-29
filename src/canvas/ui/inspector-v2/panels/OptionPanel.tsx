@@ -19,7 +19,7 @@ import { useRunCurrency, optionResultCaption, optionResultCurrencyNote } from '.
 import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { useNodeMutations } from '../useInspectorMutations'
 import { useOptionInterventionCommit } from '../shared/useOptionInterventionCommit'
-import { resolveOptionTargetEntryFrame } from '../shared/optionTargetEntry'
+import { optionEntryScaleOf, resolveOptionTargetEntryFrame } from '../shared/optionTargetEntry'
 import {
   GROUP_LABELS,
   DESCRIPTION_PLACEHOLDERS,
@@ -353,7 +353,8 @@ export const OptionPanel = memo(function OptionPanel({
          * than showing `0.5` beside a card that says `£60k` and ignoring
          * `80000` (served `a4434670`, CDP starter). Same defensive unwrap.
          */
-        cap: unwrapInterventionValue(obs?.cap).value ?? undefined,
+        // …else CEE's node-level `scale_frame` (`optionEntryScaleOf`), the same reference the card's editor uses.
+        cap: optionEntryScaleOf(unwrapInterventionValue(obs?.cap).value, (factorNode?.data as Record<string, unknown> | undefined)?.scale_frame),
         value,
         displayValue: displayValue ?? undefined,
         /*
