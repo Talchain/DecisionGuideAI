@@ -144,6 +144,7 @@ import {
   NOT_COMPUTED_BADGE,
   notAnalysedReasonCopy,
   notComputedReasonCopy,
+  OLUMI_KEPT_TAG_SUFFIX,
   OLUMI_SUGGESTION_TAG,
   olumiProposedKeptCopy,
 } from '../../components/results/utils/notAnalysedCopy'
@@ -2989,7 +2990,7 @@ export const OptionNode = memo((props: NodeProps) => {
             title={keptProvisionalSentence}
             data-testid={`option-participation-kept-${props.id}`}
           >
-            <span aria-hidden="true">{OLUMI_SUGGESTION_TAG} · provisional</span>
+            <span aria-hidden="true">{OLUMI_SUGGESTION_TAG} · {OLUMI_KEPT_TAG_SUFFIX}</span>
             <span className={typography.screenReaderOnly}>{keptProvisionalSentence}</span>
           </div>
         )}

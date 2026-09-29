@@ -59,6 +59,8 @@ export function notAnalysedReasonCopy(reason: NotAnalysedReason): string {
  * user's option or as endorsed (AIQ 5887015488, DL 5887510885). Meaning: AIQ.
  */
 export const OLUMI_SUGGESTION_TAG = "Olumi's suggestion"
+/** `kept_olumi_provisional`'s tag suffix. Not "provisional": that word already means "rests on Olumi's assumptions" (AIQ 5888943993). */
+export const OLUMI_KEPT_TAG_SUFFIX = 'compared for now'
 export const OLUMI_PROPOSED_EXCLUDED_COPY =
   "Olumi suggested this option. It isn't one of yours, so this run compared your options without it. It has no rank and no probability."
 /** `kept_olumi_provisional`: the comparison kept Olumi's option only because some of the user's could not be analysed. */
