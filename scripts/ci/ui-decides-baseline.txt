@@ -184,4 +184,5 @@ src/types/constraints.ts:78
 # 28 Sep 2026 (Panel, threshold money): re-lined 2506 → 2507, the same `topFigurePercent === 100` line; one import line added above it.
 # 29 Sep 2026 (Canvas #2296): re-lined 2507 → 2510, the same `topFigurePercent === 100` line; 3 comment/label lines
 #    (the goal-fit label's register note) were added above it. Scanner added/gone = exactly this pair.
-src/components/results/analysisNew/analysisNewCopy.ts:2510
+# 29 Sep 2026 (Canvas, leader cause `options_not_reconciled_with_brief`): re-lined 2510 → 2519, the same line; 9 copy lines above it.
+src/components/results/analysisNew/analysisNewCopy.ts:2519
