@@ -24,6 +24,7 @@
  * and telemetry-track in InlineBlocks' default branch pick up drift.
  */
 import type { OlumiResponse } from '@talchain/schemas/boundary'
+import { readGoalIdentityWithheld } from '../../components/results/utils/goalIdentityWithheld'
 
 import type { ConversationBlock } from '../../canvas/conversation/types'
 
@@ -63,7 +64,10 @@ export function mapV5Block(
         type: 'v5_analysis_result',
         summary: block.summary,
         leading_option_id: block.leading_option_id,
-        ...(block.win_probabilities ? { win_probabilities: block.win_probabilities } : {}),
+        // PLoT #416: under the typed identity withhold the win figures are not valid for this run (absent stays absent).
+        ...(block.win_probabilities && readGoalIdentityWithheld(block.enrichment) === null
+          ? { win_probabilities: block.win_probabilities }
+          : {}),
         ...(block.enrichment ? { enrichment: block.enrichment } : {}),
       }
     case 'graph_patch':
