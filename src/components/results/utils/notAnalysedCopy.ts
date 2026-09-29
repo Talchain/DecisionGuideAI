@@ -63,10 +63,17 @@ export const OLUMI_SUGGESTION_TAG = "Olumi's suggestion"
 export const OLUMI_KEPT_TAG_SUFFIX = 'compared for now'
 export const OLUMI_PROPOSED_EXCLUDED_COPY =
   "Olumi suggested this option. It isn't one of yours, so this run compared your options without it. It has no rank and no probability."
-/** `kept_olumi_provisional`: the comparison kept Olumi's option only because some of the user's could not be analysed. */
+/**
+ * `kept_olumi_provisional`: the comparison kept Olumi's option. WITH ids, because the gate excluded the user's own
+ * option(s) — they are named. WITHOUT ids, because the user named fewer than two options: nothing failed, so nothing is
+ * said to be unanalysable (DL CHANGES_REQUIRED on #2305; Runtime 5888591648). Meaning: AIQ.
+ */
 export function olumiProposedKeptCopy(unanalysableLabels: readonly string[]): string {
+  if (unanalysableLabels.length === 0) {
+    return "Olumi suggested this option. It is compared only because you have fewer than two options of your own, so this run puts no option forward."
+  }
   const named = unanalysableLabels.map((l) => `\u2018${l}\u2019`)
-  const who = named.length === 0 ? 'some of your options' : named.length === 1 ? named[0] : `${named.slice(0, -1).join(', ')} and ${named[named.length - 1]}`
+  const who = named.length === 1 ? named[0] : `${named.slice(0, -1).join(', ')} and ${named[named.length - 1]}`
   return `Olumi suggested this option. It is compared only because ${who} can't be analysed yet, so this run puts no option forward.`
 }
 

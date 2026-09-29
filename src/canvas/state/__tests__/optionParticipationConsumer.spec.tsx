@@ -34,6 +34,7 @@ vi.mock('@xyflow/react', async () => {
 
 const EXCLUDED = { option_id: 'olumi_bundle', state: 'excluded_olumi_proposed' }
 const KEPT = { option_id: 'olumi_bundle', state: 'kept_olumi_provisional', unanalysable_user_option_ids: ['keep_49_price'] }
+const KEPT_NO_IDS = { option_id: 'olumi_bundle', state: 'kept_olumi_provisional' }
 
 describe('readOptionParticipation — one contract-validating reader, both legs', () => {
   it('absent → null (not recorded); [] → recorded, none outside the ordinary comparison', () => {
@@ -47,10 +48,17 @@ describe('readOptionParticipation — one contract-validating reader, both legs'
       { optionId: 'olumi_bundle', state: 'kept_olumi_provisional', unanalysableUserOptionIds: ['keep_49_price'] },
     ])
   })
-  it('CONTRACT REFUSED → absent: an unknown state, a missing id or a bad id list refuses the WHOLE array', () => {
+  it('CONTRACT REFUSED → absent: any entry outside the published schema refuses the WHOLE array', () => {
     expect(readOptionParticipation([EXCLUDED, { option_id: 'x', state: 'olumi_maybe' }])).toBeNull()
     expect(readOptionParticipation([{ state: 'excluded_olumi_proposed' }])).toBeNull()
     expect(readOptionParticipation([{ ...KEPT, unanalysable_user_option_ids: [7] }])).toBeNull()
+    // DL CHANGES_REQUIRED @ ddf47006: present-empty ids, an exclusion naming ids, an undeclared key
+    expect(readOptionParticipation([{ ...KEPT, unanalysable_user_option_ids: [] }])).toBeNull()
+    expect(readOptionParticipation([{ ...EXCLUDED, unanalysable_user_option_ids: ['keep_49_price'] }])).toBeNull()
+    expect(readOptionParticipation([{ ...EXCLUDED, reason: 'olumi' }])).toBeNull()
+  })
+  it('a keep WITHOUT ids is valid (the user named fewer than two options): read with an empty list', () => {
+    expect(readOptionParticipation([KEPT_NO_IDS])).toEqual([{ optionId: 'olumi_bundle', state: 'kept_olumi_provisional', unanalysableUserOptionIds: [] }])
   })
   it('the turn key is read top level first, then the additive sidecar', () => {
     expect(optionParticipationFromResponse({ option_participation: [EXCLUDED] })).toEqual([EXCLUDED])
@@ -105,6 +113,13 @@ describe('fresh Run (turn) and cold reload (read): the same Run yields the same 
     expect(turn).toEqual([{ optionId: 'olumi_bundle', state: 'excluded_olumi_proposed', unanalysableUserOptionIds: [] }])
     expect(read).toEqual(turn)
   })
+  it('KEPT with and without ids: both legs carry each identically', () => {
+    for (const raw of [[KEPT], [KEPT_NO_IDS]]) {
+      const turn = turnReport({ option_participation: raw }).option_participation
+      expect(turn).toEqual(readOptionParticipation(raw))
+      expect(readReport(raw).option_participation).toEqual(turn)
+    }
+  })
   it('RECORDED EMPTY stays [] on both legs; NOT RECORDED and CONTRACT REFUSED are absent on both', () => {
     expect(turnReport({ option_participation: [] }).option_participation).toEqual([])
     expect(readReport([]).option_participation).toEqual([])
@@ -132,7 +147,9 @@ describe('the reason: the Run\'s own word first', () => {
   it('the kept sentence names the user\'s unanalysable options', () => {
     expect(olumiProposedKeptCopy(['Keep £49 price'])).toContain('‘Keep £49 price’')
     expect(olumiProposedKeptCopy(['A', 'B', 'C'])).toContain('‘A’, ‘B’ and ‘C’')
-    expect(olumiProposedKeptCopy([])).toContain('some of your options')
+    const noIds = olumiProposedKeptCopy([])
+    expect(noIds).toContain('fewer than two options of your own')
+    expect(noIds).not.toMatch(/analys/i)
   })
 })
 
@@ -188,6 +205,13 @@ describe('the option card reads the fact', () => {
     expect(kept.textContent).toContain("Olumi's suggestion · compared for now")
     expect(kept.textContent).not.toMatch(/provisional/i)
     expect(kept.textContent).toContain('‘Keep £49 price’')
+  })
+  it('KEPT WITHOUT ids: the card says why without claiming a failure', () => {
+    useCanvasStore.setState({ results: { status: 'complete', report: report(readOptionParticipation([KEPT_NO_IDS])) } } as never)
+    mount('olumi_bundle')
+    const kept = screen.getByTestId('option-participation-kept-olumi_bundle')
+    expect(kept.textContent).toContain('fewer than two options of your own')
+    expect(kept.textContent).not.toMatch(/can.t be analysed/)
   })
   it('CONTROL: a user option in the same Run carries no Olumi line', () => {
     useCanvasStore.setState({ results: { status: 'complete', report: report(readOptionParticipation([KEPT])) } } as never)
