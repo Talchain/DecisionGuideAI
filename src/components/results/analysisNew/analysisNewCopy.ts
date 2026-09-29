@@ -264,6 +264,15 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
    */
   separation_unavailable:
     'This run could not work out how far apart the options are, so it cannot put one forward.',
+  /**
+   * Canonical's intake cause (#72 5886426614; DL 5886466744): an option Olumi added cannot be reconciled
+   * to the user's brief, so no option is named the leader. Served before it was minted as
+   * `constraint_verdict_withheld` while every limit was `scored` (Canvas 5886223069). About the options'
+   * provenance, not the limits — so it must not read as a limit check that declined.
+   */
+  // AIQ #72 5886555442. The ‹label› parenthetical waits for Canonical's carrier to name the option ids.
+  options_not_reconciled_with_brief:
+    "Olumi added an option your brief didn't name, so this run doesn't put one forward. You can remove it and re-run.",
 }
 
 /**
