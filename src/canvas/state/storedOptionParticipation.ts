@@ -14,20 +14,23 @@
  * (Canonical 5888351928): a refused array is ABSENT on both legs, and a recorded `[]` stays `[]`:
  *   - not an array → `null` (not recorded: no claim either way, today's behaviour stands);
  *   - `[]` → recorded, every option is in the ordinary comparison;
- *   - ANY entry outside the contract (no `option_id`, an unknown `state`, a non-string id in the list) → `null`.
+ *   - ANY entry outside the published contract (mirrored below) → `null`.
  */
+import { z } from 'zod'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 
 export const OPTION_PARTICIPATION_TURN_KEY = 'option_participation'
 export const OPTION_PARTICIPATION_READ_KEY = 'analysis_option_participation'
 
 export type OptionParticipationState = 'excluded_olumi_proposed' | 'kept_olumi_provisional'
-const STATES: ReadonlySet<string> = new Set<OptionParticipationState>(['excluded_olumi_proposed', 'kept_olumi_provisional'])
 
 export interface OptionParticipationEntry {
   readonly optionId: string
   readonly state: OptionParticipationState
-  /** `kept_olumi_provisional` only: the user's options this Run could not analyse. Empty when not sent. */
+  /**
+   * `kept_olumi_provisional` only: the user's options the gate excluded. EMPTY when the user simply named fewer than two
+   * options — nothing was excluded, so nothing may be said to be unanalysable (Runtime 5888591648).
+   */
   readonly unanalysableUserOptionIds: readonly string[]
 }
 
@@ -48,18 +51,27 @@ export function optionParticipationOf(
   return report?.option_participation?.find((e) => e.optionId === optionId) ?? null
 }
 
-/** `null` = not recorded, or refused. `[]` = recorded, no option outside the ordinary comparison. */
-export function readOptionParticipation(raw: unknown): readonly OptionParticipationEntry[] | null {
-  if (!Array.isArray(raw)) return null
-  const out: OptionParticipationEntry[] = []
-  for (const row of raw) {
-    if (row === null || typeof row !== 'object') return null
-    const r = row as Record<string, unknown>
-    if (typeof r.option_id !== 'string' || r.option_id.length === 0) return null
-    if (typeof r.state !== 'string' || !STATES.has(r.state)) return null
-    const ids = r.unanalysable_user_option_ids
-    if (ids !== undefined && (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string' || id.length === 0))) return null
-    out.push({ optionId: r.option_id, state: r.state as OptionParticipationState, unanalysableUserOptionIds: (ids as string[] | undefined) ?? [] })
+/**
+ * ⛔ THE PUBLISHED ENTRY CONTRACT, MIRRORED VERBATIM — `@talchain/schemas` 0.65.0 `OptionParticipationEntrySchema`
+ * (schemas #74 @ d01afc1e, `src/orchestrator/handler-results.ts`). The UI vendors 0.61.0, so the schema is copied rather
+ * than re-interpreted (DL CHANGES_REQUIRED on #2305 @ ddf47006): a present-but-empty id list, an exclusion that names
+ * ids, and an undeclared key are all refused. Delete this copy when the vendored package carries the schema.
+ */
+const OptionParticipationEntrySchema = z.object({
+  option_id: z.string().min(1),
+  state: z.enum(['excluded_olumi_proposed', 'kept_olumi_provisional']),
+  unanalysable_user_option_ids: z.array(z.string().min(1)).min(1).optional(),
+}).strict().superRefine((e, ctx) => {
+  if (e.state === 'excluded_olumi_proposed' && e.unanalysable_user_option_ids !== undefined) {
+    ctx.addIssue({ code: 'custom', path: ['unanalysable_user_option_ids'],
+      message: 'only a provisional keep names unanalysable user options' })
   }
-  return out
+})
+const OptionParticipationRecord = z.array(OptionParticipationEntrySchema)
+
+/** `null` = not recorded, or refused (ANY entry outside the contract refuses the whole record). `[]` = recorded, none. */
+export function readOptionParticipation(raw: unknown): readonly OptionParticipationEntry[] | null {
+  const parsed = OptionParticipationRecord.safeParse(raw)
+  if (!parsed.success) return null
+  return parsed.data.map((e) => ({ optionId: e.option_id, state: e.state, unanalysableUserOptionIds: e.unanalysable_user_option_ids ?? [] }))
 }
