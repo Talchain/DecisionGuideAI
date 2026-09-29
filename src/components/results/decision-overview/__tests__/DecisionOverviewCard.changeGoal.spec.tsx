@@ -61,3 +61,12 @@ describe('a change goal on the hero selector and the brief bar', () => {
     expect(text).not.toContain('from today')
   })
 })
+
+describe('⛔ AIQ 5880974047 — an unread frame claims no success measure', () => {
+  it('RED: computeSuccessState is unset for a frame this UI cannot read', () => {
+    const node = goalNode({ goal_threshold_frame: 'bogus', goal_threshold_raw: -0.15, goal_threshold_unit: 'GBP/month' })
+    const success = computeSuccessState(computeGraphFacts([node] as never).goalNode, READY as never, null, null)
+    expect(success.isSet).toBe(false)
+    expect(success.displayText).toBeNull()
+  })
+})

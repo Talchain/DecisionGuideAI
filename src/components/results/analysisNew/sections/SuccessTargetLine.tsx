@@ -82,6 +82,7 @@ import { goalTargetSourceMark } from '../../../../canvas/nodes/shared/valueSourc
 import {
   resolveGoalTarget,
   declaredGoalUnit,
+  goalTargetFrameIsUnread,
   statedTargetNumber,
   type GoalTargetSource,
 } from '../../../../canvas/domain/goalTarget'
@@ -355,8 +356,10 @@ export function SuccessTargetLine({
    * reasoning variant's toggle opens the Ask flow — the chat, where a change is stated as a change. The authority
    * (`useModelEditAuthority.proposeGoalTarget`) refuses it too, whichever editor asks.
    */
-  const changeGoal = fromNode?.frame != null
-  const fromStore = threshold != null && representation === 'raw' ? threshold : null
+  // ⛔ AIQ 5880974047: a frame this UI cannot read resolves to no target (`resolveGoalTarget`) and is not edited either.
+  const unreadFrame = goalTargetFrameIsUnread((goalData as GoalTargetSource | null)?.goal_threshold_frame)
+  const changeGoal = fromNode?.frame != null || unreadFrame
+  const fromStore = threshold != null && representation === 'raw' && !goalTargetFrameIsUnread((goalData as GoalTargetSource | null)?.goal_threshold_frame) ? threshold : null
   /** The node first — it is the only source guaranteed to be in user units. */
   const shownText =
     fromNode !== null

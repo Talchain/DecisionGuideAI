@@ -124,4 +124,9 @@ describe('GoalNode — a target stated as a change from today', () => {
     expect(line!.tagName).not.toBe('BUTTON')
     expect(line!.getAttribute('aria-label') ?? '').not.toMatch(/change it in/i)
   })
+
+  it('RED (AIQ 5880974047): an unread frame shows no target figure at all', () => {
+    const { text } = renderCard({ goal_threshold_raw: -0.15, goal_threshold_unit: 'GBP/month', goal_threshold_frame: 'CHANGE_REL' })
+    expect(text).not.toMatch(/0\.15|GBP|Target: /)
+  })
 })

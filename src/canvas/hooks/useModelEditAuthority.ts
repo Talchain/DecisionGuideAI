@@ -147,7 +147,7 @@ import {
   manualGoalTargetMessage,
 } from '../conversation/manualGoalTarget'
 import { buildGoalTargetEditEvent, GOAL_TARGET_EDIT_ENABLED } from '../conversation/goalTargetEdit'
-import { statedTargetNumber, goalTargetChangeFrameOf, type GoalTargetSource } from '../domain/goalTarget'
+import { statedTargetNumber, goalTargetChangeFrameOf, goalTargetFrameIsUnread, type GoalTargetSource } from '../domain/goalTarget'
 import type { ConstraintType } from '../../v5/chipParameters'
 import {
   buildOptionInterventionEditEvent,
@@ -518,7 +518,9 @@ export function useModelEditAuthority(
     // ⛔ R1 S4-core (MG 5879952291): a target stated as a CHANGE from today is never overwritten with a level figure.
     // CEE refuses the same write by name (`goal_is_a_change`) at all four goal writers; refusing here writes nothing
     // and sends nothing, whichever editor asked.
-    if (goalTargetChangeFrameOf((node.data as GoalTargetSource | undefined)?.goal_threshold_frame) !== null) {
+    const goalFrame = (node.data as GoalTargetSource | undefined)?.goal_threshold_frame
+    // … and a frame this UI cannot read is not overwritten either (AIQ 5880974047).
+    if (goalTargetChangeFrameOf(goalFrame) !== null || goalTargetFrameIsUnread(goalFrame)) {
       return 'not_encodable' as const
     }
 

@@ -75,7 +75,7 @@
  */
 import { classifyUnit, compactUnitParts, ISO_CURRENCY_GLYPHS, joinCompactUnitParts, unitIsDisplayable } from '../../../utils/unitClassifier'
 import { formatTargetValue } from './formatTargetValue'
-import { goalTargetChangeFrameOf } from '../../../canvas/domain/goalTarget'
+import { goalTargetChangeFrameOf, goalTargetFrameIsUnread, type GoalTargetChangeFrame } from '../../../canvas/domain/goalTarget'
 
 /**
  * Render a goal target magnitude with its unit.
@@ -98,12 +98,11 @@ export function formatGoalTarget(value: number, unit: string | null | undefined,
    * percentage of today and the metric's unit is not said at all; `change_abs` is said in the metric's unit through
    * this same function, unsigned, with the direction in words. Never raw × cap.
    */
+  // ⛔ A frame this UI cannot read: the figure's meaning is unknown, so no number (AIQ 5880974047).
+  if (goalTargetFrameIsUnread(frame)) return null
   const change = goalTargetChangeFrameOf(frame)
   if (change !== null) {
-    const direction = value < 0 ? 'down' : 'up'
-    const size = change === 'change_rel'
-      ? `${Math.round(Math.abs(value) * 100 * 1e6) / 1e6}%`
-      : formatGoalTarget(Math.abs(value), unit)
+    const { direction, size } = goalChangeParts(value, unit, change)
     return `${direction} ${size} from today`
   }
 
@@ -187,6 +186,27 @@ export function formatGoalTarget(value: number, unit: string | null | undefined,
   const compact = compactUnitParts(value.toLocaleString(), canonical)
   if (compact !== null) return joinCompactUnitParts(compact)
   return `${value.toLocaleString()} ${canonical}`
+}
+
+function goalChangeParts(value: number, unit: string | null | undefined, change: GoalTargetChangeFrame): { direction: string; size: string } {
+  return {
+    direction: value < 0 ? 'down' : 'up',
+    size: change === 'change_rel'
+      ? `${Math.round(Math.abs(value) * 100 * 1e6) / 1e6}%`
+      : (formatGoalTarget(Math.abs(value), unit) ?? String(Math.abs(value))),
+  }
+}
+
+/**
+ * A change target as a BOUND, for a sentence about what success means (AIQ 5880974047): "down at least 15% from today",
+ * or "more than" when the goal is strict (`goal_threshold_strict`, ISL #209). `formatGoalTarget` alone reads as an
+ * exact figure. `null` for a level, an unread frame or a non-finite value.
+ */
+export function formatGoalChangeBound(value: number, unit: string | null | undefined, frame: unknown, strict: boolean): string | null {
+  const change = goalTargetChangeFrameOf(frame)
+  if (change === null || typeof value !== 'number' || !Number.isFinite(value)) return null
+  const { direction, size } = goalChangeParts(value, unit, change)
+  return `${direction} ${strict ? 'more than' : 'at least'} ${size} from today`
 }
 
 /** A currency token with a magnitude letter written onto it, then optional words: `£M ARR`, `$k`, `£bn revenue`. */

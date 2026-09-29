@@ -53,3 +53,17 @@ describe('SuccessTargetLine — a change target', () => {
     expect(screen.getByTestId(`${TID}-edit`)).toBeInTheDocument()
   })
 })
+
+describe('⛔ AIQ 5880974047 — an unread frame in SuccessTargetLine', () => {
+  it('RED: no number (node or store) and no edit control', () => {
+    state = {
+      nodes: [{ id: 'g1', type: 'goal', data: { ...CHANGE_GOAL, goal_threshold_frame: 'bogus' } }],
+      goalThreshold: -0.15,
+      goalThresholdRepresentation: 'raw',
+      setGoalThresholdAndUpdateNode: vi.fn(),
+    }
+    render(<SuccessTargetLine goalNodeId="g1" onCommitOutcome={() => {}} testId={TID} />)
+    expect(screen.getByTestId(TID).textContent).not.toMatch(/0\.15|GBP/)
+    expect(screen.queryByTestId(`${TID}-edit`)).toBeNull()
+  })
+})

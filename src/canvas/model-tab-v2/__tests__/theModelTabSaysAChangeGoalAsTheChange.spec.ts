@@ -51,3 +51,12 @@ describe('the Model tab goal row — a change target is not edited as a level', 
     expect(goalRow(goal({})).editable).toBe(true)
   })
 })
+
+describe('⛔ AIQ 5880974047 — an unread frame on the Model tab row', () => {
+  it('RED: no number (not even the store scalar) and not editable', () => {
+    const node = goal({ goal_threshold_frame: 'CHANGE_REL', goal_threshold_raw: -0.15, goal_threshold_unit: 'GBP/month' })
+    const row = toModelRows({ nodes: [node], edges: [], goalThreshold: -0.15 }).find(r => r.id === GOAL_ID)!
+    expect(row.primaryValue).toBeNull()
+    expect(row.editable).toBe(false)
+  })
+})

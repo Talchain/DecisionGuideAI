@@ -125,7 +125,7 @@
 import type { Edge, Node } from '@xyflow/react'
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { goalLabelIsUnconfirmedBriefExtract } from '../domain/goalLabelProvenance'
-import { resolveGoalTarget } from '../domain/goalTarget'
+import { goalTargetFrameIsUnread, resolveGoalTarget } from '../domain/goalTarget'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
 import { isUnquantifiedPrior } from '../domain/nodes'
 import { hasAnyStatedValue } from '../utils/observedStateHelpers'
@@ -794,7 +794,9 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
           : typeof target.raw === 'number' && target.unit && isCurrencyUnit(target.unit)
           ? formatValueWithUnit(target.raw, target.unit)
           : `${typeof target.raw === 'number' ? formatSmartNumber(target.raw) : target.raw}${unitIsDisplayable(target.unit) ? ` ${target.unit}` : ''}`
-        : input.goalThreshold === null ? null : formatSmartNumber(input.goalThreshold)
+        // ⛔ AIQ 5880974047: an unread frame shows no number — not even the store's scalar.
+        : input.goalThreshold === null || goalTargetFrameIsUnread((data as { goal_threshold_frame?: unknown }).goal_threshold_frame)
+          ? null : formatSmartNumber(input.goalThreshold)
       rows.push({
         id: node.id,
         kind,
@@ -806,7 +808,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         attention: targetText === null ? ['no-value'] : [],
         // ⛔ R1 S4-core: a change target is not edited as a level — the editor writes a level figure, and CEE refuses
         // that write over a change goal by name (`goal_is_a_change`, all four goal writers). It is changed in the chat.
-        editable: target?.frame == null,
+        editable: target?.frame == null && !goalTargetFrameIsUnread((data as { goal_threshold_frame?: unknown }).goal_threshold_frame),
       })
       continue
     }

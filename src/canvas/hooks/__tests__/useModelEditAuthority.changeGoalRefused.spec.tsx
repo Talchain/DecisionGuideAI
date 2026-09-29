@@ -62,7 +62,7 @@ function seedFrame(frame: string | undefined) {
 }
 
 describe('a change goal is refused at the authority', () => {
-  it.each(['change_rel', 'change_abs'])('RED: %s → not_encodable, nothing dispatched or sent', (frame) => {
+  it.each(['change_rel', 'change_abs', 'CHANGE_REL', 'bogus'])('RED: %s → not_encodable, nothing dispatched or sent', (frame) => {
     seedFrame(frame)
     expect(authorityFor().current.proposeGoalTarget('12', 'months', SCENARIO, 'at_least')).toBe('not_encodable')
     expect(dispatchAction).not.toHaveBeenCalled()

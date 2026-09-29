@@ -10,8 +10,8 @@
  * never inferred from a magnitude.
  */
 import { describe, it, expect } from 'vitest'
-import { formatGoalTarget } from '../formatGoalTarget'
-import { resolveGoalTarget, goalTargetChangeFrameOf } from '../../../../canvas/domain/goalTarget'
+import { formatGoalChangeBound, formatGoalTarget } from '../formatGoalTarget'
+import { resolveGoalTarget, goalTargetChangeFrameOf, goalTargetFrameIsUnread, statedGoalTargetRaw } from '../../../../canvas/domain/goalTarget'
 
 describe('formatGoalTarget says a change-framed target as the change', () => {
   it('RED: change_rel −0.15 on a GBP/month metric → "down 15% from today", never "-0.15 GBP per month"', () => {
@@ -47,7 +47,33 @@ describe('⛔ CONTRAST — a level is byte-identical, and so are an absent frame
     expect(formatGoalTarget(value, unit, 'level')).toBe(before)
     expect(formatGoalTarget(value, unit, 'delta')).toBe(before)
     expect(formatGoalTarget(value, unit, undefined)).toBe(before)
-    expect(formatGoalTarget(value, unit, 'CHANGE_REL')).toBe(before)
+    expect(formatGoalTarget(value, unit, null)).toBe(before)
+  })
+})
+
+describe('⛔ AIQ 5880974047 — a frame this UI cannot read fails CLOSED: no number, never a level', () => {
+  it.each(['CHANGE_REL', 'change', 'bogus', 7])('RED: frame %s → no figure, no resolved target, no stated raw', (frame) => {
+    expect(formatGoalTarget(-0.15, 'GBP/month', frame)).toBeNull()
+    expect(resolveGoalTarget({ goal_threshold_raw: -0.15, goal_threshold_unit: 'GBP/month', goal_threshold_frame: frame })).toBeNull()
+    expect(statedGoalTargetRaw({ goal_threshold_raw: -0.15, goal_threshold_frame: frame })).toBeNull()
+    expect(goalTargetFrameIsUnread(frame)).toBe(true)
+  })
+
+  it('CONTRAST: absent, null, level, delta and the change frames are read', () => {
+    for (const f of [undefined, null, 'level', 'delta', 'change_rel', 'change_abs']) expect(goalTargetFrameIsUnread(f), String(f)).toBe(false)
+  })
+})
+
+describe('AIQ 5880974047 — "what success means" states the change as a bound', () => {
+  it('RED: "down at least 15% from today"; "more than" when the goal is strict', () => {
+    expect(formatGoalChangeBound(-0.15, 'GBP/month', 'change_rel', false)).toBe('down at least 15% from today')
+    expect(formatGoalChangeBound(-0.15, 'GBP/month', 'change_rel', true)).toBe('down more than 15% from today')
+    expect(formatGoalChangeBound(5000, 'GBP', 'change_abs', false)).toBe('up at least £5,000 from today')
+  })
+
+  it('CONTRAST: a level (or an unread frame) is not a change bound', () => {
+    expect(formatGoalChangeBound(38000, 'GBP', 'level', false)).toBeNull()
+    expect(formatGoalChangeBound(-0.15, 'GBP', 'bogus', false)).toBeNull()
   })
 })
 

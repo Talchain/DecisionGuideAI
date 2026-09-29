@@ -50,6 +50,16 @@ export function goalTargetChangeFrameOf(frame: unknown): GoalTargetChangeFrame |
   return frame === 'change_abs' || frame === 'change_rel' ? frame : null
 }
 
+/**
+ * ⛔ A frame that is PRESENT but not one this UI reads (AIQ 5880974047). The figure's meaning is then unknown, so it
+ * fails CLOSED: no target resolves (no number is shown anywhere) and no level is written over it. Absent or `null` is
+ * a level, exactly as before; `level`, legacy `delta` and the two change frames are read.
+ */
+export function goalTargetFrameIsUnread(frame: unknown): boolean {
+  return frame !== undefined && frame !== null && frame !== 'level' && frame !== 'delta' &&
+    goalTargetChangeFrameOf(frame) === null
+}
+
 export interface ResolvedGoalTarget {
   /** The figure, in the USER's units. Never a normalised 0-1. */
   raw: string | number
@@ -94,6 +104,7 @@ export function resolveGoalTarget(
   data: GoalTargetSource | null | undefined,
 ): ResolvedGoalTarget | null {
   if (!data) return null
+  if (goalTargetFrameIsUnread(data.goal_threshold_frame)) return null
   const unit = typeof data.goal_threshold_unit === 'string' ? data.goal_threshold_unit : undefined
   const changeFrame = goalTargetChangeFrameOf(data.goal_threshold_frame)
   const frame = changeFrame === null ? {} : { frame: changeFrame }
@@ -227,6 +238,7 @@ export function statedGoalTargetRaw(
   data: GoalTargetSource | null | undefined,
 ): string | number | null {
   if (!data) return null
+  if (goalTargetFrameIsUnread(data.goal_threshold_frame)) return null
   const userThreshold = data.threshold_source === 'user' ? data.success_threshold : undefined
   const chosen = isStatedTargetValue(userThreshold) ? userThreshold : data.goal_threshold_raw
   return isStatedTargetValue(chosen) ? (chosen as string | number) : null

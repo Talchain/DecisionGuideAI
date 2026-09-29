@@ -46,7 +46,7 @@ import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProve
 import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { basisWithholdsPossessive } from '../../../../components/results/utils/selectGoalProbability'
 import { goalFitBaseCaveatCopy } from '../../../../components/results/utils/goalFitBasisCaveatCopy'
-import { formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
+import { formatGoalChangeBound, formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 // ⭐⭐ `resolveGoalTarget` WAS ONE NAME AWAY IN AN IMPORT THIS FILE ALREADY HAD.
 // This line imported `canCaptureGoalTarget` and `GoalTargetSource` from
@@ -703,7 +703,8 @@ export const GoalPanel = memo(function GoalPanel({
                 {/* R1 S4-core (MG 5879952291): a change target is not a level to reach "≥" — "Success means going
                     down 15% from today". */}
                 {resolvedTarget?.frame != null
-                  ? `Success means going ${targetDisplay}`
+                  ? `Success means going ${formatGoalChangeBound(Number(resolvedTarget.raw), resolvedTarget.unit, resolvedTarget.frame,
+                    (node?.data as { goal_threshold_strict?: unknown } | undefined)?.goal_threshold_strict === true) ?? targetDisplay}`
                   : <>Success means reaching {'\u2265'} {targetDisplay}</>}
               </p>
               {/* Contextual probability when analysis exists */}
