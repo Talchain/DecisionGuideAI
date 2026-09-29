@@ -282,6 +282,14 @@ const KNOWN_FIXED = [
  * caller, was deleted. NodeQuickActions is a new scoped caller, so the exact
  * derivation requires the entry again; this is not an un-portalled text gap.
  */
+/*
+ * `ui/inspector-v2/shared/EditableLabel.tsx` (E1c, #2318, 29 Sep 2026): `BaseNode` renders the inspector's title
+ *   editor IN the card while a title is renamed on the card. Its sized text is host-supplied at this crossing: the
+ *   field takes the card's own counter-scaled title token (`typography.nodeTitle` / `nodeTitleWide`), and the
+ *   near-limit counter takes `counterClassName={typography.nodeLabel}` (counter-scaled, 11px) instead of its
+ *   inspector default `panelMeta` (fixed 11px, which would shrink with zoom). The only fixed-size thing it draws
+ *   in the card is the 12px pencil ICON of its non-editing trigger, which is not text.
+ */
 /**
  * ⭐ FILES THAT MOUNT INTO THE TRANSFORMED SUBTREE VIA `<ViewportPortal>`.
  *
@@ -295,6 +303,7 @@ const VIEWPORT_PORTALLED = ['src/canvas/nodes/TierLanes.tsx'] as const
 const FOREIGN_RENDERED = [
   'src/canvas/components/CoachingCard.tsx',
   'src/canvas/components/UnknownKindWarning.tsx',
+  'src/canvas/ui/inspector-v2/shared/EditableLabel.tsx',
   'src/canvas/ui/shared/DataBar.tsx',
   'src/components/Tooltip.tsx',
 ] as const

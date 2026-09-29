@@ -18,6 +18,7 @@ import {
   buildEdgeStrengthConfirmEvent,
 } from '../../conversation/edgeStrengthEdit'
 import { serverStatedStrengthOf } from '../../conversation/edgeServerStatedStrength'
+import { NODE_LABEL_MAX_LENGTH } from './nodeLabelLimits'
 
 // ─── Editor-written-field manifest (single source of truth) ────────────
 //
@@ -49,7 +50,7 @@ import { serverStatedStrengthOf } from '../../conversation/edgeServerStatedStren
  * number, so the two cannot drift apart again: there is one limit, and it is
  * this one.
  */
-export const NODE_LABEL_MAX_LENGTH = 100
+export { NODE_LABEL_MAX_LENGTH }
 
 /** node setter name → the top-level `data` field(s) that setter writes. */
 export const NODE_SETTER_FIELDS = {

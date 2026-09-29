@@ -323,3 +323,34 @@ export function statedGoalTargetRaw(
 export function canCaptureGoalTarget(data: GoalTargetSource | null | undefined): boolean {
   return statedGoalTargetRaw(data) == null
 }
+
+/**
+ * ⭐ E1a — WHAT THE GOAL CARD NEEDS TO EDIT ITS TARGET IN PLACE, or `null` when the card must not.
+ *
+ * `proposeGoalTarget` takes a number, a unit and a direction, and its direction "has no default and must be stated by
+ * whichever surface collects it" (`GoalNode.tsx`, `goalTargetRouteChannels`). The card collects only the number. So it
+ * edits in place ONLY when the other two are already STATED on the goal:
+ *  - a LEVEL target (a change target is not edited as a level; CEE refuses that write by name) with a finite number;
+ *  - a declared unit;
+ *  - a held comparator of exactly `>=` or `<=`. Those are `at_least` / `at_most` with no loss. A strict `>` / `<` has no
+ *    `ConstraintType`, and sending `at_least` for `>` would silently change the bound, so it stays on the Model tab
+ *    route, as does a goal with no held comparator at all.
+ * Anything else returns `null` and the card keeps its existing route to the full editor.
+ */
+export interface GoalTargetInPlaceEdit {
+  readonly value: number
+  readonly unit: string
+  readonly direction: 'at_least' | 'at_most'
+}
+export function goalTargetInPlaceEdit(data: GoalTargetSource | null | undefined): GoalTargetInPlaceEdit | null {
+  const target = resolveGoalTarget(data)
+  if (target === null || target.frame !== undefined) return null
+  const value = typeof target.raw === 'number' ? target.raw : Number(String(target.raw).trim())
+  if (!Number.isFinite(value)) return null
+  const unit = declaredGoalUnit(data).trim()
+  if (unit === '') return null
+  const held = goalHeldComparatorOf(data?.goal_direction)
+  const direction = held === '>=' ? 'at_least' : held === '<=' ? 'at_most' : null
+  if (direction === null) return null
+  return { value, unit, direction }
+}
