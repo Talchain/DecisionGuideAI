@@ -195,6 +195,8 @@ describe('the two lenses', () => {
     expect(goal).toHaveAttribute('data-locked', 'true')
     expect(goal).toHaveAttribute('aria-disabled', 'true')
     expect(goal).toHaveAccessibleDescription(LENS_COPY.locked.goal)
+    // CONTRAST: no producer withhold → no visible withheld line.
+    expect(screen.queryByTestId(`${T}-goal-withheld`)).toBeNull()
     expect(goal.querySelector('.lucide-lock')).not.toBeNull()
     fireEvent.click(goal)
     expect(goal).toHaveAttribute('aria-checked', 'false')
@@ -215,6 +217,8 @@ describe('the two lenses', () => {
     } as unknown as ResultsSectionDataReturn
     renderRun(withheld)
     expect(screen.getByTestId(`${T}-lens-goal`)).toHaveAccessibleDescription(WORDS)
+    // AIQ 5887096626: the reason is VISIBLE beside the emptied rows, not only in the tooltip.
+    expect(screen.getByTestId(`${T}-goal-withheld`)).toHaveTextContent(WORDS)
     expect(screen.queryAllByTestId(`${T}-goal`)).toHaveLength(0)
   })
 

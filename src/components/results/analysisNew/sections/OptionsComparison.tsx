@@ -826,6 +826,14 @@ export function OptionsComparison({
           `SHELL_SPACING_SCALE_PX` — this both reclaims 6px and puts the row rhythm
           on the sanctioned scale, which is why it is a correction and not only a
           trim. */}
+      {/* AIQ #72 5887096626 (served condition on #2300): when the producer withheld every goal figure (PLoT #416),
+          its reason is VISIBLE beside the emptied rows, never only in the locked arm's tooltip. */}
+      {options.goalWithheldMessage ? (
+        <p className={`${typography.panelMeta} text-text-light mt-0 mb-2`} data-testid={`${testId}-goal-withheld`}>
+          {options.goalWithheldMessage}
+        </p>
+      ) : null}
+
       <ul
         className="list-none p-0 m-0 space-y-2"
         data-comparison-lens={lens ?? 'none'}
