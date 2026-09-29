@@ -89,6 +89,7 @@ function baseResponse(overrides: Partial<OlumiResponse> = {}): OlumiResponse {
  * derived value by IDENTITY — never to a hand-written literal another report
  * could accidentally match.
  */
+const reportsByHash = new Map<string, unknown>()
 function hashOf(block: typeof analysisBlock): string {
   let captured: string | null = null
   const probe: V5ApplicatorStore = {
@@ -97,7 +98,7 @@ function hashOf(block: typeof analysisBlock): string {
     updateEdgeData: vi.fn(),
     setRunMeta: vi.fn(),
     setCeeAnalysisReady: vi.fn(),
-    resultsComplete: vi.fn((args: { hash: string }) => { captured = args.hash }),
+    resultsComplete: vi.fn((args: { hash: string; report: unknown }) => { captured = args.hash; reportsByHash.set(args.hash, args.report) }),
     nodes: [],
     edges: [],
     currentResultsHash: null,
@@ -122,6 +123,7 @@ function realStoreApplicator(currentResultsHash: string | null): V5ApplicatorSto
     nodes: [],
     edges: [],
     currentResultsHash,
+    currentResultsReport: currentResultsHash ? reportsByHash.get(currentResultsHash) : null,
   }
 }
 

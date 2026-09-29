@@ -460,6 +460,7 @@ export function readProvisionalApplyStore(): ScenarioAnalysisApplyStore {
     // silently restore the very defect this binding was added to close.
     noteRunCompletedWithoutVerdict: s.noteRunCompletedWithoutVerdict,
     currentResultsHash: s.results?.hash ?? null,
+    currentResultsReport: s.results?.report ?? null,
     // B5 on the read leg: the verdicts beside the analysis this leg displays, stamped as the turn leg stamps them.
     setLimitVerdicts: s.setLimitVerdicts,
     currentScenarioId: s.currentScenarioId,

@@ -201,7 +201,7 @@ describe('applyScenarioAnalysisRead — a withheld payload marks the held report
     // already display, arriving with the producer's refusal attached, must
     // still apply it — otherwise the second poll silently re-permits a claim
     // the first one withdrew.
-    const heldHash = (() => {
+    const held = (() => {
       const probe = makeStore()
       applyScenarioAnalysisRead({
         analysisState: verdict({
@@ -212,10 +212,10 @@ describe('applyScenarioAnalysisRead — a withheld payload marks the held report
       })
       // Derived from the REAL mapper rather than hardcoded, so the dedupe below
       // is provably exercised instead of being asserted about a guessed hash.
-      return probe.resultsComplete.mock.calls[0]![0]!.hash
+      return probe.resultsComplete.mock.calls[0]![0]!
     })()
 
-    const { store, withhold, resultsComplete } = makeStore({ currentResultsHash: heldHash })
+    const { store, withhold, resultsComplete } = makeStore({ currentResultsHash: held.hash, currentResultsReport: held.report })
     const outcome = applyScenarioAnalysisRead({
       analysisState: verdict({
         run_state: { kind: 'complete_current', computed_at: '2026-09-04T10:00:00Z' },

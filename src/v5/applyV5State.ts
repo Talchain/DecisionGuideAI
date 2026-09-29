@@ -52,6 +52,7 @@ import {
   type LimitVerdictsWrite,
 } from '../canvas/state/storedLimitVerdicts'
 import { goalCertaintyFromResponse, readGoalCertainty } from '../canvas/state/storedGoalCertainty'
+import { differentKnownAnalysisRun, sameAnalysisRunReceipt, withAnalysisRunReceipt } from './analysisRunReceipt'
 import type { RunDelta } from '@talchain/schemas/boundary'
 import { readEvidenceAssessment, type EvidenceAssessment } from './evidenceAssessment'
 import { AnalysisStateV1Schema, Stage } from '@talchain/schemas/boundary'
@@ -271,6 +272,7 @@ export interface V5ApplicatorStore {
   resultsComplete?: (params: {
     report: ReportV1
     hash: string
+    reportRefreshOnly?: boolean
     resultsSource?: 'direct' | 'conversation'
     /** Always `null` on this path — see the ⚠ note above. */
     enrichment?: null
@@ -288,6 +290,8 @@ export interface V5ApplicatorStore {
    * analysis has been hydrated yet.
    */
   currentResultsHash?: string | null
+  /** The held report carries the Run identity and permission it was built from. */
+  currentResultsReport?: unknown
   /**
    * Withdraw the leading-option designation from the report the slice holds,
    * on the producer's own word (`analysis_state.leader_claim.permitted:false`,
@@ -2340,15 +2344,18 @@ export function applyV5State(
       })
     } else if (typeof store.resultsComplete === 'function') {
       // CEE #2270/#2280: the Run's stored goal-certainty fact rides beside it; unearned 0/1 figures are stamped.
-      const report = mapV5AnalysisToReport(analysisBlock, {
-        goalCertainty: readGoalCertainty(goalCertaintyFromResponse(response)),
+      const goalCertainty = readGoalCertainty(goalCertaintyFromResponse(response))
+      const report = withAnalysisRunReceipt(mapV5AnalysisToReport(analysisBlock, { goalCertainty }), {
+        scenarioId: store.currentScenarioId, block: analysisBlock, state: turnVerdict, goalCertainty,
       })
       const hash = report.model_card.response_hash
       const prevHash = store.currentResultsHash ?? null
-      if (hash !== prevHash) {
+      const newRun = hash !== prevHash || differentKnownAnalysisRun(store.currentResultsReport, report)
+      if (hash !== prevHash || !sameAnalysisRunReceipt(store.currentResultsReport, report)) {
         store.resultsComplete({
           report,
           hash,
+          ...(!newRun ? { reportRefreshOnly: true } : {}),
           resultsSource: 'conversation',
           // V5 carries no V2 envelope; pass null so the canvas store's
           // V2-shaped enrichment / rawV2Response slots are explicitly
@@ -2376,13 +2383,9 @@ export function applyV5State(
         })
         applied.push('analysis_result:results_hydrated')
 
-        // Reliable run identity: a NEW analysis_result response_hash (hash !==
-        // prevHash) means a genuinely new analysis completed — not a re-delivered
-        // analysis_ready echo. Clear the local dirty overlay so a real rerun
-        // resolves the verdict even when the analysis_ready payload is byte-
-        // identical (the CEE contract carries no computed_at / run id on
-        // analysis_ready, so the reducer's echo-guard alone cannot distinguish a
-        // rerun from an echo).
+        // A new content hash or a changed, known Run identity completes a Run.
+        // Updating permission on the same report does not complete another Run
+        // and must leave the user's dirty overlay alone.
         //
         // BUT only clear when THIS response also carries an explicit
         // analysis_ready.freshness verdict. A new analysis_result with NO CEE
@@ -2397,9 +2400,9 @@ export function applyV5State(
           !!ar &&
           typeof ar.freshness === 'string' &&
           (['fresh', 'stale', 'unknown', 'none'] as const).includes(ar.freshness as 'fresh')
-        if (hasExplicitFreshness) {
+        if (hasExplicitFreshness && newRun) {
           store.clearAnalysisFreshnessDirty?.()
-        } else {
+        } else if (newRun) {
           // F10: the run completed but the engine said nothing about
           // freshness. A retained pre-run 'stale' would keep rendering
           // "Model changed since this analysis" OVER the results this very

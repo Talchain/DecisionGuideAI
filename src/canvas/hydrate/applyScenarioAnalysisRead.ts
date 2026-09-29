@@ -91,6 +91,7 @@ import { selectAnalysisReadinessAuthority } from '../state/analysisStateSelector
 import { readinessObjectsToRun } from '../utils/canRunAnalysis'
 import { readLimitVerdicts, type LimitVerdictsWrite } from '../state/storedLimitVerdicts'
 import { readGoalCertainty } from '../state/storedGoalCertainty'
+import { differentKnownAnalysisRun, sameAnalysisRunReceipt, withAnalysisRunReceipt } from '../../v5/analysisRunReceipt'
 
 /**
  * Which producer fact withdrew the leading-option designation.
@@ -265,12 +266,14 @@ export interface ScenarioAnalysisApplyStore {
   readonly resultsComplete?: (params: {
     report: ReturnType<typeof mapV5AnalysisToReport>
     hash: string
+    reportRefreshOnly?: boolean
     resultsSource?: 'direct' | 'conversation'
     enrichment?: null
     rawV2Response?: null
     v5Enrichment?: unknown
   }) => void
   readonly currentResultsHash?: string | null
+  readonly currentResultsReport?: unknown
   /**
    * B5 parity with the turn leg (`applyV5State.ts`): the per-limit verdicts CEE serves beside this analysis
    * (`analysis_limit_verdicts`). Optional so a store that does not render them is unaffected.
@@ -484,15 +487,20 @@ export function applyScenarioAnalysisRead(
 
   // ── Results FIRST (see the header) ────────────────────────────────────────
   let resultsHydrated = false
+  let newRun = false
   const block = input.analysisResult
   if (block !== null && block !== undefined && typeof input.store.resultsComplete === 'function') {
-    const report = mapV5AnalysisToReport(block as AnalysisResultBlock, { goalCertainty: readGoalCertainty(input.goalCertainty) })
+    const goalCertainty = readGoalCertainty(input.goalCertainty)
+    const report = withAnalysisRunReceipt(mapV5AnalysisToReport(block as AnalysisResultBlock, { goalCertainty }), {
+      scenarioId: input.store.currentScenarioId, block: block as AnalysisResultBlock, state: verdict, goalCertainty,
+    })
     const hash = report.model_card.response_hash
+    newRun = hash !== (input.store.currentResultsHash ?? null) || differentKnownAnalysisRun(input.store.currentResultsReport, report)
     // The SAME hash dedupe the turn applier uses: a re-read of an analysis we
     // already display must not re-write the slice (it would restart animations
     // and re-seed the Compare capture). `alreadyHeld` still SETTLES the caller —
     // the answer arrived, we simply had it.
-    if (hash === (input.store.currentResultsHash ?? null)) {
+    if (hash === (input.store.currentResultsHash ?? null) && sameAnalysisRunReceipt(input.store.currentResultsReport, report)) {
       // ⚠ THE DEDUPE MUST NOT SWALLOW THE REFUSAL. The report is the same one;
       // the PERMISSION over it is what has changed. Returning here without
       // applying the withholding would let a second poll silently re-permit a
@@ -506,6 +514,7 @@ export function applyScenarioAnalysisRead(
     input.store.resultsComplete({
       report,
       hash,
+      ...(!newRun ? { reportRefreshOnly: true } : {}),
       // ⚠ 'conversation' IS CORRECT HERE, and it was queried in review — so the
       // reasoning is pinned rather than left to be re-litigated.
       //
@@ -573,7 +582,7 @@ export function applyScenarioAnalysisRead(
   // staleness itself is carried by the verdict written immediately below, which
   // is where a consumer should read it from — not inferred from this overlay.
   if (
-    resultsHydrated &&
+    resultsHydrated && newRun &&
     (kind === 'complete_current' || kind === 'complete_stale') &&
     typeof input.store.noteRunCompletedWithoutVerdict === 'function'
   ) {

@@ -17,7 +17,7 @@ function store() {
     setRunMeta: vi.fn(), setCeeAnalysisReady: vi.fn(), setAnalysisFreshness: vi.fn(),
     setAnalysisStateV1: vi.fn(), resultsComplete: vi.fn(), setLimitVerdicts: vi.fn(),
     resultsWithholdLeaderClaim: vi.fn(), noteRunCompletedWithoutVerdict: vi.fn(),
-    nodes: [], edges: [], currentResultsHash: null, currentScenarioId: receipt.scenarioId,
+    nodes: [], edges: [], currentResultsHash: null as string | null, currentResultsReport: null as unknown, currentScenarioId: receipt.scenarioId,
     graphAcceptedForCanvas: true,
   }
 }
@@ -32,7 +32,7 @@ suite('shared-data: actual database Run → live UI / cold UI → stale → reru
     const cold = store()
     applyScenarioAnalysisRead({ analysisState: read.analysis_state, analysisResult: read.analysis_result,
       goalCertainty: read.analysis_goal_certainty, store: cold as never })
-    expect(mapRunStateKindToDisplayedFreshness(read.analysis_state.run_state.kind)).toBe('fresh')
+    expect(mapRunStateKindToDisplayedFreshness(read.analysis_state.run_state.kind, true)).toBe('fresh')
     for (const consumer of [live, cold]) {
       expect(consumer.resultsComplete).toHaveBeenCalledTimes(1)
       const report = consumer.resultsComplete.mock.calls[0][0].report
@@ -51,14 +51,14 @@ suite('shared-data: actual database Run → live UI / cold UI → stale → reru
       goalCertainty: read.analysis_goal_certainty, store: cold as never })
     expect(cold.resultsComplete).not.toHaveBeenCalled()
     expect(cold.setAnalysisStateV1).toHaveBeenCalledWith(read.analysis_state)
-    expect(mapRunStateKindToDisplayedFreshness(read.analysis_state.run_state.kind)).toBe('stale')
+    expect(mapRunStateKindToDisplayedFreshness(read.analysis_state.run_state.kind, false)).toBe('stale')
     expect(cold.resultsWithholdLeaderClaim).toHaveBeenCalled()
   })
 
   it.each(['turn', 'read'])('%s: two Runs with identical numbers cannot reuse the first Run\'s permission', (leg) => {
     const read = receipt.current.read
     const held = store()
-    held.resultsComplete.mockImplementation(({ hash }) => { held.currentResultsHash = hash })
+    held.resultsComplete.mockImplementation(({ hash, report }) => { held.currentResultsHash = hash; held.currentResultsReport = report })
     const apply = (state: unknown, certainty: unknown) => {
       if (leg === 'turn') applyV5State({ response_version: 2, assistant_text: '', blocks: [read.analysis_result],
         suggested_actions: [], insights: [], stage_indicator: 'analyse', analysis_state: state,
@@ -73,11 +73,14 @@ suite('shared-data: actual database Run → live UI / cold UI → stale → reru
     next.run_state.computed_at = new Date(Date.parse(next.run_state.computed_at) + 1000).toISOString()
     apply(next, read.analysis_goal_certainty)
     expect(held.resultsComplete).toHaveBeenCalledTimes(2)
+    // Redelivery of that same Run and permission is still a no-op.
+    apply(next, read.analysis_goal_certainty)
+    expect(held.resultsComplete).toHaveBeenCalledTimes(2)
     const lastReport = held.resultsComplete.mock.calls.at(-1)![0].report
     for (const decision of receipt.current.agentCertainty.options) {
       const displayed = selectGoalProbability(lastReport.option_probabilities[decision.option_id])
-      expect(displayed.goalProbability).toBeNull()
-      expect(displayed.goalCertaintyUnearned?.say).toBe(decision.say)
+      expect(displayed.goalProbability).toBe(decision.earned ? decision.probability_of_goal : null)
+      if (!decision.earned) expect(displayed.goalCertaintyUnearned?.say).toBe(decision.say)
     }
   })
 })

@@ -5331,6 +5331,7 @@ export function useConversation(): UseConversationReturn {
             {
               ...v5StoreSnapshot,
               currentResultsHash: v5StoreSnapshot.results?.hash ?? null,
+              currentResultsReport: v5StoreSnapshot.results?.report ?? null,
               // ROADMAP 1.22: wire the shared backfill helper (writes via
               // a direct store.setState, not updateNode — see the
               // V5ApplicatorStore.backfillGoalThreshold doc comment for

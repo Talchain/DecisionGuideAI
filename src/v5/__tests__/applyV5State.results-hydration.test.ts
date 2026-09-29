@@ -137,7 +137,8 @@ describe('applyV5State — step 5: results hydration', () => {
     const observedHash = probeResultsComplete.mock.calls[0]?.[0]?.hash as string
 
     // Second call: provide that same hash as currentResultsHash → no write
-    const { store, resultsComplete } = makeStore({ currentResultsHash: observedHash })
+    const { store, resultsComplete } = makeStore({ currentResultsHash: observedHash,
+      currentResultsReport: probeResultsComplete.mock.calls[0]?.[0]?.report })
     const result = applyV5State(
       baseResponse({ blocks: [validAnalysisBlock] }),
       store,

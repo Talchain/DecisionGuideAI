@@ -1515,6 +1515,8 @@ interface CanvasState {
   resultsComplete: (params: {
     report: ReportV1
     hash: string
+    /** Refresh a held report's permission without pretending another Run completed. */
+    reportRefreshOnly?: boolean
     drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
     // Legacy CEE types (deprecated)
     ceeReview?: CeeDecisionReviewPayload | null
@@ -5606,7 +5608,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }))
   },
 
-  resultsComplete: ({ report, hash, drivers, ceeReview, ceeTrace, ceeError, ceeReviewV1: _ceeReviewV1, ceeTraceV1: _ceeTraceV1, ceeErrorV1: _ceeErrorV1, enrichment, resultsSource, rawV2Response, v5Enrichment }) => {
+  resultsComplete: ({ report, hash, reportRefreshOnly, drivers, ceeReview, ceeTrace, ceeError, ceeReviewV1: _ceeReviewV1, ceeTraceV1: _ceeTraceV1, ceeErrorV1: _ceeErrorV1, enrichment, resultsSource, rawV2Response, v5Enrichment }) => {
+    if (reportRefreshOnly && hash === get().results.hash) {
+      set(s => ({ results: { ...s.results, report } }))
+      return
+    }
     const { nodes, edges, results, currentScenarioId, graphHealth: existingHealth } = get()
 
     const finishedAt = Date.now()

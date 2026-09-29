@@ -212,7 +212,7 @@ describe('S-R5 — the read leg records that a run completed', () => {
     expect(typeof hash).toBe('string')
     expect(hash.length).toBeGreaterThan(0)
 
-    const second = makeStore({ currentResultsHash: hash })
+    const second = makeStore({ currentResultsHash: hash, currentResultsReport: first.resultsComplete.mock.calls[0]![0].report })
     const outcome = applyScenarioAnalysisRead({
       analysisState: verdict({ kind: 'complete_current', computed_at: '2026-08-17T09:15:50.000Z' }),
       analysisResult: RESULT_BLOCK,
