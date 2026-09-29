@@ -85,7 +85,8 @@ describe('readGoalCertainty — one reader, both legs', () => {
       { optionId: 'raise_to_59', earned: false, say: SAY },
       { optionId: 'keep_49_price', earned: true, say: null },
     ])
-    expect(readGoalCertainty([{ option_id: 'x', probability_of_goal: 0.5, earned: true }])).toEqual([{ optionId: 'x', earned: false, say: null }])
+    expect(readGoalCertainty([{ option_id: 'x', probability_of_goal: 1, earned: 'yes' }])).toEqual([{ optionId: 'x', earned: false, say: null }])
+    expect(readGoalCertainty([{ option_id: 'x', probability_of_goal: 1 }])).toEqual([{ optionId: 'x', earned: false, say: null }])
   })
   it('the turn key is read top level first, then the additive sidecar', () => {
     expect(goalCertaintyFromResponse({ goal_certainty: [EARNED_49] })).toEqual([EARNED_49])

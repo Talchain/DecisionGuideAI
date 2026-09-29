@@ -12,7 +12,11 @@
  * additive sidecar. The UI vendors schemas 0.61.0, so this is a NARROW read of the four fields it uses, never a repair:
  *   - not an array → `null` (not recorded: no claim either way, today's behaviour stands);
  *   - `[]` → recorded, no option at 0 or 1;
- *   - an entry whose `option_id` is readable but whose certainty is not → UNEARNED with no sentence (fail-closed).
+ *   - an entry whose `option_id` is readable but whose `earned` is not exactly `true` → UNEARNED with no sentence
+ *     (fail-closed).
+ * It never reads the entry's `probability_of_goal`: the figure's owner is `selectGoalProbability`
+ * (`claim-ownership.drift.spec.ts`), and `earned` is the whole question this reader answers. CEE writes an entry only for
+ * an option at exactly 0 or 1.
  */
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 
@@ -43,8 +47,7 @@ export function readGoalCertainty(raw: unknown): readonly GoalCertaintyEntry[] |
     if (row === null || typeof row !== 'object') continue
     const r = row as Record<string, unknown>
     if (typeof r.option_id !== 'string' || r.option_id.length === 0) continue
-    const certain = r.probability_of_goal === 0 || r.probability_of_goal === 1
-    const earned = certain && r.earned === true
+    const earned = r.earned === true
     const say =
       !earned && typeof r.say === 'string' && r.say.trim().length > 0 && r.say.length <= 400 ? r.say.trim() : null
     out.push({ optionId: r.option_id, earned, say })
