@@ -284,6 +284,8 @@ export interface OptionResult {
    * beside the number (`goalFitBaseCaveatCopy`).
    */
   goalFitBaseCaveat?: GoalFitBaseCaveat | null
+  /** CEE #2270/#2280: this option's 0/1 goal figure is UNEARNED (withheld by the chooser); the producer's sentence. */
+  goalCertaintyUnearned?: { say: string | null } | null
   /**
    * Goal-probability IDENTITY: true when the rendered `goalProbability` is
    * `probability_of_joint_goal` STANDING IN for an absent `goal_probability`.

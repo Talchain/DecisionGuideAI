@@ -185,6 +185,11 @@ export interface GoalProbabilityInput extends Partial<Record<OwnedField, number>
    * (`readGoalIdentityWithheld`, PLoT #416). The goal figure is withheld; the joint figure is not (AIQ 5885033487 (2)).
    */
   goalIdentityWithheld?: true
+  /**
+   * Stamped by the V5 mapper from CEE's stored goal-certainty fact (`storedGoalCertainty.ts`, CEE #2270/#2280): this
+   * option's 0/1 figure is UNEARNED, so it is never shown as a percentage. `say` is the producer's sentence.
+   */
+  goalCertaintyUnearned?: { say: string | null }
 }
 
 /**
@@ -197,6 +202,12 @@ export type GoalFitBaseCaveat = 'olumi_estimate' | 'from_inputs'
 export interface GoalProbabilitySelection {
   /** The number to display, or null when no source is admissible. */
   goalProbability: number | null
+  /**
+   * Non-null when the goal figure was withheld because its 0/1 certainty is UNEARNED (CEE #2270/#2280, stamped by the
+   * mapper). Sites show `say` (the producer's sentence), or the fallback when it is null — never a percentage.
+   * Optional so hand-built selections elsewhere stay valid; the chooser always sets it.
+   */
+  goalCertaintyUnearned?: { say: string | null } | null
   /** True when `goalProbability` is the joint-goal (constrained) figure. */
   goalProbabilityIsJoint: boolean
   /**
@@ -300,7 +311,7 @@ export function selectGoalProbability(
   // the mapped `goal_probability` wins where a payload carries both, so every
   // existing caller — all of which hold post-mapper shapes — is unaffected.
   const unconstrained =
-    prob?.goalIdentityWithheld === true
+    prob?.goalIdentityWithheld === true || prob?.goalCertaintyUnearned !== undefined
       ? null
       : typeof prob?.goal_probability === 'number'
         ? prob.goal_probability
@@ -343,6 +354,7 @@ export function selectGoalProbability(
       goalFitIsModelledBasis: false,
       jointGoalIsModelledBasis: jointGoalProb != null && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
       goalFitBaseCaveat: unconstrained != null ? baseCaveat : null,
+      goalCertaintyUnearned: prob?.goalCertaintyUnearned ?? null,
       mayUsePossessiveGoalFraming: unconstrained != null,
       // This arm never substitutes either, so nothing is withheld FROM a
       // substitution here — the L62 gate below is what owns that state.
@@ -407,5 +419,6 @@ export function selectGoalProbability(
     goalFitBaseCaveat: goalProbability != null ? baseCaveat : null,
     mayUsePossessiveGoalFraming: goalProbability != null,
     jointSubstitutionWithheld: basis === 'joint_goal_withheld',
+    goalCertaintyUnearned: prob?.goalCertaintyUnearned ?? null,
   }
 }

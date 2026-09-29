@@ -43,6 +43,7 @@ import {
 import type { DecisionVerdictReportLike } from '../lib/decisionVerdict'
 import { goalLevelFromIdentityCaveat } from '../components/results/utils/goalLevelFromIdentity'
 import { readGoalIdentityWithheld } from '../components/results/utils/goalIdentityWithheld'
+import { unearnedCertaintyById, type GoalCertaintyEntry } from '../canvas/state/storedGoalCertainty'
 import { readInfluenceGatedBy } from '../components/results/driverDisplayModel'
 import {
   factorDirectionToPolarity,
@@ -910,6 +911,11 @@ export function resolveOptionLabelById(
 
 export interface MapV5AnalysisOptions {
   /**
+   * CEE's stored goal-certainty fact for THIS Run (`readGoalCertainty`, schemas 0.63.0), from the turn key or the cold
+   * read. Each option whose 0/1 figure is UNEARNED is stamped so the chooser withholds it. Absent = not recorded.
+   */
+  goalCertainty?: readonly GoalCertaintyEntry[] | null
+  /**
    * Seed used for the run. The V5 contract carries NO seed field, so when
    * the caller has no real value the report carries null and the Seed
    * receipt row fails closed (hides). Never default to 0 — a fabricated
@@ -1033,6 +1039,8 @@ export function mapV5AnalysisToReport(
     goalLevelAuthor?: 'olumi' | 'unattested'
     /** PLoT #416 — the producer withheld P(goal): a declared identity on its path was not evaluated. */
     goalIdentityWithheld?: true
+    /** CEE #2270/#2280 — this option's 0/1 goal figure is UNEARNED; the producer's sentence, or null. */
+    goalCertaintyUnearned?: { say: string | null }
     /**
      * ROADMAP 2.449 — per-option tail-risk view, in `outcome`'s units.
      * Present only when the producer emitted all three components as finite
@@ -1079,6 +1087,7 @@ export function mapV5AnalysisToReport(
   }
   const goalLevelAuthor = goalLevelFromIdentityCaveat(enrichment)
   const goalIdentityWithheld = readGoalIdentityWithheld(enrichment) !== null
+  const unearnedCertainty = unearnedCertaintyById(options.goalCertainty)
   const option_probabilities: Record<string, ResultsOptionProbability> = {}
 
   // Resolution path A: option_comparison is the canonical source.
@@ -1205,6 +1214,7 @@ export function mapV5AnalysisToReport(
       // ISL #207 — the run's goal base is Olumi's estimate (fail-closed, see the helper).
       ...(goalLevelAuthor !== null ? { goalLevelAuthor } : {}),
       ...(goalIdentityWithheld ? { goalIdentityWithheld: true as const } : {}),
+      ...(unearnedCertainty.has(optionId) ? { goalCertaintyUnearned: { say: unearnedCertainty.get(optionId)!.say } } : {}),
       confidence: 0.5,
       ...(winProb !== undefined ? { win_probability: winProb } : {}),
       ...(expected !== undefined ? { expected } : {}),

@@ -183,6 +183,8 @@ export type ScenarioGraphResult =
        * ships that block; `null` = none attested, never "scored".
        */
       limitVerdicts?: unknown
+      /** CEE's stored goal-certainty fact for the analysis in `analysisResult` (`analysis_goal_certainty`, CEE #2280), raw. */
+      goalCertainty?: unknown
       /**
        * CEE's run admission for this revision (`analysis_admission.admitted`), or
        * `null` / absent when the read did not answer. The boot restore of a
@@ -365,6 +367,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     // arrive here as an unlabelled object.
     analysisResult: readAnalysisResultBlock(b.analysis_result),
     limitVerdicts: b.analysis_limit_verdicts ?? null,
+    goalCertainty: b.analysis_goal_certainty ?? null,
     admitted: readAdmitted(b.analysis_admission, b.graph_hash),
     requestId,
   }
