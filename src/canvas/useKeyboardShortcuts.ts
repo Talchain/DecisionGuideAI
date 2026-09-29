@@ -313,6 +313,22 @@ export function isUndoRedoGesture(key: string, cmdOrCtrl: boolean): boolean {
 }
 
 /**
+ * True when the user has highlighted text anywhere on the page — the AI panel,
+ * a dock tab, a pop-up.
+ *
+ * ⌘C is window-scoped, so without this the canvas took every copy: it cancelled
+ * the browser's copy and copied the selected cards instead, and highlighted
+ * panel text never reached the clipboard (Paul, 29 Sep 2026: only right-click
+ * → Copy worked). Highlighted text wins; with nothing highlighted ⌘C still
+ * copies cards. A bare caret (a collapsed selection) is not highlighted text.
+ */
+export function hasHighlightedText(): boolean {
+  if (typeof window === 'undefined' || typeof window.getSelection !== 'function') return false
+  const selection = window.getSelection()
+  return selection != null && !selection.isCollapsed && selection.toString().length > 0
+}
+
+/**
  * True for the clipboard gestures that MUTATE and are permanently inert:
  * Cmd/Ctrl+X (cut) and Cmd/Ctrl+V (paste).
  *
@@ -587,8 +603,9 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
         return
       }
 
-      // Copy: Cmd/Ctrl + C
+      // Copy: Cmd/Ctrl + C — unless text is highlighted, which the browser copies.
       if (cmdOrCtrl && event.key === 'c') {
+        if (hasHighlightedText()) return
         event.preventDefault()
         state.copySelected()
         return
