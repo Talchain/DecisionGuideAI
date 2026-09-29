@@ -12,6 +12,7 @@ const verdict = { run_state: { kind: 'complete_current', computed_at: '2026-09-2
   usable_for_prose: true, usable_for_chips: true, usable_for_followup: true,
   requires_rerun: false, blocked_unusable: false, contradictions: [] }
 const certainty = [{ option_id: 'a', probability_of_goal: 0, earned: true }]
+const participation = [{ option_id: 'olumi_bundle', state: 'excluded_olumi_proposed' }]
 
 describe('Run delivery identity stays distinct from block-content identity', () => {
   it.each(['turn', 'read', 'alternating turn/read'])('%s: new Run and new permission land, redelivery dedupes, permission alone does not clear dirty state', (leg) => {
@@ -28,13 +29,16 @@ describe('Run delivery identity stays distinct from block-content identity', () 
     const apply = (state: unknown, decision: unknown) => {
       if (leg === 'turn' || (leg === 'alternating turn/read' && delivery++ % 2 === 0)) applyV5State({ response_version: 2, assistant_text: '', blocks: [block],
         suggested_actions: [], insights: [], stage_indicator: 'analyse', analysis_state: state,
-        goal_certainty: decision } as never, store as never)
+        goal_certainty: decision, option_participation: participation } as never, store as never)
       else applyScenarioAnalysisRead({ analysisState: state as never, analysisResult: block,
-        goalCertainty: decision, store: store as never })
+        goalCertainty: decision, optionParticipation: participation, store: store as never })
     }
     apply(verdict, certainty)
     const contentHash = store.currentResultsHash
     expect(selectGoalProbability(store.currentResultsReport.option_probabilities.a).goalProbability).toBe(0)
+    expect(store.currentResultsReport.option_participation).toEqual([
+      { optionId: 'olumi_bundle', state: 'excluded_olumi_proposed', unanalysableUserOptionIds: [] },
+    ])
     apply(verdict, certainty)
     expect(store.resultsComplete).toHaveBeenCalledTimes(1)
 
@@ -48,6 +52,7 @@ describe('Run delivery identity stays distinct from block-content identity', () 
     apply(secondRun, undefined)
     expect(store.resultsComplete).toHaveBeenCalledTimes(3)
     expect(selectGoalProbability(store.currentResultsReport.option_probabilities.a).goalProbability).toBeNull()
+    expect(store.currentResultsReport.option_participation).toHaveLength(1)
     expect(store.noteRunCompletedWithoutVerdict).toHaveBeenCalledTimes(2)
     expect(store.currentResultsHash).toBe(contentHash)
     apply(secondRun, undefined)
