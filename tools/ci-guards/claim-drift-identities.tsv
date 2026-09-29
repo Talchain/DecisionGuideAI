@@ -29,8 +29,8 @@
 # the same PR with `node tools/ci-guards/update-claim-drift-baseline.mjs` and say so in the PR body.
 #
 # Format: <count><TAB><family><TAB><path><TAB><field><TAB><canonicalised source line>
-# count=79
-# identities=73
+# count=80
+# identities=74
 1	elasticity	src/adapters/driversAdapter.ts	sensitivity_score	? driver.sensitivity_score >= 0 ? 'positive' : 'negative'
 1	elasticity	src/adapters/driversAdapter.ts	sensitivity_score	? normalizeImpact(driver.sensitivity_score)
 1	elasticity	src/adapters/driversAdapter.ts	sensitivity_score	const impact = driver.sensitivity_score !== undefined
@@ -78,8 +78,8 @@
 1	elasticity	src/components/results/driverDisplayModel.ts	elasticity	if (b.elasticity !== a.elasticity) return b.elasticity - a.elasticity
 1	elasticity	src/components/results/driverDisplayModel.ts	elasticity	typeof f.elasticity === 'number' ? f.elasticity
 1	elasticity	src/components/results/driverDisplayModel.ts	sensitivity_score	: typeof f.sensitivity_score === 'number' ? f.sensitivity_score
-1	elasticity	src/components/results/useResultCompleteness.ts	elasticity	typeof s.elasticity === 'number' ||
-1	elasticity	src/components/results/useResultCompleteness.ts	sensitivity_score	typeof s.sensitivity_score === 'number' ||
+1	elasticity	src/components/results/useResultCompleteness.ts	elasticity	Number.isFinite(r.elasticity) ||
+1	elasticity	src/components/results/useResultCompleteness.ts	sensitivity_score	Number.isFinite(r.sensitivity_score) ||
 1	elasticity	src/components/results/useResultsSectionData.ts	elasticity	const elasticity = safeFiniteNumber(f.elasticity)
 1	elasticity	src/components/results/useResultsSectionData.ts	elasticity	elasticity: f.elasticity,
 1	elasticity	src/components/results/useResultsSectionData.ts	elasticity	typeof typed.elasticity === 'number' ? typed.elasticity
@@ -97,10 +97,11 @@
 1	goal-probability	src/adapters/plot/v2/responseMapper.ts	probability_of_goal	const winProb = bestOption.win_probability ?? bestOption.probability_of_goal
 1	goal-probability	src/adapters/plot/v2/responseMapper.ts	probability_of_goal	goal_probability: safeNumber(opt.probability_of_goal),
 1	goal-probability	src/adapters/plot/v2/responseMapper.ts	probability_of_joint_goal	probability_of_joint_goal: safeNumber(opt.probability_of_joint_goal),
+1	goal-probability	src/canvas/state/storedGoalCertainty.ts	probability_of_goal	const endpoint = r.probability_of_goal === 0 ? 0 : r.probability_of_goal === 1 ? 1 : null
 1	goal-probability	src/canvas/ui/inspector-v2/useAnalysisResults.ts	probability_of_goal	return isFiniteNumber(report.probability_of_goal)
 1	goal-probability	src/lib/mappers/mapOptionComparison.ts	goal_probability	asOptionalNumber(option.goal_probability),
 1	goal-probability	src/lib/mappers/mapOptionComparison.ts	probability_of_goal	asOptionalNumber(option.probability_of_goal)
-1	goal-probability	src/v5/mapV5AnalysisToReport.ts	probability_of_goal	...(safeFiniteNumber(enriched?.probability_of_goal) !== undefined
-1	goal-probability	src/v5/mapV5AnalysisToReport.ts	probability_of_goal	? { goal_probability: safeFiniteNumber(enriched?.probability_of_goal) }
+1	goal-probability	src/v5/mapV5AnalysisToReport.ts	goal_probability	...(displayedGoalProbability !== undefined ? { goal_probability: displayedGoalProbability } : {}),
+1	goal-probability	src/v5/mapV5AnalysisToReport.ts	probability_of_goal	const displayedGoalProbability = safeFiniteNumber(enriched?.probability_of_goal)
 1	goal-probability	src/v5/mapV5AnalysisToReport.ts	probability_of_joint_goal	...(safeFiniteNumber(enriched?.probability_of_joint_goal) !== undefined
 1	goal-probability	src/v5/mapV5AnalysisToReport.ts	probability_of_joint_goal	enriched?.probability_of_joint_goal,

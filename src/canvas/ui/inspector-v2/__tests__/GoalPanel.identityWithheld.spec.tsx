@@ -22,6 +22,7 @@ import {
   readGoalIdentityWithheld,
 } from '../../../../components/results/utils/goalIdentityWithheld'
 import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
+import type { GoalCertaintyEntry } from '../../../state/storedGoalCertainty'
 
 vi.mock('../../../../contexts/AuthContext', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../../contexts/AuthContext')>()
@@ -42,7 +43,7 @@ const SERVED_ENTRIES: Entry[] = [
 const WITHOUT_GOAL = SERVED_ENTRIES.map(({ probability_of_goal: _drop, ...rest }) => rest)
 const ROBUST = { level: 'high', is_robust: true, confidence: 0.9994, recommended_option_id: 'raise_to_59' }
 
-function report(entries: Entry[], warnings: unknown[] | undefined) {
+function report(entries: Entry[], warnings: unknown[] | undefined, goalCertainty?: readonly GoalCertaintyEntry[]) {
   const block = {
     type: 'analysis_result',
     summary: 's',
@@ -50,15 +51,18 @@ function report(entries: Entry[], warnings: unknown[] | undefined) {
     win_probabilities: { 'Keep £49 price': 0.0001, 'Raise to £59': 0.9994, 'Raise to £54': 0.0005 },
     enrichment: { option_comparison: entries, robustness: ROBUST, ...(warnings ? { inference_warnings: warnings } : {}) },
   } as unknown as AnalysisResultBlock
-  return mapV5AnalysisToReport(block) as unknown as Record<string, unknown>
+  return mapV5AnalysisToReport(block, { goalCertainty }) as unknown as Record<string, unknown>
 }
 
 /** PLoT #416's shape: the code, and no goal figure on any option. */
 const PRODUCER_SHAPE = report(WITHOUT_GOAL, [WARNING])
 /** Fail-closed: the code arrives BESIDE figures (a producer that forgot to strip them). */
 const FIGURES_BESIDE_CODE = report(SERVED_ENTRIES, [WARNING])
-/** Control: Paul's evaluated identity — no code, the figure shows. */
-const EVALUATED = report(SERVED_ENTRIES, undefined)
+/**
+ * Control: Paul's evaluated identity — no code, the figure shows. Its Run RECORDS that Keep £49's 0 is earned: under the
+ * schemas 0.63.0 contract an unrecorded 0/1 is never shown as certain (`goalCertaintyStamp`), so the control states it.
+ */
+const EVALUATED = report(SERVED_ENTRIES, undefined, [{ optionId: 'keep_49_price', endpoint: 0, earned: true, say: null }])
 
 const GOAL_NODE = { id: 'goal1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'MRR', goal_threshold_raw: 0.8 } }
 function renderWith(r: Record<string, unknown>) {
