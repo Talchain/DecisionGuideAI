@@ -32,7 +32,7 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
     valueOfInformation: null, voiRank: null })),
 }))
 let outcome: 'dispatched' | 'needs_fresh_base' = 'dispatched'
-const proposeOptionIntervention = vi.fn(() => outcome)
+const proposeOptionIntervention = vi.fn((..._args: unknown[]) => outcome)
 vi.mock('../../hooks/useModelEditAuthority', async (orig) => ({
   ...(await orig<typeof import('../../hooks/useModelEditAuthority')>()),
   useModelEditAuthority: () => new Proxy({}, { get: (_t, k) => (k === 'proposeOptionIntervention' ? proposeOptionIntervention : () => undefined) }),
