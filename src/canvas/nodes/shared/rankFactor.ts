@@ -57,6 +57,9 @@ export interface FactorRanks {
  */
 function orderBySensitivity(rows: DriverFeed['policyRows']) {
   return rows
+    // ⭐ A covered-withheld row (ISL #213: influence depends on the option
+    // chosen) is never ranked, nor counted in M or the licence set.
+    .filter((r) => r.influenceGated !== true)
     .map((r) => ({
       key: r.key,
       elasticity: r.rawElasticity,

@@ -42,6 +42,7 @@ import {
 } from '../adapters/plot/optionComputeStatus'
 import type { DecisionVerdictReportLike } from '../lib/decisionVerdict'
 import { goalLevelFromIdentityCaveat } from '../components/results/utils/goalLevelFromIdentity'
+import { readInfluenceGatedBy } from '../components/results/driverDisplayModel'
 import {
   factorDirectionToPolarity,
   normaliseFactorDirection,
@@ -212,7 +213,8 @@ function narrowPercentilesSource(raw: unknown): PercentilesSource | undefined {
 interface NormalisedFactor {
   factor_id: string
   factor_label: string
-  sensitivity: number // absolute magnitude
+  /** Absolute magnitude. ABSENT only on an ISL-gated row the producer sent without one (never fabricated). */
+  sensitivity?: number // absolute magnitude
   /**
    * The producer's direction, carried VERBATIM across the contract's full
    * domain, or `null` when the producer sent none (ROADMAP 2.234).
@@ -231,6 +233,12 @@ interface NormalisedFactor {
    * never defaulted; absent when the producer omitted it.
    */
   influence_score?: number
+  /**
+   * ISL #213: the gate ids when `influence_score` is withheld because the
+   * influence depends on the option chosen. Verbatim array passthrough; what
+   * counts as a gate is decided once, by `readInfluenceGatedBy`.
+   */
+  gated_by?: unknown[]
   /** Producer influence_rank (1 = most influential). Additive passthrough. */
   influence_rank?: number
   /**
@@ -286,7 +294,17 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
     safeFiniteNumber(entry.sensitivity) ??
     safeFiniteNumber(entry.elasticity) ??
     safeFiniteNumber(entry.importance_score)
-  if (rawMagnitude === undefined) return null
+  // ⛔ PR Review #2290: PLoT #408 emits the gate as `influence_gated_by` (FactorSensitivityResultV3; CEE stores the
+  // envelope verbatim) — `gated_by` is ISL's own name, read as a fallback only. A GATED row may carry no magnitude
+  // (sensitivity_score / elasticity are optional there); it is kept, with no magnitude fabricated. A non-gated row
+  // with no usable magnitude is still dropped.
+  const gatedRaw = Array.isArray(entry.influence_gated_by)
+    ? entry.influence_gated_by
+    : Array.isArray(entry.gated_by) ? entry.gated_by : undefined
+  // Admission asks THE shared reader, so the mapper cannot keep a magnitude-free row the panel then reads as NOT
+  // gated (e.g. `influence_gated_by: [7]`) — PR Review #2290 @6f2b74c8 item 1. `gatedRaw` is still carried verbatim.
+  const gatedRow = readInfluenceGatedBy(entry) !== null
+  if (rawMagnitude === undefined && !gatedRow) return null
 
   const factorId =
     safeString(entry.factor_id) ??
@@ -313,6 +331,7 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
   // derivation, no defaults — undefined when absent so downstream consumers
   // can distinguish "not provided" from any real value.
   const influenceScore = safeFiniteNumber(entry.influence_score)
+  const gatedBy = gatedRaw !== undefined ? [...(gatedRaw as unknown[])] : undefined
   const influenceRank = safeFiniteNumber(entry.influence_rank)
   const zeroReason = safeString(entry.zero_reason)
 
@@ -331,9 +350,10 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
   return {
     factor_id: factorId,
     factor_label: factorLabel,
-    sensitivity: Math.abs(rawMagnitude),
+    ...(rawMagnitude !== undefined ? { sensitivity: Math.abs(rawMagnitude) } : {}),
     direction,
     ...(influenceScore !== undefined ? { influence_score: influenceScore } : {}),
+    ...(gatedBy !== undefined ? { gated_by: gatedBy } : {}),
     ...(influenceRank !== undefined ? { influence_rank: influenceRank } : {}),
     ...(zeroReason !== undefined ? { zero_reason: zeroReason } : {}),
     ...(valueOfInformation !== undefined ? { value_of_information: valueOfInformation } : {}),
@@ -374,7 +394,7 @@ function collectFactors(enrichment: Record<string, unknown>): NormalisedFactor[]
     const norm = normaliseFactorEntry(raw)
     if (!norm) continue
     const existing = byId.get(norm.factor_id)
-    if (!existing || norm.sensitivity > existing.sensitivity) {
+    if (!existing || (norm.sensitivity ?? -1) > (existing.sensitivity ?? -1)) {
       byId.set(norm.factor_id, norm)
     }
   }
@@ -925,7 +945,11 @@ export function mapV5AnalysisToReport(
   // Factor sensitivity — collected once IN PRODUCER ORDER (ROADMAP 2.235);
   // reused for drivers + factor_sensitivity passthrough.
   const factors = enrichment ? collectFactors(enrichment) : []
-  const drivers = factors.slice(0, 5).map((f) => ({
+  // A gated row (no score, the gate named) is never a ranked driver, and may carry no magnitude (PR Review #2290).
+  const drivers = factors
+    .flatMap((f) => (f.sensitivity === undefined || f.gated_by?.length ? [] : [{ ...f, sensitivity: f.sensitivity }]))
+    .slice(0, 5)
+    .map((f) => ({
     label: f.factor_label,
     // ROADMAP 2.234: `mixed` / `unknown` / absent take the neutral affordance
     // the driver surfaces already ship, never the "up" arrow they used to get
@@ -1583,7 +1607,7 @@ export function mapV5AnalysisToReport(
     widened.factor_sensitivity = factors.map((f) => ({
       factor_id: f.factor_id,
       factor_label: f.factor_label,
-      sensitivity: f.sensitivity,
+      ...(f.sensitivity !== undefined ? { sensitivity: f.sensitivity } : {}),
       // ROADMAP 2.234: absence stays absence — the key is omitted rather than
       // written as a default, exactly like the additive passthroughs below, so
       // a consumer can still tell "the producer said nothing" from "the
@@ -1595,6 +1619,9 @@ export function mapV5AnalysisToReport(
       // influence measure instead of falling back to a UI-normalised
       // sensitivity (influence ≠ sensitivity). Omitted when absent.
       ...(f.influence_score !== undefined ? { influence_score: f.influence_score } : {}),
+      // ISL #213 covered-withheld gate: without it a gated row reads as a
+      // missing score and drops the whole run onto the fallback basis.
+      ...(f.gated_by !== undefined ? { gated_by: f.gated_by } : {}),
       ...(f.influence_rank !== undefined ? { influence_rank: f.influence_rank } : {}),
       ...(f.zero_reason !== undefined ? { zero_reason: f.zero_reason } : {}),
       // P0 F5: EVPI family reaches the store so ModelTabBody's EVPI map

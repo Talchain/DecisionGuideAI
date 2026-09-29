@@ -31,6 +31,7 @@ import type {
   ImprovementsSectionData,
   OptionResult,
   DriverItem,
+  GatedDriverItem,
   UncertaintyItem,
   ImprovementItem,
   DriverDirection,
@@ -84,6 +85,7 @@ import { deriveStabilityLevel } from '../../lib/stability'
 import { deriveResultCompleteness, type ResultCompleteness } from './useResultCompleteness'
 import {
   computeNormalisedInfluences,
+  readInfluenceGatedBy,
   resolveDriverSemanticLabels,
   selectDriverDisplayModel,
   MAX_BADGED_RANK,
@@ -364,6 +366,9 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
 
   // ISL influence_score (0-1) - structural causal influence
   const influenceScore = typeof typed.influence_score === 'number' ? typed.influence_score : undefined
+  // ISL #213: the score is withheld because it depends on the option chosen.
+  // The ONE shared reader, so this and `extractPolicyRow` cannot disagree.
+  const influenceGatedBy = readInfluenceGatedBy(typed) ?? undefined
 
   // The producer's OWN declaration of the basis behind the importance/influence
   // family. Until 7 Sep 2026 this field was stamped on every recent capture and
@@ -458,6 +463,7 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
     confidence,
     importanceRank: typeof typed.importance_rank === 'number' ? typed.importance_rank : 0,
     influenceScore,
+    ...(influenceGatedBy ? { influenceGatedBy } : {}),
     importanceBasis,
     influenceRank,
     zeroReason,
@@ -508,6 +514,13 @@ export interface DriverPolicyRow {
   key: string
   /** Producer influence score — snake-case wire field only; undefined when absent. */
   influenceScore: number | undefined
+  /**
+   * Covered-withheld (ISL #213): the producer withheld `influenceScore`
+   * because the influence depends on the option chosen. Such a row is not
+   * ranked on any surface and does not break coverage
+   * (`selectDriverDisplayModel`). Optional: absent reads as not gated.
+   */
+  influenceGated?: boolean
   /**
    * The producer's `importance_basis` stamp for `influenceScore`, verbatim,
    * or null when the row carried none. Carried on the SHARED feed for the
@@ -699,6 +712,7 @@ export function selectDriverPolicyFeed(
     return {
       key: getFactorKey(norm, index),
       influenceScore: norm.influenceScore,
+      influenceGated: norm.influenceGatedBy !== undefined,
       importanceBasis: norm.importanceBasis ?? null,
       // Math.abs is load-bearing, not defensive: this field is a MAGNITUDE
       // (see DriverPolicyRow), and the sole consumer ranks on it via
@@ -2941,7 +2955,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const normalizedFactors = rawFactors.map(f => normalizeFactorSensitivity(f, nodeLabelMap))
 
     // Step 1: Extract keys and raw elasticities
-    const factorsWithKeys = normalizedFactors.map((f, index) => ({
+    const allFactorsWithKeys = normalizedFactors.map((f, index) => ({
       raw: f,
       key: getFactorKey(f, index),
       rawElasticity: getRawElasticity(f),
@@ -2949,6 +2963,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       importanceRank: f.importanceRank,
       label: f.label,
     }))
+    // ⭐ Covered-withheld rows (ISL #213; AIQ #72 5881953818) are not ranked:
+    // no figure, no bar, no rank, no tier, never "minimal impact". They are
+    // listed apart (`gatedDrivers`) and every step below ranges over the rest,
+    // on the same split `selectDriverDisplayModel` makes.
+    const factorsWithKeys = allFactorsWithKeys.filter((f) => f.raw.influenceGatedBy === undefined)
+    const gatedFactors = allFactorsWithKeys.filter((f) => f.raw.influenceGatedBy !== undefined)
 
     // Step 2: Compute dynamic normalisation
     const normalisedMap = computeNormalisedInfluences(factorsWithKeys)
@@ -3065,10 +3085,39 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Show full display ONLY when we have real elasticity values > 0.001
     // Otherwise show direction-only view (no misleading 100% bars)
     const hasMagnitudeData = maxRawElasticity > 0.001
+    // Canvas focus target and display label for one row (ranked or gated).
+    const resolveRowTarget = (key: string, rawLabel: string) => {
+      // Check if factor can be focused on canvas
+      const driverForMatch: Driver = { kind: 'node', id: key, label: rawLabel }
+      const matches = findNodeMatches(driverForMatch, nodes as Node[])
+      const canFocus = matches.length > 0
+      const matchedNodeId = matches[0]?.targetId
+
+      // Format label for display - prefer canvas node label, then raw label, then formatted key
+      const matchedNode = matchedNodeId ? nodes.find(n => n.id === matchedNodeId) : null
+      const canvasLabel = (matchedNode?.data as ResultsCanvasNodeData | undefined)?.label
+      const displayLabel = canvasLabel || rawLabel ||
+        key
+          .replace(/^(fac_|out_|goal_|risk_|factor_)/, '')
+          .replace(/_\d+$/, '') // Remove trailing numbers like _0, _1
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, c => c.toUpperCase())
+      return { canFocus, matchedNodeId, displayLabel }
+    }
+    const gatedDrivers: GatedDriverItem[] = gatedFactors.map((f) => {
+      const { canFocus, matchedNodeId, displayLabel } = resolveRowTarget(f.key, f.raw.label)
+      return {
+        factorKey: f.key,
+        factorLabel: displayLabel,
+        canFocus,
+        matchedNodeId: matchedNodeId !== f.key ? matchedNodeId : undefined,
+      }
+    })
     const driverItems: DriverItem[] = factorsWithKeys
       .filter(f => {
-        // Always keep if we have few factors
-        if (rawFactors.length <= 5) return true
+        // Always keep if we have few factors — counted over the RANKED rows: a covered-withheld row is listed
+        // apart and never ranked, so it must not tip this filter (PLoT #408 egress: 3 scored + 3 gated hid Driver 1).
+        if (factorsWithKeys.length <= 5) return true
         // Always keep if this factor has elasticity data
         if (Math.abs(f.rawElasticity) > 0) return true
         // If NO factors have elasticity data, keep all (fallback display)
@@ -3088,21 +3137,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         )
         const semanticLabel = semanticLabelMap.get(f.key) ?? 'minor'
 
-        // Check if factor can be focused on canvas
-        const driverForMatch: Driver = { kind: 'node', id: f.key, label: f.raw.label }
-        const matches = findNodeMatches(driverForMatch, nodes as Node[])
-        const canFocus = matches.length > 0
-        const matchedNodeId = matches[0]?.targetId
-
-        // Format label for display - prefer canvas node label, then raw label, then formatted key
-        const matchedNode = matchedNodeId ? nodes.find(n => n.id === matchedNodeId) : null
-        const canvasLabel = (matchedNode?.data as ResultsCanvasNodeData | undefined)?.label
-        const displayLabel = canvasLabel || f.raw.label ||
-          f.key
-            .replace(/^(fac_|out_|goal_|risk_|factor_)/, '')
-            .replace(/_\d+$/, '') // Remove trailing numbers like _0, _1
-            .replace(/_/g, ' ')
-            .replace(/\b\w/g, c => c.toUpperCase())
+        const { canFocus, matchedNodeId, displayLabel } = resolveRowTarget(f.key, f.raw.label)
 
         // Get confidence: factor_sensitivity.confidence first, then edge beliefExists as fallback
         // PLoT returns confidence directly on factor_sensitivity array items
@@ -3241,7 +3276,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     // Fix 1: Only set islError when we have NO driver items to show
     // If we have data, prefer showing it even if drivers_status indicates error
-    const islErrorMessage = driverItems.length === 0 && (driversStatus === 'error' || driversStatus === 'unavailable')
+    const islErrorMessage = driverItems.length === 0 && gatedDrivers.length === 0 && (driversStatus === 'error' || driversStatus === 'unavailable')
       ? (report?.drivers_error ??
          report?.sensitivity?.error ??
          report?.isl_error ??
@@ -3250,7 +3285,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     return {
       drivers: driverItems,
-      driversStatus: driverItems.length > 0 ? 'computed' : driversStatus,
+      driversStatus: driverItems.length > 0 || gatedDrivers.length > 0 ? 'computed' : driversStatus,
+      ...(gatedDrivers.length > 0 ? { gatedDrivers } : {}),
       topDrivers,
       // v7.2: totalCount reflects non-zero-impact drivers only (visible count)
       totalCount: nonZeroImpactDrivers.length,
@@ -4653,7 +4689,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     () => {
       const feed = selectDriverPolicyFeed(report ?? null)
       return deriveDeterminedFactorOrder(
-        feed.policyRows.map((r) => ({
+        // A gated row has no rank, so it takes no position either (ISL #213).
+        feed.policyRows.filter((r) => r.influenceGated !== true).map((r) => ({
           key: r.key,
           elasticity: r.rawElasticity,
           // The SAME resolved display value the badge ranks from, and the same
