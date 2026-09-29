@@ -112,7 +112,7 @@
  */
 
 import { classifyUnit } from './labelUtils'
-import { isProportionUnit } from '@/utils/unitClassifier'
+import { formatMoneyFigure, isProportionUnit } from '@/utils/unitClassifier'
 
 /**
  * The honesty budget for a proportion magnitude, in SIGNIFICANT digits. Four, to
@@ -332,6 +332,14 @@ export function formatValueWithUnit(
    */
   if (isProportionUnit(unit)) {
     return `${formatNumber(rawValue, significantDigits ?? PROPORTION_SIGNIFICANT_DIGITS)} ${canonical}`
+  }
+
+  // R3 #72 5888087172: a COMPOUND money unit (`GBP/month`, `GBP per subscriber per month`, `£/Pro subscriber/month`)
+  // classifies as `other`, and printed raw ("49 GBP/month"). The one money rule reads it. Only when no resolution
+  // was asked for: `formatMoneyFigure` owns its digits.
+  if (significantDigits === undefined) {
+    const money = formatMoneyFigure(rawValue, unit)
+    if (money !== null) return money
   }
 
   // kind === 'other' — generic unit (months, users, etc.)
