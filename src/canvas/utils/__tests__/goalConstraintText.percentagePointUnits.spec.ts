@@ -45,3 +45,27 @@ describe('a LEVEL in percentage points reads as a percent', () => {
     expect(text).not.toMatch(/percentage|_|pp/)
   })
 })
+
+/**
+ * Served 29 Sep 2026 (UI 947dded7 × CEE 0b7d254, brief "…without hurting service reliability"): CEE stored a
+ * zero change, and the pill read "Service reliability ≥+0pp vs today" / "at least 0 percentage points above today".
+ * A change of exactly zero is said against today.
+ */
+describe('a ZERO change is said against today, never "+0"', () => {
+  it.each([
+    ['>=', 'no lower than today', '≥ today'],
+    ['<=', 'no higher than today', '≤ today'],
+    ['>', 'higher than today', '> today'],
+    ['<', 'lower than today', '< today'],
+  ])('%s 0 → "%s" / pill "%s"', (operator, sentence, pill) => {
+    for (const unit of ['percentage points', '%', 'GBP', null]) {
+      expect(limitChangeSentence(limit(unit, 0, 'change_abs', operator))).toBe(sentence)
+      expect(goalConstraintShortText(limit(unit, 0, 'change_abs', operator))).toBe(`Monthly churn ${pill}`)
+    }
+    expect(limitChangeSentence(limit(null, 0, 'change_rel', operator))).toBe(sentence)
+  })
+
+  it('CONTRAST: a non-zero change keeps its figure', () => {
+    expect(goalConstraintShortText(limit('percentage points', 0.5, 'change_abs', '>='))).toBe('Monthly churn ≥+0.5pp vs today')
+  })
+})

@@ -275,6 +275,8 @@ interface LimitChange {
   readonly magnitude: string
   /** The pill's compact form when it differs from `magnitude`: "1pp". */
   readonly shortMagnitude?: string
+  /** A change of exactly zero — "without hurting reliability" — is said against today, never as "+0pp". */
+  readonly zero?: boolean
 }
 
 /**
@@ -288,8 +290,9 @@ function limitChangeOf(constraint: CEEGoalConstraint): LimitChange | null {
   if (frame === null || typeof value !== 'number' || !Number.isFinite(value)) return null
   if (operator !== '<=' && operator !== '<' && operator !== '>=' && operator !== '>') return null
   const rising = value >= 0
+  const zero = value === 0
   if (frame === 'change_rel') {
-    return { operator, rising, magnitude: `${Math.round(Math.abs(value) * 100 * 1e6) / 1e6}%` }
+    return { operator, rising, zero, magnitude: `${Math.round(Math.abs(value) * 100 * 1e6) / 1e6}%` }
   }
   const audit = constraint.provenance_unit_normalised
   const audited = Boolean(audit && hasAuditedFigure(constraint))
@@ -297,9 +300,9 @@ function limitChangeOf(constraint: CEEGoalConstraint): LimitChange | null {
   const unit = audited ? audit!.original_unit : constraint.unit
   // A CHANGE in percentage points is said in points, never as a percent (+1pp is not +1%).
   if (isPercentagePointUnit(unit)) {
-    return { operator, rising, magnitude: `${n} percentage point${n === 1 ? '' : 's'}`, shortMagnitude: `${n}pp` }
+    return { operator, rising, zero, magnitude: `${n} percentage point${n === 1 ? '' : 's'}`, shortMagnitude: `${n}pp` }
   }
-  return { operator, rising, magnitude: formatLimitMagnitude(n, unit) }
+  return { operator, rising, zero, magnitude: formatLimitMagnitude(n, unit) }
 }
 
 /**
@@ -316,7 +319,12 @@ function sayableLimitChange(constraint: CEEGoalConstraint): LimitChange | null {
 }
 
 /** "no more than 10% above today" — CEE's sentence. */
+const ZERO_CHANGE_WORDS: Record<ChangeOperator, string> = {
+  '>=': 'no lower than today', '>': 'higher than today', '<=': 'no higher than today', '<': 'lower than today',
+}
+
 function sayLimitChange(change: LimitChange): string {
+  if (change.zero) return ZERO_CHANGE_WORDS[change.operator]
   return `${changeWords(change.operator, change.rising)} ${change.magnitude} ${change.rising ? 'above' : 'below'} today`
 }
 
@@ -332,6 +340,7 @@ export function limitChangeSentence(constraint: CEEGoalConstraint): string | nul
 
 /** The pill's short form: the level pill's `<op><figure>` with the change signed and anchored — "≤+10% vs today". */
 function sayLimitChangeShort(change: LimitChange): string {
+  if (change.zero) return `${renderLimitOperator(change.operator)} today`
   return `${renderLimitOperator(change.operator)}${change.rising ? '+' : '−'}${change.shortMagnitude ?? change.magnitude} vs today`
 }
 
