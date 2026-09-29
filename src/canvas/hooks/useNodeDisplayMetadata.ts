@@ -30,6 +30,7 @@ import {
 import type { ResultsReport } from '../../components/results/types'
 import { optionComputationProducedResult } from '../../components/results/utils/notAnalysedOptions'
 import type { OptionComputeStatus } from '../../adapters/plot/optionComputeStatus'
+import { readGoalIdentityWithheld, type GoalIdentityWithheld } from '../../components/results/utils/goalIdentityWithheld'
 
 /**
  * The deepest ordinal the canvas badge is willing to print ("Key driver #N").
@@ -287,6 +288,11 @@ export interface NodeDisplayMetadata {
    * impose that cost.
    */
   goalFitAvailable?: boolean
+  /**
+   * PLoT #416 / AIQ #72 5885033487 (2): the producer withheld P(goal) because a declared identity on the goal's
+   * path was not evaluated, with AIQ's words. Goal nodes only; OPTIONAL for the reason `goalFitAvailable` is.
+   */
+  goalIdentityWithheld?: GoalIdentityWithheld | null
   /** Recommendation stability (0-1) - fallback for Goal nodes when probability unavailable */
   stabilityPercentage: number | null
   /** Win rate for options (0-1) */
@@ -730,6 +736,7 @@ export function useNodeDisplayMetadata(
       jointGoalProbability,
       jointGoalProbabilityIsModelledBasis,
       goalFitAvailable,
+      goalIdentityWithheld: nodeType === 'goal' ? readGoalIdentityWithheld(report) : null,
       stabilityPercentage,
       winRate,
       winComputationFailed,

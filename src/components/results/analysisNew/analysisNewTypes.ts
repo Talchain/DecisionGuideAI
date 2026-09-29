@@ -786,6 +786,11 @@ export type ComparisonOption =
 export interface OptionsComparisonSection {
   rows: ComparisonOption[]
   /**
+   * PLoT #416 / AIQ #72 5885033487 (2): the producer withheld every goal figure (a declared identity on the goal's
+   * path was not evaluated). Its words, for the locked goal-fit arm; absent otherwise.
+   */
+  goalWithheldMessage?: string | null
+  /**
    * How many options exist in total, INCLUDING any this list cannot name.
    *
    * ⚠ SO THE SECTION ADDS UP. `rows` drops an option whose label is blank or is
