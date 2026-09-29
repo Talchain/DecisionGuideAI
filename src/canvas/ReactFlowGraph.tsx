@@ -108,6 +108,7 @@ import { loadRuns, generateGraphHash } from './store/runHistory'
 // estate has already paid for once. Aliased so every call site says which.
 import { generateGraphHash as uiGraphHashSeedless } from './utils/graphHash'
 import { useGuidanceStore, setGuidancePersistenceContext } from './stores/guidanceStore'
+import { installGuidanceScenarioBoundary } from './stores/guidanceScenarioBoundary'
 import { restoreAnalysisFromAutosave } from './store/restoreAnalysisFromAutosave'
 // HealthStatusBar removed - validation consolidated into OutputsDock panel
 import { DegradedBanner } from './components/DegradedBanner'
@@ -2339,9 +2340,16 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       }, 500)
     }
 
+    // Coaching belongs to one decision: leaving it (a different scenario id, or none) clears the live items and their
+    // blob, so another model's coaching can never be shown, or persisted, here (`guidanceScenarioBoundary.ts`).
+    const uninstallGuidanceBoundary = installGuidanceScenarioBoundary()
+
     // Uninstall the guidance persistence context when this canvas unmounts, so
     // a later mount cannot write under a stale decision identity.
-    return () => setGuidancePersistenceContext(null)
+    return () => {
+      setGuidancePersistenceContext(null)
+      uninstallGuidanceBoundary()
+    }
   }, [showToast])
 
   useEffect(() => {
