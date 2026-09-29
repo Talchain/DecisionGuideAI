@@ -389,7 +389,7 @@ export function overlayNode(existing: any, wireNode: any, completeCanonicalGraph
   // Adoption removes this one marker from the canonical option node. Both
   // authoritative callers pass true; a partial legacy receipt cannot clear it.
   // Retaining the old copy would send it back on the next registration.
-  if (completeCanonicalGraph && wireNode?.kind === 'option' && !Object.hasOwn(wireNode, 'proposed_by')) {
+  if (completeCanonicalGraph && wireNode?.kind === 'option' && !Object.prototype.hasOwnProperty.call(wireNode, 'proposed_by')) {
     delete nextData.proposed_by
   }
   const nextType = mapped.type ?? existing.type
