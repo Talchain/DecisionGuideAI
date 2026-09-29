@@ -11,6 +11,7 @@
  * A link with no stated strength says so rather than showing a band it does not have.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { create } from 'zustand'
 import { useCanvasStore } from '../store'
 import { useEdgeMutations } from '../ui/inspector-v2/useInspectorMutations'
 import { StrengthBandButtons } from '../ui/inspector-v2/shared/StrengthBandButtons'
@@ -119,4 +120,27 @@ export function LinkQuickEditor({ edgeId, x, y, onClose, onMoreDetail }: LinkQui
       </button>
     </div>
   )
+}
+
+/**
+ * Which link's mini-editor is open, and where. A tiny store rather than state in `ReactFlowGraph`: that component
+ * carries a rules-of-hooks exception for its existing hooks and must not gain one (`lint:hooks-ratchet`). Its click
+ * handlers call `getState()`, which is not a hook.
+ */
+export const useLinkQuickEditStore = create<{
+  open: { edgeId: string; x: number; y: number } | null
+  show: (edgeId: string, x: number, y: number) => void
+  close: () => void
+}>((set) => ({
+  open: null,
+  show: (edgeId, x, y) => set({ open: { edgeId, x, y } }),
+  close: () => set({ open: null }),
+}))
+
+/** Mounted once by the canvas; renders the open link's mini-editor, if any. */
+export function LinkQuickEditorHost({ onMoreDetail }: { onMoreDetail: () => void }) {
+  const open = useLinkQuickEditStore((s) => s.open)
+  const close = useLinkQuickEditStore((s) => s.close)
+  if (!open) return null
+  return <LinkQuickEditor key={open.edgeId} edgeId={open.edgeId} x={open.x} y={open.y} onClose={close} onMoreDetail={onMoreDetail} />
 }
