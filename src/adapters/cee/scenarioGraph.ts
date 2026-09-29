@@ -185,6 +185,8 @@ export type ScenarioGraphResult =
       limitVerdicts?: unknown
       /** CEE's stored goal-certainty fact for the analysis in `analysisResult` (`analysis_goal_certainty`, CEE #2280), raw. */
       goalCertainty?: unknown
+      /** The Run's stored option-participation fact (`analysis_option_participation`, Runtime 5888341208), raw. */
+      optionParticipation?: unknown
       /**
        * CEE's run admission for this revision (`analysis_admission.admitted`), or
        * `null` / absent when the read did not answer. The boot restore of a
@@ -368,6 +370,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     analysisResult: readAnalysisResultBlock(b.analysis_result),
     limitVerdicts: b.analysis_limit_verdicts ?? null,
     goalCertainty: b.analysis_goal_certainty ?? null,
+    optionParticipation: b.analysis_option_participation ?? null,
     admitted: readAdmitted(b.analysis_admission, b.graph_hash),
     requestId,
   }

@@ -1588,6 +1588,8 @@ export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
    * leads. The ONLY source of which option leads (R7, DL #70 5859773247).
    */
   leading_option_id?: string | null
+  /** The Run's stored participation fact (`storedOptionParticipation.ts`); absent = not recorded, `[]` = none outside. */
+  option_participation?: readonly import('../../canvas/state/storedOptionParticipation').OptionParticipationEntry[]
   // V2 pass-through fields from responseMapper
   factor_sensitivity?: V2FactorSensitivity[]
   robustness?: {
