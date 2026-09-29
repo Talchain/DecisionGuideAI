@@ -152,6 +152,19 @@ describe('served cd6a82e4 — an option row reads its amount compactly, inside t
     expect(value(container, 'raise_pro_price_to_59')!.textContent).toBe('£49 / month → £59 / month')
   })
 
+  // R3 #72 5887848246 / AIQ 5887805333 (2): the drafter now writes the per-subscriber price unit (CEE #2291). The
+  // canvas option card must say it as a price per subscriber, in both served spellings, never raw "GBP".
+  it.each([
+    ['GBP per subscriber per month', (n: number) => `${n} GBP per subscriber per month`],
+    ['GBP/subscriber/month', (n: number) => `${n} GBP/subscriber/month`],
+  ])('per-subscriber price "%s" reads as a price per subscriber, never raw GBP', (unit, spell) => {
+    board = { unit, spell }
+    const { container } = renderOption('raise_pro_price_to_59', 'Raise Pro price to £59')
+    const text = value(container, 'raise_pro_price_to_59')!.textContent ?? ''
+    expect(text).not.toMatch(/GBP/)
+    expect(text).toMatch(/£49.*subscriber.*£59.*subscriber/)
+  })
+
   it.each([
     ['GBP per month (compacted)', 'GBP per month', (n: number) => `${n} GBP per month`],
     // A unit the owner declines (no glyph for CHF) keeps its long spelling: the
