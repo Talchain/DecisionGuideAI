@@ -2,11 +2,12 @@
  * ⭐ C6-2 — the first-use wait shows the user's OWN goal and options while the model is built (AIQ #70 5858767026).
  *
  * The first brief waits ~60 s on this screen. CEE's `BRIEF_READ` frame lands a few seconds in; the store holds it only
- * while this scenario's turn is still drafting. Shown as quotes under AIQ's neutral headings: no leader, no ranking, no
- * limits, never "the model". Setup copied from `FirstUseComposer.sendFailure.spec.tsx` (the mounted hero surface).
+ * while this scenario's turn is still drafting. Shown as quotes in the "Structure it" slots (Goal · Options · Things to
+ * consider): no leader, no ranking, never "the model". Setup copied from `FirstUseComposer.sendFailure.spec.tsx`.
+ * The "Structure it" input and its own-fields reading are in `FirstUseComposer.structureIt.spec.tsx`.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 
 vi.mock('../../../lib/supabase', () => ({
@@ -119,36 +120,44 @@ const drafting = (reading: { goal: string | null; options: string[]; limits?: st
 }
 
 describe('FirstUseComposer — the brief reading during the first-brief wait (C6-2)', () => {
-  it('RED: while generating, the goal and the options are shown back as the user wrote them, under neutral headings', () => {
+  it('RED: while generating, the goal and the options are shown back as the user wrote them, in their slots', () => {
     thinkingMockState.isThinking = true
     messagesMockState.messages = [{ id: 'u1', role: 'user' }]
     drafting({ goal: GOAL, options: OPTIONS })
     render(<FirstUseComposer />, { wrapper: Wrapper })
     const card = screen.getByTestId('brief-reading')
-    expect(screen.getByTestId('brief-reading-goal').textContent).toBe(`You said you want to\u201C${GOAL}\u201D`)
-    expect(screen.getByTestId('brief-reading-options').textContent).toContain('You\u2019re choosing between')
-    expect(screen.getAllByTestId('brief-reading-option').map((li) => li.textContent)).toEqual(OPTIONS.map((o) => `\u201C${o}\u201D`))
+    expect(within(card).getByText('Your brief, as Olumi read it')).toBeTruthy()
+    const goal = screen.getByTestId('brief-reading-goal')
+    expect(within(goal).getByText(`\u201C${GOAL}\u201D`)).toBeTruthy()
+    expect(within(goal).getByTestId('brief-reading-your-words').textContent).toBe('your words')
+    const options = screen.getByTestId('brief-reading-options')
+    expect(within(options).getAllByRole('listitem').map((li) => li.textContent)).toEqual(OPTIONS.map((o) => `\u201C${o}\u201D`))
     expect(card.textContent, 'the reading never speaks of a model').not.toMatch(/\bmodel\b/i)
   })
 
-  it('one option reads as "considering", and a goal-less brief shows no goal line', () => {
+  it('a goal-less brief reads "Not mentioned" under Goal; CEE sends no context span, so no Context slot is claimed', () => {
     thinkingMockState.isThinking = true
     drafting({ goal: null, options: ['increase the Pro plan price from £49 to £59 per month with the next Pro feature release'] })
     render(<FirstUseComposer />, { wrapper: Wrapper })
-    expect(screen.queryByTestId('brief-reading-goal')).toBeNull()
-    expect(screen.getByTestId('brief-reading-options').textContent).toContain('You\u2019re considering')
+    const goal = screen.getByTestId('brief-reading-goal')
+    expect(within(goal).getByTestId('brief-reading-not-mentioned').textContent).toBe('Not mentioned')
+    expect(within(goal).queryByTestId('brief-reading-your-words')).toBeNull()
+    // CONTRAST: the filled slot in the same card is marked as the user's words.
+    expect(within(screen.getByTestId('brief-reading-options')).getByTestId('brief-reading-your-words')).toBeTruthy()
+    expect(screen.queryByTestId('brief-reading-context')).toBeNull()
   })
 
-  it('v2: the limits the user set are shown as quotes under "You set"; none held → no limits line', () => {
+  it('v2: the limits the user set are shown as quotes under "Things to consider"; none held → "Not mentioned"', () => {
     thinkingMockState.isThinking = true
     drafting({ goal: GOAL, options: OPTIONS, limits: ['£20k budget', 'monthly churn under 4%'] })
     const { unmount } = render(<FirstUseComposer />, { wrapper: Wrapper })
-    expect(screen.getByTestId('brief-reading-limits').textContent).toContain('You set')
-    expect(screen.getAllByTestId('brief-reading-limit').map((li) => li.textContent)).toEqual(['\u201C£20k budget\u201D', '\u201Cmonthly churn under 4%\u201D'])
+    const considerations = screen.getByTestId('brief-reading-considerations')
+    expect(considerations.textContent).toContain('Things to consider')
+    expect(within(considerations).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['\u201C£20k budget\u201D', '\u201Cmonthly churn under 4%\u201D'])
     unmount()
     drafting({ goal: GOAL, options: OPTIONS })
     render(<FirstUseComposer />, { wrapper: Wrapper })
-    expect(screen.queryByTestId('brief-reading-limits')).toBeNull()
+    expect(within(screen.getByTestId('brief-reading-considerations')).getByTestId('brief-reading-not-mentioned')).toBeTruthy()
   })
 
   it("another scenario's reading is never shown here", () => {

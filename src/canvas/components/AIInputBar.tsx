@@ -34,6 +34,16 @@ import { useDraftStore, draftStreamPhaseFor, draftStreamInFlight } from '../stor
 
 export type AIInputBarVariant = 'strip' | 'docked-tab' | 'floating' | 'first-use' | 'welcome'
 
+/**
+ * The turn an empty-canvas brief is sent as: drafting a model, not chatting. Shared with the first-use hero's
+ * "Structure it" fields so both brief inputs go out through this one path.
+ */
+export const GENERATE_MODEL_SEND = {
+  turnType: 'explicit_generate',
+  debugSource: 'generate_model',
+  debugSourceSurface: 'ai_panel',
+} as const
+
 export interface AIInputBarHandle {
   focus(): void
   /** Synchronously read current draft text (without committing through state). */
@@ -425,11 +435,7 @@ export const AIInputBar = memo(
       if (!text || disabled || isThinking) return
       if (nodeCount === 0) {
         // Empty canvas: drafting a model, not chatting.
-        sendMessage(text, {
-          turnType: 'explicit_generate',
-          debugSource: 'generate_model',
-          debugSourceSurface: 'ai_panel',
-        })
+        sendMessage(text, GENERATE_MODEL_SEND)
         clearDraft()
         onAfterSend?.(text)
         return
