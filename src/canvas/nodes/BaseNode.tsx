@@ -2607,6 +2607,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                 autoEdit
                 onEditEnd={() => setRenamingOnCard(false)}
                 className={`${isAnchorCard ? typography.nodeTitleWide : typography.nodeTitle} text-text-body`}
+                counterClassName={typography.nodeLabel}
                 wrap
               />
             </div>

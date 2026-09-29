@@ -49,6 +49,11 @@ interface EditableLabelProps {
    * reopens the editor on every later re-render and follows the user around.
    */
   onAutoEditConsumed?: () => void
+  /**
+   * Type for the near-limit character counter. The inspector's default is `panelMeta`; a host inside the canvas
+   * viewport (the card's on-card rename) passes a counter-scaled canvas token, or the counter would shrink with zoom.
+   */
+  counterClassName?: string
   /** Called when an edit ends, saved or cancelled. A host that shows this editor only WHILE editing (the card's
    *  in-place rename, E1c) swaps back to its own title on it. Optional; the inspector passes nothing. */
   onEditEnd?: () => void
@@ -63,6 +68,7 @@ export function EditableLabel({
   wrap = false,
   autoEdit = false,
   onAutoEditConsumed,
+  counterClassName = typography.panelMeta,
   onEditEnd,
 }: EditableLabelProps) {
   const [isEditing, setIsEditing] = useState(false)
@@ -209,7 +215,7 @@ export function EditableLabel({
       {remaining <= COUNTER_REVEAL_MARGIN && (
         <span
           data-testid="inspector-rename-counter"
-          className={`${typography.panelMeta} block text-text-light mt-0.5`}
+          className={`${counterClassName} block text-text-light mt-0.5`}
         >
           {draft.length}/{maxLength} characters
         </span>
