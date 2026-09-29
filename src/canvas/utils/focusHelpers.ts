@@ -174,6 +174,12 @@ export function resolveModelTarget(
   targetId: string,
   nodes: ReadonlyArray<{ id: string }>,
   edges: ReadonlyArray<{ id: string; source: string; target: string; data?: unknown }>,
+  /**
+   * `endpointFallback` (default true, what FOCUSING wants): a `from→to` pair with no such edge resolves to an endpoint
+   * that exists, so the reader is taken somewhere useful. An EXISTENCE question must pass `false`: a link is not "on
+   * this canvas" because one of its ends is (PR Review on #2317, 5894785604 — the partial-overlap counterexample).
+   */
+  opts: { endpointFallback?: boolean } = {},
 ): { id: string; kind: 'node' | 'edge' } | null {
   if (!targetId) return null
   if (nodes.some((n) => n.id === targetId)) return { id: targetId, kind: 'node' }
@@ -183,8 +189,10 @@ export function resolveModelTarget(
     const [from, to] = parts.map((x) => x.trim())
     const edge = edges.find((e) => e.source === from && e.target === to)
     if (edge) return { id: edge.id, kind: 'edge' }
-    const endpoint = [from, to].find((id) => nodes.some((n) => n.id === id))
-    if (endpoint) return { id: endpoint, kind: 'node' }
+    if (opts.endpointFallback !== false) {
+      const endpoint = [from, to].find((id) => nodes.some((n) => n.id === id))
+      if (endpoint) return { id: endpoint, kind: 'node' }
+    }
   }
   const byData = edges.find((e) => {
     const d = e.data as Record<string, unknown> | undefined

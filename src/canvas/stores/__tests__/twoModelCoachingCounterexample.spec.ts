@@ -18,6 +18,7 @@ import { useGuidanceStore, setGuidancePersistenceContext } from '../guidanceStor
 import { useStrengthenStore, recordKey } from '../strengthenStore'
 import { installGuidanceScenarioBoundary } from '../guidanceScenarioBoundary'
 import { installStrengthenGraphGuard } from '../strengthenGraphGuard'
+import { useBootGraphReadStore } from '../../hydrate/bootGraphRead'
 
 const OLD = 'scn-previous-model'
 const NEW = '782e46ca-new-mrr-model'
@@ -41,6 +42,7 @@ let uninstall: Array<() => void> = []
 
 beforeEach(() => {
   sessionStorage.clear()
+  useBootGraphReadStore.setState({ byScenario: {} } as never)
   useStrengthenStore.getState()._reset()
   useGuidanceStore.setState({ guidanceItems: [], activeGuidanceItemId: null } as never)
   useCanvasStore.setState({ currentScenarioId: OLD, ...oldGraph } as never)
@@ -85,6 +87,60 @@ describe('the served two-model switch + reload', () => {
     useStrengthenStore.getState().reconcile([phase3('strengthen:phase3:mrr1', 'monthly_churn→mrr')], 'h3', NEW)
     useStrengthenStore.getState().pruneForeignTargets()
     expect(useStrengthenStore.getState().records[recordKey(NEW, 'strengthen:phase3:mrr1')]).toBeDefined()
+  })
+
+  // ── PR Review on #2317 (5894785604): the partial-overlap and ID-first counterexamples ──────────────────────────
+  const sharesOneEndpoint = {
+    nodes: [{ id: 'mrr', data: {} }, { id: 'nps_change_from_today', data: {} }],
+    edges: [{ id: 'e3', source: 'nps_change_from_today', target: 'mrr', data: {} }],
+  }
+
+  it('PARTIAL OVERLAP, write: a new model sharing ONE endpoint does not make the old link "exist"', () => {
+    useCanvasStore.setState({ currentScenarioId: NEW, ...sharesOneEndpoint } as never)
+    useStrengthenStore.getState().reconcile([phase3(PHASE3_ID, FOREIGN_TARGET)], 'h4', NEW)
+    expect(useStrengthenStore.getState().records[recordKey(NEW, PHASE3_ID)]).toBeUndefined()
+  })
+
+  it('PARTIAL OVERLAP, cold prune: a persisted record for the old link is cleaned though one endpoint remains', () => {
+    const key = recordKey(NEW, PHASE3_ID)
+    const record = { id: PHASE3_ID, status: 'recommended', snapshot: phase3(PHASE3_ID, FOREIGN_TARGET), analysisHash: 'h', isStale: false, scenarioId: NEW, history: [] }
+    useStrengthenStore.setState({ records: { [key]: record }, priorityOrder: [key] } as never)
+    useCanvasStore.setState({ currentScenarioId: NEW, ...sharesOneEndpoint } as never)
+    expect(useStrengthenStore.getState().records[key]).toBeUndefined()
+  })
+
+  it('ID-FIRST: the new id with the OLD graph still on screen is not judged by the old graph; the new graph then cleans it', () => {
+    const key = recordKey(NEW, PHASE3_ID)
+    const record = { id: PHASE3_ID, status: 'recommended', snapshot: phase3(PHASE3_ID, FOREIGN_TARGET), analysisHash: 'h', isStale: false, scenarioId: NEW, history: [] }
+    useStrengthenStore.setState({ records: { [key]: record }, priorityOrder: [key] } as never)
+    useCanvasStore.setState({ currentScenarioId: NEW } as never) // id first: the old model's nodes are still here
+    // The old graph must not stand in for the new decision's: the old link "exists" in it, and must not be judged kept.
+    useStrengthenStore.getState().reconcile([phase3('strengthen:phase3:other', 'customer_success_deployment')], 'h5', NEW)
+    expect(useStrengthenStore.getState().records[recordKey(NEW, 'strengthen:phase3:other')]).toBeDefined() // not judged, as before
+    useCanvasStore.setState({ ...newGraph } as never) // the new decision's graph arrives
+    expect(useStrengthenStore.getState().records[key]).toBeUndefined()
+    expect(useStrengthenStore.getState().records[recordKey(NEW, 'strengthen:phase3:other')]).toBeUndefined()
+  })
+
+  it('ID-FIRST, the discriminating case: a VALID new-model finding is not destroyed by being judged against the old graph', () => {
+    const key = recordKey(NEW, 'strengthen:phase3:mrr1')
+    const record = { id: 'strengthen:phase3:mrr1', status: 'recommended', snapshot: phase3('strengthen:phase3:mrr1', 'monthly_churn\u2192mrr'), analysisHash: 'h', isStale: false, scenarioId: NEW, history: [] }
+    useStrengthenStore.setState({ records: { [key]: record }, priorityOrder: [key] } as never)
+    useCanvasStore.setState({ currentScenarioId: NEW } as never) // id first: the OLD graph (no monthly_churn→mrr) is on screen
+    expect(useStrengthenStore.getState().records[key]).toBeDefined()
+    useCanvasStore.setState({ ...newGraph } as never) // the new graph holds the link: the finding stays
+    expect(useStrengthenStore.getState().records[key]).toBeDefined()
+  })
+
+  it('ID-FIRST, read in flight: a graph that arrives while the boot read is still reading is not judged yet', () => {
+    const key = recordKey(NEW, PHASE3_ID)
+    const record = { id: PHASE3_ID, status: 'recommended', snapshot: phase3(PHASE3_ID, FOREIGN_TARGET), analysisHash: 'h', isStale: false, scenarioId: NEW, history: [] }
+    useStrengthenStore.setState({ records: { [key]: record }, priorityOrder: [key] } as never)
+    useBootGraphReadStore.setState({ byScenario: { [NEW]: { token: 1, state: 'reading' } } } as never)
+    useCanvasStore.setState({ currentScenarioId: NEW, ...newGraph } as never)
+    expect(useStrengthenStore.getState().records[key]).toBeDefined()
+    useBootGraphReadStore.setState({ byScenario: { [NEW]: { token: 1, state: 'merged' } } } as never)
+    expect(useStrengthenStore.getState().records[key]).toBeUndefined()
   })
 
   it('CONTROL: nothing is judged while the graph is still empty (booting)', () => {
