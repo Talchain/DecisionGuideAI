@@ -62,6 +62,7 @@ import { useCanvasStore } from '../../../store'
 import { useAuth } from '../../../../contexts/AuthContext'
 import { selectGoalProbability } from '../../../../components/results/utils/selectGoalProbability'
 import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAnchorCopy'
+import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../../../components/results/utils/goalFitBasisCaveatCopy'
 import { GOAL_CONSTRAINT_COPY, GOAL_STRINGS } from '../inspectorStrings'
 import { canCaptureGoalTarget } from '../../../domain/goalTarget'
 import { mapV5AnalysisToReport } from '../../../../v5/mapV5AnalysisToReport'
@@ -440,6 +441,42 @@ describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283, real
     const withheld = renderPanel().container.textContent ?? ''
     expect(withheld.split(JOINT_LINE).length - 1).toBe(1)
     expect(withheld).not.toContain('chance of success')
+  })
+
+  // AIQ 5883088747 / PR Review #2291: the modelled-basis caveat MOVES WITH the joint number.
+  const MODELLED_JOINT_WITH_GOAL = analysisReport({
+    probability_of_goal: 0.55,
+    probability_of_joint_goal: 0.0054,
+    goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
+  })
+  const caveats = (c: HTMLElement) => [...c.querySelectorAll('[data-testid="goal-joint-modelled-basis-caveat"]')]
+
+  it('a modelled-basis joint figure carries GOAL_FIT_BASIS_CAVEAT_COPY directly under EACH limits row', () => {
+    setStoreWithConstraints(MODELLED_JOINT_WITH_GOAL)
+    const { container } = renderPanel()
+    const text = container.textContent ?? ''
+    expect(text.split(JOINT_LINE).length - 1).toBe(2)
+    const cs = caveats(container)
+    expect(cs).toHaveLength(2)
+    for (const c of cs) {
+      expect(c.textContent).toBe(GOAL_FIT_BASIS_CAVEAT_COPY)
+      expect(c.previousElementSibling?.textContent ?? '').toContain(JOINT_LINE)
+    }
+  })
+
+  it('CONTRAST: the same joint figure with NO modelled basis carries no caveat', () => {
+    setStoreWithConstraints(REAL_GOAL_REPORT)
+    const { container } = renderPanel()
+    expect((container.textContent ?? '').split(JOINT_LINE).length - 1).toBe(2)
+    expect(caveats(container)).toHaveLength(0)
+    expect(container.textContent ?? '').not.toContain(GOAL_FIT_BASIS_CAVEAT_COPY)
+  })
+
+  it('a modelled joint with the goal slot withheld: one limits row, one caveat under it', () => {
+    setStoreWithConstraints(SUBSTITUTED_REPORT)
+    const { container } = renderPanel()
+    expect((container.textContent ?? '').split(JOINT_LINE).length - 1).toBe(1)
+    expect(caveats(container)).toHaveLength(1)
   })
 
   it('DEDUP: both sites render the REGISTER string — neither re-types the literal', () => {

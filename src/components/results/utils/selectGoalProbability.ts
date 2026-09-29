@@ -223,6 +223,14 @@ export interface GoalProbabilitySelection {
    */
   goalFitIsModelledBasis: boolean
   /**
+   * AIQ #72 5883088747: the modelled-basis caveat MOVES WITH THE JOINT NUMBER. True when the joint figure
+   * ("Chance all your limits hold") is present AND the producer marked it scored from a modelled outcome
+   * distribution. Every surface that prints `jointGoalProbability` must render `GOAL_FIT_BASIS_CAVEAT_COPY`
+   * beside it when this is true. (`goalFitIsModelledBasis` above can no longer be true: the goal slot never
+   * shows the joint figure.)
+   */
+  jointGoalIsModelledBasis: boolean
+  /**
    * Display-honesty, the same doctrine as `goalFitIsModelledBasis`: non-null ONLY when a goal
    * figure is shown AND its base (today's level of the goal) was worked out from its inputs
    * rather than given (ISL #207; carrier `identity_evaluations[].level_author`, fail-closed in the
@@ -326,6 +334,7 @@ export function selectGoalProbability(
       jointGoalProbability: jointGoalProb,
       basis: unconstrained != null ? 'goal_probability' : 'none',
       goalFitIsModelledBasis: false,
+      jointGoalIsModelledBasis: jointGoalProb != null && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
       goalFitBaseCaveat: unconstrained != null ? baseCaveat : null,
       mayUsePossessiveGoalFraming: unconstrained != null,
       // This arm never substitutes either, so nothing is withheld FROM a
@@ -387,6 +396,7 @@ export function selectGoalProbability(
     basis,
     goalFitIsModelledBasis:
       goalProbabilityIsJoint && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
+    jointGoalIsModelledBasis: jointGoalProb != null && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
     goalFitBaseCaveat: goalProbability != null ? baseCaveat : null,
     mayUsePossessiveGoalFraming: goalProbability != null,
     jointSubstitutionWithheld: basis === 'joint_goal_withheld',

@@ -28,6 +28,7 @@ describe('selectGoalProbability — gate-independent behaviour', () => {
       jointGoalProbability: null,
       basis: 'none' as const,
       goalFitIsModelledBasis: false,
+      jointGoalIsModelledBasis: false,
       goalFitBaseCaveat: null,
       mayUsePossessiveGoalFraming: false,
       // L62: nothing was available to withhold here — 'none' means the run

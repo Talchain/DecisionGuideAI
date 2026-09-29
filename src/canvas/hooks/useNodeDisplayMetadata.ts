@@ -264,6 +264,8 @@ export interface NodeDisplayMetadata {
    * `useNodeDisplayMetadata.jointGoal.spec.ts` pins that.
    */
   jointGoalProbability?: number | null
+  /** The selector's `jointGoalIsModelledBasis`, carried beside the joint figure it qualifies (AIQ 5883088747). */
+  jointGoalProbabilityIsModelledBasis?: boolean
   /**
    * ROADMAP 2.275. True when this run carries an admissible per-option goal
    * figure (per `selectGoalProbability`) even though no single probability is
@@ -382,6 +384,7 @@ export function useNodeDisplayMetadata(
         achievementProbabilityBaseCaveat: null,
         achievementProbabilityBasis: null,
         jointGoalProbability: null,
+        jointGoalProbabilityIsModelledBasis: false,
         goalFitAvailable: false,
         stabilityPercentage: null,
         winRate: null,
@@ -530,6 +533,7 @@ export function useNodeDisplayMetadata(
     let achievementProbabilityBaseCaveat: GoalFitBaseCaveat | null = null
     let achievementProbabilityBasis: GoalProbabilityBasis | null = null
     let jointGoalProbability: number | null = null
+    let jointGoalProbabilityIsModelledBasis = false
     let stabilityPercentage: number | null = null
     let goalFitAvailable = false
 
@@ -567,6 +571,7 @@ export function useNodeDisplayMetadata(
           // ROADMAP 2.296 item 5. Same discipline: the joint figure rides the
           // SAME decision — never a second read of the raw record.
           jointGoalProbability = decision.jointGoalProbability
+          jointGoalProbabilityIsModelledBasis = decision.jointGoalIsModelledBasis
         }
       }
 
@@ -723,6 +728,7 @@ export function useNodeDisplayMetadata(
       achievementProbabilityBaseCaveat,
       achievementProbabilityBasis,
       jointGoalProbability,
+      jointGoalProbabilityIsModelledBasis,
       goalFitAvailable,
       stabilityPercentage,
       winRate,

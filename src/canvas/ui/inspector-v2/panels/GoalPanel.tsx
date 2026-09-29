@@ -45,7 +45,7 @@ import { isPersistenceActive } from '../../../../lib/persistenceActive'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { basisWithholdsPossessive } from '../../../../components/results/utils/selectGoalProbability'
-import { goalFitBaseCaveatCopy } from '../../../../components/results/utils/goalFitBasisCaveatCopy'
+import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../../../components/results/utils/goalFitBasisCaveatCopy'
 import { formatGoalChangeBound, formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 // ⭐⭐ `resolveGoalTarget` WAS ONE NAME AWAY IN AN IMPORT THIS FILE ALREADY HAD.
@@ -1023,6 +1023,11 @@ export const GoalPanel = memo(function GoalPanel({
                     {GOAL_CONSTRAINT_COPY.jointProbability}: <strong>{Math.round(probJoint * 100)}%</strong>
                   </p>
                 )}
+                {typeof probJoint === 'number' && !goalFitSubstituted && displayMetadata.jointGoalProbabilityIsModelledBasis === true && (
+                  <p className={`${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-joint-modelled-basis-caveat">
+                    {GOAL_FIT_BASIS_CAVEAT_COPY}
+                  </p>
+                )}
                 {/* UI-SEM-087: honest status when the constraints displayed here
                     do not reach the engine — guest panel writes are RLS-swallowed. */}
                 {constraintsInert && (
@@ -1188,6 +1193,12 @@ export const GoalPanel = memo(function GoalPanel({
                           The register owns the wording; call sites never re-type
                           it. */}
                       {GOAL_CONSTRAINT_COPY.jointProbability}: <strong>{Math.round(probJoint * 100)}%</strong>
+                    </div>
+                  )}
+                  {/* AIQ 5883088747: the modelled-basis caveat moves WITH the joint number, beside it. */}
+                  {typeof probJoint === 'number' && !goalFitSubstituted && displayMetadata.jointGoalProbabilityIsModelledBasis === true && (
+                    <div className={`${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-joint-modelled-basis-caveat">
+                      {GOAL_FIT_BASIS_CAVEAT_COPY}
                     </div>
                   )}
                   {techMode && (

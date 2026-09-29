@@ -53,3 +53,23 @@ describe('the goal-fit slot is never P(limits) — goal = 0, joint = 1, limits o
     expect(d.basis).toBe('goal_probability')
   })
 })
+
+describe('AIQ 5883088747: the modelled-basis caveat flag rides the JOINT figure, not the goal slot', () => {
+  const modelled = { goal_fit_basis: { scored_from: 'modelled_outcome_distribution' } }
+
+  it('modelled joint → jointGoalIsModelledBasis; the goal slot never carries it', () => {
+    const d = selectGoalProbability({ probability_of_goal: 0.55, probability_of_joint_goal: 0.2, ...modelled } as GoalProbabilityInput)
+    expect(d.jointGoalIsModelledBasis).toBe(true)
+    expect(d.goalFitIsModelledBasis).toBe(false)
+  })
+
+  it('⛔ CONTRAST: the same joint with no modelled basis → false', () => {
+    const d = selectGoalProbability({ probability_of_goal: 0.55, probability_of_joint_goal: 0.2 } as GoalProbabilityInput)
+    expect(d.jointGoalIsModelledBasis).toBe(false)
+  })
+
+  it('⛔ CONTRAST: a modelled basis with NO joint figure → false (nothing to qualify)', () => {
+    const d = selectGoalProbability({ probability_of_goal: 0.55, ...modelled } as GoalProbabilityInput)
+    expect(d.jointGoalIsModelledBasis).toBe(false)
+  })
+})
