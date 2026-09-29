@@ -2105,6 +2105,33 @@ describe('OptionNode — display coherence (audit §8)', () => {
     expect(screen.queryByText(/marketing/i)).toBeNull()
   })
 
+  // Graph audit 29 Sep: the "<factor> lower" arm fired whenever the two options set the top factor to DIFFERENT
+  // values, so an option that set it HIGHER than the leader was described as lower. The direction is read, never assumed.
+  for (const [mine, word] of [[0.9, 'higher'], [0.2, 'lower']] as const) {
+    it(`"Held back by:" states the direction this option actually sets the top factor (${mine} vs the leader's 0.5 → ${word})`, () => {
+      vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.2) as never)
+      const report = {
+        robustness: { recommended_option_id: 'option-3', ...producerLeaderClaim('option-3') },
+        option_probabilities: { 'option-1': { win_probability: 0.2 }, 'option-3': { win_probability: 0.6 } },
+        factor_sensitivity: [{ factor_id: 'certA', sensitivity: 0.8 }, { factor_id: 'certB', sensitivity: 0.2 }],
+      }
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector(makeStoreState({
+          results: { status: 'complete', report },
+          ceeAnalysisReady: { options: [{ id: 'option-3', interventions: { certA: 0.5 } }, { id: 'option-1', interventions: { certA: mine } }] },
+          nodes: [
+            { id: 'option-1', type: 'option', data: { label: 'Option A', type: 'option' } },
+            { id: 'option-2', type: 'option', data: { label: 'Status Quo', type: 'option', is_baseline: true } },
+            { id: 'option-3', type: 'option', data: { label: 'Option C', type: 'option' } },
+            { id: 'certA', type: 'factor', data: { label: 'Budget' } },
+          ],
+        }) as any)
+      )
+      renderOption({ label: 'Option A' })
+      expect(screen.getByText(new RegExp(`^Held back by: budget ${word}$`, 'i'))).toBeDefined()
+    })
+  }
+
   // Item 6: stale treatment on result decorations
 
   // Item 7: per-option intervention list containment
