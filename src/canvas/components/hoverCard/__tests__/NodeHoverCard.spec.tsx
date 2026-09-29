@@ -42,7 +42,7 @@ const NODES = [
   { id: 'goal_mrr', type: 'goal', data: { label: 'Grow MRR' } },
 ]
 const EDGES = [
-  { id: 'e1', source: 'fac_price', target: 'out_churn', data: { direction: 'positive', directionSource: 'cee' } },
+  { id: 'e1', source: 'fac_price', target: 'out_churn', data: { direction: 'positive', directionSource: 'cee', weight: 0.4, weightSource: 'cee' } },
   { id: 'e2', source: 'out_churn', target: 'goal_mrr', data: { direction: 'negative' } },
 ]
 
@@ -79,6 +79,10 @@ describe('card hover pop-up — what it shows', () => {
     expect(value).toContain('£49')
     expect(value).toContain('From your brief')
     expect(pop!.querySelector('[data-testid="node-hover-card-links-affects"]')!.textContent).toBe('AffectsMonthly churn (positive)')
+    // The stated strength is drawn beside the name, only when the server stated one (CONTRAST row below has none).
+    const bar = pop!.querySelector('[data-testid="node-hover-card-link-bar-0"]') as HTMLElement
+    expect((bar.firstElementChild as HTMLElement).style.width).toBe('40%')
+    expect((bar.firstElementChild as HTMLElement).className).toContain('bg-success')
   })
 
   it('CONTRAST — nothing invented when fields are absent: no value says "not on record", an unstated direction says nothing', () => {
@@ -90,6 +94,7 @@ describe('card hover pop-up — what it shows', () => {
     // `direction: 'positive'` with no source stamp is the UI default, not a statement.
     expect(pop.querySelector('[data-testid="node-hover-card-links-affects"]')!.textContent).toBe('AffectsMonthly churn')
     expect(pop.textContent).not.toMatch(/%|positive|Moderate|Low|High/)
+    expect(pop.querySelector('[data-testid^="node-hover-card-link-bar-"]')).toBeNull()
   })
 
   it('an outcome shows what drives it and what it affects; a connection to a node with no name is dropped, not invented', () => {

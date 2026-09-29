@@ -23,7 +23,8 @@ import { useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObj
 import { createPortal } from 'react-dom'
 import { useCanvasStore } from '../../store'
 import { NODE_REGISTRY, type NodeType } from '../../domain/nodes'
-import { resolveEdgeDirectionDisplay } from '../../domain/edgeValueProvenance'
+import { resolveEdgeDirectionDisplay, resolveEdgeSignedStrengthDisplay } from '../../domain/edgeValueProvenance'
+import { StrengthBar } from './StrengthBar'
 import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
 import { readoutIsBareModelScale } from '../../nodes/shared/FactorValueFigure'
 import { factorValueSourceMark } from '../../nodes/shared/valueSourceMark'
@@ -44,7 +45,7 @@ import {
 export const NOT_ON_RECORD = 'Not on record'
 const MAX_LINKED_NAMES = 4
 
-type LinkedName = { name: string; direction: 'positive' | 'negative' | null }
+type LinkedName = { name: string; direction: 'positive' | 'negative' | null; strength: number | null }
 export interface NodeHoverLinkGroup { heading: string; items: LinkedName[]; more: number }
 export interface NodeHoverFacts {
   title: string | null
@@ -67,7 +68,9 @@ function group(heading: string, edges: GraphEdge[], other: (e: GraphEdge) => str
     const name = str(byId.get(other(e))?.data?.label)
     if (name === null) continue // never a name we do not have
     const dir = causal ? resolveEdgeDirectionDisplay(e.data as Record<string, unknown> | undefined) : null
-    items.push({ name, direction: dir?.show ? dir.direction : null })
+    // The server's stated strength only (`resolveEdgeSignedStrengthDisplay` withholds a UI default), drawn as a bar.
+    const str8 = causal ? resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined) : null
+    items.push({ name, direction: dir?.show ? dir.direction : null, strength: str8?.show ? Math.abs(str8.value) : null })
   }
   if (items.length === 0) return null
   return { heading, items: items.slice(0, MAX_LINKED_NAMES), more: Math.max(0, items.length - MAX_LINKED_NAMES) }
@@ -230,6 +233,7 @@ function OpenNodeHoverCard({ nodeId, nodeType, data, anchorRef }: NodeHoverCardP
                 <span key={`${item.name}-${i}`}>
                   {i > 0 && ', '}
                   {item.name}
+                  {item.strength !== null && <StrengthBar magnitude={item.strength} direction={item.direction} testId={`node-hover-card-link-bar-${i}`} />}
                   {item.direction !== null && <span className="text-text-light"> ({item.direction})</span>}
                 </span>
               ))}

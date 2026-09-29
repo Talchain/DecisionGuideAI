@@ -22,6 +22,7 @@ import type { EdgeDirectionDisplay, EdgeValueDisplay, EdgeValueSource } from '..
 import { typography } from '../../../styles/typography'
 import { HOVER_CARD_GAP, HOVER_CARD_MAX_WIDTH, HOVER_CARD_SURFACE_CLASS, canvasCardRects, placeHoverCard, viewportSize } from './hoverCardPlacement'
 import { NOT_ON_RECORD } from './NodeHoverCard'
+import { StrengthBar } from './StrengthBar'
 
 const DIRECTION_SOURCE_WORDS: Record<EdgeValueSource, string> = {
   user: 'Set by you',
@@ -128,6 +129,7 @@ export function LinkHoverCard(props: LinkHoverCardProps) {
               <span data-testid="edge-hover-strength-placeholder">{props.placeholderSentence}</span>
             ) : strength.show ? (
               <>
+                <StrengthBar magnitude={strength.value} direction={direction.show ? direction.direction : null} testId="edge-hover-strength-bar" />
                 <span data-testid="edge-hover-strength-value" className="tabular-nums">{Math.abs(strength.value).toFixed(2)}</span>
                 <span className="text-text-light"> · {linkStrengthSourceWords(props.strengthSettled, strength.source)}</span>
               </>
