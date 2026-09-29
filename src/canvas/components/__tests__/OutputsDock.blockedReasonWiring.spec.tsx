@@ -357,3 +357,38 @@ describe('OutputsDock → the held-analysis refusal, through the real wiring', (
     expect(screen.getByTestId('pre-analysis-v3-footer')).not.toHaveTextContent('Analysis is held')
   }, 30_000)
 })
+
+/**
+ * A SCENARIO WITH A RUN ON RECORD IS NEVER OFFERED A "FIRST PASS" (P0 Shared Data builder, #72 5890601642: a stale
+ * cold reload restores the `complete_stale` verdict without the result block, and the pre-run surface's button read
+ * "Analyse first pass" over a scenario that had been Run). One flag, `selectRunOnRecord`, drives both run controls.
+ */
+describe('OutputsDock → the run control after a Run, through the real wiring', () => {
+  const verdict = (kind: string) => ({
+    run_state: { kind, computed_at: '2026-09-29T12:43:10.577Z' },
+    readiness: { status: 'ready', blockers: [] },
+    leader_claim: { permitted: false, withheld_reason: 'separation_unavailable' },
+    blocked_unusable: false,
+    contradictions: [],
+    requires_rerun: kind === 'complete_stale',
+    robustness: {},
+    usable_for_chips: false,
+    usable_for_followup: false,
+    usable_for_prose: false,
+  })
+
+  it('a STALE Run on record (the cold-reload case): the button offers to re-run', async () => {
+    seedPreRunCanvas({ analysisStateV1: verdict('complete_stale') })
+    render(<ToastProvider><OutputsDock /></ToastProvider>)
+    const analyse = await screen.findByTestId('pre-analysis-v3-analyse', {}, { timeout: 20_000 })
+    expect(analyse).toHaveTextContent(FOOTER_COPY.reanalyse)
+    expect(analyse).not.toHaveTextContent(/first pass/i)
+  }, 30_000)
+
+  it('CONTROL: no verdict (never Run) keeps "Analyse first pass"', async () => {
+    seedPreRunCanvas({ analysisStateV1: null })
+    render(<ToastProvider><OutputsDock /></ToastProvider>)
+    const analyse = await screen.findByTestId('pre-analysis-v3-analyse', {}, { timeout: 20_000 })
+    expect(analyse).toHaveTextContent(FOOTER_COPY.analyse)
+  }, 30_000)
+})

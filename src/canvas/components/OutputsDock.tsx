@@ -36,7 +36,7 @@ import { registerCanonicalRunner, RUN_DISPATCHER_UNAVAILABLE_REASON, type Canoni
 import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt, selectReportIsFromEarlierRun } from '../store'
-import { useAnalysisState } from '../state/analysisStateSelector'
+import { selectRunOnRecord, useAnalysisState } from '../state/analysisStateSelector'
 import { useAnalysisWaitExhausted } from '../../components/results/analysisNew/useAnalysisWaitExhausted'
 import { getScenario } from '../store/scenarios'
 // ── The workspace-shell contract ────────────────────────────────────────────
@@ -770,6 +770,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
       framing: s.currentScenarioFraming,
     }))
   )
+
+  // The server's run state says whether this scenario has been Run — the run control then offers to run AGAIN
+  // (`selectRunOnRecord`; a stale cold reload restores that verdict without the result block).
+  const runOnRecord = useCanvasStore(s => selectRunOnRecord(s.analysisStateV1))
 
   // Actions don't need shallow - they're stable references
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
@@ -3652,6 +3656,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                           canRun={canRunAnalysis}
                           blockedReason={runBlockedTooltip}
                           blockedListing={runBlockedListing}
+                          runOnRecord={runOnRecord}
                         />
                       </Suspense>
                     </div>
@@ -4345,6 +4350,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                       readinessCheck={readinessCheckForBar}
                       nothingHasAnswered={readinessUnanswered}
                       onAnalyse={handleRunAnalysis}
+                      runOnRecord={runOnRecord}
                     />
                   )
                 // Unreachable through the guard above, and handled anyway so
