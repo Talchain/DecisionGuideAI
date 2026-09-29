@@ -154,7 +154,7 @@ function openHoverPopover(container: HTMLElement): void {
     fireEvent.mouseEnter(hitPath!)
   })
   act(() => {
-    vi.advanceTimersByTime(350)
+    vi.advanceTimersByTime(450)
   })
 }
 

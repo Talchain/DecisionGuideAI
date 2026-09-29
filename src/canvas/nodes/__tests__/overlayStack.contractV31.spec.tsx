@@ -8,9 +8,11 @@
  *   hover highlight at all (its path focus is SELECTION, which dims the rest).
  *
  * Pinned here:
- *   1. A node's popover never renders while that node is SELECTED (the state a
- *      click leaves — the inspector is the one detail surface), bound by the
- *      node's own id; a DIFFERENT selected node does not suppress it.
+ *   1. The LEGACY per-kind popover content (`NodePopover`'s children in the six
+ *      wrappers — bands, tiers, chips) stays retired. Since 29 Sep 2026 (Paul)
+ *      the card hover pop-up is `components/hoverCard/NodeHoverCard`, server
+ *      data only, and it never opens on a SELECTED card — pinned, with its
+ *      contrast, in `components/hoverCard/__tests__/NodeHoverCard.spec.tsx`.
  *   2. A plain option HOVER puts no tab and no ring on a factor; the explicit
  *      option LENS (an analysis mode the user turns on) still does — so the
  *      formatting pins in `FactorNode.spec.tsx` keep a live surface.
@@ -45,10 +47,10 @@ function select(ids: string[]) {
 describe('v3.1 row 6 — a click leaves ONE surface: the popover yields to the inspector', () => {
   beforeEach(() => select([]))
 
-  it('⭐ THE CARD POPOVER IS RETIRED — an unselected, visible popover renders nothing either (contract v3.1 §01)', async () => {
-    // Before 27 Sep this row was the CONTRAST: an unselected node's popover rendered.
-    // The contract has no card popover at all ("Hover shows a one-line tooltip");
-    // served 91717719 opened one on an option and on the question card.
+  it('⭐ THE LEGACY POPOVER CONTENT STAYS RETIRED — an unselected, visible NodePopover renders nothing', async () => {
+    // Its children were the old UI-derived detail (tier words over binary
+    // values, band words, chips). The hover pop-up that replaced it
+    // (29 Sep 2026) is `NodeHoverCard`, mounted by `BaseNode`, not this.
     render(<Harness nodeId="fac_a" visible />)
     await act(async () => { await new Promise(r => setTimeout(r, 20)) })
     expect(screen.queryByText('Popover detail for fac_a')).toBeNull()

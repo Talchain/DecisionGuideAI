@@ -303,6 +303,12 @@ const VIEWPORT_PORTALLED = ['src/canvas/nodes/TierLanes.tsx'] as const
 const FOREIGN_RENDERED = [
   'src/canvas/components/CoachingCard.tsx',
   'src/canvas/components/UnknownKindWarning.tsx',
+  // 29 Sep 2026 (Paul: bring the hover pop-ups back): the card pop-up portals to
+  // `document.body` (outside the transform); the link pop-up renders in
+  // `EdgeLabelRenderer` and counter-scales ITSELF (`scale(1/zoom)`), like the
+  // one-line tooltip it replaced. Both use panel tokens at screen size.
+  'src/canvas/components/hoverCard/LinkHoverCard.tsx',
+  'src/canvas/components/hoverCard/NodeHoverCard.tsx',
   'src/canvas/ui/inspector-v2/shared/EditableLabel.tsx',
   'src/canvas/ui/shared/DataBar.tsx',
   'src/components/Tooltip.tsx',

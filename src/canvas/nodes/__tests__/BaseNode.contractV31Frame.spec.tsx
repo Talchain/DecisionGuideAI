@@ -430,9 +430,9 @@ describe('contract v3.1 — the assumption flag is a neutral ring, not amber (IC
 })
 
 describe('BaseNode titleOverride — display-only (ANC-11 enabler)', () => {
-  // v3.1 row 36: the name's hover route is the styled tooltip, no longer a
+  // The name's hover route is the card hover pop-up (29 Sep 2026), never a
   // native `title` — it still carries the REAL label, not the override.
-  it('replaces the VISIBLE words only; the name tooltip and the card name keep the real label', () => {
+  it('replaces the VISIBLE words only; the hover pop-up and the card name keep the real label', () => {
     const { root } = renderCard('decision', { label: 'Question' }, { titleOverride: 'What are we exploring?' })
     const title = screen.getByTestId('node-title')
     expect(title.textContent).toBe('What are we exploring?')
@@ -445,7 +445,7 @@ describe('BaseNode titleOverride — display-only (ANC-11 enabler)', () => {
     } finally {
       vi.useRealTimers()
     }
-    expect(screen.getByTestId('node-title-tooltip-name').textContent).toBe('Question')
+    expect(screen.getByTestId('node-hover-card-title').textContent).toBe('Question')
     expect(root.getAttribute('aria-label') ?? '').toContain('Question')
   })
 

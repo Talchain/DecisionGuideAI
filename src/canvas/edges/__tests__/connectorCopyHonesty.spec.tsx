@@ -147,7 +147,7 @@ function renderEverySurface(data: Record<string, unknown>): HTMLElement {
   const { container } = render(<StyledEdge {...(props as any)} data={data} />)
   const hit = container.querySelector('path[stroke="transparent"]')
   act(() => { fireEvent.mouseEnter(hit!) })
-  act(() => { vi.advanceTimersByTime(350) })
+  act(() => { vi.advanceTimersByTime(450) })
   return container
 }
 

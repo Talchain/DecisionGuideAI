@@ -189,26 +189,22 @@ describe('contract v3.1 U10 — no strength label rests on a connection in the d
     expect(byTestId(container, 'edge-influence-label-text'), 'a strength row rides on the cue').toBeNull()
   })
 
-  // ⭐ v3.1 row 12 MOVES THE STRENGTH FROM ONE HOVER AWAY TO ONE CLICK AWAY.
-  // U10 withdrew the resting label on the ground that the strength stayed on
-  // hover. The hover is now the contract's one-line tooltip ("detail in the
-  // edge inspector"), so the strength is the edge inspector's — a click on the
-  // connection opens it, and its strength control is pinned in
-  // `ui/inspector-v2/__tests__/statedStrengthIsTheOneShown.spec.tsx`. What this
-  // case pins now: the hover still opens, and it does not half-keep a strength.
-  it('the hover opens the one-line tooltip and carries no strength (the inspector does)', () => {
+  // ⭐ U10 withdrew the resting label on the ground that the strength stayed on
+  // hover. v3.1 row 12 moved it to the inspector; 29 Sep 2026 (Paul) it is back
+  // on hover, in the link pop-up, with its author — so the ground holds again.
+  // What this case pins: the hover opens and states the figure with whose it is.
+  it('the hover opens the link pop-up and carries the strength with its author', () => {
     mockEdges = boardOf(1, CEE_EDGE)
     const { container } = renderEdge({ ...CEE_EDGE })
     const hit = container.querySelector('path[stroke="transparent"]')
     expect(hit, 'no hit path — the hover cannot be driven').not.toBeNull()
     act(() => { fireEvent.mouseEnter(hit!) })
-    act(() => { vi.advanceTimersByTime(350) })
+    act(() => { vi.advanceTimersByTime(450) })
     const tooltip = byTestId(container, 'edge-hover-popover')
     expect(tooltip, 'the hover tooltip did not open').not.toBeNull()
     expect(tooltip!.getAttribute('role')).toBe('tooltip')
     expect(byTestId(container, 'edge-hover-strength-caption')).toBeNull()
-    // No figure: the endpoint ids are the only digits allowed.
-    expect((tooltip!.textContent ?? '').replace(/\bn[12]\b/g, '')).not.toMatch(/\d/)
+    expect(byTestId(container, 'edge-hover-strength')!.textContent).toBe('Strength0.60 · Olumi’s estimate')
   })
 
   it('CONTROL: Detailed view still pins the same connection\'s strength row', () => {

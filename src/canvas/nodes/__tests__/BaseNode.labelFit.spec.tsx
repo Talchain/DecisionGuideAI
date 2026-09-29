@@ -131,9 +131,9 @@ describe('BaseNode — the card floor comes from the shared derivation', () => {
 })
 
 describe('BaseNode — a label that cannot be shown in full stays reachable', () => {
-  // ⭐ v3.1 (DESIGN-GAP-v31 row 36): the route is the ONE styled tooltip on the
-  // title, no longer a native `title` attribute beside it. The guarantee this
-  // file owns is unchanged — the complete label, first, bound to THIS node.
+  // ⭐ The route is the card's hover pop-up (29 Sep 2026, `NodeHoverCard`; it
+  // replaced v3.1's styled name tooltip), never a native `title`. The guarantee
+  // this file owns is unchanged — the complete label, first, bound to THIS node.
   function hoverName(title: HTMLElement): string | null {
     vi.useFakeTimers()
     try {
@@ -144,10 +144,10 @@ describe('BaseNode — a label that cannot be shown in full stays reachable', ()
     } finally {
       vi.useRealTimers()
     }
-    return document.querySelector('[data-testid="node-title-tooltip-name"]')?.textContent ?? null
+    return document.querySelector('[data-testid="node-hover-card-title"]')?.textContent ?? null
   }
 
-  it('carries the complete label in the styled name tooltip (DS v5 §2.4)', () => {
+  it('carries the complete label in the card hover pop-up (DS v5 §2.4)', () => {
     // `line-clamp-3` ellipsises at the clamp, so the rendered text is a PREFIX
     // of the label. DS v5 §2.4 requires anything shown small or truncated to be
     // reachable at a readable size; this is that guarantee for sighted users,

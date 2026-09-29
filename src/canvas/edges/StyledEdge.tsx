@@ -22,7 +22,8 @@ import {
 } from './edgeAffordance'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, Position, type EdgeProps, useReactFlow, useStore } from '@xyflow/react'
 import { Lightbulb, Activity, Flag } from 'lucide-react'
-import { TOOLTIP_SURFACE_CLASS } from '../../components/Tooltip'
+import { LinkHoverCard } from '../components/hoverCard/LinkHoverCard'
+import { HOVER_CARD_OPEN_DELAY_MS } from '../components/hoverCard/hoverCardPlacement'
 import { EstimateMarker, ESTIMATE_SUBJECT_TITLE } from '../nodes/shared/EstimateMarker'
 import { CANVAS_GLYPH_SIZE_CLASSES, CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES } from '../nodes/shared/canvasGlyphScale'
 import { strengthIsHumanSettled } from '../domain/edgeStrengthSettlement'
@@ -367,9 +368,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // Separate from `isHovered` (which focus also sets): a pointer passing over a
   // link must not draw a focus ring.
   const [isKeyboardFocused, setIsKeyboardFocused] = useState(false)
-  // v3.1 row 12 — the hover tooltip is counter-scaled to screen size.
+  // The hover card is counter-scaled to screen size (and the glyph metrics read it).
   const edgeTooltipZoom = useStore((st) => st.transform?.[2] ?? 1)
-  // T1: Hover popover — delayed 300ms to avoid flicker on pass-through mouse movements
+  // T1: Hover popover — delayed (HOVER_CARD_OPEN_DELAY_MS) so a pass-through pointer opens nothing
   const [showHoverPopover, setShowHoverPopover] = useState(false)
   const hoverPopoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -1256,7 +1257,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     if (isStructuralEdge) return
     // An Escape the user has just pressed outranks a pointer that never left.
     if (keyboardDismissedRef.current) return
-    hoverPopoverTimerRef.current = setTimeout(() => setShowHoverPopover(true), 300)
+    hoverPopoverTimerRef.current = setTimeout(() => setShowHoverPopover(true), HOVER_CARD_OPEN_DELAY_MS)
   }
   const hoverLeave = () => {
     pointerWithinRef.current = false
@@ -3351,97 +3352,42 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         </EdgeLabelRenderer>
       )}
 
-      {/* ⭐ THE CONNECTION HOVER IS ONE LINE — canvas visual contract v3.1
-          (DESIGN-GAP-v31 row 12; one tooltip style, row 36).
-
-          It WAS a popover: measured on served `eec722ab`, 110×302 on screen
-          (220 world px, NOT counter-scaled at the 0.5 landing zoom), over the
-          cards, carrying "78% confident", "Link strength · Olumi's estimate
-          35%", a second bold "Positive" under the sentence that already said
-          it, and three buttons in two styles. v3.1: the tooltip is the
-          contract's `.tooltip` holding ONE sentence, and the detail lives in
-          the edge inspector — one click away, where the strength control, the
-          existence reading and "Explore with Olumi" are.
-
-          What it still says, and why each clause stays:
-            · the arrow sentence (`edgeArrowSentence`, the old first line — the
-              contract's own words, from the SAME `dirLabel` the stroke reads);
-            · the existence-doubt clause, bound to `existenceDash` — the same
-              field that draws the dash, never a second "doubt" concept;
-            · a DISPUTED sign is never stated as a fact: the arrow stands alone
-              and the dispute is said (the same ruling the popover held);
-            · a fragile connection's sentence — the canvas cue is budgeted and
-              hidden at the far rung, and the hover is where that fact is never
-              lost.
-          What left: every percentage (none of them a v3.1 edge fact), the bold
-          direction row, the strength bar, and the buttons. "Set strength"
-          (the fast route, measured on the founder's session) is the edge
-          inspector's strength control: a click on the connection opens it.
-
-          Non-interactive (`pointer-events: none`, no focusable content), and
-          COUNTER-SCALED so its 12px is 12px on screen at every zoom. Keyed by
-          this edge's id (`data-edge-popover`) as before, so the focus-out rule
-          still recognises its own surface.
-          Structural links keep their native `<title>` on the hit path — out of
-          this row's scope, recorded rather than silently left. */}
+      {/* ⭐ THE CONNECTION HOVER IS A LIGHT PANEL AGAIN (Paul, 29 Sep 2026: bring
+          the pop-up back, in the graph design system, server data only). It
+          replaced v3.1's one-line dark tooltip (DESIGN-GAP-v31 row 12), which
+          had itself replaced a popover that carried percentages, a strength
+          bar, a duplicate "Positive" and buttons. `LinkHoverCard` keeps the
+          one-line tooltip's sentences (arrow + doubt clause, disputed sign,
+          flip risk, placeholder) and adds Direction and Strength with WHO
+          stated each — read from the resolvers above, never re-derived.
+          Non-interactive, counter-scaled, placed clear of the cards, keyed by
+          this edge's id (`data-edge-popover`) for the focus-out rule.
+          Structural links keep their native `<title>` on the hit path. */}
       {showHoverPopover && !selected && !isStructuralEdge && (() => {
         // The WORD comes from the resolver, never from the sign of a number
         // whose direction may have been defaulted.
         const dirLabel = statedDirection === null
           ? null
           : statedDirection === 'positive' ? 'Positive' : 'Negative'
-        const signDisputed = isSignDisputed
-        const counterScale = edgeTooltipZoom > 0 ? 1 / edgeTooltipZoom : 1
         return (
           <EdgeLabelRenderer>
-            <div
-              data-testid="edge-hover-popover"
-              data-edge-popover={edgeIdKey}
-              ref={popoverElRef}
-              role="tooltip"
-              style={{
-                position: 'absolute',
-                transformOrigin: '0 0',
-                transform: `translate(${labelX}px,${labelY}px) scale(${counterScale}) translate(-50%, calc(-100% - 8px))`,
-                pointerEvents: 'none',
-                zIndex: 9999,
-                width: 'max-content',
-              }}
-              className={`${TOOLTIP_SURFACE_CLASS} nodrag nopan nowheel`}
-            >
-              <span data-testid="edge-hover-arrow-sentence">
-                {edgeArrowSentence(String(srcTitle), String(tgtTitle), dirLabel, { signDisputed })}
-                {existenceDash.kind === 'stated' && existenceDash.dash !== undefined
-                  ? ` ${EDGE_EXISTENCE_DOUBT_SENTENCE}`
-                  : ''}
-              </span>
-              {/* The joining space sits OUTSIDE each span, so a span's own
-                  text is exactly its sentence (the cue's `aria-label` equals
-                  the fragility span byte for byte). */}
-              {signDisputed && (
-                <>
-                  {' '}
-                  <span data-testid="edge-hover-direction-disputed">
-                    {DIRECTION_DISPUTED_SENTENCE}
-                    {dirLabel !== null ? ` ${directionInUseSentence(dirLabel)}` : ''}
-                  </span>
-                </>
-              )}
-              {isFragileEdge && (
-                <>
-                  {' '}
-                  <span data-testid="edge-hover-fragility">{fragileSentence}</span>
-                </>
-              )}
-              {/* POM-8: the thin line alone reads "not set"; the hover says what
-                  it actually is — a placeholder, not an estimate. */}
-              {strengthIsPlaceholder && (
-                <>
-                  {' '}
-                  <span data-testid="edge-hover-strength-placeholder">{EDGE_STRENGTH_PLACEHOLDER_SENTENCE}</span>
-                </>
-              )}
-            </div>
+            <LinkHoverCard
+              edgeId={edgeIdKey}
+              labelX={labelX}
+              labelY={labelY}
+              zoom={edgeTooltipZoom}
+              surfaceRef={popoverElRef}
+              arrowSentence={edgeArrowSentence(String(srcTitle), String(tgtTitle), dirLabel, { signDisputed: isSignDisputed })}
+              doubtSentence={existenceDash.kind === 'stated' && existenceDash.dash !== undefined ? EDGE_EXISTENCE_DOUBT_SENTENCE : null}
+              direction={directionDisplay}
+              disputedSentence={isSignDisputed
+                ? `${DIRECTION_DISPUTED_SENTENCE}${dirLabel !== null ? ` ${directionInUseSentence(dirLabel)}` : ''}`
+                : null}
+              strength={edgeSignedStrength}
+              strengthSettled={!strengthUnconfirmed}
+              placeholderSentence={strengthIsPlaceholder ? EDGE_STRENGTH_PLACEHOLDER_SENTENCE : null}
+              fragileSentence={isFragileEdge ? fragileSentence : null}
+            />
           </EdgeLabelRenderer>
         )
       })()}

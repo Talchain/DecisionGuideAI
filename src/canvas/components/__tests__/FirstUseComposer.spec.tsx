@@ -454,12 +454,17 @@ describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
    * they open a real saved model rather than seeding canned text into the
    * composer — so they are allowed, and allowed BY IDENTITY (a card per
    * manifest id), never by loosening the predicate to "some extra buttons".
+   * The "Structure it" toggle (brief-panel direction, 29 Sep 2026) is also not a chip — it swaps the box for four
+   * labelled fields and seeds no text — and is allowed the same way: by its test id AND its exact label.
    */
   it('does NOT render prompt-suggestion chips (explicitly excluded)', () => {
-    const controlButtons = (root: HTMLElement) =>
-      Array.from(root.querySelectorAll('button')).filter(
-        (b) => !b.getAttribute('data-testid')?.startsWith('starter-decision-'),
+    const controlButtons = (root: HTMLElement) => {
+      const toggle = root.querySelector('[data-testid="first-use-brief-mode-toggle"]')
+      expect(toggle?.textContent).toBe('Structure it')
+      return Array.from(root.querySelectorAll('button')).filter(
+        (b) => !b.getAttribute('data-testid')?.startsWith('starter-decision-') && b !== toggle,
       )
+    }
 
     // ── configuration 1: every mount that does NOT offer starters ──────────
     const { unmount } = render(<FirstUseComposer />, { wrapper: Wrapper })
