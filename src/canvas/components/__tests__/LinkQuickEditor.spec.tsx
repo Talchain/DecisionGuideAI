@@ -113,4 +113,13 @@ describe('the canvas click handler feeds the editor the resolver\'s return (sour
   it('never picks the link by "first selected edge"', () => {
     expect(body).not.toMatch(/\.find\(\s*\(?\s*e\s*\)?\s*=>\s*e\.selected\s*\)/)
   })
+  it('PR Review 5897538379: a single click never opens the FULL inspector — a multi-select toggle or an unresolved click opens neither editor', () => {
+    expect(body).not.toMatch(/setShowFullInspector\(\s*true\s*\)/)
+    expect(body).toMatch(/setShowFullInspector\(\s*false\s*\)/)
+  })
+  it('CONTRAST — the double-click still opens the full inspector (the "More detail" route stays)', () => {
+    const d = src.indexOf('const handleEdgeDoubleClick = useCallback(')
+    expect(d).toBeGreaterThan(-1)
+    expect(src.slice(d, src.indexOf('}, [', d))).toMatch(/setShowFullInspector\(\s*true\s*\)/)
+  })
 })

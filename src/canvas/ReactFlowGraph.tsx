@@ -1524,13 +1524,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     // selection (`edges/edgePointerTarget.ts` has the rule, the multi-select
     // toggle and the focus; `edges/nearestEdgeAtPoint.ts` the measurement).
     const intendedId = retargetEdgeClick(event, edge, flowStoreApi.getState())
-    // ⭐ E2 (Paul 29 Sep): a plain click edits the POINTED-AT link's strength where it was clicked (the resolver's
-    // return, never the first selected edge — PR Review 5897003679); the inspector is "More detail".
-    if (openLinkQuickEditForClick(event, intendedId, flowStoreApi.getState().multiSelectionActive)) {
-      setShowFullInspector(false)
-      return
-    }
-    setShowFullInspector(true)
+    // ⭐ E2 (Paul 29 Sep): a plain click edits the POINTED-AT link where it was clicked (the resolver's return, never
+    // the first selected edge — PR Review 5897003679). ⛔ A Meta/Control selection toggle, or a click that resolved no
+    // link, is a SELECTION gesture: it opens NEITHER editor (PR Review 5897538379). The full inspector is the
+    // double-click (`handleEdgeDoubleClick`) or the mini-editor's "More detail".
+    openLinkQuickEditForClick(event, intendedId, flowStoreApi.getState().multiSelectionActive)
+    setShowFullInspector(false)
   }, [onCanvasInteraction, flowStoreApi])
 
   /**
