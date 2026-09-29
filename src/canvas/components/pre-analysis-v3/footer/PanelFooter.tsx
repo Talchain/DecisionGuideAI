@@ -54,6 +54,8 @@ interface PanelFooterProps {
    * panel model, reaches the same arm through the same owner.
    */
   nothingHasAnswered?: boolean
+  /** `selectRunOnRecord` — the scenario has been Run, so the control offers to run again, not a first pass. */
+  runOnRecord?: boolean
 }
 
 export const PanelFooter = memo(function PanelFooter({
@@ -65,6 +67,7 @@ export const PanelFooter = memo(function PanelFooter({
   blockedListing,
   readinessCheck = null,
   nothingHasAnswered = false,
+  runOnRecord = false,
 }: PanelFooterProps) {
   const disabled = isAnalysing || !canRun
 
@@ -177,7 +180,7 @@ export const PanelFooter = memo(function PanelFooter({
           title={!isAnalysing && !canRun ? gateBlockedSubline(blockedReason) : undefined}
           data-testid="pre-analysis-v3-analyse"
         >
-          {isAnalysing ? FOOTER_COPY.analysing : FOOTER_COPY.analyse}
+          {isAnalysing ? FOOTER_COPY.analysing : runOnRecord ? FOOTER_COPY.reanalyse : FOOTER_COPY.analyse}
         </Button>
       </div>
     </div>

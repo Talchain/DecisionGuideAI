@@ -610,6 +610,8 @@ export const FOOTER_COPY = {
   running: 'Analysis running',
   runningSub: 'Hold on while the first pass completes',
   analyse: 'Analyse first pass',
+  /** The same control once the scenario has a Run on record (`selectRunOnRecord`); the app's existing re-run words. */
+  reanalyse: 'Re-run analysis',
   /**
    * The run control's label WHILE a run is in flight. It was a bare literal
    * at `PanelFooter.tsx:186` while one surface rendered the control; the
