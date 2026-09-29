@@ -548,6 +548,16 @@ export const GoalPanel = memo(function GoalPanel({
    * selector, per option). The panel says where the figures are, never picks one.
    */
   const perOptionOnly = isResultsMode && typeof probGoal !== 'number' && displayMetadata.goalFitAvailable === true
+  /**
+   * AIQ #72 5885033487 (2) / PLoT #416: the producer withheld P(goal) (a declared identity on the goal's path was not
+   * evaluated). Its words, verbatim from the typed warning; the mappers already removed every goal figure.
+   */
+  const identityWithheld = isResultsMode ? (displayMetadata.goalIdentityWithheld ?? null) : null
+  const identityWithheldLine = (testId: string) => (
+    <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid={testId}>
+      {identityWithheld?.message}
+    </p>
+  )
   const perOptionOnlyLine = (testId: string) => (
     <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid={testId}>
       {GOAL_CONSTRAINT_COPY.perOptionOnly}{' '}
@@ -572,6 +582,8 @@ export const GoalPanel = memo(function GoalPanel({
         </span>
       )}
     </p>
+  ) : identityWithheld !== null ? (
+    identityWithheldLine('goal-probability-withheld-identity')
   ) : perOptionOnly ? perOptionOnlyLine('goal-probability-per-option') : (
     /* v3.1 (DESIGN-GAP-v31 row 33): the contract has no simulation wording,
        and an absence is stated, not turned into an instruction. Before any
@@ -1231,6 +1243,8 @@ export const GoalPanel = memo(function GoalPanel({
                 </div>
               </div>
             </StaleGuardBanner>
+          ) : identityWithheld !== null ? (
+            identityWithheldLine('goal-impact-withheld-identity')
           ) : perOptionOnly ? (
             perOptionOnlyLine('goal-impact-per-option')
           ) : (

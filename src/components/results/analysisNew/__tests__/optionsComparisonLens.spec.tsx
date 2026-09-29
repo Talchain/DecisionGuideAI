@@ -204,6 +204,20 @@ describe('the two lenses', () => {
     expect(screen.queryAllByTestId(`${T}-goal`)).toHaveLength(0)
   })
 
+  // PLoT #416 / AIQ #72 5885033487 (2): the producer withheld every goal figure for an unevaluated identity; the
+  // locked arm carries ITS words (typed code), not the generic "did not return one". Contrast: the row above.
+  it('PLoT #416: the producer withheld every goal figure → the locked arm states the producer’s words', () => {
+    const WORDS = "Not shown. 'MRR' depends on Pro plan price × Pro paying subscribers, but this run couldn't calculate it that way, so the figures for each option would be wrong."
+    const data = dataFor({ goals: false })
+    const withheld = {
+      ...data,
+      confidence: { ...(data.confidence ?? {}), inferenceWarnings: [{ code: 'GOAL_PROBABILITY_IDENTITY_NOT_EVALUATED', message: WORDS, affected_nodes: [], affected_labels: [] }] },
+    } as unknown as ResultsSectionDataReturn
+    renderRun(withheld)
+    expect(screen.getByTestId(`${T}-lens-goal`)).toHaveAccessibleDescription(WORDS)
+    expect(screen.queryAllByTestId(`${T}-goal`)).toHaveLength(0)
+  })
+
   it('CONTRAST: with goal figures, the control is offered and both arms can be chosen', () => {
     renderRun(dataFor({}))
     expect(screen.getByTestId(`${T}-lens-control`)).toBeInTheDocument()

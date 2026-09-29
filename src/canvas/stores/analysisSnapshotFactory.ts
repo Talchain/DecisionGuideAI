@@ -21,6 +21,7 @@ import {
   type GoalProbabilityInput,
 } from '../../components/results/utils/selectGoalProbability'
 import { goalLevelFromIdentityCaveat } from '../../components/results/utils/goalLevelFromIdentity'
+import { readGoalIdentityWithheld } from '../../components/results/utils/goalIdentityWithheld'
 import {
   collectStructurallyProvenNoFlipIds,
   type FlipAttestationRowLike,
@@ -676,9 +677,15 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
   // live rows) and handed to the chooser beside the winner. The chooser returns the caveat; the
   // snapshot keeps it, so a saved run never shows a bare figure the live row caveated.
   const goalLevelAuthor = goalLevelFromIdentityCaveat(rawV2Response)
+  // PLoT #416: the same reader as the V5 mapper, so a saved run never shows a figure the live row withheld.
+  const goalIdentityWithheld = readGoalIdentityWithheld(rawV2Response) !== null
   const goalDecision = selectGoalProbability(
     winner != null
-      ? ({ ...winner, ...(goalLevelAuthor !== null ? { goalLevelAuthor } : {}) } as GoalProbabilityInput)
+      ? ({
+          ...winner,
+          ...(goalLevelAuthor !== null ? { goalLevelAuthor } : {}),
+          ...(goalIdentityWithheld ? { goalIdentityWithheld: true as const } : {}),
+        } as GoalProbabilityInput)
       : undefined,
   )
   const goalProbability = goalDecision.goalProbability != null

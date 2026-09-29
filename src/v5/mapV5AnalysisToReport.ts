@@ -42,6 +42,7 @@ import {
 } from '../adapters/plot/optionComputeStatus'
 import type { DecisionVerdictReportLike } from '../lib/decisionVerdict'
 import { goalLevelFromIdentityCaveat } from '../components/results/utils/goalLevelFromIdentity'
+import { readGoalIdentityWithheld } from '../components/results/utils/goalIdentityWithheld'
 import { readInfluenceGatedBy } from '../components/results/driverDisplayModel'
 import {
   factorDirectionToPolarity,
@@ -1026,6 +1027,8 @@ export function mapV5AnalysisToReport(
     goal_fit_basis?: { scored_from?: string; node_ids?: string[] }
     /** ISL #207 — whose base the goal figure stands on, when it must be caveated (fail-closed). */
     goalLevelAuthor?: 'olumi' | 'unattested'
+    /** PLoT #416 — the producer withheld P(goal): a declared identity on its path was not evaluated. */
+    goalIdentityWithheld?: true
     /**
      * ROADMAP 2.449 — per-option tail-risk view, in `outcome`'s units.
      * Present only when the producer emitted all three components as finite
@@ -1071,6 +1074,7 @@ export function mapV5AnalysisToReport(
     status_reason?: string
   }
   const goalLevelAuthor = goalLevelFromIdentityCaveat(enrichment)
+  const goalIdentityWithheld = readGoalIdentityWithheld(enrichment) !== null
   const option_probabilities: Record<string, ResultsOptionProbability> = {}
 
   // Resolution path A: option_comparison is the canonical source.
@@ -1194,6 +1198,7 @@ export function mapV5AnalysisToReport(
       ...(goalFitBasis !== undefined ? { goal_fit_basis: goalFitBasis } : {}),
       // ISL #207 — the run's goal base is Olumi's estimate (fail-closed, see the helper).
       ...(goalLevelAuthor !== null ? { goalLevelAuthor } : {}),
+      ...(goalIdentityWithheld ? { goalIdentityWithheld: true as const } : {}),
       confidence: 0.5,
       ...(winProb !== undefined ? { win_probability: winProb } : {}),
       ...(expected !== undefined ? { expected } : {}),

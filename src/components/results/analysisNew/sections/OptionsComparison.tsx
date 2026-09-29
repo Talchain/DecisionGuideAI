@@ -550,6 +550,9 @@ export function OptionsComparison({
    */
   const rangeScale = outcomeRangeScale(options.rows)
   const lensAvailability = comparisonLensAvailability(options)
+  /** The locked arm's note; the producer's withheld words for goal fit when it withheld every figure (PLoT #416). */
+  const lockedNote = (arm: ComparisonLens): string =>
+    arm === 'goal' && options.goalWithheldMessage ? options.goalWithheldMessage : LENS_COPY.locked[arm]
   const lens: ComparisonLens | null =
     chosenLens !== null && lensAvailability[chosenLens]
       ? chosenLens
@@ -762,7 +765,7 @@ export function OptionsComparison({
                   aria-checked={selected}
                   aria-disabled={locked || undefined}
                   aria-describedby={locked ? `${lensGroupId}-locked-${arm}` : undefined}
-                  title={locked ? LENS_COPY.locked[arm] : undefined}
+                  title={locked ? lockedNote(arm) : undefined}
                   tabIndex={selected ? 0 : -1}
                   onClick={() => {
                     if (!locked) setChosenLens(arm)
@@ -808,7 +811,7 @@ export function OptionsComparison({
                   {LENS_COPY.arms[arm]}
                   {locked ? (
                     <span id={`${lensGroupId}-locked-${arm}`} className="sr-only">
-                      {LENS_COPY.locked[arm]}
+                      {lockedNote(arm)}
                     </span>
                   ) : null}
                 </button>

@@ -180,6 +180,11 @@ export interface GoalProbabilityInput extends Partial<Record<OwnedField, number>
   goal_fit_basis?: { scored_from?: string } | null
   /** Stamped by the V5 mapper (`goalLevelFromIdentityCaveat`), fail-closed. */
   goalLevelAuthor?: 'olumi' | 'unattested'
+  /**
+   * Stamped by the mappers from the producer's typed `GOAL_PROBABILITY_IDENTITY_NOT_EVALUATED` warning
+   * (`readGoalIdentityWithheld`, PLoT #416). The goal figure is withheld; the joint figure is not (AIQ 5885033487 (2)).
+   */
+  goalIdentityWithheld?: true
 }
 
 /**
@@ -295,11 +300,13 @@ export function selectGoalProbability(
   // the mapped `goal_probability` wins where a payload carries both, so every
   // existing caller — all of which hold post-mapper shapes — is unaffected.
   const unconstrained =
-    typeof prob?.goal_probability === 'number'
-      ? prob.goal_probability
-      : typeof prob?.probability_of_goal === 'number'
-        ? prob.probability_of_goal
-        : null
+    prob?.goalIdentityWithheld === true
+      ? null
+      : typeof prob?.goal_probability === 'number'
+        ? prob.goal_probability
+        : typeof prob?.probability_of_goal === 'number'
+          ? prob.probability_of_goal
+          : null
   const goalFitBasisScoredFrom =
     typeof prob?.goal_fit_basis?.scored_from === 'string' ? prob.goal_fit_basis.scored_from : null
   const baseCaveat: GoalFitBaseCaveat | null =

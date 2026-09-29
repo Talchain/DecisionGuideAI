@@ -61,6 +61,7 @@ import type { RunDeltaView } from './runDeltaView'
 import type { LimitVerdictView } from './limitVerdictView'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import { deriveComparisonScope } from '../utils/goalAnchorCopy'
+import { readGoalIdentityWithheld } from '../utils/goalIdentityWithheld'
 import { notAnalysedReasonCopy, notComputedReasonCopy } from '../utils/notAnalysedCopy'
 import { optionComputationFailed, type NotAnalysedReason } from '../utils/notAnalysedOptions'
 // The two existing warning surfaces' OWN selectors, imported rather than
@@ -3404,7 +3405,8 @@ function buildOptionsComparison(
     }
   }
 
-  return { rows, totalCount: allOptions.length }
+  const goalWithheld = readGoalIdentityWithheld({ inference_warnings: data.confidence?.inferenceWarnings })
+  return { rows, totalCount: allOptions.length, ...(goalWithheld !== null ? { goalWithheldMessage: goalWithheld.message } : {}) }
 }
 
 /**
