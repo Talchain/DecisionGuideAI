@@ -9,7 +9,7 @@
  * - Smooth transitions
  */
 
-import { memo, useState, useCallback, useEffect, useMemo, type ReactNode, type CSSProperties } from 'react'
+import { memo, useState, useCallback, useEffect, useMemo, useRef, type ReactNode, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react'
 import { nodeTitleChannels } from './shared/nodeRenameAffordance'
 import { nodeCardTitle } from './shared/nodeCardTitle'
 import { optionsWereAssessed } from '../domain/optionAssessment'
@@ -26,6 +26,7 @@ import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { EditableLabel } from '../ui/inspector-v2/shared/EditableLabel'
+import { TITLE_DOUBLE_CLICK_WINDOW_MS, handTitleClickToCard } from './shared/titleClickHandBack'
 import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
 import { selectLodBodyHidden, selectLensDetailActive, LOD_BLANKED_BODY_ATTR, LOD_FAR_TITLE_ATTR, NODE_BODY_BOUND_STYLE_ATTR, NODE_RUNG_PADDING_ATTR } from '../utils/zoomLegibility'
 import { useLayoutStore } from '../layoutStore'
@@ -408,6 +409,32 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // ⭐ E1c — the title is renamed ON THE CARD (Paul 29 Sep: "click the title … to rename"), through the inspector's own
   // rename route (`store.updateNodeLabel`: the durable `structural_rename` capture) and its own editor (`EditableLabel`).
   const [renamingOnCard, setRenamingOnCard] = useState(false)
+  // ⭐ THE TITLE'S CLICKS STAY LOCAL THROUGH THE WHOLE DOUBLE-CLICK (PR Review on #2318, 5895008733). A browser sends
+  // click, click, dblclick; React Flow's node click (`ReactFlowGraph.handleNodeClick`) opens the full inspector — or,
+  // mid-reconnect, COMPLETES the connection — on each of the two clicks, before the dblclick that renames. So the
+  // title stops every click, and hands a LONE click back to the card once the double-click window has passed
+  // (`handTitleClickToCard`): a single click on the title still does exactly what a click anywhere else on the card
+  // does; a double-click does only the rename.
+  const titleClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cancelTitleClick = useCallback(() => {
+    if (titleClickTimer.current !== null) clearTimeout(titleClickTimer.current)
+    titleClickTimer.current = null
+  }, [])
+  useEffect(() => cancelTitleClick, [cancelTitleClick])
+  const onTitleClick = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
+    e.stopPropagation()
+    cancelTitleClick()
+    if (e.detail > 1) return // the second click of a double-click: the rename owns the gesture
+    const card = e.currentTarget.closest('.react-flow__node')
+    const init: MouseEventInit = {
+      bubbles: true, cancelable: true, clientX: e.clientX, clientY: e.clientY,
+      shiftKey: e.shiftKey, metaKey: e.metaKey, ctrlKey: e.ctrlKey, altKey: e.altKey,
+    }
+    titleClickTimer.current = setTimeout(() => {
+      titleClickTimer.current = null
+      handTitleClickToCard(card, init)
+    }, TITLE_DOUBLE_CLICK_WINDOW_MS)
+  }, [cancelTitleClick])
   const updateNodeInternals = useUpdateNodeInternals()
 
   // Phase 3: Node highlighting
@@ -2569,6 +2596,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               className="nodrag nopan"
               style={{ fontWeight: NODE_TITLE_WEIGHT }}
               onPointerDown={(e) => e.stopPropagation()}
+              // A click into the field (placing the caret) is the editor's, never the card's: it must not open the
+              // inspector or complete a reconnect under the user's typing.
+              onClick={(e) => e.stopPropagation()}
               onDoubleClick={(e) => e.stopPropagation()}
             >
               <EditableLabel
@@ -2593,7 +2623,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           <div
             data-testid="node-title"
             data-node-tooltip
-            onDoubleClick={lodBodyHidden ? undefined : (e) => { e.stopPropagation(); setRenamingOnCard(true) }}
+            onClick={lodBodyHidden ? undefined : onTitleClick}
+            onDoubleClick={lodBodyHidden ? undefined : (e) => { e.stopPropagation(); cancelTitleClick(); setRenamingOnCard(true) }}
             {...(lodBodyHidden ? { [LOD_FAR_TITLE_ATTR]: 'true' } : {})}
             className={
               /* ⭐ v3.1 WS1 #2 (26 Sep 2026): NO CLAMP AT A READING RUNG. The
