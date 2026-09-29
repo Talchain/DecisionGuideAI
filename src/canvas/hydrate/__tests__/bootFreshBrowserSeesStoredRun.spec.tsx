@@ -24,6 +24,7 @@ import { hydrateCanvasFromServer } from '../serverGraphHydration'
 import type { AnalysisResultBlock, AnalysisStateV1 } from '@talchain/schemas/boundary'
 import { applyDraftResult } from '../../utils/applyDraftResult'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
+import { withAnalysisRunReceipt } from '../../../v5/analysisRunReceipt'
 
 type Body = {
   scenario_id: string
@@ -114,7 +115,9 @@ describe('⭐ a fresh browser sees the stored Run (Shared Data closure)', () => 
 
   /** A real reload: every in-memory field starts fresh; only the PERSISTED results report survives. */
   function reloadHolding(block: unknown) {
-    const report = mapV5AnalysisToReport(block as AnalysisResultBlock)
+    const report = withAnalysisRunReceipt(mapV5AnalysisToReport(block as AnalysisResultBlock), {
+      scenarioId: SCENARIO_ID, block: block as AnalysisResultBlock, state: body.analysis_state, goalCertainty: null,
+    })
     useCanvasStore.setState({
       analysisStateV1: null, analysisFreshness: null, analysisFreshnessDirty: false, serverGraphIdentity: null,
       lastAuthoritativeGraph: null, lastServerGraphHash: null, bootAdmittedRevision: null,
