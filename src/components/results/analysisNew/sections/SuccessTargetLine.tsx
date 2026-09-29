@@ -937,8 +937,9 @@ export function SuccessTargetLine({
               no brief states (market-entry's 11 £M ARR; its brief says £8M).
               The words now come from the ONE mark the goal card prints
               (`goalTargetSourceMark`, over `resolveGoalTarget`): "Set by you"
-              only where `threshold_source === 'user'` attests it, else "Source
-              not recorded" — so card, strip and inspector give one answer. */}
+              where `threshold_source === 'user'` attests it, "From your brief"
+              where `brief_extraction` attests the raw figure, else "Source not
+              recorded" — so card, strip and inspector give one answer. */}
           {shownText !== null ? (
             <span
               className={`${typography.panelMeta} text-text-light`}

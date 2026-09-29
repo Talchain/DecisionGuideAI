@@ -85,6 +85,9 @@ export interface ResolvedGoalTarget {
    *   · `user` — `threshold_source === 'user'` attests `success_threshold`
    *     (the only value CEE writes: `add-constraint.ts:1350`, schema
    *     `cee-v3.ts:258`, staging `85ce874c`). Licenses "Set by you".
+   *   · `brief` — CEE's `goal_threshold_raw` with
+   *     `threshold_source === 'brief_extraction'`, attesting the figure came
+   *     from the brief.
    *   · `unrecorded` — CEE's `goal_threshold_raw` with no carried source.
    *     Rendered "Source not recorded" on every surface.
    *
@@ -92,12 +95,12 @@ export interface ResolvedGoalTarget {
    * (DESIGN-GAP-v31 #22, A2). ANY `goal_threshold_raw` was stamped `brief`, so
    * the Reasoning strip and the goal inspector read "From brief" over
    * market-entry's 11 £M ARR — a figure its brief never states (it says £8M) —
-   * while the goal card, reading the same node, said "no source". Nothing on
-   * the node records whether CEE lifted the raw from the brief or inferred it,
-   * and the node's `provenance` is about the NODE, not the number (trap 21). A
-   * brief origin returns here the day a carried field states it.
+   * while the goal card, reading the same node, said "no source". That node
+   * had no target-specific source stamp; its `provenance` describes the NODE,
+   * not the number (trap 21). `brief_extraction` now states the target origin
+   * when CEE carries it, while an unstamped raw remains unrecorded.
    */
-  source: 'user' | 'unrecorded'
+  source: 'user' | 'brief' | 'unrecorded'
   /**
    * A change from today (`goalTargetChangeFrameOf`); ABSENT for a level, so a level target resolves to exactly the
    * object it did before. Say `raw` through `formatGoalTarget(raw, unit, frame)`; test it with `frame != null`.
@@ -137,7 +140,7 @@ export function resolveGoalTarget(
       ? (data.goal_threshold_raw as string | number)
       : null
   if (ceeRaw != null && String(ceeRaw).trim() !== '') {
-    return { raw: ceeRaw, unit, source: 'unrecorded', ...frame }
+    return { raw: ceeRaw, unit, source: data.threshold_source === 'brief_extraction' ? 'brief' : 'unrecorded', ...frame }
   }
 
   return null

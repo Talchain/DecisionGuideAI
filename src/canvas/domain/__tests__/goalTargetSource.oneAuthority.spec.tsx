@@ -10,12 +10,10 @@
  * UI-asserted origin: `resolveGoalTarget` stamped ANY `goal_threshold_raw` as
  * `brief`.
  *
- * The carried vocabulary, derived from CEE staging `85ce874c`
- * (`src/schemas/cee-v3.ts:258`: `threshold_source: z.string().max(64)`; its
- * only writer, `add-constraint.ts:1350`, writes `'user'`): a target is the
- * user's exactly when `threshold_source === 'user'` attests a stated
- * `success_threshold`. Nothing on the node records a brief origin for
- * `goal_threshold_raw`, so it is "Source not recorded" on every surface.
+ * The carried `threshold_source` attests the target figure, not the node.
+ * `user` attests a stated `success_threshold`; `brief_extraction` attests a
+ * `goal_threshold_raw` found in the brief. Without either stamp, even a node
+ * with a quote keeps "Source not recorded" on every surface.
  *
  * PINNED BY IDENTITY: the resolver's `source`, the strip's `-source` element
  * text and `data-source`, and the card mark's label — for the SAME node data.
@@ -57,6 +55,11 @@ const MARKET_ENTRY_GOAL = {
 }
 /** The contrast: a target the user set, attested by the carried stamp. */
 const USER_GOAL = { ...MARKET_ENTRY_GOAL, threshold_source: 'user', success_threshold: 9 }
+const BRIEF_GOAL = {
+  label: 'Pro MRR', goal_threshold_raw: 55_000, goal_threshold_unit: 'GBP/month',
+  threshold_source: 'brief_extraction',
+  source_quote: 'target is Pro MRR above £55,000 per month',
+}
 
 const renderStrip = (data: Record<string, unknown>) => {
   state = {
@@ -80,6 +83,26 @@ describe('#22 — the goal target source is read from carried fields only', () =
 
   it('contrast — the resolver: threshold_source "user" + success_threshold is the user\'s', () => {
     expect(resolveGoalTarget(USER_GOAL)).toEqual({ raw: 9, unit: '£M ARR', source: 'user' })
+  })
+
+  it('an attested brief target has one brief source on the resolver, card and strip', () => {
+    expect(resolveGoalTarget(BRIEF_GOAL)).toEqual({ raw: 55_000, unit: 'GBP/month', source: 'brief' })
+    renderStrip(BRIEF_GOAL)
+    const source = screen.getByTestId(`${TID}-source`)
+    expect(source).toHaveTextContent(VALUE_SOURCE_MARK_LABEL.brief)
+    expect(source).toHaveAttribute('data-source', 'brief')
+    expect(goalTargetSourceMark(BRIEF_GOAL).label).toBe(source.textContent)
+  })
+
+  it('a quote alone does not attest the raw target as brief-sourced', () => {
+    const unstamped = {
+      label: BRIEF_GOAL.label, goal_threshold_raw: BRIEF_GOAL.goal_threshold_raw,
+      goal_threshold_unit: BRIEF_GOAL.goal_threshold_unit, source_quote: BRIEF_GOAL.source_quote,
+    }
+    expect(resolveGoalTarget(unstamped)?.source).toBe('unrecorded')
+    renderStrip(unstamped)
+    expect(screen.getByTestId(`${TID}-source`)).toHaveTextContent(VALUE_SOURCE_MARK_LABEL.unknown)
+    expect(goalTargetSourceMark(unstamped).kind).toBe('unknown')
   })
 
   it('the strip / goal inspector (SuccessTargetLine) never reads "From brief" for the market-entry shape', () => {

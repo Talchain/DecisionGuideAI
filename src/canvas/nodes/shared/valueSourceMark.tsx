@@ -261,16 +261,12 @@ export const PRIOR_RANGE_SOURCE_MARK: FactorValueSourceMark = Object.freeze({
  * marks").
  *
  * Follows `statedGoalTargetRaw` exactly: the card prints `success_threshold`
- * only when `threshold_source === 'user'` attests it, and that is the ONE case
- * marked `you`. Every other printed target is CEE's `goal_threshold_raw`, and
- * nothing on the node says whether CEE lifted it from the brief or inferred it
- * (the market-entry starter carries `goal_threshold_raw: 11` "£M ARR" that its
- * brief never states). The node's `provenance` is about the NODE, not the number
- * (`valueProvenance.ts`, trap 21), so it cannot answer either. So the mark is
- * `unknown` — "no source" / "Source not recorded": never unmarked, never
- * relabelled as the user's or the brief's, and never an asserted Olumi origin
- * (Codex #63 5801529767). When the producer stamps the threshold's origin,
- * classify it in `resolveGoalTarget` — this mark reads it from there.
+ * only when `threshold_source === 'user'` attests it, and that case is marked
+ * `you`. CEE's `goal_threshold_raw` is marked `brief` only when its own
+ * `threshold_source === 'brief_extraction'` attests the figure; an unstamped raw
+ * target stays `unknown` (the market-entry starter's 11 £M ARR is not in its
+ * brief). The node's general `provenance` never supplies the target's source.
+ * `resolveGoalTarget` owns this distinction; the mark reads it from there.
  */
 export function goalTargetSourceMark(data: GoalTargetSource | null | undefined): FactorValueSourceMark {
   // ⭐ ONE AUTHORITY (DESIGN-GAP-v31 #22): the source is `resolveGoalTarget`'s,
@@ -281,6 +277,9 @@ export function goalTargetSourceMark(data: GoalTargetSource | null | undefined):
   const target = resolveGoalTarget(data)
   if (target?.source === 'user' && isStatedTargetValue(target.raw)) {
     return { kind: 'you', label: VALUE_SOURCE_MARK_LABEL.you }
+  }
+  if (target?.source === 'brief' && isStatedTargetValue(target.raw)) {
+    return { kind: 'brief', label: VALUE_SOURCE_MARK_LABEL.brief }
   }
   return { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }
 }
