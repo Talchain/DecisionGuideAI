@@ -27,7 +27,7 @@
  *       one row SHAPED to ISL #213's gated form, since #213 is not served yet).
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { act, render, renderHook, screen } from '@testing-library/react'
+import { act, fireEvent, render, renderHook, screen } from '@testing-library/react'
 import { useResultsSectionData } from '../useResultsSectionData'
 import { useNodeDisplayMetadata } from '../../../canvas/hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../../../canvas/store'
@@ -35,6 +35,7 @@ import { DriversSection } from '../DriversSection'
 import { extractPolicyRow, selectDriverDisplayModel } from '../driverDisplayModel'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import servedC from '../../../canvas/nodes/__tests__/fixtures/served-pj-c-213830Z.unvalued-drivers.json'
+import plot408Zero from './fixtures/plot408-gated-egress-ZERO.json'
 
 const GATED_WORDS = 'Depends on the option chosen'
 
@@ -306,5 +307,52 @@ describe('(g) PLoT #408 egress rows through mapV5AnalysisToReport → panel and 
   it('⛔ CONTRAST: a NON-gated row with no usable magnitude is still dropped, as before', () => {
     const report = mapV5AnalysisToReport(block([scoredP('pro_paying_subscribers', 0.9, 1), { factor_id: 'monthly_churn', importance_basis: 'isl_structural' }]) as never) as unknown as { factor_sensitivity: Array<Record<string, unknown>> }
     expect(report.factor_sensitivity.map((r) => r.factor_id)).toEqual(['pro_paying_subscribers'])
+  })
+})
+
+describe('(h) the REAL PLoT #408 egress (R3-B, unmodified rows) replayed through the mapper → panel and badge', () => {
+  // A real gated row carries a magnitude from PLoT's own walk (pro_paying_subscribers sensitivity_score 0.15,
+  // elasticity 0.30) — the hand-built gatedP rows above never did. The words must still win over that figure.
+  const rows = plot408Zero.factor_sensitivity as Array<Record<string, unknown>>
+  const gatedIds = rows.filter((r) => Array.isArray(r.influence_gated_by)).map((r) => r.factor_id as string)
+  const run = () => {
+    const b = JSON.parse(JSON.stringify(servedC.analysis_block)) as { enrichment: Record<string, unknown> }
+    b.enrichment.factor_sensitivity = rows
+    b.enrichment.driver_order = plot408Zero.driver_order
+    setCompleteReport(mapV5AnalysisToReport(b as never) as unknown as Record<string, unknown>)
+  }
+
+  it('premise: 3 gated rows, one of them with a non-zero magnitude', () => {
+    expect(gatedIds).toEqual(['pro_paying_subscribers', 'monthly_churn', 'monthly_new_pro_subscribers'])
+    expect(rows.find((r) => r.factor_id === 'pro_paying_subscribers')!.sensitivity_score).toBe(0.15)
+  })
+
+  it('every gated row reads the words with no digit and no rank — even the one carrying a 0.15 magnitude', () => {
+    run()
+    const data = panelRows()
+    render(<DriversSection data={data} />)
+    fireEvent.click(screen.getByRole('button', { name: 'See all factors (+2 more)' })) // 2 scored + 1 gated fit the collapsed 3
+    for (const id of gatedIds) {
+      expect(canvasFor(id).inSensitivityAnalysis, id).toBe(true) // precondition: the row IS in the run
+      expect(canvasFor(id).sensitivityRank, id).toBeNull()
+      expect(canvasFor(id).influence, id).toBeNull()
+      const row = screen.getByTestId(`driver-gated-row-${id}`)
+      expect(row.textContent).toContain(GATED_WORDS)
+      expect(row.textContent).not.toMatch(/\d/)
+    }
+    expect(data.drivers.map((d) => d.factorKey).filter((k) => gatedIds.includes(k))).toEqual([])
+  })
+
+  it('the scored rows keep the producer basis; panel order and the canvas Driver 1 agree', () => {
+    run()
+    const data = panelRows()
+    // ⚠ Pinned as TODAY's behaviour, not endorsed: pro_plan_price (influence_score 1, elasticity 0 at price 0
+    // today) is not listed — the panel's existing >5-rows zero-elasticity filter, same as served journey C.
+    // Whether a zero-sensitivity lever is listed is an AI QUALITY meaning call, raised on #72, not this PR's.
+    expect(data.drivers.map((d) => [d.factorKey, d.displayProvenance])).toEqual([
+      ['fac_existing_customers_grandfathered', 'influence_score'],
+      ['other_mrr_growth', 'influence_score'],
+    ])
+    expect(canvasFor('fac_existing_customers_grandfathered').sensitivityRank).toBe(1)
   })
 })

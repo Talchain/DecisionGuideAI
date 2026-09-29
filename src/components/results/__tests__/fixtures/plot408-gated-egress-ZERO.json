@@ -1,0 +1,224 @@
+{
+  "_source": "LOCAL egress (NOT served): PLoT staging 5c8819235433eb1c8511acae518bfc93c2d8b984 /v2/run over ISL tree == staging b4b50bb5 (ISL #214 head cd5fd4e5, identical tree). Input: r3b/witness-gated-train-20260929/ZERO.json (Paul's P1 with price 0 today, MRR level unstated). Unmodified PLoT response fields.",
+  "_fetched_from": "Talchain/olumi-programme-docs@2880534d r3b/witness-214-20260929/plot408-gated-egress-ZERO.json (R3-B #72 5882989558)",
+  "driver_order": {
+    "version": 1,
+    "basis": "isl_structural",
+    "ranked_factor_ids": [
+      "fac_existing_customers_grandfathered",
+      "other_mrr_growth",
+      "pro_plan_price"
+    ],
+    "species": "single",
+    "lever_policy": "du_union",
+    "lever_ids": [
+      "pro_plan_price"
+    ],
+    "separability": {
+      "top_pair_separable": false,
+      "method": "basis_value_exact_tie"
+    },
+    "rank_stability": {
+      "max_rank_flip_rate": 0,
+      "min_attribution_stability": "low"
+    }
+  },
+  "factor_sensitivity": [
+    {
+      "factor_id": "fac_existing_customers_grandfathered",
+      "factor_label": "Existing customers grandfathered",
+      "influence_score": 0.16666666666666669,
+      "influence_rank": 2,
+      "sensitivity_score": -0.48875,
+      "elasticity": 0.9895414829202863,
+      "direction": "negative",
+      "importance_rank": 1,
+      "value_of_information": 0,
+      "confidence": 0.5,
+      "confidence_source": "plot_unified_from_graph",
+      "confidence_provenance": {
+        "computation_source": "plot_unified_from_graph",
+        "formula_version": "plot_unified_v2",
+        "is_provisional": true,
+        "calibration_status": "provisional_pending_pilot_calibration",
+        "input_quality": "degenerate_fallback"
+      },
+      "confidence_components": {
+        "structural_certainty": 0.5,
+        "sampling_stability": null
+      },
+      "source": "graph",
+      "flip_risk_category": "negligible",
+      "influence_basis": "isl_structural",
+      "importance_basis": "isl_structural",
+      "driver_label": "biggest",
+      "evpi_percentage_points": 0,
+      "evpi_method": "heuristic",
+      "evidence_hint": false,
+      "range_derivation_source": "default"
+    },
+    {
+      "factor_id": "other_mrr_growth",
+      "factor_label": "Other MRR growth",
+      "influence_score": 0.16666666666666669,
+      "influence_rank": 3,
+      "sensitivity_score": 0.39999999999999997,
+      "elasticity": 0.8098549220830987,
+      "direction": "positive",
+      "importance_rank": 2,
+      "value_of_information": 0,
+      "confidence": 0.7150000000000001,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+        "computation_source": "plot_unified_from_isl_bootstrap",
+        "formula_version": "plot_unified_v3",
+        "is_provisional": true,
+        "calibration_status": "provisional_pending_pilot_calibration",
+        "input_quality": "standard"
+      },
+      "confidence_components": {
+        "structural_certainty": 0.5,
+        "sampling_stability": 1
+      },
+      "source": "graph",
+      "flip_risk_category": "negligible",
+      "attribution_stability": "high",
+      "rank_flip_rate": 0,
+      "value_source": "cee_inference",
+      "value_extraction_type": "inferred",
+      "influence_basis": "isl_structural",
+      "importance_basis": "isl_structural",
+      "driver_label": "minor",
+      "evpi_percentage_points": 0,
+      "evpi_method": "heuristic",
+      "evidence_hint": false,
+      "range_derivation_source": "inferred_value"
+    },
+    {
+      "factor_id": "pro_plan_price",
+      "factor_label": "Pro plan price",
+      "influence_score": 1,
+      "influence_rank": 1,
+      "sensitivity_score": 0,
+      "elasticity": 0,
+      "direction": "positive",
+      "importance_rank": 3,
+      "value_of_information": 0,
+      "confidence": 0.41755,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+        "computation_source": "plot_unified_from_isl_bootstrap",
+        "formula_version": "plot_unified_v3",
+        "is_provisional": true,
+        "calibration_status": "provisional_pending_pilot_calibration",
+        "input_quality": "standard"
+      },
+      "confidence_components": {
+        "structural_certainty": 0.5,
+        "sampling_stability": 0.25
+      },
+      "zero_reason": "intervention_override",
+      "source": "graph",
+      "flip_risk_category": "negligible",
+      "attribution_stability": "low",
+      "rank_flip_rate": 0,
+      "value_source": "brief_extraction",
+      "influence_basis": "isl_structural",
+      "importance_basis": "isl_structural",
+      "driver_label": "strong",
+      "range_derivation_source": "explicit_cap"
+    },
+    {
+      "factor_id": "pro_paying_subscribers",
+      "factor_label": "Pro paying subscribers",
+      "sensitivity_score": 0.15,
+      "elasticity": 0.303695595781162,
+      "direction": "positive",
+      "value_of_information": 0,
+      "confidence": 0.4,
+      "confidence_source": "plot_unified_from_graph",
+      "confidence_provenance": {
+        "computation_source": "plot_unified_from_graph",
+        "formula_version": "plot_unified_v2",
+        "is_provisional": true,
+        "calibration_status": "provisional_pending_pilot_calibration",
+        "input_quality": "standard"
+      },
+      "confidence_components": {
+        "structural_certainty": 0.8,
+        "sampling_stability": null
+      },
+      "source": "graph",
+      "flip_risk_category": "negligible",
+      "influence_basis": "isl_structural",
+      "influence_gated_by": [
+        "pro_plan_price"
+      ],
+      "importance_basis": "isl_structural",
+      "evpi_percentage_points": 0,
+      "evpi_method": "heuristic",
+      "evidence_hint": false,
+      "range_derivation_source": "inferred_value"
+    },
+    {
+      "factor_id": "monthly_churn",
+      "factor_label": "Monthly churn",
+      "sensitivity_score": 0,
+      "elasticity": 0,
+      "direction": "negative",
+      "value_of_information": 0,
+      "confidence": 0.5,
+      "confidence_source": "plot_unified_from_graph",
+      "confidence_provenance": {
+        "computation_source": "plot_unified_from_graph",
+        "formula_version": "plot_unified_v2",
+        "is_provisional": true,
+        "calibration_status": "provisional_pending_pilot_calibration",
+        "input_quality": "standard"
+      },
+      "confidence_components": {
+        "structural_certainty": 0.8,
+        "sampling_stability": null
+      },
+      "zero_reason": "intervention_override",
+      "source": "graph",
+      "flip_risk_category": "negligible",
+      "influence_basis": "isl_structural",
+      "influence_gated_by": [
+        "pro_plan_price"
+      ],
+      "importance_basis": "isl_structural",
+      "range_derivation_source": "scale_frame"
+    },
+    {
+      "factor_id": "monthly_new_pro_subscribers",
+      "factor_label": "Monthly new Pro subscribers",
+      "sensitivity_score": 0,
+      "elasticity": 0,
+      "direction": "positive",
+      "value_of_information": 0,
+      "confidence": 0.4,
+      "confidence_source": "plot_unified_from_graph",
+      "confidence_provenance": {
+        "computation_source": "plot_unified_from_graph",
+        "formula_version": "plot_unified_v2",
+        "is_provisional": true,
+        "calibration_status": "provisional_pending_pilot_calibration",
+        "input_quality": "standard"
+      },
+      "confidence_components": {
+        "structural_certainty": 0.8,
+        "sampling_stability": null
+      },
+      "zero_reason": "intervention_override",
+      "source": "graph",
+      "flip_risk_category": "negligible",
+      "influence_basis": "isl_structural",
+      "influence_gated_by": [
+        "pro_plan_price"
+      ],
+      "importance_basis": "isl_structural",
+      "range_derivation_source": "scale_frame"
+    }
+  ]
+}
