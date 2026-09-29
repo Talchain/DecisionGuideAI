@@ -53,7 +53,7 @@ export function optionParticipationOf(
 
 /**
  * ⛔ THE PUBLISHED ENTRY CONTRACT, MIRRORED VERBATIM — `@talchain/schemas` 0.65.0 `OptionParticipationEntrySchema`
- * (schemas #74 @ d01afc1e, `src/orchestrator/handler-results.ts`). The UI vendors 0.61.0, so the schema is copied rather
+ * and the record-level `option_participation` refinement (schemas #74 @ 9520f5f7, `src/orchestrator/handler-results.ts`). The UI vendors 0.61.0, so the schema is copied rather
  * than re-interpreted (DL CHANGES_REQUIRED on #2305 @ ddf47006): a present-but-empty id list, an exclusion that names
  * ids, and an undeclared key are all refused. Delete this copy when the vendored package carries the schema.
  */
@@ -66,8 +66,23 @@ const OptionParticipationEntrySchema = z.object({
     ctx.addIssue({ code: 'custom', path: ['unanalysable_user_option_ids'],
       message: 'only a provisional keep names unanalysable user options' })
   }
+  if (e.unanalysable_user_option_ids !== undefined
+    && new Set(e.unanalysable_user_option_ids).size !== e.unanalysable_user_option_ids.length) {
+    ctx.addIssue({ code: 'custom', path: ['unanalysable_user_option_ids'], message: 'an unanalysable user option is named once' })
+  }
 })
-const OptionParticipationRecord = z.array(OptionParticipationEntrySchema)
+// ONE VERDICT PER OPTION: a repeated `option_id`, or an Olumi option named as a user's, refuses the whole record.
+const OptionParticipationRecord = z.array(OptionParticipationEntrySchema).superRefine((entries, ctx) => {
+  const ids = entries.map((e) => e.option_id)
+  ids.forEach((id, i) => {
+    if (ids.indexOf(id) !== i) ctx.addIssue({ code: 'custom', path: [i, 'option_id'], message: 'one participation verdict per option' })
+  })
+  entries.forEach((e, i) => (e.unanalysable_user_option_ids ?? []).forEach((u, j) => {
+    if (ids.includes(u)) {
+      ctx.addIssue({ code: 'custom', path: [i, 'unanalysable_user_option_ids', j], message: "an Olumi option is not the user's" })
+    }
+  }))
+})
 
 /** `null` = not recorded, or refused (ANY entry outside the contract refuses the whole record). `[]` = recorded, none. */
 export function readOptionParticipation(raw: unknown): readonly OptionParticipationEntry[] | null {

@@ -732,11 +732,14 @@ export const OptionNode = memo((props: NodeProps) => {
   const keptProvisionalSentence = useCanvasStore((state): string | null => {
     const entry = optionParticipationOf(state.results.report as { option_participation?: never } | null, props.id)
     if (entry?.state !== 'kept_olumi_provisional') return null
-    const labels = entry.unanalysableUserOptionIds
+    const ids = entry.unanalysableUserOptionIds
+    if (ids.length === 0) return olumiProposedKeptCopy({ kind: 'fewer_than_two' })
+    const labels = ids
       .map((id) => (state.nodes.find((n) => n.id === id)?.data as { label?: unknown } | undefined)?.label)
       .filter((l): l is string => typeof l === 'string' && l.trim().length > 0)
       .map((l) => l.trim())
-    return olumiProposedKeptCopy(labels)
+    // Ids the canvas can no longer name are NOT "no ids": never fall into the fewer-than-two sentence (DL on #2305).
+    return olumiProposedKeptCopy(labels.length === ids.length ? { kind: 'named', labels } : { kind: 'unresolved' })
   })
   const resultsStatus = useCanvasStore(state => state.results.status)
   // Wave 4 / §6.4: the identity-anchored option number (Wave F-A store),
