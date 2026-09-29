@@ -347,7 +347,7 @@ export interface GoalConstraintTextOptions {
  */
 const LABEL_OPERATOR_PATTERN = /[<>≤≥]=?/
 
-function labelAlreadyStatesLimit(label: string): boolean {
+export function labelAlreadyStatesLimit(label: string): boolean {
   return LABEL_OPERATOR_PATTERN.test(label) && /\d/.test(label)
 }
 

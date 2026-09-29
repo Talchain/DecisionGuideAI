@@ -144,3 +144,43 @@ describe('applyV5State — a change limit on the goal is never mirrored as its l
     expect((store.updateNode as ReturnType<typeof vi.fn>).mock.calls[0][1].data).toMatchObject({ goal_threshold_raw: 5000, goal_threshold_unit: 'GBP' })
   })
 })
+
+/**
+ * ⛔ PR Review CHANGES_REQUIRED 5881464028, blocking 1: the UPSERT no-op compared every content field BUT
+ * `value_frame`, so a same-ID patch whose ONLY change is level/absent → change_rel was declared an exact echo and
+ * never written — the stored row stayed a level and readers said "≤ 0.1" for a 10%-from-today limit.
+ */
+describe('applyV5State — a same-ID frame-only update writes (patch → store → reader)', () => {
+  const LEVEL_ROW: CEEGoalConstraint = { constraint_id: 'c_cost', node_id: 'fac_cost', operator: '<=', value: 0.1, label: 'Total monthly cloud cost' } as CEEGoalConstraint
+
+  it('RED: stored as a level (no frame), re-sent as change_rel with the same ID → written, read as the change', () => {
+    const store = makeStore([LEVEL_ROW])
+    const result = applyV5State(baseResponse({ blocks: [constraintPatch({ ...LEVEL_ROW, value_frame: 'change_rel' }, 'fac_cost')] }), store)
+    expect(result.deferred.some((d) => d.reason === 'add_constraint_noop_skipped')).toBe(false)
+    expect(store.setGoalConstraints).toHaveBeenCalledTimes(1)
+    const rows = (store.setGoalConstraints as ReturnType<typeof vi.fn>).mock.calls[0][0] as CEEGoalConstraint[]
+    expect(rows).toHaveLength(1)
+    expect(rows[0].value_frame).toBe('change_rel')
+    expect(goalConstraintText(rows[0], [], { omitLabel: true })).toBe('no more than 10% above today')
+  })
+
+  it('RED: stored as an explicit "level", re-sent as change_rel → written', () => {
+    const store = makeStore([{ ...LEVEL_ROW, value_frame: 'level' } as CEEGoalConstraint])
+    applyV5State(baseResponse({ blocks: [constraintPatch({ ...LEVEL_ROW, value_frame: 'change_rel' }, 'fac_cost')] }), store)
+    expect(stored(store).value_frame).toBe('change_rel')
+  })
+
+  it('⛔ CONTRAST: the exact echo (same ID, same frame) is still a no-op — zero writes', () => {
+    const store = makeStore([{ ...LEVEL_ROW, value_frame: 'change_rel' } as CEEGoalConstraint])
+    const result = applyV5State(baseResponse({ blocks: [constraintPatch({ ...LEVEL_ROW, value_frame: 'change_rel' }, 'fac_cost')] }), store)
+    expect(store.setGoalConstraints).not.toHaveBeenCalled()
+    expect(result.deferred.some((d) => d.reason === 'add_constraint_noop_skipped')).toBe(true)
+  })
+
+  it('⛔ CONTRAST: absent and "level" are the same statement — a level echo is a no-op either way', () => {
+    const store = makeStore([LEVEL_ROW])
+    const result = applyV5State(baseResponse({ blocks: [constraintPatch({ ...LEVEL_ROW, value_frame: 'level' }, 'fac_cost')] }), store)
+    expect(store.setGoalConstraints).not.toHaveBeenCalled()
+    expect(result.deferred.some((d) => d.reason === 'add_constraint_noop_skipped')).toBe(true)
+  })
+})

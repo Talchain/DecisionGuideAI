@@ -25,7 +25,7 @@ import { RAW_ID_PATTERN } from '../../canvas/conversation/friendlyOperation'
 import { classifyUnit, formatMoneyFigure } from '../../utils/unitClassifier'
 import type { V5GraphPatchBlock } from '../../canvas/conversation/types'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
-import { isKnownLimitFrame, limitChangeSentence } from '../../canvas/utils/goalConstraintText'
+import { isKnownLimitFrame, labelAlreadyStatesLimit, limitChangeSentence } from '../../canvas/utils/goalConstraintText'
 
 // ---------------------------------------------------------------------------
 // Operation labels (already friendlied; kept here as the single source of truth
@@ -354,13 +354,22 @@ export function buildV5PatchReceipt(
       // not from a node label lookup (constraints aren't graph nodes
       // with a separate label cache — they live on the goal node).
       const after = block.after as
-        | { label?: unknown; value?: unknown; unit?: unknown; operator?: unknown; value_frame?: unknown }
+        | { label?: unknown; node_id?: unknown; value?: unknown; unit?: unknown; operator?: unknown; value_frame?: unknown }
         | null
       const before = block.before as
         | { value?: unknown; unit?: unknown; operator?: unknown; value_frame?: unknown }
         | null
       const labelRaw = typeof after?.label === 'string' ? after.label : ''
-      const entityLabel = labelRaw && !RAW_ID_PATTERN.test(labelRaw) ? labelRaw : ''
+      const carriedLabel = labelRaw && !RAW_ID_PATTERN.test(labelRaw) ? labelRaw : ''
+      // ⛔ PR Review 5881464028 blocking 2 + DL 5881499189: beside a CHANGE, or an unread frame, a carried label that
+      // states a numeric level ("Cloud cost <= 0.1") is a second, false statement of the limit. The subject becomes
+      // the constrained node's own name, or nothing. An ordinary subject label, and any label on a level, stay.
+      const levelLabelBesideNonLevel = (): string => {
+        if (!carriedLabel || !labelAlreadyStatesLimit(carriedLabel)) return carriedLabel
+        const nodeName = typeof after?.node_id === 'string' ? deps.nodeLabels.get(after.node_id) : undefined
+        return nodeName && !RAW_ID_PATTERN.test(nodeName) ? nodeName : ''
+      }
+      let entityLabel = carriedLabel
       const opRaw = typeof after?.operator === 'string' ? after.operator : ''
       const operatorPhrase = CONSTRAINT_OPERATOR_PHRASES[opRaw] ?? ''
       const valueStr = formatConstraintValue(
@@ -372,12 +381,13 @@ export function buildV5PatchReceipt(
       // than a level (PR Review 5880865579). The applicator defers the same patch.
       const frameUnread = (side: { value_frame?: unknown } | null): boolean =>
         side !== null && side.value_frame !== undefined && !isKnownLimitFrame(side.value_frame)
-      if (frameUnread(after)) return { actionLabel, entityLabel, changeSummary, status }
+      if (frameUnread(after)) return { actionLabel, entityLabel: levelLabelBesideNonLevel(), changeSummary, status }
       // ⭐ R1 S4-core (CEE #2261; PR Review 5880215622 blocking 2): a limit stated as a CHANGE from today is said as
       // the change ("no more than 10% above today"), by the same sayer as the cards — never "at most 0.1".
       const afterChange = saidLimitChange(after)
       if (afterChange !== null) {
         changeSummary = afterChange
+        entityLabel = levelLabelBesideNonLevel()
       } else if (operatorPhrase && valueStr && valueStr !== '—') {
         changeSummary = `${operatorPhrase} ${valueStr}`.trim()
       } else if (valueStr && valueStr !== '—') {

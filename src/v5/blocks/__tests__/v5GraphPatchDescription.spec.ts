@@ -280,6 +280,50 @@ describe('buildV5PatchReceipt — add_constraint', () => {
     expect(r.changeSummary).toBe('')
   })
 
+  // ⛔ PR Review 5881464028 blocking 2 + DL advisory 5881499189: the receipt's SUBJECT is the carried label, and a
+  // producer can bake a level into it ("Cloud cost <= 0.1"). Beside a change — or an unread frame — that label is a
+  // second, false statement of the limit. It is replaced by the constrained node's own name, or dropped.
+  it('RED: a change frame never shows a carried label that states a numeric level — the node name instead', () => {
+    const r = buildV5PatchReceipt(
+      block({ after: { label: 'Cloud cost <= 0.1', node_id: 'fac_cost', value: 0.1, operator: '<=', value_frame: 'change_rel' } }),
+      makeDeps([{ id: 'fac_cost', label: 'Total monthly cloud cost' }]),
+    )
+    expect(r.entityLabel).toBe('Total monthly cloud cost')
+    expect(r.changeSummary).toBe('no more than 10% above today')
+    expect(`${r.entityLabel} ${r.changeSummary}`).not.toMatch(/0\.1/)
+  })
+
+  it('RED: …and with no resolvable node name the level label is dropped, not shown', () => {
+    const r = buildV5PatchReceipt(
+      block({ after: { label: 'Cloud cost <= 0.1', value: 0.1, operator: '<=', value_frame: 'change_rel' } }),
+      makeDeps(),
+    )
+    expect(r.entityLabel).toBe('')
+  })
+
+  it('RED (DL 5881499189): an UNREAD frame shows no bound AND no carried level label', () => {
+    const r = buildV5PatchReceipt(
+      block({ after: { label: 'Cloud cost <= 0.1', node_id: 'fac_cost', value: 0.1, operator: '<=', value_frame: 'bogus' } }),
+      makeDeps([{ id: 'fac_cost', label: 'Total monthly cloud cost' }]),
+    )
+    expect(r.changeSummary).toBe('')
+    expect(r.entityLabel).toBe('Total monthly cloud cost')
+    expect(r.entityLabel).not.toMatch(/0\.1|<=/)
+  })
+
+  it('⛔ CONTRAST: an ordinary subject label stays beside a change; a LEVEL keeps its carried label', () => {
+    const change = buildV5PatchReceipt(
+      block({ after: { label: 'Total monthly cloud cost', value: 0.1, operator: '<=', value_frame: 'change_rel' } }),
+      makeDeps(),
+    )
+    expect(change.entityLabel).toBe('Total monthly cloud cost')
+    const level = buildV5PatchReceipt(
+      block({ after: { label: 'Cloud cost <= 50000', value: 50000, unit: 'GBP', operator: '<=', value_frame: 'level' } }),
+      makeDeps(),
+    )
+    expect(level.entityLabel).toBe('Cloud cost <= 50000')
+  })
+
   it('renders updated constraint with before → after', () => {
     const r = buildV5PatchReceipt(
       block({

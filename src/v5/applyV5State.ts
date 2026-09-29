@@ -763,7 +763,11 @@ function constraintsDeepEqual(a: CEEGoalConstraint, b: CEEGoalConstraint): boole
     (a.unit ?? undefined) === (b.unit ?? undefined) &&
     (a.source_quote ?? undefined) === (b.source_quote ?? undefined) &&
     (a.confidence ?? undefined) === (b.confidence ?? undefined) &&
-    (a.provenance ?? undefined) === (b.provenance ?? undefined)
+    (a.provenance ?? undefined) === (b.provenance ?? undefined) &&
+    // ⛔ PR Review 5881464028 (blocking 1): the FRAME is content. A same-ID patch whose only change is
+    // level → change_rel must write, or the stored row stays a level and readers say "≤ 0.1" for a
+    // 10%-from-today limit. Absent and 'level' are the same statement (a legacy level carries no key).
+    (a.value_frame ?? 'level') === (b.value_frame ?? 'level')
   )
 }
 
