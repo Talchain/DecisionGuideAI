@@ -46,6 +46,7 @@ import {
   goalTargetChangeFrameOf,
   statedGoalTargetRaw,
   type GoalTargetSource,
+  goalTargetInPlaceEdit,
 } from '../domain/goalTarget'
 import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import {
@@ -65,6 +66,8 @@ import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { openModelValueEditor } from './shared/openModelValueEditor'
+import { NodeValueEditor } from './shared/NodeValueEditor'
+import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
@@ -982,6 +985,14 @@ export const GoalNode = memo((props: NodeProps) => {
     targetLine !== null ? goalTargetSourceMark(props.data as GoalTargetSource) : null
   // ⛔ R1 S4-core: a change target is not edited as a level (the Model tab row is read-only for one, CEE refuses the
   // write by name), so its line is plain text — never a button promising "change it in the Model tab".
+  // ⭐ E1a — the target is edited ON THE CARD when every input the write needs is already stated on the goal
+  // (`goalTargetInPlaceEdit`), through the ONE authority the Model tab's editor uses (`proposeGoalTarget`); otherwise
+  // the route below to the full editor stands.
+  const goalEditAuthority = useModelEditAuthority(props.id)
+  const inPlaceTarget =
+    targetLine !== null && GOAL_TARGET_ROUTE_IS_LIVE && goalEditAuthority.goalTargetDispatchAvailable
+      ? goalTargetInPlaceEdit(props.data as GoalTargetSource)
+      : null
   const targetRouteChannels =
     targetLine !== null && goalTargetChangeFrameOf(thresholdFrame) === null
       ? goalTargetRouteChannels({ targetLine, sourceLabel: targetSourceMark?.label })
@@ -1108,7 +1119,29 @@ export const GoalNode = memo((props: NodeProps) => {
               so it can never wrap onto a line it did not already take. */}
         <div className="pt-[3px] flex min-w-0 flex-wrap items-center gap-x-[min(8px,calc(7px*var(--canvas-label-scale,1)))] gap-y-0.5" data-testid="goal-node-resting-state">
           {canCaptureTarget && noTargetStatusChip}
-          {targetLine !== null && targetRouteChannels !== null && (
+          {inPlaceTarget !== null && thresholdDisplay !== null && (
+            <span className={`nodrag nopan ${GOAL_TARGET_ROW_TYPE} text-text-body inline-flex min-w-0 items-baseline gap-x-1`}>
+              <span>{GOAL_TARGET_PREFIX}</span>
+              <NodeValueEditor
+                value={inPlaceTarget.value}
+                readout={thresholdDisplay}
+                onCommit={(v, opts) =>
+                  goalEditAuthority.proposeGoalTarget(
+                    String(v),
+                    inPlaceTarget.unit,
+                    goalEditAuthority.captureScenarioId(),
+                    inPlaceTarget.direction,
+                    { onSendSettled: (settlement) => opts.onSendSettled(settlement) },
+                  )}
+                readCommittedValue={() =>
+                  goalTargetInPlaceEdit(useCanvasStore.getState().nodes.find((n) => n.id === props.id)?.data as GoalTargetSource)?.value ?? null}
+                ariaLabel={`Target for ${props.data?.label ?? 'this goal'}`}
+                testId={`goal-target-editor-${props.id}`}
+                restingFlow="inline"
+              />
+            </span>
+          )}
+          {inPlaceTarget === null && targetLine !== null && targetRouteChannels !== null && (
             <button
               type="button"
               data-testid={GOAL_TARGET_ROUTE_TESTID}
@@ -1133,7 +1166,7 @@ export const GoalNode = memo((props: NodeProps) => {
               {targetLine}
             </button>
           )}
-          {targetLine !== null && targetRouteChannels === null && (
+          {inPlaceTarget === null && targetLine !== null && targetRouteChannels === null && (
             <div className={`${GOAL_TARGET_ROW_TYPE} text-text-body`} data-testid="goal-target-line">
               {targetLine}
             </div>
