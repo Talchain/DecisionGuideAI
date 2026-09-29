@@ -37,6 +37,7 @@ import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt, selectReportIsFromEarlierRun } from '../store'
 import { selectRunOnRecord, useAnalysisState } from '../state/analysisStateSelector'
+import { selectSavedRunUnconfirmed, useDeclinedSavedRunStore } from '../stores/declinedSavedRunStore'
 import { useAnalysisWaitExhausted } from '../../components/results/analysisNew/useAnalysisWaitExhausted'
 import { getScenario } from '../store/scenarios'
 // ── The workspace-shell contract ────────────────────────────────────────────
@@ -773,7 +774,13 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
 
   // The server's run state says whether this scenario has been Run — the run control then offers to run AGAIN
   // (`selectRunOnRecord`; a stale cold reload restores that verdict without the result block).
-  const runOnRecord = useCanvasStore(s => selectRunOnRecord(s.analysisStateV1))
+  const runOnRecordLocally = useCanvasStore(s => selectRunOnRecord(s.analysisStateV1))
+  // A saved Run the boot could not confirm still EXISTS: the control offers to run again and one sentence says why the
+  // Run is not shown, never "first pass" (`declinedSavedRunStore.ts`; P0 #72 5893379882).
+  const declinedSavedRun = useDeclinedSavedRunStore(s => s.declined)
+  const currentScenarioIdForRun = useCanvasStore(s => s.currentScenarioId)
+  const savedRunUnconfirmed = selectSavedRunUnconfirmed(declinedSavedRun, currentScenarioIdForRun, runOnRecordLocally)
+  const runOnRecord = runOnRecordLocally || savedRunUnconfirmed
 
   // Actions don't need shallow - they're stable references
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
@@ -3657,6 +3664,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                           blockedReason={runBlockedTooltip}
                           blockedListing={runBlockedListing}
                           runOnRecord={runOnRecord}
+                          savedRunUnconfirmed={savedRunUnconfirmed}
                         />
                       </Suspense>
                     </div>

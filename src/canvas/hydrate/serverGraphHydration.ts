@@ -20,6 +20,7 @@
 import { useCanvasStore } from '../store'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { useReloadDifferenceStore } from '../stores/reloadDifferenceStore'
+import { declinedSavedRunKindOf, useDeclinedSavedRunStore } from '../stores/declinedSavedRunStore'
 import { logger } from '../../lib/logger'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
@@ -400,6 +401,11 @@ async function readAndMergeServerGraph(
         readCurrentGraphHash: () => useCanvasStore.getState().analysisFreshness?.currentGraphHash,
       },
     })
+    // A saved Run the proof below cannot confirm is RECORDED (never restored) so the run control does not say "first
+    // pass" over it (`declinedSavedRunStore.ts`); a restored Run, or a read with no Run, clears any earlier record.
+    const savedRunKind = declinedSavedRunKindOf(result.analysisState?.run_state.kind)
+    if (currencyOutcome.outcome === 'restored' || savedRunKind === null) useDeclinedSavedRunStore.getState().clear()
+    else useDeclinedSavedRunStore.getState().record({ scenarioId, runStateKind: savedRunKind, reason: currencyOutcome.reason })
     if (currencyOutcome.outcome === 'restored') {
       // R6: the restored result IS the run this verdict describes (the read ships its block only on
       // `complete_current`, stamped with the run's canonical hash), so it is not an orphan — see `bootReadRunFact`.
