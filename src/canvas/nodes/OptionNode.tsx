@@ -1402,10 +1402,10 @@ export const OptionNode = memo((props: NodeProps) => {
     goalDecision?.goalProbability != null && basisWithholdsPossessive(goalDecision.basis)
   // The badge readout, built ONCE above both arms so the withheld and
   // permitted wordings cannot show different numbers for the same option.
-  // Byte-identical to the literal it replaces (`'< '` + digits + `%`).
+  // `'< '` + the smallest whole percent STRICTLY above the figure (graph audit 29 Sep: `Math.round` put 7.4% under "< 7%").
   const goalBadgeReadout =
     goalProbability !== null && goalProbability < 0.10
-      ? `< ${goalProbability < 0.01 ? '1' : Math.round(goalProbability * 100)}%`
+      ? `< ${goalProbability < 0.01 ? '1' : Math.floor(goalProbability * 100) + 1}%`
       : null
 
   // "Behind:" reason for non-winner options (including status quo).
