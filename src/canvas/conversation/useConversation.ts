@@ -8,8 +8,7 @@
 
 import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
 import { useCanvasStore } from '../store'
-import { revealOlumiSurface } from './revealOlumi'
-import { runTurnEndedUnanswered } from './runTurnEndedUnanswered'
+import { revealRunReply, runTurnEndedUnanswered } from './runTurnEndedUnanswered'
 import { setCurrentScenarioId } from '../store/scenarios'
 // Session identity without React context — see that module's header for why it
 // is neither `useAuth()` nor a canvas-store field.
@@ -4471,6 +4470,8 @@ export function useConversation(): UseConversationReturn {
         useCanvasStore.getState().resultsAnalysing()
         activeRunTurnIdRef.current = turnClientId
       }
+      // The report on screen once the run slot is taken; a landed analysis replaces it (`runTurnEndedUnanswered`).
+      const runReportAtDispatch = isRunAnalysisTurn ? useCanvasStore.getState().results.report : undefined
 
       // Derive stage from canvas state (UI-SEM-020 pattern). turn_class
       // stays advisory ('frame') — CEE types.ts notes propose/decide/review
@@ -6453,9 +6454,9 @@ export function useConversation(): UseConversationReturn {
           activeRunTurnIdRef.current = null
           // A run the server answered with a question instead of an analysis must not leave the Run button looking
           // dead: bring the reply into view (`runTurnEndedUnanswered` has the served case).
-          const unanswered = runTurnEndedUnanswered(useCanvasStore.getState().results, controller.signal.aborted)
+          const unanswered = runTurnEndedUnanswered(runReportAtDispatch, useCanvasStore.getState().results.report, controller.signal.aborted)
           useCanvasStore.getState().resultsSettle()
-          if (unanswered) revealOlumiSurface()
+          if (unanswered) revealRunReply()
         }
       }
       // Rethrow a system-mode send failure AFTER `finally` has settled the
