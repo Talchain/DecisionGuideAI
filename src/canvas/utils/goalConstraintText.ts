@@ -12,7 +12,18 @@ import { resolveElementLabel, UNNAMED_ELEMENT_LABEL } from '../domain/elementLab
  * handling is precisely the mirror that let `<=` reach a reader and a unit go
  * missing before `goalConstraintText` existed.
  */
+/**
+ * A percentage-POINT unit, however the producer spelled it (served 29 Sep: "percentage points" printed "1% points",
+ * "percentage_points" printed the snake_case word). Bare "points"/"pts" is NOT one: it can be a score.
+ */
+const PERCENTAGE_POINT_UNIT = /^(pp|ppt|%\s*points?|percentage[\s_-]*points?)$/i
+function isPercentagePointUnit(unit: string | null | undefined): boolean {
+  return typeof unit === 'string' && PERCENTAGE_POINT_UNIT.test(unit.trim())
+}
+
 function formatLimitMagnitude(value: number, unit: string | null | undefined): string {
+  // A LEVEL stated in percentage points is a percent level: "churn under 4 percentage points" is 4%.
+  if (isPercentagePointUnit(unit)) return `${value}%`
   // The one money rule first, as `formatStatedLimitValue` asks it: the branches below are for what it declines.
   const money = formatMoneyFigure(value, unit ?? null)
   if (money !== null) return money
@@ -260,8 +271,10 @@ function changeWords(operator: ChangeOperator, rising: boolean): string {
 interface LimitChange {
   readonly operator: ChangeOperator
   readonly rising: boolean
-  /** The size of the change, unsigned, formatted: "10%" / "£5,000". */
+  /** The size of the change, unsigned, formatted: "10%" / "£5,000" / "1 percentage point". */
   readonly magnitude: string
+  /** The pill's compact form when it differs from `magnitude`: "1pp". */
+  readonly shortMagnitude?: string
 }
 
 /**
@@ -279,10 +292,14 @@ function limitChangeOf(constraint: CEEGoalConstraint): LimitChange | null {
     return { operator, rising, magnitude: `${Math.round(Math.abs(value) * 100 * 1e6) / 1e6}%` }
   }
   const audit = constraint.provenance_unit_normalised
-  const magnitude = audit && hasAuditedFigure(constraint)
-    ? formatLimitMagnitude(Math.abs(audit.original_value as number), audit.original_unit)
-    : formatLimitMagnitude(Math.abs(value), constraint.unit)
-  return { operator, rising, magnitude }
+  const audited = Boolean(audit && hasAuditedFigure(constraint))
+  const n = audited ? Math.abs(audit!.original_value as number) : Math.abs(value)
+  const unit = audited ? audit!.original_unit : constraint.unit
+  // A CHANGE in percentage points is said in points, never as a percent (+1pp is not +1%).
+  if (isPercentagePointUnit(unit)) {
+    return { operator, rising, magnitude: `${n} percentage point${n === 1 ? '' : 's'}`, shortMagnitude: `${n}pp` }
+  }
+  return { operator, rising, magnitude: formatLimitMagnitude(n, unit) }
 }
 
 /**
@@ -315,7 +332,7 @@ export function limitChangeSentence(constraint: CEEGoalConstraint): string | nul
 
 /** The pill's short form: the level pill's `<op><figure>` with the change signed and anchored — "≤+10% vs today". */
 function sayLimitChangeShort(change: LimitChange): string {
-  return `${renderLimitOperator(change.operator)}${change.rising ? '+' : '−'}${change.magnitude} vs today`
+  return `${renderLimitOperator(change.operator)}${change.rising ? '+' : '−'}${change.shortMagnitude ?? change.magnitude} vs today`
 }
 
 /**
