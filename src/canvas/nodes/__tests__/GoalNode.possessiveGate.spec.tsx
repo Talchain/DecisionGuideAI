@@ -68,8 +68,14 @@ const SUBSTITUTED_OPTION = {
 }
 /** A run carrying the REAL goal quantity — possessive earned. */
 const REAL_GOAL_OPTION = { probability_of_goal: 0.55, probability_of_joint_goal: 0.0054 }
-/** The CONSTRAINED joint case (ROADMAP 1.49) — possessive earned, must survive. */
+/** 29 Sep 2026 (AIQ 5882498938): a constrained option carrying its GOAL figure (0.3, distinct from the joint 0.42). */
 const CONSTRAINED_OPTION = {
+  probability_of_goal: 0.3,
+  probability_of_joint_goal: 0.42,
+  constraint_analysis: { constraints: [{ id: 'c1' }] },
+}
+/** The same constraints with NO goal figure — withheld, exactly like the substituted run. */
+const CONSTRAINED_NO_GOAL_OPTION = {
   probability_of_joint_goal: 0.42,
   constraint_analysis: { constraints: [{ id: 'c1' }] },
 }
@@ -159,11 +165,13 @@ describe('GoalNode — possessive gate on a substituted joint goal figure (ROADM
     // permitted assertions below would pass by testing nothing.
     expect(selectGoalProbability(SUBSTITUTED_OPTION).basis).toBe('joint_goal_withheld')
     expect(selectGoalProbability(REAL_GOAL_OPTION).basis).toBe('goal_probability')
-    expect(selectGoalProbability(CONSTRAINED_OPTION).basis).toBe('joint_goal_constrained')
+    expect(selectGoalProbability(CONSTRAINED_OPTION).basis).toBe('goal_probability')
+    expect(selectGoalProbability(CONSTRAINED_NO_GOAL_OPTION).basis).toBe('joint_goal_withheld')
     // ⭐ L62: the withheld basis carries NO number, which is what turns the
     // "withholds the possessive" test below into an absence-of-figure test.
     expect(selectGoalProbability(SUBSTITUTED_OPTION).goalProbability).toBeNull()
-    expect(selectGoalProbability(CONSTRAINED_OPTION).goalProbability).toBe(0.42)
+    expect(selectGoalProbability(CONSTRAINED_NO_GOAL_OPTION).goalProbability).toBeNull()
+    expect(selectGoalProbability(CONSTRAINED_OPTION).goalProbability).toBe(0.3)
   })
 
   /**
@@ -219,16 +227,23 @@ describe('GoalNode — possessive gate on a substituted joint goal figure (ROADM
     expect(allAccessibleNames(container)).not.toContain(GOAL_ANCHOR_COPY.phrase('55%', true))
   })
 
-  it('positive control: joint_goal_constrained keeps the possessive (ROADMAP 1.49)', () => {
-    // The load-bearing scoping test. The figure IS joint here — but it is the
-    // user's own goal AND their own limits, so the possessive is EARNED. A gate
-    // widened from `basis === 'joint_goal_substituted'` to
-    // `goalProbabilityIsJoint` REDs exactly this test and nothing else.
-    const { container } = renderGoalWith(CONSTRAINED_OPTION)
+  // 29 Sep 2026 (AIQ 5882498938): was "joint_goal_constrained keeps the possessive" — now the GOAL figure on a constrained option does.
+  it('positive control: the goal figure on a constrained option keeps the possessive — never the joint figure', () => {
+    // The load-bearing scoping test: constraints on the option must not
+    // silence the goal figure, nor swap the joint (all-limits) figure in.
+    const { container, unmount } = renderGoalWith(CONSTRAINED_OPTION)
     // Locked Canvas design (23 Sep 2026): read off the Chance row's accessible name.
-    expect(screen.getByTestId(ACHIEVEMENT_ROW).textContent).toContain('42%')
-    expect(rowName(ACHIEVEMENT_ROW)).toContain(`42% ${POSSESSIVE}`)
-    expect(allAccessibleNames(container)).not.toContain(GOAL_ANCHOR_COPY.phrase('42%', true))
+    expect(screen.getByTestId(ACHIEVEMENT_ROW).textContent).toContain('30%')
+    expect(screen.getByTestId(ACHIEVEMENT_ROW).textContent).not.toContain('42%')
+    expect(rowName(ACHIEVEMENT_ROW)).toContain(`30% ${POSSESSIVE}`)
+    expect(allAccessibleNames(container)).not.toContain('42%')
+    expect(allAccessibleNames(container)).not.toContain(GOAL_ANCHOR_COPY.phrase('30%', true))
+    unmount()
+    // No goal figure → the constrained joint figure is withheld: no Chance row, no 42%.
+    const withheld = renderGoalWith(CONSTRAINED_NO_GOAL_OPTION)
+    expect(screen.queryByTestId(ACHIEVEMENT_ROW)).not.toBeInTheDocument()
+    expect(withheld.container.textContent ?? '').not.toContain('42%')
+    expect(allAccessibleNames(withheld.container)).not.toContain('42%')
   })
 
   it('L62: NEITHER voice appears on a withheld run — the mutual-exclusion test, with both arms now empty', () => {

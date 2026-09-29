@@ -235,21 +235,26 @@ describe('L62 — the joint figure never stands in for an absent goal probabilit
     expect(basisWithholdsPossessive(undefined)).toBe(false)
   })
 
-  it('the constrained basis is UNAFFECTED — this gate is not a blanket ban on joint figures', () => {
-    // `joint_goal_constrained` is the user's own goal AND their own limits,
-    // chosen because the option carries its own constraint analysis. It has
-    // never been the substitution and must keep its number, or this change
-    // would be suppressing a quantity it was never asked to touch.
+  // 29 Sep 2026 (AIQ 5882498938): the constrained exemption is retired — the joint figure is P(all limits hold), so the gate IS total for the goal slot.
+  it('a constrained option is withheld too, and with a goal figure it shows the goal figure — never the joint', () => {
+    const probeJoint = (L60_PROBE_OPTIONS[0] as ProducerOption).probability_of_joint_goal
     const constrained: GoalProbabilityInput = {
       ...(L60_PROBE_OPTIONS[0] as ProducerOption),
       constraint_analysis: { constraints: [{ node_id: 'goal_mrr' }] },
     }
     const d = selectGoalProbability(constrained)
-    expect(d.basis).toBe('joint_goal_constrained')
-    expect(d.goalProbability).toBe(
-      (L60_PROBE_OPTIONS[0] as ProducerOption).probability_of_joint_goal,
-    )
-    expect(d.goalProbabilityIsJoint).toBe(true)
-    expect(d.jointSubstitutionWithheld).toBe(false)
+    expect(d.basis).toBe('joint_goal_withheld')
+    expect(d.goalProbability).toBeNull()
+    expect(d.goalProbabilityIsJoint).toBe(false)
+    expect(d.jointSubstitutionWithheld).toBe(true)
+    // The joint figure keeps its OWN row — withheld from the goal slot, not deleted.
+    expect(d.jointGoalProbability).toBe(probeJoint)
+    // The same constrained bytes plus an honest goal figure → the goal number fills the slot.
+    const withGoal = selectGoalProbability({ ...constrained, probability_of_goal: 0.37 })
+    expect(withGoal.basis).toBe('goal_probability')
+    expect(withGoal.goalProbability).toBe(0.37)
+    expect(withGoal.goalProbability).not.toBe(probeJoint)
+    expect(withGoal.goalProbabilityIsJoint).toBe(false)
+    expect(withGoal.jointSubstitutionWithheld).toBe(false)
   })
 })

@@ -223,6 +223,14 @@ export interface GoalProbabilitySelection {
    */
   goalFitIsModelledBasis: boolean
   /**
+   * AIQ #72 5883088747: the modelled-basis caveat MOVES WITH THE JOINT NUMBER. True when the joint figure
+   * ("Chance all your limits hold") is present AND the producer marked it scored from a modelled outcome
+   * distribution. Every surface that prints `jointGoalProbability` must render `GOAL_FIT_BASIS_CAVEAT_COPY`
+   * beside it when this is true. (`goalFitIsModelledBasis` above can no longer be true: the goal slot never
+   * shows the joint figure.)
+   */
+  jointGoalIsModelledBasis: boolean
+  /**
    * Display-honesty, the same doctrine as `goalFitIsModelledBasis`: non-null ONLY when a goal
    * figure is shown AND its base (today's level of the goal) was worked out from its inputs
    * rather than given (ISL #207; carrier `identity_evaluations[].level_author`, fail-closed in the
@@ -326,6 +334,7 @@ export function selectGoalProbability(
       jointGoalProbability: jointGoalProb,
       basis: unconstrained != null ? 'goal_probability' : 'none',
       goalFitIsModelledBasis: false,
+      jointGoalIsModelledBasis: jointGoalProb != null && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
       goalFitBaseCaveat: unconstrained != null ? baseCaveat : null,
       mayUsePossessiveGoalFraming: unconstrained != null,
       // This arm never substitutes either, so nothing is withheld FROM a
@@ -341,19 +350,29 @@ export function selectGoalProbability(
   // a per-option constraint analysis makes the joint figure the right answer;
   // otherwise the goal quantity is the right answer whenever the run carries
   // it; only when it does not does the joint figure stand in for it.
+  // ⭐⭐ AIQ RULING #72 5882498938 (29 Sep 2026, fail-closed): the goal-fit slot
+  // reads `probability_of_goal` and NOTHING ELSE, constrained or not. The joint
+  // figure is P(ALL LIMITS jointly hold) — the DL's served run carried goal = 0 /
+  // joint = 1 (limits on other nodes), and goal = 1 / joint = 0 is just as
+  // reachable (a goal-node limit plus a failing limit elsewhere), so it can never
+  // stand in for the goal at ANY constraint layout. It keeps only its own row
+  // (`jointGoalProbability`, "chance all your limits hold"). `'joint_goal_constrained'`
+  // is no longer produced: that arm put P(limits) in the goal slot whenever an
+  // option carried a constraint analysis.
+  void hasConstraints
   const basis: GoalProbabilityBasis =
-    hasConstraints && jointGoalProb != null
-      ? 'joint_goal_constrained'
-      : unconstrained != null
-        ? 'goal_probability'
-        : jointGoalProb != null
-          ? // ⭐ L62: was `'joint_goal_substituted'`, and the joint number was
-            // returned here. It is now withheld — see the L62 block in the
-            // module header for the derivation.
-            'joint_goal_withheld'
-          : 'none'
+    unconstrained != null
+      ? 'goal_probability'
+      : jointGoalProb != null
+        ? // ⭐ L62: was `'joint_goal_substituted'`, and the joint number was
+          // returned here. It is now withheld — see the L62 block in the
+          // module header for the derivation.
+          'joint_goal_withheld'
+        : 'none'
 
-  const goalProbabilityIsJoint = basis === 'joint_goal_constrained'
+  // AIQ 5882498938: no arm above produces 'joint_goal_constrained' any more, so this is always false. The
+  // widening cast keeps the retired literal compiling (TS2367 on the narrowed const) until the member is removed.
+  const goalProbabilityIsJoint = (basis as GoalProbabilityBasis) === 'joint_goal_constrained'
 
   // Derived FROM the basis (never computed in parallel with it), so the
   // number and the statement of which quantity it is cannot diverge.
@@ -377,6 +396,7 @@ export function selectGoalProbability(
     basis,
     goalFitIsModelledBasis:
       goalProbabilityIsJoint && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
+    jointGoalIsModelledBasis: jointGoalProb != null && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
     goalFitBaseCaveat: goalProbability != null ? baseCaveat : null,
     mayUsePossessiveGoalFraming: goalProbability != null,
     jointSubstitutionWithheld: basis === 'joint_goal_withheld',

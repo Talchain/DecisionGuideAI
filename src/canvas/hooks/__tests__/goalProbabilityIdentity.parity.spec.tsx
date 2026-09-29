@@ -42,7 +42,10 @@ import {
   type GoalProbabilityInput,
 } from '../../../components/results/utils/selectGoalProbability'
 import { GoalNode } from '../../nodes/GoalNode'
-import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../../components/results/utils/goalFitBasisCaveatCopy'
+import {
+  GOAL_FIT_BASIS_CAVEAT_COPY,
+  goalFitBaseCaveatCopy,
+} from '../../../components/results/utils/goalFitBasisCaveatCopy'
 import { GOAL_ANCHOR_COPY } from '../../../components/results/utils/goalAnchorCopy'
 
 vi.mock('@xyflow/react', async () => {
@@ -81,16 +84,19 @@ const JOINT_ONLY_RECORD: GoalProbabilityInput & Record<string, unknown> = {
  *
  * `JOINT_ONLY_RECORD` above no longer produces a number (the substitution is
  * withheld — L60 §5–§8), and "both consumers returned null" is exactly the
- * vacuous agreement this file's positive control exists to forbid. The
- * CONSTRAINED basis is the remaining one that carries a joint number AND the
- * modelled-basis caveat, so it is the shape that keeps the parity claim
- * non-vacuous: same number, same caveat, both surfaces.
+ * vacuous agreement this file's positive control exists to forbid.
+ *
+ * 29 Sep 2026 (AIQ 5882498938): a constrained joint-only record is withheld too, so this record carries the
+ * GOAL figure (0.37, distinct from the joint 0.62) and a stamped goal-level author — the caveat a goal figure
+ * CAN carry (ISL #207) — keeping the parity claim non-vacuous: same number, same caveat, both surfaces.
  */
-const CONSTRAINED_JOINT_RECORD: GoalProbabilityInput & Record<string, unknown> = {
+const CONSTRAINED_RECORD: GoalProbabilityInput & Record<string, unknown> = {
+  probability_of_goal: 0.37,
   probability_of_joint_goal: 0.62,
   constraint_analysis: { constraints: [{ id: 'c1' }] },
   confidence: 0.5,
   goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
+  goalLevelAuthor: 'olumi',
 }
 
 /** Control: the run carries the true per-option goal quantity. */
@@ -172,30 +178,35 @@ beforeEach(() => {
   // ⭐ L62: was `JOINT_ONLY_RECORD`. Tests that need the WITHHELD shape now
   // switch to it explicitly, so the default state of this file is one where a
   // number genuinely exists and "agreement" means something.
-  useStore(CONSTRAINED_JOINT_RECORD)
+  useStore(CONSTRAINED_RECORD)
 })
 
 describe('goal-probability identity — the two consumers agree', () => {
   it('POSITIVE CONTROL: the single source of truth really does show a number and a caveat here', () => {
     // Fixes the decision before anything asserts agreement with it, so a
     // "both surfaces returned null" state can never satisfy this file.
-    const decision = selectGoalProbability(CONSTRAINED_JOINT_RECORD)
-    expect(decision.goalProbability).toBe(0.62)
-    expect(decision.goalFitIsModelledBasis).toBe(true)
+    // 29 Sep 2026 (AIQ 5882498938): the number is the GOAL figure, never the joint; the joint modelled caveat never rides it.
+    const decision = selectGoalProbability(CONSTRAINED_RECORD)
+    expect(decision.basis).toBe('goal_probability')
+    expect(decision.goalProbability).toBe(0.37)
+    expect(decision.goalProbability).not.toBe(0.62)
+    expect(decision.goalFitBaseCaveat).toBe('olumi_estimate')
+    expect(decision.goalFitIsModelledBasis).toBe(false)
   })
 
   it('the canvas consumer returns the SAME value as the results-panel selector', () => {
-    const decision = selectGoalProbability(CONSTRAINED_JOINT_RECORD)
+    const decision = selectGoalProbability(CONSTRAINED_RECORD)
     const { result } = renderHook(() => useNodeDisplayMetadata('goal-1', 'goal'))
     expect(result.current.achievementProbability).toBe(decision.goalProbability)
   })
 
   it('the canvas consumer returns the SAME provenance caveat as the results-panel selector', () => {
-    const decision = selectGoalProbability(CONSTRAINED_JOINT_RECORD)
+    const decision = selectGoalProbability(CONSTRAINED_RECORD)
     const { result } = renderHook(() => useNodeDisplayMetadata('goal-1', 'goal'))
     expect(result.current.achievementProbabilityIsModelledBasis).toBe(
       decision.goalFitIsModelledBasis,
     )
+    expect(result.current.achievementProbabilityBaseCaveat).toBe(decision.goalFitBaseCaveat)
   })
 
   it('agrees on the control run too (the true goal quantity is present)', () => {
@@ -250,9 +261,9 @@ describe('goal-probability identity — the rendered canvas text matches the dec
     // here is hard-coded, everything is asked of the selector — because that
     // is what stops this test drifting into a fiction if the basis moves again.
     // ⚠ The store must be pointed at the WITHHELD record explicitly: this
-    // file's `beforeEach` now anchors on `CONSTRAINED_JOINT_RECORD` so the
+    // file's `beforeEach` now anchors on `CONSTRAINED_RECORD` so the
     // agreement tests are non-vacuous, and without this line the render below
-    // would be of a run that legitimately carries 62%.
+    // would be of a run that legitimately carries a goal figure.
     useStore(JOINT_ONLY_RECORD)
     const decision = selectGoalProbability(JOINT_ONLY_RECORD)
 
@@ -311,11 +322,18 @@ describe('goal-probability identity — the rendered canvas text matches the dec
     expect(container.textContent ?? '').not.toContain('62%')
   })
 
+  // 29 Sep 2026 (AIQ 5882498938): the goal figure's caveat is its base (ISL #207); the joint modelled caveat never rides it.
   it('GoalNode carries the provenance caveat the results panel carries', () => {
-    renderGoalNode()
-    expect(screen.getByTestId('goal-fit-basis-caveat-node')).toHaveTextContent(
-      GOAL_FIT_BASIS_CAVEAT_COPY,
+    const decision = selectGoalProbability(CONSTRAINED_RECORD)
+    const { container } = renderGoalNode()
+    expect(screen.getByTestId('goal-fit-base-caveat-node')).toHaveTextContent(
+      goalFitBaseCaveatCopy(decision.goalFitBaseCaveat) as string,
     )
+    expect(screen.queryByTestId('goal-fit-basis-caveat-node')).toBeNull()
+    expect(container.textContent ?? '').not.toContain(GOAL_FIT_BASIS_CAVEAT_COPY)
+    // The node states the goal figure, never the joint one.
+    expect(container.textContent ?? '').toContain('37%')
+    expect(container.textContent ?? '').not.toContain('62%')
   })
 
   it('⭐ L62: and NO caveat on a withheld run — a hedge beside no number is its own claim', () => {
@@ -350,14 +368,16 @@ describe('goal-probability identity — which quantity the number IS', () => {
     expect(decision.mayUsePossessiveGoalFraming).toBe(true)
   })
 
-  it('permits the possessive framing for an option carrying its own constrained joint figure', () => {
+  // 29 Sep 2026 (AIQ 5882498938): a constrained option's slot is its goal figure; the joint (all-limits) figure never stands in.
+  it('permits the possessive framing for an option carrying its own constraints — over the GOAL figure', () => {
     const decision = selectGoalProbability({
       goal_probability: 0.41,
       probability_of_joint_goal: 0.07,
       constraint_analysis: { constraints: [{ id: 'c1' }] },
     })
-    expect(decision.basis).toBe('joint_goal_constrained')
-    expect(decision.goalProbability).toBe(0.07)
+    expect(decision.basis).toBe('goal_probability')
+    expect(decision.goalProbability).toBe(0.41)
+    expect(decision.goalProbability).not.toBe(0.07)
     expect(decision.mayUsePossessiveGoalFraming).toBe(true)
   })
 

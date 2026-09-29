@@ -87,9 +87,16 @@ const REAL_GOAL_OPTION = {
   probability_of_joint_goal: 0.0054,
 }
 
-/** The CONSTRAINED joint case (ROADMAP 1.49) — the user's own goal AND their
- *  own limits. Possessive earned; must never be swept up by this gate. */
+/** An option carrying its own constraint analysis AND the real goal quantity.
+ *  29 Sep 2026 (AIQ 5882498938): the slot reads the goal figure; the joint (all-limits) figure never stands in. */
 const CONSTRAINED_OPTION = {
+  probability_of_goal: 0.3,
+  probability_of_joint_goal: 0.42,
+  constraint_analysis: { constraints: [{ id: 'c1' }] },
+}
+
+/** The same constraint analysis with NO goal figure — withheld, exactly like the unconstrained stand-in. */
+const CONSTRAINED_NO_GOAL_OPTION = {
   probability_of_joint_goal: 0.42,
   constraint_analysis: { constraints: [{ id: 'c1' }] },
 }
@@ -129,8 +136,10 @@ describe('useNodeDisplayMetadata — achievementProbabilityBasis (REAL hook)', (
     expect(selectGoalProbability(SUBSTITUTED_OPTION).goalProbability).toBeNull()
     expect(selectGoalProbability(REAL_GOAL_OPTION).basis).toBe('goal_probability')
     expect(selectGoalProbability(REAL_GOAL_OPTION).mayUsePossessiveGoalFraming).toBe(true)
-    expect(selectGoalProbability(CONSTRAINED_OPTION).basis).toBe('joint_goal_constrained')
+    expect(selectGoalProbability(CONSTRAINED_OPTION).basis).toBe('goal_probability')
     expect(selectGoalProbability(CONSTRAINED_OPTION).mayUsePossessiveGoalFraming).toBe(true)
+    expect(selectGoalProbability(CONSTRAINED_NO_GOAL_OPTION).basis).toBe('joint_goal_withheld')
+    expect(selectGoalProbability(CONSTRAINED_NO_GOAL_OPTION).goalProbability).toBeNull()
   })
 
   /**
@@ -158,14 +167,21 @@ describe('useNodeDisplayMetadata — achievementProbabilityBasis (REAL hook)', (
     expect(md.achievementProbabilityBasis).toBe('goal_probability')
   })
 
-  it('forwards joint_goal_constrained — the ROADMAP 1.49 case, NOT substitution', () => {
+  // 29 Sep 2026 (AIQ 5882498938): was "forwards joint_goal_constrained" — constraints never put the joint figure in the slot.
+  it('a constrained option forwards goal_probability with the GOAL figure; without one it forwards the withhold', () => {
     setReport(reportFor(CONSTRAINED_OPTION))
     const md = renderForGoal()
-    expect(md.achievementProbability).toBe(0.42)
-    expect(md.achievementProbabilityBasis).toBe('joint_goal_constrained')
-    // The discriminator that matters: the same JOINT quantity, and yet not
-    // substituted. A gate widened to "the figure is joint" fails here.
-    expect(md.achievementProbabilityBasis).not.toBe('joint_goal_withheld')
+    expect(md.achievementProbability).toBe(0.3)
+    expect(md.achievementProbability).not.toBe(0.42) // the discriminating contrast: never the joint figure
+    expect(md.achievementProbabilityBasis).toBe('goal_probability')
+    // The joint figure still crosses the hop for its own labelled row.
+    expect(md.jointGoalProbability).toBe(0.42)
+
+    setReport(reportFor(CONSTRAINED_NO_GOAL_OPTION))
+    const withheld = renderForGoal()
+    expect(withheld.achievementProbability).toBeNull()
+    expect(withheld.achievementProbabilityBasis).toBe('joint_goal_withheld')
+    expect(withheld.jointGoalProbability).toBe(0.42)
   })
 
   it('INVARIANT: a non-null achievementProbability is NEVER published without a basis', () => {

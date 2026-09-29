@@ -169,9 +169,10 @@ describe('useNodeDisplayMetadata — achievementProbability', () => {
 // goalFitIsModelledBasis gate: true ONLY when the displayed number is the
 // joint-goal figure (hasConstraints && jointProb != null) AND the producer
 // marked it scored_from === 'modelled_outcome_distribution'.
+// 29 Sep 2026 (AIQ 5882498938): the joint figure is never displayed in the goal slot now, so this flag has no true arm.
 // ---------------------------------------------------------------------------
 describe('useNodeDisplayMetadata — achievementProbabilityIsModelledBasis', () => {
-  it('is true when the joint figure is shown and goal_fit_basis is modelled', () => {
+  it('is false on a constrained, modelled option — the slot shows the goal figure, never the joint the caveat qualified', () => {
     mockState = {
       results: {
         status: 'complete',
@@ -190,8 +191,9 @@ describe('useNodeDisplayMetadata — achievementProbabilityIsModelledBasis', () 
       },
     }
     const { result } = renderHook(() => useNodeDisplayMetadata('goal-1', 'goal'))
-    expect(result.current.achievementProbability).toBeCloseTo(0.73)
-    expect(result.current.achievementProbabilityIsModelledBasis).toBe(true)
+    expect(result.current.achievementProbability).toBeCloseTo(0.5)
+    expect(result.current.achievementProbability).not.toBeCloseTo(0.73) // never the joint figure
+    expect(result.current.achievementProbabilityIsModelledBasis).toBe(false)
   })
 
   it('is false (honest default) when goal_fit_basis is absent', () => {
@@ -212,7 +214,9 @@ describe('useNodeDisplayMetadata — achievementProbabilityIsModelledBasis', () 
       },
     }
     const { result } = renderHook(() => useNodeDisplayMetadata('goal-1', 'goal'))
-    expect(result.current.achievementProbability).toBeCloseTo(0.73)
+    // 29 Sep 2026 (AIQ 5882498938): a constrained option shows its goal figure, not the joint.
+    expect(result.current.achievementProbability).toBeCloseTo(0.5)
+    expect(result.current.achievementProbability).not.toBeCloseTo(0.73)
     expect(result.current.achievementProbabilityIsModelledBasis).toBe(false)
   })
 
