@@ -14,7 +14,7 @@ const verdict = { run_state: { kind: 'complete_current', computed_at: '2026-09-2
 const certainty = [{ option_id: 'a', probability_of_goal: 0, earned: true }]
 
 describe('Run delivery identity stays distinct from block-content identity', () => {
-  it.each(['turn', 'read'])('%s: new Run and new permission land, redelivery dedupes, permission alone does not clear dirty state', (leg) => {
+  it.each(['turn', 'read', 'alternating turn/read'])('%s: new Run and new permission land, redelivery dedupes, permission alone does not clear dirty state', (leg) => {
     const store = {
       setCurrentStage: vi.fn(), updateNode: vi.fn(), updateEdgeData: vi.fn(), setRunMeta: vi.fn(),
       setCeeAnalysisReady: vi.fn(), setAnalysisFreshness: vi.fn(), setAnalysisStateV1: vi.fn(),
@@ -24,8 +24,9 @@ describe('Run delivery identity stays distinct from block-content identity', () 
     store.resultsComplete.mockImplementation(({ report, hash }) => {
       store.currentResultsReport = report; store.currentResultsHash = hash
     })
+    let delivery = 0
     const apply = (state: unknown, decision: unknown) => {
-      if (leg === 'turn') applyV5State({ response_version: 2, assistant_text: '', blocks: [block],
+      if (leg === 'turn' || (leg === 'alternating turn/read' && delivery++ % 2 === 0)) applyV5State({ response_version: 2, assistant_text: '', blocks: [block],
         suggested_actions: [], insights: [], stage_indicator: 'analyse', analysis_state: state,
         goal_certainty: decision } as never, store as never)
       else applyScenarioAnalysisRead({ analysisState: state as never, analysisResult: block,
