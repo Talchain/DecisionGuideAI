@@ -494,11 +494,12 @@ export function applyScenarioAnalysisRead(
   const block = input.analysisResult
   if (block !== null && block !== undefined && typeof input.store.resultsComplete === 'function') {
     const goalCertainty = readGoalCertainty(input.goalCertainty)
+    const optionParticipation = readOptionParticipation(input.optionParticipation)
     const report = withAnalysisRunReceipt(mapV5AnalysisToReport(block as AnalysisResultBlock, {
       goalCertainty,
-      optionParticipation: readOptionParticipation(input.optionParticipation),
+      optionParticipation,
     }), {
-      scenarioId: input.store.currentScenarioId, block: block as AnalysisResultBlock, state: verdict, goalCertainty,
+      scenarioId: input.store.currentScenarioId, block: block as AnalysisResultBlock, state: verdict, goalCertainty, optionParticipation,
     })
     const hash = report.model_card.response_hash
     newRun = hash !== (input.store.currentResultsHash ?? null) || differentKnownAnalysisRun(input.store.currentResultsReport, report)

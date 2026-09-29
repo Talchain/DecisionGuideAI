@@ -428,6 +428,7 @@ async function readAndMergeServerGraph(
         analysisResult: result.analysisResult,
         limitVerdicts: result.limitVerdicts,
         goalCertainty: result.goalCertainty,
+        optionParticipation: result.optionParticipation,
         // The currency leg above is this read's ONE verdict writer (see `applyBootBlockedVerdict`: the legs never both
         // write `analysisStateV1` for one read), so the applier here builds the report and writes no verdict.
         store: { ...readProvisionalApplyStore(), setAnalysisStateV1: () => {} },

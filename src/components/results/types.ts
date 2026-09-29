@@ -338,9 +338,11 @@ export interface OptionResult {
    * which is the one place that decision is made.
    */
   notAnalysed?: boolean
+  /** The selected Run's saved verdict that this option was proposed by Olumi. */
+  optionParticipationState?: import('../../canvas/state/storedOptionParticipation').OptionParticipationState
   /**
-   * Why {@link notAnalysed} is true — a property of the GRAPH, not of the
-   * result, and a DIFFERENT question from whether it was analysed. Only one of
+   * Why {@link notAnalysed} is true — read from the Run's typed participation
+   * when present, otherwise the graph's configuration. Only one of
    * the two reasons is user-actionable; `utils/notAnalysedCopy.ts` owns which.
    */
   notAnalysedReason?: NotAnalysedReason

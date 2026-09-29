@@ -417,8 +417,10 @@ export const LENS_COPY = {
 export interface ComparisonScope {
   /** How many options were actually in the comparison. Always ≥ 1. */
   readonly analysed: number
-  /** How many options the user has. Always > {@link analysed}. */
+  /** How many options the model has. Always > {@link analysed}. */
   readonly total: number
+  /** The Run typed at least one option as Olumi's proposal, so the total cannot be called "yours". */
+  readonly hasOlumiProposal?: true
   /**
    * Labels of the options left out, in the order they arrived. MAY BE SHORTER
    * than `total - analysed`: an option with no usable label cannot be named,
@@ -456,7 +458,7 @@ export interface ComparisonScope {
  */
 export function deriveComparisonScope(
   options:
-    | ReadonlyArray<{ id?: string | null; label?: string | null; notAnalysed?: boolean }>
+    | ReadonlyArray<{ id?: string | null; label?: string | null; notAnalysed?: boolean; optionParticipationState?: string }>
     | null
     | undefined,
 ): ComparisonScope | null {
@@ -473,6 +475,8 @@ export function deriveComparisonScope(
   return {
     analysed,
     total: all.length,
+    ...(all.some((o) => o.optionParticipationState === 'excluded_olumi_proposed' || o.optionParticipationState === 'kept_olumi_provisional')
+      ? { hasOlumiProposal: true as const } : {}),
     excludedLabels: excluded
       .map((o) => {
         const label = typeof o.label === 'string' ? o.label.trim() : ''
@@ -548,7 +552,9 @@ export const COMPARISON_SCOPE_COPY = {
    * heading where a sentence would crowd the number.
    */
   phrase: (scope: ComparisonScope): string =>
-    `Comparing ${scope.analysed} of your ${scope.total} options`,
+    scope.hasOlumiProposal
+      ? `Comparing ${scope.analysed} of ${scope.total} options`
+      : `Comparing ${scope.analysed} of your ${scope.total} options`,
 
   /**
    * Who is outside the set. Falls back to the COUNT when no excluded option

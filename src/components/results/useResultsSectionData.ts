@@ -2132,6 +2132,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const unsortedOptions: OptionResult[] = optionNodes.map((node) => {
       const nodeId = node.id
       const prob = optionProbs[nodeId] || {}
+      const optionParticipation = optionParticipationOf(report, nodeId)
       // NO-RANK RULING — see the block above the pre-scan.
       const notAnalysed = runAnalysedAny && !isAnalysedOption(optionProbs, nodeId)
 
@@ -2251,6 +2252,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       return {
         id: nodeId,
         label: (node.data as ResultsCanvasNodeData)?.label || nodeId,
+        ...(optionParticipation ? { optionParticipationState: optionParticipation.state } : {}),
         // Explicit expected value (mean) — primary value for "Expected" display
         expected: scaledExpected,
         // Full outcome distribution (mean = expected, for consistency)

@@ -270,6 +270,21 @@ describe('comparison-scope disclosure — a subset result says which options it 
       )
     })
 
+    it('does not count an Olumi proposal as one of "your" options, whether excluded or provisionally compared', () => {
+      const olumiExcluded = deriveComparisonScope([
+        analysed(KEEP_A, 0.6), analysed(KEEP_B, 0.4),
+        { ...excluded(DROPPED, '£54'), optionParticipationState: 'excluded_olumi_proposed' },
+      ])!
+      expect(COMPARISON_SCOPE_COPY.sentence(olumiExcluded)).toBe('Comparing 2 of 3 options. £54 was left out.')
+
+      const olumiKept = deriveComparisonScope([
+        analysed(KEEP_A, 0.6),
+        { ...analysed(KEEP_B, 0.4), optionParticipationState: 'kept_olumi_provisional' },
+        excluded(DROPPED, 'User option without values'),
+      ])!
+      expect(COMPARISON_SCOPE_COPY.phrase(olumiKept)).toBe('Comparing 2 of 3 options')
+    })
+
     it('joins two excluded options in British house style (no serial comma)', () => {
       const two = deriveComparisonScope([...subsetOptions(), excluded(DROPPED_TWO, DROPPED_TWO_LABEL)])!
       expect(COMPARISON_SCOPE_COPY.sentence(two)).toBe(

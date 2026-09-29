@@ -34,6 +34,7 @@ type Body = {
   analysis_admission: { admitted: boolean; graph_hash: string } | null
   analysis_result?: unknown
   analysis_goal_certainty?: unknown
+  analysis_option_participation?: unknown
 }
 const SERVED = (composed as unknown as { body: Body }).body
 const SCENARIO_ID = SERVED.scenario_id
@@ -54,10 +55,20 @@ const OTHER_RUN_BLOCK = { ...BLOCK, summary: 'another device ran it' }
 const SAY = "I can't yet say how likely 'Raise to £59' is to reach the target: it depends on how 'Pro plan price' moves 'MRR', which isn't sized yet."
 const UNEARNED_59 = { option_id: 'raise_to_59', probability_of_goal: 1, earned: false, unsized_path: { from: 'pro_plan_price', enters_goal_through: 'pro_plan_price' }, no_break_even: 'not_an_identity', say: SAY }
 const EARNED_49 = { option_id: 'keep_49_price', probability_of_goal: 0, earned: true }
+// The selected Run's real wire verdict shape, witnessed on local Run B: an Olumi £54 proposal
+// remains on the graph but is absent from the two user options that PLoT compared.
+const EXCLUDED_OLUMI = [{ option_id: '54_ai_release', state: 'excluded_olumi_proposed' }] as const
+const USER_ONLY_BLOCK = {
+  ...BLOCK,
+  enrichment: { option_comparison: [
+    { id: '49_ai_release', option_id: '49_ai_release', label: '£49 AI Release', option_label: '£49 AI Release', status: 'computed', win_probability: 0.2 },
+    { id: '59_ai_release', option_id: '59_ai_release', label: '£59 AI Release', option_label: '£59 AI Release', status: 'computed', win_probability: 0.8 },
+  ] },
+}
 
 const hashOf = (block: unknown) => mapV5AnalysisToReport(block as AnalysisResultBlock).model_card.response_hash
 type Opt = Record<string, { goalCertaintyUnearned?: { say: string | null } }>
-const heldReport = () => useCanvasStore.getState().results as { status: string; report?: { model_card: { response_hash: string }; option_probabilities: Opt } | null }
+const heldReport = () => useCanvasStore.getState().results as { status: string; report?: { model_card: { response_hash: string }; option_probabilities: Opt; option_participation?: readonly { optionId: string; state: string }[] } | null }
 
 function withRunState(b: Body, kind: 'complete_current' | 'complete_stale'): Body {
   const runState = b.analysis_state.run_state as { kind: string; computed_at?: string }
@@ -89,6 +100,17 @@ describe('⭐ a fresh browser sees the stored Run (Shared Data closure)', () => 
     expect(heldReport().report?.model_card.response_hash).toBe(hashOf(BLOCK))
   })
 
+  it('a fresh browser carries the selected Run\'s Olumi exclusion into its report', async () => {
+    body.analysis_result = USER_ONLY_BLOCK
+    body.analysis_option_participation = EXCLUDED_OLUMI
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(heldReport().status).toBe('complete')
+    expect(heldReport().report?.option_participation).toEqual([
+      { optionId: '54_ai_release', state: 'excluded_olumi_proposed', unanalysableUserOptionIds: [] },
+    ])
+    expect(heldReport().report?.option_probabilities).not.toHaveProperty('54_ai_release')
+  })
+
   it('ROW 1 (certainty): the read\'s record goes through the validating reader — unearned says its sentence, earned shows', async () => {
     body.analysis_goal_certainty = [UNEARNED_59, EARNED_49]
     await hydrateCanvasFromServer(SCENARIO_ID)
@@ -116,7 +138,8 @@ describe('⭐ a fresh browser sees the stored Run (Shared Data closure)', () => 
   /** A real reload: every in-memory field starts fresh; only the PERSISTED results report survives. */
   function reloadHolding(block: unknown) {
     const report = withAnalysisRunReceipt(mapV5AnalysisToReport(block as AnalysisResultBlock), {
-      scenarioId: SCENARIO_ID, block: block as AnalysisResultBlock, state: body.analysis_state, goalCertainty: null,
+      scenarioId: SCENARIO_ID, block: block as AnalysisResultBlock, state: body.analysis_state,
+      goalCertainty: null, optionParticipation: null,
     })
     useCanvasStore.setState({
       analysisStateV1: null, analysisFreshness: null, analysisFreshnessDirty: false, serverGraphIdentity: null,
@@ -137,6 +160,19 @@ describe('⭐ a fresh browser sees the stored Run (Shared Data closure)', () => 
     await hydrateCanvasFromServer(SCENARIO_ID)
     expect(spy).not.toHaveBeenCalled()
     expect(heldReport().report?.model_card.response_hash).toBe(hashOf(BLOCK))
+  })
+
+  it('a same-browser reload refreshes missing participation on the same Run without adding a new Run', async () => {
+    body.analysis_result = USER_ONLY_BLOCK
+    body.analysis_option_participation = EXCLUDED_OLUMI
+    reloadHolding(USER_ONLY_BLOCK)
+    const spy = countResultsComplete()
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(spy.mock.calls[0]?.[0]).toMatchObject({ reportRefreshOnly: true })
+    expect(heldReport().report?.option_participation?.[0]).toMatchObject({
+      optionId: '54_ai_release', state: 'excluded_olumi_proposed',
+    })
   })
 
   it('ROW 4: a held report from ANOTHER Run (another device re-ran) is replaced by the read', async () => {
