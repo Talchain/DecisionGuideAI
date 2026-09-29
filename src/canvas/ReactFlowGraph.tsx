@@ -1,4 +1,4 @@
-import { LinkQuickEditorHost, useLinkQuickEditStore } from './components/LinkQuickEditor'
+import { LinkQuickEditorHost, openLinkQuickEditForClick, useLinkQuickEditStore } from './components/LinkQuickEditor'
 import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo } from 'react'
 import { resolveRestoredFreshnessUpdate } from './store/analysisFreshness'
 import { X } from 'lucide-react'
@@ -1522,12 +1522,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     // pointer — the one the hover shows — before the inspector opens on the
     // selection (`edges/edgePointerTarget.ts` has the rule, the multi-select
     // toggle and the focus; `edges/nearestEdgeAtPoint.ts` the measurement).
-    retargetEdgeClick(event, edge, flowStoreApi.getState())
-    // ⭐ E2 (Paul 29 Sep): the link's strength is edited where it was clicked; the inspector is "More detail".
-    const clickedId = flowStoreApi.getState().edges.find((e) => e.selected)?.id ?? edge?.id
-    if (event && clickedId) {
+    const intendedId = retargetEdgeClick(event, edge, flowStoreApi.getState())
+    // ⭐ E2 (Paul 29 Sep): a plain click edits the POINTED-AT link's strength where it was clicked (the resolver's
+    // return, never the first selected edge — PR Review 5897003679); the inspector is "More detail".
+    if (openLinkQuickEditForClick(event, intendedId, flowStoreApi.getState().multiSelectionActive)) {
       setShowFullInspector(false)
-      useLinkQuickEditStore.getState().show(clickedId, event.clientX, event.clientY)
       return
     }
     setShowFullInspector(true)

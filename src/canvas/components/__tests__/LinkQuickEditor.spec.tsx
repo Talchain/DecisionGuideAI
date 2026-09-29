@@ -2,12 +2,15 @@
  * ⭐ E2 — a link's strength is edited where it is clicked, through the inspector's own band control and writer.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { render, screen, fireEvent, act } from '@testing-library/react'
-import { LinkQuickEditor } from '../LinkQuickEditor'
+import { LinkQuickEditor, LinkQuickEditorHost, openLinkQuickEditForClick, useLinkQuickEditStore } from '../LinkQuickEditor'
 import { useCanvasStore } from '../../store'
 
 const setStrength = vi.fn()
-vi.mock('../../ui/inspector-v2/useInspectorMutations', () => ({ useEdgeMutations: () => ({ setStrength }) }))
+let mutationsFor: string | null = null
+vi.mock('../../ui/inspector-v2/useInspectorMutations', () => ({ useEdgeMutations: (id: string) => { mutationsFor = id; return { setStrength } } }))
 
 function seed(data: Record<string, unknown>) {
   useCanvasStore.setState({
@@ -40,5 +43,60 @@ describe('the link mini-editor', () => {
     mount()
     expect(screen.getByTestId('link-quick-editor-no-strength')).toBeDefined()
     expect(setStrength).not.toHaveBeenCalled()
+  })
+})
+
+describe('PR Review 5897003679: it edits the link the pointer meant, never the first selected one', () => {
+  function seedTwo() {
+    // A (Price → Churn) is still selected from an earlier click; B (Price → MRR) is the link the pointer resolved to.
+    useCanvasStore.setState({
+      nodes: [{ id: 'price', data: { label: 'Price' } }, { id: 'churn', data: { label: 'Churn' } }, { id: 'mrr', data: { label: 'MRR' } }],
+      edges: [
+        { id: 'A', source: 'price', target: 'churn', selected: true, data: { weight: 0.2, strength_mean: 0.2 } },
+        { id: 'B', source: 'price', target: 'mrr', selected: true, data: { weight: 0.3, strength_mean: 0.3 } },
+      ],
+    } as never)
+    useLinkQuickEditStore.getState().close()
+  }
+
+  it('a plain click opens the editor for the resolver\'s link: its label names B and its writer is bound to B', () => {
+    seedTwo()
+    setStrength.mockImplementation(() => 'dispatched')
+    expect(openLinkQuickEditForClick({ clientX: 10, clientY: 10 }, 'B', false)).toBe(true)
+    render(<LinkQuickEditorHost onMoreDetail={vi.fn()} />)
+    const text = screen.getByTestId('link-quick-editor').textContent ?? ''
+    expect(text).toContain('Price → MRR')
+    expect(text).not.toContain('Churn')
+    expect(mutationsFor).toBe('B')
+    fireEvent.click(screen.getAllByRole('button').find((b) => /strong/i.test(b.textContent ?? ''))!)
+    expect(setStrength).toHaveBeenCalledTimes(1)
+    expect(mutationsFor).toBe('B')
+  })
+
+  it('a Meta/Control (multi-selection) click, which may be a toggle-OFF, opens no editor', () => {
+    seedTwo()
+    expect(openLinkQuickEditForClick({ clientX: 10, clientY: 10 }, 'B', true)).toBe(false)
+    render(<LinkQuickEditorHost onMoreDetail={vi.fn()} />)
+    expect(screen.queryByTestId('link-quick-editor')).toBeNull()
+  })
+
+  it('no resolved link (no pointer click) opens nothing', () => {
+    seedTwo()
+    expect(openLinkQuickEditForClick(undefined, null, false)).toBe(false)
+    expect(useLinkQuickEditStore.getState().open).toBeNull()
+  })
+})
+
+describe('the canvas click handler feeds the editor the resolver\'s return (source check on ReactFlowGraph.handleEdgeClick)', () => {
+  const src = readFileSync(join(__dirname, '..', '..', 'ReactFlowGraph.tsx'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/[^\n]*/g, '$1')
+  const at = src.indexOf('const handleEdgeClick = useCallback(')
+  const body = src.slice(at, src.indexOf('}, [', at))
+  it('binds `intendedId = retargetEdgeClick(…)` and passes it to openLinkQuickEditForClick', () => {
+    expect(at).toBeGreaterThan(-1)
+    expect(body).toMatch(/const\s+intendedId\s*=\s*retargetEdgeClick\(/)
+    expect(body).toMatch(/openLinkQuickEditForClick\(\s*event\s*,\s*intendedId\s*,/)
+  })
+  it('never picks the link by "first selected edge"', () => {
+    expect(body).not.toMatch(/\.find\(\s*\(?\s*e\s*\)?\s*=>\s*e\.selected\s*\)/)
   })
 })

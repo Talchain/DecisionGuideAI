@@ -144,3 +144,24 @@ export function LinkQuickEditorHost({ onMoreDetail }: { onMoreDetail: () => void
   if (!open) return null
   return <LinkQuickEditor key={open.edgeId} edgeId={open.edgeId} x={open.x} y={open.y} onClose={close} onMoreDetail={onMoreDetail} />
 }
+
+/**
+ * ⛔ THE MINI-EDITOR EDITS THE LINK THE PERSON POINTED AT (PR Review on #2322, 5897003679).
+ *
+ * `intendedId` is `retargetEdgeClick`'s RETURN — the line nearest the pointer — never "the first selected edge": with a
+ * Meta/Control multi-selection, an earlier link stays selected, and reading the selection named and wrote THAT link.
+ * A multi-selection click is a selection gesture (it may be a toggle-OFF), so it opens no editor and keeps its
+ * existing meaning; only a plain click opens one. Returns whether it opened.
+ */
+export function openLinkQuickEditForClick(
+  event: { clientX: number; clientY: number } | undefined,
+  intendedId: string | null,
+  multiSelectionActive: boolean,
+): boolean {
+  if (!event || !intendedId || multiSelectionActive) {
+    useLinkQuickEditStore.getState().close()
+    return false
+  }
+  useLinkQuickEditStore.getState().show(intendedId, event.clientX, event.clientY)
+  return true
+}
