@@ -80,6 +80,7 @@ import {
   isAnalysedOption,
   runAnalysedAnyOption,
 } from './utils/notAnalysedOptions'
+import { optionParticipationOf } from '../../canvas/state/storedOptionParticipation'
 import { readInferenceWarnings } from './utils/readInferenceWarnings'
 import { deriveStabilityLevel } from '../../lib/stability'
 import { deriveResultCompleteness, type ResultCompleteness } from './useResultCompleteness'
@@ -2329,6 +2330,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
                   ceeOptions: ceeAnalysisReady?.options,
                   nodeInterventions: (optionNodes.find((n) => n.id === oid)?.data as { interventions?: unknown } | undefined)?.interventions,
                 }),
+                (oid) => optionParticipationOf(report, oid)?.state === 'excluded_olumi_proposed',
               ),
             }
           : {}),

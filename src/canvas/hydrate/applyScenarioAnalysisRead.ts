@@ -91,6 +91,7 @@ import { selectAnalysisReadinessAuthority } from '../state/analysisStateSelector
 import { readinessObjectsToRun } from '../utils/canRunAnalysis'
 import { readLimitVerdicts, type LimitVerdictsWrite } from '../state/storedLimitVerdicts'
 import { readGoalCertainty } from '../state/storedGoalCertainty'
+import { readOptionParticipation } from '../state/storedOptionParticipation'
 
 /**
  * Which producer fact withdrew the leading-option designation.
@@ -363,6 +364,8 @@ export interface ApplyScenarioAnalysisReadInput {
   readonly analysisResult: unknown
   /** The read's `analysis_goal_certainty`, raw (CEE #2280); parsed by the SAME reader the turn leg uses. */
   readonly goalCertainty?: unknown
+  /** The read's `analysis_option_participation`, raw (Runtime 5888341208); parsed by the SAME reader the turn leg uses. */
+  readonly optionParticipation?: unknown
   /** The read's `analysis_limit_verdicts`, raw; parsed by the SAME reader the turn leg uses. */
   readonly limitVerdicts?: unknown
   readonly store: ScenarioAnalysisApplyStore
@@ -486,7 +489,10 @@ export function applyScenarioAnalysisRead(
   let resultsHydrated = false
   const block = input.analysisResult
   if (block !== null && block !== undefined && typeof input.store.resultsComplete === 'function') {
-    const report = mapV5AnalysisToReport(block as AnalysisResultBlock, { goalCertainty: readGoalCertainty(input.goalCertainty) })
+    const report = mapV5AnalysisToReport(block as AnalysisResultBlock, {
+      goalCertainty: readGoalCertainty(input.goalCertainty),
+      optionParticipation: readOptionParticipation(input.optionParticipation),
+    })
     const hash = report.model_card.response_hash
     // The SAME hash dedupe the turn applier uses: a re-read of an analysis we
     // already display must not re-write the slice (it would restart animations

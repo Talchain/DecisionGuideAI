@@ -91,6 +91,12 @@ export type NotAnalysedReason =
    * reports).
    */
   | 'not_returned'
+  /**
+   * The Run LEFT IT OUT ON PURPOSE: Olumi proposed it, and ≥2 of the user's own options were analysable, so only the
+   * user's options were compared. READ from the Run's typed participation fact (`storedOptionParticipation.ts`,
+   * Runtime #72 5888341208), never inferred from the node. Not the engine's miss, and not the user's gap.
+   */
+  | 'excluded_olumi_proposed'
 
 /*
  * ⛔ THE FOURTH VALUE WAS WITHDRAWN. A `graph_edited_since_run` member was added
@@ -178,7 +184,10 @@ export function deriveNotAnalysedReason(
    * wiring. Absent the answer, the edge predicate stands, unchanged.
    */
   optionValueCount?: (optionId: string) => number | null,
+  /** The Run's typed fact that it left this option out as Olumi's proposal; checked first, since it is the Run's own word. */
+  excludedAsOlumiProposal?: (optionId: string) => boolean,
 ): NotAnalysedReason {
+  if (excludedAsOlumiProposal?.(nodeId) === true) return 'excluded_olumi_proposed'
   if (optionValueCount?.(nodeId) === 0) return 'no_interventions'
   const optionIds = new Set(optionNodeIds)
   const hasInterventionEdge = edges.some((e) => e.source === nodeId && !optionIds.has(e.target))

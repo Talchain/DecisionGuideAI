@@ -44,6 +44,7 @@ import type { DecisionVerdictReportLike } from '../lib/decisionVerdict'
 import { goalLevelFromIdentityCaveat } from '../components/results/utils/goalLevelFromIdentity'
 import { readGoalIdentityWithheld } from '../components/results/utils/goalIdentityWithheld'
 import { goalCertaintyStamp, type GoalCertaintyEntry } from '../canvas/state/storedGoalCertainty'
+import type { OptionParticipationEntry } from '../canvas/state/storedOptionParticipation'
 import { readInfluenceGatedBy } from '../components/results/driverDisplayModel'
 import {
   factorDirectionToPolarity,
@@ -916,6 +917,11 @@ export interface MapV5AnalysisOptions {
    */
   goalCertainty?: readonly GoalCertaintyEntry[] | null
   /**
+   * The Run's stored participation fact (`readOptionParticipation`; Runtime #72 5888341208): the options OUTSIDE the
+   * ordinary comparison and why. Carried on the report as-is so it is bound to THIS Run. Absent = not recorded.
+   */
+  optionParticipation?: readonly OptionParticipationEntry[] | null
+  /**
    * Seed used for the run. The V5 contract carries NO seed field, so when
    * the caller has no real value the report carries null and the Seed
    * receipt row fails closed (hides). Never default to 0 — a fabricated
@@ -1718,6 +1724,7 @@ export function mapV5AnalysisToReport(
   if (block.leading_option_id != null) {
     widened.leading_option_id = block.leading_option_id
   }
+  if (options.optionParticipation != null) widened.option_participation = options.optionParticipation
   if (Object.keys(option_probabilities).length > 0) {
     // ReportV1 declares `option_probabilities` as Record<string, OptionProbability>
     // where OptionProbability.goal_probability is required. The V4 mapper widens
