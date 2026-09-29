@@ -185,6 +185,8 @@ describe('the option card reads the fact', () => {
     mount('olumi_bundle')
     const kept = screen.getByTestId('option-participation-kept-olumi_bundle')
     expect(kept.textContent).toContain("Olumi's suggestion")
+    expect(kept.textContent).toContain("Olumi's suggestion · compared for now")
+    expect(kept.textContent).not.toMatch(/provisional/i)
     expect(kept.textContent).toContain('‘Keep £49 price’')
   })
   it('CONTROL: a user option in the same Run carries no Olumi line', () => {
