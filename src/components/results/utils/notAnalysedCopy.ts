@@ -68,11 +68,20 @@ export const OLUMI_PROPOSED_EXCLUDED_COPY =
  * option(s) — they are named. WITHOUT ids, because the user named fewer than two options: nothing failed, so nothing is
  * said to be unanalysable (DL CHANGES_REQUIRED on #2305; Runtime 5888591648). Meaning: AIQ.
  */
-export function olumiProposedKeptCopy(unanalysableLabels: readonly string[]): string {
-  if (unanalysableLabels.length === 0) {
-    return "Olumi suggested this option. It is compared only because you have fewer than two options of your own, so this run puts no option forward."
+export type OlumiKeptCause =
+  /** The fact names no ids (the no-ids keep cannot tell WHY fewer than two of the user's options were compared). */
+  | { readonly kind: 'fewer_than_two' }
+  /** The fact names ids and every one resolves to a label on the canvas. */
+  | { readonly kind: 'named'; readonly labels: readonly string[] }
+  /** The fact names ids that no longer all resolve (e.g. an option since deleted): no cause is claimed. */
+  | { readonly kind: 'unresolved' }
+export function olumiProposedKeptCopy(cause: OlumiKeptCause): string {
+  // AIQ 5889823627: true whether the user named fewer than two options or one of theirs could not be analysed — so it
+  // also serves ids the canvas can no longer name, and never claims which cause it was.
+  if (cause.kind === 'fewer_than_two' || cause.kind === 'unresolved') {
+    return 'Olumi suggested this option. It is compared only because fewer than two of your own options could be compared in this run, so this run puts no option forward.'
   }
-  const named = unanalysableLabels.map((l) => `\u2018${l}\u2019`)
+  const named = cause.labels.map((l) => `\u2018${l}\u2019`)
   const who = named.length === 1 ? named[0] : `${named.slice(0, -1).join(', ')} and ${named[named.length - 1]}`
   return `Olumi suggested this option. It is compared only because ${who} can't be analysed yet, so this run puts no option forward.`
 }
