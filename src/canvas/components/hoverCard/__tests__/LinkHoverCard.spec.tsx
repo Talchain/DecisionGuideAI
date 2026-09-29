@@ -90,11 +90,12 @@ describe('link hover pop-up', () => {
     expect(pop.querySelectorAll('button')).toHaveLength(0)
   })
 
-  it('draws the server strength as a bar: fill = |strength|, coloured by the STATED direction; no bar when nothing is stated', () => {
+  it('draws the server strength as a bar: fill = |strength|, one neutral colour (never green/red); no bar when nothing is stated', () => {
     const pop = hover({ weight: 0.35, weightSource: 'cee', direction: 'negative', directionSource: 'user' })!
     const fill = pop.querySelector('[data-testid="edge-hover-strength-bar-fill"]') as HTMLElement
     expect(fill.style.width).toBe('35%')
-    expect(fill.className).toContain('bg-danger')
+    expect(fill.className).toContain('bg-info')
+    expect(pop.querySelector('.bg-success, .bg-danger')).toBeNull()
     const bare = hover({ weight: 0.5, direction: 'positive' })!
     expect(bare.querySelector('[data-testid="edge-hover-strength-bar"]')).toBeNull()
   })

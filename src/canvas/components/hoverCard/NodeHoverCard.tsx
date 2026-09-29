@@ -233,7 +233,7 @@ function OpenNodeHoverCard({ nodeId, nodeType, data, anchorRef }: NodeHoverCardP
                 <span key={`${item.name}-${i}`}>
                   {i > 0 && ', '}
                   {item.name}
-                  {item.strength !== null && <StrengthBar magnitude={item.strength} direction={item.direction} testId={`node-hover-card-link-bar-${i}`} />}
+                  {item.strength !== null && <StrengthBar magnitude={item.strength} testId={`node-hover-card-link-bar-${i}`} />}
                   {item.direction !== null && <span className="text-text-light"> ({item.direction})</span>}
                 </span>
               ))}

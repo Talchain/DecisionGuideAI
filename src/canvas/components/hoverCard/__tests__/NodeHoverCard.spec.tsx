@@ -82,7 +82,7 @@ describe('card hover pop-up — what it shows', () => {
     // The stated strength is drawn beside the name, only when the server stated one (CONTRAST row below has none).
     const bar = pop!.querySelector('[data-testid="node-hover-card-link-bar-0"]') as HTMLElement
     expect((bar.firstElementChild as HTMLElement).style.width).toBe('40%')
-    expect((bar.firstElementChild as HTMLElement).className).toContain('bg-success')
+    expect((bar.firstElementChild as HTMLElement).className).not.toMatch(/bg-success|bg-danger/)
   })
 
   it('CONTRAST — nothing invented when fields are absent: no value says "not on record", an unstated direction says nothing', () => {

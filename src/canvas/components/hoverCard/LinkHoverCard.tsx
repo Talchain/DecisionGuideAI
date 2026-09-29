@@ -129,7 +129,7 @@ export function LinkHoverCard(props: LinkHoverCardProps) {
               <span data-testid="edge-hover-strength-placeholder">{props.placeholderSentence}</span>
             ) : strength.show ? (
               <>
-                <StrengthBar magnitude={strength.value} direction={direction.show ? direction.direction : null} testId="edge-hover-strength-bar" />
+                <StrengthBar magnitude={strength.value} testId="edge-hover-strength-bar" />
                 <span data-testid="edge-hover-strength-value" className="tabular-nums">{Math.abs(strength.value).toFixed(2)}</span>
                 <span className="text-text-light"> · {linkStrengthSourceWords(props.strengthSettled, strength.source)}</span>
               </>
