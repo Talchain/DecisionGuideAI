@@ -216,14 +216,17 @@ describe('ANC-07 / T07 — the target reads in ink; its route rule is secondary'
 })
 
 describe('ANC-13 / FRAME-10 — the target row geometry', () => {
-  it('7px title gap (header 4 + 3), shared baseline, counter-scaled gap capped at 8px', () => {
+  it('7px title gap (header 4 + 3), items centred, counter-scaled gap capped at 8px', () => {
     mockStore()
     renderGoal(WITH_TARGET)
     const t = tokens(screen.getByTestId('goal-node-resting-state'))
-    expect(t).toContain('mt-[3px]')
+    // PADDING, not margin (29 Sep): a 3px top margin collapsed into the header's
+    // 4px bottom margin (served gap 4, not 7). Items CENTRE (`.target-row{align-items:center}`).
+    expect(t).toContain('pt-[3px]')
+    expect(t).not.toContain('mt-[3px]')
     expect(t).not.toContain('mt-1')
-    expect(t).toContain('items-baseline')
-    expect(t).not.toContain('items-center')
+    expect(t).toContain('items-center')
+    expect(t).not.toContain('items-baseline')
     expect(t).toContain('gap-x-[min(8px,calc(7px*var(--canvas-label-scale,1)))]')
     expect(t).not.toContain('gap-x-2')
   })

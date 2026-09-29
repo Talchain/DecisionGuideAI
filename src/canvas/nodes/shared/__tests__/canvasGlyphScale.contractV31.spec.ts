@@ -21,6 +21,7 @@ import {
   CANVAS_CORNER_STACK_CLASSES,
   CANVAS_QUICK_ACTION_BOX_PX,
   CANVAS_QUICK_ACTION_INSET_PX,
+  CANVAS_QUICK_ACTION_BOTTOM_INSET_PX,
   CANVAS_QUICK_ACTION_SLOP_PX,
   NODE_QUICK_ACTION_BAND_CSS,
   NODE_QUICK_ACTION_BAND_PX,
@@ -78,7 +79,8 @@ describe('the rendered rail band (contract v3.1 RHY-01)', () => {
 
   it('is derived from the rail constants, and is shorter than the reservation below the bound', () => {
     expect(resolveAt(1)).toBe(
-      CANVAS_QUICK_ACTION_INSET_PX + CANVAS_QUICK_ACTION_BOX_PX + CANVAS_QUICK_ACTION_SLOP_PX,
+      // 29 Sep: 5 + 25 + 2 = 32, the contract's `.node{padding-bottom:32px}` (rail `bottom:5px`).
+      CANVAS_QUICK_ACTION_BOTTOM_INSET_PX + CANVAS_QUICK_ACTION_BOX_PX + CANVAS_QUICK_ACTION_SLOP_PX,
     )
     expect(resolveAt(1)).toBeLessThan(NODE_QUICK_ACTION_BAND_PX)
   })

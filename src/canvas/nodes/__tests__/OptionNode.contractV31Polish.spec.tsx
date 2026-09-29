@@ -309,7 +309,8 @@ describe('contract v3.1 — option card polish', () => {
       const before = inRows('option-change-row-before-option-1-f-head')
       expect(before).not.toBeNull()
       expect(before!.textContent).toBe('0 engineers')
-      expect(tokens(before).has('text-text-light')).toBe(true)
+      // `.delta-rows .before{color:#747770}` — `--card-before-rgb` (29 Sep).
+      expect(tokens(before).has('text-[color:rgb(var(--card-before-rgb))]')).toBe(true)
       expect(tokens(dd).has('text-text-body')).toBe(true)
       // The target is NOT inside the muted span — it inherits the dd's ink.
       expect(before!.textContent).not.toContain('3 engineers')
@@ -399,7 +400,8 @@ describe('contract v3.1 — option card polish', () => {
       expect(dt.tagName).toBe('DT')
       for (const cell of [dt, dd]) {
         expect(cell.className).toContain(typography.edgeLabel)
-        expect(tokens(cell).has('!leading-tight')).toBe(true)
+        // `.delta-rows{line-height:1.2}` (29 Sep; was 1.25).
+        expect(tokens(cell).has('!leading-[1.2]')).toBe(true)
       }
       // v3.1 #9: the amount never exceeds the card (`max-w-full`); the LABEL is
       // the part that yields (`min-w-0`), held to ONE line — RE-PINNED 27 Sep

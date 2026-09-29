@@ -1256,14 +1256,18 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               (tests/ci-guards/the-recorded-value-carries-its-weight.spec.ts).
             · title → row is 7px, the wide card's gap (`.node.wide{gap:7px}`):
               the header's 4px plus 3px here (was 4 + 4), so the card shrinks.
+              ⚠ PADDING, NOT MARGIN (29 Sep 2026): as `mt-[3px]` it collapsed
+              through the body wrapper into the header's 4px bottom margin
+              (max(4, 3) = 4), so the served gap was 4px, not 7 — measured
+              against the contract, row-meta at y 33.5 vs the design's 36.5.
             · the gap counter-scales like the text (4px at every zoom on
               screen), and 4px x the bound scale 2 is the 8px it replaces, so
               the row is never wider at the height the layout reserves. */}
         <div
           className={
             rowMetaClause !== null
-              ? `mt-[3px] min-w-0 line-clamp-2 break-words ${typography.edgeLabel} text-text-light`
-              : 'mt-[3px] flex min-w-0 items-baseline gap-x-[calc(4px*var(--canvas-label-scale,1))] flex-wrap gap-y-0.5'
+              ? `pt-[3px] min-w-0 line-clamp-2 break-words ${typography.edgeLabel} text-text-light`
+              : 'pt-[3px] flex min-w-0 items-baseline gap-x-[calc(4px*var(--canvas-label-scale,1))] flex-wrap gap-y-0.5'
           }
           data-testid="decision-node-resting-state"
         >

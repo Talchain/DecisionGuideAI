@@ -200,7 +200,10 @@ describe('FRAME-10 / ANC-13 — row geometry', () => {
   it('7px title gap (header 4 + 3) and a counter-scaled 4px item gap', () => {
     renderDecision()
     const t = tokens(row())
-    expect(t).toContain('mt-[3px]')
+    // PADDING, not margin (29 Sep): a 3px top margin collapsed into the header's
+    // 4px bottom margin, so the served gap was 4, not 7.
+    expect(t).toContain('pt-[3px]')
+    expect(t).not.toContain('mt-[3px]')
     expect(t).not.toContain('mt-1')
     expect(t).toContain('gap-x-[calc(4px*var(--canvas-label-scale,1))]')
     expect(t).not.toContain('gap-x-2')

@@ -24,7 +24,6 @@ import { RISK_EXPOSURE_UNSET_LINE } from '../RiskNode'
 import { ASSUMPTIONS_OPEN_LINE, modelHasOpenAssumptions } from '../DecisionNode'
 import { OPEN_FULL_INSPECTOR_EVENT } from '../../utils/openEdgeStrengthEditor'
 import { ESTIMATE_SUBJECT_TITLE } from '../shared/EstimateMarker'
-import { MessageCircleQuestion } from 'lucide-react'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -385,6 +384,9 @@ describe('#34 / #39 / #42 — resting copy and glyph', () => {
   })
 
   it('#42: the coaching glyph is the bubble with "?"', () => {
-    expect(COACHING_ICON_GLYPH.Icon).toBe(MessageCircleQuestion)
+    // 29 Sep 2026: the contract's own `ICONS.coaching` path, drawn verbatim.
+    const { container } = render(<COACHING_ICON_GLYPH.Icon />)
+    const d = Array.from(container.querySelectorAll('path')).map((p) => p.getAttribute('d'))
+    expect(d).toEqual(['M21 11a8.5 8.5 0 0 1-8.5 8.5H7L3 22l1.3-5A8.5 8.5 0 1 1 21 11Z', 'M10 8a2.3 2.3 0 1 1 3.7 1.8c-1 .6-1.5 1.1-1.5 2.2M12.2 15h.01'])
   })
 })

@@ -347,7 +347,10 @@ export const FactorNode = memo((props: NodeProps) => {
   const valueMarkJoin = valueSourceMark === null ? null : (
     <>
       {' '}
-      <span data-testid={`factor-value-mark-slot-${props.id}`} className="whitespace-nowrap">
+      {/* Contract `.node .own-value{gap:6px}` between the value and its mark
+          (29 Sep pixel-match): the join space is ≈3.5px of 13px type, so the
+          slot adds 2.5px, counter-scaled with the type beside it. */}
+      <span data-testid={`factor-value-mark-slot-${props.id}`} className="whitespace-nowrap ml-[calc(2.5px*var(--canvas-label-scale,1))]">
         {renderValueSourceMark()}
       </span>
     </>
@@ -1466,7 +1469,7 @@ export const FactorNode = memo((props: NodeProps) => {
               {qualitativeTierLabel(Number(valueDisplay))}
             </span>
             {' '}
-            <span data-testid={`factor-value-mark-slot-${props.id}`} className="whitespace-nowrap">
+            <span data-testid={`factor-value-mark-slot-${props.id}`} className="whitespace-nowrap ml-[calc(2.5px*var(--canvas-label-scale,1))]">
               {renderValueSourceMark()}
             </span>
           </div>

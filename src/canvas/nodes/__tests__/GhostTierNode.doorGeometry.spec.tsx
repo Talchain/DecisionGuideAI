@@ -61,7 +61,7 @@ const props = (data: Record<string, unknown>) =>
  * independent second opinion on the component's arithmetic, so it must not
  * import the component's own private parts and agree with itself. Read off the
  * rendered markup (6px padding, 1.5px dashed border, `typography.edgeLabel` =
- * 11px `leading-snug` 1.375), which the render test below also checks — so a
+ * 11px, line-height 1.35), which the render test below also checks — so a
  * style change cannot leave this restatement quietly wrong.
  *
  * ⭐ S4 (24 Sep 2026): the door is the ROW-END PROMPT again, at the width
@@ -72,7 +72,7 @@ const props = (data: Record<string, unknown>) =>
 const PAD_PX = 6
 const BORDER_PX = 1.5
 const DECLARED_LABEL_PX = 11
-const LINE_HEIGHT = 1.375
+const LINE_HEIGHT = 1.35
 const LINES = 3
 
 describe('the door is the row slot the layout reserved, and its height is derived from the bound', () => {
@@ -197,7 +197,7 @@ describe('the rendered door', () => {
     expect(door.style.padding).toBe(`${PAD_PX}px`)
     const label = door.querySelector('span') as HTMLElement
     expect(label.className).toContain('text-[length:calc(11px*var(--canvas-label-scale,1))]')
-    expect(label.className).toContain('leading-snug')
+    expect(label.className).toContain('leading-[1.35]')
     // The last-resort wrap rule, so a long word cannot overflow the measure.
     expect(door.querySelector('.break-words')).not.toBeNull()
   })
