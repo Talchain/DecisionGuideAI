@@ -74,7 +74,8 @@ const TEXT_EXACT_FROM = 1 / LABEL_COUNTER_SCALE_CAP
  * it is checking). The completeness check belongs in the census, which asserts
  * the exact token set.
  */
-const DECLARED = { nodeTitle: 14, nodeValue: 14, nodeLabel: 11, edgeLabel: 11 } as const
+// 29 Sep 2026 (contract v3.1, Paul "pixel perfect"): title/value 13, the wide title 14.
+const DECLARED = { nodeTitle: 13, nodeTitleWide: 14, nodeValue: 13, nodeLabel: 11, edgeLabel: 11 } as const
 
 /** DS v5 §2.4: panel and canvas contexts bottom out at 10px. */
 const DS_CANVAS_FLOOR_PX = 10
@@ -152,7 +153,8 @@ describe('renderedLabelPx — the invariant the DS actually asks for', () => {
     //   nodeLabel   7.48         9.02
     //   edgeLabel   7.48         9.02
     expect(renderedLabelPx(DECLARED.nodeLabel, LABEL_LEGIBLE_ZOOM)).toBeGreaterThanOrEqual(LANDING_BODY_FLOOR_PX)
-    const LANDING_PX = { nodeTitle: 11.48, nodeValue: 11.48, nodeLabel: 9.02, edgeLabel: 9.02 } as const
+    // 29 Sep 2026: 13 × 1.64 × 0.5 = 10.66 (title, value); the wide title keeps 11.48.
+    const LANDING_PX = { nodeTitle: 10.66, nodeTitleWide: 11.48, nodeValue: 10.66, nodeLabel: 9.02, edgeLabel: 9.02 } as const
     for (const [name, declared] of Object.entries(DECLARED)) {
       expect(renderedLabelPx(declared, LABEL_LEGIBLE_ZOOM), name).toBeCloseTo(LANDING_PX[name as keyof typeof LANDING_PX], 10)
     }
@@ -239,8 +241,10 @@ describe('renderedLabelPx — the invariant the DS actually asks for', () => {
     // 14 × LABEL_COUNTER_SCALE_CAP (1.64) × zoom since the 27 Sep 2026 landing
     // text cap (#70 5859837231): was × 1.36 (8.568 and 7.616), and × 2 before
     // that (12.6 and 11.2).
-    expect(renderedLabelPx(DECLARED.nodeTitle, 0.45)).toBeCloseTo(10.332, 6)
-    expect(renderedLabelPx(DECLARED.nodeTitle, 0.4)).toBeCloseTo(9.184, 6)
+    // 29 Sep 2026: the repeated title is 13px (13 × 1.64 × zoom); the wide title keeps 14.
+    expect(renderedLabelPx(DECLARED.nodeTitle, 0.45)).toBeCloseTo(9.594, 6)
+    expect(renderedLabelPx(DECLARED.nodeTitle, 0.4)).toBeCloseTo(8.528, 6)
+    expect(renderedLabelPx(DECLARED.nodeTitleWide, 0.45)).toBeCloseTo(10.332, 6)
 
     /*
      * ⭐⭐ THE 12 Sep 2026 RAMP REPAYS THE TRADE THE 1 Sep CHANGE ACCEPTED —
@@ -278,8 +282,11 @@ describe('renderedLabelPx — the invariant the DS actually asks for', () => {
     // 0.525, above it). The landing promise is LANDING_BODY_FLOOR_PX (9px) on
     // the body token, and it holds AT the landing floor: body text reaches it at
     // 9 / (11 × 1.64) ≈ 0.4989 ≤ 0.5.
+    // ⚠ 29 Sep 2026: at 13px the crossing is 10 / (13 × 1.64) ≈ 0.4690 — still BELOW the
+    // landing floor (0.5), so at landing a repeated title renders 10.66px ≥ 10.
     const floorCrossingZoom = DS_CANVAS_FLOOR_PX / (DECLARED.nodeTitle * MAX_LABEL_COUNTER_SCALE)
-    expect(floorCrossingZoom).toBeCloseTo(0.43554, 4)
+    expect(floorCrossingZoom).toBeCloseTo(0.46904, 4)
+    expect(floorCrossingZoom).toBeLessThan(LABEL_LEGIBLE_ZOOM)
     expect(LANDING_BODY_FLOOR_PX / (DECLARED.nodeLabel * MAX_LABEL_COUNTER_SCALE)).toBeLessThanOrEqual(LABEL_LEGIBLE_ZOOM)
   })
 })

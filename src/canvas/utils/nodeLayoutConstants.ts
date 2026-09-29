@@ -273,7 +273,7 @@ export const ROW_PROMPT_W = 160
  * The prompt's height at the counter-scale bound — a FLOOR the layout reserves,
  * derived from the type the prompt renders, never hand-tuned.
  *
- * Three lines of `typography.edgeLabel` (11px, `leading-snug` 1.375) at
+ * Three lines of `typography.edgeLabel` (11px, line-height 1.35 — contract `.row-meta`) at
  * `MAX_LABEL_COUNTER_SCALE`, plus unscaled chrome (6px padding and a 1.5px
  * border, each side). Three because a 160 box leaves ~72 declared px of measure
  * and `GhostTierNode`'s 3 Sep browser measurement recorded that the risk and
@@ -287,7 +287,7 @@ export const ROW_PROMPT_W = 160
  */
 export const ROW_PROMPT_LINES = 3
 const ROW_PROMPT_LABEL_PX = 11
-const ROW_PROMPT_LINE_HEIGHT = 1.375
+const ROW_PROMPT_LINE_HEIGHT = 1.35
 export const ROW_PROMPT_PADDING_PX = 6
 export const ROW_PROMPT_BORDER_PX = 1.5
 export const ROW_PROMPT_H = Math.ceil(

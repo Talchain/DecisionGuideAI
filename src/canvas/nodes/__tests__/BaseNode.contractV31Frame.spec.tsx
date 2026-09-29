@@ -118,19 +118,30 @@ describe('contract v3.1 — one 1px frame, one radius, one resting elevation (FR
     expect(tokens(root)).not.toContain('border-2')
   })
 
-  it('the box stays byte-identical: padding absorbs the old stroke (factor 0.5px → 11.5px pad, risk 2px → 13px pad)', () => {
-    // Border + padding on each side is what the old stroke + 12px made, so the
-    // content box — and every height ELK reserved — is unchanged.
+  // ⛔ SUPERSEDED 29 Sep 2026 (Paul, "pixel perfect with the design artefact"): the
+  // byte-identical compensation (factor 11.5px, risk/outcome 13px) is retired; every
+  // repeated card carries the contract's `.node{padding:12px 12px 32px}` and the
+  // Question/Goal `.node.wide{padding:11px 13px 9px}`. The layout measures the new
+  // heights from the DOM. The row below is the contract, by kind.
+  it('every card has the contract padding: 12px sides on a repeated card of any kind, 13px on the anchors', () => {
     const factor = renderCard('factor', { label: 'F', observed_state: { value: 4 } }).root
-    expect(factor.style.paddingLeft).toBe('11.5px')
-    expect(factor.style.paddingRight).toBe('11.5px')
+    expect(factor.style.paddingLeft).toBe('12px')
+    expect(factor.style.paddingRight).toBe('12px')
+    expect(factor.style.paddingTop).toBe('12px')
     cleanup()
     const risk = renderCard('risk', { label: 'R' }).root
-    expect(risk.style.paddingLeft).toBe('13px')
-    expect(risk.style.paddingTop).toBe('13px')
+    expect(risk.style.paddingLeft).toBe('12px')
+    expect(risk.style.paddingTop).toBe('12px')
     cleanup()
     const option = renderCard('option', { label: 'O' }).root
     expect(option.style.paddingLeft).toBe('12px')
+    cleanup()
+    // CONTRAST — the anchors: 11 / 13 / 9 / 13.
+    const goal = renderCard('goal', { label: 'G' }).root
+    expect(goal.style.paddingLeft).toBe('13px')
+    expect(goal.style.paddingRight).toBe('13px')
+    expect(goal.style.paddingTop).toBe('11px')
+    expect(goal.style.paddingBottom).toBe('9px')
   })
 })
 
@@ -290,8 +301,9 @@ describe('contract v3.1 — the anchors are wide and shallow, rail beside the la
     const body = screen.getByTestId('anchor-body-rail-beside')
     // Challenge + More + Ask/coaching = 3, plus the caller's run icon = 4.
     expect(body.getAttribute('data-anchor-rail-buttons')).toBe('4')
-    expect(body.style.paddingRight).toBe(`calc(${anchorRailReservePx(4)}px * var(--canvas-glyph-scale, 1) + -6px)`)
-    expect(body.style.minHeight).toBe('calc(25px * var(--canvas-glyph-scale, 1) + -3px)')
+    // 29 Sep: measured from the anchor's 13px side padding, and 0.5px under the rail so the card is the contract's 65.
+    expect(body.style.paddingRight).toBe(`calc(${anchorRailReservePx(4)}px * var(--canvas-glyph-scale, 1) + -7px)`)
+    expect(body.style.minHeight).toBe('calc(25px * var(--canvas-glyph-scale, 1) + -3.5px)')
     // CONTRAST — the card root carries no rail reserve: the title is not squeezed.
     expect(root.style.paddingRight).not.toMatch(/canvas-glyph-scale/)
     expect(tokens(body)).not.toContain(ANCHOR_RAIL_RESERVE_CLASSES[4])
@@ -368,16 +380,18 @@ describe('contract v3.1 — the rendered rail band tracks the live scale (RHY-01
   // scale, not a fixed band — is unchanged.
   it('an ordinary card renders the band as a calc over --canvas-glyph-scale, not a fixed band', () => {
     const { root } = renderCard('option', { label: 'O' }, { children: <div>row</div> })
-    expect(root.style.paddingBottom).toBe('calc(6px + 27px * var(--canvas-glyph-scale, 1))')
+    // 29 Sep: 5 + 27 = 32 at 100%, the contract's `padding-bottom:32px` (rail at `bottom:5px`).
+    expect(root.style.paddingBottom).toBe('calc(5px + 27px * var(--canvas-glyph-scale, 1))')
   })
 })
 
-describe('contract v3.1 — the anchor title is semibold header ink at reading zoom (ANC-04)', () => {
-  it.each(['decision', 'goal'] as const)('%s title: font-semibold text-text-header', (kind) => {
+describe('contract v3.1 — the anchor title is semibold, 14px, in the card ink at reading zoom (ANC-04)', () => {
+  it.each(['decision', 'goal'] as const)('%s title: font-semibold, the wide 14px, text-text-body', (kind) => {
     renderCard(kind)
     const t = tokens(screen.getByTestId('node-title'))
     expect(t).toContain('font-semibold')
-    expect(t).toContain('text-text-header')
+    expect(t).toContain('text-text-body')
+    expect(t).toContain('text-[length:calc(14px*var(--canvas-label-scale,1))]')
   })
 
   it('twin: a factor title stays body ink at reading zoom', () => {

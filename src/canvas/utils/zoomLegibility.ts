@@ -471,10 +471,18 @@ export const FAR_TITLE_PX = 9
 // ceiling (27 Sep 2026) must not stop it reaching the contract's 9px at 0.167.
 export const FAR_TITLE_MAX_SCALE = 2 * MAX_GLYPH_COUNTER_SCALE
 
+/**
+ * The far title's DECLARED size — `FAR_TITLE_TYPE` in `BaseNode.tsx` is written
+ * at 14px, the wide card's title (`typography.nodeTitleWide`). Since 29 Sep the
+ * repeated card's title is 13px (contract v3.1), so the far chip no longer
+ * shares `nodeTitle`'s number; its scale is computed from its own.
+ */
+export const FAR_TITLE_DECLARED_PX = CANVAS_TYPE_PX.nodeTitleWide
+
 export function farTitleScale(zoom: number): number {
   const base = labelCounterScale(zoom)
   if (typeof zoom !== 'number' || !Number.isFinite(zoom) || zoom <= 0) return base
-  return Math.min(FAR_TITLE_MAX_SCALE, Math.max(base, FAR_TITLE_PX / (CANVAS_TYPE_PX.nodeTitle * zoom)))
+  return Math.min(FAR_TITLE_MAX_SCALE, Math.max(base, FAR_TITLE_PX / (FAR_TITLE_DECLARED_PX * zoom)))
 }
 
 /** The CSS custom property that carries `farTitleScale` (set beside `CANVAS_LABEL_SCALE_VAR`). */

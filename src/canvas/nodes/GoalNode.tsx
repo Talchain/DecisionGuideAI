@@ -74,6 +74,14 @@ import { formatGoalProbability } from '../../components/results/utils/displayFlo
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 
 /**
+ * ⭐ Contract v3.1 `.node.wide .target-row{font-size:12px}` +
+ * `.node .target-row{line-height:1.3;align-items:center;gap:7px}` (Paul 29 Sep,
+ * "pixel perfect with the design artefact"): the Goal's target is 12px ink, one
+ * step above the 11px row-meta. Written out (not interpolated) for Tailwind.
+ */
+const GOAL_TARGET_ROW_TYPE = 'text-[length:calc(12px*var(--canvas-label-scale,1))] font-sans leading-[1.3]'
+
+/**
  * ⭐ THE TWO STRINGS THIS CARD USES TO STATE ITS TARGET, DECLARED ONCE.
  *
  * Both are rendered at FULL ZOOM (the body line and the no-target chip) and
@@ -1092,7 +1100,7 @@ export const GoalNode = memo((props: NodeProps) => {
               CAPPED at the 8px it replaces: at the label bound (scale 2), the
               height the layout reserves, the row is never wider than before,
               so it can never wrap onto a line it did not already take. */}
-        <div className="mt-[3px] flex min-w-0 flex-wrap items-baseline gap-x-[min(8px,calc(7px*var(--canvas-label-scale,1)))] gap-y-0.5" data-testid="goal-node-resting-state">
+        <div className="pt-[3px] flex min-w-0 flex-wrap items-center gap-x-[min(8px,calc(7px*var(--canvas-label-scale,1)))] gap-y-0.5" data-testid="goal-node-resting-state">
           {canCaptureTarget && noTargetStatusChip}
           {targetLine !== null && targetRouteChannels !== null && (
             <button
@@ -1108,7 +1116,7 @@ export const GoalNode = memo((props: NodeProps) => {
                  principle 3 ("No link text inside a card … on hover or focus")
                  and the contract's `.target-row` (a plain span) — at rest the
                  target reads as text, like the factor value editor. */
-              className={`nodrag nopan ${typography.nodeLabel} text-text-body text-left decoration-dotted decoration-text-light decoration-from-font underline-offset-2 hover:underline focus-visible:underline hover:text-info hover:decoration-solid`}
+              className={`nodrag nopan ${GOAL_TARGET_ROW_TYPE} text-text-body text-left decoration-dotted decoration-text-light decoration-from-font underline-offset-2 hover:underline focus-visible:underline hover:text-info hover:decoration-solid`}
               onPointerDown={(e) => e.stopPropagation()}
               onDoubleClick={(e) => e.stopPropagation()}
               onClick={(e) => {
@@ -1120,7 +1128,7 @@ export const GoalNode = memo((props: NodeProps) => {
             </button>
           )}
           {targetLine !== null && targetRouteChannels === null && (
-            <div className={`${typography.nodeLabel} text-text-body`} data-testid="goal-target-line">
+            <div className={`${GOAL_TARGET_ROW_TYPE} text-text-body`} data-testid="goal-target-line">
               {targetLine}
             </div>
           )}
@@ -1149,7 +1157,7 @@ export const GoalNode = memo((props: NodeProps) => {
                    counter-scaled. NEVER CLIPPED: the short form fits one line
                    on the wide card; a longer carried label wraps inside the
                    pill rather than being cut (was `truncate`). */
-                className={`text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans leading-snug nodrag nopan inline-block max-w-full break-words align-baseline px-[7px] py-px bg-panel border border-field/40 rounded-full text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans leading-[1.4] nodrag nopan inline-block max-w-full break-words align-baseline px-[7px] py-px bg-panel border border-field/40 rounded-full text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               >
                 {l.text}
               </span>

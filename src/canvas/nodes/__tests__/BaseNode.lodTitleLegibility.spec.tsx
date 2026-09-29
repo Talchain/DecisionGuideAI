@@ -167,11 +167,14 @@ describe('the boosted anchor title carries the canvas label scale', () => {
    * above-floor treatment is asserted as what it now is, not merely "not
    * ordinary".
    */
-  it('above the floor the anchor KEEPS weight and header ink (contract v3.1 ANC-04)', () => {
+  // 29 Sep 2026: the anchor's step is SIZE (`.node.wide h3{font-size:14px}`) in the
+  // card's ink (#3F3F3E); the contract sets no separate title colour.
+  it('above the floor the anchor KEEPS weight and takes the wide title size, in the card ink', () => {
     renderCard('decision', { lodRung: 'full' })
     expect(titleClass()).toContain('font-semibold')
-    expect(titleClass()).toContain('text-text-header')
-    expect(titleClass()).not.toContain('text-text-body')
+    expect(titleClass()).toContain('calc(14px*var(--canvas-label-scale,1))')
+    expect(titleClass()).toContain('text-text-body')
+    expect(titleClass()).not.toContain('text-text-header')
   })
 
   it('CONTRAST — above the floor an ordinary card is still the ordinary card', () => {

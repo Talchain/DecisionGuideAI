@@ -614,7 +614,7 @@ const PROVENANCE_ROWS: LegendRow[] = (['user_set', 'from_brief', 'ai_inferred'] 
  * mark no card can carry yet — the rule the fragility row already follows.
  */
 function CardIconSwatch({ Icon, inkClass, strokeWidth }: {
-  Icon: typeof ATTENTION_MARKER_GLYPH.Icon
+  Icon: typeof ATTENTION_MARKER_GLYPH.Icon | typeof COACHING_ICON_GLYPH.Icon
   inkClass: string
   strokeWidth?: number
 }) {

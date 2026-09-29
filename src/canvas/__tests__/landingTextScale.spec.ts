@@ -56,7 +56,7 @@ import {
   CANVAS_QUICK_ACTION_SLOP_PX,
   MIN_TARGET_RENDERED_PX,
   NODE_QUICK_ACTION_BAND_PX,
-  CANVAS_QUICK_ACTION_INSET_PX,
+  CANVAS_QUICK_ACTION_BOTTOM_INSET_PX,
 } from '../nodes/shared/canvasGlyphScale'
 
 /** The owner's landing BODY floor (27 Sep 2026, #70 5859837231), in on-screen CSS px. */
@@ -86,7 +86,10 @@ describe('the TEXT ceiling is 1.64 — ceil(9 / (11 × 0.5), 0.01), the owner\'s
     const body = renderedLabelPx(CANVAS_TYPE_PX.nodeLabel, LABEL_LEGIBLE_ZOOM)
     expect(body).toBeGreaterThanOrEqual(LANDING_BODY_FLOOR)
     expect(body).toBeCloseTo(9.02, 10)
-    expect(renderedLabelPx(CANVAS_TYPE_PX.nodeTitle, LABEL_LEGIBLE_ZOOM)).toBeCloseTo(11.48, 10)
+    // 29 Sep 2026 (contract v3.1, Paul "pixel perfect"): the repeated title is 13px
+    // (10.66 at landing), the Question/Goal title 14px (11.48).
+    expect(renderedLabelPx(CANVAS_TYPE_PX.nodeTitle, LABEL_LEGIBLE_ZOOM)).toBeCloseTo(10.66, 10)
+    expect(renderedLabelPx(CANVAS_TYPE_PX.nodeTitleWide, LABEL_LEGIBLE_ZOOM)).toBeCloseTo(11.48, 10)
     // CONTRAST: one grid step lower (1.63) would draw body text at 8.965px — under the
     // floor. The ceiling is the floor's own derivation, not a picked number.
     expect(CANVAS_TYPE_PX.nodeLabel * 1.63 * LABEL_LEGIBLE_ZOOM).toBeLessThan(LANDING_BODY_FLOOR)
@@ -114,8 +117,9 @@ describe('GLYPHS and TARGETS keep the uncapped bound — the text ceiling does n
   })
 
   it('the quick-action band the layout reserves is sized at the GLYPH bound', () => {
+    // A repeated card's rail sits 5px off its bottom edge (contract `.node .rail{bottom:5px}`).
     expect(NODE_QUICK_ACTION_BAND_PX).toBe(
-      CANVAS_QUICK_ACTION_INSET_PX + (CANVAS_QUICK_ACTION_BOX_PX + CANVAS_QUICK_ACTION_SLOP_PX) * MAX_GLYPH_COUNTER_SCALE,
+      CANVAS_QUICK_ACTION_BOTTOM_INSET_PX + (CANVAS_QUICK_ACTION_BOX_PX + CANVAS_QUICK_ACTION_SLOP_PX) * MAX_GLYPH_COUNTER_SCALE,
     )
   })
 })

@@ -36,7 +36,12 @@
  * half — derive where you can, and where you cannot, MAKE THE MIRROR FAIL LOUD.
  */
 export const CANVAS_TYPE_PX = {
-  nodeTitle: 14,
+  // ⭐⭐ CONTRACT v3.1 CARD TYPE (Paul, 29 Sep 2026: "pixel perfect with the
+  // design artefact" — supersedes the 27 Sep "three sizes" ruling on the card):
+  // `.node h3{font-size:13px}`, `.node.wide h3{font-size:14px}`,
+  // `.node .own-value strong{font-size:13px}`.
+  nodeTitle: 13,
+  nodeTitleWide: 14,
   /**
    * ⭐⭐ THE NODE'S OWN RECORDED QUANTITY — question 2 of the card anatomy.
    *
@@ -61,7 +66,7 @@ export const CANVAS_TYPE_PX = {
    * the tree and says the same thing without borrowing authority from a document
    * a reader cannot open.
    */
-  nodeValue: 14,
+  nodeValue: 13,
   nodeLabel: 11, // 27 Sep 2026: three type sizes on the graph (14 / 11 / 10)
   edgeLabel: 11,
 } as const
@@ -247,18 +252,24 @@ export const typography = {
   // the size beside it, so it reads -0.08px on screen across the legible band
   // rather than halving at the landing zoom. Widths only narrow.
   // `cardTitleTracking.contract.spec.tsx` binds it to the title element.
-  nodeTitle: 'text-[length:calc(14px*var(--canvas-label-scale,1))] tracking-[calc(-0.08px*var(--canvas-label-scale,1))] font-medium font-sans leading-tight',
+  nodeTitle: 'text-[length:calc(13px*var(--canvas-label-scale,1))] tracking-[calc(-0.08px*var(--canvas-label-scale,1))] font-medium font-sans leading-tight',
+  // The Question and Goal (`.node.wide h3{font-size:14px}`): the same token one
+  // step up, the anchors' only type difference from a repeated card.
+  nodeTitleWide: 'text-[length:calc(14px*var(--canvas-label-scale,1))] tracking-[calc(-0.08px*var(--canvas-label-scale,1))] font-medium font-sans leading-tight',
   // ⚠ 14px WRITTEN OUT, NOT INTERPOLATED FROM CANVAS_TYPE_PX. This file's own
   // header records why: Tailwind's scanner reads SOURCE TEXT, so an
   // arbitrary-value class built by template interpolation is never generated and
   // the size silently falls back to inherited — the fix would ship dark. The
   // mirror is deliberate and `canvasTypeGeometryAgrees.spec.ts` is what makes it
   // fail loud — the same guard named six lines above, spelled correctly.
-  nodeValue: 'text-[length:calc(14px*var(--canvas-label-scale,1))] font-medium font-sans leading-snug tabular-nums',
+  // Contract `.node .own-value{font-size:13px;line-height:1.3}`.
+  nodeValue: 'text-[length:calc(13px*var(--canvas-label-scale,1))] font-medium font-sans leading-[1.3] tabular-nums',
   // ⭐ 11px since 27 Sep 2026 (Paul: "limit us to a maximum of three font sizes"):
   // the graph's type is 14 (title, value), 11 (body, labels) and 10 (marks, meta).
-  nodeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-snug',
-  edgeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-snug',
+  // Contract `.node .row-meta{font-size:11px;line-height:1.35}` (was
+  // `leading-snug`, 1.375: 15.1px a line against the design's 14.85).
+  nodeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-[1.35]',
+  edgeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-[1.35]',
   // ⭐ v3.1 `.prov` — every card SOURCE MARK (`est.`, `brief`, a person's glyph,
   // "no source"): 10px, weight 400, line-height 1. The weight is part of the
   // token on purpose: a mark sits INSIDE a `nodeValue` line (weight 500) and

@@ -2097,7 +2097,7 @@ export const OptionNode = memo((props: NodeProps) => {
         // inline boxes is decided by their nearest common ancestor — this cell
         // — so it is now `nowrap`, and the one place the amount may break
         // (before its arrow) is re-opened INSIDE the value span below.
-        ? `${typography.edgeLabel} !leading-tight m-0 max-w-full whitespace-nowrap text-left text-text-body`
+        ? `${typography.edgeLabel} !leading-[1.2] m-0 max-w-full whitespace-nowrap text-left text-text-body`
         : `${typography.edgeLabel} !leading-tight m-0 min-w-0 break-words ${align === 'left' ? 'text-left' : 'text-right'} text-text-body`}
       data-testid={`option-change-row-${props.id}-${r.factorId}`}
       title={changeRowSentence(r)}
@@ -2139,7 +2139,9 @@ export const OptionNode = memo((props: NodeProps) => {
             <>
               <span className={resting && optionAmountSegmentNoWrap(r.before) ? 'whitespace-nowrap' : undefined}>
                 <span
-                  className="text-text-light"
+                  /* Contract `.delta-rows .before{color:#747770}` —
+                     `--card-before-rgb` (brand.css), lighter than muted. */
+                  className="text-[color:rgb(var(--card-before-rgb))]"
                   data-testid={`option-change-row-before-${props.id}-${r.factorId}`}
                 >
                   {r.before}
@@ -2223,7 +2225,7 @@ export const OptionNode = memo((props: NodeProps) => {
                   `e2e/visual/nodeTextClipping.visual.spec.ts` requires of a
                   CSS ellipsis. */}
               <dt
-                className={`${typography.edgeLabel} !leading-tight min-w-0 truncate text-text-light`}
+                className={`${typography.edgeLabel} !leading-[1.2] min-w-0 truncate text-text-light`}
                 data-truncates="label"
               >
                 {r.fullLabel}
@@ -2259,7 +2261,9 @@ export const OptionNode = memo((props: NodeProps) => {
              no resting underline, underline on hover/focus — like every
              other link on this card. RHY-04: 4px above it, the body's
              one rhythm. */
-          className={`nodrag nopan ${typography.edgeLabel} mt-1 block text-left text-info no-underline underline-offset-2 hover:underline focus-visible:underline`}
+          /* Contract `.node .inline-more{font-size:10px;color:var(--info)}`
+             (29 Sep pixel-match; it was the 11px label size). */
+          className={`nodrag nopan text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans leading-[1.45] mt-1 block text-left text-info no-underline underline-offset-2 hover:underline focus-visible:underline`}
           data-testid={`option-change-more-${props.id}`}
           aria-label={`${optionTargetsChannels({ count: totalInterventionCount }).full} ${changeRowsMore} more not shown on the card.`}
           onPointerDown={(e) => e.stopPropagation()}
@@ -2296,7 +2300,7 @@ export const OptionNode = memo((props: NodeProps) => {
     <p
       // Contract v3.1 `.node .differentiator{font-size:10.5px;line-height:1.3;
       // color:var(--muted)}` — counter-scaled like every canvas token.
-      className={`text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-[1.3] mt-1 m-0 line-clamp-2 text-text-light`}
+      className={`text-[length:calc(10.5px*var(--canvas-label-scale,1))] font-sans leading-[1.3] mt-1 m-0 line-clamp-2 text-text-light`}
       data-testid={`option-card-differentiator-${props.id}`}
       title={ownDifferentiator}
     >
@@ -2323,7 +2327,9 @@ export const OptionNode = memo((props: NodeProps) => {
     nodes.some(n => n.id !== props.id && (n.type === 'option' || n.data?.type === 'option'))
   const baselineReferenceLine = isDeclaredReference && !ownDifferentiator ? (
     <p
-      className={`${typography.edgeLabel} !leading-tight mt-1 m-0 text-text-light`}
+      // The prototype sets this line as `.differentiator` (10.5px / 1.3), the
+      // same as the option's own sentence (29 Sep pixel-match; it was 11px).
+      className={`text-[length:calc(10.5px*var(--canvas-label-scale,1))] font-sans leading-[1.3] mt-1 m-0 text-text-light`}
       data-testid={`option-baseline-reference-${props.id}`}
     >
       {OPTION_BASELINE_REFERENCE}

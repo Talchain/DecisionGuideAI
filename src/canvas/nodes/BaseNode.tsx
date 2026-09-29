@@ -305,12 +305,18 @@ const TARGET_HANDLE_STYLE: CSSProperties = {
 
 /**
  * ⭐ v3.1 WS1 #25: the FAR-rung title — the same declared 14px and tracking as
- * `typography.nodeTitle`, scaled by `--canvas-far-title-scale`
+ * `typography.nodeTitleWide` (`FAR_TITLE_DECLARED_PX`), scaled by `--canvas-far-title-scale`
  * (`farTitleScale`: the contract's 9px far chip, held as the camera pulls back)
  * instead of the capped label scale. `line` rung only.
  */
 const FAR_TITLE_TYPE =
   'text-[length:calc(14px*var(--canvas-far-title-scale,var(--canvas-label-scale,1)))] tracking-[calc(-0.08px*var(--canvas-far-title-scale,var(--canvas-label-scale,1)))] font-sans leading-tight'
+
+/** Contract `--muted: #666762`, scoped to every card (see the card root's style). */
+const CARD_MUTED_TOKEN_STYLE = {
+  '--text-light-rgb': '102 103 98',
+  '--text-light': 'rgb(102 103 98)',
+} as CSSProperties
 
 /** The anchor's bottom padding (contract `.node.wide{padding:11px 13px 9px}`). */
 const ANCHOR_PAD_BOTTOM_PX = 9
@@ -331,8 +337,11 @@ function anchorBodyRailStyle(buttons: number): CSSProperties {
   const scale = 'var(--canvas-glyph-scale, 1)'
   const reserve = anchorRailReservePx(anchorRailButtonsKey(buttons))
   return {
-    paddingRight: `calc(${reserve}px * ${scale} + ${CANVAS_QUICK_ACTION_INSET_PX - 12}px)`,
-    minHeight: `calc(${CANVAS_QUICK_ACTION_BOX_PX}px * ${scale} + ${CANVAS_QUICK_ACTION_INSET_PX - ANCHOR_PAD_BOTTOM_PX}px)`,
+    paddingRight: `calc(${reserve}px * ${scale} + ${CANVAS_QUICK_ACTION_INSET_PX - 13}px)`,
+    // − 0.5: the contract's wide card is 65px (`.node.wide{height:65px}`), its
+    // rail top at y 33 — half a pixel above this body's top (y 33.5, the
+    // header's 29.5 + 4). Without it every Question and Goal drew 65.5.
+    minHeight: `calc(${CANVAS_QUICK_ACTION_BOX_PX}px * ${scale} + ${CANVAS_QUICK_ACTION_INSET_PX - ANCHOR_PAD_BOTTOM_PX - 0.5}px)`,
   }
 }
 
@@ -1132,7 +1141,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     if (nodeType === 'decision' || nodeType === 'option') return 1
     return 2
   })()
-  const padAdj = legacyBorderPx - 1
+  // ⭐⭐ RETIRED 29 Sep 2026 (Paul: "pixel perfect with the design artefact").
+  // The compensation kept each box byte-identical to its old border width, so
+  // the padding was 11.5 on a factor and 13 on an outcome, risk or unfinished
+  // card, against the contract's single `.node{padding:12px 12px 32px}`. Every
+  // card now has the contract's padding; the layout measures the new heights
+  // from the DOM like any other content change. `legacyBorderPx` is kept only
+  // as the record of what each kind used to draw.
+  void legacyBorderPx
+  const padAdj = 0
 
   // Graph Editing Experience Task 5: Edit impact preview indicator
   const impactDirection = useEditPreviewStore(s => s.impactMap.get(id))
@@ -1454,8 +1471,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     // landing height — so the Question and Goal drew TALLER below the floor than
     // anywhere above it (Canvas Browser Gate `heightVsZoom`, build-vs-buy
     // 1280×800: decision 126 → 132, goal 131 → 134).
+    // Contract `.node.wide{padding:11px 13px 9px}` — 13px sides on the Question
+    // and Goal (they were 12, so every anchor row sat 1px left of the design).
     if (isAnchorCard) {
-      return { paddingTop: '11px', paddingRight: side, paddingBottom: '9px', paddingLeft: side }
+      return { paddingTop: '11px', paddingRight: px(13), paddingBottom: '9px', paddingLeft: px(13) }
     }
     return { paddingTop: side, paddingRight: side, paddingBottom: side, paddingLeft: side }
   }
@@ -1868,6 +1887,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         // also eased the inline width / padding, so on a relayout a card slid to
         // its new ELK width over 200ms while its edges snapped).
         outline: isAnalysisDriver ? '2px solid var(--semantic-info)' : undefined,
+        // ⭐ THE CARD'S MUTED TEXT IS THE CONTRACT'S `--muted` (#666762), SCOPED
+        // TO THE CARD (Paul 29 Sep, "pixel perfect with the design artefact").
+        // The app-wide `--text-light` is #6E6B6B; every muted run on a card —
+        // row-meta, labels, marks, small states — read 8 levels lighter and
+        // warmer than the design. Darker than the token it overrides, so every
+        // contrast margin `text-light-contrast.spec.ts` pins only grows. Both
+        // spellings are set: `--text-light` is resolved where it is declared
+        // (:root), so overriding the channel alone would not reach it.
+        ...CARD_MUTED_TOKEN_STYLE,
         outlineOffset: isAnalysisDriver ? '3px' : undefined,
         // ⚠ THE INLINE PAINT MUST STAND DOWN WHERE THE KIND FILL APPLIES, or the
         // class below is overridden by specificity and the fix is invisible.
@@ -2555,7 +2583,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               lodBodyHidden
                 ? `${FAR_TITLE_TYPE} break-words ${lodBoostTitle || isAnchorCard ? 'font-semibold text-text-header line-clamp-1' : 'text-text-body line-clamp-2'}`
                 : lodBoostTitle
-                ? `${typography.nodeTitle} font-semibold text-text-header break-words`
+                ? `${typography.nodeTitle} font-semibold text-text-body break-words`
                 /* ⭐ THE ANCHORS TAKE THEIR EMPHASIS AT EVERY ZOOM, NOT ONLY BELOW
                    THE FLOOR (contract v3.1 ANC-04: `.node h3{font-weight:610}`,
                    the wide card's title one step above the others). The note
@@ -2564,8 +2592,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                    body is hidden; at reading zoom the Question and Goal titles
                    were set exactly like a factor's. Same size token (DS v5 §2.3
                    forbids a fourth canvas size), so hierarchy is weight + ink. */
+                /* ⭐ CONTRACT v3.1 (Paul 29 Sep, "pixel perfect"): `.node.wide
+                   h3{font-size:14px}` and every title in the card's ink
+                   (`.node` sets no title colour; #3F3F3E). The anchors were
+                   #262626 at the repeated cards' 14px; the step is now size. */
                 : isAnchorCard
-                  ? `${typography.nodeTitle} font-semibold text-text-header break-words`
+                  ? `${typography.nodeTitleWide} font-semibold text-text-body break-words`
                   : `${typography.nodeTitle} text-text-body break-words`
             }
             /* ⭐ CONTRACT `.node h3{font-weight:610}` — EVERY card's title, set

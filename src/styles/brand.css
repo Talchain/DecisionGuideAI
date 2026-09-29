@@ -346,6 +346,9 @@
   --rail-icon: rgb(var(--rail-icon-rgb));
   --behaviour-icon-rgb: 115 109 160;
   --behaviour-icon: rgb(var(--behaviour-icon-rgb));
+  /* An option row's FROM value (Visual Contract `.delta-rows .before{color:#747770}`,
+     29 Sep 2026): lighter than the card's muted ink, ~4.6:1 on --bg-panel. */
+  --card-before-rgb: 116 119 112;
 
   /* ============================================
      LEGACY SEMANTIC TOKENS

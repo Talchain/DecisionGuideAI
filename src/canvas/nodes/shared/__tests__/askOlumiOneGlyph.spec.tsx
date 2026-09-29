@@ -40,15 +40,16 @@ const NODE = { id: 'node-a', type: 'factor', position: { x: 0, y: 0 }, data: { l
 
 const ASK_GLYPH = 'lucide-message-circle'
 /** v3.1 `ICONS.coaching` — the bubble with "?" (DESIGN-GAP-v31 #42). */
-const COACHING_GLYPH = 'lucide-message-circle-question'
+// 29 Sep 2026: the contract's own path (`ContractCoachingGlyph`), not lucide's drawing of it.
+const COACHING_GLYPH = 'olumi-glyph-coaching'
 const RETIRED_ASK_GLYPHS = ['lucide-message-circle-question', 'lucide-message-square'] as const
-const RETIRED_COACHING_GLYPHS = ['lucide-message-circle', 'lucide-message-square'] as const
+const RETIRED_COACHING_GLYPHS = ['lucide-message-circle', 'lucide-message-square', 'lucide-message-circle-question'] as const
 
 /** The lucide identity token of the ONE svg inside an element. */
 const glyphOf = (el: HTMLElement): string => {
   const svgs = el.querySelectorAll('svg')
   expect(svgs).toHaveLength(1)
-  const token = Array.from(svgs[0].classList).find((c) => c.startsWith('lucide-'))
+  const token = Array.from(svgs[0].classList).find((c) => c.startsWith('lucide-') || c.startsWith('olumi-glyph-'))
   expect(token).toBeDefined()
   return token as string
 }

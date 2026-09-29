@@ -41,8 +41,7 @@ import { resolveArrivalSlot, resolvePolarityGlyphOnPath, glyphMetricsAt } from '
 import { flattenSvgPath } from '../edges/fragileCuePlacement'
 import { deriveTierLanes, tierLaneTitleBoxFor } from '../utils/tierLanes'
 import { cornerMarksTitleSpacerCss } from '../nodes/shared/canvasGlyphScale'
-import { farTitleScale, labelCounterScale, FAR_TITLE_PX, FAR_TITLE_MAX_SCALE, MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE } from '../utils/zoomLegibility'
-import { CANVAS_TYPE_PX } from '../../styles/typography'
+import { farTitleScale, labelCounterScale, FAR_TITLE_DECLARED_PX, FAR_TITLE_PX, FAR_TITLE_MAX_SCALE, MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE } from '../utils/zoomLegibility'
 
 /* ── fixtures ─────────────────────────────────────────────────────────────── */
 
@@ -547,8 +546,9 @@ describe('WS1 #17 — the title yields line 1 to the corner mark only when ITS f
 describe('WS1 #25 — the far-zoom title holds the contract\'s 9px chip size', () => {
   it('at the six-zoom-outs camera (0.167) the title renders at 9px, not 4.7px', () => {
     const z = 0.167
-    expect(CANVAS_TYPE_PX.nodeTitle * labelCounterScale(z) * z).toBeLessThan(5)
-    expect(CANVAS_TYPE_PX.nodeTitle * farTitleScale(z) * z).toBeCloseTo(FAR_TITLE_PX, 6)
+    // The far title is DECLARED at 14px (`FAR_TITLE_DECLARED_PX`), not the 13px card title.
+    expect(FAR_TITLE_DECLARED_PX * labelCounterScale(z) * z).toBeLessThan(5)
+    expect(FAR_TITLE_DECLARED_PX * farTitleScale(z) * z).toBeCloseTo(FAR_TITLE_PX, 6)
   })
   it('CONTRAST — at and above the landing floor it is the ordinary label scale', () => {
     for (const z of [0.5, 0.75, 1, 2]) expect(farTitleScale(z)).toBe(labelCounterScale(z))
@@ -557,7 +557,7 @@ describe('WS1 #25 — the far-zoom title holds the contract\'s 9px chip size', (
     // the ordinary scale, holding the contract's 9px where the capped title
     // would draw 6.66px. (At the old 2x cap the two met down to 0.32.)
     expect(farTitleScale(0.35)).toBeGreaterThan(labelCounterScale(0.35))
-    expect(CANVAS_TYPE_PX.nodeTitle * farTitleScale(0.35) * 0.35).toBeCloseTo(FAR_TITLE_PX, 6)
+    expect(FAR_TITLE_DECLARED_PX * farTitleScale(0.35) * 0.35).toBeCloseTo(FAR_TITLE_PX, 6)
   })
   it('is bounded at twice the landing bound — the GLYPH bound, so the 9px chip survives the text ceiling', () => {
     expect(farTitleScale(0.05)).toBe(FAR_TITLE_MAX_SCALE)

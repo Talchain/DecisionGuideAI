@@ -270,7 +270,8 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
     const lhAtBound = at(sc.text).lh
     const spacerAtBound = px(spacer.style.width, sc, { pct: boxAtBound, lh: lhAtBound })
     const besideAtBound = markLeftAt(cardW, 1, MAX_GLYPH_COUNTER_SCALE) - CONTRACT_MARK_CLEARANCE_PX - padL
-    expect(besideAtBound).toBeCloseTo(175, 6)
+    // 29 Sep: the contract's 12px padding on every card (was 13 on this kind) → 176.
+    expect(besideAtBound).toBeCloseTo(176, 6)
     expect(besideAtBound).toBeLessThan(NODE_TITLE_WIDEST_WORD_PX * MAX_LABEL_COUNTER_SCALE)
     // Yielded: the spacer takes the whole of line 1…
     expect(boxAtBound - spacerAtBound).toBeCloseTo(0, 6)
@@ -651,9 +652,10 @@ describe('GAP 34 — rail geometry and colours are the contract .icon-btn', () =
     useCanvasStore.setState({ nodes: [{ id: 'n1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Hiring spend' } }] } as never)
     render(<NodeCoachingIcon nodeId="n1" chips={null} />)
     const icon = screen.getByTestId('node-coaching-icon-n1')
-    expect(tokens(icon)).toContain(NODE_RAIL_REST_TONE_CLASS)
+    // 29 Sep 2026: the contract's `.icon-btn.coaching{color:var(--muted)}`.
+    expect(tokens(icon)).toContain('text-text-light')
     expect(tokens(icon)).not.toContain('text-info')
-    expect(tokens(icon)).not.toContain('text-text-light')
+    expect(tokens(icon)).not.toContain(NODE_RAIL_REST_TONE_CLASS)
   })
 
   it('the hover quick actions rest in the same icon grey (one rail, one grey)', () => {

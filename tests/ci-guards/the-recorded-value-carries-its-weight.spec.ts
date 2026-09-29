@@ -61,7 +61,8 @@ describe('the value token exists and is weighted correctly', () => {
   it('the value class carries the counter-scale, like every canvas token', () => {
     // Without it the value would hold its px while siblings scale, so it would
     // shrink relative to the card as the camera pulls back.
-    expect(typography.nodeValue).toMatch(/calc\(14px\*var\(--canvas-label-scale,1\)\)/)
+    // 29 Sep 2026: 13px, the contract's `.node .own-value strong{font-size:13px}` — equal to the title.
+    expect(typography.nodeValue).toMatch(/calc\(13px\*var\(--canvas-label-scale,1\)\)/)
   })
 })
 

@@ -11,6 +11,7 @@ import {
   CANVAS_GAP_CLASSES,
   CANVAS_CORNER_INSET_CLASSES,
   CANVAS_QUICK_ACTION_INSET_PX,
+  CANVAS_REPEATED_RAIL_INSET_CLASSES,
 } from './canvasGlyphScale'
 import { NodeCoachingIcon, useCoachingIconChip } from './NodeCoachingIcon'
 import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX, NODE_RAIL_REST_TONE_CLASS } from './nodeCardRailStyles'
@@ -439,7 +440,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
 
          The wrapper itself never hit-tests (`pointer-events-none`); the resting
          group opts back in, and the hover group keeps its mirror. */
-      className={`node-card-rail absolute ${placement === 'below' ? 'top-full right-0' : CANVAS_CORNER_INSET_CLASSES[CANVAS_QUICK_ACTION_INSET_PX]} z-[2] flex items-center ${CANVAS_GAP_CLASSES[6]} pointer-events-none`}
+      className={`node-card-rail absolute ${placement === 'below' ? 'top-full right-0' : nodeType === 'decision' || nodeType === 'goal' ? CANVAS_CORNER_INSET_CLASSES[CANVAS_QUICK_ACTION_INSET_PX] : CANVAS_REPEATED_RAIL_INSET_CLASSES} z-[2] flex items-center ${CANVAS_GAP_CLASSES[6]} pointer-events-none`}
       data-testid={`node-card-rail-${nodeId}`}
       data-rail-placement={placement}
     >

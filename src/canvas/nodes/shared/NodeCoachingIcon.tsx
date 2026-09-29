@@ -63,7 +63,6 @@
  * is revealed first so the turn never lands where the user is not looking.
  */
 import { memo, useCallback } from 'react'
-import { MessageCircleQuestion } from 'lucide-react'
 import Tooltip from '../../../components/Tooltip'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -74,7 +73,8 @@ import { buildAskAIPrompt } from '../../contextMenu/actions'
 import type { NodeType } from '../../domain/nodes'
 import type { CoachingChip, ResolvedCoaching } from '../coaching/resolveNodeCoaching'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
-import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX, NODE_RAIL_REST_TONE_CLASS } from './nodeCardRailStyles'
+import type { LucideProps } from 'lucide-react'
+import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
 
 export const NODE_COACHING_ICON_TESTID_PREFIX = 'node-coaching-icon-'
 
@@ -94,7 +94,38 @@ export const NODE_COACHING_ICON_TESTID_PREFIX = 'node-coaching-icon-'
  * question, distinct from a generic ask; the common brief says v3.1 wins. The
  * quick action and the panel keep their own glyph (not this file's).
  */
-export const COACHING_ICON_GLYPH = { Icon: MessageCircleQuestion, inkClass: NODE_RAIL_REST_TONE_CLASS } as const
+/**
+ * ⭐ THE CONTRACT'S OWN PATH, NOT LUCIDE'S DRAWING OF IT (Paul 29 Sep, "pixel
+ * perfect with the design artefact"): `ICONS.coaching` verbatim — a bubble whose
+ * tail sits bottom-left, with the "?" inside — at `svg.icon{stroke-width:1.8}`.
+ * Lucide's `MessageCircleQuestion` is a rounder bubble that fills more of the
+ * 15px box, so every card's one resting icon read heavier than the design. And
+ * `.icon-btn.coaching{color:var(--muted)}`: the coaching door is muted, a step
+ * quieter than the rail's other icons (#777B77).
+ */
+function ContractCoachingGlyph({ size = 15, className, strokeWidth = 1.8, 'aria-hidden': ariaHidden }: LucideProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      // Identity token, the way lucide stamps `lucide-<name>`, so a probe can bind the glyph.
+      className={`olumi-glyph-coaching${className ? ` ${className}` : ''}`}
+      aria-hidden={ariaHidden}
+    >
+      <path d="M21 11a8.5 8.5 0 0 1-8.5 8.5H7L3 22l1.3-5A8.5 8.5 0 1 1 21 11Z" />
+      <path d="M10 8a2.3 2.3 0 1 1 3.7 1.8c-1 .6-1.5 1.1-1.5 2.2M12.2 15h.01" />
+    </svg>
+  )
+}
+
+export const COACHING_ICON_GLYPH = { Icon: ContractCoachingGlyph, inkClass: 'text-text-light' } as const
 
 /** A typed chip keeps its typed route; `run_analysis` is a run, not a question. */
 export function coachingChipIsTyped(chip: CoachingChip): boolean {

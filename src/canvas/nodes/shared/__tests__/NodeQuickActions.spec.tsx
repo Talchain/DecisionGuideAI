@@ -25,7 +25,7 @@ import { NodeQuickActions } from '../NodeQuickActions'
 import { openNodeInspector } from '../openNodeInspector'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
-import { CANVAS_CORNER_INSET_CLASSES, CANVAS_QUICK_ACTION_INSET_PX } from '../canvasGlyphScale'
+import { CANVAS_CORNER_INSET_CLASSES, CANVAS_QUICK_ACTION_INSET_PX, CANVAS_REPEATED_RAIL_INSET_CLASSES } from '../canvasGlyphScale'
 
 const NODE_A = { id: 'node-a', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Hiring spend' } }
 const NODE_B = { id: 'node-b', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Team productivity' } }
@@ -207,11 +207,14 @@ describe('NodeQuickActions — stays out of the owned top-right corner', () => {
     // the constant means this cannot fail for a rename and cannot pass for a
     // move (CLAUDE.md trap 19: bind by identity, not by a predicate something
     // else could satisfy).
-    expect(el.className).toContain(CANVAS_CORNER_INSET_CLASSES[CANVAS_QUICK_ACTION_INSET_PX])
+    // 29 Sep 2026: a REPEATED card's rail is the contract's `right:6px;bottom:5px`
+    // (`CANVAS_REPEATED_RAIL_INSET_CLASSES`); the anchors keep 6/6 (below).
+    expect(el.className).toContain(CANVAS_REPEATED_RAIL_INSET_CLASSES)
     // …and the constant really does claim the bottom-right corner, so the
     // assertion above cannot be satisfied by a map entry that stopped doing so.
+    expect(CANVAS_REPEATED_RAIL_INSET_CLASSES).toMatch(/(^|\s)bottom-/)
+    expect(CANVAS_REPEATED_RAIL_INSET_CLASSES).toMatch(/(^|\s)right-/)
     expect(CANVAS_CORNER_INSET_CLASSES[CANVAS_QUICK_ACTION_INSET_PX]).toMatch(/(^|\s)bottom-/)
-    expect(CANVAS_CORNER_INSET_CLASSES[CANVAS_QUICK_ACTION_INSET_PX]).toMatch(/(^|\s)right-/)
     // The defect, stated exactly: any top anchor puts it back in the band.
     expect(el.className).not.toMatch(/(^|\s)-?top-/)
   })

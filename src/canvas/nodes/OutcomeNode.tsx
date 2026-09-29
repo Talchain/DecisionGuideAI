@@ -411,7 +411,8 @@ export const OutcomeNode = memo((props: NodeProps) => {
               // Contract v3.1 `.small-state` "Outcome not quantified", VISIBLE —
               // the risk card's sibling line (DESIGN-GAP-v31 #34) keeps one
               // element and one class list with it; wraps, never cut.
-              className={`${typography.edgeLabel} text-text-light break-words`}
+              // `.node .small-state{line-height:1.4}` (29 Sep, pixel-match).
+              className={`${typography.edgeLabel} !leading-[1.4] text-text-light break-words`}
               data-testid="outcome-unquantified"
               data-card-primary-line="outcome"
             >
