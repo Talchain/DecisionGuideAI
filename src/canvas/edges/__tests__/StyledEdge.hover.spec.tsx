@@ -214,7 +214,12 @@ describe('StyledEdge — hover popover timer cleanup (component-level)', () => {
 //    holds no control, so a hover cannot dispatch anything at all (bound with
 //    a dispatcher REGISTERED, so the absence is not a missing surface).
 // ---------------------------------------------------------------------------
-describe('StyledEdge hover tooltip — provenance honesty (v3.1 one line)', () => {
+// ⭐ 29 Sep 2026 (Paul: the link pop-up is back, with direction and strength and
+// whether each was stated or estimated): the arrow sentence keeps these pins; the
+// strength is now SHOWN when a source stamp proves it (`edge-hover-strength`),
+// in the data's own units and never as a percentage, and a drawn default still
+// shows no figure at all.
+describe('StyledEdge hover pop-up — provenance honesty', () => {
   const drawnEdge = {
     ...defaultEdgeProps,
     // USER_EDGE_DEFAULTS shape: values present, no *Source stamp.
@@ -266,19 +271,19 @@ describe('StyledEdge hover tooltip — provenance honesty (v3.1 one line)', () =
   })
 
   it('does NOT call an unstated direction "Positive", even when the strength IS set', () => {
-    const { tooltip } = hoverAndGetTooltip(characterisedEdge)
-    expect(tooltip.textContent).toBe('n1 → n2. Direction not stated in this model.')
+    const { tooltip, container } = hoverAndGetTooltip(characterisedEdge)
+    expect(container.querySelector('[data-testid="edge-hover-arrow-sentence"]')!.textContent).toBe('n1 → n2. Direction not stated in this model.')
     expect(tooltip.textContent).not.toMatch(/Positive|Negative/)
   })
 
   it('DOES say "Positive" when the direction was stated', () => {
-    const { tooltip } = hoverAndGetTooltip(statedPositiveEdge)
-    expect(tooltip.textContent).toBe('n1 → n2. Positive direction in this model.')
+    const { container } = hoverAndGetTooltip(statedPositiveEdge)
+    expect(container.querySelector('[data-testid="edge-hover-arrow-sentence"]')!.textContent).toBe('n1 → n2. Positive direction in this model.')
   })
 
   it('DOES say "Negative" when a negative direction was stated', () => {
-    const { tooltip } = hoverAndGetTooltip(statedNegativeEdge)
-    expect(tooltip.textContent).toBe('n1 → n2. Negative direction in this model.')
+    const { container } = hoverAndGetTooltip(statedNegativeEdge)
+    expect(container.querySelector('[data-testid="edge-hover-arrow-sentence"]')!.textContent).toBe('n1 → n2. Negative direction in this model.')
   })
 
   it('paints no strength bar in either direction colour (the bar left with the popover)', () => {
@@ -289,21 +294,24 @@ describe('StyledEdge hover tooltip — provenance honesty (v3.1 one line)', () =
     }
   })
 
-  it('speaks no strength, no confidence and no percentage — characterised OR drawn', () => {
-    for (const edge of [characterisedEdge, drawnEdge]) {
-      const { tooltip, container } = hoverAndGetTooltip(edge)
+  it('a DRAWN default speaks no strength figure; a characterised edge speaks only its stated figure — never a confidence, band or percentage', () => {
+    {
+      const { tooltip, container } = hoverAndGetTooltip(drawnEdge)
       // No figure: the endpoint ids ("n1", "n2") are the only digits allowed.
       expect(withoutEndpoints(tooltip.textContent)).not.toMatch(/\d/)
-      expect(tooltip.textContent ?? '').not.toMatch(/confident|Moderate|strength/i)
       expect(container.querySelector('[data-testid="edge-hover-strength-value"]')).toBeNull()
-      expect(container.querySelector('[data-testid="edge-hover-popover-unset"]')).toBeNull()
       cleanup()
     }
+    const { tooltip, container } = hoverAndGetTooltip(characterisedEdge)
+    expect(container.querySelector('[data-testid="edge-hover-strength-value"]')!.textContent).toBe('0.30')
+    expect(tooltip.textContent ?? '').not.toMatch(/confident|Moderate|%/i)
+    expect(container.querySelector('[data-testid="edge-hover-popover-unset"]')).toBeNull()
   })
 
-  it('A7 — a 0.2 edge hovers to no "20%" and no "0.20" (the figure is the inspector\'s)', () => {
+  it('A7 — a 0.2 edge hovers to "0.20" in the data\'s own units (as the inspector shows it), never "20%"', () => {
     const { tooltip } = hoverAndGetTooltip(twentyPercentEdge)
-    expect(tooltip.textContent ?? '').not.toMatch(/20%|0\.20/)
+    expect(tooltip.textContent ?? '').not.toMatch(/20%/)
+    expect(tooltip.textContent ?? '').toContain('0.20')
   })
 
   it('holds no control, so a hover can send nothing to CEE — with a dispatcher REGISTERED', () => {

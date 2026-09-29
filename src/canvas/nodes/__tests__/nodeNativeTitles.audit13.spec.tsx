@@ -79,7 +79,7 @@ const KINDS = ['decision', 'goal', 'option', 'factor', 'outcome', 'risk'] as con
 
 afterEach(() => cleanup())
 
-describe('audit #13: a card name\'s hover shows the name only, in the one styled tooltip', () => {
+describe('audit #13: a card name\'s hover shows the name, never an instruction', () => {
   beforeEach(() => { vi.useFakeTimers() })
   afterEach(() => { vi.useRealTimers() })
 
@@ -93,8 +93,11 @@ describe('audit #13: a card name\'s hover shows the name only, in the one styled
         fireEvent.mouseEnter(title)
         vi.advanceTimersByTime(400)
       })
-      const tip = document.querySelector('[data-testid="node-title-tooltip-name"]')?.closest('[role="tooltip"]')
-      expect(tip?.textContent).toBe(SERVED_OPTION)
+      // 29 Sep 2026: the name's hover route is the card's hover pop-up (light
+      // panel, `NodeHoverCard`), whose first line is the name — no instruction.
+      const tip = document.querySelector('[data-testid="node-hover-card-title"]')?.closest('[role="tooltip"]')
+      expect(tip?.querySelector('[data-testid="node-hover-card-title"]')?.textContent).toBe(SERVED_OPTION)
+      expect(tip?.textContent ?? '').not.toContain(NODE_RENAME_AFFORDANCE)
       expect(document.querySelector('[data-testid="node-title-tooltip-affordance"]')).toBeNull()
       // CONTRAST: the screen-reader name still says what a double-click does.
       expect(container.querySelector('[role="group"]')?.getAttribute('aria-label') ?? '').toContain(NODE_RENAME_AFFORDANCE)

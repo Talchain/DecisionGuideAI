@@ -96,6 +96,9 @@ import {
 } from './shared/canvasGlyphScale'
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
+import { usePopoverHover } from '../hooks/usePopoverHover'
+import { NodeHoverCard } from '../components/hoverCard/NodeHoverCard'
+import { HOVER_CARD_OPEN_DELAY_MS } from '../components/hoverCard/hoverCardPlacement'
 import { NodeProvenanceMark, useProvenanceDefaultKind } from './shared/NodeProvenanceMark'
 import { STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { useNodeAttention } from './shared/useNodeAttention'
@@ -437,6 +440,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     }, TITLE_DOUBLE_CLICK_WINDOW_MS)
   }, [cancelTitleClick])
   const updateNodeInternals = useUpdateNodeInternals()
+  // The card's hover pop-up (Paul, 29 Sep 2026): opens on hover intent or
+  // keyboard focus, closes on leave or Escape — see `NodeHoverCard`.
+  const hoverCard = usePopoverHover(HOVER_CARD_OPEN_DELAY_MS)
 
   // Phase 3: Node highlighting
   // React #185 FIX: Return primitive boolean from selector to prevent re-renders
@@ -1858,6 +1864,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
   return (
     <div
+      ref={hoverCard.nodeElRef as React.Ref<HTMLDivElement>}
+      onMouseEnter={hoverCard.nodeHandlers.onMouseEnter}
+      onMouseLeave={hoverCard.nodeHandlers.onMouseLeave}
       role="group"
       aria-label={accessibleName}
       aria-expanded={description ? isExpanded : undefined}
@@ -2578,19 +2587,13 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               The direction that lane's argument rests on is unchanged and the
               margin is larger. The layout itself does not re-run in this band —
               it keys on `layoutVersion`, not on zoom. */}
-          {/* ⭐ v3.1 (DESIGN-GAP-v31 row 36): ONE tooltip system. This element is
-              `line-clamp-2`, so a hover route back to a clipped name must stay —
-              it is now the styled tooltip, carrying the full name, instead of a
-              native `title` ("…\n\nDouble-click to rename it") beside it
-              (`shared/nodeRenameAffordance.ts`). Design audit #13 (26 Sep): the
-              rename hint left the hover; the inspector's title is the rename
-              control, and the accessible name still says it.
-              `data-node-tooltip` makes the card preview yield while the name's
-              tooltip is up — one overlay at a time, the rule every other
-              node-surface tooltip follows. A SELECTED card offers none (v3.1
-              row 6, "a click opens only the inspector"): the hover delay could
-              elapse after the click and stand the tooltip beside the
-              inspector, whose title is the full, unclipped name. */}
+          {/* ⭐ NO TOOLTIP ON THE NAME (Paul, 29 Sep 2026): the card's hover
+              pop-up (`NodeHoverCard`, mounted at the foot of this card) carries
+              the full name first, in the light panel style, so the black
+              one-line name tooltip went. No native `title` either (design
+              audit #13); the accessible name still carries the rename
+              affordance. The name no longer carries `data-node-tooltip`, which
+              would make the pop-up yield while the pointer rests on the name. */}
           {renamingOnCard && !lodBodyHidden ? (
             <div
               data-testid="node-title-rename"
@@ -2613,18 +2616,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               />
             </div>
           ) : (
-          <Tooltip
-            asChild
-            delay={NODE_TOOLTIP_DELAY_MS}
-            content={selected || titleChannels.tooltip.name === null ? null : (
-              <span data-testid="node-title-tooltip-name" className="block">
-                {titleChannels.tooltip.name}
-              </span>
-            )}
-          >
           <div
             data-testid="node-title"
-            data-node-tooltip
             onClick={lodBodyHidden ? undefined : onTitleClick}
             onDoubleClick={lodBodyHidden ? undefined : (e) => { e.stopPropagation(); cancelTitleClick(); setRenamingOnCard(true) }}
             {...(lodBodyHidden ? { [LOD_FAR_TITLE_ATTR]: 'true' } : {})}
@@ -2680,7 +2673,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             {/* E1d: the pencil says the title renames in place (double-click). Zero-width; see `EditPencilCue`. */}
             {!lodBodyHidden && <EditPencilCue testId="node-title-pencil" />}
           </div>
-          </Tooltip>
           )}
         </div>
 
@@ -3078,6 +3070,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           unmounted, not hidden: a second door for the same question is the
           duplicate Paul's screenshot B showed. */}
 
+      {/* Never beside the inspector (v3.1 row 6: a click opens only the
+          inspector) and never over the on-card rename field. */}
+      <NodeHoverCard
+        nodeId={id}
+        nodeType={nodeType}
+        data={data as Record<string, unknown> | undefined}
+        visible={hoverCard.showPopover && !selected && !renamingOnCard}
+        anchorRef={hoverCard.nodeElRef}
+      />
       {/* ⭐ A 3px DARK PORT, NOT A 12px KIND DISC (contract v3.1 FRAME-04:
           `.node .bottom-port{width:3px;height:3px;background:#51554F}` centred
           on the bottom border). Fifteen to nineteen coloured discs on a board

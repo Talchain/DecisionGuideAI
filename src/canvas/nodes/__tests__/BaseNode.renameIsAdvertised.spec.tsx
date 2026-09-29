@@ -68,17 +68,17 @@ function renderCard(nodeType: (typeof KINDS)[number]) {
 }
 
 /**
- * ⭐ v3.1 (DESIGN-GAP-v31 row 36): the name and the affordance moved from a
- * NATIVE `title` to the ONE styled tooltip on the title — same two facts, same
- * order, one tooltip system. Bound to the tooltip's own parts by test id.
+ * The name's hover route: v3.1 moved it from a NATIVE `title` to a styled
+ * tooltip; since 29 Sep 2026 it is the card's hover pop-up (`NodeHoverCard`),
+ * whose first line is the name. Bound to the pop-up's own parts by test id.
  */
 function hoverName(title: HTMLElement): HTMLElement {
   act(() => {
     fireEvent.mouseEnter(title)
     vi.advanceTimersByTime(400)
   })
-  const name = document.querySelector('[data-testid="node-title-tooltip-name"]')
-  expect(name, 'the styled name tooltip did not open').not.toBeNull()
+  const name = document.querySelector('[data-testid="node-hover-card-title"]')
+  expect(name, 'the card hover pop-up did not open').not.toBeNull()
   return name!.closest('[role="tooltip"]') as HTMLElement
 }
 
@@ -105,7 +105,7 @@ describe('the rename affordance reaches every node kind', () => {
       // a clipped name. Replacing the name with a hint would trade a capability
       // for a tooltip, so this REDs on a replace and passes on a compose.
       const tip = hoverName(renderCard(kind).title)
-      expect(tip.querySelector('[data-testid="node-title-tooltip-name"]')!.textContent).toBe(LABEL)
+      expect(tip.querySelector('[data-testid="node-hover-card-title"]')!.textContent).toBe(LABEL)
       expect((tip.textContent ?? '').indexOf(LABEL)).toBe(0)
     })
 

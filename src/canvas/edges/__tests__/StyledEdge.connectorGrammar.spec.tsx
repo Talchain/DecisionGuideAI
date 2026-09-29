@@ -183,7 +183,7 @@ function openPopover(container: HTMLElement): HTMLElement {
   const hit = container.querySelector('path[stroke="transparent"]')
   expect(hit, 'no hit path — the hover cannot be driven').not.toBeNull()
   act(() => { fireEvent.mouseEnter(hit!) })
-  act(() => { vi.advanceTimersByTime(350) })
+  act(() => { vi.advanceTimersByTime(450) })
   const popover = byTestId(container, 'edge-hover-popover')
   expect(popover, 'the hover popover did not open').not.toBeNull()
   return popover!
@@ -396,37 +396,34 @@ describe('R7 — a disputed sign is not stated as fact on hover', () => {
 
 // ── R8: an unconfirmed strength is never stated as settled on hover ─────────
 
-describe('R8 — the hover states no strength, so it cannot state an estimate as settled', () => {
-  // ⭐ REWRITTEN for v3.1 (DESIGN-GAP-v31 row 12). R8 pinned the popover's
-  // "Link strength · Olumi’s estimate" caption. The one-line tooltip carries no
-  // strength at all — the contract's hover is the arrow sentence — so the
-  // estimate-versus-settled distinction is held where a strength IS shown: the
-  // card rows (`LINK_STRENGTH_COPY`, pinned by `EdgePills.spec.tsx` and
-  // `linkStrengthOneSource.spec.ts`) and the edge inspector's strength control.
-  // What this pins now is the stronger claim: no strength caption, figure or
-  // provenance word reaches the hover for ANY author.
-  for (const [who, data] of [
-    ['a producer (unconfirmed)', CEE_EDGE],
-    ['a template (unconfirmed)', TEMPLATE_EDGE],
-    ['the person (settled)', USER_EDGE],
+describe('R8 — the hover never states an estimate as settled', () => {
+  // ⭐ REWRITTEN 29 Sep 2026 (Paul: bring the link pop-up back with its
+  // strength and whether it was stated or estimated). v3.1's one-line tooltip
+  // carried no strength, and this block pinned that. The pop-up now shows the
+  // server's figure WITH its author, from the ONE admission
+  // (`strengthIsHumanSettled`): an unconfirmed producer or template figure is
+  // named as an estimate; only a person's own figure reads as theirs.
+  for (const [who, data, words] of [
+    ['a producer (unconfirmed)', CEE_EDGE, 'Olumi’s estimate'],
+    ['a template (unconfirmed)', TEMPLATE_EDGE, 'Template estimate'],
+    ['the person (settled)', USER_EDGE, 'Set by you'],
   ] as const) {
-    it(`${who}: no "Link strength", no estimate wording, no figure`, () => {
+    it(`${who}: the strength row names its author ("${words}")`, () => {
       const { container } = renderEdge({ ...data })
       const popover = openPopover(container)
       expect(popover.getAttribute('role')).toBe('tooltip')
+      expect(byTestId(container, 'edge-hover-strength')!.textContent).toBe(`Strength0.60 · ${words}`)
       expect(popover.textContent).not.toContain(LINK_STRENGTH_COPY.noun)
-      expect(popover.textContent).not.toMatch(/estimate/i)
-      // No figure: the endpoint ids ("n1", "n2") are the only digits allowed.
-      expect((popover.textContent ?? '').replace(/\bn[12]\b/g, '')).not.toMatch(/\d/)
-      // POSITIVE: it does say the connection itself.
       expect(popover.textContent).toMatch(/^n1 → n2\./)
     })
   }
 
-  it('an edge with no strength at all hovers to the same one sentence — no "not set" block to disagree with', () => {
+  it('an edge with no strength at all says so once — no number', () => {
     const { container } = renderEdge({ weight: 0.5 })
     const popover = openPopover(container)
     expect(byTestId(container, 'edge-hover-popover-unset')).toBeNull()
-    expect(popover.textContent).toBe('n1 → n2. Direction not stated in this model.')
+    expect(byTestId(container, 'edge-hover-arrow-sentence')!.textContent).toBe('n1 → n2. Direction not stated in this model.')
+    expect(byTestId(container, 'edge-hover-strength')!.textContent).toBe('StrengthNot on record')
+    expect((popover.textContent ?? '').replace(/\bn[12]\b/g, '')).not.toMatch(/\d/)
   })
 })

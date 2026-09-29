@@ -176,7 +176,7 @@ describe('onMouseMove — the hover follows the pointer across lines inside one 
     expect(on('A', 'e-10').hovered()).toBe(true) // PRECONDITION
     act(() => {
       fireEvent.mouseMove(on('A', 'e-10').hit, ON_E9_LINE)
-      vi.advanceTimersByTime(400) // one frame, then the 300ms tooltip delay
+      vi.advanceTimersByTime(450) // one frame, then the 400ms hover-card delay
     })
     expect(on('A', 'e-9').hovered()).toBe(true)
     expect(on('A', 'e-10').hovered()).toBe(false)

@@ -162,7 +162,7 @@ function openPopover(container: HTMLElement): HTMLElement {
   const hit = container.querySelector('path[stroke="transparent"]')
   expect(hit, 'no hit path — the hover cannot be driven').not.toBeNull()
   act(() => { fireEvent.mouseEnter(hit!) })
-  act(() => { vi.advanceTimersByTime(350) })
+  act(() => { vi.advanceTimersByTime(450) })
   const popover = byTestId(container, 'edge-hover-popover')
   expect(popover, 'the hover popover did not open').not.toBeNull()
   return popover!
