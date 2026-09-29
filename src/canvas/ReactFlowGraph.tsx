@@ -1,3 +1,4 @@
+import { LinkQuickEditor } from './components/LinkQuickEditor'
 import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo } from 'react'
 import { resolveRestoredFreshnessUpdate } from './store/analysisFreshness'
 import { X } from 'lucide-react'
@@ -1062,6 +1063,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const [isDragging, setIsDragging] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showFullInspector, setShowFullInspector] = useState(false)
+  // ⭐ E2: a link click opens the small editor at the pointer; "More detail" (or a double-click) opens the inspector.
+  const [linkQuickEdit, setLinkQuickEdit] = useState<{ edgeId: string; x: number; y: number } | null>(null)
 
   // ONE FULL-WIDTH SURFACE AT A TIME — the two directions of the same rule.
   // The dock opening stands the inspector down; `openEdgeStrengthEditor` (which
@@ -1496,6 +1499,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [nodeCount, edgeCount, validateGraph])
 
   const handleNodeClick = useCallback((_: any, node: any) => {
+    setLinkQuickEdit(null)
     // Close Templates panel when interacting with canvas
     onCanvasInteraction?.()
 
@@ -1521,7 +1525,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     // selection (`edges/edgePointerTarget.ts` has the rule, the multi-select
     // toggle and the focus; `edges/nearestEdgeAtPoint.ts` the measurement).
     retargetEdgeClick(event, edge, flowStoreApi.getState())
-    // S.1: One click, full context — open full inspector immediately
+    // ⭐ E2 (Paul 29 Sep): the link's strength is edited where it was clicked; the inspector is "More detail".
+    const clickedId = flowStoreApi.getState().edges.find((e) => e.selected)?.id ?? edge?.id
+    if (event && clickedId) {
+      setShowFullInspector(false)
+      setLinkQuickEdit({ edgeId: clickedId, x: event.clientX, y: event.clientY })
+      return
+    }
     setShowFullInspector(true)
   }, [onCanvasInteraction, flowStoreApi])
 
@@ -1557,6 +1567,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [])
 
   const handleEdgeDoubleClick = useCallback(() => {
+    setLinkQuickEdit(null)
     setShowFullInspector(true)
   }, [])
 
@@ -3011,6 +3022,16 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         >
           <InfluenceExplainer forceShow={isInfluenceExplainerForced} onDismiss={hideInfluenceExplainer} compact />
         </div>
+      )}
+      {linkQuickEdit && (
+        <LinkQuickEditor
+          key={linkQuickEdit.edgeId}
+          edgeId={linkQuickEdit.edgeId}
+          x={linkQuickEdit.x}
+          y={linkQuickEdit.y}
+          onClose={() => setLinkQuickEdit(null)}
+          onMoreDetail={() => setShowFullInspector(true)}
+        />
       )}
       {/* S.1: Compact popover removed — single-click now opens full inspector directly */}
       {showFullInspector && (
