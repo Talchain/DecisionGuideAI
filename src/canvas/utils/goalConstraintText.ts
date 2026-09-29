@@ -219,6 +219,106 @@ export function goalConstraintTextUsesQuote(constraint: CEEGoalConstraint): bool
 }
 
 /**
+ * ⭐⭐ R1 S4-core — A LIMIT STATED AS A CHANGE FROM TODAY IS SAID AS THE CHANGE (CEE #2261, `@talchain/schemas`
+ * 0.61.0 `value_frame`; #72 5879833520, merge condition 1 "reader first").
+ *
+ * CEE writes "cost must not rise more than 10% above today" as `{operator: '<=', value: 0.1, value_frame:
+ * 'change_rel'}`: a FRACTION of today's level, with no unit. Read as a level it printed "≤ 0.1". The words mirror
+ * CEE's `sayLimitInFrame` (`limit-frame.ts`) exactly, so the card and the chat say one sentence; only the figure goes
+ * through this file's own formatter (`change_abs` 5000 GBP → "£5,000"). The scale is the CONTRACT's, typed by the
+ * frame — `change_rel` is a fraction by definition — never inferred from a magnitude.
+ *
+ * `level`, legacy `delta` (CEE says it as a level too), an absent or unknown frame → `null`: the level path below,
+ * byte-identical to before.
+ */
+export type LimitChangeFrame = 'change_abs' | 'change_rel'
+
+/**
+ * The four frames this UI can read (`@talchain/schemas` 0.61.0). A frame that is PRESENT but not one of these means the
+ * UI does not know what the number measures, so the writers refuse it rather than keep it as a level (PR Review
+ * 5880865579). Absent is a level, as before.
+ */
+export function isKnownLimitFrame(frame: unknown): frame is 'level' | 'delta' | 'change_abs' | 'change_rel' {
+  return frame === 'level' || frame === 'delta' || frame === 'change_abs' || frame === 'change_rel'
+}
+
+export function limitChangeFrameOf(constraint: CEEGoalConstraint): LimitChangeFrame | null {
+  const frame: unknown = constraint.value_frame
+  return frame === 'change_abs' || frame === 'change_rel' ? frame : null
+}
+
+type ChangeOperator = '<=' | '<' | '>=' | '>'
+
+/** CEE's `changeWords`: on a FALL the same comparator reads the other way round ("<=" −15% is "at least 15% below"). */
+function changeWords(operator: ChangeOperator, rising: boolean): string {
+  return operator === '<=' ? (rising ? 'no more than' : 'at least')
+    : operator === '<' ? (rising ? 'less than' : 'more than')
+      : operator === '>=' ? (rising ? 'at least' : 'no more than')
+        : (rising ? 'more than' : 'less than')
+}
+
+interface LimitChange {
+  readonly operator: ChangeOperator
+  readonly rising: boolean
+  /** The size of the change, unsigned, formatted: "10%" / "£5,000". */
+  readonly magnitude: string
+}
+
+/**
+ * The change a limit states, or `null` when it is not a change (or has no usable value/operator, which the callers'
+ * `limit not captured` branch answers). `change_rel` is always the stored fraction × 100 (CEE's rounding); a
+ * `change_abs` in the reader's audited figure when the producer handed one over (rung 1 above), else its own value.
+ */
+function limitChangeOf(constraint: CEEGoalConstraint): LimitChange | null {
+  const frame = limitChangeFrameOf(constraint)
+  const { operator, value } = constraint as { operator?: unknown; value?: unknown }
+  if (frame === null || typeof value !== 'number' || !Number.isFinite(value)) return null
+  if (operator !== '<=' && operator !== '<' && operator !== '>=' && operator !== '>') return null
+  const rising = value >= 0
+  if (frame === 'change_rel') {
+    return { operator, rising, magnitude: `${Math.round(Math.abs(value) * 100 * 1e6) / 1e6}%` }
+  }
+  const audit = constraint.provenance_unit_normalised
+  const magnitude = audit && hasAuditedFigure(constraint)
+    ? formatLimitMagnitude(Math.abs(audit.original_value as number), audit.original_unit)
+    : formatLimitMagnitude(Math.abs(value), constraint.unit)
+  return { operator, rising, magnitude }
+}
+
+/**
+ * The change both forms say FIRST — before the audit, quote and A11-label rungs, which are all about a LEVEL (a label
+ * such as "Cloud cost <= 0.1" shown alone would read as one). One exception keeps rung 2's reason: a `change_abs` in a
+ * rewritten-scale or percent unit with no audited figure has no honest figure to say, so the reader's quote answers.
+ */
+function sayableLimitChange(constraint: CEEGoalConstraint): LimitChange | null {
+  const change = limitChangeOf(constraint)
+  if (change === null) return null
+  const quoteAnswers = limitChangeFrameOf(constraint) === 'change_abs' && !hasAuditedFigure(constraint)
+    && goalConstraintTextUsesQuote(constraint)
+  return quoteAnswers ? null : change
+}
+
+/** "no more than 10% above today" — CEE's sentence. */
+function sayLimitChange(change: LimitChange): string {
+  return `${changeWords(change.operator, change.rising)} ${change.magnitude} ${change.rising ? 'above' : 'below'} today`
+}
+
+/**
+ * The change a limit states, in CEE's words, or `null` for a level (the caller says it exactly as before). For readers
+ * that phrase a limit themselves — the chat receipt (`v5GraphPatchDescription`, PR Review 5880215622 blocking 2) — so
+ * no surface can print a change as "at most 0.1". The operator must already be ASCII (`<=`, `<`, `>=`, `>`).
+ */
+export function limitChangeSentence(constraint: CEEGoalConstraint): string | null {
+  const change = sayableLimitChange(constraint)
+  return change === null ? null : sayLimitChange(change)
+}
+
+/** The pill's short form: the level pill's `<op><figure>` with the change signed and anchored — "≤+10% vs today". */
+function sayLimitChangeShort(change: LimitChange): string {
+  return `${renderLimitOperator(change.operator)}${change.rising ? '+' : '−'}${change.magnitude} vs today`
+}
+
+/**
  * ⭐ `omitLabel` EXISTS SO THERE IS STILL EXACTLY ONE FORMATTER.
  *
  * On the constrained factor's own card the target's name is the card's title,
@@ -247,7 +347,7 @@ export interface GoalConstraintTextOptions {
  */
 const LABEL_OPERATOR_PATTERN = /[<>≤≥]=?/
 
-function labelAlreadyStatesLimit(label: string): boolean {
+export function labelAlreadyStatesLimit(label: string): boolean {
   return LABEL_OPERATOR_PATTERN.test(label) && /\d/.test(label)
 }
 
@@ -262,6 +362,18 @@ export function goalConstraintText(
   const origin = constraint.provenance === 'inferred' ? ' · Inferred limit'
     : constraint.provenance === 'proxy' ? ' · Proxy limit' : ''
   const prefix = options.omitLabel ? '' : `${label} `
+
+  // R1 S4-core: a change from today is said as the change (`sayableLimitChange`, above), never as a level.
+  const change = sayableLimitChange(constraint)
+  if (change !== null) {
+    // ⛔ AIQ 5880929109: a carried label that already states a LEVEL ("Cloud cost <= 0.1") beside the change would
+    // offer the reader both readings. The subject is then the constrained element's own name, or none at all.
+    const targetName = target ? resolveElementLabel(target.data) : UNNAMED_ELEMENT_LABEL
+    const subject = options.omitLabel ? ''
+      : !labelAlreadyStatesLimit(label) ? `${label} `
+        : targetName !== UNNAMED_ELEMENT_LABEL ? `${targetName.trim()} ` : ''
+    return `${subject}${sayLimitChange(change)}${origin}`
+  }
 
   /**
    * ⭐⭐⭐ ON A PERCENT LIMIT, THE READER'S OWN WORDS BEAT OUR RECONSTRUCTION —
@@ -401,6 +513,14 @@ export function goalConstraintShortText(
   // The SAME origin rule as `goalConstraintText` — never dropped.
   const origin = constraint.provenance === 'inferred' ? ' · Inferred limit'
     : constraint.provenance === 'proxy' ? ' · Proxy limit' : ''
+  // R1 S4-core: the change first, exactly as the full form orders it.
+  const change = sayableLimitChange(constraint)
+  // AIQ 5880929109: never a carried label that states a level beside the change (the pill's subject is the metric's
+  // own title whenever it binds to one; a stale carried label is dropped rather than shown).
+  if (change !== null) {
+    const pillSubject = subject === label && labelAlreadyStatesLimit(label) ? '' : `${subject} `
+    return `${pillSubject}${sayLimitChangeShort(change)}${origin}`
+  }
   const audit = constraint.provenance_unit_normalised
   if (audit && hasAuditedFigure(constraint)) {
     return `${subject} ${renderLimitOperator(constraint.operator)}${formatLimitMagnitude(audit.original_value as number, audit.original_unit)}${origin}`

@@ -98,6 +98,7 @@ import {
 import { ceeAnalysisReadyContainment } from '../canvas/utils/ceeAnalysisReadyValidation'
 import { readServerStatedStrength } from '../canvas/domain/edges'
 import { USER_VALUE_STAMP } from '../canvas/domain/valueProvenance'
+import { isKnownLimitFrame, limitChangeFrameOf } from '../canvas/utils/goalConstraintText'
 import { logger } from '../lib/logger'
 
 /**
@@ -719,6 +720,9 @@ function normaliseAddConstraintPatch(
   ) {
     constraint.provenance = after.provenance
   }
+  // ⭐ R1 S4-core (CEE #2261; PR Review 5880215622 blocking 1): the frame the value is stated in. Without it a limit
+  // added in the chat as "no more than 10% above today" (`change_rel` 0.1) reached every reader as the level "≤ 0.1".
+  if (isKnownLimitFrame(after.value_frame)) constraint.value_frame = after.value_frame
   return constraint
 }
 
@@ -759,7 +763,11 @@ function constraintsDeepEqual(a: CEEGoalConstraint, b: CEEGoalConstraint): boole
     (a.unit ?? undefined) === (b.unit ?? undefined) &&
     (a.source_quote ?? undefined) === (b.source_quote ?? undefined) &&
     (a.confidence ?? undefined) === (b.confidence ?? undefined) &&
-    (a.provenance ?? undefined) === (b.provenance ?? undefined)
+    (a.provenance ?? undefined) === (b.provenance ?? undefined) &&
+    // ⛔ PR Review 5881464028 (blocking 1): the FRAME is content. A same-ID patch whose only change is
+    // level → change_rel must write, or the stored row stays a level and readers say "≤ 0.1" for a
+    // 10%-from-today limit. Absent and 'level' are the same statement (a legacy level carries no key).
+    (a.value_frame ?? 'level') === (b.value_frame ?? 'level')
   )
 }
 
@@ -1221,6 +1229,17 @@ export function applyV5State(
             })
             break
           }
+          // ⛔ R1 S4-core (PR Review 5880865579): a `value_frame` that is present but not one this UI reads means it does
+          // not know what the number measures. Defer — never store the limit, or mirror it onto the goal, as a level.
+          const afterFrame = (block.after as Record<string, unknown> | null)?.value_frame
+          if (afterFrame !== undefined && !isKnownLimitFrame(afterFrame)) {
+            deferred.push({
+              reason: 'add_constraint_unknown_value_frame',
+              block,
+              detail: 'value_frame is not one this UI reads (level, delta, change_abs, change_rel); constraint not applied.',
+            })
+            break
+          }
           const constraint = normaliseAddConstraintPatch(
             block.after as Record<string, unknown> | null,
             target,
@@ -1243,7 +1262,8 @@ export function applyV5State(
           // semantics until a new run actually arrives.
           const goal = store.nodes.find(n => n.id === target)
           const goalKind = goal?.data?.kind ?? goal?.type
-          if (goal && goalKind === 'goal' && constraint.node_id === target &&
+          // ⛔ R1 S4-core: a limit stated as a CHANGE from today is not a level target, so it is never mirrored as one.
+          if (goal && goalKind === 'goal' && constraint.node_id === target && limitChangeFrameOf(constraint) === null &&
               constraint.operator === '>=' && constraint.value > 0 &&
               typeof constraint.unit === 'string' && constraint.unit.trim() !== '') {
             const old = goal.data

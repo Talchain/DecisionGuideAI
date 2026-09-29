@@ -41,6 +41,7 @@ import { formatMoneyFigure } from '../../../utils/unitClassifier'
 import {
   goalConstraintReadsInReadersTerms,
   goalConstraintShortText,
+  limitChangeFrameOf,
 } from '../../../canvas/utils/goalConstraintText'
 
 /**
@@ -121,7 +122,9 @@ export function selectStatedLimits(
      * (audit) or words (quote), this surface prints exactly what the goal
      * card's limit pill prints, and never re-derives a scale from magnitude.
      */
-    if (goalConstraintReadsInReadersTerms(constraint)) {
+    // R1 S4-core (CEE #2261): a limit stated as a CHANGE from today is said by the same authority ("≤+10% vs
+    // today"), never as the level "≤ 0.1" the line below would print.
+    if (goalConstraintReadsInReadersTerms(constraint) || limitChangeFrameOf(constraint) !== null) {
       limits.push({ id, text: goalConstraintShortText(constraint) })
       return
     }

@@ -24,6 +24,8 @@
 import { RAW_ID_PATTERN } from '../../canvas/conversation/friendlyOperation'
 import { classifyUnit, formatMoneyFigure } from '../../utils/unitClassifier'
 import type { V5GraphPatchBlock } from '../../canvas/conversation/types'
+import type { CEEGoalConstraint } from '../../adapters/cee/types'
+import { isKnownLimitFrame, labelAlreadyStatesLimit, limitChangeFrameOf, limitChangeSentence } from '../../canvas/utils/goalConstraintText'
 
 // ---------------------------------------------------------------------------
 // Operation labels (already friendlied; kept here as the single source of truth
@@ -77,6 +79,19 @@ const V5_NOOP_LABELS: Record<V5GraphPatchBlock['operation'], string> = {
 // the contract: never render raw operator characters in the default
 // surface — see Workstream 1 audit contract C.
 // ---------------------------------------------------------------------------
+
+/** A patch's operator (either spelling) as the ASCII comparator `limitChangeSentence` reads; anything else is `null`. */
+const CHANGE_OPERATOR: Record<string, '<=' | '<' | '>=' | '>'> = {
+  lte: '<=', '<=': '<=', lt: '<', '<': '<', gte: '>=', '>=': '>=', gt: '>', '>': '>',
+}
+
+/** The change a patched limit states, or `null` for a level (said below exactly as before). */
+function saidLimitChange(side: { value?: unknown; unit?: unknown; operator?: unknown; value_frame?: unknown } | null): string | null {
+  if (side === null || typeof side.operator !== 'string') return null
+  const operator = CHANGE_OPERATOR[side.operator]
+  if (operator === undefined) return null
+  return limitChangeSentence({ ...side, operator } as unknown as CEEGoalConstraint)
+}
 
 const CONSTRAINT_OPERATOR_PHRASES: Record<string, string> = {
   lte: 'at most',
@@ -339,13 +354,29 @@ export function buildV5PatchReceipt(
       // not from a node label lookup (constraints aren't graph nodes
       // with a separate label cache — they live on the goal node).
       const after = block.after as
-        | { label?: unknown; value?: unknown; unit?: unknown; operator?: unknown }
+        | { label?: unknown; node_id?: unknown; value?: unknown; unit?: unknown; operator?: unknown; value_frame?: unknown; source_quote?: unknown }
         | null
       const before = block.before as
-        | { value?: unknown; unit?: unknown; operator?: unknown }
+        | { value?: unknown; unit?: unknown; operator?: unknown; value_frame?: unknown; source_quote?: unknown }
         | null
+      // ⛔ PR Review 5882050813: the FRAME decides, not the sayer's success. A recognised change the shared sayer
+      // declines (a change_abs in a rewritten-scale / percent unit whose quote answers, no audited figure) is said by
+      // its quote — the card's own rung — or not at all. Never the level fallback, never the stale level label.
+      const isChangeFrame = (side: { value_frame?: unknown } | null): boolean =>
+        side !== null && limitChangeFrameOf(side as unknown as CEEGoalConstraint) !== null
+      const quoteOf = (side: { source_quote?: unknown } | null): string =>
+        typeof side?.source_quote === 'string' && side.source_quote.trim() ? `“${side.source_quote.trim()}”` : ''
       const labelRaw = typeof after?.label === 'string' ? after.label : ''
-      const entityLabel = labelRaw && !RAW_ID_PATTERN.test(labelRaw) ? labelRaw : ''
+      const carriedLabel = labelRaw && !RAW_ID_PATTERN.test(labelRaw) ? labelRaw : ''
+      // ⛔ PR Review 5881464028 blocking 2 + DL 5881499189: beside a CHANGE, or an unread frame, a carried label that
+      // states a numeric level ("Cloud cost <= 0.1") is a second, false statement of the limit. The subject becomes
+      // the constrained node's own name, or nothing. An ordinary subject label, and any label on a level, stay.
+      const levelLabelBesideNonLevel = (): string => {
+        if (!carriedLabel || !labelAlreadyStatesLimit(carriedLabel)) return carriedLabel
+        const nodeName = typeof after?.node_id === 'string' ? deps.nodeLabels.get(after.node_id) : undefined
+        return nodeName && !RAW_ID_PATTERN.test(nodeName) ? nodeName : ''
+      }
+      let entityLabel = carriedLabel
       const opRaw = typeof after?.operator === 'string' ? after.operator : ''
       const operatorPhrase = CONSTRAINT_OPERATOR_PHRASES[opRaw] ?? ''
       const valueStr = formatConstraintValue(
@@ -353,13 +384,28 @@ export function buildV5PatchReceipt(
         typeof after?.unit === 'string' ? after.unit : null,
       )
       let changeSummary = ''
-      if (operatorPhrase && valueStr && valueStr !== '—') {
+      // ⛔ A frame the UI cannot read: the number's meaning is unknown, so the receipt states no bound at all rather
+      // than a level (PR Review 5880865579). The applicator defers the same patch.
+      const frameUnread = (side: { value_frame?: unknown } | null): boolean =>
+        side !== null && side.value_frame !== undefined && !isKnownLimitFrame(side.value_frame)
+      if (frameUnread(after)) return { actionLabel, entityLabel: levelLabelBesideNonLevel(), changeSummary, status }
+      // ⭐ R1 S4-core (CEE #2261; PR Review 5880215622 blocking 2): a limit stated as a CHANGE from today is said as
+      // the change ("no more than 10% above today"), by the same sayer as the cards — never "at most 0.1".
+      const afterChange = saidLimitChange(after)
+      if (afterChange !== null) {
+        changeSummary = afterChange
+        entityLabel = levelLabelBesideNonLevel()
+      } else if (isChangeFrame(after)) {
+        changeSummary = quoteOf(after)
+        entityLabel = levelLabelBesideNonLevel()
+      } else if (operatorPhrase && valueStr && valueStr !== '—') {
         changeSummary = `${operatorPhrase} ${valueStr}`.trim()
       } else if (valueStr && valueStr !== '—') {
         changeSummary = valueStr
       }
-      // On an applied update (before existed), prefix the prior value.
-      if (status === 'applied' && before && changeSummary) {
+      // On an applied update (before existed), prefix the prior value — each side in its own frame.
+      if (status === 'applied' && before && changeSummary && !frameUnread(before)) {
+        const beforeChange = saidLimitChange(before)
         const beforeOpPhrase = CONSTRAINT_OPERATOR_PHRASES[
           typeof before.operator === 'string' ? before.operator : ''
         ] ?? ''
@@ -367,8 +413,8 @@ export function buildV5PatchReceipt(
           before.value,
           typeof before.unit === 'string' ? before.unit : null,
         )
-        const beforeStr = `${beforeOpPhrase} ${beforeValue}`.trim()
-        if (beforeStr && beforeStr !== changeSummary && beforeValue !== '—') {
+        const beforeStr = beforeChange ?? (isChangeFrame(before) ? quoteOf(before) : `${beforeOpPhrase} ${beforeValue}`.trim())
+        if (beforeStr && beforeStr !== changeSummary && (beforeChange !== null || isChangeFrame(before) || beforeValue !== '—')) {
           changeSummary = `${beforeStr} → ${changeSummary}`
         }
       }
