@@ -231,6 +231,12 @@ interface NormalisedFactor {
    * never defaulted; absent when the producer omitted it.
    */
   influence_score?: number
+  /**
+   * ISL #213: the gate ids when `influence_score` is withheld because the
+   * influence depends on the option chosen. Verbatim array passthrough; what
+   * counts as a gate is decided once, by `readInfluenceGatedBy`.
+   */
+  gated_by?: unknown[]
   /** Producer influence_rank (1 = most influential). Additive passthrough. */
   influence_rank?: number
   /**
@@ -313,6 +319,7 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
   // derivation, no defaults — undefined when absent so downstream consumers
   // can distinguish "not provided" from any real value.
   const influenceScore = safeFiniteNumber(entry.influence_score)
+  const gatedBy = Array.isArray(entry.gated_by) ? [...(entry.gated_by as unknown[])] : undefined
   const influenceRank = safeFiniteNumber(entry.influence_rank)
   const zeroReason = safeString(entry.zero_reason)
 
@@ -334,6 +341,7 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
     sensitivity: Math.abs(rawMagnitude),
     direction,
     ...(influenceScore !== undefined ? { influence_score: influenceScore } : {}),
+    ...(gatedBy !== undefined ? { gated_by: gatedBy } : {}),
     ...(influenceRank !== undefined ? { influence_rank: influenceRank } : {}),
     ...(zeroReason !== undefined ? { zero_reason: zeroReason } : {}),
     ...(valueOfInformation !== undefined ? { value_of_information: valueOfInformation } : {}),
@@ -1595,6 +1603,9 @@ export function mapV5AnalysisToReport(
       // influence measure instead of falling back to a UI-normalised
       // sensitivity (influence ≠ sensitivity). Omitted when absent.
       ...(f.influence_score !== undefined ? { influence_score: f.influence_score } : {}),
+      // ISL #213 covered-withheld gate: without it a gated row reads as a
+      // missing score and drops the whole run onto the fallback basis.
+      ...(f.gated_by !== undefined ? { gated_by: f.gated_by } : {}),
       ...(f.influence_rank !== undefined ? { influence_rank: f.influence_rank } : {}),
       ...(f.zero_reason !== undefined ? { zero_reason: f.zero_reason } : {}),
       // P0 F5: EVPI family reaches the store so ModelTabBody's EVPI map

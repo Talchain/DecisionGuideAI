@@ -924,6 +924,22 @@ export interface DriversSectionData {
    * "No value yet" beside its influence pill, crown included (DL 5869404773).
    */
   noValueIds?: ReadonlySet<string>
+  /**
+   * ⭐ COVERED-WITHHELD factors (ISL #213; AIQ #72 5881953818): the producer
+   * withheld the influence because it depends on the option chosen. Kept OUT
+   * of `drivers` so no reader of a `DriverItem` can figure, bar, rank or hide
+   * them as zero; the panel lists them after the ranked rows with the words
+   * only. Optional: absent means none.
+   */
+  gatedDrivers?: GatedDriverItem[]
+}
+
+/** A covered-withheld factor row: identity only, never a figure or a rank. */
+export interface GatedDriverItem {
+  factorKey: string
+  factorLabel: string
+  canFocus: boolean
+  matchedNodeId?: string
 }
 
 // =============================================================================
@@ -1440,6 +1456,13 @@ export interface UiFactorSensitivity {
   importanceBasis?: string
   /** ISL influence_score (0-1) - structural causal influence */
   influenceScore?: number
+  /**
+   * ISL #213 `gated_by`: the ids gating a WITHHELD `influence_score` (the
+   * influence depends on the option chosen). Set only by
+   * `readInfluenceGatedBy` — a non-empty string array beside a non-finite
+   * score; absent otherwise.
+   */
+  influenceGatedBy?: string[]
   /** Producer influence_rank (1 = most influential). Additive; roadmap 1.7 (provisional_doctrine_v0). */
   influenceRank?: number
   /** ISL zero_reason - explains why sensitivity is zero */

@@ -13,7 +13,9 @@
  * |elasticity|. Mixing the two (a producer 0.9 ranked against a fallback 0.2)
  * is exactly the "#1 with a lower displayed influence" contradiction the
  * review caught — so the policy lives here, once, and both hooks import it
- * rather than keeping their own copy that can drift.
+ * rather than keeping their own copy that can drift. A GATED row
+ * (`readInfluenceGatedBy`, ISL #213) is not a ranked factor: it neither breaks
+ * coverage nor receives a value.
  *
  * `provenance` is returned so a surface can make the basis explicit (e.g. a
  * debug readout or a future "producer / derived" marker) without re-deriving
@@ -287,6 +289,29 @@ export function rowCarriesMagnitudeMetric(raw: unknown): boolean {
 export const MAGNITUDE_FIELD_NAMES: ReadonlyArray<string> = MAGNITUDE_FIELDS
 
 /**
+ * ⭐ COVERED-WITHHELD (ISL #213; AIQ ruling #72 5881953818). ISL withholds a
+ * factor's `influence_score` when EVERY path from it to the goal runs through a
+ * product with another input at 0 today, and names that gate in
+ * `gated_by: string[]`. The influence depends on the option chosen: a consumer
+ * shows that, never 0 and never a rank.
+ *
+ * The ONE wire reader, shared by the panel's normaliser and `extractPolicyRow`
+ * so every feeder of `selectDriverDisplayModel` reaches the same verdict.
+ * Snake_case only, like `influence_score`. The enrichment is an untyped
+ * passthrough, so it reads defensively: a non-empty array of strings beside a
+ * withheld (non-finite) score is a gate; anything else is not.
+ */
+export function readInfluenceGatedBy(raw: unknown): string[] | null {
+  if (raw == null || typeof raw !== 'object') return null
+  const f = raw as Record<string, unknown>
+  if (typeof f.influence_score === 'number' && Number.isFinite(f.influence_score)) return null
+  const gatedBy = f.gated_by
+  return Array.isArray(gatedBy) && gatedBy.length > 0 && gatedBy.every((id) => typeof id === 'string')
+    ? [...gatedBy]
+    : null
+}
+
+/**
  * Normalise raw elasticities to 0-1 relative to the largest magnitude in the
  * set (top = 1.0, others proportional). Degenerate sets (max |elasticity| <
  * MAGNITUDE_DATA_EPSILON) map every factor to 0 so a direction-only display is
@@ -350,6 +375,7 @@ export function extractPolicyRow(
   influenceScore: number | null
   rawElasticity: number
   importanceBasis: string | null
+  influenceGated?: true
 } | null {
   if (raw == null || typeof raw !== 'object') return null
   const f = raw as Record<string, unknown>
@@ -372,6 +398,9 @@ export function extractPolicyRow(
     rawElasticity: magnitude === null || !Number.isFinite(magnitude) ? 0 : Math.abs(magnitude),
     // Additive passthrough of the producer's basis stamp — never derived.
     importanceBasis: readImportanceBasis(raw),
+    // Covered-withheld (ISL #213): present only when true, so rows that are
+    // not gated keep their exact shape.
+    ...(readInfluenceGatedBy(raw) !== null ? { influenceGated: true as const } : {}),
   }
 }
 
@@ -384,18 +413,27 @@ export function selectDriverDisplayModel(
      *  and fixtures do not supply it, and its absence must not be read as a
      *  basis claim. */
     importanceBasis?: string | null
+    /** Covered-withheld (`readInfluenceGatedBy`): the producer withheld this
+     *  row's score because it depends on the option chosen. */
+    influenceGated?: boolean
   }>,
 ): Map<string, DriverDisplayEntry> {
+  // ⭐ A GATED ROW IS COVERED, NOT MISSING (ISL #213; AIQ #72 5881953818). It
+  // is left out of the completeness check AND the normalisation base, and it
+  // gets NO entry: it has no figure on either basis, so no surface can print,
+  // bar or rank one. The other rows keep the producer basis among themselves.
+  // A null score with no gate (e.g. a truncated walk) still drops the set.
+  const ranked = factors.filter((f) => f.influenceGated !== true)
   const coverageComplete =
-    factors.length > 0 &&
-    factors.every((f) => typeof f.influenceScore === 'number' && Number.isFinite(f.influenceScore))
+    ranked.length > 0 &&
+    ranked.every((f) => typeof f.influenceScore === 'number' && Number.isFinite(f.influenceScore))
 
   const normalisedMap = computeNormalisedInfluences(
-    factors.map((f) => ({ key: f.key, rawElasticity: f.rawElasticity })),
+    ranked.map((f) => ({ key: f.key, rawElasticity: f.rawElasticity })),
   )
 
   const out = new Map<string, DriverDisplayEntry>()
-  for (const f of factors) {
+  for (const f of ranked) {
     // The stamp travels on BOTH arms, unchanged. It describes the producer's
     // `influence_score` field, not the displayed value, so it is not the job
     // of this function to suppress it under the fallback basis — the copy

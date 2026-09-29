@@ -1019,6 +1019,14 @@ export const ZERO_REASON_BADGE_LABELS: Record<NonNullable<ZeroReasonCode>, strin
   zero_outcome_diff: "Doesn't change the outcome",
 }
 
+/**
+ * ⭐ COVERED-WITHHELD (ISL #213; AIQ #72 5881953818). The words a gated
+ * factor's row shows IN PLACE of its bar and figure: the producer withheld the
+ * influence because it depends on the option chosen. Never with a number,
+ * a bar or a rank beside it, and never read as zero or "no influence".
+ */
+export const INFLUENCE_GATED_COPY = 'Depends on the option chosen'
+
 /* ══════════════════════════════════════════════════════════════════════════
  * DOES THIS FIGURE MOVE WHEN I RE-RUN? — the founding question, answered.
  * ══════════════════════════════════════════════════════════════════════════

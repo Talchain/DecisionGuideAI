@@ -24,7 +24,7 @@
 
 import { useState, useCallback, useEffect, useRef, type ChangeEvent } from 'react'
 import { AlertTriangle as TriangleAlert, Check, HelpCircle, Info, Minus } from 'lucide-react'
-import type { DriversSectionData, DriverItem, DriverSemanticLabel } from './types'
+import type { DriversSectionData, DriverItem, DriverSemanticLabel, GatedDriverItem } from './types'
 import { focusExistingTarget } from '../../canvas/utils/focusHelpers'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { EMPTY_STATES } from './emptyStates'
@@ -42,6 +42,7 @@ import {
   INFLUENCE_RANKING_EXPLAINER_GENERIC,
   INFLUENCE_RANKING_EXPLAINER_RELATIVE,
   INFLUENCE_SCALE_CAPTION,
+  INFLUENCE_GATED_COPY,
   ZERO_REASON_BADGE_LABELS,
   influenceQuantityRunDisclosureForRun,
   influenceStabilityDisclosureForRun,
@@ -791,6 +792,68 @@ function DriverRow({
   )
 }
 
+/**
+ * ⭐ A COVERED-WITHHELD factor's row (ISL #213; AIQ #72 5881953818): the
+ * producer withheld its influence because it depends on the option chosen.
+ * The words stand where the bar and figure stand on a ranked row; there is no
+ * number, no bar, no rank and no tier pill, so it never reads as zero.
+ */
+function GatedDriverRow({
+  driver,
+  onFocus,
+  isHighlighted,
+  registerRef,
+}: {
+  driver: GatedDriverItem
+  onFocus?: (nodeId: string) => void
+  isHighlighted?: boolean
+  registerRef?: (element: HTMLDivElement | null) => void
+}) {
+  const { label: cleanedLabel } = cleanFactorLabel(driver.factorLabel)
+  const nodeId = driver.matchedNodeId ?? driver.factorKey
+  const handleFocusClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!driver.canFocus) return
+    if (onFocus) onFocus(nodeId)
+    else focusExistingTarget(nodeId, 'node')
+  }, [driver.canFocus, nodeId, onFocus])
+
+  return (
+    <div
+      ref={registerRef}
+      data-testid={`driver-gated-row-${driver.factorKey}`}
+      className={`rounded-lg border overflow-hidden bg-panel relative transition-all duration-200 ${
+        isHighlighted
+          ? 'border-warning ring-2 ring-warning/30 shadow-lg'
+          : 'border-panel-border'
+      }`}
+      onMouseEnter={() => highlightNode(nodeId)}
+      onMouseLeave={clearHighlight}
+    >
+      <div className="flex items-center justify-between gap-2 px-3 py-1.5">
+        {driver.canFocus ? (
+          <button
+            type="button"
+            onClick={handleFocusClick}
+            className={`${typography.panelBody} text-info hover:text-info-hover hover:underline break-words leading-snug cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 rounded text-left line-clamp-2 min-w-0`}
+            aria-label={`Focus on ${cleanedLabel} in model`}
+            title={cleanedLabel}
+          >
+            {cleanedLabel}
+          </button>
+        ) : (
+          <span className={`${typography.panelBody} text-text-body break-words leading-snug line-clamp-2 min-w-0`} title={cleanedLabel}>
+            {cleanedLabel}
+          </span>
+        )}
+        <span className={`${typography.panelMeta} text-text-light text-right flex-shrink-0`}>
+          {INFLUENCE_GATED_COPY}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 // Error state component
 function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
@@ -827,6 +890,8 @@ export function DriversSection({
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
   const { drivers, driversStatus, hasMagnitudeData, islError, hiddenZeroImpactCount } = data
+  // Covered-withheld factors (ISL #213): listed after every ranked row, words only.
+  const gatedDrivers = data.gatedDrivers ?? []
 
 
   // Diagnostic logging for data issues. Gated on the runtime debug flag
@@ -871,7 +936,7 @@ export function DriversSection({
   }
 
   // No drivers
-  if (drivers.length === 0) {
+  if (drivers.length === 0 && gatedDrivers.length === 0) {
     return (
       <div className="p-3 bg-panel border border-panel-border rounded-lg">
         <p className={`${typography.panelBody} text-text-body flex items-start gap-2`}>
@@ -893,6 +958,11 @@ export function DriversSection({
   // v7.5 T3 Fix: Use visibleDrivers consistently (not topDrivers from data layer)
   const TOP_DRIVERS_COUNT = 3
   const displayDrivers = showAll ? visibleDrivers : visibleDrivers.slice(0, TOP_DRIVERS_COUNT)
+  // Gated rows follow the ranked rows inside the same collapsed window.
+  const listedCount = visibleDrivers.length + gatedDrivers.length
+  const displayGated = showAll
+    ? gatedDrivers
+    : gatedDrivers.slice(0, Math.max(0, TOP_DRIVERS_COUNT - visibleDrivers.length))
 
   // Audit A1-PRIMARY: column-header disclosure marker. Render only when at
   // least one row carries `confidence_provenance.is_provisional === true`.
@@ -1291,16 +1361,28 @@ export function DriversSection({
             />
           )
         })}
+          {displayGated.map((driver) => (
+            <GatedDriverRow
+              key={driver.factorKey}
+              driver={driver}
+              onFocus={onFocusNode}
+              isHighlighted={highlightedDriverId === driver.factorKey}
+              registerRef={registerDriverRef
+                ? (el) => registerDriverRef(driver.factorKey, el)
+                : undefined
+              }
+            />
+          ))}
         </div>
       </div>
 
       {/* Expand/collapse — always show when there are more drivers than the default count */}
-      {visibleDrivers.length > TOP_DRIVERS_COUNT && (
+      {listedCount > TOP_DRIVERS_COUNT && (
         <button
           onClick={() => setShowAll(!showAll)}
           className={`${typography.panelBody} text-info hover:text-info`}
         >
-          {showAll ? 'Show fewer factors' : `See all factors (+${visibleDrivers.length - TOP_DRIVERS_COUNT} more)`}
+          {showAll ? 'Show fewer factors' : `See all factors (+${listedCount - TOP_DRIVERS_COUNT} more)`}
         </button>
       )}
 
