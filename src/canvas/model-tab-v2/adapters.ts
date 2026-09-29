@@ -150,7 +150,7 @@ import { formatValueWithUnit, isCurrencyUnit } from '../components/model-tab/uti
 // THE ONE answer to "does this unit contribute a word the reader should see?".
 // Pure function, no hook — see the boundary scan. The goal branch below is the
 // surface that had no answer at all and appended every unit verbatim.
-import { unitIsDisplayable } from '../../utils/unitClassifier'
+import { formatMoneyFigure, unitIsDisplayable } from '../../utils/unitClassifier'
 // THE ONE raw-source → human-label policy, the same one `SourceProvenancePill`
 // renders. Imported, never re-expressed: a second copy is how the pill and the
 // outline start disagreeing about what `cee_inference` is called.
@@ -791,7 +791,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         // fraction beside the metric's unit ("-0.15 GBP/month").
         ? target.frame != null && typeof target.raw === 'number' && formatGoalTarget(target.raw, target.unit, target.frame) !== null
           ? formatGoalTarget(target.raw, target.unit, target.frame)
-          : typeof target.raw === 'number' && target.unit && isCurrencyUnit(target.unit)
+          : typeof target.raw === 'number' && target.unit && (isCurrencyUnit(target.unit) || formatMoneyFigure(target.raw, target.unit) !== null)
           ? formatValueWithUnit(target.raw, target.unit)
           : `${typeof target.raw === 'number' ? formatSmartNumber(target.raw) : target.raw}${unitIsDisplayable(target.unit) ? ` ${target.unit}` : ''}`
         // ⛔ AIQ 5880974047: an unread frame shows no number — not even the store's scalar.

@@ -24,6 +24,7 @@ import {
   CURRENCY_SYMBOLS,
   ISO_CURRENCY_CODES,
 } from '../../utils/labelUtils'
+import { formatMoneyFigure } from '../../../utils/unitClassifier'
 
 // ── Value formatting ──────────────────────────────────────────────────────────
 
@@ -57,6 +58,10 @@ export function formatValueWithUnit(rawValue: number, unit: string): string {
   if (ISO_CURRENCY_CODES.has(trimmedUnit)) {
     return `${trimmedUnit} ${formatSmartNumber(rawValue)}`
   }
+  // R3 #72 5888087172: a compound money unit ("GBP/month", "GBP per subscriber per month") printed raw here.
+  // The one money rule reads it; it returns null for anything that is not money.
+  const money = formatMoneyFigure(rawValue, trimmedUnit)
+  if (money !== null) return money
   // Generic placeholder units (scale, index, score, …) — drop the suffix.
   // Single source of truth lives in labelUtils.GENERIC_PLACEHOLDER_UNITS.
   if (GENERIC_PLACEHOLDER_UNITS.has(trimmedUnit.toLowerCase())) {

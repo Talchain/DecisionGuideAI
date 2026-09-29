@@ -184,8 +184,11 @@ export interface CompactUnitParts {
 
 /** `<head> per <period>` or `<head>/<period>` — a single-word period. */
 const COMPOUND_RATE_UNIT = /^(.+?)(\s*\/\s*|\s+per\s+)([A-Za-z]+)$/i
-/** A rate's head that is money per ONE thing: `GBP per subscriber`, `£/subscriber`. */
-const CURRENCY_PER_THING_HEAD = /^(\S+?)(?:\s*\/\s*|\s+per\s+)([A-Za-z]+)$/i
+/**
+ * A rate's head that is money per ONE thing: `GBP per subscriber`, `£/subscriber`, and (R3 #72 5888087172, served on
+ * a C-brief draft) a thing of up to three words: `£/Pro subscriber`. Words only — `GBP per 1000 users` stays unread.
+ */
+const CURRENCY_PER_THING_HEAD = /^(\S+?)(?:\s*\/\s*|\s+per\s+)([A-Za-z]+(?:\s+[A-Za-z]+){0,2})$/i
 /** `<head> out of <N>` — the head may be empty or a placeholder word. */
 const OUT_OF_UNIT = /^(.*?)\s*\bout of\s+(\d[\d,]*(?:\.\d+)?)$/i
 
