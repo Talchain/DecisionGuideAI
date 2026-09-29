@@ -129,7 +129,7 @@ export function ThresholdInput({
         )}
       </div>
       <p id="threshold-help" className={`${typography.caption} text-ink-500`}>
-        When set, shows probability of reaching this target for each option.
+        When set, shows the share of model runs in which each option reaches this target.
       </p>
     </div>
   )

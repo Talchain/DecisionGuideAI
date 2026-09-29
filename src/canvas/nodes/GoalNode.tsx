@@ -1039,9 +1039,8 @@ export const GoalNode = memo((props: NodeProps) => {
     [achievementIsCritical],
   )
   const achievementTitle = [
-    goalFitSubstituted
-      ? GOAL_ANCHOR_COPY.phrase(achievementReadout ?? '', goalFitSubstituted)
-      : `${achievementReadout ?? ''} chance of reaching target.`,
+    // AIQ #72 5885116642: the register's model-run sentence on BOTH arms — never "chance of reaching target".
+    GOAL_ANCHOR_COPY.sentence(achievementReadout ?? '', goalFitSubstituted),
     displayMetadata.achievementProbabilityIsModelledBasis === true ? GOAL_FIT_BASIS_CAVEAT_COPY : null,
     goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat),
     hasConstraintDefaultWarning ? 'Some model inputs are missing. Goal probability may be less reliable.' : null,
@@ -1230,7 +1229,7 @@ export const GoalNode = memo((props: NodeProps) => {
               className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
               onClick={(e) => {
                 e.stopPropagation()
-                useGuidanceStore.getState()._sendMessage?.('How can I strengthen the key factors to improve my chance of reaching the goal?')
+                useGuidanceStore.getState()._sendMessage?.('How can I strengthen the key factors so the goal is reached in more model runs?')
               }}
               onPointerDown={(e) => e.stopPropagation()}
             >

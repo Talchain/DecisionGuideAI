@@ -62,7 +62,7 @@ const producerLeaderClaim = (winArgmaxOptionId: string) => ({
   near_tie: { is_tie: false, top_option_id: winArgmaxOptionId },
 })
 
-// UI-SEM-088 gate: OptionNode's "chance of target" badge routes through
+// UI-SEM-088 gate: OptionNode's "of model runs" badge routes through
 // selectGoalProbability, which reads this constant. Mutable getter so the
 // suite can pin both the gate-ON suppression and the gate-OFF positive control.
 // UI-SEM-088 seam 1: OptionNode's badge flows through selectGoalProbability,
@@ -1342,7 +1342,7 @@ describe('OptionNode', () => {
     expect(bar?.style.width).toBe('max(4px, 2%)')
   })
 
-  // ROADMAP 1.49 — the "chance of target" badge must use the SAME
+  // ROADMAP 1.49 — the "of model runs" badge must use the SAME
   // goal_probability / probability_of_joint_goal fallback as
   // useResultsSectionData (consumed by OptionCards/hero/GoalNode), not a
   // narrower goal_probability-only read. On a constrained-goal run where
@@ -1413,14 +1413,14 @@ describe('OptionNode', () => {
       voiRank: null,
     })
 
-  it('gate ON: suppresses the "chance of target" badge when only the suspect joint figure is present', () => {
+  it('gate ON: suppresses the "of model runs" badge when only the suspect joint figure is present', () => {
     mockTrust.suspect = true
     mockResultsModeMetadata()
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeConstrainedJointOnlyStore() as any)
     )
     renderOption()
-    expect(screen.queryByText(/chance of target\./)).toBeNull()
+    expect(screen.queryByText(/of model runs\./)).toBeNull()
   })
 
   // 29 Sep 2026 (AIQ 5882498938): was "shows the badge from probability_of_joint_goal when goal_probability is absent".
@@ -1432,8 +1432,8 @@ describe('OptionNode', () => {
     )
     const first = renderOption()
     // 3% < 10% threshold → the warning line renders with the GOAL value, never the joint 5%.
-    expect(screen.getByText(/3% chance of target\./)).toBeDefined()
-    expect(screen.queryByText(/5% chance of target\./)).toBeNull()
+    expect(screen.getByText(/Reaches the target in (< )?3% of model runs\./)).toBeDefined()
+    expect(screen.queryByText(/Reaches the target in (< )?5% of model runs\./)).toBeNull()
     first.unmount()
 
     // The constrained joint-only fixture: no goal figure → no badge, constraints or not.
@@ -1441,7 +1441,7 @@ describe('OptionNode', () => {
       selector(makeConstrainedJointOnlyStore() as any)
     )
     renderOption()
-    expect(screen.queryByText(/chance of target\./)).toBeNull()
+    expect(screen.queryByText(/of model runs\./)).toBeNull()
   })
 
   // ISL #207 (AIQ #72 5877139338): the goal badge is never bare when the goal's
@@ -1468,7 +1468,7 @@ describe('OptionNode', () => {
     mockResultsModeMetadata()
     vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeBaseCaveatStore(author) as any))
     renderOption()
-    expect(screen.getByText(/5% chance of target\./)).toBeDefined()
+    expect(screen.getByText(/Reaches the target in (< )?5% of model runs\./)).toBeDefined()
     expect(screen.getByTestId('goal-fit-base-caveat-option-node-option-1').textContent).toBe(copy)
   })
 
@@ -1477,7 +1477,7 @@ describe('OptionNode', () => {
     mockResultsModeMetadata()
     vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeBaseCaveatStore() as any))
     renderOption()
-    expect(screen.getByText(/5% chance of target\./)).toBeDefined()
+    expect(screen.getByText(/Reaches the target in (< )?5% of model runs\./)).toBeDefined()
     expect(screen.queryByTestId('goal-fit-base-caveat-option-node-option-1')).toBeNull()
   })
 
@@ -1569,7 +1569,7 @@ describe('OptionNode', () => {
       selector(makeSubstitutedJointStore() as any)
     )
     const { container } = renderOption()
-    expect(screen.queryByText(/chance of target\./)).toBeNull()
+    expect(screen.queryByText(/of model runs\./)).toBeNull()
     // Neither voice, and no number — the withheld wording is gone too, because
     // there is nothing left for it to caption.
     expect(container.textContent ?? '').not.toContain(GOAL_ANCHOR_COPY.label(true))
@@ -1584,19 +1584,19 @@ describe('OptionNode', () => {
       selector(makeConstrainedGoalAndJointStore() as any)
     )
     renderOption()
-    expect(screen.getByText(/3% chance of target\./)).toBeDefined()
-    expect(screen.queryByText(/5% chance of target\./)).toBeNull()
+    expect(screen.getByText(/Reaches the target in (< )?3% of model runs\./)).toBeDefined()
+    expect(screen.queryByText(/Reaches the target in (< )?5% of model runs\./)).toBeNull()
     expect(screen.queryByText(new RegExp(GOAL_ANCHOR_COPY.label(true).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))))
       .toBeNull()
   })
 
-  // Lane 4 fold (UI-SEM-082, extends UI-SEM-071): the "chance of target" badge
+  // Lane 4 fold (UI-SEM-082, extends UI-SEM-071): the "of model runs" badge
   // is a goal-fit claim — it must gate on the USER target. Without a target the
   // producer still returns a joint/goal probability (auto_goal_threshold), and
   // the panel twin OptionCards already suppresses this (hasGoalThreshold). The
   // canvas node must match, or it contradicts the GoalNode beside it (which
-  // suppresses its own "chance of reaching target" when no target is set).
-  it('SUPPRESSES the "chance of target" badge when the user set no target (auto-threshold)', () => {
+  // suppresses its own "of model runs" when no target is set).
+  it('SUPPRESSES the "of model runs" badge when the user set no target (auto-threshold)', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -1634,7 +1634,7 @@ describe('OptionNode', () => {
     )
     renderOption()
     // No target → the goal-fit badge must not render (matches GoalNode + OptionCards).
-    expect(screen.queryByText(/chance of target\./)).toBeNull()
+    expect(screen.queryByText(/of model runs\./)).toBeNull()
   })
 })
 

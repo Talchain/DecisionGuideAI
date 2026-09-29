@@ -8,7 +8,7 @@
  * a reader looks at first:
  *
  *   · GOAL     — `From brief` / `No target set`, and post-analysis a PROSE
- *                sentence `73% chance of reaching target`. A number, no bar.
+ *                sentence `Reaches the target in 73% of model runs`. A number, no bar.
  *   · DECISION — `{X} supported in 47% of simulated scenarios`. The single most
  *     consequential
  *                figure on the canvas, and the least visually encoded one.
@@ -339,7 +339,7 @@ describe('GoalNode — the achievement figure gets the shared metric row', () =>
     // the prose readout rather than sitting beside it. The WORDING is unchanged
     // and is bound to the row by identity (its accessible name); the prose line
     // is gone from the visible face.
-    expect(screen.getByTestId(GOAL_ROW).getAttribute('aria-label')).toMatch(/73.*% chance of reaching target\./)
-    expect(screen.queryByText(/73.*% chance of reaching target/)).toBeNull()
+    expect(screen.getByTestId(GOAL_ROW).getAttribute('aria-label')).toMatch(/Reaches the target in 73.*% of model runs\./)
+    expect(screen.queryByText(/Reaches the target in 73.*% of model runs/)).toBeNull()
   })
 })

@@ -49,7 +49,7 @@
  * ⭐ LOCKED CANVAS DESIGN (23 Sep 2026; ED 11:52Z point 2). The prose readout
  * is off the goal card's face: ONE NodeMetricRow (`goal-achievement-metric-row`)
  * shows "Chance" + the register-formatted figure, and the sentence
- * "X chance of reaching target" is that row's ACCESSIBLE NAME (and tooltip). So
+ * "Reaches the target in X of model runs." is that row's ACCESSIBLE NAME (and tooltip). So
  * the readout is read off the row BY TESTID — its visible figure and its name —
  * and the "never 0%" scan covers visible text AND every accessible name.
  */
@@ -155,7 +155,7 @@ describe('GoalNode — the exact-zero goal readout', () => {
     // Locked Canvas design (23 Sep 2026): read off the Chance row (ED 11:52Z point 2).
     const { visible, name } = achievementRow()
     expect(visible).toContain('55%')
-    expect(name).toMatch(/55% chance of reaching target/)
+    expect(name).toMatch(/Reaches the target in 55% of model runs/)
   })
 
   it('renders an EXACT ZERO as the goal register floor, NOT "0%"', () => {
@@ -166,7 +166,7 @@ describe('GoalNode — the exact-zero goal readout', () => {
     // sentence is the row's accessible name (ED 11:52Z point 2).
     const { visible, name } = achievementRow()
     expect(visible).toContain('< 1%')
-    expect(name).toContain('< 1% chance of reaching target')
+    expect(name).toContain('Reaches the target in < 1% of model runs.')
     expect(everythingReadable()).not.toMatch(BARE_ZERO_PERCENT)
   })
 
@@ -177,7 +177,7 @@ describe('GoalNode — the exact-zero goal readout', () => {
     // Locked Canvas design (23 Sep 2026): read off the Chance row.
     const { visible, name } = achievementRow()
     expect(visible).toContain('< 1%')
-    expect(name).toContain('< 1% chance of reaching target')
+    expect(name).toContain('Reaches the target in < 1% of model runs.')
   })
 })
 

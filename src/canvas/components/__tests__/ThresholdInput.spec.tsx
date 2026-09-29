@@ -38,7 +38,7 @@ describe('ThresholdInput', () => {
       const onChange = vi.fn()
       render(<ThresholdInput value={null} onChange={onChange} />)
 
-      expect(screen.getByText(/When set, shows probability/)).toBeInTheDocument()
+      expect(screen.getByText(/When set, shows the share of model runs/)).toBeInTheDocument()
     })
 
     it('shows unit when provided', () => {

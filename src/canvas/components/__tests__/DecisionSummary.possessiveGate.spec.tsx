@@ -146,7 +146,7 @@ describe('DecisionSummary — possessive gate on a substituted joint goal figure
     // just mean "nothing rendered".
     expect(textOf()).toBeDefined()
     setStore(REAL_GOAL_OPTION)
-    expect(textOf()).toContain('chance of achieving')
+    expect(textOf()).toContain('Reaches the target in')
   })
 
   /**
@@ -168,7 +168,7 @@ describe('DecisionSummary — possessive gate on a substituted joint goal figure
   it('positive control: a REAL probability_of_goal keeps the possessive', () => {
     setStore(REAL_GOAL_OPTION)
     const text = textOf()
-    expect(text).toContain(`55% chance of achieving ${GOAL_LABEL}`)
+    expect(text).toContain(`Reaches the target in 55% of model runs.`)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('55%', true))
   })
 
@@ -176,8 +176,8 @@ describe('DecisionSummary — possessive gate on a substituted joint goal figure
   it('positive control: the goal figure on a constrained option keeps the possessive — never the joint figure', () => {
     setStore(CONSTRAINED_OPTION)
     const text = textOf()
-    expect(text).toContain(`30% chance of achieving ${GOAL_LABEL}`)
-    expect(text).not.toContain(`42% chance of achieving ${GOAL_LABEL}`)
+    expect(text).toContain(`Reaches the target in 30% of model runs.`)
+    expect(text).not.toContain(`Reaches the target in 42% of model runs.`)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('30%', true))
   })
 

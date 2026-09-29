@@ -413,7 +413,7 @@ const resolveGoal = (r: Extract<NodeCoachingRequest, { kind: 'goal' }>): Resolve
           {
             id: 'goal_why_so_low',
             label: 'Why is this so low?',
-            message: 'Why is the probability of reaching my goal target so low? What are the main drivers?',
+            message: 'Why does my goal reach its target in so few model runs? What are the main drivers?',
             actionType: 'explain_results',
           } as const,
         ]

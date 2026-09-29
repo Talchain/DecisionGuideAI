@@ -1611,9 +1611,7 @@ export const OptionNode = memo((props: NodeProps) => {
               form verbatim (phrase + full stop) — the same wording the results
               panel, the hero and the V7 goal lens render for this basis. The
               permitted arm is byte-identical to the string it replaced. */}
-          {goalFitSubstituted
-            ? GOAL_ANCHOR_COPY.sentence(goalBadgeReadout, goalFitSubstituted)
-            : `${goalBadgeReadout} chance of target.`}{' '}
+          {GOAL_ANCHOR_COPY.sentence(goalBadgeReadout, goalFitSubstituted)}{' '}
           <button
             type="button"
             className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}

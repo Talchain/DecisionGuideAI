@@ -31,8 +31,10 @@ describe('HERO_COPY.detail — the A register exists once', () => {
   })
 
   it('keeps the possessive discipline the selector publishes', () => {
-    expect(HERO_COPY.detail.goalFit(N).toLowerCase()).toContain('your goal')
-    expect(HERO_COPY.detail.goalFitJointBasis(N).toLowerCase()).not.toContain('your goal')
+    // AIQ #72 5885116642: the permitted basis claims THE TARGET; the joint basis never does. No form says "your goal".
+    expect(HERO_COPY.detail.goalFit(N).toLowerCase()).toContain('reaches the target')
+    expect(HERO_COPY.detail.goalFitJointBasis(N).toLowerCase()).not.toContain('reaches the target')
+    expect(`${HERO_COPY.detail.goalFit(N)} ${HERO_COPY.detail.goalFitJointBasis(N)}`.toLowerCase()).not.toContain('your goal')
   })
 })
 
@@ -64,7 +66,7 @@ describe('HERO_COPY.headline — the A register exists once here too', () => {
       expect(withLimits).not.toBe(`${GOAL_ANCHOR_COPY.headline(L, N, substituted)}.`)
     }
     // It is still the register's SHAPE, so a reader sees one voice.
-    expect(withLimits).toMatch(/^Option A has the highest chance of .+: 72%\.$/)
+    expect(withLimits).toMatch(/^Option A .+ in the most model runs \(72%\)\.$/)
   })
 })
 

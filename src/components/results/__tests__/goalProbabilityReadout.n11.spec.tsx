@@ -114,11 +114,11 @@ describe('T-2333-2 — N11: the goal readout and the low-goal badge share ONE st
 
     // Executed against the real formatter at this tip: 0.0007 at n=10000.
     expect(statReadout).toBe('0.1%')
-    expect(badge).toBe('0.1% likely to reach target')
+    expect(badge).toBe('Reaches the target in 0.1% of model runs')
     // The identity claim itself — not "both are 0.1%", but "the badge is
     // built FROM the readout". A mutant that recomputes the badge with a
     // different threshold breaks this even if both strings look plausible.
-    expect(badge?.startsWith(`${statReadout} `)).toBe(true)
+    expect(badge).toBe(`Reaches the target in ${statReadout} of model runs`)
   })
 
   it('keeps the floor readout on both surfaces when the run carries no sample count', () => {
@@ -130,7 +130,7 @@ describe('T-2333-2 — N11: the goal readout and the low-goal badge share ONE st
     ])
     const card = screen.getByTestId('option-card-a')
     expect(within(card).getByTestId('goal-readout-a').textContent).toBe('< 1%')
-    expect(within(card).getByTestId('low-goal-warning-a').textContent).toBe('< 1% likely to reach target')
+    expect(within(card).getByTestId('low-goal-warning-a').textContent).toBe('Reaches the target in < 1% of model runs')
   })
 })
 

@@ -870,9 +870,7 @@ function OptionCard({
                 className={`${typography.panelMeta} inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-danger/30 text-text-body`}
                 data-testid={`low-goal-warning-${option.id}`}
               >
-                {goalFitSubstituted
-                  ? GOAL_ANCHOR_COPY.phrase(lowGoalReadout, goalFitSubstituted)
-                  : `${lowGoalReadout} likely to reach target`}
+                {GOAL_ANCHOR_COPY.readout(lowGoalReadout, goalFitSubstituted)}
               </span>
             </div>
           )}

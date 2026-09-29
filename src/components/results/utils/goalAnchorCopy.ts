@@ -69,10 +69,13 @@ export const GOAL_ANCHOR_COPY = {
    * Label form — names the quantity, carries no number, no full stop.
    * Used by chart headers, data-bar labels and column captions.
    */
+  // ⭐ AIQ #72 5885033487 / 5885116642 (29 Sep 2026): P(goal) is a SHARE OF MODEL RUNS, always — never "chance of
+  // success / reaching / hitting". The reply in the same view says "model outcomes, not probabilities that the target
+  // will be achieved", and no surface may contradict it. Authorship stays a separate disclosure beside the figure.
   label: (isSubstitutedJoint: boolean): string =>
     isSubstitutedJoint
-      ? 'Chance of meeting every target this run scored'
-      : 'Chance of hitting your goal',
+      ? 'Share of model runs meeting every target this run scored'
+      : 'Share of model runs that reach the target',
 
   /**
    * Compact readout — number first, no full stop. Used inline beside an
@@ -80,15 +83,21 @@ export const GOAL_ANCHOR_COPY = {
    */
   phrase: (formatted: string, isSubstitutedJoint: boolean): string =>
     isSubstitutedJoint
-      ? `${formatted} chance of meeting every target this run scored`
-      : `${formatted} chance of hitting your goal`,
+      ? `meets every target this run scored in ${formatted} of model runs`
+      : `reaches the target in ${formatted} of model runs`,
+
+  /** Readout form — the phrase as a standalone line: capitalised, no full stop ("Reaches the target in 25% of model runs"). */
+  readout: (formatted: string, isSubstitutedJoint: boolean): string => {
+    const p = GOAL_ANCHOR_COPY.phrase(formatted, isSubstitutedJoint)
+    return p.charAt(0).toUpperCase() + p.slice(1)
+  },
 
   /**
    * Sentence form — the shipped hero wording, verbatim. `HERO_COPY.detail`
    * calls this; nothing restates it.
    */
   sentence: (formatted: string, isSubstitutedJoint: boolean): string =>
-    `${GOAL_ANCHOR_COPY.phrase(formatted, isSubstitutedJoint)}.`,
+    `${GOAL_ANCHOR_COPY.readout(formatted, isSubstitutedJoint)}.`,
 
   /**
    * Headline form (deck A4) — names the option, the basis AND the magnitude.
@@ -98,8 +107,8 @@ export const GOAL_ANCHOR_COPY = {
    */
   headline: (label: string, formatted: string, isSubstitutedJoint: boolean): string =>
     isSubstitutedJoint
-      ? `${label} has the highest chance of meeting every target this run scored: ${formatted}`
-      : `${label} has the highest chance of hitting your goal: ${formatted}`,
+      ? `${label} meets every target this run scored in the most model runs (${formatted})`
+      : `${label} reaches the target in the most model runs (${formatted})`,
 
   /**
    * Aria form for a distribution chart over the A quantity.

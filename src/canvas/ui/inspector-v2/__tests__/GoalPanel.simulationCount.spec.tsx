@@ -65,7 +65,7 @@ describe('GoalPanel — Impact "Based on N simulations"', () => {
   it('renders the REAL sample count from meta.n_samples (not a fabricated 1,000)', () => {
     setStore(reportWithGoal({ n_samples: 5000 }))
     const { getByText, queryByText } = renderPanel()
-    expect(getByText('62% chance of success')).toBeTruthy()
+    expect(getByText('Reaches the target in 62% of model runs')).toBeTruthy()
     expect(getByText('Based on 5,000 simulations')).toBeTruthy()
     // The old fabricated constant must never appear.
     expect(queryByText('Based on 1,000 simulations')).toBeNull()
@@ -76,7 +76,7 @@ describe('GoalPanel — Impact "Based on N simulations"', () => {
     setStore(reportWithGoal({ seed: null }))
     const { getByText, queryByText } = renderPanel()
     // The probability itself still renders — only the count sentence is gated.
-    expect(getByText('62% chance of success')).toBeTruthy()
+    expect(getByText('Reaches the target in 62% of model runs')).toBeTruthy()
     expect(queryByText(/Based on .* simulations/)).toBeNull()
   })
 })
