@@ -23,7 +23,8 @@ import { useReloadDifferenceStore } from '../stores/reloadDifferenceStore'
 import { logger } from '../../lib/logger'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
-import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding, isBootRestorableRunState } from './applyScenarioAnalysisRead'
+import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding, applyScenarioAnalysisRead, isBootRestorableRunState } from './applyScenarioAnalysisRead'
+import { readProvisionalApplyStore } from '../hooks/useProvisionalAnalysisDelivery'
 import { applyBootRunCurrency, applyBootBlockedVerdict, bootReadLimitVerdicts, bootReadRunFact } from './applyBootRunCurrency'
 import {
   beginBootGraphRead,
@@ -417,7 +418,21 @@ async function readAndMergeServerGraph(
         })
         if (limits !== null) useCanvasStore.getState().setLimitVerdicts(limits)
       }
-      logger.debug('server_graph_hydration.boot_run_currency', { scenarioId, exit, outcome: 'restored', runFact: fact !== null })
+      // ⭐ A FRESH BROWSER SEES THE STORED RUN (Shared Data closure row, Canonical #72 5889440955; measured by Canvas
+      // 5889420398: the read carried `analysis_result` + `complete_current`, a new browser showed the pre-analysis state).
+      // Under the SAME proof as the currency restore above, the READ's own block becomes the report — through the ONE read
+      // applier the first pass uses, with its store view, so certainty and limits take the same validating readers and the
+      // same dedupe: a same-browser reload of the held Run changes nothing; a Run another device made replaces it.
+      const runRead = applyScenarioAnalysisRead({
+        analysisState: result.analysisState,
+        analysisResult: result.analysisResult,
+        limitVerdicts: result.limitVerdicts,
+        goalCertainty: result.goalCertainty,
+        // The currency leg above is this read's ONE verdict writer (see `applyBootBlockedVerdict`: the legs never both
+        // write `analysisStateV1` for one read), so the applier here builds the report and writes no verdict.
+        store: { ...readProvisionalApplyStore(), setAnalysisStateV1: () => {} },
+      })
+      logger.debug('server_graph_hydration.boot_run_currency', { scenarioId, exit, outcome: 'restored', runFact: fact !== null, runRead: runRead.outcome })
       return
     }
     // A blocked model keeps CEE's named reason across a reload, under the SAME
