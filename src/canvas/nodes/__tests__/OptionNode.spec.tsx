@@ -1431,9 +1431,10 @@ describe('OptionNode', () => {
       selector(makeConstrainedGoalAndJointStore() as any)
     )
     const first = renderOption()
-    // 3% < 10% threshold → the warning line renders with the GOAL value, never the joint 5%.
-    expect(screen.getByText(/Reaches the target in (< )?3% of model runs\./)).toBeDefined()
-    expect(screen.queryByText(/Reaches the target in (< )?5% of model runs\./)).toBeNull()
+    // 3% < 10% threshold → the warning line renders with the GOAL value, never the joint 5%. The bound is TRUE: the
+    // smallest whole percent strictly above the figure ("< 3%" would claim 3% is below itself; 7.4% read "< 7%").
+    expect(screen.getByText(/Reaches the target in < 4% of model runs\./)).toBeDefined()
+    expect(screen.queryByText(/Reaches the target in (< )?[56]% of model runs\./)).toBeNull()
     first.unmount()
 
     // The constrained joint-only fixture: no goal figure → no badge, constraints or not.
@@ -1468,7 +1469,7 @@ describe('OptionNode', () => {
     mockResultsModeMetadata()
     vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeBaseCaveatStore(author) as any))
     renderOption()
-    expect(screen.getByText(/Reaches the target in (< )?5% of model runs\./)).toBeDefined()
+    expect(screen.getByText(/Reaches the target in < 6% of model runs\./)).toBeDefined()
     expect(screen.getByTestId('goal-fit-base-caveat-option-node-option-1').textContent).toBe(copy)
   })
 
@@ -1477,7 +1478,7 @@ describe('OptionNode', () => {
     mockResultsModeMetadata()
     vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeBaseCaveatStore() as any))
     renderOption()
-    expect(screen.getByText(/Reaches the target in (< )?5% of model runs\./)).toBeDefined()
+    expect(screen.getByText(/Reaches the target in < 6% of model runs\./)).toBeDefined()
     expect(screen.queryByTestId('goal-fit-base-caveat-option-node-option-1')).toBeNull()
   })
 
@@ -1584,8 +1585,8 @@ describe('OptionNode', () => {
       selector(makeConstrainedGoalAndJointStore() as any)
     )
     renderOption()
-    expect(screen.getByText(/Reaches the target in (< )?3% of model runs\./)).toBeDefined()
-    expect(screen.queryByText(/Reaches the target in (< )?5% of model runs\./)).toBeNull()
+    expect(screen.getByText(/Reaches the target in < 4% of model runs\./)).toBeDefined()
+    expect(screen.queryByText(/Reaches the target in (< )?[56]% of model runs\./)).toBeNull()
     expect(screen.queryByText(new RegExp(GOAL_ANCHOR_COPY.label(true).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))))
       .toBeNull()
   })
