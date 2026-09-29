@@ -31,6 +31,7 @@
  * names the distribution ISL actually samples.
  */
 
+import { useState } from 'react'
 import { useCanvasStore } from '../../../store'
 import { useNodeMutations } from '../useInspectorMutations'
 import { AdvancedField } from '../shared/AdvancedField'
@@ -52,6 +53,14 @@ export function FactorExternalEditor({ nodeId }: FactorExternalEditorProps) {
   const rangeMax = prior?.range_max as number | undefined
 
   const hasRange = rangeMin != null && rangeMax != null
+  /**
+   * ⭐ ONE END TYPED IS NOT A RANGE (the panel's Min/Max boxes carry the same
+   * rule). The other end comes from the card, else from the sibling field the
+   * user typed; with neither, this end is HELD and nothing is written or sent.
+   * The fields used to complete the pair with `rangeMax ?? 1` / `rangeMin ?? 0`.
+   */
+  const [heldMin, setHeldMin] = useState<number | null>(null)
+  const [heldMax, setHeldMax] = useState<number | null>(null)
   /**
    * Both moments are the UNIFORM's own: mean = (a+b)/2 (which is exactly ISL's
    * central value for this factor, `robustness_analyzer_v2.py:1069-1075`) and
@@ -103,7 +112,11 @@ export function FactorExternalEditor({ nodeId }: FactorExternalEditorProps) {
         <AdvancedField
           label="Range minimum"
           value={rangeMin}
-          onChange={v => mutations.setPriorRange(v as number, rangeMax ?? 1)}
+          onChange={v => {
+            const max = rangeMax ?? heldMax
+            if (max == null) { setHeldMin(v as number); return }
+            mutations.setPriorRange(v as number, max)
+          }}
           type="number"
           min={0}
           max={1}
@@ -112,7 +125,11 @@ export function FactorExternalEditor({ nodeId }: FactorExternalEditorProps) {
         <AdvancedField
           label="Range maximum"
           value={rangeMax}
-          onChange={v => mutations.setPriorRange(rangeMin ?? 0, v as number)}
+          onChange={v => {
+            const min = rangeMin ?? heldMin
+            if (min == null) { setHeldMax(v as number); return }
+            mutations.setPriorRange(min, v as number)
+          }}
           type="number"
           min={0}
           max={1}
