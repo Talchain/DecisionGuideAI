@@ -341,17 +341,25 @@ export function selectGoalProbability(
   // a per-option constraint analysis makes the joint figure the right answer;
   // otherwise the goal quantity is the right answer whenever the run carries
   // it; only when it does not does the joint figure stand in for it.
+  // ⭐⭐ AIQ RULING #72 5882498938 (29 Sep 2026, fail-closed): the goal-fit slot
+  // reads `probability_of_goal` and NOTHING ELSE, constrained or not. The joint
+  // figure is P(ALL LIMITS jointly hold) — the DL's served run carried goal = 0 /
+  // joint = 1 (limits on other nodes), and goal = 1 / joint = 0 is just as
+  // reachable (a goal-node limit plus a failing limit elsewhere), so it can never
+  // stand in for the goal at ANY constraint layout. It keeps only its own row
+  // (`jointGoalProbability`, "chance all your limits hold"). `'joint_goal_constrained'`
+  // is no longer produced: that arm put P(limits) in the goal slot whenever an
+  // option carried a constraint analysis.
+  void hasConstraints
   const basis: GoalProbabilityBasis =
-    hasConstraints && jointGoalProb != null
-      ? 'joint_goal_constrained'
-      : unconstrained != null
-        ? 'goal_probability'
-        : jointGoalProb != null
-          ? // ⭐ L62: was `'joint_goal_substituted'`, and the joint number was
-            // returned here. It is now withheld — see the L62 block in the
-            // module header for the derivation.
-            'joint_goal_withheld'
-          : 'none'
+    unconstrained != null
+      ? 'goal_probability'
+      : jointGoalProb != null
+        ? // ⭐ L62: was `'joint_goal_substituted'`, and the joint number was
+          // returned here. It is now withheld — see the L62 block in the
+          // module header for the derivation.
+          'joint_goal_withheld'
+        : 'none'
 
   const goalProbabilityIsJoint = basis === 'joint_goal_constrained'
 
