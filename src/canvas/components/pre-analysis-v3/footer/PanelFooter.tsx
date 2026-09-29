@@ -56,6 +56,8 @@ interface PanelFooterProps {
   nothingHasAnswered?: boolean
   /** `selectRunOnRecord` — the scenario has been Run, so the control offers to run again, not a first pass. */
   runOnRecord?: boolean
+  /** `selectSavedRunUnconfirmed` — a saved Run exists that the boot could not confirm (`declinedSavedRunStore.ts`). */
+  savedRunUnconfirmed?: boolean
 }
 
 export const PanelFooter = memo(function PanelFooter({
@@ -68,6 +70,7 @@ export const PanelFooter = memo(function PanelFooter({
   readinessCheck = null,
   nothingHasAnswered = false,
   runOnRecord = false,
+  savedRunUnconfirmed = false,
 }: PanelFooterProps) {
   const disabled = isAnalysing || !canRun
 
@@ -85,6 +88,7 @@ export const PanelFooter = memo(function PanelFooter({
     blockedListing,
     nothingHasAnswered,
     resting: footer,
+    savedRunUnconfirmed,
   })
 
   // Kept as its own read so the outage TESTID below marks exactly the state the
