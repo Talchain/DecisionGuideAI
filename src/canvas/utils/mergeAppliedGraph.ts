@@ -370,7 +370,8 @@ function sameValue(a: unknown, b: unknown): boolean {
  * parentId — is carried through untouched.
  *
  * Field-level rule: the wire WINS on keys it carries, the canvas KEEPS keys
- * the wire omits. Absence of a key is not treated as "clear it" — CEE's node
+ * the wire omits, except for an option's `proposed_by` on a complete canonical
+ * graph. Absence of other keys is not treated as "clear it" — CEE's node
  * schema is closed and omits optional fields it has no value for, and UI-side
  * backfills (interventions, is_baseline, goal_threshold_*) live in the same
  * `data` bag. The residual is documented and accepted: a value CEE genuinely
@@ -382,9 +383,15 @@ function sameValue(a: unknown, b: unknown): boolean {
  * mirror this repo keeps getting bitten by. There is ONE definition of the
  * overlay; its two callers differ only in the semantics around it.
  */
-export function overlayNode(existing: any, wireNode: any): any {
+export function overlayNode(existing: any, wireNode: any, completeCanonicalGraph = false): any {
   const mapped = mapDraftNodeToCanvas(wireNode)
   const nextData = { ...(existing.data ?? {}), ...(mapped.data ?? {}) }
+  // Adoption removes this one marker from the canonical option node. Both
+  // authoritative callers pass true; a partial legacy receipt cannot clear it.
+  // Retaining the old copy would send it back on the next registration.
+  if (completeCanonicalGraph && wireNode?.kind === 'option' && !Object.hasOwn(wireNode, 'proposed_by')) {
+    delete nextData.proposed_by
+  }
   const nextType = mapped.type ?? existing.type
 
   if (nextType === existing.type && sameValue(existing.data, nextData)) {
@@ -770,7 +777,7 @@ export function reconcileAppliedGraph(
   const reconciledNodes = survivingNodes.map((n: any) => {
     const wireNode = wireNodeById.get(n.id)
     if (!wireNode) return n
-    const next = overlayNode(n, wireNode)
+    const next = overlayNode(n, wireNode, canonicalReceipt.success)
     if (next !== n) updatedNodeCount += 1
     return next
   })

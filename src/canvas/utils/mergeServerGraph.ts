@@ -491,7 +491,7 @@ export function mergeServerGraphOnHydrate(
     if (!serverNode) return n
 
     const userStamps = captureUserProvenance(n.data)
-    const overlaid = overlayNode(n, serverNode)
+    const overlaid = overlayNode(n, serverNode, true)
     if (overlaid === n) return n
 
     const nextData = observedValueUnchanged(n.data, overlaid.data)
