@@ -806,10 +806,14 @@ export function buildV5VerdictReportLike(block: {
   // still yields probabilities. They will be LABEL-keyed, the id-space
   // producer signals will not apply, and the verdict fails closed — which is
   // the correct outcome, reached without a special case.
-  const winById = resolveWinProbabilitiesById(
-    candidates.length > 0 ? candidates : winProbabilityCandidates([], winProbs),
-    winProbs,
-  )
+  // PLoT #416 / AIQ #72 5886183999: under the typed identity withhold the win figures are not valid for this run,
+  // so no leader is derived from them (census R3-B 5886351619, step 3).
+  const winById = readGoalIdentityWithheld(enrichment) !== null
+    ? new Map<string, number>()
+    : resolveWinProbabilitiesById(
+        candidates.length > 0 ? candidates : winProbabilityCandidates([], winProbs),
+        winProbs,
+      )
 
   const option_probabilities: Record<string, { win_probability?: number | null }> = {}
   for (const [optionId, win] of winById) {
@@ -1093,10 +1097,12 @@ export function mapV5AnalysisToReport(
   // keys verbatim. Honest miss in the Results panel when those keys are
   // labels.
   const iterator = optionIterator(resolvedOptions, winProbs)
-  const winProbabilityById = resolveWinProbabilitiesById(
-    winProbabilityCandidates(resolvedOptions, winProbs),
-    winProbs,
-  )
+  // PLoT #416 / AIQ #72 5886183999: the win %, means, ranges and downside come from the same invalid walk as the
+  // withheld goal figure. Absent stays absent: no fallback (win_probabilities map, decision_brief, expected_outcome,
+  // CI midpoint) may re-show them (census R3-B 5886351619, step 3).
+  const winProbabilityById = goalIdentityWithheld
+    ? new Map<string, number>()
+    : resolveWinProbabilitiesById(winProbabilityCandidates(resolvedOptions, winProbs), winProbs)
 
   for (const { optionId, enriched } of iterator) {
     const winProb = winProbabilityById.get(optionId)
@@ -1111,10 +1117,10 @@ export function mapV5AnalysisToReport(
     const ciMid =
       ciLow != null && ciHigh != null ? (ciLow + ciHigh) / 2 : null
 
-    const outcome = isPlainObject(enriched?.outcome) ? enriched.outcome : undefined
+    const outcome = !goalIdentityWithheld && isPlainObject(enriched?.outcome) ? enriched.outcome : undefined
     const rawMean = safeFiniteNumber(outcome?.mean)
-    const rawExpected = safeFiniteNumber(enriched?.expected_outcome)
-    const expected = rawMean ?? rawExpected ?? ciMid ?? undefined
+    const rawExpected = goalIdentityWithheld ? undefined : safeFiniteNumber(enriched?.expected_outcome)
+    const expected = goalIdentityWithheld ? undefined : (rawMean ?? rawExpected ?? ciMid ?? undefined)
 
     // ⚠ ROADMAP 2.800a — PERCENTILES ARE THE PRODUCER'S OR THEY ARE ABSENT.
     // These reads used to end `?? ciLow` / `?? ciHigh`, putting a
@@ -1156,7 +1162,7 @@ export function mapV5AnalysisToReport(
     const percentilesSource = narrowPercentilesSource(outcome?.percentiles_source)
 
     const goalFitBasis = normaliseGoalFitBasis(enriched?.goal_fit_basis)
-    const downside = normaliseDownside(enriched?.downside)
+    const downside = goalIdentityWithheld ? undefined : normaliseDownside(enriched?.downside)
 
     // ⭐ Per-option computation classification — narrowed to the producer's
     // closed vocabulary and carried verbatim, NO fallback chain and NO
@@ -1748,9 +1754,9 @@ export function mapV5AnalysisToReport(
         // three-place lookup lands in one place.
         const winProb = winProbabilityById.get(optionId)
         if (winProb !== undefined) entry.win_probability = winProb
-        const expected = safeFiniteNumber(enriched.expected_outcome)
+        const expected = goalIdentityWithheld ? undefined : safeFiniteNumber(enriched.expected_outcome)
         if (expected !== undefined) entry.expected_outcome = expected
-        const outcome = isPlainObject(enriched.outcome) ? enriched.outcome : undefined
+        const outcome = !goalIdentityWithheld && isPlainObject(enriched.outcome) ? enriched.outcome : undefined
         if (outcome) {
           const mean = safeFiniteNumber(outcome.mean)
           const p10 = safeFiniteNumber(outcome.p10)
