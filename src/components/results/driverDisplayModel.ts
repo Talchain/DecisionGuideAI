@@ -305,7 +305,8 @@ export function readInfluenceGatedBy(raw: unknown): string[] | null {
   if (raw == null || typeof raw !== 'object') return null
   const f = raw as Record<string, unknown>
   if (typeof f.influence_score === 'number' && Number.isFinite(f.influence_score)) return null
-  const gatedBy = f.gated_by
+  // PLoT #408's wire key first (`influence_gated_by`); ISL's own `gated_by` as a fallback (PR Review #2290).
+  const gatedBy = Array.isArray(f.influence_gated_by) ? f.influence_gated_by : f.gated_by
   return Array.isArray(gatedBy) && gatedBy.length > 0 && gatedBy.every((id) => typeof id === 'string')
     ? [...gatedBy]
     : null

@@ -212,7 +212,8 @@ function narrowPercentilesSource(raw: unknown): PercentilesSource | undefined {
 interface NormalisedFactor {
   factor_id: string
   factor_label: string
-  sensitivity: number // absolute magnitude
+  /** Absolute magnitude. ABSENT only on an ISL-gated row the producer sent without one (never fabricated). */
+  sensitivity?: number // absolute magnitude
   /**
    * The producer's direction, carried VERBATIM across the contract's full
    * domain, or `null` when the producer sent none (ROADMAP 2.234).
@@ -292,7 +293,15 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
     safeFiniteNumber(entry.sensitivity) ??
     safeFiniteNumber(entry.elasticity) ??
     safeFiniteNumber(entry.importance_score)
-  if (rawMagnitude === undefined) return null
+  // ⛔ PR Review #2290: PLoT #408 emits the gate as `influence_gated_by` (FactorSensitivityResultV3; CEE stores the
+  // envelope verbatim) — `gated_by` is ISL's own name, read as a fallback only. A GATED row may carry no magnitude
+  // (sensitivity_score / elasticity are optional there); it is kept, with no magnitude fabricated. A non-gated row
+  // with no usable magnitude is still dropped.
+  const gatedRaw = Array.isArray(entry.influence_gated_by)
+    ? entry.influence_gated_by
+    : Array.isArray(entry.gated_by) ? entry.gated_by : undefined
+  const gatedRow = gatedRaw !== undefined && gatedRaw.length > 0 && safeFiniteNumber(entry.influence_score) === undefined
+  if (rawMagnitude === undefined && !gatedRow) return null
 
   const factorId =
     safeString(entry.factor_id) ??
@@ -319,7 +328,7 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
   // derivation, no defaults — undefined when absent so downstream consumers
   // can distinguish "not provided" from any real value.
   const influenceScore = safeFiniteNumber(entry.influence_score)
-  const gatedBy = Array.isArray(entry.gated_by) ? [...(entry.gated_by as unknown[])] : undefined
+  const gatedBy = gatedRaw !== undefined ? [...(gatedRaw as unknown[])] : undefined
   const influenceRank = safeFiniteNumber(entry.influence_rank)
   const zeroReason = safeString(entry.zero_reason)
 
@@ -338,7 +347,7 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
   return {
     factor_id: factorId,
     factor_label: factorLabel,
-    sensitivity: Math.abs(rawMagnitude),
+    ...(rawMagnitude !== undefined ? { sensitivity: Math.abs(rawMagnitude) } : {}),
     direction,
     ...(influenceScore !== undefined ? { influence_score: influenceScore } : {}),
     ...(gatedBy !== undefined ? { gated_by: gatedBy } : {}),
@@ -382,7 +391,7 @@ function collectFactors(enrichment: Record<string, unknown>): NormalisedFactor[]
     const norm = normaliseFactorEntry(raw)
     if (!norm) continue
     const existing = byId.get(norm.factor_id)
-    if (!existing || norm.sensitivity > existing.sensitivity) {
+    if (!existing || (norm.sensitivity ?? -1) > (existing.sensitivity ?? -1)) {
       byId.set(norm.factor_id, norm)
     }
   }
@@ -933,7 +942,11 @@ export function mapV5AnalysisToReport(
   // Factor sensitivity — collected once IN PRODUCER ORDER (ROADMAP 2.235);
   // reused for drivers + factor_sensitivity passthrough.
   const factors = enrichment ? collectFactors(enrichment) : []
-  const drivers = factors.slice(0, 5).map((f) => ({
+  // A gated row (no score, the gate named) is never a ranked driver, and may carry no magnitude (PR Review #2290).
+  const drivers = factors
+    .flatMap((f) => (f.sensitivity === undefined || f.gated_by?.length ? [] : [{ ...f, sensitivity: f.sensitivity }]))
+    .slice(0, 5)
+    .map((f) => ({
     label: f.factor_label,
     // ROADMAP 2.234: `mixed` / `unknown` / absent take the neutral affordance
     // the driver surfaces already ship, never the "up" arrow they used to get
@@ -1591,7 +1604,7 @@ export function mapV5AnalysisToReport(
     widened.factor_sensitivity = factors.map((f) => ({
       factor_id: f.factor_id,
       factor_label: f.factor_label,
-      sensitivity: f.sensitivity,
+      ...(f.sensitivity !== undefined ? { sensitivity: f.sensitivity } : {}),
       // ROADMAP 2.234: absence stays absence — the key is omitted rather than
       // written as a default, exactly like the additive passthroughs below, so
       // a consumer can still tell "the producer said nothing" from "the

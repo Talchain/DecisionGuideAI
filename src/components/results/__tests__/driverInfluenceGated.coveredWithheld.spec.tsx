@@ -244,3 +244,67 @@ describe('(f) the live carrier: enrichment.factor_sensitivity[].gated_by survive
     expect(new Set(data.drivers.map((d) => d.displayProvenance))).toEqual(new Set(['normalised_elasticity']))
   })
 })
+
+/**
+ * ⛔ PR Review CHANGES_REQUIRED on #2290 @ 89b92502: (1) PLoT #408 emits the gate as
+ * `factor_sensitivity[].influence_gated_by` (contracts/openapi.yaml, FactorSensitivityResultV3) and CEE stores the
+ * PLoT envelope verbatim — the hand-written `gated_by` above is not the wire key; (2) the mapper dropped a row with
+ * no magnitude BEFORE reading the gate. Rows below are UNMODIFIED PLoT #408 egress shapes: a gated row carries NO
+ * `influence_score`, `influence_rank` or `importance_rank` key at all, and `sensitivity_score` / `elasticity` are
+ * optional.
+ */
+describe('(g) PLoT #408 egress rows through mapV5AnalysisToReport → panel and badge', () => {
+  type Block = { enrichment: { factor_sensitivity: unknown[] } }
+  const block = (rows: unknown[]): Block => {
+    const b = JSON.parse(JSON.stringify(servedC.analysis_block)) as Block
+    b.enrichment.factor_sensitivity = rows
+    return b
+  }
+  const scoredP = (id: string, s: number, rank: number) => ({
+    factor_id: id, sensitivity_score: s, elasticity: s, importance_rank: rank, importance_basis: 'isl_structural',
+    influence_basis: 'isl_structural', influence_score: s, influence_rank: rank, direction: 'positive',
+  })
+  const gatedP = (id: string, withMagnitude: boolean) => ({
+    factor_id: id, importance_basis: 'isl_structural', influence_gated_by: ['hires_today'],
+    ...(withMagnitude ? { sensitivity_score: 0.2, elasticity: 0.2 } : {}),
+  })
+
+  it.each([true, false])('mixed: scored rows keep the producer basis 1..n; the gated row (magnitude %s) reads the words', (withMagnitude) => {
+    const report = mapV5AnalysisToReport(block([scoredP('pro_paying_subscribers', 0.9, 1), scoredP('monthly_churn', 0.4, 2), gatedP('advertising_investment_share', withMagnitude)]) as never)
+    setCompleteReport(report as unknown as Record<string, unknown>)
+    const data = panelRows()
+    expect(data.drivers.map((d) => [d.factorKey, d.displayProvenance])).toEqual([
+      ['pro_paying_subscribers', 'influence_score'],
+      ['monthly_churn', 'influence_score'],
+    ])
+    expect(canvasFor('advertising_investment_share').sensitivityRank).toBeNull()
+    expect(canvasFor('advertising_investment_share').influence).toBeNull()
+    render(<DriversSection data={data} />)
+    const row = screen.getByTestId('driver-gated-row-advertising_investment_share')
+    expect(row.textContent).toContain(GATED_WORDS)
+    expect(row.textContent).not.toMatch(/\d/)
+  })
+
+  it('all-gated, no magnitudes: every row reads the words; nothing falls back, nothing is dropped', () => {
+    const report = mapV5AnalysisToReport(block([gatedP('pro_paying_subscribers', false), gatedP('monthly_churn', false)]) as never)
+    setCompleteReport(report as unknown as Record<string, unknown>)
+    const data = panelRows()
+    expect(data.drivers).toEqual([])
+    render(<DriversSection data={data} />)
+    expect(screen.getByTestId('driver-gated-row-pro_paying_subscribers').textContent).toContain(GATED_WORDS)
+    expect(screen.getByTestId('driver-gated-row-monthly_churn').textContent).toContain(GATED_WORDS)
+  })
+
+  it('the mapped report row keeps the gate and fabricates no magnitude', () => {
+    const report = mapV5AnalysisToReport(block([scoredP('pro_paying_subscribers', 0.9, 1), gatedP('advertising_investment_share', false)]) as never) as unknown as { factor_sensitivity: Array<Record<string, unknown>> }
+    const g = report.factor_sensitivity.find((r) => r.factor_id === 'advertising_investment_share')!
+    expect(g).toBeDefined()
+    expect(g.sensitivity).toBeUndefined()
+    expect(g.influence_score).toBeUndefined()
+  })
+
+  it('⛔ CONTRAST: a NON-gated row with no usable magnitude is still dropped, as before', () => {
+    const report = mapV5AnalysisToReport(block([scoredP('pro_paying_subscribers', 0.9, 1), { factor_id: 'monthly_churn', importance_basis: 'isl_structural' }]) as never) as unknown as { factor_sensitivity: Array<Record<string, unknown>> }
+    expect(report.factor_sensitivity.map((r) => r.factor_id)).toEqual(['pro_paying_subscribers'])
+  })
+})
