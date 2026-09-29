@@ -19,7 +19,7 @@
 
 import type { Node } from '@xyflow/react'
 import { classifyUnit } from '../../../utils/labelUtils'
-import { goalTargetChangeFrameOf, goalTargetFrameIsUnread, isStatedTargetValue, statedTargetNumber } from '../../../domain/goalTarget'
+import { goalTargetChangeFrameOf, goalTargetFrameIsUnread, goalTargetStampedFromBrief, isStatedTargetValue, statedTargetNumber, type GoalTargetSource } from '../../../domain/goalTarget'
 import { formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
 import type { Attribution } from '../types'
 
@@ -230,7 +230,7 @@ export function computeSuccessState(
     // ⭐ OR CEE STAMPED IT FROM THE BRIEF: `threshold_source: 'brief_extraction'` is written ONLY when the brief
     // writes this figure in the goal's unit (CEE `holdStatedGoalAttributes`, `figureTheUserWrote`). It is on the NODE,
     // so it holds only for the node's own `goal_threshold_raw`, never for the analysis-ready fallback.
-    const briefStamped = rawCandidate === data.goal_threshold_raw && data.threshold_source === 'brief_extraction'
+    const briefStamped = rawCandidate === data.goal_threshold_raw && goalTargetStampedFromBrief(data as GoalTargetSource)
     const userStated = briefStamped || (numeric !== null && matchesExplicitConstraint(numeric, goalConstraints))
     return {
       isSet: true,

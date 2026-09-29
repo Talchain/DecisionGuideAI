@@ -188,6 +188,7 @@ import { useRunCurrency, optionResultCaption, optionResultCompactCaption, option
 import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
 import { ValueSourceMark, VALUE_SOURCE_MARK_TOKEN } from './shared/valueSourceMark'
 import { parseDraftingNotes } from '../ui/inspector-v2/draftingNote'
+import { optionEntryScaleOf } from '../ui/inspector-v2/shared/optionTargetEntry'
 
 /**
  * ⭐ THE ONE-LINE OPTION BODY IS RETIRED — Paul, 25 Sep 2026, from live
@@ -966,7 +967,7 @@ export const OptionNode = memo((props: NodeProps) => {
         const unit = (factorNode?.data?.unit as string | undefined) ?? observedState?.unit
         return [{
           factorId, label: cleanedLabel, value, displayValue: displayValue ?? undefined, unit,
-          factorType: observedState?.factor_type, cap: observedState?.cap,
+          factorType: observedState?.factor_type, cap: optionEntryScaleOf(observedState?.cap, factorNode?.data?.scale_frame),
           observedValue: observedState?.value, observedRawValue: observedState?.raw_value,
         }]
       })

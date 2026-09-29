@@ -34,6 +34,15 @@ describe('the brief stamp on a goal target', () => {
     expect(computeSuccessState(goalNode(UNSTAMPED), null, null, null).attribution?.kind).toBe('olumi')
   })
 
+  it('AIQ 5900578934 — a RELATIVE-change target ("cut by 20%" → "£36,000 / month or less") never wears "From your brief"', () => {
+    const CUT = { label: 'Monthly cloud bill', goal_threshold_raw: -0.2, goal_threshold_unit: '£/month', goal_threshold_frame: 'change_rel', goal_direction: '<=', threshold_source: 'brief_extraction', goal_baseline_raw: 45000 }
+    expect(resolveGoalTarget(CUT)?.source).toBe('unrecorded')
+    expect(goalTargetSourceMark(CUT)).toMatchObject({ kind: 'unknown' })
+    expect(computeSuccessState(goalNode(CUT), null, null, null).attribution?.kind).not.toBe('person')
+    // CONTROL (same file, same stamp): the MRR absolute change keeps it.
+    expect(goalTargetSourceMark(SERVED)).toMatchObject({ kind: 'brief' })
+  })
+
   it("CONTRAST — the stamp is on the NODE's figure: an analysis-ready fallback figure is never credited by it", () => {
     const noRaw = { ...SERVED, goal_threshold_raw: undefined }
     expect(computeSuccessState(goalNode(noRaw), { goal_threshold_raw: 85000 }, null, null).attribution?.kind).toBe('olumi')

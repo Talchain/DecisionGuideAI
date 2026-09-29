@@ -39,6 +39,18 @@ describe('the link mini-editor', () => {
     expect(screen.getByTestId('link-quick-editor-saved')).toBeDefined()
   })
 
+  it('a STRUCTURAL link (decision → option) offers no strength and no direction — only "More detail"', () => {
+    useCanvasStore.setState({
+      nodes: [{ id: 'dec', type: 'decision', data: { label: 'Should we grow?' } }, { id: 'opt', type: 'option', data: { label: 'Carry on as now' } }],
+      edges: [{ id: 'e1', source: 'dec', target: 'opt', data: { weight: 1, strength_mean: 1, direction: 'positive', weightSource: 'cee' } }],
+    } as never)
+    mount()
+    expect(screen.getByTestId('link-quick-editor-structural')).toBeDefined()
+    expect(screen.queryByTestId('link-quick-editor-direction')).toBeNull()
+    expect(screen.queryAllByRole('button').map((b) => b.textContent)).toEqual(['More detail'])
+    expect(setStrength).not.toHaveBeenCalled()
+  })
+
   it('a link with no strength on record says so, and offers no band', () => {
     seed({})
     mount()

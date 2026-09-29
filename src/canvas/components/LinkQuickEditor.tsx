@@ -22,6 +22,7 @@ import { useEdgeMutations } from '../ui/inspector-v2/useInspectorMutations'
 import { StrengthBandButtons } from '../ui/inspector-v2/shared/StrengthBandButtons'
 import { resolveEdgeDirectionDisplay, resolveEdgeSignedStrengthDisplay } from '../domain/edgeValueProvenance'
 import { resolveElementLabel } from '../domain/elementLabel'
+import { isStructuralEdge } from '../domain/edgeUtils'
 import {
   VALUE_COMMIT_SETTLEMENT_COPY,
   valueCommitSettlementWord,
@@ -104,6 +105,17 @@ export function LinkQuickEditor({ edgeId, x, y, onClose, onMoreDetail }: LinkQui
     if (outcome !== 'dispatched') setWord('local_only')
   }, [edgeId, mutations])
   const statedDirection = resolveEdgeDirectionDisplay(edge?.data as Record<string, unknown> | undefined)
+  // ⛔ A STRUCTURAL LINK HAS NO STRENGTH OR DIRECTION TO SET (served 29 Sep, MRR `823bc028`: the editor offered bands
+  // on "decision → Carry on as now", and a witness wrote a strength to one). The SAME predicate the inspector asks.
+  const structural = useCanvasStore((s) => {
+    const e = s.edges.find((x) => x.id === edgeId)
+    if (!e) return false
+    const kindOf = (id: string) => {
+      const n = s.nodes.find((nn) => nn.id === id)
+      return ((n?.data as Record<string, unknown> | undefined)?.kind as string | undefined) ?? n?.type
+    }
+    return isStructuralEdge(e as never, kindOf)
+  })
 
   if (!edge) return null
   const left = Math.min(x + 8, (typeof window !== 'undefined' ? window.innerWidth : 1440) - 280)
@@ -123,7 +135,11 @@ export function LinkQuickEditor({ edgeId, x, y, onClose, onMoreDetail }: LinkQui
       <p className={`${typography.panelBody} text-text-body m-0 mb-2 break-words`}>
         {fromLabel} → {toLabel}
       </p>
-      {display.show ? (
+      {structural ? (
+        <p className={`${typography.panelMeta} text-text-light m-0`} data-testid="link-quick-editor-structural">
+          This link connects the decision to an option. It has no strength to set.
+        </p>
+      ) : display.show ? (
         <>
           <div role="group" aria-label="Direction" className="mb-2 flex gap-1" data-testid="link-quick-editor-direction">
             {(['positive', 'negative'] as const).map((dir) => {

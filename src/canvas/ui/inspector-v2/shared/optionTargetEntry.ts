@@ -70,6 +70,19 @@ const MODEL_SCALE: OptionTargetEntryFrame = { kind: 'model_scale' }
  */
 const ANCHOR_AGREES_WITH_CAP = 1e-9
 
+/**
+ * ⭐ THE FACTOR'S CONVERSION REFERENCE FOR AN ENTRY: its `cap`, else CEE's node-level `scale_frame` — the frame CEE
+ * projected the factor's baseline and every option magnitude onto (`cee-v3.ts` NodeV3 `scale_frame`), so
+ * user units = model value × frame. Served 29 Sep (MRR `823bc028`, "Referral programme spend": observed £0, no cap,
+ * `scale_frame: 500000`): without it the card showed "£24k/year" and its editor opened at "0.048".
+ * Never defaulted: absent or non-positive ⇒ undefined (CEE: "ABSENCE MEANS NEVER FRAMED").
+ */
+export function optionEntryScaleOf(cap: unknown, scaleFrame: unknown): number | undefined {
+  if (typeof cap === 'number' && Number.isFinite(cap) && cap > 0) return cap
+  if (typeof scaleFrame === 'number' && Number.isFinite(scaleFrame) && scaleFrame > 0) return scaleFrame
+  return undefined
+}
+
 export function resolveOptionTargetEntryFrame({
   unit,
   cap,
@@ -177,6 +190,8 @@ export function typedMarkerDenotesRowUnit(
   if (!CURRENCY_SYMBOL_TYPED.test(marker)) return false
   if (frame.unitKind === 'percent') return false
   if (frame.unitKind === 'symbol') return marker === frame.unit
+  // A rate in that currency — '£/year', '£ per month' (served MRR `823bc028`): "£30k" was refused as "another unit".
+  if (frame.unit.trim().startsWith(marker)) return true
   const iso = SYMBOL_ISO[marker]
   const leadingCode = /^([A-Z]{3})(?![A-Za-z])/.exec(frame.unit.trim())?.[1]
   return iso !== undefined && leadingCode === iso

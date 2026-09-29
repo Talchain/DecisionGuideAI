@@ -119,6 +119,17 @@ export interface ResolvedGoalTarget {
  * already guarded this with `String(x).trim() !== ''`; the guard moves here so
  * both callers get it.
  */
+/**
+ * ⭐ IS THE PRINTED TARGET THE FIGURE CEE STAMPED AS THE BRIEF'S? `threshold_source: 'brief_extraction'` (CEE
+ * `holdStatedGoalAttributes`: the brief writes this figure in the goal's unit) — AND the frame prints that figure
+ * itself: a level, or an absolute change ("up £85,000/month"). A RELATIVE change is not: its £ figure ("£36,000 / month
+ * or less") comes from Olumi's reading of today's level, so "From your brief" must never sit on it (AIQ 5900578934,
+ * cut-costs). Conservative there: "Source not recorded", never a false authorship.
+ */
+export function goalTargetStampedFromBrief(data: GoalTargetSource | null | undefined): boolean {
+  return data?.threshold_source === 'brief_extraction' && data.goal_threshold_frame !== 'change_rel'
+}
+
 export function resolveGoalTarget(
   data: GoalTargetSource | null | undefined,
 ): ResolvedGoalTarget | null {
@@ -144,7 +155,7 @@ export function resolveGoalTarget(
   if (ceeRaw != null && String(ceeRaw).trim() !== '') {
     // `brief` ONLY on CEE's own stamp: it writes `threshold_source: 'brief_extraction'` when the brief writes this
     // figure in the goal's unit (`holdStatedGoalAttributes`). Without it nothing says where the figure came from.
-    const source = data.threshold_source === 'brief_extraction' ? 'brief' : 'unrecorded'
+    const source = goalTargetStampedFromBrief(data) ? 'brief' : 'unrecorded'
     return { raw: ceeRaw, unit, source, ...frame }
   }
 
