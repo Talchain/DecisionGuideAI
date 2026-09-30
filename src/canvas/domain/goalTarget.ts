@@ -392,7 +392,7 @@ export function goalTargetInPlaceEdit(data: GoalTargetSource | null | undefined)
 export interface GoalTodayLevel {
   readonly level: number
   readonly unit: string
-  readonly basis: 'olumi_reading' | 'user_stated'
+  readonly basis: 'olumi_reading' | 'user_stated' | 'user_confirmed'
   readonly quote: string | null
 }
 export function goalTodayLevel(data: (GoalTargetSource & { goal_level_reading?: unknown; observedState?: unknown }) | null | undefined): GoalTodayLevel | null {
@@ -413,7 +413,8 @@ export function goalTodayLevel(data: (GoalTargetSource & { goal_level_reading?: 
   const raw = typeof observed?.raw_value === 'number' ? observed.raw_value : NaN
   const unit = typeof observed?.unit === 'string' ? observed.unit.trim() : ''
   if ((kind === 'edited' || kind === 'confirmed') && Number.isFinite(raw) && unit === goalUnit) {
-    return { level: raw, unit, basis: 'user_stated', quote: null }
+    // AIQ 5902964135 nit: a `confirmed` source is one the user CONFIRMED, not one they typed.
+    return { level: raw, unit, basis: kind === 'confirmed' ? 'user_confirmed' : 'user_stated', quote: null }
   }
   return null
 }

@@ -116,6 +116,12 @@ describe('GoalNode — today\'s level on a change goal', () => {
     expect(line(container)).toBe('Today: £50,000 / month — you said')
   })
 
+  it('AIQ 5902964135: a CONFIRMED level says "you confirmed", never "you said"', () => {
+    const { goal_level_reading: _r, ...rest } = SERVED_CUT_COSTS
+    const { container } = renderCard({ ...rest, observedState: { raw_value: 50000, unit: '£/month', source: 'user_confirmed' } })
+    expect(line(container)).toBe('Today: £50,000 / month — you confirmed')
+  })
+
   it('a REFRESHED reading wins over a user-stated level (AIQ: subject differs from the user\'s words)', () => {
     const { container } = renderCard({
       ...SERVED_CUT_COSTS,
