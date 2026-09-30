@@ -191,7 +191,7 @@ describe('every band title × every kind shape: intersection area 0 (five starte
     expect(hits.map((h) => `${h.title} × ${h.with} ${h.w.toFixed(1)}×${h.h.toFixed(1)}`)).toEqual([])
   })
 
-  it('CONTRAST — the probe bites: held on its cards (bottom = band top − LANE_TITLE_GAP, the pre-fix anchor), a title IS under a shape on four starters', async () => {
+  it('CONTRAST — the probe bites: held on its cards (bottom = band top − LANE_TITLE_GAP, the pre-fix anchor), a title IS under a shape on every starter', async () => {
     const hitStarters: string[] = []
     for (const starter of Object.keys(STARTERS)) {
       const t = await laidOut(starter)
@@ -206,7 +206,11 @@ describe('every band title × every kind shape: intersection area 0 (five starte
       if (titleShapeHits(onCards).length > 0) hitStarters.push(starter)
     }
     // Re-recorded 27 Sep (five per row, anchors ≤720, text-scaled shape): still four starters bite.
-    expect(hitStarters.sort()).toEqual(['build-vs-buy', 'headcount-allocation', 'market-entry', 'vendor-selection'])
+    // Re-recorded 30 Sep (wider cards: every repeated row takes its fair share of
+    // ROW_BUDGET_W, so the four-card rows of pricing-model now reach the title
+    // column as well): all FIVE starters bite. The control only got stronger; the
+    // landing assertion above (intersection area 0) is unchanged and passes.
+    expect(hitStarters.sort()).toEqual(['build-vs-buy', 'headcount-allocation', 'market-entry', 'pricing-model', 'vendor-selection'])
   })
 })
 

@@ -26,6 +26,7 @@ import {
   NODE_TITLE_MIN_MEASURE_PX,
   restingCardWidthForKind,
   REPEATED_CARD_W,
+  REPEATED_CARD_MAX_W,
 } from '../../utils/nodeLayoutConstants'
 
 vi.mock('@xyflow/react', async () => {
@@ -120,10 +121,13 @@ describe('BaseNode — the card floor comes from the shared derivation', () => {
     // kind's width (`REPEATED_CARD_W`), not at `NODE_CARD_MAX_W` — and the width
     // is the kind's, whatever the label (ED: one long title must not widen a
     // row).
+    // ⚠ RE-PINNED 30 Sep 2026: the kind's resting width is its tier CAP, which
+    // for a repeated card is now REPEATED_CARD_MAX_W (400; was REPEATED_CARD_W,
+    // 248). The label-independence below is the property, and it is unchanged.
     const short = renderNode(SHORT_LABEL).card
     expect(short.style.minWidth).toBe(`${NODE_LAYOUT_MIN_W}px`)
     expect(short.style.maxWidth).toBe(`${restingCardWidthForKind('factor')}px`)
-    expect(restingCardWidthForKind('factor')).toBe(REPEATED_CARD_W)
+    expect(restingCardWidthForKind('factor')).toBe(REPEATED_CARD_MAX_W)
     expect(REPEATED_CARD_W).toBeLessThan(NODE_CARD_MAX_W)
     const long = renderNode(LONG_LABEL).card
     expect(long.style.maxWidth).toBe(short.style.maxWidth)

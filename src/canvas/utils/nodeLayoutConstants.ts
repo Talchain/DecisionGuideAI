@@ -239,8 +239,44 @@ export const NODE_CARD_MAX_W = 336
  */
 export const REPEATED_CARD_TARGET_W = 248
 
-/** The width Option, Factor, Outcome and Risk cards actually render at. */
+/**
+ * The NARROWEST an Option, Factor, Outcome or Risk card renders: the floor a
+ * crowded row falls back to. Since 30 Sep a row with room draws wider cards,
+ * up to `REPEATED_CARD_MAX_W` (see `ROW_BUDGET_W`).
+ */
 export const REPEATED_CARD_W = Math.max(REPEATED_CARD_TARGET_W, NODE_LAYOUT_MIN_W)
+
+/**
+ * ⭐⭐ WIDER, SHORTER CARDS THAT USE THE SCREEN'S WIDTH (Paul, 30 Sep 2026
+ * ~12:30Z: "All of the nodes are too thin and tall. They need to be wider and
+ * shorter … we should just have a rule for when the initial graph is generated:
+ * using the width of the screen much more effectively").
+ *
+ * ## The rule
+ * Every repeated card is its row's FAIR SHARE of `ROW_BUDGET_W`, which is the
+ * width the 1280×800 laptop frame (dock open) shows at the 0.5 legibility floor.
+ * The share is clamped to `[REPEATED_CARD_W, REPEATED_CARD_MAX_W]` (`tierCardWidth`
+ * in `layout.ts`). A row with fewer cards therefore draws WIDER cards. Their
+ * titles and values wrap onto fewer lines, so the cards are shorter, and the board
+ * comes out as wide as a laptop can show legibly and no taller than it needs to
+ * be. A wider screen then fits it width-first at a higher zoom.
+ *   5 cards → 270 · 4 cards → 350 · 3 or fewer → 400 (the cap).
+ * The layout is still a constant and viewport-independent (R1): the same model
+ * lays out the same everywhere, and the camera does the per-screen fit.
+ *
+ * Before, the card sat at 248 whatever the row held. That is why a four-card
+ * row left about an inch of empty canvas on each side at Paul's size.
+ */
+export const REPEATED_CARD_MAX_W = 400
+
+/**
+ * The row budget a card's fair share is taken from, in flow units: the 1280×800
+ * frame with the 360 dock open, at the 0.5 floor, is (1280 − 76 − 376) / 0.5 =
+ * 1656 (`laptopFit.arithmetic.spec.ts` derives it from the real insets and pins
+ * it). A four-card row plus the icon prompt fills it exactly:
+ * 4 × (350 + 24) + 3 × 24 + 24 + 64 = 1656.
+ */
+export const ROW_BUDGET_W = 1656
 
 /** The Question and the Goal: singletons, wide and shallow (ED S4: "≤460px"). */
 export const ANCHOR_CARD_MAX_W = 720
@@ -264,10 +300,19 @@ export const ANCHOR_CARD_MAX_W = 720
 export const MAX_CARDS_PER_ROW = 5
 
 /**
- * ⭐ THE ROW-END REASONING PROMPT (ED S4: "160px is approved as the target width
- * and they count inside the row budget"). Flow units, like the cards.
+ * ⭐⭐ THE ROW-END REASONING PROMPT IS AN ICON BUTTON, 64 FLOW UNITS SQUARE (Paul,
+ * 30 Sep 2026 ~12:30Z: "improve the design of the right-hand panels … Those could
+ * be icons with hover states … explore how to save space with them, but make
+ * them visible and easy to use").
+ *
+ * It was a 160-wide, three-line dashed tile (ED S4), and it took 184 units of
+ * every row's width budget. As an icon its question shows in the DS tooltip on
+ * hover and keyboard focus, so it costs 88 units. The 96 it hands back go to the
+ * cards (`ROW_BUDGET_W`). 64, not 48: at the 0.65 landing zoom it draws 42px,
+ * which is as near DS §9.9's 44px target as the canvas allows (48 drew 31px).
+ * Flow units, like the cards; the glyph inside counter-scales like the others.
  */
-export const ROW_PROMPT_W = 160
+export const ROW_PROMPT_W = 64
 
 /**
  * The prompt's height at the counter-scale bound — a FLOOR the layout reserves,
@@ -290,11 +335,17 @@ const ROW_PROMPT_LABEL_PX = 11
 const ROW_PROMPT_LINE_HEIGHT = 1.35
 export const ROW_PROMPT_PADDING_PX = 6
 export const ROW_PROMPT_BORDER_PX = 1.5
-export const ROW_PROMPT_H = Math.ceil(
+/**
+ * ⚠ SUPERSEDED BY THE ICON (30 Sep 2026): the three-line derivation above sized
+ * the old tile. The icon is square, so the height the layout reserves is its
+ * width. `ROW_PROMPT_TILE_H` keeps the old tile's number for the record.
+ */
+export const ROW_PROMPT_TILE_H = Math.ceil(
   ROW_PROMPT_LINES * ROW_PROMPT_LABEL_PX * ROW_PROMPT_LINE_HEIGHT * MAX_LABEL_COUNTER_SCALE +
     ROW_PROMPT_PADDING_PX * 2 +
     ROW_PROMPT_BORDER_PX * 2,
 )
+export const ROW_PROMPT_H = ROW_PROMPT_W
 
 /**
  * Vertical gap between two stacked prompts. ⚠ No row stacks prompts any more
@@ -925,9 +976,9 @@ export const TIER_BY_KIND: Record<string, number> = {
  */
 export const CARD_W_CAP_BY_TIER: Readonly<Record<number, number>> = {
   0: ANCHOR_CARD_MAX_W, // decision — the Question: one card, wide and shallow.
-  1: REPEATED_CARD_W, // option
-  2: REPEATED_CARD_W, // factor / action / constraint
-  3: REPEATED_CARD_W, // outcome / risk
+  1: REPEATED_CARD_MAX_W, // option — the row's fair share of ROW_BUDGET_W, up to here (Paul 30 Sep)
+  2: REPEATED_CARD_MAX_W, // factor / action / constraint
+  3: REPEATED_CARD_MAX_W, // outcome / risk
   5: ANCHOR_CARD_MAX_W, // goal: one card, wide and shallow.
 }
 

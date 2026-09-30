@@ -50,7 +50,13 @@ import {
   NODE_RAIL_GLYPH_PX,
   NODE_RAIL_REST_TONE_CLASS,
 } from '../shared/nodeCardRailStyles'
-import { NODE_TITLE_WIDEST_WORD_PX, NODE_TITLE_MIN_MEASURE_PX, REPEATED_CARD_W } from '../../utils/nodeLayoutConstants'
+import {
+  NODE_TITLE_WIDEST_WORD_PX,
+  NODE_TITLE_MIN_MEASURE_PX,
+  REPEATED_CARD_W,
+  REPEATED_CARD_MAX_W,
+  restingCardWidthForKind,
+} from '../../utils/nodeLayoutConstants'
 import { MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
 import { CANVAS_TYPE_PX } from '../../../styles/typography'
 import { NodeRailIcon, NodeSignalRailIcons } from '../shared/NodeRailIcons'
@@ -235,7 +241,13 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
 
   it('a repeated card: the title stops 1px before the mark on line 1 at 100%, and at the bound — where the widest word no longer fits beside ONE mark — yields line 1', () => {
     attentionMarked = true
-    const root = renderCard('outcome', 'o1', 'Customer retention after a price rise')
+    // ⚠ 30 Sep 2026 (wider cards): an unlaid-out repeated card now RESTS at its
+    // tier cap, REPEATED_CARD_MAX_W (400), where the widest word fits beside a
+    // mark at every scale and the yield branch below is unreachable. A crowded
+    // row still draws at the REPEATED_CARD_W floor (248), so the card is drawn
+    // there EXPLICITLY — the narrowest repeated card, the case this row is about.
+    expect(restingCardWidthForKind('outcome'), 'precondition: the resting width moved to the cap').toBe(REPEATED_CARD_MAX_W)
+    const root = renderCard('outcome', 'o1', 'Customer retention after a price rise', { maxWidth: REPEATED_CARD_W })
     const cardW = parseFloat(root.style.width)
     const padL = parseFloat(root.style.paddingLeft)
     // RE-PINNED 27 Sep 2026 (landing text ceiling): the repeated card is the ED
@@ -473,7 +485,10 @@ describe('GAP 11 — line 1 holds the widest word or yields to the marks (never 
 
   it('a 248 repeated card, ONE mark: beside the title at every scale (the verifier\'s "Concentratio|n" no longer yields)', () => {
     attentionMarked = true
-    const root = renderCard('outcome', 'o1', 'Concentration risk in the top accounts')
+    // 30 Sep 2026: drawn at the REPEATED_CARD_W floor explicitly — an unlaid-out
+    // card rests at the 400 cap now, where the yield control below cannot fire.
+    const root = renderCard('outcome', 'o1', 'Concentration risk in the top accounts', { maxWidth: REPEATED_CARD_W })
+    expect(parseFloat(root.style.width), 'precondition: the 248 card').toBe(REPEATED_CARD_W)
     const title = screen.getByTestId('node-title')
     const min = parseFloat((title.parentElement as HTMLElement).style.minWidth)
     expect(min).toBe(NODE_TITLE_MIN_MEASURE_PX)
@@ -492,7 +507,9 @@ describe('GAP 11 — line 1 holds the widest word or yields to the marks (never 
   it('a 260 repeated card, TWO marks (attention + coaching): the same rule over the wider run', () => {
     attentionMarked = true
     useGuidanceStore.getState().setGuidanceItems([guidance('o1')])
-    const root = renderCard('outcome', 'o1', 'Cannibalization of the entry tier')
+    // 30 Sep 2026: the floor width, explicitly (see the case above).
+    const root = renderCard('outcome', 'o1', 'Cannibalization of the entry tier', { maxWidth: REPEATED_CARD_W })
+    expect(parseFloat(root.style.width), 'precondition: the 248 card').toBe(REPEATED_CARD_W)
     const title = screen.getByTestId('node-title')
     const min = parseFloat((title.parentElement as HTMLElement).style.minWidth)
     const boxAt = (g: number) => ({ left: parseFloat(root.style.paddingLeft), width: titleBoxWidthAt(root, min, g) })
@@ -517,7 +534,9 @@ describe('GAP 11 — line 1 holds the widest word or yields to the marks (never 
     attentionMarked = true
     graphLensOn = true
     useCanvasStore.setState({ lens: { ...INITIAL_LENS, active: 'causal' } } as never)
-    const root = renderCard('outcome', 'o1', 'Concentration risk in the top accounts')
+    // 30 Sep 2026: the floor width, explicitly (see the first case of this block).
+    const root = renderCard('outcome', 'o1', 'Concentration risk in the top accounts', { maxWidth: REPEATED_CARD_W })
+    expect(parseFloat(root.style.width), 'precondition: the 248 card').toBe(REPEATED_CARD_W)
     // Positive control: this IS the causal-lens title — the header row is not drawn.
     expect(screen.queryByTestId('node-header-row')).toBeNull()
     const spacer = within(root).getByTestId('node-title-corner-spacer')

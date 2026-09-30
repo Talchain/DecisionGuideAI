@@ -34,6 +34,7 @@ import { GHOST_OPTION_NODE_ID, GHOST_OPTION_DOOR_LABEL, ghostOptionPrompt } from
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { chooseWhatElse } from './chooseWhatElse'
 import { useWhatElseStore } from '../../components/WhatElseChooser'
+import { NODE_TOOLTIP_DELAY_MS } from '../shared/nodeTooltip'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -235,15 +236,27 @@ describe('the static sentence is gone from the component, not merely unreached',
  * visible "+ Explore another option" beside an `aria-label` of "Add another
  * option", two hand-kept strings for one idea, and no test could see the
  * difference between them.
+ *
+ * ⭐ 30 SEP 2026: THE DOOR IS AN ICON-ONLY BUTTON (`RowEndPromptIcon`; Paul: "icons
+ * with hover states"). There is no visible text on the door any more: what a
+ * sighted user READS is the DS tooltip, on hover or keyboard focus. So the
+ * load-bearing half moves with it — the tooltip's text is asserted separately
+ * from the accessible name, for the same reason the visible text was: every
+ * lookup above finds the door by name and would stay green whatever the tooltip said.
  */
-describe('the visible sentence and the accessible name are the same string', () => {
-  it('renders GHOST_OPTION_DOOR_LABEL as text, not only as the accessible name', () => {
+describe('the sentence a sighted user reads and the accessible name are the same string', () => {
+  it('shows GHOST_OPTION_DOOR_LABEL in its tooltip, not only as the accessible name — and no visible copy on the icon', async () => {
     mount({ prompt: 'anything' })
     const door = screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL })
-    // The load-bearing half: the accessible-name lookup above passes whatever
-    // the visible text says, so the visible text is asserted separately.
-    expect(door.textContent?.trim()).toBe(GHOST_OPTION_DOOR_LABEL)
     expect(door).toHaveAttribute('aria-label', GHOST_OPTION_DOOR_LABEL)
+    // Icon-only: nothing on the door itself to read.
+    expect(door.textContent?.trim()).toBe('')
+    // The load-bearing half: the tooltip, read after a hover — ABSENT before it,
+    // so this is evidence about hovering, not about rendering.
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    fireEvent.mouseEnter(door)
+    const tip = await screen.findByRole('tooltip', {}, { timeout: NODE_TOOLTIP_DELAY_MS + 1500 })
+    expect(tip.textContent?.trim()).toBe(GHOST_OPTION_DOOR_LABEL)
     // And it is a question, bound to the tier table rather than restated here.
     expect(GHOST_OPTION_DOOR_LABEL.trim().endsWith('?')).toBe(true)
   })

@@ -26,12 +26,12 @@ import { layoutGraph } from '../utils/layout'
 import { withGhostTiers, CONSEQUENCE_DOOR_ID, CONSEQUENCE_DOOR_LABEL } from '../utils/ghostTiers'
 import { isGhostNode } from '../utils/fitTargets'
 import {
-  CANONICAL_LAYOUT_WIDTH,
   LAYOUT_LAYER_GAP,
   LAYOUT_NODE_GAP,
   LAYOUT_PADDING_X,
   LAYOUT_PADDING_Y,
   REPEATED_CARD_W,
+  ROW_BUDGET_W,
   ROW_PROMPT_W,
   TIER_BY_KIND,
   cardWidthCapForTier,
@@ -175,21 +175,35 @@ const SHAPES: Record<string, Shape> = {
 /* ── #10 + mixed heights ──────────────────────────────────────────────────── */
 
 describe('WS1 #10 — a wrapped family is laid in brick courses', () => {
-  it('eight factors: the FIRST course is shifted by half a stride, so the block stays at 4 cards + prompt', async () => {
+  it('eight factors: the FIRST course is shifted by half a stride, and the block — now the shifted course — stays inside the row budget', async () => {
     const { nodes, edges, heights } = board({ options: 3, factors: 8, outcomes: 1, risks: 1 }, () => 150)
     const out = await layoutGraph(nodes, edges, { heightAtLabelBound: heights })
     const facs = out.nodes.filter((n) => n.id.startsWith('fac_'))
     const ys = [...new Set(facs.map((n) => n.position.y))].sort((a, b) => a - b)
     expect(ys).toHaveLength(2)
     const left = (y: number) => Math.min(...facs.filter((n) => n.position.y === y).map((n) => n.position.x))
-    const stride = REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP
+    // ⚠ 30 Sep 2026: the factor tier's OWN width — a 4 + 4 wrap takes the fair
+    // share of four capped by its brick course, min(350, 325) = 325 (was 248).
+    const factorW = out.layoutCardWidths.factor
+    expect(factorW).toBe(Math.floor((ROW_BUDGET_W - 3.5 * LAYOUT_NODE_GAP) / 4.5) - LAYOUT_PADDING_X)
+    const box = factorW + LAYOUT_PADDING_X
+    const stride = box + LAYOUT_NODE_GAP
+    // (325 + 24 + 24) / 2 = 186.5 (was 148).
     expect(left(ys[0]!) - left(ys[1]!)).toBeCloseTo(stride / 2, 6)
     // The block: the shifted upper course, or the lower course plus the row-end
     // prompt slot, whichever reaches further right.
-    const rightOf = (y: number) => Math.max(...facs.filter((n) => n.position.y === y).map((n) => n.position.x + REPEATED_CARD_W + LAYOUT_PADDING_X))
+    const rightOf = (y: number) => Math.max(...facs.filter((n) => n.position.y === y).map((n) => n.position.x + factorW + LAYOUT_PADDING_X))
     const block = Math.max(rightOf(ys[0]!), rightOf(ys[1]!) + LAYOUT_NODE_GAP + ROW_PROMPT_W) - left(ys[1]!)
-    expect(block).toBeCloseTo(4 * (REPEATED_CARD_W + LAYOUT_PADDING_X) + 3 * LAYOUT_NODE_GAP + LAYOUT_NODE_GAP + ROW_PROMPT_W, 6)
-    expect(block).toBeLessThanOrEqual(CANONICAL_LAYOUT_WIDTH)
+    // ⚠ RE-EXPRESSED 30 Sep 2026. With the 248 card and the 160 tile the half-stride
+    // shift (148) was smaller than the prompt slot (184), so the block was the lower
+    // course + prompt. With the 64 icon (slot 88) the shift (186.5) is larger, so the
+    // block is the SHIFTED course, (k + ½) boxes + (k − ½) gaps = 4.5 × 349 + 3.5 × 24
+    // = 1654.5 — which is exactly what `tierCardWidth`'s brick cap sizes to fit.
+    expect(block).toBeCloseTo(4.5 * box + 3.5 * LAYOUT_NODE_GAP, 6)
+    expect(block).toBeGreaterThan(4 * box + 4 * LAYOUT_NODE_GAP + ROW_PROMPT_W)
+    // The budget is ROW_BUDGET_W (the 1280 dock-open frame at the floor), not the
+    // retired CANONICAL_LAYOUT_WIDTH (1482) the share no longer reads.
+    expect(block).toBeLessThanOrEqual(ROW_BUDGET_W)
   })
 
   it('seven factors (4+3): the SECOND course is shifted (the narrower of the two brick choices)', async () => {
@@ -198,7 +212,9 @@ describe('WS1 #10 — a wrapped family is laid in brick courses', () => {
     const facs = out.nodes.filter((n) => n.id.startsWith('fac_'))
     const ys = [...new Set(facs.map((n) => n.position.y))].sort((a, b) => a - b)
     const left = (y: number) => Math.min(...facs.filter((n) => n.position.y === y).map((n) => n.position.x))
-    expect(left(ys[1]!) - left(ys[0]!)).toBeCloseTo((REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP) / 2, 6)
+    // 30 Sep 2026: the factor tier's own width (7 → 4 + 3 → 325), not the flat 248.
+    expect(left(ys[1]!) - left(ys[0]!)).toBeCloseTo((out.layoutCardWidths.factor + LAYOUT_PADDING_X + LAYOUT_NODE_GAP) / 2, 6)
+    expect(out.layoutCardWidths.factor).toBeGreaterThan(REPEATED_CARD_W)
   })
 
   it('CONTRAST — a family that does not wrap is not shifted', async () => {
