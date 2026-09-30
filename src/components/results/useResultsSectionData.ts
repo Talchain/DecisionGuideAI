@@ -2314,6 +2314,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         // goal number", which is also the no-target state. Forwarded from the
         // owner, never re-derived.
         goalFitWithheld: goalDecision.jointSubstitutionWithheld,
+        // AIQ 5903604206: Olumi's unadopted suggestion is never counted as "your" option in the scope copy.
+        ...((node.data as { proposed_by?: unknown } | undefined)?.proposed_by === 'olumi' ? { proposedByOlumi: true as const } : {}),
         // Multi-constraint analysis (from ISL when goal_constraints were provided)
         constraintAnalysis: prob.constraint_analysis,
         // ⭐ NO-RANK RULING. Omitted entirely when false so the ordinary path

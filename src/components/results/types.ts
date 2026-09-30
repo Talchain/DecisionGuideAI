@@ -178,6 +178,8 @@ export interface OptionDownside {
 }
 
 export interface OptionResult {
+  /** AIQ 5903604206: the canvas node carries `proposed_by: 'olumi'` (an unadopted suggestion) — never counted as "your" option. */
+  proposedByOlumi?: true
   id: string
   label: string
   /** Explicit expected value (mean) - primary value for "Expected" display */

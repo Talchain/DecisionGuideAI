@@ -663,8 +663,18 @@ export function composeAnalysisState(
       false,
       hasCompletedFirstRun,
     ) === 'changed'
+  // ⛔ AIQ pre-share hold, HOT turn (#75 5903550244; P0 5903544574): a newer Run the server says supersedes the saved
+  // one (the C2 contradiction) or that asks for a rerun outranks an older `complete_current` label, exactly as a local
+  // edit does — the held report is never presented as current.
+  const wireSaysRerun =
+    wire !== null && wire.run_state.kind === 'complete_current' && (
+      (wire as { requires_rerun?: unknown }).requires_rerun === true ||
+      (Array.isArray((wire as { contradictions?: unknown }).contradictions) &&
+        ((wire as { contradictions: unknown[] }).contradictions).includes('fact_status_success_but_degraded_newer'))
+    )
   const wireCurrencySuperseded =
     (wire !== null && wire.run_state.kind === 'complete_current' && dirty === true) ||
+    wireSaysRerun ||
     localEditOverUnclassifiedTurn
 
   // THE PRECEDENCE RULE. When the wire is present its verdict wins outright —
