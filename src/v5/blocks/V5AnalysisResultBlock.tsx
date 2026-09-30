@@ -68,6 +68,8 @@ import { formatProbabilityWithResolution } from '../../utils/formatPercent'
 import { calibrateUncertaintyCopy } from '../../components/results/utils/uncertaintyCalibration'
 import { PANEL_LIST_BULLET, PANEL_LIST_STACK } from '../../canvas/conversation/panelLists'
 import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
+import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
+import { runDeltaSentence } from '../../components/results/analysisNew/commitmentSynthesis'
 
 export interface V5AnalysisResultBlockProps {
   block: V5AnalysisResultBlockType
@@ -315,6 +317,17 @@ function V5AnalysisResultBlockImpl({
   const showProse = review030?.hasProse === true
   const hasReview = reviewState.kind === 'v0_30' || reviewState.kind === 'm1'
   const resolveOptionLabel = useOptionLabelResolver(block.enrichment)
+  // ⭐ WHAT CHANGED SINCE THE LAST RUN, in the chat (Panel, 30 Sep 2026; DL #75 5920614659). The one reader, asked
+  // for THIS card's Run by its hash (fail-closed: an older card, or a card stored before the hash existed, says
+  // nothing), worded by the same function as the Reasoning tab's "What we have" so the two cannot differ. The card
+  // is the record of its own run, so a later edit does not silence it (`isStale: false`).
+  const runDeltaView = useDisplayedRunDeltaView(block.analysis_hash)
+  const sinceLastRunText = runDeltaSentence(runDeltaView, { isStale: false })
+  const sinceLastRunLine = sinceLastRunText ? (
+    <p className={`${typography.chatBody} text-text`} data-testid="v5-analysis-result-since-last-run">
+      {sinceLastRunText}
+    </p>
+  ) : null
   const hasProbs =
     block.win_probabilities && Object.keys(block.win_probabilities).length > 0
 
@@ -504,6 +517,7 @@ function V5AnalysisResultBlockImpl({
         // under the open-questions toggle (served e02c3d7a) while pb-3 put 20px below it.
         className="space-y-3 py-2"
       >
+        {sinceLastRunLine}
         {shownUncertaintyCopy && (
           <p
             className={`${typography.chatBody} text-text-light`}
@@ -548,6 +562,7 @@ function V5AnalysisResultBlockImpl({
       >
         Analysis result
       </h3>
+      {sinceLastRunLine}
       {!summaryBehindDisclosure && (
         <p className={typography.chatBody} data-testid="v5-analysis-result-summary">
           {block.summary}

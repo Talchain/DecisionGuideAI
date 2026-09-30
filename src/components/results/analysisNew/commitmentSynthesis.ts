@@ -32,6 +32,7 @@
  */
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import type { AnalysisNewViewModel, ChecksCode } from './analysisNewTypes'
+import type { RunDeltaInputRow, RunDeltaView } from './runDeltaView'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // COPY — only the words this zone adds. Every bullet BODY is someone else's.
@@ -135,6 +136,33 @@ export const COMMITMENT_COPY = {
         : `Since the last run, ${n} options moved beyond ordinary run-to-run variation.`,
     /** CEE `unrequested_run_in_pair` (exact match): the previous run was the automatic first pass. Wording: DL #70 5852289012. */
     notComparedWithFirstPass: "This run is not compared with Olumi's automatic first pass; the next re-run will show what moved.",
+    /**
+     * ⭐ WHAT CHANGED, BEFORE WHAT MOVED (V2 prototype re-run state; Panel, 30 Sep 2026). The producer's exact
+     * input change (CEE #2378 `input_changes`, through the one reader), stated as a sentence. Values are the
+     * producer's, formatted by `buildRunDeltaView`; nothing is computed here. It says what changed, never
+     * why an option moved: attribution is the producer's C1, and a pair it cannot attribute says so on the
+     * Compare tab. Passive voice on purpose: the row does not say who made the change.
+     */
+    inputChanged: (subject: string, before: string, after: string) => `Since the last run, ${subject} changed from ${before} to ${after}.`,
+    inputSet: (subject: string, after: string) => `Since the last run, ${subject} was set to ${after}.`,
+    inputCleared: (subject: string) => `Since the last run, ${subject} was cleared.`,
+    optionJoined: (subject: string) => `Since the last run, ${subject} joined the comparison.`,
+    optionLeft: (subject: string) => `Since the last run, ${subject} left the comparison.`,
+    linkAdded: (subject: string) => `Since the last run, ${subject} was added to the model.`,
+    linkRemoved: (subject: string) => `Since the last run, ${subject} was removed from the model.`,
+    /** More than one row. The count is stated only when the producer says its record is complete. */
+    inputsChanged: (n: number, first: string) => `Since the last run, ${n} inputs changed, including ${first}.`,
+    inputsChangedSome: (first: string) => `Since the last run, inputs changed, including ${first}.`,
+    /**
+     * What moved, when it FOLLOWS the input sentence: the same words without a second "Since the last run,"
+     * (one lead per bullet; "Since the last run, … Since the last run, …" reads as a stutter).
+     */
+    after: {
+      noneMoved: 'No option moved beyond ordinary run-to-run variation.',
+      oneMoved: (label: string, from: string, to: string) => `${label} moved from ${from} to ${to}.`,
+      someMoved: (n: number) =>
+        n === 1 ? 'One option moved beyond ordinary run-to-run variation.' : `${n} options moved beyond ordinary run-to-run variation.`,
+    },
   },
   /**
    * ⭐ V2 prototype, "Draft" state (28 Sep 2026, Panel): before any run the zone
@@ -337,18 +365,68 @@ function withheldFoundedBullet(vm: CommitmentSynthesisInput): CommitmentBullet<F
 const pct = (v: number): string => `${Math.round(v * 100)}%`
 
 /** What moved since the last run, from the producer's own noise verdicts; null when they license nothing. */
-function sinceLastRun(vm: CommitmentSynthesisInput): string | null {
-  const view = vm.whatsChanged
-  if (!vm.status.isStale && !view && vm.runDeltaAbsenceReason === 'unrequested_run_in_pair') {
-    return COMMITMENT_COPY.sinceLastRun.notComparedWithFirstPass
-  }
-  if (vm.status.isStale || !view || view.movementsUnavailable || view.movements.length === 0) return null
+function movementSentence(view: RunDeltaView, leads: boolean): string | null {
+  if (view.movementsUnavailable || view.movements.length === 0) return null
+  const words = leads ? COMMITMENT_COPY.sinceLastRun : COMMITMENT_COPY.sinceLastRun.after
   const signal = view.movements.filter((m) => m.noiseVerdict === 'signal' && m.mayShowMagnitude)
   if (signal.length === 1 && signal[0].label) {
-    return COMMITMENT_COPY.sinceLastRun.oneMoved(signal[0].label, pct(signal[0].prior), pct(signal[0].current))
+    return words.oneMoved(signal[0].label, pct(signal[0].prior), pct(signal[0].current))
   }
-  if (signal.length > 0) return COMMITMENT_COPY.sinceLastRun.someMoved(signal.length)
-  return view.movements.every((m) => m.noiseVerdict === 'within_noise') ? COMMITMENT_COPY.sinceLastRun.noneMoved : null
+  if (signal.length > 0) return words.someMoved(signal.length)
+  return view.movements.every((m) => m.noiseVerdict === 'within_noise') ? words.noneMoved : null
+}
+
+/** One input row as a sentence. The sentence names the change; the values are the producer's. */
+function inputRowSentence(row: RunDeltaInputRow): string | null {
+  const s = COMMITMENT_COPY.sinceLastRun
+  // Same order as the Compare tab's row text (`WhatsChanged.tsx` `inputRowText`): a value change first, whatever its kind.
+  if (row.change === 'changed') return row.before !== null && row.after !== null ? s.inputChanged(row.subject, row.before, row.after) : null
+  if (row.kind === 'option') return row.change === 'added' ? s.optionJoined(row.subject) : s.optionLeft(row.subject)
+  if (row.kind === 'link') return row.change === 'added' ? s.linkAdded(row.subject) : s.linkRemoved(row.subject)
+  if (row.change === 'added' && row.after !== null) return s.inputSet(row.subject, row.after)
+  if (row.change === 'removed') return s.inputCleared(row.subject)
+  return null
+}
+
+/**
+ * What changed since the last run: the producer's exact input change. `null` when the record is absent
+ * (`not_recorded`) or has no rows. Several rows name the first; the count is said only when complete.
+ */
+function inputSentence(view: RunDeltaView): string | null {
+  const inputs = view.inputs
+  if (!inputs || inputs.coverage === 'not_recorded' || inputs.rows.length === 0) return null
+  if (inputs.rows.length === 1) return inputRowSentence(inputs.rows[0])
+  const first = inputs.rows[0].subject
+  return inputs.coverage === 'complete'
+    ? COMMITMENT_COPY.sinceLastRun.inputsChanged(inputs.rows.length, first)
+    : COMMITMENT_COPY.sinceLastRun.inputsChangedSome(first)
+}
+
+/**
+ * ⭐ THE ONE SENTENCE about the displayed Run against the Run before it, for every Panel surface that says it:
+ * the Reasoning tab's "What we have" and the chat's analysis card (`V5AnalysisResultBlock`). Both call this with
+ * the view from the one reader (`displayedRunDeltaView`), so they cannot word the same comparison differently.
+ * What changed comes first, then what moved (V2 prototype re-run state).
+ *
+ * `isStale`: the Reasoning tab's bullet describes the model on screen, so a model edited after the run says
+ * nothing here (the stale row speaks). The chat card is the record of its own run and passes `false`.
+ */
+export function runDeltaSentence(
+  view: RunDeltaView | null,
+  { isStale, absenceReason = null }: { isStale: boolean; absenceReason?: string | null },
+): string | null {
+  if (!isStale && !view && absenceReason === 'unrequested_run_in_pair') {
+    return COMMITMENT_COPY.sinceLastRun.notComparedWithFirstPass
+  }
+  if (isStale || !view) return null
+  const changed = inputSentence(view)
+  const moved = movementSentence(view, changed === null)
+  const parts = [changed, moved].filter((p): p is string => p !== null)
+  return parts.length > 0 ? parts.join(' ') : null
+}
+
+function sinceLastRun(vm: CommitmentSynthesisInput): string | null {
+  return runDeltaSentence(vm.whatsChanged, { isStale: vm.status.isStale, absenceReason: vm.runDeltaAbsenceReason })
 }
 
 function foundedBullet(vm: CommitmentSynthesisInput): CommitmentBullet<FoundedSource> | null {

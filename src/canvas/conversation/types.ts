@@ -234,6 +234,14 @@ export interface V5AnalysisResultBlock {
   leading_option_id: string | null
   win_probabilities?: Record<string, number>
   enrichment?: Record<string, unknown>
+  /**
+   * The Run this card reports: `v5AnalysisBlockContentHash` of the WIRE block, taken in `mapV5Block` before any
+   * figure is withheld from the card, so it equals the store's `currentResultsHash` for the same analysis
+   * (`mapV5AnalysisToReport` derives `model_card.response_hash` from the same block, the same way). The card asks
+   * the one delta reader for THIS Run by it (`useDisplayedRunDeltaView`), fail-closed. Absent on cards stored before
+   * it existed, and then the card shows no comparison line.
+   */
+  analysis_hash?: string
 }
 
 export interface V5GraphPatchBlock {
