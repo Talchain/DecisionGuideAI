@@ -751,19 +751,19 @@ const NODE_DRAG_THRESHOLD = 2
 const SELECT_MODE_PAN_BUTTONS = [1]
 
 /**
- * ⭐ THE GROUND'S DOT GRID IS A WHISPER IN THE DS WARM BORDER TOKEN (contract
- * v3.1, CHR-5: `.canvas-area{background-image:radial-gradient(#D8D3CB .65px,…)}`).
+ * ⭐ THE GROUND'S DOTS ARE REACT FLOW'S OWN VISIBLE GREY (Paul, 30 Sep 2026
+ * ~12:25Z: "Where is the original canvas background with the dots? Revert to
+ * that immediately.").
  *
- * `<Background>` was given no colour, so the dots took React Flow 12.10.2's
- * stylesheet default `--xy-background-pattern-dots-color-default: #91919a` — a
- * cool grey from outside the DS palette at 2.75:1 on the #F4F0EA canvas, about
- * twice as loud as the contract's grid. `--border-emphasis` (rgb 221 212 196,
- * ~1.3:1 on canvas) is the existing DS token nearest the contract's #D8D3CB, so
- * no colour is added. React Flow writes `color` into
- * `--xy-background-pattern-color-props`, so a CSS var is honoured as-is. Dot
- * size and gap are unchanged: they already render the contract's pitch.
+ * #1932 (24 Sep) passed `color="var(--border-emphasis)"` (rgb 221 212 196) to
+ * match the v3.1 contract's #D8D3CB whisper. On the #F4F0EA canvas that is
+ * ~1.1:1, so on served builds the dots read as GONE. `undefined` hands the
+ * colour back to React Flow's stylesheet default
+ * `--xy-background-pattern-dots-color-default: #91919a` (~2.75:1), the ground
+ * the canvas had before #1932. Dot size and gap are unchanged.
+ * ⛔ Do not re-quieten the dots without Paul's say-so.
  */
-const CANVAS_GRID_DOT_COLOUR = 'var(--border-emphasis)'
+const CANVAS_GRID_DOT_COLOUR: string | undefined = undefined
 
 // Brief 37: Wrap in memo to prevent parent-triggered re-renders from ReactFlowProvider
 /**
