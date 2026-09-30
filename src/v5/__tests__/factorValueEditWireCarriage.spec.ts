@@ -142,6 +142,8 @@ const MAXIMAL_PAYLOAD: Record<string, unknown> = {
   raw_value: 85,
   unit: '%',
   field: 'value',
+  // 0.62.0 (Shared Data row 1): the act the edit is — `set` or `confirm_current`.
+  intent: 'set',
   applied_from: {
     round_id: ROUND_ID,
     participant_id: PARTICIPANT_ID,
@@ -195,6 +197,13 @@ describe('factor_value_edit — the adapter carries the whole contract', () => {
           'that ships dark — it is how applied_from was lost. Carry it, or add it ' +
           'to DELIBERATELY_NOT_CARRIED with a reason a reviewer can check.',
     ).toEqual([])
+  })
+
+  it('intent: carried exactly when it is a contract member; a wrong member refuses the event, like a wrong field', () => {
+    expect(wireEventFor({ ...MAXIMAL_PAYLOAD, intent: 'confirm_current' }).intent).toBe('confirm_current')
+    const { intent: _drop, ...noIntent } = MAXIMAL_PAYLOAD
+    expect('intent' in wireEventFor(noIntent)).toBe(false)
+    expect(() => wireEventFor({ ...MAXIMAL_PAYLOAD, intent: 'overwrite' })).toThrow(/refused/)
   })
 
   it('every declared exception is real — no stale entry silently excuses a live field', () => {

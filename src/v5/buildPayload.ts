@@ -792,6 +792,16 @@ function adaptFactorValueEdit(
     event.field = 'value'
   }
 
+  // `intent` (0.62.0, Shared Data row 1): `set` = the user states this figure; `confirm_current` = the user reviews
+  // the CURRENT figure as-is. Carried exactly when the caller supplies one of the two members — a wrong member is
+  // refused like a wrong `field`, never laundered. Absence stays absence (the contract reads it conditionally against
+  // the persisted value), so a caller that sends none changes nothing on the wire.
+  const intent = stringField(eventPayload, 'intent')
+  if (intent) {
+    if (intent !== 'set' && intent !== 'confirm_current') return null
+    event.intent = intent
+  }
+
   // ── `applied_from` — the attribution claim (0.40.0) ──────────────────────
   //
   // ⚠ THIS WAS MISSING, AND ITS ABSENCE MADE A WHOLE FEATURE DARK. The panel
