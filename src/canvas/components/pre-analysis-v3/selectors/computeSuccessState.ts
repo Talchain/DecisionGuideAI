@@ -101,16 +101,30 @@ function formatWithUnit(value: number, unit: string | null): string {
  * from the CEE response root (DraftChat/applyDraftResult), so `provenance`
  * is read defensively — it is not part of the UI's CEEGoalConstraint type.
  */
-function matchesExplicitConstraint(
+function matchesConstraintProvenance(
   value: number,
   goalConstraints: readonly unknown[] | null | undefined,
+  provenances: readonly string[],
 ): boolean {
   if (!Array.isArray(goalConstraints)) return false
   return goalConstraints.some((c) => {
     if (c == null || typeof c !== 'object') return false
     const entry = c as Record<string, unknown>
-    return entry.provenance === 'explicit' && typeof entry.value === 'number' && entry.value === value
+    return typeof entry.provenance === 'string' && provenances.includes(entry.provenance)
+      && typeof entry.value === 'number' && entry.value === value
   })
+}
+function matchesExplicitConstraint(value: number, goalConstraints: readonly unknown[] | null | undefined): boolean {
+  return matchesConstraintProvenance(value, goalConstraints, ['explicit'])
+}
+/**
+ * ⛔ AIQ 5904308095 (pre-share, false authorship): the user's own "cut costs by 20%" read "Olumi estimate" because
+ * every UNMATCHED target defaulted to Olumi. "Olumi estimate" now needs a TYPED Olumi source — CEE's `inferred` /
+ * `proxy` goal constraint at this exact value. With no typed source the target carries no attribution (the goal
+ * card's "Source not recorded" is the same fact); it is never credited to the user either.
+ */
+function matchesOlumiConstraint(value: number, goalConstraints: readonly unknown[] | null | undefined): boolean {
+  return matchesConstraintProvenance(value, goalConstraints, ['inferred', 'proxy'])
 }
 
 export function computeSuccessState(
@@ -239,7 +253,9 @@ export function computeSuccessState(
       unit,
       attribution: userStated
         ? (currentUser ?? { kind: 'person', displayName: 'You' })
-        : { kind: 'olumi' },
+        : numeric !== null && matchesOlumiConstraint(numeric, goalConstraints)
+          ? { kind: 'olumi' }
+          : null,
       scaleAmbiguous: false,
     }
   }

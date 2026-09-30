@@ -219,9 +219,14 @@ describe('one noun per idea — the option card speaks the register', () => {
     // anchor/readout by test id; "Support" asserted ABSENT in any form.
     const anchor = screen.getByTestId(`option-win-anchor-${LEADER_ID}`).textContent ?? ''
     expect([OPTION_RESULT_COPY.current, OPTION_RESULT_COPY.lastRun, OPTION_RESULT_COPY.unconfirmed]).toContain(anchor)
+    // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance). The prefix is its own
+    // leaf before the readout (figure + unit); the row's name speaks them as the register's one `share()` string.
+    const prefix = screen.getByTestId(`option-win-prefix-${LEADER_ID}`).textContent ?? ''
+    expect(prefix).toBe(OPTION_RESULT_COPY.sharePrefix)
     const readout = screen.getByTestId(`option-win-readout-${LEADER_ID}`).textContent ?? ''
-    expect(readout).toBe(OPTION_RESULT_COPY.share(`${Math.round(WIN_LEADER * 100)}%`))
-    expect(spoken).toContain(`${anchor} · ${readout}`)
+    expect(readout).toBe(`${Math.round(WIN_LEADER * 100)}% ${OPTION_RESULT_COPY.shareUnit}`)
+    expect(`${prefix} ${readout}`).toBe(OPTION_RESULT_COPY.share(`${Math.round(WIN_LEADER * 100)}%`))
+    expect(spoken).toContain(`${anchor} · ${prefix} ${readout}`)
     expect(spoken, 'the option card still speaks "Support"').not.toMatch(/\bsupport/i)
     // "Leads" stays retired as a caption, which is what the register ruled.
     expect(RETIRED_METRIC_NOUNS).toContain('Leads')

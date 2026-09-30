@@ -34,6 +34,10 @@ export const OVER_NINETY_NINE_READOUT = '> 99%'
 export function ceilBelowCertain(value: number, formatted: string): string {
   return value < 1 && formatted === '100%' ? OVER_NINETY_NINE_READOUT : formatted
 }
+/** A whole percent of a fraction, with the ceiling (AIQ 5904370045: EVERY "% of runs/scenarios" from a fraction < 1). */
+export function wholePercentBelowCertain(fraction: number): string {
+  return ceilBelowCertain(fraction, `${Math.round(fraction * 100)}%`)
+}
 
 /**
  * Centralised formatter for percentage values in the Results panel.

@@ -94,6 +94,7 @@ import { isOrchestratorRenderingV2Enabled } from '../../flags'
 import styles from './Conversation.module.css'
 import { PANEL_LIST_BULLET } from './panelLists'
 import { ICON_DENSE } from './panelIcons'
+import { wholePercentBelowCertain } from '@/utils/formatPercent'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1498,7 +1499,7 @@ function ComparisonBlockRenderer({ block }: { block: ComparisonBlockType }) {
             <span className={typography.panelHeader}>{opt.label}</span>
             {opt.probability != null && (
               <span className={typography.chatMeta} style={{ color: 'var(--text-light)' }}>
-                {Math.round(opt.probability * 100)}% probability
+                {wholePercentBelowCertain(opt.probability)} probability
                 {opt.rank != null && ` · Rank ${opt.rank}`}
               </span>
             )}

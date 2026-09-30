@@ -150,7 +150,10 @@ const renderOption = (data: Record<string, unknown> = {}) =>
  */
 function expectCardMakesNoLeaderClaim(container: HTMLElement, id: string, share: string) {
   expect(screen.getByText('Hire 3 engineers')).toBeDefined()
-  expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(OPTION_RESULT_COPY.share(share))
+  // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance). The prefix is its own
+  // element; the readout stays the figure + unit.
+  expect(screen.getByTestId(`option-win-prefix-${id}`).textContent).toBe(OPTION_RESULT_COPY.sharePrefix)
+  expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(`${share} ${OPTION_RESULT_COPY.shareUnit}`)
   expect(screen.queryByTestId(`leading-option-pill-${id}`)).toBeNull()
   expect(screen.queryByTestId(`leading-option-robustness-${id}`)).toBeNull()
   expect(screen.queryByText(/most supported/i)).toBeNull()
@@ -217,7 +220,8 @@ describe('OptionNode', () => {
     // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4 — never "Support",
     // results are explicitly model-relative): the row's accessible name is the
     // caption + "N% of runs", then OPTION_RESULT_COPY's sentence.
-    const row = screen.getByRole('img', { name: new RegExp(`· 72% of runs\\. ${OPTION_RESULT_COPY.sentence('72%').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) })
+    // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance).
+    const row = screen.getByRole('img', { name: new RegExp(`· ${OPTION_RESULT_COPY.share('72%')}\\. ${OPTION_RESULT_COPY.sentence('72%').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) })
     expect(row.getAttribute('data-testid')).toBe('option-analysis-currency-option-1')
     expect(row.getAttribute('aria-label')).not.toMatch(/\bSupport/)
   })
@@ -617,8 +621,11 @@ describe('OptionNode', () => {
     // element on a results card could carry.
     const percentEl = screen.getByTestId('option-win-readout-option-1')
     // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4): the readout reads
-    // "N% of runs" — model-relative — not a bare "N%".
-    expect(percentEl.textContent).toBe(OPTION_RESULT_COPY.share('72%'))
+    // "N% of runs" — model-relative — not a bare "N%". R3 5903852225 / AIQ
+    // 5903874730: the "best in" prefix is its own element, in the same neutral colour family.
+    expect(percentEl.textContent).toBe(`72% ${OPTION_RESULT_COPY.shareUnit}`)
+    expect(screen.getByTestId('option-win-prefix-option-1').className).not.toContain('text-success')
+    expect(screen.getByTestId('option-win-prefix-option-1').className).not.toContain('text-option')
     expect(percentEl.className).toContain('text-text-body')
     expect(percentEl.className).not.toContain('text-success')
     expect(percentEl.className).not.toContain('text-option')
@@ -714,11 +721,16 @@ describe('OptionNode', () => {
     // across five option cards is the whole defect being fixed.
     // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4): the short visible
     // form is now "N% of runs", still not the sentence.
-    expect(percentEl.textContent).toBe(OPTION_RESULT_COPY.share('72%'))
+    expect(percentEl.textContent).toBe(`72% ${OPTION_RESULT_COPY.shareUnit}`)
     expect(percentEl.textContent).not.toContain(OPTION_RESULT_COPY.sentence('72%'))
     // Hidden from assistive tech so the statistic is announced once, in full,
     // by the row's accessible name rather than as a number with no referent.
     expect(percentEl.getAttribute('aria-hidden')).toBe('true')
+    // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance) — a separate
+    // visible element, also hidden from assistive tech (the row's name carries it), never the sentence.
+    const prefixEl = screen.getByTestId('option-win-prefix-option-1')
+    expect(prefixEl.textContent).toBe(OPTION_RESULT_COPY.sharePrefix)
+    expect(prefixEl.getAttribute('aria-hidden')).toBe('true')
   })
 
   it('density: the ratified sentence survives in the positioned tooltip and accessible text', async () => {
@@ -1993,7 +2005,7 @@ describe('OptionNode — display coherence (audit §8)', () => {
     // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4): the readout's
     // accessible name is model-relative ("… · 28% of runs. In 28% of the
     // simulated runs…"), rendered ONCE.
-    expect(screen.getAllByRole('img', { name: new RegExp(`· 28% of runs\\. In 28% of the simulated runs`) })).toHaveLength(1)
+    expect(screen.getAllByRole('img', { name: new RegExp(`· ${OPTION_RESULT_COPY.share('28%')}\\. In 28% of the simulated runs`) })).toHaveLength(1)
     expect(screen.queryByText(/win rate across simulations/i)).toBeNull()
     expect(screen.getByText('Baseline option.')).toBeDefined()
   })

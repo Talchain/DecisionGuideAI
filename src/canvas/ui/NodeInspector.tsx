@@ -74,6 +74,7 @@ import { formatTargetValue } from '../../components/results/utils/formatTargetVa
 import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 import { DECISION_NODE_LABEL } from '../domain/vocabulary'
+import { wholePercentBelowCertain } from '@/utils/formatPercent'
 
 interface ObservedState {
   value: number
@@ -692,7 +693,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
                 <span className={`${typography.panelMeta} text-text-light`}>Goal probability</span>
                 <span className={`${typography.panelBody} text-text-body tabular-nums`}>
-                  {Math.round(displayMetadata.achievementProbability * 100)}%
+                  {wholePercentBelowCertain(displayMetadata.achievementProbability)}
                 </span>
               </div>
               {/* Display-honesty (ROADMAP 1.6b tail — goal-fit caveat

@@ -96,10 +96,12 @@ const RESTORED_STALE = verdict({
   cause: 'graph_changed',
 })
 
+// A genuinely current turn says it needs no rerun: `complete_current` + `requires_rerun: true` is the served
+// "rerun outranks current" state (#2329, R3 B0), which reads `changed` by design.
 const TURN_CURRENT = verdict({
   kind: 'complete_current',
   computed_at: '2026-08-25T10:00:00.000Z',
-})
+}, { requires_rerun: false })
 
 /**
  * ⭐ THE ORDINARY JOURNEY'S BOOT STATE, and it is NOT a null slice.

@@ -244,7 +244,8 @@ describe('each proof broken alone: no fact, the result stays dimmed', () => {
   }
 
   it('the block carries no computed_against_hash', () => expectDimmed({ analysis_result: resultBlock(null) }))
-  it('the read carries no result block', () => expectDropped({}))
+  // A current read with no block: P0's 'no_result' decline dims it; it is not evidence of a newer Run, so it is kept.
+  it('the read carries no result block', () => expectDimmed({}))
   it('C2: a newer partial Run requiring rerun and no result never revives the cached report as current', () =>
     expectDropped({
       analysis_state: verdict({ kind: 'complete_current', computed_at: COMPUTED_AT }, {

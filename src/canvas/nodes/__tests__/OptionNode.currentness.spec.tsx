@@ -76,7 +76,8 @@ describe('option results follow the composed freshness authority', () => {
     const label = () => screen.getByTestId('option-analysis-currency-candidate').getAttribute('aria-label') ?? ''
     expect(screen.getByTestId('option-win-readout-candidate').textContent).toBe('72% of runs')
     expect(anchor()).toBe('Current model')
-    expect(label()).toMatch(/^Current model · 72% of runs\. /)
+    // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance).
+    expect(label()).toMatch(/^Current model · best in 72% of runs\. /)
     expect(label()).not.toContain('The model has changed since this run.')
     expect(label()).not.toContain('can’t confirm')
     // The producer's claim names THIS card and nothing withholds it — the
@@ -88,7 +89,7 @@ describe('option results follow the composed freshness authority', () => {
     act(() => useCanvasStore.setState({ analysisFreshnessDirty: true }))
     // Locked Canvas design (23 Sep 2026): KNOWN changed → 'Last run' (ED 02:31Z Q2).
     expect(anchor()).toBe('Last run')
-    expect(label()).toMatch(/^Last run · 72% of runs\. /)
+    expect(label()).toMatch(/^Last run · best in 72% of runs\. /)
     expect(label()).toContain('The model has changed since this run.')
     // WAS `Last run · Most supported`: the `Last run` caption survives on the
     // result row (asserted above); the pill it used to prefix does not.
@@ -104,7 +105,7 @@ describe('option results follow the composed freshness authority', () => {
     // must not manufacture a last-run claim (ED 02:31Z). (The leading pill that
     // used to lose its "Last run ·" prefix here is retired altogether.)
     expect(anchor()).toBe('Model result')
-    expect(label()).toMatch(/^Model result · 72% of runs\. /)
+    expect(label()).toMatch(/^Model result · best in 72% of runs\. /)
     expect(label()).toContain('Olumi can’t confirm this run reflects the current model.')
     expect(label()).not.toContain('The model has changed')
     expect(label()).not.toContain('Last run')
@@ -113,7 +114,8 @@ describe('option results follow the composed freshness authority', () => {
 
     act(() => useCanvasStore.setState({ analysisFreshness: fresh } as never))
     expect(anchor()).toBe('Current model')
-    expect(label()).toMatch(/^Current model · 72% of runs\. /)
+    // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance).
+    expect(label()).toMatch(/^Current model · best in 72% of runs\. /)
     expect(label()).not.toContain('Last run')
     expectNoLeaderPill(container)
     expect(screen.getByTestId('option-win-readout-candidate').textContent).toBe('72% of runs')

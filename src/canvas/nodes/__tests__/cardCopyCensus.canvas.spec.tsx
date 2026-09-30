@@ -565,6 +565,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     //            ⭐ WAS 'Ahead' until 7 Sep 2026, then 'Support' until the
     //            locked Canvas design (23 Sep 2026; ED 11:52Z point 4). The
     //            sentence is on the `title` and in `sr-only` text.
+    'best in', // PREFIX — R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance). Its own aria-hidden leaf before `N%`; the row's name carries it.
     // ⭐ RE-ADJUDICATED 25 Sep 2026: `no source` and `·` are BACK. They left
     // with the bounded anatomy (ED #63 5809278282, rows in the popover); Paul's
     // prototype ruling puts the rows on the face in both phases, the share line
@@ -581,6 +582,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'View parameters', // CONTROL
     'What this option sets:', // HEADING
     'What would make this better supported?', // CONTROL
+    'best in', // PREFIX — R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance). Its own aria-hidden leaf before `N%`; the row's name carries it.
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     //          option target is marked (this fixture's interventions carry no `source`).
     // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)

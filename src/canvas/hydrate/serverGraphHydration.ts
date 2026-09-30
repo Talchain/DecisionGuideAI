@@ -715,7 +715,9 @@ export function heldRunIsNotCurrentPerRead(analysisState: AnalysisStateV1 | null
     && ((analysisState as { contradictions: unknown[] }).contradictions).includes('fact_status_success_but_degraded_newer')) return true
   if (analysisResult != null) return false
   const kind = analysisState.run_state.kind
-  return kind === 'complete_stale' || kind === 'complete_current' || (analysisState as { requires_rerun?: unknown }).requires_rerun === true
+  // ⛔ NOT `complete_current` alone: a current read without a result block keeps the held Run (P0's 'no_result' decline
+  // withholds currency; it is not evidence the Run is superseded). Dropping it cleared a no-edit reload (starterReload).
+  return kind === 'complete_stale' || (analysisState as { requires_rerun?: unknown }).requires_rerun === true
 }
 function dropHeldRunTheReadSaysIsNotCurrent(scenarioId: string, analysisState: AnalysisStateV1 | null, analysisResult: unknown): void {
   const st = useCanvasStore.getState()

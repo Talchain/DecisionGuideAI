@@ -70,6 +70,7 @@ import type {
   SystemEventSendSettlementDetail,
 } from '../../../conversation/settleSystemEventSend'
 import { goalTargetSettlementNotice } from '../../../conversation/goalTargetEdit'
+import { wholePercentBelowCertain } from '@/utils/formatPercent'
 
 /**
  * ⭐ THE GOAL PANE'S NOTICE, AND IT EXISTS SO THIS PANE CANNOT INHERIT A
@@ -857,7 +858,7 @@ export const GoalPanel = memo(function GoalPanel({
                         {prob !== null && (
                           <span className={`${typography.panelMeta} shrink-0 ${
                             prob >= 0.7 ? 'text-success' : prob >= 0.4 ? 'text-warning' : 'text-danger'
-                          }`}>{Math.round(prob * 100)}%</span>
+                          }`}>{wholePercentBelowCertain(prob)}</span>
                         )}
                       </div>
                       {/* N-20 — the user's own words, under the constraint they
@@ -1063,7 +1064,7 @@ export const GoalPanel = memo(function GoalPanel({
                     two are genuinely different quantities and this line stays. */}
                 {typeof probJoint === 'number' && !goalFitSubstituted && (
                   <p className={`${typography.panelBody} text-text-body mt-1`}>
-                    {GOAL_CONSTRAINT_COPY.jointProbabilityLead} <strong>{Math.round(probJoint * 100)}%</strong> {GOAL_CONSTRAINT_COPY.jointProbabilityTail}
+                    {GOAL_CONSTRAINT_COPY.jointProbabilityLead} <strong>{wholePercentBelowCertain(probJoint)}</strong> {GOAL_CONSTRAINT_COPY.jointProbabilityTail}
                   </p>
                 )}
                 {typeof probJoint === 'number' && !goalFitSubstituted && displayMetadata.jointGoalProbabilityIsModelledBasis === true && (
@@ -1233,7 +1234,7 @@ export const GoalPanel = memo(function GoalPanel({
                           .clause and .leadNoMagnitude were both added to prevent.
                           The register owns the wording; call sites never re-type
                           it. */}
-                      {GOAL_CONSTRAINT_COPY.jointProbabilityLead} <strong>{Math.round(probJoint * 100)}%</strong> {GOAL_CONSTRAINT_COPY.jointProbabilityTail}
+                      {GOAL_CONSTRAINT_COPY.jointProbabilityLead} <strong>{wholePercentBelowCertain(probJoint)}</strong> {GOAL_CONSTRAINT_COPY.jointProbabilityTail}
                     </div>
                   )}
                   {/* AIQ 5883088747: the modelled-basis caveat moves WITH the joint number, beside it. */}

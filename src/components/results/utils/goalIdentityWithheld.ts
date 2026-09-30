@@ -34,6 +34,10 @@ export const GOAL_FIGURES_USER_EFFECT_CLAMPED_CODE = 'GOAL_FIGURES_USER_EFFECT_C
 export const GOAL_FIGURES_WITHHELD_CODES: readonly string[] = [
   GOAL_IDENTITY_NOT_EVALUATED_CODE,
   GOAL_FIGURES_USER_EFFECT_CLAMPED_CODE,
+  // CEE's own withholds (MG #75 5904463351): the placeholder-path withhold (served since #2329) and Gate 5's
+  // product-not-read (CEE #2340). Both messages open "Not shown." and are shown verbatim by the one reader.
+  'GOAL_FIGURES_PLACEHOLDER_PATH',
+  'GOAL_FIGURES_PRODUCT_NOT_READ',
 ]
 
 /**

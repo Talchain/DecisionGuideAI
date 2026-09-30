@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { formatGoalProbability } from '../displayFloors'
-import { formatProbabilityWithResolution } from '../../../../utils/formatPercent'
+import { formatProbabilityWithResolution, wholePercentBelowCertain } from '../../../../utils/formatPercent'
 
 describe('a chance below certainty never prints "100%"', () => {
   it('RED: 0.9999 and 0.995 → "> 99%" (goal register, no sample count)', () => {
@@ -21,5 +21,11 @@ describe('a chance below certainty never prints "100%"', () => {
   })
   it('CONTROL: with a sample count the resolution arm already bounds it', () => {
     expect(formatGoalProbability(0.9999, 10000)).not.toBe('100%')
+  })
+  it('RED: every raw "% of runs/scenarios" site (AIQ 5904370045; R3 bd0e080e win share 0.9988) takes the same ceiling', () => {
+    expect(wholePercentBelowCertain(0.9988)).toBe('> 99%')
+    expect(wholePercentBelowCertain(0.9999)).toBe('> 99%')
+    expect(wholePercentBelowCertain(1)).toBe('100%')
+    expect(wholePercentBelowCertain(0.84)).toBe('84%')
   })
 })
