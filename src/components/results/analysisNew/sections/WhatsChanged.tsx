@@ -97,6 +97,8 @@ function MovementLine({ m, sharedQualifier }: { m: RunDeltaMovement; sharedQuali
 function inputRowText(row: RunDeltaInputRow): string {
   if (row.change === 'changed') return `${row.subject}: ${row.before} → ${row.after}`
   if (row.kind === 'option') return row.change === 'added' ? `${row.subject} joined the comparison` : `${row.subject} left the comparison`
+  // AIQ #75 5918248701: a link added or removed is structure, not a value — say so, never "now on" / "now not set".
+  if (row.kind === 'link') return row.change === 'added' ? `${row.subject} added to the model` : `${row.subject} removed from the model`
   if (row.change === 'added') return `${row.subject}: now ${row.after}`
   return `${row.subject}: ${row.before}, now not set`
 }

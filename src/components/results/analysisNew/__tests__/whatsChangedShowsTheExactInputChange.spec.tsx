@@ -106,6 +106,18 @@ describe('SC-24 · the exact input change, after the result', () => {
     expect(screen.getByTestId(T).textContent ?? '').not.toMatch(/\byou(r|'ve)?\b/i)
   })
 
+  it('AIQ 5918248701: a link added or removed says so in words, never "now on" / "now not set"', () => {
+    const LINK = (change: 'added' | 'removed') => ({
+      entity_kind: 'link', entity_id: 'fac_price->fac_churn', link: { from: 'fac_price', to: 'fac_churn' }, field: 'presence',
+      before: change === 'added' ? null : { raw: 'on' }, after: change === 'added' ? { raw: 'on' } : null, change,
+    } as const)
+    render(<WhatsChanged view={view({ input_changes: [LINK('added')] })} />)
+    expect(screen.getAllByTestId(`${T}-input-row`).map((r) => r.textContent)).toEqual(['Link from Pro price to Monthly churn added to the model'])
+    cleanup()
+    render(<WhatsChanged view={view({ input_changes: [LINK('removed')] })} />)
+    expect(screen.getAllByTestId(`${T}-input-row`).map((r) => r.textContent)).toEqual(['Link from Pro price to Monthly churn removed from the model'])
+  })
+
   it('a pre-SC-24 delta renders exactly as before: no input block, no compared-with line', () => {
     const { input_changes: _i, input_coverage: _c, endpoints: _e, ...old } = base
     render(<WhatsChanged view={buildRunDeltaView({ ...old, attribution_case: 'C2_unpaired',
