@@ -215,6 +215,11 @@ const EXPECTED_MOUNTED_AUTHORITY = {
     entrySurfaces: ['node Inspector', 'edge Inspector', 'technical editors'],
     requiredEvidence: 'disabled fieldset plus one visible shared-model authority reason',
   },
+  canvasUndoRedo: {
+    authority: 'disabled',
+    entrySurfaces: ['keyboard', 'left rail', 'context menu'],
+    requiredEvidence: '⌘Z / ⌘⇧Z / ⌘Y, the rail Undo and the menu rows answer with the unavailable notice and run neither the local store history nor a version restore',
+  },
 } as const satisfies Record<string, {
   authority: MutationAuthority
   entrySurfaces: readonly string[]
@@ -312,6 +317,8 @@ const FROZEN_REQUIRED_EVIDENCE: Readonly<Record<string, string>> = {
     'local add, reverse, duplicate, paste, value and history controls do not mount or execute',
   inspectorSemanticControls:
     'disabled fieldset plus one visible shared-model authority reason',
+  canvasUndoRedo:
+    '⌘Z / ⌘⇧Z / ⌘Y, the rail Undo and the menu rows answer with the unavailable notice and run neither the local store history nor a version restore',
 }
 
 /**

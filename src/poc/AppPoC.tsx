@@ -4,6 +4,7 @@
 import { StrictMode, useState, useEffect, Suspense, useMemo, useCallback, useRef, lazy } from 'react'
 import type React from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { isCanvasRouteHash } from './canvasRouteHash'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { simulateTokens, getJSON } from './adapters/StreamAdapter'
 import { feature } from '../lib/pocFlags'
@@ -157,6 +158,7 @@ const queryClient: any = (QueryClient && typeof QueryClient === 'function')
     })
   : {}
 
+
 export default function AppPoC() {
   // P1: the single, gated DebugPanel mount lives here (the app shell).
   const showDebugPanel = useShouldShowDebugPanel()
@@ -212,6 +214,10 @@ export default function AppPoC() {
         if (isTypingTarget(e.target as Element)) return
         const isZ = e.key === 'z' || e.key === 'Z'
         const meta = e.ctrlKey || e.metaKey
+        // ⌘Z on the CANVAS belongs to the canvas (saved-change undo,
+        // `canvas/undo/undoCommand.ts`). This sandbox history must not also
+        // swallow it there — see `isCanvasRouteHash`.
+        if (meta && isZ && isCanvasRouteHash(window.location.hash)) return
         if (meta && isZ) {
           e.preventDefault()
           setHist(prev => (e.shiftKey ? doRedo(prev) : doUndo(prev)))

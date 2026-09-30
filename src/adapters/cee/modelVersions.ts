@@ -182,6 +182,10 @@ export type RestoreModelVersionResult =
       /** The pre-restore snapshot — restore THIS to undo. Null when the
        *  server had nothing to snapshot. */
       undoVersionId: string | null
+      /** The 64-hex identity hash of the model the restore wrote — the NEXT
+       *  restore's `expected_graph_identity_hash` (canvas Undo/Redo). Null when
+       *  the receipt carries no well-formed hash. */
+      fullHash?: string | null
       requestId: string | null
     }
   | { status: 'signInRequired'; cause: SignInRefusalCause }
@@ -620,6 +624,10 @@ export async function restoreModelVersion(
     undoVersionId:
       typeof receipt.undo_version_id === 'string' && receipt.undo_version_id.length > 0
         ? receipt.undo_version_id
+        : null,
+    fullHash:
+      typeof receipt.full_hash === 'string' && /^[0-9a-f]{64}$/.test(receipt.full_hash)
+        ? receipt.full_hash
         : null,
     requestId: typeof b.request_id === 'string' ? b.request_id : null,
   }
