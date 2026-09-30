@@ -818,13 +818,30 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    *     vendor-selection      e75cdc7250d8a971 → 63a32f7f74b6f6db
    *     market-entry          2aa4a1d41f80be6b → abc6b4ea3da1647b
    *     build-vs-buy          40d8a30bf4e3d86e → 1493922d2fcf8e20
+   *
+   * ── WIDER, SHORTER CARDS + THE ICON PROMPT (30 Sep 2026), an ELEVENTH re-record ──
+   * Paul: "the nodes are too thin and tall … use the width of the screen". A
+   * repeated tier now draws at its row's fair share of `ROW_BUDGET_W` (1656)
+   * clamped to [248, 400], a wrapped tier also fits its brick course, and the
+   * row-end prompt is a 64 × 64 icon (`ROW_PROMPT_W` / `ROW_PROMPT_H`, was the
+   * 160 × 89 tile). So strides and the prompt slot moved on every starter.
+   * R1 WAS PROVED BEFORE THIS RE-RECORD, at 5c941315b: a sweep of this file's own
+   * `buildGraph` + `positionSignature` over 1280/1440/1512/1600/1668/1920 gave
+   * ONE digest per starter at all six widths — the new digest below, every time
+   * (and the "ONE canonical layout across …" arms above pass on the same tree).
+   *
+   *     vendor-selection      63a32f7f74b6f6db → 0518aa2a8c660169
+   *     market-entry          abc6b4ea3da1647b → 9ad3cf7aa50109e3
+   *     build-vs-buy          1493922d2fcf8e20 → c1ab7e1febdb16e2
+   *     headcount-allocation  c3da8d8cf745b35b → 312b74bee87917c8
+   *     pricing-model         ed1e6305b0352d51 → 2102f634d9408759
    */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: '63a32f7f74b6f6db', nodes: 19 },
-    'market-entry': { digest: 'abc6b4ea3da1647b', nodes: 18 },
-    'build-vs-buy': { digest: '1493922d2fcf8e20', nodes: 19 },
-    'headcount-allocation': { digest: 'c3da8d8cf745b35b', nodes: 16 },
-    'pricing-model': { digest: 'ed1e6305b0352d51', nodes: 15 },
+    'vendor-selection': { digest: '0518aa2a8c660169', nodes: 19 },
+    'market-entry': { digest: '9ad3cf7aa50109e3', nodes: 18 },
+    'build-vs-buy': { digest: 'c1ab7e1febdb16e2', nodes: 19 },
+    'headcount-allocation': { digest: '312b74bee87917c8', nodes: 16 },
+    'pricing-model': { digest: '2102f634d9408759', nodes: 15 },
   }
 
   it.each(Object.keys(STARTERS) as StarterId[])(

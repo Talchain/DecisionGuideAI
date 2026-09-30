@@ -210,12 +210,16 @@ function tierCardWidth(
   tier: number,
   widestSubRow: number,
   promptKinds: readonly string[],
-  gap: number,
   subRowCount: number = 1,
 ): number {
   const k = Math.max(1, widestSubRow)
+  // ⚠ THE SHARE IS TAKEN AT THE DEFAULT GAP, NOT THE USER'S SPACING (30 Sep 2026). A card's width stays a
+  // function of the graph alone, which is what `solveLayoutNodeWidth` and the restore path assume
+  // (`layoutNodeWidthDerivation.spec.ts`: taken at the user's spacing, 60 of 288 cells disagreed). A wider
+  // user spacing widens the ROW, as it always did, not the card.
+  const shareGap = LAYOUT_NODE_GAP
   const rowShare =
-    Math.floor((ROW_BUDGET_W - promptSlotWidth(promptKinds, gap) - (k - 1) * gap) / k) -
+    Math.floor((ROW_BUDGET_W - promptSlotWidth(promptKinds, shareGap) - (k - 1) * shareGap) / k) -
     LAYOUT_PADDING_X
   // ⭐ A WRAPPED TIER ALSO HAS A BRICK-SHIFTED COURSE (`brickRowOffsets`): one course
   // starts half a stride in, so its right edge is (k + ½)·box + (k − ½)·gap. With
@@ -224,7 +228,7 @@ function tierCardWidth(
   // 1280 frame (right edge 1767 against 1656), so the share must fit that course too.
   const brickShare =
     subRowCount > 1
-      ? Math.floor((ROW_BUDGET_W - (k - 0.5) * gap) / (k + 0.5)) - LAYOUT_PADDING_X
+      ? Math.floor((ROW_BUDGET_W - (k - 0.5) * shareGap) / (k + 0.5)) - LAYOUT_PADDING_X
       : Number.POSITIVE_INFINITY
   const share = Math.min(rowShare, brickShare)
   // ⚠ THE FLOOR IS THE REPEATED-CARD WIDTH, not `NODE_LAYOUT_MIN_W` (27 Sep 2026).
@@ -255,7 +259,7 @@ interface TierPlan {
  * Row wrapping and prompt slots are DOWN-only, as the old splitting was: in the
  * other directions a "row" is not a horizontal line and there is no row end.
  */
-function planTiers(unlocked: Node[], isDownLayout: boolean, gap: number): Map<number, TierPlan> {
+function planTiers(unlocked: Node[], isDownLayout: boolean): Map<number, TierPlan> {
   const occupancy = tierOccupancyOf(unlocked)
   const kinds = kindsByTierOf(unlocked)
   const plans = new Map<number, TierPlan>()
@@ -265,7 +269,7 @@ function planTiers(unlocked: Node[], isDownLayout: boolean, gap: number): Map<nu
     plans.set(tier, {
       rowSizes,
       promptKinds,
-      cardW: tierCardWidth(tier, Math.max(...rowSizes), promptKinds, gap, rowSizes.length),
+      cardW: tierCardWidth(tier, Math.max(...rowSizes), promptKinds, rowSizes.length),
     })
   }
   return plans
@@ -274,8 +278,8 @@ function planTiers(unlocked: Node[], isDownLayout: boolean, gap: number): Map<nu
 /** The width a tier's cards draw at, falling back to a one-card plan for a tier
  *  with no unlocked members (it still needs a width for its locked or future
  *  cards). */
-function cardWidthFromPlan(plans: Map<number, TierPlan>, tier: number, gap: number): number {
-  return plans.get(tier)?.cardW ?? tierCardWidth(tier, 1, [], gap)
+function cardWidthFromPlan(plans: Map<number, TierPlan>, tier: number): number {
+  return plans.get(tier)?.cardW ?? tierCardWidth(tier, 1, [])
 }
 
 /** The tier every kind the layout does not name falls into — `tierOf`'s default. */
@@ -300,11 +304,12 @@ export function solveLayoutNodeWidth(
   nodes: Node[],
   options: { direction?: LayoutDirection; preserveLocked?: boolean; spacing?: number } = {},
 ): number {
-  const { direction = 'DOWN', preserveLocked = true, spacing = LAYOUT_NODE_GAP } = options
+  // `spacing` is accepted for the callers' symmetry with `layoutGraph`; since 30 Sep a card's width does
+  // not depend on it (`tierCardWidth` takes the share at the default gap).
+  const { direction = 'DOWN', preserveLocked = true } = options
   const unlocked = preserveLocked ? nodes.filter(isUnlocked) : nodes
   if (unlocked.length === 0) return REPEATED_CARD_W
-  const gap = Math.max(LAYOUT_NODE_GAP, spacing)
-  return cardWidthFromPlan(planTiers(unlocked, direction === 'DOWN', gap), UNKNOWN_KIND_TIER, gap)
+  return cardWidthFromPlan(planTiers(unlocked, direction === 'DOWN'), UNKNOWN_KIND_TIER)
 }
 
 /**
@@ -320,14 +325,13 @@ export function solveLayoutCardWidths(
   nodes: Node[],
   options: { direction?: LayoutDirection; preserveLocked?: boolean; spacing?: number } = {},
 ): Record<string, number> {
-  const { direction = 'DOWN', preserveLocked = true, spacing = LAYOUT_NODE_GAP } = options
+  const { direction = 'DOWN', preserveLocked = true } = options
   const unlocked = preserveLocked ? nodes.filter(isUnlocked) : nodes
   if (unlocked.length === 0) return {}
-  const gap = Math.max(LAYOUT_NODE_GAP, spacing)
-  const plans = planTiers(unlocked, direction === 'DOWN', gap)
+  const plans = planTiers(unlocked, direction === 'DOWN')
   const widths: Record<string, number> = {}
   for (const kind of Object.keys(TIER_BY_KIND)) {
-    widths[kind] = cardWidthFromPlan(plans, TIER_BY_KIND[kind], gap)
+    widths[kind] = cardWidthFromPlan(plans, TIER_BY_KIND[kind])
   }
   return widths
 }
@@ -576,7 +580,12 @@ export function solveRestoredCardWidths(
     // and the fresh width would widen every pair. What changes is only that the
     // published record now says what is on screen — `BaseNode` bounds the title's
     // measure by it, and a record 9 units narrower than the card mis-measured it.
-    const cap = stride - gap
+    // ⭐ `stride − (padding + gap)`, not `stride − gap` (30 Sep 2026): a layout's visible gap is the ELK box
+    // padding PLUS the sibling gap (`layout.sameRowGap.spec.ts`: 48). While `fresh` never exceeded the saved
+    // card width the cap never bound, so the missing padding was invisible. Once a tier's fair share can be wider
+    // (350 on a board saved at 248), a board saved before 30 Sep reopened at 272 with its gap halved to 24. Now it
+    // reopens exactly as saved (248, gap 48), and a board saved under the new rule reopens at its own width.
+    const cap = stride - gap - LAYOUT_PADDING_X
     bounded[kind] = cap > 0 ? Math.min(fresh[kind], Math.max(cap, NODE_LAYOUT_MIN_W)) : fresh[kind]
   }
   return bounded
@@ -851,8 +860,8 @@ export async function layoutGraph(
    * board is already paying for") — ED: that was permission, not a requirement
    * to keep options at ~300–430px. See `CARD_W_CAP_BY_TIER`.
    */
-  const plans = planTiers(unlocked, isDownLayout, gap)
-  const cardWOf = (tier: number): number => cardWidthFromPlan(plans, tier, gap)
+  const plans = planTiers(unlocked, isDownLayout)
+  const cardWOf = (tier: number): number => cardWidthFromPlan(plans, tier)
   const tierBoxW = (tier: number): number => cardWOf(tier) + LAYOUT_PADDING_X
   /** The box a width-less stray falls back to — the repeated card's. */
   const fallbackBoxW = REPEATED_CARD_W + LAYOUT_PADDING_X

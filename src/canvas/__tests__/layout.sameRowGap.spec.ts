@@ -187,6 +187,15 @@ function rowsOf(rects: Rect[]): Map<number, Rect[]> {
   return rows
 }
 
+/**
+ * ⚠ EACH CARD AT ITS OWN KIND'S DRAWN WIDTH (30 Sep 2026). This read
+ * `out.layoutNodeWidth` for every node, which is ONE tier's width (tier 2, the
+ * factors). That was harmless while every repeated tier drew at the flat 248;
+ * since a tier draws at its row's fair share, the three 4 + 4 starters lay their
+ * factors at 325 and their five-card consequence row at 270, and measuring the
+ * 270 cards as 325 wide invented a −7 "gap" (270 + 48 − 325) that no rendered
+ * pair has. `layoutCardWidths[kind]` is what `BaseNode` draws.
+ */
 async function layOut(id: StarterId): Promise<Rect[]> {
   const { nodes, edges } = buildGraph(id)
   const out = await layoutGraph(nodes, edges, {})
@@ -194,7 +203,7 @@ async function layOut(id: StarterId): Promise<Rect[]> {
     id: n.id,
     x: n.position.x,
     y: n.position.y,
-    w: out.layoutNodeWidth,
+    w: out.layoutCardWidths[n.type as string],
     h: HEIGHTS[id][n.id],
   }))
 }
@@ -250,7 +259,7 @@ describe('same-row gap holds at BOTH packing branches — every shipped starter 
   it('every same-row neighbour pair of the SYNTHETIC multi-row tier clears COLLISION_GAP', async () => {
     const { nodes, edges } = syntheticTier(SINGLE_ROW_CAP + 1)
     const out = await layoutGraph(nodes, edges, {})
-    const rects: Rect[] = out.nodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y, w: out.layoutNodeWidth, h: 120 }))
+    const rects: Rect[] = out.nodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y, w: out.layoutCardWidths[n.type as string], h: 120 }))
     const rows = rowsOf(rects)
     const multiNodeRows = [...rows.values()].filter(r => r.length >= 2)
     expect(multiNodeRows.length, 'the gap assertion would be vacuous').toBeGreaterThan(0)

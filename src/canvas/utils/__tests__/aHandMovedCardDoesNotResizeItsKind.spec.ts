@@ -27,11 +27,19 @@
  * build (`skeptic-F1-edit-structure/served-bvb-nudge3-back3.json`, flow units,
  * 1440x900). The contrast cases keep the old-board protection this function
  * exists for: a board laid out uniformly at a NARROWER stride must still bound.
+ *
+ * ⚠ 30 SEP 2026 (Paul, "wider and shorter"): the FRESH width is now each tier's
+ * fair share of `ROW_BUDGET_W` (these eight factors: 4 + 4 → 325; four options →
+ * 350), wider than this 27 Sep board's 296 stride allows. So this served board —
+ * laid out at 248 — now restores at its STRIDE's bound, 296 − 24 = 272, not at
+ * 248. The property under test is unchanged and is what every case now binds
+ * to: ONE moved card (or stale heights) must not move the kind's width off the
+ * width the UNMOVED board restores at. "248" was that width's value on 27 Sep.
  */
 import { describe, it, expect } from 'vitest'
 import type { Node } from '@xyflow/react'
 import { solveLayoutCardWidths, solveRestoredCardWidths } from '../layout'
-import { NODE_LAYOUT_MIN_W, REPEATED_CARD_W } from '../nodeLayoutConstants'
+import { LAYOUT_NODE_GAP, LAYOUT_PADDING_X, NODE_LAYOUT_MIN_W } from '../nodeLayoutConstants'
 
 type Row = readonly [id: string, kind: string, x: number, y: number, h: number]
 
@@ -109,25 +117,45 @@ function worstRowGap(nodes: Node[], kind: string, w: number): number {
 
 const OPTS = { direction: 'DOWN' as const, spacing: 15 }
 
+/** The served board's same-row stride (every adjacent pair at landing: 248 + 48). */
+const LANDING_STRIDE = 296
+/** The gap `solveRestoredCardWidths` keeps: max(LAYOUT_NODE_GAP, spacing 15) = 24. */
+const GAP = Math.max(LAYOUT_NODE_GAP, OPTS.spacing)
+/**
+ * The width the UNMOVED served board restores at, per kind: the fresh fair share
+ * bounded by its own stride minus the VISIBLE gap (ELK padding + sibling gap):
+ * min(325 or 350, 296 − 24 − 24) = 248. That is exactly as saved, so a board from
+ * before 30 Sep keeps its 48 gap (it was the fresh 248 on 27 Sep).
+ */
+const CAP_GAP = GAP + LAYOUT_PADDING_X
+const landingWidth = (kind: string) =>
+  Math.min(solveLayoutCardWidths(board(), OPTS)[kind], LANDING_STRIDE - CAP_GAP)
+
 describe('a hand-moved card does not resize its kind (edit-structure/F1)', () => {
-  it('precondition: the landing board restores at the width it was laid out at', () => {
+  it('precondition: the landing board restores at its own stride\'s bound (30 Sep: 296 − 24 − 24 = 248, exactly as saved), and no unmoved pair overlaps at it', () => {
     const w = solveRestoredCardWidths(board(), OPTS)
-    expect(w.factor).toBe(REPEATED_CARD_W)
-    expect(w.option).toBe(REPEATED_CARD_W)
+    // RE-PINNED 30 Sep 2026: was `toBe(REPEATED_CARD_W)` (248, the fresh width then).
+    expect(w.factor).toBe(landingWidth('factor'))
+    expect(w.option).toBe(landingWidth('option'))
+    expect(w.factor).toBe(248) // 296 − 24 − 24: exactly as saved, the visible gap stays 48
+    expect(w.option).toBe(248)
+    // The bound binds because the fresh fair share is wider than the stride allows.
+    expect(solveLayoutCardWidths(board(), OPTS).factor).toBeGreaterThan(LANDING_STRIDE - CAP_GAP)
+    expect(worstRowGap(board(), 'factor', w.factor)).toBeGreaterThanOrEqual(0)
   })
 
-  it('⛔ THE SERVED REPRO: one factor moved 90 units right still restores every factor at 248', () => {
+  it('⛔ THE SERVED REPRO: one factor moved 90 units right still restores every factor at the landing width', () => {
     const nodes = board(MOVED)
     // Precondition pinned: the move really does squeeze one pair below the
     // width + gap, or this case passes for the wrong reason.
-    expect(1060 - 854, 'the fixture no longer squeezes a pair below width + gap').toBeLessThan(REPEATED_CARD_W + 24)
+    expect(1060 - 854, 'the fixture no longer squeezes a pair below width + gap').toBeLessThan(landingWidth('factor') + GAP)
     const w = solveRestoredCardWidths(nodes, OPTS)
-    expect(w.factor, 'one moved card capped every factor card').toBe(REPEATED_CARD_W)
+    expect(w.factor, 'one moved card capped every factor card').toBe(landingWidth('factor'))
   })
 
-  it('⛔ THE STICKY HALF: moved back, restored on heights measured at 191, still 248', () => {
+  it('⛔ THE STICKY HALF: moved back, restored on heights measured at 191, still the landing width', () => {
     const w = solveRestoredCardWidths(board(MOVED_BACK_STALE), OPTS)
-    expect(w.factor, 'stale tall heights paired the two sub-rows and re-capped the kind').toBe(REPEATED_CARD_W)
+    expect(w.factor, 'stale tall heights paired the two sub-rows and re-capped the kind').toBe(landingWidth('factor'))
   })
 
   it('⛔ an unusable cap is never published: whatever the stride, a width below the card floor is not returned', () => {
@@ -141,7 +169,8 @@ describe('a hand-moved card does not resize its kind (edit-structure/F1)', () =>
   })
 
   it('⭐ CONTRAST — a board laid out uniformly at a narrower stride still bounds (the old-board protection)', () => {
-    // Every factor on a uniform 260 stride — as a layout at a 236 card would
+    // Every factor on a uniform 280 stride — as a layout at a 232 card would
+    // (RE-SITED 30 Sep from 260: the cap is now stride − padding − gap, and 260 − 48 = 212 sits below the floor)
     // leave them. All pairs agree, so the bound must bite.
     // RE-SITED (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231): the stride was 230, a
     // 206 card. The drawable floor is now NODE_LAYOUT_MIN_W = 221.12, so a 206 cap
@@ -149,15 +178,15 @@ describe('a hand-moved card does not resize its kind (edit-structure/F1)', () =>
     // testing a DRAWABLE cap below the fresh width. At 260 the cap (236) sits
     // between the floor and the fresh 248 again.
     const narrow: Record<string, number> = {
-      fac_platform_migration: 320, fac_eng_capacity: 580, fac_billing_complexity: 840, fac_dev_time: 1100,
-      fac_build_indicator: 172, fac_stripe_indicator: 432, fac_vendor_indicator: 692, fac_vendor_cost: 952,
+      fac_platform_migration: 320, fac_eng_capacity: 600, fac_billing_complexity: 880, fac_dev_time: 1160,
+      fac_build_indicator: 172, fac_stripe_indicator: 452, fac_vendor_indicator: 732, fac_vendor_cost: 1012,
     }
     const nodes = board({ x: narrow })
     const fresh = solveLayoutCardWidths(nodes, OPTS)
-    expect(fresh.factor, 'the fixture no longer provokes a widening').toBeGreaterThan(260 - 24)
-    expect(260 - 24, 'the cap is no longer a drawable width — this would test the floor path').toBeGreaterThan(NODE_LAYOUT_MIN_W)
+    expect(fresh.factor, 'the fixture no longer provokes a widening').toBeGreaterThan(280 - CAP_GAP)
+    expect(280 - CAP_GAP, 'the cap is no longer a drawable width — this would test the floor path').toBeGreaterThan(NODE_LAYOUT_MIN_W)
     const w = solveRestoredCardWidths(nodes, OPTS)
-    expect(w.factor).toBe(260 - 24)
+    expect(w.factor).toBe(280 - CAP_GAP)
     expect(worstRowGap(nodes, 'factor', w.factor)).toBeGreaterThanOrEqual(0)
   })
 
@@ -166,10 +195,10 @@ describe('a hand-moved card does not resize its kind (edit-structure/F1)', () =>
     // took the WIDEST stride would lift the bound here and overlap the others.
     // Re-sited with the case above (230 → 260 stride, the 1.64 cap).
     const narrow: Record<string, number> = {
-      fac_platform_migration: 320, fac_eng_capacity: 580, fac_billing_complexity: 840, fac_dev_time: 1100,
-      fac_build_indicator: 172, fac_stripe_indicator: 432, fac_vendor_indicator: 692, fac_vendor_cost: 1052,
+      fac_platform_migration: 320, fac_eng_capacity: 600, fac_billing_complexity: 880, fac_dev_time: 1160,
+      fac_build_indicator: 172, fac_stripe_indicator: 452, fac_vendor_indicator: 732, fac_vendor_cost: 1112,
     }
     const w = solveRestoredCardWidths(board({ x: narrow }), OPTS)
-    expect(w.factor, 'one card moved away lifted the bound for the untouched pairs').toBe(260 - 24)
+    expect(w.factor, 'one card moved away lifted the bound for the untouched pairs').toBe(280 - CAP_GAP)
   })
 })

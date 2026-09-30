@@ -29,6 +29,7 @@ import {
   NODE_CARD_MAX_W,
   MAX_CARDS_PER_ROW,
   REPEATED_CARD_W,
+  REPEATED_CARD_MAX_W,
 } from '../utils/nodeLayoutConstants'
 
 /**
@@ -98,6 +99,7 @@ describe('solveLayoutNodeWidth is exact', () => {
     let cells = 0
     let solverMismatches = 0
     let controlDisagreements = 0
+    const widthByGraph = new Map<string, number>()
     const mismatches: string[] = []
 
     for (const direction of DIRS) {
@@ -115,10 +117,15 @@ describe('solveLayoutNodeWidth is exact', () => {
               solverMismatches++
               mismatches.push(`${direction} f=${factors} sp=${spacing} h=${heights}: ${actual} vs ${solved}`)
             }
-            // S4: every cell is the repeated width (see the header), and none is
-            // the retired maximum — counted, so a regression to the old width
-            // in ANY cell shows up.
-            if (actual !== REPEATED_CARD_W) controlDisagreements++
+            // 30 Sep 2026 (Paul, "wider and shorter"): a tier's width is its fair share of
+            // ROW_BUDGET_W, so cells legitimately differ by tier SIZE and DIRECTION, but
+            // NEVER by spacing or heights: the width is a function of the graph alone.
+            // Counted, so a cell that takes spacing or heights into account shows up.
+            const key = `${direction} f=${factors}`
+            const seen = widthByGraph.get(key)
+            if (seen === undefined) widthByGraph.set(key, actual)
+            else if (seen !== actual) controlDisagreements++
+            if (actual < REPEATED_CARD_W || actual > REPEATED_CARD_MAX_W) controlDisagreements++
           }
         }
       }
@@ -127,7 +134,7 @@ describe('solveLayoutNodeWidth is exact', () => {
     expect(cells).toBe(DIRS.length * 12 * 3 * 2)
     expect(mismatches).toEqual([])
     expect(solverMismatches).toBe(0)
-    expect(controlDisagreements, 'a cell drew at a width other than the ruled repeated width').toBe(0)
+    expect(controlDisagreements, 'a cell\'s width moved with spacing or heights, or left [REPEATED_CARD_W, REPEATED_CARD_MAX_W]').toBe(0)
     expect(REPEATED_CARD_W).not.toBe(NODE_CARD_MAX_W)
   }, 300_000)
 
@@ -154,8 +161,11 @@ describe('solveLayoutNodeWidth is exact', () => {
     expect(unlockedFactorRows(withLock), 'the locked arm lays out the cap: one row').toBe(1)
     expect(unlockedFactorRows(withoutLock), 'the unlocked arm is above the cap: it wraps').toBe(2)
 
-    expect(withLock.layoutNodeWidth).toBe(REPEATED_CARD_W)
-    expect(withoutLock.layoutNodeWidth).toBe(REPEATED_CARD_W)
+    // 30 Sep 2026: the width now follows the PACKING too. The locked arm's one row of five takes
+    // floor((1656 − 88 − 4 × 24) / 5) − 24 = 270, and the unlocked arm's 4 + 4 wrap takes
+    // min(350, brick floor((1656 − 3.5 × 24) / 4.5) − 24 = 325) = 325.
+    expect(withLock.layoutNodeWidth).toBe(270)
+    expect(withoutLock.layoutNodeWidth).toBe(325)
     expect(solveLayoutNodeWidth(nodes, { direction: 'DOWN', preserveLocked: true })).toBe(
       withLock.layoutNodeWidth,
     )
@@ -168,14 +178,24 @@ describe('solveLayoutNodeWidth is exact', () => {
     // S4: ONE reachable width in every direction and at every tier size — the
     // cliff between a maximum and a floor is gone by ruling ("split rows keep
     // full card width").
+    // 30 Sep 2026 (the fair-share rule): the reachable widths per direction, in first-seen order for 1..12
+    // factors. DOWN wraps (≤5 per row, brick-bounded) and reserves the 88 prompt slot:
+    //   1–3 → 400 (cap) · 4 → 350 · 5 → 270 · 7,8,11,12 (4-wide wraps) → 325 · 9,10 (5-wide wraps) → 257.
+    // RIGHT/UP/LEFT never wrap or reserve a prompt: 1–3 → 400 · 4 → 372 · 5 → 288 · ≥6 → the 248 floor.
+    const EXPECTED: Record<string, number[]> = {
+      DOWN: [400, 350, 270, 325, 257],
+      RIGHT: [400, 372, 288, REPEATED_CARD_W],
+      UP: [400, 372, 288, REPEATED_CARD_W],
+      LEFT: [400, 372, 288, REPEATED_CARD_W],
+    }
     for (const direction of DIRS) {
       const reachable = new Set<number>()
       for (let f = 1; f <= 12; f++) reachable.add(solveLayoutNodeWidth(graph(f).nodes, { direction }))
-      expect([...reachable], direction).toEqual([REPEATED_CARD_W])
+      expect([...reachable], direction).toEqual(EXPECTED[direction])
     }
-    // …at the cap and one above it alike.
-    expect(solveLayoutNodeWidth(graph(SINGLE_ROW_CAP).nodes, { direction: 'DOWN' })).toBe(REPEATED_CARD_W)
-    expect(solveLayoutNodeWidth(graph(SINGLE_ROW_CAP + 1).nodes, { direction: 'DOWN' })).toBe(REPEATED_CARD_W)
+    // …at the cap and one above it: five in one row, six wrapping 3 + 3 at the 400 cap.
+    expect(solveLayoutNodeWidth(graph(SINGLE_ROW_CAP).nodes, { direction: 'DOWN' })).toBe(270)
+    expect(solveLayoutNodeWidth(graph(SINGLE_ROW_CAP + 1).nodes, { direction: 'DOWN' })).toBe(REPEATED_CARD_MAX_W)
   })
 
   it('returns the repeated width for an empty / fully locked graph', () => {

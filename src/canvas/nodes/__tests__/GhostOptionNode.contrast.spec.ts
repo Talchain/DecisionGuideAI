@@ -29,16 +29,79 @@
  *     filter is `none`, so raw contrast IS effective contrast here.
  *   · HOVER   — `hover:bg-panel-hover` #FEF9F3 replaces the inside colour on
  *     hover, so it is a third ground the outline has to survive.
+ *
+ * ⭐ 30 SEP 2026: BOTH DOORS ARE NOW ONE ICON-ONLY BUTTON (`RowEndPromptIcon`,
+ * Paul: "icons with hover states"). The outline is no longer an inline
+ * `border: '… dashed var(--token, #fallback)'` in each door; it is the Tailwind
+ * utility `border-text-light` on the shared icon, over a `bg-panel` fill. So the
+ * token is now parsed out of the ICON's class list and resolved through
+ * `tailwind.config.js` (the authority for what a utility paints) to brand.css —
+ * still derived on both sides, still measured, never spelled. The three grounds
+ * are unchanged: the icon's own `bg-panel` fill, the canvas outside it, and its
+ * `hover:bg-panel-hover` fill.
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { resolveTokenHex } from '../../../styles/channelTriple.mjs'
+import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { declaredValue, resolveTokenHex, tripleToHex } from '../../../styles/channelTriple.mjs'
 
 const WCAG_NON_TEXT_MIN = 3
 
 const component = readFileSync(join(__dirname, '../GhostOptionNode.tsx'), 'utf-8')
+const tierComponent = readFileSync(join(__dirname, '../GhostTierNode.tsx'), 'utf-8')
+const icon = readFileSync(join(__dirname, '../shared/RowEndPromptIcon.tsx'), 'utf-8')
 const brandCss = readFileSync(join(__dirname, '../../../styles/brand.css'), 'utf-8')
+
+interface Tailwindish {
+  theme?: { extend?: { colors?: Record<string, unknown> } }
+}
+/** Loaded at runtime from a file URL (plain JS, no types — see V5CoachingBlock.colourTokens.spec.ts). */
+let tailwindConfig: Tailwindish
+beforeAll(async () => {
+  const url = pathToFileURL(resolve(process.cwd(), 'tailwind.config.js')).href
+  const mod = (await import(/* @vite-ignore */ url)) as { default?: Tailwindish }
+  tailwindConfig = mod.default ?? (mod as Tailwindish)
+  if (!tailwindConfig?.theme?.extend?.colors) {
+    throw new Error(`tailwind.config.js loaded but declared no colours (${url})`)
+  }
+})
+
+/**
+ * Every class the icon button carries, read out of its `className={[ … ].join(' ')}`
+ * array. Throws if the array cannot be found, so nothing below can go vacuous.
+ */
+function iconClasses(): string[] {
+  const m = icon.match(/className=\{\[([\s\S]*?)\]\.join\(' '\)\}/)
+  if (!m) throw new Error('could not find the icon button className array in RowEndPromptIcon.tsx')
+  const literals = [...m[1].matchAll(/'([^']*)'/g)].map((x) => x[1])
+  return literals.join(' ').split(/\s+/).filter(Boolean)
+}
+
+/** The CSS custom property a Tailwind colour utility suffix (`text-light`, `panel-hover`) paints with. */
+function utilityVar(suffix: string): string {
+  const colours = tailwindConfig.theme!.extend!.colors!
+  for (const [family, value] of Object.entries(colours)) {
+    const shades: Record<string, unknown> = typeof value === 'string' ? { DEFAULT: value } : (value as Record<string, unknown>)
+    for (const [shade, v] of Object.entries(shades)) {
+      const name = shade === 'DEFAULT' ? family : `${family}-${shade}`
+      if (name !== suffix || typeof v !== 'string') continue
+      const ref = v.match(/var\((--[a-z0-9-]+)\)/)
+      if (!ref) throw new Error(`tailwind colour ${suffix} = ${v} names no CSS variable`)
+      return ref[1]
+    }
+  }
+  throw new Error(`tailwind.config.js declares no colour utility "${suffix}"`)
+}
+
+/** The literal hex a Tailwind colour utility suffix resolves to in brand.css. */
+function utilityHex(suffix: string): string {
+  const v = utilityVar(suffix)
+  const raw = declaredValue(brandCss, v)
+  const hex = (raw != null ? tripleToHex(raw) : null) ?? resolveTokenHex(brandCss, v)
+  if (!hex) throw new Error(`${v} (from ${suffix}) does not resolve to a literal colour in brand.css`)
+  return hex
+}
 
 /** WCAG 2.x relative luminance + contrast ratio. */
 function luminance(hex: string): number {
@@ -72,45 +135,55 @@ function declared(token: string): string {
   return hex
 }
 
-/** The outline's `var(--token, #fallback)`, parsed out of the component. */
-function outlineDeclaration(): { token: string; fallback: string } {
-  const m = component.match(/border:\s*'[^']*dashed\s+var\((--[a-z0-9-]+),\s*(#[0-9A-Fa-f]{3,8})\)'/i)
-  if (!m) throw new Error('could not find the ghost outline border declaration in GhostOptionNode.tsx')
-  return { token: m[1], fallback: m[2] }
+/**
+ * The icon's outline: the one `border-<colour>` utility in its class list (the
+ * bare `border` is the width). Returned as the colour SUFFIX (`text-light`).
+ */
+function outlineUtility(): string {
+  const colourBorders = iconClasses().filter((c) => /^border-[a-z]/.test(c) && !/^border-(solid|dashed|dotted|none|[xytrbl]|[xytrbl]-\d+|\d+)$/.test(c))
+  if (colourBorders.length !== 1) throw new Error(`expected ONE border colour utility on the icon, found ${JSON.stringify(colourBorders)}`)
+  return colourBorders[0].slice('border-'.length)
 }
 
-describe('GhostOptionNode outline — WCAG 1.4.11 non-text contrast', () => {
-  const { token, fallback } = outlineDeclaration()
-
-  it('reads a token that brand.css actually declares (positive control)', () => {
+describe('row-end prompt icon outline — WCAG 1.4.11 non-text contrast', () => {
+  it('reads a utility that tailwind.config.js and brand.css actually declare (positive control)', () => {
     // Without this the parse could silently match nothing and every
     // assertion below would be vacuous (trap 13). It also proves the
     // grounds are real values, not defaults invented by this test.
-    expect(token).toMatch(/^--[a-z-]+$/)
-    expect(declared(token)).toMatch(/^#[0-9A-Fa-f]{6}$/)
+    const classes = iconClasses()
+    expect(classes.length).toBeGreaterThan(5)
+    expect(outlineUtility()).toMatch(/^[a-z-]+$/)
+    expect(utilityHex(outlineUtility())).toMatch(/^#[0-9A-Fa-f]{6}$/)
     expect(declared('--bg-panel')).toBe('#FEFEFE')
     expect(declared('--bg-canvas')).toBe('#F4F0EA')
     expect(declared('--bg-panel-hover')).toBe('#FEF9F3')
   })
 
-  it('carries a fallback that matches the token exactly', () => {
-    // A drifted fallback is invisible until the one moment it is needed.
-    // NB: these messages deliberately avoid writing `var(` next to an
-    // interpolation. The css-var census scans src/** and reads that shape as
-    // a dynamic property reference whose name it cannot resolve statically,
-    // so the literal would fail tests/ci-guards/css-var-resolution.spec.ts.
-    expect(
-      fallback.toUpperCase(),
-      `the outline's ${token} fallback ${fallback} shadows a token declared as ${declared(token)}`,
-    ).toBe(declared(token).toUpperCase())
+  it('the icon\'s own fill IS the panel ground this file measures against (`bg-panel`, hovering to `bg-panel-hover`)', () => {
+    // The inside ground is only --bg-panel if the icon really paints it — read
+    // from the icon's classes and resolved through the config, not assumed.
+    const classes = iconClasses()
+    expect(classes).toContain('bg-panel')
+    expect(classes).toContain('hover:bg-panel-hover')
+    expect(utilityHex('panel').toUpperCase()).toBe(declared('--bg-panel').toUpperCase())
+    expect(utilityHex('panel-hover').toUpperCase()).toBe(declared('--bg-panel-hover').toUpperCase())
+  })
+
+  it('the outline utility paints exactly the contract\'s muted token (no fallback left to drift)', () => {
+    // The inline `var(--token, #fallback)` this row once policed is gone: a
+    // Tailwind utility compiles from the config, so there is no hand-kept
+    // fallback. What CAN drift is the utility → token mapping, so that is pinned.
+    expect(utilityVar(outlineUtility())).toBe('--text-light-rgb')
+    expect(utilityHex(outlineUtility()).toUpperCase()).toBe(declared('--text-light').toUpperCase())
   })
 
   it.each([
-    ['own fill (--bg-panel, and the dash gaps)', '--bg-panel'],
+    ['own fill (--bg-panel)', '--bg-panel'],
     ['canvas behind (--bg-canvas, the first opaque ancestor)', '--bg-canvas'],
     ['hover fill (--bg-panel-hover)', '--bg-panel-hover'],
   ])('clears 3:1 against the %s', (_label, ground) => {
-    const outline = declared(token)
+    const token = `border-${outlineUtility()}`
+    const outline = utilityHex(outlineUtility())
     const bg = declared(ground)
     const ratio = contrast(outline, bg)
     expect(
@@ -138,7 +211,7 @@ describe('GhostOptionNode outline — WCAG 1.4.11 non-text contrast', () => {
     // ⚠ SCOPE, not generalised: this compares the ghost against amber alone. It
     // is NOT a claim that the ghost is distinguishable from every other border
     // on the canvas, and it never was.
-    const outline = declared(token)
+    const outline = utilityHex(outlineUtility())
     const warning = declared('--warning')
     expect(outline.toUpperCase()).not.toBe(warning.toUpperCase())
     // Both are read against the same #FEFEFE fill, so a luminance gap is a
@@ -160,24 +233,26 @@ describe('GhostOptionNode outline — WCAG 1.4.11 non-text contrast', () => {
  * affordance. Contract: `--muted`; DS v5 §3.12 (neutral borders are chrome).
  */
 describe('ghost outlines — contract v3.1 T12 (muted, not body ink)', () => {
-  it('GhostOptionNode outlines in --text-light', () => {
-    expect(outlineDeclaration().token).toBe('--text-light')
+  it('the icon outlines in --text-light', () => {
+    expect(outlineUtility()).toBe('text-light')
   })
 
-  it('GhostTierNode outlines in the same token, same dash', () => {
-    const tier = readFileSync(join(__dirname, '../GhostTierNode.tsx'), 'utf-8')
-    const m = tier.match(/border:\s*`\$\{GHOST_DOOR_BORDER_PX\}px dashed var\((--[a-z0-9-]+),\s*(#[0-9A-Fa-f]{3,8})\)`/)
-    expect(m, 'could not find the ghost tier door outline declaration').not.toBeNull()
-    expect(m![1]).toBe('--text-light')
-    expect(m![2].toUpperCase()).toBe(declared('--text-light').toUpperCase())
-  })
-
-  it('both doors take the card corner — `rounded-sm` (8px), not `rounded-lg` (14px) (contract v3.1 FRAME-01)', () => {
-    const tier = readFileSync(join(__dirname, '../GhostTierNode.tsx'), 'utf-8')
-    for (const [name, src] of [['GhostOptionNode', component], ['GhostTierNode', tier]] as const) {
-      const root = src.match(/className="(rounded-[a-z]+) cursor-pointer hover:bg-panel-hover/)
-      expect(root, `${name}: could not find the door's root className`).not.toBeNull()
-      expect(root![1], name).toBe('rounded-sm')
+  it('both doors render the ONE icon, so they cannot speak different tokens — and neither keeps its own border', () => {
+    // 30 Sep: "same token, same dash" is now structural — both doors mount
+    // `RowEndPromptIcon`. The retired inline outline must be gone from both,
+    // not merely overridden, or a door could paint two borders.
+    for (const [name, src] of [['GhostOptionNode', component], ['GhostTierNode', tierComponent]] as const) {
+      expect(src, `${name} does not import the shared icon`).toMatch(/import \{ RowEndPromptIcon \} from '\.\/shared\/RowEndPromptIcon'/)
+      expect(src, `${name} does not render the shared icon`).toContain('<RowEndPromptIcon ')
+      expect(src, `${name} still declares its own inline border`).not.toMatch(/border:\s*['`]/)
     }
+  })
+
+  it('the icon is ROUND — `rounded-full` (DS §6.2 pill, §9.9 icon-only button), not the card corner', () => {
+    // The tile took the card corner (`rounded-sm`, contract v3.1 FRAME-01). The
+    // icon is a button, not a card, and DS §9.9 draws icon-only buttons round.
+    const classes = iconClasses()
+    expect(classes).toContain('rounded-full')
+    expect(classes.filter((c) => /^rounded-(sm|md|lg|xl)$/.test(c))).toEqual([])
   })
 })

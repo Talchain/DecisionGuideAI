@@ -18,15 +18,22 @@
  * left-to-right order is RECORDED from the base layout (103e1ca6, real
  * `layoutGraph`, the S5 capture heights); the eight-card bands' sub-rows were
  * recorded from the layout on 27 Sep 2026 (d37252e8).
+ *
+ * 30 Sep 2026 (Paul, "wider and shorter"): a band's cards are its row's FAIR
+ * SHARE of `ROW_BUDGET_W` — the same 1656 frame — so the widths now DIFFER per
+ * band (five → 270, a 4 + 4 wrap → 325), and the prompt is a 64-unit icon. Every
+ * stride below is read from the band's OWN per-kind width, and the prompts are
+ * placed after the card's DRAWN width, as the mount places them.
  */
 import { describe, it, expect } from 'vitest'
 import type { Node, Edge } from '@xyflow/react'
 import { layoutGraph } from '../utils/layout'
-import { withGhostTiers } from '../utils/ghostTiers'
+import { GHOST_TIERS, withGhostTiers } from '../utils/ghostTiers'
 import {
   LAYOUT_NODE_GAP,
   LAYOUT_PADDING_X,
   REPEATED_CARD_W,
+  ROW_BUDGET_W,
   ROW_PROMPT_W,
   TIER_BY_KIND,
 } from '../utils/nodeLayoutConstants'
@@ -47,11 +54,17 @@ const STARTERS: Record<string, Draft> = {
 }
 const HEIGHTS = (capture as { heights: Record<string, Record<string, number>> }).heights
 
-/** The 1280×800 dock-open frame at the 0.5 floor, in flow units (869px / 0.5; was 1520 before the flush panel). */
-const FRAME_1280_FLOW_AT_FLOOR = 1738
+/**
+ * The 1280×800 dock-open frame at the 0.5 floor, in flow units:
+ * (1280 − 76 − 376) / 0.5 = 1656 since the 360 dock (27 Sep). This file had kept
+ * 1738 (the 26 Sep 319 panel) after `laptopFit.arithmetic.spec.ts` moved to 1656,
+ * which left every "fits the frame" arm here 82 units loose. `ROW_BUDGET_W` IS
+ * this frame (that spec pins `ROW_BUDGET_W === frameFlowAtFloor.w`).
+ */
+const FRAME_1280_FLOW_AT_FLOOR = ROW_BUDGET_W
 
-/** The card-to-card (and card-to-prompt) stride, box plus gap. */
-const STRIDE = REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP
+/** The card-to-card (and card-to-prompt) stride for a card `w` wide: box plus gap. */
+const strideOf = (w: number) => w + LAYOUT_PADDING_X + LAYOUT_NODE_GAP
 
 /**
  * Every five-card band in the shipped starters, in its ONE-ROW left-to-right
@@ -119,13 +132,18 @@ async function laidOut(starter: string) {
   })) as unknown as Node[]
   const edges = draft.edges.map((e, i) => ({ id: `e${i}`, source: e.from!, target: e.to! })) as Edge[]
   const out = await layoutGraph(nodes, edges, {})
-  const withPrompts = withGhostTiers(out.nodes)
+  // The prompt stands after the card's RENDERED width (`widthOf`); on a mounted
+  // board that is the layout's per-kind width, not this fixture's 248 measurement.
+  const drawnW = (n: Node) => out.layoutCardWidths[n.type as string]
+  const withPrompts = withGhostTiers(out.nodes, GHOST_TIERS, { widthOf: drawnW })
   const at = (id: string) => {
     const n = withPrompts.find((x) => x.id === id)
     if (!n) throw new Error(`${starter}: no node ${id}`)
     return n
   }
-  return { out, at, draft, withPrompts }
+  /** The drawn width of the family card `id` belongs to — its tier's own width. */
+  const widthOfCard = (id: string) => drawnW(at(id))
+  return { out, at, draft, withPrompts, widthOfCard }
 }
 
 /** The named cards' sub-rows: grouped by exact y, top to bottom, each left to right. */
@@ -154,10 +172,14 @@ describe('gap 7 — a five-card band is ONE row since 27 Sep, in its own order',
   it.each(FIVE_CARD_BANDS.map((b) => [`${b.starter} ${b.family}`, b] as const))(
     '%s: stays on one row, reading order unchanged, one stride apart',
     async (_name, band) => {
-      const { at } = await laidOut(band.starter)
+      const { at, widthOfCard } = await laidOut(band.starter)
       const rows = subRowsOf(band.order, at)
       expect(rows.map((r) => r.length)).toEqual([5])
       expect(rows.flat()).toEqual(band.order)
+      // Five cards take their fair share: floor((1656 − 88 − 96) / 5) − 24 = 270,
+      // so the stride is 270 + 48 = 318 (was the flat 248 + 48 = 296).
+      const STRIDE = strideOf(widthOfCard(band.order[0]))
+      expect(STRIDE, `${band.starter} ${band.family}: stride`).toBe(318)
       for (let i = 1; i < band.order.length; i++) {
         expect(at(band.order[i]).position.x - at(band.order[i - 1]).position.x).toBe(STRIDE)
       }
@@ -167,10 +189,11 @@ describe('gap 7 — a five-card band is ONE row since 27 Sep, in its own order',
   it.each(FIVE_CARD_BANDS.map((b) => [`${b.starter} ${b.family}`, b] as const))(
     '%s: the row, prompt included, fits the 1280 dock-open frame at the floor',
     async (_name, band) => {
-      const { at } = await laidOut(band.starter)
+      const { at, widthOfCard } = await laidOut(band.starter)
       const left = at(band.order[0]).position.x
       const right = at(band.prompts[0]).position.x + ROW_PROMPT_W
-      expect(right - left, `${band.starter} ${band.family}`).toBe(5 * STRIDE + ROW_PROMPT_W)
+      // 5 × 318 + 64 = 1654 (was 5 × 296 + 160 = 1640).
+      expect(right - left, `${band.starter} ${band.family}`).toBe(5 * strideOf(widthOfCard(band.order[0])) + ROW_PROMPT_W)
       expect(right - left).toBeLessThanOrEqual(FRAME_1280_FLOW_AT_FLOOR)
     },
   )
@@ -178,9 +201,9 @@ describe('gap 7 — a five-card band is ONE row since 27 Sep, in its own order',
   it.each(FIVE_CARD_BANDS.map((b) => [`${b.starter} ${b.family}`, b] as const))(
     '%s: the family keeps its band — one prompt at the end of the row, and no other card inside the band',
     async (_name, band) => {
-      const { at, withPrompts } = await laidOut(band.starter)
+      const { at, withPrompts, widthOfCard } = await laidOut(band.starter)
       const last = at(band.order[band.order.length - 1])
-      expect(at(band.prompts[0]).position).toEqual({ x: last.position.x + STRIDE, y: last.position.y })
+      expect(at(band.prompts[0]).position).toEqual({ x: last.position.x + strideOf(widthOfCard(last.id)), y: last.position.y })
       for (const p of band.prompts) expect(withPrompts.filter((n) => n.id === p), p).toHaveLength(1)
       const members = new Set(band.order)
       const intruders = withPrompts.filter(
@@ -204,13 +227,18 @@ describe('gap 7 — a band above five cards wraps inside its own band, in its ow
   it.each(WRAPPED_BANDS.map((b) => [`${b.starter} ${b.family}`, b] as const))(
     '%s: wraps 4 + 4, reading order recorded, the FIRST course laid in brick',
     async (_name, band) => {
-      const { at } = await laidOut(band.starter)
+      const { at, widthOfCard } = await laidOut(band.starter)
       const rows = subRowsOf(band.rows.flat(), at)
       expect(rows.map((r) => r.length)).toEqual([4, 4])
       expect(rows).toEqual(band.rows)
+      // A 4 + 4 wrap takes the fair share of four, capped by its brick course:
+      // min(350, floor((1656 − 3.5 × 24) / 4.5) − 24) = 325; stride 325 + 48 = 373.
+      const STRIDE = strideOf(widthOfCard(rows[0][0]))
+      expect(STRIDE, `${band.starter} ${band.family}: stride`).toBe(373)
       // v3.1 WS1 #10: alternate courses sit HALF A STRIDE apart, so each card
       // stands under a gap of the next course. For 4 + 4 the FIRST course
       // shifts (the final course carries the prompt, so that block is narrower).
+      // 373 / 2 = 186.5 (was 296 / 2 = 148).
       expect(at(rows[0][0]).position.x - at(rows[1][0]).position.x).toBe(STRIDE / 2)
       for (const row of rows) {
         for (let i = 1; i < row.length; i++) expect(at(row[i]).position.x - at(row[i - 1]).position.x).toBe(STRIDE)
@@ -221,12 +249,12 @@ describe('gap 7 — a band above five cards wraps inside its own band, in its ow
   it.each(WRAPPED_BANDS.map((b) => [`${b.starter} ${b.family}`, b] as const))(
     '%s: every sub-row, prompt included, fits the 1280 dock-open frame at the floor',
     async (_name, band) => {
-      const { at } = await laidOut(band.starter)
+      const { at, widthOfCard } = await laidOut(band.starter)
       const rows = subRowsOf(band.rows.flat(), at)
       const finalRow = rows[rows.length - 1]
       for (const row of rows) {
         const left = at(row[0]).position.x
-        let right = at(row[row.length - 1]).position.x + REPEATED_CARD_W
+        let right = at(row[row.length - 1]).position.x + widthOfCard(row[row.length - 1])
         if (row === finalRow) right = at(band.prompts[0]).position.x + ROW_PROMPT_W
         expect(right - left, `${band.starter} ${band.family}: sub-row ${row.join(',')}`).toBeLessThanOrEqual(
           FRAME_1280_FLOW_AT_FLOOR,
@@ -238,13 +266,13 @@ describe('gap 7 — a band above five cards wraps inside its own band, in its ow
   it.each(WRAPPED_BANDS.map((b) => [`${b.starter} ${b.family}`, b] as const))(
     '%s: the family keeps its band — one prompt column at the end of the FINAL sub-row, and no other card inside the band',
     async (_name, band) => {
-      const { at, withPrompts } = await laidOut(band.starter)
+      const { at, withPrompts, widthOfCard } = await laidOut(band.starter)
       const rows = subRowsOf(band.rows.flat(), at)
       const finalRow = rows[rows.length - 1]
       const last = at(finalRow[finalRow.length - 1])
       // The row's ONE prompt (v3.1 WS1 #27) stands one card-gap after the last
       // card of the final sub-row, on that sub-row's line.
-      expect(at(band.prompts[0]).position).toEqual({ x: last.position.x + STRIDE, y: last.position.y })
+      expect(at(band.prompts[0]).position).toEqual({ x: last.position.x + strideOf(widthOfCard(last.id)), y: last.position.y })
       // Exactly one prompt per kind this family carries — never one per sub-row.
       for (const p of band.prompts) expect(withPrompts.filter((n) => n.id === p), p).toHaveLength(1)
       // Family grouping: no card of another family has its top inside the band.

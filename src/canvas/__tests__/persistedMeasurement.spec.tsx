@@ -19,6 +19,14 @@
  * store's `loadScenario`), and end to end through the hook: no per-kind width is
  * published before this session has measured, and the one published after is the
  * landing width.
+ *
+ * ⚠ 30 SEP 2026 (Paul, "wider and shorter"): the landing width of THIS served
+ * board is no longer 248. A tier's fresh width is now its fair share of
+ * `ROW_BUDGET_W` (these factors 4 + 4 → 325), wider than the board's saved 296
+ * stride allows, so `solveRestoredCardWidths` bounds it to 296 − 24 − 24 = 248 (the
+ * stride minus the VISIBLE gap, ELK padding + sibling gap): the board reopens exactly as saved. The
+ * cases bind to that derived landing width — and, as the discriminator the
+ * defect needs, to NOT the floor the broken bound collapsed to.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
@@ -27,7 +35,8 @@ import { useCanvasStore } from '../store'
 import { useLayoutStore } from '../layoutStore'
 import { useRestoredLayoutWidth } from '../hooks/useRestoredLayoutWidth'
 import * as scenarios from '../store/scenarios'
-import { REPEATED_CARD_W } from '../utils/nodeLayoutConstants'
+import { LAYOUT_NODE_GAP, LAYOUT_PADDING_X, NODE_LAYOUT_MIN_W } from '../utils/nodeLayoutConstants'
+import { solveLayoutCardWidths } from '../utils/layout'
 
 type Row = readonly [id: string, kind: string, x: number, y: number, hAt248: number, hAt191: number]
 
@@ -74,6 +83,15 @@ function measuredThisSession(nodes: Node[]): Node[] {
   })
 }
 
+/** The served board's same-row stride (248 + 48 at landing) and the gap the bound keeps (max(24, spacing 15)). */
+const LANDING_STRIDE = 296
+const GAP = Math.max(LAYOUT_NODE_GAP, 15)
+/** The factor width the UNMOVED served board restores at: its fresh fair share
+ *  bounded by its own stride less the visible gap — min(325, 296 − 24 − 24) = 248: exactly as saved. */
+function landingFactorWidth(): number {
+  return Math.min(solveLayoutCardWidths(persistedBoard(), { direction: 'DOWN', spacing: 15 }).factor, LANDING_STRIDE - GAP - LAYOUT_PADDING_X)
+}
+
 beforeEach(() => {
   localStorage.clear()
   useCanvasStore.getState().resetCanvas()
@@ -112,7 +130,7 @@ describe('a persisted `measured` never reaches the restored board (F1, sticky ha
     for (const n of nodes) expect((n as { measured?: unknown }).measured, n.id).toBeUndefined()
   })
 
-  it('⛔ END TO END: the per-kind width waits for THIS session to measure, then lands at 248', () => {
+  it('⛔ END TO END: the per-kind width waits for THIS session to measure, then lands at the landing width (30 Sep: 248, exactly as saved)', () => {
     act(() => {
       useCanvasStore.getState().hydrateGraphSlice({ nodes: persistedBoard(), edges: [], currentScenarioId: 'bvb' })
     })
@@ -124,7 +142,10 @@ describe('a persisted `measured` never reaches the restored board (F1, sticky ha
     // React Flow measures the cards as they are drawn now.
     act(() => { useCanvasStore.setState({ nodes: measuredThisSession(useCanvasStore.getState().nodes) } as never) })
     rerender()
-    expect(useLayoutStore.getState().layoutCardWidths?.factor).toBe(REPEATED_CARD_W)
+    // RE-PINNED 30 Sep 2026: was `toBe(REPEATED_CARD_W)` (248).
+    expect(useLayoutStore.getState().layoutCardWidths?.factor).toBe(landingFactorWidth())
+    expect(useLayoutStore.getState().layoutCardWidths?.factor).toBe(248)
+    expect(useLayoutStore.getState().layoutCardWidths?.factor).toBeGreaterThan(NODE_LAYOUT_MIN_W)
   })
 
   /**
@@ -156,6 +177,9 @@ describe('a persisted `measured` never reaches the restored board (F1, sticky ha
     expect(useLayoutStore.getState().layoutCardWidths, 'the bound was taken before the cards it bounds were measured').toBeNull()
     act(() => { useCanvasStore.setState({ nodes: all } as never) })
     rerender()
-    expect(useLayoutStore.getState().layoutCardWidths?.factor).toBe(REPEATED_CARD_W)
+    // RE-PINNED 30 Sep 2026: was `toBe(REPEATED_CARD_W)` (248). The defect this
+    // guards published the FLOOR (190.88 then); the landing width is well above it.
+    expect(useLayoutStore.getState().layoutCardWidths?.factor).toBe(landingFactorWidth())
+    expect(useLayoutStore.getState().layoutCardWidths?.factor).toBeGreaterThan(NODE_LAYOUT_MIN_W)
   })
 })
