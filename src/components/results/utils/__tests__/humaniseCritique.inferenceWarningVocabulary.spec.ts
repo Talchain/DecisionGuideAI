@@ -227,7 +227,7 @@ describe('ISL inference-warning vocabulary — honesty by kind', () => {
     // WITHHELD rather than guessed."
     GOAL_THRESHOLD_NOT_CONVERTIBLE: [
       /\b(was|were)\s+(recorded|captured|received|saved)\b/i,
-      /withheld|left out/i,
+      /withheld|left out|not shown/i, // PTL item 7: the UI says 'not shown', never 'withheld'
     ],
     // The two facts ISL states: WHAT the ranking used, and that it may be
     // answering something other than what the reader asked.
