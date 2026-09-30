@@ -111,6 +111,7 @@ import { methodIdsRaisedBy } from './recommendationMethod'
 import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import { buildCommitmentQualifier } from './commitmentQualifier'
+import { allOptionsOriginSentence } from './optionOriginDisclosure'
 
 /**
  * ⭐ THIS TAB OPTS IN TO CORRECTING AN ESTIMATE WHERE IT IS STATED, and says so
@@ -1584,7 +1585,21 @@ export function AnalysisNewTabBody({
       record={decisionRecord}
       onRecord={openDecisionRecord}
       onAsk={openAskOlumi}
-      qualifier={buildCommitmentQualifier(vm, { runProvisional: vm.status.runProvisional })}
+      qualifier={buildCommitmentQualifier(vm, {
+        runProvisional: vm.status.runProvisional,
+        // ⭐ CUT-BACK (Paul, 30 Sep 2026): the chart's "Goal only" and every-option origin
+        // lines ride on this one qualifier; `notesInQualifier` below stops the chart printing them.
+        // The chart's own gate, `sharesExcludeLimits && !noneNumbered`, restated over the same rows.
+        goalOnly:
+          vm.checks.sharesExcludeLimits &&
+          !(
+            vm.optionsComparison.rows.length > 0 &&
+            vm.optionsComparison.rows.every((o) => o.kind !== 'analysed' || o.winReadout === null)
+          ),
+        goalOnlyCause:
+          commitmentSynthesis.open?.source === 'leader_withheld_cause' ? null : vm.checks.leaderWithholdCause,
+        allOptionsOrigin: allOptionsOriginSentence(vm.optionsComparison.rows),
+      })}
       status={renderGlance('status')}
     >
         <OptionsComparison
@@ -1599,6 +1614,7 @@ export function AnalysisNewTabBody({
             commitmentSynthesis.open?.source === 'leader_withheld_cause' ? null : vm.checks.leaderWithholdCause
           }
           sharesExcludeLimits={vm.checks.sharesExcludeLimits}
+          notesInQualifier={true}
           /* The SAME writer this body already hands `WhatIWasGivenSection` for
              its own ask (:1253). One composer, one validation, one policy — a
              second route to the chat would be a second thing to keep honest. */

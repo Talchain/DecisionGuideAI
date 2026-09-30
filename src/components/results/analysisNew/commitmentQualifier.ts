@@ -68,12 +68,24 @@ export const COMMITMENT_QUALIFIER_COPY = {
    * `changed` run may have been changed by Olumi, and this line cannot tell.
    */
   oldComparison: 'Old comparison · the model has changed since it ran',
+  goalOnly: 'goal only',
+  goalOnlyDetail: 'the figures compare the options on the goal alone',
 } as const
 
 /** Facts from outside the view model that license a clause. */
 export interface QualifierFacts {
   /** `enrichment.run_provenance.provisional === true` on the displayed run. */
   readonly runProvisional?: boolean
+  /**
+   * ⭐ CUT-BACK (Paul, 30 Sep 2026: "finish the reasoning tab"). The chart's own
+   * "Goal only: …" line and its "Olumi suggested all of these options" line left
+   * the tab two lines longer than the V2 prototype. Both facts now ride on this
+   * ONE qualifier: "goal only" on the line itself, the full sentences (and the
+   * producer's cause) behind its ⓘ. Nothing is dropped; it is said in one place.
+   */
+  readonly goalOnly?: boolean
+  readonly goalOnlyCause?: string | null
+  readonly allOptionsOrigin?: string | null
 }
 
 /**
@@ -96,6 +108,8 @@ export function buildCommitmentQualifier(
   const lineClauses: string[] = []
 
   const detailClauses: string[] = []
+  if (facts.goalOnly === true) detailClauses.push(COMMITMENT_QUALIFIER_COPY.goalOnlyDetail)
+  if (facts.allOptionsOrigin) detailClauses.push(facts.allOptionsOrigin)
   if (facts.runProvisional === true) detailClauses.push(COMMITMENT_QUALIFIER_COPY.automaticFirstPass)
 
   const inputs = vm.atAGlance.inputProvenance
@@ -138,17 +152,24 @@ export function buildCommitmentQualifier(
   // ⭐ STALE FIRST: a comparison the model has moved past is old before it is
   // provisional. The provisional line is not dropped — it moves behind
   // "Details", one click away, like every other fact this line sheds.
+  // Added last so the fallbacks above still see only their own clauses; read first.
+  if (facts.goalOnly === true) lineClauses.unshift(COMMITMENT_QUALIFIER_COPY.goalOnly)
+
   if (vm.status.isStale && vm.status.staleKind === 'changed') {
     const provisionalLine =
       lineClauses.length > 0 ? [COMMITMENT_QUALIFIER_COPY.lead, ...lineClauses].join(' · ') : null
     const staleDetail = [provisionalLine, ...detailClauses].filter((c): c is string => c !== null)
+    const staleJoined = staleDetail.length > 0 ? staleDetail.join(' · ') : null
+    const staleCause = facts.goalOnly === true && facts.goalOnlyCause ? facts.goalOnlyCause : null
     return {
       text: COMMITMENT_QUALIFIER_COPY.oldComparison,
-      detail: staleDetail.length > 0 ? staleDetail.join(' · ') : null,
+      detail: staleJoined !== null && staleCause !== null ? `${staleJoined}. ${staleCause}` : (staleJoined ?? staleCause),
     }
   }
 
-  const detail = detailClauses.length > 0 ? detailClauses.join(' · ') : null
+  const joined = detailClauses.length > 0 ? detailClauses.join(' · ') : null
+  const cause = facts.goalOnly === true && facts.goalOnlyCause ? facts.goalOnlyCause : null
+  const detail = joined !== null && cause !== null ? `${joined}. ${cause}` : (joined ?? cause)
 
   if (lineClauses.length === 0 && detail === null) return null
 

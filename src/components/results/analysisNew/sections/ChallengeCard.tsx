@@ -172,7 +172,7 @@ function MenuRow({
 }
 
 /** A body longer than this is clamped to two lines at rest (≈60 chars a line at 11px in a 360px panel). */
-export const CHALLENGE_BODY_CLAMP_CHARS = 120
+export const CHALLENGE_BODY_CLAMP_CHARS = 60
 export const CHALLENGE_BODY_COPY = { more: 'More', less: 'Less' } as const
 
 export function ChallengeCard({
@@ -422,13 +422,14 @@ export function ChallengeCard({
           the "Why this?" basis (never said twice). A method's question stands
           on its own, as the prototype's does, and keeps its basis behind the ⓘ. */}
       {/* ⭐ QUIETER AT REST (27 Sep 2026, Panel's call under Paul's brief): the body keeps
-          naming the figure and the limit, but a long one is clamped to two lines with
+          naming the figure and the limit, but a long one is clamped to ONE line (30 Sep: Paul's
+          cut-back) with
           "More", so the card reads like the prototype's one short question. */}
       {atRestWhy ? (
         <>
           <p
             className={`${typography.panelMeta} text-text-light m-0 mb-1 pl-3 ${
-              atRestWhy.length > CHALLENGE_BODY_CLAMP_CHARS && bodyOpenFor !== shown.key ? 'line-clamp-2' : ''
+              atRestWhy.length > CHALLENGE_BODY_CLAMP_CHARS && bodyOpenFor !== shown.key ? 'line-clamp-1' : ''
             }`}
             data-testid={`${testId}-body`}
             data-clamped={atRestWhy.length > CHALLENGE_BODY_CLAMP_CHARS && bodyOpenFor !== shown.key ? 'true' : 'false'}
