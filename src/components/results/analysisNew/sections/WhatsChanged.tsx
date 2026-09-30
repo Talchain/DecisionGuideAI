@@ -22,7 +22,7 @@
 
 import { useState } from 'react'
 import { typography } from '../../../../styles/typography'
-import { surface } from '../panelSurfaces'
+import { action, surface } from '../panelSurfaces'
 import { INPUT_ROWS_SHOWN_FIRST } from '../runDeltaView'
 import type { NoiseVerdict, RunDeltaInputRow, RunDeltaInputsView, RunDeltaMovement, RunDeltaView } from '../runDeltaView'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -121,7 +121,7 @@ function InputChanges({ inputs }: { inputs: RunDeltaInputsView | null }): JSX.El
   const shown = expanded ? inputs.rows : inputs.rows.slice(0, INPUT_ROWS_SHOWN_FIRST)
   return (
     <div className="mt-3" data-testid={`${WHATS_CHANGED_TESTID}-inputs`} data-coverage={inputs.coverage}>
-      <p className={`${typography.panelMeta} text-text-light m-0`}>What changed in the inputs</p>
+      <p className={`${typography.panelMeta} text-text-light m-0`} data-testid={`${WHATS_CHANGED_TESTID}-inputs-heading`}>Changed between the two runs</p>
       <ul className="list-none p-0 mt-1 mb-0 space-y-1">
         {shown.map((row) => (
           <li key={row.key} className={`${typography.panelBody} text-text m-0`} data-testid={`${WHATS_CHANGED_TESTID}-input-row`} data-kind={row.kind} data-change={row.change}>
@@ -132,7 +132,7 @@ function InputChanges({ inputs }: { inputs: RunDeltaInputsView | null }): JSX.El
       {inputs.rows.length > INPUT_ROWS_SHOWN_FIRST ? (
         <button
           type="button"
-          className={`${typography.panelMeta} text-text-light mt-1 rounded underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+          className={`${typography.panelMeta} ${action('inline')} mt-1`}
           data-testid={`${WHATS_CHANGED_TESTID}-inputs-toggle`}
           aria-expanded={expanded}
           onClick={() => setExpanded((v) => !v)}

@@ -1,5 +1,5 @@
 /**
- * SC-24 — "What's changed" says WHAT THE USER CHANGED, in their units, after the result (schemas 0.68.0).
+ * SC-24 — "What's changed" says what differed in the INPUTS between the two Runs, in their units, after the result (schemas 0.68.0).
  * Design SC-24 v2 (#84 5914416431): result first → up to two exact input rows + "See all N" → the limit.
  * AIQ 5915390400: the earlier Run is named as earlier; nothing here derives a £ outcome.
  */
@@ -92,6 +92,18 @@ describe('SC-24 · the exact input change, after the result', () => {
   it('C5 is a refusal to attribute: its limit line is the shared "cannot be established" sentence', () => {
     render(<WhatsChanged view={view()} />)
     expect(screen.getByTestId(`${T}-attribution-limit`).textContent).toMatch(/cannot be established/)
+  })
+
+  it('AIQ 5916401270 (binding): a row has no author, so the block says "Changed between the two runs" and never "you"/"your"', () => {
+    // The only difference: an approved Olumi starting figure (churn 3% → 2.5%). The user did not type it.
+    const OLUMI_STARTING_FIGURE = {
+      entity_kind: 'factor_value', entity_id: 'fac_churn', field: 'value',
+      label_before: 'Monthly churn', label_after: 'Monthly churn', before: { raw: 3, unit: '%' }, after: { raw: 2.5, unit: '%' }, change: 'changed',
+    } as const
+    render(<WhatsChanged view={view({ input_changes: [OLUMI_STARTING_FIGURE] })} />)
+    expect(screen.getByTestId(`${T}-inputs-heading`)).toHaveTextContent('Changed between the two runs')
+    expect(screen.getAllByTestId(`${T}-input-row`).map((r) => r.textContent)).toEqual(['Monthly churn: 3% → 2.5%'])
+    expect(screen.getByTestId(T).textContent ?? '').not.toMatch(/\byou(r|'ve)?\b/i)
   })
 
   it('a pre-SC-24 delta renders exactly as before: no input block, no compared-with line', () => {
