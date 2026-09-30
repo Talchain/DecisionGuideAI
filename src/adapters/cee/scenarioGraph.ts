@@ -191,6 +191,9 @@ export type ScenarioGraphResult =
        * SC-24: the displayed Run's comparison with the Run before it (`run_delta`), raw — the SAME producer block the
        * turn that ran it carried, served on the cold read so a reload shows the same pair. Parsed downstream by the
        * contract (`RunDeltaSchema`); absent = no delta for this Run.
+       * CARRIER: `current_read.run_delta` ONLY (P0 PARTNER ruling #75 5917382664, CURRENT-READ-v1 row 1 @ `2395d434`) —
+       * CEE sets it only when the read is `complete_current` AND the displayed Run is the pair's newer end. A top-level
+       * `run_delta` is not the contract and is ignored.
        */
       runDelta?: unknown
       /**
@@ -278,6 +281,16 @@ function readIdentityEnvelope(raw: unknown): ScenarioGraphIdentity | null {
     return null
   }
   return { value, projectionVersion }
+}
+
+/**
+ * SC-24 — the cold read's `run_delta` lives ONLY inside `current_read` (P0 PARTNER ruling #75 5917382664). CEE puts it
+ * there under the same gate as the read's figures (`complete_current` + newer end), so a stale read never gains a delta.
+ * Carried raw; `RunDeltaSchema` parses it downstream (`applyScenarioAnalysisRead`).
+ */
+function readCurrentReadRunDelta(raw: unknown): unknown {
+  if (raw === null || typeof raw !== 'object') return null
+  return (raw as { run_delta?: unknown }).run_delta ?? null
 }
 
 /**
@@ -385,7 +398,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     limitVerdicts: b.analysis_limit_verdicts ?? null,
     goalCertainty: b.analysis_goal_certainty ?? null,
     optionParticipation: b.analysis_option_participation ?? null,
-    runDelta: b.run_delta ?? null,
+    runDelta: readCurrentReadRunDelta(b.current_read),
     admitted: readAdmitted(b.analysis_admission, b.graph_hash),
     // Carried raw; the ONE reader is `readServerConversationTurns` (canvas/conversation/serverConversationTurns.ts).
     conversationTurns: b.conversation_turns,

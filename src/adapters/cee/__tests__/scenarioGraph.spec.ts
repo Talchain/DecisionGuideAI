@@ -366,3 +366,21 @@ describe('scenarioGraph — 503 retry', () => {
     expect(res.status).toBe('unusable')
   })
 })
+
+describe('scenarioGraph — SC-24 cold-read run_delta carrier (P0 PARTNER ruling #75 5917382664)', () => {
+  const DELTA = { attribution_case: 'C5_unattributed', marker: 'the one producer block' }
+
+  it('reads run_delta from INSIDE current_read', async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(200, okBody({ current_read: { run_delta: DELTA } })))
+    const res = await fetchScenarioGraph(SCENARIO_ID)
+    expect(res.status).toBe('graph')
+    expect((res as { runDelta?: unknown }).runDelta).toEqual(DELTA)
+  })
+
+  it('a top-level run_delta is NOT the contract and is ignored (no second, ungated carrier)', async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(200, okBody({ run_delta: DELTA })))
+    const res = await fetchScenarioGraph(SCENARIO_ID)
+    expect(res.status).toBe('graph')
+    expect((res as { runDelta?: unknown }).runDelta).toBeNull()
+  })
+})
