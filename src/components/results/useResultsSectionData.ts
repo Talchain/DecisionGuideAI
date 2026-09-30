@@ -112,6 +112,7 @@ import {
 import { reviewableStrengthEdgeIds } from './strengthElicitation/reviewableEdges'
 import { deriveRobustnessStatus } from './robustnessStatus'
 import { readGoalIdentityWithheld } from './utils/goalIdentityWithheld'
+import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisParticipation'
 
 // =============================================================================
 // Winner Selection Helper
@@ -2345,7 +2346,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         // owner, never re-derived.
         goalFitWithheld: goalDecision.jointSubstitutionWithheld,
         // AIQ 5903604206: Olumi's unadopted suggestion is never counted as "your" option in the scope copy.
-        ...((node.data as { proposed_by?: unknown } | undefined)?.proposed_by === 'olumi' ? { proposedByOlumi: true as const } : {}),
+        ...(isUnadoptedOlumiSuggestion(node.data) ? { proposedByOlumi: true as const } : {}),
         ...(runIsCurrent ? {} : { runNotCurrent: true as const }),
         // Multi-constraint analysis (from ISL when goal_constraints were provided)
         constraintAnalysis: prob.constraint_analysis,
