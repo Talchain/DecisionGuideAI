@@ -108,9 +108,9 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
           accessToken: identity.accessToken,
           signal: controller.signal,
           ...(readToken !== null ? { bootReadToken: readToken } : {}),
-          // ⛔ INERT (DL 5911089211, candidate 2.1 fallback): the read replayed the Agent's internal sub-turns as the user's
-          // words (5910906799 / MG 5910983526). Re-enable once CEE's read drops sub-turn rows.
-          includeConversationTurns: false,
+          // Back ON (30 Sep): CEE #2361 (staging bd9cecaa) returns only what the user saw, and R3 witnessed it PASS (5911692311).
+          // It was INERT from 12:25Z (DL 5911089211) while the read replayed the Agent's internal sub-turns as the user's words.
+          includeConversationTurns: true,
         })
         logger.debug('server_graph_hydration.outcome', { scenarioId, outcome })
 
