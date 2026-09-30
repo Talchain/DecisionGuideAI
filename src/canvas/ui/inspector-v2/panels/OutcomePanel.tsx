@@ -35,6 +35,7 @@ import { resolveElementLabel } from '../../../domain/elementLabel'
 import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { OPTION_RESULT_COPY } from '../../../nodes/shared/metricVocabulary'
 import { useRunCurrency, optionResultCaption } from '../../../nodes/shared/runCurrency'
+import { formatWinProbability } from '../../../utils/labelUtils'
 
 // ─── Option comparison helpers ─────────────────────────────────────
 
@@ -138,7 +139,7 @@ function OptionComparisonSection({
                   model has changed since the run. */}
               {opt.win_probability != null && (
                 <span className={`${typography.panelMeta} shrink-0 text-option`}>
-                  {resultCaption} · {OPTION_RESULT_COPY.share(`${Math.round(opt.win_probability * 100)}%`)}
+                  {resultCaption} · {OPTION_RESULT_COPY.share(formatWinProbability(opt.win_probability))}
                 </span>
               )}
             </div>

@@ -48,6 +48,7 @@ import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAncho
 import { basisWithholdsPossessive } from '../../../../components/results/utils/selectGoalProbability'
 import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../../../components/results/utils/goalFitBasisCaveatCopy'
 import { formatGoalChangeBound, formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
+import { formatGoalProbability } from '../../../../components/results/utils/displayFloors'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 // ⭐⭐ `resolveGoalTarget` WAS ONE NAME AWAY IN AN IMPORT THIS FILE ALREADY HAD.
 // This line imported `canCaptureGoalTarget` and `GoalTargetSource` from
@@ -589,7 +590,7 @@ export const GoalPanel = memo(function GoalPanel({
           register's own no-full-stop `phrase()` form is designed
           to accept. Permitted arm byte-identical. */}
       {/* AIQ #72 5885116642: one register sentence — "Reaches the target in N% of model runs." ("model runs" says "based on the current model"). */}
-      {GOAL_ANCHOR_COPY.sentence(`${Math.round(probGoal * 100)}%`, goalFitSubstituted)}
+      {GOAL_ANCHOR_COPY.sentence(formatGoalProbability(probGoal), goalFitSubstituted)}
       {/* ISL #207 (AIQ #72 5877139338): never bare when the goal's level today was worked out. */}
       {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
         <span className={`block ${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-fit-base-caveat-goal-panel-target">
@@ -1203,7 +1204,7 @@ export const GoalPanel = memo(function GoalPanel({
                       claim; over a substituted joint figure it takes the
                       register's compact readout instead. */}
                   <div className={`${typography.panelHeader}`}>
-                    {GOAL_ANCHOR_COPY.readout(`${Math.round(probGoal * 100)}%`, goalFitSubstituted)}
+                    {GOAL_ANCHOR_COPY.readout(formatGoalProbability(probGoal), goalFitSubstituted)}
                   </div>
                   {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
                     <div className={`${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-fit-base-caveat-goal-panel-impact">

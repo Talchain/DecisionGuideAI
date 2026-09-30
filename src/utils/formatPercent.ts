@@ -26,6 +26,16 @@ export const SUB_ONE_PERCENT_FLOOR = 0.01
 export const SUB_ONE_PERCENT_READOUT = '< 1%'
 
 /**
+ * ⛔ THE CEILING, THE FLOOR'S MIRROR (R3 5903852225, DL signed-in MRR `8b7f151e`): a wire 0.9999 rounded to "100%" on
+ * four surfaces — a certainty the Run never earned. A value below 1 that would print "100%" reads "> 99%"; an exact 1
+ * still prints "100%" (its earning is gated upstream by goal certainty).
+ */
+export const OVER_NINETY_NINE_READOUT = '> 99%'
+export function ceilBelowCertain(value: number, formatted: string): string {
+  return value < 1 && formatted === '100%' ? OVER_NINETY_NINE_READOUT : formatted
+}
+
+/**
  * Centralised formatter for percentage values in the Results panel.
  * Prevents inconsistent ~, +, ± symbols across components.
  *
@@ -113,7 +123,7 @@ export function formatProbabilityWithResolution(
     // tests that guarded the old code still hold).
     if (value <= 0) return '0%'
     if (value < SUB_ONE_PERCENT_FLOOR) return SUB_ONE_PERCENT_READOUT
-    return formatPercent(value, { fromDecimal: true })
+    return ceilBelowCertain(value, formatPercent(value, { fromDecimal: true }))
   }
 
   const threshold = 1 / nSamples

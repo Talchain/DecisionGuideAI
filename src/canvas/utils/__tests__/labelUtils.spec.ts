@@ -1281,8 +1281,9 @@ describe('formatWinProbability', () => {
     expect(formatWinProbability(0.99)).toBe('99%')
   })
 
-  it('returns "100%" for values at or above 99.5%', () => {
-    expect(formatWinProbability(0.995)).toBe('100%')
+  it('returns "> 99%" below 1 and "100%" only at exactly 1', () => {
+    // R3 5903852225: the ceiling mirrors the floor — a value below 1 never prints "100%".
+    expect(formatWinProbability(0.995)).toBe('> 99%')
     expect(formatWinProbability(1.0)).toBe('100%')
   })
 

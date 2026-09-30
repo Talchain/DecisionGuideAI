@@ -151,7 +151,9 @@ describe('T-2334-3 — the no-resolution fallback is BYTE-IDENTICAL to today', (
   it('renders at-or-above-1% values through the legacy percent path unchanged', () => {
     expect(formatGoalProbability(0.55)).toBe('55%')
     expect(formatGoalProbability(0.01)).toBe('1%')
-    expect(formatGoalProbability(0.995)).toBe('100%')
+    // R3 5903852225: the ceiling mirrors the floor — a value below 1 never prints "100%".
+    expect(formatGoalProbability(0.995)).toBe('> 99%')
+    expect(formatGoalProbability(0.99)).toBe('99%')
   })
 
   it('treats a non-positive or non-finite sample count as NO resolution info', () => {
