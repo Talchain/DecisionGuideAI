@@ -26,6 +26,7 @@ import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
 import { EditPencilCue } from './shared/EditPencilCue'
 import { useCanvasStore } from '../store'
+import { selectWinSharesWithheld } from '../state/winShareGate'
 import { EditableLabel } from '../ui/inspector-v2/shared/EditableLabel'
 import { TITLE_DOUBLE_CLICK_WINDOW_MS, handTitleClickToCard } from './shared/titleClickHandBack'
 import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
@@ -450,6 +451,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // Set references change on each store update.
   const allNodes = useCanvasStore(s => s.nodes)
   const isHighlighted = useCanvasStore(s => s.highlightedNodes.has(id))
+  // CURRENT-READ row 9: a withheld leader withholds the option's share at every zoom (`winShareGate.ts`).
+  const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
   /**
    * Olumi attention — held while the AI is explaining THIS element, unlike the
    * two-second acknowledgement above. Primitive-boolean selectors (React #185),
@@ -728,8 +731,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         graphHasDeclaredBaseline,
       }),
       optionResultCaption: resultCaption ?? null,
+      winSharesWithheld,
     }
-  }, [bodyReduced, nodeType, id, ceeAnalysisReady, graphHasDeclaredBaseline, data, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, displayMetadata.unvaluedInRun, resultCaption, resultsFromLastRun])
+  }, [bodyReduced, nodeType, id, ceeAnalysisReady, graphHasDeclaredBaseline, data, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, displayMetadata.unvaluedInRun, resultCaption, resultsFromLastRun, winSharesWithheld])
 
   const lodBody = useMemo<{ text: string | null; unconfirmedEstimate: boolean }>(() => {
     if (!bodyReduced) return { text: null, unconfirmedEstimate: false }

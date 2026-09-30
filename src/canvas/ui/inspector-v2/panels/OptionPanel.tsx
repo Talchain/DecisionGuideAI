@@ -7,6 +7,7 @@
 import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { Sparkles } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
+import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../../state/winShareGate'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../../../hooks/useAnalysisReady'
 import { parseDraftingNotes, composeDescription } from '../draftingNote'
 import type { NodeType, OptionNodeData } from '../../../domain/nodes'
@@ -223,6 +224,10 @@ export const OptionPanel = memo(function OptionPanel({
     dismiss: dismissIntervention,
   } = useOptionInterventionCommit(nodeId ?? null)
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'option')
+  // CURRENT-READ row 9 (AIQ 5912710392): a withheld leader withholds the share hero AND the comparison bars;
+  // the panel says why instead (`winShareGate.ts`).
+  const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
+  const winShareWithheldReason = useCanvasStore(selectWinShareWithheldReason)
   /**
    * ⭐ THE RESULT'S CAPTION FOLLOWS THE RUN'S CURRENCY, AS THE CARD'S DOES
    * (canvas audit edit-values F5). This read `Current model` unconditionally,
@@ -936,8 +941,10 @@ export const OptionPanel = memo(function OptionPanel({
         // afterwards. The first round's fixture used a ONE-option comparison,
         // the single shape in which the old predicate happened to be false.
         // Gating on `nodeWasInRun` makes the whole predicate per-node.
+        const showsShares = !winSharesWithheld
         const hasImpactContent =
-          displayMetadata.winRate !== null
+          (showsShares && displayMetadata.winRate !== null)
+          || (!showsShares && nodeWasInRun && winShareWithheldReason !== null)
           || !!headline
           || (nodeWasInRun && allOptions.length > 1 && allOptions.some(o => o.winPct != null))
         return (
@@ -945,8 +952,13 @@ export const OptionPanel = memo(function OptionPanel({
           <StaleGuardBanner hasResults={isResultsMode}>
             {hasImpactContent ? (
             <div>
+              {!showsShares && nodeWasInRun && winShareWithheldReason !== null && (
+                <p className={`${typography.panelMeta} text-text-light`} data-testid="option-panel-not-ranked">
+                  {winShareWithheldReason}
+                </p>
+              )}
               {/* Win probability hero */}
-              {displayMetadata.winRate !== null && (
+              {showsShares && displayMetadata.winRate !== null && (
                 <div className="flex items-center gap-3">
                   <div className="text-center">
                     <div className={`${typography.panelHeader} text-2xl`} style={{ color: 'var(--option)' }}>
@@ -1032,7 +1044,7 @@ export const OptionPanel = memo(function OptionPanel({
               )}
 
               {/* Comparison bars */}
-              {allOptions.length > 1 && allOptions.some(o => o.winPct != null) && (
+              {showsShares && allOptions.length > 1 && allOptions.some(o => o.winPct != null) && (
                 <div className="mt-2">
                   {/* F5: after the model changes these are the LAST run's
                       shares — labelled with the contract's stale-option words
