@@ -1,0 +1,69 @@
+/**
+ * The brief view shows a graph element when its item is pressed — bound by node id, never by label — and renders no
+ * Run figure when the Run is not current. Driven by the builder's output on served reads.
+ */
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+
+import currentRead from '../../hydrate/__tests__/fixtures/served-520aab46-cold.read.json'
+import staleRead from '../../hydrate/__tests__/fixtures/served-6b2b94dd-stale.read.json'
+import { fetchScenarioGraph } from '../../../adapters/cee/scenarioGraph'
+import { buildDecisionBrief } from '../buildDecisionBrief'
+import { decisionBriefToHtml } from '../decisionBriefHtml'
+import { DecisionBriefView } from '../DecisionBriefView'
+
+async function briefOf(body: unknown) {
+  vi.stubGlobal('fetch', vi.fn(async () => ({
+    ok: true, status: 200, headers: new Headers(), json: async () => JSON.parse(JSON.stringify(body)),
+  }) as unknown as Response))
+  const r = await fetchScenarioGraph('00000000-0000-4000-8000-000000000001', { retryDelayMs: 0 })
+  if (r.status !== 'graph') throw new Error(r.status)
+  return buildDecisionBrief(r)
+}
+
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
+
+describe('DecisionBriefView', () => {
+  it('pressing a driver shows THAT node: the handler receives the driver’s node id', async () => {
+    const brief = await briefOf(currentRead)
+    const onShowNode = vi.fn()
+    render(<DecisionBriefView brief={brief} onShowNode={onShowNode} />)
+
+    const drivers = screen.getAllByTestId('brief-driver')
+    expect(drivers.length).toBe(brief.drivers.length)
+    fireEvent.click(drivers[1])
+    expect(onShowNode).toHaveBeenCalledTimes(1)
+    expect(onShowNode).toHaveBeenCalledWith(brief.drivers[1].nodeId)
+    expect(drivers[1].getAttribute('data-node-id')).toBe(brief.drivers[1].nodeId)
+  })
+
+  it('pressing a withheld limit shows the limited factor', async () => {
+    const brief = await briefOf(currentRead)
+    const onShowNode = vi.fn()
+    render(<DecisionBriefView brief={brief} onShowNode={onShowNode} />)
+    const item = screen.getAllByTestId('brief-withheld-item').find((el) => el.textContent?.includes('Checked only against'))
+    expect(item).toBeDefined()
+    fireEvent.click(item!)
+    expect(onShowNode).toHaveBeenCalledWith('monthly_churn')
+  })
+
+  it('a stale Run renders its statement and no chances or drivers, in the panel and the print page', async () => {
+    const brief = await briefOf(staleRead)
+    render(<DecisionBriefView brief={brief} onShowNode={vi.fn()} />)
+    expect(screen.getByTestId('decision-brief').getAttribute('data-run-status')).toBe('not_current')
+    expect(screen.queryByTestId('brief-chances')).toBeNull()
+    expect(screen.queryByTestId('brief-drivers')).toBeNull()
+    expect(screen.getByTestId('decision-brief').textContent).not.toMatch(/of model runs/)
+    expect(decisionBriefToHtml(brief)).not.toMatch(/of model runs/)
+  })
+
+  it('the print page escapes model text', async () => {
+    const brief = await briefOf(currentRead)
+    const html = decisionBriefToHtml({ ...brief, decision: { nodeId: null, label: '<script>x</script>' } })
+    expect(html).not.toContain('<script>x</script>')
+    expect(html).toContain('&lt;script&gt;x&lt;/script&gt;')
+  })
+})

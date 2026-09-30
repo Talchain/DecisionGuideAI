@@ -7,6 +7,7 @@ import { KebabMenu } from './KebabMenu'
 import { ScenarioSwitcher } from '../../canvas/components/ScenarioSwitcher'
 import { SCENARIO_RENAME_REQUEST_EVENT } from '../../canvas/components/scenarioRenameEvent'
 import { VersionsTrigger } from '../../canvas/versions/VersionsTrigger'
+import { DecisionBriefTrigger } from '../../canvas/decisionBrief/DecisionBriefTrigger'
 import { ownerPanelHash } from '../../collab/panelRoute'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import { useUIStore } from '../../stores/uiStore'
@@ -392,6 +393,12 @@ export const TopBar = ({
             carries no positioning of its own — this row owns its layout. */}
         <Tooltip content="Version history — snapshots of the model you authored">
           <VersionsTrigger variant="icon" className={styles.iconButton} data-testid="topbar-versions-trigger" />
+        </Tooltip>
+
+        {/* DECISION BRIEF — the saved model and its latest Run as one shareable page (self-contained; renders
+            nothing for a scenario CEE cannot read). */}
+        <Tooltip content="Decision brief — the saved model and its latest Run, to print or share">
+          <DecisionBriefTrigger className={styles.iconButton} />
         </Tooltip>
 
         {/* Kebab menu */}
