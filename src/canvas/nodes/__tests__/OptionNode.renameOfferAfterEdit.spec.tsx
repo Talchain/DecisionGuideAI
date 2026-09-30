@@ -9,7 +9,6 @@ import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/re
 import { ReactFlowProvider } from '@xyflow/react'
 import type { ReactNode } from 'react'
 import { OptionNode } from '../OptionNode'
-import { OPTION_INTERVENTION_NEEDS_FRESH_BASE } from '../../ui/inspector-v2/shared/optionInterventionCopy'
 
 vi.mock('@xyflow/react', async () => ({ ...(await vi.importActual('@xyflow/react')), Handle: () => null }))
 vi.mock('../shared/NodePopover', () => ({ NodePopover: ({ children }: { children: ReactNode }) => <div>{children}</div> }))
