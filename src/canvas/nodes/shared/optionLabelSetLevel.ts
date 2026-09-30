@@ -17,7 +17,7 @@ import { CURRENCY_SYMBOLS } from '../../../utils/unitClassifier'
 const GLYPHS = [...CURRENCY_SYMBOLS].map((g) => g.replace(/[\\^$.*+?()[\]{}|-]/g, '\\$&')).join('')
 const CURRENCY_FIGURE = new RegExp(`([${GLYPHS}])\\s?(\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.(\\d+))?\\s?([kKmM])?(?![a-zA-Z])`, 'g')
 
-interface Figure { readonly currency: string; readonly value: number }
+interface Figure { readonly currency: string; readonly value: number; readonly text: string }
 
 function currencyFigures(text: string): Figure[] {
   const out: Figure[] = []
@@ -25,7 +25,7 @@ function currencyFigures(text: string): Figure[] {
     const whole = Number(m[2].replace(/,/g, ''))
     const frac = m[3] ? Number(`0.${m[3]}`) : 0
     const scale = m[4] ? (m[4].toLowerCase() === 'k' ? 1e3 : 1e6) : 1
-    out.push({ currency: m[1], value: Math.round((whole + frac) * scale * 100) / 100 })
+    out.push({ currency: m[1], value: Math.round((whole + frac) * scale * 100) / 100, text: m[0] })
   }
   return out
 }
@@ -38,4 +38,18 @@ export function optionLabelWithSetLevel(label: string, setReadings: readonly str
   const inLabel = currencyFigures(label).filter((f) => f.currency === level.currency)
   if (inLabel.length === 0 || inLabel.some((f) => f.value === level.value)) return label
   return `${label} (set to ${setReadings[0].trim()})`
+}
+
+/**
+ * The rename the edit's own confirmation may OFFER (AIQ 5908802422 §3: one press, the user's choice, the only way a
+ * label changes): the label with its ONE figure in the level's currency replaced by the level as the card reads it.
+ * Null unless unambiguous — exactly one such figure in the label ("Raise Pro from £49 to £59" names two: no offer).
+ */
+export function optionLabelRenamedToSetLevel(label: string, setReadings: readonly string[]): string | null {
+  if (optionLabelWithSetLevel(label, setReadings) === label) return null
+  const level = currencyFigures(setReadings[0])[0]
+  const inLabel = currencyFigures(label).filter((f) => f.currency === level.currency)
+  if (inLabel.length !== 1) return null
+  const i = label.indexOf(inLabel[0].text)
+  return i < 0 ? null : `${label.slice(0, i)}${level.text.trim()}${label.slice(i + inLabel[0].text.length)}`
 }
