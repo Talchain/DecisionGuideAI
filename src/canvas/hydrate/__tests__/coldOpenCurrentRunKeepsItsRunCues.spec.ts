@@ -32,7 +32,7 @@ beforeAll(async () => {
     analysisStateV1: null, analysisFreshness: null, analysisFreshnessDirty: false, results: { status: 'idle', progress: 0, report: null } } as never)
   outcome = await hydrateCanvasFromServer(SCN, { retryDelayMs: 0 })
 })
-afterAll(() => vi.unstubAllGlobals())
+afterAll(() => { vi.unstubAllGlobals() })
 
 function cues(factorId: string) {
   const { result } = renderHook(() => useFactorRunCues(factorId, useNodeDisplayMetadata(factorId, 'factor' as never)))
