@@ -150,11 +150,28 @@ describe('OR-02 / RHY-09 — the outcome card states its own state', () => {
     expect(classes(outcomeLine)).toContain('text-text-light')
   })
 
+  // ⛔ AIQ 5908482524 (serving hold on CEE #2351): an outcome's `observed_state` is where it stands TODAY. CEE #2351
+  // writes the cause's today level (1,500 subscribers) onto "Paying subscribers at 12 months"; a bare "1,500 subscribers"
+  // reads as the month-12 figure. The readout names it as today's.
+  it('RED: an outcome\'s recorded value reads as TODAY\'s level ("Today: 1,500 subscribers"), never as the outcome\'s own figure', () => {
+    renderOutcome({ label: 'Paying subscribers at 12 months', observedState: { value: 1500, raw_value: 1500, unit: 'subscribers', source: 'brief_extraction', extractionType: 'explicit' } })
+    const readout = screen.getByTestId('outcome-recorded-readout').textContent ?? ''
+    expect(readout.startsWith('Today: ')).toBe(true)
+    expect(readout).toContain('1,500')
+    expect(screen.getByTestId('outcome-recorded-today').textContent).toBe('Today: ')
+  })
+
+  it('CONTROL: an outcome with no recorded number shows no "Today:" line', () => {
+    renderOutcome()
+    expect(screen.queryByTestId('outcome-recorded-today')).toBeNull()
+    expect(screen.getByTestId('outcome-unquantified')).toBeTruthy()
+  })
+
   it('⛔ never renders over a number: a recorded value shows the value row with its source mark instead', () => {
     renderOutcome({ observedState: TWELVE_MONTHS_FROM_BRIEF })
     expect(screen.queryByTestId('outcome-unquantified')).toBeNull()
     const row = screen.getByTestId('outcome-recorded-value')
-    expect(screen.getByTestId('outcome-recorded-readout').textContent).toBe('12 months')
+    expect(screen.getByTestId('outcome-recorded-readout').textContent).toBe('Today: 12 months')
     const mark = screen.getByTestId('outcome-value-source-outcome-1')
     expect(row.contains(mark)).toBe(true)
     expect(mark.getAttribute('data-value-source')).toBe('brief')

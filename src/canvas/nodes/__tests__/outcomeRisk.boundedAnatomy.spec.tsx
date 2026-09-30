@@ -246,7 +246,8 @@ describe('the primary line is ONE visual line; a value leads and is never the th
     expect(Array.from(row.classList)).toEqual(expect.arrayContaining(['whitespace-nowrap', 'overflow-hidden']))
     expect(Array.from(row.classList)).not.toContain('flex-wrap')
     const readout = screen.getByTestId(readoutId)
-    expect(readout.textContent).toBe('12 months')
+    // An outcome's recorded number is its TODAY level (AIQ 5908482524); a risk's is its own size.
+    expect(readout.textContent).toBe(kind === 'outcome' ? 'Today: 12 months' : '12 months')
     expect(Array.from(readout.classList)).toContain('shrink-0')
     expect(Array.from(readout.classList)).not.toEqual(expect.arrayContaining(['truncate']))
     expect(Array.from(readout.classList)).not.toContain('text-ellipsis')
