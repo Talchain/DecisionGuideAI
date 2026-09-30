@@ -80,10 +80,10 @@ const screenToFlowPosition = vi.fn((pos: any) => pos)
  * `server_graph`. That is the property this list used to carry for them, pinned
  * where it can actually be varied — here it could only ever observe one state.
  */
+// ⚠ `Undo` / `Redo` LEFT THIS LIST at Undo S5 (30 Sep 2026): they are saved changes with a server writer now
+// (`undo/undoCommand.ts`), so they are neither retired nor local — see the ACTIONABLE case below.
 const RETIRED_LOCAL_ACTIONS = [
   'Paste',
-  'Undo',
-  'Redo',
   'Set value',
   'Mark as assumption',
   'Cut',
@@ -147,7 +147,7 @@ function expectConnectedAddsOffered(): void {
  * above; the check below now expects it ABSENT like every other id not in
  * this set.
  */
-const SURFACED_DISABLED_LABELS = new Set(['Undo', 'Redo', 'Cut', 'Duplicate'])
+const SURFACED_DISABLED_LABELS = new Set(['Cut', 'Duplicate'])
 
 /**
  * ⚠ SHAPE CHANGED 7 Sep 2026. This used to demand every retired label be
@@ -233,9 +233,11 @@ describe('CanvasContextMenu — shared-model authority', () => {
         screenToFlowPosition={screenToFlowPosition}
       />,
     )
+    // ⚠ RE-PINNED at Undo S5: Undo was this case's example of a disabled row. It is ACTIONABLE now (a saved-change
+    // restore), so it carries no "not available" reason; the reason-rendering property stays pinned on Auto-arrange.
     const undoRow = screen.getByText('Undo').closest('button')
-    expect(undoRow).toHaveAttribute('aria-disabled', 'true')
-    expect(undoRow?.textContent).toContain('not available here')
+    expect(undoRow).not.toHaveAttribute('aria-disabled', 'true')
+    expect(undoRow?.textContent).not.toContain('not available here')
 
     // And the pre-existing reason that was being computed and swallowed.
     const arrangeRow = screen.getByText('Auto-arrange').closest('button')

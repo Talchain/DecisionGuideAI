@@ -128,8 +128,13 @@ describe('pane menu', () => {
     // Taking either side wholesale loses the other: #1304 alone re-hides the
     // door, #1538 alone restores the silence.
     expect(ids).toContain('add-node')
-    for (const id of ['paste', 'undo', 'redo']) {
+    for (const id of ['paste']) {
       expect(findItem(result.current, id)?.enabled ?? false, `${id} actionable`).toBe(false)
+    }
+    // ⚠ RE-PINNED at Undo S5 (30 Sep 2026): undo/redo are SAVED changes now (a version restore that answers its own
+    // refusals, `undo/undoCommand.ts`), so the rows are ACTIONABLE — they have a server writer, never the blanket key.
+    for (const id of ['undo', 'redo']) {
+      expect(findItem(result.current, id)?.enabled, `${id} actionable`).toBe(true)
     }
   })
 
