@@ -79,6 +79,9 @@ function recordsAnyNumber(data: Record<string, unknown> | undefined): boolean {
   return false
 }
 
+/** An outcome's recorded number is its TODAY level (`observed_state`), never the outcome's result. */
+export const OUTCOME_TODAY_PREFIX = 'Today: '
+
 export const OutcomeNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.outcome
   /**
@@ -396,7 +399,9 @@ export const OutcomeNode = memo((props: NodeProps) => {
             data-testid="outcome-recorded-value"
             {...(isDetailed ? {} : { 'data-card-primary-line': 'outcome' })}
           >
-            <span className="shrink-0" data-testid="outcome-recorded-readout">{recordedValue}</span>
+            {/* ⛔ AIQ 5908482524: `observed_state` is where the outcome stands TODAY (CEE #2351 writes the cause's today
+                level onto "…at 12 months"), so it is named as today's — a bare figure reads as the outcome's own result. */}
+            <span className="shrink-0" data-testid="outcome-recorded-readout"><span data-testid="outcome-recorded-today">{OUTCOME_TODAY_PREFIX}</span>{recordedValue}</span>
             {recordedValueMark && (
               <ValueSourceMark mark={recordedValueMark} testId={`outcome-value-source-${props.id}`} onOpenSource={() => { openNodeInspector(props.id) }} />
             )}
