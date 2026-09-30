@@ -78,6 +78,8 @@ export function readProvisionalApplyStore(): ScenarioAnalysisApplyStore {
     currentResultsHash: s.results?.hash ?? null,
     // B5 on the read leg: the verdicts beside the analysis this leg displays, stamped as the turn leg stamps them.
     setLimitVerdicts: s.setLimitVerdicts,
+    // SC-24 on the read leg: the pair's comparison beside the analysis this leg displays, stamped as the turn leg does.
+    setRunDelta: s.setRunDelta,
     currentScenarioId: s.currentScenarioId,
     // ⭐ THE WITHHOLDING THE APPLIER STAMPS AFTER ITS RESULTS WRITE (row 9 served FAIL, 30 Sep: R3's bc9640d4 cold-opened
     // with `leader_claim.permitted: false` and cards reading "best in 49% / 51%"). Absent here, the applier's `?.` call

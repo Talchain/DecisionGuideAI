@@ -199,7 +199,8 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
     if (!runDeltaDescribesDisplayedAnalysis(storedRunDelta, responseHash, currentScenarioId)) return null
     // Labels come from the SAME node map the rest of this surface uses, so the
     // section cannot call an option something the tab above it does not.
-    return buildRunDeltaView(storedRunDelta!.delta, (id) => nodeLabels.get(id) ?? null)
+    const label = (id: string) => nodeLabels.get(id) ?? null
+    return buildRunDeltaView(storedRunDelta!.delta, label, label)
   }, [storedRunDelta, responseHash, currentScenarioId, nodeLabels])
 
   /**

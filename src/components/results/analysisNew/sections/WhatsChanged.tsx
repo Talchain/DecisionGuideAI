@@ -20,9 +20,11 @@
  * file chooses words and renders them.
  */
 
+import { useState } from 'react'
 import { typography } from '../../../../styles/typography'
-import { surface } from '../panelSurfaces'
-import type { NoiseVerdict, RunDeltaMovement, RunDeltaView } from '../runDeltaView'
+import { action, surface } from '../panelSurfaces'
+import { INPUT_ROWS_SHOWN_FIRST } from '../runDeltaView'
+import type { NoiseVerdict, RunDeltaInputRow, RunDeltaInputsView, RunDeltaMovement, RunDeltaView } from '../runDeltaView'
 import { useCanvasStore } from '../../../../canvas/store'
 import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../../../canvas/state/winShareGate'
 
@@ -91,6 +93,64 @@ function MovementLine({ m, sharedQualifier }: { m: RunDeltaMovement; sharedQuali
   )
 }
 
+/** One input row: "Pro price, Raise to £60: £59 → £60". Words only — the values are the producer's. */
+function inputRowText(row: RunDeltaInputRow): string {
+  if (row.change === 'changed') return `${row.subject}: ${row.before} → ${row.after}`
+  if (row.kind === 'option') return row.change === 'added' ? `${row.subject} joined the comparison` : `${row.subject} left the comparison`
+  // AIQ #75 5918248701: a link added or removed is structure, not a value — say so, never "now on" / "now not set".
+  if (row.kind === 'link') return row.change === 'added' ? `${row.subject} added to the model` : `${row.subject} removed from the model`
+  if (row.change === 'added') return `${row.subject}: now ${row.after}`
+  return `${row.subject}: ${row.before}, now not set`
+}
+
+function InputChanges({ inputs }: { inputs: RunDeltaInputsView | null }): JSX.Element | null {
+  const [expanded, setExpanded] = useState(false)
+  if (inputs === null) return null
+  if (inputs.coverage === 'not_recorded') {
+    return (
+      <p className={`${typography.panelMeta} text-text-light mt-2 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-inputs-not-recorded`}>
+        The earlier run did not record its inputs, so only the result is compared here.
+      </p>
+    )
+  }
+  if (inputs.rows.length === 0) {
+    return (
+      <p className={`${typography.panelMeta} text-text-light mt-2 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-inputs-unchanged`}>
+        Both runs used the same inputs.
+      </p>
+    )
+  }
+  const shown = expanded ? inputs.rows : inputs.rows.slice(0, INPUT_ROWS_SHOWN_FIRST)
+  return (
+    <div className="mt-3" data-testid={`${WHATS_CHANGED_TESTID}-inputs`} data-coverage={inputs.coverage}>
+      <p className={`${typography.panelMeta} text-text-light m-0`} data-testid={`${WHATS_CHANGED_TESTID}-inputs-heading`}>Changed between the two runs</p>
+      <ul className="list-none p-0 mt-1 mb-0 space-y-1">
+        {shown.map((row) => (
+          <li key={row.key} className={`${typography.panelBody} text-text m-0`} data-testid={`${WHATS_CHANGED_TESTID}-input-row`} data-kind={row.kind} data-change={row.change}>
+            {inputRowText(row)}
+          </li>
+        ))}
+      </ul>
+      {inputs.rows.length > INPUT_ROWS_SHOWN_FIRST ? (
+        <button
+          type="button"
+          className={`${typography.panelMeta} ${action('inline')} mt-1`}
+          data-testid={`${WHATS_CHANGED_TESTID}-inputs-toggle`}
+          aria-expanded={expanded}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? 'Show fewer' : `See all ${inputs.rows.length} changes`}
+        </button>
+      ) : null}
+      {inputs.coverage === 'partial' ? (
+        <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-inputs-partial`}>
+          Some inputs could not be compared between these two runs.
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Element | null {
   // ⭐⭐ WIN SHARES FOLLOW THE LEADER CLAIM (CURRENT-READ-v1 row 9; AIQ #75 5912710392). Every movement line is one
   // option's WIN SHARE, prior → current (or its direction). When the producer withheld the leader (any reason) a
@@ -108,6 +168,7 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
   const verdicts = new Set(view.movements.map((m) => m.noiseVerdict))
   const shared =
     view.movements.length >= 2 && verdicts.size === 1 ? noiseQualifier(view.movements[0].noiseVerdict) : null
+  const inputsLead = (winSharesAreWithheld || view.movementsUnavailable) && (view.inputs?.rows.length ?? 0) > 0
 
   return (
     <section
@@ -137,21 +198,18 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
         What&rsquo;s changed
       </h3>
 
-      <p
-        className={`${typography.panelBody} text-text mt-2 mb-0`}
-        data-testid={`${WHATS_CHANGED_TESTID}-comparability`}
-      >
-        {view.comparability}
-      </p>
-
-      {view.attributionLimit ? (
-        <p
-          className={`${typography.panelBody} text-text mt-1 mb-0`}
-          data-testid={`${WHATS_CHANGED_TESTID}-attribution-limit`}
-        >
-          {view.attributionLimit}
+      {view.comparedWith ? (
+        <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-compared-with`}>
+          {view.comparedWith}
         </p>
       ) : null}
+
+      {/*
+        SC-24: WHAT CHANGED IN THE INPUTS — after the outcome, before the limit (result first, ChatGPT 5914416431).
+        When no outcome can be shown (win shares withheld, or no option matched across the pair), the input rows lead
+        instead, so the section never invents a result.
+      */}
+      {inputsLead ? <InputChanges inputs={view.inputs} /> : null}
 
       {winSharesAreWithheld ? (
         // Row 9: no per-option share change — the reason line in its place.
@@ -235,6 +293,23 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
               {noiseQualifier(view.leader.noiseVerdict)}
             </span>
           ) : null}
+        </p>
+      ) : null}
+      {inputsLead ? null : <InputChanges inputs={view.inputs} />}
+
+      <p
+        className={`${typography.panelBody} text-text mt-2 mb-0`}
+        data-testid={`${WHATS_CHANGED_TESTID}-comparability`}
+      >
+        {view.comparability}
+      </p>
+
+      {view.attributionLimit ? (
+        <p
+          className={`${typography.panelBody} text-text mt-1 mb-0`}
+          data-testid={`${WHATS_CHANGED_TESTID}-attribution-limit`}
+        >
+          {view.attributionLimit}
         </p>
       ) : null}
     </section>

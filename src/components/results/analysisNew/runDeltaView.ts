@@ -66,7 +66,8 @@
  * change", which the contract explicitly sanctions.
  */
 
-import type { RunDelta } from '@talchain/schemas/boundary'
+import type { RunDelta, RunDeltaInputChange } from '@talchain/schemas/boundary'
+import { formatRawValueWithUnit } from '../../../canvas/utils/labelUtils'
 
 export type NoiseVerdict = 'signal' | 'within_noise' | 'not_noise_qualified'
 
@@ -130,7 +131,35 @@ export interface RunDeltaView {
    * `changed: false` renders nothing, and `mayName: false` withholds the names.
    */
   readonly leader: RunDeltaLeaderLine
+  /**
+   * SC-24 (schemas 0.68.0) — WHAT DIFFERED IN THE INPUTS, independent of `attributable`. Producer-built rows in the
+   * producer's order; `null` when the producer sent no input comparison (a pre-SC-24 delta).
+   */
+  readonly inputs: RunDeltaInputsView | null
+  /** "Compared with the earlier run at 14:02" — the EARLIER Run named as earlier (AIQ 5915390400 gate 3). */
+  readonly comparedWith: string | null
 }
+
+/** One exact input difference, as sentence parts. Nothing here is computed: before/after are the producer's values. */
+export interface RunDeltaInputRow {
+  readonly key: string
+  readonly kind: RunDeltaInputChange['entity_kind']
+  /** What the input is, in this surface's words ("Pro price, Raise to £60"). */
+  readonly subject: string
+  /** The producer's before → after, formatted; `null` on the side where the input did not exist. */
+  readonly before: string | null
+  readonly after: string | null
+  readonly change: RunDeltaInputChange['change']
+}
+
+export interface RunDeltaInputsView {
+  /** `complete` / `partial` carry rows; `not_recorded` carries none and says so. */
+  readonly coverage: NonNullable<RunDelta['input_coverage']>
+  readonly rows: readonly RunDeltaInputRow[]
+}
+
+/** The rows shown before "See all N changes" (ChatGPT 5914416431: up to two, then the producer's total). */
+export const INPUT_ROWS_SHOWN_FIRST = 2
 
 /**
  * PART A, by identity. The case enum is "the ONLY input the sentence builder may
@@ -164,6 +193,10 @@ const COMPARABILITY: Record<RunDelta['attribution_case'], string> = {
     'The way this analysis was worked out changed between the two.',
   C4_budget_drift:
     'This analysis and the previous one were worked out to different levels of precision.',
+  // SC-24 (0.68.0): the pair exists but the table names no case for it — the engine builds could not be confirmed
+  // equal. It is a refusal to attribute, like C2–C4; the input rows below still say what the user changed.
+  C5_unattributed:
+    'Whether this analysis and the previous one were worked out the same way cannot be confirmed.',
 }
 
 /**
@@ -214,6 +247,57 @@ const ATTRIBUTION_LIMIT: Record<RunDelta['attribution_case'], string | null> = {
   C2_unpaired: CANNOT_ESTABLISH,
   C3_engine_drift: CANNOT_ESTABLISH,
   C4_budget_drift: CANNOT_ESTABLISH,
+  C5_unattributed: CANNOT_ESTABLISH,
+}
+
+/** A producer value, formatted for display. Numbers take the one raw-value formatter; nothing is converted. */
+function formatInputValue(v: { raw: number | string | boolean; unit?: string } | null): string | null {
+  if (v === null) return null
+  if (typeof v.raw === 'number') return formatRawValueWithUnit(v.raw, v.unit ?? null)
+  if (typeof v.raw === 'boolean') return v.raw ? 'on' : 'off'
+  return v.unit ? `${v.raw} ${v.unit}` : v.raw
+}
+
+const GOAL_FIELD_WORDS: Record<string, string> = {
+  target: 'Goal target',
+  unit: 'Goal unit',
+  operator: 'Goal comparison',
+  direction: 'Goal direction',
+}
+
+function inputSubject(
+  row: RunDeltaInputChange,
+  labelFor: (optionId: string) => string | null,
+  nodeLabelFor: (nodeId: string) => string | null,
+): string {
+  const own = row.label_after ?? row.label_before ?? nodeLabelFor(row.entity_id)
+  switch (row.entity_kind) {
+    case 'option_setting': {
+      const option = (row.option_id !== undefined ? labelFor(row.option_id) : null) ?? 'an option'
+      return `${own ?? 'A factor'}, ${option}`
+    }
+    case 'option':
+      return own ?? labelFor(row.entity_id) ?? 'An option'
+    case 'goal':
+      return row.field === 'presence' ? (own ?? 'The goal') : (GOAL_FIELD_WORDS[row.field] ?? 'The goal')
+    case 'constraint':
+      return `${own ?? 'A limit'}${row.field === 'operator' ? ' (comparison)' : ''}`
+    case 'link': {
+      const from = row.link ? nodeLabelFor(row.link.from) : null
+      const to = row.link ? nodeLabelFor(row.link.to) : null
+      return from && to ? `Link from ${from} to ${to}` : 'A link'
+    }
+    default:
+      return own ?? 'An input'
+  }
+}
+
+/** "14:02" in the viewer's clock, or null when the producer sent no time. */
+function clockOf(iso: string | undefined): string | null {
+  if (iso === undefined) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 }
 
 function directionOf(prior: number, current: number): MovementDirection {
@@ -232,6 +316,7 @@ function directionOf(prior: number, current: number): MovementDirection {
 export function buildRunDeltaView(
   delta: RunDelta,
   labelFor: (optionId: string) => string | null,
+  nodeLabelFor: (nodeId: string) => string | null = () => null,
 ): RunDeltaView {
   const attributable = delta.attribution_case === 'C1_attributable'
 
@@ -268,5 +353,23 @@ export function buildRunDeltaView(
       priorLabel: mayName ? labelFor(priorId as string) : null,
       currentLabel: mayName ? labelFor(currentId as string) : null,
     },
+    inputs:
+      delta.input_coverage === undefined
+        ? null
+        : {
+            coverage: delta.input_coverage,
+            rows: (delta.input_changes ?? []).map((row, i) => ({
+              key: `${row.entity_kind}:${row.entity_id}:${row.option_id ?? ''}:${row.field}:${i}`,
+              kind: row.entity_kind,
+              subject: inputSubject(row, labelFor, nodeLabelFor),
+              before: formatInputValue(row.before),
+              after: formatInputValue(row.after),
+              change: row.change,
+            })),
+          },
+    comparedWith: (() => {
+      const at = clockOf(delta.endpoints?.prior.computed_at)
+      return at !== null ? `Compared with the earlier run at ${at}.` : null
+    })(),
   }
 }
