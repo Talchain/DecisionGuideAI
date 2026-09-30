@@ -14,6 +14,7 @@ import { getModelContext } from './modelContext'
 import { probeTools } from './probeTools'
 import { olumiTools, proposalTools, PROPOSAL_TOOLS_LIVE, type ConversationBridge } from './olumiTools'
 import { registerOnce } from './registry'
+import { adoptScenarioFromUrl } from './scenarioFromUrl'
 
 export function WebMcpHost(): null {
   const conversation = useOptionalConversationContext()
@@ -23,6 +24,7 @@ export function WebMcpHost(): null {
 
   useEffect(() => {
     if (!isWebMcpEnabled()) return undefined
+    if (adoptScenarioFromUrl()) return undefined
     const mc = getModelContext()
     if (mc === null) {
       console.info('[webmcp] document.modelContext unavailable; no tools registered')
