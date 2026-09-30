@@ -493,6 +493,14 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_ENABLE_DEV_ROUTES',
     storageKey: 'feature.devRoutes',
   },
+  // EXPERIMENT ONLY — branch experiment/webmcp-investor-demo, never merged
+  // (olumi-programme-docs#76). Registers Olumi site tools on
+  // document.modelContext for ChatGPT Desktop. Default OFF everywhere.
+  webmcp: {
+    envKey: 'VITE_FEATURE_WEBMCP',
+    storageKey: 'feature.webmcp',
+    defaultValue: false,
+  },
 } as const
 
 // ============================================================================
@@ -566,6 +574,7 @@ const flags = {
   decisionOverview: makeFlag(FLAGS_CONFIG.decisionOverview),
   strengthenPanel: makeFlag(FLAGS_CONFIG.strengthenPanel),
   devRoutes: makeFlag(FLAGS_CONFIG.devRoutes),
+  webmcp: makeFlag(FLAGS_CONFIG.webmcp),
 }
 
 // Export with original naming convention for backward compatibility
@@ -637,6 +646,7 @@ export const isRequireLoginEnabled = flags.requireLogin
 export const isDecisionOverviewEnabled = flags.decisionOverview
 export const isStrengthenPanelEnabled = flags.strengthenPanel
 export const isDevRoutesEnabled = flags.devRoutes
+export const isWebMcpEnabled = flags.webmcp
 
 
 // ============================================================================

@@ -223,6 +223,353 @@
   VITE_FEATURE_PRE_ANALYSIS_V3 = "1"
 
 # =============================================================================
+# EXPERIMENT ONLY — branch experiment/webmcp-investor-demo (olumi-programme-docs#76).
+# NEVER MERGE. The two tables below are verbatim copies of the staging
+# environment table plus the WebMCP flag, so the experiment's deploy preview /
+# branch deploy renders the same product as staging. This file is per-commit:
+# these tables only affect builds of this branch.
+# =============================================================================
+[context.deploy-preview.environment]
+  # Supabase publishable (anon-class) key — PUBLIC BY DESIGN (Supabase: "can be
+  # safely shared publicly"). Set here 4 Aug 2026 after the project's key family
+  # was revoked (Supabase secret-scanning enforcement; ROADMAP 2.471): the
+  # dashboard-set VITE_SUPABASE_ANON_KEY went stale, and this file is the
+  # config-as-source-of-truth surface for staging builds (Codex B4 precedent).
+  # The SECRET key never goes in any repo file.
+  VITE_SUPABASE_ANON_KEY = "sb_publishable_Bhx6ZBWU7aLGmTfEedg60g_O5P1SQ-T"
+  # aiPanelV2 — floating-first Olumi UX (PR #148 + PR #149).
+  # Enabled on staging for manual testing. Promote to production by
+  # adding to `[build.environment]` ONLY after sign-off.
+  VITE_FEATURE_AI_PANEL_V2 = "true"
+
+  # ⭐ GRAPH LENS — six post-analysis canvas modes, built and never reachable.
+  #
+  # `graphLens` has an `envKey` and a `storageKey` and NO `defaultValue`
+  # (src/flags.ts, FLAGS_CONFIG.graphLens), and this key was absent from this
+  # file — so `isGraphLensEnabled()` has resolved false on every staging build
+  # since the feature landed. Ten production call sites read it; the contrast
+  # control in the same sweep is `isAiPanelV2Enabled` (15 sites, key set on the
+  # line above), so the absence was in the POSTURE, not in the probe.
+  #
+  # What was dark, precisely:
+  #   · LensDropdown's six modes — "Causal graph / Pure causal structure",
+  #     "Evidence quality / What's grounded vs assumed", "Robustness / Where the
+  #     result is vulnerable", plus Sensitivity, fragile-edge isolation and
+  #     per-option path isolation (components/LensDropdown.tsx).
+  #   · StyledEdge.tsx:208-216 — `if (!lensEnabled)` forces `lensMode: 'full'`
+  #     and NULLS `causalEdgeParams`. That is the `+0.50 (80%)` edge label, i.e.
+  #     signed strength and existence confidence per relationship. It was
+  #     described as "a mode the user must find"; it had no door at all.
+  #   · BaseNode.tsx:248-258 — lens dimming and the app's ONLY node-hiding path.
+  #   · The `L` shortcut and ←/→ option cycling (useCanvasKeyboardShortcuts).
+  #   · Two node-menu items: "Isolate this option's paths", "Show all fragile
+  #     edges" (contextMenu/useMenuItems.ts:771, :911).
+  #
+  # ⚠ STAGING ONLY, DELIBERATELY. This sits in the staging context, not
+  # `[build.environment]`, so production does not inherit it — the same
+  # promote-after-sign-off rule the aiPanelV2 comment above states. The flag has
+  # never been exercised in a served posture, and LensDropdown disables three of
+  # the six on `!hasResults`, so it wants a real journey before promotion.
+  VITE_FEATURE_GRAPH_LENS = "true"
+
+  # Debug panel + payload-trace-store env gate (PR #156 follow-up).
+  # `VITE_APP_ENV=staging` makes:
+  #   1. `<DebugPanel />` (mounted in AppPoC) eligible when the user
+  #      adds `?diag` / `?diag=1` to the URL OR sets
+  #      `window.__OLUMI_DEBUG = true` in the console. `<DebugPanel />`
+  #      refuses to render unless `VITE_APP_ENV ∈ {staging, development}`
+  #      — see `src/components/DebugPanel.tsx :: shouldShowDebugPanel`.
+  #   2. The payload-trace-store env gate (PR #152, PR #156) report
+  #      `payload_inspection_status.enabled === true` with reason
+  #      `app_env_staging_enabled` — see
+  #      `src/lib/payload-trace-store.ts :: determinePayloadInspectionStatus`.
+  # Production (main) does NOT inherit this; the trace-store gate stays
+  # closed by default and the debug panel refuses to render.
+  VITE_APP_ENV = "staging"
+
+  # (retired) VITE_FEATURE_ANALYSIS_HERO_PANEL — the analysis-hero fork is
+  # closed: AnalysisHeroContainer now mounts unconditionally in ResultsBody,
+  # so the gate has no readers and the env key is no longer declared.
+  # See PX-C analysis-cockpit consolidation.
+
+  # Analysis-tab rebuild Wave 1 (Decision overview + Actions menu). Paul
+  # enabled this via the Netlify UI on 2026-07-12 and accepted the surface
+  # live; recorded here so the repo config matches deployed reality (Codex
+  # B4: config-as-source-of-truth). Promote to production by adding to
+  # [build.environment] ONLY after sign-off.
+  VITE_FEATURE_DECISION_OVERVIEW = "1"
+
+  # Analysis-tab rebuild Wave 3 (Strengthen your model — adaptive coaching
+  # recommendations). The parity audit found the surface fully merged but
+  # DARK on staging because this promotion was missed at merge time. Promote
+  # to production by adding to [build.environment] ONLY after sign-off.
+  VITE_FEATURE_STRENGTHEN_PANEL = "1"
+
+  # Front door (real sign-in) — keep the REAL Supabase SDK in the staging
+  # bundle. Without this, vite.config.ts aliases @supabase/supabase-js to
+  # src/stubs/supabase-stub.mjs on every guest build, and that stub implements
+  # NO sign-in method at all — signInWithOtp, signInWithOAuth and
+  # signInWithPassword are all absent — so sign-in cannot work no matter what
+  # the requireLogin flag says (the runbook in src/flags.ts `requireLogin`
+  # documents exactly this trap).
+  #
+  # ⚠ This sentence was FALSE for the password route until #667 round 2: the
+  # stub did carry `signInWithPassword` and answered `{ error: null }`, i.e.
+  # production would have reported a successful sign-in it never performed.
+  # Fixed in the stub, and pinned by AuthContext.optionalAuth.spec.tsx.
+  #
+  # This does NOT turn guest mode off: VITE_AUTH_MODE stays "guest", so
+  # unauthenticated visitors still land on the guest canvas exactly as today
+  # and the other workstreams' staging QA is unaffected. It only makes real
+  # sign-in POSSIBLE for anyone who opts in per-browser with
+  # `localStorage.setItem('feature.requireLogin', '1')`.
+  #
+  # Staging-scoped deliberately — production (main) inherits only from
+  # [build.environment] and keeps the stub. Promote to [build.environment]
+  # ONLY after sign-off.
+  VITE_STUB_SUPABASE = "0"
+
+  # Hero fixture gallery — internal-only /dev/hero-gallery route rendering
+  # prototype hero states from typed fixtures (visible internal-preview
+  # banner on every instance). Staging-only for design review; never add to
+  # `[build.environment]`. See src/flags.ts `heroFixtureGallery`.
+  VITE_FEATURE_HERO_FIXTURE_GALLERY = "1"
+
+  # Internal dev routes — /#/dev/* (hero gallery, reasoning prototype).
+  # ⭐ STAGING ONLY, AND IT IS THE GATE THAT WAS ACTUALLY CLOSED. The hero
+  # gallery flag above is necessary but NOT sufficient: since tester-safe
+  # routing, every /dev/* path sits behind `devRoutes` at the ROUTE
+  # (src/poc/AppPoC.tsx) as well as behind its own flag inside the component.
+  # With this unset, /#/dev/reasoning-prototype REDIRECTS to "/" — which lands
+  # on the sign-in page and reads as "you must sign in", though the route needs
+  # no auth at all (measured 17 Sep: rendered with zero auth keys in storage).
+  # Setting it here replaces a localStorage incantation nobody should have to
+  # remember with a link that simply opens.
+  # ⛔ NEVER ADD TO `[build.environment]` — production and deploy previews must
+  # stay off, exactly as the hero gallery above.
+  VITE_ENABLE_DEV_ROUTES = "1"
+
+  # ---------------------------------------------------------------------------
+  # Dashboard-set flags recorded 2026-07-28 (ROADMAP 2.107).
+  #
+  # These three were set through the NETLIFY DASHBOARD and appeared nowhere in
+  # this file, while all three default OFF in src/flags.ts. Any lane reading
+  # flags.ts or netlify.toml to decide what a staging tester sees therefore got
+  # the wrong answer, and the flag-off code paths looked DEAD when they were
+  # LIVE — that mis-scoped two dispatches on 2026-07-28.
+  #
+  # The values below are TRANSCRIBED FROM THE SERVED BUNDLE, not assumed:
+  # staging--olumi.netlify.app/assets/flags-BOFkajto.js (deploy of tip
+  # c86da6a4), which carries Vite's baked `import.meta.env` literal. They are
+  # byte-identical to what is already deployed, so recording them changes no
+  # behaviour — it only stops the repo lying about it.
+  #
+  # ⚠ Recording a flag here does NOT make this file authoritative. Dashboard
+  # variables still override it and remain invisible to this repo. Derive the
+  # truth instead of trusting these lines: `pnpm flags:check`.
+  # (tools/ci-guards/flag-deployment-drift.mjs — reads the deployed bundle.)
+  #
+  # That check found 13 dashboard-set divergences on 2026-07-28, not 3. The
+  # other 10 are deliberately NOT transcribed here: hand-copying them would
+  # rebuild the mirror this work exists to retire. Run `pnpm flags:check` for
+  # the current derived list.
+  #
+  # Promote any of these to production by adding to [build.environment] ONLY
+  # after sign-off.
+  # ---------------------------------------------------------------------------
+
+  # V5 canonical analysis path — routes every user-visible analysis trigger
+  # through the V5 chip-action dispatch so CEE persists a run_analysis fact.
+  # See src/flags.ts `v5CanonicalAnalysis`.
+  VITE_V5_CANONICAL_ANALYSIS = "true"
+
+  # Compare tab — renders live on staging today. See src/flags.ts `compareTab`.
+  VITE_FEATURE_COMPARE_TAB = "1"
+
+  # Pre-analysis v3 — `pre-analysis-v3-analyse` is the live pre-run CTA on
+  # staging today. See src/flags.ts `preAnalysisV3`.
+  VITE_FEATURE_PRE_ANALYSIS_V3 = "1"
+
+
+  # ── EXPERIMENT ONLY (#76) — values staging gets from the Netlify dashboard,
+  # set here because branch/preview contexts do not inherit them. All public:
+  # the V5 endpoint URL and the Supabase project URL (both already shipped in
+  # the staging bundle). No secret belongs in this file.
+  VITE_V5_ENDPOINT = "https://cee-staging.onrender.com/proxy/v5/turn"
+  VITE_SUPABASE_URL = "https://etmmuzwxtcjipwphdola.supabase.co"
+  VITE_FEATURE_WEBMCP = "1"
+
+[context."experiment/webmcp-investor-demo".environment]
+  # Supabase publishable (anon-class) key — PUBLIC BY DESIGN (Supabase: "can be
+  # safely shared publicly"). Set here 4 Aug 2026 after the project's key family
+  # was revoked (Supabase secret-scanning enforcement; ROADMAP 2.471): the
+  # dashboard-set VITE_SUPABASE_ANON_KEY went stale, and this file is the
+  # config-as-source-of-truth surface for staging builds (Codex B4 precedent).
+  # The SECRET key never goes in any repo file.
+  VITE_SUPABASE_ANON_KEY = "sb_publishable_Bhx6ZBWU7aLGmTfEedg60g_O5P1SQ-T"
+  # aiPanelV2 — floating-first Olumi UX (PR #148 + PR #149).
+  # Enabled on staging for manual testing. Promote to production by
+  # adding to `[build.environment]` ONLY after sign-off.
+  VITE_FEATURE_AI_PANEL_V2 = "true"
+
+  # ⭐ GRAPH LENS — six post-analysis canvas modes, built and never reachable.
+  #
+  # `graphLens` has an `envKey` and a `storageKey` and NO `defaultValue`
+  # (src/flags.ts, FLAGS_CONFIG.graphLens), and this key was absent from this
+  # file — so `isGraphLensEnabled()` has resolved false on every staging build
+  # since the feature landed. Ten production call sites read it; the contrast
+  # control in the same sweep is `isAiPanelV2Enabled` (15 sites, key set on the
+  # line above), so the absence was in the POSTURE, not in the probe.
+  #
+  # What was dark, precisely:
+  #   · LensDropdown's six modes — "Causal graph / Pure causal structure",
+  #     "Evidence quality / What's grounded vs assumed", "Robustness / Where the
+  #     result is vulnerable", plus Sensitivity, fragile-edge isolation and
+  #     per-option path isolation (components/LensDropdown.tsx).
+  #   · StyledEdge.tsx:208-216 — `if (!lensEnabled)` forces `lensMode: 'full'`
+  #     and NULLS `causalEdgeParams`. That is the `+0.50 (80%)` edge label, i.e.
+  #     signed strength and existence confidence per relationship. It was
+  #     described as "a mode the user must find"; it had no door at all.
+  #   · BaseNode.tsx:248-258 — lens dimming and the app's ONLY node-hiding path.
+  #   · The `L` shortcut and ←/→ option cycling (useCanvasKeyboardShortcuts).
+  #   · Two node-menu items: "Isolate this option's paths", "Show all fragile
+  #     edges" (contextMenu/useMenuItems.ts:771, :911).
+  #
+  # ⚠ STAGING ONLY, DELIBERATELY. This sits in the staging context, not
+  # `[build.environment]`, so production does not inherit it — the same
+  # promote-after-sign-off rule the aiPanelV2 comment above states. The flag has
+  # never been exercised in a served posture, and LensDropdown disables three of
+  # the six on `!hasResults`, so it wants a real journey before promotion.
+  VITE_FEATURE_GRAPH_LENS = "true"
+
+  # Debug panel + payload-trace-store env gate (PR #156 follow-up).
+  # `VITE_APP_ENV=staging` makes:
+  #   1. `<DebugPanel />` (mounted in AppPoC) eligible when the user
+  #      adds `?diag` / `?diag=1` to the URL OR sets
+  #      `window.__OLUMI_DEBUG = true` in the console. `<DebugPanel />`
+  #      refuses to render unless `VITE_APP_ENV ∈ {staging, development}`
+  #      — see `src/components/DebugPanel.tsx :: shouldShowDebugPanel`.
+  #   2. The payload-trace-store env gate (PR #152, PR #156) report
+  #      `payload_inspection_status.enabled === true` with reason
+  #      `app_env_staging_enabled` — see
+  #      `src/lib/payload-trace-store.ts :: determinePayloadInspectionStatus`.
+  # Production (main) does NOT inherit this; the trace-store gate stays
+  # closed by default and the debug panel refuses to render.
+  VITE_APP_ENV = "staging"
+
+  # (retired) VITE_FEATURE_ANALYSIS_HERO_PANEL — the analysis-hero fork is
+  # closed: AnalysisHeroContainer now mounts unconditionally in ResultsBody,
+  # so the gate has no readers and the env key is no longer declared.
+  # See PX-C analysis-cockpit consolidation.
+
+  # Analysis-tab rebuild Wave 1 (Decision overview + Actions menu). Paul
+  # enabled this via the Netlify UI on 2026-07-12 and accepted the surface
+  # live; recorded here so the repo config matches deployed reality (Codex
+  # B4: config-as-source-of-truth). Promote to production by adding to
+  # [build.environment] ONLY after sign-off.
+  VITE_FEATURE_DECISION_OVERVIEW = "1"
+
+  # Analysis-tab rebuild Wave 3 (Strengthen your model — adaptive coaching
+  # recommendations). The parity audit found the surface fully merged but
+  # DARK on staging because this promotion was missed at merge time. Promote
+  # to production by adding to [build.environment] ONLY after sign-off.
+  VITE_FEATURE_STRENGTHEN_PANEL = "1"
+
+  # Front door (real sign-in) — keep the REAL Supabase SDK in the staging
+  # bundle. Without this, vite.config.ts aliases @supabase/supabase-js to
+  # src/stubs/supabase-stub.mjs on every guest build, and that stub implements
+  # NO sign-in method at all — signInWithOtp, signInWithOAuth and
+  # signInWithPassword are all absent — so sign-in cannot work no matter what
+  # the requireLogin flag says (the runbook in src/flags.ts `requireLogin`
+  # documents exactly this trap).
+  #
+  # ⚠ This sentence was FALSE for the password route until #667 round 2: the
+  # stub did carry `signInWithPassword` and answered `{ error: null }`, i.e.
+  # production would have reported a successful sign-in it never performed.
+  # Fixed in the stub, and pinned by AuthContext.optionalAuth.spec.tsx.
+  #
+  # This does NOT turn guest mode off: VITE_AUTH_MODE stays "guest", so
+  # unauthenticated visitors still land on the guest canvas exactly as today
+  # and the other workstreams' staging QA is unaffected. It only makes real
+  # sign-in POSSIBLE for anyone who opts in per-browser with
+  # `localStorage.setItem('feature.requireLogin', '1')`.
+  #
+  # Staging-scoped deliberately — production (main) inherits only from
+  # [build.environment] and keeps the stub. Promote to [build.environment]
+  # ONLY after sign-off.
+  VITE_STUB_SUPABASE = "0"
+
+  # Hero fixture gallery — internal-only /dev/hero-gallery route rendering
+  # prototype hero states from typed fixtures (visible internal-preview
+  # banner on every instance). Staging-only for design review; never add to
+  # `[build.environment]`. See src/flags.ts `heroFixtureGallery`.
+  VITE_FEATURE_HERO_FIXTURE_GALLERY = "1"
+
+  # Internal dev routes — /#/dev/* (hero gallery, reasoning prototype).
+  # ⭐ STAGING ONLY, AND IT IS THE GATE THAT WAS ACTUALLY CLOSED. The hero
+  # gallery flag above is necessary but NOT sufficient: since tester-safe
+  # routing, every /dev/* path sits behind `devRoutes` at the ROUTE
+  # (src/poc/AppPoC.tsx) as well as behind its own flag inside the component.
+  # With this unset, /#/dev/reasoning-prototype REDIRECTS to "/" — which lands
+  # on the sign-in page and reads as "you must sign in", though the route needs
+  # no auth at all (measured 17 Sep: rendered with zero auth keys in storage).
+  # Setting it here replaces a localStorage incantation nobody should have to
+  # remember with a link that simply opens.
+  # ⛔ NEVER ADD TO `[build.environment]` — production and deploy previews must
+  # stay off, exactly as the hero gallery above.
+  VITE_ENABLE_DEV_ROUTES = "1"
+
+  # ---------------------------------------------------------------------------
+  # Dashboard-set flags recorded 2026-07-28 (ROADMAP 2.107).
+  #
+  # These three were set through the NETLIFY DASHBOARD and appeared nowhere in
+  # this file, while all three default OFF in src/flags.ts. Any lane reading
+  # flags.ts or netlify.toml to decide what a staging tester sees therefore got
+  # the wrong answer, and the flag-off code paths looked DEAD when they were
+  # LIVE — that mis-scoped two dispatches on 2026-07-28.
+  #
+  # The values below are TRANSCRIBED FROM THE SERVED BUNDLE, not assumed:
+  # staging--olumi.netlify.app/assets/flags-BOFkajto.js (deploy of tip
+  # c86da6a4), which carries Vite's baked `import.meta.env` literal. They are
+  # byte-identical to what is already deployed, so recording them changes no
+  # behaviour — it only stops the repo lying about it.
+  #
+  # ⚠ Recording a flag here does NOT make this file authoritative. Dashboard
+  # variables still override it and remain invisible to this repo. Derive the
+  # truth instead of trusting these lines: `pnpm flags:check`.
+  # (tools/ci-guards/flag-deployment-drift.mjs — reads the deployed bundle.)
+  #
+  # That check found 13 dashboard-set divergences on 2026-07-28, not 3. The
+  # other 10 are deliberately NOT transcribed here: hand-copying them would
+  # rebuild the mirror this work exists to retire. Run `pnpm flags:check` for
+  # the current derived list.
+  #
+  # Promote any of these to production by adding to [build.environment] ONLY
+  # after sign-off.
+  # ---------------------------------------------------------------------------
+
+  # V5 canonical analysis path — routes every user-visible analysis trigger
+  # through the V5 chip-action dispatch so CEE persists a run_analysis fact.
+  # See src/flags.ts `v5CanonicalAnalysis`.
+  VITE_V5_CANONICAL_ANALYSIS = "true"
+
+  # Compare tab — renders live on staging today. See src/flags.ts `compareTab`.
+  VITE_FEATURE_COMPARE_TAB = "1"
+
+  # Pre-analysis v3 — `pre-analysis-v3-analyse` is the live pre-run CTA on
+  # staging today. See src/flags.ts `preAnalysisV3`.
+  VITE_FEATURE_PRE_ANALYSIS_V3 = "1"
+
+
+  # ── EXPERIMENT ONLY (#76) — values staging gets from the Netlify dashboard,
+  # set here because branch/preview contexts do not inherit them. All public:
+  # the V5 endpoint URL and the Supabase project URL (both already shipped in
+  # the staging bundle). No secret belongs in this file.
+  VITE_V5_ENDPOINT = "https://cee-staging.onrender.com/proxy/v5/turn"
+  VITE_SUPABASE_URL = "https://etmmuzwxtcjipwphdola.supabase.co"
+  VITE_FEATURE_WEBMCP = "1"
+
+# =============================================================================
 # Security Headers (P0 - Enterprise Compliance)
 # =============================================================================
 
