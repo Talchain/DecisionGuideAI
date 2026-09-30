@@ -1019,7 +1019,7 @@ export function buildHeroModel(
   // ⭐⭐ CURRENT-READ-v1 row 9: the rows' win shares are withheld above, so this panel says why, once. The
   // admission's own sentence keeps the slot when it has one (a reason line already on the panel); otherwise the
   // producer's withheld-leader reason line from `winShareGate` (e.g. Paul's 4276f3f9: "An exploratory
-  // comparison: Olumi can't yet check your target, so it isn't naming an option."). Permitted ⇒ unchanged.
+  // comparison: Olumi couldn't check your target or limits on this run, so it isn't naming an option."). Permitted ⇒ unchanged.
   const designationWithheldReason =
     admissionWithheldReason ??
     (winSharesAreWithheld ? data.winShareWithheldReason?.trim() || null : null)

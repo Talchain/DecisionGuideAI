@@ -24,6 +24,7 @@ import { hydrateCanvasFromServer } from '../serverGraphHydration'
 import type { AnalysisResultBlock, AnalysisStateV1 } from '@talchain/schemas/boundary'
 import { applyDraftResult } from '../../utils/applyDraftResult'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
+import { selectWinSharesWithheld } from '../../state/winShareGate'
 
 type Body = {
   scenario_id: string
@@ -154,5 +155,35 @@ describe('⭐ a fresh browser sees the stored Run (Shared Data closure)', () => 
     e.effect_direction = e.effect_direction === 'positive' ? 'negative' : 'positive'
     await hydrateCanvasFromServer(SCENARIO_ID)
     expect(heldReport().status).not.toBe('complete')
+  })
+})
+
+describe('⭐ ROW 5 — a withheld leader on the stored Run stays withheld in a fresh browser (row 9 served FAIL, 30 Sep)', () => {
+  // Served `a80db4a9`, R3's guest Run bc9640d4: the read carried `leader_claim: { permitted: false, withheld_reason:
+  // 'constraint_verdict_withheld' }` + `complete_current`, yet the cold-opened report had NO `producer_leader_permission`
+  // and the cards read "best in 49% / 51%". The boot withholding ran before any report was held (a no-op), and the
+  // store view handed to the read applier lacked `resultsWithholdLeaderClaim`, so its post-write stamp no-op'd too.
+  const withLeader = (permitted: boolean) => {
+    body.analysis_state = {
+      ...body.analysis_state,
+      leader_claim: permitted
+        ? { permitted: true, separation: 'separated' }
+        : { permitted: false, withheld_reason: 'constraint_verdict_withheld', separation: 'near_tie' },
+    } as unknown as AnalysisStateV1
+  }
+  const stamp = () => (useCanvasStore.getState().results as { report?: { producer_leader_permission?: unknown } | null }).report?.producer_leader_permission
+  it('the report built from the read carries the withholding, with the producer\'s own cause', async () => {
+    withLeader(false)
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(heldReport().status).toBe('complete')
+    expect(stamp()).toEqual({ permitted: false, withheld_reason: 'leader_claim_withheld', producer_cause: 'constraint_verdict_withheld' })
+    expect(selectWinSharesWithheld(useCanvasStore.getState() as never)).toBe(true)
+  })
+  it('CONTROL: a permitted leader leaves the report unstamped', async () => {
+    withLeader(true)
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(heldReport().status).toBe('complete')
+    expect(stamp()).toBeUndefined()
+    expect(selectWinSharesWithheld(useCanvasStore.getState() as never)).toBe(false)
   })
 })

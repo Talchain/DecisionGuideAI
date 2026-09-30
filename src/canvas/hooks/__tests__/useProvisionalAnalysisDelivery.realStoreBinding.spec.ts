@@ -133,6 +133,10 @@ describe('readProvisionalApplyStore is bound to the REAL canvas store', () => {
         // decision rather than being quietly widened.
         'noteRunCompletedWithoutVerdict',
         'resultsComplete',
+        // ⚠ ADDED 30 SEP (row 9 served FAIL on a80db4a9), ON PURPOSE: a results-slice writer the applier already calls
+        // after its results write (`applyScenarioAnalysisRead`, the withholding is MONOTONE — it can only subtract a
+        // claim). Absent from this view, a withheld leader was dropped on every fresh-browser cold open.
+        'resultsWithholdLeaderClaim',
         'setAnalysisStateV1',
         // ⚠ ADDED FOR B5 READ-LEG PARITY, ON PURPOSE: a results-slice writer (the per-limit verdicts beside the analysis
         // `resultsComplete` just wrote), never a graph-slice one.
