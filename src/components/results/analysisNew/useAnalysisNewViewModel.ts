@@ -29,8 +29,7 @@ import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { buildStrengthenInputsForAnalysisNew } from './buildStrengthenInputsForAnalysisNew'
 import { useAnalysisResultsAreCurrent } from '../../../canvas/hooks/useAnalysisResultsAreCurrent'
 import { buildAnalysisNewViewModel } from './buildAnalysisNewViewModel'
-import { buildRunDeltaView } from './runDeltaView'
-import { runDeltaDescribesDisplayedAnalysis } from '../../../canvas/state/storedRunDelta'
+import { displayedRunDeltaView, nodeLabelMap } from './displayedRunDeltaView'
 import { limitVerdictsDescribeDisplayedAnalysis } from '../../../canvas/state/storedLimitVerdicts'
 import { parseStatedLimitsKey, selectStatedLimits, selectStatedLimitsKey } from '../decision-overview/statedLimits'
 import { buildLimitVerdictView } from './limitVerdictView'
@@ -123,14 +122,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
    * Derived from the same `nodes` the sibling map above uses — one store read,
    * not a second subscription. Labels only; nothing else about a node is read.
    */
-  const nodeLabels = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const n of nodes ?? []) {
-      const label = (n?.data as { label?: unknown } | undefined)?.label
-      if (typeof label === 'string' && label.trim().length > 0) m.set(n.id, label)
-    }
-    return m
-  }, [nodes])
+  const nodeLabels = useMemo(() => nodeLabelMap(nodes), [nodes])
   const biasSignals = useCanvasStore((s) => s.draftCoaching?.biasSignals ?? null)
   const guidanceItems = useGuidanceStore((s) => s.guidanceItems)
   const strengthenRecords = useStrengthenStore((s) => s.records)
@@ -196,11 +188,9 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
     return typeof r === 'string' ? r : null
   })
   const whatsChanged = useMemo(() => {
-    if (!runDeltaDescribesDisplayedAnalysis(storedRunDelta, responseHash, currentScenarioId)) return null
-    // Labels come from the SAME node map the rest of this surface uses, so the
-    // section cannot call an option something the tab above it does not.
-    const label = (id: string) => nodeLabels.get(id) ?? null
-    return buildRunDeltaView(storedRunDelta!.delta, label, label)
+    // SC-24: the ONE reader, shared with the Compare tab (`displayedRunDeltaView.ts`). Labels come from the SAME
+    // node map the rest of this surface uses, so the section cannot call an option something the tab above it does not.
+    return displayedRunDeltaView(storedRunDelta, responseHash, currentScenarioId, nodeLabels)
   }, [storedRunDelta, responseHash, currentScenarioId, nodeLabels])
 
   /**

@@ -3,8 +3,9 @@
  *
  * ═══════════════════════════════════════════════════════════════════════════
  * A person can edit a value here and re-run here without ever leaving the Model
- * tab — and the explanation of what that did lives on the Reasoning tab. This
- * one line sends them to it.
+ * tab — and the explanation of what that did lives on the Compare tab (SC-24 v3,
+ * #75 5917800777; it lived on the Reasoning tab until 30 Sep). This one line
+ * sends them to it.
  *
  * ⛔ NAVIGATION TEXT CAN STILL MAKE A FALSE PROMISE, WHICH IS WHY THE WORDING IS
  * NARROW. The nearest precedent in this estate is `compare-tab/Hero.tsx:176`'s
@@ -16,7 +17,7 @@
  * "View comparison" and nothing more.
  *
  * ⛔ GATED ON THE DELTA BEING PRESENT *AND* ABOUT THE ANALYSIS ON SCREEN, by the
- * same predicate the Reasoning tab's section uses. A pointer rendered on absence
+ * same predicate the Compare tab and the Reasoning receipt use. A pointer rendered on absence
  * points at nothing; a pointer rendered on a superseded delta points at the
  * wrong thing. One predicate, so the two surfaces cannot disagree about whether
  * there is anything to see.
@@ -44,7 +45,7 @@ export function ViewComparisonPointer(): JSX.Element | null {
         // these panels; the estate pins that with `actionColourMeansPressable`.
         className="text-info underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
         data-testid={VIEW_COMPARISON_TESTID}
-        onClick={() => { useUIStore.getState().setActiveOutputTab('analysisNew') }}
+        onClick={() => { useUIStore.getState().setActiveOutputTab('compare') }}
       >
         View comparison
       </button>

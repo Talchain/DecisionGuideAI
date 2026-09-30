@@ -89,7 +89,7 @@ import {
 import type { WhatIWasGivenSectionHandle } from '../contextIntegrity/WhatIWasGivenSection'
 import { useWhatIWasGivenWillRender } from '../contextIntegrity/WhatIWasGivenSection'
 import { ModelStrip } from './sections/ModelStrip'
-import { WhatsChanged } from './sections/WhatsChanged'
+import { WhatsChangedReceipt } from './sections/WhatsChangedReceipt'
 import { AtAGlance } from './sections/AtAGlance'
 import { ModelHeldUp } from './sections/ModelHeldUp'
 import { RobustnessCaveat } from './sections/RobustnessCaveat'
@@ -2850,7 +2850,8 @@ export function AnalysisNewTabBody({
             ⚠ SCOPED TO THE PRE-RUN STATE ONLY. Every post-run path still renders
             it, including the no-verdict one. */}
 
-        <WhatsChanged view={vm.whatsChanged} />
+        {/* SC-24 v3: the full comparison is the Compare tab's; Reasoning keeps the receipt (same view). */}
+        <WhatsChangedReceipt view={vm.whatsChanged} />
 
         <RobustnessCaveat
           leaderClaimPermitted={vm.leaderClaimPermitted}

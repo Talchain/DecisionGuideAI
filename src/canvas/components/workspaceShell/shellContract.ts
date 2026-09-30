@@ -117,15 +117,20 @@ export const SHELL_CONTENT_BUDGET_FLOOR_PX = shellContentBudget(DOCK_MIN_WIDTH)
  * into a single overflow menu, so both stay keyboard-reachable rather than
  * being silently omitted from the strip.
  *
- * ⭐ 420 SINCE 27 Sep 2026 (Panel). Served `70a03a22` at the new 360px default: the
+ * ⭐ 460 SINCE 30 Sep 2026 (Compare re-tabbed, SC-24 v3; CANVAS measured on #2364): FIVE tabs wrap the
+ * non-compact strip at 420 (nav 38 → 80px), and sit on one row at 460 and 480. The four-tab control stays
+ * on one row at every width. 460 is the measured clean width; the exact break between 420 and 460 is not
+ * measured, so do not lower it without measuring.
+ *
+ * (was) 420 SINCE 27 Sep 2026 (Panel). Served `70a03a22` at the new 360px default: the
  * non-compact strip WRAPPED ("Model" at y76 vs y34), so 320 was not enough headroom.
  * The non-compact strip last fitted at the 416 default; below 420 it goes compact.
  *
  * (was) 320, not a dock-width literal — R1 flags only 280/416/480 as named widths;
  * this is the narrowest width at which four 12px tabs plus three 28px
- * controls fit, plus headroom, per the audit's own measurement.
+ * controls fit, plus headroom, per the audit's own measurement. There are five tabs since 30 Sep.
  */
-export const SHELL_TABSTRIP_COMPACT_BELOW_PX = 420
+export const SHELL_TABSTRIP_COMPACT_BELOW_PX = 460
 
 /**
  * From this dock width the ⓘ "Inspect this analysis" stays a ROW control in the COMPACT strip;
@@ -147,7 +152,7 @@ export const SHELL_TABSTRIP_INSPECT_IN_ROW_FROM_PX = 320
  *
  * ⚠ AND THE DEFAULT WIDTH IS NOW BELOW `SHELL_TABSTRIP_COMPACT_BELOW_PX`, so
  * the strip opens compact: VersionsTrigger and the expert-mode toggle sit in
- * the overflow menu, which is the contract's row (four tabs and a close
+ * the overflow menu, which is the contract's row (the tabs and a close
  * control, nothing else). Version history stays one click away there and in
  * the top bar.
  */
@@ -492,36 +497,15 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
     footerBar: 'none',
     scroll: 'shell',
     padding: 'shell',
-    // ⭐ RULING (Fable, 18 Aug 2026): Compare's tab leaves the presented row.
-    // It is STRUCTURALLY EMPTY for every staging guest —
-    // `useCompareHistoryHydration.ts:79` early-returns without a `userId`, so a
-    // guest who opens it reaches nothing — and beside Analysis it is a
-    // competing hierarchy for the same question. Journey's row above is the
-    // precedent and the same mechanism.
-    //
-    // ⚠ SCOPE, STATED NARROWLY (trap 20 — a record must not generalise the
-    // finding it came from): this hides the TAB. Compare's CODE IS NOT DELETED;
-    // retirement is a separate decision. Folding Compare into Analysis as an
-    // accordion was the other half of the proposal and is DEFERRED, not built.
-    //
-    // ⚠⚠ AND THE LIMIT OF THIS FIELD, BECAUSE THE HEADER ABOVE OVERSTATES IT.
-    // `presentedAsTab: false` is a statement about the TAB ROW — the strip, the
-    // collapsed icon rail, and the `?tab=` deep link all derive from
-    // `presentedSurfaces()` and are closed by it. It is NOT a statement about
-    // reachability: the dock's activation guards are keyed on the FLAG, not on
-    // this field (`OutputsDock.tsx:519`, `:580`), and `compareTab` is ON in the
-    // build config (`netlify.toml:157`). So a programmatic `setActiveOutputTab
-    // ('compare')` still fronts the Compare BODY (`OutputsDock.tsx:3155`) with
-    // no tab lit — reachable today from `OptionPanel.tsx:422`, the
-    // `showComparePanel` effect
-    // (`ReactFlowGraph.tsx:819` → `OutputsDock.tsx:1902`) and an `open_panel`
-    // ui_directive. Journey never exposed this because its flag is absent.
-    // Closing it means teaching those guards to read this contract instead of
-    // the flag; that is a SEPARATE, briefed change and is deliberately not
-    // improvised here.
-    presentedAsTab: false,
-    hiddenReason:
-      'Structurally empty for guests (compare history needs a userId); folds into Analysis pending the /v2/run retirement decision (Fable, 18 Aug 2026)',
+    // ⭐ RULING (30 Sep 2026, SC-24 v3 — ChatGPT #75 5917800777, DL lease #75 5917856638): Compare is its OWN
+    // tab again, as previous Run vs this Run. It supersedes the 18 Aug hide (Fable), whose two reasons no longer
+    // hold: the body no longer reads browser history that needs a `userId` (it renders the comparison CEE
+    // produced for the analysis on screen, via `displayedRunDeltaView.ts`), and it no longer competes with
+    // Analysis for the same question (Analysis ranks options; Compare says what changed between two Runs).
+    // Reasoning keeps a one-line receipt that opens it. The old browser-derived body (`CompareTabBody`,
+    // `deriveRunPairComparison`, `leaderClaim`, `deriveTransitions`) is off the path; its retirement is separate.
+    presentedAsTab: true,
+    hiddenReason: '',
   },
   diagnostics: {
     id: 'diagnostics',
@@ -677,10 +661,11 @@ export const UNFLAGGED_FALLBACK_SURFACE: OutputTab = 'analysisNew'
  *
  * Was 4 until 18 Aug 2026; 3 since Compare's row was hidden by contract; 4
  * again since 27 Aug 2026, when the temporary 'Analysis (New)' comparison
- * surface was added beside Analysis. It returns to 3 when that experiment
- * retires — re-record it here in the same change, deliberately.
+ * surface was added beside Analysis. 5 since 30 Sep 2026, when Compare's row
+ * came back as previous Run vs this Run (SC-24 v3, ChatGPT #75 5917800777;
+ * lease DL #75 5917856638). Re-record it here in the same change, deliberately.
  */
-export const MAX_PRESENTED_SURFACES = 4
+export const MAX_PRESENTED_SURFACES = 5
 
 /**
  * The surfaces offered as tabs, in strip order.

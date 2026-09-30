@@ -535,10 +535,6 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
   // arrives as `grew` against a `?? 0` and reds on the way back in, which is the
   // correct direction for a guard that measures reachability.
   const RAW_TYPOGRAPHY_BY_FILE: Record<string, number> = {
-    'src/canvas/compare-tab/CompareFooter.tsx': 2,
-    'src/canvas/compare-tab/DotProgression.tsx': 2,
-    'src/canvas/compare-tab/EmptyState.tsx': 1,
-    'src/canvas/compare-tab/TrajectorySection.tsx': 3,
     'src/canvas/components/DegeneracyWarning.tsx': 6,
     'src/canvas/components/EvidenceCoverage.tsx': 2,
     'src/canvas/components/IdentifiabilityBadge.tsx': 1,
@@ -615,7 +611,8 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     const mustReach = [
       'src/canvas/components/model-tab/ReanalyseBar.tsx',
       'src/canvas/components/ModelTabBody.tsx',
-      'src/canvas/compare-tab/CompareFooter.tsx',
+      // Compare's body since 30 Sep (SC-24 v3): the old CompareTabBody tree left the closure with its map entries.
+      'src/canvas/compare-tab/CompareRunPairBody.tsx',
       'src/canvas/conversation/zones/ChatThread.tsx',
     ]
     for (const f of mustReach) expect(closure, `${f} must be in the dock closure`).toContain(f)
@@ -693,7 +690,10 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // entered the map, so no panel component reached past the tokens. A rise
     // anywhere else, or a rise in this file for anything but a new token, is
     // still the defect this pair exists to catch and must be refused.
-    expect(files).toBe(28)
+    // 30 Sep 2026 (SC-24 v3, Compare re-tabbed): 28 -> 24 files, as the old CompareTabBody tree (CompareFooter 2,
+    // DotProgression 2, EmptyState 1, TrajectorySection 3) left the dock closure. Its body is now CompareRunPairBody,
+    // which carries no raw typography. Lowered in the same PR as the map entries, as the pair requires.
+    expect(files).toBe(24)
     // 19 Sep 2026: 98 -> 99, paired with the `typography.ts` 39 -> 40 above.
     // The pair is the whole mechanism: raising the map entry alone would turn
     // the ratchet green and THIS assertion red, so neither end can be hollowed
@@ -702,7 +702,8 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // (the `nodeMark` token). `files` stays 28.
     // 27 Sep 2026: 100 -> 101, paired with the `typography.ts` 41 -> 42 above (`chatMeta`).
     // 29 Sep 2026: 100 -> 101, paired with `typography.ts` 41 -> 42 (`nodeTitleWide`). `files` stays 28.
-    expect(total).toBe(101)
+    // 30 Sep 2026: 101 -> 93, the same four files' 8 occurrences (see `files` above).
+    expect(total).toBe(93)
   })
 })
 

@@ -71,11 +71,12 @@ describe('the wording is navigation and nothing more', () => {
 })
 
 describe('it actually navigates', () => {
-  it('sends the reader to the Reasoning tab, where the section lives', () => {
+  it('sends the reader to the Compare tab, where the comparison lives (SC-24 v3, 30 Sep 2026)', () => {
     const spy = vi.spyOn(useUIStore.getState(), 'setActiveOutputTab')
     render(<ViewComparisonPointer />)
     fireEvent.click(screen.getByTestId(VIEW_COMPARISON_TESTID))
-    expect(spy).toHaveBeenCalledWith('analysisNew')
+    expect(spy).toHaveBeenCalledWith('compare')
+    expect(spy).not.toHaveBeenCalledWith('analysisNew')
   })
 })
 

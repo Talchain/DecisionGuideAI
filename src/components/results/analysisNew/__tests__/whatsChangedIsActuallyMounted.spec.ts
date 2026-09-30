@@ -30,19 +30,40 @@ const read = (rel: string): string => {
   return text
 }
 
-describe('⭐ the Reasoning tab actually mounts the section', () => {
+describe('⭐ the Reasoning tab mounts the RECEIPT (SC-24 v3, 30 Sep 2026 — the full section moved to Compare)', () => {
   const src = (): string => read('../AnalysisNewTabBody.tsx')
 
-  it('imports the component', () => {
-    expect(src()).toMatch(/import\s*\{\s*WhatsChanged\s*\}\s*from\s*'\.\/sections\/WhatsChanged'/)
+  it('imports the receipt', () => {
+    expect(src()).toMatch(/import\s*\{\s*WhatsChangedReceipt\s*\}\s*from\s*'\.\/sections\/WhatsChangedReceipt'/)
   })
 
-  it('⛔ and RENDERS it, fed from the view model', () => {
-    expect(src()).toMatch(/<WhatsChanged\s+view=\{vm\.whatsChanged\}/)
+  it('⛔ and RENDERS it, fed from the SAME view model the Compare tab reads', () => {
+    expect(src()).toMatch(/<WhatsChangedReceipt\s+view=\{vm\.whatsChanged\}/)
   })
 
-  it('contrast — the probe can tell a present mount from an absent one', () => {
+  it('contrast — the full section is no longer mounted here, and the probe can tell present from absent', () => {
+    expect(src()).not.toMatch(/<WhatsChanged\s+view=/)
     expect(src()).not.toMatch(/<WhatsChangedThatDoesNotExist/)
+  })
+})
+
+describe('⭐ the Compare tab actually mounts the section', () => {
+  const dock = (): string => read('../../../../canvas/components/OutputsDock.tsx')
+  const body = (): string => read('../../../../canvas/compare-tab/CompareRunPairBody.tsx')
+
+  it('⛔ the dock renders the Compare body on the compare tab, bound to the displayed analysis hash', () => {
+    expect(dock()).toMatch(/import\s*\{\s*CompareRunPairBody\s*\}\s*from\s*'\.\.\/compare-tab\/CompareRunPairBody'/)
+    expect(dock()).toMatch(/effectiveActiveTab === 'compare' && \([\s\S]{0,600}?<CompareRunPairBody responseHash=\{results\?\.hash\} \/>/)
+  })
+
+  it('⛔ the body renders the section, fed from the ONE shared reader', () => {
+    expect(body()).toMatch(/useDisplayedRunDeltaView\(responseHash\)/)
+    expect(body()).toMatch(/<WhatsChanged view=\{view\} \/>/)
+  })
+
+  it('contrast — the old browser-derived body is off the dock path', () => {
+    expect(dock()).not.toMatch(/<CompareTabBodyV2/)
+    expect(dock()).not.toMatch(/<CompareRunPairBodyThatDoesNotExist/)
   })
 })
 

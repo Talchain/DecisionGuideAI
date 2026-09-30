@@ -971,7 +971,8 @@ export const OptionPanel = memo(function OptionPanel({
                     >
                       {resultCaption} · of runs
                     </div>
-                    <ResultsLink label="Compare all options" tab="compare" />
+                    {/* SC-24 v3: Compare is now previous Run vs this Run; the options are compared on Analysis. */}
+                    <ResultsLink label="Compare all options" tab="results" />
                   </div>
                 </div>
               )}
