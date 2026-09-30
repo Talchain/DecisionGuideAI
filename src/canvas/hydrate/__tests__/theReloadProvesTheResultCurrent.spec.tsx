@@ -257,6 +257,21 @@ describe('each proof broken alone: no fact, the result stays dimmed', () => {
     expect(display()).toBe('results_stale')
     expect(reasoningTabStale()).toBe(true)
   })
+  it('C2: a newer degraded Run cannot revive an older result when requires_rerun is false', async () => {
+    seedRestoredResult()
+    respond(body({
+      analysis_state: verdict({ kind: 'complete_current', computed_at: COMPUTED_AT }, {
+        requires_rerun: false,
+        contradictions: ['fact_status_success_but_degraded_newer'],
+      }),
+      analysis_result: resultBlock(),
+    }))
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(useCanvasStore.getState().v5AnalysisFact).toBeNull()
+    expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).toBeUndefined()
+    expect(display()).toBe('results_stale')
+    expect(reasoningTabStale()).toBe(true)
+  })
   it('CEE says complete_stale, not complete_current', () =>
     expectDimmed({ analysis_state: verdict({ kind: 'complete_stale', computed_at: COMPUTED_AT } as never), analysis_result: resultBlock() }))
   it('the canvas holds a value the read lacks (not proven equal)', async () => {

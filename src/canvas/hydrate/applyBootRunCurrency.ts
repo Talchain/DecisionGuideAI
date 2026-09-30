@@ -66,6 +66,8 @@ export const BOOT_RUN_CURRENCY_DECLINE_REASONS = [
   'not_current',
   /** CEE says this selected analysis needs a rerun, even if an older Run shares the graph. */
   'rerun_required',
+  /** A newer degraded Run supersedes the result block, even if CEE did not set requires_rerun. */
+  'degraded_newer_run',
   /** No saved result block can confirm the Run whose currency would be restored. */
   'no_result',
   /** No usable `computed_at` — the card's third limb could never hold. */
@@ -122,6 +124,7 @@ export function applyBootRunCurrency(input: {
   const runState = verdict.run_state
   if (runState.kind !== 'complete_current') return declined('not_current')
   if (verdict.requires_rerun === true) return declined('rerun_required')
+  if (verdict.contradictions?.includes('fact_status_success_but_degraded_newer')) return declined('degraded_newer_run')
   if (!hasBootReadRunResult(input.analysisResult)) return declined('no_result')
   const computedAt = 'computed_at' in runState ? runState.computed_at : undefined
   if (typeof computedAt !== 'string' || computedAt.trim() === '') return declined('no_computed_at')

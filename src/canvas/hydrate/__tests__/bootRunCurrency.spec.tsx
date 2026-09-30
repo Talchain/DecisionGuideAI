@@ -389,6 +389,7 @@ describe('applyBootRunCurrency — each decline reason is reachable, and names i
     ['no_verdict', () => run({ analysisState: null })],
     ['not_current', () => run({ analysisState: verdict({ kind: 'never_run' } as never) })],
     ['rerun_required', () => run({ analysisState: verdict({ kind: 'complete_current', computed_at: COMPUTED_AT }, { requires_rerun: true }) })],
+    ['degraded_newer_run', () => run({ analysisState: verdict({ kind: 'complete_current', computed_at: COMPUTED_AT }, { contradictions: ['fact_status_success_but_degraded_newer'] }) })],
     ['no_result', () => run({ analysisResult: null })],
     ['no_computed_at', () => run({ analysisState: verdict({ kind: 'complete_current', computed_at: '  ' }) })],
     ['no_graph_hash', () => run({ graphHash: null })],
