@@ -28,7 +28,7 @@
  * PIN — the band's declared `grid-template-columns` and `align-content`, read
  * off the element by identity — never a pixel measurement.
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useState, type ReactNode } from 'react'
 import { render, screen, act } from '@testing-library/react'
 import { createPortal } from 'react-dom'
@@ -111,6 +111,11 @@ function renderBand(children: ReactNode) {
     </CanvasOverlayBandProvider>,
   )
 }
+
+// The cue claims findings are shown as Last run, so every row here holds a renderable report (R3 fresh-browser oob).
+beforeEach(() => {
+  useCanvasStore.setState({ results: { status: 'complete', report: { option_comparison: [{ option_id: 'a', outcome: { mean: 1, p10: 0, p50: 1, p90: 2 } }] } } } as never)
+})
 
 describe('N3 — the stale cue keeps its column beside a wide centre occupant', () => {
   it('POSITIVE CONTROL: the width below which the cue withdraws is a real number', () => {

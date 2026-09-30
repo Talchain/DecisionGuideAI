@@ -27,12 +27,24 @@ import {
 } from '../AnalysisStateCue'
 import { LAST_RUN_PREFIX, OPTION_RESULT_COPY } from '../../nodes/shared/metricVocabulary'
 import { optionResultCaption, runCurrencyOf } from '../../nodes/shared/runCurrency'
+import { useCanvasStore } from '../../store'
+
+/** A report the results surfaces can render — the findings the cue says are shown as Last run. */
+const RENDERABLE_REPORT = { option_comparison: [{ option_id: 'a', outcome: { mean: 1, p10: 0, p50: 1, p90: 2 } }] }
 
 beforeEach(() => {
   trust.semantic = 'changed'
+  useCanvasStore.setState({ results: { status: 'complete', report: RENDERABLE_REPORT } } as never)
 })
 
 describe('AnalysisStateCue — Paul 23 Sep point 14', () => {
+  it('RED (R3 fresh-browser oob, served 6dcb3b10): model changed but NO findings shown → renders nothing', () => {
+    useCanvasStore.setState({ results: { status: 'idle', report: null } } as never)
+    render(<AnalysisStateCue />)
+    expect(screen.queryByTestId(ANALYSIS_STATE_CUE_TESTID)).toBeNull()
+    expect(document.body.textContent ?? '').not.toContain('previous findings shown')
+  })
+
   it('model KNOWN to have changed since the run → one status line, in Paul’s words', () => {
     render(<AnalysisStateCue />)
     const cue = screen.getByTestId(ANALYSIS_STATE_CUE_TESTID)
