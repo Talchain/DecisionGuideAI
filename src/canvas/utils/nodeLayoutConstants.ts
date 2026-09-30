@@ -260,7 +260,7 @@ export const REPEATED_CARD_W = Math.max(REPEATED_CARD_TARGET_W, NODE_LAYOUT_MIN_
  * titles and values wrap onto fewer lines, so the cards are shorter, and the board
  * comes out as wide as a laptop can show legibly and no taller than it needs to
  * be. A wider screen then fits it width-first at a higher zoom.
- *   5 cards → 290 · 4 cards → 374 · 3 or fewer → 400 (the cap).
+ *   5 cards → 273 · 4 cards → 354 · 3 or fewer → 400 (the cap).
  * The layout is still a constant and viewport-independent (R1): the same model
  * lays out the same everywhere, and the camera does the per-screen fit.
  *
@@ -270,12 +270,13 @@ export const REPEATED_CARD_W = Math.max(REPEATED_CARD_TARGET_W, NODE_LAYOUT_MIN_
 export const REPEATED_CARD_MAX_W = 400
 
 /**
- * The row budget a card's fair share is taken from, in flow units: 1738 is the
- * 1280×800 frame with the flush dock at the 0.5 floor (#2202's measurement,
- * 27 Sep). A five-card row plus the icon prompt fills it exactly
- * (5 × (290 + 24) + 4 × 24 + 24 + 48 = 1738).
+ * The row budget a card's fair share is taken from, in flow units: the 1280×800
+ * frame with the 360 dock open, at the 0.5 floor, is (1280 − 76 − 376) / 0.5 =
+ * 1656 (`laptopFit.arithmetic.spec.ts` derives it from the real insets and pins
+ * it). A four-card row plus the icon prompt fills it exactly:
+ * 4 × (354 + 24) + 3 × 24 + 24 + 48 = 1656.
  */
-export const ROW_BUDGET_W = 1738
+export const ROW_BUDGET_W = 1656
 
 /** The Question and the Goal: singletons, wide and shallow (ED S4: "≤460px"). */
 export const ANCHOR_CARD_MAX_W = 720

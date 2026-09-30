@@ -1,44 +1,41 @@
 /**
- * ⭐⭐ THE ROW-END REASONING PROMPT AS AN ICON BUTTON (Paul, 30 Sep 2026 ~12:30Z:
- * "improve the design of the right-hand panels, helping users think about what
- * they could do, what else could drive this, and what else could follow. Those
- * could be icons with hover states … save space with them, but make them visible
- * and easy to use").
+ * ⭐⭐ THE ROW-END REASONING PROMPT AS AN ICON-ONLY BUTTON (Paul, 30 Sep 2026
+ * ~12:30Z: "improve the design of the right-hand panels, helping users think
+ * about what they could do, what else could drive this, and what else could
+ * follow. Those could be icons with hover states … save space with them, but
+ * make them visible and easy to use").
  *
- * At rest: a 48-unit circle at the row end, with a dashed outline, the row's own
- * glyph, and a small "+" badge saying it adds something. On hover or keyboard
- * focus, the outline goes solid in the accent and the row's QUESTION opens as a
- * pill beside it ("What else could you do?"). The pill overlays the free canvas
- * past the row end, so it costs no layout width; the width the old 160-unit
- * tile took goes to the cards (`ROW_BUDGET_W`).
+ * ## Built to Design System v5, rule by rule (Paul ~12:45Z: "Are you actually
+ * following our design system?")
+ * - §9.9 icon-only button, with the shared tooltip mandatory: `Tooltip asChild` from
+ *   `src/components/Tooltip.tsx`, with the 300 ms node delay, keyboard-focus
+ *   disclosure and Escape dismissal. The tooltip carries the row's QUESTION
+ *   ("What else could you do?"), which is also the accessible name.
+ * - §9.3 tier-2 action glyph `Plus`. The node-type icons of §9.4 are off-canvas
+ *   only, so they are not used here.
+ * - §9.2 / §7.3 neutral action colour: `text-text-light` at rest,
+ *   `text-text-body` on hover. No invented hover treatment.
+ * - §8.1 secondary button (outlined neutral: `border border-panel-border`,
+ *   `hover:bg-panel-hover`). §8.5 puts `bg-panel` on the canvas, and §6.2 gives
+ *   round buttons the `pill` radius (`rounded-full`).
+ * - §6.3 focus ring: `ring-2 ring-offset-2 ring-info`, always visible.
+ * - §9.9 the 44×44 touch target: the button is 48 flow units square.
  *
- * The question is ALSO the accessible name, so a screen reader and a keyboard
- * user get the whole ask without hovering. The behaviour is unchanged: the caller's
- * `onOpen` pre-fills the ask (`openWhatElseFromDoor` → `requestAsk`) and never
- * sends. The far-rung rule is unchanged too: hidden, not unmounted.
+ * It costs no layout width: the 160-unit tile it replaces took 184 units of every
+ * row's budget, and those go to the cards (`ROW_BUDGET_W`). Behaviour is
+ * unchanged: `onOpen` pre-fills the ask (`openWhatElseFromDoor` → `requestAsk`)
+ * and never sends, and the far rung hides the button without unmounting it.
  */
 import type { KeyboardEvent, MouseEvent } from 'react'
 import { Handle, Position } from '@xyflow/react'
-import { AlertTriangle, CornerDownRight, GitMerge, Lightbulb, Plus, type LucideIcon } from 'lucide-react'
-import { typography } from '../../../styles/typography'
+import { Plus } from 'lucide-react'
+import Tooltip from '../../../components/Tooltip'
 import { ROW_PROMPT_H, ROW_PROMPT_W } from '../../utils/nodeLayoutConstants'
 import { CANVAS_GLYPH_SIZE_CLASSES } from './canvasGlyphScale'
-
-/** The row's glyph: a new option is an idea; a driver feeds in; a consequence follows; a risk warns. */
-const GLYPH_BY_TIER: Readonly<Record<string, LucideIcon>> = {
-  option: Lightbulb,
-  factor: GitMerge,
-  action: GitMerge,
-  constraint: GitMerge,
-  outcome: CornerDownRight,
-  consequence: CornerDownRight,
-  risk: AlertTriangle,
-}
-
-export const ROW_END_PROMPT_PILL_TESTID = 'row-end-prompt-question'
+import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 
 export interface RowEndPromptIconProps {
-  /** The row's question, said in full: the accessible name and the hover pill. */
+  /** The row's question, said in full: the accessible name and the tooltip. */
   label: string | undefined
   tier: string | undefined
   testId: string
@@ -48,7 +45,6 @@ export interface RowEndPromptIconProps {
 }
 
 export function RowEndPromptIcon({ label, tier, testId, hidden, onOpen }: RowEndPromptIconProps) {
-  const Glyph = (tier !== undefined ? GLYPH_BY_TIER[tier] : undefined) ?? Plus
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
@@ -57,48 +53,31 @@ export function RowEndPromptIcon({ label, tier, testId, hidden, onOpen }: RowEnd
   }
   return (
     <div
-      role="button"
-      tabIndex={hidden ? -1 : 0}
-      aria-label={label}
-      aria-hidden={hidden ? true : undefined}
-      data-testid={testId}
-      data-tier={tier}
-      data-row-end-prompt="icon"
-      onClick={(e: MouseEvent<HTMLDivElement>) => onOpen(e)}
-      onKeyDown={onKeyDown}
-      className="group relative cursor-pointer nodrag nopan outline-none"
+      className="relative nodrag nopan"
       style={{ width: ROW_PROMPT_W, height: ROW_PROMPT_H, visibility: hidden ? 'hidden' : undefined }}
     >
       <Handle type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
-      <span
-        aria-hidden="true"
-        className={[
-          'absolute inset-0 flex items-center justify-center rounded-full bg-panel text-text-light',
-          'border-[1.5px] border-dashed border-text-light transition-colors',
-          'group-hover:border-solid group-hover:border-info group-hover:text-info group-hover:bg-panel-hover',
-          'group-focus-visible:border-solid group-focus-visible:border-info group-focus-visible:text-info',
-          'group-focus-visible:ring-2 group-focus-visible:ring-info/40',
-        ].join(' ')}
-      >
-        <Glyph size={20} className={CANVAS_GLYPH_SIZE_CLASSES[20]} />
-        <span className="absolute -right-0.5 -top-0.5 flex items-center justify-center rounded-full bg-panel border border-current">
-          <Plus size={10} className={CANVAS_GLYPH_SIZE_CLASSES[10]} strokeWidth={3} />
-        </span>
-      </span>
-      {label ? (
-        <span
-          aria-hidden="true"
-          data-testid={ROW_END_PROMPT_PILL_TESTID}
+      <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={hidden ? undefined : label}>
+        <div
+          role="button"
+          tabIndex={hidden ? -1 : 0}
+          aria-label={label}
+          aria-hidden={hidden ? true : undefined}
+          data-testid={testId}
+          data-tier={tier}
+          data-row-end-prompt="icon"
+          onClick={(e: MouseEvent<HTMLDivElement>) => onOpen(e)}
+          onKeyDown={onKeyDown}
           className={[
-            typography.edgeLabel,
-            'pointer-events-none absolute left-full top-1/2 ml-2 -translate-y-1/2 whitespace-nowrap',
-            'rounded-full border border-info bg-panel px-3 py-1 text-text-primary shadow-sm',
-            'opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100',
+            'absolute inset-0 flex items-center justify-center rounded-full cursor-pointer',
+            'bg-panel border border-panel-border text-text-light',
+            'hover:bg-panel-hover hover:text-text-body transition-colors',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-info',
           ].join(' ')}
         >
-          {label}
-        </span>
-      ) : null}
+          <Plus size={20} className={CANVAS_GLYPH_SIZE_CLASSES[20]} aria-hidden="true" />
+        </div>
+      </Tooltip>
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0, pointerEvents: 'none' }} />
     </div>
   )
