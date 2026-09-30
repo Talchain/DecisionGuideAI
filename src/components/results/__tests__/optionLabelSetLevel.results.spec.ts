@@ -91,11 +91,13 @@ import { renderHook } from '@testing-library/react'
 
 const PRICE = { id: 'pro_price', type: 'factor', position: { x: 0, y: 0 }, data: { kind: 'factor', label: 'Pro plan price', unit: '£', observedState: { value: 49, raw_value: 49, unit: '£' } } }
 
-function seedWith(interventions59: Record<string, unknown>): void {
+function seedWith(interventions59: Record<string, unknown>, runIsCurrent = true): void {
   seed(GOAL, READY)
   const st = useCanvasStore.getState() as unknown as { nodes: Array<{ id: string; data: Record<string, unknown> }> }
   useCanvasStore.setState({
     nodes: [...st.nodes.map((n) => (n.id === 'raise_to_59_at_release' ? { ...n, data: { ...n.data, interventions: interventions59 } } : n)), PRICE],
+    analysisFreshness: { freshness: runIsCurrent ? 'fresh' : 'stale' },
+    analysisFreshnessDirty: false,
   } as never)
 }
 
@@ -107,7 +109,7 @@ const labels = () => {
 describe('results option labels say the set level beside a stale figure', () => {
   beforeEach(() => { useCanvasStore.setState({ nodes: [], edges: [] } as never) })
 
-  it('RED: "Raise to £59 at Release" set to £60 reads "… (set to £60…)"; labelAsWritten is the user\'s words', () => {
+  it('RED: a CURRENT Run at £60 — "Raise to £59 at Release" reads "… (set to £60…)"; labelAsWritten is the user\'s words', () => {
     seedWith({ pro_price: { value: 60, source: 'user_specified' } })
     const [label, asWritten] = labels().raise_to_59_at_release
     expect(label).toMatch(/^Raise to £59 at Release \(set to £60/)
@@ -119,5 +121,12 @@ describe('results option labels say the set level beside a stale figure', () => 
     const l = labels()
     expect(l.raise_to_59_at_release[0]).toBe('Raise to £59 at Release')
     expect(l.keep_49_price[0]).toBe('Keep £49 Price')
+  })
+
+  it('⛔ AIQ CR 5909180508: edited to £60 and NOT re-run — the result is £59\'s, so the label stays as written (no "(set to £60)")', () => {
+    seedWith({ pro_price: { value: 60, source: 'user_specified' } }, false)
+    const [label, asWritten] = labels().raise_to_59_at_release
+    expect(label).toBe('Raise to £59 at Release')
+    expect(asWritten).toBe('Raise to £59 at Release')
   })
 })

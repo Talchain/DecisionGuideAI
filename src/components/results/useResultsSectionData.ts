@@ -2271,10 +2271,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
       // AIQ 5908802422/5908832064: a label naming a figure its set level no longer matches says the level beside it
       // ("Raise to £59 (set to £60)"). `labelAsWritten` keeps the user's words for identity reads.
+      // ⛔ ONLY WHILE THE RUN IS CURRENT (AIQ CR 5909180508): the suffix reads TODAY's level, and only a current Run
+      // computed at today's level. After an edit with no re-run the result is the OLD level's — "(set to £60): 99%"
+      // would be a false figure — so the label stays as written and the stale marker governs.
       const labelAsWritten = (node.data as ResultsCanvasNodeData)?.label || nodeId
       return {
         id: nodeId,
-        label: optionLabelWithSetLevel(labelAsWritten, optionSetReadings(node.data as Record<string, unknown> | undefined, nodes)),
+        label: runIsCurrent
+          ? optionLabelWithSetLevel(labelAsWritten, optionSetReadings(node.data as Record<string, unknown> | undefined, nodes))
+          : labelAsWritten,
         labelAsWritten,
         // Explicit expected value (mean) — primary value for "Expected" display
         expected: scaledExpected,
