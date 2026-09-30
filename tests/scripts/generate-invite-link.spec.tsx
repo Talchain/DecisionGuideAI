@@ -207,4 +207,11 @@ describe('helpers', () => {
     expect(s).toContain('[hex]')
     expect(s).toContain('token_hash=[redacted]')
   })
+
+  it('scrub removes the key by VALUE even when it matches no credential pattern', () => {
+    const plain = ['plain', 'stub', 'key', 'value'].join('-')
+    const s = scrub(`refused for ${plain} today`, plain)
+    expect(s).not.toContain(plain)
+    expect(s).toContain('[key]')
+  })
 })
