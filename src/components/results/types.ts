@@ -184,6 +184,8 @@ export interface OptionResult {
   runNotCurrent?: true
   id: string
   label: string
+  /** The option node's label exactly as written (identity reads); `label` may carry "(set to …)" (AIQ 5908802422). */
+  labelAsWritten?: string
   /** Explicit expected value (mean) - primary value for "Expected" display */
   expected: number | null
   /** Full outcome distribution when available */

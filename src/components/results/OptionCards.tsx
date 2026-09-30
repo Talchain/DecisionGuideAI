@@ -378,7 +378,7 @@ function hingeAwareDescription(
     // above. The conditional-flip line is honest copy where a leader HAS been
     // designated; it is the designation it presupposes, not the factor it
     // names, that made it unrenderable on a withheld one.
-    if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === option.label) {
+    if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === (option.labelAsWritten ?? option.label)) {
       return `If ${hinge.label} shifts, this option overtakes`
     }
     // The retired point-gap line and its surviving near-tie predicate — see
