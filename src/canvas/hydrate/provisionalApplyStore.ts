@@ -71,6 +71,10 @@ export function readProvisionalApplyStore(): ScenarioAnalysisApplyStore {
   return {
     setAnalysisStateV1: s.setAnalysisStateV1,
     resultsComplete: s.resultsComplete,
+    // The cold boot writes the report through this view after the earlier
+    // verdict-only withholding had no report to stamp. Keep the producer's
+    // cause on that same report so Results and canvas read one saved Run.
+    resultsWithholdLeaderClaim: s.resultsWithholdLeaderClaim,
     // Named explicitly, like every member here — NOT spread. A drift in this
     // action's signature must RED `tsc` rather than resolve to `undefined` and
     // silently restore the very defect this binding was added to close.
