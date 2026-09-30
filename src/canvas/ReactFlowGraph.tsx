@@ -113,6 +113,7 @@ import { useGuidanceStore, setGuidancePersistenceContext } from './stores/guidan
 import { installGuidanceScenarioBoundary } from './stores/guidanceScenarioBoundary'
 import { installStrengthenGraphGuard } from './stores/strengthenGraphGuard'
 import { restoreAnalysisFromAutosave } from './store/restoreAnalysisFromAutosave'
+import { readSaysHeldRunNotCurrent } from './hydrate/heldRunDroppedByRead'
 // HealthStatusBar removed - validation consolidated into OutputsDock panel
 import { DegradedBanner } from './components/DegradedBanner'
 import { LayoutProgressBanner } from './components/LayoutProgressBanner'
@@ -2135,10 +2136,14 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         // They are kept only for records written before this shipped
         // (an autosave with no `analysis` key), and are now strictly
         // subordinate: a canonical hit is never overwritten by a hash guess.
-        let resultsRestored = restoreAnalysisFromAutosave(
-          autosave,
-          useCanvasStore.getState().resultsLoadHistorical,
-        )
+        // ⛔ R3 5904756210: a boot read that already said this scenario's held Run is not current wins, whichever
+        // landed first (`heldRunDroppedByRead.ts`). `true` here skips the legacy fallbacks below as well.
+        let resultsRestored = readSaysHeldRunNotCurrent(autosave.scenarioId)
+          ? true
+          : restoreAnalysisFromAutosave(
+            autosave,
+            useCanvasStore.getState().resultsLoadHistorical,
+          )
         if (!resultsRestored && autosave.scenarioId) {
           const savedScenario = scenarios.getScenario(autosave.scenarioId)
           if (savedScenario?.last_result_hash) {

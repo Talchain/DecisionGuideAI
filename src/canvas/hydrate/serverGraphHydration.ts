@@ -41,6 +41,7 @@ import { canonicalJson } from '../../lib/canonical-hash'
 import { EdgeV3Schema } from '@talchain/schemas'
 import { CANONICAL_GRAPH_HASH_NESTED_PROJECTION } from '@talchain/schemas/boundary'
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
+import { recordReadSaysHeldRunNotCurrent } from './heldRunDroppedByRead'
 
 export type HydrationOutcome =
   /** The server's graph was read and merged onto the canvas. */
@@ -720,9 +721,12 @@ export function heldRunIsNotCurrentPerRead(analysisState: AnalysisStateV1 | null
   return kind === 'complete_stale' || (analysisState as { requires_rerun?: unknown }).requires_rerun === true
 }
 function dropHeldRunTheReadSaysIsNotCurrent(scenarioId: string, analysisState: AnalysisStateV1 | null, analysisResult: unknown): void {
+  const notCurrent = heldRunIsNotCurrentPerRead(analysisState, analysisResult)
+  // Recorded BEFORE the held check: the autosave restore may land after this read (`heldRunDroppedByRead.ts`).
+  recordReadSaysHeldRunNotCurrent(scenarioId, notCurrent)
   const st = useCanvasStore.getState()
   if (st.results?.report == null && st.analysisFreshness == null) return
-  if (!heldRunIsNotCurrentPerRead(analysisState, analysisResult)) return
+  if (!notCurrent) return
   logger.warn('server_graph_hydration.held_run_dropped', { scenarioId, runStateKind: analysisState?.run_state.kind ?? null })
   st.resultsReset()
   useCanvasStore.setState({
