@@ -24,6 +24,7 @@
  * populates, so the canvas kept saying "no target" after the user had set one.
  * A user-set value wins; the CEE-derived raw is the fallback.
  */
+import { classifyValueProvenance } from './valueProvenance'
 
 /** The shape both call sites read from. Deliberately structural, not a class. */
 export interface GoalTargetSource {
@@ -375,3 +376,61 @@ export function goalTargetInPlaceEdit(data: GoalTargetSource | null | undefined)
   if (direction === null) return null
   return { value, unit, direction }
 }
+
+/**
+ * ⭐ TODAY'S LEVEL ON A CHANGE GOAL (cut-costs, served `09af9019`; AIQ 5902409861).
+ *
+ * "Target: down 20% from today" never said what today IS, so the journey's own correction ("£50k, not £45k") had
+ * nothing on the graph to correct. A change goal now says its level, from ONE of two typed carriers, and nothing else:
+ *   · `goal_level_reading` (CEE #2307): the number is the USER's, reading it as this goal's level today is Olumi's
+ *     (subject rule 5895823531) → "Olumi's reading of ‘<the user's words>’". Wins whenever present: MG keeps a
+ *     REFRESHED reading after a correction when the goal's subject differs from the user's words.
+ *   · a user-stated level (`observedState.raw_value` with a user `source`, no reading) → "you said".
+ * ⛔ The figure is `level` / `raw_value` in its OWN unit, never `value`/`baseline` (normalised: 0.8 on cut-costs), and
+ * the unit must be the goal's, or nothing is said. A level goal, or a change goal with neither carrier, says nothing.
+ */
+export interface GoalTodayLevel {
+  readonly level: number
+  readonly unit: string
+  readonly basis: 'olumi_reading' | 'user_stated'
+  readonly quote: string | null
+}
+export function goalTodayLevel(data: (GoalTargetSource & { goal_level_reading?: unknown; observedState?: unknown }) | null | undefined): GoalTodayLevel | null {
+  if (!data || goalTargetChangeFrameOf(data.goal_threshold_frame) === null) return null
+  const goalUnit = typeof data.goal_threshold_unit === 'string' ? data.goal_threshold_unit.trim() : ''
+  if (goalUnit === '') return null
+  const reading = data.goal_level_reading as { level?: unknown; level_unit?: unknown; quote?: unknown } | null | undefined
+  if (reading && typeof reading === 'object') {
+    const quote = typeof reading.quote === 'string' ? reading.quote.trim() : ''
+    const unit = typeof reading.level_unit === 'string' ? reading.level_unit.trim() : ''
+    if (typeof reading.level === 'number' && Number.isFinite(reading.level) && quote !== '' && unit === goalUnit) {
+      return { level: reading.level, unit, basis: 'olumi_reading', quote }
+    }
+    return null // a reading is present but unreadable: fail closed, never fall through to another figure
+  }
+  const observed = data.observedState as { raw_value?: unknown; unit?: unknown; source?: unknown } | null | undefined
+  const kind = classifyValueProvenance(typeof observed?.source === 'string' ? observed.source : null)?.kind
+  const raw = typeof observed?.raw_value === 'number' ? observed.raw_value : NaN
+  const unit = typeof observed?.unit === 'string' ? observed.unit.trim() : ''
+  if ((kind === 'edited' || kind === 'confirmed') && Number.isFinite(raw) && unit === goalUnit) {
+    return { level: raw, unit, basis: 'user_stated', quote: null }
+  }
+  return null
+}
+
+/**
+ * ⛔ ISL's `GOAL_DIRECTION_UNATTESTED` ("the model does not say which way your goal should go") IS FALSE when the goal
+ * node HOLDS `>=` / `>` and its target is not a negative change: the largest-value ordering ISL used then IS the held
+ * aim (AIQ 5901136155, 5902450527). Such a goal omits the entry; `<=`, `<`, an absent comparator, a negative or
+ * unreadable change keep it (fail closed: the disclosure stays).
+ */
+export function goalDirectionWarningIsMoot(goal: GoalTargetSource | null | undefined): boolean {
+  const held = goalHeldComparatorOf(goal?.goal_direction)
+  if (held !== '>=' && held !== '>') return false
+  if (goalTargetChangeFrameOf(goal?.goal_threshold_frame) !== null) {
+    const raw = typeof goal?.goal_threshold_raw === 'number' ? goal.goal_threshold_raw : Number.NaN
+    if (!Number.isFinite(raw) || raw < 0) return false
+  }
+  return true
+}
+export const GOAL_DIRECTION_UNATTESTED_CODE = 'GOAL_DIRECTION_UNATTESTED'
