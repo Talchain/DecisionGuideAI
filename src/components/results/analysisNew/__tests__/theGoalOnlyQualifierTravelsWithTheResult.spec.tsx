@@ -37,7 +37,8 @@ vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 import { openAllSections } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
-import { ANALYSIS_NEW_COPY as COPY, leaderWithholdCause } from '../analysisNewCopy'
+import { leaderWithholdCause } from '../analysisNewCopy'
+import { COMMITMENT_QUALIFIER_COPY } from '../commitmentQualifier'
 import { useResultsSectionData } from '../../useResultsSectionData'
 import { useCanvasStore } from '../../../../canvas/store'
 import { loadAutosave } from '../../../../canvas/store/scenarios'
@@ -167,7 +168,15 @@ function mountTab() {
   openAllSections()
 }
 
-const qualifier = () => screen.queryByTestId(`${TESTID}-goal-only`)
+/**
+ * ⭐ CUT-BACK (Paul, 30 Sep 2026): "goal only" now rides on the commitment's ONE Provisional
+ * line instead of a line of its own above the chart. The chart must not print its own too.
+ */
+const qualifier = () => {
+  expect(screen.queryByTestId(`${TESTID}-goal-only`), 'the chart prints no separate Goal-only line').toBeNull()
+  const line = screen.queryByTestId('analysis-new-commitment-qualifier')
+  return line && line.textContent!.includes(COMMITMENT_QUALIFIER_COPY.goalOnly) ? line : null
+}
 
 /** PRECONDITION for every "no qualifier" assertion: the shares ARE on screen,
  *  so an absent line is the rule working, not an empty section. */
@@ -192,7 +201,7 @@ function expectQualified() {
   expectSharesOnScreen()
   const line = qualifier()
   expect(line, 'the "Goal only" qualifier is missing').not.toBeNull()
-  expect(line!.textContent).toContain(COPY.optionFigures.goalOnlyQualifier)
+  expect(line!.textContent).toContain(`Provisional · ${COMMITMENT_QUALIFIER_COPY.goalOnly}`)
   const cause = leaderWithholdCause(LIMITS_UNSCORED) as string
   const zone = screen.getByTestId('analysis-new-commitment')
   expect(zone.textContent!.split(cause).length - 1, 'the cause is said once in "Move towards commitment"').toBe(1)

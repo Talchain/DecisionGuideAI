@@ -118,6 +118,17 @@ export const OPTION_ORIGIN_ALL_COPY: Record<OptionOrigin, string> = {
 }
 
 /**
+ * `OPTION_ORIGIN_ALL_COPY`'s sentence when EVERY option (two or more) shares one origin, else `null`.
+ * The same test `OptionsComparison` applies before it drops the per-row marks.
+ */
+export function allOptionsOriginSentence(rows: readonly { readonly origin: OptionOrigin | null }[]): string | null {
+  if (rows.length < 2) return null
+  const first = rows[0].origin
+  if (first === null || !rows.every((r) => r.origin === first)) return null
+  return OPTION_ORIGIN_ALL_COPY[first]
+}
+
+/**
  * Whose option is this? `null` means SAY NOTHING, and it is the common answer.
  *
  * ⚠⚠ THE PREDICATE MOVED OUT; THE GATE DID NOT WEAKEN. This module's own

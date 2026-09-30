@@ -315,6 +315,13 @@ export interface OptionsComparisonProps {
   /** `checks.sharesExcludeLimits` — see the type. States "Goal only" above the shares. */
   sharesExcludeLimits?: boolean
   /**
+   * ⭐ CUT-BACK (Paul, 30 Sep 2026). `true` where the parent's Provisional qualifier carries
+   * "goal only" and the every-option origin sentence (`buildCommitmentQualifier`'s facts):
+   * this section then prints neither line itself. A mixed origin keeps its legend here,
+   * because it explains the per-row marks.
+   */
+  notesInQualifier?: boolean
+  /**
    * Send a message as the user, on the surface's EXISTING writer.
    *
    * ⚠ OPTIONAL, AND ITS ABSENCE IS THE GATE, not a detail. A host with no
@@ -392,6 +399,7 @@ export function OptionsComparison({
   options,
   leaderWithholdCause = null,
   sharesExcludeLimits = false,
+  notesInQualifier = false,
   onSendMessage,
   defaultOpen = false,
   bare = false,
@@ -716,7 +724,7 @@ export function OptionsComparison({
           shares sat there as if the whole decision had been assessed. One line,
           the producer's own cause appended, and nothing when figures are absent
           (the paragraph above already carries the cause there). */}
-      {sharesExcludeLimits && !noneNumbered ? (
+      {sharesExcludeLimits && !noneNumbered && !notesInQualifier ? (
         <p
           /* ⭐ V2 FIDELITY (25 Sep 2026, gap TYPE-10): body ink, not tertiary
              grey — see the `-no-figures` paragraph above. */
@@ -1248,7 +1256,7 @@ export function OptionsComparison({
       ) : null}
       {/* THE SENTENCE, ONCE, FOR EVERY OPTION THE MARK APPEARS ON. Same copy
           constant the rows used and the glance renders. */}
-      {sharedOrigin !== null ? (
+      {sharedOrigin !== null && !(notesInQualifier && originIsEveryOption) ? (
         <p
           className={`${typography.panelMeta} text-text-light mt-1 mb-0 flex items-start gap-1`}
           data-testid={`${testId}-option-origin-legend`}

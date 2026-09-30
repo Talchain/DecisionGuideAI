@@ -301,13 +301,13 @@ describe('⭐ the wire reaches the screen', () => {
       <AnalysisNewTabBody resultsSectionData={makeData()} isPreRun={false} isRunning={false} isStale={false} responseHash={displayedHash} />,
     )
     const rows = screen.getAllByTestId(`${MOUNTED}-row`)
+    // ⭐ CUT-BACK (Paul, 30 Sep 2026): an unscored limit ("Not checked on this run.") is not
+    // said at rest; the view model still carries it (the rows above), the strip does not print it.
     expect(rows.map((r) => [r.getAttribute('data-constraint-id'), r.getAttribute('data-state')])).toEqual([
       ['c_churn', 'estimate_only'],
-      ['c_budget', 'unscored'],
     ])
     expect(rows[0].textContent).toBe(`Monthly churn ≤ 5%. ${LIMIT_VERDICT_COPY.estimateOnly}`)
-    // CONSTRAINT_NOT_CONVERTIBLE names no cause.
-    expect(rows[1].textContent).toBe(`Budget ≤ £50,000. ${LIMIT_VERDICT_COPY.unscored}`)
+    expect(screen.queryByText(LIMIT_VERDICT_COPY.unscored, { exact: false })).toBeNull()
     for (const row of rows) expect(row.textContent).not.toContain('—')
     expect(screen.getByTestId(`${MOUNTED}-joint`).textContent).toBe(LIMIT_VERDICT_COPY.jointWithheld)
   })
