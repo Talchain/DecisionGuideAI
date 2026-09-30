@@ -9,6 +9,8 @@ import { registerOnce, __resetWebMcpRegistryForTests, getWebMcpDiagnostics } fro
 import { probeTools } from '../probeTools'
 import { WebMcpHost } from '../WebMcpHost'
 
+vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }) }))
+
 type Registered = { tool: WebMcpTool; signal?: AbortSignal }
 
 function fakeModelContext() {
@@ -114,7 +116,10 @@ describe('WebMCP experiment — Gate A probes', () => {
     ;(document as unknown as { modelContext?: unknown }).modelContext = mc
     const { unmount } = render(<WebMcpHost />)
     render(<WebMcpHost />)
-    expect(live(mc)).toEqual(['olumi_ping', 'olumi_probe_large', 'olumi_probe_write'])
+    expect(live(mc)).toEqual([
+      'olumi_ping', 'olumi_probe_large', 'olumi_probe_write',
+      'olumi_get_state', 'olumi_build_model', 'olumi_run_analysis',
+    ])
     unmount()
     expect(live(mc)).toEqual([])
   })
