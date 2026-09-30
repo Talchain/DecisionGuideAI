@@ -10,6 +10,8 @@
  *   V3  a removed input is never drawn; its row has no canvas target unless the element is still drawn
  *   V4  ONE READER: every focus entry is keyed by the reader's own row key, one per row, and nothing else
  *   V5  `moved` = the producer's `signal` only, and never while win shares are withheld (row 9)
+ *   V9  `moved` only on an attributable (C1) pair: beside "Changed" on any other pair it would imply a cause
+ *       (AIQ #2370 5921417329)
  *   V6  coverage `not_recorded` marks no input; no comparison marks nothing
  *   V7  a limit marks the goal only when there is exactly one goal
  *   V8  ids are bound verbatim, never parsed out of the key (an id holding ':' still resolves)
@@ -140,5 +142,30 @@ describe('V8 ids are bound verbatim, never parsed from the key', () => {
     const g: CurrentGraph = { ...GRAPH, edges: [...GRAPH.edges, { id: 'e-f1-f2', source: 'fixture_factor_1', target: 'fixture_factor_2' }] }
     const v = buildGraphChangesView(view(drawn), g, false)
     expect(v.edgeMarks.get('e-f1-f2')).toBe('changed')
+  })
+})
+
+describe('V9 a movement is marked only on an attributable pair (AIQ 5921417329)', () => {
+  const signalB = {
+    ...maximalRunDelta,
+    win_probabilities: [maximalRunDelta.win_probabilities[0], { ...maximalRunDelta.win_probabilities[1], noise_verdict: 'signal' }],
+  }
+  // The served case today (R3 5920656318): a factor edit moves the seed → C2; builds equal.
+  const c2 = {
+    ...signalB,
+    attribution_case: 'C2_unpaired',
+    pair_provenance: { seed_equal: false, hash_equal: false, builds_equal: 'equal', n_equal: true },
+  }
+  it('C1 + signal → "Result moved" (the contract fixture is C1)', () => {
+    expect(view(signalB).attributable).toBe(true)
+    expect(buildGraphChangesView(view(signalB), GRAPH, false).nodeMarks.get('fixture_option_b')).toBe('moved')
+  })
+  it('C2 + signal → no "Result moved"; the input marks stay', () => {
+    expect(view(c2).attributable).toBe(false)
+    const v = buildGraphChangesView(view(c2), GRAPH, false)
+    expect(v.nodeMarks.has('fixture_option_b')).toBe(false)
+    expect([...v.nodeMarks.values()]).not.toContain('moved')
+    expect(v.nodeMarks.get('fixture_option_a')).toBe('changed')
+    expect(v.nodeMarks.get('fixture_option_c')).toBe('added')
   })
 })
