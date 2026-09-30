@@ -18,6 +18,12 @@ import type { ConversationMessage } from './types'
 export const CONVERSATION_TURNS_READ_KEY = 'conversation_turns' as const
 export const RESTORED_HISTORY_DIVIDER = 'Earlier in this conversation'
 export const RESTORED_STALE_FIGURES_NOTE = 'The model has changed since these replies; their figures describe an earlier analysis.'
+/**
+ * CEE's cap (CEE #2352 `CONVERSATION_TURNS_CAP`). A read AT the cap may have left older turns out (AIQ 5907906662: say
+ * so). The words hold whether or not anything was left out — at exactly 50 CEE cannot tell us which.
+ */
+export const CONVERSATION_TURNS_CAP = 50
+export const RESTORED_AT_CAP_DIVIDER = `${RESTORED_HISTORY_DIVIDER} · only the latest ${CONVERSATION_TURNS_CAP} messages are shown, earlier ones are not`
 
 export interface ServerConversationTurn {
   readonly turnId: string
@@ -69,7 +75,7 @@ export function buildRestoredThread(
     content: '',
     timestamp: new Date(turns[0].createdAt),
     synthetic: true,
-    sessionDivider: RESTORED_HISTORY_DIVIDER,
+    sessionDivider: turns.length >= CONVERSATION_TURNS_CAP ? RESTORED_AT_CAP_DIVIDER : RESTORED_HISTORY_DIVIDER,
   }]
   for (const t of turns) {
     const at = new Date(t.createdAt)

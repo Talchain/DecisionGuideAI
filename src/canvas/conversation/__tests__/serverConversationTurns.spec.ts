@@ -8,6 +8,8 @@ import {
   buildRestoredThread,
   RESTORED_HISTORY_DIVIDER,
   RESTORED_STALE_FIGURES_NOTE,
+  RESTORED_AT_CAP_DIVIDER,
+  CONVERSATION_TURNS_CAP,
 } from '../serverConversationTurns'
 
 const TURNS = readServerConversationTurns([
@@ -51,5 +53,15 @@ describe('the chat survives a reload — reader and builder', () => {
 
   it('nothing served → nothing restored', () => {
     expect(buildRestoredThread([], { runNotCurrent: false, currentRunComputedAt: null })).toEqual([])
+  })
+
+  it('AIQ 5907906662: a read AT the cap (50) says earlier messages are not shown; under the cap it does not', () => {
+    const many = readServerConversationTurns(Array.from({ length: CONVERSATION_TURNS_CAP }, (_, i) => ({
+      turn_id: `t${i}`, created_at: new Date(Date.UTC(2026, 8, 30, 5, i)).toISOString(), user_message: `q${i}`, assistant_message: 'ok',
+    })))!
+    const run = { runNotCurrent: false, currentRunComputedAt: null }
+    expect(buildRestoredThread(many, run)[0].sessionDivider).toBe(RESTORED_AT_CAP_DIVIDER)
+    expect(RESTORED_AT_CAP_DIVIDER).toContain('earlier ones are not')
+    expect(buildRestoredThread(many.slice(1), run)[0].sessionDivider).toBe(RESTORED_HISTORY_DIVIDER)
   })
 })
