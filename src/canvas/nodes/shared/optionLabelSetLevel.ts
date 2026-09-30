@@ -10,7 +10,12 @@
  *   · the label names at least one figure in that currency ("Raise Pro from £49 to £59" names two), and NONE of them
  *     is the set level. The suffix is true either way; the predicate only decides when it is worth saying.
  */
-const CURRENCY_FIGURE = /([£$€])\s?(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?\s?([kKmM])?(?![a-zA-Z])/g
+import { CURRENCY_SYMBOLS } from '../../../utils/unitClassifier'
+
+// The currency glyphs come from the ONE source (`unitClassifier.CURRENCY_SYMBOLS`), never a hand-written class
+// (nodeValueGrammarSingleSource B): a symbol the source knows is a symbol this rule reads.
+const GLYPHS = [...CURRENCY_SYMBOLS].map((g) => g.replace(/[\\^$.*+?()[\]{}|-]/g, '\\$&')).join('')
+const CURRENCY_FIGURE = new RegExp(`([${GLYPHS}])\\s?(\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.(\\d+))?\\s?([kKmM])?(?![a-zA-Z])`, 'g')
 
 interface Figure { readonly currency: string; readonly value: number }
 
