@@ -53,6 +53,7 @@ import { Pencil } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
 import { EDIT_RESERVED_HEIGHT_CLASS } from './valueCellMetrics'
+import { classifyValueProvenance } from '../domain/valueProvenance'
 
 /** Attention reasons the row's own text already states; not drawn as marks (see the attention cell). */
 const ROW_TEXT_SAYS_IT: ReadonlySet<string> = new Set(['no-value', 'unconfirmed-estimate'])
@@ -63,8 +64,21 @@ const ROW_TEXT_SAYS_IT: ReadonlySet<string> = new Set(['no-value', 'unconfirmed-
  */
 export function estimateWords(text: string): string {
   const m = /^(.*\S)\s+\((-?\d+(?:\.\d+)?)\)$/.exec(text)
-  return m ? m[1] : text
+  // AIQ 5917333759 (2): only the model's own -1..1 scale is dropped. Any other bracketed number
+  // may be a real figure the user needs to correct, so it stays.
+  return m && Math.abs(Number(m[2])) <= 1 ? m[1] : text
 }
+
+/**
+ * AIQ 5917333759 (1): "Olumi: <band>" is said ONLY when the value IS Olumi's own estimate
+ * (`classifyValueProvenance(...).kind === 'ai'`, the same classifier the ✨ mark reads). Any other
+ * source (a placeholder, a system default, an unknown stamp) keeps "Not set" and says so.
+ */
+export function estimateIsOlumis(provenanceSource: string | undefined): boolean {
+  return classifyValueProvenance(provenanceSource)?.kind === 'ai'
+}
+
+export const PLACEHOLDER_ESTIMATE_COPY = 'Olumi is using a placeholder'
 import {
   GOAL_LABEL_FROM_BRIEF_COPY,
   GOAL_LABEL_FROM_BRIEF_TESTID,
@@ -2613,10 +2627,18 @@ function ValueCell({
            `title` on the leaf, not on the wrapping `<button>`, because the
            button's own "Change this value" is about the affordance and would
            otherwise be the only thing a hover could ever tell you. */
-        title={`Olumi's estimate, not yet yours: ${row.estimateText}`}
-        className={`${typography.panelBody} text-text-light truncate min-w-0`}
+        title={
+          estimateIsOlumis(row.provenanceSource)
+            ? `Olumi's estimate, not yet yours: ${row.estimateText}`
+            : `${PLACEHOLDER_ESTIMATE_COPY}: ${row.estimateText}`
+        }
+        className={`${typography.panelBody} text-text-light truncate min-w-0${
+          estimateIsOlumis(row.provenanceSource) ? '' : ' ml-2'
+        }`}
       >
-        Olumi: {estimateWords(row.estimateText)}
+        {estimateIsOlumis(row.provenanceSource)
+          ? `Olumi: ${estimateWords(row.estimateText)}`
+          : PLACEHOLDER_ESTIMATE_COPY}
       </span>
     ) : display === null && row.recordedRangeText !== undefined ? (
       /*
@@ -2660,7 +2682,9 @@ function ValueCell({
       >
         {/* ⭐ CUT-BACK (Paul, 30 Sep 2026): with an estimate, the estimate IS the reading.
             "Not set" beside "Olumi: Very high" read as a contradiction. */}
-        {estimate === null ? <ValueLeaf display={display} mayShrink={valueMayShrink(display)} /> : null}
+        {estimate === null || !estimateIsOlumis(row.provenanceSource) ? (
+          <ValueLeaf display={display} mayShrink={valueMayShrink(display)} />
+        ) : null}
         {estimate}
       </span>
     )
@@ -2702,7 +2726,7 @@ function ValueCell({
           to one of the two idle elements is a fix that half the rows never
           receive." The editable rows are exactly the ones carrying the long
           strength bands, so this is the site the overflow was measured on. */}
-      {estimate === null ? (
+      {estimate === null || !estimateIsOlumis(row.provenanceSource) ? (
         <ValueLeaf display={display ?? 'Not set'} mayShrink={valueMayShrink(display)} editable />
       ) : null}
       {estimate}
