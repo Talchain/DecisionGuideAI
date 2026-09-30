@@ -63,6 +63,17 @@ export const NaturalEffectSchema = z.object({
   /** The signed β the amount was admitted for — the staleness key (see header). */
   strengthMean: z.number().finite(),
   author: z.enum(['user', 'olumi_estimate', 'olumi_placeholder']),
+  /**
+   * ⭐ A4 (CEE #2409; R3 C1/C2 #75 5918513716, AIQ 5919755441): the user's amount is ONE END of a range they wrote
+   * ("deals between £1-2 million" → £1,000,000, the low end). Said WITH the range, as a bound — never as the user's
+   * single figure. Read only on the user's own size.
+   */
+  statedRange: z.object({
+    low: z.number().finite(),
+    high: z.number().finite(),
+    text: z.string().min(1),
+    end: z.enum(['low', 'high']),
+  }).optional(),
 })
 export type NaturalEffect = z.infer<typeof NaturalEffectSchema>
 
@@ -114,7 +125,14 @@ export function readWireNaturalEffect(
   // The staleness key is compared with the edge's own strength mean, so it must SAY
   // it is on that frame. Anything else is not a key this reader can compare.
   if (ne.strength_mean_frame !== STRENGTH_MEAN_FRAME) return undefined
+  // A range that is present but unreadable is not a size we can say alone: fail closed (the band speaks), never the
+  // amount as the user's single figure. Olumi's own size never carries one.
+  const range = author === 'user' ? readRecord(ne.stated_range) : null
+  if (author === 'user' && ne.stated_range !== undefined && range === null) return undefined
   const parsed = NaturalEffectSchema.safeParse({
+    ...(range !== null
+      ? { statedRange: { low: range.low, high: range.high, text: nonEmpty(range.text), end: range.end } }
+      : {}),
     amount: ne.amount,
     unit: nonEmpty(ne.amount_unit),
     perSourceChange: ne.per_source_change,
@@ -169,9 +187,13 @@ export function naturalEffectPhrase(
   if ((effect.amount < 0 ? 'negative' : 'positive') !== direction.direction) return null
 
   const size = Math.abs(effect.amount)
-  const change = `${direction.direction === 'negative' ? 'Decrease' : 'Increase'} of about ${formatRawValueWithUnit(size, unitForAmount(size, effect.unit))}`
+  // A4: one end of the user's written range bounds the size — the low end "at least", the high end "at most".
+  const range = effect.author === 'user' ? effect.statedRange : undefined
+  const bound = range === undefined ? 'about' : range.end === 'low' ? 'at least' : 'at most'
+  const change = `${direction.direction === 'negative' ? 'Decrease' : 'Increase'} of ${bound} ${formatRawValueWithUnit(size, unitForAmount(size, effect.unit))}`
   const per = effect.sourceUnit === SWITCH_SOURCE_UNIT
     ? ''
     : ` per ${formatRawValueWithUnit(effect.perSourceChange, unitForAmount(effect.perSourceChange, effect.sourceUnit))}`
-  return `${change}${per}${AUTHOR_SUFFIX[effect.author]}`
+  const ofRange = range === undefined ? '' : ` · the ${range.end} end of your ${range.text} range`
+  return `${change}${per}${AUTHOR_SUFFIX[effect.author]}${ofRange}`
 }
