@@ -484,7 +484,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     title:
       "Your goal's target was recorded, but Olumi can't yet compare it with where the goal stands today, so the share of model runs that reach it is not shown rather than guessed.",
     description:
-      "Your target was captured. To compare it, Olumi needs where the goal stands today, and this usually means no current level is recorded for the goal. Until then, the share of model runs that reach your target is not shown rather than guessed.",
+      "Your target was captured. To compare it, Olumi needs where the goal stands today, and usually no current level is recorded for the goal. Until it has one, the share of model runs that reach your target is not shown rather than guessed.",
     // No suggestion: there is no action the user can take until ROADMAP 2.281.
   }),
   GOAL_THRESHOLD_FRAME_UNSPECIFIED: () => ({
