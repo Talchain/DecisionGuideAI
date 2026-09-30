@@ -134,6 +134,7 @@ import {
 import {
   EMPTY_DURABLE_DELETION_RECORD,
   addDurableDeletion,
+  forgetDurableDeletion,
   buildDurableDeletionNotice,
   reconcileDurableDeletions,
   withholdDurableDeletions,
@@ -1921,6 +1922,15 @@ interface CanvasState {
    * here would make the product refuse to restore something it still holds.
    */
   recordDurableDeletion: (removed: {
+    readonly nodeIds: readonly string[]
+    readonly edgeIds: readonly string[]
+  }) => void
+  /**
+   * A VERSION RESTORE put these elements back on the saved model, so they are
+   * no longer proven deleted. The twin of `recordDurableDeletion`; call it only
+   * with ids the restored server graph actually holds.
+   */
+  forgetDurableDeletion: (heldAgain: {
     readonly nodeIds: readonly string[]
     readonly edgeIds: readonly string[]
   }) => void
@@ -7608,6 +7618,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       ...deriveGoalThresholdFromNode(reconciled.nodes, s.outcomeNodeId),
     }))
     markAnalysisFreshnessDirty(get, set)
+  },
+
+  forgetDurableDeletion: (heldAgain) => {
+    const current = get().durablyDeletedElements
+    const next = forgetDurableDeletion(current, heldAgain)
+    if (next !== current) set({ durablyDeletedElements: next })
   },
 
   clearDurableDeletionNotice: () => {
