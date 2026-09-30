@@ -1,5 +1,5 @@
 import { memo, useCallback, type ReactNode } from 'react'
-import { MessageCircle, MoreHorizontal, Zap } from 'lucide-react'
+import { MoreHorizontal, Zap } from 'lucide-react'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useShowToastSafe } from '../../ToastContext'
@@ -13,7 +13,7 @@ import {
   CANVAS_QUICK_ACTION_INSET_PX,
   CANVAS_REPEATED_RAIL_INSET_CLASSES,
 } from './canvasGlyphScale'
-import { NodeCoachingIcon, useCoachingIconChip } from './NodeCoachingIcon'
+import { COACHING_ICON_GLYPH, NodeCoachingIcon, useCoachingIconChip } from './NodeCoachingIcon'
 import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX, NODE_RAIL_REST_TONE_CLASS } from './nodeCardRailStyles'
 import type { ResolvedCoaching } from '../coaching/resolveNodeCoaching'
 
@@ -499,9 +499,9 @@ export const NodeQuickActions = memo(function NodeQuickActions({
             aria-label={`Ask Olumi about ${label}`}
             data-testid={`node-action-ask-${nodeId}`}
           >
-            {/* `MessageCircle` — the ONE "Ask Olumi" glyph (Panel R3, #63
-                5796609717), the same glyph as the rail's coaching icon. */}
-            <MessageCircle size={NODE_RAIL_GLYPH_PX} aria-hidden="true" className={NODE_RAIL_GLYPH_CLASSES} />
+            {/* The Olumi AI icon (DS v5 §9.8; Paul 30 Sep) — the ONE "Ask Olumi" glyph, the SAME mark as the rail's
+                coaching door (`COACHING_ICON_GLYPH`), so one act never wears two glyphs. */}
+            <COACHING_ICON_GLYPH.Icon size={NODE_RAIL_GLYPH_PX} aria-hidden="true" className={NODE_RAIL_GLYPH_CLASSES} />
           </button>
         </Tooltip>
       )}
