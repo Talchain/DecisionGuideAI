@@ -30,8 +30,10 @@ import {
 } from '../applyBootRunCurrency'
 import { buildRegistrationGraph } from '../../registration/buildRegistrationGraph'
 import { useCoachingCurrency } from '../../../v5/blocks/useCoachingCurrency'
+import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { mergeServerGraphOnHydrate } from '../../utils/mergeServerGraph'
 import servedPricing from './fixtures/pricing-provisional-poll.json'
+import realStagingFixture from '../../../v5/__tests__/fixtures/v5-analysis-result.staging-real-shape.json'
 
 const SCENARIO_ID = '11111111-2222-4333-8444-555555555555'
 const IDENTITY = 'c'.repeat(63) + '9'
@@ -72,6 +74,10 @@ function readGraphOfCanvas() {
   return JSON.parse(JSON.stringify(built.graph)) as { nodes: Array<Record<string, unknown>>; edges: unknown[] }
 }
 
+function resultBlock() {
+  return { ...(structuredClone(realStagingFixture.blocks[0]) as Record<string, unknown>), computed_against_hash: READ_HASH }
+}
+
 function body(over: Record<string, unknown> = {}) {
   return {
     schema: 'scenario_graph.v1',
@@ -91,6 +97,7 @@ function body(over: Record<string, unknown> = {}) {
     request_id: 'req-boot-run-currency',
     graph_hash: READ_HASH,
     analysis_state: CURRENT,
+    analysis_result: resultBlock(),
     ...over,
   }
 }
@@ -101,6 +108,7 @@ function respond(b: unknown): void {
 
 /** The state an ordinary reload leaves before the read lands (`resultsLoadHistorical`). */
 function seedReloadedCanvas(over: Record<string, unknown> = {}): void {
+  const report = mapV5AnalysisToReport(resultBlock() as never)
   useCanvasStore.setState({
     currentScenarioId: SCENARIO_ID,
     nodes: JSON.parse(JSON.stringify(CANVAS_NODES)),
@@ -113,6 +121,8 @@ function seedReloadedCanvas(over: Record<string, unknown> = {}): void {
     analysisStateV1: null,
     analysisFreshness: { freshness: 'unknown', freshnessReason: 'hydrated_without_capture' },
     analysisFreshnessDirty: false,
+    results: { status: 'complete', progress: 100, report, hash: report.model_card.response_hash },
+    v5AnalysisFact: null,
     ...over,
   } as never)
 }
@@ -358,6 +368,7 @@ describe('applyBootRunCurrency — each decline reason is reachable, and names i
     let hash: string | undefined
     const outcome = applyBootRunCurrency({
       analysisState: CURRENT,
+      analysisResult: { type: 'analysis_result', computed_against_hash: READ_HASH },
       graphHash: READ_HASH,
       canvasProvenEqualToRead: true,
       store: {
@@ -377,6 +388,9 @@ describe('applyBootRunCurrency — each decline reason is reachable, and names i
   const cases: Array<[BootRunCurrencyDeclineReason, () => ReturnType<typeof run>]> = [
     ['no_verdict', () => run({ analysisState: null })],
     ['not_current', () => run({ analysisState: verdict({ kind: 'never_run' } as never) })],
+    ['rerun_required', () => run({ analysisState: verdict({ kind: 'complete_current', computed_at: COMPUTED_AT }, { requires_rerun: true }) })],
+    ['degraded_newer_run', () => run({ analysisState: verdict({ kind: 'complete_current', computed_at: COMPUTED_AT }, { contradictions: ['fact_status_success_but_degraded_newer'] }) })],
+    ['no_result', () => run({ analysisResult: null })],
     ['no_computed_at', () => run({ analysisState: verdict({ kind: 'complete_current', computed_at: '  ' }) })],
     ['no_graph_hash', () => run({ graphHash: null })],
     ['canvas_not_proven_equal', () => run({ canvasProvenEqualToRead: false })],

@@ -178,6 +178,10 @@ export interface OptionDownside {
 }
 
 export interface OptionResult {
+  /** AIQ 5903604206: the canvas node carries `proposed_by: 'olumi'` (an unadopted suggestion) — never counted as "your" option. */
+  proposedByOlumi?: true
+  /** The Run on screen is not current (AIQ pre-share hold): nothing is said about how today's options relate to it. */
+  runNotCurrent?: true
   id: string
   label: string
   /** Explicit expected value (mean) - primary value for "Expected" display */

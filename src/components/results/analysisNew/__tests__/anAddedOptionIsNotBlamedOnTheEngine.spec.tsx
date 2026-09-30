@@ -112,8 +112,10 @@ describe('the view model: the engine-blaming sentence needs a current result', (
 
   it('⭐ CONTRAST: `no_interventions` describes the graph as it is and is never gated', () => {
     const vm = vmOf(runOverAAndBWithC('no_interventions'), false)
-    expect(addedRow(vm).reasonCopy).toBe(notAnalysedReasonCopy('no_interventions'))
-    expect(addedExcluded(vm).reasonCopy).toBe(notAnalysedReasonCopy('no_interventions'))
+    // S3 (R3 B0): on a Run that is not current it still says what the graph lacks, but never that the Run "left it out".
+    expect(addedRow(vm).reasonCopy).toBe(notAnalysedReasonCopy('no_interventions', false))
+    expect(addedExcluded(vm).reasonCopy).toBe(notAnalysedReasonCopy('no_interventions', false))
+    expect(addedRow(vm).reasonCopy).not.toMatch(/left out/)
   })
 })
 

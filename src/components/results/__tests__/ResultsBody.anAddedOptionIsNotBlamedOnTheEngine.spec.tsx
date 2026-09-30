@@ -181,9 +181,11 @@ describe('ResultsBody: the not-analysed card needs a current result to blame the
 
   it('⭐ CONTRAST: `no_interventions` describes the graph as it is and is never withheld', () => {
     mountWithCurrency(false, 'no_interventions')
+    // S3 (R3 B0): not current → still says what the graph lacks, never that the Run "left it out".
     expect(screen.getByTestId(`not-analysed-reason-${ADDED}`)).toHaveTextContent(
-      notAnalysedReasonCopy('no_interventions'),
+      notAnalysedReasonCopy('no_interventions', false),
     )
+    expect(screen.getByTestId(`not-analysed-reason-${ADDED}`)).not.toHaveTextContent(/left out/)
     expect(screen.getByTestId(`not-analysed-resolve-${ADDED}`)).toBeInTheDocument()
   })
 })

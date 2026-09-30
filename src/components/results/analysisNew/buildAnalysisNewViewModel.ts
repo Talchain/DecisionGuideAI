@@ -350,7 +350,7 @@ function notAnalysedReasonCopyIfLicensed(
   analysisIdentityIsCurrent: boolean,
 ): string | null {
   if (reason === 'not_returned' && !analysisIdentityIsCurrent) return null
-  return notAnalysedReasonCopy(reason)
+  return notAnalysedReasonCopy(reason, analysisIdentityIsCurrent)
 }
 
 // ── formatting helpers (display only — none of these decide anything) ────────

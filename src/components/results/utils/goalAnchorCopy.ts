@@ -428,6 +428,11 @@ export interface ComparisonScope {
    * — see the guard in {@link deriveComparisonScope}.
    */
   readonly excludedLabels: readonly string[]
+  /**
+   * ⛔ AIQ 5903604206 / P0 5903598692: "your" only when every option in the set is the user's. With one of Olumi's
+   * suggestions among them, "2 of your 3" calls Olumi's suggestion the user's choice (false authorship).
+   */
+  readonly allTheUsers?: boolean
 }
 
 /**
@@ -456,11 +461,17 @@ export interface ComparisonScope {
  */
 export function deriveComparisonScope(
   options:
-    | ReadonlyArray<{ id?: string | null; label?: string | null; notAnalysed?: boolean }>
+    | ReadonlyArray<{ id?: string | null; label?: string | null; notAnalysed?: boolean; proposedByOlumi?: boolean; runNotCurrent?: boolean }>
     | null
     | undefined,
+  /**
+   * ⛔ AIQ pre-share hold (R3 B0 S3): a Run that is not current is never re-described against TODAY's option list —
+   * "3 of your 4 … left out" named an option Run 1 never saw. Say nothing.
+   */
+  resultsCurrent = true,
 ): ComparisonScope | null {
   const all = options ?? []
+  if (!resultsCurrent || all.some((o) => o.runNotCurrent === true)) return null
   if (all.length === 0) return null
 
   const excluded = all.filter((o) => o.notAnalysed === true)
@@ -473,6 +484,7 @@ export function deriveComparisonScope(
   return {
     analysed,
     total: all.length,
+    allTheUsers: !all.some((o) => o.proposedByOlumi === true),
     excludedLabels: excluded
       .map((o) => {
         const label = typeof o.label === 'string' ? o.label.trim() : ''
@@ -548,7 +560,9 @@ export const COMPARISON_SCOPE_COPY = {
    * heading where a sentence would crowd the number.
    */
   phrase: (scope: ComparisonScope): string =>
-    `Comparing ${scope.analysed} of your ${scope.total} options`,
+    scope.allTheUsers === false
+      ? `Comparing ${scope.analysed} of ${scope.total} options`
+      : `Comparing ${scope.analysed} of your ${scope.total} options`,
 
   /**
    * Who is outside the set. Falls back to the COUNT when no excluded option

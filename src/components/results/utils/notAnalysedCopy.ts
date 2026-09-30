@@ -47,8 +47,11 @@ export const NOT_ANALYSED_BADGE = 'Not analysed'
  * A card that silently omits numbers reads as a rendering gap; a card that says
  * why reads as a decision.
  */
-export function notAnalysedReasonCopy(reason: NotAnalysedReason): string {
+export function notAnalysedReasonCopy(reason: NotAnalysedReason, resultsCurrent = true): string {
   if (reason === 'excluded_olumi_proposed') return OLUMI_PROPOSED_EXCLUDED_COPY
+  // ⛔ AIQ pre-share hold (R3 B0 S3): on a Run that is not current, the option may have been added after it — "left out
+  // of the comparison" is a claim about that Run. The graph fact stays; the Run claim goes.
+  if (reason === 'no_interventions' && !resultsCurrent) return NOT_ANALYSED_NO_VALUES_NOT_CURRENT
   return reason === 'no_interventions'
     ? 'This option has no values set yet, so it was left out of the comparison. It has no rank and no probability.'
     : 'The analysis returned no result for this option, so it has no rank and no probability.'
@@ -134,6 +137,9 @@ export function olumiProposedKeptCopy(cause: OlumiKeptCause): string {
  * "HAS no result", never "RETURNED". It asserts no change, so it is true
  * whether the option was left out of the run or added after it.
  */
+export const NOT_ANALYSED_NO_VALUES_NOT_CURRENT =
+  'This option has no values set yet, and the last analysis has no result for it. It has no rank and no probability.'
+
 export const NOT_ANALYSED_IN_LAST_ANALYSIS =
   'The last analysis has no result for this option, so it has no rank and no probability.'
 

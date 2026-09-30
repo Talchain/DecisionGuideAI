@@ -2669,7 +2669,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                 style={{ float: 'right', width: cornerTitleSpacer.width, height: cornerTitleSpacer.height }}
               />
             )}
-            {titleOverride ?? cardTitle}
+            {/* The title's words are their OWN element, so the pencil beside them never makes the title a non-leaf:
+                `cardCopyCensus` reads leaf text runs, and #2322's pencil hid every card's own label from it. */}
+            <span>{titleOverride ?? cardTitle}</span>
             {/* E1d: the pencil says the title renames in place (double-click). Zero-width; see `EditPencilCue`. */}
             {!lodBodyHidden && <EditPencilCue testId="node-title-pencil" />}
           </div>

@@ -40,6 +40,7 @@ import { edgePairKey, wireEdgePairKey } from '../utils/graphIdentity'
 import { canonicalJson } from '../../lib/canonical-hash'
 import { EdgeV3Schema } from '@talchain/schemas'
 import { CANONICAL_GRAPH_HASH_NESTED_PROJECTION } from '@talchain/schemas/boundary'
+import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 export type HydrationOutcome =
   /** The server's graph was read and merged onto the canvas. */
@@ -391,6 +392,7 @@ async function readAndMergeServerGraph(
     )
     const currencyOutcome = applyBootRunCurrency({
       analysisState: result.analysisState,
+      analysisResult: result.analysisResult,
       graphHash: result.graphHash,
       admitted: result.admitted,
       canvasProvenEqualToRead: notProvenEqual === null,
@@ -520,6 +522,8 @@ async function readAndMergeServerGraph(
   // are pinned — the refusal-negative AND the accepted-positive — because one
   // predicate here guards two opposite harms, and a fix aimed only at the lie
   // would re-open #842's gap on the way past.
+  dropHeldRunTheReadSaysIsNotCurrent(scenarioId, result.analysisState, result.analysisResult)
+
   const stored = useCanvasStore.getState().serverGraphIdentity
   if (isSameServerGraph(stored, result.identity)) {
     // The server has not moved since we last hydrated, so there is nothing to
@@ -690,6 +694,44 @@ function acknowledgeCanvasThatMatchesTheRead(scenarioId: string, wireGraph: unkn
  * Edge types are compared under the contract default on BOTH sides, exactly as
  * the currency proof compares them (`withContractEdgeDefaults`).
  */
+/**
+ * ⛔ THE SERVER'S "NOT CURRENT" OUTRANKS THE AUTOSAVED RUN (AIQ pre-share hold #75 5903405445; R3 5903397606; DL lease
+ * 5903425676; P0 C2 5903423999).
+ *
+ * A same-browser reload after a newer Run restored Run 1 from `olumi-canvas-autosave`, and that held report made the
+ * merge count as a local edit, so every verdict leg declined (`edited_since_read`, `closes_run_gate`): the panel said
+ * "Cannot confirm whether this analysis is current" over a Run the server KNOWS is out of date, and re-described it
+ * against today's option list ("3 of your 4 options … left out"). A fresh browser was right.
+ *
+ * So when the read says the held Run cannot be current (its kind is `complete_stale`, it asks for a rerun, or it ships
+ * no result — the block rides only on a current Run), the held Run is dropped BEFORE the merge, and the boot proceeds
+ * exactly as a fresh browser's does: same verdict, same "Model changed" surface, no Run-1 figures. A read that ships its
+ * own result, or a verdict still running, leaves the held Run alone.
+ */
+export function heldRunIsNotCurrentPerRead(analysisState: AnalysisStateV1 | null, analysisResult: unknown): boolean {
+  if (analysisState == null) return false
+  // P0 C2 (5903423999): a newer degraded Run superseded the saved one — no block the read ships can be current.
+  if ((analysisState as { contradictions?: unknown }).contradictions instanceof Array
+    && ((analysisState as { contradictions: unknown[] }).contradictions).includes('fact_status_success_but_degraded_newer')) return true
+  if (analysisResult != null) return false
+  const kind = analysisState.run_state.kind
+  return kind === 'complete_stale' || kind === 'complete_current' || (analysisState as { requires_rerun?: unknown }).requires_rerun === true
+}
+function dropHeldRunTheReadSaysIsNotCurrent(scenarioId: string, analysisState: AnalysisStateV1 | null, analysisResult: unknown): void {
+  const st = useCanvasStore.getState()
+  if (st.results?.report == null && st.analysisFreshness == null) return
+  if (!heldRunIsNotCurrentPerRead(analysisState, analysisResult)) return
+  logger.warn('server_graph_hydration.held_run_dropped', { scenarioId, runStateKind: analysisState?.run_state.kind ?? null })
+  st.resultsReset()
+  useCanvasStore.setState({
+    analysisFreshness: null,
+    analysisFreshnessDirty: false,
+    graphEditedSinceLastRun: false,
+    v5AnalysisFact: null,
+    hasCompletedFirstRun: false,
+  } as never)
+}
+
 function canvasProvenEqualToRead(scenarioId: string, wireGraph: unknown): boolean {
   return whyCanvasNotProvenEqualToRead(scenarioId, withContractEdgeDefaults(wireGraph), withContractEdgeDefaults) === null
 }
