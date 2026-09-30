@@ -2884,7 +2884,15 @@ export const OptionNode = memo((props: NodeProps) => {
               aria-label={`${NOT_RANKED_MARKER}. ${winShareWithheldReasonLine ?? ''}`}
               tabIndex={0}
             >
-              <span className={`${typography.edgeLabel} text-text-light`} aria-hidden="true">{NOT_RANKED_MARKER}</span>
+              {/* The same contract `.state-word` chip as `Not analysed` (#2351): a state in ink, never muted text. */}
+              <span
+                className={STATE_WORD_CLASSES}
+                style={{ ...STATE_WORD_STYLE, paddingTop: 0, paddingBottom: 0 }}
+                aria-hidden="true"
+                data-testid={`option-not-ranked-chip-${props.id}`}
+              >
+                {NOT_RANKED_MARKER}
+              </span>
             </div>
           </Tooltip>
         )}

@@ -106,6 +106,10 @@ describe('CURRENT-READ row 9 — a withheld leader withholds every per-option sh
       expect(slotText(id)).not.toMatch(/\d\s*%/)
       const marker = screen.getByTestId(`option-not-ranked-${id}`)
       expect(marker.textContent).toBe(NOT_RANKED_MARKER)
+      // The contract's state chip, in ink (as `Not analysed`, #2351), not muted text.
+      const chip = screen.getByTestId(`option-not-ranked-chip-${id}`)
+      const cls = new Set((chip.getAttribute('class') ?? '').split(/\s+/))
+      for (const t of ['border', 'rounded-full', 'text-text-body']) expect(cls.has(t), t).toBe(true)
       expect(marker.getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${EXPLORATORY_REASON_LINE}`)
     },
   )
