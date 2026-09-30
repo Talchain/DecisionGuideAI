@@ -87,6 +87,15 @@ describe('BaseNode — the Changes view', () => {
     expect(card().getAttribute('data-run-change-subdued')).toBeNull()
   })
 
+  it('N1c the word sits below-right, outside the card — never above-left, where the lane title is', () => {
+    renderWith(runChanges([['decision-1', 'changed']]))
+    const cls = screen.getByTestId('run-change-badge-decision-1').className
+    expect(cls).toContain('top-full')
+    expect(cls).toContain('right-0')
+    expect(cls).not.toContain('bottom-full')
+    expect(cls).not.toMatch(/\bleft-0\b/)
+  })
+
   it('N1b an option that entered the comparison says so — not "new"', () => {
     renderWith(runChanges([['decision-1', 'added']]))
     expect(screen.getByTestId('run-change-badge-decision-1')).toHaveTextContent('Added to the comparison')

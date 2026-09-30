@@ -5,8 +5,10 @@
  * `bg-panel`) — the canvas state-word geometry (`STATE_WORD_CLASSES`) with the Info border instead of the
  * warning one, because a change is information, not a problem. §3.12: never colour alone — the word says it.
  *
- * It sits just ABOVE the card's top-left edge: the top-right corner belongs to `node-corner-stack` and the top
- * centre to the kind marker, so the chip covers neither and never touches the card's own text.
+ * It sits just BELOW the card's bottom-RIGHT corner, outside the card. Measured on the served build (4f61c322, 1280):
+ * ABOVE-left, the chip landed on the lane title ("ALTERNATIVES"), which `deriveLaneTitles` places above-left of
+ * every lane's first row. Above-centre is the kind marker; inside top-right is `node-corner-stack`; inside the
+ * footer band are the quick actions. Below-right touches none of them, and the next lane's title is on the left.
  */
 import { memo } from 'react'
 import { typography } from '../../styles/typography'
@@ -22,7 +24,7 @@ export const RUN_CHANGE_WORDS: Record<RunChangeMark, string> = {
 }
 
 const CLASSES =
-  `${typography.edgeLabel} pointer-events-none absolute left-0 bottom-full mb-[calc(4px*var(--canvas-label-scale,1))] ` +
+  `${typography.edgeLabel} pointer-events-none absolute right-0 top-full mt-[calc(4px*var(--canvas-label-scale,1))] ` +
   'shrink-0 whitespace-nowrap inline-flex items-center font-normal text-text-body bg-panel border border-solid border-info/50 rounded-full'
 
 export const RunChangeBadge = memo(function RunChangeBadge({ mark, nodeId }: { mark: RunChangeMark; nodeId: string }) {
