@@ -1,17 +1,11 @@
 /**
- * With canvas Undo/Redo CONNECTED (its own key), ⌘Z / ⌘⇧Z / ⌘Y run the
- * saved-change command — and never the store's screen-only history.
+ * Canvas Undo/Redo is ON (Undo S5 removed its temporary key): ⌘Z / ⌘⇧Z / ⌘Y run
+ * the saved-change command — and never the store's screen-only history. No
+ * authority mock: this runs against the REAL `CANONICAL_EDIT_AUTHORITY`.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 
-vi.mock('../../mutations/mutationAuthority', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../mutations/mutationAuthority')>()
-  return {
-    ...actual,
-    CANONICAL_EDIT_AUTHORITY: { ...actual.CANONICAL_EDIT_AUTHORITY, canvasUndoRedo: 'server_graph' },
-  }
-})
 const runCanvasUndo = vi.fn(async () => 'done')
 vi.mock('../undoCommand', () => ({ runCanvasUndo: (...a: unknown[]) => runCanvasUndo(...(a as [])) }))
 

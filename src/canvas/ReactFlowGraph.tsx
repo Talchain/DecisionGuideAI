@@ -155,9 +155,6 @@ const CANVAS_SEMANTIC_MUTATIONS_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations,
 )
 
-/** Canvas Undo/Redo as SAVED changes — its own key (`undo/undoCommand.ts`). */
-const CANVAS_UNDO_REDO_CONNECTED = hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasUndoRedo)
-
 /**
  * ⭐⭐ THE EDGE-DRAW GATE, JUDGED BY ITS OWN CARRIER.
  *
@@ -197,8 +194,8 @@ const CANVAS_EDGE_ADD_CONNECTED = hasServerGraphAuthority(
  *
  * ⛔ STILL NOT THE BLANKET KEY. `canvasSemanticMutations` continues to gate
  * undo, redo, paste and the blueprint insert, none of which has a durable
- * carrier. (The LeftSidebar's undo/redo buttons now read their own key,
- * `canvasUndoRedo` — see `CANVAS_UNDO_REDO_CONNECTED`.)
+ * carrier. (The LeftSidebar's undo/redo buttons run the saved-change
+ * command, `undo/undoCommand.ts`, and read no key at all since Undo S5.)
  * Two questions, two constants, named apart (CLAUDE.md trap 21).
  */
 const CANVAS_NODE_ADD_CONNECTED = hasServerGraphAuthority(
@@ -2918,21 +2915,16 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
            complaint reappearing on the control side. Toggling off
            `effectiveMode` makes the label a promise the click keeps. */
         onSelectClick={() => setInteractionMode(effectiveMode === 'select' ? 'hand' : 'select')}
-        onUndoClick={CANVAS_UNDO_REDO_CONNECTED ? () => void runCanvasUndo('undo') : () => {}}
-        onRedoClick={CANVAS_UNDO_REDO_CONNECTED ? () => void runCanvasUndo('redo') : () => {}}
-        canUndo={CANVAS_UNDO_REDO_CONNECTED}
-        canRedo={CANVAS_UNDO_REDO_CONNECTED}
-        /* The greyed button was the last surface still declining to say that
-           the canvas has no undo. It now answers the gesture the way the
-           keyboard already does — see the reasoning at the buttons in
-           `LeftSidebar`. This is the ONE place the authority is read: the
-           sidebar is handed a plain fact and never consults the flag itself,
-           so the day `canvasUndoRedo` folds true, both props go false, the
-           notice branch retires and the saved-change undo/redo take over. An
-           enabled button with nothing to undo answers "Nothing to undo."
-           (`runCanvasUndo`), never a silent no-op. */
-        undoUnavailable={!CANVAS_UNDO_REDO_CONNECTED}
-        redoUnavailable={!CANVAS_UNDO_REDO_CONNECTED}
+        onUndoClick={() => void runCanvasUndo('undo')}
+        onRedoClick={() => void runCanvasUndo('redo')}
+        canUndo
+        canRedo
+        /* Undo S5: undo/redo are SAVED changes, so the sidebar's "not available"
+           notice branch is retired. An enabled button with nothing to undo
+           answers "Nothing to undo." (`runCanvasUndo`), a guest is told to sign
+           in, and a stale head refuses — never a silent no-op. */
+        undoUnavailable={false}
+        redoUnavailable={false}
       />
       {/* ⚠ SCREEN SPACE, NOT FLOW SPACE — and the counter-scale census is what
           caught this — and it also flags the mention, so this note describes
