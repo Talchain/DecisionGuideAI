@@ -152,3 +152,15 @@ export function readAnalysisParticipation(data: unknown): AnalysisParticipation 
 export function isRetainedExcludedFromAnalysis(data: unknown): boolean {
   return readAnalysisParticipation(data) === PARTICIPATION_RETAINED_EXCLUDED
 }
+
+/**
+ * ⭐ AN OLUMI SUGGESTION THE USER HAS NOT ADOPTED (P0 #75 5906129633). The origin stays `proposed_by: 'olumi'` after
+ * adoption; what adoption changes is the node's participation, which CEE stamps `'included'` on a pressed approval.
+ * So "your options" excludes an Olumi-proposed option only while it is NOT explicitly included. An unstamped suggestion
+ * (every served read today) stays excluded, as before.
+ */
+export function isUnadoptedOlumiSuggestion(data: unknown): boolean {
+  if (data === null || typeof data !== 'object') return false
+  if ((data as Record<string, unknown>).proposed_by !== 'olumi') return false
+  return readAnalysisParticipation(data) !== PARTICIPATION_INCLUDED
+}
