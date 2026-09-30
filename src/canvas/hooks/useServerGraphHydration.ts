@@ -108,6 +108,7 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
           accessToken: identity.accessToken,
           signal: controller.signal,
           ...(readToken !== null ? { bootReadToken: readToken } : {}),
+          includeConversationTurns: true,
         })
         logger.debug('server_graph_hydration.outcome', { scenarioId, outcome })
 
