@@ -147,8 +147,10 @@ describe('the row shows what Olumi computed for a value nobody has set', () => {
     // heading called the row valueless. The heading now states its composition
     // in disjoint buckets, so it names this row as Olumi's rather than as empty
     // — which is the consistency this case was always really about.
+    // ⭐ 30 Sep 2026: this live shape has no source stamp, so heading and cell both call it a
+    // placeholder (AIQ 5917333759 (1)) — still consistent, still not "no value".
     expect(screen.getByTestId('model-group-v2-factors-unknown-summary').textContent).toBe(
-      '1 estimated by Olumi',
+      '1 using a placeholder',
     )
   })
 
