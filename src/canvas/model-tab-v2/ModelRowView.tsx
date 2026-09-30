@@ -53,6 +53,39 @@ import { Pencil } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
 import { EDIT_RESERVED_HEIGHT_CLASS } from './valueCellMetrics'
+import { classifyValueProvenance } from '../domain/valueProvenance'
+
+/** Attention reasons the row's own text already states; not drawn as marks (see the attention cell). */
+const ROW_TEXT_SAYS_IT: ReadonlySet<string> = new Set(['no-value', 'unconfirmed-estimate'])
+
+/**
+ * ⭐ CUT-BACK (Paul, 30 Sep 2026): "Very high (0.8)" → "Very high". The number is the model's own
+ * 0–1 scale, not the user's units; the word carries the reading. The full text stays in `title`.
+ */
+export function estimateWords(text: string): string {
+  const m = /^(.*\S)\s+\((-?\d+(?:\.\d+)?)\)$/.exec(text)
+  // AIQ 5917333759 (2): only the model's own -1..1 scale is dropped. Any other bracketed number
+  // may be a real figure the user needs to correct, so it stays.
+  return m && Math.abs(Number(m[2])) <= 1 ? m[1] : text
+}
+
+/**
+ * AIQ 5917333759 (1): "Olumi: <band>" is said ONLY when the value IS Olumi's own estimate
+ * (`classifyValueProvenance(...).kind === 'ai'`, the same classifier the ✨ mark reads). Any other
+ * source (a placeholder, a system default, an unknown stamp) keeps "Not set" and says so.
+ */
+export function estimateIsOlumis(provenanceSource: string | undefined): boolean {
+  return classifyValueProvenance(provenanceSource)?.kind === 'ai'
+}
+
+/**
+ * Beside "Not set" when the value in use is NOT attested as Olumi's own estimate. The value stays
+ * visible (a computed range the user never sees is the defect `rowShowsOlumisEstimate` fixed).
+ */
+export const PLACEHOLDER_ESTIMATE_COPY = {
+  row: (text: string): string => `Placeholder: ${estimateWords(text)}`,
+  title: (text: string): string => `Olumi is using a placeholder: ${text}`,
+} as const
 import {
   GOAL_LABEL_FROM_BRIEF_COPY,
   GOAL_LABEL_FROM_BRIEF_TESTID,
@@ -775,7 +808,7 @@ export function ModelRowView({
         className={`${typography.panelBody} ${
           labelIsTypeDefault(row) ? 'text-text-light italic' : 'text-text-body'
         } text-left min-w-[6rem] flex-1 ${
-          row.labelEndpoints ? 'flex items-baseline overflow-hidden' : 'break-words'
+          'break-words'
         }`}
         onClick={e => {
           e.stopPropagation()
@@ -821,7 +854,10 @@ export function ModelRowView({
             inter-element spaces. */}
         {row.labelEndpoints ? (
           <>
-            <span className="truncate min-w-0 flex-1">{row.labelEndpoints[0]}</span>
+            {/* ⭐ CUT-BACK (Paul, 30 Sep 2026): both ends WRAP. At the 360 dock every one of 14
+                relationships read "Bottom-Up Adoption Fri… → Bottom-Up New Logo A…"; the label
+                owns its own full-width line (MODEL-1), so there is room to say it whole. */}
+            <span>{row.labelEndpoints[0]}</span>
             {/* ⚠ NOT `aria-hidden`, AND THE SPACES ARE IN THE STRING. The
                 separator IS the shared constant, so the button's text content
                 stays byte-identical to `row.label` — a screen reader, a
@@ -830,10 +866,8 @@ export function ModelRowView({
                 would have left assistive tech with
                 "Tech Lead HiredDelivery Throughput", which is a regression
                 dressed as a layout tidy-up. */}
-            <span className="shrink-0 text-text-light whitespace-pre">
-              {RELATIONSHIP_LABEL_SEPARATOR}
-            </span>
-            <span className="truncate min-w-0 flex-1">{row.labelEndpoints[1]}</span>
+            <span className="text-text-light whitespace-pre">{RELATIONSHIP_LABEL_SEPARATOR}</span>
+            <span>{row.labelEndpoints[1]}</span>
           </>
         ) : (
           row.label
@@ -1267,6 +1301,11 @@ export function ModelRowView({
             `'⚠'` explicitly, and the `emoji-icon` guard could not see a bare
             JSX text node, so the rule was real and unenforced here.
       */}
+      {/* ⭐ CUT-BACK (Paul, 30 Sep 2026): "no value set" and "unconfirmed estimate" restate what
+          the row already SAYS ("Not set", "Olumi: …", or "Confirm"), so they are not DRAWN —
+          three marks for one fact read as noise. They stay in the document, visually hidden, so a
+          screen reader still hears "Estimate not yet confirmed" (the only place it is said).
+          Contested, could-flip and no-target still draw. */}
       {row.attention.map(reason => {
         const Mark = ATTENTION_MARK[reason]
         return (
@@ -1276,9 +1315,10 @@ export function ModelRowView({
             title={ATTENTION_LABEL[reason]}
             aria-label={ATTENTION_LABEL[reason]}
             role="img"
+            data-visually-hidden={ROW_TEXT_SAYS_IT.has(reason) ? 'true' : undefined}
             className={`shrink-0 ${
               ATTENTION_IS_SEVERE.has(reason) ? 'text-warning' : 'text-text-light'
-            }`}
+            }${ROW_TEXT_SAYS_IT.has(reason) ? ' sr-only' : ''}`}
           >
             <Mark className="w-3.5 h-3.5" aria-hidden="true" />
           </span>
@@ -2596,10 +2636,18 @@ function ValueCell({
            `title` on the leaf, not on the wrapping `<button>`, because the
            button's own "Change this value" is about the affordance and would
            otherwise be the only thing a hover could ever tell you. */
-        title={`Olumi: ${row.estimateText}`}
-        className={`${typography.panelBody} text-text-light ml-2 truncate min-w-0`}
+        title={
+          estimateIsOlumis(row.provenanceSource)
+            ? `Olumi's estimate, not yet yours: ${row.estimateText}`
+            : PLACEHOLDER_ESTIMATE_COPY.title(row.estimateText)
+        }
+        className={`${typography.panelBody} text-text-light truncate min-w-0${
+          estimateIsOlumis(row.provenanceSource) ? '' : ' ml-2'
+        }`}
       >
-        Olumi: {row.estimateText}
+        {estimateIsOlumis(row.provenanceSource)
+          ? `Olumi: ${estimateWords(row.estimateText)}`
+          : PLACEHOLDER_ESTIMATE_COPY.row(row.estimateText)}
       </span>
     ) : display === null && row.recordedRangeText !== undefined ? (
       /*
@@ -2641,7 +2689,11 @@ function ValueCell({
           estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0'
         }`}
       >
-        <ValueLeaf display={display} mayShrink={valueMayShrink(display)} />
+        {/* ⭐ CUT-BACK (Paul, 30 Sep 2026): with an estimate, the estimate IS the reading.
+            "Not set" beside "Olumi: Very high" read as a contradiction. */}
+        {estimate === null || !estimateIsOlumis(row.provenanceSource) ? (
+          <ValueLeaf display={display} mayShrink={valueMayShrink(display)} />
+        ) : null}
         {estimate}
       </span>
     )
@@ -2683,7 +2735,9 @@ function ValueCell({
           to one of the two idle elements is a fix that half the rows never
           receive." The editable rows are exactly the ones carrying the long
           strength bands, so this is the site the overflow was measured on. */}
-      <ValueLeaf display={display ?? 'Not set'} mayShrink={valueMayShrink(display)} editable />
+      {estimate === null || !estimateIsOlumis(row.provenanceSource) ? (
+        <ValueLeaf display={display ?? 'Not set'} mayShrink={valueMayShrink(display)} editable />
+      ) : null}
       {estimate}
     </button>
   )

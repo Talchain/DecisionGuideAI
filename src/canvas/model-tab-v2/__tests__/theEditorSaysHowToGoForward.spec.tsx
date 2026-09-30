@@ -54,7 +54,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import { render, cleanup, fireEvent, screen } from '@testing-library/react'
 import type { Node, Edge } from '@xyflow/react'
-import { ModelRowView } from '../ModelRowView'
+import { ModelRowView, estimateWords } from '../ModelRowView'
 import type { ModelRow } from '../types'
 import { UNCONFIRMED_ESTIMATE_LABEL } from '../../domain/vocabulary'
 
@@ -430,9 +430,9 @@ describe('⭐ (c) the full estimate is readable in the detail region', () => {
   it('PRECONDITION — the fixture really is the clipped-hint row', () => {
     renderPanel()
     const hint = screen.getByTestId(`model-row-v2-${ESTIMATE_ID}-value-estimate`)
-    // The row still renders the compact, truncating hint. That trade is
-    // deliberate and this change does not touch it.
-    expect(hint.textContent).toBe(`Olumi: ${ESTIMATE_TEXT}`)
+    // The row still renders the compact, truncating hint. ⭐ 30 Sep 2026: the row drops the
+    // model's 0–1 figure (`estimateWords`); the detail region below keeps the full text.
+    expect(hint.textContent).toBe(`Olumi: ${estimateWords(ESTIMATE_TEXT)}`)
     expect(hasClass(hint, 'truncate')).toBe(true)
   })
 

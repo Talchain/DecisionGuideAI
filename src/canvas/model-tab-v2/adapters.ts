@@ -793,7 +793,8 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
           ? formatGoalTarget(target.raw, target.unit, target.frame)
           : typeof target.raw === 'number' && target.unit && (isCurrencyUnit(target.unit) || formatMoneyFigure(target.raw, target.unit) !== null)
           ? formatValueWithUnit(target.raw, target.unit)
-          : `${typeof target.raw === 'number' ? formatSmartNumber(target.raw) : target.raw}${unitIsDisplayable(target.unit) ? ` ${target.unit}` : ''}`
+          // ⭐ "110 %" → "110%" (Paul, 30 Sep 2026): a percent sign attaches; a unit word keeps its space.
+          : `${typeof target.raw === 'number' ? formatSmartNumber(target.raw) : target.raw}${unitIsDisplayable(target.unit) ? (target.unit!.trim() === '%' ? '%' : ` ${target.unit}`) : ''}`
         // ⛔ AIQ 5880974047: an unread frame shows no number — not even the store's scalar.
         : input.goalThreshold === null || goalTargetFrameIsUnread((data as { goal_threshold_frame?: unknown }).goal_threshold_frame)
           ? null : formatSmartNumber(input.goalThreshold)
@@ -822,7 +823,8 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         kind,
         group: KIND_GROUP[kind],
         label,
-        primaryValue: unmapped ? null : `${count} ${count === 1 ? 'change' : 'changes'}`,
+        // ⭐ CUT-BACK (Paul, 30 Sep 2026): "3 changes" named nothing; the count is of factors it sets.
+        primaryValue: unmapped ? null : `Sets ${count} ${count === 1 ? 'factor' : 'factors'}`,
         attention: unmapped ? ['missing-intervention'] : [],
         editable: true,
         // Read by the section notice, which must never tell the baseline to

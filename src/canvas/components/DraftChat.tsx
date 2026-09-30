@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import { ChevronDown, ChevronUp, Paperclip, Settings, Sparkles, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Paperclip, Settings, X } from 'lucide-react'
 import { useCEEDraft } from '../../hooks/useCEEDraft'
 import { DraftLoadingAnimation } from './DraftLoadingAnimation'
 import { ErrorAlert } from '../../components/ErrorAlert'
@@ -34,6 +34,7 @@ import { useStructuralAddEvents } from '../conversation/useStructuralAddEvents'
 import { useStructuralAddEdgeEvents } from '../conversation/useStructuralAddEdgeEvents'
 import { usePanelApplyDrain } from '../conversation/usePanelApplyDrain'
 import { useAnalysisCompleteEvent } from '../conversation/useAnalysisCompleteEvent'
+import { OlumiAiIcon } from '../../components/results/analysisNew/OlumiAiIcon'
 // useSessionResumeEvent disabled — session_resume not in CEE v3 schema
 // import { useSessionResumeEvent } from '../conversation/useSessionResumeEvent'
 
@@ -1214,7 +1215,7 @@ export function DraftChat() {
             <div className="flex items-center justify-between px-4 py-3 border-b border-sand-100" style={{ backgroundColor: '#FEFEFE' }}>
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-mint-500 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-white" />
+                  <OlumiAiIcon size={16} className="olumi-glyph-ai text-white" aria-hidden="true" />
                 </div>
                 <div>
                   <h2 id="draft-chat-title" className={`${typography.label} text-ink-900`}>

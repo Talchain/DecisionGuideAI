@@ -332,13 +332,14 @@ describe('options — missing interventions are surfaced, present ones counted',
 
   it('counts an option\'s interventions', () => {
     const rows = toModelRows(input({ nodes: [optionNode('o1', 'Hire', { f1: 30, f2: 4 })] }))
-    expect(rows[0].primaryValue).toBe('2 changes')
+    // ⭐ 30 Sep 2026 (Paul): the count names what it counts.
+    expect(rows[0].primaryValue).toBe('Sets 2 factors')
     expect(rows[0].attention).toEqual([])
   })
 
-  it('says "1 change" for a single one', () => {
+  it('says "Sets 1 factor" for a single one', () => {
     const rows = toModelRows(input({ nodes: [optionNode('o1', 'Hire', { f1: 30 })] }))
-    expect(rows[0].primaryValue).toBe('1 change')
+    expect(rows[0].primaryValue).toBe('Sets 1 factor')
   })
 
   it('optionHasNoInterventions matches the live allUnmapped body', () => {

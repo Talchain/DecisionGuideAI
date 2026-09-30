@@ -52,7 +52,8 @@ const setRow = (id: string) =>
 
 /** Olumi estimated it: no `raw_value`, but a value the user can confirm. */
 const estimatedRow = (id: string) =>
-  row({ id, label: `Estimated ${id}`, primaryValue: null, attention: ['no-value', 'unconfirmed-estimate'] })
+  // 30 Sep 2026 (AIQ CR 5918407026): "estimated by Olumi" needs Olumi's own source stamp.
+  row({ id, label: `Estimated ${id}`, primaryValue: null, attention: ['no-value', 'unconfirmed-estimate'], provenanceSource: 'cee_inference' })
 
 /** Genuinely nothing: no value on either axis. */
 const emptyRow = (id: string) =>
@@ -209,11 +210,12 @@ describe('the group heading names the axis it counts', () => {
     const heading = screen.getByTestId('model-group-v2-factors-unknown-summary').textContent ?? ''
     const cell = screen.getByTestId('model-row-v2-band-value-estimate').textContent ?? ''
 
-    // The cell shows Olumi's band …
-    expect(cell).toBe('Olumi: 0.25 to 0.75')
-    // … and the heading above it does not deny that a value exists.
+    // ⭐ 30 Sep 2026 (AIQ 5917333759 condition 1): no source stamp, so the band is not attested as
+    // Olumi's own estimate. The cell and the heading say the SAME thing about it …
+    expect(cell).toBe('Placeholder: 0.25 to 0.75')
+    // … and the heading above it still does not deny that a value exists.
     expect(heading).not.toMatch(/no value/i)
-    expect(heading).toBe('1 estimated by Olumi')
+    expect(heading).toBe('1 using a placeholder')
   })
 
   /*
@@ -236,6 +238,8 @@ describe('the group heading names the axis it counts', () => {
       primaryValue: null,
       attention: ['no-value'],
       estimateText: '£20,000',
+      // 30 Sep 2026: "estimated by Olumi" now needs Olumi's own source stamp (AIQ 5917333759 (1)).
+      provenanceSource: 'cee_inference',
     })
     const out = summaryText([numeric])
     expect(out).not.toMatch(/without a figure/i)
@@ -275,7 +279,7 @@ describe('the group heading names the axis it counts', () => {
     // would still read as true on its own.
     const out = summaryText([
       emptyRow('a'),
-      row({ id: 'b', primaryValue: null, attention: ['no-value'], estimateText: '£20,000' }),
+      row({ id: 'b', primaryValue: null, attention: ['no-value'], estimateText: '£20,000', provenanceSource: 'cee_inference' }),
       row({ id: 'c', primaryValue: null, attention: ['no-value'], provenanceSource: 'user' }),
       setRow('d'),
     ])

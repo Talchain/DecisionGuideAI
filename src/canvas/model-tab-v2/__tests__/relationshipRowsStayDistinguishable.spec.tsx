@@ -127,21 +127,14 @@ describe('a relationship row carries both endpoints as structure', () => {
     return screen.getByTestId('model-row-v2-e1-label')
   }
 
-  it('THE RENDER: each endpoint truncates on its own', () => {
+  it('THE RENDER: both endpoints are whole, and neither truncates (30 Sep 2026: they wrap)', () => {
     const button = renderRow()
-    const halves = Array.from(button.querySelectorAll('span')).filter((el) =>
-      /(^|\s)truncate(\s|$)/.test(el.className),
-    )
-    expect(
-      halves.map((el) => el.textContent),
-      'both endpoints must be separately shrinkable, or the tail is eaten first',
-    ).toEqual(['Tech Lead Hired', 'Delivery Throughput'])
-    for (const half of halves) {
-      expect(half.className, 'a half that cannot shrink cannot share the column').toMatch(
-        /min-w-0/,
-      )
-      expect(half.className).toMatch(/flex-1/)
-    }
+    const spans = Array.from(button.querySelectorAll('span'))
+    // Paul, 30 Sep 2026: at the 360 dock every relationship read "Bottom-Up Adoption Fri… →
+    // Bottom-Up New Logo A…". The label owns its own line, so both ends now wrap in full.
+    expect(spans.map((el) => el.textContent)).toEqual(expect.arrayContaining(['Tech Lead Hired', 'Delivery Throughput']))
+    for (const el of spans) expect(el.className, 'an endpoint must not be truncated').not.toMatch(/(^|\s)truncate(\s|$)/)
+    expect(button.className).toMatch(/break-words/)
   })
 
   it('the full identity is still one readable string', () => {

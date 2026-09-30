@@ -82,8 +82,9 @@ describe('gap TYPE-1: reasoningLead is retired, not demoted', () => {
   it('⭐ `panelQuestion` (gap TYPE-2) exists, at panelHeader\'s 14px, a different weight', () => {
     expect(typography).toHaveProperty('panelQuestion')
     expect(typography.panelQuestion).toMatch(/text-sm/)
-    expect(typography.panelQuestion).toMatch(/font-medium/)
-    expect(typography.panelHeader).toMatch(/font-semibold/)
+    // ⭐ 30 Sep 2026 (Paul: "titles too dominating"): both stepped down one weight, and still apart.
+    expect(typography.panelQuestion).toMatch(/font-normal/)
+    expect(typography.panelHeader).toMatch(/font-medium/)
   })
 
   it('⭐⭐ the -lead element carries panelHeader\'s own class, never a raw text-lg', () => {

@@ -126,7 +126,7 @@ describe('⭐ the Model tab goal row prints no unit that names no scale', () => 
     { unit: 'USD', raw: 1200, expected: 'USD 1,200' },
     // Percent, in BOTH spellings the producer uses. The Model tab echoes the
     // producer's spelling; it does not canonicalise to the glyph.
-    { unit: '%', raw: 20, expected: '20 %' },
+    { unit: '%', raw: 20, expected: '20%' }, // a percent sign attaches (30 Sep 2026)
     { unit: 'percent', raw: 20, expected: '20 percent' },
     // Real units.
     { unit: 'months', raw: 9, expected: '9 months' },

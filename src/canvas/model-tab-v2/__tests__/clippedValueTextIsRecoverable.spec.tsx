@@ -36,6 +36,7 @@
  * BUTTON with one. `rowShowsOlumisEstimate.spec` records a mutant that shipped
  * the exact defect while staying 7/7 green because it only reached one arm.
  */
+import { PLACEHOLDER_ESTIMATE_COPY } from '../ModelRowView'
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { toModelRows } from '../adapters'
@@ -80,8 +81,10 @@ describe('clipped value text is recoverable — the estimate hint', () => {
     // Bound by IDENTITY to the hint element, and to the EXACT string it renders
     // — not to "some title exists somewhere above it", which is how the
     // enclosing button's "Change this value" was mistaken for recovery.
-    expect(hint.getAttribute('title')).toBe(`Olumi: ${LIVE_WORST}`)
-    expect(hint.getAttribute('title')).toBe(hint.textContent)
+    // ⭐ 30 Sep 2026: the row shows a shortened reading and says whose value it is (AIQ 5917333759);
+    // the title still carries the FULL text, verbatim, which is what "recoverable" means.
+    expect(hint.getAttribute('title')).toBe(PLACEHOLDER_ESTIMATE_COPY.title(LIVE_WORST))
+    expect(hint.getAttribute('title')).toContain(LIVE_WORST)
   })
 
   it('⭐ READ-ONLY ARM — the same, because a fix to one arm is a fix half the rows never get', () => {
@@ -90,8 +93,8 @@ describe('clipped value text is recoverable — the estimate hint', () => {
     expect(screen.getByTestId('model-row-v2-f2-value').tagName).not.toBe('BUTTON')
 
     const hint = screen.getByTestId('model-row-v2-f2-value-estimate')
-    expect(hint.getAttribute('title')).toBe(`Olumi: ${RANGE}`)
-    expect(hint.getAttribute('title')).toBe(hint.textContent)
+    expect(hint.getAttribute('title')).toBe(PLACEHOLDER_ESTIMATE_COPY.title(RANGE))
+    expect(hint.getAttribute('title')).toContain(RANGE)
   })
 
   it('⛔ THE AFFORDANCE IS NOT WHAT RECOVERS IT — the button still says its own thing', () => {

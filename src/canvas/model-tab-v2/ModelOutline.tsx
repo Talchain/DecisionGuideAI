@@ -37,7 +37,7 @@ import { classifyValueProvenance } from '../domain/valueProvenance'
 import { typography } from '../../styles/typography'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import type { NodeType } from '../domain/nodes'
-import { ModelRowView } from './ModelRowView'
+import { ModelRowView, estimateIsOlumis } from './ModelRowView'
 import { ModelGroupActions } from './ModelGroupActions'
 import { GROUP_ACTIONS, type GroupAction, type GroupActionContext } from './groupActions'
 import {
@@ -463,7 +463,7 @@ function SectionWriterNotice({
  * `null` means "not in any unset bucket", which for a row that HAS a value is
  * the whole answer: the heading never counted it and the clause never reveals it.
  */
-export type UnsetBucket = 'no-value' | 'from-olumi' | 'yours'
+export type UnsetBucket = 'no-value' | 'from-olumi' | 'placeholder' | 'yours'
 
 /**
  * ⭐⭐ THE KINDS WHOSE `primaryValue` IS NULL BECAUSE THERE IS NOTHING TO
@@ -503,12 +503,15 @@ export function unsetBucketOf(row: ModelRow): UnsetBucket | null {
   // `unconfirmed-estimate` is `factorIsConfirmable`, surfaced as an attention
   // reason. A row may carry either without the other, and their UNION is the one
   // question this clause asks. See the block on `unsetSummary` below.
-  if (
-    row.estimateText !== undefined ||
-    (Array.isArray(row.attention) && row.attention.includes('unconfirmed-estimate'))
-  ) {
-    return 'from-olumi'
+  // AIQ CR 5918407026: the confirmable-estimate branch obeys the same predicate — a no-stamp
+  // factor with a model `value` and no `raw_value` is a placeholder, not "estimated by Olumi".
+  if (Array.isArray(row.attention) && row.attention.includes('unconfirmed-estimate')) {
+    return estimateIsOlumis(row.provenanceSource) ? 'from-olumi' : 'placeholder'
   }
+  // ⭐ 30 Sep 2026 (AIQ #75 5917333759 condition 1): the SAME rule the cell uses. A value in use
+  // that is not attested as Olumi's own estimate is not counted as "estimated by Olumi" — the
+  // cell reads "Placeholder: …" and the heading must not contradict it.
+  if (row.estimateText !== undefined) return estimateIsOlumis(row.provenanceSource) ? 'from-olumi' : 'placeholder'
   return 'no-value'
 }
 
@@ -526,7 +529,7 @@ interface UnsetClause {
 }
 
 function unsetClauses(rows: readonly ModelRow[]): readonly UnsetClause[] {
-  const counts: Record<UnsetBucket, number> = { 'no-value': 0, 'from-olumi': 0, yours: 0 }
+  const counts: Record<UnsetBucket, number> = { 'no-value': 0, 'from-olumi': 0, placeholder: 0, yours: 0 }
   for (const row of rows) {
     const bucket = unsetBucketOf(row)
     if (bucket !== null) counts[bucket] += 1
@@ -537,6 +540,9 @@ function unsetClauses(rows: readonly ModelRow[]): readonly UnsetClause[] {
   }
   if (counts['from-olumi'] > 0) {
     clauses.push({ bucket: 'from-olumi', text: `${counts['from-olumi']} estimated by Olumi` })
+  }
+  if (counts.placeholder > 0) {
+    clauses.push({ bucket: 'placeholder', text: `${counts.placeholder} using a placeholder` })
   }
   if (counts.yours > 0) clauses.push({ bucket: 'yours', text: `you set ${counts.yours}` })
   return clauses

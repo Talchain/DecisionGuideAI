@@ -175,7 +175,7 @@ describe('3. StructuralIssuesSection carries no card and no canvas-scaled type',
     // scaling utility, since asserting presence of `text-sm` alone would
     // also be true of several unrelated tokens.
     expect(heading.className).not.toMatch(/calc\(/)
-    expect(heading.className).toContain('font-semibold')
+    expect(heading.className).toContain('font-medium') // panelHeader, 14/500 since 30 Sep 2026
   })
 
   it('names the unlabelled option by UNNAMED_ELEMENT_LABEL, never its raw or title-cased id', () => {

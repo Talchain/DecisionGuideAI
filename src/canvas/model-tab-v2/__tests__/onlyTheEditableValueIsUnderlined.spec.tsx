@@ -73,9 +73,10 @@ describe('the edit underline marks the value, not its neighbours', () => {
     )
   })
 
-  it('the "Olumi:" estimate hint is NOT underlined', () => {
+  it('the estimate hint is NOT underlined', () => {
     renderRow()
-    const hint = screen.getByText(/Olumi:/)
+    // 30 Sep 2026: an estimate not attested as Olumi's own reads "Placeholder: …" (AIQ 5917333759).
+    const hint = screen.getByText(/Placeholder:/)
     expect(
       underliningAncestors(hint).map((el) => el.tagName),
       'a non-editable hint inherited the button underline',

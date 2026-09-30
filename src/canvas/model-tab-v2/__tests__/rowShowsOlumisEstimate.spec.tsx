@@ -123,8 +123,11 @@ describe('the row shows what Olumi computed for a value nobody has set', () => {
     // The affordance still states the row is not set …
     expect(control.textContent).toContain('Not set')
     // … and Olumi's text is a SEPARATE element beside it, not a substitute.
+    // ⭐ 30 Sep 2026 (AIQ #75 5917333759 condition 1): this live shape carries NO source stamp, so
+    // the value is not attested as Olumi's own estimate and reads "Placeholder: …". It still sits
+    // BESIDE "Not set" and still shows the range, which is what this spec exists to hold.
     expect(screen.getByTestId('model-row-v2-f1-value-estimate').textContent).toBe(
-      `Olumi: ${RANGE}`,
+      `Placeholder: ${RANGE}`,
     )
   })
 
@@ -132,8 +135,11 @@ describe('the row shows what Olumi computed for a value nobody has set', () => {
     const rows = rowsFor([node('f1', 'CRM Feature Fit', undefined, RANGE)])
     render(<ModelOutline rows={rows} tier="plain" />)
     expect(screen.getByTestId('model-row-v2-f1-value').tagName).not.toBe('BUTTON')
+    // ⭐ 30 Sep 2026 (AIQ #75 5917333759 condition 1): this live shape carries NO source stamp, so
+    // the value is not attested as Olumi's own estimate and reads "Placeholder: …". It still sits
+    // BESIDE "Not set" and still shows the range, which is what this spec exists to hold.
     expect(screen.getByTestId('model-row-v2-f1-value-estimate').textContent).toBe(
-      `Olumi: ${RANGE}`,
+      `Placeholder: ${RANGE}`,
     )
     // ⚠ PREMISE UPDATED — and this case is why the heading changed at all.
     // It asserted the heading's "N of M" prefix. Adjudication found this exact
@@ -141,8 +147,10 @@ describe('the row shows what Olumi computed for a value nobody has set', () => {
     // heading called the row valueless. The heading now states its composition
     // in disjoint buckets, so it names this row as Olumi's rather than as empty
     // — which is the consistency this case was always really about.
+    // ⭐ 30 Sep 2026: this live shape has no source stamp, so heading and cell both call it a
+    // placeholder (AIQ 5917333759 (1)) — still consistent, still not "no value".
     expect(screen.getByTestId('model-group-v2-factors-unknown-summary').textContent).toBe(
-      '1 estimated by Olumi',
+      '1 using a placeholder',
     )
   })
 
