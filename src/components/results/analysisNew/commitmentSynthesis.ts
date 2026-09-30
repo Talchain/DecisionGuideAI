@@ -371,6 +371,13 @@ function movementSentence(view: RunDeltaView, leads: boolean): string | null {
   if (view.movementsUnavailable || view.movements.length === 0) return null
   const words = leads ? COMMITMENT_COPY.sinceLastRun : COMMITMENT_COPY.sinceLastRun.after
   const signal = view.movements.filter((m) => m.noiseVerdict === 'signal' && m.mayShowMagnitude)
+  // ⛔ NO IMPLIED CAUSE (AIQ CR on #2368, rule 5920669246: C2–C5 never imply a cause). After the input sentence
+  // (`leads === false`), a beyond-noise movement beside the change reads as "the edit moved it", which only a
+  // C1 pair can say. So on any other pair the movement is left out here; the Compare tab states it with its
+  // limit. AIQ's other option, appending the reader's limit, was not taken: its words say "explains anything
+  // below", which is Compare's layout, and nothing sits below this sentence (PROMPT STRIKE 5920770514).
+  // Within-noise needs no limit ("No option moved…" claims no cause), so that arm is unchanged.
+  if (!leads && signal.length > 0 && !view.attributable) return null
   if (signal.length === 1 && signal[0].label) {
     return words.oneMoved(signal[0].label, pct(signal[0].prior), pct(signal[0].current))
   }

@@ -75,6 +75,25 @@ describe('the one sentence: what changed, then what moved', () => {
     expect(runDeltaSentence(view({ input_changes: [FIT, churn], input_coverage: 'partial' }), { isStale: false })).toBe('Since the last run, inputs changed, including Investor fit rate.')
   })
 
+  // AIQ CR on #2368 (rule 5920669246): C2–C5 never imply a cause. Rows as AIQ listed them.
+  const BEYOND = [{ option_id: 'opt_a', prior: 0.41, current: 0.55, noise_verdict: 'signal' }]
+  it('C2 + a change + a beyond-noise movement → the change only, never "…changed. X moved…" (no implied cause)', () => {
+    const s = runDeltaSentence(view({ win_probabilities: BEYOND }), { isStale: false })
+    expect(s).toBe('Since the last run, Investor fit rate changed from 5% to 7%.')
+  })
+
+  it('CONTRAST: C1 + a change + a beyond-noise movement → both, with no limit', () => {
+    const c1 = view({
+      attribution_case: 'C1_attributable',
+      pair_provenance: { seed_equal: true, hash_equal: false, builds_equal: 'equal', n_equal: true },
+      win_probabilities: BEYOND,
+    })
+    expect(c1.attributable, 'PRECONDITION: the reader calls C1 attributable').toBe(true)
+    expect(runDeltaSentence(c1, { isStale: false })).toBe(
+      'Since the last run, Investor fit rate changed from 5% to 7%. Investment Firm Outreach moved from 41% to 55%.',
+    )
+  })
+
   it('stale (the Reasoning bullet describes the model on screen) → nothing', () => {
     expect(runDeltaSentence(view(), { isStale: true })).toBeNull()
   })
