@@ -36,14 +36,6 @@ function seedCanvas(data: Record<string, unknown> = {}) {
   } as never)
 }
 
-/** The goal node's own data, read back from the store after the producers ran. */
-function goalData(): Record<string, unknown> {
-  return (useCanvasStore.getState().nodes.find(n => n.id === GOAL_ID)?.data ?? {}) as Record<
-    string,
-    unknown
-  >
-}
-
 function renderPanel() {
   return render(
     <GoalPanel nodeId={GOAL_ID} techMode={false} onClose={() => {}} onNavigate={() => {}} />,
