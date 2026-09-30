@@ -408,7 +408,7 @@ function findConditionalWinner(
   // quantity the producer DID compute is the mirror defect, weighted equally.
   return match.winner !== null
     ? `${match.condition}, support moves to ${match.winner}`
-    : `${match.condition}, support moves to another option (which one is withheld on this run)`
+    : `${match.condition}, support moves to another option (this run does not say which)`
 }
 
 // ---------------------------------------------------------------------------

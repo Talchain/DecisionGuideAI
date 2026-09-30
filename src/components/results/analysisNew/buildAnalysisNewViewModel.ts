@@ -2101,7 +2101,7 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
        to emit a LABELLED ROW WITH A BLANK CELL, which reads as a rendering
        failure rather than as an absence. `rows()` drops a null; it cannot drop
        an empty string it was handed. */
-    row('Per-factor attribution withheld', plainStatus(data.attributionSuppression === 'not_attested' ? null : data.attributionSuppression)),
+    row('Per-factor attribution not shown', plainStatus(data.attributionSuppression === 'not_attested' ? null : data.attributionSuppression)),
   )
   if (provenance.length) groups.push({ title: 'Provenance', rows: provenance })
 
