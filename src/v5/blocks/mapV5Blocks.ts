@@ -25,6 +25,7 @@
  */
 import type { OlumiResponse } from '@talchain/schemas/boundary'
 import { readGoalIdentityWithheld } from '../../components/results/utils/goalIdentityWithheld'
+import { v5AnalysisBlockContentHash } from '../mapV5AnalysisToReport'
 
 import type { ConversationBlock } from '../../canvas/conversation/types'
 
@@ -69,6 +70,8 @@ export function mapV5Block(
           ? { win_probabilities: block.win_probabilities }
           : {}),
         ...(block.enrichment ? { enrichment: block.enrichment } : {}),
+        // The Run's identity, from the unstripped wire block (see `V5AnalysisResultBlock.analysis_hash`).
+        analysis_hash: v5AnalysisBlockContentHash(block),
       }
     case 'graph_patch':
       return {
