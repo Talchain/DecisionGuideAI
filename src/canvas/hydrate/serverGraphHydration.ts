@@ -709,7 +709,11 @@ function acknowledgeCanvasThatMatchesTheRead(scenarioId: string, wireGraph: unkn
  * own result, or a verdict still running, leaves the held Run alone.
  */
 export function heldRunIsNotCurrentPerRead(analysisState: AnalysisStateV1 | null, analysisResult: unknown): boolean {
-  if (analysisResult != null || analysisState == null) return false
+  if (analysisState == null) return false
+  // P0 C2 (5903423999): a newer degraded Run superseded the saved one — no block the read ships can be current.
+  if ((analysisState as { contradictions?: unknown }).contradictions instanceof Array
+    && ((analysisState as { contradictions: unknown[] }).contradictions).includes('fact_status_success_but_degraded_newer')) return true
+  if (analysisResult != null) return false
   const kind = analysisState.run_state.kind
   return kind === 'complete_stale' || kind === 'complete_current' || (analysisState as { requires_rerun?: unknown }).requires_rerun === true
 }

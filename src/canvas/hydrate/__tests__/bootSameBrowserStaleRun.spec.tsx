@@ -87,5 +87,7 @@ describe('⛔ a same-browser reload after a newer Run: the server\'s stale verdi
     expect(heldRunIsNotCurrentPerRead(v('complete_current'), { type: 'analysis_result' })).toBe(false) // ships its own Run
     expect(heldRunIsNotCurrentPerRead(v('running'), null)).toBe(false)
     expect(heldRunIsNotCurrentPerRead(null, null)).toBe(false) // an older CEE says nothing: keep what we hold
+    // P0 C2: complete_current + a shipped (older) block + the contradiction → still not current.
+    expect(heldRunIsNotCurrentPerRead({ run_state: { kind: 'complete_current' }, contradictions: ['fact_status_success_but_degraded_newer'] } as never, { type: 'analysis_result' })).toBe(true)
   })
 })

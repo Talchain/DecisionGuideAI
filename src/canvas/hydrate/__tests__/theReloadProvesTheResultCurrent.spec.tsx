@@ -227,23 +227,32 @@ describe('each proof broken alone: no fact, the result stays dimmed', () => {
     expect(reasoningTabStale()).toBe(true)
   }
 
-  it('the block carries no computed_against_hash', () => expectDimmed({ analysis_result: resultBlock(null) }))
-  it('the read carries no result block', () => expectDimmed({}))
-  it('C2: a newer partial Run requiring rerun and no result never revives the cached report as current', async () => {
+  /**
+   * ⛔ AIQ pre-share hold (#75 5903405445; R3 row S1–S5): when the read itself says the held Run cannot be current
+   * (no result block, a rerun asked, P0's C2 contradiction), the held Run is DROPPED — the same-browser reload is the
+   * fresh browser's, with no earlier figures on screen — rather than kept dimmed.
+   */
+  async function expectDropped(b: Record<string, unknown>): Promise<void> {
     seedRestoredResult()
-    respond(body({
+    respond(body(b))
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    const st = useCanvasStore.getState() as unknown as { v5AnalysisFact: unknown; results: { report?: unknown }; analysisFreshness: unknown }
+    expect(st.v5AnalysisFact, 'no fact written').toBeNull()
+    expect(st.results.report ?? null, 'the earlier Run is not on screen').toBeNull()
+    expect(st.analysisFreshness ?? null).toBeNull()
+    expect(display()).not.toBe('complete')
+  }
+
+  it('the block carries no computed_against_hash', () => expectDimmed({ analysis_result: resultBlock(null) }))
+  it('the read carries no result block', () => expectDropped({}))
+  it('C2: a newer partial Run requiring rerun and no result never revives the cached report as current', () =>
+    expectDropped({
       analysis_state: verdict({ kind: 'complete_current', computed_at: COMPUTED_AT }, {
         requires_rerun: true,
         contradictions: ['fact_status_success_but_degraded_newer'],
       }),
       analysis_result: null,
     }))
-    await hydrateCanvasFromServer(SCENARIO_ID)
-    expect(useCanvasStore.getState().v5AnalysisFact).toBeNull()
-    expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).toBeUndefined()
-    expect(display()).toBe('results_stale')
-    expect(reasoningTabStale()).toBe(true)
-  })
 
   it('a rerun-required read cannot mark cached results fresh even if an older result block is present', async () => {
     seedRestoredResult()
@@ -257,21 +266,14 @@ describe('each proof broken alone: no fact, the result stays dimmed', () => {
     expect(display()).toBe('results_stale')
     expect(reasoningTabStale()).toBe(true)
   })
-  it('C2: a newer degraded Run cannot revive an older result when requires_rerun is false', async () => {
-    seedRestoredResult()
-    respond(body({
+  it('C2: a newer degraded Run cannot revive an older result when requires_rerun is false', () =>
+    expectDropped({
       analysis_state: verdict({ kind: 'complete_current', computed_at: COMPUTED_AT }, {
         requires_rerun: false,
         contradictions: ['fact_status_success_but_degraded_newer'],
       }),
       analysis_result: resultBlock(),
     }))
-    await hydrateCanvasFromServer(SCENARIO_ID)
-    expect(useCanvasStore.getState().v5AnalysisFact).toBeNull()
-    expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).toBeUndefined()
-    expect(display()).toBe('results_stale')
-    expect(reasoningTabStale()).toBe(true)
-  })
   it('CEE says complete_stale, not complete_current', () =>
     expectDimmed({ analysis_state: verdict({ kind: 'complete_stale', computed_at: COMPUTED_AT } as never), analysis_result: resultBlock() }))
   it('the canvas holds a value the read lacks (not proven equal)', async () => {
