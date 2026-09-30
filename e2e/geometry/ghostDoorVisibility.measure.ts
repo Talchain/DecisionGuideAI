@@ -372,6 +372,10 @@ for (const id of STARTERS) {
         focusesControl: focusable(controlIn(el)),
         controlArity: controlArity(el),
         innerRole: controlIn(el)?.getAttribute('role') ?? null,
+        // ⭐ An ICON door (30 Sep 2026, #2348: Paul "icons with hover states"; DS v5 §9.9 icon-only buttons with a
+        // tooltip) names itself to assistive tech and shows a glyph — it carries no visible words by design.
+        accessibleName: (controlIn(el)?.getAttribute('aria-label') ?? '').trim(),
+        glyphArea: (() => { const g = controlIn(el)?.querySelector('svg'); if (!g) return 0; const r = g.getBoundingClientRect(); return r.width * r.height })(),
       }))
 
       // POSITIVE CONTROL: the same reader, shown a door it should call hidden.
@@ -435,8 +439,10 @@ for (const id of STARTERS) {
     for (const d of m.doors) {
       expect(d.visibility, `${d.id} is not visible to a sighted user`).not.toBe('hidden')
       expect(d.w * d.h, `${d.id} has a zero-area box`).toBeGreaterThan(0)
-      expect(d.innerText.length, `${d.id} renders no visible label`).toBeGreaterThan(0)
-      expect(d.innerText, `${d.id}'s visible label disagrees with its DOM text`).toBe(d.textContent)
+      // RE-BOUND 30 Sep (#2348, the row-end door is an icon + tooltip): visible = a painted glyph; labelled = an
+      // accessible name. The old "visible words" row pinned the retired text door and kept the gate red since 17b045e1.
+      expect(d.glyphArea, `${d.id} shows no visible glyph`).toBeGreaterThan(0)
+      expect(d.accessibleName.length, `${d.id} has no accessible name`).toBeGreaterThan(0)
       expect(d.controlArity, `${d.id} does not hold exactly one control, so this reading is not bound to the door's own affordance`).toBe(1)
       expect(d.innerRole, `${d.id} is not exposed as a control`).toBe('button')
       // Both channels must agree, and this is the assertion that says so: the
@@ -668,6 +674,10 @@ const FRAME_READER = async (GHOST: string) => {
     controlArity: el.querySelectorAll(CONTROL).length,
     innerRole: controlIn(el)?.getAttribute('role') ?? null,
     focusesControl: focusable(controlIn(el)),
+    // ⭐ An ICON door (30 Sep 2026, #2348: Paul "icons with hover states"; DS v5 §9.9 icon-only buttons with a
+    // tooltip) names itself to assistive tech and shows a glyph — it carries no visible words by design.
+    accessibleName: (controlIn(el)?.getAttribute('aria-label') ?? '').trim(),
+    glyphArea: (() => { const g = controlIn(el)?.querySelector('svg'); if (!g) return 0; const r = g.getBoundingClientRect(); return r.width * r.height })(),
   }))
 
   // POSITIVE CONTROL: the same reader, shown a door it must call hidden.
@@ -745,8 +755,9 @@ function assertFrontierIsUsable(m: Awaited<ReturnType<typeof FRAME_READER>>, whe
   for (const d of m.doors) {
     expect(d.visibility, `${where}: ${d.id} is not visible to a sighted user`).not.toBe('hidden')
     expect(d.w * d.h, `${where}: ${d.id} has a zero-area box`).toBeGreaterThan(0)
-    expect(d.innerText.length, `${where}: ${d.id} renders no visible label`).toBeGreaterThan(0)
-    expect(d.innerText, `${where}: ${d.id}'s visible label disagrees with its DOM text`).toBe(d.textContent)
+    // RE-BOUND 30 Sep (#2348 icon door): a painted glyph + an accessible name, not visible words.
+    expect(d.glyphArea, `${where}: ${d.id} shows no visible glyph`).toBeGreaterThan(0)
+    expect(d.accessibleName.length, `${where}: ${d.id} has no accessible name`).toBeGreaterThan(0)
     expect(d.controlArity, `${where}: ${d.id} does not hold exactly one control, so this reading is not bound to the door's own affordance`).toBe(1)
     expect(d.innerRole, `${where}: ${d.id} is not exposed as a control`).toBe('button')
     expect(d.focusesControl, `${where}: ${d.id} is announced as a button but cannot be focused`).toBe(true)
