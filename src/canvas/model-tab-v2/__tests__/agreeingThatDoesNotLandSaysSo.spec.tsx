@@ -199,7 +199,8 @@ describe('the host reports what happened to the statement', () => {
     agree()
     const el = await screen.findByTestId(`model-row-v2-${EDGE}-value-confirm-unsettled`)
     expect(el.textContent).toBe(
-      'Not recorded — the model moved on while this was in flight. Ask Olumi about this link, then agree again.',
+      // DS v5 §29: no em dashes (Panel, 30 Sep 2026). The opener "Not recorded" is unchanged.
+      'Not recorded: the model moved on while this was in flight. Ask Olumi about this link, then agree again.',
     )
   })
 

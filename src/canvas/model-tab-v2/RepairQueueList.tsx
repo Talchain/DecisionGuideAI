@@ -97,7 +97,7 @@ export interface RepairQueueListProps {
 }
 
 const NO_AUTHORITY_ITEM =
-  'Applying is not connected yet — this cannot be changed from here.'
+  'Applying is not connected yet, so this cannot be changed from here.'
 
 /**
  * ⚠ A DIFFERENT REFUSAL FROM `NO_AUTHORITY_ITEM`, AND IT MUST READ THAT WAY.
@@ -106,13 +106,13 @@ const NO_AUTHORITY_ITEM =
  * sends them to wait for something that will not help them.
  */
 const NO_REFERENT_ITEM =
-  'There is no value here to act on yet — set one first.'
+  'There is no value here to act on yet. Set one first.'
 
 const NO_AUTHORITY_DEFER =
-  'Recording this decision is not connected yet — leaving it unresolved cannot be saved from here.'
+  'Recording this decision is not connected yet, so leaving it unresolved cannot be saved from here.'
 
 const NO_AUTHORITY_RESUME =
-  'Recording this decision is not connected yet — this cannot be reopened from here.'
+  'Recording this decision is not connected yet, so this cannot be reopened from here.'
 
 const NO_AUTHORITY_BATCH =
   'Applying every row at once needs the batch operation that is still being built. ' +
@@ -159,7 +159,7 @@ function ApplyControl({
       disabled={!enabled}
       onClick={enabled ? () => onApply!(item.rowId) : undefined}
       title={enabled ? undefined : reason}
-      aria-label={enabled ? `${applyLabel} ${item.label}` : `${item.label} — ${reason}`}
+      aria-label={enabled ? `${applyLabel} ${item.label}` : `${item.label}: ${reason}`}
       className={`${typography.buttonSmall} border border-panel-border rounded px-2 py-0.5 ${
         enabled ? 'text-text-header hover:bg-panel-hover' : 'text-text-light cursor-not-allowed'
       }`}
@@ -301,7 +301,7 @@ export function RepairQueueList({
                 data-testid={`repair-queue-v2-${q}-item-${item.rowId}-defer`}
                 disabled
                 title={NO_AUTHORITY_DEFER}
-                aria-label={`${item.label} — ${NO_AUTHORITY_DEFER}`}
+                aria-label={`${item.label}: ${NO_AUTHORITY_DEFER}`}
                 className={`${typography.buttonSmall} text-text-light cursor-not-allowed border border-panel-border rounded px-2 py-0.5`}
               >
                 Leave unresolved
@@ -354,7 +354,7 @@ export function RepairQueueList({
                   data-testid={`repair-queue-v2-${q}-item-${item.rowId}-resume`}
                   disabled
                   title={NO_AUTHORITY_RESUME}
-                  aria-label={`${item.label} — ${NO_AUTHORITY_RESUME}`}
+                  aria-label={`${item.label}: ${NO_AUTHORITY_RESUME}`}
                   className={`${typography.buttonSmall} text-text-light cursor-not-allowed border border-panel-border rounded px-2 py-0.5`}
                 >
                   Resume

@@ -7,10 +7,11 @@
  */
 
 import {
-  Sparkles, MessageCircle, Pencil, Check as CheckIcon,
+  MessageCircle, Pencil, Check as CheckIcon,
   Plus, Flag, FileText,
 } from 'lucide-react'
-import type { ElementType } from 'react'
+import { createElement, type ElementType } from 'react'
+import { OlumiAiIcon, type OlumiAiIconProps } from '@/components/results/analysisNew/OlumiAiIcon'
 import type { IconBtn } from '@/canvas/components/pre-analysis/primitives/IconBtn'
 import type { RowAction, RowCategory } from './types'
 
@@ -32,6 +33,10 @@ export const CATEGORY_DOT_CLASS: Record<RowCategory, string> = {
   ready: 'bg-success',
 }
 
+/** The Olumi ask glyph with its identity class (`olumi-glyph-ai`), in the `Icon` slot `IconBtn` renders. */
+const OlumiAiGlyph = (props: OlumiAiIconProps) =>
+  createElement(OlumiAiIcon, { ...props, className: ['olumi-glyph-ai', props.className].filter(Boolean).join(' ') })
+
 interface ActionIconDef {
   Icon: ElementType
   tooltip: string
@@ -39,7 +44,8 @@ interface ActionIconDef {
 }
 
 export const ACTION_ICON: Record<RowAction, ActionIconDef> = {
-  ai: { Icon: Sparkles, tooltip: 'Work through with AI', variant: 'primary' },
+  // An ask, so the Olumi glyph (Paul, 30 Sep 2026: OlumiAiIcon for every ask; Sparkles is provenance only).
+  ai: { Icon: OlumiAiGlyph, tooltip: 'Work through with AI', variant: 'primary' },
   discuss: { Icon: MessageCircle, tooltip: 'Discuss with AI', variant: 'default' },
   // ⚠ `edit` IS DECLARED BUT UNREACHABLE, and its label is NOT settled.
   //

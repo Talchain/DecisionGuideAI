@@ -435,6 +435,18 @@ describe('V2 commitHTML(): which ✦ lives where', () => {
     expect(within(screen.getByTestId(`${TID}-before`)).queryByRole('button')).toBeNull()
   })
 
+  it('⭐ the ✦ never wraps alone: it shares one no-wrap run with the sentence\'s LAST WORD, and the text is unchanged', () => {
+    // Served funding brief at 360 (`7fc20dff`, 30 Sep 2026): the ✦ sat on a line of its own under "…a run you start can."
+    renderZone({})
+    const text = screen.getByTestId(`${TID}-open-text`)
+    const ask = within(text).getByTestId(`${TID}-open-ask`)
+    const run = ask.parentElement!
+    expect(run.className).toContain('whitespace-nowrap')
+    const words = (text.textContent ?? '').trim().split(' ')
+    expect(run.textContent, 'the run holds exactly the last word (the glyph adds no text)').toBe(words[words.length - 1])
+    expect(words.length, 'PRECONDITION: a multi-word sentence').toBeGreaterThan(1)
+  })
+
   it('CONTRAST: with no record to offer (a re-run in flight), the commit row keeps its ask', () => {
     renderZone({ canCapture: false, record: null })
     expect(screen.queryByTestId(`${TID}-record-open`)).toBeNull()

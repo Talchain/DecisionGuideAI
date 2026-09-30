@@ -109,7 +109,7 @@ export type OptionOrigin = 'ai_suggested'
  * (`STRUCTURAL_PROVENANCE_LABEL.ai`). British English; no em dashes.
  */
 export const OPTION_ORIGIN_COPY: Record<OptionOrigin, string> = {
-  ai_suggested: 'Olumi suggested this option, you did not name it',
+  ai_suggested: 'Olumi suggested this option; you did not name it',
 }
 
 /** The same fact when it is true of EVERY option in the list: said once, no per-row marks (27 Sep 2026). */

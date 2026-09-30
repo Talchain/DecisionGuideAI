@@ -331,7 +331,7 @@ export const typography = {
   // prose/headings, 12 the rest" of 27 Sep, which was not what rendered: the
   // panel mounts the thread `compact`, so every reply was panelBody, 12px, the
   // same size as its labels, beside an 11px meta and a 24px hero (4 sizes).
-  //   14  headings: panelHeader (semibold), panelQuestion (medium), the welcome line
+  //   14  headings: panelHeader (500), panelQuestion (400), the welcome line (weights since 30 Sep)
   //   13  everything the user READS: replies, the user's own messages, card
   //       text, the composer, "Details" (chatBody)
   //   12  labels only: badges, timestamps, captions, markers (chatMeta)

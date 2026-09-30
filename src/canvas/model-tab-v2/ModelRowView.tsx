@@ -325,6 +325,14 @@ function ValueLeaf({
  * `__tests__/valueMayShrink.spec.tsx`, whose corpus is DERIVED by calling the
  * real producer rather than by pasting strings.
  */
+/**
+ * ⭐ A SENTENCE VALUE WRAPS (see `ModelRow.valueIsSentence`). Served funding brief, 360 dock, `7fc20dff`: the
+ * natural-effect phrase carries digits, so `valueMayShrink` (rightly) refused to cut it, and with
+ * `whitespace-nowrap` it ran off the panel edge on every relationship row. A measurement keeps the no-wrap
+ * rule; only the flagged sentence wraps, on its own line under the row's name.
+ */
+export const SENTENCE_VALUE_FLOW = 'whitespace-normal break-words min-w-0'
+
 export function valueMayShrink(display: string | null): boolean {
   if (display === null) return false
   const text = display.trim()
@@ -1899,7 +1907,7 @@ export function unproposableDraftReason(
     const stated = statedTargetNumber(draft)
     if (stated === null) return 'Enter a number to review this change'
     if (stated <= 0) return 'Enter a target above zero to review this change'
-    if (unit.trim() === '') return 'Add a unit — £, % or points — to review this change'
+    if (unit.trim() === '') return 'Add a unit (£, % or points) to review this change'
     // The builder refused for a reason this function cannot name. Say that,
     // rather than inventing a cause — an invented cause is worse than a vague
     // one, because the user acts on it.
@@ -2678,7 +2686,7 @@ function ValueCell({
          rather than starving the label. */
       <span
         data-testid={testid}
-        className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} flex items-center whitespace-nowrap ${
+        className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} flex items-center ${row.valueIsSentence ? SENTENCE_VALUE_FLOW : `whitespace-nowrap ${
           /* ⚠ `min-w-0` ONLY — NEVER `truncate` HERE. This element is a FLEX
              CONTAINER (`flex items-center`) holding the value and its estimate
              hint. `truncate` sets `overflow:hidden` on the container, and the
@@ -2687,7 +2695,7 @@ function ValueCell({
              of this very change, not by a test — jsdom performs no layout.
              The ellipsis belongs on a text LEAF, not on the flex box. */
           estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0'
-        }`}
+        }`}`}
       >
         {/* ⭐ CUT-BACK (Paul, 30 Sep 2026): with an estimate, the estimate IS the reading.
             "Not set" beside "Olumi: Very high" read as a contradiction. */}
@@ -2723,8 +2731,10 @@ function ValueCell({
          WHY IT IS HERE TOO: "a fix applied to one of the two idle elements is a
          fix that half the rows never receive." The editable rows are exactly the
          ones carrying "Not set", which is where the relationship list lives. */
-      className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} text-left flex items-center whitespace-nowrap ${
-        estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0'
+      className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} text-left flex items-center ${
+        row.valueIsSentence
+          ? SENTENCE_VALUE_FLOW
+          : `whitespace-nowrap ${estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0'}`
       }`}
       onClick={e => {
         e.stopPropagation()

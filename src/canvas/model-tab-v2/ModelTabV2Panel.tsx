@@ -190,10 +190,10 @@ const CONFIRM_SEND_NOTICE: Readonly<
   // ⚠ Unreachable while the carrier passes `deferIfBusy: false` — and mapped
   // anyway, because "unreachable" is a claim about today's carrier and a
   // settlement with no sentence would render an empty alert.
-  queued: 'Not recorded yet — this is waiting behind another change.',
-  blocked: 'Not sent — another change is still in flight. Try again in a moment.',
+  queued: 'Not recorded yet: this is waiting behind another change.',
+  blocked: 'Not sent: another change is still in flight. Try again in a moment.',
   refused:
-    'Not recorded — the model moved on while this was in flight. ' +
+    'Not recorded: the model moved on while this was in flight. ' +
     'Ask Olumi about this link, then agree again.',
   // ⚠ THE CAUTIOUS HALF, AND IT IS THE DANGEROUS ONE. Answering "not sent" to
   // a failure that MAY have written invites the user to re-send something the
@@ -207,8 +207,8 @@ const CONFIRM_REFUSAL_NOTICE: Readonly<
 > = {
   refused_unassertable:
     'Olumi has not stated a strength for this link, so there is nothing to agree with yet.',
-  no_carrier: 'Not sent — this decision has no open conversation to record it in.',
-  not_encodable: 'Not sent — this link could not be identified.',
+  no_carrier: 'Not sent: this decision has no open conversation to record it in.',
+  not_encodable: 'Not sent: this link could not be identified.',
 }
 
 export interface ModelTabV2PanelProps {
@@ -1363,7 +1363,7 @@ export function ModelTabV2Panel({
               return {
                 ...prev,
                 phase: 'editing',
-                notice: 'Not sent — another change is still in flight. Try again in a moment.',
+                notice: 'Not sent: another change is still in flight. Try again in a moment.',
               }
             }
             // ⭐ THE OTHER WAY PENDING ENDS. The canonical settlement below
@@ -1402,7 +1402,7 @@ export function ModelTabV2Panel({
                 ...rest,
                 phase: 'editing',
                 notice:
-                  'Not saved — the model moved on while this was in flight. ' +
+                  'Not saved: the model moved on while this was in flight. ' +
                   'Ask me anything about this decision, then set this value again.',
               }
             }
@@ -1461,7 +1461,7 @@ export function ModelTabV2Panel({
             phase: 'editing',
             awaitingFreshBase: true,
             notice:
-              'Not sent yet — I need to re-sync with the saved model first. ' +
+              'Not sent yet: I need to re-sync with the saved model first. ' +
               'Ask me anything about this decision, then set this value again.',
           }
         }

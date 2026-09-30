@@ -251,6 +251,18 @@ function RecordYourView({
   )
 }
 
+/** Everything up to and including the last space, so the last word can share a no-wrap run with a trailing glyph. */
+function textBeforeLastWord(text: string): string {
+  const i = text.lastIndexOf(' ')
+  return i < 0 ? '' : text.slice(0, i + 1)
+}
+
+/** The sentence's last word (the whole text when it has no space). */
+function lastWord(text: string): string {
+  const i = text.lastIndexOf(' ')
+  return i < 0 ? text : text.slice(i + 1)
+}
+
 export function CommitmentSummary({
   synthesis,
   isPreRun,
@@ -328,22 +340,33 @@ export function CommitmentSummary({
                 data-source={b.source}
               >
                 <b className="text-text-header">{b.label}: </b>
-                <span data-testid={`${testId}-${b.key}-text`}>{b.text}</span>
                 {b.key === 'open' ? (
-                  <PanelIconButton
-                    ai
-                    inline
-                    label={COMMITMENT_COPY.openAsk.label}
-                    onClick={() =>
-                      onAsk({
-                        label: COMMITMENT_COPY.openAsk.label,
-                        draft: COMMITMENT_COPY.openAsk.draft,
-                        context: commitmentAskContext(synthesis),
-                      })
-                    }
-                    testId={`${testId}-open-ask`}
-                  />
-                ) : null}
+                  // ⭐ THE GLYPH NEVER WRAPS ALONE (served funding brief at 360, 30 Sep 2026: the ✦ sat on a line of
+                  // its own under "…a run you start can."). The sentence's last word and the glyph share one
+                  // no-wrap run, so they break together. The glyph has no text (aria-label only), so the text
+                  // span's textContent is still exactly `b.text`.
+                  <span data-testid={`${testId}-${b.key}-text`}>
+                    {textBeforeLastWord(b.text)}
+                    <span className="whitespace-nowrap">
+                      {lastWord(b.text)}
+                      <PanelIconButton
+                        ai
+                        inline
+                        label={COMMITMENT_COPY.openAsk.label}
+                        onClick={() =>
+                          onAsk({
+                            label: COMMITMENT_COPY.openAsk.label,
+                            draft: COMMITMENT_COPY.openAsk.draft,
+                            context: commitmentAskContext(synthesis),
+                          })
+                        }
+                        testId={`${testId}-open-ask`}
+                      />
+                    </span>
+                  </span>
+                ) : (
+                  <span data-testid={`${testId}-${b.key}-text`}>{b.text}</span>
+                )}
               </li>
             ))}
           </ul>

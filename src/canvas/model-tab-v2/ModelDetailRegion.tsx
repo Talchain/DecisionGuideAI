@@ -963,7 +963,7 @@ export function ModelDetailRegion({
       */}
       {tier === 'advanced' && (
         <section data-testid="model-detail-v2-advanced">
-          <h4 className={`${typography.panelHeader} text-text-header`}>Advanced — model parameters</h4>
+          <h4 className={`${typography.panelHeader} text-text-header`}>Advanced: model parameters</h4>
           {detail.advancedParameters.length === 0 ? (
             <p className={`${typography.panelBody} text-text-light`}>
               This element has no model parameters

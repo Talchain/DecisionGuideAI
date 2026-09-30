@@ -142,7 +142,7 @@ export function sectionWriterNoticeText(count: number, discussLabel: string): st
     count === 1
       ? ['One of these changes no factor and is not linked to one.', 'it']
       : [`${count} of these change no factor and are not linked to one.`, 'them']
-  return `${subject} Link ${object} to a factor first (ask Olumi, or add a link) — "${discussLabel}" is below.`
+  return `${subject} Link ${object} to a factor first (ask Olumi, or add a link). "${discussLabel}" is below.`
 }
 
 /** The `discuss` action for a group, or `null` when it has none. */
