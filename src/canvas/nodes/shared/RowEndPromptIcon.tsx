@@ -15,11 +15,15 @@
  *   only, so they are not used here.
  * - §9.2 / §7.3 neutral action colour: `text-text-light` at rest,
  *   `text-text-body` on hover. No invented hover treatment.
- * - §8.1 secondary button (outlined neutral: `border border-panel-border`,
- *   `hover:bg-panel-hover`). §8.5 puts `bg-panel` on the canvas, and §6.2 gives
- *   round buttons the `pill` radius (`rounded-full`).
+ * - §8.1 secondary button (outlined neutral, `hover:bg-panel-hover`), with §8.5's
+ *   `bg-panel` on the canvas and §6.2's `pill` radius (`rounded-full`). The
+ *   outline is `border-text-light` (4.65:1 on the canvas), NOT `border-panel-border`:
+ *   that token is rgb 238 230 216, ~1.1:1 on the #F4F0EA canvas, and it made the
+ *   first cut invisible, the same failure as the 24 Sep dot grid. §5 `shadow-1`
+ *   (resting) lifts it off the ground.
  * - §6.3 focus ring: `ring-2 ring-offset-2 ring-info`, always visible.
- * - §9.9 the 44×44 touch target: the button is 48 flow units square.
+ * - §9.9 the 44×44 touch target: the button is 64 flow units square (42px at the
+ *   0.65 landing zoom).
  *
  * It costs no layout width: the 160-unit tile it replaces took 184 units of every
  * row's budget, and those go to the cards (`ROW_BUDGET_W`). Behaviour is
@@ -68,14 +72,16 @@ export function RowEndPromptIcon({ label, tier, testId, hidden, onOpen }: RowEnd
           data-row-end-prompt="icon"
           onClick={(e: MouseEvent<HTMLDivElement>) => onOpen(e)}
           onKeyDown={onKeyDown}
+          // The far rung hides the control ITSELF as well as its box (the prompts' far-rung contract).
+          style={hidden ? { visibility: 'hidden' } : undefined}
           className={[
             'absolute inset-0 flex items-center justify-center rounded-full cursor-pointer',
-            'bg-panel border border-panel-border text-text-light',
+            'bg-panel border border-text-light text-text-light shadow-1',
             'hover:bg-panel-hover hover:text-text-body transition-colors',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-info',
           ].join(' ')}
         >
-          <Plus size={20} className={CANVAS_GLYPH_SIZE_CLASSES[20]} aria-hidden="true" />
+          <Plus size={24} className={CANVAS_GLYPH_SIZE_CLASSES[24]} aria-hidden="true" />
         </div>
       </Tooltip>
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0, pointerEvents: 'none' }} />

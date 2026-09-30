@@ -206,11 +206,27 @@ function promptSlotWidth(promptKinds: readonly string[], gap: number): number {
  * the board to `NODE_LAYOUT_MIN_W` as soon as any tier split; here a tier's width
  * depends only on its own widest sub-row.
  */
-function tierCardWidth(tier: number, widestSubRow: number, promptKinds: readonly string[], gap: number): number {
+function tierCardWidth(
+  tier: number,
+  widestSubRow: number,
+  promptKinds: readonly string[],
+  gap: number,
+  subRowCount: number = 1,
+): number {
   const k = Math.max(1, widestSubRow)
-  const share =
+  const rowShare =
     Math.floor((ROW_BUDGET_W - promptSlotWidth(promptKinds, gap) - (k - 1) * gap) / k) -
     LAYOUT_PADDING_X
+  // ⭐ A WRAPPED TIER ALSO HAS A BRICK-SHIFTED COURSE (`brickRowOffsets`): one course
+  // starts half a stride in, so its right edge is (k + ½)·box + (k − ½)·gap. With
+  // the flat 248 card that never reached the budget. Once cards take their fair
+  // share (30 Sep), the 4+4 factor tier's shifted course ran 111 units past the
+  // 1280 frame (right edge 1767 against 1656), so the share must fit that course too.
+  const brickShare =
+    subRowCount > 1
+      ? Math.floor((ROW_BUDGET_W - (k - 0.5) * gap) / (k + 0.5)) - LAYOUT_PADDING_X
+      : Number.POSITIVE_INFINITY
+  const share = Math.min(rowShare, brickShare)
   // ⚠ THE FLOOR IS THE REPEATED-CARD WIDTH, not `NODE_LAYOUT_MIN_W` (27 Sep 2026).
   // They were the same number (260) until the landing text ceiling put the
   // legibility floor (190.88) under the ED repeated-card target (248); a floor
@@ -249,7 +265,7 @@ function planTiers(unlocked: Node[], isDownLayout: boolean, gap: number): Map<nu
     plans.set(tier, {
       rowSizes,
       promptKinds,
-      cardW: tierCardWidth(tier, Math.max(...rowSizes), promptKinds, gap),
+      cardW: tierCardWidth(tier, Math.max(...rowSizes), promptKinds, gap, rowSizes.length),
     })
   }
   return plans

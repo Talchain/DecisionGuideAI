@@ -260,7 +260,7 @@ export const REPEATED_CARD_W = Math.max(REPEATED_CARD_TARGET_W, NODE_LAYOUT_MIN_
  * titles and values wrap onto fewer lines, so the cards are shorter, and the board
  * comes out as wide as a laptop can show legibly and no taller than it needs to
  * be. A wider screen then fits it width-first at a higher zoom.
- *   5 cards → 273 · 4 cards → 354 · 3 or fewer → 400 (the cap).
+ *   5 cards → 270 · 4 cards → 350 · 3 or fewer → 400 (the cap).
  * The layout is still a constant and viewport-independent (R1): the same model
  * lays out the same everywhere, and the camera does the per-screen fit.
  *
@@ -274,7 +274,7 @@ export const REPEATED_CARD_MAX_W = 400
  * frame with the 360 dock open, at the 0.5 floor, is (1280 − 76 − 376) / 0.5 =
  * 1656 (`laptopFit.arithmetic.spec.ts` derives it from the real insets and pins
  * it). A four-card row plus the icon prompt fills it exactly:
- * 4 × (354 + 24) + 3 × 24 + 24 + 48 = 1656.
+ * 4 × (350 + 24) + 3 × 24 + 24 + 64 = 1656.
  */
 export const ROW_BUDGET_W = 1656
 
@@ -300,18 +300,19 @@ export const ANCHOR_CARD_MAX_W = 720
 export const MAX_CARDS_PER_ROW = 5
 
 /**
- * ⭐⭐ THE ROW-END REASONING PROMPT IS AN ICON BUTTON, 48 FLOW UNITS SQUARE (Paul,
+ * ⭐⭐ THE ROW-END REASONING PROMPT IS AN ICON BUTTON, 64 FLOW UNITS SQUARE (Paul,
  * 30 Sep 2026 ~12:30Z: "improve the design of the right-hand panels … Those could
  * be icons with hover states … explore how to save space with them, but make
  * them visible and easy to use").
  *
  * It was a 160-wide, three-line dashed tile (ED S4), and it took 184 units of
- * every row's width budget. As an icon its question shows on hover and on
- * keyboard focus, overlaying the free space past the row end, so it costs no
- * layout width. The 112 units it hands back go to the cards (`ROW_BUDGET_W`).
+ * every row's width budget. As an icon its question shows in the DS tooltip on
+ * hover and keyboard focus, so it costs 88 units. The 96 it hands back go to the
+ * cards (`ROW_BUDGET_W`). 64, not 48: at the 0.65 landing zoom it draws 42px,
+ * which is as near DS §9.9's 44px target as the canvas allows (48 drew 31px).
  * Flow units, like the cards; the glyph inside counter-scales like the others.
  */
-export const ROW_PROMPT_W = 48
+export const ROW_PROMPT_W = 64
 
 /**
  * The prompt's height at the counter-scale bound — a FLOOR the layout reserves,
