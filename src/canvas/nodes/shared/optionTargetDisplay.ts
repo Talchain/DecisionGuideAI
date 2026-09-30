@@ -33,7 +33,7 @@ import {
 } from './optionChangeRows'
 import { tierReadingNumber } from '../../utils/interventionDisplay'
 import { qualitativeTierLabel } from '../../utils/labelUtils'
-import { readoutIsBareModelFigure } from './FactorValueFigure'
+import { readoutIsBareModelFigure } from './bareModelFigure'
 
 /** The slice of `ceeAnalysisReady.options[]` these readers use. */
 export interface CeeOptionTargetsLike {
