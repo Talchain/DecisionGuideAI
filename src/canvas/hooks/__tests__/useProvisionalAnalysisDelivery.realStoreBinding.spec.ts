@@ -107,6 +107,8 @@ describe('readProvisionalApplyStore is bound to the REAL canvas store', () => {
     expect(typeof view.noteRunCompletedWithoutVerdict).toBe('function')
     // B5: the per-limit verdicts beside the analysis this leg writes (the turn leg's `setLimitVerdicts`).
     expect(typeof view.setLimitVerdicts).toBe('function')
+    // SC-24: the pair's comparison beside the analysis this leg writes (the turn leg's `setRunDelta`).
+    expect(view.setRunDelta).toBe(useCanvasStore.getState().setRunDelta)
 
     // BOUNDARY: `applyScenarioAnalysisRead`'s header says the graph belongs to
     // `serverGraphHydration`. The previous spread handed over the entire store,
@@ -141,6 +143,10 @@ describe('readProvisionalApplyStore is bound to the REAL canvas store', () => {
         // ⚠ ADDED FOR B5 READ-LEG PARITY, ON PURPOSE: a results-slice writer (the per-limit verdicts beside the analysis
         // `resultsComplete` just wrote), never a graph-slice one.
         'setLimitVerdicts',
+        // ⚠ ADDED FOR SC-24 (30 Sep 2026), ON PURPOSE: the pair's `run_delta` CEE serves beside the analysis this leg
+        // displays is stored with that analysis's hash, exactly as the turn leg stores it (#84 5914416431) — so a
+        // cold reload shows the same A/B pair. A comparison writer, not a graph slice.
+        'setRunDelta',
       ].sort(),
     )
   })
