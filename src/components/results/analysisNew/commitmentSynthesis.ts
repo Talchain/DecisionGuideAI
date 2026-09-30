@@ -331,7 +331,9 @@ const isRobustnessNotEstablished = (code: ChecksCode): code is RobustnessNotEsta
  */
 function withheldFoundedBullet(vm: CommitmentSynthesisInput): CommitmentBullet<FoundedSource> | null {
   const total = vm.optionsComparison.rows.length
-  const compared = vm.optionsComparison.rows.filter((row) => row.kind !== 'not_analysed').length
+  // AIQ (PR #2367 5920918390): the POSITIVE predicate, so an option the run tried and could not compute
+  // (`not_computed`), or any row kind added later, under-counts instead of reading as compared.
+  const compared = vm.optionsComparison.rows.filter((row) => row.kind === 'analysed').length
   if (compared === 0) return null
   const text = compared === total ? COMMITMENT_COPY.withheldFounded(compared) : COMMITMENT_COPY.withheldFoundedOf(compared, total)
   return { text, source: 'withheld_count' }

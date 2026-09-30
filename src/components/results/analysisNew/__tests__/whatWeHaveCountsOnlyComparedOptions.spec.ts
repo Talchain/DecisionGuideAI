@@ -10,7 +10,7 @@
  * The bullet counted `optionsComparison.rows.length`, and `rows` holds EVERY
  * option the user has, including the `not_analysed` rows the chart lists with a
  * "Not analysed" badge. "Compared" is a claim about the run, so it counts only
- * rows the run compared (`kind !== 'not_analysed'`), and says "N of M" when the
+ * rows the run compared (`kind === 'analysed'`), and says "N of M" when the
  * two differ. The row kind is the producer's own omission, typed upstream
  * (`deriveNotAnalysedReason`); nothing is re-derived here.
  */
@@ -66,6 +66,21 @@ describe('"What we have" counts only the options the run compared', () => {
     expect(founded?.source).toBe('withheld_count')
     expect(founded?.text).toBe(COMMITMENT_COPY.withheldFoundedOf(2, 3))
     expect(founded?.text).toBe('2 of 3 options compared.')
+  })
+
+  it('an option the run tried and could not compute (`not_computed`) is not "compared" either', () => {
+    const a = option('opt_a', 'Investment Firm Outreach', 120)
+    const b = option('opt_b', 'Angel Bridge Outreach', 60)
+    const failed = { ...option('opt_c', 'Fundraising Advisor Support', 90), winProbability: 0, computeStatus: 'failed' as const }
+    const vm = buildAnalysisNewViewModel({
+      data: makeData({ recommendation: { allOptions: [a, b, failed], recommendedOption: a, ...WITHHELD } }),
+      recommendations: [],
+      isPreRun: false,
+      isRunning: false,
+      isStale: false,
+    })
+    expect(vm.optionsComparison.rows.map((r) => r.kind), 'PRECONDITION').toEqual(['analysed', 'analysed', 'not_computed'])
+    expect(buildCommitmentSynthesis(vm).founded?.text).toBe('2 of 3 options compared.')
   })
 
   it('CONTRAST: every option compared → the plain count, unchanged', () => {
