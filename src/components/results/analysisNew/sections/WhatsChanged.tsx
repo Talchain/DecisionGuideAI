@@ -23,6 +23,8 @@
 import { typography } from '../../../../styles/typography'
 import { surface } from '../panelSurfaces'
 import type { NoiseVerdict, RunDeltaMovement, RunDeltaView } from '../runDeltaView'
+import { useCanvasStore } from '../../../../canvas/store'
+import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../../../canvas/state/winShareGate'
 
 export const WHATS_CHANGED_TESTID = 'analysis-new-whats-changed'
 
@@ -90,10 +92,20 @@ function MovementLine({ m, sharedQualifier }: { m: RunDeltaMovement; sharedQuali
 }
 
 export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Element | null {
+  // ⭐⭐ WIN SHARES FOLLOW THE LEADER CLAIM (CURRENT-READ-v1 row 9; AIQ #75 5912710392). Every movement line is one
+  // option's WIN SHARE, prior → current (or its direction). When the producer withheld the leader (any reason) a
+  // per-option share change singles an option out in numbers, so the lines give way to the reason line, once, and
+  // the leader-change line names no option. Comparability and the attribution limit stay. Read through
+  // `winShareGate`; hooks sit above the early return. A PERMITTED run renders exactly as before.
+  // `s.results ?` — the gate's selectors read `s.results.report` unguarded, and a `results: null` store must not
+  // throw (the Reasoning tab pins it: `theActIsNotGatedOnSuccess.spec.tsx`, "a null results does not throw").
+  const winSharesAreWithheld = useCanvasStore((s) => (s.results ? selectWinSharesWithheld(s) : false))
+  const winShareReasonLine = useCanvasStore((s) => (s.results ? selectWinShareWithheldReason(s) : null))
   // ⛔ ABSENCE RENDERS NOTHING — never an "everything is fine" arm. The producer
   // withholds the block for several reasons that all reach the client as one
   // silence, so there is no honest sentence to print here.
   if (!view) return null
+  const leaderMayName = view.leader.mayName && !winSharesAreWithheld
   // Two or more rows with one producer verdict: its qualifier is said once.
   const verdicts = new Set(view.movements.map((m) => m.noiseVerdict))
   const shared =
@@ -143,7 +155,15 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
         </p>
       ) : null}
 
-      {view.movementsUnavailable ? (
+      {winSharesAreWithheld ? (
+        // Row 9: no per-option share change — the reason line in its place.
+        <p
+          className={`${typography.panelMeta} text-text-light mt-2 mb-0`}
+          data-testid={`${WHATS_CHANGED_TESTID}-win-shares-withheld`}
+        >
+          {winShareReasonLine}
+        </p>
+      ) : view.movementsUnavailable ? (
         // ⚠ "NO COMPARABLE PAIR", NEVER "NOTHING MOVED". An empty list is the
         // producer saying it could not match any option across the two runs.
         <p
@@ -182,7 +202,7 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
         client-side computation the contract forbids. The scope is always true
         and removes the false implication without inventing a number.
       */}
-      {view.movements.length > 0 ? (
+      {view.movements.length > 0 && !winSharesAreWithheld ? (
         <p
           className={`${typography.panelMeta} text-text-light mt-2 mb-0`}
           data-testid={`${WHATS_CHANGED_TESTID}-movement-scope`}
@@ -201,10 +221,10 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
         <p
           className={`${typography.panelMeta} text-text-light mt-2 mb-0`}
           data-testid={`${WHATS_CHANGED_TESTID}-highest-scoring`}
-          data-may-name={view.leader.mayName ? 'true' : 'false'}
+          data-may-name={leaderMayName ? 'true' : 'false'}
           data-noise-verdict={view.leader.noiseVerdict}
         >
-          {view.leader.mayName && view.leader.priorLabel && view.leader.currentLabel
+          {leaderMayName && view.leader.priorLabel && view.leader.currentLabel
             ? `In this model, the option with the highest score moved from ${view.leader.priorLabel} to ${view.leader.currentLabel}.`
             : 'In this model, the option with the highest score is not the same one as last time.'}
           {/*

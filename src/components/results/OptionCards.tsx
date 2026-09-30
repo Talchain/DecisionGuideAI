@@ -61,6 +61,7 @@ import {
 import { formatDownsideValue } from './utils/formatDownsideValue'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { useCanvasStore, selectResultsStatus } from '../../canvas/store'
+import { selectWinSharesWithheld } from '../../canvas/state/winShareGate'
 import { isGraphLensEnabled } from '../../flags'
 import type { OptionResult, DecisionState, HingeInfo, ConfidenceTier, OutcomeUnitType } from './types'
 import {
@@ -550,9 +551,15 @@ function OptionCard({
   outcomeUnit,
   outcomeUnitSymbol,
   isNormalised,
+  winSharesWithheld = false,
 }: {
   option: OptionResult
   isWinner: boolean
+  /**
+   * CURRENT-READ-v1 row 9 — the producer withheld the leader, so this card shows no win share: no header figure
+   * and no fill bar. From `winShareGate` via `OptionCards`; default `false` renders exactly as before.
+   */
+  winSharesWithheld?: boolean
   /** ROADMAP 1.223 — see OptionCardsProps. Gates the comparative SENTENCES. */
   hasLeadingOption?: boolean
   /**
@@ -757,7 +764,7 @@ function OptionCard({
           </span>
         )}
         <span className="flex-1" />
-        {option.winProbability != null && (
+        {option.winProbability != null && !winSharesWithheld && (
           <Tooltip
             content={
               isBelowSimulationResolution(option.winProbability, option.nValidSamples)
@@ -787,7 +794,7 @@ function OptionCard({
       ) : null}
 
       {/* Task 6b: Coloured fill bar matching wins-bar segment colour */}
-      {option.winProbability != null && segmentFillColor && !neutralised && (
+      {option.winProbability != null && segmentFillColor && !neutralised && !winSharesWithheld && (
         <div
           className="w-full rounded-full overflow-hidden"
           style={{ height: 5, backgroundColor: 'var(--border-default, #EEE6D8)' }}
@@ -1125,7 +1132,7 @@ export function OptionCards({
   confidenceTier,
   recommendationStability,
   leadingOptionDownsideFlag,
-  hasLeadingOption,
+  hasLeadingOption: hasLeadingOptionProp,
   outcomeUnit,
   outcomeUnitSymbol,
   isNormalised,
@@ -1133,6 +1140,17 @@ export function OptionCards({
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
   const refMap = cardRefMap ?? internalRefMap
+
+  // ⭐⭐ WIN SHARES FOLLOW THE LEADER CLAIM (CURRENT-READ-v1 row 9; AIQ #75 5912710392). When the producer withheld
+  // the leader (any reason), no card shows its win share: no header figure, no fill bar (`OptionCard` below), and
+  // no leader sentence. The leader sentence, the crown, the rank swatch and "This option currently leads…" all
+  // read ONE entitlement here, so the gate folds into it rather than being repeated per branch. Read through
+  // `winShareGate`; the options panel's reason line is WinGauge's, directly above these cards, so a card adds
+  // none of its own. A PERMITTED run keeps the caller's entitlement unchanged.
+  // `s.results ?` — the gate's selectors read `s.results.report` unguarded, and a `results: null` store must not
+  // throw (the Reasoning tab pins it: `theActIsNotGatedOnSuccess.spec.tsx`, "a null results does not throw").
+  const winSharesAreWithheld = useCanvasStore((s) => (s.results ? selectWinSharesWithheld(s) : false))
+  const hasLeadingOption = winSharesAreWithheld ? false : hasLeadingOptionProp
 
   // V11: Indeterminate neutralisation — stone colours, no success border
   const neutralised = decisionState === 'indeterminate'
@@ -1459,6 +1477,7 @@ export function OptionCards({
             outcomeUnitSymbol={outcomeUnitSymbol}
             isNormalised={isNormalised}
             hasLeadingOption={hasLeadingOption}
+            winSharesWithheld={winSharesAreWithheld}
           />
         )
       })}

@@ -36,6 +36,8 @@ import { typography } from '../../styles/typography'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { isSuppressedUnit } from '../../canvas/utils/labelUtils'
 import type { ConditionalWinner, ConditionalWinnerBucket } from './types'
+import { useCanvasStore } from '../../canvas/store'
+import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../canvas/state/winShareGate'
 // Canonical glossary check shared with the v17 hero row builders + body
 // sub-components. Used in v17 mode to sanitise user-supplied factor /
 // option labels before they enter generated prose. The raw label still
@@ -115,8 +117,18 @@ export function ConditionalWinnerCards({
   recommendedOptionId,
   onFocusNode,
   useV17Copy = false,
-  mayNameLeader = true,
+  mayNameLeader: mayNameLeaderProp = true,
 }: ConditionalWinnerCardsProps) {
+  // ⭐⭐ WIN SHARES FOLLOW THE LEADER CLAIM (CURRENT-READ-v1 row 9; AIQ #75 5912710392). When the producer withheld
+  // the leader (any reason) no bucket prints its win share, labelled or not: "Above: 80%" beside "Below: 13%" on a
+  // flip row singles an option out in numbers. No bucket names its option either (the neutral arm). The factor,
+  // the threshold and the flip — the science — stay, and the reason line is said once for the panel. Read
+  // through `winShareGate`; a PERMITTED run renders exactly as before.
+  // `s.results ?` — the gate's selectors read `s.results.report` unguarded, and a `results: null` store must not
+  // throw (the Reasoning tab pins it: `theActIsNotGatedOnSuccess.spec.tsx`, "a null results does not throw").
+  const winSharesAreWithheld = useCanvasStore((s) => (s.results ? selectWinSharesWithheld(s) : false))
+  const winShareReasonLine = useCanvasStore((s) => (s.results ? selectWinShareWithheldReason(s) : null))
+  const mayNameLeader = mayNameLeaderProp && !winSharesAreWithheld
   // Producer attestation ONLY — label comparison cannot see a same-label
   // flip and renders label churn as a phantom scenario. A row without a
   // finite split_value cannot state "flips at N" and is skipped.
@@ -150,6 +162,14 @@ export function ConditionalWinnerCards({
           <span className="sr-only">{headerHelpText}</span>
         </span>
       </div>
+      {winSharesAreWithheld && winShareReasonLine && (
+        <p
+          className={`${typography.panelMeta} text-text-light`}
+          data-testid="conditional-winner-shares-withheld"
+        >
+          {winShareReasonLine}
+        </p>
+      )}
       {visible.map((w, idx) => {
         const canFocus = !!w.factor_id
         const handleFocus = () => {
@@ -241,7 +261,7 @@ export function ConditionalWinnerCards({
           const label = bucket.winner_label !== undefined && mayNameLeader
             ? (useV17Copy ? safeInterpolatedLabel(bucket.winner_label, 'the other option') : bucket.winner_label)
             : undefined
-          const pct = bucket.win_probability !== undefined
+          const pct = bucket.win_probability !== undefined && !winSharesAreWithheld
             ? `${Math.round(bucket.win_probability * 100)}%`
             : undefined
           if (label !== undefined && pct !== undefined) return `${label} (${pct})`
