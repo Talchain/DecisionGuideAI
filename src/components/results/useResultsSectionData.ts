@@ -109,6 +109,7 @@ import {
 } from './strengthElicitation/selectAssumedStrengthToResolve'
 import { reviewableStrengthEdgeIds } from './strengthElicitation/reviewableEdges'
 import { deriveRobustnessStatus } from './robustnessStatus'
+import { readGoalIdentityWithheld } from './utils/goalIdentityWithheld'
 
 // =============================================================================
 // Winner Selection Helper
@@ -2824,6 +2825,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           : undefined,
       // v7: Whether outcome values are normalised model scores (no goalThresholdCap)
       isNormalised: isNormalisedResult,
+      goalFiguresWithheldMessage: readGoalIdentityWithheld(report)?.message ?? null,
+      goalHoldsTodayLevel: (() => {
+        const os = (goalNode?.data as { observedState?: { raw_value?: unknown } } | undefined)?.observedState
+        return typeof os?.raw_value === 'number' && Number.isFinite(os.raw_value)
+      })(),
       // M1 Coaching fields (Task 2) — sanitized at data layer
       coachingHeadline: m1Coaching?.executive_summary?.headline
         ? sanitizeCoachingText(m1Coaching.executive_summary.headline) : undefined,
@@ -2917,7 +2923,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // (Measured: at pristine this memo's exhaustive-deps warning named only
     // `reviewStatus`; without this entry the lane would have added `edges` to
     // it.)
-  }, [runIsCurrent, hasCompletedFirstRun, report, nodes, edges, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, evidenceAssessment, nodeLabelMap, goalThreshold, goalThresholdCap, capIsTargetDerivedHeadroom, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
+  }, [runIsCurrent, hasCompletedFirstRun, report, nodes, edges, goalNode, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, evidenceAssessment, nodeLabelMap, goalThreshold, goalThresholdCap, capIsTargetDerivedHeadroom, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
