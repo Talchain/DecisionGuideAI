@@ -19,6 +19,17 @@
 import { classifyUnit, unwrapInterventionValue } from '../canvas/utils/labelUtils'
 import { compactUnitParts, formatMoneyFigure, joinCompactUnitParts, moneyFigureParts } from './unitClassifier'
 
+/**
+ * ⛔ A FACTOR'S PERCENT KEEPS ITS DECIMAL (WebMCP finding #75 5907516955, scenario `815ae68b`): the user's "3.7%" monthly
+ * churn (`raw_value 3.7`, `brief_extraction`) printed "4%" on the card — the MRR brief's churn LIMIT — so the card read
+ * as if churn were already at the limit. One decimal when the value has one, none when it is whole; the ONE rule for
+ * every percent arm below so the text and its split parts cannot disagree.
+ */
+export function percentFigure(scaled: number): string {
+  const r = Math.round(scaled * 10) / 10
+  return `${Number.isInteger(r) ? r.toFixed(0) : r.toFixed(1)}%`
+}
+
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
 
 function stripSuffixes(label: string): string {
@@ -431,7 +442,7 @@ export function formatFactorDisplayParts(input: FactorDisplayInput): FactorDispl
   else if (kind === 'percent') {
     // Pattern 1's own 0–1 rule; the byte check below binds it to the original.
     const scaled = raw_value > 0 && raw_value < 1 ? raw_value * 100 : raw_value
-    parts = { figure: `${Math.round(scaled)}%`, unit: null }
+    parts = { figure: percentFigure(scaled), unit: null }
   } else if (kind === 'other') {
     parts = compoundUnitParts(amount, canonical || unit, text) ?? { figure: amount, unit: canonical || unit }
   } else return null
@@ -853,7 +864,7 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
         // revert to a bare Math.round, which produces "0%" for 0.25 and was
         // the source of the V5 value-display bug.
         const scaled = numericRaw > 0 && numericRaw < 1 ? numericRaw * 100 : numericRaw
-        return `${Math.round(scaled)}%`
+        return percentFigure(scaled)
       }
       // 'other' | 'none' (unreachable here — unit is truthy)
       return `${formatNumber(numericRaw)} ${unitCanonical || unit}`
@@ -953,7 +964,7 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
   if (displayValueContradicted && raw_value == null && value != null) {
     if (unitKind === 'percent') {
       const scaled = value > 0 && value < 1 ? value * 100 : value
-      return `${Math.round(scaled)}%`
+      return percentFigure(scaled)
     }
     if (!unit) {
       return formatNumber(value)
