@@ -23,9 +23,12 @@ export interface ProducerLeaderPermission {
   producer_cause?: string | null
 }
 
-/** AIQ 5912710392, verbatim: the reason line for a leader withheld because the target can't be checked. */
+/**
+ * AIQ 5914838427, verbatim (correcting 5912710392): `constraint_verdict_withheld` fires on a LIMIT-only failure too, so
+ * the line names both. The target-only line belongs to #2371's typed `TARGET_NOT_TESTABLE`, shown as its own message.
+ */
 export const EXPLORATORY_REASON_LINE =
-  "An exploratory comparison: Olumi can't yet check your target, so it isn't naming an option."
+  "An exploratory comparison: Olumi couldn't check your target or limits on this run, so it isn't naming an option."
 
 /** Said when the producer withheld the leader and gave no reason this surface can state. */
 export const WITHHELD_REASON_FALLBACK = "Olumi isn't naming an option on this run."

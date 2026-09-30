@@ -79,6 +79,10 @@ export function readProvisionalApplyStore(): ScenarioAnalysisApplyStore {
     // B5 on the read leg: the verdicts beside the analysis this leg displays, stamped as the turn leg stamps them.
     setLimitVerdicts: s.setLimitVerdicts,
     currentScenarioId: s.currentScenarioId,
+    // ⭐ THE WITHHOLDING THE APPLIER STAMPS AFTER ITS RESULTS WRITE (row 9 served FAIL, 30 Sep: R3's bc9640d4 cold-opened
+    // with `leader_claim.permitted: false` and cards reading "best in 49% / 51%"). Absent here, the applier's `?.` call
+    // no-op'd; the boot leg's own stamp had run before any report was held. Named explicitly, like every member.
+    resultsWithholdLeaderClaim: s.resultsWithholdLeaderClaim,
     // ── Does the canvas on screen derive from a server graph we ACCEPTED? ──
     //
     // Read STRAIGHT FROM THE STORE here rather than threaded down from the
