@@ -13,6 +13,7 @@ import { isPersistenceSessionActive } from '../lib/persistenceSession'
 import { deleteSelectionAction, type ShowToastFn } from './contextMenu/actions'
 import { useConfirmDialogStore } from './stores/confirmDialogStore'
 import { armNodeKeyboardScopeForOneDispatch } from './nodes/nodeKeyboardScope'
+import { runCanvasUndo } from './undo/undoCommand'
 
 /** The keys React Flow's node handler moves a node on — and the nudge's keys. */
 const ARROW_KEYS: ReadonlySet<string> = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'])
@@ -541,13 +542,26 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
       const canMutateSharedModel = hasServerGraphAuthority(
         CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations,
       )
+      const undoRedoConnected = hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasUndoRedo)
 
-      // Answer the recovery gesture rather than swallowing it. Runs BEFORE the
-      // undo/redo branches and fires only when they are inert, so the day
-      // `canvasSemanticMutations` becomes `'server_graph'` this branch stops
-      // firing on its own and real undo takes over — no second place to
-      // remember to update.
-      if (!canMutateSharedModel && isUndoRedoGesture(event.key, cmdOrCtrl)) {
+      // CANVAS UNDO / REDO as SAVED changes (`undo/undoCommand.ts`): a restore
+      // of the edit's own pre-edit version, never a screen revert. Its own
+      // authority key; the old local `state.undo()` is no longer reachable
+      // from any gesture, so flipping `canvasSemanticMutations` can never
+      // bring the screen-only undo back (`undoGestureRouting.blanketFlip.spec`).
+      if (undoRedoConnected && isUndoRedoGesture(event.key, cmdOrCtrl)) {
+        event.preventDefault()
+        if (!event.repeat) {
+          void runCanvasUndo(event.shiftKey || event.key.toLowerCase() === 'y' ? 'redo' : 'undo')
+        }
+        return
+      }
+
+      // Answer the recovery gesture rather than swallowing it while undo is
+      // not connected. The day `canvasUndoRedo` becomes `'server_graph'` this
+      // branch stops firing on its own and the saved-change undo above takes
+      // over — no second place to remember to update.
+      if (!undoRedoConnected && isUndoRedoGesture(event.key, cmdOrCtrl)) {
         event.preventDefault()
         if (!event.repeat && Date.now() - lastUndoNoticeAtRef.current > UNDO_NOTICE_QUIET_MS) {
           lastUndoNoticeAtRef.current = Date.now()
@@ -569,22 +583,6 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
               detail: { message: CANVAS_STRUCTURAL_EDIT_NOTICE, level: 'info' },
             }))
           }
-        }
-        return
-      }
-
-      // Undo: Cmd/Ctrl + Z
-      if (canMutateSharedModel && cmdOrCtrl && event.key === 'z' && !event.shiftKey && state.canUndo()) {
-        event.preventDefault()
-        state.undo()
-        return
-      }
-
-      // Redo: Cmd/Ctrl + Shift + Z or Cmd/Ctrl + Y
-      if (canMutateSharedModel && ((cmdOrCtrl && event.key === 'z' && event.shiftKey) || (cmdOrCtrl && event.key === 'y'))) {
-        if (state.canRedo()) {
-          event.preventDefault()
-          state.redo()
         }
         return
       }

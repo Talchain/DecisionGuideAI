@@ -28,6 +28,7 @@ import {
 } from '../mutations/mutationAuthority'
 import { WIRE_ADDABLE_NODE_KINDS } from '../mutations/structuralAdd'
 import { canvasUndoUnavailableNotice } from '../useKeyboardShortcuts'
+import { runCanvasUndo } from '../undo/undoCommand'
 import {
   deleteAction,
   addNodeAction,
@@ -275,6 +276,11 @@ function menuIdIsAuthorised(id: string, connected: boolean): boolean {
       hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash) &&
       hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasEdgeAddWithServerHash)
     )
+  }
+  if (id === 'undo' || id === 'redo') {
+    // Canvas Undo/Redo is a SAVED change with its own carrier (a version
+    // restore, `undo/undoCommand.ts`) and its own key — never the blanket one.
+    return hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasUndoRedo)
   }
   if (LOCAL_SEMANTIC_CONTEXT_MENU_IDS.has(id)) {
     // ⭐ THE INJECTED VALUE DRIVES THE PER-ID JUDGEMENT, and that is the whole
@@ -617,20 +623,20 @@ function buildPaneMenu(
       label: 'Undo',
       icon: Undo2,
       shortcut: '\u2318Z',
-      tooltip: 'Undo last action',
-      enabled: store.canUndo(),
-      disabledReason: store.canUndo() ? undefined : 'Nothing to undo',
-      action: wrap(() => useCanvasStore.getState().undo()),
+      tooltip: 'Undo your last saved change',
+      // Enabled whenever undo is connected: with nothing to undo the command
+      // answers "Nothing to undo." rather than the row sitting silently grey.
+      enabled: true,
+      action: wrap(() => void runCanvasUndo('undo')),
     },
     {
       id: 'redo',
       label: 'Redo',
       icon: Redo2,
       shortcut: '\u2318\u21E7Z',
-      tooltip: 'Redo last undone action',
-      enabled: store.canRedo(),
-      disabledReason: store.canRedo() ? undefined : 'Nothing to redo',
-      action: wrap(() => useCanvasStore.getState().redo()),
+      tooltip: 'Redo the change you undid',
+      enabled: true,
+      action: wrap(() => void runCanvasUndo('redo')),
     },
     DIV,
     {

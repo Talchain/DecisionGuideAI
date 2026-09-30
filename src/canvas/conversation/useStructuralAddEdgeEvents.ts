@@ -56,7 +56,7 @@ import type { WireSystemEvent } from './types'
 
 export type StructuralAddEdgeSender = (
   event: WireSystemEvent,
-  opts?: { debugSource?: string },
+  opts?: { debugSource?: string; undoGestureId?: string },
 ) => Promise<unknown>
 
 export function useStructuralAddEdgeEvents(sendSystemEvent: StructuralAddEdgeSender): void {
@@ -168,7 +168,13 @@ export function useStructuralAddEdgeEvents(sendSystemEvent: StructuralAddEdgeSen
                   type: 'structural_add_edge',
                   payload: buildStructuralAddEdgeWirePayload(resolved),
                 },
-                { debugSource: 'canvas_add_edge' },
+                // A link chained to a node add undoes WITH that node: one step.
+                {
+                  debugSource: 'canvas_add_edge',
+                  ...(resolved.afterNodeAddIntentId !== undefined
+                    ? { undoGestureId: resolved.afterNodeAddIntentId }
+                    : {}),
+                },
               )
               .catch((err) => {
                 if (import.meta.env.DEV) {

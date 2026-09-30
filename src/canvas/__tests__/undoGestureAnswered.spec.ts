@@ -39,11 +39,17 @@ vi.mock('../mutations/mutationAuthority', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../mutations/mutationAuthority')>()
   return {
     ...actual,
+    // The undo gesture answers to its OWN key since Undo S4 (`canvasUndoRedo`),
+    // never the blanket `canvasSemanticMutations`.
     get CANONICAL_EDIT_AUTHORITY() {
-      return { ...actual.CANONICAL_EDIT_AUTHORITY, canvasSemanticMutations: authorityValue.current }
+      return { ...actual.CANONICAL_EDIT_AUTHORITY, canvasUndoRedo: authorityValue.current }
     },
   }
 })
+// When the authority IS granted the gesture runs the saved-change command; this
+// file pins only the notice, so the command is inert here.
+const runCanvasUndo = vi.fn(async () => 'done')
+vi.mock('../undo/undoCommand', () => ({ runCanvasUndo: (...a: unknown[]) => runCanvasUndo(...(a as [])) }))
 
 /** Captures what actually reached the canvas's toast bridge. */
 function captureToasts(): { messages: string[]; dispose: () => void } {
@@ -177,6 +183,8 @@ describe('undo gesture is answered, not swallowed', () => {
     renderHook(() => useKeyboardShortcuts())
     press('z', { ctrlKey: true })
     expect(toasts.messages).toEqual([])
+    // …and the gesture reached the saved-change command instead.
+    expect(runCanvasUndo).toHaveBeenCalledWith('undo')
   })
 
   it('TWIN: a held ⌘Z (event.repeat) does not stack notices', () => {

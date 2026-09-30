@@ -129,6 +129,7 @@ import { appendThreadEntries } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
 import { useGuidanceStore, type GuidanceItem } from '../stores/guidanceStore'
 import { serializeSystemEvent } from './systemEvents'
+import { captureTurnForUndo } from '../undo/captureUndoReceipt'
 import { redactStatedReason } from './findingDissent'
 import type {
   ConversationMessage,
@@ -2476,6 +2477,11 @@ export interface SendTurnOpts {
   /** schemas 0.50.0 — the add gesture this `structural_add` announces. */
   structuralAdd?: StructuralAddIntent
   /**
+   * Canvas Undo/Redo: groups one gesture's receipts into ONE undo step — a link
+   * chained to a node add carries the node add's intent id. NOT on the wire.
+   */
+  undoGestureId?: string
+  /**
    * The optimistic link-strength write this `edge_strength_edit` announces.
    * NOT part of the wire payload; it rides here for the reason the three above
    * do — the applied receipt must know which canvas write is ITS OWN
@@ -2682,6 +2688,8 @@ export interface UseConversationReturn {
     structuralRename?: StructuralRenameIntent
     /** schemas 0.50.0 — the add gesture this `structural_add` announces. */
     structuralAdd?: StructuralAddIntent
+    /** Canvas Undo/Redo gesture grouping — see `SendTurnOpts.undoGestureId`. */
+    undoGestureId?: string
     /** The optimistic link-strength write this `edge_strength_edit` announces. */
     optimisticEdgeEdit?: OptimisticEdgeEdit
     /** The queued send's own outcome, at flush — see `SendTurnOpts.onDeferredSettled`. */
@@ -5067,6 +5075,23 @@ export function useConversation(): UseConversationReturn {
 
         const target = routeV5Response(v5Result)
 
+        // CANVAS UNDO JOURNAL (Undo/Redo S2, dark): record this turn's own
+        // versioned write — or another writer's — so ⌘Z can later restore the
+        // edit's own pre-edit version. See `undo/captureUndoReceipt.ts`.
+        if (
+          v5Result.kind === 'response' &&
+          activeV5TurnIdRef.current === turnClientId &&
+          typeof scenarioIdAtDispatch === 'string'
+        ) {
+          captureTurnForUndo({
+            scenarioId: scenarioIdAtDispatch,
+            turnId: turnClientId,
+            systemEvent,
+            response: v5Result.response,
+            undoGestureId: opts.undoGestureId ?? opts.structuralAdd?.id,
+          })
+        }
+
         // ROADMAP 2.129 (b) — resolve the OPTIMISTIC value write against what
         // the server actually did with it.
         //
@@ -6845,6 +6870,8 @@ export function useConversation(): UseConversationReturn {
       structuralRename?: StructuralRenameIntent
       /** schemas 0.50.0 — the add gesture this `structural_add` announces. */
       structuralAdd?: StructuralAddIntent
+      /** Canvas Undo/Redo gesture grouping — see `SendTurnOpts.undoGestureId`. */
+      undoGestureId?: string
       /** The optimistic link-strength write this `edge_strength_edit` announces. */
       optimisticEdgeEdit?: OptimisticEdgeEdit
       /** The queued send's own outcome, at flush — see `SendTurnOpts.onDeferredSettled`. */
@@ -6928,6 +6955,9 @@ export function useConversation(): UseConversationReturn {
         // spec found it, which is why
         // `useConversation.structuralAddOutcome.spec.ts` exists.
         structuralAdd: opts?.structuralAdd,
+        // Same invisibility if forgotten: without it a link chained to a node
+        // add becomes its own undo step (`useConversation.undoCapture.spec`).
+        undoGestureId: opts?.undoGestureId,
         // Same invisibility if forgotten: without it an applied link edit can
         // never acknowledge the model past its own write, and a whole-graph
         // registration follows every one (`edgeStrengthOneWriter.spec` case C).

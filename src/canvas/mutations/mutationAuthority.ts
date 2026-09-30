@@ -219,6 +219,13 @@ export const CANONICAL_EDIT_AUTHORITY = {
   goalSuccessTarget: 'disabled',
   canvasSemanticMutations: 'disabled',
   inspectorSemanticControls: 'disabled',
+  // CANVAS UNDO / REDO — its OWN key, never `canvasSemanticMutations` (which
+  // also opens paste, cut, duplicate, the blueprint insert and the add-
+  // palette). Its carrier is CEE's version restore: every step restores the
+  // edit's own pre-edit version, guarded by the server's full-identity check
+  // (`undo/undoCommand.ts`). TEMPORARY (DL #75 5912949238): it exists only
+  // between Undo S4 (dark) and S5, which switches undo on and removes the key.
+  canvasUndoRedo: 'disabled',
 } as const satisfies Record<string, MutationAuthority>
 
 export const SHARED_MODEL_AUTHORITY_COPY =
