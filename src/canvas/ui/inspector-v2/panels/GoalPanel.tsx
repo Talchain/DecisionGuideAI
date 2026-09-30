@@ -358,7 +358,14 @@ export const GoalPanel = memo(function GoalPanel({
    * one, which is the trade this PR exists to refuse", in the words of the PR that
    * wrote it. So the sentence keeps ITS question and the readout keeps its own.
    */
-  const pipelineHoldsNoTargetNumber = goalThreshold == null
+  // ⛔ DL 5902607375 (cold reload, signed-in MRR `520aab46`): the store scalar is written only by
+  // `setCeeAnalysisReady`, which a reload does not replay, while the cold read keeps CEE's pipeline number ON THE
+  // NODE (`goal_threshold`, model scale). Either carrier answers "the pipeline holds a number"; neither alone may
+  // claim probabilities are locked beside a Run that produced them.
+  const nodePipelineThreshold = (node?.data as { goal_threshold?: unknown } | undefined)?.goal_threshold
+  const pipelineHoldsTargetNumber =
+    goalThreshold != null || (typeof nodePipelineThreshold === 'number' && Number.isFinite(nodePipelineThreshold))
+  const pipelineHoldsNoTargetNumber = !pipelineHoldsTargetNumber
 
   /**
    * ⭐⭐⭐ THE ADMISSION — *may this reader add a target?* — AND, UNTIL #1172
@@ -511,7 +518,7 @@ export const GoalPanel = memo(function GoalPanel({
   if (!nodeId || !node) return null
 
   /** The store's question (see the branch-gate note at §4.2): may a readout stand. */
-  const showsTargetReadout = goalThreshold != null && targetDisplay != null && !canCaptureTarget
+  const showsTargetReadout = pipelineHoldsTargetNumber && targetDisplay != null && !canCaptureTarget
 
   /**
    * ⭐ THE CONSTRAINTS THIS PANEL LISTS — never the row that restates the target

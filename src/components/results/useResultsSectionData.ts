@@ -100,7 +100,7 @@ import {
   type AttributionSuppressionVerdict,
 } from './voi/attributionSuppression'
 import { resolveNodeTypeLiteral } from '../../canvas/domain/nodes'
-import { resolveGoalTarget, type GoalTargetSource } from '../../canvas/domain/goalTarget'
+import { resolveGoalTarget, goalDirectionWarningIsMoot, GOAL_DIRECTION_UNATTESTED_CODE, type GoalTargetSource } from '../../canvas/domain/goalTarget'
 import { factorDisplaysValue } from '../../canvas/components/model-tab/utils'
 import {
   selectAssumedStrengthToResolve,
@@ -3347,6 +3347,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // ==========================================================================
   // Confidence Section Data (with improvements merged)
   // ==========================================================================
+  // AIQ 5902450527: a goal that HOLDS `>=`/`>` (not a negative change) makes ISL's "does not say which way" false.
+  const goalDirectionWarningMoot = useMemo(
+    () => goalDirectionWarningIsMoot(goalNode?.data as GoalTargetSource | undefined),
+    [goalNode?.data],
+  )
   const confidence = useMemo<ConfidenceSectionData>(() => {
     // Get graph readiness from CEE review V1
     const ceeReviewV1 = runMeta?.ceeReviewV1
@@ -4443,7 +4448,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       inferenceWarnings: (() => {
         const raw = safeArray(readInferenceWarnings(report))
         // Surface all inference warnings (previously gated on specific codes)
-        const relevant = raw.filter((w: any) => typeof w?.code === 'string')
+        const relevant = raw.filter((w: any) => typeof w?.code === 'string' && !(goalDirectionWarningMoot && w.code === GOAL_DIRECTION_UNATTESTED_CODE))
         if (relevant.length === 0) return undefined
         return relevant.map((w: any) => {
           const nodeIds: string[] = safeArray(w.affected_nodes ?? w.affectedNodes)
@@ -4544,7 +4549,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // decide from ONE adapted array. Listing it is a correctness dependency,
     // not lint appeasement: with a stale closure the CX5 suppression would be
     // computed from the previous run's flip evidence.
-  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap, runMeta?.ceeReviewV1, recommendation])
+  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap, runMeta?.ceeReviewV1, recommendation, goalDirectionWarningMoot])
 
   /**
    * ⭐⭐ WHICH SENSITIVITY ROWS NAME A RELATIONSHIP THE READER CAN GO AND CHANGE.

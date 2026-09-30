@@ -41,12 +41,14 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { LAST_RUN_PREFIX, METRIC_NOUN } from './shared/metricVocabulary'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
+import { goalTodayLevelCopy } from './shared/goalTodayLevelCopy'
 import {
   canCaptureGoalTarget,
   goalTargetChangeFrameOf,
   statedGoalTargetRaw,
   type GoalTargetSource,
   goalTargetInPlaceEdit,
+  goalTodayLevel,
 } from '../domain/goalTarget'
 import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import {
@@ -759,6 +761,7 @@ export const GoalNode = memo((props: NodeProps) => {
    * reduced line derived from `targetLine` is unchanged.
    */
   const targetLine = thresholdDisplay != null ? `${GOAL_TARGET_PREFIX} ${thresholdDisplay}` : null
+  const todayLevel = goalTodayLevel(props.data as Parameters<typeof goalTodayLevel>[0])
 
   /**
    * ⭐ AND THE NO-TARGET CASE IS THE POINT, NOT AN AFTERTHOUGHT. A goal with no
@@ -1204,6 +1207,13 @@ export const GoalNode = memo((props: NodeProps) => {
           ))}
         </div>
 
+        {/* ⭐ Today's level on a change goal (cut-costs `09af9019`; AIQ 5902409861): "down 20% from today" now says
+            what today is, from the typed reading or the user's stated level only (`goalTodayLevel`). */}
+        {todayLevel !== null && (
+          <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`} data-testid={`goal-today-level-${props.id}`}>
+            {goalTodayLevelCopy(todayLevel)}
+          </p>
+        )}
         {showAchievementReadout && (
           <NodeMetricRow
             label={`${analysisChanged ? LAST_RUN_PREFIX : ''}${METRIC_NOUN.chance}`}
