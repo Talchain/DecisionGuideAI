@@ -383,10 +383,13 @@ describe('#34 / #39 / #42 — resting copy and glyph', () => {
     expect(modelHasOpenAssumptions([{ type: 'factor', data: USER_BARE }])).toBe(false)
   })
 
-  it('#42: the coaching glyph is the bubble with "?"', () => {
-    // 29 Sep 2026: the contract's own `ICONS.coaching` path, drawn verbatim.
+  it('#42 (SUPERSEDED 30 Sep, Paul: "the canvas card should use the Olumi icon"): the coaching glyph is the Olumi AI mark', () => {
+    // DS v5 §9.8: the logo mark as a single-colour outline — circle, triangle, square — from the ONE owner, `OlumiAiIcon`.
     const { container } = render(<COACHING_ICON_GLYPH.Icon />)
-    const d = Array.from(container.querySelectorAll('path')).map((p) => p.getAttribute('d'))
-    expect(d).toEqual(['M21 11a8.5 8.5 0 0 1-8.5 8.5H7L3 22l1.3-5A8.5 8.5 0 1 1 21 11Z', 'M10 8a2.3 2.3 0 1 1 3.7 1.8c-1 .6-1.5 1.1-1.5 2.2M12.2 15h.01'])
+    const svg = container.querySelector('svg')!
+    expect(svg.getAttribute('data-icon')).toBe('olumi-ai')
+    expect(container.querySelectorAll('circle')).toHaveLength(1)
+    expect(Array.from(container.querySelectorAll('path')).map((p) => p.getAttribute('d'))).toEqual(['M5.5 10.5 9 16.5H2Z'])
+    expect(container.querySelectorAll('rect')).toHaveLength(1)
   })
 })

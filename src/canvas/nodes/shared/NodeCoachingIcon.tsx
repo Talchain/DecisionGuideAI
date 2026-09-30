@@ -74,6 +74,7 @@ import type { NodeType } from '../../domain/nodes'
 import type { CoachingChip, ResolvedCoaching } from '../coaching/resolveNodeCoaching'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import type { LucideProps } from 'lucide-react'
+import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
 import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
 
 export const NODE_COACHING_ICON_TESTID_PREFIX = 'node-coaching-icon-'
@@ -84,48 +85,26 @@ export const NODE_COACHING_ICON_TESTID_PREFIX = 'node-coaching-icon-'
  * Olumi"), so the key imports this mark rather than redrawing one.
  */
 /**
- * ⭐ CONTRACT v3.1 `ICONS.coaching` — a speech bubble WITH A QUESTION MARK
- * (DESIGN-GAP-v31 #42), lucide's `MessageCircleQuestion`, the library's drawing
- * of the contract's own path. It was the plain `MessageCircle`.
- *
- * ⚠ RULING CONFLICT, NAMED: #63 5796486697 / 5796609717 (Panel R3) settled "one
- * glyph for 'ask / hand this to Olumi'", shared with the quick-action "Ask
- * Olumi" and the panel. v3.1 (Paul, 23 Sep) draws the COACHING door as a
- * question, distinct from a generic ask; the common brief says v3.1 wins. The
- * quick action and the panel keep their own glyph (not this file's).
+ * ⭐ THE OLUMI AI ICON ON THE CARD (Paul, 30 Sep 2026: "the canvas card should use the Olumi icon"). Design System v5
+ * §9.8 — "the only custom icon in the system", marking any element whose click starts an AI interaction — drawn by
+ * the ONE component that owns it (`OlumiAiIcon`: the logo mark, circle / triangle / square, as a single-colour outline).
+ * This supersedes contract v3.1's speech-bubble coaching glyph (DESIGN-GAP-v31 #42) and ends the named ruling conflict
+ * with Panel R3: the coaching door and the hover "Ask Olumi" are one act, so they are now one glyph again.
+ * The stroke and size stay the rail's (`1.8` at 15px), and the resting ink stays muted (`text-text-light`, §9.8
+ * "at rest in dense contexts"); the identity token `olumi-glyph-ai` lets a probe bind the glyph.
  */
-/**
- * ⭐ THE CONTRACT'S OWN PATH, NOT LUCIDE'S DRAWING OF IT (Paul 29 Sep, "pixel
- * perfect with the design artefact"): `ICONS.coaching` verbatim — a bubble whose
- * tail sits bottom-left, with the "?" inside — at `svg.icon{stroke-width:1.8}`.
- * Lucide's `MessageCircleQuestion` is a rounder bubble that fills more of the
- * 15px box, so every card's one resting icon read heavier than the design. And
- * `.icon-btn.coaching{color:var(--muted)}`: the coaching door is muted, a step
- * quieter than the rail's other icons (#777B77).
- */
-function ContractCoachingGlyph({ size = 15, className, strokeWidth = 1.8, 'aria-hidden': ariaHidden }: LucideProps) {
+function OlumiCardGlyph({ size = 15, className, strokeWidth = 1.8, 'aria-hidden': ariaHidden }: LucideProps) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
+    <OlumiAiIcon
+      size={size}
       strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      // Identity token, the way lucide stamps `lucide-<name>`, so a probe can bind the glyph.
-      className={`olumi-glyph-coaching${className ? ` ${className}` : ''}`}
+      className={`olumi-glyph-ai${className ? ` ${className}` : ''}`}
       aria-hidden={ariaHidden}
-    >
-      <path d="M21 11a8.5 8.5 0 0 1-8.5 8.5H7L3 22l1.3-5A8.5 8.5 0 1 1 21 11Z" />
-      <path d="M10 8a2.3 2.3 0 1 1 3.7 1.8c-1 .6-1.5 1.1-1.5 2.2M12.2 15h.01" />
-    </svg>
+    />
   )
 }
 
-export const COACHING_ICON_GLYPH = { Icon: ContractCoachingGlyph, inkClass: 'text-text-light' } as const
+export const COACHING_ICON_GLYPH = { Icon: OlumiCardGlyph, inkClass: 'text-text-light' } as const
 
 /** A typed chip keeps its typed route; `run_analysis` is a run, not a question. */
 export function coachingChipIsTyped(chip: CoachingChip): boolean {
