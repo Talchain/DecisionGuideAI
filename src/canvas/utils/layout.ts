@@ -72,7 +72,6 @@ import {
   LAYOUT_PADDING_Y,
   DEFAULT_NODE_HEIGHT,
   COLLISION_GAP,
-  CANONICAL_LAYOUT_WIDTH,
   CANVAS_MARGIN,
   TIER_BY_KIND,
   cardWidthCapForTier,
@@ -81,6 +80,7 @@ import {
   MAX_CARDS_PER_ROW,
   NODE_LAYOUT_MIN_W,
   REPEATED_CARD_W,
+  ROW_BUDGET_W,
   ROW_PROMPT_W,
   rowPromptKindsFor,
   rowPromptColumnHeight,
@@ -192,7 +192,7 @@ function promptSlotWidth(promptKinds: readonly string[], gap: number): number {
  * The fair share is taken for the tier's WIDEST sub-row of `k` cards, with the
  * row-end prompt slot inside the budget:
  *
- *     share = floor((CANONICAL_LAYOUT_WIDTH − promptSlot − (k−1)·gap) / k) − padding
+ *     share = floor((ROW_BUDGET_W − promptSlot − (k−1)·gap) / k) − padding   (was CANONICAL_LAYOUT_WIDTH, 1482, until 30 Sep)
  *     width = max(REPEATED_CARD_W, min(tier cap, share))   (REPEATED_CARD_W ≥ NODE_LAYOUT_MIN_W)
  *
  * ⚠ LEGIBILITY WINS OVER THE BUDGET, in that order and on purpose: a share below
@@ -209,7 +209,7 @@ function promptSlotWidth(promptKinds: readonly string[], gap: number): number {
 function tierCardWidth(tier: number, widestSubRow: number, promptKinds: readonly string[], gap: number): number {
   const k = Math.max(1, widestSubRow)
   const share =
-    Math.floor((CANONICAL_LAYOUT_WIDTH - promptSlotWidth(promptKinds, gap) - (k - 1) * gap) / k) -
+    Math.floor((ROW_BUDGET_W - promptSlotWidth(promptKinds, gap) - (k - 1) * gap) / k) -
     LAYOUT_PADDING_X
   // ⚠ THE FLOOR IS THE REPEATED-CARD WIDTH, not `NODE_LAYOUT_MIN_W` (27 Sep 2026).
   // They were the same number (260) until the landing text ceiling put the

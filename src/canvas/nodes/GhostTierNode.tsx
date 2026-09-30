@@ -28,19 +28,11 @@
 
 import { memo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
-import { Handle, Position } from '@xyflow/react'
-import { Plus } from 'lucide-react'
 import { openWhatElseFromDoor } from '../components/WhatElseChooser'
 import { useCanvasStore } from '../store'
-import { typography } from '../../styles/typography'
 import { selectLodBodyHidden } from '../utils/zoomLegibility'
-import { CANVAS_GLYPH_SIZE_CLASSES } from './shared/canvasGlyphScale'
-import {
-  ROW_PROMPT_BORDER_PX,
-  ROW_PROMPT_H,
-  ROW_PROMPT_PADDING_PX,
-  ROW_PROMPT_W,
-} from '../utils/nodeLayoutConstants'
+import { RowEndPromptIcon } from './shared/RowEndPromptIcon'
+import { ROW_PROMPT_H, ROW_PROMPT_W } from '../utils/nodeLayoutConstants'
 
 export const GHOST_TIER_TESTID = 'ghost-tier-node'
 
@@ -64,7 +56,6 @@ export const GHOST_TIER_TESTID = 'ghost-tier-node'
  */
 export const GHOST_DOOR_W_PX = ROW_PROMPT_W
 export const GHOST_DOOR_MIN_H_PX = ROW_PROMPT_H
-const GHOST_DOOR_BORDER_PX = ROW_PROMPT_BORDER_PX
 
 export const GhostTierNode = memo((props: NodeProps) => {
   const data = (props.data ?? {}) as { label?: string; prompt?: string; tier?: string }
@@ -87,45 +78,8 @@ export const GhostTierNode = memo((props: NodeProps) => {
     openWhatElseFromDoor(e, data.tier, prompt)
   }, [prompt, label, data.tier])
 
-  return (
-    <div
-      role="button"
-      tabIndex={farRung ? -1 : 0}
-      aria-label={label}
-      aria-hidden={farRung ? true : undefined}
-      data-testid={GHOST_TIER_TESTID}
-      data-tier={data.tier}
-      onClick={open}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          open(e)
-        }
-      }}
-      // A flex ROW: `items-center` is the VERTICAL axis (icon beside a two- or
-      // three-line question), and nothing centres the copy horizontally.
-      // `rounded-sm` (8px) — the card corner (contract v3.1 FRAME-01).
-      className="rounded-sm cursor-pointer hover:bg-panel-hover transition-colors flex items-center gap-1.5 nodrag nopan text-left"
-      style={{
-        width: GHOST_DOOR_W_PX,
-        minHeight: GHOST_DOOR_MIN_H_PX,
-        padding: ROW_PROMPT_PADDING_PX,
-        // Quieted with GhostOptionNode to `--text-light` (contract v3.1 T12;
-        // 5.23:1 on the panel, 4.65:1 on the canvas — see that file).
-        border: `${GHOST_DOOR_BORDER_PX}px dashed var(--text-light, #6E6B6B)`,
-        background: 'var(--bg-panel, #FEFEFE)',
-        visibility: farRung ? 'hidden' : undefined,
-      }}
-    >
-      <Handle type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
-      <Plus size={14} className={`text-text-light shrink-0 ${CANVAS_GLYPH_SIZE_CLASSES[14]}`} aria-hidden="true" />
-      {/* `break-words`: the last-resort rule that stops a single long word
-          overflowing the measure horizontally, as node titles already use. The
-          same token as the option prompt, so the four read as one family. */}
-      <span className={`${typography.edgeLabel} text-text-light break-words min-w-0`}>{label}</span>
-      <Handle type="source" position={Position.Bottom} style={{ opacity: 0, pointerEvents: 'none' }} />
-    </div>
-  )
+  // ⭐ Paul 30 Sep: an icon with a hover state, not a 160-unit tile (`RowEndPromptIcon`).
+  return <RowEndPromptIcon label={label} tier={data.tier} testId={GHOST_TIER_TESTID} hidden={farRung} onOpen={open} />
 })
 
 GhostTierNode.displayName = 'GhostTierNode'
