@@ -30,7 +30,7 @@
 import { describe, it, expect } from 'vitest'
 import type { Node } from '@xyflow/react'
 import { respreadSubFloorRows, solveLayoutCardWidths, solveRestoredCardWidths } from '../layout'
-import { LAYOUT_NODE_GAP, NODE_LAYOUT_MIN_W } from '../nodeLayoutConstants'
+import { LAYOUT_NODE_GAP, LAYOUT_PADDING_X, NODE_LAYOUT_MIN_W } from '../nodeLayoutConstants'
 
 /**
  * Codex's fixture shape. ⚠ S4 (24 Sep 2026) MOVED THE SAVED WIDTH 336 → 140;
@@ -55,7 +55,14 @@ import { LAYOUT_NODE_GAP, NODE_LAYOUT_MIN_W } from '../nodeLayoutConstants'
  */
 const SAVED_UNIFORM_W = 230
 const SAVED_GAP = 56
-const SAVED_STRIDE = SAVED_UNIFORM_W + SAVED_GAP // 286
+/**
+ * ⚠ 30 SEP 2026: A REAL SAVED STRIDE IS width + ELK padding + gap (`layout.sameRowGap.spec.ts`: the
+ * rendered neighbour gap is LAYOUT_PADDING_X + spacing; the served landing stride is 296 = 248 + 24 + 24).
+ * This fixture modelled it as width + gap (286). That under-counted the padding, which went unnoticed while
+ * the restore cap was `stride − gap`. The cap is now `stride − padding − gap` (a board saved before 30 Sep
+ * reopens exactly as saved), so the fixture writes the stride a layout at spacing 56 actually leaves.
+ */
+const SAVED_STRIDE = SAVED_UNIFORM_W + LAYOUT_PADDING_X + SAVED_GAP // 310
 
 function boardAt(stride: number): Node[] {
   const optionXs = [416, 416 + stride, 416 + 2 * stride]
@@ -126,7 +133,7 @@ describe('a restored board keeps its own stride', () => {
     // Otherwise the "repair" is a revert wearing a bound. Same graph, but its
     // positions were written by a layout that already used the wider cards.
     const wide = solveLayoutCardWidths(savedBoard(), { direction: 'DOWN', spacing: SAVED_GAP })
-    const strideFor = (w: number) => w + SAVED_GAP
+    const strideFor = (w: number) => w + LAYOUT_PADDING_X + SAVED_GAP
     const nodes = savedBoard().map((n) => {
       if (n.type !== 'option' && n.type !== 'factor') return n
       const w = n.type === 'option' ? wide.option : wide.factor
