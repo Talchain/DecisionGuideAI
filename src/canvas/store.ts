@@ -6137,7 +6137,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   resultsWithholdLeaderClaim: (reason, producerCause) => {
-    const held = get().results.report
+    const held = get().results?.report
     // ⚠ NOTHING HELD, NOTHING TO WITHDRAW — and NOTHING is the operative word,
     // not an empty stamp. A withholding written with no report to attach it to
     // would be a claim about an artefact that does not exist, and the next
