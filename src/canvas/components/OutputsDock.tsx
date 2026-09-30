@@ -149,7 +149,7 @@ import {
   readinessNothingHasAnswered,
 } from './pre-analysis-v3/footer/readinessDisplay'
 import { JourneyTabBody } from '../journey/JourneyTabBody'
-import { CompareTabBody as CompareTabBodyV2 } from '../compare-tab/CompareTabBody'
+import { CompareRunPairBody } from '../compare-tab/CompareRunPairBody'
 // Results Panel Redesign: v7 four-section layout components
 import { useResultsSectionData } from '../../components/results/useResultsSectionData'
 import type { TornadoRow } from '../../components/results/TornadoChart'
@@ -4194,16 +4194,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
               </>
             )}
             {effectiveActiveTab === 'compare' && (
-              // 2.581 — ONE expert mode for the product. The Compare pill used
-              // to own a separate `feature.compareExpert` state, so the only
-              // control in the UI whose visible text says "Expert" turned on a
-              // different thing from the `</>` toggle beside it — the measured
-              // cause of the "downside tail is scenario-dependent" report.
-              <CompareTabBodyV2
-                onRunAnalysis={handleRunAnalysis}
-                expertMode={expertMode}
-                onToggleExpert={setExpertMode}
-              />
+              // SC-24 v3 (ChatGPT #75 5917800777; lease DL #75 5917856638): previous Run vs this Run, rendered from
+              // the comparison CEE produced for the analysis on screen — the SAME reader and section the Reasoning
+              // receipt uses. The old browser-derived body (`CompareTabBody`) is no longer on this path.
+              <CompareRunPairBody responseHash={results?.hash} />
             )}
             {effectiveActiveTab === 'diagnostics' && (
               <ModelTabBody

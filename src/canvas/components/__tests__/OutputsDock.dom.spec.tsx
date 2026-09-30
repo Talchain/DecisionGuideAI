@@ -5,7 +5,6 @@ import { OutputsDock, OUTPUTS_DOCK_STORAGE_KEY } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
 import { STORAGE_KEY as RUN_HISTORY_STORAGE_KEY } from '../../store/runHistory'
 import { __resetTelemetryCounters, __getTelemetryCounters } from '../../../lib/telemetry'
-import { trackCompareOpened } from '../../utils/sandboxTelemetry'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 // 34edc1fd ("conversation singleton + explicit first-use submit signal",
 // 2026-05-19) made OutputsDockProviderHost consume useConversationContext,
@@ -262,6 +261,8 @@ describe('OutputsDock DOM', () => {
       // surface silently appearing OR disappearing, and loosening it to make
       // room for the experiment would retire the guard along with it.
       'Reasoning',
+      // Compare is presented again (30 Sep 2026, SC-24 v3): previous Run vs this Run, after Reasoning.
+      'Compare',
       'Model',
     ])
   })
@@ -405,10 +406,9 @@ describe('OutputsDock DOM', () => {
     expect(resultsIcon).toBeInTheDocument()
     expect(modelIcon).toBeInTheDocument()
     // The collapsed rail maps the SAME `OUTPUT_TABS` the expanded strip does
-    // (`OutputsDock.tsx:2444`), so Compare's contract row closes both. Asserted
-    // as an ABSENCE here, bound by the exact accessible name, so the rail
-    // cannot quietly keep an affordance the strip dropped.
-    expect(screen.queryByRole('tab', { name: 'Compare' })).not.toBeInTheDocument()
+    // (`OutputsDock.tsx:2444`), so Compare's contract row opens both (presented again 30 Sep 2026, SC-24 v3).
+    // Bound by the exact accessible name, so the rail cannot drop an affordance the strip keeps.
+    expect(screen.getByRole('tab', { name: 'Compare' })).toBeInTheDocument()
 
     fireEvent.click(modelIcon)
 
@@ -499,18 +499,10 @@ describe('OutputsDock DOM', () => {
     expect(params.get('tab')).toBeNull()
   })
 
-  it('no longer offers a Compare tab to open, so its open-telemetry cannot fire from the strip', () => {
-    // ⭐ RULING (Fable, 18 Aug 2026). This case used to click the Compare tab
-    // and assert `sandbox.compare.opened === 1`. That affordance is gone —
-    // Compare is hidden by contract — so the old assertion would now fail on a
-    // missing element, which says nothing about the ruling.
-    //
-    // It is RETARGETED rather than deleted: same site, same telemetry counter,
-    // bound by identity to the Compare tab's exact accessible name, and it REDs
-    // if the tab returns. `trackCompareOpened()` at `OutputsDock.tsx:2162` is
-    // deliberately LEFT IN PLACE — Compare's code is not being retired, and the
-    // counter still fires on the programmatic activation paths the ruling did
-    // not close (see the compare row's comment in `shellContract.ts`).
+  it('opening the Compare tab from the strip fires its open-telemetry once', () => {
+    // 30 Sep 2026 (SC-24 v3): Compare is presented again, so this case returns to its original intent — click the
+    // Compare tab and assert `sandbox.compare.opened === 1` (it was retargeted to an ABSENCE while Fable's 18 Aug
+    // hide stood). Bound by the tab's exact accessible name.
     try {
       localStorage.setItem('feature.telemetry', '1')
     } catch {}
@@ -518,20 +510,9 @@ describe('OutputsDock DOM', () => {
 
     renderOutputsDock()
 
-    expect(screen.queryByRole('tab', { name: 'Compare' })).not.toBeInTheDocument()
-    // Positive control (trap 13): the harness CAN see tab buttons and CAN read
-    // this counter map — so the two absences below are the ruling's doing and
-    // not a blind query or an uninitialised counter store.
-    expect(screen.getByRole('tab', { name: 'Model' })).toBeInTheDocument()
-    expect(__getTelemetryCounters()['sandbox.compare.opened']).toBe(0)
-
-    // POSITIVE CONTROL (trap 13): a counter reading 0 is only evidence of an
-    // ABSENCE if that counter can be shown to MOVE. Firing the tracker directly
-    // proves the key is live and the map is being read — so the 0 above is
-    // "the strip never opened Compare", not "this assertion is pointed at a
-    // dead key". The tracker is deliberately still exported and still callable:
-    // Compare's code is not being retired by this ruling.
-    trackCompareOpened()
+    // Positive control: the counter starts at 0, so the 1 below is the click's doing.
+    expect(__getTelemetryCounters()['sandbox.compare.opened'] ?? 0).toBe(0)
+    fireEvent.click(screen.getByRole('tab', { name: 'Compare' }))
     expect(__getTelemetryCounters()['sandbox.compare.opened']).toBe(1)
   })
 
@@ -1378,6 +1359,8 @@ describe('I.2a: Secondary action button interaction', () => {
       // surface silently appearing OR disappearing, and loosening it to make
       // room for the experiment would retire the guard along with it.
       'Reasoning',
+      // Compare is presented again (30 Sep 2026, SC-24 v3): previous Run vs this Run, after Reasoning.
+      'Compare',
       'Model',
     ])
     // ⭐ 18 Aug 2026: 'Compare' left this list the same way Journey did, and
@@ -1387,7 +1370,8 @@ describe('I.2a: Secondary action button interaction', () => {
     // above) — so its absence here is proof the CONTRACT is what holds a tab
     // shut. Bound by identity below, and pinned in full by
     // `compareDeTab.contract.spec.tsx`.
-    expect(within(tabNav).queryByRole('tab', { name: 'Compare' })).not.toBeInTheDocument()
+    // 30 Sep 2026 (SC-24 v3): Compare is presented again, with its flag ON — bound by identity.
+    expect(within(tabNav).getByRole('tab', { name: 'Compare' })).toBeInTheDocument()
     // Bound by IDENTITY to Journey, so a rename of some other tab cannot
     // satisfy this line (trap 19).
     expect(within(tabNav).queryByRole('tab', { name: 'Journey' })).not.toBeInTheDocument()

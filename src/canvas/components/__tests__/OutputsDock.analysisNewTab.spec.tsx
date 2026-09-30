@@ -306,8 +306,8 @@ describe('MOUNT PATH — the declarations this experiment depends on', () => {
     const order = WORKSPACE_SURFACE_ORDER
     expect(order.indexOf('analysisNew')).toBe(order.indexOf('results') + 1)
     // CONTRAST CONTROL: not every declared surface is presented, so "some
-    // surface is presented" cannot satisfy the assertion above.
-    expect(WORKSPACE_SURFACES.compare.presentedAsTab).toBe(false)
+    // surface is presented" cannot satisfy the assertion above. (Compare was the
+    // second contrast until 30 Sep 2026, when it was presented again — SC-24 v3.)
     expect(WORKSPACE_SURFACES.journey.presentedAsTab).toBe(false)
   })
 
