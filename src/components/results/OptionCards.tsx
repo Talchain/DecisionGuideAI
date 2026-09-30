@@ -1147,9 +1147,7 @@ export function OptionCards({
   // read ONE entitlement here, so the gate folds into it rather than being repeated per branch. Read through
   // `winShareGate`; the options panel's reason line is WinGauge's, directly above these cards, so a card adds
   // none of its own. A PERMITTED run keeps the caller's entitlement unchanged.
-  // `s.results ?` — the gate's selectors read `s.results.report` unguarded, and a `results: null` store must not
-  // throw (the Reasoning tab pins it: `theActIsNotGatedOnSuccess.spec.tsx`, "a null results does not throw").
-  const winSharesAreWithheld = useCanvasStore((s) => (s.results ? selectWinSharesWithheld(s) : false))
+  const winSharesAreWithheld = useCanvasStore(selectWinSharesWithheld)
   const hasLeadingOption = winSharesAreWithheld ? false : hasLeadingOptionProp
 
   // V11: Indeterminate neutralisation — stone colours, no success border

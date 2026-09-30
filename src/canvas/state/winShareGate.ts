@@ -49,10 +49,11 @@ export function winShareWithheldReason(permission: ProducerLeaderPermission | nu
   return leaderWithholdCause(cause) ?? WITHHELD_REASON_FALLBACK
 }
 
-type WithReport = { results: { report?: unknown } }
+type WithReport = { results: { report?: unknown } | null | undefined }
 
+/** `results: null` is a real store state (a reset, the Reasoning tab's harness): it reads as "not withheld". */
 function permissionOf(s: WithReport): ProducerLeaderPermission | null {
-  const report = s.results.report as { producer_leader_permission?: ProducerLeaderPermission } | null | undefined
+  const report = s.results?.report as { producer_leader_permission?: ProducerLeaderPermission } | null | undefined
   return report?.producer_leader_permission ?? null
 }
 

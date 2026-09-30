@@ -124,10 +124,8 @@ export function ConditionalWinnerCards({
   // flip row singles an option out in numbers. No bucket names its option either (the neutral arm). The factor,
   // the threshold and the flip — the science — stay, and the reason line is said once for the panel. Read
   // through `winShareGate`; a PERMITTED run renders exactly as before.
-  // `s.results ?` — the gate's selectors read `s.results.report` unguarded, and a `results: null` store must not
-  // throw (the Reasoning tab pins it: `theActIsNotGatedOnSuccess.spec.tsx`, "a null results does not throw").
-  const winSharesAreWithheld = useCanvasStore((s) => (s.results ? selectWinSharesWithheld(s) : false))
-  const winShareReasonLine = useCanvasStore((s) => (s.results ? selectWinShareWithheldReason(s) : null))
+  const winSharesAreWithheld = useCanvasStore(selectWinSharesWithheld)
+  const winShareReasonLine = useCanvasStore(selectWinShareWithheldReason)
   const mayNameLeader = mayNameLeaderProp && !winSharesAreWithheld
   // Producer attestation ONLY — label comparison cannot see a same-label
   // flip and renders label churn as a phantom scenario. A row without a

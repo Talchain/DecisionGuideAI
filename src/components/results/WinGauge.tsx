@@ -272,10 +272,8 @@ export function WinGauge({
   // (heading, bar, legend, rounding note) gives way to the reason line, once for the options panel; the cards
   // below it omit their figures. Read through `winShareGate`, never re-derived. The goal block above is governed
   // separately and is untouched. Hooks sit above the early return (rules of hooks).
-  // `s.results ?` — the gate's selectors read `s.results.report` unguarded, and a `results: null` store must not
-  // throw (the Reasoning tab pins it: `theActIsNotGatedOnSuccess.spec.tsx`, "a null results does not throw").
-  const winSharesAreWithheld = useCanvasStore((s) => (s.results ? selectWinSharesWithheld(s) : false))
-  const winShareReasonLine = useCanvasStore((s) => (s.results ? selectWinShareWithheldReason(s) : null))
+  const winSharesAreWithheld = useCanvasStore(selectWinSharesWithheld)
+  const winShareReasonLine = useCanvasStore(selectWinShareWithheldReason)
 
   if (shares.length === 0) return null
 

@@ -97,10 +97,8 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
   // per-option share change singles an option out in numbers, so the lines give way to the reason line, once, and
   // the leader-change line names no option. Comparability and the attribution limit stay. Read through
   // `winShareGate`; hooks sit above the early return. A PERMITTED run renders exactly as before.
-  // `s.results ?` — the gate's selectors read `s.results.report` unguarded, and a `results: null` store must not
-  // throw (the Reasoning tab pins it: `theActIsNotGatedOnSuccess.spec.tsx`, "a null results does not throw").
-  const winSharesAreWithheld = useCanvasStore((s) => (s.results ? selectWinSharesWithheld(s) : false))
-  const winShareReasonLine = useCanvasStore((s) => (s.results ? selectWinShareWithheldReason(s) : null))
+  const winSharesAreWithheld = useCanvasStore(selectWinSharesWithheld)
+  const winShareReasonLine = useCanvasStore(selectWinShareWithheldReason)
   // ⛔ ABSENCE RENDERS NOTHING — never an "everything is fine" arm. The producer
   // withholds the block for several reasons that all reach the client as one
   // silence, so there is no honest sentence to print here.

@@ -20,7 +20,7 @@ import { OutcomePanel } from '../ui/inspector-v2/panels/OutcomePanel'
 import { V5ComparisonBlock } from '../../v5/blocks/V5ComparisonBlock'
 import { resolveLodMetricLineDetail } from '../nodes/shared/lodMetricLine'
 import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
-import { EXPLORATORY_REASON_LINE, NOT_RANKED_MARKER } from '../state/winShareGate'
+import { EXPLORATORY_REASON_LINE, NOT_RANKED_MARKER, selectWinShareWithheldReason, selectWinSharesWithheld } from '../state/winShareGate'
 
 const fx = JSON.parse(
   readFileSync(resolve(process.cwd(), 'e2e/geometry/fixtures/securing-funding-4276f3f9.fixture.json'), 'utf8'),
@@ -126,5 +126,12 @@ describe('far-zoom card line — row 9', () => {
   })
   it('CONTROL: permitted → the share', () => {
     expect(line(false)).toMatch(/80%/)
+  })
+})
+
+describe('the gate is null-safe — `results: null` is a real store state', () => {
+  it('reads as not withheld, with no reason, and never throws', () => {
+    expect(selectWinSharesWithheld({ results: null })).toBe(false)
+    expect(selectWinShareWithheldReason({ results: null })).toBeNull()
   })
 })
