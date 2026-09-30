@@ -109,6 +109,7 @@ import { NodeSignalRailIcons } from './shared/NodeRailIcons'
 import type { ResolvedCoaching } from './coaching/resolveNodeCoaching'
 import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
+import { RunChangeBadge } from '../graphChanges/RunChangeBadge'
 
 /**
  * ⛔ GAP-36 (24 Sep 2026, DESIGN-GAP-AUDIT-20260924.md row 36) REMOVED THIS
@@ -489,6 +490,20 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // chaining so store doubles without the slice stay safe.
   const isAnalysisDriver = useCanvasStore(
     s => s.analysisHighlight?.source === 'drivers' && s.analysisHighlight?.nodeIds?.has(id) === true,
+  )
+  /**
+   * The Changes view (row E, `graphChanges/`): while the Compare tab shows a Run pair, the card an input changed on
+   * carries the info outline + its word, and every card nothing happened to is subdued. Primitive selectors
+   * (React #185). ⚠ `nodeIds.size > 0`: a projection that marks no node dims no node (the attention lesson above).
+   */
+  const runChangeMark = useCanvasStore(
+    s => (s.analysisHighlight?.source === 'run_changes' ? s.analysisHighlight.nodeMarks?.get(id) ?? null : null),
+  )
+  const isRunChangeSubdued = useCanvasStore(
+    s =>
+      s.analysisHighlight?.source === 'run_changes' &&
+      (s.analysisHighlight.nodeIds?.size ?? 0) > 0 &&
+      s.analysisHighlight.nodeIds.has(id) === false,
   )
   /**
    * D2: level-of-detail — which rung of the semantic-zoom ladder the canvas is
@@ -1880,6 +1895,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
          sighted reader; a screen reader hears it as the description. */
       {...(nodeType === 'factor' && data?.category === 'external' ? { 'aria-description': 'Outside your control' } : {})}
       {...(isAnalysisDriver ? { 'data-analysis-driver': 'true' } : {})}
+      {...(runChangeMark !== null ? { 'data-run-change': runChangeMark } : {})}
+      {...(isRunChangeSubdued ? { 'data-run-change-subdued': 'true' } : {})}
       {...(isAssistantFocused ? { 'data-assistant-focused': 'true' } : {})}
       {...{ [NODE_RUNG_PADDING_ATTR]: rungPadding }}
       // ⭐ `text-left` IS A DECLARATION, AND THE CARD PREVIOUSLY HAD NONE.
@@ -1918,7 +1935,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         ${selected && !isHighlighted ? colors.selected : ''}
         ${isHighlighted && !isAttended ? 'ring-4 ring-info/60 ai-highlight-pulse' : ''}
         ${isAttended ? 'ring-4 ring-info olumi-attended' : ''}
-        ${isAttentionDimmed ? 'opacity-30 saturate-50 transition-opacity duration-300' : ''}
+        ${isAttentionDimmed || isRunChangeSubdued ? 'opacity-30 saturate-50 transition-opacity duration-300' : ''}
         ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-25' : ''}
       `}
       style={{
@@ -1931,7 +1948,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         // transitions its VISUAL channels only — it was `transition-all`, which
         // also eased the inline width / padding, so on a relayout a card slid to
         // its new ELK width over 200ms while its edges snapped).
-        outline: isAnalysisDriver ? '2px solid var(--semantic-info)' : undefined,
+        outline: isAnalysisDriver || runChangeMark !== null ? '2px solid var(--semantic-info)' : undefined,
         // ⭐ THE CARD'S MUTED TEXT IS THE CONTRACT'S `--muted` (#666762), SCOPED
         // TO THE CARD (Paul 29 Sep, "pixel perfect with the design artefact").
         // The app-wide `--text-light` is #6E6B6B; every muted run on a card —
@@ -1941,7 +1958,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         // spellings are set: `--text-light` is resolved where it is declared
         // (:root), so overriding the channel alone would not reach it.
         ...CARD_MUTED_TOKEN_STYLE,
-        outlineOffset: isAnalysisDriver ? '3px' : undefined,
+        outlineOffset: isAnalysisDriver || runChangeMark !== null ? '3px' : undefined,
         // ⚠ THE INLINE PAINT MUST STAND DOWN WHERE THE KIND FILL APPLIES, or the
         // class below is overridden by specificity and the fix is invisible.
         backgroundColor: evidenceBgStyle ?? (lodKindFillClass === '' ? 'var(--bg-panel)' : undefined),
@@ -2068,6 +2085,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >
+      {runChangeMark !== null ? <RunChangeBadge mark={runChangeMark} nodeId={id} /> : null}
       {/* R5 contextual efficiency layer — quiet at rest, revealed on hover, on
           keyboard focus within the card, and while the node is selected. One
           home for it (here) rather than per-node-type, so every node speaks the

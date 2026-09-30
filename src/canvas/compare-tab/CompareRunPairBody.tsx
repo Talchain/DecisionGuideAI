@@ -13,11 +13,16 @@ import { Shuffle } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { WhatsChanged } from '../../components/results/analysisNew/sections/WhatsChanged'
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
+import { useRunChangesProjection } from '../graphChanges/useRunChangesProjection'
+import { focusEdgeById, focusNodeById } from '../utils/focusHelpers'
 
 export const COMPARE_RUN_PAIR_TESTID = 'compare-run-pair'
 
 export function CompareRunPairBody({ responseHash }: { responseHash: string | null | undefined }): JSX.Element {
   const view = useDisplayedRunDeltaView(responseHash)
+  // CANVAS (lease DL #75 5920620752, UNDO grant 5920635710): the same view marks the canvas while this tab shows it,
+  // and each row focuses the element its producer ids name — or says it is not on the canvas now.
+  const changes = useRunChangesProjection(view)
   if (view === null) {
     return (
       <div className="flex flex-col items-center px-6 py-10 text-center" data-testid={`${COMPARE_RUN_PAIR_TESTID}-empty`}>
@@ -31,7 +36,15 @@ export function CompareRunPairBody({ responseHash }: { responseHash: string | nu
   }
   return (
     <div data-testid={COMPARE_RUN_PAIR_TESTID}>
-      <WhatsChanged view={view} />
+      <WhatsChanged
+        view={view}
+        rowFocus={(row) => {
+          const target = changes.focusByRowKey.get(row.key)
+          if (target === undefined) return undefined
+          if (target === null) return null
+          return () => (target.kind === 'node' ? focusNodeById(target.id) : focusEdgeById(target.id))
+        }}
+      />
     </div>
   )
 }

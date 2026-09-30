@@ -10,6 +10,9 @@
  *   C3  ONE READER: for every store state, the Compare body shows a comparison exactly when the shared reader
  *       (`displayedRunDeltaView`, which the Reasoning view model also calls) returns one.
  *   R1  the Reasoning receipt names the earlier Run and opens the Compare tab; it makes no claim about the result.
+ *   I1  (UNDO grant #75 5920635710) each input row carries the producer's ids VERBATIM; its React key is unchanged.
+ *   G1  (CANVAS, row E) the pair on screen marks the canvas, and a row focuses the element its ids name; a row whose
+ *       element is not drawn says so and focuses nothing; leaving the tab clears the marks.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -22,6 +25,9 @@ import { CompareRunPairBody, COMPARE_RUN_PAIR_TESTID } from '../CompareRunPairBo
 import { WHATS_CHANGED_TESTID } from '../../../components/results/analysisNew/sections/WhatsChanged'
 import { WhatsChangedReceipt, WHATS_CHANGED_RECEIPT_TESTID } from '../../../components/results/analysisNew/sections/WhatsChangedReceipt'
 import { displayedRunDeltaView, nodeLabelMap } from '../../../components/results/analysisNew/displayedRunDeltaView'
+import { focusNodeById } from '../../utils/focusHelpers'
+
+vi.mock('../../utils/focusHelpers', () => ({ focusNodeById: vi.fn(), focusEdgeById: vi.fn() }))
 
 const DELTA = {
   attribution_case: 'C5_unattributed',
@@ -127,5 +133,49 @@ describe('R1 · the Reasoning receipt names the earlier Run and opens Compare �
   it('renders nothing when there is no comparison', () => {
     const { container } = render(<WhatsChangedReceipt view={null} />)
     expect(container.innerHTML).toBe('')
+  })
+})
+
+describe('I1 · the row carries the producer\'s identity, verbatim', () => {
+  it('entityId / optionId are the wire\'s own ids; the React key keeps its old form', () => {
+    const s = useCanvasStore.getState() as unknown as { runDelta: never; currentScenarioId: string | null; nodes: typeof NODES }
+    const row = displayedRunDeltaView(s.runDelta, 'hash-A', s.currentScenarioId, nodeLabelMap(s.nodes))!.inputs!.rows[0]
+    expect(row.entityId).toBe('fac_price')
+    expect(row.optionId).toBe('opt_60')
+    expect(row.linkEnds).toBeNull()
+    expect(row.key).toBe('option_setting:fac_price:opt_60:value:0')
+  })
+})
+
+describe('G1 · the pair on screen marks the canvas; a row focuses its element', () => {
+  it('marks the option whose setting changed, and the row focuses it', () => {
+    render(<CompareRunPairBody responseHash="hash-A" />)
+    const hl = useCanvasStore.getState().analysisHighlight
+    expect(hl.source).toBe('run_changes')
+    expect(hl.nodeMarks?.get('opt_60')).toBe('changed')
+    expect([...hl.nodeIds]).toEqual(['opt_60'])
+    fireEvent.click(screen.getByTestId(`${WHATS_CHANGED_TESTID}-input-row-focus`))
+    expect(vi.mocked(focusNodeById)).toHaveBeenCalledWith('opt_60')
+  })
+
+  it('a row whose element is not drawn says so, and offers no focus', () => {
+    seed({ nodes: [{ id: 'fac_price', data: { label: 'Pro price' } }] } as never)
+    render(<CompareRunPairBody responseHash="hash-A" />)
+    expect(screen.queryByTestId(`${WHATS_CHANGED_TESTID}-input-row-focus`)).toBeNull()
+    expect(screen.getByTestId(`${WHATS_CHANGED_TESTID}-input-row-off-canvas`)).toHaveTextContent('not on the canvas now')
+    expect(useCanvasStore.getState().analysisHighlight.source).not.toBe('run_changes')
+  })
+
+  it('leaving the tab (unmount) clears the marks', () => {
+    const { unmount } = render(<CompareRunPairBody responseHash="hash-A" />)
+    expect(useCanvasStore.getState().analysisHighlight.source).toBe('run_changes')
+    unmount()
+    expect(useCanvasStore.getState().analysisHighlight.source).toBeNull()
+  })
+
+  it('no comparison marks nothing', () => {
+    seed({ runDelta: null })
+    render(<CompareRunPairBody responseHash="hash-A" />)
+    expect(useCanvasStore.getState().analysisHighlight.source).not.toBe('run_changes')
   })
 })

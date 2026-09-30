@@ -58,7 +58,10 @@ describe('⭐ the Compare tab actually mounts the section', () => {
 
   it('⛔ the body renders the section, fed from the ONE shared reader', () => {
     expect(body()).toMatch(/useDisplayedRunDeltaView\(responseHash\)/)
-    expect(body()).toMatch(/<WhatsChanged view=\{view\} \/>/)
+    // The section is fed `view` — the reader's own value — and nothing else decides it. CANVAS's `rowFocus` prop (the
+    // Changes view, DL #75 5920620752) only links rows to the canvas; it is allowed, a second `view` is not.
+    expect(body()).toMatch(/<WhatsChanged\s+view=\{view\}[\s\S]{0,400}?\/>/)
+    expect(body().match(/<WhatsChanged\b/g)).toHaveLength(1)
   })
 
   it('contrast — the old browser-derived body is off the dock path', () => {

@@ -1246,9 +1246,15 @@ interface CanvasState {
    * switches away. Pure id projection — no fabricated values, no thresholds.
    */
   analysisHighlight: {
-    source: 'flip_risks' | 'drivers' | null
+    source: 'flip_risks' | 'drivers' | 'run_changes' | null
     edgeIds: Set<string>
     nodeIds: Set<string>
+    /**
+     * `run_changes` only (the Changes view, `graphChanges/`): WHICH mark each id carries — `changed` / `added` /
+     * `moved`. The id Sets above stay the membership test every existing reader uses. Absent on other sources.
+     */
+    nodeMarks?: ReadonlyMap<string, import('./graphChanges/graphChangesView').RunChangeMark>
+    edgeMarks?: ReadonlyMap<string, import('./graphChanges/graphChangesView').RunChangeMark>
   }
   dimmedNodeIds: Set<string>
   /** 6A (selection focus): edges NOT in the selected element's neighbourhood.
@@ -1966,6 +1972,11 @@ interface CanvasState {
     source: 'flip_risks' | 'drivers',
     ids: { edgeIds?: string[]; nodeIds?: string[] },
   ) => void
+  /** The Changes view's projection (row E): the marks of the displayed Run pair. Replaces any projection wholesale. */
+  setRunChangesHighlight: (marks: {
+    nodeMarks: ReadonlyMap<string, import('./graphChanges/graphChangesView').RunChangeMark>
+    edgeMarks: ReadonlyMap<string, import('./graphChanges/graphChangesView').RunChangeMark>
+  }) => void
   /** Analysis-graph projection: clear all projection marks. No-op (no state
    * write, no Set-identity churn) when nothing is currently projected. */
   clearAnalysisHighlight: () => void
@@ -7878,6 +7889,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         source,
         edgeIds: new Set(ids.edgeIds ?? []),
         nodeIds: new Set(ids.nodeIds ?? []),
+      },
+    })
+  },
+  setRunChangesHighlight: ({ nodeMarks, edgeMarks }) => {
+    set({
+      analysisHighlight: {
+        source: 'run_changes',
+        edgeIds: new Set(edgeMarks.keys()),
+        nodeIds: new Set(nodeMarks.keys()),
+        nodeMarks: new Map(nodeMarks),
+        edgeMarks: new Map(edgeMarks),
       },
     })
   },
