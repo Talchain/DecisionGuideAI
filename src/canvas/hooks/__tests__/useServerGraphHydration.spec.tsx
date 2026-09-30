@@ -84,6 +84,12 @@ describe('useServerGraphHydration — once per scenario', () => {
     expect(spy.mock.calls[1][0]).toBe(B)
   })
 
+  it('the cold open asks the read for the stored chat (MG 5907618888: opt-in, the boot hook only)', async () => {
+    renderHook(() => useServerGraphHydration(A))
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1))
+    expect((spy.mock.calls[0][1] as { includeConversationTurns?: boolean }).includeConversationTurns).toBe(true)
+  })
+
   it('makes NO call without a scenario id', () => {
     renderHook(() => useServerGraphHydration(null))
     expect(spy).not.toHaveBeenCalled()

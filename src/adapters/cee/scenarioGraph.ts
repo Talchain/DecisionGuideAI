@@ -197,6 +197,8 @@ export type ScenarioGraphResult =
        * stored bytes it judged) starts with this read's `graph_hash`.
        */
       admitted?: boolean | null
+      /** The read's `conversation_turns`, raw (sent only on `includeConversationTurns`); undefined when absent. */
+      conversationTurns?: unknown
       requestId: string | null
     }
   /** 200, `graph_present:false` — the scenario exists and has no graph yet. Normal. */
@@ -231,6 +233,12 @@ export interface FetchScenarioGraphOptions {
   retryDelayMs?: number
   /** Per-attempt deadline. See `DEFAULT_TIMEOUT_MS`. */
   timeoutMs?: number
+  /**
+   * Ask for the stored chat (`conversation_turns`) — MG 5907618888: OPT-IN, so every other caller's body stays
+   * byte-identical. Only the cold open sends it. A CEE without the read ignores the key (measured 30 Sep 09:0xZ on
+   * served staging: same 200, same 18 keys), so this is inert until the read serves.
+   */
+  includeConversationTurns?: boolean
 }
 
 function sleep(ms: number): Promise<void> {
@@ -372,6 +380,8 @@ function parseOk(body: unknown): ScenarioGraphResult {
     goalCertainty: b.analysis_goal_certainty ?? null,
     optionParticipation: b.analysis_option_participation ?? null,
     admitted: readAdmitted(b.analysis_admission, b.graph_hash),
+    // Carried raw; the ONE reader is `readServerConversationTurns` (canvas/conversation/serverConversationTurns.ts).
+    conversationTurns: b.conversation_turns,
     requestId,
   }
 }
@@ -427,6 +437,9 @@ export async function fetchScenarioGraph(
   const body: Record<string, unknown> = {}
   if (identityUserId !== null) {
     body.user_id = identityUserId
+  }
+  if (opts.includeConversationTurns === true) {
+    body.include_conversation_turns = true
   }
 
   // ONE builder, shared with the turn path (`src/v5/turnAuthHeaders.ts`) — a
