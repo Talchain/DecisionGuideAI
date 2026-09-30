@@ -23,6 +23,7 @@ import { useCanvasStore } from '../../store'
 import { GHOST_TIERS, GHOST_OPTION_DOOR_LABEL, withGhostTiers } from '../../utils/ghostTiers'
 import { excludeNonModelNodes, fitFrameNodes, isGhostNode, GHOST_OPTION_NODE_ID } from '../../utils/fitTargets'
 import { ROW_PROMPT_H, ROW_PROMPT_W } from '../../utils/nodeLayoutConstants'
+import { chooseWhatElse } from './chooseWhatElse'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -62,6 +63,7 @@ describe('a click PRE-FILLS the question; it never sends and never mutates', () 
     const asks = captureAsks()
     mountTier({ label: RISK.label, prompt: RISK_PROMPT, tier: 'risk' })
     fireEvent.click(screen.getByRole('button', { name: RISK.label }))
+    chooseWhatElse('risk') // #2322 E4: the door opens the "What else…?" chooser; its own kind keeps the composed question
     expect(asks.prefilled).toEqual([RISK_PROMPT])
     expect(asks.sent, 'the prompt sent a message on the user\'s behalf').toEqual([])
   })
@@ -70,6 +72,7 @@ describe('a click PRE-FILLS the question; it never sends and never mutates', () 
     const asks = captureAsks()
     mountTier({ label: RISK.label, prompt: RISK_PROMPT, tier: 'risk' })
     fireEvent.keyDown(screen.getByRole('button', { name: RISK.label }), { key: 'Enter' })
+    chooseWhatElse('risk')
     expect(asks.prefilled).toEqual([RISK_PROMPT])
     expect(asks.sent).toEqual([])
   })
