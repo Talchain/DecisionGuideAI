@@ -186,3 +186,48 @@ describe('GoalPanel — the unearned 100% is said as the producer’s sentence, 
     expect(container.textContent ?? '').toContain('Reaches the target in 100% of model runs')
   })
 })
+
+describe('CEE #2369 — the producer STRIPS the unearned figure; the stored decision still gives the reason (AIQ 5913601080)', () => {
+  const STRIPPED = {
+    ...BLOCK,
+    enrichment: {
+      ...BLOCK.enrichment,
+      option_comparison: BLOCK.enrichment.option_comparison.map((o) => {
+        if (o.option_id !== 'raise_to_59') return o
+        const { probability_of_goal: _stripped, ...rest } = o
+        return rest
+      }),
+    },
+  }
+  const strippedTurnReport = (goal_certainty: unknown) => {
+    const resultsComplete = vi.fn()
+    const store = {
+      setCurrentStage: vi.fn(), updateNode: vi.fn(), updateEdgeData: vi.fn(), setRunMeta: vi.fn(), setCeeAnalysisReady: vi.fn(),
+      setAnalysisFreshness: vi.fn(), resultsComplete, nodes: [], edges: [], currentResultsHash: null,
+    } as unknown as V5ApplicatorStore
+    applyV5State({ response_version: 2, assistant_text: '', blocks: [STRIPPED], suggested_actions: [], insights: [], stage_indicator: 'frame', goal_certainty } as unknown as OlumiResponse, store)
+    return resultsComplete.mock.calls[0][0].report as { option_probabilities: Record<string, Entry> }
+  }
+  it('⭐ no figure + one stored UNEARNED decision → £59 carries the producer\'s sentence; still no figure', () => {
+    const o = optionsOf(strippedTurnReport([UNEARNED_59, EARNED_49])).raise_to_59
+    expect(o.goalCertaintyUnearned).toEqual({ say: SAY })
+    expect(selectGoalProbability(o as Parameters<typeof selectGoalProbability>[0]).goalProbability).toBeNull()
+  })
+  it('CONTROL: no figure and no decision for the option → nothing stamped (no invented reason)', () => {
+    expect(optionsOf(strippedTurnReport([EARNED_49])).raise_to_59.goalCertaintyUnearned).toBeUndefined()
+  })
+  it('⭐ AIQ acceptance: the Goal panel says the producer’s sentence, and no percentage', () => {
+    useCanvasStore.setState(useCanvasStore.getState(), true)
+    vi.mocked(useAuth).mockReturnValue({ authenticated: true, user: { id: 'u-1', email: 'u@x.io' } } as never)
+    const GOAL_NODE = { id: 'goal1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'MRR', goal_threshold_raw: 0.8 } }
+    useCanvasStore.setState({ ...useCanvasStore.getState(), nodes: [GOAL_NODE], edges: [], goalThreshold: 0.8, goalConstraints: null, results: { status: 'complete', report: strippedTurnReport([UNEARNED_59, EARNED_49]) } } as never)
+    const { getByTestId, container } = render(<GoalPanel nodeId="goal1" techMode={false} onClose={() => {}} onNavigate={() => {}} />)
+    expect(getByTestId('goal-probability-certainty-unearned').textContent).toBe(SAY)
+    expect(container.textContent ?? '').not.toMatch(/100% of model runs/)
+  })
+  it('CONTROL: an interior figure beside a decision is untouched (£54 at 0.8311)', () => {
+    const o = optionsOf(strippedTurnReport([UNEARNED_59, EARNED_49])).raise_to_54
+    expect(o.goalCertaintyUnearned).toBeUndefined()
+    expect(selectGoalProbability(o as Parameters<typeof selectGoalProbability>[0]).goalProbability).toBe(0.8311)
+  })
+})
