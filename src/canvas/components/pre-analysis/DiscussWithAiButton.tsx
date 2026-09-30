@@ -4,7 +4,7 @@
  * to direct send if pre-fill is not registered.
  *
  * Visual rules (DS v5):
- * - Lucide Sparkles icon, 14px
+ * - The Olumi AI icon (`OlumiAiIcon`, DS v5 §9.8), 14px — Paul, 30 Sep: Sparkles is for provenance only
  * - text-text-light at rest, text-info on hover
  * - Bottom-right of the card with 8px inset (positioned by parent)
  * - Tooltip "Discuss this with AI"
@@ -15,12 +15,12 @@
  */
 
 import { memo, useCallback } from 'react'
-import { Sparkles } from 'lucide-react'
 import Tooltip from '@/components/Tooltip'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 import { requestAsk } from '@/canvas/ui/inspector-v2/askSemantic'
 import { buildAiDiscussPrompt, type AiDiscussElement } from './buildAiDiscussPrompt'
 import { UNRECOGNISED_BIAS_SIGNAL_TITLE } from '../../shared/biasSignalTitles'
+import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
 
 interface DiscussWithAiButtonProps {
   element: AiDiscussElement
@@ -111,7 +111,7 @@ function DiscussWithAiButtonImpl({ element, onSend, ariaLabel, className, varian
           (className ?? '')
         }
       >
-        <Sparkles size={14} aria-hidden="true" />
+        <OlumiAiIcon size={14} className="olumi-glyph-ai" aria-hidden="true" />
       </button>
     </Tooltip>
   )

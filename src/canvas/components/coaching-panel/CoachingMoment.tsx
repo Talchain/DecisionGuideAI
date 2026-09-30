@@ -10,12 +10,12 @@
  * pre-analysis-v3 directory) to keep this panel fully file-disjoint from that
  * work; it uses the same DS tokens (info colour, 28px round, info focus ring).
  */
-import { Sparkles } from 'lucide-react'
 import Tooltip from '@/components/Tooltip'
 import { EntityTarget } from './EntityTarget'
 import { CoachingFutureFields, hasFutureFields } from './CoachingFutureFields'
 import { COACHING_COPY } from './constants'
 import type { CoachingSignal } from './types'
+import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
 
 export function CoachingMoment({ signal }: { signal: CoachingSignal }) {
   return (
@@ -35,7 +35,7 @@ export function CoachingMoment({ signal }: { signal: CoachingSignal }) {
             className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full text-info outline-none transition-colors hover:bg-panel-hover focus-visible:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info/40"
             data-testid="coaching-ask-olumi"
           >
-            <Sparkles size={16} aria-hidden="true" />
+            <OlumiAiIcon size={16} className="olumi-glyph-ai" aria-hidden="true" />
           </button>
         </Tooltip>
       </div>

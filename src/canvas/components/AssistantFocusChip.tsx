@@ -7,7 +7,7 @@
  */
 import { memo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Sparkles, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { useOverlayCell } from './CanvasOverlayBand'
 import { useCanvasStore } from '../store'
 import {
@@ -15,6 +15,7 @@ import {
   useAssistantFocusStore,
 } from '../stores/assistantFocusStore'
 import { ICON_STANDALONE } from '../conversation/panelIcons'
+import { OlumiAiIcon } from '../../components/results/analysisNew/OlumiAiIcon'
 
 export const AssistantFocusChip = memo(function AssistantFocusChip() {
   const target = useAssistantFocusStore((state) => state.target)
@@ -59,7 +60,7 @@ export const AssistantFocusChip = memo(function AssistantFocusChip() {
       data-focus-id={target.id}
       data-focus-kind={target.kind}
     >
-      <Sparkles size={ICON_STANDALONE} className="shrink-0 text-info" aria-hidden="true" />
+      <OlumiAiIcon size={ICON_STANDALONE} className="olumi-glyph-ai shrink-0 text-info" aria-hidden="true" />
       <span className="truncate text-sm text-text-body">
         Olumi focus: <strong className="font-medium">{target.label}</strong>
       </span>
