@@ -178,7 +178,7 @@ export interface OptionDownside {
 }
 
 export interface OptionResult {
-  /** AIQ 5903604206: the canvas node carries `proposed_by: 'olumi'` (an unadopted suggestion) — never counted as "your" option. */
+  /** AIQ 5903604206: an UNADOPTED Olumi suggestion (`isUnadoptedOlumiSuggestion`) — never counted as "your" option. Adopted (participation `included`) counts. */
   proposedByOlumi?: true
   /** The Run on screen is not current (AIQ pre-share hold): nothing is said about how today's options relate to it. */
   runNotCurrent?: true
