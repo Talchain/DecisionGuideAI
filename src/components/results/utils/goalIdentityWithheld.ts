@@ -38,6 +38,9 @@ export const GOAL_FIGURES_WITHHELD_CODES: readonly string[] = [
   // product-not-read (CEE #2340). Both messages open "Not shown." and are shown verbatim by the one reader.
   'GOAL_FIGURES_PLACEHOLDER_PATH',
   'GOAL_FIGURES_PRODUCT_NOT_READ',
+  // CEE #2371 (MG SUCCESSOR #75 5915202903): an `exploratory` run withholds every option's goal figures because the
+  // target can't be tested yet; "Not shown. " + the decision-representation sentence, which may end in its one question.
+  'GOAL_FIGURES_TARGET_NOT_TESTABLE',
 ]
 
 /**

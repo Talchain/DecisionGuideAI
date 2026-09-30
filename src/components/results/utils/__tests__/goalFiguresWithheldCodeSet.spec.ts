@@ -122,3 +122,17 @@ describe("CEE's own goal-figure withholds are read too (MG #75 5904463351)", () 
     expect(readGoalIdentityWithheld({ inference_warnings: [DISCLOSED] })).toBeNull()
   })
 })
+
+describe('CEE #2371 — an exploratory run withholds the goal figures under GOAL_FIGURES_TARGET_NOT_TESTABLE', () => {
+  // The producer's message shape (MG SUCCESSOR #75 5914733634 / 5915202903): "Not shown. " + the DR sentence, on Paul's
+  // funding graph ending in its one question.
+  const WORDS =
+    "Not shown. Olumi can compare your options, but can't yet test them against your target (at least £1,200,000), because it needs today's level of securing funding and the model doesn't yet say how Investment firm meetings turns into securing funding. What is securing funding today?"
+  const TARGET_NOT_TESTABLE = { code: 'GOAL_FIGURES_TARGET_NOT_TESTABLE', severity: 'warning', node_ids: ['securing_funding'], message: WORDS }
+  it('⭐ is read as a withhold, in the producer\'s own words (the question included)', () => {
+    expect(readGoalIdentityWithheld({ inference_warnings: [TARGET_NOT_TESTABLE] })).toEqual({ nodeIds: ['securing_funding'], message: WORDS })
+  })
+  it('CONTROL: an unknown GOAL_FIGURES_* code is still not a withhold (the set is closed)', () => {
+    expect(readGoalIdentityWithheld({ inference_warnings: [{ ...TARGET_NOT_TESTABLE, code: 'GOAL_FIGURES_SOMETHING_ELSE' }] })).toBeNull()
+  })
+})
