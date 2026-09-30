@@ -107,14 +107,18 @@ export function LinkQuickEditor({ edgeId, x, y, onClose, onMoreDetail }: LinkQui
   const statedDirection = resolveEdgeDirectionDisplay(edge?.data as Record<string, unknown> | undefined)
   // ⛔ A STRUCTURAL LINK HAS NO STRENGTH OR DIRECTION TO SET (served 29 Sep, MRR `823bc028`: the editor offered bands
   // on "decision → Carry on as now", and a witness wrote a strength to one). The SAME predicate the inspector asks.
+  // Returns the SOURCE's kind so the words say what the link is: an option → factor link carries the value the option
+  // sets (served cut-costs `09af9019` called it "decision to an option").
   const structural = useCanvasStore((s) => {
     const e = s.edges.find((x) => x.id === edgeId)
-    if (!e) return false
+    if (!e) return null
     const kindOf = (id: string) => {
       const n = s.nodes.find((nn) => nn.id === id)
       return ((n?.data as Record<string, unknown> | undefined)?.kind as string | undefined) ?? n?.type
     }
-    return isStructuralEdge(e as never, kindOf)
+    if (!isStructuralEdge(e as never, kindOf)) return null
+    const from = kindOf(e.source)
+    return from === 'decision' || from === 'option' ? from : 'other'
   })
 
   if (!edge) return null
@@ -137,7 +141,11 @@ export function LinkQuickEditor({ edgeId, x, y, onClose, onMoreDetail }: LinkQui
       </p>
       {structural ? (
         <p className={`${typography.panelMeta} text-text-light m-0`} data-testid="link-quick-editor-structural">
-          This link connects the decision to an option. It has no strength to set.
+          {structural === 'decision'
+            ? 'This link connects the decision to an option. It has no strength to set.'
+            : structural === 'option'
+              ? `${fromLabel} sets ${toLabel}. Change the value on the option card; this link has no strength to set.`
+              : 'This link is part of the model’s structure. It has no strength to set.'}
         </p>
       ) : display.show ? (
         <>

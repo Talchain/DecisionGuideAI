@@ -45,9 +45,23 @@ describe('the link mini-editor', () => {
       edges: [{ id: 'e1', source: 'dec', target: 'opt', data: { weight: 1, strength_mean: 1, direction: 'positive', weightSource: 'cee' } }],
     } as never)
     mount()
-    expect(screen.getByTestId('link-quick-editor-structural')).toBeDefined()
+    expect(screen.getByTestId('link-quick-editor-structural').textContent).toBe('This link connects the decision to an option. It has no strength to set.')
     expect(screen.queryByTestId('link-quick-editor-direction')).toBeNull()
     expect(screen.queryAllByRole('button').map((b) => b.textContent)).toEqual(['More detail'])
+    expect(setStrength).not.toHaveBeenCalled()
+  })
+
+  // Served 30 Sep, cut-costs `09af9019`: "Full GCP Migration → GCP workload share" said it "connects the decision to an
+  // option". An option → factor link carries the value the option sets, which is edited on the option card.
+  it('a STRUCTURAL option → factor link says the option sets the factor, never "decision to an option"', () => {
+    useCanvasStore.setState({
+      nodes: [{ id: 'opt', type: 'option', data: { label: 'Full GCP Migration' } }, { id: 'fac', type: 'factor', data: { label: 'GCP workload share' } }],
+      edges: [{ id: 'e1', source: 'opt', target: 'fac', data: { weight: 1.0, strengthStd: 0.01, beliefExists: 1.0, direction: 'positive' } }],
+    } as never)
+    mount()
+    const words = screen.getByTestId('link-quick-editor-structural').textContent
+    expect(words).toBe('Full GCP Migration sets GCP workload share. Change the value on the option card; this link has no strength to set.')
+    expect(screen.queryByTestId('link-quick-editor-direction')).toBeNull()
     expect(setStrength).not.toHaveBeenCalled()
   })
 
