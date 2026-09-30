@@ -1,4 +1,4 @@
-import { Fragment, memo, useMemo, useCallback, type ReactNode } from 'react'
+import { Fragment, memo, useMemo, useCallback, useState, type ReactNode } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { Pencil } from 'lucide-react'
 import Tooltip from '../../components/Tooltip'
@@ -12,6 +12,7 @@ import { useCanvasStore } from '../store'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { useAnalysisResultsAreCurrent } from '../hooks/useAnalysisResultsAreCurrent'
 import { NodeValueEditor } from './shared/NodeValueEditor'
+import { optionLabelRenamedToSetLevel } from './shared/optionLabelSetLevel'
 import { optionValueInPlace } from './shared/optionValueInPlace'
 import { OPTION_INTERVENTION_NEEDS_FRESH_BASE, OPTION_INTERVENTION_NOT_ENCODABLE } from '../ui/inspector-v2/shared/optionInterventionCopy'
 import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
@@ -176,6 +177,7 @@ import {
   buildOptionNeedsInputTargetRow,
   buildOptionTargetRow,
   optionFactorContext,
+  optionTargetReading,
   resolveBaselineOptionReference,
   resolveOptionTargets,
   resolveUnsetOptionTargets,
@@ -1252,6 +1254,24 @@ export const OptionNode = memo((props: NodeProps) => {
   // changes stay one pencil away (the rail's `option-edit-targets-*` route, whose
   // accessible name still states the full target total).
   const changeRowsMore = isBaselineOption ? 0 : moreCount(concreteChangeRows.length, changeRows.length)
+  // ⭐ AIQ 5908802422 §3: the edit's own confirmation OFFERS the rename ("Also rename it 'Raise to £60'?") — one press,
+  // the user's choice, the only way the label changes. Offered only after an edit sent from THIS card, and only when the
+  // rename is unambiguous (`optionLabelRenamedToSetLevel`); a refused edit rolls the value back and the offer with it.
+  const [editSentHere, setEditSentHere] = useState(false)
+  const [renameDeclined, setRenameDeclined] = useState<string | null>(null)
+  const renameOffer = useMemo(() => {
+    if (!editSentHere || isBaselineOption) return null
+    const me = optionSet.find(o => o.id === props.id)
+    if (!me) return null
+    const readings = [...me.targets].flatMap(([fid, target]) => {
+      const factorNode = nodes.find(n => n.id === fid)
+      const reading = optionTargetReading(buildOptionTargetRow({ factorId: fid, target, factorNode, baselineReference: null }), factorNode?.data)
+      return reading.trim() ? [reading] : []
+    })
+    const label = typeof props.data?.label === 'string' ? props.data.label : ''
+    const to = optionLabelRenamedToSetLevel(label, readings)
+    return to !== null && to !== renameDeclined ? to : null
+  }, [editSentHere, isBaselineOption, optionSet, props.id, props.data?.label, nodes, renameDeclined])
   // Below Normal zoom (`quiet` / `line`) the change rows stack — see the render.
   // The same rung predicate the resting glyphs read, so one zoom boundary
   // decides both, never two.
@@ -2127,7 +2147,7 @@ export const OptionNode = memo((props: NodeProps) => {
           return unwrapInterventionValue((n?.data as Record<string, any> | undefined)?.interventions?.[factorId]).value ?? null
         }}
         onCommit={(v, { onSendSettled }) => {
-          const outcome = optionEditAuthority.proposeOptionIntervention(factorId, v, { onSendSettled: (st) => onSendSettled(st) })
+          const outcome = optionEditAuthority.proposeOptionIntervention(factorId, v, { onSendSettled: (st) => { if (st === 'sent' || st === 'queued') setEditSentHere(true); onSendSettled(st) } })
           if (outcome === 'dispatched') return 'dispatched'
           return { refused: outcome === 'needs_fresh_base' ? OPTION_INTERVENTION_NEEDS_FRESH_BASE : OPTION_INTERVENTION_NOT_ENCODABLE }
         }}
@@ -2685,6 +2705,27 @@ export const OptionNode = memo((props: NodeProps) => {
         {changeRows.length > 0 && (isDetailed
           ? renderChangeRows(rowsStacked ? 'stacked' : 'grid')
           : renderChangeRows('grid', true))}
+        {renameOffer && (
+          <div className={`${typography.edgeLabel} mt-1 flex items-center gap-1 text-text-body nodrag`} data-testid={`option-rename-offer-${props.id}`}>
+            <button
+              type="button"
+              className="min-w-0 text-left underline decoration-dotted underline-offset-2 hover:text-text-primary"
+              data-testid={`option-rename-offer-${props.id}-accept`}
+              onClick={(e) => { e.stopPropagation(); useCanvasStore.getState().updateNodeLabel(props.id, renameOffer); setEditSentHere(false) }}
+            >
+              {`Also rename it ‘${renameOffer}’?`}
+            </button>
+            <button
+              type="button"
+              aria-label="Keep the current name"
+              className="shrink-0 px-1 text-text-light hover:text-text-body"
+              data-testid={`option-rename-offer-${props.id}-decline`}
+              onClick={(e) => { e.stopPropagation(); setRenameDeclined(renameOffer) }}
+            >
+              ×
+            </button>
+          </div>
+        )}
         {baselineMetaOnCard && baselineMeta}
         {ownDifferentiatorLine}
         {/* Row 22 + prototype: the declared baseline's reference sentence, on the card in both views. */}

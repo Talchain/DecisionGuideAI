@@ -4,7 +4,7 @@
  * label ("Raise Pro from £49 to £59 …", NodeQuickActions.tooltipCopy spec) and AIQ's ruled example.
  */
 import { describe, it, expect } from 'vitest'
-import { optionLabelWithSetLevel } from '../optionLabelSetLevel'
+import { optionLabelWithSetLevel, optionLabelRenamedToSetLevel } from '../optionLabelSetLevel'
 
 describe('an option label with a stale figure says its set level', () => {
   it('RED: the served MRR label after an edit to £60 → "(set to £60)"; the user\'s words are untouched', () => {
@@ -27,5 +27,13 @@ describe('an option label with a stale figure says its set level', () => {
     expect(optionLabelWithSetLevel('Raise to £59', ['£60', '12 months'])).toBe('Raise to £59')
     expect(optionLabelWithSetLevel('Raise to £59', ['High'])).toBe('Raise to £59')
     expect(optionLabelWithSetLevel('Raise to £59', [])).toBe('Raise to £59')
+  })
+
+  it('the rename offer: one figure → replaced by the level; two figures, a matching label or no figure → no offer', () => {
+    expect(optionLabelRenamedToSetLevel('Raise to £59 at Release', ['£60'])).toBe('Raise to £60 at Release')
+    expect(optionLabelRenamedToSetLevel('Raise to £59', ['£60 / month'])).toBe('Raise to £60')
+    expect(optionLabelRenamedToSetLevel('Raise Pro from £49 to £59', ['£60'])).toBeNull()
+    expect(optionLabelRenamedToSetLevel('Raise to £59', ['£59'])).toBeNull()
+    expect(optionLabelRenamedToSetLevel('Premium tier', ['£60'])).toBeNull()
   })
 })
