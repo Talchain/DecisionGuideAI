@@ -43,8 +43,18 @@ function wireIds(items: readonly unknown[]): string[] {
   return ids
 }
 
+/** The restore adapter types its graph `unknown`; read only its two arrays. */
+function asRestoredGraph(value: unknown): RestoredGraph {
+  const g = value as { nodes?: unknown; edges?: unknown } | null | undefined
+  return {
+    nodes: Array.isArray(g?.nodes) ? g.nodes : [],
+    edges: Array.isArray(g?.edges) ? g.edges : [],
+  }
+}
+
 /** Steps 1–3, synchronously. Returns the reconcile's own counts. */
-export function applyRestoredGraph(graph: RestoredGraph): ReconcileAppliedGraphResult {
+export function applyRestoredGraph(restored: unknown): ReconcileAppliedGraphResult {
+  const graph = asRestoredGraph(restored)
   useCanvasStore.getState().setCeeAnalysisReady(null)
 
   const applied = reconcileAppliedGraph(
