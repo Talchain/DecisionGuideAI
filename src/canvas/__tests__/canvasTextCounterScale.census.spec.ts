@@ -309,6 +309,10 @@ const FOREIGN_RENDERED = [
   // one-line tooltip it replaced. Both use panel tokens at screen size.
   'src/canvas/components/hoverCard/LinkHoverCard.tsx',
   'src/canvas/components/hoverCard/NodeHoverCard.tsx',
+  // 30 Sep 2026 (CANVAS, row E — the Changes view, #2370): the card's change word ("Changed" / "Result moved") is the
+  // canvas state-word pill (`typography.edgeLabel` + `STATE_WORD_STYLE`, the SAME counter-scaled geometry as
+  // `StatusPill`'s "Not analysed"), rendered by BaseNode from `graphChanges/`.
+  'src/canvas/graphChanges/RunChangeBadge.tsx',
   'src/canvas/ui/inspector-v2/shared/EditableLabel.tsx',
   'src/canvas/ui/shared/DataBar.tsx',
   // 30 Sep 2026 (Paul: "the canvas card should use the Olumi icon"; DS v5 §9.8): the card's Ask Olumi / coaching glyph
