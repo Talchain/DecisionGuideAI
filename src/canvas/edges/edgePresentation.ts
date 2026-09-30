@@ -91,8 +91,14 @@ import { glyphCounterScale } from '../utils/zoomLegibility'
  * muted-ink token at 50%, which composites on the canvas ground to within a
  * few units of the contract's grey. Width 1 and no arrowhead are unchanged
  * (rule `structural` below and `EDGE_DIRECTION_MARKER_RULES`).
+ *
+ * ⭐ 0.5 → 0.75 (Paul, 30 Sep: "the graph is nearly invisible"). The contract's
+ * 1px grey is drawn at 100%; ours is a 1px `non-scaling-stroke` BEZIER, and its
+ * anti-aliasing halves the ink. Measured on served `61f5b909` (1440×900, MRR):
+ * the darkest pixel of a question→option link was ~40 below the ground, the
+ * contract's ~64. At 0.75 the curve reaches the contract's contrast.
  */
-export const STRUCTURAL_EDGE_COLOUR = 'rgb(var(--text-light-rgb) / 0.5)'
+export const STRUCTURAL_EDGE_COLOUR = 'rgb(var(--text-light-rgb) / 0.75)'
 
 /**
  * The exception hue, reserved — see `resolveEdgeStroke` — for the ONE state that

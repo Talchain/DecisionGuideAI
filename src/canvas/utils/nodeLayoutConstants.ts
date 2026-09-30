@@ -451,10 +451,21 @@ export const NODE_ROW_LABEL_MAX_CHARS = Math.floor(
  * the amount drops under the label (`flex-wrap`) and the label keeps its own
  * one-line cut. Never below the label's budget: the label yields, not the amount.
  */
-export const NODE_ROW_AMOUNT_MAX_CHARS = Math.floor(
-  (REPEATED_CARD_W - ROW_LABEL_INSET_PX) /
-    (CANVAS_TYPE_PX.edgeLabel * MAX_LABEL_COUNTER_SCALE * AVG_CHAR_EM),
-)
+export function rowAmountMaxCharsFor(cardW: number): number {
+  return Math.floor(
+    (Math.max(cardW, REPEATED_CARD_W) - ROW_LABEL_INSET_PX) /
+      (CANVAS_TYPE_PX.edgeLabel * MAX_LABEL_COUNTER_SCALE * AVG_CHAR_EM),
+  )
+}
+
+/**
+ * The budget at the NARROWEST repeated card, the floor every caller without a
+ * card width keeps. ⭐ Since 30 Sep a row with room draws wider cards (up to
+ * `REPEATED_CARD_MAX_W`), and a card spends the budget of ITS OWN width
+ * (`rowAmountMaxCharsFor`): at 248 every `from → to` row still split into two
+ * lines inside a 400 card (Paul, 30 Sep: "all bunched together").
+ */
+export const NODE_ROW_AMOUNT_MAX_CHARS = rowAmountMaxCharsFor(REPEATED_CARD_W)
 
 
 /**

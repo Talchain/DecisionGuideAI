@@ -23,7 +23,8 @@ import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } fro
 import { typography } from '../../styles/typography'
 import { optionOrdinalBadgeAccessibleName } from './shared/metricVocabulary'
 import { cleanFactorLabel, compactFactorLabel, sentenceCaseFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, joinInterventionDetails, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
-import { NODE_ROW_LABEL_MAX_CHARS } from '../utils/nodeLayoutConstants'
+import { NODE_ROW_LABEL_MAX_CHARS, REPEATED_CARD_W, rowAmountMaxCharsFor } from '../utils/nodeLayoutConstants'
+import { useLayoutStore } from '../layoutStore'
 import {
   describeInterventionDirection,
   formatInterventionChange,
@@ -1239,11 +1240,17 @@ export const OptionNode = memo((props: NodeProps) => {
   // Standard's resting rows also keep to the card's LINE budget (a two-line row
   // spends more of it — `fitRowsToLineBudget`); Detailed keeps its own layout.
   // A pure function of the model: a Run changes neither the rows nor their form.
+  // ⭐ The row budget of THIS card's width (the tier's fair share since 30 Sep,
+  // `layoutCardWidths.option`), not the narrowest card's: a 400 card spent a 248
+  // card's budget and split every `from → to` row into two lines. No width on
+  // record keeps the narrowest card's budget.
+  const optionCardWidth = useLayoutStore(s => s.layoutCardWidths?.option ?? null)
+  const rowAmountMaxChars = rowAmountMaxCharsFor(optionCardWidth ?? REPEATED_CARD_W)
   const changeRows = useMemo(() => {
     if (isBaselineOption) return []
     const rows = fitRowsToBudget(concreteChangeRows.slice(0, OPTION_CARD_ROW_LIMIT))
-    return isDetailed ? rows : fitRowsToLineBudget(rows)
-  }, [isBaselineOption, isDetailed, concreteChangeRows])
+    return isDetailed ? rows : fitRowsToLineBudget(rows, rowAmountMaxChars)
+  }, [isBaselineOption, isDetailed, concreteChangeRows, rowAmountMaxChars])
   // ⭐ `+N more` COUNTS CONCRETE CHANGES ONLY (side-by-side DIFF N1, 28 Sep;
   // owner decision). It counted every TARGET (`totalInterventionCount`), so a
   // card whose hidden targets all equal the baseline's advertised them as more
@@ -2165,7 +2172,7 @@ export const OptionNode = memo((props: NodeProps) => {
     const markSuffix = r.needsInput
       ? ''
       : ` ${VALUE_SOURCE_MARK_TOKEN[r.targetSource.kind]}`
-    const amountRunNoWrap = (run: string) => optionAmountSegmentNoWrap(`${run}${markSuffix}`)
+    const amountRunNoWrap = (run: string) => optionAmountSegmentNoWrap(`${run}${markSuffix}`, rowAmountMaxChars)
     return (
     <dd
       className={resting
@@ -2222,7 +2229,7 @@ export const OptionNode = memo((props: NodeProps) => {
               r.change either way. */}
           {withValueEditor(r.factorId, r.before !== undefined && r.after !== undefined ? (
             <>
-              <span className={resting && optionAmountSegmentNoWrap(r.before) ? 'whitespace-nowrap' : undefined}>
+              <span className={resting && optionAmountSegmentNoWrap(r.before, rowAmountMaxChars) ? 'whitespace-nowrap' : undefined}>
                 <span
                   /* Contract `.delta-rows .before{color:#747770}` —
                      `--card-before-rgb` (brand.css), lighter than muted. */
@@ -2285,7 +2292,7 @@ export const OptionNode = memo((props: NodeProps) => {
       {restingLabels ? (
         <dl className="m-0 flex flex-col gap-y-1">
           {changeRows.map((r) => {
-            const form = optionRowForm(r)
+            const form = optionRowForm(r, rowAmountMaxChars)
             return (
             <div
               key={r.factorId}
@@ -3049,11 +3056,20 @@ export const OptionNode = memo((props: NodeProps) => {
             title={notAnalysedSentence}
             data-testid={`option-not-analysed-${props.id}`}
           >
-            <span className={`${typography.edgeLabel} text-text-light shrink-0`} aria-hidden="true">
+            {/* ⭐ Contract v3.1 `.state-word`: the state is a bordered chip in
+                ink, not muted text (Paul, 30 Sep: "'not analysed' really
+                subtly invisible"). `Last run ·` and the reason stay muted. */}
+            <span className={`${typography.edgeLabel} inline-flex items-center gap-[0.3em] text-text-light shrink-0`} aria-hidden="true">
               {runCurrency === 'changed' && (
                 <span data-testid={`option-not-analysed-last-run-${props.id}`}>{LAST_RUN_PREFIX}</span>
               )}
-              {NOT_ANALYSED_BADGE}
+              <span
+                className={STATE_WORD_CLASSES}
+                style={{ ...STATE_WORD_STYLE, paddingTop: 0, paddingBottom: 0 }}
+                data-testid={`option-not-analysed-chip-${props.id}`}
+              >
+                {NOT_ANALYSED_BADGE}
+              </span>
             </span>
             {missingValueBlocker && (
               <span className="flex h-[1lh] min-w-0 shrink-[1000000] flex-wrap content-start overflow-hidden" aria-hidden="true">
