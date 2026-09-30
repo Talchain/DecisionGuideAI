@@ -459,7 +459,11 @@ async function readAndMergeServerGraph(
         goalCertainty: result.goalCertainty,
         // The currency leg above is this read's ONE verdict writer (see `applyBootBlockedVerdict`: the legs never both
         // write `analysisStateV1` for one read), so the applier here builds the report and writes no verdict.
-        store: { ...readProvisionalApplyStore(), setAnalysisStateV1: () => {} },
+        // ⛔ NOR THE FRESHNESS (P0 5909616965 / AIQ 5909634999): the currency leg has just PROVEN this Run current and
+        // written `fresh`; the applier's run-completion transition demoted it to `unknown · run_completed_without_verdict`
+        // on every fresh-browser cold open, so `useRunCurrency()` stopped saying current and the Driver badges (every run
+        // cue) vanished — while a same-browser reload, whose report dedupes, kept them.
+        store: { ...readProvisionalApplyStore(), setAnalysisStateV1: () => {}, noteRunCompletedWithoutVerdict: () => {} },
       })
       logger.debug('server_graph_hydration.boot_run_currency', { scenarioId, exit, outcome: 'restored', runFact: fact !== null, runRead: runRead.outcome })
       return
