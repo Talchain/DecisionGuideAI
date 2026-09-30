@@ -103,7 +103,14 @@ function inputRowText(row: RunDeltaInputRow): string {
   return `${row.subject}: ${row.before}, now not set`
 }
 
-function InputChanges({ inputs }: { inputs: RunDeltaInputsView | null }): JSX.Element | null {
+/**
+ * The Compare tab's link from a row to the canvas (CANVAS, lease DL #75 5920620752 / UNDO grant 5920635710).
+ * Returns the row's focus action, `null` when nothing on the current canvas stands for it, or `undefined` when the
+ * surface has no canvas link at all (the Reasoning receipt). The ids behind it are the row's own, never its key text.
+ */
+export type InputRowFocus = (row: RunDeltaInputRow) => (() => void) | null | undefined
+
+function InputChanges({ inputs, rowFocus }: { inputs: RunDeltaInputsView | null; rowFocus?: InputRowFocus }): JSX.Element | null {
   const [expanded, setExpanded] = useState(false)
   if (inputs === null) return null
   if (inputs.coverage === 'not_recorded') {
@@ -125,11 +132,30 @@ function InputChanges({ inputs }: { inputs: RunDeltaInputsView | null }): JSX.El
     <div className="mt-3" data-testid={`${WHATS_CHANGED_TESTID}-inputs`} data-coverage={inputs.coverage}>
       <p className={`${typography.panelMeta} text-text-light m-0`} data-testid={`${WHATS_CHANGED_TESTID}-inputs-heading`}>Changed between the two runs</p>
       <ul className="list-none p-0 mt-1 mb-0 space-y-1">
-        {shown.map((row) => (
-          <li key={row.key} className={`${typography.panelBody} text-text m-0`} data-testid={`${WHATS_CHANGED_TESTID}-input-row`} data-kind={row.kind} data-change={row.change}>
-            {inputRowText(row)}
-          </li>
-        ))}
+        {shown.map((row) => {
+          const focus = rowFocus?.(row)
+          return (
+            <li key={row.key} className={`${typography.panelBody} text-text m-0`} data-testid={`${WHATS_CHANGED_TESTID}-input-row`} data-kind={row.kind} data-change={row.change} data-on-canvas={focus === undefined ? undefined : focus === null ? 'false' : 'true'}>
+              {focus ? (
+                <button
+                  type="button"
+                  className={`${action('inline')} text-left`}
+                  data-testid={`${WHATS_CHANGED_TESTID}-input-row-focus`}
+                  aria-label={`Show on the canvas: ${inputRowText(row)}`}
+                  onClick={focus}
+                >
+                  {inputRowText(row)}
+                </button>
+              ) : (
+                inputRowText(row)
+              )}
+              {/* A removed input already says it left; a changed one with nothing drawn says why a click does nothing. */}
+              {focus === null && row.change !== 'removed' ? (
+                <span className={`${typography.panelMeta} text-text-light`} data-testid={`${WHATS_CHANGED_TESTID}-input-row-off-canvas`}> · not on the canvas now</span>
+              ) : null}
+            </li>
+          )
+        })}
       </ul>
       {inputs.rows.length > INPUT_ROWS_SHOWN_FIRST ? (
         <button
@@ -151,7 +177,7 @@ function InputChanges({ inputs }: { inputs: RunDeltaInputsView | null }): JSX.El
   )
 }
 
-export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Element | null {
+export function WhatsChanged({ view, rowFocus }: { view: RunDeltaView | null; rowFocus?: InputRowFocus }): JSX.Element | null {
   // ⭐⭐ WIN SHARES FOLLOW THE LEADER CLAIM (CURRENT-READ-v1 row 9; AIQ #75 5912710392). Every movement line is one
   // option's WIN SHARE, prior → current (or its direction). When the producer withheld the leader (any reason) a
   // per-option share change singles an option out in numbers, so the lines give way to the reason line, once, and
@@ -209,7 +235,7 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
         When no outcome can be shown (win shares withheld, or no option matched across the pair), the input rows lead
         instead, so the section never invents a result.
       */}
-      {inputsLead ? <InputChanges inputs={view.inputs} /> : null}
+      {inputsLead ? <InputChanges inputs={view.inputs} rowFocus={rowFocus} /> : null}
 
       {winSharesAreWithheld ? (
         // Row 9: no per-option share change — the reason line in its place.
@@ -295,7 +321,7 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
           ) : null}
         </p>
       ) : null}
-      {inputsLead ? null : <InputChanges inputs={view.inputs} />}
+      {inputsLead ? null : <InputChanges inputs={view.inputs} rowFocus={rowFocus} />}
 
       <p
         className={`${typography.panelBody} text-text mt-2 mb-0`}

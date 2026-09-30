@@ -409,7 +409,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   // ── Consolidated store selectors (2 subscriptions instead of 13) ──
   // Group 1: Core store data (results, review, actions)
-  const { ceeReview, resultsStatus, report, isHighlightedEdge, isAnalysisFragileEdge, isSelectionDimmed, viewMode, isLodBodyHidden, canvasOnlyLink } = useCanvasStore(
+  const { ceeReview, resultsStatus, report, isHighlightedEdge, isAnalysisFragileEdge, isRunChangedEdge, isRunChangeSubduedEdge, isSelectionDimmed, viewMode, isLodBodyHidden, canvasOnlyLink } = useCanvasStore(
     useShallow(s => ({
       ceeReview: s.runMeta.ceeReview,
       resultsStatus: s.results.status,
@@ -419,6 +419,13 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       // V7 evidence disclosure. Optional-chained so store doubles without the
       // slice stay safe (same pattern as editedSinceRunNodeIds).
       isAnalysisFragileEdge: s.analysisHighlight?.source === 'flip_risks' && s.analysisHighlight?.edgeIds?.has(id) === true,
+      // The Changes view (row E, `graphChanges/`): a link whose input differed between the two Runs on screen, and —
+      // while anything is marked — every other link subdued. A projection that marks nothing subdues nothing.
+      isRunChangedEdge: s.analysisHighlight?.source === 'run_changes' && s.analysisHighlight?.edgeIds?.has(edgeIdKey) === true,
+      isRunChangeSubduedEdge:
+        s.analysisHighlight?.source === 'run_changes' &&
+        (s.analysisHighlight.edgeIds?.size ?? 0) + (s.analysisHighlight.nodeIds?.size ?? 0) > 0 &&
+        s.analysisHighlight.edgeIds?.has(edgeIdKey) !== true,
       // 6A (selection focus): this edge is outside the selected element's
       // neighbourhood. Primitive boolean (React #185) and optional-chained so
       // store doubles without the slice stay safe.
@@ -2397,12 +2404,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         data-analysis-fragile={isAnalysisFragileEdge && !isStructuralEdge ? 'true' : undefined}
         data-assistant-focused={isAssistantFocused ? 'true' : undefined}
         data-selection-dimmed={isSelectionDimmed ? 'true' : undefined}
+        data-run-change={isRunChangedEdge ? 'changed' : undefined}
+        data-run-change-subdued={isRunChangeSubduedEdge ? 'true' : undefined}
         data-option-link-rest={isOptionLinkAtRest ? 'true' : undefined}
         data-same-row-route={sameRowRoute?.kind}
         style={{
           // An option → factor link at rest takes the same dim (see
           // `isOptionLinkAtRest`); one value, never compounded.
-          opacity: isSelectionDimmed || isOptionLinkAtRest ? EDGE_SELECTION_DIM_OPACITY : undefined,
+          opacity: isSelectionDimmed || isOptionLinkAtRest || isRunChangeSubduedEdge ? EDGE_SELECTION_DIM_OPACITY : undefined,
           transition: prefersReducedMotion ? 'none' : 'opacity 300ms ease',
         }}
       >
@@ -2681,6 +2690,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // blue (`edgePresentation.ts`, the `highlighted` rule). Checked
             // after `selected` so an edge that is BOTH keeps the plain
             // selected glow rather than composing two identical shadows.
+            // The Changes view: a changed link takes the SAME emphasis glow as a selected one — the canvas's one
+            // "look here" recipe, never a new colour on a stroke that already carries direction.
+            if (isRunChangedEdge && !selected && !isHighlightedEdge) shadows.push(EDGE_GLOW.selected)
             if (!isSelectionDimmed) {
               if (selected) shadows.push(EDGE_GLOW.selected)
               else if (isHighlightedEdge) shadows.push(EDGE_GLOW.selected)

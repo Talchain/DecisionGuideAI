@@ -142,8 +142,17 @@ export interface RunDeltaView {
 
 /** One exact input difference, as sentence parts. Nothing here is computed: before/after are the producer's values. */
 export interface RunDeltaInputRow {
+  /** A React key only (a colon join plus the index; ids can hold ':'). Never parse it — bind to the ids below. */
   readonly key: string
   readonly kind: RunDeltaInputChange['entity_kind']
+  /**
+   * The producer's identity for this input, copied VERBATIM from its `input_changes` row (UNDO grant #75
+   * 5920635710). The canvas binds its marks and click-to-focus to these, so the list and the graph read one row.
+   */
+  readonly entityId: string
+  readonly optionId: string | null
+  /** `link` rows only: the link's two ends, verbatim (`entity_id` is opaque for a link). */
+  readonly linkEnds: { readonly from: string; readonly to: string } | null
   /** What the input is, in this surface's words ("Pro price, Raise to £60"). */
   readonly subject: string
   /** The producer's before → after, formatted; `null` on the side where the input did not exist. */
@@ -361,6 +370,9 @@ export function buildRunDeltaView(
             rows: (delta.input_changes ?? []).map((row, i) => ({
               key: `${row.entity_kind}:${row.entity_id}:${row.option_id ?? ''}:${row.field}:${i}`,
               kind: row.entity_kind,
+              entityId: row.entity_id,
+              optionId: row.option_id ?? null,
+              linkEnds: row.link ? { from: row.link.from, to: row.link.to } : null,
               subject: inputSubject(row, labelFor, nodeLabelFor),
               before: formatInputValue(row.before),
               after: formatInputValue(row.after),
