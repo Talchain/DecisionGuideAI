@@ -76,6 +76,8 @@ import { selectGoalProbability, type GoalProbabilityInput } from './utils/select
 import { collectStructurallyProvenNoFlipIds } from './utils/flipReasonVocabulary'
 import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
 import { resolveOptionInterventionCount } from '../../canvas/nodes/shared/optionInterventionCount'
+import { resolveOptionTargets, buildOptionTargetRow, optionTargetReading } from '../../canvas/nodes/shared/optionTargetDisplay'
+import { optionLabelWithSetLevel } from '../../canvas/nodes/shared/optionLabelSetLevel'
 import {
   deriveNotAnalysedReason,
   isAnalysedOption,
@@ -1322,6 +1324,21 @@ export interface ResultsSectionDataReturn {
   sensitivityReviewTargets?: ReadonlyMap<string, string>
 }
 
+/** What the option card prints for each target this option sets (its own map; the card's formatter). */
+function optionSetReadings(
+  optionData: Record<string, unknown> | undefined,
+  nodes: ReadonlyArray<{ id: string; type?: string; data?: unknown }>,
+): string[] {
+  const out: string[] = []
+  for (const [factorId, target] of resolveOptionTargets(optionData, null)) {
+    const factorNode = nodes.find((n) => n.id === factorId) as { id: string; type?: string; data?: Record<string, unknown> | null } | undefined
+    const row = buildOptionTargetRow({ factorId, target, factorNode, baselineReference: null })
+    const reading = optionTargetReading(row, factorNode?.data)
+    if (reading.trim()) out.push(reading)
+  }
+  return out
+}
+
 export function useResultsSectionData(): ResultsSectionDataReturn {
   // ⛔ AIQ pre-share hold (R3 B0 S3): a Run that is not current is never re-described against today's option list.
   const runIsCurrent = useAnalysisResultsAreCurrent()
@@ -2252,9 +2269,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
               ? rawMetaNSamples
               : undefined
 
+      // AIQ 5908802422/5908832064: a label naming a figure its set level no longer matches says the level beside it
+      // ("Raise to £59 (set to £60)"). `labelAsWritten` keeps the user's words for identity reads.
+      const labelAsWritten = (node.data as ResultsCanvasNodeData)?.label || nodeId
       return {
         id: nodeId,
-        label: (node.data as ResultsCanvasNodeData)?.label || nodeId,
+        label: optionLabelWithSetLevel(labelAsWritten, optionSetReadings(node.data as Record<string, unknown> | undefined, nodes)),
+        labelAsWritten,
         // Explicit expected value (mean) — primary value for "Expected" display
         expected: scaledExpected,
         // Full outcome distribution (mean = expected, for consistency)
