@@ -443,9 +443,6 @@ function escapeBelongsToAnOpenSurface(target: Element | null): boolean {
   return typeof document !== 'undefined' && document.querySelector(ESCAPE_OPEN_ELSEWHERE) !== null
 }
 
-/** Repeat window, so holding ⌘Z does not stack a column of identical toasts. */
-const UNDO_NOTICE_QUIET_MS = 3000
-
 /** Repeat window for the cut/paste notice. */
 const CLIPBOARD_NOTICE_QUIET_MS = 3000
 
@@ -464,12 +461,8 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
   // it the release paths below (modifiers, blur, visibilitychange) would fire
   // `false` repeatedly at a consumer that is already false.
   const spaceHeldRef = useRef(false)
-  // Last time the "undo isn't available" notice was emitted, so a held or
-  // repeatedly-pressed ⌘Z produces one message rather than a column of them.
-  const lastUndoNoticeAtRef = useRef(0)
-  // Same, for the cut/paste notice. A SEPARATE window from the undo one: they
-  // are different sentences answering different gestures, and sharing a window
-  // would let one gesture silence the other.
+  // Last time the cut/paste notice was emitted, so a held or repeatedly-pressed
+  // gesture produces one message rather than a column of them.
   const lastClipboardNoticeAtRef = useRef(0)
   // Fix: Use getState() inside handler to avoid dependency array issues.
   // Previously, all 12 action functions were in the dependency array, but
@@ -542,30 +535,16 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
       const canMutateSharedModel = hasServerGraphAuthority(
         CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations,
       )
-      const undoRedoConnected = hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasUndoRedo)
-
       // CANVAS UNDO / REDO as SAVED changes (`undo/undoCommand.ts`): a restore
-      // of the edit's own pre-edit version, never a screen revert. Its own
-      // authority key; the old local `state.undo()` is no longer reachable
-      // from any gesture, so flipping `canvasSemanticMutations` can never
-      // bring the screen-only undo back (`undoGestureRouting.blanketFlip.spec`).
-      if (undoRedoConnected && isUndoRedoGesture(event.key, cmdOrCtrl)) {
+      // of the edit's own pre-edit version, never a screen revert. Since Undo S5
+      // it reads no key: the command itself answers guests, in-flight edits,
+      // "nothing to undo" and a stale head. The old local `state.undo()` is not
+      // reachable from any gesture, so flipping `canvasSemanticMutations` can
+      // never bring the screen-only undo back (`undoGestureRouting.blanketFlip.spec`).
+      if (isUndoRedoGesture(event.key, cmdOrCtrl)) {
         event.preventDefault()
         if (!event.repeat) {
           void runCanvasUndo(event.shiftKey || event.key.toLowerCase() === 'y' ? 'redo' : 'undo')
-        }
-        return
-      }
-
-      // Answer the recovery gesture rather than swallowing it while undo is
-      // not connected. The day `canvasUndoRedo` becomes `'server_graph'` this
-      // branch stops firing on its own and the saved-change undo above takes
-      // over — no second place to remember to update.
-      if (!undoRedoConnected && isUndoRedoGesture(event.key, cmdOrCtrl)) {
-        event.preventDefault()
-        if (!event.repeat && Date.now() - lastUndoNoticeAtRef.current > UNDO_NOTICE_QUIET_MS) {
-          lastUndoNoticeAtRef.current = Date.now()
-          showCanvasUndoUnavailableNotice()
         }
         return
       }

@@ -1,20 +1,14 @@
 /**
- * The undo GESTURE must be answered, never swallowed.
+ * The undo GESTURE must be answered, never swallowed — and since Undo S5 it is answered by the SAVED-CHANGE command.
  *
- * `canvasSemanticMutations` is `'disabled'`, so ⌘Z/⌘⇧Z/⌘Y are permanently
- * inert on the canvas while Delete/Backspace is not. Measured on the deployed
- * build `daf6537a`: pressing ⌘Z with `store.canUndo() === true` changed no
- * state and produced no message at all.
+ * Before S4 the canvas had no undo, and ⌘Z/⌘⇧Z/⌘Y were answered with a notice naming Version history. S5 (DL #75
+ * 5912949238) removed the temporary `canvasUndoRedo` key: every gesture now runs `runCanvasUndo`, which answers guests,
+ * in-flight edits, "nothing to undo" and a stale head itself (`undo/__tests__/undoCommand.spec.ts`).
  *
- * ⚠ EVERY CASE HERE HAS ITS OPPOSITE-DIRECTION TWIN, deliberately. The two
- * harms this guard sits between cannot share one window:
- *   · too NARROW — the gesture stays silent (the defect being fixed);
- *   · too WIDE  — the canvas starts answering keys that are not the gesture,
- *     or answers them while the user is typing, or keeps announcing
- *     "unavailable" after undo becomes available.
- * A corpus pointing only in the first direction would go green on a fix that
- * opened the second, which is how this estate has previously traded one
- * silent failure for another.
+ * ⚠ EVERY CASE HERE HAS ITS OPPOSITE-DIRECTION TWIN, deliberately. The two harms this guard sits between:
+ *   · too NARROW — the gesture stays silent or never reaches the command;
+ *   · too WIDE  — the canvas answers keys that are not the gesture, or answers them while the user is typing (a
+ *     field's own undo must never restore the saved model).
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -22,32 +16,13 @@ import { renderHook } from '@testing-library/react'
 import {
   useKeyboardShortcuts,
   isUndoRedoGesture,
-  CANVAS_UNDO_LOCAL_ONLY_NOTICE,
 } from '../useKeyboardShortcuts'
 import {
   __resetPersistenceSessionForTests,
 } from '../../lib/persistenceSession'
 import { useCanvasStore } from '../store'
 
-/**
- * Spread the original module rather than hand-listing its exports: a
- * `vi.mock` factory REPLACES the module, and a hand-maintained allowlist of
- * exports goes stale silently (the estate's dominant defect class).
- */
-const authorityValue = { current: 'disabled' as string }
-vi.mock('../mutations/mutationAuthority', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../mutations/mutationAuthority')>()
-  return {
-    ...actual,
-    // The undo gesture answers to its OWN key since Undo S4 (`canvasUndoRedo`),
-    // never the blanket `canvasSemanticMutations`.
-    get CANONICAL_EDIT_AUTHORITY() {
-      return { ...actual.CANONICAL_EDIT_AUTHORITY, canvasUndoRedo: authorityValue.current }
-    },
-  }
-})
-// When the authority IS granted the gesture runs the saved-change command; this
-// file pins only the notice, so the command is inert here.
+// The command is mocked: this file pins that the GESTURE reaches it, in the right direction, exactly once.
 const runCanvasUndo = vi.fn(async () => 'done')
 vi.mock('../undo/undoCommand', () => ({ runCanvasUndo: (...a: unknown[]) => runCanvasUndo(...(a as [])) }))
 
@@ -64,150 +39,110 @@ function captureToasts(): { messages: string[]; dispose: () => void } {
 
 /** jsdom reports a non-Mac platform, so cmdOrCtrl resolves to ctrlKey. */
 function press(key: string, init: KeyboardEventInit = {}, target?: Element) {
-  const event = new KeyboardEvent('keydown', { key, bubbles: true, ...init })
+  const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init })
   if (target) Object.defineProperty(event, 'target', { value: target })
   window.dispatchEvent(event)
+  return event
 }
 
-describe('undo gesture is answered, not swallowed', () => {
+describe('undo gesture reaches the saved-change command (Undo S5)', () => {
   let toasts: ReturnType<typeof captureToasts>
 
   beforeEach(() => {
-    authorityValue.current = 'disabled'
-    // ⚠ PIN THIS FILE'S OWN PRECONDITION rather than inheriting a default.
-    // Every case below expects the LOCAL-ONLY notice, which is only correct
-    // for a reader with no server identity and no addressable scenario. Left
-    // implicit, these assertions would flip silently the day a default moves —
-    // a guard that agrees with itself. Which sentence each reader class gets is
-    // pinned separately in `undoNoticeReaderClass.spec.ts`.
+    runCanvasUndo.mockClear()
     __resetPersistenceSessionForTests()
     useCanvasStore.setState({ currentScenarioId: null })
     toasts = captureToasts()
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-08-29T12:00:00Z'))
   })
 
   afterEach(() => {
     toasts.dispose()
-    vi.useRealTimers()
     __resetPersistenceSessionForTests()
   })
 
-  // ── direction 1: the gesture must be ANSWERED ────────────────────────────
+  // ── direction 1: the gesture must REACH the command ─────────────────────
 
-  it('⌘Z emits the notice, bound to the exported copy by identity', () => {
+  it('⌘Z runs undo, and the browser default is prevented', () => {
     renderHook(() => useKeyboardShortcuts())
-    press('z', { ctrlKey: true })
-    // Identity, not a substring predicate another message could satisfy.
-    expect(toasts.messages).toEqual([CANVAS_UNDO_LOCAL_ONLY_NOTICE])
+    const e = press('z', { ctrlKey: true })
+    expect(runCanvasUndo.mock.calls).toEqual([['undo']])
+    expect(e.defaultPrevented).toBe(true)
   })
 
-  it('the notice names Version history — the recovery that actually exists', () => {
-    // Pins the ROUTE, so a future edit cannot quietly reduce this to a bare
-    // "not available" dead end. `ServerVersionsSection` renders under this name.
-    //
-    // ⚠ THE CASES IN THIS FILE ALL RUN AS THE DEFAULT READER — guest, no
-    // scenario id — which is why they expect the LOCAL-ONLY notice. Which
-    // sentence each reader class gets is pinned in
-    // `undoNoticeReaderClass.spec.ts`; this file pins that the gesture is
-    // ANSWERED at all, and stays deliberately about that one question.
-    expect(CANVAS_UNDO_LOCAL_ONLY_NOTICE).toContain('Version history')
-  })
-
-  it('⌘⇧Z (redo) is answered too', () => {
+  it('⌘⇧Z runs redo', () => {
     renderHook(() => useKeyboardShortcuts())
     press('z', { ctrlKey: true, shiftKey: true })
-    expect(toasts.messages).toEqual([CANVAS_UNDO_LOCAL_ONLY_NOTICE])
+    expect(runCanvasUndo.mock.calls).toEqual([['redo']])
   })
 
-  it('⌘Y (redo, Windows idiom) is answered too', () => {
+  it('⌘Y (redo, Windows idiom) runs redo', () => {
     renderHook(() => useKeyboardShortcuts())
     press('y', { ctrlKey: true })
-    expect(toasts.messages).toEqual([CANVAS_UNDO_LOCAL_ONLY_NOTICE])
+    expect(runCanvasUndo.mock.calls).toEqual([['redo']])
   })
 
-  it('uppercase Z (⌘⇧Z on some layouts) is answered', () => {
+  it('uppercase Z (⌘⇧Z on some layouts) runs redo', () => {
     renderHook(() => useKeyboardShortcuts())
     press('Z', { ctrlKey: true, shiftKey: true })
-    expect(toasts.messages).toEqual([CANVAS_UNDO_LOCAL_ONLY_NOTICE])
+    expect(runCanvasUndo.mock.calls).toEqual([['redo']])
+  })
+
+  it('the retired "not available" notice never fires from the gesture any more', () => {
+    renderHook(() => useKeyboardShortcuts())
+    press('z', { ctrlKey: true })
+    expect(toasts.messages).toEqual([])
   })
 
   // ── direction 2: the OPPOSITE-DIRECTION TWINS ────────────────────────────
 
-  it('TWIN: a bare z is NOT the gesture and must stay silent', () => {
+  it('TWIN: a bare z is NOT the gesture', () => {
     renderHook(() => useKeyboardShortcuts())
     press('z')
-    expect(toasts.messages).toEqual([])
+    expect(runCanvasUndo).not.toHaveBeenCalled()
   })
 
-  it('TWIN: a bare y must stay silent', () => {
+  it('TWIN: a bare y is NOT the gesture', () => {
     renderHook(() => useKeyboardShortcuts())
     press('y')
-    expect(toasts.messages).toEqual([])
+    expect(runCanvasUndo).not.toHaveBeenCalled()
   })
 
-  it('TWIN: ⌘Z while typing in a textarea must stay silent', () => {
+  it('TWIN: ⌘Z while typing in a textarea is the FIELD\'s undo, never a saved restore', () => {
     renderHook(() => useKeyboardShortcuts())
     const textarea = document.createElement('textarea')
     document.body.appendChild(textarea)
     press('z', { ctrlKey: true }, textarea)
-    expect(toasts.messages).toEqual([])
+    expect(runCanvasUndo).not.toHaveBeenCalled()
     document.body.removeChild(textarea)
   })
 
-  it('TWIN: ⌘Z while typing in an input must stay silent', () => {
+  it('TWIN: ⌘Z while typing in an input is the FIELD\'s undo, never a saved restore', () => {
     renderHook(() => useKeyboardShortcuts())
     const input = document.createElement('input')
     document.body.appendChild(input)
     press('z', { ctrlKey: true }, input)
-    expect(toasts.messages).toEqual([])
+    expect(runCanvasUndo).not.toHaveBeenCalled()
     document.body.removeChild(input)
   })
 
-  it('TWIN: an unrelated modified key (⌘S) must not emit the notice', () => {
+  it('TWIN: an unrelated modified key (⌘S) does not run undo', () => {
     renderHook(() => useKeyboardShortcuts())
     press('s', { ctrlKey: true })
-    expect(toasts.messages).toEqual([])
+    expect(runCanvasUndo).not.toHaveBeenCalled()
   })
 
-  it('TWIN: Delete must not emit the undo notice', () => {
+  it('TWIN: Delete does not run undo', () => {
     renderHook(() => useKeyboardShortcuts())
     press('Delete')
-    expect(toasts.messages).toEqual([])
+    expect(runCanvasUndo).not.toHaveBeenCalled()
   })
 
-  it('TWIN: when the authority IS granted, the notice must NOT fire', () => {
-    // The guard must retire itself rather than needing a second edit. This is
-    // the case that fails if someone "simplifies" the gate away.
-    authorityValue.current = 'server_graph'
-    renderHook(() => useKeyboardShortcuts())
-    press('z', { ctrlKey: true })
-    expect(toasts.messages).toEqual([])
-    // …and the gesture reached the saved-change command instead.
-    expect(runCanvasUndo).toHaveBeenCalledWith('undo')
-  })
-
-  it('TWIN: a held ⌘Z (event.repeat) does not stack notices', () => {
+  it('TWIN: a held ⌘Z (event.repeat) restores ONCE, never a burst of restores', () => {
     renderHook(() => useKeyboardShortcuts())
     press('z', { ctrlKey: true })
     press('z', { ctrlKey: true, repeat: true })
     press('z', { ctrlKey: true, repeat: true })
-    expect(toasts.messages).toEqual([CANVAS_UNDO_LOCAL_ONLY_NOTICE])
-  })
-
-  it('TWIN: a second press inside the quiet window is suppressed, and a later one is not', () => {
-    renderHook(() => useKeyboardShortcuts())
-    press('z', { ctrlKey: true })
-    vi.setSystemTime(new Date('2026-08-29T12:00:01Z')) // 1s — inside the window
-    press('z', { ctrlKey: true })
-    expect(toasts.messages).toEqual([CANVAS_UNDO_LOCAL_ONLY_NOTICE])
-
-    vi.setSystemTime(new Date('2026-08-29T12:00:10Z')) // 10s — outside it
-    press('z', { ctrlKey: true })
-    expect(toasts.messages).toEqual([
-      CANVAS_UNDO_LOCAL_ONLY_NOTICE,
-      CANVAS_UNDO_LOCAL_ONLY_NOTICE,
-    ])
+    expect(runCanvasUndo.mock.calls).toEqual([['undo']])
   })
 })
 

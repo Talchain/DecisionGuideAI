@@ -24,6 +24,7 @@ vi.mock('../../hydrate/serverGraphHydration', async (importOriginal) => ({
 }))
 
 import { useCanvasStore } from '../../store'
+import { setPersistenceSessionActive } from '../../../lib/persistenceSession'
 import { mapDraftNodeToCanvas } from '../../utils/applyDraftResult'
 import { useUndoJournalStore } from '../captureUndoReceipt'
 import { EMPTY_UNDO_JOURNAL, recordBarrier, recordEditReceipt, type UndoJournalState } from '../undoJournal'
@@ -79,6 +80,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   toasts.length = 0
   identity.userId = 'u-1'
+  setPersistenceSessionActive(true)
   hydrateCanvasFromServer.mockResolvedValue('merged')
   useUndoJournalStore.setState({ journal: journalWithAdd() })
   seedCanvasWithOption()
@@ -155,9 +157,23 @@ describe('stale means refuse, never merge', () => {
 describe('refusals that never call the server', () => {
   it('a guest (no signed-in user) is told why; nothing is sent', async () => {
     identity.userId = null
+    setPersistenceSessionActive(false)
     await expect(runCanvasUndo('undo')).resolves.toBe('sign_in_required')
     expect(restoreModelVersion).not.toHaveBeenCalled()
     expect(toasts).toContain(UNDO_NOTICE.signInRequired)
+  })
+
+  it('S5: a guest who just edited (EMPTY journal — versions are owned-only) is told to sign in, never "Nothing to undo."', async () => {
+    setPersistenceSessionActive(false)
+    useUndoJournalStore.setState({ journal: EMPTY_UNDO_JOURNAL })
+    await expect(runCanvasUndo('undo')).resolves.toBe('sign_in_required')
+    expect(toasts).toEqual([UNDO_NOTICE.signInRequired])
+  })
+
+  it('S5: signed in on a model that is not saved is told so — not asked to sign in again', async () => {
+    useCanvasStore.setState({ currentScenarioId: 'local-scratch-graph' } as never)
+    await expect(runCanvasUndo('undo')).resolves.toBe('sign_in_required')
+    expect(toasts).toEqual([UNDO_NOTICE.notSaved])
   })
 
   it('nothing to undo says so', async () => {

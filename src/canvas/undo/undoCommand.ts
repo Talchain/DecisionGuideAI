@@ -21,7 +21,8 @@
 import { useCanvasStore } from '../store'
 import { restoreModelVersion } from '../../adapters/cee/modelVersions'
 import { getSessionIdentity } from '../../lib/supabase'
-import { isCeeAddressableScenarioId } from '../hydrate/bootGraphRead'
+import { canRestoreSharedVersions } from '../versions/sharedVersionsAvailability'
+import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { editDeliveryHold } from '../registration/editDeliveryHold'
 import { applyRestoredGraph, settleRestoredModel } from '../versions/applyRestoredModel'
 import { newRestoreMutationId } from '../versions/restoreMutationId'
@@ -53,6 +54,7 @@ export const UNDO_NOTICE = {
   barrier: "The last change can't be undone here. Version history can restore an earlier version.",
   busy: 'A change is still being saved. Try again in a moment.',
   signInRequired: 'Undo needs a saved model. Sign in to keep versions of this model.',
+  notSaved: "Undo works on a saved model, and this one isn't saved yet.",
   stale:
     "The model changed since your last edit, so Undo can't step back safely. Version history can restore an earlier version.",
   failed: "That couldn't be undone right now. Nothing was changed.",
@@ -85,8 +87,14 @@ const RETRYABLE: ReadonlySet<RestoreResult['status']> = new Set(['unavailable', 
 
 export async function runCanvasUndo(direction: UndoDirection): Promise<UndoCommandOutcome> {
   const scenarioId = useCanvasStore.getState().currentScenarioId
-  if (!isCeeAddressableScenarioId(scenarioId)) {
-    notify(UNDO_NOTICE.signInRequired)
+  // ⭐ THE READER CLASS FIRST, before the journal (Undo S5). A guest's journal is always empty — versions are
+  // owned-only (MV001), so no receipt is ever captured — and "Nothing to undo." after a guest's own edit would be
+  // untrue. The SAME predicate `ServerVersionsSection` gates its Restore on (`canRestoreSharedVersions`), so undo
+  // and Version history can never disagree about who may restore.
+  const signedIn = isPersistenceSessionActive()
+  // (`scenarioId === null` is already refused by the predicate; stated here so the type narrows below.)
+  if (scenarioId === null || !canRestoreSharedVersions({ signedIn, scenarioId })) {
+    notify(signedIn ? UNDO_NOTICE.notSaved : UNDO_NOTICE.signInRequired)
     return 'sign_in_required'
   }
   if (isCanvasUndoBusy()) {

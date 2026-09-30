@@ -56,6 +56,7 @@ import {
   __resetPersistenceSessionForTests,
 } from '../../lib/persistenceSession'
 import { useCanvasStore } from '../store'
+import { UNDO_NOTICE } from '../undo/undoCommand'
 
 /**
  * Spread the original rather than hand-listing exports: a `vi.mock` factory
@@ -119,37 +120,45 @@ describe('the undo notice is true for the reader who receives it', () => {
 
   // ── direction 1: DO NOT PROMISE A RESTORE THAT DOES NOT EXIST ─────────────
 
-  it('GUEST, no scenario: the emitted notice is the local-only one, by identity', () => {
+  // ⚠ RE-PINNED at Undo S5 (30 Sep 2026): ⌘Z now runs the saved-change command, and the COMMAND answers per reader
+  // class through the SAME predicate Version history gates Restore on (`canRestoreSharedVersions`). The doctrine is
+  // unchanged — the sentence must be true for the reader — only the sentences moved.
+
+  it('GUEST, no scenario: told to sign in, by identity', async () => {
     asReader({ signedIn: false, scenarioId: null })
     renderHook(() => useKeyboardShortcuts())
     pressUndo()
+    await vi.runAllTimersAsync()
     // Identity, not a substring another message could satisfy.
-    expect(toasts.messages).toEqual([CANVAS_UNDO_LOCAL_ONLY_NOTICE])
+    expect(toasts.messages).toEqual([UNDO_NOTICE.signInRequired])
   })
 
-  it('GUEST with an addressable scenario still gets the local-only notice', () => {
+  it('GUEST with an addressable scenario is still told to sign in — never "Nothing to undo."', async () => {
     // The scenario being addressable is NOT enough: `ServerVersionsSection`
     // renders the sign-in invitation, not a Restore button, without an identity.
     asReader({ signedIn: false, scenarioId: ADDRESSABLE_SCENARIO_ID })
     renderHook(() => useKeyboardShortcuts())
     pressUndo()
-    expect(toasts.messages).toEqual([CANVAS_UNDO_LOCAL_ONLY_NOTICE])
+    await vi.runAllTimersAsync()
+    expect(toasts.messages).toEqual([UNDO_NOTICE.signInRequired])
   })
 
-  it('SIGNED IN but the scenario is not server-addressable: local-only notice', () => {
+  it('SIGNED IN but the scenario is not server-addressable: told the model is not saved (not asked to sign in)', async () => {
     // The other half of the same gate. `ServerVersionsSection` returns null
     // outright when the id is not a uuid, so there is no restore on screen.
     asReader({ signedIn: true, scenarioId: 'local-scratch-graph' })
     renderHook(() => useKeyboardShortcuts())
     pressUndo()
-    expect(toasts.messages).toEqual([CANVAS_UNDO_LOCAL_ONLY_NOTICE])
+    await vi.runAllTimersAsync()
+    expect(toasts.messages).toEqual([UNDO_NOTICE.notSaved])
   })
 
-  it('SIGNED IN with no scenario id at all: local-only notice', () => {
+  it('SIGNED IN with no scenario id at all: told the model is not saved', async () => {
     asReader({ signedIn: true, scenarioId: null })
     renderHook(() => useKeyboardShortcuts())
     pressUndo()
-    expect(toasts.messages).toEqual([CANVAS_UNDO_LOCAL_ONLY_NOTICE])
+    await vi.runAllTimersAsync()
+    expect(toasts.messages).toEqual([UNDO_NOTICE.notSaved])
   })
 
   it('the local-only notice does NOT promise a restore', () => {
@@ -163,14 +172,14 @@ describe('the undo notice is true for the reader who receives it', () => {
 
   // ── direction 2: THE TWIN — DO NOT HIDE A CAPABILITY THAT DOES EXIST ──────
 
-  it('TWIN: SIGNED IN with an addressable scenario IS pointed at the shared list', () => {
-    // Mandatory counterpart. Leaving this reader with the local-only sentence
-    // would tell them their model's shared versions do not exist — trading the
-    // false promise for a hidden surface, the same defect pointing the other way.
+  it('TWIN: SIGNED IN with an addressable scenario reaches the journal — neither refusal sentence', async () => {
+    // Mandatory counterpart: this reader CAN undo, so neither "sign in" nor "not saved" may reach them. With nothing
+    // journalled the true answer is "Nothing to undo."; with a step, the restore runs (`undoCommand.spec.ts`).
     asReader({ signedIn: true, scenarioId: ADDRESSABLE_SCENARIO_ID })
     renderHook(() => useKeyboardShortcuts())
     pressUndo()
-    expect(toasts.messages).toEqual([CANVAS_UNDO_SHARED_VERSIONS_NOTICE])
+    await vi.runAllTimersAsync()
+    expect(toasts.messages).toEqual([UNDO_NOTICE.nothingToUndo])
   })
 
   it('TWIN: the shared reader is pointed at the shared list, and the two notices differ', () => {

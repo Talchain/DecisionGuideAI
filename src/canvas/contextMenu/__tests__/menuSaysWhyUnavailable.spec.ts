@@ -174,13 +174,16 @@ beforeEach(() => {
 describe('the removed gestures are surfaced with a reason, not deleted', () => {
   // A20 (25 Sep 2026): `paste` left this list — it is hidden entirely now,
   // not surfaced disabled-with-a-reason. See `useMenuItems.A20.noDeadClipboard.spec.ts`.
-  it.each(['undo', 'redo'])('pane menu shows %s as present-but-disabled', id => {
+  // ⚠ RE-PINNED at Undo S5 (30 Sep 2026): undo/redo were present-but-disabled with a Version-history reason. They are
+  // SAVED changes now (a version restore, `undo/undoCommand.ts`), so the rows are present AND enabled, and the
+  // command answers its own refusals (guest, in-flight edit, nothing to undo, stale head).
+  it.each(['undo', 'redo'])('pane menu shows %s as present and ENABLED (the saved-change command)', id => {
     const menu = items(PANE)
     expectMenuRendered(menu, 'ask-ai-pane')
     const item = findItem(menu, id)
     expect(item, `${id} was deleted from the pane menu`).toBeDefined()
-    expect(item!.enabled).toBe(false)
-    expect(item!.disabledReason).toBeTruthy()
+    expect(item!.enabled).toBe(true)
+    expect(item!.disabledReason).toBeFalsy()
   })
 
   /**
@@ -211,17 +214,14 @@ describe('the removed gestures are surfaced with a reason, not deleted', () => {
     expect(findItem(menu, 'duplicate'), 'duplicate must be menu-only').toBeUndefined()
   })
 
-  it('undo/redo do NOT claim the structural notice — they point at Version history', () => {
-    // ⭐ THE HONESTY SPLIT, and the reason this is not one constant. ⌘Z is
-    // already answered by `canvasUndoUnavailableNotice()` (#954), which names
-    // Version history. If the menu row said "ask Olumi" instead, the key and
-    // the menu would answer the same question two different ways — the estate's
-    // signature defect (one name, two questions).
+  it('undo/redo do NOT claim the structural notice — they run the same command ⌘Z runs', () => {
+    // ⭐ THE HONESTY SPLIT survives S5 in its new form: the key and the menu share `runCanvasUndo`, so they cannot
+    // answer one question two ways. Neither row carries the structural "ask Olumi" sentence.
     const menu = items(PANE)
     expectMenuRendered(menu, 'ask-ai-pane')
     for (const id of ['undo', 'redo']) {
       expect(findItem(menu, id)!.tooltip).not.toBe(CANVAS_STRUCTURAL_EDIT_NOTICE)
-      expect(findItem(menu, id)!.tooltip).toContain('Version history')
+      expect(findItem(menu, id)!.enabled).toBe(true)
     }
   })
 
@@ -406,8 +406,10 @@ describe('menu density — the measurement that chose the policy', () => {
     // entirely — it is hidden structurally now, not authority-gated — so both
     // policies lost the same always-present row: rows 7 -> 6, inert 3 -> 2,
     // pct round(2/6*100) = 33. The tie is unchanged; only the tied value moved.
-    expect(a).toEqual({ rows: 6, inert: 2, pct: 33 })
-    expect(shipped).toEqual({ rows: 6, inert: 2, pct: 33 })
+    // ⚠ RE-PINNED 30 Sep 2026 (Undo S5): undo/redo have a server writer now, so neither policy disables them:
+    // inert 2 -> 0 on both sides. The tie is unchanged; only the tied value moved.
+    expect(a).toEqual({ rows: 6, inert: 0, pct: 0 })
+    expect(shipped).toEqual({ rows: 6, inert: 0, pct: 0 })
     expect(shipped).toEqual(a) // the tie, asserted as a relation rather than twice by value
   })
 

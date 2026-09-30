@@ -27,7 +27,6 @@ import {
   CANVAS_STRUCTURAL_EDIT_SHORT_REASON,
 } from '../mutations/mutationAuthority'
 import { WIRE_ADDABLE_NODE_KINDS } from '../mutations/structuralAdd'
-import { canvasUndoUnavailableNotice } from '../useKeyboardShortcuts'
 import { runCanvasUndo } from '../undo/undoCommand'
 import {
   deleteAction,
@@ -234,8 +233,8 @@ const CONNECTED_NODE_ADD_MENU_IDS: ReadonlySet<string> = new Set<string>([
  * left present and inert. See `useMenuItems.A20.noDeadClipboard.spec.ts`.
  */
 export const LOCAL_SEMANTIC_CONTEXT_MENU_IDS = new Set([
-  'undo',
-  'redo',
+  // ⚠ `undo` / `redo` LEFT THIS SET at Undo S5 (30 Sep 2026): they have a SERVER writer now — CEE's version restore
+  // (`undo/undoCommand.ts`) — and are judged above, like the connected adds, never by the blanket key.
   'set-value',
   // ⚠ `add-connected-factor` / `-outcome` / `-risk` LEFT THIS SET ON 18 Sep 2026.
   // They are judged by `CONNECTED_NODE_ADD_MENU_IDS` above, against the two
@@ -279,8 +278,9 @@ function menuIdIsAuthorised(id: string, connected: boolean): boolean {
   }
   if (id === 'undo' || id === 'redo') {
     // Canvas Undo/Redo is a SAVED change with its own carrier (a version
-    // restore, `undo/undoCommand.ts`) and its own key — never the blanket one.
-    return hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasUndoRedo)
+    // restore, `undo/undoCommand.ts`) that answers every refusal itself — never
+    // the blanket key, and no key at all since Undo S5.
+    return true
   }
   if (LOCAL_SEMANTIC_CONTEXT_MENU_IDS.has(id)) {
     // ⭐ THE INJECTED VALUE DRIVES THE PER-ID JUDGEMENT, and that is the whole
@@ -333,8 +333,7 @@ function menuIdIsAuthorised(id: string, connected: boolean): boolean {
  * rows of grey.
  */
 export const KEYBOARD_REACHABLE_SEMANTIC_IDS = new Set([
-  'undo',
-  'redo',
+  // (`undo` / `redo` left with LOCAL_SEMANTIC_CONTEXT_MENU_IDS at Undo S5: they are never unavailable now.)
   'cut',
   // ⛔ `duplicate` REMOVED 13 Sep 2026 — it FAILED BOTH CLAUSES of this set's own
   // stated criterion, and the contradiction was already written down fifteen
@@ -365,18 +364,10 @@ export const KEYBOARD_REACHABLE_SEMANTIC_IDS = new Set([
 export const STRUCTURAL_EDITS_NOTE_ID = 'structural-edits-note'
 
 /**
- * Which sentence is TRUE for this row.
- *
- * ⚠ UNDO/REDO ARE NOT STRUCTURAL EDITS AND MUST NOT CLAIM THE STRUCTURAL
- * SENTENCE. ⌘Z is already answered by `canvasUndoUnavailableNotice()`, which
- * names Version history. If this row said "ask Olumi" the key and the menu
- * would answer one question two different ways — the estate's signature defect.
- * Reading the same function the key reads is what keeps them from disagreeing.
+ * Which sentence is TRUE for this row. (Undo/redo never reach here since Undo S5: they run the saved-change command,
+ * which answers its own refusals — the menu and ⌘Z share `runCanvasUndo`, so they cannot disagree.)
  */
-function unavailableReason(id: string): { tooltip: string; disabledReason: string } {
-  if (id === 'undo' || id === 'redo') {
-    return { tooltip: canvasUndoUnavailableNotice(), disabledReason: 'not available here' }
-  }
+function unavailableReason(_id: string): { tooltip: string; disabledReason: string } {
   return {
     tooltip: CANVAS_STRUCTURAL_EDIT_NOTICE,
     disabledReason: CANVAS_STRUCTURAL_EDIT_SHORT_REASON,
