@@ -102,6 +102,8 @@ const ParticipantPacketPage = lazyWithStallBound(() => import('../pages/Particip
 const PanelSetupPage = lazyWithStallBound(() => import('../pages/PanelSetupPage'), 'Panel setup')
 const LoginPage = lazyWithStallBound(() => import('../components/auth/LoginPage'), 'The sign-in page')
 const AuthCallback = lazyWithStallBound(() => import('../components/auth/AuthCallback'), 'Sign-in')
+// ACCOUNTS (30 Sep 2026): the invite landing — verify the invite token, set a password.
+const AcceptInvitePage = lazyWithStallBound(() => import('../components/auth/AcceptInvitePage'), 'Your invitation')
 // ⚠ A LAYOUT ROUTE: a stall here blocks EVERY guarded route at once, so it needs
 // the bound at least as much as the leaf pages it wraps.
 const AuthGuard = lazyWithStallBound(() => import('../components/auth/AuthGuard'), 'The workspace')
@@ -957,6 +959,9 @@ export default function AppPoC() {
                 {/* Public routes */}
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
+                {/* ACCOUNTS — the invite landing. OUTSIDE AuthGuard: an invited
+                    tester arrives with a token, not a session. */}
+                <Route path="/accept-invite" element={<AcceptInvitePage />} />
                 <Route path="/brief/:slug" element={<SharedBriefPage />} />
                 {/* COLLAB — the participant's panel page. OUTSIDE AuthGuard,
                     DELIBERATELY: a participant holds no Supabase session, and
