@@ -316,7 +316,7 @@ describe('⭐ DEFECT 4 — the legend describes the marks actually drawn', () =>
   it('⚠ each mark really does name itself on hover, and is NOT keyboard-reachable', () => {
     render(
       <ModelRowView
-        row={row({ id: 'f9', attention: ['fragile', 'contested'] })}
+        row={row({ id: 'f9', attention: ['fragile', 'unconfirmed-estimate'] })}
         tier="plain"
       />,
     )
@@ -328,10 +328,8 @@ describe('⭐ DEFECT 4 — the legend describes the marks actually drawn', () =>
     // promise focus.
     expect(fragile).not.toHaveAttribute('tabIndex')
 
-    // ⭐ 30 Sep 2026: `unconfirmed-estimate` is no longer drawn (the row's text says it); the
-    // second drawn mark is `contested`.
-    const contested = screen.getByTestId('model-row-v2-f9-attention-contested')
-    expect(contested).toHaveAttribute('title', ATTENTION_LABEL.contested)
+    const unconfirmed = screen.getByTestId('model-row-v2-f9-attention-unconfirmed-estimate')
+    expect(unconfirmed).toHaveAttribute('title', ATTENTION_LABEL['unconfirmed-estimate'])
   })
 })
 

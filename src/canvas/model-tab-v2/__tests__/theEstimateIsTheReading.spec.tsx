@@ -45,12 +45,32 @@ describe("the row says whose number it is (condition 1)", () => {
   })
 
   it.each([undefined, 'system_default', 'a_stamp_from_the_future'])(
-    'source %s → "Not set" and the placeholder sentence, never "Olumi: <band>"',
+    'source %s → "Not set" beside "Placeholder: <value>", never "Olumi: <band>"',
     (source) => {
       render(<ModelRowView row={factor({ estimateText: 'Very high (0.8)', provenanceSource: source })} tier="plain" onBeginEdit={() => {}} />)
       const cell = screen.getByTestId('model-row-v2-f1-value')
-      expect(cell.textContent).toBe(`Not set${PLACEHOLDER_ESTIMATE_COPY}`)
-      expect(cell.textContent).not.toContain('Very high')
+      expect(cell.textContent).toBe(`Not set${PLACEHOLDER_ESTIMATE_COPY.row('Very high (0.8)')}`)
+      expect(cell.textContent).toBe('Not setPlaceholder: Very high')
+      expect(cell.textContent).not.toContain('Olumi:')
     },
   )
+})
+
+describe('marks that restate the row text are hidden from sight, not from a screen reader', () => {
+  it('no-value and unconfirmed-estimate: in the document with their names, sr-only; contested and fragile: drawn', () => {
+    render(
+      <ModelRowView
+        row={factor({ attention: ['no-value', 'unconfirmed-estimate', 'contested', 'fragile'] })}
+        tier="plain"
+      />,
+    )
+    for (const reason of ['no-value', 'unconfirmed-estimate']) {
+      const mark = screen.getByTestId(`model-row-v2-f1-attention-${reason}`)
+      expect(mark.className, reason).toMatch(/\bsr-only\b/)
+      expect(mark.getAttribute('aria-label'), reason).toBeTruthy()
+    }
+    for (const reason of ['contested', 'fragile']) {
+      expect(screen.getByTestId(`model-row-v2-f1-attention-${reason}`).className, reason).not.toMatch(/\bsr-only\b/)
+    }
+  })
 })

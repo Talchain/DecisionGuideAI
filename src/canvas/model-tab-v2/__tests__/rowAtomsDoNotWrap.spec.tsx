@@ -234,10 +234,8 @@ describe('a value never breaks from its own unit', () => {
 
 describe('the atoms that must hold their size', () => {
   it('the attention marker never shrinks', () => {
-    // ⭐ 30 Sep 2026: `unconfirmed-estimate` is no longer DRAWN (the row's text says it), so the
-    // size rule is held on a marker that still draws.
-    render(<ModelRowView row={row({ id: 'f1', attention: ['fragile'] })} tier="plain" />)
-    expect(cls('model-row-v2-f1-attention-fragile')).toMatch(/\bshrink-0\b/)
+    render(<ModelRowView row={row({ id: 'f1', attention: ['unconfirmed-estimate'] })} tier="plain" />)
+    expect(cls('model-row-v2-f1-attention-unconfirmed-estimate')).toMatch(/\bshrink-0\b/)
   })
 
   it('Confirm never shrinks and never wraps — a truncated affordance is a fake one', () => {

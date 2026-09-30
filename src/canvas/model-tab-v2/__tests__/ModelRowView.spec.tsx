@@ -195,18 +195,14 @@ describe('ModelRowView — attention markers match the row exactly', () => {
     render(
       <>
         <ModelRowView
-          row={row({ id: 'f1', attention: ['contested', 'fragile', 'no-value', 'unconfirmed-estimate'] })}
+          row={row({ id: 'f1', attention: ['no-value', 'unconfirmed-estimate'] })}
           tier="plain"
         />
         <ModelRowView row={row({ id: 'f2', attention: [] })} tier="plain" />
       </>,
     )
-    expect(screen.getByTestId('model-row-v2-f1-attention-contested')).toBeInTheDocument()
-    expect(screen.getByTestId('model-row-v2-f1-attention-fragile')).toBeInTheDocument()
-    // ⭐ 30 Sep 2026: these two restate the row's own text ("Not set", "Olumi: …", "Confirm"),
-    // so they are not drawn. The data still carries them.
-    expect(screen.queryByTestId('model-row-v2-f1-attention-no-value')).toBeNull()
-    expect(screen.queryByTestId('model-row-v2-f1-attention-unconfirmed-estimate')).toBeNull()
+    expect(screen.getByTestId('model-row-v2-f1-attention-no-value')).toBeInTheDocument()
+    expect(screen.getByTestId('model-row-v2-f1-attention-unconfirmed-estimate')).toBeInTheDocument()
     // The clean row must not inherit its neighbour's markers.
     expect(screen.queryByTestId('model-row-v2-f2-attention-no-value')).toBeNull()
   })

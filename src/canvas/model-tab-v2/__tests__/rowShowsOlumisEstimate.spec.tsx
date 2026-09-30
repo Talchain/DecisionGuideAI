@@ -123,8 +123,11 @@ describe('the row shows what Olumi computed for a value nobody has set', () => {
     // The affordance still states the row is not set …
     expect(control.textContent).toContain('Not set')
     // … and Olumi's text is a SEPARATE element beside it, not a substitute.
+    // ⭐ 30 Sep 2026 (AIQ #75 5917333759 condition 1): this live shape carries NO source stamp, so
+    // the value is not attested as Olumi's own estimate and reads "Placeholder: …". It still sits
+    // BESIDE "Not set" and still shows the range, which is what this spec exists to hold.
     expect(screen.getByTestId('model-row-v2-f1-value-estimate').textContent).toBe(
-      `Olumi: ${RANGE}`,
+      `Placeholder: ${RANGE}`,
     )
   })
 
@@ -132,8 +135,11 @@ describe('the row shows what Olumi computed for a value nobody has set', () => {
     const rows = rowsFor([node('f1', 'CRM Feature Fit', undefined, RANGE)])
     render(<ModelOutline rows={rows} tier="plain" />)
     expect(screen.getByTestId('model-row-v2-f1-value').tagName).not.toBe('BUTTON')
+    // ⭐ 30 Sep 2026 (AIQ #75 5917333759 condition 1): this live shape carries NO source stamp, so
+    // the value is not attested as Olumi's own estimate and reads "Placeholder: …". It still sits
+    // BESIDE "Not set" and still shows the range, which is what this spec exists to hold.
     expect(screen.getByTestId('model-row-v2-f1-value-estimate').textContent).toBe(
-      `Olumi: ${RANGE}`,
+      `Placeholder: ${RANGE}`,
     )
     // ⚠ PREMISE UPDATED — and this case is why the heading changed at all.
     // It asserted the heading's "N of M" prefix. Adjudication found this exact

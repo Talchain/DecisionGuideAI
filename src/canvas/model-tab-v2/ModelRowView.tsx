@@ -78,7 +78,14 @@ export function estimateIsOlumis(provenanceSource: string | undefined): boolean 
   return classifyValueProvenance(provenanceSource)?.kind === 'ai'
 }
 
-export const PLACEHOLDER_ESTIMATE_COPY = 'Olumi is using a placeholder'
+/**
+ * Beside "Not set" when the value in use is NOT attested as Olumi's own estimate. The value stays
+ * visible (a computed range the user never sees is the defect `rowShowsOlumisEstimate` fixed).
+ */
+export const PLACEHOLDER_ESTIMATE_COPY = {
+  row: (text: string): string => `Placeholder: ${estimateWords(text)}`,
+  title: (text: string): string => `Olumi is using a placeholder: ${text}`,
+} as const
 import {
   GOAL_LABEL_FROM_BRIEF_COPY,
   GOAL_LABEL_FROM_BRIEF_TESTID,
@@ -1295,10 +1302,11 @@ export function ModelRowView({
             JSX text node, so the rule was real and unenforced here.
       */}
       {/* ⭐ CUT-BACK (Paul, 30 Sep 2026): "no value set" and "unconfirmed estimate" restate what
-          the row already SAYS ("Not set", "Olumi: …", or "Confirm"), so they are not drawn here —
-          three marks for one fact read as noise. They stay in the data: the group header counts
-          them and the filters read them. Contested, could-flip and no-target still draw. */}
-      {row.attention.filter(reason => !ROW_TEXT_SAYS_IT.has(reason)).map(reason => {
+          the row already SAYS ("Not set", "Olumi: …", or "Confirm"), so they are not DRAWN —
+          three marks for one fact read as noise. They stay in the document, visually hidden, so a
+          screen reader still hears "Estimate not yet confirmed" (the only place it is said).
+          Contested, could-flip and no-target still draw. */}
+      {row.attention.map(reason => {
         const Mark = ATTENTION_MARK[reason]
         return (
           <span
@@ -1307,9 +1315,10 @@ export function ModelRowView({
             title={ATTENTION_LABEL[reason]}
             aria-label={ATTENTION_LABEL[reason]}
             role="img"
+            data-visually-hidden={ROW_TEXT_SAYS_IT.has(reason) ? 'true' : undefined}
             className={`shrink-0 ${
               ATTENTION_IS_SEVERE.has(reason) ? 'text-warning' : 'text-text-light'
-            }`}
+            }${ROW_TEXT_SAYS_IT.has(reason) ? ' sr-only' : ''}`}
           >
             <Mark className="w-3.5 h-3.5" aria-hidden="true" />
           </span>
@@ -2630,7 +2639,7 @@ function ValueCell({
         title={
           estimateIsOlumis(row.provenanceSource)
             ? `Olumi's estimate, not yet yours: ${row.estimateText}`
-            : `${PLACEHOLDER_ESTIMATE_COPY}: ${row.estimateText}`
+            : PLACEHOLDER_ESTIMATE_COPY.title(row.estimateText)
         }
         className={`${typography.panelBody} text-text-light truncate min-w-0${
           estimateIsOlumis(row.provenanceSource) ? '' : ' ml-2'
@@ -2638,7 +2647,7 @@ function ValueCell({
       >
         {estimateIsOlumis(row.provenanceSource)
           ? `Olumi: ${estimateWords(row.estimateText)}`
-          : PLACEHOLDER_ESTIMATE_COPY}
+          : PLACEHOLDER_ESTIMATE_COPY.row(row.estimateText)}
       </span>
     ) : display === null && row.recordedRangeText !== undefined ? (
       /*
