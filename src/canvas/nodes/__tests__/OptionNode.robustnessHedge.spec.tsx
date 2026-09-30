@@ -25,6 +25,11 @@
  * ⭐ THE DATA IS NOT THE CLAIM. The win share is still printed on a fragile run
  * — that half of the old suite is kept verbatim.
  *
+ * ⭐ EXCEPT WHEN THE PRODUCER WITHHOLDS THE LEADER — CURRENT-READ row 9 (AIQ
+ * 5912710392): a per-option share names the leader in numbers, so a withheld
+ * run shows `Not ranked` + the reason in the share slot instead. On that run the
+ * same-render contrast control is the marker, not the share.
+ *
  * Binds by IDENTITY (`leading-option-pill-${id}`, `leading-option-robustness-
  * ${id}`), plus the text a user would read — CLAUDE.md trap 19.
  *
@@ -41,6 +46,7 @@ import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 
 import { OptionNode } from '../OptionNode'
+import { NOT_RANKED_MARKER, WITHHELD_REASON_FALLBACK } from '../../state/winShareGate'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -140,10 +146,21 @@ beforeEach(() => {
  * each read from the SAME render as a contrast control that is present: the
  * card's label and its "N% of runs" result row. A blank render cannot pass.
  */
-function expectNoClaimNoGrade(container: HTMLElement) {
+function expectNoClaimNoGrade(container: HTMLElement, contrast: { notRankedReason: string } | 'share' = 'share') {
   // CONTRAST CONTROL FIRST.
   expect(screen.getByText('Hire a Tech Lead')).toBeInTheDocument()
-  expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('53% of runs')
+  if (contrast === 'share') {
+    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('53% of runs')
+  } else {
+    // CURRENT-READ row 9 (AIQ 5912710392): a withheld run's result slot holds `Not ranked` + the reason.
+    const slot = screen.getByTestId(`option-share-slot-${NODE_ID}`)
+    expect(slot.textContent).not.toMatch(/\d\s*%/)
+    expect(slot.getAttribute('class')?.split(/\s+/)).toContain('h-[1lh]')
+    const marker = screen.getByTestId(`option-not-ranked-${NODE_ID}`)
+    expect(slot.contains(marker)).toBe(true)
+    expect(marker).toHaveTextContent(NOT_RANKED_MARKER)
+    expect(marker.getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${contrast.notRankedReason}`)
+  }
   // The claim.
   expect(screen.queryByTestId(PILL)).toBeNull()
   expect(screen.queryByText(/most supported/i)).toBeNull()
@@ -188,12 +205,15 @@ describe('OptionNode — no leader pill and no robustness grade on the card (ED 
     expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('53%')
   })
 
-  it('withheld crown on a fragile run: still neither', () => {
+  it('withheld crown on a fragile run: still neither — and the share is withheld too (CURRENT-READ row 9)', () => {
     const withheld = {
       ...reportWithRobustness({ level: 'very_low' }),
       producer_leader_permission: { permitted: false, withheld_reason: 'separation_unavailable' },
     }
     const { container } = renderOption(withheld)
-    expectNoClaimNoGrade(container)
+    // CURRENT-READ row 9 (AIQ 5912710392): WAS contrasted against the share ("53% of runs"). A withheld
+    // leader now withholds the share, so the contrast control is `Not ranked`. This stamp carries no
+    // `producer_cause` (only `withheld_reason`), so the reason said is the fallback.
+    expectNoClaimNoGrade(container, { notRankedReason: WITHHELD_REASON_FALLBACK })
   })
 })

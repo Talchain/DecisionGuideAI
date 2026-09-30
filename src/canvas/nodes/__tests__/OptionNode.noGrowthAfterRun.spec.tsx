@@ -23,12 +23,22 @@
  * CLAIM SCOPE: jsdom proves class tokens, element identity and text — never
  * layout. The on-screen heights are measured separately in real Chromium
  * (PR body).
+ *
+ * ⭐⭐ CURRENT-READ row 9 (AIQ 5912710392; Paul's test 4276f3f9, finding 9): the
+ * served stamp WITHHOLDS the leader, and a withheld leader now withholds every
+ * per-option share. On the served run the slot therefore holds `Not ranked` (+ the
+ * exploratory reason in its name), never `34% of runs · Goal only`; the
+ * no-growth property is pinned on that marker. The share line's own one-row
+ * geometry is pinned on a PERMITTED run (no stamp), the only run that still
+ * renders a share. `· Goal only` only ever sat on a withheld run's share, so it
+ * cannot render any more.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import { useCanvasStore } from '../../store'
+import { EXPLORATORY_REASON_LINE, NOT_RANKED_MARKER } from '../../state/winShareGate'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -92,8 +102,10 @@ afterEach(() => {
 })
 
 describe('served pricing options — the share line is ONE line in a slot reserved before the run', () => {
+  // CURRENT-READ row 9 (AIQ 5912710392): WAS "the share fills it" on the served (withheld) stamp. The served
+  // run now fills the SAME slot with `Not ranked`; the share filling it is pinned on a PERMITTED run.
   it.each(SERVED_OPTIONS.map(o => [o.id, o.share] as const))(
-    '%s: the pre-run slot and the post-run slot are the SAME element class, one edgeLabel line; the share fills it',
+    '%s: the pre-run slot and the post-run slot are the SAME element class, one edgeLabel line; `Not ranked` fills it on the served (withheld) run, the share on a permitted run',
     (id, share) => {
       seedPreRun()
       renderCard(id)
@@ -106,11 +118,28 @@ describe('served pricing options — the share line is ONE line in a slot reserv
       expect(pre!.textContent).toBe('')
       cleanup()
 
+      // The served run: the leader is withheld, so no share — `Not ranked`, one line, in the same slot.
       seedPostRun()
+      renderCard(id)
+      const withheld = slot(id)
+      expect(withheld, 'post-run: the same slot').not.toBeNull()
+      // Height-reserving structure identical pre/post: same slot, same classes.
+      expect(withheld!.getAttribute('class')).toBe(preClass)
+      expect(withheld!.getAttribute('aria-hidden')).toBeNull()
+      expect(withheld!.textContent).not.toMatch(/\d\s*%/)
+      expect(screen.queryByTestId(`option-analysis-currency-${id}`)).toBeNull()
+      const marker = screen.getByTestId(`option-not-ranked-${id}`)
+      expect(marker.parentElement).toBe(withheld)
+      expect(marker.textContent).toBe(NOT_RANKED_MARKER)
+      expect(marker.getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${EXPLORATORY_REASON_LINE}`)
+      expect(tokens(marker)).toContain('whitespace-nowrap')
+      cleanup()
+
+      // A permitted run: the share fills the same slot.
+      seedPostRun(false)
       renderCard(id)
       const post = slot(id)
       expect(post, 'post-run: the same slot').not.toBeNull()
-      // Height-reserving structure identical pre/post: same slot, same classes.
       expect(post!.getAttribute('class')).toBe(preClass)
       expect(post!.getAttribute('aria-hidden')).toBeNull()
       const row = screen.getByTestId(`option-analysis-currency-${id}`)
@@ -119,8 +148,12 @@ describe('served pricing options — the share line is ONE line in a slot reserv
     },
   )
 
-  it('opt_full_switch post-run: "34% of runs · Goal only" is ONE non-wrapping row — no wrap class, `Goal only` never on a line of its own', () => {
-    seedPostRun()
+  // MOVED TO A PERMITTED RUN (CURRENT-READ row 9, AIQ 5912710392): WAS "34% of runs · Goal only" on the
+  // served (withheld) stamp. The one-row geometry is kept on the same option with no stamp. The `· Goal only`
+  // unit (whole, `shrink-0`, after the readout, never `truncate`) only rendered on a withheld run's share,
+  // which no longer exists, so its absence is pinned here and the served run is pinned in the row above.
+  it('opt_full_switch post-run (PERMITTED run): "34% of runs" is ONE non-wrapping row — no wrap class, no qualifier', () => {
+    seedPostRun(false)
     renderCard('opt_full_switch')
     const row = screen.getByTestId('option-analysis-currency-opt_full_switch')
     const rowTokens = tokens(row)
@@ -128,22 +161,9 @@ describe('served pricing options — the share line is ONE line in a slot reserv
     expect(rowTokens).toContain('flex-nowrap')
     expect(rowTokens).toContain('whitespace-nowrap')
     const readout = screen.getByTestId('option-win-readout-opt_full_switch')
-    const goalOnly = screen.getByTestId('option-share-goal-only-opt_full_switch')
-    expect(goalOnly.textContent).toBe('Goal only')
-    // The qualifier unit ("· Goal only") is a direct child of the SAME row as
-    // the share, after it, and never wraps.
-    // ⚠ RE-PINNED 27 Sep (side-by-side DIFF item 1): this asserted the unit
-    // carried `truncate`, i.e. that it COULD end in an ellipsis. That is the
-    // defect measured on Paul's mrr-90b8f080: `Goa…` at landing and `Goal o…`
-    // at 100% on a stale run. `Goal only` is the qualifier that stops the share
-    // reading as a goal probability, so it now never gives way.
-    const unit = goalOnly.parentElement!
-    expect(unit.parentElement).toBe(row)
     expect(readout.parentElement).toBe(row)
-    expect(unit.textContent).toBe('· Goal only')
-    expect(tokens(unit)).not.toContain('truncate')
-    expect(tokens(unit)).toContain('shrink-0')
-    expect(Boolean(readout.compareDocumentPosition(unit) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+    expect(screen.queryByTestId('option-share-goal-only-opt_full_switch')).toBeNull()
+    expect(screen.queryByTestId('option-share-provisional-opt_full_switch')).toBeNull()
     // The share itself never gives way.
     // ⚠ RE-PINNED 27 Sep: the readout is now a box-less wrapper (`contents`)
     // around the figure and its unit, so the figure is the element that must
@@ -154,7 +174,7 @@ describe('served pricing options — the share line is ONE line in a slot reserv
     // Whatever gives way on a narrow card stays whole in the row's name (the
     // existing tooltip reads the same string).
     // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance).
-    expect(row.getAttribute('aria-label')!.startsWith('Current model · best in 34% of runs · Goal only.')).toBe(true)
+    expect(row.getAttribute('aria-label')!.startsWith('Current model · best in 34% of runs.')).toBe(true)
   })
 
   it('MG B1 (#2123 review): an option the Run does NOT score keeps its reserved slot after the Run — no shrink, no re-lay', () => {
