@@ -107,7 +107,7 @@ export interface UIInterventionValue {
    * is not on the record, the value's provenance has been lost upstream — go
    * and find where, rather than restating the guess one layer down.
    */
-  source?: 'brief_extraction' | 'user_specified' | 'cee_hypothesis'
+  source?: 'brief_extraction' | 'user_specified' | 'cee_hypothesis' | 'user_confirmed'
 
   /**
    * Information about how this intervention was matched to a node.
@@ -156,7 +156,7 @@ export interface CEEOptionV3 {
  */
 export interface CEEInterventionV3 {
   value: number
-  source: 'brief_extraction' | 'user_specified' | 'cee_hypothesis'
+  source: 'brief_extraction' | 'user_specified' | 'cee_hypothesis' | 'user_confirmed'
   target_match?: {
     node_id: string
     match_type: 'exact_id' | 'exact_label' | 'semantic'

@@ -299,7 +299,7 @@ export type ObservedState = z.infer<typeof ObservedStateSchema>
  */
 export const InterventionSchema = z.object({
   value: z.number(),
-  source: z.enum(['brief_extraction', 'user_specified', 'cee_hypothesis']).optional(),
+  source: z.enum(['brief_extraction', 'user_specified', 'cee_hypothesis', 'user_confirmed']).optional(),
   target_match: z.object({
     node_id: z.string(),
     match_type: z.enum(['exact_id', 'exact_label', 'semantic']),

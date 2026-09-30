@@ -360,7 +360,7 @@ export interface CEEGoalConstraint {
  */
 export interface CEEInterventionV3 {
   value: number
-  source: 'brief_extraction' | 'user_specified' | 'cee_hypothesis'
+  source: 'brief_extraction' | 'user_specified' | 'cee_hypothesis' | 'user_confirmed'
   target_match?: {
     node_id: string
     match_type: 'exact_id' | 'exact_label' | 'semantic'
