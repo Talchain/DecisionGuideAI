@@ -291,7 +291,7 @@ export const typography = {
   // consumer of this token, until `AtAGlance` was changed to lead with the
   // producer's own sentence instead. A panel that needs a bigger size than
   // `panelHeader` is a panel promoting a number; say it in words instead.
-  panelHeader: 'text-sm font-semibold font-sans leading-snug',    // 14px — section titles, winner name, key emphasis
+  panelHeader: 'text-sm font-medium font-sans leading-snug',      // 14px/500 — section titles, winner name, key emphasis (Paul, 30 Sep: 600 dominated the panel)
   panelBody: 'text-xs font-sans leading-relaxed',                 // 12px — body text, descriptions, bullets, card content
   panelMeta: 'text-[11px] font-sans leading-snug',                // 11px — badges, pills, axis labels, tertiary metadata
   chatMeta: 'text-xs font-sans leading-snug',                     // 12px — the AI chat panel's LABELS: badges, timestamps, captions, markers
