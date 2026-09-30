@@ -161,6 +161,7 @@ import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
+import { NOT_RANKED_MARKER, selectWinShareWithheldReason, selectWinSharesWithheld } from '../state/winShareGate'
 import {
   fitRowsToBudget,
   fitRowsToLineBudget,
@@ -1965,15 +1966,19 @@ export const OptionNode = memo((props: NodeProps) => {
   // `rate` is carried alongside because the bar width needs the raw value and
   // a non-null `winReadout` does not narrow `displayMetadata.winRate` for the
   // type checker.
+  // ⭐ CURRENT-READ row 9 (Paul's test 4276f3f9, finding 9): a withheld leader withholds every per-option
+  // share, for ANY reason (AIQ 5912710392). The slot shows `Not ranked` with the reason instead (`winShareGate.ts`).
+  const winSharesAreWithheld = useCanvasStore(selectWinSharesWithheld)
+  const winShareWithheldReasonLine = useCanvasStore(selectWinShareWithheldReason)
   const winReadout = useMemo(() => {
-    if (!displayMetadata.isResultsMode || displayMetadata.winRate === null) return null
+    if (!displayMetadata.isResultsMode || displayMetadata.winRate === null || winSharesAreWithheld) return null
     const formatted = formatWinProbability(displayMetadata.winRate)
     return {
       rate: displayMetadata.winRate,
       formatted,
       phrase: COMPARATIVE_COPY.phrase(formatted),
     }
-  }, [displayMetadata.isResultsMode, displayMetadata.winRate])
+  }, [displayMetadata.isResultsMode, displayMetadata.winRate, winSharesAreWithheld])
   const runCurrency = useRunCurrency()
   const resultCaption = optionResultCaption(runCurrency) ?? OPTION_RESULT_COPY.unconfirmed
   /**
@@ -2043,6 +2048,9 @@ export const OptionNode = memo((props: NodeProps) => {
    * both phases and the run adds its line below them (prototype, Paul 25 Sep).
    */
   const notAnalysedRenders = displayMetadata.isResultsMode && absentFromRunReason !== null
+  // An option the Run scored, on a Run that withheld the leader: `Not ranked`, never a share (row 9).
+  const notRankedRenders =
+    displayMetadata.isResultsMode && winSharesAreWithheld && !notAnalysedRenders && winShareWithheldReasonLine !== null
   /**
    * CEE's TYPED reason this option was left out: its `analysis_ready.blockers[]`
    * entry naming THIS option with `blocker_type: 'missing_value'`. Read, never
@@ -2866,8 +2874,20 @@ export const OptionNode = memo((props: NodeProps) => {
         <div
           data-testid={`option-share-slot-${props.id}`}
           className={`${typography.edgeLabel} mt-1 h-[1lh] min-w-0 overflow-hidden [container-type:inline-size]`}
-          aria-hidden={winReadout === null && !notAnalysedRenders ? true : undefined}
+          aria-hidden={winReadout === null && !notAnalysedRenders && !notRankedRenders ? true : undefined}
         >
+        {notRankedRenders && (
+          <Tooltip asChild content={winShareWithheldReasonLine ?? ''} delay={NODE_TOOLTIP_DELAY_MS}>
+            <div
+              className="flex h-full min-w-0 items-center whitespace-nowrap"
+              data-testid={`option-not-ranked-${props.id}`}
+              aria-label={`${NOT_RANKED_MARKER}. ${winShareWithheldReasonLine ?? ''}`}
+              tabIndex={0}
+            >
+              <span className={`${typography.edgeLabel} text-text-light`} aria-hidden="true">{NOT_RANKED_MARKER}</span>
+            </div>
+          </Tooltip>
+        )}
         {winReadout !== null && (
           <Tooltip asChild content={winReadoutDescription} delay={NODE_TOOLTIP_DELAY_MS}>
           <div

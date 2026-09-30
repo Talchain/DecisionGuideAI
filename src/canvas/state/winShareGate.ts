@@ -1,0 +1,68 @@
+/**
+ * ⭐⭐ WIN SHARES FOLLOW THE LEADER CLAIM (CURRENT-READ-v1 row 9 @ ebaed3b4; AIQ #75 5912710392,
+ * #77 5912643736 (b); P0 PARTNER 5912723630). Paul's test 4276f3f9, finding 9: the Run withheld the
+ * leader (`leader_claim.permitted: false`) and every reply said it could not put an option forward, yet
+ * the option cards read "Model 80% · Goal only" / 13% / 7%. A per-option share that singles one option
+ * out names the leader in numbers, whatever the reason the leader was withheld.
+ *
+ * THE RULE, ONE PLACE: when the producer's leader permission is `permitted === false` (for ANY
+ * `withheld_reason`), no surface shows a per-option win share or a leader word. Each shows the reason
+ * line instead. The goal chance is governed separately, by its own goal-figure withhold.
+ *
+ * Reads the persisted stamp on the result (`results.report.producer_leader_permission`), the same one the
+ * cards' "Goal only" / "Provisional" qualifiers read, so a reload cannot drop the withhold.
+ *
+ * ⚠ Until the typed `maturity: exploratory | target_testable` field serves, `permitted === false` IS the
+ * gate (AIQ 5912710392: "gate on `leader_claim.permitted === false` for ANY `withheld_reason`"). When
+ * it serves, only `winShareWithheldReason` gains the typed branch; every surface keeps calling this module.
+ */
+import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
+
+export interface ProducerLeaderPermission {
+  permitted?: boolean
+  producer_cause?: string | null
+}
+
+/** AIQ 5912710392, verbatim: the reason line for a leader withheld because the target can't be checked. */
+export const EXPLORATORY_REASON_LINE =
+  "An exploratory comparison: Olumi can't yet check your target, so it isn't naming an option."
+
+/** Said when the producer withheld the leader and gave no reason this surface can state. */
+export const WITHHELD_REASON_FALLBACK = "Olumi isn't naming an option on this run."
+
+/** The short marker an option card shows in its share slot instead of a share. */
+export const NOT_RANKED_MARKER = 'Not ranked'
+
+/** True when the producer withheld the leader for any reason. Absent or `true` ⇒ false. */
+export function winSharesWithheld(permission: ProducerLeaderPermission | null | undefined): boolean {
+  return permission?.permitted === false
+}
+
+/**
+ * The reason line for a withheld leader, from the TYPED reason, never raw producer text:
+ * `constraint_verdict_withheld` → the exploratory line; any other stated reason → its existing words
+ * (`leaderWithholdCause`); none → the fallback.
+ */
+export function winShareWithheldReason(permission: ProducerLeaderPermission | null | undefined): string {
+  const cause = typeof permission?.producer_cause === 'string' ? permission.producer_cause.trim() : ''
+  if (cause === 'constraint_verdict_withheld') return EXPLORATORY_REASON_LINE
+  return leaderWithholdCause(cause) ?? WITHHELD_REASON_FALLBACK
+}
+
+type WithReport = { results: { report?: unknown } }
+
+function permissionOf(s: WithReport): ProducerLeaderPermission | null {
+  const report = s.results.report as { producer_leader_permission?: ProducerLeaderPermission } | null | undefined
+  return report?.producer_leader_permission ?? null
+}
+
+/** Store selector (a boolean, so the React-185 guard stays satisfied). */
+export function selectWinSharesWithheld(s: WithReport): boolean {
+  return winSharesWithheld(permissionOf(s))
+}
+
+/** Store selector for the reason line (a string or null, a primitive). */
+export function selectWinShareWithheldReason(s: WithReport): string | null {
+  const permission = permissionOf(s)
+  return winSharesWithheld(permission) ? winShareWithheldReason(permission) : null
+}
