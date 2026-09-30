@@ -861,9 +861,14 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
      * draggable or connectable. A tier with no members gets no prompt.
      */
     return withGhostTiers(nodes, GHOST_TIERS, {
+      // ⭐ THE PUBLISHED LAYOUT WIDTH FIRST (30 Sep 2026). It is what `BaseNode` draws at. A card's `measured`
+      // width can be its first render at the RESTING width (a tier's cap, 400) from before the layout
+      // published the tier's share (e.g. 270), and it lags behind. While every repeated card rested and laid
+      // out at 248 the order did not matter. Once tiers take their fair share it put the consequence row's
+      // prompt 130 units past its row, under the dock, and the landing fit framed that stray prompt too.
       widthOf: (n) => {
         const m = n as { measured?: { width?: number }; width?: number; type?: string }
-        return m.measured?.width ?? m.width ?? layoutCardWidths?.[m.type ?? ''] ?? restingCardWidthForKind(m.type)
+        return layoutCardWidths?.[m.type ?? ''] ?? m.measured?.width ?? m.width ?? restingCardWidthForKind(m.type)
       },
     })
   }, [nodes, layoutCardWidths])
