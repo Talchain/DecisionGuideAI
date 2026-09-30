@@ -17,13 +17,15 @@ import type { ConversationMessage } from './types'
 
 export const CONVERSATION_TURNS_READ_KEY = 'conversation_turns' as const
 export const RESTORED_HISTORY_DIVIDER = 'Earlier in this conversation'
-export const RESTORED_STALE_FIGURES_NOTE = 'The model has changed since these replies; their figures describe an earlier analysis.'
+// AIQ 5908155550: true on every branch (a same-model re-run, a non-edit not-current), unlike "the model has changed".
+export const RESTORED_STALE_FIGURES_NOTE = 'These replies came before the current analysis; their figures may not match it.'
 /**
- * CEE's cap (CEE #2352 `CONVERSATION_TURNS_CAP`). A read AT the cap may have left older turns out (AIQ 5907906662: say
- * so). The words hold whether or not anything was left out — at exactly 50 CEE cannot tell us which.
+ * CEE's cap (CEE #2352 `CONVERSATION_TURNS_CAP`, 50 TURNS = up to 100 messages). A read AT the cap may have left older
+ * turns out (AIQ 5907906662: say so). The words hold whether or not anything was — at exactly 50 CEE cannot tell us which.
+ * ⚠ CEE filters empty rows AFTER its limit, so a capped read can return < 50 (AIQ repair-train ask: a `truncated` flag).
  */
 export const CONVERSATION_TURNS_CAP = 50
-export const RESTORED_AT_CAP_DIVIDER = `${RESTORED_HISTORY_DIVIDER} · only the latest ${CONVERSATION_TURNS_CAP} messages are shown, earlier ones are not`
+export const RESTORED_AT_CAP_DIVIDER = `${RESTORED_HISTORY_DIVIDER} · only the latest ${CONVERSATION_TURNS_CAP} exchanges are shown; any earlier ones are not`
 
 export interface ServerConversationTurn {
   readonly turnId: string

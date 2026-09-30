@@ -61,7 +61,7 @@ describe('the chat survives a reload — reader and builder', () => {
     })))!
     const run = { runNotCurrent: false, currentRunComputedAt: null }
     expect(buildRestoredThread(many, run)[0].sessionDivider).toBe(RESTORED_AT_CAP_DIVIDER)
-    expect(RESTORED_AT_CAP_DIVIDER).toContain('earlier ones are not')
+    expect(RESTORED_AT_CAP_DIVIDER).toContain('any earlier ones are not')
     expect(buildRestoredThread(many.slice(1), run)[0].sessionDivider).toBe(RESTORED_HISTORY_DIVIDER)
   })
 })
