@@ -108,7 +108,9 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
           accessToken: identity.accessToken,
           signal: controller.signal,
           ...(readToken !== null ? { bootReadToken: readToken } : {}),
-          includeConversationTurns: true,
+          // ⛔ INERT (DL 5911089211, candidate 2.1 fallback): the read replayed the Agent's internal sub-turns as the user's
+          // words (5910906799 / MG 5910983526). Re-enable once CEE's read drops sub-turn rows.
+          includeConversationTurns: false,
         })
         logger.debug('server_graph_hydration.outcome', { scenarioId, outcome })
 
