@@ -23,6 +23,8 @@ import { selectAnalysisReadinessAuthority } from '../../state/analysisStateSelec
 import { canRunAnalysis } from '../../utils/canRunAnalysis'
 import { selectBoundMayRun } from '../../hooks/useAnalysisReady'
 import { logger } from '../../../lib/logger'
+import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
+import realStagingFixture from '../../../v5/__tests__/fixtures/v5-analysis-result.staging-real-shape.json'
 
 type Body = {
   scenario_id: string
@@ -30,13 +32,18 @@ type Body = {
   graph: { nodes: unknown[]; edges: unknown[] }
   analysis_state: AnalysisStateV1
   analysis_admission: { admitted: boolean; graph_hash: string } | null
+  analysis_result?: unknown
 }
 const SERVED = (composed as unknown as { body: Body }).body
 const SCENARIO_ID = SERVED.scenario_id
+const RESULT = { ...(structuredClone(realStagingFixture.blocks[0]) as Record<string, unknown>), computed_against_hash: SERVED.graph_hash }
 
 function asCurrent(b: Body): Body {
   const runState = b.analysis_state.run_state as { kind: string; computed_at?: string }
-  return { ...b, analysis_state: { ...b.analysis_state, run_state: { kind: 'complete_current', computed_at: runState.computed_at } } as AnalysisStateV1 }
+  return { ...b,
+    analysis_state: { ...b.analysis_state, run_state: { kind: 'complete_current', computed_at: runState.computed_at }, requires_rerun: false } as AnalysisStateV1,
+    analysis_result: RESULT,
+  }
 }
 
 let body: Body
@@ -75,6 +82,7 @@ beforeEach(() => {
     bootAdmittedRevision: null,
   } as never)
   applyDraftResult(JSON.parse(JSON.stringify(SERVED.graph)) as never, { skipHistory: true, skipAutosave: true })
+  const report = mapV5AnalysisToReport(RESULT as never)
   useCanvasStore.setState({
     analysisStateV1: null,
     analysisFreshness: null,
@@ -82,6 +90,8 @@ beforeEach(() => {
     serverGraphIdentity: null,
     lastAuthoritativeGraph: null,
     lastServerGraphHash: null,
+    results: { status: 'complete', progress: 100, report, hash: report.model_card.response_hash },
+    v5AnalysisFact: null,
   } as never)
   body = asCurrent(JSON.parse(JSON.stringify(SERVED)))
   debugSpy = vi.spyOn(logger, 'debug')

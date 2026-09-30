@@ -28,6 +28,7 @@ import { applyDraftResult } from '../../utils/applyDraftResult'
 import { logger } from '../../../lib/logger'
 import { renderHook } from '@testing-library/react'
 import { useCoachingCurrency } from '../../../v5/blocks/useCoachingCurrency'
+import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 
 const SCENARIO_ID = '11111111-2222-4333-8444-555555555555'
 
@@ -35,6 +36,7 @@ type Turn = { turn: string; json: Record<string, unknown> }
 const turns = (served as { turns: Turn[] }).turns
 const C1 = turns.find((t) => t.turn === 'C1 brief')!.json
 const C2 = turns.find((t) => t.turn === 'C2 run')!.json
+const C2_RESULT = (C2.blocks as Array<{ type: string }>).find((block) => block.type === 'analysis_result')!
 const DRAFT = C1.draft_graph as { nodes: unknown[]; edges: unknown[]; goal_constraints?: unknown[] }
 
 type Graph = {
@@ -74,6 +76,7 @@ function readBody() {
     request_id: 'req-drafted-canvas-replay',
     graph_hash: C2.graph_hash,
     analysis_state: C2.analysis_state,
+    analysis_result: C2_RESULT,
   }
 }
 
@@ -95,12 +98,15 @@ beforeEach(() => {
   // The live session drafted the canvas from the served turn, through the real path.
   applyDraftResult(DRAFT as never, { skipHistory: true, skipAutosave: true })
   // A reload keeps the canvas and drops the session's analysis beliefs.
+  const report = mapV5AnalysisToReport(C2_RESULT as never)
   useCanvasStore.setState({
     analysisStateV1: null,
     analysisFreshness: null,
     analysisFreshnessDirty: false,
     serverGraphIdentity: null,
     lastAuthoritativeGraph: null,
+    results: { status: 'complete', progress: 100, report, hash: report.model_card.response_hash },
+    v5AnalysisFact: null,
   } as never)
   readGraph = draftGraph()
   warnSpy = vi.spyOn(logger, 'warn')

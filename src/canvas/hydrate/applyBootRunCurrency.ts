@@ -64,6 +64,10 @@ export const BOOT_RUN_CURRENCY_DECLINE_REASONS = [
   'no_verdict',
   /** CEE did not say `complete_current` — other kinds keep their own leg. */
   'not_current',
+  /** CEE says this selected analysis needs a rerun, even if an older Run shares the graph. */
+  'rerun_required',
+  /** No saved result block can confirm the Run whose currency would be restored. */
+  'no_result',
   /** No usable `computed_at` — the card's third limb could never hold. */
   'no_computed_at',
   /** The read carried no `graph_hash` — nothing to bind the card to. */
@@ -102,6 +106,7 @@ function declined(reason: BootRunCurrencyDeclineReason): BootRunCurrencyOutcome 
  */
 export function applyBootRunCurrency(input: {
   readonly analysisState: AnalysisStateV1 | null
+  readonly analysisResult: unknown
   readonly graphHash: string | null
   readonly canvasProvenEqualToRead: boolean
   /**
@@ -116,6 +121,8 @@ export function applyBootRunCurrency(input: {
   if (verdict == null) return declined('no_verdict')
   const runState = verdict.run_state
   if (runState.kind !== 'complete_current') return declined('not_current')
+  if (verdict.requires_rerun === true) return declined('rerun_required')
+  if (!hasBootReadRunResult(input.analysisResult)) return declined('no_result')
   const computedAt = 'computed_at' in runState ? runState.computed_at : undefined
   if (typeof computedAt !== 'string' || computedAt.trim() === '') return declined('no_computed_at')
   const graphHash = input.graphHash
@@ -141,6 +148,15 @@ export function applyBootRunCurrency(input: {
   if (input.store.readCurrentGraphHash() !== graphHash) return declined('freshness_not_taken')
   input.store.setAnalysisStateV1?.(verdict)
   return { outcome: 'restored' }
+}
+
+/** The same saved-result proof the R6 fact restore requires below. */
+function hasBootReadRunResult(block: unknown): block is AnalysisResultBlock {
+  if (block == null || typeof block !== 'object' || Array.isArray(block)) return false
+  const b = block as { type?: unknown; computed_against_hash?: unknown }
+  return b.type === 'analysis_result'
+    && typeof b.computed_against_hash === 'string'
+    && b.computed_against_hash.trim() !== ''
 }
 
 /**
@@ -169,9 +185,7 @@ export function bootReadRunFact(input: {
   readonly now: number
 }): V5AnalysisFactState | null {
   const block = input.analysisResult
-  if (block == null || typeof block !== 'object' || Array.isArray(block)) return null
-  const b = block as { type?: unknown; computed_against_hash?: unknown }
-  if (b.type !== 'analysis_result') return null
+  if (!hasBootReadRunResult(block)) return null
   // ⚠ NEVER COMPARED WITH THE READ'S `graph_hash` (Canonical #72 5872261884). The wire `graph_hash`
   // hashes the RAW persisted bytes (the CAS base); `computed_against_hash` is the run's
   // `graph_hash_at_run` over the CANONICAL projection (`scenario-graph-analysis-read.ts:239-252`).
@@ -179,8 +193,7 @@ export function bootReadRunFact(input: {
   // so a pair check would still dim Paul's current run there. The read ships this block ONLY on a
   // `complete_current` verdict for the current graph, stamped with that canonical hash: its presence,
   // non-empty, beside the restored verdict IS the proof.
-  if (typeof b.computed_against_hash !== 'string' || b.computed_against_hash.trim() === '') return null
-  const analysisHash = mapV5AnalysisToReport(block as AnalysisResultBlock).model_card.response_hash ?? null
+  const analysisHash = mapV5AnalysisToReport(block).model_card.response_hash ?? null
   return {
     scenarioId: input.scenarioId,
     analysisHash,
@@ -290,4 +303,3 @@ export function bootReadLimitVerdicts(input: {
   if (verdicts === null) return null
   return { verdicts, analysisHash: input.displayedResultsHash, scenarioId: input.scenarioId }
 }
-

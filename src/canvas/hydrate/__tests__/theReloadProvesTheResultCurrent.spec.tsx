@@ -224,10 +224,39 @@ describe('each proof broken alone: no fact, the result stays dimmed', () => {
     await hydrateCanvasFromServer(SCENARIO_ID)
     expect(useCanvasStore.getState().v5AnalysisFact, 'no fact written').toBeNull()
     expect(display()).toBe('results_stale')
+    expect(reasoningTabStale()).toBe(true)
   }
 
   it('the block carries no computed_against_hash', () => expectDimmed({ analysis_result: resultBlock(null) }))
   it('the read carries no result block', () => expectDimmed({}))
+  it('C2: a newer partial Run requiring rerun and no result never revives the cached report as current', async () => {
+    seedRestoredResult()
+    respond(body({
+      analysis_state: verdict({ kind: 'complete_current', computed_at: COMPUTED_AT }, {
+        requires_rerun: true,
+        contradictions: ['fact_status_success_but_degraded_newer'],
+      }),
+      analysis_result: null,
+    }))
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(useCanvasStore.getState().v5AnalysisFact).toBeNull()
+    expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).toBeUndefined()
+    expect(display()).toBe('results_stale')
+    expect(reasoningTabStale()).toBe(true)
+  })
+
+  it('a rerun-required read cannot mark cached results fresh even if an older result block is present', async () => {
+    seedRestoredResult()
+    respond(body({
+      analysis_state: verdict({ kind: 'complete_current', computed_at: COMPUTED_AT }, { requires_rerun: true }),
+      analysis_result: resultBlock(),
+    }))
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(useCanvasStore.getState().v5AnalysisFact).toBeNull()
+    expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).toBeUndefined()
+    expect(display()).toBe('results_stale')
+    expect(reasoningTabStale()).toBe(true)
+  })
   it('CEE says complete_stale, not complete_current', () =>
     expectDimmed({ analysis_state: verdict({ kind: 'complete_stale', computed_at: COMPUTED_AT } as never), analysis_result: resultBlock() }))
   it('the canvas holds a value the read lacks (not proven equal)', async () => {

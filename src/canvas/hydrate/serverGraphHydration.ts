@@ -392,6 +392,7 @@ async function readAndMergeServerGraph(
     )
     const currencyOutcome = applyBootRunCurrency({
       analysisState: result.analysisState,
+      analysisResult: result.analysisResult,
       graphHash: result.graphHash,
       admitted: result.admitted,
       canvasProvenEqualToRead: notProvenEqual === null,

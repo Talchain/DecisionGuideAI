@@ -25,10 +25,13 @@ import { hydrateCanvasFromServer } from '../serverGraphHydration'
 import { applyDraftResult } from '../../utils/applyDraftResult'
 import { logger } from '../../../lib/logger'
 import { useCoachingCurrency } from '../../../v5/blocks/useCoachingCurrency'
+import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
+import realStagingFixture from '../../../v5/__tests__/fixtures/v5-analysis-result.staging-real-shape.json'
 
 const SCENARIO_ID = '11111111-2222-4333-8444-555555555555'
 type Graph = { nodes: Array<Record<string, any>>; edges: Array<Record<string, any>>; goal_constraints?: unknown[] }
 const S = served as unknown as { graph_hash: string; analysis_state: { run_state: { kind: string; computed_at: string } }; draft_graph: Graph }
+const RESULT = { ...(structuredClone(realStagingFixture.blocks[0]) as Record<string, unknown>), computed_against_hash: S.graph_hash }
 const clone = (): Graph => JSON.parse(JSON.stringify({ nodes: S.draft_graph.nodes, edges: S.draft_graph.edges, goal_constraints: S.draft_graph.goal_constraints }))
 const RUN_CARD = { sourceHandler: 'run_analysis', createdAt: S.analysis_state.run_state.computed_at }
 const runCardCurrency = () => renderHook(() => useCoachingCurrency(S.graph_hash, RUN_CARD)).result.current
@@ -49,6 +52,7 @@ const readBody = () => ({
   request_id: 'req-w4-metadata-edge-keys',
   graph_hash: S.graph_hash,
   analysis_state: S.analysis_state,
+  analysis_result: RESULT,
 })
 
 let warnSpy: { mock: { calls: unknown[][] }; mockRestore: () => void }
@@ -60,8 +64,10 @@ beforeEach(() => {
   } as never)
   // The session's canvas holds the served model through the real mapper; a reload keeps it and drops analysis beliefs.
   applyDraftResult(S.draft_graph as never, { skipHistory: true, skipAutosave: true })
+  const report = mapV5AnalysisToReport(RESULT as never)
   useCanvasStore.setState({
     analysisStateV1: null, analysisFreshness: null, analysisFreshnessDirty: false, serverGraphIdentity: null, lastAuthoritativeGraph: null,
+    results: { status: 'complete', progress: 100, report, hash: report.model_card.response_hash }, v5AnalysisFact: null,
   } as never)
   readGraph = clone()
   warnSpy = vi.spyOn(logger, 'warn')

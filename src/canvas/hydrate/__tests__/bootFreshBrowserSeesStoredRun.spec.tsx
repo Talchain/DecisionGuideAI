@@ -39,6 +39,7 @@ const SCENARIO_ID = SERVED.scenario_id
 
 const BLOCK = {
   type: 'analysis_result',
+  computed_against_hash: SERVED.graph_hash,
   summary: 's',
   leading_option_id: 'raise_to_59',
   enrichment: {
@@ -60,7 +61,11 @@ const heldReport = () => useCanvasStore.getState().results as { status: string; 
 
 function withRunState(b: Body, kind: 'complete_current' | 'complete_stale'): Body {
   const runState = b.analysis_state.run_state as { kind: string; computed_at?: string }
-  return { ...b, analysis_state: { ...b.analysis_state, run_state: { kind, computed_at: runState.computed_at } } as AnalysisStateV1 }
+  return { ...b, analysis_state: {
+    ...b.analysis_state,
+    run_state: { kind, computed_at: runState.computed_at },
+    requires_rerun: kind === 'complete_stale',
+  } as AnalysisStateV1 }
 }
 
 let body: Body
