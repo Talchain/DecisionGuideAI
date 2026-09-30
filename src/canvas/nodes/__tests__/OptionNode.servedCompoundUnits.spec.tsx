@@ -137,19 +137,19 @@ describe('served cd6a82e4 — an option row reads its amount compactly, inside t
     const { container } = renderOption('raise_pro_price_to_59', 'Raise Pro price to £59')
     const v = value(container, 'raise_pro_price_to_59')
     expect(v, 'PRECONDITION: the pro_plan_price row renders on the card').not.toBeNull()
-    expect(v!.textContent).toBe('£49 / month → £59 / month')
-    expect(container.querySelector(`[data-testid="option-change-row-before-raise_pro_price_to_59-${FID}"]`)!.textContent).toBe('£49 / month')
+    expect(v!.textContent).toBe('£49 → £59 / month') // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
+    expect(container.querySelector(`[data-testid="option-change-row-before-raise_pro_price_to_59-${FID}"]`)!.textContent).toBe('£49')
   })
 
   it('Set at £54: "£49 / month → £54 / month" — the same grammar on the sibling card', () => {
     const { container } = renderOption('set_pro_price_at_54', 'Set Pro price at £54')
-    expect(value(container, 'set_pro_price_at_54')!.textContent).toBe('£49 / month → £54 / month')
+    expect(value(container, 'set_pro_price_at_54')!.textContent).toBe('£49 → £54 / month')
   })
 
   it('the second board\'s "£/month" reads the SAME string — one grammar for one concept', () => {
     board = { unit: '£/month', spell: (n) => `${n} £/month` }
     const { container } = renderOption('raise_pro_price_to_59', 'Raise Pro price to £59')
-    expect(value(container, 'raise_pro_price_to_59')!.textContent).toBe('£49 / month → £59 / month')
+    expect(value(container, 'raise_pro_price_to_59')!.textContent).toBe('£49 → £59 / month')
   })
 
   // R3 #72 5887848246 / AIQ 5887805333 (2): the drafter now writes the per-subscriber price unit (CEE #2291). The
@@ -162,7 +162,7 @@ describe('served cd6a82e4 — an option row reads its amount compactly, inside t
     const { container } = renderOption('raise_pro_price_to_59', 'Raise Pro price to £59')
     const text = value(container, 'raise_pro_price_to_59')!.textContent ?? ''
     expect(text).not.toMatch(/GBP/)
-    expect(text).toMatch(/£49.*subscriber.*£59.*subscriber/)
+    expect(text).toMatch(/^£49 → £59 per subscriber/) // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
   })
 
   it.each([
@@ -176,7 +176,7 @@ describe('served cd6a82e4 — an option row reads its amount compactly, inside t
     const v = value(container, 'raise_pro_price_to_59') as HTMLElement
     const dd = amount(container, 'raise_pro_price_to_59') as HTMLElement
     expect(dd, 'PRECONDITION: the amount cell renders').not.toBeNull()
-    expect(v.textContent).toBe(unit === 'GBP per month' ? '£49 / month → £59 / month' : '49 CHF per month → 59 CHF per month')
+    expect(v.textContent).toBe(unit === 'GBP per month' ? '£49 → £59 / month' : '49 → 59 CHF per month')
     const runs = [...dd.querySelectorAll<HTMLElement>('.whitespace-nowrap')]
     // CONTRAST: the instrument sees the no-wrap runs that DO exist (value halves + the mark).
     expect(runs.length).toBeGreaterThan(0)

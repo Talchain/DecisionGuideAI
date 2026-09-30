@@ -175,7 +175,8 @@ describe('OptionNode — the run must not delete the model content', () => {
   const IDLE = { status: 'idle' }
   const COMPLETE = { status: 'complete', report: {} }
   /** Bound by IDENTITY to this fixture's pair, not a substring another chip could satisfy. */
-  const CHIP = '0 engineers → 3 engineers'
+  // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
+  const CHIP = '0 → 3 engineers'
   /**
    * Locked Canvas design (23 Sep 2026; spec §4, ED 11:52Z point 4): the
    * "Reference: <baseline>" line is gone from the face. The reference now

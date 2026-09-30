@@ -149,7 +149,7 @@ afterEach(() => cleanup())
 
 describe('served 64c5eccc — the factor name gets its own line when the amount cannot share it', () => {
   it.each([
-    ['personal_assistant', 'human_assistant_capacity', 'Human assistant capacity', '0 hours/week → 20 hours/week est.'],
+    ['personal_assistant', 'human_assistant_capacity', 'Human assistant capacity', '0 → 20 hours/week est.'],
     ['personal_assistant', 'annual_assistant_tool_cost', 'Annual assistant-tool cost', '$0 / year → $45k/year est.'],
   ])('%s · %s: TWO lines — "%s" whole, then "%s"', (optionId, factorId, name, amount) => {
     const { container } = renderOption(optionId)

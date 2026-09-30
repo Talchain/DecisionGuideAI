@@ -412,7 +412,7 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
     // Was an ordinary breakable space; every other byte is unchanged.
     // RE-PINNED 27 Sep (side-by-side DIFF item 1): the `·` is retired — the
     // contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.
-    expect(row!.textContent).toBe('0 engineers → 3 engineers\u00A0no sourceSource not recorded')
+    expect(row!.textContent).toBe('0 → 3 engineers\u00A0no sourceSource not recorded') // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
     expect(row!.querySelector('[data-testid="option-change-row-source-option-1-f-head"]')?.getAttribute('data-value-source')).toBe('unknown')
   })
 })

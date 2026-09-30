@@ -611,14 +611,15 @@ export function buildOptionChangeRow({
       sameAsReference: false,
     }
   }
+  const restingFrom = fromText ? elideSharedUnit(fromText, targetText) : ''
   return {
     factorId,
     label,
     fullLabel,
     // A13: "same as baseline" was an invented comparison word — `sameAsReference`
     // still carries the signal as data; the row states only what it can carry.
-    change: fromText ? `${fromText} → ${targetText}` : `→ ${targetText}`,
-    ...(fromText ? { before: fromText, after: targetText } : {}),
+    change: restingFrom ? `${restingFrom} → ${targetText}` : `→ ${targetText}`,
+    ...(restingFrom ? { before: restingFrom, after: targetText } : {}),
     fullChange: fromFull ? `${fromFull} → ${targetFull}` : `→ ${targetFull}`,
     target: targetFull,
     reference,
@@ -626,6 +627,21 @@ export function buildOptionChangeRow({
     targetSource,
     sameAsReference,
   }
+}
+
+/**
+ * ⭐ ONE UNIT PER ROW (contract v3.1 `.delta-rows`: "£49 → £59"; Paul, 30 Sep:
+ * option cards "all bunched together"). When both ends read `<figure> <unit>`
+ * with the SAME unit, the resting row says the unit once, after the target:
+ * "£49 / month → £60 / month" → "£49 → £60 / month". Anything else is left
+ * whole: qualitative readings ("Very high"), different units, or a figure with
+ * no separate unit word. The hover (`fullChange`) keeps both ends in full.
+ */
+const FIGURE_THEN_UNIT = /^(\S*\d\S*)\s+(\S.*)$/
+export function elideSharedUnit(from: string, to: string): string {
+  const a = FIGURE_THEN_UNIT.exec(from)
+  const b = FIGURE_THEN_UNIT.exec(to)
+  return a && b && a[2] === b[2] ? a[1] : from
 }
 
 /** The rows that fit the resting budget: two, or one when a value is long (D2). */
@@ -672,9 +688,9 @@ export function optionRowAmountChars(row: OptionChangeRow): number {
   return row.change.length + (mark ? 1 + mark.length : 0)
 }
 
-export function optionRowForm(row: OptionChangeRow): OptionRowForm {
+export function optionRowForm(row: OptionChangeRow, amountMaxChars: number = NODE_ROW_AMOUNT_MAX_CHARS): OptionRowForm {
   const name = Math.min(row.fullLabel.length, OPTION_ROW_NAME_MIN_CHARS)
-  return name + OPTION_ROW_GAP_CHARS + optionRowAmountChars(row) <= NODE_ROW_AMOUNT_MAX_CHARS ? 'one-line' : 'two-line'
+  return name + OPTION_ROW_GAP_CHARS + optionRowAmountChars(row) <= amountMaxChars ? 'one-line' : 'two-line'
 }
 
 /**
@@ -682,9 +698,9 @@ export function optionRowForm(row: OptionChangeRow): OptionRowForm {
  * the name's line plus the amount's (an amount longer than the row wraps — it
  * breaks only before its arrow — so it is counted in whole row-widths).
  */
-export function optionRowLineCount(row: OptionChangeRow): number {
-  if (optionRowForm(row) === 'one-line') return 1
-  return 1 + Math.max(1, Math.ceil(optionRowAmountChars(row) / NODE_ROW_AMOUNT_MAX_CHARS))
+export function optionRowLineCount(row: OptionChangeRow, amountMaxChars: number = NODE_ROW_AMOUNT_MAX_CHARS): number {
+  if (optionRowForm(row, amountMaxChars) === 'one-line') return 1
+  return 1 + Math.max(1, Math.ceil(optionRowAmountChars(row) / amountMaxChars))
 }
 
 /**
@@ -703,11 +719,11 @@ export const OPTION_CARD_ROW_LINE_BUDGET = 2 * OPTION_CARD_ROW_LIMIT
  * (a later short row never jumps a longer one — options compare like with
  * like), and never zero rows (ED 02:31Z D2: fewer rows before a cut value).
  */
-export function fitRowsToLineBudget(rows: OptionChangeRow[]): OptionChangeRow[] {
+export function fitRowsToLineBudget(rows: OptionChangeRow[], amountMaxChars: number = NODE_ROW_AMOUNT_MAX_CHARS): OptionChangeRow[] {
   const out: OptionChangeRow[] = []
   let used = 0
   for (const row of rows) {
-    const lines = optionRowLineCount(row)
+    const lines = optionRowLineCount(row, amountMaxChars)
     if (out.length > 0 && used + lines > OPTION_CARD_ROW_LINE_BUDGET) break
     out.push(row)
     used += lines
@@ -727,8 +743,8 @@ export function fitRowsToLineBudget(rows: OptionChangeRow[]): OptionChangeRow[] 
  * per month · brief" overflowed). The card's amount breaks, if at all, before
  * the arrow.
  */
-export function optionAmountSegmentNoWrap(segment: string): boolean {
-  return segment.length <= NODE_ROW_AMOUNT_MAX_CHARS
+export function optionAmountSegmentNoWrap(segment: string, amountMaxChars: number = NODE_ROW_AMOUNT_MAX_CHARS): boolean {
+  return segment.length <= amountMaxChars
 }
 
 /** `+N more`: the concrete changes the card does not show — never below zero. */
