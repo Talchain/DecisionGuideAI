@@ -120,7 +120,7 @@ const CORPUS: ReadonlyArray<{
   // ── iso: also a PREFIX currency, and it takes a space. Was "1,200 USD". ────
   { unit: 'USD', raw: 1200, expected: 'USD 1,200', unchangedByThisFix: false },
   // ── percent: MUST NOT MOVE. The Model tab echoes the producer's spelling. ──
-  { unit: '%', raw: 20, expected: '20 %', unchangedByThisFix: true },
+  { unit: '%', raw: 20, expected: '20%', unchangedByThisFix: true }, // a percent sign attaches (30 Sep 2026)
   { unit: 'percent', raw: 20, expected: '20 percent', unchangedByThisFix: true },
   /**
    * ── placeholder: MOVED BY ROADMAP 2.315(c) LIMB (c), 11 Sep 2026. ─────────

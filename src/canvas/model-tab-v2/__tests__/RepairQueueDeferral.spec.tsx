@@ -257,7 +257,9 @@ describe('⭐ The row keeps reporting its gap after it is deferred (§4.2)', () 
       group: 'factors',
       label: `Label ${over.id}`,
       primaryValue: null,
-      attention: ['no-value'],
+      // ⭐ 30 Sep 2026: 'no-value' is no longer DRAWN (the row says "Not set"), so the gap a
+      // deferred row must keep reporting is held on a mark that still draws.
+      attention: ['fragile'],
       editable: true,
       ...over,
     }
@@ -267,7 +269,7 @@ describe('⭐ The row keeps reporting its gap after it is deferred (§4.2)', () 
     render(<ModelRowView row={row({ id: 'f1', deferred: PAUL })} tier="plain" />)
     // Both. A row that fell silent about its gap once deferred would be the
     // dismiss button growing back inside the row.
-    expect(screen.getByTestId('model-row-v2-f1-attention-no-value')).toBeInTheDocument()
+    expect(screen.getByTestId('model-row-v2-f1-attention-fragile')).toBeInTheDocument()
     expect(screen.getByTestId('model-row-v2-f1-deferred')).toBeInTheDocument()
   })
 
@@ -282,6 +284,6 @@ describe('⭐ The row keeps reporting its gap after it is deferred (§4.2)', () 
     render(<ModelRowView row={row({ id: 'f1' })} tier="plain" />)
     expect(screen.queryByTestId('model-row-v2-f1-deferred')).toBeNull()
     // Positive control: the row rendered and still reports its gap.
-    expect(screen.getByTestId('model-row-v2-f1-attention-no-value')).toBeInTheDocument()
+    expect(screen.getByTestId('model-row-v2-f1-attention-fragile')).toBeInTheDocument()
   })
 })

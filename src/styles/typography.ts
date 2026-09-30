@@ -324,7 +324,7 @@ export const typography = {
    * this bundle's owned files carry no consumer yet — the challenge-question
    * call site (`ChallengeCard.tsx`) belongs to a different bundle.
    */
-  panelQuestion: 'text-sm font-medium font-sans leading-snug',    // 14px, weight 500
+  panelQuestion: 'text-sm font-normal font-sans leading-snug',    // 14px, weight 400 — one step under panelHeader's 500 (Paul, 30 Sep: titles too dominating)
 
   // ⭐ THE AI CHAT PANEL HAS THREE SIZES: 14 / 13 / 12 (Paul, 28 Sep 2026, chosen
   // over 16/14/12 to keep the narrow panel's space). It replaces "24 hero, 14
