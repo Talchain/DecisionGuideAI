@@ -32,12 +32,21 @@
  * is exactly the state that used to license it. The withheld arms keep their
  * absence assertions unchanged. Every absence is paired with a same-render
  * contrast control (the card's own result row), so a blank render cannot pass.
+ *
+ * ⭐⭐ CURRENT-READ row 9 (AIQ 5912710392; Paul's test 4276f3f9, finding 9): a
+ * per-option share names the leader in numbers, so a WITHHELD leader now
+ * withholds the share too. On a withheld run the card's result slot holds
+ * `Not ranked` + the reason, and that marker is the same-render contrast control.
+ * This reverses the old "THE DATA IS NOT DELETED" row below; its intent (the
+ * result itself is not lost) is kept by the same report rendering its share
+ * once the permission is `true`.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 
 import { OptionNode } from '../OptionNode'
+import { NOT_RANKED_MARKER, WITHHELD_REASON_FALLBACK } from '../../state/winShareGate'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -133,15 +142,32 @@ beforeEach(() => {
  * card's text. Each absence is read from the SAME render as its contrast
  * control: the card's own label and its model-relative result row.
  */
-function expectNoLeaderClaimOnCard(container: HTMLElement) {
+function expectNoLeaderClaimOnCard(container: HTMLElement, contrast: { notRankedReason: string } | 'share' = 'share') {
   // CONTRAST CONTROL FIRST — the card rendered, with its result row.
   expect(screen.getByText('Hire 3 engineers')).toBeInTheDocument()
-  expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('72% of runs')
+  if (contrast === 'share') {
+    expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('72% of runs')
+  } else {
+    // CURRENT-READ row 9 (AIQ 5912710392): on a withheld run the result slot holds `Not ranked` + the reason.
+    expectNotRankedInSlot(contrast.notRankedReason)
+  }
   // …and the absences.
   expect(screen.queryByTestId(`leading-option-pill-${NODE_ID}`)).toBeNull()
   expect(screen.queryByTestId(`leading-option-robustness-${NODE_ID}`)).toBeNull()
   expect(screen.queryByText(/most supported/i)).toBeNull()
   expect(container.textContent ?? '').not.toMatch(/most supported/i)
+}
+
+/** CURRENT-READ row 9 (AIQ 5912710392): no share figure; `Not ranked` + `reason` in the reserved one-line slot. */
+function expectNotRankedInSlot(reason: string) {
+  const slot = screen.getByTestId(`option-share-slot-${NODE_ID}`)
+  expect(slot.textContent).not.toMatch(/\d\s*%/)
+  expect(slot.getAttribute('class')?.split(/\s+/)).toContain('h-[1lh]')
+  expect(screen.queryByTestId(`option-win-readout-${NODE_ID}`)).toBeNull()
+  const marker = screen.getByTestId(`option-not-ranked-${NODE_ID}`)
+  expect(slot.contains(marker)).toBe(true)
+  expect(marker).toHaveTextContent(NOT_RANKED_MARKER)
+  expect(marker.getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${reason}`)
 }
 
 describe('OptionNode — a withheld leader claim removes the designation', () => {
@@ -162,7 +188,9 @@ describe('OptionNode — a withheld leader claim removes the designation', () =>
     )
     // Bound by identity AND by text, because the text is the claim the user
     // reads and the test id is the element the fix removes.
-    expectNoLeaderClaimOnCard(container)
+    // CURRENT-READ row 9 (AIQ 5912710392): WAS contrasted against the share ("72% of runs"); a withheld
+    // leader now withholds it, so the contrast is `Not ranked`. No `producer_cause` here → the fallback reason.
+    expectNoLeaderClaimOnCard(container, { notRankedReason: WITHHELD_REASON_FALLBACK })
   })
 
   it('`permitted:true` — the STRONGEST case — still puts no pill on the card (ED #63 5799353114 decision 1)', () => {
@@ -174,14 +202,21 @@ describe('OptionNode — a withheld leader claim removes the designation', () =>
     expectNoLeaderClaimOnCard(container)
   })
 
-  it('THE DATA IS NOT DELETED: the option keeps its own win figure', () => {
-    // ⭐ SCOPE, STATED RATHER THAN ASSUMED. CEE withholds the CLAIM and ships
-    // the DATA — `decisionVerdict.ts`'s own header records this ("the DATA is
-    // not withheld, only the CLAIM"). Blanking the per-option win share would
-    // delete the user's result and contradict the producer's own withheld
-    // projection. What must go is the DESIGNATION, and only that.
+  it('THE SHARE GOES WITH THE CLAIM (CURRENT-READ row 9): a withheld run shows no win figure, `Not ranked` instead; the same data, permitted, still shows it', () => {
+    // ⭐ SCOPE, STATED RATHER THAN ASSUMED — AND REVERSED. This row WAS "THE DATA
+    // IS NOT DELETED: the option keeps its own win figure", on the reading that
+    // CEE withholds the CLAIM and ships the DATA. CURRENT-READ row 9 (AIQ
+    // 5912710392; Paul's 4276f3f9: "Model 80% · Goal only" on a run that would
+    // not name a leader) rules that a per-option share singling one option out
+    // names the leader in numbers, so on a withheld run the card shows
+    // `Not ranked` + the reason instead.
     renderOption(withPermission(permittedReport(), { permitted: false }))
+    expectNotRankedInSlot(WITHHELD_REASON_FALLBACK)
+    cleanup()
+    // The result itself is not deleted: the SAME report, permitted, renders its figure.
+    renderOption(withPermission(permittedReport(), { permitted: true }))
     expect(screen.getByTestId(`option-win-readout-${NODE_ID}`)).toHaveTextContent('72%')
+    expect(screen.queryByTestId(`option-not-ranked-${NODE_ID}`)).toBeNull()
   })
 
   it('THE ORDINAL IS NOT A RANK AND IS NOT WITHDRAWN', () => {

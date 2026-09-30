@@ -131,6 +131,7 @@
  * on any widening whatever, including one that printed an empty line, while the
  * pair discriminates on the datum itself.
  */
+import { NOT_RANKED_MARKER } from '../../state/winShareGate'
 import { factorCardVisibleText, factorDisplayParts, factorDisplayText } from '../../../utils/formatFactorDisplayValue'
 import { collapseEstimateDisplay } from './collapseEstimateDisplay'
 import { isSuppressedUnit, formatWinProbability } from '../../utils/labelUtils'
@@ -204,6 +205,11 @@ export interface LodMetricFacts {
    * same caption the card shows at full zoom. Absent ⇒ the result is withheld.
    */
   optionResultCaption?: string | null
+  /**
+   * CURRENT-READ row 9 (AIQ 5912710392): the producer withheld the leader, so no per-option win share is
+   * shown at any zoom. The reduced line says `Not ranked` (`winShareGate.ts`), as the full-zoom card does.
+   */
+  winSharesWithheld?: boolean
   /**
    * The model has changed since the run the influence figure came from — the
    * card's own `useModelChangedSinceRun()`, passed through `BaseNode`.
@@ -409,6 +415,7 @@ function resolveText({
       // comparative phrase that truncates to nothing at this size. Paul's
       // ruling on card density (31 Aug) is the same shape one zoom level up —
       // "show the bar with the percentage next to it", the sentence on hover.
+      if (displayMetadata.isResultsMode && facts?.winSharesWithheld === true) return NOT_RANKED_MARKER
       if (displayMetadata.isResultsMode && displayMetadata.winRate != null) {
         // ⚠ THE REGISTER, NOT A LITERAL — and this line is why. It read
         // `Ahead ${…}` while its sibling arm, the `achievementProbability`

@@ -9,6 +9,7 @@ import { memo, useMemo } from 'react'
 import { useResultsSectionData } from '../../../../components/results/useResultsSectionData'
 import { rankingWasWithheld } from '../../../../components/results/leaderDesignation'
 import { useCanvasStore } from '../../../store'
+import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../../state/winShareGate'
 import type { NodeType } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { RENAME_AUTHORITY_CLAUSE } from '../useInspectorMutations'
@@ -84,6 +85,10 @@ function OptionComparisonSection({
   // The option card's caption owner (F5): `Last run` once the model has changed
   // since this run, never a hard-coded `Current model`.
   const resultCaption = optionResultCaption(useRunCurrency()) ?? OPTION_RESULT_COPY.unconfirmed
+  // CURRENT-READ row 9 (AIQ 5912710392): a withheld leader withholds each option's share and bar; the
+  // section says why once instead (`winShareGate.ts`). Order stays canvas order (`rankingWithheld`).
+  const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
+  const winShareWithheldReason = useCanvasStore(selectWinShareWithheldReason)
 
   if (status === 'error' || status === 'failed') return null
 
@@ -111,6 +116,11 @@ function OptionComparisonSection({
 
   return (
     <div className="space-y-1.5" data-testid="option-comparison-section">
+      {winSharesWithheld && winShareWithheldReason !== null && (
+        <p className={`${typography.panelMeta} text-text-light`} data-testid="outcome-panel-not-ranked">
+          {winShareWithheldReason}
+        </p>
+      )}
       {sorted.map(opt => {
         const outcome = opt.outcome
         const hasPrediction = outcome && (outcome.mean != null || outcome.p10 != null)
@@ -137,7 +147,7 @@ function OptionComparisonSection({
                   the single authority and this cannot drift back. And by the
                   card's own currency owner (F5, 27 Sep): `Last run` once the
                   model has changed since the run. */}
-              {opt.win_probability != null && (
+              {!winSharesWithheld && opt.win_probability != null && (
                 <span className={`${typography.panelMeta} shrink-0 text-option`}>
                   {resultCaption} · {OPTION_RESULT_COPY.share(formatWinProbability(opt.win_probability))}
                 </span>
@@ -154,7 +164,7 @@ function OptionComparisonSection({
             {!hasPrediction && (
               <div className={`${typography.panelMeta} text-text-light mt-1`}>{EMPTY_STATES.noPrediction}</div>
             )}
-            {opt.win_probability != null && (
+            {!winSharesWithheld && opt.win_probability != null && (
               <div className="mt-1">
                 {/* ⚠⚠ THIS STRING REACHES ONLY ASSISTIVE-TECHNOLOGY USERS.
                     `DataBar` renders `label` EXCLUSIVELY as `aria-label` on its

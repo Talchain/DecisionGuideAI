@@ -25,6 +25,17 @@
  *
  * CLAIM SCOPE: jsdom has no layout. These pin WHICH part of the line may give
  * way (class tokens and element identity), never on-screen widths.
+ *
+ * ⭐⭐ CURRENT-READ row 9 (AIQ 5912710392; Paul's test 4276f3f9, finding 9): this
+ * run's stamp WITHHOLDS the leader, and a withheld leader now withholds every
+ * per-option share, so on the run as served the analysed cards show `Not ranked`
+ * + the exploratory reason in the reserved slot, never `68% … · Goal only`. The
+ * share-line geometry (anchor, figure, unit, bar, `Last run`, the accessible
+ * name) still holds wherever a share renders, which is now a PERMITTED run, so
+ * those rows drive the same run with no stamp. The narrow `Model` anchor and the
+ * whole `· Goal only` qualifier only ever rendered WITH a qualifier, i.e. on a
+ * withheld run that no longer shows a share, so they cannot render; the
+ * permitted rows pin their absence instead.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
@@ -36,6 +47,7 @@ import { useCanvasStore } from '../../store'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { formatWinProbability } from '../../utils/labelUtils'
 import { notAnalysedReasonCopy } from '../../../components/results/utils/notAnalysedCopy'
+import { EXPLORATORY_REASON_LINE, NOT_RANKED_MARKER } from '../../state/winShareGate'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -123,7 +135,7 @@ afterEach(() => {
 })
 
 describe('preconditions — the real run, read through the product mapper', () => {
-  it('five options carry a share, the sixth (146aa89d) has no entry, and the share is goal-only', () => {
+  it('five options carry a share, the sixth (146aa89d) has no entry, and the run withheld the leader (constraint_verdict_withheld)', () => {
     expect(OPTIONS).toHaveLength(6)
     expect(ANALYSED.map(o => o.id).sort()).toEqual(OPTIONS.map(o => o.id).filter(id => id !== LEFT_OUT).sort())
     expect(formatWinProbability(report.option_probabilities.increase_price_to_59.win_probability!)).toBe('68%')
@@ -137,8 +149,12 @@ describe('preconditions — the real run, read through the product mapper', () =
 })
 
 describe('DIFF item 1 — the model-relative anchor always paints with the figure; the bar always paints', () => {
-  it.each(ANALYSED.map(o => [o.id] as const))('%s (current, goal-only): the anchor, the figure and `Goal only` never give way; only the unit does', (id) => {
-    seed('current')
+  // MOVED TO A PERMITTED RUN (CURRENT-READ row 9, AIQ 5912710392): WAS this run with its withheld stamp,
+  // "the anchor, the figure and `Goal only` never give way". The geometry is kept on the same run with no
+  // stamp. The compact `Model` anchor and `· Goal only` only rendered WITH a qualifier, which only a withheld
+  // run carried; a withheld run now shows no share, so on the permitted run they are pinned ABSENT.
+  it.each(ANALYSED.map(o => [o.id] as const))('%s (current, PERMITTED run): the anchor and the figure never give way; only the unit does', (id) => {
+    seed('current', { stamp: false })
     renderCard(id)
     const row = byId(`option-analysis-currency-${id}`)!
     expect(row, 'precondition: the share row renders').not.toBeNull()
@@ -151,15 +167,12 @@ describe('DIFF item 1 — the model-relative anchor always paints with the figur
     expect(GIVES_WAY(anchor)).toBe(false)
     expect(between(anchor, row).filter(GIVES_WAY), 'a yielding box wraps the anchor').toEqual([])
 
-    // The narrow-width form of the anchor: `Model`, swapped in by the slot's own
-    // width in em (so the counter-scale that squeezes the line also picks the form).
-    const compact = byId(`option-win-anchor-compact-${id}`)!
-    expect(compact, 'a compact anchor exists for the landing counter-scale').not.toBeNull()
-    expect(compact.textContent).toBe('Model')
-    expect(tokens(compact).has('shrink-0')).toBe(true)
-    expect(tokens(compact).has('[@container(min-width:17.5em)]:hidden')).toBe(true)
-    expect(tokens(anchor).has('hidden')).toBe(true)
-    expect(tokens(anchor).has('[@container(min-width:17.5em)]:block')).toBe(true)
+    // No qualifier on a permitted line, so no narrow-width `Model` anchor: the long anchor is the only
+    // one and is never hidden. The slot still measures its own width in em for the caption query.
+    expect(byId(`option-win-anchor-compact-${id}`)).toBeNull()
+    expect(byId(`option-share-goal-only-${id}`)).toBeNull()
+    expect(byId(`option-share-provisional-${id}`)).toBeNull()
+    expect(tokens(anchor).has('hidden')).toBe(false)
     expect(tokens(byId(`option-share-slot-${id}`)).has('[container-type:inline-size]')).toBe(true)
 
     // The figure never gives way; the unit `of runs` is the ONE part that may.
@@ -173,14 +186,6 @@ describe('DIFF item 1 — the model-relative anchor always paints with the figur
     expect([...tokens(yieldBox)]).toEqual(expect.arrayContaining(['flex-wrap', 'overflow-hidden', 'h-[1lh]', 'min-w-0', 'shrink-[1000000]']))
     expect(byId(`option-win-readout-${id}`)!.textContent).toBe(`${formatted} of runs`)
 
-    // `Goal only` is whole: never an ellipsis, never squeezed.
-    const goalOnly = byId(`option-share-goal-only-${id}`)!
-    const qualifier = goalOnly.parentElement!
-    expect(qualifier.textContent).toBe('· Goal only')
-    expect(qualifier.parentElement).toBe(row)
-    expect(tokens(qualifier).has('shrink-0')).toBe(true)
-    expect(GIVES_WAY(qualifier)).toBe(false)
-
     // The bar: out of the text flow, under the line, in the strip the row reserves.
     const fill = row.querySelector('.h-full.rounded-full')!
     const track = fill.parentElement!
@@ -190,11 +195,38 @@ describe('DIFF item 1 — the model-relative anchor always paints with the figur
     expect([...tokens(row)]).toEqual(expect.arrayContaining(['relative', 'pb-[3px]', 'flex-nowrap']))
   })
 
-  it('STALE (the model changed): `Last run` stays whole, the bar keeps one fixed width on every card, `Goal only` is whole', () => {
-    seed('changed')
+  // CURRENT-READ row 9 (AIQ 5912710392): the run AS SERVED (stamp `constraint_verdict_withheld`). WAS
+  // "`68% of runs · Goal only`"; now no share, `Not ranked` + the exploratory reason, in the SAME slot.
+  it.each(ANALYSED.map(o => [o.id] as const))('%s (current, the run as served — leader withheld): no share, `Not ranked` with the reason, in the slot reserved before the run', (id) => {
+    seed('current', { phase: 'pre' })
+    renderCard(id)
+    const preClass = byId(`option-share-slot-${id}`)!.getAttribute('class')
+    expect(tokens(byId(`option-share-slot-${id}`)).has('h-[1lh]')).toBe(true)
+    cleanup()
+    seed('current')
+    renderCard(id)
+    const slot = byId(`option-share-slot-${id}`)!
+    expect(slot.getAttribute('class'), 'the Run neither grows nor shrinks the card').toBe(preClass)
+    expect(slot.textContent).not.toMatch(/\d\s*%/)
+    expect(byId(`option-analysis-currency-${id}`)).toBeNull()
+    expect(byId(`option-share-goal-only-${id}`)).toBeNull()
+    const marker = byId(`option-not-ranked-${id}`)!
+    expect(marker, 'the `Not ranked` marker renders').not.toBeNull()
+    expect(slot.contains(marker)).toBe(true)
+    expect(marker.textContent).toBe(NOT_RANKED_MARKER)
+    expect(marker.getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${EXPLORATORY_REASON_LINE}`)
+    expect(tokens(marker).has('whitespace-nowrap')).toBe(true)
+  })
+
+  // MOVED TO A PERMITTED RUN (CURRENT-READ row 9, AIQ 5912710392): WAS stale on the withheld stamp, with
+  // "`Goal only` is whole". `Last run` and the fixed bar are kept on the same stale run with no stamp; the
+  // qualifier cannot render on a share any more, so its absence is pinned instead.
+  it('STALE (the model changed), PERMITTED run: `Last run` stays whole and the bar keeps one fixed width on every card', () => {
+    seed('changed', { stamp: false })
     for (const { id } of ANALYSED) {
       renderCard(id)
       const row = byId(`option-analysis-currency-${id}`)!
+      expect(row, `${id}: precondition: the share row renders`).not.toBeNull()
       const anchor = byId(`option-win-anchor-${id}`)!
       expect(anchor.textContent).toBe('Last run')
       expect(GIVES_WAY(anchor), `${id}: "Last run" may not truncate`).toBe(false)
@@ -205,8 +237,24 @@ describe('DIFF item 1 — the model-relative anchor always paints with the figur
       const track = row.querySelector('.h-full.rounded-full')!.parentElement!
       expect(tokens(track).has('w-[54px]')).toBe(true)
       expect(GIVES_WAY(track), `${id}: the stale bar may not shrink per card`).toBe(false)
-      const qualifier = byId(`option-share-goal-only-${id}`)!.parentElement!
-      expect(GIVES_WAY(qualifier), `${id}: "Goal only" may not truncate`).toBe(false)
+      expect(byId(`option-share-goal-only-${id}`)).toBeNull()
+      cleanup()
+    }
+  })
+
+  // CURRENT-READ row 9 (AIQ 5912710392): the stale half of the old row on the run as served (withheld).
+  it('STALE (the model changed), the run as served — leader withheld: no share and no `Goal only` on any card; `Not ranked` in the slot', () => {
+    seed('changed')
+    for (const { id } of ANALYSED) {
+      renderCard(id)
+      const slot = byId(`option-share-slot-${id}`)!
+      expect(slot.textContent, `${id}: no share on a withheld run`).not.toMatch(/\d\s*%/)
+      expect(byId(`option-share-goal-only-${id}`)).toBeNull()
+      const marker = byId(`option-not-ranked-${id}`)
+      expect(marker, `${id}: the \`Not ranked\` marker renders`).not.toBeNull()
+      expect(slot.contains(marker)).toBe(true)
+      expect(marker!.getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${EXPLORATORY_REASON_LINE}`)
+      expect(tokens(slot).has('h-[1lh]')).toBe(true)
       cleanup()
     }
   })
@@ -221,12 +269,15 @@ describe('DIFF item 1 — the model-relative anchor always paints with the figur
     expect(tokens(anchor).has('hidden')).toBe(false)
   })
 
-  it('the accessible name still carries the whole line and its meaning, whatever the width shows', () => {
-    seed('current')
+  // MOVED TO A PERMITTED RUN (CURRENT-READ row 9, AIQ 5912710392): WAS "… · Goal only. This share compares
+  // the options on the goal alone." on the withheld stamp; the share's name is kept on the same run, no stamp.
+  it('the accessible name still carries the whole line and its meaning, whatever the width shows (PERMITTED run)', () => {
+    seed('current', { stamp: false })
     renderCard('increase_price_to_59')
     // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance).
-    expect(byId('option-analysis-currency-increase_price_to_59')!.getAttribute('aria-label')!
-      .startsWith('Current model · best in 68% of runs · Goal only. This share compares the options on the goal alone.')).toBe(true)
+    const name = byId('option-analysis-currency-increase_price_to_59')!.getAttribute('aria-label')!
+    expect(name.startsWith('Current model · best in 68% of runs.')).toBe(true)
+    expect(name).not.toContain('Goal only')
   })
 })
 

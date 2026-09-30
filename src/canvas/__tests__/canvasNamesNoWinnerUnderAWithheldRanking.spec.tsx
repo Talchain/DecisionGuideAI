@@ -160,7 +160,12 @@ describe('the outcome inspector does not rank options whose ranking was withheld
     // The caption the panel renders for the seeded (current) run — from the owner, not a literal.
     const caption = optionResultCaption('current')!
     const captionAndAfter = new RegExp(`${caption.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`)
-    return [...section.querySelectorAll('button')].map((b) => (b.textContent ?? '').replace(captionAndAfter, '').replace(/\d+%.*$/, '').trim())
+    // RE-BOUND 30 Sep (CURRENT-READ row 9): a withheld run shows no share caption, so the label is read from the
+    // button's own label cell (its first span), never by stripping text after a caption that may be absent.
+    return [...section.querySelectorAll('button')].map((b) => {
+      const label = b.querySelector('span')?.textContent
+      return (label ?? (b.textContent ?? '').replace(captionAndAfter, '').replace(/\d+%.*$/, '')).trim()
+    })
   }
 
   const recommendation = () => renderHook(() => useResultsSectionData()).result.current.recommendation

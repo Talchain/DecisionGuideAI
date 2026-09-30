@@ -344,6 +344,11 @@ export function buildHeroModel(
    */
   const designationsWithheld = recommendation.verdict != null && leaderDesignationPermitted(recommendation) !== true
 
+  // ⭐⭐ WIN SHARES FOLLOW THE LEADER CLAIM (CURRENT-READ-v1 row 9; AIQ #75 5912710392). Published by
+  // `useResultsSectionData` from `canvas/state/winShareGate` — READ, never re-derived here. `=== true`: a caller
+  // that predates the field (fixtures, the gallery) is not a withheld run and renders exactly as before.
+  const winSharesAreWithheld = data.winSharesWithheld === true
+
   // Present rows in the SHARED option display order (win probability when
   // complete, else expected — sortOptionsForDisplay) so hero numbering always
   // matches the OptionCards/WinGauge ranking below. Presentation numbering,
@@ -416,8 +421,10 @@ export function buildHeroModel(
     const p90 = outcomeIsUnitless ? null : outcomeP90(o)
     const why = recommendation.storyHeadlines?.[o.id]
     const couldChangeIf = couldChangeIfLine(o, o.id === recommendedId, usableFlips)
+    // ⭐⭐ CURRENT-READ-v1 row 9 (AIQ #75 5912710392): a withheld leader withholds every per-row win share — the
+    // detail line AND the magnitude the leader headline would quote. From the hook's `winShareGate` read.
     const winReadout =
-      typeof o.winProbability === 'number'
+      !winSharesAreWithheld && typeof o.winProbability === 'number'
         ? formatProbabilityWithResolution(o.winProbability, o.nValidSamples)
         : undefined
     const winChance = winReadout != null ? HERO_COPY.detail.winChance(winReadout) : undefined
@@ -1003,12 +1010,19 @@ export function buildHeroModel(
   // supplied. An empty string and "   " are both "the producer said nothing".
   const modelRefusedComparativeClaim =
     licensesComparativeLeaderClaim(recommendation.analysisAdmission) === false
-  const designationWithheldReason =
+  const admissionWithheldReason =
     designationsWithheld && modelRefusedComparativeClaim
       ? recommendation.analysisAdmission?.reasons?.find(
           (r) => r?.field === 'permitted_analysis_mode',
         )?.message?.trim() || null
       : null
+  // ⭐⭐ CURRENT-READ-v1 row 9: the rows' win shares are withheld above, so this panel says why, once. The
+  // admission's own sentence keeps the slot when it has one (a reason line already on the panel); otherwise the
+  // producer's withheld-leader reason line from `winShareGate` (e.g. Paul's 4276f3f9: "An exploratory
+  // comparison: Olumi can't yet check your target, so it isn't naming an option."). Permitted ⇒ unchanged.
+  const designationWithheldReason =
+    admissionWithheldReason ??
+    (winSharesAreWithheld ? data.winShareWithheldReason?.trim() || null : null)
 
   // Tension subline: the headlined leader vs the strongest expected outcome.
   // PERSISTENT across goal and no-goal headline branches (review-locked):

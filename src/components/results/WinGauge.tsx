@@ -49,6 +49,11 @@ import { formatProbabilityWithResolution } from '../../utils/formatPercent'
 import { deriveOddsRoundingNote, ODDS_ROUNDING_NOTE_TESTID } from './utils/oddsRoundingNote'
 import Tooltip from '../Tooltip'
 import type { DecisionState } from './types'
+import { useCanvasStore } from '../../canvas/store'
+import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../canvas/state/winShareGate'
+
+/** The reason line that stands in the comparative block when the producer withheld the leader (row 9). */
+export const WIN_GAUGE_SHARES_WITHHELD_TESTID = 'win-gauge-win-shares-withheld'
 
 // =============================================================================
 // Types
@@ -261,6 +266,15 @@ export function WinGauge({
    */
   comparisonScope?: ComparisonScope | null
 }) {
+  // ⭐⭐ WIN SHARES FOLLOW THE LEADER CLAIM (CURRENT-READ-v1 row 9; AIQ #75 5912710392). Paul's 4276f3f9 withheld
+  // the leader and this block still drew 80% / 13% / 7% as a bar and a legend: a share that singles one option out
+  // names the leader in numbers. When the producer withholds the leader (any reason), the WHOLE comparative block
+  // (heading, bar, legend, rounding note) gives way to the reason line, once for the options panel; the cards
+  // below it omit their figures. Read through `winShareGate`, never re-derived. The goal block above is governed
+  // separately and is untouched. Hooks sit above the early return (rules of hooks).
+  const winSharesAreWithheld = useCanvasStore(selectWinSharesWithheld)
+  const winShareReasonLine = useCanvasStore(selectWinShareWithheldReason)
+
   if (shares.length === 0) return null
 
   const colors = decisionState === 'indeterminate' ? WIN_GAUGE_COLORS_INDETERMINATE : WIN_GAUGE_COLORS
@@ -374,7 +388,11 @@ export function WinGauge({
       className={`mb-4${isDeemphasised ? ' opacity-70' : ''}`}
       role="figure"
       aria-label={
-        hasGoalNumbers ? GOAL_ANCHOR_COPY.byOptionAria(substituted) : COMPARATIVE_COPY.byOptionAria
+        hasGoalNumbers
+          ? GOAL_ANCHOR_COPY.byOptionAria(substituted)
+          : winSharesAreWithheld
+            ? (winShareReasonLine ?? undefined)
+            : COMPARATIVE_COPY.byOptionAria
       }
     >
       {hasGoalNumbers ? (
@@ -490,6 +508,15 @@ export function WinGauge({
         )
       )}
 
+      {winSharesAreWithheld ? (
+        // Row 9: no bar, no legend, no percentage — the reason line in their place.
+        <p
+          className={`${typography.panelMeta} text-text-light`}
+          data-testid={WIN_GAUGE_SHARES_WITHHELD_TESTID}
+        >
+          {winShareReasonLine}
+        </p>
+      ) : (
       <div data-testid="win-gauge-comparative-block">
         <Tooltip content="Share of Monte Carlo simulations in which each option scored highest">
           {/* ROADMAP 1.223 relabelled this away from a leader VERB ("Leads
@@ -579,6 +606,7 @@ export function WinGauge({
           </p>
         )}
       </div>
+      )}
     </div>
   )
 }

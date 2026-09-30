@@ -113,6 +113,7 @@ import { reviewableStrengthEdgeIds } from './strengthElicitation/reviewableEdges
 import { deriveRobustnessStatus } from './robustnessStatus'
 import { readGoalIdentityWithheld } from './utils/goalIdentityWithheld'
 import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisParticipation'
+import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
 
 // =============================================================================
 // Winner Selection Helper
@@ -1323,6 +1324,19 @@ export interface ResultsSectionDataReturn {
    * fail-closed (`?.`), so absent means "no act offered", never a crash.
    */
   sensitivityReviewTargets?: ReadonlyMap<string, string>
+  /**
+   * ⭐⭐ WIN SHARES FOLLOW THE LEADER CLAIM (CURRENT-READ-v1 row 9; AIQ #75 5912710392). True when the producer
+   * withheld the leader (`results.report.producer_leader_permission.permitted === false`, for ANY reason): then no
+   * surface shows a per-option win share, because a share that singles one option out names the leader in
+   * numbers. Read through `canvas/state/winShareGate` and nothing else; published here, beside `recommendation`,
+   * so a pure consumer of this object (the hero's `buildHeroModel`) honours the same gate.
+   *
+   * OPTIONAL for the reason `sensitivityReviewTargets` gives: fixtures construct this shape, and every consumer
+   * reads it as `=== true`, so absent means "not withheld" — today's rendering, byte for byte.
+   */
+  winSharesWithheld?: boolean
+  /** The reason line each withheld surface shows instead (`winShareWithheldReason`), or `null` when permitted. */
+  winShareWithheldReason?: string | null
 }
 
 /** What the option card prints for each target this option sets (its own map; the card's formatter). */
@@ -1444,6 +1458,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
   // Cast report once at trust boundary — responseMapper returns ReportV1 with V2 pass-through fields
   const report = results?.report as ResultsReport | null | undefined
+  // ⭐⭐ CURRENT-READ-v1 row 9 — the one gate, read through its module's own readers over THIS hook's `report`.
+  // Not the store selectors: they read `s.results.report` unguarded, and this hook has always tolerated
+  // `results: null` (the `?.` above) — `admissionGatesHarness.resetStore()` is that state, and the selector threw on it.
+  const leaderPermission = report?.producer_leader_permission ?? null
+  const winSharesAreWithheld = winSharesWithheld(leaderPermission)
+  const winShareReasonLine = winSharesAreWithheld ? winShareWithheldReason(leaderPermission) : null
   const resultsStatus = results?.status
 
   const isLoading = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
@@ -4780,6 +4800,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       attributionSuppression,
       assumedStrength,
       sensitivityReviewTargets,
+      winSharesWithheld: winSharesAreWithheld,
+      winShareWithheldReason: winShareReasonLine,
     }),
     [
       recommendation,
@@ -4798,6 +4820,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       attributionSuppression,
       assumedStrength,
       sensitivityReviewTargets,
+      winSharesAreWithheld,
+      winShareReasonLine,
     ],
   )
 }

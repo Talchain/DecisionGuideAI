@@ -5,6 +5,8 @@ import { type ReactElement } from 'react'
 import { typography } from '../../styles/typography'
 import type { V5ComparisonBlock as V5ComparisonBlockType } from '../../canvas/conversation/types'
 import { METRIC_NOUN } from '../../canvas/nodes/shared/metricVocabulary'
+import { useCanvasStore } from '../../canvas/store'
+import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../canvas/state/winShareGate'
 
 export interface V5ComparisonBlockProps {
   block: V5ComparisonBlockType
@@ -16,6 +18,10 @@ function formatProb(p: number | undefined): string {
 }
 
 export function V5ComparisonBlock({ block }: V5ComparisonBlockProps): ReactElement {
+  // CURRENT-READ row 9 (AIQ 5912710392): a withheld leader withholds the share column; the block says why
+  // instead (`winShareGate.ts`), the same stored permission `V5AnalysisResultBlock`'s pills read.
+  const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
+  const winShareWithheldReason = useCanvasStore(selectWinShareWithheldReason)
   return (
     <div
       data-testid="v5-comparison"
@@ -27,6 +33,9 @@ export function V5ComparisonBlock({ block }: V5ComparisonBlockProps): ReactEleme
       {block.narrative && (
         <p className={typography.chatBody}>{block.narrative}</p>
       )}
+      {winSharesWithheld && winShareWithheldReason !== null && (
+        <p className={`${typography.chatMeta} text-text-light`} data-testid="v5-comparison-not-ranked">{winShareWithheldReason}</p>
+      )}
       <table className="w-full text-left">
         <thead>
           <tr>
@@ -35,14 +44,16 @@ export function V5ComparisonBlock({ block }: V5ComparisonBlockProps): ReactEleme
                 missed. By reference: this table captions the same quantity the
                 option card does, so it takes the same word from the same
                 register. */}
-            <th className={`${typography.chatMeta} text-text-light font-normal pb-1`}>{METRIC_NOUN.support}</th>
+            {!winSharesWithheld && (
+              <th className={`${typography.chatMeta} text-text-light font-normal pb-1`}>{METRIC_NOUN.support}</th>
+            )}
           </tr>
         </thead>
         <tbody>
           {block.options.map((opt) => (
             <tr key={opt.option_id} data-testid={`v5-comparison-row-${opt.option_id}`}>
               <td className={`${typography.chatBody} pr-4 py-1`}>{opt.label}</td>
-              <td className={`${typography.chatBody} py-1`}>{formatProb(opt.win_probability)}</td>
+              {!winSharesWithheld && <td className={`${typography.chatBody} py-1`}>{formatProb(opt.win_probability)}</td>}
             </tr>
           ))}
         </tbody>

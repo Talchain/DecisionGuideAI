@@ -6,6 +6,7 @@
 
 import { memo, useState, useMemo, useCallback } from 'react'
 import { useCanvasStore } from '../../../store'
+import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../../state/winShareGate'
 import type { NodeType } from '../../../domain/nodes'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
@@ -107,6 +108,10 @@ export const DecisionPanel = memo(function DecisionPanel({
   const edges = useCanvasStore(s => s.edges)
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
+  // CURRENT-READ row 9 (AIQ 5912710392): a withheld leader withholds every option's share and bar here too.
+  const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
+  const winShareWithheldReason = useCanvasStore(selectWinShareWithheldReason)
+  const showsShares = isResultsMode && !winSharesWithheld
   const optionComparison = useCanvasStore(s => s.results?.report?.option_comparison)
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
@@ -251,6 +256,11 @@ export const DecisionPanel = memo(function DecisionPanel({
             reach it. An empty bordered card would be a box with nothing in it. */}
         {connectedOptions.length > 0 && (
         <PrimaryControlCard>
+          {isResultsMode && winSharesWithheld && winShareWithheldReason !== null && (
+            <p className={`${typography.panelMeta} text-text-light pb-1`} data-testid="decision-panel-not-ranked">
+              {winShareWithheldReason}
+            </p>
+          )}
           {/* Flat option rows — the contract's hairline rule between rows. */}
           {connectedOptions.map((opt) => (
             <div
@@ -271,13 +281,13 @@ export const DecisionPanel = memo(function DecisionPanel({
                     </span>
                   )}
                 </div>
-                {isResultsMode && opt.winProb != null && (
+                {showsShares && opt.winProb != null && (
                   <span className={`${typography.panelMeta} text-text-body tabular-nums`}>
                     {formatWinProbability(opt.winProb)}
                   </span>
                 )}
               </div>
-              {isResultsMode && opt.winProb != null && (
+              {showsShares && opt.winProb != null && (
                 <div className="mt-1.5">
                   <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
                     <div

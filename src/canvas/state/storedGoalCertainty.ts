@@ -123,7 +123,9 @@ export function readGoalCertainty(raw: unknown): readonly GoalCertaintyEntry[] |
 
 /**
  * THE STAMP for one option's DISPLAYED goal figure — the contract, applied once. `null` = show the figure as it is.
- *   - an interior figure (or none) → null: there is no certainty to attest;
+ *   - an interior figure → null: there is no certainty to attest;
+ *   - NO figure (CEE #2369 strips an unearned one) → exactly one stored UNEARNED decision for this option: its `say`;
+ *     otherwise null;
  *   - a displayed 0/1 with NO record (`entries` null/undefined) → withheld, fallback (absent is never earned);
  *   - a displayed 0/1 with exactly ONE decision for this option at this endpoint → earned: null; unearned: its `say`;
  *   - a displayed 0/1 with no decision at this endpoint (none, or only the opposite one), or MORE than one (a
@@ -134,6 +136,14 @@ export function goalCertaintyStamp(
   optionId: string,
   entries: readonly GoalCertaintyEntry[] | null | undefined,
 ): { say: string | null } | null {
+  // ⭐ CEE #2369 (AIQ 5913601080): the producer now STRIPS an unearned 0/1 from the public block, so no figure
+  // arrives, but the Run's stored decision still says why. With the figure absent, exactly ONE stored decision for
+  // this option that is UNEARNED gives the reason. Without it, the lens emptied with no reason, where today it
+  // explains itself. None, an earned one, or a conflicting record ⇒ nothing to attest (null), as before.
+  if (displayed === undefined) {
+    const mine = (entries ?? []).filter((e) => e.optionId === optionId)
+    return mine.length === 1 && !mine[0].earned ? { say: mine[0].say } : null
+  }
   if (displayed !== 0 && displayed !== 1) return null
   // ONE unambiguous decision attests a figure. Two for the same option and endpoint — even both schema-valid, e.g. an
   // earned row and an unearned one — are a conflicting record, and a conflict is never earned (DL CHANGES_REQUIRED on
