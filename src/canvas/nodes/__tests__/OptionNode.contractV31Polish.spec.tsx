@@ -308,7 +308,7 @@ describe('contract v3.1 — option card polish', () => {
       expect(dd, 'precondition: the from → to row renders on the card').not.toBeNull()
       const before = inRows('option-change-row-before-option-1-f-head')
       expect(before).not.toBeNull()
-      expect(before!.textContent).toBe('0 engineers')
+      expect(before!.textContent).toBe('0') // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
       // `.delta-rows .before{color:#747770}` — `--card-before-rgb` (29 Sep).
       expect(tokens(before).has('text-[color:rgb(var(--card-before-rgb))]')).toBe(true)
       expect(tokens(dd).has('text-text-body')).toBe(true)
@@ -318,8 +318,8 @@ describe('contract v3.1 — option card polish', () => {
 
     it('the split is presentation only: the value text is byte-identical', () => {
       renderCard()
-      expect(changeRowValueText(inRows('option-change-row-option-1-f-head')!)).toBe('0 engineers → 3 engineers')
-      expect(screen.getByText(changeRow('0 engineers → 3 engineers'))).toBeInTheDocument()
+      expect(changeRowValueText(inRows('option-change-row-option-1-f-head')!)).toBe('0 → 3 engineers') // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
+      expect(screen.getByText(changeRow('0 → 3 engineers'))).toBeInTheDocument()
     })
 
     it('a target-only row is not split — it renders its change whole', () => {
@@ -386,8 +386,8 @@ describe('contract v3.1 — option card polish', () => {
       const value = inRows('option-change-row-value-option-1-f-head')!
       expect(tokens(value).has('whitespace-nowrap')).toBe(false)
       const halves = [...value.querySelectorAll('.whitespace-nowrap')].map((n) => n.textContent)
-      expect(halves).toEqual(['0 engineers', '→ 3 engineers'])
-      expect(value.textContent).toBe('0 engineers → 3 engineers')
+      expect(halves).toEqual(['0', '→ 3 engineers']) // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
+      expect(value.textContent).toBe('0 → 3 engineers')
       const mark = inRows('option-change-row-mark-option-1-f-head')!
       expect(mark.previousSibling?.textContent).toBe('\u00A0')
       expect(mark.previousSibling?.previousSibling).toBe(value)

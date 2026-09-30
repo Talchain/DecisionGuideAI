@@ -430,7 +430,7 @@ describe('OptionNode', () => {
     // 0.3 × 20 = 6 baseline, 0.804 × 20 = 16.08… → rounded whole counts.
     // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
     // value is found by the change-row identity matcher, not one text node.
-    expect(screen.getByText(changeRow('6 developers → 16 developers'))).toBeDefined()
+    expect(screen.getByText(changeRow('6 → 16 developers'))).toBeDefined()
     // No float-precision artefact leaks anywhere.
     expect(screen.queryByText((t: string) => t.includes('16.080'))).toBeNull()
   })
@@ -454,7 +454,7 @@ describe('OptionNode', () => {
     // 0.1 × 10 = 1 baseline, 0.15 × 10 = 1.5 → FTE keeps the fraction.
     // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
     // value is found by the change-row identity matcher, not one text node.
-    expect(screen.getByText(changeRow(/1 FTE.*1\.5 FTE/))).toBeDefined()
+    expect(screen.getByText(changeRow(/1 → 1\.5 FTE/))).toBeDefined()
     // It must NOT be rounded to a whole number.
     expect(screen.queryByText((t: string) => /\b2 FTE\b/.test(t))).toBeNull()
     expect(screen.queryByText(changeRow(/\b2 FTE\b/))).toBeNull()

@@ -288,14 +288,16 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       const dd = onCard('option-change-row-option-2-f-price')!
       const factorCardReading = factorCardVisibleText(factorDisplayText(PRICE_DATA), factorDisplayParts(PRICE_DATA))
       expect(factorCardReading, 'precondition: the factor card has a reading').toBe('£49 / month')
-      // IDENTITY: the muted "before" IS the factor card's VISIBLE text, not a re-formatting.
-      expect(onCard('option-change-row-before-option-2-f-price')?.textContent).toBe(factorCardReading)
+      // IDENTITY: the muted "before" IS the factor card's VISIBLE figure, not a re-formatting. RE-PINNED 30 Sep (one
+      // unit per row, contract `£49 → £59`): when the target reads in the SAME unit, the unit is said once, after it.
+      expect(onCard('option-change-row-before-option-2-f-price')?.textContent).toBe('£49')
+      expect(onCard('option-change-row-value-option-2-f-price')?.textContent).toBe('£49 → £59 / month')
       // The "to" is CEE's own display_value. Its FIGURE is never re-derived; the
       // one re-spelling is the notation of the carried unit when CEE's string is
       // exactly `<figure> <that unit>` ("59 GBP/month" on a `GBP/month` factor),
       // the same compact owner the factor card reads (`compactCarriedReading`,
       // served cd6a82e4). Producer ask D8 (#69) still stands: send "£59 / month".
-      expect(dd.textContent!.startsWith(`${factorCardReading} → £59 / month`)).toBe(true)
+      expect(dd.textContent!.startsWith('£49 → £59 / month')).toBe(true) // RE-PINNED 30 Sep: one unit per row
     })
 
     it('contrast: a factor with no value states the target alone — nothing is filled in', () => {

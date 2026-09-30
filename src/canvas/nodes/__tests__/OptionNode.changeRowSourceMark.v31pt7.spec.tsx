@@ -282,12 +282,12 @@ describe('v3.1 pt 7 (U12b) — no bare internal `scale` word after each number',
 
   it('CONTRAST — a real unit keeps its word ("42 days → 56 days")', () => {
     const { container } = renderOption('opt-tools')
-    expect(visibleText(row(container, 'opt-tools', 'fac-days'))).toBe('42 days → 56 days brief')
+    expect(visibleText(row(container, 'opt-tools', 'fac-days'))).toBe('42 → 56 days brief') // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
   })
 
   it('CONTRAST — `ratio` is not a placeholder and keeps its word', () => {
     const { container } = renderOption('opt-price')
-    expect(visibleText(row(container, 'opt-price', 'fac-ratio'))).toBe('0.4 ratio → 0.6 ratio est.')
+    expect(visibleText(row(container, 'opt-price', 'fac-ratio'))).toBe('0.4 → 0.6 ratio est.')
   })
 
   it('the row builder drops the placeholder word from BOTH the resting and the full change', () => {

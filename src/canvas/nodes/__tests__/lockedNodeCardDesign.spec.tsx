@@ -491,11 +491,14 @@ describe('Option — "what this option changes": ≤3 rows in ONE shared order, 
     // amounts fits beside 12 characters of its name, so each row is two lines
     // and the card's six row lines hold price (2) + seats (3); fac-conv, next in
     // the SAME order, is counted by `+1 more`.
+    // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`): the shorter amounts fit the six row lines, so all
+    // three rows show, in the SAME order, and there is no `+N more`.
     expect(raiseOrder).toEqual([
       'option-change-row-opt-raise-fac-price',
       'option-change-row-opt-raise-fac-seats',
+      'option-change-row-opt-raise-fac-conv',
     ])
-    expect(within(raiseFace).getByTestId('option-change-more-opt-raise').textContent).toBe('+1 more')
+    expect(within(raiseFace).queryByTestId('option-change-more-opt-raise')).toBeNull()
     expect(bundleOrder).toEqual(['option-change-row-opt-bundle-fac-price', 'option-change-row-opt-bundle-fac-seats'])
   })
 
@@ -512,7 +515,7 @@ describe('Option — "what this option changes": ≤3 rows in ONE shared order, 
     setState({ phase: 'pre', over: { ceeAnalysisReady: cee } })
     renderCard(OptionNode as never, 'opt-raise')
     const more = within(face('Raise the plan price')).getByTestId('option-change-more-opt-raise')
-    expect(more.textContent).toBe('+2 more')
+    expect(more.textContent).toBe('+1 more') // RE-PINNED 30 Sep: three rows now fit, so 4 − 3
     expect(cardRows('opt-raise').getByTestId('option-change-more-opt-raise')).toBe(more)
     expect(cardRows('opt-raise').getByTestId('option-change-row-opt-raise-fac-price').textContent).toContain('£49 → £59')
   })
