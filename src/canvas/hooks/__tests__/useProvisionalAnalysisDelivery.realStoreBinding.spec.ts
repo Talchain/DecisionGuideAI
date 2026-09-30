@@ -94,12 +94,15 @@ beforeEach(() => {
 // ─── The binding itself ───────────────────────────────────────────────────
 
 describe('readProvisionalApplyStore is bound to the REAL canvas store', () => {
-  it('exposes the two writers the applier is allowed to call, and NOTHING from the graph slices', () => {
+  it('exposes the applier\'s result writers, and NOTHING from the graph slices', () => {
     const view = readProvisionalApplyStore()
 
     // POSITIVE: the applier's whole contract is these writers.
     expect(typeof view.setAnalysisStateV1).toBe('function')
     expect(typeof view.resultsComplete).toBe('function')
+    // The selected Run's withholding arrives after resultsComplete, including
+    // on a fresh page that had no report when the earlier boot verdict ran.
+    expect(typeof view.resultsWithholdLeaderClaim).toBe('function')
     // ⭐ S-R5: the freshness transition. This binding IS the fix — the action
     // existed on the store with exactly the right semantics all along, and this
     // leg simply never reached it, so a completed analysis arriving here left a
@@ -115,6 +118,8 @@ describe('readProvisionalApplyStore is bound to the REAL canvas store', () => {
     expect(Object.keys(view).sort()).toEqual(
       [
         'currentResultsHash',
+        // Existing same-Run dedupe reads the held report's identity as well as its hash.
+        'currentResultsReport',
         // ⚠ ADDED FOR B5 READ-LEG PARITY (Canonical, 28 Sep 2026), ON PURPOSE: the verdicts CEE serves beside the
         // analysis this leg displays are stamped with the scenario they belong to, exactly as the turn leg stamps them.
         // A read-only fact from the scenario slice, not a graph slice.
@@ -133,6 +138,7 @@ describe('readProvisionalApplyStore is bound to the REAL canvas store', () => {
         // decision rather than being quietly widened.
         'noteRunCompletedWithoutVerdict',
         'resultsComplete',
+        'resultsWithholdLeaderClaim',
         'setAnalysisStateV1',
         // ⚠ ADDED FOR B5 READ-LEG PARITY, ON PURPOSE: a results-slice writer (the per-limit verdicts beside the analysis
         // `resultsComplete` just wrote), never a graph-slice one.
