@@ -393,6 +393,36 @@ export function overlayNode(existing: any, wireNode: any): any {
   return { ...existing, type: nextType, data: nextData }
 }
 
+/**
+ * A VERSION RESTORE's node rule: the wire is the whole node. Unlike
+ * `overlayNode`, a key the restored version lacks is NOT kept — undoing a
+ * first-time value must leave no value behind. The node's root-level React
+ * Flow fields (position, size, selection, style …) are the canvas's and are
+ * kept, so the layout does not jump. The data bag is exactly what a fresh
+ * browser builds from the same wire node (`mapDraftNodeToCanvas`).
+ */
+export function replaceNodeFromWire(existing: any, wireNode: any): any {
+  const mapped = mapDraftNodeToCanvas(wireNode)
+  const nextData = mapped.data ?? {}
+  const nextType = mapped.type ?? existing.type
+  if (nextType === existing.type && sameValue(existing.data, nextData)) {
+    return existing
+  }
+  return { ...existing, type: nextType, data: nextData }
+}
+
+/**
+ * A VERSION RESTORE's edge rule, the twin of `replaceNodeFromWire`: the edge's
+ * data is what a fresh browser maps from the restored wire edge; its canvas id,
+ * endpoints and React Flow fields are kept.
+ */
+export function replaceEdgeFromWire(existing: any, wireEdge: any): any {
+  const mapped = mapDraftEdgeToCanvas(wireEdge, 0)
+  const nextData = mapped.data ?? {}
+  if (sameValue(existing.data, nextData)) return existing
+  return { ...existing, data: nextData }
+}
+
 export interface OverlayEdgeOptions {
   /**
    * On an otherwise-no-op overlay, still record the server's validated strength
@@ -686,6 +716,14 @@ export function reconcileAppliedGraph(
      * note below. Omitted → false.
      */
     readonly analysisHashUnmoved?: boolean
+    /**
+     * The graph is a VERSION RESTORE: the complete stored model, not a receipt.
+     * A key it omits is a key that version did not have, so nodes and edges it
+     * carries are REPLACED from the wire (layout and every other root-level
+     * React Flow field kept), not overlaid. See `replaceNodeFromWire`.
+     * Omitted → false: every receipt caller keeps the overlay rule.
+     */
+    readonly restoreReplace?: boolean
   },
 ): ReconcileAppliedGraphResult {
   const canonicalReceipt = canonicalReceiptFromAugmentedDraft(draftData)
@@ -770,7 +808,7 @@ export function reconcileAppliedGraph(
   const reconciledNodes = survivingNodes.map((n: any) => {
     const wireNode = wireNodeById.get(n.id)
     if (!wireNode) return n
-    const next = overlayNode(n, wireNode)
+    const next = opts?.restoreReplace ? replaceNodeFromWire(n, wireNode) : overlayNode(n, wireNode)
     if (next !== n) updatedNodeCount += 1
     return next
   })
@@ -784,7 +822,9 @@ export function reconcileAppliedGraph(
     const key = canvasEdgePairKey(e)
     const wireEdge = key ? wireEdgeByPair.get(key) : undefined
     if (!wireEdge) return e
-    const next = overlayEdge(e, wireEdge, { acquireServerStrengthOnNoop: true })
+    const next = opts?.restoreReplace
+      ? replaceEdgeFromWire(e, wireEdge)
+      : overlayEdge(e, wireEdge, { acquireServerStrengthOnNoop: true })
     if (next === e) return e
     if (isServerStrengthAcquisitionOnly(e, next)) tupleOnlyEdgeIds.add(e.id)
     else updatedEdgeCount += 1

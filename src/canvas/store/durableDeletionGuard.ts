@@ -122,6 +122,24 @@ export function addDurableDeletion(
 }
 
 /**
+ * The server holds these elements AGAIN (a version restore put them back), so
+ * they are no longer "proven deleted". Keeping them would let the NEXT proven
+ * delete's whole-record reconcile strip a restored element off the canvas.
+ * Order-stable; returns the SAME record when nothing is forgotten.
+ */
+export function forgetDurableDeletion(
+  record: DurableDeletionRecord,
+  heldAgain: { readonly nodeIds: readonly string[]; readonly edgeIds: readonly string[] },
+): DurableDeletionRecord {
+  const nodes = new Set(heldAgain.nodeIds)
+  const edges = new Set(heldAgain.edgeIds)
+  const nodeIds = record.nodeIds.filter((id) => !nodes.has(id))
+  const edgeIds = record.edgeIds.filter((id) => !edges.has(id))
+  if (nodeIds.length === record.nodeIds.length && edgeIds.length === record.edgeIds.length) return record
+  return { nodeIds, edgeIds }
+}
+
+/**
  * Strip named elements from a graph, cascading each removed node's incident
  * edges. The shared core of both operations — the ONLY difference between them
  * is which ids the caller passes in.

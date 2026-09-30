@@ -18,9 +18,11 @@
  *      that skips the confirm REDs ServerVersionsSection.spec §PIN 1);
  *   2. the server snapshots the current state FIRST (provenance
  *      `pre_restore`) and names it in the response — rendered here as UNDO.
- * The apply path is `reconcileAppliedGraph` — the receipt-class reconcile
- * with authoritative deletion semantics and layout preservation — never a
- * second bespoke merge. Restores THEMSELVES are versions (the server appends,
+ * The apply path is `applyRestoredGraph` → `reconcileAppliedGraph` in RESTORE
+ * mode (the restored version replaces node data rather than overlaying it,
+ * with authoritative deletion semantics and layout preservation), then
+ * `settleRestoredModel` through the cold-open read — never a second bespoke
+ * merge. Restores THEMSELVES are versions (the server appends,
  * history is never rewritten), which is why undo is just another restore.
  *
  * ── GUESTS ──────────────────────────────────────────────────────────────────
@@ -44,7 +46,7 @@ import {
   type ServerModelVersion,
 } from '../../adapters/cee/modelVersions'
 import type { SignInRefusalCause } from '../../adapters/cee/signInRefusal'
-import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
+import { applyRestoredGraph, settleRestoredModel } from './applyRestoredModel'
 import { findRestoredInterventionMismatches } from './restoreInterventionAudit'
 import { logger } from '../../lib/logger'
 // ⚠ THE ADDRESSABILITY AND IDENTITY GATES ARE NOT DEFINED HERE ANY MORE.
@@ -686,15 +688,14 @@ export function ServerVersionsSection() {
         // `data.interventions` mirrored onto it). Restore is the only caller
         // whose graph and whose ready snapshot come from different responses.
         // Nothing is deleted or weakened for the other callers.
-        useCanvasStore.getState().setCeeAnalysisReady(null)
-
-        // The receipt-class apply: adds + updates + deletions in one history
-        // entry, layout preserved, removals gated on acknowledged elements.
-        const applied = reconcileAppliedGraph(
-          // The restore payload carries only `graph`; the reconcile reads
-          // `.graph.nodes/.graph.edges` on exactly this shape.
-          { graph: result.graph } as unknown as Parameters<typeof reconcileAppliedGraph>[0],
-        )
+        //
+        // `applyRestoredGraph` does that retirement FIRST, then the receipt-class
+        // reconcile in RESTORE mode: a restored version is the whole model, so
+        // a value it lacks is cleared rather than kept (an overlay would leave
+        // an undone first-time value on screen), layout preserved, removals
+        // gated on acknowledged elements; and it forgets restored elements from
+        // the proven-deletion record. One path for every restore, Undo included.
+        const applied = applyRestoredGraph(result.graph)
 
         // The success claim is EARNED, not assumed. The counts below say the
         // apply DID something; only this says it did the right thing, and it is
@@ -743,6 +744,15 @@ export function ServerVersionsSection() {
         } else {
           setMessage('Restored. The shared model and this canvas now show that version.')
         }
+        // Adopt the restored model's write base, identity and run currency
+        // through the cold-open read. Without it the next edit is sent on the
+        // pre-restore base and refused as stale.
+        void settleRestoredModel(scenarioId, identity).catch((error: unknown) => {
+          logger.warn('server_versions.restore_settle_failed', {
+            scenarioId,
+            error: error instanceof Error ? error.message : String(error),
+          })
+        })
         await refresh()
         return
       }
