@@ -34,7 +34,7 @@
  * against xyflow's own stylesheet bytes, and the mount site read out of
  * `ReactFlowGraph.tsx` — never as a pixel reading.
  */
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { render, screen, within, act } from '@testing-library/react'
 import { createPortal } from 'react-dom'
 import { readFileSync } from 'node:fs'
@@ -98,6 +98,11 @@ function stubLeftCellWidth(width: number) {
 afterEach(() => {
   vi.restoreAllMocks()
   trust.semantic = 'changed'
+})
+
+// The cue claims findings are shown as Last run, so every row here holds a renderable report (R3 fresh-browser oob).
+beforeEach(() => {
+  useCanvasStore.setState({ results: { status: 'complete', report: { option_comparison: [{ option_id: 'a', outcome: { mean: 1, p10: 0, p50: 1, p90: 2 } }] } } } as never)
 })
 
 const CUE_CSS = readFileSync(resolve(__dirname, '../AnalysisStateCue.module.css'), 'utf8')

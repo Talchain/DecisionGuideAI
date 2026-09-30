@@ -75,6 +75,7 @@ import {
   useOverlayCell,
 } from './CanvasOverlayBand'
 import { useModelChangedSinceRun } from '../hooks/useModelChangedSinceRun'
+import { useCanvasStore } from '../store'
 import { LAST_RUN_PREFIX } from '../nodes/shared/metricVocabulary'
 import styles from './AnalysisStateCue.module.css'
 
@@ -125,7 +126,12 @@ function useCellWidth(cell: HTMLElement | null): number | undefined {
 }
 
 export function AnalysisStateCue() {
-  const modelChangedSinceRun = useModelChangedSinceRun()
+  // ⛔ "previous findings shown as Last run" needs FINDINGS SHOWN (R3 stale battery, served 6dcb3b10 oob C): a fresh
+  // browser whose read says `complete_stale` with no result holds no Run, yet the verdict alone made the state
+  // `changed` and the cue claimed findings nobody could see beside "Not ready for analysis yet". The same browser,
+  // which drops the unvouched Run, was right to say nothing.
+  const findingsShown = useCanvasStore((st) => st.results?.report != null)
+  const modelChangedSinceRun = useModelChangedSinceRun() && findingsShown
   // Hooks stay unconditional: the cue's own condition is passed as `wants`, so
   // a cue with nothing to say never holds the slot.
   const { granted, target } = useOverlayCell('bottom-left', 'analysis-state-cue', modelChangedSinceRun)
