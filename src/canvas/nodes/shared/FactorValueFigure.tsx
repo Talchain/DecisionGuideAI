@@ -35,8 +35,6 @@
 import { typography } from '../../../styles/typography'
 import { factorCardVisibleText, joinFactorDisplayParts, type FactorDisplayParts } from '../../../utils/formatFactorDisplayValue'
 import { classifyValueProvenance, factorValueIsUnconfirmedEstimate } from '../../domain/valueProvenance'
-import { classifyUnit } from '../../../utils/unitClassifier'
-import { isSuppressedUnit } from '../../utils/labelUtils'
 import { readoutIsBareModelFigure } from './bareModelFigure'
 
 // Moved to `bareModelFigure.ts` (a pure rule, kept out of this component's import closure); re-exported for callers.
