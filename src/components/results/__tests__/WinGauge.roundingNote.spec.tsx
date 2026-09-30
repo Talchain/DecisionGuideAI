@@ -156,8 +156,9 @@ describe('WinGauge — rounding note (ROADMAP 2.580 member 1)', () => {
     // that is the one condition under which "note and legend are one source"
     // is falsifiable at all.
     //
-    // `formatProbabilityWithResolution(0.995, null)` → '100%'  (the legend's arm)
-    // `formatProbabilityWithResolution(0.995, 4000)` → '99.5%' (any other arm)
+    // `formatProbabilityWithResolution(0.986, null)` → '99%'   (the legend's arm)
+    // `formatProbabilityWithResolution(0.986, 4000)` → '98.6%' (any other arm)
+    // (0.995 was the old fixture; the shared ceiling now prints it "> 99%", which is no whole percentage — R3 5903852225.)
     //
     // So if the note is ever re-derived from the shares instead of read from
     // `legendEntries`, it sees a decimal, fails closed, and disappears — while
@@ -168,8 +169,8 @@ describe('WinGauge — rounding note (ROADMAP 2.580 member 1)', () => {
     render(
       <WinGauge
         shares={[
-          { id: 'a', label: 'Option A', winProbability: 0.995, isWinner: true, goalProbability: null },
-          { id: 'b', label: 'Option B', winProbability: 0.02, isWinner: false, goalProbability: null },
+          { id: 'a', label: 'Option A', winProbability: 0.986, isWinner: true, goalProbability: null },
+          { id: 'b', label: 'Option B', winProbability: 0.03, isWinner: false, goalProbability: null },
         ]}
       />,
     )

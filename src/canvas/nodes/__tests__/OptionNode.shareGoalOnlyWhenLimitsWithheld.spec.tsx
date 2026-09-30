@@ -115,7 +115,8 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
   it('ED choice 3 — label in name: the spoken string opens with the visible line, then the full meaning', () => {
     seed(null, WITHHELD_FOR_LIMITS)
     renderCard()
-    expect(label().startsWith('Current model · 81% of runs · Goal only. This share compares the options on the goal alone.')).toBe(true)
+    // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance).
+    expect(label().startsWith('Current model · best in 81% of runs · Goal only. This share compares the options on the goal alone.')).toBe(true)
   })
 
   it('ED choice 3 — the full meaning is on keyboard FOCUS as well as hover', async () => {

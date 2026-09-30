@@ -23,7 +23,6 @@ import { render, screen, within } from '@testing-library/react'
 import { WinGauge, type OptionWinShare } from '../WinGauge'
 import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY } from '../utils/goalAnchorCopy'
 import { SUB_ONE_PERCENT_READOUT, formatGoalProbability } from '../utils/displayFloors'
-import { formatPercent } from '../../../utils/formatPercent'
 
 /** Two options whose goal ranking and comparative ranking DISAGREE. */
 function sharesWithGoal(substituted = false): OptionWinShare[] {
@@ -185,12 +184,12 @@ describe('WinGauge — the goal readout honours the shared sub-1% floor', () => 
     expect(block.getByTestId('goal-pct-b').textContent).toBe(formatGoalProbability(0.5))
   })
 
-  it('CONTROL — the top of the range is unchanged: no ceiling rule the siblings do not have', () => {
+  it('CONTROL — the top of the range takes the shared ceiling (the floor\'s mirror), never "100%" below 1', () => {
+    // R3 5903852225: the ceiling mirrors the floor — a value below 1 never prints "100%".
     render(<WinGauge shares={sharesWithGoalValues(0.995, 0.5)} />)
     const cell = within(screen.getByTestId('win-gauge-goal-block')).getByTestId('goal-pct-a')
-    // The siblings' formatter: formatPercent(0.995, { fromDecimal: true }) === '100%'.
-    expect(cell.textContent).toBe(formatPercent(0.995, { fromDecimal: true }))
-    expect(cell.textContent).toBe('100%')
+    expect(cell.textContent).toBe(formatGoalProbability(0.995))
+    expect(cell.textContent).toBe('> 99%')
   })
 
   it('an exact zero takes the floor too — parity with the siblings, no carve-out only this surface has', () => {

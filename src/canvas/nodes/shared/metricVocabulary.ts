@@ -1041,8 +1041,14 @@ export const OPTION_RESULT_COPY = {
    * the stale state must keep.
    */
   compact: 'Model',
+  /**
+   * ⛔ R3 5903852225 / AIQ 5903874730: "Current model 100% of runs" beside the goal card's "Chance 84%" read as a
+   * chance. The share is how often this option does best, so it says so. On the card the prefix never gives way
+   * without a qualifier; with one it narrows away exactly where the caption does (the row's name keeps it).
+   */
+  sharePrefix: 'best in',
   shareUnit: OPTION_SHARE_UNIT,
-  share: (formatted: string): string => `${formatted} ${OPTION_SHARE_UNIT}`,
+  share: (formatted: string): string => `best in ${formatted} ${OPTION_SHARE_UNIT}`,
   sentence: (formatted: string): string =>
     `In ${formatted} of the simulated runs, the model favoured this option over the others. ` +
     'A finding about the model as it stands, not a recommendation.',

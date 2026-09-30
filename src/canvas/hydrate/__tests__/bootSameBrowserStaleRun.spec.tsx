@@ -82,7 +82,8 @@ describe('⛔ a same-browser reload after a newer Run: the server\'s stale verdi
   it('the predicate: only a read that says the held Run cannot be current drops it', () => {
     const v = (kind: string, rr?: boolean) => ({ run_state: { kind }, ...(rr === undefined ? {} : { requires_rerun: rr }) }) as never
     expect(heldRunIsNotCurrentPerRead(v('complete_stale'), null)).toBe(true)
-    expect(heldRunIsNotCurrentPerRead(v('complete_current'), null)).toBe(true) // P0 C2: current with no result
+    // Current with no result block is NOT a drop (a no-edit reload keeps its Run; P0's 'no_result' decline only dims it).
+    expect(heldRunIsNotCurrentPerRead(v('complete_current'), null)).toBe(false)
     expect(heldRunIsNotCurrentPerRead(v('needs_user_input', true), null)).toBe(true)
     expect(heldRunIsNotCurrentPerRead(v('complete_current'), { type: 'analysis_result' })).toBe(false) // ships its own Run
     expect(heldRunIsNotCurrentPerRead(v('running'), null)).toBe(false)

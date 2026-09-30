@@ -43,6 +43,7 @@ import { getRationale, type Rationale } from '../utils/ceeDataAdapter'
 import type { ConfidenceLevel } from '../../adapters/plot/types'
 import type { CeeDecisionReviewPayloadV1 } from '../../types/cee'
 import type { CeeDecisionReviewPayload } from '../decisionReview/types'
+import { wholePercentBelowCertain } from '@/utils/formatPercent'
 
 export interface RankingData {
   /** 1-indexed rank (1 = best) */
@@ -446,7 +447,7 @@ export function DecisionSummary({
                   permitted arms are byte-identical to what they replaced. */}
               {/* AIQ #72 5885116642: the register's model-run sentence on both arms — never "N% chance of reaching…". */}
               {GOAL_ANCHOR_COPY.sentence(
-                `${Math.round(summaryData.goalProbability.probability * 100)}%`,
+                wholePercentBelowCertain(summaryData.goalProbability.probability),
                 summaryData.goalProbability.isSubstitutedJoint === true,
               )}
               {summaryData.goalProbability.confidence < 0.7 && (
@@ -458,7 +459,7 @@ export function DecisionSummary({
             {/* Win probability - shown as secondary context */}
             {summaryData.goalProbability.winProbability !== undefined && (
               <p className={`${typography.caption} text-ink-500`}>
-                Supported in {Math.round(summaryData.goalProbability.winProbability * 100)}% of scenarios
+                Supported in {wholePercentBelowCertain(summaryData.goalProbability.winProbability)} of scenarios
               </p>
             )}
           </div>

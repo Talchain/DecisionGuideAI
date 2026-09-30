@@ -101,6 +101,7 @@ import { DataBar } from '../../ui/shared/DataBar'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import type { CEEGoalConstraint } from '../../../adapters/cee/types'
+import { wholePercentBelowCertain } from '@/utils/formatPercent'
 
 /**
  * A constraint as this surface receives it.
@@ -292,7 +293,7 @@ export function GoalConstraintsSection({
                      magnitude is the fact; how good 43% is, is a judgement this
                      surface is not entitled to make. */
                   <span className={`${typography.panelMeta} shrink-0 text-text-body`}>
-                    {Math.round(probability * 100)}%
+                    {wholePercentBelowCertain(probability)}
                   </span>
                 )}
               </div>

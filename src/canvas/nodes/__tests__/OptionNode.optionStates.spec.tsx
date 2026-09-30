@@ -276,7 +276,8 @@ describe('row 22c — stale: "Last run · no new comparison yet", and the last r
     expect(onCard('option-win-readout-option-1')?.textContent).toBe('72% of runs')
     expect(inPopover('option-stale-state-option-1')?.textContent).toBe(STALE_STATE)
     expect(onCard('option-stale-state-option-1')).toBeNull()
-    expect(shareName()).toMatch(/^Last run · 72% of runs\. /)
+    // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance).
+    expect(shareName()).toMatch(/^Last run · best in 72% of runs\. /)
     expect(shareName()).toContain('No new comparison yet.')
   })
 

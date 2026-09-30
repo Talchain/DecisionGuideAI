@@ -37,7 +37,8 @@ describe('computeSuccessState — value-scale guard on the success measure', () 
     )
     expect(s.isSet).toBe(true)
     expect(s.displayText).toBe('20%')
-    expect(s.attribution).toEqual({ kind: 'olumi' })
+    // AIQ 5904308095: "Olumi estimate" needs a typed Olumi source (an inferred/proxy constraint); with none, no attribution.
+    expect(s.attribution).toBeNull()
     expect(s.scaleAmbiguous).toBe(false)
   })
 
@@ -100,20 +101,20 @@ describe('computeSuccessState — explicit-provenance targets are user-set, not 
     expect(s.attribution).toEqual({ kind: 'olumi' })
   })
 
-  it('no provenance field keeps the Olumi attribution (defaulted values stay Olumi)', () => {
+  it('no provenance field: neither the user nor Olumi (no typed source)', () => {
     const s = computeSuccessState(goalNode(CEE_DERIVED_GOAL), null, null, [
       { id: 'c1', label: 'Delivery output up 20%', operator: '>=', value: 20 },
     ])
-    expect(s.attribution).toEqual({ kind: 'olumi' })
+    expect(s.attribution).toBeNull() // no typed Olumi source → no attribution (AIQ 5904308095)
   })
 
-  it('an explicit constraint whose value differs from the displayed value never claims user-set (fail-closed)', () => {
+  it('an explicit constraint whose value differs from the displayed value never claims user-set, nor Olumi (fail-closed)', () => {
     // The displayed 20 is NOT the user's stated 15 — claiming "your target"
     // would misattribute in the other direction.
     const s = computeSuccessState(goalNode(CEE_DERIVED_GOAL), null, null, [
       { id: 'c1', label: 'Churn under 15%', operator: '<=', value: 15, provenance: 'explicit' },
     ])
-    expect(s.attribution).toEqual({ kind: 'olumi' })
+    expect(s.attribution).toBeNull() // no typed Olumi source → no attribution (AIQ 5904308095)
   })
 
   it('malformed constraint entries are ignored without crashing', () => {
@@ -123,7 +124,7 @@ describe('computeSuccessState — explicit-provenance targets are user-set, not 
       'explicit',
       { provenance: 'explicit' },
     ] as unknown[])
-    expect(s.attribution).toEqual({ kind: 'olumi' })
+    expect(s.attribution).toBeNull() // no typed Olumi source → no attribution (AIQ 5904308095)
   })
 
   it('the user-typed branch still wins over constraints entirely', () => {

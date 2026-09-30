@@ -224,8 +224,9 @@ describe('DIFF item 1 — the model-relative anchor always paints with the figur
   it('the accessible name still carries the whole line and its meaning, whatever the width shows', () => {
     seed('current')
     renderCard('increase_price_to_59')
+    // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance).
     expect(byId('option-analysis-currency-increase_price_to_59')!.getAttribute('aria-label')!
-      .startsWith('Current model · 68% of runs · Goal only. This share compares the options on the goal alone.')).toBe(true)
+      .startsWith('Current model · best in 68% of runs · Goal only. This share compares the options on the goal alone.')).toBe(true)
   })
 })
 

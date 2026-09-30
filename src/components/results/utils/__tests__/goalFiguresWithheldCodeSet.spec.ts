@@ -109,3 +109,16 @@ describe('the mapper withholds on a cut user size as it does on an unevaluated i
     expect(r.every((o) => typeof o.expected === 'number')).toBe(true)
   })
 })
+
+describe("CEE's own goal-figure withholds are read too (MG #75 5904463351)", () => {
+  // The words are MG's quote of CEE #2340's message opening (not the full producer string); the row binds the CODE.
+  const PRODUCT_NOT_READ = { code: 'GOAL_FIGURES_PRODUCT_NOT_READ', severity: 'warning', node_ids: ['mrr'], message: 'Not shown. Olumi has not read ‘MRR’ as price × subscribers.' }
+  const PLACEHOLDER = { code: 'GOAL_FIGURES_PLACEHOLDER_PATH', severity: 'warning', node_ids: ['mrr'], message: 'Not shown. A placeholder sits on the path to ‘MRR’.' }
+  it('RED: an m0-shaped body with the Gate 5 warning shows its own words', () => {
+    expect(readGoalIdentityWithheld({ inference_warnings: [PRODUCT_NOT_READ] })?.message).toBe(PRODUCT_NOT_READ.message)
+    expect(readGoalIdentityWithheld({ inference_warnings: [PLACEHOLDER] })?.message).toBe(PLACEHOLDER.message)
+  })
+  it('CONTROL: EDGE_STRENGTH_CLAMPED alone still withholds nothing', () => {
+    expect(readGoalIdentityWithheld({ inference_warnings: [DISCLOSED] })).toBeNull()
+  })
+})

@@ -31,7 +31,8 @@ describe('the brief stamp on a goal target', () => {
 
   it("the Success row credits the user (not 'Olumi estimate') for the node's own stamped figure", () => {
     expect(computeSuccessState(goalNode(SERVED), null, null, null).attribution?.kind).toBe('person')
-    expect(computeSuccessState(goalNode(UNSTAMPED), null, null, null).attribution?.kind).toBe('olumi')
+    // AIQ 5904308095: "Olumi estimate" needs a typed Olumi source (an inferred/proxy constraint); with none, no attribution.
+    expect(computeSuccessState(goalNode(UNSTAMPED), null, null, null).attribution).toBeNull()
   })
 
   it('AIQ 5900578934 — a RELATIVE-change target ("cut by 20%" → "£36,000 / month or less") never wears "From your brief"', () => {
@@ -39,12 +40,15 @@ describe('the brief stamp on a goal target', () => {
     expect(resolveGoalTarget(CUT)?.source).toBe('unrecorded')
     expect(goalTargetSourceMark(CUT)).toMatchObject({ kind: 'unknown' })
     expect(computeSuccessState(goalNode(CUT), null, null, null).attribution?.kind).not.toBe('person')
+    // ⛔ AIQ 5904308095 (R3 served cut-costs `5ae7b582`: "down 20% from today · Olumi estimate"): nor Olumi's.
+    expect(computeSuccessState(goalNode(CUT), null, null, null).attribution).toBeNull()
+    expect(computeSuccessState(goalNode({ ...CUT, threshold_source: undefined }), null, null, null).attribution).toBeNull()
     // CONTROL (same file, same stamp): the MRR absolute change keeps it.
     expect(goalTargetSourceMark(SERVED)).toMatchObject({ kind: 'brief' })
   })
 
   it("CONTRAST — the stamp is on the NODE's figure: an analysis-ready fallback figure is never credited by it", () => {
     const noRaw = { ...SERVED, goal_threshold_raw: undefined }
-    expect(computeSuccessState(goalNode(noRaw), { goal_threshold_raw: 85000 }, null, null).attribution?.kind).toBe('olumi')
+    expect(computeSuccessState(goalNode(noRaw), { goal_threshold_raw: 85000 }, null, null).attribution?.kind).not.toBe('person')
   })
 })
