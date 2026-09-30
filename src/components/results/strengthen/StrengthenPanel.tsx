@@ -27,11 +27,11 @@ import {
   MessageCircle,
   MoveHorizontal,
   Scale,
-  Sparkles,
   Target,
   TrendingUp,
   type LucideIcon,
 } from 'lucide-react'
+import { OlumiAiIcon } from '../analysisNew/OlumiAiIcon'
 import { typography } from '../../../styles/typography'
 import { STRENGTHEN_COPY as COPY } from './strengthenCopy'
 import type { RecRecord } from '../../../canvas/stores/strengthenStore'
@@ -290,7 +290,8 @@ function RecRow({
               onClick={() => onWorkThrough(record)}
               className="ml-auto inline-flex h-7 w-7 flex-none items-center justify-center rounded-lg border border-panel-border bg-transparent text-info transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
             >
-              <Sparkles aria-hidden="true" className="h-4 w-4" />
+              {/* An ask, so the Olumi glyph (Paul, 30 Sep 2026: OlumiAiIcon for every ask; Sparkles is provenance only). */}
+              <OlumiAiIcon aria-hidden="true" className="olumi-glyph-ai h-4 w-4" />
             </button>
           </div>
         </div>

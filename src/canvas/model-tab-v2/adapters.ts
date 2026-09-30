@@ -484,9 +484,14 @@ function factorValue(data: unknown): string | null {
  * effect" over exactly that fabrication before they were written.
  */
 function edgeValue(data: unknown): string | null {
+  return edgeValueParts(data).text
+}
+
+/** The relationship's value, and whether it is the natural-effect SENTENCE (see `ModelRow.valueIsSentence`). */
+function edgeValueParts(data: unknown): { text: string | null; sentence: boolean } {
   const bag = (data ?? undefined) as Record<string, unknown> | undefined
   const seed = resolveEdgeStrengthEditSeed(bag)
-  if (seed === null) return null
+  if (seed === null) return { text: null, sentence: false }
   const direction = resolveEdgeDirectionDisplay(bag)
   // ⭐ THE SIZE IN THE TARGET'S OWN UNITS FIRST, when the producer admitted one
   // for THIS β (magnitude contract, MG #70 5845713522). The |β| band called
@@ -494,8 +499,10 @@ function edgeValue(data: unknown): string | null {
   // edge, a moved β, or an unstated direction → null → the band, unchanged.
   // Re-parsed here: persisted edge data is not proof of shape.
   const natural = NaturalEffectSchema.safeParse(bag?.naturalEffect)
-  return naturalEffectPhrase(natural.success ? natural.data : null, seed.seed, direction)
-    ?? getDirectionalStrengthLabel(seed.seed, direction)
+  const phrase = naturalEffectPhrase(natural.success ? natural.data : null, seed.seed, direction)
+  return phrase !== null
+    ? { text: phrase, sentence: true }
+    : { text: getDirectionalStrengthLabel(seed.seed, direction), sentence: false }
 }
 
 /**
@@ -891,7 +898,10 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
       kind: 'relationship',
       group: 'relationships',
       ...relationshipIdentity(data, edge.source, edge.target, nodeLabels),
-      primaryValue: edgeValue(data),
+      ...(() => {
+        const value = edgeValueParts(data)
+        return { primaryValue: value.text, ...(value.sentence ? { valueIsSentence: true as const } : {}) }
+      })(),
       provenanceSource: typeof data?.weightSource === 'string' ? data.weightSource : undefined,
       attention,
       editable: true,

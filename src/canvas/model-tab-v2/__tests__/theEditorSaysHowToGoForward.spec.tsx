@@ -327,7 +327,7 @@ describe('⭐ (b) an unproposable draft says why, VISIBLY', () => {
   it('⭐ a goal row with no unit names the UNIT, not the number — the messages discriminate', () => {
     renderDraft('45', { kind: 'goal' }, '')
     expect(screen.getByTestId('model-row-v2-f1-value-blocked').textContent).toBe(
-      'Add a unit — £, % or points — to review this change',
+      'Add a unit (£, % or points) to review this change', // DS v5 §29: no em dashes (Panel, 30 Sep 2026)
     )
   })
 

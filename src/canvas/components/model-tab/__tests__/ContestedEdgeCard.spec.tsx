@@ -183,7 +183,7 @@ describe('ContestedEdgeCard', () => {
       ['brief_explicit', 'Based on your brief'],
       ['structural_inference', 'Inferred from model structure'],
       ['domain_prior', 'Based on general domain knowledge'],
-      ['weak_guess', 'Uncertain — your input would help'],
+      ['weak_guess', 'Uncertain: your input would help'], // DS v5 §29: no em dashes (Panel, 30 Sep 2026)
     ] as const
     for (const [basis, expectedLabel] of bases) {
       const { unmount } = render(

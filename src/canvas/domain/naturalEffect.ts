@@ -157,9 +157,28 @@ export function unitForAmount(amount: number, unit: string): string {
   const stop = words.findIndex(w => /^(of|per)$/i.test(w))
   const head = (stop === -1 ? words.length : stop) - 1
   const noun = words[head]
-  if (head < 0 || noun === undefined || !/^[a-z]{3,}s$/i.test(noun) || /ss$/i.test(noun)) return unit
-  words[head] = noun.slice(0, -1)
+  if (head < 0 || noun === undefined) return unit
+  // A compound unit ("conversations/month") singularises the noun BEFORE the slash: "1 conversation/month",
+  // never "1 conversations/month" (served funding brief, Model tab, `7fc20dff`, 30 Sep 2026).
+  const [lhs, ...perPart] = noun.split('/')
+  if (!/^[a-z]{3,}s$/i.test(lhs) || /ss$/i.test(lhs)) return unit
+  words[head] = [lhs.slice(0, -1), ...perPart].join('/')
   return words.join(' ')
+}
+
+/** A currency per period ("£/month"): the symbol leads the figure, as the factor card writes it ("£0 / month"). */
+const MONEY_PER_PERIOD = /^([£$€])\s*\/\s*([a-z]+)$/i
+
+/**
+ * An amount with its unit, as a person writes it. "£2,500 / month", never "2,500 £/month" (served funding
+ * brief, Model tab, `7fc20dff`): `formatRawValueWithUnit` only knows a BARE symbol, so a money-per-period
+ * unit fell through to "number, then unit". Everything else is `formatRawValueWithUnit`, unchanged.
+ */
+function amountWithUnit(amount: number, unit: string): string {
+  const u = unitForAmount(amount, unit)
+  const money = MONEY_PER_PERIOD.exec(u.trim())
+  if (money) return `${formatRawValueWithUnit(amount, money[1])} / ${money[2]}`
+  return formatRawValueWithUnit(amount, u)
 }
 
 const AUTHOR_SUFFIX: Record<NaturalEffectAuthor, string> = {
@@ -190,10 +209,10 @@ export function naturalEffectPhrase(
   // A4: one end of the user's written range bounds the size — the low end "at least", the high end "at most".
   const range = effect.author === 'user' ? effect.statedRange : undefined
   const bound = range === undefined ? 'about' : range.end === 'low' ? 'at least' : 'at most'
-  const change = `${direction.direction === 'negative' ? 'Decrease' : 'Increase'} of ${bound} ${formatRawValueWithUnit(size, unitForAmount(size, effect.unit))}`
+  const change = `${direction.direction === 'negative' ? 'Decrease' : 'Increase'} of ${bound} ${amountWithUnit(size, effect.unit)}`
   const per = effect.sourceUnit === SWITCH_SOURCE_UNIT
     ? ''
-    : ` per ${formatRawValueWithUnit(effect.perSourceChange, unitForAmount(effect.perSourceChange, effect.sourceUnit))}`
+    : ` per ${amountWithUnit(effect.perSourceChange, effect.sourceUnit)}`
   const ofRange = range === undefined ? '' : ` · the ${range.end} end of your ${range.text} range`
   return `${change}${per}${AUTHOR_SUFFIX[effect.author]}${ofRange}`
 }

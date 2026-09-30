@@ -249,6 +249,14 @@ export interface ModelRow {
    */
   primaryValue: string | null
   /**
+   * ⭐ `primaryValue` IS A SENTENCE, NOT A MEASUREMENT (Panel, 30 Sep 2026). True only for a relationship whose
+   * value is the producer's natural-effect phrase ("Increase of about 1 conversation/month per 20 emails/month ·
+   * Olumi's estimate"). A measurement ("35 %") must never break from its unit, so the value cell never wraps;
+   * a sentence must, or it runs off the panel. Served funding brief at the 360 dock, `7fc20dff`: every such
+   * phrase was cut at the panel edge. Set from the typed `naturalEffect` the phrase came from, never from the text.
+   */
+  valueIsSentence?: true
+  /**
    * ⭐ CEE'S OWN DISPLAY TEXT, FOR A ROW THE USER HAS NOT SET — and ONLY then.
    *
    * `primaryValue` is `raw_value`: what a person SUPPLIED. When nobody has,
