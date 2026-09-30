@@ -323,6 +323,24 @@ function nodeDisplayName(n: { id?: unknown; data?: unknown } | undefined, fallba
   return typeof label === 'string' && label.trim().length > 0 ? label.trim() : fallbackId
 }
 
+
+/**
+ * ⛔ DL #75 5904550441 (signed-in `520aab46`): producer PROVENANCE a boot read carries that an older snapshot lacks is
+ * acquired metadata, not a changed model value — the node twin of the edge mask below (`origin`, `naturalEffect`).
+ * CEE #2337 added `proposed_by`; counting its arrival as an edit hid every Run saved before it ("Run a first pass").
+ * ⚠ Every key here is OUTSIDE the registry's stale set (the fields the analysis hash reads) — pinned by the spec, so
+ * no analysis-affecting edit can ever be masked (AIQ 5904679135).
+ */
+export const NODE_ACQUIRED_METADATA_KEYS = ['proposed_by', 'threshold_source', 'goal_threshold_cap_provenance'] as const
+function onlyAcquiredNodeMetadataDiffers(previous: unknown, incoming: unknown): boolean {
+  const strip = (d: unknown): Record<string, unknown> => {
+    const c = { ...((d ?? {}) as Record<string, unknown>) }
+    for (const k of NODE_ACQUIRED_METADATA_KEYS) delete c[k]
+    return c
+  }
+  return deepEqual(strip(previous), strip(incoming))
+}
+
 /**
  * Merge the server's graph onto the live canvas.
  *
@@ -509,7 +527,7 @@ export function mergeServerGraphOnHydrate(
     if (next.type === n.type && deepEqual(incomingData, previousData)) return n
 
     updatedNodeCount += 1
-    if (!recordAcquisition) valueChangedNodeIds.push(n.id)
+    if (!recordAcquisition && !onlyAcquiredNodeMetadataDiffers(previousData, incomingData)) valueChangedNodeIds.push(n.id)
     return next
   })
 
