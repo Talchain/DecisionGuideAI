@@ -24,7 +24,7 @@ export function CompareRunPairBody({ responseHash }: { responseHash: string | nu
         <Shuffle size={36} className="text-panel-border" aria-hidden="true" />
         <p className={`${typography.panelHeader} text-text-body mt-3 mb-1.5`}>No comparison yet</p>
         <p className={`${typography.panelBody} text-text-light max-w-[260px] m-0`}>
-          Change the model and run the analysis again. The two runs are compared here.
+          The two most recent runs of this model are compared here.
         </p>
       </div>
     )

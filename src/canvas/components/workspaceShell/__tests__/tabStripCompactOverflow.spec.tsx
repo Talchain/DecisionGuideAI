@@ -137,8 +137,9 @@ describe('gap NARROW-1: at 280px the strip stays one row, and both folded contro
   })
 
   // RE-PINNED 27 Sep 2026: the inline controls start at the 420 threshold (they wrapped at 360).
-  it('⭐ CONTRAST: at a wide 440px dock, both controls render inline and no overflow trigger exists', () => {
-    draw(440)
+  // RE-PINNED 30 Sep 2026: the threshold is 460 (five tabs wrap at 420, CANVAS measured #2364); 480 is measured one row.
+  it('⭐ CONTRAST: at a wide 480px dock, both controls render inline and no overflow trigger exists', () => {
+    draw(480)
     expect(screen.getByTestId('dock-versions-trigger')).toBeInTheDocument()
     expect(screen.getByLabelText('Enable expert mode')).toBeInTheDocument()
     expect(screen.queryByTestId('dock-overflow-trigger')).toBeNull()

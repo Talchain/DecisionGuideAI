@@ -117,15 +117,20 @@ export const SHELL_CONTENT_BUDGET_FLOOR_PX = shellContentBudget(DOCK_MIN_WIDTH)
  * into a single overflow menu, so both stay keyboard-reachable rather than
  * being silently omitted from the strip.
  *
- * ⭐ 420 SINCE 27 Sep 2026 (Panel). Served `70a03a22` at the new 360px default: the
+ * ⭐ 460 SINCE 30 Sep 2026 (Compare re-tabbed, SC-24 v3; CANVAS measured on #2364): FIVE tabs wrap the
+ * non-compact strip at 420 (nav 38 → 80px), and sit on one row at 460 and 480. The four-tab control stays
+ * on one row at every width. 460 is the measured clean width; the exact break between 420 and 460 is not
+ * measured, so do not lower it without measuring.
+ *
+ * (was) 420 SINCE 27 Sep 2026 (Panel). Served `70a03a22` at the new 360px default: the
  * non-compact strip WRAPPED ("Model" at y76 vs y34), so 320 was not enough headroom.
  * The non-compact strip last fitted at the 416 default; below 420 it goes compact.
  *
  * (was) 320, not a dock-width literal — R1 flags only 280/416/480 as named widths;
  * this is the narrowest width at which four 12px tabs plus three 28px
- * controls fit, plus headroom, per the audit's own measurement.
+ * controls fit, plus headroom, per the audit's own measurement. There are five tabs since 30 Sep.
  */
-export const SHELL_TABSTRIP_COMPACT_BELOW_PX = 420
+export const SHELL_TABSTRIP_COMPACT_BELOW_PX = 460
 
 /**
  * From this dock width the ⓘ "Inspect this analysis" stays a ROW control in the COMPACT strip;
@@ -147,7 +152,7 @@ export const SHELL_TABSTRIP_INSPECT_IN_ROW_FROM_PX = 320
  *
  * ⚠ AND THE DEFAULT WIDTH IS NOW BELOW `SHELL_TABSTRIP_COMPACT_BELOW_PX`, so
  * the strip opens compact: VersionsTrigger and the expert-mode toggle sit in
- * the overflow menu, which is the contract's row (four tabs and a close
+ * the overflow menu, which is the contract's row (the tabs and a close
  * control, nothing else). Version history stays one click away there and in
  * the top bar.
  */
