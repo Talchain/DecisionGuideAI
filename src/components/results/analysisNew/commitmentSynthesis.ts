@@ -76,6 +76,13 @@ export const COMMITMENT_COPY = {
    */
   withheldFounded: (count: number): string =>
     `${count} option${count === 1 ? '' : 's'} compared.`,
+  /**
+   * The same bullet when the run left some options out: "2 of 3 options
+   * compared." It matches the Analysis tab's "Comparing 2 of 3 options" for the
+   * same run (served funding brief, 30 Sep 2026, where the plain count said 3).
+   */
+  withheldFoundedOf: (compared: number, total: number): string =>
+    `${compared} of ${total} options compared.`,
   ask: {
     /** Tooltip and accessible name of the AI icon. */
     label: 'Ask Olumi what remains before committing',
@@ -286,11 +293,20 @@ const isRobustnessNotEstablished = (code: ChecksCode): code is RobustnessNotEsta
  * `null` when there is nothing to count — pre-run already returns `EMPTY`
  * above this call, but a withheld run with zero rows is not impossible, and a
  * bullet naming zero options would be furniture over an empty chart.
+ *
+ * ⚠ "COMPARED" IS A CLAIM ABOUT THE RUN, so it counts only the rows the run
+ * compared. `rows` also lists the options the run left out (`not_analysed`,
+ * shown with a "Not analysed" badge); counting those said "3 options compared."
+ * on Paul's funding brief while the Analysis tab said "Comparing 2 of 3"
+ * (served `7bfe1b04`, 30 Sep 2026). When some were left out, the bullet says
+ * "N of M". Spec: `whatWeHaveCountsOnlyComparedOptions.spec.ts`.
  */
 function withheldFoundedBullet(vm: CommitmentSynthesisInput): CommitmentBullet<FoundedSource> | null {
-  const count = vm.optionsComparison.rows.length
-  if (count === 0) return null
-  return { text: COMMITMENT_COPY.withheldFounded(count), source: 'withheld_count' }
+  const total = vm.optionsComparison.rows.length
+  const compared = vm.optionsComparison.rows.filter((row) => row.kind !== 'not_analysed').length
+  if (compared === 0) return null
+  const text = compared === total ? COMMITMENT_COPY.withheldFounded(compared) : COMMITMENT_COPY.withheldFoundedOf(compared, total)
+  return { text, source: 'withheld_count' }
 }
 
 /**
