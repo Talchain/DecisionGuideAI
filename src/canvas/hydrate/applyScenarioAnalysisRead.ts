@@ -80,6 +80,8 @@
  * This applier reads only the two analysis keys and never the `graph` member.
  */
 
+import { RunDeltaSchema } from '@talchain/schemas/boundary'
+import type { StoredRunDelta } from '../state/storedRunDelta'
 import type { AnalysisResultBlock, AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 import { mapV5AnalysisToReport } from '../../v5/mapV5AnalysisToReport'
@@ -277,6 +279,11 @@ export interface ScenarioAnalysisApplyStore {
    * (`analysis_limit_verdicts`). Optional so a store that does not render them is unaffected.
    */
   readonly setLimitVerdicts?: (stored: LimitVerdictsWrite | null) => void
+  /**
+   * SC-24 — the turn leg's `run_delta` rule on the read leg: the delta CEE serves beside THIS analysis is stored with
+   * the hash just written (`runDeltaDescribesDisplayedAnalysis` then decides), and a new analysis without one evicts.
+   */
+  readonly setRunDelta?: (stored: StoredRunDelta | null) => void
   /** The scenario the verdicts belong to, as the turn leg stamps it. */
   readonly currentScenarioId?: string | null
   /**
@@ -368,6 +375,8 @@ export interface ApplyScenarioAnalysisReadInput {
   readonly optionParticipation?: unknown
   /** The read's `analysis_limit_verdicts`, raw; parsed by the SAME reader the turn leg uses. */
   readonly limitVerdicts?: unknown
+  /** The read's `run_delta`, raw (SC-24); parsed by the contract, as the turn leg's parser does. */
+  readonly runDelta?: unknown
   readonly store: ScenarioAnalysisApplyStore
 }
 
@@ -549,6 +558,14 @@ export function applyScenarioAnalysisRead(
     input.store.setLimitVerdicts?.(
       readLimitVerdictsBlock
         ? { verdicts: readLimitVerdictsBlock, analysisHash: hash, scenarioId: input.store.currentScenarioId ?? null }
+        : null,
+    )
+    // SC-24: the same rule for the pair's comparison. A malformed block is refused WHOLE by the contract (as the turn
+    // parser quarantines it) and reads as absent, never as a partial delta.
+    const readRunDelta = input.runDelta == null ? null : RunDeltaSchema.safeParse(input.runDelta)
+    input.store.setRunDelta?.(
+      readRunDelta?.success
+        ? { delta: readRunDelta.data, analysisHash: hash, scenarioId: input.store.currentScenarioId ?? null }
         : null,
     )
   }

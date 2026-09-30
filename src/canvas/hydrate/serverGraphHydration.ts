@@ -457,6 +457,7 @@ async function readAndMergeServerGraph(
         analysisResult: result.analysisResult,
         limitVerdicts: result.limitVerdicts,
         goalCertainty: result.goalCertainty,
+        runDelta: result.runDelta,
         // The currency leg above is this read's ONE verdict writer (see `applyBootBlockedVerdict`: the legs never both
         // write `analysisStateV1` for one read), so the applier here builds the report and writes no verdict.
         // ⛔ NOR THE FRESHNESS (P0 5909616965 / AIQ 5909634999): the currency leg has just PROVEN this Run current and

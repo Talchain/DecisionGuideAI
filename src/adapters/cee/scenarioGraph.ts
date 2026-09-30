@@ -188,6 +188,12 @@ export type ScenarioGraphResult =
       /** The Run's stored option-participation fact (`analysis_option_participation`, Runtime 5888341208), raw. */
       optionParticipation?: unknown
       /**
+       * SC-24: the displayed Run's comparison with the Run before it (`run_delta`), raw — the SAME producer block the
+       * turn that ran it carried, served on the cold read so a reload shows the same pair. Parsed downstream by the
+       * contract (`RunDeltaSchema`); absent = no delta for this Run.
+       */
+      runDelta?: unknown
+      /**
        * CEE's run admission for this revision (`analysis_admission.admitted`), or
        * `null` / absent when the read did not answer. The boot restore of a
        * gate-closing verdict needs it: CEE may admit a run whose readiness still
@@ -379,6 +385,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     limitVerdicts: b.analysis_limit_verdicts ?? null,
     goalCertainty: b.analysis_goal_certainty ?? null,
     optionParticipation: b.analysis_option_participation ?? null,
+    runDelta: b.run_delta ?? null,
     admitted: readAdmitted(b.analysis_admission, b.graph_hash),
     // Carried raw; the ONE reader is `readServerConversationTurns` (canvas/conversation/serverConversationTurns.ts).
     conversationTurns: b.conversation_turns,
