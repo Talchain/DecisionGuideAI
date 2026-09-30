@@ -309,6 +309,18 @@ describe('B1-b — the Inspector says who chose each target', () => {
     expect(rowText(dialog, FACTOR_LICENSING)).toContain(MARK_AI)
   })
 
+  it('⭐ ADOPTION (P0 #75 5906171422 / AIQ 5906184917): an accepted Olumi level reads "Confirmed by you", never "Set by you" or unsourced', () => {
+    const IV_ADOPTED_54 = { ...IV_INVENTED_22K5, raw_value: 54, value: 0.54, source: 'user_confirmed' }
+    seedStore([
+      factorNode(FACTOR_LICENSING, FACTOR_LICENSING_LABEL),
+      optionNode(OPTION_ID, OPTION_LABEL, { [FACTOR_LICENSING]: IV_ADOPTED_54 }),
+    ])
+    const { dialog } = openInspector(OPTION_ID)
+    expect(mark(dialog, FACTOR_LICENSING)?.textContent).toBe('Confirmed by you')
+    expect(rowText(dialog, FACTOR_LICENSING)).not.toContain(MARK_EDITED)
+    expect(rowText(dialog, FACTOR_LICENSING)).not.toContain(MARK_AI)
+  })
+
   it('⭐⭐ T2 TWIN — the user’s OWN stated figure is NOT marked as invented', () => {
     // The load-bearing half. Marking everything would satisfy T1 and reproduce
     // the defect in the opposite direction, which is the worse one: the product
@@ -509,7 +521,7 @@ describe('B1-b — the register is this surface’s existing voice, derived', ()
     )
   })
 
-  it('⭐⭐ T-REACH the reachable kinds are exactly {brief, ai, edited}', () => {
+  it('⭐⭐ T-REACH the reachable kinds are exactly {brief, ai, edited, confirmed}', () => {
     // A DERIVED guard, not a mirror: it reads the classifier's own literal list.
     // If a schemas minor adds an intervention source — or remaps one — this REDs
     // and somebody has to look at the copy, instead of a new kind arriving
@@ -517,7 +529,8 @@ describe('B1-b — the register is this surface’s existing voice, derived', ()
     const reachable = new Set(
       INTERVENTION_PROVENANCE_SOURCES.map(s => classifyInterventionProvenance(s)?.kind),
     )
-    expect([...reachable].sort()).toEqual(['ai', 'brief', 'edited'])
+    // + `user_confirmed` with P0's adoption contract (#75 5906171422, InterventionV3 admits it): merge ONLY after that CEE change.
+    expect([...reachable].sort()).toEqual(['ai', 'brief', 'confirmed', 'edited'])
 
     // …and the contract's own three literals are all of them (trap 12d — where
     // you cannot derive, a hand-written corpus is what notices the list is
@@ -525,6 +538,7 @@ describe('B1-b — the register is this surface’s existing voice, derived', ()
     expect([...INTERVENTION_PROVENANCE_SOURCES].sort()).toEqual([
       'brief_extraction',
       'cee_hypothesis',
+      'user_confirmed',
       'user_specified',
     ])
   })

@@ -276,6 +276,12 @@ const INTERVENTION_SOURCE_CLASSES: Readonly<Record<string, ValueProvenanceKind>>
   cee_hypothesis: 'ai',
   /** The human supplied the target. `'edited'`, and therefore user-owned. */
   user_specified: 'edited',
+  /**
+   * The human ACCEPTED a level Olumi proposed (P0 #75 5906171422 / AIQ 5906184917: adopting an Olumi suggestion stamps
+   * each of its levels `user_confirmed`). `'confirmed'` — "you confirmed", never "you said": the figure stays Olumi's.
+   * The same literal the observed-state map already classifies as `'confirmed'`.
+   */
+  user_confirmed: 'confirmed',
 })
 
 /** Every intervention-source literal this map classifies — the corpus checks it. */

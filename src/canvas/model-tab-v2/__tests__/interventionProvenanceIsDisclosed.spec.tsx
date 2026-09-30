@@ -281,9 +281,11 @@ describe('⭐ cee_hypothesis is classified by the ratified authority', () => {
     //   "an enum of `brief_extraction | cee_hypothesis | user_specified`"
     // Asserted as a SET EQUALITY so this REDs if the map GROWS as well as if it
     // shrinks — a corpus that only checks membership cannot see an invention.
+    // + `user_confirmed` with P0's adoption contract (#75 5906171422, InterventionV3 admits it): merge ONLY after that CEE change.
     expect([...INTERVENTION_PROVENANCE_SOURCES].sort()).toEqual([
       'brief_extraction',
       'cee_hypothesis',
+      'user_confirmed',
       'user_specified',
     ])
   })
@@ -311,7 +313,7 @@ describe('⭐⭐ the two source vocabularies stay apart', () => {
 
   it('the intervention classifier REFUSES a node-only literal', () => {
     expect(classifyInterventionProvenance('cee_inference')).toBeNull()
-    expect(classifyInterventionProvenance('user_confirmed')).toBeNull()
+    expect(classifyInterventionProvenance('user_override')).toBeNull()
     expect(classifyInterventionProvenance('panel_elicited')).toBeNull()
   })
 
@@ -321,6 +323,9 @@ describe('⭐⭐ the two source vocabularies stay apart', () => {
     // presence (trap 13).
     expect(classifyValueProvenance('brief_extraction')?.kind).toBe('brief')
     expect(classifyInterventionProvenance('brief_extraction')?.kind).toBe('brief')
+    // …and on `user_confirmed` since adoption (P0 #75 5906171422): accepted, "Confirmed by you", in both vocabularies.
+    expect(classifyValueProvenance('user_confirmed')?.kind).toBe('confirmed')
+    expect(classifyInterventionProvenance('user_confirmed')?.kind).toBe('confirmed')
   })
 })
 
