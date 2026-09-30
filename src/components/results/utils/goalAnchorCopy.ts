@@ -461,11 +461,17 @@ export interface ComparisonScope {
  */
 export function deriveComparisonScope(
   options:
-    | ReadonlyArray<{ id?: string | null; label?: string | null; notAnalysed?: boolean; proposedByOlumi?: boolean }>
+    | ReadonlyArray<{ id?: string | null; label?: string | null; notAnalysed?: boolean; proposedByOlumi?: boolean; runNotCurrent?: boolean }>
     | null
     | undefined,
+  /**
+   * ⛔ AIQ pre-share hold (R3 B0 S3): a Run that is not current is never re-described against TODAY's option list —
+   * "3 of your 4 … left out" named an option Run 1 never saw. Say nothing.
+   */
+  resultsCurrent = true,
 ): ComparisonScope | null {
   const all = options ?? []
+  if (!resultsCurrent || all.some((o) => o.runNotCurrent === true)) return null
   if (all.length === 0) return null
 
   const excluded = all.filter((o) => o.notAnalysed === true)

@@ -109,7 +109,7 @@ export function NotAnalysedOptionCard({ option, onFocusNode }: NotAnalysedOption
           className={`${typography.panelBody} text-text-light`}
           data-testid={`not-analysed-reason-${option.id}`}
         >
-          {notAnalysedReasonCopy(reason)}
+          {notAnalysedReasonCopy(reason, resultsAreCurrent)}
         </p>
       )}
 

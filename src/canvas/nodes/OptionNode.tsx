@@ -10,6 +10,7 @@ import { useOptionAbsentFromRunShown, useOptionLeftOutOfRun } from '../hooks/use
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
+import { useAnalysisResultsAreCurrent } from '../hooks/useAnalysisResultsAreCurrent'
 import { NodeValueEditor } from './shared/NodeValueEditor'
 import { optionValueInPlace } from './shared/optionValueInPlace'
 import { OPTION_INTERVENTION_NEEDS_FRESH_BASE, OPTION_INTERVENTION_NOT_ENCODABLE } from '../ui/inspector-v2/shared/optionInterventionCopy'
@@ -727,6 +728,7 @@ export const OptionNode = memo((props: NodeProps) => {
      (`Not analysed`, current or stale); the LICENSED reason decides only which
      sentence may explain it (DIFF 27 Sep item 5). */
   const leftOutOfRunReason = useOptionLeftOutOfRun(props.id)
+  const runIsCurrentForReason = useAnalysisResultsAreCurrent()
   const absentFromRunReason = useOptionAbsentFromRunShown(props.id)
   const scienceIcons = useScienceIcons(props.id, 'option')
 
@@ -2030,7 +2032,7 @@ export const OptionNode = memo((props: NodeProps) => {
    * typed blocker then names the factor that needs a value.
    */
   const notAnalysedSentence = absentFromRunReason === null ? '' : [
-    leftOutOfRunReason !== null ? notAnalysedReasonCopy(leftOutOfRunReason) : NOT_ANALYSED_IN_LAST_ANALYSIS,
+    leftOutOfRunReason !== null ? notAnalysedReasonCopy(leftOutOfRunReason, runIsCurrentForReason) : NOT_ANALYSED_IN_LAST_ANALYSIS,
     missingValueBlocker?.factor_label?.trim()
       ? `${missingValueBlocker.factor_label.trim()} ${OPTION_RESULT_COPY.notAnalysedNeedsValue}.`
       : null,

@@ -126,5 +126,18 @@ export function useAnalysisResultsAreCurrent(): boolean {
   const freshnessState = useCanvasStore((s) => s.analysisFreshness)
   const freshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
   const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
-  return classifyFreshnessForDisplay(freshnessState, freshnessDirty, importHold) === 'current'
+  // ⛔ AIQ pre-share hold, HOT turn (#75 5903550244; R3 B0 5903722709): the server's own verdict saying the Run on screen
+  // is superseded outranks a local overlay that has not moved — the result is not current.
+  const wireSuperseded = useCanvasStore((s) => wireSaysRunSuperseded(s.analysisStateV1))
+  return !wireSuperseded && classifyFreshnessForDisplay(freshnessState, freshnessDirty, importHold) === 'current'
+}
+
+/** CEE says the Run on screen is not current: `complete_stale`, or `complete_current` asking a rerun or carrying C2. */
+export function wireSaysRunSuperseded(verdict: unknown): boolean {
+  const v = verdict as { run_state?: { kind?: unknown }; requires_rerun?: unknown; contradictions?: unknown } | null | undefined
+  const kind = v?.run_state?.kind
+  if (kind === 'complete_stale') return true
+  if (kind !== 'complete_current') return false
+  return v?.requires_rerun === true
+    || (Array.isArray(v?.contradictions) && (v!.contradictions as unknown[]).includes('fact_status_success_but_degraded_newer'))
 }
