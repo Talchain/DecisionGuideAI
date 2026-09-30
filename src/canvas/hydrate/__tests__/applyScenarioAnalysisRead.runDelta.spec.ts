@@ -74,4 +74,29 @@ describe('SC-24 · the cold read stores the pair it was served', () => {
     applyScenarioAnalysisRead({ analysisState: CURRENT, analysisResult: BLOCK, store: again.store })
     expect(again.setRunDelta).not.toHaveBeenCalled()
   })
+
+  // Served 30 Sep (UI 7bfe1b04, #75 5920973524): a SAME-BROWSER reload restores the analysis from the autosave first, so
+  // the read dedupes as `alreadyHeld`, and the delta (never autosaved) was lost; a fresh browser showed it in 0.8 s.
+  it('a same-browser reload (the analysis already held, no delta in memory) stores the read\'s delta under the held hash', () => {
+    const h = harness()
+    applyScenarioAnalysisRead({ analysisState: CURRENT, analysisResult: BLOCK, runDelta: DELTA, store: h.store })
+    const hash = h.resultsComplete.mock.calls[0][0].hash
+    const reload = harness()
+    ;(reload.store as { currentResultsHash: string }).currentResultsHash = hash
+    const out = applyScenarioAnalysisRead({ analysisState: CURRENT, analysisResult: BLOCK, runDelta: DELTA, store: reload.store })
+    expect(out.outcome).toBe('alreadyHeld')
+    expect(reload.resultsComplete).not.toHaveBeenCalled()
+    expect(reload.setRunDelta).toHaveBeenCalledWith({ delta: DELTA, analysisHash: hash, scenarioId: 'scn-sc24' })
+  })
+
+  it('on the held analysis a malformed delta writes nothing — it neither stores a partial pair nor evicts the held one', () => {
+    const h = harness()
+    applyScenarioAnalysisRead({ analysisState: CURRENT, analysisResult: BLOCK, runDelta: DELTA, store: h.store })
+    const hash = h.resultsComplete.mock.calls[0][0].hash
+    const reload = harness()
+    ;(reload.store as { currentResultsHash: string }).currentResultsHash = hash
+    const { endpoints: _drop, ...listWithoutEnds } = DELTA
+    applyScenarioAnalysisRead({ analysisState: CURRENT, analysisResult: BLOCK, runDelta: listWithoutEnds, store: reload.store })
+    expect(reload.setRunDelta).not.toHaveBeenCalled()
+  })
 })
