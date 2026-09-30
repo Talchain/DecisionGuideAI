@@ -12,7 +12,7 @@ import { isWebMcpEnabled } from '../flags'
 import { useOptionalConversationContext } from '../canvas/conversation/ConversationContext'
 import { getModelContext } from './modelContext'
 import { probeTools } from './probeTools'
-import { olumiTools, type ConversationBridge } from './olumiTools'
+import { olumiTools, proposalTools, PROPOSAL_TOOLS_LIVE, type ConversationBridge } from './olumiTools'
 import { registerOnce } from './registry'
 
 export function WebMcpHost(): null {
@@ -35,8 +35,17 @@ export function WebMcpHost(): null {
         return c.sendMessage(text, opts)
       },
       isThinking: () => latest.current?.isThinking === true,
+      latestAssistantText: () => {
+        const msgs = latest.current?.messages ?? []
+        for (let i = msgs.length - 1; i >= 0; i -= 1) {
+          const m = msgs[i] as { role?: string; content?: unknown }
+          if (m.role === 'assistant') return typeof m.content === 'string' ? m.content : null
+        }
+        return null
+      },
     }
-    const cleanup = registerOnce(mc, [...probeTools(), ...olumiTools(bridge)])
+    const tools = [...probeTools(), ...olumiTools(bridge), ...(PROPOSAL_TOOLS_LIVE ? proposalTools(bridge) : [])]
+    const cleanup = registerOnce(mc, tools)
     return cleanup ?? undefined
   }, [])
   return null

@@ -12,7 +12,7 @@ vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId
 vi.mock('../../canvas/analysis/canonicalRunRegistry', () => ({ executeCanonicalRun: runs.execute }))
 vi.mock('../../adapters/cee/scenarioGraph', () => ({ fetchScenarioGraph: vi.fn(async () => ({ status: 'absent', requestId: null })) }))
 
-import { olumiTools, type ConversationBridge } from '../olumiTools'
+import { olumiTools, proposalTools, PROPOSAL_TOOLS_LIVE, type ConversationBridge } from '../olumiTools'
 import { probeTools } from '../probeTools'
 import { useCanvasStore } from '../../canvas/store'
 
@@ -116,7 +116,7 @@ describe('projectState — grounding contract', () => {
 describe('olumi tools', () => {
   const IDENTITY_KEYS = /^(scenario_?id|user_?id|org(anisation|anization)?_?id|token|auth.*|approval.*|typed_approval_of)$/i
   let thinking = false
-  const bridge: ConversationBridge = { sendMessage: vi.fn(), isThinking: () => thinking }
+  const bridge: ConversationBridge = { sendMessage: vi.fn(), isThinking: () => thinking, latestAssistantText: () => null }
   const tool = (name: string) => olumiTools(bridge).find((t) => t.name === name)!
 
   beforeEach(() => {
@@ -165,5 +165,59 @@ describe('olumi tools', () => {
     useCanvasStore.setState({ nodes: [{ id: 'n', position: { x: 0, y: 0 }, data: {} }], currentScenarioId: 's1' } as never)
     runs.execute.mockResolvedValue({ status: 'blocked', reason: 'Give Churn a unit before running.' })
     await expect(tool('olumi_run_analysis').execute({})).resolves.toMatchObject({ ok: false, status: 'blocked', message: 'Give Churn a unit before running.' })
+  })
+})
+
+describe('proposal tools (registered only after CEE fast path 4 is served)', () => {
+  let thinking = false
+  let replies: (string | null)[] = []
+  const sent: unknown[][] = []
+  const bridge: ConversationBridge = {
+    sendMessage: vi.fn((...a: unknown[]) => {
+      sent.push(a)
+      replies.push('A suggested change is ready for your review. Churn 5% Nothing in your model changes unless you approve it.')
+    }),
+    isThinking: () => thinking,
+    latestAssistantText: () => replies.at(-1) ?? null,
+  }
+  const ptool = (name: string) => proposalTools(bridge).find((t) => t.name === name)!
+
+  beforeEach(() => {
+    thinking = false
+    replies = ['earlier reply']
+    sent.length = 0
+    useCanvasStore.setState({ nodes: [{ id: 'n', position: { x: 0, y: 0 }, data: {} }], currentScenarioId: 's1' } as never)
+  })
+
+  it('stays unregistered until the fast path is live', () => {
+    expect(PROPOSAL_TOOLS_LIVE).toBe(false)
+  })
+
+  it('assumption: sends the typed webmcp-tool chip, and reports awaiting approval — never applied', async () => {
+    const out = await ptool('olumi_propose_assumption').execute({ factor_label: 'Churn', value: 5, unit: '%', basis: 'Industry benchmark for SMB SaaS' })
+    expect(sent[0][1]).toEqual({ chipMeta: { id: 'webmcp-tool:propose_assumptions', parameters: { assumptions: [{ factor_label: 'Churn', value: 5, unit: '%', basis: 'Industry benchmark for SMB SaaS' }] } } })
+    expect(out).toMatchObject({ ok: true, status: 'awaiting_human_approval', applied: false })
+  })
+
+  it('option: levels always travel as estimates with a basis', async () => {
+    await ptool('olumi_propose_option').execute({ label: 'Usage-based AI tier', acts_on: [{ factor_label: 'Pro price', direction: 'positive', level: { value: 59, unit: 'GBP', basis: 'Midpoint of competitor range' } }] })
+    const chip = (sent[0][1] as { chipMeta: { id: string; parameters: { acts_on: Array<{ level: Record<string, unknown> }> } } }).chipMeta
+    expect(chip.id).toBe('webmcp-tool:propose_new_option')
+    expect(chip.parameters.acts_on[0].level).toEqual({ value: 59, unit: 'GBP', estimate: true, basis: 'Midpoint of competitor range' })
+  })
+
+  it('a refusal from Olumi is reported as not_prepared, applied:false', async () => {
+    vi.mocked(bridge.sendMessage).mockImplementationOnce((...a: unknown[]) => { sent.push(a); replies.push('That suggestion could not be prepared, so nothing was changed.') })
+    await expect(ptool('olumi_propose_assumption').execute({ factor_label: 'Churn', value: 5, basis: 'benchmark' })).resolves.toMatchObject({ ok: false, status: 'not_prepared', applied: false })
+  })
+
+  it('busy guard: never sends while Olumi is working', async () => {
+    thinking = true
+    await expect(ptool('olumi_propose_assumption').execute({ factor_label: 'Churn', value: 5, basis: 'benchmark' })).resolves.toMatchObject({ status: 'busy' })
+    expect(sent).toHaveLength(0)
+  })
+
+  it('no proposal tool claims a change was applied', async () => {
+    for (const t of proposalTools(bridge)) expect(t.description).toMatch(/never applied/)
   })
 })
