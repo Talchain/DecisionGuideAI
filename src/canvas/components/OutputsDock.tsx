@@ -134,6 +134,7 @@ import { useAnalysisHoldReason } from '../hooks/useAnalysisHold'
 import { selectOptionsNeedingValues } from '../utils/composeBlockedReason'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
+import { degradedAnalysisTypes } from './degradedAnalysisTypes'
 // ROADMAP 2.109: the goal-threshold normalisation helpers and the
 // success-measure/scenario-key lookups left with the retired chip parameter —
 // only the goal-node resolver is still used (the atomic target commit).
@@ -3775,20 +3776,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                       (resultsSectionData?.confidence?.robustnessStatus !== 'computed' &&
                        resultsSectionData?.confidence?.robustnessStatus !== undefined)
                     }
-                    analysisTypes={[
-                      {
-                        name: 'Comparison',
-                        available: resultsSectionData?.recommendation?.analysisStatus === 'computed',
-                      },
-                      {
-                        name: 'Drivers',
-                        available: resultsSectionData?.drivers?.driversStatus === 'computed',
-                      },
-                      {
-                        name: 'Robustness',
-                        available: resultsSectionData?.confidence?.robustnessStatus === 'computed',
-                      },
-                    ].filter(() => resultsSectionData != null)}
+                    analysisTypes={degradedAnalysisTypes(resultsSectionData)}
                     onDismiss={() => setDegradedBannerDismissed(true)}
                   />
                 )}
