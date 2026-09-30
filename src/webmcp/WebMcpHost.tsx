@@ -7,7 +7,7 @@
  * conversation the UI's own controls use (it never calls useConversation itself).
  * Delete this directory and its one mount line to remove the experiment.
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { isWebMcpEnabled } from '../flags'
 import { useOptionalConversationContext } from '../canvas/conversation/ConversationContext'
 import { getModelContext } from './modelContext'
@@ -15,9 +15,11 @@ import { probeTools } from './probeTools'
 import { olumiTools, proposalTools, PROPOSAL_TOOLS_LIVE, type ConversationBridge } from './olumiTools'
 import { registerOnce } from './registry'
 import { adoptScenarioFromUrl } from './scenarioFromUrl'
+import { SiteToolsStatus } from './SiteToolsStatus'
 
-export function WebMcpHost(): null {
+export function WebMcpHost() {
   const conversation = useOptionalConversationContext()
+  const [available] = useState(() => getModelContext() !== null)
   // Tools are registered once; they read the latest conversation through this ref.
   const latest = useRef(conversation)
   latest.current = conversation
@@ -50,5 +52,5 @@ export function WebMcpHost(): null {
     const cleanup = registerOnce(mc, tools)
     return cleanup ?? undefined
   }, [])
-  return null
+  return isWebMcpEnabled() ? <SiteToolsStatus available={available} /> : null
 }

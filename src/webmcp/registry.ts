@@ -25,6 +25,12 @@ const MAX_CALLS = 50
 const diagnostics: WebMcpDiagnostics = { registered: [], calls: [] }
 let owner: AbortController | null = null
 
+export const WEBMCP_EVENT = 'olumi-webmcp'
+
+function announce(): void {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(WEBMCP_EVENT))
+}
+
 function expose(): void {
   if (typeof window !== 'undefined') {
     ;(window as unknown as { __olumiWebMcp?: WebMcpDiagnostics }).__olumiWebMcp = diagnostics
@@ -49,6 +55,7 @@ function instrument(tool: WebMcpTool): WebMcpTool {
         diagnostics.calls.push(record)
         if (diagnostics.calls.length > MAX_CALLS) diagnostics.calls.shift()
         console.info('[webmcp] call', record)
+        announce()
       }
     },
   }
@@ -74,10 +81,12 @@ export function registerOnce(mc: ModelContextLike, tools: WebMcpTool[]): (() => 
     }
   }
   console.info('[webmcp] registered', diagnostics.registered)
+  announce()
   return () => {
     controller.abort()
     if (owner === controller) owner = null
     diagnostics.registered = []
+    announce()
   }
 }
 

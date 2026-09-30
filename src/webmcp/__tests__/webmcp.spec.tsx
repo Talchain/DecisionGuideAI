@@ -124,3 +124,39 @@ describe('WebMCP experiment — Gate A probes', () => {
     expect(live(mc)).toEqual([])
   })
 })
+
+describe('site tools status pill (experiment)', () => {
+  beforeEach(() => {
+    __resetWebMcpRegistryForTests()
+    localStorage.removeItem('feature.webmcp')
+    delete (document as unknown as { modelContext?: unknown }).modelContext
+  })
+  afterEach(() => {
+    cleanup()
+    __resetWebMcpRegistryForTests()
+    localStorage.removeItem('feature.webmcp')
+    delete (document as unknown as { modelContext?: unknown }).modelContext
+  })
+
+  it('renders nothing with the flag off', () => {
+    const { container } = render(<WebMcpHost />)
+    expect(container.querySelector('[data-testid="webmcp-status"]')).toBeNull()
+  })
+
+  it('says site tools are unavailable, and how to fix it, when the browser has no modelContext', () => {
+    localStorage.setItem('feature.webmcp', '1')
+    const { getByTestId } = render(<WebMcpHost />)
+    expect(getByTestId('webmcp-status').dataset.connected).toBe('false')
+    expect(getByTestId('webmcp-status').textContent).toMatch(/ChatGPT desktop app/)
+  })
+
+  it('shows connected, then the last call ChatGPT made', async () => {
+    localStorage.setItem('feature.webmcp', '1')
+    const mc = fakeModelContext()
+    ;(document as unknown as { modelContext?: unknown }).modelContext = mc
+    const { getByTestId, findByText } = render(<WebMcpHost />)
+    expect(getByTestId('webmcp-status').dataset.connected).toBe('true')
+    await mc.registered.find((r) => r.tool.name === 'olumi_ping')!.tool.execute({})
+    await findByText(/ChatGPT last asked Olumi to check connection/)
+  })
+})
