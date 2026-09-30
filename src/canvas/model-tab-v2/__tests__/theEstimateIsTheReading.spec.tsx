@@ -8,6 +8,7 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { ModelRowView, estimateWords, PLACEHOLDER_ESTIMATE_COPY } from '../ModelRowView'
+import { ModelOutline } from '../ModelOutline'
 import type { ModelRow } from '../types'
 
 afterEach(cleanup)
@@ -72,5 +73,17 @@ describe('marks that restate the row text are hidden from sight, not from a scre
     for (const reason of ['contested', 'fragile']) {
       expect(screen.getByTestId(`model-row-v2-f1-attention-${reason}`).className, reason).not.toMatch(/\bsr-only\b/)
     }
+  })
+})
+
+describe('the heading obeys the same rule on the confirmable-estimate branch (AIQ CR 5918407026)', () => {
+  const heading = () => screen.getByTestId('model-group-v2-factors-unknown-summary').textContent
+  it('RED: no source + unconfirmed-estimate + no primaryValue → "1 using a placeholder"', () => {
+    render(<ModelOutline rows={[factor({ attention: ['unconfirmed-estimate'], provenanceSource: undefined })]} tier="plain" />)
+    expect(heading()).toBe('1 using a placeholder')
+  })
+  it('CONTROL: the same row stamped cee_inference → "1 estimated by Olumi"', () => {
+    render(<ModelOutline rows={[factor({ attention: ['unconfirmed-estimate'], provenanceSource: 'cee_inference' })]} tier="plain" />)
+    expect(heading()).toBe('1 estimated by Olumi')
   })
 })

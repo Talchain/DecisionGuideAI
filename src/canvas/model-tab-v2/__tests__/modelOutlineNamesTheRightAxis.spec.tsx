@@ -52,7 +52,8 @@ const setRow = (id: string) =>
 
 /** Olumi estimated it: no `raw_value`, but a value the user can confirm. */
 const estimatedRow = (id: string) =>
-  row({ id, label: `Estimated ${id}`, primaryValue: null, attention: ['no-value', 'unconfirmed-estimate'] })
+  // 30 Sep 2026 (AIQ CR 5918407026): "estimated by Olumi" needs Olumi's own source stamp.
+  row({ id, label: `Estimated ${id}`, primaryValue: null, attention: ['no-value', 'unconfirmed-estimate'], provenanceSource: 'cee_inference' })
 
 /** Genuinely nothing: no value on either axis. */
 const emptyRow = (id: string) =>

@@ -503,7 +503,11 @@ export function unsetBucketOf(row: ModelRow): UnsetBucket | null {
   // `unconfirmed-estimate` is `factorIsConfirmable`, surfaced as an attention
   // reason. A row may carry either without the other, and their UNION is the one
   // question this clause asks. See the block on `unsetSummary` below.
-  if (Array.isArray(row.attention) && row.attention.includes('unconfirmed-estimate')) return 'from-olumi'
+  // AIQ CR 5918407026: the confirmable-estimate branch obeys the same predicate — a no-stamp
+  // factor with a model `value` and no `raw_value` is a placeholder, not "estimated by Olumi".
+  if (Array.isArray(row.attention) && row.attention.includes('unconfirmed-estimate')) {
+    return estimateIsOlumis(row.provenanceSource) ? 'from-olumi' : 'placeholder'
+  }
   // ⭐ 30 Sep 2026 (AIQ #75 5917333759 condition 1): the SAME rule the cell uses. A value in use
   // that is not attested as Olumi's own estimate is not counted as "estimated by Olumi" — the
   // cell reads "Placeholder: …" and the heading must not contradict it.
