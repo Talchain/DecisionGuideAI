@@ -11,8 +11,11 @@
  *   - `changed` — a node or link whose input differed between the two Runs (one producer row);
  *   - `added`   — an option that ENTERED THE COMPARISON (not "new on the graph": it may have been drawn but excluded);
  *   - `moved`   — an option whose share of runs moved BEYOND run-to-run noise (`noiseVerdict === 'signal'`, the
- *                 producer's tag), and only when win shares may be shown at all (`winShareGate`, row 9). It is a
- *                 RESULT mark, never a claim about why: attribution is the Compare tab's producer sentence alone.
+ *                 producer's tag), only when win shares may be shown at all (`winShareGate`, row 9), and ONLY ON AN
+ *                 ATTRIBUTABLE PAIR (`view.attributable`, C1). ⛔ On any other pair a "Changed" card beside a
+ *                 "Result moved" card reads as "the edit moved it" — the cause the producer says it cannot
+ *                 establish (AIQ #2370 5921417329; the same class PANEL fixed on #2368). There, the input marks stay
+ *                 and the Compare tab states the movement with its limit.
  * Removed inputs, and changed inputs with nothing drawn to mark, are left to the list (the Compare tab already says
  * each one in words). No ghosts, no second graph, no historical layout.
  *
@@ -98,7 +101,8 @@ export function buildGraphChangesView(
         put(target.kind === 'node' ? nodeMarks : edgeMarks, target.id, mark)
       }
     }
-    if (!winSharesWithheld) {
+    // Only C1 may put a change and a movement on the canvas together (AIQ 5921417329).
+    if (!winSharesWithheld && view.attributable) {
       const nodeIds = new Set(graph.nodes.map(n => n.id))
       for (const m of view.movements) {
         if (m.noiseVerdict === 'signal' && m.direction !== 'level' && nodeIds.has(m.optionId)) put(nodeMarks, m.optionId, 'moved')
