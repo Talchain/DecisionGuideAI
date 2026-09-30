@@ -249,7 +249,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     title: genuine
       ? `The limit on ${label} can't be checked reliably`
       : "A limit on your model can't be checked reliably",
-    description: 'This limit could not be checked against this model, so the share of model runs that meet it was withheld for this run rather than shown as a meaningless number.',
+    description: "Olumi can't check this limit reliably against this model yet, so the share of model runs that meet it is not shown rather than given as a meaningless number.",
     suggestion: '',
   }),
   // 1.52 follow-up — producer WARNING-severity codes (PLoT constraint
@@ -482,14 +482,14 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // ══════════════════════════════════════════════════════════════════════════
   GOAL_THRESHOLD_NOT_CONVERTIBLE: () => ({
     title:
-      "Your goal's target was recorded, but it couldn't be compared with where the goal stands today, so the share of model runs that reach it was withheld rather than guessed.",
+      "Your goal's target was recorded, but Olumi can't yet compare it with where the goal stands today, so the share of model runs that reach it is not shown rather than guessed.",
     description:
-      "Your target was captured. What this run couldn't do is compare it with where the goal stands today, for example when no current level is recorded for the goal. The share of model runs that reach your target was withheld rather than guessed.",
+      "Your target was captured. To compare it, Olumi needs where the goal stands today, and this usually means no current level is recorded for the goal. Until then, the share of model runs that reach your target is not shown rather than guessed.",
     // No suggestion: there is no action the user can take until ROADMAP 2.281.
   }),
   GOAL_THRESHOLD_FRAME_UNSPECIFIED: () => ({
     title: "Your goal's target could mean a level or a change. Restate the target as a level to reach or a change from your current level.",
-    description: "The target doesn't say whether it's a level to reach or a change from today, so the share of model runs that reach it was withheld for this run rather than guessed.",
+    description: "The target doesn't say whether it's a level to reach or a change from today, so the share of model runs that reach it is not shown rather than guessed. Restate it, then run the analysis again.",
     suggestion: 'Restate the target as a level to reach or a change from your current level',
   }),
 
@@ -666,14 +666,14 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // goal ones.
   CONSTRAINT_NOT_CONVERTIBLE: () => ({
     title:
-      'One of your limits couldn\'t be compared with where its factor stands today, so its check was withheld rather than guessed. State that factor\'s current level.',
+      'One of your limits can\'t be compared with where its factor stands today, so its check is not shown rather than guessed. State that factor\'s current level, then run the analysis again.',
     description:
       'The limit could not be resolved into its factor\'s measurement frame, for example when no current level is recorded for it.',
     suggestion: 'State the current level for that factor',
   }),
   CONSTRAINT_FRAME_UNSPECIFIED: () => ({
     title:
-      'One of your limits could mean a level or a change from today, so its check was withheld rather than guessed. Restate it as a level or a change.',
+      'One of your limits could mean a level or a change from today, so its check is not shown rather than guessed. Restate it as a level or a change, then run the analysis again.',
     description:
       'The limit does not say whether its value is a level or a change, and the producer refuses to guess between them.',
     suggestion: 'Restate that limit as a level or a change from today',
@@ -1126,6 +1126,11 @@ function resolveFactorLabel(
  * SHRINKS (one is fixed without the record being updated). The remaining
  * members are a recorded, visible gap rather than an unobserved one.
  */
+/** Every code with a template — the plain-language sweep (PTL #77 5908320681 item 7) scans each one's words. */
+export function humanisedCodes(): readonly string[] {
+  return Object.keys(CODE_TEMPLATES)
+}
+
 export function codesRenderingUnresolvedLabel(): readonly string[] {
   const offenders: string[] = []
   for (const [code, template] of Object.entries(CODE_TEMPLATES)) {
