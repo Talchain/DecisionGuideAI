@@ -367,6 +367,9 @@ export function buildHeroModel(
   // −22%" served for a goal with no today's level) — so every outcome figure is withheld at source, and the outcome
   // lens says why (`outcomeWithheldNoTodayLevel`).
   const outcomeIsUnitless = isNormalised === true
+  /** Any option carried an outcome figure at all (a producer withhold leaves none — then nothing was unitless). */
+  const anyOutcomeFigure = options.some((o) =>
+    [outcomeCentre(o), outcomeP10(o), outcomeP90(o)].some((v) => typeof v === 'number' && Number.isFinite(v)))
 
   // UI-SEM-071: null-target goal-claim suppression. Goal-fit display is
   // gated on the USER success target (goalThreshold), NEVER on producer
@@ -1468,11 +1471,18 @@ export function buildHeroModel(
     },
     outcomeDomain,
     outcomeWithheldNoTodayLevel: outcomeIsUnitless,
+    // ⛔ R3 #75 5905239972 (served MRR + cut-costs): "doesn't hold today's level" was said for goals holding the user's
+    // £75k / £45k, because outcomes the PRODUCER withheld (no figure at all) read as unitless. The sentence is the
+    // reason only when there were figures to withhold AND the goal holds no level; otherwise the neutral line.
+    // The producer's typed words win (MG 5905252815); "no today's level" only with figures AND no level; else neutral.
     outcomeWithheldBody: outcomeIsUnitless
-      ? HERO_COPY.lensUnavailable.outcomeNoTodayLevel(
-          stripEncodingNotation(recommendation.goalLabel ?? ''),
-          outcomeUnitSymbol?.trim() || null,
-        )
+      ? (recommendation.goalFiguresWithheldMessage
+          ?? (anyOutcomeFigure && recommendation.goalHoldsTodayLevel !== true
+            ? HERO_COPY.lensUnavailable.outcomeNoTodayLevel(
+                stripEncodingNotation(recommendation.goalLabel ?? ''),
+                outcomeUnitSymbol?.trim() || null,
+              )
+            : HERO_COPY.lensUnavailable.outcome))
       : null,
     // Caption honesty: only describe range lines (and overlap) the chart
     // actually draws — 0/1/2+ ranged rows pick the caption wording.

@@ -598,6 +598,13 @@ export interface DecisionResultData {
    * When true, UI must label values as "Relative score" with tooltip, never as user units.
    */
   isNormalised?: boolean
+  /**
+   * ⛔ R3 #75 5905239972: the goal node HOLDS today's level (a finite `observedState.raw_value`, e.g. MRR's £75,000 from
+   * the brief). When true, "Olumi doesn't hold today's level" is never the reason an outcome is withheld.
+   */
+  goalHoldsTodayLevel?: boolean
+  /** The producer's own "Not shown." words when it withheld the goal figures (`readGoalIdentityWithheld`), else null. */
+  goalFiguresWithheldMessage?: string | null
 }
 
 // =============================================================================
