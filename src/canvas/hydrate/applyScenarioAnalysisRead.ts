@@ -516,6 +516,14 @@ export function applyScenarioAnalysisRead(
       if (withholdingReason !== null) {
         input.store.resultsWithholdLeaderClaim?.(withholdingReason, producerLeaderClaimCause(verdict))
       }
+      // SC-24: NOR THE PAIR. A same-browser reload restores this analysis from the autosave BEFORE the read lands, so
+      // the read dedupes here; the delta is never autosaved, so skipping it lost the comparison on every reload (served
+      // 30 Sep, #75 5920973524). A delta the read carries for the held analysis is stored under the held hash. A read
+      // without one, or with a malformed one, writes nothing: a turn's delta for this same analysis stays.
+      const heldRunDelta = input.runDelta == null ? null : RunDeltaSchema.safeParse(input.runDelta)
+      if (heldRunDelta?.success) {
+        input.store.setRunDelta?.({ delta: heldRunDelta.data, analysisHash: hash, scenarioId: input.store.currentScenarioId ?? null })
+      }
       return { outcome: 'alreadyHeld', kind }
     }
     input.store.resultsComplete({
