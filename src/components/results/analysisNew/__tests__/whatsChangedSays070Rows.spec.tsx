@@ -9,6 +9,8 @@
  *   W4  `win_probabilities_unavailable: 'prior_withheld'` (the package fixture) → "The options can be compared for the
  *       first time." on the Compare section AND the canvas card. CONTRAST: `no_matched_option` and absent → the
  *       cause-neutral no-pairs line. The first-comparison line is never inferred from an empty array.
+ *   W6  every contract `StrengthBand` literal reads in the band table's inline words (52f8cd 5937970750): no underscore,
+ *       no literal. Bound to the package's own enum, so a new literal joins the row.
  *   W5  the Panel's one sentence (`runDeltaSentence`, Reasoning tab + chat card) says the same RC words for a sizing row,
  *       never the raw enum. CONTRAST: a factor value row keeps its "changed from … to …" sentence.
  */
@@ -18,6 +20,7 @@ import { render, screen } from '@testing-library/react'
 import { RunDeltaSchema, type RunDelta } from '@talchain/schemas/boundary'
 import { maximalRunDelta, maximalRunDeltaPriorWithheld, maximalRunDeltaInputChangeSizing } from '@talchain/schemas/fixtures'
 import { buildRunDeltaView } from '../runDeltaView'
+import { StrengthBand } from '@talchain/schemas'
 import {
   inputRowText,
   noPairsText,
@@ -68,11 +71,11 @@ describe('W2 · one sentence per link ("Edit the strength" writes sizing AND str
     expect(inputRowText(rows[0])).toBe('You gave your own estimate for how much Sales team size changes New revenue: moderate → strong.')
   })
   it('CONTRAST: a strength row on ANOTHER link stays its own sentence', () => {
-    const other = { ...link('fixture_factor_1', 'fixture_factor_3'), field: 'strength', before: { raw: 'weak' }, after: { raw: 'moderate' }, change: 'changed' }
+    const other = { ...link('fixture_factor_1', 'fixture_factor_3'), field: 'strength', before: { raw: 'slight' }, after: { raw: 'moderate' }, change: 'changed' }
     const view = buildRunDeltaView(withChanges([...edit, other]), () => null, nodeLabel)
     expect(view.inputs!.rows.map(inputRowText)).toEqual([
       'You gave your own estimate for how much Sales team size changes New revenue: moderate → strong.',
-      'You changed how much Monthly churn changes New revenue: weak → moderate.',
+      'You changed how much Monthly churn changes New revenue: slight → moderate.',
     ])
   })
 })
@@ -124,4 +127,33 @@ describe('W5 · the Panel sentence says the same words', () => {
     )
     expect(runDeltaSentence(view, { isStale: false }) ?? '').toMatch(/^Since the last run, Monthly churn changed from 7\s?% to 12\s?%\./)
   })
+})
+
+describe('W6 · every strength band literal reads as words (52f8cd 5937970750)', () => {
+  const WORDS: Record<string, string> = { very_strong: 'very strong', strong: 'strong', moderate: 'moderate', slight: 'slight' }
+  it('the expectation table covers the package enum exactly', () => {
+    expect([...StrengthBand.options].sort()).toEqual(Object.keys(WORDS).sort())
+  })
+  for (const band of StrengthBand.options) {
+    it(`${band}: strength alone and the folded own-estimate sentence`, () => {
+      const other = band === 'moderate' ? 'strong' : 'moderate'
+      const alone = buildRunDeltaView(
+        withChanges([{ ...link('fixture_factor_1', 'fixture_factor_2'), field: 'strength', before: { raw: other }, after: { raw: band }, change: 'changed' }]),
+        () => null,
+        nodeLabel,
+      )
+      expect(inputRowText(alone.inputs!.rows[0])).toBe(`You changed how much Monthly churn changes Sales team size: ${WORDS[other]} → ${WORDS[band]}.`)
+      const folded = buildRunDeltaView(
+        withChanges([
+          { ...link('fixture_factor_2', 'fixture_factor_3'), field: 'sizing', before: { raw: 'placeholder' }, after: { raw: 'user' }, change: 'changed' },
+          { ...link('fixture_factor_2', 'fixture_factor_3'), field: 'strength', before: { raw: band }, after: { raw: other }, change: 'changed' },
+        ]),
+        () => null,
+        nodeLabel,
+      )
+      const said = inputRowText(folded.inputs!.rows[0])
+      expect(said).toBe(`You gave your own estimate for how much Sales team size changes New revenue: ${WORDS[band]} → ${WORDS[other]}.`)
+      expect(said).not.toMatch(/_/)
+    })
+  }
 })
