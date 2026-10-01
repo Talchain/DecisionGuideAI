@@ -6,9 +6,6 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { createElement } from 'react'
-import { render } from '@testing-library/react'
-import { ACTION_ICON } from '../../../components/results/analysis-hero/actOnIt/tokens'
 
 const src = (p: string) => readFileSync(join(process.cwd(), 'src', p), 'utf8')
 
@@ -29,13 +26,8 @@ describe('an ask uses the Olumi AI icon; provenance keeps Sparkles', () => {
     expect(code).not.toMatch(/<Sparkles\b/)
   })
 
-  it('the Analysis tab\'s act-on-it "Work through with AI" icon is the Olumi glyph (Panel, 30 Sep 2026)', () => {
-    const { container } = render(createElement(ACTION_ICON.ai.Icon, { className: 'h-4 w-4' }))
-    const svg = container.querySelector('svg')!
-    expect(svg.getAttribute('data-icon')).toBe('olumi-ai')
-    expect(svg.getAttribute('class')).toContain('olumi-glyph-ai')
-    expect(svg.getAttribute('class'), 'the caller\'s classes are kept').toContain('h-4')
-  })
+  // The Analysis tab's act-on-it "Work through with AI" icon is pinned inside the analysis-hero module
+  // (`actOnIt/__tests__/actionIconIsTheOlumiGlyph.spec.tsx`): only its own mount may import that module.
 
   it('CONTROL: the provenance note ("Drafted by Olumi") keeps Sparkles', () => {
     expect(src('canvas/ui/inspector-v2/panels/OptionPanel.tsx')).toMatch(/<Sparkles\b/)
