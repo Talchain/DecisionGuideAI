@@ -11,7 +11,7 @@ M=../../migrations
 node run.mjs                                     # BEFORE (live): 9/33
 node run.mjs $M/20261001130338_contain_team_invite_functions_anon_20261001.sql \
              $M/20261001193210_invite_team_function_revoke_only_20261001.sql \
-             $M/20261001210000_invite_team_function_rewrites.sql   # AFTER: 33/33
+             $M/20261001201416_invite_team_function_rewrites_20261001.sql   # AFTER: 33/33
 ```
 
 Each P1 of the #2402 review has a row that fails on the round-1 draft (`20261001140000` @ 58a5bc08) and passes on round 2:
