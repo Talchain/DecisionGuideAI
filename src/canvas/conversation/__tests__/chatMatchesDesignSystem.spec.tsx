@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { ChatThread } from '../zones/ChatThread'
-import { ThinkingDots, WAITING_COACHING_LINES, WAITING_LINE_MS } from '../zones/ThinkingDots'
+import { ThinkingDots, WAITING_LINES, WAITING_LINE_MS, waitingPhaseOf } from '../zones/ThinkingDots'
 import { SuggestedChips } from '../zones/SuggestedChips'
 import { InlineBlocks } from '../InlineBlocks'
 import { V5HeldProposalBlock } from '../../../v5/blocks/V5HeldProposalBlock'
@@ -93,17 +93,20 @@ describe('the user message runs the full width of the chat column (Paul, 28 Sep)
   })
 })
 
-describe('Grammar v0 §2 waiting (replaces DS §21.3 dots, Paul 1 Oct): the Olumi mark plus a coaching line, never a bare "Thinking…"', () => {
-  it('the chat thread shows the Olumi mark and a method coaching line while a turn is in flight', () => {
-    const messages: ConversationMessage[] = [
-      { id: 'u1', role: 'user', content: 'Should we raise the price?', timestamp: new Date() },
-    ]
+describe('Grammar v0 §2 waiting (replaces DS §21.3 dots, Paul 1 Oct): the Olumi mark plus the coach\'s line for the phase, never a guessed phase', () => {
+  const thread = (over: { nodeCount: number; analysisRunning?: boolean; longRunningHint?: string | null }) =>
     render(
       <ChatThread
-        messages={messages}
+        messages={[
+          { id: 'u1', role: 'user', content: 'Should we raise the price?', timestamp: new Date() },
+          // A finalised Olumi reply, so an empty canvas shows the thread rather than EmptyState's own loading.
+          { id: 'a1', role: 'assistant', content: 'What is the goal: revenue, or margin?', timestamp: new Date() },
+          { id: 'u2', role: 'user', content: 'Revenue.', timestamp: new Date() },
+        ]}
         isThinking={true}
-        longRunningHint={null}
-        nodeCount={3}
+        longRunningHint={over.longRunningHint ?? null}
+        nodeCount={over.nodeCount}
+        analysisRunning={over.analysisRunning}
         patchBlockStates={new Map()}
         patchRejections={new Map()}
         onChipClick={noop}
@@ -113,25 +116,68 @@ describe('Grammar v0 §2 waiting (replaces DS §21.3 dots, Paul 1 Oct): the Olum
         onRetry={vi.fn()}
       />,
     )
+
+  it('a turn on an empty canvas (answering Olumi before any model exists) shows the Olumi mark and the reading_brief line; no dots, no visible "Thinking…"', () => {
+    thread({ nodeCount: 0 })
     const indicator = screen.getByTestId('thinking-indicator')
     expect(indicator).toHaveAttribute('role', 'status')
     expect(indicator.querySelector('svg[data-icon="olumi-ai"]')).not.toBeNull()
     expect(within(indicator).queryAllByTestId('thinking-dot')).toHaveLength(0)
-    // The generic phase line is retired; a method's own approved line takes its place (≤90 characters).
     expect(within(indicator).queryByText('Thinking\u2026')).toBeNull()
-    const line = within(indicator).getByTestId('thinking-coaching-line').textContent ?? ''
-    expect(line).toBe(WAITING_COACHING_LINES[0])
-    expect(line.length).toBeLessThanOrEqual(90)
+    const line = within(indicator).getByTestId('thinking-coaching-line')
+    expect(line).toHaveAttribute('data-phase', 'reading_brief')
+    expect(line.textContent).toBe('Good decisions start with the real question, not the first one that comes to mind.')
   })
 
-  it('a specific phase line still shows above the coaching line, and the line rotates', () => {
+  it('a Run in flight shows the running_analysis line, not the brief line', () => {
+    thread({ nodeCount: 3, analysisRunning: true, longRunningHint: 'Analysing your options... 12s' })
+    const line = screen.getByTestId('thinking-coaching-line')
+    expect(line).toHaveAttribute('data-phase', 'running_analysis')
+    expect(line.textContent).toBe(WAITING_LINES.running_analysis[0])
+  })
+
+  it('⛔ CONTRAST: the same hint with NO Run in flight on an existing model is an unknown phase: no coaching line at all', () => {
+    thread({ nodeCount: 3, longRunningHint: 'Analysing your options... 12s' })
+    expect(screen.queryByTestId('thinking-coaching-line')).toBeNull()
+    expect(screen.getByTestId('thinking-label')).toHaveTextContent('Analysing your options... 12s')
+  })
+
+  it('an unknown phase with the generic label shows the mark alone; "Thinking…" is for screen readers only', () => {
+    thread({ nodeCount: 3 })
+    const indicator = screen.getByTestId('thinking-indicator')
+    expect(within(indicator).queryByTestId('thinking-coaching-line')).toBeNull()
+    expect(within(indicator).queryByTestId('thinking-label')).toBeNull()
+    expect(within(indicator).getByText('Thinking\u2026')).toHaveClass('sr-only')
+  })
+
+  it('every waiting line is the coach\'s verbatim, ≤90 characters, three per phase (waiting_library @770a7b73)', () => {
+    for (const lines of Object.values(WAITING_LINES)) {
+      expect(lines).toHaveLength(3)
+      for (const l of lines) expect(l.length).toBeLessThanOrEqual(90)
+    }
+    expect(WAITING_LINES.running_analysis[1]).toBe("Results show what follows from the model's assumptions, not a forecast.")
+    expect(WAITING_LINES.preparing_explanation[0]).toBe('Olumi only puts an option forward when the analysis supports it.')
+    expect(WAITING_LINES.preparing_explanation[2]).toBe("Where a figure is Olumi's estimate, your own number can sharpen the answer.")
+  })
+
+  it('the phase comes only from what the thread knows; anything else is unknown (null)', () => {
+    expect(waitingPhaseOf({ settling: true, analysisRunning: false, nodeCount: 4 })).toBe('structuring')
+    expect(waitingPhaseOf({ settling: false, analysisRunning: true, nodeCount: 4 })).toBe('running_analysis')
+    expect(waitingPhaseOf({ settling: false, analysisRunning: false, nodeCount: 0 })).toBe('reading_brief')
+    expect(waitingPhaseOf({ settling: false, analysisRunning: false, nodeCount: 4 })).toBeNull()
+  })
+
+  it('a specific phase line still shows above the coaching line, and the line rotates within its phase only', () => {
     vi.useFakeTimers()
     try {
-      render(<ThinkingDots label={'Analysing your options\u2026'} />)
+      render(<ThinkingDots label={'Analysing your options\u2026'} phase="running_analysis" />)
       expect(screen.getByTestId('thinking-label')).toHaveTextContent('Analysing your options\u2026')
-      expect(screen.getByTestId('thinking-coaching-line')).toHaveTextContent(WAITING_COACHING_LINES[0])
-      act(() => { vi.advanceTimersByTime(WAITING_LINE_MS) })
-      expect(screen.getByTestId('thinking-coaching-line')).toHaveTextContent(WAITING_COACHING_LINES[1])
+      const seen: string[] = []
+      for (let k = 0; k < 4; k++) {
+        seen.push(screen.getByTestId('thinking-coaching-line').textContent ?? '')
+        act(() => { vi.advanceTimersByTime(WAITING_LINE_MS) })
+      }
+      expect(seen).toEqual([...WAITING_LINES.running_analysis, WAITING_LINES.running_analysis[0]])
     } finally {
       vi.useRealTimers()
     }
