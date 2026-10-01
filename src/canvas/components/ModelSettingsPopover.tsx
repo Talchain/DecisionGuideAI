@@ -1,3 +1,4 @@
+import { topLeftChromeBottomPx } from '../utils/topBarClearance'
 import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
 import { useDraftStore } from '../stores/draftStore'
@@ -71,8 +72,7 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
 
       const rect = anchor.getBoundingClientRect()
       const padding = 8
-      const rootStyles = getComputedStyle(document.documentElement)
-      const topbarHeight = parseFloat(rootStyles.getPropertyValue('--topbar-h')) || 0
+      const topbarHeight = topLeftChromeBottomPx() // the top-left pill's bottom edge (1 Oct 2026)
       const safeTop = topbarHeight + padding
       const availableAbove = rect.top - safeTop
       const viewportMax = window.innerHeight - safeTop - padding

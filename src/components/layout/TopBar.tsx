@@ -57,8 +57,16 @@ interface TopBarProps {
   shareScenarioId?: string | null
 }
 
-/** contract v3.1 `.app-top{height:51px}` — the bar's height, and its bottom edge. */
-export const TOP_BAR_HEIGHT_PX = 51
+/**
+ * The top-left pill (Paul, 1 Oct 2026 — see `TopBar.module.css`): 12px from the top, 40px tall, so its bottom edge
+ * is 52px. ⚠ NOT a band across the screen any more: `--topbar-h` stays 0 and the dock/canvas start at the top; only
+ * the top-LEFT column clears this edge, via `--chrome-top-left`.
+ */
+export const TOP_PILL_TOP_PX = 12
+export const TOP_PILL_HEIGHT_PX = 40
+export const TOP_PILL_BOTTOM_PX = TOP_PILL_TOP_PX + TOP_PILL_HEIGHT_PX
+/** @deprecated The full-width bar is gone; `--topbar-h` is 0. Kept for one cycle so no reader breaks silently. */
+export const TOP_BAR_HEIGHT_PX = 0
 
 export const TopBar = ({
   scenarioTitle,
@@ -109,16 +117,16 @@ export const TopBar = ({
     prevSaveStatusRef.current = saveStatus
   }, [saveStatus])
 
-  // contract v3.1 `.app-top{height:51px}` — a full-width bar at the top edge,
-  // so `--topbar-h` is its bottom: 51px (the floating pill's was 12 + 45 = 57).
-  // The canvas tools, the dock and the starter context line anchor below it.
+  // The pill covers only the top-LEFT corner, so `--topbar-h` (a band across the whole screen) stays 0 and the dock
+  // runs the full height. The pill's bottom edge is published as `--chrome-top-left` for the top-left column only:
+  // the canvas tools, the left inspector and the top-centre notices sit below it.
   useEffect(() => {
     if (typeof document === 'undefined') return
     const root = document.documentElement
-    const previous = root.style.getPropertyValue('--topbar-h')
-    root.style.setProperty('--topbar-h', `${TOP_BAR_HEIGHT_PX}px`)
+    const previous = root.style.getPropertyValue('--chrome-top-left')
+    root.style.setProperty('--chrome-top-left', `${TOP_PILL_BOTTOM_PX}px`)
     return () => {
-      root.style.setProperty('--topbar-h', previous || '0px')
+      root.style.setProperty('--chrome-top-left', previous || '0px')
     }
   }, [])
 

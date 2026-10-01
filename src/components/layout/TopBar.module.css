@@ -1,41 +1,43 @@
 /**
- * ⭐ CONTRACT v3.1 `.app-top` — A FULL-WIDTH BAR, NOT A FLOATING PILL
- * (DESIGN-GAP #5, 26 Sep 2026).
+ * ⭐ THE APP BAR IS A TOP-LEFT PILL AGAIN — the right panel runs the FULL HEIGHT (Paul, 1 Oct 2026 ~00:15Z).
  *
- * `.app-top{height:51px;border-bottom:1px solid #DDD8D0;display:flex;
- * align-items:center;padding:0 18px;gap:20px;background:rgba(254,254,254,.94)}`
- * — logo, model title ⌄, then right-aligned scope/status and a 26px avatar.
- * Served before: a 438.6x45 pill at (12,12), radius 16, a two-layer shadow, a
- * bordered 216x31 title pill and a 32px avatar. The pill's material (translucent
- * white, 16px corners, blur) was chosen to match the floating toolbars; the
- * toolbars now take the contract's material too (`CanvasFloatingToolbar`), and
- * the bar is the contract's flat rule rather than a floating surface.
+ * Paul: "I don't think we should keep the menu bar that is full width … it needs to be a pill/panel-type menu in the
+ * left-hand corner so that we can allow the right-hand panel to be the full height of the screen."
  *
- * `--topbar-h` (set in `TopBar.tsx`) is this bar's bottom edge, 51px: the
- * canvas tools, the dock and the starter context line anchor below it, and
- * `computeFitPadding` measures the rect itself rather than trusting the var.
+ * ⚠ THIS REVERSES TWO WRITTEN AUTHORITIES, DELIBERATELY AND ON THE OWNER'S CALL: contract v3.1 `.app-top`
+ * (`height:51px; full width`, DESIGN-GAP #5, 26 Sep — which had itself replaced an earlier 438x45 pill) and DS v5
+ * §8 "App bar: 64px height". Neither is followed here; both need updating to this.
+ *
+ * Geometry: 12px from the top-left, 40px tall, 999px radius (DS v5 `pill`), `bg-panel`-white at .96, the chrome's one
+ * border family (#DDD8D0), the card's resting shadow. It is as wide as its contents, never full width.
+ * `--topbar-h` stays 0 (index.css), so the canvas, the dock and the right-side panels start at the top of the screen;
+ * `TopBar.tsx` publishes `--chrome-top-left` (the pill's bottom edge, 52px) for the few things that live in the
+ * top-left column under it (the canvas tools, the left inspector, the top-centre notices).
+ * `computeFitPadding` already MEASURES this element (`role="banner"`) for the landing's top inset.
  */
 .topBar {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 12px;
+  left: 12px;
   z-index: 3000;
 
   display: flex;
   align-items: center;
-  height: 51px;
-  padding: 0 18px;
-  gap: 20px;
+  height: 40px;
+  max-width: calc(100vw - 24px);
+  padding: 0 6px 0 14px;
+  gap: 12px;
 
-  background: rgba(254, 254, 254, 0.94);
-  border-bottom: 1px solid #DDD8D0;
+  background: rgba(254, 254, 254, 0.96);
+  border: 1px solid #DDD8D0;
+  border-radius: 999px;
+  box-shadow: var(--shadow-card-rest);
 }
 
 .topBarLeft {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
   min-width: 0;
 }
 
@@ -43,7 +45,7 @@
    product's own logo (mark + wordmark in one asset) at the mark's 25px height. */
 .logo {
   display: block;
-  height: 25px;
+  height: 20px;
   width: auto;
 }
 
@@ -68,12 +70,13 @@
   flex-shrink: 0;
 }
 
-/* Right section: `.scope{margin-left:auto}` — pushed to the bar's right edge. */
+/* The pill's action group: directly after the model name, divided by one hairline (no right-edge push in a pill). */
 .topBarRight {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: auto;
+  gap: 2px;
+  padding-left: 10px;
+  border-left: 1px solid #DDD8D0;
   flex-shrink: 0;
 }
 
@@ -161,7 +164,7 @@
 .avatarSlot {
   display: flex;
   align-items: center;
-  margin-left: 12px;
+  margin-left: 6px;
 }
 
 /* Save status — the bar's `.scope` slot: `font-size:11px`, the muted token.
@@ -170,7 +173,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-right: 12px;
+  margin-right: 6px;
   font-size: 11px;
   font-weight: 400;
   color: var(--text-light);

@@ -41,6 +41,7 @@
  * drawn: direction is a line colour plus a + or - marker. Every row here is now
  * derived from what StyledEdge actually paints.
  */
+import { topLeftChromeBottomPx } from '../utils/topBarClearance'
 import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { factorValueSourceMark } from '../nodes/shared/valueSourceMark'
 import { hasAnyStatedValue } from '../utils/observedStateHelpers'
@@ -1174,8 +1175,8 @@ export function CanvasLegendPopover({ variant = 'icon', open: openProp, onOpenCh
       // panel's heading under the bar at every x — measured at 1280x800: panel
       // top 12, bar bottom 51. `--topbar-h` is the bar's bottom edge
       // (`TopBar.tsx`); 0 when no bar is mounted, which is the old cap.
-      const topBarBottom =
-        parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 0
+      // 1 Oct 2026: the bar is now a top-left pill; clear ITS bottom edge (`topLeftChromeBottomPx`).
+      const topBarBottom = topLeftChromeBottomPx()
       setMaxHeightPx(Math.max(0, bottom - topBarBottom - VIEWPORT_GUTTER_PX))
     }
     measure()
