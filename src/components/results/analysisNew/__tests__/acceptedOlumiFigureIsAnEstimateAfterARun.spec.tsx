@@ -13,7 +13,15 @@
  *   · an OLDER accepted-figure Run, with a later human replacement on the live node → never `not_estimated`.
  * Both read `undetermined`: the Run's own fact is absent, so neither side is claimed.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { renderHook } from '@testing-library/react'
+
+vi.mock('../../../../canvas/ToastContext', () => ({ useShowToastSafe: () => vi.fn() }))
+vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
+vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
+
+import { useCanvasStore } from '../../../../canvas/store'
+import { useAnalysisNewViewModel } from '../useAnalysisNewViewModel'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { buildAcceptedNodeIds, buildNodeValueSourceMap, driverValueProvenance, type AcceptedFigureBinding } from '../../driverValueProvenance'
 import { makeData, makeDriver } from './analysisNewFixtures'
@@ -82,6 +90,22 @@ describe('the Reasoning glance, through the real view model', () => {
   it('⛔ CR CONTRASTS through the real glance: an OLDER Run is undetermined both ways round', () => {
     expect(glance([ADOPTED], 'user_assumption', false), 'older human Run, newer acceptance').toBe('undetermined')
     expect(glance([REPLACED], 'user_assumption', false), 'older accepted Run, later human replacement').toBe('undetermined')
+  })
+})
+
+describe('the hook binds the live acceptance to the store’s own currency verdict (useAnalysisResultsAreCurrent)', () => {
+  const glanceViaHook = (analysisFreshness: unknown) => {
+    useCanvasStore.setState({ nodes: [ADOPTED] as never, analysisFreshness, analysisFreshnessDirty: false, importPendingServerRegistration: false, analysisStateV1: null } as never)
+    const data = makeData({ drivers: { drivers: [makeDriver({ factorKey: 'warm', factorLabel: 'warm', valueSource: 'user_assumption' } as never)] } })
+    return renderHook(() => useAnalysisNewViewModel({ data, isPreRun: false, isRunning: false, isStale: false } as never)).result.current.atAGlance.inputProvenance
+  }
+
+  it('RED: an affirmatively current Run → the glance reads Olumi’s accepted figure as estimated', () => {
+    expect(glanceViaHook({ freshness: 'fresh', freshnessReason: 'graph_hash_match' })).toBe('estimated')
+  })
+
+  it('⛔ CR: a stale Run → undetermined, never estimated', () => {
+    expect(glanceViaHook({ freshness: 'stale', freshnessReason: 'graph_hash_mismatch' })).toBe('undetermined')
   })
 })
 
