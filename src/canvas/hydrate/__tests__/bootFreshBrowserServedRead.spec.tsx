@@ -60,7 +60,9 @@ describe('⭐ a fresh browser, the served read', () => {
     const s = useCanvasStore.getState() as unknown as { analysisFreshnessDirty: boolean; analysisStateV1: { run_state: { kind: string } } | null; results: { hash?: string } }
     expect(s.analysisFreshnessDirty).toBe(false)
     expect(s.analysisStateV1?.run_state.kind).toBe('complete_current')
+    // AIQ 5922270280: "current" must sit over the READ's figures, never the held result.
     expect(s.results.hash).toBe(readHash)
+    expect(s.results.hash).not.toBe(other.model_card.response_hash)
   })
 
   it('TWIN: the same held result with a local edit mark set BEFORE the read keeps the mark and is not restored', async () => {
@@ -71,11 +73,14 @@ describe('⭐ a fresh browser, the served read', () => {
     expect((useCanvasStore.getState() as unknown as { analysisStateV1: { run_state: { kind: string } } | null }).analysisStateV1?.run_state.kind).not.toBe('complete_current')
   })
 
-  it('a browser that holds another verdict: the read\'s Run is current and the mark clears', async () => {
+  it('a browser that holds another verdict: the read\'s Run is current, its results are on screen, and the mark clears', async () => {
     freshBrowser({ analysisFreshness: { freshness: 'fresh', currentGraphHash: 'ffffffffffffffff', graphHashAtRun: 'ffffffffffffffff', computedAt: '2026-09-28T00:00:00.000Z' } })
     await hydrateCanvasFromServer(SCN)
-    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
-    expect((useCanvasStore.getState() as unknown as { analysisStateV1: { run_state: { kind: string } } | null }).analysisStateV1?.run_state.kind).toBe('complete_current')
+    const s = useCanvasStore.getState() as unknown as { analysisFreshnessDirty: boolean; analysisStateV1: { run_state: { kind: string } } | null; results: { hash?: string } }
+    expect(s.analysisFreshnessDirty).toBe(false)
+    expect(s.analysisStateV1?.run_state.kind).toBe('complete_current')
+    // AIQ 5922270280: "current" must sit over the READ's figures, never a held Run still on screen.
+    expect(s.results.hash).toBe(readHash)
   })
 
   it('TWIN: the same held verdict with a local edit mark set BEFORE the read keeps the mark', async () => {
