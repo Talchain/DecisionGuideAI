@@ -134,6 +134,7 @@
 import { getFragileEdgeSwitchProbability } from '../../../canvas/utils/fragileEdgeMatch'
 import type { FragileEdgeCandidate } from '../../../canvas/utils/fragileEdgeMatch'
 import { edgeValueSource } from '../../../canvas/domain/edgeValueProvenance'
+import { isStrengthDefinitional } from '../../../canvas/domain/strengthDefinitional'
 
 /** The canvas edge shape this join needs. Structural, so callers pass store edges directly. */
 export interface ElicitationCanvasEdge {
@@ -245,6 +246,10 @@ function nonEmptyString(value: unknown): string | null {
 function unresolvedStrengthProvenance(
   data: Record<string, unknown> | undefined,
 ): AssumedStrengthSelection['strengthProvenance'] | null {
+  // MG 0ebb952a: a link that holds BY DEFINITION needs no judgement — it is
+  // arithmetic, not an assumption, and CEE refuses any change to it.
+  if (isStrengthDefinitional(data)) return null
+
   const valueSource = edgeValueSource(data, 'weight')
 
   // The strength editor writes this field-specific stamp and deliberately

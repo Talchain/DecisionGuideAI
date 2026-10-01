@@ -139,6 +139,7 @@ import type { ObservedState as ModelTabObservedState } from '../components/model
 import type { ValidationMetadata } from '../domain/validation'
 import { getCausalEdges } from '../domain/edgeUtils'
 import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
+import { isStrengthDefinitional } from '../domain/strengthDefinitional'
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../domain/edgeValueProvenance'
 import { getDirectionalStrengthLabel } from '../components/model-tab/strengthBands'
 import { NaturalEffectSchema, naturalEffectPhrase } from '../domain/naturalEffect'
@@ -499,7 +500,8 @@ function edgeValueParts(data: unknown): { text: string | null; sentence: boolean
   // edge, a moved β, or an unstated direction → null → the band, unchanged.
   // Re-parsed here: persisted edge data is not proof of shape.
   const natural = NaturalEffectSchema.safeParse(bag?.naturalEffect)
-  const phrase = naturalEffectPhrase(natural.success ? natural.data : null, seed.seed, direction)
+  // A link that holds BY DEFINITION says so, never "Olumi's estimate" (domain/strengthDefinitional).
+  const phrase = naturalEffectPhrase(natural.success ? natural.data : null, seed.seed, direction, isStrengthDefinitional(bag))
   return phrase !== null
     ? { text: phrase, sentence: true }
     : { text: getDirectionalStrengthLabel(seed.seed, direction), sentence: false }
@@ -887,7 +889,10 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
      * restated: with no server-stated tuple there is no `expected` to ratify, so
      * the confirmation cannot be built and the chip would be an advertisement.
      */
+    // ⚠ A link that holds BY DEFINITION (`isStrengthDefinitional`) is nobody's
+    // estimate and CEE refuses any change to it, so it is never offered for adoption.
     if (
+      !isStrengthDefinitional(data) &&
       (data as { provenanceDisplay?: unknown } | undefined)?.provenanceDisplay === 'ai_inferred' &&
       edgeStrengthEditIsAssertable(edge)
     ) {
