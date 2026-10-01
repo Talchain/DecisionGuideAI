@@ -6,6 +6,7 @@
  *   POST /assist/v1/scenarios/{id}/versions          → model_versions_list.v2
  *   POST /assist/v1/scenarios/{id}/versions/save     → model_version_save.v1
  *   POST /assist/v1/scenarios/{id}/versions/restore  → model_version_restore.v2
+ *   POST /assist/v1/scenarios/{id}/versions/compare  → model_version_diff.v1 (read-only)
  *
  * ⚠ LIST AND RESTORE ARE v2; SAVE IS STILL v1. That is not an inconsistency to
  * tidy — it is the server's actual posture, derived at CEE staging
@@ -71,6 +72,7 @@ import { logger } from '../../lib/logger'
 import { sanitiseUserId } from '../../lib/guestIdentity'
 import { classifySignInRefusal, type SignInRefusalCause } from './signInRefusal'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
+import { ModelVersionDiffV1Schema, type ModelVersionDiffV1 } from '@talchain/schemas/boundary'
 
 /** The same-origin Netlify edge path. NOT `VITE_CEE_BFF_BASE` — see header. */
 export const MODEL_VERSIONS_BASE = '/bff/cee'
@@ -81,7 +83,7 @@ const DEFAULT_TIMEOUT_MS = 8000
 
 export function modelVersionsUrl(
   scenarioId: string,
-  leaf?: 'save' | 'restore',
+  leaf?: 'save' | 'restore' | 'compare',
 ): string {
   const base = `${MODEL_VERSIONS_BASE}/scenarios/${encodeURIComponent(scenarioId)}/versions`
   return leaf === undefined ? base : `${base}/${leaf}`
@@ -212,6 +214,28 @@ export type RestoreModelVersionResult =
    * client, it is deterministic, and it must never invite a retry.
    */
   | { status: 'payloadRejected' }
+  | { status: 'notReadable' }
+  | { status: 'disabled' }
+  | { status: 'unavailable' }
+  | { status: 'refused'; httpStatus: number }
+  | { status: 'unusable' }
+
+/**
+ * What CEE says changed between two stored versions — the published contract's
+ * own type (`@talchain/schemas` `ModelVersionDiffV1`), parsed by its own schema.
+ * Never a local mirror: the diff is CEE's verdict, rendered verbatim.
+ */
+export type ModelVersionDiff = ModelVersionDiffV1
+
+export type CompareModelVersionsResult =
+  | { status: 'compared'; diff: ModelVersionDiff }
+  | { status: 'signInRequired'; cause: SignInRefusalCause }
+  /** 404 VERSION_NOT_FOUND — one of the two versions is gone. */
+  | { status: 'versionNotFound' }
+  /** 422 VERSION_GRAPH_INCOMPATIBLE — a stored version cannot be compared safely. Permanent for that pair. */
+  | { status: 'notComparable' }
+  /** 409 — the history moved while comparing. Refresh, then compare again. */
+  | { status: 'conflict' }
   | { status: 'notReadable' }
   | { status: 'disabled' }
   | { status: 'unavailable' }
@@ -631,4 +655,53 @@ export async function restoreModelVersion(
         : null,
     requestId: typeof b.request_id === 'string' ? b.request_id : null,
   }
+}
+
+/**
+ * Compare two stored versions. READ-ONLY: the server loads both versions' bytes
+ * itself, and the body carries the two ids and nothing else (CEE refuses any
+ * other key with 422 `VERSION_COMPARE_SERVER_AUTHORITY_REQUIRED`, bar the
+ * legacy `user_id`). Never throws.
+ *
+ * The 200 body is parsed by the published `ModelVersionDiffV1Schema`. A body
+ * that fails it is `unusable`, never a partial diff: a shortened list of
+ * changes would misstate what changed.
+ */
+export async function compareModelVersions(
+  scenarioId: string,
+  opts: CommonOptions & { fromVersionId: string; toVersionId: string },
+): Promise<CompareModelVersionsResult> {
+  const payload = identityBody(opts.userId)
+  payload.from_version_id = opts.fromVersionId
+  payload.to_version_id = opts.toVersionId
+
+  const outcome = await postOnce(modelVersionsUrl(scenarioId, 'compare'), payload, opts)
+
+  if (outcome.kind === 'http') {
+    const code = detailsCode(outcome.body)
+    // The scenario-shaped 404 (not yours / absent) is `notReadable` via the
+    // shared arm; only the VERSION code says one of the pair is gone.
+    if (outcome.status === 404 && code === 'VERSION_NOT_FOUND') return { status: 'versionNotFound' }
+    if (outcome.status === 422 && code === 'VERSION_GRAPH_INCOMPATIBLE') return { status: 'notComparable' }
+    if (outcome.status === 409) return { status: 'conflict' }
+  }
+  const refusal = sharedRefusal(outcome)
+  if (refusal) return refusal
+  const body = (outcome as { kind: 'ok'; body: unknown }).body
+
+  const parsed = ModelVersionDiffV1Schema.safeParse(body)
+  if (!parsed.success) {
+    logger.warn('model_versions.compare_contract_refused', { scenarioId })
+    return { status: 'unusable' }
+  }
+  // The answer must be about the pair that was asked for, on this scenario.
+  if (
+    parsed.data.scenario_id !== scenarioId ||
+    parsed.data.from_version_id !== opts.fromVersionId ||
+    parsed.data.to_version_id !== opts.toVersionId
+  ) {
+    logger.warn('model_versions.compare_pair_mismatch_refused', { scenarioId })
+    return { status: 'unusable' }
+  }
+  return { status: 'compared', diff: parsed.data }
 }

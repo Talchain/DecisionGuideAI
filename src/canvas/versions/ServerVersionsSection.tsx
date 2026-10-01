@@ -40,11 +40,14 @@ import { useAuth } from '../../contexts/AuthContext'
 import { getSessionIdentity } from '../../lib/supabase'
 import { useCanvasStore } from '../store'
 import {
+  compareModelVersions,
   listModelVersions,
   restoreModelVersion,
   saveModelVersion,
+  type ModelVersionDiff,
   type ServerModelVersion,
 } from '../../adapters/cee/modelVersions'
+import { ServerVersionDiff } from './ServerVersionDiff'
 import type { SignInRefusalCause } from '../../adapters/cee/signInRefusal'
 import { applyRestoredGraph, settleRestoredModel } from './applyRestoredModel'
 import { findRestoredInterventionMismatches } from './restoreInterventionAudit'
@@ -251,6 +254,36 @@ function signInRefusalCopy(
   }
 }
 
+export const COMPARE_SESSION_ENDED = 'Your session is no longer valid. Sign in again, then compare.'
+export const COMPARE_REFUSED_WHILE_SIGNED_IN =
+  'The server refused this comparison as signed-out while you are signed in — a fault in Olumi, not something a retry can fix.'
+export const COMPARE_VERSION_GONE = 'One of those versions is no longer available. The list has been refreshed.'
+export const COMPARE_NOT_COMPARABLE = 'Those two versions cannot be compared safely.'
+export const COMPARE_HISTORY_MOVED = 'The history changed while comparing. The list has been refreshed; compare again.'
+export const COMPARE_UNAVAILABLE = 'Those versions could not be compared right now. Try again.'
+
+/**
+ * The default pair: the version BEFORE the head → the head (the current shared
+ * version, else the newest). "What changed in the last save" is the question a
+ * user opening history most often has. Null when fewer than two versions exist.
+ */
+export function defaultComparePair(
+  versions: readonly ServerModelVersion[],
+  currentVersionId: string | null,
+): { from: string; to: string } | null {
+  if (versions.length < 2) return null
+  const byNumber = [...versions].sort((a, b) => b.versionNumber - a.versionNumber)
+  const to = byNumber.find((v) => v.id === currentVersionId) ?? byNumber[0]
+  const from = byNumber.find((v) => v.versionNumber < to.versionNumber) ?? byNumber.find((v) => v.id !== to.id)
+  return from === undefined ? null : { from: from.id, to: to.id }
+}
+
+type Comparison =
+  | { kind: 'idle' }
+  | { kind: 'comparing'; from: string; to: string }
+  | { kind: 'shown'; from: string; to: string; diff: ModelVersionDiff }
+  | { kind: 'failed'; copy: string }
+
 export const SERVER_VERSIONS_SIGNIN =
   'Sign in to save shared versions. Version history for the shared model is available when you are signed in; the local history above still works in this browser.'
 
@@ -404,6 +437,16 @@ export function ServerVersionsSection() {
   const [undoVersionId, setUndoVersionId] = useState<string | null>(null)
   const [draftLabel, setDraftLabel] = useState('')
   const mountedRef = useRef(true)
+  /** Compare: the chosen pair (version ids) and the last answer for it. */
+  const [comparePair, setComparePair] = useState<{ from: string; to: string } | null>(null)
+  const [comparison, setComparison] = useState<Comparison>({ kind: 'idle' })
+  /**
+   * ⛔ ONE ANSWER PER QUESTION. Bumped by every compare, every pair change and
+   * every scenario switch; a response is applied only while its number is still
+   * the latest, so an answer for an old pair (or another scenario) can never be
+   * shown under the current one.
+   */
+  const compareSeqRef = useRef(0)
 
   const userId = user?.id ?? null
   const signedIn = isRestoreCapableIdentity(userId)
@@ -415,6 +458,12 @@ export function ServerVersionsSection() {
       mountedRef.current = false
     }
   }, [])
+
+  useEffect(() => {
+    compareSeqRef.current += 1
+    setComparePair(null)
+    setComparison({ kind: 'idle' })
+  }, [scenarioId])
 
   const refresh = useCallback(async () => {
     if (!addressable || !signedIn || typeof scenarioId !== 'string') return
@@ -430,6 +479,12 @@ export function ServerVersionsSection() {
         kind: 'ready',
         versions: result.versions,
         currentVersionId: result.currentVersionId,
+      })
+      // Keep the user's pair while both versions still exist; otherwise the default.
+      setComparePair((prev) => {
+        const ids = new Set(result.versions.map((v) => v.id))
+        if (prev !== null && ids.has(prev.from) && ids.has(prev.to) && prev.from !== prev.to) return prev
+        return defaultComparePair(result.versions, result.currentVersionId)
       })
       return
     }
@@ -793,6 +848,61 @@ export function ServerVersionsSection() {
     }
   }
 
+  function chooseComparePair(next: { from: string; to: string }) {
+    compareSeqRef.current += 1
+    setComparePair(next)
+    setComparison({ kind: 'idle' })
+  }
+
+  async function handleCompare() {
+    if (comparePair === null || comparePair.from === comparePair.to || typeof scenarioId !== 'string') return
+    const seq = ++compareSeqRef.current
+    const { from, to } = comparePair
+    setComparison({ kind: 'comparing', from, to })
+    const stale = () => !mountedRef.current || compareSeqRef.current !== seq
+    const identity = await getSessionIdentity()
+    if (stale()) return
+    const result = await compareModelVersions(scenarioId, {
+      userId: identity.userId,
+      accessToken: identity.accessToken,
+      fromVersionId: from,
+      toVersionId: to,
+    })
+    if (stale()) return
+    switch (result.status) {
+      case 'compared':
+        setComparison({ kind: 'shown', from, to, diff: result.diff })
+        return
+      case 'signInRequired':
+        setComparison({
+          kind: 'failed',
+          copy: signInRefusalCopy(result.cause, requestCarriedIdentity(identity), {
+            lapsed: COMPARE_SESSION_ENDED,
+            olumiFault: COMPARE_REFUSED_WHILE_SIGNED_IN,
+          }),
+        })
+        return
+      case 'versionNotFound':
+        setComparison({ kind: 'failed', copy: COMPARE_VERSION_GONE })
+        await refresh()
+        return
+      case 'conflict':
+        setComparison({ kind: 'failed', copy: COMPARE_HISTORY_MOVED })
+        await refresh()
+        return
+      case 'notComparable':
+        setComparison({ kind: 'failed', copy: COMPARE_NOT_COMPARABLE })
+        return
+      case 'disabled':
+      case 'notReadable':
+      case 'unavailable':
+      case 'refused':
+      case 'unusable':
+        setComparison({ kind: 'failed', copy: COMPARE_UNAVAILABLE })
+        return
+    }
+  }
+
   return (
     <PanelSection title="Shared versions">
       <p className={`${typography.panelMeta} text-text-light`} data-testid="server-versions-disclosure">
@@ -977,8 +1087,102 @@ export function ServerVersionsSection() {
               })}
             </ul>
           )}
+
+          {comparePair !== null && phase.versions.length >= 2 && (
+            <ServerVersionCompare
+              versions={phase.versions}
+              currentVersionId={phase.currentVersionId}
+              pair={comparePair}
+              comparison={comparison}
+              onChoose={chooseComparePair}
+              onCompare={() => void handleCompare()}
+            />
+          )}
         </>
       )}
     </PanelSection>
+  )
+}
+
+export const SERVER_VERSION_COMPARE_TESTID = 'server-version-compare'
+
+/** The From/To picker and the answer. Presentational: the section owns the request and its ordering. */
+function ServerVersionCompare({
+  versions,
+  currentVersionId,
+  pair,
+  comparison,
+  onChoose,
+  onCompare,
+}: {
+  versions: readonly ServerModelVersion[]
+  currentVersionId: string | null
+  pair: { from: string; to: string }
+  comparison: Comparison
+  onChoose: (next: { from: string; to: string }) => void
+  onCompare: () => void
+}) {
+  const byNumber = [...versions].sort((a, b) => b.versionNumber - a.versionNumber)
+  const name = (v: ServerModelVersion) =>
+    `v${v.versionNumber}${v.label !== null ? ` · ${v.label}` : ''}${v.id === currentVersionId ? ' (current)' : ''}`
+  const find = (id: string) => versions.find((v) => v.id === id)
+  const comparing = comparison.kind === 'comparing'
+  // A diff is shown only for the pair the selects show: a refresh that replaces the pair never leaves an old answer up.
+  const shown = comparison.kind === 'shown' && comparison.from === pair.from && comparison.to === pair.to ? comparison : null
+  const shownFrom = shown ? find(shown.from) : undefined
+  const shownTo = shown ? find(shown.to) : undefined
+  const select = `${typography.panelBody} min-w-0 flex-1 px-2 py-1.5 rounded-md border border-panel-border bg-panel text-text-body`
+
+  return (
+    <section className="space-y-2 pt-2 border-t border-panel-border" data-testid={SERVER_VERSION_COMPARE_TESTID}>
+      <h4 className={`${typography.panelBody} text-text-body font-medium`}>Compare two versions</h4>
+      <div className="flex items-center gap-2">
+        <label className="sr-only" htmlFor="server-compare-from">Compare from</label>
+        <select
+          id="server-compare-from"
+          data-testid={`${SERVER_VERSION_COMPARE_TESTID}-from`}
+          value={pair.from}
+          onChange={(e) => onChoose({ from: e.target.value, to: pair.to })}
+          className={select}
+        >
+          {byNumber.map((v) => (
+            <option key={v.id} value={v.id}>{name(v)}</option>
+          ))}
+        </select>
+        <span aria-hidden="true" className={`${typography.panelBody} text-text-light`}>→</span>
+        <label className="sr-only" htmlFor="server-compare-to">Compare to</label>
+        <select
+          id="server-compare-to"
+          data-testid={`${SERVER_VERSION_COMPARE_TESTID}-to`}
+          value={pair.to}
+          onChange={(e) => onChoose({ from: pair.from, to: e.target.value })}
+          className={select}
+        >
+          {byNumber.map((v) => (
+            <option key={v.id} value={v.id}>{name(v)}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          data-testid={`${SERVER_VERSION_COMPARE_TESTID}-go`}
+          disabled={comparing || pair.from === pair.to}
+          onClick={onCompare}
+          className={`${typography.panelBody} shrink-0 px-3 py-1.5 rounded-md border border-panel-border text-text-body hover:bg-panel-hover disabled:opacity-60`}
+        >
+          {comparing ? 'Comparing…' : 'Compare'}
+        </button>
+      </div>
+      {pair.from === pair.to && (
+        <p className={`${typography.panelMeta} text-text-light`}>Pick two different versions.</p>
+      )}
+      {comparison.kind === 'failed' && (
+        <p className={`${typography.panelBody} text-text-body`} role="status" data-testid={`${SERVER_VERSION_COMPARE_TESTID}-message`}>
+          {comparison.copy}
+        </p>
+      )}
+      {shown !== null && shownFrom !== undefined && shownTo !== undefined && (
+        <ServerVersionDiff diff={shown.diff} fromVersion={shownFrom} toVersion={shownTo} />
+      )}
+    </section>
   )
 }
