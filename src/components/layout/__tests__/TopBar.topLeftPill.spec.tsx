@@ -1,17 +1,12 @@
 /**
- * contract v3.1 `.app-top` — A FULL-WIDTH 51px BAR, NOT A FLOATING PILL
- * (DESIGN-GAP #5, 26 Sep 2026).
+ * ⭐ THE APP BAR IS A TOP-LEFT PILL; THE RIGHT PANEL RUNS THE FULL HEIGHT (Paul, 1 Oct 2026 ~00:15Z).
  *
- * MEASURED at base `6256a41f`, 1280x800: the bar was a 438.6x45 pill at
- * (12,12), radius 16, a two-layer shadow, with a bordered 216x31 radius-14 title
- * pill and a 32px avatar. v3.1:
- *   `.app-top{height:51px;border-bottom:1px solid #DDD8D0;display:flex;
- *    align-items:center;padding:0 18px;gap:20px;background:rgba(254,254,254,.94)}`
- *   `.app-project{…gap:8px;font-size:13px}` · `.app-top .avatar{26px}`.
+ * Supersedes the contract v3.1 `.app-top` full-width 51px bar (DESIGN-GAP #5, 26 Sep) on the owner's call; the
+ * contract and DS v5 §8 "App bar: 64px" are to be updated to this, not the other way round.
  *
- * jsdom applies no CSS modules (`css: false`), so — as the toolbar specs do —
- * the stylesheet's own rules are read by exact selector, with a positive
- * control. The runtime half (`--topbar-h`, the compact avatar) is rendered.
+ * jsdom applies no CSS modules (`css: false`), so — as the toolbar specs do — the stylesheet's own rules are read by
+ * exact selector, with a positive control. The runtime half (`--topbar-h` stays 0, `--chrome-top-left` is the pill's
+ * bottom edge) is rendered.
  */
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -23,7 +18,7 @@ vi.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({ user: { email: 'paul@example.test' }, profile: null, signOut: vi.fn() }),
 }))
 
-import { TopBar, TOP_BAR_HEIGHT_PX } from '../TopBar'
+import { TopBar, TOP_PILL_BOTTOM_PX } from '../TopBar'
 import { ToastProvider } from '../../../canvas/ToastContext'
 
 function renderBar() {
@@ -51,27 +46,27 @@ function ruleIn(css: string, selector: string): Record<string, string> {
 }
 const rule = (s: string) => ruleIn(CSS, s)
 
-describe('TopBar — contract v3.1 `.app-top` (DESIGN-GAP #5)', () => {
+describe('TopBar — the top-left pill (Paul, 1 Oct 2026)', () => {
   it('POSITIVE CONTROL: the reader finds the bar rule', () => {
     expect(rule('.topBar').position).toBe('fixed')
     expect(Object.keys(rule('.topBar')).length).toBeGreaterThan(5)
   })
 
-  it('⭐ full width at the top edge, 51px, the contract’s bottom rule and fill — no pill radius, no shadow', () => {
+  it('⭐ a pill in the top-LEFT corner — never full width: 12px in, 40px tall, pill radius, the chrome border', () => {
     const bar = rule('.topBar')
-    expect([bar.top, bar.left, bar.right]).toEqual(['0', '0', '0'])
-    expect(bar.height).toBe('51px')
-    expect(bar['border-bottom']).toBe('1px solid #DDD8D0')
-    expect(bar.background).toBe('rgba(254, 254, 254, 0.94)')
-    expect(bar.padding).toBe('0 18px')
-    expect(bar.gap).toBe('20px')
-    expect(bar['border-radius']).toBeUndefined()
-    expect(bar['box-shadow']).toBeUndefined()
-    expect(TOP_BAR_HEIGHT_PX).toBe(51)
+    expect([bar.top, bar.left]).toEqual(['12px', '12px'])
+    expect(bar.right).toBeUndefined()
+    expect(bar.width).toBeUndefined()
+    expect(bar.height).toBe('40px')
+    expect(bar['border-radius']).toBe('999px')
+    expect(bar.border).toBe('1px solid #DDD8D0')
+    expect(bar['border-bottom']).toBeUndefined()
+    expect(TOP_PILL_BOTTOM_PX).toBe(52)
   })
 
-  it('the controls are right-aligned (`.scope{margin-left:auto}`), and the save status is the 11px muted scope text', () => {
-    expect(rule('.topBarRight')['margin-left']).toBe('auto')
+  it('the actions follow the name inside the pill (no right-edge push), and the save status is the 11px muted text', () => {
+    expect(rule('.topBarRight')['margin-left']).toBeUndefined()
+    expect(rule('.topBarRight')['border-left']).toBe('1px solid #DDD8D0')
     expect(rule('.saveStatus')['font-size']).toBe('11px')
     expect(rule('.saveStatus').color).toBe('var(--text-light)')
   })
@@ -83,13 +78,13 @@ describe('TopBar — contract v3.1 `.app-top` (DESIGN-GAP #5)', () => {
     expect(rule('.iconButton').width).toBe('29px')
   })
 
-  it('publishes its bottom edge as `--topbar-h` (51px), and draws the 26px avatar', () => {
+  it('leaves `--topbar-h` at 0 (the dock runs full height) and publishes the pill edge as `--chrome-top-left`', () => {
     renderBar()
-    expect(document.documentElement.style.getPropertyValue('--topbar-h')).toBe('51px')
+    expect(document.documentElement.style.getPropertyValue('--topbar-h')).toBe('')
+    expect(document.documentElement.style.getPropertyValue('--chrome-top-left')).toBe('52px')
     const avatar = screen.getByRole('button', { name: 'Account menu' })
     expect(avatar.className).toContain('h-[26px]')
     expect(avatar.className).toContain('w-[26px]')
-    expect(avatar.className).not.toContain('h-8')
   })
 
   it('the model title is unboxed: no bordered pill around it', () => {

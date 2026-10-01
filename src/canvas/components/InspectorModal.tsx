@@ -4,6 +4,7 @@
  * British English: visualisation, colour
  */
 
+import { topLeftChromeBottomPx } from '../utils/topBarClearance'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { X, GripVertical } from 'lucide-react'
 import { useViewport } from '@xyflow/react'
@@ -227,9 +228,9 @@ function canvasBottomLimit(): number {
   return r && r.height > 0 && r.top > 0 ? Math.min(r.top, window.innerHeight) : window.innerHeight
 }
 
-/** The app bar's bottom edge (`--topbar-h`, written by `TopBar.tsx`); 0 when no bar is mounted. */
+/** The app chrome's bottom edge in the top-left column (the pill, `TopBar.tsx`); 0 when none is mounted. */
 function appBarBottom(): number {
-  return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 0
+  return topLeftChromeBottomPx()
 }
 
 /** The inset every bound keeps (`placeInspector` / `clampInspector` default). */

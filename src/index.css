@@ -487,6 +487,7 @@
   --toolbar-margin: 1rem;  /* Space below toolbar (16px) */
   --bottombar-h: 72px;     /* Total reserved space at bottom: toolbar (56px) + margin (16px) */
   --topbar-h: 0px;         /* Set to non-zero if a fixed top bar is introduced */
+  --chrome-top-left: 0px;  /* The top-left pill's bottom edge (TopBar.tsx); only the top-left column clears it */
 
   /* Week 2 new layout dimensions */
   --leftsidebar-w: 48px;   /* LeftSidebar width for canvas offset */

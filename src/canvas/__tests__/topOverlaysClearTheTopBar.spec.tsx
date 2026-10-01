@@ -11,6 +11,11 @@
  * jsdom cannot lay out `calc(var(--topbar-h) …)`, so the rendered rows bind
  * each overlay to the ONE clearance authority. The source row closes the
  * class: no other overlay may pin itself inside the bar's 51px.
+ *
+ * 1 Oct 2026 (Paul): the bar is now a top-LEFT pill whose bottom edge is 52px
+ * (`--chrome-top-left`); `--topbar-h` is 0. A class scan cannot see where an
+ * overlay sits horizontally, so the source row keeps the whole 52px band
+ * clear rather than guessing which overlays miss the pill.
  */
 import '@testing-library/jest-dom/vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
@@ -23,7 +28,7 @@ import { ToastProvider, useToast } from '../ToastContext'
 import { useCanvasStore } from '../store'
 import { useLayoutProgressStore } from '../layoutProgressStore'
 import { TOP_CLEARANCE, TOAST_TOP_CLEARANCE } from '../utils/topBarClearance'
-import { TOP_BAR_HEIGHT_PX } from '../../components/layout/TopBar'
+import { TOP_PILL_BOTTOM_PX } from '../../components/layout/TopBar'
 
 afterEach(() => {
   useCanvasStore.setState({ reconnecting: null })
@@ -36,6 +41,8 @@ describe('fixed top overlays clear the canvas top bar', () => {
   it('the clearance is measured from the bar the canvas publishes', () => {
     expect(TOP_CLEARANCE).toContain('var(--topbar-h')
     expect(TOAST_TOP_CLEARANCE).toContain('var(--topbar-h')
+    expect(TOP_CLEARANCE).toContain('var(--chrome-top-left')
+    expect(TOAST_TOP_CLEARANCE).toContain('var(--chrome-top-left')
   })
 
   it('the reconnect-mode banner starts below the bar', () => {
@@ -86,11 +93,12 @@ describe('fixed top overlays clear the canvas top bar', () => {
           const top = cls.find((c) => /^top-(\d+(\.5)?|px)$/.test(c))
           if (!top) continue
           const px = top === 'top-px' ? 1 : Number(top.slice(4)) * 4
-          if (px < TOP_BAR_HEIGHT_PX) offenders.push(`${relative(root, p)}: ${top}`)
+          if (px < TOP_PILL_BOTTOM_PX) offenders.push(`${relative(root, p)}: ${top}`)
         }
       }
     }
     walk(root)
+    expect(TOP_PILL_BOTTOM_PX).toBeGreaterThan(0)
     expect(offenders).toEqual([])
   })
 })
