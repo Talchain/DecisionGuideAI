@@ -15,11 +15,12 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { ChatThread } from '../zones/ChatThread'
+import { ThinkingDots, WAITING_COACHING_LINES, WAITING_LINE_MS } from '../zones/ThinkingDots'
 import { SuggestedChips } from '../zones/SuggestedChips'
 import { InlineBlocks } from '../InlineBlocks'
 import { V5HeldProposalBlock } from '../../../v5/blocks/V5HeldProposalBlock'
@@ -92,8 +93,8 @@ describe('the user message runs the full width of the chat column (Paul, 28 Sep)
   })
 })
 
-describe('§21.3 thinking is three pulsing info dots', () => {
-  it('the chat thread shows three text-info dots and no node shapes while a turn is in flight', () => {
+describe('Grammar v0 §2 waiting (replaces DS §21.3 dots, Paul 1 Oct): the Olumi mark plus a coaching line, never a bare "Thinking…"', () => {
+  it('the chat thread shows the Olumi mark and a method coaching line while a turn is in flight', () => {
     const messages: ConversationMessage[] = [
       { id: 'u1', role: 'user', content: 'Should we raise the price?', timestamp: new Date() },
     ]
@@ -113,12 +114,27 @@ describe('§21.3 thinking is three pulsing info dots', () => {
       />,
     )
     const indicator = screen.getByTestId('thinking-indicator')
-    const dots = within(indicator).getAllByTestId('thinking-dot')
-    expect(dots).toHaveLength(3)
-    for (const dot of dots) expect(dot.className).toMatch(/\bbg-info\b/)
-    expect(indicator.querySelector('svg')).toBeNull()
-    // The words stay for screen readers and for the long-running hint.
-    expect(within(indicator).getByText(/Thinking/)).toBeInTheDocument()
+    expect(indicator).toHaveAttribute('role', 'status')
+    expect(indicator.querySelector('svg[data-icon="olumi-ai"]')).not.toBeNull()
+    expect(within(indicator).queryAllByTestId('thinking-dot')).toHaveLength(0)
+    // The generic phase line is retired; a method's own approved line takes its place (≤90 characters).
+    expect(within(indicator).queryByText('Thinking\u2026')).toBeNull()
+    const line = within(indicator).getByTestId('thinking-coaching-line').textContent ?? ''
+    expect(line).toBe(WAITING_COACHING_LINES[0])
+    expect(line.length).toBeLessThanOrEqual(90)
+  })
+
+  it('a specific phase line still shows above the coaching line, and the line rotates', () => {
+    vi.useFakeTimers()
+    try {
+      render(<ThinkingDots label={'Analysing your options\u2026'} />)
+      expect(screen.getByTestId('thinking-label')).toHaveTextContent('Analysing your options\u2026')
+      expect(screen.getByTestId('thinking-coaching-line')).toHaveTextContent(WAITING_COACHING_LINES[0])
+      act(() => { vi.advanceTimersByTime(WAITING_LINE_MS) })
+      expect(screen.getByTestId('thinking-coaching-line')).toHaveTextContent(WAITING_COACHING_LINES[1])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 
