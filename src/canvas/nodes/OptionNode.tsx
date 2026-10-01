@@ -193,6 +193,7 @@ import {
 import { NodeRailIcon } from './shared/NodeRailIcons'
 import { LAST_RUN_PREFIX, OPTION_BASELINE_REFERENCE, OPTION_RESULT_COPY } from './shared/metricVocabulary'
 import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
+import { optionTakenOutLine } from '../domain/optionStatus'
 import { useRunCurrency, optionResultCaption, optionResultCompactCaption, optionResultCurrencyNote } from './shared/runCurrency'
 import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
 import { ValueSourceMark, VALUE_SOURCE_MARK_TOKEN } from './shared/valueSourceMark'
@@ -2049,12 +2050,16 @@ export const OptionNode = memo((props: NodeProps) => {
    * render site). The change rows no longer read it: they stay on the card in
    * both phases and the run adds its line below them (prototype, Paul 25 Sep).
    */
-  const notAnalysedRenders = displayMetadata.isResultsMode && absentFromRunReason !== null
+  // ⭐ T12 row 1: an option the USER took out says so in its share slot, in both phases, and nothing else claims the
+  // slot: not "Not analysed" (it was left out on purpose, not for a missing value), never a share or a marker.
+  const takenOutLine = optionTakenOutLine(props.data)
+  const notAnalysedRenders = displayMetadata.isResultsMode && absentFromRunReason !== null && takenOutLine === null
   // An option the Run compared, on a Run that withheld the leader: `Compared · share not shown`, never a share (row 9).
   const notRankedRenders =
     displayMetadata.isResultsMode &&
     winSharesAreWithheld &&
     comparedInRun &&
+    takenOutLine === null &&
     !notAnalysedRenders &&
     winShareWithheldReasonLine !== null
   /**
@@ -2808,8 +2813,13 @@ export const OptionNode = memo((props: NodeProps) => {
         <div
           data-testid={`option-share-slot-${props.id}`}
           className={`${typography.edgeLabel} mt-1 h-[1lh] min-w-0 overflow-hidden [container-type:inline-size]`}
-          aria-hidden={winReadout === null && !notAnalysedRenders && !notRankedRenders ? true : undefined}
+          aria-hidden={winReadout === null && !notAnalysedRenders && !notRankedRenders && takenOutLine === null ? true : undefined}
         >
+        {takenOutLine !== null && (
+          <div className="flex h-full min-w-0 items-center whitespace-nowrap" data-testid={`option-taken-out-${props.id}`}>
+            <span className={`${typography.edgeLabel} text-text-light`}>{takenOutLine}</span>
+          </div>
+        )}
         {notRankedRenders && (
           <Tooltip asChild content={winShareWithheldReasonLine ?? ''} delay={NODE_TOOLTIP_DELAY_MS}>
             <div
@@ -2822,7 +2832,7 @@ export const OptionNode = memo((props: NodeProps) => {
             </div>
           </Tooltip>
         )}
-        {winReadout !== null && (
+        {winReadout !== null && takenOutLine === null && (
           <Tooltip asChild content={winReadoutDescription} delay={NODE_TOOLTIP_DELAY_MS}>
           <div
             className="relative flex h-full min-w-0 flex-nowrap items-center pb-[3px] whitespace-nowrap cursor-help"

@@ -29,6 +29,7 @@ import { useCanvasStore } from '../store'
 import { nodeTypeNumber, NODE_NUMBER_PREFIX, NODE_TYPE_ORDINAL_ATTR, type NumberedNodeKind } from './shared/nodeTypeOrdinal'
 import { optionOrdinalBadgeAccessibleName } from './shared/metricVocabulary'
 import { selectOptionComparedInRun, selectWinSharesWithheld } from '../state/winShareGate'
+import { optionTakenOutLine } from '../domain/optionStatus'
 import { EditableLabel } from '../ui/inspector-v2/shared/EditableLabel'
 import { TITLE_DOUBLE_CLICK_WINDOW_MS, handTitleClickToCard } from './shared/titleClickHandBack'
 import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
@@ -752,6 +753,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       }),
       optionResultCaption: resultCaption ?? null,
       winSharesWithheld: winSharesWithheld && optionComparedInRun,
+      optionTakenOutLine: optionTakenOutLine(data),
     }
   }, [bodyReduced, nodeType, id, ceeAnalysisReady, graphHasDeclaredBaseline, data, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, displayMetadata.unvaluedInRun, resultCaption, resultsFromLastRun, winSharesWithheld, optionComparedInRun])
 
