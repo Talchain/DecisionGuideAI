@@ -22,6 +22,8 @@ import { useUIStore } from '../../stores/uiStore'
 import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../state/winShareGate'
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 import { canvasLinkOfRow, useCanvasLight } from '../graphChanges/rowCanvasLink'
+import { useValuePrefillStore, valuePrefillOfRow, type ValuePrefill } from '../graphChanges/valuePrefill'
+import type { RunDeltaInputRow } from '../../components/results/analysisNew/runDeltaView'
 import {
   RUN_CHANGES_SUMMARY_COPY as COPY,
   runChangesSummaryHasContent,
@@ -30,6 +32,9 @@ import {
 import { typography } from '../../styles/typography'
 
 export const RUN_CHANGES_SUMMARY_TESTID = 'run-changes-summary'
+
+/** What-if "Put it back" (DL #85 5942153284, option B): the words of the one control. */
+export const PUT_IT_BACK_COPY = 'Put it back'
 
 function DetailLine({ label, id, children }: { label: string; id: string; children: React.ReactNode }) {
   return (
@@ -48,6 +53,8 @@ export function RunChangesSummary(): JSX.Element | null {
   const [closedFor, setClosedFor] = useState<string | null>(null)
   const [openFor, setOpenFor] = useState<string | null>(null)
   const light = useCanvasLight()
+  const storedDelta = useCanvasStore((s) => s.runDelta?.delta ?? null)
+  const requestPrefill = useValuePrefillStore((s) => s.requestPrefill)
   // Is the pill's one line cut short? Only then does the detail repeat what the pill already says (R3 5935751708: the
   // open detail covered the Goal at 1440x900, half of it a second copy of the pill's two lines).
   const lineRef = useRef<HTMLSpanElement>(null)
@@ -74,6 +81,25 @@ export function RunChangesSummary(): JSX.Element | null {
   const detailRepeatsMoved = movedExtra > 0 || lineTruncated
   // ⭐ Each changed row lights its element on the canvas on hover / keyboard focus, and focuses it on click (DL 5939855664).
   const headLink = lines.changed[0] ? canvasLinkOfRow(lines.changed[0].row) : null
+  // ⭐ What-if "Put it back": opens the card's OWN value editor pre-filled with the earlier value (the user commits with
+  // Enter through the existing writer). Offered only where `valuePrefillOfRow` allows it (same unit, the card has an editor).
+  const prefillOf = (row: RunDeltaInputRow): ValuePrefill | null => valuePrefillOfRow(row, storedDelta, useCanvasStore.getState().nodes)
+  const putBack = (row: RunDeltaInputRow, prefill: ValuePrefill, where: 'pill' | 'detail') => (
+    <button
+      type="button"
+      data-testid={`${RUN_CHANGES_SUMMARY_TESTID}-put-back`}
+      data-entity-id={row.entityId}
+      data-where={where}
+      onClick={() => {
+        canvasLinkOfRow(row)?.focus()
+        requestPrefill(prefill)
+      }}
+      className={`${where === 'pill' ? `${typography.panelMeta} flex-none` : 'block'} rounded-sm text-text-light underline decoration-dotted underline-offset-2 hover:text-text-body hover:decoration-solid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+    >
+      {PUT_IT_BACK_COPY}
+    </button>
+  )
+  const headPrefill = lines.changed[0] ? prefillOf(lines.changed[0].row) : null
 
   const body = (
     <div
@@ -101,9 +127,11 @@ export function RunChangesSummary(): JSX.Element | null {
               ) : (
                 lines.changed.map(({ row, text }) => {
                   const link = canvasLinkOfRow(row)
-                  return link ? (
+                  const prefill = prefillOf(row)
+                  return (
+                    <span key={row.key} className="block">
+                  {link ? (
                     <button
-                      key={row.key}
                       type="button"
                       onClick={link.focus}
                       onMouseEnter={() => light.on(link)}
@@ -118,7 +146,10 @@ export function RunChangesSummary(): JSX.Element | null {
                       {text}
                     </button>
                   ) : (
-                    <span key={row.key} className="block">{text}</span>
+                    <span className="block">{text}</span>
+                  )}
+                  {prefill ? putBack(row, prefill, 'detail') : null}
+                    </span>
                   )
                 })
               )}
@@ -193,6 +224,7 @@ export function RunChangesSummary(): JSX.Element | null {
             </>
           )}
         </span>
+        {headPrefill && lines.changed[0] ? putBack(lines.changed[0].row, headPrefill, 'pill') : null}
         <button
           type="button"
           aria-expanded={open}

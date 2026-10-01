@@ -125,6 +125,13 @@ export interface NodeValueEditorProps {
    */
   admit?: (draft: string) => NodeValueEntryAdmission
   seedText?: string
+  /**
+   * WHAT-IF "PUT IT BACK" (`graphChanges/valuePrefill.ts`, DL #85 5942153284): a request to OPEN this editor with
+   * `text` in the field. Each new `seq` opens it once; the user still commits (Enter) through `onCommit`, the same
+   * writer as any edit. `onPrefillConsumed(seq)` lets the requester retire the request so a remount never re-opens it.
+   */
+  prefill?: { text: string; seq: number } | null
+  onPrefillConsumed?: (seq: number) => void
   /** The unit printed BEFORE the open field (`£`), where the card prints it. */
   prefix?: string
   /** Type for the INLINE resting readout; defaults to `typography.nodeValue`. A row that sits in smaller type (an option
@@ -196,7 +203,7 @@ export interface NodeValueEditorProps {
 
 export function NodeValueEditor({
   value, readout, onCommit, readCommittedValue, min, max, outOfRangeCopy, scaleHint, editNote, editNoteShort, ariaLabel, testId,
-  restingFlow = 'box', trailing, admit, seedText, prefix, restingTypography,
+  restingFlow = 'box', trailing, admit, seedText, prefix, restingTypography, prefill, onPrefillConsumed,
 }: NodeValueEditorProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -230,6 +237,20 @@ export function NodeValueEditor({
     setRefusal(null)
     setIsEditing(true)
   }, [value, seedText])
+
+  // WHAT-IF "PUT IT BACK": open with the requested text, once per request. Same opening as a click (a new edit retires
+  // any prior settlement word); only the draft differs. Nothing is committed here: Enter does that.
+  const prefillSeq = prefill?.seq ?? null
+  useEffect(() => {
+    if (!prefill) return
+    commitSeqRef.current += 1
+    setSettlement(null)
+    setDraft(prefill.text)
+    setRefusal(null)
+    setIsEditing(true)
+    onPrefillConsumed?.(prefill.seq)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillSeq])
 
   const commit = useCallback(() => {
     if (draft.trim().length === 0) { setIsEditing(false); return }
