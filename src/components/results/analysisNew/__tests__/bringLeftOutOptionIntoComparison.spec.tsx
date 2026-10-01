@@ -303,7 +303,7 @@ describe('the honesty rule — the discriminating pair on the ground', () => {
    */
   it('not_returned: names the run’s own ground, and does not blame configuration', () => {
     const msg = sentBy(LEFT_OUT, field('not_returned'))
-    expect(msg).toContain('The analysis returned no result for Buy an AI Triage Tool')
+    expect(msg).toContain('This run has no result for Buy an AI Triage Tool')
     expect(msg, 'must not blame the user for an engine outcome').not.toContain('no values set')
   })
 
@@ -322,7 +322,7 @@ describe('the honesty rule — the discriminating pair on the ground', () => {
     const msg = sentBy(LEFT_OUT, field('no_interventions'))
     expect(msg).toContain('Buy an AI Triage Tool has no values set yet')
     expect(msg, 'nothing was computed, so nothing may be reported as returned').not.toContain(
-      'returned no result',
+      'has no result for',
     )
     expect(msg, 'must not imply the option was analysed').not.toMatch(/analys/i)
   })
@@ -361,7 +361,7 @@ describe('bound by identity, never by label and never by the rendered sentence',
    * ITS OWN option and ITS OWN ground.
    */
   it('each act sends its own option and its own ground', () => {
-    expect(sentBy(LEFT_OUT, two)).toContain('The analysis returned no result for Buy an AI Triage Tool')
+    expect(sentBy(LEFT_OUT, two)).toContain('This run has no result for Buy an AI Triage Tool')
     cleanup()
     vi.clearAllMocks()
     expect(sentBy(OTHER_LEFT_OUT, two)).toContain('Hire Six More Agents has no values set yet')

@@ -150,7 +150,7 @@ describe('the reason: the Run\'s own word first', () => {
   })
   it('the copy says it is Olumi\'s and not the user\'s, and offers no configure action', () => {
     expect(notAnalysedReasonCopy('excluded_olumi_proposed')).toBe(OLUMI_PROPOSED_EXCLUDED_COPY)
-    expect(OLUMI_PROPOSED_EXCLUDED_COPY).not.toMatch(/returned no result/)
+    expect(OLUMI_PROPOSED_EXCLUDED_COPY).not.toMatch(/has no result for/)
     expect(notAnalysedActionLabel('excluded_olumi_proposed')).toBeNull()
   })
   it('the kept sentence names the user\'s unanalysable options', () => {
@@ -200,7 +200,7 @@ describe('the option card reads the fact', () => {
     const line = screen.getByTestId('option-not-analysed-olumi_bundle')
     expect(screen.getByTestId('option-not-analysed-olumi-olumi_bundle').textContent).toContain("Olumi's suggestion")
     expect(line.textContent).toContain(OLUMI_PROPOSED_EXCLUDED_COPY)
-    expect(line.textContent).not.toMatch(/returned no result/)
+    expect(line.textContent).not.toMatch(/has no result for/)
   })
   it('CONTROL: no fact → today\'s not-analysed line, with no Olumi tag', () => {
     useCanvasStore.setState({ results: { status: 'complete', report: report() } } as never)
