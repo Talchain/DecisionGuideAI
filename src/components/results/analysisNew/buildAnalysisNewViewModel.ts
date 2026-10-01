@@ -82,6 +82,7 @@ import type {
   ZeroReasonCode,
 } from '../types'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
+import { isLabelledZeroReason } from '../influenceScaleCopy'
 // ⚠ IMPORTED FROM ITS OWNER, NEVER RESTATED. `resolveNextCopy.ts` is "the ONE
 // spelling of the Resolve next register" by its own header; a second copy in
 // this surface's deck would be the mirror that drifts silently (trap 12).
@@ -950,7 +951,7 @@ function buildDrivers(
       ...new Set(
         suppressedZero
           .map((d) => d.zeroReason)
-          .filter((r): r is NonNullable<ZeroReasonCode> => r != null),
+          .filter((r): r is NonNullable<ZeroReasonCode> => isLabelledZeroReason(r)),
       ),
     ],
   }

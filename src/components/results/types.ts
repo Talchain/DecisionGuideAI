@@ -1399,8 +1399,11 @@ export interface FocusCanvasEvent {
 // Raw Factor Data (from response, before presentation transform)
 // =============================================================================
 
-/** ISL zero_reason codes - explains why influence is zero for intervention factors */
-export type ZeroReasonCode = 'intervention_override' | 'disconnected' | 'zero_outcome_diff' | null
+/** ISL zero_reason codes - explains why influence is zero for intervention factors.
+ * `no_path_to_goal` / `zero_net_influence` are PLoT's graph-path codes (`plot-lite-service` `src/lib/factor-influence.ts`,
+ * served on 5cb272bd, 30 Sep 2026). The wire value is cast to this type, so `suppressedZeroReasons` keeps only codes
+ * with words (`isLabelledZeroReason`): an unknown one is left unnamed, never rendered as `undefined` (Paul's test, 1 Oct). */
+export type ZeroReasonCode = 'intervention_override' | 'disconnected' | 'zero_outcome_diff' | 'no_path_to_goal' | 'zero_net_influence' | null
 
 /** PLoT flip_risk_category - how a factor contributes to decision uncertainty */
 export type FlipRiskCategory = 'isolated' | 'correlated' | 'negligible'
