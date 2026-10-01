@@ -21,7 +21,7 @@ import { useCanvasStore } from '../store'
 import { RunChangesSummary, RUN_CHANGES_SUMMARY_TESTID } from '../components/RunChangesSummary'
 import { RUN_CHANGES_SUMMARY_COPY, runChangesSummaryLines } from '../graphChanges/runChangesSummaryLines'
 import { displayedRunDeltaView, nodeLabelMap } from '../../components/results/analysisNew/displayedRunDeltaView'
-import { noiseQualifier } from '../../components/results/analysisNew/sections/WhatsChanged'
+import { noiseQualifier, WHATS_CHANGED_NO_PAIRS, INPUTS_UNCHANGED_TEXT, INPUTS_PARTIAL_TEXT, INPUTS_NOT_RECORDED_TEXT } from '../../components/results/analysisNew/sections/WhatsChanged'
 import { winShareWithheldReason } from '../state/winShareGate'
 import { focusNodeById } from '../utils/focusHelpers'
 
@@ -51,6 +51,7 @@ function delta(over: Record<string, unknown> = {}): RunDelta {
     input_changes: [change('fac_churn', 'Monthly churn', 7, 12)],
     ...over,
   }
+  for (const k of Object.keys(d)) if ((d as Record<string, unknown>)[k] === undefined) delete (d as Record<string, unknown>)[k]
   // The fixture is the CONTRACT's shape, not a hand-made one: it must parse.
   const parsed = RunDeltaSchema.safeParse(d)
   expect(parsed.success, JSON.stringify(parsed.error?.issues ?? null)).toBe(true)
@@ -98,6 +99,37 @@ describe('M2-1 · what changed', () => {
   })
 })
 
+describe('M2-1b · no input rows: Compare\'s sentence for the coverage, never a second phrasing (R3 5936613334)', () => {
+  // An Accept (placeholder → accepted estimate) is a provenance change: C1, coverage complete, no input row. The card
+  // said "The inputs were not recorded for this pair" — false, they were recorded. One sentence per coverage, from
+  // WhatsChanged's own `emptyInputsText`.
+  const cases: Array<[string, Record<string, unknown>, string | null]> = [
+    ['complete + no rows', { input_coverage: 'complete', input_changes: [] }, INPUTS_UNCHANGED_TEXT],
+    ['partial + no rows', { input_coverage: 'partial', input_changes: [] }, INPUTS_PARTIAL_TEXT],
+    ['not_recorded (no list travels)', { input_coverage: 'not_recorded', input_changes: undefined }, INPUTS_NOT_RECORDED_TEXT],
+  ]
+  for (const [name, over, text] of cases) {
+    it(`${name} → "${text}"`, () => {
+      seed(delta(over))
+      const lines = runChangesSummaryLines(readerView(), false, null)
+      expect(lines.changed).toEqual([])
+      expect(lines.changedNote).toBe(text)
+      render(<RunChangesSummary />)
+      expect(screen.getByTestId(`${T}-line`).textContent).toBe(`${RUN_CHANGES_SUMMARY_COPY.changed} ${text} · ${RUN_CHANGES_SUMMARY_COPY.moved} ${noiseQualifier('within_noise')}`)
+      cleanup()
+    })
+  }
+  it('no input comparison at all (a pre-SC-24 delta) → no "Changed" claim; Moved still said', () => {
+    const d = delta() as unknown as Record<string, unknown>
+    delete d.input_coverage
+    delete d.input_changes
+    seed(d as never)
+    expect(readerView().inputs).toBeNull()
+    render(<RunChangesSummary />)
+    expect(screen.getByTestId(`${T}-line`).textContent).toBe(`${RUN_CHANGES_SUMMARY_COPY.moved} ${noiseQualifier('within_noise')}`)
+  })
+})
+
 describe('M2-2 · what moved: beyond noise only', () => {
   it('within noise → the ONE noise sentence, no option named', () => {
     seed(delta())
@@ -113,6 +145,17 @@ describe('M2-2 · what moved: beyond noise only', () => {
     const lines = runChangesSummaryLines(readerView(), false, null)
     expect(lines.moved).toEqual(['Keep pricing: 41% → 55%'])
     expect(lines.movedNote).toBeNull()
+  })
+})
+
+describe('M2-2b · no comparable pair: a sentence true under every cause, never "nothing to compare" (R3 5936720411)', () => {
+  it('an empty win_probabilities says the shared no-pairs sentence, which claims no cause and no stillness', () => {
+    seed(delta({ win_probabilities: [] }))
+    const lines = runChangesSummaryLines(readerView(), false, null)
+    expect(lines.moved).toEqual([])
+    expect(lines.movedNote).toBe(WHATS_CHANGED_NO_PAIRS)
+    expect(WHATS_CHANGED_NO_PAIRS).toBe('No option has figures from both runs to compare.')
+    expect(WHATS_CHANGED_NO_PAIRS).not.toMatch(/nothing to compare|could be matched/i)
   })
 })
 

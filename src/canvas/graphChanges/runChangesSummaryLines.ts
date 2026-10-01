@@ -13,6 +13,7 @@
  */
 import { INPUT_ROWS_SHOWN_FIRST, type RunDeltaInputRow, type RunDeltaView } from '../../components/results/analysisNew/runDeltaView'
 import {
+  emptyInputsText,
   inputRowText,
   movementText,
   noiseQualifier,
@@ -25,7 +26,6 @@ export const RUN_CHANGES_SUMMARY_COPY = {
   moved: 'Moved',
   why: 'Why',
   uncertain: 'Still uncertain',
-  noInputs: 'The inputs were not recorded for this pair.',
   openCompare: 'Open in Compare',
   showWhy: 'Why?',
   hideWhy: 'Hide',
@@ -37,6 +37,12 @@ export interface RunChangesSummaryLines {
   /** The first input rows (at most `INPUT_ROWS_SHOWN_FIRST`), each with the row it says, for focus. */
   readonly changed: ReadonlyArray<{ readonly row: RunDeltaInputRow; readonly text: string }>
   readonly changedMore: number
+  /**
+   * Said in place of rows when there are none: Compare's own sentence for the coverage (`emptyInputsText`): "Both runs
+   * used the same input values." / "Some inputs could not be compared…" / "The earlier run did not record its inputs…".
+   * `null` with no rows = the producer sent no input comparison at all, and nothing is said.
+   */
+  readonly changedNote: string | null
   /** Options that moved beyond noise, in the reader's order (at most `INPUT_ROWS_SHOWN_FIRST`). */
   readonly moved: readonly string[]
   readonly movedMore: number
@@ -76,6 +82,7 @@ export function runChangesSummaryLines(
   return {
     changed: rows.slice(0, INPUT_ROWS_SHOWN_FIRST).map((row) => ({ row, text: inputRowText(row) })),
     changedMore: Math.max(0, rows.length - INPUT_ROWS_SHOWN_FIRST),
+    changedNote: rows.length === 0 ? emptyInputsText(view.inputs) : null,
     moved: movedAll.slice(0, INPUT_ROWS_SHOWN_FIRST),
     movedMore: Math.max(0, movedAll.length - INPUT_ROWS_SHOWN_FIRST),
     movedNote,
