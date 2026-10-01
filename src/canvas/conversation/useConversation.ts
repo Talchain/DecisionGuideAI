@@ -144,6 +144,7 @@ import type {
   ReviewCardBlock,
 } from './types'
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS, isModelChangingSystemEvent } from './types'
+import { PLAN_PICK_CHIP_PREFIX } from './messageComposition'
 import { loadScenario as loadScenarioFromDb } from '../../services/scenarioService'
 import { applyDraftResult, backfillGoalThresholdOntoGoalNode } from '../utils/applyDraftResult'
 import {
@@ -1186,11 +1187,18 @@ export function buildHistory(
   return pairs.slice(-(maxPairs * 2))
 }
 
-/** Enforce chip budget: coaching chips take priority, suggested actions capped at MAX_SUGGESTED_ACTIONS */
+/**
+ * Enforce chip budget: coaching chips take priority, suggested actions capped at MAX_SUGGESTED_ACTIONS.
+ * M3 (CEE #2480 choose_plan): a set carrying a plan pick is the method's own question, so it is kept whole and offered
+ * alone (RC method_turn_rule: the method's own follow-ups only), the rule `SuggestedChips` applies.
+ */
 export function enforceChipBudget(
   coachingChips: ActionChip[],
   suggestedActions: ActionChip[],
 ): ActionChip[] {
+  if (suggestedActions.some((c) => typeof c.id === 'string' && c.id.startsWith(PLAN_PICK_CHIP_PREFIX))) {
+    return [...suggestedActions]
+  }
   const coaching = coachingChips.slice(0, MAX_CHIPS_PER_TURN)
   const remainingSlots = Math.min(
     MAX_SUGGESTED_ACTIONS,
