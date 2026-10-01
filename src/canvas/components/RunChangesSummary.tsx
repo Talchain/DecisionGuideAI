@@ -78,7 +78,7 @@ export function RunChangesSummary(): JSX.Element | null {
       data-testid={RUN_CHANGES_SUMMARY_TESTID}
       data-response-hash={responseHash}
       data-attributable={view.attributable ? 'true' : 'false'}
-      className="pointer-events-auto flex max-w-full flex-col items-center gap-2"
+      className="pointer-events-auto relative max-w-full"
     >
       {open && (
         <div
@@ -86,7 +86,10 @@ export function RunChangesSummary(): JSX.Element | null {
           role="region"
           aria-label={COPY.title}
           data-testid={detailId}
-          className="w-[min(520px,100%)] rounded-xl border border-panel-border bg-panel px-4 py-3 shadow-2"
+          // ⚠ OUT OF FLOW, ABOVE THE PILL. In flow it grew the band's fixed 64px row DOWNWARD, off the bottom of the
+          // canvas (preview 1280x800, 1 Oct). Only the pill takes band space; the detail rises over the canvas while
+          // the user has it open, as wide as the pill, capped in height.
+          className="absolute inset-x-0 bottom-full mb-2 max-h-[min(60vh,420px)] overflow-y-auto rounded-xl border border-panel-border bg-panel px-4 py-3 shadow-2"
         >
           <dl className="m-0 flex flex-col gap-2">
             <DetailLine label={COPY.changed} id="changed">
