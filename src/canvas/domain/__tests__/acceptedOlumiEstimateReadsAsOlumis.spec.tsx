@@ -190,7 +190,7 @@ describe('the rest of the reader class (AIQ census 5922532335; CODEX UI BUDDY 59
     expect(hasObservedData(bare)).toBe(true)
   })
 
-  it('Model tab: the adopted figure is stated (never "Not set") and its pasted source says AIQ\u2019s words', () => {
+  it('Model tab: the adopted figure is stated (CONTROL: the primary formatter already states it) and its pasted source says AIQ\u2019s words', () => {
     const rf = { id: 'warm_introductions', type: 'factor', position: { x: 0, y: 0 }, data: adopted } as unknown as Node
     const [row] = toModelRows({ nodes: [rf], edges: [], goalThreshold: null })
     expect(row.primaryValue).not.toBeNull()

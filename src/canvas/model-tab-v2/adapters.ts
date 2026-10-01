@@ -172,7 +172,7 @@ import { resolveNodeTypeLiteral } from '../domain/nodes'
 // rather than reimplemented: a second presence test here would be the estate's
 // dominant defect (trap 12) on a field a user-facing sentence depends on.
 import { factorDeclaresNoRange } from '../conversation/factorValueEdit'
-import { classifyObservedValueProvenance, factorIsConfirmable, isAcceptedOlumiFigure } from '../domain/valueProvenance'
+import { classifyObservedValueProvenance, classifyValueProvenance, factorIsConfirmable, isAcceptedOlumiFigure } from '../domain/valueProvenance'
 import { interventionTargetValue } from '../domain/interventions'
 import { unwrapInterventionValue } from '../utils/labelUtils'
 import { resolveFactorValueAdmission } from '../conversation/factorValueEdit'
@@ -469,9 +469,7 @@ function factorValue(data: unknown): string | null {
   // Pinned by `aUsersOwnValueIsNeverNotSet.spec.ts`.
   const v = (obs as { value?: unknown }).value
   if (typeof v !== 'number' || !Number.isFinite(v)) return null
-  // An accepted Olumi figure is set too — accepted, so never "Not set" (52f8cd; the whole observed state decides).
-  const cls = classifyObservedValueProvenance(obs)
-  if (cls?.userOwned !== true && cls?.kind !== 'accepted') return null
+  if (classifyValueProvenance((obs as { source?: unknown }).source as string | undefined)?.userOwned !== true) return null
   return factorDisplayText(data as Record<string, unknown>)
 }
 
