@@ -21,7 +21,7 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
 import { deriveGuidanceDskProvenance, useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import { useStrengthenStore, recordKey} from '../../../canvas/stores/strengthenStore'
-import { buildNodeValueSourceMap } from '../driverValueProvenance'
+import { buildAcceptedNodeIds, buildNodeValueSourceMap } from '../driverValueProvenance'
 import { buildNodeOriginMap } from './optionOriginDisclosure'
 import { buildRecommendations } from '../strengthen/buildRecommendations'
 import type { Recommendation } from '../strengthen/strengthenTypes'
@@ -108,6 +108,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
    */
   const nodes = useCanvasStore((s) => s.nodes)
   const nodeValueSources = useMemo(() => buildNodeValueSourceMap(nodes), [nodes])
+  // Olumi's figures the user accepted: the fact the source string cannot carry (52f8cd).
   /**
    * ⭐ WHOSE IDEA EACH ELEMENT WAS — the SAME `nodes` slice, a DIFFERENT field.
    * `buildNodeValueSourceMap` reads `observed_state.source` (who authored a
@@ -211,6 +212,12 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
   }, [storedLimitVerdicts, responseHash, currentScenarioId, statedLimitsKey])
 
   const analysisIdentityIsCurrent = useAnalysisResultsAreCurrent()
+  // Olumi's figures the user accepted, bound to the DISPLAYED Run: only a Run affirmatively current consumed the live
+  // node, so an older Run's two-writer stamp reads undetermined (52f8cd; CODEX UI 5923625039).
+  const acceptedFigures = useMemo(
+    () => ({ ids: buildAcceptedNodeIds(nodes), runIsCurrent: analysisIdentityIsCurrent }),
+    [nodes, analysisIdentityIsCurrent],
+  )
 
   const recommendations: Recommendation[] = useMemo(() => {
     const inputs = buildStrengthenInputsForAnalysisNew({
@@ -277,6 +284,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
         runDeltaAbsenceReason,
         limitVerdicts,
         nodeValueSources,
+        acceptedFigures,
         nodeLabels,
         nodeOrigins,
         // ⭐ THE SAME READING Strengthen gets above, now also the licence for
@@ -327,6 +335,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
       runDeltaAbsenceReason,
       limitVerdicts,
       nodeValueSources,
+      acceptedFigures,
       nodeLabels,
       nodeOrigins,
       // Store-derived, not an arg: a currency flip must re-license the

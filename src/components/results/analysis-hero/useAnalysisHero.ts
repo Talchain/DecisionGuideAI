@@ -24,9 +24,10 @@
  */
 import { useMemo } from 'react'
 import { useCanvasStore } from '@/canvas/store'
+import { useAnalysisResultsAreCurrent } from '@/canvas/hooks/useAnalysisResultsAreCurrent'
 import { selectActive, useStrengthenStore } from '@/canvas/stores/strengthenStore'
 import { isFocusNowPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
-import { buildNodeValueSourceMap } from '../driverValueProvenance'
+import { buildAcceptedNodeIds, buildNodeValueSourceMap } from '../driverValueProvenance'
 import { noValueDriverIds } from '../noValueDriverIds'
 import { selectDriverPolicyFeed } from '../useResultsSectionData'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
@@ -81,6 +82,11 @@ export function useAnalysisHero(data: ResultsSectionDataReturn): UseAnalysisHero
    * derived map keeps the one-way flow the module header promises.
    */
   const nodeValueSources = useMemo(() => buildNodeValueSourceMap(nodes), [nodes])
+  // Olumi's figures the user accepted: the fact the source string cannot carry (52f8cd).
+  // Olumi's figures the user accepted, bound to the DISPLAYED Run: only a Run affirmatively current consumed the live
+  // node, so an older Run's two-writer stamp reads undetermined (52f8cd; CODEX UI 5923625039).
+  const runIsCurrent = useAnalysisResultsAreCurrent()
+  const acceptedFigures = useMemo(() => ({ ids: buildAcceptedNodeIds(nodes), runIsCurrent }), [nodes, runIsCurrent])
 
   /**
    * ⭐ ONE DRIVER AUTHORITY (design audit §2 #7, served 853feeb7) — the card's
@@ -103,8 +109,8 @@ export function useAnalysisHero(data: ResultsSectionDataReturn): UseAnalysisHero
   )
 
   const model = useMemo(
-    () => buildHeroModel(data, optionNumbering, canvasNodeIds, nodeValueSources, driverLeader, noValueIds),
-    [data, optionNumbering, canvasNodeIds, nodeValueSources, driverLeader, noValueIds],
+    () => buildHeroModel(data, optionNumbering, canvasNodeIds, nodeValueSources, driverLeader, noValueIds, acceptedFigures),
+    [data, optionNumbering, canvasNodeIds, nodeValueSources, driverLeader, noValueIds, acceptedFigures],
   )
 
   const strengthenOn = isStrengthenPanelEnabled()
