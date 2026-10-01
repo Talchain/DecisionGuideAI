@@ -36,8 +36,12 @@ const SID = (served as { scenario_id: string }).scenario_id
 const OTHER = '33333333-4444-4555-8666-777777777777'
 const POINTER = 'olumi-canvas-current-scenario-id'
 
+/** The store as a fresh tab boots it, so no queue a previous row's real writer filled (e.g. `addNode`'s structural add) leaks. */
+const PRISTINE = useCanvasStore.getState()
+
 function freshBrowser(over: Record<string, unknown> = {}): void {
   localStorage.removeItem(POINTER)
+  useCanvasStore.setState(PRISTINE, true)
   useCanvasStore.setState({
     currentScenarioId: null, nodes: [], edges: [], goalConstraints: null, lastAuthoritativeGraph: null,
     serverGraphIdentity: null, importPendingServerRegistration: false, pendingEmittedEdits: 0,
@@ -102,6 +106,21 @@ describe('⭐ a fresh deep link binds the scenario it opens', () => {
     await waitFor(() => expect(fetchSpy).toHaveBeenCalled())
     expect(useCanvasStore.getState().currentScenarioId).toBe(OTHER)
     expect(localStorage.getItem(POINTER)).toBeNull()
+  })
+
+  it('CONTROL: an unsaved local DRAFT (nodes on the canvas, no id) is never retargeted at the link (CODEX UI BUDDY 5923937552)', async () => {
+    freshBrowser()
+    // The REAL writer a guest's own canvas edit goes through, as the buddy's negative used.
+    useCanvasStore.getState().addNode(undefined, 'goal', 'My own draft')
+    const draftIds = useCanvasStore.getState().nodes.map((n) => n.id)
+    expect(draftIds, 'precondition: the draft has a node and no scenario').toHaveLength(1)
+    expect(useCanvasStore.getState().currentScenarioId).toBeNull()
+    renderHook(() => useServerGraphHydration(SID))
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalled())
+    await new Promise((r) => setTimeout(r, 20))
+    // The link is read (zero overlap → refused); the draft stays on screen AND keeps today's target (no id).
+    expect(useCanvasStore.getState().nodes.map((n) => n.id)).toEqual(draftIds)
+    expect(useCanvasStore.getState().currentScenarioId).toBeNull()
   })
 
   it('CONTROL: an id CEE cannot address is never adopted', async () => {

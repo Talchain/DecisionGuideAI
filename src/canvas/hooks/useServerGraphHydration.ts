@@ -91,9 +91,14 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
   // wins, exactly as before. Declared BEFORE the read effect, so the read's proof sees the adopted id.
   // ⚠ STORE ONLY, NEVER THE POINTER: the route already says which scenario a reload means, and a pointer written here
   // would seed the NEXT session's store, so a later link to another scenario would be ignored.
+  // ⚠ AND AN EMPTY CANVAS, NOT JUST A NULL ID (CODEX UI BUDDY #2383 5923937552): a guest's unsaved draft has nodes and
+  // no id. Adopting the link there would point the draft's next turn at the linked model while the read (refused, zero
+  // overlap) leaves the draft on screen. With anything on the canvas, today's behaviour stands.
   useEffect(() => {
-    const held = useCanvasStore.getState().currentScenarioId ?? null
-    if (held !== null || !routeIsAdoptable(scenarioIdFromRoute, held)) return
+    const st = useCanvasStore.getState()
+    const held = st.currentScenarioId ?? null
+    if (held !== null || st.nodes.length > 0 || st.edges.length > 0) return
+    if (!routeIsAdoptable(scenarioIdFromRoute, held)) return
     routeAdoptedScenarioId = scenarioIdFromRoute as string
     useCanvasStore.setState({ currentScenarioId: scenarioIdFromRoute })
   }, [scenarioIdFromRoute])
