@@ -18,7 +18,11 @@ import type { ConversationMessage } from './types'
 export const CONVERSATION_TURNS_READ_KEY = 'conversation_turns' as const
 export const RESTORED_HISTORY_DIVIDER = 'Earlier in this conversation'
 // AIQ 5908155550: true on every branch (a same-model re-run, a non-edit not-current), unlike "the model has changed".
-export const RESTORED_STALE_FIGURES_NOTE = 'These replies came before the current analysis; their figures may not match it.'
+// ⭐ ONCE, not under every reply (AIQ 5925678816; Paul's step-5 reload showed it under 8 replies): ONE note after the last
+// earlier reply, and each earlier figure-bearing reply carries the short tag, so row 2 still holds when a reader scrolls
+// up to an old figure on its own.
+export const RESTORED_STALE_FIGURES_NOTE = 'The replies above came before the current analysis, so their figures may not match it.'
+export const RESTORED_EARLIER_TAG = 'Earlier analysis'
 /**
  * CEE's cap (CEE #2352 `CONVERSATION_TURNS_CAP`, 50 TURNS = up to 100 messages). A read AT the cap may have left older
  * turns out (AIQ 5907906662: say so). The words hold whether or not anything was — at exactly 50 CEE cannot tell us which.
@@ -79,19 +83,34 @@ export function buildRestoredThread(
     synthetic: true,
     sessionDivider: turns.length >= CONVERSATION_TURNS_CAP ? RESTORED_AT_CAP_DIVIDER : RESTORED_HISTORY_DIVIDER,
   }]
+  let anyStale = false
+  let afterLastEarlierReply = -1
   for (const t of turns) {
     const at = new Date(t.createdAt)
     if (t.userMessage !== null) out.push({ id: `restored-user-${t.turnId}`, role: 'user', content: t.userMessage, timestamp: at })
     if (t.assistantMessage !== null) {
       const describesEarlierRun = run.runNotCurrent || (Number.isFinite(runAt) && at.getTime() < runAt)
       const stale = describesEarlierRun && FIGURE.test(t.assistantMessage)
+      anyStale ||= stale
       out.push({
         id: `restored-assistant-${t.turnId}`,
         role: 'assistant',
-        content: stale ? `${t.assistantMessage}\n\n${RESTORED_STALE_FIGURES_NOTE}` : t.assistantMessage,
+        content: t.assistantMessage,
         timestamp: at,
+        ...(stale ? { restoredTag: RESTORED_EARLIER_TAG } : {}),
       })
+      if (describesEarlierRun) afterLastEarlierReply = out.length
     }
+  }
+  if (anyStale) {
+    out.splice(afterLastEarlierReply, 0, {
+      id: 'restored-earlier-note',
+      role: 'assistant',
+      content: '',
+      timestamp: out[afterLastEarlierReply - 1].timestamp,
+      synthetic: true,
+      sessionDivider: RESTORED_STALE_FIGURES_NOTE,
+    })
   }
   return out
 }

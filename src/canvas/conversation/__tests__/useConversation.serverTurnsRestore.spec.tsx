@@ -197,7 +197,8 @@ describe('the chat survives a reload in a browser that never saw it', () => {
     const { result } = renderHook(() => useConversation())
     await act(async () => { offer(SCENARIO, true); await Promise.resolve() })
     const figureReply = result.current.messages.find((x) => x.id === 'restored-assistant-t2')
-    expect(figureReply?.content).toContain(RESTORED_STALE_FIGURES_NOTE)
+    expect(figureReply?.restoredTag).toBe('Earlier analysis')
+    expect(result.current.messages.filter((x) => x.sessionDivider === RESTORED_STALE_FIGURES_NOTE)).toHaveLength(1)
   })
 
   it('CONTROL: a local transcript from an earlier page load wins — the stored chat is not added over it', async () => {

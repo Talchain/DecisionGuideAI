@@ -44,6 +44,11 @@ export interface ConversationMessage {
   isStreaming?: boolean
   /** True during tool-backed turns until turn_complete — pre-tool prose may change */
   isProvisional?: boolean
+  /**
+   * A restored reply written before the current analysis that states a figure: the short tag shown with it
+   * (`RESTORED_EARLIER_TAG`, AIQ 5925678816). The one full note sits once, after the last earlier reply.
+   */
+  restoredTag?: string
   /** Inline status text shown during tool execution (e.g. "Running simulations...") */
   toolLoadingState?: string | null
   /** Deterministic CEE insights — rendered between assistant_text and chips */
