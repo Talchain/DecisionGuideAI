@@ -4,10 +4,18 @@
  * Inputs are the proposal's display ops (proposalPreview.ts) and the canvas nodes as drawn NOW (id, position, measured
  * size). Output is flow-space geometry for the overlay (ProposalGhostLayer.tsx):
  *   - a CARD per `add_node` whose id is not already on the canvas (once the real node lands, its ghost is gone), placed
- *     beside the existing node an `add_edge` ties it to, else to the right of the drawing;
+ *     beside the existing node an `add_edge` ties it to: the first free slot touching it (right, left, below, above),
+ *     else the NEAREST free spot whose line to it crosses no other node, else to the right of the drawing.
+ *     ⛔ A card never covers a node or another card. Served layouts are dense (CDP template: cards 276-325 wide, 48 px
+ *     column and 64 px row gaps), so the slot beside a node is usually its sibling's. A card's height is its MEASURED
+ *     height when the overlay has one (canvas text is counter-scaled, so it grows as the camera zooms out);
  *   - a LINE per `add_edge` whose two ends are on the canvas or ghost cards, clipped to the card borders so it never
  *     crosses the text of the cards it joins;
- *   - a BAND mark per `set_link_strength` between two nodes on the canvas, at the midpoint of their centres.
+ *   - a BAND mark per `set_link_strength` between two nodes on the canvas: ON the real edge, at the first point along
+ *     its drawn path (the overlay samples it, middle first) where the mark covers no node, card or edge label; else a
+ *     callout (nearest free spot + a leader to the edge's middle); the edge itself is highlighted either way. The
+ *     midpoint of the two centres only when the edge is not drawn. In a layered layout an edge's middle often runs through a 48 px column gap where any mark would
+ *     cover the cards either side (served CDP template: GDPR → GDPR risk).
  * An op naming anything that is neither on the canvas nor a ghost card is dropped (fail closed: never a guessed place).
  */
 import type { ProposalPreview } from '../conversation/proposalPreview'
@@ -19,6 +27,15 @@ export const GHOST_GAP_X = 48
 export const GHOST_GAP_Y = 16
 const FALLBACK_W = 200
 const FALLBACK_H = 72
+/** Clearance a card keeps from every node and card. */
+const CLEARANCE = 8
+/** The nearest-free search: grid step and reach from the anchor's centre (flow units). */
+const SEARCH_STEP = 32
+const SEARCH_RADIUS = 960
+/** Any spot whose line crosses a node ranks behind every spot whose line does not. */
+const CROSSING_PENALTY = 4 * SEARCH_RADIUS
+/** A band mark's size before the overlay has measured it. */
+const BAND_FALLBACK = { w: 140, h: 24 } as const
 
 export interface GhostNodeInput {
   readonly id: string
@@ -31,7 +48,17 @@ export interface GhostNodeInput {
 interface Rect { readonly x: number; readonly y: number; readonly w: number; readonly h: number }
 export interface GhostCard extends Rect { readonly id: string; readonly label: string; readonly kind: string | null }
 export interface GhostLine { readonly key: string; readonly x1: number; readonly y1: number; readonly x2: number; readonly y2: number }
-export interface GhostBand { readonly key: string; readonly x: number; readonly y: number; readonly band: string }
+export interface GhostBand {
+  readonly key: string
+  /** The mark's centre. */
+  readonly x: number
+  readonly y: number
+  readonly band: string
+  /** The real edge's drawn path, to highlight (absent when the edge is not drawn). */
+  readonly edgePath?: string
+  /** When the mark could not sit on the edge: a line from the edge's middle to the mark's border. */
+  readonly leader?: { readonly x1: number; readonly y1: number; readonly x2: number; readonly y2: number }
+}
 export interface GhostGeometry { readonly cards: GhostCard[]; readonly lines: GhostLine[]; readonly bands: GhostBand[] }
 
 const rectOf = (n: GhostNodeInput): Rect => ({
@@ -41,6 +68,22 @@ const rectOf = (n: GhostNodeInput): Rect => ({
   h: n.measured?.height ?? n.height ?? FALLBACK_H,
 })
 const centre = (r: Rect) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 })
+const collides = (a: Rect, b: Rect) =>
+  a.x < b.x + b.w + CLEARANCE && a.x + a.w + CLEARANCE > b.x && a.y < b.y + b.h + CLEARANCE && a.y + a.h + CLEARANCE > b.y
+
+/** Does the segment (x1,y1)→(x2,y2) pass through r? (Liang–Barsky clip.) */
+function segmentHits(x1: number, y1: number, x2: number, y2: number, r: Rect): boolean {
+  const dx = x2 - x1
+  const dy = y2 - y1
+  let t0 = 0
+  let t1 = 1
+  for (const [p, q] of [[-dx, x1 - r.x], [dx, r.x + r.w - x1], [-dy, y1 - r.y], [dy, r.y + r.h - y1]] as const) {
+    if (p === 0) { if (q < 0) return false; continue }
+    const t = q / p
+    if (p < 0) { if (t > t1) return false; if (t > t0) t0 = t } else { if (t < t0) return false; if (t < t1) t1 = t }
+  }
+  return t0 <= t1
+}
 
 /** Where the segment from r's centre towards (tx, ty) leaves r's border. */
 function exitPoint(r: Rect, tx: number, ty: number): { x: number; y: number } {
@@ -54,8 +97,39 @@ function exitPoint(r: Rect, tx: number, ty: number): { x: number; y: number } {
   return { x: c.x + dx * s, y: c.y + dy * s }
 }
 
-export function proposalGhostGeometry(preview: ProposalPreview, nodes: readonly GhostNodeInput[]): GhostGeometry {
+/** The four slots touching an anchor, in preference order: right, left, below, above. */
+const slotsBeside = (a: Rect, h: number) => [
+  { x: a.x + a.w + GHOST_GAP_X, y: a.y },
+  { x: a.x - GHOST_GAP_X - GHOST_CARD_WIDTH, y: a.y },
+  { x: a.x, y: a.y + a.h + GHOST_GAP_Y },
+  { x: a.x, y: a.y - GHOST_GAP_Y - h },
+]
+
+/** What the overlay measured on the drawn canvas (flow units). Everything is optional: geometry works without it. */
+export interface GhostMeasures {
+  /** Card height by proposed node id; a missing or zero height reads as GHOST_CARD_HEIGHT. */
+  readonly heights?: ReadonlyMap<string, number>
+  /** Band mark size by band key (`from->to`). */
+  readonly bandSizes?: ReadonlyMap<string, { readonly w: number; readonly h: number }>
+  /** Points along the real edge's drawn path by band key, in preference order (the middle first). */
+  readonly bandPaths?: ReadonlyMap<string, ReadonlyArray<{ readonly x: number; readonly y: number }>>
+  /** The real edge's drawn path (`d`) by band key. */
+  readonly bandEdgePaths?: ReadonlyMap<string, string>
+  /** Other drawn marks a ghost must not cover (the edges' own labels: sign, strength). */
+  readonly obstacles?: ReadonlyArray<{ readonly x: number; readonly y: number; readonly w: number; readonly h: number }>
+}
+
+export function proposalGhostGeometry(
+  preview: ProposalPreview,
+  nodes: readonly GhostNodeInput[],
+  measures: GhostMeasures = {},
+): GhostGeometry {
+  const { heights, bandSizes, bandPaths, bandEdgePaths, obstacles = [] } = measures
   const real = new Map(nodes.map((n) => [n.id, rectOf(n)] as const))
+  const heightOf = (id: string) => {
+    const h = heights?.get(id)
+    return h !== undefined && h > 0 ? h : GHOST_CARD_HEIGHT
+  }
   const edges = preview.ops.filter((o): o is Extract<typeof o, { op: 'add_edge' }> => o.op === 'add_edge')
 
   // The drawing's right edge and top, for a ghost with no anchor on the canvas.
@@ -65,17 +139,47 @@ export function proposalGhostGeometry(preview: ProposalPreview, nodes: readonly 
   if (top === Infinity) top = 0
 
   const cards: GhostCard[] = []
-  const stacked = new Map<string, number>()
+  // Nodes and cards: nothing may cover them and no line should cross them. Edge labels: nothing may cover them.
+  const taken: Rect[] = [...real.values()]
+  const covered = (r: Rect) => taken.some((t) => collides(r, t)) || obstacles.some((o) => collides(r, o))
+  const free = (x: number, y: number, h: number) => !covered({ x, y, w: GHOST_CARD_WIDTH, h })
+  /**
+   * The top-left of the nearest free w×h box around `from` whose line to from's centre crosses no other node or card
+   * (or, failing that, the nearest free box). `from` itself never counts as crossed.
+   */
+  const nearestFree = (from: Rect, w: number, h: number): { x: number; y: number } | undefined => {
+    const c = centre(from)
+    const n = SEARCH_RADIUS / SEARCH_STEP
+    let best: { x: number; y: number } | undefined
+    let bestScore = Infinity
+    for (let i = -n; i <= n; i++) {
+      for (let j = -n; j <= n; j++) {
+        const d = Math.hypot(i, j) * SEARCH_STEP
+        if (d >= bestScore) continue
+        const x = c.x + i * SEARCH_STEP - w / 2
+        const y = c.y + j * SEARCH_STEP - h / 2
+        if (covered({ x, y, w, h })) continue
+        const crosses = taken.some((t) => t !== from && segmentHits(c.x, c.y, x + w / 2, y + h / 2, t))
+        const score = d + (crosses ? CROSSING_PENALTY : 0)
+        if (score < bestScore) { best = { x, y }; bestScore = score }
+      }
+    }
+    return best
+  }
   for (const op of preview.ops) {
     if (op.op !== 'add_node' || real.has(op.id)) continue
+    const h = heightOf(op.id)
     const tie = edges.find((e) => (e.fromId === op.id && real.has(e.toId)) || (e.toId === op.id && real.has(e.fromId)))
-    const anchorId = tie ? (tie.fromId === op.id ? tie.toId : tie.fromId) : '__right__'
-    const k = stacked.get(anchorId) ?? 0
-    stacked.set(anchorId, k + 1)
-    const a = tie ? real.get(anchorId)! : null
-    const x = a ? a.x + a.w + GHOST_GAP_X : right + GHOST_GAP_X
-    const y = (a ? a.y : top) + k * (GHOST_CARD_HEIGHT + GHOST_GAP_Y)
-    cards.push({ id: op.id, label: op.label, kind: op.kind, x, y, w: GHOST_CARD_WIDTH, h: GHOST_CARD_HEIGHT })
+    const a = tie ? real.get(tie.fromId === op.id ? tie.toId : tie.fromId)! : null
+    let slot = a ? (slotsBeside(a, h).find((s) => free(s.x, s.y, h)) ?? nearestFree(a, GHOST_CARD_WIDTH, h)) : undefined
+    if (!slot) {
+      // Right of the drawing never meets a node; step down past any card already there.
+      slot = { x: right + GHOST_GAP_X, y: top }
+      while (!free(slot.x, slot.y, h)) slot = { x: slot.x, y: slot.y + GHOST_CARD_HEIGHT + GHOST_GAP_Y }
+    }
+    const card = { id: op.id, label: op.label, kind: op.kind, x: slot.x, y: slot.y, w: GHOST_CARD_WIDTH, h }
+    cards.push(card)
+    taken.push(card)
   }
 
   const rect = (id: string): Rect | undefined => real.get(id) ?? cards.find((c) => c.id === id)
@@ -95,9 +199,33 @@ export function proposalGhostGeometry(preview: ProposalPreview, nodes: readonly 
     const a = real.get(op.fromId)
     const b = real.get(op.toId)
     if (!a || !b) continue
+    const key = `${op.fromId}->${op.toId}`
     const ca = centre(a)
     const cb = centre(b)
-    bands.push({ key: `${op.fromId}->${op.toId}`, x: (ca.x + cb.x) / 2, y: (ca.y + cb.y) / 2, band: op.band })
+    const size = bandSizes?.get(key) ?? BAND_FALLBACK
+    const along = bandPaths?.get(key) ?? []
+    const box = (p: { x: number; y: number }): Rect => ({ x: p.x - size.w / 2, y: p.y - size.h / 2, w: size.w, h: size.h })
+    const edgePath = bandEdgePaths?.get(key)
+    const onEdge = along.find((p) => !covered(box(p)))
+    let at: { x: number; y: number }
+    let leader: GhostBand['leader']
+    if (onEdge) {
+      at = onEdge
+    } else if (along.length > 0) {
+      // Nowhere on the edge is clear (dense rows: its whole run is a column gap). A callout: the nearest free spot, a
+      // leader to the edge's middle, and the edge itself highlighted, so the mark can only mean that link.
+      const mid = along[0]
+      const spot = nearestFree({ x: mid.x, y: mid.y, w: 0, h: 0 }, size.w, size.h)
+      at = spot ? { x: spot.x + size.w / 2, y: spot.y + size.h / 2 } : mid
+      if (spot) {
+        const q = exitPoint(box(at), mid.x, mid.y)
+        leader = { x1: mid.x, y1: mid.y, x2: q.x, y2: q.y }
+      }
+    } else {
+      at = { x: (ca.x + cb.x) / 2, y: (ca.y + cb.y) / 2 } // the edge is not drawn
+    }
+    taken.push(box(at))
+    bands.push({ key, x: at.x, y: at.y, band: op.band, ...(edgePath ? { edgePath } : {}), ...(leader ? { leader } : {}) })
   }
   return { cards, lines, bands }
 }

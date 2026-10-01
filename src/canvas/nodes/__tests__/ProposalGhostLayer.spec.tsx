@@ -11,7 +11,14 @@ import type { ReactNode } from 'react'
 let rfNodes: unknown[] = []
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual<typeof import('@xyflow/react')>('@xyflow/react')
-  return { ...actual, ViewportPortal: ({ children }: { children: ReactNode }) => children, useNodes: () => rfNodes }
+  return {
+    ...actual,
+    ViewportPortal: ({ children }: { children: ReactNode }) => children,
+    useNodes: () => rfNodes,
+    useEdges: () => [],
+    useReactFlow: () => ({ screenToFlowPosition: (p: { x: number; y: number }) => p }),
+    useStore: (select: (s: { transform: [number, number, number] }) => unknown) => select({ transform: [0, 0, 1] }),
+  }
 })
 
 import { ProposalGhostLayer, PROPOSAL_GHOST_TESTID } from '../ProposalGhostLayer'
@@ -53,6 +60,119 @@ describe('proposalGhostGeometry: placed by identity, beside what it ties to', ()
   it('no node on the canvas to tie to → right of the drawing, at its top; several on one anchor stack', () => {
     const g = proposalGhostGeometry(preview([ADD, { ...ADD, id: 'fac_b', label: 'B' }]), NODES)
     expect(g.cards.map((c) => [c.x, c.y])).toEqual([[1100 + GHOST_GAP_X, 0], [1100 + GHOST_GAP_X, GHOST_CARD_HEIGHT + GHOST_GAP_Y]])
+  })
+
+  it('⛔ a card never covers a node or another card: the slot right of the anchor is a sibling’s → the next free slot', () => {
+    // A layered layout puts the anchor's sibling exactly where "right of the anchor" would be (served CDP template, R1/R2).
+    const nodes = [...NODES, { id: 'sibling_right', position: { x: 700, y: 300 }, measured: { width: 200, height: 80 } }]
+    const g = proposalGhostGeometry(preview([ADD, TIE, { ...ADD, id: 'fac_b', label: 'B' }, { ...TIE, from_id: 'fac_b' }]), nodes)
+    expect(g.cards.map((c) => [c.id, c.x, c.y])).toEqual([
+      ['fac_onboarding_time', 400 - GHOST_GAP_X - GHOST_CARD_WIDTH, 300], // left of the anchor
+      ['fac_b', 400, 300 + 80 + GHOST_GAP_Y], // below it
+    ])
+    const rects = [...nodes.map((n) => ({ id: n.id, x: n.position.x, y: n.position.y, w: n.measured.width, h: n.measured.height })), ...g.cards]
+    const overlapping = rects.flatMap((a, i) => rects.slice(i + 1)
+      .filter((b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y).map((b) => `${a.id}×${b.id}`))
+    expect(overlapping).toEqual([])
+  })
+
+  // The served CDP template's risk row and its neighbours, as measured in the browser at zoom 0.5 (1 Oct): every slot
+  // touching R1 is taken (48 px column gaps, 64 px row gaps) and a ghost card measured 112 tall there.
+  const CDP = [
+    { id: 'fac_migration_effort', position: { x: 25, y: 715 }, measured: { width: 325, height: 194 } },
+    { id: 'fac_segment', position: { x: 398, y: 715 }, measured: { width: 325, height: 194 } },
+    { id: 'fac_snowflake_build', position: { x: 771, y: 715 }, measured: { width: 325, height: 194 } },
+    { id: 'out_budget_headroom', position: { x: 26, y: 973 }, measured: { width: 276, height: 160 } },
+    { id: 'risk_migration_delay', position: { x: 350, y: 973 }, measured: { width: 276, height: 185 } },
+    { id: 'risk_gdpr_breach', position: { x: 674, y: 973 }, measured: { width: 276, height: 185 } },
+    { id: 'goal_cdp', position: { x: 480, y: 1222 }, measured: { width: 720, height: 105 } },
+  ]
+  const rectsOf = (nodes: typeof CDP) => nodes.map((n) => ({ id: n.id, x: n.position.x, y: n.position.y, w: n.measured.width, h: n.measured.height }))
+
+  it('⛔ boxed in (served CDP rows): the nearest free spot, covering nothing, its line crossing no other node', () => {
+    const tie = { op: 'add_edge', from_id: 'fac_vendor_lockin', to_id: 'risk_migration_delay' }
+    const g = proposalGhostGeometry(preview([{ ...ADD, id: 'fac_vendor_lockin', label: 'Vendor lock-in exposure' }, tie]), CDP, { heights: new Map([['fac_vendor_lockin', 112]]) })
+    const [card] = g.cards
+    expect(card.h).toBe(112)
+    const rects = rectsOf(CDP)
+    // Covers nothing.
+    expect(rects.filter((r) => card.x < r.x + r.w && card.x + card.w > r.x && card.y < r.y + r.h && card.y + card.h > r.y)).toEqual([])
+    // Near its anchor, not parked right of the drawing (1096 + gap).
+    const anchor = rects.find((r) => r.id === 'risk_migration_delay')!
+    const [ax, ay, cx, cy] = [anchor.x + anchor.w / 2, anchor.y + anchor.h / 2, card.x + card.w / 2, card.y + card.h / 2]
+    expect(Math.hypot(cx - ax, cy - ay)).toBeLessThan(600)
+    // Its line crosses no other node: sample the centre-to-centre segment.
+    const crossed = new Set<string>()
+    for (let t = 0; t <= 1; t += 0.01) {
+      const [x, y] = [ax + (cx - ax) * t, ay + (cy - ay) * t]
+      for (const r of rects) if (r.id !== anchor.id && x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h) crossed.add(r.id)
+    }
+    expect([...crossed]).toEqual([])
+  })
+
+  it('⛔ the nearest free spot lies behind a node → a farther spot whose line crosses nothing', () => {
+    // A boxed on three sides; a thin wide wall below it. Straight below the wall is nearest but its line crosses the wall.
+    const box = [
+      { id: 'a', position: { x: 0, y: 0 }, measured: { width: 200, height: 100 } },
+      { id: 'right', position: { x: 248, y: 0 }, measured: { width: 200, height: 100 } },
+      { id: 'left', position: { x: -248, y: 0 }, measured: { width: 200, height: 100 } },
+      { id: 'above', position: { x: 0, y: -116 }, measured: { width: 200, height: 100 } },
+      { id: 'wall', position: { x: -400, y: 116 }, measured: { width: 1000, height: 20 } },
+    ]
+    const g = proposalGhostGeometry(preview([{ ...ADD, id: 'g' }, { op: 'add_edge', from_id: 'g', to_id: 'a' }]), box)
+    const [card] = g.cards
+    const rects = rectsOf(box)
+    expect(rects.filter((r) => card.x < r.x + r.w && card.x + card.w > r.x && card.y < r.y + r.h && card.y + card.h > r.y)).toEqual([])
+    const [ax, ay, cx, cy] = [100, 50, card.x + card.w / 2, card.y + card.h / 2]
+    const crossed = new Set<string>()
+    for (let t = 0; t <= 1; t += 0.01) {
+      const [x, y] = [ax + (cx - ax) * t, ay + (cy - ay) * t]
+      for (const r of rects) if (r.id !== 'a' && x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h) crossed.add(r.id)
+    }
+    expect([...crossed]).toEqual([])
+  })
+
+  it('⛔ a band mark sits ON the real edge where it covers nothing: its middle runs through a column gap (served CDP)', () => {
+    // GDPR → GDPR risk, as drawn: straight down x=747 from the factor row (bottom 606) to the risk row (top 973), its
+    // middle through the 48 px gap between Segment and Snowflake. Points in the overlay's order: middle, then outwards.
+    const nodes = [...CDP, { id: 'fac_gdpr_compliance', position: { x: 584, y: 476 }, measured: { width: 325, height: 130 } }]
+    const op = { op: 'set_link_strength', from_id: 'fac_gdpr_compliance', to_id: 'risk_gdpr_breach', band: 'strong' }
+    const key = 'fac_gdpr_compliance->risk_gdpr_breach'
+    const MIDDLE = { x: 747, y: 790 } // between Segment and Snowflake: a 180-wide mark covers both
+    const UPPER_GAP = { x: 747, y: 660 } // between the two factor rows
+    const LOWER_GAP = { x: 747, y: 941 } // between the factor row and the risk row
+    const at = (obstacles: Array<{ x: number; y: number; w: number; h: number }>) => {
+      const b = proposalGhostGeometry(preview([op]), nodes, {
+        bandSizes: new Map([[key, { w: 180, h: 34 }]]), bandPaths: new Map([[key, [MIDDLE, UPPER_GAP, LOWER_GAP]]]), obstacles,
+      }).bands[0]
+      return { x: b.x, y: b.y }
+    }
+    expect(at([])).toEqual(UPPER_GAP)
+    const box = { x: UPPER_GAP.x - 90, y: UPPER_GAP.y - 17, w: 180, h: 34 }
+    expect(rectsOf(nodes).filter((r) => box.x < r.x + r.w && box.x + box.w > r.x && box.y < r.y + r.h && box.y + box.h > r.y)).toEqual([])
+    // ⛔ ...nor the edge's own label: a sign glyph drawn in the upper gap moves the mark on along the path.
+    expect(at([{ x: 737, y: 650, w: 20, h: 20 }])).toEqual(LOWER_GAP)
+    // ⛔ Nowhere on the edge clear (served at zoom 0.5: the whole run is the column gap) → a callout: the nearest spot
+    // covering nothing, a leader from the edge's middle to it, and the edge highlighted. Never a mark over the cards.
+    const signs = [{ x: 737, y: 650, w: 20, h: 20 }, { x: 737, y: 931, w: 20, h: 20 }]
+    const callout = proposalGhostGeometry(preview([op]), nodes, {
+      bandSizes: new Map([[key, { w: 180, h: 34 }]]), bandPaths: new Map([[key, [MIDDLE, UPPER_GAP, LOWER_GAP]]]),
+      bandEdgePaths: new Map([[key, 'M747,606 L747,973']]), obstacles: signs,
+    }).bands[0]
+    const cbox = { x: callout.x - 90, y: callout.y - 17, w: 180, h: 34 }
+    expect([...rectsOf(nodes), ...signs.map((o, i) => ({ id: `sign${i}`, ...o }))]
+      .filter((r) => cbox.x < r.x + r.w && cbox.x + cbox.w > r.x && cbox.y < r.y + r.h && cbox.y + cbox.h > r.y)).toEqual([])
+    expect(callout.leader).toMatchObject({ x1: MIDDLE.x, y1: MIDDLE.y })
+    expect(callout.edgePath).toBe('M747,606 L747,973')
+    // On the edge, no leader.
+    expect(proposalGhostGeometry(preview([op]), nodes, { bandPaths: new Map([[key, [UPPER_GAP]]]) }).bands[0].leader).toBeUndefined()
+  })
+
+  it('places by the MEASURED card height: two 112-tall cards right of the drawing do not overlap', () => {
+    const g = proposalGhostGeometry(preview([ADD, { ...ADD, id: 'fac_b', label: 'B' }]), NODES, { heights: new Map([['fac_onboarding_time', 112], ['fac_b', 112]]) })
+    const [a, b] = g.cards
+    expect([a.h, b.h]).toEqual([112, 112])
+    expect(b.y).toBeGreaterThanOrEqual(a.y + a.h)
   })
 
   it('⛔ once the real node is on the canvas its ghost is gone (no card for an id the canvas holds)', () => {

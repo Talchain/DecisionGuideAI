@@ -10,27 +10,108 @@
  *   lines are solid `stroke-info` at partial opacity. Text goes through the counter-scaled canvas tokens only
  *   (`canvasTextCounterScale.census.spec.ts` declares this file in VIEWPORT_PORTALLED).
  */
-import { memo, useMemo } from 'react'
-import { ViewportPortal, useNodes } from '@xyflow/react'
+import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { ViewportPortal, useEdges, useNodes, useReactFlow, useStore } from '@xyflow/react'
 import { typography } from '../../styles/typography'
 import { useProposalGhostStore } from '../stores/proposalGhostStore'
-import { proposalGhostGeometry } from '../utils/proposalGhostGeometry'
+import { GHOST_CARD_HEIGHT, proposalGhostGeometry, type GhostMeasures } from '../utils/proposalGhostGeometry'
 import { strengthBandWords } from '../../components/results/analysisNew/runDeltaLinkWords'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { NodeTypeEnum } from '../domain/nodes'
 
 export const PROPOSAL_GHOST_TESTID = 'proposal-ghost-layer'
 
+/** Where along a real edge a band mark may sit, middle first (geometry takes the first that covers nothing). */
+const BAND_ALONG = [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.15, 0.85] as const
+const measuresKey = (m: GhostMeasures) =>
+  JSON.stringify([
+    [...(m.heights ?? [])], [...(m.bandSizes ?? [])], [...(m.bandPaths ?? [])], [...(m.bandEdgePaths ?? [])], m.obstacles ?? [],
+  ])
+
 export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
   const ghost = useProposalGhostStore((s) => s.ghost)
   const nodes = useNodes()
-  const geo = useMemo(() => (ghost ? proposalGhostGeometry(ghost, nodes) : null), [ghost, nodes])
+  const edges = useEdges()
+  const { screenToFlowPosition } = useReactFlow()
+  // Measured, not guessed: a card's height and a band's size follow the counter-scaled text (so they change with the
+  // zoom: re-render on zoom), and a band sits on the real edge's DRAWN path. Re-measure after every render; the values
+  // depend on label, zoom and edge route only, so this settles in one pass.
+  useStore((s) => s.transform[2])
+  const layerRef = useRef<HTMLDivElement>(null)
+  const [measures, setMeasures] = useState<GhostMeasures>({})
+  const geo = useMemo(() => (ghost ? proposalGhostGeometry(ghost, nodes, measures) : null), [ghost, nodes, measures])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- after EVERY render by design; equal measures bail out
+  useLayoutEffect(() => {
+    const root = layerRef.current
+    const heights = new Map<string, number>()
+    const bandSizes = new Map<string, { w: number; h: number }>()
+    const bandPaths = new Map<string, Array<{ x: number; y: number }>>()
+    const bandEdgePaths = new Map<string, string>()
+    root?.querySelectorAll<HTMLElement>('[data-ghost-id]').forEach((el) => heights.set(el.dataset.ghostId!, el.offsetHeight))
+    root?.querySelectorAll<HTMLElement>('[data-ghost-band]').forEach((el) => {
+      if (el.offsetWidth > 0) bandSizes.set(el.dataset.ghostBand!, { w: el.offsetWidth, h: el.offsetHeight })
+    })
+    const flow = root?.closest('.react-flow')
+    for (const op of ghost?.ops ?? []) {
+      if (op.op !== 'set_link_strength' || !flow) continue
+      const edge = edges.find((e) => e.source === op.fromId && e.target === op.toId)
+      const path = edge
+        ? flow.querySelector<SVGPathElement>(`.react-flow__edge[data-id="${CSS.escape(edge.id)}"] path.react-flow__edge-path`)
+        : null
+      const length = path && typeof path.getTotalLength === 'function' ? path.getTotalLength() : 0
+      const d = path?.getAttribute('d')
+      if (!path || !d || !(length > 0)) continue
+      bandEdgePaths.set(`${op.fromId}->${op.toId}`, d)
+      bandPaths.set(`${op.fromId}->${op.toId}`, BAND_ALONG.map((t) => {
+        const q = path.getPointAtLength(length * t)
+        return { x: Math.round(q.x), y: Math.round(q.y) }
+      }))
+    }
+    // The edges' own labels (sign, strength), in flow units: a ghost must not cover them.
+    const obstacles: Array<{ x: number; y: number; w: number; h: number }> = []
+    flow?.querySelectorAll<HTMLElement>('.react-flow__edgelabel-renderer > *').forEach((el) => {
+      const r = el.getBoundingClientRect()
+      if (r.width === 0) return
+      const a = screenToFlowPosition({ x: r.left, y: r.top })
+      const b = screenToFlowPosition({ x: r.right, y: r.bottom })
+      obstacles.push({ x: Math.round(a.x), y: Math.round(a.y), w: Math.round(b.x - a.x), h: Math.round(b.y - a.y) })
+    })
+    const next = { heights, bandSizes, bandPaths, bandEdgePaths, obstacles }
+    setMeasures((prev) => (measuresKey(prev) === measuresKey(next) ? prev : next))
+  })
   if (!geo || (geo.cards.length === 0 && geo.lines.length === 0 && geo.bands.length === 0)) return null
 
   return (
     <ViewportPortal>
-      <div aria-hidden="true" data-testid={PROPOSAL_GHOST_TESTID} style={{ pointerEvents: 'none' }}>
+      <div ref={layerRef} aria-hidden="true" data-testid={PROPOSAL_GHOST_TESTID} style={{ pointerEvents: 'none' }}>
         <svg className="absolute overflow-visible" style={{ left: 0, top: 0, pointerEvents: 'none' }} width={1} height={1}>
+          {geo.bands.map((b) => (
+            <g key={b.key}>
+              {b.edgePath && (
+                <path
+                  data-testid={`proposal-ghost-edge-${b.key}`}
+                  d={b.edgePath}
+                  fill="none"
+                  className="stroke-info"
+                  strokeOpacity={0.35}
+                  strokeWidth={6}
+                  strokeLinecap="round"
+                />
+              )}
+              {b.leader && (
+                <line
+                  data-testid={`proposal-ghost-leader-${b.key}`}
+                  x1={b.leader.x1}
+                  y1={b.leader.y1}
+                  x2={b.leader.x2}
+                  y2={b.leader.y2}
+                  className="stroke-info"
+                  strokeOpacity={0.55}
+                  strokeWidth={1.5}
+                />
+              )}
+            </g>
+          ))}
           {geo.lines.map((l) => (
             <line
               key={l.key}
@@ -52,8 +133,9 @@ export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
           <div
             key={c.id}
             data-testid={`proposal-ghost-node-${c.id}`}
+            data-ghost-id={c.id}
             className="absolute flex flex-col justify-center rounded-lg border border-info bg-panel opacity-80"
-            style={{ left: c.x, top: c.y, width: c.w, minHeight: c.h, padding: 12, gap: 4, pointerEvents: 'none' }}
+            style={{ left: c.x, top: c.y, width: c.w, minHeight: GHOST_CARD_HEIGHT, padding: 12, gap: 4, pointerEvents: 'none' }}
           >
             <span className="flex items-center" style={{ gap: 4 }}>
               {kind?.success && <NodeShapeIndicator nodeKind={kind.data} size={14} />}
@@ -67,6 +149,7 @@ export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
           <span
             key={b.key}
             data-testid={`proposal-ghost-band-${b.key}`}
+            data-ghost-band={b.key}
             className={`absolute rounded border border-info bg-panel opacity-80 ${typography.edgeLabel} text-text-header`}
             style={{ left: b.x, top: b.y, transform: 'translate(-50%, -50%)', padding: '2px 8px', whiteSpace: 'nowrap', pointerEvents: 'none' }}
           >
