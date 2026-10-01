@@ -57,3 +57,4 @@ create function public.send_team_invitation_email(uuid,text,text,text,text,text)
 create function public.test_email_sending(text) returns boolean language sql security definer as $$ select true $$;
 create function public.update_organization_member_role(uuid,text) returns boolean language sql security definer as $$ select true $$;
 create function public.update_team_member_role(uuid,text) returns boolean language sql security definer as $$ select true $$;
+create function public.check_team_member_org() returns boolean language sql as $$ select true $$;
