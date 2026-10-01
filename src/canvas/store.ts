@@ -1490,6 +1490,12 @@ interface CanvasState {
    * The empty-canvas `resetCanvas` keeps its narrower contract; adoption never takes that early return.
    */
   adoptScenario: (scenarioId: string) => void
+  /**
+   * Bumped by every scenario boundary (`resetCanvas`, both branches, and `adoptScenario`). An async open captures it
+   * and refuses to apply if it moved: on an EMPTY canvas "Start fresh" changes neither the id nor the emptiness, so
+   * this is the only signal that the user moved on while a read was in flight (#2418 delta CR, P1-2).
+   */
+  scenarioEpoch: number
   createNodeId: () => string
   createEdgeId: () => string
   reseedIds: (nodes: Node[], edges: Edge[]) => void
@@ -3381,6 +3387,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   nodes: initialNodes,
   edges: initialEdges,
   history: { past: [], future: [] },
+  scenarioEpoch: 0,
   selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
   _internal: { lastHistoryHash: '' },
   clipboard: null,
@@ -5236,7 +5243,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // COUPLING is what matters: it is the empty-graph null rule (pinned by
       // its own test) that makes this safe — break that rule and this line
       // becomes wrong, silently.
-      set({ ...DECISION_CONTEXT_CLEAR, importPendingServerRegistration: false })
+      set({ ...DECISION_CONTEXT_CLEAR, importPendingServerRegistration: false, scenarioEpoch: get().scenarioEpoch + 1 })
       return
     }
 
@@ -5245,7 +5252,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Clear current scenario ID - user is starting fresh, not editing old scenario
     scenarios.clearCurrentScenarioId()
 
-    set(scenarioResetState())
+    set({ ...scenarioResetState(), scenarioEpoch: get().scenarioEpoch + 1 })
     // Reset comparison state on canvas clear (lives in useComparisonStore as of C3-3)
     useComparisonStore.getState().resetComparison()
     // Clear AI model selections (lives in useDraftStore as of C3-5).
@@ -5260,7 +5267,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       : false
     scenarios.clearAutosave()
     if (!isSavedRecord) clearTranscript(scenarioIdBeingLeft)
-    set({ ...scenarioResetState(), history: { past: [], future: [] }, currentScenarioId: scenarioId })
+    set({ ...scenarioResetState(), history: { past: [], future: [] }, currentScenarioId: scenarioId, scenarioEpoch: get().scenarioEpoch + 1 })
     scenarios.setCurrentScenarioId(scenarioId)
     useComparisonStore.getState().resetComparison()
     useDraftStore.getState().resetAllModels()

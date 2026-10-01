@@ -13,7 +13,14 @@ const sessionActive = vi.fn(() => false)
 const identity = vi.fn(async () => ({ userId: null as string | null, accessToken: null as string | null }))
 vi.mock('../../../adapters/cee/registerScenarioGraph', () => ({ registerScenarioGraph: (...a: unknown[]) => register(...a) }))
 vi.mock('../../../lib/persistenceSession', () => ({ isPersistenceSessionActive: () => sessionActive() }))
-vi.mock('../../../lib/supabase', () => ({ getSessionIdentity: () => identity() }))
+let authListener: ((event: string, session: unknown) => void) | null = null
+vi.mock('../../../lib/supabase', () => ({
+  getSessionIdentity: () => identity(),
+  supabase: { auth: { onAuthStateChange: (cb: (event: string, session: unknown) => void) => {
+    authListener = cb
+    return { data: { subscription: { unsubscribe: () => { authListener = null } } } }
+  } } },
+}))
 const hydrateMock = vi.fn()
 vi.mock('../../hydrate/serverGraphHydration', async (orig) => ({
   ...(await orig<typeof import('../../hydrate/serverGraphHydration')>()),
@@ -264,7 +271,8 @@ describe('openExampleDecision: a fresh scenario every time, never over a model, 
     const first = await openExampleDecision()
     expect(first.status).toBe('not_read_back')
     const id = register.mock.calls[0][0] as string
-    hydrateMock.mockImplementationOnce(async () => {
+    hydrateMock.mockImplementationOnce(async (_sid: string, opts: { canApply?: () => boolean }) => {
+      if (opts.canApply?.() === false) return 'skipped'
       useCanvasStore.setState({ nodes: SEED_IDS.map((nid) => ({ id: nid, position: { x: 0, y: 0 }, data: {} })) as never })
       return 'merged'
     })
@@ -272,6 +280,36 @@ describe('openExampleDecision: a fresh scenario every time, never over a model, 
     expect(register).toHaveBeenCalledTimes(1)
     expect(hydrateMock).toHaveBeenCalledTimes(1)
     expect(hydrateMock.mock.calls[0][0]).toBe(id)
+  })
+
+  /** Like the real hydration: the read lands, `during` runs (the user's move), then canApply gates the write. */
+  const retryRead = (during: () => void) => hydrateMock.mockImplementationOnce(async (_sid: string, opts: { canApply?: () => boolean }) => {
+    during()
+    if (opts.canApply?.() === false) return 'skipped'
+    useCanvasStore.setState({ nodes: SEED_IDS.map((nid) => ({ id: nid, position: { x: 0, y: 0 }, data: {} })) as never })
+    return 'merged'
+  })
+
+  it('⛔ DEFERRED RETRY → "Start fresh" during its read → the canvas STAYS EMPTY (the epoch moved; id + emptiness did not)', async () => {
+    hydrationHook('unavailable')
+    register.mockResolvedValue(ACK)
+    expect((await openExampleDecision()).status).toBe('not_read_back')
+    const id = useCanvasStore.getState().currentScenarioId
+    retryRead(() => useCanvasStore.getState().resetCanvas())
+    expect(await openExampleDecision()).toEqual({ status: 'canvas_changed' })
+    expect(useCanvasStore.getState().nodes).toHaveLength(0)
+    expect(useCanvasStore.getState().currentScenarioId).toBe(id) // Start fresh on an empty canvas keeps the id: only the epoch tells
+    expect(register).toHaveBeenCalledTimes(1)
+  })
+
+  it('⛔ a login at the AUTH SOURCE during the retry read (flag still false) → signed_in, nothing applied', async () => {
+    hydrationHook('unavailable')
+    register.mockResolvedValue(ACK)
+    expect((await openExampleDecision()).status).toBe('not_read_back')
+    retryRead(() => authListener?.('SIGNED_IN', { user: { id: 'u-1' } }))
+    expect(sessionActive()).toBe(false)
+    expect(await openExampleDecision()).toEqual({ status: 'signed_in' })
+    expect(useCanvasStore.getState().nodes).toHaveLength(0)
   })
 
   it('⛔ content that arrived during the write is not replaced: the id does not switch', async () => {

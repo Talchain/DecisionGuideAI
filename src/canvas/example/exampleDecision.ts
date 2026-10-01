@@ -29,7 +29,7 @@
  *   id is kept after `not_read_back`, so the next click re-reads THAT scenario instead of writing a second one.
  */
 import { registerScenarioGraph, type RegisterScenarioGraphResult } from '../../adapters/cee/registerScenarioGraph'
-import { getSessionIdentity } from '../../lib/supabase'
+import { getSessionIdentity, supabase } from '../../lib/supabase'
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { useCanvasStore } from '../store'
 import { useBootGraphReadStore, type BootGraphReadState } from '../hydrate/bootGraphRead'
@@ -136,7 +136,7 @@ export async function openExampleDecision(
   const lost1 = stillOurs()
   if (lost1) return lost1
   if (unreadExampleId !== null) {
-    if (unreadExampleId === origin) return rereadExample(unreadExampleId, graph, identity)
+    if (unreadExampleId === origin) return rereadExample(unreadExampleId, graph)
     unreadExampleId = null // the user has moved on from it; this click is a fresh open
   }
   const scenarioId = crypto.randomUUID()
@@ -163,25 +163,52 @@ export async function openExampleDecision(
   return { status: 'not_read_back', scenarioId, read }
 }
 
-/** The retry after `not_read_back`: read the scenario this flow already created, through the same direct read
- *  `draftRecovery` uses. No write, no mint. */
+/**
+ * The retry after `not_read_back`: read the scenario this flow already created, through the same direct read
+ * `draftRecovery` uses. No write, no mint.
+ *
+ * ⛔ A STRICT APPLY-TIME FENCE (#2418 delta CR, P1-2). The read is async and applies inside `hydrateCanvasFromServer`,
+ *   so the fence is its `canApply`, checked after the read and before any write: the same scenario id, an EMPTY
+ *   canvas, the same `scenarioEpoch` (a "Start fresh" on the empty canvas moves nothing else), and no session, read
+ *   from BOTH the mirrored flag and the auth source itself (`onAuthStateChange`, which fires before CanvasMVP's
+ *   passive effect publishes the flag). The authoritative identity is also re-read right before the read.
+ */
 async function rereadExample(
   scenarioId: string,
   graph: unknown,
-  identity: { userId: string | null; accessToken: string | null },
 ): Promise<OpenExampleDecisionResult> {
-  const outcome = await hydrateCanvasFromServer(scenarioId, {
-    userId: identity.userId,
-    accessToken: identity.accessToken,
-    includeConversationTurns: true,
+  const epoch = useCanvasStore.getState().scenarioEpoch
+  const late = await getSessionIdentity()
+  if (!isGuest(late)) return { status: 'signed_in' }
+  let sessionSeen = false
+  const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    if (session) sessionSeen = true
   })
-  const st = useCanvasStore.getState()
-  if (st.currentScenarioId !== scenarioId) return { status: 'canvas_changed' }
-  const onCanvas = new Set(st.nodes.map((n) => n.id))
-  const ids = seedNodeIds(graph)
-  if (ids.length > 0 && ids.every((id) => onCanvas.has(id))) {
-    unreadExampleId = null
-    return { status: 'opened', scenarioId }
+  try {
+    const signedIn = () => sessionSeen || isPersistenceSessionActive()
+    const fence = (): boolean => {
+      const st = useCanvasStore.getState()
+      return !signedIn() && st.currentScenarioId === scenarioId && st.scenarioEpoch === epoch &&
+        st.nodes.length === 0 && st.edges.length === 0
+    }
+    if (!fence()) return signedIn() ? { status: 'signed_in' } : { status: 'canvas_changed' }
+    const outcome = await hydrateCanvasFromServer(scenarioId, {
+      userId: late.userId,
+      accessToken: late.accessToken,
+      includeConversationTurns: true,
+      canApply: fence,
+    })
+    if (signedIn()) return { status: 'signed_in' }
+    const st = useCanvasStore.getState()
+    if (st.currentScenarioId !== scenarioId || st.scenarioEpoch !== epoch) return { status: 'canvas_changed' }
+    const onCanvas = new Set(st.nodes.map((n) => n.id))
+    const ids = seedNodeIds(graph)
+    if (ids.length > 0 && ids.every((id) => onCanvas.has(id))) {
+      unreadExampleId = null
+      return { status: 'opened', scenarioId }
+    }
+    return { status: 'not_read_back', scenarioId, read: outcome }
+  } finally {
+    data.subscription.unsubscribe()
   }
-  return { status: 'not_read_back', scenarioId, read: outcome }
 }
