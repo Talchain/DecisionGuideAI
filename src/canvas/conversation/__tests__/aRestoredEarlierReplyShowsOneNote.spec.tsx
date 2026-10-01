@@ -4,14 +4,13 @@
  * Paul's step-5 reload on R3's `4644486f` (UI `e66b8c27`): "These replies came before the current analysis; their figures
  * may not match it." sat under 8 restored replies. AIQ: one note after the last earlier reply, and a two-word tag on each
  * earlier figure reply, so an old figure read on its own is still marked. The builder rows are in
- * `serverConversationTurns.spec.ts`; these rows bind what the reader SEES: the tag on the bubble, and the one note,
- * whole, between its rules at a narrow dock.
+ * `serverConversationTurns.spec.ts`; these rows bind what the reader SEES: the tag on the bubble, and the one note
+ * closing the last earlier reply (in `content`, so it survives the saved transcript: Canvas 5925780066).
  */
 import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, afterEach } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MessageBubble } from '../MessageBubble'
-import { SessionDivider } from '../primitives/SessionDivider'
 import { RESTORED_EARLIER_TAG, RESTORED_STALE_FIGURES_NOTE } from '../serverConversationTurns'
 import type { ConversationMessage } from '../types'
 
@@ -36,10 +35,9 @@ describe('⭐ an earlier reply is tagged, and the note is said once', () => {
     expect(screen.queryByTestId('message-restored-tag')).toBeNull()
   })
 
-  it('the one note renders whole and may wrap between its rules (a 360 dock cannot hold it on one line)', () => {
-    render(<SessionDivider text={RESTORED_STALE_FIGURES_NOTE} />)
-    const text = screen.getByText(RESTORED_STALE_FIGURES_NOTE)
-    expect(text.className).not.toMatch(/whitespace-nowrap|truncate/)
+  it('the last earlier reply closes with the one note, in its own words (AIQ 5925678816)', () => {
+    render(<MessageBubble message={reply({ restoredTag: RESTORED_EARLIER_TAG, content: `Earlier words.\n\n${RESTORED_STALE_FIGURES_NOTE}` })} onChipClick={noop} />)
+    expect(screen.getByTestId('message-body-text')).toHaveTextContent(RESTORED_STALE_FIGURES_NOTE)
     expect(RESTORED_STALE_FIGURES_NOTE).toBe('The replies above came before the current analysis, so their figures may not match it.')
   })
 })

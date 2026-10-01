@@ -38,7 +38,7 @@ describe('the chat survives a reload — reader and builder', () => {
 
   it('row 2 (no edit, current Run computed BEFORE t2): only the older figure reply would be marked — t1 has no figure, t2 is after the Run', () => {
     const m = buildRestoredThread(TURNS, { runNotCurrent: false, currentRunComputedAt: '2026-09-30T05:41:00Z' })
-    expect(m.some((x) => x.restoredTag !== undefined || x.sessionDivider === RESTORED_STALE_FIGURES_NOTE)).toBe(false)
+    expect(m.some((x) => x.restoredTag !== undefined || x.content.includes(RESTORED_STALE_FIGURES_NOTE))).toBe(false)
   })
 
   it('row 2 (edit → reload: the read says not current): every figure-bearing reply carries the line; a reply without figures does not', () => {
@@ -47,32 +47,33 @@ describe('the chat survives a reload — reader and builder', () => {
     const t1 = m.find((x) => x.id === 'restored-assistant-t1')!
     expect(t2.restoredTag).toBe(RESTORED_EARLIER_TAG)
     expect(t1.restoredTag).toBeUndefined()
-    // The full sentence is said ONCE, after the last earlier reply, and never inside a reply.
-    expect(m.filter((x) => x.sessionDivider === RESTORED_STALE_FIGURES_NOTE).map((x) => m.indexOf(x))).toEqual([m.indexOf(t2) + 1])
-    expect(m.some((x) => x.content.includes(RESTORED_STALE_FIGURES_NOTE))).toBe(false)
+    // The full sentence is said ONCE: it closes the last earlier reply (here t2), never a divider.
+    expect(m.filter((x) => x.content.includes(RESTORED_STALE_FIGURES_NOTE)).map((x) => x.id)).toEqual(['restored-assistant-t2'])
+    expect(t2.content.endsWith(RESTORED_STALE_FIGURES_NOTE)).toBe(true)
+    expect(m.filter((x) => x.sessionDivider).length).toBe(1)
   })
 
   it('row 2 (rerun → reload): a figure reply written before the NEW Run carries the line; one written after does not', () => {
     const m = buildRestoredThread(TURNS, { runNotCurrent: false, currentRunComputedAt: '2026-09-30T05:50:00Z' })
     expect(m.find((x) => x.id === 'restored-assistant-t2')!.restoredTag).toBe(RESTORED_EARLIER_TAG)
-    expect(m.filter((x) => x.sessionDivider === RESTORED_STALE_FIGURES_NOTE)).toHaveLength(1)
+    expect(m.filter((x) => x.content.includes(RESTORED_STALE_FIGURES_NOTE))).toHaveLength(1)
   })
 
   it('⭐ SERVED (R3 4644486f, Paul\'s step-5 reload): the note is said ONCE, after the last reply written before the current Run; every earlier figure reply carries the tag; the reply that reports the current Run carries neither', () => {
     const turns = readServerConversationTurns(served.conversation_turns)!
     expect(turns.length, 'precondition: the served chat').toBe(11)
     const m = buildRestoredThread(turns, { runNotCurrent: false, currentRunComputedAt: served.run_state.computed_at })
-    const notes = m.filter((x) => x.sessionDivider === RESTORED_STALE_FIGURES_NOTE)
+    const notes = m.filter((x) => x.content.includes(RESTORED_STALE_FIGURES_NOTE))
     expect(notes).toHaveLength(1)
     const at = m.indexOf(notes[0])
     const runAt = Date.parse(served.run_state.computed_at)
-    // Everything above the note was written before the current Run; everything below it after.
-    expect(m.slice(1, at).every((x) => x.timestamp.getTime() < runAt)).toBe(true)
-    expect(m.slice(at + 1).every((x) => x.timestamp.getTime() >= runAt)).toBe(true)
+    // The note closes the LAST reply written before the current Run: it is earlier, and every reply after it is not.
+    expect(notes[0].timestamp.getTime()).toBeLessThan(runAt)
+    expect(m.slice(at + 1).filter((x) => x.role === 'assistant').every((x) => x.timestamp.getTime() >= runAt)).toBe(true)
     const tagged = m.filter((x) => x.restoredTag === RESTORED_EARLIER_TAG)
     expect(tagged.length, 'every earlier figure reply is tagged (was a full sentence under each)').toBeGreaterThan(1)
-    expect(tagged.every((x) => m.indexOf(x) < at)).toBe(true)
-    expect(m.some((x) => x.content.includes(RESTORED_STALE_FIGURES_NOTE))).toBe(false)
+    expect(tagged.every((x) => m.indexOf(x) <= at)).toBe(true)
+    expect(m.filter((x) => x.sessionDivider).length, 'no extra divider (a trailing one is rewritten on the next load)').toBe(1)
   })
 
   it('nothing served → nothing restored', () => {

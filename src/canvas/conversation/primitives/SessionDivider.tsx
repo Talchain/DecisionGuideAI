@@ -20,8 +20,7 @@ export const SessionDivider = memo(function SessionDivider({ text }: SessionDivi
       data-testid="session-divider"
     >
       <div className="flex-1 border-t border-panel-border" />
-      {/* Wraps between the rules when long (the restored-chat note is a full sentence; a 360 dock is narrow). */}
-      <span className={`${typography.chatMeta} text-text-light text-center max-w-[80%]`}>
+      <span className={`${typography.chatMeta} text-text-light whitespace-nowrap`}>
         {text}
       </span>
       <div className="flex-1 border-t border-panel-border" />

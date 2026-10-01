@@ -18,9 +18,10 @@ import type { ConversationMessage } from './types'
 export const CONVERSATION_TURNS_READ_KEY = 'conversation_turns' as const
 export const RESTORED_HISTORY_DIVIDER = 'Earlier in this conversation'
 // AIQ 5908155550: true on every branch (a same-model re-run, a non-edit not-current), unlike "the model has changed".
-// ⭐ ONCE, not under every reply (AIQ 5925678816; Paul's step-5 reload showed it under 8 replies): ONE note after the last
-// earlier reply, and each earlier figure-bearing reply carries the short tag, so row 2 still holds when a reader scrolls
-// up to an old figure on its own.
+// ⭐ ONCE, not under every reply (AIQ 5925678816; Paul's step-5 reload showed it under 8 replies): the sentence closes the
+// LAST earlier reply, and each earlier figure-bearing reply carries the short tag, so row 2 still holds when a reader
+// scrolls up to an old figure on its own. ⛔ IN `content`, NOT A DIVIDER (Canvas 5925780066): a trailing divider is
+// rewritten to "Session resumed" on the next page load, and the saved transcript keeps `content` + `restoredTag`.
 export const RESTORED_STALE_FIGURES_NOTE = 'The replies above came before the current analysis, so their figures may not match it.'
 export const RESTORED_EARLIER_TAG = 'Earlier analysis'
 /**
@@ -84,7 +85,7 @@ export function buildRestoredThread(
     sessionDivider: turns.length >= CONVERSATION_TURNS_CAP ? RESTORED_AT_CAP_DIVIDER : RESTORED_HISTORY_DIVIDER,
   }]
   let anyStale = false
-  let afterLastEarlierReply = -1
+  let lastEarlierReply = -1
   for (const t of turns) {
     const at = new Date(t.createdAt)
     if (t.userMessage !== null) out.push({ id: `restored-user-${t.turnId}`, role: 'user', content: t.userMessage, timestamp: at })
@@ -99,18 +100,12 @@ export function buildRestoredThread(
         timestamp: at,
         ...(stale ? { restoredTag: RESTORED_EARLIER_TAG } : {}),
       })
-      if (describesEarlierRun) afterLastEarlierReply = out.length
+      if (describesEarlierRun) lastEarlierReply = out.length - 1
     }
   }
   if (anyStale) {
-    out.splice(afterLastEarlierReply, 0, {
-      id: 'restored-earlier-note',
-      role: 'assistant',
-      content: '',
-      timestamp: out[afterLastEarlierReply - 1].timestamp,
-      synthetic: true,
-      sessionDivider: RESTORED_STALE_FIGURES_NOTE,
-    })
+    const last = out[lastEarlierReply]
+    out[lastEarlierReply] = { ...last, content: `${last.content}\n\n${RESTORED_STALE_FIGURES_NOTE}` }
   }
   return out
 }
