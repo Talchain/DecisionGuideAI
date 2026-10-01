@@ -27,7 +27,6 @@ import { V5HeldProposalBlock } from '../../../v5/blocks/V5HeldProposalBlock'
 import { V5UnsupportedBlock } from '../../../v5/blocks/V5UnsupportedBlock'
 import type {
   ActionChip,
-  ConversationMessage,
   V5ComparisonBlock,
   V5GraphPatchBlock,
   V5HeldProposalBlock as V5HeldProposalBlockType,
