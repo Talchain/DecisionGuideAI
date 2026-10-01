@@ -184,21 +184,26 @@ describe('contract v3.1 — no dashed card for "uncertain" (FRAME-06; Paul pt 4:
   })
 })
 
-describe('contract v3.1 — selection is one Info ring, flush, with a lift (FRAME-09, OR-10, T03)', () => {
-  it.each(KINDS)('%s selected: `ring-2 ring-info` + `shadow-2`, no kind hue and no white offset', (kind) => {
+describe('selection is ONE neutral lift, never a blue ring (Paul, 1 Oct 2026: "remove all of the blue highlighted borders when anything is clicked on"; supersedes contract v3.1 FRAME-09)', () => {
+  it.each(KINDS)('%s selected: `shadow-2` only — no ring, no info colour, no kind hue, no white offset', (kind) => {
     const { root } = renderCard(kind, { label: 'Picked' }, { selected: true })
     const t = tokens(root)
-    expect(t).toContain('ring-2')
-    expect(t).toContain('ring-info')
     expect(t).toContain('shadow-2')
+    expect(t).not.toContain('ring-2')
+    expect(t).not.toContain('ring-info')
     expect(t).not.toContain('ring-offset-2')
     expect(t).not.toContain('ring-4')
     expect(t.some((c) => /^ring-(goal|option|success|factor|danger)\//.test(c))).toBe(false)
   })
 
+  it('CONTROL: an unselected card carries no selection lift', () => {
+    const { root } = renderCard('factor', { label: 'Not picked' }, { selected: false })
+    expect(tokens(root)).not.toContain('shadow-2')
+  })
+
   it('colors.ts: every family spells the SAME selected token', () => {
     const selected = new Set(Object.values(nodeColors).map((c) => c.selected))
-    expect([...selected]).toEqual(['ring-2 ring-info'])
+    expect([...selected]).toEqual(['shadow-2'])
   })
 })
 
@@ -272,10 +277,11 @@ describe('contract v3.1 — the connectors (FRAME-03, FRAME-04, OR-05)', () => {
     expect(tokens(inHandle)).not.toContain('bg-factor')
   })
 
-  it('index.css draws the port as a 3px dark dot and re-lights it on hover / selection', () => {
+  it('index.css draws the port as a 3px dark dot and re-lights it on hover / selection, in the body ink — never blue (Paul, 1 Oct 2026)', () => {
     const css = readFileSync(path.resolve(__dirname, '../../../index.css'), 'utf8')
     expect(css).toMatch(/\.react-flow__handle\.olumi-node-port\s*\{[^}]*radial-gradient\(circle, var\(--text-body\) 0 1\.5px, transparent 2px\)/)
-    expect(css).toMatch(/\.react-flow__node:hover \.react-flow__handle\.olumi-node-port,\s*\n\.react-flow__node\.selected \.react-flow__handle\.olumi-node-port\s*\{[^}]*var\(--info\)/)
+    expect(css).toMatch(/\.react-flow__node:hover \.react-flow__handle\.olumi-node-port,\s*\n\.react-flow__node\.selected \.react-flow__handle\.olumi-node-port\s*\{[^}]*background: var\(--text-body\)/)
+    expect(css).not.toMatch(/\.react-flow__node\.selected \.react-flow__handle\.olumi-node-port\s*\{[^}]*var\(--info\)/)
   })
 })
 

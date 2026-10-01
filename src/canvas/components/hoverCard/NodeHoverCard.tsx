@@ -50,6 +50,12 @@ export interface NodeHoverLinkGroup { heading: string; items: LinkedName[]; more
 export interface NodeHoverFacts {
   title: string | null
   kind: string | null
+  /**
+   * The node's longer description, when the producer wrote one. It is shown under the name, so the card itself can
+   * carry a short title (Paul, 1 Oct 2026: "short titles for each node and a slightly longer description … without
+   * making the node too busy"). Absent ⇒ no line, never a placeholder.
+   */
+  description: string | null
   /** Factor only. `null` text with `missing` = the factor has no recorded value. */
   value: { text: string | null; source: string | null; missing: boolean } | null
   /** Non-factor: who put the element on the board. */
@@ -88,6 +94,8 @@ export function nodeHoverFacts(
   const facts: NodeHoverFacts = {
     title: str(d.label),
     kind: NODE_REGISTRY[nodeType as keyof typeof NODE_REGISTRY]?.label ?? null,
+    // A description that only repeats the name adds nothing.
+    description: (() => { const t = str(d.description); return t !== null && t !== str(d.label) ? t : null })(),
     value: null,
     source: null,
     links: [],
@@ -186,7 +194,7 @@ function OpenNodeHoverCard({ nodeId, nodeType, data, anchorRef }: NodeHoverCardP
   }, [anchorRef])
 
   if (typeof document === 'undefined') return null
-  const { title, kind, value, source, links } = facts
+  const { title, kind, description, value, source, links } = facts
 
   return createPortal(
     <div
@@ -212,6 +220,11 @@ function OpenNodeHoverCard({ nodeId, nodeType, data, anchorRef }: NodeHoverCardP
       )}
       {kind !== null && (
         <div data-testid="node-hover-card-kind" className={`${typography.panelMeta} text-text-light`}>{kind}</div>
+      )}
+      {description !== null && (
+        <p data-testid="node-hover-card-description" className={`${typography.panelMeta} text-text-body m-0 mt-1 break-words`}>
+          {description}
+        </p>
       )}
       {(value !== null || source !== null || links.length > 0) && (
         <dl className="mt-1.5 mb-0 space-y-1">

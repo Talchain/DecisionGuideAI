@@ -33,8 +33,14 @@ export const EXPLORATORY_REASON_LINE =
 /** Said when the producer withheld the leader and gave no reason this surface can state. */
 export const WITHHELD_REASON_FALLBACK = "Olumi isn't naming an option on this run."
 
-/** The short marker an option card shows in its share slot instead of a share. */
-export const NOT_RANKED_MARKER = 'Not ranked'
+/**
+ * The short marker an option card shows in its share slot instead of a share.
+ * Paul, 1 Oct 2026: "It says 'not ranked' on the options. I don't think that's the right terminology."
+ * - **Why not "Not ranked":** it read as a verdict on THIS option, as if Olumi had judged it and it didn't place.
+ * - **The truth:** the Run withheld every option's share, so Olumi hasn't compared them yet.
+ * - **The words:** the marker says exactly that, and the reason line beside it says why.
+ */
+export const NOT_RANKED_MARKER = 'Not compared yet'
 
 /** True when the producer withheld the leader for any reason. Absent or `true` ⇒ false. */
 export function winSharesWithheld(permission: ProducerLeaderPermission | null | undefined): boolean {

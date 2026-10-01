@@ -158,7 +158,7 @@ export function LinkQuickEditor({ edgeId, x, y, onClose, onMoreDetail }: LinkQui
                   type="button"
                   aria-pressed={pressed}
                   data-testid={`link-quick-editor-direction-${dir}`}
-                  className={`${typography.panelMeta} rounded border px-2 py-0.5 ${pressed ? 'border-info bg-panel-hover text-text-body' : 'border-panel-border text-text-light hover:bg-panel-hover'}`}
+                  className={`${typography.panelMeta} rounded border px-2 py-0.5 ${pressed ? 'border-text-body bg-panel-hover text-text-body' : 'border-panel-border text-text-light hover:bg-panel-hover'}`}
                   onClick={() => { if (!pressed) onDirection(dir) }}
                 >
                   {dir === 'positive' ? 'Increases' : 'Decreases'}

@@ -17,6 +17,8 @@ import { measureDockInset, clampPositionToViewport } from './FloatingOlumiPanel'
 import { ThinkingIndicator } from '../conversation/zones/ThinkingIndicator'
 import { StarterDecisions } from './StarterDecisions'
 import { BriefReadingCard } from './BriefReadingCard'
+import { takeQueuedBriefCoachingPrefill } from './briefCoaching'
+import { requestAsk } from '../ui/inspector-v2/askSemantic'
 import { StructuredBriefFields } from './StructuredBriefFields'
 import {
   EMPTY_BRIEF_FIELDS,
@@ -118,6 +120,12 @@ const REPOSITION_EDGE_MARGIN = 16
  * Reduced motion: the auto-reposition fires synchronously without the
  * 300ms slide delay.
  */
+/** Hands a queued brief-coaching pre-fill to Olumi's composer: never sends, and no-op when nothing was picked. */
+function flushBriefCoachingPrefill(): void {
+  const text = takeQueuedBriefCoachingPrefill()
+  if (text) requestAsk({ text, label: 'Coaching from your brief', source: 'brief_coaching' })
+}
+
 export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = false }: FirstUseComposerProps) {
   const nodeCount = useCanvasStore((s) => s.nodes.length)
   const { messages, isThinking, lastSendFailure, draft, setDraft, clearDraft, sendMessage } = useConversationContext()
@@ -132,6 +140,15 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
   // indicator unmounts as soon as the first graph appears (nodeCount > 0
   // → hero unmounts entirely).
   const isGenerating = isThinking && nodeCount === 0
+  // ⭐ A coaching action picked while the draft was built (`BriefReadingCard`) lands as a PRE-FILL of Olumi's next
+  // message once the build ends, never sent. That moment is either when the draft draws (this hero unmounts) or when
+  // the build stops without one.
+  const wasGeneratingRef = useRef(false)
+  useEffect(() => {
+    if (wasGeneratingRef.current && !isGenerating) flushBriefCoachingPrefill()
+    wasGeneratingRef.current = isGenerating
+  }, [isGenerating])
+  useEffect(() => () => flushBriefCoachingPrefill(), [])
   // C6-2: the user's own goal and options, read from the brief while this scenario's draft is still `drafting`.
   // The store clears it on every phase change, and the hero unmounts once the model draws (nodeCount > 0).
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)

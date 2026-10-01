@@ -54,7 +54,7 @@ import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../domain/vocabulary
 import { classifyNodeProvenance } from '../domain/valueProvenance'
 import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
-import { CURRENT_MODEL_NOUN, METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
+import { CURRENT_MODEL_NOUN, METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, TYPE_NUMBER_LEGEND_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
 import { ATTENTION_MARKER_GLYPH } from '../nodes/shared/NodeAttentionMarker'
 import { EVIDENCE_RAIL_GLYPH, BEHAVIOUR_RAIL_GLYPH, NODE_RAIL_TONE_CLASS } from '../nodes/shared/NodeRailIcons'
@@ -914,7 +914,7 @@ const METRIC_ROW_VISIBLE: Readonly<Record<string, (b: LegendBoardState) => boole
   // puzzled reader opens it for. Importing the constant makes that
   // unreachable rather than caught.
   [SENSITIVITY_RANK_LEGEND_NOUN]: (b) => b.isPostAnalysis,
-  '1, 2, 3 on an option': (b) => b.ordinalsOnScreen,
+  [TYPE_NUMBER_LEGEND_NOUN]: (b) => b.ordinalsOnScreen,
   // ALWAYS LIVE, and pre-run is exactly when it is most on screen: a drafted
   // model arrives with every bridge strength unset, so the risk and outcome
   // cards say this before any analysis has run.

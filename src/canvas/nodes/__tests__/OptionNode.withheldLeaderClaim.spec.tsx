@@ -229,6 +229,6 @@ describe('OptionNode — a withheld leader claim removes the designation', () =>
     // navigational identifier and re-open a ruling, so this suite PINS that it
     // survives rather than silently leaving the question open.
     renderOption(withPermission(permittedReport(), { permitted: false }))
-    expect(screen.getByTestId(`option-stable-number-${NODE_ID}`)).toBeInTheDocument()
+    expect(screen.getByTestId('node-type-ordinal')).toBeInTheDocument() // Paul 1 Oct: the card's own "O<n>"
   })
 })

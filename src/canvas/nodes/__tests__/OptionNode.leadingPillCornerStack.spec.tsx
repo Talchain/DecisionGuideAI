@@ -237,7 +237,7 @@ describe('OptionNode — the corner stack after ED #63 5799353114 decision 1 (no
     // unchanged — the producer's claim names THIS card and nothing withholds
     // it — which is the strongest case for the retired pill to reappear in.
     const { container } = renderOption()
-    expect(screen.getByTestId(`option-stable-number-${NODE_ID}`)).toBeInTheDocument()
+    expect(screen.getByTestId('node-type-ordinal')).toBeInTheDocument() // Paul 1 Oct: the card's own "O3"
     expectNoLeaderPill(container)
   })
 
@@ -374,10 +374,10 @@ describe('OptionNode — the corner stack after ED #63 5799353114 decision 1 (no
     expect(stack.className).toContain('z-10')
   })
 
-  it('the ordinal is NOT in the corner stack — it stays in the header row', () => {
+  it('the ordinal is NOT in the corner stack — it rides the title (Paul 1 Oct: "O3" before the name)', () => {
     renderOption()
     const stack = screen.getByTestId(`node-corner-stack-${NODE_ID}`)
-    const ordinal = screen.getByTestId(`option-stable-number-${NODE_ID}`)
+    const ordinal = screen.getByTestId('node-type-ordinal')
 
     // The ordinal rides `headerSlot`, inside the card. Were it ever folded into
     // the corner stack the two claims would share an owner and this pin would
@@ -386,7 +386,9 @@ describe('OptionNode — the corner stack after ED #63 5799353114 decision 1 (no
     // ⚠ WAS 'Option 3'. A bare ordinal is indistinguishable from the factor
     // ranking badge to a screen-reader user, and the two mean opposite things.
     // The name now carries the legend's own gloss (metricVocabulary.ts:373).
-    expect(ordinal).toHaveAccessibleName(/^Option 3 — the order the options were first laid out in, not a ranking$/)
+    // The number is aria-hidden (the card's own name says "Option 3"); the sighted reader's disclosure is its title.
+    expect(ordinal.textContent).toBe('O3')
+    expect(ordinal.getAttribute('title')).toMatch(/^Option 3 — the order the options were first laid out in, not a ranking$/)
 
     /**
      * ⭐⭐ THE OTHER HALF OF THE COUPLING — AND IT IS NOT REDUNDANT WITH THE
@@ -404,7 +406,7 @@ describe('OptionNode — the corner stack after ED #63 5799353114 decision 1 (no
      * agree, never that the wording is right; the literal is the corpus that
      * notices a wrong sentence (CLAUDE.md trap 12d).
      */
-    expect(ordinal).toHaveAccessibleName(optionOrdinalBadgeAccessibleName(3))
+    expect(ordinal.getAttribute('title')).toBe(optionOrdinalBadgeAccessibleName(3))
   })
 
   it('DISCRIMINATION: a non-leading option gets no pill, and the stack loses exactly that child', () => {

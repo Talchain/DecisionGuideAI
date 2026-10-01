@@ -176,10 +176,10 @@ describe('gap 7 — a five-card band is ONE row since 27 Sep, in its own order',
       const rows = subRowsOf(band.order, at)
       expect(rows.map((r) => r.length)).toEqual([5])
       expect(rows.flat()).toEqual(band.order)
-      // Five cards take their fair share: floor((1656 − 88 − 96) / 5) − 24 = 270,
-      // so the stride is 270 + 48 = 318 (was the flat 248 + 48 = 296).
+      // Five cards take their fair share. Since Paul's 1 Oct "50% smaller" + (a 32-unit prompt, not 64) the share
+      // is 276, so the stride is 276 + 48 = 324 (30 Sep: 270 → 318; before that the flat 248 + 48 = 296).
       const STRIDE = strideOf(widthOfCard(band.order[0]))
-      expect(STRIDE, `${band.starter} ${band.family}: stride`).toBe(318)
+      expect(STRIDE, `${band.starter} ${band.family}: stride`).toBe(324)
       for (let i = 1; i < band.order.length; i++) {
         expect(at(band.order[i]).position.x - at(band.order[i - 1]).position.x).toBe(STRIDE)
       }

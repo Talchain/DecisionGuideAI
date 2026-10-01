@@ -12,9 +12,10 @@
  * inferred (AIQ #70 5858767026), and never the word "model". It lives only while the turn is drafting
  * (`draftStore.draftStreamBriefReading`); the model supersedes it.
  */
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { typo } from '../../styles/typography'
 import { BRIEF_SLOTS, type BriefFields, type BriefSlotKey } from './structuredBrief'
+import { briefCoachingFor, queueBriefCoachingPrefill, type BriefCoachingId } from './briefCoaching'
 
 export interface BriefReadingCardProps {
   /** CEE's `BRIEF_READ` spans (single-box sends). */
@@ -47,49 +48,106 @@ function slotItems(reading: BriefReadingCardProps['reading'], userFields: BriefF
 export const BriefReadingCard = memo(function BriefReadingCard({ reading, userFields = null }: BriefReadingCardProps) {
   const items = slotItems(reading, userFields)
   const slots = BRIEF_SLOTS.filter((slot) => items[slot.key] !== undefined)
+  const [queuedId, setQueuedId] = useState<BriefCoachingId | null>(null)
   if (slots.every((slot) => (items[slot.key] ?? []).length === 0)) return null
+  const coaching = briefCoachingFor({
+    hasGoal: (items.goal ?? []).length > 0,
+    hasLimits: (items.considerations ?? []).length > 0,
+    optionCount: (items.options ?? []).length,
+  })
   return (
     <section
       data-testid="brief-reading"
-      aria-label="Your brief, as Olumi read it"
-      className="w-full max-w-2xl rounded-lg border border-panel-border bg-panel px-4 py-3 flex flex-col gap-2"
+      aria-label="Your brief"
+      className="w-full max-w-2xl rounded-xl border border-panel-border bg-panel shadow-1 px-5 py-4 flex flex-col gap-4"
     >
-      <p className={typo('caption', 'text-text-light m-0')}>Your brief, as Olumi read it</p>
-      <dl className="m-0 flex flex-col gap-2">
+      {/* ⭐ PAUL, 1 OCT 2026: "The formatting of the panel that outlines the brief while the model is being generated
+          still isn't correct. It looks bad, and there are no science-grounded coaching opportunities."
+          - Before: four stacked label/value blocks, each re-tagged "your words".
+          - Now: one quiet two-column reading (label | the user's own words, quoted, with options numbered as the
+            canvas numbers them), then up to three research-backed habits to act on while the draft is built.
+          - The honesty rules are unchanged: only the user's words, an empty slot said plainly, nothing inferred. */}
+      <header className="flex items-baseline justify-between gap-3">
+        <h2 className={typo('label', 'text-text-header m-0')}>Your brief</h2>
+        <span data-testid="brief-reading-your-words" className={typo('bodySmall', 'text-text-light')}>
+          Quoted in your words
+        </span>
+      </header>
+      <dl className="m-0 grid grid-cols-[minmax(96px,auto)_1fr] gap-x-4 gap-y-2.5">
         {slots.map((slot) => {
           const values = items[slot.key] ?? []
           return (
-            <div key={slot.key} data-testid={`brief-reading-${slot.key}`} className="flex flex-col gap-0.5">
-              <dt className="flex items-baseline gap-2">
-                <span className={typo('labelSmall', 'text-text-body')}>{slot.label}</span>
-                {values.length > 0 ? (
-                  <span data-testid="brief-reading-your-words" className={typo('caption', 'text-text-light')}>
-                    your words
-                  </span>
-                ) : null}
-              </dt>
+            <div key={slot.key} data-testid={`brief-reading-${slot.key}`} className="contents">
+              <dt className={typo('bodySmall', 'text-text-light m-0')}>{slot.label}</dt>
               {values.length === 0 ? (
                 <dd data-testid="brief-reading-not-mentioned" className={typo('bodySmall', 'text-text-light m-0')}>
-                  Not mentioned
+                  Not stated yet
+                </dd>
+              ) : slot.key === 'options' ? (
+                <dd className="m-0">
+                  <ol className="m-0 p-0 list-none flex flex-col gap-1">
+                    {values.map((v, i) => (
+                      <li key={v} className={typo('bodySmall', 'text-text-body flex gap-2')}>
+                        <span aria-hidden="true" className="tabular-nums text-text-light">{i + 1}</span>
+                        <span>{quoted(v)}</span>
+                      </li>
+                    ))}
+                  </ol>
                 </dd>
               ) : values.length === 1 ? (
                 <dd className={typo('bodySmall', 'text-text-body m-0 whitespace-pre-line')}>{quoted(values[0])}</dd>
               ) : (
                 <dd className="m-0">
-                  <ul className="m-0 pl-4 list-disc flex flex-col gap-0.5">
+                  <ul className="m-0 p-0 list-none flex flex-col gap-1">
                     {values.map((v) => (
-                      <li key={v} className={typo('bodySmall', 'text-text-body')}>
-                        {quoted(v)}
-                      </li>
+                      <li key={v} className={typo('bodySmall', 'text-text-body')}>{quoted(v)}</li>
                     ))}
                   </ul>
                 </dd>
               )}
-              {/* "Olumi assumed" items + questions plug in here per slot once CEE sends them (another lane's backend work); none today. */}
             </div>
           )
         })}
       </dl>
+      <div data-testid="brief-coaching" className="border-t border-panel-border pt-3.5 flex flex-col gap-2.5">
+        <div className="flex flex-col gap-0.5">
+          <h3 className={typo('label', 'text-text-header m-0')}>While Olumi builds: sharpen the decision</h3>
+          <p className={typo('bodySmall', 'text-text-light m-0')}>
+            Research-backed habits. Pick one and Olumi starts there when your first draft is ready.
+          </p>
+        </div>
+        <ul className="m-0 p-0 list-none flex flex-col gap-2">
+          {coaching.map((card) => {
+            const queued = queuedId === card.id
+            return (
+              <li
+                key={card.id}
+                data-testid={`brief-coaching-${card.id}`}
+                className="flex items-start gap-3 rounded-lg border border-panel-border px-3 py-2.5"
+              >
+                <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                  <p className={typo('label', 'text-text-header m-0')}>{card.title}</p>
+                  <p className={typo('bodySmall', 'text-text-body m-0 leading-snug')}>{card.science}</p>
+                </div>
+                <button
+                  type="button"
+                  aria-pressed={queued}
+                  data-testid={`brief-coaching-action-${card.id}`}
+                  onClick={() => {
+                    queueBriefCoachingPrefill(card.prefill)
+                    setQueuedId(card.id)
+                  }}
+                  className={`${typo('bodySmall')} shrink-0 rounded-full border px-3 py-1 transition-colors ${
+                    queued ? 'border-text-body bg-panel-hover text-text-body' : 'border-text-light text-text-body hover:bg-panel-hover'
+                  }`}
+                >
+                  {queued ? 'Ready when the draft lands' : card.actionLabel}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
     </section>
   )
 })

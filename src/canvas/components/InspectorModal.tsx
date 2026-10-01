@@ -455,7 +455,7 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
   return (
     <div
       ref={panelRef}
-      className={`fixed ${CANVAS_LAYER_CLASS.inspector} bg-white rounded-lg shadow-3 max-w-md w-full max-h-[80vh] overflow-hidden border border-panel-border`}
+      className={`fixed ${CANVAS_LAYER_CLASS.inspector} bg-panel rounded-lg shadow-3 max-w-md w-full max-h-[80vh] overflow-hidden border border-panel-border`}
       style={{
         left: position?.x ?? screenAnchor.x + 24,
         top: position?.y ?? screenAnchor.y,
@@ -467,7 +467,7 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
       aria-labelledby="inspector-panel-title"
     >
       <div
-        className={`sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between rounded-t-xl select-none ${
+        className={`sticky top-0 bg-panel border-b border-gray-200 px-4 py-3 flex items-center justify-between rounded-t-xl select-none ${
           isDragging ? 'cursor-grabbing' : 'cursor-grab'
         }`}
         onPointerDown={handleDragStart}

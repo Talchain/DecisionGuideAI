@@ -28,7 +28,8 @@
   padding: 0 6px 0 14px;
   gap: 12px;
 
-  background: rgba(254, 254, 254, 0.96);
+  /* The surface token, so the pill follows the palette tone (Paul, 1 Oct 2026). */
+  background: rgb(var(--bg-panel-rgb, 254 254 254) / 0.96);
   border: 1px solid #DDD8D0;
   border-radius: 999px;
   box-shadow: var(--shadow-card-rest);

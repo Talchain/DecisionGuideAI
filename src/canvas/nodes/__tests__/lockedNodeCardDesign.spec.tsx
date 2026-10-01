@@ -533,14 +533,16 @@ describe('Option — "what this option changes": ≤3 rows in ONE shared order, 
     expect(cardRows('opt-bundle').queryByTestId('option-change-row-estimate-opt-bundle-fac-seats')).toBeNull()
   })
 
-  it('⛔ MT-18: no bare numeral at rest — control: Detailed still carries the ordinal', () => {
+  it('⛔ MT-18 → Paul 1 Oct: no BARE numeral at rest — the number shows prefixed ("O1"), at rest and in Detailed', () => {
     setState({ phase: 'pre' })
     renderCard(OptionNode as never, 'opt-raise')
+    const rest = within(face('Raise the plan price')).queryByTestId('node-type-ordinal')
+    if (rest) expect(rest.textContent).toMatch(/^O\d+$/)
     expect(within(face('Raise the plan price')).queryByTestId('option-stable-number-opt-raise')).toBeNull()
     cleanup()
     setState({ phase: 'pre', viewMode: 'expert' })
     renderCard(OptionNode as never, 'opt-raise')
-    expect(within(face('Raise the plan price')).getByTestId('option-stable-number-opt-raise')).toBeTruthy()
+    expect(within(face('Raise the plan price')).queryByTestId('option-stable-number-opt-raise')).toBeNull()
   })
 
   it('the Standard face advertises the edit route in the rail (spec §4)', () => {

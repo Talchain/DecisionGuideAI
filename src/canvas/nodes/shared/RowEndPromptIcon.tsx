@@ -22,8 +22,10 @@
  *   first cut invisible, the same failure as the 24 Sep dot grid. §5 `shadow-1`
  *   (resting) lifts it off the ground.
  * - §6.3 focus ring: `ring-2 ring-offset-2 ring-info`, always visible.
- * - §9.9 the 44×44 touch target: the button is 64 flow units square (42px at the
- *   0.65 landing zoom).
+ * - SIZE (Paul, 1 Oct 2026: "Make the plus buttons on the right smaller. They're
+ *   overbearing at the moment. They should be 50% smaller."): 32 flow units square
+ *   with a 12px glyph, half the 30 Sep ruling's 64 / 24. ⚠ Paul's ruling, below
+ *   §9.9's 44×44 touch target (21px at the 0.65 landing zoom); the PoC is pointer-first.
  *
  * It costs no layout width: the 160-unit tile it replaces took 184 units of every
  * row's budget, and those go to the cards (`ROW_BUDGET_W`). Behaviour is
@@ -81,7 +83,7 @@ export function RowEndPromptIcon({ label, tier, testId, hidden, onOpen }: RowEnd
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-info',
           ].join(' ')}
         >
-          <Plus size={24} className={CANVAS_GLYPH_SIZE_CLASSES[24]} aria-hidden="true" />
+          <Plus size={12} className={CANVAS_GLYPH_SIZE_CLASSES[12]} aria-hidden="true" />
         </div>
       </Tooltip>
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0, pointerEvents: 'none' }} />

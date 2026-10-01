@@ -317,7 +317,7 @@ const FOREIGN_RENDERED = [
   'src/canvas/ui/shared/DataBar.tsx',
   // 30 Sep 2026 (Paul: "the canvas card should use the Olumi icon"; DS v5 §9.8): the card's Ask Olumi / coaching glyph
   // is the ONE Olumi AI mark. An svg with no text; the card sizes it with the rail's counter-scaled glyph classes.
-  'src/components/results/analysisNew/OlumiAiIcon.tsx',
+  // `OlumiAiIcon` left the canvas on 1 Oct 2026: the card's Ask Olumi door draws the full-colour brand mark <img>.
   'src/components/Tooltip.tsx',
 ] as const
 

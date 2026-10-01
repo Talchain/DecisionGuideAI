@@ -1605,22 +1605,24 @@ describe('N1 — per-type selection ring', () => {
    */
   const tokensOf = (el: Element) => el.className.split(/\s+/).filter(Boolean)
 
-  it('a selected factor node wears the one Info selection ring, not a factor-hued halo', () => {
+  // Paul, 1 Oct 2026: no blue highlighted border when anything is clicked. Selection is a neutral lift.
+  it('a selected factor node lifts on the neutral shadow — no Info ring, no factor-hued halo', () => {
     applyState()
     render(<ReactFlowProvider><FactorNode {...selProps} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
     const t = tokensOf(screen.getAllByRole('group')[0])
-    expect(t).toContain('ring-2')
-    expect(t).toContain('ring-info')
+    expect(t).toContain('shadow-2')
+    expect(t).not.toContain('ring-2')
+    expect(t).not.toContain('ring-info')
     expect(t).not.toContain('ring-factor/50')
     expect(t).not.toContain('ring-offset-2')
   })
 
-  it('a selected risk node wears the same Info ring — no Danger halo for a neutral act', () => {
+  it('a selected risk node takes the same neutral lift — no Danger halo, no Info ring', () => {
     applyState()
     render(<ReactFlowProvider><RiskNode {...selProps} id="risk-1" type="risk" data={{ label: 'Attrition' }} /></ReactFlowProvider>)
     const t = tokensOf(screen.getAllByRole('group')[0])
-    expect(t).toContain('ring-2')
-    expect(t).toContain('ring-info')
+    expect(t).toContain('shadow-2')
+    expect(t).not.toContain('ring-info')
     expect(t).not.toContain('ring-danger/50')
   })
 
@@ -1630,7 +1632,7 @@ describe('N1 — per-type selection ring', () => {
     const group = screen.getAllByRole('group')[0]
     // N2: the AI-highlight ring is the info/AI hue (not goal) and wins over selection.
     expect(group.className).toContain('ring-info/60')
-    // contract v3.1: the suppressed selection ring is now `ring-2 ring-info`.
+    // The selection lift is suppressed under the AI highlight; no 2px ring is drawn either way.
     expect(group.className.split(/\s+/)).not.toContain('ring-2')
   })
 

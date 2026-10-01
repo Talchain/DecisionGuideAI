@@ -518,6 +518,8 @@ export interface MetricLegendRow {
  */
 export const SENSITIVITY_RANK_CLAUSE = 'the factors the result is most sensitive to'
 export const ORDINAL_MINT_CLAUSE = 'the order the options were first laid out in'
+/** The canvas key's row for the per-type card numbers (Paul, 1 Oct 2026). */
+export const TYPE_NUMBER_LEGEND_NOUN = 'O1, F2, R1 before a name'
 
 /**
  * ⭐⭐ THE NOUN THE RANK BADGE NOW SAYS OUT LOUD — MINTED NOWHERE, PROMOTED
@@ -688,13 +690,11 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
     gloss: SENSITIVITY_RANK_CLAUSE,
   },
   {
-    noun: '1, 2, 3 on an option',
+    noun: TYPE_NUMBER_LEGEND_NOUN,
     // ⚠ THE QUALIFIER IS LOAD-BEARING — see ORDINAL_ROW_MUST_STATE_MINT below.
-    // ⭐ The first clause is shared with the badge's accessible name
-    // (ORDINAL_MINT_CLAUSE above). The two sentences below it are the legend's
-    // alone: a badge name has no room for them. Byte-identical to the literal
-    // it replaced.
-    gloss: `${ORDINAL_MINT_CLAUSE}. Not a ranking, and it stays with a card when you move it.`,
+    // Paul, 1 Oct 2026: every repeated card carries a number within its type ("O2"), not only options.
+    // ⭐ The option clause is shared with the number's own disclosure (ORDINAL_MINT_CLAUSE above).
+    gloss: `${ORDINAL_MINT_CLAUSE}. Other cards count left to right. Not a ranking.`,
   },
   {
     noun: METRIC_UNSET.standalone,

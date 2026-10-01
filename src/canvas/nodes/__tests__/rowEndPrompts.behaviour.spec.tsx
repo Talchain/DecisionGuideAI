@@ -130,9 +130,9 @@ describe('the far rung hides the prompts; the landing rungs show them', () => {
 })
 
 describe('the prompt box is the row slot the layout reserved', () => {
-  it('both prompt kinds fill exactly the ROW_PROMPT_W × ROW_PROMPT_H square the layout reserved (Paul 30 Sep: a 64 icon; was the ED 160 tile)', () => {
+  it('both prompt kinds fill exactly the ROW_PROMPT_W × ROW_PROMPT_H square the layout reserved (Paul 1 Oct: 50% smaller, 32; was 64, and the ED 160 tile before that)', () => {
     // The ruled size, written as the ruling says it — not read back from the constant.
-    expect(ROW_PROMPT_W).toBe(64)
+    expect(ROW_PROMPT_W).toBe(32)
     expect(ROW_PROMPT_H).toBe(ROW_PROMPT_W)
     mountTier({ label: RISK.label, prompt: RISK_PROMPT, tier: 'risk' })
     mountOption({ prompt: 'x' })

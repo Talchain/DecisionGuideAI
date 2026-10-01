@@ -84,7 +84,7 @@ export function WhatElseChooser({ open, onClose }: { open: WhatElseOpen; onClose
             type="button"
             data-testid={`what-else-${c.kind}`}
             className={`${typography.panelMeta} rounded-full border px-2.5 py-1 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
-              open.doorKind === c.kind ? 'border-info text-text-body' : 'border-panel-border text-text-body'
+              open.doorKind === c.kind ? 'border-text-body text-text-body' : 'border-panel-border text-text-body'
             }`}
             onClick={() => ask(whatElsePrompt(c.kind, open), `What else: ${c.label}`)}
           >

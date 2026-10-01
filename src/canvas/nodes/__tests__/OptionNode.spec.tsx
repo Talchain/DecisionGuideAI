@@ -2245,68 +2245,44 @@ describe('OptionNode — display coherence (audit §8)', () => {
     expect(screen.queryByText('Interventions:')).toBeNull()
   })
 
-  it('Wave 4 / §6.4: renders the identity-anchored stable option number badge when registered', () => {
+  /**
+   * ⭐ PAUL, 1 OCT 2026: "each node having a number relating to the node type". The option's registered number (the
+   * Analysis panel's "Option N") is now the card's OWN number, before its title, prefixed "O" so it reads as an
+   * identifier, not a rank. It replaces the Detailed-only header badge (MT-18), which kept the number off the card at
+   * rest because a BARE numeral read as a rank. The prefix answers that, so the number now shows at every reading
+   * zoom. The not-a-ranking sentence (`optionOrdinalBadgeAccessibleName`) still reaches the sighted reader as the
+   * number's `title`, and the card's accessible name says "Option 2".
+   */
+  it('Wave 4 / §6.4 → Paul 1 Oct: the registered option number is the card\'s own "O2", with the not-a-ranking disclosure', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({ optionNumbering: { 'option-1': 2 } }) as any),
     )
     renderOption()
-    const badge = screen.getByTestId('option-stable-number-option-1')
-    expect(badge).toHaveTextContent('2')
-    // ⚠ WAS the bare 'Option 2'. The name now says what the number MEANS, so a
-    // screen-reader user can tell it from the factor ranking badge — see
-    // OptionNode's aria-label comment and metricVocabulary.ts:373.
-    expect(badge).toHaveAttribute('aria-label', 'Option 2 — the order the options were first laid out in, not a ranking')
-
-    /**
-     * ⭐⭐ AND THE SIGHTED READER GETS THE SAME SENTENCE, FROM THE SAME BUILDER.
-     *
-     * Measured on the deployed board: of 358 `aria-label`s, 9 carry an
-     * explanatory disclosure and 5 had no hover text — four of them this badge,
-     * one per option. The reader who was told this is not a ranking was the one
-     * using a screen reader; a sighted reader hovering it got nothing.
-     *
-     * ⚠ AND THE BOARD MAKES IT CONCRETE: the badge reading `1` sits on the
-     * option with 24% support and `3` on the option with 56%, so taking it for
-     * a placing reads the order backwards — while the Reasoning tab for the
-     * same run says in terms that no option may be called the leader.
-     *
-     * ⛔ ASSERTED EQUAL TO THE `aria-label` RATHER THAN TO A LITERAL, so the two
-     * audiences cannot be given different sentences by a later edit — the same
-     * coupling the block below makes between this element and the builder.
-     */
-    expect(badge.getAttribute('title')).toBe(badge.getAttribute('aria-label'))
-
-    /**
-     * ⭐⭐ THE OTHER HALF OF THE COUPLING, AND NOT REDUNDANT WITH THE LITERAL
-     * ABOVE. `metricVocabulary.spec.ts` proves the builder AGREES with the
-     * legend row; it cannot see this component dropping the builder and
-     * re-typing the sentence, which is how the defect arrived (a comment
-     * claiming a derivation with no import behind it). This binds the RENDERED
-     * name to the builder's output for THIS number, so a re-inlined literal
-     * REDs here while the register guard stays green. The literal stays — it is
-     * the corpus that notices a wrong sentence (CLAUDE.md trap 12d).
-     */
-    expect(badge).toHaveAccessibleName(optionOrdinalBadgeAccessibleName(2))
+    const number = screen.getByTestId('node-type-ordinal')
+    expect(number).toHaveTextContent(/^O2$/)
+    expect(number.getAttribute('title')).toBe(optionOrdinalBadgeAccessibleName(2))
+    expect(number.getAttribute('aria-hidden')).toBe('true')
+    // The retired header badge is gone, not merely joined by the new number.
+    expect(screen.queryByTestId('option-stable-number-option-1')).toBeNull()
   })
 
-  it('MT-18: the stable option numeral is Detailed-only — absent from the Standard face', () => {
-    // Locked Canvas design (23 Sep 2026; manual-test finding MT-18): a bare
-    // numeral at rest read as a RANK beside the factors' driver ranks. The
-    // positive case above renders Detailed (`viewMode: 'expert'`); the same
-    // registration in Standard carries no numeral.
+  it('Paul 1 Oct supersedes MT-18: the number shows at rest too, and is never a BARE numeral', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({ optionNumbering: { 'option-1': 2 }, viewMode: 'standard' }) as any),
     )
     renderOption()
     expect(screen.getByTestId('node-title')).toBeInTheDocument()
-    expect(screen.queryByTestId('option-stable-number-option-1')).toBeNull()
+    expect(screen.getByTestId('node-type-ordinal').textContent).toMatch(/^O\d+$/)
   })
 
-  it('renders no stable-number badge before the option is registered', () => {
+  it('CONTROL: with no registration and no option on the board, the card carries no number', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({ optionNumbering: {} }) as any),
     )
     renderOption()
+    const n = screen.queryByTestId('node-type-ordinal')
+    // The mocked board may or may not hold this option; when it does, its number is the READING-ORDER one (O1…).
+    if (n) expect(n.textContent).toMatch(/^O\d+$/)
     expect(screen.queryByTestId('option-stable-number-option-1')).toBeNull()
   })
 })

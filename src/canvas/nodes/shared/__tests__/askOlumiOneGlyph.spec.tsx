@@ -39,7 +39,8 @@ import { useGuidanceStore } from '../../../stores/guidanceStore'
 const NODE = { id: 'node-a', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Hiring spend' } }
 
 // Paul 30 Sep 2026: "the canvas card should use the Olumi icon" (DS v5 §9.8) — the coaching door and the hover ask
-// are ONE act again, so ONE glyph: the Olumi AI mark (`OlumiAiIcon`), token `olumi-glyph-ai`.
+// are ONE act again, so ONE glyph: the Olumi mark, token `olumi-glyph-ai` — since Paul's 1 Oct 2026 ask, the real
+// full-colour brand mark (`/olumi-mark-card.svg`), no longer the single-colour `OlumiAiIcon` outline.
 const ASK_GLYPH = 'olumi-glyph-ai'
 /** v3.1 `ICONS.coaching` — the bubble with "?" (DESIGN-GAP-v31 #42). */
 // 29 Sep 2026: the contract's own path (`ContractCoachingGlyph`), not lucide's drawing of it.
@@ -49,7 +50,8 @@ const RETIRED_COACHING_GLYPHS = ['lucide-message-circle', 'lucide-message-square
 
 /** The lucide identity token of the ONE svg inside an element. */
 const glyphOf = (el: HTMLElement): string => {
-  const svgs = el.querySelectorAll('svg')
+  // The ONE glyph element: a Lucide <svg>, or (Paul, 1 Oct 2026) the full-colour brand mark <img>.
+  const svgs = el.querySelectorAll('svg, img')
   expect(svgs).toHaveLength(1)
   const token = Array.from(svgs[0].classList).find((c) => c.startsWith('lucide-') || c.startsWith('olumi-glyph-'))
   expect(token).toBeDefined()
