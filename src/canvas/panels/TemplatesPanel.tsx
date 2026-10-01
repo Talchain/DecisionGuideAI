@@ -532,7 +532,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, insertionEr
                   placeholder="Search templates..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2 ${typography.panelBody} border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-info-500`}
+                  className={`w-full pl-10 pr-4 py-2 ${typography.panelBody} border border-gray-300 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500`}
                 />
               </div>
 
@@ -615,7 +615,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, insertionEr
                 role="switch"
                 aria-checked={showDevControls}
                 onClick={() => setShowDevControls(!showDevControls)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-info-500 ${
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500 ${
                   showDevControls ? 'bg-info-500' : 'bg-gray-300'
                 }`}
               >

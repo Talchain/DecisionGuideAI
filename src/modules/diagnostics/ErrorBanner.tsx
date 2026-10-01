@@ -61,7 +61,7 @@ export function ErrorBanner({
           {variant === 'rate-limit' && rateLimitDetails && (
             <button
               onClick={() => setShowDetails(!showDetails)}
-              className="text-xs underline mt-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-option rounded"
+              className="text-xs underline mt-2 hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-option rounded"
               aria-expanded={showDetails}
             >
               {showDetails ? 'Hide' : 'Show'} details
@@ -81,7 +81,7 @@ export function ErrorBanner({
             <button
               onClick={onRetry}
               disabled={!isExpired}
-              className="px-3 py-1 text-sm font-medium rounded bg-option text-text-on-color hover:bg-option disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-option"
+              className="px-3 py-1 text-sm font-medium rounded bg-option text-text-on-color hover:bg-option disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-option"
               aria-label={isExpired ? 'Try again' : `Try again in ${formatted.display}`}
             >
               Try again
@@ -91,7 +91,7 @@ export function ErrorBanner({
           {onDismiss && (
             <button
               onClick={onDismiss}
-              className="text-sm font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 rounded px-2"
+              className="text-sm font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-500 rounded px-2"
               aria-label="Dismiss"
             >
               ×

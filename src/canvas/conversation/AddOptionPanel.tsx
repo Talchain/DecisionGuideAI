@@ -52,7 +52,7 @@ function initialRowState(factor: AddOptionFactorTarget): RowState {
 }
 
 const INPUT_CLASS =
-  'w-28 rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body outline-none focus:border-info disabled:opacity-50'
+  'w-28 rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body outline-none disabled:opacity-50'
 
 export function AddOptionPanel({
   initialLabel,
@@ -170,7 +170,7 @@ export function AddOptionPanel({
           onKeyDown={handleLabelKey}
           disabled={busy}
           data-testid="add-option-label-input"
-          className={`${typography.chatBody} w-full rounded-md border border-panel-border bg-panel px-3 py-2 text-text-body outline-none focus:border-info mb-5`}
+          className={`${typography.chatBody} w-full rounded-md border border-panel-border bg-panel px-3 py-2 text-text-body outline-none mb-5`}
         />
 
         {factors.length > 0 && (

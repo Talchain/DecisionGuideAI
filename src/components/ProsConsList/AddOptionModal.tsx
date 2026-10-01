@@ -40,7 +40,7 @@ export default function AddOptionModal({ onAdd, onClose }: AddOptionModalProps) 
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter option name..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-info focus:border-info/30"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus-visible:ring-2 focus-visible:ring-info"
               autoFocus
             />
           </div>

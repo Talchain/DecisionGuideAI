@@ -161,7 +161,7 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting, prev
                         name={question.id}
                         checked={isChecked}
                         onChange={() => handleMcqChange(question.id, option, isMultiple)}
-                        className="w-4 h-4 text-info focus:ring-2 focus:ring-info"
+                        className="w-4 h-4 text-info focus-visible:ring-2 focus-visible:ring-info"
                         disabled={isSubmitting}
                       />
                       <span className="text-sm text-gray-700">{option}</span>
@@ -175,7 +175,7 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting, prev
                 onChange={(e) => handleTextChange(question.id, e.target.value)}
                 placeholder="Type your answer here..."
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-info focus:border-transparent text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus-visible:ring-2 focus-visible:ring-info focus:border-transparent text-sm"
                 disabled={isSubmitting}
                 required={question.required}
               />

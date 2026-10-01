@@ -24,7 +24,7 @@ export const WhyPanel = memo<WhyPanelProps>(({ report }) => {
               </span>
               {'action' in item && item.action && (
                 <button
-                  className="ml-2 text-sm text-info hover:text-info focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded"
+                  className="ml-2 text-sm text-info hover:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 rounded"
                   data-testid={`why-action-${index}`}
                   aria-label={`Try: ${item.action}`}
                 >

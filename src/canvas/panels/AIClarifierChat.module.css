@@ -140,8 +140,6 @@
 
 .input:focus {
   outline: none;
-  border-color: var(--sky-500);
-  box-shadow: 0 0 0 3px var(--sky-100);
 }
 
 .input:disabled {

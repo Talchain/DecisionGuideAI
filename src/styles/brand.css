@@ -96,6 +96,10 @@
      SURFACES & BACKGROUNDS
      ============================================ */
 
+  /* The Olumi mark's three shapes (`public/olumi-mark.svg`), for `OlumiAiIcon`. */
+  --olumi-mark-orange: #EA7B4B;
+  --olumi-mark-blue: #5C9BB8;
+  --olumi-mark-green: #62B28F;
   --bg-canvas: #F4F0EA;
   /* The canvas ground's dot grid (Paul, 1 Oct 2026: "Why is it not the brand colour?").
    * A warm grey from the brand neutrals, so the dots belong to the palette instead of
@@ -106,9 +110,12 @@
    * marking editable fields, and a dot grid must not borrow that meaning. */
   --canvas-grid-dot-rgb: 140 131 118;
   --canvas-grid-dot: rgb(var(--canvas-grid-dot-rgb));
-  --bg-panel-rgb: 254 254 254;
+  /* Paul, 1 Oct 2026: "every stark white background takes our softest, lightest palette colour". Panels, cards, nodes,
+     menus and banners are the cream that used to be the hover. Hover steps one notch toward the canvas sand: the
+     darkest notch on which `--info` text still clears WCAG 4.5:1 (4.53; the full canvas sand gives 4.25). */
+  --bg-panel-rgb: 254 249 243;
   --bg-panel: rgb(var(--bg-panel-rgb));
-  --bg-panel-hover-rgb: 254 249 243;
+  --bg-panel-hover-rgb: 252 247 241;
   --bg-panel-hover: rgb(var(--bg-panel-hover-rgb));
   --border-default-rgb: 238 230 216;
   --border-default: rgb(var(--border-default-rgb));
@@ -422,7 +429,7 @@
      ============================================ */
 
   --focus-ring: 2px;
-  --focus-color: var(--info);
+  --focus-color: rgb(var(--text-light-rgb) / 0.6);
   --link-color: var(--info);
   --link-hover: var(--info-hover);
 

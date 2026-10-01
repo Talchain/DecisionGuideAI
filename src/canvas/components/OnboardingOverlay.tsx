@@ -180,7 +180,7 @@ export function OnboardingOverlay({
                 type="checkbox"
                 checked={dontShowAgain}
                 onChange={(e) => setDontShowAgain(e.target.checked)}
-                className="rounded border-panel-border text-info focus:ring-info"
+                className="rounded border-panel-border text-info focus-visible:ring-info"
               />
               Don't show this again
             </label>

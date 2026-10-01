@@ -61,7 +61,7 @@ export function SettingsPanel() {
             type="checkbox"
             checked={showGrid}
             onChange={(e) => setShowGrid(e.target.checked)}
-            className="w-4 h-4 text-primary rounded focus:ring-primary"
+            className="w-4 h-4 text-primary rounded focus-visible:ring-primary"
           />
         </label>
 
@@ -95,7 +95,7 @@ export function SettingsPanel() {
             type="checkbox"
             checked={snapToGrid}
             onChange={(e) => setSnapToGrid(e.target.checked)}
-            className="w-4 h-4 text-primary rounded focus:ring-primary"
+            className="w-4 h-4 text-primary rounded focus-visible:ring-primary"
           />
         </label>
 
@@ -106,7 +106,7 @@ export function SettingsPanel() {
             type="checkbox"
             checked={showAlignmentGuides}
             onChange={(e) => setShowAlignmentGuides(e.target.checked)}
-            className="w-4 h-4 text-primary rounded focus:ring-primary"
+            className="w-4 h-4 text-primary rounded focus-visible:ring-primary"
           />
         </label>
 
@@ -117,7 +117,7 @@ export function SettingsPanel() {
             type="checkbox"
             checked={highContrastMode}
             onChange={(e) => setHighContrastMode(e.target.checked)}
-            className="w-4 h-4 text-primary rounded focus:ring-primary"
+            className="w-4 h-4 text-primary rounded focus-visible:ring-primary"
           />
         </label>
       </div>

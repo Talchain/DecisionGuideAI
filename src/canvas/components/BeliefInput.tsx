@@ -237,8 +237,8 @@ export function BeliefInput({
               placeholder={placeholder}
               disabled={disabled || loading}
               className={`w-full px-3 py-2 rounded-lg border transition-colors
-                ${error ? 'border-carrot-300 focus:ring-carrot-500' : 'border-sand-300 focus:ring-sky-500'}
-                focus:outline-none focus:ring-2 focus:border-transparent
+                ${error ? 'border-carrot-300 focus-visible:ring-carrot-500' : 'border-sand-300 focus-visible:ring-sky-500'}
+                focus:outline-none focus-visible:ring-2 focus:border-transparent
                 disabled:opacity-50 disabled:cursor-not-allowed
                 ${typography.body} text-ink-800 placeholder:text-ink-400`}
               aria-label={`${label} natural language input`}

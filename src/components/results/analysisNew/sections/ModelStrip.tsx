@@ -151,7 +151,7 @@
  *
  * ⭐⭐ 26 SEP 2026 — THE DETAIL IS NOW THE V2 PROTOTYPE'S `inline-detail`
  * (design audit B12), and three things above are superseded by it:
- *   · it opens on ACTIVATION only (hover and focus ring the node);
+ *   · it opened on ACTIVATION only — REVERSED 1 Oct 2026 (Paul): hover and focus open it again, under the rows;
  *   · a mark about a node the review queue holds opens the REVIEW TOOL at that
  *     item instead (prototype `gotoReview`) — see `pickMark`;
  *   · it sits after the success line and the review tool, with a ×, and
@@ -899,6 +899,9 @@ export function ModelStrip({
   const pointAtMark = (nodeId: string) => {
     markOwnsRing.current = nodeId
     highlightNode(nodeId)
+    // Paul, 1 Oct 2026: pointing at a shape shows its coaching underneath again (it stays until another shape
+    // replaces it or the × closes it). The detail now sits directly under the rows, so nothing below it reflows.
+    setActiveNodeId(nodeId)
   }
 
   /** The review slot, in whichever form the host passed it. */
@@ -1524,7 +1527,7 @@ export function ModelStrip({
                         // each mark is a 26×24 target, so the glyphs sit the prototype's distance
                         // apart and every mark meets the 24px target size (WCAG 2.5.8).
                         className={`inline-flex items-center justify-center min-w-[26px] h-6 rounded hover:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
-                          isActive ? 'ring-2 ring-info' : ''
+                          isActive ? 'ring-2 ring-text-light/60' : ''
                         }`}
                         data-testid={`${testId}-mark`}
                         data-node-id={node.id}
@@ -1573,12 +1576,8 @@ export function ModelStrip({
 
         </div>
       ) : null}
-      {/* V2 prototype order (design audit B5/B6/B12): the rows, then "N to
-          review", then the success line, then the review tool, then the
-          picked mark's detail. The success line is handed to the review slot
-          so it can sit between the tool's row and its open item. */}
-      {renderReviewSlot(successLine)}
-      {/* ── THE PICKED MARK'S DETAIL — the V2 prototype's `inline-detail`
+      {/* ── THE PICKED MARK'S DETAIL — UNDER THE SHAPES AGAIN, AND OPENED BY HOVER (Paul, 1 Oct 2026: "the coaching
+          information underneath is gone. We need to reinstate that"). Formerly — the V2 prototype's `inline-detail`
           (`selectedHTML()`, design audit B12): a divider, the name as an h4
           with a ×, the engine's own finding as the bullet, then ✎ ⌖ ✦
           icon-only. It sits AFTER the success line and the review tool, as the
@@ -1882,6 +1881,11 @@ export function ModelStrip({
             </div>
         </div>
       ) : null}
+      {/* V2 prototype order (design audit B5/B6/B12): the rows, then "N to
+          review", then the success line, then the review tool, then the
+          picked mark's detail. The success line is handed to the review slot
+          so it can sit between the tool's row and its open item. */}
+      {renderReviewSlot(successLine)}
     </section>
   )
 }

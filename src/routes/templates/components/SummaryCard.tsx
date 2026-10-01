@@ -61,7 +61,7 @@ export const SummaryCard = memo<SummaryCardProps>(({ report, onCopyHash }) => {
         {hasHash && (
           <button
             onClick={onCopyHash}
-            className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-full text-gray-700 focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1"
+            className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-full text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1"
             data-testid="hash-pill"
             aria-label="Copy verification hash"
           >

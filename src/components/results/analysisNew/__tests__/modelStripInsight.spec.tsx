@@ -290,12 +290,10 @@ describe('⭐ three routes in, and the canvas route is unchanged', () => {
    * pointer or a Tab sweeping the census must not reflow everything beneath it.
    * The keyboard reaches it the way a click does: Enter on the mark.
    */
-  it('KEYBOARD FOCUS rings the node but opens nothing; activation opens it', () => {
+  it('KEYBOARD FOCUS rings the node and opens its detail, as hover does (Paul, 1 Oct 2026)', () => {
     renderOpen()
     fireEvent.focus(mark('f7'))
     expect(highlightNode).toHaveBeenCalledWith('f7')
-    expect(screen.queryByTestId(`${TID}-detail`)).toBeNull()
-    fireEvent.click(mark('f7'))
     expect(screen.getByTestId(`${TID}-detail`)).toHaveAttribute('data-node-id', 'f7')
   })
 

@@ -41,7 +41,7 @@ export function Toast({ message, onClose, duration = 5000 }: ToastProps) {
           setVisible(false)
           setTimeout(onClose, 300)
         }}
-        className="text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-900"
+        className="text-gray-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
         aria-label="Close notification"
       >
         <X className="h-4 w-4" />

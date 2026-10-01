@@ -162,7 +162,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
               type="checkbox"
               checked={placeGoalsFirst}
               onChange={(e) => setPlaceGoalsFirst(e.target.checked)}
-              className="w-4 h-4 text-primary rounded focus:ring-2 focus:ring-primary"
+              className="w-4 h-4 text-primary rounded focus-visible:ring-2 focus-visible:ring-primary"
               data-testid="toggle-goals-first"
             />
             <span className={`${typography.body} text-gray-700`}>Place Goals first</span>
@@ -173,7 +173,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
               type="checkbox"
               checked={placeOutcomesLast}
               onChange={(e) => setPlaceOutcomesLast(e.target.checked)}
-              className="w-4 h-4 text-primary rounded focus:ring-2 focus:ring-primary"
+              className="w-4 h-4 text-primary rounded focus-visible:ring-2 focus-visible:ring-primary"
               data-testid="toggle-outcomes-last"
             />
             <span className={`${typography.body} text-gray-700`}>Place Outcomes last</span>
@@ -210,7 +210,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
               type="checkbox"
               checked={respectLocked}
               onChange={(e) => setRespectLocked(e.target.checked)}
-              className="w-4 h-4 text-primary rounded focus:ring-2 focus:ring-primary"
+              className="w-4 h-4 text-primary rounded focus-visible:ring-2 focus-visible:ring-primary"
               data-testid="toggle-respect-locked"
             />
             <span className={`${typography.body} text-gray-700`}>Respect locked node positions</span>

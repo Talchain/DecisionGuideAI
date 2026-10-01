@@ -48,7 +48,7 @@ export const StructuredBriefFields = memo(function StructuredBriefFields({
             autoFocus={i === 0}
             className={typo(
               'bodySmall',
-              'w-full resize-y rounded-md border border-panel-border bg-transparent px-3 py-2 text-text-body outline-none focus:border-info',
+              'w-full resize-y rounded-md border border-panel-border bg-transparent px-3 py-2 text-text-body outline-none',
             )}
           />
         </label>

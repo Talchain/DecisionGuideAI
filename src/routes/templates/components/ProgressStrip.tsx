@@ -50,7 +50,7 @@ export const ProgressStrip = memo<ProgressStripProps>(({
           {canCancel && onCancel && (
             <button
               onClick={onCancel}
-              className="p-1 hover:bg-panel-hover rounded transition-colors focus:outline-none focus:ring-2 focus:ring-info"
+              className="p-1 hover:bg-panel-hover rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
               aria-label="Cancel run"
               title="Cancel run"
             >

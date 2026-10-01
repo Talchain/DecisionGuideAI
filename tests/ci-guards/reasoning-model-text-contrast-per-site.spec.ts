@@ -344,13 +344,13 @@ describe('Reasoning + Model surfaces: per-site text and icon contrast', () => {
 
     // 2. THE KNOWN-BAD value — the colour #1348's first head shipped — must FAIL
     //    on both real grounds, to the second decimal.
-    expect(contrast('#FFA656', tokenHex('--bg-panel')!)).toBeCloseTo(1.92, 2)
-    expect(contrast('#FFA656', tokenHex('--bg-panel-hover')!)).toBeCloseTo(1.85, 2)
+    expect(contrast('#FFA656', tokenHex('--bg-panel')!)).toBeCloseTo(1.85, 2) // re-measured on the 1 Oct 2026 cream panel (#FEF9F3, Paul)
+    expect(contrast('#FFA656', tokenHex('--bg-panel-hover')!)).toBeCloseTo(1.82, 2)
 
     // 3. A KNOWN-GOOD pairing must PASS, or the function returns something small
     //    for everything.
-    expect(contrast(tokenHex('--text-light')!, tokenHex('--bg-panel')!)).toBeCloseTo(5.23, 2)
-    expect(contrast(tokenHex('--text-header')!, tokenHex('--bg-panel')!)).toBeCloseTo(15.01, 2)
+    expect(contrast(tokenHex('--text-light')!, tokenHex('--bg-panel')!)).toBeCloseTo(5.04, 2)
+    expect(contrast(tokenHex('--text-header')!, tokenHex('--bg-panel')!)).toBeCloseTo(14.46, 2)
 
     // 4. The brand.css parser is really reading the file, not defaulting.
     expect(tokenHex('--token-that-does-not-exist')).toBeNull()
@@ -363,7 +363,7 @@ describe('Reasoning + Model surfaces: per-site text and icon contrast', () => {
     const panel = tokenHex('--bg-panel')!
     const info = tokenHex('--info')!
     expect(contrast(info, panel)).toBeGreaterThanOrEqual(WCAG_TEXT_MIN)
-    expect(contrast(info, compositeOver(info, panel, 0.2))).toBeCloseTo(3.69, 2)
+    expect(contrast(info, compositeOver(info, panel, 0.2))).toBeCloseTo(3.56, 2)
     expect(
       contrast(info, compositeOver(info, panel, 0.2)),
       'a bg-info/20 tint must push text-info BELOW the floor — if not, the ' +

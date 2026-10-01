@@ -144,7 +144,7 @@ export const ErrorBanner = memo<ErrorBannerProps>(({
             <button
               onClick={onRetry}
               disabled={!canRetry}
-              className="text-sm px-3 py-1 rounded bg-white bg-opacity-50 hover:bg-opacity-75 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+              className="text-sm px-3 py-1 rounded bg-white bg-opacity-50 hover:bg-opacity-75 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
             >
               Retry
             </button>
@@ -152,7 +152,7 @@ export const ErrorBanner = memo<ErrorBannerProps>(({
           {onDismiss && (
             <button
               onClick={onDismiss}
-              className="text-sm px-2 py-1 rounded bg-white bg-opacity-50 hover:bg-opacity-75 focus:outline-none focus:ring-2 focus:ring-offset-1"
+              className="text-sm px-2 py-1 rounded bg-white bg-opacity-50 hover:bg-opacity-75 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
               aria-label="Dismiss error"
             >
               ×

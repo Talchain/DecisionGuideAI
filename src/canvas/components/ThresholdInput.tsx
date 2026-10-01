@@ -119,7 +119,7 @@ export function ThresholdInput({
           onChange={handleChange}
           onBlur={handleBlur}
           placeholder="e.g., 100000"
-          className="flex-1 px-3 py-2 border border-panel-border rounded-lg bg-white text-text-body placeholder:text-text-light focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2"
+          className="flex-1 px-3 py-2 border border-panel-border rounded-lg bg-white text-text-body placeholder:text-text-light focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2"
           aria-describedby="threshold-help"
         />
         {unit && (

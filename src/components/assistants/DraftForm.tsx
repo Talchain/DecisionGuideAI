@@ -97,7 +97,7 @@ export function DraftForm({ onSubmit, isSubmitting }: DraftFormProps) {
           }}
           placeholder="For example: Which supplier strategy should we adopt for next year?"
           rows={4}
-          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-md focus:ring-2 focus:ring-info focus:border-transparent"
+          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-md focus-visible:ring-2 focus-visible:ring-info focus:border-transparent"
           disabled={isSubmitting}
           required
         />
@@ -113,7 +113,7 @@ export function DraftForm({ onSubmit, isSubmitting }: DraftFormProps) {
           onChange={(e) => setContext(e.target.value)}
           placeholder="Key constraints, timelines, stakeholders, or risks we should consider"
           rows={2}
-          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-md focus:ring-2 focus:ring-info focus:border-transparent"
+          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-md focus-visible:ring-2 focus-visible:ring-info focus:border-transparent"
           disabled={isSubmitting}
         />
       </div>

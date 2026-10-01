@@ -94,7 +94,7 @@ const OptionColumn = memo(({
                 onChange={(e) => setEditedName(e.target.value)}
                 onBlur={handleSave}
                 onKeyPress={(e) => e.key === 'Enter' && handleSave()}
-                className="flex-1 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-info focus:border-info/30"
+                className="flex-1 px-2 py-1 border border-gray-300 rounded focus-visible:ring-2 focus-visible:ring-info"
                 autoFocus
               />
             </Tooltip>
@@ -199,7 +199,7 @@ const OptionColumn = memo(({
                   onChange={(e) => setNewItemText(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Add a new pro..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-info focus:border-info/30 resize-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus-visible:ring-2 focus-visible:ring-info resize-none"
                   rows={2}
                   autoFocus
                 />
@@ -273,7 +273,7 @@ const OptionColumn = memo(({
                   onChange={(e) => setNewItemText(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Add a new con..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-info focus:border-info/30 resize-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus-visible:ring-2 focus-visible:ring-info resize-none"
                   rows={2}
                   autoFocus
                 />

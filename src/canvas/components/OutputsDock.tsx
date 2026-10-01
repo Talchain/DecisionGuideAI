@@ -3007,7 +3007,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     right: 0,
     top: 'var(--topbar-h, 0px)',
     bottom: 'var(--bottombar-h)',
-    background: 'rgba(255, 255, 255, 0.95)',
+    background: 'rgb(var(--bg-panel-rgb) / 0.95)',
     backdropFilter: 'blur(8px)',
     borderLeft: '1px solid var(--panel-edge-rule)',
     borderRadius: 0,
@@ -3151,7 +3151,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
       <div
         className="sticky top-0 z-10 border-b"
         // Contract `.panel-tabs{border-bottom:1px solid #E6E1D8}`.
-        style={{ background: 'rgba(255, 255, 255, 0.95)', borderBottomColor: 'var(--panel-tab-rule)' }}
+        style={{ background: 'rgb(var(--bg-panel-rgb) / 0.95)', borderBottomColor: 'var(--panel-tab-rule)' }}
       >
         {!effectiveIsOpen && <WorkspaceShellCollapsedStrip onToggleOpen={toggleOpen} />}
 
@@ -4423,7 +4423,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             aria-label="Generating scenario comparison"
             data-testid="scenario-comparison-loading"
           >
-            <div className="bg-white px-6 py-4 rounded-lg shadow-3 flex items-center gap-3">
+            <div className="bg-panel px-6 py-4 rounded-lg shadow-3 flex items-center gap-3">
               <div className="w-5 h-5 border-2 border-info border-t-transparent rounded-full animate-spin" />
               <span className={`${typography.panelBody} text-text-header`}>Generating comparison...</span>
             </div>

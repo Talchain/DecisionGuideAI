@@ -373,7 +373,7 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
                       value="json"
                       checked={exportFormat === 'json'}
                       onChange={(e) => setExportFormat(e.target.value as any)}
-                      className="text-[#EA7B4B] focus:ring-[#EA7B4B]"
+                      className="text-[#EA7B4B] focus-visible:ring-[#EA7B4B]"
                     />
                     <div>
                       <div className="font-medium">JSON</div>
@@ -387,7 +387,7 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
                       value="png"
                       checked={exportFormat === 'png'}
                       onChange={(e) => setExportFormat(e.target.value as any)}
-                      className="text-[#EA7B4B] focus:ring-[#EA7B4B]"
+                      className="text-[#EA7B4B] focus-visible:ring-[#EA7B4B]"
                     />
                     <div>
                       <div className="font-medium">PNG</div>
@@ -401,7 +401,7 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
                       value="svg"
                       checked={exportFormat === 'svg'}
                       onChange={(e) => setExportFormat(e.target.value as any)}
-                      className="text-[#EA7B4B] focus:ring-[#EA7B4B]"
+                      className="text-[#EA7B4B] focus-visible:ring-[#EA7B4B]"
                     />
                     <div>
                       <div className="font-medium">SVG</div>

@@ -394,7 +394,7 @@ export function GraphTextView({
               placeholder="Search nodes..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className={`w-full pl-9 pr-3 py-2 bg-white border border-sand-200 rounded-md ${typography.body} text-ink-900 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent`}
+              className={`w-full pl-9 pr-3 py-2 bg-white border border-sand-200 rounded-md ${typography.body} text-ink-900 placeholder:text-ink-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus:border-transparent`}
               aria-label="Search nodes"
               data-testid="graph-text-view-search"
             />
@@ -404,7 +404,7 @@ export function GraphTextView({
           <button
             type="button"
             onClick={handleCopy}
-            className={`inline-flex items-center gap-2 px-3 py-2 rounded-md border border-sand-200 bg-white ${typography.label} text-ink-900 hover:bg-sand-100 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors`}
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-md border border-sand-200 bg-white ${typography.label} text-ink-900 hover:bg-sand-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 transition-colors`}
             aria-label={copied ? 'Copied!' : 'Copy structure'}
             data-testid="graph-text-view-copy"
           >
@@ -522,7 +522,7 @@ export function GraphTextView({
                         <button
                           type="button"
                           onClick={() => handleNodeClick(node.id)}
-                          className="text-sky-600 hover:text-sky-700 hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-500 rounded px-1 -mx-1"
+                          className="text-sky-600 hover:text-sky-700 hover:underline cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 rounded px-1 -mx-1"
                           title={nodeBody ? `Focus "${label}" on canvas. ${nodeBody}` : `Focus "${label}" on canvas`}
                           data-testid={`graph-text-view-node-${node.id}`}
                         >
@@ -568,7 +568,7 @@ export function GraphTextView({
                                         handleNodeClick(targetNode.id)
                                       }
                                     }}
-                                    className="text-sky-500 hover:text-sky-600 hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-500 rounded"
+                                    className="text-sky-500 hover:text-sky-600 hover:underline cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 rounded"
                                     title={edgeInfo.strengthStd ? `Focus edge on canvas. ${edgeInfo.strengthStd}` : 'Focus edge on canvas'}
                                   >
                                     {targetLabel}

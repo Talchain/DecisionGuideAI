@@ -150,7 +150,7 @@ const SortableItem = memo(({
             onChange={handleTextareaChange}
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
-            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-info focus:border-info/30 resize-none overflow-hidden"
+            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus-visible:ring-2 focus-visible:ring-info resize-none overflow-hidden"
             style={{ minHeight: '24px' }}
             autoFocus
           />

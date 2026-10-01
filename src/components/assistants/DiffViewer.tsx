@@ -119,7 +119,7 @@ export function DiffViewer({ draft, onApply, onReject }: DiffViewerProps) {
                     type="checkbox"
                     checked={item.selected}
                     onChange={() => toggleItem(item.id)}
-                    className="w-4 h-4 text-info rounded focus:ring-2 focus:ring-info"
+                    className="w-4 h-4 text-info rounded focus-visible:ring-2 focus-visible:ring-info"
                   />
                   <Plus className="w-3 h-3 text-success" />
                   <span className="flex-1 text-sm">{item.label}</span>
@@ -192,7 +192,7 @@ export function DiffViewer({ draft, onApply, onReject }: DiffViewerProps) {
                     type="checkbox"
                     checked={item.selected}
                     onChange={() => toggleItem(item.id)}
-                    className="w-4 h-4 text-info rounded focus:ring-2 focus:ring-info"
+                    className="w-4 h-4 text-info rounded focus-visible:ring-2 focus-visible:ring-info"
                   />
                   <Plus className="w-3 h-3 text-success" />
                   <span className="flex-1 text-sm font-mono text-xs">{item.label}</span>

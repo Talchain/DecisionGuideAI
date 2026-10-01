@@ -39,7 +39,7 @@ export function LayoutPopover() {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
+        className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 shadow-sm"
         aria-label="Auto-layout your diagram"
         data-testid="btn-layout"
         title="Auto-layout your diagram"
