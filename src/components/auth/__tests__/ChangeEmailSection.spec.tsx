@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import ChangeEmailSection, { describeEmailChangeError } from '../ChangeEmailSection'
+import ChangeEmailSection, { describeEmailChangeError, EMAIL_CHANGE_REFUSED } from '../ChangeEmailSection'
 
 const CURRENT = 'ada@olumi.test'
 
@@ -42,16 +42,34 @@ describe('ChangeEmailSection', () => {
   it('a refused request keeps the form open with a plain sentence, never the raw server text', async () => {
     setup({ error: Object.assign(new Error('A user with this email address has already been registered'), { status: 422, code: 'email_exists' }) })
     open(); type('taken@olumi.test'); send()
-    expect((await screen.findByTestId('change-email-error')).textContent).toBe('That address is already used by another account.')
+    expect((await screen.findByTestId('change-email-error')).textContent).toBe(EMAIL_CHANGE_REFUSED)
     expect(screen.getByTestId('change-email-input')).toBeInTheDocument()
     expect(screen.queryByTestId('change-email-sent')).toBeNull()
   })
 
-  it('the error sentences: rate limit, server fault, taken, anything else', () => {
+  it('NO ENUMERATION: an address in use and an address Supabase rejects read BYTE-IDENTICALLY on screen', async () => {
+    const shown: string[] = []
+    const refusals = [
+      Object.assign(new Error('A user with this email address has already been registered'), { status: 422, code: 'email_exists' }),
+      Object.assign(new Error('Unable to validate email address: invalid format'), { status: 400, code: 'validation_failed' }),
+      Object.assign(new Error('Email address "x@y.z" is invalid'), { status: 400, code: 'email_address_invalid' }),
+    ]
+    for (const error of refusals) {
+      const { unmount } = render(<ChangeEmailSection currentEmail={CURRENT} pendingEmail={null} requestEmailChange={async () => ({ error })} />)
+      fireEvent.click(screen.getByTestId('change-email-start'))
+      fireEvent.change(screen.getByTestId('change-email-input'), { target: { value: 'someone@olumi.test' } })
+      fireEvent.click(screen.getByTestId('change-email-submit'))
+      shown.push((await screen.findByTestId('change-email-error')).textContent ?? '')
+      unmount()
+    }
+    expect(new Set(shown).size).toBe(1)
+    expect(shown[0]).toBe(EMAIL_CHANGE_REFUSED)
+  })
+
+  it('only status decides: rate limit (429) and server fault (5xx) have their own sentences; nothing else does', () => {
     expect(describeEmailChangeError({ status: 429, message: 'x' })).toMatch(/^Too many requests/)
     expect(describeEmailChangeError({ status: 503, message: 'x' })).toMatch(/couldn’t send the confirmation just now/)
-    expect(describeEmailChangeError({ status: 422, code: 'email_exists', message: 'x' })).toBe('That address is already used by another account.')
-    expect(describeEmailChangeError(new Error('Unable to validate email address: invalid format'))).toBe('We couldn’t use that address. Check it and try again.')
+    expect(describeEmailChangeError({ status: 422, code: 'email_exists', message: 'already been registered' })).toBe(EMAIL_CHANGE_REFUSED)
   })
 
   it('"Send the links again" repeats the SAME request', async () => {

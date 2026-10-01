@@ -19,16 +19,18 @@ type State =
   | { kind: 'sending'; value: string }
   | { kind: 'sent'; to: string }
 
-/** What the person is told when a request is refused. Never a raw server message. */
+/**
+ * The ONE sentence for every address-correlated refusal (an address already in use, an address Supabase will not
+ * accept, anything else that is not a rate limit or a server fault). It never says WHICH, so this form cannot be used
+ * to learn whether an address has an Olumi account (DL CR on #2434). Server text is never matched or shown.
+ */
+export const EMAIL_CHANGE_REFUSED = 'We couldn’t start a change to that address. Check it, or try a different one.'
+
+/** What the person is told when a request is refused. Status codes only, never the server's English. */
 export function describeEmailChangeError(error: unknown): string {
   if (isRateLimited(error)) return 'Too many requests. Wait a minute, then try again.'
   if (isServerFault(error)) return 'We couldn’t send the confirmation just now. Try again shortly.'
-  const code = (error as { code?: unknown } | null)?.code
-  const msg = error instanceof Error ? error.message.toLowerCase() : String((error as { message?: unknown } | null)?.message ?? '').toLowerCase()
-  if (code === 'email_exists' || msg.includes('already been registered') || msg.includes('already registered')) {
-    return 'That address is already used by another account.'
-  }
-  return 'We couldn’t use that address. Check it and try again.'
+  return EMAIL_CHANGE_REFUSED
 }
 
 const inputClass =
