@@ -13,7 +13,7 @@
  * test id and renders into the cell, after the live LOD notice and before the first-model notice (`OVERLAY_PRIORITY`).
  * The pill fits the band's fixed 64px; only the user-opened "Why?" detail rises above it, like the lens panel.
  */
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { useOverlayCell } from './CanvasOverlayBand'
@@ -60,6 +60,15 @@ export function RunChangesSummary(): JSX.Element | null {
   const winShareWithheldReason = useCanvasStore(selectWinShareWithheldReason)
   const [closedFor, setClosedFor] = useState<string | null>(null)
   const [openFor, setOpenFor] = useState<string | null>(null)
+  // Is the pill's one line cut short? Only then does the detail repeat what the pill already says (R3 5935751708: the
+  // open detail covered the Goal at 1440x900, half of it a second copy of the pill's two lines).
+  const lineRef = useRef<HTMLSpanElement>(null)
+  const [lineTruncated, setLineTruncated] = useState(false)
+  useLayoutEffect(() => {
+    const el = lineRef.current
+    const cut = el !== null && el.scrollWidth > el.clientWidth + 1
+    if (cut !== lineTruncated) setLineTruncated(cut)
+  })
 
   const wants = view !== null && responseHash !== null && closedFor !== responseHash && runChangesSummaryHasContent(view)
   const { granted, target } = useOverlayCell('bottom-centre', RUN_CHANGES_SUMMARY_TESTID, wants)
@@ -72,6 +81,10 @@ export function RunChangesSummary(): JSX.Element | null {
   const movedHead = lines.moved[0] ?? lines.movedNote
   const movedExtra = lines.moved.length - 1 + lines.movedMore
   const detailId = `${RUN_CHANGES_SUMMARY_TESTID}-detail`
+  // The detail says only what the pill cannot: more rows than its one line holds, or the line itself when it is cut.
+  const detailRepeatsChanged = changedExtra > 0 || lineTruncated
+  const detailRepeatsMoved = movedExtra > 0 || lineTruncated
+  const headFocus = lines.changed[0] ? focusOfRow(lines.changed[0].row) : null
 
   const body = (
     <div
@@ -92,6 +105,7 @@ export function RunChangesSummary(): JSX.Element | null {
           className="absolute inset-x-0 bottom-full mb-2 max-h-[min(60vh,420px)] overflow-y-auto rounded-xl border border-panel-border bg-panel px-4 py-3 shadow-2"
         >
           <dl className="m-0 flex flex-col gap-2">
+            {detailRepeatsChanged && (
             <DetailLine label={COPY.changed} id="changed">
               {lines.changed.length === 0 ? (
                 <span className="text-text-light">{COPY.noInputs}</span>
@@ -103,7 +117,7 @@ export function RunChangesSummary(): JSX.Element | null {
                       key={row.key}
                       type="button"
                       onClick={focus}
-                      data-testid={`${RUN_CHANGES_SUMMARY_TESTID}-focus`}
+                      data-testid={`${RUN_CHANGES_SUMMARY_TESTID}-detail-focus`}
                       data-entity-id={row.entityId}
                       className="block text-left underline decoration-dotted underline-offset-2 hover:decoration-solid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info rounded-sm"
                     >
@@ -116,7 +130,8 @@ export function RunChangesSummary(): JSX.Element | null {
               )}
               {lines.changedMore > 0 && <span className="block text-text-light">{COPY.more(lines.changedMore)}</span>}
             </DetailLine>
-            {(lines.moved.length > 0 || lines.movedNote !== null) && (
+            )}
+            {detailRepeatsMoved && (lines.moved.length > 0 || lines.movedNote !== null) && (
               <DetailLine label={COPY.moved} id="moved">
                 {lines.movedNote !== null ? (
                   <span className="text-text-light">{lines.movedNote}</span>
@@ -151,12 +166,25 @@ export function RunChangesSummary(): JSX.Element | null {
       >
         <span className={`${typography.panelMeta} flex-none font-medium text-text-header`}>{COPY.title}</span>
         <span
+          ref={lineRef}
           data-testid={`${RUN_CHANGES_SUMMARY_TESTID}-line`}
           className={`${typography.panelMeta} min-w-0 truncate text-text-body`}
           title={[changedHead, movedHead].filter(Boolean).join(' · ')}
         >
           <span className="text-text-light">{COPY.changed} </span>
-          {changedHead}
+          {headFocus ? (
+            <button
+              type="button"
+              onClick={headFocus}
+              data-testid={`${RUN_CHANGES_SUMMARY_TESTID}-focus`}
+              data-entity-id={lines.changed[0]!.row.entityId}
+              className="underline decoration-dotted underline-offset-2 hover:decoration-solid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info rounded-sm"
+            >
+              {changedHead}
+            </button>
+          ) : (
+            changedHead
+          )}
           {changedExtra > 0 && <span className="text-text-light"> (+{changedExtra})</span>}
           {movedHead !== null && (
             <>
