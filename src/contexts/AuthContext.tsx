@@ -50,6 +50,15 @@ interface AuthContextType {
    * success for something it never did. A new capability gets a new name.
    */
   signInWithPassword: (email: string, password: string) => Promise<{ error: unknown }>;
+  /**
+   * Email a password-reset link. The link lands on `/auth/confirm` (type
+   * `recovery`), which signs the user in and asks for a new password.
+   * Supabase answers an unknown address exactly as a known one, so this is
+   * enumeration-safe by construction.
+   */
+  requestPasswordReset: (email: string) => Promise<{ error: unknown }>;
+  /** Set the signed-in user's password (invite acceptance, reset). */
+  updatePassword: (password: string) => Promise<{ error: unknown }>;
   signOut: () => Promise<{ error: unknown }>;
 
   // Legacy compat — kept so existing components that destructure these don't break.
@@ -67,6 +76,8 @@ const AuthContext = createContext<AuthContextType>({
   signInWithMagicLink: async () => ({ error: new Error('AuthContext not initialized') }),
   signInWithGoogle: async () => ({ error: new Error('AuthContext not initialized') }),
   signInWithPassword: async () => ({ error: new Error('AuthContext not initialized') }),
+  requestPasswordReset: async () => ({ error: new Error('AuthContext not initialized') }),
+  updatePassword: async () => ({ error: new Error('AuthContext not initialized') }),
   signIn: async () => ({ error: new Error('Password auth removed'), data: null }),
   signUp: async () => ({ error: new Error('Password auth removed'), data: null }),
   signOut: async () => ({ error: new Error('AuthContext not initialized') }),
@@ -191,6 +202,58 @@ async function callSignInWithPassword(
   }
 }
 
+/**
+ * Where every emailed auth link lands. The email templates (source-controlled
+ * in `supabase/templates/`) link to `/#/auth/confirm?token_hash=…&type=…`,
+ * which verifies the token in the page itself. That works in ANY browser —
+ * unlike a PKCE `?code=` link, which only completes in the browser that asked
+ * for it — and survives the HashRouter, which a `#access_token=` fragment does
+ * not. `redirectTo` below only matters if a template still uses the default
+ * `{{ .ConfirmationURL }}`.
+ */
+function authConfirmUrl(): string {
+  return `${window.location.origin}/#/auth/confirm`;
+}
+
+async function callRequestPasswordReset(email: string): Promise<{ error: unknown }> {
+  authLogger.debug('SIGN_IN', 'Password reset request', { email });
+  try {
+    if (typeof supabase.auth.resetPasswordForEmail !== 'function') {
+      return { error: signInUnavailable('resetPasswordForEmail') };
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: authConfirmUrl(),
+    });
+    if (error) {
+      authLogger.error('ERROR', 'Password reset request failed', error);
+      return { error };
+    }
+    return { error: null };
+  } catch (error) {
+    authLogger.error('ERROR', 'Password reset request error', error);
+    return { error: asFault(error) };
+  }
+}
+
+async function callUpdatePassword(password: string): Promise<{ error: unknown }> {
+  // NEVER log the password.
+  authLogger.debug('SIGN_IN', 'Password update request');
+  try {
+    if (typeof supabase.auth.updateUser !== 'function') {
+      return { error: signInUnavailable('updateUser') };
+    }
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      authLogger.error('ERROR', 'Password update failed', error);
+      return { error };
+    }
+    return { error: null };
+  } catch (error) {
+    authLogger.error('ERROR', 'Password update error', error);
+    return { error: asFault(error) };
+  }
+}
+
 async function callSignInWithGoogle(): Promise<{ error: unknown }> {
   authLogger.debug('SIGN_IN', 'Google OAuth request');
   try {
@@ -246,6 +309,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signInWithMagicLink: async () => ({ error: null }),
       signInWithGoogle: async () => ({ error: null }),
       signInWithPassword: async () => ({ error: null }),
+      requestPasswordReset: async () => ({ error: null }),
+      updatePassword: async () => ({ error: null }),
       signIn: async () => ({ error: null, data: null }),
       signUp: async () => ({ error: null, data: null }),
       signOut: async () => ({ error: null }),
@@ -350,6 +415,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signInWithMagicLink: callSignInWithMagicLink,
     signInWithGoogle: callSignInWithGoogle,
     signInWithPassword: callSignInWithPassword,
+    requestPasswordReset: callRequestPasswordReset,
+    updatePassword: callUpdatePassword,
 
     // Legacy no-ops
     signIn: legacyNoOp,
@@ -619,6 +686,8 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
     signInWithMagicLink: callSignInWithMagicLink,
     signInWithGoogle: callSignInWithGoogle,
     signInWithPassword: callSignInWithPassword,
+    requestPasswordReset: callRequestPasswordReset,
+    updatePassword: callUpdatePassword,
 
     // Password auth is removed product-wide. The guest branch used to answer
     // `{ error: null, data: { id: 'guest' } }` here — a success report for a

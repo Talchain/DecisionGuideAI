@@ -40,6 +40,24 @@ import type { NotAnalysedReason } from './notAnalysedOptions'
 export const NOT_ANALYSED_BADGE = 'Not analysed'
 
 /**
+ * THE USER TOOK IT OUT (schemas 0.69.0 `excluded_infeasible` / `excluded_removed`): the DL's words (5932328304), one
+ * wording on the panel and the canvas card. It is the user's own act, so never "Not analysed" or "not compared", and it
+ * holds on any Run that recorded it.
+ */
+export const TAKEN_OUT_INFEASIBLE_LABEL = 'Taken out: not feasible'
+export const TAKEN_OUT_REMOVED_LABEL = 'Taken out'
+export function takenOutLabel(reason: NotAnalysedReason): string | null {
+  if (reason === 'taken_out_infeasible') return TAKEN_OUT_INFEASIBLE_LABEL
+  if (reason === 'taken_out_removed') return TAKEN_OUT_REMOVED_LABEL
+  return null
+}
+
+/** The badge beside the option's name: the taken-out label when the user took it out, else "Not analysed". */
+export function notAnalysedBadge(reason: NotAnalysedReason): string {
+  return takenOutLabel(reason) ?? NOT_ANALYSED_BADGE
+}
+
+/**
  * Why this option carries no rank and no probability.
  *
  * Both sentences state the CONSEQUENCE explicitly ("no rank and no
@@ -48,6 +66,8 @@ export const NOT_ANALYSED_BADGE = 'Not analysed'
  * why reads as a decision.
  */
 export function notAnalysedReasonCopy(reason: NotAnalysedReason, resultsCurrent = true): string {
+  const takenOut = takenOutLabel(reason)
+  if (takenOut !== null) return takenOut
   if (reason === 'excluded_olumi_proposed') return OLUMI_PROPOSED_EXCLUDED_COPY
   // ⛔ AIQ pre-share hold (R3 B0 S3): on a Run that is not current, the option may have been added after it — "left out
   // of the comparison" is a claim about that Run. The graph fact stays; the Run claim goes.

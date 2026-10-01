@@ -28,7 +28,7 @@ import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 const STRIP = 'analysis-new-method-strip'
 const CARD = 'analysis-new-challenge'
 
-/** A completed run with a fragile link: the engine's top finding is a flip, which names "Consider the opposite". */
+/** A completed run with a fragile link. It raises no flip finding: the trigger is retired (Reasoning Coach 5931857395 + 5932849641). */
 const flipDecision = (): ResultsSectionDataReturn => {
   const d = genuineDecision()
   return {
@@ -40,6 +40,16 @@ const flipDecision = (): ResultsSectionDataReturn => {
         { edge_id: 'e_price', from_label: 'Price elasticity', to_label: 'Revenue', switch_probability: 0.42, alternative_winner_label: 'Hold price' },
       ],
     },
+  } as unknown as ResultsSectionDataReturn
+}
+
+/** A completed run graded fragile: the engine's top finding is the pressure-test, which names "Run a pre-mortem". */
+const raisedDecision = (): ResultsSectionDataReturn => {
+  const d = genuineDecision()
+  return {
+    ...d,
+    recommendation: { ...d.recommendation, analysisStatus: 'computed', hasGoalTarget: true },
+    confidence: { ...d.confidence, robustnessLevel: 'low' },
   } as unknown as ResultsSectionDataReturn
 }
 
@@ -55,12 +65,23 @@ beforeEach(() => useStrengthenStore.setState({ records: {}, priorityOrder: [] } 
 afterEach(cleanup)
 
 describe('one method is active at rest — when the run names one', () => {
-  it('⭐ the run\'s top finding names "Consider the opposite": that icon is pressed and dotted, and the card shows the finding', () => {
-    drawBody(flipDecision())
+  it('⭐ the run\'s top finding names "Run a pre-mortem": that icon is pressed and dotted, and the card shows the finding', () => {
+    drawBody(raisedDecision())
     const card = screen.getByTestId(CARD)
-    expect(card, 'PRECONDITION: the flip is the top finding').toHaveAttribute('data-recommendation-id', 'strengthen:flip:e_price')
-    expect(pressed()).toEqual(['consider_opposite'])
-    expect(screen.getByTestId(`${STRIP}-method-consider_opposite-mark`)).toBeInTheDocument()
+    expect(card, 'PRECONDITION: the pressure-test is the top finding').toHaveAttribute('data-recommendation-id', 'strengthen:robustness')
+    expect(pressed()).toEqual(['pre_mortem'])
+    expect(screen.getByTestId(`${STRIP}-method-pre_mortem-mark`)).toBeInTheDocument()
+  })
+
+  it('⛔ RETIRED (Reasoning Coach 5931857395 + 5932849641): a fragile link raises no flip finding, so consider_opposite is neither pressed nor dotted', () => {
+    const data = flipDecision()
+    // CONTROL: the fragile link that used to raise the flip finding is in the run.
+    expect((data.confidence.challengeFragileEdges ?? []).map((e) => e.edge_id)).toEqual(['e_price'])
+    drawBody(data)
+    const card = screen.queryByTestId(CARD)
+    if (card) expect(card.getAttribute('data-recommendation-id') ?? '').not.toMatch(/^strengthen:flip/)
+    expect(pressed()).not.toContain('consider_opposite')
+    expect(screen.queryByTestId(`${STRIP}-method-consider_opposite-mark`)).toBeNull()
   })
 
   it('⛔ CONTRAST — a top finding that names no technique leaves every method unpressed (no invented default)', () => {
@@ -71,7 +92,7 @@ describe('one method is active at rest — when the run names one', () => {
   })
 
   it('a pick moves the active method and the card together, and pressing it again does NOT clear it', () => {
-    drawBody(flipDecision())
+    drawBody(raisedDecision())
     const reframe = screen.getByTestId(`${STRIP}-method-reframe_problem`)
     fireEvent.click(reframe)
     expect(pressed()).toEqual(['reframe_problem'])
@@ -82,24 +103,24 @@ describe('one method is active at rest — when the run names one', () => {
   })
 
   it('"Not useful right now" on a pick returns the card, and the strip, to the finding', () => {
-    drawBody(flipDecision())
+    drawBody(raisedDecision())
     fireEvent.click(screen.getByTestId(`${STRIP}-method-reframe_problem`))
     fireEvent.click(screen.getByTestId(`${CARD}-more`))
     fireEvent.click(screen.getByTestId(`${CARD}-not-useful`))
     expect(screen.getByTestId(CARD)).toHaveAttribute('data-source', 'intervention')
-    expect(pressed()).toEqual(['consider_opposite'])
+    expect(pressed()).toEqual(['pre_mortem'])
   })
 
   it('⛔ (#2066 review B1) pressing the RESTING icon latches nothing: "Not useful right now" still sets the finding aside', () => {
-    drawBody(flipDecision())
-    fireEvent.click(screen.getByTestId(`${STRIP}-method-consider_opposite`))
+    drawBody(raisedDecision())
+    fireEvent.click(screen.getByTestId(`${STRIP}-method-pre_mortem`))
     expect(screen.getByTestId(CARD), 'no visible change on the press').toHaveAttribute('data-source', 'intervention')
     fireEvent.click(screen.getByTestId(`${CARD}-more`))
     fireEvent.click(screen.getByTestId(`${CARD}-not-useful`))
     // CONTROL (the same dismissal without the press) clears the card and the strip;
     // the press must not change that.
     expect(pressed(), 'the dismissed method is not re-presented').toEqual([])
-    expect(screen.queryByTestId(CARD)?.getAttribute('data-method-id') ?? null).not.toBe('consider_opposite')
+    expect(screen.queryByTestId(CARD)?.getAttribute('data-method-id') ?? null).not.toBe('pre_mortem')
   })
 
   it('⛔ (#2066 re-review) a pick made on an EARLIER run, which the new run\'s finding then names, does not survive "Not useful right now"', () => {
@@ -109,23 +130,23 @@ describe('one method is active at rest — when the run names one', () => {
     )
     const { rerender } = render(draw(genuineDecision()))
     expect(pressed(), 'PRECONDITION run 1: nothing active').toEqual([])
-    fireEvent.click(screen.getByTestId(`${STRIP}-method-consider_opposite`))
-    expect(pressed(), 'run 1: the reader picked it').toEqual(['consider_opposite'])
-    rerender(draw(flipDecision()))
+    fireEvent.click(screen.getByTestId(`${STRIP}-method-pre_mortem`))
+    expect(pressed(), 'run 1: the reader picked it').toEqual(['pre_mortem'])
+    rerender(draw(raisedDecision()))
     expect(screen.getByTestId(CARD), 'run 2: the finding names the pick, so it shows the finding').toHaveAttribute('data-source', 'intervention')
     fireEvent.click(screen.getByTestId(`${CARD}-more`))
     fireEvent.click(screen.getByTestId(`${CARD}-not-useful`))
     expect(pressed(), 'the dismissed method is not re-presented').toEqual([])
-    expect(screen.queryByTestId(CARD)?.getAttribute('data-method-id') ?? null).not.toBe('consider_opposite')
+    expect(screen.queryByTestId(CARD)?.getAttribute('data-method-id') ?? null).not.toBe('pre_mortem')
   })
 
   it('⛔ (#2066 review B2) a method the READER picked wears the ring, not the run\'s "raised" dot', () => {
-    drawBody(flipDecision())
+    drawBody(raisedDecision())
     fireEvent.click(screen.getByTestId(`${STRIP}-method-reframe_problem`))
     expect(pressed()).toEqual(['reframe_problem'])
     expect(screen.queryByTestId(`${STRIP}-method-reframe_problem-mark`), 'no provenance dot on a pick').toBeNull()
     // CONTRAST: the method the run DID raise keeps its dot.
-    expect(screen.getByTestId(`${STRIP}-method-consider_opposite-mark`)).toBeInTheDocument()
+    expect(screen.getByTestId(`${STRIP}-method-pre_mortem-mark`)).toBeInTheDocument()
   })
 
   it('the title\'s ⓘ names a METHOD only when the card shows one; CONTRAST: an unmapped finding asks "Why this question?"', () => {
@@ -136,7 +157,7 @@ describe('one method is active at rest — when the run names one', () => {
   })
 
   it('the tab\'s "Challenge the thinking" title carries the ⓘ', () => {
-    drawBody(flipDecision())
+    drawBody(raisedDecision())
     expect(screen.getByRole('heading', { name: 'Challenge the thinking' })).toBe(screen.getByTestId('analysis-new-zone-also'))
     expect(screen.getByRole('button', { name: 'Why this method here?' })).toBeInTheDocument()
   })

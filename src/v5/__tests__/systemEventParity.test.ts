@@ -490,6 +490,16 @@ describe('UI ↔ V5 system event parity', () => {
       //     nothing else — and worse, pairing it with `structural_add` would
       //     durably save a node while silently dropping its edge.
       'structural_add_edge',
+      // 0.69.0 (MG F1 T6, 2026-10-01): `option_status_edit` — take an option out of the
+      // comparison, or put it back. Deferred for a CEE-side, derived reason:
+      // its writer arrives in the CEE F1 T1+T6 PR, which pushes only AFTER this
+      // pin is served (UI-first: that PR's Run emits `excluded_infeasible` /
+      // `excluded_removed`, which a UI below 0.69.0 cannot parse). Until that
+      // writer is live, a UI emission would earn only a refusal. The first emitter
+      // is CEE's own Agent (`authorise_change` sends this event in-process); the
+      // UI control is the canvas option-status work, and it moves this entry
+      // into UI_COVERAGE.
+      'option_status_edit',
       // ⚠ `finding_dissent` (0.55.0) DOES NOT BELONG HERE AND MUST NOT BE ADDED.
       // It is UI-EMITTED — see its `UI_COVERAGE` entry above. It is called out
       // by name because parking it in this set is the cheapest way to clear the
@@ -510,7 +520,7 @@ describe('UI ↔ V5 system event parity', () => {
     }
   })
 
-  it('locks UI emission count at 15 of 19 V5 SystemEventKind values', () => {
+  it('locks UI emission count at 15 of 20 V5 SystemEventKind values', () => {
     // Explicit canary: if someone adds a new UI emission (extending the
     // system_event branch of UI_COVERAGE) without updating this test, the
     // count will drift and flag for docs reconciliation.
@@ -579,10 +589,14 @@ describe('UI ↔ V5 system event parity', () => {
     // `goal_target_edit`, and the emitter count to 15, because that member was
     // already armed and emitted (it was `ui_deferred` only because 0.55.0 could
     // not type it). 14 + 1 = 15.
+    //
+    // 2026-10-01: the 0.68.0 → 0.69.0 re-vendor grows the union to 20 with
+    // `option_status_edit` (MG F1 T6). It is deferred (see knownDeferred), so
+    // the emitter count stays at 15.
     const uiEmittedCount = Object.values(UI_COVERAGE).filter(
       (c) => c.kind === 'system_event',
     ).length
     expect(uiEmittedCount).toBe(15)
-    expect(V5_EVENT_KINDS).toHaveLength(19)
+    expect(V5_EVENT_KINDS).toHaveLength(20)
   })
 })

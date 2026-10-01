@@ -47,6 +47,7 @@ import { z } from 'zod'
 
 import { formatRawValueWithUnit } from '../utils/labelUtils'
 import type { EdgeDirectionDisplay } from './edgeValueProvenance'
+import { BY_DEFINITION } from './strengthDefinitional'
 
 /** Whose figure the size is. `user` outranks the producer's own label. */
 export type NaturalEffectAuthor = 'user' | 'olumi_estimate' | 'olumi_placeholder'
@@ -188,17 +189,26 @@ const AUTHOR_SUFFIX: Record<NaturalEffectAuthor, string> = {
 }
 
 /**
+ * MG 0ebb952a: a link that holds BY DEFINITION (`isStrengthDefinitional`) is
+ * nobody's estimate. Its producer label stays `olumi_estimate`, so the caller
+ * says which, and the phrase drops both the author and the hedge ("about").
+ */
+export const DEFINITIONAL_SUFFIX = ` · ${BY_DEFINITION.toLowerCase()}`
+
+/**
  * The phrase for the edge's size, or null when it must not be said (the caller
  * then shows the band): no natural effect, a moved β (stale), no stated
  * direction, a sign that contradicts the stated direction, or a zero amount.
  *
  * `currentMean` is the edge's current SIGNED mean, as the row resolves it
- * (`resolveEdgeStrengthEditSeed`).
+ * (`resolveEdgeStrengthEditSeed`). `definitional` is `isStrengthDefinitional`
+ * of the same edge.
  */
 export function naturalEffectPhrase(
   effect: NaturalEffect | undefined | null,
   currentMean: number,
   direction: EdgeDirectionDisplay,
+  definitional = false,
 ): string | null {
   if (!effect) return null
   if (!Number.isFinite(currentMean) || Math.abs(currentMean - effect.strengthMean) > SAME_MEAN_EPSILON) return null
@@ -207,12 +217,12 @@ export function naturalEffectPhrase(
 
   const size = Math.abs(effect.amount)
   // A4: one end of the user's written range bounds the size — the low end "at least", the high end "at most".
-  const range = effect.author === 'user' ? effect.statedRange : undefined
-  const bound = range === undefined ? 'about' : range.end === 'low' ? 'at least' : 'at most'
-  const change = `${direction.direction === 'negative' ? 'Decrease' : 'Increase'} of ${bound} ${amountWithUnit(size, effect.unit)}`
+  const range = effect.author === 'user' && !definitional ? effect.statedRange : undefined
+  const bound = definitional ? '' : range === undefined ? 'about ' : range.end === 'low' ? 'at least ' : 'at most '
+  const change = `${direction.direction === 'negative' ? 'Decrease' : 'Increase'} of ${bound}${amountWithUnit(size, effect.unit)}`
   const per = effect.sourceUnit === SWITCH_SOURCE_UNIT
     ? ''
     : ` per ${amountWithUnit(effect.perSourceChange, effect.sourceUnit)}`
   const ofRange = range === undefined ? '' : ` · the ${range.end} end of your ${range.text} range`
-  return `${change}${per}${AUTHOR_SUFFIX[effect.author]}${ofRange}`
+  return `${change}${per}${definitional ? DEFINITIONAL_SUFFIX : AUTHOR_SUFFIX[effect.author]}${ofRange}`
 }

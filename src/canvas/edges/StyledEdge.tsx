@@ -97,6 +97,7 @@ import {
   EDGE_STRENGTH_PLACEHOLDER_SENTENCE,
 } from './connectorCopy'
 import { isStrengthPlaceholder } from '../domain/strengthPlaceholder'
+import { isStrengthDefinitional } from '../domain/strengthDefinitional'
 import { registerEdgeHover, routeEdgeHover, routeEdgeHoverOnMove, endEdgeHover, claimEdgeHover, type EdgeHoverBehaviour, type EdgeHoverSeat } from './edgeHoverArbiter'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
@@ -769,6 +770,16 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   )
 
   /**
+   * MG 0ebb952a: a link that holds BY DEFINITION (`domain/strengthDefinitional`)
+   * is nobody's estimate and there is nothing to confirm, so it carries no `est.`
+   * marker and its hover says "By definition".
+   */
+  const strengthIsDefinitional = useMemo(
+    () => isStrengthDefinitional(edgeData as Record<string, unknown> | undefined),
+    [edgeData]
+  )
+
+  /**
    * ⭐ IS THIS SPOKEN STRENGTH ONE A PERSON STOOD BEHIND?
    *
    * The line already tells row 1 apart — no figure at all draws thin and grey
@@ -809,8 +820,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const strengthUnconfirmed = useMemo(
     () =>
       edgeSignedStrength.show &&
+      !strengthIsDefinitional &&
       !strengthIsHumanSettled(edgeData as Record<string, unknown> | undefined),
-    [edgeSignedStrength, edgeData]
+    [edgeSignedStrength, edgeData, strengthIsDefinitional]
   )
   /**
    * ⭐⭐ THE LABEL'S LIKELIHOOD, FROM THE SAME OWNER THE HOVER POPOVER READS.
@@ -3397,6 +3409,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 : null}
               strength={edgeSignedStrength}
               strengthSettled={!strengthUnconfirmed}
+              strengthDefinitional={strengthIsDefinitional}
               placeholderSentence={strengthIsPlaceholder ? EDGE_STRENGTH_PLACEHOLDER_SENTENCE : null}
               fragileSentence={isFragileEdge ? fragileSentence : null}
             />

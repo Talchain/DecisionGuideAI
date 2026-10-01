@@ -74,6 +74,12 @@ export type RegisterScenarioGraphResult =
   | { status: 'refused'; httpStatus: number }
 
 export interface RegisterScenarioGraphOptions {
+  /**
+   * Assert the scenario holds NO graph yet: sends `expected_graph_identity_hash: null`, which CEE adjudicates against
+   * its own stored bytes and refuses (409 → `conflict`) when any graph is there. For a first write into a freshly
+   * minted id (the example decision), so that write can never land on top of someone's model.
+   */
+  readonly expectNoGraph?: boolean
   /** Optional initial context. CEE's atomic writer seeds only an empty brief;
    * it never replaces an existing scenario brief. Not part of the graph/hash.
    */
@@ -138,6 +144,7 @@ export async function registerScenarioGraph(
 
   const body: Record<string, unknown> = { graph }
   if (opts.initialBriefText?.trim()) body.brief_text = opts.initialBriefText
+  if (opts.expectNoGraph === true) body.expected_graph_identity_hash = null
   if (identityUserId !== null) {
     body.user_id = identityUserId
   }

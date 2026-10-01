@@ -15,6 +15,7 @@ import { ThinkingModePopover } from './ThinkingModePopover'
 import { DEFAULT_EDGE_DATA, trimProvenance, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../domain/edges'
 import { readWireNaturalEffect } from '../domain/naturalEffect'
 import { strengthPlaceholderPatch } from '../domain/strengthPlaceholder'
+import { strengthDefinitionalPatch } from '../domain/strengthDefinitional'
 import { edgeValueSourcePatch, stripEdgeValueSourceKeys } from '../domain/edgeValueProvenance'
 import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
@@ -554,6 +555,8 @@ export function DraftChat() {
         style: _style, curvature: _curvature, kind: _kind,
         functionType: _funcType, beliefStrength: _beliefStr,
         schemaVersion: _schemaVer,
+        // MG 0ebb952a: likewise canvas-internal, written below from its ONE reader.
+        strengthDefinitional: _strengthDefinitional,
         // POM-8: a canvas-internal key, written below from the ONE reader —
         // never taken from the untrusted wire remainder.
         strengthPlaceholder: _strengthPlaceholder,
@@ -733,6 +736,9 @@ export function DraftChat() {
           // (domain/strengthPlaceholder). The key is destructured OUT of
           // `edgeRest` above, so only this reader can write it.
           ...strengthPlaceholderPatch(e as Record<string, unknown>, weight, weightSource !== 'default'),
+          // A definitional link — HOP 3 OF 3, the same one reader
+          // (domain/strengthDefinitional); destructured OUT of `edgeRest` above.
+          ...strengthDefinitionalPatch(e as Record<string, unknown>, weightSource !== 'default'),
           provenance: provenanceText,
           // Brief v2.2: New edge properties
           ...(direction ? { direction } : {}),

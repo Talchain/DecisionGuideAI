@@ -292,6 +292,18 @@ export const EdgeDataSchema = z.object({
    */
   strengthPlaceholder: z.number().min(0).max(2).optional(),
 
+  /**
+   * MG 0ebb952a (1 Oct 2026): the link holds BY DEFINITION — the wire's
+   * `provenance.definitional === true` (a part → its total, +1 per 1; a risk's
+   * exposure → the goal, −1 per 1). Arithmetic, not anyone's estimate. Written
+   * by the ONE reader `strengthDefinitionalPatch` at every ingestion hop; read
+   * through `isStrengthDefinitional` (`./strengthDefinitional`), which holds it
+   * live only while the weight is still CEE's.
+   *
+   * ⚠ ABSENT ⇒ NOT KNOWN TO BE A DEFINITION. Never defaulted.
+   */
+  strengthDefinitional: z.literal(true).optional(),
+
   // Set-vs-defaulted markers. ABSENT MEANS DEFAULTED — see
   // ./edgeValueProvenance.ts for the full rationale. Stamped only where the
   // value demonstrably came from a named source, so a construction site that

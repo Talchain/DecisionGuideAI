@@ -142,7 +142,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   threadTestId,
 }: ConversationPanelProps) {
   const {
-    messages, isThinking, longRunningHint,
+    messages, isThinking, explainingRun, longRunningHint,
     sendMessage, sendSystemEvent, sendChip, dispatchAction, retryLast, startNewDraft,
     patchBlockStates, setPatchBlockState,
     patchRejections, setPatchRejection,
@@ -887,6 +887,8 @@ export const ConversationPanel = memo(function ConversationPanel({
         isThinking={isThinking}
         longRunningHint={longRunningHint}
         nodeCount={nodeCount}
+        analysisRunning={isAnalysisRunning}
+        explainingRun={explainingRun}
         patchBlockStates={patchBlockStates}
         patchRejections={patchRejections}
         onChipClick={handleChipClick}

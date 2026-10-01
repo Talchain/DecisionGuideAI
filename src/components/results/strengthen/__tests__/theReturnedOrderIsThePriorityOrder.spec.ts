@@ -37,6 +37,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildRecommendations } from '../buildRecommendations'
 import type { StrengthenInputs } from '../strengthenTypes'
+import { resolveFactorConfidenceDisplay } from '../../driverConfidenceDisplayPolicy'
 
 const base: StrengthenInputs = {
   goalThreshold: 62,
@@ -49,11 +50,24 @@ const base: StrengthenInputs = {
   phase3Items: [],
 }
 
-/** Two recs of different help types, so a boost has something to reorder. */
+/**
+ * Two recs of different help types, so a boost has something to reorder. The
+ * evaluate rec was the flip trigger (`strengthen:flip:e1` in the measurement
+ * above); it is retired (Reasoning Coach 5931857395 + 5932849641), so the voi
+ * rec, the remaining evaluate trigger, takes its place.
+ */
 const twoKinds: StrengthenInputs = {
   ...base,
   goalThreshold: null, // clarify rec, priority 0
-  fragileEdges: [{ edgeId: 'e1', factorLabel: 'X', switchProbability: 0.5 }], // evaluate rec
+  factors: [
+    {
+      factorId: 'f1',
+      label: 'X',
+      worthInvestigating: true,
+      canFocus: true,
+      confidenceDisplay: resolveFactorConfidenceDisplay({ confidence: null }, true),
+    },
+  ], // evaluate rec, priority 120
 }
 
 describe('the returned order IS the priority order', () => {
@@ -93,7 +107,7 @@ describe('the returned order IS the priority order', () => {
     expect(ladder[0]!.id, 'unboosted, the ladder leads with the foundation rec').toBe(
       'strengthen:success-measure',
     )
-    expect(boosted[0]!.id, 'boosted, the matching help type leads').toBe('strengthen:flip:e1')
+    expect(boosted[0]!.id, 'boosted, the matching help type leads').toBe('strengthen:voi:f1')
     expect(
       ladder[0]!.id === boosted[0]!.id,
       'if these ever agree, the boost has stopped reaching the order and this file is inert',

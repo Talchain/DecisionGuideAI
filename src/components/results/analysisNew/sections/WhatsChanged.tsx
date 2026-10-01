@@ -24,11 +24,33 @@ import { useState } from 'react'
 import { typography } from '../../../../styles/typography'
 import { action, surface } from '../panelSurfaces'
 import { INPUT_ROWS_SHOWN_FIRST } from '../runDeltaView'
+import { linkRowText } from '../runDeltaLinkWords'
 import type { NoiseVerdict, RunDeltaInputRow, RunDeltaInputsView, RunDeltaMovement, RunDeltaView } from '../runDeltaView'
 import { useCanvasStore } from '../../../../canvas/store'
 import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../../../canvas/state/winShareGate'
 
 export const WHATS_CHANGED_TESTID = 'analysis-new-whats-changed'
+
+/**
+ * Said when the producer sent no comparable pair for ANY option (an empty `win_probabilities`); shared with the canvas's
+ * compact summary. ⛔ TRUE UNDER EVERY CAUSE THE EMPTY LIST HAS: the earlier Run's figures were withheld (R3 5936720411:
+ * the investor moment, the first Run with figures, read "nothing to compare here"), the current Run's are withheld, or
+ * the options do not match. It names no cause because the wire carries none yet (CANVAS 5936762171: 52f8cd adds a typed
+ * reason; RC's "The options can be compared for the first time" then renders on `prior_withheld`).
+ */
+export const WHATS_CHANGED_NO_PAIRS = 'No option has figures from both runs to compare.'
+
+/**
+ * 0.70.0, RC's UNWITHHELD (contract RERUN-EXPLANATION): the earlier Run withheld its figures, so this is the FIRST
+ * comparison. Said ONLY on the producer's typed `win_probabilities_unavailable === 'prior_withheld'`, never inferred from
+ * an empty array; it claims no movement, because there were no earlier figures (`RX-NO-MOVEMENT-WITHOUT-PRIOR`).
+ */
+export const WHATS_CHANGED_FIRST_COMPARISON = 'The options can be compared for the first time.'
+
+/** The sentence for an empty `win_probabilities`, by the producer's typed reason. */
+export function noPairsText(view: Pick<RunDeltaView, 'winProbabilitiesUnavailable'>): string {
+  return view.winProbabilitiesUnavailable === 'prior_withheld' ? WHATS_CHANGED_FIRST_COMPARISON : WHATS_CHANGED_NO_PAIRS
+}
 
 /**
  * A score, as a percentage.
@@ -63,16 +85,24 @@ export function noiseQualifier(v: NoiseVerdict): string | null {
   return null
 }
 
-/** What a person is told about ONE option's movement. */
-function MovementLine({ m, sharedQualifier }: { m: RunDeltaMovement; sharedQualifier: boolean }): JSX.Element {
+/**
+ * ONE option's movement in words ("Option B: 41% → 55%"). Exported so the canvas's compact summary
+ * (`graphChanges/RunChangesSummary`) says exactly what this section says, never a second phrasing.
+ */
+export function movementText(m: RunDeltaMovement): string {
   const name = m.label ?? 'An option this run does not name'
   // ⛔ `not_noise_qualified` IS DIRECTION ONLY. The contract: "reported as
   // direction only, never dressed as signal" — so the two numbers are withheld
   // rather than printed with a caveat, because a caveat under a precise figure
   // is read as precision.
-  const body = m.mayShowMagnitude
+  return m.mayShowMagnitude
     ? `${name}: ${pct(m.prior)} → ${pct(m.current)}`
     : `${name}: ${m.direction === 'up' ? 'scored higher' : m.direction === 'down' ? 'scored lower' : 'scored the same'} than last time`
+}
+
+/** What a person is told about ONE option's movement. */
+function MovementLine({ m, sharedQualifier }: { m: RunDeltaMovement; sharedQualifier: boolean }): JSX.Element {
+  const body = movementText(m)
 
   const qualifier = sharedQualifier ? null : noiseQualifier(m.noiseVerdict)
 
@@ -94,7 +124,11 @@ function MovementLine({ m, sharedQualifier }: { m: RunDeltaMovement; sharedQuali
 }
 
 /** One input row: "Pro price, Raise to £60: £59 → £60". Words only — the values are the producer's. */
-function inputRowText(row: RunDeltaInputRow): string {
+/** Exported for the canvas's compact summary, so both surfaces say one thing. */
+/** How a sizing literal reads, for a sizing change RC's contract has no sentence for (any other transition). */
+export function inputRowText(row: RunDeltaInputRow): string {
+  const link = linkRowText(row)
+  if (link !== null) return link
   if (row.change === 'changed') return `${row.subject}: ${row.before} → ${row.after}`
   if (row.kind === 'option') return row.change === 'added' ? `${row.subject} joined the comparison` : `${row.subject} left the comparison`
   // AIQ #75 5918248701: a link added or removed is structure, not a value — say so, never "now on" / "now not set".
@@ -110,27 +144,39 @@ function inputRowText(row: RunDeltaInputRow): string {
  */
 export type InputRowFocus = (row: RunDeltaInputRow) => (() => void) | null | undefined
 
+export const INPUTS_NOT_RECORDED_TEXT = 'The earlier run did not record its inputs, so only the result is compared here.'
+/**
+ * "Same input VALUES", not "same inputs" (DL 5936794868): a provenance-only change (an Accept of Olumi's estimate) leaves
+ * every value equal and still changes the model, so "the same inputs" would be false on it. Until 52f8cd's typed row names
+ * that change, this is the sentence that is true for both an identical rerun and an Accept.
+ */
+export const INPUTS_UNCHANGED_TEXT = 'Both runs used the same input values.'
+export const INPUTS_PARTIAL_TEXT = 'Some inputs could not be compared between these two runs.'
+
+/**
+ * What an EMPTY input list means, by coverage — the one wording both this section and the canvas's compact summary use
+ * (R3 5936613334: the canvas said "The inputs were not recorded" over a `complete` pair, a second phrasing that was false).
+ * `null` when there are rows, or no input comparison at all (a pre-SC-24 delta: nothing is said).
+ * ⛔ "Same inputs" is true ONLY on `complete` + no rows (AIQ 5921719917). On `partial` the producer could not compare
+ * every input, so an empty list is NOT "nothing changed" — the partial line wins (served 4f61c322: an option-setting
+ * edit read "Both runs used the same inputs", CANVAS 5921676745; DL re-balance 5921830092).
+ */
+export function emptyInputsText(inputs: RunDeltaInputsView | null): string | null {
+  if (inputs === null) return null
+  if (inputs.coverage === 'not_recorded') return INPUTS_NOT_RECORDED_TEXT
+  if (inputs.rows.length > 0) return null
+  return inputs.coverage === 'complete' ? INPUTS_UNCHANGED_TEXT : INPUTS_PARTIAL_TEXT
+}
+
 function InputChanges({ inputs, rowFocus }: { inputs: RunDeltaInputsView | null; rowFocus?: InputRowFocus }): JSX.Element | null {
   const [expanded, setExpanded] = useState(false)
   if (inputs === null) return null
-  if (inputs.coverage === 'not_recorded') {
+  const empty = emptyInputsText(inputs)
+  if (empty !== null) {
+    const id = inputs.coverage === 'not_recorded' ? 'inputs-not-recorded' : inputs.coverage === 'complete' ? 'inputs-unchanged' : 'inputs-partial'
     return (
-      <p className={`${typography.panelMeta} text-text-light mt-2 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-inputs-not-recorded`}>
-        The earlier run did not record its inputs, so only the result is compared here.
-      </p>
-    )
-  }
-  if (inputs.rows.length === 0) {
-    // ⛔ "Same inputs" is true ONLY on `complete` + no rows (AIQ 5921719917). On `partial` the producer could not compare
-    // every input, so an empty list is NOT "nothing changed" — the partial line wins (served 4f61c322: an option-setting
-    // edit read "Both runs used the same inputs", CANVAS 5921676745; DL re-balance 5921830092).
-    return inputs.coverage === 'complete' ? (
-      <p className={`${typography.panelMeta} text-text-light mt-2 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-inputs-unchanged`}>
-        Both runs used the same inputs.
-      </p>
-    ) : (
-      <p className={`${typography.panelMeta} text-text-light mt-2 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-inputs-partial`}>
-        Some inputs could not be compared between these two runs.
+      <p className={`${typography.panelMeta} text-text-light mt-2 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-${id}`}>
+        {empty}
       </p>
     )
   }
@@ -259,7 +305,7 @@ export function WhatsChanged({ view, rowFocus }: { view: RunDeltaView | null; ro
           className={`${typography.panelMeta} text-text-light mt-2 mb-0`}
           data-testid={`${WHATS_CHANGED_TESTID}-no-pairs`}
         >
-          No option could be matched across these two analyses, so there is nothing to compare here.
+          {noPairsText(view)}
         </p>
       ) : (
         <>

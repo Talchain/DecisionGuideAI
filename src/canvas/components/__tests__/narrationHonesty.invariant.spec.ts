@@ -69,6 +69,7 @@ import {
   DRAFT_VALUES_SETTLING_REFUSAL,
   DRAFT_VALUES_UNSETTLED_REFUSAL,
 } from '../../utils/canRunAnalysis'
+import { WAITING_LINES } from '../../conversation/zones/ThinkingDots'
 
 interface Stage {
   readonly afterSeconds: number
@@ -311,6 +312,11 @@ const FRAME_LICENSED_STRINGS: ReadonlyArray<readonly [string, string]> = [
   ['EARLY_STOP_UNCONFIRMED_NOTICE', EARLY_STOP_UNCONFIRMED_NOTICE],
   ['DRAFT_VALUES_SETTLING_REFUSAL', DRAFT_VALUES_SETTLING_REFUSAL],
   ['DRAFT_VALUES_UNSETTLED_REFUSAL', DRAFT_VALUES_UNSETTLED_REFUSAL],
+  // The chat's waiting lines (Grammar v0 §2; Reasoning Coach `waiting_library` @ `770a7b73`). They are shown while a
+  // turn or Run is in flight, so they are held to the same bar: no leader, probability, completion or duration words.
+  ...Object.entries(WAITING_LINES).flatMap(([phase, lines]) =>
+    lines.map((l, i) => [`ThinkingDots.WAITING_LINES.${phase}[${i}]`, l] as const),
+  ),
 ]
 
 describe('frame-licensed narration — may say the graph exists, may not judge it', () => {

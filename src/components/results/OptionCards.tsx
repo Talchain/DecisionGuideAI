@@ -72,6 +72,7 @@ import { buildSegmentColorMap, WIN_GAUGE_COLORS } from './WinGauge'
 import Tooltip from '../Tooltip'
 import { winnerChipLabel, winnerChipPrompt } from './utils/winnerChipCopy'
 import { openAskOlumi } from './coaching/askOlumiStore'
+import { RESTS_ON_ACCEPTED_OLUMI_LABEL } from './utils/goalIdentityWithheld'
 
 export interface OptionCardsProps {
   options: OptionResult[]
@@ -932,8 +933,18 @@ function OptionCard({
                 Dots show the median. Bars show the realistic range (10th to 90th
                 percentile).
               </p>
+              {option.outcomeRestsOnAcceptedOlumi === true && (
+                <p
+                  className={`${typography.panelMeta} text-text-light`}
+                  data-testid={`option-rests-on-accepted-${option.id}`}
+                >
+                  {RESTS_ON_ACCEPTED_OLUMI_LABEL}
+                </p>
+              )}
             </>
-          ) : option.outcome?.mean != null ? (
+            // B3 (DL R1 condition 3): under a goal-figure withhold the outcome is shown only WITH its spread, never as a
+            // bare centre.
+          ) : option.outcome?.mean != null && option.goalFigureWithheld !== true ? (
             <p className={`${typography.panelMeta} text-text-light`}>
               Expected: {option.outcome.mean.toLocaleString()}
             </p>

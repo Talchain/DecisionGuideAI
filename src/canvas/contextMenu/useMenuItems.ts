@@ -7,7 +7,7 @@
 
 import { useMemo } from 'react'
 import {
-  Sparkles, Zap, Crosshair, SlidersHorizontal, ArrowUpToLine, ArrowDownToLine,
+  Sparkles, HelpCircle, Crosshair, SlidersHorizontal, ArrowUpToLine, ArrowDownToLine,
   Pencil, Plus, Flag, Scissors, CopyPlus,
   Trash2, MessageSquare, Layers, TrendingUp, AlertTriangle, ArrowLeftRight, Eye,
   Undo2, Redo2, LayoutGrid, PanelRight, MousePointer2, Hand,
@@ -719,7 +719,7 @@ function buildNodeMenu(
     askAIItems.push({
       id: 'ask-ai-challenge',
       label: 'Challenge this',
-      icon: Zap,
+      icon: HelpCircle,
       tooltip: buildChallengeTooltip(kind as NodeType),
       enabled: true,
       action: wrap(() => askAI(target, 'challenge_element', showToast)),
@@ -983,7 +983,7 @@ function buildEdgeMenu(
     askAIItems.push({
       id: 'ask-ai-challenge',
       label: 'Challenge this',
-      icon: Zap,
+      icon: HelpCircle,
       tooltip: 'Ask AI to argue this link is wrong or overweighted',
       enabled: true,
       action: wrap(() => askAI(target, 'challenge_element', showToast)),

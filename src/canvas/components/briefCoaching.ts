@@ -4,8 +4,8 @@
  * action-oriented coaching.").
  *
  * The first draft takes about a minute, and the user is looking straight at their brief. Each card shows:
- * - ONE habit with a named, citable basis;
- * - ONE sentence on why it helps;
+ * - ONE habit with a named, citable basis (`source`, shown muted);
+ * - ONE line on why it helps (`why`, ≤ `BRIEF_COACHING_WHY_MAX` characters: no paragraphs);
  * - ONE action, which pre-fills Olumi's next message once the draft lands. It is never sent.
  *
  * ── WHICH CARDS, AND WHY THIS IS NOT THE UI DECIDING ─────────────────────────
@@ -15,12 +15,15 @@
  *
  * ── WORDS ───────────────────────────────────────────────────────────────────
  * The pre-mortem, outside-view and widen-options actions reuse the coaching prompts the panel already sends
- * (`ACTIONS_MENU`), so one act has one wording. The science lines name their source in brackets, as `SIGNAL_COPY`'s
- * "Pre-mortem (Klein)" already does. They state each method's claim and attach no figure.
+ * (`ACTIONS_MENU`), so one act has one wording. Each card names its source, as `SIGNAL_COPY`'s "Pre-mortem (Klein)"
+ * already does. The lines state each method's claim and attach no figure.
  */
 import { ACTIONS_MENU } from './pre-analysis-v3/constants'
 
 export const MAX_BRIEF_COACHING_CARDS = 3
+
+/** One line on the brief card at its 720px measure: the why never wraps to a paragraph. */
+export const BRIEF_COACHING_WHY_MAX = 90
 
 export type BriefCoachingId = 'goal' | 'limits' | 'options' | 'pre_mortem' | 'outside_view'
 
@@ -28,8 +31,10 @@ export interface BriefCoachingCard {
   id: BriefCoachingId
   /** The habit, as a short imperative. */
   title: string
-  /** Why it helps, with its source in brackets. One or two lines. */
-  science: string
+  /** Why it helps, in ONE line (≤ `BRIEF_COACHING_WHY_MAX` characters; Paul 1 Oct: "concise, easy-to-understand"). */
+  why: string
+  /** The named, citable basis, shown muted after the line. */
+  source: string
   /** The button's words. */
   actionLabel: string
   /** What the action pre-fills in Olumi's next message (never sent). */
@@ -46,35 +51,40 @@ export const BRIEF_COACHING_CARDS: Readonly<Record<BriefCoachingId, BriefCoachin
   goal: {
     id: 'goal',
     title: 'Make success measurable',
-    science: 'A specific target guides effort better than a vague aim (goal-setting research, Locke & Latham). A number and a date let Olumi score every option against yours.',
+    why: 'A number and a date focus effort, and let Olumi test every option against them.',
+    source: 'Goal-setting research (Locke & Latham)',
     actionLabel: 'Add a target',
     prefill: 'My target is ',
   },
   limits: {
     id: 'limits',
     title: 'Name your limits',
-    science: 'We tend to take the first option that clears our bar (satisficing, Simon). Saying where the bar is — a budget, a date, a must-have — tests every option fairly.',
+    why: 'Say your budget, deadline or must-haves, so no option passes just by being first.',
+    source: 'Satisficing (Simon)',
     actionLabel: 'Add your limits',
     prefill: 'My limits are: ',
   },
   options: {
     id: 'options',
     title: 'Add a real alternative',
-    science: 'Decisions that weigh a single option fail far more often than those comparing two or more (Nutt’s studies of organisational decisions).',
+    why: 'Decisions that weigh one option fail far more often than those that compare several.',
+    source: 'Studies of organisational decisions (Nutt)',
     actionLabel: 'Ask for options',
     prefill: menuPrompt('widen_options'),
   },
   pre_mortem: {
     id: 'pre_mortem',
     title: 'Run a pre-mortem',
-    science: 'Imagining the decision has already failed brings out more of the reasons it could (prospective hindsight; Klein’s pre-mortem).',
+    why: 'Picture the decision has already failed: you will spot more of the ways it could.',
+    source: 'Prospective hindsight (Klein’s pre-mortem)',
     actionLabel: 'Start a pre-mortem',
     prefill: menuPrompt('pre_mortem'),
   },
   outside_view: {
     id: 'outside_view',
     title: 'Take the outside view',
-    science: 'Forecasts built only from the case in hand run optimistic. Start from how similar decisions usually turn out, then adjust (Kahneman & Lovallo).',
+    why: 'Start from how similar decisions usually turn out, then adjust for yours.',
+    source: 'Reference-class forecasting (Kahneman & Lovallo)',
     actionLabel: 'Ask for base rates',
     prefill: menuPrompt('outside_view'),
   },
@@ -85,8 +95,12 @@ export interface BriefShape {
   hasGoal: boolean
   /** The "Things to consider" slot holds the user's words. */
   hasLimits: boolean
-  /** How many options the user wrote. */
-  optionCount: number
+  /**
+   * How many options the user wrote, or `null` when it is not known: the "Structure it" Options field is ONE free-text
+   * box, and this card parses no language (header), so "A; B" there is not counted as one option, or as two. Paul's
+   * 1 Oct preview showed "1" beside two options, and the card coached "add a real alternative" to someone who had.
+   */
+  optionCount: number | null
 }
 
 /** The cards for this brief: gaps first (goal → limits → options), then the always-useful habits. */
@@ -94,7 +108,8 @@ export function briefCoachingFor(shape: BriefShape): BriefCoachingCard[] {
   const ids: BriefCoachingId[] = []
   if (!shape.hasGoal) ids.push('goal')
   if (!shape.hasLimits) ids.push('limits')
-  if (shape.optionCount < 2) ids.push('options')
+  // Only a KNOWN count of fewer than two coaches widening; an unknown count (the user's own field) never claims it.
+  if (shape.optionCount !== null && shape.optionCount < 2) ids.push('options')
   ids.push('pre_mortem', 'outside_view')
   return ids.slice(0, MAX_BRIEF_COACHING_CARDS).map((id) => BRIEF_COACHING_CARDS[id])
 }

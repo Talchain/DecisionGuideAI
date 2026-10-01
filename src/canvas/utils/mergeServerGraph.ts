@@ -583,6 +583,8 @@ export function mergeServerGraphOnHydrate(
       structuralAddStandDown: e.data?.structuralAddStandDown,
       // POM-8: the placeholder label is acquired metadata too.
       strengthPlaceholder: e.data?.strengthPlaceholder,
+      // The by-definition label (MG 0ebb952a) is acquired metadata too.
+      strengthDefinitional: e.data?.strengthDefinitional,
     }
     if (!deepEqual(comparableReadback, e.data)) {
       valueChangedEdgeIds.push(e.id)

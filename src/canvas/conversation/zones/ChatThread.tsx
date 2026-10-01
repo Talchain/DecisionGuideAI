@@ -14,7 +14,10 @@ import { EmptyState } from './EmptyState'
 import { ChatMessage } from './ChatMessage'
 import type { HeldProposalSettlement } from '../../../v5/blocks/V5HeldProposalBlock'
 import { SessionDivider } from '../primitives/SessionDivider'
-import { ThinkingDots } from './ThinkingDots'
+import { ThinkingDots, waitingPhaseOf } from './ThinkingDots'
+
+/** The real stage name while request 2 runs: `inferLoadingHint`'s own words for an explanation. */
+const PREPARING_EXPLANATION = 'Preparing explanation\u2026'
 import { SuggestedChips, type RunChipGate } from './SuggestedChips'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
@@ -86,6 +89,10 @@ interface ChatThreadProps {
   isThinking: boolean
   longRunningHint: string | null
   nodeCount: number
+  /** A Run is in flight (`results.status` preparing/connecting/streaming): the waiting line's phase. */
+  analysisRunning?: boolean
+  /** Result-first request 2 (the auto-sent explanation) is in flight: "Preparing explanation…" with its lines. */
+  explainingRun?: boolean
   patchBlockStates: Map<string, PatchBlockState>
   patchRejections: Map<string, PatchRejectionInfo>
   onChipClick: (chip: ActionChip) => Promise<void>
@@ -186,6 +193,8 @@ export const ChatThread = memo(function ChatThread({
   isThinking,
   longRunningHint,
   nodeCount,
+  analysisRunning = false,
+  explainingRun = false,
   patchBlockStates,
   patchRejections,
   onChipClick,
@@ -371,7 +380,10 @@ export const ChatThread = memo(function ChatThread({
 
       {/* ThinkingDots (DS v5 §21.3): only when EmptyState is NOT handling the loading display */}
       {isThinking && !showEmptyState && !messages.some(m => m.isStreaming) && (
-        <ThinkingDots label={thinkingLabel(longRunningHint, settlingState)} />
+        <ThinkingDots
+          label={explainingRun ? PREPARING_EXPLANATION : thinkingLabel(longRunningHint, settlingState)}
+          phase={waitingPhaseOf({ settling: settlingState !== 'none', analysisRunning, nodeCount, explaining: explainingRun })}
+        />
       )}
 
       {/* New messages pill */}

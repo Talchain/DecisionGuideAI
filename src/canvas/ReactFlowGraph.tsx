@@ -203,6 +203,7 @@ const CANVAS_NODE_ADD_CONNECTED = hasServerGraphAuthority(
 )
 import { FirstUseComposer } from './components/FirstUseComposer'
 import { StarterProvenanceBanner } from './components/StarterProvenanceBanner'
+import { RunChangesSummary } from './components/RunChangesSummary'
 import { useFloatingPanelState } from './hooks/useFloatingPanelState'
 import { useUIStore } from '../stores/uiStore'
 import { PanelErrorBoundary } from './components/PanelErrorBoundary'
@@ -2966,6 +2967,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       <AssistantFocusChip />
       <FocusModeChip />
       <FirstModelNotice />
+      <RunChangesSummary />
       {/* ⛔⛔ `ModelExtentNotice` IS DELIBERATELY NOT MOUNTED. ITS ABSENCE IS THE
           RULING, NOT A DEFECT — DO NOT RESTORE IT.
 

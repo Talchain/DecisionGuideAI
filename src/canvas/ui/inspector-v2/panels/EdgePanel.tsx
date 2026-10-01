@@ -42,6 +42,7 @@ import type { InspectorPanelProps } from '../types'
 import { isEdgeFragile, getFragileEdgeSwitchProbability, parallelEdgeIdsFor } from '../../../utils/fragileEdgeMatch'
 import { resolveEdgeValuesCoaching, resolveEdgeValuesProvenance } from '../coachingConfig'
 import { isStrengthPlaceholder } from '../../../domain/strengthPlaceholder'
+import { BY_DEFINITION, isStrengthDefinitional } from '../../../domain/strengthDefinitional'
 import {
   edgeValueBand,
   edgeValueSource,
@@ -50,7 +51,7 @@ import {
   withLiveEdgeValue,
   type EdgeValueBand,
 } from '../../../domain/edgeValueProvenance'
-import { METRIC_UNSET } from '../../../nodes/shared/metricVocabulary'
+import { LINK_STRENGTH_COPY, METRIC_UNSET } from '../../../nodes/shared/metricVocabulary'
 import { resolveStrengthSpread, inlineStrengthLabel } from '../../../domain/strengthBandSpan'
 import { getStrengthLabel } from '../../../domain/vocabulary'
 import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
@@ -278,13 +279,20 @@ export const EdgePanel = memo(function EdgePanel({
     () => isStrengthPlaceholder(edge?.data as Record<string, unknown> | undefined),
     [edge?.data],
   )
+  // MG 0ebb952a: a link that holds BY DEFINITION is nobody's estimate — not
+  // "Olumi estimated", and nothing to confirm (`domain/strengthDefinitional`).
+  const strengthIsDefinitional = useMemo(
+    () => isStrengthDefinitional(edge?.data as Record<string, unknown> | undefined),
+    [edge?.data],
+  )
   const edgeValuesCoaching = useMemo(
     () => resolveEdgeValuesCoaching({
       strength: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'weight'),
       existence: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
       strengthPlaceholder: strengthIsPlaceholder,
+      strengthDefinitional: strengthIsDefinitional,
     }),
-    [edge?.data, strengthIsPlaceholder],
+    [edge?.data, strengthIsPlaceholder, strengthIsDefinitional],
   )
   // v3.1 row 32: the same two provenance facts, stated flat in the pane (the
   // generic card that used to carry them is gone — see the resolver's note).
@@ -293,8 +301,9 @@ export const EdgePanel = memo(function EdgePanel({
       strength: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'weight'),
       existence: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
       strengthPlaceholder: strengthIsPlaceholder,
+      strengthDefinitional: strengthIsDefinitional,
     }),
-    [edge?.data, strengthIsPlaceholder],
+    [edge?.data, strengthIsPlaceholder, strengthIsDefinitional],
   )
 
   // A confirm-as-is action is licensed only by a real producer value. A bare
@@ -340,13 +349,16 @@ export const EdgePanel = memo(function EdgePanel({
     // "as an estimate" would ratify a number nobody estimated. The strength
     // control above is how it gets set.
     if (strengthIsPlaceholder) return null
+    // MG 0ebb952a: a definition is not "Olumi's current estimate", and CEE
+    // refuses any change to it — there is nothing to confirm.
+    if (strengthIsDefinitional) return null
     return edgeValueSource(data, 'weight') === 'cee' &&
       // the act's own authority — one function, both readers
       serverStatedStrengthOf(data) !== null &&
       typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
       ? value
       : null
-  }, [edge?.data, strengthIsPlaceholder])
+  }, [edge?.data, strengthIsPlaceholder, strengthIsDefinitional])
 
   /**
    * ⛔⛔ THE HOUSE BOUND ERASES SMALL MAGNITUDES, SO IT CANNOT BE USED ALONE.
@@ -1045,7 +1057,24 @@ export const EdgePanel = memo(function EdgePanel({
                 same mechanism `InspectorRouter` used to apply to the whole
                 panel — kept, but pointed at the question that actually decides
                 it: can THIS edge's strength be asserted? */}
-            {awaitingStatedStrength ? (
+            {strengthIsDefinitional ? (
+              /* ⭐ A LINK THAT HOLDS BY DEFINITION HAS NO STRENGTH EDITOR (MG
+                 ruling, 1 Oct 2026). CEE refuses every strength or direction
+                 change on it, so the whole edit fieldset — direction, bands,
+                 fine-tune, β — is replaced, not disabled: a fenced editor reads
+                 as "not yet", and a definition is not waiting for anything.
+                 The full sentence is the provenance line directly above
+                 (`edge-values-provenance`), so this slot states the strength in
+                 the short words rather than printing that sentence twice. */
+              <PrimaryControlCard>
+                <p
+                  className={`${typography.panelBody} text-text-body`}
+                  data-testid="edge-strength-definitional"
+                >
+                  {`${LINK_STRENGTH_COPY.noun}: ${BY_DEFINITION.toLowerCase()}`}
+                </p>
+              </PrimaryControlCard>
+            ) : awaitingStatedStrength ? (
               /* ⭐ THE ADD CONTROL. Rendered INSTEAD of the edit fieldset, never
                  beside it: two strength controls on one edge would be two
                  answers to one question, which is the defect this panel already

@@ -25,6 +25,7 @@ import { useCanvasStore } from '../../store'
 import { NODE_REGISTRY, type NodeType } from '../../domain/nodes'
 import { resolveEdgeDirectionDisplay, resolveEdgeSignedStrengthDisplay } from '../../domain/edgeValueProvenance'
 import { StrengthBar } from './StrengthBar'
+import { NodeShapeIndicator } from '../../nodes/NodeShapeIndicator'
 import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
 import { readoutIsBareModelScale } from '../../nodes/shared/FactorValueFigure'
 import { factorValueSourceMark } from '../../nodes/shared/valueSourceMark'
@@ -45,7 +46,7 @@ import {
 export const NOT_ON_RECORD = 'Not on record'
 const MAX_LINKED_NAMES = 4
 
-type LinkedName = { name: string; direction: 'positive' | 'negative' | null; strength: number | null }
+type LinkedName = { name: string; kind: string | null; direction: 'positive' | 'negative' | null; strength: number | null }
 export interface NodeHoverLinkGroup { heading: string; items: LinkedName[]; more: number }
 export interface NodeHoverFacts {
   title: string | null
@@ -76,7 +77,14 @@ function group(heading: string, edges: GraphEdge[], other: (e: GraphEdge) => str
     const dir = causal ? resolveEdgeDirectionDisplay(e.data as Record<string, unknown> | undefined) : null
     // The server's stated strength only (`resolveEdgeSignedStrengthDisplay` withholds a UI default), drawn as a bar.
     const str8 = causal ? resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined) : null
-    items.push({ name, direction: dir?.show ? dir.direction : null, strength: str8?.show ? Math.abs(str8.value) : null })
+    items.push({
+      name,
+      // The linked card's kind, so its row wears the same shape as the card on the board (the pre-27 Sep popover's
+      // connection rows did; Paul 1 Oct: "The hover states look genuinely shit compared to what they used to").
+      kind: str(byId.get(other(e))?.type),
+      direction: dir?.show ? dir.direction : null,
+      strength: str8?.show ? Math.abs(str8.value) : null,
+    })
   }
   if (items.length === 0) return null
   return { heading, items: items.slice(0, MAX_LINKED_NAMES), more: Math.max(0, items.length - MAX_LINKED_NAMES) }
@@ -213,21 +221,31 @@ function OpenNodeHoverCard({ nodeId, nodeType, data, anchorRef }: NodeHoverCardP
         visibility: pos ? 'visible' : 'hidden',
       }}
     >
+      {/* ⭐ THE CARD'S LOOK (Paul, 1 Oct 2026: "The hover states look genuinely shit compared to what they used to
+          look like, so that's a regression"). The pre-27 Sep popover was a small panel: a heading, then rows that each
+          wore their card's SHAPE and a strength bar. This keeps #2323's facts and brings that look back:
+          · the heading is the panel's section-title token (14px/500, DS v5 §2.4: never semibold), with the kind beside
+            its own shape;
+          · each section sits below a hairline, so the card reads as three blocks, not one run of text;
+          · each connection is ONE row: shape · name · strength bar · direction, never a comma-joined sentence. */}
       {title !== null && (
-        <div data-testid="node-hover-card-title" className={`${typography.panelBody} font-semibold text-text-header break-words`}>
+        <div data-testid="node-hover-card-title" className={`${typography.panelHeader} text-text-header break-words`}>
           {title}
         </div>
       )}
       {kind !== null && (
-        <div data-testid="node-hover-card-kind" className={`${typography.panelMeta} text-text-light`}>{kind}</div>
+        <div data-testid="node-hover-card-kind" className={`${typography.panelMeta} text-text-light mt-0.5 flex items-center gap-1.5`}>
+          <NodeShapeIndicator nodeKind={nodeType} size={10} />
+          {kind}
+        </div>
       )}
       {description !== null && (
-        <p data-testid="node-hover-card-description" className={`${typography.panelMeta} text-text-body m-0 mt-1 break-words`}>
+        <p data-testid="node-hover-card-description" className={`${typography.panelMeta} text-text-body m-0 mt-1.5 break-words`}>
           {description}
         </p>
       )}
-      {(value !== null || source !== null || links.length > 0) && (
-        <dl className="mt-1.5 mb-0 space-y-1">
+      {(value !== null || source !== null) && (
+        <dl className="m-0 mt-2.5 pt-2.5 border-t border-panel-border space-y-1.5">
           {value !== null && (value.text !== null || value.missing) && (
             <Row label="Value" testId="node-hover-card-value">
               {value.text ?? NOT_ON_RECORD}
@@ -240,21 +258,31 @@ function OpenNodeHoverCard({ nodeId, nodeType, data, anchorRef }: NodeHoverCardP
             <Row label="Source" testId="node-hover-card-source">{value.source}</Row>
           )}
           {source !== null && <Row label="Source" testId="node-hover-card-source">{source}</Row>}
-          {links.map(g => (
-            <Row key={g.heading} label={g.heading} testId={`node-hover-card-links-${g.heading.toLowerCase().replace(/\s+/g, '-')}`}>
-              {g.items.map((item, i) => (
-                <span key={`${item.name}-${i}`}>
-                  {i > 0 && ', '}
-                  {item.name}
-                  {item.strength !== null && <StrengthBar magnitude={item.strength} testId={`node-hover-card-link-bar-${i}`} />}
-                  {item.direction !== null && <span className="text-text-light"> ({item.direction})</span>}
-                </span>
-              ))}
-              {g.more > 0 && <span className="text-text-light">{` +${g.more} more`}</span>}
-            </Row>
-          ))}
         </dl>
       )}
+      {links.map(g => (
+        <div
+          key={g.heading}
+          className="mt-2.5 pt-2.5 border-t border-panel-border"
+          data-testid={`node-hover-card-links-${g.heading.toLowerCase().replace(/\s+/g, '-')}`}
+        >
+          <div className={`${typography.panelMeta} text-text-light`}>{g.heading}</div>
+          <ul className="m-0 mt-1 p-0 list-none space-y-1">
+            {g.items.map((item, i) => (
+              <li key={`${item.name}-${i}`} className={`${typography.panelBody} text-text-body flex items-start gap-1.5 min-w-0`}>
+                {/* The shape sits on the first line's centre; a long name wraps under itself, never truncates. */}
+                {item.kind !== null && <NodeShapeIndicator nodeKind={item.kind as NodeType} size={10} className="mt-[0.35em]" />}
+                <span className="min-w-0 break-words">
+                  {item.name}
+                  {item.strength !== null && <StrengthBar magnitude={item.strength} testId={`node-hover-card-link-bar-${i}`} />}
+                  {item.direction !== null && <span className="text-text-light whitespace-nowrap"> ({item.direction})</span>}
+                </span>
+              </li>
+            ))}
+            {g.more > 0 && <li className={`${typography.panelMeta} text-text-light`}>{`+${g.more} more`}</li>}
+          </ul>
+        </div>
+      ))}
     </div>,
     document.body,
   )

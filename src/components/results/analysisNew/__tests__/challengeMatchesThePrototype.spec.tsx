@@ -74,8 +74,8 @@ const viaVm = (r: Recommendation): Recommendation => {
   return out
 }
 
-/** Maps to `consider_opposite` by its id prefix. */
-const FLIP = rec({ id: 'strengthen:flip:edge_9' })
+/** Maps to `different_option` by its id (`strengthen:flip` names no technique since the coach retired it, 5931857395). */
+const FLIP = rec({ id: 'strengthen:broaden' })
 /** Maps to `outside_view` ONLY through its claim id. */
 const CALIBRATION = rec({
   id: 'strengthen:phase3:blk_42',
@@ -137,7 +137,7 @@ describe('the title and its ⓘ "Why this method here?"', () => {
     const items = within(screen.getByTestId(`${TID}-basis`)).getAllByRole('listitem')
     // Said once: the why-line left the basis for the card's rest state.
     expect(items.map((li) => li.textContent)).toEqual([
-      `${method('consider_opposite').title}: a reasoning aid, not a prediction or diagnosis.`,
+      `${method('different_option').title}: a reasoning aid, not a prediction or diagnosis.`,
     ])
   })
 
@@ -193,14 +193,14 @@ describe('only the question at rest — no kicker', () => {
 
   it('the finding\'s technique is carried by IDENTITY on the card, not as words above it', () => {
     draw({ intervention: viaVm(FLIP) })
-    expect(screen.getByTestId(TID)).toHaveAttribute('data-method-id', 'consider_opposite')
+    expect(screen.getByTestId(TID)).toHaveAttribute('data-method-id', 'different_option')
     cleanup()
     draw({ intervention: viaVm(UNMAPPED) })
     expect(screen.getByTestId(TID)).not.toHaveAttribute('data-method-id')
   })
 
   it('⭐ picking the SAME method the finding names shows the finding — its question is that method\'s question', () => {
-    draw({ intervention: viaVm(FLIP), methodId: 'consider_opposite' })
+    draw({ intervention: viaVm(FLIP), methodId: 'different_option' })
     expect(screen.getByTestId(TID)).toHaveAttribute('data-source', 'intervention')
     expect(screen.getByTestId(`${TID}-heading`).textContent).toBe(FLIP.title)
     cleanup()
@@ -263,7 +263,7 @@ describe('the ⋯ "Question options" menu', () => {
   it('marks the current method (the finding\'s technique) and a method row selects through the host', () => {
     const { onSelectMethod } = draw({ intervention: viaVm(FLIP) })
     fireEvent.click(screen.getByTestId(`${TID}-more`))
-    expect(screen.getByTestId(`${TID}-menu-method-consider_opposite`)).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByTestId(`${TID}-menu-method-different_option`)).toHaveAttribute('aria-current', 'true')
     expect(screen.getByTestId(`${TID}-menu-method-outside_view`)).not.toHaveAttribute('aria-current')
     fireEvent.click(screen.getByTestId(`${TID}-menu-method-outside_view`))
     expect(onSelectMethod).toHaveBeenCalledWith('outside_view')

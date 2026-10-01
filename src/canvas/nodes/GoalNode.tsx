@@ -27,6 +27,7 @@
  * No ExpertOverlay. No MetricPills.
  */
 import { memo, useMemo } from 'react'
+import { goalPeriodHorizonLine } from '../domain/goalPeriodHorizon'
 import Tooltip from '../../components/Tooltip'
 import {
   GOAL_LABEL_FROM_BRIEF_COPY,
@@ -512,6 +513,7 @@ export const GoalNode = memo((props: NodeProps) => {
   const thresholdUnit = props.data?.goal_threshold_unit as string | undefined
   // R1 S4-core (MG 5879952291): a target stated as a change from today is said as the change (`formatGoalTarget`).
   const thresholdFrame = (props.data as GoalTargetSource | undefined)?.goal_threshold_frame
+  const periodHorizonLine = goalPeriodHorizonLine(props.data)
   // ⚠ ONE CALL, TWO READINGS, AND THEY CANNOT DISAGREE. `hasThreshold` is the
   // negation of the admission by construction — never a parallel predicate.
   const canCaptureTarget = canCaptureGoalTarget(props.data as GoalTargetSource)
@@ -1176,6 +1178,14 @@ export const GoalNode = memo((props: NodeProps) => {
           )}
           {targetSourceMark !== null && (
             <ValueSourceMark mark={targetSourceMark} testId={`goal-target-source-${props.id}`} subject="Target" onOpenSource={() => { openNodeInspector(props.id) }} />
+          )}
+          {/* ⭐ T12 row 2 (MG F1 spec §1, schemas 0.69.0): the period the goal is per and when it must be met, as
+              stated ("per quarter · within 6 months"), muted beside the target. Absent says nothing, and the unit
+              string is never parsed for a period (`goalPeriodHorizon.ts`). */}
+          {periodHorizonLine !== null && (
+            <span className={`${typography.nodeLabel} text-text-light`} data-testid={`goal-period-horizon-${props.id}`}>
+              {periodHorizonLine}
+            </span>
           )}
           {/* ⭐ The user-stated limits beside the target (NODE-ANATOMY v3.2;
               ED choice 2: "Target: £20k/month   Churn < 7%"). Contract v3.1

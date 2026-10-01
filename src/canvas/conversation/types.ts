@@ -49,6 +49,8 @@ export interface ConversationMessage {
    * (`RESTORED_EARLIER_TAG`, AIQ 5925678816). The one full note sits once, after the last earlier reply.
    */
   restoredTag?: string
+  /** Result-first (CEE #2470): the turn's `narration` identity, so load 2 shows the Run line then ONE explanation. */
+  narration?: { status: 'pending' | 'ready' | 'stale' | 'unavailable'; runKey: string }
   /** Inline status text shown during tool execution (e.g. "Running simulations...") */
   toolLoadingState?: string | null
   /** Deterministic CEE insights — rendered between assistant_text and chips */

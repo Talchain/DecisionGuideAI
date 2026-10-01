@@ -57,6 +57,8 @@ import type {
 } from '@talchain/schemas/boundary'
 
 import { useCanvasStore } from '../store'
+import { analysisResultsAreCurrentIn } from '../hooks/useAnalysisResultsAreCurrent'
+import { isV5CanonicalAnalysisEnabled } from '../../flags'
 import type { AnalysisReadinessAuthority } from '../utils/canRunAnalysis'
 import {
   classifyFreshnessForDisplay,
@@ -66,6 +68,7 @@ import {
   type FreshnessDisplaySemantic,
 } from '../store/analysisFreshness'
 import {
+  classifyAnalysisStateSource,
   useAnalysisStateSource,
   type AnalysisStateSource,
 } from '../hooks/useAnalysisStateSource'
@@ -933,6 +936,43 @@ export function useAnalysisState(): ComposedAnalysisState {
 // producer fields and stops. Anything that decides something about them belongs
 // in `canRunAnalysis`, which is where the one predicate lives.
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * ⭐ ONE STORE-READABLE ANSWER TO "IS THE RUN ON SCREEN AFFIRMATIVELY CURRENT?" — the composed verdict
+ * (`composeAnalysisState`, the same inputs `useAnalysisState` reads) affirming `trust.semantic === 'current'`, AND the
+ * local affirmative (`analysisResultsAreCurrentIn`). A wire `unknown_degraded` / `refused` composes to `cannot_confirm`
+ * even while local freshness still says `fresh`, so the local read alone is not enough (#2408 delta CR,
+ * CODEX_CLI_OVERFLOW). For an action that WRITES on the strength of the Run: read it at render
+ * (`useCanvasStore(selectRunAffirmedCurrent)`, a boolean) and again at click time (`selectRunAffirmedCurrent(getState())`).
+ */
+export function selectRunAffirmedCurrent(s: ReturnType<typeof useCanvasStore.getState>): boolean {
+  if (!analysisResultsAreCurrentIn(s)) return false
+  const fact = s.v5AnalysisFact
+  const { source } = classifyAnalysisStateSource({
+    canonicalFlagOn: isV5CanonicalAnalysisEnabled(),
+    reportPresent: !!s.results?.report,
+    reportHash: s.results?.hash ?? null,
+    currentScenarioId: s.currentScenarioId,
+    fact: fact
+      ? { scenarioId: fact.scenarioId, analysisHash: fact.analysisHash, hasRunAnalysisFact: fact.hasRunAnalysisFact, freshness: fact.freshness }
+      : null,
+  })
+  const composed = composeAnalysisState({
+    analysisState: s.analysisStateV1,
+    freshness: s.analysisFreshness,
+    dirty: s.analysisFreshnessDirty,
+    source,
+    resultsStatus: s.results?.status,
+    resultsStartedAt: s.results?.startedAt,
+    importHold: s.importPendingServerRegistration,
+    hasReport: s.results?.report != null,
+    hasCompletedFirstRun: s.hasCompletedFirstRun,
+    hasRenderableResult: selectHasRenderableAnalysisResult(s),
+    ceeAnalysisReadyStatus: s.ceeAnalysisReady?.status,
+    aiPanelV2On: true,
+  })
+  return composed.trust.semantic === 'current'
+}
 
 /**
  * The producer's readiness verdict for the run gate, or `null` when the wire

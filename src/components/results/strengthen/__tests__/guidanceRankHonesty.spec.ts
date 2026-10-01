@@ -24,6 +24,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildRecommendations } from '../buildRecommendations'
 import type { StrengthenInputs } from '../strengthenTypes'
+import { resolveFactorConfidenceDisplay } from '../../driverConfidenceDisplayPolicy'
 import type { OlumiResponse } from '@talchain/schemas/boundary'
 import {
   ADDITIVE_EXTENSIONS_KEY,
@@ -42,9 +43,22 @@ const base: StrengthenInputs = {
   phase3Items: [],
 }
 
-/** A fragile edge produces the producer-backed flip rec at PRIORITY.flip = 100. */
-const withFlip: Pick<StrengthenInputs, 'fragileEdges'> = {
-  fragileEdges: [{ edgeId: 'e1', factorLabel: 'Salary cost', switchProbability: 0.62 }],
+/**
+ * A producer `worth_investigating` flag produces the producer-backed voi rec at
+ * PRIORITY.voi = 120. It stands in for the flip rec (PRIORITY.flip = 100), which
+ * is retired (Reasoning Coach 5931857395 + 5932849641); both sit between the
+ * ranked phase-3 band and the unranked one, which is the property used below.
+ */
+const withVoi: Pick<StrengthenInputs, 'factors'> = {
+  factors: [
+    {
+      factorId: 'f1',
+      label: 'Salary cost',
+      worthInvestigating: true,
+      canFocus: true,
+      confidenceDisplay: resolveFactorConfidenceDisplay({ confidence: null }, true),
+    },
+  ],
 }
 
 const UNRANKED_LINE = 'Source: Olumi model review (not ranked, shown in the order received).'
@@ -111,10 +125,10 @@ describe('UI-SEM-085 — deriveGuidance marks producer-supplied vs UI-defaulted 
 // ─── Leg 2: demotion + disclosure in the Strengthen ladder ─────────────────
 
 describe('UI-SEM-085 — unranked guidance is demoted below the producer ladder', () => {
-  it('THE DEFECT: an unranked phase-3 row never outranks the flip trigger', () => {
+  it('THE DEFECT: an unranked phase-3 row never outranks the producer-backed voi trigger', () => {
     const input: StrengthenInputs = {
       ...base,
-      ...withFlip,
+      ...withVoi,
       phase3Items: [
         // No priorityRank — the producer sent no ordering for this block.
         { id: 'g1', title: 'Unranked finding', targetIds: [] },
@@ -122,20 +136,24 @@ describe('UI-SEM-085 — unranked guidance is demoted below the producer ladder'
     }
     const recs = buildRecommendations(input)
     const phase3 = recs.find((r) => r.id === 'strengthen:phase3:g1')!
-    const flip = recs.find((r) => r.id.startsWith('strengthen:flip:'))!
-    expect(phase3.priority).toBeGreaterThan(flip.priority)
+    const voi = recs.find((r) => r.id === 'strengthen:voi:f1')!
+    expect(phase3, 'PRECONDITION: the phase-3 row is built').toBeDefined()
+    expect(voi, 'PRECONDITION: the voi rec is built').toBeDefined()
+    expect(phase3.priority).toBeGreaterThan(voi.priority)
   })
 
-  it('a producer-RANKED phase-3 row keeps its place above the flip trigger', () => {
+  it('a producer-RANKED phase-3 row keeps its place above the producer-backed voi trigger', () => {
     const input: StrengthenInputs = {
       ...base,
-      ...withFlip,
+      ...withVoi,
       phase3Items: [{ id: 'g1', title: 'Ranked finding', targetIds: [], priorityRank: 1 }],
     }
     const recs = buildRecommendations(input)
     const phase3 = recs.find((r) => r.id === 'strengthen:phase3:g1')!
-    const flip = recs.find((r) => r.id.startsWith('strengthen:flip:'))!
-    expect(phase3.priority).toBeLessThan(flip.priority)
+    const voi = recs.find((r) => r.id === 'strengthen:voi:f1')!
+    expect(phase3, 'PRECONDITION: the phase-3 row is built').toBeDefined()
+    expect(voi, 'PRECONDITION: the voi rec is built').toBeDefined()
+    expect(phase3.priority).toBeLessThan(voi.priority)
   })
 
   it('labels an unranked row as arrival-ordered, and leaves a ranked row unlabelled', () => {

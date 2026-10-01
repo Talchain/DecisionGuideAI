@@ -204,12 +204,12 @@ describe('WS1 #25 — a far-zoom card is a white chip with its name and its kind
     expect(title.className).not.toContain('--canvas-far-title-scale')
   })
 
-  it.each(['full', 'line'] as const)('the kind shape is the contract\'s 24px at −12px, counter-scaled (WS1 #15) — %s rung', (rung) => {
+  it.each(['full', 'line'] as const)('the kind shape is 19.2px at −9.6px (the contract\'s 24 less Paul\'s 1 Oct 20%), counter-scaled (WS1 #15) — %s rung', (rung) => {
     const { container } = renderFactorAt(rung, { label: 'Churn' })
     const glyph = glyphOf(container)
-    expect(glyph.style.width).toBe('calc(24px * var(--canvas-label-scale, 1))')
-    expect(glyph.style.height).toBe('calc(24px * var(--canvas-label-scale, 1))')
-    expect(glyph.style.top).toBe('calc(12px - 24px * var(--canvas-label-scale, 1))')
+    expect(glyph.style.width).toBe('calc(19.2px * var(--canvas-label-scale, 1))')
+    expect(glyph.style.height).toBe('calc(19.2px * var(--canvas-label-scale, 1))')
+    expect(glyph.style.top).toBe('calc(9.6px - 19.2px * var(--canvas-label-scale, 1))')
     expect(glyph.className).not.toMatch(/h-\[22px\]/)
   })
 })

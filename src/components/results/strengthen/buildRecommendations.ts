@@ -27,10 +27,8 @@
  */
 import { guidanceCategoryRank, type GuidanceItem } from '../../../canvas/stores/guidanceStore'
 import type { HelpType, Recommendation, StrengthenInputs, StrengthenPhase3Item } from './strengthenTypes'
-import { attestsNoFactorFlip } from '../utils/fragileEdgeCopy'
 import { biasCodeFromPhase3Item } from './biasTypesFromGuidance'
 import { SUCCESS_TARGET_PROMPT } from './successTargetPrompt'
-import { strongerOptionInWeakRuns } from '../strengthElicitation/assumedStrengthCopy'
 import { selectNextInputToSet } from './nextInputToSet'
 import { influenceRankReadout } from '../influenceScaleCopy'
 
@@ -759,104 +757,12 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
     })
   }
 
-  // ── Evaluate: the single top flip risk (producer fragile_edges) ──────────
-  // 1.243 GATE. A "flip" is a change in the ORDERING, so this rec is
-  // comparative in all three of its parts: the SELECTION (argmax over the
-  // MEASURED `switch_probability` — StrengthenContainer's presence branch
-  // admits no other quantity; `marginal_switch_probability` is a different
-  // Monte Carlo and never substitutes), the
-  // TITLE, and the SIGNAL, which names `alternative_winner_label` and so
-  // designates by elimination (the #494 residual-1 argument: naming what the
-  // result would flip TO asserts that something else is currently ahead).
-  // Gated rather than relabelled because there is no leader-free reading of
-  // the quantity itself — unlike win probability, which #494 could relabel
-  // because "this option wins in N% of runs" survives without a ranking.
-  // The DATA is not lost: `challengeFragileEdges` also feeds V7SignalRow's
-  // flip-risk chip, buildV7Lenses' flipRisks and V7TopMatter.
-  //
-  // ⚠⚠ SECOND GATE, AND IT IS A DIFFERENT QUESTION (the anti-correlated half).
-  // `leaderClaimWithheld` is Q1, PERMISSION. It is FALSE on exactly the runs
-  // where Q2 bites, because a run whose factors cannot flip the leader is a run
-  // whose leader IS confidently designated — so Q1 alone left this rec asserting
-  // "55% chance the result flips to {alt}" directly beside the footer's "none of
-  // the factors we could test changed which option leads on its own". Witnessed
-  // on `live-analysis-turn-walkA-2026-08-04.json`, same panel, same run, same
-  // named alternative. Q2 is the producer's own flip evidence, read through the
-  // existing `classifyFlipEvidence` authority — no new derivation.
-  //
-  // GATED, not relabelled, for the reason the Q1 comment above already gives:
-  // there is no leader-free reading of "chance the result flips", and the title
-  // ("most likely to change the leader") carries the same claim. The DATA is not
-  // lost — the same `challengeFragileEdges` feed the fragile card, V7SignalRow's
-  // chip, `buildV7Lenses` flipRisks and V7TopMatter.
-  const flipEvidenceAttestsNoFlip = attestsNoFactorFlip(inputs.flipThresholds)
-  if (
-    !leaderClaimWithheld &&
-    !flipEvidenceAttestsNoFlip &&
-    inputs.analysisComplete &&
-    inputs.fragileEdges.length > 0
-  ) {
-    const top = [...inputs.fragileEdges].sort(
-      (a, b) => b.switchProbability - a.switchProbability,
-    )[0]
-    const alt = top.alternativeWinnerLabel
-    recs.push({
-      id: `strengthen:flip:${top.edgeId}`,
-      helpType: 'evaluate',
-      // ⭐ THE SAME REFERENT REPAIR, ON THE OTHER PERMITTED TRIGGER. This read
-      // "Test the assumption most likely to change which option scores
-      // highest" — an argmax description of the ASSUMPTION wrapped around a
-      // ranking assertion about the OPTIONS, naming neither. The assumption has
-      // a name and the engine is already holding it, so the title says it.
-      //
-      // ⚠ NOTHING IS LOST. The reason this assumption rather than another is
-      // the `signal` directly beneath ("NN% chance the result flips to {alt} if
-      // {factor} shifts"), and `whyNow` carries the urgency. The title was
-      // restating the selection rule; now it states the subject.
-      title: `Test the assumption about ${top.factorLabel}`,
-      /**
-       * ⛔⛔ THIS SAID THE WRONG QUANTITY, AND IT SAID IT AS A FORECAST.
-       *
-       * As shipped: *"NN% chance {alt} scores highest instead if {factor}
-       * shifts."* Two faults in one sentence, and the second is the one no
-       * guard could see:
-       *
-       *  1 · CONDITION DROPPED. ISL declares the field (`staging`,
-       *      `src/models/response_v2.py:569-575`): *"Proportion of MC samples
-       *      where alternative wins WHEN EDGE IS WEAK."* It is conditional on
-       *      the link being in its bottom quartile — not on the factor
-       *      "shifting", which is any movement in either direction.
-       *  2 · TENSE. "chance … if … shifts" is a forecast about something that
-       *      might happen. The number counts runs that ALREADY happened.
-       *
-       * ⛔ AND THE SENTENCE WAS AN ACCURATE DESCRIPTION OF THE ADJACENT FIELD.
-       * `response_v2.py:576-580` declares `marginal_switch_probability` —
-       * *"Probability of decision flip when ONLY this edge varies"* — which is
-       * precisely "how much this one assumption moved the answer". The UI reads
-       * it nowhere. Two neighbouring producer fields, and this card had them
-       * swapped. #1798 found the identical swap in the uncertainty column's
-       * caption; this is the same defect on the card the panel leads with.
-       *
-       * ⚠ THE REPLACEMENT IS IMPORTED, NOT WRITTEN. `strongerOptionInWeakRuns`
-       * is the elicitation card's own sentence, which has carried the condition
-       * correctly since it was written. A second spelling here is how one
-       * measurement acquires two readings, which is the defect being closed.
-       */
-      signal: strongerOptionInWeakRuns(top.switchProbability, alt ?? null, 'that assumption'),
-      whyNow: 'This single relationship carries the most decision risk right now.',
-      tryThis: 'Plan one check that would confirm or correct this assumption before you rely on the ranking.',
-      sourceLine: 'Source: robustness analysis (fragile relationships).',
-      action: {
-        kind: 'ai-dialogue',
-        label: 'Plan an evidence check',
-        actionType: 'discuss',
-        parameters: { edge_id: top.edgeId, switch_probability: top.switchProbability },
-        prompt: `Help me plan an evidence check for the relationship involving ${top.factorLabel}.`,
-      },
-      targetId: top.edgeId,
-      priority: PRIORITY.flip,
-    })
-  }
+  // ⛔ THE FLIP RECOMMENDATION IS RETIRED (REASONING COACH 5931857395 + 5932849641, `ui_trigger_map` @ `33141ba5`).
+  // It led with the producer's top `fragile_edges` row: "In the runs where that assumption came out weak, {alt} was the
+  // stronger option NN% of the time." NN% is `switch_probability`, conditional on the link's weak quartile with no base
+  // rate subtracted, so readers took it as the link's effect; P3C measured fragile_edges "could flip" false 7 times in
+  // 10 (never-coach). The DATA is not lost: `challengeFragileEdges` still feeds the fragile-edge card and the V7 chips,
+  // whose display is result truth (52f8cd/AIQ). Do not re-add a coaching rec on this quantity.
 
   // ── Clarify: the next input this run turns on ────────────────────────────
   //

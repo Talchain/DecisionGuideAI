@@ -76,6 +76,7 @@
  */
 
 import type { OptionComputeStatus } from '../../../adapters/plot/optionComputeStatus'
+import type { OptionParticipationState } from '../../../canvas/state/storedOptionParticipation'
 
 /** Why an option carries no analysis. Two facts, never one boolean. */
 export type NotAnalysedReason =
@@ -97,6 +98,12 @@ export type NotAnalysedReason =
    * Runtime #72 5888341208), never inferred from the node. Not the engine's miss, and not the user's gap.
    */
   | 'excluded_olumi_proposed'
+  /**
+   * The USER took it out (schemas 0.69.0 `excluded_infeasible` / `excluded_removed`, set by `option_status_edit`). The
+   * user's own act, read from the Run's participation fact: never the engine's miss, and nothing to fix.
+   */
+  | 'taken_out_infeasible'
+  | 'taken_out_removed'
 
 /*
  * ⛔ THE FOURTH VALUE WAS WITHDRAWN. A `graph_edited_since_run` member was added
@@ -160,6 +167,15 @@ export function runAnalysedAnyOption(
   return optionNodeIds.some((id) => isAnalysedOption(optionProbabilities, id))
 }
 
+export type TakenOutReason = Extract<NotAnalysedReason, 'taken_out_infeasible' | 'taken_out_removed'>
+
+/** The participation state → the taken-out reason, or null when the user did not take the option out. */
+export function takenOutReasonOf(state: OptionParticipationState | null | undefined): TakenOutReason | null {
+  if (state === 'excluded_infeasible') return 'taken_out_infeasible'
+  if (state === 'excluded_removed') return 'taken_out_removed'
+  return null
+}
+
 /**
  * Why this option was not analysed, read off the GRAPH the user built.
  *
@@ -186,7 +202,11 @@ export function deriveNotAnalysedReason(
   optionValueCount?: (optionId: string) => number | null,
   /** The Run's typed fact that it left this option out as Olumi's proposal; checked first, since it is the Run's own word. */
   excludedAsOlumiProposal?: (optionId: string) => boolean,
+  /** The Run's typed fact that the USER took this option out (`takenOutReasonOf`); the user's own act outranks everything. */
+  takenOutByUser?: (optionId: string) => TakenOutReason | null,
 ): NotAnalysedReason {
+  const takenOut = takenOutByUser?.(nodeId) ?? null
+  if (takenOut !== null) return takenOut
   if (excludedAsOlumiProposal?.(nodeId) === true) return 'excluded_olumi_proposed'
   if (optionValueCount?.(nodeId) === 0) return 'no_interventions'
   const optionIds = new Set(optionNodeIds)

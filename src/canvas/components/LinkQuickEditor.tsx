@@ -23,6 +23,7 @@ import { StrengthBandButtons } from '../ui/inspector-v2/shared/StrengthBandButto
 import { resolveEdgeDirectionDisplay, resolveEdgeSignedStrengthDisplay } from '../domain/edgeValueProvenance'
 import { resolveElementLabel } from '../domain/elementLabel'
 import { isStructuralEdge } from '../domain/edgeUtils'
+import { isStrengthDefinitional, STRENGTH_HOLDS_BY_DEFINITION } from '../domain/strengthDefinitional'
 import {
   VALUE_COMMIT_SETTLEMENT_COPY,
   valueCommitSettlementWord,
@@ -121,6 +122,10 @@ export function LinkQuickEditor({ edgeId, x, y, onClose, onMoreDetail }: LinkQui
     return from === 'decision' || from === 'option' ? from : 'other'
   })
 
+  // ⛔ A LINK THAT HOLDS BY DEFINITION HAS NO STRENGTH OR DIRECTION TO SET (MG ruling, 1 Oct 2026): CEE refuses both on
+  // it. The card says what the link is, in the inspector's own sentence. A strength the person set is not definitional.
+  const definitional = isStrengthDefinitional(edge?.data as Record<string, unknown> | undefined)
+
   if (!edge) return null
   const left = Math.min(x + 8, (typeof window !== 'undefined' ? window.innerWidth : 1440) - 280)
   const top = Math.min(y + 8, (typeof window !== 'undefined' ? window.innerHeight : 900) - 200)
@@ -146,6 +151,10 @@ export function LinkQuickEditor({ edgeId, x, y, onClose, onMoreDetail }: LinkQui
             : structural === 'option'
               ? `${fromLabel} sets ${toLabel}. Change the value on the option card; this link has no strength to set.`
               : 'This link is part of the model’s structure. It has no strength to set.'}
+        </p>
+      ) : definitional ? (
+        <p className={`${typography.panelMeta} text-text-light m-0`} data-testid="link-quick-editor-definitional">
+          {STRENGTH_HOLDS_BY_DEFINITION}
         </p>
       ) : display.show ? (
         <>

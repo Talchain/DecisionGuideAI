@@ -26,6 +26,7 @@
  */
 
 import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
+import { STRENGTH_HOLDS_BY_DEFINITION } from '../../domain/strengthDefinitional'
 
 export const COACHING = {
   /**
@@ -135,6 +136,16 @@ const STRENGTH_PROVENANCE_COPY: Record<EdgeProvenanceKey, string> = {
 const STRENGTH_PLACEHOLDER_COPY =
   'Strength not judged yet. Olumi put in a placeholder so the model can run — it is not an estimate. Set it if you know it.'
 
+/**
+ * MG 0ebb952a (1 Oct 2026): the link holds BY DEFINITION (`isStrengthDefinitional`)
+ * — a part to its total, or a risk's exposure to the goal. Arithmetic, not anyone's
+ * estimate, so neither the `cee` strength sentence nor the `cee` existence sentence
+ * above is true of it, and there is nothing to confirm.
+ */
+// One spelling, shared with the surfaces that show it where a strength editor would be.
+const STRENGTH_DEFINITIONAL_COPY = STRENGTH_HOLDS_BY_DEFINITION
+const EXISTENCE_DEFINITIONAL_COPY = 'By definition, this connection always exists.'
+
 const EXISTENCE_PROVENANCE_COPY: Record<EdgeProvenanceKey, string> = {
   cee: 'Olumi estimated how likely this connection is to exist.',
   template: 'The likelihood that this connection exists came with the template.',
@@ -154,6 +165,8 @@ export function resolveEdgeValuesCoaching(sources: {
   existence: EdgeValueSource | null
   /** POM-8: the strength is CEE's placeholder (`isStrengthPlaceholder`). */
   strengthPlaceholder?: boolean
+  /** MG 0ebb952a: the link holds by definition (`isStrengthDefinitional`). */
+  strengthDefinitional?: boolean
 }): string {
   return `${resolveEdgeValuesProvenance(sources)} ${COACHING.edgeWeight}`
 }
@@ -171,15 +184,23 @@ export function resolveEdgeValuesProvenance(sources: {
   existence: EdgeValueSource | null
   /** POM-8: the strength is CEE's placeholder (`isStrengthPlaceholder`). */
   strengthPlaceholder?: boolean
+  /** MG 0ebb952a: the link holds by definition (`isStrengthDefinitional`). */
+  strengthDefinitional?: boolean
 }): string {
   const strengthKey: EdgeProvenanceKey = sources.strength ?? 'not_set'
   const existenceKey: EdgeProvenanceKey = sources.existence ?? 'not_set'
-  // Only ever narrows a `'cee'` claim: a placeholder flag cannot relabel a
-  // strength the person set, a template's, or an unset one.
-  const strengthSentence = sources.strengthPlaceholder === true && strengthKey === 'cee'
-    ? STRENGTH_PLACEHOLDER_COPY
-    : STRENGTH_PROVENANCE_COPY[strengthKey]
-  return `${strengthSentence} ${EXISTENCE_PROVENANCE_COPY[existenceKey]}`
+  // Both flags only ever narrow a `'cee'` claim: neither can relabel a strength
+  // the person set, a template's, or an unset one. A definition is checked first.
+  const definitional = sources.strengthDefinitional === true && strengthKey === 'cee'
+  const strengthSentence = definitional
+    ? STRENGTH_DEFINITIONAL_COPY
+    : sources.strengthPlaceholder === true && strengthKey === 'cee'
+      ? STRENGTH_PLACEHOLDER_COPY
+      : STRENGTH_PROVENANCE_COPY[strengthKey]
+  const existenceSentence = definitional && existenceKey === 'cee'
+    ? EXISTENCE_DEFINITIONAL_COPY
+    : EXISTENCE_PROVENANCE_COPY[existenceKey]
+  return `${strengthSentence} ${existenceSentence}`
 }
 
 /** Context values for template substitution */

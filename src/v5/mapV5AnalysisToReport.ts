@@ -42,7 +42,7 @@ import {
 } from '../adapters/plot/optionComputeStatus'
 import type { DecisionVerdictReportLike } from '../lib/decisionVerdict'
 import { goalLevelFromIdentityCaveat } from '../components/results/utils/goalLevelFromIdentity'
-import { readGoalIdentityWithheld } from '../components/results/utils/goalIdentityWithheld'
+import { readGoalFigureWithholds, winSharesWithheld, withheldClaimsFor } from '../components/results/utils/goalIdentityWithheld'
 import { goalCertaintyStamp, type GoalCertaintyEntry } from '../canvas/state/storedGoalCertainty'
 import type { OptionParticipationEntry } from '../canvas/state/storedOptionParticipation'
 import { readInfluenceGatedBy } from '../components/results/driverDisplayModel'
@@ -810,7 +810,8 @@ export function buildV5VerdictReportLike(block: {
   // the correct outcome, reached without a special case.
   // PLoT #416 / AIQ #72 5886183999: under the typed identity withhold the win figures are not valid for this run,
   // so no leader is derived from them (census R3-B 5886351619, step 3).
-  const winById = readGoalIdentityWithheld(enrichment) !== null
+  // B3: win shares are one comparison across options, so any warning withholding `win_share` empties them all.
+  const winById = winSharesWithheld(readGoalFigureWithholds(enrichment))
     ? new Map<string, number>()
     : resolveWinProbabilitiesById(
         candidates.length > 0 ? candidates : winProbabilityCandidates([], winProbs),
@@ -1045,6 +1046,11 @@ export function mapV5AnalysisToReport(
     goalLevelAuthor?: 'olumi' | 'unattested'
     /** PLoT #416 — the producer withheld P(goal): a declared identity on its path was not evaluated. */
     goalIdentityWithheld?: true
+    /**
+     * B3b (DL R1 condition 4): this option's KEPT outcome rests on Olumi's estimates the user accepted (B2
+     * `rests_on_accepted_olumi`). Every surface showing the figure says so beside it.
+     */
+    outcomeRestsOnAcceptedOlumi?: true
     /** CEE #2270/#2280 — this option's 0/1 goal figure is UNEARNED; the producer's sentence, or null. */
     goalCertaintyUnearned?: { say: string | null }
     /**
@@ -1092,7 +1098,9 @@ export function mapV5AnalysisToReport(
     status_reason?: string
   }
   const goalLevelAuthor = goalLevelFromIdentityCaveat(enrichment)
-  const goalIdentityWithheld = readGoalIdentityWithheld(enrichment) !== null
+  // B3 (52f8cd #85 5931020890): withheld PER OPTION × CLAIM. With no B2 keys every warning covers every claim on
+  // every option, which is today's run-wide strip, byte for byte.
+  const withholds = readGoalFigureWithholds(enrichment)
   const option_probabilities: Record<string, ResultsOptionProbability> = {}
 
   // Resolution path A: option_comparison is the canonical source.
@@ -1114,11 +1122,15 @@ export function mapV5AnalysisToReport(
   // PLoT #416 / AIQ #72 5886183999: the win %, means, ranges and downside come from the same invalid walk as the
   // withheld goal figure. Absent stays absent: no fallback (win_probabilities map, decision_brief, expected_outcome,
   // CI midpoint) may re-show them (census R3-B 5886351619, step 3).
-  const winProbabilityById = goalIdentityWithheld
+  const winProbabilityById = winSharesWithheld(withholds)
     ? new Map<string, number>()
     : resolveWinProbabilitiesById(winProbabilityCandidates(resolvedOptions, winProbs), winProbs)
 
   for (const { optionId, enriched } of iterator) {
+    const held = withheldClaimsFor(withholds, optionId)
+    const outcomeHeld = held.has('outcome')
+    const goalHeld = held.has('goal_probability')
+    const restsOnAcceptedOlumi = !outcomeHeld && withholds.some((w) => w.restsOnAcceptedOlumi.includes(optionId))
     const winProb = winProbabilityById.get(optionId)
 
     const ci = Array.isArray(enriched?.confidence_interval)
@@ -1131,10 +1143,10 @@ export function mapV5AnalysisToReport(
     const ciMid =
       ciLow != null && ciHigh != null ? (ciLow + ciHigh) / 2 : null
 
-    const outcome = !goalIdentityWithheld && isPlainObject(enriched?.outcome) ? enriched.outcome : undefined
+    const outcome = !outcomeHeld && isPlainObject(enriched?.outcome) ? enriched.outcome : undefined
     const rawMean = safeFiniteNumber(outcome?.mean)
-    const rawExpected = goalIdentityWithheld ? undefined : safeFiniteNumber(enriched?.expected_outcome)
-    const expected = goalIdentityWithheld ? undefined : (rawMean ?? rawExpected ?? ciMid ?? undefined)
+    const rawExpected = outcomeHeld ? undefined : safeFiniteNumber(enriched?.expected_outcome)
+    const expected = outcomeHeld ? undefined : (rawMean ?? rawExpected ?? ciMid ?? undefined)
 
     // ⚠ ROADMAP 2.800a — PERCENTILES ARE THE PRODUCER'S OR THEY ARE ABSENT.
     // These reads used to end `?? ciLow` / `?? ciHigh`, putting a
@@ -1176,7 +1188,7 @@ export function mapV5AnalysisToReport(
     const percentilesSource = narrowPercentilesSource(outcome?.percentiles_source)
 
     const goalFitBasis = normaliseGoalFitBasis(enriched?.goal_fit_basis)
-    const downside = goalIdentityWithheld ? undefined : normaliseDownside(enriched?.downside)
+    const downside = held.has('downside') ? undefined : normaliseDownside(enriched?.downside)
 
     // ⭐ Per-option computation classification — narrowed to the producer's
     // closed vocabulary and carried verbatim, NO fallback chain and NO
@@ -1208,7 +1220,9 @@ export function mapV5AnalysisToReport(
        */
       // No silent defaults — undefined when missing.
       ...(displayedGoalProbability !== undefined ? { goal_probability: displayedGoalProbability } : {}),
-      ...(safeFiniteNumber(enriched?.probability_of_joint_goal) !== undefined
+      // B3: a joint figure withheld on its own is left out. With the goal figure withheld it is written as before and the
+      // stamp below withholds both (so a Run with no B2 keys maps byte for byte as it did).
+      ...(!(held.has('joint_probability') && !goalHeld) && safeFiniteNumber(enriched?.probability_of_joint_goal) !== undefined
         ? {
             probability_of_joint_goal: safeFiniteNumber(
               enriched?.probability_of_joint_goal,
@@ -1221,7 +1235,8 @@ export function mapV5AnalysisToReport(
       ...(goalFitBasis !== undefined ? { goal_fit_basis: goalFitBasis } : {}),
       // ISL #207 — the run's goal base is Olumi's estimate (fail-closed, see the helper).
       ...(goalLevelAuthor !== null ? { goalLevelAuthor } : {}),
-      ...(goalIdentityWithheld ? { goalIdentityWithheld: true as const } : {}),
+      ...(goalHeld ? { goalIdentityWithheld: true as const } : {}),
+      ...(restsOnAcceptedOlumi ? { outcomeRestsOnAcceptedOlumi: true as const } : {}),
       ...(certaintyStamp !== null ? { goalCertaintyUnearned: certaintyStamp } : {}),
       confidence: 0.5,
       ...(winProb !== undefined ? { win_probability: winProb } : {}),
@@ -1773,9 +1788,10 @@ export function mapV5AnalysisToReport(
         // three-place lookup lands in one place.
         const winProb = winProbabilityById.get(optionId)
         if (winProb !== undefined) entry.win_probability = winProb
-        const expected = goalIdentityWithheld ? undefined : safeFiniteNumber(enriched.expected_outcome)
+        const outcomeHeld = withheldClaimsFor(withholds, optionId).has('outcome')
+        const expected = outcomeHeld ? undefined : safeFiniteNumber(enriched.expected_outcome)
         if (expected !== undefined) entry.expected_outcome = expected
-        const outcome = !goalIdentityWithheld && isPlainObject(enriched.outcome) ? enriched.outcome : undefined
+        const outcome = !outcomeHeld && isPlainObject(enriched.outcome) ? enriched.outcome : undefined
         if (outcome) {
           const mean = safeFiniteNumber(outcome.mean)
           const p10 = safeFiniteNumber(outcome.p10)

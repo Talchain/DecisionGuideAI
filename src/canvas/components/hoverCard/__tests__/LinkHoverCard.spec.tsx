@@ -94,7 +94,9 @@ describe('link hover pop-up', () => {
     const pop = hover({ weight: 0.35, weightSource: 'cee', direction: 'negative', directionSource: 'user' })!
     const fill = pop.querySelector('[data-testid="edge-hover-strength-bar-fill"]') as HTMLElement
     expect(fill.style.width).toBe('35%')
-    expect(fill.className).toContain('bg-info')
+    // The light ink since 1 Oct (Grammar v0 §2: no blue on the canvas); still ONE neutral, never green/red.
+    expect(fill.className).toContain('bg-text-light')
+    expect(fill.className).not.toContain('bg-info')
     expect(pop.querySelector('.bg-success, .bg-danger')).toBeNull()
     const bare = hover({ weight: 0.5, direction: 'positive' })!
     expect(bare.querySelector('[data-testid="edge-hover-strength-bar"]')).toBeNull()
@@ -119,14 +121,14 @@ describe('link hover pop-up', () => {
     expect(text(pop, 'edge-hover-arrow-sentence')).toBe(`n1 → n2. Positive direction in this model. ${EDGE_EXISTENCE_DOUBT_SENTENCE}`)
   })
 
-  it('wears the light panel surface, not the black tooltip; non-interactive, max 260px', () => {
+  it('wears the light panel surface, not the black tooltip; non-interactive, max 300px (260 until 1 Oct: names no longer truncate)', () => {
     const pop = hover({ weight: 0.35, weightSource: 'cee' })!
     for (const token of ['bg-panel', 'border-panel-border', 'rounded-lg', 'shadow-lg']) expect(pop.className).toContain(token)
     expect(TOOLTIP_SURFACE_CLASS).toContain('bg-text-body')
     expect(pop.className).not.toContain('bg-text-body')
     expect(pop.getAttribute('role')).toBe('tooltip')
     expect(pop.style.pointerEvents).toBe('none')
-    expect(pop.style.maxWidth).toBe('260px')
+    expect(pop.style.maxWidth).toBe('300px')
     expect(pop.getAttribute('data-edge-popover')).toBe('e1')
   })
 

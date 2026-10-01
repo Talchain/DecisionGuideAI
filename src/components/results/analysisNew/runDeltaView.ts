@@ -121,6 +121,12 @@ export interface RunDeltaView {
   /** True when the producer sent no comparable pair for ANY option. */
   readonly movementsUnavailable: boolean
   /**
+   * 0.70.0: the producer's TYPED reason for an empty `win_probabilities`, or `null` when it sent none. `prior_withheld`
+   * = the earlier Run withheld its figures, so this is the first comparison (RC's UNWITHHELD). Never inferred from an
+   * empty array.
+   */
+  readonly winProbabilitiesUnavailable: 'prior_withheld' | 'no_matched_option' | null
+  /**
    * ⛔ NOT NULLABLE, AND THE `| null` THAT WAS HERE MADE A TAUTOLOGY DOWNSTREAM.
    * `leader` is REQUIRED on the producer's block — proven by execution against
    * the vendored 0.55.0 with a must-pass control: the same block PARSES with it
@@ -159,6 +165,16 @@ export interface RunDeltaInputRow {
   readonly before: string | null
   readonly after: string | null
   readonly change: RunDeltaInputChange['change']
+  /** The producer's field, verbatim: the words branch on it by IDENTITY (0.70.0 `sizing` / `strength`), never on text. */
+  readonly field: RunDeltaInputChange['field']
+  /** `link` rows only: the link's two ends in this surface's labels (`null` where a label is unknown). */
+  readonly linkLabels: { readonly from: string | null; readonly to: string | null } | null
+  /**
+   * RC's one-sentence-per-link rule (contract `change_label_templates.one_sentence_per_link`): when the producer sends a
+   * `sizing` row AND a `strength` row for the same link ("Edit the strength" writes both), the two are ONE change. The
+   * strength row is folded into the sizing row here (and dropped from the list), so it counts once and says once.
+   */
+  readonly strength: { readonly before: string | null; readonly after: string | null } | null
 }
 
 export interface RunDeltaInputsView {
@@ -260,6 +276,29 @@ const ATTRIBUTION_LIMIT: Record<RunDelta['attribution_case'], string | null> = {
 }
 
 /** A producer value, formatted for display. Numbers take the one raw-value formatter; nothing is converted. */
+/**
+ * RC's one-sentence-per-link rule: a `sizing` row and a `strength` row for the SAME link (same entity id) become ONE row,
+ * the sizing row carrying the strength's before → after. Every other row passes through in the producer's order.
+ */
+function foldSizingAndStrength(rows: RunDeltaInputRow[]): RunDeltaInputRow[] {
+  const strengthOf = new Map<string, RunDeltaInputRow>()
+  for (const r of rows) if (r.kind === 'link' && r.field === 'strength' && r.change === 'changed') strengthOf.set(r.entityId, r)
+  const folded = new Set<RunDeltaInputRow>()
+  const out: RunDeltaInputRow[] = []
+  for (const r of rows) {
+    if (r.kind === 'link' && r.field === 'sizing') {
+      const s = strengthOf.get(r.entityId)
+      if (s) {
+        folded.add(s)
+        out.push({ ...r, strength: { before: s.before, after: s.after } })
+        continue
+      }
+    }
+    out.push(r)
+  }
+  return out.filter((r) => !folded.has(r))
+}
+
 function formatInputValue(v: { raw: number | string | boolean; unit?: string } | null): string | null {
   if (v === null) return null
   if (typeof v.raw === 'number') return formatRawValueWithUnit(v.raw, v.unit ?? null)
@@ -355,6 +394,7 @@ export function buildRunDeltaView(
     // could be matched; reading it as stillness would be the same fabrication
     // `flip_thresholds` is withheld to avoid, one field over.
     movementsUnavailable: movements.length === 0,
+    winProbabilitiesUnavailable: delta.win_probabilities_unavailable ?? null,
     leader: {
       changed: delta.leader.changed,
       noiseVerdict: delta.leader.noise_verdict,
@@ -367,7 +407,7 @@ export function buildRunDeltaView(
         ? null
         : {
             coverage: delta.input_coverage,
-            rows: (delta.input_changes ?? []).map((row, i) => ({
+            rows: foldSizingAndStrength((delta.input_changes ?? []).map((row, i) => ({
               key: `${row.entity_kind}:${row.entity_id}:${row.option_id ?? ''}:${row.field}:${i}`,
               kind: row.entity_kind,
               entityId: row.entity_id,
@@ -377,7 +417,10 @@ export function buildRunDeltaView(
               before: formatInputValue(row.before),
               after: formatInputValue(row.after),
               change: row.change,
-            })),
+              field: row.field,
+              linkLabels: row.link ? { from: nodeLabelFor(row.link.from), to: nodeLabelFor(row.link.to) } : null,
+              strength: null,
+            }))),
           },
     comparedWith: (() => {
       const at = clockOf(delta.endpoints?.prior.computed_at)

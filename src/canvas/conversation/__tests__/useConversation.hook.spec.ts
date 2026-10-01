@@ -2944,3 +2944,91 @@ describe('ROADMAP 2.665 — wait expiry never claims non-delivery (V5 path)', ()
 // clear a red is how V5 coverage disappears quietly.
 // ─────────────────────────────────────────────────────────────────────────────
 
+
+// ---------------------------------------------------------------------------
+// Result-first, two requests (AI HARNESS 5931099857; CEE #2470) — the UI half
+// ---------------------------------------------------------------------------
+import { saveTranscript, TRANSCRIPT_STORAGE_KEY } from '../utils/transcriptStore'
+import { setCurrentScenarioId } from '../../store/scenarios'
+
+describe('result-first: request 2 is auto-sent once, hidden, routed by run_key; a foreign explanation is dropped', () => {
+  const runResponse = (narration?: Record<string, unknown>) => ({
+    kind: 'response' as const,
+    response: { ...makeV5SuccessResult('Run complete.').response, ...(narration ? { narration } : {}) },
+  })
+  const explanation = (runKey: string) => ({
+    kind: 'response' as const,
+    response: { ...makeV5SuccessResult('Here is what drives the result.').response, narration: { status: 'ready', run_key: runKey } },
+  })
+  const flush = async () => {
+    for (let i = 0; i < 6; i++) await act(async () => { await Promise.resolve() })
+  }
+  const chipIdOf = (call: unknown[]) => (call[0] as { chip?: { id?: string } }).chip?.id
+
+  beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
+  })
+
+  it('a LIVE Run with narration pending → exactly one hidden request 2 carrying agent-explain-run:<run_key>', async () => {
+    mockCallV5Turn.mockReset()
+    mockCallV5Turn
+      .mockResolvedValueOnce(runResponse({ status: 'pending', run_key: 'rk_1' }))
+      .mockResolvedValueOnce(explanation('rk_1'))
+      .mockReturnValue(new Promise(() => {}))
+    const { result, rerender } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('Run the analysis') })
+    await flush()
+    rerender()
+    await flush()
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(2)
+    expect(chipIdOf(mockCallV5Turn.mock.calls[1])).toBe('agent-explain-run:rk_1')
+    // Hidden: no visible user bubble for the auto-send.
+    expect(result.current.messages.some((m) => m.role === 'user' && m.content === 'Explain this result')).toBe(false)
+    // The explanation lands, carrying its identity for load 2.
+    const explained = result.current.messages.filter((m) => m.role === 'assistant' && m.narration?.status === 'ready')
+    expect(explained.map((m) => m.narration?.runKey)).toEqual(['rk_1'])
+  })
+
+  it('CONTRAST: a Run with no narration (CEE before #2470) sends nothing more', async () => {
+    mockCallV5Turn.mockReset()
+    mockCallV5Turn.mockResolvedValueOnce(runResponse()).mockReturnValue(new Promise(() => {}))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('Run the analysis') })
+    await flush()
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+  })
+
+  it('⛔ a ready explanation for a run_key that is not the latest Run is dropped', async () => {
+    mockCallV5Turn.mockReset()
+    mockCallV5Turn
+      .mockResolvedValueOnce(runResponse({ status: 'pending', run_key: 'rk_new' }))
+      .mockResolvedValueOnce(explanation('rk_old'))
+      .mockReturnValue(new Promise(() => {}))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('Run the analysis') })
+    await flush()
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(2)
+    expect(result.current.messages.some((m) => m.content === 'Here is what drives the result.')).toBe(false)
+    expect(result.current.messages.some((m) => m.content === 'Run complete.')).toBe(true)
+  })
+
+  it('⛔ a transcript RESTORE never auto-sends, even when its last Run line says pending', async () => {
+    mockCallV5Turn.mockReset()
+    const SCN = 'c3c3c3c3-d4d4-4e5e-8f6f-a7a7a7a7a7a7'
+    localStorage.clear()
+    setCurrentScenarioId(SCN)
+    useCanvasStore.setState({ currentScenarioId: SCN })
+    saveTranscript(SCN, [
+      { id: 'u-r', role: 'user', content: 'Run the analysis', timestamp: new Date() },
+      { id: 'a-r', role: 'assistant', content: 'Run complete.', narration: { status: 'pending', runKey: 'rk_r' }, timestamp: new Date() },
+    ])
+    const all = JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY) ?? '{}')
+    expect(all[SCN], 'precondition: the transcript was saved').toBeTruthy()
+    all[SCN].pageLoadId = 'a-previous-page-load'
+    localStorage.setItem(TRANSCRIPT_STORAGE_KEY, JSON.stringify(all))
+    const { result } = renderHook(() => useConversation())
+    await flush()
+    expect(result.current.messages.some((m) => m.narration?.runKey === 'rk_r'), 'precondition: the pending Run line was restored').toBe(true)
+    expect(mockCallV5Turn).not.toHaveBeenCalled()
+  })
+})

@@ -113,7 +113,7 @@ describe('card hover pop-up — what it shows', () => {
     expect(TOOLTIP_SURFACE_CLASS).toContain('bg-text-body')
     expect(pop.className).not.toContain('bg-text-body')
     expect(pop.style.pointerEvents).toBe('none')
-    expect(pop.style.maxWidth).toBe('260px')
+    expect(pop.style.maxWidth).toBe('300px')
     expect(pop.parentElement).toBe(document.body)
     // The black one-line name tooltip is gone from the card title.
     expect(document.querySelector('[data-testid="node-title-tooltip-name"]')).toBeNull()
