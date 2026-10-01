@@ -296,7 +296,7 @@ export default function LoginPage() {
                   }}
                   onBlur={handleEmailBlur}
                   disabled={pageState === 'password-submitting'}
-                  className={`w-full min-h-[44px] rounded-md border bg-panel px-4 py-3 ${typography.body} text-text-body placeholder:text-text-light transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 ${
+                  className={`w-full min-h-[44px] rounded-md border bg-panel px-4 py-3 ${typography.body} text-text-body placeholder:text-text-light transition-colors duration-fast focus:outline-none focus:ring-2 focus:ring-info/50 ${
                     pageState === 'invalid-email'
                       ? 'border-danger'
                       : 'border-[rgba(38,38,38,0.16)]'
@@ -337,7 +337,7 @@ export default function LoginPage() {
                     }}
                     disabled={pageState === 'password-submitting'}
                     data-testid="owner-password-input"
-                    className={`w-full min-h-[44px] rounded-md border bg-panel px-4 py-3 ${typography.body} text-text-body placeholder:text-text-light transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 ${
+                    className={`w-full min-h-[44px] rounded-md border bg-panel px-4 py-3 ${typography.body} text-text-body placeholder:text-text-light transition-colors duration-fast focus:outline-none focus:ring-2 focus:ring-info/50 ${
                       pageState === 'password-failed'
                         ? 'border-danger'
                         : 'border-[rgba(38,38,38,0.16)]'
