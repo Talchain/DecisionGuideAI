@@ -47,14 +47,16 @@ function freshBrowser(over: Record<string, unknown> = {}): void {
   } as never)
 }
 
-let fetchSpy: ReturnType<typeof vi.fn>
-let warn: ReturnType<typeof vi.spyOn>
+const makeFetch = () => vi.fn(async (_url: unknown, _init?: unknown) => ({ ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(served)) }) as unknown as Response)
+const spyWarn = () => vi.spyOn(logger, 'warn')
+let fetchSpy: ReturnType<typeof makeFetch>
+let warn: ReturnType<typeof spyWarn>
 const declines = () => warn.mock.calls.filter((c) => c[0] === 'server_graph_hydration.boot_run_currency_declined').map((c) => c[1] as { unproven?: string | null })
 
 beforeEach(() => {
-  fetchSpy = vi.fn(async () => ({ ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(served)) }) as unknown as Response)
+  fetchSpy = makeFetch()
   vi.stubGlobal('fetch', fetchSpy)
-  warn = vi.spyOn(logger, 'warn')
+  warn = spyWarn()
 })
 afterEach(() => {
   vi.unstubAllGlobals()
