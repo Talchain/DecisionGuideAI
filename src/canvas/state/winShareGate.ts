@@ -36,11 +36,16 @@ export const WITHHELD_REASON_FALLBACK = "Olumi isn't naming an option on this ru
 /**
  * The short marker an option card shows in its share slot instead of a share.
  * Paul, 1 Oct 2026: "It says 'not ranked' on the options. I don't think that's the right terminology."
- * - **Why not "Not ranked":** it read as a verdict on THIS option, as if Olumi had judged it and it didn't place.
- * - **The truth:** the Run withheld every option's share, so Olumi hasn't compared them yet.
- * - **The words:** the marker says exactly that, and the reason line beside it says why.
+ * - **When it shows:** results mode, the producer withheld the leader, and THIS option took part in the Run
+ *   (`OptionNode`'s `notRankedRenders` excludes an option the Run left out, which reads "Not analysed" instead).
+ * - **The truth:** the Run DID compare the option; Olumi only withholds its share (leader permission false).
+ *   The marker says both halves, and the reason line beside it says why.
+ * - ⛔ **Not "Not ranked"** (it read as a verdict on THIS option) and **not "Not compared yet"** (#2392's words):
+ *   R3 F5, 1 Oct (#85 5930578606), saw it beside the Analysis panel's "Here is how your options compare … Comparing 3
+ *   of 4 options" on a current Run, and a user reads it as "re-run needed". "Not compared" belongs only to an option
+ *   no current Run included, which never reaches this marker.
  */
-export const NOT_RANKED_MARKER = 'Not compared yet'
+export const NOT_RANKED_MARKER = 'Compared · share not shown'
 
 /** True when the producer withheld the leader for any reason. Absent or `true` ⇒ false. */
 export function winSharesWithheld(permission: ProducerLeaderPermission | null | undefined): boolean {
