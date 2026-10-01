@@ -97,6 +97,15 @@
      ============================================ */
 
   --bg-canvas: #F4F0EA;
+  /* The canvas ground's dot grid (Paul, 1 Oct 2026: "Why is it not the brand colour?").
+   * A warm grey from the brand neutrals, so the dots belong to the palette instead of
+   * React Flow's cool default #91919a (2.75:1). On --bg-canvas it measures 3.29:1, so
+   * it is never quieter than the dots Paul asked back for on 30 Sep (#2347).
+   * #1932's --border-emphasis was 1.29:1, which read as "gone".
+   * Same value as --border-field, but a separate token: --border-field is reserved for
+   * marking editable fields, and a dot grid must not borrow that meaning. */
+  --canvas-grid-dot-rgb: 140 131 118;
+  --canvas-grid-dot: rgb(var(--canvas-grid-dot-rgb));
   --bg-panel-rgb: 254 254 254;
   --bg-panel: rgb(var(--bg-panel-rgb));
   --bg-panel-hover-rgb: 254 249 243;
