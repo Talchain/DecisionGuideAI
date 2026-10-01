@@ -4329,6 +4329,26 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                     />
                   )
                 case 'readiness':
+                  // ⭐ AFTER THE FIRST RUN THE READINESS ARM IS THE REANALYSE ARM
+                  // (R3 journey witness 1, 5938917543 step 5: "after Accept #2 the
+                  // UI showed no Re-run control" while CEE said `complete_stale`).
+                  // `AnalysisReadinessBar` is pre-run only (its own null at :140),
+                  // so once a Run existed the Olumi tab, where an Accept happens,
+                  // had no surface saying the model changed and no control to
+                  // rerun; only the Analysis footer and the Model tab did. The
+                  // SAME bar and gate trio as the 'reanalyse' arm above: it renders
+                  // its own null unless the model changed (or a held import cannot
+                  // confirm), so a fresh Run shows nothing here.
+                  if (!isPreRun) {
+                    return (
+                      <ReanalyseBar
+                        onReanalyse={handleRunAnalysis}
+                        canRun={canRunAnalysis}
+                        blockedReason={runBlockedTooltip}
+                        isAnalysing={isRunning}
+                      />
+                    )
+                  }
                   return (
                     <AnalysisReadinessBar
                       preRunWithModel={isPreRun && nodes.length > 0}

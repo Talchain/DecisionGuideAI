@@ -423,6 +423,8 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
     // surface the blocked footer's own copy sends the user to. Renders null
     // unless the Analysis surface would be showing its pre-run panel for the
     // same store state, so it makes no claim Analysis is not already making.
+    // After the first Run the dock's `readiness` arm mounts `ReanalyseBar`
+    // instead (R3 journey step 5: an Accept here left no Re-run control).
     footerBar: 'readiness',
     // Bottom-anchored conversation with its own stick-to-bottom threshold.
     scroll: 'self',
