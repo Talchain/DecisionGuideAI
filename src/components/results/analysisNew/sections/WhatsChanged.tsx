@@ -24,6 +24,7 @@ import { useState } from 'react'
 import { typography } from '../../../../styles/typography'
 import { action, surface } from '../panelSurfaces'
 import { INPUT_ROWS_SHOWN_FIRST } from '../runDeltaView'
+import { linkRowText } from '../runDeltaLinkWords'
 import type { NoiseVerdict, RunDeltaInputRow, RunDeltaInputsView, RunDeltaMovement, RunDeltaView } from '../runDeltaView'
 import { useCanvasStore } from '../../../../canvas/store'
 import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../../../canvas/state/winShareGate'
@@ -38,6 +39,18 @@ export const WHATS_CHANGED_TESTID = 'analysis-new-whats-changed'
  * reason; RC's "The options can be compared for the first time" then renders on `prior_withheld`).
  */
 export const WHATS_CHANGED_NO_PAIRS = 'No option has figures from both runs to compare.'
+
+/**
+ * 0.70.0, RC's UNWITHHELD (contract RERUN-EXPLANATION): the earlier Run withheld its figures, so this is the FIRST
+ * comparison. Said ONLY on the producer's typed `win_probabilities_unavailable === 'prior_withheld'`, never inferred from
+ * an empty array; it claims no movement, because there were no earlier figures (`RX-NO-MOVEMENT-WITHOUT-PRIOR`).
+ */
+export const WHATS_CHANGED_FIRST_COMPARISON = 'The options can be compared for the first time.'
+
+/** The sentence for an empty `win_probabilities`, by the producer's typed reason. */
+export function noPairsText(view: Pick<RunDeltaView, 'winProbabilitiesUnavailable'>): string {
+  return view.winProbabilitiesUnavailable === 'prior_withheld' ? WHATS_CHANGED_FIRST_COMPARISON : WHATS_CHANGED_NO_PAIRS
+}
 
 /**
  * A score, as a percentage.
@@ -112,7 +125,10 @@ function MovementLine({ m, sharedQualifier }: { m: RunDeltaMovement; sharedQuali
 
 /** One input row: "Pro price, Raise to £60: £59 → £60". Words only — the values are the producer's. */
 /** Exported for the canvas's compact summary, so both surfaces say one thing. */
+/** How a sizing literal reads, for a sizing change RC's contract has no sentence for (any other transition). */
 export function inputRowText(row: RunDeltaInputRow): string {
+  const link = linkRowText(row)
+  if (link !== null) return link
   if (row.change === 'changed') return `${row.subject}: ${row.before} → ${row.after}`
   if (row.kind === 'option') return row.change === 'added' ? `${row.subject} joined the comparison` : `${row.subject} left the comparison`
   // AIQ #75 5918248701: a link added or removed is structure, not a value — say so, never "now on" / "now not set".
@@ -289,7 +305,7 @@ export function WhatsChanged({ view, rowFocus }: { view: RunDeltaView | null; ro
           className={`${typography.panelMeta} text-text-light mt-2 mb-0`}
           data-testid={`${WHATS_CHANGED_TESTID}-no-pairs`}
         >
-          {WHATS_CHANGED_NO_PAIRS}
+          {noPairsText(view)}
         </p>
       ) : (
         <>

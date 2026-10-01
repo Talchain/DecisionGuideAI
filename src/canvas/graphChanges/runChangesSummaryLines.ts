@@ -17,7 +17,7 @@ import {
   inputRowText,
   movementText,
   noiseQualifier,
-  WHATS_CHANGED_NO_PAIRS,
+  noPairsText,
 } from '../../components/results/analysisNew/sections/WhatsChanged'
 
 export const RUN_CHANGES_SUMMARY_COPY = {
@@ -72,7 +72,7 @@ export function runChangesSummaryLines(
   // ⛔ ORDER IS THE CONTRACT: a withheld share outranks everything (no option's share is stated, not even "beyond
   // noise"); then the producer's "no pairs"; then signal; else the ONE noise sentence for the whole set.
   if (winSharesWithheld) movedNote = winShareWithheldReason
-  else if (view.movementsUnavailable) movedNote = WHATS_CHANGED_NO_PAIRS
+  else if (view.movementsUnavailable) movedNote = noPairsText(view)
   else if (signal.length > 0) movedAll = signal.map(movementText)
   else if (view.movements.length > 0) {
     movedNote = noiseQualifier(
