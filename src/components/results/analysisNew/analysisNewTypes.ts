@@ -653,6 +653,8 @@ export type ComparisonOption =
        * certainty rather than an absence.
        */
       outcomeRange: { p10: number; p50: number | null; p90: number } | null
+      /** B3b (DL R1 condition 4): the range rests on Olumi's estimates the user accepted; the row says so. */
+      restsOnAcceptedOlumi?: true
       /**
        * ⭐ THE PRODUCER'S OWN SENTENCE ABOUT THIS OPTION —
        * `recommendation.storyHeadlines[option.id]`, sanitised at the data layer

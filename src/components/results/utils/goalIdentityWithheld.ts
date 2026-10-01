@@ -144,3 +144,10 @@ export function winSharesWithheld(withholds: readonly GoalFigureWithhold[]): boo
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return v != null && typeof v === 'object' && !Array.isArray(v)
 }
+
+/**
+ * B3b (DL R1 condition 4, 5930827933): the label every kept outcome resting on Olumi's estimates the user accepted
+ * carries beside it (B2 `rests_on_accepted_olumi`). The user accepted them, so the figure is usable; they are still
+ * Olumi's, so it says whose.
+ */
+export const RESTS_ON_ACCEPTED_OLUMI_LABEL = "Rests on Olumi's estimates you accepted"

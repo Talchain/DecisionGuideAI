@@ -2321,6 +2321,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         nValidSamples,
         // 2.449 — omitted entirely when the engine had nothing honest to say.
         ...(optionDownside !== undefined ? { downside: optionDownside } : {}),
+        // B3 (DL R1): the producer withheld this option's goal figure, and whether its KEPT outcome rests on Olumi's
+        // estimates the user accepted. Carried so every outcome surface can keep the spread and say so beside it.
+        ...((prob as { goalIdentityWithheld?: true }).goalIdentityWithheld === true ? { goalFigureWithheld: true as const } : {}),
+        ...((prob as { outcomeRestsOnAcceptedOlumi?: true }).outcomeRestsOnAcceptedOlumi === true
+          ? { outcomeRestsOnAcceptedOlumi: true as const }
+          : {}),
         // 2.646 — percentile provenance, carried verbatim from the report and
         // NOT scaled, NOT defaulted, NOT re-derived. It is the only thing that
         // lets the absence sentence above name the engine instead of shrugging;

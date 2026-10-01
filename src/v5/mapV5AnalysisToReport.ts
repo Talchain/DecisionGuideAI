@@ -1046,6 +1046,11 @@ export function mapV5AnalysisToReport(
     goalLevelAuthor?: 'olumi' | 'unattested'
     /** PLoT #416 — the producer withheld P(goal): a declared identity on its path was not evaluated. */
     goalIdentityWithheld?: true
+    /**
+     * B3b (DL R1 condition 4): this option's KEPT outcome rests on Olumi's estimates the user accepted (B2
+     * `rests_on_accepted_olumi`). Every surface showing the figure says so beside it.
+     */
+    outcomeRestsOnAcceptedOlumi?: true
     /** CEE #2270/#2280 — this option's 0/1 goal figure is UNEARNED; the producer's sentence, or null. */
     goalCertaintyUnearned?: { say: string | null }
     /**
@@ -1125,6 +1130,7 @@ export function mapV5AnalysisToReport(
     const held = withheldClaimsFor(withholds, optionId)
     const outcomeHeld = held.has('outcome')
     const goalHeld = held.has('goal_probability')
+    const restsOnAcceptedOlumi = !outcomeHeld && withholds.some((w) => w.restsOnAcceptedOlumi.includes(optionId))
     const winProb = winProbabilityById.get(optionId)
 
     const ci = Array.isArray(enriched?.confidence_interval)
@@ -1230,6 +1236,7 @@ export function mapV5AnalysisToReport(
       // ISL #207 — the run's goal base is Olumi's estimate (fail-closed, see the helper).
       ...(goalLevelAuthor !== null ? { goalLevelAuthor } : {}),
       ...(goalHeld ? { goalIdentityWithheld: true as const } : {}),
+      ...(restsOnAcceptedOlumi ? { outcomeRestsOnAcceptedOlumi: true as const } : {}),
       ...(certaintyStamp !== null ? { goalCertaintyUnearned: certaintyStamp } : {}),
       confidence: 0.5,
       ...(winProb !== undefined ? { win_probability: winProb } : {}),

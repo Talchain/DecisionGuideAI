@@ -213,6 +213,10 @@ export interface OptionResult {
    * at all rather than a zero or a placeholder.
    */
   downside?: OptionDownside
+  /** B3 (DL R1): the producer withheld this option's goal figure (`GOAL_FIGURES_*`, per option × claim). */
+  goalFigureWithheld?: true
+  /** B3b (DL R1 condition 4): the KEPT outcome rests on Olumi's estimates the user accepted; say so beside it. */
+  outcomeRestsOnAcceptedOlumi?: true
   /**
    * ROADMAP 2.646 — the producer's PERCENTILE PROVENANCE for this option,
    * carried verbatim from `enrichment.option_comparison[].outcome
