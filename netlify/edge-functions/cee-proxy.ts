@@ -156,6 +156,9 @@ const ALLOWED_TARGETS: readonly RegExp[] = [
   /^\/assist\/v1\/scenarios\/[^/]+\/versions$/,
   /^\/assist\/v1\/scenarios\/[^/]+\/versions\/save$/,
   /^\/assist\/v1\/scenarios\/[^/]+\/versions\/restore$/,
+  // Guest → account copy (ACCOUNTS B3, CEE #2493): the signed-in user's own copy of a guest decision. The user's
+  // `authorization` is forwarded as the user-token slot; CEE verifies it. ON-LIST case in the allowlist spec.
+  /^\/assist\/v1\/scenarios\/[^/]+\/copy$/,
   /^\/assist\/v1\/decision-records\/commit$/,
   /^\/assist\/v1\/decision-records\/[^/]+\/outcome$/,
   // Explain-diff (CEE #1082). Backs the "Why these changes?" affordance on the
