@@ -20,7 +20,7 @@ import { typography } from '../../styles/typography'
 import { WhatsChanged } from '../../components/results/analysisNew/sections/WhatsChanged'
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 import { useRunChangesProjection } from '../graphChanges/useRunChangesProjection'
-import { focusEdgeById, focusNodeById } from '../utils/focusHelpers'
+import { canvasLinkOfTarget, useCanvasLight } from '../graphChanges/rowCanvasLink'
 import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
 import type { RunOnRecordWithoutResult } from '../stores/declinedSavedRunStore'
 
@@ -48,6 +48,7 @@ export function CompareRunPairBody({
   // CANVAS (lease DL #75 5920620752, UNDO grant 5920635710): the same view marks the canvas while this tab shows it,
   // and each row focuses the element its producer ids name — or says it is not on the canvas now.
   const changes = useRunChangesProjection(view)
+  const light = useCanvasLight()
   if (view === null && runOnRecordWithoutResult !== null) {
     const copy = COMPARE_RUN_ON_RECORD_COPY[runOnRecordWithoutResult]
     return (
@@ -80,8 +81,12 @@ export function CompareRunPairBody({
         rowFocus={(row) => {
           const target = changes.focusByRowKey.get(row.key)
           if (target === undefined) return undefined
-          if (target === null) return null
-          return () => (target.kind === 'node' ? focusNodeById(target.id) : focusEdgeById(target.id))
+          return canvasLinkOfTarget(target)?.focus ?? null
+        }}
+        // ⭐ Hover / keyboard focus lights the row's element on the canvas, by the same identity (DL 5939855664).
+        rowLight={(row) => {
+          const link = canvasLinkOfTarget(changes.focusByRowKey.get(row.key))
+          return link ? { on: () => light.on(link), off: light.off } : null
         }}
       />
     </div>

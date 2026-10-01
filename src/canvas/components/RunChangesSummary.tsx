@@ -22,27 +22,15 @@ import { useUIStore } from '../../stores/uiStore'
 import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../state/winShareGate'
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 import type { RunDeltaInputRow } from '../../components/results/analysisNew/runDeltaView'
-import { targetOfRow } from '../graphChanges/graphChangesView'
+import { canvasLinkOfRow, useCanvasLight } from '../graphChanges/rowCanvasLink'
 import {
   RUN_CHANGES_SUMMARY_COPY as COPY,
   runChangesSummaryHasContent,
   runChangesSummaryLines,
 } from '../graphChanges/runChangesSummaryLines'
-import { focusEdgeById, focusNodeById } from '../utils/focusHelpers'
 import { typography } from '../../styles/typography'
 
 export const RUN_CHANGES_SUMMARY_TESTID = 'run-changes-summary'
-
-/** The row's focus action on the graph as drawn now, or null when nothing on the canvas stands for it. */
-function focusOfRow(row: RunDeltaInputRow): (() => void) | null {
-  const { nodes, edges } = useCanvasStore.getState()
-  const target = targetOfRow(row, {
-    nodes: nodes.map((n) => ({ id: n.id, kind: n.type })),
-    edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
-  })
-  if (target === null) return null
-  return () => (target.kind === 'node' ? focusNodeById(target.id) : focusEdgeById(target.id))
-}
 
 function DetailLine({ label, id, children }: { label: string; id: string; children: React.ReactNode }) {
   return (
@@ -60,6 +48,7 @@ export function RunChangesSummary(): JSX.Element | null {
   const winShareWithheldReason = useCanvasStore(selectWinShareWithheldReason)
   const [closedFor, setClosedFor] = useState<string | null>(null)
   const [openFor, setOpenFor] = useState<string | null>(null)
+  const light = useCanvasLight()
   // Is the pill's one line cut short? Only then does the detail repeat what the pill already says (R3 5935751708: the
   // open detail covered the Goal at 1440x900, half of it a second copy of the pill's two lines).
   const lineRef = useRef<HTMLSpanElement>(null)
@@ -84,7 +73,8 @@ export function RunChangesSummary(): JSX.Element | null {
   // The detail says only what the pill cannot: more rows than its one line holds, or the line itself when it is cut.
   const detailRepeatsChanged = changedExtra > 0 || lineTruncated
   const detailRepeatsMoved = movedExtra > 0 || lineTruncated
-  const headFocus = lines.changed[0] ? focusOfRow(lines.changed[0].row) : null
+  // ⭐ Each changed row lights its element on the canvas on hover / keyboard focus, and focuses it on click (DL 5939855664).
+  const headLink = lines.changed[0] ? canvasLinkOfRow(lines.changed[0].row) : null
 
   const body = (
     <div
@@ -111,14 +101,19 @@ export function RunChangesSummary(): JSX.Element | null {
                 <span className="text-text-light">{lines.changedNote}</span>
               ) : (
                 lines.changed.map(({ row, text }) => {
-                  const focus = focusOfRow(row)
-                  return focus ? (
+                  const link = canvasLinkOfRow(row)
+                  return link ? (
                     <button
                       key={row.key}
                       type="button"
-                      onClick={focus}
+                      onClick={link.focus}
+                      onMouseEnter={() => light.on(link)}
+                      onMouseLeave={light.off}
+                      onFocus={() => light.on(link)}
+                      onBlur={light.off}
                       data-testid={`${RUN_CHANGES_SUMMARY_TESTID}-detail-focus`}
                       data-entity-id={row.entityId}
+                      data-canvas-target={`${link.target.kind}:${link.target.id}`}
                       className="block text-left underline decoration-dotted underline-offset-2 hover:decoration-solid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info rounded-sm"
                     >
                       {text}
@@ -172,12 +167,17 @@ export function RunChangesSummary(): JSX.Element | null {
           title={[changedHead, movedHead].filter(Boolean).join(' · ')}
         >
           {changedHead !== null && <span className="text-text-light">{COPY.changed} </span>}
-          {changedHead === null ? null : headFocus ? (
+          {changedHead === null ? null : headLink ? (
             <button
               type="button"
-              onClick={headFocus}
+              onClick={headLink.focus}
+              onMouseEnter={() => light.on(headLink)}
+              onMouseLeave={light.off}
+              onFocus={() => light.on(headLink)}
+              onBlur={light.off}
               data-testid={`${RUN_CHANGES_SUMMARY_TESTID}-focus`}
               data-entity-id={lines.changed[0]!.row.entityId}
+              data-canvas-target={`${headLink.target.kind}:${headLink.target.id}`}
               className="underline decoration-dotted underline-offset-2 hover:decoration-solid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info rounded-sm"
             >
               {changedHead}
