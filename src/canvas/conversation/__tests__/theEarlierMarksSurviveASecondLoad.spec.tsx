@@ -157,7 +157,6 @@ vi.mock('../../../services/scenarioService', () => ({
 //     against mockStreamTurn (streaming path). Without this, the flag
 
 const SCENARIO = '77777777-8888-9999-aaaa-bbbbbbbbbbbb'
-const OTHER = '66666666-8888-9999-aaaa-bbbbbbbbbbbb'
 
 const TURNS = readServerConversationTurns([
   { turn_id: 't1', created_at: '2026-09-30T05:40:00Z', user_message: 'Should we raise the price?', assistant_message: 'I have drafted the model on the canvas.' },
