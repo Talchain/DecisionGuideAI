@@ -207,6 +207,8 @@ import {
   type ComparisonLens,
 } from '../comparisonLens'
 import { goalBandIsInUserUnits } from '../goalBandUnits'
+import { RESTS_ON_ACCEPTED_OLUMI_LABEL } from '../../utils/goalIdentityWithheld'
+import { UnsizedLinkActions } from './UnsizedLinkActions'
 
 /**
  * ⭐ THE ARMS, IN READING ORDER, DECLARED ONCE.
@@ -1008,9 +1010,23 @@ export function OptionsComparison({
                     markerData={{ 'data-lens-arm': rangeAppetite, 'data-mark-at': String(markAt) }}
                     testId={`${testId}-outcome-range-${o.id}`}
                   />
+                  {o.restsOnAcceptedOlumi === true && (
+                    <p
+                      className={`${typography.panelMeta} text-text-light mt-1`}
+                      data-testid={`${testId}-rests-on-accepted-${o.id}`}
+                    >
+                      {RESTS_ON_ACCEPTED_OLUMI_LABEL}
+                    </p>
+                  )}
                   </div>
                 )
               })()
+            ) : null}
+
+            {o.kind === 'analysed' && o.unsizedLinks && o.unsizedLinks.length > 0 ? (
+              <div className={RANGE_INSET}>
+                <UnsizedLinkActions links={o.unsizedLinks} testId={`${testId}-unsized-${o.id}`} />
+              </div>
             ) : null}
 
             {/* ⭐⭐ GOAL FIT: "does this reach the target I set?" — the

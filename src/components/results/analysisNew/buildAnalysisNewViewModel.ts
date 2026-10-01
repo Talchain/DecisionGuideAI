@@ -3383,6 +3383,8 @@ function buildOptionsComparison(
         typeof o.outcome?.p10 === 'number' && typeof o.outcome?.p90 === 'number'
           ? { p10: o.outcome.p10, p50: typeof o.outcome.p50 === 'number' ? o.outcome.p50 : null, p90: o.outcome.p90 }
           : null,
+      ...(o.outcomeRestsOnAcceptedOlumi === true ? { restsOnAcceptedOlumi: true as const } : {}),
+      ...(o.unsizedLinks && o.unsizedLinks.length > 0 ? { unsizedLinks: o.unsizedLinks } : {}),
       why,
     })
   }

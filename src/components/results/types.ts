@@ -213,6 +213,16 @@ export interface OptionResult {
    * at all rather than a zero or a placeholder.
    */
   downside?: OptionDownside
+  /** B3 (DL R1): the producer withheld this option's goal figure (`GOAL_FIGURES_*`, per option × claim). */
+  goalFigureWithheld?: true
+  /** B3b (DL R1 condition 4): the KEPT outcome rests on Olumi's estimates the user accepted; say so beside it. */
+  outcomeRestsOnAcceptedOlumi?: true
+  /**
+   * B3c (DL R2, 5930827933): links on this option's path the producer named as unsized but acceptable at Olumi's
+   * starting strength (B2 `acceptable_links`), resolved to canvas edges. One click sizes each through the canvas's own
+   * `edge_strength_edit` confirm path; the figure then appears after a re-run.
+   */
+  unsizedLinks?: ReadonlyArray<{ edgeId: string; fromLabel: string; toLabel: string }>
   /**
    * ROADMAP 2.646 — the producer's PERCENTILE PROVENANCE for this option,
    * carried verbatim from `enrichment.option_comparison[].outcome

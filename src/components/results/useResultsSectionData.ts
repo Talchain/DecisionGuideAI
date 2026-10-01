@@ -112,7 +112,8 @@ import {
 } from './strengthElicitation/selectAssumedStrengthToResolve'
 import { reviewableStrengthEdgeIds } from './strengthElicitation/reviewableEdges'
 import { deriveRobustnessStatus } from './robustnessStatus'
-import { readGoalIdentityWithheld } from './utils/goalIdentityWithheld'
+import { readGoalFigureWithholds, readGoalIdentityWithheld } from './utils/goalIdentityWithheld'
+import { isStrengthPlaceholder } from '../../canvas/domain/strengthPlaceholder'
 import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisParticipation'
 import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
 
@@ -2172,6 +2173,27 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       if (!outcomeValuesAreModelScale(vals)) { anyAlreadyDenormalized = true; break }
     }
     const isNormalisedResult = !capValid && !anyAlreadyDenormalized
+    // B3c (DL R2): the producer's acceptable unsized links per option, resolved to canvas edges by endpoint ids, kept only
+    // while the edge is still a placeholder. A link with no edge on the canvas is dropped; labels come from the nodes.
+    const figureWithholds = readGoalFigureWithholds(report)
+    const unsizedLinksFor = (optionId: string): Array<{ edgeId: string; fromLabel: string; toLabel: string }> => {
+      const seen = new Set<string>()
+      const out: Array<{ edgeId: string; fromLabel: string; toLabel: string }> = []
+      for (const w of figureWithholds) {
+        if (w.optionIds !== null && !w.optionIds.includes(optionId)) continue
+        for (const l of w.acceptableLinks) {
+          const edge = edges.find((e) => e.source === l.from && e.target === l.to)
+          // ⛔ The retained warning is the Run's word; whether the link is STILL unsized is the edge's. Once Edit or an
+          // acceptance sizes it (or the user states it), the typed placeholder predicate clears and the offer goes (#2408 CR).
+          if (!edge || seen.has(edge.id) || !isStrengthPlaceholder(edge.data as Record<string, unknown> | undefined)) continue
+          seen.add(edge.id)
+          const labelOf = (id: string) => String((nodes.find((n) => n.id === id)?.data as { label?: unknown } | undefined)?.label ?? id)
+          out.push({ edgeId: edge.id, fromLabel: labelOf(l.from), toLabel: labelOf(l.to) })
+        }
+      }
+      return out
+    }
+
     const unsortedOptions: OptionResult[] = optionNodes.map((node) => {
       const nodeId = node.id
       const prob = optionProbs[nodeId] || {}
@@ -2321,6 +2343,16 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         nValidSamples,
         // 2.449 — omitted entirely when the engine had nothing honest to say.
         ...(optionDownside !== undefined ? { downside: optionDownside } : {}),
+        // B3 (DL R1): the producer withheld this option's goal figure, and whether its KEPT outcome rests on Olumi's
+        // estimates the user accepted. Carried so every outcome surface can keep the spread and say so beside it.
+        ...((prob as { goalIdentityWithheld?: true }).goalIdentityWithheld === true ? { goalFigureWithheld: true as const } : {}),
+        ...((prob as { outcomeRestsOnAcceptedOlumi?: true }).outcomeRestsOnAcceptedOlumi === true
+          ? { outcomeRestsOnAcceptedOlumi: true as const }
+          : {}),
+        ...(() => {
+          const links = unsizedLinksFor(nodeId)
+          return links.length > 0 ? { unsizedLinks: links } : {}
+        })(),
         // 2.646 — percentile provenance, carried verbatim from the report and
         // NOT scaled, NOT defaulted, NOT re-derived. It is the only thing that
         // lets the absence sentence above name the engine instead of shrugging;
