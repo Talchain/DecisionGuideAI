@@ -160,7 +160,12 @@ import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
-import { NOT_RANKED_MARKER, selectWinShareWithheldReason, selectWinSharesWithheld } from '../state/winShareGate'
+import {
+  NOT_RANKED_MARKER,
+  selectOptionComparedInRun,
+  selectWinShareWithheldReason,
+  selectWinSharesWithheld,
+} from '../state/winShareGate'
 import {
   fitRowsToBudget,
   fitRowsToLineBudget,
@@ -1961,8 +1966,11 @@ export const OptionNode = memo((props: NodeProps) => {
   // a non-null `winReadout` does not narrow `displayMetadata.winRate` for the
   // type checker.
   // ⭐ CURRENT-READ row 9 (Paul's test 4276f3f9, finding 9): a withheld leader withholds every per-option
-  // share, for ANY reason (AIQ 5912710392). The slot shows `Not ranked` with the reason instead (`winShareGate.ts`).
+  // share, for ANY reason (AIQ 5912710392). The slot shows `Compared · share not shown` with the reason instead
+  // (`winShareGate.ts`).
   const winSharesAreWithheld = useCanvasStore(selectWinSharesWithheld)
+  // F1b's "was it compared?" (52f8cd): the marker SAYS "Compared", so it renders only where the panel counts it.
+  const comparedInRun = useCanvasStore((state) => selectOptionComparedInRun(state, props.id))
   const winShareWithheldReasonLine = useCanvasStore(selectWinShareWithheldReason)
   const winReadout = useMemo(() => {
     if (!displayMetadata.isResultsMode || displayMetadata.winRate === null || winSharesAreWithheld) return null
@@ -2042,9 +2050,13 @@ export const OptionNode = memo((props: NodeProps) => {
    * both phases and the run adds its line below them (prototype, Paul 25 Sep).
    */
   const notAnalysedRenders = displayMetadata.isResultsMode && absentFromRunReason !== null
-  // An option the Run scored, on a Run that withheld the leader: `Not ranked`, never a share (row 9).
+  // An option the Run compared, on a Run that withheld the leader: `Compared · share not shown`, never a share (row 9).
   const notRankedRenders =
-    displayMetadata.isResultsMode && winSharesAreWithheld && !notAnalysedRenders && winShareWithheldReasonLine !== null
+    displayMetadata.isResultsMode &&
+    winSharesAreWithheld &&
+    comparedInRun &&
+    !notAnalysedRenders &&
+    winShareWithheldReasonLine !== null
   /**
    * CEE's TYPED reason this option was left out: its `analysis_ready.blockers[]`
    * entry naming THIS option with `blocker_type: 'missing_value'`. Read, never
