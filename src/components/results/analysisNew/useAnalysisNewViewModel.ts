@@ -21,7 +21,7 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
 import { deriveGuidanceDskProvenance, useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import { useStrengthenStore, recordKey} from '../../../canvas/stores/strengthenStore'
-import { buildNodeValueSourceMap } from '../driverValueProvenance'
+import { buildAcceptedNodeIds, buildNodeValueSourceMap } from '../driverValueProvenance'
 import { buildNodeOriginMap } from './optionOriginDisclosure'
 import { buildRecommendations } from '../strengthen/buildRecommendations'
 import type { Recommendation } from '../strengthen/strengthenTypes'
@@ -108,6 +108,8 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
    */
   const nodes = useCanvasStore((s) => s.nodes)
   const nodeValueSources = useMemo(() => buildNodeValueSourceMap(nodes), [nodes])
+  // Olumi's figures the user accepted: the fact the source string cannot carry (52f8cd).
+  const acceptedValueIds = useMemo(() => buildAcceptedNodeIds(nodes), [nodes])
   /**
    * ⭐ WHOSE IDEA EACH ELEMENT WAS — the SAME `nodes` slice, a DIFFERENT field.
    * `buildNodeValueSourceMap` reads `observed_state.source` (who authored a
@@ -277,6 +279,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
         runDeltaAbsenceReason,
         limitVerdicts,
         nodeValueSources,
+        acceptedValueIds,
         nodeLabels,
         nodeOrigins,
         // ⭐ THE SAME READING Strengthen gets above, now also the licence for
@@ -327,6 +330,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
       runDeltaAbsenceReason,
       limitVerdicts,
       nodeValueSources,
+      acceptedValueIds,
       nodeLabels,
       nodeOrigins,
       // Store-derived, not an arg: a currency flip must re-license the

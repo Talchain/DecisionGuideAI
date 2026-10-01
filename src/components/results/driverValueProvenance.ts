@@ -48,7 +48,7 @@
  * guard. Unknown literals route to `undetermined` and get reported.
  */
 
-import { classifyValueProvenance } from '../../canvas/domain/valueProvenance'
+import { classifyValueProvenance, isAcceptedOlumiFigure } from '../../canvas/domain/valueProvenance'
 
 /**
  * Three states, because the producer's answer is genuinely three-valued and the
@@ -113,6 +113,21 @@ export function buildNodeValueSourceMap(
 }
 
 /**
+ * The node ids whose value is Olumi's figure the user ACCEPTED (`isAcceptedOlumiFigure`; 52f8cd). A source string
+ * cannot carry that fact (`user_assumption` alone is the user's own declared guess), so the hooks build this beside
+ * {@link buildNodeValueSourceMap} from the same `nodes` slice. Sparse, like the map.
+ */
+export function buildAcceptedNodeIds(nodes: ReadonlyArray<unknown> | null | undefined): ReadonlySet<string> {
+  const out = new Set<string>()
+  for (const node of nodes ?? []) {
+    const n = node as { id?: unknown; data?: unknown } | undefined
+    if (typeof n?.id !== 'string' || n.id.length === 0) continue
+    if (isAcceptedOlumiFigure(n.data ?? n)) out.add(n.id)
+  }
+  return out
+}
+
+/**
  * Where one driver's VALUE came from.
  *
  * ⚠ THE JOIN KEY IS THE ONE THIS ESTATE ALREADY USES — `matchedNodeId ??
@@ -126,6 +141,8 @@ export function buildNodeValueSourceMap(
 export function driverValueProvenance(
   driver: DriverProvenanceKey,
   nodeValueSources?: ReadonlyMap<string, string>,
+  /** {@link buildAcceptedNodeIds}: Olumi's figure, ACCEPTED, is still Olumi's estimate — never "not estimated". */
+  acceptedNodeIds?: ReadonlySet<string>,
 ): DriverValueProvenance {
   const key = driver.matchedNodeId ?? driver.factorKey
   // ⭐ R7 / X4: THE RUN'S OWN SOURCE FIRST. The live node answers "whose value is
@@ -135,6 +152,9 @@ export function driverValueProvenance(
   // reports), the path every surface used before the V5 mapper carried it.
   const runSource =
     typeof driver.valueSource === 'string' && driver.valueSource.trim() !== '' ? driver.valueSource : undefined
+  // ⭐ An accepted Olumi figure is an estimate, whatever the bare stamp says (52f8cd): only when the run consumed that
+  // same stamp (or carried none), so a run that consumed the user's own later figure is never re-labelled.
+  if (acceptedNodeIds?.has(key) === true && (runSource === undefined || runSource === 'user_assumption')) return 'estimated'
   const classified = classifyValueProvenance(runSource ?? nodeValueSources?.get(key))
   if (classified === null) return 'undetermined'
   if (classified.userOwned) return 'not_estimated'

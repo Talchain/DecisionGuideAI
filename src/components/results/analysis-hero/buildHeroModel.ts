@@ -252,6 +252,8 @@ export function buildHeroModel(
    * (DL 5869404773). Absent (older callers/tests) nothing is flagged.
    */
   noValueIds?: ReadonlySet<string>,
+  /** `buildAcceptedNodeIds`: Olumi's figures the user accepted read as estimates (52f8cd). */
+  acceptedValueIds?: ReadonlySet<string>,
 ): HeroModel {
   // Fail closed on a partially-shaped object (e.g. hydrated older state):
   // the type guarantees these fields, but the hero must render nothing —
@@ -1318,7 +1320,7 @@ export function buildHeroModel(
             // was tagged as Olumi's. The authority is the node. See
             // `../driverValueProvenance` — one implementation, shared with the
             // glance, where the old declared copy used to sit.
-            isEstimate: driverValueProvenance(d, nodeValueSources),
+            isEstimate: driverValueProvenance(d, nodeValueSources, acceptedValueIds),
             // Producer-normalised direction, passed through; absent stays
             // absent (the sign glyph is omitted, never guessed).
             //

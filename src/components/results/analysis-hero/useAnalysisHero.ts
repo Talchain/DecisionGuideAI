@@ -26,7 +26,7 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '@/canvas/store'
 import { selectActive, useStrengthenStore } from '@/canvas/stores/strengthenStore'
 import { isFocusNowPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
-import { buildNodeValueSourceMap } from '../driverValueProvenance'
+import { buildAcceptedNodeIds, buildNodeValueSourceMap } from '../driverValueProvenance'
 import { noValueDriverIds } from '../noValueDriverIds'
 import { selectDriverPolicyFeed } from '../useResultsSectionData'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
@@ -81,6 +81,8 @@ export function useAnalysisHero(data: ResultsSectionDataReturn): UseAnalysisHero
    * derived map keeps the one-way flow the module header promises.
    */
   const nodeValueSources = useMemo(() => buildNodeValueSourceMap(nodes), [nodes])
+  // Olumi's figures the user accepted: the fact the source string cannot carry (52f8cd).
+  const acceptedValueIds = useMemo(() => buildAcceptedNodeIds(nodes), [nodes])
 
   /**
    * ⭐ ONE DRIVER AUTHORITY (design audit §2 #7, served 853feeb7) — the card's
@@ -103,8 +105,8 @@ export function useAnalysisHero(data: ResultsSectionDataReturn): UseAnalysisHero
   )
 
   const model = useMemo(
-    () => buildHeroModel(data, optionNumbering, canvasNodeIds, nodeValueSources, driverLeader, noValueIds),
-    [data, optionNumbering, canvasNodeIds, nodeValueSources, driverLeader, noValueIds],
+    () => buildHeroModel(data, optionNumbering, canvasNodeIds, nodeValueSources, driverLeader, noValueIds, acceptedValueIds),
+    [data, optionNumbering, canvasNodeIds, nodeValueSources, driverLeader, noValueIds, acceptedValueIds],
   )
 
   const strengthenOn = isStrengthenPanelEnabled()

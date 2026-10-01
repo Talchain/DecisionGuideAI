@@ -282,6 +282,8 @@ export interface AnalysisNewViewModelInputs {
    * says its basis was never established, and no claim is made either way.
    */
   nodeValueSources?: ReadonlyMap<string, string>
+  /** `buildAcceptedNodeIds`: Olumi's figures the user ACCEPTED, which the source string cannot carry (52f8cd). */
+  acceptedValueIds?: ReadonlySet<string>
   /**
    * Node id → label, from the graph store. Lets a producer gap name the factor
    * it is about instead of repeating one anonymous sentence per unset root.
@@ -2215,6 +2217,7 @@ function glanceDrivers(data: ResultsSectionDataReturn): {
 function glanceInputProvenance(
   data: ResultsSectionDataReturn,
   nodeValueSources?: ReadonlyMap<string, string>,
+  acceptedValueIds?: ReadonlySet<string>,
 ): GlanceInputProvenance | null {
   const rows = data.drivers.drivers ?? []
   // ⚠ NO ROWS IS A DRIVERS-FEED CONDITION, NOT A PROVENANCE ONE, AND THE TWO
@@ -2231,9 +2234,9 @@ function glanceInputProvenance(
   // what neither predicate matches — and it is the one that demotes a
   // universal claim to a "partly" one below.
   const estimated = (d: (typeof rows)[number]) =>
-    driverValueProvenance(d, nodeValueSources) === 'estimated'
+    driverValueProvenance(d, nodeValueSources, acceptedValueIds) === 'estimated'
   const userStated = (d: (typeof rows)[number]) =>
-    driverValueProvenance(d, nodeValueSources) === 'not_estimated'
+    driverValueProvenance(d, nodeValueSources, acceptedValueIds) === 'not_estimated'
 
   const hasEstimated = rows.some(estimated)
   const hasUserStated = rows.some(userStated)
@@ -2411,6 +2414,7 @@ function buildAtAGlance(
   nodeLabels?: ReadonlyMap<string, string>,
   nodeOrigins?: ReadonlyMap<string, OptionOrigin>,
   analysisIdentityIsCurrent = false,
+  acceptedValueIds?: ReadonlySet<string>,
 ): AtAGlance {
   const rec = data.recommendation
   const { drivers, setRelative } = glanceDrivers(data)
@@ -2777,7 +2781,7 @@ function buildAtAGlance(
     drivers,
     influenceIsSetRelative: setRelative,
     condition,
-    inputProvenance: glanceInputProvenance(data, nodeValueSources),
+    inputProvenance: glanceInputProvenance(data, nodeValueSources, acceptedValueIds),
     /**
      * ⭐⭐ GATED ON `headline && leader`, WHICH IS THE ENTITLEMENT ITSELF, NOT A
      * SECOND COPY OF IT. `headline` is non-null only where
@@ -3865,6 +3869,7 @@ export function buildAnalysisNewViewModel(
     inputs.nodeLabels,
     inputs.nodeOrigins,
     analysisIdentityIsCurrent,
+    inputs.acceptedValueIds,
   )
 
   /**
