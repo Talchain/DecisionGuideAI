@@ -21,6 +21,7 @@
  */
 import { useState } from 'react'
 import { typography } from '../../../../styles/typography'
+import { action } from '../panelSurfaces'
 import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuthority'
 import { openEdgeStrengthEditor } from '../../../../canvas/utils/openEdgeStrengthEditor'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -72,7 +73,7 @@ export function UnsizedLinkRow({ link, testId }: { link: { edgeId: string; fromL
         </span>
         <button
           type="button"
-          className={`${typography.panelMeta} text-text-header border border-panel-border rounded-full px-3 py-1 bg-transparent hover:bg-panel-hover disabled:opacity-50`}
+          className={`${typography.panelMeta} ${action('secondary')} disabled:opacity-50`}
           data-testid={`${testId}-${link.edgeId}-accept`}
           disabled={state === 'sending' || state === 'sent' || state === 'not_current' || state === 'already_sized'}
           onClick={() => {
@@ -98,7 +99,7 @@ export function UnsizedLinkRow({ link, testId }: { link: { edgeId: string; fromL
         </button>
         <button
           type="button"
-          className={`${typography.panelMeta} text-text-light bg-transparent hover:text-text-header`}
+          className={`${typography.panelMeta} ${action('quiet')} hover:text-text-header`}
           data-testid={`${testId}-${link.edgeId}-edit`}
           onClick={() => { openEdgeStrengthEditor(link.edgeId) }}
         >
