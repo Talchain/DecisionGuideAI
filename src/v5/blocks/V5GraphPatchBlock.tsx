@@ -107,9 +107,12 @@ export function V5GraphPatchBlock({
       className="rounded-md border border-goal/30 bg-panel p-4 space-y-2"
     >
       <div className="flex items-center gap-2">
+        {/* ⛔ NEVER SQUEEZED. Beside a two-line title the flex row shrank this pill to 63px on the served dock, so
+            "No change" wrapped to three lines inside a 56px-tall rounded pill ("No / chang / e", fresh guest, deploy
+            6abeee47, 1 Oct 23:39Z). The pill keeps its one line; the title takes the wrap. */}
         <span
           className={[
-            'inline-flex items-center rounded-full px-2.5 py-0.5',
+            'inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2.5 py-0.5',
             'bg-transparent text-text-body',
             isApplied ? 'border border-success/30' : 'border border-text-light/30',
             typography.chatMeta,
@@ -119,7 +122,7 @@ export function V5GraphPatchBlock({
           {isApplied ? 'Applied' : 'No change'}
         </span>
         <h3
-          className={typography.panelHeader}
+          className={`${typography.panelHeader} min-w-0`}
           data-testid="v5-change-action"
         >
           {receipt.actionLabel}
