@@ -208,6 +208,7 @@ import {
 } from '../comparisonLens'
 import { goalBandIsInUserUnits } from '../goalBandUnits'
 import { RESTS_ON_ACCEPTED_OLUMI_LABEL } from '../../utils/goalIdentityWithheld'
+import { UnsizedLinkActions } from './UnsizedLinkActions'
 
 /**
  * ⭐ THE ARMS, IN READING ORDER, DECLARED ONCE.
@@ -1020,6 +1021,12 @@ export function OptionsComparison({
                   </div>
                 )
               })()
+            ) : null}
+
+            {o.kind === 'analysed' && o.unsizedLinks && o.unsizedLinks.length > 0 ? (
+              <div className={RANGE_INSET}>
+                <UnsizedLinkActions links={o.unsizedLinks} testId={`${testId}-unsized-${o.id}`} />
+              </div>
             ) : null}
 
             {/* ⭐⭐ GOAL FIT: "does this reach the target I set?" — the

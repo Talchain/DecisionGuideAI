@@ -655,6 +655,8 @@ export type ComparisonOption =
       outcomeRange: { p10: number; p50: number | null; p90: number } | null
       /** B3b (DL R1 condition 4): the range rests on Olumi's estimates the user accepted; the row says so. */
       restsOnAcceptedOlumi?: true
+      /** B3c (DL R2): unsized links the user can accept at Olumi's starting strength, one click each. */
+      unsizedLinks?: ReadonlyArray<{ edgeId: string; fromLabel: string; toLabel: string }>
       /**
        * ⭐ THE PRODUCER'S OWN SENTENCE ABOUT THIS OPTION —
        * `recommendation.storyHeadlines[option.id]`, sanitised at the data layer
