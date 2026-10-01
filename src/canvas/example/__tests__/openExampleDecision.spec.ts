@@ -312,6 +312,31 @@ describe('openExampleDecision: a fresh scenario every time, never over a model, 
     expect(useCanvasStore.getState().nodes).toHaveLength(0)
   })
 
+  /** Identity resolves only after `during` runs: the user acts while the click's first await is pending. */
+  const deferredIdentity = (during: () => void) => identity.mockImplementationOnce(async () => {
+    during()
+    return { userId: null, accessToken: null }
+  })
+
+  it('⛔ DEFERRED IDENTITY → "Start fresh" before it resolves → the RETRY applies nothing (epoch captured at click)', async () => {
+    hydrationHook('unavailable')
+    register.mockResolvedValue(ACK)
+    expect((await openExampleDecision()).status).toBe('not_read_back')
+    deferredIdentity(() => useCanvasStore.getState().resetCanvas())
+    retryRead(() => {})
+    expect(await openExampleDecision()).toEqual({ status: 'canvas_changed' })
+    expect(hydrateMock).not.toHaveBeenCalled()
+    expect(useCanvasStore.getState().nodes).toHaveLength(0)
+  })
+
+  it('⛔ DEFERRED IDENTITY → "Start fresh" before it resolves → the FRESH open writes nothing', async () => {
+    deferredIdentity(() => useCanvasStore.getState().resetCanvas())
+    register.mockResolvedValue(ACK)
+    expect(await openExampleDecision()).toEqual({ status: 'canvas_changed' })
+    expect(register).not.toHaveBeenCalled()
+    expect(useCanvasStore.getState().currentScenarioId).toBe(PREVIOUS)
+  })
+
   it('⛔ content that arrived during the write is not replaced: the id does not switch', async () => {
     register.mockImplementationOnce(async () => {
       useCanvasStore.setState({ nodes: [{ id: 'n', position: { x: 0, y: 0 }, data: {} }] as never })

@@ -122,11 +122,16 @@ export async function openExampleDecision(
 ): Promise<OpenExampleDecisionResult> {
   if (isPersistenceSessionActive()) return { status: 'signed_in' }
   const origin = useCanvasStore.getState().currentScenarioId
+  // CLICK time, before ANY await: a scenario boundary during the identity or graph await (e.g. "Start fresh" on the
+  // empty canvas, which moves neither the id nor the emptiness) must be seen by every later check (delta CR round 4).
+  const epoch = useCanvasStore.getState().scenarioEpoch
   /** Re-asked after EVERY await: no session has begun, and the click-time scenario still owns an empty canvas. */
   const stillOurs = (): OpenExampleDecisionResult | null => {
     if (isPersistenceSessionActive()) return { status: 'signed_in' }
     const st = useCanvasStore.getState()
-    if (st.currentScenarioId !== origin || st.nodes.length > 0 || st.edges.length > 0) return { status: 'canvas_changed' }
+    if (st.currentScenarioId !== origin || st.scenarioEpoch !== epoch || st.nodes.length > 0 || st.edges.length > 0) {
+      return { status: 'canvas_changed' }
+    }
     return null
   }
   const identity = await getSessionIdentity()
@@ -136,7 +141,7 @@ export async function openExampleDecision(
   const lost1 = stillOurs()
   if (lost1) return lost1
   if (unreadExampleId !== null) {
-    if (unreadExampleId === origin) return rereadExample(unreadExampleId, graph)
+    if (unreadExampleId === origin) return rereadExample(unreadExampleId, graph, epoch)
     unreadExampleId = null // the user has moved on from it; this click is a fresh open
   }
   const scenarioId = crypto.randomUUID()
@@ -176,8 +181,9 @@ export async function openExampleDecision(
 async function rereadExample(
   scenarioId: string,
   graph: unknown,
+  /** Captured at CLICK time by the caller, before any await. */
+  epoch: number,
 ): Promise<OpenExampleDecisionResult> {
-  const epoch = useCanvasStore.getState().scenarioEpoch
   const late = await getSessionIdentity()
   if (!isGuest(late)) return { status: 'signed_in' }
   let sessionSeen = false
