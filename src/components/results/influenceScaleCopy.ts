@@ -1017,6 +1017,18 @@ export const ZERO_REASON_BADGE_LABELS: Record<NonNullable<ZeroReasonCode>, strin
   intervention_override: 'Controlled by your options',
   disconnected: 'No path to the goal',
   zero_outcome_diff: "Doesn't change the outcome",
+  // PLoT's graph-path codes: no path to the goal at all, and a connected factor whose paths net to zero.
+  no_path_to_goal: 'No path to the goal',
+  zero_net_influence: "Doesn't change the outcome",
+}
+
+/**
+ * ⚠ A CODE ONLY COUNTS AS A REASON IF IT HAS WORDS. The wire's `zero_reason` is cast, not checked, so a code the
+ * producer adds later reaches the UI typed as one of ours; looked up here it gave `undefined` and crashed the
+ * Reasoning tab (Paul's manual test, 1 Oct 2026). Own properties only, so `constructor` & co. are not codes.
+ */
+export function isLabelledZeroReason(code: unknown): code is NonNullable<ZeroReasonCode> {
+  return typeof code === 'string' && Object.prototype.hasOwnProperty.call(ZERO_REASON_BADGE_LABELS, code)
 }
 
 /**
