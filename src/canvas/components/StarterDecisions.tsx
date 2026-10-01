@@ -1,10 +1,12 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { useShowToastSafe } from '../ToastContext'
 import { confirmReplaceCanvas } from '../blueprints/loadTemplateBlueprint'
 import { STARTERS, applyStarter, loadStarterPayload } from '../starters/loadStarter'
 import { typography } from '../../styles/typography'
+import { isPersistenceSessionActive } from '../../lib/persistenceSession'
+import { openExampleDecision } from '../example/exampleDecision'
 
 /**
  * The one user-facing failure string for a starter that will not open. Exported
@@ -63,6 +65,12 @@ export const STARTER_LOAD_FAILED_MESSAGE =
  *   being true. Advertise a key again only with a test that goes RED when
  *   its handler stops working.
  */
+export const EXAMPLE_OPEN_FAILED_MESSAGE = 'Couldn’t open the example decision. Try again in a moment.'
+export const EXAMPLE_DECISION_LABEL = 'Open the example decision'
+/** Both read from D1's own graph (goal node label, option count); the spec binds them to `d1.graph.json`. */
+export const EXAMPLE_DECISION_GOAL_LABEL = 'Quarterly revenue'
+export const EXAMPLE_DECISION_OPTION_COUNT = 4
+
 export function StarterDecisions() {
   // Re-entrancy latch for handlePick. A ref, not state: it must flip
   // synchronously within one click's async flow and never trigger a render.
@@ -77,6 +85,7 @@ export function StarterDecisions() {
   // component sits on the first screen — it must never be the thing that
   // crashes it.
   const showToast = useShowToastSafe()
+  const [openingExample, setOpeningExample] = useState(false)
 
   const handlePick = useCallback(
     async (starterId: string) => {
@@ -125,6 +134,24 @@ export function StarterDecisions() {
     [showToast],
   )
 
+  // Investor step 0: the prepared decision, registered verbatim into a fresh scenario (see exampleDecision.ts).
+  const handleOpenExample = useCallback(async () => {
+    if (pickInFlight.current) return
+    pickInFlight.current = true
+    setOpeningExample(true)
+    try {
+      if (!confirmReplaceCanvas()) return
+      const result = await openExampleDecision()
+      if (result.status === 'not_opened') showToast(EXAMPLE_OPEN_FAILED_MESSAGE, 'error')
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('[StarterDecisions] Failed to open the example decision:', err)
+      showToast(EXAMPLE_OPEN_FAILED_MESSAGE, 'error')
+    } finally {
+      pickInFlight.current = false
+      setOpeningExample(false)
+    }
+  }, [showToast])
+
   // A graph exists → the starters are not the user's way in any more.
   if (hasGraph) return null
 
@@ -145,6 +172,29 @@ export function StarterDecisions() {
       <p className={`mb-3 text-center ${typography.bodySmall} text-text-light`}>
         Or open a saved example — a real decision Olumi has modelled
       </p>
+
+      {!isPersistenceSessionActive() && (
+        <button
+          type="button"
+          data-testid="open-example-decision"
+          disabled={openingExample}
+          onClick={handleOpenExample}
+          className="group mb-2 flex w-full items-start gap-2 rounded-lg border border-panel-border bg-transparent p-3 text-left transition-colors hover:border-info/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-60"
+        >
+          <span className="min-w-0 flex-1">
+            <span className={`block ${typography.label} text-text-body`}>
+              {openingExample ? 'Opening the example…' : EXAMPLE_DECISION_LABEL}
+            </span>
+            <span className={`mt-0.5 block ${typography.caption} text-text-light`}>
+              Goal: {EXAMPLE_DECISION_GOAL_LABEL} · {EXAMPLE_DECISION_OPTION_COUNT} options
+            </span>
+          </span>
+          <ArrowUpRight
+            aria-hidden="true"
+            className="mt-0.5 h-4 w-4 shrink-0 text-text-light transition-colors group-hover:text-info"
+          />
+        </button>
+      )}
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {STARTERS.map((s) => (

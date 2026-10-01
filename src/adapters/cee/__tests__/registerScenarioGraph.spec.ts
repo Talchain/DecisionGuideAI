@@ -215,3 +215,28 @@ describe('the base is a same-origin LITERAL, pinned at the source text', () => {
     expect(scenarioGraphRegisterUrl('abc')).toBe('/bff/cee/scenarios/abc/graph/register')
   })
 })
+
+describe('registerScenarioGraph — expectNoGraph asserts an empty scenario (the example decision)', () => {
+  const bodyOf = () => JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string) as Record<string, unknown>
+
+  it('sends `expected_graph_identity_hash: null` (the key PRESENT, value null) so CEE refuses on any stored graph', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, ACK))
+    await registerScenarioGraph(SCENARIO, GRAPH, { expectNoGraph: true })
+    const body = bodyOf()
+    expect(Object.prototype.hasOwnProperty.call(body, 'expected_graph_identity_hash')).toBe(true)
+    expect(body.expected_graph_identity_hash).toBeNull()
+  })
+
+  it('CONTRAST: without it the key is ABSENT (no CAS assertion), exactly as every existing caller sends', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, ACK))
+    await registerScenarioGraph(SCENARIO, GRAPH)
+    expect(Object.prototype.hasOwnProperty.call(bodyOf(), 'expected_graph_identity_hash')).toBe(false)
+  })
+
+  it('a 409 under the assertion is `conflict`, never a retry', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(409, { error: 'conflict' }))
+    const r = await registerScenarioGraph(SCENARIO, GRAPH, { expectNoGraph: true, retryDelayMs: 0 })
+    expect(r.status).toBe('conflict')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
