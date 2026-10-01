@@ -2204,7 +2204,7 @@ export const OptionNode = memo((props: NodeProps) => {
         // — so it is now `nowrap`, and the one place the amount may break
         // (before its arrow) is re-opened INSIDE the value span below.
         ? `${typography.edgeLabel} !leading-[1.2] m-0 max-w-full whitespace-nowrap text-left text-text-body`
-        : `${typography.edgeLabel} !leading-tight m-0 min-w-0 break-words ${align === 'left' ? 'text-left' : 'text-right'} text-text-body`}
+        : `${typography.edgeLabel} m-0 min-w-0 break-words ${align === 'left' ? 'text-left' : 'text-right'} text-text-body`}
       data-testid={`option-change-row-${props.id}-${r.factorId}`}
       title={changeRowSentence(r)}
     >
@@ -2348,7 +2348,7 @@ export const OptionNode = memo((props: NodeProps) => {
         {changeRows.map((r, i) => (
           <Fragment key={r.factorId}>
             <dt
-              className={`${typography.edgeLabel} !leading-tight min-w-0 break-words text-text-light${stacked && i > 0 ? ' mt-1' : ''}`}
+              className={`${typography.edgeLabel} min-w-0 break-words text-text-light${stacked && i > 0 ? ' mt-1' : ''}`}
               title={r.fullLabel !== r.label ? r.fullLabel : undefined}
             >
               <span aria-hidden={r.fullLabel !== r.label ? true : undefined}>{r.label}</span>

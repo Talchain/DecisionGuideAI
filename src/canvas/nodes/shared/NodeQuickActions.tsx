@@ -1,5 +1,5 @@
 import { memo, useCallback, type ReactNode } from 'react'
-import { MoreHorizontal, Zap } from 'lucide-react'
+import { HelpCircle, MoreHorizontal } from 'lucide-react'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useShowToastSafe } from '../../ToastContext'
@@ -485,8 +485,13 @@ export const NodeQuickActions = memo(function NodeQuickActions({
          added to it. BOTH changes are kept; neither side was taken wholesale.
          The `opacity` variants are byte-identical to the ones this fix was
          originally written against, so the 1:1 mirror argument above still
-         holds exactly. */
-      className={`node-quick-actions flex ${CANVAS_GAP_CLASSES[6]} transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:pointer-events-auto group-focus-within:pointer-events-auto [@media(pointer:coarse)]:pointer-events-auto motion-reduce:transition-none ${alwaysVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+         holds exactly.
+
+         ⭐ NO LONGER ON HOVER (Paul, 1 Oct 2026: "They keep appearing and disappearing"; Grammar v0 §4: "An icon
+         is either always there at rest or never; no icons that flicker in on hover"). The row shows when the card
+         is SELECTED (a click, `alwaysVisible`), on keyboard focus inside it, and on touch. A pointer passing over
+         the board no longer flashes three icons on every card it crosses. */
+      className={`node-quick-actions flex ${CANVAS_GAP_CLASSES[6]} transition-opacity duration-150 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 group-focus-within:pointer-events-auto [@media(pointer:coarse)]:pointer-events-auto motion-reduce:transition-none ${alwaysVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
       data-testid={`node-quick-actions-${nodeId}`}
     >
       {canAsk && coachingChip === null && (
@@ -511,9 +516,9 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           deliberate final position. Identical geometry to its siblings, so the
           cluster stays one row of equal controls (the shared rail box).
 
-          `Zap` is the icon the context menu already uses for "Challenge this"
-          (`useMenuItems.ts`), so the button and the menu entry it unburies read
-          as the same action rather than as two features. */}
+          `HelpCircle` is DS v5 §9.7's Challenge icon (was `Zap`, which no DS set
+          lists). The context menu's "Challenge this" (`useMenuItems.ts`) wears the
+          same glyph, so the button and the menu entry read as one action. */}
       {canChallenge && (
         <Tooltip asChild delay={300} content={challengeHint}>
           <button
@@ -524,7 +529,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
             aria-label={`Challenge ${label}`}
             data-testid={`node-action-challenge-${nodeId}`}
           >
-            <Zap size={NODE_RAIL_GLYPH_PX} aria-hidden="true" className={NODE_RAIL_GLYPH_CLASSES} />
+            <HelpCircle size={NODE_RAIL_GLYPH_PX} aria-hidden="true" className={NODE_RAIL_GLYPH_CLASSES} />
           </button>
         </Tooltip>
       )}

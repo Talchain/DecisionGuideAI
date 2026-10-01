@@ -15,6 +15,7 @@ import {
   briefCoachingFor,
   BRIEF_COACHING_CARDS,
   MAX_BRIEF_COACHING_CARDS,
+  BRIEF_COACHING_WHY_MAX,
   takeQueuedBriefCoachingPrefill,
 } from '../components/briefCoaching'
 import { ACTIONS_MENU } from '../components/pre-analysis-v3/constants'
@@ -146,7 +147,12 @@ describe('"design that panel so it looks good … science-grounded, concise, eas
   })
 
   it('every card names its source, and the method actions reuse the panel\'s own prompts (one act, one wording)', () => {
-    for (const c of Object.values(BRIEF_COACHING_CARDS)) expect(c.science).toMatch(/\([^)]+\)/)
+    // Concise (Paul, 1 Oct, second note: "easy to digest"): ONE line of why, and a named source shown beside it.
+    for (const c of Object.values(BRIEF_COACHING_CARDS)) {
+      expect(c.why.length, c.id).toBeLessThanOrEqual(BRIEF_COACHING_WHY_MAX)
+      expect(c.why.split(/(?<=[.!?])\s+/).filter(Boolean), c.id).toHaveLength(1)
+      expect(c.source, c.id).toMatch(/\([^)]+\)/)
+    }
     const prompt = (id: string) => (ACTIONS_MENU as readonly { id: string; prompt: string }[]).find((a) => a.id === id)!.prompt
     expect(BRIEF_COACHING_CARDS.pre_mortem.prefill).toBe(prompt('pre_mortem'))
     expect(BRIEF_COACHING_CARDS.outside_view.prefill).toBe(prompt('outside_view'))
