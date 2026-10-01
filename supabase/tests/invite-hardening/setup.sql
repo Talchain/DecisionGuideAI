@@ -29,9 +29,28 @@ BEGIN
   RETURN NEW;
 END; $$;
 create trigger team_member_org_enforce before insert or update on team_members for each row execute function public.check_team_member_org();
--- stand-in for the Brevo sender: records what WOULD be sent
-create function send_email_with_template(p_to text, p_subject text, p_template_name text, p_template_data jsonb default '{}') returns jsonb language plpgsql security definer as $$
-BEGIN INSERT INTO public.email_outbox(to_addr, subject, data) VALUES (p_to, p_subject, p_template_data); RETURN '{"success":true,"message_id":"m1"}'::jsonb; END; $$;
+-- Transport mock ONLY (round 3). The email helper's real body is in before.sql;
+-- these stand in for the pgsql-http extension, which Supabase installs in
+-- `extensions` and whose role search_path is "$user", public, extensions.
+create schema extensions;
+create type extensions.http_method as enum ('GET','POST','PUT','PATCH','DELETE','HEAD');
+create type extensions.http_header as (field varchar, value varchar);
+create type extensions.http_request as (method extensions.http_method, uri varchar, headers extensions.http_header[], content_type varchar, content varchar);
+create type extensions.http_response as (status integer, content_type varchar, headers extensions.http_header[], content varchar);
+create function extensions.http_header(field varchar, value varchar) returns extensions.http_header language sql as $$ select row(field, value)::extensions.http_header $$;
+create function extensions.http(request extensions.http_request) returns extensions.http_response language plpgsql as $$
+DECLARE b jsonb := (request).content::jsonb;
+BEGIN
+  INSERT INTO public.email_outbox(to_addr, subject, data) VALUES (b->'to'->0->>'email', b->>'subject', b);
+  RETURN row(200, 'application/json', null, '{"messageId":"m1"}')::extensions.http_response;
+END; $$;
+grant usage on schema extensions to anon, authenticated, service_role;
+create table email_templates(name text primary key, html text, txt text, created_at timestamptz default now(), updated_at timestamptz default now());
+insert into email_templates(name, html, txt) values ('team_invitation',
+  '<p>{{inviter_name}} invited you to {{team_name}}</p><a href="{{accept_link}}">Accept</a>',
+  '{{inviter_name}} invited you to {{team_name}}: {{accept_link}}');
+set search_path = "$user", public, extensions;
+set app.settings.brevo_api_key = 'test-key-not-a-secret';
 create function can_create_organization(user_id_param uuid, plan_type_param text) returns boolean language sql security definer as $$ select true $$;
 create function public.add_team_member(uuid,uuid,text,text) returns boolean language sql security definer as $$ select true $$;
 create function public.check_organisation_slug_exists(text) returns boolean language sql security definer as $$ select true $$;

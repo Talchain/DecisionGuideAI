@@ -17,7 +17,12 @@
 --         team_members trigger run with search_path = '' and fully qualified
 --         relations, so a caller's temporary table cannot shadow an
 --         authorisation lookup. send_email_with_template (only reachable from
---         SECURITY DEFINER callers) gets search_path = '' too.
+--         SECURITY DEFINER callers) gets search_path = '' with its transport
+--         schema-qualified (extensions.http / extensions.http_header).
+--   Round 3 (P2s of the round-2 review): team invitations take their
+--         organisation from the STORED team, because production's TeamsContext
+--         writes them without organisation_id. A team's creator or team admin
+--         also has authority over a team invitation.
 --   P1-4  team role and decision role go to their own columns and are
 --         validated against team_members' CHECK constraints (role: admin |
 --         member; decision_role: owner | approver | contributor | viewer).
@@ -81,9 +86,116 @@ BEGIN
 END;
 $function$;
 
--- Only reachable from SECURITY DEFINER callers since 20261001193210. Its only
--- relation is already qualified (public.email_templates).
-ALTER FUNCTION public.send_email_with_template(text, text, text, jsonb) SET search_path = '';
+-- Only reachable from SECURITY DEFINER callers since 20261001193210. Body is
+-- the live one with its transport schema-qualified (round 3): under
+-- search_path = '' the bare http()/http_header() calls would not resolve. The
+-- pgsql-http extension lives in `extensions` on Supabase (it is not installed on
+-- this project today, so the path is dormant either way).
+CREATE OR REPLACE FUNCTION public.send_email_with_template(p_to text, p_subject text, p_template_name text, p_template_data jsonb DEFAULT '{}'::jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_api_key TEXT;
+  v_from_email TEXT;
+  v_from_name TEXT;
+  v_html_content TEXT;
+  v_text_content TEXT;
+  v_response JSONB;
+  v_status INTEGER;
+  v_error TEXT;
+  v_template RECORD;
+  v_key TEXT;
+  v_value TEXT;
+  v_keys_values RECORD;
+BEGIN
+  -- Get API key from environment
+  v_api_key := current_setting('app.settings.brevo_api_key', true);
+  IF v_api_key IS NULL THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'error', 'Missing email credentials: API key not configured'
+    );
+  END IF;
+
+  -- Get from email
+  v_from_email := current_setting('app.settings.from_email', true);
+  IF v_from_email IS NULL THEN
+    v_from_email := 'noreply@decisionguide.ai';
+  END IF;
+
+  v_from_name := 'DecisionGuide.AI';
+
+  -- Get template content
+  SELECT et.html, et.txt INTO v_template
+  FROM public.email_templates et
+  WHERE et.name = p_template_name;
+
+  IF NOT FOUND THEN
+    -- Use default template if not found
+    v_html_content := '<html><body><h1>' || p_subject || '</h1><p>This is an automated email from DecisionGuide.AI.</p></body></html>';
+    v_text_content := p_subject || '\n\nThis is an automated email from DecisionGuide.AI.';
+  ELSE
+    v_html_content := v_template.html;
+    v_text_content := v_template.txt;
+
+    -- Replace template variables
+    IF p_template_data IS NOT NULL AND jsonb_typeof(p_template_data) = 'object' THEN
+      FOR v_keys_values IN SELECT * FROM jsonb_each_text(p_template_data)
+      LOOP
+        v_key := v_keys_values.key;
+        v_value := v_keys_values.value;
+        v_html_content := replace(v_html_content, '{{' || v_key || '}}', v_value);
+        v_text_content := replace(v_text_content, '{{' || v_key || '}}', v_value);
+      END LOOP;
+    END IF;
+  END IF;
+
+  -- Call Brevo API (transport schema-qualified)
+  SELECT
+    r.status,
+    r.content::jsonb,
+    CASE WHEN r.status >= 400 THEN r.content ELSE NULL END
+  INTO
+    v_status,
+    v_response,
+    v_error
+  FROM
+    extensions.http((
+      'POST',
+      'https://api.brevo.com/v3/smtp/email',
+      ARRAY[
+        extensions.http_header('api-key', v_api_key),
+        extensions.http_header('Content-Type', 'application/json'),
+        extensions.http_header('Accept', 'application/json')
+      ],
+      'application/json',
+      jsonb_build_object(
+        'sender', jsonb_build_object('email', v_from_email, 'name', v_from_name),
+        'to', jsonb_build_array(jsonb_build_object('email', p_to)),
+        'subject', p_subject,
+        'htmlContent', v_html_content,
+        'textContent', v_text_content
+      )::text
+    )::extensions.http_request) r;
+
+  IF v_status >= 400 OR v_error IS NOT NULL THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'error', COALESCE(v_error, 'API error: ' || v_status::text),
+      'status_code', v_status
+    );
+  END IF;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'message_id', COALESCE((v_response->>'messageId')::text, 'unknown'),
+    'response', v_response
+  );
+END;
+$function$;
 
 -- ---------------------------------------------------------------------------
 -- get_teams_with_members: only the caller's own teams (P1-3 qualification)
@@ -235,6 +347,7 @@ DECLARE
   c_origin constant text := 'https://decisionguide.ai';
   inv record;
   v_is_service boolean := COALESCE(auth.jwt() ->> 'role', '') = 'service_role';
+  v_org uuid;
   v_scope_name text;
   v_inviter_name text;
   v_accept_link text;
@@ -250,7 +363,7 @@ BEGIN
     AND i.status = 'pending'
     AND lower(i.email) = lower(to_email);
 
-  IF NOT FOUND OR inv.organisation_id IS NULL THEN
+  IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'error', 'Not authorized');
   END IF;
 
@@ -260,24 +373,46 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'Not authorized');
   END IF;
 
+  -- Scope (round 3): a team invitation takes its organisation from the
+  -- STORED team. Production's TeamsContext writes team invitations without
+  -- organisation_id; when the row does carry one it must agree.
+  IF inv.team_id IS NOT NULL THEN
+    SELECT t.organisation_id INTO v_org FROM public.teams t WHERE t.id = inv.team_id;
+    IF v_org IS NULL OR (inv.organisation_id IS NOT NULL AND inv.organisation_id <> v_org) THEN
+      RETURN jsonb_build_object('success', false, 'error', 'Not authorized');
+    END IF;
+  ELSE
+    v_org := inv.organisation_id;
+    IF v_org IS NULL THEN
+      RETURN jsonb_build_object('success', false, 'error', 'Not authorized');
+    END IF;
+  END IF;
+
+  -- Authority over that scope: the organisation's owner or an owner/admin
+  -- member; for a team invitation, also the team's creator or a team admin.
   IF NOT (
     EXISTS (
       SELECT 1 FROM public.organisations o
-      WHERE o.id = inv.organisation_id AND o.owner_id = inv.invited_by
+      WHERE o.id = v_org AND o.owner_id = inv.invited_by
     )
     OR EXISTS (
       SELECT 1 FROM public.organisation_members om
-      WHERE om.organisation_id = inv.organisation_id
+      WHERE om.organisation_id = v_org
         AND om.user_id = inv.invited_by
         AND om.role IN ('owner', 'admin')
     )
-  ) THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Not authorized');
-  END IF;
-
-  IF inv.team_id IS NOT NULL AND NOT EXISTS (
-    SELECT 1 FROM public.teams t
-    WHERE t.id = inv.team_id AND t.organisation_id = inv.organisation_id
+    OR (inv.team_id IS NOT NULL AND (
+      EXISTS (
+        SELECT 1 FROM public.teams t
+        WHERE t.id = inv.team_id AND t.created_by = inv.invited_by
+      )
+      OR EXISTS (
+        SELECT 1 FROM public.team_members tm
+        WHERE tm.team_id = inv.team_id
+          AND tm.user_id = inv.invited_by
+          AND tm.role = 'admin'
+      )
+    ))
   ) THEN
     RETURN jsonb_build_object('success', false, 'error', 'Not authorized');
   END IF;
@@ -286,7 +421,7 @@ BEGIN
   -- kept for signature compatibility and ignored.
   SELECT COALESCE(
            (SELECT t.name FROM public.teams t WHERE t.id = inv.team_id),
-           (SELECT o.name FROM public.organisations o WHERE o.id = inv.organisation_id)
+           (SELECT o.name FROM public.organisations o WHERE o.id = v_org)
          )
     INTO v_scope_name;
   SELECT COALESCE(NULLIF(btrim(up.display_name), ''), 'A team admin')
@@ -345,6 +480,7 @@ DECLARE
   v_uid uuid := auth.uid();
   v_email text;
   inv record;
+  v_org uuid;
   v_org_name text;
   v_team_name text;
   v_org_role text;
@@ -374,30 +510,51 @@ BEGIN
     AND lower(i.email) = lower(v_email)
   FOR UPDATE;
 
-  IF NOT FOUND OR inv.organisation_id IS NULL THEN
+  IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'error', c_invalid);
   END IF;
 
-  -- P1-1: the inviter must still govern the organisation...
+  -- P1-1 + round 3:
+  -- Scope (round 3): a team invitation takes its organisation from the
+  -- STORED team. Production's TeamsContext writes team invitations without
+  -- organisation_id; when the row does carry one it must agree.
+  IF inv.team_id IS NOT NULL THEN
+    SELECT t.organisation_id INTO v_org FROM public.teams t WHERE t.id = inv.team_id;
+    IF v_org IS NULL OR (inv.organisation_id IS NOT NULL AND inv.organisation_id <> v_org) THEN
+      RETURN jsonb_build_object('success', false, 'error', c_invalid);
+    END IF;
+  ELSE
+    v_org := inv.organisation_id;
+    IF v_org IS NULL THEN
+      RETURN jsonb_build_object('success', false, 'error', c_invalid);
+    END IF;
+  END IF;
+
+  -- Authority over that scope: the organisation's owner or an owner/admin
+  -- member; for a team invitation, also the team's creator or a team admin.
   IF NOT (
     EXISTS (
       SELECT 1 FROM public.organisations o
-      WHERE o.id = inv.organisation_id AND o.owner_id = inv.invited_by
+      WHERE o.id = v_org AND o.owner_id = inv.invited_by
     )
     OR EXISTS (
       SELECT 1 FROM public.organisation_members om
-      WHERE om.organisation_id = inv.organisation_id
+      WHERE om.organisation_id = v_org
         AND om.user_id = inv.invited_by
         AND om.role IN ('owner', 'admin')
     )
-  ) THEN
-    RETURN jsonb_build_object('success', false, 'error', c_invalid);
-  END IF;
-
-  -- ...and a named team must belong to THAT organisation.
-  IF inv.team_id IS NOT NULL AND NOT EXISTS (
-    SELECT 1 FROM public.teams t
-    WHERE t.id = inv.team_id AND t.organisation_id = inv.organisation_id
+    OR (inv.team_id IS NOT NULL AND (
+      EXISTS (
+        SELECT 1 FROM public.teams t
+        WHERE t.id = inv.team_id AND t.created_by = inv.invited_by
+      )
+      OR EXISTS (
+        SELECT 1 FROM public.team_members tm
+        WHERE tm.team_id = inv.team_id
+          AND tm.user_id = inv.invited_by
+          AND tm.role = 'admin'
+      )
+    ))
   ) THEN
     RETURN jsonb_build_object('success', false, 'error', c_invalid);
   END IF;
@@ -407,7 +564,7 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'This invitation has expired. Please request a new invitation.');
   END IF;
 
-  SELECT o.name INTO v_org_name FROM public.organisations o WHERE o.id = inv.organisation_id;
+  SELECT o.name INTO v_org_name FROM public.organisations o WHERE o.id = v_org;
   IF inv.team_id IS NOT NULL THEN
     SELECT t.name INTO v_team_name FROM public.teams t WHERE t.id = inv.team_id;
   END IF;
@@ -428,7 +585,7 @@ BEGIN
 
   -- P1-5: per-insert conflict handling.
   INSERT INTO public.organisation_members (organisation_id, user_id, role)
-  VALUES (inv.organisation_id, v_uid, v_org_role)
+  VALUES (v_org, v_uid, v_org_role)
   ON CONFLICT (organisation_id, user_id) DO NOTHING;
   GET DIAGNOSTICS v_rows = ROW_COUNT;
   v_org_inserted := v_rows > 0;
@@ -438,7 +595,7 @@ BEGIN
     INSERT INTO public.canvas_permissions (canvas_id, user_id, permission_type, granted_by)
     SELECT c.id, v_uid, 'viewer', NULL
     FROM public.canvases c
-    WHERE c.organisation_id = inv.organisation_id
+    WHERE c.organisation_id = v_org
       AND c.user_id IS DISTINCT FROM v_uid
     ON CONFLICT (canvas_id, user_id) DO NOTHING;
     GET DIAGNOSTICS canvas_count = ROW_COUNT;
@@ -455,7 +612,7 @@ BEGIN
   -- Verify the required memberships exist before accepting.
   IF NOT EXISTS (
     SELECT 1 FROM public.organisation_members om
-    WHERE om.organisation_id = inv.organisation_id AND om.user_id = v_uid
+    WHERE om.organisation_id = v_org AND om.user_id = v_uid
   ) OR (
     inv.team_id IS NOT NULL AND NOT EXISTS (
       SELECT 1 FROM public.team_members tm

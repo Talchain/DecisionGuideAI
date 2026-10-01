@@ -376,3 +376,109 @@ BEGIN
 END;
 $function$
 ;
+
+CREATE OR REPLACE FUNCTION public.send_email_with_template(p_to text, p_subject text, p_template_name text, p_template_data jsonb DEFAULT '{}'::jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_api_key TEXT;
+  v_from_email TEXT;
+  v_from_name TEXT;
+  v_html_content TEXT;
+  v_text_content TEXT;
+  v_response JSONB;
+  v_status INTEGER;
+  v_error TEXT;
+  v_template RECORD;
+  v_key TEXT;
+  v_value TEXT;
+  v_keys_values RECORD;
+BEGIN
+  -- Get API key from environment
+  v_api_key := current_setting('app.settings.brevo_api_key', true);
+  IF v_api_key IS NULL THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'error', 'Missing email credentials: API key not configured'
+    );
+  END IF;
+
+  -- Get from email
+  v_from_email := current_setting('app.settings.from_email', true);
+  IF v_from_email IS NULL THEN
+    v_from_email := 'noreply@decisionguide.ai';
+  END IF;
+  
+  v_from_name := 'DecisionGuide.AI';
+  
+  -- Get template content
+  SELECT html, txt INTO v_template 
+  FROM public.email_templates 
+  WHERE name = p_template_name;
+  
+  IF NOT FOUND THEN
+    -- Use default template if not found
+    v_html_content := '<html><body><h1>' || p_subject || '</h1><p>This is an automated email from DecisionGuide.AI.</p></body></html>';
+    v_text_content := p_subject || '\n\nThis is an automated email from DecisionGuide.AI.';
+  ELSE
+    v_html_content := v_template.html;
+    v_text_content := v_template.txt;
+    
+    -- Replace template variables
+    IF p_template_data IS NOT NULL AND jsonb_typeof(p_template_data) = 'object' THEN
+      FOR v_keys_values IN SELECT * FROM jsonb_each_text(p_template_data)
+      LOOP
+        v_key := v_keys_values.key;
+        v_value := v_keys_values.value;
+        v_html_content := replace(v_html_content, '{{' || v_key || '}}', v_value);
+        v_text_content := replace(v_text_content, '{{' || v_key || '}}', v_value);
+      END LOOP;
+    END IF;
+  END IF;
+  
+  -- Call Brevo API
+  SELECT
+    status,
+    content::jsonb,
+    CASE WHEN status >= 400 THEN content ELSE NULL END
+  INTO
+    v_status,
+    v_response,
+    v_error
+  FROM
+    http((
+      'POST',
+      'https://api.brevo.com/v3/smtp/email',
+      ARRAY[
+        http_header('api-key', v_api_key),
+        http_header('Content-Type', 'application/json'),
+        http_header('Accept', 'application/json')
+      ],
+      'application/json',
+      jsonb_build_object(
+        'sender', jsonb_build_object('email', v_from_email, 'name', v_from_name),
+        'to', jsonb_build_array(jsonb_build_object('email', p_to)),
+        'subject', p_subject,
+        'htmlContent', v_html_content,
+        'textContent', v_text_content
+      )::text
+    ));
+  
+  IF v_status >= 400 OR v_error IS NOT NULL THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'error', COALESCE(v_error, 'API error: ' || v_status::text),
+      'status_code', v_status
+    );
+  END IF;
+  
+  RETURN jsonb_build_object(
+    'success', true,
+    'message_id', COALESCE((v_response->>'messageId')::text, 'unknown'),
+    'response', v_response
+  );
+END;
+$function$
+;

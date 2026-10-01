@@ -14,21 +14,21 @@ await db.exec(fs.readFileSync(new URL('before.sql', import.meta.url), 'utf8'))
 for (const m of migrations) await db.exec(fs.readFileSync(m, 'utf8'))
 
 const U = n => `00000000-0000-0000-0000-0000000000${n}`
-const A = U('0a'), B = U('0b'), C = U('0c'), D = U('0d'), E = U('0e'), F = U('0f'), G = U('10'), H = U('11'), J = U('12')
+const A = U('0a'), B = U('0b'), C = U('0c'), D = U('0d'), E = U('0e'), F = U('0f'), G = U('10'), H = U('11'), J = U('12'), P = U('13'), Q = U('14'), R2 = U('15')
 const O = U('f1'), X = U('f2'), Y = U('f3'), T = U('e1'), K = U('c1')
 const I = {
   ok: U('a1'), self: U('a2'), forC: U('a3'), team: U('a4'), editor: U('a5'),
-  foreign: U('a6'), hostile: U('aa'), race: U('ab'), fail: U('a7'), pre: U('a8'), relay: U('a9'),
+  foreign: U('a6'), hostile: U('aa'), race: U('ab'), prod: U('ac'), prodByTeamAdmin: U('ad'), prodHostile: U('ae'), fail: U('a7'), pre: U('a8'), relay: U('a9'),
 }
 await db.exec(`
 insert into auth.users values ('${A}','a@x.test'),('${B}','b@x.test'),('${C}','c@x.test'),('${D}','d@x.test'),
-  ('${E}','e@x.test'),('${F}','f@x.test'),('${G}','g@x.test'),('${H}','h@x.test'),('${J}','j@x.test');
+  ('${E}','e@x.test'),('${F}','f@x.test'),('${G}','g@x.test'),('${H}','h@x.test'),('${J}','j@x.test'),('${P}','p@x.test'),('${Q}','q@x.test'),('${R2}','r@x.test');
 insert into user_profiles(id,email,display_name) select id, email, null from auth.users;
 update user_profiles set display_name = 'Ada Owner' where id = '${A}';
 insert into organisations values ('${O}','OrgO','${A}','orgo','team'),('${X}','OrgX','${B}','orgx','team'),('${Y}','OrgY','${H}','orgy','team');
-insert into organisation_members(organisation_id,user_id,role) values ('${O}','${A}','owner'),('${X}','${B}','owner'),('${O}','${G}','member'),('${O}','${H}','member'),('${Y}','${H}','owner');
+insert into organisation_members(organisation_id,user_id,role) values ('${O}','${A}','owner'),('${X}','${B}','owner'),('${O}','${G}','member'),('${O}','${H}','member'),('${Y}','${H}','owner'),('${O}','${Q}','member');
 insert into teams(id,name,created_by,organisation_id) values ('${T}','TeamT','${A}','${O}');
-insert into team_members(team_id,user_id,role,decision_role) values ('${T}','${G}','member','viewer');
+insert into team_members(team_id,user_id,role,decision_role) values ('${T}','${G}','member','viewer'),('${T}','${Q}','admin','owner');
 insert into canvases values ('${K}','${A}','${O}');
 insert into invitations(id,email,status,invited_by,organisation_id,team_id,role,decision_role) values
  ('${I.ok}','c@x.test','pending','${A}','${O}',null,'member',null),
@@ -42,6 +42,12 @@ insert into invitations(id,email,status,invited_by,organisation_id,team_id,role,
  ('${I.relay}','victim@evil.test','pending','${B}','${O}',null,'member',null),
  ('${I.hostile}','h@x.test','pending','${H}','${Y}','${T}','admin','admin'),
  ('${I.race}','j@x.test','pending','${A}','${O}','${T}','member','viewer');
+-- PRODUCTION-SHAPED rows: exactly what TeamsContext.tsx:189 (main 7b5992fc) writes,
+-- { email, team_id, invited_by, role, decision_role, status } with NO organisation_id.
+insert into invitations(id,email,team_id,invited_by,role,decision_role,status) values
+ ('${I.prod}','p@x.test','${T}','${A}','member','contributor','pending'),
+ ('${I.prodByTeamAdmin}','r@x.test','${T}','${Q}','member','viewer','pending'),
+ ('${I.prodHostile}','h@x.test','${T}','${H}','admin','owner','pending');
 -- Test-only fault injection: a team_members insert for F fails AFTER the org insert.
 create function public._fail_for_f() returns trigger language plpgsql as $$
 BEGIN
@@ -169,6 +175,33 @@ t('C2 CONTROL existing org + team rows (conflict path) still accept, roles untou
   && (await one(`select status from public.invitations where id='${I.pre}'`)).status === 'accepted'
   && (await one(`select count(*)::int n from public.team_members where team_id='${T}' and user_id='${G}' and role='member' and decision_role='viewer'`)).n === 1)
 
+// ── Production-shaped team invitations (round 3) ─────────────────────────
+// PS1 runs while the invitation is still pending (PA1 accepts it below).
+await q(`delete from public.email_outbox`)
+r = await as('authenticated', A, `select public.send_team_invitation_email('${I.prod}','p@x.test','TeamT','Ada') j`)
+const prodSent = await q(`select to_addr, subject, data from public.email_outbox`)
+t('PS1 CONTROL production-shaped team invite (no organisation_id): the REAL helper body sends through the transport',
+  r.ok && r.rows[0].j.success === true && prodSent.length === 1 && prodSent[0].to_addr === 'p@x.test'
+  && prodSent[0].data.htmlContent.includes(`token=${I.prod}`),
+  r.err ?? JSON.stringify(r.rows?.[0]?.j))
+
+r = await as('authenticated', P, `select public.accept_organization_invitation('${I.prod}','${P}') j`)
+t('PA1 CONTROL production-shaped team invite (no organisation_id) is accepted into the team\u2019s org',
+  r.ok && r.rows[0].j.success === true
+  && (await one(`select count(*)::int n from public.organisation_members where organisation_id='${O}' and user_id='${P}' and role='member'`)).n === 1
+  && (await one(`select count(*)::int n from public.team_members where team_id='${T}' and user_id='${P}' and role='member' and decision_role='contributor'`)).n === 1,
+  r.err ?? JSON.stringify(r.rows?.[0]?.j))
+r = await as('authenticated', R2, `select public.accept_organization_invitation('${I.prodByTeamAdmin}','${R2}') j`)
+t('PA2 CONTROL production-shaped invite issued by a TEAM admin (not an org admin) is accepted',
+  r.ok && r.rows[0].j.success === true
+  && (await one(`select count(*)::int n from public.team_members where team_id='${T}' and user_id='${R2}' and role='member' and decision_role='viewer'`)).n === 1,
+  r.err ?? JSON.stringify(r.rows?.[0]?.j))
+r = await as('authenticated', H, `select public.accept_organization_invitation('${I.prodHostile}','${H}') j`)
+t('PA3 production-shaped SELF-invite by a plain org member (no team or org authority) is refused',
+  r.ok && r.rows[0].j.success === false
+  && (await one(`select count(*)::int n from public.team_members where team_id='${T}' and user_id='${H}'`)).n === 0,
+  r.err ?? JSON.stringify(r.rows?.[0]?.j))
+
 // ── manage_team_member ───────────────────────────────────────────────────
 r = await as('authenticated', B, `select * from public.manage_team_member('${T}','b@x.test','admin','owner')`)
 t('M1 non-admin is refused with the AUTHORISATION error, and no row is written',
@@ -205,11 +238,12 @@ await db.exec(`update public.invitations set status='pending' where id='${I.team
 r = await as('authenticated', A, `select public.send_team_invitation_email('${I.team}','d@x.test','EVIL NAME','Mallory','https://evil.test') j`)
 const sent = await q(`select to_addr, subject, data from public.email_outbox`)
 t('S4 CONTROL the inviter sends one email to the invitee', r.ok && sent.length === 1 && sent[0].to_addr === 'd@x.test', r.err ?? '')
-t('S6 names come from stored rows and the origin is pinned (P1-2)',
+t('S6 names come from stored rows; the link is the pinned origin + THIS invitation id (P1-2)',
   sent.length === 1 && sent[0].subject.includes('TeamT') && !sent[0].subject.includes('EVIL')
-  && sent[0].data.inviter_name === 'Ada Owner'
-  && String(sent[0].data.accept_link).startsWith('https://decisionguide.ai/'),
-  JSON.stringify(sent[0] ?? null))
+  && sent[0].data.htmlContent.includes('Ada Owner') && !sent[0].data.htmlContent.includes('Mallory')
+  && sent[0].data.htmlContent.includes(`href="https://decisionguide.ai/teams/join?token=${I.team}"`),
+  JSON.stringify(sent[0] ?? null).slice(0, 300))
+
 
 // ── Report ───────────────────────────────────────────────────────────────
 let pass = 0
