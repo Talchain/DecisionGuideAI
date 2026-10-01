@@ -48,6 +48,18 @@ import { useServerGraphRetryStore } from '../stores/serverGraphRetryStore'
 import { logger } from '../../lib/logger'
 import { getSessionIdentity } from '../../lib/supabase'
 
+/**
+ * The scenario id this hook last ADOPTED from a route (see the adoption effect). Module-level, not a ref: a remounted
+ * hook must still know the store's id came from a link, or a second link would be ignored.
+ */
+let routeAdoptedScenarioId: string | null = null
+
+/** A CEE-addressable route id may become the current scenario when the store holds none, or holds one a route set. */
+function routeIsAdoptable(route: string | null | undefined, held: string | null): boolean {
+  if (!route || !isCeeAddressableScenarioId(route)) return false
+  return held === null || held === route || held === routeAdoptedScenarioId
+}
+
 export function useServerGraphHydration(scenarioIdFromRoute?: string | null): void {
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
   const { user } = useAuth()
@@ -55,9 +67,31 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
   // The store id is the general source — it is what the guest boot path sets
   // from the autosave, and guest is the tier that actually ships. The route
   // param is the fallback for a deep link that has not reached the store yet.
-  const scenarioId = currentScenarioId ?? scenarioIdFromRoute ?? null
+  // ⭐ …EXCEPT a link the store does not already hold for another reason (see the adoption effect below): then the
+  // ROUTE is the scenario from the first render, so the read never starts for an id the link is replacing.
+  const scenarioId = routeIsAdoptable(scenarioIdFromRoute, currentScenarioId ?? null)
+    ? (scenarioIdFromRoute as string)
+    : (currentScenarioId ?? scenarioIdFromRoute ?? null)
 
   const attemptedRef = useRef<string | null>(null)
+
+  // ⭐ A DEEP LINK IS THE SCENARIO ON SCREEN, SO IT IS THE CURRENT SCENARIO (DL #75 5923453115, CODEX UI BUDDY
+  // 5923448472). A fresh guest on `#/scenario/<id>` never ran `loadSupabaseScenario` (guests are not persistence-active)
+  // and had no autosave, so `currentScenarioId` stayed null for the WHOLE session while the read below put that
+  // scenario's model on the canvas. Measured on served `69c05df1`: the boot proof declined the saved Run as
+  // `scenario_not_current`, Reasoning said "No analysis has run yet", and every turn went out with `scenarioId: null`
+  // (`useConversation.ts`), i.e. into a different scenario than the one on screen.
+  // Adopted only when the store holds no scenario, or holds the id a route adopted (so `/scenario/A` → `/scenario/B`
+  // still follows the link). A scenario the store got any other way (autosave, a draft, a turn) still wins, exactly as
+  // before. Declared BEFORE the read effect, so the read's proof sees the adopted id.
+  // ⚠ STORE ONLY, NEVER THE POINTER: the route already says which scenario a reload means, and a pointer written here
+  // would seed the NEXT session's store, so a later link to another scenario would be ignored.
+  useEffect(() => {
+    const held = useCanvasStore.getState().currentScenarioId ?? null
+    if (!routeIsAdoptable(scenarioIdFromRoute, held) || held === scenarioIdFromRoute) return
+    routeAdoptedScenarioId = scenarioIdFromRoute as string
+    useCanvasStore.setState({ currentScenarioId: scenarioIdFromRoute })
+  }, [scenarioIdFromRoute])
 
   useEffect(() => {
     if (!scenarioId) return
