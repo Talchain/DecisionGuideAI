@@ -113,9 +113,26 @@ export function buildNodeValueSourceMap(
 }
 
 /**
+ * The LIVE acceptance fact, bound to the Run it may describe (52f8cd; CODEX UI BUDDY CR 5923625039).
+ *
+ * `user_assumption` has two writers: the user's own bare assumption, and Olumi's figure the user accepted (the review
+ * sits beside it on the node). A driver row carries only the string, so it cannot say which one the Run consumed. The
+ * live node can, but only for the Run that consumed the live node: the CURRENT one. An older Run may predate the
+ * acceptance (a human figure, accepted over later) or a later human replacement (an accepted figure, since replaced),
+ * so there the stamp is `undetermined`, never either side.
+ */
+export interface AcceptedFigureBinding {
+  /** {@link buildAcceptedNodeIds} over the live nodes. */
+  readonly ids: ReadonlySet<string>
+  /** The DISPLAYED Run is current with the canvas (not stale). */
+  readonly runIsCurrent: boolean
+}
+
+/**
  * The node ids whose value is Olumi's figure the user ACCEPTED (`isAcceptedOlumiFigure`; 52f8cd). A source string
  * cannot carry that fact (`user_assumption` alone is the user's own declared guess), so the hooks build this beside
- * {@link buildNodeValueSourceMap} from the same `nodes` slice. Sparse, like the map.
+ * {@link buildNodeValueSourceMap} from the same `nodes` slice. Sparse, like the map. Bind it to the displayed Run with
+ * {@link AcceptedFigureBinding} before the oracle reads it.
  */
 export function buildAcceptedNodeIds(nodes: ReadonlyArray<unknown> | null | undefined): ReadonlySet<string> {
   const out = new Set<string>()
@@ -141,8 +158,8 @@ export function buildAcceptedNodeIds(nodes: ReadonlyArray<unknown> | null | unde
 export function driverValueProvenance(
   driver: DriverProvenanceKey,
   nodeValueSources?: ReadonlyMap<string, string>,
-  /** {@link buildAcceptedNodeIds}: Olumi's figure, ACCEPTED, is still Olumi's estimate — never "not estimated". */
-  acceptedNodeIds?: ReadonlySet<string>,
+  /** {@link AcceptedFigureBinding}: Olumi's figure, ACCEPTED, is still Olumi's estimate — on the Run that consumed it. */
+  accepted?: AcceptedFigureBinding,
 ): DriverValueProvenance {
   const key = driver.matchedNodeId ?? driver.factorKey
   // ⭐ R7 / X4: THE RUN'S OWN SOURCE FIRST. The live node answers "whose value is
@@ -152,9 +169,13 @@ export function driverValueProvenance(
   // reports), the path every surface used before the V5 mapper carried it.
   const runSource =
     typeof driver.valueSource === 'string' && driver.valueSource.trim() !== '' ? driver.valueSource : undefined
-  // ⭐ An accepted Olumi figure is an estimate, whatever the bare stamp says (52f8cd): only when the run consumed that
-  // same stamp (or carried none), so a run that consumed the user's own later figure is never re-labelled.
-  if (acceptedNodeIds?.has(key) === true && (runSource === undefined || runSource === 'user_assumption')) return 'estimated'
+  // ⭐ THE TWO-WRITER STAMP (52f8cd; CODEX UI 5923625039). Only the live node tells the user's bare assumption from
+  // Olumi's accepted figure, and only for the CURRENT Run; an older Run's stamp is `undetermined`, never either side.
+  // Any other stamp is the Run's own fact and is classified below as before (a later typed figure is never re-labelled).
+  if (accepted !== undefined && (runSource ?? nodeValueSources?.get(key)) === 'user_assumption') {
+    if (!accepted.runIsCurrent) return 'undetermined'
+    return accepted.ids.has(key) ? 'estimated' : 'not_estimated'
+  }
   const classified = classifyValueProvenance(runSource ?? nodeValueSources?.get(key))
   if (classified === null) return 'undetermined'
   if (classified.userOwned) return 'not_estimated'

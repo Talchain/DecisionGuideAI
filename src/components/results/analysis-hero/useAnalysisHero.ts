@@ -24,6 +24,7 @@
  */
 import { useMemo } from 'react'
 import { useCanvasStore } from '@/canvas/store'
+import { useAnalysisResultsAreCurrent } from '@/canvas/hooks/useAnalysisResultsAreCurrent'
 import { selectActive, useStrengthenStore } from '@/canvas/stores/strengthenStore'
 import { isFocusNowPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
 import { buildAcceptedNodeIds, buildNodeValueSourceMap } from '../driverValueProvenance'
@@ -82,7 +83,10 @@ export function useAnalysisHero(data: ResultsSectionDataReturn): UseAnalysisHero
    */
   const nodeValueSources = useMemo(() => buildNodeValueSourceMap(nodes), [nodes])
   // Olumi's figures the user accepted: the fact the source string cannot carry (52f8cd).
-  const acceptedValueIds = useMemo(() => buildAcceptedNodeIds(nodes), [nodes])
+  // Olumi's figures the user accepted, bound to the DISPLAYED Run: only a Run affirmatively current consumed the live
+  // node, so an older Run's two-writer stamp reads undetermined (52f8cd; CODEX UI 5923625039).
+  const runIsCurrent = useAnalysisResultsAreCurrent()
+  const acceptedFigures = useMemo(() => ({ ids: buildAcceptedNodeIds(nodes), runIsCurrent }), [nodes, runIsCurrent])
 
   /**
    * ⭐ ONE DRIVER AUTHORITY (design audit §2 #7, served 853feeb7) — the card's
@@ -105,8 +109,8 @@ export function useAnalysisHero(data: ResultsSectionDataReturn): UseAnalysisHero
   )
 
   const model = useMemo(
-    () => buildHeroModel(data, optionNumbering, canvasNodeIds, nodeValueSources, driverLeader, noValueIds, acceptedValueIds),
-    [data, optionNumbering, canvasNodeIds, nodeValueSources, driverLeader, noValueIds, acceptedValueIds],
+    () => buildHeroModel(data, optionNumbering, canvasNodeIds, nodeValueSources, driverLeader, noValueIds, acceptedFigures),
+    [data, optionNumbering, canvasNodeIds, nodeValueSources, driverLeader, noValueIds, acceptedFigures],
   )
 
   const strengthenOn = isStrengthenPanelEnabled()
