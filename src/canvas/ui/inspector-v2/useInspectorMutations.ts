@@ -653,6 +653,19 @@ export const INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON =
 export const INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON =
   'This connection has no strength on record for the model to check a change against, so edits here are not sent yet. Ask Olumi to set its strength in the chat.'
 
+/**
+ * ⭐ THE SAME PANEL, FOR A LINK THAT HOLDS BY DEFINITION (MG ruling, 1 Oct 2026).
+ *
+ * `edgeStrengthEditIsAssertable` says no for it, but neither false-branch
+ * sentence above is true of it: it HAS a strength on record, and nothing is
+ * waiting to be sent. Its strength is arithmetic (`isStrengthDefinitional`), so
+ * the panel offers no editor and this note says why in the definition's words.
+ * The second sentence is `INSPECTOR_EDGE_REASON`'s, still true here: existence,
+ * σ and the label remain local-only.
+ */
+export const INSPECTOR_EDGE_DEFINITIONAL_REASON =
+  'This link holds by definition, so its strength is not changed here. Other edits here are not sent yet.'
+
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {
   const updateNode = useCanvasStore(s => s.updateNode)

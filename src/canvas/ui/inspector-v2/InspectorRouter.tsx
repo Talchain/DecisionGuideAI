@@ -10,7 +10,7 @@ import type { NodeType, FactorCategory } from '../../domain/nodes'
 import { InspectorShell } from './InspectorShell'
 import { TechnicalDisclosure } from './shared/TechnicalDisclosure'
 import { useTechToggle } from './useTechToggle'
-import { INSPECTOR_EDGE_REASON, INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON, INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON, INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON, INSPECTOR_FACTOR_CONTROLLABLE_REASON, INSPECTOR_FACTOR_EXTERNAL_REASON } from './useInspectorMutations'
+import { INSPECTOR_EDGE_REASON, INSPECTOR_EDGE_DEFINITIONAL_REASON, INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON, INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON, INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON, INSPECTOR_FACTOR_CONTROLLABLE_REASON, INSPECTOR_FACTOR_EXTERNAL_REASON } from './useInspectorMutations'
 import { getTypeLabel, EDGE_TYPE_LABEL } from './inspectorStrings'
 
 // Panel imports — lazy would be premature, these are small
@@ -34,6 +34,7 @@ import { useNodeAttention } from '../../nodes/shared/useNodeAttention'
 import { revealOlumiSurface } from '../../conversation/revealOlumi'
 import { resolveElementLabel } from '../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
+import { isStrengthDefinitional } from '../../domain/strengthDefinitional'
 import { isStructuralEdge } from '../../domain/edgeUtils'
 import type { EdgeData } from '../../domain/edges'
 import type { Edge } from '@xyflow/react'
@@ -242,6 +243,9 @@ export const InspectorRouter = memo(function InspectorRouter({
      * — one derivation with two readers, not two rules kept in step by hand.
      */
     const edgeStrengthReaches = edgeStrengthEditIsAssertable(edge)
+    // MG ruling (1 Oct 2026): the gate above says no for a link that holds BY
+    // DEFINITION, and neither of its false-branch sentences is true of one.
+    const edgeStrengthIsDefinitional = isStrengthDefinitional(edge.data as Record<string, unknown> | undefined)
     /**
      * ⛔ THE THIRD CASE, AND WITHOUT IT THIS PANEL WOULD CONTRADICT ITSELF.
      *
@@ -292,6 +296,8 @@ export const InspectorRouter = memo(function InspectorRouter({
           <InspectorAgencyNote>
             {isStructural
               ? INSPECTOR_EDGE_STRUCTURAL_REASON
+              : edgeStrengthIsDefinitional
+                ? INSPECTOR_EDGE_DEFINITIONAL_REASON
               : edgeStrengthReaches
                 ? INSPECTOR_EDGE_REASON
                 : edgeAwaitingStatedStrength

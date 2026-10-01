@@ -26,6 +26,7 @@
  */
 
 import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
+import { STRENGTH_HOLDS_BY_DEFINITION } from '../../domain/strengthDefinitional'
 
 export const COACHING = {
   /**
@@ -141,8 +142,8 @@ const STRENGTH_PLACEHOLDER_COPY =
  * estimate, so neither the `cee` strength sentence nor the `cee` existence sentence
  * above is true of it, and there is nothing to confirm.
  */
-const STRENGTH_DEFINITIONAL_COPY =
-  'This link holds by definition: each unit of the cause counts as exactly one unit of the effect. It is arithmetic, not an estimate.'
+// One spelling, shared with the surfaces that show it where a strength editor would be.
+const STRENGTH_DEFINITIONAL_COPY = STRENGTH_HOLDS_BY_DEFINITION
 const EXISTENCE_DEFINITIONAL_COPY = 'By definition, this connection always exists.'
 
 const EXISTENCE_PROVENANCE_COPY: Record<EdgeProvenanceKey, string> = {

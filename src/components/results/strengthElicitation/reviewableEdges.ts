@@ -20,6 +20,9 @@
  *   2. THE STRENGTH IS ASSERTABLE — `edgeStrengthEditIsAssertable` asks the wire
  *      builder whether it would build, rather than re-deriving its rule. A fact
  *      about the edge's DATA.
+ *      (Since 1 Oct 2026 that gate also says no for a link that holds BY
+ *      DEFINITION — CEE refuses every strength change on one — so a results
+ *      entry never routes a reader to an editor the Model tab will not open.)
  *
  * ⛔ AN EDGE CAN SATISFY EITHER AND FAIL THE OTHER, so a gate on one alone is not
  * a weaker version of this — it is wrong in a direction that ships. Assertable
