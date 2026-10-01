@@ -334,7 +334,9 @@ export const FactorNode = memo((props: NodeProps) => {
   const openSourceDetail = () => { openNodeInspector(props.id) }
   const renderValueSourceMark = () =>
     valueSourceMark === null ? null
-      : valueSourceMark.kind === 'olumi' ? <EstimateMarker onOpenSource={openSourceDetail} />
+      // ⛔ Olumi's figure the user ACCEPTED keeps Olumi's token but says so: `EstimateMarker`'s fixed copy ("not yet
+      // confirmed — filled in for you") is false once accepted (served UI `cb25e5e2`, guest `9cec5206`; AIQ 5921018606).
+      : valueSourceMark.kind === 'olumi' && currentValueOrigin?.kind !== 'accepted' ? <EstimateMarker onOpenSource={openSourceDetail} />
         : <ValueSourceMark mark={valueSourceMark} testId={`factor-value-source-${props.id}`} subject={cleanedLabel} onOpenSource={openSourceDetail} />
   // The on-graph editor holds the value — the SAME predicate as the value
   // line's editable branch below (kept inline there for its type narrowing).
