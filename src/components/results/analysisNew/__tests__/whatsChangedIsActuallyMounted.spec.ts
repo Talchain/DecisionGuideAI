@@ -53,7 +53,11 @@ describe('⭐ the Compare tab actually mounts the section', () => {
 
   it('⛔ the dock renders the Compare body on the compare tab, bound to the displayed analysis hash', () => {
     expect(dock()).toMatch(/import\s*\{\s*CompareRunPairBody\s*\}\s*from\s*'\.\.\/compare-tab\/CompareRunPairBody'/)
-    expect(dock()).toMatch(/effectiveActiveTab === 'compare' && \([\s\S]{0,600}?<CompareRunPairBody responseHash=\{results\?\.hash\} \/>/)
+    expect(dock()).toMatch(/effectiveActiveTab === 'compare' && \([\s\S]{0,600}?<CompareRunPairBody responseHash=\{results\?\.hash\}[^>]*\/>/)
+    // DL #75 5922778531: the body is told whether a Run is on record from the SAME selector Reasoning reads.
+    expect(dock()).toMatch(/<CompareRunPairBody responseHash=\{results\?\.hash\} runOnRecordWithoutResult=\{runOnRecordWithoutResult\} \/>/)
+    expect(dock()).toMatch(/const runOnRecordWithoutResult = selectRunOnRecordWithoutResult\(/)
+    expect(dock().match(/<CompareRunPairBody\b/g)).toHaveLength(1)
   })
 
   it('⛔ the body renders the section, fed from the ONE shared reader', () => {

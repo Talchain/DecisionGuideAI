@@ -13,6 +13,8 @@
  *   I1  (UNDO grant #75 5920635710) each input row carries the producer's ids VERBATIM; its React key is unchanged.
  *   G1  (CANVAS, row E) the pair on screen marks the canvas, and a row focuses the element its ids name; a row whose
  *       element is not drawn says so and focuses nothing; leaving the tab clears the marks.
+ *   S1  (DL #75 5922778531, PANEL sweep 5922761384, state b) a Run on record whose result isn't held here never reads
+ *       "No comparison yet": stale → the model changed, re-run to compare; unconfirmed → the Run control's sentence.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -21,7 +23,9 @@ import type { RunDelta } from '@talchain/schemas/boundary'
 import { RunDeltaSchema } from '@talchain/schemas/boundary'
 import { useCanvasStore } from '../../store'
 import { useUIStore } from '../../../stores/uiStore'
-import { CompareRunPairBody, COMPARE_RUN_PAIR_TESTID } from '../CompareRunPairBody'
+import { CompareRunPairBody, COMPARE_RUN_PAIR_TESTID, COMPARE_RUN_ON_RECORD_COPY } from '../CompareRunPairBody'
+import { FOOTER_COPY } from '../../components/pre-analysis-v3/constants'
+import { selectRunOnRecordWithoutResult } from '../../stores/declinedSavedRunStore'
 import { WHATS_CHANGED_TESTID } from '../../../components/results/analysisNew/sections/WhatsChanged'
 import { WhatsChangedReceipt, WHATS_CHANGED_RECEIPT_TESTID } from '../../../components/results/analysisNew/sections/WhatsChangedReceipt'
 import { displayedRunDeltaView, nodeLabelMap } from '../../../components/results/analysisNew/displayedRunDeltaView'
@@ -177,5 +181,47 @@ describe('G1 · the pair on screen marks the canvas; a row focuses its element',
     seed({ runDelta: null })
     render(<CompareRunPairBody responseHash="hash-A" />)
     expect(useCanvasStore.getState().analysisHighlight.source).not.toBe('run_changes')
+  })
+})
+
+describe('S1 · a Run on record whose result is not held here never reads "No comparison yet" (state b)', () => {
+  // The served cold open of a `complete_stale` read: pre-run, no result, no `run_delta` — so the reader returns null.
+  const staleFact = selectRunOnRecordWithoutResult({ isPreRun: true, savedRunUnconfirmed: false, runStateKind: 'complete_stale' })
+
+  it('⭐ stale: says the model changed since the last Run and to re-run to compare', () => {
+    seed({ runDelta: null })
+    expect(staleFact).toBe('stale')
+    render(<CompareRunPairBody responseHash={undefined} runOnRecordWithoutResult={staleFact} />)
+    const box = screen.getByTestId(`${COMPARE_RUN_PAIR_TESTID}-run-on-record`)
+    expect(box).toHaveAttribute('data-run-on-record', 'stale')
+    expect(box).toHaveTextContent('The model has changed since the last Run')
+    expect(box).toHaveTextContent('Re-run to compare the model as it stands with the last Run.')
+    expect(screen.queryByText('No comparison yet')).toBeNull()
+    expect(screen.queryByTestId(`${COMPARE_RUN_PAIR_TESTID}-empty`)).toBeNull()
+  })
+
+  it('⭐ unconfirmed: the Run control\'s own sentence, verbatim', () => {
+    seed({ runDelta: null })
+    render(<CompareRunPairBody responseHash={undefined} runOnRecordWithoutResult="unconfirmed" />)
+    const box = screen.getByTestId(`${COMPARE_RUN_PAIR_TESTID}-run-on-record`)
+    expect(COMPARE_RUN_ON_RECORD_COPY.unconfirmed.body).toBe(FOOTER_COPY.savedRunUnconfirmedSub)
+    expect(box).toHaveTextContent(FOOTER_COPY.savedRunUnconfirmedSub)
+    expect(screen.queryByText('No comparison yet')).toBeNull()
+  })
+
+  it('CONTRAST: no Run on record (prop absent, or the selector says null) keeps "No comparison yet"', () => {
+    seed({ runDelta: null })
+    const none = selectRunOnRecordWithoutResult({ isPreRun: true, savedRunUnconfirmed: false, runStateKind: 'never_run' })
+    expect(none).toBeNull()
+    render(<CompareRunPairBody responseHash={undefined} runOnRecordWithoutResult={none} />)
+    expect(screen.getByTestId(`${COMPARE_RUN_PAIR_TESTID}-empty`)).toHaveTextContent('No comparison yet')
+    expect(screen.queryByTestId(`${COMPARE_RUN_PAIR_TESTID}-run-on-record`)).toBeNull()
+  })
+
+  it('CONTRAST: a comparison that describes the analysis on screen always wins', () => {
+    seed()
+    render(<CompareRunPairBody responseHash="hash-A" runOnRecordWithoutResult="stale" />)
+    expect(screen.getByTestId(WHATS_CHANGED_TESTID)).toBeInTheDocument()
+    expect(screen.queryByTestId(`${COMPARE_RUN_PAIR_TESTID}-run-on-record`)).toBeNull()
   })
 })

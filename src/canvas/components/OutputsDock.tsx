@@ -4201,7 +4201,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
               // SC-24 v3 (ChatGPT #75 5917800777; lease DL #75 5917856638): previous Run vs this Run, rendered from
               // the comparison CEE produced for the analysis on screen — the SAME reader and section the Reasoning
               // receipt uses. The old browser-derived body (`CompareTabBody`) is no longer on this path.
-              <CompareRunPairBody responseHash={results?.hash} />
+              <CompareRunPairBody responseHash={results?.hash} runOnRecordWithoutResult={runOnRecordWithoutResult} />
             )}
             {effectiveActiveTab === 'diagnostics' && (
               <ModelTabBody
