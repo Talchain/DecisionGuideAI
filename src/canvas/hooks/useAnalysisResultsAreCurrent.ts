@@ -123,13 +123,23 @@ import { classifyFreshnessForDisplay } from '../store/analysisFreshness'
  * completed with no verdict) is not a statement that anything changed.
  */
 export function useAnalysisResultsAreCurrent(): boolean {
-  const freshnessState = useCanvasStore((s) => s.analysisFreshness)
-  const freshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
-  const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
+  return useCanvasStore(analysisResultsAreCurrentIn)
+}
+
+/**
+ * The SAME affirmative rule as the hook, for a click-time read (`useCanvasStore.getState()`): an action that writes on
+ * the strength of the Run on screen re-asks at the moment of dispatch, not at render (#2408 CR, CODEX_CLI_OVERFLOW).
+ */
+export function analysisResultsAreCurrentIn(s: {
+  analysisFreshness: Parameters<typeof classifyFreshnessForDisplay>[0]
+  analysisFreshnessDirty: Parameters<typeof classifyFreshnessForDisplay>[1]
+  importPendingServerRegistration: Parameters<typeof classifyFreshnessForDisplay>[2]
+  analysisStateV1?: unknown
+}): boolean {
   // ⛔ AIQ pre-share hold, HOT turn (#75 5903550244; R3 B0 5903722709): the server's own verdict saying the Run on screen
   // is superseded outranks a local overlay that has not moved — the result is not current.
-  const wireSuperseded = useCanvasStore((s) => wireSaysRunSuperseded(s.analysisStateV1))
-  return !wireSuperseded && classifyFreshnessForDisplay(freshnessState, freshnessDirty, importHold) === 'current'
+  if (wireSaysRunSuperseded(s.analysisStateV1)) return false
+  return classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty, s.importPendingServerRegistration) === 'current'
 }
 
 /** CEE says the Run on screen is not current: `complete_stale`, or `complete_current` asking a rerun or carrying C2. */

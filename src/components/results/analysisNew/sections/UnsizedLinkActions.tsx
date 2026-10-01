@@ -9,11 +9,25 @@
  *
  * The figure appears only after a re-run, labelled "Rests on Olumi's estimates you accepted". This row never claims
  * more than the send settled: `sent` is not "recorded".
+ *
+ * ⛔ THE ACTION EXISTS ONLY WHILE IT CAN STILL BE TRUE (#2408 CR, CODEX_CLI_OVERFLOW, two reproduced P1s):
+ * - the Run on screen must be affirmatively CURRENT (`useAnalysisResultsAreCurrent`). A stale or unconfirmed Run's
+ *   warning is about a model that may no longer exist, so the row does not render.
+ * - the edge must still be a placeholder (`isStrengthPlaceholder`). The hook filters on it; an Edit or acceptance that
+ *   sizes the link clears it.
+ * - BOTH are re-read at click time from the store (`clickTimeRefusal`), because either can change between render and
+ *   click. A refused click sends nothing.
  */
 import { useState } from 'react'
 import { typography } from '../../../../styles/typography'
 import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuthority'
 import { openEdgeStrengthEditor } from '../../../../canvas/utils/openEdgeStrengthEditor'
+import { useCanvasStore } from '../../../../canvas/store'
+import {
+  analysisResultsAreCurrentIn,
+  useAnalysisResultsAreCurrent,
+} from '../../../../canvas/hooks/useAnalysisResultsAreCurrent'
+import { isStrengthPlaceholder } from '../../../../canvas/domain/strengthPlaceholder'
 
 export const UNSIZED_LINK_COPY = {
   heading: (n: number) => (n === 1 ? '1 link not sized yet' : `${n} links not sized yet`),
@@ -24,9 +38,20 @@ export const UNSIZED_LINK_COPY = {
   notRecorded: 'Not recorded. Use Edit to set it.',
   unverified: 'Not confirmed yet. Check the link before re-running.',
   cannotHere: "Olumi can't accept this one here. Use Edit to set it.",
+  notCurrent: 'The analysis has changed since this was offered. Re-run to see what is still unsized.',
+  alreadySized: 'This link has a strength now.',
 } as const
 
-type RowState = 'idle' | 'sending' | 'sent' | 'not_recorded' | 'unverified' | 'cannot'
+/** Re-read at click time: may Accept still be true? `null` = yes; otherwise the state to show instead of sending. */
+export function clickTimeRefusal(edgeId: string): 'not_current' | 'already_sized' | null {
+  const s = useCanvasStore.getState()
+  if (!analysisResultsAreCurrentIn(s)) return 'not_current'
+  const edge = s.edges.find((e) => e.id === edgeId)
+  if (!edge || !isStrengthPlaceholder(edge.data as Record<string, unknown> | undefined)) return 'already_sized'
+  return null
+}
+
+type RowState = 'idle' | 'sending' | 'sent' | 'not_recorded' | 'unverified' | 'cannot' | 'not_current' | 'already_sized'
 
 function LinkRow({ link, testId }: { link: { edgeId: string; fromLabel: string; toLabel: string }; testId: string }) {
   const authority = useModelEditAuthority(null, link.edgeId)
@@ -37,7 +62,9 @@ function LinkRow({ link, testId }: { link: { edgeId: string; fromLabel: string; 
         : state === 'not_recorded' ? UNSIZED_LINK_COPY.notRecorded
           : state === 'unverified' ? UNSIZED_LINK_COPY.unverified
             : state === 'cannot' ? UNSIZED_LINK_COPY.cannotHere
-              : null
+              : state === 'not_current' ? UNSIZED_LINK_COPY.notCurrent
+                : state === 'already_sized' ? UNSIZED_LINK_COPY.alreadySized
+                  : null
   return (
     <li className="flex flex-col" style={{ gap: 4 }} data-testid={`${testId}-${link.edgeId}`}>
       <div className="flex items-center flex-wrap" style={{ gap: 8 }}>
@@ -48,8 +75,13 @@ function LinkRow({ link, testId }: { link: { edgeId: string; fromLabel: string; 
           type="button"
           className={`${typography.panelMeta} text-text-header border border-panel-border rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover disabled:opacity-50`}
           data-testid={`${testId}-${link.edgeId}-accept`}
-          disabled={state === 'sending' || state === 'sent'}
+          disabled={state === 'sending' || state === 'sent' || state === 'not_current' || state === 'already_sized'}
           onClick={() => {
+            const refusal = clickTimeRefusal(link.edgeId)
+            if (refusal !== null) {
+              setState(refusal)
+              return
+            }
             setState('sending')
             const outcome = authority.proposeEdgeStrengthConfirmation(link.edgeId, {
               onSendSettled: (settlement) => {
@@ -90,7 +122,8 @@ export function UnsizedLinkActions({
   links: ReadonlyArray<{ edgeId: string; fromLabel: string; toLabel: string }>
   testId: string
 }) {
-  if (links.length === 0) return null
+  const current = useAnalysisResultsAreCurrent()
+  if (links.length === 0 || !current) return null
   return (
     <div className="mt-2" data-testid={testId}>
       <p className={`${typography.panelMeta} text-text-light`} data-testid={`${testId}-heading`}>

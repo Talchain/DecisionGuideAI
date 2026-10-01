@@ -113,6 +113,7 @@ import {
 import { reviewableStrengthEdgeIds } from './strengthElicitation/reviewableEdges'
 import { deriveRobustnessStatus } from './robustnessStatus'
 import { readGoalFigureWithholds, readGoalIdentityWithheld } from './utils/goalIdentityWithheld'
+import { isStrengthPlaceholder } from '../../canvas/domain/strengthPlaceholder'
 import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisParticipation'
 import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
 
@@ -2172,8 +2173,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       if (!outcomeValuesAreModelScale(vals)) { anyAlreadyDenormalized = true; break }
     }
     const isNormalisedResult = !capValid && !anyAlreadyDenormalized
-    // B3c (DL R2): the producer's acceptable unsized links per option, resolved to canvas edges by endpoint ids. A link
-    // with no edge on the canvas is dropped (nothing to size); labels come from the nodes, never the wire.
+    // B3c (DL R2): the producer's acceptable unsized links per option, resolved to canvas edges by endpoint ids, kept only
+    // while the edge is still a placeholder. A link with no edge on the canvas is dropped; labels come from the nodes.
     const figureWithholds = readGoalFigureWithholds(report)
     const unsizedLinksFor = (optionId: string): Array<{ edgeId: string; fromLabel: string; toLabel: string }> => {
       const seen = new Set<string>()
@@ -2182,7 +2183,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         if (w.optionIds !== null && !w.optionIds.includes(optionId)) continue
         for (const l of w.acceptableLinks) {
           const edge = edges.find((e) => e.source === l.from && e.target === l.to)
-          if (!edge || seen.has(edge.id)) continue
+          // ⛔ The retained warning is the Run's word; whether the link is STILL unsized is the edge's. Once Edit or an
+          // acceptance sizes it (or the user states it), the typed placeholder predicate clears and the offer goes (#2408 CR).
+          if (!edge || seen.has(edge.id) || !isStrengthPlaceholder(edge.data as Record<string, unknown> | undefined)) continue
           seen.add(edge.id)
           const labelOf = (id: string) => String((nodes.find((n) => n.id === id)?.data as { label?: unknown } | undefined)?.label ?? id)
           out.push({ edgeId: edge.id, fromLabel: labelOf(l.from), toLabel: labelOf(l.to) })
