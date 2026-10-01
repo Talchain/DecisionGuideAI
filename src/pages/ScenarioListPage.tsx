@@ -23,6 +23,7 @@ import { formatRelativeTime } from '../utils/formatRelativeTime'
 import { UserAvatarMenu } from '../components/layout/UserAvatarMenu'
 import { typography } from '../styles/typography'
 import { trackEvent } from '../lib/posthog'
+import { GUEST_COPIED_EVENT } from '../lib/guestCopyOnSignIn'
 
 // ---------------------------------------------------------------------------
 // Stage badge styles — semantic colours from the design system
@@ -318,6 +319,14 @@ export default function ScenarioListPage() {
     const handler = () => { if (document.visibilityState === 'visible') fetchScenarios() }
     document.addEventListener('visibilitychange', handler)
     return () => document.removeEventListener('visibilitychange', handler)
+  }, [fetchScenarios])
+
+  // ACCOUNTS B3: a guest decision copied into the account on sign-in usually
+  // lands AFTER this page has mounted and fetched, so re-fetch when it does.
+  useEffect(() => {
+    const handler = () => { fetchScenarios() }
+    window.addEventListener(GUEST_COPIED_EVENT, handler)
+    return () => window.removeEventListener(GUEST_COPIED_EVENT, handler)
   }, [fetchScenarios])
 
   // Filter scenarios
