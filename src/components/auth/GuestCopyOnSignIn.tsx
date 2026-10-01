@@ -17,6 +17,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { hasStoredSupabaseSession } from '../../lib/storedSupabaseSession'
 import { createSignInTransitionTracker, handleAuthObservation } from '../../lib/guestCopyOnSignIn'
+import { forgetPendingGuestCopyOnSignOut } from '../../lib/pendingGuestCopy'
 
 export default function GuestCopyOnSignIn(): null {
   const navigate = useNavigate()
@@ -35,7 +36,8 @@ export default function GuestCopyOnSignIn(): null {
     const tracker = createSignInTransitionTracker(hasStoredSupabaseSession())
     let unsubscribe: (() => void) | undefined
     try {
-      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_OUT') forgetPendingGuestCopyOnSignOut()
         const run = handleAuthObservation(tracker.observe(Boolean(session)), session?.access_token)
         void run?.then((result) => {
           if (result.kind !== 'copied') return

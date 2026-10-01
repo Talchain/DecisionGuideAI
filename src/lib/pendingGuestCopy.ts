@@ -29,6 +29,15 @@ export const PENDING_GUEST_COPY_KEY = 'olumi.pendingGuestCopy.v1'
 const CURRENT_SCENARIO_KEY = 'olumi-canvas-current-scenario-id'
 
 /**
+ * The pointer as it stood when someone signed OUT. Work behind it was done
+ * before THAT person signed in, so it belongs to no later account
+ * (ACCOUNTS owner ruling, 2 Oct: no surprise copy into the next account on a
+ * shared machine). Capture skips it; a guest who starts a NEW decision after the
+ * sign-out moves the pointer and is captured as normal.
+ */
+export const SPENT_GUEST_POINTER_KEY = 'olumi.pendingGuestCopy.spentPointer.v1'
+
+/**
  * Server rows are UUIDs. Legacy `scenario-{ts}-{rand}` ids are localStorage-only
  * relics with no server row, so recording one would promise a copy that cannot
  * happen. Shape-check only: this module cannot reach the server.
@@ -74,6 +83,7 @@ export function capturePendingGuestCopy(): string | null {
 
   const current = readCurrentScenarioPointer()
   if (!isScenarioUuid(current)) return null
+  if (current === readKey(SPENT_GUEST_POINTER_KEY)) return null
 
   try {
     localStorage.setItem(PENDING_GUEST_COPY_KEY, current)
@@ -93,5 +103,21 @@ export function clearPendingGuestCopy(): void {
     localStorage.removeItem(PENDING_GUEST_COPY_KEY)
   } catch {
     // The slot stays occupied, which fails safe.
+  }
+}
+
+/**
+ * On SIGNED_OUT: whatever was pending belonged to the person who just left, so
+ * drop it, and mark the current pointer spent so the next sign-in on this
+ * browser does not re-capture the same work from it.
+ */
+export function forgetPendingGuestCopyOnSignOut(): void {
+  clearPendingGuestCopy()
+  const current = readCurrentScenarioPointer()
+  if (!isScenarioUuid(current)) return
+  try {
+    localStorage.setItem(SPENT_GUEST_POINTER_KEY, current)
+  } catch {
+    // Storage unavailable: nothing was pending either, since it lives there too.
   }
 }

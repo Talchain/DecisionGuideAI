@@ -13,6 +13,7 @@ import {
   capturePendingGuestCopy,
   readPendingGuestCopy,
   clearPendingGuestCopy,
+  forgetPendingGuestCopyOnSignOut,
 } from '../pendingGuestCopy'
 
 const CURRENT_SCENARIO_KEY = 'olumi-canvas-current-scenario-id'
@@ -109,5 +110,27 @@ describe('capturePendingGuestCopy', () => {
 
   it('uses a key distinct from the live pointer', () => {
     expect(PENDING_GUEST_COPY_KEY).not.toBe(CURRENT_SCENARIO_KEY)
+  })
+})
+
+describe('forgetPendingGuestCopyOnSignOut (owner ruling: no surprise copy into the next account)', () => {
+  it('drops what was pending, and the same pointer is NOT re-captured by the next sign-in', () => {
+    localStorage.setItem(CURRENT_SCENARIO_KEY, GUEST_SCENARIO)
+    capturePendingGuestCopy() // user A signed in; the copy was kept by a 503
+
+    forgetPendingGuestCopyOnSignOut() // A signs out
+
+    expect(readPendingGuestCopy()).toBeNull()
+    expect(capturePendingGuestCopy()).toBeNull() // user B signs in on the same browser
+    expect(readPendingGuestCopy()).toBeNull()
+  })
+
+  it('CONTRAST: a NEW decision started after the sign-out IS captured for the next sign-in', () => {
+    localStorage.setItem(CURRENT_SCENARIO_KEY, GUEST_SCENARIO)
+    forgetPendingGuestCopyOnSignOut()
+
+    localStorage.setItem(CURRENT_SCENARIO_KEY, SECOND_SCENARIO)
+
+    expect(capturePendingGuestCopy()).toBe(SECOND_SCENARIO)
   })
 })
