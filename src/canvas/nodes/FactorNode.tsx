@@ -54,6 +54,7 @@ import { factorConfidenceDisclosure } from '../../components/results/driverConfi
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import { factorValueSourceMark, PRIOR_RANGE_SOURCE_MARK, ValueSourceMark } from './shared/valueSourceMark'
+import { useValuePrefillStore } from '../graphChanges/valuePrefill'
 
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
@@ -102,6 +103,10 @@ export const FactorNode = memo((props: NodeProps) => {
    * model — which is the trap-21 shape this estate keeps paying for.
    */
   const editAuthority = useModelEditAuthority(props.id)
+  // WHAT-IF "PUT IT BACK" (DL #85 5942153284): the "Since the last run" card may ask THIS card's editor to open with the
+  // earlier value; the user commits it with Enter through `editAuthority`, like any edit (`graphChanges/valuePrefill.ts`).
+  const valuePrefill = useValuePrefillStore((s) => (s.request?.nodeId === props.id ? s.request : null))
+  const consumeValuePrefill = useValuePrefillStore((s) => s.consumePrefill)
   /**
    * ⭐⭐ THE NUMBER THIS CARD WOULD OTHERWISE BE HIDING.
    *
@@ -1420,6 +1425,8 @@ export const FactorNode = memo((props: NodeProps) => {
                   value={resolveValueInputSeed(props.data).seed ?? observedState.value}
                   readout={<FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} />}
                   onCommit={(v, opts) => editAuthority.proposeFactorValue(v, opts)}
+                  prefill={valuePrefill}
+                  onPrefillConsumed={consumeValuePrefill}
                   readCommittedValue={() =>
                     resolveValueInputSeed(useCanvasStore.getState().nodes.find(n => n.id === props.id)?.data).seed ?? null}
                   {...(valueFieldIsModelScale

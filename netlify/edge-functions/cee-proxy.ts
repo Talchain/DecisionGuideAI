@@ -156,6 +156,9 @@ const ALLOWED_TARGETS: readonly RegExp[] = [
   /^\/assist\/v1\/scenarios\/[^/]+\/versions$/,
   /^\/assist\/v1\/scenarios\/[^/]+\/versions\/save$/,
   /^\/assist\/v1\/scenarios\/[^/]+\/versions\/restore$/,
+  // Guest → account copy (ACCOUNTS B3, CEE #2493): the signed-in user's own copy of a guest decision. The user's
+  // `authorization` is forwarded as the user-token slot; CEE verifies it. ON-LIST case in the allowlist spec.
+  /^\/assist\/v1\/scenarios\/[^/]+\/copy$/,
   /^\/assist\/v1\/decision-records\/commit$/,
   /^\/assist\/v1\/decision-records\/[^/]+\/outcome$/,
   // Explain-diff (CEE #1082). Backs the "Why these changes?" affordance on the
@@ -173,6 +176,19 @@ const ALLOWED_TARGETS: readonly RegExp[] = [
 
 function isAllowedTarget(pathname: string): boolean {
   return ALLOWED_TARGETS.some((re) => re.test(pathname))
+}
+
+/**
+ * Targets that are WRITES and accept POST only (OPTIONS is answered locally above). Checked BEFORE the key is
+ * injected, so a GET/HEAD to them never reaches CEE carrying the assist key and the user's token (CODEX overflow on
+ * #2431: the copy route forwarded both on GET and HEAD).
+ */
+const POST_ONLY_TARGETS: readonly RegExp[] = [
+  /^\/assist\/v1\/scenarios\/[^/]+\/copy$/,
+]
+
+function isPostOnlyTarget(pathname: string): boolean {
+  return POST_ONLY_TARGETS.some((re) => re.test(pathname))
 }
 
 /**
@@ -275,6 +291,16 @@ export default async function handler(request: Request, _context: Context) {
       {
         status: 404,
         headers: { ...(corsHeaders ?? {}), 'Content-Type': 'application/json' },
+      },
+    )
+  }
+
+  if (isPostOnlyTarget(targetPath) && request.method !== 'POST') {
+    return new Response(
+      JSON.stringify({ error: 'Method not allowed' }),
+      {
+        status: 405,
+        headers: { ...(corsHeaders ?? {}), 'Content-Type': 'application/json', Allow: 'POST, OPTIONS' },
       },
     )
   }
