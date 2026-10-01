@@ -124,6 +124,43 @@ describe('cee-proxy path allowlist (/bff/cee/* → /assist/v1/*)', () => {
     )
   })
 
+  it('ON-LIST /bff/cee/scenarios/{uuid}/copy forwards (ACCOUNTS B3 guest → account copy, CEE #2493)', async () => {
+    const uuid = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
+    const r = await invoke(ceeHandler as Handler, { path: `/bff/cee/scenarios/${uuid}/copy` })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe(`https://cee-staging.onrender.com/assist/v1/scenarios/${uuid}/copy`)
+    expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBe(FAKE_KEY)
+  })
+
+  // The copy route is a WRITE: GET and HEAD must never reach CEE carrying the assist key and the user's token (CODEX
+  // overflow on #2431). OPTIONS stays a local preflight.
+  for (const method of ['GET', 'HEAD'] as const) {
+    it(`${method} /bff/cee/scenarios/{uuid}/copy is refused 405 and NEVER forwarded`, async () => {
+      const uuid = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
+      const r = await invoke(ceeHandler as Handler, { path: `/bff/cee/scenarios/${uuid}/copy`, method })
+      expect(r.fetchCalled).toBe(false)
+      expect(r.status).toBe(405)
+    })
+  }
+
+  it('OPTIONS /bff/cee/scenarios/{uuid}/copy is a local preflight (204, never forwarded)', async () => {
+    const uuid = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
+    const r = await invoke(ceeHandler as Handler, { path: `/bff/cee/scenarios/${uuid}/copy`, method: 'OPTIONS' })
+    expect(r.fetchCalled).toBe(false)
+    expect(r.status).toBe(204)
+  })
+
+  it('CONTROL: GET on a sibling READ route (scenarios/{uuid}/graph) still forwards', async () => {
+    const uuid = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
+    const r = await invoke(ceeHandler as Handler, { path: `/bff/cee/scenarios/${uuid}/graph`, method: 'GET' })
+    expect(r.fetchCalled).toBe(true)
+  })
+
+  it('OFF-LIST: a path that only ENDS in /copy under another prefix stays refused', async () => {
+    const r = await invoke(ceeHandler as Handler, { path: '/bff/cee/scenarios/a/b/copy' })
+    expect(r.fetchCalled).toBe(false)
+  })
+
   it('ON-LIST /bff/cee/scenarios/{uuid}/versions/restore forwards (guarded restore)', async () => {
     const uuid = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
     const r = await invoke(ceeHandler as Handler, {
