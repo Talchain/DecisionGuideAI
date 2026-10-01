@@ -1483,6 +1483,13 @@ interface CanvasState {
   applySimpleLayout: (preset: 'grid' | 'hierarchy' | 'flow', spacing: 'small' | 'medium' | 'large') => void
   applyGuidedLayout: (policy?: Partial<import('./layout/policy').LayoutPolicy>) => void
   resetCanvas: () => void
+  /**
+   * Open ANOTHER scenario on a clean slate: the whole scenario-scoped state `resetCanvas` clears (graph, analysis
+   * state, results, freshness, authority identity, comparison, draft models), applied whether or not the canvas is
+   * empty, plus a fresh undo stack (undo must never restore one scenario's graph into another), then the id adopted.
+   * The empty-canvas `resetCanvas` keeps its narrower contract; adoption never takes that early return.
+   */
+  adoptScenario: (scenarioId: string) => void
   createNodeId: () => string
   createEdgeId: () => string
   reseedIds: (nodes: Node[], edges: Edge[]) => void
@@ -2432,6 +2439,90 @@ function firstGoalNodeId(
     (n) => n.type === 'goal' || (n.data as { type?: string } | undefined)?.type === 'goal',
   )
   return goal?.id ?? null
+}
+
+/**
+ * The whole scenario-scoped state a scenario boundary clears: `resetCanvas`'s full branch, and `adoptScenario`
+ * (which applies it even on an empty canvas). A function, so every reset gets fresh Set/lens instances.
+ */
+function scenarioResetState() {
+  return {
+    // Clear graph
+    nodes: [],
+    // Wave F-A: fresh decision, fresh option-ordinal history
+    optionNumbering: {},
+    edges: [],
+    touchedNodeIds: new Set(),
+    nextNodeId: 1,
+    nextEdgeId: 1,
+    // Clear CEE analysis_ready payload, pipeline trace and quality.
+    // (ceeAnalysisReady, ceeAnalysisReadyNodeIds, goalConstraints and
+    // lastAuthoritativeGraph are all cleared via DECISION_CONTEXT_CLEAR
+    // below — Lane 5, extended by B2/B3. They are deliberately NOT repeated
+    // here: the duplicate keys this file used to carry were dead weight
+    // that only agreed with the spread by coincidence.)
+    analysisFreshness: null,
+    analysisFreshnessDirty: false,
+    // ROADMAP 2.1163 / EXT-2: a refusal describes ONE turn against ONE model.
+    // Carrying it across an import/reset/scenario switch would claim a refusal
+    // that never happened for the model now on the canvas.
+    analysisRefusalNotice: null,
+    // Step 5 — same argument, and it matters more here because this verdict
+    // OUTRANKS the local derivations: carrying a composed verdict across an
+    // import/reset/scenario switch would let CEE's statement about the
+    // PREVIOUS model silently govern what may be said about this one.
+    analysisStateV1: null,
+    // Interim 2.467 — release. ⚠ NOT derived (same correction as the
+    // empty-graph branch above): resetCanvas installs an EMPTY graph, for
+    // which the digest is null by the empty-graph rule, so a derivation here
+    // is constant `false`. Stated as the literal it is; the empty-graph rule
+    // is what keeps it correct.
+    importPendingServerRegistration: false,
+    // V5 canonical analysis fact — clear on scenario reset (the fact does
+    // not survive a graph reset; rerun analysis to mint a fresh one).
+    v5AnalysisFact: null,
+    draftCoaching: null,
+    ceePipelineTrace: null,
+    nodeRationales: {},
+    ceeQuality: null,
+    // Phase 1b: Clear extended CEE data
+    ceeExtendedWarnings: null,
+    ceeGoalConnectivity: null,
+    ceeModelQualityFactors: null,
+    ceeInterventionHints: null,
+    preAnalysisSensitivity: null,
+    // Clear results and analysis state
+    previousReport: null, // A1: Clear stale deltas on canvas reset
+    results: { status: 'idle', progress: 0 },
+    // Lane 1b/5 review folds: the goal threshold, its representation and the
+    // outcome-node selection are per-decision — left standing they ride the
+    // NEXT decision's runs (the canonical run default-attaches the store
+    // threshold). ceeAnalysisReady/-NodeIds are already cleared above.
+    ...DECISION_CONTEXT_CLEAR,
+    runMeta: {},
+    hasCompletedFirstRun: false,
+    graphEditedSinceLastRun: false,
+    analysisStateReady: false,
+    // Clear validation state
+    graphHealth: null,
+    needleMovers: [],
+    // Close results panel
+    showResultsPanel: false,
+    // Clear scenario tracking in store state
+    currentScenarioId: null,
+    scenarioPersistedToDb: false,
+    // A.15: Clear lifecycle stage
+    currentStage: null,
+    // A.5+: Clear draft snapshot
+    draftChatPreDraftSnapshot: null,
+    // Phase 2A: Clear analysis metadata
+    lastAnalysisSeed: null,
+    lastQualityMode: null,
+    repairsApplied: null,
+    rawV2Response: null,
+    // Graph Lens: reset on canvas clear
+    lens: createDefaultLensState(),
+  }
 }
 
 /**
@@ -5154,88 +5245,24 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Clear current scenario ID - user is starting fresh, not editing old scenario
     scenarios.clearCurrentScenarioId()
 
-    set({
-      // Clear graph
-      nodes: [],
-      // Wave F-A: fresh decision, fresh option-ordinal history
-      optionNumbering: {},
-      edges: [],
-      touchedNodeIds: new Set(),
-      nextNodeId: 1,
-      nextEdgeId: 1,
-      // Clear CEE analysis_ready payload, pipeline trace and quality.
-      // (ceeAnalysisReady, ceeAnalysisReadyNodeIds, goalConstraints and
-      // lastAuthoritativeGraph are all cleared via DECISION_CONTEXT_CLEAR
-      // below — Lane 5, extended by B2/B3. They are deliberately NOT repeated
-      // here: the duplicate keys this file used to carry were dead weight
-      // that only agreed with the spread by coincidence.)
-      analysisFreshness: null,
-      analysisFreshnessDirty: false,
-      // ROADMAP 2.1163 / EXT-2: a refusal describes ONE turn against ONE model.
-      // Carrying it across an import/reset/scenario switch would claim a refusal
-      // that never happened for the model now on the canvas.
-      analysisRefusalNotice: null,
-      // Step 5 — same argument, and it matters more here because this verdict
-      // OUTRANKS the local derivations: carrying a composed verdict across an
-      // import/reset/scenario switch would let CEE's statement about the
-      // PREVIOUS model silently govern what may be said about this one.
-      analysisStateV1: null,
-      // Interim 2.467 — release. ⚠ NOT derived (same correction as the
-      // empty-graph branch above): resetCanvas installs an EMPTY graph, for
-      // which the digest is null by the empty-graph rule, so a derivation here
-      // is constant `false`. Stated as the literal it is; the empty-graph rule
-      // is what keeps it correct.
-      importPendingServerRegistration: false,
-      // V5 canonical analysis fact — clear on scenario reset (the fact does
-      // not survive a graph reset; rerun analysis to mint a fresh one).
-      v5AnalysisFact: null,
-      draftCoaching: null,
-      ceePipelineTrace: null,
-      nodeRationales: {},
-      ceeQuality: null,
-      // Phase 1b: Clear extended CEE data
-      ceeExtendedWarnings: null,
-      ceeGoalConnectivity: null,
-      ceeModelQualityFactors: null,
-      ceeInterventionHints: null,
-      preAnalysisSensitivity: null,
-      // Clear results and analysis state
-      previousReport: null, // A1: Clear stale deltas on canvas reset
-      results: { status: 'idle', progress: 0 },
-      // Lane 1b/5 review folds: the goal threshold, its representation and the
-      // outcome-node selection are per-decision — left standing they ride the
-      // NEXT decision's runs (the canonical run default-attaches the store
-      // threshold). ceeAnalysisReady/-NodeIds are already cleared above.
-      ...DECISION_CONTEXT_CLEAR,
-      runMeta: {},
-      hasCompletedFirstRun: false,
-      graphEditedSinceLastRun: false,
-      analysisStateReady: false,
-      // Clear validation state
-      graphHealth: null,
-      needleMovers: [],
-      // Close results panel
-      showResultsPanel: false,
-      // Clear scenario tracking in store state
-      currentScenarioId: null,
-      scenarioPersistedToDb: false,
-      // A.15: Clear lifecycle stage
-      currentStage: null,
-      // A.5+: Clear draft snapshot
-      draftChatPreDraftSnapshot: null,
-      // Phase 2A: Clear analysis metadata
-      lastAnalysisSeed: null,
-      lastQualityMode: null,
-      repairsApplied: null,
-      rawV2Response: null,
-      // Graph Lens: reset on canvas clear
-      lens: createDefaultLensState(),
-    })
+    set(scenarioResetState())
     // Reset comparison state on canvas clear (lives in useComparisonStore as of C3-3)
     useComparisonStore.getState().resetComparison()
     // Clear AI model selections (lives in useDraftStore as of C3-5).
     // Historical behaviour: resetCanvas cleared only the three selectedXxxModel
     // fields, not the broader draft state. Preserving that narrow reset.
+    useDraftStore.getState().resetAllModels()
+  },
+  adoptScenario: (scenarioId) => {
+    const scenarioIdBeingLeft = scenarios.getCurrentScenarioId()
+    const isSavedRecord = scenarioIdBeingLeft
+      ? scenarios.getScenario(scenarioIdBeingLeft) !== undefined
+      : false
+    scenarios.clearAutosave()
+    if (!isSavedRecord) clearTranscript(scenarioIdBeingLeft)
+    set({ ...scenarioResetState(), history: { past: [], future: [] }, currentScenarioId: scenarioId })
+    scenarios.setCurrentScenarioId(scenarioId)
+    useComparisonStore.getState().resetComparison()
     useDraftStore.getState().resetAllModels()
   },
 

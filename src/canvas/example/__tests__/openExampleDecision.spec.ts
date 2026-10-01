@@ -14,8 +14,13 @@ const identity = vi.fn(async () => ({ userId: null as string | null, accessToken
 vi.mock('../../../adapters/cee/registerScenarioGraph', () => ({ registerScenarioGraph: (...a: unknown[]) => register(...a) }))
 vi.mock('../../../lib/persistenceSession', () => ({ isPersistenceSessionActive: () => sessionActive() }))
 vi.mock('../../../lib/supabase', () => ({ getSessionIdentity: () => identity() }))
+const hydrateMock = vi.fn()
+vi.mock('../../hydrate/serverGraphHydration', async (orig) => ({
+  ...(await orig<typeof import('../../hydrate/serverGraphHydration')>()),
+  hydrateCanvasFromServer: (...a: unknown[]) => hydrateMock(...a),
+}))
 
-import { openExampleDecision, EXAMPLE_DECISION_BRIEF, EXAMPLE_DECISION_PROVENANCE } from '../exampleDecision'
+import { openExampleDecision, EXAMPLE_DECISION_BRIEF, EXAMPLE_DECISION_PROVENANCE, __resetExampleDecisionForTests } from '../exampleDecision'
 import { useCanvasStore } from '../../store'
 import { useBootGraphReadStore, beginBootGraphRead, settleBootGraphRead } from '../../hydrate/bootGraphRead'
 import type { HydrationOutcome } from '../../hydrate/serverGraphHydration'
@@ -92,6 +97,7 @@ describe('openExampleDecision: a fresh scenario every time, never over a model, 
     unsubHook?.(); unsubHook = null
     register.mockReset(); sessionActive.mockReset(); sessionActive.mockReturnValue(false)
     identity.mockReset(); identity.mockResolvedValue({ userId: null, accessToken: null })
+    hydrateMock.mockReset(); __resetExampleDecisionForTests()
     localStorage.clear(); localStorage.setItem(POINTER, PREVIOUS)
     useCanvasStore.setState({ nodes: [], edges: [], currentScenarioId: PREVIOUS })
     useBootGraphReadStore.setState({ byScenario: {} })
@@ -216,6 +222,56 @@ describe('openExampleDecision: a fresh scenario every time, never over a model, 
     expect(await openExampleDecision()).toEqual({ status: 'canvas_changed' })
     expect(useCanvasStore.getState().currentScenarioId).toBe(OTHER)
     expect(pointer()).toBe(OTHER)
+  })
+
+  it('⛔ COMPLETED RUN → delete-all → open D1: NOTHING of the old Run is inherited (each field, at the switch)', async () => {
+    useCanvasStore.setState({
+      results: { status: 'complete', progress: 100 },
+      analysisStateV1: { kind: 'old-run' },
+      analysisFreshness: { status: 'current' },
+      v5AnalysisFact: { run: 'old' },
+      hasCompletedFirstRun: true,
+    } as never)
+    let atSwitch: Record<string, unknown> | null = null
+    const unsub = useCanvasStore.subscribe((st) => {
+      if (atSwitch === null && st.currentScenarioId !== PREVIOUS) atSwitch = { ...(st as unknown as Record<string, unknown>) }
+    })
+    hydrationHook('merged')
+    register.mockResolvedValueOnce(ACK)
+    expect((await openExampleDecision()).status).toBe('opened')
+    unsub()
+    expect((atSwitch!.results as { status: string }).status).toBe('idle')
+    expect(atSwitch!.analysisStateV1).toBeNull()
+    expect(atSwitch!.analysisFreshness).toBeNull()
+    expect(atSwitch!.v5AnalysisFact).toBeNull()
+    expect(atSwitch!.hasCompletedFirstRun).toBe(false)
+    expect((atSwitch!.history as { past: unknown[] }).past).toEqual([])
+  })
+
+  it('⛔ a login that RESOLVES during the write while the mirrored session flag is still false → no switch', async () => {
+    hydrationHook('merged')
+    identity.mockResolvedValueOnce({ userId: null, accessToken: null }).mockResolvedValueOnce({ userId: 'u-1', accessToken: 'jwt' })
+    register.mockResolvedValueOnce(ACK)
+    expect(sessionActive()).toBe(false)
+    expect(await openExampleDecision()).toEqual({ status: 'signed_in' })
+    expect(useCanvasStore.getState().currentScenarioId).toBe(PREVIOUS)
+    expect(pointer()).toBe(PREVIOUS)
+  })
+
+  it('a retry after not_read_back RE-READS the created scenario: no second write, no second mint', async () => {
+    hydrationHook('unavailable')
+    register.mockResolvedValue(ACK)
+    const first = await openExampleDecision()
+    expect(first.status).toBe('not_read_back')
+    const id = register.mock.calls[0][0] as string
+    hydrateMock.mockImplementationOnce(async (sid: string) => {
+      useCanvasStore.setState({ nodes: SEED_IDS.map((nid) => ({ id: nid, position: { x: 0, y: 0 }, data: {} })) as never })
+      return 'merged'
+    })
+    expect(await openExampleDecision()).toEqual({ status: 'opened', scenarioId: id })
+    expect(register).toHaveBeenCalledTimes(1)
+    expect(hydrateMock).toHaveBeenCalledTimes(1)
+    expect(hydrateMock.mock.calls[0][0]).toBe(id)
   })
 
   it('⛔ content that arrived during the write is not replaced: the id does not switch', async () => {

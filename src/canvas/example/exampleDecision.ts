@@ -18,17 +18,22 @@
  * ⛔⛔ THE ASYNC WINDOW (overflow CR 5937208012, 4 P1s): every await between the click and the switch can change who
  *   owns the canvas. So (1) the RESOLVED identity is checked before the mint, (2) after every await the click-time
  *   scenario must still own an empty canvas and no session may have begun, else nothing switches, (3) the new id is
- *   adopted through the existing scenario reset (`resetCanvas` on an empty canvas = `DECISION_CONTEXT_CLEAR`, which
- *   drops the previous scenario's `serverGraphIdentity` / `lastAuthoritativeGraph`, so a re-open after delete-all
+ *   adopted through the store's whole-scenario reset (`adoptScenario`, whose state includes `DECISION_CONTEXT_CLEAR`,
+ *   dropping the previous scenario's `serverGraphIdentity` / `lastAuthoritativeGraph`, so a re-open after delete-all
  *   is not read back as `unchanged`), never an id-only switch, and (4) "opened" means READ BACK: the result waits
  *   for the hydration read to put D1's own node ids on the canvas; a failed read is reported, never re-minted.
+ * ⛔⛔ ROUND 2 (delta CR 5937527070): (a) adoption is the WHOLE scenario (`adoptScenario`: results, analysis state,
+ *   freshness, fact, first-run flag, comparison, drafts, undo), never `resetCanvas`'s empty-canvas early return, so D1
+ *   inherits nothing from a Run the user cleared; (b) the AUTHORITATIVE session (`getSessionIdentity`) is re-read right
+ *   before adoption, because CanvasMVP's mirrored flag publishes a render later than a login resolves; (c) the minted
+ *   id is kept after `not_read_back`, so the next click re-reads THAT scenario instead of writing a second one.
  */
 import { registerScenarioGraph, type RegisterScenarioGraphResult } from '../../adapters/cee/registerScenarioGraph'
 import { getSessionIdentity } from '../../lib/supabase'
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { useCanvasStore } from '../store'
-import { setCurrentScenarioId } from '../store/scenarios'
 import { useBootGraphReadStore, type BootGraphReadState } from '../hydrate/bootGraphRead'
+import { hydrateCanvasFromServer } from '../hydrate/serverGraphHydration'
 import d1Brief from './d1.brief.json'
 
 /** Where the shipped bytes came from. The spec recomputes the graph hash from the shipped file. */
@@ -67,6 +72,16 @@ export type OpenExampleDecisionResult =
 const READ_FAILED: ReadonlySet<BootGraphReadState> = new Set<BootGraphReadState>([
   'unchanged', 'mergeRefused', 'notReadable', 'unavailable', 'signInRequired', 'refused', 'unusable', 'skipped',
 ])
+
+/** The scenario a previous click created but could not read back. A retry re-reads it; it is never written twice. */
+let unreadExampleId: string | null = null
+
+/** Test teardown only. */
+export function __resetExampleDecisionForTests(): void {
+  unreadExampleId = null
+}
+
+const isGuest = (id: { userId: string | null; accessToken: string | null }) => id.userId === null && id.accessToken === null
 
 function seedNodeIds(graph: unknown): string[] {
   const nodes = (graph as { nodes?: Array<{ id?: unknown }> }).nodes ?? []
@@ -116,10 +131,14 @@ export async function openExampleDecision(
   }
   const identity = await getSessionIdentity()
   // The RESOLVED identity, not only the session flag: a login that lands during the await is a signed-in user.
-  if (identity.userId !== null || identity.accessToken !== null) return { status: 'signed_in' }
+  if (!isGuest(identity)) return { status: 'signed_in' }
   const graph = await loadExampleDecisionGraph()
   const lost1 = stillOurs()
   if (lost1) return lost1
+  if (unreadExampleId !== null) {
+    if (unreadExampleId === origin) return rereadExample(unreadExampleId, graph, identity)
+    unreadExampleId = null // the user has moved on from it; this click is a fresh open
+  }
   const scenarioId = crypto.randomUUID()
   const result = await registerScenarioGraph(scenarioId, graph, {
     expectNoGraph: true,
@@ -129,15 +148,40 @@ export async function openExampleDecision(
   })
   if (result.status !== 'registered') return { status: 'not_opened', reason: result.status }
   // The new scenario exists on the server either way; it is only opened over the canvas the click was made against.
+  // The AUTHORITATIVE session is re-read here (the mirrored flag can lag a login), then ownership, with no await
+  // between that check and the adoption.
+  const late = await getSessionIdentity()
+  if (!isGuest(late)) return { status: 'signed_in' }
   const lost2 = stillOurs()
   if (lost2) return lost2
-  // Adopt through the existing scenario reset (DECISION_CONTEXT_CLEAR), never an id-only switch.
-  useCanvasStore.getState().resetCanvas()
-  useCanvasStore.setState({ currentScenarioId: scenarioId })
-  setCurrentScenarioId(scenarioId)
+  useCanvasStore.getState().adoptScenario(scenarioId)
   // The open is the read-back: the server-graph hydration re-reads on the id change, as a cold reload reads the pointer.
   const read = await waitForReadBack(scenarioId, seedNodeIds(graph), opts.readBackTimeoutMs ?? EXAMPLE_READ_BACK_TIMEOUT_MS)
   if (read === 'confirmed') return { status: 'opened', scenarioId }
   if (read === 'moved') return { status: 'canvas_changed' }
+  unreadExampleId = scenarioId
   return { status: 'not_read_back', scenarioId, read }
+}
+
+/** The retry after `not_read_back`: read the scenario this flow already created, through the same direct read
+ *  `draftRecovery` uses. No write, no mint. */
+async function rereadExample(
+  scenarioId: string,
+  graph: unknown,
+  identity: { userId: string | null; accessToken: string | null },
+): Promise<OpenExampleDecisionResult> {
+  const outcome = await hydrateCanvasFromServer(scenarioId, {
+    userId: identity.userId,
+    accessToken: identity.accessToken,
+    includeConversationTurns: true,
+  })
+  const st = useCanvasStore.getState()
+  if (st.currentScenarioId !== scenarioId) return { status: 'canvas_changed' }
+  const onCanvas = new Set(st.nodes.map((n) => n.id))
+  const ids = seedNodeIds(graph)
+  if (ids.length > 0 && ids.every((id) => onCanvas.has(id))) {
+    unreadExampleId = null
+    return { status: 'opened', scenarioId }
+  }
+  return { status: 'not_read_back', scenarioId, read: outcome }
 }
