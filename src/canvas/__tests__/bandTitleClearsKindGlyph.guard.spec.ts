@@ -267,7 +267,9 @@ describe('…and the title that rises clear of a shape lands on nothing else', (
       expect(lane.x, `tier ${tier} does not start at the title column`).toBe(column)
     }
     const risen = t.titles.filter(({ lane, box }) => box.y1 < lane.y - LANE_TITLE_GAP)
-    expect(risen.length).toBeGreaterThanOrEqual(2)
+    // ≥ 1 since Paul's 1 Oct half-size row-end prompt widened the cards: one fewer title's run reaches a shape on
+    // this board (it was 2). Still non-vacuous: a title really rose, and the two rows below check where it landed.
+    expect(risen.length).toBeGreaterThanOrEqual(1)
     expect(titleShapeHits(t)).toEqual([])
     expect(titleLandingHits(t)).toEqual([])
   })
