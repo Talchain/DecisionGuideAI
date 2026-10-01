@@ -75,6 +75,7 @@ const INTERVENTION_ROW_CLASS = `py-2 border-b ${INSPECTOR_RULE.row} last:border-
 export const INSPECTOR_INTERVENTION_PROVENANCE_LABEL: Record<ValueProvenanceKind, string> = {
   brief: 'From your brief',
   ai: 'Estimated by Olumi',
+  accepted: 'Olumi\u2019s estimate \u00b7 you accepted it', // AIQ 5921018606
   edited: 'Set by you',
   confirmed: 'Confirmed by you',
   assumption: 'Your assumption',
@@ -87,6 +88,7 @@ export const INSPECTOR_INTERVENTION_PROVENANCE_LABEL: Record<ValueProvenanceKind
 const INSPECTOR_INTERVENTION_PROVENANCE_BORDER: Record<ValueProvenanceKind, string> = {
   brief: 'border-info/30',
   ai: 'border-warning/30',
+  accepted: 'border-warning/30',
   edited: 'border-success/30',
   confirmed: 'border-success/30',
   assumption: 'border-success/30',

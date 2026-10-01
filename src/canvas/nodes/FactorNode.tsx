@@ -48,7 +48,7 @@ import { resolveFactorPriorRangeEndsOnCard, resolveFactorPriorRangeOnCard } from
 import { FactorRangeBand } from './shared/FactorRangeBand'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
-import { classifyValueProvenance, VALUE_PROVENANCE_LABEL, factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
+import { classifyObservedValueProvenance, VALUE_PROVENANCE_LABEL, factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { VALUE_PROVENANCE_ICON, PROVENANCE_ICON_SIZE_CLASSES } from '../domain/valueProvenanceIcon'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 import Tooltip from '../../components/Tooltip'
@@ -58,7 +58,7 @@ import { factorValueSourceMark, PRIOR_RANGE_SOURCE_MARK, ValueSourceMark } from 
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
   const observedState = props.data?.observedState as ObservedState | undefined
-  const currentValueOrigin = classifyValueProvenance(observedState?.source)
+  const currentValueOrigin = classifyObservedValueProvenance(observedState)
   // Derived once: the drivers that are actually evidence. See
   // `meaningfulUncertaintyDrivers` for why a placeholder is not one.
   const meaningfulDrivers = meaningfulUncertaintyDrivers(observedState?.uncertainty_drivers)
@@ -487,8 +487,9 @@ export const FactorNode = memo((props: NodeProps) => {
   // A wider-range invitation needs a stated reference, never a placeholder.
   const anchoringMessage = useMemo(() => {
     if (!isDetailed || isPostAnalysis) return null
-    const referenceOrigin = classifyValueProvenance(typeof observedState?.source === 'string' ? observedState.source : null)
-    if (!referenceOrigin || referenceOrigin.kind === 'ai') return null
+    // Olumi's figure — accepted or not — is not a stated reference (52f8cd: the whole observed state decides).
+    const referenceOrigin = classifyObservedValueProvenance(observedState)
+    if (!referenceOrigin || referenceOrigin.kind === 'ai' || referenceOrigin.kind === 'accepted') return null
     const options = ceeAnalysisReady?.options
     if (!options || options.length < 3) return null
     const vals: number[] = []

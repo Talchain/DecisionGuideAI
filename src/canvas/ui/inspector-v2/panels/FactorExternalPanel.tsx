@@ -48,6 +48,7 @@ import {
   userValueReplacesPrior,
   USER_VALUE_REPLACES_THIS_RANGE,
 } from '../../../nodes/shared/factorPriorRange'
+import { isAcceptedOlumiFigure } from '../../../domain/valueProvenance'
 
 // Quick-set presets
 const QUICK_SET = {
@@ -464,7 +465,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
       {/* The header is a CLAIM about who supplied this number, not a static
           caption. "Your input" over an Olumi estimate is false attribution —
           see getInputGroupLabel (inspectorStrings.ts) for both directions. */}
-      <PanelGroup kind="input" label={getInputGroupLabel(source, (obs?.raw_value ?? obs?.value) != null)}>
+      <PanelGroup kind="input" label={getInputGroupLabel(source, (obs?.raw_value ?? obs?.value) != null, isAcceptedOlumiFigure(node?.data))}>
         <PrimaryControlCard>
           {canonicalDisplayText && (
             <div className={`${typography.panelBody} text-text-body mb-1.5`} data-testid="factor-display-text">

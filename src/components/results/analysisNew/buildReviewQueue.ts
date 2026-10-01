@@ -224,6 +224,8 @@ export interface ReviewFactor {
   hasValue: boolean
   /** `observed_state.source`, verbatim. */
   valueSource: string | undefined
+  /** Olumi's figure the user ACCEPTED (the strip's `valueAccepted`; 52f8cd). */
+  valueAccepted?: true
   /** `factorIsConfirmable` — the strip's "to verify" predicate, and Confirm's gate. */
   needsCheck: boolean
 }
@@ -262,6 +264,7 @@ function toReviewFactor(node: StripNode): ReviewFactor {
     valueText: node.valueText,
     hasValue: node.hasValue,
     valueSource: node.valueSource,
+    ...(node.valueAccepted ? { valueAccepted: true as const } : {}),
     needsCheck: node.needsCheck,
   }
 }
@@ -327,13 +330,14 @@ const PROVENANCE_WORD: Readonly<Record<ValueProvenanceKind, string>> = Object.fr
   assumption: REVIEW_TOOL_COPY.yourValue,
   human: REVIEW_TOOL_COPY.yourValue,
   ai: REVIEW_TOOL_COPY.olumiEstimate,
+  accepted: VALUE_PROVENANCE_LABEL.accepted,
   brief: VALUE_PROVENANCE_LABEL.brief,
   panel: VALUE_PROVENANCE_LABEL.panel,
 })
 
 export function reviewValueProvenance(factor: ReviewFactor | null): string | null {
   if (!factor || !factor.hasValue) return null
-  const cls = classifyValueProvenance(factor.valueSource)
+  const cls = factor.valueAccepted ? { kind: 'accepted' as const } : classifyValueProvenance(factor.valueSource)
   return cls === null ? null : PROVENANCE_WORD[cls.kind]
 }
 

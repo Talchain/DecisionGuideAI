@@ -14,6 +14,7 @@ import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
 import { typography } from '../../../../styles/typography'
 import { controls } from '../../../../styles/controls'
 import { unwrapInterventionValue } from '../../../utils/labelUtils'
+import { isAcceptedOlumiFigure } from '../../../domain/valueProvenance'
 
 const FACTOR_TYPES = [
   { value: '', label: '—' },
@@ -144,7 +145,7 @@ export function FactorControllableEditor({ nodeId }: FactorControllableEditorPro
           onChange={v => mutations.setObservedSource(v as string)}
           type="text"
           placeholder="e.g. Q3 report"
-          helperText={obs?.source ? `Displays as: ${getProvenanceLabel(obs.source as string)}` : undefined}
+          helperText={obs?.source ? `Displays as: ${getProvenanceLabel(obs.source as string, undefined, isAcceptedOlumiFigure(obs))}` : undefined}
         />
       </AdvancedFieldGroup>
 

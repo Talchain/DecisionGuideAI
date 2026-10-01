@@ -1,0 +1,42 @@
+{
+ "_capture": {
+  "what": "POST /assist/v1/scenarios/<id>/graph read, served CEE 5479e15e (= staging head), 30 Sep 2026 ~22:58Z, after the user approved Olumi's 'Suggest starting assumptions' card for Warm introductions (guest scenario c708fca5-7f80-4195-ad09-6af87ce7b387). Trimmed to two nodes; every byte of each node is as served.",
+  "evidence": "#75 5921124922 (52f8cd); run dir scratchpad/prov/run-2254Z",
+  "warm_introductions": "the ADOPTED Olumi figure: source user_assumption, node provenance user_set, no review — the pre-#2412 shape",
+  "cold_emails": "CONTRAST: an Olumi estimate the user never accepted (cee_inference, extractionType inferred)"
+ },
+ "nodes": [
+  {
+   "id": "warm_introductions",
+   "ref": "F2",
+   "kind": "factor",
+   "label": "Warm introductions",
+   "category": "external",
+   "provenance": "user_set",
+   "scale_frame": 50,
+   "display_value": "2 introductions/week",
+   "observed_state": {
+    "unit": "introductions/week",
+    "value": 0.04,
+    "source": "user_assumption",
+    "raw_value": 2
+   }
+  },
+  {
+   "id": "cold_emails",
+   "ref": "F1",
+   "kind": "factor",
+   "label": "Cold emails",
+   "category": "external",
+   "provenance": "ai_inferred",
+   "scale_frame": 500,
+   "observed_state": {
+    "unit": "emails/week",
+    "value": 0.08,
+    "source": "cee_inference",
+    "raw_value": 40,
+    "extractionType": "inferred"
+   }
+  }
+ ]
+}

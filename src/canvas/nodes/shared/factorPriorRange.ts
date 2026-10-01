@@ -33,7 +33,7 @@
  * `factorDisplayText`) and neither may be assumed for the other.
  */
 import { isUnquantifiedPrior, priorEndpointsAreNormalised } from '../../domain/nodes'
-import { classifyValueProvenance } from '../../domain/valueProvenance'
+import { classifyObservedValueProvenance } from '../../domain/valueProvenance'
 import { getObservedState } from '../../utils/observedStateHelpers'
 import { classifyUnit, formatRawValueWithUnit, isSuppressedUnit, qualitativeTierLabel } from '../../utils/labelUtils'
 
@@ -82,8 +82,8 @@ export function userValueReplacesPrior(data: unknown): boolean {
   const obs = getObservedState(data)
   const value = obs.value
   if (typeof value !== 'number' || !Number.isFinite(value)) return false
-  const source = typeof obs.source === 'string' ? obs.source : null
-  return classifyValueProvenance(source)?.userOwned === true
+  // The whole observed state: Olumi's figure the user ACCEPTED is still Olumi's, not the user's own (52f8cd).
+  return classifyObservedValueProvenance(obs)?.userOwned === true
 }
 
 /**

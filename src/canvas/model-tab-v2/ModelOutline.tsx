@@ -497,7 +497,8 @@ export function unsetBucketOf(row: ModelRow): UnsetBucket | null {
   // … and neither is a row with nothing TO state. Same `null`, same meaning
   // for the heading and the filter: no gap here, so no clause and no route.
   if (KINDS_THAT_HOLD_NO_VALUE.has(row.kind)) return null
-  if (classifyValueProvenance(row.provenanceSource)?.userOwned === true) return 'yours'
+  // An accepted Olumi figure is not "yours" (52f8cd): the row carries the fact the stamp cannot.
+  if (row.provenanceAccepted !== true && classifyValueProvenance(row.provenanceSource)?.userOwned === true) return 'yours'
   // ⚠ TWO FACTS, ONE QUESTION — read from their existing owners, never
   // re-derived. `estimateText` is the field the CELL renders;
   // `unconfirmed-estimate` is `factorIsConfirmable`, surfaced as an attention

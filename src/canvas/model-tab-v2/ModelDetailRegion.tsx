@@ -92,6 +92,7 @@ const NO_AUTHORITY_INTERVENTION =
 const INTERVENTION_PROVENANCE_BORDER: Record<ValueProvenanceKind, string> = {
   brief: 'border-info/30',
   ai: 'border-warning/30',
+  accepted: 'border-warning/30', // Olumi's figure, accepted: Olumi's paint
   confirmed: 'border-success/30',
   edited: 'border-success/30',
   assumption: 'border-success/30',
@@ -867,7 +868,7 @@ export function ModelDetailRegion({
       <section data-testid="model-detail-v2-provenance">
         <h4 className={`${typography.panelHeader} text-text-header`}>Where it came from</h4>
         {row.provenanceSource !== undefined && (
-          <SourceProvenancePill source={row.provenanceSource} showWhenAbsent={false} />
+          <SourceProvenancePill source={row.provenanceSource} showWhenAbsent={false} accepted={row.provenanceAccepted === true} />
         )}
         {detail.basis !== null && (
           <p

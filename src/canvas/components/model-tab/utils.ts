@@ -101,9 +101,13 @@ export function getPrimaryValue(obs: ObservedState): string | null {
    now it imports the shared map directly, so this tab's copy-to-clipboard
    text can no longer disagree with what the tab itself displays. */
 
-export function mapSourceToDisplay(source: string | undefined): string | null {
+export function mapSourceToDisplay(
+  source: string | undefined,
+  /** Olumi's figure the user ACCEPTED — the caller holds the node (`isAcceptedOlumiFigure`; 52f8cd). */
+  accepted = false,
+): string | null {
   if (!source) return null
-  const cls = classifyValueProvenance(source)
+  const cls = accepted ? { kind: 'accepted' as const } : classifyValueProvenance(source)
   /**
    * ⚠⚠ THE TAIL WAS `: source`, AND THAT WAS THE LEAK THIS FILE'S OWN HEADER
    * DESCRIBES IN THE PAST TENSE.

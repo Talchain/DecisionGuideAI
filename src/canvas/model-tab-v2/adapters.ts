@@ -172,7 +172,7 @@ import { resolveNodeTypeLiteral } from '../domain/nodes'
 // rather than reimplemented: a second presence test here would be the estate's
 // dominant defect (trap 12) on a field a user-facing sentence depends on.
 import { factorDeclaresNoRange } from '../conversation/factorValueEdit'
-import { classifyValueProvenance, factorIsConfirmable } from '../domain/valueProvenance'
+import { classifyObservedValueProvenance, classifyValueProvenance, factorIsConfirmable, isAcceptedOlumiFigure } from '../domain/valueProvenance'
 import { interventionTargetValue } from '../domain/interventions'
 import { unwrapInterventionValue } from '../utils/labelUtils'
 import { resolveFactorValueAdmission } from '../conversation/factorValueEdit'
@@ -702,6 +702,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         ...(factorDeclaresNoRange(data) ? { declaresNoRange: true } : {}),
         ...(typeof obs?.unit === 'string' && obs.unit.trim() !== '' ? {} : { declaresNoUnit: true }),
         provenanceSource: typeof obs?.source === 'string' ? obs.source : undefined,
+        ...(classifyObservedValueProvenance(obs)?.kind === 'accepted' ? { provenanceAccepted: true as const } : {}),
         // ⚠ UNCHANGED, DELIBERATELY. `attention` is the AFFORDANCE axis and it
         // still reads `value` (i.e. `raw_value`). A row with an estimate and no
         // supplied value must still ask for one.
@@ -931,8 +932,8 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
  * by you"); this surface reuses it rather than printing the enum, so the pill
  * and the queue cannot disagree about what a source is called.
  */
-function sourceBasis(source: string | null | undefined): string | null {
-  const label = mapSourceToDisplay(source ?? undefined)
+function sourceBasis(source: string | null | undefined, accepted = false): string | null {
+  const label = mapSourceToDisplay(source ?? undefined, accepted)
   return label === null ? null : `Source: ${label}`
 }
 
@@ -1018,7 +1019,7 @@ export function toRepairQueueItems(
           // as body copy. v1 never did: `SourceProvenancePill` renders
           // `mapSourceToDisplay` ("AI estimate"), and the raw token appears
           // only in a `title`. Same policy imported, not a second copy.
-          basis: sourceBasis(observedStateOf(data)?.source),
+          basis: sourceBasis(observedStateOf(data)?.source, isAcceptedOlumiFigure(observedStateOf(data))),
         }
       })
   }
@@ -1213,7 +1214,7 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
        * the two in agreement, so if a future change gives another kind a pill,
        * that test REDs rather than the panel quietly saying it twice again.
        */
-      basis: nodeKind(node) === 'factor' ? null : sourceBasis(obs?.source),
+      basis: nodeKind(node) === 'factor' ? null : sourceBasis(obs?.source, isAcceptedOlumiFigure(obs)),
       adjustments: [],
       // ⚠ The NAVIGATION id stays the edge's; the LABEL is the target element's
       // name. Rendering `e.target` here put a raw wire id in the detail region's
