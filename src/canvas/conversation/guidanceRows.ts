@@ -20,7 +20,8 @@ export interface GuidanceRow {
   readonly variant: string | null
   readonly priority: string | null
   readonly stateKeyHash: string
-  readonly primaryAction: string | null
+  /** CEE `SelectedRow.primary_action` (guidance/types.ts @f6d6c079): an object, never a bare string. */
+  readonly primaryAction: { readonly label: string; readonly actionKind: string | null } | null
   readonly copy: { readonly title: string; readonly why: string | null; readonly question: string | null }
   readonly itemRef: GuidanceItemRef | null
 }
@@ -50,6 +51,13 @@ function readItemRef(raw: unknown): GuidanceItemRef | null {
   return null
 }
 
+function readPrimaryAction(raw: unknown): GuidanceRow['primaryAction'] {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const r = raw as Record<string, unknown>
+  const label = str(r.label)
+  return label ? { label, actionKind: str(r.action_kind ?? r.actionKind) } : null
+}
+
 /** One row, from the wire (snake_case) or from the saved transcript (camelCase). `null` = not a row. */
 export function readGuidanceRow(raw: unknown): GuidanceRow | null {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null
@@ -64,7 +72,7 @@ export function readGuidanceRow(raw: unknown): GuidanceRow | null {
     variant: str(r.variant),
     priority: str(r.priority),
     stateKeyHash,
-    primaryAction: str(r.primary_action ?? r.primaryAction),
+    primaryAction: readPrimaryAction(r.primary_action ?? r.primaryAction),
     copy: { title, why: str(copy.why), question: str(copy.question) },
     itemRef: readItemRef(r.item_ref ?? r.itemRef),
   }

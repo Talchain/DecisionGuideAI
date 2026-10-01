@@ -32,7 +32,7 @@ const COPY = {
 const ROW = {
   policy_id: 'RC-STRENGTHEN-ITEM', priority: 'P1', variant: 'S1',
   item: 'sprint_capacity_for_ai_reporting->ai_reporting_module_availability',
-  primary_action: 'strengthen', state_key_hash: 'skh_d1_ai', copy: COPY,
+  primary_action: { label: 'Strengthen', action_kind: 'edit_inline' }, state_key_hash: 'skh_d1_ai', copy: COPY,
   item_ref: { kind: 'link', from_id: 'sprint_capacity_for_ai_reporting', to_id: 'ai_reporting_module_availability' },
 }
 const PLACEHOLDER = { strength_mean: 0.25, weightSource: 'cee', strengthPlaceholder: 0.25 }
@@ -86,6 +86,10 @@ describe('readGuidance: the contract shape, nothing looser', () => {
   it('a malformed item_ref leaves the row as words only (itemRef null), never a guessed link', () => {
     expect(readGuidance({ guidance: { slot1: { ...ROW, item_ref: { kind: 'link', from_id: 'a' } } } })?.slot1?.itemRef).toBeNull()
     expect(readGuidance({ guidance: { slot1: { ...ROW, item_ref: { kind: 'factor', factor_id: 'f1' } } } })?.slot1?.itemRef).toEqual({ kind: 'factor', factorId: 'f1' })
+  })
+  it('primary_action is CEE SelectedRow’s object {label, action_kind} (types.ts @f6d6c079); a bare string is not one', () => {
+    expect(readGuidance({ guidance: { slot1: ROW } })?.slot1?.primaryAction).toEqual({ label: 'Strengthen', actionKind: 'edit_inline' })
+    expect(readGuidance({ guidance: { slot1: { ...ROW, primary_action: 'strengthen' } } })?.slot1?.primaryAction).toBeNull()
   })
 })
 
