@@ -11,6 +11,8 @@
  *   P3  CONTRAST: a cue the board does not draw has no entry; a board with no cue at all → no key (nothing rendered).
  *   P4  the key opens and closes (toggle, Escape) and renders exactly the derived entries.
  *   P5  band order: the key sits AFTER `degraded-banner` in `bottom-right` (a run warning outranks it).
+ *   P7  values: a factor carrying a value lists its source word in the card's own token + label (`factorValueSourceMark`,
+ *       `VALUE_SOURCE_MARK_TOKEN/LABEL`: "est." = Olumi estimate); CONTRAST: a factor with no value → no value entry.
  *   P6  options: while the Run withheld shares, the option card's `NOT_RANKED_MARKER` with the gate's own reason;
  *       CONTRAST: shares not withheld → no option entry.
  */
@@ -29,6 +31,7 @@ import { resolveEdgeValueDisplay } from '../../domain/edgeValueProvenance'
 import { resolveExistenceDash } from '../../utils/graphDisplayCalculations'
 import { EDGE_EXISTENCE_DOUBT_SENTENCE, EDGE_STRENGTH_PLACEHOLDER_SENTENCE } from '../../edges/connectorCopy'
 import { NOT_RANKED_MARKER } from '../../state/winShareGate'
+import { factorValueSourceMark, VALUE_SOURCE_MARK_LABEL, VALUE_SOURCE_MARK_TOKEN } from '../../nodes/shared/valueSourceMark'
 
 const T = CANVAS_PROVENANCE_KEY_TESTID
 
@@ -131,5 +134,18 @@ describe('P6 · the withheld-share marker, with the gate\'s own reason', () => {
     const reason = 'The comparison does not yet separate the options reliably.'
     expect(provenanceKey(NODES, [], reason).options).toEqual({ label: NOT_RANKED_MARKER, reason })
     expect(provenanceKey(NODES, [], null).options).toBeNull()
+  })
+})
+
+describe('P7 · value source words, in the card\'s own token and meaning', () => {
+  const EST = { id: 'fac-conv', type: 'factor', position: { x: 0, y: 0 }, data: { type: 'factor', label: 'Trial conversion', category: 'controllable', observedState: { value: 0.08, unit: '%', extractionType: 'inferred', source: 'cee_inference' } } }
+  const NO_VALUE = { id: 'fac-x', type: 'factor', position: { x: 0, y: 0 }, data: { type: 'factor', label: 'Market growth', category: 'external' } }
+  it('positive control: the card\'s own function marks the inferred value', () => {
+    expect(factorValueSourceMark(EST.data)?.kind).toBe('olumi')
+  })
+  it('an Olumi-estimated value → "est." with its meaning; a factor with no value → no value entry', () => {
+    expect(provenanceKey([EST], []).values).toEqual([{ kind: 'olumi', token: VALUE_SOURCE_MARK_TOKEN.olumi, label: VALUE_SOURCE_MARK_LABEL.olumi }])
+    expect(VALUE_SOURCE_MARK_TOKEN.olumi).toBe('est.')
+    expect(provenanceKey([NO_VALUE], []).values).toEqual([])
   })
 })
