@@ -122,7 +122,7 @@ describe('BaseNode — path-dim rung is opacity-25, not the old opacity-60', () 
 })
 
 describe('GhostOptionNode — the "+" counter-scales at the icon size', () => {
-  it('the Plus glyph carries `CANVAS_GLYPH_SIZE_CLASSES[24]` (not the retired label row\'s [14]), directly inside the icon button', () => {
+  it('the Plus glyph carries `CANVAS_GLYPH_SIZE_CLASSES[12]` (Paul 1 Oct: 50% smaller than the 30 Sep [24]; not the retired label row\'s [14]), directly inside the icon button', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       (selector as (s: unknown) => unknown)(makeStoreState() as never),
     )
@@ -148,7 +148,7 @@ describe('GhostOptionNode — the "+" counter-scales at the icon size', () => {
     const icon = document.querySelector('svg[aria-hidden="true"]')
     expect(icon, 'the ghost-option "+" did not mount').toBeTruthy()
     const glyphClasses = (icon!.getAttribute('class') ?? '').split(/\s+/)
-    for (const token of CANVAS_GLYPH_SIZE_CLASSES[24].split(' ').filter(Boolean)) {
+    for (const token of CANVAS_GLYPH_SIZE_CLASSES[12].split(' ').filter(Boolean)) {
       expect(glyphClasses).toContain(token)
     }
     // Discriminating: the old 14 box is gone, not merely joined by the 24.

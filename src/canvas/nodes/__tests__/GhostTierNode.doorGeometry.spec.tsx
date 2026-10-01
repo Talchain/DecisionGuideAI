@@ -100,12 +100,11 @@ describe('the door is the row slot the layout reserved, and its height is derive
     expect(MAX_LABEL_COUNTER_SCALE).toBeGreaterThan(1)
   })
 
-  /** The ruled icon size, written as the RULING says it (Paul, 30 Sep 2026: 64,
-   *  "42px at the 0.65 landing zoom" — DS §9.9's 44px target, as near as the canvas
-   *  allows) — never read back from the constant under test. */
-  const RULED_ICON_W = 64
+  /** The ruled icon size, written as the RULING says it (Paul, 1 Oct 2026: "Make the plus buttons on the right
+   *  smaller … 50% smaller": 32, half the 30 Sep ruling's 64) — never read back from the constant under test. */
+  const RULED_ICON_W = 32
 
-  it('the width is the ruled icon width — the SAME number `layoutGraph` reserves (Paul 30 Sep: 64; was ED S4\'s 160 tile)', () => {
+  it('the width is the ruled icon width — the SAME number `layoutGraph` reserves (Paul 1 Oct: 32; was 64, and ED S4\'s 160 tile)', () => {
     expect(ROW_PROMPT_W).toBe(RULED_ICON_W)
     expect(GHOST_DOOR_W_PX).toBe(ROW_PROMPT_W)
   })
@@ -262,10 +261,10 @@ describe('the rendered door', () => {
     // The dashed tile chrome is gone, not merely overridden.
     expect(door.style.border).toBe('')
     expect(door.querySelector('span')).toBeNull()
-    // The glyph: `Plus` at the counter-scaled 24, decorative.
+    // The glyph: `Plus` at the counter-scaled 12 (Paul 1 Oct: 50% smaller), decorative.
     const glyph = door.querySelector('svg') as SVGElement
     expect(glyph.getAttribute('class')).toContain('lucide-plus')
-    expect(glyph.getAttribute('class')).toContain(CANVAS_GLYPH_SIZE_CLASSES[24])
+    expect(glyph.getAttribute('class')).toContain(CANVAS_GLYPH_SIZE_CLASSES[12])
     expect(glyph.getAttribute('aria-hidden')).toBe('true')
   })
 
