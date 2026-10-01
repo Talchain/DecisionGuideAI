@@ -28,6 +28,7 @@ import { GenericNodePanel } from './panels/GenericNodePanel'
 import { InspectorQuickActions } from './shared/InspectorQuickActions'
 import { InspectorAgencyNote } from './shared/InspectorAgencyNote'
 import { InspectorAttentionContext, attentionAskContext } from './shared/InspectorAttentionContext'
+import { ExamineAssumption } from './examine/ExamineAssumption'
 import { useNodeAttention } from '../../nodes/shared/useNodeAttention'
 import { revealOlumiSurface } from '../../conversation/revealOlumi'
 import { resolveElementLabel } from '../../domain/elementLabel'
@@ -525,6 +526,15 @@ export const InspectorRouter = memo(function InspectorRouter({
           {/* Paul 23 Sep point 11: the reason first, then the route to the
               conversation directly beneath it. */}
           <InspectorAttentionContext reasons={attention.reasons} />
+          {/* ⭐ Slice 1 (52f8cd): examine a factor's figure, beneath the reasons the Run gave. Prefill-only (`requestAsk`). */}
+          {panelType.startsWith('factor-') && (
+            <ExamineAssumption
+              nodeId={nodeId}
+              label={label}
+              data={node.data as Record<string, unknown> | undefined}
+              reasons={attention.reasons}
+            />
+          )}
           <InspectorQuickActions
             elementId={nodeId}
             elementLabel={label}
