@@ -164,6 +164,40 @@ describe('the row: the coach’s words verbatim, and #2408’s served action bou
   })
 })
 
+describe('replay: the PRODUCER’s D1 row, verbatim (CEE #2487 t2-guidance-wire.test.ts `S1_ROW` @599ad90c)', () => {
+  // AI HARNESS's T2 wire row on RC's banked served D1 Run: not this file's fixture. Only `state_key_hash` is concrete
+  // here (the producer's test matches /^[0-9a-f]{12}$/).
+  const PRODUCED = {
+    policy_id: 'RC-STRENGTHEN-ITEM',
+    variant: 'S1',
+    priority: 'P1',
+    item: 'sprint_capacity_for_ai_reporting->ai_reporting_module_availability',
+    primary_action: { label: 'Give your estimate', action_kind: 'edit_inline', target: 'sprint_capacity_for_ai_reporting->ai_reporting_module_availability' },
+    state_key_hash: '0a1b2c3d4e5f',
+    copy: {
+      title: 'The comparison rests on a link nobody has sized yet.',
+      why: "Until it is sized, Olumi can't compare the options on your goal.",
+      question: 'How much does sprint capacity for AI reporting really change AI reporting module availability? The comparison turns on it.',
+    },
+    item_ref: { kind: 'link', from_id: 'sprint_capacity_for_ai_reporting', to_id: 'ai_reporting_module_availability' },
+  }
+
+  it('reads, renders verbatim, and binds Accept/Edit + Show to the link item_ref names', () => {
+    seed()
+    const g = readGuidance({ assistant_text: 'Here is where the comparison stands.', guidance: { slot1: PRODUCED } })!
+    expect(g.slot2).toBeNull()
+    expect(g.slot1?.primaryAction).toEqual({ label: 'Give your estimate', actionKind: 'edit_inline' })
+    render(<GuidanceRows guidance={g} />)
+    expect(screen.getByTestId('guidance-row-slot1-title').textContent).toBe(PRODUCED.copy.title)
+    expect(screen.getByTestId('guidance-row-slot1-why').textContent).toBe(PRODUCED.copy.why)
+    expect(screen.getByTestId('guidance-row-slot1-question').textContent).toBe(PRODUCED.copy.question)
+    fireEvent.click(screen.getByTestId('guidance-row-slot1-link-e_ai-accept'))
+    expect(confirm.mock.calls[0][0]).toBe('e_ai')
+    fireEvent.click(screen.getByTestId('guidance-row-slot1-show'))
+    expect(focusEdge).toHaveBeenCalledWith('sprint_capacity_for_ai_reporting', 'ai_reporting_module_availability', 'ai_reporting_module_availability')
+  })
+})
+
 describe('bound to BOTH ends, and shown on the canvas by id', () => {
   const g = () => readGuidance({ guidance: { slot1: ROW } })!
 
