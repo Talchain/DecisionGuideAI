@@ -238,7 +238,12 @@ export const OVERLAY_PRIORITY: Record<OverlayCell, readonly string[]> = {
    * before they read anything the run produced. The cue moved to the canvas
    * foot on 27 Sep 2026 (see `bottom-left`), so the two no longer contend.
    */
-  'bottom-right': ['degraded-banner'],
+  /**
+   * `canvas-provenance-key` (`CanvasProvenanceKey.tsx`, DL #85 5939855664 / PTL 5941434564 §6): what the provenance and
+   * uncertainty marks on this board mean. AFTER `degraded-banner`: a warning that the run may be unreliable outranks a
+   * key to the marks.
+   */
+  'bottom-right': ['degraded-banner', 'canvas-provenance-key'],
 }
 
 /** The band, spelled ONCE, for `computeFitPadding` and for the geometry harness. */
