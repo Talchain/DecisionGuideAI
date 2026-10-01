@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { OlumiResponse } from '@talchain/schemas/boundary'
 import { mapV5Blocks, mapV5Block } from '../blocks/mapV5Blocks'
+import { mapV5AnalysisToReport, v5AnalysisBlockContentHash } from '../mapV5AnalysisToReport'
 
 type V5Block = OlumiResponse['blocks'][number]
 
@@ -19,34 +20,42 @@ describe('mapV5Block — per-kind conversion', () => {
     expect(r).toBeNull()
   })
 
-  it('analysis_result → v5_analysis_result with all fields', () => {
-    const r = mapV5Block({
+  it('analysis_result → v5_analysis_result with all fields, and the Run\'s own identity (#2368)', () => {
+    const wire = {
       type: 'analysis_result',
       summary: 'A leads.',
       leading_option_id: 'opt-a',
       win_probabilities: { 'opt-a': 0.6, 'opt-b': 0.4 },
       enrichment: { decision_review: { foo: 'bar' } },
-    })
+    } as const
+    const r = mapV5Block(wire)
     expect(r).toEqual({
       type: 'v5_analysis_result',
       summary: 'A leads.',
       leading_option_id: 'opt-a',
       win_probabilities: { 'opt-a': 0.6, 'opt-b': 0.4 },
       enrichment: { decision_review: { foo: 'bar' } },
+      analysis_hash: v5AnalysisBlockContentHash(wire as never),
+    })
+    // The chat card's hash IS the report's Run identity (the store's `currentResultsHash`), not any other value.
+    expect((r as { analysis_hash: string }).analysis_hash).toBe(mapV5AnalysisToReport(wire as never).model_card.response_hash)
+  })
+
+  it('analysis_result omits optional fields when absent (the Run identity is never optional)', () => {
+    const wire = { type: 'analysis_result', summary: 'No probs yet.', leading_option_id: null } as const
+    const r = mapV5Block(wire)
+    expect(r).toEqual({
+      type: 'v5_analysis_result',
+      summary: 'No probs yet.',
+      leading_option_id: null,
+      analysis_hash: v5AnalysisBlockContentHash(wire as never),
     })
   })
 
-  it('analysis_result omits optional fields when absent', () => {
-    const r = mapV5Block({
-      type: 'analysis_result',
-      summary: 'No probs yet.',
-      leading_option_id: null,
-    })
-    expect(r).toEqual({
-      type: 'v5_analysis_result',
-      summary: 'No probs yet.',
-      leading_option_id: null,
-    })
+  it('CONTRAST: two different Runs never share an analysis_hash', () => {
+    const a = mapV5Block({ type: 'analysis_result', summary: 'A leads.', leading_option_id: 'opt-a' }) as { analysis_hash: string }
+    const b = mapV5Block({ type: 'analysis_result', summary: 'B leads.', leading_option_id: 'opt-b' }) as { analysis_hash: string }
+    expect(a.analysis_hash).not.toBe(b.analysis_hash)
   })
 
   it('graph_patch applied → v5_graph_patch', () => {

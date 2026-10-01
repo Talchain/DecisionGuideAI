@@ -51,3 +51,27 @@ export function selectSavedRunUnconfirmed(
   return declined !== null && !runOnRecordLocally && typeof currentScenarioId === 'string' &&
     declined.scenarioId === currentScenarioId
 }
+
+/**
+ * ⭐ WHAT THE REASONING PRE-RUN STATUS MAY SAY WHEN A RUN IS ON RECORD BUT NO RESULT IS HELD HERE (DL #75 5922639119).
+ *
+ * Cross-surface sweep, 1 Oct 2026 (served `4a715223`, R3's funding train `2d5982b5`): a cold open of the
+ * `complete_stale` read (an approved edit, not yet re-run) ships no result block, so the panel is pre-run, and
+ * Reasoning said "No analysis has run yet for this model" while CEE's verdict, the Run control ("Re-run analysis")
+ * and the restored chat all said a Run exists.
+ *   · `unconfirmed` — a saved Run the boot could not confirm (`selectSavedRunUnconfirmed`, the Run control's own fact);
+ *   · `stale`       — CEE's restored verdict says the last Run predates a model change (`complete_stale`, whose two
+ *                     causes, `graph_changed` and `options_changed`, both mean the model changed);
+ *   · `null`        — no Run on record, or a result IS held: today's sentence stands.
+ */
+export type RunOnRecordWithoutResult = 'unconfirmed' | 'stale' | null
+
+export function selectRunOnRecordWithoutResult(input: {
+  isPreRun: boolean
+  savedRunUnconfirmed: boolean
+  runStateKind: unknown
+}): RunOnRecordWithoutResult {
+  if (!input.isPreRun) return null
+  if (input.savedRunUnconfirmed) return 'unconfirmed'
+  return input.runStateKind === 'complete_stale' ? 'stale' : null
+}
