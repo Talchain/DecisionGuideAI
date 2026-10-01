@@ -1,5 +1,9 @@
 /**
- * ⭐ THE CHAT SURVIVES A RELOAD — the panel's half (AIQ rows 5907300125; MG contract 5907618888).
+ * ⭐ THE "EARLIER" MARKS SURVIVE A SECOND PAGE LOAD (Canvas 5925780066 probe, adopted by Panel for #2388).
+ * Load 1 restores the server turns (not current): the tag + the one note. The saved transcript then serves load 2.
+ * The divider design lost both (the tag was not stored; a trailing divider became "Session resumed"); this row binds the
+ * marks across the second load.
+ * Harness: Canvas's probe, which copies its preamble from `useConversation.serverTurnsRestore.spec.tsx`.
  *
  * The cold read resolves AFTER the mount restore, so the stored chat arrives as an OFFER (`serverConversationTurnsStore`).
  * The panel takes it only when it is EMPTY, for the scenario ON SCREEN, and when this browser holds NO transcript of its
@@ -153,7 +157,6 @@ vi.mock('../../../services/scenarioService', () => ({
 //     against mockStreamTurn (streaming path). Without this, the flag
 
 const SCENARIO = '77777777-8888-9999-aaaa-bbbbbbbbbbbb'
-const OTHER = '66666666-8888-9999-aaaa-bbbbbbbbbbbb'
 
 const TURNS = readServerConversationTurns([
   { turn_id: 't1', created_at: '2026-09-30T05:40:00Z', user_message: 'Should we raise the price?', assistant_message: 'I have drafted the model on the canvas.' },
@@ -166,57 +169,34 @@ function offer(scenarioId: string, runNotCurrent = false) {
   })
 }
 
-describe('the chat survives a reload in a browser that never saw it', () => {
+import { RESTORED_EARLIER_TAG } from '../serverConversationTurns'
+
+describe('⭐ the earlier marks survive a second page load', () => {
   beforeEach(() => {
-    localStorage.clear()
-    sessionStorage.clear()
-    __resetTranscriptTombstonesForTests()
+    localStorage.clear(); sessionStorage.clear(); __resetTranscriptTombstonesForTests()
     useServerConversationTurnsStore.setState({ offer: null })
     scenarios.setCurrentScenarioId(SCENARIO)
     useCanvasStore.setState({ nodes: [], edges: [], currentScenarioId: SCENARIO })
   })
-
-  it('RED: an empty panel with no local transcript takes the stored chat — one divider, the turns in order, text only; the offer is spent', async () => {
-    const { result } = renderHook(() => useConversation())
+  it('load 1 from the server turns, load 2 from the saved transcript: the tag and the one note are both still there', async () => {
+    const first = renderHook(() => useConversation())
     await act(async () => { await Promise.resolve() })
-    expect(result.current.messages.length, 'precondition: the panel is empty').toBe(0)
-    await act(async () => { offer(SCENARIO); await Promise.resolve() })
-    const m = result.current.messages
-    expect(m[0].sessionDivider).toBe(RESTORED_HISTORY_DIVIDER)
-    expect(m.slice(1).map((x) => [x.role, x.content])).toEqual([
-      ['user', 'Should we raise the price?'],
-      ['assistant', 'I have drafted the model on the canvas.'],
-      ['user', 'How often does £57 reach the target?'],
-      ['assistant', 'The £57 option reaches the target in about 24.7% of model runs.'],
-    ])
-    expect(m.every((x) => x.actionChips === undefined && x.blocks === undefined)).toBe(true)
-    expect(useServerConversationTurnsStore.getState().offer).toBeNull()
-  })
-
-  it('the read says the Run is not current → the figure reply carries AIQ’s stale line', async () => {
-    const { result } = renderHook(() => useConversation())
     await act(async () => { offer(SCENARIO, true); await Promise.resolve() })
-    const figureReply = result.current.messages.find((x) => x.id === 'restored-assistant-t2')
-    expect(figureReply?.restoredTag).toBe('Earlier analysis')
-    expect(result.current.messages.filter((x) => x.content.includes(RESTORED_STALE_FIGURES_NOTE))).toHaveLength(1)
-  })
-
-  it('CONTROL: a local transcript from an earlier page load wins — the stored chat is not added over it', async () => {
-    localStorage.setItem(TRANSCRIPT_STORAGE_KEY, JSON.stringify({
-      [SCENARIO]: { savedAt: new Date().toISOString(), pageLoadId: 'a-previous-page-load', dropped: 0,
-        messages: [{ id: 'm1', role: 'user', content: 'The thread this browser saw', ts: new Date().toISOString() }] },
-    }))
-    const { result } = renderHook(() => useConversation())
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
+    const m1 = first.result.current.messages
+    expect(m1.some((x) => x.restoredTag === RESTORED_EARLIER_TAG), 'precondition: load 1 is tagged').toBe(true)
+    expect(m1.filter((x) => x.content.includes(RESTORED_STALE_FIGURES_NOTE)), 'precondition: one note on load 1').toHaveLength(1)
+    first.unmount()
+    const all = JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY) ?? '{}')
+    expect(all[SCENARIO], 'precondition: the transcript was saved').toBeTruthy()
+    all[SCENARIO].pageLoadId = 'a-previous-page-load'
+    localStorage.setItem(TRANSCRIPT_STORAGE_KEY, JSON.stringify(all))
+    useServerConversationTurnsStore.setState({ offer: null })
+    const second = renderHook(() => useConversation())
     await act(async () => { await Promise.resolve() })
-    await act(async () => { offer(SCENARIO); await Promise.resolve() })
-    expect(result.current.messages.some((x) => x.content === 'The thread this browser saw')).toBe(true)
-    expect(result.current.messages.some((x) => x.sessionDivider === RESTORED_HISTORY_DIVIDER)).toBe(false)
-  })
-
-  it('CONTROL: an offer for another scenario is not taken, and stays unspent', async () => {
-    const { result } = renderHook(() => useConversation())
-    await act(async () => { offer(OTHER); await Promise.resolve() })
-    expect(result.current.messages.length).toBe(0)
-    expect(useServerConversationTurnsStore.getState().offer?.scenarioId).toBe(OTHER)
+    const m2 = second.result.current.messages
+    expect(m2.some((x) => x.restoredTag === RESTORED_EARLIER_TAG)).toBe(true)
+    expect(m2.filter((x) => x.content.includes(RESTORED_STALE_FIGURES_NOTE))).toHaveLength(1)
+    expect(m2.some((x) => x.sessionDivider === RESTORED_HISTORY_DIVIDER || (x.sessionDivider ?? '').length > 0)).toBe(true)
   })
 })

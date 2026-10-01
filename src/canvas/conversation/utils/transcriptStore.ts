@@ -204,6 +204,8 @@ interface StoredMessage {
   provisionalView?: Record<string, string>
   sessionDivider?: string
   synthetic?: boolean
+  /** A restored earlier reply's tag ("Earlier analysis"): kept so the mark survives the next page load (Canvas 5925780066). */
+  restoredTag?: string
 }
 
 interface StoredTranscript {
@@ -318,6 +320,7 @@ function toStored(m: SourceKeyedMessage): StoredMessage {
   }
   if (m.sessionDivider) out.sessionDivider = m.sessionDivider
   if (m.synthetic) out.synthetic = true
+  if (m.restoredTag) out.restoredTag = m.restoredTag
   return out
 }
 
@@ -347,6 +350,7 @@ function fromStored(s: StoredMessage): SourceKeyedMessage {
     ...restoredProvisionalView(s.provisionalView),
     ...(s.sessionDivider ? { sessionDivider: s.sessionDivider } : {}),
     ...(s.synthetic ? { synthetic: true } : {}),
+    ...(typeof s.restoredTag === 'string' && s.restoredTag ? { restoredTag: s.restoredTag } : {}),
   }
 }
 

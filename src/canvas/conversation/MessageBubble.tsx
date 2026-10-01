@@ -435,6 +435,11 @@ export const MessageBubble = memo(function MessageBubble({
       data-testid={`message-${message.role}`}
       data-delivery-state={isUser ? message.deliveryState : undefined}
     >
+      {!isUser && message.restoredTag && (
+        <span className={`${typography.chatMeta} text-text-light block`} data-testid="message-restored-tag">
+          {message.restoredTag}
+        </span>
+      )}
       {showStructuredAnswer && message.answerShape ? (
         <div
           className={bodyClassName}
