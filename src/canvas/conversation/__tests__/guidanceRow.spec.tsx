@@ -10,10 +10,18 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 const confirm = vi.fn()
 const openEditor = vi.fn()
+const focusEdge = vi.fn()
+const focusNode = vi.fn()
+// The REAL outcome contract: the authority returns 'dispatched' and settles later through `onSendSettled`
+// (UnsizedLinkActions.tsx: anything but 'dispatched' reads as "can't accept here").
 vi.mock('../../hooks/useModelEditAuthority', () => ({
-  useModelEditAuthority: () => ({ proposeEdgeStrengthConfirmation: (id: string, o: unknown) => { confirm(id, o); return { kind: 'sent' } } }),
+  useModelEditAuthority: () => ({ proposeEdgeStrengthConfirmation: (id: string, o: unknown) => { confirm(id, o); return 'dispatched' } }),
 }))
 vi.mock('../../utils/openEdgeStrengthEditor', () => ({ openEdgeStrengthEditor: (id: string) => openEditor(id) }))
+vi.mock('../../utils/focusHelpers', () => ({
+  focusEdgeByEndpoints: (...a: unknown[]) => focusEdge(...a),
+  focusNodeById: (id: string) => focusNode(id),
+}))
 
 import { readGuidance, readGuidanceSlots } from '../guidanceRows'
 import { GuidanceRows } from '../zones/GuidanceRows'
@@ -21,6 +29,8 @@ import { ChatThread } from '../zones/ChatThread'
 import { saveTranscript, loadTranscript } from '../utils/transcriptStore'
 import { useCanvasStore } from '../../store'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
+import { UNSIZED_LINK_COPY } from '../../../components/results/analysisNew/sections/UnsizedLinkActions'
+import { act } from '@testing-library/react'
 import type { ConversationMessage } from '../types'
 import served from '../../__tests__/fixtures/served-0303ef5-pricing-withheld-run.json'
 
@@ -42,7 +52,7 @@ const savedScroll = Element.prototype.scrollIntoView
 beforeAll(() => { Element.prototype.scrollIntoView = function () {} })
 afterAll(() => { Element.prototype.scrollIntoView = savedScroll })
 afterEach(() => {
-  cleanup(); confirm.mockReset(); openEditor.mockReset(); localStorage.clear()
+  cleanup(); confirm.mockReset(); openEditor.mockReset(); focusEdge.mockReset(); focusNode.mockReset(); localStorage.clear()
   useCanvasStore.setState({ nodes: [], edges: [], results: { status: 'idle', progress: 0 }, hasCompletedFirstRun: false, analysisFreshness: null, analysisFreshnessDirty: false } as never)
 })
 
@@ -128,6 +138,9 @@ describe('the row: the coach’s words verbatim, and #2408’s served action bou
     fireEvent.click(screen.getByTestId('guidance-row-slot1-link-e_ai-accept'))
     expect(confirm).toHaveBeenCalledTimes(1)
     expect(confirm.mock.calls[0][0]).toBe('e_ai')
+    expect(screen.getByTestId('guidance-row-slot1-link-e_ai-note').textContent).toBe(UNSIZED_LINK_COPY.sending)
+    act(() => { (confirm.mock.calls[0][1] as { onSendSettled: (s: string) => void }).onSendSettled('sent') })
+    expect(screen.getByTestId('guidance-row-slot1-link-e_ai-note').textContent).toBe(UNSIZED_LINK_COPY.sent)
     fireEvent.click(screen.getByTestId('guidance-row-slot1-link-e_ai-edit'))
     expect(openEditor).toHaveBeenCalledWith('e_ai')
   })
@@ -136,6 +149,9 @@ describe('the row: the coach’s words verbatim, and #2408’s served action bou
     ['the link already carries a strength (accepted)', () => seed({ aiLink: ACCEPTED }), ROW],
     ['the Run is not current', () => seed({ current: false }), ROW],
     ['the ids are not on this canvas', () => seed(), { ...ROW, item_ref: { kind: 'link', from_id: 'gone', to_id: 'ai_reporting_module_availability' } }],
+    ['a dangling edge: the link is kept but one END node is gone', () => {
+      seed(); useCanvasStore.setState((s) => ({ nodes: s.nodes.filter((n) => n.id !== 'ai_reporting_module_availability') }) as never)
+    }, ROW],
     ['a factor item, not a link', () => seed(), { ...ROW, item_ref: { kind: 'factor', factor_id: 'sprint_capacity_for_ai_reporting' } }],
     ['another policy', () => seed(), { ...ROW, policy_id: 'RC-PREMORTEM' }],
     ['another variant (S3L)', () => seed(), { ...ROW, variant: 'S3L' }],
@@ -143,8 +159,46 @@ describe('the row: the coach’s words verbatim, and #2408’s served action bou
     setup()
     render(<GuidanceRows guidance={readGuidance({ guidance: { slot1: row } })!} />)
     expect(screen.getByTestId('guidance-row-slot1')).toHaveAttribute('data-has-action', 'false')
-    expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.queryAllByTestId(/-(accept|edit)$/)).toHaveLength(0)
     expect(screen.getByTestId('guidance-row-slot1-title').textContent).toBe(COPY.title)
+  })
+})
+
+describe('bound to BOTH ends, and shown on the canvas by id', () => {
+  const g = () => readGuidance({ guidance: { slot1: ROW } })!
+
+  it('a placeholder link sharing the SOURCE comes first → the action is still e_ai (from AND to bind)', () => {
+    seed()
+    useCanvasStore.setState((s) => ({ edges: [
+      { id: 'e_same_src', source: 'sprint_capacity_for_ai_reporting', target: 'integration_step_bug_resolution', data: PLACEHOLDER },
+      ...s.edges,
+    ] }) as never)
+    render(<GuidanceRows guidance={g()} />)
+    expect(screen.queryByTestId('guidance-row-slot1-link-e_same_src-accept')).toBeNull()
+    fireEvent.click(screen.getByTestId('guidance-row-slot1-link-e_ai-accept'))
+    expect(confirm.mock.calls[0][0]).toBe('e_ai')
+  })
+
+  it('Show on canvas focuses THAT link by its two ids; a factor ref focuses its node', () => {
+    seed()
+    render(<GuidanceRows guidance={g()} />)
+    fireEvent.click(screen.getByTestId('guidance-row-slot1-show'))
+    expect(focusEdge).toHaveBeenCalledWith('sprint_capacity_for_ai_reporting', 'ai_reporting_module_availability', 'ai_reporting_module_availability')
+    cleanup()
+    render(<GuidanceRows guidance={readGuidance({ guidance: { slot1: { ...ROW, item_ref: { kind: 'factor', factor_id: 'integration_step_bug_resolution' } } } })!} />)
+    fireEvent.click(screen.getByTestId('guidance-row-slot1-show'))
+    expect(focusNode).toHaveBeenCalledWith('integration_step_bug_resolution')
+    expect(focusEdge).toHaveBeenCalledTimes(1)
+  })
+
+  it('⛔ no Show when the ref is not on this canvas, or the row names nothing by id', () => {
+    seed()
+    render(<GuidanceRows guidance={readGuidance({ guidance: { slot1: { ...ROW, item_ref: { kind: 'link', from_id: 'gone', to_id: 'ai_reporting_module_availability' } } } })!} />)
+    expect(screen.queryByTestId('guidance-row-slot1-show')).toBeNull()
+    cleanup()
+    const { item_ref: _drop, ...noRef } = ROW
+    render(<GuidanceRows guidance={readGuidance({ guidance: { slot1: noRef } })!} />)
+    expect(screen.queryByTestId('guidance-row-slot1-show')).toBeNull()
   })
 })
 
@@ -152,10 +206,11 @@ describe('only the latest turn carries a row', () => {
   it('an older assistant message with guidance shows no row; the latest one does', () => {
     seed()
     const g = readGuidance({ guidance: { slot1: ROW } })!
+    const earlier = readGuidance({ guidance: { slot1: { ...ROW, state_key_hash: 'skh_old', copy: { ...COPY, title: 'An earlier challenge.' } } } })!
     render(
       <ChatThread
         messages={[
-          { id: 'a1', role: 'assistant', content: 'Earlier turn.', guidance: g, timestamp: new Date() },
+          { id: 'a1', role: 'assistant', content: 'Earlier turn.', guidance: earlier, timestamp: new Date() },
           { id: 'u', role: 'user', content: 'And now?', timestamp: new Date() },
           { id: 'a2', role: 'assistant', content: 'Latest turn.', guidance: g, timestamp: new Date() },
         ]}
@@ -173,5 +228,34 @@ describe('only the latest turn carries a row', () => {
     )
     expect(screen.getAllByTestId('guidance-rows')).toHaveLength(1)
     expect(screen.getByTestId('guidance-rows').parentElement?.textContent).toContain('Latest turn.')
+    expect(screen.getByTestId('guidance-row-slot1-title').textContent).toBe(COPY.title)
+    expect(screen.queryByText('An earlier challenge.')).toBeNull()
+  })
+
+  it('after a reload, the restore\u2019s "Session resumed" divider does not hide the latest reply\u2019s row', () => {
+    seed()
+    const g = readGuidance({ guidance: { slot1: ROW } })!
+    render(
+      <ChatThread
+        messages={[
+          { id: 'u', role: 'user', content: 'Run it', timestamp: new Date() },
+          { id: 'a', role: 'assistant', content: 'Run complete.', guidance: g, timestamp: new Date() },
+          // useConversation's restore divider, shape verbatim (role assistant, synthetic, sessionDivider)
+          { id: 'boundary-0a1b2c3d', role: 'assistant', content: '', synthetic: true, sessionDivider: 'Session resumed', timestamp: new Date() } as ConversationMessage,
+        ]}
+        isThinking={false}
+        longRunningHint={null}
+        nodeCount={4}
+        patchBlockStates={new Map()}
+        patchRejections={new Map()}
+        onChipClick={async () => {}}
+        onPatchAccept={() => {}}
+        onPatchDismiss={() => {}}
+        onFeedback={() => {}}
+        onRetry={() => {}}
+      />,
+    )
+    expect(screen.getAllByTestId('guidance-rows')).toHaveLength(1)
+    expect(screen.getByTestId('guidance-rows').parentElement?.textContent).toContain('Run complete.')
   })
 })
