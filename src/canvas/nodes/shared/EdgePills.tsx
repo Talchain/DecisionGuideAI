@@ -40,6 +40,7 @@ import { NodeShapeIndicator } from '../NodeShapeIndicator'
 import { computeSignedMean } from '../../domain/edges'
 import { isEdgeValueSet } from '../../domain/edgeValueProvenance'
 import { strengthIsHumanSettled } from '../../domain/edgeStrengthSettlement'
+import { BY_DEFINITION, isStrengthDefinitional } from '../../domain/strengthDefinitional'
 import { LINK_STRENGTH_COPY } from './metricVocabulary'
 import type { NodeType } from '../../domain/nodes'
 import { CANVAS_GLYPH_SIZE_CLASSES } from './canvasGlyphScale'
@@ -77,7 +78,7 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
         // a measurement or silently hiding the relationship.
         const edgeData = e.data as Record<string, unknown> | undefined
         if (!isEdgeValueSet(edgeData, 'weight')) {
-          return { id: e.id, kind, label, direction: null, pct: null, settled: false }
+          return { id: e.id, kind, label, direction: null, pct: null, settled: false, definitional: false }
         }
         // Retain the sign so the pill can show direction (raises / lowers).
         const signed = computeSignedMean(edgeData)
@@ -90,6 +91,8 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
           direction: signed >= 0 ? ('up' as const) : ('down' as const),
           pct: Math.round(strength * 100),
           settled: strengthIsHumanSettled(edgeData),
+          // MG 0ebb952a: a link that holds BY DEFINITION is nobody's estimate.
+          definitional: isStrengthDefinitional(edgeData),
         }
       })
       .filter((p): p is NonNullable<typeof p> => p !== null)
@@ -134,7 +137,15 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
           )}
           <span>{p.label}</span>
           {p.pct !== null ? (
-            p.settled ? (
+            p.definitional ? (
+              <span
+                data-testid={`edge-pill-strength-definitional-${p.id}`}
+                title={`${LINK_STRENGTH_COPY.noun}: ${p.pct}%, ${BY_DEFINITION.toLowerCase()}`}
+              >
+                {`· ${LINK_STRENGTH_COPY.noun} ${p.pct}%`}
+                <span className="sr-only">{` (${BY_DEFINITION.toLowerCase()})`}</span>
+              </span>
+            ) : p.settled ? (
               <span
                 data-testid={`edge-pill-strength-${p.id}`}
                 title={`${LINK_STRENGTH_COPY.noun}: ${p.pct}%, set by a person`}

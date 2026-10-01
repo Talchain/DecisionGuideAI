@@ -180,6 +180,7 @@ const EDGE_METADATA_ONLY_KEYS: ReadonlySet<string> = new Set([
   'origin',
   'naturalEffect',
   'strengthPlaceholder',
+  'strengthDefinitional',
 ])
 
 /**
@@ -195,14 +196,15 @@ const EDGE_METADATA_ONLY_KEYS: ReadonlySet<string> = new Set([
  * carries, and a canvas saved before it was carried holds none. A genuine β change
  * still counts through the strength itself.
  */
-const EDGE_ACQUIRED_METADATA_KEYS = ['serverStrength', 'origin', 'naturalEffect', 'strengthPlaceholder'] as const
+const EDGE_ACQUIRED_METADATA_KEYS = ['serverStrength', 'origin', 'naturalEffect', 'strengthPlaceholder', 'strengthDefinitional'] as const
 
 /**
  * The acquired keys whose ABSENCE on a server-authoritative edge removes the
  * canvas copy (`overlayEdge`): the natural effect (#70 5849398628) and the
- * placeholder label (POM-8). `serverStrength` and `origin` keep the presence rule.
+ * placeholder label (POM-8) and the by-definition label (MG 0ebb952a). `serverStrength`
+ * and `origin` keep the presence rule.
  */
-const SERVER_ABSENCE_REMOVES_KEYS: ReadonlyArray<string> = ['naturalEffect', 'strengthPlaceholder']
+const SERVER_ABSENCE_REMOVES_KEYS: ReadonlyArray<string> = ['naturalEffect', 'strengthPlaceholder', 'strengthDefinitional']
 import {
   backfillInterventionsOntoOptionNodes,
   mapDraftEdgeToCanvas,
@@ -548,6 +550,7 @@ export function overlayEdge(
   // POM-8: `strengthPlaceholder` follows the same rule, for the same reason — a
   // server edge that no longer labels its strength a placeholder is the server's
   // truth, and the canvas must not keep calling it one after a reload.
+  // `strengthDefinitional` (MG 0ebb952a) follows it for the same reason.
   //
   // ⛔ A WIRE EDGE ON THIS PAIR DISPROVES "NEVER SENT" (review r06 blocker 2,
   // 28 Sep 2026). `structuralAddStandDown` records that the link stood down for

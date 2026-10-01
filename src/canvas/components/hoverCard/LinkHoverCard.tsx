@@ -23,6 +23,7 @@ import { typography } from '../../../styles/typography'
 import { HOVER_CARD_GAP, HOVER_CARD_MAX_WIDTH, HOVER_CARD_SURFACE_CLASS, canvasCardRects, placeHoverCard, viewportSize } from './hoverCardPlacement'
 import { NOT_ON_RECORD } from './NodeHoverCard'
 import { StrengthBar } from './StrengthBar'
+import { BY_DEFINITION } from '../../domain/strengthDefinitional'
 
 const DIRECTION_SOURCE_WORDS: Record<EdgeValueSource, string> = {
   user: 'Set by you',
@@ -30,8 +31,13 @@ const DIRECTION_SOURCE_WORDS: Record<EdgeValueSource, string> = {
   template: 'From the template',
 }
 
-/** Whose strength this is — the same split `linkStrengthCaption` makes, as a value. */
-export function linkStrengthSourceWords(settled: boolean, source: EdgeValueSource): string {
+/**
+ * Whose strength this is — the same split `linkStrengthCaption` makes, as a value.
+ * A link that holds BY DEFINITION (`isStrengthDefinitional`, MG 0ebb952a) is
+ * nobody's — checked first, so it is neither "Olumi's estimate" nor "Confirmed by you".
+ */
+export function linkStrengthSourceWords(settled: boolean, source: EdgeValueSource, definitional = false): string {
+  if (definitional) return BY_DEFINITION
   if (settled) return source === 'user' ? 'Set by you' : 'Confirmed by you'
   if (source === 'cee') return 'Olumi’s estimate'
   if (source === 'template') return 'Template estimate'
@@ -51,6 +57,8 @@ export interface LinkHoverCardProps {
   disputedSentence: string | null
   strength: EdgeValueDisplay
   strengthSettled: boolean
+  /** The link holds by definition (`isStrengthDefinitional`): its direction and strength are arithmetic. */
+  strengthDefinitional?: boolean
   placeholderSentence: string | null
   fragileSentence: string | null
 }
@@ -121,7 +129,11 @@ export function LinkHoverCard(props: LinkHoverCardProps) {
         <dl className="mt-1.5 mb-0 space-y-1">
           {props.disputedSentence === null && (
             <Row label="Direction" testId="edge-hover-direction">
-              {direction.show ? DIRECTION_SOURCE_WORDS[direction.source] : NOT_ON_RECORD}
+              {direction.show
+                ? props.strengthDefinitional === true && direction.source === 'cee'
+                  ? BY_DEFINITION
+                  : DIRECTION_SOURCE_WORDS[direction.source]
+                : NOT_ON_RECORD}
             </Row>
           )}
           <Row label="Strength" testId="edge-hover-strength">
@@ -131,7 +143,7 @@ export function LinkHoverCard(props: LinkHoverCardProps) {
               <>
                 <StrengthBar magnitude={strength.value} testId="edge-hover-strength-bar" />
                 <span data-testid="edge-hover-strength-value" className="tabular-nums">{Math.abs(strength.value).toFixed(2)}</span>
-                <span className="text-text-light"> · {linkStrengthSourceWords(props.strengthSettled, strength.source)}</span>
+                <span className="text-text-light"> · {linkStrengthSourceWords(props.strengthSettled, strength.source, props.strengthDefinitional === true)}</span>
               </>
             ) : NOT_ON_RECORD}
           </Row>

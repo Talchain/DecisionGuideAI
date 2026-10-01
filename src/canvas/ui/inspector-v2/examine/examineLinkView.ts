@@ -14,12 +14,14 @@
  *   · `olumi_estimate` — the strength is Olumi's (`edgeValueSource(…, 'weight') === 'cee'`).
  * ⛔ The why line never says "you haven't confirmed it": the UI carries no review marker for a link, so a link the user
  * confirmed would read falsely. It says what stays true after any confirmation (origin ≠ acceptance).
- * ⛔ A SOUND LINK GETS NO CHALLENGE: the user's own (or a starter's) strength with nothing flagged, a structural link, or
- * a link with no stated strength returns `null` — no section, no warning chrome.
+ * ⛔ A SOUND LINK GETS NO CHALLENGE: the user's own (or a starter's) strength with nothing flagged, a structural link, a
+ * link that holds BY DEFINITION (`isStrengthDefinitional`, MG 0ebb952a — arithmetic, not a belief; CEE refuses any change
+ * to it, fragile or not), or a link with no stated strength returns `null` — no section, no warning chrome.
  * ⛔ The strength is said as its BAND WORD only, never the internal 0–1 number (AIQ 5923931082; CEE #2434).
  */
 import { edgeValueSource, resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { isStrengthPlaceholder } from '../../../domain/strengthPlaceholder'
+import { isStrengthDefinitional } from '../../../domain/strengthDefinitional'
 import { getStrengthLabel } from '../../../domain/vocabulary'
 
 export type ExamineLinkBasis = 'analysis' | 'placeholder' | 'olumi_estimate'
@@ -55,7 +57,7 @@ export function buildExamineLinkView(input: {
   /** The last Run's robustness found this link fragile (`isEdgeFragile`). */
   readonly fragile: boolean
 }): ExamineLinkView | null {
-  if (input.structural || !input.data) return null
+  if (input.structural || !input.data || isStrengthDefinitional(input.data)) return null
   const display = resolveEdgeSignedStrengthDisplay(input.data)
   if (!display.show) return null
   const olumis = edgeValueSource(input.data, 'weight') === 'cee'
