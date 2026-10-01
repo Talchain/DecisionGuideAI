@@ -9,6 +9,8 @@
  *   W4  `win_probabilities_unavailable: 'prior_withheld'` (the package fixture) → "The options can be compared for the
  *       first time." on the Compare section AND the canvas card. CONTRAST: `no_matched_option` and absent → the
  *       cause-neutral no-pairs line. The first-comparison line is never inferred from an empty array.
+ *   W5  the Panel's one sentence (`runDeltaSentence`, Reasoning tab + chat card) says the same RC words for a sizing row,
+ *       never the raw enum. CONTRAST: a factor value row keeps its "changed from … to …" sentence.
  */
 import '@testing-library/jest-dom/vitest'
 import { describe, expect, it } from 'vitest'
@@ -25,6 +27,7 @@ import {
   WHATS_CHANGED_TESTID,
 } from '../sections/WhatsChanged'
 import { runChangesSummaryLines } from '../../../../canvas/graphChanges/runChangesSummaryLines'
+import { runDeltaSentence } from '../commitmentSynthesis'
 
 const LABELS: Record<string, string> = {
   fixture_factor_1: 'Monthly churn',
@@ -103,5 +106,22 @@ describe('W4 · the first comparison, only on the TYPED reason', () => {
     expect(noPairsText(noMatch)).toBe(WHATS_CHANGED_NO_PAIRS)
     expect(noPairsText(absent)).toBe(WHATS_CHANGED_NO_PAIRS)
     expect(absent.winProbabilitiesUnavailable).toBeNull()
+  })
+})
+
+describe('W5 · the Panel sentence says the same words', () => {
+  it('an Accept → "Since the last run, you accepted Olumi\'s estimate …", no enum', () => {
+    const view = buildRunDeltaView(withChanges([maximalRunDeltaInputChangeSizing]), () => null, nodeLabel)
+    const said = runDeltaSentence(view, { isStale: false }) ?? ''
+    expect(said.startsWith("Since the last run, you accepted Olumi's estimate for how much Sales team size changes New revenue.")).toBe(true)
+    expect(said).not.toMatch(/olumi_estimate|olumi_accepted|placeholder|unmarked/)
+  })
+  it('CONTRAST: a factor value row keeps its "changed from … to …" sentence', () => {
+    const view = buildRunDeltaView(
+      withChanges([{ entity_kind: 'factor_value', entity_id: 'fixture_factor_1', field: 'value', label_before: 'Monthly churn', label_after: 'Monthly churn', before: { raw: 7, unit: '%' }, after: { raw: 12, unit: '%' }, change: 'changed' }]),
+      () => null,
+      nodeLabel,
+    )
+    expect(runDeltaSentence(view, { isStale: false }) ?? '').toMatch(/^Since the last run, Monthly churn changed from 7\s?% to 12\s?%\./)
   })
 })

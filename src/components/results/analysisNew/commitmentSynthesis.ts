@@ -33,6 +33,7 @@
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import type { AnalysisNewViewModel, ChecksCode } from './analysisNewTypes'
 import type { RunDeltaInputRow, RunDeltaView } from './runDeltaView'
+import { linkRowText } from './runDeltaLinkWords'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // COPY — only the words this zone adds. Every bullet BODY is someone else's.
@@ -388,6 +389,10 @@ function movementSentence(view: RunDeltaView, leads: boolean): string | null {
 /** One input row as a sentence. The sentence names the change; the values are the producer's. */
 function inputRowSentence(row: RunDeltaInputRow): string | null {
   const s = COMMITMENT_COPY.sinceLastRun
+  // 0.70.0 link rows (`sizing`, `strength`) say RC's sentence, as the Compare tab and the canvas card do, never the raw
+  // enum (`olumi_estimate → olumi_accepted`). A sizing transition RC has no sentence for says nothing here.
+  const link = linkRowText(row)
+  if (link !== null) return link.startsWith('You ') ? `Since the last run, y${link.slice(1)}` : null
   // Same order as the Compare tab's row text (`WhatsChanged.tsx` `inputRowText`): a value change first, whatever its kind.
   if (row.change === 'changed') return row.before !== null && row.after !== null ? s.inputChanged(row.subject, row.before, row.after) : null
   if (row.kind === 'option') return row.change === 'added' ? s.optionJoined(row.subject) : s.optionLeft(row.subject)
