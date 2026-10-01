@@ -24,6 +24,7 @@ import { typography } from '@/styles/typography'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import { provenanceToPill } from './provenanceUtils'
 import { resolveReviewSource } from './utils/isReviewedByUser'
+import { classifyObservedValueProvenance } from '../../domain/valueProvenance'
 import type { CEEProvenance } from '../../../adapters/cee/types'
 
 export function WhatOlumiAddedSection() {
@@ -53,6 +54,15 @@ export function WhatOlumiAddedSection() {
       if (src) map.set(n.id, src)
     }
     return map
+  }, [nodes])
+  // Olumi's figure, ACCEPTED: only the whole observed state says so (52f8cd; AIQ 5921018606).
+  const acceptedIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const n of nodes) {
+      const d = n.data as { observedState?: unknown; observed_state?: unknown } | undefined
+      if (classifyObservedValueProvenance(d?.observedState ?? d?.observed_state)?.kind === 'accepted') ids.add(n.id)
+    }
+    return ids
   }, [nodes])
 
   if (!items || items.length === 0) return null
@@ -103,6 +113,7 @@ export function WhatOlumiAddedSection() {
               const pill = provenanceToPill(
                 provenanceById.get(item.nodeId),
                 sourceById.get(item.nodeId),
+                acceptedIds.has(item.nodeId),
               )
               return (
                 <div

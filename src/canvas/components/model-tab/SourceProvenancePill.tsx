@@ -37,6 +37,11 @@ interface SourceProvenancePillProps {
   source: string | undefined
   /** Show "Not set" pill even when source is absent; default true */
   showWhenAbsent?: boolean
+  /**
+   * The row's observed state is Olumi's figure, ACCEPTED (`classifyObservedValueProvenance` → `accepted`; 52f8cd,
+   * AIQ 5921018606). The stamp alone (`user_assumption`) cannot say so, so the caller passes the derived fact.
+   */
+  accepted?: boolean
 }
 
 /**
@@ -66,8 +71,8 @@ const BORDER: Record<ValueProvenanceKind, string> = {
 
 const FALLBACK = { label: 'Not set', border: 'border-panel-border' }
 
-export function SourceProvenancePill({ source, showWhenAbsent = true }: SourceProvenancePillProps) {
-  const cls = classifyValueProvenance(source)
+export function SourceProvenancePill({ source, showWhenAbsent = true, accepted = false }: SourceProvenancePillProps) {
+  const cls = accepted ? { kind: 'accepted' as const } : classifyValueProvenance(source)
   const config = cls
     ? { label: VALUE_PROVENANCE_LABEL[cls.kind], border: BORDER[cls.kind] }
     : FALLBACK

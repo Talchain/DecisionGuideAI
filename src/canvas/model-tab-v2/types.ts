@@ -302,6 +302,12 @@ export interface ModelRow {
    */
   provenanceSource?: string
   /**
+   * The value is Olumi's figure the user ACCEPTED — derived from the whole observed state by
+   * `classifyObservedValueProvenance` (the adoption's review), which `provenanceSource` alone cannot carry.
+   * Present only when true.
+   */
+  provenanceAccepted?: true
+  /**
    * Empty when the row needs nothing.
    *
    * ⚠ DEFERRING DOES NOT EMPTY THIS. A deferred row keeps reporting its gap —

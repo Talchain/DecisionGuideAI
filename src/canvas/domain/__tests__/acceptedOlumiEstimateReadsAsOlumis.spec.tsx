@@ -23,6 +23,14 @@ import {
 } from '../valueProvenance'
 import { factorValueSourceMark } from '../../nodes/shared/valueSourceMark'
 import { resolveProvenanceMarks } from '../../nodes/shared/NodeProvenanceMark'
+import { render, screen, cleanup } from '@testing-library/react'
+import type { Node } from '@xyflow/react'
+import { afterEach } from 'vitest'
+import { toModelRows } from '../../model-tab-v2/adapters'
+import { SourceProvenancePill } from '../../components/model-tab/SourceProvenancePill'
+import { buildEstimateRows } from '../../components/pre-analysis-v3/selectors/buildEstimateRows'
+import type { RankingResult } from '../../components/pre-analysis-v3/types'
+import { provenanceToPill } from '../../components/pre-analysis/provenanceUtils'
 
 const ACCEPTED = 'Olumi’s estimate · you accepted it'
 const AT = '2026-09-30T23:00:00.000Z'
@@ -102,5 +110,34 @@ describe('LEGACY (served CEE 5479e15e, guest c708fca5): the pre-#2412 adoption c
     const cold = node('cold_emails')
     expect(classifyObservedValueProvenance(cold.observed_state)).toEqual({ kind: 'ai', userOwned: false })
     expect(factorValueSourceMark({ label: cold.label, provenance: cold.provenance, observedState: cold.observed_state })?.label).not.toBe(ACCEPTED)
+  })
+})
+
+describe('every pre-run surface that names whose number it is says the same (52f8cd: the reader class, not one card)', () => {
+  afterEach(cleanup)
+  const rf = (observedState: Observed, provenance: string) =>
+    ({ id: 'warm_introductions', type: 'factor', position: { x: 0, y: 0 }, data: factorData(observedState, provenance) }) as unknown as Node
+  const ranking: RankingResult = { source: 'degree', weights: { warm_introductions: 1 }, ordered: ['warm_introductions'] } as RankingResult
+
+  it('Model tab: the row carries the accepted fact and its pill says AIQ\u2019s words; the bare literal does not', () => {
+    const [adopted] = toModelRows({ nodes: [rf(ADOPTED, 'ai_inferred')], edges: [], goalThreshold: null })
+    const [bare] = toModelRows({ nodes: [rf(BRIEF_MARKED, 'user_set')], edges: [], goalThreshold: null })
+    expect(adopted.provenanceAccepted).toBe(true)
+    expect(bare).not.toHaveProperty('provenanceAccepted')
+    render(<SourceProvenancePill source={adopted.provenanceSource} showWhenAbsent={false} accepted={adopted.provenanceAccepted === true} />)
+    expect(screen.getByText(ACCEPTED)).toBeInTheDocument()
+    cleanup()
+    render(<SourceProvenancePill source={bare.provenanceSource} showWhenAbsent={false} accepted={bare.provenanceAccepted === true} />)
+    expect(screen.getByText('Your assumption')).toBeInTheDocument()
+  })
+
+  it('pre-analysis estimates: the adopted row is kind `accepted`; the bare literal stays `assumption`', () => {
+    expect(buildEstimateRows([rf(ADOPTED, 'ai_inferred')], ranking, null)[0]?.provenanceKind).toBe('accepted')
+    expect(buildEstimateRows([rf(BRIEF_MARKED, 'user_set')], ranking, null)[0]?.provenanceKind).toBe('assumption')
+  })
+
+  it('"What Olumi added": the accepted pill says AIQ\u2019s words; the bare literal keeps "Your assumption"', () => {
+    expect(provenanceToPill(undefined, 'user_assumption', true)?.label).toBe(ACCEPTED)
+    expect(provenanceToPill(undefined, 'user_assumption', false)?.label).toBe('Your assumption')
   })
 })

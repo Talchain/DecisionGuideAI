@@ -172,7 +172,7 @@ import { resolveNodeTypeLiteral } from '../domain/nodes'
 // rather than reimplemented: a second presence test here would be the estate's
 // dominant defect (trap 12) on a field a user-facing sentence depends on.
 import { factorDeclaresNoRange } from '../conversation/factorValueEdit'
-import { classifyValueProvenance, factorIsConfirmable } from '../domain/valueProvenance'
+import { classifyObservedValueProvenance, classifyValueProvenance, factorIsConfirmable } from '../domain/valueProvenance'
 import { interventionTargetValue } from '../domain/interventions'
 import { unwrapInterventionValue } from '../utils/labelUtils'
 import { resolveFactorValueAdmission } from '../conversation/factorValueEdit'
@@ -702,6 +702,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         ...(factorDeclaresNoRange(data) ? { declaresNoRange: true } : {}),
         ...(typeof obs?.unit === 'string' && obs.unit.trim() !== '' ? {} : { declaresNoUnit: true }),
         provenanceSource: typeof obs?.source === 'string' ? obs.source : undefined,
+        ...(classifyObservedValueProvenance(obs)?.kind === 'accepted' ? { provenanceAccepted: true as const } : {}),
         // ⚠ UNCHANGED, DELIBERATELY. `attention` is the AFFORDANCE axis and it
         // still reads `value` (i.e. `raw_value`). A row with an estimate and no
         // supplied value must still ask for one.
