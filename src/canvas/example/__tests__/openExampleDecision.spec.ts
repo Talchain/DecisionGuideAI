@@ -10,13 +10,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const register = vi.fn()
 const sessionActive = vi.fn(() => false)
+const identity = vi.fn(async () => ({ userId: null as string | null, accessToken: null as string | null }))
 vi.mock('../../../adapters/cee/registerScenarioGraph', () => ({ registerScenarioGraph: (...a: unknown[]) => register(...a) }))
 vi.mock('../../../lib/persistenceSession', () => ({ isPersistenceSessionActive: () => sessionActive() }))
-vi.mock('../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }) }))
+vi.mock('../../../lib/supabase', () => ({ getSessionIdentity: () => identity() }))
 
 import { openExampleDecision, EXAMPLE_DECISION_BRIEF, EXAMPLE_DECISION_PROVENANCE } from '../exampleDecision'
 import { useCanvasStore } from '../../store'
-import { useBootGraphReadStore } from '../../hydrate/bootGraphRead'
+import { useBootGraphReadStore, beginBootGraphRead, settleBootGraphRead } from '../../hydrate/bootGraphRead'
+import type { HydrationOutcome } from '../../hydrate/serverGraphHydration'
 import { EXAMPLE_DECISION_GOAL_LABEL, EXAMPLE_DECISION_OPTION_COUNT } from '../../components/StarterDecisions'
 
 type G = { nodes: Array<{ id: string; kind: string; label: string; proposed_by?: string }>; edges: Array<{ from: string; to: string; provenance?: { magnitude?: string } }> }
@@ -63,19 +65,42 @@ describe('the seed is RC’s D1, unmodified, and RC’s invariants hold on it', 
   })
 })
 
-describe('openExampleDecision: a fresh scenario every time, never over a model', () => {
+describe('openExampleDecision: a fresh scenario every time, never over a model, opened only when read back', () => {
   const PREVIOUS = 'b5b5b5b5-c6c6-4d7d-8e8e-f9f9f9f9f9f9'
+  const OTHER = 'd7d7d7d7-e8e8-4f9f-8a0a-b1b1b1b1b1b1'
+  const SEED_IDS = SHIPPED.nodes.map((n) => n.id)
+  let unsubHook: (() => void) | null = null
+  /** Stand-in for `useServerGraphHydration`: on an id change it begins the boot read and settles it with `outcome`. */
+  function hydrationHook(outcome: HydrationOutcome | 'never') {
+    let seen = useCanvasStore.getState().currentScenarioId
+    unsubHook = useCanvasStore.subscribe((st) => {
+      if (st.currentScenarioId === seen) return
+      seen = st.currentScenarioId
+      const id = st.currentScenarioId
+      // Only the scenario this flow REGISTERED has a graph to read; any other id (a user's own empty pick) reads nothing.
+      if (!id || outcome === 'never' || !register.mock.calls.some((c) => c[0] === id)) return
+      queueMicrotask(() => {
+        const token = beginBootGraphRead(id)
+        if (outcome === 'merged') useCanvasStore.setState({ nodes: SEED_IDS.map((nid) => ({ id: nid, position: { x: 0, y: 0 }, data: {} })) as never })
+        settleBootGraphRead(id, token, outcome)
+      })
+    })
+  }
+  const pointer = () => localStorage.getItem(POINTER)
+
   beforeEach(() => {
+    unsubHook?.(); unsubHook = null
     register.mockReset(); sessionActive.mockReset(); sessionActive.mockReturnValue(false)
+    identity.mockReset(); identity.mockResolvedValue({ userId: null, accessToken: null })
     localStorage.clear(); localStorage.setItem(POINTER, PREVIOUS)
     useCanvasStore.setState({ nodes: [], edges: [], currentScenarioId: PREVIOUS })
     useBootGraphReadStore.setState({ byScenario: {} })
   })
 
-  it('registers the VERBATIM graph into a new id with the empty-scenario assertion and the D1 brief, then opens that id', async () => {
+  it('registers the VERBATIM graph into a new id (empty-scenario assertion, D1 brief) and reports opened only once D1’s node ids are read back', async () => {
+    hydrationHook('merged')
     register.mockResolvedValueOnce(ACK)
     const r = await openExampleDecision()
-    expect(register).toHaveBeenCalledTimes(1)
     const [id, graph, opts] = register.mock.calls[0] as [string, unknown, Record<string, unknown>]
     expect(id).toMatch(/^[0-9a-f-]{36}$/)
     expect(id).not.toBe(PREVIOUS)
@@ -84,35 +109,113 @@ describe('openExampleDecision: a fresh scenario every time, never over a model',
     expect(opts.initialBriefText).toBe(EXAMPLE_DECISION_BRIEF)
     expect(r).toEqual({ status: 'opened', scenarioId: id })
     expect(useCanvasStore.getState().currentScenarioId).toBe(id)
-    expect(localStorage.getItem(POINTER)).toBe(id)
-    expect(useBootGraphReadStore.getState().byScenario[id]?.state).toBe('registered')
+    expect(pointer()).toBe(id)
+    expect(useCanvasStore.getState().nodes.map((n) => n.id).sort()).toEqual([...SEED_IDS].sort())
+  })
+
+  it('CONTROL: with no read-back the promise stays PENDING after the switch (opened is never claimed early)', async () => {
+    hydrationHook('never')
+    register.mockResolvedValueOnce(ACK)
+    let settled = false
+    void openExampleDecision({ readBackTimeoutMs: 60_000 }).then(() => { settled = true })
+    await vi.waitFor(() => expect(useCanvasStore.getState().currentScenarioId).not.toBe(PREVIOUS))
+    await new Promise((r) => setTimeout(r, 30))
+    expect(settled).toBe(false)
+  })
+
+  it('⛔ register OK + read FAILS → not_read_back, the toastable result; ONE write, never a second mint', async () => {
+    hydrationHook('unavailable')
+    register.mockResolvedValue(ACK)
+    const r = await openExampleDecision()
+    expect(register).toHaveBeenCalledTimes(1)
+    const id = register.mock.calls[0][0] as string
+    expect(r).toEqual({ status: 'not_read_back', scenarioId: id, read: 'unavailable' })
+    // The server holds D1 under this id, so a reload opens it: the pointer stays on it.
+    expect(pointer()).toBe(id)
+  })
+
+  it('⛔ register OK + the read never lands → not_read_back on the timeout, still one write', async () => {
+    hydrationHook('never')
+    register.mockResolvedValue(ACK)
+    const r = await openExampleDecision({ readBackTimeoutMs: 40 })
+    expect(r).toMatchObject({ status: 'not_read_back', read: 'timeout' })
+    expect(register).toHaveBeenCalledTimes(1)
+  })
+
+  it('⛔ delete-all then re-open: the previous scenario’s server identity is CLEARED before the new id is adopted', async () => {
+    useCanvasStore.setState({
+      serverGraphIdentity: { value: 'stale-d1', projectionVersion: 'identity.v1' },
+      lastAuthoritativeGraph: { nodes: [{ id: 'quarterly_revenue' }], edges: [] },
+      lastServerGraphHash: 'stale-hash',
+    } as never)
+    let atSwitch: Record<string, unknown> | null = null
+    const unsub = useCanvasStore.subscribe((st) => {
+      if (atSwitch === null && st.currentScenarioId !== PREVIOUS) atSwitch = { ...(st as unknown as Record<string, unknown>) }
+    })
+    hydrationHook('merged')
+    register.mockResolvedValueOnce(ACK)
+    expect((await openExampleDecision()).status).toBe('opened')
+    unsub()
+    expect(atSwitch).not.toBeNull()
+    expect(atSwitch!.serverGraphIdentity).toBeNull()
+    expect(atSwitch!.lastAuthoritativeGraph).toBeNull()
+    expect(atSwitch!.lastServerGraphHash).toBeNull()
   })
 
   it('two clicks → two different fresh ids', async () => {
+    hydrationHook('merged')
     register.mockResolvedValue(ACK)
     await openExampleDecision()
+    const first = useCanvasStore.getState().currentScenarioId
     useCanvasStore.setState({ nodes: [], edges: [] })
     await openExampleDecision()
     const ids = register.mock.calls.map((c) => c[0] as string)
     expect(new Set([...ids, PREVIOUS]).size).toBe(3)
+    expect(useCanvasStore.getState().currentScenarioId).toBe(ids[1])
+    expect(first).toBe(ids[0])
   })
 
   it.each(['conflict', 'unavailable', 'rejected', 'refused', 'notRegistrable'] as const)(
-    '⛔ %s → nothing switches: the current scenario and its pointer are untouched',
+    '⛔ register %s → nothing switches: the current scenario and its pointer are untouched',
     async (status) => {
       register.mockResolvedValueOnce({ status })
-      const r = await openExampleDecision()
-      expect(r).toEqual({ status: 'not_opened', reason: status })
+      expect(await openExampleDecision()).toEqual({ status: 'not_opened', reason: status })
       expect(useCanvasStore.getState().currentScenarioId).toBe(PREVIOUS)
-      expect(localStorage.getItem(POINTER)).toBe(PREVIOUS)
+      expect(pointer()).toBe(PREVIOUS)
     },
   )
 
-  it('⛔ a signed-in session never mints a guest scenario or writes', async () => {
+  it('⛔ signed in at the click → no write, no mint', async () => {
     sessionActive.mockReturnValue(true)
     expect(await openExampleDecision()).toEqual({ status: 'signed_in' })
     expect(register).not.toHaveBeenCalled()
     expect(useCanvasStore.getState().currentScenarioId).toBe(PREVIOUS)
+  })
+
+  it('⛔ DEFERRED LOGIN resolved before the mint (identity carries a user) → signed_in, no write, no mint', async () => {
+    identity.mockResolvedValueOnce({ userId: 'u-1', accessToken: 'jwt' })
+    expect(await openExampleDecision()).toEqual({ status: 'signed_in' })
+    expect(register).not.toHaveBeenCalled()
+    expect(pointer()).toBe(PREVIOUS)
+  })
+
+  it('⛔ DEFERRED LOGIN during the write → signed_in, NO switch (the guest scenario is left, the pointer untouched)', async () => {
+    hydrationHook('merged')
+    register.mockImplementationOnce(async () => { sessionActive.mockReturnValue(true); return ACK })
+    expect(await openExampleDecision()).toEqual({ status: 'signed_in' })
+    expect(useCanvasStore.getState().currentScenarioId).toBe(PREVIOUS)
+    expect(pointer()).toBe(PREVIOUS)
+  })
+
+  it('⛔ SWITCHED MID-FLIGHT (another empty scenario selected during the write) → canvas_changed, the user’s choice stands', async () => {
+    hydrationHook('merged')
+    register.mockImplementationOnce(async () => {
+      useCanvasStore.setState({ currentScenarioId: OTHER }); localStorage.setItem(POINTER, OTHER)
+      return ACK
+    })
+    expect(await openExampleDecision()).toEqual({ status: 'canvas_changed' })
+    expect(useCanvasStore.getState().currentScenarioId).toBe(OTHER)
+    expect(pointer()).toBe(OTHER)
   })
 
   it('⛔ content that arrived during the write is not replaced: the id does not switch', async () => {
@@ -122,6 +225,6 @@ describe('openExampleDecision: a fresh scenario every time, never over a model',
     })
     expect(await openExampleDecision()).toEqual({ status: 'canvas_changed' })
     expect(useCanvasStore.getState().currentScenarioId).toBe(PREVIOUS)
-    expect(localStorage.getItem(POINTER)).toBe(PREVIOUS)
+    expect(pointer()).toBe(PREVIOUS)
   })
 })

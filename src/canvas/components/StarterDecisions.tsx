@@ -66,6 +66,8 @@ export const STARTER_LOAD_FAILED_MESSAGE =
  *   its handler stops working.
  */
 export const EXAMPLE_OPEN_FAILED_MESSAGE = 'Couldn’t open the example decision. Try again in a moment.'
+/** Registered but not read back: the scenario exists, so a reload opens it; clicking again would mint a second one. */
+export const EXAMPLE_READ_BACK_FAILED_MESSAGE = 'The example decision was created but didn’t load. Reload the page to open it.'
 export const EXAMPLE_DECISION_LABEL = 'Open the example decision'
 /** Both read from D1's own graph (goal node label, option count); the spec binds them to `d1.graph.json`. */
 export const EXAMPLE_DECISION_GOAL_LABEL = 'Quarterly revenue'
@@ -143,6 +145,7 @@ export function StarterDecisions() {
       if (!confirmReplaceCanvas()) return
       const result = await openExampleDecision()
       if (result.status === 'not_opened') showToast(EXAMPLE_OPEN_FAILED_MESSAGE, 'error')
+      else if (result.status === 'not_read_back') showToast(EXAMPLE_READ_BACK_FAILED_MESSAGE, 'error')
     } catch (err) {
       if (import.meta.env.DEV) console.error('[StarterDecisions] Failed to open the example decision:', err)
       showToast(EXAMPLE_OPEN_FAILED_MESSAGE, 'error')

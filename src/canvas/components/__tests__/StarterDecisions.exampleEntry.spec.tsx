@@ -21,7 +21,7 @@ vi.mock('../../blueprints/loadTemplateBlueprint', async (orig) => ({
   confirmReplaceCanvas: () => true,
 }))
 
-import { StarterDecisions, EXAMPLE_DECISION_LABEL, EXAMPLE_OPEN_FAILED_MESSAGE } from '../StarterDecisions'
+import { StarterDecisions, EXAMPLE_DECISION_LABEL, EXAMPLE_OPEN_FAILED_MESSAGE, EXAMPLE_READ_BACK_FAILED_MESSAGE } from '../StarterDecisions'
 import { useCanvasStore } from '../../store'
 
 afterEach(cleanup)
@@ -56,6 +56,22 @@ describe('"Open the example decision" on the first-use gallery', () => {
     expect(b).toHaveTextContent('Opening the example…')
     release({ status: 'opened', scenarioId: 'x' })
     await waitFor(() => expect(b).toHaveTextContent(EXAMPLE_DECISION_LABEL))
+    expect(showToastMock).not.toHaveBeenCalled()
+  })
+
+  it('registered but not read back says so, and tells the user a reload opens it (no second mint)', async () => {
+    openMock.mockResolvedValue({ status: 'not_read_back', scenarioId: 'x', read: 'unavailable' })
+    render(<StarterDecisions />)
+    await userEvent.click(screen.getByTestId('open-example-decision'))
+    await waitFor(() => expect(showToastMock).toHaveBeenCalledWith(EXAMPLE_READ_BACK_FAILED_MESSAGE, 'error'))
+    expect(openMock).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['canvas_changed', 'signed_in'] as const)('%s is silent: nothing was opened over the user’s own move', async (status) => {
+    openMock.mockResolvedValue({ status })
+    render(<StarterDecisions />)
+    await userEvent.click(screen.getByTestId('open-example-decision'))
+    await waitFor(() => expect(openMock).toHaveBeenCalledTimes(1))
     expect(showToastMock).not.toHaveBeenCalled()
   })
 
