@@ -40,6 +40,18 @@ export const WHATS_CHANGED_TESTID = 'analysis-new-whats-changed'
 export const WHATS_CHANGED_NO_PAIRS = 'No option has figures from both runs to compare.'
 
 /**
+ * 0.70.0, RC's UNWITHHELD (contract RERUN-EXPLANATION): the earlier Run withheld its figures, so this is the FIRST
+ * comparison. Said ONLY on the producer's typed `win_probabilities_unavailable === 'prior_withheld'`, never inferred from
+ * an empty array; it claims no movement, because there were no earlier figures (`RX-NO-MOVEMENT-WITHOUT-PRIOR`).
+ */
+export const WHATS_CHANGED_FIRST_COMPARISON = 'The options can be compared for the first time.'
+
+/** The sentence for an empty `win_probabilities`, by the producer's typed reason. */
+export function noPairsText(view: Pick<RunDeltaView, 'winProbabilitiesUnavailable'>): string {
+  return view.winProbabilitiesUnavailable === 'prior_withheld' ? WHATS_CHANGED_FIRST_COMPARISON : WHATS_CHANGED_NO_PAIRS
+}
+
+/**
  * A score, as a percentage.
  *
  * ⚠ ROUNDING FOR DISPLAY IS NOT COMPUTATION — it changes no claim, and the
@@ -112,7 +124,44 @@ function MovementLine({ m, sharedQualifier }: { m: RunDeltaMovement; sharedQuali
 
 /** One input row: "Pro price, Raise to £60: £59 → £60". Words only — the values are the producer's. */
 /** Exported for the canvas's compact summary, so both surfaces say one thing. */
+/** How a sizing literal reads, for a sizing change RC's contract has no sentence for (any other transition). */
+const SIZING_WORDS: Record<string, string> = {
+  user: 'your own estimate',
+  placeholder: 'not yet sized',
+  olumi_estimate: "Olumi's estimate",
+  olumi_accepted: "Olumi's estimate, accepted",
+  unmarked: 'not recorded',
+}
+
+/**
+ * 0.70.0 link rows, in RC's contract words (`RERUN-EXPLANATION.change_label_templates`), by FIELD IDENTITY:
+ *   sizing → olumi_accepted   "You accepted Olumi's estimate for how much {from} changes {to}."
+ *   sizing → user (+ strength) "You gave your own estimate for how much {from} changes {to}[: {before} → {after}]."
+ *   strength alone            "You changed how much {from} changes {to}: {before} → {after}."
+ * `null` = not one of these (the generic row wording applies).
+ */
+function linkRowText(row: RunDeltaInputRow): string | null {
+  if (row.kind !== 'link' || row.change !== 'changed') return null
+  const from = row.linkLabels?.from ?? 'one factor'
+  const to = row.linkLabels?.to ?? 'another'
+  if (row.field === 'sizing') {
+    if (row.after === 'olumi_accepted') return `You accepted Olumi's estimate for how much ${from} changes ${to}.`
+    if (row.after === 'user') {
+      return row.strength
+        ? `You gave your own estimate for how much ${from} changes ${to}: ${row.strength.before} → ${row.strength.after}.`
+        : `You gave your own estimate for how much ${from} changes ${to}.`
+    }
+    const b = row.before !== null ? SIZING_WORDS[row.before] ?? row.before : null
+    const a = row.after !== null ? SIZING_WORDS[row.after] ?? row.after : null
+    return `How much ${from} changes ${to}: ${b} → ${a}`
+  }
+  if (row.field === 'strength') return `You changed how much ${from} changes ${to}: ${row.before} → ${row.after}.`
+  return null
+}
+
 export function inputRowText(row: RunDeltaInputRow): string {
+  const link = linkRowText(row)
+  if (link !== null) return link
   if (row.change === 'changed') return `${row.subject}: ${row.before} → ${row.after}`
   if (row.kind === 'option') return row.change === 'added' ? `${row.subject} joined the comparison` : `${row.subject} left the comparison`
   // AIQ #75 5918248701: a link added or removed is structure, not a value — say so, never "now on" / "now not set".
@@ -289,7 +338,7 @@ export function WhatsChanged({ view, rowFocus }: { view: RunDeltaView | null; ro
           className={`${typography.panelMeta} text-text-light mt-2 mb-0`}
           data-testid={`${WHATS_CHANGED_TESTID}-no-pairs`}
         >
-          {WHATS_CHANGED_NO_PAIRS}
+          {noPairsText(view)}
         </p>
       ) : (
         <>

@@ -7,7 +7,24 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.69.0.tgz` ← **THE CURRENT PIN** (1 Oct 2026, F1 — DGAI first, then CEE; DL 380e54 #85 5931482042)
+### `talchain-schemas-0.70.0.tgz` ← **THE CURRENT PIN** (1 Oct 2026, M2 rows: DGAI first, then CEE emits; DL 380e54 peer msg 18:2xZ)
+
+**Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF, not a local re-pack.** Downloaded by CANVAS 39e656 from
+`https://npm.pkg.github.com/download/@talchain/schemas/0.70.0/a987224c3442bdf1bb1c9efe02e2f0f2470769e8`
+(registry `dist-tags.latest` = 0.70.0); registry gitHead `cace462d3c8c65353f91833544aa5f44fb44a76a` (olumi-schemas
+`main` after #80, the DL's publish run 36905581486). **766,456 bytes.** Verified, all exact:
+
+```
+npm shasum (sha1)  a987224c3442bdf1bb1c9efe02e2f0f2470769e8   (the registry download id)
+integrity (sha512) sha512-+IUB15tcl7WCOUgJNkqTh1LEtzr4j+0pALo2a57uvb9DHqUPQWR33um8ywigiHOSAEOKA1AOAuOadpgYudRmlg==
+sha256             d7764a0067639b4b207234960eb6779c9a0d3e9d6f495f57c5fb723aebb1806e   (the .sha256 sidecar)
+```
+
+**What 0.70.0 adds:** additive/optional only (schemas #80): the run-input snapshot `links[].band?` / `links[].sizing?`,
+`RunInputField` += `sizing`, and `run_delta.win_probabilities_unavailable?` (`prior_withheld | no_matched_option`).
+Replaces 0.69.0 (no longer vendored).
+
+### `talchain-schemas-0.69.0.tgz` (historical, no longer vendored) (1 Oct 2026, F1: DGAI first, then CEE; DL 380e54 #85 5931482042)
 
 **Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF — not a local re-pack.** Downloaded by MG 0ebb952a from
 `https://npm.pkg.github.com/download/@talchain/schemas/0.69.0/939f5c9ecfcb8cfc27329bf7bd94cf91adb1ad8c`
