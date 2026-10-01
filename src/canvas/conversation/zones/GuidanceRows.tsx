@@ -16,7 +16,7 @@ import { selectRunAffirmedCurrent } from '../../state/analysisStateSelector'
 import { isStrengthPlaceholder } from '../../domain/strengthPlaceholder'
 import { UnsizedLinkRow } from '../../../components/results/analysisNew/sections/UnsizedLinkActions'
 import { action } from '../../../components/results/analysisNew/panelSurfaces'
-import { focusEdgeByEndpoints, focusNodeById } from '../../utils/focusHelpers'
+import { focusEdgeById, focusNodeById } from '../../utils/focusHelpers'
 import { PANEL_LIST_CONTROLS } from '../panelLists'
 import { STRENGTHEN_ITEM_POLICY, type GuidanceItemRef, type GuidanceRow, type TurnGuidance } from '../guidanceRows'
 
@@ -28,6 +28,31 @@ function refOnCanvas(ref: GuidanceItemRef | null, ids: ReadonlySet<string>): boo
 
 function useRefOnCanvas(ref: GuidanceItemRef | null): boolean {
   return useCanvasStore((s) => refOnCanvas(ref, new Set(s.nodes.map((n) => n.id))))
+}
+
+/**
+ * The canvas element the ref names, read NOW (DL #2427 ruling 1): a link is its EXACT edge by (from, to) with both
+ * ends on the canvas; a factor is its node. Null when nothing on the canvas is that element: no endpoint fallback, so
+ * a deleted link never focuses one of its nodes instead.
+ */
+function canvasTargetOf(ref: GuidanceItemRef | null): { kind: 'edge' | 'node'; id: string } | null {
+  if (ref === null) return null
+  const { nodes, edges } = useCanvasStore.getState()
+  if (!refOnCanvas(ref, new Set(nodes.map((n) => n.id)))) return null
+  if (ref.kind === 'factor') return { kind: 'node', id: ref.factorId }
+  const edge = edges.find((e) => e.source === ref.fromId && e.target === ref.toId)
+  return edge ? { kind: 'edge', id: edge.id } : null
+}
+
+/**
+ * Show the element through the EXISTING focus handlers by id. The camera rule (no move when it is already in view)
+ * lives in those handlers (CANVAS #2426 `computeEdgeFocusPlan`), so there is ONE rule, not a second one here.
+ */
+export function showOnCanvas(ref: GuidanceItemRef | null): void {
+  const target = canvasTargetOf(ref)
+  if (target === null) return
+  if (target.kind === 'edge') focusEdgeById(target.id)
+  else focusNodeById(target.id)
 }
 
 function nodeLabel(id: string): string {
@@ -48,9 +73,13 @@ function useStrengthenLink(row: GuidanceRow): { edgeId: string; fromLabel: strin
 
 function GuidanceRowCard({ row, testId }: { row: GuidanceRow; testId: string }) {
   const link = useStrengthenLink(row)
-  // Show the row's subject on the canvas through the EXISTING focus handlers, by id; reads nothing back, writes nothing.
-  const showable = useRefOnCanvas(row.itemRef)
+  // Show the row's subject on the canvas through the EXISTING focus handlers, by id; writes nothing. Offered only while
+  // the exact element exists (re-checked at click inside `showOnCanvas`).
   const ref = row.itemRef
+  const showable = useCanvasStore((s) => {
+    if (!refOnCanvas(ref, new Set(s.nodes.map((n) => n.id))) || ref === null) return false
+    return ref.kind === 'factor' || s.edges.some((e) => e.source === ref.fromId && e.target === ref.toId)
+  })
   return (
     <div
       className="mt-2 rounded-lg border border-panel-border p-3"
@@ -58,15 +87,15 @@ function GuidanceRowCard({ row, testId }: { row: GuidanceRow; testId: string }) 
       data-policy={row.policyId}
       data-has-action={link ? 'true' : 'false'}
     >
-      <p className={`${typography.chatBody} font-medium text-text-header`} data-testid={`${testId}-title`}>{row.copy.title}</p>
+      <p className={`${typography.chatBody} text-text-header`} data-testid={`${testId}-title`}>{row.copy.title}</p>
       {row.copy.why && <p className={`${typography.chatMeta} mt-1 text-text-light`} data-testid={`${testId}-why`}>{row.copy.why}</p>}
       {row.copy.question && <p className={`${typography.chatBody} mt-1 text-text-body`} data-testid={`${testId}-question`}>{row.copy.question}</p>}
-      {showable && ref && (
+      {showable && (
         <button
           type="button"
           className={`${typography.chatMeta} ${action('quiet')} mt-1 text-text-light hover:text-text-header`}
           data-testid={`${testId}-show`}
-          onClick={() => (ref.kind === 'link' ? focusEdgeByEndpoints(ref.fromId, ref.toId, ref.toId) : focusNodeById(ref.factorId))}
+          onClick={() => showOnCanvas(ref)}
         >
           Show on canvas
         </button>

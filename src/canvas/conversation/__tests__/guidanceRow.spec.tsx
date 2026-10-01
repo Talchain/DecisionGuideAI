@@ -5,7 +5,7 @@
  * the `item_ref` link by id, and offered only where #2408 offers it.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeAll, afterAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 const confirm = vi.fn()
@@ -18,19 +18,23 @@ vi.mock('../../hooks/useModelEditAuthority', () => ({
   useModelEditAuthority: () => ({ proposeEdgeStrengthConfirmation: (id: string, o: unknown) => { confirm(id, o); return 'dispatched' } }),
 }))
 vi.mock('../../utils/openEdgeStrengthEditor', () => ({ openEdgeStrengthEditor: (id: string) => openEditor(id) }))
-vi.mock('../../utils/focusHelpers', () => ({
-  focusEdgeByEndpoints: (...a: unknown[]) => focusEdge(...a),
-  focusNodeById: (id: string) => focusNode(id),
-}))
 
 import { readGuidance, readGuidanceSlots } from '../guidanceRows'
-import { GuidanceRows } from '../zones/GuidanceRows'
+import { GuidanceRows, showOnCanvas } from '../zones/GuidanceRows'
 import { ChatThread } from '../zones/ChatThread'
 import { saveTranscript, loadTranscript } from '../utils/transcriptStore'
 import { useCanvasStore } from '../../store'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { UNSIZED_LINK_COPY } from '../../../components/results/analysisNew/sections/UnsizedLinkActions'
 import { act } from '@testing-library/react'
+// The REAL focus helpers (DL #2427: mocks hid the endpoint fallback); only the camera impl they call is a spy.
+import { registerFocusHelpers } from '../../utils/focusHelpers'
+import { parseV5Response } from '../../../v5/responseParser'
+import { routeV5Response } from '../../../v5/responseRouter'
+
+let unregisterFocus: () => void = () => {}
+beforeEach(() => { unregisterFocus = registerFocusHelpers((id: string) => focusNode(id), (id: string) => focusEdge(id)) })
+afterEach(() => unregisterFocus())
 import type { ConversationMessage } from '../types'
 import served from '../../__tests__/fixtures/served-0303ef5-pricing-withheld-run.json'
 
@@ -194,7 +198,22 @@ describe('replay: the PRODUCER’s D1 row, verbatim (CEE #2487 t2-guidance-wire.
     fireEvent.click(screen.getByTestId('guidance-row-slot1-link-e_ai-accept'))
     expect(confirm.mock.calls[0][0]).toBe('e_ai')
     fireEvent.click(screen.getByTestId('guidance-row-slot1-show'))
-    expect(focusEdge).toHaveBeenCalledWith('sprint_capacity_for_ai_reporting', 'ai_reporting_module_availability', 'ai_reporting_module_availability')
+    expect(focusEdge).toHaveBeenCalledWith('e_ai')
+  })
+
+  it('through the REAL parser: #2487’s D1 wire body → parseV5Response → routeV5Response → the same row', async () => {
+    seed()
+    const body = {
+      response_version: 2, assistant_text: 'Here is where the comparison stands.', blocks: [], suggested_actions: [],
+      insights: [], stage_indicator: 'analyse', guidance: { slot1: PRODUCED },
+    }
+    const target = routeV5Response(await parseV5Response(new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })))
+    expect(target.kind).toBe('text_only')
+    const g = readGuidance((target as { response: unknown }).response)
+    expect(g).toEqual(readGuidance({ guidance: { slot1: PRODUCED } }))
+    render(<GuidanceRows guidance={g!} />)
+    expect(screen.getByTestId('guidance-row-slot1-title').textContent).toBe(PRODUCED.copy.title)
+    expect(screen.getByTestId('guidance-row-slot1')).toHaveAttribute('data-has-action', 'true')
   })
 })
 
@@ -213,16 +232,63 @@ describe('bound to BOTH ends, and shown on the canvas by id', () => {
     expect(confirm.mock.calls[0][0]).toBe('e_ai')
   })
 
-  it('Show on canvas focuses THAT link by its two ids; a factor ref focuses its node', () => {
+  it('Show on canvas focuses THAT link’s exact edge (e_ai); a factor ref focuses its node', () => {
     seed()
     render(<GuidanceRows guidance={g()} />)
     fireEvent.click(screen.getByTestId('guidance-row-slot1-show'))
-    expect(focusEdge).toHaveBeenCalledWith('sprint_capacity_for_ai_reporting', 'ai_reporting_module_availability', 'ai_reporting_module_availability')
+    expect(focusEdge).toHaveBeenCalledWith('e_ai')
     cleanup()
     render(<GuidanceRows guidance={readGuidance({ guidance: { slot1: { ...ROW, item_ref: { kind: 'factor', factor_id: 'integration_step_bug_resolution' } } } })!} />)
     fireEvent.click(screen.getByTestId('guidance-row-slot1-show'))
     expect(focusNode).toHaveBeenCalledWith('integration_step_bug_resolution')
     expect(focusEdge).toHaveBeenCalledTimes(1)
+  })
+
+  it('⛔ the link is deleted but BOTH nodes remain → no Show (never a node fallback)', () => {
+    seed()
+    useCanvasStore.setState((s) => ({ edges: s.edges.filter((e) => e.id !== 'e_ai') }) as never)
+    render(<GuidanceRows guidance={g()} />)
+    expect(screen.queryByTestId('guidance-row-slot1-show')).toBeNull()
+  })
+
+  it('the link is deleted after render → the Show control is withdrawn on the re-render', () => {
+    seed()
+    render(<GuidanceRows guidance={g()} />)
+    expect(screen.getByTestId('guidance-row-slot1-show')).toBeTruthy()
+    act(() => { useCanvasStore.setState((s) => ({ edges: s.edges.filter((e) => e.id !== 'e_ai') }) as never) })
+    expect(screen.queryByTestId('guidance-row-slot1-show')).toBeNull()
+  })
+
+  it('⛔ at CLICK time the exact edge is re-read: gone → NOTHING is focused (no node fallback); present → exactly it', () => {
+    seed()
+    const ref = g().slot1!.itemRef
+    useCanvasStore.setState((s) => ({ edges: s.edges.filter((e) => e.id !== 'e_ai') }) as never)
+    showOnCanvas(ref)
+    expect(focusEdge).not.toHaveBeenCalled()
+    expect(focusNode).not.toHaveBeenCalled()
+    seed()
+    showOnCanvas(ref)
+    expect(focusEdge).toHaveBeenCalledWith('e_ai')
+    expect(focusNode).not.toHaveBeenCalled()
+  })
+
+  it('same-LABEL contrast: a link whose ends carry the same labels but other ids comes first → Accept and Show bind e_ai', () => {
+    seed()
+    useCanvasStore.setState((s) => ({
+      nodes: [
+        { id: 'dup_from', type: 'factor', position: { x: 0, y: 200 }, data: { label: 'Sprint capacity for AI reporting', kind: 'factor' } },
+        { id: 'dup_to', type: 'factor', position: { x: 100, y: 200 }, data: { label: 'AI reporting module availability', kind: 'factor' } },
+        ...s.nodes,
+      ],
+      edges: [{ id: 'e_dup', source: 'dup_from', target: 'dup_to', data: PLACEHOLDER }, ...s.edges],
+    }) as never)
+    render(<GuidanceRows guidance={g()} />)
+    expect(screen.queryByTestId('guidance-row-slot1-link-e_dup-accept')).toBeNull()
+    fireEvent.click(screen.getByTestId('guidance-row-slot1-link-e_ai-accept'))
+    expect(confirm.mock.calls[0][0]).toBe('e_ai')
+    fireEvent.click(screen.getByTestId('guidance-row-slot1-show'))
+    expect(focusEdge).toHaveBeenCalledWith('e_ai')
+    expect(focusEdge).not.toHaveBeenCalledWith('e_dup')
   })
 
   it('⛔ no Show when the ref is not on this canvas, or the row names nothing by id', () => {
