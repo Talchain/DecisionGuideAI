@@ -55,9 +55,10 @@ import { typography } from '../../styles/typography'
 import { useAnalysisResultsAreCurrent } from '../../canvas/hooks/useAnalysisResultsAreCurrent'
 import { openAskOlumi } from './coaching/askOlumiStore'
 import {
-  NOT_ANALYSED_BADGE,
   notAnalysedActionLabel,
+  notAnalysedBadge,
   notAnalysedReasonCopy,
+  takenOutLabel,
   resolveOptionPrompt,
 } from './utils/notAnalysedCopy'
 import { FOCUS_ON_CANVAS_LABEL } from './utils/focusOnCanvasCopy'
@@ -85,6 +86,8 @@ export function NotAnalysedOptionCard({ option, onFocusNode }: NotAnalysedOption
   // that blames the engine is withheld unless the result is confirmably about
   // the graph on screen. See the module header.
   const reasonLicensed = !(reason === 'not_returned' && !resultsAreCurrent)
+  // The user took it out: the badge says so in full, so a second line would only repeat it.
+  const takenOut = takenOutLabel(reason) !== null
 
   return (
     <div
@@ -100,11 +103,11 @@ export function NotAnalysedOptionCard({ option, onFocusNode }: NotAnalysedOption
           className={`${typography.panelMeta} inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-panel-border text-text-light flex-shrink-0`}
           data-testid={`not-analysed-badge-${option.id}`}
         >
-          {NOT_ANALYSED_BADGE}
+          {notAnalysedBadge(reason)}
         </span>
       </div>
 
-      {reasonLicensed && (
+      {reasonLicensed && !takenOut && (
         <p
           className={`${typography.panelBody} text-text-light`}
           data-testid={`not-analysed-reason-${option.id}`}
