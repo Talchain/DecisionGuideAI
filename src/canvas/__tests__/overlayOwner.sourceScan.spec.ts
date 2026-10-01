@@ -30,6 +30,7 @@ import { resolve } from 'node:path'
 import { OVERLAY_PRIORITY, OVERLAY_BAND_PILL_GUTTER, type OverlayCell } from '../components/CanvasOverlayBand'
 import { CANVAS_LOD_NOTICE_TESTID } from '../components/CanvasLodNotice'
 import { FIRST_MODEL_NOTICE_TESTID } from '../components/FirstModelNotice'
+import { RUN_CHANGES_SUMMARY_TESTID } from '../components/RunChangesSummary'
 
 const COMPONENTS = resolve(__dirname, '../components')
 
@@ -55,6 +56,8 @@ const MIGRATED = [
   // A16 AUDIT, 25 Sep 2026 — the bottom-right cell's claimant (it outranked
   // `AnalysisStateCue.tsx` there until the cue moved to the canvas foot).
   'DegradedBanner.tsx',
+  // M2 (PTL #85 5933452605, 1 Oct 2026): the rerun's compact summary, a bottom-centre claimant.
+  'RunChangesSummary.tsx',
 ] as const
 
 /**
@@ -89,6 +92,7 @@ function stripComments(source: string): string {
 const TOKEN_TO_ID: Record<string, string> = {
   CANVAS_LOD_NOTICE_TESTID,
   FIRST_MODEL_NOTICE_TESTID,
+  RUN_CHANGES_SUMMARY_TESTID,
 }
 
 interface FoundClaim {

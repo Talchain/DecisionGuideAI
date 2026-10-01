@@ -1,0 +1,191 @@
+/**
+ * ⭐ M2: THE RERUN'S CONSEQUENCE, ON THE CANVAS (PTL #85 5933452605 / 5933474575, investor-P0; lease CANVAS 5933472900).
+ *
+ * After a rerun the user should not have to open a tab to learn what their change did. A one-line pill in the
+ * band's bottom-centre cell says what changed and what moved; "Why?" opens the rest above it: the producer's
+ * comparability sentence (verbatim) and what remains uncertain. Each changed input focuses its node or link, and
+ * "Open in Compare" shows the full pair. Closing it hides it for this analysis; the next Run brings it back.
+ *
+ * The words are `graphChanges/runChangesSummaryLines` (the Compare section's own phrasing, from the one reader). This
+ * file only lays them out and arbitrates for the cell.
+ *
+ * ⚠ A BAND OCCUPANT, NOT A POSITION. `CanvasOverlayBand` owns overlay space: this claims `bottom-centre` by its
+ * test id and renders into the cell, after the live LOD notice and before the first-model notice (`OVERLAY_PRIORITY`).
+ * The pill fits the band's fixed 64px; only the user-opened "Why?" detail rises above it, like the lens panel.
+ */
+import { useState } from 'react'
+import { createPortal } from 'react-dom'
+import { ChevronDown, ChevronUp, X } from 'lucide-react'
+import { useOverlayCell } from './CanvasOverlayBand'
+import { useCanvasStore } from '../store'
+import { useUIStore } from '../../stores/uiStore'
+import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../state/winShareGate'
+import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
+import type { RunDeltaInputRow } from '../../components/results/analysisNew/runDeltaView'
+import { targetOfRow } from '../graphChanges/graphChangesView'
+import {
+  RUN_CHANGES_SUMMARY_COPY as COPY,
+  runChangesSummaryHasContent,
+  runChangesSummaryLines,
+} from '../graphChanges/runChangesSummaryLines'
+import { focusEdgeById, focusNodeById } from '../utils/focusHelpers'
+import { typography } from '../../styles/typography'
+
+export const RUN_CHANGES_SUMMARY_TESTID = 'run-changes-summary'
+
+/** The row's focus action on the graph as drawn now, or null when nothing on the canvas stands for it. */
+function focusOfRow(row: RunDeltaInputRow): (() => void) | null {
+  const { nodes, edges } = useCanvasStore.getState()
+  const target = targetOfRow(row, {
+    nodes: nodes.map((n) => ({ id: n.id, kind: n.type })),
+    edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+  })
+  if (target === null) return null
+  return () => (target.kind === 'node' ? focusNodeById(target.id) : focusEdgeById(target.id))
+}
+
+function DetailLine({ label, id, children }: { label: string; id: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[96px_1fr] gap-x-3" data-testid={`${RUN_CHANGES_SUMMARY_TESTID}-${id}`}>
+      <dt className={`${typography.panelMeta} text-text-light m-0 pt-px`}>{label}</dt>
+      <dd className={`${typography.panelBody} text-text-body m-0 min-w-0 break-words`}>{children}</dd>
+    </div>
+  )
+}
+
+export function RunChangesSummary(): JSX.Element | null {
+  const responseHash = useCanvasStore((s) => s.results?.hash ?? null)
+  const view = useDisplayedRunDeltaView(responseHash)
+  const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
+  const winShareWithheldReason = useCanvasStore(selectWinShareWithheldReason)
+  const [closedFor, setClosedFor] = useState<string | null>(null)
+  const [openFor, setOpenFor] = useState<string | null>(null)
+
+  const wants = view !== null && responseHash !== null && closedFor !== responseHash && runChangesSummaryHasContent(view)
+  const { granted, target } = useOverlayCell('bottom-centre', RUN_CHANGES_SUMMARY_TESTID, wants)
+  if (!wants || !granted || view === null || responseHash === null) return null
+
+  const lines = runChangesSummaryLines(view, winSharesWithheld, winShareWithheldReason)
+  const open = openFor === responseHash
+  const changedHead = lines.changed[0]?.text ?? COPY.noInputs
+  const changedExtra = lines.changed.length - 1 + lines.changedMore
+  const movedHead = lines.moved[0] ?? lines.movedNote
+  const movedExtra = lines.moved.length - 1 + lines.movedMore
+  const detailId = `${RUN_CHANGES_SUMMARY_TESTID}-detail`
+
+  const body = (
+    <div
+      data-testid={RUN_CHANGES_SUMMARY_TESTID}
+      data-response-hash={responseHash}
+      data-attributable={view.attributable ? 'true' : 'false'}
+      className="pointer-events-auto flex max-w-full flex-col items-center gap-2"
+    >
+      {open && (
+        <div
+          id={detailId}
+          role="region"
+          aria-label={COPY.title}
+          data-testid={detailId}
+          className="w-[min(520px,100%)] rounded-xl border border-panel-border bg-panel px-4 py-3 shadow-2"
+        >
+          <dl className="m-0 flex flex-col gap-2">
+            <DetailLine label={COPY.changed} id="changed">
+              {lines.changed.length === 0 ? (
+                <span className="text-text-light">{COPY.noInputs}</span>
+              ) : (
+                lines.changed.map(({ row, text }) => {
+                  const focus = focusOfRow(row)
+                  return focus ? (
+                    <button
+                      key={row.key}
+                      type="button"
+                      onClick={focus}
+                      data-testid={`${RUN_CHANGES_SUMMARY_TESTID}-focus`}
+                      data-entity-id={row.entityId}
+                      className="block text-left underline decoration-dotted underline-offset-2 hover:decoration-solid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info rounded-sm"
+                    >
+                      {text}
+                    </button>
+                  ) : (
+                    <span key={row.key} className="block">{text}</span>
+                  )
+                })
+              )}
+              {lines.changedMore > 0 && <span className="block text-text-light">{COPY.more(lines.changedMore)}</span>}
+            </DetailLine>
+            {(lines.moved.length > 0 || lines.movedNote !== null) && (
+              <DetailLine label={COPY.moved} id="moved">
+                {lines.movedNote !== null ? (
+                  <span className="text-text-light">{lines.movedNote}</span>
+                ) : (
+                  lines.moved.map((t) => <span key={t} className="block">{t}</span>)
+                )}
+                {lines.movedMore > 0 && <span className="block text-text-light">{COPY.more(lines.movedMore)}</span>}
+              </DetailLine>
+            )}
+            <DetailLine label={COPY.why} id="why">{lines.why}</DetailLine>
+            {lines.uncertain !== null && (
+              <DetailLine label={COPY.uncertain} id="uncertain">
+                <span className="text-text-light">{lines.uncertain}</span>
+              </DetailLine>
+            )}
+          </dl>
+          <div className="mt-2 flex justify-end">
+            <button
+              type="button"
+              data-testid={`${RUN_CHANGES_SUMMARY_TESTID}-open-compare`}
+              onClick={() => useUIStore.getState().forceActivateOutputTab('compare')}
+              className={`${typography.panelMeta} text-text-body underline decoration-dotted underline-offset-2 hover:decoration-solid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info rounded-sm`}
+            >
+              {COPY.openCompare}
+            </button>
+          </div>
+        </div>
+      )}
+      <div
+        role="status"
+        className="flex max-w-full items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1.5 shadow-2"
+      >
+        <span className={`${typography.panelMeta} flex-none font-medium text-text-header`}>{COPY.title}</span>
+        <span
+          data-testid={`${RUN_CHANGES_SUMMARY_TESTID}-line`}
+          className={`${typography.panelMeta} min-w-0 truncate text-text-body`}
+          title={[changedHead, movedHead].filter(Boolean).join(' · ')}
+        >
+          <span className="text-text-light">{COPY.changed} </span>
+          {changedHead}
+          {changedExtra > 0 && <span className="text-text-light"> (+{changedExtra})</span>}
+          {movedHead !== null && (
+            <>
+              <span className="text-text-light"> · {COPY.moved} </span>
+              {movedHead}
+              {movedExtra > 0 && <span className="text-text-light"> (+{movedExtra})</span>}
+            </>
+          )}
+        </span>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={detailId}
+          data-testid={`${RUN_CHANGES_SUMMARY_TESTID}-why-toggle`}
+          onClick={() => setOpenFor(open ? null : responseHash)}
+          className={`${typography.panelMeta} flex flex-none items-center gap-0.5 rounded-md px-1 text-text-body hover:text-text-header focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+        >
+          {open ? COPY.hideWhy : COPY.showWhy}
+          {open ? <ChevronDown className="h-3 w-3" aria-hidden="true" /> : <ChevronUp className="h-3 w-3" aria-hidden="true" />}
+        </button>
+        <button
+          type="button"
+          aria-label={COPY.close}
+          data-testid={`${RUN_CHANGES_SUMMARY_TESTID}-close`}
+          onClick={() => setClosedFor(responseHash)}
+          className="-m-1.5 flex-none rounded-md p-1.5 text-text-light transition-colors duration-fast hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
+        >
+          <X className="h-3 w-3" aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  )
+
+  return target ? createPortal(body, target) : body
+}

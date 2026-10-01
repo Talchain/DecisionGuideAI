@@ -205,6 +205,13 @@ export const OVERLAY_PRIORITY: Record<OverlayCell, readonly string[]> = {
     'model-extent-notice',
     'canvas-lod-notice',
     /**
+     * ⭐ M2 (PTL #85 5933452605, 1 Oct 2026): what the user's rerun changed and moved. It ranks under the two above
+     * for their own reasons (a capability, then a transformation of what is on screen now), and above the standing
+     * notices below: it answers the question the user just asked by rerunning, and it yields the cell for good once
+     * closed for that analysis.
+     */
+    'run-changes-summary',
+    /**
      * ⭐ `starter-provenance-banner` LEFT THIS CELL (Canvas v3.1 DESIGN-GAP #3,
      * 26 Sep 2026). The contract places the saved-example disclosure as a quiet
      * one-line context note at the canvas's TOP-RIGHT (`.context-banner`,

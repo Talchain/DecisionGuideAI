@@ -30,6 +30,9 @@ import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../../
 
 export const WHATS_CHANGED_TESTID = 'analysis-new-whats-changed'
 
+/** Said when no option matched across the pair; shared with the canvas's compact summary. */
+export const WHATS_CHANGED_NO_PAIRS = 'No option could be matched across these two analyses, so there is nothing to compare here.'
+
 /**
  * A score, as a percentage.
  *
@@ -63,16 +66,24 @@ export function noiseQualifier(v: NoiseVerdict): string | null {
   return null
 }
 
-/** What a person is told about ONE option's movement. */
-function MovementLine({ m, sharedQualifier }: { m: RunDeltaMovement; sharedQualifier: boolean }): JSX.Element {
+/**
+ * ONE option's movement in words ("Option B: 41% → 55%"). Exported so the canvas's compact summary
+ * (`graphChanges/RunChangesSummary`) says exactly what this section says, never a second phrasing.
+ */
+export function movementText(m: RunDeltaMovement): string {
   const name = m.label ?? 'An option this run does not name'
   // ⛔ `not_noise_qualified` IS DIRECTION ONLY. The contract: "reported as
   // direction only, never dressed as signal" — so the two numbers are withheld
   // rather than printed with a caveat, because a caveat under a precise figure
   // is read as precision.
-  const body = m.mayShowMagnitude
+  return m.mayShowMagnitude
     ? `${name}: ${pct(m.prior)} → ${pct(m.current)}`
     : `${name}: ${m.direction === 'up' ? 'scored higher' : m.direction === 'down' ? 'scored lower' : 'scored the same'} than last time`
+}
+
+/** What a person is told about ONE option's movement. */
+function MovementLine({ m, sharedQualifier }: { m: RunDeltaMovement; sharedQualifier: boolean }): JSX.Element {
+  const body = movementText(m)
 
   const qualifier = sharedQualifier ? null : noiseQualifier(m.noiseVerdict)
 
@@ -94,7 +105,8 @@ function MovementLine({ m, sharedQualifier }: { m: RunDeltaMovement; sharedQuali
 }
 
 /** One input row: "Pro price, Raise to £60: £59 → £60". Words only — the values are the producer's. */
-function inputRowText(row: RunDeltaInputRow): string {
+/** Exported for the canvas's compact summary, so both surfaces say one thing. */
+export function inputRowText(row: RunDeltaInputRow): string {
   if (row.change === 'changed') return `${row.subject}: ${row.before} → ${row.after}`
   if (row.kind === 'option') return row.change === 'added' ? `${row.subject} joined the comparison` : `${row.subject} left the comparison`
   // AIQ #75 5918248701: a link added or removed is structure, not a value — say so, never "now on" / "now not set".
@@ -259,7 +271,7 @@ export function WhatsChanged({ view, rowFocus }: { view: RunDeltaView | null; ro
           className={`${typography.panelMeta} text-text-light mt-2 mb-0`}
           data-testid={`${WHATS_CHANGED_TESTID}-no-pairs`}
         >
-          No option could be matched across these two analyses, so there is nothing to compare here.
+          {WHATS_CHANGED_NO_PAIRS}
         </p>
       ) : (
         <>
