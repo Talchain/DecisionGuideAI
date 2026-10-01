@@ -135,6 +135,13 @@ describe('enforceChipBudget', () => {
     expect(result).toHaveLength(4)
     expect(result.map((c) => c.id)).toEqual(['c1', 'a1', 'a2', 'a3'])
   })
+
+  it('M3: a choose_plan set (agent-premortem-plan:*) is kept whole and offered alone; by id, not words', () => {
+    const plans = ['0a1b2c3d4e5f', '1b2c3d4e5f60', '2c3d4e5f6071', '3d4e5f607182'].map((h) => chip(`agent-premortem-plan:${h}`))
+    const set = [...plans, chip('agent-talk-it-through')]
+    expect(enforceChipBudget([chip('c1')], set).map((c) => c.id)).toEqual(set.map((c) => c.id))
+    expect(enforceChipBudget([], set.map((c, i) => ({ ...c, id: `x-agent-premortem-plan:${i}` })))).toHaveLength(MAX_SUGGESTED_ACTIONS)
+  })
 })
 
 // ---------------------------------------------------------------------------
