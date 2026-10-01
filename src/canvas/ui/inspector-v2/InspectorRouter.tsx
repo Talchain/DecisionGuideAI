@@ -29,6 +29,7 @@ import { InspectorQuickActions } from './shared/InspectorQuickActions'
 import { InspectorAgencyNote } from './shared/InspectorAgencyNote'
 import { InspectorAttentionContext, attentionAskContext } from './shared/InspectorAttentionContext'
 import { ExamineAssumption } from './examine/ExamineAssumption'
+import { ExamineLink } from './examine/ExamineLink'
 import { useNodeAttention } from '../../nodes/shared/useNodeAttention'
 import { revealOlumiSurface } from '../../conversation/revealOlumi'
 import { resolveElementLabel } from '../../domain/elementLabel'
@@ -267,13 +268,25 @@ export const InspectorRouter = memo(function InspectorRouter({
         onClose={onClose}
         dragHandlers={dragHandlers}
         quickActions={
-          <InspectorQuickActions
-            elementId={edgeId}
-            elementLabel={edgeLabel}
-            panelType="edge"
-            labelContext={{ sourceLabel, targetLabel }}
-            onBackToConversation={handleBackToConversation}
-          />
+          <>
+            {/* ⭐ Slice 1 (52f8cd): examine a link's strength — the twin of the factor section. Prefill-only (`requestAsk`). */}
+            <ExamineLink
+              edgeId={edgeId}
+              source={edge.source}
+              target={edge.target}
+              sourceLabel={sourceLabel}
+              targetLabel={targetLabel}
+              data={edge.data as Record<string, unknown> | undefined}
+              structural={isStructural}
+            />
+            <InspectorQuickActions
+              elementId={edgeId}
+              elementLabel={edgeLabel}
+              panelType="edge"
+              labelContext={{ sourceLabel, targetLabel }}
+              onBackToConversation={handleBackToConversation}
+            />
+          </>
         }
         footerNote={
           <InspectorAgencyNote>
