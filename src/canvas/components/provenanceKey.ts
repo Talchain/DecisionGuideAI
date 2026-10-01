@@ -8,6 +8,9 @@
  *   - a thin link              → `isStrengthPlaceholder` (StyledEdge's not-set width) + `EDGE_STRENGTH_PLACEHOLDER_SENTENCE`;
  *   - a dashed link            → `resolveExistenceDash` over `resolveEdgeValueDisplay(…, 'beliefExists')`, stated with a
  *                                dash (StyledEdge's doubt condition) + `EDGE_EXISTENCE_DOUBT_SENTENCE`.
+ *   - a value's source word    → `factorValueSourceMark` (the card's own function) + `VALUE_SOURCE_MARK_TOKEN` /
+ *                                `VALUE_SOURCE_MARK_LABEL` ("est." = Olumi estimate, not yet confirmed), for factors that
+ *                                carry a value (a finite `observedState.value`, the line the word sits on);
  *   - an option's "Compared · share not shown" → `NOT_RANKED_MARKER` + the gate's own reason
  *                                (`selectWinShareWithheldReason`), only while the Run withheld shares.
  * A cue the board does not draw has no entry. The board's default kind (cards carrying ONLY it show no mark at rest,
@@ -23,6 +26,7 @@ import { provenanceDefaultKind, resolveProvenanceMarks } from '../nodes/shared/N
 import { EDGE_EXISTENCE_DOUBT_SENTENCE, EDGE_STRENGTH_PLACEHOLDER_SENTENCE } from '../edges/connectorCopy'
 import { resolveExistenceDash } from '../utils/graphDisplayCalculations'
 import { NOT_RANKED_MARKER } from '../state/winShareGate'
+import { factorValueSourceMark, VALUE_SOURCE_MARK_LABEL, VALUE_SOURCE_MARK_TOKEN, type ValueSourceMarkKind } from '../nodes/shared/valueSourceMark'
 
 export interface ProvenanceMarkEntry {
   readonly claim: Exclude<NodeProvenanceClaim, 'none'>
@@ -41,6 +45,14 @@ export interface LinkCueEntry {
   readonly dash?: string
 }
 
+export interface ValueMarkEntry {
+  readonly kind: ValueSourceMarkKind
+  /** The word the card prints after the value (`VALUE_SOURCE_MARK_TOKEN`), e.g. "est.". */
+  readonly token: string
+  /** Its meaning (`VALUE_SOURCE_MARK_LABEL`), the card's own hover/accessible name. */
+  readonly label: string
+}
+
 export interface OptionCueEntry {
   /** The marker the option card shows (`NOT_RANKED_MARKER`). */
   readonly label: string
@@ -50,6 +62,7 @@ export interface OptionCueEntry {
 
 export interface ProvenanceKey {
   readonly marks: readonly ProvenanceMarkEntry[]
+  readonly values: readonly ValueMarkEntry[]
   readonly links: readonly LinkCueEntry[]
   readonly options: OptionCueEntry | null
   readonly empty: boolean
@@ -79,6 +92,17 @@ export function provenanceKey(
   // The default first (it is what most cards are), then the exceptions in a stable order.
   const marks = [...seen.values()].sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.label.localeCompare(b.label))
 
+  const valueKinds = new Set<ValueSourceMarkKind>()
+  for (const n of nodes) {
+    if (resolveNodeTypeLiteral(n as never) !== 'factor') continue
+    const v = ((n.data as Record<string, unknown> | undefined)?.observedState as { value?: unknown } | undefined)?.value
+    if (typeof v !== 'number' || !Number.isFinite(v)) continue
+    const mark = factorValueSourceMark(n.data)
+    if (mark) valueKinds.add(mark.kind)
+  }
+  const VALUE_ORDER: readonly ValueSourceMarkKind[] = ['olumi', 'brief', 'you', 'panel', 'unknown']
+  const values = VALUE_ORDER.filter((k) => valueKinds.has(k)).map((k) => ({ kind: k, token: VALUE_SOURCE_MARK_TOKEN[k], label: VALUE_SOURCE_MARK_LABEL[k] }))
+
   const links: LinkCueEntry[] = []
   if (edges.some((e) => isStrengthPlaceholder(e.data as Record<string, unknown> | undefined))) {
     links.push({ cue: 'placeholder', label: EDGE_STRENGTH_PLACEHOLDER_SENTENCE })
@@ -91,5 +115,5 @@ export function provenanceKey(
     }
   }
   const options = withheldReason !== null ? { label: NOT_RANKED_MARKER, reason: withheldReason } : null
-  return { marks, links, options, empty: marks.length === 0 && links.length === 0 && options === null }
+  return { marks, values, links, options, empty: marks.length === 0 && values.length === 0 && links.length === 0 && options === null }
 }

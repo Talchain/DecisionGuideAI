@@ -28,6 +28,7 @@ export const CANVAS_PROVENANCE_KEY_TESTID = 'canvas-provenance-key'
 export const CANVAS_PROVENANCE_KEY_COPY = {
   toggle: 'Key',
   marks: 'Who put it there',
+  values: 'Values',
   links: 'Links',
   options: 'Options',
   /** The board's default kind: cards that carry only it show no mark at rest (`provenanceDefaultKind`). */
@@ -96,8 +97,21 @@ export function CanvasProvenanceKey(): JSX.Element | null {
               </ul>
             </section>
           )}
+          {key.values.length > 0 && (
+            <section aria-label={C.values} className={key.marks.length > 0 ? 'mt-3' : undefined}>
+              <p className={`${typography.panelMeta} m-0 text-text-light`}>{C.values}</p>
+              <ul className="m-0 mt-1 list-none space-y-1 p-0">
+                {key.values.map((v) => (
+                  <li key={v.kind} data-testid={`${T}-value`} data-value-kind={v.kind} className={`${typography.panelBody} flex items-baseline gap-2 text-text-body`}>
+                    <span className={`${typography.panelMeta} w-[64px] flex-none text-text-light`}>{v.token}</span>
+                    <span>{v.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           {key.links.length > 0 && (
-            <section aria-label={C.links} className={key.marks.length > 0 ? 'mt-3' : undefined}>
+            <section aria-label={C.links} className={key.marks.length > 0 || key.values.length > 0 ? 'mt-3' : undefined}>
               <p className={`${typography.panelMeta} m-0 text-text-light`}>{C.links}</p>
               <ul className="m-0 mt-1 list-none space-y-1.5 p-0">
                 {key.links.map((l) => (
@@ -117,7 +131,7 @@ export function CanvasProvenanceKey(): JSX.Element | null {
             </section>
           )}
           {key.options !== null && (
-            <section aria-label={C.options} className={key.marks.length > 0 || key.links.length > 0 ? 'mt-3' : undefined}>
+            <section aria-label={C.options} className={key.marks.length > 0 || key.values.length > 0 || key.links.length > 0 ? 'mt-3' : undefined}>
               <p className={`${typography.panelMeta} m-0 text-text-light`}>{C.options}</p>
               <p data-testid={`${T}-option`} className={`${typography.panelBody} m-0 mt-1 text-text-body`}>
                 {key.options.label}
