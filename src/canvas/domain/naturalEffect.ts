@@ -193,7 +193,7 @@ const AUTHOR_SUFFIX: Record<NaturalEffectAuthor, string> = {
  * nobody's estimate. Its producer label stays `olumi_estimate`, so the caller
  * says which, and the phrase drops both the author and the hedge ("about").
  */
-const DEFINITIONAL_SUFFIX = ` · ${BY_DEFINITION.toLowerCase()}`
+export const DEFINITIONAL_SUFFIX = ` · ${BY_DEFINITION.toLowerCase()}`
 
 /**
  * The phrase for the edge's size, or null when it must not be said (the caller
