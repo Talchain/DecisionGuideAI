@@ -5423,11 +5423,11 @@
           "token": "#F4F0EA",
           "sample": "--bg-canvas: #F4F0EA;"
         },
-        "production-hex :: src/components/chat/artefactIframeTemplate.ts :: #FEFEFE": {
+        "production-hex :: src/components/chat/artefactIframeTemplate.ts :: #FCF7F1": {
           "count": 1,
           "file": "src/components/chat/artefactIframeTemplate.ts",
-          "token": "#FEFEFE",
-          "sample": "--bg-panel: #FEFEFE;"
+          "token": "#FCF7F1",
+          "sample": "--bg-panel-hover: #FCF7F1;"
         },
         "production-hex :: src/components/chat/artefactIframeTemplate.ts :: #FEF9F3": {
           "count": 1,
