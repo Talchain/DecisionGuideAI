@@ -63,7 +63,19 @@ function routeIsAdoptable(route: string | null | undefined, held: string | null)
   return held === null || held === route || held === routeAdoptedScenarioId
 }
 
-export function useServerGraphHydration(scenarioIdFromRoute?: string | null): void {
+/**
+ * `enabled` (default true): `CanvasMVP` holds the read until auth has resolved and, signed in, until the Supabase load
+ * for the route has settled (`useBootServerReadEnabled`: the boot race, DL #85 5937384802). While disabled the read is
+ * not attempted, so it starts the moment it is enabled.
+ * `readEpoch` (default ''): part of the once-per-scenario guard's key. A new epoch for the same scenario is a new read
+ * (`bootServerReadEpoch`: one more read after a late signed-in Supabase load wiped the restored identity).
+ */
+export function useServerGraphHydration(
+  scenarioIdFromRoute?: string | null,
+  opts?: { enabled?: boolean; readEpoch?: string },
+): void {
+  const enabled = opts?.enabled !== false
+  const readEpoch = opts?.readEpoch ?? ''
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
   const { user } = useAuth()
 
@@ -104,9 +116,11 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
   }, [scenarioIdFromRoute])
 
   useEffect(() => {
+    if (!enabled) return
     if (!scenarioId) return
-    if (attemptedRef.current === scenarioId) return
-    attemptedRef.current = scenarioId
+    const attemptKey = `${scenarioId}\u0000${readEpoch}`
+    if (attemptedRef.current === attemptKey) return
+    attemptedRef.current = attemptKey
 
     const controller = new AbortController()
     let settled = false
@@ -213,5 +227,5 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
       // unmount (where there is nothing left to guard).
       if (!settled) attemptedRef.current = null
     }
-  }, [scenarioId, user?.id])
+  }, [scenarioId, user?.id, enabled, readEpoch])
 }

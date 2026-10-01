@@ -18,6 +18,7 @@ import { TopBar } from '../components/layout/TopBar'
 import { getScenario } from '../canvas/store/scenarios'
 import { useScenario } from '../hooks/useScenario'
 import { useServerGraphHydration } from '../canvas/hooks/useServerGraphHydration'
+import { useBootServerRead, useSupabaseLoadTracker } from '../canvas/hooks/useBootServerReadEnabled'
 import { ServerGraphRetryNotice } from '../canvas/components/ServerGraphRetryNotice'
 // ROADMAP 2.1271 — deliver the auto-run's provisional analysis without another
 // turn. Mounted HERE, beside boot hydration, deliberately: the trigger is the
@@ -84,16 +85,24 @@ export default function CanvasMVP() {
 
   // C.1a: Hydrate from Supabase when navigating to /scenario/:id
   const hydratedRef = useRef<string | null>(null)
+  // Every Supabase load is a GENERATION (route + attempt), settled on success OR failure: the CEE read below waits for
+  // the current one (the boot race), and a superseded load's late settle changes nothing (A→B→A).
+  const { load: supabaseLoad, track: trackSupabaseLoad } = useSupabaseLoadTracker()
   useEffect(() => {
     if (scenarioIdFromRoute && isPersistenceActive && hydratedRef.current !== scenarioIdFromRoute) {
-      hydratedRef.current = scenarioIdFromRoute
-      loadSupabaseScenario(scenarioIdFromRoute).catch((err) => {
-        if (import.meta.env.DEV) {
-          console.error('[CanvasMVP] Failed to load scenario from Supabase:', err)
-        }
-      })
+      const id = scenarioIdFromRoute
+      hydratedRef.current = id
+      trackSupabaseLoad(
+        id,
+        loadSupabaseScenario(id).catch((err) => {
+          if (import.meta.env.DEV) {
+            console.error('[CanvasMVP] Failed to load scenario from Supabase:', err)
+          }
+        }),
+      )
     }
-  }, [scenarioIdFromRoute, isPersistenceActive, loadSupabaseScenario])
+  }, [scenarioIdFromRoute, isPersistenceActive, loadSupabaseScenario, trackSupabaseLoad])
+  const bootServerRead = useBootServerRead(scenarioIdFromRoute, isPersistenceActive, supabaseLoad)
 
   // ROADMAP 2.312 piece 3: merge the SERVER's copy of this scenario's graph
   // over the locally-restored canvas — values from CEE, layout from local.
@@ -104,7 +113,10 @@ export default function CanvasMVP() {
   // user. It does not apply here in any case: that flag governs the UI's own
   // Supabase writes, whereas this read goes through CEE, which holds the
   // service credential the browser deliberately does not have.
-  useServerGraphHydration(scenarioIdFromRoute)
+  // ⛔ THE BOOT RACE (DL #85 5937384802; round 2 #2422 5939155228): the read waits for auth and, signed in, for the
+  // current Supabase load above to settle (both bounded). A load that lands after this read gets ONE more read
+  // (`readEpoch`), so `hydrateGraphSlice`'s decision-context clear never leaves the canvas without its CEE identity.
+  useServerGraphHydration(scenarioIdFromRoute, { enabled: bootServerRead.enabled, readEpoch: bootServerRead.readEpoch })
   // Inert until CEE reports a provisional run in flight for this scenario.
   useProvisionalAnalysisDelivery(scenarioIdFromRoute)
 
