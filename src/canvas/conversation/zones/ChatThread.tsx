@@ -18,6 +18,7 @@ import { ThinkingDots, waitingPhaseOf } from './ThinkingDots'
 
 /** The real stage name while request 2 runs: `inferLoadingHint`'s own words for an explanation. */
 const PREPARING_EXPLANATION = 'Preparing explanation\u2026'
+import { GuidanceRows } from './GuidanceRows'
 import { SuggestedChips, type RunChipGate } from './SuggestedChips'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
@@ -277,11 +278,15 @@ export const ChatThread = memo(function ChatThread({
   // is enabled.
   let lastUserMsg: ConversationMessage | undefined
   let lastAssistantMsg: ConversationMessage | undefined
+  // T4: the coaching row's host. The restore appends an assistant-role "Session resumed" divider
+  // (useConversation `sessionDivider`), which is not a reply: the row stays on the reply before it.
+  let lastReplyMsg: ConversationMessage | undefined
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
     if (!lastUserMsg && m.role === 'user') lastUserMsg = m
     if (!lastAssistantMsg && m.role === 'assistant') lastAssistantMsg = m
-    if (lastUserMsg && lastAssistantMsg) break
+    if (!lastReplyMsg && m.role === 'assistant' && typeof m.sessionDivider !== 'string') lastReplyMsg = m
+    if (lastUserMsg && lastAssistantMsg && lastReplyMsg) break
   }
   const failedSendRetryId =
     lastUserMsg && lastUserMsg.deliveryState === 'failed' ? lastUserMsg.id : null
@@ -360,18 +365,29 @@ export const ChatThread = memo(function ChatThread({
             compact={compact}
           />
         )
+        // T4: the latest turn's coaching rows sit between the reply and its chips (guidanceRows.ts).
+        const guidanceRows = msg === lastReplyMsg && msg.guidance ? <GuidanceRows guidance={msg.guidance} /> : null
         // Attach suggested chips directly below the last assistant message
         // so they read as one visual unit rather than floating orphans.
         if (isLastAssistant && suggestedChips.length > 0) {
           return (
             <div key={msg.id} className="response-chip-group" data-testid="response-chip-group">
               {chatMsg}
+              {guidanceRows}
               <SuggestedChips
                 chips={suggestedChips}
                 onChipClick={onChipClick}
                 isThinking={isThinking}
                 runGate={runGate}
               />
+            </div>
+          )
+        }
+        if (guidanceRows) {
+          return (
+            <div key={msg.id}>
+              {chatMsg}
+              {guidanceRows}
             </div>
           )
         }

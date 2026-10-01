@@ -51,6 +51,8 @@ export interface ConversationMessage {
   restoredTag?: string
   /** Result-first (CEE #2470): the turn's `narration` identity, so load 2 shows the Run line then ONE explanation. */
   narration?: { status: 'pending' | 'ready' | 'stale' | 'unavailable'; runKey: string }
+  /** T4: the turn's coaching rows (`guidance`, guidanceRows.ts), kept so load 2 shows the same challenge. */
+  guidance?: import('./guidanceRows').TurnGuidance
   /** Inline status text shown during tool execution (e.g. "Running simulations...") */
   toolLoadingState?: string | null
   /** Deterministic CEE insights — rendered between assistant_text and chips */
