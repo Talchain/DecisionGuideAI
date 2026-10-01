@@ -101,7 +101,7 @@ describe('B3b · the option card (expert block)', () => {
   const base = (over: Partial<OptionResult>): OptionResult =>
     ({ id: 'o1', label: 'Option one', expected: 120, outcome: { mean: 120, p10: 80, p50: 118, p90: 160 }, isRecommended: false, ...over }) as OptionResult
   const draw = (o: OptionResult) =>
-    render(<OptionCards options={[o, base({ id: 'o2', label: 'Option two' })]} winnerId={null} hasLeadingOption={false} expertMode />)
+    render(<OptionCards options={[o, base({ id: 'o2', label: 'Option two' })]} hasLeadingOption={false} expertMode />)
 
   it('with its spread, the accepted-estimate label sits under the range', () => {
     draw(base({ goalFigureWithheld: true, outcomeRestsOnAcceptedOlumi: true }))
