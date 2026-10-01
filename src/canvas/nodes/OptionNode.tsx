@@ -21,7 +21,6 @@ import { collapseEstimateDisplay } from './shared/collapseEstimateDisplay'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
 import { typography } from '../../styles/typography'
-import { optionOrdinalBadgeAccessibleName } from './shared/metricVocabulary'
 import { cleanFactorLabel, compactFactorLabel, sentenceCaseFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, joinInterventionDetails, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
 import { NODE_ROW_LABEL_MAX_CHARS, REPEATED_CARD_W, rowAmountMaxCharsFor } from '../utils/nodeLayoutConstants'
 import { useLayoutStore } from '../layoutStore'
@@ -759,11 +758,6 @@ export const OptionNode = memo((props: NodeProps) => {
     return olumiProposedKeptCopy(labels.length === ids.length ? { kind: 'named', labels } : { kind: 'unresolved' })
   })
   const resultsStatus = useCanvasStore(state => state.results.status)
-  // Wave 4 / §6.4: the identity-anchored option number (Wave F-A store),
-  // rendered on the canvas node so it matches the Analysis panel's "Option N"
-  // chip. Subscribed (not the outside-React snapshot) so it re-renders when the
-  // numbering registers. undefined until analysis registers this option.
-  const stableOptionNumber = useCanvasStore(state => state.optionNumbering?.[props.id])
   const isPostAnalysis = resultsStatus === 'complete'
   // The run's currency is read ONCE, below, through `useRunCurrency` — the same
   // composed authority as the panels (`useAnalysisTrust`), never a node-local
@@ -2566,84 +2560,12 @@ export const OptionNode = memo((props: NodeProps) => {
            the factors' driver ranks on the served board. It — and the
            UI-computed science hints — are Detailed information now; the rail
            carries only grounded icons at rest. */
-        headerSlot={isDetailed && (stableOptionNumber != null || scienceIcons.length > 0) ? (
+        /* ⭐ The option's number is no longer a header badge here: every repeated card now carries its number
+           before its title (`BaseNode`, Paul 1 Oct 2026), and for an option it is this SAME registered number
+           (`nodeTypeNumber` reads `optionNumbering`), so the card and the panel's "Option N" agree. Prefixed "O2",
+           it reads as an identifier, not a rank (MT-18). */
+        headerSlot={isDetailed && scienceIcons.length > 0 ? (
           <span className="inline-flex items-center gap-1">
-            {stableOptionNumber != null && (
-              <span
-                data-testid={`option-stable-number-${props.id}`}
-                /* ⚠ WAS `Option N`, WHICH READS AS A RANK. Two numbering
-                   systems share this canvas — `#1/#2/#3` on factors IS an
-                   ordering (by sensitivity), and this one is NOT. A bare
-                   "Option 3" is indistinguishable from the ranking badge to
-                   anyone using a screen reader, and that is the confusion the
-                   legend exists to prevent.
-
-                   Wording DERIVED from the legend's own gloss
-                   (`metricVocabulary.ts:373`) rather than written afresh, so the
-                   two cannot drift into saying different things about the same
-                   badge.
-
-                   ⚠⚠ THE SENTENCE ABOVE WAS FALSE WHEN IT WAS WRITTEN, AND IS
-                   KEPT RATHER THAN OVERWRITTEN BECAUSE IT IS THE RECORD OF HOW
-                   THIS SHIPPED. There was no import: the `aria-label` was a
-                   template literal that merely REPEATED the legend's wording,
-                   and this comment asserted the derivation that would have made
-                   that safe. A claim in a comment is not a coupling — it is the
-                   hand-maintained mirror this estate keeps paying for
-                   (CLAUDE.md trap 12), wearing the language of the fix.
-
-                   Nothing could have caught it: `ORDINAL_ROW_MUST_STATE_MINT`
-                   is applied only to `row.gloss`, so a legend rewrite would
-                   keep the mint guard green, leave this badge on the old
-                   words, and tell a screen-reader user something different
-                   from what a sighted reader sees in the popover.
-
-                   ⭐ IT IS TRUE NOW, AND BY IMPORT: the name comes from
-                   `optionOrdinalBadgeAccessibleName`, which is built from
-                   `ORDINAL_MINT_CLAUSE` — the same constant the legend row is
-                   built from. Two guards hold it, and they are not redundant:
-                   `metricVocabulary.spec.ts` asserts the builder's output
-                   carries the legend row's own clause (agreement), and the
-                   render specs assert THIS element's accessible name equals
-                   the builder's output (so re-inlining a literal here REDs).
-                   The rendered string is unchanged.
-
-                   ⭐⭐ AND `title` FROM THE SAME BUILDER, BECAUSE THE SENTENCE
-                   WAS REACHING ONLY HALF ITS AUDIENCE. Measured on the deployed
-                   board: of 358 `aria-label`s, 9 carry an explanatory
-                   disclosure and 5 of those had no hover text — four of them
-                   THIS badge, one per option. So the one reader who is told
-                   this is not a ranking was the one using a screen reader, and
-                   the sighted reader hovering the badge got nothing.
-                   ⚠ The comment above already names the harm in exactly those
-                   terms ("indistinguishable from the ranking badge to anyone
-                   using a screen reader") — it simply stopped one audience
-                   short.
-
-                   ⚠ AND THE BOARD MAKES IT CONCRETE. On `usage-based-billing`
-                   the badge reading `1` sits on the option with 24% support and
-                   the badge reading `3` on the option with 56%, so a reader who
-                   takes it for a placing reads the order backwards. The
-                   Reasoning tab for the same run says in terms that "no option
-                   can be called the leader" — the badge must not imply one.
-
-                   ⭐ THE PATTERN IS THE ESTATE'S OWN, EIGHT LINES UP: the
-                   robustness badge at :1773 carries `title` and `aria-label`
-                   built from ONE string for exactly this reason. This is that
-                   pattern applied, not a new convention — and it is the same
-                   builder, so the two audiences cannot be told different
-                   things. ⛔ NOT a second string, and NOT a new tooltip
-                   component: a `title` is unreachable by keyboard and absent on
-                   touch (`EstimateMarker`'s own ruling), which is why the
-                   `aria-label` stays and is not replaced by it. Both, or the
-                   disclosure keeps missing somebody. */
-                title={optionOrdinalBadgeAccessibleName(stableOptionNumber)}
-                aria-label={optionOrdinalBadgeAccessibleName(stableOptionNumber)}
-                className={`${typography.nodeLabel} inline-flex h-4 min-w-[16px] items-center justify-center rounded border border-panel-border px-1 text-text-light`}
-              >
-                {stableOptionNumber}
-              </span>
-            )}
             {scienceIcons.map(si => (
               <ScienceIcon key={si.id} icon={si.icon} tooltip={si.tooltip} action={si.action} colour={si.colour} />
             ))}

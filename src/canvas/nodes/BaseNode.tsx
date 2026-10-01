@@ -26,6 +26,7 @@ import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
 import { EditPencilCue } from './shared/EditPencilCue'
 import { useCanvasStore } from '../store'
+import { nodeTypeNumber, NODE_NUMBER_PREFIX, type NumberedNodeKind } from './shared/nodeTypeOrdinal'
 import { selectWinSharesWithheld } from '../state/winShareGate'
 import { EditableLabel } from '../ui/inspector-v2/shared/EditableLabel'
 import { TITLE_DOUBLE_CLICK_WINDOW_MS, handTitleClickToCard } from './shared/titleClickHandBack'
@@ -1074,7 +1075,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // answers a different, narrower question (what does opening this card do),
   // so this gap follows the contract literally rather than inventing a
   // longer hybrid sentence.
-  const accessibleNameWithoutAffordance = `${NODE_REGISTRY[nodeType].label}: ${cardTitle}. Open details.`
+  // ⭐ The card's number within its type (Paul, 1 Oct 2026): options 1…N, factors 1…N, outcomes, risks. Display only.
+  const typeOrdinal = useCanvasStore((s) => nodeTypeNumber(nodeType, id, s.nodes as never, s.optionNumbering))
+  const accessibleNameWithoutAffordance = `${NODE_REGISTRY[nodeType].label}${typeOrdinal !== undefined ? ` ${typeOrdinal}` : ''}: ${cardTitle}. Open details.`
   /**
    * ⭐⭐⭐ AND THE ONE EDIT EVERY KIND SUPPORTS IS NOW SAID OUT LOUD — on all
    * six, from here, because here is the only place all six pass through.
@@ -2693,6 +2696,16 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             )}
             {/* The title's words are their OWN element, so the pencil beside them never makes the title a non-leaf:
                 `cardCopyCensus` reads leaf text runs, and #2322's pencil hid every card's own label from it. */}
+            {typeOrdinal !== undefined && !lodBodyHidden && (
+              <span
+                aria-hidden="true"
+                data-testid="node-type-ordinal"
+                className="tabular-nums text-text-light mr-1.5"
+                style={{ fontWeight: 500 }}
+              >
+                {NODE_NUMBER_PREFIX[nodeType as NumberedNodeKind]}{typeOrdinal}
+              </span>
+            )}
             <span>{titleOverride ?? cardTitle}</span>
             {/* E1d: the pencil says the title renames in place (double-click). Zero-width; see `EditPencilCue`. */}
             {!lodBodyHidden && <EditPencilCue testId="node-title-pencil" />}
