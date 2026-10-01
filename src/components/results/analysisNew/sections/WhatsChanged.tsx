@@ -121,9 +121,16 @@ function InputChanges({ inputs, rowFocus }: { inputs: RunDeltaInputsView | null;
     )
   }
   if (inputs.rows.length === 0) {
-    return (
+    // ⛔ "Same inputs" is true ONLY on `complete` + no rows (AIQ 5921719917). On `partial` the producer could not compare
+    // every input, so an empty list is NOT "nothing changed" — the partial line wins (served 4f61c322: an option-setting
+    // edit read "Both runs used the same inputs", CANVAS 5921676745; DL re-balance 5921830092).
+    return inputs.coverage === 'complete' ? (
       <p className={`${typography.panelMeta} text-text-light mt-2 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-inputs-unchanged`}>
         Both runs used the same inputs.
+      </p>
+    ) : (
+      <p className={`${typography.panelMeta} text-text-light mt-2 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-inputs-partial`}>
+        Some inputs could not be compared between these two runs.
       </p>
     )
   }
