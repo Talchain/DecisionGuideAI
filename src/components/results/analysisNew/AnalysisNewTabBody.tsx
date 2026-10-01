@@ -2911,8 +2911,10 @@ export function AnalysisNewTabBody({
           /* ⚠⚠ THE FIFTH LIMB, from independent review. `AtAGlance` directly
              above renders `missingResults` on a provisional run — without this
              the panel names the results that did not come back and then
-             congratulates the reader on the model, in that order. */
-          isProvisional={vm.status.isProvisional}
+             congratulates the reader on the model, in that order.
+             A run whose goal figures the producer withheld is not partial (nothing was lost), but it has not held
+             up either: its figures for each option would be wrong (`aWithheldGoalFigureIsNotALostOne.spec.tsx`). */
+          isProvisional={vm.status.isProvisional || vm.status.goalFiguresWithheld}
           /* ⚠⚠ `onRecord={openDecisionRecord}` STOOD HERE AND HAS MOVED DOWN.
              The banner's predicate answers "did this model hold up?"; the act
              answers "may I write down what we chose?" — and hanging the second
