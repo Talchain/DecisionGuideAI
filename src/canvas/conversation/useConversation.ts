@@ -7070,7 +7070,7 @@ export function useConversation(): UseConversationReturn {
       label: EXPLAIN_RUN_LABEL,
       message: EXPLAIN_RUN_LABEL,
       hidden: true,
-      source: 'cee',
+      source: 'chip',
     }).finally(() => setExplainingRun(false))
   }, [pendingExplainKey, isThinking, dispatchAction])
 

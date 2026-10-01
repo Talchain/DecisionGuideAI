@@ -78,7 +78,7 @@ describe('the real stage while request 2 runs', () => {
         explainingRun={explainingRun}
         patchBlockStates={new Map()}
         patchRejections={new Map()}
-        onChipClick={() => {}}
+        onChipClick={async () => {}}
         onPatchAccept={() => {}}
         onPatchDismiss={() => {}}
         onFeedback={() => {}}
