@@ -54,7 +54,7 @@ export function CanvasProvenanceKey(): JSX.Element | null {
   const [open, setOpen] = useState(false)
   const panelId = useId()
 
-  const { granted, target } = useOverlayCell('bottom-right', T, !key.empty)
+  const { granted, target } = useOverlayCell('bottom-right', CANVAS_PROVENANCE_KEY_TESTID, !key.empty)
   if (key.empty || !granted) return null
 
   const body = (
