@@ -207,6 +207,7 @@ import {
   readNarration,
 } from './narrationTurn'
 import { readGuidance } from './guidanceRows'
+import { readProposalPreview } from './proposalPreview'
 import {
   beginInteractionChain,
   bindRequestToInteraction,
@@ -6032,6 +6033,7 @@ export function useConversation(): UseConversationReturn {
           // Result-first (narrationTurn.ts). LIVE path only: a transcript restore never reaches this branch.
           const narration = readNarration(target.response)
           const guidance = readGuidance(target.response)
+          const proposalPreview = readProposalPreview(target.response)
           if (namesALatestRun(narration)) {
             latestRunKeyRef.current = narration.runKey
             if (narration.status === 'pending' && !sentExplainKeysRef.current.has(narration.runKey)) {
@@ -6044,6 +6046,7 @@ export function useConversation(): UseConversationReturn {
             content: target.response.assistant_text,
             ...(narration ? { narration } : {}),
             ...(guidance ? { guidance } : {}),
+            ...(proposalPreview ? { proposalPreview } : {}),
             ...(transcriptBlocks.length > 0 ? { blocks: transcriptBlocks } : {}),
             ...(actionChips.length > 0 ? { actionChips } : {}),
             ...(reasoning ? { reasoning } : {}),
