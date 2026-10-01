@@ -3526,6 +3526,7 @@ function buildStatus(inputs: AnalysisNewViewModelInputs): AnalysisNewStatus {
     missingResults: missingRequired
       .map((k) => COPY.status.missingResultLabels[k])
       .filter((label): label is string => Boolean(label)),
+    goalFiguresWithheld,
   }
 }
 

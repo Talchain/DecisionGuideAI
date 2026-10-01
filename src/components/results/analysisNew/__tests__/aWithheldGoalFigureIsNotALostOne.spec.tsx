@@ -28,8 +28,10 @@ import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import { mapV5AnalysisToReport } from '../../../../v5/mapV5AnalysisToReport'
 import { useResultsSectionData } from '../../useResultsSectionData'
 import { GOAL_IDENTITY_NOT_EVALUATED_CODE } from '../../utils/goalIdentityWithheld'
+import { genuineDecision } from './analysisNewFixtures'
 
 const PROVISIONAL = 'analysis-new-status-provisional'
+const HELD_UP = 'analysis-new-held-up'
 type Warning = { code?: string; message?: string }
 const block = served.analysis_result as unknown as { enrichment: { inference_warnings: Warning[] } }
 const WITHHELD_WORDS = block.enrichment.inference_warnings.find((w) => w.code === GOAL_IDENTITY_NOT_EVALUATED_CODE)?.message ?? ''
@@ -81,6 +83,21 @@ describe('⭐ a goal figure the producer withheld is not a result that "did not 
     expect(screen.queryByTestId(PROVISIONAL)).toBeNull()
     expect(document.body.textContent ?? '').not.toContain('did not come back')
     expect(document.body.textContent ?? '').toContain(WITHHELD_WORDS)
+  })
+
+  it('⭐ READER: no longer "partial" never makes it "held up" — the banner still refuses a run whose goal figures were withheld', () => {
+    useCanvasStore.setState({ nodes: [], results: { status: 'complete', progress: 100 } } as never)
+    const drawn = (data: ReturnType<typeof genuineDecision>) => {
+      render(<AnalysisNewTabBody resultsSectionData={data} isPreRun={false} isRunning={false} isStale={false} responseHash="h" />)
+      const shown = screen.queryByTestId(HELD_UP) !== null
+      cleanup()
+      return shown
+    }
+    expect(drawn(genuineDecision()), 'CONTRAST: this fixture holds up').toBe(true)
+    const withheld = genuineDecision()
+    const same = { ...withheld, recommendation: { ...withheld.recommendation, goalFiguresWithheldMessage: WITHHELD_WORDS } }
+    expect(statusOf(same).isProvisional, 'precondition: not partial').toBe(false)
+    expect(drawn(same)).toBe(false)
   })
 
   it('CONTRAST: the same served read without the producer\'s withhold still names the missing outcome', () => {

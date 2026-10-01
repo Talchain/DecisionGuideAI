@@ -491,6 +491,11 @@ export interface AnalysisNewStatus {
    * token being shown.
    */
   missingResults: readonly string[]
+  /**
+   * The producer withheld every option's goal figures (`goalFiguresWithheldMessage`). Not "partial": nothing was
+   * lost. But a run whose goal figures would be wrong has not "held up" either, so the held-up banner reads it.
+   */
+  goalFiguresWithheld: boolean
 }
 
 /**
