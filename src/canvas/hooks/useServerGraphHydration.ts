@@ -54,7 +54,10 @@ import { getSessionIdentity } from '../../lib/supabase'
  */
 let routeAdoptedScenarioId: string | null = null
 
-/** A CEE-addressable route id may become the current scenario when the store holds none, or holds one a route set. */
+/**
+ * Whether the READ follows a CEE-addressable route id: the store holds no scenario, this one, or one a route set (so a
+ * link-to-link change re-reads). ADOPTION into the store is narrower: an empty store only (see the effect).
+ */
 function routeIsAdoptable(route: string | null | undefined, held: string | null): boolean {
   if (!route || !isCeeAddressableScenarioId(route)) return false
   return held === null || held === route || held === routeAdoptedScenarioId
@@ -81,14 +84,16 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
   // scenario's model on the canvas. Measured on served `69c05df1`: the boot proof declined the saved Run as
   // `scenario_not_current`, Reasoning said "No analysis has run yet", and every turn went out with `scenarioId: null`
   // (`useConversation.ts`), i.e. into a different scenario than the one on screen.
-  // Adopted only when the store holds no scenario, or holds the id a route adopted (so `/scenario/A` → `/scenario/B`
-  // still follows the link). A scenario the store got any other way (autosave, a draft, a turn) still wins, exactly as
-  // before. Declared BEFORE the read effect, so the read's proof sees the adopted id.
+  // Adopted ONLY into an empty store: the write target never moves to a model that is not on screen. On a link-to-link
+  // change (`/scenario/A` → `/scenario/B`) the read follows the new route (`routeIsAdoptable` above), but the store keeps
+  // A, whose model is still on the canvas; if B's read is refused (zero overlap), A stays on screen AND is where the next
+  // turn goes (CODEX UI BUDDY #2383 5923784243). A scenario the store got any other way (autosave, a draft, a turn) still
+  // wins, exactly as before. Declared BEFORE the read effect, so the read's proof sees the adopted id.
   // ⚠ STORE ONLY, NEVER THE POINTER: the route already says which scenario a reload means, and a pointer written here
   // would seed the NEXT session's store, so a later link to another scenario would be ignored.
   useEffect(() => {
     const held = useCanvasStore.getState().currentScenarioId ?? null
-    if (!routeIsAdoptable(scenarioIdFromRoute, held) || held === scenarioIdFromRoute) return
+    if (held !== null || !routeIsAdoptable(scenarioIdFromRoute, held)) return
     routeAdoptedScenarioId = scenarioIdFromRoute as string
     useCanvasStore.setState({ currentScenarioId: scenarioIdFromRoute })
   }, [scenarioIdFromRoute])

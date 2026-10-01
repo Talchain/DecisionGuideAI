@@ -47,7 +47,20 @@ function freshBrowser(over: Record<string, unknown> = {}): void {
   } as never)
 }
 
-const makeFetch = () => vi.fn(async (_url: unknown, _init?: unknown) => ({ ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(served)) }) as unknown as Response)
+/** A different saved scenario whose model shares no element with the linked one (the merge must refuse it). */
+const OTHER_READ = {
+  ...JSON.parse(JSON.stringify(served)),
+  scenario_id: '33333333-4444-4555-8666-777777777777',
+  graph: { nodes: [{ id: 'other_goal', kind: 'goal', label: 'Another decision' }], edges: [] },
+  graph_identity_hash: { ...(served as { graph_identity_hash: Record<string, unknown> }).graph_identity_hash, value: 'f'.repeat(64) },
+  analysis_state: null,
+  analysis_result: null,
+}
+const makeFetch = () => vi.fn(async (url: unknown, _init?: unknown) => ({
+  ok: true,
+  status: 200,
+  json: async () => JSON.parse(JSON.stringify(String(url).includes(OTHER_READ.scenario_id) ? OTHER_READ : served)),
+}) as unknown as Response)
 const spyWarn = () => vi.spyOn(logger, 'warn')
 let fetchSpy: ReturnType<typeof makeFetch>
 let warn: ReturnType<typeof spyWarn>
@@ -99,13 +112,18 @@ describe('⭐ a fresh deep link binds the scenario it opens', () => {
     expect(localStorage.getItem(POINTER)).toBeNull()
   })
 
-  it('a link-to-link navigation (/scenario/A → /scenario/B) follows the link it adopted', async () => {
+  it('link to link (/scenario/A → /scenario/B, A loaded): B is re-read, and the write target never moves to a model not on screen (CODEX UI BUDDY 5923784243)', async () => {
     freshBrowser()
-    const { rerender } = renderHook(({ id }) => useServerGraphHydration(id), { initialProps: { id: OTHER } })
-    await waitFor(() => expect(useCanvasStore.getState().currentScenarioId).toBe(OTHER))
-    rerender({ id: SID })
-    await waitFor(() => expect(useCanvasStore.getState().currentScenarioId).toBe(SID))
-    await waitFor(() => expect(fetchSpy.mock.calls.some((c) => String(c[0]).includes(SID))).toBe(true))
+    const { rerender } = renderHook(({ id }) => useServerGraphHydration(id), { initialProps: { id: SID } })
+    await waitFor(() => expect(useCanvasStore.getState().analysisStateV1?.run_state.kind).toBe('complete_current'))
+    const onScreen = useCanvasStore.getState().nodes.map((n) => n.id).sort()
+    rerender({ id: OTHER })
+    // B IS re-read (the DL's "A → B re-reads")…
+    await waitFor(() => expect(fetchSpy.mock.calls.some((c) => String(c[0]).includes(OTHER))).toBe(true))
+    await new Promise((r) => setTimeout(r, 20))
+    // …its zero-overlap merge is refused, so A stays on screen, and A is still where the next turn goes.
+    expect(useCanvasStore.getState().nodes.map((n) => n.id).sort()).toEqual(onScreen)
+    expect(useCanvasStore.getState().currentScenarioId).toBe(SID)
   })
 
   it('⭐ DL row: the next turn goes to the scenario on screen — the dispatch\'s own inputs (store id, `isUUID` mint guard, the real payload builder)', async () => {
