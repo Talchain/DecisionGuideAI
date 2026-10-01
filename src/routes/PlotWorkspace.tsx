@@ -778,7 +778,7 @@ function PlotWorkspaceInner() {
                 onChange={(e) => setEditingLabel(e.target.value)}
                 onBlur={handleCommitRename}
                 autoFocus
-                className="w-full px-3 py-2 text-sm font-semibold text-center bg-white border-2 border-info/30 rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-info/30"
+                className="w-full px-3 py-2 text-sm font-semibold text-center bg-white border-2 border-info/30 rounded-lg shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-info/30"
                 placeholder="Node name..."
               />
             </div>

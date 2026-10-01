@@ -37,7 +37,7 @@ function PanelWrapper({ children }: { children: React.ReactNode }) {
         width: 380,
         maxHeight: '90vh',
         overflow: 'auto',
-        background: 'var(--bg-panel, #FEFEFE)',
+        background: 'var(--bg-panel, #FEF9F3)',
         borderRadius: 16,
         padding: 16,
         fontFamily: 'Inter, system-ui, sans-serif',

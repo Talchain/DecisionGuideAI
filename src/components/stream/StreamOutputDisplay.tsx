@@ -117,7 +117,7 @@ function StreamOutputDisplay({
               aria-label={o.lang ? `Copy ${o.lang} code` : 'Copy code'}
               data-copied={copiedId === o.id ? 'true' : undefined}
               data-failed={failedId === o.id ? 'true' : undefined}
-              className="absolute text-[11px] px-2 py-0.5 rounded border bg-white shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-info"
+              className="absolute text-[11px] px-2 py-0.5 rounded border bg-white shadow-sm hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
               style={{ top: `${o.top}px`, left: `${o.left}px`, transform: 'translate(-100%, 0)' }}
               onClick={() => onCopyCode?.(o.id, o.code)}
             >

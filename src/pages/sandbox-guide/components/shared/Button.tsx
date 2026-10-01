@@ -23,13 +23,13 @@ export function Button({
   disabled,
   ...props
 }: ButtonProps): JSX.Element {
-  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed'
+  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed'
 
   const variantStyles: Record<ButtonVariant, string> = {
-    primary: 'bg-analytical-500 text-white hover:bg-analytical-600 focus:ring-analytical-500',
-    secondary: 'bg-practical-500 text-white hover:bg-practical-600 focus:ring-practical-500',
-    outline: 'border-2 border-storm-300 text-charcoal-900 hover:bg-storm-50 focus:ring-storm-300',
-    ghost: 'text-charcoal-900 hover:bg-storm-100 focus:ring-storm-300',
+    primary: 'bg-analytical-500 text-white hover:bg-analytical-600 focus-visible:ring-analytical-500',
+    secondary: 'bg-practical-500 text-white hover:bg-practical-600 focus-visible:ring-practical-500',
+    outline: 'border-2 border-storm-300 text-charcoal-900 hover:bg-storm-50 focus-visible:ring-storm-300',
+    ghost: 'text-charcoal-900 hover:bg-storm-100 focus-visible:ring-storm-300',
   }
 
   const sizeStyles: Record<ButtonSize, string> = {

@@ -212,7 +212,7 @@
   top: calc(100% + 8px);
   right: 0;
   min-width: 220px;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border: 1px solid var(--border-default, #EEE6D8);
   border-radius: 10px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.06);
@@ -237,7 +237,7 @@
 }
 
 .dropdownMenuButton:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .dropdownMenuButton:focus-visible {
@@ -322,7 +322,7 @@
   border-style: solid;
   border-color: var(--border-default, #EEE6D8); /* fallback; overridden inline */
   border-radius: 999px;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   color: var(--text-body, #3F3F3E);
   white-space: nowrap;
 }
@@ -350,7 +350,7 @@
   font-weight: 400;
   border: 1px solid var(--border-default, #EEE6D8);
   border-radius: 12px;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   color: var(--text-body, #3F3F3E);
   white-space: nowrap;
 }

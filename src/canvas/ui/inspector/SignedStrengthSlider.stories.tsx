@@ -18,7 +18,7 @@ type Story = StoryObj<typeof meta>
 function SliderWrapper({ initial = 0 }: { initial?: number }) {
   const [value, setValue] = useState(initial)
   return (
-    <div style={{ width: 320, padding: 16, background: 'var(--bg-panel, #FEFEFE)' }}>
+    <div style={{ width: 320, padding: 16, background: 'var(--bg-panel, #FEF9F3)' }}>
       <SignedStrengthSlider value={value} onChange={setValue} />
       <p style={{ fontSize: 11, color: 'var(--text-light)', marginTop: 8 }}>
         weight: {Math.abs(value).toFixed(2)}, direction: {value >= 0 ? 'positive' : 'negative'}

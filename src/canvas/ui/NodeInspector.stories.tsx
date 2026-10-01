@@ -41,7 +41,7 @@ function StoreWrapper({
   }, [storeState])
 
   return (
-    <div style={{ width: 320, background: 'var(--bg-panel, #FEFEFE)', borderRadius: 8 }}>
+    <div style={{ width: 320, background: 'var(--bg-panel, #FEF9F3)', borderRadius: 8 }}>
       <NodeInspector nodeId={nodeId} onClose={noop} />
     </div>
   )

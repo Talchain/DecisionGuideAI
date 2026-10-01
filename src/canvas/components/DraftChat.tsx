@@ -1525,7 +1525,7 @@ export function DraftChat() {
                     : "Describe your decision... e.g., We're deciding whether to expand into the European market. Key factors include regulatory costs, market size, and competition..."}
                   className={`
                     ${typography.body} w-full p-3 pb-12 rounded-md border border-sand-200
-                    focus:border-sand-200 focus:outline-none focus:ring-0 focus:shadow-none
+                    focus:border-sand-200 focus:outline-none focus-visible:ring-0 focus:shadow-none
                     resize-none
                     placeholder:text-ink-400
                   `}

@@ -12,12 +12,12 @@
  * On the deployed build (21 Sep 2026) the factor value input — the control that
  * edits the model, which is the entire product — was:
  *
- *     bg-transparent border-b border-panel-border focus:border-primary
+ *     bg-transparent border-b border-panel-border
  *
  * i.e. a transparent box whose only marking was a 1px underline measuring
  * **1.23 : 1** against the panel background. WCAG 1.4.11 asks 3.00 : 1 for a
  * non-text indicator, so it failed by 2.4x and rendered as plain text. The one
- * visible state (`focus:border-primary`) arrives only AFTER the user has found
+ * visible state (``) arrives only AFTER the user has found
  * and clicked it — the field announces itself exclusively to people who already
  * knew it was there.
  *
@@ -84,11 +84,11 @@ export const controls = {
    * fill (`bg-panel-hover`, a warm tint) separates the field from the panel even
    * where a border is missed, so the affordance does not rest on one 1px line.
    *
-   * `focus:border-primary` is KEPT — it was never the problem. The defect was
+   * `` is KEPT — it was never the problem. The defect was
    * that focus was the FIRST visible state, not that it was the wrong one.
    */
   editableField:
-    'w-full rounded-md bg-panel-hover border border-field focus:border-primary outline-none px-2 py-1 transition-colors' +
+    'w-full rounded-md bg-panel-hover border border-field outline-none px-2 py-1 transition-colors' +
     DISABLED_FENCE,
 
   /**
@@ -98,7 +98,7 @@ export const controls = {
    * fixed-width column and a user-dragged corner reflows the panel.
    */
   editableTextarea:
-    'w-full rounded-md bg-panel-hover border border-field focus:border-primary outline-none px-2.5 py-1.5 resize-none transition-colors' +
+    'w-full rounded-md bg-panel-hover border border-field outline-none px-2.5 py-1.5 resize-none transition-colors' +
     DISABLED_FENCE,
 
   /**
@@ -175,7 +175,7 @@ export const controls = {
     ' hover:border-field hover:bg-panel-hover focus:outline-none focus-visible:border-field focus-visible:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info',
 
   /** The card's value input — the SAME box as `editableRestingCanvas`, now framed. */
-  editableFieldCanvas: `${CANVAS_VALUE_BOX} border-field bg-panel-hover outline-none focus:border-primary`,
+  editableFieldCanvas: `${CANVAS_VALUE_BOX} border-field bg-panel-hover outline-none`,
 
   /**
    * The pencil cue beside a resting editable value.

@@ -38,7 +38,21 @@
   *:focus:not(:focus-visible) {
     outline: none;
   }
+  /* Paul, 1 Oct 2026: no blue highlight when anything is clicked. Browsers treat a click into a text field as
+     :focus-visible, so text fields never ring or outline at all — the caret is their focus mark. Every
+     `focus:ring-*` in src is `focus-visible:ring-*` (keyboard only); `focusRingsAreKeyboardOnly.spec.ts` keeps it so. */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):focus,
+  textarea:focus,
+  select:focus,
+  [contenteditable='true']:focus {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+  /* Keyboard focus stays visible (WCAG 2.4.7) but is neutral, never blue (Paul, 1 Oct 2026; Canvas 5929648550):
+     a browser can treat focus after typing as :focus-visible, so a blue keyboard ring would still flash on click.
+     `!important` on the custom property outranks every `focus-visible:ring-<colour>` class without editing them. */
   *:focus-visible {
+    --tw-ring-color: rgb(var(--text-light-rgb) / 0.6) !important;
     outline: 2px solid var(--focus-color, var(--info));
     outline-offset: 2px;
     border-radius: 4px;

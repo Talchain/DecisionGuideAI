@@ -97,8 +97,10 @@ describe('an editable field is visibly a field', () => {
     expect(controls.editableField).not.toMatch(/\bborder-b\b/)
   })
 
-  it('focus is still marked — it was never the defect', () => {
-    expect(controls.editableField).toContain('focus:border-primary')
+  // REVERSED 1 Oct 2026 (Paul: "remove all of the blue highlighted borders when anything is clicked on"): a click
+  // into a field is :focus-visible in every browser, so any focus border is a blue click border. The caret marks it.
+  it('a clicked field shows no blue focus border', () => {
+    expect(controls.editableField).not.toMatch(/focus(-visible)?:border-(primary|info|sky)/)
   })
 })
 

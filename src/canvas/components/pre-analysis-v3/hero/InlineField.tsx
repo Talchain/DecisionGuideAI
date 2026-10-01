@@ -179,7 +179,7 @@ export const InlineField = memo(function InlineField({
           aria-label={ariaLabel}
           aria-invalid={hint ? true : undefined}
           aria-describedby={hint ? hintId : undefined}
-          className={`${typography.panelBody} h-8 w-full rounded-lg border bg-panel px-2 text-text-header outline-none transition-colors placeholder:text-text-light focus:border-info focus:ring-2 focus:ring-info/20 ${
+          className={`${typography.panelBody} h-8 w-full rounded-lg border bg-panel px-2 text-text-header outline-none transition-colors placeholder:text-text-light focus-visible:ring-2 focus-visible:ring-info/20 ${
             hint ? 'border-warning/60' : attention ? 'border-warning/60' : 'border-panel-border'
           }`}
           value={draft}

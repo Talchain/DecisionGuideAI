@@ -240,7 +240,7 @@ export function AskOlumiDrawer() {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               rows={3}
-              className={`${typography.panelBody} min-h-[64px] w-full resize-y rounded-[9px] border border-panel-border bg-transparent px-2 py-2 text-text-body focus:border-info focus:outline-none`}
+              className={`${typography.panelBody} min-h-[64px] w-full resize-y rounded-[9px] border border-panel-border bg-transparent px-2 py-2 text-text-body focus:outline-none`}
             />
             {!canSend && (
               <p className={`${typography.panelMeta} mt-1 text-text-light`}>

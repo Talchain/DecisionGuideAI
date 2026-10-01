@@ -378,7 +378,6 @@ const KNOWN_FALLBACK_DRIFT = [
   // head, each of the six returns 0 occurrences repo-wide, with `--option|#7BAD55`
   // (1), `--semantic-danger|#ef4444` (4) and `--text-body|#404040` (1) returning
   // non-zero in the SAME sweep — so the zeros are measured, not blindness.
-  '--bg-panel|#FEF9F3',
   '--bg-panel|#FFFDF7',
   '--bg-panel-hover|#F5EEE0',
   '--bg-panel-hover|rgba(0,0,0,0.02)',
@@ -396,7 +395,6 @@ const KNOWN_FALLBACK_DRIFT = [
   // bare token; this census reported it as no longer drifting.
   '--shadow-2|0 4px 12px rgba(0,0,0,0.08)',
   '--success-light|rgba(103,200,158,0.3)',
-  '--surface-card|#FEF9F3',
   '--text-body|#262626',
   '--text-body|#2A2A2A',
   '--text-body|#404040',

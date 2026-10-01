@@ -106,7 +106,7 @@ export function WhatElseChooser({ open, onClose }: { open: WhatElseOpen; onClose
           placeholder="Or say what to add…"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          className={`${typography.panelBody} w-full rounded border border-panel-border bg-panel px-2 py-1 focus:outline-none focus:border-info`}
+          className={`${typography.panelBody} w-full rounded border border-panel-border bg-panel px-2 py-1 focus:outline-none`}
         />
       </form>
     </div>

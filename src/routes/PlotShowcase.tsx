@@ -323,7 +323,7 @@ export default function PlotShowcase() {
                 type="text"
                 value={template}
                 onChange={(e) => setTemplate(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-info focus:border-info/30"
+                className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus-visible:ring-info"
                 style={{ minWidth: '200px' }}
               />
             </div>
@@ -333,13 +333,13 @@ export default function PlotShowcase() {
                 type="number"
                 value={seed}
                 onChange={(e) => setSeed(Number(e.target.value))}
-                className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-info focus:border-info/30"
+                className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus-visible:ring-info"
                 style={{ width: '100px' }}
               />
             </div>
             <button
               onClick={runFlow}
-              className="px-6 py-2 bg-primary text-text-on-color font-semibold rounded-md shadow-sm hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-info"
+              className="px-6 py-2 bg-primary text-text-on-color font-semibold rounded-md shadow-sm hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
             >
               Run
             </button>
@@ -348,7 +348,7 @@ export default function PlotShowcase() {
                 type="checkbox"
                 checked={liveStream}
                 onChange={toggleLiveStream}
-                className="rounded border-gray-300 text-info focus:ring-info"
+                className="rounded border-gray-300 text-info focus-visible:ring-info"
               />
               <span className="text-sm font-medium text-gray-700">Live stream</span>
             </label>

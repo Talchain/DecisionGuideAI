@@ -45,7 +45,7 @@ function enabledFocusables(card: HTMLElement | null): HTMLElement[] {
 }
 
 /** Prototype `.field` input treatment: radius 9, panel bg, focus border-info. */
-export const FIELD_INPUT_CLASS = `w-full rounded-[9px] border border-panel-border bg-panel px-2 py-2 ${typography.panelBody} text-text-header focus:border-info focus:outline-none disabled:cursor-not-allowed disabled:opacity-50`
+export const FIELD_INPUT_CLASS = `w-full rounded-[9px] border border-panel-border bg-panel px-2 py-2 ${typography.panelBody} text-text-header focus:outline-none disabled:cursor-not-allowed disabled:opacity-50`
 
 /** Prototype ghost button (Cancel). */
 export const GHOST_BUTTON_CLASS = `inline-flex items-center gap-1 rounded-full border border-panel-border bg-transparent px-3 py-2 ${typography.panelBody} text-text-body hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`

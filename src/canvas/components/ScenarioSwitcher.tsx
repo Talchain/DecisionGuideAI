@@ -415,7 +415,7 @@ export function ScenarioSwitcher({
           ) : (
             <button
               onClick={startRename}
-              className="max-w-[360px] truncate cursor-text text-left rounded px-0.5 hover:bg-info/10 focus:outline-none focus:ring-2 focus:ring-info transition-colors"
+              className="max-w-[360px] truncate cursor-text text-left rounded px-0.5 hover:bg-info/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-info transition-colors"
               type="button"
               title="Rename model"
               aria-label={`Rename model, currently ${resolvedName}`}
@@ -433,7 +433,7 @@ export function ScenarioSwitcher({
 
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="shrink-0 p-0.5 rounded hover:bg-info/10 focus:outline-none focus:ring-2 focus:ring-info transition-colors"
+            className="shrink-0 p-0.5 rounded hover:bg-info/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-info transition-colors"
             type="button"
             aria-expanded={isOpen}
             aria-haspopup="true"
@@ -641,7 +641,7 @@ export function ScenarioSwitcher({
                   setInputValue('')
                 }
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2"
               placeholder="Scenario name"
               autoFocus
             />

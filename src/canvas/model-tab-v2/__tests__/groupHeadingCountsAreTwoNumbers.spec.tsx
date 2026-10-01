@@ -280,13 +280,13 @@ describe('the unset summary is a legal text colour (WCAG SC 1.4.3)', () => {
   it('the maths can SEE a failure it is asserting the absence of (positive control)', () => {
     // 1. The KNOWN-BAD value — the colour this PR's first head shipped — must
     //    FAIL on both grounds, to the second decimal.
-    expect(contrast('#FFA656', declared('--bg-panel'))).toBeCloseTo(1.92, 2)
-    expect(contrast('#FFA656', declared('--bg-panel-hover'))).toBeCloseTo(1.85, 2)
+    expect(contrast('#FFA656', declared('--bg-panel'))).toBeCloseTo(1.85, 2) // re-measured on the 1 Oct 2026 cream panel (#FEF9F3, Paul)
+    expect(contrast('#FFA656', declared('--bg-panel-hover'))).toBeCloseTo(1.82, 2)
     expect(contrast('#FFA656', declared('--bg-panel'))).toBeLessThan(WCAG_TEXT_MIN)
 
     // 2. A known-good pairing must PASS, or the function is just returning
     //    something small for everything.
-    expect(contrast('#6E6B6B', declared('--bg-panel'))).toBeCloseTo(5.23, 2)
+    expect(contrast('#6E6B6B', declared('--bg-panel'))).toBeCloseTo(5.04, 2)
 
     // 3. Spec anchors, so a broken formula cannot agree with itself.
     expect(contrast('#000000', '#FFFFFF')).toBeCloseTo(21, 4)

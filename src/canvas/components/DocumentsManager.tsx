@@ -128,7 +128,7 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
               placeholder="Search documents..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full pl-9 pr-8 py-1.5 ${typography.body} border border-gray-300 rounded-md focus:ring-2 focus:ring-info focus:border-transparent`}
+              className={`w-full pl-9 pr-8 py-1.5 ${typography.body} border border-gray-300 rounded-md focus-visible:ring-2 focus-visible:ring-info focus:border-transparent`}
               aria-label="Search documents"
             />
             {searchQuery && (
@@ -336,7 +336,7 @@ function DocumentCard({
                   onBlur={handleRename}
                   autoFocus
                   maxLength={120}
-                  className={`flex-1 px-2 py-1 ${typography.body} border border-info rounded focus:ring-2 focus:ring-info focus:outline-none`}
+                  className={`flex-1 px-2 py-1 ${typography.body} border border-info rounded focus-visible:ring-2 focus-visible:ring-info focus:outline-none`}
                   aria-label={`Rename document ${document.name}`}
                   aria-invalid={!!validationError}
                   aria-describedby={validationError ? `error-${document.id}` : undefined}

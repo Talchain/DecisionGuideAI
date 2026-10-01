@@ -294,7 +294,7 @@ export function ComposerTools({
             }
           }
           .composer-tools-trigger:hover {
-            background: var(--bg-panel-hover, #FEF9F3);
+            background: var(--bg-panel-hover, #FCF7F1);
             color: var(--text-body, #3F3F3E);
           }
         `}</style>

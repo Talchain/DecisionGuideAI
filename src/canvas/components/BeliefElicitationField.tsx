@@ -188,7 +188,7 @@ export function BeliefElicitationField({
         ref={inputRef}
         aria-label={describeInWordsFieldLabel(label)}
         data-size={size}
-        className={`${typography.panelBody} ${FIELD_SIZE[size]} rounded-lg border border-panel-border bg-panel text-text-header outline-none placeholder:text-text-light focus:border-info focus:ring-2 focus:ring-info/20`}
+        className={`${typography.panelBody} ${FIELD_SIZE[size]} rounded-lg border border-panel-border bg-panel text-text-header outline-none placeholder:text-text-light focus-visible:ring-2 focus-visible:ring-info/20`}
         placeholder="e.g. pretty likely"
         value={phrase}
         onChange={e => onPhraseChange(e.target.value)}

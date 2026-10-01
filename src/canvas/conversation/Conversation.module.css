@@ -95,14 +95,14 @@
   padding-left: 32px; /* pl-8: nested list indent */
 }
 .markdownContent code {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
   padding: 1px 5px;
   border-radius: 4px;
   font-size: var(--conv-type-size-body);
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', Menlo, monospace;
 }
 .markdownContent pre {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
   border: 1px solid var(--border-default, #EEE6D8);
   border-radius: 6px;
   padding: 10px 12px;
@@ -141,7 +141,7 @@
      replaces DS v5 §21.1's right-aligned bubble. */
   width: 100%;
   max-width: 100%;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   color: var(--text-body, #3F3F3E);
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06);
 }
@@ -206,7 +206,7 @@
 }
 
 .sendFailedRetryButton:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .sendFailedRetryButton:focus-visible {
@@ -232,7 +232,7 @@
   display: flex;
   width: fit-content;
   align-items: center;
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
   color: var(--text-light, #6E6B6B);
   border-radius: 8px;
   padding: var(--space-1, 4px) var(--space-2, 8px);
@@ -332,7 +332,7 @@
   gap: 4px;
   padding: 12px 16px;
   align-self: flex-start;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border: 1px solid var(--border-default, #EEE6D8);
   border-radius: 12px;
   max-width: 85%;
@@ -420,7 +420,7 @@
    Tailwind opacity modifiers because brand.css defines colours as hex. */
 .reviewCardInfo {
   border: 1px solid color-mix(in srgb, var(--info, #277A9D) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE); /* DS v5 §16.2: coaching cards use bg-panel, not bg-info-light */
+  background: var(--bg-panel, #FEF9F3); /* DS v5 §16.2: coaching cards use bg-panel, not bg-info-light */
   padding: 12px;
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
@@ -431,7 +431,7 @@
 
 .reviewCardAlert {
   border: 1px solid color-mix(in srgb, var(--danger, #EA7B4B) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   padding: 12px;
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
@@ -458,7 +458,7 @@
 
 .factBlock {
   border: 1px solid color-mix(in srgb, var(--success, #67C89E) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
@@ -504,7 +504,7 @@
 
 .graphPatchBlock {
   border: 1px solid color-mix(in srgb, var(--goal, #F5C433) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 16px;
@@ -575,7 +575,7 @@
   gap: 8px;
   padding: 8px 10px;
   border-radius: 12px; /* DS v5 §6.2: cards inside panels use md (12px) */
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
   border: 1px solid var(--border-default, #EEE6D8); /* neutral panel-border, no semantic colour */
 }
 
@@ -652,7 +652,7 @@
 }
 
 .graphPatchDismiss:hover:not(:disabled) {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .graphPatchDismiss:disabled {
@@ -763,7 +763,7 @@
 .reasoningPanel {
   margin-top: 8px;
   padding: 10px 12px;
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
   border: 1px solid var(--border-default, #EEE6D8);
   border-radius: 6px;
 }
@@ -806,7 +806,7 @@
 
 .framingBlock {
   border: 1px solid color-mix(in srgb, var(--info, #277A9D) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
@@ -863,7 +863,7 @@
 
 .briefBlock {
   border: 1px solid color-mix(in srgb, var(--success, #67C89E) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
@@ -1159,7 +1159,7 @@
   margin-top: 8px;
   padding: 12px;
   border-left: 2px solid var(--border-default, #EEE6D8);
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
   border-radius: 4px;
 }
 
@@ -1207,7 +1207,7 @@
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 10px 12px;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1305,18 +1305,18 @@
 }
 
 .chipPrimary:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .chipSecondary {
   composes: chip;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   color: var(--text-body, #3F3F3E);
   border-color: var(--border-default, #EEE6D8);
 }
 
 .chipSecondary:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .chipUndo {
@@ -1327,7 +1327,7 @@
 }
 
 .chipUndo:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 /* ---------------------------------------------------------------------------
@@ -1385,7 +1385,7 @@
 }
 
 .baseRateChip:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .baseRateChip:focus-visible {
@@ -1463,7 +1463,7 @@
   padding: 8px 10px 8px 12px;
   min-height: 40px;
   max-height: 48px;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-top: 1px solid var(--border-default, #EEE6D8);
   box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.04);
   flex-shrink: 0;
@@ -1536,7 +1536,7 @@
 }
 
 .guidanceStripAction:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .guidanceStripAction:focus-visible {
@@ -1585,7 +1585,7 @@
   gap: 8px;
   padding: 12px 16px;
   border-top: 1px solid var(--border-default, #EEE6D8);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   flex-shrink: 0;
 }
 
@@ -1594,7 +1594,7 @@
   padding: 10px 12px;
   border: 1px solid var(--border-default, #EEE6D8);
   border-radius: 12px;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   color: var(--text-body, #3F3F3E);
   font-family: 'Inter', sans-serif;
   font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
@@ -1658,7 +1658,7 @@
   max-width: 100%;
   padding: 12px 16px;
   border-radius: 12px;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border: 1px solid var(--border-default, #EEE6D8);
   color: var(--text-body, #3F3F3E);
 }
@@ -1698,7 +1698,7 @@
   padding: 0 16px;
   min-height: 40px;
   max-height: 44px;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-bottom: 1px solid var(--border-default, #EEE6D8);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   flex-shrink: 0;
@@ -1745,7 +1745,7 @@
   padding: 4px 10px;
   border-radius: 6px;
   border: 1px solid var(--border-default, #EEE6D8);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   color: var(--text-body, #3F3F3E);
   font-size: var(--conv-type-size-body);
   font-weight: var(--conv-type-weight-medium);
@@ -1755,7 +1755,7 @@
 }
 
 .actionStripCta:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .actionStripBadge {
@@ -1872,7 +1872,7 @@
 
 .comparisonBlock {
   border: 1px solid color-mix(in srgb, var(--info, #277A9D) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
@@ -1894,7 +1894,7 @@
 
 .premortemBlock {
   border: 1px solid color-mix(in srgb, var(--warning, #FFA656) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
@@ -1913,7 +1913,7 @@
 
 .flipAnalysisBlock {
   border: 1px solid color-mix(in srgb, var(--danger, #EA7B4B) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
@@ -1924,7 +1924,7 @@
 
 .proposalBlock {
   border: 1px solid color-mix(in srgb, var(--goal, #F5C433) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
@@ -1935,7 +1935,7 @@
 
 .exerciseBlock {
   border: 1px solid color-mix(in srgb, var(--info, #277A9D) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
@@ -1970,7 +1970,7 @@
   padding: 6px 10px;
   border-radius: 6px;
   border: 1px solid var(--border-default, #EEE6D8);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
 }
 
 .insightItemWarning {
@@ -2014,7 +2014,7 @@
 }
 
 .insightActionChip:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .insightActionChip:focus-visible {
@@ -2109,7 +2109,7 @@
 }
 
 .phase3PacingToggle:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .vocabularyLegend {
@@ -2139,7 +2139,7 @@
 .vocabularyLegendList {
   margin: 0;
   padding: 8px 12px;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border: 1px solid var(--border-default, #EEE6D8);
   border-radius: 8px;
   display: flex;
@@ -2201,7 +2201,7 @@
 }
 
 .coachingLineSummary:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .coachingLineSummary:focus-visible {
