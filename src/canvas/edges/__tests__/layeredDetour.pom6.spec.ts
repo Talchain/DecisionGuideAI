@@ -148,8 +148,11 @@ describe('POM-6 — the row-end prompt is an obstacle in its band', () => {
   })
 
   it('a line that would run under the prompt is routed clear of it', () => {
-    // "Other MRR growth → MRR" on 90b8: its source sits above the prompt.
-    const OTHER: Box = { id: 'other_mrr_growth', x: 912, y: 300, width: 248, height: 100, tier: 2 }
+    // "Other MRR growth → MRR" on 90b8: its source sits above the prompt, its port 12 right of the prompt's right
+    // edge, so the line bends left through the prompt on its way to MRR (Paul 1 Oct halved the prompt to 32; the
+    // old source, port at x 1036, then passed clear of it and the CONTRAST below went false). Probed: a port at
+    // x 932–980 crosses the 32 prompt blind and clears it routed; 956 is the middle.
+    const OTHER: Box = { id: 'other_mrr_growth', x: 912 + ROW_PROMPT_W + 12 - 248 / 2, y: 300, width: 248, height: 100, tier: 2 }
     const boxes = layeredRouteBoxes(
       [card(SUBSCRIBERS, 'factor'), card(NEW_SUBS, 'factor'), card(PRICE_SENSITIVITY, 'risk'), card(CHURN, 'outcome'), card(MRR, 'goal'), card(OTHER, 'factor'), prompt],
       () => false,

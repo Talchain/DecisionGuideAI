@@ -416,10 +416,10 @@ describe('METRIC_LEGEND_ROWS', () => {
       ).toBe(true)
       // (b) …and it is CALLED, not merely imported. An unused import would
       //     satisfy (a) while the label went back to a literal.
-      //     Since Paul's 1 Oct 2026 per-type number, the option number is aria-hidden (the card's own name says
-      //     "Option 2") and the builder's sentence reaches the sighted reader as the number's `title`.
+      //     Since Paul's 1 Oct 2026 per-type number, the number is the title's generated `::before` (no element of its
+      //     own), and the builder's sentence is part of the card's accessible name, built in one named const.
       expect(
-        new RegExp(`(aria-label|title)=\\{[^}]*${site.builder}\\(`).test(src),
+        new RegExp(`(aria-label|title)=\\{[^}]*${site.builder}\\(|const typeOrdinalSentence =[^;]*${site.builder}\\(`).test(src),
         `${site.file} imports ${site.builder} without calling it`,
       ).toBe(true)
 

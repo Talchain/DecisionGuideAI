@@ -2258,10 +2258,11 @@ describe('OptionNode — display coherence (audit §8)', () => {
       selector(makeStoreState({ optionNumbering: { 'option-1': 2 } }) as any),
     )
     renderOption()
-    const number = screen.getByTestId('node-type-ordinal')
-    expect(number).toHaveTextContent(/^O2$/)
-    expect(number.getAttribute('title')).toBe(optionOrdinalBadgeAccessibleName(2))
-    expect(number.getAttribute('aria-hidden')).toBe('true')
+    // The number is the title's generated `::before` (index.css), never its text: the title reads the label alone.
+    const title = screen.getByTestId('node-title')
+    expect(title.getAttribute('data-type-ordinal')).toBe('O2')
+    expect(title.textContent).not.toMatch(/O2/)
+    expect(screen.getByRole('group').getAttribute('aria-label')).toContain(`${optionOrdinalBadgeAccessibleName(2)}.`)
     // The retired header badge is gone, not merely joined by the new number.
     expect(screen.queryByTestId('option-stable-number-option-1')).toBeNull()
   })
@@ -2272,7 +2273,7 @@ describe('OptionNode — display coherence (audit §8)', () => {
     )
     renderOption()
     expect(screen.getByTestId('node-title')).toBeInTheDocument()
-    expect(screen.getByTestId('node-type-ordinal').textContent).toMatch(/^O\d+$/)
+    expect(screen.getByTestId('node-title').getAttribute('data-type-ordinal')).toMatch(/^O\d+$/)
   })
 
   it('CONTROL: with no registration and no option on the board, the card carries no number', () => {
@@ -2280,9 +2281,9 @@ describe('OptionNode — display coherence (audit §8)', () => {
       selector(makeStoreState({ optionNumbering: {} }) as any),
     )
     renderOption()
-    const n = screen.queryByTestId('node-type-ordinal')
+    const n = screen.getByTestId('node-title').getAttribute('data-type-ordinal')
     // The mocked board may or may not hold this option; when it does, its number is the READING-ORDER one (O1…).
-    if (n) expect(n.textContent).toMatch(/^O\d+$/)
+    if (n !== null) expect(n).toMatch(/^O\d+$/)
     expect(screen.queryByTestId('option-stable-number-option-1')).toBeNull()
   })
 })

@@ -536,8 +536,8 @@ describe('Option — "what this option changes": ≤3 rows in ONE shared order, 
   it('⛔ MT-18 → Paul 1 Oct: no BARE numeral at rest — the number shows prefixed ("O1"), at rest and in Detailed', () => {
     setState({ phase: 'pre' })
     renderCard(OptionNode as never, 'opt-raise')
-    const rest = within(face('Raise the plan price')).queryByTestId('node-type-ordinal')
-    if (rest) expect(rest.textContent).toMatch(/^O\d+$/)
+    const rest = within(face('Raise the plan price')).getByTestId('node-title').getAttribute('data-type-ordinal')
+    if (rest !== null) expect(rest).toMatch(/^O\d+$/)
     expect(within(face('Raise the plan price')).queryByTestId('option-stable-number-opt-raise')).toBeNull()
     cleanup()
     setState({ phase: 'pre', viewMode: 'expert' })

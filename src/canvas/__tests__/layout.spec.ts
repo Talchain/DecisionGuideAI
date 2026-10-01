@@ -353,9 +353,9 @@ describe('ELK Layout', () => {
     const { nodes: laid, layoutNodeWidth, layoutCardWidths } = await layoutGraph(nodes, edges, { spacing: SPACING })
 
     // ⚠ RE-PINNED 30 Sep 2026: four factors take their fair share of ROW_BUDGET_W,
-    // floor((1656 − (24 + 64) − 3 × 24) / 4) − 24 = 350 (was the flat 248).
+    // floor((1656 − (24 + 32) − 3 × 24) / 4) − 24 = 358 (was the flat 248; 350 before Paul's 1 Oct half-size prompt).
     const FACTOR_W = fairShare(4, EFFECTIVE_SPACING)
-    expect(FACTOR_W).toBe(350)
+    expect(FACTOR_W).toBe(358)
     expect(layoutNodeWidth).toBe(FACTOR_W)
     expect(layoutCardWidths.factor).toBe(FACTOR_W)
 
@@ -373,7 +373,7 @@ describe('ELK Layout', () => {
     // …and the prompt that ends the row, one card-gap later, still lands inside
     // the budget the row was planned against. ⚠ That budget is ROW_BUDGET_W since
     // 30 Sep (`tierCardWidth` no longer reads CANONICAL_LAYOUT_WIDTH, 1482), and a
-    // four-card row fills it exactly: 4 × (350 + 24) + 3 × 24 + 24 + 64 = 1656.
+    // four-card row fills it exactly: 4 × (358 + 24) + 3 × 24 + 24 + 32 = 1656.
     const promptRight = lastVisibleRightEdge + LAYOUT_PADDING_X + EFFECTIVE_SPACING + ROW_PROMPT_W
     expect(promptRight - CANVAS_MARGIN).toBeLessThanOrEqual(ROW_BUDGET_W)
     expect(promptRight - CANVAS_MARGIN).toBe(ROW_BUDGET_W)
@@ -434,10 +434,10 @@ describe('ELK Layout', () => {
     ]
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {})
     // ⚠ RE-PINNED 30 Sep 2026: five factors on one row take their fair share,
-    // floor((1656 − 88 − 4 × 24) / 5) − 24 = 270 (was the flat 248) — inside
+    // floor((1656 − 56 − 4 × 24) / 5) − 24 = 276 (was the flat 248; 270 before the 1 Oct half-size prompt) — inside
     // [REPEATED_CARD_W, REPEATED_CARD_MAX_W], so neither bound binds.
     expect(layoutNodeWidth).toBe(fairShare(5, LAYOUT_NODE_GAP))
-    expect(layoutNodeWidth).toBe(270)
+    expect(layoutNodeWidth).toBe(276)
     expect(layoutNodeWidth).toBeGreaterThan(REPEATED_CARD_W)
     expect(layoutNodeWidth).toBeLessThan(REPEATED_CARD_MAX_W)
     laid.forEach(n => {
@@ -497,14 +497,14 @@ describe('ELK Layout', () => {
 
     // ⚠ 30 Sep 2026: options and factors are DIFFERENT widths again — each tier
     // takes its own fair share (3 options → the 400 cap; 4 factors →
-    // floor((1656 − 88 − 72) / 4) − 24 = 350). So the widths are pinned HERE, from
+    // floor((1656 − 56 − 72) / 4) − 24 = 358). So the widths are pinned HERE, from
     // the rule, rather than trusted from the solver the subtraction reads —
     // otherwise the subtraction could manufacture the agreement — and the raw
     // STRIDE difference between the tiers must be EXACTLY their width difference
     // (the 15 Sep claim this test was renamed for).
     expect(widths.option).toBe(fairShare(3, LAYOUT_NODE_GAP))
     expect(widths.factor).toBe(fairShare(4, LAYOUT_NODE_GAP))
-    expect(widths.option - widths.factor).toBe(50)
+    expect(widths.option - widths.factor).toBe(400 - 358)
     const meanStride = (ids: string[]) => { const g = gapsFor(ids); return g.reduce((a, b) => a + b, 0) / g.length }
     expect(Math.abs(meanStride(['o1', 'o2', 'o3']) - meanStride(['f1', 'f2', 'f3', 'f4']) - (widths.option - widths.factor))).toBeLessThanOrEqual(2)
   })

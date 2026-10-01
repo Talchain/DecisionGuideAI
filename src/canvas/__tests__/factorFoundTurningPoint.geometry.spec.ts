@@ -88,22 +88,26 @@ const POST_BOUND: Record<string, number> = { ...PRE_BOUND, [RANK_1]: 406 }
  * 1654-wide row is centred in the 1656-wide board, hence 25), and the 720 anchors re-centre on
  * the wider board (472 → 480). The layout's own output at 5c941315b; the old values were
  * dec/goal 472, fac 24/320/616/912/1208, opt and consequence 172/468/764/1060.
+ * 1 Oct 2026, half-size row-end prompt (Paul: "50% smaller", ROW_PROMPT_W 64 → 32): only x moved; every y is
+ * unchanged. The prompt slot is 24 + 32, so the four-wide tiers draw at 358 (stride 406: x 24 / 430 / 836 / 1242)
+ * and the five factors at 276 (x 26 / 350 / 674 / 998 / 1322). The layout's own output, with 0 overlaps and
+ * 0 edges under cards asserted below; the 30 Sep values were 350 / 270.
  */
 const PRE_POSITIONS: Record<string, { x: number; y: number }> = {
   dec_pricing: { x: 480, y: 24 },
-  fac_adoption_friction: { x: 25, y: 685 },
-  fac_enterprise_revenue_risk: { x: 979, y: 685 },
-  fac_market_competition: { x: 343, y: 685 },
-  fac_top_account_concentration: { x: 1297, y: 685 },
-  fac_usage_exposure: { x: 661, y: 685 },
+  fac_adoption_friction: { x: 26, y: 685 },
+  fac_enterprise_revenue_risk: { x: 998, y: 685 },
+  fac_market_competition: { x: 350, y: 685 },
+  fac_top_account_concentration: { x: 1322, y: 685 },
+  fac_usage_exposure: { x: 674, y: 685 },
   goal_pricing_transition: { x: 480, y: 1392 },
   opt_full_switch: { x: 24, y: 196 },
-  opt_hybrid: { x: 422, y: 196 },
-  opt_new_logos: { x: 820, y: 196 },
-  opt_status_quo: { x: 1218, y: 196 },
-  out_bottom_up_growth: { x: 422, y: 1045 },
-  out_nrr: { x: 1218, y: 1045 },
-  risk_enterprise_churn: { x: 820, y: 1045 },
+  opt_hybrid: { x: 430, y: 196 },
+  opt_new_logos: { x: 836, y: 196 },
+  opt_status_quo: { x: 1242, y: 196 },
+  out_bottom_up_growth: { x: 430, y: 1045 },
+  out_nrr: { x: 1242, y: 1045 },
+  risk_enterprise_churn: { x: 836, y: 1045 },
   risk_pricing_complexity: { x: 24, y: 1045 },
 }
 const BELOW_FACTORS = ['goal_pricing_transition', 'out_bottom_up_growth', 'out_nrr', 'risk_enterprise_churn', 'risk_pricing_complexity']
@@ -232,10 +236,10 @@ describe('#2138 found case — the pricing board at the Chromium-measured bound 
 
   it('pre-run: the production layout reproduces the recorded positions, with 0 overlaps and 0 edges under cards', async () => {
     const { out, boxes } = await laidOut(PRE_BOUND)
-    // The strides the re-record above states, read from the layout (30 Sep): 350 and 270.
-    expect(out.layoutCardWidths.option).toBe(350)
-    expect(out.layoutCardWidths.outcome).toBe(350)
-    expect(out.layoutCardWidths.factor).toBe(270)
+    // The strides the re-record above states, read from the layout (1 Oct): 358 and 276.
+    expect(out.layoutCardWidths.option).toBe(358)
+    expect(out.layoutCardWidths.outcome).toBe(358)
+    expect(out.layoutCardWidths.factor).toBe(276)
     const pos = Object.fromEntries(out.nodes.filter((n) => !isGhostNode(n.id)).map((n) => [n.id, n.position]))
     expect(pos).toEqual(PRE_POSITIONS)
     expect(overlaps(boxes)).toEqual([])

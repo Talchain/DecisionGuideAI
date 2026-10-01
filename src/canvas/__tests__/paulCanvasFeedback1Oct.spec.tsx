@@ -121,11 +121,14 @@ describe('"each node having a number relating to the node type"', () => {
     expect(nodeTypeNumber('option', 'new', withNew, registered)).toBe(5)
   })
 
-  it('the card renders the number before the title, aria-hidden, with the type in the accessible name', () => {
+  it('the card draws the number as the title\'s generated ::before — never title text — and names it after GAP-36\'s name', () => {
     const base = src('src/canvas/nodes/BaseNode.tsx')
-    expect(base).toContain('data-testid="node-type-ordinal"')
-    expect(base).toContain('{NODE_NUMBER_PREFIX[nodeType as NumberedNodeKind]}{typeOrdinal}')
-    expect(base).toContain("`${NODE_REGISTRY[nodeType].label}${typeOrdinal !== undefined ? ` ${typeOrdinal}` : ''}: ${cardTitle}. Open details.`")
+    expect(base).toContain('[NODE_TYPE_ORDINAL_ATTR]: `${NODE_NUMBER_PREFIX[nodeType as NumberedNodeKind]}${typeOrdinal}`')
+    expect(base).not.toContain('data-testid="node-type-ordinal"')
+    expect(base).toContain('`${NODE_REGISTRY[nodeType].label}: ${cardTitle}. Open details.${typeOrdinalSentence}`')
+    const css = src('src/index.css')
+    const rule = css.slice(css.indexOf('[data-type-ordinal]::before'))
+    expect(rule.slice(0, 120)).toContain('content: attr(data-type-ordinal)')
   })
 })
 
