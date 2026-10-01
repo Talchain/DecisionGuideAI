@@ -184,10 +184,24 @@ describe('M2-5 · only for the analysis on screen; closes; focuses', () => {
     fireEvent.click(screen.getByTestId(`${T}-close`))
     expect(screen.queryByTestId(T)).toBeNull()
   })
-  it('a changed input focuses the node its ids name', () => {
+  it('the open detail does not repeat the pill (R3 5935751708: it covered the Goal) — unless the pill holds more', () => {
     seed(delta())
     render(<RunChangesSummary />)
     fireEvent.click(screen.getByTestId(`${T}-why-toggle`))
+    expect(screen.getByTestId(`${T}-why`)).toBeTruthy()
+    expect(screen.queryByTestId(`${T}-changed`)).toBeNull()
+    expect(screen.queryByTestId(`${T}-moved`)).toBeNull()
+    cleanup()
+    // CONTROL: three changed inputs are more than the pill's one line holds, so the detail lists them.
+    seed(delta({ input_changes: [change('fac_churn', 'Monthly churn', 7, 12), change('fac_price', 'Price', 10, 15), change('fac_cac', 'Acquisition cost', 3, 4)] }))
+    render(<RunChangesSummary />)
+    fireEvent.click(screen.getByTestId(`${T}-why-toggle`))
+    expect(screen.getByTestId(`${T}-changed`).textContent).toContain('Price: 10% → 15%')
+  })
+  it('a changed input focuses the node its ids name', () => {
+    seed(delta())
+    render(<RunChangesSummary />)
+    // The pill's own changed input is the link — no need to open the detail.
     const focus = screen.getByTestId(`${T}-focus`)
     expect(focus.getAttribute('data-entity-id')).toBe('fac_churn')
     fireEvent.click(focus)
