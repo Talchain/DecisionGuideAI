@@ -822,7 +822,9 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     // badge is RETIRED; the rank is stated once, on the factor card's driver
     // line ("Driver N of M analysed"), and the heading moved with it.
     { noun: SENSITIVITY_RANK_LEGEND_NOUN, files: ['FactorNode.tsx'], pattern: /<FactorDriverLine\b/ },
-    { noun: ORDINAL_NOUN, files: ['BaseNode.tsx'], pattern: /\{NODE_NUMBER_PREFIX\[nodeType as NumberedNodeKind\]\}\{typeOrdinal\}/ },
+    // The number is the title's generated ::before since #2398 (NODE_TYPE_ORDINAL_ATTR + one index.css rule), so the
+    // producer is the attribute BaseNode sets, never text in the title.
+    { noun: ORDINAL_NOUN, files: ['BaseNode.tsx'], pattern: /\[NODE_TYPE_ORDINAL_ATTR\]: `\$\{NODE_NUMBER_PREFIX\[nodeType as NumberedNodeKind\]\}\$\{typeOrdinal\}`/ },
     // ⚠ RE-DERIVED (locked design, 23 Sep 2026): a link with NO value reads
     // "Link strength · not set yet" — the register's inline form — through the
     // shared row both cards mount (MT-15b: an unconfirmed producer value now
