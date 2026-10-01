@@ -137,16 +137,16 @@ describe('S4 card widths', () => {
     expect(REPEATED_CARD_W).toBe(248)
   })
 
-  it('the fair shares, pinned so a silent constants drift is visible: 5 → 270, 4 → 350, ≤3 → 400, wrapped 4+4 → 325, wrapped 5+4 → 257', () => {
-    // floor((1656 − 88 − 4·24) / 5) − 24 = 294 − 24 = 270
-    expect(fairShare(5, false)).toBe(270)
-    // floor((1656 − 88 − 3·24) / 4) − 24 = 374 − 24 = 350
-    expect(fairShare(4, false)).toBe(350)
+  it('the fair shares, pinned so a silent constants drift is visible: 5 → 276, 4 → 358, ≤3 → 400, wrapped 4+4 → 325, wrapped 5+4 → 257', () => {
+    // floor((1656 − 56 − 4·24) / 5) − 24 = 300 − 24 = 276 (the slot is 24 + 32 since Paul's 1 Oct half-size prompt)
+    expect(fairShare(5, false)).toBe(276)
+    // floor((1656 − 56 − 3·24) / 4) − 24 = 382 − 24 = 358
+    expect(fairShare(4, false)).toBe(358)
     // floor((1656 − 88 − 2·24) / 3) − 24 = 482 → the 400 cap
     expect(fairShare(3, false)).toBe(REPEATED_CARD_MAX_W)
-    // wrapped: min(350, floor((1656 − 3.5·24) / 4.5) − 24 = 349 − 24 = 325)
+    // wrapped: min(358, floor((1656 − 3.5·24) / 4.5) − 24 = 349 − 24 = 325)
     expect(fairShare(4, true)).toBe(325)
-    // wrapped: min(270, floor((1656 − 4.5·24) / 5.5) − 24 = 281 − 24 = 257)
+    // wrapped: min(276, floor((1656 − 4.5·24) / 5.5) − 24 = 281 − 24 = 257)
     expect(fairShare(5, true)).toBe(257)
     // Every repeated width sits inside the clamp.
     for (let k = 1; k <= MAX_CARDS_PER_ROW; k++) {
@@ -337,7 +337,9 @@ describe('S4 row-end prompts — placed in the slot the layout reserved', () => 
   })
 
   it('⭐ the layout reserves the door\'s HEIGHT: short consequence cards cannot pull the Goal up under it', async () => {
-    const shortH = 60
+    // Shorter than the door (ROW_PROMPT_H, 32 since Paul's 1 Oct half size), or the cards, not the door, set the row.
+    const shortH = 20
+    expect(shortH).toBeLessThan(ROW_PROMPT_H)
     const nodes = [node('dec', 'decision'), node('opt', 'option'), node('fac', 'factor'), node('out_1', 'outcome', shortH), node('risk_1', 'risk', shortH), node('goal', 'goal')]
     const edges = [
       { id: '1', source: 'dec', target: 'opt' }, { id: '2', source: 'opt', target: 'fac' },

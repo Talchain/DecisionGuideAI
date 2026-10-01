@@ -26,9 +26,10 @@ const isNumberedKind = (t: unknown): t is NumberedNodeKind =>
   typeof t === 'string' && (NUMBERED_NODE_KINDS as readonly string[]).includes(t)
 
 /** id → 1-based number within its own type, for every numbered card. Un-numbered kinds are absent. */
-export function nodeTypeOrdinals(nodes: readonly OrdinalInputNode[]): Map<string, number> {
+export function nodeTypeOrdinals(nodes: readonly OrdinalInputNode[] | null | undefined): Map<string, number> {
   const byKind = new Map<NumberedNodeKind, { id: string; x: number; y: number; i: number }[]>()
-  nodes.forEach((n, i) => {
+  // A store without nodes (a reset, a harness) numbers nothing; it never throws inside a card's render.
+  ;(nodes ?? []).forEach((n, i) => {
     if (!isNumberedKind(n.type)) return
     const list = byKind.get(n.type) ?? []
     list.push({ id: n.id, x: Number(n.position?.x ?? 0) || 0, y: Number(n.position?.y ?? 0) || 0, i })
@@ -60,6 +61,12 @@ export function nodeTypeOrdinals(nodes: readonly OrdinalInputNode[]): Map<string
  * schemas 0.67: option O · factor F · outcome OC · risk R). "O2" reads as an identifier, not a rank: a bare "2"
  * beside a title would look like the factors' sensitivity ranks (MT-18).
  */
+/**
+ * The title attribute a card's number rides on. `src/index.css` draws it as the title's `::before`, so the number
+ * sits on the title's first line without ever entering the title's text (see `BaseNode`'s `node-title`).
+ */
+export const NODE_TYPE_ORDINAL_ATTR = 'data-type-ordinal'
+
 export const NODE_NUMBER_PREFIX: Readonly<Record<NumberedNodeKind, string>> = Object.freeze({
   option: 'O',
   factor: 'F',
@@ -78,10 +85,11 @@ export const NODE_NUMBER_PREFIX: Readonly<Record<NumberedNodeKind, string>> = Ob
 export function nodeTypeNumber(
   kind: unknown,
   id: string,
-  nodes: readonly OrdinalInputNode[],
+  nodes: readonly OrdinalInputNode[] | null | undefined,
   optionNumbering?: Readonly<Record<string, number>> | null,
 ): number | undefined {
   if (!isNumberedKind(kind)) return undefined
+  if (!Array.isArray(nodes)) return undefined
   const registered = kind === 'option' ? optionNumbering ?? {} : {}
   if (kind === 'option' && Object.keys(registered).length > 0) {
     if (registered[id] != null) return registered[id]

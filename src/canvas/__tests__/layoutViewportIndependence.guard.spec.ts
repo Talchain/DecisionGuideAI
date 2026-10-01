@@ -835,13 +835,28 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    *     build-vs-buy          1493922d2fcf8e20 → c1ab7e1febdb16e2
    *     headcount-allocation  c3da8d8cf745b35b → 312b74bee87917c8
    *     pricing-model         ed1e6305b0352d51 → 2102f634d9408759
+   *
+   * ── THE HALF-SIZE ROW-END PROMPT (1 Oct 2026), a TWELFTH re-record ──
+   * Paul: "Make the plus buttons on the right smaller … 50% smaller". `ROW_PROMPT_W`
+   * / `ROW_PROMPT_H` 64 → 32, so the prompt slot is 24 + 32 and every one-row
+   * tier's fair share grew (4-wide 350 → 358, 5-wide 270 → 276); only x moved.
+   * R1 HELD ON THIS TREE: the "ONE canonical layout across …" arms above pass
+   * (5 of this file's tests failed before the re-record: exactly these five
+   * digest arms), and `factorFoundTurningPoint.geometry` re-proves 0 overlaps and
+   * 0 edges under cards on the pricing board at the new widths.
+   *
+   *     vendor-selection      0518aa2a8c660169 → 28ad28e8b64c7dcd
+   *     market-entry          9ad3cf7aa50109e3 → 1a68fe9d2a486a0e
+   *     build-vs-buy          c1ab7e1febdb16e2 → c0d5d1e38d3d236b
+   *     headcount-allocation  312b74bee87917c8 → bab6f06221a7d94d
+   *     pricing-model         2102f634d9408759 → 13b7ac61653a0d03
    */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: '0518aa2a8c660169', nodes: 19 },
-    'market-entry': { digest: '9ad3cf7aa50109e3', nodes: 18 },
-    'build-vs-buy': { digest: 'c1ab7e1febdb16e2', nodes: 19 },
-    'headcount-allocation': { digest: '312b74bee87917c8', nodes: 16 },
-    'pricing-model': { digest: '2102f634d9408759', nodes: 15 },
+    'vendor-selection': { digest: '28ad28e8b64c7dcd', nodes: 19 },
+    'market-entry': { digest: '1a68fe9d2a486a0e', nodes: 18 },
+    'build-vs-buy': { digest: 'c0d5d1e38d3d236b', nodes: 19 },
+    'headcount-allocation': { digest: 'bab6f06221a7d94d', nodes: 16 },
+    'pricing-model': { digest: '13b7ac61653a0d03', nodes: 15 },
   }
 
   it.each(Object.keys(STARTERS) as StarterId[])(

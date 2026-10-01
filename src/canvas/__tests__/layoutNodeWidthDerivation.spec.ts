@@ -162,9 +162,9 @@ describe('solveLayoutNodeWidth is exact', () => {
     expect(unlockedFactorRows(withoutLock), 'the unlocked arm is above the cap: it wraps').toBe(2)
 
     // 30 Sep 2026: the width now follows the PACKING too. The locked arm's one row of five takes
-    // floor((1656 − 88 − 4 × 24) / 5) − 24 = 270, and the unlocked arm's 4 + 4 wrap takes
-    // min(350, brick floor((1656 − 3.5 × 24) / 4.5) − 24 = 325) = 325.
-    expect(withLock.layoutNodeWidth).toBe(270)
+    // floor((1656 − 56 − 4 × 24) / 5) − 24 = 276 (Paul 1 Oct: the prompt slot is 24 + 32), and the unlocked arm's 4 + 4 wrap takes
+    // min(358, brick floor((1656 − 3.5 × 24) / 4.5) − 24 = 325) = 325.
+    expect(withLock.layoutNodeWidth).toBe(276)
     expect(withoutLock.layoutNodeWidth).toBe(325)
     expect(solveLayoutNodeWidth(nodes, { direction: 'DOWN', preserveLocked: true })).toBe(
       withLock.layoutNodeWidth,
@@ -180,10 +180,11 @@ describe('solveLayoutNodeWidth is exact', () => {
     // full card width").
     // 30 Sep 2026 (the fair-share rule): the reachable widths per direction, in first-seen order for 1..12
     // factors. DOWN wraps (≤5 per row, brick-bounded) and reserves the 88 prompt slot:
-    //   1–3 → 400 (cap) · 4 → 350 · 5 → 270 · 7,8,11,12 (4-wide wraps) → 325 · 9,10 (5-wide wraps) → 257.
+    //   1–3 → 400 (cap) · 4 → 358 · 5 → 276 · 7,8,11,12 (4-wide wraps) → 325 · 9,10 (5-wide wraps) → 257.
+    //   (350 / 270 before Paul's 1 Oct half-size row-end prompt, 64 → 32.)
     // RIGHT/UP/LEFT never wrap or reserve a prompt: 1–3 → 400 · 4 → 372 · 5 → 288 · ≥6 → the 248 floor.
     const EXPECTED: Record<string, number[]> = {
-      DOWN: [400, 350, 270, 325, 257],
+      DOWN: [400, 358, 276, 325, 257],
       RIGHT: [400, 372, 288, REPEATED_CARD_W],
       UP: [400, 372, 288, REPEATED_CARD_W],
       LEFT: [400, 372, 288, REPEATED_CARD_W],
@@ -194,7 +195,7 @@ describe('solveLayoutNodeWidth is exact', () => {
       expect([...reachable], direction).toEqual(EXPECTED[direction])
     }
     // …at the cap and one above it: five in one row, six wrapping 3 + 3 at the 400 cap.
-    expect(solveLayoutNodeWidth(graph(SINGLE_ROW_CAP).nodes, { direction: 'DOWN' })).toBe(270)
+    expect(solveLayoutNodeWidth(graph(SINGLE_ROW_CAP).nodes, { direction: 'DOWN' })).toBe(276)
     expect(solveLayoutNodeWidth(graph(SINGLE_ROW_CAP + 1).nodes, { direction: 'DOWN' })).toBe(REPEATED_CARD_MAX_W)
   })
 

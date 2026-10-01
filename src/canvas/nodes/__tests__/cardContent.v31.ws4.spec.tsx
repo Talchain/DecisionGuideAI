@@ -19,7 +19,7 @@ import type { Node, Edge } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { useCanvasStore } from '../../store'
 import { NodeCoachingMarker } from '../shared/NodeCoachingMarker'
-import { COACHING_ICON_GLYPH } from '../shared/NodeCoachingIcon'
+import { COACHING_ICON_GLYPH, OLUMI_CARD_MARK_SRC } from '../shared/NodeCoachingIcon'
 import { RISK_EXPOSURE_UNSET_LINE } from '../RiskNode'
 import { ASSUMPTIONS_OPEN_LINE, modelHasOpenAssumptions } from '../DecisionNode'
 import { OPEN_FULL_INSPECTOR_EVENT } from '../../utils/openEdgeStrengthEditor'
@@ -383,14 +383,13 @@ describe('#34 / #39 / #42 — resting copy and glyph', () => {
     expect(modelHasOpenAssumptions([{ type: 'factor', data: USER_BARE }])).toBe(false)
   })
 
-  it('#42 (SUPERSEDED 30 Sep, Paul: "the canvas card should use the Olumi icon"): the coaching glyph is the Olumi AI mark', () => {
-    // DS v5 §9.8 + Paul 28 Sep: the FULL-COLOUR Olumi mark — three ring arcs, circle, triangle, square — from the ONE owner, `OlumiAiIcon`.
+  it('#42 (SUPERSEDED 30 Sep, then 1 Oct, Paul: "use the actual Olumi brand icon"): the coaching glyph is the brand mark', () => {
+    // Paul 1 Oct (#2392): the card draws the FULL-COLOUR brand mark file, not the single-colour outline.
     const { container } = render(<COACHING_ICON_GLYPH.Icon />)
-    const svg = container.querySelector('svg')!
-    expect(svg.getAttribute('data-icon')).toBe('olumi-ai')
-    expect(container.querySelectorAll('circle')).toHaveLength(1)
-    expect(container.querySelectorAll('g[stroke="currentColor"] path')).toHaveLength(3)
-    expect(container.querySelector('path[fill]')?.getAttribute('fill')).toBe('var(--olumi-mark-blue)')
-    expect(container.querySelectorAll('rect')).toHaveLength(1)
+    const img = container.querySelector('img')!
+    expect(img.getAttribute('data-icon')).toBe('olumi-brand-mark')
+    expect(img.getAttribute('src')).toBe(OLUMI_CARD_MARK_SRC)
+    // CONTROL: the retired outline glyph is gone.
+    expect(container.querySelector('svg[data-icon="olumi-ai"]')).toBeNull()
   })
 })

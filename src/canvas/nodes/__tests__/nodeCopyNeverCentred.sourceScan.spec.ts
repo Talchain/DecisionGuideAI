@@ -317,7 +317,7 @@ describe('canvas node surface — copy is never centrally aligned', () => {
     expect(src).not.toContain('flex-col')
   })
 
-  it('EXEMPT BY IDENTITY: the row-end icon centres ONE aria-hidden glyph in a fixed 64 square — a glyph, not copy', () => {
+  it('EXEMPT BY IDENTITY: the row-end icon centres ONE aria-hidden glyph in a fixed 32 square (Paul 1 Oct: half size) — a glyph, not copy', () => {
     // Why this is not centred copy: the button renders no text at all (its
     // question is `aria-label` + tooltip), its only child is the decorative
     // `Plus`, and the box is ROW_PROMPT_W × ROW_PROMPT_H — nothing can wrap, so
@@ -334,7 +334,7 @@ describe('canvas node surface — copy is never centrally aligned', () => {
     expect(button[0]).toContain('absolute inset-0')
     expect(src).toMatch(/style=\{\{\s*width:\s*ROW_PROMPT_W,\s*height:\s*ROW_PROMPT_H\b/)
     // The ONE child is the decorative glyph; no copy element, no text child.
-    expect(src).toMatch(/<Plus size=\{24\}[^>]*aria-hidden="true"\s*\/>/)
+    expect(src).toMatch(/<Plus size=\{12\}[^>]*aria-hidden="true"\s*\/>/)
     expect(src).not.toContain('<span')
     expect(src).not.toMatch(/>\s*\{label\}\s*</)
     // The question reaches the user as name + tooltip only.

@@ -150,7 +150,8 @@ describe('useRestoredLayoutWidth', () => {
     // the repeated width at every tier size, so this twin had moved to the
     // per-kind record. Since 30 Sep the single width is the tier's fair share
     // again, so the twin sees the hook's answer change with the graph directly:
-    // four factors on one row → floor((1656 − 88 − 72) / 4) − 24 = 350, not 257.
+    // four factors on one row → floor((1656 − 56 − 72) / 4) − 24 = 358, not 257 (350 before Paul's 1 Oct
+    // half-size row-end prompt took the slot from 24 + 64 to 24 + 32).
     const { nodes, edges } = restoredGraph(4)
     const measured = nodes.map((x) => ({ ...x, measured: { width: 260, height: 120 } })) as Node[]
     seed({ nodes: measured, edges, currentScenarioId: 'scB' })
@@ -158,10 +159,10 @@ describe('useRestoredLayoutWidth', () => {
     renderHook(() => useRestoredLayoutWidth())
 
     expect(useLayoutStore.getState().layoutNodeWidth).toBe(fairShare(4))
-    expect(useLayoutStore.getState().layoutNodeWidth).toBe(350)
+    expect(useLayoutStore.getState().layoutNodeWidth).toBe(358)
     expect(useLayoutStore.getState().layoutNodeWidth).not.toBe(fairShare(5, { wrapped: true }))
     // The per-kind record is BOUNDED BY THE SAVED STRIDE (`solveRestoredCardWidths`):
-    // min(fair share, stride − padding − gap). Factors: min(350, 350 − 48) = 302; options
+    // min(fair share, stride − padding − gap). Factors: min(358, 350 − 48) = 302; options
     // (2 → the 400 cap): min(400, 400 − 48) = 352. The Question keeps the anchor width.
     const perKind = useLayoutStore.getState().layoutCardWidths
     expect(perKind?.factor).toBe(Math.min(fairShare(4), SAVED_FACTOR_STRIDE - LAYOUT_NODE_GAP - LAYOUT_PADDING_X))

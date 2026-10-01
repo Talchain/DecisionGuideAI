@@ -925,3 +925,14 @@
 @media (prefers-reduced-motion: reduce) {
   .olumi-attended { transition: none; }
 }
+
+/* ⭐ THE PER-TYPE NUMBER BEFORE A CARD'S TITLE (Paul, 1 Oct 2026: "each node having a number relating to the node
+   type"). Generated content, so the title's text stays the label alone (`NODE_TYPE_ORDINAL_ATTR`, BaseNode). The
+   margin is in em, so it scales with the counter-scaled title like the words beside it. */
+[data-type-ordinal]::before {
+  content: attr(data-type-ordinal);
+  margin-right: 0.45em;
+  color: var(--text-light);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}

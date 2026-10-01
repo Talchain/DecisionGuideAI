@@ -119,9 +119,12 @@ describe('ICON-02 / OPT-14 / F12 / FRAME-11 — one glyph size across the rail r
         coaching={null}
       />,
     )
-    const svgs = [...container.querySelectorAll('button svg')]
+    // The coaching icon is the brand-mark <img> since Paul's 1 Oct "use the actual Olumi brand icon" (#2392); the
+    // rest are Lucide <svg>s. Both sit in the one glyph box.
+    const svgs = [...container.querySelectorAll('button svg, button img')]
     // Positive control: challenge + more + the resting icon + the coaching icon.
     expect(svgs.length).toBeGreaterThanOrEqual(4)
+    expect(container.querySelectorAll('button img[data-icon="olumi-brand-mark"]')).toHaveLength(1)
     for (const svg of svgs) {
       expect(svg.getAttribute('class'), lucideName(svg) ?? 'svg').toContain(CANVAS_GLYPH_SIZE_CLASSES[15])
       expect(svg.getAttribute('class')).not.toContain(CANVAS_GLYPH_SIZE_CLASSES[11])

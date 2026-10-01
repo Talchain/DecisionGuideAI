@@ -70,17 +70,16 @@ describe('BaseNode — assistant focus render', () => {
     expect(node).toHaveAttribute('data-assistant-focused', 'true')
     expect(screen.getByTestId(`assistant-focus-node-halo-${props.id}`)).toBeInTheDocument()
     // Selection styling still comes only from the selected prop — the one
-    // Info selection ring on every family (contract v3.1 FRAME-09; it was the
-    // per-kind `ring-factor/50`).
+    // neutral lift on every family (Paul 1 Oct: no blue on click; it was the
+    // contract's Info ring, and before that the per-kind `ring-factor/50`).
     const tokens = () => node.className.split(/\s+/)
-    expect(tokens()).toContain('ring-2')
-    expect(tokens()).toContain('ring-info')
+    expect(tokens()).toContain('shadow-2')
+    expect(tokens()).not.toContain('ring-info')
     expect(tokens()).not.toContain('ring-factor/50')
 
     act(() => dismissAssistantFocus())
     expect(node).not.toHaveAttribute('data-assistant-focused')
-    expect(tokens()).toContain('ring-2')
-    expect(tokens()).toContain('ring-info')
+    expect(tokens()).toContain('shadow-2')
   })
 
   it('discriminating identity: a different node id does not receive the halo', () => {

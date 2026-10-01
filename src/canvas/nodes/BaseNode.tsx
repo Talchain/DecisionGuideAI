@@ -26,7 +26,7 @@ import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
 import { EditPencilCue } from './shared/EditPencilCue'
 import { useCanvasStore } from '../store'
-import { nodeTypeNumber, NODE_NUMBER_PREFIX, type NumberedNodeKind } from './shared/nodeTypeOrdinal'
+import { nodeTypeNumber, NODE_NUMBER_PREFIX, NODE_TYPE_ORDINAL_ATTR, type NumberedNodeKind } from './shared/nodeTypeOrdinal'
 import { optionOrdinalBadgeAccessibleName } from './shared/metricVocabulary'
 import { selectOptionComparedInRun, selectWinSharesWithheld } from '../state/winShareGate'
 import { EditableLabel } from '../ui/inspector-v2/shared/EditableLabel'
@@ -1081,7 +1081,17 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // longer hybrid sentence.
   // ⭐ The card's number within its type (Paul, 1 Oct 2026): options 1…N, factors 1…N, outcomes, risks. Display only.
   const typeOrdinal = useCanvasStore((s) => nodeTypeNumber(nodeType, id, s.nodes as never, s.optionNumbering))
-  const accessibleNameWithoutAffordance = `${NODE_REGISTRY[nodeType].label}${typeOrdinal !== undefined ? ` ${typeOrdinal}` : ''}: ${cardTitle}. Open details.`
+  // GAP-36's name first, unchanged ("Option: Rebuild. Open details."), then the card's number as its own sentence
+  // ("Option 1."). #2392 put the number inside the kind ("Option 1: Rebuild") and turned every reader keyed on
+  // `<Kind>: <title>. Open details.` red.
+  // An option's number carries the legend's not-a-ranking gloss (the builder, never a copy of its words).
+  const typeOrdinalSentence =
+    typeOrdinal === undefined
+      ? ''
+      : nodeType === 'option'
+        ? ` ${optionOrdinalBadgeAccessibleName(typeOrdinal)}.`
+        : ` ${NODE_REGISTRY[nodeType].label} ${typeOrdinal}.`
+  const accessibleNameWithoutAffordance = `${NODE_REGISTRY[nodeType].label}: ${cardTitle}. Open details.${typeOrdinalSentence}`
   /**
    * ⭐⭐⭐ AND THE ONE EDIT EVERY KIND SUPPORTS IS NOW SAID OUT LOUD — on all
    * six, from here, because here is the only place all six pass through.
@@ -2647,6 +2657,13 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           ) : (
           <div
             data-testid="node-title"
+            /* ⭐ THE PER-TYPE NUMBER (O1 / F2 / OC1 / R1, Paul 1 Oct) IS GENERATED CONTENT, NOT TEXT: a `::before` that
+               reads this attribute. The title's text, its `textContent` and every reader of it stay the label alone
+               (#2392 put a span inside the title and turned the "a title never carries a digit" and title-text readers
+               red). Not in the accessible name either: the card's own `aria-label` carries "Option 1." */
+            {...(typeOrdinal !== undefined && !lodBodyHidden
+              ? { [NODE_TYPE_ORDINAL_ATTR]: `${NODE_NUMBER_PREFIX[nodeType as NumberedNodeKind]}${typeOrdinal}` }
+              : {})}
             onClick={lodBodyHidden ? undefined : onTitleClick}
             onDoubleClick={lodBodyHidden ? undefined : (e) => { e.stopPropagation(); cancelTitleClick(); setRenamingOnCard(true) }}
             {...(lodBodyHidden ? { [LOD_FAR_TITLE_ATTR]: 'true' } : {})}
@@ -2700,18 +2717,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             )}
             {/* The title's words are their OWN element, so the pencil beside them never makes the title a non-leaf:
                 `cardCopyCensus` reads leaf text runs, and #2322's pencil hid every card's own label from it. */}
-            {typeOrdinal !== undefined && !lodBodyHidden && (
-              <span
-                aria-hidden="true"
-                data-testid="node-type-ordinal"
-                // The sighted reader gets the same disclosure the old option badge carried: a place, not a rank.
-                title={nodeType === 'option' ? optionOrdinalBadgeAccessibleName(typeOrdinal) : `${NODE_REGISTRY[nodeType].label} ${typeOrdinal} — its place on the canvas, not a ranking`}
-                className="tabular-nums text-text-light mr-1.5"
-                style={{ fontWeight: 500 }}
-              >
-                {NODE_NUMBER_PREFIX[nodeType as NumberedNodeKind]}{typeOrdinal}
-              </span>
-            )}
             <span>{titleOverride ?? cardTitle}</span>
             {/* E1d: the pencil says the title renames in place (double-click). Zero-width; see `EditPencilCue`. */}
             {!lodBodyHidden && <EditPencilCue testId="node-title-pencil" />}
