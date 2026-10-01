@@ -45,8 +45,8 @@ function servedBlock(withhold: boolean): unknown {
   return copy
 }
 
-function seed(withhold: boolean) {
-  const report = mapV5AnalysisToReport(servedBlock(withhold) as never, {} as never)
+function seed(withhold: boolean, block: unknown = servedBlock(withhold)) {
+  const report = mapV5AnalysisToReport(block as never, {} as never)
   useCanvasStore.setState({
     hasCompletedFirstRun: true,
     analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
@@ -98,6 +98,21 @@ describe('⭐ a goal figure the producer withheld is not a result that "did not 
     const same = { ...withheld, recommendation: { ...withheld.recommendation, goalFiguresWithheldMessage: WITHHELD_WORDS } }
     expect(statusOf(same).isProvisional, 'precondition: not partial').toBe(false)
     expect(drawn(same)).toBe(false)
+  })
+
+  it('CONTROL (failed option): the same served read with one compared option FAILED is still called partial', () => {
+    const failed = JSON.parse(JSON.stringify(served.analysis_result)) as {
+      enrichment: { option_comparison: Array<{ status?: string; outcome?: Record<string, unknown> }> }
+    }
+    const second = failed.enrichment.option_comparison[1]
+    second.status = 'failed'
+    second.outcome = { ...(second.outcome ?? {}), n_valid_samples: 0, validity_ratio: 0 }
+    const data = seed(true, failed)
+    expect(data.recommendation.goalFiguresWithheldMessage, 'precondition: still withheld').toBe(WITHHELD_WORDS)
+    expect((data.recommendation.allOptions ?? []).map((o) => o.computeStatus), 'precondition: the failure reached the options').toContain('failed')
+    const status = statusOf(data)
+    expect(status.isProvisional).toBe(true)
+    expect(status.missingResults).toContain('the expected outcome')
   })
 
   it('CONTRAST: the same served read without the producer\'s withhold still names the missing outcome', () => {

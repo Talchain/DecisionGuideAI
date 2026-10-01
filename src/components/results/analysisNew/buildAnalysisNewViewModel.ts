@@ -3480,7 +3480,8 @@ const WITHHELD_WITH_THE_LEADER: ReadonlySet<string> = new Set(['win_probability'
  * `GOAL_FIGURES_WITHHELD_CODES`, read once into `goalFiguresWithheldMessage`), the option outcomes go with them, and
  * so does the win share (`mapV5Blocks` drops it on the same read). Served `0406f10c`, Paul's funding brief: this
  * surface said "The expected outcome did not come back." above the producer's own "Not shown. … the figures for each
- * option would be wrong." An option the run did not compute keeps its own "Not analysed" card.
+ * option would be wrong." ⚠ ONLY WHILE EVERY COMPARED OPTION COMPUTED: an option whose computation FAILED (the
+ * `optionComputationFailed` fork the option cards use) really returned nothing, and the run is still called partial.
  * Pinned by `aWithheldGoalFigureIsNotALostOne.spec.tsx`.
  */
 const WITHHELD_WITH_THE_GOAL_FIGURES: ReadonlySet<string> = new Set(['expected_outcome', 'win_probability'])
@@ -3490,11 +3491,12 @@ function buildStatus(inputs: AnalysisNewViewModelInputs): AnalysisNewStatus {
   const status = data.recommendation.analysisStatus
   const leaderWithheld = data.recommendation.leaderDesignationPermitted === false
   const goalFiguresWithheld = typeof data.recommendation.goalFiguresWithheldMessage === 'string'
+  const anOptionFailed = (data.recommendation.allOptions ?? []).some((o) => optionComputationFailed(o.computeStatus))
   const missingRequired = (data.completeness?.missing ?? []).filter(
     (k) =>
       REQUIRED_RESULT_KEYS.has(k) &&
       !(leaderWithheld && WITHHELD_WITH_THE_LEADER.has(k)) &&
-      !(goalFiguresWithheld && WITHHELD_WITH_THE_GOAL_FIGURES.has(k)),
+      !(goalFiguresWithheld && !anOptionFailed && WITHHELD_WITH_THE_GOAL_FIGURES.has(k)),
   )
   return {
     isPreRun: inputs.isPreRun,
