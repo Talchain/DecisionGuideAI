@@ -34,6 +34,7 @@ import type { NodeType } from '../domain/nodes'
 import { getDisplayEdgeId } from '../utils/edgeIdentity'
 import { qualitativeTierLabel, formatInterventionValue, CURRENCY_SYMBOLS } from '../utils/labelUtils'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
+import { isAcceptedOlumiFigure } from '../domain/valueProvenance'
 
 interface GraphTextViewProps {
   nodes: Node[]
@@ -238,7 +239,7 @@ function getObservedStateInfo(node: Node): { value: string | null; unit: string 
 
   // Map raw source token to user-friendly label
   const rawSource = typeof observedState.source === 'string' ? observedState.source : null
-  const source = rawSource ? getProvenanceLabel(rawSource) : null
+  const source = rawSource ? getProvenanceLabel(rawSource, undefined, isAcceptedOlumiFigure(observedState)) : null
 
   return { value, unit: null, source }
 }

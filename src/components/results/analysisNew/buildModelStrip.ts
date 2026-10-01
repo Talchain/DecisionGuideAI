@@ -39,7 +39,7 @@
  */
 
 import { resolveNodeTypeLiteral } from '../../../canvas/domain/nodes'
-import { factorIsConfirmable } from '../../../canvas/domain/valueProvenance'
+import { factorIsConfirmable, isAcceptedOlumiFigure } from '../../../canvas/domain/valueProvenance'
 import { nodeValueSource } from '../driverValueProvenance'
 import { factorCardVisibleText, factorDisplayParts, factorDisplayText, readFactorDisplayValue } from '../../../utils/formatFactorDisplayValue'
 
@@ -145,6 +145,8 @@ export interface StripNode {
    * that survives review.
    */
   valueSource: string | undefined
+  /** Olumi's figure the user ACCEPTED (`isAcceptedOlumiFigure`) — the fact `valueSource` alone cannot carry (52f8cd). */
+  valueAccepted?: true
 }
 
 export interface StripRow {
@@ -512,6 +514,7 @@ export function buildModelStrip(
         : null,
       hasValue: isFactor && factorCarriesValue(node),
       valueSource: isFactor ? nodeValueSource(node) : undefined,
+      ...(isFactor && isAcceptedOlumiFigure((node as { data?: unknown }).data ?? node) ? { valueAccepted: true as const } : {}),
     }
     if (bucket) bucket.push(entry)
     else byKind.set(kind, [entry])

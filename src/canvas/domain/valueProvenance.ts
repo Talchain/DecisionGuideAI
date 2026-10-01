@@ -249,6 +249,18 @@ export function classifyObservedValueProvenance(observed: unknown): ValueProvena
 }
 
 /**
+ * Is this node's value Olumi's figure the user ACCEPTED? For readers that receive only a `source` string: their caller,
+ * which holds the node, passes this so the string-keyed reader can say "accepted" instead of the bare literal's "yours".
+ * Takes either an `observed_state` or canvas node data (`observedState` / `observed_state`). Pure.
+ */
+export function isAcceptedOlumiFigure(observedOrData: unknown): boolean {
+  if (observedOrData === null || typeof observedOrData !== 'object') return false
+  const d = observedOrData as { observedState?: unknown; observed_state?: unknown }
+  const observed = d.observedState ?? d.observed_state ?? observedOrData
+  return classifyObservedValueProvenance(observed)?.kind === 'accepted'
+}
+
+/**
  * ─────────────────────────────────────────────────────────────────────────────
  * ⭐⭐ THE INTERVENTION VOCABULARY — A DIFFERENT FIELD WEARING THE SAME NAME
  * ─────────────────────────────────────────────────────────────────────────────

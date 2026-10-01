@@ -16,7 +16,7 @@
 //   updateNode(id, { data: patch })                  // writes to both keys
 // ============================================================================
 
-import { classifyValueProvenance } from '../domain/valueProvenance'
+import { classifyObservedValueProvenance } from '../domain/valueProvenance'
 import { isUnquantifiedPrior } from '../domain/nodes'
 
 /** Shape of observed_state on factor nodes */
@@ -230,8 +230,9 @@ export function hasObservedData(nodeData: unknown): boolean {
   // Empty object returned when key is absent — no keys means no data
   if (Object.keys(obs).length === 0) return false
   if (typeof obs.value !== 'number') return false
-  const stamped = classifyValueProvenance(typeof obs.source === 'string' ? obs.source : null)
-  return stamped?.kind !== 'ai'
+  // Olumi's figure — accepted or not — is not observed data (52f8cd: the whole observed state decides).
+  const stamped = classifyObservedValueProvenance(obs)
+  return stamped?.kind !== 'ai' && stamped?.kind !== 'accepted'
 }
 
 /**

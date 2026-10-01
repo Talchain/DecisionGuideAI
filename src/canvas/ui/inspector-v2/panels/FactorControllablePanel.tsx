@@ -63,7 +63,7 @@ import {
   didValueCommitRevert,
   VALUE_COMMIT_SETTLEMENT_COPY,
 } from '../../../conversation/valueCommitSettlement'
-import { USER_VALUE_STAMP } from '../../../domain/valueProvenance'
+import { USER_VALUE_STAMP, isAcceptedOlumiFigure } from '../../../domain/valueProvenance'
 import { classifyUnit } from '../../../../utils/unitClassifier'
 import { isSuppressedUnit } from '../../../utils/labelUtils'
 import { useBeliefElicitation } from '../../../hooks/useBeliefElicitation'
@@ -821,7 +821,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       {/* The header is a CLAIM about who supplied this number, not a static
           caption. "Your input" over an Olumi estimate is false attribution —
           see getInputGroupLabel (inspectorStrings.ts) for both directions. */}
-      <PanelGroup kind="input" label={getInputGroupLabel(source, (rawValue ?? value) != null)}>
+      <PanelGroup kind="input" label={getInputGroupLabel(source, (rawValue ?? value) != null, isAcceptedOlumiFigure(node?.data))}>
         <PrimaryControlCard>
           {canonicalDisplayText && (
             <div className={`${typography.panelBody} text-text-body mb-1.5`} data-testid="factor-display-text">
@@ -905,7 +905,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
           {source && (
             <div className="flex items-center gap-1 mt-2 pt-2 border-t border-panel-border">
               <Link size={12} className="text-info" />
-              <span className={`${typography.panelMeta} text-info`}>{getProvenanceLabel(source, attributedTo)}</span>
+              <span className={`${typography.panelMeta} text-info`}>{getProvenanceLabel(source, attributedTo, isAcceptedOlumiFigure(node?.data))}</span>
             </div>
           )}
 

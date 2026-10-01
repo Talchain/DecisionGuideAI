@@ -34,7 +34,7 @@
  */
 import { typography } from '../../../styles/typography'
 import { factorCardVisibleText, joinFactorDisplayParts, type FactorDisplayParts } from '../../../utils/formatFactorDisplayValue'
-import { classifyValueProvenance, factorValueIsUnconfirmedEstimate } from '../../domain/valueProvenance'
+import { classifyObservedValueProvenance, factorValueIsUnconfirmedEstimate } from '../../domain/valueProvenance'
 import { readoutIsBareModelFigure } from './bareModelFigure'
 
 // Moved to `bareModelFigure.ts` (a pure rule, kept out of this component's import closure); re-exported for callers.
@@ -105,8 +105,9 @@ export function readoutIsBareModelScale(readout: string | null, data: unknown): 
   const d = data as Record<string, unknown> | null | undefined
   if (d?.pending_user_value != null) return false
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
-  const source = typeof obs?.source === 'string' ? obs.source : null
-  if (classifyValueProvenance(source)?.userOwned === true) return false
+  // The whole observed state: Olumi's figure the user ACCEPTED is not "unconfirmed" either (52f8cd; AIQ 5921018606).
+  const cls = classifyObservedValueProvenance(obs)
+  if (cls?.userOwned === true || cls?.kind === 'accepted') return false
   return factorValueIsUnconfirmedEstimate(data)
 }
 

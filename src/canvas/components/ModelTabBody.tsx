@@ -53,6 +53,7 @@ import { ModelFooter } from './model-tab/ModelFooter'
 import { StreamingDiagnostics } from './model-tab/StreamingDiagnostics'
 import { buildSynthesisedPriorMap } from './model-tab/synthesisedPriorHelpers'
 import { modelTabFactorsToVerify, mapSourceToDisplay } from './model-tab/utils'
+import { isAcceptedOlumiFigure } from '../domain/valueProvenance'
 import { ModelAdjustments } from './model-tab/ModelAdjustments'
 // The Model Editor v2 (16 Aug 2026 mount train). Mounted ON, no flag: the
 // no-dark-launches rule. Its factor-value edits ride the SAME canonical
@@ -741,7 +742,7 @@ export const ModelTabBody = memo(function ModelTabBody({
          "null" into a user's document — strictly worse than the wire token it
          replaced. "No source" and "a source we cannot name" are different facts
          and the clipboard says which. */
-      const namedSource = obs.source ? mapSourceToDisplay(obs.source) : null
+      const namedSource = obs.source ? mapSourceToDisplay(obs.source, isAcceptedOlumiFigure(obs)) : null
       const src = namedSource
         ? ` [${namedSource}]`
         : obs.source

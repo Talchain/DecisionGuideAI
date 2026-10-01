@@ -24,7 +24,7 @@
  * populates, so the canvas kept saying "no target" after the user had set one.
  * A user-set value wins; the CEE-derived raw is the fallback.
  */
-import { classifyValueProvenance } from './valueProvenance'
+import { classifyObservedValueProvenance } from './valueProvenance'
 
 /** The shape both call sites read from. Deliberately structural, not a class. */
 export interface GoalTargetSource {
@@ -409,7 +409,7 @@ export function goalTodayLevel(data: (GoalTargetSource & { goal_level_reading?: 
     return null // a reading is present but unreadable: fail closed, never fall through to another figure
   }
   const observed = data.observedState as { raw_value?: unknown; unit?: unknown; source?: unknown } | null | undefined
-  const kind = classifyValueProvenance(typeof observed?.source === 'string' ? observed.source : null)?.kind
+  const kind = classifyObservedValueProvenance(observed)?.kind
   const raw = typeof observed?.raw_value === 'number' ? observed.raw_value : NaN
   const unit = typeof observed?.unit === 'string' ? observed.unit.trim() : ''
   if ((kind === 'edited' || kind === 'confirmed') && Number.isFinite(raw) && unit === goalUnit) {

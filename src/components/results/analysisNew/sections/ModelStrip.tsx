@@ -1011,6 +1011,7 @@ export function ModelStrip({
         /** `StripNode.hasValue`: the VALUE question, which `valueText` does not answer. */
         hasValue: boolean
         valueSource: string | undefined
+        valueAccepted: boolean
       }
     | null = (() => {
     if (activeNodeId === null) return null
@@ -1026,6 +1027,7 @@ export function ModelStrip({
           valueText: found.valueText,
           hasValue: found.valueText !== null || found.hasValue,
           valueSource: found.valueSource,
+          valueAccepted: found.valueAccepted === true,
         }
       }
     }
@@ -1039,7 +1041,8 @@ export function ModelStrip({
    * the user typed.
    */
   const activeValueProvenance = (() => {
-    const cls = classifyValueProvenance(active?.valueSource)
+    // Olumi's figure the user ACCEPTED says so — the strip node carries the fact the stamp cannot (52f8cd).
+    const cls = active?.valueAccepted ? { kind: 'accepted' as const } : classifyValueProvenance(active?.valueSource)
     return cls === null ? null : VALUE_PROVENANCE_LABEL[cls.kind]
   })()
   /** Open only for the factor whose detail is on screen — see `editingFor`. */

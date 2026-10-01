@@ -4,7 +4,7 @@
  */
 
 import type { NodeType, FactorCategory } from '../../domain/nodes'
-import { classifyValueProvenance, type ValueProvenanceKind } from '../../domain/valueProvenance'
+import { classifyValueProvenance, isAcceptedOlumiFigure, VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from '../../domain/valueProvenance'
 import { factorValueSourceMark, VALUE_SOURCE_MARK_LABEL, type ValueSourceMarkKind } from '../../nodes/shared/valueSourceMark'
 import type { ParticipantNameResolution } from '../../../collab/participantNames'
 import { DECISION_NODE_LABEL } from '../../domain/vocabulary'
@@ -167,7 +167,10 @@ function namedPanelLabel(label: string): string {
 function attributedLabelFor(
   source: string,
   attributedTo?: ParticipantNameResolution,
+  /** Olumi's figure the user ACCEPTED (`isAcceptedOlumiFigure`); the stamp alone cannot say so (52f8cd). */
+  accepted = false,
 ): string | null {
+  if (accepted) return VALUE_PROVENANCE_LABEL.accepted
   const cls = classifyValueProvenance(source)
   if (!cls) return null
   // The name is consulted ONLY for the kind it can describe. Passing a
@@ -184,9 +187,11 @@ function attributedLabelFor(
 export function getProvenanceLabel(
   source?: string,
   attributedTo?: ParticipantNameResolution,
+  /** Olumi's figure the user ACCEPTED — the caller holds the node (`isAcceptedOlumiFigure`). */
+  accepted = false,
 ): string {
   if (!source) return 'No evidence yet'
-  const attributed = attributedLabelFor(source, attributedTo)
+  const attributed = attributedLabelFor(source, attributedTo, accepted)
   if (attributed) return attributed
   switch (source) {
     case 'brief_extraction': return 'Generated from your brief'
@@ -226,7 +231,7 @@ export function factorValueSourceLabel(
   const d = data as Record<string, unknown> | undefined
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
   const source = typeof obs?.source === 'string' ? obs.source : undefined
-  const attributed = source ? attributedLabelFor(source, attributedTo) : null
+  const attributed = source ? attributedLabelFor(source, attributedTo, isAcceptedOlumiFigure(obs)) : null
   if (attributed) return attributed
   const words: Readonly<Record<ValueSourceMarkKind, string>> = {
     olumi: 'Estimated by Olumi',
@@ -443,8 +448,10 @@ const INPUT_GROUP_LABEL: Record<ValueProvenanceKind, string> = {
 export function getInputGroupLabel(
   source: string | null | undefined,
   hasValue: boolean,
+  /** Olumi's figure the user ACCEPTED — the caller holds the node (`isAcceptedOlumiFigure`; 52f8cd). */
+  accepted = false,
 ): string {
-  const cls = classifyValueProvenance(source)
+  const cls = accepted ? { kind: 'accepted' as const } : classifyValueProvenance(source)
   // `classifyValueProvenance` returns null — never a guessed class — for an
   // absent or unrecognised literal. Guessing here is precisely how "Estimated
   // by Olumi" ended up over a confirmed value.

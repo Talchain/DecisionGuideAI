@@ -27,10 +27,20 @@ import { render, screen, cleanup } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
 import { afterEach } from 'vitest'
 import { toModelRows } from '../../model-tab-v2/adapters'
-import { SourceProvenancePill } from '../../components/model-tab/SourceProvenancePill'
+import { ModelDetailRegion } from '../../model-tab-v2/ModelDetailRegion'
+import type { ModelRowDetail } from '../../model-tab-v2/types'
+import { ModelRowView } from '../../model-tab-v2/ModelRowView'
 import { buildEstimateRows } from '../../components/pre-analysis-v3/selectors/buildEstimateRows'
 import type { RankingResult } from '../../components/pre-analysis-v3/types'
 import { provenanceToPill } from '../../components/pre-analysis/provenanceUtils'
+import { factorValueSourceLabel, getInputGroupLabel, getProvenanceLabel } from '../../ui/inspector-v2/inspectorStrings'
+import { userValueReplacesPrior } from '../../nodes/shared/factorPriorRange'
+import { hasObservedData } from '../../utils/observedStateHelpers'
+import { mapSourceToDisplay } from '../../components/model-tab/utils'
+import { REVIEW_TOOL_COPY, reviewValueProvenance } from '../../../components/results/analysisNew/buildReviewQueue'
+import { isAcceptedOlumiFigure } from '../valueProvenance'
+import { buildModelStrip } from '../../../components/results/analysisNew/buildModelStrip'
+import { unsetBucketOf } from '../../model-tab-v2/ModelOutline'
 
 const ACCEPTED = 'Olumi’s estimate · you accepted it'
 const AT = '2026-09-30T23:00:00.000Z'
@@ -124,11 +134,21 @@ describe('every pre-run surface that names whose number it is says the same (52f
     const [bare] = toModelRows({ nodes: [rf(BRIEF_MARKED, 'user_set')], edges: [], goalThreshold: null })
     expect(adopted.provenanceAccepted).toBe(true)
     expect(bare).not.toHaveProperty('provenanceAccepted')
-    render(<SourceProvenancePill source={adopted.provenanceSource} showWhenAbsent={false} accepted={adopted.provenanceAccepted === true} />)
-    expect(screen.getByText(ACCEPTED)).toBeInTheDocument()
+    const detail = { rowId: 'warm_introductions', priorIsExplicitlyUnquantified: false, classification: null, description: null,
+      secondaryValues: [], basis: null, adjustments: [], affects: [], interventionCandidates: [], interventions: [], advancedParameters: [] } as unknown as ModelRowDetail
+    render(<ModelDetailRegion row={adopted} detail={detail} tier="plain" />)
+    expect(screen.getByTestId('model-detail-v2-provenance')).toHaveTextContent(ACCEPTED)
     cleanup()
-    render(<SourceProvenancePill source={bare.provenanceSource} showWhenAbsent={false} accepted={bare.provenanceAccepted === true} />)
-    expect(screen.getByText('Your assumption')).toBeInTheDocument()
+    render(<ModelDetailRegion row={bare} detail={detail} tier="plain" />)
+    expect(screen.getByTestId('model-detail-v2-provenance')).toHaveTextContent('Your assumption')
+  })
+
+  it('Model tab row mark (ModelRowView → ValueProvenanceMark, CODEX UI BUDDY 5922428997): accepted kind for the adopted row, assumption for the bare', () => {
+    const [adopted] = toModelRows({ nodes: [rf(ADOPTED, 'ai_inferred')], edges: [], goalThreshold: null })
+    const [bare] = toModelRows({ nodes: [rf(BRIEF_MARKED, 'user_set')], edges: [], goalThreshold: null })
+    render(<><ModelRowView row={{ ...adopted, id: 'a' }} tier="plain" /><ModelRowView row={{ ...bare, id: 'b' }} tier="plain" /></>)
+    expect(screen.getByTestId('model-row-v2-a-provenance-mark')).toHaveAttribute('data-provenance-kind', 'accepted')
+    expect(screen.getByTestId('model-row-v2-b-provenance-mark')).toHaveAttribute('data-provenance-kind', 'assumption')
   })
 
   it('pre-analysis estimates: the adopted row is kind `accepted`; the bare literal stays `assumption`', () => {
@@ -139,5 +159,61 @@ describe('every pre-run surface that names whose number it is says the same (52f
   it('"What Olumi added": the accepted pill says AIQ\u2019s words; the bare literal keeps "Your assumption"', () => {
     expect(provenanceToPill(undefined, 'user_assumption', true)?.label).toBe(ACCEPTED)
     expect(provenanceToPill(undefined, 'user_assumption', false)?.label).toBe('Your assumption')
+  })
+})
+
+describe('the rest of the reader class (AIQ census 5922532335; CODEX UI BUDDY 5922494814): one rule, every surface', () => {
+  const adopted = factorData(ADOPTED, 'ai_inferred')
+  const bare = factorData(BRIEF_MARKED, 'user_set')
+
+  it('isAcceptedOlumiFigure reads canvas data, a wire node\u2019s observed state, and refuses the bare literal', () => {
+    expect(isAcceptedOlumiFigure(adopted)).toBe(true)
+    expect(isAcceptedOlumiFigure(ADOPTED)).toBe(true)
+    expect(isAcceptedOlumiFigure({ observed_state: ADOPTED })).toBe(true)
+    expect(isAcceptedOlumiFigure(bare)).toBe(false)
+    expect(isAcceptedOlumiFigure(null)).toBe(false)
+  })
+
+  it('inspector: the value label, the provenance line and the input group never call the adopted figure the user\u2019s', () => {
+    expect(factorValueSourceLabel(adopted)).toBe(ACCEPTED)
+    expect(factorValueSourceLabel(bare)).toBe('Your assumption')
+    expect(getProvenanceLabel('user_assumption', undefined, true)).toBe(ACCEPTED)
+    expect(getProvenanceLabel('user_assumption')).toBe('Your assumption')
+    expect(getInputGroupLabel('user_assumption', true, true)).toBe(getInputGroupLabel('cee_inference', true))
+    expect(getInputGroupLabel('user_assumption', true, true)).not.toBe(getInputGroupLabel('user_assumption', true))
+  })
+
+  it('behaviour keyed on "the user\u2019s own": the adopted figure is Olumi\u2019s (no user value replaces the prior; not observed data)', () => {
+    expect(userValueReplacesPrior(adopted)).toBe(false)
+    expect(userValueReplacesPrior(bare)).toBe(true)
+    expect(hasObservedData(adopted)).toBe(false)
+    expect(hasObservedData(bare)).toBe(true)
+  })
+
+  it('Model tab: the adopted figure is stated (never "Not set") and its pasted source says AIQ\u2019s words', () => {
+    const rf = { id: 'warm_introductions', type: 'factor', position: { x: 0, y: 0 }, data: adopted } as unknown as Node
+    const [row] = toModelRows({ nodes: [rf], edges: [], goalThreshold: null })
+    expect(row.primaryValue).not.toBeNull()
+    expect(mapSourceToDisplay('user_assumption', true)).toBe(ACCEPTED)
+    expect(mapSourceToDisplay('user_assumption')).toBe('Your assumption')
+  })
+
+  it('results strip: the node carries the accepted fact into the review tool; the bare literal does not', () => {
+    const strip = (data: unknown) => buildModelStrip([{ id: 'warm_introductions', type: 'factor', data }])
+    const nodeIn = (m: ReturnType<typeof buildModelStrip>) => m.rows.flatMap((r) => r.nodes).find((x) => x.id === 'warm_introductions')
+    expect(nodeIn(strip(adopted))?.valueAccepted).toBe(true)
+    expect(nodeIn(strip(bare))).not.toHaveProperty('valueAccepted')
+  })
+
+  it('Model outline: an unset row holding Olumi\u2019s accepted figure is never bucketed "yours"', () => {
+    const [row] = toModelRows({ nodes: [{ id: 'warm_introductions', type: 'factor', position: { x: 0, y: 0 }, data: adopted } as unknown as Node], edges: [], goalThreshold: null })
+    expect(unsetBucketOf({ ...row, primaryValue: null })).not.toBe('yours')
+    expect(unsetBucketOf({ ...row, primaryValue: null, provenanceAccepted: undefined })).toBe('yours')
+  })
+
+  it('results review tool: the adopted figure is never "Your value"', () => {
+    const f = { nodeId: 'warm_introductions', label: 'Warm introductions', valueText: '2', hasValue: true, valueSource: 'user_assumption', needsCheck: false }
+    expect(reviewValueProvenance({ ...f, valueAccepted: true })).toBe(ACCEPTED)
+    expect(reviewValueProvenance(f)).toBe(REVIEW_TOOL_COPY.yourValue)
   })
 })
