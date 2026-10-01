@@ -25,7 +25,7 @@ vi.mock('../../../adapters/plot', () => ({ plot: { validatePatch: vi.fn() } }))
 
 // CEE #2480 `choosePlan` + `TALK_IT_THROUGH_CHIP`, shapes verbatim; the 12-hex suffix is `stateKeyHash({option_id})`.
 const plan = (hex: string, option: string): ActionChip => ({
-  id: `agent-premortem-plan:${hex}`, label: `‘${option}’`, message: `Run a pre-mortem on ‘${option}’.`,
+  id: `agent-premortem-plan:${hex}`, label: `‘${option}’`, intent: 'primary', message: `Run a pre-mortem on ‘${option}’.`,
 })
 const D1_PLANS = [
   plan('0a1b2c3d4e5f', 'AI Reporting Module Sprint'),
@@ -33,14 +33,15 @@ const D1_PLANS = [
   plan('2c3d4e5f6071', 'Integration Bug Fix Sprint'),
   plan('3d4e5f607182', 'Split Sprint Capacity'),
 ]
-const TALK: ActionChip = { id: 'agent-talk-it-through', label: 'Talk it through', message: 'Let’s talk it through.' }
-// CEE `NEXT_STEP_CHIPS` plus two more ordinary chips: a turn with no plan choice.
+const TALK: ActionChip = { id: 'agent-talk-it-through', label: 'Talk it through', intent: 'primary', message: 'Let’s talk it through.' }
+// CEE `NEXT_STEP_CHIPS` plus two more ordinary chips: a turn with no plan choice. `intent: 'primary'` = the ingest
+// mapper's (`suggestedActionChips.ts`), on every chip here.
 const ORDINARY: ActionChip[] = [
-  { id: 'agent-next-pre-mortem', label: 'Run a pre-mortem', message: 'Run a pre-mortem with me: imagine this decision went badly. What most plausibly went wrong?' },
-  { id: 'agent-next-what-would-change', label: 'What would change the result?', message: 'What would most likely change this result?' },
-  { id: 'agent-next-strengthen', label: 'Strengthen the model', message: 'What would most strengthen this model?' },
-  { id: 'agent-extra-1', label: 'Extra one', message: 'Extra one.' },
-  { id: 'agent-extra-2', label: 'Extra two', message: 'Extra two.' },
+  { id: 'agent-next-pre-mortem', label: 'Run a pre-mortem', intent: 'primary', message: 'Run a pre-mortem with me: imagine this decision went badly. What most plausibly went wrong?' },
+  { id: 'agent-next-what-would-change', label: 'What would change the result?', intent: 'primary', message: 'What would most likely change this result?' },
+  { id: 'agent-next-strengthen', label: 'Strengthen the model', intent: 'primary', message: 'What would most strengthen this model?' },
+  { id: 'agent-extra-1', label: 'Extra one', intent: 'primary', message: 'Extra one.' },
+  { id: 'agent-extra-2', label: 'Extra two', intent: 'primary', message: 'Extra two.' },
 ]
 
 afterEach(cleanup)
