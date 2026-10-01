@@ -384,12 +384,13 @@ describe('#34 / #39 / #42 — resting copy and glyph', () => {
   })
 
   it('#42 (SUPERSEDED 30 Sep, Paul: "the canvas card should use the Olumi icon"): the coaching glyph is the Olumi AI mark', () => {
-    // DS v5 §9.8: the logo mark as a single-colour outline — circle, triangle, square — from the ONE owner, `OlumiAiIcon`.
+    // DS v5 §9.8 + Paul 28 Sep: the FULL-COLOUR Olumi mark — three ring arcs, circle, triangle, square — from the ONE owner, `OlumiAiIcon`.
     const { container } = render(<COACHING_ICON_GLYPH.Icon />)
     const svg = container.querySelector('svg')!
     expect(svg.getAttribute('data-icon')).toBe('olumi-ai')
     expect(container.querySelectorAll('circle')).toHaveLength(1)
-    expect(Array.from(container.querySelectorAll('path')).map((p) => p.getAttribute('d'))).toEqual(['M5.5 10.5 9 16.5H2Z'])
+    expect(container.querySelectorAll('g[stroke="currentColor"] path')).toHaveLength(3)
+    expect(container.querySelector('path[fill]')?.getAttribute('fill')).toBe('var(--olumi-mark-blue)')
     expect(container.querySelectorAll('rect')).toHaveLength(1)
   })
 })
