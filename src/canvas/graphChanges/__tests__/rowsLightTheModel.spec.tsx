@@ -77,8 +77,8 @@ const lit = () => ({
 })
 const NOTHING = { edges: [], nodes: [] }
 
-beforeEach(() => vi.mocked(focusEdgeById).mockClear())
-afterEach(() => cleanup())
+beforeEach(() => { vi.mocked(focusEdgeById).mockClear() })
+afterEach(() => { cleanup() })
 
 describe('L1 · the pill head row lights its own link', () => {
   it('hover / leave, keyboard focus / blur, click → focus', () => {

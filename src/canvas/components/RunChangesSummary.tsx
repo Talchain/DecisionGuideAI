@@ -21,7 +21,6 @@ import { useCanvasStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../state/winShareGate'
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
-import type { RunDeltaInputRow } from '../../components/results/analysisNew/runDeltaView'
 import { canvasLinkOfRow, useCanvasLight } from '../graphChanges/rowCanvasLink'
 import {
   RUN_CHANGES_SUMMARY_COPY as COPY,
