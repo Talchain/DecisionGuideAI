@@ -5,6 +5,7 @@
  * clear point, two cues contending, and the path reader's own grammar.)
  */
 import { describe, it, expect } from 'vitest'
+import { ARRIVAL_HEAD_MAX_FLOW, GLYPH_BOX_GAP_FLOW, GLYPH_PAINTED_BOX_FLOW } from '../../utils/edgeGlyphPlacement'
 import {
   arrivalMarkBoxes,
   flattenSvgPath,
@@ -100,8 +101,11 @@ describe('a link\'s arrival marks are the last stretch of its own path', () => {
     const marks = arrivalMarkBoxes(['M0,0 L0,1000'])
     expect(marks.length).toBeGreaterThan(0)
     const covers = (p: { x: number; y: number }) => marks.some((m) => p.x >= m.x && p.x <= m.x + m.width && p.y >= m.y && p.y <= m.y + m.height)
-    // The tip, the widest head's base (40 back) and the sign's farthest spot (54 back).
-    for (const y of [1000, 960, 946]) expect(covers({ x: 0, y }), `y ${y}`).toBe(true)
+    // The tip, the widest head's base and the sign's farthest centre (head + gap + half a sign box back), DERIVED:
+    // they were literals (40 and 54 back) until Paul's smaller arrowheads (#2409) moved them to 25 and 39.
+    const headBase = 1000 - ARRIVAL_HEAD_MAX_FLOW
+    const signFarthest = 1000 - (ARRIVAL_HEAD_MAX_FLOW + GLYPH_BOX_GAP_FLOW + GLYPH_PAINTED_BOX_FLOW / 2)
+    for (const y of [1000, headBase, signFarthest]) expect(covers({ x: 0, y }), `y ${y}`).toBe(true)
     // …but not the midpoint of the link, where the cue belongs.
     expect(covers({ x: 0, y: 500 })).toBe(false)
     expect(arrivalMarkBoxes([null, 'M0,0 A1,1 0 0 1 2,2'])).toEqual([])
