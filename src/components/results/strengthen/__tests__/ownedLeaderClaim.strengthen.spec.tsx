@@ -77,7 +77,7 @@ function everyBranch(
         switchProbability: 0.27,
         alternativeWinnerLabel: ALT_WINNER,
       },
-    ], // -> strengthen:flip:edge_9
+    ], // -> nothing: the flip trigger is retired (Reasoning Coach 5931857395 + 5932849641)
     factors: [
       {
         factorId: 'fac_churn',
@@ -208,26 +208,11 @@ const PERMITTED_DESIGNATING_FORMS: ReadonlyArray<readonly [string, RegExp]> = [
   // strictly stronger discriminator: an identity the sweep can bind to.
   // The withheld net above KEEPS the retired phrase, so its return is still red.
   ['the designated option BY NAME', new RegExp(`\\b${LEADER_LABEL}\\b`)],
-  // ⭐ RESTORED after an independent reviewer measured that I dropped it without
-  // needing to: `buildRecommendations.ts:467` still emits "the ranking" on a
-  // permitted run, so this arm passes and the control keeps its discriminating
-  // power. Narrowing a control further than the change requires is the quiet way
-  // a guard stops proving anything — the reviewer proved 27/27 with it present.
-  ['the ranking', /\bthe ranking\b/i],
-  // ⚠ RE-POINTED TWICE NOW, AND NEVER DROPPED. 11 Sep: the permitted flip signal
-  // read "NN% chance the result flips to {alt}" and became "NN% chance {alt}
-  // scores highest instead" — the oracle referent went, the designation did not.
-  // 20 Sep: it became "{alt} was the stronger option NN% of the time", because
-  // the previous wording stated ISL's `switch_probability` as an unconditional
-  // forecast when the field is a proportion of the runs in which that edge came
-  // out weak. The designation survived both rewrites intact.
-  //
-  // ⛔ THIS ROW IS WHY THE REWRITE COULD NOT SHIP SILENTLY: it went RED the
-  // moment the phrase left the product, which is a positive control doing
-  // exactly its job. Deleting it instead of re-pointing it would leave the
-  // withheld sweep unable to prove it can SEE a presence — a net that passes
-  // because it is blind, which this file's header calls the real hazard.
-  ['<option> was the stronger option', /\bwas the stronger option\b/i],
+  // ⛔ 'the ranking' AND '<option> was the stronger option' HAVE LEFT THIS TABLE
+  // BECAUSE THEIR ONLY EMITTER IS RETIRED: both were the flip rec's (its tryThis
+  // and its signal), and the flip rec is gone (Reasoning Coach 5931857395 +
+  // 5932849641). The withheld net above KEEPS both, so a return is still red.
+  // The two rows here still prove the sweep can SEE a presence on this run.
   ['topic: challenge_leader', /challenge_leader/],
 ]
 
@@ -306,36 +291,23 @@ describe('1.243 R1 — "Challenge the leader" (strengthen:robustness)', () => {
   })
 })
 
-describe('1.243 R2 — the flip rec (strengthen:flip)', () => {
-  it('WITHHELD: the rec does not render', () => {
-    expect(ids(everyBranch('low', false)).some((i) => i.startsWith('strengthen:flip:'))).toBe(false)
-  })
-
-  it('PERMITTED (positive control): the rec renders and names the alternative winner', () => {
-    const rec = buildRecommendations(everyBranch('low', true)).find((r) =>
-      r.id.startsWith('strengthen:flip:'),
-    )
-    expect(rec).toBeDefined()
-    expect(rec!.signal).toContain(ALT_WINNER)
-    // ⭐ THE TITLE NAMES THE ASSUMPTION IT IS ABOUT. It used to be an argmax
-    // description wrapped around a ranking assertion ("the assumption most
-    // likely to change which option scores highest"), which named neither the
-    // assumption nor an option. The selection rule survives in `signal`.
-    expect(rec!.title).toBe('Test the assumption about Churn rate')
-  })
-
-  it('WITHHELD: the alternative winner label appears in NO emitted string', () => {
-    // The sharpest non-lexicon pair in this file. `alternative_winner_label`
-    // designates by elimination — naming what the result would flip TO asserts
-    // that something else is currently ahead (#494 residual 1's reasoning).
-    expect(allStrings(everyBranch('low', false))).not.toContain(ALT_WINNER)
-    expect(allStrings(everyBranch('low', true))).toContain(ALT_WINNER)
-  })
-
-  it('LEGACY: an absent hasLeadingOption leaves the flip rec untouched', () => {
-    expect(ids(everyBranch('low', undefined)).some((i) => i.startsWith('strengthen:flip:'))).toBe(
-      true,
-    )
+describe('1.243 R2 — the flip rec (strengthen:flip) is RETIRED', () => {
+  // ⛔ Reasoning Coach 5931857395 + 5932849641: its `switch_probability` sentence
+  // read as the link's effect. Its withheld / permitted / legacy rows are gone;
+  // this row pins that no arm emits it or the alternative it named.
+  it('RETIRED: no arm emits a flip rec or names the alternative, while the fixture still carries the fragile edge', () => {
+    for (const has of [true, false, undefined] as const) {
+      const input = everyBranch('low', has)
+      // CONTROL: the input that used to raise it is still there.
+      expect(input.fragileEdges.map((e) => e.alternativeWinnerLabel)).toEqual([ALT_WINNER])
+      expect(
+        ids(input).filter((i) => i.startsWith('strengthen:flip')),
+        `hasLeadingOption=${has}`,
+      ).toEqual([])
+      expect(allStrings(input), `hasLeadingOption=${has}`).not.toContain(ALT_WINNER)
+    }
+    // CONTROL: the permitted arm still builds its other recs.
+    expect(ids(everyBranch('low', true))).toContain('strengthen:robustness')
   })
 })
 

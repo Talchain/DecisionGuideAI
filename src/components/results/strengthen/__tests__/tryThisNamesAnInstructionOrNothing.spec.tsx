@@ -55,7 +55,7 @@ const base: StrengthenInputs = {
   phase3Items: [],
 }
 
-/** A fragile edge produces the CATALOGUE flip recommendation. */
+/** A fragile edge. It raised the catalogue flip rec until that trigger was retired (Reasoning Coach 5931857395 + 5932849641); it now raises nothing. */
 const FRAGILE = [{ edgeId: 'e1', factorLabel: 'Salary cost', switchProbability: 0.62 }]
 
 describe('the producer path names no instruction rather than restating its own button', () => {
@@ -128,9 +128,10 @@ describe('the producer path names no instruction rather than restating its own b
     } as StrengthenInputs)
 
     const named = recs.filter((r) => r.tryThis !== null).map((r) => r.id).sort()
+    // `strengthen:flip:e1` has left the set: the fragile edge is still in the
+    // build, and the flip trigger is retired (Reasoning Coach 5931857395 + 5932849641).
     expect(named).toEqual([
       'strengthen:broaden',
-      'strengthen:flip:e1',
       'strengthen:robustness',
       'strengthen:success-measure',
       'strengthen:voi:f1',
@@ -165,10 +166,13 @@ describe('the producer path names no instruction rather than restating its own b
   })
 
   it('the shipped placeholder appears nowhere in a built set', () => {
-    const recs = buildRecommendations({ ...base, fragileEdges: FRAGILE, phase3Items: [
+    // The catalogue row was the flip rec, retired (Reasoning Coach 5931857395 +
+    // 5932849641); the robustness rec is the catalogue row beside the producer one.
+    const recs = buildRecommendations({ ...base, robustness: { status: 'computed', level: 'low' }, phase3Items: [
       { id: 'p-1', title: 'Add a competitive-pressure factor', targetIds: [] },
     ] })
     expect(recs.length).toBeGreaterThan(1)
+    expect(recs.map((r) => r.id)).toEqual(expect.arrayContaining(['strengthen:phase3:p-1', 'strengthen:robustness']))
     expect(recs.map((r) => r.tryThis)).not.toContain(SHIPPED_PLACEHOLDER)
   })
 })

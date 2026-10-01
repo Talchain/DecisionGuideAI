@@ -22,12 +22,14 @@
  *      the time", because the field is conditional) + the action wire param
  *      literally named `switch_probability`. Defect at tip: the mapping
  *      PREFERRED marginal over a PRESENT measured switch_probability.
+ *      ⛔ The flip trigger is since RETIRED (Reasoning Coach 5931857395 +
+ *      5932849641), so chain B now pins that no fragile edge raises it.
  *
  * Controls prove a measured switch_probability — including 0 — still renders,
  * so the absence assertions are not vacuous (trap 13).
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { fireEvent, render, renderHook, screen } from '@testing-library/react'
+import { render, renderHook, screen } from '@testing-library/react'
 import { useResultsSectionData } from '../useResultsSectionData'
 import { TriageActionCardsBody } from '../TriageActionCardsBody'
 import { StrengthenContainer } from '../strengthen/StrengthenContainer'
@@ -197,10 +199,9 @@ const makeStrengthenData = (challengeFragileEdges: unknown[]): ResultsSectionDat
     drivers: { drivers: [] },
   }) as unknown as ResultsSectionDataReturn
 
-const findFlipRec = () =>
-  selectActive(useStrengthenStore.getState()).find((r) => r.id.startsWith('strengthen:flip:'))
+const activeIds = () => selectActive(useStrengthenStore.getState()).map((r) => r.id)
 
-describe('chain B — Strengthen flip trigger presence-branches on switch_probability (schemas 0.30.0)', () => {
+describe('chain B — the Strengthen flip trigger is RETIRED', () => {
   beforeEach(() => {
     useStrengthenStore.getState()._reset()
     try { sessionStorage.clear() } catch { /* jsdom */ }
@@ -212,97 +213,29 @@ describe('chain B — Strengthen flip trigger presence-branches on switch_probab
     } as never)
   })
 
-  it('PIN: the rendered flip percentage is the MEASURED switch_probability, never the marginal quantity', () => {
-    render(
-      <StrengthenContainer
-        data={makeStrengthenData([
-          {
-            edge_id: 'e1',
-            from_label: 'Price',
-            to_label: 'Revenue',
-            switch_probability: 0.2,
-            marginal_switch_probability: 0.6,
-            alternative_winner_label: 'Plan B',
-          },
-        ])}
-      />,
-    )
-    const flip = findFlipRec()
-    expect(flip).toBeDefined()
-    /*
-     * ⚠ RE-POINTED, NOT WEAKENED (20 Sep 2026). The signal read "20% chance
-     * Plan B scores highest instead" and now reads "…Plan B was the stronger
-     * option 20% of the time", because the old wording stated ISL's
-     * `switch_probability` — a proportion of runs in which the edge came out
-     * weak — as an unconditional forecast. THE DISCRIMINATION THIS TEST EXISTS
-     * FOR IS UNTOUCHED: it still binds the alternative BY NAME and still pins
-     * the MEASURED 20% against the marginal 60% on the line below, which is the
-     * whole point of the fixture carrying both.
-     */
-    expect(flip!.snapshot.signal).toContain('Plan B was the stronger option 20% of the time')
-    expect(flip!.snapshot.signal).not.toContain('60%')
-    // The wire param named switch_probability must carry the measured value.
-    expect((flip!.snapshot.action as any).parameters.switch_probability).toBe(0.2)
-    // And the DOM shows the honest number (the flip rec can sit behind the
-    // panel's "Show N more" fold — expand before asserting).
-    const showMore = screen.queryByText(/Show \d+ more/)
-    if (showMore) fireEvent.click(showMore)
-    expect(screen.getByText(/Plan B was the stronger option 20% of the time/)).toBeTruthy()
-  })
-
-  it('PIN: an edge WITHOUT a measured switch_probability produces NO flip recommendation (absence renders nothing)', () => {
-    render(
-      <StrengthenContainer
-        data={makeStrengthenData([
-          {
-            edge_id: 'e1',
-            from_label: 'Price',
-            to_label: 'Revenue',
-            marginal_switch_probability: 0.6,
-            alternative_winner_label: 'Plan B',
-          },
-        ])}
-      />,
-    )
-    expect(findFlipRec()).toBeUndefined()
-  })
-
-  it('CONTROL: a measured switch_probability alone still produces the flip rec with its percentage', () => {
-    render(
-      <StrengthenContainer
-        data={makeStrengthenData([
-          {
-            edge_id: 'e1',
-            from_label: 'Price',
-            to_label: 'Revenue',
-            switch_probability: 0.45,
-            alternative_winner_label: 'Plan B',
-          },
-        ])}
-      />,
-    )
-    const flip = findFlipRec()
-    expect(flip).toBeDefined()
-    expect(flip!.snapshot.signal).toContain('Plan B was the stronger option 45% of the time')
-  })
-
-  it('CONTROL: a measured switch_probability of 0 still renders (0% is a measurement, not absence)', () => {
-    render(
-      <StrengthenContainer
-        data={makeStrengthenData([
-          {
-            edge_id: 'e1',
-            from_label: 'Price',
-            to_label: 'Revenue',
-            switch_probability: 0,
-            alternative_winner_label: 'Plan B',
-          },
-        ])}
-      />,
-    )
-    const flip = findFlipRec()
-    expect(flip).toBeDefined()
-    expect(flip!.snapshot.signal).toContain('Plan B was the stronger option 0% of the time')
+  // ⛔ Reasoning Coach 5931857395 + 5932849641: its `switch_probability` sentence
+  // read as the link's effect. Its percentage and presence rows are gone. These
+  // edges raised `strengthen:flip:e1` through this container before retirement.
+  it('RETIRED: no fragile edge, measured, zero or marginal-only, raises a flip rec through the container', () => {
+    const edges = [
+      { switch_probability: 0.2, marginal_switch_probability: 0.6 },
+      { switch_probability: 0 },
+      { marginal_switch_probability: 0.6 },
+    ]
+    for (const measure of edges) {
+      useStrengthenStore.getState()._reset()
+      const { unmount } = render(
+        <StrengthenContainer
+          data={makeStrengthenData([
+            { edge_id: 'e1', from_label: 'Price', to_label: 'Revenue', alternative_winner_label: 'Plan B', ...measure },
+          ])}
+        />,
+      )
+      // CONTROL: the container still delivers its other recs to the store.
+      expect(activeIds(), JSON.stringify(measure)).toContain('strengthen:success-measure')
+      expect(activeIds().filter((id) => id.startsWith('strengthen:flip')), JSON.stringify(measure)).toEqual([])
+      unmount()
+    }
   })
 })
 
