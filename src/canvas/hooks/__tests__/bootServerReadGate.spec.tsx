@@ -178,6 +178,20 @@ describe('B6 · round 2: one more read per load generation, never a stale one (D
     useServerGraphHydration(routeId, { enabled: boot.enabled, readEpoch: boot.readEpoch })
     return boot
   }
+  // What a merged CEE read leaves in the store (`serverGraphHydration.ts`: the authoritative graph, the identity token,
+  // the stored run delta), each bound to the CEE graph of `id`, whose node ids differ from the Supabase copy's (`g-<id>`).
+  const ceeGraph = (id: string) => ({ nodeIds: [`cee-node-${id}`], edgePairs: [] as string[] })
+  const ceeRunDelta = (id: string) => ({ delta: {} as never, analysisHash: `rh-${id}`, scenarioId: id })
+  const ceeRead = (id: string) => {
+    const st = useCanvasStore.getState()
+    st.setLastAuthoritativeGraph(ceeGraph(id))
+    st.setServerGraphIdentity(ceeIdentity(id))
+    st.setRunDelta(ceeRunDelta(id))
+  }
+  const endState = () => {
+    const st = useCanvasStore.getState()
+    return { graph: st.lastAuthoritativeGraph, identity: st.serverGraphIdentity, runDelta: st.runDelta }
+  }
   const reads = () => hydrate.fn.mock.calls.map((c) => (c as unknown[])[0])
   const identity = () => useCanvasStore.getState().serverGraphIdentity
   const scenario = () => useCanvasStore.getState().currentScenarioId
@@ -187,7 +201,7 @@ describe('B6 · round 2: one more read per load generation, never a stale one (D
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     loads = []
     hydrate.fn.mockImplementation((async (id: string) => {
-      useCanvasStore.getState().setServerGraphIdentity(ceeIdentity(id))
+      ceeRead(id)
       return 'merged'
     }) as never)
   })
@@ -214,20 +228,32 @@ describe('B6 · round 2: one more read per load generation, never a stale one (D
     })
   }
 
-  it('(2) HUNG LOAD: the read waits for the bound, not a millisecond less; the late load is fenced by ONE more read', async () => {
+  it('(2) HUNG LOAD: the read waits for the bound, not a millisecond less; the late load is fenced by EXACTLY ONE more read', async () => {
     auth.state = { loading: false, user: { id: 'real-user' } }
-    const { result } = renderHook(({ route }) => useHarness(route), { initialProps: { route: ROUTE } })
+    const { result, rerender } = renderHook(({ route }) => useHarness(route), { initialProps: { route: ROUTE } })
     await act(async () => { vi.advanceTimersByTime(SUPABASE_LOAD_WAIT_BOUND_MS - 1); await flush() })
     expect(result.current.enabled).toBe(false)
     expect(reads()).toEqual([])
     await act(async () => { vi.advanceTimersByTime(1); await flush() })
     expect(result.current.enabled).toBe(true)
     expect(reads()).toEqual([ROUTE])
-    expect(identity()).toEqual(ceeIdentity(ROUTE))
+    expect(endState()).toEqual({ graph: ceeGraph(ROUTE), identity: ceeIdentity(ROUTE), runDelta: ceeRunDelta(ROUTE) })
+    // The fence's re-read is held open, so the state BETWEEN the late load and the re-read is observable.
+    let finishReread: () => void = () => {}
+    hydrate.fn.mockImplementationOnce(((id: string) =>
+      new Promise((res) => { finishReread = () => { ceeRead(id); res('merged') } })) as never)
     await act(async () => { loads[0].resolve(true); await flush() })
     expect(reads()).toEqual([ROUTE, ROUTE])
+    const between = endState()
+    expect(between.identity).toBeNull()
+    expect(between.runDelta).toBeNull()
+    expect(between.graph).not.toEqual(ceeGraph(ROUTE))
+    await act(async () => { finishReread(); await flush() })
+    // DL condition (peer msg 19:5xZ): the END state is the restored CEE graph's, by identity, after exactly one extra read.
+    expect(endState()).toEqual({ graph: ceeGraph(ROUTE), identity: ceeIdentity(ROUTE), runDelta: ceeRunDelta(ROUTE) })
     expect(scenario()).toBe(ROUTE)
-    expect(identity()).toEqual(ceeIdentity(ROUTE))
+    await act(async () => { rerender({ route: ROUTE }); vi.advanceTimersByTime(SUPABASE_LOAD_WAIT_BOUND_MS * 2); await flush() })
+    expect(reads()).toEqual([ROUTE, ROUTE])
   })
 
   it('(3) A→B→A: B\'s late settle changes nothing; A\'s fresh load gates A until IT settles; then A is read again', async () => {
