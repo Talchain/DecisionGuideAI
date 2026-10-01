@@ -44,7 +44,7 @@ src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:8087
+src/canvas/store.ts:8121
 src/canvas/stores/readinessStore.ts:829
 src/canvas/stores/readinessStore.ts:922
 src/canvas/utils/briefValidation.ts:43
@@ -192,3 +192,5 @@ src/components/results/analysisNew/analysisNewCopy.ts:2524
 #    a pure +16 shift from #2350 (`forgetDurableDeletion`), which left staging red on this check. Scanner added/gone = exactly this pair.
 # 1 Oct 2026 (Canvas, #2370 Changes view): re-lined store.ts 8065 → 8087, a pure +22 line shift from the `run_changes`
 #    projection (slice type + `setRunChangesHighlight`) above it; the same `currentTotal + displayBytes > MAX_TOTAL_CHARS` line.
+# 1 Oct 2026 (Panel, fix-forward of #2418's staging red): re-lined store.ts 8087 → 8121, a pure +34 line shift from
+#    `scenarioResetState` + `adoptScenario` + `scenarioEpoch` above it; the same `currentTotal + displayBytes > MAX_TOTAL_CHARS` line.

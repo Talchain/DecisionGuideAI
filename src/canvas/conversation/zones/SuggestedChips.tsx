@@ -37,7 +37,7 @@ import { isChipRenderable } from '../chipDispatch'
 import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
 import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
-import { CONSENT_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition'
+import { CONSENT_CHIP_PREFIX, PLAN_PICK_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition'
 import type { ActionChip } from '../types'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
@@ -148,6 +148,11 @@ function isResearchChip(chip: ActionChip): boolean {
 /** CEE's consent chip, by identity (its id prefix; a chip can arrive without an id), never by `intent` or label. */
 function isConsentChip(chip: ActionChip): boolean {
   return typeof chip.id === 'string' && chip.id.startsWith(CONSENT_CHIP_PREFIX)
+}
+
+/** CEE's pre-mortem plan pick (#2480 choose_plan), by identity (its id prefix), never by label or message. */
+function isPlanPickChip(chip: ActionChip): boolean {
+  return typeof chip.id === 'string' && chip.id.startsWith(PLAN_PICK_CHIP_PREFIX)
 }
 
 /**
@@ -392,7 +397,12 @@ export function SuggestedChips({
   // ActionChipRow and ChatThread. It used to be an inline `!!(message || prompt)`
   // here, which dropped the terminal notices' `start_new_draft` chip — a chip
   // ConversationPanel routes by id and which therefore carries no message.
-  const visible = polished.filter(isChipRenderable).slice(0, 3)
+  //
+  // M3 (CEE #2480 choose_plan): an asked pre-mortem with no plan offers one button per own option, then "Talk it
+  // through". That set is the method's own question, not a suggestion: D1's four options made it five, and the cap
+  // dropped the last plan and "Talk it through". A turn carrying a plan pick keeps its whole set.
+  const renderable = polished.filter(isChipRenderable)
+  const visible = renderable.some(isPlanPickChip) ? renderable : renderable.slice(0, 3)
   if (visible.length === 0) return null
 
   const disabled = isThinking || isHistorical
