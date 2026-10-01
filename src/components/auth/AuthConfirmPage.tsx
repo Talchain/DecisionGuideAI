@@ -43,6 +43,8 @@ type Phase =
   | { kind: 'verifying' }
   | { kind: 'set-password'; reason: 'invite' | 'recovery'; email: string }
   | { kind: 'password-saved' }
+  | { kind: 'email-change-half' }
+  | { kind: 'email-changed'; email: string }
   | { kind: 'failed' }
 
 function asOtpType(value: string | null): EmailOtpType | null {
@@ -79,12 +81,22 @@ export default function AuthConfirmPage() {
       }
       try {
         const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
+        // SECURE EMAIL CHANGE (live setting): the FIRST of the two links is accepted with no session and no error
+        // (Supabase answers "now confirm the other link"). That is a success, not an expired link.
+        if (type === 'email_change' && !error && !data.session) {
+          setPhase({ kind: 'email-change-half' })
+          return
+        }
         if (error || !data.session) {
           setPhase({ kind: 'failed' })
           return
         }
         if (type === 'invite' || type === 'recovery') {
           setPhase({ kind: 'set-password', reason: type, email: data.user?.email ?? '' })
+          return
+        }
+        if (type === 'email_change') {
+          setPhase({ kind: 'email-changed', email: data.user?.email ?? '' })
           return
         }
         goToApp()
@@ -123,6 +135,32 @@ export default function AuthConfirmPage() {
     return (
       <AuthShell testId="auth-confirm-password-saved">
         <PasswordSaved onContinue={goToApp} />
+      </AuthShell>
+    )
+  }
+
+  if (phase.kind === 'email-change-half') {
+    return (
+      <AuthShell testId="auth-confirm-email-change-half">
+        <EmailChangeStep
+          title="One address confirmed"
+          body="Now open the link we sent to your other address. Your sign-in email changes once both are confirmed."
+          action="Back to Olumi"
+          onContinue={goToApp}
+        />
+      </AuthShell>
+    )
+  }
+
+  if (phase.kind === 'email-changed') {
+    return (
+      <AuthShell testId="auth-confirm-email-changed">
+        <EmailChangeStep
+          title="Email changed"
+          body={phase.email ? `You now sign in to Olumi as ${phase.email}.` : 'Your new sign-in email is confirmed.'}
+          action="Continue"
+          onContinue={goToApp}
+        />
       </AuthShell>
     )
   }
@@ -261,6 +299,21 @@ function PasswordLength({ length }: { length: number }) {
       {met && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
       {met ? 'Good to go' : `At least ${MIN_PASSWORD} characters`}
     </span>
+  )
+}
+
+function EmailChangeStep({ title, body, action, onContinue }: { title: string; body: string; action: string; onContinue: () => void }) {
+  return (
+    <div className="flex flex-col items-center text-center" aria-live="polite">
+      <span className="flex h-14 w-14 items-center justify-center rounded-full border border-success/30 text-success">
+        <Check className="h-6 w-6" aria-hidden="true" />
+      </span>
+      <h1 className={`${typography.h4} mt-5 text-text-header`}>{title}</h1>
+      <p className={`${typography.body} mt-1 text-text-light`}>{body}</p>
+      <button type="button" onClick={onContinue} className={`${primaryButton} mt-6`} data-testid="email-change-continue">
+        {action}
+      </button>
+    </div>
   )
 }
 

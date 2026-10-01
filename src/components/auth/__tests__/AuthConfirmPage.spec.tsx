@@ -108,4 +108,35 @@ describe('AuthConfirmPage', () => {
     expect(await screen.findByTestId('auth-confirm-failed')).toBeInTheDocument()
     expect(mockVerifyOtp).not.toHaveBeenCalled()
   })
+
+  // Secure email change (live): Supabase's verify answers the FIRST of the two links with 200 {msg, code} and no
+  // session (supabase/auth internal/api/verify.go, singleConfirmationAccepted).
+  it('email change, FIRST link: no session and no error is "one address confirmed", not an expired link', async () => {
+    mockVerifyOtp.mockResolvedValue({ data: { session: null, user: { msg: 'Confirmation link accepted. Please proceed to confirm link sent to the other email', code: '200' } }, error: null })
+    renderAt('/auth/confirm?token_hash=th-old&type=email_change')
+    expect(await screen.findByTestId('auth-confirm-email-change-half')).toBeInTheDocument()
+    expect(mockVerifyOtp).toHaveBeenCalledWith({ token_hash: 'th-old', type: 'email_change' })
+    expect(screen.queryByTestId('auth-confirm-failed')).toBeNull()
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('email change, SECOND link: a session with the new email says so, then continues to the hub', async () => {
+    mockVerifyOtp.mockResolvedValue({ data: { session, user: { id: 'u1', email: 'new@example.com' } }, error: null })
+    renderAt('/auth/confirm?token_hash=th-new&type=email_change')
+    expect((await screen.findByTestId('auth-confirm-email-changed')).textContent).toContain('new@example.com')
+    fireEvent.click(screen.getByTestId('email-change-continue'))
+    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
+  })
+
+  it('CONTROL: an email-change link Supabase REFUSES is still the expired-link page', async () => {
+    mockVerifyOtp.mockResolvedValue({ data: { session: null, user: null }, error: { status: 403, message: 'Email link is invalid or has expired' } })
+    renderAt('/auth/confirm?token_hash=th-dead&type=email_change')
+    expect(await screen.findByTestId('auth-confirm-failed')).toBeInTheDocument()
+  })
+
+  it('CONTROL: the no-session success is ONLY for email change; a magic link with no session is still a failure', async () => {
+    mockVerifyOtp.mockResolvedValue({ data: { session: null, user: null }, error: null })
+    renderAt('/auth/confirm?token_hash=th-ml&type=magiclink')
+    expect(await screen.findByTestId('auth-confirm-failed')).toBeInTheDocument()
+  })
 })
