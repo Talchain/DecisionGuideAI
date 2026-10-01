@@ -264,7 +264,7 @@ describe('openExampleDecision: a fresh scenario every time, never over a model, 
     const first = await openExampleDecision()
     expect(first.status).toBe('not_read_back')
     const id = register.mock.calls[0][0] as string
-    hydrateMock.mockImplementationOnce(async (sid: string) => {
+    hydrateMock.mockImplementationOnce(async () => {
       useCanvasStore.setState({ nodes: SEED_IDS.map((nid) => ({ id: nid, position: { x: 0, y: 0 }, data: {} })) as never })
       return 'merged'
     })

@@ -2445,7 +2445,7 @@ function firstGoalNodeId(
  * The whole scenario-scoped state a scenario boundary clears: `resetCanvas`'s full branch, and `adoptScenario`
  * (which applies it even on an empty canvas). A function, so every reset gets fresh Set/lens instances.
  */
-function scenarioResetState() {
+function scenarioResetState(): Partial<CanvasState> {
   return {
     // Clear graph
     nodes: [],
