@@ -17,7 +17,7 @@
  */
 import { Shuffle } from 'lucide-react'
 import { typography } from '../../styles/typography'
-import { WhatsChanged } from '../../components/results/analysisNew/sections/WhatsChanged'
+import { WhatsChanged, type InputRowFocus, type InputRowLight } from '../../components/results/analysisNew/sections/WhatsChanged'
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 import { useRunChangesProjection } from '../graphChanges/useRunChangesProjection'
 import { canvasLinkOfTarget, useCanvasLight } from '../graphChanges/rowCanvasLink'
@@ -74,21 +74,19 @@ export function CompareRunPairBody({
       </div>
     )
   }
+  // Each row's link to the canvas, by the row's own ids: click focuses; hover / keyboard focus lights (DL 5939855664).
+  const rowFocus: InputRowFocus = (row) => {
+    const target = changes.focusByRowKey.get(row.key)
+    if (target === undefined) return undefined
+    return canvasLinkOfTarget(target)?.focus ?? null
+  }
+  const rowLight: InputRowLight = (row) => {
+    const link = canvasLinkOfTarget(changes.focusByRowKey.get(row.key))
+    return link ? { on: () => light.on(link), off: light.off } : null
+  }
   return (
     <div data-testid={COMPARE_RUN_PAIR_TESTID}>
-      <WhatsChanged
-        view={view}
-        rowFocus={(row) => {
-          const target = changes.focusByRowKey.get(row.key)
-          if (target === undefined) return undefined
-          return canvasLinkOfTarget(target)?.focus ?? null
-        }}
-        // ⭐ Hover / keyboard focus lights the row's element on the canvas, by the same identity (DL 5939855664).
-        rowLight={(row) => {
-          const link = canvasLinkOfTarget(changes.focusByRowKey.get(row.key))
-          return link ? { on: () => light.on(link), off: light.off } : null
-        }}
-      />
+      <WhatsChanged view={view} rowFocus={rowFocus} rowLight={rowLight} />
     </div>
   )
 }
