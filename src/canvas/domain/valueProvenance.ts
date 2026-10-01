@@ -91,6 +91,17 @@ export type ValueProvenanceKind =
    * stamped `user_override` and rendered as "User edited".
    */
   | 'panel'
+  /**
+   * ⭐ OLUMI'S FIGURE, ACCEPTED BY THE USER — origin Olumi, acceptance the user's: two facts, both said (52f8cd; AIQ
+   * 5921018606: "accepting Olumi's estimate is NOT authoring it"; DL CR on CEE #2412 5921764485).
+   *
+   * No `source` literal maps here. CEE's approved adoption writes `user_assumption` AND records the approval as
+   * `observed_state.reviewed_by_user` (`intent: 'confirm'`); the bare literal is the user's own declared guess
+   * (`assumption` above). Only {@link classifyObservedValueProvenance}, which sees the whole `observed_state`, can tell
+   * the two apart, so only it returns this kind. NOT user-owned: no first-person copy ("Set by you", "Your
+   * assumption") may sit on a number Olumi proposed.
+   */
+  | 'accepted'
 
 export interface ValueProvenanceClass {
   kind: ValueProvenanceKind
@@ -131,6 +142,8 @@ export const VALUE_PROVENANCE_LABEL: Readonly<Record<ValueProvenanceKind, string
   assumption: 'Your assumption',
   human: 'Set by you',
   panel: 'From your panel',
+  // AIQ 5921018606, verbatim: origin first, then the acceptance.
+  accepted: 'Olumi\u2019s estimate \u00b7 you accepted it',
 })
 
 /**
@@ -213,6 +226,26 @@ export function classifyValueProvenance(
   const kind = SOURCE_CLASSES[source]
   if (kind === undefined) return null
   return { kind, userOwned: USER_OWNED_KINDS.has(kind) }
+}
+
+/**
+ * ⭐ CLASSIFY A WHOLE `observed_state`: whose number, and did the user accept Olumi's?
+ *
+ * {@link classifyValueProvenance} sees only the `source` stamp, and `user_assumption` has two writers: the user
+ * marking a figure as their own assumption, and CEE's approved adoption of Olumi's proposed figure, which also records
+ * the approval as `reviewed_by_user` (`intent: 'confirm'`; CEE `isAcceptedOlumiEstimate`, the same rule). That pair is
+ * kind `accepted`. Everything else, the bare literal included, is exactly the stamp's own class. A link-pairing quote
+ * (`confirm_pairing`) is not the acceptance of a figure. `null` exactly when the stamp's class is `null`. Pure; takes
+ * `unknown` (canvas node data carries the same object under `observedState`).
+ */
+export function classifyObservedValueProvenance(observed: unknown): ValueProvenanceClass | null {
+  if (observed === null || typeof observed !== 'object') return null
+  const o = observed as { source?: unknown; reviewed_by_user?: unknown }
+  const base = classifyValueProvenance(typeof o.source === 'string' ? o.source : null)
+  const review = o.reviewed_by_user
+  const confirmed = review !== null && typeof review === 'object' && (review as { intent?: unknown }).intent === 'confirm'
+  if (base !== null && o.source === 'user_assumption' && confirmed) return { kind: 'accepted', userOwned: false }
+  return base
 }
 
 /**

@@ -56,6 +56,7 @@ interface SourceProvenancePillProps {
 const BORDER: Record<ValueProvenanceKind, string> = {
   brief:      'border-info/30',
   ai:         'border-warning/30',
+  accepted:   'border-warning/30', // Olumi's figure, accepted: Olumi's paint (only `classifyObservedValueProvenance` returns it)
   confirmed:  'border-success/30',
   edited:     'border-success/30',
   assumption: 'border-success/30',

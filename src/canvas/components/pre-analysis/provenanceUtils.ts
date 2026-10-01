@@ -31,6 +31,7 @@ const PILL_BY_KIND: Record<ValueProvenanceKind, { label: string; borderClass: st
   human: { label: 'Set by you', borderClass: 'border-success/30' },
   brief: { label: 'From brief', borderClass: 'border-success/30' },
   ai: { label: 'AI estimate', borderClass: 'border-info/30' },
+  accepted: { label: 'Olumi\u2019s estimate \u00b7 you accepted it', borderClass: 'border-info/30' }, // AIQ 5921018606; reached only via `classifyObservedValueProvenance`
   // 0.40.0 — a named colleague's panel answer, applied by the owner.
   panel: { label: 'From your panel', borderClass: 'border-info/30' },
 }

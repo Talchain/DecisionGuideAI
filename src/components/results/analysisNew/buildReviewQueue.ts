@@ -327,6 +327,7 @@ const PROVENANCE_WORD: Readonly<Record<ValueProvenanceKind, string>> = Object.fr
   assumption: REVIEW_TOOL_COPY.yourValue,
   human: REVIEW_TOOL_COPY.yourValue,
   ai: REVIEW_TOOL_COPY.olumiEstimate,
+  accepted: VALUE_PROVENANCE_LABEL.accepted,
   brief: VALUE_PROVENANCE_LABEL.brief,
   panel: VALUE_PROVENANCE_LABEL.panel,
 })

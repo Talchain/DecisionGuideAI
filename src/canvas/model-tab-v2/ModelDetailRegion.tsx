@@ -92,6 +92,7 @@ const NO_AUTHORITY_INTERVENTION =
 const INTERVENTION_PROVENANCE_BORDER: Record<ValueProvenanceKind, string> = {
   brief: 'border-info/30',
   ai: 'border-warning/30',
+  accepted: 'border-warning/30', // Olumi's figure, accepted: Olumi's paint
   confirmed: 'border-success/30',
   edited: 'border-success/30',
   assumption: 'border-success/30',

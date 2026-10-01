@@ -101,6 +101,7 @@ const ATTRIBUTED_LABEL: Record<ValueProvenanceKind, string | null> = {
   // Producer kinds keep each function's own pre-existing copy — see below.
   brief: null,
   ai: null,
+  accepted: null, // Olumi's figure, accepted — a producer kind: never first-person copy
   // 0.40.0 — a named colleague's panel answer, applied by the owner.
   //
   // ⚠ NOT `null`, AND THE FIRST VERSION OF THIS LINE WAS `null` AND WAS WRONG.
@@ -429,6 +430,7 @@ const INPUT_GROUP_LABEL: Record<ValueProvenanceKind, string> = {
   // authored a number.
   brief: GROUP_LABELS.inputUnattributed,
   ai:    GROUP_LABELS.inputUnattributed,
+  accepted: GROUP_LABELS.inputUnattributed, // Olumi's figure, accepted: not the user's input
   panel: GROUP_LABELS.inputUnattributed,
 }
 

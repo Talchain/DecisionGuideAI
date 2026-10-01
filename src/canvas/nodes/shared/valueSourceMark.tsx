@@ -3,7 +3,7 @@ import { typography } from '../../../styles/typography'
 import { SOURCE_MARK_GLYPH_CLASSES, SourceMark } from './EstimateMarker'
 import {
   classifyInterventionProvenance,
-  classifyValueProvenance,
+  classifyObservedValueProvenance,
   factorValueIsUnconfirmedEstimate,
   VALUE_PROVENANCE_LABEL,
   type ValueProvenanceKind,
@@ -78,6 +78,7 @@ function markForKind(kind: ValueProvenanceKind): ValueSourceMarkKind {
     case 'panel':
       return 'panel'
     case 'ai':
+    case 'accepted':
       return 'olumi'
   }
 }
@@ -88,7 +89,7 @@ function markForKind(kind: ValueProvenanceKind): ValueSourceMarkKind {
  * (`valueProvenance.ts` header), and an assumption is the user's own framing.
  */
 function labelForKind(kind: ValueProvenanceKind): string {
-  if (kind === 'confirmed' || kind === 'assumption') return VALUE_PROVENANCE_LABEL[kind]
+  if (kind === 'confirmed' || kind === 'assumption' || kind === 'accepted') return VALUE_PROVENANCE_LABEL[kind]
   return VALUE_SOURCE_MARK_LABEL[markForKind(kind)]
 }
 
@@ -164,10 +165,13 @@ function resolveFactorValueSource(data: unknown): {
 } {
   const d = data as Record<string, unknown> | undefined
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
-  const source = typeof obs?.source === 'string' ? obs.source : null
-  const stamped = classifyValueProvenance(source)
+  // The WHOLE observed state, not the stamp alone: `user_assumption` + the adoption's review is Olumi's figure, accepted
+  // (kind `accepted`, `classifyObservedValueProvenance`); the bare literal is still the user's assumption.
+  const stamped = classifyObservedValueProvenance(obs)
 
-  if (stamped && (stamped.userOwned || stamped.kind === 'panel')) {
+  // ⭐ An ACCEPTED Olumi figure is stated before the unconfirmed-estimate rule: Olumi's token, AIQ's words ("Olumi's
+  // estimate · you accepted it", 5921018606) — accepted, so never "not yet confirmed", and never "you".
+  if (stamped && (stamped.userOwned || stamped.kind === 'panel' || stamped.kind === 'accepted')) {
     return { mark: { kind: markForKind(stamped.kind), label: labelForKind(stamped.kind) }, awaitingReceipt: false }
   }
   if (factorValueIsUnconfirmedEstimate(data)) {

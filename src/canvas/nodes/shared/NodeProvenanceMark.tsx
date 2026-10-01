@@ -1,5 +1,5 @@
 import { Fragment } from 'react'
-import { classifyNodeProvenance, classifyValueProvenance } from '../../domain/valueProvenance'
+import { classifyNodeProvenance, classifyObservedValueProvenance } from '../../domain/valueProvenance'
 import type { ValueProvenanceKind } from '../../domain/valueProvenance'
 import { nodeProvenanceClaim, provenanceClaimLabel } from '../../domain/nodeProvenanceClaim'
 import type { NodeProvenanceClaim } from '../../domain/nodeProvenanceClaim'
@@ -245,9 +245,10 @@ export function resolveProvenanceMarks(nodeType: NodeType, data: unknown): Resol
    */
   const valueProvenance =
     claim === 'value'
-      ? classifyValueProvenance(
-          ((data as { observedState?: { source?: unknown } } | null | undefined)
-            ?.observedState?.source) as string | null | undefined,
+      ? // The whole observed state, as the value line reads it: the adoption's review is what makes
+        // `user_assumption` Olumi's figure, accepted (`classifyObservedValueProvenance`).
+        classifyObservedValueProvenance(
+          (data as { observedState?: unknown } | null | undefined)?.observedState,
         )
       : null
 
@@ -359,7 +360,11 @@ export function resolveProvenanceMarks(nodeType: NodeType, data: unknown): Resol
     // node carrying a brief-derived number would collapse back to one mark —
     // and that is the exact case the founder named. The pair of conditions is
     // load-bearing; neither half is sufficient.
-    !(nodeAuthorship.userOwned && valueProvenance.userOwned)
+    !(nodeAuthorship.userOwned && valueProvenance.userOwned) &&
+    // ⛔ AND OLUMI'S FIGURE, ACCEPTED, ON AN OLUMI-AUTHORED NODE IS ONE ORIGIN, NOT TWO FACTS (52f8cd; AIQ 5921018606).
+    // Both say the number is Olumi's; the acceptance is the value line's to say, and a structural "Olumi suggested
+    // this" beside it would be noise in the corner the rule above keeps quiet.
+    !(valueProvenance.kind === 'accepted' && nodeAuthorship.kind === 'ai')
 
   /**
    * ⛔⛔⛔ MAY THE PRODUCT CLAIM THIS ELEMENT AS ITS OWN? A SECOND QUESTION, ASKED
@@ -419,7 +424,7 @@ export function resolveProvenanceMarks(nodeType: NodeType, data: unknown): Resol
    * constraint is never rendered) ALSO renders its own value-line source
    * mark right on the card body (`valueSourceMark.tsx`'s `ValueSourceMark`,
    * mounted by `FactorNode`/`RiskNode`), classified through the SAME
-   * function (`classifyValueProvenance(observedState.source)`). So a
+   * function (`classifyObservedValueProvenance(observedState)`). So a
    * `'value'` header mark is not a second fact, it is the first fact painted
    * twice — once at the top of the card, once on the row that IS the number.
    *

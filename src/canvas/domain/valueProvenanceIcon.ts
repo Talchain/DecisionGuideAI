@@ -73,6 +73,7 @@ export const VALUE_PROVENANCE_ICON: Readonly<Record<ValueProvenanceKind, LucideI
      * `ProvenanceBadge`'s own `'ai-suggested'` row.
      */
     ai: Sparkles,
+    accepted: Sparkles, // Olumi's figure, accepted: Olumi's icon
     /**
      * A person owns the value but the record does not say which act — the
      * wire-level `user_set`.
