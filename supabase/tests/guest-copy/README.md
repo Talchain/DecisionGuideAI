@@ -6,7 +6,7 @@ This is a dry run of `copy_guest_scenario` on PGlite (Postgres running in-proces
 
 ```bash
 cd supabase/tests/guest-copy && npm i --no-save @electric-sql/pglite@0.2
-node run.mjs ../../migrations/20261001222932_copy_guest_scenario_20261001.sql   # 17/17
+node run.mjs ../../migrations/20261001222932_copy_guest_scenario_20261001.sql   # 18/18
 ```
 
 | Row | Claim |
@@ -19,9 +19,9 @@ node run.mjs ../../migrations/20261001222932_copy_guest_scenario_20261001.sql   
 | C6–C8 | Typed refusals: an id that is not an auth user (`22023`), an absent source (`CG404`), a guest source with no model (`CG422`). |
 | C9 | A second user gets their own copy; the first copy is unchanged. |
 | C10 | SECURITY DEFINER, `search_path=''`, EXECUTE = {postgres, service_role}. |
-| C11 | A caller's TEMP `scenarios` table cannot shadow `public.scenarios`. |
+| C11, C11b | A caller's TEMP `scenarios` table cannot shadow `public.scenarios`: on a replay (C11), or on a FRESH copy whose source the TEMP table claims is owned (C11b, which reaches the source SELECT and the INSERT). |
 | C13, C13b | A source graph over the 1 MiB cap is refused (`CG413`) and nothing is written; just under the cap copies (DL condition 3). |
-| C12 | Exactly three copies were written in the whole run. |
+| C12 | Exactly the expected rows were written in the whole run (3 copies + C11b's source + its copy). |
 
 Mutants, each applied to the migration on its own:
 
@@ -35,6 +35,7 @@ Mutants, each applied to the migration on its own:
 | auth-user check removed | C6, C12 |
 | size cap removed | C13, C12 |
 | the hash anchor copied | C1 |
+| bare `scenarios` in the source SELECT + `search_path = public` | C10, C11b, C12 |
 
 **Race (`race.mjs`, real Postgres).** PGlite has one connection, so concurrency runs on `embedded-postgres`. 8 sessions call the function at once, each in its own open transaction, with a `pg_sleep(0.3)` injected between the idempotent lookup and the INSERT to hold the window open. The control variant removes the advisory lock.
 

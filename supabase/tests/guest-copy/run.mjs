@@ -13,7 +13,7 @@ for (const m of migrations) await db.exec(fs.readFileSync(m, 'utf8'))
 
 const U = n => `00000000-0000-0000-0000-0000000000${n}`
 const ME = U('0a'), OTHER = U('0b'), GHOST = U('0c')            // GHOST: not an auth user
-const GUEST = U('a1'), OWNED = U('a2'), EMPTY = U('a3'), ABSENT = U('a4'), HUGE = U('a5'), EDGE = U('a6'), MV = U('c1')
+const GUEST = U('a1'), OWNED = U('a2'), EMPTY = U('a3'), ABSENT = U('a4'), HUGE = U('a5'), EDGE = U('a6'), GUEST2 = U('a7'), MV = U('c1')
 // GUEST is shaped like what the guest turn path leaves: a graph, the brief, the
 // CAS hash, a Run (analysis columns, CEE's analysis brief, events, a model
 // version), schema version 3, and turn + fact rows. Only graph + title may travel.
@@ -129,10 +129,19 @@ row('C10', 'SECURITY DEFINER, search_path=\'\', EXECUTE = {postgres, service_rol
 // C11 a caller's TEMP table named `scenarios` cannot shadow the real one.
 await db.exec(`set role service_role; create temp table scenarios(id uuid, user_id uuid, source_scenario_id uuid, created_at timestamptz, graph jsonb); insert into scenarios values ('${GUEST}', '${OTHER}', null, now(), null); reset role`)
 const c11 = await copy(GUEST, OTHER)
+// C11b the FRESH path under the same shadow (CODEX overflow on #2431): the TEMP table claims GUEST2 is OWNED with no
+// graph, so a function that read it would refuse (CG409/CG422). It must read public.scenarios and copy GUEST2's model.
+await db.exec(`insert into public.scenarios(id,user_id,title,graph) values ('${GUEST2}',null,'Second guest','{"nodes":[{"id":"g2"}],"edges":[]}');
+  set role service_role; insert into scenarios values ('${GUEST2}', '${OTHER}', null, now(), null); reset role`)
+const c11b = await copy(GUEST2, OTHER)
+const id11b = c11b.ok ? c11b.rows[0].r.scenario_id : null
+const fresh = id11b ? (await q(`select user_id, title, graph, source_scenario_id from public.scenarios where id = '${id11b}'`))[0] : null
 await db.exec('set role service_role; drop table pg_temp.scenarios; reset role')
+row('C11b', 'a TEMP `scenarios` does not shadow the FRESH path: the copy is made from public.scenarios', c11b.ok && c11b.rows[0].r.created === true
+  && canon(fresh) === canon({ user_id: OTHER, title: 'Second guest', graph: { nodes: [{ id: 'g2' }], edges: [] }, source_scenario_id: GUEST2 }), { c11b, fresh })
 row('C11', 'a TEMP `scenarios` does not shadow public.scenarios (replay of C9 returns the same copy)', c11.ok && c11.rows[0].r.scenario_id === id9 && c11.rows[0].r.created === false, c11)
 
-row('C12', 'exactly the three expected copies were written', (await count('true')) === total0 + 3, { total0, now: await count('true') })
+row('C12', 'exactly the expected rows were written (3 copies + C11b\'s source + its copy)', (await count('true')) === total0 + 5, { total0, now: await count('true') })
 
 const failed = results.filter(r => !r.pass).length
 console.log(`\n${results.length - failed}/${results.length} rows pass`)

@@ -179,6 +179,19 @@ function isAllowedTarget(pathname: string): boolean {
 }
 
 /**
+ * Targets that are WRITES and accept POST only (OPTIONS is answered locally above). Checked BEFORE the key is
+ * injected, so a GET/HEAD to them never reaches CEE carrying the assist key and the user's token (CODEX overflow on
+ * #2431: the copy route forwarded both on GET and HEAD).
+ */
+const POST_ONLY_TARGETS: readonly RegExp[] = [
+  /^\/assist\/v1\/scenarios\/[^/]+\/copy$/,
+]
+
+function isPostOnlyTarget(pathname: string): boolean {
+  return POST_ONLY_TARGETS.some((re) => re.test(pathname))
+}
+
+/**
  * Reject encoded traversal (`%2e` / `%2f` / `%5c`, case-insensitive) and any
  * literal `..` path segment before the allowlist runs. WHATWG `new URL()` resolves
  * an un-encoded `../` at parse time, but edge runtimes differ on whether the
@@ -278,6 +291,16 @@ export default async function handler(request: Request, _context: Context) {
       {
         status: 404,
         headers: { ...(corsHeaders ?? {}), 'Content-Type': 'application/json' },
+      },
+    )
+  }
+
+  if (isPostOnlyTarget(targetPath) && request.method !== 'POST') {
+    return new Response(
+      JSON.stringify({ error: 'Method not allowed' }),
+      {
+        status: 405,
+        headers: { ...(corsHeaders ?? {}), 'Content-Type': 'application/json', Allow: 'POST, OPTIONS' },
       },
     )
   }
