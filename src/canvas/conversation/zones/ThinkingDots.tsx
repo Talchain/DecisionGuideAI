@@ -55,13 +55,20 @@ export const WAITING_LINES: Readonly<Record<WaitingPhase, readonly string[]>> = 
 
 /**
  * The coach's `phase_of` (5931982930), from what the thread knows for certain: the draft's settling window is
- * structuring; a Run in flight (`results.status` preparing/connecting/streaming) is running the analysis; a turn on an
- * empty canvas is reading the brief. Anything else (a question or edit on an existing model, an explanation whose
- * narration request the UI cannot yet see) is unknown, and unknown gets no coaching line.
+ * structuring; a Run in flight (`results.status` preparing/connecting/streaming) is running the analysis; result-first
+ * request 2 in flight is preparing the explanation; a turn on an empty canvas is reading the brief. Anything else (a
+ * question or edit on an existing model) is unknown, and unknown gets no coaching line.
  */
-export function waitingPhaseOf(t: { settling: boolean; analysisRunning: boolean; nodeCount: number }): WaitingPhase | null {
+export function waitingPhaseOf(t: {
+  settling: boolean
+  analysisRunning: boolean
+  nodeCount: number
+  /** Result-first request 2 in flight (`narration.status === 'pending'`, coach phase_of 5931982930). */
+  explaining?: boolean
+}): WaitingPhase | null {
   if (t.settling) return 'structuring'
   if (t.analysisRunning) return 'running_analysis'
+  if (t.explaining) return 'preparing_explanation'
   if (t.nodeCount === 0) return 'reading_brief'
   return null
 }

@@ -199,6 +199,13 @@ import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
 import {
+  EXPLAIN_RUN_LABEL,
+  explainRunChipId,
+  isForeignExplanation,
+  namesALatestRun,
+  readNarration,
+} from './narrationTurn'
+import {
   beginInteractionChain,
   bindRequestToInteraction,
   consumePendingInteractionContext,
@@ -2643,6 +2650,8 @@ export class SystemEventSendError extends Error {
 export interface UseConversationReturn {
   messages: ConversationMessage[]
   isThinking: boolean
+  /** Result-first (CEE #2470): request 2, the auto-sent explanation of the latest Run, is in flight. */
+  explainingRun?: boolean
   longRunningHint: string | null
   /** The user's last input text, restored on error so they can edit and resend */
   /** Most recent visible-user-send failure, all classes. Null when none. */
@@ -2735,6 +2744,12 @@ export interface UseConversationReturn {
 export function useConversation(): UseConversationReturn {
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [isThinking, setIsThinking] = useState(false)
+  // Result-first (narrationTurn.ts): the latest Run's key, the keys already explained (once per run_key), the key
+  // waiting for the current turn to settle, and whether request 2 is in flight.
+  const latestRunKeyRef = useRef<string | null>(null)
+  const sentExplainKeysRef = useRef<Set<string>>(new Set())
+  const [pendingExplainKey, setPendingExplainKey] = useState<string | null>(null)
+  const [explainingRun, setExplainingRun] = useState(false)
   // Mirror isThinking in a ref so sendTurn can read it without being in the
   // useCallback dependency array. Including the state value in deps caused the
   // callback to be recreated on every isThinking toggle, breaking the async
@@ -6005,10 +6020,19 @@ export function useConversation(): UseConversationReturn {
             isRunAnalysisTurn,
             lastHash: lastRenderedAnalysisHash(messagesRef.current),
           })
-          addMessage({
+          // Result-first (narrationTurn.ts). LIVE path only: a transcript restore never reaches this branch.
+          const narration = readNarration(target.response)
+          if (namesALatestRun(narration)) {
+            latestRunKeyRef.current = narration.runKey
+            if (narration.status === 'pending' && !sentExplainKeysRef.current.has(narration.runKey)) {
+              setPendingExplainKey(narration.runKey)
+            }
+          }
+          if (!isForeignExplanation(narration, latestRunKeyRef.current)) addMessage({
             id: crypto.randomUUID(),
             role: 'assistant',
             content: target.response.assistant_text,
+            ...(narration ? { narration } : {}),
             ...(transcriptBlocks.length > 0 ? { blocks: transcriptBlocks } : {}),
             ...(actionChips.length > 0 ? { actionChips } : {}),
             ...(reasoning ? { reasoning } : {}),
@@ -7032,6 +7056,24 @@ export function useConversation(): UseConversationReturn {
     [sendTurn],
   )
 
+  // Result-first: send request 2 once the Run's own turn has settled (the busy lock would refuse it mid-turn), once per
+  // run_key, hidden, routed by its id. Absent `narration` nothing is pending and the chip stays the path.
+  useEffect(() => {
+    if (pendingExplainKey === null || isThinking) return
+    const runKey = pendingExplainKey
+    setPendingExplainKey(null)
+    if (sentExplainKeysRef.current.has(runKey) || latestRunKeyRef.current !== runKey) return
+    sentExplainKeysRef.current.add(runKey)
+    setExplainingRun(true)
+    void dispatchAction({
+      id: explainRunChipId(runKey),
+      label: EXPLAIN_RUN_LABEL,
+      message: EXPLAIN_RUN_LABEL,
+      hidden: true,
+      source: 'cee',
+    }).finally(() => setExplainingRun(false))
+  }, [pendingExplainKey, isThinking, dispatchAction])
+
   const sendChip = useCallback(
     async (chip: SourceKeyedChip) => {
       if (chip.id === LOAD_SAVED_MODEL_CHIP_ID) {
@@ -7460,6 +7502,7 @@ export function useConversation(): UseConversationReturn {
   return {
     messages,
     isThinking,
+    explainingRun,
     longRunningHint,
     lastSendFailure,
     sendMessage,

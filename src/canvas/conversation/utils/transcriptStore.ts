@@ -206,6 +206,7 @@ interface StoredMessage {
   synthetic?: boolean
   /** A restored earlier reply's tag ("Earlier analysis"): kept so the mark survives the next page load (Canvas 5925780066). */
   restoredTag?: string
+  narration?: { status: string; runKey: string }
 }
 
 interface StoredTranscript {
@@ -321,6 +322,7 @@ function toStored(m: SourceKeyedMessage): StoredMessage {
   if (m.sessionDivider) out.sessionDivider = m.sessionDivider
   if (m.synthetic) out.synthetic = true
   if (m.restoredTag) out.restoredTag = m.restoredTag
+  if (m.narration) out.narration = { status: m.narration.status, runKey: m.narration.runKey }
   return out
 }
 
@@ -351,6 +353,10 @@ function fromStored(s: StoredMessage): SourceKeyedMessage {
     ...(s.sessionDivider ? { sessionDivider: s.sessionDivider } : {}),
     ...(s.synthetic ? { synthetic: true } : {}),
     ...(typeof s.restoredTag === 'string' && s.restoredTag ? { restoredTag: s.restoredTag } : {}),
+    ...(s.narration && typeof s.narration.runKey === 'string' && s.narration.runKey &&
+      ['pending', 'ready', 'stale', 'unavailable'].includes(s.narration.status)
+      ? { narration: { status: s.narration.status as 'pending' | 'ready' | 'stale' | 'unavailable', runKey: s.narration.runKey } }
+      : {}),
   }
 }
 
