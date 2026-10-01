@@ -167,7 +167,9 @@ describe('hops 1, 2 and 3 carry the SAME key', () => {
     // component, so this is a SOURCE PIN of the two lines, not a behaviour witness.
     const src = readFileSync(path.resolve(__dirname, '../../components/DraftChat.tsx'), 'utf8')
     expect(src).toMatch(/\.\.\.strengthDefinitionalPatch\(e as Record<string, unknown>, weightSource !== 'default'\)/)
-    expect(src).toMatch(/strengthDefinitional: _strengthDefinitional,\s*\n\s*\.\.\.edgeRest/)
+    // Inside the same destructure, before the remainder is taken (the placeholder
+    // pin owns the line directly above `...edgeRest`).
+    expect(src).toMatch(/strengthDefinitional: _strengthDefinitional,[^}]*?\.\.\.edgeRest/)
   })
 })
 
