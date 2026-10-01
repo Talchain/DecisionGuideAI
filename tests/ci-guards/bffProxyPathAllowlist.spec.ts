@@ -161,6 +161,36 @@ describe('cee-proxy path allowlist (/bff/cee/* → /assist/v1/*)', () => {
     expect(r.fetchCalled).toBe(false)
   })
 
+  it('ON-LIST /bff/cee/scenarios/{uuid}/versions/compare forwards on POST (CANVAS version compare, read-only)', async () => {
+    const uuid = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
+    const r = await invoke(ceeHandler as Handler, { path: `/bff/cee/scenarios/${uuid}/versions/compare` })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe(`https://cee-staging.onrender.com/assist/v1/scenarios/${uuid}/versions/compare`)
+    expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBe(FAKE_KEY)
+  })
+
+  // CEE serves compare on POST only: GET and HEAD never reach it carrying the assist key and the user's token.
+  for (const method of ['GET', 'HEAD'] as const) {
+    it(`${method} /bff/cee/scenarios/{uuid}/versions/compare is refused 405 and NEVER forwarded`, async () => {
+      const uuid = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
+      const r = await invoke(ceeHandler as Handler, { path: `/bff/cee/scenarios/${uuid}/versions/compare`, method })
+      expect(r.fetchCalled).toBe(false)
+      expect(r.status).toBe(405)
+    })
+  }
+
+  it('OPTIONS /bff/cee/scenarios/{uuid}/versions/compare is a local preflight (204, never forwarded)', async () => {
+    const uuid = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
+    const r = await invoke(ceeHandler as Handler, { path: `/bff/cee/scenarios/${uuid}/versions/compare`, method: 'OPTIONS' })
+    expect(r.fetchCalled).toBe(false)
+    expect(r.status).toBe(204)
+  })
+
+  it('OFF-LIST: a path that only ENDS in /versions/compare under another prefix stays refused', async () => {
+    const r = await invoke(ceeHandler as Handler, { path: '/bff/cee/scenarios/a/b/versions/compare' })
+    expect(r.fetchCalled).toBe(false)
+  })
+
   it('ON-LIST /bff/cee/scenarios/{uuid}/versions/restore forwards (guarded restore)', async () => {
     const uuid = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
     const r = await invoke(ceeHandler as Handler, {
