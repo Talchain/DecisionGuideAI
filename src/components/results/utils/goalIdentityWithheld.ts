@@ -78,6 +78,69 @@ export function readGoalIdentityWithheld(holder: unknown): GoalIdentityWithheld 
   return { nodeIds, message: allSafe ? [...new Set(words)].join(' ') : GOAL_IDENTITY_WITHHELD_FALLBACK }
 }
 
+/**
+ * ⭐ B3 (52f8cd #85 5931020890; CEE B2 per-claim contract): a goal-figure withhold applies PER OPTION × CLAIM, never
+ * per run. Each `GOAL_FIGURES_*` warning may carry `option_ids` (absent = every option) and `withheld_claims` (absent =
+ * all five). With neither key — every Run before B2 — each warning withholds every claim on every option, which is
+ * exactly today's run-wide strip.
+ *
+ * ⚠ FAIL-CLOSED: an `option_ids` that is not a non-empty string list, or a `withheld_claims` holding a token outside
+ * the alphabet, reads as "all": a withhold whose scope can't be read withholds everything it might cover.
+ */
+export type GoalFigureClaim = 'goal_probability' | 'joint_probability' | 'outcome' | 'downside' | 'win_share'
+export const GOAL_FIGURE_CLAIMS: readonly GoalFigureClaim[] = ['goal_probability', 'joint_probability', 'outcome', 'downside', 'win_share']
+
+export interface GoalFigureWithhold {
+  code: string
+  /** null = every option. */
+  optionIds: readonly string[] | null
+  claims: ReadonlySet<GoalFigureClaim>
+  /** Option ids whose outcome rests on Olumi's estimates the user accepted (label only; withholds nothing). */
+  restsOnAcceptedOlumi: readonly string[]
+  /** PLACEHOLDER_PATH only: the unsized links the user may accept at Olumi's starting strength. */
+  acceptableLinks: ReadonlyArray<{ from: string; to: string }>
+}
+
+const nonEmptyStrings = (v: unknown): string[] | null =>
+  Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === 'string' && x.length > 0) ? (v as string[]) : null
+
+export function readGoalFigureWithholds(holder: unknown): GoalFigureWithhold[] {
+  if (!isPlainObject(holder)) return []
+  const warnings = Array.isArray(holder.inference_warnings) ? holder.inference_warnings : []
+  return warnings
+    .filter((w): w is Record<string, unknown> =>
+      isPlainObject(w) && typeof w.code === 'string' && GOAL_FIGURES_WITHHELD_CODES.includes(w.code))
+    .map((w) => {
+      const listed = nonEmptyStrings(w.withheld_claims)
+      const known = listed !== null && listed.every((c) => (GOAL_FIGURE_CLAIMS as readonly string[]).includes(c))
+      return {
+        code: w.code as string,
+        optionIds: nonEmptyStrings(w.option_ids),
+        claims: new Set<GoalFigureClaim>(known ? (listed as GoalFigureClaim[]) : GOAL_FIGURE_CLAIMS),
+        restsOnAcceptedOlumi: nonEmptyStrings(w.rests_on_accepted_olumi) ?? [],
+        acceptableLinks: Array.isArray(w.acceptable_links)
+          ? w.acceptable_links.filter((l): l is { from: string; to: string } =>
+            isPlainObject(l) && typeof l.from === 'string' && l.from.length > 0 && typeof l.to === 'string' && l.to.length > 0)
+          : [],
+      }
+    })
+}
+
+/** The claims withheld for ONE option: the union over every warning that covers it. */
+export function withheldClaimsFor(withholds: readonly GoalFigureWithhold[], optionId: string): ReadonlySet<GoalFigureClaim> {
+  const out = new Set<GoalFigureClaim>()
+  for (const w of withholds) {
+    if (w.optionIds !== null && !w.optionIds.includes(optionId)) continue
+    for (const c of w.claims) out.add(c)
+  }
+  return out
+}
+
+/** Win shares are one comparison across options: any warning that withholds `win_share` empties them all. */
+export function winSharesWithheld(withholds: readonly GoalFigureWithhold[]): boolean {
+  return withholds.some((w) => w.claims.has('win_share'))
+}
+
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return v != null && typeof v === 'object' && !Array.isArray(v)
 }

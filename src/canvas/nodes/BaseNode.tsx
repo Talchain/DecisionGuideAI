@@ -29,6 +29,7 @@ import { useCanvasStore } from '../store'
 import { nodeTypeNumber, NODE_NUMBER_PREFIX, NODE_TYPE_ORDINAL_ATTR, type NumberedNodeKind } from './shared/nodeTypeOrdinal'
 import { optionOrdinalBadgeAccessibleName } from './shared/metricVocabulary'
 import { selectOptionComparedInRun, selectWinSharesWithheld } from '../state/winShareGate'
+import { optionTakenOutLine } from '../domain/optionStatus'
 import { EditableLabel } from '../ui/inspector-v2/shared/EditableLabel'
 import { TITLE_DOUBLE_CLICK_WINDOW_MS, handTitleClickToCard } from './shared/titleClickHandBack'
 import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
@@ -295,6 +296,13 @@ interface BaseNodeProps extends NodeProps {
  * gap budgets for its overhang (review of #2074, Blocker 1).
  */
 const CONNECTOR_GLYPH_PX = KIND_GLYPH_PX
+
+/**
+ * ⭐ THE GAP BETWEEN A CARD'S ROWS, scaled with its text (Paul, 1 Oct 2026: "We have a consistent text spacing rule").
+ * DS v5 §4.1's 4px step, times the label counter-scale, so the gap keeps its proportion to the 11px rows at every
+ * zoom instead of halving at the landing zoom.
+ */
+const NODE_ROW_GAP_SCALED = 'calc(4px * var(--canvas-label-scale, 1))'
 
 /**
  * ⭐ v3.1 WS1 #15: the target handle's TOP is the kind shape's top
@@ -752,6 +760,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       }),
       optionResultCaption: resultCaption ?? null,
       winSharesWithheld: winSharesWithheld && optionComparedInRun,
+      optionTakenOutLine: optionTakenOutLine(data),
     }
   }, [bodyReduced, nodeType, id, ceeAnalysisReady, graphHasDeclaredBaseline, data, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, displayMetadata.unvaluedInRun, resultCaption, resultsFromLastRun, winSharesWithheld, optionComparedInRun])
 
@@ -1942,8 +1951,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
              `rounded-lg` rendered 14px through the index.css override.
              Selection lifts one step (`shadow-2`) with its ring (FRAME-09).
              ⭐ The resting value is the contract's own (`--shadow-card-rest`,
-             DESIGN-GAP-v31 #43); it was DS v5 `shadow-1`. */
-          selected && !isHighlighted ? 'shadow-2' : 'shadow-card-rest'
+             DESIGN-GAP-v31 #43); it was DS v5 `shadow-1`.
+             ⭐ HOVER LIFTS TO THE SAME NEUTRAL STEP (Paul, 1 Oct 2026: "The hover states look genuinely shit compared
+             to what they used to look like"; Grammar v0 §2: hover = a small lift, never a colour). The card had NO
+             hover state of its own: `colors.ts`' per-family `hover:` classes were never applied. Selection keeps
+             the lift and adds the card's actions (`NodeQuickActions`), so the two still read apart. */
+          selected && !isHighlighted ? 'shadow-2' : 'shadow-card-rest hover:shadow-2'
         }
         ${borderColourClass}
         ${lodKindFillClass}
@@ -2510,7 +2523,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           // Same source as the layout's header reservation, so the gap the card
           // is sized for is the gap it renders (NODE_HEADER_RESERVE_PX).
           gap: `${NODE_HEADER_GAP_PX}px`,
-          marginBottom: '4px',
+          // Scaled with the text (Paul 1 Oct, "no spacing between different lines"): a fixed 4px rendered 2px at
+          // the landing zoom while the title above it rendered at 0.82×.
+          marginBottom: NODE_ROW_GAP_SCALED,
           // Gap 11: clear of the corner marks when the title shares its line.
           ...(cornerHeaderReserve !== undefined ? { paddingRight: cornerHeaderReserve } : {}),
           // Let the header slot drop below the title rather than squeezing the
@@ -2891,7 +2906,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         <div
           data-testid={`node-state-row-${id}`}
           className="flex flex-wrap items-center gap-1 [&>*]:max-w-full [&>*]:whitespace-normal"
-          style={{ marginBottom: '4px' }}
+          style={{ marginBottom: NODE_ROW_GAP_SCALED }}
         >
           {/* Caller-supplied state member — first in DOM order. Today it has
               exactly one caller: OptionNode's "Leading option" pill, which used

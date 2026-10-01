@@ -53,7 +53,9 @@ export const BriefReadingCard = memo(function BriefReadingCard({ reading, userFi
   const coaching = briefCoachingFor({
     hasGoal: (items.goal ?? []).length > 0,
     hasLimits: (items.considerations ?? []).length > 0,
-    optionCount: (items.options ?? []).length,
+    // CEE's spans are one per option, so they count; the user's own Options field is one box of free text, so the
+    // count is unknown unless it is empty (`briefCoaching`'s `BriefShape.optionCount`).
+    optionCount: userFields ? ((items.options ?? []).length === 0 ? 0 : null) : (items.options ?? []).length,
   })
   return (
     <section
@@ -83,7 +85,7 @@ export const BriefReadingCard = memo(function BriefReadingCard({ reading, userFi
                 <dd data-testid="brief-reading-not-mentioned" className={typo('bodySmall', 'text-text-light m-0')}>
                   Not stated yet
                 </dd>
-              ) : slot.key === 'options' ? (
+              ) : slot.key === 'options' && !userFields ? (
                 <dd className="m-0">
                   <ol className="m-0 p-0 list-none flex flex-col gap-1">
                     {values.map((v, i) => (
@@ -113,21 +115,28 @@ export const BriefReadingCard = memo(function BriefReadingCard({ reading, userFi
         <div className="flex flex-col gap-0.5">
           <h3 className={typo('label', 'text-text-header m-0')}>While Olumi builds: sharpen the decision</h3>
           <p className={typo('bodySmall', 'text-text-light m-0')}>
-            Research-backed habits. Pick one and Olumi starts there when your first draft is ready.
+            Research-backed habits. Pick one and Olumi starts there when your draft is ready.
           </p>
         </div>
-        <ul className="m-0 p-0 list-none flex flex-col gap-2">
+        {/* One quiet list, not a stack of boxes (Paul 1 Oct: "easy to digest"): a hairline between habits, each one
+            title, one line of why with its source muted after it, and one action. */}
+        <ul className="m-0 p-0 list-none flex flex-col divide-y divide-panel-border">
           {coaching.map((card) => {
             const queued = queuedId === card.id
             return (
               <li
                 key={card.id}
                 data-testid={`brief-coaching-${card.id}`}
-                className="flex items-start gap-3 rounded-lg border border-panel-border px-3 py-2.5"
+                className="flex items-center gap-3 py-2.5 first:pt-1"
               >
                 <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                   <p className={typo('label', 'text-text-header m-0')}>{card.title}</p>
-                  <p className={typo('bodySmall', 'text-text-body m-0 leading-snug')}>{card.science}</p>
+                  <p className={typo('bodySmall', 'text-text-body m-0')}>
+                    {card.why}{' '}
+                    <span data-testid={`brief-coaching-source-${card.id}`} className="text-text-light">
+                      {card.source}
+                    </span>
+                  </p>
                 </div>
                 <button
                   type="button"

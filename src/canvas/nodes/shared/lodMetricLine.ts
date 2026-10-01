@@ -211,6 +211,11 @@ export interface LodMetricFacts {
    */
   winSharesWithheld?: boolean
   /**
+   * T12 row 1: the option the USER took out of the comparison (`optionTakenOutLine`, schemas 0.69.0 `option_status`).
+   * The reduced line says the same words as the full-zoom card, in both phases, before any share or marker.
+   */
+  optionTakenOutLine?: string | null
+  /**
    * The model has changed since the run the influence figure came from — the
    * card's own `useModelChangedSinceRun()`, passed through `BaseNode`.
    *
@@ -415,6 +420,7 @@ function resolveText({
       // comparative phrase that truncates to nothing at this size. Paul's
       // ruling on card density (31 Aug) is the same shape one zoom level up —
       // "show the bar with the percentage next to it", the sentence on hover.
+      if (typeof facts?.optionTakenOutLine === 'string') return facts.optionTakenOutLine
       if (displayMetadata.isResultsMode && facts?.winSharesWithheld === true) return NOT_RANKED_MARKER
       if (displayMetadata.isResultsMode && displayMetadata.winRate != null) {
         // ⚠ THE REGISTER, NOT A LITERAL — and this line is why. It read

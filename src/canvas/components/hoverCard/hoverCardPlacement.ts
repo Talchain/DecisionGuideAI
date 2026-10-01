@@ -14,7 +14,7 @@
 export const HOVER_CARD_SURFACE_CLASS =
   'bg-panel border border-panel-border rounded-lg shadow-lg px-3 py-2.5 text-left font-sans'
 
-export const HOVER_CARD_MAX_WIDTH = 260
+export const HOVER_CARD_MAX_WIDTH = 300
 /** Hover intent: a pointer passing over a card on its way elsewhere opens nothing. */
 export const HOVER_CARD_OPEN_DELAY_MS = 400
 /** Space between the anchor and the pop-up, and between the pop-up and the viewport edge. */

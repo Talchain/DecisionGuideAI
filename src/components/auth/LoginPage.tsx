@@ -1,91 +1,49 @@
 /**
- * Login page — owner password sign-in. That is the whole front door.
+ * Login page: the front door for invited people.
  *
- * ── 29 Aug 2026: THE TWO ROUTES THAT COULD NOT COMPLETE ARE GONE ───────────
- * Unattended team testing starts Monday. A colleague picks a route with nobody
- * beside them to say "not that one", so a route that cannot complete is not a
- * rough edge — it is a dead end with no recovery. Both removals were measured
- * at the DEPLOYED staging Supabase project, not inferred from config:
+ * ── 1 OCT 2026 (ACCESS & INVITES): THE EMAIL ROUTES ARE BACK ─────────────
+ * Paul invites someone from the Supabase dashboard; the invite email links to
+ * `/auth/confirm`, which signs them in and asks them to choose a password.
+ * After that they come back here and either use that password or ask for a
+ * one-time sign-in link. Both email routes ("Email me a sign-in link",
+ * "Forgot password?") were removed on 29 Aug because the project had no SMTP,
+ * so the email never arrived. They return now that custom SMTP is configured
+ * (Paul, 1 Oct); a route that cannot complete must not be offered, so this
+ * page should not ship ahead of the SMTP setting.
  *
- *   · "Send magic link" — the project has no SMTP, so the link is never
- *     delivered. This file's own header has said so since #667; the
- *     `send-failed` state existed only because of it.
+ * Still deliberately absent:
+ *   · Sign-up. The pilot is invite-only: magic links use
+ *     `shouldCreateUser: false`, and accounts are created only by invitation.
+ *   · Google. The provider is disabled, and supabase-js navigates the browser
+ *     itself on `signInWithOAuth`, so a disabled provider ejects the user onto
+ *     a raw JSON 400 (measured 29 Aug).
  *
- *   · "Continue with Google" — `GET /auth/v1/settings` reports
- *     `"google": false`, and `GET /auth/v1/authorize?provider=google` answers
- *     `400 {"error_code":"validation_failed","msg":"Unsupported provider:
- *     provider is not enabled"}`.
+ * ── ENUMERATION ───────────────────────────────────────────────────────────
+ * A wrong password and an unknown address get ONE byte-identical sentence. A
+ * requested link always leads to the same "Check your inbox" state, whether or
+ * not the address has an account (`classifyEmailSend`). Only server faults and
+ * rate limits, which are not address-correlated, are named.
  *
- *     ⚠ AND THE STATE WRITTEN TO CATCH THAT COULD NEVER FIRE. supabase-js
- *     resolves `signInWithOAuth` with `{error: null}` and navigates the
- *     browser ITSELF — the deployed bundle carries
- *     `Ub()&&!t.skipBrowserRedirect&&window.location.assign(r),{data:{…},error:null}`
- *     — so `handleGoogleClick` never saw an error, `oauth-failed` was
- *     unreachable, and the click EJECTED the user out of Olumi onto a raw JSON
- *     400 page. Worse than a dead button: it left the product.
+ * ── SUCCESS NEVER DEAD-ENDS (#667) ────────────────────────────────────────
+ * After a password sign-in this page routes once the provider adopts the
+ * session, and always shows a live Continue control in the meantime. Routing
+ * is gated on `signedInHere`, not on `authenticated` alone: in the guest
+ * posture `authenticated` is always true, and /login must stay reachable.
  *
- * Nobody loses a way in. Account creation is open and auto-confirming at the
- * API (`disable_signup:false`, `mailer_autoconfirm:true`), so an owner is
- * provisioned without any email round-trip.
- *
- * The `expired-link` banner STAYS: links already sitting in an inbox can still
- * be clicked, and `/auth/callback` still routes them here.
- *
- * ── LINK-TRACK R1 item 7 (11 Aug 2026) ─────────────────────────────────────
- * Password sign-in is the PILOT'S auth route (ratified).
- *
- * The password form is deliberately minimal and deliberately INCOMPLETE:
- *   · NO sign-up. Owners are pre-provisioned; the absence of a self-serve
- *     path is a decision, not an oversight.
- *   · NO password reset. There is no SMTP to deliver one, and a reset control
- *     that cannot send an email is the guarantee-theatre this track exists to
- *     remove.
- *
- * The email field is associated with the password form by `form=`, so it has an
- * owner and implicit submission has somewhere to go (see below). It kept that
- * `form=` when the second route was removed: the association is what makes
- * `Enter` work, not a consequence of there having been two routes.
- *
- * ── ROUND 2 (11 Aug 2026): THREE THINGS THIS PAGE GOT WRONG ────────────────
- * All three were measured by the #667 adversarial review, by execution.
- *
- * 1. THE SUCCESS PATH DEAD-ENDED. This file used to carry the comment "on
- *    success the AuthProvider's onAuthStateChange drives navigation". Nothing
- *    did: neither `handleAuthStateChange` nor `OptionalAuthProvider.adopt`
- *    navigates on sign-IN (the only `navigate()` calls in AuthContext are
- *    sign-OUT), and `/login` sits OUTSIDE `AuthGuard`, so no guard bounces an
- *    authenticated user away either. An owner who typed the CORRECT password
- *    got every control disabled, a "Signing in…" spinner, and no way out but a
- *    reload. Success now moves to `password-signed-in` and this page routes —
- *    automatically once the provider reports the session, and via an explicit
- *    Continue control that is always present, so there is no state in which the
- *    owner is stuck behind a promise nobody keeps.
- *
- * 2. SERVER FAULTS AND RATE LIMITS WERE REPORTED AS "your password didn't
- *    match". 400 (wrong password) and 400 (unknown address) are the
- *    enumeration surface and stay byte-identical. A 5xx, a 501 capability-absent
- *    build and a 429 are NOT address-correlated — they are returned the same for
- *    an address that exists and one that does not — so naming them leaks
- *    nothing, and the magic-link half of this same page has said so with its own
- *    `send-failed` state since #666. The 429 case was actively harmful: it
- *    blamed the credentials AND cleared the password, so a rate-limited owner
- *    retyped a correct password into more rate-limiting.
- *
- * 3. `Enter` IN THE EMAIL FIELD WAS A DEAD KEY. The field belonged to no form,
- *    so implicit submission had nothing to submit. It is now owned by the
- *    password form — the pilot's working route — via `form="owner-password-form"`.
- *
- * States: default → rate-limited → invalid-email → expired-link
- *         → password-submitting → password-failed → password-server-fault
- *         → password-signed-in
- * Shows identical message for invited and non-invited emails (prevents enumeration).
+ * The email field is owned by the password form via `form=`, so Enter in
+ * either field signs in.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom'
-import { Loader2 } from 'lucide-react'
+import { Info, Loader2, Mail } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { typography } from '../../styles/typography'
+import AuthShell from './AuthShell'
+import AuthField from './AuthField'
+import AuthEmailSent from './AuthEmailSent'
+import { primaryButton, secondaryButton, textLink } from './authStyles'
+import { classifyEmailSend, isRateLimited, isServerFault } from './authErrors'
 
 type PageState =
   | 'default'
@@ -97,57 +55,27 @@ type PageState =
   | 'password-server-fault'
   | 'password-signed-in'
 
+type EmailFlow = 'idle' | 'sending-link' | 'sending-reset' | 'link-sent' | 'reset-sent'
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-/**
- * Is this failure OURS rather than a fact about the address?
- *
- * A 5xx is returned identically for every address, so naming it leaks nothing
- * — unlike a 400, which IS address-correlated and stays byte-identical for a
- * wrong password and an unknown address. The predicate is written against the
- * SPEC (5xx = server fault) rather than against the single failure mode in
- * hand, so a different server fault is classified correctly the first time it
- * appears.
- */
-function isServerFault(error: unknown): boolean {
-  const status = (error as { status?: unknown } | null)?.status
-  return typeof status === 'number' && status >= 500
-}
-
-function isRateLimited(error: unknown): boolean {
-  const status = (error as { status?: unknown } | null)?.status
-  if (status === 429) return true
-  const msg = error instanceof Error ? error.message : String(error ?? '')
-  return msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('too many')
-}
-
 export default function LoginPage() {
-  const { signInWithPassword, authenticated } = useAuth()
+  const { signInWithPassword, signInWithMagicLink, requestPasswordReset, authenticated } = useAuth()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const location = useLocation()
+  const emailRef = useRef<HTMLInputElement>(null)
 
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(() => searchParams.get('email') ?? '')
   const [password, setPassword] = useState('')
   const [pageState, setPageState] = useState<PageState>(() =>
     searchParams.get('error') === 'expired' ? 'expired-link' : 'default',
   )
-  /**
-   * A password sign-in on THIS page has just succeeded.
-   *
-   * The routing below is gated on this rather than on `authenticated` alone,
-   * and that is load-bearing: in the guest posture `authenticated` is ALWAYS
-   * true (OptionalAuthProvider hands every visitor the guest identity so the
-   * PoC stays reachable), so redirecting on `authenticated` would make /login
-   * unreachable for a guest who came here deliberately.
-   */
+  const [emailFlow, setEmailFlow] = useState<EmailFlow>('idle')
+  /** A server fault or rate limit on an emailed-link request. */
+  const [emailSendError, setEmailSendError] = useState<'rate-limited' | 'server-fault' | null>(null)
   const [signedInHere, setSignedInHere] = useState(false)
 
-  /**
-   * Where an owner belongs after signing in. `AuthGuard` redirects with
-   * `state: { from: location }`, so an owner deep-linked to a protected route
-   * returns to it rather than to the root.
-   */
   const destination =
     (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/'
 
@@ -155,63 +83,50 @@ export default function LoginPage() {
     navigate(destination, { replace: true })
   }, [navigate, destination])
 
-  /**
-   * Route the owner into the app once the provider has actually adopted the
-   * session. Waiting for `authenticated` rather than navigating straight off
-   * the resolved promise avoids the race where AuthGuard has not yet seen the
-   * session and bounces the owner back here — which would relocate the
-   * dead-end rather than remove it. The Continue control below is the escape
-   * if the session never lands, so no path ends in a spinner.
-   */
   useEffect(() => {
     if (!signedInHere || !authenticated) return
     goToApp()
   }, [signedInHere, authenticated, goToApp])
 
+  const busy =
+    pageState === 'password-submitting' || emailFlow === 'sending-link' || emailFlow === 'sending-reset'
+
   const handleEmailBlur = useCallback(() => {
-    if (email && !EMAIL_RE.test(email)) {
+    if (email && !EMAIL_RE.test(email.trim())) {
       setPageState('invalid-email')
     } else if (pageState === 'invalid-email') {
       setPageState('default')
     }
   }, [email, pageState])
 
-  const handlePasswordSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault()
+  /** Validate the shared email field before any request; focus it if wrong. */
+  const requireEmail = useCallback((): string | null => {
     const trimmed = email.trim()
     if (!EMAIL_RE.test(trimmed)) {
       setPageState('invalid-email')
-      return
+      emailRef.current?.focus()
+      return null
     }
+    return trimmed
+  }, [email])
+
+  const handlePasswordSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = requireEmail()
+    if (!trimmed) return
     if (password.length === 0) return
 
+    setEmailSendError(null)
     setPageState('password-submitting')
     const { error } = await signInWithPassword(trimmed, password)
     if (error) {
-      // TWO QUESTIONS, TWO PREDICATES (CLAUDE.md trap 21). "Is this an
-      // enumeration signal?" and "is this a server fault?" are different
-      // questions, and the first version of this handler answered both with
-      // one branch — so a 500, a 501 and a 429 were all reported to the owner
-      // as "your password didn't match", which is false for all three.
-      //
-      // What stays byte-identical is the ENUMERATION SURFACE: a wrong password
-      // and an unknown address are both Supabase 400 `Invalid login
-      // credentials` and both land in `password-failed` with one sentence.
-      // That is the only pair whose difference would reveal which addresses
-      // exist. A 5xx, a 501 capability-absent build and a 429 are returned the
-      // same way for an address that exists and one that does not, so naming
-      // them tells an attacker nothing — which is precisely the reasoning the
-      // magic-link half of this page has run on since #666 (`send-failed`).
       if (isRateLimited(error)) {
-        // Deliberately does NOT clear the password: blaming the credentials
-        // and wiping the field made a rate-limited owner retype a CORRECT
-        // password into more rate-limiting.
+        // Does NOT clear the password: a rate-limited owner must not retype a
+        // correct password into more rate-limiting.
         setPageState('rate-limited')
         return
       }
       if (isServerFault(error)) {
-        // >= 500, which includes the 501 a build with no `signInWithPassword`
-        // reports. Ours, not theirs, and never dressed up as a bad password.
         setPageState('password-server-fault')
         return
       }
@@ -219,187 +134,247 @@ export default function LoginPage() {
       setPassword('')
       return
     }
-    // Success. Hold the password in memory no longer than the request needs,
-    // then hand the owner to the app (see the effect above: this page routes,
-    // because nothing else does).
     setPassword('')
     setSignedInHere(true)
     setPageState('password-signed-in')
-  }, [email, password, signInWithPassword])
+  }, [requireEmail, password, signInWithPassword])
+
+  const sendLink = useCallback(async (kind: 'link' | 'reset', address: string) => {
+    setEmailSendError(null)
+    setEmailFlow(kind === 'link' ? 'sending-link' : 'sending-reset')
+    const { error } =
+      kind === 'link' ? await signInWithMagicLink(address) : await requestPasswordReset(address)
+    const outcome = classifyEmailSend(error)
+    if (outcome === 'sent') {
+      setPassword('')
+      setPageState('default')
+      setEmailFlow(kind === 'link' ? 'link-sent' : 'reset-sent')
+      return
+    }
+    setEmailSendError(outcome)
+    setEmailFlow('idle')
+  }, [signInWithMagicLink, requestPasswordReset])
+
+  const handleMagicLink = useCallback(() => {
+    const trimmed = requireEmail()
+    if (trimmed) void sendLink('link', trimmed)
+  }, [requireEmail, sendLink])
+
+  const handleForgotPassword = useCallback(() => {
+    const trimmed = requireEmail()
+    if (trimmed) void sendLink('reset', trimmed)
+  }, [requireEmail, sendLink])
+
+  // ── Check your inbox ────────────────────────────────────────────────────
+  if (emailFlow === 'link-sent' || emailFlow === 'reset-sent') {
+    const isReset = emailFlow === 'reset-sent'
+    return (
+      <AuthShell footer={<p>This is an invite-only pilot.</p>}>
+        <AuthEmailSent
+          testId={isReset ? 'reset-link-sent' : 'magic-link-sent'}
+          email={email.trim()}
+          heading="Check your inbox"
+          body={
+            isReset
+              ? 'If {email} has an Olumi account, we’ve sent a link to choose a new password.'
+              : 'If {email} has access to Olumi, we’ve sent a link that signs you straight in.'
+          }
+          onResend={async () => {
+            const kind = isReset ? 'reset' : 'link'
+            const { error } =
+              kind === 'link'
+                ? await signInWithMagicLink(email.trim())
+                : await requestPasswordReset(email.trim())
+            const outcome = classifyEmailSend(error)
+            if (outcome !== 'sent') {
+              setEmailSendError(outcome)
+              setEmailFlow('idle')
+            }
+          }}
+          onUseDifferentEmail={() => {
+            setEmailFlow('idle')
+            setEmail('')
+            setTimeout(() => emailRef.current?.focus(), 0)
+          }}
+        />
+      </AuthShell>
+    )
+  }
+
+  // ── Signed in (password) ───────────────────────────────────────────────
+  if (pageState === 'password-signed-in') {
+    return (
+      <AuthShell footer={<p>This is an invite-only pilot.</p>}>
+        <div
+          className="flex flex-col items-center gap-5 text-center"
+          data-testid="owner-password-signed-in"
+          aria-live="polite"
+        >
+          <Loader2 className="h-6 w-6 animate-spin text-info" aria-hidden="true" />
+          <div>
+            <h1 className={`${typography.h4} text-text-header`}>Signed in</h1>
+            <p className={`${typography.body} mt-1 text-text-light`}>
+              Taking you to your workspace&hellip;
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={goToApp}
+            data-testid="owner-password-continue"
+            className={primaryButton}
+          >
+            Continue
+          </button>
+        </div>
+      </AuthShell>
+    )
+  }
+
+  // ── The form ───────────────────────────────────────────────────────────
+  const emailError =
+    pageState === 'invalid-email'
+      ? 'Please enter a valid email address.'
+      : pageState === 'rate-limited' || emailSendError === 'rate-limited'
+        ? 'Please wait a moment before trying again.'
+        : undefined
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
-      <div className="w-full max-w-[400px] rounded-[20px] bg-panel p-6 shadow-1">
-        {/* Expired-link banner */}
-        {pageState === 'expired-link' && (
-          <div className="mb-4 rounded-md bg-panel px-4 py-3 text-info">
-            <p className={typography.bodySmall}>
-              This sign-in link has expired. Please request a new one.
-            </p>
-          </div>
-        )}
+    <AuthShell footer={<p>This is an invite-only pilot. Need access? Ask your Olumi contact.</p>}>
+      {pageState === 'expired-link' && (
+        <div
+          className="mb-6 flex items-start gap-3 rounded-md border border-info/30 bg-panel px-4 py-3"
+          role="status"
+        >
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
+          <p className={`${typography.bodySmall} text-text-body`}>
+            This sign-in link has expired or was already used. Enter your email below and we&rsquo;ll send a fresh one.
+          </p>
+        </div>
+      )}
 
-        <h3 className={`${typography.h3} text-text-header mb-1`}>Sign in to Olumi</h3>
+      <h1 className={`${typography.h3} text-text-header`}>Sign in to Olumi</h1>
+      <p className={`${typography.body} mt-1 text-text-light`}>
+        Welcome back. Pick up where you left off.
+      </p>
 
-        {pageState === 'password-signed-in' ? (
-          /* ---- Signed in ----
-             The owner IS signed in: Supabase returned no error. The effect
-             above routes as soon as the provider adopts the session; this
-             state is what they see in the meantime, and the Continue control
-             is the escape hatch if adoption never happens — so the success
-             path cannot dead-end again. */
-          <div
-            className="mt-6 flex flex-col items-center gap-4 text-center"
-            data-testid="owner-password-signed-in"
-          >
-            <p className={`${typography.body} text-text-body`}>
-              Signed in. Taking you to your workspace&hellip;
-            </p>
-            <button
-              type="button"
-              onClick={goToApp}
-              data-testid="owner-password-continue"
-              className={`${typography.button} rounded-pill bg-primary px-6 py-3 text-text-on-color shadow-1 transition-all duration-fast hover:bg-primary-hover`}
-            >
-              Continue
-            </button>
-          </div>
-        ) : (
-          /* ---- Default / invalid-email / rate-limited ---- */
-          <>
-            <p className={`${typography.body} text-text-light mb-6`}>
-              Sign in with the password your Olumi contact gave you
-            </p>
+      <div className="mt-8 flex flex-col gap-5">
+        <AuthField
+          ref={emailRef}
+          id="login-email"
+          label="Email"
+          form="owner-password-form"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          autoFocus
+          placeholder="you@example.com"
+          value={email}
+          onChange={e => {
+            setEmail(e.target.value)
+            if (pageState === 'invalid-email' || pageState === 'rate-limited' || pageState === 'expired-link') {
+              setPageState('default')
+            }
+            if (emailSendError) setEmailSendError(null)
+          }}
+          onBlur={handleEmailBlur}
+          disabled={busy}
+          error={emailError}
+        />
 
-            {/* The email field is shared by BOTH routes, so it lives outside
-                both forms — but it is OWNED by the password form via `form=`.
-                Without an owner it belonged to no form, and implicit
-                submission (Enter) had nothing to submit: a dead key, measured
-                by the #667 review. The password form is the pilot's working
-                route, so that is where Enter goes. */}
-            <div className="flex flex-col gap-4">
-              <div>
-                <label htmlFor="login-email" className="sr-only">Email address</label>
-                <input
-                  id="login-email"
-                  form="owner-password-form"
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={e => {
-                    setEmail(e.target.value)
-                    if (pageState === 'invalid-email' || pageState === 'rate-limited') {
-                      setPageState('default')
-                    }
-                  }}
-                  onBlur={handleEmailBlur}
-                  disabled={pageState === 'password-submitting'}
-                  className={`w-full min-h-[44px] rounded-md border bg-panel px-4 py-3 ${typography.body} text-text-body placeholder:text-text-light transition-colors duration-fast focus:outline-none focus:ring-2 focus:ring-info/50 ${
-                    pageState === 'invalid-email'
-                      ? 'border-danger'
-                      : 'border-[rgba(38,38,38,0.16)]'
-                  }`}
-                />
-                {pageState === 'invalid-email' && (
-                  <p className={`${typography.bodySmall} text-danger mt-1`}>
-                    Please enter a valid email address.
-                  </p>
-                )}
-                {pageState === 'rate-limited' && (
-                  <p className={`${typography.bodySmall} text-danger mt-1`}>
-                    Please wait a moment before trying again.
-                  </p>
-                )}
-              </div>
-
-              {/* ---- Owner password sign-in: the pilot's working route ---- */}
-              <form
-                id="owner-password-form"
-                onSubmit={handlePasswordSubmit}
-                className="flex flex-col gap-4"
-                data-testid="owner-password-form"
+        <form
+          id="owner-password-form"
+          onSubmit={handlePasswordSubmit}
+          className="flex flex-col gap-5"
+          data-testid="owner-password-form"
+          noValidate
+        >
+          <AuthField
+            id="owner-password"
+            label="Password"
+            labelAction={
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={busy}
+                className={textLink}
+                data-testid="forgot-password"
               >
-                <div>
-                  <label htmlFor="owner-password" className="sr-only">Password</label>
-                  <input
-                    id="owner-password"
-                    type="password"
-                    autoComplete="current-password"
-                    placeholder="Password"
-                    value={password}
-                    onChange={e => {
-                      setPassword(e.target.value)
-                      if (pageState === 'password-failed' || pageState === 'password-server-fault') {
-                        setPageState('default')
-                      }
-                    }}
-                    disabled={pageState === 'password-submitting'}
-                    data-testid="owner-password-input"
-                    className={`w-full min-h-[44px] rounded-md border bg-panel px-4 py-3 ${typography.body} text-text-body placeholder:text-text-light transition-colors duration-fast focus:outline-none focus:ring-2 focus:ring-info/50 ${
-                      pageState === 'password-failed'
-                        ? 'border-danger'
-                        : 'border-[rgba(38,38,38,0.16)]'
-                    }`}
-                  />
-                  {pageState === 'password-failed' && (
-                    /* Identical for a wrong password and an unregistered
-                       address — Supabase answers both with the same 400, and
-                       splitting them here would leak which addresses exist. */
-                    <p
-                      className={`${typography.bodySmall} text-danger mt-1`}
-                      role="alert"
-                      data-testid="owner-password-error"
-                    >
-                      That email and password didn&rsquo;t match. Check them, or ask
-                      your Olumi contact.
-                    </p>
-                  )}
-                  {pageState === 'password-server-fault' && (
-                    /* NOT address-correlated: a 5xx and a 501 capability-absent
-                       build are returned identically for an address that exists
-                       and one that does not, so this sentence leaks nothing —
-                       and unlike the copy above, it is TRUE. Says nothing about
-                       the password, because the password is not the problem. */
-                    <p
-                      className={`${typography.bodySmall} text-danger mt-1`}
-                      role="alert"
-                      data-testid="owner-password-server-error"
-                    >
-                      We couldn&rsquo;t complete sign-in. This is a problem on our
-                      side, not with your details. Please try again shortly, or ask
-                      your Olumi contact.
-                    </p>
-                  )}
-                </div>
+                {emailFlow === 'sending-reset' ? 'Sending…' : 'Forgot password?'}
+              </button>
+            }
+            type="password"
+            autoComplete="current-password"
+            placeholder="Your password"
+            value={password}
+            onChange={e => {
+              setPassword(e.target.value)
+              if (pageState === 'password-failed' || pageState === 'password-server-fault') {
+                setPageState('default')
+              }
+            }}
+            disabled={busy}
+            data-testid="owner-password-input"
+            error={
+              pageState === 'password-failed'
+                ? 'That email and password didn’t match. Check them, or sign in with an email link instead.'
+                : pageState === 'password-server-fault'
+                  ? 'We couldn’t complete sign-in. This is a problem on our side, not with your details. Please try again shortly.'
+                  : undefined
+            }
+            errorTestId={
+              pageState === 'password-failed'
+                ? 'owner-password-error'
+                : pageState === 'password-server-fault'
+                  ? 'owner-password-server-error'
+                  : undefined
+            }
+          />
 
-                <button
-                  type="submit"
-                  disabled={pageState === 'password-submitting' || password.length === 0}
-                  data-testid="owner-password-submit"
-                  className={`${typography.button} flex items-center justify-center gap-2 rounded-pill bg-primary px-6 py-3 text-text-on-color shadow-1 transition-all duration-fast hover:bg-primary-hover hover:-translate-y-px active:bg-primary-active active:translate-y-0 disabled:bg-primary-disabled disabled:cursor-not-allowed disabled:translate-y-0`}
-                >
-                  {pageState === 'password-submitting' ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Signing in…
-                    </>
-                  ) : (
-                    'Sign in'
-                  )}
-                </button>
-              </form>
-            </div>
+          <button
+            type="submit"
+            disabled={busy || password.length === 0}
+            data-testid="owner-password-submit"
+            className={primaryButton}
+          >
+            {pageState === 'password-submitting' ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Signing in&hellip;
+              </>
+            ) : (
+              'Sign in'
+            )}
+          </button>
+        </form>
 
-          </>
-        )}
+        <div className="flex items-center gap-3" aria-hidden="true">
+          <span className="h-px flex-1 bg-panel-border" />
+          <span className={`${typography.caption} text-text-light`}>or</span>
+          <span className="h-px flex-1 bg-panel-border" />
+        </div>
 
-        {/* Footer */}
-        <p className={`${typography.bodySmall} text-text-light mt-6 text-center`}>
-          This is an invite-only pilot.
-        </p>
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={handleMagicLink}
+            disabled={busy}
+            className={secondaryButton}
+            data-testid="magic-link-submit"
+          >
+            {emailFlow === 'sending-link' ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Mail className="h-4 w-4" aria-hidden="true" />
+            )}
+            Email me a sign-in link
+          </button>
+          {emailSendError === 'server-fault' && (
+            <p className={`${typography.bodySmall} text-danger`} role="alert" data-testid="email-send-server-error">
+              We couldn&rsquo;t send that email. This is a problem on our side. Please try again shortly.
+            </p>
+          )}
+        </div>
       </div>
-    </div>
+    </AuthShell>
   )
 }

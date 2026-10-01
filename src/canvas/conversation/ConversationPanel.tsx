@@ -887,6 +887,7 @@ export const ConversationPanel = memo(function ConversationPanel({
         isThinking={isThinking}
         longRunningHint={longRunningHint}
         nodeCount={nodeCount}
+        analysisRunning={isAnalysisRunning}
         patchBlockStates={patchBlockStates}
         patchRejections={patchRejections}
         onChipClick={handleChipClick}

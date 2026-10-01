@@ -21,7 +21,7 @@ import {
   type GoalProbabilityInput,
 } from '../../components/results/utils/selectGoalProbability'
 import { goalLevelFromIdentityCaveat } from '../../components/results/utils/goalLevelFromIdentity'
-import { readGoalIdentityWithheld } from '../../components/results/utils/goalIdentityWithheld'
+import { readGoalFigureWithholds, withheldClaimsFor } from '../../components/results/utils/goalIdentityWithheld'
 import {
   collectStructurallyProvenNoFlipIds,
   type FlipAttestationRowLike,
@@ -678,7 +678,11 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
   // snapshot keeps it, so a saved run never shows a bare figure the live row caveated.
   const goalLevelAuthor = goalLevelFromIdentityCaveat(rawV2Response)
   // PLoT #416: the same reader as the V5 mapper, so a saved run never shows a figure the live row withheld.
-  const goalIdentityWithheld = readGoalIdentityWithheld(rawV2Response) !== null
+  // B3: the leader's own claim set, per option (a Run with no B2 keys withholds it exactly as before).
+  const winnerId = winner != null && typeof (winner as { option_id?: unknown }).option_id === 'string' ? (winner as { option_id: string }).option_id : null
+  const snapshotWithholds = readGoalFigureWithholds(rawV2Response)
+  const goalIdentityWithheld = snapshotWithholds.length > 0 &&
+    (winnerId === null || withheldClaimsFor(snapshotWithholds, winnerId).has('goal_probability'))
   const goalDecision = selectGoalProbability(
     winner != null
       ? ({

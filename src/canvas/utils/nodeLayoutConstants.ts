@@ -717,8 +717,11 @@ export const LAYOUT_NODE_GAP = 24
  * units at the landing bound. It lives here, not in `BaseNode`, because two
  * other things are sized against it: the band title keeps clear of it
  * (`tierLanes.ts`) and the row gap below budgets for it.
+ *
+ * ⭐ 20% SMALLER THAN THE CONTRACT'S 24 (Paul, 1 Oct 2026: "the node shape types need to be 20% smaller across the
+ * board, as they dominate too much"). 19.2 units; every reader above derives from this one constant.
  */
-export const KIND_GLYPH_PX = 24
+export const KIND_GLYPH_PX = 19.2
 
 /**
  * ⭐ THE KIND SHAPE'S GEOMETRY AT LABEL SCALE `s` (graph contract pass, 27 Sep

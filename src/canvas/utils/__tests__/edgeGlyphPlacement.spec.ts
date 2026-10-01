@@ -59,20 +59,22 @@ const dxs = (target: { x: number; width: number }, sibs: ArrivalSibling[]) => si
 describe('the constants are derived, never literals', () => {
   it('the widest head at the bound, the pitch, the margin, the title clearance', () => {
     expect(ARRIVAL_HEAD_MAX_FLOW).toBe(edgeArrowheadSize(Math.max(...Object.values(EDGE_STROKE_WIDTH_BANDS))) * MAX_GLYPH_COUNTER_SCALE)
-    expect(ARRIVAL_HEAD_MAX_FLOW).toBe(40)
+    // 12.5 × 2 since Paul's 1 Oct smaller heads (2.5 × the 5-unit band; 40 at the old 4×).
+    expect(ARRIVAL_HEAD_MAX_FLOW).toBe(25)
     // Two widest heads a mark gap apart; a border head a mark gap off the kind shape.
     expect(ARRIVAL_PITCH_FLOW).toBeGreaterThanOrEqual(ARRIVAL_HEAD_MAX_FLOW + GLYPH_BOX_GAP_FLOW)
     expect(ARRIVAL_PITCH_FLOW).toBeGreaterThanOrEqual(kindGlyphSizeAt(MAX_LABEL_COUNTER_SCALE) / 2 + ARRIVAL_HEAD_MAX_FLOW / 2 + GLYPH_BOX_GAP_FLOW)
-    expect(ARRIVAL_PITCH_FLOW).toBe(44)
-    expect(ARRIVAL_CARD_MARGIN_FLOW).toBe(20)
-    expect(ARRIVAL_TITLE_CLEARANCE_FLOW).toBe(24)
+    expect(ARRIVAL_PITCH_FLOW).toBe(33)
+    expect(ARRIVAL_CARD_MARGIN_FLOW).toBe(12.5)
+    expect(ARRIVAL_TITLE_CLEARANCE_FLOW).toBe(16.5)
   })
 
-  it('the rise bound: the visible gap less half a box and the mark gap above the card (50); less the kind overhang above the apex (22.64)', () => {
+  it('the rise bound: the visible gap less half a box and the mark gap above the card (50); less the kind overhang above the apex (28.11)', () => {
     expect(GLYPH_RISE_MAX_ABOVE_CARD_FLOW).toBe(LAYOUT_LAYER_GAP + LAYOUT_PADDING_Y - GLYPH_PAINTED_BOX_FLOW / 2 - GLYPH_BOX_GAP_FLOW)
     expect(GLYPH_RISE_MAX_ABOVE_CARD_FLOW).toBe(50)
     expect(GLYPH_ROW_RISE_MAX_FLOW).toBeCloseTo(GLYPH_RISE_MAX_ABOVE_CARD_FLOW - kindGlyphOverhangAt(MAX_LABEL_COUNTER_SCALE), 10)
-    expect(GLYPH_ROW_RISE_MAX_FLOW).toBeCloseTo(22.64, 10)
+    // 22.64 with the 24-unit kind shape; the shape is 19.2 since Paul's 1 Oct −20%, so its overhang is smaller.
+    expect(GLYPH_ROW_RISE_MAX_FLOW).toBeCloseTo(28.112, 10)
   })
 })
 
@@ -149,7 +151,7 @@ describe('A — the distinctness guarantee', () => {
   it('DEGRADED: no geometry at all still yields distinct slots — the symmetric ones', () => {
     const sibs = ['a', 'b', 'c', 'd'].map((id) => ({ id, sourceCentre: null }))
     expectAllDistinct(WIDE, sibs, 'all unresolvable')
-    expect(dxs(WIDE, sibs)).toEqual([-88, -44, 44, 88])
+    expect(dxs(WIDE, sibs)).toEqual([-66, -33, 33, 66])
   })
 
   it('MIXED: one unresolvable sibling degrades the WHOLE group consistently', () => {
@@ -206,7 +208,8 @@ describe('A — the row\'s band word takes no signed arrival', () => {
   })
 
   it('a GROUP that does not fit the room the word leaves ignores the word (distinct slots over the whole card)', () => {
-    const sibs = [src('a', -100), src('b', 0), src('c', 100)]
+    // Six, not three: at the 1 Oct 33-unit pitch three arrivals fit beside the word, so the group must be wider.
+    const sibs = [src('a', -250), src('b', -150), src('c', -50), src('d', 50), src('e', 150), src('f', 250)]
     const withWord = sibs.map((s) => resolveArrivalSlot(s.id, NARROW, sibs, title).dx)
     const without = sibs.map((s) => resolveArrivalSlot(s.id, NARROW, sibs).dx)
     expect(withWord).toEqual(without)
@@ -286,18 +289,25 @@ describe('B — the sign sits on its own line, just behind its own head', () => 
     const tall = glyphMetricsAt(EDGE_STROKE_WIDTH_BANDS.veryStrong, MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE)
     const g = resolvePolarityGlyphOnPath(VERTICAL, 1000, tall)
     expect(1000 - g.y).toBeLessThanOrEqual(GLYPH_RISE_MAX_ABOVE_CARD_FLOW + 1e-9)
-    // The ideal (40 + 4 + 10 = 54) is above the bound (50): it came down its line.
-    expect(tall.headLength + tall.gap + tall.halfBox).toBeGreaterThan(GLYPH_RISE_MAX_ABOVE_CARD_FLOW)
     expect(onLine(g)).toBeLessThan(1e-9)
+    // Since Paul's 1 Oct smaller heads the widest ideal (25 + 4 + 10 = 39) sits UNDER the bound (50), so the sign
+    // stands at its ideal (it was 54 at 4× and came down its line). CONTRAST: a line clamped by the bound —
+    // a head long enough to put the ideal above it — still comes down to exactly the bound.
+    expect(tall.headLength + tall.gap + tall.halfBox).toBeLessThan(GLYPH_RISE_MAX_ABOVE_CARD_FLOW)
+    expect(1000 - g.y).toBeCloseTo(tall.headLength + tall.gap + tall.halfBox, 6)
+    const huge = { ...tall, headLength: GLYPH_RISE_MAX_ABOVE_CARD_FLOW }
+    expect(1000 - resolvePolarityGlyphOnPath(VERTICAL, 1000, huge).y).toBeCloseTo(GLYPH_RISE_MAX_ABOVE_CARD_FLOW, 6)
   })
 
-  it('STATED LIMIT, pinned: an APEX arrival at the landing has 22.64 above its tip — the sign stays on its line and reaches into its head', () => {
+  it('STATED LIMIT, pinned: an APEX arrival at the landing has 28.11 above its tip — the sign stays on its line, clear of the widest head', () => {
     const apexTop = 1000 - kindGlyphOverhangAt(MAX_LABEL_COUNTER_SCALE)
     const apexLine = flattenSvgPath(`M500,600 L500,${apexTop}`)!
     const g = resolvePolarityGlyphOnPath(apexLine, 1000, AT_BOUND)
-    expect(apexTop - g.y).toBeCloseTo(GLYPH_ROW_RISE_MAX_FLOW, 1)
-    expect(apexTop - g.y - AT_BOUND.halfBox).toBeLessThan(AT_BOUND.headLength)
     expect(onLine(g, apexLine)).toBeLessThan(1e-9)
+    expect(apexTop - g.y).toBeLessThanOrEqual(GLYPH_ROW_RISE_MAX_FLOW + 1e-6)
+    // It reached INTO its head with the 24-unit shape and the 4× head (22.64 of room); with the 1 Oct sizes the
+    // room above the tip less half the box holds the whole head.
+    expect(apexTop - g.y - AT_BOUND.halfBox).toBeGreaterThanOrEqual(AT_BOUND.headLength - 1e-6)
   })
 
   it('with no clear spot it stands at the ideal spot, under the bound, on its line — and says so', () => {
@@ -309,8 +319,9 @@ describe('B — the sign sits on its own line, just behind its own head', () => 
   })
 
   it('a neighbour\'s head is a keep-out: the widest head at the live scale, standing on its arrival point', () => {
-    expect(arrivalHeadKeepOut({ x: 100, y: 500 }, 2)).toEqual({ x0: 80, y0: 460, x1: 120, y1: 500 })
-    expect(arrivalHeadKeepOut({ x: 100, y: 500 }, 1)).toEqual({ x0: 90, y0: 480, x1: 110, y1: 500 })
+    // The widest head is 12.5 units (2.5 × 5) since Paul's 1 Oct smaller heads; it was 20.
+    expect(arrivalHeadKeepOut({ x: 100, y: 500 }, 2)).toEqual({ x0: 87.5, y0: 475, x1: 112.5, y1: 500 })
+    expect(arrivalHeadKeepOut({ x: 100, y: 500 }, 1)).toEqual({ x0: 93.75, y0: 487.5, x1: 106.25, y1: 500 })
   })
 
   it('the transform is a flow point, centred', () => {

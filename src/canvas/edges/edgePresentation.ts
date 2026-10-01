@@ -560,7 +560,14 @@ export function resolveEdgeDirectionMarker(
  * path end. The product's own heads have not been measured on a served build by
  * this change.
  */
-export const EDGE_ARROWHEAD_STROKE_MULTIPLE = 4
+export const EDGE_ARROWHEAD_STROKE_MULTIPLE = 2.5
+
+/**
+ * ⭐ THE SMALLEST HEAD, in glyph units (Paul, 1 Oct 2026: "The arrows connecting to the nodes are too big").
+ * The 4× rule drew 8 / 12 / 16 / 20px heads on screen, up to 3.3× the pre-27 Sep 6px. At 2.5× the bands give
+ * 5 / 7.5 / 10 / 12.5; the floor keeps the thinnest head at the old 6px so direction still reads.
+ */
+export const EDGE_ARROWHEAD_MIN_PX = 6
 
 /**
  * The head's length AND base, in glyph units (screen px at glyph-scale 1).
@@ -577,7 +584,10 @@ export const EDGE_ARROWHEAD_STROKE_MULTIPLE = 4
  * says "not set" on the width channel.
  */
 export function edgeArrowheadSize(strokeWidth: number): number {
-  return EDGE_ARROWHEAD_STROKE_MULTIPLE * Math.max(strokeWidth, MEASURED_EDGE_STROKE_WIDTH_FLOOR)
+  return Math.max(
+    EDGE_ARROWHEAD_MIN_PX,
+    EDGE_ARROWHEAD_STROKE_MULTIPLE * Math.max(strokeWidth, MEASURED_EDGE_STROKE_WIDTH_FLOOR),
+  )
 }
 
 /**

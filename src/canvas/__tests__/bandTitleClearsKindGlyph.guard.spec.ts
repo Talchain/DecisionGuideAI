@@ -165,15 +165,21 @@ describe('the row gap holds a kind shape and a band title, both at the bound', (
     // 27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231:
     //   S 1.36 → 1.64; needed 52.96 → 63.04 = 27.36 + 8 + 12 × 1.64 + 8
     //   (56.32 with a shape at the glyph scale of 2, before 1.36).
+    // 1 Oct 2026 (Paul: "node shape types … 20% smaller"): the shape is 19.2, so
+    //   needed 63.04 → 57.568 = 21.888 + 8 + 12 × 1.64 + 8.
     expect(S).toBe(1.64)
-    expect(needed).toBeCloseTo(63.04, 10)
+    expect(needed).toBeCloseTo(57.568, 10)
     expect(visible).toBeGreaterThanOrEqual(needed)
     // …and NO TALLER than it has to be (Canvas owner, 27 Sep 2026: boards grow
     // only where unavoidable). The title's line box is already one 1.2 line, so
     // the 7.04 shortfall at 40 raised the gap by 8 — the smallest whole unit.
     expect(LANE_TITLE_LINE_PX).toBeCloseTo(10 * 1.2, 10)
     expect(LAYOUT_LAYER_GAP).toBe(48)
-    expect(visible - 1, 'the row gap is a whole unit taller than the budget needs').toBeLessThan(needed)
+    // ⭐ CANVAS OWNER, 1 Oct 2026: the smaller shape leaves 6.43 units of slack, and the gap KEEPS it. Paul's same
+    // note says the cards are "really cramped up"; the row gap is breathing room he asked for, not waste, and
+    // shrinking it would re-lay every board for 6 units. The slack is pinned so any further change is a decision.
+    expect(visible - needed).toBeCloseTo(6.432, 6)
+    expect(visible - needed).toBeLessThan(8)
   })
 })
 
@@ -267,8 +273,9 @@ describe('…and the title that rises clear of a shape lands on nothing else', (
       expect(lane.x, `tier ${tier} does not start at the title column`).toBe(column)
     }
     const risen = t.titles.filter(({ lane, box }) => box.y1 < lane.y - LANE_TITLE_GAP)
-    // ≥ 1 since Paul's 1 Oct half-size row-end prompt widened the cards: one fewer title's run reaches a shape on
-    // this board (it was 2). Still non-vacuous: a title really rose, and the two rows below check where it landed.
+    // ≥ 1 since Paul's 1 Oct half-size row-end prompt widened the cards (and the shape is 20% smaller): one fewer
+    // title's run reaches a shape on this board (it was 2). Still non-vacuous: a title really rose, and the two rows
+    // below check where it landed.
     expect(risen.length).toBeGreaterThanOrEqual(1)
     expect(titleShapeHits(t)).toEqual([])
     expect(titleLandingHits(t)).toEqual([])
