@@ -30,7 +30,7 @@ vi.mock('../../hydrate/serverGraphHydration', async (importOriginal) => ({
 }))
 
 import { useCanvasStore } from '../../store'
-import { AUTH_WAIT_BOUND_MS, serverReadEnabled, useBootServerReadEnabled } from '../useBootServerReadEnabled'
+import { AUTH_WAIT_BOUND_MS, serverReadEnabled, useBootServerReadEnabled, type BootServerReadInputs } from '../useBootServerReadEnabled'
 import { useServerGraphHydration } from '../useServerGraphHydration'
 
 const ROUTE = '5f0c2a8e-1b7d-4c3e-9a64-0d2b8e7f1c35'
@@ -40,11 +40,11 @@ beforeEach(() => {
   hydrate.fn.mockClear()
   useCanvasStore.setState({ currentScenarioId: null, nodes: [], edges: [], serverGraphIdentity: null } as never)
 })
-afterEach(() => vi.useRealTimers())
+afterEach(() => { vi.useRealTimers() })
 
 describe('B1 · the gate', () => {
-  const base = { authLoading: false, authWaitExpired: false, isPersistenceActive: true, routeId: ROUTE, supabaseSettledFor: null }
-  const rows: Array<[string, Partial<typeof base>, boolean]> = [
+  const base: BootServerReadInputs = { authLoading: false, authWaitExpired: false, isPersistenceActive: true, routeId: ROUTE, supabaseSettledFor: null }
+  const rows: Array<[string, Partial<BootServerReadInputs>, boolean]> = [
     ['auth loading holds every read', { authLoading: true }, false],
     ['a guest reads once auth resolves', { isPersistenceActive: false }, true],
     ['signed in, Supabase load not settled → wait', {}, false],
