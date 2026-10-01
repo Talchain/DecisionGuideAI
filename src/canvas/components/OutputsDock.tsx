@@ -37,7 +37,7 @@ import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt, selectReportIsFromEarlierRun } from '../store'
 import { selectRunOnRecord, useAnalysisState } from '../state/analysisStateSelector'
-import { selectSavedRunUnconfirmed, useDeclinedSavedRunStore } from '../stores/declinedSavedRunStore'
+import { selectRunOnRecordWithoutResult, selectSavedRunUnconfirmed, useDeclinedSavedRunStore } from '../stores/declinedSavedRunStore'
 import { useAnalysisWaitExhausted } from '../../components/results/analysisNew/useAnalysisWaitExhausted'
 import { getScenario } from '../store/scenarios'
 // ── The workspace-shell contract ────────────────────────────────────────────
@@ -782,6 +782,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const currentScenarioIdForRun = useCanvasStore(s => s.currentScenarioId)
   const savedRunUnconfirmed = selectSavedRunUnconfirmed(declinedSavedRun, currentScenarioIdForRun, runOnRecordLocally)
   const runOnRecord = runOnRecordLocally || savedRunUnconfirmed
+  const runStateKindForStatus = useCanvasStore(s => s.analysisStateV1?.run_state.kind ?? null)
 
   // Actions don't need shallow - they're stable references
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
@@ -805,6 +806,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   )
 
   const isPreRun = !hasCompletedFirstRun
+  // Reasoning's pre-run status names a Run on record instead of "No analysis has run yet" (DL #75 5922639119).
+  const runOnRecordWithoutResult = selectRunOnRecordWithoutResult({ isPreRun, savedRunUnconfirmed, runStateKind: runStateKindForStatus })
   // Empty state: hide panel when canvas has no nodes (FF off).
   const hasGraphContent = nodes.length > 0
 
@@ -4108,6 +4111,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 <AnalysisNewTabBody
                   resultsSectionData={resultsSectionData}
                   isPreRun={isPreRun}
+                  runOnRecordWithoutResult={runOnRecordWithoutResult}
                   isRunning={isRunning}
                   /* ⭐ THE SAME AUTHORITY THE COVER ABOVE READS. `isRunning` is
                      the dock's LOCAL flag and stays where it is because it

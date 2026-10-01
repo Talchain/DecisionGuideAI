@@ -58,6 +58,8 @@ import { openDecisionRecord, useDecisionRecordForScenario, hasAnalysedOptions } 
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { distinctDriverSubjects } from './driverSubjectCount'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
+import { FOOTER_COPY } from '../../../canvas/components/pre-analysis-v3/constants'
+import type { RunOnRecordWithoutResult } from '../../../canvas/stores/declinedSavedRunStore'
 import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
 import type { AnalysisNewFinding, AnalysisNewViewModel } from './analysisNewTypes'
 
@@ -144,6 +146,11 @@ export interface AnalysisNewTabBodyProps {
   /** THE SAME instance OutputsDock hands ResultsBody. Never re-derived here. */
   resultsSectionData: ResultsSectionDataReturn
   isPreRun: boolean
+  /**
+   * A Run on record whose result is not held here (`selectRunOnRecordWithoutResult`, computed by the dock from the
+   * Run control's own facts). Pre-run only; absent means no Run on record, so "No analysis has run yet" stands.
+   */
+  runOnRecordWithoutResult?: RunOnRecordWithoutResult
   isRunning: boolean
   /**
    * ⭐ THE COMPOSED RUN AUTHORITY, AND IT IS A DIFFERENT QUESTION FROM
@@ -657,6 +664,7 @@ const COMMIT_ZONE_ASK = {
 export function AnalysisNewTabBody({
   resultsSectionData,
   isPreRun,
+  runOnRecordWithoutResult = null,
   isRunning,
   isBusy,
   waitExhausted,
@@ -1491,7 +1499,11 @@ export function AnalysisNewTabBody({
               ? COPY.status.running
               : runWaitExhausted
                 ? COPY.status.waitExhausted
-                : COPY.status.preRun}
+                : runOnRecordWithoutResult === 'unconfirmed'
+                  ? FOOTER_COPY.savedRunUnconfirmedSub
+                  : runOnRecordWithoutResult === 'stale'
+                    ? COPY.status.savedRunStale
+                    : COPY.status.preRun}
           </p>
         )}
         {/* ⭐⭐⭐ WHY, AND IT IS THE HALF THAT MAKES THE SENTENCE USABLE.

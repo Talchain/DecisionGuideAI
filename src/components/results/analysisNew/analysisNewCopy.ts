@@ -2151,6 +2151,11 @@ export const ANALYSIS_NEW_COPY = {
   status: {
     preRun: 'No analysis has run yet for this model.',
     /**
+     * ⭐ A RUN IS ON RECORD BUT ITS RESULT IS NOT HELD HERE (`selectRunOnRecordWithoutResult`). `preRun` above is false
+     * then. Same shape as the Run control's `savedRunUnconfirmedSub`, which `unconfirmed` reuses verbatim.
+     */
+    savedRunStale: "A saved Run exists, but the model has changed since it ran, so it isn't shown. Re-run to analyse the model as it stands.",
+    /**
      * ⚠ SAYS WHAT THE PANEL IS, AND ASSERTS NO RUN. `tabIntro` cannot serve
      * pre-run — it says "a second reading of the same analysis run", which is
      * false when none has happened, and it shipped sitting directly above the
