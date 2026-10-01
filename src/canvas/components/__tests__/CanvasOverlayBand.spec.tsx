@@ -113,6 +113,9 @@ describe('CanvasOverlayBand — one slot, one occupant', () => {
   const EXPECTED_BOTTOM_CENTRE = [
     'model-extent-notice',
     'canvas-lod-notice',
+    // M2 (PTL #85 5933452605, 1 Oct 2026): what the user's rerun changed and moved — under the capability and the
+    // live transformation, above the standing notices.
+    'run-changes-summary',
     'first-model-notice',
     'assistant-focus-chip',
     'focus-mode-chip',
@@ -419,8 +422,8 @@ describe('a live view transformation is explained before a standing fact is rest
    * deleting everything else would pass the rows above — and the cell is
    * supposed to arbitrate, not be emptied.
    */
-  it('⛔ CONTRAST: the cell still arbitrates between all five occupants', () => {
-    expect(cell).toHaveLength(5)
-    expect(new Set(cell).size, 'a duplicate id would make the order ambiguous').toBe(5)
+  it('⛔ CONTRAST: the cell still arbitrates between all six occupants', () => {
+    expect(cell).toHaveLength(6)
+    expect(new Set(cell).size, 'a duplicate id would make the order ambiguous').toBe(6)
   })
 })
