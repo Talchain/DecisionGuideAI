@@ -48,6 +48,21 @@ import { useServerGraphRetryStore } from '../stores/serverGraphRetryStore'
 import { logger } from '../../lib/logger'
 import { getSessionIdentity } from '../../lib/supabase'
 
+/**
+ * The scenario id this hook last ADOPTED from a route (see the adoption effect). Module-level, not a ref: a remounted
+ * hook must still know the store's id came from a link, or a second link would be ignored.
+ */
+let routeAdoptedScenarioId: string | null = null
+
+/**
+ * Whether the READ follows a CEE-addressable route id: the store holds no scenario, this one, or one a route set (so a
+ * link-to-link change re-reads). ADOPTION into the store is narrower: an empty store only (see the effect).
+ */
+function routeIsAdoptable(route: string | null | undefined, held: string | null): boolean {
+  if (!route || !isCeeAddressableScenarioId(route)) return false
+  return held === null || held === route || held === routeAdoptedScenarioId
+}
+
 export function useServerGraphHydration(scenarioIdFromRoute?: string | null): void {
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
   const { user } = useAuth()
@@ -55,9 +70,38 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
   // The store id is the general source — it is what the guest boot path sets
   // from the autosave, and guest is the tier that actually ships. The route
   // param is the fallback for a deep link that has not reached the store yet.
-  const scenarioId = currentScenarioId ?? scenarioIdFromRoute ?? null
+  // ⭐ …EXCEPT a link the store does not already hold for another reason (see the adoption effect below): then the
+  // ROUTE is the scenario from the first render, so the read never starts for an id the link is replacing.
+  const scenarioId = routeIsAdoptable(scenarioIdFromRoute, currentScenarioId ?? null)
+    ? (scenarioIdFromRoute as string)
+    : (currentScenarioId ?? scenarioIdFromRoute ?? null)
 
   const attemptedRef = useRef<string | null>(null)
+
+  // ⭐ A DEEP LINK IS THE SCENARIO ON SCREEN, SO IT IS THE CURRENT SCENARIO (DL #75 5923453115, CODEX UI BUDDY
+  // 5923448472). A fresh guest on `#/scenario/<id>` never ran `loadSupabaseScenario` (guests are not persistence-active)
+  // and had no autosave, so `currentScenarioId` stayed null for the WHOLE session while the read below put that
+  // scenario's model on the canvas. Measured on served `69c05df1`: the boot proof declined the saved Run as
+  // `scenario_not_current`, Reasoning said "No analysis has run yet", and every turn went out with `scenarioId: null`
+  // (`useConversation.ts`), i.e. into a different scenario than the one on screen.
+  // Adopted ONLY into an empty store: the write target never moves to a model that is not on screen. On a link-to-link
+  // change (`/scenario/A` → `/scenario/B`) the read follows the new route (`routeIsAdoptable` above), but the store keeps
+  // A, whose model is still on the canvas; if B's read is refused (zero overlap), A stays on screen AND is where the next
+  // turn goes (CODEX UI BUDDY #2383 5923784243). A scenario the store got any other way (autosave, a draft, a turn) still
+  // wins, exactly as before. Declared BEFORE the read effect, so the read's proof sees the adopted id.
+  // ⚠ STORE ONLY, NEVER THE POINTER: the route already says which scenario a reload means, and a pointer written here
+  // would seed the NEXT session's store, so a later link to another scenario would be ignored.
+  // ⚠ AND AN EMPTY CANVAS, NOT JUST A NULL ID (CODEX UI BUDDY #2383 5923937552): a guest's unsaved draft has nodes and
+  // no id. Adopting the link there would point the draft's next turn at the linked model while the read (refused, zero
+  // overlap) leaves the draft on screen. With anything on the canvas, today's behaviour stands.
+  useEffect(() => {
+    const st = useCanvasStore.getState()
+    const held = st.currentScenarioId ?? null
+    if (held !== null || st.nodes.length > 0 || st.edges.length > 0) return
+    if (!routeIsAdoptable(scenarioIdFromRoute, held)) return
+    routeAdoptedScenarioId = scenarioIdFromRoute as string
+    useCanvasStore.setState({ currentScenarioId: scenarioIdFromRoute })
+  }, [scenarioIdFromRoute])
 
   useEffect(() => {
     if (!scenarioId) return
