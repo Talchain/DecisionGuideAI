@@ -3,8 +3,10 @@
  *
  * The inspector already says WHAT a figure is and, after a Run, what the analysis flags about it. This section adds
  * the step a reasoning partner takes next: name the assumption, say why it is worth examining on an explicit basis,
- * and offer ONE route to a defensible alternative — through the existing Agent proposal path (prefill → the user
- * sends → Olumi proposes → the user approves → canonical write). Nothing here sends, writes or approves.
+ * and offer ONE route to a defensible alternative — through the existing Agent path (prefill → the user sends →
+ * Olumi asks what the figure rests on and for the user's own figure → it proposes THAT figure → the user approves →
+ * canonical write). Olumi never chooses the replacement (CEE #2413; AIQ 5921113788: never script a figure Olumi chose).
+ * Nothing here sends, writes or approves.
  *
  * Two bases, each from a fact the client already holds; never a score this module invents:
  *   · `analysis`       — the last Run flagged the figure itself (`top_driver` / `turning_point`, `nodeAttention`).
@@ -31,8 +33,9 @@ export interface ExamineAssumptionView {
 }
 
 export const EXAMINE_HEADING = 'Examine this assumption'
-export const EXAMINE_ACTION = 'Ask Olumi for an alternative'
-export const EXAMINE_LIMIT = 'Olumi will suggest one alternative for you to approve. Nothing changes until you do.'
+export const EXAMINE_ACTION = 'Examine with Olumi'
+/** Served `7686dc0` (52f8cd, guest 61a8c07c): Olumi asked what the figure rests on and for the user's own number. */
+export const EXAMINE_LIMIT = 'Olumi will ask what you know. If you give a different figure, nothing changes until you approve it.'
 
 export const EXAMINE_WHY: Readonly<Record<'analysis' | 'ai' | 'accepted', string>> = Object.freeze({
   analysis: 'Your last Run flags this figure as one that matters to the result.',
@@ -66,8 +69,8 @@ export function buildExamineAssumptionView(input: {
     prepare: {
       label: `Examine ${input.label}`,
       text:
-        `Examine my assumption for "${input.label}" (currently ${value}). ` +
-        'Suggest one defensible alternative figure, say why, and propose it for my approval.',
+        `Help me examine my assumption for "${input.label}" (currently ${value}). ` +
+        'What is it based on, and what would make a different figure more defensible?',
     },
   }
 }

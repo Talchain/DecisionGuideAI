@@ -65,11 +65,12 @@ describe('the view: an explicit basis, or nothing', () => {
     expect(view(OLUMIS, [TOP_DRIVER], '  ')).toBeNull()
   })
 
-  it('the prepared message names the factor and its figure, and asks for a proposal to approve', () => {
+  it('the prepared message names the factor and its figure, and asks what it rests on — never for Olumi to choose a figure', () => {
     const t = view(OLUMIS)!.prepare.text
     expect(t).toContain('"Warm introductions"')
     expect(t).toContain('30%')
-    expect(t).toMatch(/propose it for my approval/)
+    expect(t).toMatch(/What is it based on/)
+    expect(t).not.toMatch(/suggest|propose/i)
   })
 })
 
