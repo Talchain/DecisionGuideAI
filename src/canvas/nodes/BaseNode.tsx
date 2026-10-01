@@ -28,7 +28,7 @@ import { EditPencilCue } from './shared/EditPencilCue'
 import { useCanvasStore } from '../store'
 import { nodeTypeNumber, NODE_NUMBER_PREFIX, type NumberedNodeKind } from './shared/nodeTypeOrdinal'
 import { optionOrdinalBadgeAccessibleName } from './shared/metricVocabulary'
-import { selectWinSharesWithheld } from '../state/winShareGate'
+import { selectOptionComparedInRun, selectWinSharesWithheld } from '../state/winShareGate'
 import { EditableLabel } from '../ui/inspector-v2/shared/EditableLabel'
 import { TITLE_DOUBLE_CLICK_WINDOW_MS, handTitleClickToCard } from './shared/titleClickHandBack'
 import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
@@ -456,6 +456,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const isHighlighted = useCanvasStore(s => s.highlightedNodes.has(id))
   // CURRENT-READ row 9: a withheld leader withholds the option's share at every zoom (`winShareGate.ts`).
   const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
+  // …and the reduced line's "Compared · share not shown" holds only for an option the Run compared (F1b, 52f8cd), as
+  // on the full-zoom card. A left-out option never reads "Compared".
+  const optionComparedInRun = useCanvasStore((s) => nodeType === 'option' && selectOptionComparedInRun(s, id))
   /**
    * Olumi attention — held while the AI is explaining THIS element, unlike the
    * two-second acknowledgement above. Primitive-boolean selectors (React #185),
@@ -748,9 +751,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         graphHasDeclaredBaseline,
       }),
       optionResultCaption: resultCaption ?? null,
-      winSharesWithheld,
+      winSharesWithheld: winSharesWithheld && optionComparedInRun,
     }
-  }, [bodyReduced, nodeType, id, ceeAnalysisReady, graphHasDeclaredBaseline, data, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, displayMetadata.unvaluedInRun, resultCaption, resultsFromLastRun, winSharesWithheld])
+  }, [bodyReduced, nodeType, id, ceeAnalysisReady, graphHasDeclaredBaseline, data, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, displayMetadata.unvaluedInRun, resultCaption, resultsFromLastRun, winSharesWithheld, optionComparedInRun])
 
   const lodBody = useMemo<{ text: string | null; unconfirmedEstimate: boolean }>(() => {
     if (!bodyReduced) return { text: null, unconfirmedEstimate: false }

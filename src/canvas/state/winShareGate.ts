@@ -17,6 +17,7 @@
  * it serves, only `winShareWithheldReason` gains the typed branch; every surface keeps calling this module.
  */
 import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
+import { isAnalysedOption } from '../../components/results/utils/notAnalysedOptions'
 
 export interface ProducerLeaderPermission {
   permitted?: boolean
@@ -74,6 +75,22 @@ function permissionOf(s: WithReport): ProducerLeaderPermission | null {
 /** Store selector (a boolean, so the React-185 guard stays satisfied). */
 export function selectWinSharesWithheld(s: WithReport): boolean {
   return winSharesWithheld(permissionOf(s))
+}
+
+/**
+ * ⭐ F1b'S "WAS IT COMPARED?" (52f8cd, #85 5930666775): THIS option has an entry in the complete Run's
+ * `option_probabilities`, which is the same `isAnalysedOption` the Analysis panel's "Comparing N of M" counts.
+ * `NOT_RANKED_MARKER` says "Compared", so every surface that draws it asks this first (the full-zoom card and the
+ * reduced line). `winSharesWithheld` only answers "is its share shown?" and never decides "compared".
+ * A primitive boolean (React-185).
+ */
+export function selectOptionComparedInRun(
+  s: { results: { status?: unknown; report?: unknown } | null | undefined },
+  optionId: string,
+): boolean {
+  if (s.results?.status !== 'complete') return false
+  const report = s.results.report as { option_probabilities?: Readonly<Record<string, unknown>> } | null | undefined
+  return isAnalysedOption(report?.option_probabilities, optionId)
 }
 
 /** Store selector for the reason line (a string or null, a primitive). */
