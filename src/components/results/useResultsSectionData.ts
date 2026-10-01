@@ -82,6 +82,7 @@ import {
   deriveNotAnalysedReason,
   isAnalysedOption,
   runAnalysedAnyOption,
+  takenOutReasonOf,
 } from './utils/notAnalysedOptions'
 import { optionParticipationOf } from '../../canvas/state/storedOptionParticipation'
 import { readInferenceWarnings } from './utils/readInferenceWarnings'
@@ -2385,6 +2386,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
                   nodeInterventions: (optionNodes.find((n) => n.id === oid)?.data as { interventions?: unknown } | undefined)?.interventions,
                 }),
                 (oid) => optionParticipationOf(report, oid)?.state === 'excluded_olumi_proposed',
+                (oid) => takenOutReasonOf(optionParticipationOf(report, oid)?.state),
               ),
             }
           : {}),

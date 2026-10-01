@@ -9,6 +9,11 @@
  *     unanalysable user option(s), and the unqualified leader claim is withheld by the producer.
  * Only options OUTSIDE the ordinary comparison appear. The UI says what the fact says; it never infers authorship.
  *
+ * 0.69.0 (MG, F1 T6): a user-owned option appears ONLY when the user marked it out of the comparison:
+ *   - `excluded_infeasible` — the user marked it not feasible (`option_status_edit`);
+ *   - `excluded_removed` — the user took it out.
+ * The UI says "Taken out: not feasible" / "Taken out" (DL 5932328304), never "not compared": it is the user's own act.
+ *
  * Two legs, one reader (the `goal_certainty` precedent, `storedGoalCertainty.ts`): the turn key `option_participation`
  * (top level, then the additive sidecar) and the cold read's `analysis_option_participation`. The parity rule
  * (Canonical 5888351928): a refused array is ABSENT on both legs, and a recorded `[]` stays `[]`:
@@ -17,12 +22,19 @@
  *   - ANY entry outside the published contract (mirrored below) → `null`.
  */
 import { z } from 'zod'
+import { OptionParticipationEntrySchema } from '@talchain/schemas/orchestrator'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 
 export const OPTION_PARTICIPATION_TURN_KEY = 'option_participation'
 export const OPTION_PARTICIPATION_READ_KEY = 'analysis_option_participation'
 
-export type OptionParticipationState = 'excluded_olumi_proposed' | 'kept_olumi_provisional'
+export type OptionParticipationState = z.infer<typeof OptionParticipationEntrySchema>['state']
+
+/** The two states a USER's own mark produces (0.69.0). Canvas's card and the panel read this, never a local predicate. */
+export type UserTakenOutState = Extract<OptionParticipationState, 'excluded_infeasible' | 'excluded_removed'>
+export function isUserTakenOut(state: OptionParticipationState | null | undefined): state is UserTakenOutState {
+  return state === 'excluded_infeasible' || state === 'excluded_removed'
+}
 
 export interface OptionParticipationEntry {
   readonly optionId: string
@@ -52,25 +64,13 @@ export function optionParticipationOf(
 }
 
 /**
- * ⛔ THE PUBLISHED ENTRY CONTRACT, MIRRORED VERBATIM — `@talchain/schemas` 0.65.0 `OptionParticipationEntrySchema`
- * and the record-level `option_participation` refinement (schemas #74 @ 9520f5f7, `src/orchestrator/handler-results.ts`). The UI vendors 0.61.0, so the schema is copied rather
- * than re-interpreted (DL CHANGES_REQUIRED on #2305 @ ddf47006): a present-but-empty id list, an exclusion that names
- * ids, and an undeclared key are all refused. Delete this copy when the vendored package carries the schema.
+ * ⛔ THE PUBLISHED ENTRY CONTRACT, IMPORTED — `@talchain/schemas` 0.69.0 `OptionParticipationEntrySchema`. The copy that
+ * stood here (mirrored from 0.65.0 while the UI vendored 0.61.0) said to delete itself once the vendored package carried
+ * the schema; it now does, and the copy's two-value enum would have refused every 0.69.0 `excluded_infeasible` /
+ * `excluded_removed` record. A present-but-empty id list, ids on anything but a provisional keep, and an undeclared key
+ * are all refused by the published schema itself. The record-level refinement below is the published one, restated
+ * because the package exports it only inside `RunAnalysisResultSchema`.
  */
-const OptionParticipationEntrySchema = z.object({
-  option_id: z.string().min(1),
-  state: z.enum(['excluded_olumi_proposed', 'kept_olumi_provisional']),
-  unanalysable_user_option_ids: z.array(z.string().min(1)).min(1).optional(),
-}).strict().superRefine((e, ctx) => {
-  if (e.state === 'excluded_olumi_proposed' && e.unanalysable_user_option_ids !== undefined) {
-    ctx.addIssue({ code: 'custom', path: ['unanalysable_user_option_ids'],
-      message: 'only a provisional keep names unanalysable user options' })
-  }
-  if (e.unanalysable_user_option_ids !== undefined
-    && new Set(e.unanalysable_user_option_ids).size !== e.unanalysable_user_option_ids.length) {
-    ctx.addIssue({ code: 'custom', path: ['unanalysable_user_option_ids'], message: 'an unanalysable user option is named once' })
-  }
-})
 // ONE VERDICT PER OPTION: a repeated `option_id`, or an Olumi option named as a user's, refuses the whole record.
 const OptionParticipationRecord = z.array(OptionParticipationEntrySchema).superRefine((entries, ctx) => {
   const ids = entries.map((e) => e.option_id)
