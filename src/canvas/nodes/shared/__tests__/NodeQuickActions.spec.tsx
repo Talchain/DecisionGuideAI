@@ -136,14 +136,15 @@ describe('NodeQuickActions — R5 efficiency layer', () => {
     expect(screen.getByTestId('node-action-ask-node-a')).toBeInTheDocument()
   })
 
-  it('is quiet at rest and revealed by hover, focus-within and selection', () => {
+  it('is quiet at rest and revealed by selection, focus-within and touch — never by hover (Paul 1 Oct: icons "keep appearing and disappearing")', () => {
     const { rerender } = render(
       <NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />,
     )
     const rest = screen.getByTestId('node-quick-actions-node-a')
     expect(rest.className).toContain('opacity-0')
-    // Every reveal channel present: pointer, keyboard, touch.
-    expect(rest.className).toContain('group-hover:opacity-100')
+    // Every reveal channel present: selection (below), keyboard, touch. Grammar v0 §4: an icon is there at rest or
+    // never; a pointer crossing the board no longer flashes the row on every card.
+    expect(rest.className).not.toContain('group-hover:opacity-100')
     expect(rest.className).toContain('group-focus-within:opacity-100')
     expect(rest.className).toContain('[@media(pointer:coarse)]:opacity-100')
 
@@ -340,11 +341,10 @@ describe('NodeQuickActions — invisible controls must not swallow clicks meant 
     expect(row.className).toMatch(bare('pointer-events-none'))
     expect(row.className).not.toMatch(bare('pointer-events-auto'))
 
-    // POINTER. `group-hover` keys off the CARD, never off the row, so
-    // `pointer-events: none` on the row cannot deadlock its own reveal: the
-    // pointer falls through to the card, the card becomes `:hover`, and the row
-    // flips to `auto` in the same frame.
-    expect(row.className).toContain('group-hover:pointer-events-auto')
+    // POINTER. Since Paul's 1 Oct ruling the row is not revealed on hover, so it must not hit-test on hover either:
+    // an invisible row under the pointer would swallow the card's own click. A click SELECTS the card, and
+    // selection (`alwaysVisible`) turns the row on.
+    expect(row.className).not.toContain('group-hover:pointer-events-auto')
     // KEYBOARD. Focus lands, `group-focus-within` fires on the card, the row
     // hit-tests. (Belt and braces: `pointer-events` never gated keyboard
     // activation, tab order or the accessibility tree in the first place.)
@@ -386,7 +386,8 @@ describe('NodeQuickActions — invisible controls must not swallow clicks meant 
     // POSITIVE CONTROL FIRST. Two empty arrays compare equal, so an extractor
     // that matched nothing would agree with the assertion below and prove
     // nothing at all.
-    expect(reveals.length, 'the extractor found no opacity reveal variants — the comparison below is vacuous').toBeGreaterThanOrEqual(3)
+    // Two since 1 Oct (focus-within, coarse pointer); hover is no longer a reveal.
+    expect(reveals.length, 'the extractor found no opacity reveal variants — the comparison below is vacuous').toBeGreaterThanOrEqual(2)
     expect(enables).toEqual(reveals)
   })
 })

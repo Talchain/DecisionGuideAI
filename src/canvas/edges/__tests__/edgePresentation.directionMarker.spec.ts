@@ -41,6 +41,7 @@ import {
   isNonDirectionalEdgeType,
   NON_DIRECTIONAL_EDGE_TYPES,
   EDGE_ARROWHEAD_STROKE_MULTIPLE,
+  EDGE_ARROWHEAD_MIN_PX,
   edgeArrowheadSize,
   edgeArrowheadViewBox,
   edgeArrowheadPolygonPoints,
@@ -163,26 +164,27 @@ describe('resolveEdgeDirectionMarker', () => {
  * static page (see `StyledEdge.directionMark.spec.tsx`); the product's own head
  * has not been measured on a served build by this change.
  */
-describe('arrowhead size — the contract\'s markerWidth 4, counter-scaled like a glyph', () => {
-  it('is 4 × the stroke width: 8 / 12 / 16 on the contract\'s 2 / 3 / 4', () => {
-    expect(EDGE_ARROWHEAD_STROKE_MULTIPLE).toBe(4)
-    expect([2, 3, 4].map(edgeArrowheadSize)).toEqual([8, 12, 16])
+describe('arrowhead size — 2.5 × the stroke, floored at 6, counter-scaled like a glyph (Paul 1 Oct: "too big")', () => {
+  it('is 2.5 × the stroke width with a 6-unit floor: 6 / 7.5 / 10 / 12.5 on the bands 2 / 3 / 4 / 5 (was 8 / 12 / 16 / 20)', () => {
+    expect(EDGE_ARROWHEAD_STROKE_MULTIPLE).toBe(2.5)
+    expect(EDGE_ARROWHEAD_MIN_PX).toBe(6)
+    expect([2, 3, 4, 5].map(edgeArrowheadSize)).toEqual([6, 7.5, 10, 12.5])
   })
 
-  it('renders at its declared size from the landing floor to 1:1 — the contract\'s 4:1 against a non-scaling line', () => {
+  it('renders at its declared size from the landing floor to 1:1, against a non-scaling line', () => {
     for (const zoom of [LABEL_LEGIBLE_ZOOM, 0.65, 0.8, 1]) {
       for (const width of [2, 3, 4]) {
         const px = renderedArrowheadPx(width, zoom)
-        expect(px, `width ${width} at zoom ${zoom}`).toBeCloseTo(4 * width, 10)
-        // The line is a screen width, so the ratio is the head over the width itself.
-        expect(px / width).toBeCloseTo(4, 10)
+        expect(px, `width ${width} at zoom ${zoom}`).toBeCloseTo(Math.max(6, 2.5 * width), 10)
       }
     }
+    // The line is a screen width, so above the floor the ratio is the head over the width itself.
+    expect(renderedArrowheadPx(4, 1) / 4).toBeCloseTo(2.5, 10)
   })
 
   it('grows past 1:1 and shrinks below the landing floor, like every counter-scaled glyph', () => {
-    expect(renderedArrowheadPx(3, 2)).toBe(24)
-    expect(renderedArrowheadPx(3, LABEL_LEGIBLE_ZOOM / 2)).toBe(6)
+    expect(renderedArrowheadPx(3, 2)).toBe(15)
+    expect(renderedArrowheadPx(3, LABEL_LEGIBLE_ZOOM / 2)).toBe(3.75)
   })
 
   /**
@@ -198,13 +200,13 @@ describe('arrowhead size — the contract\'s markerWidth 4, counter-scaled like 
   it('a link with no strength set carries the contract\'s smallest head, never a 4px one (F2)', () => {
     expect(UNSET_EDGE_STROKE_WIDTH).toBeLessThan(MEASURED_EDGE_STROKE_WIDTH_FLOOR)
     expect(edgeArrowheadSize(UNSET_EDGE_STROKE_WIDTH)).toBe(edgeArrowheadSize(MEASURED_EDGE_STROKE_WIDTH_FLOOR))
-    expect(edgeArrowheadSize(UNSET_EDGE_STROKE_WIDTH)).toBe(8)
+    expect(edgeArrowheadSize(UNSET_EDGE_STROKE_WIDTH)).toBe(EDGE_ARROWHEAD_MIN_PX)
     for (const zoom of [LABEL_LEGIBLE_ZOOM, 0.5085, 0.75, 1]) {
-      expect(renderedArrowheadPx(UNSET_EDGE_STROKE_WIDTH, zoom), `zoom ${zoom}`).toBeCloseTo(8, 10)
+      expect(renderedArrowheadPx(UNSET_EDGE_STROKE_WIDTH, zoom), `zoom ${zoom}`).toBeCloseTo(EDGE_ARROWHEAD_MIN_PX, 10)
     }
-    // CONTRAST: the measured bands keep their own 4× heads, unfloored.
+    // CONTRAST: the bands above the floor keep their own 2.5× heads.
     expect(Object.values(EDGE_STROKE_WIDTH_BANDS).map(edgeArrowheadSize)).toEqual(
-      Object.values(EDGE_STROKE_WIDTH_BANDS).map((w) => 4 * w),
+      Object.values(EDGE_STROKE_WIDTH_BANDS).map((w) => Math.max(EDGE_ARROWHEAD_MIN_PX, 2.5 * w)),
     )
   })
 
@@ -246,19 +248,21 @@ describe('arrowhead clearance — the sign sits on its own line, clear of its ow
     }
   })
 
-  it('STATED LIMIT, pinned: the widest head at the landing leaves the sign touching its base, not overlapping it (0 of the 4-unit gap)', () => {
-    const { gap } = clearance(EDGE_STROKE_WIDTH_BANDS.veryStrong, LABEL_LEGIBLE_ZOOM)
-    expect(gap).toBeCloseTo(0, 1)
+  it('STATED LIMIT, pinned: the widest head at the landing now clears its sign by the full 4-unit mark gap (it touched it at 4×)', () => {
+    const { gap, m } = clearance(EDGE_STROKE_WIDTH_BANDS.veryStrong, LABEL_LEGIBLE_ZOOM)
+    expect(gap).toBeCloseTo(m.gap, 1)
+    expect(m.gap).toBe(4)
   })
 
-  it('STATED LIMIT, pinned: an APEX arrival at the landing has 22.64 above its tip, so the sign reaches into every head (3.36 into the 16-unit slight head)', () => {
-    // The rise bound above a kind apex at the label bound.
-    expect(GLYPH_ROW_RISE_MAX_FLOW).toBeCloseTo(22.64, 10)
-    const { gap } = clearance(EDGE_STROKE_WIDTH_BANDS.slight, LABEL_LEGIBLE_ZOOM, 50 - GLYPH_ROW_RISE_MAX_FLOW)
-    expect(gap).toBeCloseTo(-3.36, 1)
-    expect(gap).toBeLessThan(0)
-    // From zoom ≈ 0.65 up the apex sign clears its slight head again.
-    expect(clearance(EDGE_STROKE_WIDTH_BANDS.slight, 0.7, 24 * labelCounterScale(0.7) - 12).gap).toBeGreaterThan(0)
+  it('STATED LIMIT, pinned: an APEX arrival at the landing has 28.11 above its tip; the slight head clears its sign, the widest reaches 6.89 into it', () => {
+    // The rise bound above a kind apex at the label bound (22.64 with the 24-unit shape; 19.2 since Paul's 1 Oct −20%).
+    expect(GLYPH_ROW_RISE_MAX_FLOW).toBeCloseTo(28.112, 10)
+    const slight = clearance(EDGE_STROKE_WIDTH_BANDS.slight, LABEL_LEGIBLE_ZOOM, 50 - GLYPH_ROW_RISE_MAX_FLOW)
+    expect(slight.gap).toBeCloseTo(slight.m.gap, 1)
+    // CONTRAST: the widest band still reaches into its head at an apex (it reached 3.36 into the SLIGHT head before).
+    const widest = clearance(EDGE_STROKE_WIDTH_BANDS.veryStrong, LABEL_LEGIBLE_ZOOM, 50 - GLYPH_ROW_RISE_MAX_FLOW)
+    expect(widest.gap).toBeCloseTo(-6.89, 1)
+    expect(widest.gap).toBeLessThan(0)
   })
 })
 
