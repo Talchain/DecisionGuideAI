@@ -18,6 +18,15 @@ create table invitations(id uuid primary key, email text not null, invited_at ti
 create table invitation_logs(id uuid primary key default gen_random_uuid(), invitation_id uuid, status text, details jsonb, created_at timestamptz);
 create table canvases(id uuid primary key, user_id uuid, organisation_id uuid);
 create table canvas_permissions(id uuid primary key default gen_random_uuid(), canvas_id uuid references canvases(id), user_id uuid references user_profiles(id), permission_type text not null check (permission_type in ('owner','editor','viewer','approver')), granted_by uuid, unique(canvas_id,user_id));
+-- Live RLS on the two tables an ordinary signed-in caller writes directly
+-- (pg_policies, 1 Oct 2026). teams INSERT checks ONLY created_by.
+grant select, insert, update on teams, invitations to authenticated;
+alter table teams enable row level security;
+alter table invitations enable row level security;
+create policy "Insert own teams" on teams for insert to public with check (created_by = auth.uid());
+create policy "Select own teams (subset)" on teams for select to public using (created_by = auth.uid());
+create policy "Authenticated users can create invitations" on invitations for insert to authenticated with check (invited_by = auth.uid());
+create policy "Users can read their own invitations (subset)" on invitations for select to authenticated using (invited_by = auth.uid());
 create table email_outbox(id serial primary key, to_addr text, subject text, data jsonb);
 -- live helper bodies (search_path = public, unqualified)
 create function check_team_admin(team_uuid uuid) returns boolean language plpgsql security definer set search_path=public as $$

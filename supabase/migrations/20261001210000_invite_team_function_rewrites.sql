@@ -22,7 +22,9 @@
 --   Round 3 (P2s of the round-2 review): team invitations take their
 --         organisation from the STORED team, because production's TeamsContext
 --         writes them without organisation_id. A team's creator or team admin
---         also has authority over a team invitation.
+--         also has authority over a team invitation, but only while a CURRENT
+--         member of that organisation (teams RLS lets anyone create a team
+--         claiming any organisation_id).
 --   P1-4  team role and decision role go to their own columns and are
 --         validated against team_members' CHECK constraints (role: admin |
 --         member; decision_role: owner | approver | contributor | viewer).
@@ -401,7 +403,16 @@ BEGIN
         AND om.user_id = inv.invited_by
         AND om.role IN ('owner', 'admin')
     )
-    OR (inv.team_id IS NOT NULL AND (
+    OR (inv.team_id IS NOT NULL
+      -- The teams INSERT policy checks only created_by, so anyone can create a
+      -- team that CLAIMS any organisation. Team-level authority therefore
+      -- also requires CURRENT membership of the stored team's organisation.
+      AND EXISTS (
+        SELECT 1 FROM public.organisation_members om2
+        WHERE om2.organisation_id = v_org
+          AND om2.user_id = inv.invited_by
+      )
+      AND (
       EXISTS (
         SELECT 1 FROM public.teams t
         WHERE t.id = inv.team_id AND t.created_by = inv.invited_by
@@ -543,7 +554,16 @@ BEGIN
         AND om.user_id = inv.invited_by
         AND om.role IN ('owner', 'admin')
     )
-    OR (inv.team_id IS NOT NULL AND (
+    OR (inv.team_id IS NOT NULL
+      -- The teams INSERT policy checks only created_by, so anyone can create a
+      -- team that CLAIMS any organisation. Team-level authority therefore
+      -- also requires CURRENT membership of the stored team's organisation.
+      AND EXISTS (
+        SELECT 1 FROM public.organisation_members om2
+        WHERE om2.organisation_id = v_org
+          AND om2.user_id = inv.invited_by
+      )
+      AND (
       EXISTS (
         SELECT 1 FROM public.teams t
         WHERE t.id = inv.team_id AND t.created_by = inv.invited_by

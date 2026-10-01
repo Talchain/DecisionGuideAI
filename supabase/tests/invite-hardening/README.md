@@ -8,10 +8,10 @@ This is a dry run of the invite/team migrations on PGlite (Postgres running in-p
 ```bash
 cd supabase/tests/invite-hardening && npm i --no-save @electric-sql/pglite@0.2
 M=../../migrations
-node run.mjs                                     # BEFORE (live): 9/32
+node run.mjs                                     # BEFORE (live): 9/33
 node run.mjs $M/20261001130338_contain_team_invite_functions_anon_20261001.sql \
              $M/20261001193210_invite_team_function_revoke_only_20261001.sql \
-             $M/20261001210000_invite_team_function_rewrites.sql   # AFTER: 32/32
+             $M/20261001210000_invite_team_function_rewrites.sql   # AFTER: 33/33
 ```
 
 Each P1 of the #2402 review has a row that fails on the round-1 draft (`20261001140000` @ 58a5bc08) and passes on round 2:
@@ -27,3 +27,6 @@ Each P1 of the #2402 review has a row that fails on the round-1 draft (`20261001
 | Round-2 P2: email transport under `search_path = ''` | S4, S6, PS1 (the real helper body; only transport mocked) |
 
 Mutants: scope taken from the nullable row instead of the stored team reddens PA1, PA2 and PS1. Dropping team-admin authority reddens PA2. An unqualified transport reddens S4, S6 and PS1.
+| Round-3 P1: an outsider's team that claims an org (teams INSERT RLS checks only `created_by`) | RLS1 runs through the real `teams` / `invitations` RLS as `authenticated`. It fails on the round-3 head `35b5d95e`, which is also the mutant without the membership check. |
+
+Follow-up (ACCESS lane, not in this migration): the `teams` INSERT/UPDATE policies let any user create or retarget a team to any `organisation_id`.

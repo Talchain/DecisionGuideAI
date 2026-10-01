@@ -15,10 +15,10 @@ for (const m of migrations) await db.exec(fs.readFileSync(m, 'utf8'))
 
 const U = n => `00000000-0000-0000-0000-0000000000${n}`
 const A = U('0a'), B = U('0b'), C = U('0c'), D = U('0d'), E = U('0e'), F = U('0f'), G = U('10'), H = U('11'), J = U('12'), P = U('13'), Q = U('14'), R2 = U('15')
-const O = U('f1'), X = U('f2'), Y = U('f3'), T = U('e1'), K = U('c1')
+const O = U('f1'), X = U('f2'), Y = U('f3'), T = U('e1'), TB = U('e2'), K = U('c1')
 const I = {
   ok: U('a1'), self: U('a2'), forC: U('a3'), team: U('a4'), editor: U('a5'),
-  foreign: U('a6'), hostile: U('aa'), race: U('ab'), prod: U('ac'), prodByTeamAdmin: U('ad'), prodHostile: U('ae'), fail: U('a7'), pre: U('a8'), relay: U('a9'),
+  foreign: U('a6'), hostile: U('aa'), race: U('ab'), prod: U('ac'), prodByTeamAdmin: U('ad'), prodHostile: U('ae'), rlsTeam: U('af'), fail: U('a7'), pre: U('a8'), relay: U('a9'),
 }
 await db.exec(`
 insert into auth.users values ('${A}','a@x.test'),('${B}','b@x.test'),('${C}','c@x.test'),('${D}','d@x.test'),
@@ -200,6 +200,23 @@ r = await as('authenticated', H, `select public.accept_organization_invitation('
 t('PA3 production-shaped SELF-invite by a plain org member (no team or org authority) is refused',
   r.ok && r.rows[0].j.success === false
   && (await one(`select count(*)::int n from public.team_members where team_id='${T}' and user_id='${H}'`)).n === 0,
+  r.err ?? JSON.stringify(r.rows?.[0]?.j))
+
+// RLS1 (round-3 P1): through the REAL teams/invitations RLS, an outsider B
+// (no membership of org O) creates a team claiming org O, self-invites as
+// team admin and accepts. Nothing may change.
+r = await asMulti('authenticated', B, `
+  insert into public.teams(id, name, created_by, organisation_id) values ('${TB}', 'Claimed', '${B}', '${O}');
+  insert into public.invitations(id, email, team_id, invited_by, role, decision_role, status)
+    values ('${I.rlsTeam}', 'b@x.test', '${TB}', '${B}', 'admin', 'owner', 'pending');`,
+  `select public.accept_organization_invitation('${I.rlsTeam}', '${B}') j`)
+const rlsSetupRan = (await one(`select count(*)::int n from public.teams where id='${TB}' and created_by='${B}' and organisation_id='${O}'`)).n === 1
+t('RLS1 an outsider\u2019s self-created team claiming org O grants nothing (round-3 P1)',
+  rlsSetupRan && r.ok && r.rows[0].j.success === false
+  && (await one(`select status from public.invitations where id='${I.rlsTeam}'`)).status === 'pending'
+  && (await one(`select count(*)::int n from public.organisation_members where organisation_id='${O}' and user_id='${B}'`)).n === 0
+  && (await one(`select count(*)::int n from public.team_members where user_id='${B}'`)).n === 0
+  && (await one(`select count(*)::int n from public.canvas_permissions where user_id='${B}'`)).n === 0,
   r.err ?? JSON.stringify(r.rows?.[0]?.j))
 
 // ── manage_team_member ───────────────────────────────────────────────────
