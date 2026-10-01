@@ -76,7 +76,7 @@ export function RunChangesSummary(): JSX.Element | null {
 
   const lines = runChangesSummaryLines(view, winSharesWithheld, winShareWithheldReason)
   const open = openFor === responseHash
-  const changedHead = lines.changed[0]?.text ?? COPY.noInputs
+  const changedHead = lines.changed[0]?.text ?? lines.changedNote
   const changedExtra = lines.changed.length - 1 + lines.changedMore
   const movedHead = lines.moved[0] ?? lines.movedNote
   const movedExtra = lines.moved.length - 1 + lines.movedMore
@@ -108,7 +108,7 @@ export function RunChangesSummary(): JSX.Element | null {
             {detailRepeatsChanged && (
             <DetailLine label={COPY.changed} id="changed">
               {lines.changed.length === 0 ? (
-                <span className="text-text-light">{COPY.noInputs}</span>
+                <span className="text-text-light">{lines.changedNote}</span>
               ) : (
                 lines.changed.map(({ row, text }) => {
                   const focus = focusOfRow(row)
@@ -171,8 +171,8 @@ export function RunChangesSummary(): JSX.Element | null {
           className={`${typography.panelMeta} min-w-0 truncate text-text-body`}
           title={[changedHead, movedHead].filter(Boolean).join(' · ')}
         >
-          <span className="text-text-light">{COPY.changed} </span>
-          {headFocus ? (
+          {changedHead !== null && <span className="text-text-light">{COPY.changed} </span>}
+          {changedHead === null ? null : headFocus ? (
             <button
               type="button"
               onClick={headFocus}
@@ -188,7 +188,7 @@ export function RunChangesSummary(): JSX.Element | null {
           {changedExtra > 0 && <span className="text-text-light"> (+{changedExtra})</span>}
           {movedHead !== null && (
             <>
-              <span className="text-text-light"> · {COPY.moved} </span>
+              <span className="text-text-light">{changedHead !== null ? ' · ' : ''}{COPY.moved} </span>
               {movedHead}
               {movedExtra > 0 && <span className="text-text-light"> (+{movedExtra})</span>}
             </>

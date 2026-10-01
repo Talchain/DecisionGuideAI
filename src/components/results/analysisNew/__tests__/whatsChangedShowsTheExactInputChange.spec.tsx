@@ -78,13 +78,14 @@ describe('SC-24 · the exact input change, after the result', () => {
 
   it('same inputs on both Runs is said as such (complete coverage, [])', () => {
     render(<WhatsChanged view={view({ input_changes: [] })} />)
-    expect(screen.getByTestId(`${T}-inputs-unchanged`)).toHaveTextContent('Both runs used the same inputs.')
+    // "input VALUES" since DL 5936794868: an Accept leaves every value equal and still changes the model.
+    expect(screen.getByTestId(`${T}-inputs-unchanged`)).toHaveTextContent('Both runs used the same input values.')
   })
 
   it('⛔ a PARTIAL pair with no rows never says "same inputs" — the partial line wins (AIQ 5921719917; served 4f61c322)', () => {
     render(<WhatsChanged view={view({ input_coverage: 'partial', input_changes: [] })} />)
     expect(screen.queryByTestId(`${T}-inputs-unchanged`)).toBeNull()
-    expect(screen.getByTestId(WHATS_CHANGED_TESTID_SECTION()).textContent).not.toMatch(/same inputs/i)
+    expect(screen.getByTestId(WHATS_CHANGED_TESTID_SECTION()).textContent).not.toMatch(/same input/i)
     expect(screen.getByTestId(`${T}-inputs-partial`)).toHaveTextContent('Some inputs could not be compared between these two runs.')
   })
 
