@@ -83,9 +83,12 @@ describe('"You haven\'t implemented the actual Olumi brand icon"', () => {
 })
 
 describe('"It says \'not ranked\' on the options. I don\'t think that\'s the right terminology."', () => {
-  it('⭐ the option marker says the options were not compared yet — never a verdict on one option', () => {
-    expect(NOT_RANKED_MARKER).toBe('Not compared yet')
+  it('⭐ the option marker says the option WAS compared and only its share is withheld — never a verdict on it', () => {
+    expect(NOT_RANKED_MARKER).toBe('Compared · share not shown')
     expect(NOT_RANKED_MARKER).not.toMatch(/rank/i)
+    // R3 F5 (#85 5930578606): the marker shows only for an option the Run took part in, beside a panel that says the
+    // options were compared — so it must never say they were not.
+    expect(NOT_RANKED_MARKER).not.toMatch(/not compared/i)
   })
 })
 
