@@ -39,7 +39,8 @@ export const EXAMINE_LIMIT = 'Olumi will ask what you know. If you give a differ
 
 export const EXAMINE_WHY: Readonly<Record<'analysis' | 'ai' | 'accepted', string>> = Object.freeze({
   analysis: 'Your last Run flags this figure as one that matters to the result.',
-  ai: 'Olumi estimated this figure. Nobody has checked it against your own data yet.',
+  // AIQ 5924524123: what is true of the figure, not a claim about anyone's data.
+  ai: 'Olumi estimated this figure. You haven\u2019t confirmed it or given your own yet.',
   accepted: 'You accepted Olumi’s estimate. It is still an estimate, not a measurement.',
 })
 
@@ -69,7 +70,8 @@ export function buildExamineAssumptionView(input: {
     prepare: {
       label: `Examine ${input.label}`,
       text:
-        `Help me examine my assumption for "${input.label}" (currently ${value}). ` +
+        // "the", never "my": the user would be typing that Olumi's estimate is theirs, and the Agent reads it (AIQ 5924524123).
+        `Help me examine the assumption for "${input.label}" (currently ${value}). ` +
         'What is it based on, and what would make a different figure more defensible?',
     },
   }

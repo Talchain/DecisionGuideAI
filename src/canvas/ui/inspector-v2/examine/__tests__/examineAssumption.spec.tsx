@@ -71,6 +71,7 @@ describe('the view: an explicit basis, or nothing', () => {
     expect(t).toContain('30%')
     expect(t).toMatch(/What is it based on/)
     expect(t).not.toMatch(/suggest|propose/i)
+    expect(t, 'never types an authorship claim into the user\u2019s message').not.toMatch(/\bmy assumption\b/i)
   })
 })
 
