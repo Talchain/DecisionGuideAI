@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, cleanup } from '@testing-library/react'
 import { nodeColors, NODE_SELECTED_CLASSES } from '../nodes/colors'
 import { ROW_PROMPT_W, ROW_PROMPT_H } from '../utils/nodeLayoutConstants'
 import { NOT_RANKED_MARKER } from '../state/winShareGate'
@@ -172,6 +172,27 @@ describe('"design that panel so it looks good … science-grounded, concise, eas
     expect(takeQueuedBriefCoachingPrefill()).toBe(BRIEF_COACHING_CARDS.limits.prefill)
     // CONTROL: taking it clears it — one pick, handed over once.
     expect(takeQueuedBriefCoachingPrefill()).toBeNull()
+  })
+
+  it('⭐ the user\'s own Options field is ONE free-text box: never numbered, never counted, never coached as "one option"', () => {
+    // Paul's 1 Oct preview: "promise … by next month; fix that now" read as option "1", and the card coached "Add a real
+    // alternative" to someone who had written two. The card parses no language, so the count is unknown, not one.
+    const fields = { context: 'Our biggest customer asked for an AI reporting module.', goal: '', options: 'promise an AI reporting module by next month; fix that now', considerations: '' }
+    render(<BriefReadingCard reading={null} userFields={fields} />)
+    const options = screen.getByTestId('brief-reading-options')
+    expect(options.textContent).toBe('Options“promise an AI reporting module by next month; fix that now”')
+    expect(options.querySelector('ol')).toBeNull()
+    expect(screen.queryByTestId('brief-coaching-options')).toBeNull()
+    expect(briefCoachingFor({ hasGoal: true, hasLimits: true, optionCount: null }).map((c) => c.id)).toEqual(['pre_mortem', 'outside_view'])
+    cleanup()
+    // CONTROL: an EMPTY Options field is a known zero, and is coached.
+    render(<BriefReadingCard reading={null} userFields={{ ...fields, options: '' }} />)
+    expect(screen.getByTestId('brief-coaching-options')).toBeTruthy()
+    cleanup()
+    // CONTROL: CEE's spans are one per option, so a single span still counts as one and is coached.
+    render(<BriefReadingCard reading={{ goal: 'reach £200k MRR', options: ['build the module'], limits: ['by March'] }} />)
+    expect(screen.getByTestId('brief-reading-options').querySelector('ol')).not.toBeNull()
+    expect(screen.getByTestId('brief-coaching-options')).toBeTruthy()
   })
 
   it('one type size across the card: every text class is a 14px token (Paul 30 Sep: "Multiple different font sizes")', () => {

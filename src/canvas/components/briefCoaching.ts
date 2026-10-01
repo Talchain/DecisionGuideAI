@@ -95,8 +95,12 @@ export interface BriefShape {
   hasGoal: boolean
   /** The "Things to consider" slot holds the user's words. */
   hasLimits: boolean
-  /** How many options the user wrote. */
-  optionCount: number
+  /**
+   * How many options the user wrote, or `null` when it is not known: the "Structure it" Options field is ONE free-text
+   * box, and this card parses no language (header), so "A; B" there is not counted as one option, or as two. Paul's
+   * 1 Oct preview showed "1" beside two options, and the card coached "add a real alternative" to someone who had.
+   */
+  optionCount: number | null
 }
 
 /** The cards for this brief: gaps first (goal → limits → options), then the always-useful habits. */
@@ -104,7 +108,8 @@ export function briefCoachingFor(shape: BriefShape): BriefCoachingCard[] {
   const ids: BriefCoachingId[] = []
   if (!shape.hasGoal) ids.push('goal')
   if (!shape.hasLimits) ids.push('limits')
-  if (shape.optionCount < 2) ids.push('options')
+  // Only a KNOWN count of fewer than two coaches widening; an unknown count (the user's own field) never claims it.
+  if (shape.optionCount !== null && shape.optionCount < 2) ids.push('options')
   ids.push('pre_mortem', 'outside_view')
   return ids.slice(0, MAX_BRIEF_COACHING_CARDS).map((id) => BRIEF_COACHING_CARDS[id])
 }

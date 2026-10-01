@@ -53,7 +53,9 @@ export const BriefReadingCard = memo(function BriefReadingCard({ reading, userFi
   const coaching = briefCoachingFor({
     hasGoal: (items.goal ?? []).length > 0,
     hasLimits: (items.considerations ?? []).length > 0,
-    optionCount: (items.options ?? []).length,
+    // CEE's spans are one per option, so they count; the user's own Options field is one box of free text, so the
+    // count is unknown unless it is empty (`briefCoaching`'s `BriefShape.optionCount`).
+    optionCount: userFields ? ((items.options ?? []).length === 0 ? 0 : null) : (items.options ?? []).length,
   })
   return (
     <section
@@ -83,7 +85,7 @@ export const BriefReadingCard = memo(function BriefReadingCard({ reading, userFi
                 <dd data-testid="brief-reading-not-mentioned" className={typo('bodySmall', 'text-text-light m-0')}>
                   Not stated yet
                 </dd>
-              ) : slot.key === 'options' ? (
+              ) : slot.key === 'options' && !userFields ? (
                 <dd className="m-0">
                   <ol className="m-0 p-0 list-none flex flex-col gap-1">
                     {values.map((v, i) => (
