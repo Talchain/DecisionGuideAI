@@ -1,44 +1,29 @@
 /**
- * THE FRONT DOOR OFFERS ONLY ROUTES THAT CAN COMPLETE (29 Aug 2026).
+ * THE FRONT DOOR OFFERS ONLY ROUTES THAT CAN COMPLETE.
  *
- * Unattended team testing: a colleague picks a sign-in route with nobody
- * beside them to say "not that one". Two of the three routes this page used to
- * offer could not complete, and both were measured at the DEPLOYED staging
- * service (project `etmmuzwxtcjipwphdola`, commit 961e5e78 — the same commit
- * this branch forks from):
+ * 29 Aug 2026: the email routes were removed because the Supabase project had
+ * no SMTP. 1 Oct 2026 (ACCESS & INVITES): custom SMTP is configured, invites
+ * are emailed, and the two email routes return: "Email me a sign-in link" and
+ * "Forgot password?". Google stays absent: the provider is disabled, and
+ * supabase-js navigates the browser itself, ejecting the user onto a raw 400.
  *
- *   1. "Send magic link" — staging's Supabase project has no SMTP, so the link
- *      is never delivered. The page's own header has said so since #667.
- *
- *   2. "Continue with Google" — `GET /auth/v1/settings` reports
- *      `"google": false`, and `GET /auth/v1/authorize?provider=google` answers
- *      `400 {"error_code":"validation_failed","msg":"Unsupported provider:
- *      provider is not enabled"}`.
- *
- *      This one was strictly worse than a dead button, and the `oauth-failed`
- *      state written to catch it COULD NOT FIRE. supabase-js resolves
- *      `signInWithOAuth` with `{error: null}` and navigates the browser itself
- *      — the deployed bundle carries
- *      `Ub()&&!t.skipBrowserRedirect&&window.location.assign(r),{data:{...},error:null}`
- *      — so the click EJECTED the tester out of Olumi onto a raw JSON 400 from
- *      Supabase, with no in-app error and no way back but the back button.
- *
- * Password sign-in is the pilot's route and is untouched. Account creation is
- * open and auto-confirming at the API (`disable_signup:false`,
- * `mailer_autoconfirm:true`), so removing these two costs nobody a way in.
- *
- * These assertions bind by ACCESSIBLE NAME and by the magic-link form's own
- * `data-testid`, not by a value predicate another control could satisfy.
+ * Enumeration stays closed: an address-correlated refusal (no such user) and a
+ * delivered link render the SAME "Check your inbox" state. Only a server fault
+ * and a rate limit, which are not address-correlated, are named.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 const mockSignInWithPassword = vi.fn()
+const mockSignInWithMagicLink = vi.fn()
+const mockRequestPasswordReset = vi.fn()
 vi.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({
     authenticated: false,
     signInWithPassword: mockSignInWithPassword,
+    signInWithMagicLink: mockSignInWithMagicLink,
+    requestPasswordReset: mockRequestPasswordReset,
   }),
 }))
 
@@ -52,36 +37,88 @@ function renderLogin() {
   )
 }
 
+function typeEmail(value: string) {
+  fireEvent.change(screen.getByPlaceholderText('you@example.com'), { target: { value } })
+}
+
+async function sentScreenText(): Promise<string> {
+  const el = await screen.findByTestId('magic-link-sent')
+  return el.textContent ?? ''
+}
+
 describe('LoginPage offers only sign-in routes that can complete', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockSignInWithPassword.mockResolvedValue({ error: null })
+    mockSignInWithMagicLink.mockResolvedValue({ error: null })
+    mockRequestPasswordReset.mockResolvedValue({ error: null })
   })
 
-  it('offers NO magic-link control — staging cannot deliver the email', () => {
+  it('offers an email sign-in link and sends it to the TRIMMED address', async () => {
     renderLogin()
-    expect(screen.queryByRole('button', { name: /magic link/i })).toBeNull()
-    expect(screen.queryByTestId('magic-link-form')).toBeNull()
-    expect(document.body.textContent ?? '').not.toMatch(/magic link/i)
+    typeEmail('  ada@example.com ')
+    fireEvent.click(screen.getByRole('button', { name: /email me a sign-in link/i }))
+    await waitFor(() => expect(mockSignInWithMagicLink).toHaveBeenCalledWith('ada@example.com'))
+    expect(await sentScreenText()).toMatch(/check your inbox/i)
   })
 
-  it('offers NO Google control — the provider is disabled and the click left the app', () => {
+  it('a refused (unknown) address and a delivered link are BYTE-IDENTICAL', async () => {
     renderLogin()
+    typeEmail('known@example.com')
+    fireEvent.click(screen.getByTestId('magic-link-submit'))
+    const delivered = (await sentScreenText()).replace('known@example.com', '<email>')
+
+    fireEvent.click(screen.getByRole('button', { name: /use a different email/i }))
+    mockSignInWithMagicLink.mockResolvedValueOnce({
+      error: Object.assign(new Error('Signups not allowed for otp'), { status: 422 }),
+    })
+    typeEmail('stranger@example.com')
+    fireEvent.click(screen.getByTestId('magic-link-submit'))
+    const refused = (await sentScreenText()).replace('stranger@example.com', '<email>')
+
+    expect(refused).toBe(delivered)
+  })
+
+  it('a 500 is named as OUR fault, never shown as a sent link', async () => {
+    mockSignInWithMagicLink.mockResolvedValueOnce({
+      error: Object.assign(new Error('boom'), { status: 500 }),
+    })
+    renderLogin()
+    typeEmail('ada@example.com')
+    fireEvent.click(screen.getByTestId('magic-link-submit'))
+    expect(await screen.findByTestId('email-send-server-error')).toBeInTheDocument()
+    expect(screen.queryByTestId('magic-link-sent')).toBeNull()
+  })
+
+  it('sends NOTHING for a malformed address and says why', () => {
+    renderLogin()
+    typeEmail('not-an-email')
+    fireEvent.click(screen.getByTestId('magic-link-submit'))
+    expect(mockSignInWithMagicLink).not.toHaveBeenCalled()
+    expect(screen.getByText(/valid email address/i)).toBeInTheDocument()
+  })
+
+  it('"Forgot password?" emails a reset link to the typed address', async () => {
+    renderLogin()
+    typeEmail('ada@example.com')
+    fireEvent.click(screen.getByTestId('forgot-password'))
+    await waitFor(() => expect(mockRequestPasswordReset).toHaveBeenCalledWith('ada@example.com'))
+    expect(await screen.findByTestId('reset-link-sent')).toBeInTheDocument()
+    expect(mockSignInWithMagicLink).not.toHaveBeenCalled()
+  })
+
+  it('offers NO Google control: the provider is disabled and the click left the app', () => {
+    renderLogin()
+    // Positive control in the same render: the page did render its routes.
+    expect(screen.getByTestId('magic-link-submit')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /google/i })).toBeNull()
     expect(document.body.textContent ?? '').not.toMatch(/continue with google/i)
   })
 
-  /**
-   * The OPPOSITE-DIRECTION TWIN. Absence assertions alone would also pass on a
-   * page that rendered nothing at all, so this pins that the route which DOES
-   * work is still here — and pins it by the same query family the absence
-   * assertions use, so a harness that stopped rendering fails HERE first.
-   */
-  it('still offers the password route, which is the one that works', () => {
+  it('still offers the password route', () => {
     renderLogin()
     expect(screen.getByTestId('owner-password-form')).toBeInTheDocument()
-    expect(screen.getByTestId('owner-password-input')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^sign in$/i })).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('you@example.com')).toBeInTheDocument()
+    expect(screen.getByTestId('owner-password-input')).toHaveAttribute('type', 'password')
+    expect(screen.getByTestId('owner-password-submit')).toBeInTheDocument()
   })
 })

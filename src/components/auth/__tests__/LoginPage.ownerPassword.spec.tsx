@@ -406,9 +406,10 @@ describe('LINK-R1 item 7 — owner password sign-in', () => {
     expect(emailField.form).toBe(passwordForm)
   })
 
-  it('offers NO sign-up and NO password reset — both would be controls with nothing behind them', () => {
-    // Owners are pre-provisioned and there is no SMTP. A "create account" or
-    // "forgot password" control here would be guarantee theatre.
+  it('offers NO sign-up — the pilot is invite-only (reset returned 1 Oct with SMTP)', () => {
+    // Accounts are created only by invitation. Password reset DOES exist since
+    // custom SMTP was configured (1 Oct 2026); it is pinned positively in
+    // LoginPage.onlyWorkingRoutes.spec.tsx.
     renderLogin()
 
     // ⚠ POSITIVE CONTROL (review N4). This is a bare-absence probe over
@@ -424,6 +425,6 @@ describe('LINK-R1 item 7 — owner password sign-in', () => {
     expect(screen.getByTestId('owner-password-input')).toBeInTheDocument()
 
     const text = document.body.textContent ?? ''
-    expect(text).not.toMatch(/create an account|sign up|forgot (your )?password|reset password/i)
+    expect(text).not.toMatch(/create an account|sign up|register/i)
   })
 })
