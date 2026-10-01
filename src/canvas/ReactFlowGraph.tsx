@@ -753,19 +753,20 @@ const NODE_DRAG_THRESHOLD = 2
 const SELECT_MODE_PAN_BUTTONS = [1]
 
 /**
- * ⭐ THE GROUND'S DOTS ARE REACT FLOW'S OWN VISIBLE GREY (Paul, 30 Sep 2026
- * ~12:25Z: "Where is the original canvas background with the dots? Revert to
- * that immediately.").
+ * ⭐ THE GROUND'S DOTS ARE THE BRAND'S WARM GREY, AND STAY VISIBLE.
  *
- * #1932 (24 Sep) passed `color="var(--border-emphasis)"` (rgb 221 212 196) to
- * match the v3.1 contract's #D8D3CB whisper. On the #F4F0EA canvas that is
- * ~1.1:1, so on served builds the dots read as GONE. `undefined` hands the
- * colour back to React Flow's stylesheet default
- * `--xy-background-pattern-dots-color-default: #91919a` (~2.75:1), the ground
- * the canvas had before #1932. Dot size and gap are unchanged.
+ * - **30 Sep, #2347** (Paul ~12:25Z: "Where is the original canvas background with the
+ *   dots? Revert to that immediately."): #1932's `var(--border-emphasis)` (rgb 221 212
+ *   196) is ~1.3:1 on the #F4F0EA canvas, so the dots read as GONE. #2347 handed the
+ *   colour back to React Flow's default `#91919a` (2.75:1).
+ * - **1 Oct** (Paul: "Why is it not the brand colour?"): that default is a cool blue-grey
+ *   from outside the palette. The dots now take `--canvas-grid-dot` (rgb 140 131 118),
+ *   the brand's warm grey, at 3.29:1, which is never quieter than #2347's grey. Dot size
+ *   and gap are unchanged.
+ *
  * ⛔ Do not re-quieten the dots without Paul's say-so.
  */
-const CANVAS_GRID_DOT_COLOUR: string | undefined = undefined
+const CANVAS_GRID_DOT_COLOUR = 'var(--canvas-grid-dot)'
 
 // Brief 37: Wrap in memo to prevent parent-triggered re-renders from ReactFlowProvider
 /**
