@@ -107,6 +107,7 @@
 import type { Edge } from '@xyflow/react'
 
 import { serverStatedStrengthOf } from './edgeServerStatedStrength'
+import { isStrengthDefinitional } from '../domain/strengthDefinitional'
 import type { WireSystemEvent } from './types'
 
 /**
@@ -356,9 +357,26 @@ export function buildEdgeStrengthConfirmEvent({
  * DISABLED — an edge that could have been edited looking like one that cannot,
  * which is the SAFE direction. The unsafe direction (an editor whose write
  * cannot land) is unreachable while this asks the builder rather than telling it.
+ *
+ * ⭐ AND A LINK THAT HOLDS BY DEFINITION IS NOT EDITABLE (MG ruling, 1 Oct 2026).
+ * The builder WOULD build an event for it — it carries a server-stated tuple —
+ * but CEE refuses every strength change on a definitional link (the parts of a
+ * total, a risk's exposure to the goal), so an editor there is the same harm as
+ * one whose write never leaves the browser: an offer that cannot land. ONE
+ * predicate, `isStrengthDefinitional`, asked here so every caller of this gate
+ * (the inspector fence and its note, the double-click hint, the Model tab row,
+ * the results review entries) closes together. It is live only while the weight
+ * is still CEE's: a strength the person set stays editable exactly as before.
+ *
+ * ⚠ THE BUILDER IS DELIBERATELY UNTOUCHED. Returning `null` there would turn a
+ * stray write into a LOCAL-ONLY one (`not_wire_encodable`); this gate keeps the
+ * editor from opening instead. And a caller whose false branch has words must
+ * check `isStrengthDefinitional` FIRST: a definition is never "no strength on
+ * record" or "cannot reach the model" — that is a different, transport fact.
  */
 export function edgeStrengthEditIsAssertable(edge: Edge | undefined | null): boolean {
   if (!edge) return false
+  if (isStrengthDefinitional(edge.data as Record<string, unknown> | undefined)) return false
   return buildEdgeStrengthEditEvent({ edge, requestedMean: 0, preserveDirection: true }) !== null
 }
 

@@ -37,6 +37,15 @@ import { edgeValueSource } from './edgeValueProvenance'
 export const BY_DEFINITION = 'By definition'
 
 /**
+ * The inspector's sentence for a strength that holds by definition (#2403 D4,
+ * `coachingConfig`'s strength provenance). One spelling: a surface that would
+ * otherwise hold a strength EDITOR says this instead, or `BY_DEFINITION` where
+ * the room is only a chip or a hint (MG ruling, 1 Oct 2026).
+ */
+export const STRENGTH_HOLDS_BY_DEFINITION =
+  'This link holds by definition: each unit of the cause counts as exactly one unit of the effect. It is arithmetic, not an estimate.'
+
+/**
  * Does the wire edge say its link holds BY DEFINITION? The producer's own
  * `provenance.definitional === true`, nothing inferred.
  */

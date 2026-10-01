@@ -42,7 +42,7 @@ import type { InspectorPanelProps } from '../types'
 import { isEdgeFragile, getFragileEdgeSwitchProbability, parallelEdgeIdsFor } from '../../../utils/fragileEdgeMatch'
 import { resolveEdgeValuesCoaching, resolveEdgeValuesProvenance } from '../coachingConfig'
 import { isStrengthPlaceholder } from '../../../domain/strengthPlaceholder'
-import { isStrengthDefinitional } from '../../../domain/strengthDefinitional'
+import { BY_DEFINITION, isStrengthDefinitional } from '../../../domain/strengthDefinitional'
 import {
   edgeValueBand,
   edgeValueSource,
@@ -51,7 +51,7 @@ import {
   withLiveEdgeValue,
   type EdgeValueBand,
 } from '../../../domain/edgeValueProvenance'
-import { METRIC_UNSET } from '../../../nodes/shared/metricVocabulary'
+import { LINK_STRENGTH_COPY, METRIC_UNSET } from '../../../nodes/shared/metricVocabulary'
 import { resolveStrengthSpread, inlineStrengthLabel } from '../../../domain/strengthBandSpan'
 import { getStrengthLabel } from '../../../domain/vocabulary'
 import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
@@ -1057,7 +1057,24 @@ export const EdgePanel = memo(function EdgePanel({
                 same mechanism `InspectorRouter` used to apply to the whole
                 panel — kept, but pointed at the question that actually decides
                 it: can THIS edge's strength be asserted? */}
-            {awaitingStatedStrength ? (
+            {strengthIsDefinitional ? (
+              /* ⭐ A LINK THAT HOLDS BY DEFINITION HAS NO STRENGTH EDITOR (MG
+                 ruling, 1 Oct 2026). CEE refuses every strength or direction
+                 change on it, so the whole edit fieldset — direction, bands,
+                 fine-tune, β — is replaced, not disabled: a fenced editor reads
+                 as "not yet", and a definition is not waiting for anything.
+                 The full sentence is the provenance line directly above
+                 (`edge-values-provenance`), so this slot states the strength in
+                 the short words rather than printing that sentence twice. */
+              <PrimaryControlCard>
+                <p
+                  className={`${typography.panelBody} text-text-body`}
+                  data-testid="edge-strength-definitional"
+                >
+                  {`${LINK_STRENGTH_COPY.noun}: ${BY_DEFINITION.toLowerCase()}`}
+                </p>
+              </PrimaryControlCard>
+            ) : awaitingStatedStrength ? (
               /* ⭐ THE ADD CONTROL. Rendered INSTEAD of the edit fieldset, never
                  beside it: two strength controls on one edge would be two
                  answers to one question, which is the defect this panel already

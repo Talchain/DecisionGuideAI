@@ -47,11 +47,18 @@
  * precisely the mistake the struck sentence made.
  */
 import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
+import { BY_DEFINITION, isStrengthDefinitional } from '../domain/strengthDefinitional'
 
 /** What the reader is offered when the strength can be set here. */
 export const EDGE_AFFORDANCE_EDITABLE = 'Double-click to set its strength'
 /** And when it cannot — accurate, and all the panel can honestly offer. */
 export const EDGE_AFFORDANCE_READ_ONLY = 'Double-click to inspect'
+/**
+ * And when the link holds BY DEFINITION (MG ruling, 1 Oct 2026): the hint says
+ * what the strength is, then the honest gesture. Never the read-only reason a
+ * link with no strength on record gets — a definition is not a missing number.
+ */
+export const EDGE_AFFORDANCE_DEFINITIONAL = `${BY_DEFINITION}. ${EDGE_AFFORDANCE_READ_ONLY}`
 
 /**
  * ⭐ THE DIRECT CONTROL'S LABEL, for the surface that offers a BUTTON rather
@@ -78,6 +85,11 @@ export const EDGE_AFFORDANCE_CHAT_ALTERNATIVE = 'Ask Olumi to adjust it'
 export function edgeDoubleClickAffordance(
   edge: Parameters<typeof edgeStrengthEditIsAssertable>[0],
 ): string {
+  // The definition first: the gate below also says no for it, and its false
+  // branch is the wrong sentence for a link that holds by arithmetic.
+  if (isStrengthDefinitional((edge as { data?: Record<string, unknown> } | null | undefined)?.data)) {
+    return EDGE_AFFORDANCE_DEFINITIONAL
+  }
   return edgeStrengthEditIsAssertable(edge)
     ? EDGE_AFFORDANCE_EDITABLE
     : EDGE_AFFORDANCE_READ_ONLY

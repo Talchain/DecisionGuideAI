@@ -121,7 +121,9 @@ describe('"Ask Olumi" glyphs on the card — v3.1 coaching door vs Panel R3 ask'
   it('CONTROL — a different act keeps its own glyph, so the probe discriminates', () => {
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
     const challenge = screen.getByRole('button', { name: 'Challenge Hiring spend' })
-    expect(glyphOf(challenge)).toBe('lucide-zap')
+    // Challenge is HelpCircle in the rail AND the menu since Paul's 1 Oct feedback (#2409: "We have a standard set of
+    // icons we should be using, and nothing else"), one glyph for the one act.
+    expect(glyphOf(challenge)).toBe('lucide-help-circle')
     expect(glyphOf(challenge)).not.toBe(ASK_GLYPH)
     expect(glyphOf(challenge)).not.toBe(COACHING_GLYPH)
   })
