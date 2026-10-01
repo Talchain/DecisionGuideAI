@@ -43,6 +43,8 @@ import {
   edgeArrowheadMarkerId,
   STRUCTURAL_EDGE_COLOUR,
   edgeArrowheadViewBox,
+  EDGE_ARROWHEAD_MIN_PX,
+  EDGE_ARROWHEAD_STROKE_MULTIPLE,
   edgeArrowheadPolygonPoints,
 } from '../edgePresentation'
 
@@ -327,23 +329,31 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
 
   /**
    * ⭐ contract v3.1 (side-by-side DIFF item 13, 27 Sep 2026): THE HEAD SCALES
-   * WITH THE STROKE. The contract's marker is `markerWidth="4"` in the default
-   * `strokeWidth` units — 8px on a 2px line, 16px on a 4px one. The superseded
-   * mark was a fixed 12 × 12 `userSpaceOnUse` triangle, so a 1.5px line carried
-   * a 12px head. Observed against TWO strength widths — one width alone could be
-   * satisfied by a constant that happens to equal it.
+   * WITH THE STROKE. The superseded mark was a fixed 12 × 12 `userSpaceOnUse`
+   * triangle, so a 1.5px line carried a 12px head. Paul, 1 Oct ("The arrows
+   * connecting to the nodes are too big", DGAI #2409): the multiple is 2.5, not
+   * the contract's 4, with a 6px floor so the thinnest line still shows its
+   * direction — 7.5px on a 3px line, 10px on a 4px one, 6px on a 2px one.
+   * Observed against TWO strength widths — one width alone could be satisfied by
+   * a constant that happens to equal it — plus the floor.
    */
-  it('is 4 × the strength width, like the contract\'s markerWidth 4 — a discriminating pair', () => {
+  it('is 2.5 × the strength width (Paul 1 Oct), floored at 6px — a discriminating pair', () => {
+    expect(EDGE_ARROWHEAD_STROKE_MULTIPLE).toBe(2.5)
+    expect(EDGE_ARROWHEAD_MIN_PX).toBe(6)
     const stated = { strength_mean: 0.6, effect_direction: 'positive', exists_probability: 0.8 }
-    strengthWidth.px = 2
+    strengthWidth.px = 3
     const thin = markerOf(renderEdge({ data: stated }))!
-    expect(Number(thin.getAttribute('markerWidth'))).toBe(8)
-    expect(Number(thin.getAttribute('markerHeight'))).toBe(8)
+    expect(Number(thin.getAttribute('markerWidth'))).toBe(7.5)
+    expect(Number(thin.getAttribute('markerHeight'))).toBe(7.5)
     document.body.innerHTML = ''
     strengthWidth.px = 4
     const thick = markerOf(renderEdge({ data: stated }))!
-    expect(Number(thick.getAttribute('markerWidth'))).toBe(16)
-    expect(Number(thick.getAttribute('markerHeight'))).toBe(16)
+    expect(Number(thick.getAttribute('markerWidth'))).toBe(10)
+    expect(Number(thick.getAttribute('markerHeight'))).toBe(10)
+    document.body.innerHTML = ''
+    // The floor: 2.5 × 2 = 5 would be a near-invisible head on the thinnest line.
+    strengthWidth.px = 2
+    expect(Number(markerOf(renderEdge({ data: stated }))!.getAttribute('markerWidth'))).toBe(6)
   })
 
   /**
@@ -358,7 +368,7 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
     strengthWidth.px = 3
     const marker = markerOf(renderEdge({ data: stated, selected: true }))!
     expect(marker.getAttribute('markerUnits')).toBe('userSpaceOnUse')
-    expect(Number(marker.getAttribute('markerWidth'))).toBe(12)
+    expect(Number(marker.getAttribute('markerWidth'))).toBe(7.5)
     // CONTRAST: the line itself IS wider while selected.
     expect((baseEdgeProps?.style as Record<string, unknown>).strokeWidth).toBe(5)
   })
@@ -393,10 +403,10 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
   it('keeps its tip on the path end and its viewBox at 1:1 with the marker box', () => {
     strengthWidth.px = 3
     const marker = markerOf(renderEdge({ data: { strength_mean: 0.6, effect_direction: 'positive', exists_probability: 0.8 } }))!
-    expect(marker.getAttribute('viewBox')).toBe(edgeArrowheadViewBox(12))
-    expect(marker.getAttribute('viewBox')).toBe('-12 -6 12 12')
-    expect(marker.querySelector('polygon')!.getAttribute('points')).toBe(edgeArrowheadPolygonPoints(12))
-    expect(marker.querySelector('polygon')!.getAttribute('points')).toBe('-12 -6, 0 0, -12 6')
+    expect(marker.getAttribute('viewBox')).toBe(edgeArrowheadViewBox(7.5))
+    expect(marker.getAttribute('viewBox')).toBe('-7.5 -3.75 7.5 7.5')
+    expect(marker.querySelector('polygon')!.getAttribute('points')).toBe(edgeArrowheadPolygonPoints(7.5))
+    expect(marker.querySelector('polygon')!.getAttribute('points')).toBe('-7.5 -3.75, 0 0, -7.5 3.75')
     expect(Number(marker.getAttribute('refX'))).toBe(0)
     expect(Number(marker.getAttribute('refY'))).toBe(0)
   })

@@ -220,9 +220,11 @@ describe('same-row link with a card BETWEEN — a shallow run under the row', ()
   // rising lead at (712, 459), 14 units off its own line; it now stands ON the
   // arc, one head + gap + half a box back from the tip (698, 445) — measured
   // (680.12, 459.28), where the arc is already turning towards its source.
+  // ⚠ RE-PINNED 1 Oct 2026 (#2409, Paul: "The arrows … are too big"): the head is 2.5× the stroke, not 4×, so
+  // "one head back" is shorter and the sign sits nearer the tip, still ON the arc — measured (685.67, 457.04).
   it('the glyph sits ON the arc, just behind the arrowhead rising into the target', () => {
     const { container } = renderLink(PRICE, CHURN)
-    expect(glyphOf(container)!.style.transform).toMatch(/translate\(680\.12px,\s*459\.28px\)/)
+    expect(glyphOf(container)!.style.transform).toMatch(/translate\(685\.67px,\s*457\.04px\)/)
   })
 })
 

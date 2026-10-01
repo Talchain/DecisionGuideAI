@@ -40,6 +40,7 @@ import { flattenSvgPath } from '../fragileCuePlacement'
 import { layOutBoard, isStructuralPair, LANDING_ENDS, distanceToPolyline, type LaidBoard } from './__helpers__/paulTestBoards'
 import { useCanvasNodeHoverStore } from '../../stores/canvasNodeHoverStore'
 import { tierLaneTitleBoxFor } from '../../utils/tierLanes'
+import { ARRIVAL_PITCH_FLOW } from '../../utils/edgeGlyphPlacement'
 
 interface StoreNode { id: string; type?: string; position: { x: number; y: number }; measured?: { width: number; height: number }; data?: Record<string, unknown> }
 interface StoreEdge { id: string; source: string; target: string; data?: Record<string, unknown> }
@@ -247,7 +248,7 @@ describe('A — links arriving at one card spread along its top, in their source
     const xs = into.map((x) => r1(x.end.x))
     expect(new Set(xs).size, `ends: ${JSON.stringify(into.map((x) => [x.id, xs[into.indexOf(x)]]))}`).toBe(6)
     // Ordered by source, so no two cross at the card: strictly increasing.
-    for (let i = 1; i < xs.length; i++) expect(xs[i] - xs[i - 1], `${into[i - 1].id} → ${into[i].id}`).toBeGreaterThanOrEqual(40)
+    for (let i = 1; i < xs.length; i++) expect(xs[i] - xs[i - 1], `${into[i - 1].id} → ${into[i].id}`).toBeGreaterThanOrEqual(ARRIVAL_PITCH_FLOW)
     // Every end is ON the card's top side (the border, or the kind apex for an odd group's middle).
     const goal = b.box('productivity')
     for (const x of into) {

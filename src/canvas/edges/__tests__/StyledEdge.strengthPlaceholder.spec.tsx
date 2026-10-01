@@ -99,8 +99,8 @@ describe('POM-8 — the line: a placeholder draws at the not-set width', () => {
   it('Pro plan price → MRR (0.5 placeholder) draws at the NOT-SET width, not Strong', () => {
     const { container } = render(<StyledEdge {...(props as any)} data={PLACEHOLDER()} />)
     expect(strokeWidthOf(container)).toBe(UNSET_EDGE_STROKE_WIDTH)
-    // …and carries the contract's smallest head (F2's floor), not a 4px one.
-    expect(headOf(container)).toBe(8)
+    // …and carries the smallest head (the 6px floor, Paul 1 Oct #2409), not a 4px line's.
+    expect(headOf(container)).toBe(6)
   })
 
   it('CONTRAST: the −0.4 estimate on the same board keeps the Strong width', () => {

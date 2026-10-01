@@ -410,7 +410,21 @@ test.describe('in-node control occlusion', () => {
       }, target)
       expect(before, 'the card to hover vanished before the hover').not.toBeNull()
 
+      const rowOpacity = (id: string) =>
+        page.evaluate((nid) => {
+          const row = document.querySelector(`.react-flow__node[data-id="${CSS.escape(nid)}"]`)?.querySelector('.node-quick-actions')
+          return row ? Number(getComputedStyle(row as HTMLElement).opacity) : null
+        }, id)
+
+      // ⭐ Paul, 1 Oct 2026 (#2409): "You haven't got the icons correct or consistent. They keep appearing and
+      // disappearing." A pointer passing over a card no longer reveals its row; SELECTING the card does (a click,
+      // `alwaysVisible`), as do keyboard focus and touch. So the hover is now the CONTRAST (still hidden), and the
+      // click is the reveal every assertion below is about.
       await page.locator(`.react-flow__node[data-id="${target}"]`).hover({ position: { x: 8, y: 8 } })
+      await page.waitForTimeout(400)
+      expect(await rowOpacity(target), `hovering ${target} revealed its quick-action row; it must wait for a click`).toBe(0)
+
+      await page.locator(`.react-flow__node[data-id="${target}"]`).click({ position: { x: 8, y: 8 } })
       await page.waitForTimeout(400)
 
       const hovered = await page.evaluate((id) => {
@@ -426,7 +440,7 @@ test.describe('in-node control occlusion', () => {
 
       expect(
         hovered.opacity,
-        `hovering ${target} did not reveal its quick-action row (opacity ${hovered.opacity}). Every assertion ` +
+        `selecting ${target} did not reveal its quick-action row (opacity ${hovered.opacity}). Every assertion ` +
           'above would then be about an element the user never meets',
       ).toBe(1)
 
@@ -434,7 +448,7 @@ test.describe('in-node control occlusion', () => {
       //    occlusion by moving the target away from the cursor.
       expect(
         hovered.box,
-        `the card moved or resized when hovered: ${JSON.stringify(before)} -> ${JSON.stringify(hovered.box)}. ` +
+        `the card moved or resized when selected: ${JSON.stringify(before)} -> ${JSON.stringify(hovered.box)}. ` +
           'A layout that reflows on hover makes the thing you are aiming at move away from you',
       ).toEqual(before)
 

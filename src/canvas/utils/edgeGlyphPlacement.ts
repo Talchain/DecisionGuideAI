@@ -134,9 +134,11 @@ const KIND_SHAPE_HALF_FLOW = kindGlyphSizeAt(MAX_LABEL_COUNTER_SCALE) / 2
  * never a literal, as the larger of the two things it must keep apart at the
  * bound, rounded up to a whole unit:
  *
- *   two widest heads side by side     ARRIVAL_HEAD_MAX_FLOW + GLYPH_BOX_GAP_FLOW          = 44
+ *   two widest heads side by side     ARRIVAL_HEAD_MAX_FLOW + GLYPH_BOX_GAP_FLOW          = 29
  *   a border head beside the kind      KIND_SHAPE_HALF_FLOW + ARRIVAL_HEAD_MAX_FLOW / 2
- *   shape (the apex slot is 0)           + GLYPH_BOX_GAP_FLOW                             = 43.68
+ *   shape (the apex slot is 0)           + GLYPH_BOX_GAP_FLOW                             → 33
+ *
+ * (It was 44 until Paul's 1 Oct feedback, #2409: heads 2.5× the stroke instead of 4×, kind shapes 20% smaller.)
  *
  * A sign's box (20) plus its gap clears a neighbour's LINE at this pitch too.
  */
