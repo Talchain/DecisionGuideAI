@@ -146,6 +146,15 @@ describe('⭐ a reload of a DRAFTED model keeps its current Run card current (se
     expect(declineLog()).toBeUndefined()
     expect(runCardCurrency()).toBe('current')
   })
+
+  it('TWIN: the same source stamp over a canvas marked edited BEFORE the read: declined `edited_since_read` (CODEX UI BUDDY 5922309936)', async () => {
+    useCanvasStore.setState({ analysisFreshnessDirty: true } as never)
+    const n = readGraph.nodes.find((x) => x.observed_state && typeof x.observed_state === 'object')!
+    n.observed_state = { ...(n.observed_state as object), source: 'user_assumption' }
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(declineLog()).toMatchObject({ reason: 'edited_since_read', mergeChanged: true, unproven: null })
+    expect(runCardCurrency()).not.toBe('current')
+  })
 })
 
 describe('CONTROLS: an ANALYSIS-AFFECTING difference the merge ADOPTS is the read\'s own; one the canvas KEEPS, or a local edit, still declines', () => {
