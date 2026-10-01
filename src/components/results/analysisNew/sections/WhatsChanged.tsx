@@ -143,6 +143,11 @@ export function inputRowText(row: RunDeltaInputRow): string {
  * surface has no canvas link at all (the Reasoning receipt). The ids behind it are the row's own, never its key text.
  */
 export type InputRowFocus = (row: RunDeltaInputRow) => (() => void) | null | undefined
+/**
+ * Hover / keyboard-focus lighting of the row's element on the canvas (CANVAS, DL #85 5939855664), by the same identity
+ * as `InputRowFocus`. `null` = nothing on the canvas stands for the row, so nothing lights.
+ */
+export type InputRowLight = (row: RunDeltaInputRow) => { on: () => void; off: () => void } | null
 
 export const INPUTS_NOT_RECORDED_TEXT = 'The earlier run did not record its inputs, so only the result is compared here.'
 /**
@@ -168,7 +173,7 @@ export function emptyInputsText(inputs: RunDeltaInputsView | null): string | nul
   return inputs.coverage === 'complete' ? INPUTS_UNCHANGED_TEXT : INPUTS_PARTIAL_TEXT
 }
 
-function InputChanges({ inputs, rowFocus }: { inputs: RunDeltaInputsView | null; rowFocus?: InputRowFocus }): JSX.Element | null {
+function InputChanges({ inputs, rowFocus, rowLight }: { inputs: RunDeltaInputsView | null; rowFocus?: InputRowFocus; rowLight?: InputRowLight }): JSX.Element | null {
   const [expanded, setExpanded] = useState(false)
   if (inputs === null) return null
   const empty = emptyInputsText(inputs)
@@ -187,6 +192,7 @@ function InputChanges({ inputs, rowFocus }: { inputs: RunDeltaInputsView | null;
       <ul className="list-none p-0 mt-1 mb-0 space-y-1">
         {shown.map((row) => {
           const focus = rowFocus?.(row)
+          const light = focus ? rowLight?.(row) ?? null : null
           return (
             <li key={row.key} className={`${typography.panelBody} text-text m-0`} data-testid={`${WHATS_CHANGED_TESTID}-input-row`} data-kind={row.kind} data-change={row.change} data-on-canvas={focus === undefined ? undefined : focus === null ? 'false' : 'true'}>
               {focus ? (
@@ -196,6 +202,10 @@ function InputChanges({ inputs, rowFocus }: { inputs: RunDeltaInputsView | null;
                   data-testid={`${WHATS_CHANGED_TESTID}-input-row-focus`}
                   aria-label={`Show on the canvas: ${inputRowText(row)}`}
                   onClick={focus}
+                  onMouseEnter={light?.on}
+                  onMouseLeave={light?.off}
+                  onFocus={light?.on}
+                  onBlur={light?.off}
                 >
                   {inputRowText(row)}
                 </button>
@@ -230,7 +240,7 @@ function InputChanges({ inputs, rowFocus }: { inputs: RunDeltaInputsView | null;
   )
 }
 
-export function WhatsChanged({ view, rowFocus }: { view: RunDeltaView | null; rowFocus?: InputRowFocus }): JSX.Element | null {
+export function WhatsChanged({ view, rowFocus, rowLight }: { view: RunDeltaView | null; rowFocus?: InputRowFocus; rowLight?: InputRowLight }): JSX.Element | null {
   // ⭐⭐ WIN SHARES FOLLOW THE LEADER CLAIM (CURRENT-READ-v1 row 9; AIQ #75 5912710392). Every movement line is one
   // option's WIN SHARE, prior → current (or its direction). When the producer withheld the leader (any reason) a
   // per-option share change singles an option out in numbers, so the lines give way to the reason line, once, and
@@ -288,7 +298,7 @@ export function WhatsChanged({ view, rowFocus }: { view: RunDeltaView | null; ro
         When no outcome can be shown (win shares withheld, or no option matched across the pair), the input rows lead
         instead, so the section never invents a result.
       */}
-      {inputsLead ? <InputChanges inputs={view.inputs} rowFocus={rowFocus} /> : null}
+      {inputsLead ? <InputChanges inputs={view.inputs} rowFocus={rowFocus} rowLight={rowLight} /> : null}
 
       {winSharesAreWithheld ? (
         // Row 9: no per-option share change — the reason line in its place.
@@ -374,7 +384,7 @@ export function WhatsChanged({ view, rowFocus }: { view: RunDeltaView | null; ro
           ) : null}
         </p>
       ) : null}
-      {inputsLead ? null : <InputChanges inputs={view.inputs} rowFocus={rowFocus} />}
+      {inputsLead ? null : <InputChanges inputs={view.inputs} rowFocus={rowFocus} rowLight={rowLight} />}
 
       <p
         className={`${typography.panelBody} text-text mt-2 mb-0`}

@@ -18,7 +18,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useReactFlow } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { cameraDuration } from '../utils/cameraMotion'
-import { computeFocusPlan } from '../utils/focusNeighbourhood'
+import { computeEdgeFocusPlan, computeFocusPlan } from '../utils/focusNeighbourhood'
 import { readFocusCamera, nodesComfortablyVisible } from '../utils/cameraComfort'
 import { createFocusFitSuppressor } from '../utils/focusLens'
 import { registerFocusHelpers, registerFitNodes } from '../utils/focusHelpers'
@@ -109,16 +109,9 @@ export function useFocusCamera(): FocusCameraHandlers {
   // Focus edge handler (for Results panel drivers)
   const handleFocusEdge = useCallback((edgeId: string) => {
     const store = useCanvasStore.getState()
-    const targetEdge = store.edges.find((e) => e.id === edgeId)
-    if (!targetEdge) return
-
-    const sourceNode = store.nodes.find((n) => n.id === targetEdge.source)
-    const targetNode = store.nodes.find((n) => n.id === targetEdge.target)
-    if (!sourceNode || !targetNode) return
-
-    // Calculate midpoint between source and target
-    const midX = (sourceNode.position.x + targetNode.position.x) / 2
-    const midY = (sourceNode.position.y + targetNode.position.y) / 2
+    // The whole decision is the pure computeEdgeFocusPlan (same no-churn rule as a node's); this handler applies it.
+    const plan = computeEdgeFocusPlan(edgeId, store.nodes, store.edges, readFocusCamera(getViewportRef.current))
+    if (!plan) return // fail-closed: the edge or an end is not on the canvas
 
     // Select edge (not in history, just for visual feedback)
     useCanvasStore.setState({
@@ -132,9 +125,10 @@ export function useFocusCamera(): FocusCameraHandlers {
     // camera emits no move at all. No-op when no focus dim is active.
     useCanvasStore.getState().clearFocusDim()
 
-    // Center viewport on edge midpoint with smooth animation
+    // Centre on the link's midpoint ONLY when it is not already comfortably in view (DL 5939855664: no camera jumps).
+    if (!plan.moveCamera) return
     const viewport = getViewportRef.current()
-    setCenterRef.current(midX, midY, {
+    setCenterRef.current(plan.midX, plan.midY, {
       zoom: viewport.zoom,
       duration: cameraDuration(300, reducedMotionRef.current),
     })

@@ -17,10 +17,10 @@
  */
 import { Shuffle } from 'lucide-react'
 import { typography } from '../../styles/typography'
-import { WhatsChanged } from '../../components/results/analysisNew/sections/WhatsChanged'
+import { WhatsChanged, type InputRowFocus, type InputRowLight } from '../../components/results/analysisNew/sections/WhatsChanged'
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 import { useRunChangesProjection } from '../graphChanges/useRunChangesProjection'
-import { focusEdgeById, focusNodeById } from '../utils/focusHelpers'
+import { canvasLinkOfTarget, useCanvasLight } from '../graphChanges/rowCanvasLink'
 import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
 import type { RunOnRecordWithoutResult } from '../stores/declinedSavedRunStore'
 
@@ -48,6 +48,7 @@ export function CompareRunPairBody({
   // CANVAS (lease DL #75 5920620752, UNDO grant 5920635710): the same view marks the canvas while this tab shows it,
   // and each row focuses the element its producer ids name — or says it is not on the canvas now.
   const changes = useRunChangesProjection(view)
+  const light = useCanvasLight()
   if (view === null && runOnRecordWithoutResult !== null) {
     const copy = COMPARE_RUN_ON_RECORD_COPY[runOnRecordWithoutResult]
     return (
@@ -73,17 +74,19 @@ export function CompareRunPairBody({
       </div>
     )
   }
+  // Each row's link to the canvas, by the row's own ids: click focuses; hover / keyboard focus lights (DL 5939855664).
+  const rowFocus: InputRowFocus = (row) => {
+    const target = changes.focusByRowKey.get(row.key)
+    if (target === undefined) return undefined
+    return canvasLinkOfTarget(target)?.focus ?? null
+  }
+  const rowLight: InputRowLight = (row) => {
+    const link = canvasLinkOfTarget(changes.focusByRowKey.get(row.key))
+    return link ? { on: () => light.on(link), off: light.off } : null
+  }
   return (
     <div data-testid={COMPARE_RUN_PAIR_TESTID}>
-      <WhatsChanged
-        view={view}
-        rowFocus={(row) => {
-          const target = changes.focusByRowKey.get(row.key)
-          if (target === undefined) return undefined
-          if (target === null) return null
-          return () => (target.kind === 'node' ? focusNodeById(target.id) : focusEdgeById(target.id))
-        }}
-      />
+      <WhatsChanged view={view} rowFocus={rowFocus} rowLight={rowLight} />
     </div>
   )
 }

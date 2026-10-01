@@ -205,11 +205,23 @@ describe('useFocusCamera — F3 an edge focus ends the lens (finding 3)', () => 
     expect(dimmed()).toEqual([])
   })
 
-  it('still pans to the edge midpoint (the clear does not skip the move)', () => {
+  // DL #85 5939855664 ("no camera jumps when the element is already in view"): an edge focus now follows the SAME
+  // no-churn rule as a node's (and as the assistant edge focus below), so the pan is pinned on an OFF-SCREEN link.
+  const withFarEdge = () =>
+    useCanvasStore.setState({ edges: [...EDGES, { id: 'e_far', source: 'a', target: 'far' }] } as any)
+  it('still pans to an off-screen edge midpoint (the clear does not skip the move)', () => {
+    stubCanvas()
+    withFarEdge()
+    renderHook(() => useFocusCamera())
+    act(() => focusEdgeById('e_far'))
+    expect(setCenterSpy).toHaveBeenCalledWith(4650, 4650, expect.objectContaining({ zoom: 1 }))
+  })
+  it('an edge already comfortably in view: selected, lens cleared, NO camera move', () => {
     stubCanvas()
     renderHook(() => useFocusCamera())
     act(() => focusEdgeById('e1'))
-    expect(setCenterSpy).toHaveBeenCalledWith(450, 300, expect.objectContaining({ zoom: 1 }))
+    expect(setCenterSpy).not.toHaveBeenCalled()
+    expect(useCanvasStore.getState().edges.find((e) => e.id === 'e1')?.selected).toBe(true)
   })
 })
 
@@ -294,8 +306,9 @@ describe('useFocusCamera — F4 no-churn through the real bridge (finding 7)', (
   it('F1: reduced motion collapses the edge pan too', () => {
     mockReducedMotion = true
     stubCanvas()
+    useCanvasStore.setState({ edges: [...EDGES, { id: 'e_far', source: 'a', target: 'far' }] } as any)
     renderHook(() => useFocusCamera())
-    act(() => focusEdgeById('e1'))
+    act(() => focusEdgeById('e_far'))
     expect(setCenterSpy.mock.calls[0]![2].duration).toBe(0)
   })
 })
