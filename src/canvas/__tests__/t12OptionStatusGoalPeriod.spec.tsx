@@ -69,19 +69,6 @@ const baseProps = {
   draggable: true,
 }
 
-function renderOption(report: unknown) {
-  vi.mocked(useCanvasStore).mockImplementation((selector) =>
-    (selector as (s: unknown) => unknown)(makeStoreState(report)),
-  )
-  return render(
-    <ReactFlowProvider>
-      <OptionNode {...baseProps} data={{ label: 'Hire a Tech Lead', type: 'option' }} />
-    </ReactFlowProvider>,
-  )
-}
-
-
-
 beforeEach(() => {
   vi.clearAllMocks()
 })
