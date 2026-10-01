@@ -126,6 +126,7 @@ import { useUIStore } from '../../../stores/uiStore'
 import { useTransitionReceipt } from '../../hooks/useTransitionReceipt'
 import { __resetTemplateListCacheForTests } from '../../blueprints/loadTemplateBlueprint'
 import startersManifest from '../../starters/starters.manifest.json'
+import { EXAMPLE_DECISION_LABEL } from '../StarterDecisions'
 
 function Wrapper({ children }: { children: ReactNode }) {
   return <ConversationProvider>{children}</ConversationProvider>
@@ -461,8 +462,11 @@ describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
     const controlButtons = (root: HTMLElement) => {
       const toggle = root.querySelector('[data-testid="first-use-brief-mode-toggle"]')
       expect(toggle?.textContent).toBe('Structure it')
+      // Investor step 0 opens a real saved model (registered verbatim), not canned text: allowed by test id AND label.
+      const example = root.querySelector('[data-testid="open-example-decision"]')
+      if (example) expect(example.textContent?.startsWith(EXAMPLE_DECISION_LABEL)).toBe(true)
       return Array.from(root.querySelectorAll('button')).filter(
-        (b) => !b.getAttribute('data-testid')?.startsWith('starter-decision-') && b !== toggle,
+        (b) => !b.getAttribute('data-testid')?.startsWith('starter-decision-') && b !== toggle && b !== example,
       )
     }
 
@@ -485,6 +489,7 @@ describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
     for (const starter of startersManifest.starters) {
       expect(hero.querySelector(`[data-testid="starter-decision-${starter.id}"]`)).not.toBeNull()
     }
+    expect(hero.querySelector('[data-testid="open-example-decision"]'), 'the example entry is on the canvas mount').not.toBeNull()
     labels = controlButtons(hero).map((b) => b.getAttribute('aria-label') ?? '')
     expect(labels.length).toBeGreaterThan(0)
     expect(labels.every((l) => /^(Settings|Send)$/.test(l))).toBe(true)
