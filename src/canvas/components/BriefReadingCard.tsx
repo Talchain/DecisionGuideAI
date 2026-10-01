@@ -69,7 +69,7 @@ export const BriefReadingCard = memo(function BriefReadingCard({ reading, userFi
           - The honesty rules are unchanged: only the user's words, an empty slot said plainly, nothing inferred. */}
       <header className="flex items-baseline justify-between gap-3">
         <h2 className={typo('label', 'text-text-header m-0')}>Your brief</h2>
-        <span data-testid="brief-reading-your-words" className={typo('caption', 'text-text-light')}>
+        <span data-testid="brief-reading-your-words" className={typo('bodySmall', 'text-text-light')}>
           Quoted in your words
         </span>
       </header>
