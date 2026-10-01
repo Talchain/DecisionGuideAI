@@ -178,6 +178,18 @@ describe('⭐ the reload keeps a current Run card current', () => {
     expect(runCard().result.current).toBe('current')
   })
 
+  it('⭐ the merge adopts a different value from CEE (the model moved elsewhere, P0 #75 5921880401): the canvas IS CEE\'s graph now, so the Run is current', async () => {
+    const g = readGraphOfCanvas()
+    g.nodes = g.nodes.map((n) => (n.id === 'factor-1' ? { ...n, label: 'Price per seat' } : n))
+    respond(body({ graph: g }))
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('merged')
+    const st = useCanvasStore.getState()
+    expect(verdictWrites).toEqual([CURRENT])
+    expect(st.analysisFreshness?.currentGraphHash).toBe(READ_HASH)
+    expect(st.analysisFreshnessDirty).toBe(false)
+    expect(runCard().result.current).toBe('current')
+  })
+
   it('an EARLIER run\'s card on the same graph still reads as an earlier run, never current', async () => {
     respond(body())
     await hydrateCanvasFromServer(SCENARIO_ID)
@@ -230,12 +242,14 @@ describe('every proof it needs, each broken alone: nothing is written and the ca
     await expectNoRestore()
   })
 
-  it('the boot merge changed the model (CEE holds a different value): the merge marks it, so nothing is restored', async () => {
+  it('a LOCAL edit before the read, then a merge that changes the model: the mark is the user\'s, so nothing is restored', async () => {
+    // Twin of "⭐ the merge adopts a different value from CEE" above: the same read, but the mark was set before it.
+    seedReloadedCanvas({ analysisFreshnessDirty: true })
     const g = readGraphOfCanvas()
     g.nodes = g.nodes.map((n) => (n.id === 'factor-1' ? { ...n, label: 'Price per seat' } : n))
     respond(body({ graph: g }))
     await hydrateCanvasFromServer(SCENARIO_ID)
-    expect(useCanvasStore.getState().analysisFreshnessDirty, 'precondition: the merge marked a change').toBe(true)
+    expect(useCanvasStore.getState().analysisFreshnessDirty, 'precondition: the mark stands').toBe(true)
     await expectNoRestore()
   })
 
@@ -351,7 +365,18 @@ describe('the REVERSE direction: CEE holds a value the canvas lacks (pre-review 
     expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).toBe(READ_HASH)
   })
 
-  it('merged exit: the read adds an observed_state the canvas lacks, so nothing is restored', async () => {
+  it('merged exit: the read adds an observed_state the canvas lacks; the merge adopts it, so the canvas IS the read and the Run is current (P0 #75 5921880401)', async () => {
+    const g = readGraphOfCanvas()
+    g.nodes = g.nodes.map((n) => (n.id === 'factor-1' ? { ...n, observed_state: { value: 0.4 } } : n))
+    respond(body({ graph: g }))
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('merged')
+    expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).toBe(READ_HASH)
+    expect(verdictWrites).toContainEqual(CURRENT)
+    expect(runCard().result.current).toBe('current')
+  })
+
+  it('TWIN: the same read over a canvas marked edited BEFORE it: nothing is restored', async () => {
+    seedReloadedCanvas({ analysisFreshnessDirty: true })
     const g = readGraphOfCanvas()
     g.nodes = g.nodes.map((n) => (n.id === 'factor-1' ? { ...n, observed_state: { value: 0.4 } } : n))
     respond(body({ graph: g }))

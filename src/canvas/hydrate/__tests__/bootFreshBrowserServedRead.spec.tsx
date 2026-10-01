@@ -49,16 +49,42 @@ describe('⭐ a fresh browser, the served read', () => {
     expect(s.results.hash).toBe(readHash)
   })
 
-  it('CONTROL: a browser that HOLDS a result keeps the edit mark on a merge that changes its canvas (unchanged rule)', async () => {
+  // ⚠ FLIPPED (P0 #75 5921880401, DL ruling on #2375). A browser that HOLDS an older result or verdict still has the
+  // merge mark its canvas edited, but when the mark was clear before the merge and the canvas is proven equal to the
+  // read both ways, the mark is the read's own change: the read's Run replaces what was held. A mark set BEFORE the
+  // read (a local edit) still stands, and the Run is not restored.
+  it('a browser that HOLDS another result: the read\'s Run replaces it, current, and the mark clears', async () => {
     const other = mapV5AnalysisToReport({ type: 'analysis_result', summary: 'held elsewhere', leading_option_id: null, enrichment: {} } as unknown as AnalysisResultBlock)
     freshBrowser({ results: { status: 'complete', report: other, hash: other.model_card.response_hash } })
+    await hydrateCanvasFromServer(SCN)
+    const s = useCanvasStore.getState() as unknown as { analysisFreshnessDirty: boolean; analysisStateV1: { run_state: { kind: string } } | null; results: { hash?: string } }
+    expect(s.analysisFreshnessDirty).toBe(false)
+    expect(s.analysisStateV1?.run_state.kind).toBe('complete_current')
+    // AIQ 5922270280: "current" must sit over the READ's figures, never the held result.
+    expect(s.results.hash).toBe(readHash)
+    expect(s.results.hash).not.toBe(other.model_card.response_hash)
+  })
+
+  it('TWIN: the same held result with a local edit mark set BEFORE the read keeps the mark and is not restored', async () => {
+    const other = mapV5AnalysisToReport({ type: 'analysis_result', summary: 'held elsewhere', leading_option_id: null, enrichment: {} } as unknown as AnalysisResultBlock)
+    freshBrowser({ results: { status: 'complete', report: other, hash: other.model_card.response_hash }, analysisFreshnessDirty: true })
     await hydrateCanvasFromServer(SCN)
     expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
     expect((useCanvasStore.getState() as unknown as { analysisStateV1: { run_state: { kind: string } } | null }).analysisStateV1?.run_state.kind).not.toBe('complete_current')
   })
 
-  it('CONTROL: a browser that holds a verdict keeps the edit mark too', async () => {
+  it('a browser that holds another verdict: the read\'s Run is current, its results are on screen, and the mark clears', async () => {
     freshBrowser({ analysisFreshness: { freshness: 'fresh', currentGraphHash: 'ffffffffffffffff', graphHashAtRun: 'ffffffffffffffff', computedAt: '2026-09-28T00:00:00.000Z' } })
+    await hydrateCanvasFromServer(SCN)
+    const s = useCanvasStore.getState() as unknown as { analysisFreshnessDirty: boolean; analysisStateV1: { run_state: { kind: string } } | null; results: { hash?: string } }
+    expect(s.analysisFreshnessDirty).toBe(false)
+    expect(s.analysisStateV1?.run_state.kind).toBe('complete_current')
+    // AIQ 5922270280: "current" must sit over the READ's figures, never a held Run still on screen.
+    expect(s.results.hash).toBe(readHash)
+  })
+
+  it('TWIN: the same held verdict with a local edit mark set BEFORE the read keeps the mark', async () => {
+    freshBrowser({ analysisFreshness: { freshness: 'fresh', currentGraphHash: 'ffffffffffffffff', graphHashAtRun: 'ffffffffffffffff', computedAt: '2026-09-28T00:00:00.000Z' }, analysisFreshnessDirty: true })
     await hydrateCanvasFromServer(SCN)
     expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
   })

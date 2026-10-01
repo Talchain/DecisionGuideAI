@@ -401,11 +401,27 @@ async function readAndMergeServerGraph(
   // card can tell it is still current. Called at the SAME two accepted exits,
   // AFTER the merge (whose model-change mark it reads) and the base adoption.
   // See `applyBootRunCurrency.ts` for the derivation.
-  const restoreRunCurrency = (exit: 'unchanged' | 'merged', mergeChanged: boolean | null): void => {
+  const restoreRunCurrency = (
+    exit: 'unchanged' | 'merged',
+    mergeChanged: boolean | null,
+    dirtyBeforeMerge: boolean | null = null,
+  ): void => {
     const st = useCanvasStore.getState()
     // BOTH directions: the canvas carries every value the read carries (the
     // acknowledgement's proof) AND the read carries nothing the canvas lacks.
     const notProvenEqual = whyCanvasNotProvenEqualToReadBothWays(scenarioId, result.graph)
+    // ⭐ A RELOAD ONTO A RUN MADE ELSEWHERE KEEPS THAT RUN (P0 SHARED DATA, served UI `f29bc828`, scenario
+    // `af640d3c`, DL #75 5921880401). A browser that last held Run A's model reloads after the model was edited and
+    // re-run elsewhere (API, Agent, another device). The merge adopts Run B's model and marks it edited
+    // (`mergeServerGraph.ts`, "ADOPTION INTO AN EMPTY BROWSER" covers only an empty canvas), and this leg read that
+    // mark as a user edit: `edited_since_read` with `unproven: null`, so the panel said "No analysis has run yet".
+    // The mark is the READ'S OWN change only when (1) it was clear before this merge, so no local edit made it, and
+    // (2) the canvas is now proven equal to the read both ways. Then the read's Run describes the canvas on screen.
+    // Anything else keeps today's decline: a local edit (mark set before the merge) or any unproven key.
+    const markIsThisReadsOwn =
+      dirtyBeforeMerge === false &&
+      st.analysisFreshnessDirty === true &&
+      notProvenEqual === null
     // The read's admission stands in for `may_run` until a turn speaks — only an
     // admission, only for this revision, only when the canvas IS that revision.
     st.setBootAdmittedRevision?.(
@@ -418,7 +434,7 @@ async function readAndMergeServerGraph(
       admitted: result.admitted,
       canvasProvenEqualToRead: notProvenEqual === null,
       store: {
-        analysisFreshnessDirty: st.analysisFreshnessDirty,
+        analysisFreshnessDirty: markIsThisReadsOwn ? false : st.analysisFreshnessDirty,
         setAnalysisStateV1: st.setAnalysisStateV1,
         setAnalysisFreshness: st.setAnalysisFreshness,
         readCurrentGraphHash: () => useCanvasStore.getState().analysisFreshness?.currentGraphHash,
@@ -567,6 +583,8 @@ async function readAndMergeServerGraph(
     return 'unchanged'
   }
 
+  // Read BEFORE the merge, which sets it on any model change (see `restoreRunCurrency`).
+  const dirtyBeforeMerge = useCanvasStore.getState().analysisFreshnessDirty === true
   const merge = mergeServerGraphOnHydrate(result.graph)
 
   // ── A REFUSED MERGE IS NOT A MERGE, AND MUST NOT BE RECORDED AS ONE (L61) ──
@@ -653,7 +671,7 @@ async function readAndMergeServerGraph(
 
   adoptServerWriteBase(result.graphHash, baseAtDispatch)
   acknowledgeCanvasThatMatchesTheRead(scenarioId, result.graph)
-  restoreRunCurrency('merged', merge.changed)
+  restoreRunCurrency('merged', merge.changed, dirtyBeforeMerge)
 
   return 'merged'
 }

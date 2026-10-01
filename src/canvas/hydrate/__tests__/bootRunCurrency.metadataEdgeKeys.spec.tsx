@@ -118,20 +118,40 @@ describe('CONTRASTS: every field the analysis hash counts still declines', () =>
     expect(runCardCurrency()).not.toBe('current')
   })
 
-  it('edge `exists_probability` differs on THE WRITTEN EDGE: the boot merge adopts it as a model change, so declined as edited_since_read (identity-bound, DL 5859359015)', async () => {
+  // ⚠ FLIPPED (P0 #75 5921880401, DL ruling on #2375): a hashed field the boot merge ADOPTS from CEE is the read's
+  // own change, not an edit, once the mark was clear before the merge and the canvas is proven equal both ways. The
+  // decline now binds to the twin: the SAME value over a canvas marked edited before the read (identity-bound, the
+  // successor of DL 5859359015's row).
+  it('edge `exists_probability` differs on THE WRITTEN EDGE: the boot merge adopts it, so the Run is current', async () => {
     WRITTEN(readGraph).exists_probability = 0.5
     await hydrateCanvasFromServer(SCENARIO_ID)
-    // Control for this binding: the unperturbed read restores (the RED row above), so the decline is THIS value.
+    expect(declineLog()).toBeUndefined()
+    expect(runCardCurrency()).toBe('current')
+  })
+
+  it('TWIN: the same `exists_probability` over a canvas marked edited BEFORE the read: declined as edited_since_read (identity-bound)', async () => {
+    useCanvasStore.setState({ analysisFreshnessDirty: true } as never)
+    WRITTEN(readGraph).exists_probability = 0.5
+    await hydrateCanvasFromServer(SCENARIO_ID)
     expect(declineLog()).toMatchObject({ reason: 'edited_since_read', mergeChanged: true, unproven: null, graphHash: S.graph_hash })
     expect(runCardCurrency()).not.toBe('current')
   })
 
-  it('node side untouched: the identity operands swapped on MRR: declined', async () => {
+  it('node side untouched: the identity operands swapped on MRR: the merge adopts them, so the Run is current', async () => {
     const mrr = readGraph.nodes.find((n) => n.id === 'mrr')!
     expect(mrr.nonlinear_identity?.factor_ids).toHaveLength(2)
     mrr.nonlinear_identity = { ...mrr.nonlinear_identity, factor_ids: [...mrr.nonlinear_identity.factor_ids].reverse() }
     await hydrateCanvasFromServer(SCENARIO_ID)
-    expect(declineLog()?.reason).toMatch(/^(edited_since_read|canvas_not_proven_equal)$/)
+    expect(declineLog()).toBeUndefined()
+    expect(runCardCurrency()).toBe('current')
+  })
+
+  it('TWIN: the same swapped operands over a canvas marked edited BEFORE the read: declined', async () => {
+    useCanvasStore.setState({ analysisFreshnessDirty: true } as never)
+    const mrr = readGraph.nodes.find((n) => n.id === 'mrr')!
+    mrr.nonlinear_identity = { ...mrr.nonlinear_identity, factor_ids: [...mrr.nonlinear_identity.factor_ids].reverse() }
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(declineLog()?.reason).toBe('edited_since_read')
     expect(declineLog()?.unproven ?? '').not.toMatch(/exists_defaulted/)
     expect(runCardCurrency()).not.toBe('current')
   })
