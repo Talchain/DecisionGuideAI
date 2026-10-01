@@ -426,6 +426,14 @@ describe('AdvancedSection — the default-estimate disclosure (F10)', () => {
 // alone is enforced rather than merely asserted. If this sentence ever goes,
 // the label needs re-adjudicating, and now it will say so.
 describe('RiskAppetiteFilter — the lens disclaimer is load-bearing (1.243 item 4)', () => {
+  it('⛔ its arms WRAP at the dock floor instead of leaving the dock (served: "Optimistic" 35px past a 287px dock)', () => {
+    // jsdom has no layout: this pins the class contract on the row that holds the label and the three arms.
+    render(<RiskAppetiteFilter value="neutral" onChange={vi.fn()} />)
+    const row = screen.getByTestId('winner-by-control').firstElementChild as HTMLElement
+    expect(row.classList.contains('flex')).toBe(true)
+    expect(row.classList.contains('flex-wrap')).toBe(true)
+  })
+
   /**
    * F3: the sentence names what the lens leaves UNCHANGED, and that depends on
    * whether the run has a goal ranking at all — on a no-target run there is
