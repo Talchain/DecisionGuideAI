@@ -27,6 +27,7 @@ import { Target } from 'lucide-react'
 import { EditPencilCue } from './shared/EditPencilCue'
 import { useCanvasStore } from '../store'
 import { nodeTypeNumber, NODE_NUMBER_PREFIX, type NumberedNodeKind } from './shared/nodeTypeOrdinal'
+import { optionOrdinalBadgeAccessibleName } from './shared/metricVocabulary'
 import { selectWinSharesWithheld } from '../state/winShareGate'
 import { EditableLabel } from '../ui/inspector-v2/shared/EditableLabel'
 import { TITLE_DOUBLE_CLICK_WINDOW_MS, handTitleClickToCard } from './shared/titleClickHandBack'
@@ -2700,6 +2701,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               <span
                 aria-hidden="true"
                 data-testid="node-type-ordinal"
+                // The sighted reader gets the same disclosure the old option badge carried: a place, not a rank.
+                title={nodeType === 'option' ? optionOrdinalBadgeAccessibleName(typeOrdinal) : `${NODE_REGISTRY[nodeType].label} ${typeOrdinal} — its place on the canvas, not a ranking`}
                 className="tabular-nums text-text-light mr-1.5"
                 style={{ fontWeight: 500 }}
               >

@@ -41,6 +41,7 @@ import {
   sensitivityRankBadgeLabel,
   SENSITIVITY_RANK_LEGEND_NOUN,
   optionOrdinalBadgeAccessibleName,
+  TYPE_NUMBER_LEGEND_NOUN,
   ORDINAL_MINT_CLAUSE,
 } from '../metricVocabulary'
 import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
@@ -248,7 +249,7 @@ describe('METRIC_LEGEND_ROWS', () => {
   })
 
   it('⭐⭐ the ordinal row STATES ITS MINT CONDITION — it asserted a falsehood once', () => {
-    const row = METRIC_LEGEND_ROWS.find((r) => r.noun.includes('on an option'))!
+    const row = METRIC_LEGEND_ROWS.find((r) => r.noun === TYPE_NUMBER_LEGEND_NOUN)!
     expect(row, 'the ordinal row is gone — if deliberate, delete this test too').toBeDefined()
 
     // (a) THE QUALIFIER. Option numbers are append-only: `assignStableOptionNumbers`
@@ -264,7 +265,10 @@ describe('METRIC_LEGEND_ROWS', () => {
     // (b) THE CLAIM IT MUST NEVER MAKE AGAIN, pinned as a literal absence.
     expect(row.gloss, 'the row claims present-tense positional order again')
       .not.toMatch(/place on the board/)
-    expect(row.gloss).not.toMatch(/left to right/)
+    // Paul 1 Oct 2026: the row now also explains the OTHER cards' numbers, which ARE reading-order. So "left to right"
+    // may appear only in the sentence about the other cards, never about options.
+    const leftToRight = row.gloss.split('. ').filter((sentence) => /left to right/.test(sentence))
+    expect(leftToRight.every((sentence) => /^Other cards\b/.test(sentence)), 'the row claims OPTIONS count left to right').toBe(true)
 
     // (c) still says the thing it was there to say.
     expect(row.gloss).toMatch(/[Nn]ot a ranking/)
@@ -339,7 +343,7 @@ describe('METRIC_LEGEND_ROWS', () => {
     // (b) THE ORDINAL BADGE. The legend row carries two extra sentences the
     //     badge has no room for, so the shared unit is the row’s FIRST clause
     //     — still derived from the row, still not retyped.
-    const ordinalRow = METRIC_LEGEND_ROWS.find((r) => r.noun.includes('on an option'))!
+    const ordinalRow = METRIC_LEGEND_ROWS.find((r) => r.noun === TYPE_NUMBER_LEGEND_NOUN)!
     expect(ordinalRow, 'the ordinal row is gone — if deliberate, delete this test too').toBeDefined()
     const ordinalSharedClause = ordinalRow.gloss.split('. ')[0]
     expect(
@@ -387,7 +391,8 @@ describe('METRIC_LEGEND_ROWS', () => {
    */
   it('⭐⭐ the badge call sites CALL the builders — a byte-identical copy REDs here', () => {
     const sites = [
-      { file: '../../OptionNode.tsx', builder: 'optionOrdinalBadgeAccessibleName', clause: ORDINAL_MINT_CLAUSE },
+      // Paul 1 Oct 2026: the number now rides every card's title in BaseNode, which calls the builder.
+      { file: '../../BaseNode.tsx', builder: 'optionOrdinalBadgeAccessibleName', clause: ORDINAL_MINT_CLAUSE },
       // ⭐ The BaseNode "Key driver" badge site is RETIRED (ED 02:31Z D1a: "RETIRE
       // the Key-driver badge once the body driver line is present"); the rank
       // now reads through `DRIVER_LINE_COPY`, pinned by
@@ -411,8 +416,12 @@ describe('METRIC_LEGEND_ROWS', () => {
       ).toBe(true)
       // (b) …and it is CALLED, not merely imported. An unused import would
       //     satisfy (a) while the label went back to a literal.
-      expect(src, `${site.file} imports ${site.builder} without calling it`)
-        .toContain(`aria-label={${site.builder}(`)
+      //     Since Paul's 1 Oct 2026 per-type number, the option number is aria-hidden (the card's own name says
+      //     "Option 2") and the builder's sentence reaches the sighted reader as the number's `title`.
+      expect(
+        new RegExp(`(aria-label|title)=\\{[^}]*${site.builder}\\(`).test(src),
+        `${site.file} imports ${site.builder} without calling it`,
+      ).toBe(true)
 
       // (c) THE ASSERTION A COPY REDS ON. The clause appears nowhere as a
       //     re-typed literal in the component's CODE. Comments are stripped

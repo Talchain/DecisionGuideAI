@@ -193,8 +193,9 @@ describe('Paul 23 Sep point 6 — ONE discreet coaching icon on EVERY card at No
     expect(el.closest(`[data-testid="node-quick-actions-${id}"]`)).toBeNull()
     // ONE glyph on every card — v3.1 `coaching`, the bubble with "?" (DESIGN-GAP
     // #42; was MessageCircle under Panel R3 — conflict named in askOlumiOneGlyph).
-    expect(el.querySelector('svg.olumi-glyph-ai')).toBeTruthy() // Paul 30 Sep: the Olumi AI mark (DS v5 §9.8)
-    expect(el.querySelectorAll('svg')).toHaveLength(1)
+    // Paul 1 Oct 2026: the REAL full-colour Olumi brand mark (was the §9.8 single-colour outline, Paul 30 Sep).
+    expect(el.querySelector('img.olumi-glyph-ai[data-icon="olumi-brand-mark"]')).toBeTruthy()
+    expect(el.querySelectorAll('svg, img')).toHaveLength(1)
     // Point 12 — an accessible name, never an unnamed icon.
     expect((el.getAttribute('aria-label') ?? '').trim().length).toBeGreaterThan(0)
   })

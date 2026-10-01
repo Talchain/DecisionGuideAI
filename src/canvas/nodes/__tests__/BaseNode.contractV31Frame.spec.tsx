@@ -277,10 +277,11 @@ describe('contract v3.1 — the connectors (FRAME-03, FRAME-04, OR-05)', () => {
     expect(tokens(inHandle)).not.toContain('bg-factor')
   })
 
-  it('index.css draws the port as a 3px dark dot and re-lights it on hover / selection', () => {
+  it('index.css draws the port as a 3px dark dot and re-lights it on hover / selection, in the body ink — never blue (Paul, 1 Oct 2026)', () => {
     const css = readFileSync(path.resolve(__dirname, '../../../index.css'), 'utf8')
     expect(css).toMatch(/\.react-flow__handle\.olumi-node-port\s*\{[^}]*radial-gradient\(circle, var\(--text-body\) 0 1\.5px, transparent 2px\)/)
-    expect(css).toMatch(/\.react-flow__node:hover \.react-flow__handle\.olumi-node-port,\s*\n\.react-flow__node\.selected \.react-flow__handle\.olumi-node-port\s*\{[^}]*var\(--info\)/)
+    expect(css).toMatch(/\.react-flow__node:hover \.react-flow__handle\.olumi-node-port,\s*\n\.react-flow__node\.selected \.react-flow__handle\.olumi-node-port\s*\{[^}]*background: var\(--text-body\)/)
+    expect(css).not.toMatch(/\.react-flow__node\.selected \.react-flow__handle\.olumi-node-port\s*\{[^}]*var\(--info\)/)
   })
 })
 

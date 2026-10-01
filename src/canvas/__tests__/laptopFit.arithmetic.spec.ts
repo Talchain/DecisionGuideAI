@@ -298,22 +298,21 @@ describe('S4 laptop fit — WIDTH, which this lane owns exactly', () => {
     // ⭐ 30 Sep 2026: the layout's row budget IS this frame — `ROW_BUDGET_W` is
     // not an independent number, it is the 1280 dock-open frame at the floor.
     expect(ROW_BUDGET_W).toBe(frameFlowAtFloor.w)
-    // RE-PINNED 30 Sep 2026 (fair-share cards, 64-unit icon prompt): the widest
-    // row is FOUR cards at their share, 4 × (350 + 24 + 24) + 64 = 1656, which
-    // fills the budget exactly. Five draw at 270: 5 × (270 + 24 + 24) + 64 = 1654;
-    // three or fewer sit at the 400 cap. (27 Sep: 5 × (248 + 24 + 24) + 160 = 1640.)
+    // RE-PINNED 1 Oct 2026 (Paul: the "+" 50% smaller, a 32-unit icon prompt; the 32 units it frees go to the
+    // cards): the widest row is still FOUR cards filling the budget exactly (1656). Five now draw at 276:
+    // 5 × (276 + 24 + 24) + 32 = 1652. Three or fewer sit at the 400 cap.
+    // (30 Sep, 64-unit prompt: five at 270 → 1654. 27 Sep: 5 × (248 + 24 + 24) + 160 = 1640.)
     expect(rowWithPromptWidth(4)).toBe(1656)
-    expect(rowWithPromptWidth(5)).toBe(1654)
+    expect(rowWithPromptWidth(5)).toBe(1652)
     expect(WIDEST_ROW_WITH_PROMPT).toBe(1656)
     expect(WIDEST_ROW_WITH_PROMPT).toBeLessThanOrEqual(frameFlowAtFloor.w)
-    // CONTRAST: a SIXTH card on a row cannot take a share (its share, 217, is under
-    // the legibility floor), so it draws at REPEATED_CARD_W and the row is
-    // 6 × (248 + 24 + 24) + 64 = 1840 — 184 units (92px at the floor) past the
-    // 1280 frame. Five at that same floor, 5 × 296 + 64 = 1544, fit: the cap of
-    // five is still where the frame stops it.
+    // CONTRAST: a SIXTH card on a row cannot take a share (its share is under the legibility floor), so it draws
+    // at REPEATED_CARD_W and the row is 6 × (248 + 24 + 24) + 32 = 1808 — 152 units (76px at the floor) past the
+    // 1280 frame (1 Oct: the 32-unit "+"; with the 30 Sep 64 it was 1840, 184 past). Five at that same floor,
+    // 5 × 296 + 32 = 1512, fit: the cap of five is still where the frame stops it.
     const atFloor = (k: number) => k * (REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP) + ROW_PROMPT_W
     expect(atFloor(MAX_CARDS_PER_ROW)).toBeLessThanOrEqual(frameFlowAtFloor.w)
-    expect(atFloor(MAX_CARDS_PER_ROW + 1) - frameFlowAtFloor.w).toBe(184)
+    expect(atFloor(MAX_CARDS_PER_ROW + 1) - frameFlowAtFloor.w).toBe(152)
   })
 })
 

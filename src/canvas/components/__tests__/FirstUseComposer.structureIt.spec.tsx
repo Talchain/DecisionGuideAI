@@ -181,7 +181,7 @@ describe('FirstUseComposer — "Structure it"', () => {
 })
 
 describe('FirstUseComposer — "Your brief, as Olumi read it" from the user\'s own fields', () => {
-  it('RED: while generating, each filled slot shows the user\'s words; an empty slot reads "Not mentioned"', () => {
+  it('RED: while generating, each filled slot shows the user\'s words; an empty slot reads "Not stated yet"', () => {
     const { rerender } = render(<FirstUseComposer />, { wrapper: Wrapper })
     toggle()
     type('context', CONTEXT)
@@ -191,16 +191,17 @@ describe('FirstUseComposer — "Your brief, as Olumi read it" from the user\'s o
     thinkingMockState.isThinking = true
     rerender(<FirstUseComposer />)
     const card = screen.getByTestId('brief-reading')
-    expect(within(card).getByText('Your brief, as Olumi read it')).toBeTruthy()
+    // Paul 1 Oct 2026 redesign: one header, and ONE "in your words" note for the whole reading.
+    expect(within(card).getByText('Your brief')).toBeTruthy()
+    expect(within(card).getAllByTestId('brief-reading-your-words')).toHaveLength(1)
     for (const [slot, words] of [['context', CONTEXT], ['goal', GOAL], ['options', OPTIONS]] as const) {
       const el = screen.getByTestId(`brief-reading-${slot}`)
       expect(within(el).getByText(`“${words}”`)).toBeTruthy()
-      expect(within(el).getByTestId('brief-reading-your-words').textContent).toBe('your words')
       expect(within(el).queryByTestId('brief-reading-not-mentioned')).toBeNull()
     }
     const empty = screen.getByTestId('brief-reading-considerations')
-    expect(within(empty).getByTestId('brief-reading-not-mentioned').textContent).toBe('Not mentioned')
-    expect(within(empty).queryByTestId('brief-reading-your-words')).toBeNull()
+    expect(within(empty).getByTestId('brief-reading-not-mentioned').textContent).toBe('Not stated yet')
+    expect(empty.textContent).not.toContain('“')
     // The fields make way for the frozen box and its thinking indicator while the brief is drafted.
     expect(screen.queryByTestId('structured-brief')).toBeNull()
     expect(screen.getByTestId('first-use-thinking')).toBeTruthy()
@@ -220,7 +221,7 @@ describe('FirstUseComposer — "Your brief, as Olumi read it" from the user\'s o
     expect(screen.queryByText('“a CEE span”')).toBeNull()
   })
 
-  it('CONTRAST: no "assumed" item renders when CEE sends none — only the user\'s words and "Not mentioned"', () => {
+  it('CONTRAST: no "assumed" item renders when CEE sends none — only the user\'s words and "Not stated yet"', () => {
     thinkingMockState.isThinking = true
     useDraftStore.getState().setDraftStreamPhase('drafting', 't1', 'scn-1')
     useDraftStore.getState().markDraftStreamBriefRead('t1', { goal: GOAL, options: [OPTIONS], limits: [] })
@@ -230,7 +231,8 @@ describe('FirstUseComposer — "Your brief, as Olumi read it" from the user\'s o
     expect(card.querySelector('[data-testid*="assumed"]')).toBeNull()
     // CONTRAST CONTROL: the same card DOES render the user's words and an empty slot, so the absence above is about
     // "assumed" items and not an empty card.
-    expect(within(card).getAllByTestId('brief-reading-your-words')).toHaveLength(2)
+    expect(within(card).getAllByTestId('brief-reading-your-words')).toHaveLength(1)
+    expect(card.textContent).toContain(`“${GOAL}”`)
     expect(within(card).getAllByTestId('brief-reading-not-mentioned')).toHaveLength(1)
   })
 })

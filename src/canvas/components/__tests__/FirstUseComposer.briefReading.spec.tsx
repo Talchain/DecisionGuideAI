@@ -126,28 +126,29 @@ describe('FirstUseComposer — the brief reading during the first-brief wait (C6
     drafting({ goal: GOAL, options: OPTIONS })
     render(<FirstUseComposer />, { wrapper: Wrapper })
     const card = screen.getByTestId('brief-reading')
-    expect(within(card).getByText('Your brief, as Olumi read it')).toBeTruthy()
+    // Paul 1 Oct 2026 redesign: ONE header, ONE "in your words" note for the whole reading, options numbered.
+    expect(within(card).getByText('Your brief')).toBeTruthy()
+    expect(within(card).getByTestId('brief-reading-your-words').textContent).toBe('Quoted in your words')
     const goal = screen.getByTestId('brief-reading-goal')
     expect(within(goal).getByText(`\u201C${GOAL}\u201D`)).toBeTruthy()
-    expect(within(goal).getByTestId('brief-reading-your-words').textContent).toBe('your words')
     const options = screen.getByTestId('brief-reading-options')
-    expect(within(options).getAllByRole('listitem').map((li) => li.textContent)).toEqual(OPTIONS.map((o) => `\u201C${o}\u201D`))
+    expect(within(options).getAllByRole('listitem').map((li) => li.textContent)).toEqual(OPTIONS.map((o, i) => `${i + 1}\u201C${o}\u201D`))
     expect(card.textContent, 'the reading never speaks of a model').not.toMatch(/\bmodel\b/i)
   })
 
-  it('a goal-less brief reads "Not mentioned" under Goal; CEE sends no context span, so no Context slot is claimed', () => {
+  it('a goal-less brief reads "Not stated yet" under Goal; CEE sends no context span, so no Context slot is claimed', () => {
     thinkingMockState.isThinking = true
     drafting({ goal: null, options: ['increase the Pro plan price from £49 to £59 per month with the next Pro feature release'] })
     render(<FirstUseComposer />, { wrapper: Wrapper })
     const goal = screen.getByTestId('brief-reading-goal')
-    expect(within(goal).getByTestId('brief-reading-not-mentioned').textContent).toBe('Not mentioned')
-    expect(within(goal).queryByTestId('brief-reading-your-words')).toBeNull()
-    // CONTRAST: the filled slot in the same card is marked as the user's words.
-    expect(within(screen.getByTestId('brief-reading-options')).getByTestId('brief-reading-your-words')).toBeTruthy()
+    expect(within(goal).getByTestId('brief-reading-not-mentioned').textContent).toBe('Not stated yet')
+    // The empty slot carries no quote; the filled slot in the same card does.
+    expect(goal.textContent).not.toContain('\u201C')
+    expect(screen.getByTestId('brief-reading-options').textContent).toContain('\u201C')
     expect(screen.queryByTestId('brief-reading-context')).toBeNull()
   })
 
-  it('v2: the limits the user set are shown as quotes under "Things to consider"; none held → "Not mentioned"', () => {
+  it('v2: the limits the user set are shown as quotes under "Things to consider"; none held → "Not stated yet"', () => {
     thinkingMockState.isThinking = true
     drafting({ goal: GOAL, options: OPTIONS, limits: ['£20k budget', 'monthly churn under 4%'] })
     const { unmount } = render(<FirstUseComposer />, { wrapper: Wrapper })

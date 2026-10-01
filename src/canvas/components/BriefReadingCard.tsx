@@ -94,9 +94,15 @@ export const BriefReadingCard = memo(function BriefReadingCard({ reading, userFi
                     ))}
                   </ol>
                 </dd>
+              ) : values.length === 1 ? (
+                <dd className={typo('bodySmall', 'text-text-body m-0 whitespace-pre-line')}>{quoted(values[0])}</dd>
               ) : (
-                <dd className={typo('bodySmall', 'text-text-body m-0 whitespace-pre-line')}>
-                  {values.map(quoted).join('\n')}
+                <dd className="m-0">
+                  <ul className="m-0 p-0 list-none flex flex-col gap-1">
+                    {values.map((v) => (
+                      <li key={v} className={typo('bodySmall', 'text-text-body')}>{quoted(v)}</li>
+                    ))}
+                  </ul>
                 </dd>
               )}
             </div>

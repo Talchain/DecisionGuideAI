@@ -520,7 +520,8 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     return screen.getByRole('dialog').textContent ?? ''
   }
 
-  const ORDINAL_NOUN = '1, 2, 3 on an option'
+  // Paul, 1 Oct 2026: the row now explains every card's per-type number ("O2"), not only options' "1, 2, 3".
+  const ORDINAL_NOUN = 'O1, F2, R1 before a name'
   /** The rows whose card gate really is the phase. The ordinal row is NOT one. */
   const PHASE_GATED = METRIC_LEGEND_ROWS
     .map(r => r.noun)
@@ -821,7 +822,7 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     // badge is RETIRED; the rank is stated once, on the factor card's driver
     // line ("Driver N of M analysed"), and the heading moved with it.
     { noun: SENSITIVITY_RANK_LEGEND_NOUN, files: ['FactorNode.tsx'], pattern: /<FactorDriverLine\b/ },
-    { noun: ORDINAL_NOUN, files: ['OptionNode.tsx'], pattern: /\{stableOptionNumber\}/ },
+    { noun: ORDINAL_NOUN, files: ['BaseNode.tsx'], pattern: /\{NODE_NUMBER_PREFIX\[nodeType as NumberedNodeKind\]\}\{typeOrdinal\}/ },
     // ⚠ RE-DERIVED (locked design, 23 Sep 2026): a link with NO value reads
     // "Link strength · not set yet" — the register's inline form — through the
     // shared row both cards mount (MT-15b: an unconfirmed producer value now
