@@ -49,7 +49,7 @@ const ANALYSED_A = 'opt_hire'
 const ANALYSED_B = 'opt_partner'
 const ADDED = 'opt_vendor'
 const ADDED_LABEL = 'License a vendor tool'
-const ENGINE_BLAME = 'returned no result'
+const ENGINE_BLAME = 'has no result for'
 
 function analysed(id: string, label: string, win: number, isRecommended = false): OptionResult {
   return {

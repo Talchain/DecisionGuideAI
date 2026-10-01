@@ -188,7 +188,7 @@ describe('1 · a subset run shows the share WITH its scope, and names who was le
 
     expect(row.textContent).toBe(
       'Hybrid: In-house core plus 3PL overflow. Not analysed. ' +
-        'The analysis returned no result for this option, so it has no rank and no probability.',
+        'This run has no result for this option, so it has no rank and no probability.',
     )
 
     // The dash check, and the control that stops it passing on an empty row.

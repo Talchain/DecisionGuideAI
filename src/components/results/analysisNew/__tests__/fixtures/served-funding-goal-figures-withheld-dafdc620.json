@@ -20,12 +20,44 @@
   {
    "id": "add_angel_outreach",
    "kind": "option",
-   "label": "Add angel outreach"
+   "label": "Add angel outreach",
+   "interventions": {
+    "hours_per_week_on_angel_outreach": {
+     "unit": "hours/week",
+     "value": 0.08333333333333333,
+     "source": "cee_hypothesis",
+     "raw_value": 5,
+     "target_match": {
+      "node_id": "hours_per_week_on_angel_outreach",
+      "confidence": "high",
+      "match_type": "exact_id"
+     }
+    }
+   }
   },
   {
    "id": "prioritise_angel_bridge",
    "kind": "option",
-   "label": "Prioritise angel bridge"
+   "label": "Prioritise angel bridge",
+   "interventions": {
+    "hours_per_week_on_angel_outreach": {
+     "unit": "hours/week",
+     "value": 0.16666666666666666,
+     "source": "cee_hypothesis",
+     "raw_value": 10,
+     "target_match": {
+      "node_id": "hours_per_week_on_angel_outreach",
+      "confidence": "high",
+      "match_type": "exact_id"
+     }
+    }
+   },
+   "proposed_by": "olumi"
+  },
+  {
+   "id": "hours_per_week_on_angel_outreach",
+   "kind": "factor",
+   "label": "Hours per week on angel outreach"
   }
  ],
  "analysis_result": {
@@ -315,5 +347,19 @@
    "conditional_winners": []
   },
   "computed_against_hash": "23daf7d49360a663"
- }
+ },
+ "option_edges": [
+  {
+   "from": "add_angel_outreach",
+   "to": "hours_per_week_on_angel_outreach"
+  },
+  {
+   "from": "prioritise_angel_bridge",
+   "to": "hours_per_week_on_angel_outreach"
+  },
+  {
+   "from": "continue_firm_outreach",
+   "to": "hours_per_week_on_angel_outreach"
+  }
+ ]
 }

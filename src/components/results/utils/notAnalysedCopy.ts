@@ -54,8 +54,17 @@ export function notAnalysedReasonCopy(reason: NotAnalysedReason, resultsCurrent 
   if (reason === 'no_interventions' && !resultsCurrent) return NOT_ANALYSED_NO_VALUES_NOT_CURRENT
   return reason === 'no_interventions'
     ? 'This option has no values set yet, so it was left out of the comparison. It has no rank and no probability.'
-    : 'The analysis returned no result for this option, so it has no rank and no probability.'
+    : NOT_ANALYSED_NO_RESULT_COPY
 }
+
+/**
+ * ⛔ CAUSE-NEUTRAL, AND THAT IS THE POINT (AIQ #75 5924727155). `not_returned` means: configured, absent from the
+ * comparison, and NO participation record. That covers a computation that came back empty AND an option CEE left out
+ * on purpose (an unadopted Olumi suggestion, whose typed fact CEE does not emit yet: Panel #75 5924723004). "The
+ * analysis returned no result" told Paul the analysis failed on an option it never ran, so he could re-run for a result
+ * that will never come. This sentence is true of both causes and names neither.
+ */
+export const NOT_ANALYSED_NO_RESULT_COPY = 'This run has no result for this option, so it has no rank and no probability.'
 
 /**
  * The Run's typed participation fact (Runtime #72 5888341208), said as it is. Olumi's proposal is never presented as the
@@ -210,9 +219,11 @@ export const BRING_INTO_COMPARISON_LABEL = 'What would bring this in?'
  *     submitted, because there was nothing to submit. A question that said the
  *     analysis returned nothing for it would assert a computation that never
  *     happened, on the one card whose whole subject is a missing computation.
- *   · `not_returned` — it WAS submitted and the run came back with nothing for
- *     it. Here naming the run is the true thing to say, and saying "you have
- *     not set this up" instead would blame the user for an engine outcome.
+ *   · `not_returned` — it is configured and this run has nothing for it. That is
+ *     an engine miss OR a deliberate exclusion CEE has not typed yet, so the
+ *     ground names neither cause (AIQ 5924727155): "you have not set this up"
+ *     would blame the user, and "the analysis returned no result" would blame
+ *     the engine for an option it may never have run.
  *
  * Each arm states only what its own ground licenses. Neither implies the option
  * was scored, compared, or found wanting, and neither promises that answering
@@ -236,7 +247,7 @@ export function bringIntoComparisonQuestion(
   const ground =
     reason === 'no_interventions'
       ? `${optionLabel} has no values set yet, so it was left out of the comparison.`
-      : `The analysis returned no result for ${optionLabel}, so it was left out of the comparison.`
+      : `This run has no result for ${optionLabel}.`
   return `${ground} What would it take to bring it in?`
 }
 
