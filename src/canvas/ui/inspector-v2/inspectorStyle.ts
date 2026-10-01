@@ -53,7 +53,9 @@ export const INSPECTOR_WIDTH_PX = 330
 
 export const INSPECTOR_SHELL_STYLE = {
   width: INSPECTOR_WIDTH_PX,
-  border: '1px solid rgb(var(--info-rgb) / 0.3)',
+  // Neutral frame, never blue: the inspector opens on a click (Paul, 1 Oct 2026: no blue highlighted border
+  // when anything is clicked). Was the contract's info-at-30% `#B8D5CF`.
+  border: '1px solid var(--border-default)',
   borderRadius: 12,
   boxShadow: '0 10px 40px #22333024',
   // The contract's cap, further bounded by the room the canvas actually has
@@ -77,7 +79,7 @@ const BUTTON_BASE =
 
 /** `.button.small` — the one secondary button. */
 export const inspectorButton =
-  `${BUTTON_BASE} border-field/40 bg-white text-text-body hover:border-info hover:bg-info/5`
+  `${BUTTON_BASE} border-field/40 bg-panel text-text-body hover:border-text-light hover:bg-panel-hover`
 
 /** `.button.small.primary` — the one primary button. */
 export const inspectorButtonPrimary =

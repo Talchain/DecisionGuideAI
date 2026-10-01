@@ -74,7 +74,6 @@ import type { NodeType } from '../../domain/nodes'
 import type { CoachingChip, ResolvedCoaching } from '../coaching/resolveNodeCoaching'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import type { LucideProps } from 'lucide-react'
-import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
 import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
 
 export const NODE_COACHING_ICON_TESTID_PREFIX = 'node-coaching-icon-'
@@ -85,21 +84,32 @@ export const NODE_COACHING_ICON_TESTID_PREFIX = 'node-coaching-icon-'
  * Olumi"), so the key imports this mark rather than redrawing one.
  */
 /**
- * ⭐ THE OLUMI AI ICON ON THE CARD (Paul, 30 Sep 2026: "the canvas card should use the Olumi icon"). Design System v5
- * §9.8 — "the only custom icon in the system", marking any element whose click starts an AI interaction — drawn by
- * the ONE component that owns it (`OlumiAiIcon`: the logo mark, circle / triangle / square, as a single-colour outline).
- * This supersedes contract v3.1's speech-bubble coaching glyph (DESIGN-GAP-v31 #42) and ends the named ruling conflict
- * with Panel R3: the coaching door and the hover "Ask Olumi" are one act, so they are now one glyph again.
- * The stroke and size stay the rail's (`1.8` at 15px), and the resting ink stays muted (`text-text-light`, §9.8
- * "at rest in dense contexts"); the identity token `olumi-glyph-ai` lets a probe bind the glyph.
+ * ⭐ THE REAL OLUMI BRAND MARK ON THE CARD (Paul, 1 Oct 2026: "You haven't implemented the actual Olumi brand icon.
+ * You've just added three black and white shapes to the right-hand corner.").
+ *
+ * - **30 Sep (#2360):** this drew `OlumiAiIcon`, DS v5 §9.8's single-colour OUTLINE of the mark, without its arcs.
+ *   At 15px those three outlines read as random shapes, not the brand.
+ * - **Now:** it draws the brand mark itself, `public/olumi-mark-card.svg`: the dark arcs, the orange circle, the blue
+ *   triangle and the green square, in their own colours.
+ *   - That file is `olumi-mark.svg` without its `prefers-color-scheme: dark` rule. The app is light-only, and in an
+ *     `<img>` that rule would follow the OS and fade the arcs on a dark-mode Mac.
+ *   - The size stays the rail's (15px, counter-scaled via the caller's class). The identity token `olumi-glyph-ai`
+ *     still binds the glyph, and `data-icon="olumi-brand-mark"` names the new drawing.
+ * - The hover quick-action "Ask Olumi" and the canvas key read this same glyph, so the act still wears one mark.
+ *   The panel's own asks keep `OlumiAiIcon` (Panel's surface).
  */
-function OlumiCardGlyph({ size = 15, className, strokeWidth = 1.8, 'aria-hidden': ariaHidden }: LucideProps) {
+export const OLUMI_CARD_MARK_SRC = '/olumi-mark-card.svg'
+function OlumiCardGlyph({ size = 15, className, 'aria-hidden': ariaHidden }: LucideProps) {
   return (
-    <OlumiAiIcon
-      size={size}
-      strokeWidth={strokeWidth}
-      className={`olumi-glyph-ai${className ? ` ${className}` : ''}`}
-      aria-hidden={ariaHidden}
+    <img
+      src={OLUMI_CARD_MARK_SRC}
+      alt=""
+      width={typeof size === 'number' ? size : undefined}
+      height={typeof size === 'number' ? size : undefined}
+      draggable={false}
+      data-icon="olumi-brand-mark"
+      className={`olumi-glyph-ai select-none${className ? ` ${className}` : ''}`}
+      aria-hidden={ariaHidden ?? true}
     />
   )
 }

@@ -300,7 +300,7 @@ export const ANCHOR_CARD_MAX_W = 720
 export const MAX_CARDS_PER_ROW = 5
 
 /**
- * ⭐⭐ THE ROW-END REASONING PROMPT IS AN ICON BUTTON, 64 FLOW UNITS SQUARE (Paul,
+ * ⭐⭐ THE ROW-END REASONING PROMPT IS AN ICON BUTTON, NOW 32 FLOW UNITS SQUARE (Paul 1 Oct: 50% smaller; was 64, Paul,
  * 30 Sep 2026 ~12:30Z: "improve the design of the right-hand panels … Those could
  * be icons with hover states … explore how to save space with them, but make
  * them visible and easy to use").
@@ -312,7 +312,8 @@ export const MAX_CARDS_PER_ROW = 5
  * which is as near DS §9.9's 44px target as the canvas allows (48 drew 31px).
  * Flow units, like the cards; the glyph inside counter-scales like the others.
  */
-export const ROW_PROMPT_W = 64
+/** Paul, 1 Oct 2026: "Make the plus buttons on the right smaller … They should be 50% smaller." 64 → 32. */
+export const ROW_PROMPT_W = 32
 
 /**
  * The prompt's height at the counter-scale bound — a FLOOR the layout reserves,
