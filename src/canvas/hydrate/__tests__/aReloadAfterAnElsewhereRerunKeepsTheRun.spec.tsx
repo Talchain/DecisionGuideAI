@@ -97,7 +97,7 @@ function onScreen() {
   return {
     runKind: st.analysisStateV1?.run_state.kind ?? null,
     resultsHash: st.results?.hash ?? null,
-    deltaCurrentRunId: st.runDelta?.delta.endpoints.current.run_id ?? null,
+    deltaCurrentRunId: st.runDelta?.delta.endpoints?.current.run_id ?? null,
     deltaBoundTo: st.runDelta?.analysisHash ?? null,
     dirty: st.analysisFreshnessDirty,
     editedSinceLastRun: st.graphEditedSinceLastRun,
