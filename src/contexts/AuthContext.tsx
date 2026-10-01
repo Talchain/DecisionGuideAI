@@ -59,6 +59,12 @@ interface AuthContextType {
   requestPasswordReset: (email: string) => Promise<{ error: unknown }>;
   /** Set the signed-in user's password (invite acceptance, reset). */
   updatePassword: (password: string) => Promise<{ error: unknown }>;
+  /**
+   * Ask to change the signed-in user's sign-in email. Supabase's built-in flow: with secure email change ON (the live
+   * setting), a confirmation link goes to BOTH the current and the new address, and the email changes only once both
+   * are confirmed. Each link lands on `/auth/confirm` (type `email_change`).
+   */
+  requestEmailChange: (email: string) => Promise<{ error: unknown }>;
   signOut: () => Promise<{ error: unknown }>;
 
   // Legacy compat — kept so existing components that destructure these don't break.
@@ -78,6 +84,7 @@ const AuthContext = createContext<AuthContextType>({
   signInWithPassword: async () => ({ error: new Error('AuthContext not initialized') }),
   requestPasswordReset: async () => ({ error: new Error('AuthContext not initialized') }),
   updatePassword: async () => ({ error: new Error('AuthContext not initialized') }),
+  requestEmailChange: async () => ({ error: new Error('AuthContext not initialized') }),
   signIn: async () => ({ error: new Error('Password auth removed'), data: null }),
   signUp: async () => ({ error: new Error('Password auth removed'), data: null }),
   signOut: async () => ({ error: new Error('AuthContext not initialized') }),
@@ -254,6 +261,24 @@ async function callUpdatePassword(password: string): Promise<{ error: unknown }>
   }
 }
 
+async function callRequestEmailChange(email: string): Promise<{ error: unknown }> {
+  authLogger.debug('SIGN_IN', 'Email change request');
+  try {
+    if (typeof supabase.auth.updateUser !== 'function') {
+      return { error: signInUnavailable('updateUser') };
+    }
+    const { error } = await supabase.auth.updateUser({ email }, { emailRedirectTo: authConfirmUrl() });
+    if (error) {
+      authLogger.error('ERROR', 'Email change request failed', error);
+      return { error };
+    }
+    return { error: null };
+  } catch (error) {
+    authLogger.error('ERROR', 'Email change request error', error);
+    return { error: asFault(error) };
+  }
+}
+
 async function callSignInWithGoogle(): Promise<{ error: unknown }> {
   authLogger.debug('SIGN_IN', 'Google OAuth request');
   try {
@@ -311,6 +336,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signInWithPassword: async () => ({ error: null }),
       requestPasswordReset: async () => ({ error: null }),
       updatePassword: async () => ({ error: null }),
+      requestEmailChange: async () => ({ error: null }),
       signIn: async () => ({ error: null, data: null }),
       signUp: async () => ({ error: null, data: null }),
       signOut: async () => ({ error: null }),
@@ -417,6 +443,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signInWithPassword: callSignInWithPassword,
     requestPasswordReset: callRequestPasswordReset,
     updatePassword: callUpdatePassword,
+    requestEmailChange: callRequestEmailChange,
 
     // Legacy no-ops
     signIn: legacyNoOp,
@@ -688,6 +715,7 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
     signInWithPassword: callSignInWithPassword,
     requestPasswordReset: callRequestPasswordReset,
     updatePassword: callUpdatePassword,
+    requestEmailChange: callRequestEmailChange,
 
     // Password auth is removed product-wide. The guest branch used to answer
     // `{ error: null, data: { id: 'guest' } }` here — a success report for a
