@@ -167,7 +167,7 @@ export function ServerVersionDiff({ diff, fromVersion, toVersion }: ServerVersio
       {undetectable.length > 0 && (
         <div className="rounded-md border border-panel-border p-2" data-testid={`${SERVER_VERSION_DIFF_TESTID}-undetectable`}>
           <p className={`${typography.panelMeta} text-text-light`}>
-            Not saved with the model, so this comparison cannot say whether these changed:
+            Not saved with the model, so these differences cannot show whether these changed:
           </p>
           <ul className={`${typography.panelMeta} text-text-light list-disc pl-4`}>
             {undetectable.map((token, index) => (

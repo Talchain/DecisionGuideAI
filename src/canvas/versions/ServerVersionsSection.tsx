@@ -254,13 +254,13 @@ function signInRefusalCopy(
   }
 }
 
-export const COMPARE_SESSION_ENDED = 'Your session is no longer valid. Sign in again, then compare.'
+export const COMPARE_SESSION_ENDED = 'Your session is no longer valid. Sign in again, then show the differences.'
 export const COMPARE_REFUSED_WHILE_SIGNED_IN =
-  'The server refused this comparison as signed-out while you are signed in — a fault in Olumi, not something a retry can fix.'
+  'The server refused this as signed-out while you are signed in — a fault in Olumi, not something a retry can fix.'
 export const COMPARE_VERSION_GONE = 'One of those versions is no longer available. The list has been refreshed.'
-export const COMPARE_NOT_COMPARABLE = 'Those two versions cannot be compared safely.'
-export const COMPARE_HISTORY_MOVED = 'The history changed while comparing. The list has been refreshed; compare again.'
-export const COMPARE_UNAVAILABLE = 'Those versions could not be compared right now. Try again.'
+export const COMPARE_NOT_COMPARABLE = 'Olumi cannot safely show the differences between those two versions.'
+export const COMPARE_HISTORY_MOVED = 'The history changed meanwhile. The list has been refreshed; show the differences again.'
+export const COMPARE_UNAVAILABLE = 'The differences could not be loaded right now. Try again.'
 
 /**
  * The default pair: the version BEFORE the head → the head (the current shared
@@ -1106,7 +1106,11 @@ export function ServerVersionsSection() {
 
 export const SERVER_VERSION_COMPARE_TESTID = 'server-version-compare'
 
-/** The From/To picker and the answer. Presentational: the section owns the request and its ordering. */
+/**
+ * The From/To picker and the answer. Presentational: the section owns the request and its ordering.
+ * ⚠ NOT "Compare" (DL 1 Oct): that word belongs to the Compare tab (Run vs Run). This stays inside Version history
+ * and never routes there.
+ */
 function ServerVersionCompare({
   versions,
   currentVersionId,
@@ -1135,9 +1139,9 @@ function ServerVersionCompare({
 
   return (
     <section className="space-y-2 pt-2 border-t border-panel-border" data-testid={SERVER_VERSION_COMPARE_TESTID}>
-      <h4 className={`${typography.panelBody} text-text-body font-medium`}>Compare two versions</h4>
+      <h4 className={`${typography.panelBody} text-text-body font-medium`}>What changed between versions</h4>
       <div className="flex items-center gap-2">
-        <label className="sr-only" htmlFor="server-compare-from">Compare from</label>
+        <label className="sr-only" htmlFor="server-compare-from">From version</label>
         <select
           id="server-compare-from"
           data-testid={`${SERVER_VERSION_COMPARE_TESTID}-from`}
@@ -1150,7 +1154,7 @@ function ServerVersionCompare({
           ))}
         </select>
         <span aria-hidden="true" className={`${typography.panelBody} text-text-light`}>→</span>
-        <label className="sr-only" htmlFor="server-compare-to">Compare to</label>
+        <label className="sr-only" htmlFor="server-compare-to">To version</label>
         <select
           id="server-compare-to"
           data-testid={`${SERVER_VERSION_COMPARE_TESTID}-to`}
@@ -1169,7 +1173,7 @@ function ServerVersionCompare({
           onClick={onCompare}
           className={`${typography.panelBody} shrink-0 px-3 py-1.5 rounded-md border border-panel-border text-text-body hover:bg-panel-hover disabled:opacity-60`}
         >
-          {comparing ? 'Comparing…' : 'Compare'}
+          {comparing ? 'Finding differences…' : 'Show differences'}
         </button>
       </div>
       {pair.from === pair.to && (

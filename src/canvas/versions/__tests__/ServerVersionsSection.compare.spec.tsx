@@ -19,6 +19,7 @@
  *   VC6  fewer than two versions → no compare block. CONTRAST: two → present.
  *   VC7  the same version on both sides → Compare disabled, nothing sent.
  *   VC8  identical relation → "These two versions are the same model."
+ *   VC9  the block never says "Compare" (the Run-vs-Run tab's word): heading, button and labels are its own.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -140,6 +141,23 @@ describe('VC1 · the default pair, compared through the real client, rendered ve
     expect(within(diff).getByTestId(`${D}-analysis`)).toHaveTextContent('Some of these changes affect the analysis')
     expect(within(diff).getByTestId(`${D}-undetectable`)).toHaveTextContent(FIXTURE.coverage.known_undetectable[0].replace(/_/g, ' '))
     expect(within(diff).getByTestId(`${D}-uninterpreted`)).toHaveTextContent(FIXTURE.coverage.known_uninterpreted_paths[0])
+  })
+})
+
+describe('VC9 · one "Compare" in the product: the Run-vs-Run tab (DL 1 Oct)', () => {
+  it('Version history says "What changed between versions" / "Show differences", never "Compare"', async () => {
+    compareReplies = [{ status: 200, body: FIXTURE }]
+    await mount()
+    const block = screen.getByTestId(C)
+    expect(within(block).getByRole('heading')).toHaveTextContent('What changed between versions')
+    expect(within(block).getByRole('button', { name: 'Show differences' })).toBeInTheDocument()
+    expect(within(block).getByLabelText('From version')).toBeInTheDocument()
+    expect(within(block).getByLabelText('To version')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId(`${C}-go`))
+    await screen.findByTestId(D)
+    // Positive control first: the block does carry text, so the absence below is not an empty read.
+    expect(block.textContent?.length ?? 0).toBeGreaterThan(200)
+    expect(block.textContent).not.toMatch(/\bCompar/)
   })
 })
 
