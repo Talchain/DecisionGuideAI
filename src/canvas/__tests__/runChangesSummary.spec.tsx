@@ -83,7 +83,9 @@ function readerView() {
   return v!
 }
 
-beforeEach(() => vi.mocked(focusNodeById).mockClear())
+beforeEach(() => {
+  vi.mocked(focusNodeById).mockClear()
+})
 afterEach(cleanup)
 
 describe('M2-1 · what changed', () => {
