@@ -7,7 +7,23 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.61.0.tgz` ← **THE CURRENT PIN** (28 Sep 2026, R1 reader-first)
+### `talchain-schemas-0.69.0.tgz` ← **THE CURRENT PIN** (1 Oct 2026, F1 — DGAI first, then CEE; DL 380e54 #85 5931482042)
+
+**Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF — not a local re-pack.** Downloaded by MG 0ebb952a from
+`https://npm.pkg.github.com/download/@talchain/schemas/0.69.0/939f5c9ecfcb8cfc27329bf7bd94cf91adb1ad8c`
+(`output/schemas-0.69.0/REGISTRY-PROVENANCE.md`); registry gitHead `5b0ca7f5404465300ed497661d15bec41d0f4ff1`
+(olumi-schemas `main` after #78). **761,983 bytes.** Verified, all exact:
+
+```
+npm shasum (sha1)  939f5c9ecfcb8cfc27329bf7bd94cf91adb1ad8c   (the registry download id)
+integrity (sha512) sha512-uj3eCrm41M/WZjW8hgAuxeCPDviP+Sh8v/bIEQdwBrNrGGGcZmTe2e260Ymvz5jaZQUM45jqV7cHGn9rfKIhjw==
+sha256             ebd1745c6581cf163242b7af5e68546dfbaac58b25596fbe427eda6234e2a5d4   (the .sha256 sidecar)
+```
+
+**What 0.69.0 adds:** additive/optional only (schemas #78). DGAI pins first so the UI's strict parsers accept it
+before CEE emits it. Replaces 0.68.0 (no longer vendored).
+
+### `talchain-schemas-0.61.0.tgz` (historical) (28 Sep 2026, R1 reader-first)
 
 **Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF — not a local re-pack.** Byte-identical to the
 file CEE vendors in CEE #2261 and PLoT vendors in PLoT #403 (git blob
