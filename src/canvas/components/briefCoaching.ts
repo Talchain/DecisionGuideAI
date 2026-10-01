@@ -46,7 +46,7 @@ export const BRIEF_COACHING_CARDS: Readonly<Record<BriefCoachingId, BriefCoachin
   goal: {
     id: 'goal',
     title: 'Make success measurable',
-    science: 'Specific targets beat vague aims (goal-setting research, Locke & Latham). A number and a date let Olumi score every option against yours.',
+    science: 'A specific target guides effort better than a vague aim (goal-setting research, Locke & Latham). A number and a date let Olumi score every option against yours.',
     actionLabel: 'Add a target',
     prefill: 'My target is ',
   },
