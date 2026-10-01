@@ -24,7 +24,7 @@ const WIRE = {
   ops: [
     { op: 'add_node', id: 'fac_onboarding_time', label: 'Customer onboarding time', kind: 'factor' },
     { op: 'add_edge', from_id: 'fac_onboarding_time', to_id: 'enterprise_prospect_signing_likelihood' },
-    { op: 'set_link_strength', from_id: 'sprint_capacity_for_ai_reporting', to_id: 'ai_reporting_module_availability', band: 'moderate' },
+    { op: 'set_link_strength', from_id: 'sprint_capacity_for_ai_reporting', to_id: 'ai_reporting_module_availability', band: 'moderate', keeps: false },
   ],
 }
 const CONSENT: ActionChip = { id: consentChipIdFor(WIRE.proposal_id), label: 'Make this change', intent: 'primary', message: 'Yes, make that change.' }
@@ -45,8 +45,8 @@ describe('readProposalPreview: the ruled shape, nothing looser', () => {
       proposalId: 'prop_0a1b2c3d4e5f',
       ops: [
         { op: 'add_node', id: 'fac_onboarding_time', label: 'Customer onboarding time', kind: 'factor' },
-        { op: 'add_edge', fromId: 'fac_onboarding_time', toId: 'enterprise_prospect_signing_likelihood' },
-        { op: 'set_link_strength', fromId: 'sprint_capacity_for_ai_reporting', toId: 'ai_reporting_module_availability', band: 'moderate' },
+        { op: 'add_edge', fromId: 'fac_onboarding_time', toId: 'enterprise_prospect_signing_likelihood', band: null },
+        { op: 'set_link_strength', fromId: 'sprint_capacity_for_ai_reporting', toId: 'ai_reporting_module_availability', band: 'moderate', keeps: false },
       ],
     })
     expect(readProposalPreview({ __additive__: { proposal_preview: WIRE } })?.proposalId).toBe('prop_0a1b2c3d4e5f')
@@ -64,10 +64,43 @@ describe('readProposalPreview: the ruled shape, nothing looser', () => {
       { op: 'remove_node', id: 'x' }, { op: 'add_node', id: 'n' }, { op: 'add_edge', from_id: 'a' },
       { op: 'set_link_strength', from_id: 'a', to_id: 'b' }, { op: 'add_edge', from_id: 'a', to_id: 'b' },
     ] })
-    expect(p?.ops).toEqual([{ op: 'add_edge', fromId: 'a', toId: 'b' }])
+    expect(p?.ops).toEqual([{ op: 'add_edge', fromId: 'a', toId: 'b', band: null }])
     expect(readProposalPreviewValue({ proposal_id: 'p', ops: [{ op: 'remove_node', id: 'x' }] })).toBeNull()
     expect(readProposalPreviewValue({ ops: WIRE.ops })).toBeNull()
     expect(readProposalPreview({})).toBeNull()
+  })
+})
+
+describe('the PRODUCER\'s shape (CEE #2494 turn-context/proposal-preview.ts), read as it ships', () => {
+  it('the served D1 press, verbatim from #2494\'s route row: a KEEP (records the current strength)', () => {
+    // strengthen-press.test.ts:257 expects exactly this body key.
+    const wire = { proposal_id: 'prop_d1', ops: [{ op: 'set_link_strength', from_id: 'sprint_capacity_for_ai_reporting', to_id: 'ai_reporting_module_availability', band: 'moderate', keeps: true }] }
+    expect(readProposalPreview({ proposal_preview: wire })).toEqual({ proposalId: 'prop_d1', ops: [
+      { op: 'set_link_strength', fromId: 'sprint_capacity_for_ai_reporting', toId: 'ai_reporting_module_availability', band: 'moderate', keeps: true },
+    ] })
+  })
+
+  it('every producer op class: add_edge (band optional), update_edge (keeps, reverses), set_option_status', () => {
+    const p = readProposalPreviewValue({ proposal_id: 'p', ops: [
+      { op: 'add_edge', from_id: 'a', to_id: 'b', band: 'very strong' },
+      { op: 'update_edge', from_id: 'a', to_id: 'c', band: 'weak', keeps: false, reverses: true },
+      { op: 'set_option_status', option_id: 'opt_status_quo', status: 'removed' },
+    ] })
+    expect(p?.ops).toEqual([
+      { op: 'add_edge', fromId: 'a', toId: 'b', band: 'very strong' },
+      { op: 'update_edge', fromId: 'a', toId: 'c', band: 'weak', keeps: false, reverses: true },
+      { op: 'set_option_status', optionId: 'opt_status_quo', status: 'removed' },
+    ])
+  })
+
+  it.each([
+    ['a band the producer never sends (the canvas word "slight")', { op: 'set_link_strength', from_id: 'a', to_id: 'b', band: 'slight', keeps: false }],
+    ['a sized link without its keeps flag', { op: 'set_link_strength', from_id: 'a', to_id: 'b', band: 'strong' }],
+    ['an edited link without reverses', { op: 'update_edge', from_id: 'a', to_id: 'b', band: 'strong', keeps: false }],
+    ['a new link with an unknown band', { op: 'add_edge', from_id: 'a', to_id: 'b', band: 'huge' }],
+    ['an unknown option status', { op: 'set_option_status', option_id: 'o', status: 'paused' }],
+  ])('⛔ fail closed like the producer: %s → dropped', (_why, op) => {
+    expect(readProposalPreviewValue({ proposal_id: 'p', ops: [op] })).toBeNull()
   })
 })
 

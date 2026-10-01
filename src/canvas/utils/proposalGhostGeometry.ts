@@ -5,20 +5,22 @@
  * size). Output is flow-space geometry for the overlay (ProposalGhostLayer.tsx):
  *   - a CARD per `add_node` whose id is not already on the canvas (once the real node lands, its ghost is gone), placed
  *     beside the existing node an `add_edge` ties it to: the first free slot touching it (right, left, below, above),
- *     else the NEAREST free spot whose line to it crosses no other node, else to the right of the drawing.
- *     ⛔ A card never covers a node or another card. Served layouts are dense (CDP template: cards 276-325 wide, 48 px
- *     column and 64 px row gaps), so the slot beside a node is usually its sibling's. A card's height is its MEASURED
- *     height when the overlay has one (canvas text is counter-scaled, so it grows as the camera zooms out);
- *   - a LINE per `add_edge` whose two ends are on the canvas or ghost cards, clipped to the card borders so it never
- *     crosses the text of the cards it joins;
- *   - a BAND mark per `set_link_strength` between two nodes on the canvas: ON the real edge, at the first point along
- *     its drawn path (the overlay samples it, middle first) where the mark covers no node, card or edge label; else a
- *     callout (nearest free spot + a leader to the edge's middle); the edge itself is highlighted either way. The
- *     midpoint of the two centres only when the edge is not drawn. In a layered layout an edge's middle often runs through a 48 px column gap where any mark would
- *     cover the cards either side (served CDP template: GDPR → GDPR risk).
+ *     else the NEAREST free spot whose line to it crosses no other node, else to the right of the drawing. (No producer
+ *     emits `add_node` yet: INERT.) ⛔ A card never covers a node or another card. Served layouts are dense (CDP
+ *     template: cards 276-325 wide, 48 px column and 64 px row gaps), so the slot beside a node is usually its sibling's.
+ *     A card's height is its MEASURED height when the overlay has one (canvas text is counter-scaled, so it grows as
+ *     the camera zooms out);
+ *   - a LINE per `add_edge` whose two ends are on the canvas or ghost cards, clipped to the card borders;
+ *   - a BAND mark per `set_link_strength` / `update_edge` between two nodes on the canvas: ON the real edge, at the
+ *     first point along its drawn path (the overlay samples it, middle first) where the mark covers no node, card or
+ *     edge label, the edge itself highlighted; else a callout (nearest free spot + a leader to the edge's middle). In a
+ *     layered layout an edge's whole run can be a 48 px column gap (served CDP template: GDPR → GDPR risk at zoom 0.5).
+ *     An `add_edge` with a band marks its ghost line the same way. The centres' midpoint only when nothing is drawn;
+ *   - a STATUS mark per `set_option_status` on an option on the canvas: just above its card, else just below, else a
+ *     callout. No mark ever covers a node, card or edge label while a clear place exists.
  * An op naming anything that is neither on the canvas nor a ghost card is dropped (fail closed: never a guessed place).
  */
-import type { ProposalPreview } from '../conversation/proposalPreview'
+import type { PreviewBand, PreviewOptionStatus, ProposalPreview } from '../conversation/proposalPreview'
 
 export const GHOST_CARD_WIDTH = 220
 export const GHOST_CARD_HEIGHT = 64
@@ -34,7 +36,7 @@ const SEARCH_STEP = 32
 const SEARCH_RADIUS = 960
 /** Any spot whose line crosses a node ranks behind every spot whose line does not. */
 const CROSSING_PENALTY = 4 * SEARCH_RADIUS
-/** A band mark's size before the overlay has measured it. */
+/** A mark's size before the overlay has measured it. */
 const BAND_FALLBACK = { w: 140, h: 24 } as const
 
 export interface GhostNodeInput {
@@ -53,13 +55,31 @@ export interface GhostBand {
   /** The mark's centre. */
   readonly x: number
   readonly y: number
-  readonly band: string
+  readonly band: PreviewBand
+  /** The Yes only RECORDS the strength the link already has: never drawn as a change. */
+  readonly keeps: boolean
+  /** The Yes reverses the link's direction. */
+  readonly reverses: boolean
   /** The real edge's drawn path, to highlight (absent when the edge is not drawn). */
   readonly edgePath?: string
   /** When the mark could not sit on the edge: a line from the edge's middle to the mark's border. */
-  readonly leader?: { readonly x1: number; readonly y1: number; readonly x2: number; readonly y2: number }
+  readonly leader?: GhostLeader
 }
-export interface GhostGeometry { readonly cards: GhostCard[]; readonly lines: GhostLine[]; readonly bands: GhostBand[] }
+export interface GhostLeader { readonly x1: number; readonly y1: number; readonly x2: number; readonly y2: number }
+export interface GhostStatus {
+  readonly key: string
+  readonly optionId: string
+  readonly status: PreviewOptionStatus
+  readonly x: number
+  readonly y: number
+  readonly leader?: GhostLeader
+}
+export interface GhostGeometry {
+  readonly cards: GhostCard[]
+  readonly lines: GhostLine[]
+  readonly bands: GhostBand[]
+  readonly statuses: GhostStatus[]
+}
 
 const rectOf = (n: GhostNodeInput): Rect => ({
   x: n.position.x,
@@ -109,8 +129,8 @@ const slotsBeside = (a: Rect, h: number) => [
 export interface GhostMeasures {
   /** Card height by proposed node id; a missing or zero height reads as GHOST_CARD_HEIGHT. */
   readonly heights?: ReadonlyMap<string, number>
-  /** Band mark size by band key (`from->to`). */
-  readonly bandSizes?: ReadonlyMap<string, { readonly w: number; readonly h: number }>
+  /** Mark size by mark key (`from->to` for a link, `option:<id>` for an option). */
+  readonly markSizes?: ReadonlyMap<string, { readonly w: number; readonly h: number }>
   /** Points along the real edge's drawn path by band key, in preference order (the middle first). */
   readonly bandPaths?: ReadonlyMap<string, ReadonlyArray<{ readonly x: number; readonly y: number }>>
   /** The real edge's drawn path (`d`) by band key. */
@@ -124,7 +144,7 @@ export function proposalGhostGeometry(
   nodes: readonly GhostNodeInput[],
   measures: GhostMeasures = {},
 ): GhostGeometry {
-  const { heights, bandSizes, bandPaths, bandEdgePaths, obstacles = [] } = measures
+  const { heights, markSizes, bandPaths, bandEdgePaths, obstacles = [] } = measures
   const real = new Map(nodes.map((n) => [n.id, rectOf(n)] as const))
   const heightOf = (id: string) => {
     const h = heights?.get(id)
@@ -193,39 +213,67 @@ export function proposalGhostGeometry(
     lines.push({ key: `${e.fromId}->${e.toId}`, x1: p.x, y1: p.y, x2: q.x, y2: q.y })
   }
 
+  /**
+   * Where a mark of `key` goes: the first of `along` where it covers nothing; else a callout (the nearest free spot,
+   * with a leader to `along[0]`); `fallback` when there is nothing to sit along.
+   */
+  const placeMark = (key: string, along: ReadonlyArray<{ x: number; y: number }>, fallback: { x: number; y: number }) => {
+    const size = markSizes?.get(key) ?? BAND_FALLBACK
+    const box = (p: { x: number; y: number }): Rect => ({ x: p.x - size.w / 2, y: p.y - size.h / 2, w: size.w, h: size.h })
+    let at = along.find((p) => !covered(box(p)))
+    let leader: GhostBand['leader']
+    if (!at && along.length > 0) {
+      // Nowhere along is clear (dense rows: an edge's whole run can be a column gap). A callout.
+      const from = along[0]
+      const spot = nearestFree({ x: from.x, y: from.y, w: 0, h: 0 }, size.w, size.h)
+      at = spot ? { x: spot.x + size.w / 2, y: spot.y + size.h / 2 } : from
+      if (spot) {
+        const q = exitPoint(box(at), from.x, from.y)
+        leader = { x1: from.x, y1: from.y, x2: q.x, y2: q.y }
+      }
+    }
+    const placed = at ?? fallback
+    taken.push(box(placed))
+    return { x: placed.x, y: placed.y, ...(leader ? { leader } : {}) }
+  }
+
   const bands: GhostBand[] = []
   for (const op of preview.ops) {
-    if (op.op !== 'set_link_strength') continue
+    if (op.op !== 'set_link_strength' && op.op !== 'update_edge' && op.op !== 'add_edge') continue
+    if (op.op === 'add_edge' && op.band === null) continue
     const a = real.get(op.fromId)
     const b = real.get(op.toId)
     if (!a || !b) continue
     const key = `${op.fromId}->${op.toId}`
     const ca = centre(a)
     const cb = centre(b)
-    const size = bandSizes?.get(key) ?? BAND_FALLBACK
-    const along = bandPaths?.get(key) ?? []
-    const box = (p: { x: number; y: number }): Rect => ({ x: p.x - size.w / 2, y: p.y - size.h / 2, w: size.w, h: size.h })
-    const edgePath = bandEdgePaths?.get(key)
-    const onEdge = along.find((p) => !covered(box(p)))
-    let at: { x: number; y: number }
-    let leader: GhostBand['leader']
-    if (onEdge) {
-      at = onEdge
-    } else if (along.length > 0) {
-      // Nowhere on the edge is clear (dense rows: its whole run is a column gap). A callout: the nearest free spot, a
-      // leader to the edge's middle, and the edge itself highlighted, so the mark can only mean that link.
-      const mid = along[0]
-      const spot = nearestFree({ x: mid.x, y: mid.y, w: 0, h: 0 }, size.w, size.h)
-      at = spot ? { x: spot.x + size.w / 2, y: spot.y + size.h / 2 } : mid
-      if (spot) {
-        const q = exitPoint(box(at), mid.x, mid.y)
-        leader = { x1: mid.x, y1: mid.y, x2: q.x, y2: q.y }
-      }
-    } else {
-      at = { x: (ca.x + cb.x) / 2, y: (ca.y + cb.y) / 2 } // the edge is not drawn
+    const mid = { x: (ca.x + cb.x) / 2, y: (ca.y + cb.y) / 2 }
+    const keeps = op.op === 'add_edge' ? false : op.keeps
+    const reverses = op.op === 'update_edge' ? op.reverses : false
+    if (op.op === 'add_edge') {
+      // A new link has no drawn edge: its mark sits on the ghost line.
+      const l = lines.find((x) => x.key === key)
+      const along = l ? [{ x: (l.x1 + l.x2) / 2, y: (l.y1 + l.y2) / 2 }] : []
+      bands.push({ key, band: op.band!, keeps, reverses, ...placeMark(key, along, mid) })
+      continue
     }
-    taken.push(box(at))
-    bands.push({ key, x: at.x, y: at.y, band: op.band, ...(edgePath ? { edgePath } : {}), ...(leader ? { leader } : {}) })
+    const edgePath = bandEdgePaths?.get(key)
+    bands.push({
+      key, band: op.band, keeps, reverses, ...placeMark(key, bandPaths?.get(key) ?? [], mid), ...(edgePath ? { edgePath } : {}),
+    })
   }
-  return { cards, lines, bands }
+
+  // An option put in or taken out of the comparison: a mark just above its card, else just below, else a callout.
+  const statuses: GhostStatus[] = []
+  for (const op of preview.ops) {
+    if (op.op !== 'set_option_status') continue
+    const o = real.get(op.optionId)
+    if (!o) continue
+    const key = `option:${op.optionId}`
+    const h = (markSizes?.get(key) ?? BAND_FALLBACK).h
+    const above = { x: o.x + o.w / 2, y: o.y - CLEARANCE - h / 2 }
+    const below = { x: o.x + o.w / 2, y: o.y + o.h + CLEARANCE + h / 2 }
+    statuses.push({ key, optionId: op.optionId, status: op.status, ...placeMark(key, [above, below], above) })
+  }
+  return { cards, lines, bands, statuses }
 }

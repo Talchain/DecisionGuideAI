@@ -21,11 +21,10 @@ vi.mock('@xyflow/react', async () => {
   }
 })
 
-import { ProposalGhostLayer, PROPOSAL_GHOST_TESTID } from '../ProposalGhostLayer'
+import { ghostBandText, ghostStatusText, ProposalGhostLayer, PROPOSAL_GHOST_TESTID } from '../ProposalGhostLayer'
 import { GHOST_CARD_WIDTH, GHOST_GAP_X, GHOST_CARD_HEIGHT, GHOST_GAP_Y, proposalGhostGeometry } from '../../utils/proposalGhostGeometry'
 import { useProposalGhostStore } from '../../stores/proposalGhostStore'
 import { readProposalPreviewValue, type ProposalPreview } from '../../conversation/proposalPreview'
-import { strengthBandWords } from '../../../components/results/analysisNew/runDeltaLinkWords'
 
 const NODES = [
   { id: 'enterprise_prospect_signing_likelihood', position: { x: 400, y: 300 }, measured: { width: 240, height: 80 } },
@@ -136,14 +135,14 @@ describe('proposalGhostGeometry: placed by identity, beside what it ties to', ()
     // GDPR → GDPR risk, as drawn: straight down x=747 from the factor row (bottom 606) to the risk row (top 973), its
     // middle through the 48 px gap between Segment and Snowflake. Points in the overlay's order: middle, then outwards.
     const nodes = [...CDP, { id: 'fac_gdpr_compliance', position: { x: 584, y: 476 }, measured: { width: 325, height: 130 } }]
-    const op = { op: 'set_link_strength', from_id: 'fac_gdpr_compliance', to_id: 'risk_gdpr_breach', band: 'strong' }
+    const op = { op: 'set_link_strength', from_id: 'fac_gdpr_compliance', to_id: 'risk_gdpr_breach', band: 'strong', keeps: false }
     const key = 'fac_gdpr_compliance->risk_gdpr_breach'
     const MIDDLE = { x: 747, y: 790 } // between Segment and Snowflake: a 180-wide mark covers both
     const UPPER_GAP = { x: 747, y: 660 } // between the two factor rows
     const LOWER_GAP = { x: 747, y: 941 } // between the factor row and the risk row
     const at = (obstacles: Array<{ x: number; y: number; w: number; h: number }>) => {
       const b = proposalGhostGeometry(preview([op]), nodes, {
-        bandSizes: new Map([[key, { w: 180, h: 34 }]]), bandPaths: new Map([[key, [MIDDLE, UPPER_GAP, LOWER_GAP]]]), obstacles,
+        markSizes: new Map([[key, { w: 180, h: 34 }]]), bandPaths: new Map([[key, [MIDDLE, UPPER_GAP, LOWER_GAP]]]), obstacles,
       }).bands[0]
       return { x: b.x, y: b.y }
     }
@@ -156,7 +155,7 @@ describe('proposalGhostGeometry: placed by identity, beside what it ties to', ()
     // covering nothing, a leader from the edge's middle to it, and the edge highlighted. Never a mark over the cards.
     const signs = [{ x: 737, y: 650, w: 20, h: 20 }, { x: 737, y: 931, w: 20, h: 20 }]
     const callout = proposalGhostGeometry(preview([op]), nodes, {
-      bandSizes: new Map([[key, { w: 180, h: 34 }]]), bandPaths: new Map([[key, [MIDDLE, UPPER_GAP, LOWER_GAP]]]),
+      markSizes: new Map([[key, { w: 180, h: 34 }]]), bandPaths: new Map([[key, [MIDDLE, UPPER_GAP, LOWER_GAP]]]),
       bandEdgePaths: new Map([[key, 'M747,606 L747,973']]), obstacles: signs,
     }).bands[0]
     const cbox = { x: callout.x - 90, y: callout.y - 17, w: 180, h: 34 }
@@ -183,14 +182,44 @@ describe('proposalGhostGeometry: placed by identity, beside what it ties to', ()
   it('⛔ an op naming an element neither on the canvas nor a ghost draws nothing (never a guessed place)', () => {
     const g = proposalGhostGeometry(preview([
       { op: 'add_edge', from_id: 'gone', to_id: 'enterprise_prospect_signing_likelihood' },
-      { op: 'set_link_strength', from_id: 'gone', to_id: 'ai_reporting_module_availability', band: 'strong' },
+      { op: 'set_link_strength', from_id: 'gone', to_id: 'ai_reporting_module_availability', band: 'strong', keeps: false },
     ]), NODES)
-    expect(g).toEqual({ cards: [], lines: [], bands: [] })
+    expect(g).toEqual({ cards: [], lines: [], bands: [], statuses: [] })
   })
 
   it('a strength change between two nodes on the canvas marks the midpoint of their centres', () => {
-    const g = proposalGhostGeometry(preview([{ op: 'set_link_strength', from_id: 'sprint_capacity_for_ai_reporting', to_id: 'ai_reporting_module_availability', band: 'moderate' }]), NODES)
-    expect(g.bands).toEqual([{ key: 'sprint_capacity_for_ai_reporting->ai_reporting_module_availability', x: 100, y: 135, band: 'moderate' }])
+    const g = proposalGhostGeometry(preview([{ op: 'set_link_strength', from_id: 'sprint_capacity_for_ai_reporting', to_id: 'ai_reporting_module_availability', band: 'moderate', keeps: false }]), NODES)
+    expect(g.bands).toEqual([{ key: 'sprint_capacity_for_ai_reporting->ai_reporting_module_availability', x: 100, y: 135, band: 'moderate', keeps: false, reverses: false }])
+  })
+})
+
+describe('the producer\'s other ops: a new link\'s band, an option\'s status', () => {
+  it('an add_edge with a band marks its ghost line; without one, only the line', () => {
+    const tie = { op: 'add_edge', from_id: 'ai_reporting_module_availability', to_id: 'quarterly_revenue' }
+    const g = proposalGhostGeometry(preview([{ ...tie, band: 'strong' }]), NODES)
+    const l = g.lines[0]
+    expect(g.bands).toEqual([{ key: l.key, x: (l.x1 + l.x2) / 2, y: (l.y1 + l.y2) / 2, band: 'strong', keeps: false, reverses: false }])
+    expect(proposalGhostGeometry(preview([tie]), NODES).bands).toEqual([])
+  })
+
+  it('an option status sits just above its card; ⛔ below it when above is taken; ⛔ unknown option → nothing', () => {
+    const opt = { id: 'opt_a', position: { x: 0, y: 400 }, measured: { width: 200, height: 80 } }
+    const op = { op: 'set_option_status', option_id: 'opt_a', status: 'removed' }
+    const sizes = { markSizes: new Map([['option:opt_a', { w: 120, h: 24 }]]) }
+    expect(proposalGhostGeometry(preview([op]), [opt], sizes).statuses)
+      .toEqual([{ key: 'option:opt_a', optionId: 'opt_a', status: 'removed', x: 100, y: 400 - 8 - 12 }])
+    const roof = { id: 'roof', position: { x: 0, y: 340 }, measured: { width: 200, height: 40 } }
+    expect(proposalGhostGeometry(preview([op]), [opt, roof], sizes).statuses[0]).toMatchObject({ x: 100, y: 480 + 8 + 12 })
+    expect(proposalGhostGeometry(preview([{ ...op, option_id: 'gone' }]), [opt], sizes).statuses).toEqual([])
+  })
+
+  it('words: a keep RECORDS (never "Proposed"); a change is "Proposed"; a reversal says so; option words are the card\'s', () => {
+    expect(ghostBandText({ band: 'moderate', keeps: true, reverses: false })).toBe('Record as moderate')
+    expect(ghostBandText({ band: 'moderate', keeps: false, reverses: false })).toBe('Proposed: moderate')
+    expect(ghostBandText({ band: 'strong', keeps: true, reverses: true })).toBe('Proposed: strong, direction reversed')
+    expect(ghostStatusText('infeasible')).toBe('Proposed · Taken out: not feasible')
+    expect(ghostStatusText('removed')).toBe('Proposed · Taken out')
+    expect(ghostStatusText('feasible')).toBe('Proposed · Back in the comparison')
   })
 })
 
@@ -203,7 +232,7 @@ describe('ProposalGhostLayer: draws the store’s ghost, render-only', () => {
 
   it('a ghost → the card (shape, "Proposed", the label), its line and a band in the canvas band words; cleared with the store', () => {
     rfNodes = NODES
-    const p = preview([ADD, TIE, { op: 'set_link_strength', from_id: 'sprint_capacity_for_ai_reporting', to_id: 'ai_reporting_module_availability', band: 'moderate' }])
+    const p = preview([ADD, TIE, { op: 'set_link_strength', from_id: 'sprint_capacity_for_ai_reporting', to_id: 'ai_reporting_module_availability', band: 'moderate', keeps: false }])
     render(<ProposalGhostLayer />)
     act(() => useProposalGhostStore.getState().showGhost(p))
     const card = screen.getByTestId('proposal-ghost-node-fac_onboarding_time')
@@ -212,7 +241,7 @@ describe('ProposalGhostLayer: draws the store’s ghost, render-only', () => {
     expect(card.querySelector('svg')).not.toBeNull()
     expect(screen.getByTestId('proposal-ghost-line-fac_onboarding_time->enterprise_prospect_signing_likelihood')).toBeTruthy()
     expect(screen.getByTestId('proposal-ghost-band-sprint_capacity_for_ai_reporting->ai_reporting_module_availability').textContent)
-      .toBe(`Proposed: ${strengthBandWords('moderate')}`)
+      .toBe('Proposed: moderate')
     act(() => useProposalGhostStore.getState().clearGhost('prop_1'))
     expect(screen.queryByTestId(PROPOSAL_GHOST_TESTID)).toBeNull()
   })
