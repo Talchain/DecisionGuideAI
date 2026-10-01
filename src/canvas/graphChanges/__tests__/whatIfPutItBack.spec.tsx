@@ -74,10 +74,14 @@ function seed(node: ReturnType<typeof factor>, d: RunDelta) {
 
 function mountBoth() {
   const node = useCanvasStore.getState().nodes[0] as unknown as { id: string; data: Record<string, unknown> }
+  const props = {
+    id: node.id, type: 'factor', data: node.data, selected: false, dragging: false, zIndex: 0,
+    isConnectable: false, positionAbsoluteX: 0, positionAbsoluteY: 0,
+  } as unknown as Parameters<typeof FactorNode>[0]
   return render(
     <ReactFlowProvider>
       <RunChangesSummary />
-      <FactorNode {...({ id: node.id, type: 'factor', data: node.data, selected: false, dragging: false, zIndex: 0, isConnectable: false, positionAbsoluteX: 0, positionAbsoluteY: 0 } as never)} />
+      <FactorNode {...props} />
     </ReactFlowProvider>,
   )
 }
