@@ -28,7 +28,7 @@ import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 const STRIP = 'analysis-new-method-strip'
 const CARD = 'analysis-new-challenge'
 
-/** A completed run with a fragile link. Its flip finding names NO technique: the trigger is retired (coach 5931857395). */
+/** A completed run with a fragile link. It raises no flip finding: the trigger is retired (Reasoning Coach 5931857395 + 5932849641). */
 const flipDecision = (): ResultsSectionDataReturn => {
   const d = genuineDecision()
   return {
@@ -73,11 +73,14 @@ describe('one method is active at rest — when the run names one', () => {
     expect(screen.getByTestId(`${STRIP}-method-pre_mortem-mark`)).toBeInTheDocument()
   })
 
-  it('⛔ RETIRED (coach 5931857395): a fragile-link flip finding names no technique, so nothing is pressed or dotted', () => {
-    drawBody(flipDecision())
-    expect(screen.getByTestId(CARD), 'PRECONDITION: the flip leads').toHaveAttribute('data-recommendation-id', 'strengthen:flip:e_price')
-    expect(screen.getByTestId(CARD)).not.toHaveAttribute('data-method-id')
-    expect(pressed()).toEqual([])
+  it('⛔ RETIRED (Reasoning Coach 5931857395 + 5932849641): a fragile link raises no flip finding, so consider_opposite is neither pressed nor dotted', () => {
+    const data = flipDecision()
+    // CONTROL: the fragile link that used to raise the flip finding is in the run.
+    expect((data.confidence.challengeFragileEdges ?? []).map((e) => e.edge_id)).toEqual(['e_price'])
+    drawBody(data)
+    const card = screen.queryByTestId(CARD)
+    if (card) expect(card.getAttribute('data-recommendation-id') ?? '').not.toMatch(/^strengthen:flip/)
+    expect(pressed()).not.toContain('consider_opposite')
     expect(screen.queryByTestId(`${STRIP}-method-consider_opposite-mark`)).toBeNull()
   })
 

@@ -621,15 +621,17 @@ describe('the Reasoning tab does not speak as an oracle', () => {
     // this asserts identity rather than agreement between two lists.
     expect(REACHED_COPY_FILES.length).toBeGreaterThan(40)
     expect(REACHED_COPY_FILES).toContain(COPY_FILE.replace(process.cwd() + '/', ''))
-    // The five files this widening actually had to repair — a POSITIVE CONTROL
+    // The files this widening actually had to repair — a POSITIVE CONTROL
     // on the walk, not the scope. If the derivation stops reaching one of them
     // it has gone blind, and a blind walker returns a clean sweep of nothing.
+    // ⛔ `utils/fragileEdgeCopy.ts` was the fifth. It was reached only through the
+    // flip rec's import in `buildRecommendations.ts`, which went with the rec
+    // (Reasoning Coach 5931857395 + 5932849641). It renders on the Analysis tab.
     for (const repaired of [
       'src/components/results/analysisNew/buildAnalysisNewViewModel.ts',
       'src/components/results/strengthen/buildRecommendations.ts',
       'src/components/results/useResultsSectionData.ts',
       'src/components/results/utils/evidenceGapConfidenceDisplay.ts',
-      'src/components/results/utils/fragileEdgeCopy.ts',
     ]) {
       expect(REACHED_COPY_FILES, `${repaired} is no longer reached — the walk went blind`).toContain(repaired)
     }

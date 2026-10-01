@@ -56,31 +56,23 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     )
   })
 
-  it('flip: fires for the HIGHEST switch-probability fragile edge only, entity-scoped id', () => {
+  // ⛔ The flip trigger is RETIRED (Reasoning Coach 5931857395 + 5932849641): its
+  // `switch_probability` sentence read as the link's effect. Its content and gate
+  // rows are gone; this row pins that flip-bearing inputs raise no flip rec.
+  it('flip: RETIRED — flip-bearing inputs raise no strengthen:flip rec', () => {
     const input: StrengthenInputs = {
       ...base,
+      hasLeadingOption: true,
       fragileEdges: [
         { edgeId: 'e1', factorLabel: 'Team capacity', switchProbability: 0.35 },
         { edgeId: 'e2', factorLabel: 'Salary cost', switchProbability: 0.62, alternativeWinnerLabel: 'Two developers' },
       ],
+      robustness: { status: 'computed', level: 'low' },
     }
-    const recs = buildRecommendations(input)
-    const flips = recs.filter((r) => r.id.startsWith('strengthen:flip:'))
-    expect(flips).toHaveLength(1)
-    expect(flips[0].id).toBe('strengthen:flip:e2')
-    expect(flips[0].targetId).toBe('e2')
-    // Signal names the consequence honestly (producer values only).
-    expect(flips[0].signal).toContain('62%')
-  })
-
-  it('flip: suppressed with no fragile edges or before analysis', () => {
-    expect(ids(base).some((i) => i.startsWith('strengthen:flip:'))).toBe(false)
-    const withEdge: StrengthenInputs = {
-      ...base,
-      analysisComplete: false,
-      fragileEdges: [{ edgeId: 'e1', factorLabel: 'X', switchProbability: 0.5 }],
-    }
-    expect(ids(withEdge).some((i) => i.startsWith('strengthen:flip:'))).toBe(false)
+    // CONTROL: the inputs that used to raise it are present, and the builder runs.
+    expect(input.fragileEdges).toHaveLength(2)
+    expect(ids(input)).toContain('strengthen:robustness')
+    expect(ids(input).filter((i) => i.startsWith('strengthen:flip'))).toEqual([])
   })
 
   it('low-evidence-high-influence: PATH-CONDITIONAL — fires only when producer per-factor confidence is present', () => {
@@ -268,19 +260,26 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
    * a redundant sort here means removing the source's sort leaves every one of
    * these cases GREEN.
    */
-  it('priority: success-measure outranks everything; phase-3 follows priority_rank; flip precedes voi', () => {
+  // The middle rec was the flip trigger (band 100); it is retired (Reasoning Coach
+  // 5931857395 + 5932849641), so lehi (band 110) now holds that place.
+  it('priority: success-measure outranks everything; phase-3 follows priority_rank; lehi precedes voi', () => {
     const input: StrengthenInputs = {
       ...base,
       goalThreshold: null,
-      fragileEdges: [{ edgeId: 'e1', factorLabel: 'X', switchProbability: 0.5 }],
-      factors: [{ factorId: 'f1', label: 'Churn', worthInvestigating: true, canFocus: true, confidenceDisplay: absent() }],
+      factors: [
+        { factorId: 'f1', label: 'Churn', worthInvestigating: true, canFocus: true, confidenceDisplay: absent() },
+        { factorId: 'f2', label: 'Engineering capacity', influence: 0.8, confidenceDisplay: cleared(0.25), canFocus: true },
+      ],
       phase3Items: [{ id: 'b1', title: 'T', targetIds: [], priorityRank: 1 }],
     }
     const recs = buildRecommendations(input)
     const order = recs.map((r) => r.id)
+    expect(order).toEqual(
+      expect.arrayContaining(['strengthen:phase3:b1', 'strengthen:lehi:f2', 'strengthen:voi:f1']),
+    )
     expect(order[0]).toBe('strengthen:success-measure')
-    expect(order.indexOf('strengthen:phase3:b1')).toBeLessThan(order.indexOf('strengthen:flip:e1'))
-    expect(order.indexOf('strengthen:flip:e1')).toBeLessThan(order.indexOf('strengthen:voi:f1'))
+    expect(order.indexOf('strengthen:phase3:b1')).toBeLessThan(order.indexOf('strengthen:lehi:f2'))
+    expect(order.indexOf('strengthen:lehi:f2')).toBeLessThan(order.indexOf('strengthen:voi:f1'))
   })
 
   it('UI-SEM-075(a): phase-3 promotion is capped at the producer top-4 by priority_rank', () => {
@@ -470,30 +469,41 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     const input: StrengthenInputs = {
       ...base,
       goalThreshold: null, // clarify rec (priority 0)
-      fragileEdges: [{ edgeId: 'e1', factorLabel: 'X', switchProbability: 0.5 }], // evaluate rec
+      // evaluate rec. Was the flip trigger, retired (Reasoning Coach 5931857395 + 5932849641).
+      factors: [{ factorId: 'f1', label: 'Churn', worthInvestigating: true, canFocus: true, confidenceDisplay: absent() }],
     }
     const ladder = buildRecommendations(input)
     expect(ladder[0].id).toBe('strengthen:success-measure')
 
     const boosted = buildRecommendations({ ...input, adaptivePriority: 'evaluate' })
-    expect(boosted[0].id).toBe('strengthen:flip:e1') // evaluate floats above clarify
+    expect(boosted[0].id).toBe('strengthen:voi:f1') // evaluate floats above clarify
     // Fail-closed: explicit null behaves like absent.
     const nulled = buildRecommendations({ ...input, adaptivePriority: null })
     expect(nulled[0].id).toBe('strengthen:success-measure')
   })
 
+  // The pair was flip (100) + voi (120), both evaluate. Flip is retired (Reasoning
+  // Coach 5931857395 + 5932849641) and voi is now the only evaluate rec, so the
+  // pair is two clarify recs: success-measure (0) + lehi (110), with voi outside.
   it('adaptive priority preserves relative order WITHIN the matching group', () => {
     const input: StrengthenInputs = {
       ...base,
-      adaptivePriority: 'evaluate',
-      fragileEdges: [{ edgeId: 'e1', factorLabel: 'X', switchProbability: 0.5 }],
-      factors: [{ factorId: 'f1', label: 'Churn', worthInvestigating: true, canFocus: true, confidenceDisplay: absent() }],
+      adaptivePriority: 'clarify',
+      goalThreshold: null,
+      factors: [
+        { factorId: 'f1', label: 'Churn', worthInvestigating: true, canFocus: true, confidenceDisplay: absent() },
+        { factorId: 'f2', label: 'Engineering capacity', influence: 0.8, confidenceDisplay: cleared(0.25), canFocus: true },
+      ],
     }
     const order = buildRecommendations(input)
       .sort((a, b) => a.priority - b.priority)
       .map((r) => r.id)
-    // flip (band 100) still precedes voi (band 120) inside the boosted group.
-    expect(order.indexOf('strengthen:flip:e1')).toBeLessThan(order.indexOf('strengthen:voi:f1'))
+    // PRECONDITION: both members of the group are present, so indexOf is never -1.
+    expect(order).toEqual(expect.arrayContaining(['strengthen:success-measure', 'strengthen:lehi:f2']))
+    // success-measure (band 0) still precedes lehi (band 110) inside the boosted group.
+    expect(order.indexOf('strengthen:success-measure')).toBeLessThan(order.indexOf('strengthen:lehi:f2'))
+    // …and the boosted group floats above the non-matching voi rec.
+    expect(order.indexOf('strengthen:lehi:f2')).toBeLessThan(order.indexOf('strengthen:voi:f1'))
   })
 
   it('every emitted recommendation is fully formed (§8.4) with an explicit ai-dialogue action_type where applicable', () => {

@@ -50,6 +50,7 @@ function firingInputs(overrides: Partial<StrengthenInputs> = {}): StrengthenInpu
     hasLeadingOption: true,
     flipThresholds: null,
     materialParametersAwaitingUserIds: ['f_a'],
+    // Raises nothing now: the flip trigger is retired (Reasoning Coach 5931857395 + 5932849641).
     fragileEdges: [{ edgeId: 'e_ab', factorLabel: 'Price', switchProbability: 0.4 }],
     factors: [
       { factorId: 'f_a', label: 'Price', influence: 0.9, confidenceDisplay: SHOWN, canFocus: true },
@@ -102,7 +103,6 @@ describe('kinds are read from the engine\'s own fields', () => {
     expect(interventions.map((r) => r.id).sort()).toEqual(
       [
         'strengthen:broaden',
-        'strengthen:flip:e_ab',
         'strengthen:lehi:f_a',
         'strengthen:next-input:f_a',
         'strengthen:phase3:blk_assume',
@@ -122,7 +122,6 @@ describe('kinds are read from the engine\'s own fields', () => {
     ['strengthen:success-measure', 'framing', 'id-family'],
     ['strengthen:next-input:f_a', 'value', 'id-family'],
     ['strengthen:lehi:f_a', 'evidence', 'id-family'],
-    ['strengthen:flip:e_ab', 'relationship', 'id-family'],
     ['strengthen:broaden', 'alternatives', 'id-family'],
     ['strengthen:phase3:blk_assume', 'assumption', 'signal-code'],
     ['strengthen:phase3:blk_gap', 'evidence', 'signal-code'],
@@ -137,11 +136,26 @@ describe('kinds are read from the engine\'s own fields', () => {
     expect(item.kindBasis).toBe(basis)
   })
 
+  // ⛔ The `relationship (id-family)` row was the flip rec, now retired (Reasoning
+  // Coach 5931857395 + 5932849641). No live trigger is in that family, so the row
+  // pins the retirement instead; `relationship` stays reachable via edge-target.
+  it('RETIRED: the fragile edge raises no strengthen:flip card, so no id-family relationship item', () => {
+    const inputs = firingInputs()
+    // CONTROL: the input that used to raise it is present, and the engine fired.
+    expect(inputs.fragileEdges.map((e) => e.edgeId)).toEqual(['e_ab'])
+    expect(interventions.length).toBeGreaterThan(0)
+    expect(buildRecommendations(inputs).map((r) => r.id).filter((id) => id.startsWith('strengthen:flip'))).toEqual([])
+    expect(queue.filter((i) => i.kind === 'relationship').map((i) => [i.key, i.kindBasis])).toEqual([
+      ['strengthen:phase3:blk_cal', 'edge-target'],
+    ])
+  })
+
   it('CONTRAST: the same edge-targeted card is neutral when the target is not a known edge', () => {
     const noEdges = buildReviewQueue({ interventions, nodes: [] })
     expect(byKey(noEdges, 'strengthen:phase3:blk_cal').kind).toBe('unclassified')
     // …while a kind said by the id family does not depend on the edge list.
-    expect(byKey(noEdges, 'strengthen:flip:e_ab').kind).toBe('relationship')
+    // (Was the flip card, retired: Reasoning Coach 5931857395 + 5932849641.)
+    expect(byKey(noEdges, 'strengthen:lehi:f_a').kind).toBe('evidence')
   })
 
   it('commit reads as neutral too', () => {
@@ -188,7 +202,10 @@ describe('kinds are read from the engine\'s own fields', () => {
   })
 
   it('the reason is whyNow verbatim, else signal verbatim', () => {
-    const rec = interventions.find((r) => r.id === 'strengthen:flip:e_ab') as Recommendation
+    // Was the flip card, retired (Reasoning Coach 5931857395 + 5932849641).
+    const rec = interventions.find((r) => r.id === 'strengthen:broaden') as Recommendation
+    expect(rec, 'PRECONDITION: the broaden card is built').toBeDefined()
+    expect(rec.whyNow).not.toBe(rec.signal)
     expect(byKey(queue, rec.id).reason).toBe(rec.whyNow)
     const bare = buildReviewQueue({ interventions: [{ ...rec, whyNow: '' }], nodes: [] })
     expect(bare[0]?.reason).toBe(rec.signal)

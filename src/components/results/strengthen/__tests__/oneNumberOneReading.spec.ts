@@ -36,6 +36,12 @@
  * change is that the sentence CARRIES ITS CONDITION and does not state a
  * forecast — so each positive assertion has an opposite-direction twin naming
  * the exact shape that shipped.
+ *
+ * ⛔ THE STRENGTHEN FLIP CARD IS RETIRED (Reasoning Coach 5931857395 +
+ * 5932849641). Even with its condition stated, readers took the conditional
+ * `switch_probability` as the link's effect. Its content rows are gone; the
+ * rows below pin that it is not produced and that its sentence reaches no
+ * Strengthen rec. The elicitation card keeps the shared builder.
  */
 import { describe, it, expect } from 'vitest'
 import { buildRecommendations } from '../buildRecommendations'
@@ -65,74 +71,41 @@ const withFragileEdge = (alternativeWinnerLabel?: string): StrengthenInputs => (
   ],
 })
 
-const flipRec = (inputs: StrengthenInputs) =>
-  buildRecommendations(inputs).find((r) => r.id.startsWith('strengthen:flip:'))
-
-describe('the flip card states the measured condition', () => {
-  /**
-   * ⚠ PRECONDITION, NOT DECORATION. Every assertion below reads `rec.signal`.
-   * If the trigger stopped firing — a gate moved, the shape changed — each one
-   * would throw on `undefined` rather than pass, but the failure would name the
-   * wrong thing. This names it.
-   */
-  it('PRECONDITION: the fixture actually raises the flip recommendation', () => {
-    const rec = flipRec(withFragileEdge('Hire Two Mid-Level Developers'))
-    expect(rec, 'the flip trigger did not fire, so every assertion below is void').toBeDefined()
-    expect(rec?.signal.length ?? 0).toBeGreaterThan(20)
-  })
-
-  it('names the condition the denominator is', () => {
-    const rec = flipRec(withFragileEdge('Hire Two Mid-Level Developers'))
-    expect(rec?.signal).toContain('came out weak')
-  })
-
-  it('names the alternative and the rate the producer measured', () => {
-    const rec = flipRec(withFragileEdge('Hire Two Mid-Level Developers'))
-    expect(rec?.signal).toContain('Hire Two Mid-Level Developers')
-    expect(rec?.signal).toContain('52%')
-  })
-
-  /**
-   * ⛔ THE OPPOSITE-DIRECTION TWIN of the two above. Without it, a sentence that
-   * appended the condition to the original forecast would satisfy every
-   * positive assertion while still telling the reader the number is a chance of
-   * something happening if a factor moves.
-   */
-  it('does NOT state it as a forecast, and does not describe the field next door', () => {
-    const signal = flipRec(withFragileEdge('Hire Two Mid-Level Developers'))?.signal ?? ''
-    expect(signal.toLowerCase()).not.toContain('chance')
-    expect(signal.toLowerCase()).not.toContain('shifts')
-    expect(signal.toLowerCase()).not.toContain('changed the answer')
-  })
-
-  /**
-   * ⚠ THE PRODUCER MAY OMIT `alternative_winner_label`, and the sentence that
-   * names an alternative it does not have would be inventing the most
-   * persuasive part. The condition must survive that branch too — it is where
-   * the sibling file's own retired wording once survived a fix (see
-   * `assumedStrengthCopy.ts`).
-   */
-  it('keeps the condition on the branch that cannot name an alternative', () => {
-    const signal = flipRec(withFragileEdge(undefined))?.signal ?? ''
-    expect(signal).toContain('came out weak')
-    expect(signal).toContain('a different option')
-    expect(signal.toLowerCase()).not.toContain('chance')
+describe('the flip card is retired', () => {
+  it('RETIRED: a flip-bearing run raises no strengthen:flip rec', () => {
+    const input: StrengthenInputs = {
+      ...withFragileEdge('Hire Two Mid-Level Developers'),
+      hasLeadingOption: true,
+      robustness: { status: 'computed', level: 'low' },
+    }
+    const ids = buildRecommendations(input).map((r) => r.id)
+    // CONTROL: the fragile edge is in the inputs, and the builder still runs.
+    expect(input.fragileEdges.map((e) => e.edgeId)).toEqual(['e_pitch_to_revenue'])
+    expect(ids).toContain('strengthen:robustness')
+    expect(ids.filter((i) => i.startsWith('strengthen:flip'))).toEqual([])
   })
 })
 
 describe('the two surfaces read ONE sentence, so they cannot drift', () => {
   /**
-   * ⭐ THE ANTI-FORK ASSERTION. The elicitation card and the Strengthen card
-   * describe the same producer field. Before this change they described it
-   * differently — one conditional, one a forecast — and nothing could see it,
-   * because each was correct-looking in its own file. This binds them to the
-   * same builder: a second spelling anywhere REDs here.
+   * ⛔ ONE SURFACE NOW. The Strengthen card that shared this builder is retired
+   * (Reasoning Coach 5931857395 + 5932849641), so its sentence must reach no
+   * Strengthen rec under any id, bound by the exact string it used to render.
    */
-  it('the Strengthen signal IS the shared builder, with its own referent', () => {
-    const rec = flipRec(withFragileEdge('Hire Two Mid-Level Developers'))
-    expect(rec?.signal).toBe(
-      strongerOptionInWeakRuns(0.52, 'Hire Two Mid-Level Developers', 'that assumption'),
-    )
+  it('RETIRED: no Strengthen rec carries the shared sentence', () => {
+    const input: StrengthenInputs = {
+      ...withFragileEdge('Hire Two Mid-Level Developers'),
+      hasLeadingOption: true,
+      robustness: { status: 'computed', level: 'low' },
+    }
+    const recs = buildRecommendations(input)
+    const retired = strongerOptionInWeakRuns(0.52, 'Hire Two Mid-Level Developers', 'that assumption')
+    // CONTROL: the sentence is real, and the build has recs to sweep.
+    expect(retired).toContain('came out weak')
+    expect(recs.map((r) => r.id)).toContain('strengthen:robustness')
+    for (const r of recs) {
+      expect([r.title, r.signal, r.whyNow, r.tryThis ?? ''], r.id).not.toContain(retired)
+    }
   })
 
   it('the elicitation card IS the same builder, with ITS referent', () => {

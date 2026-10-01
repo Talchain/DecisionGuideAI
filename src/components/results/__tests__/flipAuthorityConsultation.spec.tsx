@@ -23,6 +23,8 @@
  *     own" while this said "55% chance the result flips to Hire Two Sales Reps
  *     if Self-Serve Product Tier shifts." Same panel, same run, same named
  *     alternative.
+ *     ⛔ Since RETIRED outright (Reasoning Coach 5931857395 + 5932849641), so
+ *     SURFACE 2 now pins that no evidence state raises it.
  *
  * PROVENANCE: the flip-threshold rows below are read from the real capture, not
  * authored here.
@@ -143,49 +145,27 @@ const strengthenBase: StrengthenInputs = {
 } as unknown as StrengthenInputs
 
 /** Bound by IDENTITY — the rec's own id prefix, never a copy substring. */
-const flipRec = (inputs: StrengthenInputs) =>
-  buildRecommendations(inputs).find((r) => r.id.startsWith('strengthen:flip:'))
+const flipIds = (inputs: StrengthenInputs) =>
+  buildRecommendations(inputs).map((r) => r.id).filter((id) => id.startsWith('strengthen:flip'))
 
-describe('SURFACE 2 — the Strengthen flip rec consults the flip authority', () => {
-  it('ANTI-VACUITY: with flip-bearing evidence the rec IS produced, carrying the claim', () => {
-    const r = flipRec({ ...strengthenBase, flipThresholds: FLIPPING_ROWS, hasLeadingOption: true })
-    expect(r).toBeDefined()
-    /*
-     * ⚠ RE-POINTED 20 Sep 2026, and the ANTI-VACUITY property is untouched.
-     * The signal read "NN% chance {alt} scores highest instead if {factor}
-     * shifts" and now reads "In the runs where that assumption came out weak,
-     * {alt} was the stronger option NN% of the time" — the earlier wording
-     * stated ISL's `switch_probability` as an unconditional forecast when the
-     * field is a proportion of the runs in which that edge came out weak.
-     * What this test exists to prove is that the rec IS produced and CARRIES
-     * THE CLAIM; both assertions still do that, and the `ALT` binding below is
-     * the identity one, which no reword can weaken.
-     */
-    expect(r!.signal).toContain('was the stronger option')
-    expect(r!.signal).toContain(ALT)
-  })
-
-  it('THE WITNESSED CONTRADICTION IS GONE: attested no-flip suppresses the rec', () => {
-    const r = flipRec({ ...strengthenBase, flipThresholds: ATTESTED_ROWS, hasLeadingOption: true })
-    expect(r).toBeUndefined()
-  })
-
-  it('Q1 ALONE still suppresses — the permission gate is not swallowed by the new one', () => {
-    const r = flipRec({ ...strengthenBase, flipThresholds: FLIPPING_ROWS, hasLeadingOption: false })
-    expect(r).toBeUndefined()
-  })
-
-  it('Q2 is a DIFFERENT question from Q1 — it bites where Q1 is false, which is the whole point', () => {
-    // Anti-correlation made concrete: `hasLeadingOption: true` on BOTH rows, so
-    // Q1 permits in both; only the evidence differs.
-    expect(flipRec({ ...strengthenBase, flipThresholds: FLIPPING_ROWS, hasLeadingOption: true })).toBeDefined()
-    expect(flipRec({ ...strengthenBase, flipThresholds: ATTESTED_ROWS, hasLeadingOption: true })).toBeUndefined()
-  })
-
-  it('degenerate evidence keeps the rec — failing toward "we do not know", never toward silence', () => {
-    for (const rows of [null, [], [{ flip_value: null, flip_reason: 'timeout' }]]) {
-      expect(flipRec({ ...strengthenBase, flipThresholds: rows as never, hasLeadingOption: true }))
-        .toBeDefined()
+describe('SURFACE 2 — the Strengthen flip rec is RETIRED', () => {
+  // ⛔ Reasoning Coach 5931857395 + 5932849641: its `switch_probability` sentence
+  // read as the link's effect, so its evidence-gate rows are gone. No evidence
+  // state, including the flip-bearing one, raises it on a permitted run.
+  it('RETIRED: no flip rec under any evidence, with the leader permitted', () => {
+    // CONTROL: FLIPPING_ROWS is the state that used to open the gate.
+    expect(attestsNoFactorFlip(FLIPPING_ROWS)).toBe(false)
+    expect(strengthenBase.fragileEdges).toHaveLength(1)
+    for (const rows of [FLIPPING_ROWS, ATTESTED_ROWS, null, [], [{ flip_value: null, flip_reason: 'timeout' }]]) {
+      const inputs = {
+        ...strengthenBase,
+        flipThresholds: rows as never,
+        hasLeadingOption: true,
+        robustness: { status: 'computed', level: 'low' },
+      } as StrengthenInputs
+      // CONTROL: the builder still produces its other recs on these inputs.
+      expect(buildRecommendations(inputs).map((r) => r.id)).toContain('strengthen:robustness')
+      expect(flipIds(inputs)).toEqual([])
     }
   })
 })
