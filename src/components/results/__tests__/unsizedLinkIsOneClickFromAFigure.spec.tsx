@@ -19,6 +19,8 @@ import { useCanvasStore } from '../../../canvas/store'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { useResultsSectionData } from '../useResultsSectionData'
 import { AnalysisNewTabBody } from '../analysisNew/AnalysisNewTabBody'
+import { selectRunAffirmedCurrent } from '../../../canvas/state/analysisStateSelector'
+import { useAnalysisTrust } from '../../../canvas/hooks/useAnalysisTrust'
 import served from '../../../canvas/__tests__/fixtures/served-0303ef5-pricing-withheld-run.json'
 
 afterEach(() => {
@@ -70,6 +72,16 @@ function seed(opts: { edgeData?: Record<string, unknown>; warning?: Record<strin
     results: { status: 'complete', progress: 100, report } as never,
   } as never)
 }
+
+
+const wireState = (kind: string) => ({
+  run_state: { kind, computed_at: '2026-10-01T15:00:00.000Z' },
+  readiness: { status: 'ready', blockers: [] },
+  leader_claim: { permitted: true, separation: 'separated' },
+  robustness: { aggregate_level: 'low' },
+  usable_for_prose: true, usable_for_chips: true, usable_for_followup: true,
+  requires_rerun: false, blocked_unusable: false, contradictions: [],
+})
 
 const optionById = () =>
   Object.fromEntries(renderHook(() => useResultsSectionData()).result.current.recommendation.allOptions.map((o) => [o.id, o]))
@@ -143,6 +155,40 @@ describe('B3c · the offer exists only while it can still be true (#2408 CR)', (
   })
 })
 
+describe('B3c · ONE composed currency gates the offer (#2408 delta CR)', () => {
+  const T = `analysis-new-options-unsized-${HELD}`
+  const drawTab = () => {
+    const data = renderHook(() => useResultsSectionData()).result.current
+    return render(<AnalysisNewTabBody resultsSectionData={data} isPreRun={false} isRunning={false} isStale={false} responseHash="b3c-wire" />)
+  }
+
+  it.each(['unknown_degraded', 'refused'])('⛔ local "fresh" + wire %s → cannot_confirm → no row', (kind) => {
+    seed({})
+    useCanvasStore.setState({ analysisStateV1: wireState(kind) } as never)
+    expect(selectRunAffirmedCurrent(useCanvasStore.getState())).toBe(false)
+    drawTab()
+    expect(screen.queryByTestId(T)).toBeNull()
+  })
+
+  it('CONTRAST: local "fresh" + wire complete_current → the row renders', () => {
+    seed({})
+    useCanvasStore.setState({ analysisStateV1: wireState('complete_current') } as never)
+    expect(selectRunAffirmedCurrent(useCanvasStore.getState())).toBe(true)
+    drawTab()
+    expect(screen.getByTestId(T)).toBeInTheDocument()
+  })
+
+  it('the predicate agrees with the composed hook the rest of the product reads', () => {
+    for (const kind of [null, 'complete_current', 'unknown_degraded', 'refused', 'complete_stale']) {
+      seed({})
+      useCanvasStore.setState({ analysisStateV1: kind === null ? null : wireState(kind) } as never)
+      const hookSaysCurrent = renderHook(() => useAnalysisTrust()).result.current.semantic === 'current'
+      expect(selectRunAffirmedCurrent(useCanvasStore.getState()), String(kind)).toBe(hookSaysCurrent)
+      cleanup()
+    }
+  })
+})
+
 describe('B3c · the actions reuse the canvas paths and claim no more than the send settled', () => {
   async function drawWithMocks(outcome: string) {
     vi.resetModules()
@@ -186,13 +232,19 @@ describe('B3c · the actions reuse the canvas paths and claim no more than the s
     expect(screen.getByTestId('u-e1-note')).toHaveTextContent("Olumi can't accept this one here. Use Edit to set it.")
   })
 
-  it('⛔ CLICK TIME: a Run that went stale after render sends nothing and says so', async () => {
+  it.each([
+    ['local stale', { analysisFreshnessDirty: true }],
+    ['wire unknown_degraded', { analysisStateV1: wireState('unknown_degraded') }],
+    ['wire refused', { analysisStateV1: wireState('refused') }],
+  ])('⛔ CAPTURED CLICK: current at render, %s at click → the handler sends nothing and says so', async (_l, change) => {
     const store = await drawWithMocks('dispatched')
-    act(() => { store.setState({ analysisFreshnessDirty: true } as never) })
-    // The row unmounts on a stale Run; a click that raced it still re-asks the store (direct call below).
-    const { clickTimeRefusal } = await import('../analysisNew/sections/UnsizedLinkActions')
-    expect(clickTimeRefusal('e1')).toBe('not_current')
+    cleanup()
+    const { UnsizedLinkRow } = await import('../analysisNew/sections/UnsizedLinkActions')
+    render(<UnsizedLinkRow link={{ edgeId: 'e1', fromLabel: 'Price', toLabel: 'MRR' }} testId="r" />)
+    store.setState(change as never)
+    fireEvent.click(screen.getByTestId('r-e1-accept'))
     expect(confirm).not.toHaveBeenCalled()
+    expect(screen.getByTestId('r-e1-note')).toHaveTextContent('This analysis may be out of date.')
   })
 
   it('⛔ CLICK TIME: a link sized after render (Edit / acceptance landed) sends nothing; CONTRAST the placeholder sends', async () => {

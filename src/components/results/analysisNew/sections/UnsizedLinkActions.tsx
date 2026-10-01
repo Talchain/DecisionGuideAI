@@ -11,8 +11,9 @@
  * more than the send settled: `sent` is not "recorded".
  *
  * ⛔ THE ACTION EXISTS ONLY WHILE IT CAN STILL BE TRUE (#2408 CR, CODEX_CLI_OVERFLOW, two reproduced P1s):
- * - the Run on screen must be affirmatively CURRENT (`useAnalysisResultsAreCurrent`). A stale or unconfirmed Run's
- *   warning is about a model that may no longer exist, so the row does not render.
+ * - the Run on screen must be affirmatively CURRENT (`selectRunAffirmedCurrent`: the composed verdict, so a wire
+ *   `unknown_degraded` / `refused` withholds it even under local `fresh`). A stale or unconfirmed Run's warning is about
+ *   a model that may no longer exist, so the row does not render.
  * - the edge must still be a placeholder (`isStrengthPlaceholder`). The hook filters on it; an Edit or acceptance that
  *   sizes the link clears it.
  * - BOTH are re-read at click time from the store (`clickTimeRefusal`), because either can change between render and
@@ -23,10 +24,7 @@ import { typography } from '../../../../styles/typography'
 import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuthority'
 import { openEdgeStrengthEditor } from '../../../../canvas/utils/openEdgeStrengthEditor'
 import { useCanvasStore } from '../../../../canvas/store'
-import {
-  analysisResultsAreCurrentIn,
-  useAnalysisResultsAreCurrent,
-} from '../../../../canvas/hooks/useAnalysisResultsAreCurrent'
+import { selectRunAffirmedCurrent } from '../../../../canvas/state/analysisStateSelector'
 import { isStrengthPlaceholder } from '../../../../canvas/domain/strengthPlaceholder'
 
 export const UNSIZED_LINK_COPY = {
@@ -38,14 +36,14 @@ export const UNSIZED_LINK_COPY = {
   notRecorded: 'Not recorded. Use Edit to set it.',
   unverified: 'Not confirmed yet. Check the link before re-running.',
   cannotHere: "Olumi can't accept this one here. Use Edit to set it.",
-  notCurrent: 'The analysis has changed since this was offered. Re-run to see what is still unsized.',
+  notCurrent: 'This analysis may be out of date. Re-run to see what is still unsized.',
   alreadySized: 'This link has a strength now.',
 } as const
 
 /** Re-read at click time: may Accept still be true? `null` = yes; otherwise the state to show instead of sending. */
 export function clickTimeRefusal(edgeId: string): 'not_current' | 'already_sized' | null {
   const s = useCanvasStore.getState()
-  if (!analysisResultsAreCurrentIn(s)) return 'not_current'
+  if (!selectRunAffirmedCurrent(s)) return 'not_current'
   const edge = s.edges.find((e) => e.id === edgeId)
   if (!edge || !isStrengthPlaceholder(edge.data as Record<string, unknown> | undefined)) return 'already_sized'
   return null
@@ -53,7 +51,8 @@ export function clickTimeRefusal(edgeId: string): 'not_current' | 'already_sized
 
 type RowState = 'idle' | 'sending' | 'sent' | 'not_recorded' | 'unverified' | 'cannot' | 'not_current' | 'already_sized'
 
-function LinkRow({ link, testId }: { link: { edgeId: string; fromLabel: string; toLabel: string }; testId: string }) {
+/** One link's actions. Exported so a test can drive the click handler itself (the container's render gate would unmount it). */
+export function UnsizedLinkRow({ link, testId }: { link: { edgeId: string; fromLabel: string; toLabel: string }; testId: string }) {
   const authority = useModelEditAuthority(null, link.edgeId)
   const [state, setState] = useState<RowState>('idle')
   const note =
@@ -122,7 +121,7 @@ export function UnsizedLinkActions({
   links: ReadonlyArray<{ edgeId: string; fromLabel: string; toLabel: string }>
   testId: string
 }) {
-  const current = useAnalysisResultsAreCurrent()
+  const current = useCanvasStore(selectRunAffirmedCurrent)
   if (links.length === 0 || !current) return null
   return (
     <div className="mt-2" data-testid={testId}>
@@ -130,7 +129,7 @@ export function UnsizedLinkActions({
         {UNSIZED_LINK_COPY.heading(links.length)}
       </p>
       <ul className="flex flex-col mt-1" style={{ gap: 8 }}>
-        {links.map((l) => <LinkRow key={l.edgeId} link={l} testId={testId} />)}
+        {links.map((l) => <UnsizedLinkRow key={l.edgeId} link={l} testId={testId} />)}
       </ul>
     </div>
   )
