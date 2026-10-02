@@ -6,7 +6,7 @@
  * Design System v4 compliant — all styling via semantic tokens.
  */
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Plus, Trash2, AlertTriangle, Loader2,
@@ -23,6 +23,7 @@ import { formatRelativeTime } from '../utils/formatRelativeTime'
 import { UserAvatarMenu } from '../components/layout/UserAvatarMenu'
 import { typography } from '../styles/typography'
 import { trackEvent } from '../lib/posthog'
+import { GUEST_COPIED_EVENT } from '../lib/guestCopyOnSignIn'
 
 // ---------------------------------------------------------------------------
 // Stage badge styles — semantic colours from the design system
@@ -297,17 +298,21 @@ export default function ScenarioListPage() {
   const [deleting, setDeleting] = useState(false)
   const [filter, setFilter] = useState<HubFilter>('active')
 
+  // Only the NEWEST list request may commit: a slower mount/focus request that
+  // started before a guest copy landed must not overwrite the refetch that shows it.
+  const listRequestRef = useRef(0)
   const fetchScenarios = useCallback(async () => {
     if (!isPersistenceActive || !user) return
+    const request = ++listRequestRef.current
     setLoading(true)
     setError(null)
     try {
       const list = await scenarioService.listScenarios(user.id)
-      setScenarios(list)
+      if (request === listRequestRef.current) setScenarios(list)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load decisions')
+      if (request === listRequestRef.current) setError(err instanceof Error ? err.message : 'Failed to load decisions')
     } finally {
-      setLoading(false)
+      if (request === listRequestRef.current) setLoading(false)
     }
   }, [isPersistenceActive, user])
 
@@ -318,6 +323,14 @@ export default function ScenarioListPage() {
     const handler = () => { if (document.visibilityState === 'visible') fetchScenarios() }
     document.addEventListener('visibilitychange', handler)
     return () => document.removeEventListener('visibilitychange', handler)
+  }, [fetchScenarios])
+
+  // ACCOUNTS B3: a guest decision copied into the account on sign-in usually
+  // lands AFTER this page has mounted and fetched, so re-fetch when it does.
+  useEffect(() => {
+    const handler = () => { fetchScenarios() }
+    window.addEventListener(GUEST_COPIED_EVENT, handler)
+    return () => window.removeEventListener(GUEST_COPIED_EVENT, handler)
   }, [fetchScenarios])
 
   // Filter scenarios
