@@ -61,7 +61,8 @@ export function readListedRecord(raw: unknown): DecisionRecord | null {
   if (r.position !== 'chosen') return null
   const confidence = r.confidence_0_100
   if (!nonEmpty(r.chosen_option_id) || !nonEmpty(r.chosen_option_label)) return null
-  if (typeof confidence !== 'number' || !Number.isInteger(confidence) || confidence < 0 || confidence > 100) return null
+  // CEE returns the stated percentage as stated (72.4 stays 72.4; Codex P3 on the route), never rounded.
+  if (typeof confidence !== 'number' || !Number.isFinite(confidence) || confidence < 0 || confidence > 100) return null
   return {
     ...common,
     optionId: r.chosen_option_id,

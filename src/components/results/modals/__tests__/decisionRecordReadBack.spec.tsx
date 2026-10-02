@@ -10,6 +10,8 @@ type SessionIdentity = { userId: string | null; accessToken: string | null }
 const OWNER_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
 const OTHER_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
 const mockGetSessionIdentity = vi.fn<[], Promise<SessionIdentity>>(async () => ({ userId: OWNER_ID, accessToken: 'tok' }))
+let authState: { user: { id: string } | null } = { user: { id: OWNER_ID } }
+vi.mock('../../../../contexts/AuthContext', () => ({ useAuth: () => authState }))
 vi.mock('../../../../lib/supabase', () => ({
   supabase: {},
   getSessionIdentity: (...args: unknown[]) => (mockGetSessionIdentity as unknown as (...a: unknown[]) => unknown)(...args),
@@ -39,6 +41,7 @@ beforeEach(() => {
   localStorage.clear()
   S.useDecisionRecordStore.getState()._reset()
   mockGetSessionIdentity.mockResolvedValue({ userId: OWNER_ID, accessToken: 'tok' })
+  authState = { user: { id: OWNER_ID } }
 })
 afterEach(() => { vi.restoreAllMocks() })
 
@@ -57,11 +60,20 @@ describe('the listed record maps onto the store\'s own shape — never half-true
     expect(r).not.toHaveProperty('optionId')
     expect(r.remote?.storedTextFields).toEqual(['revisit_trigger'])
   })
-  it('CONTROL: an unknown position, a missing label, or a confidence that is not an integer 0–100 is DROPPED', () => {
+  it('a fractional stated confidence comes back as stated (CEE returns 72.4 for a stored 0.724; never rounded)', () => {
+    expect((readListedRecord({ ...CHOSEN, confidence_0_100: 72.4 }) as { confidence: number }).confidence).toBe(72.4)
+  })
+  it('CONTROL: an unknown position, a missing label, or a confidence outside 0–100 / not a finite number is DROPPED', () => {
     expect(readListedRecord({ ...CHOSEN, position: 'maybe' })).toBeNull()
     expect(readListedRecord({ ...CHOSEN, chosen_option_label: '' })).toBeNull()
-    expect(readListedRecord({ ...CHOSEN, confidence_0_100: 0.72 })).toBeNull()
     expect(readListedRecord({ ...CHOSEN, confidence_0_100: 101 })).toBeNull()
+    expect(readListedRecord({ ...CHOSEN, confidence_0_100: -0.1 })).toBeNull()
+    expect(readListedRecord({ ...CHOSEN, confidence_0_100: Number.NaN })).toBeNull()
+    expect(readListedRecord({ ...CHOSEN, confidence_0_100: '72' })).toBeNull()
+  })
+  it('HASH FAMILIES: the server\'s graph hash is never put where the device\'s results hash goes', () => {
+    expect(readListedRecord(CHOSEN)?.analysisHash).toBeNull()
+    expect(JSON.stringify(readListedRecord(CHOSEN))).not.toContain(CHOSEN.graph_hash)
   })
 })
 
@@ -145,5 +157,46 @@ describe('the sync component (mounted beside the modal)', () => {
     resolve(new Response(JSON.stringify({ records: [CHOSEN] }), { status: 200 }))
     await new Promise((r) => setTimeout(r, 0))
     expect(S.selectDecisionRecord(S.useDecisionRecordStore.getState(), SCENARIO_ID)).toBeNull()
+  })
+  const holdFetch = () => {
+    let resolve!: (r: Response) => void
+    vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise<Response>((r) => { resolve = r }))
+    return (body: unknown) => resolve(new Response(JSON.stringify(body), { status: 200 }))
+  }
+  it('CODEX BUDDY: a reply that lands after an ACCOUNT SWITCH writes nothing for the new account', async () => {
+    S.observeDecisionRecordOwner(OWNER_ID)
+    const land = holdFetch()
+    useCanvasStore.setState({ currentScenarioId: SCENARIO_ID } as never)
+    render(<DecisionRecordServerSync />)
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
+    S.observeDecisionRecordOwner(OTHER_ID)
+    land({ records: [CHOSEN] })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(S.selectDecisionRecord(S.useDecisionRecordStore.getState(), SCENARIO_ID)).toBeNull()
+  })
+  it('CODEX BUDDY: a decision recorded on THIS device while the read is in flight is never replaced by the older server row', async () => {
+    S.observeDecisionRecordOwner(OWNER_ID)
+    const land = holdFetch()
+    useCanvasStore.setState({ currentScenarioId: SCENARIO_ID } as never)
+    render(<DecisionRecordServerSync />)
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
+    S.useDecisionRecordStore.getState().saveRecord(SCENARIO_ID, { ...readListedRecord(CHOSEN)!, optionId: 'opt_local', remote: null })
+    land({ records: [CHOSEN] })
+    await new Promise((r) => setTimeout(r, 0))
+    const shown = S.selectDecisionRecord(S.useDecisionRecordStore.getState(), SCENARIO_ID) as { optionId: string; remote: unknown }
+    expect(shown.optionId).toBe('opt_local')
+    expect(shown.remote).toBeNull() // still "on this device", not lent the account's proof
+  })
+  it('RED on the first cut: a cold open whose session resolves AFTER the scenario still reads the account back', async () => {
+    authState = { user: null }
+    fetchReturning(200, { records: [CHOSEN] })
+    useCanvasStore.setState({ currentScenarioId: SCENARIO_ID } as never)
+    const view = render(<DecisionRecordServerSync />)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(globalThis.fetch).not.toHaveBeenCalled() // no user yet: no call
+    S.observeDecisionRecordOwner(OWNER_ID) // auth adoption sets the owner epoch BEFORE exposing the user
+    authState = { user: { id: OWNER_ID } }
+    view.rerender(<DecisionRecordServerSync />)
+    await waitFor(() => expect(S.selectDecisionRecord(S.useDecisionRecordStore.getState(), SCENARIO_ID)?.remote?.recordId).toBe(CHOSEN.record_id))
   })
 })
