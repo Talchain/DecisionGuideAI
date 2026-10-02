@@ -8,6 +8,7 @@
  */
 export { DefineSuccessModal, DEFINE_SUCCESS_COPY } from './DefineSuccessModal'
 export { DecisionRecordModal, DECISION_RECORD_COPY } from './DecisionRecordModal'
+export { DecisionRecordServerSync } from './DecisionRecordServerSync'
 export { HowComputedModal, HowComputedCard, HOW_COMPUTED_COPY } from './HowComputedModal'
 export { HowComputedTrigger } from './HowComputedTrigger'
 export {

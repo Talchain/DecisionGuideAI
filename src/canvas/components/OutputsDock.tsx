@@ -198,7 +198,7 @@ import { selectBoundMayRun, useAnalysisMayRun, useBoundAdmissionWording } from '
 import { useReadinessStore } from '../stores/readinessStore'
 import { AskOlumiDrawer } from '../../components/results/coaching/AskOlumiDrawer'
 import { AssistantOpenedNotice } from './AssistantOpenedNotice'
-import { DefineSuccessModal, DecisionRecordModal, HowComputedModal } from '../../components/results/modals'
+import { DefineSuccessModal, DecisionRecordModal, DecisionRecordServerSync, HowComputedModal } from '../../components/results/modals'
 
 /**
  * Map API critique format (CritiqueItemV1) to ValidationPanel format
@@ -3132,6 +3132,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
           openDefineSuccess()/openDecisionRecord() work from any surface. */}
       <DefineSuccessModal />
       <DecisionRecordModal />
+      <DecisionRecordServerSync />
       {/* P1-9: Model-Card-Lite. Mounted at the same root so
           openHowComputed() works from the results header (and, later, from a
           number's own affordance) without prop drilling. */}

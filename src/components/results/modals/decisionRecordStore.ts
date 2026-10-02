@@ -136,8 +136,12 @@ export interface DecisionRecordRemote {
   recordId: string
   /** ISO timestamptz stored on the record. */
   reviewDate: string
-  /** Which rung of CEE's ladder set it — `user_set` means the user chose it. */
-  reviewDateSource: 'user_set' | 'default_horizon' | 'default_horizon_after_unparsed_trigger'
+  /**
+   * Which rung of CEE's ladder set it — `user_set` means the user chose it. `read_back`: the record came from CEE's
+   * read-back (`decisionRecordListService`), which never stored the rung — no surface reads this field, and the
+   * read-back does not invent one.
+   */
+  reviewDateSource: 'user_set' | 'default_horizon' | 'default_horizon_after_unparsed_trigger' | 'read_back'
   /**
    * The texts CEE CONFIRMED the account holds verbatim (its
    * `stored_text_fields`). ABSENT or empty ⇒ no text is claimed on the
@@ -370,6 +374,21 @@ export function observeDecisionRecordOwner(ownerId: string | null): void {
   captures = {}
   volatileCaptures.clear()
   useDecisionRecordStore.setState({ ...loadPersisted(), isOpen: false })
+}
+
+/**
+ * ⭐ DECIDE & REVIEW S1: show a record READ BACK from the account (`decisionRecordListService`) on a device that holds
+ * none for this scenario. MEMORY ONLY — account data is never written to this device's storage — and applied ONLY when
+ * the fetch's verified owner IS the current owner epoch (DL): a read that lands after an account switch or a sign-out
+ * writes nothing. A local record always wins: it holds this device's texts and its own acknowledgement.
+ */
+export function hydrateDecisionRecordFromServer(scenarioKey: string, ownerId: string, record: DecisionRecord): boolean {
+  if (!boundary || !isActive() || boundary.ownerId === null || boundary.ownerId !== ownerId) return false
+  if (scenarioKey === UNSCOPED_SCENARIO_KEY) return false
+  const state = useDecisionRecordStore.getState()
+  if (state.byScenario[scenarioKey]) return false
+  useDecisionRecordStore.setState({ byScenario: { ...state.byScenario, [scenarioKey]: record } })
+  return true
 }
 
 /** Joins clearAuthStates; does not replace or alter the dissent cleanup hook. */

@@ -225,6 +225,19 @@ describe('cee-proxy path allowlist (/bff/cee/* → /assist/v1/*)', () => {
    * The entry is EXACT — a prefix match would re-open the blast radius the
    * allowlist exists to bound.
    */
+  it('ON-LIST /bff/cee/decision-records/list forwards (DECIDE & REVIEW S1 read-back, MG lease 5948537951)', async () => {
+    const r = await invoke(ceeHandler as Handler, { path: '/bff/cee/decision-records/list', method: 'POST' })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe('https://cee-staging.onrender.com/assist/v1/decision-records/list')
+    expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBe(FAKE_KEY)
+  })
+
+  it('OFF-LIST /bff/cee/decision-records/list/extra is 404 with NO key sent (entry is exact)', async () => {
+    const r = await invoke(ceeHandler as Handler, { path: '/bff/cee/decision-records/list/extra', method: 'POST' })
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+  })
+
   it('OFF-LIST /bff/cee/explain-diff/extra is 404 with NO key sent (entry is exact)', async () => {
     const r = await invoke(ceeHandler as Handler, { path: '/bff/cee/explain-diff/extra' })
     expect(r.status).toBe(404)
