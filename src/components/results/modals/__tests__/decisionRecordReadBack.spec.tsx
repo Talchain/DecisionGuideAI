@@ -5,6 +5,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, waitFor } from '@testing-library/react'
+import type { OptionDecisionRecord } from '../decisionRecordStore'
 
 type SessionIdentity = { userId: string | null; accessToken: string | null }
 const OWNER_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
@@ -33,6 +34,8 @@ const NOT_READY = {
   record_id: 'ffffffff-ffff-4fff-8fff-ffffffffffff', created_at: '2026-10-01T08:00:00.000Z', review_date: '2026-12-30T00:00:00.000Z',
   graph_hash: null, has_outcome: false, position: 'not_ready', revisit_trigger: 'When Q4 numbers land.',
 }
+/** The listed CHOSEN row, typed as the option record it is (the reader returns the union). */
+const chosenRecord = () => readListedRecord(CHOSEN) as OptionDecisionRecord
 const fetchReturning = (status: number, body: unknown) => vi.spyOn(globalThis, 'fetch').mockResolvedValue(
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }))
 const key = (id: string) => id // scenario ids resolve to themselves (resolveScenarioKey)
@@ -114,7 +117,7 @@ describe('hydration: the current owner only, memory only, never over a local rec
   })
   it('a LOCAL record wins (it holds this device\'s texts and its own acknowledgement)', () => {
     S.observeDecisionRecordOwner(OWNER_ID)
-    const local = { ...record(), optionId: 'opt_local', remote: null }
+    const local = { ...chosenRecord(), optionId: 'opt_local', remote: null }
     S.useDecisionRecordStore.getState().saveRecord(SCENARIO_ID, local)
     expect(S.hydrateDecisionRecordFromServer(key(SCENARIO_ID), OWNER_ID, record())).toBe(false)
     expect((S.selectDecisionRecord(S.useDecisionRecordStore.getState(), SCENARIO_ID) as { optionId: string }).optionId).toBe('opt_local')
@@ -180,7 +183,7 @@ describe('the sync component (mounted beside the modal)', () => {
     useCanvasStore.setState({ currentScenarioId: SCENARIO_ID } as never)
     render(<DecisionRecordServerSync />)
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
-    S.useDecisionRecordStore.getState().saveRecord(SCENARIO_ID, { ...readListedRecord(CHOSEN)!, optionId: 'opt_local', remote: null })
+    S.useDecisionRecordStore.getState().saveRecord(SCENARIO_ID, { ...chosenRecord(), optionId: 'opt_local', remote: null })
     land({ records: [CHOSEN] })
     await new Promise((r) => setTimeout(r, 0))
     const shown = S.selectDecisionRecord(S.useDecisionRecordStore.getState(), SCENARIO_ID) as { optionId: string; remote: unknown }
