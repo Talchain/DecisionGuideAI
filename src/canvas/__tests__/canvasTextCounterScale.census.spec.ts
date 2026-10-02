@@ -613,9 +613,11 @@ describe('canvas text — counter-scale census (DS v5 §2.3/§2.4)', () => {
     expect(classifyArbitrarySize('calc(14px*var(--canvas-far-title-scale,var(--canvas-label-scale,1)))')).toBe('counterscaled')
     // 2 Oct 2026: the small-text scale (sub-`nodeLabel` text to the 9px landing floor) is a counter-scale.
     expect(classifyArbitrarySize('calc(10px*var(--canvas-small-label-scale,1))')).toBe('counterscaled')
-    // CONTRAST — only that exact shape: a different fallback, or a lookalike name, is not.
-    expect(classifyArbitrarySize('calc(10px*var(--canvas-small-label-scale,2))')).toBe('unresolvable')
-    expect(classifyArbitrarySize('calc(10px*var(--canvas-small-label-scale-x,1))')).toBe('unresolvable')
+    // CONTRAST — only that exact shape. Both fixtures are DEFINED properties with no drifting fallback (as `--topbar-h`
+    // below), so they cannot trip `css-var-resolution.spec`: the GLYPH scale is not a text counter-scale, and the small
+    // scale without its `,1` fallback is not the sanctioned shape.
+    expect(classifyArbitrarySize('calc(10px*var(--canvas-glyph-scale,1))')).toBe('unresolvable')
+    expect(classifyArbitrarySize('calc(10px*var(--canvas-small-label-scale))')).toBe('unresolvable')
     expect(classifyArbitrarySize('10px')).toBe('fixed')
     // CONTRAST — a far scale with no label-scale fallback, or any other variable, is not read as scaled.
     expect(classifyArbitrarySize('calc(14px*var(--canvas-far-title-scale,1))')).toBe('unresolvable')
