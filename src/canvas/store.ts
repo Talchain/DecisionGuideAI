@@ -4050,6 +4050,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   onNodesChange: (changes) => {
+    // ACCOUNTS viewer mode: a viewer selects and is measured, nothing else (no drag, add or remove).
+    if (isViewerSession()) changes = changes?.filter((c) => c.type === 'select' || c.type === 'dimensions')
     // Guard no-op changes
     if (!changes || changes.length === 0) return
 
@@ -4207,6 +4209,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   onEdgesChange: (changes) => {
+    // ACCOUNTS viewer mode: a viewer selects edges, nothing else (no remove).
+    if (isViewerSession()) changes = changes?.filter((c) => c.type === 'select')
     // Guard no-op changes
     if (!changes || changes.length === 0) return
 

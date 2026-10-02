@@ -792,9 +792,9 @@ function claimCameraOnUserMoveEnd(event: MouseEvent | TouchEvent | null): void {
 
 const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, showStarters = false }: ReactFlowGraphProps) {
   // ACCOUNTS viewer mode (CANVAS 5947752314): read-only, not inert. A viewer still
-  // selects and inspects; nothing connects or opens an edit menu, and dragging is off because a
-  // viewer is always in hand mode (`resolveEffectiveInteractionMode`). React Flow's delete key is off
-  // for everyone. FIRST in the component, before any conditional path (rules-of-hooks ratchet).
+  // selects and inspects (click and marquee); nothing connects or opens an edit menu, and a drag moves
+  // nothing (the store's onNodesChange keeps only select/dimensions changes for a viewer). React Flow's
+  // delete key is off for everyone. FIRST in the component, before any conditional path (hooks ratchet).
   const isViewer = useIsViewer()
   // React #185 FIX: Use INDIVIDUAL selectors - NOT object + shallow
   //

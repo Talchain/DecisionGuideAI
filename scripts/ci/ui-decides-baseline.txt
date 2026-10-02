@@ -44,7 +44,7 @@ src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:8137
+src/canvas/store.ts:8141
 src/canvas/stores/readinessStore.ts:829
 src/canvas/stores/readinessStore.ts:922
 src/canvas/utils/briefValidation.ts:43
@@ -196,3 +196,4 @@ src/components/results/analysisNew/analysisNewCopy.ts:2524
 #    `scenarioResetState` + `adoptScenario` + `scenarioEpoch` above it; the same `currentTotal + displayBytes > MAX_TOTAL_CHARS` line.
 # 2 Oct 2026 (ACCOUNTS-UI, invite viewer mode): re-lined store.ts 8134 → 8137, a pure +3 line shift from the `isViewerSession`
 #   import and the two-line viewer guard in `updateNodeLabel` (both above this site). Line text identical.
+#   Then 8137 → 8141: the two-line viewer change filters at the top of `onNodesChange` / `onEdgesChange` (above). Same line.

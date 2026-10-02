@@ -15,7 +15,6 @@ import { commitValidatedMutation } from '../commitValidatedMutation'
 import { useModelEditAuthority } from '../../hooks/useModelEditAuthority'
 import { useNodeMutations, useEdgeMutations } from '../../ui/inspector-v2/useInspectorMutations'
 import { __resetViewerModeForTests, setViewerScenario } from '../../../lib/viewerMode'
-import { resolveEffectiveInteractionMode } from '../../useKeyboardShortcuts'
 
 const SID = '3b241101-e2bb-4255-8caf-4136c566a962'
 
@@ -93,8 +92,16 @@ describe('viewer: every local edit door leaves the graph identical', () => {
     expect(graph()).toBe(before)
   })
 
-  it('a viewer is always in hand mode, so no card drags (nodesDraggable binds effectiveMode === select)', () => {
-    expect(resolveEffectiveInteractionMode('select', false)).toBe('hand')
+  it('a drag, add or remove from React Flow moves nothing; the select in the same batch still applies (Codex R6: Select tool stays usable)', () => {
+    const before = graph()
+    useCanvasStore.getState().onNodesChange([
+      { type: 'position', id: 'f1', position: { x: 500, y: 500 }, dragging: false },
+      { type: 'remove', id: 'g1' },
+      { type: 'select', id: 'f1', selected: true },
+    ] as never)
+    useCanvasStore.getState().onEdgesChange([{ type: 'remove', id: 'e1' }] as never)
+    expect(graph()).toBe(before)
+    expect((useCanvasStore.getState().nodes as Node[]).find((n) => n.id === 'f1')?.selected).toBe(true)
   })
 
   it('selection still works for a viewer (read-only, not inert)', () => {
@@ -104,8 +111,9 @@ describe('viewer: every local edit door leaves the graph identical', () => {
 })
 
 describe('CONTRAST: the same calls with the flag off DO change the graph', () => {
-  it('the owner keeps the tool they chose (select stays select)', () => {
-    expect(resolveEffectiveInteractionMode('select', false)).toBe('select')
+  it('a drag moves the owner\'s card', () => {
+    useCanvasStore.getState().onNodesChange([{ type: 'position', id: 'f1', position: { x: 500, y: 500 }, dragging: false }] as never)
+    expect((useCanvasStore.getState().nodes as Node[]).find((n) => n.id === 'f1')?.position).toEqual({ x: 500, y: 500 })
   })
 
   it('commitGraphMutation adds the node', () => {
