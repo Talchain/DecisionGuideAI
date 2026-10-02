@@ -810,7 +810,10 @@ export function OptionsComparison({
                      never as two different intensities of one tint. Not
                      `action('quiet')` — that tier is UNDERLINED text-light
                      furniture, the opposite of a segmented control's arm. */
-                  className={`${typography.panelBody} ${ACTION_FOCUS} flex-1 inline-flex items-center justify-center min-h-[28px] gap-1 rounded-full px-2 no-underline ${
+                  // flex-auto + nowrap, not flex-1: equal arms made "Modelled outcome" wrap to two lines inside its
+                  // pill at the dock floor (288px, R3 dock-scan 5943368038). Each arm now sizes to its words plus an
+                  // equal share of the spare width, so at 360 they still read as a balanced pair.
+                  className={`${typography.panelBody} ${ACTION_FOCUS} flex-auto whitespace-nowrap inline-flex items-center justify-center min-h-[28px] gap-1 rounded-full px-2 no-underline ${
                     selected ? LENS_ARM_SELECTED : locked ? 'text-text-light cursor-default' : LENS_ARM_IDLE
                   }`}
                   data-lens={arm}

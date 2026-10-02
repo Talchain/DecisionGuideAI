@@ -862,4 +862,29 @@ describe('TornadoChart — disclaimer, axis, display modes', () => {
     // The entire label is rendered (matches the tooltip attribute).
     expect(expectedSpan.textContent).toBe(expectedSpan.getAttribute('title'))
   })
+
+  it('⛔ a unit-bearing legend never leaves the dock: the expected value has its own line; the axis ends may wrap', () => {
+    // Served: "More currency/quarter →" +133px past a 360px dock (R3 dock-scan #85 5943368038). jsdom has no layout,
+    // so this pins the structure that prevents it; dock-run.mjs at 1280/1024 is the served proof.
+    render(
+      <TornadoChart rows={[positiveRow]} expectedOutcome={100} outcomeUnit="count" outcomeUnitSymbol="currency/quarter" />,
+    )
+    const legend = screen.getByTestId('tornado-legend')
+    const expected = screen.getByTestId('tornado-expected-display')
+    const left = screen.getByTestId('tornado-axis-left')
+    const right = screen.getByTestId('tornado-axis-right')
+    // The expected value is a direct child row of the legend, not squeezed between the axis ends.
+    expect(expected.parentElement).toBe(legend)
+    expect(right.parentElement).toBe(left.parentElement)
+    expect(right.parentElement).not.toBe(legend)
+    expect(right.parentElement!.classList.contains('justify-between')).toBe(true)
+    // The axis ends may wrap inside their half: never nowrap or unshrinkable.
+    for (const el of [left, right]) {
+      expect(el.classList.contains('whitespace-nowrap')).toBe(false)
+      expect(el.classList.contains('flex-shrink-0')).toBe(false)
+      expect(el.classList.contains('min-w-0')).toBe(true)
+    }
+    // No text dropped.
+    expect(right.textContent).toBe('More currency/quarter →')
+  })
 })

@@ -139,6 +139,17 @@ describe('the two lenses', () => {
     expect(comparisonLensAvailability(vmFor(dataFor({ ranges: false })).optionsComparison)).toEqual({ outcome: false, goal: true })
   })
 
+  it('⛔ an arm never wraps its words: arms size to content (flex-auto) and stay on one line (served: 2 lines at 288px)', () => {
+    // jsdom has no layout: this pins the class contract; R3's dock-run.mjs at 1024 (dock 288) is the served proof.
+    renderRun(dataFor({}))
+    for (const arm of ['outcome', 'goal'] as const) {
+      const cls = lensArm(arm).classList
+      expect(cls.contains('whitespace-nowrap')).toBe(true)
+      expect(cls.contains('flex-auto')).toBe(true)
+      expect(cls.contains('flex-1')).toBe(false)
+    }
+  })
+
   it('⭐ both available: Goal fit shows first, and Modelled outcome swaps the figures', () => {
     renderRun(dataFor({}))
 

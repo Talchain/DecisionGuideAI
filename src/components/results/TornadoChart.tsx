@@ -453,27 +453,30 @@ export function TornadoChart({
           centre span into a "truncate" zone on smaller viewports. No visual
           regression on 1280px wide panels — the new layout only removes the
           clip risk and the clip affordance. */}
-      <div
-        className={`flex items-baseline gap-2 mb-1 ${typography.panelMeta} text-text-light`}
-        data-testid="tornado-legend"
-      >
-        <span className="flex-shrink-0 whitespace-nowrap" data-testid="tornado-axis-left">
-          {outcomeUnitSymbol && outcomeUnit === 'count'
-            ? `← Fewer ${outcomeUnitSymbol}`
-            : '← Weaker'}
-        </span>
-        <span
-          className="flex-1 text-center whitespace-nowrap"
+      {/* ⛔ TWO ROWS, NOTHING PAST THE DOCK. One nowrap row of three labels overflowed the dock on a unit-bearing goal:
+          "More currency/quarter →" +133px at 1280 (dock 360) and +205px at the 288 floor; "Expected: …" +66px (R3
+          dock-scan, served journey state, #85 5943368038). The expected value keeps its own full-width line (one
+          line, never truncated); the axis ends share the line below and wrap inside their half instead of leaving. */}
+      <div className={`mb-1 ${typography.panelMeta} text-text-light`} data-testid="tornado-legend">
+        <div
+          className="text-center whitespace-nowrap"
           data-testid="tornado-expected-display"
           title={formatExpectedLabel(displayOutcome, outcomeUnit, outcomeUnitSymbol, isNormalised)}
         >
           {formatExpectedLabel(displayOutcome, outcomeUnit, outcomeUnitSymbol, isNormalised)}
-        </span>
-        <span className="flex-shrink-0 whitespace-nowrap" data-testid="tornado-axis-right">
-          {outcomeUnitSymbol && outcomeUnit === 'count'
-            ? `More ${outcomeUnitSymbol} →`
-            : 'Stronger →'}
-        </span>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="min-w-0" data-testid="tornado-axis-left">
+            {outcomeUnitSymbol && outcomeUnit === 'count'
+              ? `← Fewer ${outcomeUnitSymbol}`
+              : '← Weaker'}
+          </span>
+          <span className="min-w-0 text-right" data-testid="tornado-axis-right">
+            {outcomeUnitSymbol && outcomeUnit === 'count'
+              ? `More ${outcomeUnitSymbol} →`
+              : 'Stronger →'}
+          </span>
+        </div>
       </div>
 
       {/* Tornado rows */}
