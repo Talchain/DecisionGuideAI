@@ -189,6 +189,20 @@ describe('the guest record travels with the B3 copy of its own scenario', () => 
     expect(carryKeys()).toEqual([])
   })
 
+  it('DL P1a BOUND: a carry written under owner epoch E is erased the moment this tab observes ANY other owner', () => {
+    for (const nextOwner of [null, OTHER_USER]) {
+      localStorage.clear()
+      S.useDecisionRecordStore.getState()._reset()
+      guestHasRecorded()
+      S.observeDecisionRecordOwner(USER)
+      const e = epoch()
+      expect(carryKeys()).toEqual([`decisionRecord.v2:${e}:guestCarry`])
+      S.observeDecisionRecordOwner(nextOwner) // a plain owner observation: no clearDecisionRecords
+      expect(carryKeys()).toEqual([])
+      expect(S.adoptGuestCarry(GUEST_SCENARIO, COPY_SCENARIO, true)).toBe(false)
+    }
+  })
+
   it('SIGN-OUT before the copy lands → dropped', () => {
     guestHasRecorded()
     S.observeDecisionRecordOwner(USER)
