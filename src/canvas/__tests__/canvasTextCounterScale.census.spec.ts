@@ -298,7 +298,9 @@ const KNOWN_FIXED = [
  * censused directory, so the declaration is an entry in the census rather than
  * an exemption from it.
  */
-const VIEWPORT_PORTALLED = ['src/canvas/nodes/TierLanes.tsx'] as const
+// `ProposalGhostLayer` (suggestion preview, DL 5941839936): the ghost of a proposed node/link lives in graph space for
+// the same reason the tier bands do; its text goes through `typography.nodeTitle` / `nodeLabel` / `edgeLabel` only.
+const VIEWPORT_PORTALLED = ['src/canvas/nodes/ProposalGhostLayer.tsx', 'src/canvas/nodes/TierLanes.tsx'] as const
 
 const FOREIGN_RENDERED = [
   'src/canvas/components/CoachingCard.tsx',

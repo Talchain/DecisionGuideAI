@@ -19,6 +19,7 @@ import { ThinkingDots, waitingPhaseOf } from './ThinkingDots'
 /** The real stage name while request 2 runs: `inferLoadingHint`'s own words for an explanation. */
 const PREPARING_EXPLANATION = 'Preparing explanation\u2026'
 import { GuidanceRows } from './GuidanceRows'
+import { useProposalGhostBridge } from '../useProposalGhostBridge'
 import { SuggestedChips, type RunChipGate } from './SuggestedChips'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
@@ -290,6 +291,9 @@ export const ChatThread = memo(function ChatThread({
   }
   const failedSendRetryId =
     lastUserMsg && lastUserMsg.deliveryState === 'failed' ? lastUserMsg.id : null
+  // Suggestion preview: the latest reply's proposal, while its consent chip is offered, is drawn on the canvas as a
+  // ghost (useProposalGhostBridge.ts). Render-only; Accept stays on the chip.
+  useProposalGhostBridge(messages)
 
   // Get suggested chips from last assistant message.
   //

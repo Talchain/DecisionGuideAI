@@ -97,6 +97,7 @@ import { sortNodesInReadingOrder } from './utils/readingOrder'
 import { useLayoutStore } from './layoutStore'
 import { restingCardWidthForKind } from './utils/nodeLayoutConstants'
 import { TierLanes } from './nodes/TierLanes'
+import { ProposalGhostLayer } from './nodes/ProposalGhostLayer'
 import { fitBoundsFor, CANVAS_MOUNT_FIT_OPTIONS } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
@@ -2832,6 +2833,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
                 from prose describing code. Same defect class as the stripper in
                 the guard this PR adds, one level up; rowed, not fixed here. */}
             <TierLanes nodes={memoizedNodes} />
+            {/* Suggestion preview: the ghost of the proposal the latest reply offers (render-only; see the file). */}
+            <ProposalGhostLayer />
             {/* MiniMap temporarily disabled for layout debugging */}
             {/* <MiniMap style={miniMapStyle} /> */}
             {/* ⛔ TWO ARROWHEAD MARKERS STOOD HERE AND NOTHING EVER REFERENCED

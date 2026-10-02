@@ -53,6 +53,12 @@ export interface ConversationMessage {
   narration?: { status: 'pending' | 'ready' | 'stale' | 'unavailable'; runKey: string }
   /** T4: the turn's coaching rows (`guidance`, guidanceRows.ts), kept so load 2 shows the same challenge. */
   guidance?: import('./guidanceRows').TurnGuidance
+  /**
+   * Suggestion preview (`proposal_preview`, proposalPreview.ts): the proposal this turn offers on its consent chip,
+   * as a display projection the canvas draws as a ghost. NOT persisted (transcriptStore keeps no chips and no preview),
+   * so a reload shows no ghost for a proposal it can no longer settle from this turn.
+   */
+  proposalPreview?: import('./proposalPreview').ProposalPreview
   /** Inline status text shown during tool execution (e.g. "Running simulations...") */
   toolLoadingState?: string | null
   /** Deterministic CEE insights — rendered between assistant_text and chips */
