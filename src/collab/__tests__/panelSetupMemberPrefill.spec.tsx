@@ -135,19 +135,23 @@ describe('R7: Ask your team is prefilled from the invited colleagues', () => {
     expect(wire).not.toMatch(/supabase_user_id|user_id|email/)
   })
 
-  it('3 members → 3 rows, and the third can be removed (rows stay removable)', async () => {
+  it('4 members → 4 rows; removing a MIDDLE row keeps every other row bound to ITS email (rows stay removable)', async () => {
+    const CY = 'cy-D2S2@example.net'
+    const DEE = 'dee-D2S2@example.io'
     sharing.listScenarioMembers.mockResolvedValue({
       ok: true,
       members: [
         { email: ANA, createdAt: 'x' },
         { email: BO, createdAt: 'y' },
-        { email: 'cy-D2S2@example.net', createdAt: 'z' },
+        { email: CY, createdAt: 'z' },
+        { email: DEE, createdAt: 'w' },
       ],
     })
     renderPage()
-    await waitFor(() => expect(boundEmails()).toHaveLength(3))
+    await waitFor(() => expect(boundEmails()).toEqual([ANA, BO, CY, DEE]))
     fireEvent.click(screen.getByTestId('panel-name-remove-2'))
-    expect(boundEmails()).toEqual([ANA, BO])
+    expect(boundEmails()).toEqual([ANA, BO, DEE])
+    expect(nameInputs().map((el) => el.value)).toEqual(['ana.lee-D2S2', 'bo_okafor-D2S2', 'dee-D2S2'])
   })
 
   it('1 member → that row plus one blank row (the two-person shape stays), and typed names still work', async () => {
