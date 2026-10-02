@@ -437,9 +437,15 @@ function readTypographyTokens(): Map<string, string> {
   return tokens
 }
 
-/** A token carries the counter-scale iff its class string reads the CSS variable. */
+/**
+ * A token carries the counter-scale iff its class string reads one of the CSS variables: the label scale, or (2 Oct
+ * 2026, #85 5944575143) the SMALL-TEXT scale `--canvas-small-label-scale` — `smallLabelCounterScale`, written by the
+ * same `CanvasLabelScaleSync`, pinned by `measureNodeHeightsAtLabelBound`, declared `1` in `brand.css`
+ * (`smallLabelHoldsTheLandingFloor.spec.ts` pins all three). It carries text declared below `nodeLabel` to the same
+ * 9px landing floor.
+ */
 function isCounterScaled(classString: string): boolean {
-  return classString.includes('var(--canvas-label-scale')
+  return classString.includes('var(--canvas-label-scale') || classString.includes('var(--canvas-small-label-scale,1)')
 }
 
 const CANVAS = path.join(ROOT, 'src/canvas')
@@ -461,6 +467,7 @@ const ARBITRARY_TEXT_SIZE = /text-\[(?!color:)(?:length:)?([^\]]+)\]/g
  * A captured arbitrary size, classified. Counter-scaled means `calc(<px> *` one
  * of the canvas's counter-scale variables:
  *   · `var(--canvas-label-scale` — every canvas type token;
+ *   · `var(--canvas-small-label-scale,1)` — text declared below `nodeLabel` (2 Oct 2026; see `isCounterScaled`);
  *   · `var(--canvas-far-title-scale, var(--canvas-label-scale` — v3.1 WS1 #25's
  *     far-rung title (`BaseNode` `FAR_TITLE_TYPE`, set by
  *     `CanvasLabelScaleSync` from `farTitleScale`, which IS `labelCounterScale`
@@ -471,6 +478,7 @@ const ARBITRARY_TEXT_SIZE = /text-\[(?!color:)(?:length:)?([^\]]+)\]/g
  */
 function classifyArbitrarySize(value: string): 'counterscaled' | 'fixed' | 'unresolvable' {
   if (/^calc\(\s*\d+(?:\.\d+)?px\s*\*\s*var\(--canvas-(?:far-title-scale,\s*var\(--canvas-)?label-scale/.test(value)) return 'counterscaled'
+  if (/^calc\(\s*\d+(?:\.\d+)?px\s*\*\s*var\(--canvas-small-label-scale,\s*1\)\)$/.test(value)) return 'counterscaled'
   if (/^\d+(?:\.\d+)?px$/.test(value)) return 'fixed'
   return 'unresolvable'
 }
@@ -603,6 +611,11 @@ describe('canvas text — counter-scale census (DS v5 §2.3/§2.4)', () => {
   it('CLASSIFIER CONTRACT: the label scale and the far-title scale WITH its label-scale fallback are counter-scales; nothing else is', () => {
     expect(classifyArbitrarySize('calc(14px*var(--canvas-label-scale,1))')).toBe('counterscaled')
     expect(classifyArbitrarySize('calc(14px*var(--canvas-far-title-scale,var(--canvas-label-scale,1)))')).toBe('counterscaled')
+    // 2 Oct 2026: the small-text scale (sub-`nodeLabel` text to the 9px landing floor) is a counter-scale.
+    expect(classifyArbitrarySize('calc(10px*var(--canvas-small-label-scale,1))')).toBe('counterscaled')
+    // CONTRAST — only that exact shape: a different fallback, or a lookalike name, is not.
+    expect(classifyArbitrarySize('calc(10px*var(--canvas-small-label-scale,2))')).toBe('unresolvable')
+    expect(classifyArbitrarySize('calc(10px*var(--canvas-small-label-scale-x,1))')).toBe('unresolvable')
     expect(classifyArbitrarySize('10px')).toBe('fixed')
     // CONTRAST — a far scale with no label-scale fallback, or any other variable, is not read as scaled.
     expect(classifyArbitrarySize('calc(14px*var(--canvas-far-title-scale,1))')).toBe('unresolvable')
