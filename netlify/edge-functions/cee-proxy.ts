@@ -156,6 +156,9 @@ const ALLOWED_TARGETS: readonly RegExp[] = [
   /^\/assist\/v1\/scenarios\/[^/]+\/versions$/,
   /^\/assist\/v1\/scenarios\/[^/]+\/versions\/save$/,
   /^\/assist\/v1\/scenarios\/[^/]+\/versions\/restore$/,
+  // Version compare (CANVAS, DL #85 5942533417): READ-ONLY — CEE loads both versions server-side and refuses any body
+  // key but the two ids (+ legacy user_id). POST-only below, like the copy route. ON-LIST case in the allowlist spec.
+  /^\/assist\/v1\/scenarios\/[^/]+\/versions\/compare$/,
   // Guest → account copy (ACCOUNTS B3, CEE #2493): the signed-in user's own copy of a guest decision. The user's
   // `authorization` is forwarded as the user-token slot; CEE verifies it. ON-LIST case in the allowlist spec.
   /^\/assist\/v1\/scenarios\/[^/]+\/copy$/,
@@ -185,6 +188,8 @@ function isAllowedTarget(pathname: string): boolean {
  */
 const POST_ONLY_TARGETS: readonly RegExp[] = [
   /^\/assist\/v1\/scenarios\/[^/]+\/copy$/,
+  // CEE serves compare on POST only; any other method has nothing to reach, so it never carries the credentials.
+  /^\/assist\/v1\/scenarios\/[^/]+\/versions\/compare$/,
 ]
 
 function isPostOnlyTarget(pathname: string): boolean {
