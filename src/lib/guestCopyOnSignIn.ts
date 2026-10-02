@@ -45,6 +45,13 @@ export interface GuestCopyDeps {
   adopt?: (sourceScenarioId: string, copyScenarioId: string, isCurrent: () => boolean) => Promise<boolean>
   /** False once the auth generation that started this run has ended (sign-out, account change). */
   isCurrent?: () => boolean
+  /**
+   * False while the view names a DIFFERENT scenario (e.g. its route is loading
+   * one). Adopting then would bump the canvas epoch and make that in-flight open
+   * refuse to apply (#2418's fence), leaving the copy's empty canvas under the
+   * other decision's route.
+   */
+  viewAllowsAdoption?: (sourceScenarioId: string) => boolean
 }
 
 async function adoptInCanvasStore(sourceScenarioId: string, copyScenarioId: string, isCurrent: () => boolean): Promise<boolean> {
@@ -104,7 +111,8 @@ async function copyPending(accessToken: string, deps: GuestCopyDeps): Promise<Gu
   let adopted = false
   if (readCurrentScenarioPointer() === source) {
     try {
-      adopted = await (deps.adopt ?? adoptInCanvasStore)(source, outcome.scenarioId, isCurrent)
+      const viewAllows = deps.viewAllowsAdoption ?? (() => true)
+      adopted = await (deps.adopt ?? adoptInCanvasStore)(source, outcome.scenarioId, () => isCurrent() && viewAllows(source))
     } catch {
       // The copy exists and is listed either way; only the canvas stays put.
     }

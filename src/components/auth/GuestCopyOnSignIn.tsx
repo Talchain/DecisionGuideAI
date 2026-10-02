@@ -57,6 +57,10 @@ export default function GuestCopyOnSignIn(): null {
         const started = generation
         const run = handleAuthObservation(tracker.observe(Boolean(session)), session?.access_token, {
           isCurrent: () => generation === started,
+          viewAllowsAdoption: (source) => {
+            const routed = /^\/scenario\/([^/]+)/.exec(pathRef.current)
+            return routed === null || routed[1] === source
+          },
         })
         void run?.then((result) => {
           // Only a copy this tab actually ADOPTED may move the view: if the user

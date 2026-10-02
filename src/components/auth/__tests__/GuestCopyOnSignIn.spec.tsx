@@ -220,4 +220,19 @@ describe('GuestCopyOnSignIn', () => {
     expect(screen.getByTestId('where').textContent).toBe('/canvas')
     expect(localStorage.getItem('olumi.pendingGuestCopy.v1')).toBe(GUEST)
   })
+
+  it('route already names ANOTHER scenario while the store still shows the guest (its load in flight): NO adoption, no navigation', async () => {
+    localStorage.setItem('olumi-canvas-current-scenario-id', GUEST)
+    store.current = GUEST
+    mockRequest.mockResolvedValue({ kind: 'copied', scenarioId: COPY, created: true })
+    renderAt(`/scenario/${OTHER}`)
+
+    emit('INITIAL_SESSION', null)
+    emit('SIGNED_IN', { access_token: TOKEN })
+    await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(1))
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+
+    expect(mockAdopt).not.toHaveBeenCalled()
+    expect(screen.getByTestId('where').textContent).toBe(`/scenario/${OTHER}`)
+  })
 })
