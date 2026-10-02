@@ -17,6 +17,7 @@ import {
   unregisterFocusHelpers,
 } from '../../../../canvas/utils/focusHelpers'
 import { useCanvasStore } from '../../../../canvas/store'
+import { __resetViewerModeForTests, setViewerScenario, VIEWER_COMPOSER_NOTICE } from '../../../../lib/viewerMode'
 
 const payload = {
   context: 'Help me check whether this decision classification is right.',
@@ -26,12 +27,29 @@ const payload = {
 }
 
 beforeEach(() => {
+  __resetViewerModeForTests()
   useAskOlumiStore.setState({ isOpen: false, context: '', draft: '', label: '', targetId: null })
   useGuidanceStore.setState({ _dispatchAction: null, _sendMessage: null } as never)
   unregisterFocusHelpers()
 })
 
 describe('AskOlumiDrawer', () => {
+  it('VIEWER (PANEL 5951237365): the neutral notice replaces the draft and Send; the owner (contrast) keeps both', () => {
+    useGuidanceStore.setState({ _dispatchAction: vi.fn(), _sendMessage: null } as never)
+    act(() => setViewerScenario('3b241101-e2bb-4255-8caf-4136c566a962'))
+    const viewer = render(<AskOlumiDrawer />)
+    act(() => openAskOlumi(payload))
+    expect(screen.getByTestId('ask-olumi-viewer-notice')).toHaveTextContent(VIEWER_COMPOSER_NOTICE)
+    expect(screen.queryByTestId('ask-olumi-draft')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Send' })).toBeNull()
+    viewer.unmount()
+    act(() => __resetViewerModeForTests())
+    render(<AskOlumiDrawer />)
+    expect(screen.getByTestId('ask-olumi-draft')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument()
+    expect(screen.queryByTestId('ask-olumi-viewer-notice')).toBeNull()
+  })
+
   it('renders nothing until opened', () => {
     render(<AskOlumiDrawer />)
     expect(screen.queryByTestId('ask-olumi-drawer')).not.toBeInTheDocument()

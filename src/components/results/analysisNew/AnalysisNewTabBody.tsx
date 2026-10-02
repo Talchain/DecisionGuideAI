@@ -114,6 +114,7 @@ import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import { buildCommitmentQualifier } from './commitmentQualifier'
 import { allOptionsOriginSentence } from './optionOriginDisclosure'
+import { useIsViewer } from '../../../lib/viewerMode'
 
 /**
  * ⭐ THIS TAB OPTS IN TO CORRECTING AN ESTIMATE WHERE IT IS STATED, and says so
@@ -1169,7 +1170,10 @@ export function AnalysisNewTabBody({
    * against, so no door.
    */
   const resultsStatus = useCanvasStore((state) => state.results?.status)
-  const canCaptureDecision = hasAnalysedOptions(nodes, resultsStatus)
+  // ACCOUNTS viewer mode (MG 5951262086): a decision record is the OWNER's own; CEE
+  // `/commit` refuses a non-owner, so a viewer is never offered "Record your view".
+  const isViewer = useIsViewer()
+  const canCaptureDecision = hasAnalysedOptions(nodes, resultsStatus) && !isViewer
   /**
    * ⭐ WHAT HAPPENED TO THE LATEST ATTEMPT, when it did not produce what is on
    * screen: refused (CEE's typed refusal) or failed (`results.status`). Until
