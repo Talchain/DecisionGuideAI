@@ -18,6 +18,7 @@ import { buildDecisionBrief, decisionBriefToText } from './buildDecisionBrief'
 import { decisionBriefToHtml } from './decisionBriefHtml'
 import { DecisionBriefView } from './DecisionBriefView'
 import { useSavedScenarioRead } from './useSavedScenarioRead'
+import { useDecisionRecordForScenario } from '../../components/results/modals'
 
 export const DECISION_BRIEF_TRIGGER_LABEL = 'Decision brief'
 
@@ -35,10 +36,12 @@ export function DecisionBriefTrigger({ className = '' }: { className?: string })
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const read = useSavedScenarioRead(scenarioId, open)
+  // The user's recorded decision, through the store's ONE reader (MG 5948544303: S1 makes the server its durable source).
+  const decisionRecord = useDecisionRecordForScenario(scenarioId)
 
   const brief = useMemo(
-    () => (read.status === 'done' && read.result.status === 'graph' ? buildDecisionBrief(read.result) : null),
-    [read],
+    () => (read.status === 'done' && read.result.status === 'graph' ? buildDecisionBrief(read.result, decisionRecord) : null),
+    [read, decisionRecord],
   )
 
   const close = useCallback(() => {

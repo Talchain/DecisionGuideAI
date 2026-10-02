@@ -16,6 +16,10 @@ import staleRead from '../../hydrate/__tests__/fixtures/served-6b2b94dd-stale.re
 import identityWithheldRead from '../../hydrate/__tests__/fixtures/served-0c238873-7f1be5d8.read.json'
 import { fetchScenarioGraph } from '../../../adapters/cee/scenarioGraph'
 import { buildDecisionBrief, decisionBriefToText, DECISION_BRIEF_COPY, type SavedScenarioRead } from '../buildDecisionBrief'
+import { decisionBriefToHtml } from '../decisionBriefHtml'
+import { v5AnalysisBlockContentHash } from '../../../v5/mapV5AnalysisToReport'
+import type { DecisionRecord } from '../../../components/results/modals'
+import { ANALYSIS_NEW_COPY } from '../../../components/results/analysisNew/analysisNewCopy'
 
 const SCENARIO = '00000000-0000-4000-8000-000000000001'
 
@@ -188,5 +192,70 @@ describe('buildDecisionBrief — goal figures withheld for the whole Run (served
     expect(reasons[0].text).not.toMatch(/\d+%/)
     expect(reasons[0].nodeId).toBe(brief.goal?.nodeId)
     expect(decisionBriefToText(brief)).not.toMatch(/% of model runs/)
+  })
+})
+
+// ─── The decision on record (MG 5948544303) ──────────────────────────────────
+
+/** A record as the capture modal writes it (`DecisionRecordModal` → `decisionRecordStore`); a guest's has no `remote`. */
+function recordOf(over: Record<string, unknown> = {}): DecisionRecord {
+  return {
+    position: 'option', optionId: 'keep_49_price', optionLabel: 'Keep the £49 price', optionNumber: null, confidence: 70,
+    rationale: 'Churn risk outweighs the MRR gain', assumptionToWatch: 'Churn stays below 5%',
+    revisitTrigger: 'If monthly churn passes 4%', analysisHash: null, savedAt: Date.UTC(2026, 9, 2, 8, 0), remote: null,
+    ...over,
+  } as unknown as DecisionRecord
+}
+
+describe('buildDecisionBrief — the decision on record, bound to its Run by the results hash', () => {
+  it('⛔ a record made on THIS Run is shown in the card’s own words (hash from the turn writer’s own helper, not the brief’s)', async () => {
+    const read = await readOf(currentRead)
+    // The value a record stores as `analysisHash` in session: the turn path's content hash of the same block.
+    const runHash = v5AnalysisBlockContentHash(read.analysisResult as never)
+    const brief = buildDecisionBrief(read, recordOf({ analysisHash: runHash }))
+    const copy = ANALYSIS_NEW_COPY.decisionRecord
+    expect(brief.record?.heading).toBe(copy.recorded)
+    expect(brief.record?.position).toBe('Keep the £49 price')
+    expect(brief.record?.rows).toEqual([
+      { label: copy.confidenceLabel, text: `70 ${copy.confidenceSuffix}` },
+      { label: copy.rationaleLabel, text: 'Churn risk outweighs the MRR gain' },
+      { label: copy.assumptionLabel, text: 'Churn stays below 5%' },
+      { label: copy.revisitLabel, text: 'If monthly churn passes 4%' },
+    ])
+    expect(brief.record?.recordedOn).toBe(`${copy.recordedOnPrefix} 2 Oct 2026`)
+    // A guest's record is said to be on this device, in the card's own sentence.
+    expect(brief.record?.storage).toBe(copy.storedLocal)
+    const text = decisionBriefToText(brief)
+    expect(text).toContain(copy.recorded)
+    expect(text).toContain('Keep the £49 price')
+    expect(decisionBriefToHtml(brief)).toContain('Keep the £49 price')
+  })
+
+  it('CONTRAST: a record made on a DIFFERENT Run is not shown on this one', async () => {
+    const read = await readOf(currentRead)
+    const brief = buildDecisionBrief(read, recordOf({ analysisHash: 'fnv1a-64:another-run' }))
+    expect(brief.record).toBeNull()
+    expect(decisionBriefToText(brief)).not.toContain(ANALYSIS_NEW_COPY.decisionRecord.recorded)
+  })
+
+  it('nothing to compare (no Run result, or no hash on the record) → shown with the date it was recorded, never hidden', async () => {
+    const stale = buildDecisionBrief(await readOf(staleRead), recordOf({ analysisHash: 'fnv1a-64:some-run' }))
+    expect(stale.record?.position).toBe('Keep the £49 price')
+    const unhashed = buildDecisionBrief(await readOf(currentRead), recordOf({ analysisHash: null }))
+    expect(unhashed.record?.recordedOn).toBe(`${ANALYSIS_NEW_COPY.decisionRecord.recordedOnPrefix} 2 Oct 2026`)
+  })
+
+  it('a signed-in record the server confirmed is NOT said to be on this device only; a not-ready record names no option', async () => {
+    const read = await readOf(currentRead)
+    const remote = { recordId: 'dr_1', reviewDate: '2026-11-02', reviewDateSource: 'user_set', storedTextFields: [] }
+    expect(buildDecisionBrief(read, recordOf({ remote })).record?.storage).not.toBe(ANALYSIS_NEW_COPY.decisionRecord.storedLocal)
+    const notReady = recordOf({ position: 'not_ready', optionId: undefined, optionLabel: undefined, optionNumber: undefined, confidence: undefined })
+    const brief = buildDecisionBrief(read, notReady)
+    expect(brief.record?.position).toBe('Not ready to choose')
+    expect(brief.record?.rows.map((r) => r.label)).not.toContain(ANALYSIS_NEW_COPY.decisionRecord.confidenceLabel)
+  })
+
+  it('no record → no section', async () => {
+    expect(buildDecisionBrief(await readOf(currentRead)).record).toBeNull()
   })
 })

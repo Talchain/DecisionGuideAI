@@ -43,6 +43,15 @@ import { formatGoalTarget } from '../../components/results/utils/formatGoalTarge
 import { goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { readGoalIdentityWithheld } from '../../components/results/utils/goalIdentityWithheld'
 import { isAnalysedOption, optionComputationFailed } from '../../components/results/utils/notAnalysedOptions'
+import type { DecisionRecord } from '../../components/results/modals'
+import {
+  DECISION_POSITION_COPY,
+  formatConfidence,
+  formatRecordedOn,
+  recordedOptionText,
+  storageSentenceFor,
+} from '../../components/results/analysisNew/sections/DecisionRecorded'
+import { ANALYSIS_NEW_COPY } from '../../components/results/analysisNew/analysisNewCopy'
 import type { OptionComputeStatus } from '../../adapters/plot/optionComputeStatus'
 
 // ─── Input ──────────────────────────────────────────────────────────────────
@@ -130,6 +139,19 @@ export interface BriefWithheld {
   readonly nodeId: string | null
 }
 
+/**
+ * The user's recorded decision, in the read-back card's own words (`DecisionRecorded`): the same position text, labels,
+ * date and storage sentence, so the brief never says something about a record that the card does not.
+ */
+export interface BriefRecord {
+  readonly heading: string
+  readonly position: string
+  readonly rows: readonly { readonly label: string; readonly text: string }[]
+  readonly recordedOn: string | null
+  readonly storage: string
+  readonly yourView: string
+}
+
 export interface DecisionBriefModel {
   readonly decision: { readonly nodeId: string | null; readonly label: string | null }
   readonly options: readonly { readonly nodeId: string; readonly label: string }[]
@@ -144,6 +166,8 @@ export interface DecisionBriefModel {
   /** Top drivers of the Run — EMPTY unless `run.status === 'current'`. */
   readonly drivers: readonly BriefDriver[]
   readonly withheld: readonly BriefWithheld[]
+  /** The decision the user recorded for THIS Run, or null (none, or recorded against a different Run). */
+  readonly record: BriefRecord | null
   readonly version: { readonly graphHash: string | null; readonly shortVersion: string | null; readonly identity: string | null }
 }
 
@@ -291,7 +315,51 @@ function runOf(read: SavedScenarioRead): { run: BriefRun; withheld: BriefWithhel
 
 // ─── The builder ────────────────────────────────────────────────────────────
 
-export function buildDecisionBrief(read: SavedScenarioRead): DecisionBriefModel {
+/**
+ * The latest Run's results hash: the value a decision record stores as `analysisHash` (`results.hash`). Derived exactly
+ * as the boot currency check derives it from a read (`applyBootRunCurrency`), and as the turn applier does in session
+ * (`mapV5AnalysisToReport(block).model_card.response_hash`, no producer override), so the two collide by construction.
+ */
+function latestRunResultsHash(read: SavedScenarioRead): string | null {
+  if (read.analysisResult == null) return null
+  const hash = mapV5AnalysisToReport(read.analysisResult as AnalysisResultBlock).model_card.response_hash
+  return typeof hash === 'string' && hash !== '' ? hash : null
+}
+
+/**
+ * ⛔ COMPARE LIKE WITH LIKE (MG 5948544303). The record is bound to a Run by its results hash. When both hashes exist and
+ * differ, the record belongs to another Run and is not shown here. When either is missing, nothing can be compared, so
+ * the record is shown with the date it was recorded rather than hidden by a comparison across hash families.
+ */
+function briefRecordOf(record: DecisionRecord | null, read: SavedScenarioRead): BriefRecord | null {
+  if (record == null) return null
+  const runHash = latestRunResultsHash(read)
+  if (runHash !== null && record.analysisHash && record.analysisHash !== runHash) return null
+  const copy = ANALYSIS_NEW_COPY.decisionRecord
+  const rows: { label: string; text: string }[] = []
+  const add = (label: string, text: string | null | undefined) => {
+    if (typeof text === 'string' && text.trim() !== '') rows.push({ label, text: text.trim() })
+  }
+  if (record.position !== 'not_ready') {
+    add(copy.confidenceLabel, formatConfidence(record.confidence))
+    add(copy.expectationLabel, record.expectation)
+  }
+  add(copy.rationaleLabel, record.rationale)
+  add(copy.assumptionLabel, record.assumptionToWatch)
+  add(copy.revisitLabel, record.revisitTrigger)
+  add(copy.nextActionLabel, record.nextAction)
+  const on = formatRecordedOn(record.savedAt)
+  return {
+    heading: copy.recorded,
+    position: recordedOptionText(record),
+    rows,
+    recordedOn: on ? `${copy.recordedOnPrefix} ${on}` : null,
+    storage: storageSentenceFor(record),
+    yourView: DECISION_POSITION_COPY.yourView,
+  }
+}
+
+export function buildDecisionBrief(read: SavedScenarioRead, decisionRecord: DecisionRecord | null = null): DecisionBriefModel {
   const nodes = readNodes(read.graph)
   const byId = new Map(nodes.map((n) => [n.id, n]))
   const decisionNode = nodes.find((n) => n.kind === 'decision') ?? null
@@ -428,6 +496,7 @@ export function buildDecisionBrief(read: SavedScenarioRead): DecisionBriefModel 
     chancesNote,
     drivers,
     withheld,
+    record: briefRecordOf(decisionRecord, read),
     version: {
       graphHash,
       shortVersion: graphHash ? graphHash.slice(0, 8) : null,
@@ -471,6 +540,15 @@ export function decisionBriefToText(brief: DecisionBriefModel): string {
   }
   if (brief.chancesNote) lines.push(`- ${brief.chancesNote}`)
   lines.push('')
+  if (brief.record) {
+    const r = brief.record
+    lines.push(r.heading)
+    lines.push(`- ${r.position}`)
+    for (const row of r.rows) lines.push(`- ${row.label}: ${row.text}`)
+    lines.push(`- ${[r.recordedOn ? `${r.recordedOn}.` : null, r.storage].filter(Boolean).join(' ')}`)
+    lines.push(`- ${r.yourView}`)
+    lines.push('')
+  }
   if (brief.drivers.length > 0) {
     lines.push('What drives the result most')
     for (const d of brief.drivers) lines.push(`- ${d.label}`)
