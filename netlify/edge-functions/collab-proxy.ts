@@ -36,10 +36,11 @@
 
 import type { Config, Context } from '@netlify/edge-functions'
 
-const CEE_TARGET = 'https://cee-staging.onrender.com'
+const CEE_TARGET = 'https://olumi-assistants-service.onrender.com'
 
 // SECURITY: CORS allow-list (never a wildcard). Identical to cee-proxy.ts.
 const ALLOWED_ORIGINS = [
+  'https://olumi.netlify.app',
   'https://decisionguide.ai',
   'https://decision-guide-ai.netlify.app',
   'https://staging--olumi.netlify.app',

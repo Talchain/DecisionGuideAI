@@ -41,13 +41,14 @@
 
 import type { Config, Context } from '@netlify/edge-functions'
 
-const PLOT_TARGET = 'https://plot-lite-service-staging.onrender.com'
+const PLOT_TARGET = 'https://plot-lite-service.onrender.com'
 
 /** Path prefixes this function serves, longest first so `/bff/engine` wins over `/engine`. */
 const MOUNTS = ['/bff/engine', '/engine']
 
 // SECURITY: CORS allow-list (never a wildcard). Mirrors isl-proxy.ts.
 const ALLOWED_ORIGINS = [
+  'https://olumi.netlify.app',
   'https://decisionguide.ai',
   'https://decision-guide-ai.netlify.app',
   'https://staging--olumi.netlify.app',
