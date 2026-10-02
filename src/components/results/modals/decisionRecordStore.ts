@@ -369,9 +369,11 @@ export function observeDecisionRecordOwner(ownerId: string | null): void {
   // Tabs observing the same transition must choose the same generation. A
   // random initial epoch let the later publisher erase the first tab's notes.
   // Explicit sign-out still rotates to a random epoch before deleting records.
-  const next: Boundary = current && current.ownerId === ownerId ? current : {
-    ownerId, epoch: uuidv5(JSON.stringify([current?.epoch ?? null, ownerId]), uuidv5.URL),
-  }
+  const next: Boundary = current && current.ownerId === ownerId ? current
+    // Storage blocked: no tab can share a generation, and a derived one would REPEAT after sign-out → the same user
+    // (Codex S1 r2 P1). Keep the in-memory one for the same owner; otherwise a fresh, unguessable one.
+    : current === undefined ? (boundary && boundary.ownerId === ownerId ? boundary : { ownerId, epoch: id() })
+    : { ownerId, epoch: uuidv5(JSON.stringify([current?.epoch ?? null, ownerId]), uuidv5.URL) }
   if (!current || current.ownerId !== ownerId) {
     // Publish revocation first, so a stale tab cannot refill the cleared generation.
     try { localStorage.setItem(BOUNDARY_KEY, JSON.stringify(next)) } catch { /* memory only */ }
@@ -399,7 +401,8 @@ export function hydrateDecisionRecordFromServer(
   if (boundary.epoch !== ownerEpoch) return false
   if (scenarioKey === UNSCOPED_SCENARIO_KEY) return false
   const state = useDecisionRecordStore.getState()
-  if (state.byScenario[scenarioKey]) return false
+  // A local record wins, including one another tab wrote whose storage event has not arrived yet (Codex S1 r2 P2).
+  if (state.byScenario[scenarioKey] || readRecord(scenarioKey)) return false
   readBack.add(scenarioKey)
   useDecisionRecordStore.setState({ byScenario: { ...state.byScenario, [scenarioKey]: record } })
   return true

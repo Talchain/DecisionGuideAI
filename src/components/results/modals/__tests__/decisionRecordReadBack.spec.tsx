@@ -154,6 +154,27 @@ describe('hydration: the current owner only, memory only, never over a local rec
     window.dispatchEvent(new StorageEvent('storage', { key: diskKey(SCENARIO_ID) }))
     expect((S.selectDecisionRecord(S.useDecisionRecordStore.getState(), SCENARIO_ID) as { optionId: string }).optionId).toBe('opt_local_tab')
   })
+  it('CODEX S1 r2 P1: with storage BLOCKED, sign-out then the same user again is still a NEW generation', () => {
+    const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked') })
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
+    try {
+      S.observeDecisionRecordOwner(OWNER_ID)
+      const started = epochNow()
+      S.observeDecisionRecordOwner(OWNER_ID) // the same owner observed again keeps its generation
+      expect(epochNow()).toBe(started)
+      S.clearDecisionRecords()
+      S.observeDecisionRecordOwner(OWNER_ID)
+      expect(epochNow()).not.toBe(started)
+      expect(S.hydrateDecisionRecordFromServer(key(SCENARIO_ID), OWNER_ID, record(), started)).toBe(false)
+    } finally { get.mockRestore(); set.mockRestore() }
+  })
+  it('CODEX S1 r2 P2: a record ANOTHER TAB wrote for this scenario wins even before its storage event arrives', () => {
+    S.observeDecisionRecordOwner(OWNER_ID)
+    const diskKey = `decisionRecord.v2:${epochNow()}:record:${encodeURIComponent(SCENARIO_ID)}`
+    localStorage.setItem(diskKey, JSON.stringify({ version: 2, scenarioKey: SCENARIO_ID, clientCommitId: 'tab-2', record: { ...record(), optionId: 'opt_tab_2', remote: null } }))
+    expect(S.hydrateDecisionRecordFromServer(key(SCENARIO_ID), OWNER_ID, record(), epochNow())).toBe(false)
+    expect(S.useDecisionRecordStore.getState().byScenario[SCENARIO_ID]).toBeUndefined() // the server row never showed
+  })
   it('MEMORY ONLY: account data is never written to this device — a reload re-reads storage and finds nothing', () => {
     S.observeDecisionRecordOwner(OWNER_ID)
     S.hydrateDecisionRecordFromServer(key(SCENARIO_ID), OWNER_ID, record(), epochNow())

@@ -493,11 +493,18 @@ export function PreRunCommitment({
   bullets,
   status,
   onAsk,
+  record = null,
   testId = 'analysis-new-commitment-pre-run',
 }: {
   bullets: ReadonlyArray<{ key: CommitmentBulletKey; label: string; text: string; source: string }>
   status: ReactNode
   onAsk: (ask: CommitmentAsk) => void
+  /**
+   * ⭐ DECIDE & REVIEW S1 (Codex r2 P1): a decision already recorded for this scenario. A stale Run reloads with no
+   * result block (`complete_stale`), so the panel is pre-run, yet the user's own record must still show: on another
+   * device it is the whole point of the read-back. READ ONLY here: no capture act without analysed options.
+   */
+  record?: DecisionRecord | null
   testId?: string
 }) {
   const context = bullets.map((b) => `${b.label}: ${b.text}`).join('\n')
@@ -532,6 +539,11 @@ export function PreRunCommitment({
         </ul>
       ) : null}
       <div className="mt-2">{status}</div>
+      {record !== null ? (
+        <div className="mt-2">
+          <RecordYourView canCapture={false} record={record} onRecord={() => {}} testId={`${testId}-record`} />
+        </div>
+      ) : null}
     </section>
   )
 }

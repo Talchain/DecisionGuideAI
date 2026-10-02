@@ -2742,6 +2742,7 @@ export function AnalysisNewTabBody({
             })}
             status={preRunStatus}
             onAsk={openAskOlumi}
+            record={decisionRecord}
           />
         ) : (
         <div className="space-y-2" data-testid="analysis-new-zone-answer-group">
