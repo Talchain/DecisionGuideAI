@@ -15,6 +15,8 @@
  *        diff shows and no results block. CONTRAST: any other 422 is never retried (VR6).
  *   VR5  a v2 body whose `result_comparison` breaks the contract → no diff at all (the honest "try again" line).
  *   VR6  422 VERSION_GRAPH_INCOMPATIBLE on the opt-in → ONE call, "cannot be compared safely".
+ *   VR8  (U4) FROM holds the LATER Run: the block keeps the user's FROM → TO order with each Run's own date, never re-sorted
+ *        and never "earlier".
  *   VR7  the reader's `versions` frame, every attribution case: a sentence of its own, none rerun-shaped, no
  *        "Compared with the earlier run"; the default (`rerun`) is unchanged. Direction-only movement says
  *        "than in the version compared from", never "than last time".
@@ -120,6 +122,37 @@ describe('VR1 · paired_runs: both versions, their own dates, the Compare tab\'s
     )
     const view = buildRunDeltaView(rc.run_delta as RunDelta, () => null, () => null, 'versions')
     expect(block).toHaveTextContent(view.comparability)
+    expect(block.textContent).not.toMatch(RERUN_SHAPED)
+  })
+})
+
+describe('VR8 · FROM holds the LATER Run: orientation is the user\'s, never re-sorted by date', () => {
+  it('FROM → TO with each Run\'s own date, the later one first; nothing rerun-shaped', async () => {
+    if (PAIRED.result_comparison.status !== 'available' || PAIRED.result_comparison.kind !== 'paired_runs') throw new Error('fixture')
+    const rc = PAIRED.result_comparison
+    const LATE = '2026-09-30T18:45:00.000Z'
+    const EARLY = '2026-09-30T08:15:00.000Z'
+    const reversed = {
+      ...PAIRED,
+      result_comparison: {
+        ...rc,
+        prior_run: { ...rc.prior_run, computed_at: LATE },
+        current_run: { ...rc.current_run, computed_at: EARLY },
+        run_delta: {
+          ...rc.run_delta,
+          endpoints: {
+            prior: { ...rc.run_delta.endpoints!.prior, computed_at: LATE },
+            current: { ...rc.run_delta.endpoints!.current, computed_at: EARLY },
+          },
+        },
+      },
+    }
+    expect(ModelVersionDiffV2Schema.safeParse(reversed).success).toBe(true)
+    await compare([{ status: 200, body: reversed }])
+    const block = await screen.findByTestId(R)
+    expect(within(block).getByTestId(`${R}-pair`)).toHaveTextContent(
+      `v1 · Before: recorded ${formatTimestamp(LATE)} → v6 · After: recorded ${formatTimestamp(EARLY)}`,
+    )
     expect(block.textContent).not.toMatch(RERUN_SHAPED)
   })
 })
