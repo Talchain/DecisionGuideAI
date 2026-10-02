@@ -24,6 +24,7 @@
 import type { Edge, Node } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import type { EdgeData } from '../domain/edges'
+import { isViewerSession } from '../../lib/viewerMode'
 
 export interface GraphSnapshot {
   nodes: Node[]
@@ -41,6 +42,9 @@ export function commitGraphMutation(
   mutate: (current: GraphSnapshot) => GraphSnapshot,
   options: CommitGraphMutationOptions = {},
 ): void {
+  // ACCOUNTS viewer mode: a shared decision is view-only, so the convergence point
+  // refuses (CANVAS 5947752314). Nothing is applied and no history frame is pushed.
+  if (isViewerSession()) return
   const { pushHistory = true } = options
   if (pushHistory) useCanvasStore.getState().pushHistory()
   useCanvasStore.setState((current) => {

@@ -316,6 +316,7 @@ function tryRestoreResultsFromHistory(
 // because this is where every existing consumer already imports it from, and
 // this file uses it in its own action signatures.
 import type { CeeQualityDimensions } from './utils/ceeQualityDimensions'
+import { isViewerSession } from '../lib/viewerMode'
 export type { CeeQualityDimensions }
 
 // Results panel state machine
@@ -3875,6 +3876,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   updateNodeLabel: (id, label) => {
+    // ACCOUNTS viewer mode: a viewer cannot rename (only user gestures call this).
+    if (isViewerSession()) return
     // 0.50.0 — CAPTURE BEFORE THE LOCAL WRITE, and that ordering is the whole
     // point. `expected_label` is an assertion about the label the user was
     // LOOKING AT; reading it after the local mutation would assert the label we
@@ -4052,6 +4055,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   onNodesChange: (changes) => {
+    // ACCOUNTS viewer mode: a viewer selects and is measured, nothing else (no drag, add or remove).
+    if (isViewerSession()) changes = changes?.filter((c) => c.type === 'select' || c.type === 'dimensions')
     // Guard no-op changes
     if (!changes || changes.length === 0) return
 
@@ -4209,6 +4214,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   onEdgesChange: (changes) => {
+    // ACCOUNTS viewer mode: a viewer selects edges, nothing else (no remove).
+    if (isViewerSession()) changes = changes?.filter((c) => c.type === 'select')
     // Guard no-op changes
     if (!changes || changes.length === 0) return
 

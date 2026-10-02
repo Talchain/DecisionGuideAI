@@ -31,6 +31,7 @@ import {
   runChangesSummaryLines,
 } from '../graphChanges/runChangesSummaryLines'
 import { typography } from '../../styles/typography'
+import { useIsViewer } from '../../lib/viewerMode'
 
 export const RUN_CHANGES_SUMMARY_TESTID = 'run-changes-summary'
 
@@ -58,6 +59,8 @@ export function RunChangesSummary(): JSX.Element | null {
   const route = useRunChangesRouteFocus(view?.attributable === true)
   const storedDelta = useCanvasStore((s) => s.runDelta?.delta ?? null)
   const requestPrefill = useValuePrefillStore((s) => s.requestPrefill)
+  // ACCOUNTS viewer mode (CANVAS 5947752314): a viewer reads the changes but cannot put a value back.
+  const isViewer = useIsViewer()
   // Is the pill's one line cut short? Only then does the detail repeat what the pill already says (R3 5935751708: the
   // open detail covered the Goal at 1440x900, half of it a second copy of the pill's two lines).
   const lineRef = useRef<HTMLSpanElement>(null)
@@ -86,7 +89,8 @@ export function RunChangesSummary(): JSX.Element | null {
   const headLink = lines.changed[0] ? canvasLinkOfRow(lines.changed[0].row, { route }) : null
   // ⭐ What-if "Put it back": opens the card's OWN value editor pre-filled with the earlier value (the user commits with
   // Enter through the existing writer). Offered only where `valuePrefillOfRow` allows it (same unit, the card has an editor).
-  const prefillOf = (row: RunDeltaInputRow): ValuePrefill | null => valuePrefillOfRow(row, storedDelta, useCanvasStore.getState().nodes)
+  const prefillOf = (row: RunDeltaInputRow): ValuePrefill | null =>
+    isViewer ? null : valuePrefillOfRow(row, storedDelta, useCanvasStore.getState().nodes)
   const putBack = (row: RunDeltaInputRow, prefill: ValuePrefill, where: 'pill' | 'detail') => (
     <button
       type="button"

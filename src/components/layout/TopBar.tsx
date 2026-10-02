@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Share2, Users, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
+import { Share2, Users, UserPlus, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import styles from './TopBar.module.css'
 import { UserAvatarMenu } from './UserAvatarMenu'
@@ -11,6 +11,8 @@ import { DecisionBriefTrigger } from '../../canvas/decisionBrief/DecisionBriefTr
 import { ownerPanelHash } from '../../collab/panelRoute'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import { useUIStore } from '../../stores/uiStore'
+import { useIsConfirmedOwner, useIsViewer } from '../../lib/viewerMode'
+import { ShareDecisionDialog } from '../sharing/ShareDecisionDialog'
 
 // Custom events for help actions (communicated to ReactFlowGraph)
 // Lane 4 (P5): SHOW_ONBOARDING removed — its only dispatcher was the kebab
@@ -82,6 +84,9 @@ export const TopBar = ({
   shareScenarioId = null,
 }: TopBarProps) => {
   const [showSavedPill, setShowSavedPill] = useState(false)
+  const isViewer = useIsViewer()
+  const isConfirmedOwner = useIsConfirmedOwner()
+  const [inviteOpen, setInviteOpen] = useState(false)
 
   // The kebab menu's open-state lives in uiStore, NOT in component-local
   // `useState`. That is the whole point: `applyV5State` dispatches the AI's
@@ -255,15 +260,32 @@ export const TopBar = ({
             title (-> Supabase) as well as the localStorage record. It also
             still carries scenario switching, save-as, duplicate, delete and
             scenario export/import (.olumi.json). */}
-        <ScenarioSwitcher
-          dropdownPosition="below"
-          displayName={scenarioTitle}
-          onRename={onTitleChange}
-          // A persisted session's decisions live in Supabase; this control's
-          // list/switch/delete read and write localStorage, so they steer the
-          // wrong collection there. `ScenarioListPage` is the single owner.
-          isPersisted={isPersisted}
-        />
+        {/* ACCOUNTS viewer mode: a decision shared WITH this user is view-only. The
+            switcher renames, duplicates and deletes, so a viewer gets the name and
+            a plain "View only" tag instead (server refuses those writes anyway). */}
+        {isViewer ? (
+          <>
+            <span className="text-sm font-medium text-text-header truncate max-w-[40vw]" data-testid="topbar-viewer-title">
+              {scenarioTitle}
+            </span>
+            <span
+              className="text-xs text-text-light px-2 py-0.5 rounded-pill border border-[rgba(38,38,38,0.16)] whitespace-nowrap"
+              data-testid="topbar-view-only"
+            >
+              View only · shared with you
+            </span>
+          </>
+        ) : (
+          <ScenarioSwitcher
+            dropdownPosition="below"
+            displayName={scenarioTitle}
+            onRename={onTitleChange}
+            // A persisted session's decisions live in Supabase; this control's
+            // list/switch/delete read and write localStorage, so they steer the
+            // wrong collection there. `ScenarioListPage` is the single owner.
+            isPersisted={isPersisted}
+          />
+        )}
 
         {/* Dirty indicator (localStorage mode only) */}
         {!isPersisted && isDirty && saveStatus !== 'saving' && (
@@ -389,6 +411,31 @@ export const TopBar = ({
           </Tooltip>
         )}
 
+        {/* ACCOUNTS "Invite a colleague" (view only): the owner's in-decision entry, beside
+            the brief link. Shown only on a CONFIRMED 'owner' answer from scenario_access,
+            never while that answer is pending (Codex R4): a viewer's canvas can hold the
+            scenario id before its access lands. The server enforces ownership too. */}
+        {isConfirmedOwner && shareScenarioId != null && shareScenarioId !== '' && (
+          <Tooltip content="Invite a colleague to view this decision">
+            <button
+              type="button"
+              onClick={() => setInviteOpen(true)}
+              className={styles.shareButton}
+              aria-label="Invite a colleague to view this decision"
+              data-testid="topbar-invite"
+            >
+              <UserPlus size={14} aria-hidden="true" />
+            </button>
+          </Tooltip>
+        )}
+        {inviteOpen && isConfirmedOwner && shareScenarioId != null && shareScenarioId !== '' && (
+          <ShareDecisionDialog
+            scenarioId={shareScenarioId}
+            scenarioTitle={scenarioTitle}
+            onClose={() => setInviteOpen(false)}
+          />
+        )}
+
         {/* ⭐ VERSION HISTORY — THE REAL CONTROL (R4, Paul, 16 Aug 2026).
             This button used to be a LIE: it said "coming soon" and fired an
             informational toast, while the fully built versions feature was
@@ -399,9 +446,12 @@ export const TopBar = ({
             history belongs beside the model name and share, with the other
             document-level controls, not hovering over the graph. `VersionsTrigger`
             carries no positioning of its own — this row owns its layout. */}
-        <Tooltip content="Version history — snapshots of the model you authored">
-          <VersionsTrigger variant="icon" className={styles.iconButton} data-testid="topbar-versions-trigger" />
-        </Tooltip>
+        {/* Versions are owner-only on CEE (list, save, restore): hidden for a viewer. */}
+        {!isViewer && (
+          <Tooltip content="Version history — snapshots of the model you authored">
+            <VersionsTrigger variant="icon" className={styles.iconButton} data-testid="topbar-versions-trigger" />
+          </Tooltip>
+        )}
 
         {/* DECISION BRIEF — the saved model and its latest Run as one shareable page (self-contained; renders
             nothing for a scenario CEE cannot read). */}

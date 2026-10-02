@@ -19,6 +19,7 @@ import {
 } from '../../conversation/edgeStrengthEdit'
 import { serverStatedStrengthOf } from '../../conversation/edgeServerStatedStrength'
 import { NODE_LABEL_MAX_LENGTH } from './nodeLabelLimits'
+import { isViewerSession } from '../../../lib/viewerMode'
 
 // ─── Editor-written-field manifest (single source of truth) ────────────
 //
@@ -668,7 +669,14 @@ export const INSPECTOR_EDGE_DEFINITIONAL_REASON =
 
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {
-  const updateNode = useCanvasStore(s => s.updateNode)
+  const storeUpdateNode = useCanvasStore(s => s.updateNode)
+  // ACCOUNTS viewer mode: EVERY local write in this hook goes through `updateNode`,
+  // so this one check keeps a viewer's inspector edits (range, category, label…)
+  // off the canvas. Any send they make is refused by the server and the belt.
+  const updateNode = useCallback<typeof storeUpdateNode>((id, updates) => {
+    if (isViewerSession()) return
+    storeUpdateNode(id, updates)
+  }, [storeUpdateNode])
   // P4 transport — prior-range edits ride the conversation dispatcher when a
   // provider is present; optional so isolated renders still edit locally.
   const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
@@ -1068,7 +1076,12 @@ export type EdgeStrengthConfirmOutcome =
 
 // ─── Edge mutations ────────────────────────────────────────────────
 export function useEdgeMutations(edgeId: string) {
-  const updateEdge = useCanvasStore(s => s.updateEdge)
+  const storeUpdateEdge = useCanvasStore(s => s.updateEdge)
+  // ACCOUNTS viewer mode: the same single check for every edge write in this hook.
+  const updateEdge = useCallback<typeof storeUpdateEdge>((id, updates) => {
+    if (isViewerSession()) return
+    storeUpdateEdge(id, updates)
+  }, [storeUpdateEdge])
   const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
   const getEdge = useCallback(() => {
     return useCanvasStore.getState().edges.find(e => e.id === edgeId)
