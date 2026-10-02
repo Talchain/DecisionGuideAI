@@ -33,6 +33,8 @@ let lensActive: 'full' | 'sensitivity' = 'full'
 let sensitivityWeights = new Map<string, number>()
 let sensitivityQuartiles: { q25: number; q75: number } | null = null
 let highlightedEdges = new Set<string>()
+let runChangesRouteFocusId: string | null = null
+let selection = { nodeIds: new Set<string>(), edgeIds: new Set<string>() }
 let analysisHighlight: { source: 'flip_risks' | 'drivers' | 'run_changes' | null; edgeIds: Set<string>; nodeIds: Set<string> } = {
   source: null,
   edgeIds: new Set(),
@@ -61,6 +63,8 @@ vi.mock('../../store', () => ({
       results: { status: 'complete', report: { robustness: { fragile_edges: [] } } },
       highlightedEdges,
       analysisHighlight,
+      runChangesRouteFocusId,
+      selection,
       viewMode: 'standard',
       lens: {
         active: lensActive,
@@ -131,6 +135,25 @@ afterEach(() => {
   sensitivityQuartiles = null
   analysisHighlight = { source: null, edgeIds: new Set(), nodeIds: new Set() }
   highlightedEdges = new Set()
+  runChangesRouteFocusId = null
+  selection = { nodeIds: new Set(), edgeIds: new Set() }
+})
+
+describe('WHERE THIS CHANGE FLOWS: the Changes subdue yields while a C1 row\'s element is selected', () => {
+  // e1 is NOT the marked link (e9 is), so the Changes view subdues it — unless the route focus owns prominence.
+  const otherMarked = () => ({ source: 'run_changes' as const, edgeIds: new Set(['e9']), nodeIds: new Set<string>() })
+  const subduedOf = (c: HTMLElement) => c.querySelector('[data-run-change-subdued]')?.getAttribute('data-run-change-subdued') ?? null
+  it('route requested AND selected → an unmarked link is not subdued', () => {
+    analysisHighlight = otherMarked()
+    runChangesRouteFocusId = 'e9'
+    selection = { nodeIds: new Set(), edgeIds: new Set(['e9']) }
+    expect(subduedOf(render(<StyledEdge {...(edgeProps as any)} />).container)).toBeNull()
+  })
+  it('CONTROL: requested but not selected → subdued as before', () => {
+    analysisHighlight = otherMarked()
+    runChangesRouteFocusId = 'e9'
+    expect(subduedOf(render(<StyledEdge {...(edgeProps as any)} />).container)).toBe('true')
+  })
 })
 
 describe('the Changes view: a row pointing at its CHANGED link is visible (audit 5942900903 (a2))', () => {

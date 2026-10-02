@@ -144,12 +144,6 @@ const REGISTRY: Record<string, Entry> = {
       'Envelope apply; its commit site calls markGraphStructurallyEdited (which sets the overlay). The second site (23 Sep, Codex 5798417040) is a METADATA STAMP reached only when no value moved: it records the receipt\'s validated `serverStrength` tuple, which is outside the analytical field registry and the registration projection, so invalidating would mark a still-current analysis stale.',
   },
 
-  'canvas/hooks/useFocusCamera.ts': {
-    sites: 1,
-    disposition: 'exempt',
-    reason:
-      'COSMETIC: writes only `selected` on edges to highlight a focus target. No analytical field moves, so invalidating would fabricate cannot-confirm on a user clicking an edge.',
-  },
   'canvas/hooks/useRestoredLayoutWidth.ts': {
     sites: 1,
     disposition: 'exempt',

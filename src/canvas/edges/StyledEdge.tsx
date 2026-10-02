@@ -117,6 +117,7 @@ import {
 } from '../utils/edgeGlyphPlacement'
 import { CANVAS_ONLY_LINK_MARK, isCanvasOnlyLink } from '../utils/canvasOnlyLink'
 import { tierLaneTitleBoxFor } from '../utils/tierLanes'
+import { selectRunChangesRouteLit } from '../graphChanges/routeFocus'
 
 /**
  * StyledEdge with semantic visual properties
@@ -432,7 +433,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       isRunChangeSubduedEdge:
         s.analysisHighlight?.source === 'run_changes' &&
         (s.analysisHighlight.edgeIds?.size ?? 0) + (s.analysisHighlight.nodeIds?.size ?? 0) > 0 &&
-        s.analysisHighlight.edgeIds?.has(edgeIdKey) !== true,
+        s.analysisHighlight.edgeIds?.has(edgeIdKey) !== true &&
+        // WHERE THIS CHANGE FLOWS: while a C1 row's element is selected, its route focus owns prominence.
+        !selectRunChangesRouteLit(s),
       // 6A (selection focus): this edge is outside the selected element's
       // neighbourhood. Primitive boolean (React #185) and optional-chained so
       // store doubles without the slice stay safe.
