@@ -37,7 +37,7 @@
  * submitted-count to the packet — that is precisely how the anchor gets back in.
  */
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { AlertTriangle, Check, Copy, Loader2, LogIn, Users } from 'lucide-react'
 
@@ -58,6 +58,7 @@ import {
 import { requireOwnerAccessToken } from '../collab/ownerAccessToken'
 import { readPendingApply, rememberPendingApply } from '../collab/panelApplyHandoff'
 import { readPanelPrefill } from '../collab/panelRoute'
+import { listScenarioMembers } from '../services/scenarioSharingService'
 import {
   forgetOpenRound,
   recallOpenRound,
@@ -359,6 +360,35 @@ export default function PanelSetupPage(): JSX.Element {
   ])
   const [contextNote, setContextNote] = useState('')
   const [names, setNames] = useState<string[]>(() => ['', ''])
+  /**
+   * ⭐ D2 S2: PANELLISTS FROM THE COLLEAGUES ALREADY INVITED. One entry per row, kept ALIGNED with
+   * `names`. The invited member's email, when that row was seeded from `list_scenario_members`;
+   * null for a row the owner typed. It only SEEDS the editable name (the email's local part) and is
+   * shown to the owner, who invited them. It is NEVER sent: the mint carries `display_name` alone,
+   * links stay bearer tokens, and resolving an email to an account would be an account oracle.
+   * "Active" is the server's answer: the RPC filters `revoked_at IS NULL`, so a revoked member
+   * never arrives here (#2448; live harness row R1).
+   */
+  const [memberEmails, setMemberEmails] = useState<Array<string | null>>(() => [null, null])
+  const namesRef = useRef(names)
+  namesRef.current = names
+  useEffect(() => {
+    if (!scenarioId) return
+    let live = true
+    void listScenarioMembers(scenarioId).then((result) => {
+      // A failed or empty list leaves today's blank form, with no error: the owner can still type names.
+      if (!live || !result.ok || result.members.length === 0) return
+      // Seeds only an UNTOUCHED form. Anything the owner typed while the list was in flight wins.
+      if (namesRef.current.some((n) => n.trim() !== '')) return
+      const emails = result.members.map((m) => m.email)
+      const padding = Math.max(0, 2 - emails.length)
+      setNames([...emails.map((e) => e.split('@')[0]), ...Array<string>(padding).fill('')])
+      setMemberEmails([...emails, ...Array<null>(padding).fill(null)])
+    })
+    return () => {
+      live = false
+    }
+  }, [scenarioId])
   const [minted, setMinted] = useState<MintedRound | null>(null)
   const [reveal, setReveal] = useState<RevealView | null>(null)
   const [disagreement, setDisagreement] = useState<DisagreementView | null>(null)
@@ -845,8 +875,9 @@ export default function PanelSetupPage(): JSX.Element {
                       i === 0 ? 'panel-name-a' : i === 1 ? 'panel-name-b' : `panel-name-${i}`
                     const ordinal =
                       i === 0 ? 'First' : i === 1 ? 'Second' : i === 2 ? 'Third' : `Person ${i + 1}`
+                    const memberEmail = memberEmails[i] ?? null
                     return (
-                      <div key={`name-row-${i}`}>
+                      <div key={`name-row-${i}`} data-member-email={memberEmail ?? undefined}>
                         <label
                           htmlFor={`${testId}-input`}
                           className={`${typography.label} block text-text-header`}
@@ -861,6 +892,11 @@ export default function PanelSetupPage(): JSX.Element {
                           onChange={(e) => setNameAt(i, e.target.value)}
                           placeholder={PERSON_PLACEHOLDERS[i % PERSON_PLACEHOLDERS.length]}
                         />
+                        {memberEmail !== null && (
+                          <p className={`${typography.bodySmall} mt-1 text-text-light truncate`}>
+                            Invited as {memberEmail}
+                          </p>
+                        )}
                         {/* The first two are the round's shape; anything beyond
                             them the owner added and may take back. */}
                         {i > 1 && (
@@ -869,7 +905,10 @@ export default function PanelSetupPage(): JSX.Element {
                             size="sm"
                             data-testid={`panel-name-remove-${i}`}
                             className="mt-2"
-                            onClick={() => setNames((prev) => prev.filter((_, k) => k !== i))}
+                            onClick={() => {
+                              setNames((prev) => prev.filter((_, k) => k !== i))
+                              setMemberEmails((prev) => prev.filter((_, k) => k !== i))
+                            }}
                             disabled={busyAction !== null}
                           >
                             Remove
@@ -884,7 +923,10 @@ export default function PanelSetupPage(): JSX.Element {
                     variant="secondary"
                     size="sm"
                     data-testid="panel-add-name"
-                    onClick={() => setNames((prev) => [...prev, ''])}
+                    onClick={() => {
+                      setNames((prev) => [...prev, ''])
+                      setMemberEmails((prev) => [...prev, null])
+                    }}
                     disabled={busyAction !== null}
                   >
                     Add another person
