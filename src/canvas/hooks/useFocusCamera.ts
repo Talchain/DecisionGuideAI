@@ -113,10 +113,10 @@ export function useFocusCamera(): FocusCameraHandlers {
     const plan = computeEdgeFocusPlan(edgeId, store.nodes, store.edges, readFocusCamera(getViewportRef.current))
     if (!plan) return // fail-closed: the edge or an end is not on the canvas
 
-    // Select edge (not in history, just for visual feedback)
-    useCanvasStore.setState({
-      edges: store.edges.map((e) => ({ ...e, selected: e.id === edgeId })),
-    })
+    // Select ONLY the edge, without history (navigation only) — the edge twin of the node branch's
+    // selectNodeWithoutHistory. A card selected before must not survive into a mixed card + link selection, which
+    // gets no focus at all (served `b1fa145b`: a card selected, then a Changes row → both selected, nothing dimmed).
+    store.selectEdgeWithoutHistory(edgeId)
 
     // F3: focusing an EDGE ends any node focus lens. This pans the camera away
     // from the focused node, and the dim must never survive the frame it was

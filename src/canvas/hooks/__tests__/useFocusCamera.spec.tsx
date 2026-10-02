@@ -223,6 +223,17 @@ describe('useFocusCamera — F3 an edge focus ends the lens (finding 3)', () => 
     expect(setCenterSpy).not.toHaveBeenCalled()
     expect(useCanvasStore.getState().edges.find((e) => e.id === 'e1')?.selected).toBe(true)
   })
+  it('a card selected first: the edge focus leaves ONLY the link selected (a mixed selection gets no focus at all)', () => {
+    stubCanvas()
+    renderHook(() => useFocusCamera())
+    act(() => focusNodeById('a'))
+    expect([...useCanvasStore.getState().selection.nodeIds]).toEqual(['a'])
+    act(() => focusEdgeById('e1'))
+    const { selection, nodes } = useCanvasStore.getState()
+    expect([...selection.edgeIds]).toEqual(['e1'])
+    expect([...selection.nodeIds]).toEqual([])
+    expect(nodes.filter((n) => n.selected).map((n) => n.id)).toEqual([])
+  })
 })
 
 describe('useFocusCamera — F2/F4 the gate and the fit share one frame (finding 4)', () => {
