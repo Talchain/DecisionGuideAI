@@ -148,6 +148,25 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
     expectNoLeakInDOM()
   })
 
+  it('⛔ the status pill never wraps or shrinks beside a long title (served: "No / chang / e" in a 63px pill)', () => {
+    // jsdom has no layout, so this pins the CLASS CONTRACT that prevents it, bound by testid: the pill keeps one line
+    // and its width (shrink-0 + whitespace-nowrap); the title is the flex child allowed to shrink and wrap (min-w-0).
+    // The served witness (deploy 6abeee47, 1 Oct 23:39Z) measured the defect this pins.
+    const block: V5GraphPatchBlockType = {
+      type: 'v5_graph_patch',
+      status: 'noop',
+      operation: 'set_factor_value',
+      target_id: 'fac_team_morale',
+      before: { value: 0.7 },
+      after: { value: 0.7 },
+    }
+    render(<V5GraphPatchBlock block={block} />)
+    const pill = screen.getByTestId('v5-change-status').classList
+    expect(pill.contains('shrink-0')).toBe(true)
+    expect(pill.contains('whitespace-nowrap')).toBe(true)
+    expect(screen.getByTestId('v5-change-action').classList.contains('min-w-0')).toBe(true)
+  })
+
   it('falls back to generic element type when canvas-store label is missing (no leak)', () => {
     const block: V5GraphPatchBlockType = {
       type: 'v5_graph_patch',
