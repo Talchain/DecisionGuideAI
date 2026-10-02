@@ -405,7 +405,7 @@ export const TopBar = ({
 
         {/* DECISION BRIEF — the saved model and its latest Run as one shareable page (self-contained; renders
             nothing for a scenario CEE cannot read). */}
-        <Tooltip content="Decision brief — the saved model and its latest Run, to print or share">
+        <Tooltip content="Decision brief: the saved model and its latest Run, to print or share">
           <DecisionBriefTrigger className={styles.iconButton} />
         </Tooltip>
 

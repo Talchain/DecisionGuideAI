@@ -55,7 +55,7 @@ export function decisionBriefToHtml(brief: DecisionBriefModel): string {
   if (brief.withheld.length > 0) parts.push(`<h2>Not shown, and what I need</h2>${list(brief.withheld.map((w) => esc(w.text)))}`)
 
   return `<!DOCTYPE html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(`Decision brief — ${title}`)}</title>
+<title>${esc(`Decision brief: ${title}`)}</title>
 <style>
 body{font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;max-width:760px;margin:0 auto;padding:32px 16px;line-height:1.55}
 h1{font-size:22px;margin:0 0 4px}h2{font-size:13px;font-weight:600;opacity:.72;margin:22px 0 6px}
