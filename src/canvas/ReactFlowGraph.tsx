@@ -2039,7 +2039,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   useKeyboardShortcuts({ onModeChange: setInteractionMode, onSpaceHeld: setSpaceHeld })
   // ACCOUNTS viewer mode (CANVAS 5947752314): read-only, not inert. A viewer still
-  // selects and inspects; nothing drags, connects or deletes.
+  // selects and inspects; nothing drags or connects (React Flow's delete key is off for everyone).
   const isViewer = useIsViewer()
 
   // Task C: Escape key closes active right panel (Provenance, AI Clarifier)
@@ -2786,7 +2786,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             // selection through `onNodesChange`, past the impact check and the
             // confirm dialog. Delete/Backspace is handled once, by
             // `useKeyboardShortcuts` → `deleteAction` — see the constant's header.
-            deleteKeyCode={isViewer ? null : REACT_FLOW_DELETE_KEY_CODE}
+            deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE}
             panOnDrag={effectiveMode === 'hand' ? true : SELECT_MODE_PAN_BUTTONS}
             nodesDraggable={effectiveMode === 'select' && !isViewer}
             nodesConnectable={CANVAS_EDGE_ADD_CONNECTED && !isViewer}

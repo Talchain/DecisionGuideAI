@@ -27,7 +27,7 @@ export const SHARE_DIALOG_COPY = {
   lead: 'They can view this decision and its latest analysis. They cannot change it.',
   done: "Done. If they have an Olumi account, they'll see it under Shared with me.",
   membersHeading: 'People with view access',
-  noMembers: 'Only you can see this decision.',
+  noMembers: 'Not shared with anyone yet.',
 } as const
 
 const FAILURE_COPY: Record<SharingFailure, string> = {

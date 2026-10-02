@@ -82,7 +82,7 @@ describe('ShareDecisionDialog', () => {
     expect(screen.getByText('bo@example.com')).toBeInTheDocument()
   })
 
-  it('no members yet → says only you can see it', async () => {
+  it('no members yet → says it is not shared with anyone', async () => {
     open()
     expect(await screen.findByText(SHARE_DIALOG_COPY.noMembers)).toBeInTheDocument()
   })

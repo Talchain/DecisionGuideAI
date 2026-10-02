@@ -44,7 +44,7 @@ src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:8134
+src/canvas/store.ts:8137
 src/canvas/stores/readinessStore.ts:829
 src/canvas/stores/readinessStore.ts:922
 src/canvas/utils/briefValidation.ts:43
@@ -194,3 +194,5 @@ src/components/results/analysisNew/analysisNewCopy.ts:2524
 #    projection (slice type + `setRunChangesHighlight`) above it; the same `currentTotal + displayBytes > MAX_TOTAL_CHARS` line.
 # 1 Oct 2026 (Panel, fix-forward of #2418's staging red): re-lined store.ts 8087 → 8121, a pure +34 line shift from
 #    `scenarioResetState` + `adoptScenario` + `scenarioEpoch` above it; the same `currentTotal + displayBytes > MAX_TOTAL_CHARS` line.
+# 2 Oct 2026 (ACCOUNTS-UI, invite viewer mode): re-lined store.ts 8134 → 8137, a pure +3 line shift from the `isViewerSession`
+#   import and the two-line viewer guard in `updateNodeLabel` (both above this site). Line text identical.
