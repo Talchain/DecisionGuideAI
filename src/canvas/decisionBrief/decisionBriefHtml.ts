@@ -44,6 +44,15 @@ export function decisionBriefToHtml(brief: DecisionBriefModel): string {
       ),
     )
   }
+  if (current && brief.chancesNote) parts.push(`<p>${esc(brief.chancesNote)}</p>`)
+  if (brief.record) {
+    const r = brief.record
+    parts.push(
+      `<h2>${esc(r.heading)}</h2><p><strong>${esc(r.position)}</strong></p>` +
+        list(r.rows.map((row) => `${esc(row.label)}: ${esc(row.text)}`)) +
+        `<p class="caveat">${esc([r.recordedOn ? `${r.recordedOn}.` : null, r.storage, r.yourView].filter(Boolean).join(' '))}</p>`,
+    )
+  }
   if (current && brief.drivers.length > 0) {
     parts.push(`<h2>What drives the result most</h2>${list(brief.drivers.map((d) => esc(d.label)), true)}`)
   }

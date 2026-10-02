@@ -109,6 +109,10 @@ export function usePathHighlight(): void {
   // Primitive selector (React #185 rule above).
   const focusDimSourceId = useCanvasStore((s) => s.focusDimSourceId)
 
+  // WHERE THIS CHANGE FLOWS (`graphChanges/routeFocus`): the link a C1 Changes row asked to show the route of.
+  // Primitive selector (React #185 rule above).
+  const routeFocusId = useCanvasStore((s) => s.runChangesRouteFocusId)
+
   useEffect(() => {
     // Access store actions and state via getState() to avoid dependency array issues
     const {
@@ -169,6 +173,38 @@ export function usePathHighlight(): void {
       clearFocusDim()
     }
 
+    /**
+     * PATH focus: the given path edges highlight (this owns the "paths to goal" chip), the anchors and every node on
+     * the path stay prominent, everything else dims.
+     */
+    const applyPathFocus = (pathEdgeIds: string[], anchorIds: string[]) => {
+      setHighlightedEdges(pathEdgeIds)
+
+      // Calculate dimmed nodes (not on any highlighted path)
+      // PERFORMANCE: Use Set for O(1) lookup instead of O(n) array.includes()
+      const pathEdgeIdSet = new Set(pathEdgeIds)
+      const nodesOnPath = new Set<string>(anchorIds)
+
+      for (const edge of edges) {
+        if (pathEdgeIdSet.has(edge.id)) {
+          // O(1) lookup
+          nodesOnPath.add(edge.source)
+          nodesOnPath.add(edge.target)
+        }
+      }
+
+      const dimmedIds = nodes.filter((n) => !nodesOnPath.has(n.id)).map((n) => n.id)
+
+      // F3: the focus dim owns dimmedNodeIds while active (see above).
+      if (!focusDimOwnsDimming) setDimmedNodes(dimmedIds)
+
+      // 6A: dim the edges off the path so the highlighted route reads as a route
+      // rather than as a few thicker lines in an undimmed web. Edge dimming is
+      // never owned by the F3 focus dim (that lens only writes dimmedNodeIds),
+      // so there is no ownership guard here.
+      setDimmedEdges(edges.filter((e) => !pathEdgeIdSet.has(e.id)).map((e) => e.id))
+    }
+
     const options = ceeAnalysisReady?.options ?? []
 
     // 6A: a single selected EDGE focuses that connection and its two endpoints.
@@ -177,6 +213,15 @@ export function usePathHighlight(): void {
     if (selectedEdgeId) {
       const selectedEdge = edges.find((e) => e.id === selectedEdgeId)
       if (selectedEdge) {
+        // WHERE THIS CHANGE FLOWS: a C1 Changes row asked for THIS link's route → the link plus every downstream
+        // route from its target to the goal (the same reach a selected factor gets). Any other edge selection keeps
+        // the endpoints-only focus below.
+        if (routeFocusId === selectedEdge.id && goalNodeId) {
+          const downstream =
+            selectedEdge.target === goalNodeId ? [] : findPathsToGoal(selectedEdge.target, goalNodeId, edges)
+          applyPathFocus([...new Set([selectedEdge.id, ...downstream])], [selectedEdge.source, selectedEdge.target])
+          return
+        }
         applyNeighbourhoodFocus(
           new Set([selectedEdge.source, selectedEdge.target]),
           new Set([selectedEdge.id]),
@@ -237,33 +282,7 @@ export function usePathHighlight(): void {
       return
     }
 
-    // Set highlighted edges
-    setHighlightedEdges(pathEdgeIds)
-
-    // Calculate dimmed nodes (not on any highlighted path)
-    // PERFORMANCE: Use Set for O(1) lookup instead of O(n) array.includes()
-    const pathEdgeIdSet = new Set(pathEdgeIds)
-    const nodesOnPath = new Set<string>()
-    nodesOnPath.add(selectedNode.id)
-
-    for (const edge of edges) {
-      if (pathEdgeIdSet.has(edge.id)) {
-        // O(1) lookup
-        nodesOnPath.add(edge.source)
-        nodesOnPath.add(edge.target)
-      }
-    }
-
-    const dimmedIds = nodes.filter((n) => !nodesOnPath.has(n.id)).map((n) => n.id)
-
-    // F3: the focus dim owns dimmedNodeIds while active (see above).
-    if (!focusDimOwnsDimming) setDimmedNodes(dimmedIds)
-
-    // 6A: dim the edges off the path so the highlighted route reads as a route
-    // rather than as a few thicker lines in an undimmed web. Edge dimming is
-    // never owned by the F3 focus dim (that lens only writes dimmedNodeIds),
-    // so there is no ownership guard here.
-    setDimmedEdges(edges.filter((e) => !pathEdgeIdSet.has(e.id)).map((e) => e.id))
+    applyPathFocus(pathEdgeIds, [selectedNode.id])
 
     // No cleanup needed - we want highlights to persist until selection changes
     // The next effect run will update or clear highlights as appropriate
@@ -275,6 +294,7 @@ export function usePathHighlight(): void {
     goalNodeId,
     edgeCount,
     focusDimSourceId,
+    routeFocusId,
   ])
 }
 

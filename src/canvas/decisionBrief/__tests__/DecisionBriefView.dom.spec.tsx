@@ -7,8 +7,9 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 
 import currentRead from '../../hydrate/__tests__/fixtures/served-520aab46-cold.read.json'
 import staleRead from '../../hydrate/__tests__/fixtures/served-6b2b94dd-stale.read.json'
+import identityWithheldRead from '../../hydrate/__tests__/fixtures/served-0c238873-7f1be5d8.read.json'
 import { fetchScenarioGraph } from '../../../adapters/cee/scenarioGraph'
-import { buildDecisionBrief } from '../buildDecisionBrief'
+import { buildDecisionBrief, DECISION_BRIEF_COPY } from '../buildDecisionBrief'
 import { decisionBriefToHtml } from '../decisionBriefHtml'
 import { DecisionBriefView } from '../DecisionBriefView'
 
@@ -58,6 +59,34 @@ describe('DecisionBriefView', () => {
     expect(screen.queryByTestId('brief-drivers')).toBeNull()
     expect(screen.getByTestId('decision-brief').textContent).not.toMatch(/of model runs/)
     expect(decisionBriefToHtml(brief)).not.toMatch(/of model runs/)
+  })
+
+  it('a current Run where no option has a figure says so ONCE (panel and print), not a "no figure" row per option', async () => {
+    const brief = await briefOf(identityWithheldRead)
+    render(<DecisionBriefView brief={brief} onShowNode={vi.fn()} />)
+    expect(screen.getByTestId('decision-brief').getAttribute('data-run-status')).toBe('current')
+    expect(screen.queryByTestId('brief-chances')).toBeNull()
+    expect(screen.getByTestId('brief-chances-note').textContent).toBe(DECISION_BRIEF_COPY.noChances)
+    expect(screen.getByTestId('decision-brief').textContent).not.toContain(DECISION_BRIEF_COPY.noFigure)
+    expect(decisionBriefToHtml(brief)).toContain('The reasons are below.')
+    // CONTRAST: a Run with figures shows its rows and no note.
+    cleanup()
+    render(<DecisionBriefView brief={await briefOf(currentRead)} onShowNode={vi.fn()} />)
+    expect(screen.getByTestId('brief-chances')).toBeTruthy()
+    expect(screen.queryByTestId('brief-chances-note')).toBeNull()
+  })
+
+  it('a decision on record renders as its own section with the storage sentence; none → no section', async () => {
+    const base = await briefOf(currentRead)
+    const record = { heading: 'Decision recorded', position: 'Keep the £49 price', rows: [{ label: 'Because', text: 'Churn risk' }],
+      recordedOn: 'Recorded 2 Oct 2026', storage: 'On this device, for this scenario.', yourView: 'Your view, not an agreed team decision.' }
+    render(<DecisionBriefView brief={{ ...base, record }} onShowNode={vi.fn()} />)
+    expect(screen.getByTestId('brief-record-position').textContent).toBe('Keep the £49 price')
+    expect(screen.getByTestId('brief-record-storage').textContent).toBe(
+      'Recorded 2 Oct 2026. On this device, for this scenario. Your view, not an agreed team decision.')
+    cleanup()
+    render(<DecisionBriefView brief={{ ...base, record: null }} onShowNode={vi.fn()} />)
+    expect(screen.queryByTestId('brief-record')).toBeNull()
   })
 
   it('the print page escapes model text', async () => {

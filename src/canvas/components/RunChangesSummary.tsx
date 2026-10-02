@@ -22,6 +22,7 @@ import { useUIStore } from '../../stores/uiStore'
 import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../state/winShareGate'
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 import { canvasLinkOfRow, useCanvasLight } from '../graphChanges/rowCanvasLink'
+import { useRunChangesRouteFocus } from '../graphChanges/routeFocus'
 import { useValuePrefillStore, valuePrefillOfRow, type ValuePrefill } from '../graphChanges/valuePrefill'
 import type { RunDeltaInputRow } from '../../components/results/analysisNew/runDeltaView'
 import {
@@ -54,6 +55,8 @@ export function RunChangesSummary(): JSX.Element | null {
   const [closedFor, setClosedFor] = useState<string | null>(null)
   const [openFor, setOpenFor] = useState<string | null>(null)
   const light = useCanvasLight()
+  // WHERE THIS CHANGE FLOWS: on a C1 pair only, a row click also lights its element's route to the Goal.
+  const route = useRunChangesRouteFocus(view?.attributable === true)
   const storedDelta = useCanvasStore((s) => s.runDelta?.delta ?? null)
   const requestPrefill = useValuePrefillStore((s) => s.requestPrefill)
   // ACCOUNTS viewer mode (CANVAS 5947752314): a viewer reads the changes but cannot put a value back.
@@ -83,7 +86,7 @@ export function RunChangesSummary(): JSX.Element | null {
   const detailRepeatsChanged = changedExtra > 0 || lineTruncated
   const detailRepeatsMoved = movedExtra > 0 || lineTruncated
   // ⭐ Each changed row lights its element on the canvas on hover / keyboard focus, and focuses it on click (DL 5939855664).
-  const headLink = lines.changed[0] ? canvasLinkOfRow(lines.changed[0].row) : null
+  const headLink = lines.changed[0] ? canvasLinkOfRow(lines.changed[0].row, { route }) : null
   // ⭐ What-if "Put it back": opens the card's OWN value editor pre-filled with the earlier value (the user commits with
   // Enter through the existing writer). Offered only where `valuePrefillOfRow` allows it (same unit, the card has an editor).
   const prefillOf = (row: RunDeltaInputRow): ValuePrefill | null =>
@@ -130,7 +133,7 @@ export function RunChangesSummary(): JSX.Element | null {
                 <span className="text-text-light">{lines.changedNote}</span>
               ) : (
                 lines.changed.map(({ row, text }) => {
-                  const link = canvasLinkOfRow(row)
+                  const link = canvasLinkOfRow(row, { route })
                   const prefill = prefillOf(row)
                   return (
                     <span key={row.key} className="block">

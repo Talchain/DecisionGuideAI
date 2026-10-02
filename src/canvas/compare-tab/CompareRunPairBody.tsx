@@ -21,6 +21,7 @@ import { WhatsChanged, type InputRowFocus, type InputRowLight } from '../../comp
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 import { useRunChangesProjection } from '../graphChanges/useRunChangesProjection'
 import { canvasLinkOfTarget, useCanvasLight } from '../graphChanges/rowCanvasLink'
+import { useRunChangesRouteFocus } from '../graphChanges/routeFocus'
 import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
 import type { RunOnRecordWithoutResult } from '../stores/declinedSavedRunStore'
 import { useCanvasStore } from '../store'
@@ -52,6 +53,8 @@ export function CompareRunPairBody({
   // and each row focuses the element its producer ids name — or says it is not on the canvas now.
   const changes = useRunChangesProjection(view)
   const light = useCanvasLight()
+  // WHERE THIS CHANGE FLOWS: on a C1 pair only, a row click also lights its element's route to the Goal.
+  const route = useRunChangesRouteFocus(view?.attributable === true)
   const absenceReason = useCanvasStore(selectRunDeltaAbsenceReason)
   if (view === null && runOnRecordWithoutResult !== null) {
     const copy = COMPARE_RUN_ON_RECORD_COPY[runOnRecordWithoutResult]
@@ -89,7 +92,7 @@ export function CompareRunPairBody({
   const rowFocus: InputRowFocus = (row) => {
     const target = changes.focusByRowKey.get(row.key)
     if (target === undefined) return undefined
-    return canvasLinkOfTarget(target)?.focus ?? null
+    return canvasLinkOfTarget(target, { route })?.focus ?? null
   }
   const rowLight: InputRowLight = (row) => {
     const link = canvasLinkOfTarget(changes.focusByRowKey.get(row.key))

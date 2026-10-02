@@ -43,6 +43,15 @@ import { formatGoalTarget } from '../../components/results/utils/formatGoalTarge
 import { goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { readGoalIdentityWithheld } from '../../components/results/utils/goalIdentityWithheld'
 import { isAnalysedOption, optionComputationFailed } from '../../components/results/utils/notAnalysedOptions'
+import type { DecisionRecord } from '../../components/results/modals'
+import {
+  DECISION_POSITION_COPY,
+  formatConfidence,
+  formatRecordedOn,
+  recordedOptionText,
+  storageSentenceFor,
+} from '../../components/results/analysisNew/sections/DecisionRecorded'
+import { ANALYSIS_NEW_COPY } from '../../components/results/analysisNew/analysisNewCopy'
 import type { OptionComputeStatus } from '../../adapters/plot/optionComputeStatus'
 
 // ─── Input ──────────────────────────────────────────────────────────────────
@@ -130,6 +139,19 @@ export interface BriefWithheld {
   readonly nodeId: string | null
 }
 
+/**
+ * The user's recorded decision, in the read-back card's own words (`DecisionRecorded`): the same position text, labels,
+ * date and storage sentence, so the brief never says something about a record that the card does not.
+ */
+export interface BriefRecord {
+  readonly heading: string
+  readonly position: string
+  readonly rows: readonly { readonly label: string; readonly text: string }[]
+  readonly recordedOn: string | null
+  readonly storage: string
+  readonly yourView: string
+}
+
 export interface DecisionBriefModel {
   readonly decision: { readonly nodeId: string | null; readonly label: string | null }
   readonly options: readonly { readonly nodeId: string; readonly label: string }[]
@@ -137,11 +159,15 @@ export interface DecisionBriefModel {
   readonly limits: readonly BriefLimit[]
   readonly figures: readonly BriefFigure[]
   readonly run: BriefRun
-  /** Per-option Run figures — EMPTY unless `run.status === 'current'`. */
+  /** Per-option Run figures — EMPTY unless `run.status === 'current'`, and EMPTY when no option has a figure. */
   readonly chances: readonly BriefOptionChance[]
+  /** On a current Run where no option has a figure: ONE line in place of a row per option (the reasons are in `withheld`). */
+  readonly chancesNote: string | null
   /** Top drivers of the Run — EMPTY unless `run.status === 'current'`. */
   readonly drivers: readonly BriefDriver[]
   readonly withheld: readonly BriefWithheld[]
+  /** The decision the user recorded for THIS Run, or null (none, or recorded against a different Run). */
+  readonly record: BriefRecord | null
   readonly version: { readonly graphHash: string | null; readonly shortVersion: string | null; readonly identity: string | null }
 }
 
@@ -161,7 +187,7 @@ export const DECISION_BRIEF_COPY = {
   goalTargetNeed: (goal: string) => `I need a target for ‘${goal}’ before I can say how often each option reaches it.`,
   chanceTail: 'of model runs',
   noFigure: 'No figure for this option on this Run.',
-  fieldIncomplete: 'Held back because another option has no figure on this Run.',
+  noChances: 'No option has a figure for reaching your target on this Run. The reasons are below.',
 } as const
 
 // ─── Graph reading (allowlisted fields) ─────────────────────────────────────
@@ -289,7 +315,40 @@ function runOf(read: SavedScenarioRead): { run: BriefRun; withheld: BriefWithhel
 
 // ─── The builder ────────────────────────────────────────────────────────────
 
-export function buildDecisionBrief(read: SavedScenarioRead): DecisionBriefModel {
+/**
+ * ⛔ NO RUN FILTER BY RESULTS HASH: MEASURED, NOT ASSUMED (served D1, UI `919ba207`, record-diag 2 Oct 09:3xZ). A record
+ * stores the IN-SESSION `results.hash`, the turn block's content hash (`v5:6b6d…`). The saved read of the SAME Run hashes to
+ * `v5:c8c7…`: the stored block carries an empty `decision_brief.analysis_summary` and orders two tied options differently.
+ * So a filter on that hash hid every record made in session (#2450's witness). Until a record carries a Run identity both
+ * copies share (MG's later `run_id`), the brief shows the record as the read-back card does, with the date it was recorded.
+ */
+function briefRecordOf(record: DecisionRecord | null): BriefRecord | null {
+  if (record == null) return null
+  const copy = ANALYSIS_NEW_COPY.decisionRecord
+  const rows: { label: string; text: string }[] = []
+  const add = (label: string, text: string | null | undefined) => {
+    if (typeof text === 'string' && text.trim() !== '') rows.push({ label, text: text.trim() })
+  }
+  if (record.position !== 'not_ready') {
+    add(copy.confidenceLabel, formatConfidence(record.confidence))
+    add(copy.expectationLabel, record.expectation)
+  }
+  add(copy.rationaleLabel, record.rationale)
+  add(copy.assumptionLabel, record.assumptionToWatch)
+  add(copy.revisitLabel, record.revisitTrigger)
+  add(copy.nextActionLabel, record.nextAction)
+  const on = formatRecordedOn(record.savedAt)
+  return {
+    heading: copy.recorded,
+    position: recordedOptionText(record),
+    rows,
+    recordedOn: on ? `${copy.recordedOnPrefix} ${on}` : null,
+    storage: storageSentenceFor(record),
+    yourView: DECISION_POSITION_COPY.yourView,
+  }
+}
+
+export function buildDecisionBrief(read: SavedScenarioRead, decisionRecord: DecisionRecord | null = null): DecisionBriefModel {
   const nodes = readNodes(read.graph)
   const byId = new Map(nodes.map((n) => [n.id, n]))
   const decisionNode = nodes.find((n) => n.kind === 'decision') ?? null
@@ -341,6 +400,7 @@ export function buildDecisionBrief(read: SavedScenarioRead): DecisionBriefModel 
 
   const { run, withheld } = runOf(read)
   const chances: BriefOptionChance[] = []
+  let chancesNote: string | null = null
   const drivers: BriefDriver[] = []
 
   if (run.status === 'current') {
@@ -391,10 +451,11 @@ export function buildDecisionBrief(read: SavedScenarioRead): DecisionBriefModel 
     // ⭐ THE COMPLETE-FIELD RULE, as the Reasoning tab applies it (`buildAnalysisNewViewModel`, optionsComparison): a
     // figure for SOME of the compared options is a ranking over a subset, read as one over the options. So when any
     // option in the population has no figure, none is shown; each withheld option keeps its own reason above.
-    if (fieldIncomplete) {
-      chances.forEach((c, i) => {
-        if (c.chanceText !== null) chances[i] = { ...c, chanceText: null, caveat: null, withheldText: DECISION_BRIEF_COPY.fieldIncomplete }
-      })
+    // And when no option has a figure, the brief says so ONCE (as the tab's single withheld message does), never a
+    // row per option repeating "no figure" over the reasons below.
+    if (fieldIncomplete || (chances.length > 0 && chances.every((c) => c.chanceText === null))) {
+      chances.length = 0
+      chancesNote = DECISION_BRIEF_COPY.noChances
     }
 
     for (const d of widened.drivers ?? []) {
@@ -421,8 +482,10 @@ export function buildDecisionBrief(read: SavedScenarioRead): DecisionBriefModel 
     figures,
     run,
     chances,
+    chancesNote,
     drivers,
     withheld,
+    record: briefRecordOf(decisionRecord),
     version: {
       graphHash,
       shortVersion: graphHash ? graphHash.slice(0, 8) : null,
@@ -464,7 +527,17 @@ export function decisionBriefToText(brief: DecisionBriefModel): string {
   for (const c of brief.chances) {
     lines.push(`- ${c.optionLabel}: ${c.chanceText ?? c.withheldText ?? DECISION_BRIEF_COPY.noFigure}${c.caveat ? ` (${c.caveat})` : ''}`)
   }
+  if (brief.chancesNote) lines.push(`- ${brief.chancesNote}`)
   lines.push('')
+  if (brief.record) {
+    const r = brief.record
+    lines.push(r.heading)
+    lines.push(`- ${r.position}`)
+    for (const row of r.rows) lines.push(`- ${row.label}: ${row.text}`)
+    lines.push(`- ${[r.recordedOn ? `${r.recordedOn}.` : null, r.storage].filter(Boolean).join(' ')}`)
+    lines.push(`- ${r.yourView}`)
+    lines.push('')
+  }
   if (brief.drivers.length > 0) {
     lines.push('What drives the result most')
     for (const d of brief.drivers) lines.push(`- ${d.label}`)

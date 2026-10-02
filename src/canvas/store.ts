@@ -1275,6 +1275,9 @@ interface CanvasState {
    * focused node), cleared on blur/deselect/manual pan/node removal. While
    * active, usePathHighlight must not overwrite dimmedNodeIds. */
   focusDimSourceId: string | null
+  /** WHERE THIS CHANGE FLOWS (`graphChanges/routeFocus`): the node or link a Changes row on a C1 pair asked to show the
+   * route of. Acts only while the selection IS that element; set by a C1 row, released by its surface. Null otherwise. */
+  runChangesRouteFocusId: string | null
   /** D2 (graph-visuals): level-of-detail — which rung of the semantic-zoom
    * ladder the main canvas zoom sits on (`full` / `quiet` / `line`), written by
    * `LodSync`. `line` is below the legibility floor and is exactly what the
@@ -2009,6 +2012,7 @@ interface CanvasState {
    * when no focus dim is active, so it never clobbers the selection
    * path-dim written via setDimmedNodes. */
   clearFocusDim: () => void
+  setRunChangesRouteFocus: (id: string | null) => void
   /** N3: replace the edited-since-run set (called by the useEditedSinceRun effect). */
   setEditedSinceRunNodes: (ids: string[]) => void
   /** D2: set by the LodSync zoom watcher (skip-if-same). */
@@ -3528,6 +3532,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   dimmedNodeIds: new Set<string>(),
   dimmedEdgeIds: new Set<string>(),
   focusDimSourceId: null,
+  runChangesRouteFocusId: null,
   editedSinceRunNodeIds: new Set<string>(),
   lodRung: 'full',
   confirmedNodeIds: new Set<string>(),
@@ -7987,6 +7992,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   clearFocusDim: () => {
     if (get().focusDimSourceId === null) return
     set({ focusDimSourceId: null, dimmedNodeIds: new Set<string>() })
+  },
+  setRunChangesRouteFocus: (id: string | null) => {
+    if (get().runChangesRouteFocusId === id) return
+    set({ runChangesRouteFocusId: id })
   },
   setLodRung: (rung: LodRung) => {
     if (get().lodRung === rung) return
