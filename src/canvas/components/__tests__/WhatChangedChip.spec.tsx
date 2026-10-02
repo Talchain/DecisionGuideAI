@@ -1,43 +1,24 @@
 /**
- * WhatChangedChip (seamlessness R6 / ROADMAP 2.1 first slice) — run-over-run
- * graph delta chip.
+ * WhatChangedChip — ONE comparison authority (Compare audit (d), DL #85 5943446984).
  *
  * Contract:
- * - Diffs the LATEST stored run's graph snapshot against the PREVIOUS run's.
- *   loadRuns() returns newest-first, so that is runs[0] vs runs[1] — the
- *   original orphaned component read runs[length-2] (the second-OLDEST run;
- *   the old spec masked this by mocking runs oldest-first), which this spec
- *   pins against regression.
- * - The diff is id-precise: click pulses the added+modified elements via
- *   pulseAppliedTargets. Removed elements no longer exist and cannot be
- *   highlighted (fail-closed downstream).
- * - Node "modified" = label change. Position-only moves are layout, not an
- *   analytical delta, and must NOT count (auto-layout would otherwise mark
- *   every node modified on every run).
- * - Copy is honest about the client-side cached-run basis ("since your last
- *   run") — the engine-backed delta is a later contract (ROADMAP 2.1).
- * - F2B (2026-07-22): the chip's MOUNT is decoupled from the local run count.
- *   It renders whenever its host analysis surface renders — even with 0 or 1
- *   stored runs — because the SERVER owns comparison honesty (its gate answers
- *   insufficient_runs / stale / unconfirmed / incomparable). When the LOCAL diff
- *   is unavailable (no pair / identical runs / a missing snapshot), the chip
- *   STAYS actionable (its CEE send fires unconditionally; see
- *   WhatChangedChip.sendUnconditional.spec.tsx) and only the canvas pulse is
- *   gated on local-diff availability. Ignores the LIVE canvas — the delta is
- *   between analyses, not live edits.
+ * - The chip is the ASK "What changed since the last analysis run?". The answer
+ *   is the server's run comparison (the CEE send; see the send / reveal specs).
+ * - It NEVER renders a browser-derived diff. The client diff over
+ *   `olumi-canvas-run-history` is removed: nothing live writes that history (V5
+ *   carries no seed), so it could only read LEGACY entries — from any decision.
+ *   Measured on served 7403a842: two legacy entries made decision a58f1537 show
+ *   "Since your last analysis run: Nodes: +2" from runs that were not its own.
+ *
+ * The legacy row below uses the REAL `runHistory` module and REAL localStorage
+ * (only the pulse is stubbed), so it binds to the storage key the removed diff
+ * read, not to a mock that could be satisfied some other way.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
-import type { Node, Edge } from '@xyflow/react'
+import { render, screen, cleanup } from '@testing-library/react'
 
-const { loadRunsMock, pulseMock, fitMock } = vi.hoisted(() => ({
-  loadRunsMock: vi.fn(),
-  pulseMock: vi.fn(),
-  fitMock: vi.fn(),
-}))
-vi.mock('../../store/runHistory', () => ({ loadRuns: loadRunsMock }))
-vi.mock('../../utils/focusHelpers', () => ({ fitNodesOnCanvas: fitMock }))
+const { pulseMock } = vi.hoisted(() => ({ pulseMock: vi.fn() }))
 vi.mock('../../utils/appliedEditPulse', () => ({
   pulseAppliedTargets: pulseMock,
   __resetAppliedEditPulseForTests: vi.fn(),
@@ -46,265 +27,69 @@ vi.mock('../../utils/appliedEditPulse', () => ({
 }))
 
 import { WhatChangedChip } from '../WhatChangedChip'
+import { STORAGE_KEY as RUN_HISTORY_KEY } from '../../store/runHistory'
 
-const node = (id: string, label: string, x = 0, y = 0): Node =>
-  ({ id, type: 'factor', position: { x, y }, data: { label } }) as Node
-const edge = (id: string, weight: number, belief = 0.7): Edge =>
-  ({ id, source: 'a', target: 'b', data: { weight, belief } }) as Edge
+const ASK = 'What changed since the last analysis run?'
 
-let runSeq = 0
-/** Runs are supplied NEWEST-FIRST, matching loadRuns()'s sort. */
-const run = (graph: { nodes: Node[]; edges: Edge[] }) => ({
-  id: `run-${++runSeq}`,
-  ts: 1000 - runSeq,
-  graph,
+/** A run as the removed direct-Run path stored it (v1.2: with a graph snapshot). */
+const legacyRun = (id: string, ts: number, nodeIds: string[]) => ({
+  id,
+  ts,
+  seed: 1,
+  adapter: 'httpv1',
+  summary: 'legacy',
+  graphHash: `g-${id}`,
+  report: { schema: 'report.v1' },
+  graph: {
+    nodes: nodeIds.map((n) => ({ id: n, type: 'factor', position: { x: 0, y: 0 }, data: { label: n } })),
+    edges: [],
+  },
 })
 
 beforeEach(() => {
-  loadRunsMock.mockReset()
+  localStorage.clear()
   pulseMock.mockReset()
-  fitMock.mockReset()
 })
 afterEach(() => cleanup())
 
-describe('WhatChangedChip — visibility', () => {
-  it('F2B: mounts and stays actionable with a SINGLE stored run (no comparison pair yet — server owns honesty)', () => {
-    // Pre-F2B this self-hid (runs.length < 2 → return null), stranding the CEE
-    // send behind a dead precondition. The server answers "insufficient_runs"
-    // honestly, so the chip must render and be clickable; only the pulse is
-    // gated (no alignable pair to highlight).
-    loadRunsMock.mockReturnValue([run({ nodes: [node('a', 'A')], edges: [] })])
+describe('WhatChangedChip — never a browser-derived comparison', () => {
+  it('the served (d) repro: two LEGACY stored runs that differ → still only the ask; no counts, no device basis, no pulse', () => {
+    expect(RUN_HISTORY_KEY).toBe('olumi-canvas-run-history')
+    localStorage.setItem(
+      RUN_HISTORY_KEY,
+      JSON.stringify([legacyRun('r-old', 1721000000000, ['a', 'b']), legacyRun('r-new', 1721000600000, ['a', 'b', 'c', 'd'])]),
+    )
+
     render(<WhatChangedChip />)
+
     const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
-    expect(() => fireEvent.click(chip)).not.toThrow()
+    expect(chip.textContent).toBe(ASK)
+    expect(chip).toHaveAttribute('aria-label', ASK)
+    expect(chip).not.toHaveAttribute('title')
+    expect(document.body.textContent).not.toMatch(/Since your last analysis run|on this device|Nodes:|Edges:/)
+    chip.click()
     expect(pulseMock).not.toHaveBeenCalled()
   })
 
-  it('F2B: mounts and stays actionable with an EMPTY run history (the live finding: analysis present, zero stored runs)', () => {
-    // Reproduces the deployed-build finding: a real guest session completes
-    // analyses but runHistory is EMPTY (the writer never records on the live
-    // path), so the old `runs.length < 2` boundary hid the chip entirely.
-    loadRunsMock.mockReturnValue([])
+  it('CONTRAST: no stored history at all → the same ask (the chip does not depend on local runs)', () => {
     render(<WhatChangedChip />)
-    const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
-    expect(() => fireEvent.click(chip)).not.toThrow()
-    expect(pulseMock).not.toHaveBeenCalled()
-  })
-
-  it('STAYS actionable when the last two runs are identical — no local delta, so no pulse, but the chip renders', () => {
-    // Pre-fix this self-hid (zero delta → return null), stranding the CEE send
-    // behind the local-diff gate. The send now fires unconditionally, so the
-    // chip must render; only the pulse is gated (nothing to highlight).
-    const g = { nodes: [node('a', 'A')], edges: [edge('e1', 0.5)] }
-    loadRunsMock.mockReturnValue([run(g), run(g)])
-    render(<WhatChangedChip />)
-    const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
-    fireEvent.click(chip)
-    expect(pulseMock).not.toHaveBeenCalled()
-  })
-
-  it('STAYS actionable when a run lacks a graph snapshot (older stored runs) — no pulse', () => {
-    loadRunsMock.mockReturnValue([
-      { id: 'r-nograph-1', ts: 2 },
-      { id: 'r-nograph-2', ts: 1 },
-    ])
-    render(<WhatChangedChip />)
-    const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
-    fireEvent.click(chip)
-    expect(pulseMock).not.toHaveBeenCalled()
-  })
-
-  it('a SINGLE-SIDED missing snapshot stays actionable but NEVER fabricates an everything-added delta', () => {
-    loadRunsMock.mockReturnValue([
-      run({ nodes: [node('a', 'A'), node('b', 'B')], edges: [] }), // latest has a graph
-      { id: 'r-legacy', ts: 1 }, // previous predates v1.2 snapshots
-    ])
-    render(<WhatChangedChip />)
-    const chip = screen.getByTestId('what-changed-chip')
-    // Anti-fabrication contract preserved: no "+2 nodes" conjured from []-diff.
-    expect(chip.textContent).not.toMatch(/[+~-]\d/)
-    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
-    fireEvent.click(chip)
-    expect(pulseMock).not.toHaveBeenCalled()
-  })
-
-  it('stays actionable but pulses nothing when only the LATEST run lacks a snapshot (reverse single-sided case)', () => {
-    loadRunsMock.mockReturnValue([
-      { id: 'r-legacy', ts: 2 },
-      run({ nodes: [node('a', 'A')], edges: [] }),
-    ])
-    render(<WhatChangedChip />)
-    const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.textContent).not.toMatch(/[+~-]\d/)
-    fireEvent.click(chip)
-    expect(pulseMock).not.toHaveBeenCalled()
+    expect(screen.getByTestId('what-changed-chip').textContent).toBe(ASK)
   })
 })
 
-describe('WhatChangedChip — diffs the last two runs (newest-first order)', () => {
-  it('compares runs[0] against runs[1], NOT the oldest runs', () => {
-    // Newest-first: latest adds node 'c' vs previous. The two OLDER runs
-    // differ wildly — the pre-R6 component indexed runs[length-2] (the
-    // second-oldest) and would report that delta instead.
-    loadRunsMock.mockReturnValue([
-      run({ nodes: [node('a', 'A'), node('b', 'B'), node('c', 'C')], edges: [] }), // latest
-      run({ nodes: [node('a', 'A'), node('b', 'B')], edges: [] }), // previous
-      run({ nodes: [], edges: [] }), // second-oldest (the buggy index)
-      run({ nodes: [node('z', 'Z')], edges: [edge('ez', 1)] }), // oldest
-    ])
-    render(<WhatChangedChip />)
-    const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.textContent).toMatch(/Nodes: \+1/)
-    expect(chip.textContent).not.toMatch(/-\d/) // no removals in run0-vs-run1
-  })
-
-  it('counts added, removed, and label-modified nodes', () => {
-    loadRunsMock.mockReturnValue([
-      run({ nodes: [node('a', 'A renamed'), node('c', 'C')], edges: [] }),
-      run({ nodes: [node('a', 'A'), node('b', 'B')], edges: [] }),
-    ])
-    render(<WhatChangedChip />)
-    expect(screen.getByTestId('what-changed-chip').textContent).toMatch(/Nodes: \+1, -1, ~1/)
-  })
-
-  it('position-only moves are NOT counted as modified (layout is not an analytical delta) — chip stays actionable, no count, no pulse', () => {
-    loadRunsMock.mockReturnValue([
-      run({ nodes: [node('a', 'A', 500, 500)], edges: [] }),
-      run({ nodes: [node('a', 'A', 0, 0)], edges: [] }),
-    ])
-    render(<WhatChangedChip />)
-    const chip = screen.getByTestId('what-changed-chip')
-    // A layout-only move yields a zero analytical delta: no count shown, and
-    // no pulse — but the chip is still actionable (the CEE send is unblocked).
-    expect(chip.textContent).not.toMatch(/[+~-]\d/)
-    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
-    fireEvent.click(chip)
-    expect(pulseMock).not.toHaveBeenCalled()
-  })
-
-  it('counts edge weight/belief changes as modified', () => {
-    loadRunsMock.mockReturnValue([
-      run({ nodes: [node('a', 'A')], edges: [edge('e1', 0.9), edge('e2', 0.5, 0.2)] }),
-      run({ nodes: [node('a', 'A')], edges: [edge('e1', 0.5), edge('e2', 0.5, 0.9)] }),
-    ])
-    render(<WhatChangedChip />)
-    expect(screen.getByTestId('what-changed-chip').textContent).toMatch(/Edges: ~2/)
-  })
-
-  it('ignores the live canvas — the delta is between stored analyses', () => {
-    // No canvas store seeding at all: chip output must come from runs alone.
-    loadRunsMock.mockReturnValue([
-      run({ nodes: [node('a', 'A'), node('n2', 'New')], edges: [] }),
-      run({ nodes: [node('a', 'A')], edges: [] }),
-    ])
-    render(<WhatChangedChip />)
-    expect(screen.getByTestId('what-changed-chip').textContent).toMatch(/Nodes: \+1/)
-  })
-})
-
-describe('WhatChangedChip — click-to-highlight (the docstring promise, now real)', () => {
-  it('is a button; click pulses the added+modified element ids', () => {
-    loadRunsMock.mockReturnValue([
-      run({
-        nodes: [node('a', 'A renamed'), node('c', 'C')],
-        edges: [edge('e1', 0.9), edge('e-new', 0.4)],
-      }),
-      run({ nodes: [node('a', 'A'), node('b', 'B')], edges: [edge('e1', 0.5)] }),
-    ])
+describe('WhatChangedChip — a11y + DS', () => {
+  it('is a real button whose accessible name is the ACTION, never a disability claim', () => {
     render(<WhatChangedChip />)
     const chip = screen.getByTestId('what-changed-chip')
     expect(chip.tagName).toBe('BUTTON')
-    fireEvent.click(chip)
-    expect(pulseMock).toHaveBeenCalledTimes(1)
-    const arg = pulseMock.mock.calls[0][0]
-    expect([...arg.nodeIds].sort()).toEqual(['a', 'c']) // modified + added; removed 'b' excluded
-    expect([...arg.edgeIds].sort()).toEqual(['e-new', 'e1'])
-  })
-
-  it('a removals-only delta still shows the chip but the click pulses nothing', () => {
-    loadRunsMock.mockReturnValue([
-      run({ nodes: [node('a', 'A')], edges: [] }),
-      run({ nodes: [node('a', 'A'), node('b', 'B')], edges: [] }),
-    ])
-    render(<WhatChangedChip />)
-    const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.textContent).toMatch(/Nodes: -1/)
-    fireEvent.click(chip)
-    expect(pulseMock).toHaveBeenCalledWith({ nodeIds: [], edgeIds: [] })
-  })
-})
-
-describe('WhatChangedChip — honesty + a11y + DS', () => {
-  beforeEach(() => {
-    loadRunsMock.mockReturnValue([
-      run({ nodes: [node('a', 'A'), node('c', 'C')], edges: [] }),
-      run({ nodes: [node('a', 'A')], edges: [] }),
-    ])
-  })
-
-  it('copy states the client-side previous-run basis', () => {
-    render(<WhatChangedChip />)
-    expect(screen.getByTestId('what-changed-chip').textContent).toMatch(/since your last analysis run/i)
-  })
-
-  it('has an accessible label naming the delta and the highlight action', () => {
-    render(<WhatChangedChip />)
-    const chip = screen.getByTestId('what-changed-chip')
-    expect(chip).toHaveAttribute('aria-label', expect.stringMatching(/highlight/i))
     expect(chip).toHaveAttribute('type', 'button')
+    expect(chip).toHaveAccessibleName(ASK)
   })
 
-  it('keeps the outlined-pill DS identity (no filled pill, no text-colour copy token)', () => {
-    render(<WhatChangedChip />)
-    const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.className).toContain('bg-transparent')
-    expect(chip.className).toContain('border-info/30')
-    expect(chip.className).toContain('text-text-body')
-    expect(chip.className).not.toMatch(/(^| )text-info( |$)/)
+  it('uses DS tokens (info accent, caption type), no raw hex', () => {
+    const { container } = render(<WhatChangedChip />)
+    const html = container.innerHTML
+    expect(html).toMatch(/border-info/)
+    expect(html).not.toMatch(/#[0-9a-f]{6}/i)
   })
 })
-describe("Paul's ruling (2026-07-12): keep + improve — honest basis, clear iconography", () => {
-  beforeEach(() => {
-    loadRunsMock.mockReturnValue([
-      run({ nodes: [node('a', 'A'), node('c', 'C')], edges: [] }),
-      run({ nodes: [node('a', 'A')], edges: [] }),
-    ])
-  })
-
-  it('the device-local basis is a VISIBLE label, not tooltip-only', () => {
-    render(<WhatChangedChip />)
-    expect(screen.getByText('Compared with your previous analysis run on this device')).toBeInTheDocument()
-  })
-
-  it('uses a compare glyph, not the sort-reading ArrowUpDown', () => {
-    render(<WhatChangedChip />)
-    const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.querySelector('.lucide-arrow-up-down')).toBeNull()
-    // Pin the ACTUAL glyph, not just the absence of the old one (review F11).
-    expect(chip.querySelector('.lucide-git-compare-arrows')).not.toBeNull()
-    expect(chip.querySelector('svg')).not.toBeNull()
-  })
-})
-
-describe('F4 — fit-before-pulse now lives at the pulse choke point, not in the chip', () => {
-  it('the chip does NOT fit directly — pulseAppliedTargets receives the full set and its flush fits pre-pulse', () => {
-    // The coalescing pulse util (appliedEditPulse.spec.ts, F4 block) fits every
-    // surviving target into view before the ring fires — for EVERY feeder
-    // (applyPatch, applyV5State, this chip). A second chip-local fit would
-    // double the camera move, so the chip must delegate.
-    loadRunsMock.mockReturnValue([
-      run({ nodes: [node('a', 'A2'), node('b', 'B'), node('c', 'C')], edges: [] }),
-      run({ nodes: [node('a', 'A'), node('b', 'B')], edges: [] }),
-    ])
-    render(<WhatChangedChip />)
-    fireEvent.click(screen.getByTestId('what-changed-chip'))
-    expect(fitMock).not.toHaveBeenCalled()
-    expect(pulseMock).toHaveBeenCalledTimes(1)
-    expect([...pulseMock.mock.calls[0][0].nodeIds].sort()).toEqual(['a', 'c'])
-  })
-})
-

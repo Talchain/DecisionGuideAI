@@ -148,7 +148,7 @@ describe('WhatChangedChip — the dispatched turn is revealed, not sent into a h
 })
 
 describe('WhatChangedChip — reveal discrimination controls', () => {
-  it('does NOT reveal when there is no dispatcher (pulse-only degrade)', () => {
+  it('does NOT reveal when there is no dispatcher (the chip is disabled)', () => {
     // The RED/GREEN pair's other half. Removing the reveal call for ALL clicks
     // REDs the tests above; this one proves the reveal is bound to the DISPATCH
     // branch specifically, not fired unconditionally on any click. A reveal
@@ -159,7 +159,7 @@ describe('WhatChangedChip — reveal discrimination controls', () => {
     render(<WhatChangedChip />)
     fireEvent.click(screen.getByTestId('what-changed-chip'))
 
-    expect(pulseMock).toHaveBeenCalledTimes(1)
+    expect(pulseMock).not.toHaveBeenCalled()
     expect(revealMock).not.toHaveBeenCalled()
   })
 
