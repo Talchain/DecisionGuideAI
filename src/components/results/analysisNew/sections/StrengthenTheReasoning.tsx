@@ -74,6 +74,7 @@ import {
   type RecordKey,
 } from '../../../../canvas/stores/strengthenStore'
 import { recordDissent, readDissent, dissentCurrency } from '../../../../canvas/stores/dissentStore'
+import { useIsViewer } from '../../../../lib/viewerMode'
 import { useOptionalConversationContext } from '../../../../canvas/conversation/ConversationContext'
 import { buildFindingDissentEvent, isSendableAddress } from '../../../../canvas/conversation/findingDissent'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -536,6 +537,7 @@ export function StrengthenTheReasoning({
    * decision-record has no such gate on any surface and opens unconditionally,
    * which is the half of this change that stands.
    */
+  const isViewer = useIsViewer()
   const runPrimaryAction = useCallback((rec: Recommendation) => {
     if (rec.action.kind === 'open-modal') {
       if (rec.action.modal === 'define-success') {
@@ -545,7 +547,9 @@ export function StrengthenTheReasoning({
         // Mirrors StrengthenContainer: keep the coaching action useful without
         // opening the local-only editor. Falls through to the drawer below.
       } else if (rec.action.modal === 'decision-record') {
-        return openDecisionRecord()
+        // The record is the owner's (MG 5951262086). A viewer falls through to the Ask drawer, which is view-only for
+        // them (the define-success fall-through above, same shape).
+        if (!isViewer) return openDecisionRecord()
       } else {
         /**
          * ⚠ AN `open-modal` NAMING NO MODAL THIS SURFACE CAN OPEN. `modal?:` is
@@ -576,7 +580,7 @@ export function StrengthenTheReasoning({
       // the canvas explained through one door and bare through the other.
       attentionNote: attentionNoteForRecommendation(rec),
     })
-  }, [showToast])
+  }, [showToast, isViewer])
 
   const closeDispute = useCallback(() => {
     setDisputingId(null)

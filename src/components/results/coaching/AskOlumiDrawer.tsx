@@ -30,6 +30,7 @@ import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { MODEL_LIMIT_CAVEAT } from '../utils/modelLimitCaveat'
 import { typography } from '../../../styles/typography'
 import { useAskOlumiStore } from './askOlumiStore'
+import { useIsViewer, VIEWER_COMPOSER_NOTICE } from '../../../lib/viewerMode'
 import { ICON_STANDALONE } from '../../../canvas/conversation/panelIcons'
 
 const TOAST_MS = 1800
@@ -54,7 +55,10 @@ export function AskOlumiDrawer() {
 
   const dispatchAction = useGuidanceStore((s) => s._dispatchAction)
   const sendMessage = useGuidanceStore((s) => s._sendMessage)
-  const canSend = dispatchAction !== null || sendMessage !== null
+  // ACCOUNTS viewer mode (PANEL review 5951237026): a decision shared WITH this user is view-only and its conversation
+  // is the owner's, so the drawer says so in AIInputBar's own words instead of offering a Send the belt would refuse.
+  const isViewer = useIsViewer()
+  const canSend = !isViewer && (dispatchAction !== null || sendMessage !== null)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
@@ -234,6 +238,11 @@ export function AskOlumiDrawer() {
             >
               {MODEL_LIMIT_CAVEAT}
             </p>
+            {isViewer ? (
+              <p data-testid="viewer-composer-notice" className={`${typography.panelBody} text-text-light`}>
+                {VIEWER_COMPOSER_NOTICE}
+              </p>
+            ) : (
             <textarea
               ref={textareaRef}
               data-testid="ask-olumi-draft"
@@ -242,7 +251,8 @@ export function AskOlumiDrawer() {
               rows={3}
               className={`${typography.panelBody} min-h-[64px] w-full resize-y rounded-[9px] border border-panel-border bg-transparent px-2 py-2 text-text-body focus:outline-none`}
             />
-            {!canSend && (
+            )}
+            {!canSend && !isViewer && (
               <p className={`${typography.panelMeta} mt-1 text-text-light`}>
                 Open the Olumi chat to send this — the conversation is not
                 available right now.
@@ -258,6 +268,7 @@ export function AskOlumiDrawer() {
                   Focus on canvas
                 </button>
               )}
+              {!isViewer && (
               <button
                 type="button"
                 onClick={handleSend}
@@ -266,6 +277,7 @@ export function AskOlumiDrawer() {
               >
                 Send
               </button>
+              )}
             </div>
           </div>
         </aside>
