@@ -17,7 +17,8 @@ import identityWithheldRead from '../../hydrate/__tests__/fixtures/served-0c2388
 import { fetchScenarioGraph } from '../../../adapters/cee/scenarioGraph'
 import { buildDecisionBrief, decisionBriefToText, DECISION_BRIEF_COPY, type SavedScenarioRead } from '../buildDecisionBrief'
 import { decisionBriefToHtml } from '../decisionBriefHtml'
-import { v5AnalysisBlockContentHash } from '../../../v5/mapV5AnalysisToReport'
+import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
+import recordedRead from '../../hydrate/__tests__/fixtures/served-4f211b13-d1-recorded.read.json'
 import type { DecisionRecord } from '../../../components/results/modals'
 import { ANALYSIS_NEW_COPY } from '../../../components/results/analysisNew/analysisNewCopy'
 
@@ -207,12 +208,26 @@ function recordOf(over: Record<string, unknown> = {}): DecisionRecord {
   } as unknown as DecisionRecord
 }
 
-describe('buildDecisionBrief — the decision on record, bound to its Run by the results hash', () => {
-  it('⛔ a record made on THIS Run is shown in the card’s own words (hash from the turn writer’s own helper, not the brief’s)', async () => {
+describe('buildDecisionBrief — the decision on record', () => {
+  it('⛔ SERVED (D1, UI 919ba207): a record made in session is shown after reload, though its hash is NOT the read’s', async () => {
+    // The record exactly as the served capture modal stored it, and the saved read of the SAME Run (record-diag 09:3xZ).
+    const record = recordOf({
+      optionId: 'integration_bug_fix_sprint', optionLabel: 'Integration Bug Fix Sprint', optionNumber: 2,
+      expectation: 'Trial completion recovers within a month', rationale: 'The integration bug costs trial signups every week',
+      assumptionToWatch: 'Engineering can only do one properly', revisitTrigger: 'If the enterprise prospect signs elsewhere',
+      analysisHash: 'v5:6b6d9a458c867c64', savedAt: 1790933585060,
+    })
+    const read = await readOf(recordedRead)
+    // The divergence that made a hash filter hide every in-session record: same Run, different block bytes.
+    expect(mapV5AnalysisToReport(read.analysisResult as never).model_card.response_hash).not.toBe(record.analysisHash)
+    const brief = buildDecisionBrief(read, record)
+    expect(brief.record?.position).toBe('Option 2: Integration Bug Fix Sprint')
+    expect(brief.record?.rows.map((r) => r.label)).toContain(ANALYSIS_NEW_COPY.decisionRecord.expectationLabel)
+  })
+
+  it('a record is said in the card’s own words', async () => {
     const read = await readOf(currentRead)
-    // The value a record stores as `analysisHash` in session: the turn path's content hash of the same block.
-    const runHash = v5AnalysisBlockContentHash(read.analysisResult as never)
-    const brief = buildDecisionBrief(read, recordOf({ analysisHash: runHash }))
+    const brief = buildDecisionBrief(read, recordOf({ analysisHash: 'v5:0000000000000001' }))
     const copy = ANALYSIS_NEW_COPY.decisionRecord
     expect(brief.record?.heading).toBe(copy.recorded)
     expect(brief.record?.position).toBe('Keep the £49 price')
@@ -231,14 +246,7 @@ describe('buildDecisionBrief — the decision on record, bound to its Run by the
     expect(decisionBriefToHtml(brief)).toContain('Keep the £49 price')
   })
 
-  it('CONTRAST: a record made on a DIFFERENT Run is not shown on this one', async () => {
-    const read = await readOf(currentRead)
-    const brief = buildDecisionBrief(read, recordOf({ analysisHash: 'fnv1a-64:another-run' }))
-    expect(brief.record).toBeNull()
-    expect(decisionBriefToText(brief)).not.toContain(ANALYSIS_NEW_COPY.decisionRecord.recorded)
-  })
-
-  it('nothing to compare (no Run result, or no hash on the record) → shown with the date it was recorded, never hidden', async () => {
+  it('no Run result, or no hash on the record → still shown, with the date it was recorded', async () => {
     const stale = buildDecisionBrief(await readOf(staleRead), recordOf({ analysisHash: 'fnv1a-64:some-run' }))
     expect(stale.record?.position).toBe('Keep the £49 price')
     const unhashed = buildDecisionBrief(await readOf(currentRead), recordOf({ analysisHash: null }))
