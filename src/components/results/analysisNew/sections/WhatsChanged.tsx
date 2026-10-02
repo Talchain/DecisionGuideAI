@@ -25,7 +25,7 @@ import { typography } from '../../../../styles/typography'
 import { action, surface } from '../panelSurfaces'
 import { INPUT_ROWS_SHOWN_FIRST } from '../runDeltaView'
 import { linkRowText } from '../runDeltaLinkWords'
-import type { NoiseVerdict, RunDeltaInputRow, RunDeltaInputsView, RunDeltaMovement, RunDeltaView } from '../runDeltaView'
+import type { NoiseVerdict, RunDeltaFrame, RunDeltaInputRow, RunDeltaInputsView, RunDeltaMovement, RunDeltaView } from '../runDeltaView'
 import { useCanvasStore } from '../../../../canvas/store'
 import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../../../canvas/state/winShareGate'
 
@@ -47,9 +47,17 @@ export const WHATS_CHANGED_NO_PAIRS = 'No option has figures from both runs to c
  */
 export const WHATS_CHANGED_FIRST_COMPARISON = 'The options can be compared for the first time.'
 
+/**
+ * `frame: 'versions'` twin of the same typed reason: the version compared FROM recorded no figures, so nothing is
+ * compared. "For the first time" is a claim about Run order, which two saved versions do not have.
+ */
+export const WHATS_CHANGED_FROM_VERSION_WITHHELD =
+  'The recorded result for the version compared from has no figures to compare.'
+
 /** The sentence for an empty `win_probabilities`, by the producer's typed reason. */
-export function noPairsText(view: Pick<RunDeltaView, 'winProbabilitiesUnavailable'>): string {
-  return view.winProbabilitiesUnavailable === 'prior_withheld' ? WHATS_CHANGED_FIRST_COMPARISON : WHATS_CHANGED_NO_PAIRS
+export function noPairsText(view: Pick<RunDeltaView, 'winProbabilitiesUnavailable' | 'frame'>): string {
+  if (view.winProbabilitiesUnavailable !== 'prior_withheld') return WHATS_CHANGED_NO_PAIRS
+  return view.frame === 'versions' ? WHATS_CHANGED_FROM_VERSION_WITHHELD : WHATS_CHANGED_FIRST_COMPARISON
 }
 
 /**
@@ -89,20 +97,20 @@ export function noiseQualifier(v: NoiseVerdict): string | null {
  * ONE option's movement in words ("Option B: 41% → 55%"). Exported so the canvas's compact summary
  * (`graphChanges/RunChangesSummary`) says exactly what this section says, never a second phrasing.
  */
-export function movementText(m: RunDeltaMovement): string {
-  const name = m.label ?? 'An option this run does not name'
+export function movementText(m: RunDeltaMovement, frame: RunDeltaFrame = 'rerun'): string {
+  const name = m.label ?? (frame === 'versions' ? 'An option this result does not name' : 'An option this run does not name')
   // ⛔ `not_noise_qualified` IS DIRECTION ONLY. The contract: "reported as
   // direction only, never dressed as signal" — so the two numbers are withheld
   // rather than printed with a caveat, because a caveat under a precise figure
   // is read as precision.
   return m.mayShowMagnitude
     ? `${name}: ${pct(m.prior)} → ${pct(m.current)}`
-    : `${name}: ${m.direction === 'up' ? 'scored higher' : m.direction === 'down' ? 'scored lower' : 'scored the same'} than last time`
+    : `${name}: ${m.direction === 'up' ? 'scored higher' : m.direction === 'down' ? 'scored lower' : 'scored the same'} ${frame === 'versions' ? 'than in the version compared from' : 'than last time'}`
 }
 
 /** What a person is told about ONE option's movement. */
-function MovementLine({ m, sharedQualifier }: { m: RunDeltaMovement; sharedQualifier: boolean }): JSX.Element {
-  const body = movementText(m)
+function MovementLine({ m, sharedQualifier, frame }: { m: RunDeltaMovement; sharedQualifier: boolean; frame?: RunDeltaFrame }): JSX.Element {
+  const body = movementText(m, frame)
 
   const qualifier = sharedQualifier ? null : noiseQualifier(m.noiseVerdict)
 
@@ -149,6 +157,9 @@ export type InputRowFocus = (row: RunDeltaInputRow) => (() => void) | null | und
  */
 export type InputRowLight = (row: RunDeltaInputRow) => { on: () => void; off: () => void } | null
 
+/** `frame: 'versions'`: either saved version's recorded result may be the one without inputs, so neither is "earlier". */
+export const INPUTS_NOT_RECORDED_TEXT_VERSIONS =
+  'One of these recorded results did not record its inputs, so only the results are compared here.'
 export const INPUTS_NOT_RECORDED_TEXT = 'The earlier run did not record its inputs, so only the result is compared here.'
 /**
  * "Same input VALUES", not "same inputs" (DL 5936794868): a provenance-only change (an Accept of Olumi's estimate) leaves
@@ -166,17 +177,17 @@ export const INPUTS_PARTIAL_TEXT = 'Some inputs could not be compared between th
  * every input, so an empty list is NOT "nothing changed" — the partial line wins (served 4f61c322: an option-setting
  * edit read "Both runs used the same inputs", CANVAS 5921676745; DL re-balance 5921830092).
  */
-export function emptyInputsText(inputs: RunDeltaInputsView | null): string | null {
+export function emptyInputsText(inputs: RunDeltaInputsView | null, frame: RunDeltaFrame = 'rerun'): string | null {
   if (inputs === null) return null
-  if (inputs.coverage === 'not_recorded') return INPUTS_NOT_RECORDED_TEXT
+  if (inputs.coverage === 'not_recorded') return frame === 'versions' ? INPUTS_NOT_RECORDED_TEXT_VERSIONS : INPUTS_NOT_RECORDED_TEXT
   if (inputs.rows.length > 0) return null
   return inputs.coverage === 'complete' ? INPUTS_UNCHANGED_TEXT : INPUTS_PARTIAL_TEXT
 }
 
-function InputChanges({ inputs, rowFocus, rowLight }: { inputs: RunDeltaInputsView | null; rowFocus?: InputRowFocus; rowLight?: InputRowLight }): JSX.Element | null {
+function InputChanges({ inputs, rowFocus, rowLight, frame }: { inputs: RunDeltaInputsView | null; rowFocus?: InputRowFocus; rowLight?: InputRowLight; frame?: RunDeltaFrame }): JSX.Element | null {
   const [expanded, setExpanded] = useState(false)
   if (inputs === null) return null
-  const empty = emptyInputsText(inputs)
+  const empty = emptyInputsText(inputs, frame)
   if (empty !== null) {
     const id = inputs.coverage === 'not_recorded' ? 'inputs-not-recorded' : inputs.coverage === 'complete' ? 'inputs-unchanged' : 'inputs-partial'
     return (
@@ -298,7 +309,7 @@ export function WhatsChanged({ view, rowFocus, rowLight }: { view: RunDeltaView 
         When no outcome can be shown (win shares withheld, or no option matched across the pair), the input rows lead
         instead, so the section never invents a result.
       */}
-      {inputsLead ? <InputChanges inputs={view.inputs} rowFocus={rowFocus} rowLight={rowLight} /> : null}
+      {inputsLead ? <InputChanges inputs={view.inputs} rowFocus={rowFocus} rowLight={rowLight} frame={view.frame} /> : null}
 
       {winSharesAreWithheld ? (
         // Row 9: no per-option share change — the reason line in its place.
@@ -326,7 +337,7 @@ export function WhatsChanged({ view, rowFocus, rowLight }: { view: RunDeltaView 
         ) : null}
         <ul className="list-none p-0 mt-2 mb-0 space-y-2" data-testid={`${WHATS_CHANGED_TESTID}-movements`}>
           {view.movements.map((m) => (
-            <MovementLine key={m.optionId} m={m} sharedQualifier={shared !== null} />
+            <MovementLine key={m.optionId} m={m} sharedQualifier={shared !== null} frame={view.frame} />
           ))}
         </ul>
         </>
@@ -370,8 +381,12 @@ export function WhatsChanged({ view, rowFocus, rowLight }: { view: RunDeltaView 
           data-noise-verdict={view.leader.noiseVerdict}
         >
           {leaderMayName && view.leader.priorLabel && view.leader.currentLabel
-            ? `In this model, the option with the highest score moved from ${view.leader.priorLabel} to ${view.leader.currentLabel}.`
-            : 'In this model, the option with the highest score is not the same one as last time.'}
+            ? view.frame === 'versions'
+              ? `Between these two results, the option with the highest score moved from ${view.leader.priorLabel} to ${view.leader.currentLabel}.`
+              : `In this model, the option with the highest score moved from ${view.leader.priorLabel} to ${view.leader.currentLabel}.`
+            : view.frame === 'versions'
+              ? 'The option with the highest score is not the same one in these two results.'
+              : 'In this model, the option with the highest score is not the same one as last time.'}
           {/*
             ⛔ THE QUALIFIER IS NOT OPTIONAL DECORATION — IT IS WHAT MAKES THE
             SENTENCE ABOVE TRUE. Without it this states a leadership change as
@@ -384,7 +399,7 @@ export function WhatsChanged({ view, rowFocus, rowLight }: { view: RunDeltaView 
           ) : null}
         </p>
       ) : null}
-      {inputsLead ? null : <InputChanges inputs={view.inputs} rowFocus={rowFocus} rowLight={rowLight} />}
+      {inputsLead ? null : <InputChanges inputs={view.inputs} rowFocus={rowFocus} rowLight={rowLight} frame={view.frame} />}
 
       <p
         className={`${typography.panelBody} text-text mt-2 mb-0`}
