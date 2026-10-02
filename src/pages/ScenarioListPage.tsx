@@ -10,12 +10,15 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Plus, Trash2, AlertTriangle, Loader2,
-  Pin, MoreVertical, Copy, Archive, ArchiveRestore,
+  Pin, MoreVertical, Copy, Archive, ArchiveRestore, UserPlus,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { GuestDraftImportBanner } from '../components/auth/GuestDraftImportBanner'
 import { useScenario } from '../hooks/useScenario'
 import * as scenarioService from '../services/scenarioService'
+import { ShareDecisionDialog } from '../components/sharing/ShareDecisionDialog'
+import { SharedWithMeSection } from '../components/sharing/SharedWithMeSection'
+import { sharedScenarioPath } from '../components/sharing/sharedScenarioPath'
 import type { ScenarioListItem, ScenarioStage, AnalysisStatus, ScenarioEvent } from '../types/scenario'
 import { SYSTEM_MARKER_EVENT_TYPES } from '../types/scenario'
 import { Skeleton } from '../components/Skeleton'
@@ -204,12 +207,14 @@ function CardActionMenu({
   onPin,
   onArchive,
   onDuplicate,
+  onInvite,
   onDelete,
 }: {
   scenario: ScenarioListItem
   onPin: () => void
   onArchive: () => void
   onDuplicate: () => void
+  onInvite: () => void
   onDelete: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -246,6 +251,12 @@ function CardActionMenu({
             className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-panel-hover ${typography.bodySmall} text-text-body`}>
             <Copy className="w-3.5 h-3.5" />
             Duplicate
+          </button>
+          <button role="menuitem" onClick={() => { onInvite(); setOpen(false) }}
+            className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-panel-hover ${typography.bodySmall} text-text-body`}
+            data-testid="scenario-card-invite">
+            <UserPlus className="w-3.5 h-3.5" />
+            Invite a colleague…
           </button>
           <button role="menuitem" onClick={() => { onArchive(); setOpen(false) }}
             className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-panel-hover ${typography.bodySmall} text-text-body`}>
@@ -295,6 +306,7 @@ export default function ScenarioListPage() {
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<ScenarioListItem | null>(null)
+  const [shareTarget, setShareTarget] = useState<ScenarioListItem | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [filter, setFilter] = useState<HubFilter>('active')
 
@@ -667,6 +679,7 @@ export default function ScenarioListPage() {
                         onPin={() => handlePin(scenario)}
                         onArchive={() => handleArchive(scenario)}
                         onDuplicate={() => handleDuplicate(scenario)}
+                        onInvite={() => setShareTarget(scenario)}
                         onDelete={() => setDeleteTarget(scenario)}
                       />
                     </div>
@@ -694,7 +707,21 @@ export default function ScenarioListPage() {
             )}
           </>
         )}
+        {/* ACCOUNTS: decisions colleagues shared with me (view only). Outside the
+            first-run ternary: a colleague whose only decisions are shared ones
+            still sees them. Renders nothing when there are none. */}
+        {isPersistenceActive && user && (
+          <SharedWithMeSection onOpen={(id) => navigate(sharedScenarioPath(id))} />
+        )}
       </main>
+
+      {shareTarget && (
+        <ShareDecisionDialog
+          scenarioId={shareTarget.id}
+          scenarioTitle={shareTarget.title || 'Untitled decision'}
+          onClose={() => setShareTarget(null)}
+        />
+      )}
 
       {/* Delete confirmation */}
       {deleteTarget && (
