@@ -20,9 +20,9 @@ import {
   isStateChangingCeeRequest,
   isViewerSession,
   useIsViewer,
-  useScenarioViewerAccess,
   viewerScenario,
 } from '../viewerMode'
+import { useScenarioViewerAccess } from '../useScenarioViewerAccess'
 
 const A = '3b241101-e2bb-4255-8caf-4136c566a962'
 const B = '9f0c2a55-1d3e-4b7a-8c61-2a4e5f6d7b80'
@@ -33,12 +33,12 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
-let network: ReturnType<typeof vi.fn>
+let network: ReturnType<typeof vi.fn<unknown[], Promise<Response>>>
 
 beforeEach(() => {
   __resetViewerModeForTests()
   access.getScenarioAccess.mockReset()
-  network = vi.fn(async () => new Response('{}', { status: 200 }))
+  network = vi.fn<unknown[], Promise<Response>>(async () => new Response('{}', { status: 200 }))
   globalThis.fetch = network as unknown as typeof fetch
 })
 

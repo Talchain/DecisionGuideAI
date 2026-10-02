@@ -41,6 +41,8 @@ import { shouldPersistGraphForScenario } from '../canvas/stores/draftStore'
 import { clientCanWriteReadableGraph } from '../lib/clientGraphWritePolicy'
 import { logCanvasBreadcrumb, describeError } from '../canvas/utils/canvasBreadcrumb'
 import { deriveModelNameFromGoal } from '../canvas/domain/modelDisplayName'
+import { isViewerSession } from '../lib/viewerMode'
+import { getScenarioAccess } from '../services/scenarioSharingService'
 
 export type SaveStatus = 'saved' | 'saving' | 'error'
 
@@ -238,6 +240,9 @@ async function persistGraphNow(sid: string): Promise<boolean> {
   // the question for its own purposes.
   if (!clientCanWriteReadableGraph()) return false
   if (!shouldPersistGraphForScenario(sid)) return false
+  // ACCOUNTS viewer mode: a shared decision is view-only. The DB door refuses a
+  // member anyway; suppressing here keeps "saved" honest and the viewer quiet.
+  if (isViewerSession()) return false
   const state = useCanvasStore.getState()
   const key = graphSaveKey(state)
   await scenarioService.saveGraphViaGatedPath(
@@ -406,7 +411,7 @@ export function useScenario(): UseScenarioReturn {
       ) return
 
       const sid = scenarioIdRef.current
-      if (!isPersistenceActiveRef.current || !sid) return
+      if (!isPersistenceActiveRef.current || !sid || isViewerSession()) return
       if (!mountedRef.current) return
       // F4: only the owning mount schedules writes.
       if (!isAutosaveOwner(instanceIdRef.current)) return
@@ -498,7 +503,7 @@ export function useScenario(): UseScenarioReturn {
       if (state.currentScenarioFraming === prevState.currentScenarioFraming) return
 
       const sid = scenarioIdRef.current
-      if (!isPersistenceActiveRef.current || !sid) return
+      if (!isPersistenceActiveRef.current || !sid || isViewerSession()) return
       if (!mountedRef.current) return
       // F4: only the owning mount schedules writes.
       if (!isAutosaveOwner(instanceIdRef.current)) return
@@ -622,7 +627,7 @@ export function useScenario(): UseScenarioReturn {
     // Check on mount and subscribe for changes
     const tryAutoTitle = () => {
       const sid = scenarioIdRef.current
-      if (!isPersistenceActiveRef.current || !sid) return
+      if (!isPersistenceActiveRef.current || !sid || isViewerSession()) return
       // F4: only the owning mount writes the auto-title.
       if (!isAutosaveOwner(instanceIdRef.current)) return
       if (titleAutoSetForScenarioRef.current === sid) return
@@ -794,6 +799,12 @@ export function useScenario(): UseScenarioReturn {
           phase: 'not_found',
           scenarioId: id,
         })
+        // ACCOUNTS viewer mode: a decision SHARED with this user is hidden from the
+        // Supabase read by design (scenarios RLS stays owner-only); its model
+        // arrives through CEE's member read, which this load's settle unblocks.
+        // Asked fresh here rather than read from the flag, which may not have
+        // landed yet. A failed answer is 'none', so the notice still shows.
+        if ((await getScenarioAccess(id)) === 'viewer') return
         notifyScenarioLoadProblem(
           'This model could not be opened. It may have been removed, or you may not have access to it.',
         )

@@ -221,6 +221,7 @@ import { useAutosave } from './hooks/useAutosave'
 // here was removed — it still downloaded the ~250 KB chunk and, with ?diag,
 // rendered a second overlapping launcher.
 import { verboseWarn } from '../utils/verboseLog'
+import { useIsViewer } from '../lib/viewerMode'
 
 type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare' | 'rf-minimal' | 'rf-empty' | 'rf-no-fitview' | 'rf-no-bg' | 'rf-store' | 'provider-only' | 'no-provider'
 
@@ -2037,6 +2038,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }
 
   useKeyboardShortcuts({ onModeChange: setInteractionMode, onSpaceHeld: setSpaceHeld })
+  // ACCOUNTS viewer mode (CANVAS 5947752314): read-only, not inert. A viewer still
+  // selects and inspects; nothing drags, connects or deletes.
+  const isViewer = useIsViewer()
 
   // Task C: Escape key closes active right panel (Provenance, AI Clarifier)
   useEscapePanel()
@@ -2754,9 +2758,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             onNodeDoubleClick={handleNodeDoubleClick}
             onEdgeClick={handleEdgeClick}
             onEdgeDoubleClick={handleEdgeDoubleClick}
-            onPaneContextMenu={onPaneContextMenu}
-            onNodeContextMenu={onNodeContextMenu}
-            onEdgeContextMenu={onEdgeContextMenu}
+            onPaneContextMenu={isViewer ? undefined : onPaneContextMenu}
+            onNodeContextMenu={isViewer ? undefined : onNodeContextMenu}
+            onEdgeContextMenu={isViewer ? undefined : onEdgeContextMenu}
             onNodeDragStart={onNodeDragStart}
             onNodeDragStop={onNodeDragStop}
             // The hovered card is recorded for the edges (an option → factor
@@ -2782,10 +2786,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             // selection through `onNodesChange`, past the impact check and the
             // confirm dialog. Delete/Backspace is handled once, by
             // `useKeyboardShortcuts` → `deleteAction` — see the constant's header.
-            deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE}
+            deleteKeyCode={isViewer ? null : REACT_FLOW_DELETE_KEY_CODE}
             panOnDrag={effectiveMode === 'hand' ? true : SELECT_MODE_PAN_BUTTONS}
-            nodesDraggable={effectiveMode === 'select'}
-            nodesConnectable={CANVAS_EDGE_ADD_CONNECTED}
+            nodesDraggable={effectiveMode === 'select' && !isViewer}
+            nodesConnectable={CANVAS_EDGE_ADD_CONNECTED && !isViewer}
             nodeClickDistance={NODE_CLICK_DISTANCE}
             paneClickDistance={PANE_CLICK_DISTANCE}
             nodeDragThreshold={NODE_DRAG_THRESHOLD}

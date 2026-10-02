@@ -34,13 +34,20 @@
  * session never runs it at all.
  */
 
-import { useEffect, useSyncExternalStore } from 'react'
-import { getScenarioAccess } from '../services/scenarioSharingService'
+import { useSyncExternalStore } from 'react'
+
+/** What a viewer sees where the composer would be. Neutral: no claim about the chat. */
+export const VIEWER_COMPOSER_NOTICE =
+  "You're viewing a decision shared with you. The owner's conversation stays private, and only the owner can change or run the model."
 
 let viewerScenarioId: string | null = null
 const listeners = new Set<() => void>()
 
-function setViewerScenario(next: string | null): void {
+/**
+ * Set by `useScenarioViewerAccess` (its own module, so this core imports no
+ * Supabase client and the store can read the flag without that dependency).
+ */
+export function setViewerScenario(next: string | null): void {
   if (next === viewerScenarioId) return
   viewerScenarioId = next
   if (next !== null) installWriteBelt()
@@ -65,29 +72,6 @@ export function viewerScenario(): string | null {
 /** True while the decision on screen is one this user may only view. */
 export function useIsViewer(): boolean {
   return useSyncExternalStore(subscribe, isViewerSession, isViewerSession)
-}
-
-/**
- * The ONE writer of the flag, called by the canvas route. Asks the server once per
- * (route, persistence session). A stale route's answer never sets the flag for
- * another route, and leaving the route clears it.
- */
-export function useScenarioViewerAccess(routeId: string | null | undefined, isPersistenceActive: boolean): void {
-  useEffect(() => {
-    if (!routeId || !isPersistenceActive) {
-      setViewerScenario(null)
-      return
-    }
-    let live = true
-    setViewerScenario(null)
-    void getScenarioAccess(routeId).then((access) => {
-      if (live) setViewerScenario(access === 'viewer' ? routeId : null)
-    })
-    return () => {
-      live = false
-      setViewerScenario(null)
-    }
-  }, [routeId, isPersistenceActive])
 }
 
 // ── The belt ─────────────────────────────────────────────────────────────────

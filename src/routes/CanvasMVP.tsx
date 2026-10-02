@@ -19,6 +19,8 @@ import { getScenario } from '../canvas/store/scenarios'
 import { useScenario } from '../hooks/useScenario'
 import { useServerGraphHydration } from '../canvas/hooks/useServerGraphHydration'
 import { useBootServerRead, useSupabaseLoadTracker } from '../canvas/hooks/useBootServerReadEnabled'
+import { useIsViewer } from '../lib/viewerMode'
+import { useScenarioViewerAccess } from '../lib/useScenarioViewerAccess'
 import { ServerGraphRetryNotice } from '../canvas/components/ServerGraphRetryNotice'
 // ROADMAP 2.1271 — deliver the auto-run's provisional analysis without another
 // turn. Mounted HERE, beside boot hydration, deliberately: the trigger is the
@@ -82,6 +84,12 @@ export default function CanvasMVP() {
   useEffect(() => {
     setPersistenceSessionActive(isPersistenceActive)
   }, [isPersistenceActive])
+
+  // ACCOUNTS "Invite a colleague": THE ONE WRITER of the viewer flag (`lib/viewerMode`),
+  // from the server's `scenario_access`. ON only for an exact 'viewer' answer for
+  // this route; every edit surface reads `useIsViewer()`.
+  useScenarioViewerAccess(scenarioIdFromRoute, isPersistenceActive)
+  const isViewer = useIsViewer()
 
   // C.1a: Hydrate from Supabase when navigating to /scenario/:id
   const hydratedRef = useRef<string | null>(null)
@@ -358,11 +366,12 @@ export default function CanvasMVP() {
         // COLLAB: the blind-panel entry needs a PERSISTED scenario — CEE's
         // mint refuses guest scenarios (no immutable model version to pin),
         // and the owner route sits behind AuthGuard.
-        panelScenarioId={isPersistenceActive && currentScenarioId ? currentScenarioId : null}
+        panelScenarioId={isPersistenceActive && currentScenarioId && !isViewer ? currentScenarioId : null}
         // SHARE: same condition — a shared brief needs a persisted scenario to
         // point at. Guest/unsaved hides the control rather than copying a link
         // that opens empty on the recipient's machine.
-        shareScenarioId={isPersistenceActive && currentScenarioId ? currentScenarioId : null}
+        // A viewer cannot share a decision they do not own (the server refuses too).
+        shareScenarioId={isPersistenceActive && currentScenarioId && !isViewer ? currentScenarioId : null}
       />
 
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>

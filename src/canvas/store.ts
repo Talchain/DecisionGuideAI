@@ -316,6 +316,7 @@ function tryRestoreResultsFromHistory(
 // because this is where every existing consumer already imports it from, and
 // this file uses it in its own action signatures.
 import type { CeeQualityDimensions } from './utils/ceeQualityDimensions'
+import { isViewerSession } from '../lib/viewerMode'
 export type { CeeQualityDimensions }
 
 // Results panel state machine
@@ -3870,6 +3871,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   updateNodeLabel: (id, label) => {
+    // ACCOUNTS viewer mode: a viewer cannot rename (only user gestures call this).
+    if (isViewerSession()) return
     // 0.50.0 — CAPTURE BEFORE THE LOCAL WRITE, and that ordering is the whole
     // point. `expected_label` is an assertion about the label the user was
     // LOOKING AT; reading it after the local mutation would assert the label we

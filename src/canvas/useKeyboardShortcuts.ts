@@ -14,6 +14,7 @@ import { deleteSelectionAction, type ShowToastFn } from './contextMenu/actions'
 import { useConfirmDialogStore } from './stores/confirmDialogStore'
 import { armNodeKeyboardScopeForOneDispatch } from './nodes/nodeKeyboardScope'
 import { runCanvasUndo } from './undo/undoCommand'
+import { isViewerSession } from '../lib/viewerMode'
 
 /** The keys React Flow's node handler moves a node on — and the nudge's keys. */
 const ARROW_KEYS: ReadonlySet<string> = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'])
@@ -527,6 +528,15 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
       // CLEARING is always safe, so keyup/blur/visibilitychange are not.
       const target = event.target as HTMLElement
       if (isTextEntryElement(target)) {
+        return
+      }
+
+      // ACCOUNTS viewer mode: no editing gesture for a viewer. Tool keys (V / H /
+      // Space) still work; undo/redo, delete, nudge and every Cmd/Ctrl shortcut do not.
+      if (
+        isViewerSession() &&
+        (cmdOrCtrl || event.key === 'Delete' || event.key === 'Backspace' || ARROW_KEYS.has(event.key))
+      ) {
         return
       }
 
