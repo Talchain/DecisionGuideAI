@@ -73,6 +73,7 @@
  * question "is this value on a normalised scale?". Joining it would make a
  * 0.8 count render as "very high".
  */
+import { unnamedCurrencyWords } from '../../../utils/unnamedCurrencyUnit'
 import { classifyUnit, compactUnitParts, ISO_CURRENCY_GLYPHS, joinCompactUnitParts, unitIsDisplayable } from '../../../utils/unitClassifier'
 import { formatTargetValue } from './formatTargetValue'
 import { goalHeldComparatorOf, goalTargetChangeFrameOf, goalTargetFrameIsUnread, type GoalTargetChangeFrame } from '../../../canvas/domain/goalTarget'
@@ -105,6 +106,11 @@ export function formatGoalTarget(value: number, unit: string | null | undefined,
     const { direction, size } = goalChangeParts(value, unit, change)
     return `${direction} ${size} from today`
   }
+
+  // An unnamed currency (the drafter's "currency/<period>" placeholder) is said in words, never printed raw and never
+  // given a currency it does not have (MG ruling #85 5943427770; `unnamedCurrencyUnit.ts`).
+  const unnamed = unnamedCurrencyWords(unit)
+  if (unnamed !== null) return `${value.toLocaleString()} ${unnamed}`
 
   const { kind, canonical } = classifyUnit(unit ?? null)
 

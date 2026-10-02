@@ -26,10 +26,24 @@ import { NodeTypeEnum } from '../domain/nodes'
 
 export const PROPOSAL_GHOST_TESTID = 'proposal-ghost-layer'
 
-/** A link mark's words: a change says "Proposed", a keep says what the Yes records. */
+/**
+ * The word the canvas shows for each producer band. ⛔ COPIED VERBATIM from CEE `src/orchestrator-v5/format/
+ * edge-strength-bands.ts` CANVAS_BAND_WORD @ `41105c78c328335be76cea712a15169e5e5ef0e4`: only the lowest differs (the
+ * enum keeps `weak`, the canvas pill and the card say "slight", the same range). Served: the M3 ghost read "Proposed:
+ * weak" beside a card saying "as slight" (R3 #85 5943748459). A row pins these literals.
+ */
+export const CANVAS_BAND_WORD: Readonly<Record<PreviewBand, string>> = {
+  weak: 'slight',
+  moderate: 'moderate',
+  strong: 'strong',
+  'very strong': 'very strong',
+}
+
+/** A link mark's words: a change says "Proposed", a keep says what the Yes records; the band in the canvas's word. */
 export function ghostBandText(b: { band: PreviewBand; keeps: boolean; reverses: boolean }): string {
-  if (b.keeps && !b.reverses) return `Record as ${b.band}`
-  return `Proposed: ${b.band}${b.reverses ? ', direction reversed' : ''}`
+  const word = CANVAS_BAND_WORD[b.band]
+  if (b.keeps && !b.reverses) return `Record as ${word}`
+  return `Proposed: ${word}${b.reverses ? ', direction reversed' : ''}`
 }
 
 /** An option mark's words: the card's own words, verbatim, for taken out (they carry a colon, hence the dot). */
