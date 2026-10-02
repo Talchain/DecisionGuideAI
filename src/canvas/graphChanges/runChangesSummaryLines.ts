@@ -23,6 +23,8 @@ import {
 export const RUN_CHANGES_SUMMARY_COPY = {
   title: 'Since the last run',
   changed: 'Changed',
+  /** The label when there are no input rows, only the note about them: "Changed" over "Both runs used the same input values." contradicted itself. */
+  inputs: 'Inputs',
   moved: 'Moved',
   why: 'Why',
   uncertain: 'Still uncertain',

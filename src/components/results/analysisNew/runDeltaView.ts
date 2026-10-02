@@ -252,6 +252,16 @@ const COMPARABILITY: Record<RunDelta['attribution_case'], string> = {
  * claim. C0 states a proven negative. C2/C3/C4 REFUSE TO ATTRIBUTE, which is the
  * honest shape of "we cannot tell from this pair".
  */
+/**
+ * ⛔ C0 WITH `partial` COVERAGE (P0 5943351889; producer owner 52f8cd 5943379851, 2 Oct). `partial` means Olumi cannot
+ * VERIFY that every sent input was the same — since 0.71 `complete` needs equal residuals on BOTH ends, so a legacy end
+ * with no residual reads `partial` on a no-edit rerun. It never means "an input changed". So neither "nothing … differed"
+ * (unverified) nor "an input changed" (false on the legacy no-edit pair): say what is unconfirmed, and refuse to
+ * attribute.
+ */
+const C0_PARTIAL_COMPARABILITY =
+  "This analysis was worked out the same way as the previous one, but Olumi can't confirm that every input was the same between these runs."
+
 const CANNOT_ESTABLISH =
   'Whether a change to the model explains anything below cannot be established from this pair.'
 
@@ -381,6 +391,7 @@ export function buildRunDeltaView(
     mayShowMagnitude: w.noise_verdict !== 'not_noise_qualified',
   }))
 
+  const c0Partial = delta.attribution_case === 'C0_identical' && delta.input_coverage === 'partial'
   const priorId = delta.leader.prior_leading_option_id
   const currentId = delta.leader.current_leading_option_id
   const mayName =
@@ -388,9 +399,9 @@ export function buildRunDeltaView(
     typeof currentId === 'string' && currentId.length > 0
 
   return {
-    comparability: COMPARABILITY[delta.attribution_case],
+    comparability: c0Partial ? C0_PARTIAL_COMPARABILITY : COMPARABILITY[delta.attribution_case],
     attributable,
-    attributionLimit: ATTRIBUTION_LIMIT[delta.attribution_case],
+    attributionLimit: c0Partial ? CANNOT_ESTABLISH : ATTRIBUTION_LIMIT[delta.attribution_case],
     movements,
     // ⚠ AN EMPTY LIST IS "NO OPTION HAD A COMPARABLE PAIR", NEVER "NOTHING
     // MOVED". The contract permits an empty array on a pair where no option
