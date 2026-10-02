@@ -78,7 +78,9 @@ export function resolveEffectiveInteractionMode(
   interactionMode: InteractionMode,
   spaceHeld: boolean,
 ): InteractionMode {
-  return spaceHeld ? 'hand' : interactionMode
+  // ACCOUNTS viewer mode: a viewer is always in hand mode, so no card drags (the board's
+  // `nodesDraggable={effectiveMode === 'select'}` binding stays one literal for owners).
+  return spaceHeld || isViewerSession() ? 'hand' : interactionMode
 }
 
 /**

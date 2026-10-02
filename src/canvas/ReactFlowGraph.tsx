@@ -221,7 +221,7 @@ import { useAutosave } from './hooks/useAutosave'
 // here was removed — it still downloaded the ~250 KB chunk and, with ?diag,
 // rendered a second overlapping launcher.
 import { verboseWarn } from '../utils/verboseLog'
-import { useIsViewer } from '../lib/viewerMode'
+import { isViewerSession, useIsViewer } from '../lib/viewerMode'
 
 type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare' | 'rf-minimal' | 'rf-empty' | 'rf-no-fitview' | 'rf-no-bg' | 'rf-store' | 'provider-only' | 'no-provider'
 
@@ -792,8 +792,9 @@ function claimCameraOnUserMoveEnd(event: MouseEvent | TouchEvent | null): void {
 
 const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, showStarters = false }: ReactFlowGraphProps) {
   // ACCOUNTS viewer mode (CANVAS 5947752314): read-only, not inert. A viewer still
-  // selects and inspects; nothing drags or connects (React Flow's delete key is off for everyone).
-  // FIRST in the component, before any conditional path (rules-of-hooks ratchet).
+  // selects and inspects; nothing connects or opens an edit menu, and dragging is off because a
+  // viewer is always in hand mode (`resolveEffectiveInteractionMode`). React Flow's delete key is off
+  // for everyone. FIRST in the component, before any conditional path (rules-of-hooks ratchet).
   const isViewer = useIsViewer()
   // React #185 FIX: Use INDIVIDUAL selectors - NOT object + shallow
   //
@@ -2407,6 +2408,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
     event.preventDefault()
+    // ACCOUNTS viewer mode: no edit menu for a viewer (CANVAS 5947752314).
+    if (isViewerSession()) return
     const screenPos = { x: event.clientX, y: event.clientY }
     const { selection } = useCanvasStore.getState()
     const isMulti = selection.nodeIds.size > 1
@@ -2426,6 +2429,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   const onNodeContextMenu = useCallback((event: React.MouseEvent | MouseEvent, node?: any) => {
     event.preventDefault()
+    // ACCOUNTS viewer mode: no edit menu for a viewer (CANVAS 5947752314).
+    if (isViewerSession()) return
     const screenPos = { x: event.clientX, y: event.clientY }
     if (node) {
       const { selection } = useCanvasStore.getState()
@@ -2454,6 +2459,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   const onEdgeContextMenu = useCallback((event: React.MouseEvent | MouseEvent, edge?: any) => {
     event.preventDefault()
+    // ACCOUNTS viewer mode: no edit menu for a viewer (CANVAS 5947752314).
+    if (isViewerSession()) return
     const screenPos = { x: event.clientX, y: event.clientY }
     if (edge) {
       const { nodes, edges: storeEdges } = useCanvasStore.getState()
@@ -2759,9 +2766,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             onNodeDoubleClick={handleNodeDoubleClick}
             onEdgeClick={handleEdgeClick}
             onEdgeDoubleClick={handleEdgeDoubleClick}
-            onPaneContextMenu={isViewer ? undefined : onPaneContextMenu}
-            onNodeContextMenu={isViewer ? undefined : onNodeContextMenu}
-            onEdgeContextMenu={isViewer ? undefined : onEdgeContextMenu}
+            onPaneContextMenu={onPaneContextMenu}
+            onNodeContextMenu={onNodeContextMenu}
+            onEdgeContextMenu={onEdgeContextMenu}
             onNodeDragStart={onNodeDragStart}
             onNodeDragStop={onNodeDragStop}
             // The hovered card is recorded for the edges (an option → factor
@@ -2789,7 +2796,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             // `useKeyboardShortcuts` → `deleteAction` — see the constant's header.
             deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE}
             panOnDrag={effectiveMode === 'hand' ? true : SELECT_MODE_PAN_BUTTONS}
-            nodesDraggable={effectiveMode === 'select' && !isViewer}
+            nodesDraggable={effectiveMode === 'select'}
             nodesConnectable={CANVAS_EDGE_ADD_CONNECTED && !isViewer}
             nodeClickDistance={NODE_CLICK_DISTANCE}
             paneClickDistance={PANE_CLICK_DISTANCE}

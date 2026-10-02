@@ -15,6 +15,7 @@ import { commitValidatedMutation } from '../commitValidatedMutation'
 import { useModelEditAuthority } from '../../hooks/useModelEditAuthority'
 import { useNodeMutations, useEdgeMutations } from '../../ui/inspector-v2/useInspectorMutations'
 import { __resetViewerModeForTests, setViewerScenario } from '../../../lib/viewerMode'
+import { resolveEffectiveInteractionMode } from '../../useKeyboardShortcuts'
 
 const SID = '3b241101-e2bb-4255-8caf-4136c566a962'
 
@@ -92,6 +93,10 @@ describe('viewer: every local edit door leaves the graph identical', () => {
     expect(graph()).toBe(before)
   })
 
+  it('a viewer is always in hand mode, so no card drags (nodesDraggable binds effectiveMode === select)', () => {
+    expect(resolveEffectiveInteractionMode('select', false)).toBe('hand')
+  })
+
   it('selection still works for a viewer (read-only, not inert)', () => {
     useCanvasStore.getState().onNodesChange([{ type: 'select', id: 'f1', selected: true }])
     expect((useCanvasStore.getState().nodes as Node[]).find((n) => n.id === 'f1')?.selected).toBe(true)
@@ -99,6 +104,10 @@ describe('viewer: every local edit door leaves the graph identical', () => {
 })
 
 describe('CONTRAST: the same calls with the flag off DO change the graph', () => {
+  it('the owner keeps the tool they chose (select stays select)', () => {
+    expect(resolveEffectiveInteractionMode('select', false)).toBe('select')
+  })
+
   it('commitGraphMutation adds the node', () => {
     const before = graph()
     commitGraphMutation(addNode)
