@@ -176,7 +176,7 @@ describe('VR3 · unavailable: the typed reason, no figure', () => {
     await compare([{ status: 200, body: UNAVAILABLE }])
     const block = await screen.findByTestId(R)
     expect(within(block).getByTestId(`${R}-unavailable`)).toHaveTextContent(
-      VERSION_RESULTS_UNAVAILABLE_COPY[UNAVAILABLE.result_comparison.reason],
+      VERSION_RESULTS_UNAVAILABLE_COPY[UNAVAILABLE.result_comparison.reason as keyof typeof VERSION_RESULTS_UNAVAILABLE_COPY],
     )
     expect(block.textContent).not.toMatch(/\d\s?%/)
   })
@@ -218,7 +218,8 @@ describe('VR6 · CONTRAST: any other 422 is never retried', () => {
 })
 
 describe('VR7 · the reader\'s versions frame', () => {
-  const base = (PAIRED.result_comparison as Extract<typeof PAIRED.result_comparison, { kind: 'paired_runs' }>).run_delta as RunDelta
+  // The fixture's static type is wider than the union arm; the runtime shape is asserted by VR1's parse.
+  const base = (PAIRED.result_comparison as unknown as { run_delta: RunDelta }).run_delta
   const cases: RunDelta['attribution_case'][] = ['C0_identical', 'C1_attributable', 'C2_unpaired', 'C3_engine_drift', 'C4_budget_drift', 'C5_unattributed']
   it.each(cases)('%s: its own sentence, none rerun-shaped; no "earlier run" line; rerun unchanged', (attribution_case) => {
     const delta = { ...base, attribution_case } as RunDelta
