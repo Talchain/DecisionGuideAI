@@ -216,6 +216,15 @@ describe('the guest record travels with the B3 copy of its own scenario', () => 
     expect((shown(COPY_SCENARIO) as S.OptionDecisionRecord).optionId).toBe('opt_account')
   })
 
+  it('never over the ACCOUNT\'s record read back into memory (S1: memory only, so storage alone cannot see it)', () => {
+    guestHasRecorded()
+    S.observeDecisionRecordOwner(USER)
+    const account = { ...GUEST_RECORD, optionId: 'opt_account_read_back', remote: { recordId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', reviewDate: '2026-12-31T00:00:00.000Z', reviewDateSource: 'read_back' as const, storedTextFields: [] } }
+    expect(S.hydrateDecisionRecordFromServer(COPY_SCENARIO, USER, account)).toBe(true)
+    expect(S.adoptGuestCarry(GUEST_SCENARIO, COPY_SCENARIO, true)).toBe(false)
+    expect((shown(COPY_SCENARIO) as S.OptionDecisionRecord).optionId).toBe('opt_account_read_back')
+  })
+
   it('CODEX P1: never over a record ANOTHER TAB persisted for the copy (this tab has not seen it yet)', () => {
     guestHasRecorded()
     S.observeDecisionRecordOwner(USER)
