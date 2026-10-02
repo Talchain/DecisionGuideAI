@@ -85,6 +85,9 @@ import {
 } from '../collab/participantToken'
 import { typography } from '../styles/typography'
 
+/** D2 / R8: shown until the participant's first response. */
+export const ANSWER_FIRST_COPY = 'Answer before you look at the model.'
+
 /* ── shared surface recipes ───────────────────────────────────────────────
  * Named once rather than spelled per element: five hand-assembled copies of a
  * card is how a design system drifts back into inline styles.
@@ -1005,6 +1008,16 @@ export default function ParticipantPacketPage(): JSX.Element {
               you write.
             </span>
           </p>
+
+          {/* ⭐ D2 / R8: THE ANCHOR GUARD (DL ruling: UI-only for the PoC). A colleague who is also a
+              member can open the shared decision and see the model's own number. Before their FIRST
+              response this page offers no route there, and says why. It is a line, not a lock: access
+              state must not depend on round state. */}
+          {packet.self.completed_target_ids.length === 0 && (
+            <p data-testid="packet-answer-first" className={`${typography.body} mt-3 font-semibold text-text-header`}>
+              {ANSWER_FIRST_COPY}
+            </p>
+          )}
 
           {packet.context_note !== null && (
             <blockquote
