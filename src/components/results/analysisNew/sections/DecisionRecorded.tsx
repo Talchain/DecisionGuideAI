@@ -256,7 +256,9 @@ export function recordedOptionText(record: DecisionRecord): string {
 export function storageSentenceFor(record: DecisionRecord): string {
   if (!record.remote?.recordId) return COPY.decisionRecord.storedLocal
   const confirmed = record.remote.storedTextFields ?? []
-  if (confirmed.length > 0) return confirmedStorageSentence(record, confirmed)
+  // A record READ BACK from the account holds exactly the texts the account returned, all confirmed: the fixed
+  // sentences below would name device texts that were never on this device (Codex S1 P2).
+  if (confirmed.length > 0 || record.remote.reviewDateSource === 'read_back') return confirmedStorageSentence(record, confirmed)
   const hasNextAction = Boolean(record.nextAction?.trim())
   if (isNotReadyRecord(record)) {
     return hasNextAction

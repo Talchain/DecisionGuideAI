@@ -4,7 +4,7 @@
  * memory only, never over a local record. Bound by identity: exact record ids, exact mapped fields.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, waitFor } from '@testing-library/react'
+import { act, render, waitFor } from '@testing-library/react'
 import type { OptionDecisionRecord } from '../decisionRecordStore'
 
 type SessionIdentity = { userId: string | null; accessToken: string | null }
@@ -22,6 +22,7 @@ const { useCanvasStore } = await import('../../../../canvas/store')
 const S = await import('../decisionRecordStore')
 const { readListedRecord, listDecisionRecords } = await import('../../../../services/decisionRecordListService')
 const { DecisionRecordServerSync } = await import('../DecisionRecordServerSync')
+const { storageSentenceFor, DECISION_POSITION_COPY } = await import('../../analysisNew/sections/DecisionRecorded')
 
 const SCENARIO_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 const OTHER_SCENARIO = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
@@ -39,6 +40,8 @@ const chosenRecord = () => readListedRecord(CHOSEN) as OptionDecisionRecord
 const fetchReturning = (status: number, body: unknown) => vi.spyOn(globalThis, 'fetch').mockResolvedValue(
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }))
 const key = (id: string) => id // scenario ids resolve to themselves (resolveScenarioKey)
+/** The owner generation records are currently shown for. */
+const epochNow = () => S.useDecisionRecordStore.getState().ownerEpoch ?? 'no-epoch'
 
 beforeEach(() => {
   localStorage.clear()
@@ -74,6 +77,13 @@ describe('the listed record maps onto the store\'s own shape — never half-true
     expect(readListedRecord({ ...CHOSEN, confidence_0_100: Number.NaN })).toBeNull()
     expect(readListedRecord({ ...CHOSEN, confidence_0_100: '72' })).toBeNull()
   })
+  it('CODEX S1 P2: a read-back record with NO texts says only what the account holds — never "on this device" for texts it does not have', () => {
+    const bare = readListedRecord({ ...CHOSEN, rationale: undefined, expectation_statement: 'Runway holds above 9 months.' })!
+    expect(bare.remote?.storedTextFields).toEqual([])
+    const line = storageSentenceFor(bare)
+    expect(line).not.toMatch(/on this device/i)
+    expect(line).toBe(DECISION_POSITION_COPY.accountOptionWithExpectation)
+  })
   it('HASH FAMILIES: the server\'s graph hash is never put where the device\'s results hash goes', () => {
     expect(readListedRecord(CHOSEN)?.analysisHash).toBeNull()
     expect(JSON.stringify(readListedRecord(CHOSEN))).not.toContain(CHOSEN.graph_hash)
@@ -105,26 +115,48 @@ describe('hydration: the current owner only, memory only, never over a local rec
   const record = () => readListedRecord(CHOSEN)!
   it('RED: a signed-in owner with NO record on this device sees the account\'s record', () => {
     S.observeDecisionRecordOwner(OWNER_ID)
-    expect(S.hydrateDecisionRecordFromServer(key(SCENARIO_ID), OWNER_ID, record())).toBe(true)
+    expect(S.hydrateDecisionRecordFromServer(key(SCENARIO_ID), OWNER_ID, record(), epochNow())).toBe(true)
     expect(S.selectDecisionRecord(S.useDecisionRecordStore.getState(), SCENARIO_ID)?.remote?.recordId).toBe(CHOSEN.record_id)
   })
   it('a read that lands after an ACCOUNT SWITCH writes nothing; nor for a guest boundary', () => {
     S.observeDecisionRecordOwner(OTHER_ID)
-    expect(S.hydrateDecisionRecordFromServer(key(SCENARIO_ID), OWNER_ID, record())).toBe(false)
+    expect(S.hydrateDecisionRecordFromServer(key(SCENARIO_ID), OWNER_ID, record(), epochNow())).toBe(false)
     S.observeDecisionRecordOwner(null)
-    expect(S.hydrateDecisionRecordFromServer(key(SCENARIO_ID), OWNER_ID, record())).toBe(false)
+    expect(S.hydrateDecisionRecordFromServer(key(SCENARIO_ID), OWNER_ID, record(), epochNow())).toBe(false)
     expect(S.selectDecisionRecord(S.useDecisionRecordStore.getState(), SCENARIO_ID)).toBeNull()
   })
   it('a LOCAL record wins (it holds this device\'s texts and its own acknowledgement)', () => {
     S.observeDecisionRecordOwner(OWNER_ID)
     const local = { ...chosenRecord(), optionId: 'opt_local', remote: null }
     S.useDecisionRecordStore.getState().saveRecord(SCENARIO_ID, local)
-    expect(S.hydrateDecisionRecordFromServer(key(SCENARIO_ID), OWNER_ID, record())).toBe(false)
+    expect(S.hydrateDecisionRecordFromServer(key(SCENARIO_ID), OWNER_ID, record(), epochNow())).toBe(false)
     expect((S.selectDecisionRecord(S.useDecisionRecordStore.getState(), SCENARIO_ID) as { optionId: string }).optionId).toBe('opt_local')
+  })
+  it('CODEX S1 P1: a read from an EARLIER generation of the SAME user (sign-out, then the same user again) is never applied', () => {
+    S.observeDecisionRecordOwner(OWNER_ID)
+    const started = epochNow()
+    S.clearDecisionRecords()
+    S.observeDecisionRecordOwner(OWNER_ID)
+    expect(epochNow()).not.toBe(started)
+    expect(S.hydrateDecisionRecordFromServer(key(SCENARIO_ID), OWNER_ID, record(), started)).toBe(false)
+    expect(S.selectDecisionRecord(S.useDecisionRecordStore.getState(), SCENARIO_ID)).toBeNull()
+  })
+  it('CODEX S1 P2: another tab\'s write for an UNRELATED scenario keeps the read-back record; a record on disk for the SAME scenario still wins', () => {
+    S.observeDecisionRecordOwner(OWNER_ID)
+    S.hydrateDecisionRecordFromServer(key(SCENARIO_ID), OWNER_ID, record(), epochNow())
+    const diskKey = (id: string) => `decisionRecord.v2:${epochNow()}:record:${encodeURIComponent(id)}`
+    const stored = (id: string, optionId: string) => JSON.stringify({ version: 2, scenarioKey: id, clientCommitId: `tab-${optionId}`, record: { ...record(), optionId, remote: null } })
+    localStorage.setItem(diskKey(OTHER_SCENARIO), stored(OTHER_SCENARIO, 'opt_other_tab'))
+    window.dispatchEvent(new StorageEvent('storage', { key: diskKey(OTHER_SCENARIO) }))
+    expect(S.selectDecisionRecord(S.useDecisionRecordStore.getState(), SCENARIO_ID)?.remote?.recordId).toBe(CHOSEN.record_id)
+    expect((S.selectDecisionRecord(S.useDecisionRecordStore.getState(), OTHER_SCENARIO) as { optionId: string }).optionId).toBe('opt_other_tab')
+    localStorage.setItem(diskKey(SCENARIO_ID), stored(SCENARIO_ID, 'opt_local_tab'))
+    window.dispatchEvent(new StorageEvent('storage', { key: diskKey(SCENARIO_ID) }))
+    expect((S.selectDecisionRecord(S.useDecisionRecordStore.getState(), SCENARIO_ID) as { optionId: string }).optionId).toBe('opt_local_tab')
   })
   it('MEMORY ONLY: account data is never written to this device — a reload re-reads storage and finds nothing', () => {
     S.observeDecisionRecordOwner(OWNER_ID)
-    S.hydrateDecisionRecordFromServer(key(SCENARIO_ID), OWNER_ID, record())
+    S.hydrateDecisionRecordFromServer(key(SCENARIO_ID), OWNER_ID, record(), epochNow())
     expect(Object.keys(localStorage).filter((k) => k.includes(':record:'))).toEqual([])
     S.useDecisionRecordStore.getState()._rehydrateForTests()
     expect(S.selectDecisionRecord(S.useDecisionRecordStore.getState(), SCENARIO_ID)).toBeNull()
@@ -147,6 +179,22 @@ describe('the sync component (mounted beside the modal)', () => {
     render(<DecisionRecordServerSync />)
     await new Promise((r) => setTimeout(r, 0))
     expect(f).not.toHaveBeenCalled()
+  })
+  it('CODEX S1 P1: sign-out then the SAME user again while a read is in flight → the stale reply is dropped and the new generation reads again', async () => {
+    S.observeDecisionRecordOwner(OWNER_ID)
+    const lands: Array<(r: Response) => void> = []
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise<Response>((r) => { lands.push(r) }))
+    useCanvasStore.setState({ currentScenarioId: SCENARIO_ID } as never)
+    const view = render(<DecisionRecordServerSync />)
+    await waitFor(() => expect(lands).toHaveLength(1))
+    act(() => { S.clearDecisionRecords(); S.observeDecisionRecordOwner(OWNER_ID) })
+    view.rerender(<DecisionRecordServerSync />)
+    await waitFor(() => expect(lands).toHaveLength(2))
+    const STALE = { ...CHOSEN, record_id: '11111111-1111-4111-8111-111111111111' }
+    await act(async () => { lands[0]!(new Response(JSON.stringify({ records: [STALE] }), { status: 200 })); await new Promise((r) => setTimeout(r, 0)) })
+    expect(S.selectDecisionRecord(S.useDecisionRecordStore.getState(), SCENARIO_ID)).toBeNull()
+    await act(async () => { lands[1]!(new Response(JSON.stringify({ records: [CHOSEN] }), { status: 200 })); await new Promise((r) => setTimeout(r, 0)) })
+    expect(S.selectDecisionRecord(S.useDecisionRecordStore.getState(), SCENARIO_ID)?.remote?.recordId).toBe(CHOSEN.record_id)
   })
   it('a reply for a scenario the user has already LEFT is dropped', async () => {
     S.observeDecisionRecordOwner(OWNER_ID)

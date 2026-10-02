@@ -20,8 +20,10 @@ export function DecisionRecordServerSync(): null {
   // Auth adoption sets the record store's owner epoch BEFORE it exposes the user (AuthContext), so keying on the user
   // re-reads once a cold open's session resolves after the scenario, and again after an account switch.
   const userId = useAuth().user?.id ?? null
+  // The owner generation this read starts under; a reply is applied only in that same generation.
+  const ownerEpoch = useDecisionRecordStore((s) => s.ownerEpoch)
   useEffect(() => {
-    if (!userId || typeof scenarioId !== 'string' || !UUID_RE.test(scenarioId)) return
+    if (!userId || !ownerEpoch || typeof scenarioId !== 'string' || !UUID_RE.test(scenarioId)) return
     const key = resolveScenarioKey(scenarioId)
     if (useDecisionRecordStore.getState().byScenario[key]) return
     let live = true
@@ -29,9 +31,9 @@ export function DecisionRecordServerSync(): null {
       // A reply for a scenario the user has already left is dropped here; one that lands after an account switch is
       // refused by the store's owner-epoch check.
       if (!live || res.status !== 'ok' || res.records.length === 0) return
-      hydrateDecisionRecordFromServer(key, res.ownerId, res.records[0]!)
+      hydrateDecisionRecordFromServer(key, res.ownerId, res.records[0]!, ownerEpoch)
     })
     return () => { live = false }
-  }, [scenarioId, userId])
+  }, [scenarioId, userId, ownerEpoch])
   return null
 }

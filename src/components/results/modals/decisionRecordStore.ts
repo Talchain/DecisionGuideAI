@@ -242,6 +242,11 @@ export interface OptionDecisionRecord extends DecisionRecordCommon {
 export interface DecisionRecordState {
   isOpen: boolean
   byScenario: Record<string, DecisionRecord>
+  /**
+   * The owner generation records are shown for (null while auth is unresolved). A read that started under another
+   * generation is never applied, even for the same user (sign-out → same user again; Codex S1 P1).
+   */
+  ownerEpoch: string | null
   open: () => void
   close: () => void
   saveRecord: (scenarioKey: string, record: DecisionRecord, clientCommitId?: string) => DecisionRecordCapture | null
@@ -267,6 +272,8 @@ const BOUNDARY_KEY = `${PREFIX}owner`
 let boundary: Boundary | null = null // unresolved auth must not expose a previous person's record
 let captures: Record<string, string> = {}
 const volatileCaptures = new Set<string>()
+/** Scenario keys showing a record READ BACK from the account (memory only, never on disk) in this generation. */
+const readBack = new Set<string>()
 
 function id(): string { return crypto.randomUUID() }
 function readBoundary(): Boundary | null | undefined {
@@ -296,7 +303,8 @@ function invalidate(): void {
   boundary = null
   captures = {}
   volatileCaptures.clear()
-  useDecisionRecordStore.setState({ byScenario: {}, isOpen: false })
+  readBack.clear()
+  useDecisionRecordStore.setState({ byScenario: {}, isOpen: false, ownerEpoch: null })
 }
 function recordKey(epoch: string, scenarioKey: string): string {
   return `${PREFIX}${epoch}:record:${encodeURIComponent(scenarioKey)}`
@@ -373,7 +381,8 @@ export function observeDecisionRecordOwner(ownerId: string | null): void {
   boundary = next
   captures = {}
   volatileCaptures.clear()
-  useDecisionRecordStore.setState({ ...loadPersisted(), isOpen: false })
+  readBack.clear()
+  useDecisionRecordStore.setState({ ...loadPersisted(), isOpen: false, ownerEpoch: next.epoch })
 }
 
 /**
@@ -382,11 +391,16 @@ export function observeDecisionRecordOwner(ownerId: string | null): void {
  * the fetch's verified owner IS the current owner epoch (DL): a read that lands after an account switch or a sign-out
  * writes nothing. A local record always wins: it holds this device's texts and its own acknowledgement.
  */
-export function hydrateDecisionRecordFromServer(scenarioKey: string, ownerId: string, record: DecisionRecord): boolean {
+export function hydrateDecisionRecordFromServer(
+  scenarioKey: string, ownerId: string, record: DecisionRecord, ownerEpoch: string,
+): boolean {
   if (!boundary || !isActive() || boundary.ownerId === null || boundary.ownerId !== ownerId) return false
+  // The generation the read STARTED under: a sign-out and the same user again is a new generation.
+  if (boundary.epoch !== ownerEpoch) return false
   if (scenarioKey === UNSCOPED_SCENARIO_KEY) return false
   const state = useDecisionRecordStore.getState()
   if (state.byScenario[scenarioKey]) return false
+  readBack.add(scenarioKey)
   useDecisionRecordStore.setState({ byScenario: { ...state.byScenario, [scenarioKey]: record } })
   return true
 }
@@ -401,6 +415,7 @@ export function clearDecisionRecords(): void {
 
 export const useDecisionRecordStore = create<DecisionRecordState>((set, get) => ({
   isOpen: false,
+  ownerEpoch: null,
   ...loadPersisted(),
 
   open: () => set({ isOpen: true }),
@@ -454,8 +469,14 @@ export const useDecisionRecordStore = create<DecisionRecordState>((set, get) => 
 if (typeof window !== 'undefined') window.addEventListener('storage', (event) => {
   if (event.key !== null && !event.key.startsWith(PREFIX)) return
   if (!isActive()) { invalidate(); return }
-  const unscoped = useDecisionRecordStore.getState().byScenario[UNSCOPED_SCENARIO_KEY]
-  useDecisionRecordStore.setState({ byScenario: { ...loadPersisted().byScenario,
+  const current = useDecisionRecordStore.getState().byScenario
+  const unscoped = current[UNSCOPED_SCENARIO_KEY]
+  const persisted = loadPersisted().byScenario
+  // Read-back records live only in memory: another tab's write for ANY scenario must not drop them (Codex S1 P2).
+  // A record on disk for the same scenario still wins (local wins).
+  const kept: Record<string, DecisionRecord> = {}
+  for (const key of readBack) if (!persisted[key] && current[key]) kept[key] = current[key]
+  useDecisionRecordStore.setState({ byScenario: { ...kept, ...persisted,
     ...(unscoped ? { [UNSCOPED_SCENARIO_KEY]: unscoped } : {}),
   } })
 })
