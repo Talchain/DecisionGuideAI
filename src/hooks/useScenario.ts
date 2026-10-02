@@ -337,6 +337,10 @@ export function useScenario(): UseScenarioReturn {
   // ACCOUNTS viewer mode: each loadScenario call's number, so a viewer branch that
   // awaited `scenario_access` never applies after a newer load started (A→B).
   const loadSeqRef = useRef(0)
+  // …and the account it ran for: another tab can switch accounts (U1→U2) without a new
+  // load, so a U1 answer must never clear U2's canvas (Codex delta P2).
+  const userIdRef = useRef<string | null>(user?.id ?? null)
+  userIdRef.current = user?.id ?? null
   useEffect(() => {
     mountedRef.current = true
     return () => { mountedRef.current = false }
@@ -754,6 +758,7 @@ export function useScenario(): UseScenarioReturn {
     async (id: string): Promise<void> => {
       if (!isPersistenceActive) return
       const loadSeq = ++loadSeqRef.current
+      const loadUserId = userIdRef.current
 
       /**
        * ⛔ A MODEL THAT WILL NOT LOAD MUST SAY SO — ON A PRODUCTION BUILD.
@@ -811,7 +816,12 @@ export function useScenario(): UseScenarioReturn {
         const accessAnswer = await getScenarioAccess(id)
         // The answer is about THIS load only: a newer load (A→B), an unmount or a
         // sign-out since the await means it says nothing about what is on screen.
-        if (loadSeqRef.current !== loadSeq || !mountedRef.current || !isPersistenceActiveRef.current) return
+        if (
+          loadSeqRef.current !== loadSeq ||
+          !mountedRef.current ||
+          !isPersistenceActiveRef.current ||
+          userIdRef.current !== loadUserId
+        ) return
         if (accessAnswer === 'viewer') {
           // Open the viewed decision on a CLEAN SLATE under its own id, as an owner's
           // load does with its row: otherwise the previously open decision (its

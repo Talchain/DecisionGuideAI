@@ -26,7 +26,11 @@ const access = vi.hoisted(() => ({ getScenarioAccess: vi.fn() }))
 vi.mock('../../services/scenarioSharingService', () => access)
 vi.mock('../../lib/supabase', () => supabaseMockModule())
 vi.mock('react-router-dom', () => routerMockModule())
-vi.mock('../../contexts/AuthContext', () => authMockModule())
+// The signed-in account is switchable here: another tab can change it with no new load.
+const auth = vi.hoisted(() => ({ userId: null as string | null }))
+vi.mock('../../contexts/AuthContext', () => ({
+  useAuth: () => ({ user: auth.userId ? { id: auth.userId } : authMockModule().useAuth().user, authenticated: true }),
+}))
 
 import { useScenario } from '../useScenario'
 import { useCanvasStore } from '../../canvas/store'
@@ -47,6 +51,7 @@ function previousDecisionOnScreen() {
 }
 
 beforeEach(() => {
+  auth.userId = null
   resetScenarioHarness()
   access.getScenarioAccess.mockReset()
   toasts = []
@@ -109,5 +114,21 @@ describe('useScenario.loadScenario: a decision shared with this user', () => {
     await act(async () => { answerA('none'); await loadA })
     expect(toasts).toHaveLength(0)
     expect(useCanvasStore.getState().currentScenarioId).toBe(OWN)
+  })
+
+  it('ACCOUNT SWITCH (Codex delta P2): U1\'s late "viewer" answer never clears the canvas U2 now has', async () => {
+    let answer!: (v: string) => void
+    access.getScenarioAccess.mockImplementation(() => new Promise<string>((r) => { answer = r }))
+    auth.userId = 'user-one'
+    const hook = renderHook(() => useScenario())
+
+    let load!: Promise<void>
+    await act(async () => { load = hook.result.current.loadScenario(SHARED) })
+    auth.userId = 'user-two'
+    hook.rerender()
+    await act(async () => { answer('viewer'); await load })
+
+    expect(useCanvasStore.getState().currentScenarioId).toBe(OWN)
+    expect(useCanvasStore.getState().nodes).toHaveLength(HARNESS_NODES.length)
   })
 })

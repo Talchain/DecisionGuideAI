@@ -791,6 +791,10 @@ function claimCameraOnUserMoveEnd(event: MouseEvent | TouchEvent | null): void {
 }
 
 const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, showStarters = false }: ReactFlowGraphProps) {
+  // ACCOUNTS viewer mode (CANVAS 5947752314): read-only, not inert. A viewer still
+  // selects and inspects; nothing drags or connects (React Flow's delete key is off for everyone).
+  // FIRST in the component, before any conditional path (rules-of-hooks ratchet).
+  const isViewer = useIsViewer()
   // React #185 FIX: Use INDIVIDUAL selectors - NOT object + shallow
   //
   // ROOT CAUSE: In Zustand v5 with useSyncExternalStore, when a selector returns a
@@ -2038,9 +2042,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }
 
   useKeyboardShortcuts({ onModeChange: setInteractionMode, onSpaceHeld: setSpaceHeld })
-  // ACCOUNTS viewer mode (CANVAS 5947752314): read-only, not inert. A viewer still
-  // selects and inspects; nothing drags or connects (React Flow's delete key is off for everyone).
-  const isViewer = useIsViewer()
 
   // Task C: Escape key closes active right panel (Provenance, AI Clarifier)
   useEscapePanel()
