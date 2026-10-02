@@ -898,16 +898,26 @@ export default function PanelSetupPage(): JSX.Element {
                           </p>
                         )}
                         {/* The first two are the round's shape; anything beyond
-                            them the owner added and may take back. */}
-                        {i > 1 && (
+                            them the owner added and may take back. A row seeded from an
+                            invited member is removable at ANY index (D2 S2, Codex P2): the
+                            owner may not want every colleague on this panel. */}
+                        {(i > 1 || memberEmail !== null) && (
                           <Button
                             variant="secondary"
                             size="sm"
                             data-testid={`panel-name-remove-${i}`}
                             className="mt-2"
                             onClick={() => {
-                              setNames((prev) => prev.filter((_, k) => k !== i))
-                              setMemberEmails((prev) => prev.filter((_, k) => k !== i))
+                              // Both arrays drop the SAME index, and both pad back to the two-row
+                              // shape, so every remaining row stays bound to its own email.
+                              setNames((prev) => {
+                                const next = prev.filter((_, k) => k !== i)
+                                return next.length < 2 ? [...next, ...Array<string>(2 - next.length).fill('')] : next
+                              })
+                              setMemberEmails((prev) => {
+                                const next = prev.filter((_, k) => k !== i)
+                                return next.length < 2 ? [...next, ...Array<null>(2 - next.length).fill(null)] : next
+                              })
                             }}
                             disabled={busyAction !== null}
                           >

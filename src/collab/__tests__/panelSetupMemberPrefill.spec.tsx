@@ -154,6 +154,29 @@ describe('R7: Ask your team is prefilled from the invited colleagues', () => {
     expect(nameInputs().map((el) => el.value)).toEqual(['ana.lee-D2S2', 'bo_okafor-D2S2', 'dee-D2S2'])
   })
 
+  it('Codex P2: a seeded member in the FIRST two rows can be removed too; the form keeps its two-row shape', async () => {
+    sharing.listScenarioMembers.mockResolvedValue({
+      ok: true,
+      members: [
+        { email: ANA, createdAt: 'x' },
+        { email: BO, createdAt: 'y' },
+      ],
+    })
+    renderPage()
+    await waitFor(() => expect(boundEmails()).toEqual([ANA, BO]))
+    fireEvent.click(screen.getByTestId('panel-name-remove-0'))
+    expect(boundEmails()).toEqual([BO])
+    expect(nameInputs().map((el) => el.value)).toEqual(['bo_okafor-D2S2', ''])
+  })
+
+  it('a typed (unbound) row in the first two still has no Remove: the round\'s two-person shape is unchanged for typed names', async () => {
+    sharing.listScenarioMembers.mockResolvedValue({ ok: true, members: [] })
+    renderPage()
+    await waitFor(() => expect(sharing.listScenarioMembers).toHaveBeenCalled())
+    expect(screen.queryByTestId('panel-name-remove-0')).toBeNull()
+    expect(screen.queryByTestId('panel-name-remove-1')).toBeNull()
+  })
+
   it('1 member → that row plus one blank row (the two-person shape stays), and typed names still work', async () => {
     sharing.listScenarioMembers.mockResolvedValue({ ok: true, members: [{ email: ANA, createdAt: 'x' }] })
     renderPage()
