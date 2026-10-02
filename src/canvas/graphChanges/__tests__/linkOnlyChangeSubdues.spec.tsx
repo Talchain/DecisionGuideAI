@@ -42,8 +42,8 @@ async function writeHighlight(edges: Array<{ id: string; source: string; target:
   return real.useCanvasStore.getState().analysisHighlight
 }
 
-function renderCard(analysisHighlight: unknown) {
-  state = { ...base, analysisHighlight }
+function renderCard(analysisHighlight: unknown, extra: Record<string, unknown> = {}) {
+  state = { ...base, analysisHighlight, ...extra }
   render(
     <ReactFlowProvider>
       <DecisionNode {...({ id: ME, type: 'decision', position: { x: 0, y: 0 }, selected: false, isConnectable: true, positionAbsoluteX: 0, positionAbsoluteY: 0, dragging: false, zIndex: 0, data: { label: 'Should we hire?', type: 'decision' } } as unknown as React.ComponentProps<typeof DecisionNode>)} />
@@ -74,6 +74,18 @@ describe('L2 · a link-only change subdues the cards it does not touch', () => {
   it('CONTROL: a projection that marks nothing subdues nothing', async () => {
     const h = await writeHighlight([{ id: 'e1', source: 'a', target: 'b' }], [])
     expect(subdued(renderCard(h))).not.toBe('true')
+  })
+})
+
+describe('L2b · WHERE THIS CHANGE FLOWS: the subdue yields while a C1 row\'s element is selected', () => {
+  const lit = { runChangesRouteFocusId: 'e1', selection: { nodeIds: new Set(), edgeIds: new Set(['e1']) } }
+  it('route requested AND its link selected → a card off the changed link is NOT subdued (the route focus owns prominence)', async () => {
+    const h = await writeHighlight([{ id: 'e1', source: 'a', target: 'b' }], [['e1', 'changed']])
+    expect(subdued(renderCard(h, lit))).not.toBe('true')
+  })
+  it('CONTROL: requested but the selection is elsewhere → subdued as before', async () => {
+    const h = await writeHighlight([{ id: 'e1', source: 'a', target: 'b' }], [['e1', 'changed']])
+    expect(subdued(renderCard(h, { ...lit, selection: { nodeIds: new Set(), edgeIds: new Set(['e9']) } }))).toBe('true')
   })
 })
 

@@ -9,6 +9,8 @@
  *   - focus     → `focusNodeById` / `focusEdgeById` (select + no-churn camera: no move when it is already in view);
  *   - highlight → `highlightNode` / `highlightEdge` (the hover highlight the Compare tab's other rows already use);
  *   - clear     → `clearHighlight`.
+ *
+ * `{ route: true }` (a C1 pair only — `routeFocus.ts`): the click also asks for the element's route to the Goal.
  */
 import { useEffect, useMemo, useRef } from 'react'
 import type { RunDeltaInputRow } from '../../components/results/analysisNew/runDeltaView'
@@ -23,23 +25,31 @@ export interface CanvasLink {
   readonly highlight: () => void
 }
 
-export function canvasLinkOfTarget(target: GraphChangeTarget | null | undefined): CanvasLink | null {
+export function canvasLinkOfTarget(
+  target: GraphChangeTarget | null | undefined,
+  opts: { route?: boolean } = {},
+): CanvasLink | null {
   if (!target) return null
   return {
     target,
-    focus: () => (target.kind === 'node' ? focusNodeById(target.id) : focusEdgeById(target.id)),
+    focus: () => {
+      if (opts.route) useCanvasStore.getState().setRunChangesRouteFocus(target.id)
+      if (target.kind === 'node') focusNodeById(target.id)
+      else focusEdgeById(target.id)
+    },
     highlight: () => (target.kind === 'node' ? highlightNode(target.id) : highlightEdge(target.id)),
   }
 }
 
 /** The row's link on the graph as drawn NOW (ids and link ends only), or null when nothing on the canvas stands for it. */
-export function canvasLinkOfRow(row: RunDeltaInputRow): CanvasLink | null {
+export function canvasLinkOfRow(row: RunDeltaInputRow, opts: { route?: boolean } = {}): CanvasLink | null {
   const { nodes, edges } = useCanvasStore.getState()
   return canvasLinkOfTarget(
     targetOfRow(row, {
       nodes: nodes.map((n) => ({ id: n.id, kind: n.type })),
       edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
     }),
+    opts,
   )
 }
 

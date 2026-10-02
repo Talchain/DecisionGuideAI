@@ -113,6 +113,7 @@ import type { ResolvedCoaching } from './coaching/resolveNodeCoaching'
 import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 import { RunChangeBadge } from '../graphChanges/RunChangeBadge'
+import { selectRunChangesRouteLit } from '../graphChanges/routeFocus'
 
 /**
  * ⛔ GAP-36 (24 Sep 2026, DESIGN-GAP-AUDIT-20260924.md row 36) REMOVED THIS
@@ -520,7 +521,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       s.analysisHighlight?.source === 'run_changes' &&
       (s.analysisHighlight.nodeIds?.size ?? 0) + (s.analysisHighlight.edgeIds?.size ?? 0) > 0 &&
       s.analysisHighlight.nodeIds.has(id) === false &&
-      s.analysisHighlight.contextNodeIds?.has(id) !== true,
+      s.analysisHighlight.contextNodeIds?.has(id) !== true &&
+      // WHERE THIS CHANGE FLOWS: while a C1 row's element is selected, its route focus owns prominence.
+      !selectRunChangesRouteLit(s),
   )
   /**
    * D2: level-of-detail — which rung of the semantic-zoom ladder the canvas is
