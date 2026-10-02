@@ -13,7 +13,7 @@
  *   - a LINE per `add_edge` whose two ends are on the canvas or ghost cards, clipped to the card borders;
  *   - a BAND mark per `set_link_strength` / `update_edge` between two nodes on the canvas: ON the real edge, at the
  *     first point along its drawn path (the overlay samples it, middle first) where the mark covers no node, card or
- *     edge label, the edge itself highlighted; else a callout (nearest free spot + a leader to the edge's middle). In a
+ *     edge label, the edge itself highlighted; else a callout (nearest free spot + a connector to the edge's middle). In a
  *     layered layout an edge's whole run can be a 48 px column gap (served CDP template: GDPR → GDPR risk at zoom 0.5).
  *     An `add_edge` with a band marks its ghost line the same way. The centres' midpoint only when nothing is drawn;
  *   - a STATUS mark per `set_option_status` on an option on the canvas: just above its card, else just below, else a
@@ -63,16 +63,16 @@ export interface GhostBand {
   /** The real edge's drawn path, to highlight (absent when the edge is not drawn). */
   readonly edgePath?: string
   /** When the mark could not sit on the edge: a line from the edge's middle to the mark's border. */
-  readonly leader?: GhostLeader
+  readonly connector?: GhostConnector
 }
-export interface GhostLeader { readonly x1: number; readonly y1: number; readonly x2: number; readonly y2: number }
+export interface GhostConnector { readonly x1: number; readonly y1: number; readonly x2: number; readonly y2: number }
 export interface GhostStatus {
   readonly key: string
   readonly optionId: string
   readonly status: PreviewOptionStatus
   readonly x: number
   readonly y: number
-  readonly leader?: GhostLeader
+  readonly connector?: GhostConnector
 }
 export interface GhostGeometry {
   readonly cards: GhostCard[]
@@ -215,13 +215,13 @@ export function proposalGhostGeometry(
 
   /**
    * Where a mark of `key` goes: the first of `along` where it covers nothing; else a callout (the nearest free spot,
-   * with a leader to `along[0]`); `fallback` when there is nothing to sit along.
+   * with a connector to `along[0]`); `fallback` when there is nothing to sit along.
    */
   const placeMark = (key: string, along: ReadonlyArray<{ x: number; y: number }>, fallback: { x: number; y: number }) => {
     const size = markSizes?.get(key) ?? BAND_FALLBACK
     const box = (p: { x: number; y: number }): Rect => ({ x: p.x - size.w / 2, y: p.y - size.h / 2, w: size.w, h: size.h })
     let at = along.find((p) => !covered(box(p)))
-    let leader: GhostBand['leader']
+    let connector: GhostBand['connector']
     if (!at && along.length > 0) {
       // Nowhere along is clear (dense rows: an edge's whole run can be a column gap). A callout.
       const from = along[0]
@@ -229,12 +229,12 @@ export function proposalGhostGeometry(
       at = spot ? { x: spot.x + size.w / 2, y: spot.y + size.h / 2 } : from
       if (spot) {
         const q = exitPoint(box(at), from.x, from.y)
-        leader = { x1: from.x, y1: from.y, x2: q.x, y2: q.y }
+        connector = { x1: from.x, y1: from.y, x2: q.x, y2: q.y }
       }
     }
     const placed = at ?? fallback
     taken.push(box(placed))
-    return { x: placed.x, y: placed.y, ...(leader ? { leader } : {}) }
+    return { x: placed.x, y: placed.y, ...(connector ? { connector } : {}) }
   }
 
   const bands: GhostBand[] = []

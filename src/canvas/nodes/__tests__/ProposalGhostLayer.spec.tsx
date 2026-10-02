@@ -152,7 +152,7 @@ describe('proposalGhostGeometry: placed by identity, beside what it ties to', ()
     // ⛔ ...nor the edge's own label: a sign glyph drawn in the upper gap moves the mark on along the path.
     expect(at([{ x: 737, y: 650, w: 20, h: 20 }])).toEqual(LOWER_GAP)
     // ⛔ Nowhere on the edge clear (served at zoom 0.5: the whole run is the column gap) → a callout: the nearest spot
-    // covering nothing, a leader from the edge's middle to it, and the edge highlighted. Never a mark over the cards.
+    // covering nothing, a connector from the edge's middle to it, and the edge highlighted. Never a mark over the cards.
     const signs = [{ x: 737, y: 650, w: 20, h: 20 }, { x: 737, y: 931, w: 20, h: 20 }]
     const callout = proposalGhostGeometry(preview([op]), nodes, {
       markSizes: new Map([[key, { w: 180, h: 34 }]]), bandPaths: new Map([[key, [MIDDLE, UPPER_GAP, LOWER_GAP]]]),
@@ -161,10 +161,10 @@ describe('proposalGhostGeometry: placed by identity, beside what it ties to', ()
     const cbox = { x: callout.x - 90, y: callout.y - 17, w: 180, h: 34 }
     expect([...rectsOf(nodes), ...signs.map((o, i) => ({ id: `sign${i}`, ...o }))]
       .filter((r) => cbox.x < r.x + r.w && cbox.x + cbox.w > r.x && cbox.y < r.y + r.h && cbox.y + cbox.h > r.y)).toEqual([])
-    expect(callout.leader).toMatchObject({ x1: MIDDLE.x, y1: MIDDLE.y })
+    expect(callout.connector).toMatchObject({ x1: MIDDLE.x, y1: MIDDLE.y })
     expect(callout.edgePath).toBe('M747,606 L747,973')
-    // On the edge, no leader.
-    expect(proposalGhostGeometry(preview([op]), nodes, { bandPaths: new Map([[key, [UPPER_GAP]]]) }).bands[0].leader).toBeUndefined()
+    // On the edge, no connector.
+    expect(proposalGhostGeometry(preview([op]), nodes, { bandPaths: new Map([[key, [UPPER_GAP]]]) }).bands[0].connector).toBeUndefined()
   })
 
   it('places by the MEASURED card height: two 112-tall cards right of the drawing do not overlap', () => {

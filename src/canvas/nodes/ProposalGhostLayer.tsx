@@ -114,13 +114,13 @@ export const ProposalGhostLayer = memo(function ProposalGhostLayer() {
                   strokeLinecap="round"
                 />
               )}
-              {b.leader && (
+              {b.connector && (
                 <line
-                  data-testid={`proposal-ghost-leader-${b.key}`}
-                  x1={b.leader.x1}
-                  y1={b.leader.y1}
-                  x2={b.leader.x2}
-                  y2={b.leader.y2}
+                  data-testid={`proposal-ghost-connector-${b.key}`}
+                  x1={b.connector.x1}
+                  y1={b.connector.y1}
+                  x2={b.connector.x2}
+                  y2={b.connector.y2}
                   className="stroke-info"
                   strokeOpacity={0.55}
                   strokeWidth={1.5}
