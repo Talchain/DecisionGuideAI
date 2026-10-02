@@ -32,7 +32,8 @@ const WARNING_HALO = EDGE_GLOW.flipRisk
 let lensActive: 'full' | 'sensitivity' = 'full'
 let sensitivityWeights = new Map<string, number>()
 let sensitivityQuartiles: { q25: number; q75: number } | null = null
-let analysisHighlight: { source: 'flip_risks' | 'drivers' | null; edgeIds: Set<string>; nodeIds: Set<string> } = {
+let highlightedEdges = new Set<string>()
+let analysisHighlight: { source: 'flip_risks' | 'drivers' | 'run_changes' | null; edgeIds: Set<string>; nodeIds: Set<string> } = {
   source: null,
   edgeIds: new Set(),
   nodeIds: new Set(),
@@ -58,7 +59,7 @@ vi.mock('../../store', () => ({
       updateEdgeData: vi.fn(),
       runMeta: { ceeReview: null },
       results: { status: 'complete', report: { robustness: { fragile_edges: [] } } },
-      highlightedEdges: new Set<string>(),
+      highlightedEdges,
       analysisHighlight,
       viewMode: 'standard',
       lens: {
@@ -129,6 +130,30 @@ afterEach(() => {
   sensitivityWeights = new Map()
   sensitivityQuartiles = null
   analysisHighlight = { source: null, edgeIds: new Set(), nodeIds: new Set() }
+  highlightedEdges = new Set()
+})
+
+describe('the Changes view: a row pointing at its CHANGED link is visible (audit 5942900903 (a2))', () => {
+  const changed = () => ({ source: 'run_changes' as const, edgeIds: new Set(['e1']), nodeIds: new Set<string>() })
+  it('resting: a changed link wears the one "look here" glow', () => {
+    analysisHighlight = changed()
+    const { container } = render(<StyledEdge {...(edgeProps as any)} />)
+    expect(filterOf(container)).toBe(EDGE_GLOW.selected)
+  })
+  it('row hovered: the SAME link changes its computed style (lit), so the hover is never a no-op', () => {
+    analysisHighlight = changed()
+    const resting = filterOf(render(<StyledEdge {...(edgeProps as any)} />).container)
+    cleanup()
+    highlightedEdges = new Set(['e1'])
+    const lit = filterOf(render(<StyledEdge {...(edgeProps as any)} />).container)
+    expect(lit).toBe(EDGE_GLOW.lit)
+    expect(lit).not.toBe(resting)
+  })
+  it('CONTROL: a highlighted link that did NOT change keeps the ordinary highlight glow', () => {
+    highlightedEdges = new Set(['e1'])
+    const { container } = render(<StyledEdge {...(edgeProps as any)} />)
+    expect(filterOf(container)).toBe(EDGE_GLOW.selected)
+  })
 })
 
 describe('contract v3.1 (E5): the glow recipe', () => {

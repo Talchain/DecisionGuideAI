@@ -97,7 +97,10 @@ export function buildGraphChangesView(
         focusByRowKey.set(row.key, target)
         // A removed input is listed by the Compare tab, never drawn: the later Run no longer had it.
         if (row.change === 'removed' || target === null) continue
-        const mark: RunChangeMark = row.kind === 'option' && row.change === 'added' ? 'added' : 'changed'
+        // "added" only where the canvas element IS the added thing (its link, or its own card); a row drawn on another
+        // element (an option's setting, a goal's limit) says that element changed (audit 5942900903 (a)).
+        const isOwnElement = row.kind === 'link' || (target.kind === 'node' && target.id === row.entityId)
+        const mark: RunChangeMark = row.change === 'added' && isOwnElement ? 'added' : 'changed'
         put(target.kind === 'node' ? nodeMarks : edgeMarks, target.id, mark)
       }
     }

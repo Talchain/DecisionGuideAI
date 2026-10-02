@@ -215,12 +215,12 @@ export function RunChangesSummary(): JSX.Element | null {
           ) : (
             changedHead
           )}
-          {changedExtra > 0 && <span className="text-text-light"> (+{changedExtra})</span>}
+          {changedExtra > 0 && <span className="text-text-light"> · +{changedExtra} more</span>}
           {movedHead !== null && (
             <>
               <span className="text-text-light">{changedHead !== null ? ' · ' : ''}{COPY.moved} </span>
               {movedHead}
-              {movedExtra > 0 && <span className="text-text-light"> (+{movedExtra})</span>}
+              {movedExtra > 0 && <span className="text-text-light"> · +{movedExtra} more</span>}
             </>
           )}
         </span>

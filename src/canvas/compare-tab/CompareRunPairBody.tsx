@@ -23,6 +23,9 @@ import { useRunChangesProjection } from '../graphChanges/useRunChangesProjection
 import { canvasLinkOfTarget, useCanvasLight } from '../graphChanges/rowCanvasLink'
 import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
 import type { RunOnRecordWithoutResult } from '../stores/declinedSavedRunStore'
+import { useCanvasStore } from '../store'
+import { selectRunDeltaAbsenceReason } from '../state/storedRunDelta'
+import { runDeltaSentence } from '../../components/results/analysisNew/commitmentSynthesis'
 
 export const COMPARE_RUN_PAIR_TESTID = 'compare-run-pair'
 
@@ -49,6 +52,7 @@ export function CompareRunPairBody({
   // and each row focuses the element its producer ids name — or says it is not on the canvas now.
   const changes = useRunChangesProjection(view)
   const light = useCanvasLight()
+  const absenceReason = useCanvasStore(selectRunDeltaAbsenceReason)
   if (view === null && runOnRecordWithoutResult !== null) {
     const copy = COMPARE_RUN_ON_RECORD_COPY[runOnRecordWithoutResult]
     return (
@@ -64,12 +68,19 @@ export function CompareRunPairBody({
     )
   }
   if (view === null) {
+    // CEE's typed reason, worded by Reasoning's own rule, so the tab and the Reasoning bullet agree (audit 5942900903
+    // (b)). `isStale: false`: the reason is about the run PAIR, which a later edit to the model does not change.
+    const why = runDeltaSentence(null, { isStale: false, absenceReason })
     return (
-      <div className="flex flex-col items-center px-6 py-10 text-center" data-testid={`${COMPARE_RUN_PAIR_TESTID}-empty`}>
+      <div
+        className="flex flex-col items-center px-6 py-10 text-center"
+        data-testid={`${COMPARE_RUN_PAIR_TESTID}-empty`}
+        data-absence-reason={why !== null ? absenceReason ?? undefined : undefined}
+      >
         <Shuffle size={36} className="text-panel-border" aria-hidden="true" />
         <p className={`${typography.panelHeader} text-text-body mt-3 mb-1.5`}>No comparison yet</p>
         <p className={`${typography.panelBody} text-text-light max-w-[260px] m-0`}>
-          The two most recent runs of this model are compared here.
+          {why ?? 'The two most recent runs of this model are compared here.'}
         </p>
       </div>
     )

@@ -16,6 +16,7 @@
  *   S1  (DL #75 5922778531, PANEL sweep 5922761384, state b) a Run on record whose result isn't held here never reads
  *       "No comparison yet": stale → the model changed, re-run to compare; unconfirmed → the Run control's sentence.
  */
+import { COMMITMENT_COPY, runDeltaSentence } from '../../../components/results/analysisNew/commitmentSynthesis'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -52,11 +53,12 @@ const NODES = [
   { id: 'fac_price', data: { label: 'Pro price' } },
 ]
 
-function seed(over: Partial<{ runDelta: unknown; currentScenarioId: string | null }> = {}): void {
+function seed(over: Partial<{ runDelta: unknown; currentScenarioId: string | null; ceeAnalysisReady: unknown }> = {}): void {
   useCanvasStore.setState({
     runDelta: { delta: DELTA as unknown as RunDelta, analysisHash: 'hash-A', scenarioId: 'scn-1' },
     currentScenarioId: 'scn-1',
     nodes: NODES,
+    ceeAnalysisReady: null,
     ...over,
   } as never)
 }
@@ -92,6 +94,26 @@ describe('C2 · no comparison that describes the analysis on screen → the empt
       expect(screen.queryByTestId(WHATS_CHANGED_TESTID)).toBeNull()
     })
   }
+})
+
+describe('E1 · CEE\'s typed reason for no comparison is said here as Reasoning says it (audit 5942900903 (b))', () => {
+  it('unrequested_run_in_pair → Reasoning\'s own sentence, not the generic line', () => {
+    seed({ runDelta: null, ceeAnalysisReady: { run_delta_absence_reason: 'unrequested_run_in_pair' } })
+    render(<CompareRunPairBody responseHash="hash-A" />)
+    const empty = screen.getByTestId(`${COMPARE_RUN_PAIR_TESTID}-empty`)
+    const reasoning = runDeltaSentence(null, { isStale: false, absenceReason: 'unrequested_run_in_pair' })
+    expect(reasoning).toBe(COMMITMENT_COPY.sinceLastRun.notComparedWithFirstPass)
+    expect(empty).toHaveTextContent(reasoning as string)
+    expect(empty).toHaveAttribute('data-absence-reason', 'unrequested_run_in_pair')
+    expect(empty).not.toHaveTextContent('The two most recent runs of this model are compared here.')
+  })
+  it('CONTRAST: a reason Reasoning does not word keeps the generic line (nothing inferred from it)', () => {
+    seed({ runDelta: null, ceeAnalysisReady: { run_delta_absence_reason: 'insufficient_runs' } })
+    render(<CompareRunPairBody responseHash="hash-A" />)
+    const empty = screen.getByTestId(`${COMPARE_RUN_PAIR_TESTID}-empty`)
+    expect(empty).toHaveTextContent('The two most recent runs of this model are compared here.')
+    expect(empty).not.toHaveAttribute('data-absence-reason')
+  })
 })
 
 describe('C3 · one reader: the Compare body and the shared reader cannot disagree', () => {

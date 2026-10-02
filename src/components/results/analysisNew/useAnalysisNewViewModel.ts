@@ -17,6 +17,7 @@
  * close.
  */
 
+import { selectRunDeltaAbsenceReason } from '../../../canvas/state/storedRunDelta'
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
 import { deriveGuidanceDskProvenance, useGuidanceStore } from '../../../canvas/stores/guidanceStore'
@@ -184,10 +185,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
    */
   const storedRunDelta = useCanvasStore((s) => s.runDelta)
   // CEE's reason for sending no run_delta on this turn (passed through `analysis_ready`).
-  const runDeltaAbsenceReason = useCanvasStore((s) => {
-    const r = (s.ceeAnalysisReady as { run_delta_absence_reason?: unknown } | null | undefined)?.run_delta_absence_reason
-    return typeof r === 'string' ? r : null
-  })
+  const runDeltaAbsenceReason = useCanvasStore(selectRunDeltaAbsenceReason)
   const whatsChanged = useMemo(() => {
     // SC-24: the ONE reader, shared with the Compare tab (`displayedRunDeltaView.ts`). Labels come from the SAME
     // node map the rest of this surface uses, so the section cannot call an option something the tab above it does not.
