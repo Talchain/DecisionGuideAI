@@ -42,6 +42,8 @@ import { formatGoalProbability } from '../../components/results/utils/displayFlo
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
 import { goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { readGoalIdentityWithheld } from '../../components/results/utils/goalIdentityWithheld'
+import { isAnalysedOption, optionComputationFailed } from '../../components/results/utils/notAnalysedOptions'
+import type { OptionComputeStatus } from '../../adapters/plot/optionComputeStatus'
 
 // ─── Input ──────────────────────────────────────────────────────────────────
 
@@ -159,6 +161,7 @@ export const DECISION_BRIEF_COPY = {
   goalTargetNeed: (goal: string) => `I need a target for ‘${goal}’ before I can say how often each option reaches it.`,
   chanceTail: 'of model runs',
   noFigure: 'No figure for this option on this Run.',
+  fieldIncomplete: 'Held back because another option has no figure on this Run.',
 } as const
 
 // ─── Graph reading (allowlisted fields) ─────────────────────────────────────
@@ -346,9 +349,12 @@ export function buildDecisionBrief(read: SavedScenarioRead): DecisionBriefModel 
       optionParticipation: readOptionParticipation(read.optionParticipation),
     })
     const widened = report as unknown as {
-      option_probabilities?: Record<string, GoalProbabilityInput>
+      option_probabilities?: Record<string, GoalProbabilityInput & { status?: OptionComputeStatus }>
       drivers?: { label?: unknown; nodeId?: unknown }[]
     }
+    // The Reasoning tab's population for the complete-field rule (below): options the Run returned whose computation
+    // produced a result. A taken-out option is not in it, so removing one never hides the others' figures.
+    let fieldIncomplete = false
 
     // Goal figures withheld for the whole Run (PLoT #416): one reason, in the producer's words.
     const identityWithheld = readGoalIdentityWithheld(report)
@@ -372,11 +378,23 @@ export function buildDecisionBrief(read: SavedScenarioRead): DecisionBriefModel 
         })
         continue
       }
+      const entry = widened.option_probabilities?.[opt.id]
+      if (isAnalysedOption(widened.option_probabilities, opt.id) && !optionComputationFailed(entry?.status)) {
+        fieldIncomplete = true
+      }
       const unearned = selection.goalCertaintyUnearned
       // A Run-wide withholding is said ONCE (in `withheld`, above); the option row only says it has no figure.
       const why = unearned ? (unearned.say ?? GOAL_CERTAINTY_UNEARNED_FALLBACK) : DECISION_BRIEF_COPY.noFigure
       chances.push({ optionId: opt.id, optionLabel: opt.label, chanceText: null, caveat: null, withheldText: why })
       if (unearned) withheld.push({ id: `goal:certainty:${opt.id}`, text: why, nodeId: opt.id })
+    }
+    // ⭐ THE COMPLETE-FIELD RULE, as the Reasoning tab applies it (`buildAnalysisNewViewModel`, optionsComparison): a
+    // figure for SOME of the compared options is a ranking over a subset, read as one over the options. So when any
+    // option in the population has no figure, none is shown; each withheld option keeps its own reason above.
+    if (fieldIncomplete) {
+      chances.forEach((c, i) => {
+        if (c.chanceText !== null) chances[i] = { ...c, chanceText: null, caveat: null, withheldText: DECISION_BRIEF_COPY.fieldIncomplete }
+      })
     }
 
     for (const d of widened.drivers ?? []) {

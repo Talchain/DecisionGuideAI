@@ -154,10 +154,24 @@ describe('buildDecisionBrief — a withheld goal figure is a reason, not a numbe
       const why = brief.withheld.find((w) => w.id === `goal:certainty:${id}`)
       expect(why?.nodeId).toBe(id)
     }
-    // Contrast, same body: the EARNED option keeps its figure.
+    // ⛔ THE COMPLETE-FIELD RULE (the Reasoning tab's): the EARNED option's figure is held back too, never shown alone.
     const earned = brief.chances.find((c) => c.optionId === 'keep_current_price')
-    expect(earned?.chanceText).toMatch(/of model runs$/)
-    expect(earned?.withheldText).toBeNull()
+    expect(earned?.chanceText).toBeNull()
+    expect(earned?.withheldText).toBe(DECISION_BRIEF_COPY.fieldIncomplete)
+    expect(brief.chances.every((c) => c.chanceText === null)).toBe(true)
+  })
+
+  it('CONTRAST: the same Run with the two withheld options taken out (not in the Run) → the earned figure is shown', async () => {
+    const body = JSON.parse(JSON.stringify(unearnedRead))
+    const out = new Set(['raise_price_to_59', 'raise_price_to_54'])
+    const enrichment = body.analysis_result.enrichment
+    enrichment.option_comparison = enrichment.option_comparison.filter((o: { option_id: string }) => !out.has(o.option_id))
+    body.analysis_result.win_probabilities = { 'Keep current price': body.analysis_result.win_probabilities['Keep current price'] }
+    body.analysis_goal_certainty = body.analysis_goal_certainty.filter((g: { option_id: string }) => !out.has(g.option_id))
+    const brief = buildDecisionBrief(await readOf(body))
+    expect(brief.run.status).toBe('current')
+    expect(brief.chances.find((c) => c.optionId === 'keep_current_price')?.chanceText).toMatch(/of model runs$/)
+    for (const id of out) expect(brief.chances.find((c) => c.optionId === id)?.withheldText).toBe(DECISION_BRIEF_COPY.noFigure)
   })
 })
 
