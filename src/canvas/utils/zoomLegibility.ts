@@ -504,6 +504,48 @@ export const CANVAS_LABEL_SCALE_VAR = '--canvas-label-scale'
 export const CANVAS_GLYPH_SCALE_VAR = '--canvas-glyph-scale'
 
 /**
+ * ⭐⭐ TEXT DECLARED BELOW `nodeLabel` HOLDS THE SAME 9px LANDING FLOOR (2 Oct 2026, CANVAS 39e656; DL 380e54 GO (b),
+ * programme-docs#85 5944575143).
+ *
+ * `LABEL_COUNTER_SCALE_CAP` protects 11px `nodeLabel`. Seven text declarations on the canvas are smaller — the source
+ * mark `nodeMark` (`est.`, `brief`, `no source`, 10px by contract v3.1), the Goal's limit pill, the option link and
+ * baseline metas (10 / 10.5px), the tier-lane words and the turning-point track label — and at that cap they drew
+ * 10 × 1.64 × 0.5 = **8.2px** at the 1280×800 landing (served `5cc9a3db`, 10–17 per board): under the floor this module
+ * promises. They read this scale instead: the glyph scale (so 1 — the declared size, pixel for pixel — at 100% and
+ * above), capped where the SMALLEST of them, 10px, reaches `LANDING_BODY_FLOOR_PX` at `LABEL_LEGIBLE_ZOOM`:
+ *
+ *   ceil(9 / (10 × 0.5) × 100) / 100 = **1.80**  →  10px marks draw 9.0px, 10.5px metas 9.45px at the landing.
+ *
+ * Measured before landing (served build, the change's CSS injected at document start so the height pass sees it;
+ * example + 5 starters × 1280×800 / 1440×900): minimum card text 8.2 → 9.0px at 1280 (sub-9px 10–17 → 0 per board),
+ * 9.6 → 10.0px at 1440; 0 overlaps, 0 cards off-screen, 0 clipped, the same truncations, the same fit zoom.
+ *
+ * Text geometry reads it the way it reads the label cap: `measureNodeHeightsAtLabelBound` pins this var to
+ * `MAX_SMALL_LABEL_COUNTER_SCALE`, so the reserved card height includes the larger small text.
+ */
+export const SMALL_LABEL_DECLARED_PX = 10
+export const SMALL_LABEL_COUNTER_SCALE_CAP =
+  Math.ceil((LANDING_BODY_FLOOR_PX / (SMALL_LABEL_DECLARED_PX * LABEL_LEGIBLE_ZOOM)) * LABEL_SCALE_QUANTUM) /
+  LABEL_SCALE_QUANTUM
+
+export function smallLabelCounterScale(zoom: number): number {
+  return Math.min(SMALL_LABEL_COUNTER_SCALE_CAP, glyphCounterScale(zoom))
+}
+
+export const MAX_SMALL_LABEL_COUNTER_SCALE = smallLabelCounterScale(LABEL_LEGIBLE_ZOOM)
+
+/** The rendered size, in CSS px, of small canvas text declared at `declaredPx` (see `smallLabelCounterScale`). */
+export function renderedSmallLabelPx(declaredPx: number, zoom: number): number {
+  return declaredPx * smallLabelCounterScale(zoom) * zoom
+}
+
+/**
+ * The CSS custom property that carries `smallLabelCounterScale`. Written beside `CANVAS_LABEL_SCALE_VAR` by
+ * `CanvasLabelScaleSync`; declared `1` in `brand.css`, so off the canvas the declared size holds.
+ */
+export const CANVAS_SMALL_LABEL_SCALE_VAR = '--canvas-small-label-scale'
+
+/**
  * ⭐⭐ WHICH React Flow INSTANCE THE LABEL SCALE BELONGS TO — the ONE answer, so
  * the writer and the reader cannot drift on it (CLAUDE.md trap 12).
  *

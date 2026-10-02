@@ -74,9 +74,9 @@ const FAR_PCT = 80
  * 10px-wide diamond — a 7px square turned 45° — and a 7px dot; labels at 10px).
  */
 const TRACK_LINE_CLASS = 'h-[calc(2px*var(--canvas-label-scale,1))]'
-const TRACK_ROW_CLASS = 'h-[calc(10px*var(--canvas-label-scale,1))] px-[calc(5px*var(--canvas-label-scale,1))]'
+const TRACK_ROW_CLASS = 'h-[calc(10px*var(--canvas-small-label-scale,1))] px-[calc(5px*var(--canvas-label-scale,1))]'
 const TRACK_MARK_CLASS = 'w-[calc(7px*var(--canvas-label-scale,1))] h-[calc(7px*var(--canvas-label-scale,1))]'
-const TRACK_LABEL_CLASS = 'text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans leading-snug text-text-light tabular-nums'
+const TRACK_LABEL_CLASS = 'text-[length:calc(10px*var(--canvas-small-label-scale,1))] font-sans leading-snug text-text-light tabular-nums'
 
 /** Where a value sits along a stated domain, 0–100. */
 const pctIn = (v: number, min: number, max: number): number => ((v - min) / (max - min)) * 100

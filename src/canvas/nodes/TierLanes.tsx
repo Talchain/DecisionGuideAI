@@ -109,7 +109,7 @@ export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly No
                  LOCAL arbitrary-value class, not an edit to the shared token, since
                  no other canvas surface uses 10px. Sentence case and the shared
                  muted token stay (DS v5 §2; see the header). */
-              className={`absolute text-text-light text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans`}
+              className={`absolute text-text-light text-[length:calc(10px*var(--canvas-small-label-scale,1))] font-sans`}
               style={{
                 left: anchor.x,
                 top: anchor.bottomY,

@@ -53,7 +53,7 @@ describe('contract v3.1 .layer-label style — product words, contract chrome', 
     render(<TierLanes nodes={BOARD} />)
     for (const lane of deriveTierLanes(BOARD)) {
       const t = tokens(screen.getByTestId(`tier-lane-${lane.tier}-title`))
-      expect(t).toContain('text-[length:calc(10px*var(--canvas-label-scale,1))]')
+      expect(t).toContain('text-[length:calc(10px*var(--canvas-small-label-scale,1))]')
       // CONTRAST: the OLD size this replaces, so a no-op edit cannot pass.
       expect(t).not.toContain('text-[length:calc(11px*var(--canvas-label-scale,1))]')
       expect(t).not.toContain(typography.edgeLabel.split(/\s+/)[0])

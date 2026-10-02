@@ -155,7 +155,7 @@ describe('a canvas-only link says so, on the link', () => {
     const { getByTestId } = renderEdge(DRAWN)
     // `getAttribute('class')`: inside the test's <svg> the element is created in
     // the SVG namespace, where `className` is not a string.
-    expect(getByTestId('edge-canvas-only-e_drawn').getAttribute('class')).toContain('calc(10px*var(--canvas-label-scale,1))')
+    expect(getByTestId('edge-canvas-only-e_drawn').getAttribute('class')).toContain('calc(10px*var(--canvas-small-label-scale,1))')
   })
 
   it('dims with its connection when the selection dims the edge (contract v3.1 E6, review r06 note 1)', () => {

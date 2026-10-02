@@ -146,11 +146,13 @@ import {
   CANVAS_GLYPH_SCALE_VAR,
   CANVAS_LABEL_SCALE_VAR,
   CANVAS_LABEL_SCALE_MARKER_SELECTOR,
+  CANVAS_SMALL_LABEL_SCALE_VAR,
   LOD_BLANKED_BODY_SELECTOR,
   LOD_FAR_TITLE_SELECTOR,
   MAX_GLYPH_COUNTER_SCALE,
   MAX_LABEL_COUNTER_SCALE,
   MAX_NORMAL_RUNG_LABEL_SCALE,
+  MAX_SMALL_LABEL_COUNTER_SCALE,
   NODE_BODY_BOUND_STYLE_ATTR,
   NODE_BODY_BOUND_STYLE_SELECTOR,
   NODE_RUNG_PADDING_ATTR,
@@ -235,6 +237,7 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
   // a value behind would silently mis-size every later render.
   const previous = root.style.getPropertyValue(CANVAS_LABEL_SCALE_VAR)
   const previousGlyph = root.style.getPropertyValue(CANVAS_GLYPH_SCALE_VAR)
+  const previousSmall = root.style.getPropertyValue(CANVAS_SMALL_LABEL_SCALE_VAR)
 
   /**
    * ⭐ THE SECOND THING PINNED TO THE BOUND: the LOD body collapse, RELEASED.
@@ -287,6 +290,8 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
     // Glyphs and targets at THEIR bound (2 at the landing floor, and at the Normal
     // rung's floor too), in both passes below — the text ceiling does not cap them.
     root.style.setProperty(CANVAS_GLYPH_SCALE_VAR, String(MAX_GLYPH_COUNTER_SCALE))
+    // Small text (below `nodeLabel`) at ITS bound, in both passes: the reservation includes it (2 Oct, #85 5944575143).
+    root.style.setProperty(CANVAS_SMALL_LABEL_SCALE_VAR, String(MAX_SMALL_LABEL_COUNTER_SCALE))
     // The LITERAL name, not `CANVAS_FAR_TITLE_SCALE_VAR`: this call is the only
     // place the property is ever DEFINED (outside it the title falls back to
     // `--canvas-label-scale` by design), and `scripts/css-var-census.mjs` reads
@@ -380,6 +385,8 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
     else root.style.setProperty(CANVAS_LABEL_SCALE_VAR, previous)
     if (previousGlyph === '') root.style.removeProperty(CANVAS_GLYPH_SCALE_VAR)
     else root.style.setProperty(CANVAS_GLYPH_SCALE_VAR, previousGlyph)
+    if (previousSmall === '') root.style.removeProperty(CANVAS_SMALL_LABEL_SCALE_VAR)
+    else root.style.setProperty(CANVAS_SMALL_LABEL_SCALE_VAR, previousSmall)
     if (previousFarScale === '') root.style.removeProperty(CANVAS_FAR_TITLE_SCALE_VAR)
     else root.style.setProperty(CANVAS_FAR_TITLE_SCALE_VAR, previousFarScale)
     for (let i = 0; i < previousFarTitleStyles.length; i++) {

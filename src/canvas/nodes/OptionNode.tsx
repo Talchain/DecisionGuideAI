@@ -2374,7 +2374,7 @@ export const OptionNode = memo((props: NodeProps) => {
              one rhythm. */
           /* Contract `.node .inline-more{font-size:10px;color:var(--info)}`
              (29 Sep pixel-match; it was the 11px label size). */
-          className={`nodrag nopan text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans leading-[1.45] mt-1 block text-left text-info no-underline underline-offset-2 hover:underline focus-visible:underline`}
+          className={`nodrag nopan text-[length:calc(10px*var(--canvas-small-label-scale,1))] font-sans leading-[1.45] mt-1 block text-left text-info no-underline underline-offset-2 hover:underline focus-visible:underline`}
           data-testid={`option-change-more-${props.id}`}
           aria-label={`${optionTargetsChannels({ count: totalInterventionCount }).full} ${changeRowsMore} more not shown on the card.`}
           onPointerDown={(e) => e.stopPropagation()}
@@ -2411,7 +2411,7 @@ export const OptionNode = memo((props: NodeProps) => {
     <p
       // Contract v3.1 `.node .differentiator{font-size:10.5px;line-height:1.3;
       // color:var(--muted)}` — counter-scaled like every canvas token.
-      className={`text-[length:calc(10.5px*var(--canvas-label-scale,1))] font-sans leading-[1.3] mt-1 m-0 line-clamp-2 text-text-light`}
+      className={`text-[length:calc(10.5px*var(--canvas-small-label-scale,1))] font-sans leading-[1.3] mt-1 m-0 line-clamp-2 text-text-light`}
       data-testid={`option-card-differentiator-${props.id}`}
       title={ownDifferentiator}
     >
@@ -2440,7 +2440,7 @@ export const OptionNode = memo((props: NodeProps) => {
     <p
       // The prototype sets this line as `.differentiator` (10.5px / 1.3), the
       // same as the option's own sentence (29 Sep pixel-match; it was 11px).
-      className={`text-[length:calc(10.5px*var(--canvas-label-scale,1))] font-sans leading-[1.3] mt-1 m-0 text-text-light`}
+      className={`text-[length:calc(10.5px*var(--canvas-small-label-scale,1))] font-sans leading-[1.3] mt-1 m-0 text-text-light`}
       data-testid={`option-baseline-reference-${props.id}`}
     >
       {OPTION_BASELINE_REFERENCE}

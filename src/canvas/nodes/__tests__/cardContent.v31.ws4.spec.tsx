@@ -283,7 +283,7 @@ describe('#21 — a source mark is focusable, named, 10px/400, and opens the sou
     renderFactor(QUALITATIVE)
     const mark = within(card()).getByTestId('estimate-marker')
     expect(mark.tagName).toBe('BUTTON')
-    expect(tokens(mark).has('text-[length:calc(10px*var(--canvas-label-scale,1))]')).toBe(true)
+    expect(tokens(mark).has('text-[length:calc(10px*var(--canvas-small-label-scale,1))]')).toBe(true)
     expect(tokens(mark).has('font-normal')).toBe(true)
     expect(mark.textContent).toContain('est.')
     const opened = vi.fn()
