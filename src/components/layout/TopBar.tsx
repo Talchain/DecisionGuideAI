@@ -11,7 +11,7 @@ import { DecisionBriefTrigger } from '../../canvas/decisionBrief/DecisionBriefTr
 import { ownerPanelHash } from '../../collab/panelRoute'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import { useUIStore } from '../../stores/uiStore'
-import { useIsViewer } from '../../lib/viewerMode'
+import { useIsConfirmedOwner, useIsViewer } from '../../lib/viewerMode'
 import { ShareDecisionDialog } from '../sharing/ShareDecisionDialog'
 
 // Custom events for help actions (communicated to ReactFlowGraph)
@@ -85,6 +85,7 @@ export const TopBar = ({
 }: TopBarProps) => {
   const [showSavedPill, setShowSavedPill] = useState(false)
   const isViewer = useIsViewer()
+  const isConfirmedOwner = useIsConfirmedOwner()
   const [inviteOpen, setInviteOpen] = useState(false)
 
   // The kebab menu's open-state lives in uiStore, NOT in component-local
@@ -411,9 +412,10 @@ export const TopBar = ({
         )}
 
         {/* ACCOUNTS "Invite a colleague" (view only): the owner's in-decision entry, beside
-            the brief link. Same condition as Share (a persisted scenario the user owns;
-            CanvasMVP passes null for guests and viewers). The server enforces ownership. */}
-        {shareScenarioId != null && shareScenarioId !== '' && (
+            the brief link. Shown only on a CONFIRMED 'owner' answer from scenario_access,
+            never while that answer is pending (Codex R4): a viewer's canvas can hold the
+            scenario id before its access lands. The server enforces ownership too. */}
+        {isConfirmedOwner && shareScenarioId != null && shareScenarioId !== '' && (
           <Tooltip content="Invite a colleague to view this decision">
             <button
               type="button"
@@ -426,7 +428,7 @@ export const TopBar = ({
             </button>
           </Tooltip>
         )}
-        {inviteOpen && shareScenarioId != null && shareScenarioId !== '' && (
+        {inviteOpen && isConfirmedOwner && shareScenarioId != null && shareScenarioId !== '' && (
           <ShareDecisionDialog
             scenarioId={shareScenarioId}
             scenarioTitle={scenarioTitle}

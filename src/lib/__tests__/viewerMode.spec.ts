@@ -19,6 +19,7 @@ import {
   __resetViewerModeForTests,
   isStateChangingCeeRequest,
   isViewerSession,
+  useIsConfirmedOwner,
   useIsViewer,
   viewerScenario,
 } from '../viewerMode'
@@ -60,6 +61,21 @@ describe('the flag', () => {
     const seen = renderHook(() => useIsViewer())
     await waitFor(() => expect(seen.result.current).toBe(true))
     expect(viewerScenario()).toBe(A)
+  })
+
+  it('CONFIRMED OWNER: only an exact owner answer for this route sets it; viewer / none / pending do not', async () => {
+    const owner = renderHook(() => useIsConfirmedOwner())
+    const pending = deferred<string>()
+    access.getScenarioAccess.mockImplementationOnce(() => pending.promise)
+    const hook = renderHook(({ id }) => useScenarioViewerAccess(id, true, 'u1'), { initialProps: { id: A } })
+    expect(owner.result.current).toBe(false)
+    await act(async () => { pending.resolve('owner') })
+    expect(owner.result.current).toBe(true)
+    access.getScenarioAccess.mockResolvedValueOnce('viewer')
+    hook.rerender({ id: B })
+    await act(async () => {})
+    expect(owner.result.current).toBe(false)
+    expect(isViewerSession()).toBe(true)
   })
 
   it('a guest (no persistence session) never asks and is never a viewer', async () => {

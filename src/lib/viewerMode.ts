@@ -126,9 +126,34 @@ function installWriteBelt(): void {
   }
 }
 
+// ── Confirmed ownership ──────────────────────────────────────────────────────
+
+/**
+ * The scenario this user is CONFIRMED to own (an exact 'owner' answer), or null.
+ * The viewer flag fails toward the owner's UI; an owner-only control that
+ * SHARES (Invite) must not, so it waits for this positive answer (Codex R4).
+ */
+let ownerScenarioId: string | null = null
+
+export function setOwnerScenario(next: string | null): void {
+  if (next === ownerScenarioId) return
+  ownerScenarioId = next
+  for (const listener of listeners) listener()
+}
+
+function isConfirmedOwnerSession(): boolean {
+  return ownerScenarioId !== null
+}
+
+/** True only once the server has said this user OWNS the decision on screen. */
+export function useIsConfirmedOwner(): boolean {
+  return useSyncExternalStore(subscribe, isConfirmedOwnerSession, isConfirmedOwnerSession)
+}
+
 /** Test seam: forget the flag and the belt (each spec file gets a fresh module anyway). */
 export function __resetViewerModeForTests(): void {
   viewerScenarioId = null
+  ownerScenarioId = null
   beltInstalled = false
   listeners.clear()
 }

@@ -5,7 +5,7 @@
  */
 import { useEffect } from 'react'
 import { getScenarioAccess } from '../services/scenarioSharingService'
-import { setViewerScenario } from './viewerMode'
+import { setOwnerScenario, setViewerScenario } from './viewerMode'
 
 /**
  * The ONE writer of the flag, called by the canvas route. Asks the server once per
@@ -18,18 +18,24 @@ export function useScenarioViewerAccess(
   userId: string | null,
 ): void {
   useEffect(() => {
-    if (!routeId || !isPersistenceActive || !userId) {
+    const clear = () => {
       setViewerScenario(null)
+      setOwnerScenario(null)
+    }
+    if (!routeId || !isPersistenceActive || !userId) {
+      clear()
       return
     }
     let live = true
-    setViewerScenario(null)
+    clear()
     void getScenarioAccess(routeId).then((access) => {
-      if (live) setViewerScenario(access === 'viewer' ? routeId : null)
+      if (!live) return
+      setViewerScenario(access === 'viewer' ? routeId : null)
+      setOwnerScenario(access === 'owner' ? routeId : null)
     })
     return () => {
       live = false
-      setViewerScenario(null)
+      clear()
     }
   }, [routeId, isPersistenceActive, userId])
 }
