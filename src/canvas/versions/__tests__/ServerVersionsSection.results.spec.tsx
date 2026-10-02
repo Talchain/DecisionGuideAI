@@ -41,7 +41,15 @@ import { ServerVersionsSection, SERVER_VERSION_COMPARE_TESTID, COMPARE_UNAVAILAB
 import { SERVER_VERSION_DIFF_TESTID, formatTimestamp } from '../ServerVersionDiff'
 import { VERSION_RESULT_DIFF_TESTID, VERSION_RESULTS_UNAVAILABLE_COPY } from '../VersionResultDiff'
 import { buildRunDeltaView } from '../../../components/results/analysisNew/runDeltaView'
-import { movementText } from '../../../components/results/analysisNew/sections/WhatsChanged'
+import {
+  movementText,
+  emptyInputsText,
+  noPairsText,
+  INPUTS_NOT_RECORDED_TEXT,
+  INPUTS_NOT_RECORDED_TEXT_VERSIONS,
+  WHATS_CHANGED_FIRST_COMPARISON,
+  WHATS_CHANGED_FROM_VERSION_WITHHELD,
+} from '../../../components/results/analysisNew/sections/WhatsChanged'
 import { useCanvasStore } from '../../store'
 
 const SCENARIO = V1.scenario_id
@@ -193,5 +201,14 @@ describe('VR7 · the reader\'s versions frame', () => {
     const m = { optionId: 'o', label: 'Option A', prior: 0.4, current: 0.5, direction: 'up' as const, noiseVerdict: 'not_noise_qualified' as const, mayShowMagnitude: false }
     expect(movementText(m, 'versions')).toBe('Option A: scored higher than in the version compared from')
     expect(movementText(m)).toBe('Option A: scored higher than last time')
+  })
+  it('not_recorded inputs and a withheld FROM result: versions words, never "earlier" / "for the first time"', () => {
+    const notRecorded = { coverage: 'not_recorded' as const, rows: [] }
+    expect(emptyInputsText(notRecorded, 'versions')).toBe(INPUTS_NOT_RECORDED_TEXT_VERSIONS)
+    expect(emptyInputsText(notRecorded)).toBe(INPUTS_NOT_RECORDED_TEXT)
+    expect(INPUTS_NOT_RECORDED_TEXT_VERSIONS).not.toMatch(RERUN_SHAPED)
+    expect(noPairsText({ winProbabilitiesUnavailable: 'prior_withheld', frame: 'versions' })).toBe(WHATS_CHANGED_FROM_VERSION_WITHHELD)
+    expect(noPairsText({ winProbabilitiesUnavailable: 'prior_withheld' })).toBe(WHATS_CHANGED_FIRST_COMPARISON)
+    expect(WHATS_CHANGED_FROM_VERSION_WITHHELD).not.toMatch(RERUN_SHAPED)
   })
 })
