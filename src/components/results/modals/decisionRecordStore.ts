@@ -102,6 +102,7 @@ import { create } from 'zustand'
 import { v5 as uuidv5 } from 'uuid'
 
 import { resolveScenarioKey, UNSCOPED_SCENARIO_KEY } from './scenarioKey'
+import { peekPendingGuestCopy } from '../../../lib/pendingGuestCopy'
 
 /**
  * The four reasoning texts CEE can hold on the account, by their WIRE names
@@ -188,6 +189,12 @@ interface DecisionRecordCommon {
   savedAt: number
   /** Set once the record is durable in CEE; null while local-only. */
   remote?: DecisionRecordRemote | null
+  /**
+   * ⭐ DECIDE & REVIEW S2: recorded as a GUEST and carried into this account with the B3 copy of the same scenario
+   * (`adoptGuestCarry`). A positive fact, not an inference from `remote === null`: guests are refused server records
+   * (CEE DR001), so this record is on this device only until it is recorded again on the copy.
+   */
+  carriedFromGuest?: true
 }
 
 /**
@@ -365,15 +372,62 @@ export function observeDecisionRecordOwner(ownerId: string | null): void {
     ownerId, epoch: uuidv5(JSON.stringify([current?.epoch ?? null, ownerId]), uuidv5.URL),
   }
   if (!current || current.ownerId !== ownerId) {
+    // S2: read the guest's record for the scenario B3 will copy BEFORE the erase below removes it.
+    const carry = current?.ownerId === null && ownerId !== null ? readGuestCarry(current.epoch) : null
     // Publish revocation first, so a stale tab cannot refill the cleared generation.
     try { localStorage.setItem(BOUNDARY_KEY, JSON.stringify(next)) } catch { /* memory only */ }
     eraseRecords(next.epoch, !!current && current.ownerId !== ownerId)
+    // Stored under the NEW owner's epoch, so the next sign-out or account switch erases it with everything else.
+    if (carry) try { localStorage.setItem(carryKey(next.epoch), JSON.stringify(carry)) } catch { /* not carried */ }
   }
   if (boundary?.epoch === next.epoch) return
   boundary = next
   captures = {}
   volatileCaptures.clear()
   useDecisionRecordStore.setState({ ...loadPersisted(), isOpen: false })
+}
+
+/**
+ * ⭐ DECIDE & REVIEW S2 (DL 380e54 ruling (B), 2 Oct): a decision a GUEST recorded travels with the B3 copy of that
+ * same scenario into the account that signs in, as a record on this device. Nothing else crosses the owner boundary:
+ * - stashed only on a guest → user transition, only for the scenario B3 will copy (`peekPendingGuestCopy`);
+ * - kept under the new owner's epoch, so a sign-out or account switch before the copy erases it;
+ * - re-keyed only for that exact source → copy (`adoptGuestCarry`), dropped when the copy can never happen.
+ */
+interface GuestCarry { version: 1; sourceScenarioKey: string; record: DecisionRecord }
+function carryKey(epoch: string): string { return `${PREFIX}${epoch}:guestCarry` }
+function readGuestCarry(guestEpoch: string): GuestCarry | null {
+  const source = peekPendingGuestCopy()
+  if (source === null) return null
+  const sourceScenarioKey = resolveScenarioKey(source)
+  try {
+    const stored = JSON.parse(localStorage.getItem(recordKey(guestEpoch, sourceScenarioKey)) ?? 'null')
+    if (stored?.version !== 2 || stored.scenarioKey !== sourceScenarioKey || !stored.record || typeof stored.record !== 'object') return null
+    return { version: 1, sourceScenarioKey, record: { ...stored.record, remote: null, carriedFromGuest: true } }
+  } catch { return null }
+}
+function takeGuestCarry(sourceScenarioId: string): GuestCarry | null {
+  if (!boundary || !isActive() || boundary.ownerId === null) return null
+  const key = carryKey(boundary.epoch)
+  let carry: GuestCarry | null
+  try { carry = JSON.parse(localStorage.getItem(key) ?? 'null') } catch { carry = null }
+  // A copy of ANOTHER scenario leaves this carry where it is.
+  if (carry?.version !== 1 || carry.sourceScenarioKey !== resolveScenarioKey(sourceScenarioId)) return null
+  try { localStorage.removeItem(key) } catch { /* the epoch erase still removes it */ }
+  return carry
+}
+/** B3 copied `sourceScenarioId` → `scenarioId`: the guest's record for that source now shows on the copy. */
+export function adoptGuestCarry(sourceScenarioId: string, scenarioId: string): boolean {
+  const carry = takeGuestCarry(sourceScenarioId)
+  if (!carry) return false
+  const target = resolveScenarioKey(scenarioId)
+  // Never over a record the copy already shows.
+  if (target === UNSCOPED_SCENARIO_KEY || useDecisionRecordStore.getState().byScenario[target]) return false
+  return useDecisionRecordStore.getState().saveRecord(target, carry.record) !== null
+}
+/** B3 answered that `sourceScenarioId` can never be copied: its guest record is not carried anywhere. */
+export function dropGuestCarry(sourceScenarioId: string): void {
+  takeGuestCarry(sourceScenarioId)
 }
 
 /**

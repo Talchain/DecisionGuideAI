@@ -16,8 +16,9 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 import { supabase } from '../../lib/supabase'
 import { hasStoredSupabaseSession } from '../../lib/storedSupabaseSession'
-import { createSignInTransitionTracker, handleAuthObservation } from '../../lib/guestCopyOnSignIn'
+import { createSignInTransitionTracker, GUEST_COPIED_EVENT, handleAuthObservation, type GuestCopiedDetail } from '../../lib/guestCopyOnSignIn'
 import { forgetPendingGuestCopyOnSignOut } from '../../lib/pendingGuestCopy'
+import { adoptGuestCarry, dropGuestCarry } from '../results/modals/decisionRecordStore'
 
 export default function GuestCopyOnSignIn(): null {
   const navigate = useNavigate()
@@ -63,6 +64,8 @@ export default function GuestCopyOnSignIn(): null {
           },
         })
         void run?.then((result) => {
+          // DECIDE & REVIEW S2: a copy that can never happen carries the guest's decision record nowhere.
+          if (result.kind === 'not_copyable') dropGuestCarry(result.sourceScenarioId)
           // Only a copy this tab actually ADOPTED may move the view: if the user
           // opened something else meanwhile, adoption declined and so does this.
           if (result.kind !== 'copied' || !result.adopted || generation !== started) return
@@ -77,7 +80,17 @@ export default function GuestCopyOnSignIn(): null {
       // Auth unavailable (a stubbed or failing client): there is no sign-in to
       // follow, and the shell must still boot — `OptionalAuthProvider`'s rule.
     }
-    return () => unsubscribe?.()
+    // DECIDE & REVIEW S2 (DL ruling (B)): the guest's decision record moves ONLY with the copy of its own scenario,
+    // by identity (source → copy ids), never by title.
+    const onCopied = (event: Event) => {
+      const detail = (event as CustomEvent<GuestCopiedDetail>).detail
+      if (detail) adoptGuestCarry(detail.sourceScenarioId, detail.scenarioId)
+    }
+    window.addEventListener(GUEST_COPIED_EVENT, onCopied)
+    return () => {
+      window.removeEventListener(GUEST_COPIED_EVENT, onCopied)
+      unsubscribe?.()
+    }
   }, [startedWithStoredSession])
 
   return null

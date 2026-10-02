@@ -1374,6 +1374,13 @@ export const ANALYSIS_NEW_COPY = {
     storedLocal:
       'On this device, for this scenario. We have no confirmation it reached your account.',
     /**
+     * ⭐ DECIDE & REVIEW S2 (DL ruling (B) condition 3): a record made as a GUEST and carried into the account with
+     * the copy of its scenario. Unlike `storedLocal`, "not on your account" IS licensed here: CEE refuses every guest
+     * record (DR001), so no account row can exist. It says how to get it there, and nothing about a Run on screen.
+     */
+    storedGuestCarried:
+      'Recorded before you signed in. It is on this device, not on your account. Run the analysis and record it again to save it to your account.',
+    /**
      * The split named exactly, in the same words the capture modal uses — one
      * thing learned once. Licensed by `remote.recordId`, which is CEE's own
      * proof the durable half landed.

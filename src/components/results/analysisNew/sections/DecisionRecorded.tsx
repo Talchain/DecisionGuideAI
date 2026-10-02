@@ -254,7 +254,7 @@ export function recordedOptionText(record: DecisionRecord): string {
  * describes the rows.
  */
 export function storageSentenceFor(record: DecisionRecord): string {
-  if (!record.remote?.recordId) return COPY.decisionRecord.storedLocal
+  if (!record.remote?.recordId) return record.carriedFromGuest === true ? COPY.decisionRecord.storedGuestCarried : COPY.decisionRecord.storedLocal
   const confirmed = record.remote.storedTextFields ?? []
   if (confirmed.length > 0) return confirmedStorageSentence(record, confirmed)
   const hasNextAction = Boolean(record.nextAction?.trim())

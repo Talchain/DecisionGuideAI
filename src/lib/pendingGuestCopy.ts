@@ -94,6 +94,20 @@ export function capturePendingGuestCopy(): string | null {
 }
 
 /**
+ * The scenario B3 copies on this sign-in (what `capturePendingGuestCopy` would return) WITHOUT recording anything.
+ * Read by the decision-record store on the guest → user boundary (DECIDE & REVIEW S2), which may run before or after
+ * the capture: both name the same id (a spec pins the two together).
+ */
+export function peekPendingGuestCopy(): string | null {
+  const pending = readPendingGuestCopy()
+  if (pending !== null) return pending
+  const current = readCurrentScenarioPointer()
+  if (!isScenarioUuid(current)) return null
+  if (current === readKey(SPENT_GUEST_POINTER_KEY)) return null
+  return current
+}
+
+/**
  * Release the slot. Call ONLY after a successful copy, or a refusal that proves
  * the id can never be copied. Clearing on a transient failure would discard the
  * only route back to the guest's work.
