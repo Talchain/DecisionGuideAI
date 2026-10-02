@@ -12,6 +12,7 @@
  * - Merged improvements with deduplication
  */
 
+import { isUnnamedCurrencyUnit } from '../../utils/unnamedCurrencyUnit'
 import { useEffect, useMemo } from 'react'
 import { outcomeValuesAreModelScale } from './outcomeValuesAreModelScale'
 import { safeArray } from '../../lib/array-utils'
@@ -1520,45 +1521,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       ?? (goalNode?.data as ResultsCanvasNodeData | undefined)?.goal_threshold_unit
       ?? ceeAnalysisReady?.goal_threshold_unit
 
-    if (!rawUnit) return { outcomeUnit: undefined, outcomeUnitSymbol: undefined }
-
-    const unitLower = String(rawUnit).toLowerCase()
-
-    // Percentage variants — U2: routed through classifyUnit, the single source
-    // of truth, instead of a local `'%' | 'percent' | 'percentage'` copy.
-    // Identical for those three literals, and additionally correct for the
-    // whitespace forms this site missed (it lowercased but never trimmed).
-    //
-    // NOTE this is the read of `observedState.unit` that C2 named as the "third
-    // divergence" and deferred: the goal node's OBSERVED unit and its
-    // `goal_threshold_unit` are two different fields, and this hook prefers the
-    // former while computeSuccessState reads only the latter. Which field wins is
-    // a doctrine question about what the outcome axis measures, NOT a formatting
-    // one, so it is deliberately still open — U2 makes the two agree on how to
-    // RECOGNISE a percent unit, which is all a single-source-of-truth change can
-    // honestly claim. Flagged, not silently folded.
-    if (classifyUnit(String(rawUnit)).kind === 'percent') {
-      return { outcomeUnit: 'percent' as const, outcomeUnitSymbol: undefined }
-    }
-
-    // Currency variants - detect symbol and normalize
-    if (['$', '£', '€', 'usd', 'gbp', 'eur', 'dollar', 'pound', 'euro'].some(c => unitLower.includes(c))) {
-      // ⛔ NO `$` DEFAULT. "GBP MRR" matched `gbp` above and then printed `$`
-      // (Paul's manual test `1a298d6d`, a £ decision). The code names the
-      // currency, so the code decides the symbol.
-      const symbol =
-        String(rawUnit).match(/[$£€]/)?.[0] ??
-        (unitLower.includes('gbp') || unitLower.includes('pound')
-          ? '£'
-          : unitLower.includes('eur')
-            ? '€'
-            : '$')
-      return { outcomeUnit: 'currency' as const, outcomeUnitSymbol: symbol }
-    }
-
-    // Default to count for numeric units (users, items, etc.)
-    // V11.2 Fix 3: Pass raw unit string as symbol for unit-aware tornado axis labels
-    return { outcomeUnit: 'count' as const, outcomeUnitSymbol: String(rawUnit) }
+    return deriveOutcomeUnit(rawUnit)
   }, [goalNode, ceeAnalysisReady?.goal_threshold_unit])
 
   // P0-1: Extract denormalisation scale from goal node OR ceeAnalysisReady
@@ -4882,4 +4845,55 @@ export {
   deriveConfidenceTierLegacy,
   detectDominantFactorLegacy,
   normaliseImprovements,
+}
+
+/**
+ * The outcome axis's unit, from the goal's raw unit string (observed level unit, else the target unit). Pure, so the
+ * Analysis tab's tornado reading is testable. ⛔ An unnamed currency (the drafter's "currency/<period>" placeholder) is
+ * NOT a count unit: it carries no symbol, so the axis says "Stronger →" instead of "More currency/quarter →" (served D1,
+ * R3 dock-scan #85 5943368038; MG ruling 5943427770).
+ */
+export function deriveOutcomeUnit(
+  rawUnit: unknown,
+): { outcomeUnit: 'currency' | 'percent' | 'count' | undefined; outcomeUnitSymbol: string | undefined } {
+  if (isUnnamedCurrencyUnit(rawUnit)) return { outcomeUnit: undefined, outcomeUnitSymbol: undefined }
+  if (!rawUnit) return { outcomeUnit: undefined, outcomeUnitSymbol: undefined }
+
+  const unitLower = String(rawUnit).toLowerCase()
+
+  // Percentage variants — U2: routed through classifyUnit, the single source
+  // of truth, instead of a local `'%' | 'percent' | 'percentage'` copy.
+  // Identical for those three literals, and additionally correct for the
+  // whitespace forms this site missed (it lowercased but never trimmed).
+  //
+  // NOTE this is the read of `observedState.unit` that C2 named as the "third
+  // divergence" and deferred: the goal node's OBSERVED unit and its
+  // `goal_threshold_unit` are two different fields, and this hook prefers the
+  // former while computeSuccessState reads only the latter. Which field wins is
+  // a doctrine question about what the outcome axis measures, NOT a formatting
+  // one, so it is deliberately still open — U2 makes the two agree on how to
+  // RECOGNISE a percent unit, which is all a single-source-of-truth change can
+  // honestly claim. Flagged, not silently folded.
+  if (classifyUnit(String(rawUnit)).kind === 'percent') {
+    return { outcomeUnit: 'percent' as const, outcomeUnitSymbol: undefined }
+  }
+
+  // Currency variants - detect symbol and normalize
+  if (['$', '£', '€', 'usd', 'gbp', 'eur', 'dollar', 'pound', 'euro'].some(c => unitLower.includes(c))) {
+    // ⛔ NO `$` DEFAULT. "GBP MRR" matched `gbp` above and then printed `$`
+    // (Paul's manual test `1a298d6d`, a £ decision). The code names the
+    // currency, so the code decides the symbol.
+    const symbol =
+      String(rawUnit).match(/[$£€]/)?.[0] ??
+      (unitLower.includes('gbp') || unitLower.includes('pound')
+        ? '£'
+        : unitLower.includes('eur')
+          ? '€'
+          : '$')
+    return { outcomeUnit: 'currency' as const, outcomeUnitSymbol: symbol }
+  }
+
+  // Default to count for numeric units (users, items, etc.)
+  // V11.2 Fix 3: Pass raw unit string as symbol for unit-aware tornado axis labels
+  return { outcomeUnit: 'count' as const, outcomeUnitSymbol: String(rawUnit) }
 }

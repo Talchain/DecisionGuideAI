@@ -51,6 +51,7 @@
  * carries the same warning because it nearly happened there.
  */
 
+import { unnamedCurrencyWords } from '../../utils/unnamedCurrencyUnit'
 import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { AlertTriangle, Check, Pencil } from 'lucide-react'
 import { useCanvasStore } from '../store'
@@ -537,6 +538,9 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
             if (classifyUnit(typeof unit === 'string' ? unit : null).kind === 'percent') {
               return formatTargetValue(displayableTarget.value, 'percent')
             }
+            // An unnamed currency is said in words, never printed as a symbol (MG ruling #85 5943427770).
+            const unnamed = unnamedCurrencyWords(unit)
+            if (unnamed !== null) return `${formatTargetValue(displayableTarget.value)} ${unnamed}`
             if (unitStr && unitStr !== 'count') return formatTargetValue(displayableTarget.value, 'currency', typeof unit === 'string' ? unit : undefined)
             return formatTargetValue(displayableTarget.value)
           })()}
