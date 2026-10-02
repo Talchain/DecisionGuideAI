@@ -334,6 +334,9 @@ export function useScenario(): UseScenarioReturn {
 
   // Track mounted state to avoid setState on unmounted component
   const mountedRef = useRef(true)
+  // ACCOUNTS viewer mode: each loadScenario call's number, so a viewer branch that
+  // awaited `scenario_access` never applies after a newer load started (A→B).
+  const loadSeqRef = useRef(0)
   useEffect(() => {
     mountedRef.current = true
     return () => { mountedRef.current = false }
@@ -750,6 +753,7 @@ export function useScenario(): UseScenarioReturn {
   const loadScenario = useCallback(
     async (id: string): Promise<void> => {
       if (!isPersistenceActive) return
+      const loadSeq = ++loadSeqRef.current
 
       /**
        * ⛔ A MODEL THAT WILL NOT LOAD MUST SAY SO — ON A PRODUCTION BUILD.
@@ -804,7 +808,24 @@ export function useScenario(): UseScenarioReturn {
         // arrives through CEE's member read, which this load's settle unblocks.
         // Asked fresh here rather than read from the flag, which may not have
         // landed yet. A failed answer is 'none', so the notice still shows.
-        if ((await getScenarioAccess(id)) === 'viewer') return
+        if ((await getScenarioAccess(id)) === 'viewer') {
+          if (loadSeqRef.current !== loadSeq) return
+          // Open the viewed decision on a CLEAN SLATE under its own id, as an owner's
+          // load does with its row: otherwise the previously open decision (its
+          // model, id and Run) stays on screen, the route is not adopted over a
+          // non-empty canvas, and CEE's read would be refused or merged into the
+          // wrong model. The model and its Run then arrive from CEE's member read.
+          useCanvasStore.getState().hydrateGraphSlice({ nodes: [], edges: [], currentScenarioId: id })
+          useCanvasStore.setState({
+            currentScenarioFraming: null,
+            isDirty: false,
+            analysisStateReady: false,
+            rawV2Response: null,
+            results: createIdleResults(),
+            previousReport: null,
+          })
+          return
+        }
         notifyScenarioLoadProblem(
           'This model could not be opened. It may have been removed, or you may not have access to it.',
         )
