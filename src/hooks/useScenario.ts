@@ -808,8 +808,11 @@ export function useScenario(): UseScenarioReturn {
         // arrives through CEE's member read, which this load's settle unblocks.
         // Asked fresh here rather than read from the flag, which may not have
         // landed yet. A failed answer is 'none', so the notice still shows.
-        if ((await getScenarioAccess(id)) === 'viewer') {
-          if (loadSeqRef.current !== loadSeq) return
+        const accessAnswer = await getScenarioAccess(id)
+        // The answer is about THIS load only: a newer load (A→B), an unmount or a
+        // sign-out since the await means it says nothing about what is on screen.
+        if (loadSeqRef.current !== loadSeq || !mountedRef.current || !isPersistenceActiveRef.current) return
+        if (accessAnswer === 'viewer') {
           // Open the viewed decision on a CLEAN SLATE under its own id, as an owner's
           // load does with its row: otherwise the previously open decision (its
           // model, id and Run) stays on screen, the route is not adopted over a

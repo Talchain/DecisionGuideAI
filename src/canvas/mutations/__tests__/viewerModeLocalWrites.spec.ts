@@ -13,6 +13,7 @@ import { useCanvasStore } from '../../store'
 import { commitGraphMutation } from '../commitGraphMutation'
 import { commitValidatedMutation } from '../commitValidatedMutation'
 import { useModelEditAuthority } from '../../hooks/useModelEditAuthority'
+import { useNodeMutations, useEdgeMutations } from '../../ui/inspector-v2/useInspectorMutations'
 import { __resetViewerModeForTests, setViewerScenario } from '../../../lib/viewerMode'
 
 const SID = '3b241101-e2bb-4255-8caf-4136c566a962'
@@ -81,6 +82,16 @@ describe('viewer: every local edit door leaves the graph identical', () => {
     expect(graph()).toBe(before)
   })
 
+  it('inspector writes (Codex P2: the factor prior range) change nothing: node and edge mutation hooks', () => {
+    const before = graph()
+    const node = renderHook(() => useNodeMutations('f1'))
+    node.result.current.setPriorRange(0, 100)
+    node.result.current.setLabel('Renamed in the inspector')
+    const edge = renderHook(() => useEdgeMutations('e1'))
+    edge.result.current.setLabel('edge label by a viewer')
+    expect(graph()).toBe(before)
+  })
+
   it('selection still works for a viewer (read-only, not inert)', () => {
     useCanvasStore.getState().onNodesChange([{ type: 'select', id: 'f1', selected: true }])
     expect((useCanvasStore.getState().nodes as Node[]).find((n) => n.id === 'f1')?.selected).toBe(true)
@@ -97,6 +108,13 @@ describe('CONTRAST: the same calls with the flag off DO change the graph', () =>
   it('rename changes the label', () => {
     useCanvasStore.getState().updateNodeLabel('f1', 'Renamed by the owner')
     expect((useCanvasStore.getState().nodes as Node[]).find((n) => n.id === 'f1')?.data.label).toBe('Renamed by the owner')
+  })
+
+  it('the inspector prior range and edge label land', () => {
+    const before = graph()
+    renderHook(() => useNodeMutations('f1')).result.current.setPriorRange(0, 100)
+    renderHook(() => useEdgeMutations('e1')).result.current.setLabel('owner edge label')
+    expect(graph()).not.toBe(before)
   })
 
   it('commitValidatedMutation reaches its local apply', async () => {

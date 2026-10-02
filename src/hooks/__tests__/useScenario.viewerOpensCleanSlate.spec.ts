@@ -96,4 +96,18 @@ describe('useScenario.loadScenario: a decision shared with this user', () => {
     expect(useCanvasStore.getState().nodes).toHaveLength(HARNESS_NODES.length)
     expect(toasts).toHaveLength(0)
   })
+
+  it('A→B (Codex P2): A answering "none" after B loaded raises NO stale notice over B', async () => {
+    let answerA!: (v: string) => void
+    access.getScenarioAccess.mockImplementation(() => new Promise<string>((r) => { answerA = r }))
+    setScenarioRow(OWN, scenarioRow(OWN, { nodes: HARNESS_NODES, edges: [] }))
+    const { result } = renderHook(() => useScenario())
+
+    let loadA!: Promise<void>
+    await act(async () => { loadA = result.current.loadScenario(SHARED) })
+    await act(async () => { await result.current.loadScenario(OWN) })
+    await act(async () => { answerA('none'); await loadA })
+    expect(toasts).toHaveLength(0)
+    expect(useCanvasStore.getState().currentScenarioId).toBe(OWN)
+  })
 })

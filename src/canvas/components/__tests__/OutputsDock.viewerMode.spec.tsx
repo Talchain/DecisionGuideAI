@@ -76,7 +76,7 @@ import { useScenarioViewerAccess } from '../../../lib/useScenarioViewerAccess'
 
 const SID = '3b241101-e2bb-4255-8caf-4136c566a962'
 function ViewerFlag() {
-  useScenarioViewerAccess(SID, true)
+  useScenarioViewerAccess(SID, true, 'u1')
   return null
 }
 

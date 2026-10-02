@@ -9,12 +9,16 @@ import { setViewerScenario } from './viewerMode'
 
 /**
  * The ONE writer of the flag, called by the canvas route. Asks the server once per
- * (route, persistence session). A stale route's answer never sets the flag for
- * another route, and leaving the route clears it.
+ * (route, signed-in user). A stale answer (another route, or another account
+ * signed in from a second tab) never sets the flag, and leaving clears it.
  */
-export function useScenarioViewerAccess(routeId: string | null | undefined, isPersistenceActive: boolean): void {
+export function useScenarioViewerAccess(
+  routeId: string | null | undefined,
+  isPersistenceActive: boolean,
+  userId: string | null,
+): void {
   useEffect(() => {
-    if (!routeId || !isPersistenceActive) {
+    if (!routeId || !isPersistenceActive || !userId) {
       setViewerScenario(null)
       return
     }
@@ -27,5 +31,5 @@ export function useScenarioViewerAccess(routeId: string | null | undefined, isPe
       live = false
       setViewerScenario(null)
     }
-  }, [routeId, isPersistenceActive])
+  }, [routeId, isPersistenceActive, userId])
 }

@@ -48,7 +48,7 @@ describe('the flag', () => {
     ['none', false],
   ])('a %s answer leaves it OFF', async (answer, expected) => {
     access.getScenarioAccess.mockResolvedValue(answer)
-    renderHook(() => useScenarioViewerAccess(A, true))
+    renderHook(() => useScenarioViewerAccess(A, true, 'u1'))
     await waitFor(() => expect(access.getScenarioAccess).toHaveBeenCalledWith(A))
     await act(async () => {})
     expect(isViewerSession()).toBe(expected)
@@ -56,14 +56,14 @@ describe('the flag', () => {
 
   it('a viewer answer turns it ON for THIS route, and useIsViewer re-renders', async () => {
     access.getScenarioAccess.mockResolvedValue('viewer')
-    renderHook(() => useScenarioViewerAccess(A, true))
+    renderHook(() => useScenarioViewerAccess(A, true, 'u1'))
     const seen = renderHook(() => useIsViewer())
     await waitFor(() => expect(seen.result.current).toBe(true))
     expect(viewerScenario()).toBe(A)
   })
 
   it('a guest (no persistence session) never asks and is never a viewer', async () => {
-    renderHook(() => useScenarioViewerAccess(A, false))
+    renderHook(() => useScenarioViewerAccess(A, false, 'u1'))
     await act(async () => {})
     expect(access.getScenarioAccess).not.toHaveBeenCalled()
     expect(isViewerSession()).toBe(false)
@@ -73,7 +73,7 @@ describe('the flag', () => {
     const a = deferred<string>()
     const b = deferred<string>()
     access.getScenarioAccess.mockImplementation((id: string) => (id === A ? a.promise : b.promise))
-    const hook = renderHook(({ id }) => useScenarioViewerAccess(id, true), { initialProps: { id: A } })
+    const hook = renderHook(({ id }) => useScenarioViewerAccess(id, true, 'u1'), { initialProps: { id: A } })
     hook.rerender({ id: B })
     await act(async () => { a.resolve('viewer') })
     expect(isViewerSession()).toBe(false)
@@ -81,9 +81,26 @@ describe('the flag', () => {
     expect(isViewerSession()).toBe(false)
   })
 
+  it('ACCOUNT SWITCH (Codex P2): the flag follows the signed-in user, and the old user\'s late answer is ignored', async () => {
+    const forU1 = deferred<string>()
+    access.getScenarioAccess.mockImplementationOnce(() => forU1.promise).mockResolvedValueOnce('owner')
+    const hook = renderHook(({ uid }) => useScenarioViewerAccess(A, true, uid), { initialProps: { uid: 'u1' } })
+    hook.rerender({ uid: 'u2' })
+    await act(async () => {})
+    await act(async () => { forU1.resolve('viewer') })
+    expect(isViewerSession()).toBe(false)
+    expect(access.getScenarioAccess).toHaveBeenCalledTimes(2)
+  })
+
+  it('no signed-in user → never asks', async () => {
+    renderHook(() => useScenarioViewerAccess(A, true, null))
+    await act(async () => {})
+    expect(access.getScenarioAccess).not.toHaveBeenCalled()
+  })
+
   it('leaving the canvas clears it', async () => {
     access.getScenarioAccess.mockResolvedValue('viewer')
-    const hook = renderHook(() => useScenarioViewerAccess(A, true))
+    const hook = renderHook(() => useScenarioViewerAccess(A, true, 'u1'))
     await waitFor(() => expect(isViewerSession()).toBe(true))
     hook.unmount()
     expect(isViewerSession()).toBe(false)
@@ -126,7 +143,7 @@ describe('the belt', () => {
 
   async function becomeViewer() {
     access.getScenarioAccess.mockResolvedValue('viewer')
-    const hook = renderHook(() => useScenarioViewerAccess(A, true))
+    const hook = renderHook(() => useScenarioViewerAccess(A, true, 'u1'))
     await waitFor(() => expect(isViewerSession()).toBe(true))
     return hook
   }
