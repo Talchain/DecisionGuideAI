@@ -56,8 +56,8 @@ src/canvas/utils/graphHealthStrings.ts:22
 src/canvas/utils/graphHealthStrings.ts:26
 src/canvas/utils/limitsStatus.ts:47
 src/canvas/utils/limitsStatus.ts:51
-src/components/results/TornadoChart.tsx:670
-src/components/results/TornadoChart.tsx:687
+src/components/results/TornadoChart.tsx:673
+src/components/results/TornadoChart.tsx:690
 src/hooks/useCEEDraft.ts:101
 src/lib/stability.ts:110
 src/lib/stability.ts:123
