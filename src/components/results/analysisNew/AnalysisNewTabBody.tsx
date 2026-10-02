@@ -55,6 +55,7 @@ import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { attentionNoteForRecommendation } from '../strengthen/recommendationAttention'
 import { openDecisionRecord, useDecisionRecordForScenario, hasAnalysedOptions } from '../modals'
+import { useIsViewer } from '../../../lib/viewerMode'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { distinctDriverSubjects } from './driverSubjectCount'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
@@ -1169,7 +1170,10 @@ export function AnalysisNewTabBody({
    * against, so no door.
    */
   const resultsStatus = useCanvasStore((state) => state.results?.status)
-  const canCaptureDecision = hasAnalysedOptions(nodes, resultsStatus)
+  // A decision record is the scenario OWNER's (MG 5951262086: CEE `/commit` refuses a non-owner before any write), so a
+  // colleague viewing a shared decision gets no capture door.
+  const isViewer = useIsViewer()
+  const canCaptureDecision = !isViewer && hasAnalysedOptions(nodes, resultsStatus)
   /**
    * ⭐ WHAT HAPPENED TO THE LATEST ATTEMPT, when it did not produce what is on
    * screen: refused (CEE's typed refusal) or failed (`results.status`). Until
