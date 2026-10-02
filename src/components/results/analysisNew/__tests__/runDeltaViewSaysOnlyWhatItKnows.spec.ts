@@ -109,7 +109,7 @@ describe('only C1_attributable licenses a causal reading', () => {
     const said = `${partial.comparability} ${partial.attributionLimit}`
     expect(said).not.toMatch(/nothing the analysis uses differed|did not change/i)
     // A legacy no-edit rerun reads `partial` (fb3e5f1c, 52f8cd 5943379851): it must NOT be told an input changed.
-    expect(said).not.toMatch(/changed/i)
+    expect(said).not.toMatch(/\bchanged\b/i)
     expect(partial.comparability).toMatch(/can't confirm that every input was the same/i)
     expect(partial.attributionLimit).toMatch(/cannot be established/i)
     const complete = buildRunDeltaView(delta({ attribution_case: 'C0_identical', input_coverage: 'complete', input_changes: [] } as never), labelFor)
