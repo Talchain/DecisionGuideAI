@@ -134,7 +134,7 @@ describe('⛔ each comparability sentence belongs to ITS case', () => {
    * content, and the last one fails on ANY permutation at all.
    */
   const MARKER: Record<(typeof ALL_CASES)[number], RegExp> = {
-    C0_identical: /nothing about the model/i,
+    C0_identical: /nothing the analysis uses differed/i,
     C1_attributable: /only difference .* is a change to the model/i,
     C2_unpaired: /drew different random samples/i,
     C3_engine_drift: /the way this analysis was worked out changed/i,

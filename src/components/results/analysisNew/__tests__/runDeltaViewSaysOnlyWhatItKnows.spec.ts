@@ -101,6 +101,16 @@ describe('only C1_attributable licenses a causal reading', () => {
     expect(limit).not.toMatch(/cannot be established/i)
   })
 
+  // P0 5943180154 (served 2 Oct): an accepted estimate changes sizing AUTHORSHIP, which the analysis hash excludes, so
+  // a C0 pair can follow a real model change. C0 may claim only what hash_equal proves: the analysis's inputs.
+  it('⛔ C0 never claims the WHOLE model is unchanged — only what the analysis uses', () => {
+    const v = buildRunDeltaView(delta({ attribution_case: 'C0_identical' }), labelFor)
+    const words = `${v.comparability ?? ''} ${v.attributionLimit ?? ''}`
+    expect(words).toMatch(/the analysis uses/i)
+    expect(words).not.toMatch(/nothing about the model/i)
+    expect(words).not.toMatch(/the model itself did not change/i)
+  })
+
   it('⛔ the rider is selected per case, not by a binary on `attributable`', () => {
     const read = (c: RunDelta['attribution_case']): string | null =>
       buildRunDeltaView(delta({ attribution_case: c }), labelFor).attributionLimit

@@ -204,8 +204,11 @@ const COMPARABILITY: Record<RunDelta['attribution_case'], string> = {
   // we cannot even name WHAT changed, let alone who did it.
   C1_attributable:
     'The only difference between this analysis and the previous one is a change to the model.',
+  // ⛔ BOUNDED TO WHAT `hash_equal` PROVES (P0 5943180154, served 2 Oct): the ANALYSIS-AFFECTING hash excludes
+  // authorship and provenance, so an accepted estimate (sizing olumi_estimate → accepted) is a real model change on a
+  // C0 pair. "Nothing about the model … differed" was false there; "nothing the analysis uses" is what C0 proves.
   C0_identical:
-    'Nothing about the model, or the way it was worked out, differed between this analysis and the previous one.',
+    'Nothing the analysis uses differed between this analysis and the previous one, and it was worked out the same way.',
   // ⛔ THE SEED AND NOTHING ELSE. CEE returns C2 on `!seed_equal` before it
   // reads the build or the sample count (`build-run-delta.ts:374`), and a
   // factor-value edit moves the seed, so this is the sentence an ordinary
@@ -259,7 +262,7 @@ const ATTRIBUTION_LIMIT: Record<RunDelta['attribution_case'], string | null> = {
   // ⭐ PROVEN, NOT UNKNOWN. `hash_equal` is true by the case's own preconditions,
   // so this is the one arm entitled to say a model change is NOT the explanation.
   C0_identical:
-    'The model itself did not change between these two, so nothing below can be explained by an edit to it.',
+    'The parts of the model the analysis uses did not change between these two, so nothing below can be explained by an edit to them.',
   // ⛔ REFUSAL TO ATTRIBUTE, NOT DENIAL. C2 is decided on the seed alone; the hash
   // is never consulted, so a change to the model may well be the cause and this
   // pair simply cannot show it.

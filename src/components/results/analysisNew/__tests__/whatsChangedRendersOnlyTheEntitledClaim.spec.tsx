@@ -179,7 +179,7 @@ describe('⛔ the heading is never the only thing on screen', () => {
       pair_provenance: { seed_equal: true, hash_equal: true, builds_equal: 'equal', n_equal: true },
     })} />)
     expect(screen.getByTestId(`${WHATS_CHANGED_TESTID}-comparability`).textContent)
-      .toMatch(/nothing about the model/i)
+      .toMatch(/nothing the analysis uses differed/i)
   })
 
   it('an unmatched pair renders the comparability line AND the no-pairs line', () => {

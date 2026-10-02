@@ -150,6 +150,11 @@ export interface V5ApplicatorStore {
    * which pins both directions.
    */
   setRunDelta?: (stored: StoredRunDelta | null) => void
+  /**
+   * The delta the store holds BEFORE this envelope (read only here). The production caller spreads the canvas store,
+   * so it is always present there; a double without it keeps the old evict-on-new-hash behaviour.
+   */
+  readonly runDelta?: StoredRunDelta | null
   /** B5 — same binding and eviction as `setRunDelta`. */
   setLimitVerdicts?: (stored: LimitVerdictsWrite | null) => void
   /**
@@ -969,6 +974,17 @@ function strengthAcknowledgementData(
 const LEADER_DESIGNATION_CAVEAT =
   'Marked because it scored highest so far — not because Olumi is putting it ' +
   'forward. This analysis cannot yet single out an option.'
+
+/**
+ * The run an envelope's analysis describes: `analysis_state.run_state.computed_at`, carried only by the `complete_*`
+ * kinds (the same read `blocks/useCoachingCurrency.ts` makes). Null when absent — never a guess.
+ */
+function runComputedAtOf(response: unknown): string | null {
+  const rs = (response as { analysis_state?: { run_state?: { kind?: unknown; computed_at?: unknown } } } | null)
+    ?.analysis_state?.run_state
+  if (!rs || (rs.kind !== 'complete_current' && rs.kind !== 'complete_stale')) return null
+  return typeof rs.computed_at === 'string' && rs.computed_at.length > 0 ? rs.computed_at : null
+}
 
 export function applyV5State(
   response: OlumiResponse,
@@ -2554,7 +2570,26 @@ export function applyV5State(
         // branch becomes unconditional. `runDeltaEvictionHoldsOnEcho.spec.ts`
         // pins the behaviour in both directions so the trade is visible rather
         // than inherited.
-        store.setRunDelta?.(null)
+        //
+        // ⭐⭐ THAT TRIGGER HAS ARRIVED (R3 5943098072, 2 Oct): `analysis_state.run_state.computed_at` names the run an
+        // envelope's analysis describes, and the delta names its own run in `endpoints.current.computed_at` — EQUAL on
+        // the served read (`9a880829`: both `00:07:29.679Z`); the coaching currency already binds on that exact string
+        // (`blocks/coachingCurrency.ts`). Measured defect: after the M3 amend → Re-run, CEE EMITTED the delta on the run
+        // turn (Render `run_delta_outcome` 00:07:36Z); the next turns (`caller_binds_run_delta`) re-delivered THAT run
+        // under a new content hash with no delta, and this branch evicted it — the strip vanished in session while a
+        // cold read showed it. So a new hash that is the SAME RUN (same scenario) REBINDS the delta to the new hash; a
+        // different run, or no run identity on either side, still evicts (fail-closed, as before).
+        const held = store.runDelta ?? null
+        const runAt = runComputedAtOf(response)
+        const heldRunAt = (held?.delta as { endpoints?: { current?: { computed_at?: unknown } } } | undefined)?.endpoints
+          ?.current?.computed_at
+        const sameRun =
+          held !== null &&
+          runAt !== null &&
+          typeof heldRunAt === 'string' &&
+          heldRunAt === runAt &&
+          held.scenarioId === (store.currentScenarioId ?? null)
+        store.setRunDelta?.(sameRun && held !== null ? { ...held, analysisHash: hash } : null)
       }
       // B5: the same rule as run_delta — stored with the analysis it came beside,
       // evicted when a genuinely new analysis lands without one.
