@@ -2,8 +2,10 @@
  * ⭐ DECIDE & REVIEW S2 (DL 380e54 ruling (B), 2 Oct): a decision a GUEST recorded travels with the ACCOUNTS B3 copy
  * of that same scenario into the account that signs in, as a record on this device. Bound by identity: exact
  * scenario ids, the exact option and rationale, the exact sentence.
- * DL condition 4 rows: success re-key · copy-fail → dropped · account switch before the event → dropped ·
- * a stale event for another source → nothing.
+ * DL condition 4 rows: success re-key · copy-fail → dropped · account switch before the copy → dropped ·
+ * a copy of another source → nothing. Codex S2 r1 rows: a stale-generation copy never consumes the next sign-in's
+ * carry · a transient failure drops it · a later page load never uses it · only a CREATED copy receives it · never
+ * over another tab's persisted record.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, waitFor, act } from '@testing-library/react'
@@ -22,15 +24,15 @@ vi.mock('../../../lib/supabase', () => ({
   },
 }))
 vi.mock('../../../lib/storedSupabaseSession', () => ({ hasStoredSupabaseSession: () => false }))
-const canvas = vi.hoisted(() => ({ current: null as string | null }))
+const canvas = vi.hoisted(() => ({ current: null as string | null, onAdopting: null as null | (() => void) }))
 vi.mock('../../../canvas/store', () => ({
-  useCanvasStore: { getState: () => ({ currentScenarioId: canvas.current, adoptScenario: vi.fn() }) },
+  // `onAdopting` runs inside B3's canvas adoption: AFTER the copy request returned, BEFORE B3 announces the copy.
+  useCanvasStore: { getState: () => { const f = canvas.onAdopting; canvas.onAdopting = null; f?.(); return { currentScenarioId: canvas.current, adoptScenario: vi.fn() } } },
 }))
 const mockRequest = vi.fn()
 vi.mock('../../../services/guestCopyService', () => ({ requestGuestCopy: (...args: unknown[]) => mockRequest(...args) }))
 
 import GuestCopyOnSignIn from '../GuestCopyOnSignIn'
-import { GUEST_COPIED_EVENT } from '../../../lib/guestCopyOnSignIn'
 import { capturePendingGuestCopy, peekPendingGuestCopy, SPENT_GUEST_POINTER_KEY } from '../../../lib/pendingGuestCopy'
 import * as S from '../../results/modals/decisionRecordStore'
 import { storageSentenceFor } from '../../results/analysisNew/sections/DecisionRecorded'
@@ -60,19 +62,23 @@ function mount() {
   return render(<MemoryRouter initialEntries={['/canvas']}><GuestCopyOnSignIn /></MemoryRouter>)
 }
 /** AuthContext adopts the user (owner epoch first), then the B3 listener sees the sign-in. */
-function signIn(userId: string) {
+function signIn(userId: string, token = 'tok') {
   act(() => {
     S.observeDecisionRecordOwner(userId)
     auth.callbacks.forEach((cb) => (cb as AuthCallback)('INITIAL_SESSION', null))
-    auth.callbacks.forEach((cb) => (cb as AuthCallback)('SIGNED_IN', { access_token: 'tok' }))
+    auth.callbacks.forEach((cb) => (cb as AuthCallback)('SIGNED_IN', { access_token: token }))
   })
 }
+const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+/** The newest owner epoch, as published to storage. */
+const epoch = () => (JSON.parse(localStorage.getItem('decisionRecord.v2:owner') ?? 'null') as { epoch: string }).epoch
 
 beforeEach(() => {
   localStorage.clear()
   auth.callbacks = []
   mockRequest.mockReset()
   canvas.current = GUEST_SCENARIO
+  canvas.onAdopting = null
   S.useDecisionRecordStore.getState()._reset()
 })
 
@@ -95,15 +101,67 @@ describe('the guest record travels with the B3 copy of its own scenario', () => 
     expect((shown(COPY_SCENARIO) as S.OptionDecisionRecord).carriedFromGuest).toBe(true)
   })
 
-  it('COPY FAILS (never copyable) → the carry is DROPPED, and a later event for that source moves nothing', async () => {
+  it('COPY FAILS (never copyable) → the carry is DROPPED; nothing can move it afterwards', async () => {
     guestHasRecorded()
     mockRequest.mockResolvedValue({ kind: 'not_copyable' })
     mount()
     signIn(USER)
     await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(carryKeys()).toEqual([]))
-    act(() => { window.dispatchEvent(new CustomEvent(GUEST_COPIED_EVENT, { detail: { sourceScenarioId: GUEST_SCENARIO, scenarioId: COPY_SCENARIO, created: true } })) })
+    expect(S.adoptGuestCarry(GUEST_SCENARIO, COPY_SCENARIO, true)).toBe(false)
     expect(shown(COPY_SCENARIO)).toBeNull()
+  })
+
+  it('CODEX P1: a TRANSIENT copy failure (retry_later) also drops it — B3 keeps retrying the scenario, not the record', async () => {
+    guestHasRecorded()
+    mockRequest.mockResolvedValue({ kind: 'retry_later', reason: 'http_503' })
+    mount()
+    signIn(USER)
+    await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(carryKeys()).toEqual([]))
+    expect(localStorage.getItem('olumi.pendingGuestCopy.v1')).toBe(GUEST_SCENARIO) // B3's own retry is untouched
+  })
+
+  it('CODEX P1: a LATER PAGE LOAD never uses a carry it did not stash — deleted unused', () => {
+    guestHasRecorded()
+    S.observeDecisionRecordOwner(USER)
+    expect(carryKeys()).toHaveLength(1)
+    S.useDecisionRecordStore.getState()._rehydrateForTests() // a reload
+    expect(S.adoptGuestCarry(GUEST_SCENARIO, COPY_SCENARIO, true)).toBe(false)
+    expect(carryKeys()).toEqual([])
+    expect(shown(COPY_SCENARIO)).toBeNull()
+  })
+
+  it('CODEX P2: a copy B3 did NOT create (it already existed) receives nothing — it may hold the account\'s own record', async () => {
+    guestHasRecorded()
+    mockRequest.mockResolvedValue({ kind: 'copied', scenarioId: COPY_SCENARIO, created: false })
+    mount()
+    signIn(USER)
+    await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(carryKeys()).toEqual([]))
+    expect(shown(COPY_SCENARIO)).toBeNull()
+  })
+
+  it('CODEX P1: a copy that lands in an ENDED sign-in (sign-out during adoption) never consumes the next sign-in\'s carry', async () => {
+    guestHasRecorded()
+    mockRequest.mockResolvedValueOnce({ kind: 'copied', scenarioId: COPY_SCENARIO, created: true })
+    mockRequest.mockReturnValue(new Promise(() => {})) // the next sign-in's own copy is still in flight
+    canvas.onAdopting = () => {
+      // Signed out and signed in again as OTHER_USER while the first copy was being adopted. However the next
+      // sign-in's carry for the same source arose, it is OTHER_USER's and only OTHER_USER's copy may move it.
+      auth.callbacks.forEach((cb) => (cb as AuthCallback)('SIGNED_OUT', null))
+      S.observeDecisionRecordOwner(null)
+      localStorage.removeItem(SPENT_GUEST_POINTER_KEY)
+      S.useDecisionRecordStore.getState().saveRecord(GUEST_SCENARIO, { ...GUEST_RECORD, optionId: 'opt_second_guest' })
+      S.observeDecisionRecordOwner(OTHER_USER)
+    }
+    mount()
+    signIn(USER)
+    await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(1))
+    await settle()
+    await settle()
+    expect(shown(COPY_SCENARIO)).toBeNull()
+    expect(carryKeys()).toHaveLength(1) // OTHER_USER's carry is untouched
   })
 
   it('ACCOUNT SWITCH before the copy lands → dropped; it never shows in the other account', async () => {
@@ -120,6 +178,17 @@ describe('the guest record travels with the B3 copy of its own scenario', () => 
     expect(shown(COPY_SCENARIO)).toBeNull()
   })
 
+  it('CODEX P1: another tab\'s SIGN-OUT landing between the boundary write and the carry write leaves no carry', () => {
+    guestHasRecorded()
+    const realSet = Storage.prototype.setItem
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k.endsWith(':guestCarry')) realSet.call(this, 'decisionRecord.v2:owner', JSON.stringify({ ownerId: null, epoch: 'signed-out-elsewhere' }))
+      realSet.call(this, k, v)
+    })
+    try { S.observeDecisionRecordOwner(USER) } finally { spy.mockRestore() }
+    expect(carryKeys()).toEqual([])
+  })
+
   it('SIGN-OUT before the copy lands → dropped', () => {
     guestHasRecorded()
     S.observeDecisionRecordOwner(USER)
@@ -129,14 +198,13 @@ describe('the guest record travels with the B3 copy of its own scenario', () => 
     expect(carryKeys()).toEqual([])
   })
 
-  it('a STALE event for ANOTHER source moves nothing and keeps the carry for its own copy', () => {
+  it('a copy of ANOTHER source moves nothing and keeps the carry for its own copy (identity, never title)', () => {
     guestHasRecorded()
-    mount()
-    act(() => S.observeDecisionRecordOwner(USER))
-    act(() => { window.dispatchEvent(new CustomEvent(GUEST_COPIED_EVENT, { detail: { sourceScenarioId: OTHER_SCENARIO, scenarioId: COPY_SCENARIO, created: true } })) })
+    S.observeDecisionRecordOwner(USER)
+    expect(S.adoptGuestCarry(OTHER_SCENARIO, COPY_SCENARIO, true)).toBe(false)
     expect(shown(COPY_SCENARIO)).toBeNull()
     expect(carryKeys()).toHaveLength(1)
-    act(() => { window.dispatchEvent(new CustomEvent(GUEST_COPIED_EVENT, { detail: { sourceScenarioId: GUEST_SCENARIO, scenarioId: COPY_SCENARIO, created: true } })) })
+    expect(S.adoptGuestCarry(GUEST_SCENARIO, COPY_SCENARIO, true)).toBe(true)
     expect((shown(COPY_SCENARIO) as S.OptionDecisionRecord).optionId).toBe('opt_b')
   })
 
@@ -144,8 +212,19 @@ describe('the guest record travels with the B3 copy of its own scenario', () => 
     guestHasRecorded()
     S.observeDecisionRecordOwner(USER)
     S.useDecisionRecordStore.getState().saveRecord(COPY_SCENARIO, { ...GUEST_RECORD, optionId: 'opt_account' })
-    expect(S.adoptGuestCarry(GUEST_SCENARIO, COPY_SCENARIO)).toBe(false)
+    expect(S.adoptGuestCarry(GUEST_SCENARIO, COPY_SCENARIO, true)).toBe(false)
     expect((shown(COPY_SCENARIO) as S.OptionDecisionRecord).optionId).toBe('opt_account')
+  })
+
+  it('CODEX P1: never over a record ANOTHER TAB persisted for the copy (this tab has not seen it yet)', () => {
+    guestHasRecorded()
+    S.observeDecisionRecordOwner(USER)
+    const otherTabKey = `decisionRecord.v2:${epoch()}:record:${encodeURIComponent(COPY_SCENARIO)}`
+    const otherTab = { version: 2, scenarioKey: COPY_SCENARIO, clientCommitId: 'other-tab', record: { ...GUEST_RECORD, optionId: 'opt_other_tab' } }
+    localStorage.setItem(otherTabKey, JSON.stringify(otherTab))
+    expect(shown(COPY_SCENARIO)).toBeNull() // not in this tab's memory
+    expect(S.adoptGuestCarry(GUEST_SCENARIO, COPY_SCENARIO, true)).toBe(false)
+    expect(JSON.parse(localStorage.getItem(otherTabKey)!).clientCommitId).toBe('other-tab')
   })
 })
 
@@ -156,7 +235,7 @@ describe('CONTROLS: nothing else crosses the owner boundary', () => {
     S.useDecisionRecordStore.getState().saveRecord(GUEST_SCENARIO, GUEST_RECORD)
     S.observeDecisionRecordOwner(OTHER_USER)
     expect(carryKeys()).toEqual([])
-    expect(S.adoptGuestCarry(GUEST_SCENARIO, COPY_SCENARIO)).toBe(false)
+    expect(S.adoptGuestCarry(GUEST_SCENARIO, COPY_SCENARIO, true)).toBe(false)
   })
   it('a guest record for a scenario B3 will NOT copy (the spent sign-out pointer) is not carried', () => {
     guestHasRecorded()
@@ -178,5 +257,11 @@ describe('CONTROLS: nothing else crosses the owner boundary', () => {
   })
   it('a record made on this device by the signed-in user keeps the existing sentence', () => {
     expect(storageSentenceFor({ ...GUEST_RECORD, remote: null })).toBe(TEXT.decisionRecord.storedLocal)
+  })
+  it('the carried sentence says WHEN it was made, WHERE it is, and that it is NOT on the account (DL condition 3)', () => {
+    const line = TEXT.decisionRecord.storedGuestCarried
+    expect(line).toMatch(/before you signed in/i)
+    expect(line).toMatch(/on this device/i)
+    expect(line).toMatch(/not on your account/i)
   })
 })

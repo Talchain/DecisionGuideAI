@@ -378,7 +378,11 @@ export function observeDecisionRecordOwner(ownerId: string | null): void {
     try { localStorage.setItem(BOUNDARY_KEY, JSON.stringify(next)) } catch { /* memory only */ }
     eraseRecords(next.epoch, !!current && current.ownerId !== ownerId)
     // Stored under the NEW owner's epoch, so the next sign-out or account switch erases it with everything else.
-    if (carry) try { localStorage.setItem(carryKey(next.epoch), JSON.stringify(carry)) } catch { /* not carried */ }
+    if (carry) {
+      try { localStorage.setItem(carryKey(next.epoch), JSON.stringify(carry)) } catch { /* not carried */ }
+      // Another tab's sign-out may land between our boundary write and this one: never leave the carry behind it.
+      if (readBoundary()?.epoch !== next.epoch) try { localStorage.removeItem(carryKey(next.epoch)) } catch { /* inert */ }
+    }
   }
   if (boundary?.epoch === next.epoch) return
   boundary = next
@@ -392,9 +396,13 @@ export function observeDecisionRecordOwner(ownerId: string | null): void {
  * same scenario into the account that signs in, as a record on this device. Nothing else crosses the owner boundary:
  * - stashed only on a guest → user transition, only for the scenario B3 will copy (`peekPendingGuestCopy`);
  * - kept under the new owner's epoch, so a sign-out or account switch before the copy erases it;
- * - re-keyed only for that exact source → copy (`adoptGuestCarry`), dropped when the copy can never happen.
+ * - usable only by the PAGE LOAD that stashed it (sign-in and its copy share one): a later load deletes it unused;
+ * - moved only by THIS sign-in's B3 run that CREATED a copy of that exact source (`adoptGuestCarry`), and dropped on
+ *   any failed copy (`dropGuestCarry`).
  */
-interface GuestCarry { version: 1; sourceScenarioKey: string; record: DecisionRecord }
+interface GuestCarry { version: 1; sourceScenarioKey: string; page: string; record: DecisionRecord }
+/** This page load. A reload is a new page: a carry it did not stash is never used (Codex S2 P1: later session). */
+let page = id()
 function carryKey(epoch: string): string { return `${PREFIX}${epoch}:guestCarry` }
 function readGuestCarry(guestEpoch: string): GuestCarry | null {
   const source = peekPendingGuestCopy()
@@ -403,7 +411,7 @@ function readGuestCarry(guestEpoch: string): GuestCarry | null {
   try {
     const stored = JSON.parse(localStorage.getItem(recordKey(guestEpoch, sourceScenarioKey)) ?? 'null')
     if (stored?.version !== 2 || stored.scenarioKey !== sourceScenarioKey || !stored.record || typeof stored.record !== 'object') return null
-    return { version: 1, sourceScenarioKey, record: { ...stored.record, remote: null, carriedFromGuest: true } }
+    return { version: 1, sourceScenarioKey, page, record: { ...stored.record, remote: null, carriedFromGuest: true } }
   } catch { return null }
 }
 function takeGuestCarry(sourceScenarioId: string): GuestCarry | null {
@@ -411,21 +419,30 @@ function takeGuestCarry(sourceScenarioId: string): GuestCarry | null {
   const key = carryKey(boundary.epoch)
   let carry: GuestCarry | null
   try { carry = JSON.parse(localStorage.getItem(key) ?? 'null') } catch { carry = null }
+  if (carry === null) return null
+  // Malformed, or stashed by an EARLIER page load: deleted unused.
+  if (carry.version !== 1 || carry.page !== page) {
+    try { localStorage.removeItem(key) } catch { /* inert: never used */ }
+    return null
+  }
   // A copy of ANOTHER scenario leaves this carry where it is.
-  if (carry?.version !== 1 || carry.sourceScenarioKey !== resolveScenarioKey(sourceScenarioId)) return null
+  if (carry.sourceScenarioKey !== resolveScenarioKey(sourceScenarioId)) return null
   try { localStorage.removeItem(key) } catch { /* the epoch erase still removes it */ }
   return carry
 }
-/** B3 copied `sourceScenarioId` → `scenarioId`: the guest's record for that source now shows on the copy. */
-export function adoptGuestCarry(sourceScenarioId: string, scenarioId: string): boolean {
+/**
+ * This sign-in's B3 run copied `sourceScenarioId` → `scenarioId`: the guest's record for that source shows on the copy.
+ * Only into a copy B3 CREATED (an existing copy may hold the account's own record), and never over a record this tab
+ * shows OR another tab has persisted.
+ */
+export function adoptGuestCarry(sourceScenarioId: string, scenarioId: string, created: boolean): boolean {
   const carry = takeGuestCarry(sourceScenarioId)
-  if (!carry) return false
+  if (!carry || !created) return false
   const target = resolveScenarioKey(scenarioId)
-  // Never over a record the copy already shows.
-  if (target === UNSCOPED_SCENARIO_KEY || useDecisionRecordStore.getState().byScenario[target]) return false
+  if (target === UNSCOPED_SCENARIO_KEY || useDecisionRecordStore.getState().byScenario[target] || readRecord(target)) return false
   return useDecisionRecordStore.getState().saveRecord(target, carry.record) !== null
 }
-/** B3 answered that `sourceScenarioId` can never be copied: its guest record is not carried anywhere. */
+/** This sign-in's B3 copy of `sourceScenarioId` failed (now or for good): its guest record is carried nowhere. */
 export function dropGuestCarry(sourceScenarioId: string): void {
   takeGuestCarry(sourceScenarioId)
 }
@@ -501,6 +518,7 @@ export const useDecisionRecordStore = create<DecisionRecordState>((set, get) => 
   },
 
   _rehydrateForTests: () => {
+    page = id() // a reload is a new page load
     set({ ...loadPersisted() })
   },
 }))

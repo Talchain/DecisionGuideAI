@@ -16,7 +16,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 import { supabase } from '../../lib/supabase'
 import { hasStoredSupabaseSession } from '../../lib/storedSupabaseSession'
-import { createSignInTransitionTracker, GUEST_COPIED_EVENT, handleAuthObservation, type GuestCopiedDetail } from '../../lib/guestCopyOnSignIn'
+import { createSignInTransitionTracker, handleAuthObservation } from '../../lib/guestCopyOnSignIn'
 import { forgetPendingGuestCopyOnSignOut } from '../../lib/pendingGuestCopy'
 import { adoptGuestCarry, dropGuestCarry } from '../results/modals/decisionRecordStore'
 
@@ -64,8 +64,14 @@ export default function GuestCopyOnSignIn(): null {
           },
         })
         void run?.then((result) => {
-          // DECIDE & REVIEW S2: a copy that can never happen carries the guest's decision record nowhere.
-          if (result.kind === 'not_copyable') dropGuestCarry(result.sourceScenarioId)
+          // DECIDE & REVIEW S2 (DL ruling (B)): the guest's decision record moves ONLY with THIS sign-in's copy of its
+          // own scenario, by identity. Fenced on the generation, unlike the window event: a copy that lands after a
+          // sign-out or account switch moves nothing (and never touches the next sign-in's carry). Any failed copy,
+          // transient or final, drops it.
+          if (generation === started) {
+            if (result.kind === 'copied') adoptGuestCarry(result.sourceScenarioId, result.scenarioId, result.created)
+            else if (result.kind === 'retry_later' || result.kind === 'not_copyable') dropGuestCarry(result.sourceScenarioId)
+          }
           // Only a copy this tab actually ADOPTED may move the view: if the user
           // opened something else meanwhile, adoption declined and so does this.
           if (result.kind !== 'copied' || !result.adopted || generation !== started) return
@@ -80,17 +86,7 @@ export default function GuestCopyOnSignIn(): null {
       // Auth unavailable (a stubbed or failing client): there is no sign-in to
       // follow, and the shell must still boot — `OptionalAuthProvider`'s rule.
     }
-    // DECIDE & REVIEW S2 (DL ruling (B)): the guest's decision record moves ONLY with the copy of its own scenario,
-    // by identity (source → copy ids), never by title.
-    const onCopied = (event: Event) => {
-      const detail = (event as CustomEvent<GuestCopiedDetail>).detail
-      if (detail) adoptGuestCarry(detail.sourceScenarioId, detail.scenarioId)
-    }
-    window.addEventListener(GUEST_COPIED_EVENT, onCopied)
-    return () => {
-      window.removeEventListener(GUEST_COPIED_EVENT, onCopied)
-      unsubscribe?.()
-    }
+    return () => unsubscribe?.()
   }, [startedWithStoredSession])
 
   return null
