@@ -103,18 +103,15 @@ describe('WhatChangedChip — F8: the device-local comparison copy is honest', (
     expect(screen.queryByText(DEVICE_COPY)).toBeNull()
   })
 
-  it('DOES show the device-local basis when a real local delta was computed', () => {
-    // The honest, true case survives: an alignable pair with a non-empty delta.
+  it('Compare audit (d): never claims a device-local comparison, even when stored runs WOULD differ', () => {
+    // The browser-derived diff is removed (one comparison authority: the server's).
     ctxMock.mockReturnValue({ dispatchAction: vi.fn().mockResolvedValue(undefined) })
     seedRunsWithDelta()
 
     render(<WhatChangedChip />)
 
-    expect(screen.getByText(DEVICE_COPY)).toBeInTheDocument()
-    expect(screen.getByTestId('what-changed-chip')).toHaveAttribute(
-      'title',
-      expect.stringMatching(/on this device/i),
-    )
+    expect(screen.queryByText(DEVICE_COPY)).not.toBeInTheDocument()
+    expect(screen.getByTestId('what-changed-chip')).not.toHaveAttribute('title')
   })
 })
 
@@ -155,14 +152,14 @@ describe('WhatChangedChip — F8: no dead no-op affordance', () => {
     expect(dispatchMock).toHaveBeenCalledTimes(1)
   })
 
-  it('stays ENABLED with a local diff even when no dispatcher is present (pulse is still useful)', () => {
+  it('Compare audit (d): DISABLED with no dispatcher even when stored runs would differ (no local pulse to offer)', () => {
     ctxMock.mockReturnValue(null)
     seedRunsWithDelta()
 
     render(<WhatChangedChip />)
     const chip = screen.getByTestId('what-changed-chip')
-    expect(chip).toBeEnabled()
+    expect(chip).toBeDisabled()
     fireEvent.click(chip)
-    expect(pulseMock).toHaveBeenCalledTimes(1)
+    expect(pulseMock).not.toHaveBeenCalled()
   })
 })

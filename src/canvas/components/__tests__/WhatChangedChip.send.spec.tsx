@@ -65,8 +65,8 @@ beforeEach(() => {
 })
 afterEach(() => cleanup())
 
-describe('WhatChangedChip — AUGMENT: pulse STAYS and the CEE send fires alongside it', () => {
-  it('one click pulses the canvas AND dispatches the typed what_changed turn', () => {
+describe('WhatChangedChip — the CEE send is the answer (Compare audit (d): no local pulse)', () => {
+  it('one click dispatches the typed what_changed turn and never pulses a browser-derived diff', () => {
     const dispatchMock = vi.fn().mockResolvedValue(undefined)
     ctxMock.mockReturnValue({ dispatchAction: dispatchMock })
     seedRunsWithDelta()
@@ -74,8 +74,8 @@ describe('WhatChangedChip — AUGMENT: pulse STAYS and the CEE send fires alongs
     render(<WhatChangedChip />)
     fireEvent.click(screen.getByTestId('what-changed-chip'))
 
-    // Pulse STILL fires (augment-not-replace) — the structural answer.
-    expect(pulseMock).toHaveBeenCalledTimes(1)
+    // No browser-derived structural answer any more (Compare audit (d)).
+    expect(pulseMock).not.toHaveBeenCalled()
 
     // The CEE send fires alongside it — the outcome answer, through the real
     // dispatch mechanism, carrying the typed intent, verbatim message, and
@@ -103,8 +103,8 @@ describe('WhatChangedChip — AUGMENT: pulse STAYS and the CEE send fires alongs
   })
 })
 
-describe('WhatChangedChip — FAIL-SAFE: no conversation hook degrades to pulse-only', () => {
-  it('pulses and does not throw when useOptionalConversationContext() is null', () => {
+describe('WhatChangedChip — FAIL-SAFE: no conversation hook', () => {
+  it('does not throw and pulses nothing when useOptionalConversationContext() is null', () => {
     ctxMock.mockReturnValue(null)
     seedRunsWithDelta()
 
@@ -112,10 +112,10 @@ describe('WhatChangedChip — FAIL-SAFE: no conversation hook degrades to pulse-
     expect(() =>
       fireEvent.click(screen.getByTestId('what-changed-chip')),
     ).not.toThrow()
-    expect(pulseMock).toHaveBeenCalledTimes(1)
+    expect(pulseMock).not.toHaveBeenCalled()
   })
 
-  it('a rejected CEE send does not break the chip — the pulse has already fired', () => {
+  it('a rejected CEE send does not break the chip', () => {
     const dispatchMock = vi.fn().mockRejectedValue(new Error('transport'))
     ctxMock.mockReturnValue({ dispatchAction: dispatchMock })
     seedRunsWithDelta()
@@ -124,7 +124,7 @@ describe('WhatChangedChip — FAIL-SAFE: no conversation hook degrades to pulse-
     expect(() =>
       fireEvent.click(screen.getByTestId('what-changed-chip')),
     ).not.toThrow()
-    expect(pulseMock).toHaveBeenCalledTimes(1)
+    expect(pulseMock).not.toHaveBeenCalled()
     expect(dispatchMock).toHaveBeenCalledTimes(1)
   })
 })
