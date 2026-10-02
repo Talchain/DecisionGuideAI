@@ -279,7 +279,7 @@ export const typography = {
   // must never inherit it, or `est.` reads as part of the figure (served
   // `eec722ab`). Declared here, the typography authority, so the one component
   // that renders marks (`EstimateMarker.tsx`) carries no raw weight of its own.
-  nodeMark: 'text-[length:calc(10px*var(--canvas-label-scale,1))] font-normal font-sans not-italic leading-none',
+  nodeMark: 'text-[length:calc(10px*var(--canvas-small-label-scale,1))] font-normal font-sans not-italic leading-none',
 
   // Results Panel — strict 3-size system (Brief 5.5 §2.1 lock)
   // Only these three tokens should be used inside src/components/results/

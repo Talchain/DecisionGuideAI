@@ -255,7 +255,7 @@ describe('v3.1 #9 — full label, amount on one line', () => {
     const line = screen.getByTestId('option-card-differentiator-opt-germany')
     expect(line.textContent).toBe('Tests demand before localising.')
     // 29 Sep: the contract's 10.5px, as the test's own name says (it was 11px).
-    expect(tokens(line).has('text-[length:calc(10.5px*var(--canvas-label-scale,1))]')).toBe(true)
+    expect(tokens(line).has('text-[length:calc(10.5px*var(--canvas-small-label-scale,1))]')).toBe(true)
   })
 })
 

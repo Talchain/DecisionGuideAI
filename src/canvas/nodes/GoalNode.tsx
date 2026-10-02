@@ -1209,7 +1209,7 @@ export const GoalNode = memo((props: NodeProps) => {
                    counter-scaled. NEVER CLIPPED: the short form fits one line
                    on the wide card; a longer carried label wraps inside the
                    pill rather than being cut (was `truncate`). */
-                className={`text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans leading-[1.4] nodrag nopan inline-block max-w-full break-words align-baseline px-[7px] py-px bg-panel border border-field/40 rounded-full text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`text-[length:calc(10px*var(--canvas-small-label-scale,1))] font-sans leading-[1.4] nodrag nopan inline-block max-w-full break-words align-baseline px-[7px] py-px bg-panel border border-field/40 rounded-full text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               >
                 {l.text}
               </span>

@@ -9,7 +9,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
 import { CanvasLabelScaleSync } from '../CanvasLabelScaleSync'
-import { CANVAS_GLYPH_SCALE_VAR, CANVAS_LABEL_SCALE_VAR, MAX_LABEL_COUNTER_SCALE, labelCounterScale } from '../../utils/zoomLegibility'
+import { CANVAS_GLYPH_SCALE_VAR, CANVAS_LABEL_SCALE_VAR, CANVAS_SMALL_LABEL_SCALE_VAR, MAX_LABEL_COUNTER_SCALE, labelCounterScale } from '../../utils/zoomLegibility'
 
 let zoom = 1
 
@@ -39,6 +39,20 @@ describe('CanvasLabelScaleSync', () => {
   it('writes the counter-scale for the current zoom onto the React Flow root', () => {
     const { host } = mountAt(0.5)
     expect(host.style.getPropertyValue(CANVAS_LABEL_SCALE_VAR)).toBe(String(labelCounterScale(0.5)))
+  })
+
+  // 2 Oct 2026 (#85 5944575143): text declared below `nodeLabel` reads its OWN scale, which reaches the 9px landing floor
+  // for 10px marks (1.8 at the landing) and is the identity at 100% (contract v3.1's declared size, pixel for pixel).
+  it('writes the small-text scale: 1.8 at the landing floor, 1 at 100%, removed on unmount', () => {
+    const landing = mountAt(0.5)
+    expect(landing.host.style.getPropertyValue(CANVAS_SMALL_LABEL_SCALE_VAR)).toBe('1.8')
+    // CONTRAST: the label scale at the same zoom is lower (it protects 11px text, not 10px).
+    expect(Number(landing.host.style.getPropertyValue(CANVAS_LABEL_SCALE_VAR))).toBeLessThan(1.8)
+    landing.unmount()
+    expect(landing.host.style.getPropertyValue(CANVAS_SMALL_LABEL_SCALE_VAR)).toBe('')
+    cleanup(); document.body.innerHTML = ''
+    const full = mountAt(1)
+    expect(full.host.style.getPropertyValue(CANVAS_SMALL_LABEL_SCALE_VAR)).toBe('1')
   })
 
   it('CONTRAST CONTROL: the value differs by zoom — it is not a constant', () => {

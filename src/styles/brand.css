@@ -331,6 +331,10 @@
      the text ceiling, so icons and hit targets keep their declared size at the
      landing. Written beside the label scale by `CanvasLabelScaleSync`. */
   --canvas-glyph-scale: 1;
+  /* The SMALL-TEXT counter-scale — `smallLabelCounterScale(zoom)`: text declared
+     below `nodeLabel` (the 10px source mark, 10/10.5px metas) reaches the same
+     9px landing floor. Written beside the label scale by `CanvasLabelScaleSync`. */
+  --canvas-small-label-scale: 1;
 
   --goal-rgb: 245 196 51;
 

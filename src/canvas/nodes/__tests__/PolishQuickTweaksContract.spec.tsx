@@ -226,7 +226,7 @@ describe('TierLanes — row labels are 10px (contract v3.1 `.layer-label`) at 0.
     // contract v3.1 `.layer-label` = 10px; edgeLabel = 11px; nodeLabel (the
     // old token) = 12px — three distinct class strings, so this cannot pass
     // against any of the other two by accident.
-    expect(title.className).toContain('text-[length:calc(10px*var(--canvas-label-scale,1))]')
+    expect(title.className).toContain('text-[length:calc(10px*var(--canvas-small-label-scale,1))]')
     expect(title.className).not.toContain('text-[length:calc(11px*var(--canvas-label-scale,1))]')
     expect(title.className).not.toContain('text-[length:calc(12px*var(--canvas-label-scale,1))]')
     // v3.1 WS1 #26: 0.5px ON SCREEN — counter-scaled with the 10px beside it
