@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Share2, Users, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
+import { Share2, Users, UserPlus, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import styles from './TopBar.module.css'
 import { UserAvatarMenu } from './UserAvatarMenu'
@@ -12,6 +12,7 @@ import { ownerPanelHash } from '../../collab/panelRoute'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import { useUIStore } from '../../stores/uiStore'
 import { useIsViewer } from '../../lib/viewerMode'
+import { ShareDecisionDialog } from '../sharing/ShareDecisionDialog'
 
 // Custom events for help actions (communicated to ReactFlowGraph)
 // Lane 4 (P5): SHOW_ONBOARDING removed — its only dispatcher was the kebab
@@ -84,6 +85,7 @@ export const TopBar = ({
 }: TopBarProps) => {
   const [showSavedPill, setShowSavedPill] = useState(false)
   const isViewer = useIsViewer()
+  const [inviteOpen, setInviteOpen] = useState(false)
 
   // The kebab menu's open-state lives in uiStore, NOT in component-local
   // `useState`. That is the whole point: `applyV5State` dispatches the AI's
@@ -406,6 +408,30 @@ export const TopBar = ({
               <Share2 size={14} aria-hidden="true" />
             </button>
           </Tooltip>
+        )}
+
+        {/* ACCOUNTS "Invite a colleague" (view only): the owner's in-decision entry, beside
+            the brief link. Same condition as Share (a persisted scenario the user owns;
+            CanvasMVP passes null for guests and viewers). The server enforces ownership. */}
+        {shareScenarioId != null && shareScenarioId !== '' && (
+          <Tooltip content="Invite a colleague to view this decision">
+            <button
+              type="button"
+              onClick={() => setInviteOpen(true)}
+              className={styles.shareButton}
+              aria-label="Invite a colleague to view this decision"
+              data-testid="topbar-invite"
+            >
+              <UserPlus size={14} aria-hidden="true" />
+            </button>
+          </Tooltip>
+        )}
+        {inviteOpen && shareScenarioId != null && shareScenarioId !== '' && (
+          <ShareDecisionDialog
+            scenarioId={shareScenarioId}
+            scenarioTitle={scenarioTitle}
+            onClose={() => setInviteOpen(false)}
+          />
         )}
 
         {/* ⭐ VERSION HISTORY — THE REAL CONTROL (R4, Paul, 16 Aug 2026).

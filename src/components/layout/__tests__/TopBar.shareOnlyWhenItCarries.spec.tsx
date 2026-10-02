@@ -30,8 +30,13 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+vi.mock('../../../services/scenarioSharingService', () => ({
+  listScenarioMembers: vi.fn(async () => ({ ok: true, members: [] })),
+  shareScenario: vi.fn(),
+  unshareScenario: vi.fn(),
+}))
 import { TopBar } from '../TopBar'
 import { ToastProvider } from '../../../canvas/ToastContext'
 
@@ -95,5 +100,19 @@ describe('TopBar share control', () => {
     // POSITIVE CONTROL for the probe: it must be able to read a non-empty name
     // at all, or the assertion above would pass on an unlabelled button.
     expect(name.length).toBeGreaterThan(0)
+  })
+})
+
+describe('TopBar invite control (ACCOUNTS: invite a colleague, view only)', () => {
+  it('is ABSENT for a guest / unsaved canvas and for a viewer (CanvasMVP passes null)', () => {
+    renderBar({ shareScenarioId: null })
+    expect(screen.queryByTestId('topbar-invite')).toBeNull()
+  })
+
+  it('is PRESENT for the owner of a persisted scenario and opens the invite dialog for THAT scenario', async () => {
+    renderBar({ shareScenarioId: 'scn_abc123' })
+    expect(screen.queryByTestId('share-decision-dialog')).toBeNull()
+    fireEvent.click(screen.getByTestId('topbar-invite'))
+    expect(await screen.findByTestId('share-decision-dialog')).toHaveTextContent('Pricing decision')
   })
 })
