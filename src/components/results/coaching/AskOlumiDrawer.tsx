@@ -31,6 +31,7 @@ import { MODEL_LIMIT_CAVEAT } from '../utils/modelLimitCaveat'
 import { typography } from '../../../styles/typography'
 import { useAskOlumiStore } from './askOlumiStore'
 import { ICON_STANDALONE } from '../../../canvas/conversation/panelIcons'
+import { useIsViewer, VIEWER_COMPOSER_NOTICE } from '../../../lib/viewerMode'
 
 const TOAST_MS = 1800
 
@@ -55,6 +56,9 @@ export function AskOlumiDrawer() {
   const dispatchAction = useGuidanceStore((s) => s._dispatchAction)
   const sendMessage = useGuidanceStore((s) => s._sendMessage)
   const canSend = dispatchAction !== null || sendMessage !== null
+  // ACCOUNTS viewer mode (PANEL 5951237365): the drawer sends a turn, which only the
+  // owner may; a viewer gets the same neutral notice as the composer.
+  const isViewer = useIsViewer()
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
@@ -234,6 +238,11 @@ export function AskOlumiDrawer() {
             >
               {MODEL_LIMIT_CAVEAT}
             </p>
+            {isViewer ? (
+              <p data-testid="ask-olumi-viewer-notice" className={`${typography.panelBody} text-text-light`}>
+                {VIEWER_COMPOSER_NOTICE}
+              </p>
+            ) : (
             <textarea
               ref={textareaRef}
               data-testid="ask-olumi-draft"
@@ -242,7 +251,8 @@ export function AskOlumiDrawer() {
               rows={3}
               className={`${typography.panelBody} min-h-[64px] w-full resize-y rounded-[9px] border border-panel-border bg-transparent px-2 py-2 text-text-body focus:outline-none`}
             />
-            {!canSend && (
+            )}
+            {!isViewer && !canSend && (
               <p className={`${typography.panelMeta} mt-1 text-text-light`}>
                 Open the Olumi chat to send this — the conversation is not
                 available right now.
@@ -258,6 +268,7 @@ export function AskOlumiDrawer() {
                   Focus on canvas
                 </button>
               )}
+              {!isViewer && (
               <button
                 type="button"
                 onClick={handleSend}
@@ -266,6 +277,7 @@ export function AskOlumiDrawer() {
               >
                 Send
               </button>
+              )}
             </div>
           </div>
         </aside>
