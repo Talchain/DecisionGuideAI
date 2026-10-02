@@ -21,7 +21,7 @@ vi.mock('@xyflow/react', async () => {
   }
 })
 
-import { ghostBandText, ghostStatusText, ProposalGhostLayer, PROPOSAL_GHOST_TESTID } from '../ProposalGhostLayer'
+import { CANVAS_BAND_WORD, ghostBandText, ghostStatusText, ProposalGhostLayer, PROPOSAL_GHOST_TESTID } from '../ProposalGhostLayer'
 import { GHOST_CARD_WIDTH, GHOST_GAP_X, GHOST_CARD_HEIGHT, GHOST_GAP_Y, proposalGhostGeometry } from '../../utils/proposalGhostGeometry'
 import { useProposalGhostStore } from '../../stores/proposalGhostStore'
 import { readProposalPreviewValue, type ProposalPreview } from '../../conversation/proposalPreview'
@@ -217,6 +217,11 @@ describe('the producer\'s other ops: a new link\'s band, an option\'s status', (
     expect(ghostBandText({ band: 'moderate', keeps: true, reverses: false })).toBe('Record as moderate')
     expect(ghostBandText({ band: 'moderate', keeps: false, reverses: false })).toBe('Proposed: moderate')
     expect(ghostBandText({ band: 'strong', keeps: true, reverses: true })).toBe('Proposed: strong, direction reversed')
+    // ⛔ The canvas's word, never the enum's: CEE `weak` is the canvas's "slight" (served: "Proposed: weak" beside "as slight").
+    expect(ghostBandText({ band: 'weak', keeps: false, reverses: false })).toBe('Proposed: slight')
+    expect(ghostBandText({ band: 'weak', keeps: true, reverses: false })).toBe('Record as slight')
+    // The map is CEE's CANVAS_BAND_WORD (edge-strength-bands.ts @ 41105c78), literal for literal.
+    expect(CANVAS_BAND_WORD).toEqual({ weak: 'slight', moderate: 'moderate', strong: 'strong', 'very strong': 'very strong' })
     expect(ghostStatusText('infeasible')).toBe('Proposed · Taken out: not feasible')
     expect(ghostStatusText('removed')).toBe('Proposed · Taken out')
     expect(ghostStatusText('feasible')).toBe('Proposed · Back in the comparison')
