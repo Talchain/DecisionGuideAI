@@ -76,6 +76,19 @@ describe('DecisionBriefView', () => {
     expect(screen.queryByTestId('brief-chances-note')).toBeNull()
   })
 
+  it('a decision on record renders as its own section with the storage sentence; none → no section', async () => {
+    const base = await briefOf(currentRead)
+    const record = { heading: 'Decision recorded', position: 'Keep the £49 price', rows: [{ label: 'Because', text: 'Churn risk' }],
+      recordedOn: 'Recorded 2 Oct 2026', storage: 'On this device, for this scenario.', yourView: 'Your view, not an agreed team decision.' }
+    render(<DecisionBriefView brief={{ ...base, record }} onShowNode={vi.fn()} />)
+    expect(screen.getByTestId('brief-record-position').textContent).toBe('Keep the £49 price')
+    expect(screen.getByTestId('brief-record-storage').textContent).toBe(
+      'Recorded 2 Oct 2026. On this device, for this scenario. Your view, not an agreed team decision.')
+    cleanup()
+    render(<DecisionBriefView brief={{ ...base, record: null }} onShowNode={vi.fn()} />)
+    expect(screen.queryByTestId('brief-record')).toBeNull()
+  })
+
   it('the print page escapes model text', async () => {
     const brief = await briefOf(currentRead)
     const html = decisionBriefToHtml({ ...brief, decision: { nodeId: null, label: '<script>x</script>' } })

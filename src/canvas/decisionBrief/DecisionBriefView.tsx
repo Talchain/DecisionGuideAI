@@ -129,6 +129,27 @@ export function DecisionBriefView({ brief, onShowNode }: DecisionBriefViewProps)
         )}
       </Section>
 
+      {brief.record && (
+        <Section title={brief.record.heading} testId="brief-record">
+          <p className="font-medium" data-testid="brief-record-position">{brief.record.position}</p>
+          {brief.record.rows.length > 0 && (
+            <dl className="mt-1.5 space-y-1">
+              {brief.record.rows.map((row) => (
+                <div key={row.label}>
+                  <dt className="inline text-text-light">{row.label}: </dt>
+                  <dd className="inline">{row.text}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          <p className="mt-2 text-xs text-text-light" data-testid="brief-record-storage">
+            {[brief.record.recordedOn ? `${brief.record.recordedOn}.` : null, brief.record.storage, brief.record.yourView]
+              .filter(Boolean)
+              .join(' ')}
+          </p>
+        </Section>
+      )}
+
       {current && brief.drivers.length > 0 && (
         <Section title="What drives the result most" testId="brief-drivers">
           <ol className="list-decimal space-y-1 pl-5">
