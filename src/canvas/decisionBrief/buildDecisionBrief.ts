@@ -137,8 +137,10 @@ export interface DecisionBriefModel {
   readonly limits: readonly BriefLimit[]
   readonly figures: readonly BriefFigure[]
   readonly run: BriefRun
-  /** Per-option Run figures — EMPTY unless `run.status === 'current'`. */
+  /** Per-option Run figures — EMPTY unless `run.status === 'current'`, and EMPTY when no option has a figure. */
   readonly chances: readonly BriefOptionChance[]
+  /** On a current Run where no option has a figure: ONE line in place of a row per option (the reasons are in `withheld`). */
+  readonly chancesNote: string | null
   /** Top drivers of the Run — EMPTY unless `run.status === 'current'`. */
   readonly drivers: readonly BriefDriver[]
   readonly withheld: readonly BriefWithheld[]
@@ -161,7 +163,7 @@ export const DECISION_BRIEF_COPY = {
   goalTargetNeed: (goal: string) => `I need a target for ‘${goal}’ before I can say how often each option reaches it.`,
   chanceTail: 'of model runs',
   noFigure: 'No figure for this option on this Run.',
-  fieldIncomplete: 'Held back because another option has no figure on this Run.',
+  noChances: 'No option’s chance of reaching your target is shown for this Run. The reasons are below.',
 } as const
 
 // ─── Graph reading (allowlisted fields) ─────────────────────────────────────
@@ -341,6 +343,7 @@ export function buildDecisionBrief(read: SavedScenarioRead): DecisionBriefModel 
 
   const { run, withheld } = runOf(read)
   const chances: BriefOptionChance[] = []
+  let chancesNote: string | null = null
   const drivers: BriefDriver[] = []
 
   if (run.status === 'current') {
@@ -391,10 +394,11 @@ export function buildDecisionBrief(read: SavedScenarioRead): DecisionBriefModel 
     // ⭐ THE COMPLETE-FIELD RULE, as the Reasoning tab applies it (`buildAnalysisNewViewModel`, optionsComparison): a
     // figure for SOME of the compared options is a ranking over a subset, read as one over the options. So when any
     // option in the population has no figure, none is shown; each withheld option keeps its own reason above.
-    if (fieldIncomplete) {
-      chances.forEach((c, i) => {
-        if (c.chanceText !== null) chances[i] = { ...c, chanceText: null, caveat: null, withheldText: DECISION_BRIEF_COPY.fieldIncomplete }
-      })
+    // And when no option has a figure, the brief says so ONCE (as the tab's single withheld message does), never a
+    // row per option repeating "no figure" over the reasons below.
+    if (fieldIncomplete || (chances.length > 0 && chances.every((c) => c.chanceText === null))) {
+      chances.length = 0
+      chancesNote = DECISION_BRIEF_COPY.noChances
     }
 
     for (const d of widened.drivers ?? []) {
@@ -421,6 +425,7 @@ export function buildDecisionBrief(read: SavedScenarioRead): DecisionBriefModel 
     figures,
     run,
     chances,
+    chancesNote,
     drivers,
     withheld,
     version: {
@@ -464,6 +469,7 @@ export function decisionBriefToText(brief: DecisionBriefModel): string {
   for (const c of brief.chances) {
     lines.push(`- ${c.optionLabel}: ${c.chanceText ?? c.withheldText ?? DECISION_BRIEF_COPY.noFigure}${c.caveat ? ` (${c.caveat})` : ''}`)
   }
+  if (brief.chancesNote) lines.push(`- ${brief.chancesNote}`)
   lines.push('')
   if (brief.drivers.length > 0) {
     lines.push('What drives the result most')

@@ -124,6 +124,9 @@ export function DecisionBriefView({ brief, onShowNode }: DecisionBriefViewProps)
             ))}
           </ul>
         )}
+        {current && brief.chancesNote && (
+          <p className="mt-2" data-testid="brief-chances-note">{brief.chancesNote}</p>
+        )}
       </Section>
 
       {current && brief.drivers.length > 0 && (

@@ -44,6 +44,7 @@ export function decisionBriefToHtml(brief: DecisionBriefModel): string {
       ),
     )
   }
+  if (current && brief.chancesNote) parts.push(`<p>${esc(brief.chancesNote)}</p>`)
   if (current && brief.drivers.length > 0) {
     parts.push(`<h2>What drives the result most</h2>${list(brief.drivers.map((d) => esc(d.label)), true)}`)
   }

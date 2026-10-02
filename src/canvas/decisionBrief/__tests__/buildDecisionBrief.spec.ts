@@ -142,23 +142,21 @@ describe('buildDecisionBrief — a Run that is not current shows no figure as cu
 })
 
 describe('buildDecisionBrief — a withheld goal figure is a reason, not a number (served c96fc4bb)', () => {
-  it('each option whose 0/1 figure is unearned carries the producer’s sentence and no figure', async () => {
+  it('each option whose 0/1 figure is unearned gives the producer’s sentence as a reason, bound to the option', async () => {
     const brief = buildDecisionBrief(await readOf(unearnedRead))
     expect(brief.run.status).toBe('current')
 
     for (const id of ['raise_price_to_59', 'raise_price_to_54']) {
-      const row = brief.chances.find((c) => c.optionId === id)
-      expect(row?.chanceText).toBeNull()
-      expect(row?.withheldText).toMatch(/^Olumi can’t yet say how likely/)
-      expect(row?.withheldText).not.toMatch(/\d+%/)
       const why = brief.withheld.find((w) => w.id === `goal:certainty:${id}`)
+      expect(why?.text).toMatch(/^Olumi can’t yet say how likely/)
+      expect(why?.text).not.toMatch(/\d+%/)
       expect(why?.nodeId).toBe(id)
     }
-    // ⛔ THE COMPLETE-FIELD RULE (the Reasoning tab's): the EARNED option's figure is held back too, never shown alone.
-    const earned = brief.chances.find((c) => c.optionId === 'keep_current_price')
-    expect(earned?.chanceText).toBeNull()
-    expect(earned?.withheldText).toBe(DECISION_BRIEF_COPY.fieldIncomplete)
-    expect(brief.chances.every((c) => c.chanceText === null)).toBe(true)
+    // ⛔ THE COMPLETE-FIELD RULE (the Reasoning tab's): the EARNED option's figure is held back too, never shown alone,
+    // and with no option carrying a figure the brief says so ONCE, not a row per option.
+    expect(brief.chances).toEqual([])
+    expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.noChances)
+    expect(decisionBriefToText(brief)).not.toMatch(/of model runs/)
   })
 
   it('CONTRAST: the same Run with the two withheld options taken out (not in the Run) → the earned figure is shown', async () => {
@@ -172,6 +170,7 @@ describe('buildDecisionBrief — a withheld goal figure is a reason, not a numbe
     expect(brief.run.status).toBe('current')
     expect(brief.chances.find((c) => c.optionId === 'keep_current_price')?.chanceText).toMatch(/of model runs$/)
     for (const id of out) expect(brief.chances.find((c) => c.optionId === id)?.withheldText).toBe(DECISION_BRIEF_COPY.noFigure)
+    expect(brief.chancesNote).toBeNull()
   })
 })
 
@@ -179,11 +178,10 @@ describe('buildDecisionBrief — goal figures withheld for the whole Run (served
   it('no option carries a figure; the producer’s reason is said once, bound to the goal', async () => {
     const brief = buildDecisionBrief(await readOf(identityWithheldRead))
     expect(brief.run.status).toBe('current')
-    expect(brief.chances.length).toBe(3)
-    for (const c of brief.chances) {
-      expect(c.chanceText).toBeNull()
-      expect(c.withheldText).toBe(DECISION_BRIEF_COPY.noFigure)
-    }
+    // ONE line, not three "No figure for this option" rows over the reason below (served D1 witness 5947614047).
+    expect(brief.chances).toEqual([])
+    expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.noChances)
+    expect(decisionBriefToText(brief).match(new RegExp(DECISION_BRIEF_COPY.noFigure, 'g'))).toBeNull()
     const reasons = brief.withheld.filter((w) => w.id === 'goal:identity')
     expect(reasons).toHaveLength(1)
     expect(reasons[0].text).toMatch(/^Not shown\./)
