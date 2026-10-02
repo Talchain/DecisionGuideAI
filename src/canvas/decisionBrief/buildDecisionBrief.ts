@@ -163,7 +163,7 @@ export const DECISION_BRIEF_COPY = {
   goalTargetNeed: (goal: string) => `I need a target for ‘${goal}’ before I can say how often each option reaches it.`,
   chanceTail: 'of model runs',
   noFigure: 'No figure for this option on this Run.',
-  noChances: 'No option’s chance of reaching your target is shown for this Run. The reasons are below.',
+  noChances: 'No option has a figure for reaching your target on this Run. The reasons are below.',
 } as const
 
 // ─── Graph reading (allowlisted fields) ─────────────────────────────────────
