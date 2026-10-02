@@ -33,59 +33,80 @@ export type GuestCopyRun =
   | { kind: 'copied'; sourceScenarioId: string; scenarioId: string; created: boolean; adopted: boolean }
   | { kind: 'not_copyable'; sourceScenarioId: string }
   | { kind: 'retry_later'; sourceScenarioId: string; reason: string }
+  /** The account changed (or signed out) while the request ran: nothing was cleared, adopted or announced. */
+  | { kind: 'stale'; sourceScenarioId: string }
 
 export interface GuestCopyDeps {
   request?: typeof requestGuestCopy
-  /** Open the copy on a clean canvas. Defaults to the canvas store's `adoptScenario`. */
-  adopt?: (scenarioId: string) => Promise<void>
+  /**
+   * Open the copy on a clean canvas, only if the canvas still shows the guest
+   * source. Returns whether it adopted. Defaults to the canvas store.
+   */
+  adopt?: (sourceScenarioId: string, copyScenarioId: string, isCurrent: () => boolean) => Promise<boolean>
+  /** False once the auth generation that started this run has ended (sign-out, account change). */
+  isCurrent?: () => boolean
 }
 
-async function adoptInCanvasStore(scenarioId: string): Promise<void> {
+async function adoptInCanvasStore(sourceScenarioId: string, copyScenarioId: string, isCurrent: () => boolean): Promise<boolean> {
   // Loaded on demand: the store belongs to the lazily loaded canvas routes, and
   // this runs at most once per sign-in.
   const { useCanvasStore } = await import('../canvas/store')
-  useCanvasStore.getState().adoptScenario(scenarioId)
+  // ⚠ RE-CHECKED HERE, SYNCHRONOUSLY WITH THE ADOPTION, not before the await:
+  // the user can open another decision while the store loads, and
+  // `useScenario.loadScenario` changes the LIVE store without writing the disk
+  // pointer. Both must still name the guest source, or adopting would wipe the
+  // decision now on screen.
+  const store = useCanvasStore.getState()
+  if (!isCurrent() || store.currentScenarioId !== sourceScenarioId || readCurrentScenarioPointer() !== sourceScenarioId) {
+    return false
+  }
+  store.adoptScenario(copyScenarioId)
+  return true
 }
 
-let inFlight: Promise<GuestCopyRun> | null = null
+let inFlight: { token: string; run: Promise<GuestCopyRun> } | null = null
 
 /**
- * Copy whatever guest id is pending. Concurrent calls share one request: two
- * auth events in the same tick, or StrictMode's double mount, must not send two.
+ * Copy whatever guest id is pending. Concurrent calls WITH THE SAME TOKEN share
+ * one request (two auth events in a tick, StrictMode's double mount). A
+ * different token is a different sign-in and never joins another's run.
  */
 export function runPendingGuestCopy(accessToken: string, deps: GuestCopyDeps = {}): Promise<GuestCopyRun> {
-  if (inFlight) return inFlight
-  inFlight = copyPending(accessToken, deps).finally(() => {
-    inFlight = null
+  if (inFlight && inFlight.token === accessToken) return inFlight.run
+  const entry = { token: accessToken, run: copyPending(accessToken, deps) }
+  inFlight = entry
+  void entry.run.finally(() => {
+    if (inFlight === entry) inFlight = null
   })
-  return inFlight
+  return entry.run
 }
 
 async function copyPending(accessToken: string, deps: GuestCopyDeps): Promise<GuestCopyRun> {
   const source = readPendingGuestCopy()
   if (source === null) return { kind: 'nothing_pending' }
+  const isCurrent = deps.isCurrent ?? (() => true)
 
   const outcome = await (deps.request ?? requestGuestCopy)(source, accessToken)
 
+  if (!isCurrent()) return { kind: 'stale', sourceScenarioId: source }
   if (outcome.kind === 'retry_later') {
-    // Kept: 401, 429, 503 (the SQL may not be applied yet), a network failure,
-    // or an unrecognised answer. The next sign-in or page load tries again.
+    // Kept: 401, 429, 503, a network failure, or an unrecognised answer. The next
+    // sign-in or signed-in page load tries again.
     return { kind: 'retry_later', sourceScenarioId: source, reason: outcome.reason }
   }
   if (outcome.kind === 'not_copyable') {
     // Terminal: absent, owned, no model, too large or malformed. It will never copy.
-    clearPendingGuestCopy()
+    clearPendingGuestCopy(source)
     return { kind: 'not_copyable', sourceScenarioId: source }
   }
 
-  clearPendingGuestCopy()
+  clearPendingGuestCopy(source)
   let adopted = false
   if (readCurrentScenarioPointer() === source) {
     try {
-      await (deps.adopt ?? adoptInCanvasStore)(outcome.scenarioId)
-      adopted = true
+      adopted = await (deps.adopt ?? adoptInCanvasStore)(source, outcome.scenarioId, isCurrent)
     } catch {
-      // The copy exists and is listed either way; only the canvas pointer stays put.
+      // The copy exists and is listed either way; only the canvas stays put.
     }
   }
   const detail: GuestCopiedDetail = { sourceScenarioId: source, scenarioId: outcome.scenarioId, created: outcome.created }

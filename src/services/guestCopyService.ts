@@ -45,30 +45,36 @@ export async function requestGuestCopy(
   accessToken: string,
 ): Promise<GuestCopyOutcome> {
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+  // The deadline covers the BODY too: a stalled body would otherwise hold the
+  // run (and the module-wide in-flight slot) open with no timer left.
   const timer = controller ? setTimeout(() => controller.abort(), GUEST_COPY_TIMEOUT_MS) : null
 
   let response: Response
+  let body: Record<string, unknown> | null
   try {
     response = await fetch(guestCopyUrl(sourceScenarioId), {
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}` },
       signal: controller?.signal,
     })
+    body = (await response.json().catch(() => null)) as Record<string, unknown> | null
   } catch (err) {
     return { kind: 'retry_later', reason: err instanceof Error && err.name === 'AbortError' ? 'timeout' : 'network_error' }
   } finally {
     if (timer) clearTimeout(timer)
   }
-
-  const body = (await response.json().catch(() => null)) as Record<string, unknown> | null
+  if (controller?.signal.aborted) return { kind: 'retry_later', reason: 'timeout' }
 
   if (response.status === 200) {
     const scenarioId = body?.scenario_id
-    // A 2xx that does not name a different, well-formed scenario is not a copy.
-    // Forgetting the guest id on it would lose the guest's work.
-    if (!UUID_RE.test(typeof scenarioId === 'string' ? scenarioId : '') || scenarioId === sourceScenarioId) {
-      return { kind: 'retry_later', reason: 'malformed_response' }
-    }
+    // A 2xx that does not name a DIFFERENT well-formed scenario, with a boolean
+    // `created`, is not a copy. Forgetting the guest id on it would lose the work.
+    const wellFormed =
+      typeof scenarioId === 'string' &&
+      UUID_RE.test(scenarioId) &&
+      scenarioId.toLowerCase() !== sourceScenarioId.toLowerCase() &&
+      typeof body?.created === 'boolean'
+    if (!wellFormed) return { kind: 'retry_later', reason: 'malformed_response' }
     return { kind: 'copied', scenarioId: scenarioId as string, created: body?.created === true }
   }
 

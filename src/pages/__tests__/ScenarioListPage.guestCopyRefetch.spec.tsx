@@ -60,4 +60,23 @@ describe('ScenarioListPage — guest copy refetch', () => {
     expect(mockListScenarios.mock.calls.length).toBe(callsBefore + 1)
     expect(mockListScenarios).toHaveBeenLastCalledWith('u1')
   })
+
+  it('a SLOWER pre-copy request that resolves after the post-copy refetch cannot remove the copy', async () => {
+    let releaseFirst: (rows: unknown[]) => void = () => {}
+    mockListScenarios.mockReset()
+    mockListScenarios
+      .mockImplementationOnce(() => new Promise((resolve) => { releaseFirst = resolve })) // mount: still in flight
+      .mockImplementation(async () => [row('s1', 'Existing decision'), row(COPY, 'Guest decision')])
+    render(<MemoryRouter><ScenarioListPage /></MemoryRouter>)
+    await waitFor(() => expect(mockListScenarios).toHaveBeenCalledTimes(1))
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(GUEST_COPIED_EVENT, { detail: { sourceScenarioId: 'x', scenarioId: COPY, created: true } }))
+    })
+    await waitFor(() => expect(screen.getByText('Guest decision')).toBeTruthy())
+
+    await act(async () => { releaseFirst([row('s1', 'Existing decision')]); await new Promise((r) => setTimeout(r, 0)) })
+
+    expect(screen.getByText('Guest decision')).toBeTruthy()
+  })
 })

@@ -63,6 +63,9 @@ describe('requestGuestCopy — outcomes', () => {
     ['no scenario_id', { created: true }],
     ['a non-UUID scenario_id', { scenario_id: 'nope', created: true }],
     ['the SOURCE id echoed back', { scenario_id: SOURCE, created: true }],
+    ['the SOURCE id echoed back in upper case', { scenario_id: SOURCE.toUpperCase(), created: true }],
+    ['no created flag', { scenario_id: COPY }],
+    ['a non-boolean created', { scenario_id: COPY, created: 'yes' }],
   ])('200 with %s is NOT a copy → retry_later', async (_label, body) => {
     vi.stubGlobal('fetch', respond(200, body))
     await expect(requestGuestCopy(SOURCE, TOKEN)).resolves.toEqual({ kind: 'retry_later', reason: 'malformed_response' })
@@ -103,6 +106,19 @@ describe('requestGuestCopy — outcomes', () => {
         init.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })))
       }),
     ))
+    const pending = requestGuestCopy(SOURCE, TOKEN)
+    await vi.advanceTimersByTimeAsync(GUEST_COPY_TIMEOUT_MS)
+    await expect(pending).resolves.toEqual({ kind: 'retry_later', reason: 'timeout' })
+  })
+
+  it('a STALLED BODY is bounded too (headers arrived, json never settles) → retry_later timeout', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init: RequestInit) => ({
+      status: 200,
+      json: () => new Promise((_resolve, reject) => {
+        init.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })))
+      }),
+    })))
     const pending = requestGuestCopy(SOURCE, TOKEN)
     await vi.advanceTimersByTimeAsync(GUEST_COPY_TIMEOUT_MS)
     await expect(pending).resolves.toEqual({ kind: 'retry_later', reason: 'timeout' })

@@ -97,9 +97,13 @@ export function capturePendingGuestCopy(): string | null {
  * Release the slot. Call ONLY after a successful copy, or a refusal that proves
  * the id can never be copied. Clearing on a transient failure would discard the
  * only route back to the guest's work.
+ *
+ * `expected`: clear only if the slot still holds THAT id. A late answer for one
+ * id must never delete a different id captured since.
  */
-export function clearPendingGuestCopy(): void {
+export function clearPendingGuestCopy(expected?: string): void {
   try {
+    if (expected !== undefined && localStorage.getItem(PENDING_GUEST_COPY_KEY) !== expected) return
     localStorage.removeItem(PENDING_GUEST_COPY_KEY)
   } catch {
     // The slot stays occupied, which fails safe.

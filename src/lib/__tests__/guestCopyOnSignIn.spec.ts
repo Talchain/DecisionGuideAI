@@ -133,32 +133,32 @@ describe('runPendingGuestCopy — outcomes', () => {
   it('copied: clears the slot, adopts the NEW id while the pointer still names the guest, and announces it', async () => {
     localStorage.setItem(PENDING_GUEST_COPY_KEY, GUEST)
     localStorage.setItem(CURRENT_SCENARIO_KEY, GUEST)
-    const adopt = vi.fn(async () => {})
+    const adopt = vi.fn(async () => true)
 
     const run = await runPendingGuestCopy(TOKEN, { request: requestReturning({ kind: 'copied', scenarioId: COPY, created: true }), adopt })
 
     expect(run).toEqual({ kind: 'copied', sourceScenarioId: GUEST, scenarioId: COPY, created: true, adopted: true })
     expect(localStorage.getItem(PENDING_GUEST_COPY_KEY)).toBeNull()
-    expect(adopt).toHaveBeenCalledWith(COPY)
+    expect(adopt).toHaveBeenCalledWith(GUEST, COPY, expect.any(Function))
     expect(events).toEqual([{ sourceScenarioId: GUEST, scenarioId: COPY, created: true }])
   })
 
   it('CONTRAST: copied after the user already opened something else → NOT pulled away (no adopt), still announced', async () => {
     localStorage.setItem(PENDING_GUEST_COPY_KEY, GUEST)
     localStorage.setItem(CURRENT_SCENARIO_KEY, OTHER)
-    const adopt = vi.fn(async () => {})
+    const adopt = vi.fn(async () => true)
 
     const run = await runPendingGuestCopy(TOKEN, { request: requestReturning({ kind: 'copied', scenarioId: COPY, created: false }), adopt })
 
     expect(run).toMatchObject({ kind: 'copied', adopted: false })
     expect(adopt).not.toHaveBeenCalled()
-    expect(events).toHaveLength(1)
+    expect(events).toEqual([{ sourceScenarioId: GUEST, scenarioId: COPY, created: false }])
   })
 
   it('not_copyable: terminal — clears the slot; no adopt, no announcement', async () => {
     localStorage.setItem(PENDING_GUEST_COPY_KEY, GUEST)
     localStorage.setItem(CURRENT_SCENARIO_KEY, GUEST)
-    const adopt = vi.fn(async () => {})
+    const adopt = vi.fn(async () => true)
 
     const run = await runPendingGuestCopy(TOKEN, { request: requestReturning({ kind: 'not_copyable' }), adopt })
 
@@ -171,7 +171,7 @@ describe('runPendingGuestCopy — outcomes', () => {
   it('retry_later: KEEPS the slot (503 before the SQL is applied, network, 401…); no adopt, no announcement', async () => {
     localStorage.setItem(PENDING_GUEST_COPY_KEY, GUEST)
     localStorage.setItem(CURRENT_SCENARIO_KEY, GUEST)
-    const adopt = vi.fn(async () => {})
+    const adopt = vi.fn(async () => true)
 
     const run = await runPendingGuestCopy(TOKEN, { request: requestReturning({ kind: 'retry_later', reason: 'copy_unavailable' }), adopt })
 
@@ -186,12 +186,53 @@ describe('runPendingGuestCopy — outcomes', () => {
     let release: (o: GuestCopyOutcome) => void = () => {}
     const request = vi.fn(() => new Promise<GuestCopyOutcome>((resolve) => { release = resolve }))
 
-    const a = runPendingGuestCopy(TOKEN, { request, adopt: async () => {} })
-    const b = runPendingGuestCopy(TOKEN, { request, adopt: async () => {} })
+    const a = runPendingGuestCopy(TOKEN, { request, adopt: async () => true })
+    const b = runPendingGuestCopy(TOKEN, { request, adopt: async () => true })
     release({ kind: 'not_copyable' })
     await Promise.all([a, b])
 
     expect(request).toHaveBeenCalledTimes(1)
+    expect(request).toHaveBeenCalledWith(GUEST, TOKEN)
+  })
+
+  it('CONTRAST: a DIFFERENT token (another sign-in) never joins the first run', async () => {
+    localStorage.setItem(PENDING_GUEST_COPY_KEY, GUEST)
+    const releases: Array<(o: GuestCopyOutcome) => void> = []
+    const request = vi.fn(() => new Promise<GuestCopyOutcome>((resolve) => { releases.push(resolve) }))
+
+    const a = runPendingGuestCopy('token-a', { request, adopt: async () => true })
+    const b = runPendingGuestCopy('token-b', { request, adopt: async () => true })
+    releases.forEach((release) => release({ kind: 'retry_later', reason: 'x' }))
+    await Promise.all([a, b])
+
+    expect(request.mock.calls.map((c) => (c as unknown[])[1])).toEqual(['token-a', 'token-b'])
+  })
+
+  it('STALE: the account changed while the request ran → nothing cleared, adopted or announced', async () => {
+    localStorage.setItem(PENDING_GUEST_COPY_KEY, GUEST)
+    localStorage.setItem(CURRENT_SCENARIO_KEY, GUEST)
+    const adopt = vi.fn(async () => true)
+    let current = true
+    const request = vi.fn(async () => { current = false; return { kind: 'copied', scenarioId: COPY, created: true } as GuestCopyOutcome })
+
+    const run = await runPendingGuestCopy(TOKEN, { request, adopt, isCurrent: () => current })
+
+    expect(run).toEqual({ kind: 'stale', sourceScenarioId: GUEST })
+    expect(localStorage.getItem(PENDING_GUEST_COPY_KEY)).toBe(GUEST)
+    expect(adopt).not.toHaveBeenCalled()
+    expect(events).toEqual([])
+  })
+
+  it('a late answer never deletes a DIFFERENT id captured while it ran', async () => {
+    localStorage.setItem(PENDING_GUEST_COPY_KEY, GUEST)
+    const request = vi.fn(async () => {
+      localStorage.setItem(PENDING_GUEST_COPY_KEY, OTHER) // replaced mid-flight
+      return { kind: 'not_copyable' } as GuestCopyOutcome
+    })
+
+    await runPendingGuestCopy(TOKEN, { request, adopt: async () => true })
+
+    expect(localStorage.getItem(PENDING_GUEST_COPY_KEY)).toBe(OTHER)
   })
 })
 
@@ -217,5 +258,20 @@ describe('runPendingGuestCopy — the REAL canvas store adopts the copy, and the
     expect(localStorage.getItem(AUTOSAVE_KEY)).toBeNull()
     expect(useCanvasStore.getState().currentScenarioId).toBe(COPY)
     expect(useCanvasStore.getState().nodes).toEqual([])
+  })
+
+  it('CONTRAST: the user opened ANOTHER decision (live store moved, disk pointer not) → adoption declines; that canvas is untouched', async () => {
+    const { useCanvasStore } = await import('../../canvas/store')
+    localStorage.setItem(PENDING_GUEST_COPY_KEY, GUEST)
+    localStorage.setItem(CURRENT_SCENARIO_KEY, GUEST) // useScenario.loadScenario does not write the pointer
+    const opened = [{ id: 'b_goal', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'B' } }]
+    useCanvasStore.setState({ currentScenarioId: OTHER, nodes: opened as never })
+
+    const run = await runPendingGuestCopy(TOKEN, { request: requestReturning({ kind: 'copied', scenarioId: COPY, created: true }) })
+
+    expect(run).toMatchObject({ kind: 'copied', adopted: false })
+    expect(useCanvasStore.getState().currentScenarioId).toBe(OTHER)
+    expect(useCanvasStore.getState().nodes).toEqual(opened)
+    expect(localStorage.getItem(CURRENT_SCENARIO_KEY)).toBe(GUEST)
   })
 })

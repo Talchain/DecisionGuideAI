@@ -27,7 +27,10 @@ vi.mock('../../../lib/storedSupabaseSession', () => ({ hasStoredSupabaseSession:
 // Here the store is stubbed so a slow dynamic import under load cannot hold one
 // row's copy in flight into the next row (runs are de-duplicated module-wide).
 const mockAdopt = vi.fn()
-vi.mock('../../../canvas/store', () => ({ useCanvasStore: { getState: () => ({ adoptScenario: mockAdopt }) } }))
+const store = vi.hoisted(() => ({ current: null as string | null }))
+vi.mock('../../../canvas/store', () => ({
+  useCanvasStore: { getState: () => ({ currentScenarioId: store.current, adoptScenario: mockAdopt }) },
+}))
 
 const mockRequest = vi.fn()
 vi.mock('../../../services/guestCopyService', () => ({
@@ -67,6 +70,7 @@ beforeEach(() => {
   auth.unavailable = false
   mockRequest.mockReset()
   mockAdopt.mockReset()
+  store.current = GUEST
 })
 
 describe('GuestCopyOnSignIn', () => {
@@ -168,5 +172,52 @@ describe('GuestCopyOnSignIn', () => {
 
     await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(2))
     expect(mockRequest).toHaveBeenLastCalledWith(OTHER, 'token-b')
+  })
+
+  it('on an UNRELATED scenario route: copied, but no adoption and no navigation away from what the user opened', async () => {
+    localStorage.setItem('olumi-canvas-current-scenario-id', GUEST)
+    store.current = OTHER
+    mockRequest.mockResolvedValue({ kind: 'copied', scenarioId: COPY, created: true })
+    renderAt(`/scenario/${OTHER}`)
+
+    emit('INITIAL_SESSION', null)
+    emit('SIGNED_IN', { access_token: TOKEN })
+    await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(1))
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+
+    expect(mockAdopt).not.toHaveBeenCalled()
+    expect(screen.getByTestId('where').textContent).toBe(`/scenario/${OTHER}`)
+  })
+
+  it('on /canvas but adoption DECLINED (another decision is live): no navigation', async () => {
+    localStorage.setItem('olumi-canvas-current-scenario-id', GUEST)
+    store.current = OTHER
+    mockRequest.mockResolvedValue({ kind: 'copied', scenarioId: COPY, created: true })
+    renderAt('/canvas')
+
+    emit('INITIAL_SESSION', null)
+    emit('SIGNED_IN', { access_token: TOKEN })
+    await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(1))
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+
+    expect(mockAdopt).not.toHaveBeenCalled()
+    expect(screen.getByTestId('where').textContent).toBe('/canvas')
+  })
+
+  it('account changes while the copy runs: the first account\'s late success adopts, navigates and clears NOTHING', async () => {
+    localStorage.setItem('olumi-canvas-current-scenario-id', GUEST)
+    let finish: (o: unknown) => void = () => {}
+    mockRequest.mockImplementation(() => new Promise((resolve) => { finish = resolve }))
+    renderAt('/canvas')
+
+    emit('INITIAL_SESSION', null)
+    emit('SIGNED_IN', { access_token: 'token-a', user: { id: 'user-a' } } as never)
+    await waitFor(() => expect(mockRequest).toHaveBeenCalledWith(GUEST, 'token-a'))
+    emit('SIGNED_IN', { access_token: 'token-b', user: { id: 'user-b' } } as never)
+    await act(async () => { finish({ kind: 'copied', scenarioId: COPY, created: true }); await new Promise((r) => setTimeout(r, 0)) })
+
+    expect(mockAdopt).not.toHaveBeenCalled()
+    expect(screen.getByTestId('where').textContent).toBe('/canvas')
+    expect(localStorage.getItem('olumi.pendingGuestCopy.v1')).toBe(GUEST)
   })
 })

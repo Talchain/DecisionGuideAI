@@ -11,7 +11,7 @@
  * the user is still looking at the guest decision, opens the copy instead.
  */
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import { supabase } from '../../lib/supabase'
@@ -22,6 +22,10 @@ import { forgetPendingGuestCopyOnSignOut } from '../../lib/pendingGuestCopy'
 export default function GuestCopyOnSignIn(): null {
   const navigate = useNavigate()
   const location = useLocation()
+  // Read ONCE, on the first render — before any effect (the auth SDK's own
+  // init, a page's verifyOtp) can write a session — so a real guest sign-in is
+  // never mistaken for a restore. The same reason as OptionalAuthProvider's seed.
+  const [startedWithStoredSession] = useState(hasStoredSupabaseSession)
   // Read at outcome time, not subscription time: the copy lands after the
   // sign-in has already navigated. Held in refs so the subscription below is made
   // ONCE: under a non-data router `navigate` changes identity on every route
@@ -33,16 +37,31 @@ export default function GuestCopyOnSignIn(): null {
   navigateRef.current = navigate
 
   useEffect(() => {
-    const tracker = createSignInTransitionTracker(hasStoredSupabaseSession())
+    const tracker = createSignInTransitionTracker(startedWithStoredSession)
+    // One auth GENERATION per signed-in person. A sign-out or a different user
+    // ends it, and a copy started under an ended generation clears, adopts,
+    // announces and navigates nothing.
+    let generation = 0
+    let lastUserId: string | null = null
     let unsubscribe: (() => void) | undefined
     try {
       const { data } = supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_OUT') forgetPendingGuestCopyOnSignOut()
-        const run = handleAuthObservation(tracker.observe(Boolean(session)), session?.access_token)
+        const userId = session?.user?.id ?? null
+        if (event === 'SIGNED_OUT') {
+          generation += 1
+          forgetPendingGuestCopyOnSignOut()
+        } else if (userId !== null && lastUserId !== null && userId !== lastUserId) {
+          generation += 1
+        }
+        if (userId !== null) lastUserId = userId
+        const started = generation
+        const run = handleAuthObservation(tracker.observe(Boolean(session)), session?.access_token, {
+          isCurrent: () => generation === started,
+        })
         void run?.then((result) => {
-          if (result.kind !== 'copied') return
-          // Still on the guest decision (the canvas, or its own route): open the
-          // copy. Anywhere else (the hub after sign-in), the refreshed list shows it.
+          // Only a copy this tab actually ADOPTED may move the view: if the user
+          // opened something else meanwhile, adoption declined and so does this.
+          if (result.kind !== 'copied' || !result.adopted || generation !== started) return
           const path = pathRef.current
           if (path === '/canvas' || path === `/scenario/${result.sourceScenarioId}`) {
             navigateRef.current(`/scenario/${result.scenarioId}`, { replace: true })
@@ -55,7 +74,7 @@ export default function GuestCopyOnSignIn(): null {
       // follow, and the shell must still boot — `OptionalAuthProvider`'s rule.
     }
     return () => unsubscribe?.()
-  }, [])
+  }, [startedWithStoredSession])
 
   return null
 }
