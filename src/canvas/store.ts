@@ -1254,6 +1254,11 @@ interface CanvasState {
      * `moved`. The id Sets above stay the membership test every existing reader uses. Absent on other sources.
      */
     nodeMarks?: ReadonlyMap<string, import('./graphChanges/graphChangesView').RunChangeMark>
+    /**
+     * `run_changes` only: the two cards at the ends of every marked link. They stay at full strength while the rest
+     * are subdued, so a link-only change reads as "this link, between these two" (audit 5942900903 (a)).
+     */
+    contextNodeIds?: ReadonlySet<string>
     edgeMarks?: ReadonlyMap<string, import('./graphChanges/graphChangesView').RunChangeMark>
   }
   dimmedNodeIds: Set<string>
@@ -7927,6 +7932,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     })
   },
   setRunChangesHighlight: ({ nodeMarks, edgeMarks }) => {
+    const contextNodeIds = new Set<string>()
+    for (const e of get().edges) {
+      if (edgeMarks.has(e.id)) {
+        contextNodeIds.add(e.source)
+        contextNodeIds.add(e.target)
+      }
+    }
     set({
       analysisHighlight: {
         source: 'run_changes',
@@ -7934,6 +7946,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         nodeIds: new Set(nodeMarks.keys()),
         nodeMarks: new Map(nodeMarks),
         edgeMarks: new Map(edgeMarks),
+        contextNodeIds,
       },
     })
   },

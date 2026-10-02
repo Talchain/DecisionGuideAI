@@ -512,11 +512,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const runChangeMark = useCanvasStore(
     s => (s.analysisHighlight?.source === 'run_changes' ? s.analysisHighlight.nodeMarks?.get(id) ?? null : null),
   )
+  // ⭐ A LINK-ONLY CHANGE SUBDUES TOO (audit 5942900903 (a)): the rule is the edges' — anything marked subdues what is
+  // not — bar the cards at the ends of a marked link, which are the link's context. A projection that marks nothing
+  // still subdues nothing.
   const isRunChangeSubdued = useCanvasStore(
     s =>
       s.analysisHighlight?.source === 'run_changes' &&
-      (s.analysisHighlight.nodeIds?.size ?? 0) > 0 &&
-      s.analysisHighlight.nodeIds.has(id) === false,
+      (s.analysisHighlight.nodeIds?.size ?? 0) + (s.analysisHighlight.edgeIds?.size ?? 0) > 0 &&
+      s.analysisHighlight.nodeIds.has(id) === false &&
+      s.analysisHighlight.contextNodeIds?.has(id) !== true,
   )
   /**
    * D2: level-of-detail — which rung of the semantic-zoom ladder the canvas is

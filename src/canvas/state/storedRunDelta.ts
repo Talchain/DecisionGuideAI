@@ -83,3 +83,14 @@ export function runDeltaDescribesDisplayedAnalysis(
   // behaves as it did before this slice existed.
   return stored.scenarioId === (currentScenarioId ?? null)
 }
+
+/**
+ * CEE's reason for sending NO run_delta on the latest analysis (`analysis_ready.run_delta_absence_reason`), as the
+ * store holds it; null when absent or not a string. THE ONE READER: Reasoning (`useAnalysisNewViewModel`) and the
+ * Compare tab's empty state both read it here, and both word it through `runDeltaSentence`, so the two surfaces
+ * cannot say different things about the same pair (audit 5942900903 (b)).
+ */
+export function selectRunDeltaAbsenceReason(s: { ceeAnalysisReady?: unknown }): string | null {
+  const r = (s.ceeAnalysisReady as { run_delta_absence_reason?: unknown } | null | undefined)?.run_delta_absence_reason
+  return typeof r === 'string' ? r : null
+}

@@ -241,6 +241,12 @@ export const EDGE_GLOW = Object.freeze({
   hover: edgeGlow(1.5, 25),
   flipRisk: edgeGlow(3, 45),
   sensitivity: edgeGlow(2, 35),
+  /**
+   * A changed link (Compare open) that its row is pointing at RIGHT NOW (hover / keyboard focus). The changed link
+   * already wears `selected`, so the row's highlight must say something MORE, or the hover is a no-op (audit
+   * 5942900903 (a2), served `d48cd152`: identical computed style before and after). Same info hue, a step stronger.
+   */
+  lit: edgeGlow(3.5, 60),
 })
 
 /**
@@ -2707,7 +2713,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             if (isRunChangedEdge && !selected && !isHighlightedEdge) shadows.push(EDGE_GLOW.selected)
             if (!isSelectionDimmed) {
               if (selected) shadows.push(EDGE_GLOW.selected)
-              else if (isHighlightedEdge) shadows.push(EDGE_GLOW.selected)
+              else if (isHighlightedEdge) shadows.push(isRunChangedEdge ? EDGE_GLOW.lit : EDGE_GLOW.selected)
               else if (isHovered) shadows.push(EDGE_GLOW.hover)
             }
             return shadows.length > 0 ? shadows.join(' ') : undefined
