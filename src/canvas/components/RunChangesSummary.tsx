@@ -121,7 +121,7 @@ export function RunChangesSummary(): JSX.Element | null {
         >
           <dl className="m-0 flex flex-col gap-2">
             {detailRepeatsChanged && (
-            <DetailLine label={COPY.changed} id="changed">
+            <DetailLine label={lines.changed.length === 0 ? COPY.inputs : COPY.changed} id="changed">
               {lines.changed.length === 0 ? (
                 <span className="text-text-light">{lines.changedNote}</span>
               ) : (
@@ -196,7 +196,7 @@ export function RunChangesSummary(): JSX.Element | null {
           className={`${typography.panelMeta} min-w-0 truncate text-text-body`}
           title={[changedHead, movedHead].filter(Boolean).join(' · ')}
         >
-          {changedHead !== null && <span className="text-text-light">{COPY.changed} </span>}
+          {changedHead !== null && <span className="text-text-light">{lines.changed.length === 0 ? COPY.inputs : COPY.changed} </span>}
           {changedHead === null ? null : headLink ? (
             <button
               type="button"

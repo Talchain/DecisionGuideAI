@@ -115,7 +115,10 @@ describe('M2-1b · no input rows: Compare\'s sentence for the coverage, never a 
       expect(lines.changed).toEqual([])
       expect(lines.changedNote).toBe(text)
       render(<RunChangesSummary />)
-      expect(screen.getByTestId(`${T}-line`).textContent).toBe(`${RUN_CHANGES_SUMMARY_COPY.changed} ${text} · ${RUN_CHANGES_SUMMARY_COPY.moved} ${noiseQualifier('within_noise')}`)
+      // No rows → the label says what the note is about ("Inputs"), never "Changed" over "Both runs used the same input
+      // values." (served 2 Oct, guest 4b218a76: every unchanged rerun read "Changed Both runs used the same input values.").
+      expect(screen.getByTestId(`${T}-line`).textContent).toBe(`${RUN_CHANGES_SUMMARY_COPY.inputs} ${text} · ${RUN_CHANGES_SUMMARY_COPY.moved} ${noiseQualifier('within_noise')}`)
+      expect(screen.getByTestId(`${T}-line`).textContent).not.toContain(RUN_CHANGES_SUMMARY_COPY.changed)
       cleanup()
     })
   }
