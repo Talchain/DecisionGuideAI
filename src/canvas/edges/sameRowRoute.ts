@@ -38,14 +38,20 @@
  * SAME anchor (`PlacementEdge.anchor`), so the chip's dodge is computed from
  * where the chip actually sits.
  *
- * ⚠ GLYPHS STAY DISTINCT. Only the adjacent card on each side can take the
+ * ⚠ ENTRIES STAY DISTINCT. Only the adjacent card on each side can take the
  * `side` route into a target. Two `under` routes into one target from the same
  * side have different numbers of cards between them, and each extra card moves
  * the entry one glyph ring step outward and the run one step deeper — so
- * neither the leads nor the glyphs coincide.
+ * neither the leads nor the signs coincide. Since 28 Sep 2026 a route carries
+ * no sign position of its own: `StyledEdge` stands every link's `+` / `−` ON
+ * that link's drawn path, just behind its arrowhead (`edgeGlyphPlacement.ts`
+ * rule B), and a route's sign is placed like any other. The route used to hold
+ * it 14 units off its line (half a box and the mark gap), which put it more
+ * than 6 units from the link it names.
  */
-import { GLYPH_BOX_GAP_FLOW, GLYPH_PAINTED_BOX_FLOW, GLYPH_RING_STEP } from '../utils/edgeGlyphPlacement'
-import { EDGE_ARROWHEAD_FLOW_LENGTH } from './edgePresentation'
+import { GLYPH_BOX_GAP_FLOW, GLYPH_RING_STEP } from '../utils/edgeGlyphPlacement'
+import { ROW_PROMPT_H, ROW_PROMPT_W, TIER_BY_KIND } from '../utils/nodeLayoutConstants'
+import { isGhostNode } from '../utils/fitTargets'
 
 /** A card's box in graph units. */
 export interface RouteBox {
@@ -62,9 +68,6 @@ export interface SameRowRoute {
   kind: SameRowRouteKind
   /** SVG path `d`. */
   path: string
-  /** Absolute centre of the +/− glyph for this route. */
-  glyphX: number
-  glyphY: number
   /**
    * Where the causal label is anchored, ON the drawn path — or `null` to keep
    * the handle midpoint (`side`, where that midpoint is already on the line).
@@ -189,9 +192,6 @@ export function resolveSameRowRoute(
     return {
       kind: 'side',
       path: `M${sFace},${y} L${endX},${y}`,
-      // In the gutter, just behind the arrowhead, clear above the line.
-      glyphX: r2(endX - dir * EDGE_ARROWHEAD_FLOW_LENGTH),
-      glyphY: r2(y - (GLYPH_PAINTED_BOX_FLOW / 2 + GLYPH_BOX_GAP_FLOW)),
       labelAnchor: null,
     }
   }
@@ -226,13 +226,9 @@ export function resolveSameRowRoute(
     .map((o) => o.y)
   const hRoom = belowTops.length > 0 ? (Math.min(...belowTops) - UNDER_ROW_CLEARANCE - base) / 0.75 : Infinity
   const h = r2(Math.max(hClear, Math.min(wanted, hRoom)))
-  const glyphSide = GLYPH_PAINTED_BOX_FLOW / 2 + GLYPH_BOX_GAP_FLOW
   return {
     kind: 'under',
     path: `M${sx},${sBottom} C${sx},${r2(sBottom + h)} ${tx},${r2(ty + h)} ${tx},${ty}`,
-    // Beside the rising lead, on the side away from the arc.
-    glyphX: r2(tx + dir * glyphSide),
-    glyphY: r2(ty + glyphSide),
     // The arc's own midpoint (t = 0.5): x is the ends' mean because each control
     // point shares its end's x; y is the ends' mean plus 0.75·h.
     labelAnchor: { x: r2((sx + tx) / 2), y: r2((sBottom + ty) / 2 + 0.75 * h) },
@@ -319,23 +315,31 @@ function insideBox(p: { x: number; y: number }, o: RouteBox): boolean {
   return p.x > o.x && p.x < o.x + o.width && p.y > o.y && p.y < o.y + o.height
 }
 
-/** The cards the whole path passes under (a graze on the full box counts). */
+/**
+ * The cards the whole path passes under (a graze on the full box counts).
+ * ⭐ Tests the CHORD between consecutive samples, not the samples alone — the
+ * same corner-cut gap `firstHit` closed (27 Sep 2026).
+ */
 function riseHits(g: RiseGeometry, obstacles: readonly RouteBox[]): RouteBox[] {
   const pts = risePoints(g)
-  return obstacles.filter((o) => pts.some((p) => insideBox(p, o)))
+  return obstacles.filter((o) =>
+    pts.some((p, i) => insideBox(p, o) || (i > 0 && segmentHitsBox(pts[i - 1]!.x, pts[i - 1]!.y, p.x, p.y, o))),
+  )
 }
 
-/** The first card the cubic (leads excluded) passes under, in path order. */
+/** The first card the cubic (leads excluded) passes under, in path order; chords, as `firstHit`. */
 function riseCubicFirstHit(sx: number, outY: number, tx: number, inY: number, span: readonly RouteBox[]): RouteBox | null {
   const b = riseBend(outY, inY)
-  for (let i = 1; i < RISE_SAMPLES; i++) {
+  let prev = { x: sx, y: outY }
+  for (let i = 1; i <= RISE_SAMPLES; i++) {
     const t = i / RISE_SAMPLES
     const u = 1 - t
     const p = {
       x: u * u * u * sx + 3 * u * u * t * sx + 3 * u * t * t * tx + t * t * t * tx,
       y: u * u * u * outY + 3 * u * u * t * (outY - b) + 3 * u * t * t * (inY + b) + t * t * t * inY,
     }
-    for (const o of span) if (insideBox(p, o)) return o
+    for (const o of span) if (segmentHitsBox(prev.x, prev.y, p.x, p.y, o)) return o
+    prev = p
   }
   return null
 }
@@ -435,7 +439,6 @@ export function resolveRisingRoute(
     }
   }
   const { g } = best!
-  const side = g.tx >= g.sx ? 1 : -1
   const r = (n: number) => r2(n)
   const outY = r(g.outY)
   const inY = r(g.inY)
@@ -444,13 +447,9 @@ export function resolveRisingRoute(
     (outY < g.sy ? `M${g.sx},${g.sy} L${g.sx},${outY} ` : `M${g.sx},${g.sy} `) +
     `C${g.sx},${r(outY - bend)} ${g.tx},${r(inY + bend)} ${g.tx},${inY}` +
     (inY > g.ty ? ` L${g.tx},${g.ty}` : '')
-  const glyphSide = GLYPH_PAINTED_BOX_FLOW / 2 + GLYPH_BOX_GAP_FLOW
   return {
     kind: 'rise',
     path,
-    // Beside the rising lead, on the side away from where the curve comes in.
-    glyphX: r2(g.tx + side * glyphSide),
-    glyphY: r2(g.ty + glyphSide),
     // The cubic's t = 0.5 point — on the drawn line (control points share
     // their end's x, and the bends cancel).
     labelAnchor: { x: r2((g.sx + g.tx) / 2), y: r2((outY + inY) / 2) },
@@ -490,6 +489,46 @@ export function routeBoxOf(n: {
 }
 
 /**
+ * The boxes the layered router must clear, each with its band's tier: every
+ * measured, visible card — and, since POM-6 (27 Sep 2026), every row-end
+ * PROMPT ("What else could go wrong?"). A prompt is drawn as an opaque card, so
+ * a line under it reads as passing through a card exactly as under a real one:
+ * on Paul's 90b8 board "Pro paying subscribers → MRR" and "Other MRR growth →
+ * MRR" ran under the risk row's prompt. It takes the tier of the family it ends
+ * (`data.tier`; the joint consequence door says 'consequence'). It is never an
+ * endpoint — no edge connects to a prompt.
+ */
+export function layeredRouteBoxes(
+  nodes: ReadonlyArray<Parameters<typeof routeBoxOf>[0] & { type?: string; hidden?: boolean; data?: unknown }>,
+  isHidden: (id: string) => boolean,
+): Array<RouteBox & { tier: number }> {
+  const boxes: Array<RouteBox & { tier: number }> = []
+  for (const n of nodes) {
+    if (n.hidden || isHidden(n.id)) continue
+    let kind: unknown = n.type
+    let sized = n
+    if (isGhostNode(n.id)) {
+      const tierName = (n.data as { tier?: unknown } | undefined)?.tier
+      kind = tierName === 'consequence' ? 'outcome' : tierName
+      // A prompt is not a model node, so the app never writes its measured size
+      // back to the store (served 90b8: no `measured` on `__ghost-risk__`). It is
+      // drawn at the fixed prompt size (`ROW_PROMPT_W` wide, `ROW_PROMPT_H` floor),
+      // which the layout reserved for it.
+      sized = {
+        ...n,
+        width: n.measured?.width ?? n.width ?? ROW_PROMPT_W,
+        height: n.measured?.height ?? n.height ?? ROW_PROMPT_H,
+      }
+    }
+    const tier = typeof kind === 'string' ? TIER_BY_KIND[kind] : undefined
+    if (tier === undefined) continue
+    const box = routeBoxOf(sized)
+    if (box) boxes.push({ ...box, tier })
+  }
+  return boxes
+}
+
+/**
  * ⭐⭐ v3.1 WS1 #10 (26 Sep 2026): A LAYERED EDGE NEVER RUNS UNDER A CARD THAT
  * IS NOT ITS ENDPOINT — it leaves its row, and enters its target's row, by a
  * vertical lead exactly as deep as needed.
@@ -519,12 +558,22 @@ export interface LayeredEdgeLeads {
   outY: number
   /** The y the vertical lead-in starts at (≤ the target point). */
   inY: number
+  /**
+   * ⭐ POM-6 (27 Sep 2026): a SIDEWAYS DETOUR past an intermediate-tier card that
+   * no vertical lead can clear — both the source port and the target handle sit
+   * inside its x-range, so neither lead can run beside it. The line crosses to a
+   * column `x` beside the card, runs down it from `top` (above the card) to
+   * `bottom` (below it), and crosses back to the target. Absent when no detour
+   * is needed or none is clear (the plain leads are drawn, as before).
+   */
+  via?: { x: number; top: number; bottom: number }
 }
 
 /** Clearance kept between a lead's turn and the card it clears, in flow units. */
 const LEAD_CLEARANCE = 10
 /** A graze counts: the test is on the card's full box (probes that grade the
- *  result use a 3-unit inset, so this is strictly the stricter of the two). */
+ *  result use a 3-unit inset). It is the stricter of the two only because the
+ *  CHORDS between samples are tested, not the samples alone — see `firstHit`. */
 const LEAD_HIT_INSET = 0
 const LEAD_SAMPLES = 64
 const LEAD_MAX_ROUNDS = 8
@@ -541,6 +590,43 @@ function cubicPoint(sx: number, outY: number, tx: number, inY: number, t: number
   return { x, y }
 }
 
+/**
+ * Whether the segment `a → b` passes through the OPEN box `o` (shrunk by
+ * `LEAD_HIT_INSET`): a Liang–Barsky clip, so a segment that only touches the
+ * border does not count and one that cuts a corner does.
+ */
+function segmentHitsBox(ax: number, ay: number, bx: number, by: number, o: RouteBox): boolean {
+  let lo = 0
+  let hi = 1
+  const clip = (p: number, d: number, min: number, max: number): boolean => {
+    if (d === 0) return p > min && p < max
+    let t0 = (min - p) / d
+    let t1 = (max - p) / d
+    if (t0 > t1) [t0, t1] = [t1, t0]
+    if (t0 > lo) lo = t0
+    if (t1 < hi) hi = t1
+    return lo < hi
+  }
+  return (
+    clip(ax, bx - ax, o.x + LEAD_HIT_INSET, o.x + o.width - LEAD_HIT_INSET) &&
+    clip(ay, by - ay, o.y + LEAD_HIT_INSET, o.y + o.height - LEAD_HIT_INSET)
+  )
+}
+
+/**
+ * The first card the cubic (leads excluded) passes under, in path order.
+ *
+ * ⭐ THE CHORDS, NOT THE SAMPLES (27 Sep 2026). Testing only the 64 sample
+ * POINTS let a diagonal that cuts a card's corner between two samples read as
+ * clear: nine factors (5+4) over six consequences (3+3) at sibling gap 32,
+ * tall-middle heights — fac_5 → risk_1 was inside out_0 only for t in
+ * [0.3441, 0.3566], 3.7 units deep, between the samples at 22/64 and 23/64,
+ * so it got no lead and was drawn under out_0. Each chord between consecutive
+ * samples is tested instead. A chord strays from the cubic by at most
+ * h²/8 · max|B''| (h = 1/64), which for this cubic is under (span + 90) / 5461:
+ * about 0.1 unit on that edge, and under the probes' 3-unit inset for any span
+ * below ~16,000 units — so whatever they can see on the cubic, this sees.
+ */
 function firstHit(
   sx: number,
   outY: number,
@@ -548,14 +634,11 @@ function firstHit(
   inY: number,
   obstacles: ReadonlyArray<RouteBox & { tier: number }>,
 ): (RouteBox & { tier: number }) | null {
-  for (let i = 1; i < LEAD_SAMPLES; i++) {
+  let prev = cubicPoint(sx, outY, tx, inY, 0)
+  for (let i = 1; i <= LEAD_SAMPLES; i++) {
     const p = cubicPoint(sx, outY, tx, inY, i / LEAD_SAMPLES)
-    for (const b of obstacles) {
-      if (
-        p.x > b.x + LEAD_HIT_INSET && p.x < b.x + b.width - LEAD_HIT_INSET &&
-        p.y > b.y + LEAD_HIT_INSET && p.y < b.y + b.height - LEAD_HIT_INSET
-      ) return b
-    }
+    for (const b of obstacles) if (segmentHitsBox(prev.x, prev.y, p.x, p.y, b)) return b
+    prev = p
   }
   return null
 }
@@ -609,6 +692,7 @@ export function resolveLayeredEdgeLeads(
   let inY = targetY
   let clear = false
   let active = obstacles
+  let detourCard: (RouteBox & { tier: number }) | null = null
   // A dropped card does not spend a round (`continue` below): `active` shrinks
   // each time, so the loop still ends.
   for (let round = 0; round < LEAD_MAX_ROUNDS; ) {
@@ -633,6 +717,9 @@ export function resolveLayeredEdgeLeads(
       if (!spansX(hit, sourceX) && verticalClear(sourceX, outY, below, boxes, sourceId, targetId)) outY = Math.max(outY, below)
       else if (!spansX(hit, targetX) && verticalClear(targetX, above, inY, boxes, sourceId, targetId)) inY = Math.min(inY, above)
       else {
+        // POM-6: no vertical lead can clear it — remember it for a sideways
+        // detour (resolved once the end-tier leads have settled, below).
+        if (detourCard === null) detourCard = hit
         active = active.filter((b) => b !== hit)
         continue
       }
@@ -653,8 +740,70 @@ export function resolveLayeredEdgeLeads(
     }
     if (!(inY > outY)) return null
   }
+  if (detourCard !== null) {
+    const via = resolveDetour(sourceId, targetId, sourceX, outY, targetX, inY, detourCard, boxes)
+    if (via) return { outY, inY, via }
+  }
   if (outY === sourceY && inY === targetY) return null
   return { outY, inY }
+}
+
+/** The column's offset from a card with no neighbour on that side, in flow units. */
+const DETOUR_OFFSET = 24
+
+/** Does the contract cubic from (x0, y0) down to (x1, y1) pass under any card but the ends'? */
+function cubicClear(
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  boxes: ReadonlyArray<RouteBox & { tier: number }>,
+  sourceId: string,
+  targetId: string,
+): boolean {
+  if (!(y1 > y0)) return false
+  const others = boxes.filter((b) => b.id !== sourceId && b.id !== targetId)
+  return firstHit(x0, y0, x1, y1, others) === null
+}
+
+/**
+ * ⭐ POM-6 (27 Sep 2026): the sideways detour around `card`. Served on Paul's
+ * MRR board, "Pro paying subscribers → MRR" left its source straight down
+ * THROUGH "Price sensitivity" (the port at x 740 and the goal handle at 832 both
+ * inside its 616–864) and read as a Price sensitivity → MRR link the model does
+ * not hold. The column is the middle of the gap to the card's neighbour on that
+ * side (or `DETOUR_OFFSET` out where there is none); the side nearer the target
+ * is tried first. A column is taken only if the vertical run and BOTH crossing
+ * cubics pass under no card but the edge's own ends — otherwise `null`, and the
+ * caller draws the plain leads exactly as before. The layout never moves.
+ */
+function resolveDetour(
+  sourceId: string,
+  targetId: string,
+  sourceX: number,
+  outY: number,
+  targetX: number,
+  inY: number,
+  card: RouteBox,
+  boxes: ReadonlyArray<RouteBox & { tier: number }>,
+): LayeredEdgeLeads['via'] | null {
+  const top = card.y - LEAD_CLEARANCE
+  const bottom = card.y + card.height + LEAD_CLEARANCE
+  if (!(top - outY > 12) || !(inY - bottom > 12)) return null
+  const beside = (b: RouteBox) => b.id !== card.id && b.y < bottom && b.y + b.height > top
+  const right = card.x + card.width
+  const rightNeighbour = boxes.filter((b) => beside(b) && b.x >= right).sort((a, b) => a.x - b.x)[0]
+  const leftNeighbour = boxes.filter((b) => beside(b) && b.x + b.width <= card.x).sort((a, b) => b.x + b.width - (a.x + a.width))[0]
+  const rightX = rightNeighbour ? (right + rightNeighbour.x) / 2 : right + DETOUR_OFFSET
+  const leftX = leftNeighbour ? (leftNeighbour.x + leftNeighbour.width + card.x) / 2 : card.x - DETOUR_OFFSET
+  const columns = Math.abs(rightX - targetX) <= Math.abs(leftX - targetX) ? [rightX, leftX] : [leftX, rightX]
+  for (const x of columns) {
+    if (!verticalClear(x, top, bottom, boxes, sourceId, targetId)) continue
+    if (!cubicClear(sourceX, outY, x, top, boxes, sourceId, targetId)) continue
+    if (!cubicClear(x, bottom, targetX, inY, boxes, sourceId, targetId)) continue
+    return { x, top, bottom }
+  }
+  return null
 }
 
 /**
@@ -669,11 +818,37 @@ export function layeredLeadPath(
   targetY: number,
   leads: LayeredEdgeLeads,
 ): [string, number, number] {
-  const { outY, inY } = leads
+  const { outY, inY, via } = leads
+  if (via) {
+    // POM-6: across to the detour column, down it past the card, across to the
+    // target — each crossing the contract's near-straight cubic. The label
+    // anchors on the column run, which is on the drawn line.
+    const b1 = contractBend(outY, via.top)
+    const b2 = contractBend(via.bottom, inY)
+    const path =
+      `M${sourceX},${sourceY} L${sourceX},${outY} ` +
+      `C${sourceX},${outY + b1} ${via.x},${via.top - b1} ${via.x},${via.top} ` +
+      `L${via.x},${via.bottom} ` +
+      `C${via.x},${via.bottom + b2} ${targetX},${inY - b2} ${targetX},${inY} ` +
+      `L${targetX},${targetY}`
+    return [path, via.x, (via.top + via.bottom) / 2]
+  }
   const bend = contractBend(outY, inY)
   const path =
     `M${sourceX},${sourceY} L${sourceX},${outY} ` +
     `C${sourceX},${outY + bend} ${targetX},${inY - bend} ${targetX},${inY} ` +
     `L${targetX},${targetY}`
   return [path, (sourceX + targetX) / 2, (outY + inY) / 2]
+}
+
+/**
+ * The layered path with NO leads — the contract's near-straight cubic from the
+ * source's port to the target's handle (`bend = max(6, min(30, Δy/2))`). ONE
+ * spelling, read by `StyledEdge` (its own edge) and by the fragile-cue pass
+ * (`fragileCuePlacement.ts`, every other cue's edge), so the two cannot draw
+ * the same connection two ways.
+ */
+export function contractLayeredPath(sourceX: number, sourceY: number, targetX: number, targetY: number): string {
+  const bend = contractBend(sourceY, targetY)
+  return `M${sourceX},${sourceY} C${sourceX},${sourceY + bend} ${targetX},${targetY - bend} ${targetX},${targetY}`
 }

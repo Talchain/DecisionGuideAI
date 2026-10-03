@@ -234,16 +234,15 @@ describe('the carrierless neighbours stay shut', () => {
    * ⚠ `paste` LEFT THIS LIST (A20, 25 Sep 2026) — see the note above the
    * `does not offer %s` cases, where it now belongs.
    */
+  // ⚠ RE-PINNED at Undo S5 (30 Sep 2026): undo/redo have a carrier now — CEE's version restore
+  // (`undo/undoCommand.ts`) — so they left the carrierless set and are offered as ACTIONABLE rows.
   it.each(['undo', 'redo'])(
-    'offers %s as a disabled row with a reason, never as an actionable one',
+    'offers %s as an actionable row (the saved-change command)',
     id => {
       const entry = paneMenuEntries().find(e => e.id === id)
       expect(entry, `${id} should be surfaced, not hidden`).toBeDefined()
-      expect(entry?.enabled ?? false, `${id} actionable`).toBe(false)
-      expect(
-        String(entry?.tooltip ?? entry?.disabledReason ?? '').length,
-        `${id} carries a reason`,
-      ).toBeGreaterThan(0)
+      expect(entry?.enabled, `${id} actionable`).toBe(true)
+      expect(entry?.disabledReason ?? '', `${id} carries no unavailable reason`).toBe('')
     },
   )
 

@@ -18,7 +18,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useReactFlow } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { cameraDuration } from '../utils/cameraMotion'
-import { computeFocusPlan } from '../utils/focusNeighbourhood'
+import { computeEdgeFocusPlan, computeFocusPlan } from '../utils/focusNeighbourhood'
 import { readFocusCamera, nodesComfortablyVisible } from '../utils/cameraComfort'
 import { createFocusFitSuppressor } from '../utils/focusLens'
 import { registerFocusHelpers, registerFitNodes } from '../utils/focusHelpers'
@@ -109,21 +109,14 @@ export function useFocusCamera(): FocusCameraHandlers {
   // Focus edge handler (for Results panel drivers)
   const handleFocusEdge = useCallback((edgeId: string) => {
     const store = useCanvasStore.getState()
-    const targetEdge = store.edges.find((e) => e.id === edgeId)
-    if (!targetEdge) return
+    // The whole decision is the pure computeEdgeFocusPlan (same no-churn rule as a node's); this handler applies it.
+    const plan = computeEdgeFocusPlan(edgeId, store.nodes, store.edges, readFocusCamera(getViewportRef.current))
+    if (!plan) return // fail-closed: the edge or an end is not on the canvas
 
-    const sourceNode = store.nodes.find((n) => n.id === targetEdge.source)
-    const targetNode = store.nodes.find((n) => n.id === targetEdge.target)
-    if (!sourceNode || !targetNode) return
-
-    // Calculate midpoint between source and target
-    const midX = (sourceNode.position.x + targetNode.position.x) / 2
-    const midY = (sourceNode.position.y + targetNode.position.y) / 2
-
-    // Select edge (not in history, just for visual feedback)
-    useCanvasStore.setState({
-      edges: store.edges.map((e) => ({ ...e, selected: e.id === edgeId })),
-    })
+    // Select ONLY the edge, without history (navigation only) — the edge twin of the node branch's
+    // selectNodeWithoutHistory. A card selected before must not survive into a mixed card + link selection, which
+    // gets no focus at all (served `b1fa145b`: a card selected, then a Changes row → both selected, nothing dimmed).
+    store.selectEdgeWithoutHistory(edgeId)
 
     // F3: focusing an EDGE ends any node focus lens. This pans the camera away
     // from the focused node, and the dim must never survive the frame it was
@@ -132,9 +125,10 @@ export function useFocusCamera(): FocusCameraHandlers {
     // camera emits no move at all. No-op when no focus dim is active.
     useCanvasStore.getState().clearFocusDim()
 
-    // Center viewport on edge midpoint with smooth animation
+    // Centre on the link's midpoint ONLY when it is not already comfortably in view (DL 5939855664: no camera jumps).
+    if (!plan.moveCamera) return
     const viewport = getViewportRef.current()
-    setCenterRef.current(midX, midY, {
+    setCenterRef.current(plan.midX, plan.midY, {
       zoom: viewport.zoom,
       duration: cameraDuration(300, reducedMotionRef.current),
     })

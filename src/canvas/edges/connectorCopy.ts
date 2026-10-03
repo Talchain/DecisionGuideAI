@@ -97,6 +97,21 @@ export function edgeArrowSentence(
 export const EDGE_EXISTENCE_DOUBT_SENTENCE =
   'A doubt was recorded about whether this relationship exists.'
 
+/**
+ * POM-8 (27 Sep 2026): appended when the connection's strength is CEE's
+ * PLACEHOLDER (`isStrengthPlaceholder`). The line then draws at the not-set
+ * width, so the hover is where the reader learns why: a number was put in so the
+ * model can run, and Olumi does not stand behind it. The words are the Model
+ * tab's own for the same fact (`naturalEffect.ts`, "a placeholder, not an
+ * estimate"), so the two surfaces say one thing.
+ *
+ * R11 (DL #72 5871699334, 28 Sep): an unjudged placeholder is said as "not
+ * judged yet", never as a band, the Agent's words, mirrored on the hover, the
+ * inspector and the Model tab.
+ */
+export const EDGE_STRENGTH_PLACEHOLDER_SENTENCE =
+  'Strength not judged yet: a placeholder, not an estimate — set it if you know it.'
+
 // ── The key's line-style and colour rows ────────────────────────────────────
 
 /**

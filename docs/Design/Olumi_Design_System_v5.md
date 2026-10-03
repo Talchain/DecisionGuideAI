@@ -55,10 +55,22 @@ All side panel UI (results, inspector, issues, templates) uses **only three size
 
 | Token | Size | Usage |
 |-------|------|-------|
-| `panelHeader` | 14px, semibold | Section titles, winner name, key emphasis |
+| `panelHeader` | 14px, medium (500) | Section titles, winner name, key emphasis |
+| `panelQuestion` | 14px, regular (400) | The challenge question: one step under `panelHeader` |
 | `panelBody` | 12px, regular | Body text, descriptions, bullets, card content |
 | `panelMeta` | 11px, regular | Badges, pills, axis labels, tertiary metadata |
 | `panelTabular` | 12px, regular, `tabular-nums` | Numbers in columns |
+
+**Weights (Paul, 30 Sep 2026: "titles too dominating").** `panelHeader` moved from 600 to 500 and
+`panelQuestion` sits at 400, shipped in DGAI #2362. This table follows the code
+(`src/styles/typography.ts`); a later change to either weight changes both.
+
+**The Olumi chat column has its own three sizes: 14 / 13 / 12** (Paul, 28 Sep 2026). Headings use
+`panelHeader` / `panelQuestion` (14). Everything the user *reads* uses `chatBody` (13px): replies,
+the user's messages, card text, the composer. Labels use `chatMeta` (12px): badges, timestamps,
+captions. The chat column (`src/canvas/conversation`, `src/v5/blocks`, the composer and the panel
+hosts) uses `chat*` tokens; the other tabs keep `panelBody` / `panelMeta`. Enforced by
+`tests/ci-guards/conversation-type-census.spec.ts`.
 
 **Four tokens, still three sizes.** `panelTabular` (added 4 Sep 2026) is `panelBody`'s
 size and weight with `tabular-nums` so digits share an advance width — 12px either way,

@@ -19,7 +19,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import type { Node } from '@xyflow/react'
-import { TierLanes } from '../TierLanes'
+import { LANE_TITLE_HALO, TierLanes } from '../TierLanes'
 import { deriveTierLanes } from '../../utils/tierLanes'
 import { typography } from '../../../styles/typography'
 
@@ -53,7 +53,7 @@ describe('contract v3.1 .layer-label style — product words, contract chrome', 
     render(<TierLanes nodes={BOARD} />)
     for (const lane of deriveTierLanes(BOARD)) {
       const t = tokens(screen.getByTestId(`tier-lane-${lane.tier}-title`))
-      expect(t).toContain('text-[length:calc(10px*var(--canvas-label-scale,1))]')
+      expect(t).toContain('text-[length:calc(10px*var(--canvas-small-label-scale,1))]')
       // CONTRAST: the OLD size this replaces, so a no-op edit cannot pass.
       expect(t).not.toContain('text-[length:calc(11px*var(--canvas-label-scale,1))]')
       expect(t).not.toContain(typography.edgeLabel.split(/\s+/)[0])
@@ -86,5 +86,17 @@ describe('contract v3.1 .layer-label style — product words, contract chrome', 
     const texts = lanes.map((lane) => screen.getByTestId(`tier-lane-${lane.tier}-title`).textContent)
     expect(texts).toEqual(['EXPLORATION', 'ALTERNATIVES', 'FACTORS', 'OUTCOMES', 'GOAL'])
     for (const lane of lanes) expect(screen.getByTestId(`tier-lane-${lane.tier}-title`).textContent).toBe(lane.title)
+  })
+
+  it('N6: every band word carries the canvas-coloured halo, so a link crossing it never strikes through its letters', () => {
+    render(<TierLanes nodes={BOARD} />)
+    const lanes = deriveTierLanes(BOARD)
+    expect(lanes.length).toBeGreaterThan(3)
+    // The polarity glyph's idiom: three stacked canvas-coloured shadows, 1.5px ON SCREEN.
+    expect(LANE_TITLE_HALO.match(/var\(--bg-canvas\)/g)).toHaveLength(3)
+    expect(LANE_TITLE_HALO.match(/calc\(1\.5px \* var\(--canvas-label-scale, 1\)\)/g)).toHaveLength(3)
+    for (const lane of lanes) {
+      expect(screen.getByTestId(`tier-lane-${lane.tier}-title`).style.textShadow, `band ${lane.tier}`).toBe(LANE_TITLE_HALO)
+    }
   })
 })

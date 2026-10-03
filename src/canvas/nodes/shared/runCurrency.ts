@@ -52,3 +52,36 @@ export function optionResultCaption(currency: RunCurrency): string | null {
       return null
   }
 }
+
+/**
+ * The sentence that says what the caption's currency MEANS, or `null` when the
+ * run is current and the result's own sentence is the whole truth.
+ *
+ * ⭐ ONE AUTHORITY FOR THE CARD AND THE INSPECTORS (canvas audit edit-values
+ * F5). The option card said `Last run 62% of runs` after an edit while the
+ * option inspector, three centimetres away, said `62% Current model · of runs`
+ * with the tooltip "the model as it stands" — the inspector hard-coded
+ * `OPTION_RESULT_COPY.current` and never read the run's currency.
+ */
+export function optionResultCurrencyNote(currency: RunCurrency): string | null {
+  switch (currency) {
+    case 'current':
+      return null
+    case 'changed':
+      return `${OPTION_RESULT_COPY.changedNote} ${OPTION_RESULT_COPY.noNewComparisonNote}`
+    default:
+      return OPTION_RESULT_COPY.unconfirmedNote
+  }
+}
+
+/**
+ * The caption's NARROW form, for a share line too narrow for the full caption,
+ * or `null` when the caption has none and must stay whole.
+ * `Current model` and `Model result` both narrow to `Model`, which keeps the
+ * result model-relative and claims no currency. `Last run` has no narrow form:
+ * it is already short, and it is the label the stale state must keep.
+ * `none` falls back to `Model result` above, so it narrows the same way.
+ */
+export function optionResultCompactCaption(currency: RunCurrency): string | null {
+  return currency === 'changed' ? null : OPTION_RESULT_COPY.compact
+}

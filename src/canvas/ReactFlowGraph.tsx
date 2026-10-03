@@ -1,8 +1,11 @@
+import { LinkQuickEditorHost, openLinkQuickEditForClick, useLinkQuickEditStore } from './components/LinkQuickEditor'
+import { WhatElseChooserHost } from './components/WhatElseChooser'
 import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo } from 'react'
 import { resolveRestoredFreshnessUpdate } from './store/analysisFreshness'
 import { X } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
-import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, useReactFlow, type Connection, type NodeChange, type EdgeChange } from '@xyflow/react'
+import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, useReactFlow, useStoreApi, type NodeChange, type EdgeChange } from '@xyflow/react'
+import { retargetEdgeClick, resolveContextMenuEdge } from './edges/edgePointerTarget'
 import '@xyflow/react/dist/style.css'
 // Note: shallow from 'zustand/shallow' was removed - causes infinite loops with Zustand v5
 // Use individual selectors instead (see React #185 fix comment below)
@@ -12,7 +15,7 @@ import { useCanvasStore } from './store'
 import { requestNodeRename } from './ui/inspector-v2/renameIntent'
 import { commitGraphMutation } from './mutations/commitGraphMutation'
 import { useComparisonStore } from './stores/comparisonStore'
-import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS } from './domain/edges'
+import { DEFAULT_EDGE_DATA } from './domain/edges'
 import { edgeValueSourcePatch } from './domain/edgeValueProvenance'
 import { withEdgeAccessibleNames } from './domain/edgeAccessibleName'
 import { useEdgeLabelMode } from './store/edgeLabelMode'
@@ -48,7 +51,7 @@ import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
 import type { CEEAnalysisReady } from '../adapters/cee/types'
 import { CanvasContextMenu } from './contextMenu/CanvasContextMenu'
 import { isStructuralEdge } from './domain/edgeUtils'
-import { isSelfLoop, isDuplicateEdge, wouldCreateCycle, wouldExceedLimits, limitExceededMessage } from './validation/graphGuardrails'
+import { useConnectGesture } from './hooks/useConnectGesture'
 import type { ContextTarget } from './contextMenu/types'
 import type { NodeType } from './domain/nodes'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
@@ -69,6 +72,7 @@ import { ToastProvider, useShowToast } from './ToastContext'
 // DiagnosticsOverlay removed - use ?diag=1 URL param if needed for debugging
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { useConfirmDialogStore } from './stores/confirmDialogStore'
+import { useCanvasNodeHoverStore } from './stores/canvasNodeHoverStore'
 import { useHistoryToast } from './hooks/useHistoryToast'
 // ValidationChip removed - validation consolidated into OutputsDock panel
 import { LayerProvider } from './components/LayerProvider'
@@ -89,9 +93,11 @@ import { userFitNodes } from './utils/fitTargets'
 import { claimCameraForUser, isUserCameraMove } from './utils/userCameraClaim'
 import { currentModelKey } from './utils/currentModelKey'
 import { withGhostTiers, GHOST_TIERS } from './utils/ghostTiers'
+import { sortNodesInReadingOrder } from './utils/readingOrder'
 import { useLayoutStore } from './layoutStore'
 import { restingCardWidthForKind } from './utils/nodeLayoutConstants'
 import { TierLanes } from './nodes/TierLanes'
+import { ProposalGhostLayer } from './nodes/ProposalGhostLayer'
 import { fitBoundsFor, CANVAS_MOUNT_FIT_OPTIONS } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
@@ -105,6 +111,8 @@ import { loadRuns, generateGraphHash } from './store/runHistory'
 // estate has already paid for once. Aliased so every call site says which.
 import { generateGraphHash as uiGraphHashSeedless } from './utils/graphHash'
 import { useGuidanceStore, setGuidancePersistenceContext } from './stores/guidanceStore'
+import { installGuidanceScenarioBoundary } from './stores/guidanceScenarioBoundary'
+import { installStrengthenGraphGuard } from './stores/strengthenGraphGuard'
 import { restoreAnalysisFromAutosave } from './store/restoreAnalysisFromAutosave'
 // HealthStatusBar removed - validation consolidated into OutputsDock panel
 import { DegradedBanner } from './components/DegradedBanner'
@@ -142,6 +150,7 @@ import {
   hasServerGraphAuthority,
   SHARED_MODEL_AUTHORITY_COPY,
 } from './mutations/mutationAuthority'
+import { runCanvasUndo } from './undo/undoCommand'
 
 const CANVAS_SEMANTIC_MUTATIONS_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations,
@@ -186,7 +195,8 @@ const CANVAS_EDGE_ADD_CONNECTED = hasServerGraphAuthority(
  *
  * ⛔ STILL NOT THE BLANKET KEY. `canvasSemanticMutations` continues to gate
  * undo, redo, paste and the blueprint insert, none of which has a durable
- * carrier, and the LeftSidebar's undo/redo buttons above go on reading it.
+ * carrier. (The LeftSidebar's undo/redo buttons run the saved-change
+ * command, `undo/undoCommand.ts`, and read no key at all since Undo S5.)
  * Two questions, two constants, named apart (CLAUDE.md trap 21).
  */
 const CANVAS_NODE_ADD_CONNECTED = hasServerGraphAuthority(
@@ -194,6 +204,8 @@ const CANVAS_NODE_ADD_CONNECTED = hasServerGraphAuthority(
 )
 import { FirstUseComposer } from './components/FirstUseComposer'
 import { StarterProvenanceBanner } from './components/StarterProvenanceBanner'
+import { RunChangesSummary } from './components/RunChangesSummary'
+import { CanvasProvenanceKey } from './components/CanvasProvenanceKey'
 import { useFloatingPanelState } from './hooks/useFloatingPanelState'
 import { useUIStore } from '../stores/uiStore'
 import { PanelErrorBoundary } from './components/PanelErrorBoundary'
@@ -209,6 +221,7 @@ import { useAutosave } from './hooks/useAutosave'
 // here was removed — it still downloaded the ~250 KB chunk and, with ?diag,
 // rendered a second overlapping launcher.
 import { verboseWarn } from '../utils/verboseLog'
+import { isViewerSession, useIsViewer } from '../lib/viewerMode'
 
 type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare' | 'rf-minimal' | 'rf-empty' | 'rf-no-fitview' | 'rf-no-bg' | 'rf-store' | 'provider-only' | 'no-provider'
 
@@ -744,19 +757,20 @@ const NODE_DRAG_THRESHOLD = 2
 const SELECT_MODE_PAN_BUTTONS = [1]
 
 /**
- * ⭐ THE GROUND'S DOT GRID IS A WHISPER IN THE DS WARM BORDER TOKEN (contract
- * v3.1, CHR-5: `.canvas-area{background-image:radial-gradient(#D8D3CB .65px,…)}`).
+ * ⭐ THE GROUND'S DOTS ARE THE BRAND'S WARM GREY, AND STAY VISIBLE.
  *
- * `<Background>` was given no colour, so the dots took React Flow 12.10.2's
- * stylesheet default `--xy-background-pattern-dots-color-default: #91919a` — a
- * cool grey from outside the DS palette at 2.75:1 on the #F4F0EA canvas, about
- * twice as loud as the contract's grid. `--border-emphasis` (rgb 221 212 196,
- * ~1.3:1 on canvas) is the existing DS token nearest the contract's #D8D3CB, so
- * no colour is added. React Flow writes `color` into
- * `--xy-background-pattern-color-props`, so a CSS var is honoured as-is. Dot
- * size and gap are unchanged: they already render the contract's pitch.
+ * - **30 Sep, #2347** (Paul ~12:25Z: "Where is the original canvas background with the
+ *   dots? Revert to that immediately."): #1932's `var(--border-emphasis)` (rgb 221 212
+ *   196) is ~1.3:1 on the #F4F0EA canvas, so the dots read as GONE. #2347 handed the
+ *   colour back to React Flow's default `#91919a` (2.75:1).
+ * - **1 Oct** (Paul: "Why is it not the brand colour?"): that default is a cool blue-grey
+ *   from outside the palette. The dots now take `--canvas-grid-dot` (rgb 140 131 118),
+ *   the brand's warm grey, at 3.29:1, which is never quieter than #2347's grey. Dot size
+ *   and gap are unchanged.
+ *
+ * ⛔ Do not re-quieten the dots without Paul's say-so.
  */
-const CANVAS_GRID_DOT_COLOUR = 'var(--border-emphasis)'
+const CANVAS_GRID_DOT_COLOUR = 'var(--canvas-grid-dot)'
 
 // Brief 37: Wrap in memo to prevent parent-triggered re-renders from ReactFlowProvider
 /**
@@ -777,6 +791,11 @@ function claimCameraOnUserMoveEnd(event: MouseEvent | TouchEvent | null): void {
 }
 
 const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, showStarters = false }: ReactFlowGraphProps) {
+  // ACCOUNTS viewer mode (CANVAS 5947752314): read-only, not inert. A viewer still
+  // selects and inspects (click and marquee); nothing connects or opens an edit menu, and a drag moves
+  // nothing (the store's onNodesChange keeps only select/dimensions changes for a viewer). React Flow's
+  // delete key is off for everyone. FIRST in the component, before any conditional path (hooks ratchet).
+  const isViewer = useIsViewer()
   // React #185 FIX: Use INDIVIDUAL selectors - NOT object + shallow
   //
   // ROOT CAUSE: In Zustand v5 with useSyncExternalStore, when a selector returns a
@@ -854,9 +873,14 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
      * draggable or connectable. A tier with no members gets no prompt.
      */
     return withGhostTiers(nodes, GHOST_TIERS, {
+      // ⭐ THE PUBLISHED LAYOUT WIDTH FIRST (30 Sep 2026). It is what `BaseNode` draws at. A card's `measured`
+      // width can be its first render at the RESTING width (a tier's cap, 400) from before the layout
+      // published the tier's share (e.g. 270), and it lags behind. While every repeated card rested and laid
+      // out at 248 the order did not matter. Once tiers take their fair share it put the consequence row's
+      // prompt 130 units past its row, under the dock, and the landing fit framed that stray prompt too.
       widthOf: (n) => {
         const m = n as { measured?: { width?: number }; width?: number; type?: string }
-        return m.measured?.width ?? m.width ?? layoutCardWidths?.[m.type ?? ''] ?? restingCardWidthForKind(m.type)
+        return layoutCardWidths?.[m.type ?? ''] ?? m.measured?.width ?? m.width ?? restingCardWidthForKind(m.type)
       },
     })
   }, [nodes, layoutCardWidths])
@@ -865,6 +889,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // ./nodes/FactorNode.tsx (on-canvas CoachingCard) and ./conversation/GuidanceStrip.tsx.
 
   const { getViewport, getNodes, fitView, zoomIn, zoomOut, zoomTo, screenToFlowPosition, getNodesBounds, setViewport } = useReactFlow()
+  // F8: the xyflow store, so an edge click can re-point the selection at the
+  // line nearest the pointer (`handleEdgeClick`).
+  const flowStoreApi = useStoreApi()
 
   // Brief 36 Fix: Stabilize ReactFlow function references via refs
   // These functions may have unstable references in some ReactFlow versions
@@ -890,10 +917,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
 
   // Canvas control actions from store
-  const undo = useCanvasStore(s => s.undo)
-  const redo = useCanvasStore(s => s.redo)
-  const canUndo = useCanvasStore(s => s.canUndo)
-  const canRedo = useCanvasStore(s => s.canRedo)
   const resetCanvas = useCanvasStore(s => s.resetCanvas)
   const applyLayout = useCanvasStore(s => s.applyLayout)
   // `layoutVersion` is referenced by the render-tracking diagnostics below
@@ -964,9 +987,17 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // Phase 3: Memoize heavy computations for performance
   // Deduplicate nodes by ID to prevent React key warnings in MiniMap
   // CEE may return duplicate node IDs - keep first occurrence
+  //
+  // ⭐ SI-6 (audit, 27 Sep 2026): and put them in the board's READING order.
+  // React Flow tabs through cards in array order, and the array arrives sorted
+  // by id — so Tab zig-zagged across the factor row and reached the Goal before
+  // any option. `sortNodesInReadingOrder` is row (the layout's own
+  // `TIER_BY_KIND`), then left to right, as the contract's prototype walks it.
+  // Inside THIS memo on purpose: no new hook in this file (rules-of-hooks
+  // ratchet), and `TierLanes` and `<ReactFlow>` already read this one array.
   const memoizedNodes = useMemo(() => {
     const seen = new Set<string>()
-    return nodesWithGhost.filter((node) => {
+    return sortNodesInReadingOrder(nodesWithGhost.filter((node) => {
       if (seen.has(node.id)) {
         if (import.meta.env.DEV) {
           console.warn(`[ReactFlowGraph] Duplicate node ID filtered: ${node.id}`)
@@ -975,7 +1006,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       }
       seen.add(node.id)
       return true
-    })
+    }))
   }, [nodesWithGhost])
   /**
    * ⭐ EVERY EDGE IS NAMED HERE, AND ONLY HERE.
@@ -1480,6 +1511,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [nodeCount, edgeCount, validateGraph])
 
   const handleNodeClick = useCallback((_: any, node: any) => {
+    useLinkQuickEditStore.getState().close()
     // Close Templates panel when interacting with canvas
     onCanvasInteraction?.()
 
@@ -1495,12 +1527,23 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     }
   }, [reconnecting, completeReconnect, showToast, onCanvasInteraction])
 
-  const handleEdgeClick = useCallback(() => {
+  const handleEdgeClick = useCallback((event?: React.MouseEvent, edge?: { id: string; selected?: boolean }) => {
     // Close Templates panel when clicking an edge
     onCanvasInteraction?.()
-    // S.1: One click, full context — open full inspector immediately
-    setShowFullInspector(true)
-  }, [onCanvasInteraction])
+    // ⭐ F8 (27 Sep 2026): xyflow has just selected whichever edge's hit area was
+    // on top. Where sibling links share a gutter that is often a NEIGHBOUR of
+    // the line the person pointed at; move the click onto the line nearest the
+    // pointer — the one the hover shows — before the inspector opens on the
+    // selection (`edges/edgePointerTarget.ts` has the rule, the multi-select
+    // toggle and the focus; `edges/nearestEdgeAtPoint.ts` the measurement).
+    const intendedId = retargetEdgeClick(event, edge, flowStoreApi.getState())
+    // ⭐ E2 (Paul 29 Sep): a plain click edits the POINTED-AT link where it was clicked (the resolver's return, never
+    // the first selected edge — PR Review 5897003679). ⛔ A Meta/Control selection toggle, or a click that resolved no
+    // link, is a SELECTION gesture: it opens NEITHER editor (PR Review 5897538379). The full inspector is the
+    // double-click (`handleEdgeDoubleClick`) or the mini-editor's "More detail".
+    openLinkQuickEditForClick(event, intendedId, flowStoreApi.getState().multiSelectionActive)
+    setShowFullInspector(false)
+  }, [onCanvasInteraction, flowStoreApi])
 
   /**
    * Double-click a node → open the inspector WITH ITS TITLE IN EDITING STATE.
@@ -1534,6 +1577,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [])
 
   const handleEdgeDoubleClick = useCallback(() => {
+    useLinkQuickEditStore.getState().close()
     setShowFullInspector(true)
   }, [])
 
@@ -2318,9 +2362,19 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       }, 500)
     }
 
+    // Coaching belongs to one decision: leaving it (a different scenario id, or none) clears the live items and their
+    // blob, so another model's coaching can never be shown, or persisted, here (`guidanceScenarioBoundary.ts`).
+    const uninstallGuidanceBoundary = installGuidanceScenarioBoundary()
+    // …and a phase-3 finding recorded for another graph's element is never kept or re-served (`strengthenGraphGuard.ts`).
+    const uninstallStrengthenGuard = installStrengthenGraphGuard()
+
     // Uninstall the guidance persistence context when this canvas unmounts, so
     // a later mount cannot write under a stale decision identity.
-    return () => setGuidancePersistenceContext(null)
+    return () => {
+      setGuidancePersistenceContext(null)
+      uninstallGuidanceBoundary()
+      uninstallStrengthenGuard()
+    }
   }, [showToast])
 
   useEffect(() => {
@@ -2343,79 +2397,19 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     useCanvasStore.getState().onEdgesChange(changes)
   }, [])
 
-  const onConnect = useCallback((connection: Connection) => {
-    if (!CANVAS_EDGE_ADD_CONNECTED) {
-      showToast(SHARED_MODEL_AUTHORITY_COPY, 'info')
-      return
-    }
-    connectSucceededRef.current = true // Task 4b: Mark success before processing
-    // Task 6a: Use user-specific defaults for manually created edges
-    const result = useCanvasStore.getState().addEdge({ ...connection, data: USER_EDGE_DEFAULTS })
-    if (!result.created && result.reason) {
-      const messages: Record<string, string> = {
-        cycle: 'This would create a circular dependency. Causal models require one-way relationships.',
-        duplicate: 'This relationship already exists. Click it to adjust its strength.',
-        edge_limit: 'Your model has reached the edge limit. Consider simplifying before adding more.',
-      }
-      const msg = messages[result.reason]
-      if (msg) showToast(msg, 'warning')
-    }
-  }, [showToast])
-
-  // Graph Editing Experience Task 2c: Validate connections during drag
-  const isValidConnection = useCallback((connection: Connection) => {
-    if (!CANVAS_EDGE_ADD_CONNECTED) return false
-    if (!connection.source || !connection.target) return false
-    if (isSelfLoop(connection.source, connection.target)) return false
-    const { nodes, edges, engineLimits } = useCanvasStore.getState()
-    if (isDuplicateEdge(edges, connection.source, connection.target)) return false
-    if (wouldExceedLimits(nodes.length, edges.length, 0, 1, engineLimits)) return false
-    if (wouldCreateCycle(nodes.map(n => n.id), edges, connection.source, connection.target)) return false
-    return true
-  }, [])
-
-  // Graph Editing Experience Task 4b: Track connection start/end for drop feedback
-  const connectSucceededRef = useRef(false)
-  const connectSourceRef = useRef<string | null>(null)
-
-  const onConnectStart = useCallback((_: unknown, params: { nodeId: string | null }) => {
-    connectSucceededRef.current = false
-    connectSourceRef.current = params.nodeId
-  }, [])
-
-  const onConnectEnd = useCallback((event: MouseEvent | TouchEvent) => {
-    // If onConnect already fired, the connection succeeded — skip
-    if (connectSucceededRef.current) {
-      connectSourceRef.current = null
-      return
-    }
-    // The connection failed (dropped on invalid target or canvas)
-    const targetEl = (event.target as HTMLElement)
-    const nodeEl = targetEl?.closest?.('.react-flow__node')
-    if (nodeEl && connectSourceRef.current) {
-      // Re-run validation to determine the specific reason for rejection
-      const targetNodeId = nodeEl.getAttribute('data-id')
-      const sourceId = connectSourceRef.current
-      if (targetNodeId && sourceId) {
-        const { nodes, edges, engineLimits } = useCanvasStore.getState()
-        if (isSelfLoop(sourceId, targetNodeId)) {
-          // silent — self-loops are obvious
-        } else if (isDuplicateEdge(edges, sourceId, targetNodeId)) {
-          showToast('This relationship already exists. Click it to adjust its strength.', 'warning')
-        } else if (wouldExceedLimits(nodes.length, edges.length, 0, 1, engineLimits)) {
-          showToast(limitExceededMessage('edge_limit', edges.length), 'warning')
-        } else if (wouldCreateCycle(nodes.map(n => n.id), edges, sourceId, targetNodeId)) {
-          showToast('This would create a circular dependency. Causal models require one-way relationships.', 'warning')
-        } else {
-          showToast('This connection is not allowed.', 'warning')
-        }
-      }
-    }
-    connectSourceRef.current = null
-  }, [showToast])
+  // The draw-a-link gesture: onConnect, the drag validator, and the drop
+  // feedback. Extracted (canvas audit edit-structure/F5 + F3, 27 Sep 2026) so it
+  // is driven end-to-end in `hooks/__tests__/useConnectGesture.spec.ts`; a
+  // release on a card's body now makes the link instead of saying "not allowed".
+  const { onConnect, isValidConnection, onConnectStart, onConnectEnd } = useConnectGesture({
+    enabled: CANVAS_EDGE_ADD_CONNECTED,
+    showToast,
+  })
 
   const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
     event.preventDefault()
+    // ACCOUNTS viewer mode: no edit menu for a viewer (CANVAS 5947752314).
+    if (isViewerSession()) return
     const screenPos = { x: event.clientX, y: event.clientY }
     const { selection } = useCanvasStore.getState()
     const isMulti = selection.nodeIds.size > 1
@@ -2435,6 +2429,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   const onNodeContextMenu = useCallback((event: React.MouseEvent | MouseEvent, node?: any) => {
     event.preventDefault()
+    // ACCOUNTS viewer mode: no edit menu for a viewer (CANVAS 5947752314).
+    if (isViewerSession()) return
     const screenPos = { x: event.clientX, y: event.clientY }
     if (node) {
       const { selection } = useCanvasStore.getState()
@@ -2463,18 +2459,25 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   const onEdgeContextMenu = useCallback((event: React.MouseEvent | MouseEvent, edge?: any) => {
     event.preventDefault()
+    // ACCOUNTS viewer mode: no edit menu for a viewer (CANVAS 5947752314).
+    if (isViewerSession()) return
     const screenPos = { x: event.clientX, y: event.clientY }
     if (edge) {
-      const { nodes } = useCanvasStore.getState()
+      const { nodes, edges: storeEdges } = useCanvasStore.getState()
       const getNodeKind = (id: string) => {
         const n = nodes.find((nd: any) => nd.id === id)
         return (n?.data as any)?.kind ?? n?.type
       }
+      // ⭐ F8 (28 Sep 2026): the menu acts on the line nearest the pointer — the
+      // one the hover highlights and a click selects — looked up in the store.
+      // xyflow's `edge` is the topmost hit area, often a NEIGHBOUR, and this
+      // menu's Delete and Reverse do not name their edge.
+      const menuEdge = resolveContextMenuEdge(event, edge, storeEdges)
       setContextMenuTarget({
         kind: 'edge',
-        edgeId: edge.id,
-        edge,
-        isStructural: isStructuralEdge(edge, getNodeKind),
+        edgeId: menuEdge.id,
+        edge: menuEdge,
+        isStructural: isStructuralEdge(menuEdge, getNodeKind),
         screenPos,
       })
     }
@@ -2768,12 +2771,17 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             onEdgeContextMenu={onEdgeContextMenu}
             onNodeDragStart={onNodeDragStart}
             onNodeDragStop={onNodeDragStop}
-            onNodeMouseEnter={isCrossHighlightEnabled() ? (_, node) => {
-              setHoveredFromCanvasRef.current(node.id)
-            } : undefined}
-            onNodeMouseLeave={isCrossHighlightEnabled() ? () => {
-              setHoveredFromCanvasRef.current(null)
-            } : undefined}
+            // The hovered card is recorded for the edges (an option → factor
+            // link regains full emphasis while its option or factor is hovered,
+            // `StyledEdge`); the cross-surface highlight stays behind its flag.
+            onNodeMouseEnter={(_, node) => {
+              useCanvasNodeHoverStore.getState().setHoveredNodeId(node.id)
+              if (isCrossHighlightEnabled()) setHoveredFromCanvasRef.current(node.id)
+            }}
+            onNodeMouseLeave={() => {
+              useCanvasNodeHoverStore.getState().setHoveredNodeId(null)
+              if (isCrossHighlightEnabled()) setHoveredFromCanvasRef.current(null)
+            }}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             defaultEdgeOptions={defaultEdgeOpts}
@@ -2789,7 +2797,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE}
             panOnDrag={effectiveMode === 'hand' ? true : SELECT_MODE_PAN_BUTTONS}
             nodesDraggable={effectiveMode === 'select'}
-            nodesConnectable={CANVAS_EDGE_ADD_CONNECTED}
+            nodesConnectable={CANVAS_EDGE_ADD_CONNECTED && !isViewer}
             nodeClickDistance={NODE_CLICK_DISTANCE}
             paneClickDistance={PANE_CLICK_DISTANCE}
             nodeDragThreshold={NODE_DRAG_THRESHOLD}
@@ -2837,6 +2845,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
                 from prose describing code. Same defect class as the stripper in
                 the guard this PR adds, one level up; rowed, not fixed here. */}
             <TierLanes nodes={memoizedNodes} />
+            {/* Suggestion preview: the ghost of the proposal the latest reply offers (render-only; see the file). */}
+            <ProposalGhostLayer />
             {/* MiniMap temporarily disabled for layout debugging */}
             {/* <MiniMap style={miniMapStyle} /> */}
             {/* ⛔ TWO ARROWHEAD MARKERS STOOD HERE AND NOTHING EVER REFERENCED
@@ -2876,6 +2886,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
                 the sizes before a 0.50 auto-fit halves them. Main canvas only:
                 the Compare-tab minis are deliberately simplified views. */}
             <CanvasLabelScaleSync />
+            {/* Paul 23 Sep contract feedback point 14 — the canvas FOOT line
+                that explains the cards' `Last run ·` labels. Mounted INSIDE the
+                flow on purpose (canvas-8ffc sbs-post DIFF item 8): here it sits
+                in the stacking context xyflow gives `.react-flow`, below the
+                renderer, so every card and edge paints over it. It still takes
+                the band's bottom-left slot; see `AnalysisStateCue.tsx`. */}
+            <AnalysisStateCue />
           </ReactFlow>
         )}
       </div>
@@ -2916,19 +2933,16 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
            complaint reappearing on the control side. Toggling off
            `effectiveMode` makes the label a promise the click keeps. */
         onSelectClick={() => setInteractionMode(effectiveMode === 'select' ? 'hand' : 'select')}
-        onUndoClick={CANVAS_SEMANTIC_MUTATIONS_CONNECTED ? undo : () => {}}
-        onRedoClick={CANVAS_SEMANTIC_MUTATIONS_CONNECTED ? redo : () => {}}
-        canUndo={CANVAS_SEMANTIC_MUTATIONS_CONNECTED && canUndo()}
-        canRedo={CANVAS_SEMANTIC_MUTATIONS_CONNECTED && canRedo()}
-        /* The greyed button was the last surface still declining to say that
-           the canvas has no undo. It now answers the gesture the way the
-           keyboard already does — see the reasoning at the buttons in
-           `LeftSidebar`. This is the ONE place the authority is read: the
-           sidebar is handed a plain fact and never consults the flag itself,
-           so the day this constant folds true, both props go false, the
-           notice branch retires and the real `undo`/`redo` above take over. */
-        undoUnavailable={!CANVAS_SEMANTIC_MUTATIONS_CONNECTED}
-        redoUnavailable={!CANVAS_SEMANTIC_MUTATIONS_CONNECTED}
+        onUndoClick={() => void runCanvasUndo('undo')}
+        onRedoClick={() => void runCanvasUndo('redo')}
+        canUndo
+        canRedo
+        /* Undo S5: undo/redo are SAVED changes, so the sidebar's "not available"
+           notice branch is retired. An enabled button with nothing to undo
+           answers "Nothing to undo." (`runCanvasUndo`), a guest is told to sign
+           in, and a stale head refuses — never a silent no-op. */
+        undoUnavailable={false}
+        redoUnavailable={false}
       />
       {/* ⚠ SCREEN SPACE, NOT FLOW SPACE — and the counter-scale census is what
           caught this — and it also flags the mention, so this note describes
@@ -2954,9 +2968,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           `ModelExtentNotice` already did from this same position. */}
       <CanvasOverlayBand />
       <CanvasLodNotice />
-      {/* Paul 23 Sep contract feedback point 14 — the canvas-level line that
-          explains the cards' `Last run ·` labels. Bottom-right cell. */}
-      <AnalysisStateCue />
+      {/* `AnalysisStateCue` is mounted inside the main `<ReactFlow>` above,
+          not here: from here it could only paint OVER the graph. */}
       {/* ⛔ `CanvasFooterSummary` IS DELIBERATELY NOT MOUNTED — PAUL'S RULING:
           no footer caption ("Model-relative findings · N nodes · M
           connections") and no "Visual key" link. It had only been OFF the
@@ -2970,6 +2983,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       <AssistantFocusChip />
       <FocusModeChip />
       <FirstModelNotice />
+      <RunChangesSummary />
       {/* ⛔⛔ `ModelExtentNotice` IS DELIBERATELY NOT MOUNTED. ITS ABSENCE IS THE
           RULING, NOT A DEFECT — DO NOT RESTORE IT.
 
@@ -3025,6 +3039,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           <InfluenceExplainer forceShow={isInfluenceExplainerForced} onDismiss={hideInfluenceExplainer} compact />
         </div>
       )}
+      {/* ⭐ E2: a link click opens a small strength editor at the pointer; "More detail" opens the inspector. */}
+      <LinkQuickEditorHost onMoreDetail={() => setShowFullInspector(true)} />
+      {/* ⭐ E4: a ghost door's "What else…?" chooser (it only prefills the ask). */}
+      <WhatElseChooserHost />
       {/* S.1: Compact popover removed — single-click now opens full inspector directly */}
       {showFullInspector && (
         <PanelErrorBoundary panel="Inspector">
@@ -3050,6 +3068,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         />
       )}
       <DegradedBanner />
+      <CanvasProvenanceKey />
       <KeyboardLegend isOpen={isKeyboardLegendOpen} onClose={closeKeyboardLegend} />
       {showIssuesPanel && graphHealth && (
         <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black/20"><div className="text-sm text-white">Loading...</div></div>}>
@@ -3066,7 +3085,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       {showDocumentsDrawer && (
         <div
           className="fixed left-0 w-96 bg-white border-r border-gray-200 shadow-panel overflow-hidden"
-          style={{ zIndex: 2000, top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)' }}
+          style={{ zIndex: 2000, top: 'max(var(--topbar-h, 0px), var(--chrome-top-left, 0px))', bottom: 'var(--bottombar-h)' }}
           data-testid="documents-drawer"
           tabIndex={-1}
         >

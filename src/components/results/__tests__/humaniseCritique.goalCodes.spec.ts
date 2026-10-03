@@ -54,7 +54,7 @@ describe('humaniseCritique — goal-threshold refusals are goal-scoped, never fa
     expect(result.title.toLowerCase()).toContain('goal')
     expect(result.title.toLowerCase()).not.toContain('factor')
     // The honest substance: withheld, not guessed.
-    expect(result.description).toMatch(/withheld|left out/i)
+    expect(result.description).toMatch(/withheld|left out|not shown/i) // PTL item 7
     // ⚠⚠ THIS ASSERTION IS INVERTED FROM WHAT 2.300 SHIPPED, DELIBERATELY. It
     // read `expect(result.suggestion?.toLowerCase()).toContain('current level')`
     // — "the actionable remedy the walk's tester needed". The remedy was NOT
@@ -78,7 +78,7 @@ describe('humaniseCritique — goal-threshold refusals are goal-scoped, never fa
     expect(result.title.toLowerCase()).not.toContain('factor')
     expect(result.description).toMatch(/level/i)
     expect(result.description).toMatch(/change/i)
-    expect(result.description).toMatch(/withheld|left out/i)
+    expect(result.description).toMatch(/withheld|left out|not shown/i) // PTL item 7
     expect(result.suggestion).toMatch(/level|change/i)
     expect(result.displayText).toBe(result.title)
   })

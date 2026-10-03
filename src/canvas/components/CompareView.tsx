@@ -100,7 +100,7 @@ export function CompareView({ onOpenInCanvas, onBack, selectedRunIds, onSelectio
           <select
             value={runA?.id || ''}
             onChange={(e) => handleSelectRun('A', e.target.value)}
-            className={`w-full px-3 py-2 ${typography.body} border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-info-500`}
+            className={`w-full px-3 py-2 ${typography.body} border border-gray-300 rounded-lg bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500`}
           >
             <option value="">Select run...</option>
             {runs.map(r => <option key={r.id} value={r.id}>Seed {r.seed} - {formatTimestamp(r.ts)}</option>)}
@@ -111,7 +111,7 @@ export function CompareView({ onOpenInCanvas, onBack, selectedRunIds, onSelectio
           <select
             value={runB?.id || ''}
             onChange={(e) => handleSelectRun('B', e.target.value)}
-            className={`w-full px-3 py-2 ${typography.body} border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-info-500`}
+            className={`w-full px-3 py-2 ${typography.body} border border-gray-300 rounded-lg bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500`}
           >
             <option value="">Select run...</option>
             {runs.map(r => <option key={r.id} value={r.id}>Seed {r.seed} - {formatTimestamp(r.ts)}</option>)}
@@ -139,7 +139,7 @@ export function CompareView({ onOpenInCanvas, onBack, selectedRunIds, onSelectio
                 value={rationale}
                 onChange={(e) => setRationale(e.target.value)}
                 placeholder="Document your reasoning for this decision..."
-                className={`w-full px-3 py-2 ${typography.body} border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-info-500 min-h-[100px]`}
+                className={`w-full px-3 py-2 ${typography.body} border border-gray-300 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500 min-h-[100px]`}
                 aria-label="Decision rationale"
               />
             </div>
@@ -150,7 +150,7 @@ export function CompareView({ onOpenInCanvas, onBack, selectedRunIds, onSelectio
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Decision title..."
-                className={`flex-1 px-3 py-2 ${typography.body} border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-info-500`}
+                className={`flex-1 px-3 py-2 ${typography.body} border border-gray-300 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500`}
                 aria-label="Decision title"
               />
               <button

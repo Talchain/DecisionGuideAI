@@ -281,7 +281,7 @@ export function ContestedEdgeCard({
     isResolved
       ? 'border-success/50 opacity-65 bg-panel'
       : 'border-warning/30 bg-panel',
-    isSelected ? 'ring-1 ring-info/50' : '',
+    isSelected ? 'ring-1 ring-text-light/50' : '',
   ].filter(Boolean).join(' ')
 
   // Active band for the quick-set pills — always the band of the current model

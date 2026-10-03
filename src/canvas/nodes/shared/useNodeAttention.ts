@@ -26,10 +26,21 @@
  * other card surface labels `Last run ·` from). `reasons` keeps its contract
  * (current-only), so the inspector, which renders it verbatim, cannot present a
  * last-run reason as current. Cannot-confirm and never-run carry neither.
+ *
+ * ⛔ AND THE FLIP REASONS NEED A SHOWN COMPARISON (post-run DIFF item 7). A
+ * fragile link ("The comparison depends on a link from here") and a turning
+ * point ("… the comparison is likely to change") are both about the option
+ * comparison changing. On a run whose comparison was withheld (Paul's
+ * `mrr-17d1cd3a`: no option card shows a share) they cited a comparison the
+ * canvas never shows. They are passed only while the canvas shows one — read
+ * through the option cards' own run-wide answer (`useSupportShareRunWideAbsent`),
+ * the same gate the edge's fragile cue reads — in both the current plan and the
+ * last run's.
  */
 import { useCanvasStore } from '../../store'
 import { useAnalysisResultsAreCurrent } from '../../hooks/useAnalysisResultsAreCurrent'
 import { useModelChangedSinceRun } from '../../hooks/useModelChangedSinceRun'
+import { useSupportShareRunWideAbsent } from '../../hooks/useSupportShareRunWideAbsent'
 import { useRunCurrency } from './runCurrency'
 import { selectDriverPolicyFeed } from '../../../components/results/useResultsSectionData'
 import type { ResultsReport } from '../../../components/results/types'
@@ -37,6 +48,8 @@ import { resolveBiasSignal } from '../../shared/biasSignalTitles'
 import { factorValueIsUnconfirmedEstimate } from '../../domain/valueProvenance'
 import { resolveNodeTypeLiteral } from '../../domain/nodes'
 import { rankFactor } from './rankFactor'
+import { runHoldsNoValueFor } from './unvaluedDriver'
+import { holdsValueOrRange } from '../../utils/observedStateHelpers'
 import { selectTurningPoints } from './factorTurningPoint'
 import {
   ATTENTION_BUDGET,
@@ -78,17 +91,20 @@ function runInputsOf(
   nodes: ReadonlyArray<NodeLike>,
   report: object,
   reviewBiasFindings: unknown,
+  comparisonShown: boolean,
 ): NonNullable<Parameters<typeof deriveAttentionPlan>[0]['run']> {
   const feed = selectDriverPolicyFeed(report as ResultsReport)
-  const ranks = new Map<string, { sensitivityRank: number | null; voiRank: number | null; influenceSetSize: number; rankedSetSize: number }>()
+  const ranks = new Map<string, { sensitivityRank: number | null; voiRank: number | null; influenceSetSize: number; rankedSetSize: number; noValueInRun: boolean }>()
   for (const n of nodes) {
     if (resolveNodeTypeLiteral(n as never) !== 'factor') continue
     if (!feed.policyRows.some((r) => r.key === n.id)) continue
-    ranks.set(n.id, rankFactor(feed.policyRows, feed.displayModel, n.id))
+    // PJ-B3: the run's own "no value" fact, off the same feed rows as the rank.
+    ranks.set(n.id, { ...rankFactor(feed.policyRows, feed.displayModel, n.id), noValueInRun: runHoldsNoValueFor(feed, n.id) && !holdsValueOrRange(n.data) })
   }
   const robustness = (report as { robustness?: { fragile_edges?: unknown } }).robustness
   const fragile = new Set<string>()
-  if (Array.isArray(robustness?.fragile_edges)) {
+  // The flip artefacts cite the comparison: none without a shown one (see the header).
+  if (comparisonShown && Array.isArray(robustness?.fragile_edges)) {
     for (const fe of robustness!.fragile_edges as unknown[]) {
       const e = (fe ?? {}) as Record<string, unknown>
       const from = [e.from_id, e.fromId, e.source].find((v) => typeof v === 'string' && v.trim().length > 0)
@@ -97,7 +113,7 @@ function runInputsOf(
   }
   return {
     ranks,
-    turningPoints: selectTurningPoints(report),
+    turningPoints: comparisonShown ? selectTurningPoints(report) : new Map(),
     fragileEdgeSources: fragile,
     reviewBiasFindings: Array.isArray(reviewBiasFindings) ? reviewBiasFindings : [],
   }
@@ -111,8 +127,9 @@ export function attentionPlanFor(
   runIsCurrent: boolean,
   ceeBiasFindings: unknown,
   reviewBiasFindings: unknown,
+  comparisonShown: boolean,
 ): AttentionPlan {
-  const deps = [nodes, report, runIsCurrent, ceeBiasFindings, reviewBiasFindings]
+  const deps = [nodes, report, runIsCurrent, ceeBiasFindings, reviewBiasFindings, comparisonShown]
   if (cache && same(cache.deps, deps)) return cache.plan
   if (!Array.isArray(nodes) || nodes.length === 0) {
     cache = { deps, plan: EMPTY_ATTENTION_PLAN }
@@ -120,7 +137,7 @@ export function attentionPlanFor(
   }
 
   const run = runIsCurrent && report && typeof report === 'object'
-    ? runInputsOf(nodes, report, reviewBiasFindings)
+    ? runInputsOf(nodes, report, reviewBiasFindings, comparisonShown)
     : null
 
   const plan = deriveAttentionPlan({
@@ -148,8 +165,9 @@ export function lastRunAttentionPlanFor(
   report: unknown,
   reviewBiasFindings: unknown,
   budget: number,
+  comparisonShown: boolean,
 ): AttentionPlan {
-  const deps = [nodes, report, reviewBiasFindings, budget]
+  const deps = [nodes, report, reviewBiasFindings, budget, comparisonShown]
   if (lastRunCache && same(lastRunCache.deps, deps)) return lastRunCache.plan
   if (!Array.isArray(nodes) || nodes.length === 0 || !report || typeof report !== 'object') {
     lastRunCache = { deps, plan: EMPTY_ATTENTION_PLAN }
@@ -158,7 +176,7 @@ export function lastRunAttentionPlanFor(
   const plan = deriveAttentionPlan(
     {
       nodes: planNodesOf(nodes),
-      run: runInputsOf(nodes, report, reviewBiasFindings),
+      run: runInputsOf(nodes, report, reviewBiasFindings, comparisonShown),
       ceeBiasFindings: [],
       resolveBiasTitle,
     },
@@ -203,9 +221,10 @@ export function useNodeAttention(nodeId: string): NodeAttention {
   const locallyCurrent = useAnalysisResultsAreCurrent()
   const runIsCurrent = useRunCurrency() === 'current' && locallyCurrent
   const modelChangedSinceRun = useModelChangedSinceRun()
-  const plan = attentionPlanFor(nodes, report, runIsCurrent, ceeBiasFindings, reviewBiasFindings)
+  const comparisonShown = !useSupportShareRunWideAbsent()
+  const plan = attentionPlanFor(nodes, report, runIsCurrent, ceeBiasFindings, reviewBiasFindings, comparisonShown)
   const lastRunPlan = modelChangedSinceRun && !runIsCurrent
-    ? lastRunAttentionPlanFor(nodes, report, reviewBiasFindings, Math.max(0, ATTENTION_BUDGET - plan.marked.size))
+    ? lastRunAttentionPlanFor(nodes, report, reviewBiasFindings, Math.max(0, ATTENTION_BUDGET - plan.marked.size), comparisonShown)
     : null
   const reasons = plan.reasonsByNode.get(nodeId)
   const lastRunReasons = lastRunPlan?.reasonsByNode.get(nodeId)

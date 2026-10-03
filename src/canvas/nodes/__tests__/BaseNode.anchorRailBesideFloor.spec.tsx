@@ -19,7 +19,7 @@ import { ReactFlowProvider } from '@xyflow/react'
 import { DecisionNode } from '../DecisionNode'
 import { FactorNode } from '../FactorNode'
 import { useCanvasStore } from '../../store'
-import { ICON_LEGIBLE_ZOOM, type LodRung } from '../../utils/zoomLegibility'
+import { ICON_LEGIBLE_ZOOM, LOD_BLANKED_BODY_SELECTOR, NODE_BODY_BOUND_STYLE_ATTR, NODE_BODY_BOUND_STYLE_SELECTOR, type LodRung } from '../../utils/zoomLegibility'
 import { anchorRailFitsBesideAtZoom, setAnchorRailFitsBeside } from '../shared/anchorRailFloor'
 
 vi.mock('@xyflow/react', async () => {
@@ -102,6 +102,40 @@ describe('WS1 #16 — the anchor rail is inside the card at the landing zoom too
     expect(body.style.minHeight).toMatch(/var\(--canvas-glyph-scale, 1\)/)
     const card = body.closest('[role="group"]') as HTMLElement
     expect(card.style.paddingRight).not.toMatch(/canvas-glyph-scale/)
+    cleanup()
+  })
+
+  it('⭐ …and DECLARES that box at every rung, so the layout measurer can re-apply it where the rail is unmounted (the far `line` rung)', () => {
+    // Canvas Browser Gate `heightVsZoom` (27 Sep 2026, build-vs-buy 1280×800):
+    // at 0.4 the rail is unmounted, the measurer read the body without its box
+    // and reserved the Question 73 — which then DREW 75. The declaration is the
+    // box the body actually draws at Normal, bound by value, not restated.
+    setRung('full')
+    setAnchorRailFitsBeside(anchorRailFitsBesideAtZoom(0.5))
+    render(<ReactFlowProvider>{decision()}</ReactFlowProvider>)
+    const normal = screen.getByTestId('anchor-body-rail-beside')
+    const drawn = { paddingRight: normal.style.paddingRight, minHeight: normal.style.minHeight }
+    expect(drawn.minHeight, 'the Normal body draws no rail box — nothing to bind to').not.toBe('')
+    expect(JSON.parse(normal.getAttribute(NODE_BODY_BOUND_STYLE_ATTR) ?? 'null')).toEqual(drawn)
+    cleanup()
+
+    setRung('line')
+    render(<ReactFlowProvider>{decision()}</ReactFlowProvider>)
+    const far = document.querySelector(LOD_BLANKED_BODY_SELECTOR) as HTMLElement | null
+    expect(far, 'no blanked body at the line rung — this is not the far-rung state').not.toBeNull()
+    expect(far!.style.minHeight, 'the far rung does not DRAW the rail box').toBe('')
+    expect(JSON.parse(far!.getAttribute(NODE_BODY_BOUND_STYLE_ATTR) ?? 'null')).toEqual(drawn)
+    cleanup()
+  })
+
+  it('CONTRAST — a repeated card declares no body box (its body has no rail beside it)', () => {
+    setRung('line')
+    render(<ReactFlowProvider>{factor()}</ReactFlowProvider>)
+    expect(document.querySelector(NODE_BODY_BOUND_STYLE_SELECTOR)).toBeNull()
+    cleanup()
+    setRung('full')
+    render(<ReactFlowProvider>{factor()}</ReactFlowProvider>)
+    expect(document.querySelector(NODE_BODY_BOUND_STYLE_SELECTOR)).toBeNull()
     cleanup()
   })
 

@@ -24,6 +24,7 @@
  * populates, so the canvas kept saying "no target" after the user had set one.
  * A user-set value wins; the CEE-derived raw is the fallback.
  */
+import { classifyObservedValueProvenance } from './valueProvenance'
 
 /** The shape both call sites read from. Deliberately structural, not a class. */
 export interface GoalTargetSource {
@@ -31,6 +32,47 @@ export interface GoalTargetSource {
   success_threshold?: unknown
   goal_threshold_raw?: unknown
   goal_threshold_unit?: unknown
+  /** `@talchain/schemas` 0.61.0: the frame the target is stated in — read only through `goalTargetChangeFrameOf`. */
+  goal_threshold_frame?: unknown
+  /** `@talchain/schemas` 0.61.0: the goal node's HELD COMPARATOR — read only through `goalHeldComparatorOf`. */
+  goal_direction?: unknown
+}
+
+/**
+ * ⭐ THE GOAL'S HELD COMPARATOR (`goal_direction`; CEE writes `>=` / `<=` / `>` / `<` — `graph-hash-contract`, 0.61.0).
+ * It is what a change target's success BOUND is said from (UI #2287 review; DL ruling: the same authored input CEE
+ * scores against, never the label and never a UI-only strict bit). Anything else — absent, the objective's sense
+ * (`minimise`), a glyph — is `null`: no bound is said.
+ */
+export type GoalHeldComparator = '>=' | '<=' | '>' | '<'
+
+export function goalHeldComparatorOf(value: unknown): GoalHeldComparator | null {
+  return value === '>=' || value === '<=' || value === '>' || value === '<' ? value : null
+}
+
+/**
+ * ⭐⭐ R1 S4-core — A TARGET STATED AS A CHANGE FROM TODAY (MG's goal half, #72 5879952291; `@talchain/schemas` 0.61.0
+ * `goal_threshold_frame`).
+ *
+ * "Cut the cloud bill by 15%" arrives as `goal_threshold_frame: 'change_rel'`, `goal_threshold_raw: -0.15`: a FRACTION
+ * of today's level, beside the METRIC's unit. `change_abs` is a change in the metric's own unit. Anything else —
+ * `level`, legacy `delta`, absent, unknown — is `null`: a level, exactly as before. The frame is the node's statement
+ * about ITS target, so it travels with whichever figure `resolveGoalTarget` picks.
+ */
+export type GoalTargetChangeFrame = 'change_abs' | 'change_rel'
+
+export function goalTargetChangeFrameOf(frame: unknown): GoalTargetChangeFrame | null {
+  return frame === 'change_abs' || frame === 'change_rel' ? frame : null
+}
+
+/**
+ * ⛔ A frame that is PRESENT but not one this UI reads (AIQ 5880974047). The figure's meaning is then unknown, so it
+ * fails CLOSED: no target resolves (no number is shown anywhere) and no level is written over it. Absent or `null` is
+ * a level, exactly as before; `level`, legacy `delta` and the two change frames are read.
+ */
+export function goalTargetFrameIsUnread(frame: unknown): boolean {
+  return frame !== undefined && frame !== null && frame !== 'level' && frame !== 'delta' &&
+    goalTargetChangeFrameOf(frame) === null
 }
 
 export interface ResolvedGoalTarget {
@@ -44,6 +86,11 @@ export interface ResolvedGoalTarget {
    *   · `user` — `threshold_source === 'user'` attests `success_threshold`
    *     (the only value CEE writes: `add-constraint.ts:1350`, schema
    *     `cee-v3.ts:258`, staging `85ce874c`). Licenses "Set by you".
+   *   · `brief` — CEE's `goal_threshold_raw` WITH `threshold_source:
+   *     'brief_extraction'`, which CEE writes only when the brief writes that
+   *     figure in the goal's unit (`holdStatedGoalAttributes`,
+   *     `figureTheUserWrote`; served on `823bc028`, 29 Sep). Licenses "From your
+   *     brief". This is the carried field the note below waited for.
    *   · `unrecorded` — CEE's `goal_threshold_raw` with no carried source.
    *     Rendered "Source not recorded" on every surface.
    *
@@ -56,7 +103,12 @@ export interface ResolvedGoalTarget {
    * and the node's `provenance` is about the NODE, not the number (trap 21). A
    * brief origin returns here the day a carried field states it.
    */
-  source: 'user' | 'unrecorded'
+  source: 'user' | 'brief' | 'unrecorded'
+  /**
+   * A change from today (`goalTargetChangeFrameOf`); ABSENT for a level, so a level target resolves to exactly the
+   * object it did before. Say `raw` through `formatGoalTarget(raw, unit, frame)`; test it with `frame != null`.
+   */
+  frame?: GoalTargetChangeFrame
 }
 
 /**
@@ -68,11 +120,25 @@ export interface ResolvedGoalTarget {
  * already guarded this with `String(x).trim() !== ''`; the guard moves here so
  * both callers get it.
  */
+/**
+ * ⭐ IS THE PRINTED TARGET THE FIGURE CEE STAMPED AS THE BRIEF'S? `threshold_source: 'brief_extraction'` (CEE
+ * `holdStatedGoalAttributes`: the brief writes this figure in the goal's unit) — AND the frame prints that figure
+ * itself: a level, or an absolute change ("up £85,000/month"). A RELATIVE change is not: its £ figure ("£36,000 / month
+ * or less") comes from Olumi's reading of today's level, so "From your brief" must never sit on it (AIQ 5900578934,
+ * cut-costs). Conservative there: "Source not recorded", never a false authorship.
+ */
+export function goalTargetStampedFromBrief(data: GoalTargetSource | null | undefined): boolean {
+  return data?.threshold_source === 'brief_extraction' && data.goal_threshold_frame !== 'change_rel'
+}
+
 export function resolveGoalTarget(
   data: GoalTargetSource | null | undefined,
 ): ResolvedGoalTarget | null {
   if (!data) return null
+  if (goalTargetFrameIsUnread(data.goal_threshold_frame)) return null
   const unit = typeof data.goal_threshold_unit === 'string' ? data.goal_threshold_unit : undefined
+  const changeFrame = goalTargetChangeFrameOf(data.goal_threshold_frame)
+  const frame = changeFrame === null ? {} : { frame: changeFrame }
 
   const userSet =
     data.threshold_source === 'user' &&
@@ -80,7 +146,7 @@ export function resolveGoalTarget(
       ? (data.success_threshold as string | number)
       : null
   if (userSet != null && String(userSet).trim() !== '') {
-    return { raw: userSet, unit, source: 'user' }
+    return { raw: userSet, unit, source: 'user', ...frame }
   }
 
   const ceeRaw =
@@ -88,7 +154,10 @@ export function resolveGoalTarget(
       ? (data.goal_threshold_raw as string | number)
       : null
   if (ceeRaw != null && String(ceeRaw).trim() !== '') {
-    return { raw: ceeRaw, unit, source: 'unrecorded' }
+    // `brief` ONLY on CEE's own stamp: it writes `threshold_source: 'brief_extraction'` when the brief writes this
+    // figure in the goal's unit (`holdStatedGoalAttributes`). Without it nothing says where the figure came from.
+    const source = goalTargetStampedFromBrief(data) ? 'brief' : 'unrecorded'
+    return { raw: ceeRaw, unit, source, ...frame }
   }
 
   return null
@@ -203,6 +272,7 @@ export function statedGoalTargetRaw(
   data: GoalTargetSource | null | undefined,
 ): string | number | null {
   if (!data) return null
+  if (goalTargetFrameIsUnread(data.goal_threshold_frame)) return null
   const userThreshold = data.threshold_source === 'user' ? data.success_threshold : undefined
   const chosen = isStatedTargetValue(userThreshold) ? userThreshold : data.goal_threshold_raw
   return isStatedTargetValue(chosen) ? (chosen as string | number) : null
@@ -273,3 +343,95 @@ export function statedGoalTargetRaw(
 export function canCaptureGoalTarget(data: GoalTargetSource | null | undefined): boolean {
   return statedGoalTargetRaw(data) == null
 }
+
+/**
+ * ⭐ E1a — WHAT THE GOAL CARD NEEDS TO EDIT ITS TARGET IN PLACE, or `null` when the card must not.
+ *
+ * `proposeGoalTarget` takes a number, a unit and a direction, and its direction "has no default and must be stated by
+ * whichever surface collects it" (`GoalNode.tsx`, `goalTargetRouteChannels`). The card collects only the number. So it
+ * edits in place ONLY when the other two are already STATED on the goal:
+ *  - a LEVEL target (a change target is not edited as a level; CEE refuses that write by name) with a finite number;
+ *  - a declared unit;
+ *  - a held comparator of exactly `>=` or `<=`. Those are `at_least` / `at_most` with no loss. A strict `>` / `<` has no
+ *    `ConstraintType`, and sending `at_least` for `>` would silently change the bound, so it stays on the Model tab
+ *    route, as does a goal with no held comparator at all.
+ * Anything else returns `null` and the card keeps its existing route to the full editor.
+ */
+export interface GoalTargetInPlaceEdit {
+  readonly value: number
+  readonly unit: string
+  readonly direction: 'at_least' | 'at_most'
+}
+export function goalTargetInPlaceEdit(data: GoalTargetSource | null | undefined): GoalTargetInPlaceEdit | null {
+  const target = resolveGoalTarget(data)
+  if (target === null || target.frame !== undefined) return null
+  const value = typeof target.raw === 'number' ? target.raw : Number(String(target.raw).trim())
+  if (!Number.isFinite(value)) return null
+  const unit = declaredGoalUnit(data).trim()
+  if (unit === '') return null
+  const held = goalHeldComparatorOf(data?.goal_direction)
+  // PoC (Paul 29 Sep 17:48Z, speed): "above"/"below" edit in place too. The wire's direction has no strict form, so
+  // an edit restates "above 110%" as "at least 110%" — the same side of the target, stated inclusively.
+  const direction = held === '>=' || held === '>' ? 'at_least' : held === '<=' || held === '<' ? 'at_most' : null
+  if (direction === null) return null
+  return { value, unit, direction }
+}
+
+/**
+ * ⭐ TODAY'S LEVEL ON A CHANGE GOAL (cut-costs, served `09af9019`; AIQ 5902409861).
+ *
+ * "Target: down 20% from today" never said what today IS, so the journey's own correction ("£50k, not £45k") had
+ * nothing on the graph to correct. A change goal now says its level, from ONE of two typed carriers, and nothing else:
+ *   · `goal_level_reading` (CEE #2307): the number is the USER's, reading it as this goal's level today is Olumi's
+ *     (subject rule 5895823531) → "Olumi's reading of ‘<the user's words>’". Wins whenever present: MG keeps a
+ *     REFRESHED reading after a correction when the goal's subject differs from the user's words.
+ *   · a user-stated level (`observedState.raw_value` with a user `source`, no reading) → "you said".
+ * ⛔ The figure is `level` / `raw_value` in its OWN unit, never `value`/`baseline` (normalised: 0.8 on cut-costs), and
+ * the unit must be the goal's, or nothing is said. A level goal, or a change goal with neither carrier, says nothing.
+ */
+export interface GoalTodayLevel {
+  readonly level: number
+  readonly unit: string
+  readonly basis: 'olumi_reading' | 'user_stated' | 'user_confirmed'
+  readonly quote: string | null
+}
+export function goalTodayLevel(data: (GoalTargetSource & { goal_level_reading?: unknown; observedState?: unknown }) | null | undefined): GoalTodayLevel | null {
+  if (!data || goalTargetChangeFrameOf(data.goal_threshold_frame) === null) return null
+  const goalUnit = typeof data.goal_threshold_unit === 'string' ? data.goal_threshold_unit.trim() : ''
+  if (goalUnit === '') return null
+  const reading = data.goal_level_reading as { level?: unknown; level_unit?: unknown; quote?: unknown } | null | undefined
+  if (reading && typeof reading === 'object') {
+    const quote = typeof reading.quote === 'string' ? reading.quote.trim() : ''
+    const unit = typeof reading.level_unit === 'string' ? reading.level_unit.trim() : ''
+    if (typeof reading.level === 'number' && Number.isFinite(reading.level) && quote !== '' && unit === goalUnit) {
+      return { level: reading.level, unit, basis: 'olumi_reading', quote }
+    }
+    return null // a reading is present but unreadable: fail closed, never fall through to another figure
+  }
+  const observed = data.observedState as { raw_value?: unknown; unit?: unknown; source?: unknown } | null | undefined
+  const kind = classifyObservedValueProvenance(observed)?.kind
+  const raw = typeof observed?.raw_value === 'number' ? observed.raw_value : NaN
+  const unit = typeof observed?.unit === 'string' ? observed.unit.trim() : ''
+  if ((kind === 'edited' || kind === 'confirmed') && Number.isFinite(raw) && unit === goalUnit) {
+    // AIQ 5902964135 nit: a `confirmed` source is one the user CONFIRMED, not one they typed.
+    return { level: raw, unit, basis: kind === 'confirmed' ? 'user_confirmed' : 'user_stated', quote: null }
+  }
+  return null
+}
+
+/**
+ * ⛔ ISL's `GOAL_DIRECTION_UNATTESTED` ("the model does not say which way your goal should go") IS FALSE when the goal
+ * node HOLDS `>=` / `>` and its target is not a negative change: the largest-value ordering ISL used then IS the held
+ * aim (AIQ 5901136155, 5902450527). Such a goal omits the entry; `<=`, `<`, an absent comparator, a negative or
+ * unreadable change keep it (fail closed: the disclosure stays).
+ */
+export function goalDirectionWarningIsMoot(goal: GoalTargetSource | null | undefined): boolean {
+  const held = goalHeldComparatorOf(goal?.goal_direction)
+  if (held !== '>=' && held !== '>') return false
+  if (goalTargetChangeFrameOf(goal?.goal_threshold_frame) !== null) {
+    const raw = typeof goal?.goal_threshold_raw === 'number' ? goal.goal_threshold_raw : Number.NaN
+    if (!Number.isFinite(raw) || raw < 0) return false
+  }
+  return true
+}
+export const GOAL_DIRECTION_UNATTESTED_CODE = 'GOAL_DIRECTION_UNATTESTED'

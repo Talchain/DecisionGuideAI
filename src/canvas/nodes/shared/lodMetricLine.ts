@@ -131,6 +131,7 @@
  * on any widening whatever, including one that printed an empty line, while the
  * pair discriminates on the datum itself.
  */
+import { NOT_RANKED_MARKER } from '../../state/winShareGate'
 import { factorCardVisibleText, factorDisplayParts, factorDisplayText } from '../../../utils/formatFactorDisplayValue'
 import { collapseEstimateDisplay } from './collapseEstimateDisplay'
 import { isSuppressedUnit, formatWinProbability } from '../../utils/labelUtils'
@@ -141,6 +142,7 @@ import { resolveFactorPriorRangeOnCard } from './factorPriorRange'
 import { readoutIsBareModelScale } from './FactorValueFigure'
 import { factorValueSourceMark } from './valueSourceMark'
 import { DRIVER_LINE_COPY, LAST_RUN_PREFIX, OPTION_RESULT_COPY } from './metricVocabulary'
+import { restingUnvaluedDriverCaption } from './driverCaptionFit'
 
 /**
  * The facts a reduced line needs that DO NOT live on the node.
@@ -190,10 +192,29 @@ export interface LodMetricFacts {
    */
   driverRank?: { rank: number; setSize: number } | null
   /**
+   * ⭐ PJ-B3: the run held no value for this ranked factor
+   * (`NodeDisplayMetadata.unvaluedInRun`, passed through `BaseNode`). The rank
+   * arm then states the card's own resting caption,
+   * `restingUnvaluedDriverCaption` — the longest owner form that fits the
+   * card's text measure at the landing bound, ending "no value yet" — so this
+   * `truncate`d line can never cut the words off and leave a bare rank.
+   */
+  driverNoValueYet?: boolean
+  /**
    * The option result's caption, by run currency (`OPTION_RESULT_COPY`) — the
    * same caption the card shows at full zoom. Absent ⇒ the result is withheld.
    */
   optionResultCaption?: string | null
+  /**
+   * CURRENT-READ row 9 (AIQ 5912710392): the producer withheld the leader, so no per-option win share is
+   * shown at any zoom. The reduced line says `Not ranked` (`winShareGate.ts`), as the full-zoom card does.
+   */
+  winSharesWithheld?: boolean
+  /**
+   * T12 row 1: the option the USER took out of the comparison (`optionTakenOutLine`, schemas 0.69.0 `option_status`).
+   * The reduced line says the same words as the full-zoom card, in both phases, before any share or marker.
+   */
+  optionTakenOutLine?: string | null
   /**
    * The model has changed since the run the influence figure came from — the
    * card's own `useModelChangedSinceRun()`, passed through `BaseNode`.
@@ -364,8 +385,15 @@ function resolveText({
         // cannot-confirm (`driverRank` is absent there).
         const driver = facts?.driverRank
         const lastRun = facts?.influenceFromLastRun === true ? LAST_RUN_PREFIX : ''
-        // ED 5806207128 stale form: "Last run · Driver N of M analysed".
-        if (driver) return `${lastRun}${DRIVER_LINE_COPY.rank(driver.rank, driver.setSize)}`
+        // NODE-ANATOMY v3.2 / contract v3.1 pt 5 stale form: "Last run · Driver N
+        // of M ranked" (M = the ranked count, the SAME words the card prints).
+        if (driver && facts?.driverNoValueYet === true) {
+          // PJ-B3: the SAME words the card's slot prints for this factor
+          // (`Last run · ` included), chosen to fit, so "no value yet" survives
+          // the ellipsis this line carries.
+          return restingUnvaluedDriverCaption(driver, facts?.influenceFromLastRun === true)
+        }
+        if (driver) return `${lastRun}${DRIVER_LINE_COPY.rank(driver.rank, driver.setSize, facts?.influenceFromLastRun === true)}`
       }
 
       // ⭐ THE PRE-ANALYSIS ARM, AND THE ONE THAT CLOSES THE DEFECT. Both rules
@@ -392,6 +420,8 @@ function resolveText({
       // comparative phrase that truncates to nothing at this size. Paul's
       // ruling on card density (31 Aug) is the same shape one zoom level up —
       // "show the bar with the percentage next to it", the sentence on hover.
+      if (typeof facts?.optionTakenOutLine === 'string') return facts.optionTakenOutLine
+      if (displayMetadata.isResultsMode && facts?.winSharesWithheld === true) return NOT_RANKED_MARKER
       if (displayMetadata.isResultsMode && displayMetadata.winRate != null) {
         // ⚠ THE REGISTER, NOT A LITERAL — and this line is why. It read
         // `Ahead ${…}` while its sibling arm, the `achievementProbability`

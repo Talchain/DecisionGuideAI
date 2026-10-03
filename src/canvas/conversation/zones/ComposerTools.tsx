@@ -159,7 +159,7 @@ export function ComposerTools({
           onClick={handleScaffold}
           className={`
             w-full flex items-center gap-3 px-3 py-2 text-left rounded-md
-            ${typography.bodySmall} text-text-body
+            ${typography.chatBody} text-text-body
             hover:bg-panel-hover focus-visible:bg-panel-hover
             focus-visible:outline-none transition-colors duration-100
             min-h-[32px]
@@ -176,7 +176,7 @@ export function ComposerTools({
           onClick={() => setShowHelp(prev => !prev)}
           className={`
             w-full flex items-center gap-3 px-3 py-2 text-left rounded-md
-            ${typography.bodySmall} text-text-body
+            ${typography.chatBody} text-text-body
             hover:bg-panel-hover focus-visible:bg-panel-hover
             focus-visible:outline-none transition-colors duration-100
             min-h-[32px]
@@ -202,7 +202,7 @@ export function ComposerTools({
           onClick={handleExample}
           className={`
             w-full flex items-center gap-3 px-3 py-2 text-left rounded-md
-            ${typography.bodySmall} text-text-body
+            ${typography.chatBody} text-text-body
             hover:bg-panel-hover focus-visible:bg-panel-hover
             focus-visible:outline-none transition-colors duration-100
             min-h-[32px]
@@ -239,7 +239,7 @@ export function ComposerTools({
               onClick={() => { if (mode.enabled) handleSelectMode(mode.id) }}
               className={`
                 w-full flex items-center gap-3 px-3 py-2 text-left rounded-md
-                ${typography.bodySmall} text-text-body
+                ${typography.chatBody} text-text-body
                 hover:bg-panel-hover focus-visible:bg-panel-hover
                 focus-visible:outline-none transition-colors duration-100
                 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent
@@ -294,7 +294,7 @@ export function ComposerTools({
             }
           }
           .composer-tools-trigger:hover {
-            background: var(--bg-panel-hover, #FEF9F3);
+            background: var(--bg-panel-hover, #FCF7F1);
             color: var(--text-body, #3F3F3E);
           }
         `}</style>

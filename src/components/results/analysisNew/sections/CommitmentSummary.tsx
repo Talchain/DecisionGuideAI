@@ -43,6 +43,7 @@ import {
   COMMITMENT_COPY,
   commitmentAskContext,
   commitmentBullets,
+  type CommitmentBulletKey,
   type CommitmentSynthesis,
 } from '../commitmentSynthesis'
 import { PanelIconButton } from '../PanelIconButton'
@@ -250,6 +251,18 @@ function RecordYourView({
   )
 }
 
+/** Everything up to and including the last space, so the last word can share a no-wrap run with a trailing glyph. */
+function textBeforeLastWord(text: string): string {
+  const i = text.lastIndexOf(' ')
+  return i < 0 ? '' : text.slice(0, i + 1)
+}
+
+/** The sentence's last word (the whole text when it has no space). */
+function lastWord(text: string): string {
+  const i = text.lastIndexOf(' ')
+  return i < 0 ? text : text.slice(i + 1)
+}
+
 export function CommitmentSummary({
   synthesis,
   isPreRun,
@@ -327,22 +340,33 @@ export function CommitmentSummary({
                 data-source={b.source}
               >
                 <b className="text-text-header">{b.label}: </b>
-                <span data-testid={`${testId}-${b.key}-text`}>{b.text}</span>
                 {b.key === 'open' ? (
-                  <PanelIconButton
-                    ai
-                    inline
-                    label={COMMITMENT_COPY.openAsk.label}
-                    onClick={() =>
-                      onAsk({
-                        label: COMMITMENT_COPY.openAsk.label,
-                        draft: COMMITMENT_COPY.openAsk.draft,
-                        context: commitmentAskContext(synthesis),
-                      })
-                    }
-                    testId={`${testId}-open-ask`}
-                  />
-                ) : null}
+                  // ⭐ THE GLYPH NEVER WRAPS ALONE (served funding brief at 360, 30 Sep 2026: the ✦ sat on a line of
+                  // its own under "…a run you start can."). The sentence's last word and the glyph share one
+                  // no-wrap run, so they break together. The glyph has no text (aria-label only), so the text
+                  // span's textContent is still exactly `b.text`.
+                  <span data-testid={`${testId}-${b.key}-text`}>
+                    {textBeforeLastWord(b.text)}
+                    <span className="whitespace-nowrap">
+                      {lastWord(b.text)}
+                      <PanelIconButton
+                        ai
+                        inline
+                        label={COMMITMENT_COPY.openAsk.label}
+                        onClick={() =>
+                          onAsk({
+                            label: COMMITMENT_COPY.openAsk.label,
+                            draft: COMMITMENT_COPY.openAsk.draft,
+                            context: commitmentAskContext(synthesis),
+                          })
+                        }
+                        testId={`${testId}-open-ask`}
+                      />
+                    </span>
+                  </span>
+                ) : (
+                  <span data-testid={`${testId}-${b.key}-text`}>{b.text}</span>
+                )}
               </li>
             ))}
           </ul>
@@ -451,6 +475,63 @@ export function CommitmentSummary({
           />
         </span>
       </div>
+    </section>
+  )
+}
+
+/**
+ * ⭐ V2 prototype "Draft" state (28 Sep 2026, Panel): "Move towards commitment"
+ * before any run. The same heading, rule and bullet grammar as the post-run zone,
+ * with the run act inside it where the prototype puts its "Run example analysis".
+ *
+ * A separate component, not a mode of `CommitmentSummary`: that zone's chart slot,
+ * qualifier and record door all read a run, and it still renders nothing pre-run.
+ * `status` is the tab's pre-run status block (the sentence, any refusal, the act),
+ * unchanged, so every rule on that block keeps its one owner.
+ */
+export function PreRunCommitment({
+  bullets,
+  status,
+  onAsk,
+  testId = 'analysis-new-commitment-pre-run',
+}: {
+  bullets: ReadonlyArray<{ key: CommitmentBulletKey; label: string; text: string; source: string }>
+  status: ReactNode
+  onAsk: (ask: CommitmentAsk) => void
+  testId?: string
+}) {
+  const context = bullets.map((b) => `${b.label}: ${b.text}`).join('\n')
+  return (
+    <section className={`${PANEL_RULE} pb-3`} data-testid={testId} aria-labelledby={`${testId}-title`}>
+      <div className="flex items-center gap-1">
+        <h3 id={`${testId}-title`} className={`${typography.panelHeader} text-text-header m-0 min-w-0 flex-1`}>
+          {COMMITMENT_COPY.heading}
+        </h3>
+        <PanelIconButton
+          ai
+          label={COMMITMENT_COPY.summarise.label}
+          onClick={() =>
+            onAsk({ label: COMMITMENT_COPY.summarise.label, draft: COMMITMENT_COPY.summarise.draft, context })
+          }
+          testId={`${testId}-summarise`}
+        />
+      </div>
+      {bullets.length > 0 ? (
+        <ul className="list-disc pl-4 m-0 mt-2 space-y-1" data-testid={`${testId}-synthesis`}>
+          {bullets.map((b) => (
+            <li
+              key={b.key}
+              className={`${typography.panelBody} text-text-body m-0`}
+              data-testid={`${testId}-${b.key}`}
+              data-source={b.source}
+            >
+              <b className="text-text-header">{b.label}: </b>
+              {b.text}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <div className="mt-2">{status}</div>
     </section>
   )
 }

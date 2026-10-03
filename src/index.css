@@ -38,7 +38,21 @@
   *:focus:not(:focus-visible) {
     outline: none;
   }
+  /* Paul, 1 Oct 2026: no blue highlight when anything is clicked. Browsers treat a click into a text field as
+     :focus-visible, so text fields never ring or outline at all — the caret is their focus mark. Every
+     `focus:ring-*` in src is `focus-visible:ring-*` (keyboard only); `focusRingsAreKeyboardOnly.spec.ts` keeps it so. */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):focus,
+  textarea:focus,
+  select:focus,
+  [contenteditable='true']:focus {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+  /* Keyboard focus stays visible (WCAG 2.4.7) but is neutral, never blue (Paul, 1 Oct 2026; Canvas 5929648550):
+     a browser can treat focus after typing as :focus-visible, so a blue keyboard ring would still flash on click.
+     `!important` on the custom property outranks every `focus-visible:ring-<colour>` class without editing them. */
   *:focus-visible {
+    --tw-ring-color: rgb(var(--text-light-rgb) / 0.6) !important;
     outline: 2px solid var(--focus-color, var(--info));
     outline-offset: 2px;
     border-radius: 4px;
@@ -487,6 +501,7 @@
   --toolbar-margin: 1rem;  /* Space below toolbar (16px) */
   --bottombar-h: 72px;     /* Total reserved space at bottom: toolbar (56px) + margin (16px) */
   --topbar-h: 0px;         /* Set to non-zero if a fixed top bar is introduced */
+  --chrome-top-left: 0px;  /* The top-left pill's bottom edge (TopBar.tsx); only the top-left column clears it */
 
   /* Week 2 new layout dimensions */
   --leftsidebar-w: 48px;   /* LeftSidebar width for canvas offset */
@@ -806,9 +821,11 @@
 
 /* SafeRichText gap spacer — paragraph breaks and horizontal rule degradation (injected via dangerouslySetInnerHTML) */
 .md-gap {
+  /* An empty block span (MD_GAP in safeRichText.ts), never a <br>: Chrome
+     ignores height and margin on a <br>, which left every paragraph gap at 0px.
+     1em = one text size, 12–16px as DS v5 §2.4 asks. */
   display: block;
-  height: 0;
-  margin-bottom: 0.75em;
+  height: 1em;
 }
 
 /* Tabular numerics for metrics embedded in AI prose (§2 DS v5 numeric rhythm) */
@@ -841,16 +858,18 @@
   border: 0;
   background: radial-gradient(circle, var(--text-body) 0 1.5px, transparent 2px);
 }
+/* Hover / selected re-light the port as the drag-to-connect affordance: a fuller dark disc, never blue
+   (Paul, 1 Oct 2026: no blue highlight when anything is clicked). */
 .react-flow__node:hover .react-flow__handle.olumi-node-port,
 .react-flow__node.selected .react-flow__handle.olumi-node-port {
-  background: var(--info);
+  background: var(--text-body);
   box-shadow: 0 0 0 2px var(--bg-panel);
 }
 
 /* Graph Editing Experience Task 4a: Edge drag feedback */
 /* During connection, valid target handles glow; invalid ones dim */
 .react-flow .connecting .react-flow__handle.connectingto {
-  box-shadow: 0 0 6px 2px var(--semantic-info, #3b82f6);
+  box-shadow: 0 0 6px 2px rgb(63 63 62 / 0.45); /* neutral, never blue (Paul, 1 Oct 2026) */
   transform: scale(1.3);
   transition: box-shadow 150ms ease, transform 150ms ease;
 }
@@ -905,4 +924,15 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .olumi-attended { transition: none; }
+}
+
+/* ⭐ THE PER-TYPE NUMBER BEFORE A CARD'S TITLE (Paul, 1 Oct 2026: "each node having a number relating to the node
+   type"). Generated content, so the title's text stays the label alone (`NODE_TYPE_ORDINAL_ATTR`, BaseNode). The
+   margin is in em, so it scales with the counter-scaled title like the words beside it. */
+[data-type-ordinal]::before {
+  content: attr(data-type-ordinal);
+  margin-right: 0.45em;
+  color: var(--text-light);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }

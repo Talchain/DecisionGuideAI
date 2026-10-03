@@ -18,9 +18,11 @@
  *      that skips the confirm REDs ServerVersionsSection.spec §PIN 1);
  *   2. the server snapshots the current state FIRST (provenance
  *      `pre_restore`) and names it in the response — rendered here as UNDO.
- * The apply path is `reconcileAppliedGraph` — the receipt-class reconcile
- * with authoritative deletion semantics and layout preservation — never a
- * second bespoke merge. Restores THEMSELVES are versions (the server appends,
+ * The apply path is `applyRestoredGraph` → `reconcileAppliedGraph` in RESTORE
+ * mode (the restored version replaces node data rather than overlaying it,
+ * with authoritative deletion semantics and layout preservation), then
+ * `settleRestoredModel` through the cold-open read — never a second bespoke
+ * merge. Restores THEMSELVES are versions (the server appends,
  * history is never rewritten), which is why undo is just another restore.
  *
  * ── GUESTS ──────────────────────────────────────────────────────────────────
@@ -38,14 +40,18 @@ import { useAuth } from '../../contexts/AuthContext'
 import { getSessionIdentity } from '../../lib/supabase'
 import { useCanvasStore } from '../store'
 import {
+  compareModelVersions,
   listModelVersions,
   restoreModelVersion,
   saveModelVersion,
+  type ModelVersionDiff,
   type ServerModelVersion,
 } from '../../adapters/cee/modelVersions'
+import { ServerVersionDiff } from './ServerVersionDiff'
 import type { SignInRefusalCause } from '../../adapters/cee/signInRefusal'
-import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
+import { applyRestoredGraph, settleRestoredModel } from './applyRestoredModel'
 import { findRestoredInterventionMismatches } from './restoreInterventionAudit'
+import { newRestoreMutationId } from './restoreMutationId'
 import { logger } from '../../lib/logger'
 // ⚠ THE ADDRESSABILITY AND IDENTITY GATES ARE NOT DEFINED HERE ANY MORE.
 // The undo-gesture notice must promise restore ONLY where this section will
@@ -60,49 +66,6 @@ import {
 /** Storage-scope disclosure — the shared counterpart of the local one. */
 export const SERVER_VERSIONS_DISCLOSURE =
   'Shared versions are stored with the scenario. Anyone who can open this scenario can see and restore them, from any browser.'
-
-/**
- * A fresh restore identity, one per GESTURE.
- *
- * ⚠ WHY FRESHNESS IS A SAFETY PROPERTY, NOT AN OPTIMISATION. CEE's restore RPC
- * resolves replay BEFORE the CAS and says so itself
- * (`20260824200000_c8_atomic_model_version_restore.sql:311-314`): "A successful
- * original call may legitimately be retried after later graph changes; it
- * returns the original operation receipt and performs no writes."
- *
- * So a REUSED id on a genuinely-new restore of the same version — restore v1,
- * edit, restore v1 again — returns HTTP 200, `restored: true` and a real
- * receipt WHILE THE SERVER'S WORKING GRAPH IS NEVER REVERTED. The wire cannot
- * tell: CEE computes `replayed` and only LOGS it, and the response schema is
- * `.strict()` without it. We would then reconcile the canvas to the old graph
- * and tell the user "the shared model and this canvas now show that version",
- * which would be false about the shared model. A fabricated success is worse
- * than the honest 422 this PR removes.
- *
- * DO NOT hoist this, memoise it per versionId, or derive it from
- * (scenarioId, versionId). The append path's `deterministicMutationId` is NOT
- * a precedent: there a `turn_id` already identifies the logical mutation, and
- * a restore gesture has no such pre-existing identity. Reuse is correct only
- * WITHIN one gesture, and there is no in-gesture retry to serve — `postOnce`
- * issues exactly one fetch. The user clicking Restore again is a NEW gesture
- * and must get a NEW id. If an automatic retry of a timed-out restore is ever
- * added, THAT retry reuses this id; nothing else ever does.
- *
- * Shape follows `conversation/systemEvents.ts:51-61` — the only UUID-valid
- * fallback in this tree. Deliberately NOT `utils/idempotency.ts`, whose
- * fallback returns `idk_<hex>_<hex>` and would fail CEE's `z.string().uuid()`,
- * reproducing this very defect somewhere far harder to see.
- */
-function newRestoreMutationId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.floor(Math.random() * 16)
-    const v = c === 'x' ? r : (r & 0x3) | 0x8
-    return v.toString(16)
-  })
-}
 
 /**
  * ── OUTCOME COPY ────────────────────────────────────────────────────────────
@@ -291,6 +254,36 @@ function signInRefusalCopy(
   }
 }
 
+export const COMPARE_SESSION_ENDED = 'Your session is no longer valid. Sign in again, then show the differences.'
+export const COMPARE_REFUSED_WHILE_SIGNED_IN =
+  'The server refused this as signed-out while you are signed in — a fault in Olumi, not something a retry can fix.'
+export const COMPARE_VERSION_GONE = 'One of those versions is no longer available. The list has been refreshed.'
+export const COMPARE_NOT_COMPARABLE = 'Olumi cannot safely show the differences between those two versions.'
+export const COMPARE_HISTORY_MOVED = 'The history changed meanwhile. The list has been refreshed; show the differences again.'
+export const COMPARE_UNAVAILABLE = 'The differences could not be loaded right now. Try again.'
+
+/**
+ * The default pair: the version BEFORE the head → the head (the current shared
+ * version, else the newest). "What changed in the last save" is the question a
+ * user opening history most often has. Null when fewer than two versions exist.
+ */
+export function defaultComparePair(
+  versions: readonly ServerModelVersion[],
+  currentVersionId: string | null,
+): { from: string; to: string } | null {
+  if (versions.length < 2) return null
+  const byNumber = [...versions].sort((a, b) => b.versionNumber - a.versionNumber)
+  const to = byNumber.find((v) => v.id === currentVersionId) ?? byNumber[0]
+  const from = byNumber.find((v) => v.versionNumber < to.versionNumber) ?? byNumber.find((v) => v.id !== to.id)
+  return from === undefined ? null : { from: from.id, to: to.id }
+}
+
+type Comparison =
+  | { kind: 'idle' }
+  | { kind: 'comparing'; from: string; to: string }
+  | { kind: 'shown'; from: string; to: string; diff: ModelVersionDiff }
+  | { kind: 'failed'; copy: string }
+
 export const SERVER_VERSIONS_SIGNIN =
   'Sign in to save shared versions. Version history for the shared model is available when you are signed in; the local history above still works in this browser.'
 
@@ -444,6 +437,16 @@ export function ServerVersionsSection() {
   const [undoVersionId, setUndoVersionId] = useState<string | null>(null)
   const [draftLabel, setDraftLabel] = useState('')
   const mountedRef = useRef(true)
+  /** Compare: the chosen pair (version ids) and the last answer for it. */
+  const [comparePair, setComparePair] = useState<{ from: string; to: string } | null>(null)
+  const [comparison, setComparison] = useState<Comparison>({ kind: 'idle' })
+  /**
+   * ⛔ ONE ANSWER PER QUESTION. Bumped by every compare, every pair change and
+   * every scenario switch; a response is applied only while its number is still
+   * the latest, so an answer for an old pair (or another scenario) can never be
+   * shown under the current one.
+   */
+  const compareSeqRef = useRef(0)
 
   const userId = user?.id ?? null
   const signedIn = isRestoreCapableIdentity(userId)
@@ -455,6 +458,12 @@ export function ServerVersionsSection() {
       mountedRef.current = false
     }
   }, [])
+
+  useEffect(() => {
+    compareSeqRef.current += 1
+    setComparePair(null)
+    setComparison({ kind: 'idle' })
+  }, [scenarioId])
 
   const refresh = useCallback(async () => {
     if (!addressable || !signedIn || typeof scenarioId !== 'string') return
@@ -470,6 +479,12 @@ export function ServerVersionsSection() {
         kind: 'ready',
         versions: result.versions,
         currentVersionId: result.currentVersionId,
+      })
+      // Keep the user's pair while both versions still exist; otherwise the default.
+      setComparePair((prev) => {
+        const ids = new Set(result.versions.map((v) => v.id))
+        if (prev !== null && ids.has(prev.from) && ids.has(prev.to) && prev.from !== prev.to) return prev
+        return defaultComparePair(result.versions, result.currentVersionId)
       })
       return
     }
@@ -686,15 +701,14 @@ export function ServerVersionsSection() {
         // `data.interventions` mirrored onto it). Restore is the only caller
         // whose graph and whose ready snapshot come from different responses.
         // Nothing is deleted or weakened for the other callers.
-        useCanvasStore.getState().setCeeAnalysisReady(null)
-
-        // The receipt-class apply: adds + updates + deletions in one history
-        // entry, layout preserved, removals gated on acknowledged elements.
-        const applied = reconcileAppliedGraph(
-          // The restore payload carries only `graph`; the reconcile reads
-          // `.graph.nodes/.graph.edges` on exactly this shape.
-          { graph: result.graph } as unknown as Parameters<typeof reconcileAppliedGraph>[0],
-        )
+        //
+        // `applyRestoredGraph` does that retirement FIRST, then the receipt-class
+        // reconcile in RESTORE mode: a restored version is the whole model, so
+        // a value it lacks is cleared rather than kept (an overlay would leave
+        // an undone first-time value on screen), layout preserved, removals
+        // gated on acknowledged elements; and it forgets restored elements from
+        // the proven-deletion record. One path for every restore, Undo included.
+        const applied = applyRestoredGraph(result.graph)
 
         // The success claim is EARNED, not assumed. The counts below say the
         // apply DID something; only this says it did the right thing, and it is
@@ -743,6 +757,15 @@ export function ServerVersionsSection() {
         } else {
           setMessage('Restored. The shared model and this canvas now show that version.')
         }
+        // Adopt the restored model's write base, identity and run currency
+        // through the cold-open read. Without it the next edit is sent on the
+        // pre-restore base and refused as stale.
+        void settleRestoredModel(scenarioId, identity).catch((error: unknown) => {
+          logger.warn('server_versions.restore_settle_failed', {
+            scenarioId,
+            error: error instanceof Error ? error.message : String(error),
+          })
+        })
         await refresh()
         return
       }
@@ -821,6 +844,61 @@ export function ServerVersionsSection() {
         })
         setMessage(RESTORE_OUTCOME_UNKNOWN)
         await refresh()
+        return
+    }
+  }
+
+  function chooseComparePair(next: { from: string; to: string }) {
+    compareSeqRef.current += 1
+    setComparePair(next)
+    setComparison({ kind: 'idle' })
+  }
+
+  async function handleCompare() {
+    if (comparePair === null || comparePair.from === comparePair.to || typeof scenarioId !== 'string') return
+    const seq = ++compareSeqRef.current
+    const { from, to } = comparePair
+    setComparison({ kind: 'comparing', from, to })
+    const stale = () => !mountedRef.current || compareSeqRef.current !== seq
+    const identity = await getSessionIdentity()
+    if (stale()) return
+    const result = await compareModelVersions(scenarioId, {
+      userId: identity.userId,
+      accessToken: identity.accessToken,
+      fromVersionId: from,
+      toVersionId: to,
+    })
+    if (stale()) return
+    switch (result.status) {
+      case 'compared':
+        setComparison({ kind: 'shown', from, to, diff: result.diff })
+        return
+      case 'signInRequired':
+        setComparison({
+          kind: 'failed',
+          copy: signInRefusalCopy(result.cause, requestCarriedIdentity(identity), {
+            lapsed: COMPARE_SESSION_ENDED,
+            olumiFault: COMPARE_REFUSED_WHILE_SIGNED_IN,
+          }),
+        })
+        return
+      case 'versionNotFound':
+        setComparison({ kind: 'failed', copy: COMPARE_VERSION_GONE })
+        await refresh()
+        return
+      case 'conflict':
+        setComparison({ kind: 'failed', copy: COMPARE_HISTORY_MOVED })
+        await refresh()
+        return
+      case 'notComparable':
+        setComparison({ kind: 'failed', copy: COMPARE_NOT_COMPARABLE })
+        return
+      case 'disabled':
+      case 'notReadable':
+      case 'unavailable':
+      case 'refused':
+      case 'unusable':
+        setComparison({ kind: 'failed', copy: COMPARE_UNAVAILABLE })
         return
     }
   }
@@ -1009,8 +1087,106 @@ export function ServerVersionsSection() {
               })}
             </ul>
           )}
+
+          {comparePair !== null && phase.versions.length >= 2 && (
+            <ServerVersionCompare
+              versions={phase.versions}
+              currentVersionId={phase.currentVersionId}
+              pair={comparePair}
+              comparison={comparison}
+              onChoose={chooseComparePair}
+              onCompare={() => void handleCompare()}
+            />
+          )}
         </>
       )}
     </PanelSection>
+  )
+}
+
+export const SERVER_VERSION_COMPARE_TESTID = 'server-version-compare'
+
+/**
+ * The From/To picker and the answer. Presentational: the section owns the request and its ordering.
+ * ⚠ NOT "Compare" (DL 1 Oct): that word belongs to the Compare tab (Run vs Run). This stays inside Version history
+ * and never routes there.
+ */
+function ServerVersionCompare({
+  versions,
+  currentVersionId,
+  pair,
+  comparison,
+  onChoose,
+  onCompare,
+}: {
+  versions: readonly ServerModelVersion[]
+  currentVersionId: string | null
+  pair: { from: string; to: string }
+  comparison: Comparison
+  onChoose: (next: { from: string; to: string }) => void
+  onCompare: () => void
+}) {
+  const byNumber = [...versions].sort((a, b) => b.versionNumber - a.versionNumber)
+  const name = (v: ServerModelVersion) =>
+    `v${v.versionNumber}${v.label !== null ? ` · ${v.label}` : ''}${v.id === currentVersionId ? ' (current)' : ''}`
+  const find = (id: string) => versions.find((v) => v.id === id)
+  const comparing = comparison.kind === 'comparing'
+  // A diff is shown only for the pair the selects show: a refresh that replaces the pair never leaves an old answer up.
+  const shown = comparison.kind === 'shown' && comparison.from === pair.from && comparison.to === pair.to ? comparison : null
+  const shownFrom = shown ? find(shown.from) : undefined
+  const shownTo = shown ? find(shown.to) : undefined
+  const select = `${typography.panelBody} min-w-0 flex-1 px-2 py-1.5 rounded-md border border-panel-border bg-panel text-text-body`
+
+  return (
+    <section className="space-y-2 pt-2 border-t border-panel-border" data-testid={SERVER_VERSION_COMPARE_TESTID}>
+      <h4 className={`${typography.panelBody} text-text-body font-medium`}>What changed between versions</h4>
+      <div className="flex items-center gap-2">
+        <label className="sr-only" htmlFor="server-compare-from">From version</label>
+        <select
+          id="server-compare-from"
+          data-testid={`${SERVER_VERSION_COMPARE_TESTID}-from`}
+          value={pair.from}
+          onChange={(e) => onChoose({ from: e.target.value, to: pair.to })}
+          className={select}
+        >
+          {byNumber.map((v) => (
+            <option key={v.id} value={v.id}>{name(v)}</option>
+          ))}
+        </select>
+        <span aria-hidden="true" className={`${typography.panelBody} text-text-light`}>→</span>
+        <label className="sr-only" htmlFor="server-compare-to">To version</label>
+        <select
+          id="server-compare-to"
+          data-testid={`${SERVER_VERSION_COMPARE_TESTID}-to`}
+          value={pair.to}
+          onChange={(e) => onChoose({ from: pair.from, to: e.target.value })}
+          className={select}
+        >
+          {byNumber.map((v) => (
+            <option key={v.id} value={v.id}>{name(v)}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          data-testid={`${SERVER_VERSION_COMPARE_TESTID}-go`}
+          disabled={comparing || pair.from === pair.to}
+          onClick={onCompare}
+          className={`${typography.panelBody} shrink-0 px-3 py-1.5 rounded-md border border-panel-border text-text-body hover:bg-panel-hover disabled:opacity-60`}
+        >
+          {comparing ? 'Finding differences…' : 'Show differences'}
+        </button>
+      </div>
+      {pair.from === pair.to && (
+        <p className={`${typography.panelMeta} text-text-light`}>Pick two different versions.</p>
+      )}
+      {comparison.kind === 'failed' && (
+        <p className={`${typography.panelBody} text-text-body`} role="status" data-testid={`${SERVER_VERSION_COMPARE_TESTID}-message`}>
+          {comparison.copy}
+        </p>
+      )}
+      {shown !== null && shownFrom !== undefined && shownTo !== undefined && (
+        <ServerVersionDiff diff={shown.diff} fromVersion={shownFrom} toVersion={shownTo} />
+      )}
+    </section>
   )
 }

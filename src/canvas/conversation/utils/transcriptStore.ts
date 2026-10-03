@@ -39,6 +39,7 @@
  * the one witness of what was done (G1).
  */
 
+import { readGuidanceSlots } from '../guidanceRows'
 import type { ConversationMessage } from '../types'
 import { heldProposalMountKey } from '../selectors'
 import { offersPendingConsent } from '../messageComposition'
@@ -204,6 +205,10 @@ interface StoredMessage {
   provisionalView?: Record<string, string>
   sessionDivider?: string
   synthetic?: boolean
+  /** A restored earlier reply's tag ("Earlier analysis"): kept so the mark survives the next page load (Canvas 5925780066). */
+  restoredTag?: string
+  narration?: { status: string; runKey: string }
+  guidance?: unknown
 }
 
 interface StoredTranscript {
@@ -318,6 +323,9 @@ function toStored(m: SourceKeyedMessage): StoredMessage {
   }
   if (m.sessionDivider) out.sessionDivider = m.sessionDivider
   if (m.synthetic) out.synthetic = true
+  if (m.restoredTag) out.restoredTag = m.restoredTag
+  if (m.narration) out.narration = { status: m.narration.status, runKey: m.narration.runKey }
+  if (m.guidance) out.guidance = m.guidance
   return out
 }
 
@@ -347,6 +355,12 @@ function fromStored(s: StoredMessage): SourceKeyedMessage {
     ...restoredProvisionalView(s.provisionalView),
     ...(s.sessionDivider ? { sessionDivider: s.sessionDivider } : {}),
     ...(s.synthetic ? { synthetic: true } : {}),
+    ...(typeof s.restoredTag === 'string' && s.restoredTag ? { restoredTag: s.restoredTag } : {}),
+    ...(s.narration && typeof s.narration.runKey === 'string' && s.narration.runKey &&
+      ['pending', 'ready', 'stale', 'unavailable'].includes(s.narration.status)
+      ? { narration: { status: s.narration.status as 'pending' | 'ready' | 'stale' | 'unavailable', runKey: s.narration.runKey } }
+      : {}),
+    ...(readGuidanceSlots(s.guidance) ? { guidance: readGuidanceSlots(s.guidance)! } : {}),
   }
 }
 

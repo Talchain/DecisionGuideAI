@@ -24,7 +24,8 @@
  *   · a target EQUAL to the baseline option's is not a row; the next concrete
  *     change takes its place (contrast: a target that differs stays);
  *   · a target equal to the factor's current value (no baseline) is not a row;
- *   · `+N more` still counts from the ONE total (rows shown + more = targets set);
+ *   · `+N more` counts the concrete changes not shown (DIFF N1, 28 Sep — it
+ *     counted the target total until then);
  *   · the label cell holds the full name and is not a truncating cell;
  *   · the `from → to` value and its mark are no-wrap segments;
  *   · the pencil is a revealed rail icon (hidden at rest, shown on hover/focus).
@@ -177,11 +178,16 @@ describe('v3.1 #9 — an option card lists CONCRETE changes only', () => {
     expect(screen.getByTestId('option-change-row-opt-germany-f-germany').textContent!.startsWith('Low → Very high')).toBe(true)
   })
 
-  it('`+N more` still counts from the ONE total: rows shown + more = targets set', () => {
+  // ⚠ RE-PINNED 28 Sep 2026 (side-by-side DIFF N1, owner decision): `+N more`
+  // counted the target TOTAL, so the two targets Germany leaves where the
+  // baseline has them read as "+2 more" changes (served: vendor-selection
+  // `+5 more` with no further change). It now counts the concrete changes not
+  // shown — here none, so no `+N more`; the pencil still names all four targets.
+  it('`+N more` counts only concrete changes: two shown, none hidden → no `+N more`', () => {
     renderCard()
-    // Four targets set, two concrete changes shown → "+2 more" (the inspector
-    // lists every target, the unchanged ones included).
-    expect(screen.getByTestId('option-change-more-opt-germany').textContent).toBe('+2 more')
+    expect(rowIds('opt-germany')).toEqual(['f-germany', 'f-team'])
+    expect(screen.queryByTestId('option-change-more-opt-germany')).toBeNull()
+    expect(screen.getByTestId('option-edit-targets-opt-germany').getAttribute('aria-label')).toMatch(/^4 factor targets\./)
   })
 
   it('with no baseline option, a target equal to the factor\'s current value is not a row', () => {
@@ -196,22 +202,27 @@ describe('v3.1 #9 — an option card lists CONCRETE changes only', () => {
 })
 
 describe('v3.1 #9 — full label, amount on one line', () => {
-  // RE-PINNED (design audit #9, 26 Sep): the label is ONE line at every rung —
-  // `line-clamp-1`, an ellipsis at a word break — and its DOM text is still the
-  // FULL name (never cut in JS). Still never a horizontal cut (`truncate`,
-  // `text-ellipsis`) and never more than one line (`line-clamp-2`).
-  it('the label cell holds the FULL factor name on ONE clamped line, never a horizontal cut (audit #9)', () => {
+  // RE-PINNED (design audit #9, 26 Sep): the label is ONE line at every rung and
+  // its DOM text is still the FULL name (never cut in JS).
+  // ⭐ RE-PINNED 27 Sep (side-by-side DIFF item 1): the one line is a CHARACTER
+  // ellipsis (`truncate`) after the amount's natural width — `line-clamp-1` broke
+  // at a word and left one word — marked `data-truncates="label"`, with the full
+  // name on the row line's `title` (the e2e clipping gate's exemption). Never
+  // more than one line (`line-clamp-2`), and no title on the name cell itself.
+  it('the label cell holds the FULL factor name on ONE ellipsised line, recoverable from the row (audit #9, DIFF item 1)', () => {
     renderCard()
     const dd = screen.getByTestId('option-change-row-opt-germany-f-team')
     const dt = dd.previousElementSibling as HTMLElement
     expect(dt.tagName).toBe('DT')
     expect(dt.textContent).toBe('Team capacity drawn into the launch')
-    for (const cut of ['truncate', 'text-ellipsis', 'line-clamp-2']) {
-      expect(tokens(dt).has(cut), `the label cell is cut by ${cut}`).toBe(false)
+    for (const cut of ['line-clamp-1', 'line-clamp-2']) {
+      expect(tokens(dt).has(cut), `the label cell is clamped by ${cut}`).toBe(false)
     }
-    expect(tokens(dt).has('line-clamp-1')).toBe(true)
+    expect(tokens(dt).has('truncate')).toBe(true)
+    expect(dt.getAttribute('data-truncates')).toBe('label')
     expect(tokens(dt).has('min-w-0')).toBe(true)
     expect(dt.hasAttribute('title')).toBe(false)
+    expect(dt.closest('[title]')?.getAttribute('title')).toBe('Team capacity drawn into the launch')
   })
 
   // RE-PINNED (design audit #9, 26 Sep): the mark is GLUED to the value by one
@@ -243,7 +254,8 @@ describe('v3.1 #9 — full label, amount on one line', () => {
     renderCard({ store: { nodes } })
     const line = screen.getByTestId('option-card-differentiator-opt-germany')
     expect(line.textContent).toBe('Tests demand before localising.')
-    expect(tokens(line).has('text-[length:calc(10.5px*var(--canvas-label-scale,1))]')).toBe(true)
+    // 29 Sep: the contract's 10.5px, as the test's own name says (it was 11px).
+    expect(tokens(line).has('text-[length:calc(10.5px*var(--canvas-small-label-scale,1))]')).toBe(true)
   })
 })
 

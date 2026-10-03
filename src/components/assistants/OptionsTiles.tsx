@@ -73,7 +73,7 @@ export function OptionsTiles({ context, onOptionSelect }: OptionsTilesProps) {
         <button
           onClick={handleGenerateOptions}
           disabled={loading}
-          className="px-3 py-1.5 text-xs font-medium text-text-on-color bg-info-500 hover:bg-info-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-info-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          className="px-3 py-1.5 text-xs font-medium text-text-on-color bg-info-500 hover:bg-info-600 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           aria-label="Generate decision options"
         >
           {loading ? (

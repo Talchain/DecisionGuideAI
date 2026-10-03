@@ -35,7 +35,7 @@
 
 import { useState } from 'react'
 import { PanelFigure } from '../PanelFigure'
-import { AlertTriangle, CheckCircle, ChevronRight, Clock } from 'lucide-react'
+import { AlertTriangle, CheckCircle, ChevronRight, Clock, RefreshCw } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
 import { EXCLUDED_LABEL_NAME_CAP } from '../../utils/goalAnchorCopy'
@@ -318,6 +318,18 @@ export interface AtAGlanceProps {
    * the first screen. `'all'` (the default) is both, in one section, as before.
    */
   part?: 'all' | 'status' | 'reading'
+  /**
+   * ⭐ SAID ONCE (28 Sep 2026, Panel, served `ac2def0f`). The producer's robustness caveat
+   * ("How far this held") is on screen AND opens with this verdict's reason, word for word —
+   * so the glance's own line would be the same sentence twice. The caveat keeps it, with its
+   * limit. Decided by the tab (`caveatRestatesVerdictReason`), never here.
+   */
+  verdictReasonSaidByCaveat?: boolean
+  /**
+   * ⭐ SAID ONCE: the Challenge zone's signals row already states this run's tipping point
+   * (same `flipThresholds`, same strict gate), so "Could change if …" here would repeat it.
+   */
+  conditionSaidInChallenge?: boolean
   testId?: string
 }
 
@@ -353,7 +365,10 @@ export function AtAGlance({
   missingResults = [],
   testId = 'analysis-new-glance',
   part = 'all',
+  verdictReasonSaidByCaveat = false,
+  conditionSaidInChallenge = false,
 }: AtAGlanceProps) {
+  const condition = conditionSaidInChallenge ? null : glance.condition
   const [showAllExcluded, setShowAllExcluded] = useState(false)
   const [withheldOpen, setWithheldOpen] = useState(false)
   const excludedKey =
@@ -630,7 +645,7 @@ export function AtAGlance({
    * rationed amber budget to the sections that earn it.
    */
   const verdictCarriesItsOwnReading = Boolean(
-    glance.verdict && (glance.winShare || glance.verdict.reason || glance.winFraction !== null),
+    glance.verdict && (glance.winShare || (glance.verdict.reason && !verdictReasonSaidByCaveat) || glance.winFraction !== null),
   )
 
   /* ⚠ THE ANSWER DISJUNCT WENT WITH THE ANSWER — the same rule recorded just
@@ -662,7 +677,9 @@ export function AtAGlance({
      run consumed, and it is a qualifier: it must render only where there is
      something on this surface for it to qualify. The driver rows were such a
      thing and are no longer here. */
-  const showInputProvenance = Boolean(glance.inputProvenance) && readingOnScreen
+  // The named basis is already bound to a current licensed comparison. Its disclosure must survive a missing
+  // stability verdict; only the older generic provenance line needs the on-screen win-share reading.
+  const showInputProvenance = Boolean(glance.conditionalInputBasis) || (Boolean(glance.inputProvenance) && readingOnScreen)
 
   /**
    * ⛔⛔ AN EMPTY LABELLED LANDMARK, AND THE GUARD WRITTEN TO PREVENT ONE WAS
@@ -701,7 +718,7 @@ export function AtAGlance({
     verdictCarriesItsOwnReading ||
     showInputProvenance ||
     scopeDisclosureOnScreen ||
-    Boolean(glance.condition)
+    Boolean(condition)
   const hasAnything = (showStatus && ribbon.length > 0) || (showReading && hasReading)
   if (!hasAnything) return null
 
@@ -754,7 +771,7 @@ export function AtAGlance({
                 data-testid={r.testId}
               >
                 {i > 0 ? ' ' : null}
-                {r.text}
+                {part === 'status' && r.testId === 'analysis-new-status-stale' ? COPY.status.staleRow : r.text}
               </span>
             ))}
           </span>
@@ -855,10 +872,19 @@ export function AtAGlance({
               /* ⭐ V2 FIDELITY (25 Sep 2026, gap ACTION-9): see the review-estimates
                  control above — `hover:text-info-hover` replaces the failing
                  `hover:opacity-80`. The disabled treatment is untouched. */
-              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:text-info-hover disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline disabled:hover:opacity-50`}
+              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:text-info-hover disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline disabled:hover:opacity-50${part === 'status' ? ' no-underline' : ''}`}
               data-testid={`${testId}-ribbon-reanalyse`}
+              /* ⭐ V2 `.stale` row: "Re-run ⟳", plain; the name keeps the outcome words. */
+              {...(part === 'status' ? { 'aria-label': COPY.status.reanalyseToBeSure } : {})}
             >
-              {COPY.status.reanalyseToBeSure}
+              {part === 'status' ? (
+                <span className="inline-flex items-center gap-1">
+                  {COPY.status.reanalyseRow}
+                  <RefreshCw className={icon('inline')} aria-hidden="true" />
+                </span>
+              ) : (
+                COPY.status.reanalyseToBeSure
+              )}
             </button>
           ) : null}
         </div>
@@ -1173,7 +1199,7 @@ export function AtAGlance({
                   ORDER INSIDE A NEW WRAPPER. Both fixes are kept: the wrapper is
                   staging's, the order is this one's. Taking either side wholesale
                   reverts the other. */}
-              {glance.verdict.reason ? (
+              {glance.verdict.reason && !verdictReasonSaidByCaveat ? (
                 <p
                   className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
                   data-testid={`${testId}-verdict-reason`}
@@ -1255,7 +1281,12 @@ export function AtAGlance({
               ⚠ GATED ON A READING BEING PRESENT. A bare statement of what the
               inputs were, with no conclusion above it to condition, is a caveat
               orphaned from its claim. */}
-          {showInputProvenance && glance.inputProvenance ? (
+          {showInputProvenance && glance.conditionalInputBasis ? (
+            <p className={`${typography.panelMeta} text-text-light m-0 mt-1`}
+              data-testid={`${testId}-conditional-input-basis`}>
+              {glance.conditionalInputBasis}
+            </p>
+          ) : showInputProvenance && glance.inputProvenance ? (
             <p
               className={`${typography.panelMeta} text-text-light m-0 mt-1`}
               data-testid={`${testId}-input-provenance`}
@@ -1394,9 +1425,9 @@ export function AtAGlance({
           "What matters most" chip, which is a per-node claim rather than a
           restatement of the ranking. */}
       {/* ── WHAT COULD CHANGE IT ───────────────────────────────────────────── */}
-      {glance.condition ? (
+      {condition ? (
         (() => {
-          const focusable = Boolean(glance.condition.targetId && onFocusTarget)
+          const focusable = Boolean(condition.targetId && onFocusTarget)
           const Row = (
             <>
               <AlertTriangle
@@ -1405,7 +1436,7 @@ export function AtAGlance({
               />
               <span className="min-w-0 flex-1">
                 <span className="text-text-header">{COPY.glance.couldChangeIf}</span>{' '}
-                {glance.condition!.text}
+                {condition!.text}
               </span>
               {focusable ? (
                 <ChevronRight className={`${icon('row')} mt-0.5 shrink-0 text-text-light`} aria-hidden="true" />
@@ -1420,7 +1451,7 @@ export function AtAGlance({
               {focusable ? (
                 <button
                   type="button"
-                  onClick={() => onFocusTarget!(glance.condition!.targetId!)}
+                  onClick={() => onFocusTarget!(condition!.targetId!)}
                   className={`${typography.panelBody} text-text-body w-full flex items-start gap-2 text-left rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                   data-testid={`${testId}-condition-focus`}
                 >

@@ -18,6 +18,8 @@ import {
   buildEdgeStrengthConfirmEvent,
 } from '../../conversation/edgeStrengthEdit'
 import { serverStatedStrengthOf } from '../../conversation/edgeServerStatedStrength'
+import { NODE_LABEL_MAX_LENGTH } from './nodeLabelLimits'
+import { isViewerSession } from '../../../lib/viewerMode'
 
 // ─── Editor-written-field manifest (single source of truth) ────────────
 //
@@ -49,7 +51,7 @@ import { serverStatedStrengthOf } from '../../conversation/edgeServerStatedStren
  * number, so the two cannot drift apart again: there is one limit, and it is
  * this one.
  */
-export const NODE_LABEL_MAX_LENGTH = 100
+export { NODE_LABEL_MAX_LENGTH }
 
 /** node setter name → the top-level `data` field(s) that setter writes. */
 export const NODE_SETTER_FIELDS = {
@@ -652,9 +654,29 @@ export const INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON =
 export const INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON =
   'This connection has no strength on record for the model to check a change against, so edits here are not sent yet. Ask Olumi to set its strength in the chat.'
 
+/**
+ * ⭐ THE SAME PANEL, FOR A LINK THAT HOLDS BY DEFINITION (MG ruling, 1 Oct 2026).
+ *
+ * `edgeStrengthEditIsAssertable` says no for it, but neither false-branch
+ * sentence above is true of it: it HAS a strength on record, and nothing is
+ * waiting to be sent. Its strength is arithmetic (`isStrengthDefinitional`), so
+ * the panel offers no editor and this note says why in the definition's words.
+ * The second sentence is `INSPECTOR_EDGE_REASON`'s, still true here: existence,
+ * σ and the label remain local-only.
+ */
+export const INSPECTOR_EDGE_DEFINITIONAL_REASON =
+  'This link holds by definition, so its strength is not changed here. Other edits here are not sent yet.'
+
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {
-  const updateNode = useCanvasStore(s => s.updateNode)
+  const storeUpdateNode = useCanvasStore(s => s.updateNode)
+  // ACCOUNTS viewer mode: EVERY local write in this hook goes through `updateNode`,
+  // so this one check keeps a viewer's inspector edits (range, category, label…)
+  // off the canvas. Any send they make is refused by the server and the belt.
+  const updateNode = useCallback<typeof storeUpdateNode>((id, updates) => {
+    if (isViewerSession()) return
+    storeUpdateNode(id, updates)
+  }, [storeUpdateNode])
   // P4 transport — prior-range edits ride the conversation dispatcher when a
   // provider is present; optional so isolated renders still edit locally.
   const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
@@ -1054,7 +1076,12 @@ export type EdgeStrengthConfirmOutcome =
 
 // ─── Edge mutations ────────────────────────────────────────────────
 export function useEdgeMutations(edgeId: string) {
-  const updateEdge = useCanvasStore(s => s.updateEdge)
+  const storeUpdateEdge = useCanvasStore(s => s.updateEdge)
+  // ACCOUNTS viewer mode: the same single check for every edge write in this hook.
+  const updateEdge = useCallback<typeof storeUpdateEdge>((id, updates) => {
+    if (isViewerSession()) return
+    storeUpdateEdge(id, updates)
+  }, [storeUpdateEdge])
   const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
   const getEdge = useCallback(() => {
     return useCanvasStore.getState().edges.find(e => e.id === edgeId)
@@ -1218,11 +1245,21 @@ export function useEdgeMutations(edgeId: string) {
     // the number and stays held. `edge.data` is the PRE-write read above.
     const before = (edge.data ?? {}) as Record<string, unknown>
     markEdgeEditInFlight(edgeId, absWeight, before)
+    // The detail rides beside the resolved settlement: WHICH no-write it was (a stopped
+    // turn is not a moved model) is the envelope's fact, not the resolver's.
+    const settle = (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) =>
+      opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, absWeight, settlement), detail)
     settleSystemEventSend(
-      sendSystemEvent(event, { optimisticEdgeEdit: { edgeId, sentMagnitude: absWeight, before } }),
-      // The detail rides beside the resolved settlement: WHICH no-write it was (a stopped
-      // turn is not a moved model) is the envelope's fact, not the resolver's.
-      (settlement, detail) => opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, absWeight, settlement), detail),
+      sendSystemEvent(event, {
+        optimisticEdgeEdit: { edgeId, sentMagnitude: absWeight, before },
+        // ⭐ A QUEUED send settles TWICE: `'queued'` at the click (below), then
+        // its real outcome when the queue dispatches it (canvas audit
+        // edit-values F1). Without this second settlement a refused queued edit
+        // never reverted and the panel kept "Sent to Olumi" — the EARLIER send's
+        // answer — over a value the model does not hold.
+        onDeferredSettled: (dispatch) => settleSystemEventSend(dispatch, settle),
+      }),
+      settle,
     )
     return 'dispatched'
   }, [edgeId, updateEdge, getEdge, sendSystemEvent])
@@ -1362,10 +1399,15 @@ export function useEdgeMutations(edgeId: string) {
     // carried as `sentDirection` and every proof asks it.
     const sentMagnitude = Math.abs(serverStatedStrengthOf(before)?.mean ?? Number.NaN)
     markEdgeEditInFlight(edgeId, sentMagnitude, before, direction)
+    const settle = (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) =>
+      opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, sentMagnitude, settlement, direction), detail)
     settleSystemEventSend(
-      sendSystemEvent(event, { optimisticEdgeEdit: { edgeId, sentMagnitude, before, sentDirection: direction } }),
-      (settlement, detail) =>
-        opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, sentMagnitude, settlement, direction), detail),
+      sendSystemEvent(event, {
+        optimisticEdgeEdit: { edgeId, sentMagnitude, before, sentDirection: direction },
+        // The queued flip's real outcome, at flush — `setStrength`'s twin.
+        onDeferredSettled: (dispatch) => settleSystemEventSend(dispatch, settle),
+      }),
+      settle,
     )
     return 'dispatched'
   }, [edgeId, updateEdge, getEdge, sendSystemEvent])

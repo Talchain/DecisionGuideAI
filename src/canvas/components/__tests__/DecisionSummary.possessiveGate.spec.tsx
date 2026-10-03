@@ -81,8 +81,16 @@ const REAL_GOAL_OPTION = {
   confidence: 0.9,
   win_probability: 0.4,
 }
-/** The CONSTRAINED joint case (ROADMAP 1.49) — possessive earned. */
+/** 29 Sep 2026 (AIQ 5882498938): a constrained option carrying its GOAL figure (0.3, distinct from the joint 0.42). */
 const CONSTRAINED_OPTION = {
+  probability_of_goal: 0.3,
+  probability_of_joint_goal: 0.42,
+  constraint_analysis: { constraints: [{ id: 'c1' }] },
+  confidence: 0.9,
+  win_probability: 0.4,
+}
+/** The same constraints with NO goal figure — withheld, exactly like the substituted run. */
+const CONSTRAINED_NO_GOAL_OPTION = {
   probability_of_joint_goal: 0.42,
   constraint_analysis: { constraints: [{ id: 'c1' }] },
   confidence: 0.9,
@@ -128,7 +136,9 @@ describe('DecisionSummary — possessive gate on a substituted joint goal figure
     // withheld" below into "no goal claim renders at all".
     expect(selectGoalProbability(SUBSTITUTED_OPTION).goalProbability).toBeNull()
     expect(selectGoalProbability(REAL_GOAL_OPTION).basis).toBe('goal_probability')
-    expect(selectGoalProbability(CONSTRAINED_OPTION).basis).toBe('joint_goal_constrained')
+    expect(selectGoalProbability(CONSTRAINED_OPTION).basis).toBe('goal_probability')
+    expect(selectGoalProbability(CONSTRAINED_NO_GOAL_OPTION).basis).toBe('joint_goal_withheld')
+    expect(selectGoalProbability(CONSTRAINED_NO_GOAL_OPTION).goalProbability).toBeNull()
   })
 
   it('control: the goal-probability block renders at all for this store shape', () => {
@@ -136,7 +146,7 @@ describe('DecisionSummary — possessive gate on a substituted joint goal figure
     // just mean "nothing rendered".
     expect(textOf()).toBeDefined()
     setStore(REAL_GOAL_OPTION)
-    expect(textOf()).toContain('chance of achieving')
+    expect(textOf()).toContain('Reaches the target in')
   })
 
   /**
@@ -158,18 +168,23 @@ describe('DecisionSummary — possessive gate on a substituted joint goal figure
   it('positive control: a REAL probability_of_goal keeps the possessive', () => {
     setStore(REAL_GOAL_OPTION)
     const text = textOf()
-    expect(text).toContain(`55% chance of achieving ${GOAL_LABEL}`)
+    expect(text).toContain(`Reaches the target in 55% of model runs.`)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('55%', true))
   })
 
-  it('positive control: joint_goal_constrained keeps the possessive (ROADMAP 1.49)', () => {
-    // The figure IS joint here — and it is the user's own goal AND their own
-    // limits, so the possessive is EARNED. A gate widened from
-    // `basis === 'joint_goal_substituted'` to `goalProbabilityIsJoint` REDs
-    // exactly this test.
+  // 29 Sep 2026 (AIQ 5882498938): was "joint_goal_constrained keeps the possessive" — now the GOAL figure on a constrained option does.
+  it('positive control: the goal figure on a constrained option keeps the possessive — never the joint figure', () => {
     setStore(CONSTRAINED_OPTION)
     const text = textOf()
-    expect(text).toContain(`42% chance of achieving ${GOAL_LABEL}`)
-    expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('42%', true))
+    expect(text).toContain(`Reaches the target in 30% of model runs.`)
+    expect(text).not.toContain(`Reaches the target in 42% of model runs.`)
+    expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('30%', true))
+  })
+
+  it('a constrained option with NO goal figure states no goal claim — the joint figure never stands in', () => {
+    setStore(CONSTRAINED_NO_GOAL_OPTION)
+    const text = textOf()
+    expect(text).not.toContain('chance of achieving')
+    expect(text).not.toContain('42%')
   })
 })

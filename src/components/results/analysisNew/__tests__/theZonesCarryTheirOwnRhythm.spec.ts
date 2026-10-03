@@ -51,7 +51,9 @@ const src = fs.readFileSync(SOURCE, 'utf8')
 const stepToPx = (step: string): number => Number(step) * 4
 
 function columnRhythmPx(): number {
-  const m = src.match(/className="px-4 py-4 space-y-(\d+) max-w-\[440px\] mx-auto"/)
+  // V2 "Draft" (28 Sep 2026): the column's top padding is 8px (pt-2) to meet the tab
+  // strip as the prototype does; the rhythm this spec derives from is unchanged.
+  const m = src.match(/className="px-4 (?:py-\d+|pt-\d+ pb-\d+) space-y-(\d+) max-w-\[440px\] mx-auto"/)
   if (m === null) throw new Error('content column not found — the anchor this spec derives from moved')
   return stepToPx(m[1])
 }

@@ -3,7 +3,7 @@ import { typography } from '../../../styles/typography'
 import { SOURCE_MARK_GLYPH_CLASSES, SourceMark } from './EstimateMarker'
 import {
   classifyInterventionProvenance,
-  classifyValueProvenance,
+  classifyObservedValueProvenance,
   factorValueIsUnconfirmedEstimate,
   VALUE_PROVENANCE_LABEL,
   type ValueProvenanceKind,
@@ -78,6 +78,7 @@ function markForKind(kind: ValueProvenanceKind): ValueSourceMarkKind {
     case 'panel':
       return 'panel'
     case 'ai':
+    case 'accepted':
       return 'olumi'
   }
 }
@@ -88,7 +89,7 @@ function markForKind(kind: ValueProvenanceKind): ValueSourceMarkKind {
  * (`valueProvenance.ts` header), and an assumption is the user's own framing.
  */
 function labelForKind(kind: ValueProvenanceKind): string {
-  if (kind === 'confirmed' || kind === 'assumption') return VALUE_PROVENANCE_LABEL[kind]
+  if (kind === 'confirmed' || kind === 'assumption' || kind === 'accepted') return VALUE_PROVENANCE_LABEL[kind]
   return VALUE_SOURCE_MARK_LABEL[markForKind(kind)]
 }
 
@@ -164,10 +165,13 @@ function resolveFactorValueSource(data: unknown): {
 } {
   const d = data as Record<string, unknown> | undefined
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
-  const source = typeof obs?.source === 'string' ? obs.source : null
-  const stamped = classifyValueProvenance(source)
+  // The WHOLE observed state, not the stamp alone: `user_assumption` + the adoption's review is Olumi's figure, accepted
+  // (kind `accepted`, `classifyObservedValueProvenance`); the bare literal is still the user's assumption.
+  const stamped = classifyObservedValueProvenance(obs)
 
-  if (stamped && (stamped.userOwned || stamped.kind === 'panel')) {
+  // ⭐ An ACCEPTED Olumi figure is stated before the unconfirmed-estimate rule: Olumi's token, AIQ's words ("Olumi's
+  // estimate · you accepted it", 5921018606) — accepted, so never "not yet confirmed", and never "you".
+  if (stamped && (stamped.userOwned || stamped.kind === 'panel' || stamped.kind === 'accepted')) {
     return { mark: { kind: markForKind(stamped.kind), label: labelForKind(stamped.kind) }, awaitingReceipt: false }
   }
   if (factorValueIsUnconfirmedEstimate(data)) {
@@ -262,15 +266,15 @@ export const PRIOR_RANGE_SOURCE_MARK: FactorValueSourceMark = Object.freeze({
  *
  * Follows `statedGoalTargetRaw` exactly: the card prints `success_threshold`
  * only when `threshold_source === 'user'` attests it, and that is the ONE case
- * marked `you`. Every other printed target is CEE's `goal_threshold_raw`, and
- * nothing on the node says whether CEE lifted it from the brief or inferred it
- * (the market-entry starter carries `goal_threshold_raw: 11` "£M ARR" that its
- * brief never states). The node's `provenance` is about the NODE, not the number
- * (`valueProvenance.ts`, trap 21), so it cannot answer either. So the mark is
- * `unknown` — "no source" / "Source not recorded": never unmarked, never
- * relabelled as the user's or the brief's, and never an asserted Olumi origin
- * (Codex #63 5801529767). When the producer stamps the threshold's origin,
- * classify it in `resolveGoalTarget` — this mark reads it from there.
+ * marked `you`. Every other printed target is CEE's `goal_threshold_raw`:
+ * marked `brief` ("From your brief") ONLY on CEE's own stamp,
+ * `threshold_source: 'brief_extraction'` (written when the brief writes that
+ * figure in the goal's unit — classified in `resolveGoalTarget`, served on
+ * `823bc028`, 29 Sep); otherwise `unknown` — "no source" / "Source not
+ * recorded". The market-entry starter's `goal_threshold_raw: 11` "£M ARR" its
+ * brief never states carries no stamp and stays `unknown`. The node's
+ * `provenance` is about the NODE, not the number (`valueProvenance.ts`, trap
+ * 21), and is never read for this (Codex #63 5801529767).
  */
 export function goalTargetSourceMark(data: GoalTargetSource | null | undefined): FactorValueSourceMark {
   // ⭐ ONE AUTHORITY (DESIGN-GAP-v31 #22): the source is `resolveGoalTarget`'s,
@@ -281,6 +285,10 @@ export function goalTargetSourceMark(data: GoalTargetSource | null | undefined):
   const target = resolveGoalTarget(data)
   if (target?.source === 'user' && isStatedTargetValue(target.raw)) {
     return { kind: 'you', label: VALUE_SOURCE_MARK_LABEL.you }
+  }
+  // CEE's stamp that the brief writes this figure (`threshold_source: 'brief_extraction'`, see `resolveGoalTarget`).
+  if (target?.source === 'brief' && isStatedTargetValue(target.raw)) {
+    return { kind: 'brief', label: VALUE_SOURCE_MARK_LABEL.brief }
   }
   return { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }
 }

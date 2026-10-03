@@ -47,7 +47,7 @@ import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
 const ADDED = 'opt_c'
 const ADDED_LABEL = 'License a vendor tool'
-const ENGINE_BLAME = 'returned no result'
+const ENGINE_BLAME = 'has no result for'
 
 /** The run covered A and B; C sits beside them with the reason the derivation gives it. */
 function runOverAAndBWithC(reason: NotAnalysedReason): ResultsSectionDataReturn {
@@ -112,8 +112,10 @@ describe('the view model: the engine-blaming sentence needs a current result', (
 
   it('⭐ CONTRAST: `no_interventions` describes the graph as it is and is never gated', () => {
     const vm = vmOf(runOverAAndBWithC('no_interventions'), false)
-    expect(addedRow(vm).reasonCopy).toBe(notAnalysedReasonCopy('no_interventions'))
-    expect(addedExcluded(vm).reasonCopy).toBe(notAnalysedReasonCopy('no_interventions'))
+    // S3 (R3 B0): on a Run that is not current it still says what the graph lacks, but never that the Run "left it out".
+    expect(addedRow(vm).reasonCopy).toBe(notAnalysedReasonCopy('no_interventions', false))
+    expect(addedExcluded(vm).reasonCopy).toBe(notAnalysedReasonCopy('no_interventions', false))
+    expect(addedRow(vm).reasonCopy).not.toMatch(/left out/)
   })
 })
 
@@ -180,7 +182,7 @@ describe('mounted: the Reasoning tab after an option is added', () => {
     expect(glanceEntry()).toHaveAttribute('title', notAnalysedReasonCopy('not_returned'))
     fireEvent.click(bringIn()!)
     expect(send).toHaveBeenCalledTimes(1)
-    expect(send.mock.calls[0][0]).toContain(`The analysis returned no result for ${ADDED_LABEL}`)
+    expect(send.mock.calls[0][0]).toContain(`This run has no result for ${ADDED_LABEL}`)
   })
 
   it('⛔ NOT CURRENT: no "returned no result" in the row, the tooltip, the screen-reader text, or an ask', () => {

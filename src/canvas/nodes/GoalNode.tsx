@@ -27,6 +27,7 @@
  * No ExpertOverlay. No MetricPills.
  */
 import { memo, useMemo } from 'react'
+import { goalPeriodHorizonLine } from '../domain/goalPeriodHorizon'
 import Tooltip from '../../components/Tooltip'
 import {
   GOAL_LABEL_FROM_BRIEF_COPY,
@@ -41,12 +42,16 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { LAST_RUN_PREFIX, METRIC_NOUN } from './shared/metricVocabulary'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
+import { goalTodayLevelCopy } from './shared/goalTodayLevelCopy'
 import {
   canCaptureGoalTarget,
+  goalTargetChangeFrameOf,
   statedGoalTargetRaw,
   type GoalTargetSource,
+  goalTargetInPlaceEdit,
+  goalTodayLevel,
 } from '../domain/goalTarget'
-import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
+import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
@@ -64,13 +69,24 @@ import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { openModelValueEditor } from './shared/openModelValueEditor'
+import { NodeValueEditor } from './shared/NodeValueEditor'
+import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { goalConstraintShortText, goalConstraintText } from '../utils/goalConstraintText'
+import { goalCardShownLimits, goalStatedLimits } from '../domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatGoalProbability } from '../../components/results/utils/displayFloors'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
+
+/**
+ * ⭐ Contract v3.1 `.node.wide .target-row{font-size:12px}` +
+ * `.node .target-row{line-height:1.3;align-items:center;gap:7px}` (Paul 29 Sep,
+ * "pixel perfect with the design artefact"): the Goal's target is 12px ink, one
+ * step above the 11px row-meta. Written out (not interpolated) for Tailwind.
+ */
+const GOAL_TARGET_ROW_TYPE = 'text-[length:calc(12px*var(--canvas-label-scale,1))] font-sans leading-[1.3]'
 
 /**
  * ⭐ THE TWO STRINGS THIS CARD USES TO STATE ITS TARGET, DECLARED ONCE.
@@ -495,6 +511,9 @@ export const GoalNode = memo((props: NodeProps) => {
   // place, so this card holds none.
   const thresholdRaw = statedGoalTargetRaw(props.data as GoalTargetSource)
   const thresholdUnit = props.data?.goal_threshold_unit as string | undefined
+  // R1 S4-core (MG 5879952291): a target stated as a change from today is said as the change (`formatGoalTarget`).
+  const thresholdFrame = (props.data as GoalTargetSource | undefined)?.goal_threshold_frame
+  const periodHorizonLine = goalPeriodHorizonLine(props.data)
   // ⚠ ONE CALL, TWO READINGS, AND THEY CANNOT DISAGREE. `hasThreshold` is the
   // negation of the admission by construction — never a parallel predicate.
   const canCaptureTarget = canCaptureGoalTarget(props.data as GoalTargetSource)
@@ -695,8 +714,9 @@ export const GoalNode = memo((props: NodeProps) => {
   // (it interpolated the number bare with the unit as a suffix — "800000 £"),
   // and the staging walk saw the two surfaces print different strings for one
   // goal. Sharing the mapping makes agreement structural rather than a
-  // convention someone has to remember (CLAUDE.md #12). Percent rounding,
-  // 'count' suppression and currency prefixing are all as they were; the only
+  // convention someone has to remember (CLAUDE.md #12). 'count' suppression
+  // and currency prefixing are as they were (percent rounding was retired on
+  // 27 Sep, audit F4: 99.5% read "Target: 100%"); the only
   // behavioural difference is that a unit is now TRIMMED before classification,
   // the same direction the U2 fix took when it retired this site's local
   // `'%' | 'percent' | 'percentage'` copy.
@@ -704,8 +724,8 @@ export const GoalNode = memo((props: NodeProps) => {
     if (!hasThreshold) return null
     const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
     if (Number.isNaN(raw)) return String(thresholdRaw)
-    return formatGoalTarget(raw, thresholdUnit) ?? String(thresholdRaw)
-  }, [hasThreshold, thresholdRaw, thresholdUnit])
+    return formatGoalTarget(raw, thresholdUnit, thresholdFrame) ?? String(thresholdRaw)
+  }, [hasThreshold, thresholdRaw, thresholdUnit, thresholdFrame])
 
   /**
    * ⭐⭐ ONE OWNER FOR WHAT THIS CARD SAYS ABOUT ITS TARGET — AT EVERY ZOOM.
@@ -743,6 +763,7 @@ export const GoalNode = memo((props: NodeProps) => {
    * reduced line derived from `targetLine` is unchanged.
    */
   const targetLine = thresholdDisplay != null ? `${GOAL_TARGET_PREFIX} ${thresholdDisplay}` : null
+  const todayLevel = goalTodayLevel(props.data as Parameters<typeof goalTodayLevel>[0])
 
   /**
    * ⭐ AND THE NO-TARGET CASE IS THE POINT, NOT AN AFTERTHOUGHT. A goal with no
@@ -761,6 +782,18 @@ export const GoalNode = memo((props: NodeProps) => {
    * satisfies it by construction rather than by anyone remembering to.
    */
   const lodMetric = targetLine ?? GOAL_NO_TARGET_STATE
+
+  /**
+   * The limits this card states — never the row that restates the target the
+   * line above already states (F7, `domain/goalOwnTargetRow`). Identified by
+   * operator, figure and unit, not by node: a `<=` bound on the goal node (the
+   * headcount starter's "Delivery deadline ≤2 months") is a limit and stays.
+   */
+  const statedLimits = goalStatedLimits(
+    activeConstraints,
+    props.id,
+    targetLine !== null ? { raw: thresholdRaw, unit: thresholdUnit } : null,
+  )
 
 
   // Science icons (spec Section 4.1)
@@ -785,7 +818,7 @@ export const GoalNode = memo((props: NodeProps) => {
   const hasLayer2 = (
     briefExtract ||
     stabilityValue !== null ||
-    (activeConstraints && activeConstraints.length > 0) ||
+    (statedLimits && statedLimits.length > 0) ||
     hasConstraintDefaultWarning ||
     hasThreshold
   )
@@ -835,9 +868,9 @@ export const GoalNode = memo((props: NodeProps) => {
       )}
 
       {/* Constraint badges */}
-      {activeConstraints && activeConstraints.length > 0 && (
+      {statedLimits && statedLimits.length > 0 && (
         <div className="flex flex-col gap-0.5">
-          {activeConstraints.map((c, i) => {
+          {statedLimits.map((c, i) => {
             const prob = typeof c.probability === 'number' ? c.probability : null
             /**
              * ⛔⛔ THE TRAFFIC LIGHT IS GONE — the UI was issuing a verdict in
@@ -915,11 +948,17 @@ export const GoalNode = memo((props: NodeProps) => {
    *   · Standard only — Detailed renders Layer 2 inline, whose constraint list
    *     already states each limit (with its run figure), so one view never says
    *     a limit twice;
-   *   · the SAME `activeConstraints` Layer 2 reads, so the pill and its details
-   *     are one set.
+   *   · the SAME `statedLimits` Layer 2 reads, so the pill and its details
+   *     are one set — and neither restates the target (F7, `goalStatedLimits`).
+   * ⭐ The set is `goalCardShownLimits` — the one answer to "does the Goal card
+   * already show this limit?", which the Outcome card also asks before it
+   * repeats one (side-by-side DIFF pre-run item 7, 28 Sep). In Standard it is
+   * `statedLimits` exactly when a target is on the row, else empty — the gate
+   * this line always had, now held where the other reader can call it.
    */
-  const restingLimitPills =
-    targetLine !== null && !isDetailed ? goalLimitPills(activeConstraints, nodes) : []
+  const restingLimitPills = !isDetailed
+    ? goalLimitPills(goalCardShownLimits(activeConstraints, props.id, props.data as GoalTargetSource, false), nodes)
+    : []
 
   // R5 + L-47 (Paul, 16 Aug 2026): "Full buttons/instructional text on nodes:
   // no." The goal node used to carry a two-sentence instruction plus a
@@ -949,8 +988,20 @@ export const GoalNode = memo((props: NodeProps) => {
   const noTargetChannels = goalNoTargetChannels({ diagnostic: noTargetDiagnostic })
   const targetSourceMark =
     targetLine !== null ? goalTargetSourceMark(props.data as GoalTargetSource) : null
+  // ⛔ R1 S4-core: a change target is not edited as a level (the Model tab row is read-only for one, CEE refuses the
+  // write by name), so its line is plain text — never a button promising "change it in the Model tab".
+  // ⭐ E1a — the target is edited ON THE CARD when every input the write needs is already stated on the goal
+  // (`goalTargetInPlaceEdit`), through the ONE authority the Model tab's editor uses (`proposeGoalTarget`); otherwise
+  // the route below to the full editor stands.
+  const goalEditAuthority = useModelEditAuthority(props.id)
+  const inPlaceTarget =
+    targetLine !== null && GOAL_TARGET_ROUTE_IS_LIVE && goalEditAuthority.goalTargetDispatchAvailable
+      ? goalTargetInPlaceEdit(props.data as GoalTargetSource)
+      : null
   const targetRouteChannels =
-    targetLine !== null ? goalTargetRouteChannels({ targetLine, sourceLabel: targetSourceMark?.label }) : null
+    targetLine !== null && goalTargetChangeFrameOf(thresholdFrame) === null
+      ? goalTargetRouteChannels({ targetLine, sourceLabel: targetSourceMark?.label })
+      : null
   const noTargetStatusChip = (
     <button
       type="button"
@@ -1004,10 +1055,10 @@ export const GoalNode = memo((props: NodeProps) => {
     [achievementIsCritical],
   )
   const achievementTitle = [
-    goalFitSubstituted
-      ? GOAL_ANCHOR_COPY.phrase(achievementReadout ?? '', goalFitSubstituted)
-      : `${achievementReadout ?? ''} chance of reaching target.`,
+    // AIQ #72 5885116642: the register's model-run sentence on BOTH arms — never "chance of reaching target".
+    GOAL_ANCHOR_COPY.sentence(achievementReadout ?? '', goalFitSubstituted),
     displayMetadata.achievementProbabilityIsModelledBasis === true ? GOAL_FIT_BASIS_CAVEAT_COPY : null,
+    goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat),
     hasConstraintDefaultWarning ? 'Some model inputs are missing. Goal probability may be less reliable.' : null,
     analysisChanged ? 'The model has changed since this run.' : null,
   ].filter(Boolean).join(' ')
@@ -1071,9 +1122,31 @@ export const GoalNode = memo((props: NodeProps) => {
               CAPPED at the 8px it replaces: at the label bound (scale 2), the
               height the layout reserves, the row is never wider than before,
               so it can never wrap onto a line it did not already take. */}
-        <div className="mt-[3px] flex min-w-0 flex-wrap items-baseline gap-x-[min(8px,calc(7px*var(--canvas-label-scale,1)))] gap-y-0.5" data-testid="goal-node-resting-state">
+        <div className="pt-[3px] flex min-w-0 flex-wrap items-center gap-x-[min(8px,calc(7px*var(--canvas-label-scale,1)))] gap-y-0.5" data-testid="goal-node-resting-state">
           {canCaptureTarget && noTargetStatusChip}
-          {targetLine !== null && targetRouteChannels !== null && (
+          {inPlaceTarget !== null && thresholdDisplay !== null && (
+            <span className={`nodrag nopan ${GOAL_TARGET_ROW_TYPE} text-text-body inline-flex min-w-0 items-baseline gap-x-1`}>
+              <span>{GOAL_TARGET_PREFIX}</span>
+              <NodeValueEditor
+                value={inPlaceTarget.value}
+                readout={thresholdDisplay}
+                onCommit={(v, opts) =>
+                  goalEditAuthority.proposeGoalTarget(
+                    String(v),
+                    inPlaceTarget.unit,
+                    goalEditAuthority.captureScenarioId(),
+                    inPlaceTarget.direction,
+                    { onSendSettled: (settlement) => opts.onSendSettled(settlement) },
+                  )}
+                readCommittedValue={() =>
+                  goalTargetInPlaceEdit(useCanvasStore.getState().nodes.find((n) => n.id === props.id)?.data as GoalTargetSource)?.value ?? null}
+                ariaLabel={`Target for ${props.data?.label ?? 'this goal'}`}
+                testId={`goal-target-editor-${props.id}`}
+                restingFlow="inline"
+              />
+            </span>
+          )}
+          {inPlaceTarget === null && targetLine !== null && targetRouteChannels !== null && (
             <button
               type="button"
               data-testid={GOAL_TARGET_ROUTE_TESTID}
@@ -1087,7 +1160,7 @@ export const GoalNode = memo((props: NodeProps) => {
                  principle 3 ("No link text inside a card … on hover or focus")
                  and the contract's `.target-row` (a plain span) — at rest the
                  target reads as text, like the factor value editor. */
-              className={`nodrag nopan ${typography.nodeLabel} text-text-body text-left decoration-dotted decoration-text-light decoration-from-font underline-offset-2 hover:underline focus-visible:underline hover:text-info hover:decoration-solid`}
+              className={`nodrag nopan ${GOAL_TARGET_ROW_TYPE} text-text-body text-left decoration-dotted decoration-text-light decoration-from-font underline-offset-2 hover:underline focus-visible:underline hover:text-info hover:decoration-solid`}
               onPointerDown={(e) => e.stopPropagation()}
               onDoubleClick={(e) => e.stopPropagation()}
               onClick={(e) => {
@@ -1098,13 +1171,21 @@ export const GoalNode = memo((props: NodeProps) => {
               {targetLine}
             </button>
           )}
-          {targetLine !== null && targetRouteChannels === null && (
-            <div className={`${typography.nodeLabel} text-text-body`} data-testid="goal-target-line">
+          {inPlaceTarget === null && targetLine !== null && targetRouteChannels === null && (
+            <div className={`${GOAL_TARGET_ROW_TYPE} text-text-body`} data-testid="goal-target-line">
               {targetLine}
             </div>
           )}
           {targetSourceMark !== null && (
             <ValueSourceMark mark={targetSourceMark} testId={`goal-target-source-${props.id}`} subject="Target" onOpenSource={() => { openNodeInspector(props.id) }} />
+          )}
+          {/* ⭐ T12 row 2 (MG F1 spec §1, schemas 0.69.0): the period the goal is per and when it must be met, as
+              stated ("per quarter · within 6 months"), muted beside the target. Absent says nothing, and the unit
+              string is never parsed for a period (`goalPeriodHorizon.ts`). */}
+          {periodHorizonLine !== null && (
+            <span className={`${typography.nodeLabel} text-text-light`} data-testid={`goal-period-horizon-${props.id}`}>
+              {periodHorizonLine}
+            </span>
           )}
           {/* ⭐ The user-stated limits beside the target (NODE-ANATOMY v3.2;
               ED choice 2: "Target: £20k/month   Churn < 7%"). Contract v3.1
@@ -1128,7 +1209,7 @@ export const GoalNode = memo((props: NodeProps) => {
                    counter-scaled. NEVER CLIPPED: the short form fits one line
                    on the wide card; a longer carried label wraps inside the
                    pill rather than being cut (was `truncate`). */
-                className={`text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans leading-snug nodrag nopan inline-block max-w-full break-words align-baseline px-[7px] py-px bg-panel border border-field/40 rounded-full text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`text-[length:calc(10px*var(--canvas-small-label-scale,1))] font-sans leading-[1.4] nodrag nopan inline-block max-w-full break-words align-baseline px-[7px] py-px bg-panel border border-field/40 rounded-full text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               >
                 {l.text}
               </span>
@@ -1136,6 +1217,13 @@ export const GoalNode = memo((props: NodeProps) => {
           ))}
         </div>
 
+        {/* ⭐ Today's level on a change goal (cut-costs `09af9019`; AIQ 5902409861): "down 20% from today" now says
+            what today is, from the typed reading or the user's stated level only (`goalTodayLevel`). */}
+        {todayLevel !== null && (
+          <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`} data-testid={`goal-today-level-${props.id}`}>
+            {goalTodayLevelCopy(todayLevel)}
+          </p>
+        )}
         {showAchievementReadout && (
           <NodeMetricRow
             label={`${analysisChanged ? LAST_RUN_PREFIX : ''}${METRIC_NOUN.chance}`}
@@ -1146,6 +1234,19 @@ export const GoalNode = memo((props: NodeProps) => {
             title={achievementTitle}
             phrase={achievementTitle}
           />
+        )}
+        {/* ISL #207 (AIQ #72 5877139338): a chance measured from a goal level
+            Olumi worked out is never shown bare. Visible on the resting card,
+            not only in Detailed or a tooltip, because without it the figure
+            reads as the user's own chance. Two strings, fail-closed: the
+            neutral one never says "Olumi's". */}
+        {showAchievementReadout && goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
+          <p
+            className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
+            data-testid="goal-fit-base-caveat-node"
+          >
+            {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat)}
+          </p>
         )}
         {/* No Chance row when the run produced no goal chance (contract v3.1
             goal anatomy, gap U3): the old unset row ("Not produced by this run" /
@@ -1181,7 +1282,7 @@ export const GoalNode = memo((props: NodeProps) => {
               className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
               onClick={(e) => {
                 e.stopPropagation()
-                useGuidanceStore.getState()._sendMessage?.('How can I strengthen the key factors to improve my chance of reaching the goal?')
+                useGuidanceStore.getState()._sendMessage?.('How can I strengthen the key factors so the goal is reached in more model runs?')
               }}
               onPointerDown={(e) => e.stopPropagation()}
             >

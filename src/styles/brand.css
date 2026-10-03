@@ -96,10 +96,26 @@
      SURFACES & BACKGROUNDS
      ============================================ */
 
+  /* The Olumi mark's three shapes (`public/olumi-mark.svg`), for `OlumiAiIcon`. */
+  --olumi-mark-orange: #EA7B4B;
+  --olumi-mark-blue: #5C9BB8;
+  --olumi-mark-green: #62B28F;
   --bg-canvas: #F4F0EA;
-  --bg-panel-rgb: 254 254 254;
+  /* The canvas ground's dot grid (Paul, 1 Oct 2026: "Why is it not the brand colour?").
+   * A warm grey from the brand neutrals, so the dots belong to the palette instead of
+   * React Flow's cool default #91919a (2.75:1). On --bg-canvas it measures 3.29:1, so
+   * it is never quieter than the dots Paul asked back for on 30 Sep (#2347).
+   * #1932's --border-emphasis was 1.29:1, which read as "gone".
+   * Same value as --border-field, but a separate token: --border-field is reserved for
+   * marking editable fields, and a dot grid must not borrow that meaning. */
+  --canvas-grid-dot-rgb: 140 131 118;
+  --canvas-grid-dot: rgb(var(--canvas-grid-dot-rgb));
+  /* Paul, 1 Oct 2026: "every stark white background takes our softest, lightest palette colour". Panels, cards, nodes,
+     menus and banners are the cream that used to be the hover. Hover steps one notch toward the canvas sand: the
+     darkest notch on which `--info` text still clears WCAG 4.5:1 (4.53; the full canvas sand gives 4.25). */
+  --bg-panel-rgb: 254 249 243;
   --bg-panel: rgb(var(--bg-panel-rgb));
-  --bg-panel-hover-rgb: 254 249 243;
+  --bg-panel-hover-rgb: 252 247 241;
   --bg-panel-hover: rgb(var(--bg-panel-hover-rgb));
   --border-default-rgb: 238 230 216;
   --border-default: rgb(var(--border-default-rgb));
@@ -315,6 +331,10 @@
      the text ceiling, so icons and hit targets keep their declared size at the
      landing. Written beside the label scale by `CanvasLabelScaleSync`. */
   --canvas-glyph-scale: 1;
+  /* The SMALL-TEXT counter-scale — `smallLabelCounterScale(zoom)`: text declared
+     below `nodeLabel` (the 10px source mark, 10/10.5px metas) reaches the same
+     9px landing floor. Written beside the label scale by `CanvasLabelScaleSync`. */
+  --canvas-small-label-scale: 1;
 
   --goal-rgb: 245 196 51;
 
@@ -346,6 +366,9 @@
   --rail-icon: rgb(var(--rail-icon-rgb));
   --behaviour-icon-rgb: 115 109 160;
   --behaviour-icon: rgb(var(--behaviour-icon-rgb));
+  /* An option row's FROM value (Visual Contract `.delta-rows .before{color:#747770}`,
+     29 Sep 2026): lighter than the card's muted ink, ~4.6:1 on --bg-panel. */
+  --card-before-rgb: 116 119 112;
 
   /* ============================================
      LEGACY SEMANTIC TOKENS
@@ -410,7 +433,7 @@
      ============================================ */
 
   --focus-ring: 2px;
-  --focus-color: var(--info);
+  --focus-color: rgb(var(--text-light-rgb) / 0.6);
   --link-color: var(--info);
   --link-hover: var(--info-hover);
 

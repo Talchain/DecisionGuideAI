@@ -290,11 +290,21 @@ describe('goal and success authority', () => {
     expect(useCanvasStore.getState().goalThreshold).toBeNull()
   })
 
-  it('basics in place: success set shows display-scale value with Olumi attribution', () => {
+  it('basics in place: success set shows display-scale value; Olumi attribution only from a typed Olumi source', () => {
+    // AIQ 5904308095: "Olumi estimate" needs a typed Olumi source (an inferred/proxy constraint); with none, no attribution.
     seedGraph({ successSet: true })
     renderPanel()
     expect(screen.getByLabelText('Success measure')).toHaveTextContent('20%')
     expect(screen.getByLabelText('Success measure')).toHaveAttribute('aria-readonly', 'true')
+    expect(screen.getByTestId('pre-analysis-v3-hero')).not.toHaveTextContent('Olumi estimate')
+  })
+
+  it('CONTROL: an inferred-provenance goal constraint at the shown value keeps "Olumi estimate"', () => {
+    seedGraph({ successSet: true })
+    useCanvasStore.setState({
+      goalConstraints: [{ id: 'c1', label: 'Delivery output up 20%', operator: '>=', value: 20, provenance: 'inferred' } as never],
+    })
+    renderPanel()
     expect(screen.getByTestId('pre-analysis-v3-hero')).toHaveTextContent('Olumi estimate')
   })
 

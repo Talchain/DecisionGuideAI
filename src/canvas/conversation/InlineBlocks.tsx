@@ -94,6 +94,7 @@ import { isOrchestratorRenderingV2Enabled } from '../../flags'
 import styles from './Conversation.module.css'
 import { PANEL_LIST_BULLET } from './panelLists'
 import { ICON_DENSE } from './panelIcons'
+import { wholePercentBelowCertain } from '@/utils/formatPercent'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -975,7 +976,7 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
     return (
       <div>
         <div
-          className={`${typography.bodySmall} ${toneClass} ${styles.markdownContent}`}
+          className={`${typography.chatBody} ${toneClass} ${styles.markdownContent}`}
           // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li)
           dangerouslySetInnerHTML={{ __html: contentHtml }}
         />
@@ -1003,7 +1004,7 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
           }
         }}
       >
-        <span className={`${typography.bodySmall} ${toneClass} ${styles.commentaryPreviewText}`}>
+        <span className={`${typography.chatBody} ${toneClass} ${styles.commentaryPreviewText}`}>
           {previewLabel}
         </span>
         <span className={styles.commentaryToggleControl} aria-hidden="true">
@@ -1016,7 +1017,7 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
       {expanded && (
         <div className={styles.commentaryExpandedContent}>
           <div
-            className={`${typography.bodySmall} ${toneClass} ${styles.markdownContent}`}
+            className={`${typography.chatBody} ${toneClass} ${styles.markdownContent}`}
             // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li)
             dangerouslySetInnerHTML={{ __html: contentHtml }}
           />
@@ -1124,12 +1125,12 @@ const ReviewCardBlockRenderer = memo(function ReviewCardBlockRenderer({
         </div>
         {renderingV2 ? (
           <div
-            className={`${typography.bodySmall} ${styles.markdownContent}`}
+            className={`${typography.chatBody} ${styles.markdownContent}`}
             // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li)
             dangerouslySetInnerHTML={{ __html: safeRichText(block.body) }}
           />
         ) : (
-          <p className={typography.bodySmall}>{block.body}</p>
+          <p className={typography.chatBody}>{block.body}</p>
         )}
       </div>
     </div>
@@ -1431,11 +1432,11 @@ const EvidenceBlockRenderer = memo(function EvidenceBlockRenderer({
         {block.title || 'Research findings'}
       </div>
       {!hasFindings && (
-        <p className={typography.bodySmall}>Research findings available</p>
+        <p className={typography.chatBody}>Research findings available</p>
       )}
       {normalisedFindings.map((f, i) => (
         <div key={i} className={styles.evidenceFinding}>
-          <p className={typography.bodySmall}>{f.text}</p>
+          <p className={typography.chatBody}>{f.text}</p>
           {f.source_url && (
             <a
               href={f.source_url}
@@ -1465,7 +1466,7 @@ const EvidenceBlockRenderer = memo(function EvidenceBlockRenderer({
             onClick={hasGraph ? handleApplyToModel : undefined}
             disabled={!hasGraph}
             title={!hasGraph ? 'Generate a model first' : undefined}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelBody} bg-panel border border-panel-border rounded-full transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.chatBody} bg-panel border border-panel-border rounded-full transition-colors ${
               hasGraph
                 ? 'text-text-body hover:bg-panel-hover cursor-pointer'
                 : 'text-text-light cursor-not-allowed opacity-60'
@@ -1490,7 +1491,7 @@ function ComparisonBlockRenderer({ block }: { block: ComparisonBlockType }) {
   return (
     <div className={styles.comparisonBlock} data-testid="block-comparison">
       {block.narrative && (
-        <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.narrative}</p>
+        <p className={typography.chatBody} style={{ color: 'var(--text-body)' }}>{block.narrative}</p>
       )}
       {block.options.map((opt, i) => (
         <div key={opt.id || `${opt.label}-${i}`} className={styles.comparisonItem}>
@@ -1498,17 +1499,17 @@ function ComparisonBlockRenderer({ block }: { block: ComparisonBlockType }) {
             <span className={typography.panelHeader}>{opt.label}</span>
             {opt.probability != null && (
               <span className={typography.chatMeta} style={{ color: 'var(--text-light)' }}>
-                {Math.round(opt.probability * 100)}% probability
+                {wholePercentBelowCertain(opt.probability)} probability
                 {opt.rank != null && ` · Rank ${opt.rank}`}
               </span>
             )}
             {opt.strengths && opt.strengths.length > 0 && (
-              <div className={typography.panelBody} style={{ color: 'var(--success)' }}>
+              <div className={typography.chatBody} style={{ color: 'var(--success)' }}>
                 {opt.strengths.map((s) => <div key={s}>+ {s}</div>)}
               </div>
             )}
             {opt.weaknesses && opt.weaknesses.length > 0 && (
-              <div className={typography.panelBody} style={{ color: 'var(--danger)' }}>
+              <div className={typography.chatBody} style={{ color: 'var(--danger)' }}>
                 {opt.weaknesses.map((w) => <div key={w}>- {w}</div>)}
               </div>
             )}
@@ -1531,11 +1532,11 @@ function PremortemBlockRenderer({ block }: { block: PremortemBlockType }) {
         <span className={typography.panelHeader}>Pre-mortem: {block.target_option.label}</span>
       )}
       {block.narrative && (
-        <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.narrative}</p>
+        <p className={typography.chatBody} style={{ color: 'var(--text-body)' }}>{block.narrative}</p>
       )}
       {block.risk_paths.map((rp, i) => (
         <div key={`${rp.description}-${i}`} className={styles.failureMode}>
-          <span className={typography.panelBody}>{rp.description}</span>
+          <span className={typography.chatBody}>{rp.description}</span>
           {rp.path && rp.path.length > 0 && (
             <span className={typography.chatMeta} style={{ color: 'var(--text-light)' }}>
               {rp.path.join(' → ')}
@@ -1569,11 +1570,11 @@ function FlipAnalysisBlockRenderer({ block }: { block: FlipAnalysisBlockType }) 
         </span>
       )}
       {block.narrative && (
-        <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.narrative}</p>
+        <p className={typography.chatBody} style={{ color: 'var(--text-body)' }}>{block.narrative}</p>
       )}
       {block.flip_conditions.map((fc, i) => (
         <div key={`${fc.assumption}-${i}`} style={{ padding: '6px 0', borderBottom: i < block.flip_conditions.length - 1 ? '1px solid var(--border-default)' : 'none' }}>
-          <span className={`${typography.panelBody} font-semibold`}>{fc.assumption}</span>
+          <span className={`${typography.chatBody} font-semibold`}>{fc.assumption}</span>
           <div className={typography.chatMeta} style={{ color: 'var(--text-light)', marginTop: 2 }}>
             {fc.current_value && `Currently ${fc.current_value} · `}{fc.direction} past {fc.flip_threshold}
             {fc.alternative_winner && ` → ${fc.alternative_winner}`}
@@ -1597,7 +1598,7 @@ function ExerciseBlockRenderer({ block }: { block: ExerciseBlockType }) {
         <span className={typography.panelHeader}>{block.title}</span>
         <span className={`${typography.chatMeta} ${styles.outlinedPill}`}>{block.exercise_type}</span>
       </div>
-      <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.instructions}</p>
+      <p className={typography.chatBody} style={{ color: 'var(--text-body)' }}>{block.instructions}</p>
       {secureSrcDoc && (
         <div style={{ marginTop: 4, maxHeight: 400, overflow: 'auto', borderRadius: 6, border: '1px solid var(--border-default)' }}>
           <iframe
@@ -1625,14 +1626,14 @@ function CommentarySections({ sections }: { sections: import('./types').Commenta
             </strong>
           )}
           {section.content && (
-            <p className={typography.panelBody} style={{ color: 'var(--text-body)', margin: 0 }}>
+            <p className={typography.chatBody} style={{ color: 'var(--text-body)', margin: 0 }}>
               {section.content}
             </p>
           )}
           {section.items && section.items.length > 0 && (
             <ul className={`mt-1 ${PANEL_LIST_BULLET}`}>
               {section.items.map((item, j) => (
-                <li key={j} className={typography.panelBody} style={{ color: 'var(--text-body)' }}>
+                <li key={j} className={typography.chatBody} style={{ color: 'var(--text-body)' }}>
                   {item}
                 </li>
               ))}

@@ -391,7 +391,7 @@ describe('D7 — a WITHHELD identity keeps the science and declines to name the 
     // it must name the CURRENT handover phrasing to stay a real assertion.
     expect(line).not.toMatch(/support moves to\s*$/)
     expect(line).not.toContain('undefined')
-    if (line !== '') expect(line).toContain('withheld')
+    if (line !== '') expect(line).toContain('this run does not say which') // PTL item 7: never 'withheld'
   })
 
   it('a NAMED attested flip still produces the full takeover sentence', () => {

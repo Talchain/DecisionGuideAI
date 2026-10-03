@@ -7,7 +7,7 @@
 
 import { useMemo } from 'react'
 import {
-  Sparkles, Zap, Crosshair, SlidersHorizontal, ArrowUpToLine, ArrowDownToLine,
+  Sparkles, HelpCircle, Crosshair, SlidersHorizontal, ArrowUpToLine, ArrowDownToLine,
   Pencil, Plus, Flag, Scissors, CopyPlus,
   Trash2, MessageSquare, Layers, TrendingUp, AlertTriangle, ArrowLeftRight, Eye,
   Undo2, Redo2, LayoutGrid, PanelRight, MousePointer2, Hand,
@@ -27,7 +27,7 @@ import {
   CANVAS_STRUCTURAL_EDIT_SHORT_REASON,
 } from '../mutations/mutationAuthority'
 import { WIRE_ADDABLE_NODE_KINDS } from '../mutations/structuralAdd'
-import { canvasUndoUnavailableNotice } from '../useKeyboardShortcuts'
+import { runCanvasUndo } from '../undo/undoCommand'
 import {
   deleteAction,
   addNodeAction,
@@ -233,8 +233,8 @@ const CONNECTED_NODE_ADD_MENU_IDS: ReadonlySet<string> = new Set<string>([
  * left present and inert. See `useMenuItems.A20.noDeadClipboard.spec.ts`.
  */
 export const LOCAL_SEMANTIC_CONTEXT_MENU_IDS = new Set([
-  'undo',
-  'redo',
+  // ⚠ `undo` / `redo` LEFT THIS SET at Undo S5 (30 Sep 2026): they have a SERVER writer now — CEE's version restore
+  // (`undo/undoCommand.ts`) — and are judged above, like the connected adds, never by the blanket key.
   'set-value',
   // ⚠ `add-connected-factor` / `-outcome` / `-risk` LEFT THIS SET ON 18 Sep 2026.
   // They are judged by `CONNECTED_NODE_ADD_MENU_IDS` above, against the two
@@ -275,6 +275,12 @@ function menuIdIsAuthorised(id: string, connected: boolean): boolean {
       hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash) &&
       hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasEdgeAddWithServerHash)
     )
+  }
+  if (id === 'undo' || id === 'redo') {
+    // Canvas Undo/Redo is a SAVED change with its own carrier (a version
+    // restore, `undo/undoCommand.ts`) that answers every refusal itself — never
+    // the blanket key, and no key at all since Undo S5.
+    return true
   }
   if (LOCAL_SEMANTIC_CONTEXT_MENU_IDS.has(id)) {
     // ⭐ THE INJECTED VALUE DRIVES THE PER-ID JUDGEMENT, and that is the whole
@@ -327,8 +333,7 @@ function menuIdIsAuthorised(id: string, connected: boolean): boolean {
  * rows of grey.
  */
 export const KEYBOARD_REACHABLE_SEMANTIC_IDS = new Set([
-  'undo',
-  'redo',
+  // (`undo` / `redo` left with LOCAL_SEMANTIC_CONTEXT_MENU_IDS at Undo S5: they are never unavailable now.)
   'cut',
   // ⛔ `duplicate` REMOVED 13 Sep 2026 — it FAILED BOTH CLAUSES of this set's own
   // stated criterion, and the contradiction was already written down fifteen
@@ -359,18 +364,10 @@ export const KEYBOARD_REACHABLE_SEMANTIC_IDS = new Set([
 export const STRUCTURAL_EDITS_NOTE_ID = 'structural-edits-note'
 
 /**
- * Which sentence is TRUE for this row.
- *
- * ⚠ UNDO/REDO ARE NOT STRUCTURAL EDITS AND MUST NOT CLAIM THE STRUCTURAL
- * SENTENCE. ⌘Z is already answered by `canvasUndoUnavailableNotice()`, which
- * names Version history. If this row said "ask Olumi" the key and the menu
- * would answer one question two different ways — the estate's signature defect.
- * Reading the same function the key reads is what keeps them from disagreeing.
+ * Which sentence is TRUE for this row. (Undo/redo never reach here since Undo S5: they run the saved-change command,
+ * which answers its own refusals — the menu and ⌘Z share `runCanvasUndo`, so they cannot disagree.)
  */
-function unavailableReason(id: string): { tooltip: string; disabledReason: string } {
-  if (id === 'undo' || id === 'redo') {
-    return { tooltip: canvasUndoUnavailableNotice(), disabledReason: 'not available here' }
-  }
+function unavailableReason(_id: string): { tooltip: string; disabledReason: string } {
   return {
     tooltip: CANVAS_STRUCTURAL_EDIT_NOTICE,
     disabledReason: CANVAS_STRUCTURAL_EDIT_SHORT_REASON,
@@ -617,20 +614,20 @@ function buildPaneMenu(
       label: 'Undo',
       icon: Undo2,
       shortcut: '\u2318Z',
-      tooltip: 'Undo last action',
-      enabled: store.canUndo(),
-      disabledReason: store.canUndo() ? undefined : 'Nothing to undo',
-      action: wrap(() => useCanvasStore.getState().undo()),
+      tooltip: 'Undo your last saved change',
+      // Enabled whenever undo is connected: with nothing to undo the command
+      // answers "Nothing to undo." rather than the row sitting silently grey.
+      enabled: true,
+      action: wrap(() => void runCanvasUndo('undo')),
     },
     {
       id: 'redo',
       label: 'Redo',
       icon: Redo2,
       shortcut: '\u2318\u21E7Z',
-      tooltip: 'Redo last undone action',
-      enabled: store.canRedo(),
-      disabledReason: store.canRedo() ? undefined : 'Nothing to redo',
-      action: wrap(() => useCanvasStore.getState().redo()),
+      tooltip: 'Redo the change you undid',
+      enabled: true,
+      action: wrap(() => void runCanvasUndo('redo')),
     },
     DIV,
     {
@@ -722,7 +719,7 @@ function buildNodeMenu(
     askAIItems.push({
       id: 'ask-ai-challenge',
       label: 'Challenge this',
-      icon: Zap,
+      icon: HelpCircle,
       tooltip: buildChallengeTooltip(kind as NodeType),
       enabled: true,
       action: wrap(() => askAI(target, 'challenge_element', showToast)),
@@ -835,8 +832,18 @@ function buildNodeMenu(
 
   items.push(DIV)
 
-  // --- Add connected nodes (not on constraint) ---
-  if (kind !== 'constraint') {
+  // --- Add connected nodes (not on constraint, not on the Question) ---
+  //
+  // ⛔ NOT ON THE QUESTION (canvas audit edit-structure/F7, 27 Sep 2026). A
+  // Question's only outgoing link is Question → option: the contract draws it
+  // as a "structural alternative link", and CEE's own `ALLOWED_EDGES` admits
+  // `decision → option` and nothing else from a decision. These three items
+  // made the Question the SOURCE of a new factor / outcome / risk, and once a
+  // band was stated `structural_add_edge` saved it as a CAUSAL claim (served:
+  // `{from: dec_billing, to: <new factor>, magnitude 0.1}`, 200) that the
+  // Question itself boosts the factor. Options are added from the Question's
+  // own panel ("+ Add option"), which carries the structural convention.
+  if (kind !== 'constraint' && kind !== 'decision') {
     items.push({
       id: 'add-connected-factor',
       label: 'Add connected factor',
@@ -976,7 +983,7 @@ function buildEdgeMenu(
     askAIItems.push({
       id: 'ask-ai-challenge',
       label: 'Challenge this',
-      icon: Zap,
+      icon: HelpCircle,
       tooltip: 'Ask AI to argue this link is wrong or overweighted',
       enabled: true,
       action: wrap(() => askAI(target, 'challenge_element', showToast)),

@@ -36,9 +36,12 @@ import { NODE_RAIL_BEHAVIOUR_TONE_CLASS, NODE_RAIL_REST_TONE_CLASS } from '../..
 
 const tokens = (el: Element | null | undefined): string[] =>
   (el?.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)
-/** The one lucide identity class on a rendered glyph (`lucide-<name>`). */
+/**
+ * The glyph's identity: its one lucide class (`lucide-<name>`), or, for the Olumi brand mark the coaching door
+ * draws since Paul's 1 Oct 2026 ask (a full-colour <img>, not a Lucide svg), its `data-icon`.
+ */
 const lucideName = (svg: Element | null | undefined) =>
-  tokens(svg).find((t) => t.startsWith('lucide-') && t !== 'lucide') ?? null
+  tokens(svg).find((t) => t.startsWith('lucide-') && t !== 'lucide') ?? svg?.getAttribute('data-icon') ?? null
 /**
  * The resting ink — the one `text-<colour>` token that is not a hover/focus variant.
  * The rail's own grey and violet (gap 34, `nodeCardRailStyles`) are inks too: without
@@ -68,14 +71,14 @@ function openKey(): HTMLElement {
 /** The card's glyph owner, rendered for real: the button (ink) and its svg (identity). */
 function cardGlyph(testId: string): { button: HTMLElement; svg: SVGElement } {
   const button = screen.getByTestId(testId)
-  const svg = button.querySelector('svg')
+  const svg = button.querySelector('svg, img') as SVGElement | null
   expect(svg, `${testId} rendered no glyph`).not.toBeNull()
   return { button, svg: svg! }
 }
 
 function keyRow(key: HTMLElement, testId: string): { row: HTMLElement; svg: SVGElement } {
   const row = within(key).getByTestId(testId)
-  const svg = row.querySelector('svg')
+  const svg = row.querySelector('svg, img') as SVGElement | null
   expect(svg, `${testId} rendered no glyph`).not.toBeNull()
   return { row, svg: svg! }
 }
@@ -153,13 +156,14 @@ describe('⭐ each row draws the glyph the card draws, in the card’s resting i
     expect(ink(key.svg)).toBe(ink(card.button))
   })
 
-  it('Explore with Olumi ⇄ NodeCoachingIcon', () => {
+  it('Explore with Olumi ⇄ NodeCoachingIcon: both draw the full-colour Olumi brand mark (Paul, 1 Oct 2026)', () => {
     render(<NodeCoachingIcon nodeId={NODE} chips={null} />)
     const card = cardGlyph(`node-coaching-icon-${NODE}`)
     const key = keyRow(openKey(), 'legend-icon-coaching')
+    expect(lucideName(card.svg)).toBe('olumi-brand-mark')
     expect(lucideName(key.svg)).toBe(lucideName(card.svg))
+    // The brand mark carries its own colours, so there is no ink to compare; the button keeps its resting ink.
     expect(ink(card.button)).not.toBeNull()
-    expect(ink(key.svg)).toBe(ink(card.button))
   })
 
   it('CONTRAST: the four glyphs are four different marks, so a pair cannot pass by sharing one', () => {

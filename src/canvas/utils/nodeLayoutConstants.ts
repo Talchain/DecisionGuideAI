@@ -8,6 +8,7 @@
  */
 
 import { MAX_LABEL_COUNTER_SCALE } from './zoomLegibility'
+import { CANVAS_TYPE_PX } from '../../styles/typography'
 
 // ─── Dimensions ──────────────────────────────────────────────────────────────
 
@@ -238,11 +239,47 @@ export const NODE_CARD_MAX_W = 336
  */
 export const REPEATED_CARD_TARGET_W = 248
 
-/** The width Option, Factor, Outcome and Risk cards actually render at. */
+/**
+ * The NARROWEST an Option, Factor, Outcome or Risk card renders: the floor a
+ * crowded row falls back to. Since 30 Sep a row with room draws wider cards,
+ * up to `REPEATED_CARD_MAX_W` (see `ROW_BUDGET_W`).
+ */
 export const REPEATED_CARD_W = Math.max(REPEATED_CARD_TARGET_W, NODE_LAYOUT_MIN_W)
 
+/**
+ * ⭐⭐ WIDER, SHORTER CARDS THAT USE THE SCREEN'S WIDTH (Paul, 30 Sep 2026
+ * ~12:30Z: "All of the nodes are too thin and tall. They need to be wider and
+ * shorter … we should just have a rule for when the initial graph is generated:
+ * using the width of the screen much more effectively").
+ *
+ * ## The rule
+ * Every repeated card is its row's FAIR SHARE of `ROW_BUDGET_W`, which is the
+ * width the 1280×800 laptop frame (dock open) shows at the 0.5 legibility floor.
+ * The share is clamped to `[REPEATED_CARD_W, REPEATED_CARD_MAX_W]` (`tierCardWidth`
+ * in `layout.ts`). A row with fewer cards therefore draws WIDER cards. Their
+ * titles and values wrap onto fewer lines, so the cards are shorter, and the board
+ * comes out as wide as a laptop can show legibly and no taller than it needs to
+ * be. A wider screen then fits it width-first at a higher zoom.
+ *   5 cards → 270 · 4 cards → 350 · 3 or fewer → 400 (the cap).
+ * The layout is still a constant and viewport-independent (R1): the same model
+ * lays out the same everywhere, and the camera does the per-screen fit.
+ *
+ * Before, the card sat at 248 whatever the row held. That is why a four-card
+ * row left about an inch of empty canvas on each side at Paul's size.
+ */
+export const REPEATED_CARD_MAX_W = 400
+
+/**
+ * The row budget a card's fair share is taken from, in flow units: the 1280×800
+ * frame with the 360 dock open, at the 0.5 floor, is (1280 − 76 − 376) / 0.5 =
+ * 1656 (`laptopFit.arithmetic.spec.ts` derives it from the real insets and pins
+ * it). A four-card row plus the icon prompt fills it exactly:
+ * 4 × (350 + 24) + 3 × 24 + 24 + 64 = 1656.
+ */
+export const ROW_BUDGET_W = 1656
+
 /** The Question and the Goal: singletons, wide and shallow (ED S4: "≤460px"). */
-export const ANCHOR_CARD_MAX_W = 460
+export const ANCHOR_CARD_MAX_W = 720
 
 /**
  * ⭐ ROWS ABOVE FOUR REAL CARDS WRAP into balanced sub-rows under ONE family
@@ -260,19 +297,29 @@ export const ANCHOR_CARD_MAX_W = 460
  * sub-rows, reading order and one family label — so every band fits the frame
  * on width (`laptopFit.arithmetic.spec.ts`, `laptopFit1280.bandRows.spec.ts`).
  */
-export const MAX_CARDS_PER_ROW = 4
+export const MAX_CARDS_PER_ROW = 5
 
 /**
- * ⭐ THE ROW-END REASONING PROMPT (ED S4: "160px is approved as the target width
- * and they count inside the row budget"). Flow units, like the cards.
+ * ⭐⭐ THE ROW-END REASONING PROMPT IS AN ICON BUTTON, NOW 32 FLOW UNITS SQUARE (Paul 1 Oct: 50% smaller; was 64, Paul,
+ * 30 Sep 2026 ~12:30Z: "improve the design of the right-hand panels … Those could
+ * be icons with hover states … explore how to save space with them, but make
+ * them visible and easy to use").
+ *
+ * It was a 160-wide, three-line dashed tile (ED S4), and it took 184 units of
+ * every row's width budget. As an icon its question shows in the DS tooltip on
+ * hover and keyboard focus, so it costs 88 units. The 96 it hands back go to the
+ * cards (`ROW_BUDGET_W`). 64, not 48: at the 0.65 landing zoom it draws 42px,
+ * which is as near DS §9.9's 44px target as the canvas allows (48 drew 31px).
+ * Flow units, like the cards; the glyph inside counter-scales like the others.
  */
-export const ROW_PROMPT_W = 160
+/** Paul, 1 Oct 2026: "Make the plus buttons on the right smaller … They should be 50% smaller." 64 → 32. */
+export const ROW_PROMPT_W = 32
 
 /**
  * The prompt's height at the counter-scale bound — a FLOOR the layout reserves,
  * derived from the type the prompt renders, never hand-tuned.
  *
- * Three lines of `typography.edgeLabel` (11px, `leading-snug` 1.375) at
+ * Three lines of `typography.edgeLabel` (11px, line-height 1.35 — contract `.row-meta`) at
  * `MAX_LABEL_COUNTER_SCALE`, plus unscaled chrome (6px padding and a 1.5px
  * border, each side). Three because a 160 box leaves ~72 declared px of measure
  * and `GhostTierNode`'s 3 Sep browser measurement recorded that the risk and
@@ -286,14 +333,20 @@ export const ROW_PROMPT_W = 160
  */
 export const ROW_PROMPT_LINES = 3
 const ROW_PROMPT_LABEL_PX = 11
-const ROW_PROMPT_LINE_HEIGHT = 1.375
+const ROW_PROMPT_LINE_HEIGHT = 1.35
 export const ROW_PROMPT_PADDING_PX = 6
 export const ROW_PROMPT_BORDER_PX = 1.5
-export const ROW_PROMPT_H = Math.ceil(
+/**
+ * ⚠ SUPERSEDED BY THE ICON (30 Sep 2026): the three-line derivation above sized
+ * the old tile. The icon is square, so the height the layout reserves is its
+ * width. `ROW_PROMPT_TILE_H` keeps the old tile's number for the record.
+ */
+export const ROW_PROMPT_TILE_H = Math.ceil(
   ROW_PROMPT_LINES * ROW_PROMPT_LABEL_PX * ROW_PROMPT_LINE_HEIGHT * MAX_LABEL_COUNTER_SCALE +
     ROW_PROMPT_PADDING_PX * 2 +
     ROW_PROMPT_BORDER_PX * 2,
 )
+export const ROW_PROMPT_H = ROW_PROMPT_W
 
 /**
  * Vertical gap between two stacked prompts. ⚠ No row stacks prompts any more
@@ -357,7 +410,11 @@ const ROW_LABEL_INSET_PX = NODE_CARD_MAX_W - 296
 /** Measured: 296px of 24px type held 25 characters of a real mixed-case label. */
 const AVG_CHAR_EM = 296 / 25 / 24
 
-/** The declared size of `typography.nodeLabel`, which these rows use. */
+/**
+ * The size the row BUDGET is computed at. `typography.nodeLabel` renders at 11px
+ * since 27 Sep (three type sizes); the budget stays at the 12px it was tuned on,
+ * so the rows keep the headroom they had and no option card grows a row.
+ */
 const ROW_LABEL_DECLARED_PX = 12
 
 /**
@@ -373,6 +430,43 @@ export const NODE_ROW_LABEL_MAX_CHARS = Math.floor(
   (REPEATED_CARD_W - ROW_LABEL_INSET_PX) /
     (ROW_LABEL_DECLARED_PX * MAX_LABEL_COUNTER_SCALE * AVG_CHAR_EM),
 )
+
+/**
+ * ⭐ AN OPTION ROW'S AMOUNT HAS ITS OWN PER-LINE BUDGET — THE AMOUNT NEVER BREAKS;
+ * THE LABEL YIELDS (Canvas owner, 27 Sep 2026, landing text cap 1.36 → 1.64).
+ *
+ * `optionAmountSegmentNoWrap` used to borrow `NODE_ROW_LABEL_MAX_CHARS` — the
+ * LABEL's budget, held at the 12px it was tuned on so the rows keep their
+ * headroom. The amount is not 12px: it is `typography.edgeLabel`. At the 1.36
+ * bound the borrowed budget was 25 and "→ 3 engineers" + its glued "no source"
+ * mark (23) was held whole; the cap took it to 21, so that run lost its
+ * `whitespace-nowrap` and could break INSIDE the value ("→ 3 / engineers no
+ * source") — while the label beside it, the part the owner lets yield, lost
+ * nothing. CI full suite on `d000d576`, `OptionNode.contractV31Polish.spec`.
+ *
+ * So the amount is budgeted at its own declared size, on the same measured
+ * character width, the same card and the same inset: 23 at 1.64 (and 28 at
+ * 1.36). It is still a per-LINE budget, so a run longer than it (a producer's
+ * prose reading, served `cd6a82e4`) still wraps at its own spaces rather than
+ * run past the card's edge. When the amount and the label cannot share a line,
+ * the amount drops under the label (`flex-wrap`) and the label keeps its own
+ * one-line cut. Never below the label's budget: the label yields, not the amount.
+ */
+export function rowAmountMaxCharsFor(cardW: number): number {
+  return Math.floor(
+    (Math.max(cardW, REPEATED_CARD_W) - ROW_LABEL_INSET_PX) /
+      (CANVAS_TYPE_PX.edgeLabel * MAX_LABEL_COUNTER_SCALE * AVG_CHAR_EM),
+  )
+}
+
+/**
+ * The budget at the NARROWEST repeated card, the floor every caller without a
+ * card width keeps. ⭐ Since 30 Sep a row with room draws wider cards (up to
+ * `REPEATED_CARD_MAX_W`), and a card spends the budget of ITS OWN width
+ * (`rowAmountMaxCharsFor`): at 248 every `from → to` row still split into two
+ * lines inside a 400 card (Paul, 30 Sep: "all bunched together").
+ */
+export const NODE_ROW_AMOUNT_MAX_CHARS = rowAmountMaxCharsFor(REPEATED_CARD_W)
 
 
 /**
@@ -611,7 +705,10 @@ export const CANONICAL_LAYOUT_WIDTH = 1482
  * it still only fires when something has genuinely gone wrong, rather than
  * becoming a second spacing authority that competes with this one.
  */
-export const LAYOUT_NODE_GAP = 32
+// ⭐ 27 Sep 2026: 32 → 24. The default dock went 319 → 360 (#2199), so the 1280
+// frame at the floor is 1656 units; five cards and the prompt need 1680 at 32 and
+// 1640 at 24. Visible sibling gap 48 (24 + the 24 padding).
+export const LAYOUT_NODE_GAP = 24
 /**
  * ⭐ THE KIND SHAPE ON A CARD'S TOP BORDER, in unscaled px (contract v3.1
  * FRAME-03, `.node .shape{width:24px;height:24px;top:-12px}`). `BaseNode` draws
@@ -620,8 +717,27 @@ export const LAYOUT_NODE_GAP = 32
  * units at the landing bound. It lives here, not in `BaseNode`, because two
  * other things are sized against it: the band title keeps clear of it
  * (`tierLanes.ts`) and the row gap below budgets for it.
+ *
+ * ⭐ 20% SMALLER THAN THE CONTRACT'S 24 (Paul, 1 Oct 2026: "the node shape types need to be 20% smaller across the
+ * board, as they dominate too much"). 19.2 units; every reader above derives from this one constant.
  */
-export const KIND_GLYPH_PX = 24
+export const KIND_GLYPH_PX = 19.2
+
+/**
+ * ⭐ THE KIND SHAPE'S GEOMETRY AT LABEL SCALE `s` (graph contract pass, 27 Sep
+ * 2026) — ONE source for `BaseNode`, the band titles and their guard. The shape
+ * scales with the TEXT and its lower edge stays `KIND_GLYPH_PX / 2` inside the
+ * card's top border at every zoom (the contract's `top:-12px` on a 12px top
+ * padding), so it never reaches the title. It used to scale by the glyph TARGET
+ * scale (2 at the landing floor): 24 units into a 12-unit padding.
+ */
+export function kindGlyphSizeAt(s: number): number {
+  return KIND_GLYPH_PX * s
+}
+/** How far the shape stands ABOVE the card's top border at label scale `s`. */
+export function kindGlyphOverhangAt(s: number): number {
+  return KIND_GLYPH_PX * s - KIND_GLYPH_PX / 2
+}
 
 /**
  * ⭐⭐ THE ROW GAP HOLDS THE KIND SHAPE AND THE BAND TITLE, BOTH AT THE BOUND
@@ -651,6 +767,34 @@ export const KIND_GLYPH_PX = 24
  *
  * `bandTitleClearsKindGlyph.guard.spec.ts` asserts the budget above and pairs
  * every band title with every kind shape on the five starters at the bound.
+ *
+ * ⚠ THE POLARITY-SIGN ROW STANDS IN THIS GAP TOO (code-review F1, 27 Sep 2026).
+ * #2202's cut to 40 budgeted the overhang and the title but not the `+`/`−`
+ * row #2208 put above each arrival, and that row landed on the upper card at
+ * the landing. Its rise is now bounded by `GLYPH_ROW_RISE_MAX_FLOW`
+ * (`edgeGlyphPlacement.ts`), derived from THIS gap, and
+ * `polarityGlyphRowClearsCards.guard.spec.ts` asserts overhang + rise + half a
+ * glyph box + the mark gap ≤ the visible gap, and that no sign box meets a
+ * card on the five starters. A further cut shrinks the bound with it (the row
+ * sinks toward the arrival heads); the spec fails once no positive rise fits.
+ *
+ * ⭐ 40 → 48 (27 Sep 2026, canvas/landing-text-cap — Canvas owner: "do NOT make
+ * boards taller unless it is unavoidable"). #2202 set 40 (56 visible) when the
+ * text bound was 1.36. Since 27 Sep the shape scales with the TEXT
+ * (`kindGlyphOverhangAt`), and the landing cap put the bound at 1.64:
+ *
+ *   the kind shape's overhang above its card   24 × 1.64 − 12          = 27.36
+ *   the title's clearance above that shape     LANE_TITLE_GAP          =  8
+ *   the band title's one line                  10px × 1.2 × 1.64       = 19.68
+ *   the title's clearance below the row above  LANE_TITLE_GAP          =  8
+ *                                                                        ─────
+ *                                                                        63.04
+ *
+ * 7.04 short at 56 visible. The title's line box was already one line at 1.2
+ * (`LANE_TITLE_LINE_PX`, and `TierLanes` renders `lineHeight: 1.2`), so nothing
+ * there was loose to tighten — even 1.0 would recover only 3.94. So the gap
+ * rises by exactly the shortfall, rounded up to a whole unit: 40 + 8 = 48 (64
+ * visible), the smallest whole gap that holds the budget; the guard pins that.
  */
 export const LAYOUT_LAYER_GAP = 48
 
@@ -847,9 +991,9 @@ export const TIER_BY_KIND: Record<string, number> = {
  */
 export const CARD_W_CAP_BY_TIER: Readonly<Record<number, number>> = {
   0: ANCHOR_CARD_MAX_W, // decision — the Question: one card, wide and shallow.
-  1: REPEATED_CARD_W, // option
-  2: REPEATED_CARD_W, // factor / action / constraint
-  3: REPEATED_CARD_W, // outcome / risk
+  1: REPEATED_CARD_MAX_W, // option — the row's fair share of ROW_BUDGET_W, up to here (Paul 30 Sep)
+  2: REPEATED_CARD_MAX_W, // factor / action / constraint
+  3: REPEATED_CARD_MAX_W, // outcome / risk
   5: ANCHOR_CARD_MAX_W, // goal: one card, wide and shallow.
 }
 

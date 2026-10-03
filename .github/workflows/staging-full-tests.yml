@@ -8,7 +8,8 @@
 # still need independent review under the current delivery policy.
 #
 # Sharding (ROADMAP 1.26, chronic-CI-red fix): the vitest job runs as a
-# 4-way matrix (`--shard=N/4`), each shard on its own runner. This is
+# `SHARD_COUNT`-way matrix (`--shard=N/6` since 2 Oct 2026; 4 before), each
+# shard on its own runner. This is
 # defence-in-depth against a single job's memory/wall-clock ceiling — the
 # chronic red's proximate cause was actually a genuine infinite-render-loop
 # hang in one spec (tests/canvas/panels/InspectorPanel.test.tsx, root-caused
@@ -64,7 +65,9 @@ env:
   VITE_FEATURE_SSE: "0"
   VITE_EDGE_GATEWAY_URL: "http://localhost:3001"
   VITE_PLOT_LITE_BASE_URL: "/plot-lite"
-  SHARD_COUNT: 4
+  # Must equal the length of `vitest.strategy.matrix.shard` — the Summary job
+  # fails when the number of shard artifacts differs from this.
+  SHARD_COUNT: 6
 
 jobs:
   # ── Install & cache (shared by all downstream jobs) ──────────────────
@@ -902,7 +905,7 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # ── Full test suite (sharded 4-way) ───────────────────────────────────
+  # ── Full test suite (sharded SHARD_COUNT-way) ───────────────────────────────────
   vitest:
     name: Full Test Suite (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     needs: install
@@ -911,7 +914,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -935,8 +938,17 @@ jobs:
       # Bounded so a teardown hang (mode A) or a genuine JS-side hang (e.g.
       # an infinite render loop — the actual chronic-red root cause, see
       # workflow header) fails fast instead of running to GitHub's 6-hour
-      # default. Each shard carries ~1/4 the files, so 20 min is generous
-      # headroom over the ~4-5 min a healthy shard takes.
+      # default. Each shard carries ~1/SHARD_COUNT of the files.
+      #
+      # ⚠ 4 → 6 SHARDS, NOT A BIGGER CAP (2 Oct 2026, DL 380e54). At 4 shards
+      # the "~4-5 min a healthy shard" this comment used to promise had become
+      # ~19 min: measured test-step times on 6 runs (1–2 Oct, staging pushes +
+      # dispatches) were 10.6–20.1 min per shard, most at 19.0–19.7, and the
+      # 20 min cap killed a shard 3 times in one night AFTER every test had
+      # passed (e.g. 853 files / 10,535 tests green, then the cap). A bigger
+      # cap would hide the next real hang for longer; more shards keep each
+      # one well inside it. Expect ~2/3 of the old time (~7–13 min) per shard.
+      # If shards approach the cap again, add shards or find the slow specs.
       #
       # We capture vitest's REAL exit code (PIPESTATUS[0], not tee's) and force
       # the step to exit 0 so the "Evaluate" step below is the single pass/fail
@@ -1003,7 +1015,7 @@ jobs:
       # if: always() so it still fires when vitest exits non-zero or is killed.
       #
       # min_total is NOT checked per-shard (an uneven-but-valid file split
-      # across 4 shards could legitimately put one shard under any fixed
+      # across SHARD_COUNT shards could legitimately put one shard under any fixed
       # floor) — the cross-shard total is checked once in the "Full Test
       # Suite Summary" job below, against the same 700-file floor the
       # unsharded job used.
@@ -1110,6 +1122,15 @@ jobs:
           total_sum=0
           skipped_sum=0
           missing=0
+          # Exactly SHARD_COUNT shard artifacts (2 Oct 2026): the glob below
+          # only sees what exists, so a shard that uploaded nothing — or a
+          # matrix that drifted from SHARD_COUNT — would otherwise sum silently.
+          n_art=$(find shard-outputs -mindepth 1 -maxdepth 1 -type d -name 'vitest-output-shard-*' | wc -l | tr -d ' ')
+          echo "Shard artifacts: ${n_art} (expected ${SHARD_COUNT})"
+          if [ "${n_art}" -ne "${SHARD_COUNT}" ]; then
+            echo "::error::Expected ${SHARD_COUNT} shard artifacts, found ${n_art}."
+            missing=1
+          fi
           for f in shard-outputs/*/vitest-output.txt; do
             [ -f "$f" ] || { missing=1; continue; }
             # Both the "failed" and "skipped" clauses are OPTIONAL — vitest
@@ -1275,7 +1296,7 @@ jobs:
              [ "${{ needs.vitest-summary.result }}" != "success" ] || \
              [ "${{ needs.build.result }}" != "success" ]; then
             echo "::error::Staging Gate failed — one or more jobs did not succeed (see results above)."
-            # The Full Test Suite job (4-way shard matrix) is the authority on
+            # The Full Test Suite job (SHARD_COUNT-way shard matrix) is the authority on
             # test outcome: each shard's "Evaluate test results" step prints a
             # precise reason and its 'vitest-output-shard-N' artifact preserves
             # the log on every outcome; vitest-summary catches cross-shard

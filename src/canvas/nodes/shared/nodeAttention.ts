@@ -29,6 +29,12 @@
  * A model KNOWN to have changed keeps the last run's reasons in a SEPARATE plan,
  * labelled (`useNodeAttention`'s `fromLastRun`; design-gap row 23).
  *
+ * ⛔ NO SHOWN COMPARISON HIDES THE FLIP REASONS (post-run DIFF item 7): the
+ * caller passes `turningPoints` and `fragileEdgeSources` only while the canvas
+ * shows the option comparison they cite (`useNodeAttention`, reading the option
+ * cards' own `useSupportShareRunWideAbsent`), in the current plan and the last
+ * run's alike.
+ *
  * ── HOW IT STAYS SELECTIVE, AND SAYS SO ─────────────────────────────────────
  *
  * At most `ATTENTION_BUDGET` elements are marked. The order that fills the
@@ -92,7 +98,12 @@ export interface AttentionInputs {
   }>
   /** Run-derived: present only while the analysis is CURRENT. */
   readonly run: {
-    readonly ranks: ReadonlyMap<string, { sensitivityRank: number | null; voiRank: number | null; influenceSetSize: number; rankedSetSize: number }>
+    /**
+     * `noValueInRun` (PJ-B3): the run held no value for the factor — its row
+     * carries no `value_source` while other rows carry one (`unvaluedDriver.ts`).
+     * Absent reads as false.
+     */
+    readonly ranks: ReadonlyMap<string, { sensitivityRank: number | null; voiRank: number | null; influenceSetSize: number; rankedSetSize: number; noValueInRun?: boolean }>
     readonly turningPoints: ReadonlyMap<string, FactorTurningPoint>
     readonly fragileEdgeSources: ReadonlySet<string>
     readonly reviewBiasFindings: ReadonlyArray<unknown>
@@ -189,8 +200,13 @@ export function deriveAttentionPlan(inputs: AttentionInputs, budget: number = AT
         push(reasons, id, {
           kind: 'top_driver',
           order: 3,
-          // ED #63 5806207128: the printed M is the ANALYSED count, as on the card.
-          label: `${DRIVER_LINE_COPY.rank(rank.sensitivityRank, rank.influenceSetSize)}: the comparison responds strongly to it. ${DRIVER_LINE_COPY.question}`,
+          // The printed M is the RANKED count, as on the card (NODE-ANATOMY v3.2).
+          // ⭐ PJ-B3: a rank the run made for a factor it held NO value for is
+          // not "the comparison responds strongly to it" from the user's
+          // figures — the card line's own sentence says so, and asks for the value.
+          label: rank.noValueInRun === true
+            ? `${DRIVER_LINE_COPY.rankNoValueSentence(rank.sensitivityRank, rank.rankedSetSize)}. ${DRIVER_LINE_COPY.noValueQuestion}`
+            : `${DRIVER_LINE_COPY.rank(rank.sensitivityRank, rank.rankedSetSize)}: the comparison responds strongly to it. ${DRIVER_LINE_COPY.question}`,
         })
       }
     }

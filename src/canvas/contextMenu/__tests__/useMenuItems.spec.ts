@@ -128,8 +128,13 @@ describe('pane menu', () => {
     // Taking either side wholesale loses the other: #1304 alone re-hides the
     // door, #1538 alone restores the silence.
     expect(ids).toContain('add-node')
-    for (const id of ['paste', 'undo', 'redo']) {
+    for (const id of ['paste']) {
       expect(findItem(result.current, id)?.enabled ?? false, `${id} actionable`).toBe(false)
+    }
+    // ⚠ RE-PINNED at Undo S5 (30 Sep 2026): undo/redo are SAVED changes now (a version restore that answers its own
+    // refusals, `undo/undoCommand.ts`), so the rows are ACTIONABLE — they have a server writer, never the blanket key.
+    for (const id of ['undo', 'redo']) {
+      expect(findItem(result.current, id)?.enabled, `${id} actionable`).toBe(true)
     }
   })
 
@@ -304,13 +309,46 @@ describe('decision node menu (reduced)', () => {
    * BOTH carriers really are `server_graph`. Flip either back and this REDs on
    * the authority line, which is the honest place for it to fail.
    */
-  it('offers add connected factor, on two carriers that both have a receipt', () => {
+  /**
+   * ⛔ RE-INVERTED 27 Sep 2026 (canvas audit edit-structure/F7), AND THE PRIOR
+   * PIN ENCODED THE DEFECT. The 18 Sep inversion asserted the Question card
+   * OFFERS "Add connected factor" because both carriers had a receipt. That
+   * answered "can the link be saved?" and never asked "is it a link the model
+   * may hold?". A Question's only outgoing link is Question → option (contract
+   * v3.1: "Structural alternative links"; CEE `ALLOWED_EDGES` admits only
+   * `decision → option`). Served: "Add connected factor" on the Question plus a
+   * stated band saved `structural_add_edge {from: dec_billing, …, magnitude
+   * 0.1}` as a CAUSAL claim that the Question boosts a factor.
+   *
+   * The carrier precondition is kept (it is still true), and the positive
+   * assertion moves to a kind that may hold the link: the option.
+   */
+  it('does NOT offer add-connected factor / outcome / risk: a Question links only to its options', () => {
     expect(hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash)).toBe(true)
     expect(hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasEdgeAddWithServerHash)).toBe(true)
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
-    expect(getItemIds(result.current)).toContain('add-connected-factor')
+    const ids = getAllItemIds(result.current)
+    // Non-vacuous: the menu did build (its Ask AI entry is there).
+    expect(ids).toContain('ask-ai')
+    expect(ids).not.toContain('add-connected-factor')
+    expect(ids).not.toContain('add-connected-outcome')
+    expect(ids).not.toContain('add-connected-risk')
+  })
+
+  it('CONTRAST: an option card still offers add connected factor, on the same two carriers', () => {
+    const optionNode = {
+      id: 'o1', type: 'option', position: { x: 0, y: 0 },
+      data: { label: 'Raise price', kind: 'option' },
+    } as Node
+    const optionTarget: NodeTarget = {
+      kind: 'node', nodeId: 'o1', nodeType: 'option', node: optionNode, screenPos: { x: 0, y: 0 },
+    }
+    const { result } = renderHook(() =>
+      useMenuItems({ target: optionTarget, showToast, screenToFlowPosition, onClose }),
+    )
+    expect(getAllItemIds(result.current)).toContain('add-connected-factor')
   })
 })
 

@@ -57,7 +57,7 @@ export function RunSelector({
           id="baseline-select"
           value={baseline || ''}
           onChange={(e) => handleBaselineChange(e.target.value)}
-          className="w-full px-3 py-2 border border-storm-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-analytical-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-storm-300 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-analytical-500 focus:border-transparent"
         >
           <option value="">Select baseline...</option>
           {runHistory.map((run) => (
@@ -80,7 +80,7 @@ export function RunSelector({
           id="current-select"
           value={current || ''}
           onChange={(e) => handleCurrentChange(e.target.value)}
-          className="w-full px-3 py-2 border border-storm-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-analytical-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-storm-300 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-analytical-500 focus:border-transparent"
         >
           <option value="">Select current...</option>
           {runHistory.map((run) => (

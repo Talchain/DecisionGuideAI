@@ -18,7 +18,7 @@ export const Positive: Story = {
   args: { weight: 0.7, direction: 'positive' },
   decorators: [
     (Story) => (
-      <div style={{ width: 320, padding: 16, background: 'var(--bg-panel, #FEFEFE)' }}>
+      <div style={{ width: 320, padding: 16, background: 'var(--bg-panel, #FEF9F3)' }}>
         <Story />
       </div>
     ),
@@ -30,7 +30,7 @@ export const Negative: Story = {
   args: { weight: 0.4, direction: 'negative' },
   decorators: [
     (Story) => (
-      <div style={{ width: 320, padding: 16, background: 'var(--bg-panel, #FEFEFE)' }}>
+      <div style={{ width: 320, padding: 16, background: 'var(--bg-panel, #FEF9F3)' }}>
         <Story />
       </div>
     ),
@@ -42,7 +42,7 @@ export const Neutral: Story = {
   args: { weight: 0, direction: 'positive' },
   decorators: [
     (Story) => (
-      <div style={{ width: 320, padding: 16, background: 'var(--bg-panel, #FEFEFE)' }}>
+      <div style={{ width: 320, padding: 16, background: 'var(--bg-panel, #FEF9F3)' }}>
         <Story />
       </div>
     ),
@@ -54,7 +54,7 @@ export const MaxStrength: Story = {
   args: { weight: 1.0, direction: 'positive' },
   decorators: [
     (Story) => (
-      <div style={{ width: 320, padding: 16, background: 'var(--bg-panel, #FEFEFE)' }}>
+      <div style={{ width: 320, padding: 16, background: 'var(--bg-panel, #FEF9F3)' }}>
         <Story />
       </div>
     ),

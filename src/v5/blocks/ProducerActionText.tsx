@@ -36,7 +36,7 @@ export function ProducerActionText({ label, intent, testId }: ProducerActionText
       {...(intent ? { 'data-action-intent': intent } : {})}
       // Reads as the card's suggested next step (an arrow and body-colour text, chat polish
       // bundle 27 Sep), still plain text: no border, pill, link colour or focus stop.
-      className={`${typography.panelBody} flex items-start gap-1.5 text-text-body`}
+      className={`${typography.chatBody} flex items-start gap-1.5 text-text-body`}
     >
       <ArrowRight size={12} aria-hidden="true" className="mt-[3px] shrink-0 text-text-light" />
       {label}

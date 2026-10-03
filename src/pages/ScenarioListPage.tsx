@@ -6,16 +6,19 @@
  * Design System v4 compliant — all styling via semantic tokens.
  */
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Plus, Trash2, AlertTriangle, Loader2,
-  Pin, MoreVertical, Copy, Archive, ArchiveRestore,
+  Pin, MoreVertical, Copy, Archive, ArchiveRestore, UserPlus,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { GuestDraftImportBanner } from '../components/auth/GuestDraftImportBanner'
 import { useScenario } from '../hooks/useScenario'
 import * as scenarioService from '../services/scenarioService'
+import { ShareDecisionDialog } from '../components/sharing/ShareDecisionDialog'
+import { SharedWithMeSection } from '../components/sharing/SharedWithMeSection'
+import { sharedScenarioPath } from '../components/sharing/sharedScenarioPath'
 import type { ScenarioListItem, ScenarioStage, AnalysisStatus, ScenarioEvent } from '../types/scenario'
 import { SYSTEM_MARKER_EVENT_TYPES } from '../types/scenario'
 import { Skeleton } from '../components/Skeleton'
@@ -23,6 +26,7 @@ import { formatRelativeTime } from '../utils/formatRelativeTime'
 import { UserAvatarMenu } from '../components/layout/UserAvatarMenu'
 import { typography } from '../styles/typography'
 import { trackEvent } from '../lib/posthog'
+import { GUEST_COPIED_EVENT } from '../lib/guestCopyOnSignIn'
 
 // ---------------------------------------------------------------------------
 // Stage badge styles — semantic colours from the design system
@@ -203,12 +207,14 @@ function CardActionMenu({
   onPin,
   onArchive,
   onDuplicate,
+  onInvite,
   onDelete,
 }: {
   scenario: ScenarioListItem
   onPin: () => void
   onArchive: () => void
   onDuplicate: () => void
+  onInvite: () => void
   onDelete: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -245,6 +251,12 @@ function CardActionMenu({
             className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-panel-hover ${typography.bodySmall} text-text-body`}>
             <Copy className="w-3.5 h-3.5" />
             Duplicate
+          </button>
+          <button role="menuitem" onClick={() => { onInvite(); setOpen(false) }}
+            className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-panel-hover ${typography.bodySmall} text-text-body`}
+            data-testid="scenario-card-invite">
+            <UserPlus className="w-3.5 h-3.5" />
+            Invite a colleague…
           </button>
           <button role="menuitem" onClick={() => { onArchive(); setOpen(false) }}
             className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-panel-hover ${typography.bodySmall} text-text-body`}>
@@ -294,20 +306,25 @@ export default function ScenarioListPage() {
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<ScenarioListItem | null>(null)
+  const [shareTarget, setShareTarget] = useState<ScenarioListItem | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [filter, setFilter] = useState<HubFilter>('active')
 
+  // Only the NEWEST list request may commit: a slower mount/focus request that
+  // started before a guest copy landed must not overwrite the refetch that shows it.
+  const listRequestRef = useRef(0)
   const fetchScenarios = useCallback(async () => {
     if (!isPersistenceActive || !user) return
+    const request = ++listRequestRef.current
     setLoading(true)
     setError(null)
     try {
       const list = await scenarioService.listScenarios(user.id)
-      setScenarios(list)
+      if (request === listRequestRef.current) setScenarios(list)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load decisions')
+      if (request === listRequestRef.current) setError(err instanceof Error ? err.message : 'Failed to load decisions')
     } finally {
-      setLoading(false)
+      if (request === listRequestRef.current) setLoading(false)
     }
   }, [isPersistenceActive, user])
 
@@ -318,6 +335,14 @@ export default function ScenarioListPage() {
     const handler = () => { if (document.visibilityState === 'visible') fetchScenarios() }
     document.addEventListener('visibilitychange', handler)
     return () => document.removeEventListener('visibilitychange', handler)
+  }, [fetchScenarios])
+
+  // ACCOUNTS B3: a guest decision copied into the account on sign-in usually
+  // lands AFTER this page has mounted and fetched, so re-fetch when it does.
+  useEffect(() => {
+    const handler = () => { fetchScenarios() }
+    window.addEventListener(GUEST_COPIED_EVENT, handler)
+    return () => window.removeEventListener(GUEST_COPIED_EVENT, handler)
   }, [fetchScenarios])
 
   // Filter scenarios
@@ -654,6 +679,7 @@ export default function ScenarioListPage() {
                         onPin={() => handlePin(scenario)}
                         onArchive={() => handleArchive(scenario)}
                         onDuplicate={() => handleDuplicate(scenario)}
+                        onInvite={() => setShareTarget(scenario)}
                         onDelete={() => setDeleteTarget(scenario)}
                       />
                     </div>
@@ -681,7 +707,21 @@ export default function ScenarioListPage() {
             )}
           </>
         )}
+        {/* ACCOUNTS: decisions colleagues shared with me (view only). Outside the
+            first-run ternary: a colleague whose only decisions are shared ones
+            still sees them. Renders nothing when there are none. */}
+        {isPersistenceActive && user && (
+          <SharedWithMeSection onOpen={(id) => navigate(sharedScenarioPath(id))} />
+        )}
       </main>
+
+      {shareTarget && (
+        <ShareDecisionDialog
+          scenarioId={shareTarget.id}
+          scenarioTitle={shareTarget.title || 'Untitled decision'}
+          onClose={() => setShareTarget(null)}
+        />
+      )}
 
       {/* Delete confirmation */}
       {deleteTarget && (

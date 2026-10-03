@@ -125,7 +125,11 @@ describe('gap 24 — nothing between the commitment and About at rest', () => {
     if (screen.queryByTestId('analysis-new-zone-focus-group') === null) {
       expect(prev, 'with no focus zone, the commitment zone is directly above About').toBe(answer)
     }
-    expect(about.nextElementSibling, 'About is the last block on the tab').toBeNull()
+    // 27 Sep 2026: About is the last CONTENT block. The V2 prototype's foot-of-panel ask box
+    // (`ReasoningAskBox`) is the only thing that may follow it.
+    const next = about.nextElementSibling
+    if (next !== null) expect(next.getAttribute('data-testid'), 'only the ask box may follow About').toBe('analysis-new-ask-box')
+    expect(next?.nextElementSibling ?? null, 'nothing after the ask box').toBeNull()
   })
 
   it('at rest the tail is ONE closed line: none of the folded blocks is on screen', () => {

@@ -26,6 +26,7 @@ import {
   NODE_TITLE_MIN_MEASURE_PX,
   restingCardWidthForKind,
   REPEATED_CARD_W,
+  REPEATED_CARD_MAX_W,
 } from '../../utils/nodeLayoutConstants'
 
 vi.mock('@xyflow/react', async () => {
@@ -120,10 +121,13 @@ describe('BaseNode — the card floor comes from the shared derivation', () => {
     // kind's width (`REPEATED_CARD_W`), not at `NODE_CARD_MAX_W` — and the width
     // is the kind's, whatever the label (ED: one long title must not widen a
     // row).
+    // ⚠ RE-PINNED 30 Sep 2026: the kind's resting width is its tier CAP, which
+    // for a repeated card is now REPEATED_CARD_MAX_W (400; was REPEATED_CARD_W,
+    // 248). The label-independence below is the property, and it is unchanged.
     const short = renderNode(SHORT_LABEL).card
     expect(short.style.minWidth).toBe(`${NODE_LAYOUT_MIN_W}px`)
     expect(short.style.maxWidth).toBe(`${restingCardWidthForKind('factor')}px`)
-    expect(restingCardWidthForKind('factor')).toBe(REPEATED_CARD_W)
+    expect(restingCardWidthForKind('factor')).toBe(REPEATED_CARD_MAX_W)
     expect(REPEATED_CARD_W).toBeLessThan(NODE_CARD_MAX_W)
     const long = renderNode(LONG_LABEL).card
     expect(long.style.maxWidth).toBe(short.style.maxWidth)
@@ -131,9 +135,9 @@ describe('BaseNode — the card floor comes from the shared derivation', () => {
 })
 
 describe('BaseNode — a label that cannot be shown in full stays reachable', () => {
-  // ⭐ v3.1 (DESIGN-GAP-v31 row 36): the route is the ONE styled tooltip on the
-  // title, no longer a native `title` attribute beside it. The guarantee this
-  // file owns is unchanged — the complete label, first, bound to THIS node.
+  // ⭐ The route is the card's hover pop-up (29 Sep 2026, `NodeHoverCard`; it
+  // replaced v3.1's styled name tooltip), never a native `title`. The guarantee
+  // this file owns is unchanged — the complete label, first, bound to THIS node.
   function hoverName(title: HTMLElement): string | null {
     vi.useFakeTimers()
     try {
@@ -144,10 +148,10 @@ describe('BaseNode — a label that cannot be shown in full stays reachable', ()
     } finally {
       vi.useRealTimers()
     }
-    return document.querySelector('[data-testid="node-title-tooltip-name"]')?.textContent ?? null
+    return document.querySelector('[data-testid="node-hover-card-title"]')?.textContent ?? null
   }
 
-  it('carries the complete label in the styled name tooltip (DS v5 §2.4)', () => {
+  it('carries the complete label in the card hover pop-up (DS v5 §2.4)', () => {
     // `line-clamp-3` ellipsises at the clamp, so the rendered text is a PREFIX
     // of the label. DS v5 §2.4 requires anything shown small or truncated to be
     // reachable at a readable size; this is that guarantee for sighted users,

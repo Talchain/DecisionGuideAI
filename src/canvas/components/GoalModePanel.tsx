@@ -79,7 +79,7 @@ export function GoalModePanel({ onClose }: GoalModePanelProps) {
             <select
               value={targetNodeId}
               onChange={(e) => setTargetNodeId(e.target.value)}
-              className="w-full px-3 py-2 rounded border border-sand-200 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              className="w-full px-3 py-2 rounded border border-sand-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
             >
               <option value="">Select outcome...</option>
               {outcomeNodes.map(n => (
@@ -99,7 +99,7 @@ export function GoalModePanel({ onClose }: GoalModePanelProps) {
               value={targetValue}
               onChange={(e) => setTargetValue(e.target.value)}
               placeholder="e.g., 50000"
-              className="w-full px-3 py-2 rounded border border-sand-200 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              className="w-full px-3 py-2 rounded border border-sand-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
             />
           </div>
 

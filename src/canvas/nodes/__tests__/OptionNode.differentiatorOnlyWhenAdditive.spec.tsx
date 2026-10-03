@@ -179,12 +179,17 @@ describe('NODE-ANATOMY v3.2 · Option · the differentiator only when it adds be
       { id: 'option-1', interventions: { 'f-head': head, 'f-cost': cost, 'f-seats': seats, 'f-risk': { value: 9, display_value: '9 incidents' } } },
       { id: 'option-2', interventions: { 'f-head': head, 'f-cost': cost, 'f-seats': seats } },
     ])
-    // ≤3 rows + "+1 more": the shared order puts the common changes first.
+    // ≤3 rows + "+N more": the shared order puts the common changes first.
+    // ⚠ RE-PINNED 28 Sep (Paul's staging test 64c5eccc; Canvas owner): each of
+    // these rows is TWO lines at the landing bound (no amount fits beside 12
+    // characters of its name), and the card's six row lines hold head (3) +
+    // cost (2); seats (2 more) is counted with risk — `+2 more`. The claim —
+    // a change behind `+N more` keeps the differentiator — is unchanged.
     expect(row('f-head')).not.toBeNull()
     expect(row('f-cost')).not.toBeNull()
-    expect(row('f-seats')).not.toBeNull()
+    expect(row('f-seats')).toBeNull()
     expect(row('f-risk')).toBeNull()
-    expect(more()?.textContent).toBe('+1 more')
+    expect(more()?.textContent).toBe('+2 more')
     expect(differentiator()?.textContent).toBe('Delivery risk is the key difference')
   })
 
@@ -210,7 +215,10 @@ describe('NODE-ANATOMY v3.2 · Option · the differentiator only when it adds be
       { id: 'option-2', interventions: { 'f-head': head, 'f-cost': cost, 'f-seats': seats, 'f-risk': { value: 1, display_value: '1 incident' } } },
     ])
     const rows = cardRows().getAllByTestId(/^option-change-row-option-1-f-/)
-    expect(rows).toHaveLength(3)
-    expect(more()?.textContent).toBe('+1 more')
+    // ⚠ RE-PINNED 28 Sep (Paul's staging test 64c5eccc): at most three rows AND
+    // at most six row lines at the bound — these rows are two lines each, so two
+    // show and `+N more` counts the other two (rows + more = the four changes).
+    expect(rows).toHaveLength(2)
+    expect(more()?.textContent).toBe('+2 more')
   })
 })

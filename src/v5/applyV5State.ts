@@ -46,6 +46,13 @@
  */
 import type { OlumiResponse, StageType, AnalysisStateV1 } from '@talchain/schemas/boundary'
 import type { StoredRunDelta } from '../canvas/state/storedRunDelta'
+import {
+  limitVerdictsFromResponse,
+  readLimitVerdicts,
+  type LimitVerdictsWrite,
+} from '../canvas/state/storedLimitVerdicts'
+import { goalCertaintyFromResponse, readGoalCertainty } from '../canvas/state/storedGoalCertainty'
+import { optionParticipationFromResponse, readOptionParticipation } from '../canvas/state/storedOptionParticipation'
 import type { RunDelta } from '@talchain/schemas/boundary'
 import { readEvidenceAssessment, type EvidenceAssessment } from './evidenceAssessment'
 import { AnalysisStateV1Schema, Stage } from '@talchain/schemas/boundary'
@@ -93,6 +100,7 @@ import {
 import { ceeAnalysisReadyContainment } from '../canvas/utils/ceeAnalysisReadyValidation'
 import { readServerStatedStrength } from '../canvas/domain/edges'
 import { USER_VALUE_STAMP } from '../canvas/domain/valueProvenance'
+import { isKnownLimitFrame, limitChangeFrameOf } from '../canvas/utils/goalConstraintText'
 import { logger } from '../lib/logger'
 
 /**
@@ -142,6 +150,13 @@ export interface V5ApplicatorStore {
    * which pins both directions.
    */
   setRunDelta?: (stored: StoredRunDelta | null) => void
+  /**
+   * The delta the store holds BEFORE this envelope (read only here). The production caller spreads the canvas store,
+   * so it is always present there; a double without it keeps the old evict-on-new-hash behaviour.
+   */
+  readonly runDelta?: StoredRunDelta | null
+  /** B5 — same binding and eviction as `setRunDelta`. */
+  setLimitVerdicts?: (stored: LimitVerdictsWrite | null) => void
   /**
    * Optional: write goal_constraints (ROADMAP 1.22). On the V5 path this
    * applicator writes via `add_constraint` graph_patch blocks only, UPSERTING
@@ -712,6 +727,9 @@ function normaliseAddConstraintPatch(
   ) {
     constraint.provenance = after.provenance
   }
+  // ⭐ R1 S4-core (CEE #2261; PR Review 5880215622 blocking 1): the frame the value is stated in. Without it a limit
+  // added in the chat as "no more than 10% above today" (`change_rel` 0.1) reached every reader as the level "≤ 0.1".
+  if (isKnownLimitFrame(after.value_frame)) constraint.value_frame = after.value_frame
   return constraint
 }
 
@@ -752,7 +770,11 @@ function constraintsDeepEqual(a: CEEGoalConstraint, b: CEEGoalConstraint): boole
     (a.unit ?? undefined) === (b.unit ?? undefined) &&
     (a.source_quote ?? undefined) === (b.source_quote ?? undefined) &&
     (a.confidence ?? undefined) === (b.confidence ?? undefined) &&
-    (a.provenance ?? undefined) === (b.provenance ?? undefined)
+    (a.provenance ?? undefined) === (b.provenance ?? undefined) &&
+    // ⛔ PR Review 5881464028 (blocking 1): the FRAME is content. A same-ID patch whose only change is
+    // level → change_rel must write, or the stored row stays a level and readers say "≤ 0.1" for a
+    // 10%-from-today limit. Absent and 'level' are the same statement (a legacy level carries no key).
+    (a.value_frame ?? 'level') === (b.value_frame ?? 'level')
   )
 }
 
@@ -952,6 +974,17 @@ function strengthAcknowledgementData(
 const LEADER_DESIGNATION_CAVEAT =
   'Marked because it scored highest so far — not because Olumi is putting it ' +
   'forward. This analysis cannot yet single out an option.'
+
+/**
+ * The run an envelope's analysis describes: `analysis_state.run_state.computed_at`, carried only by the `complete_*`
+ * kinds (the same read `blocks/useCoachingCurrency.ts` makes). Null when absent — never a guess.
+ */
+function runComputedAtOf(response: unknown): string | null {
+  const rs = (response as { analysis_state?: { run_state?: { kind?: unknown; computed_at?: unknown } } } | null)
+    ?.analysis_state?.run_state
+  if (!rs || (rs.kind !== 'complete_current' && rs.kind !== 'complete_stale')) return null
+  return typeof rs.computed_at === 'string' && rs.computed_at.length > 0 ? rs.computed_at : null
+}
 
 export function applyV5State(
   response: OlumiResponse,
@@ -1214,6 +1247,17 @@ export function applyV5State(
             })
             break
           }
+          // ⛔ R1 S4-core (PR Review 5880865579): a `value_frame` that is present but not one this UI reads means it does
+          // not know what the number measures. Defer — never store the limit, or mirror it onto the goal, as a level.
+          const afterFrame = (block.after as Record<string, unknown> | null)?.value_frame
+          if (afterFrame !== undefined && !isKnownLimitFrame(afterFrame)) {
+            deferred.push({
+              reason: 'add_constraint_unknown_value_frame',
+              block,
+              detail: 'value_frame is not one this UI reads (level, delta, change_abs, change_rel); constraint not applied.',
+            })
+            break
+          }
           const constraint = normaliseAddConstraintPatch(
             block.after as Record<string, unknown> | null,
             target,
@@ -1236,7 +1280,8 @@ export function applyV5State(
           // semantics until a new run actually arrives.
           const goal = store.nodes.find(n => n.id === target)
           const goalKind = goal?.data?.kind ?? goal?.type
-          if (goal && goalKind === 'goal' && constraint.node_id === target &&
+          // ⛔ R1 S4-core: a limit stated as a CHANGE from today is not a level target, so it is never mirrored as one.
+          if (goal && goalKind === 'goal' && constraint.node_id === target && limitChangeFrameOf(constraint) === null &&
               constraint.operator === '>=' && constraint.value > 0 &&
               typeof constraint.unit === 'string' && constraint.unit.trim() !== '') {
             const old = goal.data
@@ -2311,7 +2356,11 @@ export function applyV5State(
         skip_reason: 'not_about_current_graph',
       })
     } else if (typeof store.resultsComplete === 'function') {
-      const report = mapV5AnalysisToReport(analysisBlock)
+      // CEE #2270/#2280: the Run's stored goal-certainty fact rides beside it; unearned 0/1 figures are stamped.
+      const report = mapV5AnalysisToReport(analysisBlock, {
+        goalCertainty: readGoalCertainty(goalCertaintyFromResponse(response)),
+        optionParticipation: readOptionParticipation(optionParticipationFromResponse(response)),
+      })
       const hash = report.model_card.response_hash
       const prevHash = store.currentResultsHash ?? null
       if (hash !== prevHash) {
@@ -2521,7 +2570,38 @@ export function applyV5State(
         // branch becomes unconditional. `runDeltaEvictionHoldsOnEcho.spec.ts`
         // pins the behaviour in both directions so the trade is visible rather
         // than inherited.
-        store.setRunDelta?.(null)
+        //
+        // ⭐⭐ THAT TRIGGER HAS ARRIVED (R3 5943098072, 2 Oct): `analysis_state.run_state.computed_at` names the run an
+        // envelope's analysis describes, and the delta names its own run in `endpoints.current.computed_at` — EQUAL on
+        // the served read (`9a880829`: both `00:07:29.679Z`); the coaching currency already binds on that exact string
+        // (`blocks/coachingCurrency.ts`). Measured defect: after the M3 amend → Re-run, CEE EMITTED the delta on the run
+        // turn (Render `run_delta_outcome` 00:07:36Z); the next turns (`caller_binds_run_delta`) re-delivered THAT run
+        // under a new content hash with no delta, and this branch evicted it — the strip vanished in session while a
+        // cold read showed it. So a new hash that is the SAME RUN (same scenario) REBINDS the delta to the new hash; a
+        // different run, or no run identity on either side, still evicts (fail-closed, as before).
+        const held = store.runDelta ?? null
+        const runAt = runComputedAtOf(response)
+        const heldRunAt = (held?.delta as { endpoints?: { current?: { computed_at?: unknown } } } | undefined)?.endpoints
+          ?.current?.computed_at
+        const sameRun =
+          held !== null &&
+          runAt !== null &&
+          typeof heldRunAt === 'string' &&
+          heldRunAt === runAt &&
+          held.scenarioId === (store.currentScenarioId ?? null)
+        store.setRunDelta?.(sameRun && held !== null ? { ...held, analysisHash: hash } : null)
+      }
+      // B5: the same rule as run_delta — stored with the analysis it came beside,
+      // evicted when a genuinely new analysis lands without one.
+      const turnLimitVerdicts = readLimitVerdicts(limitVerdictsFromResponse(response))
+      if (turnLimitVerdicts) {
+        store.setLimitVerdicts?.({
+          verdicts: turnLimitVerdicts,
+          analysisHash: hash,
+          scenarioId: store.currentScenarioId ?? null,
+        })
+      } else if (hash !== prevHash) {
+        store.setLimitVerdicts?.(null)
       }
     } else {
       deferred.push({

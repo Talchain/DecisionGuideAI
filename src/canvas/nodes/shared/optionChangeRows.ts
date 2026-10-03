@@ -18,12 +18,15 @@
  * model. No distance heuristic, no magnitude sort — nothing that implies one
  * change matters more than another.
  *
- * ── `+N more` COUNTS FROM THE ONE TOTAL ─────────────────────────────────────
+ * ── `+N more` COUNTS THE CONCRETE CHANGES NOT SHOWN ─────────────────────────
  *
- * `N = totalInterventionCount − rows shown`, the SAME total the inspector route
- * uses (`optionInterventionCount.ts`), so a card never states two totals (#1901
- * finding 3). Every set target yields a row — a target with no reference still
- * reads `→ £59` — so no row can silently drop out of the count.
+ * `N = concrete changes − rows shown` (side-by-side DIFF N1, 28 Sep 2026; owner
+ * decision). It used to be `totalInterventionCount − rows shown`, and once the
+ * rows were filtered to concrete changes (below) that advertised hidden
+ * NON-changes as "more": vendor-selection read 1 row + `+5 more` on every
+ * option, all five equal to the status quo's. The target TOTAL still has one
+ * owner (`optionInterventionCount.ts`) and is still stated — by the rail's
+ * target route, never by `+N more`.
  *
  * ── CONCRETE CHANGES FIRST (contract v3.1, DESIGN-GAP-v31 #9) ─────────────────
  *
@@ -46,7 +49,7 @@ import {
   classifyUnit,
   unwrapInterventionValue,
 } from '../../utils/labelUtils'
-import { NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
+import { NODE_ROW_AMOUNT_MAX_CHARS, NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
 import {
   encodingMapPhrase,
   factorCardVisibleText,
@@ -56,7 +59,7 @@ import {
   readFactorDisplayValue,
 } from '../../../utils/formatFactorDisplayValue'
 import { collapseEstimateDisplay } from './collapseEstimateDisplay'
-import { interventionTargetSourceMark, type FactorValueSourceMark } from './valueSourceMark'
+import { interventionTargetSourceMark, VALUE_SOURCE_MARK_TOKEN, type FactorValueSourceMark } from './valueSourceMark'
 
 /**
  * ⭐ THREE, NOT TWO — Paul, 25 Sep 2026, from live screenshots: the card must
@@ -65,13 +68,6 @@ import { interventionTargetSourceMark, type FactorValueSourceMark } from './valu
  * rows" and ED #63 5809278282's one-line option body.
  */
 export const OPTION_CARD_ROW_LIMIT = 3
-
-/**
- * The muted separator between a row's value and its source mark (contract v3.1
- * pt 7, gap U12: "→ 1 brief" read the mark as the value's unit). Decorative —
- * the mark carries its own accessible name.
- */
-export const OPTION_ROW_SOURCE_MARK_SEPARATOR = '·'
 
 /**
  * ⭐ ED 02:31Z (D2): "If a particular value makes the resting card materially
@@ -299,6 +295,18 @@ export interface OptionChangeRow {
 export const OPTION_ROW_NEEDS_INPUT = 'Needs input'
 
 /**
+ * ⭐ AN OPTION CHANGE-ROW LABEL IS CUT AT A WHOLE WORD whenever one fits (Canvas
+ * owner, 27 Sep 2026, landing text cap). At the 21-character row budget the
+ * shared 0.6 fallback cut "Time to live (quarters)" to "Time to live (quarter…";
+ * the row now reads "Time to live…". The mid-word cut survives only where not
+ * even the first word fits. The ONE label path for both row builders below —
+ * other `compactFactorLabel` callers keep the shared rule.
+ */
+function optionRowLabel(fullLabel: string): string {
+  return compactFactorLabel(fullLabel, NODE_ROW_LABEL_MAX_CHARS, { wholeWords: true })
+}
+
+/**
  * The row for a factor the option names with no target value — the same label
  * rules as `buildOptionChangeRow`, and no invented change, reference or value.
  */
@@ -315,7 +323,7 @@ export function buildOptionNeedsInputRow({
   const targetSource = interventionTargetSourceMark(source)
   return {
     factorId,
-    label: compactFactorLabel(fullLabel, NODE_ROW_LABEL_MAX_CHARS),
+    label: optionRowLabel(fullLabel),
     fullLabel,
     change: OPTION_ROW_NEEDS_INPUT,
     fullChange: OPTION_ROW_NEEDS_INPUT,
@@ -326,6 +334,100 @@ export function buildOptionNeedsInputRow({
     sameAsReference: false,
     needsInput: true,
   }
+}
+
+/**
+ * The INSPECTOR's reading of a yes/no factor's target, in the card's words: the
+ * factor's own value labels (`encoding_map`), else "In use" / "Not in use".
+ * The card row states both ends (`binaryChangeEnds`); the inspector's "This
+ * option sets …" line states the target alone, and printed CEE's bare "on"
+ * (Paul's test, 28 Sep). Null unless the factor is binary AND the reading is a
+ * bare switch word, so any phrase of CEE's own stays CEE's.
+ */
+export function binaryTargetReading(factorData: unknown, reading: string): string | null {
+  const d = (factorData ?? {}) as Record<string, unknown>
+  const obs = (d.observedState ?? d.observed_state) as Record<string, unknown> | undefined
+  const unit = typeof obs?.unit === 'string' ? obs.unit : typeof d.unit === 'string' ? d.unit : undefined
+  const factorType = typeof obs?.factor_type === 'string' ? obs.factor_type : typeof d.factor_type === 'string' ? d.factor_type : undefined
+  if (!isBinaryFactor({ unit, factorType }, [reading])) return null
+  // The card row needs both ends at 0 or 1; the inspector's one end is the
+  // factor's own value. A switch word on a factor at 0.5 is not a switch.
+  const own = typeof obs?.value === 'number' ? obs.value : null
+  if (!isBinaryFactor({ unit, factorType }) && own !== null && own !== 0 && own !== 1) return null
+  const word = reading.trim()
+  if (!BARE_SWITCH_WORD.test(word)) return null
+  const v: 0 | 1 = /^(?:on|yes|true|1)$/i.test(word) ? 1 : 0
+  return encodingMapPhrase(d.encoding_map, v) ?? BINARY_STATE_WORDS[v]
+}
+
+/**
+ * ⭐ A YES/NO FACTOR'S ROW STATES BOTH ENDS (Paul's staging test, 28 Sep 2026,
+ * export 64c5eccc: "AI assistant use → on" — CEE's bare `display_value` "on",
+ * and no "from", because the factor card's reading for 0 is the formatter's own
+ * guess, "No AI assistant use in place", which `carriedFactorCardReading`
+ * rightly refuses as a "from").
+ *
+ * A factor is binary when its unit or type SAYS so ("binary adoption",
+ * `factor_type: binary`). When both ends of the row are 0/1 and differ, the row
+ * reads the factor's OWN value labels (`encoding_map` for 0 and 1 — the
+ * producer's words, as everywhere else), else the two state words below.
+ *
+ * ⛔ CEE'S WORDS STAY CEE'S. The default words replace a producer reading ONLY
+ * when it is a bare switch word ("on", "off", "yes", "no", "true", "false",
+ * "0", "1") — a state token, not a phrase. Any other reading ("Adopted", "Not
+ * adopted") is kept verbatim by the ordinary path below. The row's `target`
+ * (the inspector's reading) is untouched: this is the card's row only.
+ */
+export const BINARY_STATE_WORDS: Readonly<Record<0 | 1, string>> = Object.freeze({ 0: 'Not in use', 1: 'In use' })
+
+const BARE_SWITCH_WORD = /^(?:on|off|yes|no|true|false|0|1)$/i
+
+/** CEE's word for a switched state; a bare digit is not one here. */
+const SWITCH_STATE_WORD = /^(?:on|off|yes|no|true|false)$/i
+
+/**
+ * ⭐ A FACTOR IS BINARY WHEN THE PRODUCER SAYS SO: its unit or type names it
+ * ("binary adoption", `factor_type: binary`), OR CEE's own word for the value
+ * is a switch word ("on"). The unit's spelling cannot decide it: three fresh
+ * drafts of Paul's brief (28 Sep 2026, 0d334f7a/00c6244c) spelled one yes/no
+ * factor's unit "binary", "0-1 availability" and "adoption indicator", and
+ * every one said "→ on". The card row still needs both ends at 0 or 1
+ * (`binaryChangeEnds`), so a count or a proportion is never re-worded.
+ */
+function isBinaryFactor(
+  factor: Pick<FactorContext, 'unit' | 'factorType'>,
+  producerWords: ReadonlyArray<string | null | undefined> = [],
+): boolean {
+  if (factor.factorType?.toLowerCase().trim() === 'binary' || /\bbinary\b/i.test(factor.unit ?? '')) return true
+  return producerWords.some((w) => typeof w === 'string' && SWITCH_STATE_WORD.test(w.trim()))
+}
+
+const binaryEnd = (v: number | null | undefined): 0 | 1 | null => (v === 0 ? 0 : v === 1 ? 1 : null)
+
+function binaryChangeEnds({
+  factor,
+  target,
+  baselineOptionTarget,
+}: {
+  factor: FactorContext
+  target: OptionTargetLike
+  baselineOptionTarget: OptionTargetLike | null
+}): { from: string; to: string } | null {
+  if (!isBinaryFactor(factor, [target.displayValue, baselineOptionTarget?.displayValue])) return null
+  const to = binaryEnd(target.value)
+  const from = binaryEnd(baselineOptionTarget ? baselineOptionTarget.value : factor.observedValue)
+  if (to === null || from === null || from === to) return null
+  const encoding = (factor.factorData as Record<string, unknown> | null | undefined)?.encoding_map
+  const own0 = encodingMapPhrase(encoding, 0)
+  const own1 = encodingMapPhrase(encoding, 1)
+  if (own0 !== null && own1 !== null) {
+    const own = [own0, own1] as const
+    return { from: own[from], to: own[to] }
+  }
+  const producerWords = [target.displayValue, baselineOptionTarget?.displayValue]
+    .filter((d): d is string => typeof d === 'string' && d.trim() !== '')
+  if (producerWords.some(d => !BARE_SWITCH_WORD.test(d.trim()))) return null
+  return { from: BINARY_STATE_WORDS[from], to: BINARY_STATE_WORDS[to] }
 }
 
 export function buildOptionChangeRow({
@@ -340,7 +442,7 @@ export function buildOptionChangeRow({
   baselineOptionTarget: OptionTargetLike | null
 }): OptionChangeRow {
   const fullLabel = sentenceCaseFactorLabel(cleanFactorLabel(factor.label || factorId)) || factorId
-  const label = compactFactorLabel(fullLabel, NODE_ROW_LABEL_MAX_CHARS)
+  const label = optionRowLabel(fullLabel)
   // Point 7: every row names its target's source. Was `classify…?.kind === 'ai'`,
   // which left `cee_inference` (live on the wire, unclassified in the
   // intervention vocabulary) and an absent source UNMARKED — "unmarked = Olumi".
@@ -373,6 +475,24 @@ export function buildOptionChangeRow({
     formatInterventionTargetText({ ...context, value: t.value, displayValue: t.displayValue ?? undefined })
   const targetFull = unitless(formatTarget(target))
   const targetText = rest(targetFull)
+  const binary = binaryChangeEnds({ factor, target, baselineOptionTarget })
+  if (binary) {
+    const change = `${binary.from} → ${binary.to}`
+    return {
+      factorId,
+      label,
+      fullLabel,
+      change,
+      before: binary.from,
+      after: binary.to,
+      fullChange: change,
+      target: targetFull || binary.to,
+      reference: baselineOptionTarget ? 'baseline_option' : 'current_value',
+      estimated,
+      targetSource,
+      sameAsReference: false,
+    }
+  }
   let fromFull = ''
 
   // "from": the baseline OPTION's own target where one exists (the reference
@@ -491,14 +611,15 @@ export function buildOptionChangeRow({
       sameAsReference: false,
     }
   }
+  const restingFrom = fromText ? elideSharedUnit(fromText, targetText) : ''
   return {
     factorId,
     label,
     fullLabel,
     // A13: "same as baseline" was an invented comparison word — `sameAsReference`
     // still carries the signal as data; the row states only what it can carry.
-    change: fromText ? `${fromText} → ${targetText}` : `→ ${targetText}`,
-    ...(fromText ? { before: fromText, after: targetText } : {}),
+    change: restingFrom ? `${restingFrom} → ${targetText}` : `→ ${targetText}`,
+    ...(restingFrom ? { before: restingFrom, after: targetText } : {}),
     fullChange: fromFull ? `${fromFull} → ${targetFull}` : `→ ${targetFull}`,
     target: targetFull,
     reference,
@@ -508,6 +629,21 @@ export function buildOptionChangeRow({
   }
 }
 
+/**
+ * ⭐ ONE UNIT PER ROW (contract v3.1 `.delta-rows`: "£49 → £59"; Paul, 30 Sep:
+ * option cards "all bunched together"). When both ends read `<figure> <unit>`
+ * with the SAME unit, the resting row says the unit once, after the target:
+ * "£49 / month → £60 / month" → "£49 → £60 / month". Anything else is left
+ * whole: qualitative readings ("Very high"), different units, or a figure with
+ * no separate unit word. The hover (`fullChange`) keeps both ends in full.
+ */
+const FIGURE_THEN_UNIT = /^(\S*\d\S*)\s+(\S.*)$/
+export function elideSharedUnit(from: string, to: string): string {
+  const a = FIGURE_THEN_UNIT.exec(from)
+  const b = FIGURE_THEN_UNIT.exec(to)
+  return a && b && a[2] === b[2] ? a[1] : from
+}
+
 /** The rows that fit the resting budget: two, or one when a value is long (D2). */
 export function fitRowsToBudget(rows: OptionChangeRow[]): OptionChangeRow[] {
   if (rows.length <= 1) return rows
@@ -515,21 +651,105 @@ export function fitRowsToBudget(rows: OptionChangeRow[]): OptionChangeRow[] {
 }
 
 /**
- * ⭐ MAY THIS SEGMENT OF A ROW'S AMOUNT STAY ON ONE LINE? True while it fits one
- * line of the row budget at the largest label counter-scale
- * (`NODE_ROW_LABEL_MAX_CHARS`: the estate's own per-line budget, measured on the
- * 12px row type, so conservative for the 11px amount). A longer segment — a
- * producer's prose reading — wraps at its own spaces rather than run past the
- * card's right edge (served `cd6a82e4`: "49 GBP per month → 59 GBP per month ·
- * brief" overflowed). The card's amount breaks, if at all, before the arrow.
+ * ⭐⭐ ONE LINE, OR THE NAME ON ITS OWN LINE — a deterministic character budget
+ * at the landing bound (Paul's staging test, 28 Sep 2026, export 64c5eccc;
+ * Canvas owner decision).
+ *
+ * SERVED at landing (`--canvas-label-scale` 1.64): "Human as… 0 hours/week →
+ * 20 hours/week est." — the one-line grid gave the amount everything but a
+ * ~6em label floor, so the factor's name was unreadable AND the amount wrapped
+ * to a second line anyway.
+ *
+ * THE RULE, in characters of the row's own type (`typography.edgeLabel`, the
+ * label's and the amount's size) at the bound, where the row holds
+ * `NODE_ROW_AMOUNT_MAX_CHARS` (23):
+ *
+ *   one-line  ⇔  min(name, OPTION_ROW_NAME_MIN_CHARS) + 1 + amount ≤ 23
+ *
+ * where `amount` is the row's `change` plus the glued mark (" est.", " brief",
+ * " you", …; none on a `Needs input` row) and 1 is the grid's 8px column gap.
+ * `OPTION_ROW_NAME_MIN_CHARS` = 12 is the old grid's 6em label floor in
+ * characters (6em ÷ the measured 0.493em a character, `AVG_CHAR_EM`): the
+ * least of the name a one-line row may keep. Otherwise the row is TWO lines —
+ * the name alone, full width (truncating only past the card), then the amount
+ * with its mark. No DOM measurement: the rule has no zoom term, so it never
+ * re-lays a board as the camera moves — the estate's "size for the bound" rule.
  */
-export function optionAmountSegmentNoWrap(segment: string): boolean {
-  return segment.length <= NODE_ROW_LABEL_MAX_CHARS
+export const OPTION_ROW_NAME_MIN_CHARS = 12
+
+/** The grid's 8px column gap, in characters at the bound (≈ 0.9 of one). */
+const OPTION_ROW_GAP_CHARS = 1
+
+export type OptionRowForm = 'one-line' | 'two-line'
+
+/** The characters a row's amount occupies at the bound: its `change`, the glue and the mark's token. */
+export function optionRowAmountChars(row: OptionChangeRow): number {
+  const mark = row.needsInput ? '' : VALUE_SOURCE_MARK_TOKEN[row.targetSource.kind]
+  return row.change.length + (mark ? 1 + mark.length : 0)
 }
 
-/** `+N more`, from the ONE total — never below zero. */
-export function moreCount(totalInterventionCount: number, rowsShown: number): number {
-  return Math.max(0, totalInterventionCount - rowsShown)
+export function optionRowForm(row: OptionChangeRow, amountMaxChars: number = NODE_ROW_AMOUNT_MAX_CHARS): OptionRowForm {
+  const name = Math.min(row.fullLabel.length, OPTION_ROW_NAME_MIN_CHARS)
+  return name + OPTION_ROW_GAP_CHARS + optionRowAmountChars(row) <= amountMaxChars ? 'one-line' : 'two-line'
+}
+
+/**
+ * Lines a row takes at the bound: one for a one-line row; for a two-line row
+ * the name's line plus the amount's (an amount longer than the row wraps — it
+ * breaks only before its arrow — so it is counted in whole row-widths).
+ */
+export function optionRowLineCount(row: OptionChangeRow, amountMaxChars: number = NODE_ROW_AMOUNT_MAX_CHARS): number {
+  if (optionRowForm(row, amountMaxChars) === 'one-line') return 1
+  return 1 + Math.max(1, Math.ceil(optionRowAmountChars(row) / amountMaxChars))
+}
+
+/**
+ * ⭐ THE LINES A CARD SPENDS ON ROWS — the three rows it reserves, at the two
+ * lines a grid row reached at the bound whenever its amount could not sit in
+ * the ~10 characters the 6em floor left it (every `from → to`: 23 of 23 landing
+ * rows measured stacked before the grid, and the grid kept the amount's wrap).
+ * So the two-line form never makes the rows taller than three rows already
+ * were: a row that would overrun the budget is not shown, and `+N more` counts
+ * it. The `+N more` line itself is the one line it always was.
+ */
+export const OPTION_CARD_ROW_LINE_BUDGET = 2 * OPTION_CARD_ROW_LIMIT
+
+/**
+ * The rows that fit `OPTION_CARD_ROW_LINE_BUDGET`: a PREFIX of the shared order
+ * (a later short row never jumps a longer one — options compare like with
+ * like), and never zero rows (ED 02:31Z D2: fewer rows before a cut value).
+ */
+export function fitRowsToLineBudget(rows: OptionChangeRow[], amountMaxChars: number = NODE_ROW_AMOUNT_MAX_CHARS): OptionChangeRow[] {
+  const out: OptionChangeRow[] = []
+  let used = 0
+  for (const row of rows) {
+    const lines = optionRowLineCount(row, amountMaxChars)
+    if (out.length > 0 && used + lines > OPTION_CARD_ROW_LINE_BUDGET) break
+    out.push(row)
+    used += lines
+  }
+  return out
+}
+
+/**
+ * ⭐ MAY THIS SEGMENT OF A ROW'S AMOUNT STAY ON ONE LINE? True while it fits one
+ * line of the AMOUNT's budget at the largest label counter-scale
+ * (`NODE_ROW_AMOUNT_MAX_CHARS`: the estate's per-line budget, measured at the
+ * amount's own `edgeLabel` size — since 27 Sep 2026 no longer the label's 12px
+ * budget, which the landing cap shrank until "→ 3 engineers no source" broke
+ * inside its value; the amount never breaks, the label yields). A longer
+ * segment — a producer's prose reading — wraps at its own spaces rather than
+ * run past the card's right edge (served `cd6a82e4`: "49 GBP per month → 59 GBP
+ * per month · brief" overflowed). The card's amount breaks, if at all, before
+ * the arrow.
+ */
+export function optionAmountSegmentNoWrap(segment: string, amountMaxChars: number = NODE_ROW_AMOUNT_MAX_CHARS): boolean {
+  return segment.length <= amountMaxChars
+}
+
+/** `+N more`: the concrete changes the card does not show — never below zero. */
+export function moreCount(concreteChangeCount: number, rowsShown: number): number {
+  return Math.max(0, concreteChangeCount - rowsShown)
 }
 
 /**
@@ -555,10 +775,10 @@ export function moreCount(totalInterventionCount: number, rowsShown: number): nu
  * reference to compare ("→ £59" states a target nobody can call unchanged), and
  * a `Needs input` gap.
  *
- * ⚠ THE COUNT IS NOT RE-DERIVED. Unchanged targets are still TARGETS — the
- * inspector lists them — so `+N more` keeps counting from the one total
- * (`moreCount`): rows shown + more = targets set. The card simply spends its
- * resting rows on the changes first.
+ * ⭐ AND `+N more` COUNTS THE SAME FILTERED LIST (DIFF N1, 28 Sep 2026): rows
+ * shown + more = the option's CONCRETE changes. Unchanged targets are still
+ * targets — the inspector lists them, and the rail's route names their total —
+ * but they are never advertised as more changes.
  */
 export function isConcreteChangeRow(
   row: OptionChangeRow,

@@ -365,6 +365,7 @@ describe('comparison-scope disclosure — a subset result says which options it 
     it('counts the flag it is given and reports labels in arrival order', () => {
       const scope = deriveComparisonScope([...subsetOptions(), excluded(DROPPED_TWO, DROPPED_TWO_LABEL)])
       expect(scope).toEqual({
+        allTheUsers: true,
         analysed: 3,
         total: 5,
         excludedLabels: [DROPPED_LABEL, DROPPED_TWO_LABEL],
@@ -381,7 +382,7 @@ describe('comparison-scope disclosure — a subset result says which options it 
         analysed(KEEP_A, 0.62),
         { id: '79b5d7c0', label: '79b5d7c0', notAnalysed: true },
       ])
-      expect(scope).toEqual({ analysed: 1, total: 2, excludedLabels: [] })
+      expect(scope).toEqual({ analysed: 1, total: 2, excludedLabels: [], allTheUsers: true })
       expect(COMPARISON_SCOPE_COPY.sentence(scope!)).toBe(
         'Comparing 1 of your 2 options. The other was left out.',
       )
@@ -403,7 +404,7 @@ describe('comparison-scope disclosure — a subset result says which options it 
         analysed(KEEP_A, 0.62),
         { label: '   ', notAnalysed: true },
       ])
-      expect(scope).toEqual({ analysed: 1, total: 2, excludedLabels: [] })
+      expect(scope).toEqual({ analysed: 1, total: 2, excludedLabels: [], allTheUsers: true })
     })
   })
 })

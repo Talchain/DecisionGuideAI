@@ -31,7 +31,7 @@
  */
 import { describe, it, expect, afterEach, afterAll, vi } from 'vitest'
 import { getNodesBounds, getViewportForBounds, type Node, type Edge } from '@xyflow/react'
-import { layoutGraph } from '../utils/layout'
+import { layoutGraph, solveLayoutCardWidths } from '../utils/layout'
 import { withGhostTiers } from '../utils/ghostTiers'
 import { fitFrameNodes, isGhostNode } from '../utils/fitTargets'
 import { computeFitPadding, DOCK_SELECTOR, SIDEBAR_SELECTOR, TOP_BAR_SELECTOR, OVERLAY_BAND_SELECTOR } from '../utils/computeFitPadding'
@@ -44,6 +44,7 @@ import {
   LAYOUT_PADDING_X,
   MAX_CARDS_PER_ROW,
   REPEATED_CARD_W,
+  ROW_BUDGET_W,
   ROW_PROMPT_H,
   ROW_PROMPT_W,
 } from '../utils/nodeLayoutConstants'
@@ -219,9 +220,28 @@ function landing(bounds: Box, vp: { width: number; height: number }, seen: Box =
   }
 }
 
-/** The widest row the layout can build, visible edge to visible edge, prompt included. */
-const WIDEST_ROW_WITH_PROMPT =
-  MAX_CARDS_PER_ROW * (REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP) + ROW_PROMPT_W
+/**
+ * The width one factor row of `k` cards draws at, visible edge to visible edge,
+ * prompt included, with the card width the layout's own solver gives that row.
+ */
+function rowWithPromptWidth(k: number): number {
+  const tier = Array.from({ length: k }, (_, i) => ({
+    id: `f${i}`, type: 'factor', position: { x: 0, y: 0 }, data: { kind: 'factor', label: `F${i}` },
+  })) as unknown as Node[]
+  const cardW = solveLayoutCardWidths(tier).factor
+  return k * (cardW + LAYOUT_PADDING_X + LAYOUT_NODE_GAP) + ROW_PROMPT_W
+}
+
+/**
+ * The widest row the layout can build, visible edge to visible edge, prompt included.
+ * ⚠ RE-DERIVED 30 Sep 2026 (wider cards): a row's card is now its FAIR SHARE of
+ * `ROW_BUDGET_W`, clamped to [REPEATED_CARD_W, REPEATED_CARD_MAX_W], so the width
+ * differs per row size and the widest row is the max over 1…MAX_CARDS_PER_ROW
+ * cards. It was MAX_CARDS_PER_ROW × (the flat 248 + 24 + 24) + the 160 tile.
+ */
+const WIDEST_ROW_WITH_PROMPT = Math.max(
+  ...Array.from({ length: MAX_CARDS_PER_ROW }, (_, i) => rowWithPromptWidth(i + 1)),
+)
 
 describe('S4 laptop fit — the chrome the fit subtracts (verify and keep)', () => {
   // ⚠ RE-PINNED 26 Sep 2026 — the design contract's flush 319px panel. The
@@ -248,6 +268,9 @@ describe('S4 laptop fit — WIDTH, which this lane owns exactly', () => {
   // ⭐ GAP 7 (ED #63 5808428246: 1280x800 with the dock open is the ACCEPTANCE
   // size). Until the row cap moved to four, this arm was the stated gap: every
   // starter framed 1740 units against the 1520 frame, a 220-unit (110px) spill.
+  // Since 27 Sep (five per row) the frame is 1738 and the widest row 1680.
+  // Since 30 Sep the frame is 1656 and a row's cards take their fair share of
+  // exactly that budget (`ROW_BUDGET_W`), so the widest row meets it (1656 ≤ 1656).
   it.each(MODELS.map((m) => [m.id, m] as const))('%s: at 1280x800, dock open, the board fits the frame on WIDTH at the floor', async (_id, m) => {
     const { bounds } = await framedBoard(m.draft, m.heightOf)
     const { frameFlowAtFloor } = landing(bounds, VIEWPORTS[0])
@@ -262,28 +285,34 @@ describe('S4 laptop fit — WIDTH, which this lane owns exactly', () => {
 
   // ⭐ FLIPPED BY GAP 7 (25 Sep 2026). This arm used to assert the spill as a
   // KNOWN gap — "a five-card row with its prompt is the one row that does not
-  // fit on WIDTH, by exactly 220 units (110px)" — and named a row cap of four as
-  // the smallest further lever. The Canvas lead took that lever (decide-and-flag,
-  // on ED 5808428246), so the arm now asserts the fit, and keeps the five-card
-  // arithmetic as the contrast that says why the cap is four and not five.
-  it('at 1280x800 the widest row the layout can build — four cards and its prompt, 1376 units — fits on WIDTH at the floor', () => {
+  // fit on WIDTH, by exactly 220 units (110px)" — and the cap went to four.
+  // 27 Sep 2026: Paul's laptop-width ruling — five per row, anchors ≤720, row gap 40.
+  // At the 248 card and the flush panel five now fit, so the cap is back at five
+  // and the contrast is the SIXTH card, which the frame would not hold.
+  it('at 1280x800 the widest row the layout can build — its cards and its prompt — fits on WIDTH at the floor', () => {
     const { frameFlowAtFloor } = landing({ x: 0, y: 0, width: 1, height: 1 }, VIEWPORTS[0])
     // RE-PINNED 26 Sep 2026 (flush 319px panel): the frame at the floor is
     // (1280 − 76 − 335) / 0.5 = 1738 units; it was 1520 with the 416 card.
     // 27 Sep 2026 (default 360): (1280 − 76 − 376) / 0.5 = 1656.
     expect(frameFlowAtFloor.w).toBe(1656)
-    // RE-PINNED 27 Sep 2026 (landing text ceiling 1.36): the repeated card is the
-    // ED target, 248 (it was 260 = NODE_LAYOUT_MIN_W at a text bound of 2), so the
-    // widest row is 4 × (248 + 24 + 32) + the prompt = 1376 (was 1424).
-    expect(WIDEST_ROW_WITH_PROMPT).toBe(1376)
+    // ⭐ 30 Sep 2026: the layout's row budget IS this frame — `ROW_BUDGET_W` is
+    // not an independent number, it is the 1280 dock-open frame at the floor.
+    expect(ROW_BUDGET_W).toBe(frameFlowAtFloor.w)
+    // RE-PINNED 1 Oct 2026 (Paul: the "+" 50% smaller, a 32-unit icon prompt; the 32 units it frees go to the
+    // cards): the widest row is still FOUR cards filling the budget exactly (1656). Five now draw at 276:
+    // 5 × (276 + 24 + 24) + 32 = 1652. Three or fewer sit at the 400 cap.
+    // (30 Sep, 64-unit prompt: five at 270 → 1654. 27 Sep: 5 × (248 + 24 + 24) + 160 = 1640.)
+    expect(rowWithPromptWidth(4)).toBe(1656)
+    expect(rowWithPromptWidth(5)).toBe(1652)
+    expect(WIDEST_ROW_WITH_PROMPT).toBe(1656)
     expect(WIDEST_ROW_WITH_PROMPT).toBeLessThanOrEqual(frameFlowAtFloor.w)
-    // CONTRAST: one more card per row would now FIT on width, with 58 units to
-    // spare (it spilled by 2 at 260). The row cap of four is held by
-    // MAX_CARDS_PER_ROW alone at 1280, not by the frame.
-    const oneMoreCard = WIDEST_ROW_WITH_PROMPT + (REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP)
-    // RE-PINNED 27 Sep 2026 (default 360): one more card would now spill by 24 units; the
-    // row cap of four (MAX_CARDS_PER_ROW) was already what held it, so nothing moves.
-    expect(oneMoreCard - frameFlowAtFloor.w).toBe(24)
+    // CONTRAST: a SIXTH card on a row cannot take a share (its share is under the legibility floor), so it draws
+    // at REPEATED_CARD_W and the row is 6 × (248 + 24 + 24) + 32 = 1808 — 152 units (76px at the floor) past the
+    // 1280 frame (1 Oct: the 32-unit "+"; with the 30 Sep 64 it was 1840, 184 past). Five at that same floor,
+    // 5 × 296 + 32 = 1512, fit: the cap of five is still where the frame stops it.
+    const atFloor = (k: number) => k * (REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP) + ROW_PROMPT_W
+    expect(atFloor(MAX_CARDS_PER_ROW)).toBeLessThanOrEqual(frameFlowAtFloor.w)
+    expect(atFloor(MAX_CARDS_PER_ROW + 1) - frameFlowAtFloor.w).toBe(152)
   })
 })
 

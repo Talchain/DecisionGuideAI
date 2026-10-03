@@ -151,7 +151,7 @@
  *
  * ⭐⭐ 26 SEP 2026 — THE DETAIL IS NOW THE V2 PROTOTYPE'S `inline-detail`
  * (design audit B12), and three things above are superseded by it:
- *   · it opens on ACTIVATION only (hover and focus ring the node);
+ *   · it opened on ACTIVATION only — REVERSED 1 Oct 2026 (Paul): hover and focus open it again, under the rows;
  *   · a mark about a node the review queue holds opens the REVIEW TOOL at that
  *     item instead (prototype `gotoReview`) — see `pickMark`;
  *   · it sits after the success line and the review tool, with a ×, and
@@ -194,6 +194,8 @@ import {
 import { useFactorValueCommit } from '../useFactorValueCommit'
 import { resolveValueInputSeed } from '../../../../canvas/conversation/factorValueEdit'
 import { SuccessTargetLine } from './SuccessTargetLine'
+import { LimitVerdictLines } from './LimitVerdictLines'
+import type { LimitVerdictView } from '../limitVerdictView'
 import type { ReviewToolRequest } from './ModelReviewTool'
 import { PanelIconButton } from '../PanelIconButton'
 import { NodeMark, type MarkKind } from '../nodeMarks'
@@ -261,13 +263,21 @@ function decisionQuestionOf(node: { data?: unknown } | undefined): string | null
 
 /**
  * The title is never more than one sentence — a brief can run to a paragraph,
- * and the header is not the place to read it in full. Cuts at the first
- * sentence terminator; a brief with none is used whole, trimmed.
+ * and the header is not the place to read it in full. Cuts at the first line's
+ * first sentence END; a brief with none is used whole, trimmed.
+ *
+ * ⚠ R7/X4: A "." IS NOT A SENTENCE END ON ITS OWN. The old cut stopped at the
+ * first terminator anywhere, so "Should we raise £1.5m?" rendered "Should we
+ * raise £1." and "Churn is 3.5% a month." rendered "Churn is 3." — the user's
+ * own question, corrupted. A terminator ends the sentence only before the end
+ * of the line or whitespace and a capital, digit, currency sign or quote.
+ * (CEE's typed `framing_question` would replace this cut entirely, but no
+ * served turn carries it yet: a producer gap, R7 inventory row (h).)
  */
-function oneSentence(text: string): string {
-  const trimmed = text.trim()
-  const match = trimmed.match(/^[^.!?\n]+[.!?]?/)
-  return (match ? match[0] : trimmed).trim()
+export function oneSentence(text: string): string {
+  const firstLine = text.trim().split('\n')[0].trim()
+  const end = firstLine.search(/[.!?](?=\s*$|\s+[A-Z0-9£$€"'“‘(])/)
+  return (end >= 0 ? firstLine.slice(0, end + 1) : firstLine).trim()
 }
 
 /**
@@ -421,6 +431,8 @@ export interface ModelStripProps {
    * About › Sources and limits). `0`/absent asks for nothing.
    */
   revealReviewSeq?: number
+  /** B5 — the per-limit verdict lines, rendered under the success line. `null` renders nothing. */
+  limitVerdicts?: LimitVerdictView | null
 }
 
 /** What the strip hands a function-form `reviewSlot`. See `reviewSlot`. */
@@ -440,6 +452,7 @@ export function ModelStrip({
   insights = NO_INSIGHTS,
   reviewSlot = null,
   revealReviewSeq = 0,
+  limitVerdicts = null,
 }: ModelStripProps) {
   const showToast = useShowToastSafe()
   /**
@@ -886,6 +899,9 @@ export function ModelStrip({
   const pointAtMark = (nodeId: string) => {
     markOwnsRing.current = nodeId
     highlightNode(nodeId)
+    // Paul, 1 Oct 2026: pointing at a shape shows its coaching underneath again (it stays until another shape
+    // replaces it or the × closes it). The detail now sits directly under the rows, so nothing below it reflows.
+    setActiveNodeId(nodeId)
   }
 
   /** The review slot, in whichever form the host passed it. */
@@ -995,7 +1011,10 @@ export function ModelStrip({
         kind: MarkKind
         needsCheck: boolean
         valueText: string | null
+        /** `StripNode.hasValue`: the VALUE question, which `valueText` does not answer. */
+        hasValue: boolean
         valueSource: string | undefined
+        valueAccepted: boolean
       }
     | null = (() => {
     if (activeNodeId === null) return null
@@ -1009,7 +1028,9 @@ export function ModelStrip({
           kind: v.row.kind,
           needsCheck: found.needsCheck,
           valueText: found.valueText,
+          hasValue: found.valueText !== null || found.hasValue,
           valueSource: found.valueSource,
+          valueAccepted: found.valueAccepted === true,
         }
       }
     }
@@ -1023,7 +1044,8 @@ export function ModelStrip({
    * the user typed.
    */
   const activeValueProvenance = (() => {
-    const cls = classifyValueProvenance(active?.valueSource)
+    // Olumi's figure the user ACCEPTED says so — the strip node carries the fact the stamp cannot (52f8cd).
+    const cls = active?.valueAccepted ? { kind: 'accepted' as const } : classifyValueProvenance(active?.valueSource)
     return cls === null ? null : VALUE_PROVENANCE_LABEL[cls.kind]
   })()
   /** Open only for the factor whose detail is on screen — see `editingFor`. */
@@ -1058,6 +1080,7 @@ export function ModelStrip({
 
   /** The success line, handed to the review slot — see `reviewSlot`. */
   const successLine = (
+    <>
     <SuccessTargetLine
       goalNodeId={strip.goalNodeId}
       divider={false}
@@ -1104,6 +1127,8 @@ export function ModelStrip({
       }}
       testId={`${testId}-target`}
     />
+    <LimitVerdictLines view={limitVerdicts} testId={`${testId}-limit-verdicts`} />
+    </>
   )
 
   return (
@@ -1173,6 +1198,12 @@ export function ModelStrip({
               {subjectSubLabel}
             </span>
           )}
+          {strip.provisionalGoalLabel ? (
+            <span className={`${typography.panelMeta} text-text-light block`}
+              data-testid={`${testId}-provisional-objective`}>
+              Provisional objective: {strip.provisionalGoalLabel}.
+            </span>
+          ) : null}
 
           {/* ⚠ THE CENSUS, AND IT IS THE THING THE CANVAS CANNOT SAY. A reader
               can see the shapes on the canvas; they cannot count fourteen
@@ -1502,7 +1533,7 @@ export function ModelStrip({
                         // each mark is a 26×24 target, so the glyphs sit the prototype's distance
                         // apart and every mark meets the 24px target size (WCAG 2.5.8).
                         className={`inline-flex items-center justify-center min-w-[26px] h-6 rounded hover:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
-                          isActive ? 'ring-2 ring-info' : ''
+                          isActive ? 'ring-2 ring-text-light/60' : ''
                         }`}
                         data-testid={`${testId}-mark`}
                         data-node-id={node.id}
@@ -1551,12 +1582,8 @@ export function ModelStrip({
 
         </div>
       ) : null}
-      {/* V2 prototype order (design audit B5/B6/B12): the rows, then "N to
-          review", then the success line, then the review tool, then the
-          picked mark's detail. The success line is handed to the review slot
-          so it can sit between the tool's row and its open item. */}
-      {renderReviewSlot(successLine)}
-      {/* ── THE PICKED MARK'S DETAIL — the V2 prototype's `inline-detail`
+      {/* ── THE PICKED MARK'S DETAIL — UNDER THE SHAPES AGAIN, AND OPENED BY HOVER (Paul, 1 Oct 2026: "the coaching
+          information underneath is gone. We need to reinstate that"). Formerly — the V2 prototype's `inline-detail`
           (`selectedHTML()`, design audit B12): a divider, the name as an h4
           with a ×, the engine's own finding as the bullet, then ✎ ⌖ ✦
           icon-only. It sits AFTER the success line and the review tool, as the
@@ -1713,9 +1740,14 @@ export function ModelStrip({
                     /* The two states are distinguishable by an assertion, not
                        only by reading the copy — a test that matched on the
                        sentence would pass on a reworded no-value string. */
-                    data-has-value={active.valueText !== null}
+                    data-has-value={active.hasValue}
                   >
-                    {active.valueText ?? COPY.modelStrip.noValue}
+                    {/* ⚠ R7/X4: `valueText` is null ALSO for a factor that carries a
+                        value the formatter declines to render (no usable unit), and
+                        "No value set" there contradicts the store. The count moved to
+                        `hasValue` long ago; this line had not. */}
+                    {active.valueText ??
+                      (active.hasValue ? COPY.modelStrip.valueNotShown : COPY.modelStrip.noValue)}
                   </span>
                   {activeValueProvenance !== null ? (
                     <span
@@ -1855,6 +1887,11 @@ export function ModelStrip({
             </div>
         </div>
       ) : null}
+      {/* V2 prototype order (design audit B5/B6/B12): the rows, then "N to
+          review", then the success line, then the review tool, then the
+          picked mark's detail. The success line is handed to the review slot
+          so it can sit between the tool's row and its open item. */}
+      {renderReviewSlot(successLine)}
     </section>
   )
 }

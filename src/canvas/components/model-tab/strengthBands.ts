@@ -164,7 +164,7 @@ const BASIS_LABELS: Record<EstimateBasis, string> = {
   brief_explicit: 'Based on your brief',
   structural_inference: 'Inferred from model structure',
   domain_prior: 'Based on general domain knowledge',
-  weak_guess: 'Uncertain — your input would help',
+  weak_guess: 'Uncertain: your input would help',
 }
 
 /** User-facing label for an EstimateBasis value. */

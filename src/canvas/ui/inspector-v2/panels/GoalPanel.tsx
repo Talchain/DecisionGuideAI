@@ -4,7 +4,7 @@
  */
 
 import { memo, useState, useMemo, useCallback } from 'react'
-import { goalConstraintText, constraintWithEditedValue, auditedFigureOf, constraintWithEditedAuditedFigure } from '../../../utils/goalConstraintText'
+import { goalConstraintText, constraintWithEditedValue, auditedFigureOf, constraintWithEditedAuditedFigure, limitChangeFrameOf } from '../../../utils/goalConstraintText'
 import { useCanvasStore } from '../../../store'
 import { useGoalConstraints, useConditionalProbabilities } from '../useAnalysisResults'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
@@ -35,6 +35,7 @@ import { ConnectionRow } from '../shared/ConnectionRow'
 import { ProbabilityArc } from '../shared/ProbabilityArc'
 import { DataBar } from '../../shared/DataBar'
 import { ResultsLink } from '../shared/ResultsLink'
+import { GOAL_CERTAINTY_UNEARNED_FALLBACK } from '../../../state/storedGoalCertainty'
 import type { InspectorPanelProps } from '../types'
 import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
 import type { ConditionalProbability } from '../../../../types/constraints'
@@ -45,7 +46,9 @@ import { isPersistenceActive } from '../../../../lib/persistenceActive'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { basisWithholdsPossessive } from '../../../../components/results/utils/selectGoalProbability'
-import { formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
+import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../../../components/results/utils/goalFitBasisCaveatCopy'
+import { formatGoalChangeBound, formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
+import { formatGoalProbability } from '../../../../components/results/utils/displayFloors'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 // ⭐⭐ `resolveGoalTarget` WAS ONE NAME AWAY IN AN IMPORT THIS FILE ALREADY HAD.
 // This line imported `canCaptureGoalTarget` and `GoalTargetSource` from
@@ -54,6 +57,7 @@ import { resolveElementLabel } from '../../../domain/elementLabel'
 // for the question this module's own sibling export answers. The duplicate owner
 // was not hidden; it was on the next line of an existing import.
 import { canCaptureGoalTarget, resolveGoalTarget, type GoalTargetSource } from '../../../domain/goalTarget'
+import { constraintRestatesGoalTarget } from '../../../domain/goalOwnTargetRow'
 import { GoalConstraintProvenance } from '../shared/GoalConstraintProvenance'
 import {
   SuccessTargetLine,
@@ -66,6 +70,7 @@ import type {
   SystemEventSendSettlementDetail,
 } from '../../../conversation/settleSystemEventSend'
 import { goalTargetSettlementNotice } from '../../../conversation/goalTargetEdit'
+import { wholePercentBelowCertain } from '@/utils/formatPercent'
 
 /**
  * ⭐ THE GOAL PANE'S NOTICE, AND IT EXISTS SO THIS PANE CANNOT INHERIT A
@@ -208,7 +213,6 @@ export const GoalPanel = memo(function GoalPanel({
   // persistence hop lands (or a producer echo confirms the constraints were used).
   const { user, authenticated } = useAuth()
   const constraintsInert = !isResultsMode && !isPersistenceActive(authenticated, user)
-  const hasConstraints = Array.isArray(goalConstraints) && goalConstraints.length > 0
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
@@ -332,8 +336,13 @@ export const GoalPanel = memo(function GoalPanel({
     if (resolvedTarget == null) return null
     const raw = typeof resolvedTarget.raw === 'number' ? resolvedTarget.raw : Number(resolvedTarget.raw)
     if (Number.isNaN(raw)) return String(resolvedTarget.raw)
-    return formatGoalTarget(raw, resolvedTarget.unit) ?? String(resolvedTarget.raw)
+    return formatGoalTarget(raw, resolvedTarget.unit, resolvedTarget.frame) ?? String(resolvedTarget.raw)
   })()
+  /** A change target's success bound, from the node's held comparator (UI #2287 review); `null` → say no number. */
+  const changeBound = resolvedTarget?.frame != null
+    ? formatGoalChangeBound(Number(resolvedTarget.raw), resolvedTarget.unit, resolvedTarget.frame,
+      (node?.data as GoalTargetSource | undefined)?.goal_direction)
+    : null
   /**
    * ⛔⛔ TWO QUESTIONS, AND THEY MUST NOT SHARE A NAME (CLAUDE.md trap 21).
    *
@@ -351,7 +360,14 @@ export const GoalPanel = memo(function GoalPanel({
    * one, which is the trade this PR exists to refuse", in the words of the PR that
    * wrote it. So the sentence keeps ITS question and the readout keeps its own.
    */
-  const pipelineHoldsNoTargetNumber = goalThreshold == null
+  // ⛔ DL 5902607375 (cold reload, signed-in MRR `520aab46`): the store scalar is written only by
+  // `setCeeAnalysisReady`, which a reload does not replay, while the cold read keeps CEE's pipeline number ON THE
+  // NODE (`goal_threshold`, model scale). Either carrier answers "the pipeline holds a number"; neither alone may
+  // claim probabilities are locked beside a Run that produced them.
+  const nodePipelineThreshold = (node?.data as { goal_threshold?: unknown } | undefined)?.goal_threshold
+  const pipelineHoldsTargetNumber =
+    goalThreshold != null || (typeof nodePipelineThreshold === 'number' && Number.isFinite(nodePipelineThreshold))
+  const pipelineHoldsNoTargetNumber = !pipelineHoldsTargetNumber
 
   /**
    * ⭐⭐⭐ THE ADMISSION — *may this reader add a target?* — AND, UNTIL #1172
@@ -504,12 +520,68 @@ export const GoalPanel = memo(function GoalPanel({
   if (!nodeId || !node) return null
 
   /** The store's question (see the branch-gate note at §4.2): may a readout stand. */
-  const showsTargetReadout = goalThreshold != null && targetDisplay != null && !canCaptureTarget
+  const showsTargetReadout = pipelineHoldsTargetNumber && targetDisplay != null && !canCaptureTarget
+
+  /**
+   * ⭐ THE CONSTRAINTS THIS PANEL LISTS — never the row that restates the target
+   * the panel states above them (canvas audit edit-values F7, the inspector copy
+   * of the goal card's rule; `domain/goalOwnTargetRow`).
+   *
+   * CEE's `at_least` goal edit writes the target twice by design: the node's
+   * `goal_threshold_raw` (stated above, by `SuccessTargetLine` or the readout)
+   * AND a `>=` goal_constraints row on the goal itself. Listing that row here
+   * stated the target a second time, as a "constraint extracted from your
+   * brief", and counted it. It is set aside ONLY by identity (goal node, `>=`,
+   * figure and unit equal to the stated target) and ONLY while an arm above
+   * states it — the editor arm states no figure, so there the row stays. A `<=`
+   * bound on the goal node (an `at_most` edit, the headcount starter's
+   * "Delivery deadline") is a limit and is always listed.
+   *
+   * ⚠ Each row keeps its index in `goalConstraints`: the value editor's
+   * index-matching fallback (for a constraint with no id) and the row key read
+   * it, and a filtered position would edit the wrong row.
+   */
+  const panelStatesTarget = targetDisplay != null && (readOnly || showsTargetReadout)
+  const listedConstraints = (Array.isArray(goalConstraints) ? goalConstraints : [])
+    .map((c, index) => ({ c, index }))
+    .filter(({ c }) => !(panelStatesTarget && constraintRestatesGoalTarget(c, nodeId, resolvedTarget)))
+  const hasConstraints = listedConstraints.length > 0
 
   /**
    * The probability sentence under a stated target. One element, two readers:
    * the readout arm below and the mounted target block, so the two cannot drift.
    */
+  /**
+   * Served f5d503b0 (29 Sep): with no option put forward there is no recommended option,
+   * so `probGoal` is null, yet the run carried every option's goal figure (Analysis
+   * showed < 1% / 99% / 83%). `goalFitAvailable` is the hook's own answer (the same
+   * selector, per option). The panel says where the figures are, never picks one.
+   */
+  const perOptionOnly = isResultsMode && typeof probGoal !== 'number' && displayMetadata.goalFitAvailable === true
+  /**
+   * AIQ #72 5885033487 (2) / PLoT #416: the producer withheld P(goal) (a declared identity on the goal's path was not
+   * evaluated). Its words, verbatim from the typed warning; the mappers already removed every goal figure.
+   */
+  const identityWithheld = isResultsMode ? (displayMetadata.goalIdentityWithheld ?? null) : null
+  /** CEE #2270/#2280: the recommended option's 0/1 figure is UNEARNED; the producer's sentence (or the fallback). */
+  const certaintyUnearned = isResultsMode ? (displayMetadata.achievementCertaintyUnearned ?? null) : null
+  const certaintyUnearnedLine = (testId: string) => (
+    <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid={testId}>
+      {certaintyUnearned?.say ?? GOAL_CERTAINTY_UNEARNED_FALLBACK}
+    </p>
+  )
+  const identityWithheldLine = (testId: string) => (
+    <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid={testId}>
+      {identityWithheld?.message}
+    </p>
+  )
+  const perOptionOnlyLine = (testId: string) => (
+    <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid={testId}>
+      {GOAL_CONSTRAINT_COPY.perOptionOnly}{' '}
+      <ResultsLink label={GOAL_CONSTRAINT_COPY.perOptionOnlyLink} tab="analysisNew" />
+    </p>
+  )
+
   const targetProbabilityLine = typeof probGoal === 'number' ? (
     <p className={`${typography.panelBody} text-text-body mt-1`}>
       {/* ROADMAP 2.282. Withheld arm: the shared register's
@@ -518,11 +590,20 @@ export const GoalPanel = memo(function GoalPanel({
           the only adaptation is the joining comma, which the
           register's own no-full-stop `phrase()` form is designed
           to accept. Permitted arm byte-identical. */}
-      {goalFitSubstituted
-        ? `${GOAL_ANCHOR_COPY.phrase(`${Math.round(probGoal * 100)}%`, goalFitSubstituted)}, based on the current model.`
-        : `${Math.round(probGoal * 100)}% chance of reaching this target based on the current model.`}
+      {/* AIQ #72 5885116642: one register sentence — "Reaches the target in N% of model runs." ("model runs" says "based on the current model"). */}
+      {GOAL_ANCHOR_COPY.sentence(formatGoalProbability(probGoal), goalFitSubstituted)}
+      {/* ISL #207 (AIQ #72 5877139338): never bare when the goal's level today was worked out. */}
+      {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
+        <span className={`block ${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-fit-base-caveat-goal-panel-target">
+          {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat)}
+        </span>
+      )}
     </p>
-  ) : (
+  ) : identityWithheld !== null ? (
+    identityWithheldLine('goal-probability-withheld-identity')
+  ) : certaintyUnearned !== null ? (
+    certaintyUnearnedLine('goal-probability-certainty-unearned')
+  ) : perOptionOnly ? perOptionOnlyLine('goal-probability-per-option') : (
     /* v3.1 (DESIGN-GAP-v31 row 33): the contract has no simulation wording,
        and an absence is stated, not turned into an instruction. Before any
        results: "No analysis results yet." With complete results that carry no
@@ -668,7 +749,14 @@ export const GoalPanel = memo(function GoalPanel({
           ) : showsTargetReadout ? (
             <div>
               <p className={`${typography.panelBody} text-text-body`}>
-                Success means reaching {'\u2265'} {targetDisplay}
+                {/* R1 S4-core (MG 5879952291): a change target is not a level to reach "≥" — "Success means going
+                    down at least 15% from today". ⛔ UI #2287 review (DL ruling): the bound is said from the node's HELD
+                    comparator `goal_direction` with its frame; an unreadable pair says no number, never the bare figure. */}
+                {resolvedTarget?.frame != null
+                  ? (changeBound !== null
+                    ? `Success means going ${changeBound}`
+                    : 'Success is a change from today \u2014 its bound was not captured')
+                  : <>Success means reaching {'\u2265'} {targetDisplay}</>}
               </p>
               {/* Contextual probability when analysis exists */}
               {targetProbabilityLine}
@@ -748,16 +836,16 @@ export const GoalPanel = memo(function GoalPanel({
           )}
 
           {/* §4.3 Constraints */}
-          {goalConstraints && Array.isArray(goalConstraints) && goalConstraints.length > 0 && (
+          {goalConstraints && hasConstraints && (
             <div className="mt-3">
               <InlineSectionLabel>Constraints</InlineSectionLabel>
               <div className="space-y-1.5">
                 {!isResultsMode && (
                   <p className={`${typography.panelMeta} text-text-light mb-1`}>
-                    {GOAL_CONSTRAINT_COPY.extractedFromBrief(goalConstraints.length)}
+                    {GOAL_CONSTRAINT_COPY.extractedFromBrief(listedConstraints.length)}
                   </p>
                 )}
-                {goalConstraints.map((c, i) => {
+                {listedConstraints.map(({ c, index: i }) => {
                   const constraintText = goalConstraintText(c, nodes)
                   const prob = typeof c.probability === 'number' ? c.probability : null
                   const colourClass = prob === null
@@ -770,7 +858,7 @@ export const GoalPanel = memo(function GoalPanel({
                         {prob !== null && (
                           <span className={`${typography.panelMeta} shrink-0 ${
                             prob >= 0.7 ? 'text-success' : prob >= 0.4 ? 'text-warning' : 'text-danger'
-                          }`}>{Math.round(prob * 100)}%</span>
+                          }`}>{wholePercentBelowCertain(prob)}</span>
                         )}
                       </div>
                       {/* N-20 — the user's own words, under the constraint they
@@ -891,7 +979,17 @@ export const GoalPanel = memo(function GoalPanel({
                           </div>
                         )
                       })()}
-                      {prob === null && (
+                      {prob === null && limitChangeFrameOf(c) !== null && (
+                        /* ⛔ R1 S4-core (CEE #2261): NO number input for a limit stated as a CHANGE from today. The
+                           input below writes the figure into `value` in the row's own frame, and a `change_rel`
+                           value is a FRACTION of today's level — "15" typed for 15% would store a 1,500% rise.
+                           CEE's own edit door refuses the same write by name (`limit_is_a_change`). */
+                        <p
+                          data-testid={`goal-constraint-${c.constraint_id ?? c.id ?? i}-change-note`}
+                          className={`${typography.panelMeta} text-text-light mt-0.5`}
+                        >Set as a change from today. To change it, ask in the chat.</p>
+                      )}
+                      {prob === null && limitChangeFrameOf(c) === null && (
                         /* `setGoalConstraints` is not a `system_event` carrier;
                            the edit stays behind the pane's fence, exactly as it
                            sat behind the Router's. */
@@ -966,7 +1064,12 @@ export const GoalPanel = memo(function GoalPanel({
                     two are genuinely different quantities and this line stays. */}
                 {typeof probJoint === 'number' && !goalFitSubstituted && (
                   <p className={`${typography.panelBody} text-text-body mt-1`}>
-                    {GOAL_CONSTRAINT_COPY.jointProbability}: <strong>{Math.round(probJoint * 100)}%</strong>
+                    {GOAL_CONSTRAINT_COPY.jointProbabilityLead} <strong>{wholePercentBelowCertain(probJoint)}</strong> {GOAL_CONSTRAINT_COPY.jointProbabilityTail}
+                  </p>
+                )}
+                {typeof probJoint === 'number' && !goalFitSubstituted && displayMetadata.jointGoalProbabilityIsModelledBasis === true && (
+                  <p className={`${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-joint-modelled-basis-caveat">
+                    {GOAL_FIT_BASIS_CAVEAT_COPY}
                   </p>
                 )}
                 {/* UI-SEM-087: honest status when the constraints displayed here
@@ -1102,10 +1205,13 @@ export const GoalPanel = memo(function GoalPanel({
                       claim; over a substituted joint figure it takes the
                       register's compact readout instead. */}
                   <div className={`${typography.panelHeader}`}>
-                    {goalFitSubstituted
-                      ? GOAL_ANCHOR_COPY.phrase(`${Math.round(probGoal * 100)}%`, goalFitSubstituted)
-                      : `${Math.round(probGoal * 100)}% chance of success`}
+                    {GOAL_ANCHOR_COPY.readout(formatGoalProbability(probGoal), goalFitSubstituted)}
                   </div>
+                  {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
+                    <div className={`${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-fit-base-caveat-goal-panel-impact">
+                      {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat)}
+                    </div>
+                  )}
                   {scenarioCount != null && (
                     <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
                       Based on {scenarioCount.toLocaleString('en-GB')} simulations
@@ -1128,7 +1234,13 @@ export const GoalPanel = memo(function GoalPanel({
                           .clause and .leadNoMagnitude were both added to prevent.
                           The register owns the wording; call sites never re-type
                           it. */}
-                      {GOAL_CONSTRAINT_COPY.jointProbability}: <strong>{Math.round(probJoint * 100)}%</strong>
+                      {GOAL_CONSTRAINT_COPY.jointProbabilityLead} <strong>{wholePercentBelowCertain(probJoint)}</strong> {GOAL_CONSTRAINT_COPY.jointProbabilityTail}
+                    </div>
+                  )}
+                  {/* AIQ 5883088747: the modelled-basis caveat moves WITH the joint number, beside it. */}
+                  {typeof probJoint === 'number' && !goalFitSubstituted && displayMetadata.jointGoalProbabilityIsModelledBasis === true && (
+                    <div className={`${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-joint-modelled-basis-caveat">
+                      {GOAL_FIT_BASIS_CAVEAT_COPY}
                     </div>
                   )}
                   {techMode && (
@@ -1150,6 +1262,12 @@ export const GoalPanel = memo(function GoalPanel({
                 </div>
               </div>
             </StaleGuardBanner>
+          ) : identityWithheld !== null ? (
+            identityWithheldLine('goal-impact-withheld-identity')
+          ) : certaintyUnearned !== null ? (
+            certaintyUnearnedLine('goal-impact-certainty-unearned')
+          ) : perOptionOnly ? (
+            perOptionOnlyLine('goal-impact-per-option')
           ) : (
             <p className={`${typography.panelMeta} text-text-light`}>{GOAL_STRINGS.impactUnavailable}</p>
           )}

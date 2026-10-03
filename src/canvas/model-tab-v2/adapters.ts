@@ -125,7 +125,8 @@
 import type { Edge, Node } from '@xyflow/react'
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { goalLabelIsUnconfirmedBriefExtract } from '../domain/goalLabelProvenance'
-import { resolveGoalTarget } from '../domain/goalTarget'
+import { goalTargetFrameIsUnread, resolveGoalTarget } from '../domain/goalTarget'
+import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
 import { isUnquantifiedPrior } from '../domain/nodes'
 import { hasAnyStatedValue } from '../utils/observedStateHelpers'
 import { statedFactorCategoryLabel } from '../domain/vocabulary'
@@ -138,9 +139,10 @@ import type { ObservedState as ModelTabObservedState } from '../components/model
 import type { ValidationMetadata } from '../domain/validation'
 import { getCausalEdges } from '../domain/edgeUtils'
 import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
+import { isStrengthDefinitional } from '../domain/strengthDefinitional'
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../domain/edgeValueProvenance'
 import { getDirectionalStrengthLabel } from '../components/model-tab/strengthBands'
-import { NaturalEffectSchema, naturalEffectPhrase } from '../domain/naturalEffect'
+import { DEFINITIONAL_SUFFIX, NaturalEffectSchema, naturalEffectPhrase } from '../domain/naturalEffect'
 import { getPrimaryValue, formatSmartNumber } from '../components/model-tab/utils'
 // THE ONE value+unit composer this tab already owns. Imported, never
 // re-expressed — see the goal branch below for why a fourth copy of "which
@@ -149,7 +151,7 @@ import { formatValueWithUnit, isCurrencyUnit } from '../components/model-tab/uti
 // THE ONE answer to "does this unit contribute a word the reader should see?".
 // Pure function, no hook — see the boundary scan. The goal branch below is the
 // surface that had no answer at all and appended every unit verbatim.
-import { unitIsDisplayable } from '../../utils/unitClassifier'
+import { formatMoneyFigure, unitIsDisplayable } from '../../utils/unitClassifier'
 // THE ONE raw-source → human-label policy, the same one `SourceProvenancePill`
 // renders. Imported, never re-expressed: a second copy is how the pill and the
 // outline start disagreeing about what `cee_inference` is called.
@@ -171,7 +173,7 @@ import { resolveNodeTypeLiteral } from '../domain/nodes'
 // rather than reimplemented: a second presence test here would be the estate's
 // dominant defect (trap 12) on a field a user-facing sentence depends on.
 import { factorDeclaresNoRange } from '../conversation/factorValueEdit'
-import { classifyValueProvenance, factorIsConfirmable } from '../domain/valueProvenance'
+import { classifyObservedValueProvenance, classifyValueProvenance, factorIsConfirmable, isAcceptedOlumiFigure } from '../domain/valueProvenance'
 import { interventionTargetValue } from '../domain/interventions'
 import { unwrapInterventionValue } from '../utils/labelUtils'
 import { resolveFactorValueAdmission } from '../conversation/factorValueEdit'
@@ -483,9 +485,14 @@ function factorValue(data: unknown): string | null {
  * effect" over exactly that fabrication before they were written.
  */
 function edgeValue(data: unknown): string | null {
+  return edgeValueParts(data).text
+}
+
+/** The relationship's value, and whether it is the natural-effect SENTENCE (see `ModelRow.valueIsSentence`). */
+function edgeValueParts(data: unknown): { text: string | null; sentence: boolean } {
   const bag = (data ?? undefined) as Record<string, unknown> | undefined
   const seed = resolveEdgeStrengthEditSeed(bag)
-  if (seed === null) return null
+  if (seed === null) return { text: null, sentence: false }
   const direction = resolveEdgeDirectionDisplay(bag)
   // ⭐ THE SIZE IN THE TARGET'S OWN UNITS FIRST, when the producer admitted one
   // for THIS β (magnitude contract, MG #70 5845713522). The |β| band called
@@ -493,8 +500,14 @@ function edgeValue(data: unknown): string | null {
   // edge, a moved β, or an unstated direction → null → the band, unchanged.
   // Re-parsed here: persisted edge data is not proof of shape.
   const natural = NaturalEffectSchema.safeParse(bag?.naturalEffect)
-  return naturalEffectPhrase(natural.success ? natural.data : null, seed.seed, direction)
-    ?? getDirectionalStrengthLabel(seed.seed, direction)
+  // A link that holds BY DEFINITION says so, never "Olumi's estimate" (domain/strengthDefinitional).
+  const definitional = isStrengthDefinitional(bag)
+  const phrase = naturalEffectPhrase(natural.success ? natural.data : null, seed.seed, direction, definitional)
+  // MG ruling (1 Oct 2026): a definitional row offers no editor (`edgeStrengthEditIsAssertable`), so the cell where the
+  // editor would be says what the strength is — the band too, when no natural-effect sentence carries the words.
+  return phrase !== null
+    ? { text: phrase, sentence: true }
+    : { text: `${getDirectionalStrengthLabel(seed.seed, direction)}${definitional ? DEFINITIONAL_SUFFIX : ''}`, sentence: false }
 }
 
 /**
@@ -694,6 +707,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         ...(factorDeclaresNoRange(data) ? { declaresNoRange: true } : {}),
         ...(typeof obs?.unit === 'string' && obs.unit.trim() !== '' ? {} : { declaresNoUnit: true }),
         provenanceSource: typeof obs?.source === 'string' ? obs.source : undefined,
+        ...(classifyObservedValueProvenance(obs)?.kind === 'accepted' ? { provenanceAccepted: true as const } : {}),
         // ⚠ UNCHANGED, DELIBERATELY. `attention` is the AFFORDANCE axis and it
         // still reads `value` (i.e. `raw_value`). A row with an estimate and no
         // supplied value must still ask for one.
@@ -786,10 +800,17 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
        * both, and `Math.round`ed a fractional percent away.
        */
       const targetText = target
-        ? typeof target.raw === 'number' && target.unit && isCurrencyUnit(target.unit)
+        // R1 S4-core (MG 5879952291): a change target is said as the change ("down 15% from today"), never the
+        // fraction beside the metric's unit ("-0.15 GBP/month").
+        ? target.frame != null && typeof target.raw === 'number' && formatGoalTarget(target.raw, target.unit, target.frame) !== null
+          ? formatGoalTarget(target.raw, target.unit, target.frame)
+          : typeof target.raw === 'number' && target.unit && (isCurrencyUnit(target.unit) || formatMoneyFigure(target.raw, target.unit) !== null)
           ? formatValueWithUnit(target.raw, target.unit)
-          : `${typeof target.raw === 'number' ? formatSmartNumber(target.raw) : target.raw}${unitIsDisplayable(target.unit) ? ` ${target.unit}` : ''}`
-        : input.goalThreshold === null ? null : formatSmartNumber(input.goalThreshold)
+          // ⭐ "110 %" → "110%" (Paul, 30 Sep 2026): a percent sign attaches; a unit word keeps its space.
+          : `${typeof target.raw === 'number' ? formatSmartNumber(target.raw) : target.raw}${unitIsDisplayable(target.unit) ? (target.unit!.trim() === '%' ? '%' : ` ${target.unit}`) : ''}`
+        // ⛔ AIQ 5880974047: an unread frame shows no number — not even the store's scalar.
+        : input.goalThreshold === null || goalTargetFrameIsUnread((data as { goal_threshold_frame?: unknown }).goal_threshold_frame)
+          ? null : formatSmartNumber(input.goalThreshold)
       rows.push({
         id: node.id,
         kind,
@@ -799,7 +820,9 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         // Raw user units — see `ModelProjectionInput.goalThreshold`.
         primaryValue: targetText,
         attention: targetText === null ? ['no-value'] : [],
-        editable: true,
+        // ⛔ R1 S4-core: a change target is not edited as a level — the editor writes a level figure, and CEE refuses
+        // that write over a change goal by name (`goal_is_a_change`, all four goal writers). It is changed in the chat.
+        editable: target?.frame == null && !goalTargetFrameIsUnread((data as { goal_threshold_frame?: unknown }).goal_threshold_frame),
       })
       continue
     }
@@ -813,7 +836,8 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         kind,
         group: KIND_GROUP[kind],
         label,
-        primaryValue: unmapped ? null : `${count} ${count === 1 ? 'change' : 'changes'}`,
+        // ⭐ CUT-BACK (Paul, 30 Sep 2026): "3 changes" named nothing; the count is of factors it sets.
+        primaryValue: unmapped ? null : `Sets ${count} ${count === 1 ? 'factor' : 'factors'}`,
         attention: unmapped ? ['missing-intervention'] : [],
         editable: true,
         // Read by the section notice, which must never tell the baseline to
@@ -868,7 +892,10 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
      * restated: with no server-stated tuple there is no `expected` to ratify, so
      * the confirmation cannot be built and the chip would be an advertisement.
      */
+    // ⚠ A link that holds BY DEFINITION (`isStrengthDefinitional`) is nobody's
+    // estimate and CEE refuses any change to it, so it is never offered for adoption.
     if (
+      !isStrengthDefinitional(data) &&
       (data as { provenanceDisplay?: unknown } | undefined)?.provenanceDisplay === 'ai_inferred' &&
       edgeStrengthEditIsAssertable(edge)
     ) {
@@ -880,7 +907,10 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
       kind: 'relationship',
       group: 'relationships',
       ...relationshipIdentity(data, edge.source, edge.target, nodeLabels),
-      primaryValue: edgeValue(data),
+      ...(() => {
+        const value = edgeValueParts(data)
+        return { primaryValue: value.text, ...(value.sentence ? { valueIsSentence: true as const } : {}) }
+      })(),
       provenanceSource: typeof data?.weightSource === 'string' ? data.weightSource : undefined,
       attention,
       editable: true,
@@ -910,8 +940,8 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
  * by you"); this surface reuses it rather than printing the enum, so the pill
  * and the queue cannot disagree about what a source is called.
  */
-function sourceBasis(source: string | null | undefined): string | null {
-  const label = mapSourceToDisplay(source ?? undefined)
+function sourceBasis(source: string | null | undefined, accepted = false): string | null {
+  const label = mapSourceToDisplay(source ?? undefined, accepted)
   return label === null ? null : `Source: ${label}`
 }
 
@@ -997,7 +1027,7 @@ export function toRepairQueueItems(
           // as body copy. v1 never did: `SourceProvenancePill` renders
           // `mapSourceToDisplay` ("AI estimate"), and the raw token appears
           // only in a `title`. Same policy imported, not a second copy.
-          basis: sourceBasis(observedStateOf(data)?.source),
+          basis: sourceBasis(observedStateOf(data)?.source, isAcceptedOlumiFigure(observedStateOf(data))),
         }
       })
   }
@@ -1192,7 +1222,7 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
        * the two in agreement, so if a future change gives another kind a pill,
        * that test REDs rather than the panel quietly saying it twice again.
        */
-      basis: nodeKind(node) === 'factor' ? null : sourceBasis(obs?.source),
+      basis: nodeKind(node) === 'factor' ? null : sourceBasis(obs?.source, isAcceptedOlumiFigure(obs)),
       adjustments: [],
       // ⚠ The NAVIGATION id stays the edge's; the LABEL is the target element's
       // name. Rendering `e.target` here put a raw wire id in the detail region's

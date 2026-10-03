@@ -60,9 +60,9 @@
 
 .sidebar {
   composes: surface;
-  /* contract `.canvas-tools{top:21px}`, measured from the canvas area, whose
-     top is the app bar's bottom (`--topbar-h`, 51px). */
-  top: calc(var(--topbar-h) + 21px);
+  /* contract `.canvas-tools{top:21px}` below the app chrome. Since 1 Oct 2026 the chrome is the top-left pill
+     (`--chrome-top-left`, 52px; `--topbar-h` is 0), so the tools keep their place: 73px from the top. */
+  top: calc(max(var(--topbar-h, 0px), var(--chrome-top-left, 0px)) + 21px);
 }
 
 .viewportControls {

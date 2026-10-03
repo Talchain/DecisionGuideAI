@@ -10,11 +10,10 @@
  * tool puts those two side by side. This icon is the ask; `Sparkles` stays
  * provenance.
  *
- * GEOMETRY. The logo mark (`public/olumi-logo.png`): circle top right,
- * triangle left, square bottom right, as a single-colour outline at Lucide's
- * 24px grid and 2px stroke, so it sits in a row of Lucide icons without
- * looking foreign. The logo's connecting arcs are left out: at 16px they read
- * as noise.
+ * GEOMETRY. The FULL Olumi mark (Paul, 28 Sep 2026: "use this Olumi icon … where we have an icon to communicate
+ * with Olumi's AI"), drawn from `public/olumi-mark.svg`: the ring's three arcs stroked in `currentColor` (so they
+ * follow text colour and disabled states, `strokeWidth` scaled from Lucide's 2px), and the orange circle, blue
+ * triangle and green square filled from the `--olumi-mark-*` tokens in `brand.css`.
  *
  * Props mirror the Lucide subset this panel uses (`className`, `size`,
  * `strokeWidth`, `aria-hidden`), so a call site can swap it for a Lucide icon
@@ -38,21 +37,26 @@ export function OlumiAiIcon({
       xmlns="http://www.w3.org/2000/svg"
       width={size}
       height={size}
-      viewBox="0 0 24 24"
+      viewBox="0 0 680 680"
       fill="none"
-      stroke="currentColor"
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
       className={className}
       data-icon="olumi-ai"
       aria-hidden={rest['aria-label'] === undefined ? true : undefined}
       focusable="false"
       {...rest}
     >
-      <circle cx="15.5" cy="6" r="3" />
-      <path d="M5.5 10.5 9 16.5H2Z" />
-      <rect x="16" y="15" width="5.5" height="5.5" rx="0.5" />
+      {/* `public/olumi-mark.svg` (the 1.5× ring that holds at 14–16 px). The ring follows the text colour; the three
+          shapes are the brand's own colours, from tokens. */}
+      <g transform="translate(13 49)">
+        <g fill="none" stroke="currentColor" strokeWidth={Number(strokeWidth) * 26.1} strokeLinecap="butt">
+          <path d="M460.5 561.0A244.8 244.8 0 0 1 159.0 460.1" />
+          <path d="M138.8 250.4A244.8 244.8 0 0 1 317.9 94.6" />
+          <path d="M547.8 167.1A244.8 244.8 0 0 1 609.1 380.8" />
+        </g>
+        <circle cx="447" cy="95" r="95.5" fill="var(--olumi-mark-orange)" />
+        <path d="M0 432L226 432L112.5 243Z" fill="var(--olumi-mark-blue)" />
+        <rect x="484" y="412" width="170" height="170" fill="var(--olumi-mark-green)" />
+      </g>
     </svg>
   )
 }

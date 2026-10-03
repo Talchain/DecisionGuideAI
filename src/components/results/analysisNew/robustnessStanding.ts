@@ -101,6 +101,24 @@ export function robustnessCaveatOnScreen(
   return true
 }
 
+/**
+ * ⭐ Does the caveat say the verdict reason as one of its sentences (usually the first), word for word? Served 28 Sep 2026 (`ac2def0f`):
+ * reason "This run held up under the changes we tested", caveat "This run held up under the changes
+ * we tested. That is not a guarantee. …" — the same sentence twice, a screen apart. Exact prefix on a
+ * sentence boundary (".", or the whole text), case and space ignored — not a similarity guess.
+ */
+export function caveatRestatesVerdictReason(caveatText: string | null, verdictReason: string | null): boolean {
+  if (caveatText === null || verdictReason === null) return false
+  const reason = verdictReason.trim().toLowerCase().replace(/[.]+$/, '')
+  if (reason === '') return false
+  const caveat = caveatText.trim().toLowerCase()
+  if (caveat === reason || caveat.startsWith(`${reason}.`)) return true
+  // ⭐ …or as a LATER whole sentence. Served 0d334f7a: caveat "This run was fragile under the changes we
+  // tested. Small changes to your assumptions could change …", reason "Small changes to your assumptions
+  // could change …" — the same sentence twice, one block apart. Whole sentences only, split on ". ".
+  return caveat.split(/(?<=\.)\s+/).some((sentence) => sentence.replace(/[.]+$/, '') === reason)
+}
+
 /** Same text, ignoring case and surrounding space — not a similarity guess. */
 export function duplicatesVerdictReason(text: string, verdictReason: string | null): boolean {
   if (verdictReason === null) return false

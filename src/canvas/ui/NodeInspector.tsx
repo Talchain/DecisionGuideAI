@@ -51,6 +51,7 @@
  * carries the same warning because it nearly happened there.
  */
 
+import { unnamedCurrencyWords } from '../../utils/unnamedCurrencyUnit'
 import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { AlertTriangle, Check, Pencil } from 'lucide-react'
 import { useCanvasStore } from '../store'
@@ -71,9 +72,10 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { formatWinProbability, classifyUnit } from '../utils/labelUtils'
 import { resolveDisplayableGoalTarget } from '../domain/displayableGoalTarget'
 import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
-import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
+import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 import { DECISION_NODE_LABEL } from '../domain/vocabulary'
+import { wholePercentBelowCertain } from '@/utils/formatPercent'
 
 interface ObservedState {
   value: number
@@ -536,6 +538,9 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
             if (classifyUnit(typeof unit === 'string' ? unit : null).kind === 'percent') {
               return formatTargetValue(displayableTarget.value, 'percent')
             }
+            // An unnamed currency is said in words, never printed as a symbol (MG ruling #85 5943427770).
+            const unnamed = unnamedCurrencyWords(unit)
+            if (unnamed !== null) return `${formatTargetValue(displayableTarget.value)} ${unnamed}`
             if (unitStr && unitStr !== 'count') return formatTargetValue(displayableTarget.value, 'currency', typeof unit === 'string' ? unit : undefined)
             return formatTargetValue(displayableTarget.value)
           })()}
@@ -692,7 +697,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
                 <span className={`${typography.panelMeta} text-text-light`}>Goal probability</span>
                 <span className={`${typography.panelBody} text-text-body tabular-nums`}>
-                  {Math.round(displayMetadata.achievementProbability * 100)}%
+                  {wholePercentBelowCertain(displayMetadata.achievementProbability)}
                 </span>
               </div>
               {/* Display-honesty (ROADMAP 1.6b tail — goal-fit caveat
@@ -708,6 +713,15 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                   data-testid="goal-fit-basis-caveat-inspector"
                 >
                   {GOAL_FIT_BASIS_CAVEAT_COPY}
+                </p>
+              )}
+              {/* ISL #207: the base-caveat, same rule as GoalNode. */}
+              {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
+                <p
+                  className={`${typography.panelMeta} text-text-light mt-1 px-2`}
+                  data-testid="goal-fit-base-caveat-inspector"
+                >
+                  {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat)}
                 </p>
               )}
             </>

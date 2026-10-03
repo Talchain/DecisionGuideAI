@@ -44,6 +44,21 @@ export interface ConversationMessage {
   isStreaming?: boolean
   /** True during tool-backed turns until turn_complete — pre-tool prose may change */
   isProvisional?: boolean
+  /**
+   * A restored reply written before the current analysis that states a figure: the short tag shown with it
+   * (`RESTORED_EARLIER_TAG`, AIQ 5925678816). The one full note sits once, after the last earlier reply.
+   */
+  restoredTag?: string
+  /** Result-first (CEE #2470): the turn's `narration` identity, so load 2 shows the Run line then ONE explanation. */
+  narration?: { status: 'pending' | 'ready' | 'stale' | 'unavailable'; runKey: string }
+  /** T4: the turn's coaching rows (`guidance`, guidanceRows.ts), kept so load 2 shows the same challenge. */
+  guidance?: import('./guidanceRows').TurnGuidance
+  /**
+   * Suggestion preview (`proposal_preview`, proposalPreview.ts): the proposal this turn offers on its consent chip,
+   * as a display projection the canvas draws as a ghost. NOT persisted (transcriptStore keeps no chips and no preview),
+   * so a reload shows no ghost for a proposal it can no longer settle from this turn.
+   */
+  proposalPreview?: import('./proposalPreview').ProposalPreview
   /** Inline status text shown during tool execution (e.g. "Running simulations...") */
   toolLoadingState?: string | null
   /** Deterministic CEE insights — rendered between assistant_text and chips */
@@ -234,6 +249,14 @@ export interface V5AnalysisResultBlock {
   leading_option_id: string | null
   win_probabilities?: Record<string, number>
   enrichment?: Record<string, unknown>
+  /**
+   * The Run this card reports: `v5AnalysisBlockContentHash` of the WIRE block, taken in `mapV5Block` before any
+   * figure is withheld from the card, so it equals the store's `currentResultsHash` for the same analysis
+   * (`mapV5AnalysisToReport` derives `model_card.response_hash` from the same block, the same way). The card asks
+   * the one delta reader for THIS Run by it (`useDisplayedRunDeltaView`), fail-closed. Absent on cards stored before
+   * it existed, and then the card shows no comparison line.
+   */
+  analysis_hash?: string
 }
 
 export interface V5GraphPatchBlock {

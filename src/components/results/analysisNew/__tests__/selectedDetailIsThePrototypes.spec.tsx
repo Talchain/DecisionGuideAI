@@ -217,17 +217,15 @@ describe('the detail is the prototype’s inline-detail', () => {
   })
 })
 
-describe('a mark opens its detail on CLICK, as the prototype’s does', () => {
-  it('pointing at a mark rings the node on the canvas but opens nothing', () => {
+describe('pointing at a mark shows its coaching underneath (Paul, 1 Oct 2026: "We need to reinstate that")', () => {
+  it('hover rings the node AND opens that node\'s detail; the next mark replaces it', () => {
     render(<ModelStrip isPreRun={false} openAtRest insights={RICH_INSIGHTS} />)
+    expect(screen.queryByTestId(`${TID}-detail`)).toBeNull()
     fireEvent.mouseEnter(mark('o2'))
     expect(highlightNode).toHaveBeenCalledWith('o2')
-    expect(screen.queryByTestId(`${TID}-detail`)).toBeNull()
-    fireEvent.focus(mark('o2'))
-    expect(screen.queryByTestId(`${TID}-detail`)).toBeNull()
-    // CONTRAST: the click opens it.
-    fireEvent.click(mark('o2'))
     expect(screen.getByTestId(`${TID}-detail`)).toHaveAttribute('data-node-id', 'o2')
+    fireEvent.focus(mark('r1'))
+    expect(screen.getByTestId(`${TID}-detail`)).toHaveAttribute('data-node-id', 'r1')
   })
 })
 
@@ -245,16 +243,16 @@ describe('placement and routing — census → utilities → success line → re
       />,
     )
 
-  it('the detail sits after the success line and after the review tool', () => {
+  it('the detail sits directly under the shapes, before "N to review", the success line and the review tool', () => {
     renderWithReview()
     fireEvent.click(mark('r1'))
     fireEvent.click(screen.getByTestId(`${RID}-toggle`))
     const detail = screen.getByTestId(`${TID}-detail`)
     const success = screen.getByTestId(`${TID}-target`)
     const review = screen.getByTestId(`${RID}-item`)
+    expect(before(detail, screen.getByTestId(`${RID}-toggle`))).toBe(true)
     expect(before(screen.getByTestId(`${RID}-toggle`), success)).toBe(true)
     expect(before(success, review)).toBe(true)
-    expect(before(review, detail)).toBe(true)
   })
 
   it('⭐ a mark about a node the queue holds opens the REVIEW TOOL at that item, and no detail', () => {

@@ -19,12 +19,16 @@
 
 import { useCanvasStore } from '../store'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
+import { useServerConversationTurnsStore } from '../stores/serverConversationTurnsStore'
+import { readServerConversationTurns } from '../conversation/serverConversationTurns'
 import { useReloadDifferenceStore } from '../stores/reloadDifferenceStore'
+import { declinedSavedRunKindOf, useDeclinedSavedRunStore } from '../stores/declinedSavedRunStore'
 import { logger } from '../../lib/logger'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
-import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding, isBootRestorableRunState } from './applyScenarioAnalysisRead'
-import { applyBootRunCurrency, applyBootBlockedVerdict } from './applyBootRunCurrency'
+import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding, applyScenarioAnalysisRead, isBootRestorableRunState } from './applyScenarioAnalysisRead'
+import { readProvisionalApplyStore } from './provisionalApplyStore'
+import { applyBootRunCurrency, applyBootBlockedVerdict, bootReadLimitVerdicts, bootReadRunFact } from './applyBootRunCurrency'
 import {
   beginBootGraphRead,
   isCeeAddressableScenarioId,
@@ -37,6 +41,8 @@ import { buildRegistrationGraph } from '../registration/buildRegistrationGraph'
 import { edgePairKey, wireEdgePairKey } from '../utils/graphIdentity'
 import { canonicalJson } from '../../lib/canonical-hash'
 import { EdgeV3Schema } from '@talchain/schemas'
+import { CANONICAL_GRAPH_HASH_NESTED_PROJECTION } from '@talchain/schemas/boundary'
+import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 export type HydrationOutcome =
   /** The server's graph was read and merged onto the canvas. */
@@ -93,6 +99,8 @@ export interface HydrateFromServerOptions {
    * direct calls) → this function begins and settles its own.
    */
   bootReadToken?: number
+  /** The cold open only: ask the read for the stored chat (MG 5907618888, opt-in). */
+  includeConversationTurns?: boolean
 }
 
 /**
@@ -218,6 +226,7 @@ async function readAndMergeServerGraph(
     signal: opts.signal,
     retryDelayMs: opts.retryDelayMs,
     timeoutMs: opts.timeoutMs,
+    ...(opts.includeConversationTurns === true ? { includeConversationTurns: true } : {}),
   })
 
   // A response body can finish after fetch was aborted. Check at the write
@@ -295,6 +304,22 @@ async function readAndMergeServerGraph(
     briefText: result.briefText,
     manifest: result.notModelled,
   })
+
+  // ⭐ THE CHAT SURVIVES A RELOAD — offer the stored chat to the panel (it takes it only when empty with no local
+  // transcript). The stale line keys on the SAME read verdict the held-Run drop uses, before any merge moves it.
+  const serverTurns = readServerConversationTurns(result.conversationTurns)
+  if (serverTurns !== null && serverTurns.length > 0) {
+    const runState = result.analysisState?.run_state
+    const computedAt = runState != null && 'computed_at' in runState ? runState.computed_at : null
+    useServerConversationTurnsStore.getState().offerServerConversationTurns({
+      scenarioId,
+      turns: serverTurns,
+      run: {
+        runNotCurrent: heldRunIsNotCurrentPerRead(result.analysisState, result.analysisResult),
+        currentRunComputedAt: typeof computedAt === 'string' ? computedAt : null,
+      },
+    })
+  }
 
   // ── A3 LINK 6 — CONSUME THE VERDICT THIS RESPONSE ALREADY CARRIES ─────────
   //
@@ -376,11 +401,27 @@ async function readAndMergeServerGraph(
   // card can tell it is still current. Called at the SAME two accepted exits,
   // AFTER the merge (whose model-change mark it reads) and the base adoption.
   // See `applyBootRunCurrency.ts` for the derivation.
-  const restoreRunCurrency = (exit: 'unchanged' | 'merged', mergeChanged: boolean | null): void => {
+  const restoreRunCurrency = (
+    exit: 'unchanged' | 'merged',
+    mergeChanged: boolean | null,
+    dirtyBeforeMerge: boolean | null = null,
+  ): void => {
     const st = useCanvasStore.getState()
     // BOTH directions: the canvas carries every value the read carries (the
     // acknowledgement's proof) AND the read carries nothing the canvas lacks.
     const notProvenEqual = whyCanvasNotProvenEqualToReadBothWays(scenarioId, result.graph)
+    // ⭐ A RELOAD ONTO A RUN MADE ELSEWHERE KEEPS THAT RUN (P0 SHARED DATA, served UI `f29bc828`, scenario
+    // `af640d3c`, DL #75 5921880401). A browser that last held Run A's model reloads after the model was edited and
+    // re-run elsewhere (API, Agent, another device). The merge adopts Run B's model and marks it edited
+    // (`mergeServerGraph.ts`, "ADOPTION INTO AN EMPTY BROWSER" covers only an empty canvas), and this leg read that
+    // mark as a user edit: `edited_since_read` with `unproven: null`, so the panel said "No analysis has run yet".
+    // The mark is the READ'S OWN change only when (1) it was clear before this merge, so no local edit made it, and
+    // (2) the canvas is now proven equal to the read both ways. Then the read's Run describes the canvas on screen.
+    // Anything else keeps today's decline: a local edit (mark set before the merge) or any unproven key.
+    const markIsThisReadsOwn =
+      dirtyBeforeMerge === false &&
+      st.analysisFreshnessDirty === true &&
+      notProvenEqual === null
     // The read's admission stands in for `may_run` until a turn speaks — only an
     // admission, only for this revision, only when the canvas IS that revision.
     st.setBootAdmittedRevision?.(
@@ -388,18 +429,70 @@ async function readAndMergeServerGraph(
     )
     const currencyOutcome = applyBootRunCurrency({
       analysisState: result.analysisState,
+      analysisResult: result.analysisResult,
       graphHash: result.graphHash,
       admitted: result.admitted,
       canvasProvenEqualToRead: notProvenEqual === null,
       store: {
-        analysisFreshnessDirty: st.analysisFreshnessDirty,
+        analysisFreshnessDirty: markIsThisReadsOwn ? false : st.analysisFreshnessDirty,
         setAnalysisStateV1: st.setAnalysisStateV1,
         setAnalysisFreshness: st.setAnalysisFreshness,
         readCurrentGraphHash: () => useCanvasStore.getState().analysisFreshness?.currentGraphHash,
       },
     })
+    // A saved Run the proof below cannot confirm is RECORDED (never restored) so the run control does not say "first
+    // pass" over it (`declinedSavedRunStore.ts`); a restored Run, or a read with no Run, clears any earlier record.
+    const savedRunKind = declinedSavedRunKindOf(result.analysisState?.run_state.kind)
+    if (currencyOutcome.outcome === 'restored' || savedRunKind === null) useDeclinedSavedRunStore.getState().clear()
+    else useDeclinedSavedRunStore.getState().record({ scenarioId, runStateKind: savedRunKind, reason: currencyOutcome.reason })
     if (currencyOutcome.outcome === 'restored') {
-      logger.debug('server_graph_hydration.boot_run_currency', { scenarioId, exit, outcome: 'restored' })
+      // R6: the restored result IS the run this verdict describes (the read ships its block only on
+      // `complete_current`, stamped with the run's canonical hash), so it is not an orphan — see `bootReadRunFact`.
+      const fact = bootReadRunFact({
+        scenarioId,
+        analysisResult: result.analysisResult,
+        now: Date.now(),
+      })
+      if (fact !== null) {
+        useCanvasStore.getState().setV5AnalysisFact(fact)
+        // Under the SAME proof, the limit verdicts the read carries (see `bootReadLimitVerdicts`).
+        const limits = bootReadLimitVerdicts({
+          scenarioId,
+          limitVerdicts: result.limitVerdicts,
+          displayedResultsHash: useCanvasStore.getState().results?.hash,
+        })
+        if (limits !== null) useCanvasStore.getState().setLimitVerdicts(limits)
+      }
+      // ⭐ A FRESH BROWSER SEES THE STORED RUN (Shared Data closure row, Canonical #72 5889440955; measured by Canvas
+      // 5889420398: the read carried `analysis_result` + `complete_current`, a new browser showed the pre-analysis state).
+      // Under the SAME proof as the currency restore above, the READ's own block becomes the report — through the ONE read
+      // applier the first pass uses, with its store view, so certainty and limits take the same validating readers and the
+      // same dedupe: a same-browser reload of the held Run changes nothing; a Run another device made replaces it.
+      const runRead = applyScenarioAnalysisRead({
+        analysisState: result.analysisState,
+        analysisResult: result.analysisResult,
+        currentReadInputBasis: result.currentReadInputBasis ?? null,
+        limitVerdicts: result.limitVerdicts,
+        goalCertainty: result.goalCertainty,
+        runDelta: result.runDelta,
+        // ⭐ The Run's record of which options it left out (CEE #2432). Without it a fresh browser said "This run has no
+        // result for this option" over an option the Run left out on purpose (Panel P2x, #75 5925282823).
+        optionParticipation: result.optionParticipation,
+        // The currency leg above is this read's ONE verdict writer (see `applyBootBlockedVerdict`: the legs never both
+        // write `analysisStateV1` for one read), so the applier here builds the report and writes no verdict.
+        // ⛔ NOR THE FRESHNESS (P0 5909616965 / AIQ 5909634999): the currency leg has just PROVEN this Run current and
+        // written `fresh`; the applier's run-completion transition demoted it to `unknown · run_completed_without_verdict`
+        // on every fresh-browser cold open, so `useRunCurrency()` stopped saying current and the Driver badges (every run
+        // cue) vanished — while a same-browser reload, whose report dedupes, kept them.
+        store: {
+          ...readProvisionalApplyStore(), setAnalysisStateV1: () => {}, noteRunCompletedWithoutVerdict: () => {},
+          setCurrentReadInputBasis: (basis, hash) => useCanvasStore.setState((state) => {
+            if (state.currentScenarioId !== scenarioId || state.results.hash !== hash || !state.results.report) return state
+            return { results: { ...state.results, report: { ...state.results.report, current_read_input_basis: basis } } }
+          }),
+        },
+      })
+      logger.debug('server_graph_hydration.boot_run_currency', { scenarioId, exit, outcome: 'restored', runFact: fact !== null, runRead: runRead.outcome })
       return
     }
     // A blocked model keeps CEE's named reason across a reload, under the SAME
@@ -481,6 +574,8 @@ async function readAndMergeServerGraph(
   // are pinned — the refusal-negative AND the accepted-positive — because one
   // predicate here guards two opposite harms, and a fix aimed only at the lie
   // would re-open #842's gap on the way past.
+  dropHeldRunTheReadSaysIsNotCurrent(scenarioId, result.analysisState, result.analysisResult)
+
   const stored = useCanvasStore.getState().serverGraphIdentity
   if (isSameServerGraph(stored, result.identity)) {
     // The server has not moved since we last hydrated, so there is nothing to
@@ -498,6 +593,8 @@ async function readAndMergeServerGraph(
     return 'unchanged'
   }
 
+  // Read BEFORE the merge, which sets it on any model change (see `restoreRunCurrency`).
+  const dirtyBeforeMerge = useCanvasStore.getState().analysisFreshnessDirty === true
   const merge = mergeServerGraphOnHydrate(result.graph)
 
   // ── A REFUSED MERGE IS NOT A MERGE, AND MUST NOT BE RECORDED AS ONE (L61) ──
@@ -553,6 +650,7 @@ async function readAndMergeServerGraph(
     useReloadDifferenceStore.getState().recordRemoval({
       scenarioId,
       removedLabels: merge.removedLabels,
+      canvasOnlyLinkLabels: merge.removedCanvasOnlyLinkLabels,
     })
   }
 
@@ -583,7 +681,7 @@ async function readAndMergeServerGraph(
 
   adoptServerWriteBase(result.graphHash, baseAtDispatch)
   acknowledgeCanvasThatMatchesTheRead(scenarioId, result.graph)
-  restoreRunCurrency('merged', merge.changed)
+  restoreRunCurrency('merged', merge.changed, dirtyBeforeMerge)
 
   return 'merged'
 }
@@ -650,6 +748,46 @@ function acknowledgeCanvasThatMatchesTheRead(scenarioId: string, wireGraph: unkn
  * Edge types are compared under the contract default on BOTH sides, exactly as
  * the currency proof compares them (`withContractEdgeDefaults`).
  */
+/**
+ * ⛔ THE SERVER'S "NOT CURRENT" OUTRANKS THE AUTOSAVED RUN (AIQ pre-share hold #75 5903405445; R3 5903397606; DL lease
+ * 5903425676; P0 C2 5903423999).
+ *
+ * A same-browser reload after a newer Run restored Run 1 from `olumi-canvas-autosave`, and that held report made the
+ * merge count as a local edit, so every verdict leg declined (`edited_since_read`, `closes_run_gate`): the panel said
+ * "Cannot confirm whether this analysis is current" over a Run the server KNOWS is out of date, and re-described it
+ * against today's option list ("3 of your 4 options … left out"). A fresh browser was right.
+ *
+ * So when the read says the held Run cannot be current (its kind is `complete_stale`, it asks for a rerun, or it ships
+ * no result — the block rides only on a current Run), the held Run is dropped BEFORE the merge, and the boot proceeds
+ * exactly as a fresh browser's does: same verdict, same "Model changed" surface, no Run-1 figures. A read that ships its
+ * own result, or a verdict still running, leaves the held Run alone.
+ */
+export function heldRunIsNotCurrentPerRead(analysisState: AnalysisStateV1 | null, analysisResult: unknown): boolean {
+  if (analysisState == null) return false
+  // P0 C2 (5903423999): a newer degraded Run superseded the saved one — no block the read ships can be current.
+  if ((analysisState as { contradictions?: unknown }).contradictions instanceof Array
+    && ((analysisState as { contradictions: unknown[] }).contradictions).includes('fact_status_success_but_degraded_newer')) return true
+  if (analysisResult != null) return false
+  const kind = analysisState.run_state.kind
+  // ⛔ NOT `complete_current` alone: a current read without a result block keeps the held Run (P0's 'no_result' decline
+  // withholds currency; it is not evidence the Run is superseded). Dropping it cleared a no-edit reload (starterReload).
+  return kind === 'complete_stale' || (analysisState as { requires_rerun?: unknown }).requires_rerun === true
+}
+function dropHeldRunTheReadSaysIsNotCurrent(scenarioId: string, analysisState: AnalysisStateV1 | null, analysisResult: unknown): void {
+  const st = useCanvasStore.getState()
+  if (st.results?.report == null && st.analysisFreshness == null) return
+  if (!heldRunIsNotCurrentPerRead(analysisState, analysisResult)) return
+  logger.warn('server_graph_hydration.held_run_dropped', { scenarioId, runStateKind: analysisState?.run_state.kind ?? null })
+  st.resultsReset()
+  useCanvasStore.setState({
+    analysisFreshness: null,
+    analysisFreshnessDirty: false,
+    graphEditedSinceLastRun: false,
+    v5AnalysisFact: null,
+    hasCompletedFirstRun: false,
+  } as never)
+}
+
 function canvasProvenEqualToRead(scenarioId: string, wireGraph: unknown): boolean {
   return whyCanvasNotProvenEqualToRead(scenarioId, withContractEdgeDefaults(wireGraph), withContractEdgeDefaults) === null
 }
@@ -720,7 +858,29 @@ function whyCanvasNotProvenEqualToReadBothWays(scenarioId: string, wireGraph: un
 
 /** The currency proof's view of EITHER graph: contract defaults, then the analysis-affecting projection. */
 function currencyComparable(graph: unknown): unknown {
-  return withoutNonAnalysisFields(withContractEdgeDefaults(graph))
+  return withoutNonAnalysisFields(withoutAbsentBaselineDefault(withContractEdgeDefaults(graph)))
+}
+
+/**
+ * ⭐ R6, SERVED (UI c3f76e4f, `theServedReloadProvesTheResultCurrent.spec.tsx`): `is_baseline: false` IS AN
+ * ABSENT `is_baseline`. The canvas projects `false` on every non-baseline option; CEE's read carries the key
+ * only on the baseline. The engine reads the flag as `option.is_baseline === true` (`isBaselineOption`), so
+ * the two graphs analyse identically, yet every reload of a model with a non-baseline option declined here
+ * (`fwd:node:<option>:is_baseline:read_lacks canvas=false`) and the result read "Results may be outdated".
+ * Applied to BOTH sides, and only to `false`: a `true` the other side lacks still declines.
+ */
+function withoutAbsentBaselineDefault(graph: unknown): unknown {
+  if (graph === null || typeof graph !== 'object') return graph
+  const g = graph as { nodes?: unknown }
+  if (!Array.isArray(g.nodes)) return graph
+  return {
+    ...(graph as Record<string, unknown>),
+    nodes: g.nodes.map((n) => {
+      if (n === null || typeof n !== 'object' || (n as { is_baseline?: unknown }).is_baseline !== false) return n
+      const { is_baseline: _absent, ...rest } = n as Record<string, unknown>
+      return rest
+    }),
+  }
 }
 
 /**
@@ -821,7 +981,6 @@ const NOT_ANALYSIS_AFFECTING = {
   observedState: new Set(['unit', 'source', 'raw_value', 'extractionType']),
   intervention: new Set(['unit', 'source', 'reasoning', 'value_confidence', 'display_value']),
   targetMatch: new Set(['match_type', 'confidence']),
-  edge: new Set(['provenance', 'provenance_display', 'origin', 'validation', 'defaulted']),
 } as const
 
 function omitKeys(value: unknown, keys: ReadonlySet<string>): unknown {
@@ -870,10 +1029,36 @@ function withoutNonAnalysisFields(graph: unknown): unknown {
         return node
       })
     : g.nodes
-  const edges = Array.isArray(g.edges)
-    ? g.edges.map((e) => omitKeys(e, NOT_ANALYSIS_AFFECTING.edge))
-    : g.edges
+  const edges = Array.isArray(g.edges) ? g.edges.map(analysisAffectingEdge) : g.edges
   return { ...(graph as Record<string, unknown>), nodes, edges }
+}
+
+/**
+ * ⭐ AN EDGE IS COMPARED ONLY ON THE PUBLISHED ANALYSIS-AFFECTING VOCABULARY (W4, X4; #70 5858906092).
+ *
+ * CEE's `graph_hash` — the space `complete_current` is asserted in — hashes an edge through a WHITELIST
+ * (`graph-hash.ts projectEdge`), published as `CANONICAL_GRAPH_HASH_NESTED_PROJECTION.edge`. This proof used to strip
+ * a hand-kept DENYLIST instead, so every metadata key CEE added declined every reload: CEE #2096's `exists_defaulted`
+ * (set by a link-strength write on a defaulted edge) made the served reload say "can't confirm" (AIC n=2). The same
+ * vocabulary, imported and never re-spelled, now bounds both sides; a hashed field still declines.
+ * Nodes keep their denylist: the published node vocabulary lacks `nonlinear_identity`, which CEE does hash.
+ */
+const ANALYSIS_EDGE = CANONICAL_GRAPH_HASH_NESTED_PROJECTION.edge
+function analysisAffectingEdge(edge: unknown): unknown {
+  if (edge === null || typeof edge !== 'object' || Array.isArray(edge)) return edge
+  const e = edge as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  for (const k of ANALYSIS_EDGE.fields) if (e[k] !== undefined) out[k] = e[k]
+  const strength = e.strength
+  if (strength !== null && typeof strength === 'object' && !Array.isArray(strength)) {
+    const s = strength as Record<string, unknown>
+    const kept: Record<string, unknown> = {}
+    for (const k of ANALYSIS_EDGE.strength_fields) if (s[k] !== undefined) kept[k] = s[k]
+    out.strength = kept
+  } else if (strength !== undefined) {
+    out.strength = strength
+  }
+  return out
 }
 
 /**

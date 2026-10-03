@@ -127,13 +127,21 @@ describe('THE INSTRUMENT — the idle pre-run sentence is unchanged', () => {
     expect(busyAttr()).toBeNull()
   })
 
-  /** And the orientation line survives in BOTH states — it asserts no run. */
-  it('the orientation line is stated whether or not a run is in flight', () => {
+  /**
+   * And the orientation survives in BOTH states — it asserts no run. Since V2
+   * "Draft" (28 Sep 2026) it is the pre-run commitment zone around this block;
+   * its "then run the analysis" bullet shows only beside the act, never mid-run.
+   */
+  it('the orientation is stated whether or not a run is in flight', () => {
+    const zone = () => screen.getByTestId('analysis-new-commitment-pre-run')
     draw()
-    expect(block()).toHaveTextContent('this panel reads it back around the reasoning')
+    expect(zone()).toContainElement(block())
+    expect(zone()).toHaveTextContent('What we have: The draft sets out 2 options.')
     cleanup()
     draw({ isRunning: true })
-    expect(block()).toHaveTextContent('this panel reads it back around the reasoning')
+    expect(zone()).toContainElement(block())
+    expect(zone()).toHaveTextContent('What we have: The draft sets out 2 options.')
+    expect(zone()).not.toHaveTextContent('Check the framing, then run the analysis.')
   })
 })
 

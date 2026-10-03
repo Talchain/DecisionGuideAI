@@ -4,17 +4,17 @@
  * § 0 — ONE type scale (lane F3, register 1.69(a))
  *
  * Every font-size / font-weight / line-height in this module MUST go through
- * these tokens. They mirror the panel steps in src/styles/typography.ts
- * (panelHeader 14/600 · chatProse 14/400 · panelBody 12 · panelMeta 11);
+ * these tokens. They mirror the AI chat panel's three sizes in
+ * src/styles/typography.ts (Paul 28 Sep: 14 headings · 13 chatBody · 12 chatMeta).
+ * Nothing in this module is a heading, so it uses only the 13 and the 12;
  * the mirror cannot drift silently — scripts/conversation-type-census.mjs
  * + tests/ci-guards/conversation-type-census.spec.ts pin both sides and a
  * raw px declaration outside this block turns the suite red.
  * ---------------------------------------------------------------------------*/
 
 :root {
-  --conv-type-size-prominent: 14px; /* panelHeader (w/ semibold) · chatProse / bodySmall (regular) */
-  --conv-type-size-body: 12px;      /* panelBody */
-  --conv-type-size-meta: 12px;      /* chat meta = 12px (Paul 27 Sep: three sizes: 24 hero, 14 prose/headings, 12 the rest) */
+  --conv-type-size-body: 13px;      /* chatBody: the chat's reading size (Paul 28 Sep: 14 / 13 / 12) */
+  --conv-type-size-meta: 12px;      /* chatMeta: labels only */
   --conv-type-weight-regular: 400;
   --conv-type-weight-medium: 500;
   --conv-type-weight-semibold: 600;
@@ -68,7 +68,7 @@
 }
 .markdownContent ul,
 .markdownContent ol {
-  margin: 6px 0 12px;
+  margin: 1em 0; /* the paragraph gap (.md-gap, 1em) above and below a list — Paul 28 Sep */
   padding-left: 16px;
   /* Re-enable list markers: Tailwind's preflight (@tailwind base) resets
      ul/ol to `list-style: none`, which otherwise hides the bullet discs even
@@ -83,7 +83,10 @@
   list-style-type: decimal;
 }
 .markdownContent li {
-  margin-bottom: 2px;
+  margin-bottom: 1em; /* bullets sit as far apart as paragraphs (Paul 28 Sep); PANEL_LIST_BULLET agrees */
+}
+.markdownContent li:last-child {
+  margin-bottom: 0;
 }
 .markdownContent ul ul,
 .markdownContent ul ol,
@@ -92,14 +95,14 @@
   padding-left: 32px; /* pl-8: nested list indent */
 }
 .markdownContent code {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
   padding: 1px 5px;
   border-radius: 4px;
   font-size: var(--conv-type-size-body);
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', Menlo, monospace;
 }
 .markdownContent pre {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
   border: 1px solid var(--border-default, #EEE6D8);
   border-radius: 6px;
   padding: 10px 12px;
@@ -132,15 +135,13 @@
 
 .messageBubbleUser {
   composes: messageBubble;
-  /* DS v5 §21.1: the user's message sits on the right. `align-self` alone
-     never did: ChatMessage wraps every message in a BLOCK div, where it has
-     no effect, so the bubble sat on the left (the same cause #2059 fixed for
-     `.chipActionIndicator`). A box of its own width, pushed right, is what
-     moves it; `align-self` stays for any flex parent. */
-  align-self: flex-end;
-  width: fit-content;
-  margin-left: auto;
-  background: var(--bg-panel, #FEFEFE);
+  /* Paul, 28 Sep: once sent, the user's message runs the FULL WIDTH of the
+     chat column. Its panel fill already sets it apart from Olumi's unframed
+     reply, so pushing it right only narrowed it and wasted the column. This
+     replaces DS v5 §21.1's right-aligned bubble. */
+  width: 100%;
+  max-width: 100%;
+  background: var(--bg-panel, #FEF9F3);
   color: var(--text-body, #3F3F3E);
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06);
 }
@@ -157,7 +158,7 @@
 }
 
 /** Failed-send marker row: icon + "Not delivered" + optional Retry.
- *  Type scale comes from typography.panelMeta applied in JSX (F3 census). */
+ *  Type scale comes from typography.chatMeta applied in JSX (F3 census). */
 .sendFailedRow {
   display: flex;
   align-items: center;
@@ -174,7 +175,7 @@
  * stay per-class. Composing rather than merging the two: they are deliberately
  * different scales, and folding the retry button into `.chip` would restyle it
  * (padding 2px 8px → 6px 12px, min-height → 44px, and a font-size that fights
- * the `typography.panelMeta` class the JSX applies).
+ * the `typography.chatMeta` class the JSX applies).
  *
  * DEFINED HERE, ABOVE ITS FIRST USE: CSS Modules resolves `composes` at
  * parse time and requires the composed class to already exist in the file.
@@ -193,7 +194,7 @@
 }
 
 /** Outlined retry affordance on the failed message itself (DS pill rules).
- *  Type scale comes from typography.panelMeta applied in JSX (F3 census). */
+ *  Type scale comes from typography.chatMeta applied in JSX (F3 census). */
 .sendFailedRetryButton {
   composes: pillBase;
   gap: 4px;
@@ -205,7 +206,7 @@
 }
 
 .sendFailedRetryButton:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .sendFailedRetryButton:focus-visible {
@@ -225,14 +226,13 @@
  *   --radius-sm            → --radius-pill (999px, better for inline indicator)
  */
 .chipActionIndicator {
-  /* ChatMessage wraps every message in a BLOCK div, where align-self does
-     nothing and an inline box cannot be pushed: a block box of its own width,
-     pushed right, is what puts a chip-sent message on the user's side. */
+  /* A chip-sent message starts at the left like a typed one (Paul, 28 Sep:
+     the user's messages run full width, not pushed right). It stays its own
+     width: a one-line chip echo stretched across the column reads as a bar. */
   display: flex;
   width: fit-content;
-  margin-left: auto;
   align-items: center;
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
   color: var(--text-light, #6E6B6B);
   border-radius: 8px;
   padding: var(--space-1, 4px) var(--space-2, 8px);
@@ -274,9 +274,10 @@
   line-height: var(--conv-type-line-relaxed); /* F3 snap: 1.65 → 1.625 */
 }
 .v2AssistantText li {
-  /* List items sit closer than the 12px inter-block gap (md-gap / ul margins)
-     so a list reads as one cohesive group, not separate paragraphs. */
-  margin-bottom: 8px;
+  /* Paul, 28 Sep: "space the bullets out to match the paragraphs" — 1em, the
+     same as the paragraph gap (.md-gap). It was 8px, tighter than the 12px
+     block gap so a list read as one group; Paul wants the air instead. */
+  margin-bottom: 1em;
 }
 .v2AssistantText li:last-child {
   margin-bottom: 0;
@@ -286,7 +287,7 @@
 }
 .v2AssistantText ul,
 .v2AssistantText ol {
-  margin-top: 12px;
+  margin-top: 1em; /* a paragraph gap before the list */
 }
 
 /* Progressive disclosure — clamp long assistant text to ~6 lines */
@@ -298,7 +299,7 @@
 }
 
 .showMoreTextToggle {
-  font-size: var(--conv-type-size-prominent);
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   font-weight: var(--conv-type-weight-medium);
   color: var(--info, #277A9D);
   background: none;
@@ -331,7 +332,7 @@
   gap: 4px;
   padding: 12px 16px;
   align-self: flex-start;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border: 1px solid var(--border-default, #EEE6D8);
   border-radius: 12px;
   max-width: 85%;
@@ -419,7 +420,7 @@
    Tailwind opacity modifiers because brand.css defines colours as hex. */
 .reviewCardInfo {
   border: 1px solid color-mix(in srgb, var(--info, #277A9D) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE); /* DS v5 §16.2: coaching cards use bg-panel, not bg-info-light */
+  background: var(--bg-panel, #FEF9F3); /* DS v5 §16.2: coaching cards use bg-panel, not bg-info-light */
   padding: 12px;
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
@@ -430,7 +431,7 @@
 
 .reviewCardAlert {
   border: 1px solid color-mix(in srgb, var(--danger, #EA7B4B) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   padding: 12px;
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
@@ -457,7 +458,7 @@
 
 .factBlock {
   border: 1px solid color-mix(in srgb, var(--success, #67C89E) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
@@ -468,7 +469,7 @@
 
 .factValue {
   font-weight: var(--conv-type-weight-semibold);
-  font-size: var(--conv-type-size-prominent); /* F3 snap: 18px → 14px */
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   color: var(--text-header, #262626);
 }
 
@@ -503,7 +504,7 @@
 
 .graphPatchBlock {
   border: 1px solid color-mix(in srgb, var(--goal, #F5C433) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 16px;
@@ -552,7 +553,7 @@
 /* Entity names in summaries render as label token (DS v5: 14px, semibold) */
 .graphPatchSummary strong {
   font-weight: var(--conv-type-weight-semibold);
-  font-size: var(--conv-type-size-prominent);
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   color: var(--text-header, #262626);
 }
 
@@ -574,7 +575,7 @@
   gap: 8px;
   padding: 8px 10px;
   border-radius: 12px; /* DS v5 §6.2: cards inside panels use md (12px) */
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
   border: 1px solid var(--border-default, #EEE6D8); /* neutral panel-border, no semantic colour */
 }
 
@@ -615,7 +616,7 @@
   min-height: 28px;
   border-radius: 999px;
   border: none;
-  font-size: var(--conv-type-size-prominent);
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   font-weight: var(--conv-type-weight-medium);
   cursor: pointer;
   background: var(--primary, #277A9D);
@@ -642,7 +643,7 @@
   min-height: 28px;
   border-radius: 999px;
   border: 1px solid var(--border-default, #EEE6D8);
-  font-size: var(--conv-type-size-prominent);
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   font-weight: var(--conv-type-weight-medium);
   cursor: pointer;
   background: transparent;
@@ -651,7 +652,7 @@
 }
 
 .graphPatchDismiss:hover:not(:disabled) {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .graphPatchDismiss:disabled {
@@ -712,7 +713,7 @@
 }
 
 .graphPatchShowDetails {
-  font-size: var(--conv-type-size-prominent);
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   color: var(--info, #277A9D);
   background: none;
   border: none;
@@ -732,7 +733,7 @@
    Spec: DS v5 §21.3 — 11px panelMeta, info-blue, no underline on hover. */
 .inlineDisclosureToggle {
   font-family: inherit;
-  font-size: var(--conv-type-size-meta);
+  font-size: var(--conv-type-size-body); /* 13px: "Show more" reads at the reply's size, as "Details" does (Paul 28 Sep) */
   line-height: var(--conv-type-line-snug); /* F3 snap: 1.4 → 1.375 */
   font-weight: var(--conv-type-weight-regular);
   color: var(--info, #277A9D);
@@ -762,7 +763,7 @@
 .reasoningPanel {
   margin-top: 8px;
   padding: 10px 12px;
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
   border: 1px solid var(--border-default, #EEE6D8);
   border-radius: 6px;
 }
@@ -805,7 +806,7 @@
 
 .framingBlock {
   border: 1px solid color-mix(in srgb, var(--info, #277A9D) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
@@ -816,7 +817,7 @@
 
 .framingGoal {
   font-weight: var(--conv-type-weight-semibold);
-  font-size: var(--conv-type-size-prominent);
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   color: var(--text-header, #262626);
 }
 
@@ -850,7 +851,7 @@
 }
 
 .framingItem {
-  font-size: var(--conv-type-size-prominent); /* F3 snap: 13px → 14px */
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   color: var(--text-body, #3F3F3E);
   padding-left: 8px;
   border-left: none;
@@ -862,7 +863,7 @@
 
 .briefBlock {
   border: 1px solid color-mix(in srgb, var(--success, #67C89E) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
@@ -1158,7 +1159,7 @@
   margin-top: 8px;
   padding: 12px;
   border-left: 2px solid var(--border-default, #EEE6D8);
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
   border-radius: 4px;
 }
 
@@ -1206,7 +1207,7 @@
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 10px 12px;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1258,7 +1259,7 @@
   min-height: 28px;
   border-radius: 999px;
   border: 1px solid var(--danger, #EA7B4B);
-  font-size: var(--conv-type-size-prominent);
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   font-weight: var(--conv-type-weight-medium);
   cursor: pointer;
   background: none;
@@ -1304,18 +1305,18 @@
 }
 
 .chipPrimary:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .chipSecondary {
   composes: chip;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   color: var(--text-body, #3F3F3E);
   border-color: var(--border-default, #EEE6D8);
 }
 
 .chipSecondary:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .chipUndo {
@@ -1326,7 +1327,7 @@
 }
 
 .chipUndo:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 /* ---------------------------------------------------------------------------
@@ -1384,7 +1385,7 @@
 }
 
 .baseRateChip:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .baseRateChip:focus-visible {
@@ -1462,7 +1463,7 @@
   padding: 8px 10px 8px 12px;
   min-height: 40px;
   max-height: 48px;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-top: 1px solid var(--border-default, #EEE6D8);
   box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.04);
   flex-shrink: 0;
@@ -1535,7 +1536,7 @@
 }
 
 .guidanceStripAction:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .guidanceStripAction:focus-visible {
@@ -1584,7 +1585,7 @@
   gap: 8px;
   padding: 12px 16px;
   border-top: 1px solid var(--border-default, #EEE6D8);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   flex-shrink: 0;
 }
 
@@ -1593,10 +1594,10 @@
   padding: 10px 12px;
   border: 1px solid var(--border-default, #EEE6D8);
   border-radius: 12px;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   color: var(--text-body, #3F3F3E);
   font-family: 'Inter', sans-serif;
-  font-size: var(--conv-type-size-prominent); /* F3 snap: 16px → 14px — parity with the live ChatComposer textarea */
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   line-height: var(--conv-type-line-normal);
   resize: none;
   outline: none;
@@ -1657,7 +1658,7 @@
   max-width: 100%;
   padding: 12px 16px;
   border-radius: 12px;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border: 1px solid var(--border-default, #EEE6D8);
   color: var(--text-body, #3F3F3E);
 }
@@ -1697,7 +1698,7 @@
   padding: 0 16px;
   min-height: 40px;
   max-height: 44px;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-bottom: 1px solid var(--border-default, #EEE6D8);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   flex-shrink: 0;
@@ -1744,7 +1745,7 @@
   padding: 4px 10px;
   border-radius: 6px;
   border: 1px solid var(--border-default, #EEE6D8);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   color: var(--text-body, #3F3F3E);
   font-size: var(--conv-type-size-body);
   font-weight: var(--conv-type-weight-medium);
@@ -1754,7 +1755,7 @@
 }
 
 .actionStripCta:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .actionStripBadge {
@@ -1842,7 +1843,7 @@
   align-items: center;
   gap: 6px;
   padding: 4px 0;
-  font-size: var(--conv-type-size-prominent);
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   color: var(--text-light, #6E6B6B);
 }
 
@@ -1871,7 +1872,7 @@
 
 .comparisonBlock {
   border: 1px solid color-mix(in srgb, var(--info, #277A9D) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
@@ -1893,7 +1894,7 @@
 
 .premortemBlock {
   border: 1px solid color-mix(in srgb, var(--warning, #FFA656) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
@@ -1912,7 +1913,7 @@
 
 .flipAnalysisBlock {
   border: 1px solid color-mix(in srgb, var(--danger, #EA7B4B) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
@@ -1923,7 +1924,7 @@
 
 .proposalBlock {
   border: 1px solid color-mix(in srgb, var(--goal, #F5C433) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
@@ -1934,7 +1935,7 @@
 
 .exerciseBlock {
   border: 1px solid color-mix(in srgb, var(--info, #277A9D) 30%, transparent);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
@@ -1969,7 +1970,7 @@
   padding: 6px 10px;
   border-radius: 6px;
   border: 1px solid var(--border-default, #EEE6D8);
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
 }
 
 .insightItemWarning {
@@ -2013,7 +2014,7 @@
 }
 
 .insightActionChip:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .insightActionChip:focus-visible {
@@ -2108,7 +2109,7 @@
 }
 
 .phase3PacingToggle:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .vocabularyLegend {
@@ -2138,7 +2139,7 @@
 .vocabularyLegendList {
   margin: 0;
   padding: 8px 12px;
-  background: var(--bg-panel, #FEFEFE);
+  background: var(--bg-panel, #FEF9F3);
   border: 1px solid var(--border-default, #EEE6D8);
   border-radius: 8px;
   display: flex;
@@ -2200,7 +2201,7 @@
 }
 
 .coachingLineSummary:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
+  background: var(--bg-panel-hover, #FCF7F1);
 }
 
 .coachingLineSummary:focus-visible {

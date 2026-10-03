@@ -22,9 +22,11 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { NODE_ROW_LABEL_MAX_CHARS, NODE_CARD_MAX_W, REPEATED_CARD_W } from '../nodeLayoutConstants'
+import { NODE_ROW_AMOUNT_MAX_CHARS, NODE_ROW_LABEL_MAX_CHARS, NODE_CARD_MAX_W, REPEATED_CARD_W } from '../nodeLayoutConstants'
+import { CANVAS_TYPE_PX } from '../../../styles/typography'
 import { MAX_LABEL_COUNTER_SCALE } from '../zoomLegibility'
 import { compactFactorLabel } from '../labelUtils'
+import { buildOptionChangeRow, buildOptionNeedsInputRow, optionAmountSegmentNoWrap } from '../../nodes/shared/optionChangeRows'
 
 const SRC = path.resolve(__dirname, '../nodeLayoutConstants.ts')
 
@@ -51,10 +53,11 @@ describe('NODE_ROW_LABEL_MAX_CHARS — derived, never restated', () => {
     // 12 × 1.36, so each character is narrower by 1.36 / 2 and the SAME card
     // holds more of them: 18 → 25 on the 248 card. The type moved, so the budget
     // moved — this file's whole point, in the other direction.
+    // 25 → 21 (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231): 12 × 1.64.
     const MEASURED_SCALE = 2
     const perChar = (MEASURED_BLOCK / MEASURED_CHARS) * (MAX_LABEL_COUNTER_SCALE / MEASURED_SCALE)
     expect(NODE_ROW_LABEL_MAX_CHARS).toBe(Math.floor((REPEATED_CARD_W - inset) / perChar))
-    expect(NODE_ROW_LABEL_MAX_CHARS).toBe(25)
+    expect(NODE_ROW_LABEL_MAX_CHARS).toBe(21)
     // CONTRAST: at the old bound the same card held 17 — the scale is load-bearing.
     expect(Math.floor((REPEATED_CARD_W - inset) / (MEASURED_BLOCK / MEASURED_CHARS))).toBe(17)
   })
@@ -97,6 +100,18 @@ describe('NODE_ROW_LABEL_MAX_CHARS — derived, never restated', () => {
    * card cuts more labels. What must NOT change is HOW they are cut — at a word,
    * never mid-word, and never longer than the row.
    */
+  /**
+   * ⭐ BOUND TO THE OPTION CHANGE ROW ITSELF (27 Sep 2026, Canvas owner, landing
+   * text cap). At 21 characters `compactFactorLabel`'s shared 0.6 fallback cut
+   * "Time to live (quarters)" to "Time to live (quarter…" — its last space (12)
+   * sits under 0.6 × 21. The owner's rule for OPTION CHANGE-ROW labels: a
+   * whole-word cut always beats a mid-word one; the mid-word cut is kept only
+   * when not even the first word fits. So this reads the label the row builders
+   * publish (`buildOptionNeedsInputRow` / `buildOptionChangeRow`), not the
+   * shared helper, whose fallback `DecisionNode.triageTruncation.spec` pins.
+   */
+  const rowLabel = (l: string) => buildOptionNeedsInputRow({ factorId: 'f', factor: { label: l }, source: null }).label
+
   it('on the shipped labels the narrower row cuts at a WORD, never mid-word, never past the row', () => {
     const LABELS = [
       'In-house build approach', 'Time to live (quarters)', 'Vendor licensing cost',
@@ -106,7 +121,7 @@ describe('NODE_ROW_LABEL_MAX_CHARS — derived, never restated', () => {
     ]
     let cutCount = 0
     for (const l of LABELS) {
-      const out = compactFactorLabel(l, NODE_ROW_LABEL_MAX_CHARS)
+      const out = rowLabel(l)
       expect(out.length, l).toBeLessThanOrEqual(NODE_ROW_LABEL_MAX_CHARS + 1)
       if (out.endsWith('…')) {
         cutCount++
@@ -119,10 +134,30 @@ describe('NODE_ROW_LABEL_MAX_CHARS — derived, never restated', () => {
     // CONTRAST: the corpus really exercises the cut, or the loop above is vacuous.
     expect(cutCount).toBeGreaterThan(0)
     // Bound by identity to one label the S4 row now cuts.
-    // 27 Sep 2026: at the 25-character budget this label (23) is whole; the
-    // cut-at-a-word example is now a longer shipped label.
-    expect(compactFactorLabel('In-house build approach', NODE_ROW_LABEL_MAX_CHARS)).toBe('In-house build approach')
-    expect(compactFactorLabel('Competitive intensity in segment', NODE_ROW_LABEL_MAX_CHARS)).toBe('Competitive intensity in…')
+    // 27 Sep 2026: at the 25-character budget this label (23) was whole.
+    // 27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231: at 21 it is cut at a word again.
+    expect(rowLabel('In-house build approach')).toBe('In-house build…')
+    expect(rowLabel('Competitive intensity in segment')).toBe('Competitive intensity…')
+    expect(rowLabel('Time to live (quarters)')).toBe('Time to live…')
+    // Both row builders read the one row-label path.
+    expect(
+      buildOptionChangeRow({
+        factorId: 'ttl',
+        target: { value: 4 },
+        factor: { label: 'Time to live (quarters)' },
+        baselineOptionTarget: null,
+      }).label,
+    ).toBe('Time to live…')
+  })
+
+  it('RED CHECK — the shared 0.6 fallback, which the row no longer uses, WOULD cut this label mid-word', () => {
+    // The discriminator: the row's whole-word cut above is not what the shared
+    // rule produces, so the pin cannot be satisfied by the old path.
+    expect(compactFactorLabel('Time to live (quarters)', NODE_ROW_LABEL_MAX_CHARS)).toBe('Time to live (quarter…')
+    expect(rowLabel('Time to live (quarters)')).not.toBe(compactFactorLabel('Time to live (quarters)', NODE_ROW_LABEL_MAX_CHARS))
+    // ⚠ The mid-word cut stays where not even the first word fits the row.
+    const oneToken = 'Supercalifragilisticexpialidocious uplift'
+    expect(rowLabel(oneToken)).toBe(`${oneToken.slice(0, NODE_ROW_LABEL_MAX_CHARS)}…`)
   })
 
   it('the budget shrinks if the type is counter-scaled harder', () => {
@@ -133,5 +168,41 @@ describe('NODE_ROW_LABEL_MAX_CHARS — derived, never restated', () => {
     const row = REPEATED_CARD_W - (MEASURED_CARD - MEASURED_BLOCK)
     const at3 = Math.floor(row / (12 * 3 * avgCharEm))
     expect(at3).toBeLessThan(NODE_ROW_LABEL_MAX_CHARS)
+  })
+})
+
+/**
+ * ⭐ THE AMOUNT NEVER BREAKS; THE LABEL YIELDS (Canvas owner, 27 Sep 2026, landing
+ * text cap 1.36 → 1.64). An option row's AMOUNT is held on one line against its
+ * own budget — the same measurement, card and inset as the label's, at the
+ * amount's own `edgeLabel` size — not against the label's 12px budget, which the
+ * cap shrank 25 → 21 until "→ 3 engineers" + its glued "no source" (23) lost its
+ * `whitespace-nowrap` (`OptionNode.contractV31Polish.spec`, CI on `d000d576`).
+ */
+describe('NODE_ROW_AMOUNT_MAX_CHARS — the amount’s own per-line budget, derived', () => {
+  const inset = MEASURED_CARD - MEASURED_BLOCK
+  const perCharAt = (px: number) => (MEASURED_BLOCK / MEASURED_CHARS / 24) * px * MAX_LABEL_COUNTER_SCALE
+
+  it('is the measurement re-applied to the amount’s own type size at the bound', () => {
+    expect(NODE_ROW_AMOUNT_MAX_CHARS).toBe(Math.floor((REPEATED_CARD_W - inset) / perCharAt(CANVAS_TYPE_PX.edgeLabel)))
+    // The label's budget is the same formula at 12px — so the amount never gets
+    // LESS room than the label: the label is the part that yields.
+    expect(NODE_ROW_LABEL_MAX_CHARS).toBe(Math.floor((REPEATED_CARD_W - inset) / perCharAt(12)))
+    expect(NODE_ROW_AMOUNT_MAX_CHARS).toBeGreaterThanOrEqual(NODE_ROW_LABEL_MAX_CHARS)
+  })
+
+  it('the amount run is held whole up to its OWN budget, and wraps one past it (served cd6a82e4 still cannot overflow)', () => {
+    const at = 'x'.repeat(NODE_ROW_AMOUNT_MAX_CHARS)
+    expect(optionAmountSegmentNoWrap(at)).toBe(true)
+    expect(optionAmountSegmentNoWrap(`${at}x`)).toBe(false)
+  })
+
+  it('RED CHECK — the served "to" run with its glued mark sits between the label budget and the amount budget', () => {
+    // "→ 3 engineers" + the glue + "no source": held whole on its own budget,
+    // and NOT on the label's — which is what broke it when the cap moved.
+    const run = '→ 3 engineers no source'
+    expect(run.length).toBeGreaterThan(NODE_ROW_LABEL_MAX_CHARS)
+    expect(run.length).toBeLessThanOrEqual(NODE_ROW_AMOUNT_MAX_CHARS)
+    expect(optionAmountSegmentNoWrap(run)).toBe(true)
   })
 })

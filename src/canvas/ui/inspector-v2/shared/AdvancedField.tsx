@@ -188,7 +188,7 @@ export function AdvancedField({
   const inputClasses = `w-full h-8 px-2 rounded text-right tabular-nums bg-transparent
     ${typography.panelMeta}
     ${error ? 'border border-danger' : 'border border-panel-border'}
-    focus:border-primary focus:outline-none
+    focus:outline-none
     transition-colors`
 
   // Readonly fields use inline two-column layout; editable fields use vertical stack
@@ -240,7 +240,7 @@ export function AdvancedField({
             rows={3}
             className={`w-full px-2 py-1 rounded bg-transparent ${typography.panelMeta}
               ${error ? 'border border-danger' : 'border border-panel-border'}
-              focus:border-primary focus:outline-none transition-colors resize-none`}
+              focus:outline-none transition-colors resize-none`}
           />
         ) : (
           <input

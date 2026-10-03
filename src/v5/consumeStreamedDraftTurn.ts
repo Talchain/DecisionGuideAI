@@ -59,6 +59,36 @@ export interface StreamedDraftHandlers {
   onGraphReady: (graph: StageGraph) => void
   /** Fired when the coaching pass lands (live: 59.2 s). Enum status, not prose. */
   onCoachingReady?: (coachingStatus: string | undefined) => void
+  /**
+   * ⭐ C6-2: fired at most once, when CEE has read the user's own goal and options out of a first brief (a few seconds
+   * in). Never after GRAPH_READY: once the model is on screen it supersedes the reading. A throw here never costs the
+   * turn.
+   */
+  onBriefRead?: (reading: BriefReading) => void
+}
+
+/**
+ * What CEE read in the brief, in the user's OWN words (CEE gates each span as an exact substring of the message).
+ * No leader, no ranking, no role beyond the two AIQ allowed (#70 5858767026): a goal and the options as written.
+ */
+export interface BriefReading {
+  goal: string | null
+  options: string[]
+  /** v2 (AIQ GO #70 5859288025): limits the user set, only those whose own words carry a comparator. Absent = none. */
+  limits: string[]
+}
+
+/** The frame's strings only: a non-string or blank entry is dropped, never coerced. Null when nothing is left. */
+export function briefReadingOf(frame: { goal?: unknown; options?: unknown; limits?: unknown }): BriefReading | null {
+  const clean = (v: unknown): string | null => (typeof v === 'string' && v.trim().length > 0 ? v.trim() : null)
+  const goal = clean(frame.goal)
+  const options = Array.isArray(frame.options)
+    ? frame.options.map(clean).filter((o): o is string => o !== null)
+    : []
+  const limits = Array.isArray(frame.limits)
+    ? frame.limits.map(clean).filter((l): l is string => l !== null)
+    : []
+  return goal === null && options.length === 0 && limits.length === 0 ? null : { goal, options, limits }
 }
 
 export interface IdentityDrift {
@@ -308,6 +338,7 @@ export async function consumeStreamedDraftTurn(
   let renderAttempted = false
   // The DELIVERY observation, kept separate from the RENDER outcome on purpose.
   let graphFrameArrived = false
+  let briefReadHandled = false
 
   try {
     for await (const frame of frames) {
@@ -315,6 +346,20 @@ export async function consumeStreamedDraftTurn(
         case 'DRAFTING':
           handlers.onDrafting?.()
           break
+
+        case 'BRIEF_READ': {
+          // Once, and only while no model has arrived: the model supersedes the reading.
+          if (briefReadHandled || graphFrameArrived) break
+          briefReadHandled = true
+          const reading = briefReadingOf(frame)
+          if (reading === null) break
+          try {
+            handlers.onBriefRead?.(reading)
+          } catch {
+            // A display-side failure must not cost the user the turn.
+          }
+          break
+        }
 
         case 'GRAPH_READY': {
           // ── THE DELIVERY OBSERVATION ─────────────────────────────────────

@@ -53,6 +53,39 @@ import { Pencil } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
 import { EDIT_RESERVED_HEIGHT_CLASS } from './valueCellMetrics'
+import { classifyValueProvenance } from '../domain/valueProvenance'
+
+/** Attention reasons the row's own text already states; not drawn as marks (see the attention cell). */
+const ROW_TEXT_SAYS_IT: ReadonlySet<string> = new Set(['no-value', 'unconfirmed-estimate'])
+
+/**
+ * ⭐ CUT-BACK (Paul, 30 Sep 2026): "Very high (0.8)" → "Very high". The number is the model's own
+ * 0–1 scale, not the user's units; the word carries the reading. The full text stays in `title`.
+ */
+export function estimateWords(text: string): string {
+  const m = /^(.*\S)\s+\((-?\d+(?:\.\d+)?)\)$/.exec(text)
+  // AIQ 5917333759 (2): only the model's own -1..1 scale is dropped. Any other bracketed number
+  // may be a real figure the user needs to correct, so it stays.
+  return m && Math.abs(Number(m[2])) <= 1 ? m[1] : text
+}
+
+/**
+ * AIQ 5917333759 (1): "Olumi: <band>" is said ONLY when the value IS Olumi's own estimate
+ * (`classifyValueProvenance(...).kind === 'ai'`, the same classifier the ✨ mark reads). Any other
+ * source (a placeholder, a system default, an unknown stamp) keeps "Not set" and says so.
+ */
+export function estimateIsOlumis(provenanceSource: string | undefined): boolean {
+  return classifyValueProvenance(provenanceSource)?.kind === 'ai'
+}
+
+/**
+ * Beside "Not set" when the value in use is NOT attested as Olumi's own estimate. The value stays
+ * visible (a computed range the user never sees is the defect `rowShowsOlumisEstimate` fixed).
+ */
+export const PLACEHOLDER_ESTIMATE_COPY = {
+  row: (text: string): string => `Placeholder: ${estimateWords(text)}`,
+  title: (text: string): string => `Olumi is using a placeholder: ${text}`,
+} as const
 import {
   GOAL_LABEL_FROM_BRIEF_COPY,
   GOAL_LABEL_FROM_BRIEF_TESTID,
@@ -292,6 +325,14 @@ function ValueLeaf({
  * `__tests__/valueMayShrink.spec.tsx`, whose corpus is DERIVED by calling the
  * real producer rather than by pasting strings.
  */
+/**
+ * ⭐ A SENTENCE VALUE WRAPS (see `ModelRow.valueIsSentence`). Served funding brief, 360 dock, `7fc20dff`: the
+ * natural-effect phrase carries digits, so `valueMayShrink` (rightly) refused to cut it, and with
+ * `whitespace-nowrap` it ran off the panel edge on every relationship row. A measurement keeps the no-wrap
+ * rule; only the flagged sentence wraps, on its own line under the row's name.
+ */
+export const SENTENCE_VALUE_FLOW = 'whitespace-normal break-words min-w-0'
+
 export function valueMayShrink(display: string | null): boolean {
   if (display === null) return false
   const text = display.trim()
@@ -775,7 +816,7 @@ export function ModelRowView({
         className={`${typography.panelBody} ${
           labelIsTypeDefault(row) ? 'text-text-light italic' : 'text-text-body'
         } text-left min-w-[6rem] flex-1 ${
-          row.labelEndpoints ? 'flex items-baseline overflow-hidden' : 'break-words'
+          'break-words'
         }`}
         onClick={e => {
           e.stopPropagation()
@@ -821,7 +862,10 @@ export function ModelRowView({
             inter-element spaces. */}
         {row.labelEndpoints ? (
           <>
-            <span className="truncate min-w-0 flex-1">{row.labelEndpoints[0]}</span>
+            {/* ⭐ CUT-BACK (Paul, 30 Sep 2026): both ends WRAP. At the 360 dock every one of 14
+                relationships read "Bottom-Up Adoption Fri… → Bottom-Up New Logo A…"; the label
+                owns its own full-width line (MODEL-1), so there is room to say it whole. */}
+            <span>{row.labelEndpoints[0]}</span>
             {/* ⚠ NOT `aria-hidden`, AND THE SPACES ARE IN THE STRING. The
                 separator IS the shared constant, so the button's text content
                 stays byte-identical to `row.label` — a screen reader, a
@@ -830,10 +874,8 @@ export function ModelRowView({
                 would have left assistive tech with
                 "Tech Lead HiredDelivery Throughput", which is a regression
                 dressed as a layout tidy-up. */}
-            <span className="shrink-0 text-text-light whitespace-pre">
-              {RELATIONSHIP_LABEL_SEPARATOR}
-            </span>
-            <span className="truncate min-w-0 flex-1">{row.labelEndpoints[1]}</span>
+            <span className="text-text-light whitespace-pre">{RELATIONSHIP_LABEL_SEPARATOR}</span>
+            <span>{row.labelEndpoints[1]}</span>
           </>
         ) : (
           row.label
@@ -1035,6 +1077,10 @@ export function ModelRowView({
           the next author will open**, which is the thing a row in a register
           cannot do. Whoever wires those arms: bound the content, and add the
           contract in the same change. */}
+      {/* THE GOAL'S BOUND, BEFORE ITS VALUE: the line reads "[at least ▾] [4] [%]". See `GoalBoundField`. */}
+      {row.kind === 'goal' && commit?.phase === 'editing' && onDraftChange && onProposeEdit && onDiscardEdit && (
+        <GoalBoundField row={row} commit={commit} onDraftChange={onDraftChange} />
+      )}
       <ValueCell
         row={row}
         commit={commit}
@@ -1045,6 +1091,9 @@ export function ModelRowView({
         onDiscardEdit={onDiscardEdit}
         onConfirmEdit={onConfirmEdit}
       />
+      {row.kind === 'goal' && commit?.phase === 'editing' && onDraftChange && onProposeEdit && onDiscardEdit && (
+        <GoalUnitField row={row} commit={commit} onDraftChange={onDraftChange} onProposeEdit={onProposeEdit} onDiscardEdit={onDiscardEdit} />
+      )}
 
       {/*
         showWhenAbsent={false} is deliberate: when nothing states a provenance the
@@ -1183,7 +1232,7 @@ export function ModelRowView({
            the one thing the re-application lost. Restored here, because the
            deferral is defensible and its silence was not. */
         <span data-testid={`model-row-v2-${row.id}-provenance`} className="min-w-0 truncate">
-          <ValueProvenanceMark source={row.provenanceSource} rowId={row.id} />
+          <ValueProvenanceMark source={row.provenanceSource} rowId={row.id} accepted={row.provenanceAccepted === true} />
         </span>
       )}
 
@@ -1260,6 +1309,11 @@ export function ModelRowView({
             `'⚠'` explicitly, and the `emoji-icon` guard could not see a bare
             JSX text node, so the rule was real and unenforced here.
       */}
+      {/* ⭐ CUT-BACK (Paul, 30 Sep 2026): "no value set" and "unconfirmed estimate" restate what
+          the row already SAYS ("Not set", "Olumi: …", or "Confirm"), so they are not DRAWN —
+          three marks for one fact read as noise. They stay in the document, visually hidden, so a
+          screen reader still hears "Estimate not yet confirmed" (the only place it is said).
+          Contested, could-flip and no-target still draw. */}
       {row.attention.map(reason => {
         const Mark = ATTENTION_MARK[reason]
         return (
@@ -1269,9 +1323,10 @@ export function ModelRowView({
             title={ATTENTION_LABEL[reason]}
             aria-label={ATTENTION_LABEL[reason]}
             role="img"
+            data-visually-hidden={ROW_TEXT_SAYS_IT.has(reason) ? 'true' : undefined}
             className={`shrink-0 ${
               ATTENTION_IS_SEVERE.has(reason) ? 'text-warning' : 'text-text-light'
-            }`}
+            }${ROW_TEXT_SAYS_IT.has(reason) ? ' sr-only' : ''}`}
           >
             <Mark className="w-3.5 h-3.5" aria-hidden="true" />
           </span>
@@ -1440,29 +1495,6 @@ export function ModelRowView({
           Only `col-span-4` on a DIRECT child of the row leaves the track. */}
       {row.kind === 'relationship' && commit?.phase === 'editing' && onDraftChange && onProposeEdit && onDiscardEdit && (
         <RelationshipBandLine row={row} commit={commit} onDraftChange={onDraftChange} />
-      )}
-
-      {/* ⭐⭐ THE GOAL'S BOUND AND UNIT — OUT OF THE 80px TRACK, for the same
-          measured reason as the band line directly above. These two fields
-          lived inside the value cell's wrapper, where they were two block
-          boxes in an 80px track and therefore STACKED: `Canvas Browser Gate`
-          measured the goal form at 167.75px against a 138.5px budget at a
-          416px dock, and at 167.75px against 158px at 280px — IDENTICAL row
-          heights at two different dock widths, which is what proves it was a
-          fixed stack and not a wrap. Attribution, in the browser: the added
-          `Limit` label column measured 38.13px and the wrapper it sits in
-          computes to `display: block`, so its two flex labels could only
-          stack. Same three-callback condition as the band line and the action
-          line — fields for an editor that is not mounted would be an
-          affordance that does nothing. */}
-      {row.kind === 'goal' && commit?.phase === 'editing' && onDraftChange && onProposeEdit && onDiscardEdit && (
-        <GoalTargetFieldsLine
-          row={row}
-          commit={commit}
-          onDraftChange={onDraftChange}
-          onProposeEdit={onProposeEdit}
-          onDiscardEdit={onDiscardEdit}
-        />
       )}
 
       {/* ── EDITOR ACTION LINE · THE ROUTE FORWARD, ON A LINE THAT IS NOT 48px WIDE.
@@ -1875,7 +1907,7 @@ export function unproposableDraftReason(
     const stated = statedTargetNumber(draft)
     if (stated === null) return 'Enter a number to review this change'
     if (stated <= 0) return 'Enter a target above zero to review this change'
-    if (unit.trim() === '') return 'Add a unit — £, % or points — to review this change'
+    if (unit.trim() === '') return 'Add a unit (£, % or points) to review this change'
     // The builder refused for a reason this function cannot name. Say that,
     // rather than inventing a cause — an invented cause is worse than a vague
     // one, because the user acts on it.
@@ -2133,29 +2165,64 @@ function RelationshipBandLine({
 }
 
 /**
- * THE GOAL TARGET'S BOUND AND UNIT, ON THE ROW'S OWN FULL-WIDTH LINE.
+ * THE GOAL TARGET'S BOUND AND UNIT, INLINE ON THE VALUE LINE: "[at least ▾] [4] [%]".
  *
- * ⭐⭐ THIS IS THE SAME REMEDY AS `RelationshipBandLine` ABOVE, FOR THE SAME
- * MEASURED REASON, and that file's history is the argument for it: extra edit
- * controls parked inside the value cell's wrapper are parked inside grid
- * track 3, which is 80px wide at a 280px dock. Two `flex flex-col` labels in
- * there are two BLOCK boxes, so they stack — and the stack, not any wrap, is
- * what a height budget sees.
+ * ⭐ MEASURED, 30 Sep 2026 (Canvas, DL #75 5917295402). On their own full-width
+ * line under stacked "Limit"/"Unit" words the two fields cost a 40px line, and
+ * `Canvas Browser Gate` measured the goal form at 159.63px at BOTH docks
+ * against 158px (280) and 138.5px (416). They now sit in the row-2 value span
+ * (`row-start-2 col-start-2 col-span-3`, three tracks, NOT the 80px track 3
+ * the history below warns about), beside the value they qualify. The words are
+ * gone from sight only: each field keeps its accessible name.
  *
- * ⚠ `col-span-4` IS LOAD-BEARING AND MUST STAY ON A DIRECT CHILD OF THE ROW.
- * The row is `grid grid-cols-subgrid col-span-4`; a subgrid row grants tracks
- * only to its own children, so nesting this line inside anything else silently
- * returns it to the 80px track and the stack comes back with it. That exact
- * mistake is recorded at the band line's call site — it was the first fix
- * there, it was insufficient, and jsdom could not see it.
- *
- * ⚠ THE TWO FIELDS SIT SIDE BY SIDE BECAUSE THE LINE IS 220px, NOT 80px.
- * `flex-wrap` is kept as a FLOOR rather than as the layout, exactly as on the
- * band line: 96 + 8 + 96 = 200px against a measured 220px of row content at
- * the narrowest gated dock, so a longer future vocabulary wraps instead of
- * escaping the panel.
+ * ⚠ THE 80px-TRACK HISTORY STILL HOLDS. These fields must stay DIRECT children
+ * of the row-2 span; parked inside `ValueCell`'s wrapper they are back in
+ * track 3 and stack (`RelationshipBandLine`'s call site records that mistake).
+ * The span is `flex-wrap`, so a narrow dock takes the unit onto a second line
+ * rather than escaping the panel.
  */
-function GoalTargetFieldsLine({
+function GoalBoundField({
+  row,
+  commit,
+  onDraftChange,
+}: {
+  row: ModelRow
+  commit: { phase: 'editing'; draft: string; unit?: string; direction?: ConstraintType }
+  onDraftChange: (id: string, draft: string, unit?: string, direction?: ConstraintType) => void
+}) {
+  /* THE BOUND — the founder could not say "under 4%".
+     This surface sent `'at_least'` unconditionally beneath a review line
+     reading "At least …", so the two agreed and both were wrong for a
+     ceiling. Both values are first-class at CEE: `AddConstraintTypeSchema`
+     is `z.enum(['at_least','at_most'])` and the operator comes from a MAP
+     — measured by execution against the real `add_constraint` handler,
+     with `'exactly'` refused as a negative control
+     (`manualGoalTarget.ts:56-67`).
+
+     ⚠ THE TWO BOUNDS DIVERGE DOWNSTREAM, DELIBERATELY. `at_least` also
+     stamps the goal's success threshold, because ISL computes
+     `P(samples >= threshold)`; `at_most` lands a constraint row and no
+     threshold. That asymmetry is recorded at `manualGoalTarget.ts:70-81`
+     as correct and NOT to be "fixed" here. The copy claims only what is
+     true of both: a recorded limit. */
+  return (
+    <select
+      data-testid={`model-row-v2-${row.id}-goal-bound`}
+      aria-label={`Target bound for ${row.label}`}
+      value={commit.direction ?? 'at_least'}
+      onClick={e => e.stopPropagation()}
+      onChange={e =>
+        onDraftChange(row.id, commit.draft, commit.unit, e.target.value as ConstraintType)
+      }
+      className={`${typography.tabular} shrink-0 bg-panel border border-field rounded-sm px-1`}
+    >
+      <option value="at_least">at least</option>
+      <option value="at_most">at most</option>
+    </select>
+  )
+}
+
+function GoalUnitField({
   row,
   commit,
   onDraftChange,
@@ -2168,63 +2235,24 @@ function GoalTargetFieldsLine({
   onProposeEdit: (id: string) => void
   onDiscardEdit: (id: string) => void
 }) {
+  /* ⚠ `w-24` IS A FLOOR THE GATE ENFORCES, NOT AN INHERITED DEFAULT. The
+     measure asserts every `input` in this row is >= 90px wide, so the
+     `w-16` (64px) this field briefly carried was a SECOND breach — one the
+     height assertion above it was concealing, since a failing expect stops
+     the test before the width loop runs. */
   return (
-    <span
-      data-testid={`model-row-v2-${row.id}-goal-target-fields`}
-      className={`${typography.panelMeta} text-text-light col-span-4 flex flex-wrap items-end gap-2 min-w-0`}
+    <input
+      aria-label={`Target unit for ${row.label}`}
+      value={commit.unit ?? ''}
+      placeholder="£, %, points"
       onClick={e => e.stopPropagation()}
-    >
-      {/* THE BOUND — the founder could not say "under 4%".
-          This surface sent `'at_least'` unconditionally beneath a review line
-          reading "At least …", so the two agreed and both were wrong for a
-          ceiling. Both values are first-class at CEE: `AddConstraintTypeSchema`
-          is `z.enum(['at_least','at_most'])` and the operator comes from a MAP
-          — measured by execution against the real `add_constraint` handler,
-          with `'exactly'` refused as a negative control
-          (`manualGoalTarget.ts:56-67`).
-
-          ⚠ THE TWO BOUNDS DIVERGE DOWNSTREAM, DELIBERATELY. `at_least` also
-          stamps the goal's success threshold, because ISL computes
-          `P(samples >= threshold)`; `at_most` lands a constraint row and no
-          threshold. That asymmetry is recorded at `manualGoalTarget.ts:70-81`
-          as correct and NOT to be "fixed" here. The copy claims only what is
-          true of both: a recorded limit. */}
-      <label className="flex flex-col gap-0.5">
-        Limit
-        <select
-          aria-label={`Target bound for ${row.label}`}
-          value={commit.direction ?? 'at_least'}
-          onClick={e => e.stopPropagation()}
-          onChange={e =>
-            onDraftChange(row.id, commit.draft, commit.unit, e.target.value as ConstraintType)
-          }
-          className={`${typography.tabular} w-24 bg-panel border border-field rounded-sm px-2`}
-        >
-          <option value="at_least">at least</option>
-          <option value="at_most">at most</option>
-        </select>
-      </label>
-      {/* ⚠ `w-24` IS A FLOOR THE GATE ENFORCES, NOT AN INHERITED DEFAULT. The
-          measure asserts every `input` in this row is >= 90px wide, so the
-          `w-16` (64px) this field briefly carried was a SECOND breach — one the
-          height assertion above it was concealing, since a failing expect stops
-          the test before the width loop runs. */}
-      <label className="flex flex-col gap-0.5">
-        Unit
-        <input
-          aria-label={`Target unit for ${row.label}`}
-          value={commit.unit ?? ''}
-          placeholder="£, %, points"
-          onClick={e => e.stopPropagation()}
-          onChange={e => onDraftChange(row.id, commit.draft, e.target.value, commit.direction)}
-          onKeyDown={e => {
-            if (e.key === 'Enter') { e.preventDefault(); onProposeEdit(row.id) }
-            if (e.key === 'Escape') { e.preventDefault(); onDiscardEdit(row.id) }
-          }}
-          className={`${typography.tabular} w-24 bg-panel border border-field rounded-sm px-2`}
-        />
-      </label>
-    </span>
+      onChange={e => onDraftChange(row.id, commit.draft, e.target.value, commit.direction)}
+      onKeyDown={e => {
+        if (e.key === 'Enter') { e.preventDefault(); onProposeEdit(row.id) }
+        if (e.key === 'Escape') { e.preventDefault(); onDiscardEdit(row.id) }
+      }}
+      className={`${typography.tabular} w-24 shrink-0 bg-panel border border-field rounded-sm px-2`}
+    />
   )
 }
 
@@ -2616,10 +2644,18 @@ function ValueCell({
            `title` on the leaf, not on the wrapping `<button>`, because the
            button's own "Change this value" is about the affordance and would
            otherwise be the only thing a hover could ever tell you. */
-        title={`Olumi: ${row.estimateText}`}
-        className={`${typography.panelBody} text-text-light ml-2 truncate min-w-0`}
+        title={
+          estimateIsOlumis(row.provenanceSource)
+            ? `Olumi's estimate, not yet yours: ${row.estimateText}`
+            : PLACEHOLDER_ESTIMATE_COPY.title(row.estimateText)
+        }
+        className={`${typography.panelBody} text-text-light truncate min-w-0${
+          estimateIsOlumis(row.provenanceSource) ? '' : ' ml-2'
+        }`}
       >
-        Olumi: {row.estimateText}
+        {estimateIsOlumis(row.provenanceSource)
+          ? `Olumi: ${estimateWords(row.estimateText)}`
+          : PLACEHOLDER_ESTIMATE_COPY.row(row.estimateText)}
       </span>
     ) : display === null && row.recordedRangeText !== undefined ? (
       /*
@@ -2650,7 +2686,7 @@ function ValueCell({
          rather than starving the label. */
       <span
         data-testid={testid}
-        className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} flex items-center whitespace-nowrap ${
+        className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} flex items-center ${row.valueIsSentence ? SENTENCE_VALUE_FLOW : `whitespace-nowrap ${
           /* ⚠ `min-w-0` ONLY — NEVER `truncate` HERE. This element is a FLEX
              CONTAINER (`flex items-center`) holding the value and its estimate
              hint. `truncate` sets `overflow:hidden` on the container, and the
@@ -2659,9 +2695,13 @@ function ValueCell({
              of this very change, not by a test — jsdom performs no layout.
              The ellipsis belongs on a text LEAF, not on the flex box. */
           estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0'
-        }`}
+        }`}`}
       >
-        <ValueLeaf display={display} mayShrink={valueMayShrink(display)} />
+        {/* ⭐ CUT-BACK (Paul, 30 Sep 2026): with an estimate, the estimate IS the reading.
+            "Not set" beside "Olumi: Very high" read as a contradiction. */}
+        {estimate === null || !estimateIsOlumis(row.provenanceSource) ? (
+          <ValueLeaf display={display} mayShrink={valueMayShrink(display)} />
+        ) : null}
         {estimate}
       </span>
     )
@@ -2691,8 +2731,10 @@ function ValueCell({
          WHY IT IS HERE TOO: "a fix applied to one of the two idle elements is a
          fix that half the rows never receive." The editable rows are exactly the
          ones carrying "Not set", which is where the relationship list lives. */
-      className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} text-left flex items-center whitespace-nowrap ${
-        estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0'
+      className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} text-left flex items-center ${
+        row.valueIsSentence
+          ? SENTENCE_VALUE_FLOW
+          : `whitespace-nowrap ${estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0'}`
       }`}
       onClick={e => {
         e.stopPropagation()
@@ -2703,7 +2745,9 @@ function ValueCell({
           to one of the two idle elements is a fix that half the rows never
           receive." The editable rows are exactly the ones carrying the long
           strength bands, so this is the site the overflow was measured on. */}
-      <ValueLeaf display={display ?? 'Not set'} mayShrink={valueMayShrink(display)} editable />
+      {estimate === null || !estimateIsOlumis(row.provenanceSource) ? (
+        <ValueLeaf display={display ?? 'Not set'} mayShrink={valueMayShrink(display)} editable />
+      ) : null}
       {estimate}
     </button>
   )

@@ -67,7 +67,8 @@ describe('formatProbabilityWithResolution — the no-sample-count arm applies th
   it('CONTROL — values at or above the floor are untouched', () => {
     expect(formatProbabilityWithResolution(SUB_ONE_PERCENT_FLOOR, undefined)).toBe('1%')
     expect(formatProbabilityWithResolution(0.73, undefined)).toBe('73%')
-    expect(formatProbabilityWithResolution(0.995, undefined)).toBe('100%')
+    // R3 5903852225: the ceiling mirrors the floor — a value below 1 never prints "100%".
+    expect(formatProbabilityWithResolution(0.995, undefined)).toBe('> 99%')
   })
 
   it('CONTROL — the RESOLUTION arm is unchanged: a real sample count still wins', () => {

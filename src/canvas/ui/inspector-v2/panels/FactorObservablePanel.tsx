@@ -57,6 +57,7 @@ import {
   type FactorValueProposalOutcome,
 } from '../../../hooks/useModelEditAuthority'
 import { ANALYSIS_NEW_COPY } from '../../../../components/results/analysisNew/analysisNewCopy'
+import { isAcceptedOlumiFigure } from '../../../domain/valueProvenance'
 
 /**
  * What the panel says after a value commit — the SAME three sentences every
@@ -431,7 +432,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
       {/* The header is a CLAIM about who supplied this number, not a static
           caption. "Your input" over an Olumi estimate is false attribution —
           see getInputGroupLabel (inspectorStrings.ts) for both directions. */}
-      <PanelGroup kind="input" label={getInputGroupLabel(source, displayValue != null)}>
+      <PanelGroup kind="input" label={getInputGroupLabel(source, displayValue != null, isAcceptedOlumiFigure(node?.data))}>
         <PrimaryControlCard>
           {/* CEE-canonical display text above value */}
           {canonicalDisplayText && (
@@ -480,7 +481,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
           {source && (
             <div className="flex items-center gap-1 mt-2 pt-2 border-t border-panel-border">
               <Link size={12} className="text-info" />
-              <span className={`${typography.panelMeta} text-info`}>{getProvenanceLabel(source, attributedTo)}</span>
+              <span className={`${typography.panelMeta} text-info`}>{getProvenanceLabel(source, attributedTo, isAcceptedOlumiFigure(node?.data))}</span>
             </div>
           )}
 

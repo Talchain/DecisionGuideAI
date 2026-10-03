@@ -348,7 +348,8 @@ describe('ROADMAP 2.1132 — the assistant attributes the panel gestures it actu
     // before anything below asserts a presence or an absence inside it.
     const strip = screen.getByRole('navigation', { name: 'Outputs sections' })
     expect(strip).toBeInTheDocument()
-    expect(tabLabels(strip)).toEqual(['Olumi', 'Analysis', 'Reasoning', 'Model'])
+    // Compare presented again 30 Sep 2026 (SC-24 v3).
+    expect(tabLabels(strip)).toEqual(['Olumi', 'Analysis', 'Reasoning', 'Compare', 'Model'])
 
     // Absent before any gesture — so the presence below is the gesture's doing.
     expect(notice()).not.toBeInTheDocument()

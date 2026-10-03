@@ -16,7 +16,7 @@
 //   updateNode(id, { data: patch })                  // writes to both keys
 // ============================================================================
 
-import { classifyValueProvenance } from '../domain/valueProvenance'
+import { classifyObservedValueProvenance } from '../domain/valueProvenance'
 import { isUnquantifiedPrior } from '../domain/nodes'
 
 /** Shape of observed_state on factor nodes */
@@ -230,8 +230,9 @@ export function hasObservedData(nodeData: unknown): boolean {
   // Empty object returned when key is absent — no keys means no data
   if (Object.keys(obs).length === 0) return false
   if (typeof obs.value !== 'number') return false
-  const stamped = classifyValueProvenance(typeof obs.source === 'string' ? obs.source : null)
-  return stamped?.kind !== 'ai'
+  // Olumi's figure — accepted or not — is not observed data (52f8cd: the whole observed state decides).
+  const stamped = classifyObservedValueProvenance(obs)
+  return stamped?.kind !== 'ai' && stamped?.kind !== 'accepted'
 }
 
 /**
@@ -297,6 +298,27 @@ function priorCountsAsEvidence(prior: { range_min?: number; range_max?: number }
 export function hasAnyStatedValue(nodeData: unknown): boolean {
   const obs = getObservedState(nodeData)
   return obs.value != null || obs.raw_value != null || obs.display_value != null
+}
+
+/**
+ * ⭐ "NO VALUE YET" IS SAID ONLY OF A NODE THAT HOLDS NEITHER A VALUE NOR A RANGE.
+ *
+ * The PJ-B3 caption ("Driver 1 of 1 · no value yet") read `hasAnyStatedValue`
+ * alone, so a prior-only external factor (a complete range the engine SAMPLES)
+ * was said to have "no value yet" on the card that prints its range one line
+ * below (served pricing-model, 28 Sep 2026: "Top Account Revenue
+ * Concentration · Driver 1 of 1 · no value yet · Range: Very low to Medium",
+ * and the Question's "Evidence priority: … · no value yet"). A complete range
+ * counts, exactly as it does for `isFactorNeedsInput` (`priorCountsAsEvidence`);
+ * an explicit statement of ignorance (`isUnquantifiedPrior`) does not.
+ *
+ * The ONE owner for every "no value yet" site: the factor card's driver slot
+ * (`useNodeDisplayMetadata`), the Question's evidence priority
+ * (`useNodeAttention`), and the panel's `noValueDriverIds`.
+ */
+export function holdsValueOrRange(nodeData: unknown): boolean {
+  if (hasAnyStatedValue(nodeData)) return true
+  return priorCountsAsEvidence((nodeData as { prior?: { range_min?: number; range_max?: number } } | null | undefined)?.prior)
 }
 
 /**

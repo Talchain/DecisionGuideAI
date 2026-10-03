@@ -31,11 +31,22 @@
  * the expectation from `MAX_LABEL_COUNTER_SCALE` at a DIFFERENT value. A test
  * asserting `GHOST_DOOR_W_PX === 187` would pass against a hardcoded 187 and
  * would be the hand-maintained mirror this whole file exists to prevent.
+ *
+ * ── ⭐⭐ 30 SEP 2026: THE DOOR IS AN ICON-ONLY BUTTON (Paul: "Those could be
+ * icons with hover states … save space with them, but make them visible and
+ * easy to use") ──
+ *
+ * `GhostTierNode` now renders `RowEndPromptIcon`: a 64 × 64 round button with no
+ * visible text. The question is its accessible name AND its DS tooltip, verbatim.
+ * So the rows below pin the ICON's contract — the ruled 64 square the layout
+ * reserves (`ROW_PROMPT_W` / `ROW_PROMPT_H`), the name and tooltip, the `[24]`
+ * glyph, and the DS chrome — while the three-line tile arithmetic is kept as the
+ * record it now is (`ROW_PROMPT_TILE_H`), still derived, still mutant-checked.
  */
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import type { NodeProps } from '@xyflow/react'
 import {
@@ -44,9 +55,11 @@ import {
   GHOST_DOOR_W_PX,
   GHOST_DOOR_MIN_H_PX,
 } from '../GhostTierNode'
-import { ROW_PROMPT_W, ROW_PROMPT_H, ROW_PROMPT_LINES } from '../../utils/nodeLayoutConstants'
+import { ROW_PROMPT_W, ROW_PROMPT_H, ROW_PROMPT_LINES, ROW_PROMPT_TILE_H } from '../../utils/nodeLayoutConstants'
 import { MAX_LABEL_COUNTER_SCALE, LABEL_LEGIBLE_ZOOM, labelCounterScale } from '../../utils/zoomLegibility'
 import { GHOST_TIERS } from '../../utils/ghostTiers'
+import { CANVAS_GLYPH_SIZE_CLASSES } from '../shared/canvasGlyphScale'
+import { NODE_TOOLTIP_DELAY_MS } from '../shared/nodeTooltip'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -61,18 +74,22 @@ const props = (data: Record<string, unknown>) =>
  * independent second opinion on the component's arithmetic, so it must not
  * import the component's own private parts and agree with itself. Read off the
  * rendered markup (6px padding, 1.5px dashed border, `typography.edgeLabel` =
- * 11px `leading-snug` 1.375), which the render test below also checks — so a
+ * 11px, line-height 1.35), which the render test below also checks — so a
  * style change cannot leave this restatement quietly wrong.
  *
  * ⭐ S4 (24 Sep 2026): the door is the ROW-END PROMPT again, at the width
  * Experience Design ruled ("160px is approved as the target width and they
  * count inside the row budget", #63 5806266691). The width is therefore a RULED
  * number, shared with the layout that reserves it; only the HEIGHT is derived
- * from the counter-scale. */
+ * from the counter-scale.
+ *
+ * ⚠ 30 Sep 2026: these five numbers now describe the RETIRED tile only
+ * (`ROW_PROMPT_TILE_H`); the icon renders none of this chrome, which the render
+ * rows below assert (no dashed border, no label span). */
 const PAD_PX = 6
 const BORDER_PX = 1.5
 const DECLARED_LABEL_PX = 11
-const LINE_HEIGHT = 1.375
+const LINE_HEIGHT = 1.35
 const LINES = 3
 
 describe('the door is the row slot the layout reserved, and its height is derived from the bound', () => {
@@ -83,19 +100,30 @@ describe('the door is the row slot the layout reserved, and its height is derive
     expect(MAX_LABEL_COUNTER_SCALE).toBeGreaterThan(1)
   })
 
-  it('the width is the ruled prompt width — the SAME number `layoutGraph` reserves (ED S4: 160)', () => {
-    expect(ROW_PROMPT_W).toBe(160)
+  /** The ruled icon size, written as the RULING says it (Paul, 1 Oct 2026: "Make the plus buttons on the right
+   *  smaller … 50% smaller": 32, half the 30 Sep ruling's 64) — never read back from the constant under test. */
+  const RULED_ICON_W = 32
+
+  it('the width is the ruled icon width — the SAME number `layoutGraph` reserves (Paul 1 Oct: 32; was 64, and ED S4\'s 160 tile)', () => {
+    expect(ROW_PROMPT_W).toBe(RULED_ICON_W)
     expect(GHOST_DOOR_W_PX).toBe(ROW_PROMPT_W)
   })
 
-  it('the height floor holds THREE lines of counter-scaled label plus unscaled chrome', () => {
+  it('the icon is SQUARE: the height the layout reserves is its width', () => {
+    expect(ROW_PROMPT_H).toBe(ROW_PROMPT_W)
+    expect(GHOST_DOOR_MIN_H_PX).toBe(ROW_PROMPT_H)
+  })
+
+  it('RECORD: the retired tile\'s floor held THREE lines of counter-scaled label plus unscaled chrome', () => {
     // TEXT scales, CHROME does not — the distinction `NODE_TITLE_RECLAIMED_PX`
-    // records after a first cut multiplied the chrome and doubled it.
+    // records after a first cut multiplied the chrome and doubled it. The tile's
+    // number is kept (`ROW_PROMPT_TILE_H`, 89 at the 1.64 bound) and still derived.
     const expected = Math.ceil(
       LINES * DECLARED_LABEL_PX * LINE_HEIGHT * MAX_LABEL_COUNTER_SCALE + PAD_PX * 2 + BORDER_PX * 2,
     )
-    expect(ROW_PROMPT_H).toBe(expected)
-    expect(GHOST_DOOR_MIN_H_PX).toBe(ROW_PROMPT_H)
+    expect(ROW_PROMPT_TILE_H).toBe(expected)
+    // …and the icon does not inherit it: the reserved height is the 64 square.
+    expect(GHOST_DOOR_MIN_H_PX).not.toBe(ROW_PROMPT_TILE_H)
   })
 
   /**
@@ -122,10 +150,22 @@ describe('the door is the row slot the layout reserved, and its height is derive
    * checked where it lives: the height is derived from the counter-scale in
    * `nodeLayoutConstants.ts`, and the door re-exports it by NAME.
    */
-  it('SOURCE GUARD: the height is a derivation, and the door re-exports the layout\'s constants by name', () => {
+  it('SOURCE GUARD: the height is the icon\'s width BY NAME, the tile record is a derivation, and the door re-exports the layout\'s constants by name', () => {
     const constants = readFileSync(resolve(__dirname, '..', '..', 'utils', 'nodeLayoutConstants.ts'), 'utf8')
-    const hDecl = constants.slice(constants.indexOf('export const ROW_PROMPT_H ='))
-    expect(hDecl.slice(0, hDecl.indexOf('\n)')), 'ROW_PROMPT_H is not derived from the counter-scale').toContain('MAX_LABEL_COUNTER_SCALE')
+    // ⚠ BOUNDED TO THE DECLARATION (30 Sep 2026). This sliced from
+    // `export const ROW_PROMPT_H =` to the next `\n)` ANYWHERE in the file, so once
+    // ROW_PROMPT_H became a one-line `= ROW_PROMPT_W` the slice ran on into later
+    // declarations and found MAX_LABEL_COUNTER_SCALE there: a pass on text that
+    // was not the declaration. Each slice now ends where its own declaration does.
+    const hStart = constants.indexOf('export const ROW_PROMPT_H =')
+    expect(hStart, 'ROW_PROMPT_H is not declared').toBeGreaterThan(-1)
+    const hDecl = constants.slice(hStart, constants.indexOf('\n', hStart))
+    expect(hDecl.replace('export const ROW_PROMPT_H =', '').trim(), 'ROW_PROMPT_H is not the icon width by name').toBe('ROW_PROMPT_W')
+    const tStart = constants.indexOf('export const ROW_PROMPT_TILE_H =')
+    expect(tStart, 'ROW_PROMPT_TILE_H is not declared').toBeGreaterThan(-1)
+    const tDecl = constants.slice(tStart, constants.indexOf('\n)', tStart))
+    expect(tDecl, 'ROW_PROMPT_TILE_H is not derived from the counter-scale').toContain('MAX_LABEL_COUNTER_SCALE')
+    expect(tDecl, 'the tile slice ran past its own declaration').not.toContain('export const ROW_PROMPT_H')
     const door = readFileSync(resolve(__dirname, '..', 'GhostTierNode.tsx'), 'utf8')
     expect(door).toMatch(/export const GHOST_DOOR_W_PX = ROW_PROMPT_W\b/)
     expect(door).toMatch(/export const GHOST_DOOR_MIN_H_PX = ROW_PROMPT_H\b/)
@@ -146,11 +186,14 @@ describe('the door is the row slot the layout reserved, and its height is derive
     )
   })
 
-  it('the OLD hand-tuned box could not have held the copy at the bound', () => {
+  it('the OLD hand-tuned box could not have held the copy at the bound — the S4 tile did, and the icon carries no copy', () => {
     // 132 x 64 with a 1.5px border left 61px of content box; the browser
     // measured the old nouns needing 75px there (16px icon, 4px gap, two lines
     // of the then-11px/1.25 label at the bound). Recorded as arithmetic so the
-    // regression has a number, not an anecdote — and the S4 floor clears it.
+    // regression has a number, not an anecdote — and the S4 TILE floor
+    // (`ROW_PROMPT_TILE_H`) cleared it. Since 30 Sep the door is an icon with NO
+    // visible copy (the question is its name and tooltip; the render rows below
+    // pin that), so there is no copy left to overflow its box.
     const OLD_H = 64
     const contentBox = OLD_H - BORDER_PX * 2
     // At the THEN bound, 2 — the counter-scale when the browser measured it. Since
@@ -158,14 +201,26 @@ describe('the door is the row slot the layout reserved, and its height is derive
     const THEN_BOUND = 2
     const neededThen = 16 + 4 + 2 * 11 * 1.25 * THEN_BOUND
     expect(neededThen).toBeGreaterThan(contentBox)
-    expect(GHOST_DOOR_MIN_H_PX - BORDER_PX * 2 - PAD_PX * 2).toBeGreaterThanOrEqual(
+    expect(ROW_PROMPT_TILE_H - BORDER_PX * 2 - PAD_PX * 2).toBeGreaterThanOrEqual(
       LINES * DECLARED_LABEL_PX * LINE_HEIGHT * MAX_LABEL_COUNTER_SCALE,
     )
   })
 })
 
+/** Long enough for the 300ms open delay plus floating-ui's async positioning. */
+const OPEN = { timeout: NODE_TOOLTIP_DELAY_MS + 1500 }
+
+/** Hover `el` and return the DS tooltip's text — asserting it was ABSENT first,
+ *  so the reading is evidence about hovering, not about rendering. */
+async function hoverText(el: HTMLElement): Promise<string> {
+  expect(screen.queryByRole('tooltip')).toBeNull()
+  fireEvent.mouseEnter(el)
+  const tip = await screen.findByRole('tooltip', {}, OPEN)
+  return tip.textContent ?? ''
+}
+
 describe('the rendered door', () => {
-  it('shows the tier question it was handed, verbatim', () => {
+  it('the tier question it was handed is its accessible name AND its tooltip, verbatim — with no visible copy', async () => {
     const risk = GHOST_TIERS.find((t) => t.siblingType === 'risk')!
     render(
       <ReactFlowProvider>
@@ -175,31 +230,42 @@ describe('the rendered door', () => {
     // Bound to the tier's own string by identity, not to a substring another
     // door could also satisfy.
     const door = screen.getByTestId(GHOST_TIER_TESTID)
-    expect(door).toHaveTextContent(risk.label)
-    // Visible text and accessible name are the same sentence (WCAG 2.5.3).
+    expect(door).toHaveAttribute('role', 'button')
     expect(door).toHaveAttribute('aria-label', risk.label)
+    expect(door).toHaveAttribute('data-tier', 'risk')
+    // Icon-only (DS §9.9): nothing visible to read — the tooltip says it.
+    expect(door.textContent?.trim()).toBe('')
+    expect(await hoverText(door)).toBe(risk.label)
   })
 
-  it('carries the derived box, and the chrome this file restates', () => {
+  it('carries the reserved 64 square, and the DS icon-button chrome', () => {
     render(
       <ReactFlowProvider>
         <GhostTierNode {...props({ label: 'What else could go wrong?', prompt: 'q', tier: 'risk' })} />
       </ReactFlowProvider>,
     )
     const door = screen.getByTestId(GHOST_TIER_TESTID) as HTMLElement
-    expect(door.style.width).toBe(`${GHOST_DOOR_W_PX}px`)
-    expect(door.style.minHeight).toBe(`${GHOST_DOOR_MIN_H_PX}px`)
-    // A FIXED height is what clips; a floor grows. Pinned so the fix cannot be
-    // undone by a tidy-up that "restores" the old property.
-    expect(door.style.height).toBe('')
-    expect(door.style.border).toContain(`${BORDER_PX}px dashed`)
-    // The chrome the arithmetic above assumes.
-    expect(door.style.padding).toBe(`${PAD_PX}px`)
-    const label = door.querySelector('span') as HTMLElement
-    expect(label.className).toContain('text-[length:calc(11px*var(--canvas-label-scale,1))]')
-    expect(label.className).toContain('leading-snug')
-    // The last-resort wrap rule, so a long word cannot overflow the measure.
-    expect(door.querySelector('.break-words')).not.toBeNull()
+    // The BOX is the wrapper the node renders: exactly the slot the layout reserved.
+    const box = door.parentElement as HTMLElement
+    expect(box.style.width).toBe(`${GHOST_DOOR_W_PX}px`)
+    expect(box.style.height).toBe(`${GHOST_DOOR_MIN_H_PX}px`)
+    // …and the button fills it: a round, outlined neutral on the panel fill.
+    const cls = door.className.split(/\s+/)
+    for (const c of ['absolute', 'inset-0', 'rounded-full', 'bg-panel', 'border', 'border-text-light', 'text-text-light', 'shadow-1']) {
+      expect(cls, c).toContain(c)
+    }
+    // DS §6.3 focus ring, always visible on keyboard focus.
+    for (const c of ['focus-visible:ring-2', 'focus-visible:ring-offset-2', 'focus-visible:ring-info']) {
+      expect(cls, c).toContain(c)
+    }
+    // The dashed tile chrome is gone, not merely overridden.
+    expect(door.style.border).toBe('')
+    expect(door.querySelector('span')).toBeNull()
+    // The glyph: `Plus` at the counter-scaled 12 (Paul 1 Oct: 50% smaller), decorative.
+    const glyph = door.querySelector('svg') as SVGElement
+    expect(glyph.getAttribute('class')).toContain('lucide-plus')
+    expect(glyph.getAttribute('class')).toContain(CANVAS_GLYPH_SIZE_CLASSES[12])
+    expect(glyph.getAttribute('aria-hidden')).toBe('true')
   })
 
   it('handed no label, renders none rather than falling back to a noun', () => {
@@ -213,5 +279,7 @@ describe('the rendered door', () => {
     const door = screen.getByTestId(GHOST_TIER_TESTID)
     expect(door.textContent?.trim()).toBe('')
     expect(door).not.toHaveTextContent(/add/i)
+    // …and no generic accessible name either.
+    expect(door).not.toHaveAttribute('aria-label')
   })
 })

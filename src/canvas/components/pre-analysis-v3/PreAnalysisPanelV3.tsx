@@ -59,9 +59,13 @@ export interface PreAnalysisPanelV3Props {
   blockedReason?: string
   /** The itemised form of `blockedReason` — see `GateBlockedListing`. */
   blockedListing?: GateBlockedListing
+  /** `selectRunOnRecord` — the run control offers to run again, not a first pass. */
+  runOnRecord?: boolean
+  /** `selectSavedRunUnconfirmed` — a saved Run exists that the boot could not confirm (`declinedSavedRunStore.ts`). */
+  savedRunUnconfirmed?: boolean
 }
 
-function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason, blockedListing }: PreAnalysisPanelV3Props) {
+function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason, blockedListing, runOnRecord, savedRunUnconfirmed }: PreAnalysisPanelV3Props) {
   const model = usePreAnalysisModel()
   const { sendPrompt } = useConversationActions()
   const showToast = useShowToast()
@@ -206,6 +210,8 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason, blockedListi
         // ladder when a second pre-run surface appeared; the flag rides here so
         // this surface reaches it through the same owner the shell's bar does.
         nothingHasAnswered={model.nothingHasAnswered}
+        runOnRecord={runOnRecord}
+        savedRunUnconfirmed={savedRunUnconfirmed}
       />
     </div>
   )

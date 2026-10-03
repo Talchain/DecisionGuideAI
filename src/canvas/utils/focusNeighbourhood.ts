@@ -65,6 +65,40 @@ export function computeFocusPlan(
   return { focusNodeIds, dimNodeIds, moveCamera }
 }
 
+/**
+ * EDGE focus, under the SAME no-churn rule as a node's (DL #85 5939855664: "no camera jumps when the element is already
+ * in view"). It used to re-centre on the link's midpoint on every focus, so a click on a "What changed" link row that
+ * was already on screen still slid the canvas. Now the camera moves ONLY when the link's two ends are not both
+ * comfortably visible (`nodesComfortablyVisible`, the node plan's gate); an unmeasurable camera fails open and moves.
+ * `null` = the edge or one of its ends is not on the canvas (fail-closed: nothing happens).
+ */
+export function computeEdgeFocusPlan(
+  edgeId: string,
+  nodes: ReadonlyArray<SizedNodeLike & { id: string }>,
+  edges: ReadonlyArray<{ id: string; source: string; target: string }>,
+  camera: FocusCamera | null,
+): EdgeFocusPlan | null {
+  const edge = edges.find((e) => e.id === edgeId)
+  if (!edge) return null
+  const source = nodes.find((n) => n.id === edge.source)
+  const target = nodes.find((n) => n.id === edge.target)
+  if (!source || !target) return null
+  const moveCamera =
+    camera === null ||
+    !nodesComfortablyVisible([source, target], camera.viewport, camera.paneWidth, camera.paneHeight, camera.insets)
+  return {
+    midX: (source.position.x + target.position.x) / 2,
+    midY: (source.position.y + target.position.y) / 2,
+    moveCamera,
+  }
+}
+
+export interface EdgeFocusPlan {
+  midX: number
+  midY: number
+  moveCamera: boolean
+}
+
 export interface FocusPlan {
   focusNodeIds: Set<string>
   dimNodeIds: string[]

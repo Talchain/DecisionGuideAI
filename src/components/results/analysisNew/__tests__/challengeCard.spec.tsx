@@ -59,7 +59,7 @@ const viaVm = (r: Recommendation): Recommendation => {
   return out
 }
 
-const FLIP = rec({ id: 'strengthen:flip:edge_9' })
+const FLIP = rec({ id: 'strengthen:broaden' })
 /** A producer calibration card whose technique is named ONLY by its claim id. */
 const CALIBRATION = rec({
   id: 'strengthen:phase3:blk_42',
@@ -109,13 +109,13 @@ describe('the grounded intervention', () => {
     expect(screen.getByTestId('analysis-new-challenge-heading').textContent).toBe(r.title)
     expect(screen.queryByTestId('analysis-new-challenge-kicker')).toBeNull()
     const card = screen.getByTestId('analysis-new-challenge')
-    expect(card).toHaveAttribute('data-method-id', 'consider_opposite')
+    expect(card).toHaveAttribute('data-method-id', 'different_option')
     expect(card).toHaveAttribute('data-recommendation-id', r.id)
     // …and named, in the catalogue's own title, inside the basis.
     fireEvent.click(screen.getByRole('button', { name: ZONE.moreOptions }))
     fireEvent.click(screen.getByRole('menuitem', { name: ZONE.whyThis }))
     expect(screen.getByTestId('analysis-new-challenge-basis-protocol').textContent).toBe(
-      `${METHOD_CATALOGUE.find((m) => m.id === 'consider_opposite')!.title}: ${ZONE.reasoningAid}`,
+      `${METHOD_CATALOGUE.find((m) => m.id === 'different_option')!.title}: ${ZONE.reasoningAid}`,
     )
   })
 

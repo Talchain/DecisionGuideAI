@@ -1,0 +1,84 @@
+{
+ "_source": "served CEE d83b84a7 cold read, scenario 9a880829 (R3 f5/journey-11/read/read-9a880829.json, current_read.run_delta), 2 Oct 2026 \u2014 verbatim",
+ "run_delta": {
+  "attribution_case": "C1_attributable",
+  "pair_provenance": {
+   "seed_equal": true,
+   "hash_equal": false,
+   "builds_equal": "equal",
+   "n_equal": true
+  },
+  "leader": {
+   "changed": true,
+   "prior_leading_option_id": "ai_reporting_module_sprint",
+   "current_leading_option_id": "integration_bug_fix_sprint",
+   "noise_verdict": "not_noise_qualified"
+  },
+  "win_probabilities": [
+   {
+    "option_id": "ai_reporting_module_sprint",
+    "prior": 0.508299999999997,
+    "current": 0.4218333333333474,
+    "noise_verdict": "signal"
+   },
+   {
+    "option_id": "continue_current_plan",
+    "prior": 0.11280000000000173,
+    "current": 0.11033333333333564,
+    "noise_verdict": "within_noise"
+   },
+   {
+    "option_id": "integration_bug_fix_sprint",
+    "prior": 0.37890000000001506,
+    "current": 0.46783333333333704,
+    "noise_verdict": "signal"
+   }
+  ],
+  "flip_thresholds": [],
+  "endpoints": {
+   "prior": {
+    "run_id": "81a93296def177c9b24b1e6981170c3e1958efb2b986fbc3a89e672c44d8cc4d",
+    "computed_at": "2026-10-02T00:06:12.691Z"
+   },
+   "current": {
+    "run_id": "5b3992547cc38c60b78b6d9893b6a1dba9b9afe58ba58e1b65eb9829c2c948e8",
+    "computed_at": "2026-10-02T00:07:29.679Z"
+   }
+  },
+  "input_coverage": "complete",
+  "input_changes": [
+   {
+    "entity_kind": "link",
+    "entity_id": "integration_step_bug_resolution->trial_profile_abandonment_rate",
+    "link": {
+     "from": "integration_step_bug_resolution",
+     "to": "trial_profile_abandonment_rate"
+    },
+    "field": "strength",
+    "before": {
+     "raw": "slight"
+    },
+    "after": {
+     "raw": "strong"
+    },
+    "change": "changed"
+   },
+   {
+    "entity_kind": "link",
+    "entity_id": "integration_step_bug_resolution->trial_profile_abandonment_rate",
+    "link": {
+     "from": "integration_step_bug_resolution",
+     "to": "trial_profile_abandonment_rate"
+    },
+    "field": "sizing",
+    "before": {
+     "raw": "olumi_estimate"
+    },
+    "after": {
+     "raw": "user"
+    },
+    "change": "changed"
+   }
+  ]
+ }
+}

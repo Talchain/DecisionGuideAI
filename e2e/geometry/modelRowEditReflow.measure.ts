@@ -906,10 +906,12 @@ for (const width of WIDTHS) {
     const GOAL_FORM_MAX_PX = 88
     expect(goalAfter!.valueFontPx).toBeCloseTo(14, 1)
     expect(goalAfter!.rowHeight).toBeGreaterThan(goalBefore!.rowHeight)
-    expect(
-      goalAfter!.rowHeight,
-      `the goal target form measured ${goalAfter!.rowHeight}px at a ${width}px dock (form budget ${GOAL_FORM_MAX_PX}px + disclosure ${EDIT_DISCLOSURE_MAX_PX}px)`,
-    ).toBeLessThanOrEqual(GOAL_FORM_MAX_PX + EDIT_DISCLOSURE_MAX_PX)
+    // Quarantined 30 Sep 2026 at 159.63px on both docks (stacked "Limit"/"Unit" line); restored the same day once the
+    // bound and unit moved onto the value line (Canvas, DL #75 5917295402). The height is logged for attribution.
+    const goalFormBudget = GOAL_FORM_MAX_PX + EDIT_DISCLOSURE_MAX_PX
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify({ measure: 'modelGoalEditForm', dockWidth: width, goalId, rowHeight: goalAfter!.rowHeight, budget: goalFormBudget }))
+    expect(goalAfter!.rowHeight).toBeLessThanOrEqual(goalFormBudget)
     const formBoxes = await page.locator(`[data-testid="model-row-v2-${goalId}"] input`).evaluateAll(inputs => {
       const outline = document.querySelector('[data-testid="model-outline-v2"]')!.getBoundingClientRect()
       return inputs.map(input => { const box = input.getBoundingClientRect(); return {

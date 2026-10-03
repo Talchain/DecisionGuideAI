@@ -30,8 +30,10 @@ import {
 } from '../applyBootRunCurrency'
 import { buildRegistrationGraph } from '../../registration/buildRegistrationGraph'
 import { useCoachingCurrency } from '../../../v5/blocks/useCoachingCurrency'
+import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { mergeServerGraphOnHydrate } from '../../utils/mergeServerGraph'
 import servedPricing from './fixtures/pricing-provisional-poll.json'
+import realStagingFixture from '../../../v5/__tests__/fixtures/v5-analysis-result.staging-real-shape.json'
 
 const SCENARIO_ID = '11111111-2222-4333-8444-555555555555'
 const IDENTITY = 'c'.repeat(63) + '9'
@@ -72,6 +74,10 @@ function readGraphOfCanvas() {
   return JSON.parse(JSON.stringify(built.graph)) as { nodes: Array<Record<string, unknown>>; edges: unknown[] }
 }
 
+function resultBlock() {
+  return { ...(structuredClone(realStagingFixture.blocks[0]) as Record<string, unknown>), computed_against_hash: READ_HASH }
+}
+
 function body(over: Record<string, unknown> = {}) {
   return {
     schema: 'scenario_graph.v1',
@@ -91,6 +97,7 @@ function body(over: Record<string, unknown> = {}) {
     request_id: 'req-boot-run-currency',
     graph_hash: READ_HASH,
     analysis_state: CURRENT,
+    analysis_result: resultBlock(),
     ...over,
   }
 }
@@ -101,6 +108,7 @@ function respond(b: unknown): void {
 
 /** The state an ordinary reload leaves before the read lands (`resultsLoadHistorical`). */
 function seedReloadedCanvas(over: Record<string, unknown> = {}): void {
+  const report = mapV5AnalysisToReport(resultBlock() as never)
   useCanvasStore.setState({
     currentScenarioId: SCENARIO_ID,
     nodes: JSON.parse(JSON.stringify(CANVAS_NODES)),
@@ -113,6 +121,8 @@ function seedReloadedCanvas(over: Record<string, unknown> = {}): void {
     analysisStateV1: null,
     analysisFreshness: { freshness: 'unknown', freshnessReason: 'hydrated_without_capture' },
     analysisFreshnessDirty: false,
+    results: { status: 'complete', progress: 100, report, hash: report.model_card.response_hash },
+    v5AnalysisFact: null,
     ...over,
   } as never)
 }
@@ -168,6 +178,18 @@ describe('⭐ the reload keeps a current Run card current', () => {
     expect(runCard().result.current).toBe('current')
   })
 
+  it('⭐ the merge adopts a different value from CEE (the model moved elsewhere, P0 #75 5921880401): the canvas IS CEE\'s graph now, so the Run is current', async () => {
+    const g = readGraphOfCanvas()
+    g.nodes = g.nodes.map((n) => (n.id === 'factor-1' ? { ...n, label: 'Price per seat' } : n))
+    respond(body({ graph: g }))
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('merged')
+    const st = useCanvasStore.getState()
+    expect(verdictWrites).toEqual([CURRENT])
+    expect(st.analysisFreshness?.currentGraphHash).toBe(READ_HASH)
+    expect(st.analysisFreshnessDirty).toBe(false)
+    expect(runCard().result.current).toBe('current')
+  })
+
   it('an EARLIER run\'s card on the same graph still reads as an earlier run, never current', async () => {
     respond(body())
     await hydrateCanvasFromServer(SCENARIO_ID)
@@ -220,12 +242,14 @@ describe('every proof it needs, each broken alone: nothing is written and the ca
     await expectNoRestore()
   })
 
-  it('the boot merge changed the model (CEE holds a different value): the merge marks it, so nothing is restored', async () => {
+  it('a LOCAL edit before the read, then a merge that changes the model: the mark is the user\'s, so nothing is restored', async () => {
+    // Twin of "⭐ the merge adopts a different value from CEE" above: the same read, but the mark was set before it.
+    seedReloadedCanvas({ analysisFreshnessDirty: true })
     const g = readGraphOfCanvas()
     g.nodes = g.nodes.map((n) => (n.id === 'factor-1' ? { ...n, label: 'Price per seat' } : n))
     respond(body({ graph: g }))
     await hydrateCanvasFromServer(SCENARIO_ID)
-    expect(useCanvasStore.getState().analysisFreshnessDirty, 'precondition: the merge marked a change').toBe(true)
+    expect(useCanvasStore.getState().analysisFreshnessDirty, 'precondition: the mark stands').toBe(true)
     await expectNoRestore()
   })
 
@@ -341,7 +365,18 @@ describe('the REVERSE direction: CEE holds a value the canvas lacks (pre-review 
     expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).toBe(READ_HASH)
   })
 
-  it('merged exit: the read adds an observed_state the canvas lacks, so nothing is restored', async () => {
+  it('merged exit: the read adds an observed_state the canvas lacks; the merge adopts it, so the canvas IS the read and the Run is current (P0 #75 5921880401)', async () => {
+    const g = readGraphOfCanvas()
+    g.nodes = g.nodes.map((n) => (n.id === 'factor-1' ? { ...n, observed_state: { value: 0.4 } } : n))
+    respond(body({ graph: g }))
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('merged')
+    expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).toBe(READ_HASH)
+    expect(verdictWrites).toContainEqual(CURRENT)
+    expect(runCard().result.current).toBe('current')
+  })
+
+  it('TWIN: the same read over a canvas marked edited BEFORE it: nothing is restored', async () => {
+    seedReloadedCanvas({ analysisFreshnessDirty: true })
     const g = readGraphOfCanvas()
     g.nodes = g.nodes.map((n) => (n.id === 'factor-1' ? { ...n, observed_state: { value: 0.4 } } : n))
     respond(body({ graph: g }))
@@ -358,6 +393,7 @@ describe('applyBootRunCurrency — each decline reason is reachable, and names i
     let hash: string | undefined
     const outcome = applyBootRunCurrency({
       analysisState: CURRENT,
+      analysisResult: { type: 'analysis_result', computed_against_hash: READ_HASH },
       graphHash: READ_HASH,
       canvasProvenEqualToRead: true,
       store: {
@@ -377,6 +413,9 @@ describe('applyBootRunCurrency — each decline reason is reachable, and names i
   const cases: Array<[BootRunCurrencyDeclineReason, () => ReturnType<typeof run>]> = [
     ['no_verdict', () => run({ analysisState: null })],
     ['not_current', () => run({ analysisState: verdict({ kind: 'never_run' } as never) })],
+    ['rerun_required', () => run({ analysisState: verdict({ kind: 'complete_current', computed_at: COMPUTED_AT }, { requires_rerun: true }) })],
+    ['degraded_newer_run', () => run({ analysisState: verdict({ kind: 'complete_current', computed_at: COMPUTED_AT }, { contradictions: ['fact_status_success_but_degraded_newer'] }) })],
+    ['no_result', () => run({ analysisResult: null })],
     ['no_computed_at', () => run({ analysisState: verdict({ kind: 'complete_current', computed_at: '  ' }) })],
     ['no_graph_hash', () => run({ graphHash: null })],
     ['canvas_not_proven_equal', () => run({ canvasProvenEqualToRead: false })],

@@ -45,10 +45,11 @@
  * Design tokens (DS v5 §21.2):
  *   - Card frame: bg-panel + rounded-md + border-panel-border
  *   - Card header: typography.panelHeader (14px semibold)
- *   - Body: typography.panelBody (12px)
+ *   - Body: typography.chatBody (13px)
  *   - Pills: bg-transparent border-{semantic}/30 text-text-body
  */
 import { memo, useMemo, type ReactElement } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../canvas/conversation/types'
 import { readDecisionReviewWireState } from '../decisionReviewAdapter'
@@ -67,6 +68,8 @@ import { formatProbabilityWithResolution } from '../../utils/formatPercent'
 import { calibrateUncertaintyCopy } from '../../components/results/utils/uncertaintyCalibration'
 import { PANEL_LIST_BULLET, PANEL_LIST_STACK } from '../../canvas/conversation/panelLists'
 import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
+import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
+import { runDeltaSentence } from '../../components/results/analysisNew/commitmentSynthesis'
 
 export interface V5AnalysisResultBlockProps {
   block: V5AnalysisResultBlockType
@@ -178,7 +181,7 @@ function FactorList({
             // this list is display-only — never reordered, filtered or keyed on
             // by anything else.
             key={`${i}-${f}`}
-            className={`${typography.panelBody} ${PROSE_WRAP}`}
+            className={`${typography.chatBody} ${PROSE_WRAP}`}
             data-testid={itemTestId}
           >
             {f}
@@ -314,6 +317,17 @@ function V5AnalysisResultBlockImpl({
   const showProse = review030?.hasProse === true
   const hasReview = reviewState.kind === 'v0_30' || reviewState.kind === 'm1'
   const resolveOptionLabel = useOptionLabelResolver(block.enrichment)
+  // ⭐ WHAT CHANGED SINCE THE LAST RUN, in the chat (Panel, 30 Sep 2026; DL #75 5920614659). The one reader, asked
+  // for THIS card's Run by its hash (fail-closed: an older card, or a card stored before the hash existed, says
+  // nothing), worded by the same function as the Reasoning tab's "What we have" so the two cannot differ. The card
+  // is the record of its own run, so a later edit does not silence it (`isStale: false`).
+  const runDeltaView = useDisplayedRunDeltaView(block.analysis_hash)
+  const sinceLastRunText = runDeltaSentence(runDeltaView, { isStale: false })
+  const sinceLastRunLine = sinceLastRunText ? (
+    <p className={`${typography.chatBody} text-text`} data-testid="v5-analysis-result-since-last-run">
+      {sinceLastRunText}
+    </p>
+  ) : null
   const hasProbs =
     block.win_probabilities && Object.keys(block.win_probabilities).length > 0
 
@@ -473,6 +487,24 @@ function V5AnalysisResultBlockImpl({
   // the summary would lose the only account of the run. The `v5-analysis-result`
   // element stays as the unframed anchor `scrollAnalysisResultIntoView` lands on.
   const onlyFoldedSummaryOnCard = summaryBehindDisclosure && !showWinShares && !showProse
+  // ⭐ THE FOLD CLOSES THE RESULT (Paul's test, 27 Sep, AIC B4): it sat ABOVE the result's own content, so under a
+  // reply it stacked as a third disclosure below "Show more" and "N questions…", in a caret style of its own. Content
+  // first, the fold last, in the chat's own chevron — as "Show less" closes an answer (#2169). The words are unchanged.
+  const summaryFold = (
+    <details data-testid="v5-analysis-result-summary-details" className="group">
+      <summary
+        data-testid="v5-analysis-result-summary-toggle"
+        // 13px, the reply's own size (Paul, 28 Sep: "Details" matches the text around it).
+        className={`${typography.chatBody} inline-flex items-center gap-1 cursor-pointer text-info hover:underline list-none`}
+      >
+        <ChevronDown size={12} aria-hidden="true" className="group-open:rotate-180 transition-transform" />
+        Details
+      </summary>
+      <p className={`${typography.chatBody} mt-1.5`} data-testid="v5-analysis-result-summary">
+        {block.summary}
+      </p>
+    </details>
+  )
   if (onlyFoldedSummaryOnCard) {
     return (
       <div
@@ -480,30 +512,21 @@ function V5AnalysisResultBlockImpl({
         data-presentation="inline"
         data-has-decision-review={hasReview ? 'true' : 'false'}
         data-decision-review-state={reviewState.kind}
-        className="space-y-1"
+        // Paul, 28 Sep: "Details" needs room before and after it. py-2 on top of the chat's 8px block gap gives
+        // 16px above and 16px below. The fold is often this block's FIRST child, so space-y alone left it 8px
+        // under the open-questions toggle (served e02c3d7a) while pb-3 put 20px below it.
+        className="space-y-3 py-2"
       >
-        <details data-testid="v5-analysis-result-summary-details" className="group">
-          <summary
-            data-testid="v5-analysis-result-summary-toggle"
-            className={`${typography.chatMeta} cursor-pointer text-text-light hover:text-text-body list-none`}
-          >
-            <span aria-hidden="true" className="inline-block mr-1 group-open:rotate-90 transition-transform">
-              ▸
-            </span>
-            Details
-          </summary>
-          <p className={`${typography.panelBody} mt-1.5`} data-testid="v5-analysis-result-summary">
-            {block.summary}
-          </p>
-        </details>
+        {sinceLastRunLine}
         {shownUncertaintyCopy && (
           <p
-            className={`${typography.chatMeta} text-text-light`}
+            className={`${typography.chatBody} text-text-light`}
             data-testid="v5-analysis-result-uncertainty-copy"
           >
             {shownUncertaintyCopy.text}
           </p>
         )}
+        {summaryFold}
         {reviewState.kind === 'malformed' && (
           <div
             className="hidden"
@@ -539,30 +562,16 @@ function V5AnalysisResultBlockImpl({
       >
         Analysis result
       </h3>
-      {summaryBehindDisclosure ? (
-        <details data-testid="v5-analysis-result-summary-details" className="group">
-          <summary
-            data-testid="v5-analysis-result-summary-toggle"
-            className={`${typography.chatMeta} cursor-pointer text-text-light hover:text-text-body list-none`}
-          >
-            <span aria-hidden="true" className="inline-block mr-1 group-open:rotate-90 transition-transform">
-              ▸
-            </span>
-            Details
-          </summary>
-          <p className={`${typography.panelBody} mt-1.5`} data-testid="v5-analysis-result-summary">
-            {block.summary}
-          </p>
-        </details>
-      ) : (
-        <p className={typography.panelBody} data-testid="v5-analysis-result-summary">
+      {sinceLastRunLine}
+      {!summaryBehindDisclosure && (
+        <p className={typography.chatBody} data-testid="v5-analysis-result-summary">
           {block.summary}
         </p>
       )}
 
       {shownUncertaintyCopy && (
         <p
-          className={`${typography.chatMeta} text-text-light`}
+          className={`${typography.chatBody} text-text-light`}
           data-testid="v5-analysis-result-uncertainty-copy"
         >
           {shownUncertaintyCopy.text}
@@ -653,7 +662,7 @@ function V5AnalysisResultBlockImpl({
           */}
           {review030.narrative_summary !== null && !narrativeDeliveredByTypedCard && (
             <p
-              className={`${typography.panelBody} ${PROSE_WRAP}`}
+              className={`${typography.chatBody} ${PROSE_WRAP}`}
               data-testid="v5-analysis-result-narrative-summary"
             >
               {review030.narrative_summary}
@@ -672,7 +681,7 @@ function V5AnalysisResultBlockImpl({
                 return (
                   <li
                     key={h.optionId}
-                    className={`${typography.panelBody} ${PROSE_WRAP}`}
+                    className={`${typography.chatBody} ${PROSE_WRAP}`}
                     data-testid="v5-analysis-result-story-headline"
                     data-option-id={h.optionId}
                   >
@@ -696,7 +705,7 @@ function V5AnalysisResultBlockImpl({
             >
               {review030.robustness_explanation.summary !== null && (
                 <p
-                  className={`${typography.panelBody} ${PROSE_WRAP}`}
+                  className={`${typography.chatBody} ${PROSE_WRAP}`}
                   data-testid="v5-analysis-result-robustness-summary"
                 >
                   {review030.robustness_explanation.summary}
@@ -704,7 +713,7 @@ function V5AnalysisResultBlockImpl({
               )}
               {review030.robustness_explanation.primary_risk !== null && (
                 <p
-                  className={`${typography.panelBody} text-text-light ${PROSE_WRAP}`}
+                  className={`${typography.chatBody} text-text-light ${PROSE_WRAP}`}
                   data-testid="v5-analysis-result-robustness-primary-risk"
                 >
                   <span className="font-medium">Primary risk: </span>
@@ -728,7 +737,7 @@ function V5AnalysisResultBlockImpl({
 
           {review030.readiness_rationale !== null && (
             <p
-              className={`${typography.panelBody} ${PROSE_WRAP}`}
+              className={`${typography.chatBody} ${PROSE_WRAP}`}
               data-testid="v5-analysis-result-readiness-rationale"
             >
               {review030.readiness_rationale}
@@ -740,7 +749,7 @@ function V5AnalysisResultBlockImpl({
               {review030.scenario_contexts.map((s) => (
                 <li
                   key={s.id}
-                  className={`${typography.panelBody} text-text-light ${PROSE_WRAP}`}
+                  className={`${typography.chatBody} text-text-light ${PROSE_WRAP}`}
                   data-testid="v5-analysis-result-scenario-context"
                   data-scenario-id={s.id}
                 >
@@ -753,6 +762,8 @@ function V5AnalysisResultBlockImpl({
           )}
         </div>
       )}
+
+      {summaryBehindDisclosure && summaryFold}
 
       {reviewState.kind === 'malformed' && (
         // DEV diagnostic — a record IS present on `enrichment.decision_review`

@@ -147,7 +147,7 @@ import {
   manualGoalTargetMessage,
 } from '../conversation/manualGoalTarget'
 import { buildGoalTargetEditEvent, GOAL_TARGET_EDIT_ENABLED } from '../conversation/goalTargetEdit'
-import { statedTargetNumber } from '../domain/goalTarget'
+import { statedTargetNumber, goalTargetChangeFrameOf, goalTargetFrameIsUnread, type GoalTargetSource } from '../domain/goalTarget'
 import type { ConstraintType } from '../../v5/chipParameters'
 import {
   buildOptionInterventionEditEvent,
@@ -158,6 +158,7 @@ import {
   type SystemEventSendSettlement,
   type SystemEventSendSettlementDetail,
 } from '../conversation/settleSystemEventSend'
+import { isViewerSession } from '../../lib/viewerMode'
 
 /**
  * ⛔ A NAMED GAP, SO IT CANNOT PASS FOR A DECISION.
@@ -515,6 +516,14 @@ export function useModelEditAuthority(
     const node = state.nodes.find(n => n.id === activeNodeId)
     if (!node || resolveNodeTypeLiteral(node) !== 'goal' ||
         !scenarioId || state.currentScenarioId !== scenarioId) return 'not_encodable' as const
+    // ⛔ R1 S4-core (MG 5879952291): a target stated as a CHANGE from today is never overwritten with a level figure.
+    // CEE refuses the same write by name (`goal_is_a_change`) at all four goal writers; refusing here writes nothing
+    // and sends nothing, whichever editor asked.
+    const goalFrame = (node.data as GoalTargetSource | undefined)?.goal_threshold_frame
+    // … and a frame this UI cannot read is not overwritten either (AIQ 5880974047).
+    if (goalTargetChangeFrameOf(goalFrame) !== null || goalTargetFrameIsUnread(goalFrame)) {
+      return 'not_encodable' as const
+    }
 
     // ⭐⭐ THE TYPED CARRIER — dormant until `GOAL_TARGET_EDIT_ENABLED` flips
     // true (see `goalTargetEdit.ts`'s header; CEE has not shipped a reader).
@@ -578,6 +587,8 @@ export function useModelEditAuthority(
       opts?: { onSendSettled?: (settlement: SystemEventSendSettlement) => void },
     ): FactorValueProposalOutcome => {
       if (!activeNodeId) return 'not_encodable'
+      // ACCOUNTS viewer mode: a viewer's value edit happens NOWHERE (no local write, no send).
+      if (isViewerSession()) return 'not_encodable'
       const node = useCanvasStore.getState().nodes.find(n => n.id === activeNodeId)
       if (!node) return 'not_encodable'
       const data = node.data as Record<string, unknown>
@@ -914,6 +925,8 @@ export function useModelEditAuthority(
         onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void
       },
     ): EdgeStrengthProposalOutcome => {
+      // ACCOUNTS viewer mode: nothing happens anywhere for a viewer.
+      if (isViewerSession()) return 'refused_unassertable'
       // The hook is keyed to ONE edge. An id that is not that edge is a caller
       // holding the wrong authority — fail closed rather than write the edge it
       // happens to be keyed to, which would be an edit to an element the user

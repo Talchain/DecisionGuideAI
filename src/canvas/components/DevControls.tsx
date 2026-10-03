@@ -57,7 +57,7 @@ export function DevControls({ debug, onDebugChange, className = '' }: DevControl
               type="checkbox"
               checked={debug}
               onChange={(e) => onDebugChange(e.target.checked)}
-              className="w-4 h-4 text-info border-gray-300 rounded focus:ring-2 focus:ring-info"
+              className="w-4 h-4 text-info border-gray-300 rounded focus-visible:ring-2 focus-visible:ring-info"
               data-testid="toggle-debug"
             />
             <div>

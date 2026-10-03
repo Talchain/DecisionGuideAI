@@ -1044,42 +1044,27 @@ describe('value_of_information warning trigger', () => {
 // `FragileEdgeGroupCard`, `StressTestSection` and `TriageActionCardsBody`.
 
 describe('determineWinnerSelection', () => {
-  it('falls back to expected_outcome when win_probability coverage is partial', () => {
-    const options = [
-      { id: 'a', expected: 0.4, winProbability: 0.3 },
-      { id: 'b', expected: 0.6 },
-    ] as any
-
-    const result = determineWinnerSelection(options, null)
-
-    expect(result.determinedBy).toBe('expected_outcome')
-    expect(result.recommendedId).toBe('b')
+  // ⛔ R7 / X4 (DL #70 5859773247): a UI sort never names a leader. These arms
+  // used to pin the argmax fallbacks (win probability, then expected outcome);
+  // with no typed leader id the answer is now NO leader, on every coverage.
+  it.each([
+    ['partial win_probability coverage', [{ id: 'a', expected: 0.4, winProbability: 0.3 }, { id: 'b', expected: 0.6 }]],
+    ['complete win_probability coverage', [{ id: 'a', expected: 0.4, winProbability: 0.3 }, { id: 'b', expected: 0.6, winProbability: 0.8 }]],
+    ['no win_probability at all', [{ id: 'a', expected: 0.9, goalProbability: 0.9 }, { id: 'b', expected: 0.4, goalProbability: 0.4 }]],
+  ])('no typed leader id → no leader (%s)', (_name, options) => {
+    const result = determineWinnerSelection(options as any, null)
+    expect(result.recommendedId).toBeNull()
+    expect(result.determinedBy).toBe('unknown')
   })
 
-  it('selects by win_probability when coverage is complete', () => {
+  it('the typed leader id is the leader, even when another option has the higher win probability', () => {
     const options = [
       { id: 'a', expected: 0.4, winProbability: 0.3 },
       { id: 'b', expected: 0.6, winProbability: 0.8 },
     ] as any
-
-    const result = determineWinnerSelection(options, null)
-
+    const result = determineWinnerSelection(options, 'a')
+    expect(result.recommendedId).toBe('a')
     expect(result.determinedBy).toBe('win_probability')
-    expect(result.recommendedId).toBe('b')
-  })
-
-  it('R13: uses expected_outcome path when win_probability is absent (no false coverage)', () => {
-    // winProbability is undefined — should NOT be treated as complete coverage
-    const options = [
-      { id: 'a', expected: 0.9, goalProbability: 0.9 },
-      { id: 'b', expected: 0.4, goalProbability: 0.4 },
-    ] as any
-
-    const result = determineWinnerSelection(options, null)
-
-    // No win_probability → determinedBy must be expected_outcome, not win_probability
-    expect(result.determinedBy).toBe('expected_outcome')
-    expect(result.recommendedId).toBe('a') // highest expected wins
   })
 })
 

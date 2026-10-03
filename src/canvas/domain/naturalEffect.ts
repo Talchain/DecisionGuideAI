@@ -47,6 +47,7 @@ import { z } from 'zod'
 
 import { formatRawValueWithUnit } from '../utils/labelUtils'
 import type { EdgeDirectionDisplay } from './edgeValueProvenance'
+import { BY_DEFINITION } from './strengthDefinitional'
 
 /** Whose figure the size is. `user` outranks the producer's own label. */
 export type NaturalEffectAuthor = 'user' | 'olumi_estimate' | 'olumi_placeholder'
@@ -63,6 +64,17 @@ export const NaturalEffectSchema = z.object({
   /** The signed β the amount was admitted for — the staleness key (see header). */
   strengthMean: z.number().finite(),
   author: z.enum(['user', 'olumi_estimate', 'olumi_placeholder']),
+  /**
+   * ⭐ A4 (CEE #2409; R3 C1/C2 #75 5918513716, AIQ 5919755441): the user's amount is ONE END of a range they wrote
+   * ("deals between £1-2 million" → £1,000,000, the low end). Said WITH the range, as a bound — never as the user's
+   * single figure. Read only on the user's own size.
+   */
+  statedRange: z.object({
+    low: z.number().finite(),
+    high: z.number().finite(),
+    text: z.string().min(1),
+    end: z.enum(['low', 'high']),
+  }).optional(),
 })
 export type NaturalEffect = z.infer<typeof NaturalEffectSchema>
 
@@ -114,7 +126,14 @@ export function readWireNaturalEffect(
   // The staleness key is compared with the edge's own strength mean, so it must SAY
   // it is on that frame. Anything else is not a key this reader can compare.
   if (ne.strength_mean_frame !== STRENGTH_MEAN_FRAME) return undefined
+  // A range that is present but unreadable is not a size we can say alone: fail closed (the band speaks), never the
+  // amount as the user's single figure. Olumi's own size never carries one.
+  const range = author === 'user' ? readRecord(ne.stated_range) : null
+  if (author === 'user' && ne.stated_range !== undefined && range === null) return undefined
   const parsed = NaturalEffectSchema.safeParse({
+    ...(range !== null
+      ? { statedRange: { low: range.low, high: range.high, text: nonEmpty(range.text), end: range.end } }
+      : {}),
     amount: ne.amount,
     unit: nonEmpty(ne.amount_unit),
     perSourceChange: ne.per_source_change,
@@ -139,16 +158,42 @@ export function unitForAmount(amount: number, unit: string): string {
   const stop = words.findIndex(w => /^(of|per)$/i.test(w))
   const head = (stop === -1 ? words.length : stop) - 1
   const noun = words[head]
-  if (head < 0 || noun === undefined || !/^[a-z]{3,}s$/i.test(noun) || /ss$/i.test(noun)) return unit
-  words[head] = noun.slice(0, -1)
+  if (head < 0 || noun === undefined) return unit
+  // A compound unit ("conversations/month") singularises the noun BEFORE the slash: "1 conversation/month",
+  // never "1 conversations/month" (served funding brief, Model tab, `7fc20dff`, 30 Sep 2026).
+  const [lhs, ...perPart] = noun.split('/')
+  if (!/^[a-z]{3,}s$/i.test(lhs) || /ss$/i.test(lhs)) return unit
+  words[head] = [lhs.slice(0, -1), ...perPart].join('/')
   return words.join(' ')
+}
+
+/** A currency per period ("£/month"): the symbol leads the figure, as the factor card writes it ("£0 / month"). */
+const MONEY_PER_PERIOD = /^([£$€])\s*\/\s*([a-z]+)$/i
+
+/**
+ * An amount with its unit, as a person writes it. "£2,500 / month", never "2,500 £/month" (served funding
+ * brief, Model tab, `7fc20dff`): `formatRawValueWithUnit` only knows a BARE symbol, so a money-per-period
+ * unit fell through to "number, then unit". Everything else is `formatRawValueWithUnit`, unchanged.
+ */
+function amountWithUnit(amount: number, unit: string): string {
+  const u = unitForAmount(amount, unit)
+  const money = MONEY_PER_PERIOD.exec(u.trim())
+  if (money) return `${formatRawValueWithUnit(amount, money[1])} / ${money[2]}`
+  return formatRawValueWithUnit(amount, u)
 }
 
 const AUTHOR_SUFFIX: Record<NaturalEffectAuthor, string> = {
   user: '',
   olumi_estimate: " · Olumi's estimate",
-  olumi_placeholder: ' · a placeholder, not an estimate',
+  olumi_placeholder: ' · not judged yet (a placeholder, not an estimate)',
 }
+
+/**
+ * MG 0ebb952a: a link that holds BY DEFINITION (`isStrengthDefinitional`) is
+ * nobody's estimate. Its producer label stays `olumi_estimate`, so the caller
+ * says which, and the phrase drops both the author and the hedge ("about").
+ */
+export const DEFINITIONAL_SUFFIX = ` · ${BY_DEFINITION.toLowerCase()}`
 
 /**
  * The phrase for the edge's size, or null when it must not be said (the caller
@@ -156,12 +201,14 @@ const AUTHOR_SUFFIX: Record<NaturalEffectAuthor, string> = {
  * direction, a sign that contradicts the stated direction, or a zero amount.
  *
  * `currentMean` is the edge's current SIGNED mean, as the row resolves it
- * (`resolveEdgeStrengthEditSeed`).
+ * (`resolveEdgeStrengthEditSeed`). `definitional` is `isStrengthDefinitional`
+ * of the same edge.
  */
 export function naturalEffectPhrase(
   effect: NaturalEffect | undefined | null,
   currentMean: number,
   direction: EdgeDirectionDisplay,
+  definitional = false,
 ): string | null {
   if (!effect) return null
   if (!Number.isFinite(currentMean) || Math.abs(currentMean - effect.strengthMean) > SAME_MEAN_EPSILON) return null
@@ -169,9 +216,13 @@ export function naturalEffectPhrase(
   if ((effect.amount < 0 ? 'negative' : 'positive') !== direction.direction) return null
 
   const size = Math.abs(effect.amount)
-  const change = `${direction.direction === 'negative' ? 'Decrease' : 'Increase'} of about ${formatRawValueWithUnit(size, unitForAmount(size, effect.unit))}`
+  // A4: one end of the user's written range bounds the size — the low end "at least", the high end "at most".
+  const range = effect.author === 'user' && !definitional ? effect.statedRange : undefined
+  const bound = definitional ? '' : range === undefined ? 'about ' : range.end === 'low' ? 'at least ' : 'at most '
+  const change = `${direction.direction === 'negative' ? 'Decrease' : 'Increase'} of ${bound}${amountWithUnit(size, effect.unit)}`
   const per = effect.sourceUnit === SWITCH_SOURCE_UNIT
     ? ''
-    : ` per ${formatRawValueWithUnit(effect.perSourceChange, unitForAmount(effect.perSourceChange, effect.sourceUnit))}`
-  return `${change}${per}${AUTHOR_SUFFIX[effect.author]}`
+    : ` per ${amountWithUnit(effect.perSourceChange, effect.sourceUnit)}`
+  const ofRange = range === undefined ? '' : ` · the ${range.end} end of your ${range.text} range`
+  return `${change}${per}${definitional ? DEFINITIONAL_SUFFIX : AUTHOR_SUFFIX[effect.author]}${ofRange}`
 }

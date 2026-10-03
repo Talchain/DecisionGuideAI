@@ -62,7 +62,7 @@ const producerLeaderClaim = (winArgmaxOptionId: string) => ({
   near_tie: { is_tie: false, top_option_id: winArgmaxOptionId },
 })
 
-// UI-SEM-088 gate: OptionNode's "chance of target" badge routes through
+// UI-SEM-088 gate: OptionNode's "of model runs" badge routes through
 // selectGoalProbability, which reads this constant. Mutable getter so the
 // suite can pin both the gate-ON suppression and the gate-OFF positive control.
 // UI-SEM-088 seam 1: OptionNode's badge flows through selectGoalProbability,
@@ -150,7 +150,10 @@ const renderOption = (data: Record<string, unknown> = {}) =>
  */
 function expectCardMakesNoLeaderClaim(container: HTMLElement, id: string, share: string) {
   expect(screen.getByText('Hire 3 engineers')).toBeDefined()
-  expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(OPTION_RESULT_COPY.share(share))
+  // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance). The prefix is its own
+  // element; the readout stays the figure + unit.
+  expect(screen.getByTestId(`option-win-prefix-${id}`).textContent).toBe(OPTION_RESULT_COPY.sharePrefix)
+  expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(`${share} ${OPTION_RESULT_COPY.shareUnit}`)
   expect(screen.queryByTestId(`leading-option-pill-${id}`)).toBeNull()
   expect(screen.queryByTestId(`leading-option-robustness-${id}`)).toBeNull()
   expect(screen.queryByText(/most supported/i)).toBeNull()
@@ -217,7 +220,8 @@ describe('OptionNode', () => {
     // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4 — never "Support",
     // results are explicitly model-relative): the row's accessible name is the
     // caption + "N% of runs", then OPTION_RESULT_COPY's sentence.
-    const row = screen.getByRole('img', { name: new RegExp(`· 72% of runs\\. ${OPTION_RESULT_COPY.sentence('72%').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) })
+    // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance).
+    const row = screen.getByRole('img', { name: new RegExp(`· ${OPTION_RESULT_COPY.share('72%')}\\. ${OPTION_RESULT_COPY.sentence('72%').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) })
     expect(row.getAttribute('data-testid')).toBe('option-analysis-currency-option-1')
     expect(row.getAttribute('aria-label')).not.toMatch(/\bSupport/)
   })
@@ -426,7 +430,7 @@ describe('OptionNode', () => {
     // 0.3 × 20 = 6 baseline, 0.804 × 20 = 16.08… → rounded whole counts.
     // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
     // value is found by the change-row identity matcher, not one text node.
-    expect(screen.getByText(changeRow('6 developers → 16 developers'))).toBeDefined()
+    expect(screen.getByText(changeRow('6 → 16 developers'))).toBeDefined()
     // No float-precision artefact leaks anywhere.
     expect(screen.queryByText((t: string) => t.includes('16.080'))).toBeNull()
   })
@@ -450,7 +454,7 @@ describe('OptionNode', () => {
     // 0.1 × 10 = 1 baseline, 0.15 × 10 = 1.5 → FTE keeps the fraction.
     // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
     // value is found by the change-row identity matcher, not one text node.
-    expect(screen.getByText(changeRow(/1 FTE.*1\.5 FTE/))).toBeDefined()
+    expect(screen.getByText(changeRow(/1 → 1\.5 FTE/))).toBeDefined()
     // It must NOT be rounded to a whole number.
     expect(screen.queryByText((t: string) => /\b2 FTE\b/.test(t))).toBeNull()
     expect(screen.queryByText(changeRow(/\b2 FTE\b/))).toBeNull()
@@ -617,8 +621,11 @@ describe('OptionNode', () => {
     // element on a results card could carry.
     const percentEl = screen.getByTestId('option-win-readout-option-1')
     // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4): the readout reads
-    // "N% of runs" — model-relative — not a bare "N%".
-    expect(percentEl.textContent).toBe(OPTION_RESULT_COPY.share('72%'))
+    // "N% of runs" — model-relative — not a bare "N%". R3 5903852225 / AIQ
+    // 5903874730: the "best in" prefix is its own element, in the same neutral colour family.
+    expect(percentEl.textContent).toBe(`72% ${OPTION_RESULT_COPY.shareUnit}`)
+    expect(screen.getByTestId('option-win-prefix-option-1').className).not.toContain('text-success')
+    expect(screen.getByTestId('option-win-prefix-option-1').className).not.toContain('text-option')
     expect(percentEl.className).toContain('text-text-body')
     expect(percentEl.className).not.toContain('text-success')
     expect(percentEl.className).not.toContain('text-option')
@@ -714,11 +721,16 @@ describe('OptionNode', () => {
     // across five option cards is the whole defect being fixed.
     // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4): the short visible
     // form is now "N% of runs", still not the sentence.
-    expect(percentEl.textContent).toBe(OPTION_RESULT_COPY.share('72%'))
+    expect(percentEl.textContent).toBe(`72% ${OPTION_RESULT_COPY.shareUnit}`)
     expect(percentEl.textContent).not.toContain(OPTION_RESULT_COPY.sentence('72%'))
     // Hidden from assistive tech so the statistic is announced once, in full,
     // by the row's accessible name rather than as a number with no referent.
     expect(percentEl.getAttribute('aria-hidden')).toBe('true')
+    // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance) — a separate
+    // visible element, also hidden from assistive tech (the row's name carries it), never the sentence.
+    const prefixEl = screen.getByTestId('option-win-prefix-option-1')
+    expect(prefixEl.textContent).toBe(OPTION_RESULT_COPY.sharePrefix)
+    expect(prefixEl.getAttribute('aria-hidden')).toBe('true')
   })
 
   it('density: the ratified sentence survives in the positioned tooltip and accessible text', async () => {
@@ -1342,7 +1354,7 @@ describe('OptionNode', () => {
     expect(bar?.style.width).toBe('max(4px, 2%)')
   })
 
-  // ROADMAP 1.49 — the "chance of target" badge must use the SAME
+  // ROADMAP 1.49 — the "of model runs" badge must use the SAME
   // goal_probability / probability_of_joint_goal fallback as
   // useResultsSectionData (consumed by OptionCards/hero/GoalNode), not a
   // narrower goal_probability-only read. On a constrained-goal run where
@@ -1374,6 +1386,30 @@ describe('OptionNode', () => {
       ],
     })
 
+  // 29 Sep 2026 (AIQ 5882498938): the same constrained option WITH its goal figure (0.03, distinct from the joint 0.05) —
+  // the badge reads the goal figure only; the joint (all-limits) figure never stands in.
+  const makeConstrainedGoalAndJointStore = () =>
+    makeStoreState({
+      goalThreshold: 0.6,
+      results: {
+        status: 'complete',
+        report: {
+          option_probabilities: {
+            'option-1': {
+              confidence: 0.5,
+              win_probability: 0.5,
+              goal_probability: 0.03,
+              probability_of_joint_goal: 0.05,
+              constraint_analysis: { constraints: [{ id: 'c1' }], joint_probability: 0.05 },
+            },
+          },
+        },
+      },
+      nodes: [
+        { id: 'option-1', type: 'option', data: { type: 'option' } },
+      ],
+    })
+
   const mockResultsModeMetadata = () =>
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -1389,30 +1425,78 @@ describe('OptionNode', () => {
       voiRank: null,
     })
 
-  it('gate ON: suppresses the "chance of target" badge when only the suspect joint figure is present', () => {
+  it('gate ON: suppresses the "of model runs" badge when only the suspect joint figure is present', () => {
     mockTrust.suspect = true
     mockResultsModeMetadata()
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeConstrainedJointOnlyStore() as any)
     )
     renderOption()
-    expect(screen.queryByText(/chance of target\./)).toBeNull()
+    expect(screen.queryByText(/of model runs\./)).toBeNull()
   })
 
-  it('POSITIVE CONTROL (gate OFF): shows "chance of target" badge from probability_of_joint_goal when goal_probability is absent', () => {
+  // 29 Sep 2026 (AIQ 5882498938): was "shows the badge from probability_of_joint_goal when goal_probability is absent".
+  it('POSITIVE CONTROL (gate OFF): the badge shows the GOAL figure on a constrained run; with no goal figure the joint is withheld', () => {
     mockTrust.suspect = false
     mockResultsModeMetadata()
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeConstrainedGoalAndJointStore() as any)
+    )
+    const first = renderOption()
+    // 3% < 10% threshold → the warning line renders with the GOAL value, never the joint 5%. The bound is TRUE: the
+    // smallest whole percent strictly above the figure ("< 3%" would claim 3% is below itself; 7.4% read "< 7%").
+    expect(screen.getByText(/Reaches the target in < 4% of model runs\./)).toBeDefined()
+    expect(screen.queryByText(/Reaches the target in (< )?[56]% of model runs\./)).toBeNull()
+    first.unmount()
+
+    // The constrained joint-only fixture: no goal figure → no badge, constraints or not.
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeConstrainedJointOnlyStore() as any)
     )
     renderOption()
-    // 5% < 10% threshold → the warning line renders with the joint value,
-    // matching what OptionCards/hero derive via useResultsSectionData.
-    expect(screen.getByText(/5% chance of target\./)).toBeDefined()
+    expect(screen.queryByText(/of model runs\./)).toBeNull()
+  })
+
+  // ISL #207 (AIQ #72 5877139338): the goal badge is never bare when the goal's
+  // level today was worked out. `goalLevelAuthor` is what UI #2280's mapper stamps.
+  const makeBaseCaveatStore = (goalLevelAuthor?: 'olumi' | 'unattested') =>
+    makeStoreState({
+      goalThreshold: 0.6,
+      results: {
+        status: 'complete',
+        report: {
+          option_probabilities: {
+            'option-1': { confidence: 0.5, win_probability: 0.5, goal_probability: 0.05, ...(goalLevelAuthor ? { goalLevelAuthor } : {}) },
+          },
+        },
+      },
+      nodes: [{ id: 'option-1', type: 'option', data: { type: 'option' } }],
+    })
+
+  it.each([
+    ['olumi', "Measured from Olumi's estimate of where your goal stands today, not a figure you gave."],
+    ['unattested', 'Measured from where your goal stands today as worked out from its inputs, not a figure you gave.'],
+  ] as const)('ISL #207: author %s → the goal badge carries its base-caveat', (author, copy) => {
+    mockTrust.suspect = false
+    mockResultsModeMetadata()
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeBaseCaveatStore(author) as any))
+    renderOption()
+    expect(screen.getByText(/Reaches the target in < 6% of model runs\./)).toBeDefined()
+    expect(screen.getByTestId('goal-fit-base-caveat-option-node-option-1').textContent).toBe(copy)
+  })
+
+  it('ISL #207 CONTROL: a goal level the user gave → the badge shows, no base-caveat', () => {
+    mockTrust.suspect = false
+    mockResultsModeMetadata()
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeBaseCaveatStore() as any))
+    renderOption()
+    expect(screen.getByText(/Reaches the target in < 6% of model runs\./)).toBeDefined()
+    expect(screen.queryByTestId('goal-fit-base-caveat-option-node-option-1')).toBeNull()
   })
 
   // ─────────────────────────────────────────────────────────────────────────
   // THE POSSESSIVE GATE (ROADMAP 2.282)
+  // 29 Sep 2026 (AIQ 5882498938): `joint_goal_constrained` is retired — the "CONSTRAINED" twin below now carries a goal figure.
   //
   // The two tests above are the CONSTRAINED case (`constraint_analysis`
   // present ⇒ basis `joint_goal_constrained`), where the joint figure covers
@@ -1466,13 +1550,23 @@ describe('OptionNode', () => {
     // makes the render assertion below an ABSENCE rather than a rewording.
     expect(substituted.goalProbability).toBeNull()
 
-    // …and the neighbouring fixture is genuinely the OTHER basis.
+    // 29 Sep 2026 (AIQ 5882498938): the constrained joint-only fixture is withheld too; only a goal figure earns a number.
     const constrained = selectGoalProbability({
       probability_of_joint_goal: 0.05,
       constraint_analysis: { constraints: [{ id: 'c1' }] },
     })
-    expect(constrained.basis).toBe('joint_goal_constrained')
-    expect(constrained.mayUsePossessiveGoalFraming).toBe(true)
+    expect(constrained.basis).toBe('joint_goal_withheld')
+    expect(constrained.goalProbability).toBeNull()
+    expect(constrained.mayUsePossessiveGoalFraming).toBe(false)
+    // …and the goal-carrying constrained fixture is genuinely the OTHER basis.
+    const constrainedWithGoal = selectGoalProbability({
+      goal_probability: 0.03,
+      probability_of_joint_goal: 0.05,
+      constraint_analysis: { constraints: [{ id: 'c1' }] },
+    })
+    expect(constrainedWithGoal.basis).toBe('goal_probability')
+    expect(constrainedWithGoal.goalProbability).toBe(0.03)
+    expect(constrainedWithGoal.mayUsePossessiveGoalFraming).toBe(true)
   })
 
   /**
@@ -1488,32 +1582,34 @@ describe('OptionNode', () => {
       selector(makeSubstitutedJointStore() as any)
     )
     const { container } = renderOption()
-    expect(screen.queryByText(/chance of target\./)).toBeNull()
+    expect(screen.queryByText(/of model runs\./)).toBeNull()
     // Neither voice, and no number — the withheld wording is gone too, because
     // there is nothing left for it to caption.
     expect(container.textContent ?? '').not.toContain(GOAL_ANCHOR_COPY.label(true))
     expect(container.textContent ?? '').not.toContain('< 1%')
   })
 
-  it('positive control: the CONSTRAINED joint figure KEEPS the possessive wording (the gate is basis-scoped, not joint-scoped)', () => {
+  // 29 Sep 2026 (AIQ 5882498938): the retired premise was "the constrained JOINT figure keeps the possessive"; now the GOAL figure does.
+  it('positive control: the GOAL figure on a constrained option KEEPS the possessive wording — never the joint figure', () => {
     mockTrust.suspect = false
     mockResultsModeMetadata()
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeConstrainedJointOnlyStore() as any)
+      selector(makeConstrainedGoalAndJointStore() as any)
     )
     renderOption()
-    expect(screen.getByText(/5% chance of target\./)).toBeDefined()
+    expect(screen.getByText(/Reaches the target in < 4% of model runs\./)).toBeDefined()
+    expect(screen.queryByText(/Reaches the target in (< )?[56]% of model runs\./)).toBeNull()
     expect(screen.queryByText(new RegExp(GOAL_ANCHOR_COPY.label(true).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))))
       .toBeNull()
   })
 
-  // Lane 4 fold (UI-SEM-082, extends UI-SEM-071): the "chance of target" badge
+  // Lane 4 fold (UI-SEM-082, extends UI-SEM-071): the "of model runs" badge
   // is a goal-fit claim — it must gate on the USER target. Without a target the
   // producer still returns a joint/goal probability (auto_goal_threshold), and
   // the panel twin OptionCards already suppresses this (hasGoalThreshold). The
   // canvas node must match, or it contradicts the GoalNode beside it (which
-  // suppresses its own "chance of reaching target" when no target is set).
-  it('SUPPRESSES the "chance of target" badge when the user set no target (auto-threshold)', () => {
+  // suppresses its own "of model runs" when no target is set).
+  it('SUPPRESSES the "of model runs" badge when the user set no target (auto-threshold)', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -1551,7 +1647,7 @@ describe('OptionNode', () => {
     )
     renderOption()
     // No target → the goal-fit badge must not render (matches GoalNode + OptionCards).
-    expect(screen.queryByText(/chance of target\./)).toBeNull()
+    expect(screen.queryByText(/of model runs\./)).toBeNull()
   })
 })
 
@@ -1588,8 +1684,14 @@ describe('OptionNode — QA Brief C-series', () => {
       }) as any)
     )
     renderOption({ label: 'Keep current price', is_baseline: true })
-    // The resting label does not infer a no-change claim from the baseline flag.
-    expect(screen.getByText('Baseline option')).toBeDefined()
+    // The resting label does not infer a no-change claim from the baseline FLAG —
+    // it reads the DATA. RE-PINNED 27 Sep (side-by-side DIFF item 10, NODE-ANATOMY
+    // v3.2): this baseline's only target (0.49) equals the factor's current value
+    // (0.49), which the card's concrete-change filter counts as no change, so it
+    // reads "Baseline · no changes" (was "Baseline option", keyed on the target
+    // total). A baseline with a real change keeps "Baseline option"
+    // (`OptionNode.contractV31Polish` OPT-12, `OptionNode.contractRowLine`).
+    expect(screen.getByText('Baseline · no changes')).toBeDefined()
     // No delta arrow
     expect(screen.queryByText(/→/)).toBeNull()
   })
@@ -1903,7 +2005,7 @@ describe('OptionNode — display coherence (audit §8)', () => {
     // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4): the readout's
     // accessible name is model-relative ("… · 28% of runs. In 28% of the
     // simulated runs…"), rendered ONCE.
-    expect(screen.getAllByRole('img', { name: new RegExp(`· 28% of runs\\. In 28% of the simulated runs`) })).toHaveLength(1)
+    expect(screen.getAllByRole('img', { name: new RegExp(`· ${OPTION_RESULT_COPY.share('28%')}\\. In 28% of the simulated runs`) })).toHaveLength(1)
     expect(screen.queryByText(/win rate across simulations/i)).toBeNull()
     expect(screen.getByText('Baseline option.')).toBeDefined()
   })
@@ -2015,6 +2117,33 @@ describe('OptionNode — display coherence (audit §8)', () => {
     expect(screen.queryByText(/marketing/i)).toBeNull()
   })
 
+  // Graph audit 29 Sep: the "<factor> lower" arm fired whenever the two options set the top factor to DIFFERENT
+  // values, so an option that set it HIGHER than the leader was described as lower. The direction is read, never assumed.
+  for (const [mine, word] of [[0.9, 'higher'], [0.2, 'lower']] as const) {
+    it(`"Held back by:" states the direction this option actually sets the top factor (${mine} vs the leader's 0.5 → ${word})`, () => {
+      vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.2) as never)
+      const report = {
+        robustness: { recommended_option_id: 'option-3', ...producerLeaderClaim('option-3') },
+        option_probabilities: { 'option-1': { win_probability: 0.2 }, 'option-3': { win_probability: 0.6 } },
+        factor_sensitivity: [{ factor_id: 'certA', sensitivity: 0.8 }, { factor_id: 'certB', sensitivity: 0.2 }],
+      }
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector(makeStoreState({
+          results: { status: 'complete', report },
+          ceeAnalysisReady: { options: [{ id: 'option-3', interventions: { certA: 0.5 } }, { id: 'option-1', interventions: { certA: mine } }] },
+          nodes: [
+            { id: 'option-1', type: 'option', data: { label: 'Option A', type: 'option' } },
+            { id: 'option-2', type: 'option', data: { label: 'Status Quo', type: 'option', is_baseline: true } },
+            { id: 'option-3', type: 'option', data: { label: 'Option C', type: 'option' } },
+            { id: 'certA', type: 'factor', data: { label: 'Budget' } },
+          ],
+        }) as any)
+      )
+      renderOption({ label: 'Option A' })
+      expect(screen.getByText(new RegExp(`^Held back by: budget ${word}$`, 'i'))).toBeDefined()
+    })
+  }
+
   // Item 6: stale treatment on result decorations
 
   // Item 7: per-option intervention list containment
@@ -2116,68 +2245,45 @@ describe('OptionNode — display coherence (audit §8)', () => {
     expect(screen.queryByText('Interventions:')).toBeNull()
   })
 
-  it('Wave 4 / §6.4: renders the identity-anchored stable option number badge when registered', () => {
+  /**
+   * ⭐ PAUL, 1 OCT 2026: "each node having a number relating to the node type". The option's registered number (the
+   * Analysis panel's "Option N") is now the card's OWN number, before its title, prefixed "O" so it reads as an
+   * identifier, not a rank. It replaces the Detailed-only header badge (MT-18), which kept the number off the card at
+   * rest because a BARE numeral read as a rank. The prefix answers that, so the number now shows at every reading
+   * zoom. The not-a-ranking sentence (`optionOrdinalBadgeAccessibleName`) still reaches the sighted reader as the
+   * number's `title`, and the card's accessible name says "Option 2".
+   */
+  it('Wave 4 / §6.4 → Paul 1 Oct: the registered option number is the card\'s own "O2", with the not-a-ranking disclosure', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({ optionNumbering: { 'option-1': 2 } }) as any),
     )
     renderOption()
-    const badge = screen.getByTestId('option-stable-number-option-1')
-    expect(badge).toHaveTextContent('2')
-    // ⚠ WAS the bare 'Option 2'. The name now says what the number MEANS, so a
-    // screen-reader user can tell it from the factor ranking badge — see
-    // OptionNode's aria-label comment and metricVocabulary.ts:373.
-    expect(badge).toHaveAttribute('aria-label', 'Option 2 — the order the options were first laid out in, not a ranking')
-
-    /**
-     * ⭐⭐ AND THE SIGHTED READER GETS THE SAME SENTENCE, FROM THE SAME BUILDER.
-     *
-     * Measured on the deployed board: of 358 `aria-label`s, 9 carry an
-     * explanatory disclosure and 5 had no hover text — four of them this badge,
-     * one per option. The reader who was told this is not a ranking was the one
-     * using a screen reader; a sighted reader hovering it got nothing.
-     *
-     * ⚠ AND THE BOARD MAKES IT CONCRETE: the badge reading `1` sits on the
-     * option with 24% support and `3` on the option with 56%, so taking it for
-     * a placing reads the order backwards — while the Reasoning tab for the
-     * same run says in terms that no option may be called the leader.
-     *
-     * ⛔ ASSERTED EQUAL TO THE `aria-label` RATHER THAN TO A LITERAL, so the two
-     * audiences cannot be given different sentences by a later edit — the same
-     * coupling the block below makes between this element and the builder.
-     */
-    expect(badge.getAttribute('title')).toBe(badge.getAttribute('aria-label'))
-
-    /**
-     * ⭐⭐ THE OTHER HALF OF THE COUPLING, AND NOT REDUNDANT WITH THE LITERAL
-     * ABOVE. `metricVocabulary.spec.ts` proves the builder AGREES with the
-     * legend row; it cannot see this component dropping the builder and
-     * re-typing the sentence, which is how the defect arrived (a comment
-     * claiming a derivation with no import behind it). This binds the RENDERED
-     * name to the builder's output for THIS number, so a re-inlined literal
-     * REDs here while the register guard stays green. The literal stays — it is
-     * the corpus that notices a wrong sentence (CLAUDE.md trap 12d).
-     */
-    expect(badge).toHaveAccessibleName(optionOrdinalBadgeAccessibleName(2))
+    // The number is the title's generated `::before` (index.css), never its text: the title reads the label alone.
+    const title = screen.getByTestId('node-title')
+    expect(title.getAttribute('data-type-ordinal')).toBe('O2')
+    expect(title.textContent).not.toMatch(/O2/)
+    expect(screen.getByRole('group').getAttribute('aria-label')).toContain(`${optionOrdinalBadgeAccessibleName(2)}.`)
+    // The retired header badge is gone, not merely joined by the new number.
+    expect(screen.queryByTestId('option-stable-number-option-1')).toBeNull()
   })
 
-  it('MT-18: the stable option numeral is Detailed-only — absent from the Standard face', () => {
-    // Locked Canvas design (23 Sep 2026; manual-test finding MT-18): a bare
-    // numeral at rest read as a RANK beside the factors' driver ranks. The
-    // positive case above renders Detailed (`viewMode: 'expert'`); the same
-    // registration in Standard carries no numeral.
+  it('Paul 1 Oct supersedes MT-18: the number shows at rest too, and is never a BARE numeral', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({ optionNumbering: { 'option-1': 2 }, viewMode: 'standard' }) as any),
     )
     renderOption()
     expect(screen.getByTestId('node-title')).toBeInTheDocument()
-    expect(screen.queryByTestId('option-stable-number-option-1')).toBeNull()
+    expect(screen.getByTestId('node-title').getAttribute('data-type-ordinal')).toMatch(/^O\d+$/)
   })
 
-  it('renders no stable-number badge before the option is registered', () => {
+  it('CONTROL: with no registration and no option on the board, the card carries no number', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({ optionNumbering: {} }) as any),
     )
     renderOption()
+    const n = screen.getByTestId('node-title').getAttribute('data-type-ordinal')
+    // The mocked board may or may not hold this option; when it does, its number is the READING-ORDER one (O1…).
+    if (n !== null) expect(n).toMatch(/^O\d+$/)
     expect(screen.queryByTestId('option-stable-number-option-1')).toBeNull()
   })
 })

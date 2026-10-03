@@ -610,6 +610,14 @@ export const FOOTER_COPY = {
   running: 'Analysis running',
   runningSub: 'Hold on while the first pass completes',
   analyse: 'Analyse first pass',
+  /** The same control once the scenario has a Run on record (`selectRunOnRecord`); the app's existing re-run words. */
+  reanalyse: 'Re-run analysis',
+  /**
+   * A saved Run exists but the boot could not confirm it matches the model as saved (`declinedSavedRunStore.ts`), so it
+   * is not shown. Says the Run exists and why it is not shown; names no cause it cannot read (P0 #72 5893379882).
+   */
+  savedRunUnconfirmedSub:
+    "A saved Run exists, but Olumi can't confirm it matches this model as saved, so it isn't shown. Re-run to analyse the model as it stands.",
   /**
    * The run control's label WHILE a run is in flight. It was a bare literal
    * at `PanelFooter.tsx:186` while one surface rendered the control; the

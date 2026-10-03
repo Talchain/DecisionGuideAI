@@ -18,6 +18,7 @@ import { isAiSource } from '../../pre-analysis/utils/isAiSource'
 import { isReviewedByUser, resolveReviewSource } from '../../pre-analysis/utils/isReviewedByUser'
 import {
   classifyNodeProvenance,
+  classifyObservedValueProvenance,
   classifyValueProvenance,
 } from '../../../domain/valueProvenance'
 import type { Attribution, EstimateRowModel, RankingResult, RankLabel } from '../types'
@@ -63,7 +64,10 @@ export function buildEstimateRows(
       // for a typed value and a confirmation alike, so it is honest about not
       // knowing the act rather than guessing one.
       const nodeProvenance = typeof data.provenance === 'string' ? data.provenance : null
+      // Olumi's figure, ACCEPTED, is told apart only by the whole observed state (52f8cd; AIQ 5921018606).
+      const observedClass = classifyObservedValueProvenance(observed)
       const provenanceKind = (
+        (observedClass?.kind === 'accepted' ? observedClass : null) ??
         classifyValueProvenance(resolveReviewSource(node)) ??
         classifyNodeProvenance(nodeProvenance)
       )?.kind

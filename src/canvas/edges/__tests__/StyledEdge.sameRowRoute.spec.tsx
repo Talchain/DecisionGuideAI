@@ -15,7 +15,7 @@
  *
  *   side   ADJACENT cards: a short straight connector between their FACING
  *          sides, at the middle of the band the two cards share; the glyph sits
- *          in the gutter above the arrowhead.
+ *          ON the connector, in the gutter (28 Sep 2026 — it sat above it).
  *   under  a card stands BETWEEN them: a shallow run in the gutter UNDER the
  *          row, rising into the target's bottom. A straight side connector
  *          would pass behind the middle card and read as two links through it.
@@ -190,12 +190,18 @@ describe('same-row link, ADJACENT cards — straight between the facing sides', 
     expect(groupOf(container).getAttribute('data-same-row-route')).toBe('side')
   })
 
-  it('the +/− glyph sits in the gutter above the arrowhead, not on the target card', () => {
+  // ⚠ RE-PINNED 28 Sep 2026 (canvas/paul-test-edges): every sign now stands ON
+  // its own drawn line (`edgeGlyphPlacement.ts` rule B); the route used to hold
+  // it 14 units above the connector, (340, 368.5), which put it off the link it
+  // names. Measured: on the 28-unit connector it stops at the connector's
+  // midpoint (its ideal spot, one head + gap + half a box back, is further than
+  // half the line), still in the gutter and off the target card.
+  it('the +/− glyph sits ON the connector, in the gutter, not on the target card', () => {
     const { container } = renderLink(PRICE, RESIST)
     const glyph = glyphOf(container)
     expect(glyph, 'no polarity glyph rendered').not.toBeNull()
-    // x = 356 − (4 + 12) = 340 (the gutter's middle); y = 382.5 − (10 + 4).
-    expect(glyph!.style.transform).toMatch(/translate\(340px,\s*368\.5px\)/)
+    // The connector's midpoint: x (324 + 352) / 2 = 338, y 382.5 — ON the line.
+    expect(glyph!.style.transform).toMatch(/translate\(338px,\s*382\.5px\)/)
   })
 })
 
@@ -210,10 +216,15 @@ describe('same-row link with a card BETWEEN — a shallow run under the row', ()
     expect(groupOf(container).getAttribute('data-same-row-route')).toBe('under')
   })
 
-  it('the glyph sits beside the rising lead, on the side away from the run', () => {
+  // ⚠ RE-PINNED 28 Sep 2026 (see the side case): the sign stood BESIDE the
+  // rising lead at (712, 459), 14 units off its own line; it now stands ON the
+  // arc, one head + gap + half a box back from the tip (698, 445) — measured
+  // (680.12, 459.28), where the arc is already turning towards its source.
+  // ⚠ RE-PINNED 1 Oct 2026 (#2409, Paul: "The arrows … are too big"): the head is 2.5× the stroke, not 4×, so
+  // "one head back" is shorter and the sign sits nearer the tip, still ON the arc — measured (685.67, 457.04).
+  it('the glyph sits ON the arc, just behind the arrowhead rising into the target', () => {
     const { container } = renderLink(PRICE, CHURN)
-    // x = 698 + 14; y = 445 + 14.
-    expect(glyphOf(container)!.style.transform).toMatch(/translate\(712px,\s*459px\)/)
+    expect(glyphOf(container)!.style.transform).toMatch(/translate\(685\.67px,\s*457\.04px\)/)
   })
 })
 

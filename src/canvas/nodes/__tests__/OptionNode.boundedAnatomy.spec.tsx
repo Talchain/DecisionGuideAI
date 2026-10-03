@@ -228,8 +228,15 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
     // line (`.delta-rows .amount{white-space:nowrap}`).
     // RE-PINNED (design audit #9, 26 Sep): the label is ONE line at every rung
     // (`line-clamp-1`, a vertical clamp at a word break); its DOM text is still
-    // the whole name, and it is still never a horizontal cut (`truncate`).
-    it('the label comes FIRST, is the FULL name on ONE clamped line, never a horizontal cut; the value and its trailing mark are never cut', () => {
+    // the whole name.
+    // ⭐ RE-PINNED 27 Sep (side-by-side DIFF item 1): the word-break clamp cut
+    // "Bottom-up adoption friction" to `Bottom-up…` with room for more, so the
+    // label is now a CHARACTER ellipsis (`truncate`) after the amount has taken
+    // its natural width — the one exemption `nodeTextClipping.visual.spec.ts`
+    // allows: `data-truncates="label"` and a titled ancestor in the node (the
+    // row line) carrying the full name. The value and the mark are still never
+    // inside a truncating element.
+    it('the label comes FIRST, is the FULL name on ONE ellipsised line, recoverable from the row; the value and its trailing mark are never cut', () => {
       renderCard()
       const dd = onCard('option-change-row-option-1-f-price')!
       const dt = dd.previousElementSibling as HTMLElement
@@ -241,13 +248,14 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       // The label carries the factor's FULL name, and nothing shortens it.
       expect(dt.textContent).toBe('Pro plan monthly price')
       const lt = tokens(dt)
-      expect(lt.has('truncate')).toBe(false)
-      expect(lt.has('break-words')).toBe(true)
+      expect(lt.has('truncate')).toBe(true)
       expect(lt.has('min-w-0')).toBe(true)
-      expect(lt.has('line-clamp-1')).toBe(true)
-      expect(dt.getAttribute('data-truncates')).toBeNull()
-      // ⛔ The value and the mark are NEVER inside a truncating element.
-      for (const protectedEl of [dt, dd, mark]) {
+      expect(lt.has('line-clamp-1')).toBe(false)
+      expect(dt.getAttribute('data-truncates')).toBe('label')
+      expect(dt.closest('[title]')?.getAttribute('title')).toBe('Pro plan monthly price')
+      // ⛔ The value and the mark are NEVER inside a truncating element, and the
+      // label is cut only by its own cell (no truncating ancestor).
+      for (const protectedEl of [dt.parentElement as HTMLElement, dd, mark]) {
         let el: HTMLElement | null = protectedEl
         while (el && el !== document.body) {
           const t = tokens(el)
@@ -299,7 +307,11 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       expect(onCard('option-change-row-estimate-option-3-f-adopt')!.getAttribute('data-value-source')).toBe('olumi')
     })
 
-    it('a value is held on ONE line and never clipped — when it cannot sit beside the label it takes the next line whole (v3.1 #9)', () => {
+    // ⚠ RE-PINNED 28 Sep 2026 (side-by-side DIFF Pre 1 residual, owner
+    // decision): the row line no longer wraps as a whole (`flex-wrap` stacked
+    // every landing row); it is the contract's two-column grid, so the amount
+    // keeps the label's line and the label yields.
+    it('a value is held on ONE line and never clipped — it keeps the label\'s line, the label yields (v3.1 #9)', () => {
       renderCard()
       const dd = onCard('option-change-row-option-1-f-price')!
       const t = tokens(dd)
@@ -309,8 +321,10 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       // `.delta-rows .amount{white-space:nowrap}` — on the value, and on the mark cluster.
       expect(tokens(onCard('option-change-row-value-option-1-f-price')).has('whitespace-nowrap')).toBe(true)
       expect(tokens(onCard('option-change-row-mark-option-1-f-price')).has('whitespace-nowrap')).toBe(true)
-      // The row line wraps as a whole: the amount drops below, never the value apart.
-      expect(tokens(onCard('option-change-row-line-option-1-f-price')).has('flex-wrap')).toBe(true)
+      // The row line is the contract grid: the amount beside the label, never the value apart.
+      const line = tokens(onCard('option-change-row-line-option-1-f-price'))
+      expect(line.has('grid')).toBe(true)
+      expect(line.has('flex-wrap')).toBe(false)
     })
   })
 
@@ -408,8 +422,27 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       expect(onCard('option-baseline-meta-option-keep')?.textContent).toBe('Baseline · no changes')
     })
 
-    it('CONTRAST: with no typed source at all, the label heuristic still decides (unchanged)', () => {
+    /**
+     * ⛔ RE-PINNED 27 Sep 2026 (canvas audit paul-models POM-3). This row read
+     * "with no typed source at all, the label heuristic still decides" — but
+     * `withKeep` seeds `BASELINE` (`is_baseline: true`), so the board DOES carry
+     * a typed source: it declares its baseline. POM-3: on Paul's 90b8 board the
+     * heuristic read "£59 for new Pro customers; grandfather existing customers"
+     * as a SECOND "Baseline option" beside the declared "Keep current £49
+     * price". A board has one baseline, so once one is declared the keyword
+     * guess may not mint another. The heuristic still decides on a board that
+     * declares none — the arm below, which is the contrast this row meant.
+     */
+    it('CONTRAST: on a board that DECLARES a baseline, the label heuristic may not mint a second (POM-3)', () => {
       renderCard({ id: 'option-keep', store: withKeep(null) })
+      // Positive control: the "Keep …" card mounted and carries its title.
+      expect(document.body.textContent ?? '').toContain('Keep £49 and add a paid AI add-on')
+      expect(onCard('option-baseline-meta-option-keep')).toBeNull()
+    })
+
+    it('CONTRAST: with no typed source ANYWHERE on the board, the label heuristic still decides (unchanged)', () => {
+      const store = withKeep(null)
+      renderCard({ id: 'option-keep', store: { ...store, nodes: store.nodes.filter((n) => n.id !== 'option-b') } })
       expect(onCard('option-baseline-meta-option-keep')?.textContent).toBe('Baseline · no changes')
     })
 

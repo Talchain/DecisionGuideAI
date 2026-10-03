@@ -167,11 +167,14 @@ describe('the boosted anchor title carries the canvas label scale', () => {
    * above-floor treatment is asserted as what it now is, not merely "not
    * ordinary".
    */
-  it('above the floor the anchor KEEPS weight and header ink (contract v3.1 ANC-04)', () => {
+  // 29 Sep 2026: the anchor's step is SIZE (`.node.wide h3{font-size:14px}`) in the
+  // card's ink (#3F3F3E); the contract sets no separate title colour.
+  it('above the floor the anchor KEEPS weight and takes the wide title size, in the card ink', () => {
     renderCard('decision', { lodRung: 'full' })
     expect(titleClass()).toContain('font-semibold')
-    expect(titleClass()).toContain('text-text-header')
-    expect(titleClass()).not.toContain('text-text-body')
+    expect(titleClass()).toContain('calc(14px*var(--canvas-label-scale,1))')
+    expect(titleClass()).toContain('text-text-body')
+    expect(titleClass()).not.toContain('text-text-header')
   })
 
   it('CONTRAST — above the floor an ordinary card is still the ordinary card', () => {
@@ -196,12 +199,14 @@ describe('the boost is never a shrink, at any zoom it can apply to', () => {
     // no counter-scale, so its rendered size is `18 * zoom` flat.
     // ⚠ FLIPPED BY THE LANDING TEXT CEILING (27 Sep 2026). At the old 2x cap the
     // counter-scaled 12px drew 24z and the fixed 18px was smaller everywhere. At
-    // the 1.36 ceiling it draws 16.32z, so the OLD fixed spelling would now be the
-    // LARGER one, by exactly 18 / 16.32 (10.3%), at every zoom in the band. The boost
-    // stays on the one text authority by design (every label shrank with the
-    // ceiling); recorded here, both directions pinned, so the trade is visible.
+    // the 1.36 ceiling it drew 16.32z, so the OLD fixed spelling was the LARGER
+    // one, by 18 / 16.32 (10.3%), at every zoom in the band.
+    // ⚠ FLIPPED BACK (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231): at 1.64 the
+    // counter-scaled 12px draws 19.68z, so the OLD fixed 18px is SMALLER again at
+    // every zoom in the band, by 18 / 19.68 (−8.5%) — the original refutation
+    // holds once more. Both directions stay pinned (set + ratio).
     const worse = BAND.filter((z) => TEXT_LG_PX * z < renderedLabelPx(12, z))
-    expect(worse, 'the old fixed boost is no longer smaller anywhere under the text ceiling').toEqual([])
+    expect(worse, 'the old fixed boost is smaller at every zoom under the 1.64 text ceiling').toEqual(BAND)
     for (const z of BAND) {
       expect(TEXT_LG_PX * z / renderedLabelPx(12, z)).toBeCloseTo(18 / (12 * LABEL_COUNTER_SCALE_CAP), 10)
     }
@@ -227,7 +232,8 @@ describe('the boost is never a shrink, at any zoom it can apply to', () => {
     const z = 0.2595
     expect(Number((TEXT_LG_PX * z).toFixed(2))).toBe(4.67)
     // 6.23 → 4.24 (27 Sep 2026): 12 × 1.36 × z under the landing text ceiling.
-    expect(Number(renderedLabelPx(12, z).toFixed(2))).toBe(4.24)
+    // 4.24 → 5.11 (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231): 12 × 1.64 × z.
+    expect(Number(renderedLabelPx(12, z).toFixed(2))).toBe(5.11)
   })
 
   /**

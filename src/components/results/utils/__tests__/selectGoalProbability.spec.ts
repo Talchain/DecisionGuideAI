@@ -28,10 +28,14 @@ describe('selectGoalProbability — gate-independent behaviour', () => {
       jointGoalProbability: null,
       basis: 'none' as const,
       goalFitIsModelledBasis: false,
+      jointGoalIsModelledBasis: false,
+      goalFitBaseCaveat: null,
       mayUsePossessiveGoalFraming: false,
       // L62: nothing was available to withhold here — 'none' means the run
       // carried no joint figure either.
       jointSubstitutionWithheld: false,
+      // CEE #2270/#2280 (goal-certainty consumer): no unearned certainty stamped on this input.
+      goalCertaintyUnearned: null,
     }
     // Exact shape, deliberately: the selection is a CONTRACT, and a field that
     // appears (or vanishes) without a decision here is a field some surface will
@@ -58,14 +62,18 @@ describe('selectGoalProbability — CURRENT STATE: seam 1 RESTORED (PLOT_JOINT_H
     mockTrust.headlineSuspect = false
   })
 
-  it('prefers probability_of_joint_goal when constraints exist (A3 fix deployed — joint is correct at source)', () => {
+  // 29 Sep 2026 (AIQ 5882498938): was "prefers probability_of_joint_goal when constraints exist" — the joint figure is P(all limits hold), never the goal.
+  it('reads goal_probability, never probability_of_joint_goal, when constraints exist', () => {
     const result = selectGoalProbability({
       goal_probability: 0.42,
       probability_of_joint_goal: 0.07,
       constraint_analysis: { constraints: [{ id: 'c1' }] },
     })
-    expect(result.goalProbability).toBe(0.07)
-    expect(result.goalProbabilityIsJoint).toBe(true)
+    expect(result.goalProbability).toBe(0.42)
+    expect(result.goalProbability).not.toBe(0.07) // the discriminating contrast: never the joint figure
+    expect(result.goalProbabilityIsJoint).toBe(false)
+    expect(result.basis).toBe('goal_probability')
+    expect(result.jointGoalProbability).toBe(0.07) // …which keeps its own row
   })
 
   /**
@@ -150,14 +158,16 @@ describe('selectGoalProbability — basis and framing permission', () => {
     expect(result.mayUsePossessiveGoalFraming).toBe(true)
   })
 
-  it('an option carrying its own constraints yields the constrained joint basis', () => {
+  // 29 Sep 2026 (AIQ 5882498938): the constrained joint basis is retired — constraints never put the joint figure in the goal slot.
+  it('an option carrying its own constraints yields the GOAL basis, and the goal figure keeps the possessive', () => {
     const result = selectGoalProbability({
       goal_probability: 0.42,
       probability_of_joint_goal: 0.07,
       constraint_analysis: { constraints: [{ id: 'c1' }] },
     })
-    expect(result.basis).toBe('joint_goal_constrained')
-    expect(result.goalProbability).toBe(0.07)
+    expect(result.basis).toBe('goal_probability')
+    expect(result.goalProbability).toBe(0.42)
+    expect(result.goalProbability).not.toBe(0.07)
     expect(result.mayUsePossessiveGoalFraming).toBe(true)
   })
 
@@ -174,19 +184,22 @@ describe('selectGoalProbability — basis and framing permission', () => {
     expect(result.jointGoalProbability).toBe(0.62)
   })
 
-  it('carries the modelled-basis caveat on a CONSTRAINED joint figure the producer marked as modelled', () => {
-    // ⭐ L62 amended the INPUT, not the rule. The caveat still rides a joint
-    // figure marked `modelled_outcome_distribution` — but only one that is
-    // actually DISPLAYED, which after L62 means the constrained basis. A
-    // caveat rendered beside a withheld number would be a hedge about a value
-    // the user cannot see.
+  // 29 Sep 2026 (AIQ 5882498938): the modelled-basis caveat qualifies a DISPLAYED joint figure, and none is displayed any more.
+  it('a CONSTRAINED option marked as modelled shows its goal figure, with no joint modelled-basis caveat', () => {
+    // ⭐ L62 amended the INPUT, not the rule: the caveat rides only a joint
+    // figure that is actually DISPLAYED in the goal slot. The ruling leaves no
+    // such basis, so a constrained, modelled option shows the goal figure and
+    // the joint caveat does not attach to it.
     const result = selectGoalProbability({
+      goal_probability: 0.42,
       probability_of_joint_goal: 0.62,
       constraint_analysis: { constraints: [{ id: 'c1' }] },
       goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
     })
-    expect(result.basis).toBe('joint_goal_constrained')
-    expect(result.goalFitIsModelledBasis).toBe(true)
+    expect(result.basis).toBe('goal_probability')
+    expect(result.goalProbability).toBe(0.42)
+    expect(result.goalProbability).not.toBe(0.62)
+    expect(result.goalFitIsModelledBasis).toBe(false)
   })
 
   it('L62: no modelled-basis caveat over a WITHHELD figure — there is nothing for it to qualify', () => {
@@ -294,5 +307,38 @@ describe('selectGoalProbability — publishes the joint quantity it read', () =>
     expect(result.goalProbability).toBe(0.42)
     expect(result.goalProbabilityIsJoint).toBe(false)
     expect(result.jointGoalProbability).toBe(0.07)
+  })
+})
+
+/**
+ * ⭐ ISL #207 (proposal 3, AIQ ACK #72 5876773218): a goal that states no level today is anchored
+ * on its evaluated identity, and when any operand is Olumi's the goal probability is
+ * `estimate_only` — measured from OLUMI'S estimate of today's level. The chooser publishes that
+ * once, so no surface can print the figure without saying whose base it stands on.
+ * Carrier: `identity_evaluations[].level_author` (R3 #72 5876843426), stamped fail-closed by the V5 mapper.
+ */
+describe('selectGoalProbability — whose base the goal figure stands on', () => {
+  beforeEach(() => {
+    mockTrust.headlineSuspect = false
+  })
+
+  it.each([
+    ['olumi', 'olumi_estimate'],
+    // fail-closed: the author was not attested → the author-neutral caveat, never "Olumi's"
+    ['unattested', 'from_inputs'],
+  ] as const)('goal level author %s on a present goal figure → %s', (goalLevelAuthor, expected) => {
+    const r = selectGoalProbability({ probability_of_goal: 0.62, goalLevelAuthor })
+    expect(r.goalProbability).toBe(0.62)
+    expect(r.goalFitBaseCaveat).toBe(expected)
+  })
+
+  it("OPPOSITE TWIN — the user's own base (nothing stamped) → no caveat", () => {
+    const r = selectGoalProbability({ probability_of_goal: 0.62 })
+    expect(r.goalProbability).toBe(0.62)
+    expect(r.goalFitBaseCaveat).toBeNull()
+  })
+
+  it('CONTROL — the caveat never stands without a figure to qualify', () => {
+    expect(selectGoalProbability({ goalLevelAuthor: 'olumi' }).goalFitBaseCaveat).toBeNull()
   })
 })

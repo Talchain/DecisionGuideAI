@@ -41,14 +41,15 @@ describe('resolveLabelCollisionOffsets — E3 label collision avoidance', () => 
     // The property: pairwise separation clears the label box on y…
     for (let i = 0; i < dys.length; i++) {
       for (let j = i + 1; j < dys.length; j++) {
-        expect(Math.abs(dys[i] - dys[j])).toBeGreaterThanOrEqual(28)
+        expect(Math.abs(dys[i] - dys[j])).toBeGreaterThanOrEqual(32)
       }
     }
     // …at one STEP of travel each, never two. Written as literals, not as
     // `STEP`, so the constant and its pin cannot agree with each other.
     // 38 → 30 and 36 → 28 (27 Sep 2026): the label box is read at the landing
     // TEXT ceiling, 11 × 1.25 × 1.36 + 8 = 26.7 tall (half 14), not × 2 (half 18).
-    expect(dys).toEqual([-30, 0, 30])
+    // 30 → 34 and 28 → 32 (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231): 11 × 1.25 × 1.64 + 8 = 30.55 tall (half 16).
+    expect(dys).toEqual([-34, 0, 34])
   })
 
   it('is deterministic regardless of input order (every edge computes the same assignment)', () => {
@@ -164,7 +165,7 @@ describe('resolveLabelCollisionOffsets — E3 part 2: node cards as fixed obstac
     const explicitEmpty = resolveLabelCollisionOffsets(pts, [])
     for (const out of [omitted, explicitEmpty]) {
       expect(out.get('upper')).toEqual({ dx: 0, dy: 0 })
-      expect(out.get('lower')).toEqual({ dx: 0, dy: 30 }) // 38 → 30 (27 Sep 2026, text ceiling)
+      expect(out.get('lower')).toEqual({ dx: 0, dy: 34 }) // 38 → 30 (27 Sep 2026, text ceiling) → 34 (cap 1.36 → 1.64, #70 5859837231)
     }
   })
 
@@ -225,9 +226,10 @@ describe('resolveLabelCollisionOffsets — 31 Aug 2026 label-overlap defects', (
 
   it('takes the NEARER clear side of a blocking card, not always downward', () => {
     // Card spans y 0..200 with the anchor at 30, near its top edge.
-    // (27 Sep 2026, text ceiling: half-height 14, step 30; was 18 and 38.)
-    //   upward   : 30 + dy + 14 ≤ 0   → dy ≤ −44  → −60 (2 steps of 30)
-    //   downward : 30 + dy − 14 ≥ 200 → dy ≥ 184 → +210 (7 steps of 30)
+    // (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231: half-height 16, step 34;
+    // was 14 and 30 at the 1.36 ceiling, 18 and 38 at 2.)
+    //   upward   : 30 + dy + 16 ≤ 0   → dy ≤ −46  → −68 (2 steps of 34)
+    //   downward : 30 + dy − 16 ≥ 200 → dy ≥ 186 → +204 (6 steps of 34)
     // The old downward-only loop walked the full height of the card and left
     // the label 182px from its own edge, with a leader line that runs beneath
     // the node layer and is therefore invisible for most of its length.
@@ -235,7 +237,7 @@ describe('resolveLabelCollisionOffsets — 31 Aug 2026 label-overlap defects', (
       [{ id: 'a', x: 0, y: 30 }],
       [{ x: -100, y: 0, width: 200, height: 200 }],
     )
-    expect(out.get('a')!.dy).toBe(-60)
+    expect(out.get('a')!.dy).toBe(-68)
   })
 
   it('an unplaceable label stays at its anchor, NOT at the guard ceiling', () => {
@@ -259,14 +261,16 @@ describe('resolveLabelCollisionOffsets — 31 Aug 2026 label-overlap defects', (
     //
     // RE-DERIVED 27 Sep 2026 (text ceiling: half-height 14, step 30; B moved
     // 75 → 70 so the window still holds ONE label, which is the case this pins).
+    // RE-DERIVED AGAIN (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231): half-height 16,
+    // step 34. The cards stay put — the window still holds ONE label.
     // Cards A (spans y −1000..1) and B (spans y 70..1070) leave exactly one
-    // clear window for a label centre: 15 ≤ cy ≤ 56 (half-height 14).
-    //   b (0,−32) resolves first (lower y) and reaches the window at dy +60,
-    //     i.e. cy 28.
+    // clear window for a label centre: 17 ≤ cy ≤ 54 (half-height 16).
+    //   b (0,−32) resolves first (lower y) and reaches the window at dy +68,
+    //     i.e. cy 36.
     //   a (0, 0) then finds:
-    //     dy   0 → cy  0 — under card A; b is 28 away.
-    //     dy +30 → cy 30 — clear of both cards, but 2px from b.
-    //     everything else is under a card (+60 is cy 60, under B).
+    //     dy   0 → cy  0 — under card A; b is 36 away.
+    //     dy +34 → cy 34 — clear of both cards, but 2px from b.
+    //     everything else is under a card (+68 is cy 68, under B).
     // So the only choice is "under a card" versus "beside another label".
     // Weighted, +30 wins. Unweighted the two score equally, dy 0 is reached
     // first, and the label disappears under card A.
@@ -281,8 +285,8 @@ describe('resolveLabelCollisionOffsets — 31 Aug 2026 label-overlap defects', (
       ],
       cards,
     )
-    expect(out.get('b')!.dy).toBe(60) // the clean window
-    expect(out.get('a')!.dy).toBe(30) // crowded, but visible
+    expect(out.get('b')!.dy).toBe(68) // the clean window
+    expect(out.get('a')!.dy).toBe(34) // crowded, but visible
   })
 })
 

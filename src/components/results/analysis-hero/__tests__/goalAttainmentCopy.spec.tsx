@@ -74,6 +74,8 @@ import type { OptionResult } from '../../types'
  * over a singleton and over a set, which is why all four surfaces use it.
  */
 const POSSESSIVE = /your goal/i
+/** AIQ #72 5885116642: the PERMITTED goal claim, as a share of model runs. The substituted basis never makes it. */
+const TARGET_CLAIM = /reaches the target/i
 const PLURALITY = /\ball targets\b|\bthe targets\b/i
 
 /**
@@ -147,6 +149,7 @@ function expectHonest(s: Surfaces): void {
   expect(s.caption, 'caption count').not.toMatch(PLURALITY)
   s.rowDetails.forEach((detail, i) => {
     expect(detail, `row ${i + 1} detail possessive`).not.toMatch(POSSESSIVE)
+    expect(detail, `row ${i + 1} detail target claim`).not.toMatch(TARGET_CLAIM)
     expect(detail, `row ${i + 1} detail count`).not.toMatch(PLURALITY)
   })
 }
@@ -227,7 +230,7 @@ describe('hero goal-attainment copy — POSITIVE CONTROLS (the absence assertion
     ).toBe(false)
   })
 
-  it('the row-detail surface CAN carry a possessive, so its absence below is a real result', () => {
+  it('the row-detail surface CAN carry the permitted goal claim, so its absence below is a real result', () => {
     // The non-substituted row still takes HERO_COPY.detail.goalFit, which is
     // possessive by design (it is the scalar-goal sentence, dead on the V5
     // path but deliberately not deleted — trap 5). Seeing it here proves the
@@ -241,7 +244,7 @@ describe('hero goal-attainment copy — POSITIVE CONTROLS (the absence assertion
       }),
     )
     const s = readSurfaces(m)
-    expect(s.rowDetails[0]).toMatch(POSSESSIVE)
+    expect(s.rowDetails[0]).toMatch(TARGET_CLAIM)
   })
 })
 
@@ -280,7 +283,7 @@ describe('hero goal-attainment copy — no over-suppression, no value change', (
     expect(s.rowDetails).toHaveLength(2)
     for (const detail of s.rowDetails) {
       expect(detail.length).toBeGreaterThan(0)
-      expect(detail).toMatch(/chance/i)
+      expect(detail).toMatch(/of model runs/i)
     }
   })
 

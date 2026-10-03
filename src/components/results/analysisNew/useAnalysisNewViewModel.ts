@@ -17,11 +17,12 @@
  * close.
  */
 
+import { selectRunDeltaAbsenceReason } from '../../../canvas/state/storedRunDelta'
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
 import { deriveGuidanceDskProvenance, useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import { useStrengthenStore, recordKey} from '../../../canvas/stores/strengthenStore'
-import { buildNodeValueSourceMap } from '../driverValueProvenance'
+import { buildAcceptedNodeIds, buildNodeValueSourceMap } from '../driverValueProvenance'
 import { buildNodeOriginMap } from './optionOriginDisclosure'
 import { buildRecommendations } from '../strengthen/buildRecommendations'
 import type { Recommendation } from '../strengthen/strengthenTypes'
@@ -29,8 +30,10 @@ import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { buildStrengthenInputsForAnalysisNew } from './buildStrengthenInputsForAnalysisNew'
 import { useAnalysisResultsAreCurrent } from '../../../canvas/hooks/useAnalysisResultsAreCurrent'
 import { buildAnalysisNewViewModel } from './buildAnalysisNewViewModel'
-import { buildRunDeltaView } from './runDeltaView'
-import { runDeltaDescribesDisplayedAnalysis } from '../../../canvas/state/storedRunDelta'
+import { displayedRunDeltaView, nodeLabelMap } from './displayedRunDeltaView'
+import { limitVerdictsDescribeDisplayedAnalysis } from '../../../canvas/state/storedLimitVerdicts'
+import { parseStatedLimitsKey, selectStatedLimits, selectStatedLimitsKey } from '../decision-overview/statedLimits'
+import { buildLimitVerdictView } from './limitVerdictView'
 import type { AnalysisNewViewModel } from './analysisNewTypes'
 import { readProducerLeaderPermission } from '../../../lib/decisionVerdict'
 
@@ -106,6 +109,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
    */
   const nodes = useCanvasStore((s) => s.nodes)
   const nodeValueSources = useMemo(() => buildNodeValueSourceMap(nodes), [nodes])
+  // Olumi's figures the user accepted: the fact the source string cannot carry (52f8cd).
   /**
    * ⭐ WHOSE IDEA EACH ELEMENT WAS — the SAME `nodes` slice, a DIFFERENT field.
    * `buildNodeValueSourceMap` reads `observed_state.source` (who authored a
@@ -120,14 +124,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
    * Derived from the same `nodes` the sibling map above uses — one store read,
    * not a second subscription. Labels only; nothing else about a node is read.
    */
-  const nodeLabels = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const n of nodes ?? []) {
-      const label = (n?.data as { label?: unknown } | undefined)?.label
-      if (typeof label === 'string' && label.trim().length > 0) m.set(n.id, label)
-    }
-    return m
-  }, [nodes])
+  const nodeLabels = useMemo(() => nodeLabelMap(nodes), [nodes])
   const biasSignals = useCanvasStore((s) => s.draftCoaching?.biasSignals ?? null)
   const guidanceItems = useGuidanceStore((s) => s.guidanceItems)
   const strengthenRecords = useStrengthenStore((s) => s.records)
@@ -188,18 +185,37 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
    */
   const storedRunDelta = useCanvasStore((s) => s.runDelta)
   // CEE's reason for sending no run_delta on this turn (passed through `analysis_ready`).
-  const runDeltaAbsenceReason = useCanvasStore((s) => {
-    const r = (s.ceeAnalysisReady as { run_delta_absence_reason?: unknown } | null | undefined)?.run_delta_absence_reason
-    return typeof r === 'string' ? r : null
-  })
+  const runDeltaAbsenceReason = useCanvasStore(selectRunDeltaAbsenceReason)
   const whatsChanged = useMemo(() => {
-    if (!runDeltaDescribesDisplayedAnalysis(storedRunDelta, responseHash, currentScenarioId)) return null
-    // Labels come from the SAME node map the rest of this surface uses, so the
-    // section cannot call an option something the tab above it does not.
-    return buildRunDeltaView(storedRunDelta!.delta, (id) => nodeLabels.get(id) ?? null)
+    // SC-24: the ONE reader, shared with the Compare tab (`displayedRunDeltaView.ts`). Labels come from the SAME
+    // node map the rest of this surface uses, so the section cannot call an option something the tab above it does not.
+    return displayedRunDeltaView(storedRunDelta, responseHash, currentScenarioId, nodeLabels)
   }, [storedRunDelta, responseHash, currentScenarioId, nodeLabels])
 
+  /**
+   * B5 — the per-limit verdicts, under the SAME identity rule as run_delta: read only
+   * while they describe the analysis on screen, and only beside a limit still worded as
+   * the run saw it. Limits are selected as a primitive key (the `ci:guard:zustand`
+   * contract), so a rebuilt equal array does not re-derive.
+   */
+  const storedLimitVerdicts = useCanvasStore((s) => s.limitVerdicts)
+  const statedLimitsKey = useCanvasStore((s) => selectStatedLimitsKey(s.goalConstraints))
+  const limitVerdicts = useMemo(() => {
+    if (!limitVerdictsDescribeDisplayedAnalysis(storedLimitVerdicts, responseHash, currentScenarioId)) return null
+    return buildLimitVerdictView(
+      storedLimitVerdicts!.verdicts,
+      parseStatedLimitsKey(statedLimitsKey),
+      selectStatedLimits(storedLimitVerdicts!.goalConstraintsAtRun),
+    )
+  }, [storedLimitVerdicts, responseHash, currentScenarioId, statedLimitsKey])
+
   const analysisIdentityIsCurrent = useAnalysisResultsAreCurrent()
+  // Olumi's figures the user accepted, bound to the DISPLAYED Run: only a Run affirmatively current consumed the live
+  // node, so an older Run's two-writer stamp reads undetermined (52f8cd; CODEX UI 5923625039).
+  const acceptedFigures = useMemo(
+    () => ({ ids: buildAcceptedNodeIds(nodes), runIsCurrent: analysisIdentityIsCurrent }),
+    [nodes, analysisIdentityIsCurrent],
+  )
 
   const recommendations: Recommendation[] = useMemo(() => {
     const inputs = buildStrengthenInputsForAnalysisNew({
@@ -264,7 +280,10 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
         scienceGrounding,
         whatsChanged,
         runDeltaAbsenceReason,
+        limitVerdicts,
         nodeValueSources,
+        acceptedFigures,
+        analysisNodes: nodes,
         nodeLabels,
         nodeOrigins,
         // ⭐ THE SAME READING Strengthen gets above, now also the licence for
@@ -313,7 +332,10 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
       scienceGrounding,
       whatsChanged,
       runDeltaAbsenceReason,
+      limitVerdicts,
       nodeValueSources,
+      acceptedFigures,
+      nodes,
       nodeLabels,
       nodeOrigins,
       // Store-derived, not an arg: a currency flip must re-license the

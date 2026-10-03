@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { RunDelta } from '@talchain/schemas/boundary'
-import { WhatsChanged, WHATS_CHANGED_TESTID } from '../sections/WhatsChanged'
+import { WHATS_CHANGED_NO_PAIRS, WhatsChanged, WHATS_CHANGED_TESTID } from '../sections/WhatsChanged'
 import { buildRunDeltaView } from '../runDeltaView'
 
 const LABELS: Record<string, string> = { opt_a: 'Raise the price', opt_b: 'Hold the price' }
@@ -87,10 +87,14 @@ describe('only C1 reads as caused by the person', () => {
 })
 
 describe('an unmatched pair is never rendered as stillness', () => {
-  it('says no option could be matched — and does NOT say nothing moved', () => {
+  it('says no option has figures from both runs — and does NOT say nothing moved', () => {
     render(<WhatsChanged view={view({ win_probabilities: [] })} />)
     const el = screen.getByTestId(`${WHATS_CHANGED_TESTID}-no-pairs`)
-    expect(el.textContent).toMatch(/could be matched/i)
+    // Re-worded 1 Oct (R3 5936720411, DL 5936726281): the old "could be matched … nothing to compare here" was false at the
+    // investor moment, when the EARLIER Run had withheld its figures. The sentence now names no cause, since the wire carries none.
+    expect(el.textContent).toBe(WHATS_CHANGED_NO_PAIRS)
+    expect(el.textContent).toMatch(/figures from both runs/i)
+    expect(el.textContent).not.toMatch(/nothing to compare/i)
     expect(el.textContent).not.toMatch(/nothing (moved|changed)|no change|unchanged/i)
     expect(screen.queryByTestId(`${WHATS_CHANGED_TESTID}-movements`)).toBeNull()
   })
@@ -175,7 +179,7 @@ describe('⛔ the heading is never the only thing on screen', () => {
       pair_provenance: { seed_equal: true, hash_equal: true, builds_equal: 'equal', n_equal: true },
     })} />)
     expect(screen.getByTestId(`${WHATS_CHANGED_TESTID}-comparability`).textContent)
-      .toMatch(/nothing about the model/i)
+      .toMatch(/nothing the analysis uses differed/i)
   })
 
   it('an unmatched pair renders the comparability line AND the no-pairs line', () => {

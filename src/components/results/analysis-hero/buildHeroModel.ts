@@ -69,9 +69,10 @@ import {
 } from '../utils/getExpectedValue'
 import { safeInterpolatedLabel, containsBannedTerm } from '../utils/glossaryCheck'
 import { formatPercent, formatProbabilityWithResolution } from '@/utils/formatPercent'
-import { driverValueProvenance } from '../driverValueProvenance'
+import { driverValueProvenance, type AcceptedFigureBinding } from '../driverValueProvenance'
 import { flipDirectionWording, formatFlipValue } from '../utils/flipThresholdDisplay'
 import { HERO_COPY } from './heroCopy'
+import { DRIVER_LINE_COPY } from '../../../canvas/nodes/shared/metricVocabulary'
 import type { SensitivityLeader } from '../../../canvas/nodes/shared/rankFactor'
 import type {
   HeroChartModel,
@@ -243,6 +244,16 @@ export function buildHeroModel(
    * list-first read below.
    */
   driverLeader?: SensitivityLeader | null,
+  /**
+   * ⭐ NODE IDS THIS RUN RANKED WITH NO VALUE (`noValueDriverIds`, the one rule
+   * the canvas card and the Reasoning tab read). When the named main driver is
+   * one of them the line and the pill say so — "Main driver: X · no value yet"
+   * — so the hero never crowns a factor the card beside it flags as unvalued
+   * (DL 5869404773). Absent (older callers/tests) nothing is flagged.
+   */
+  noValueIds?: ReadonlySet<string>,
+  /** `AcceptedFigureBinding`: Olumi's figures the user accepted read as estimates on the Run that consumed them (52f8cd). */
+  acceptedFigures?: AcceptedFigureBinding,
 ): HeroModel {
   // Fail closed on a partially-shaped object (e.g. hydrated older state):
   // the type guarantees these fields, but the hero must render nothing —
@@ -335,6 +346,11 @@ export function buildHeroModel(
    */
   const designationsWithheld = recommendation.verdict != null && leaderDesignationPermitted(recommendation) !== true
 
+  // ⭐⭐ WIN SHARES FOLLOW THE LEADER CLAIM (CURRENT-READ-v1 row 9; AIQ #75 5912710392). Published by
+  // `useResultsSectionData` from `canvas/state/winShareGate` — READ, never re-derived here. `=== true`: a caller
+  // that predates the field (fixtures, the gallery) is not a withheld run and renders exactly as before.
+  const winSharesAreWithheld = data.winSharesWithheld === true
+
   // Present rows in the SHARED option display order (win probability when
   // complete, else expected — sortOptionsForDisplay) so hero numbering always
   // matches the OptionCards/WinGauge ranking below. Presentation numbering,
@@ -353,6 +369,14 @@ export function buildHeroModel(
   if (options.length === 0) return { kind: 'empty' }
 
   const { outcomeUnit, outcomeUnitSymbol, isNormalised, goalThreshold } = recommendation
+  // W3 (AIQ #72 5894808343 (3)): normalised outcomes are unitless model scores (no today's level of the goal to express
+  // them in its units). A unitless score is never shown — `formatThreshold` would print it as a "% shift" ("Stay on AWS
+  // −22%" served for a goal with no today's level) — so every outcome figure is withheld at source, and the outcome
+  // lens says why (`outcomeWithheldNoTodayLevel`).
+  const outcomeIsUnitless = isNormalised === true
+  /** Any option carried an outcome figure at all (a producer withhold leaves none — then nothing was unitless). */
+  const anyOutcomeFigure = options.some((o) =>
+    [outcomeCentre(o), outcomeP10(o), outcomeP90(o)].some((v) => typeof v === 'number' && Number.isFinite(v)))
 
   // UI-SEM-071: null-target goal-claim suppression. Goal-fit display is
   // gated on the USER success target (goalThreshold), NEVER on producer
@@ -394,13 +418,15 @@ export function buildHeroModel(
     // all key off this value, so a synthesized goalProbability cannot
     // bypass the gate anywhere.
     const goalValue = hasUserTarget ? (o.goalProbability ?? null) : null
-    const centre = outcomeCentre(o)
-    const p10 = outcomeP10(o)
-    const p90 = outcomeP90(o)
+    const centre = outcomeIsUnitless ? null : outcomeCentre(o)
+    const p10 = outcomeIsUnitless ? null : outcomeP10(o)
+    const p90 = outcomeIsUnitless ? null : outcomeP90(o)
     const why = recommendation.storyHeadlines?.[o.id]
     const couldChangeIf = couldChangeIfLine(o, o.id === recommendedId, usableFlips)
+    // ⭐⭐ CURRENT-READ-v1 row 9 (AIQ #75 5912710392): a withheld leader withholds every per-row win share — the
+    // detail line AND the magnitude the leader headline would quote. From the hook's `winShareGate` read.
     const winReadout =
-      typeof o.winProbability === 'number'
+      !winSharesAreWithheld && typeof o.winProbability === 'number'
         ? formatProbabilityWithResolution(o.winProbability, o.nValidSamples)
         : undefined
     const winChance = winReadout != null ? HERO_COPY.detail.winChance(winReadout) : undefined
@@ -515,7 +541,9 @@ export function buildHeroModel(
   if (goalAvailable) lenses.push('goal')
   if (outcomeAvailable) lenses.push('outcome')
   // Options exist but nothing displayable — the hero has nothing honest to say.
-  if (lenses.length === 0) return { kind: 'empty' }
+  // W3: EXCEPT when the outcomes were withheld as unitless scores. Then the hero has one honest thing to say — why no
+  // outcome is shown and what unlocks it — and an empty hero would drop that sentence (the outcome lens carries it).
+  if (lenses.length === 0 && !outcomeIsUnitless) return { kind: 'empty' }
 
   // Outcome leader: highest existing centre; strict `>` keeps the earliest
   // row on ties (deterministic shared-display-order tie-break).
@@ -843,6 +871,13 @@ export function buildHeroModel(
           : leaderBand === 'none'
             ? HERO_COPY.headline.noClearLeader
             : HERO_COPY.headline.noLeader
+  } else if (sharedVerdict?.separation === 'tied') {
+    // ⭐ R7 (DL #70 5859773247): the producer's TIE call names no option, so it
+    // needs no headline row. Since a UI sort no longer names a leader, a tie
+    // turn (CEE withholds `leading_option_id`) has no `headlineRow`, and the
+    // band arm above cannot reach 'none'. This keeps the denial the producer
+    // earned rather than degrading it to "Here is how your options compare."
+    headline = HERO_COPY.headline.noClearLeader
   } else if (
     outcomeAvailable &&
     outcomeLeaderRow &&
@@ -977,12 +1012,19 @@ export function buildHeroModel(
   // supplied. An empty string and "   " are both "the producer said nothing".
   const modelRefusedComparativeClaim =
     licensesComparativeLeaderClaim(recommendation.analysisAdmission) === false
-  const designationWithheldReason =
+  const admissionWithheldReason =
     designationsWithheld && modelRefusedComparativeClaim
       ? recommendation.analysisAdmission?.reasons?.find(
           (r) => r?.field === 'permitted_analysis_mode',
         )?.message?.trim() || null
       : null
+  // ⭐⭐ CURRENT-READ-v1 row 9: the rows' win shares are withheld above, so this panel says why, once. The
+  // admission's own sentence keeps the slot when it has one (a reason line already on the panel); otherwise the
+  // producer's withheld-leader reason line from `winShareGate` (e.g. Paul's 4276f3f9: "An exploratory
+  // comparison: Olumi couldn't check your target or limits on this run, so it isn't naming an option."). Permitted ⇒ unchanged.
+  const designationWithheldReason =
+    admissionWithheldReason ??
+    (winSharesAreWithheld ? data.winShareWithheldReason?.trim() || null : null)
 
   // Tension subline: the headlined leader vs the strongest expected outcome.
   // PERSISTENT across goal and no-goal headline branches (review-locked):
@@ -1139,6 +1181,15 @@ export function buildHeroModel(
       : undefined
   const topDriverLabel = leaderItem?.factorLabel
   const cleanDriverLabel = topDriverLabel ? stripEncodingNotation(topDriverLabel) : null
+  // The canvas card's own words and joiner (`DRIVER_LINE_COPY.noValueYet`).
+  const leaderHasNoValue =
+    leaderItem != null &&
+    noValueIds != null &&
+    (noValueIds.has(leaderItem.matchedNodeId ?? '') || noValueIds.has(leaderItem.factorKey))
+  const namedDriverLabel =
+    cleanDriverLabel && leaderHasNoValue
+      ? `${cleanDriverLabel} · ${DRIVER_LINE_COPY.noValueYet}`
+      : cleanDriverLabel
 
   // ⚠ "MAIN DRIVER: X" IS A COMPARATIVE CLAIM AND A TIE CANNOT SUPPORT ONE.
   // Both this line and the §6.5 pill below were built from
@@ -1183,8 +1234,8 @@ export function buildHeroModel(
   const mainReason =
     cleanDriverLabel && !containsBannedTerm(cleanDriverLabel)
       ? driverLeadIsClear
-        ? HERO_COPY.footer.mainReason(cleanDriverLabel)
-        : HERO_COPY.footer.mainReasonTied(cleanDriverLabel)
+        ? HERO_COPY.footer.mainReason(namedDriverLabel ?? cleanDriverLabel)
+        : HERO_COPY.footer.mainReasonTied(namedDriverLabel ?? cleanDriverLabel)
       : null
 
   // §6.5 quick evidence links — selection of existing producer-backed
@@ -1203,7 +1254,7 @@ export function buildHeroModel(
   const mainDriver: HeroMainDriverLink | null =
     mainReason && cleanDriverLabel && topDriverItem?.canFocus
       ? {
-          label: cleanDriverLabel,
+          label: namedDriverLabel ?? cleanDriverLabel,
           targetId: topDriverItem.matchedNodeId ?? topDriverItem.factorKey,
           leadIsClear: driverLeadIsClear,
         }
@@ -1269,7 +1320,7 @@ export function buildHeroModel(
             // was tagged as Olumi's. The authority is the node. See
             // `../driverValueProvenance` — one implementation, shared with the
             // glance, where the old declared copy used to sit.
-            isEstimate: driverValueProvenance(d, nodeValueSources),
+            isEstimate: driverValueProvenance(d, nodeValueSources, acceptedFigures),
             // Producer-normalised direction, passed through; absent stays
             // absent (the sign glyph is omitted, never guessed).
             //
@@ -1435,6 +1486,20 @@ export function buildHeroModel(
       whatChanged: null,
     },
     outcomeDomain,
+    outcomeWithheldNoTodayLevel: outcomeIsUnitless,
+    // ⛔ R3 #75 5905239972 (served MRR + cut-costs): "doesn't hold today's level" was said for goals holding the user's
+    // £75k / £45k, because outcomes the PRODUCER withheld (no figure at all) read as unitless. The sentence is the
+    // reason only when there were figures to withhold AND the goal holds no level; otherwise the neutral line.
+    // The producer's typed words win (MG 5905252815); "no today's level" only with figures AND no level; else neutral.
+    outcomeWithheldBody: outcomeIsUnitless
+      ? (recommendation.goalFiguresWithheldMessage
+          ?? (anyOutcomeFigure && recommendation.goalHoldsTodayLevel !== true
+            ? HERO_COPY.lensUnavailable.outcomeNoTodayLevel(
+                stripEncodingNotation(recommendation.goalLabel ?? ''),
+                outcomeUnitSymbol?.trim() || null,
+              )
+            : HERO_COPY.lensUnavailable.outcome))
+      : null,
     // Caption honesty: only describe range lines (and overlap) the chart
     // actually draws — 0/1/2+ ranged rows pick the caption wording.
     outcomeRangedRowCount: rows.filter(

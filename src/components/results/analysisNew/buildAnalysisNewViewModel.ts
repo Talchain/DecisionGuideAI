@@ -41,7 +41,9 @@
  *     caught exactly that here before it shipped.
  */
 
-import { applyUnitPlacement, classifyUnit } from '../../../utils/unitClassifier'
+import { formatThresholdFigure } from './thresholdFigure'
+import { conditionalInputBasis } from './conditionalInputBasis'
+import { classifyUnit } from '../../../utils/unitClassifier'
 import { truncateAtWordBoundary } from '../../../utils/text'
 import { leaderDesignationPermitted, rankingWasWithheld } from '../leaderDesignation'
 import { isSuppressedUnit } from '../../../canvas/utils/labelUtils'
@@ -55,10 +57,13 @@ import {
   assumedStrengthWhy,
 } from '../strengthElicitation/assumedStrengthCopy'
 import { formatProbabilityWithResolution } from '../../../utils/formatPercent'
-import { driverValueProvenance } from '../driverValueProvenance'
+import { driverValueProvenance, type AcceptedFigureBinding } from '../driverValueProvenance'
 import type { RunDeltaView } from './runDeltaView'
+import type { LimitVerdictView } from './limitVerdictView'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import { deriveComparisonScope } from '../utils/goalAnchorCopy'
+import { readGoalIdentityWithheld } from '../utils/goalIdentityWithheld'
+import { GOAL_CERTAINTY_UNEARNED_FALLBACK } from '../../../canvas/state/storedGoalCertainty'
 import { notAnalysedReasonCopy, notComputedReasonCopy } from '../utils/notAnalysedCopy'
 import { optionComputationFailed, type NotAnalysedReason } from '../utils/notAnalysedOptions'
 // The two existing warning surfaces' OWN selectors, imported rather than
@@ -78,6 +83,7 @@ import type {
   ZeroReasonCode,
 } from '../types'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
+import { isLabelledZeroReason } from '../influenceScaleCopy'
 // ⚠ IMPORTED FROM ITS OWNER, NEVER RESTATED. `resolveNextCopy.ts` is "the ONE
 // spelling of the Resolve next register" by its own header; a second copy in
 // this surface's deck would be the mirror that drifts silently (trap 12).
@@ -263,6 +269,8 @@ export interface AnalysisNewViewModelInputs {
   /** Already resolved by the hook; this builder never derives it. */
   whatsChanged?: RunDeltaView | null
   runDeltaAbsenceReason?: string | null
+  /** B5 — already joined and identity-gated by the hook; this builder never derives it. */
+  limitVerdicts?: LimitVerdictView | null
   /**
    * Producer DSK attestation keyed by recommendation id, joined by the hook.
    * Sparse: an absent key means the producer attested nothing. Never defaulted.
@@ -276,6 +284,10 @@ export interface AnalysisNewViewModelInputs {
    * says its basis was never established, and no claim is made either way.
    */
   nodeValueSources?: ReadonlyMap<string, string>
+  /** `AcceptedFigureBinding`: Olumi's figures the user ACCEPTED, bound to the displayed Run (52f8cd; CODEX UI 5923625039). */
+  acceptedFigures?: AcceptedFigureBinding
+  /** Live nodes, used only while the displayed Run is affirmatively current. */
+  analysisNodes?: readonly unknown[]
   /**
    * Node id → label, from the graph store. Lets a producer gap name the factor
    * it is about instead of repeating one anonymous sentence per unset root.
@@ -344,7 +356,7 @@ function notAnalysedReasonCopyIfLicensed(
   analysisIdentityIsCurrent: boolean,
 ): string | null {
   if (reason === 'not_returned' && !analysisIdentityIsCurrent) return null
-  return notAnalysedReasonCopy(reason)
+  return notAnalysedReasonCopy(reason, analysisIdentityIsCurrent)
 }
 
 // ── formatting helpers (display only — none of these decide anything) ────────
@@ -942,7 +954,7 @@ function buildDrivers(
       ...new Set(
         suppressedZero
           .map((d) => d.zeroReason)
-          .filter((r): r is NonNullable<ZeroReasonCode> => r != null),
+          .filter((r): r is NonNullable<ZeroReasonCode> => isLabelledZeroReason(r)),
       ),
     ],
   }
@@ -2095,7 +2107,7 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
        to emit a LABELLED ROW WITH A BLANK CELL, which reads as a rendering
        failure rather than as an absence. `rows()` drops a null; it cannot drop
        an empty string it was handed. */
-    row('Per-factor attribution withheld', plainStatus(data.attributionSuppression === 'not_attested' ? null : data.attributionSuppression)),
+    row('Per-factor attribution not shown', plainStatus(data.attributionSuppression === 'not_attested' ? null : data.attributionSuppression)),
   )
   if (provenance.length) groups.push({ title: 'Provenance', rows: provenance })
 
@@ -2209,6 +2221,7 @@ function glanceDrivers(data: ResultsSectionDataReturn): {
 function glanceInputProvenance(
   data: ResultsSectionDataReturn,
   nodeValueSources?: ReadonlyMap<string, string>,
+  acceptedFigures?: AcceptedFigureBinding,
 ): GlanceInputProvenance | null {
   const rows = data.drivers.drivers ?? []
   // ⚠ NO ROWS IS A DRIVERS-FEED CONDITION, NOT A PROVENANCE ONE, AND THE TWO
@@ -2225,9 +2238,9 @@ function glanceInputProvenance(
   // what neither predicate matches — and it is the one that demotes a
   // universal claim to a "partly" one below.
   const estimated = (d: (typeof rows)[number]) =>
-    driverValueProvenance(d, nodeValueSources) === 'estimated'
+    driverValueProvenance(d, nodeValueSources, acceptedFigures) === 'estimated'
   const userStated = (d: (typeof rows)[number]) =>
-    driverValueProvenance(d, nodeValueSources) === 'not_estimated'
+    driverValueProvenance(d, nodeValueSources, acceptedFigures) === 'not_estimated'
 
   const hasEstimated = rows.some(estimated)
   const hasUserStated = rows.some(userStated)
@@ -2343,7 +2356,7 @@ function glanceCondition(data: ResultsSectionDataReturn): GlanceCondition | null
   // conditional-winner split never got it, and the identical defect shipped a
   // second time. A rule that only one of two threshold sites can reach is a
   // rule this surface does not have.
-  const fmt = (n: number) => applyUnitPlacement(formatThresholdValue(n), unit)
+  const fmt = (n: number) => formatThresholdFigure(formatThresholdValue(n), n, unit)
   const flip = fmt(usable.flip_value as number)
   const currentRaw = typeof usable.current_value === 'number' ? fmt(usable.current_value) : null
   // ⛔ A CURRENT THAT RENDERS IDENTICALLY TO THE FLIP IS NOT A REFERENCE POINT.
@@ -2405,6 +2418,8 @@ function buildAtAGlance(
   nodeLabels?: ReadonlyMap<string, string>,
   nodeOrigins?: ReadonlyMap<string, OptionOrigin>,
   analysisIdentityIsCurrent = false,
+  acceptedFigures?: AcceptedFigureBinding,
+  analysisNodes?: readonly unknown[],
 ): AtAGlance {
   const rec = data.recommendation
   const { drivers, setRelative } = glanceDrivers(data)
@@ -2771,7 +2786,11 @@ function buildAtAGlance(
     drivers,
     influenceIsSetRelative: setRelative,
     condition,
-    inputProvenance: glanceInputProvenance(data, nodeValueSources),
+    inputProvenance: glanceInputProvenance(data, nodeValueSources, acceptedFigures),
+    conditionalInputBasis: headline && analysisIdentityIsCurrent
+      ? conditionalInputBasis(analysisNodes, rec.currentReadInputBasis !== undefined
+        ? rec.currentReadInputBasis : rec.runAnalysisAdmission ?? rec.analysisAdmission,
+        allOptions.filter((o) => o.notAnalysed !== true && !optionComputationFailed(o.computeStatus)).map((o) => o.id)) : null,
     /**
      * ⭐⭐ GATED ON `headline && leader`, WHICH IS THE ENTITLEMENT ITSELF, NOT A
      * SECOND COPY OF IT. `headline` is non-null only where
@@ -3358,6 +3377,7 @@ function buildOptionsComparison(
         : null,
       goalFraction: goalOnScreen && goalValue !== null ? Math.max(0, Math.min(1, goalValue)) : null,
       goalBasisIsModelled: o.goalFitIsModelledBasis === true,
+      goalBaseCaveat: o.goalFitBaseCaveat ?? null,
       // ⭐ THE RANGE, READ FROM THE OPTION'S OWN OUTCOME DISTRIBUTION.
       // `o.outcome` is `OptionOutcome` on `OptionResult` — the producer's
       // forward-propagated percentiles for THIS option, not a rescaling of
@@ -3371,6 +3391,8 @@ function buildOptionsComparison(
         typeof o.outcome?.p10 === 'number' && typeof o.outcome?.p90 === 'number'
           ? { p10: o.outcome.p10, p50: typeof o.outcome.p50 === 'number' ? o.outcome.p50 : null, p90: o.outcome.p90 }
           : null,
+      ...(o.outcomeRestsOnAcceptedOlumi === true ? { restsOnAcceptedOlumi: true as const } : {}),
+      ...(o.unsizedLinks && o.unsizedLinks.length > 0 ? { unsizedLinks: o.unsizedLinks } : {}),
       why,
     })
   }
@@ -3399,7 +3421,13 @@ function buildOptionsComparison(
     }
   }
 
-  return { rows, totalCount: allOptions.length }
+  const goalWithheld = readGoalIdentityWithheld({ inference_warnings: data.confidence?.inferenceWarnings })
+  // CEE #2270/#2280: an UNEARNED 0/1 figure is withheld by the chooser, which empties the goal-fit lens (the
+  // complete-field rule above); its sentence is the lens's reason, after the identity withhold.
+  const unearned = allOptions.find((o) => o.goalCertaintyUnearned)?.goalCertaintyUnearned
+  const goalWithheldMessage =
+    goalWithheld?.message ?? (unearned ? (unearned.say ?? GOAL_CERTAINTY_UNEARNED_FALLBACK) : null)
+  return { rows, totalCount: allOptions.length, ...(goalWithheldMessage !== null ? { goalWithheldMessage } : {}) }
 }
 
 /**
@@ -3458,12 +3486,28 @@ const REQUIRED_RESULT_KEYS: ReadonlySet<string> = new Set([
  */
 const WITHHELD_WITH_THE_LEADER: ReadonlySet<string> = new Set(['win_probability', 'robustness_level'])
 
+/**
+ * ⭐ WITHHELD, NOT MISSING: THE GOAL FIGURES TOO. Where the producer withheld every option's goal figures (its typed
+ * `GOAL_FIGURES_WITHHELD_CODES`, read once into `goalFiguresWithheldMessage`), the option outcomes go with them, and
+ * so does the win share (`mapV5Blocks` drops it on the same read). Served `0406f10c`, Paul's funding brief: this
+ * surface said "The expected outcome did not come back." above the producer's own "Not shown. … the figures for each
+ * option would be wrong." ⚠ ONLY WHILE EVERY COMPARED OPTION COMPUTED: an option whose computation FAILED (the
+ * `optionComputationFailed` fork the option cards use) really returned nothing, and the run is still called partial.
+ * Pinned by `aWithheldGoalFigureIsNotALostOne.spec.tsx`.
+ */
+const WITHHELD_WITH_THE_GOAL_FIGURES: ReadonlySet<string> = new Set(['expected_outcome', 'win_probability'])
+
 function buildStatus(inputs: AnalysisNewViewModelInputs): AnalysisNewStatus {
   const { data } = inputs
   const status = data.recommendation.analysisStatus
   const leaderWithheld = data.recommendation.leaderDesignationPermitted === false
+  const goalFiguresWithheld = typeof data.recommendation.goalFiguresWithheldMessage === 'string'
+  const anOptionFailed = (data.recommendation.allOptions ?? []).some((o) => optionComputationFailed(o.computeStatus))
   const missingRequired = (data.completeness?.missing ?? []).filter(
-    (k) => REQUIRED_RESULT_KEYS.has(k) && !(leaderWithheld && WITHHELD_WITH_THE_LEADER.has(k)),
+    (k) =>
+      REQUIRED_RESULT_KEYS.has(k) &&
+      !(leaderWithheld && WITHHELD_WITH_THE_LEADER.has(k)) &&
+      !(goalFiguresWithheld && !anOptionFailed && WITHHELD_WITH_THE_GOAL_FIGURES.has(k)),
   )
   return {
     isPreRun: inputs.isPreRun,
@@ -3495,6 +3539,7 @@ function buildStatus(inputs: AnalysisNewViewModelInputs): AnalysisNewStatus {
     missingResults: missingRequired
       .map((k) => COPY.status.missingResultLabels[k])
       .filter((label): label is string => Boolean(label)),
+    goalFiguresWithheld,
   }
 }
 
@@ -3852,6 +3897,8 @@ export function buildAnalysisNewViewModel(
     inputs.nodeLabels,
     inputs.nodeOrigins,
     analysisIdentityIsCurrent,
+    inputs.acceptedFigures,
+    inputs.analysisNodes,
   )
 
   /**
@@ -3944,6 +3991,7 @@ export function buildAnalysisNewViewModel(
       : dedupeAgainstGlance(buildKeyInsights(data, recommendations, isStale), glance),
     whatsChanged: inputs.whatsChanged ?? null,
     runDeltaAbsenceReason: inputs.runDeltaAbsenceReason ?? null,
+    limitVerdicts: inputs.limitVerdicts ?? null,
     strengthen: {
       // The FULL ordered list. The preview length is applied at the mount so
       // the section can disclose, and reach, its own tail.

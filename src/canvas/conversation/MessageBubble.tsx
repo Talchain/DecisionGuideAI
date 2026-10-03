@@ -36,7 +36,7 @@ import { FALLBACK_TEXT } from './validateResponse'
 import { collectConsentSurfaceText, dedupeRenderedText } from './messageComposition'
 import { turnOfferedConsent } from './utils/transcriptStore'
 import { openQuestionsToggleLabel, splitServerOpenQuestions } from './serverOpenQuestions'
-import { PROVISIONAL_VIEW_LABEL, provisionalHeading } from './provisionalView'
+import { PROVISIONAL_VIEW_LABEL, provisionalBecauseLine, provisionalHeading } from './provisionalView'
 import { PANEL_LIST_BULLET } from './panelLists'
 import { SYSTEM_MESSAGE_SENTINEL, isNonConversationalContent } from './useConversation'
 import type { ConversationMessage, ActionChip, GraphPatchBlock, Insight } from './types'
@@ -417,7 +417,7 @@ export const MessageBubble = memo(function MessageBubble({
   // Body text className — identical in the structured-answer branch and the
   // free-text branch below. Hoisted to one const so the two render paths can
   // never drift; rebuilding it verbatim in both was pure duplication.
-  const bodyClassName = `${compact ? typography.panelBody : typography.chatProse} ${styles.markdownContent} ${
+  const bodyClassName = `${compact ? typography.chatBody : typography.chatProse} ${styles.markdownContent} ${
     compact ? styles.markdownContentCompact : ''
   } ${isProvisional ? styles.provisionalText : ''} ${
     !isUser && isOrchestratorRenderingV2Enabled() ? styles.v2AssistantText : ''
@@ -435,6 +435,11 @@ export const MessageBubble = memo(function MessageBubble({
       data-testid={`message-${message.role}`}
       data-delivery-state={isUser ? message.deliveryState : undefined}
     >
+      {!isUser && message.restoredTag && (
+        <span className={`${typography.chatMeta} text-text-light block`} data-testid="message-restored-tag">
+          {message.restoredTag}
+        </span>
+      )}
       {showStructuredAnswer && message.answerShape ? (
         <div
           className={bodyClassName}
@@ -457,7 +462,7 @@ export const MessageBubble = memo(function MessageBubble({
             data-streaming={isStreaming || undefined}
             data-body-segments-withheld={dedupedBody.suppressedCount || undefined}
             data-testid="message-body-text"
-            // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li; br.md-gap for rule degradation)
+            // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li, span; span.md-gap is the paragraph gap)
             dangerouslySetInnerHTML={{
               __html: safeRichText(
                 truncatedContent && !expanded ? truncatedContent : displayContent,
@@ -521,7 +526,7 @@ export const MessageBubble = memo(function MessageBubble({
               <strong>To confirm it:</strong> {provisional.confirmStep}
             </p>
           )}
-          {provisional.reasoning && (
+          {(provisional.reasoning || provisional.because) && (
             <>
               <button
                 type="button"
@@ -532,7 +537,12 @@ export const MessageBubble = memo(function MessageBubble({
               >
                 {provisionalWhyShown ? <ChevronUp size={12} /> : <ChevronDown size={12} />} Why Olumi thinks this
               </button>
-              {provisionalWhyShown && (
+              {provisionalWhyShown && provisionalBecauseLine(provisional) && (
+                <p className={styles.reasoningPanelBody} data-testid="message-provisional-view-because">
+                  {provisionalBecauseLine(provisional)}
+                </p>
+              )}
+              {provisionalWhyShown && provisional.reasoning && (
                 <p className={styles.reasoningPanelBody} data-testid="message-provisional-view-why">
                   {provisional.reasoning}
                 </p>
@@ -728,7 +738,7 @@ function InsightsStrip({ insights, onSendMessage }: { insights: Insight[]; onSen
         return (
           <div key={i} className={`${styles.insightItem} ${severityClass}`}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-              <span className={typography.panelBody} style={{ color: 'var(--text-body)' }}>
+              <span className={typography.chatBody} style={{ color: 'var(--text-body)' }}>
                 {sanitiseFactorIds(insight.description, labelMap)}
               </span>
               {insight.science_concept && (

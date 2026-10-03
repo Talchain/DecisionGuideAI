@@ -43,6 +43,7 @@ import { getRationale, type Rationale } from '../utils/ceeDataAdapter'
 import type { ConfidenceLevel } from '../../adapters/plot/types'
 import type { CeeDecisionReviewPayloadV1 } from '../../types/cee'
 import type { CeeDecisionReviewPayload } from '../decisionReview/types'
+import { wholePercentBelowCertain } from '@/utils/formatPercent'
 
 export interface RankingData {
   /** 1-indexed rank (1 = best) */
@@ -444,31 +445,10 @@ export function DecisionSummary({
                   register's phrase form — the same wording seven sibling
                   surfaces render for this basis. No copy invented here; the
                   permitted arms are byte-identical to what they replaced. */}
-              {summaryData.goalProbability.isSubstitutedJoint ? (
-                GOAL_ANCHOR_COPY.phrase(
-                  `${Math.round(summaryData.goalProbability.probability * 100)}%`,
-                  true,
-                )
-              ) : (
-                <>
-              <span className="font-semibold">
-                {Math.round(summaryData.goalProbability.probability * 100)}%
-              </span>{' '}
-              chance of{' '}
-              {summaryData.goalProbability.threshold !== undefined ? (
-                <>
-                  reaching{' '}
-                  <span className="font-medium">{summaryData.goalProbability.threshold.toLocaleString()}</span>
-                  {' '}for{' '}
-                  <span className="font-medium">{summaryData.goalProbability.goalLabel}</span>
-                </>
-              ) : (
-                <>
-                  achieving{' '}
-                  <span className="font-medium">{summaryData.goalProbability.goalLabel}</span>
-                </>
-              )}
-                </>
+              {/* AIQ #72 5885116642: the register's model-run sentence on both arms — never "N% chance of reaching…". */}
+              {GOAL_ANCHOR_COPY.sentence(
+                wholePercentBelowCertain(summaryData.goalProbability.probability),
+                summaryData.goalProbability.isSubstitutedJoint === true,
               )}
               {summaryData.goalProbability.confidence < 0.7 && (
                 <span className={`ml-2 ${typography.caption} text-banana-600`}>
@@ -479,7 +459,7 @@ export function DecisionSummary({
             {/* Win probability - shown as secondary context */}
             {summaryData.goalProbability.winProbability !== undefined && (
               <p className={`${typography.caption} text-ink-500`}>
-                Supported in {Math.round(summaryData.goalProbability.winProbability * 100)}% of scenarios
+                Supported in {wholePercentBelowCertain(summaryData.goalProbability.winProbability)} of scenarios
               </p>
             )}
           </div>

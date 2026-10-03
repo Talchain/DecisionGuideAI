@@ -11,6 +11,7 @@
 
 import { useCanvasStore } from '../store'
 import type { PatchOperation } from '../conversation/types'
+import { isViewerSession } from '../../lib/viewerMode'
 
 export interface MutationResult {
   success: boolean
@@ -31,6 +32,8 @@ export async function commitValidatedMutation(
   localApply: () => void,
   showToast?: ShowToastFn,
 ): Promise<MutationResult> {
+  // ACCOUNTS viewer mode: no structural edit for a viewer, validated or local.
+  if (isViewerSession()) return { success: false, error: 'view_only' }
   // Phase 1: Try PLoT validate-patch if available on the adapter
   try {
     const { plot } = await import('../../adapters/plot')

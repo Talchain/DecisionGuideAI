@@ -10,6 +10,11 @@
  *   · "hide/reduce these at the far/line rung."
  *   · "160px is approved as the target width."
  *
+ * ⭐ 30 Sep 2026 (Paul: "Those could be icons with hover states … save space with
+ * them"): both prompts render `RowEndPromptIcon`, a 64 × 64 icon-only button whose
+ * accessible name and tooltip are the row's question. The 160 tile is retired;
+ * the behaviour (pre-fill, never send, hidden at the far rung) is unchanged.
+ *
  * Bound by identity: the prompt a test clicks is found by its accessible name,
  * which is the tier table's own question.
  */
@@ -23,6 +28,7 @@ import { useCanvasStore } from '../../store'
 import { GHOST_TIERS, GHOST_OPTION_DOOR_LABEL, withGhostTiers } from '../../utils/ghostTiers'
 import { excludeNonModelNodes, fitFrameNodes, isGhostNode, GHOST_OPTION_NODE_ID } from '../../utils/fitTargets'
 import { ROW_PROMPT_H, ROW_PROMPT_W } from '../../utils/nodeLayoutConstants'
+import { chooseWhatElse } from './chooseWhatElse'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -62,6 +68,7 @@ describe('a click PRE-FILLS the question; it never sends and never mutates', () 
     const asks = captureAsks()
     mountTier({ label: RISK.label, prompt: RISK_PROMPT, tier: 'risk' })
     fireEvent.click(screen.getByRole('button', { name: RISK.label }))
+    chooseWhatElse('risk') // #2322 E4: the door opens the "What else…?" chooser; its own kind keeps the composed question
     expect(asks.prefilled).toEqual([RISK_PROMPT])
     expect(asks.sent, 'the prompt sent a message on the user\'s behalf').toEqual([])
   })
@@ -70,6 +77,7 @@ describe('a click PRE-FILLS the question; it never sends and never mutates', () 
     const asks = captureAsks()
     mountTier({ label: RISK.label, prompt: RISK_PROMPT, tier: 'risk' })
     fireEvent.keyDown(screen.getByRole('button', { name: RISK.label }), { key: 'Enter' })
+    chooseWhatElse('risk')
     expect(asks.prefilled).toEqual([RISK_PROMPT])
     expect(asks.sent).toEqual([])
   })
@@ -92,6 +100,8 @@ describe('the far rung hides the prompts; the landing rungs show them', () => {
     expect(door.style.visibility).toBe('hidden')
     expect(door.getAttribute('tabindex')).toBe('-1')
     expect(door.getAttribute('aria-hidden')).toBe('true')
+    // The icon's reserved box is hidden too (it keeps its space, ED S4).
+    expect((door.parentElement as HTMLElement).style.visibility).toBe('hidden')
   })
 
   it('⭐ …and so is the option prompt', () => {
@@ -100,6 +110,8 @@ describe('the far rung hides the prompts; the landing rungs show them', () => {
     const door = screen.getByLabelText(GHOST_OPTION_DOOR_LABEL, { selector: '[role="button"]' })
     expect(door.style.visibility).toBe('hidden')
     expect(door.getAttribute('tabindex')).toBe('-1')
+    expect(door.getAttribute('aria-hidden')).toBe('true')
+    expect((door.parentElement as HTMLElement).style.visibility).toBe('hidden')
   })
 
   it.each(['quiet', 'full'] as const)('CONTRAST: at `%s` both prompts are visible and focusable', (rung) => {
@@ -110,23 +122,31 @@ describe('the far rung hides the prompts; the landing rungs show them', () => {
     const option = screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL })
     for (const door of [tier, option]) {
       expect(door.style.visibility).not.toBe('hidden')
+      expect((door.parentElement as HTMLElement).style.visibility).not.toBe('hidden')
       expect(door.getAttribute('tabindex')).toBe('0')
+      expect(door.getAttribute('aria-hidden')).toBeNull()
     }
   })
 })
 
 describe('the prompt box is the row slot the layout reserved', () => {
-  it('both prompt kinds are exactly ROW_PROMPT_W wide with a ROW_PROMPT_H floor (ED: 160px)', () => {
-    expect(ROW_PROMPT_W).toBe(160)
+  it('both prompt kinds fill exactly the ROW_PROMPT_W × ROW_PROMPT_H square the layout reserved (Paul 1 Oct: 50% smaller, 32; was 64, and the ED 160 tile before that)', () => {
+    // The ruled size, written as the ruling says it — not read back from the constant.
+    expect(ROW_PROMPT_W).toBe(32)
+    expect(ROW_PROMPT_H).toBe(ROW_PROMPT_W)
     mountTier({ label: RISK.label, prompt: RISK_PROMPT, tier: 'risk' })
     mountOption({ prompt: 'x' })
     const tier = screen.getByRole('button', { name: RISK.label })
     const option = screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL })
     for (const door of [tier, option]) {
-      expect(door.style.width).toBe(`${ROW_PROMPT_W}px`)
-      expect(door.style.minHeight).toBe(`${ROW_PROMPT_H}px`)
-      // A floor, never a fixed height — a fourth line costs height, not a word.
-      expect(door.style.height).toBe('')
+      const box = door.parentElement as HTMLElement
+      expect(box.style.width).toBe(`${ROW_PROMPT_W}px`)
+      // A FIXED square: the icon carries no copy, so nothing can wrap to a new line.
+      expect(box.style.height).toBe(`${ROW_PROMPT_H}px`)
+      expect(door.className).toMatch(/(^|\s)absolute(\s|$)/)
+      expect(door.className).toMatch(/(^|\s)inset-0(\s|$)/)
+      expect(door.className).toMatch(/(^|\s)rounded-full(\s|$)/)
+      expect(door.textContent?.trim()).toBe('')
     }
   })
 })

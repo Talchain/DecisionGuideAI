@@ -97,7 +97,7 @@ export function DecisionRationaleForm({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="e.g., Approve Product Launch Strategy"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-info focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus-visible:ring-2 focus-visible:ring-info focus:border-transparent"
           required
         />
       </div>
@@ -113,7 +113,7 @@ export function DecisionRationaleForm({
           onChange={(e) => setReasoning(e.target.value)}
           placeholder="Explain the rationale for this decision..."
           rows={4}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-info focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus-visible:ring-2 focus-visible:ring-info focus:border-transparent"
           required
         />
       </div>
@@ -129,7 +129,7 @@ export function DecisionRationaleForm({
                 value={pro}
                 onChange={(e) => handleProChange(index, e.target.value)}
                 placeholder="Enter a positive aspect..."
-                className={`flex-1 px-3 py-2 border border-gray-300 rounded-md ${typography.body} focus:ring-2 focus:ring-info focus:border-transparent`}
+                className={`flex-1 px-3 py-2 border border-gray-300 rounded-md ${typography.body} focus-visible:ring-2 focus-visible:ring-info focus:border-transparent`}
               />
               <button
                 type="button"
@@ -162,7 +162,7 @@ export function DecisionRationaleForm({
                 value={con}
                 onChange={(e) => handleConChange(index, e.target.value)}
                 placeholder="Enter a negative aspect..."
-                className={`flex-1 px-3 py-2 border border-gray-300 rounded-md ${typography.body} focus:ring-2 focus:ring-info focus:border-transparent`}
+                className={`flex-1 px-3 py-2 border border-gray-300 rounded-md ${typography.body} focus-visible:ring-2 focus-visible:ring-info focus:border-transparent`}
               />
               <button
                 type="button"
@@ -197,7 +197,7 @@ export function DecisionRationaleForm({
                 value={alt}
                 onChange={(e) => handleAlternativeChange(index, e.target.value)}
                 placeholder="Enter an alternative option..."
-                className={`flex-1 px-3 py-2 border border-gray-300 rounded-md ${typography.body} focus:ring-2 focus:ring-info focus:border-transparent`}
+                className={`flex-1 px-3 py-2 border border-gray-300 rounded-md ${typography.body} focus-visible:ring-2 focus-visible:ring-info focus:border-transparent`}
               />
               <button
                 type="button"
@@ -258,7 +258,7 @@ export function DecisionRationaleForm({
           value={decidedBy}
           onChange={(e) => setDecidedBy(e.target.value)}
           placeholder="Name or role of decision maker"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-info focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus-visible:ring-2 focus-visible:ring-info focus:border-transparent"
         />
       </div>
 

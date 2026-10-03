@@ -1,8 +1,13 @@
 /**
- * NodePopover — ⭐⭐ RETIRED. Canvas visual contract v3.1 §01: "Clicking a card
- * opens only the inspector. Hover shows a one-line tooltip." Detail lives in the
- * inspector (DESIGN-GAP-v31 row 6; node anatomy v3.2: "Nothing is shown just to
- * say that nothing exists"; "No link text inside a card").
+ * NodePopover — ⭐⭐ RETIRED, AND STAYS SO. Its per-kind children were the old
+ * UI-derived detail. The card hover pop-up came back on 29 Sep 2026 (Paul) as
+ * `components/hoverCard/NodeHoverCard`, mounted once by `BaseNode`, server data
+ * only — not through this component.
+ *
+ * Retired 27 Sep under canvas visual contract v3.1 §01: "Clicking a card
+ * opens only the inspector. Hover shows a one-line tooltip." (DESIGN-GAP-v31
+ * row 6; node anatomy v3.2: "Nothing is shown just to say that nothing exists";
+ * "No link text inside a card").
  *
  * MEASURED on served 91717719 (27 Sep 2026, 1280×800): resting the pointer on a
  * card for 300ms opened a 240–260px panel over the neighbouring cards on all

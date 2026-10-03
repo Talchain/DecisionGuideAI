@@ -197,7 +197,7 @@ const LENS_ARM_SELECTED = 'bg-primary text-text-on-color'
 const LENS_ARM_IDLE = 'text-text-body hover:text-info'
 import { PanelIconButton } from '../PanelIconButton'
 import { PanelActRow } from '../PanelActRow'
-import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
+import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../utils/goalFitBasisCaveatCopy'
 import {
   COMPARISON_LENSES,
   COMPARISON_LENS_COPY as LENS_COPY,
@@ -207,6 +207,8 @@ import {
   type ComparisonLens,
 } from '../comparisonLens'
 import { goalBandIsInUserUnits } from '../goalBandUnits'
+import { RESTS_ON_ACCEPTED_OLUMI_LABEL } from '../../utils/goalIdentityWithheld'
+import { UnsizedLinkActions } from './UnsizedLinkActions'
 
 /**
  * ⭐ THE ARMS, IN READING ORDER, DECLARED ONCE.
@@ -315,6 +317,13 @@ export interface OptionsComparisonProps {
   /** `checks.sharesExcludeLimits` — see the type. States "Goal only" above the shares. */
   sharesExcludeLimits?: boolean
   /**
+   * ⭐ CUT-BACK (Paul, 30 Sep 2026). `true` where the parent's Provisional qualifier carries
+   * "goal only" and the every-option origin sentence (`buildCommitmentQualifier`'s facts):
+   * this section then prints neither line itself. A mixed origin keeps its legend here,
+   * because it explains the per-row marks.
+   */
+  notesInQualifier?: boolean
+  /**
    * Send a message as the user, on the surface's EXISTING writer.
    *
    * ⚠ OPTIONAL, AND ITS ABSENCE IS THE GATE, not a detail. A host with no
@@ -392,6 +401,7 @@ export function OptionsComparison({
   options,
   leaderWithholdCause = null,
   sharesExcludeLimits = false,
+  notesInQualifier = false,
   onSendMessage,
   defaultOpen = false,
   bare = false,
@@ -550,6 +560,9 @@ export function OptionsComparison({
    */
   const rangeScale = outcomeRangeScale(options.rows)
   const lensAvailability = comparisonLensAvailability(options)
+  /** The locked arm's note; the producer's withheld words for goal fit when it withheld every figure (PLoT #416). */
+  const lockedNote = (arm: ComparisonLens): string =>
+    arm === 'goal' && options.goalWithheldMessage ? options.goalWithheldMessage : LENS_COPY.locked[arm]
   const lens: ComparisonLens | null =
     chosenLens !== null && lensAvailability[chosenLens]
       ? chosenLens
@@ -713,7 +726,7 @@ export function OptionsComparison({
           shares sat there as if the whole decision had been assessed. One line,
           the producer's own cause appended, and nothing when figures are absent
           (the paragraph above already carries the cause there). */}
-      {sharesExcludeLimits && !noneNumbered ? (
+      {sharesExcludeLimits && !noneNumbered && !notesInQualifier ? (
         <p
           /* ⭐ V2 FIDELITY (25 Sep 2026, gap TYPE-10): body ink, not tertiary
              grey — see the `-no-figures` paragraph above. */
@@ -762,7 +775,7 @@ export function OptionsComparison({
                   aria-checked={selected}
                   aria-disabled={locked || undefined}
                   aria-describedby={locked ? `${lensGroupId}-locked-${arm}` : undefined}
-                  title={locked ? LENS_COPY.locked[arm] : undefined}
+                  title={locked ? lockedNote(arm) : undefined}
                   tabIndex={selected ? 0 : -1}
                   onClick={() => {
                     if (!locked) setChosenLens(arm)
@@ -797,7 +810,10 @@ export function OptionsComparison({
                      never as two different intensities of one tint. Not
                      `action('quiet')` — that tier is UNDERLINED text-light
                      furniture, the opposite of a segmented control's arm. */
-                  className={`${typography.panelBody} ${ACTION_FOCUS} flex-1 inline-flex items-center justify-center min-h-[28px] gap-1 rounded-full px-2 no-underline ${
+                  // flex-auto + nowrap, not flex-1: equal arms made "Modelled outcome" wrap to two lines inside its
+                  // pill at the dock floor (288px, R3 dock-scan 5943368038). Each arm now sizes to its words plus an
+                  // equal share of the spare width, so at 360 they still read as a balanced pair.
+                  className={`${typography.panelBody} ${ACTION_FOCUS} flex-auto whitespace-nowrap inline-flex items-center justify-center min-h-[28px] gap-1 rounded-full px-2 no-underline ${
                     selected ? LENS_ARM_SELECTED : locked ? 'text-text-light cursor-default' : LENS_ARM_IDLE
                   }`}
                   data-lens={arm}
@@ -808,7 +824,7 @@ export function OptionsComparison({
                   {LENS_COPY.arms[arm]}
                   {locked ? (
                     <span id={`${lensGroupId}-locked-${arm}`} className="sr-only">
-                      {LENS_COPY.locked[arm]}
+                      {lockedNote(arm)}
                     </span>
                   ) : null}
                 </button>
@@ -823,6 +839,14 @@ export function OptionsComparison({
           `SHELL_SPACING_SCALE_PX` — this both reclaims 6px and puts the row rhythm
           on the sanctioned scale, which is why it is a correction and not only a
           trim. */}
+      {/* AIQ #72 5887096626 (served condition on #2300): when the producer withheld every goal figure (PLoT #416),
+          its reason is VISIBLE beside the emptied rows, never only in the locked arm's tooltip. */}
+      {options.goalWithheldMessage ? (
+        <p className={`${typography.panelMeta} text-text-light mt-0 mb-2`} data-testid={`${testId}-goal-withheld`}>
+          {options.goalWithheldMessage}
+        </p>
+      ) : null}
+
       <ul
         className="list-none p-0 m-0 space-y-2"
         data-comparison-lens={lens ?? 'none'}
@@ -989,9 +1013,23 @@ export function OptionsComparison({
                     markerData={{ 'data-lens-arm': rangeAppetite, 'data-mark-at': String(markAt) }}
                     testId={`${testId}-outcome-range-${o.id}`}
                   />
+                  {o.restsOnAcceptedOlumi === true && (
+                    <p
+                      className={`${typography.panelMeta} text-text-light mt-1`}
+                      data-testid={`${testId}-rests-on-accepted-${o.id}`}
+                    >
+                      {RESTS_ON_ACCEPTED_OLUMI_LABEL}
+                    </p>
+                  )}
                   </div>
                 )
               })()
+            ) : null}
+
+            {o.kind === 'analysed' && o.unsizedLinks && o.unsizedLinks.length > 0 ? (
+              <div className={RANGE_INSET}>
+                <UnsizedLinkActions links={o.unsizedLinks} testId={`${testId}-unsized-${o.id}`} />
+              </div>
             ) : null}
 
             {/* ⭐⭐ GOAL FIT: "does this reach the target I set?" — the
@@ -1039,6 +1077,17 @@ export function OptionsComparison({
                     data-testid={`${testId}-goal-basis-caveat`}
                   >
                     {GOAL_FIT_BASIS_CAVEAT_COPY}
+                  </p>
+                ) : null}
+                {/* The second basis (ISL #207): today's level of the goal was
+                    worked out from its inputs. Same doctrine, same place. */}
+                {o.goalBaseCaveat !== null ? (
+                  <p
+                    className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+                    data-testid={`${testId}-goal-estimate-caveat`}
+                    data-caveat={o.goalBaseCaveat}
+                  >
+                    {goalFitBaseCaveatCopy(o.goalBaseCaveat)}
                   </p>
                 ) : null}
               </div>
@@ -1226,7 +1275,7 @@ export function OptionsComparison({
       ) : null}
       {/* THE SENTENCE, ONCE, FOR EVERY OPTION THE MARK APPEARS ON. Same copy
           constant the rows used and the glance renders. */}
-      {sharedOrigin !== null ? (
+      {sharedOrigin !== null && !(notesInQualifier && originIsEveryOption) ? (
         <p
           className={`${typography.panelMeta} text-text-light mt-1 mb-0 flex items-start gap-1`}
           data-testid={`${testId}-option-origin-legend`}

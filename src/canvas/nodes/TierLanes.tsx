@@ -25,7 +25,7 @@
  */
 import { memo, useMemo } from 'react'
 import { ViewportPortal, type Node } from '@xyflow/react'
-import { deriveLaneTitles, LANE_TITLE_GAP } from '../utils/tierLanes'
+import { deriveLaneTitles, LANE_TITLE_GAP, LANE_TITLE_HALO } from '../utils/tierLanes'
 import { KIND_GLYPH_PX } from '../utils/nodeLayoutConstants'
 
 /**
@@ -70,7 +70,7 @@ import { KIND_GLYPH_PX } from '../utils/nodeLayoutConstants'
  * same expression `BaseNode` places the shape with) and keeps `LANE_TITLE_GAP`
  * above the shape instead. `deriveLaneTitles` decides which titles rise.
  */
-export { LANE_TITLE_GAP }
+export { LANE_TITLE_GAP, LANE_TITLE_HALO }
 
 export function laneTitleColumnX(lanes: ReadonlyArray<{ x: number }>): number {
   return lanes.reduce((min, l) => Math.min(min, l.x), Number.POSITIVE_INFINITY)
@@ -86,7 +86,7 @@ export function laneTitleFlowAnchor(
 /** The title's lift: none, or the kind shape's overhang at the live label scale. */
 export function laneTitleTransform(clearsKindGlyphs: boolean): string {
   return clearsKindGlyphs
-    ? `translateY(calc(-100% - ${KIND_GLYPH_PX / 2}px * var(--canvas-glyph-scale, 1)))`
+    ? `translateY(calc(-100% - (${KIND_GLYPH_PX}px * var(--canvas-label-scale, 1) - ${KIND_GLYPH_PX / 2}px)))`
     : 'translateY(-100%)'
 }
 
@@ -109,7 +109,7 @@ export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly No
                  LOCAL arbitrary-value class, not an edit to the shared token, since
                  no other canvas surface uses 10px. Sentence case and the shared
                  muted token stay (DS v5 §2; see the header). */
-              className={`absolute text-text-light text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans`}
+              className={`absolute text-text-light text-[length:calc(10px*var(--canvas-small-label-scale,1))] font-sans`}
               style={{
                 left: anchor.x,
                 top: anchor.bottomY,
@@ -118,6 +118,7 @@ export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly No
                 // v3.1 WS1 #26: 0.5px ON SCREEN, like the 10px beside it — a
                 // fixed 0.5px was 0.25px on screen at the landing zoom.
                 letterSpacing: 'calc(0.5px * var(--canvas-label-scale, 1))',
+                textShadow: LANE_TITLE_HALO,
                 whiteSpace: 'nowrap',
                 pointerEvents: 'none',
               }}

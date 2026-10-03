@@ -21,7 +21,7 @@
  *
  * **It banned the shape on EVERY chip.** But a goal-attainment question is
  * perfectly legitimate when the ACTION is about the goal — `GoalNode` rightly
- * asks *"Why is the probability of reaching my goal target so low?"*. The
+ * asks *"Why does my goal reach its target in so few model runs?"*. The
  * defect was never "this phrasing exists"; it was **this phrasing under a
  * COMPARATIVE action**. A ban wide enough to catch the second would eventually
  * forbid the first, and a guard that reds on correct work gets deleted, taking

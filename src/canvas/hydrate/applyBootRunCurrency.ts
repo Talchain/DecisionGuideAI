@@ -50,6 +50,10 @@ import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 import { selectAnalysisReadinessAuthority } from '../state/analysisStateSelector'
 import { readinessObjectsToRun } from '../utils/canRunAnalysis'
+import type { V5AnalysisFactState } from '../store'
+import { mapV5AnalysisToReport } from '../../v5/mapV5AnalysisToReport'
+import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
+import { readLimitVerdicts, type LimitVerdictsWrite } from '../state/storedLimitVerdicts'
 
 /** `freshnessReason` for a verdict restored by this leg — says where it came from. */
 export const BOOT_READ_RUN_CURRENT = 'boot_read_run_current'
@@ -60,6 +64,12 @@ export const BOOT_RUN_CURRENCY_DECLINE_REASONS = [
   'no_verdict',
   /** CEE did not say `complete_current` — other kinds keep their own leg. */
   'not_current',
+  /** CEE says this selected analysis needs a rerun, even if an older Run shares the graph. */
+  'rerun_required',
+  /** A newer degraded Run supersedes the result block, even if CEE did not set requires_rerun. */
+  'degraded_newer_run',
+  /** No saved result block can confirm the Run whose currency would be restored. */
+  'no_result',
   /** No usable `computed_at` — the card's third limb could never hold. */
   'no_computed_at',
   /** The read carried no `graph_hash` — nothing to bind the card to. */
@@ -98,6 +108,7 @@ function declined(reason: BootRunCurrencyDeclineReason): BootRunCurrencyOutcome 
  */
 export function applyBootRunCurrency(input: {
   readonly analysisState: AnalysisStateV1 | null
+  readonly analysisResult: unknown
   readonly graphHash: string | null
   readonly canvasProvenEqualToRead: boolean
   /**
@@ -112,6 +123,9 @@ export function applyBootRunCurrency(input: {
   if (verdict == null) return declined('no_verdict')
   const runState = verdict.run_state
   if (runState.kind !== 'complete_current') return declined('not_current')
+  if (verdict.requires_rerun === true) return declined('rerun_required')
+  if (verdict.contradictions?.includes('fact_status_success_but_degraded_newer')) return declined('degraded_newer_run')
+  if (!hasBootReadRunResult(input.analysisResult)) return declined('no_result')
   const computedAt = 'computed_at' in runState ? runState.computed_at : undefined
   if (typeof computedAt !== 'string' || computedAt.trim() === '') return declined('no_computed_at')
   const graphHash = input.graphHash
@@ -137,6 +151,61 @@ export function applyBootRunCurrency(input: {
   if (input.store.readCurrentGraphHash() !== graphHash) return declined('freshness_not_taken')
   input.store.setAnalysisStateV1?.(verdict)
   return { outcome: 'restored' }
+}
+
+/** The same saved-result proof the R6 fact restore requires below. */
+function hasBootReadRunResult(block: unknown): block is AnalysisResultBlock {
+  if (block == null || typeof block !== 'object' || Array.isArray(block)) return false
+  const b = block as { type?: unknown; computed_against_hash?: unknown }
+  return b.type === 'analysis_result'
+    && typeof b.computed_against_hash === 'string'
+    && b.computed_against_hash.trim() !== ''
+}
+
+/**
+ * ⭐ R6 — THE RESTORED RESULT IS THE RUN THE VERDICT DESCRIBES, SO IT IS NOT AN ORPHAN.
+ *
+ * THE DEFECT (Paul, 28 Sep 12:39Z reload, export `olumi-debug-b1bffd43`; DL #72 5871346171 R6): the
+ * read carried `run_state: complete_current`, `graph_hash 92f3b013…` and the `analysis_result` block
+ * with `computed_against_hash 92f3b013…`, nothing was edited — and the hero read "Results may be
+ * outdated". `analysisStateSelector` ORs `trust.orphaned` into `analysisChanged`, and a result is an
+ * orphan whenever no scenario-bound `v5AnalysisFact` exists. That fact is SESSION-ONLY and never
+ * restored (`store.ts`), so every reloaded result was dimmed whatever CEE said.
+ *
+ * THE PROOF, ALL OF IT ALREADY CEE'S, NONE INVENTED:
+ *   · `applyBootRunCurrency` restored — `complete_current` + `computed_at` + `graph_hash`, the canvas
+ *     proven equal to the read both ways, no edit since, the run gate open (its whole proof);
+ *   · the read carries the `analysis_result` block, which CEE ships ONLY on a `complete_current`
+ *     verdict for the current graph, stamped with a non-empty `computed_against_hash` (the run's
+ *     canonical hash — never compared with the read's raw `graph_hash`; see the check below).
+ * Only then is a fact written, bound to the scenario and to that block's report hash (the hash the
+ * results slice holds for it, `applyScenarioAnalysisRead`). Returns `null` otherwise: nothing is
+ * written, and the result stays a dimmed prior result with a rerun CTA, exactly as today.
+ */
+export function bootReadRunFact(input: {
+  readonly scenarioId: string
+  readonly analysisResult: unknown
+  readonly now: number
+}): V5AnalysisFactState | null {
+  const block = input.analysisResult
+  if (!hasBootReadRunResult(block)) return null
+  // ⚠ NEVER COMPARED WITH THE READ'S `graph_hash` (Canonical #72 5872261884). The wire `graph_hash`
+  // hashes the RAW persisted bytes (the CAS base); `computed_against_hash` is the run's
+  // `graph_hash_at_run` over the CANONICAL projection (`scenario-graph-analysis-read.ts:239-252`).
+  // They are equal on a canonical-shape graph and DIFFER on a repaired-shape graph that has not moved,
+  // so a pair check would still dim Paul's current run there. The read ships this block ONLY on a
+  // `complete_current` verdict for the current graph, stamped with that canonical hash: its presence,
+  // non-empty, beside the restored verdict IS the proof.
+  const analysisHash = mapV5AnalysisToReport(block).model_card.response_hash ?? null
+  return {
+    scenarioId: input.scenarioId,
+    analysisHash,
+    hasRunAnalysisFact: true,
+    freshness: 'fresh',
+    freshnessReason: BOOT_READ_RUN_CURRENT,
+    rawBlocks: [],
+    writtenAt: input.now,
+  }
 }
 
 /**
@@ -211,4 +280,29 @@ export function applyBootBlockedVerdict(input: {
   if (input.store.analysisFreshnessDirty === true) return { outcome: 'declined', reason: 'edited_since_read' }
   input.store.setAnalysisStateV1?.(verdict)
   return { outcome: 'restored' }
+}
+
+/**
+ * ⭐ R6, THE LIMIT ROW — the read's per-limit and joint verdicts, kept across a reload.
+ *
+ * Served UI `662afcfd` (28 Sep 2026): after a user Re-run the Reasoning tab read "Monthly churn ≤ 5%. Checked only
+ * against an assumed figure, not a measured one."; after a plain reload that row, and only that row, was gone. The
+ * read carries `analysis_limit_verdicts`, but only the draft-time provisional poll stored them
+ * (`applyScenarioAnalysisRead`); the boot path never did, and the store is session-only.
+ *
+ * ⚠ BOUND TO THE RESULT ON SCREEN, NOT TO THE READ'S BLOCK. The read ships a trimmed block (type, summary,
+ * leading_option_id, computed_against_hash, enrichment) whose hash can never equal the displayed report's, so a
+ * binding to it would never render. The binding is licensed by R6's own proof, and the caller runs this ONLY where
+ * `bootReadRunFact` minted: the currency restored (complete_current, canvas proven equal both ways, no edit since)
+ * and the block names the run. Absent or invalid verdicts store nothing — absence is not a verdict.
+ */
+export function bootReadLimitVerdicts(input: {
+  readonly scenarioId: string
+  readonly limitVerdicts: unknown
+  readonly displayedResultsHash: string | null | undefined
+}): LimitVerdictsWrite | null {
+  if (typeof input.displayedResultsHash !== 'string' || input.displayedResultsHash === '') return null
+  const verdicts = readLimitVerdicts(input.limitVerdicts)
+  if (verdicts === null) return null
+  return { verdicts, analysisHash: input.displayedResultsHash, scenarioId: input.scenarioId }
 }

@@ -54,6 +54,11 @@ const BASELINE_SETS_VALUES = {
   id: 'option-b', type: 'option',
   data: { label: 'Status quo', type: 'option', is_baseline: true, interventions: { 'f-head': { value: 0, display_value: '0 engineers' } } },
 }
+/** A baseline whose target MOVES a factor off its current value (0 → 2): a concrete change. */
+const BASELINE_CHANGES_A_VALUE = {
+  id: 'option-b', type: 'option',
+  data: { label: 'Status quo', type: 'option', is_baseline: true, interventions: { 'f-head': { value: 2, display_value: '2 engineers' } } },
+}
 const BASELINE_SETS_NOTHING = {
   id: 'option-b', type: 'option',
   data: { label: 'Status quo', type: 'option', is_baseline: true, interventions: {} },
@@ -190,7 +195,6 @@ describe('contract v3.1 — option card polish', () => {
       const readout = byTestId('option-win-readout-option-1')
       const anchor = byTestId('option-win-anchor-option-1')
       expect(readout!.className).toContain(typography.edgeLabel)
-      expect(readout!.className).not.toContain(typography.nodeLabel)
       expect(anchor!.className).toContain(typography.edgeLabel)
     })
 
@@ -222,7 +226,10 @@ describe('contract v3.1 — option card polish', () => {
       })
       const row = byTestId('option-result-unavailable-option-1') ?? byTestId('option-not-analysed-option-1')
       expect(row, 'precondition: an absence row renders').not.toBeNull()
-      const t = tokens(row)
+      // ⚠ RE-POINTED 27 Sep (side-by-side DIFF item 5): the not-analysed line now
+      // fills the share line's reserved slot, so the 4px rhythm is the slot's.
+      const box = row!.closest('[data-testid="option-share-slot-option-1"]') ?? row
+      const t = tokens(box)
       expect(t.has('mt-1')).toBe(true)
       expect(t.has('mt-1.5')).toBe(false)
       expect(t.has('mb-1')).toBe(false)
@@ -301,8 +308,9 @@ describe('contract v3.1 — option card polish', () => {
       expect(dd, 'precondition: the from → to row renders on the card').not.toBeNull()
       const before = inRows('option-change-row-before-option-1-f-head')
       expect(before).not.toBeNull()
-      expect(before!.textContent).toBe('0 engineers')
-      expect(tokens(before).has('text-text-light')).toBe(true)
+      expect(before!.textContent).toBe('0') // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
+      // `.delta-rows .before{color:#747770}` — `--card-before-rgb` (29 Sep).
+      expect(tokens(before).has('text-[color:rgb(var(--card-before-rgb))]')).toBe(true)
       expect(tokens(dd).has('text-text-body')).toBe(true)
       // The target is NOT inside the muted span — it inherits the dd's ink.
       expect(before!.textContent).not.toContain('3 engineers')
@@ -310,8 +318,8 @@ describe('contract v3.1 — option card polish', () => {
 
     it('the split is presentation only: the value text is byte-identical', () => {
       renderCard()
-      expect(changeRowValueText(inRows('option-change-row-option-1-f-head')!)).toBe('0 engineers → 3 engineers')
-      expect(screen.getByText(changeRow('0 engineers → 3 engineers'))).toBeInTheDocument()
+      expect(changeRowValueText(inRows('option-change-row-option-1-f-head')!)).toBe('0 → 3 engineers') // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
+      expect(screen.getByText(changeRow('0 → 3 engineers'))).toBeInTheDocument()
     })
 
     it('a target-only row is not split — it renders its change whole', () => {
@@ -330,7 +338,7 @@ describe('contract v3.1 — option card polish', () => {
     // minmax(0,1fr) auto}` with `.amount{white-space:nowrap}`. Held as ONE
     // WRAPPING LINE PER ROW rather than a shared grid, because at the landing
     // counter-scale an `auto` amount track is wider than the card: the label
-    // takes what the amount does not need (`flex-[1_1_8em]`), and when the two
+    // takes what the amount does not need (`flex-[1_1_6em]` since 27 Sep; was 8em), and when the two
     // cannot share a line the amount takes the next line whole.
     it('label takes what the amount does not need; the amount is one unbroken line (v3.1 #9)', () => {
       renderCard()
@@ -340,11 +348,22 @@ describe('contract v3.1 — option card polish', () => {
       expect(t.has('flex-col')).toBe(true)
       expect(t.has('gap-y-1')).toBe(true)
       expect(t.has('grid-cols-[minmax(0,2fr)_minmax(0,3fr)]')).toBe(false)
-      const line = tokens(inRows('option-change-row-line-option-1-f-head'))
-      expect(line.has('flex-wrap')).toBe(true)
-      expect(line.has('gap-x-2')).toBe(true)
+      const lineEl = inRows('option-change-row-line-option-1-f-head')!
+      const line = tokens(lineEl)
+      // ⚠ RE-PINNED 28 Sep (side-by-side DIFF Pre 1 residual, owner decision:
+      // the amount on the label's line, the label yields). The wrapping flex
+      // line with a 6em label floor stacked 23 of 23 landing rows; the row is
+      // now the contract's two-column grid, the label its `minmax(0,1fr)` column.
+      expect(line.has('grid')).toBe(true)
+      expect(line.has('flex-wrap')).toBe(false)
+      // ⚠ RE-PINNED 28 Sep (Paul's staging test 64c5eccc; Canvas owner): the
+      // amount "0 engineers → 3 engineers" + its mark cannot sit beside 12
+      // characters of "Developer headcount" at the bound (`optionRowForm`), so
+      // the row is TWO lines — one column, the name, then the amount.
+      expect(lineEl.getAttribute('data-row-form')).toBe('two-line')
+      expect(line.has('grid-cols-[minmax(0,1fr)]')).toBe(true)
       const dt = inRows('option-change-row-option-1-f-head')!.previousElementSibling!
-      expect(tokens(dt).has('flex-[1_1_8em]')).toBe(true)
+      expect([...tokens(dt)].some((c) => c.startsWith('flex-'))).toBe(false)
       // Held whole while it fits one line of the row budget at the largest
       // counter-scale; "0 engineers → 3 engineers" (21) does not, so it may break
       // BEFORE THE ARROW — and never runs past the card's edge (served cd6a82e4,
@@ -359,11 +378,16 @@ describe('contract v3.1 — option card polish', () => {
       // characters (was 17), so "→ 3 engineers · <mark>" now fits and BOTH halves
       // are unbroken runs; the whole run with its mark still does not, so the row
       // may still break before the arrow.
+      // ⭐ 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner: the amount
+      // never breaks; the label yields): the label's budget fell to 21 and the
+      // "to" run with its "no source" mark (23) broke inside its value. The
+      // amount now has its own budget at its own 11px (`NODE_ROW_AMOUNT_MAX_CHARS`,
+      // 23), so this pin holds unchanged.
       const value = inRows('option-change-row-value-option-1-f-head')!
       expect(tokens(value).has('whitespace-nowrap')).toBe(false)
       const halves = [...value.querySelectorAll('.whitespace-nowrap')].map((n) => n.textContent)
-      expect(halves).toEqual(['0 engineers', '→ 3 engineers'])
-      expect(value.textContent).toBe('0 engineers → 3 engineers')
+      expect(halves).toEqual(['0', '→ 3 engineers']) // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
+      expect(value.textContent).toBe('0 → 3 engineers')
       const mark = inRows('option-change-row-mark-option-1-f-head')!
       expect(mark.previousSibling?.textContent).toBe('\u00A0')
       expect(mark.previousSibling?.previousSibling).toBe(value)
@@ -376,15 +400,18 @@ describe('contract v3.1 — option card polish', () => {
       expect(dt.tagName).toBe('DT')
       for (const cell of [dt, dd]) {
         expect(cell.className).toContain(typography.edgeLabel)
-        expect(tokens(cell).has('!leading-tight')).toBe(true)
+        // `.delta-rows{line-height:1.2}` (29 Sep; was 1.25).
+        expect(tokens(cell).has('!leading-[1.2]')).toBe(true)
       }
-      expect(dd.className).not.toContain(typography.nodeLabel)
       // v3.1 #9: the amount never exceeds the card (`max-w-full`); the LABEL is
-      // the part that yields (`min-w-0` + `break-words`), held to ONE line by
-      // `line-clamp-1` since design audit #9 (26 Sep).
+      // the part that yields (`min-w-0`), held to ONE line — RE-PINNED 27 Sep
+      // (side-by-side DIFF item 1): by a character ellipsis (`truncate`, marked
+      // `data-truncates="label"`), no longer a word-break `line-clamp-1` that
+      // left one word (`break-words` went with it).
       expect(tokens(dd).has('max-w-full')).toBe(true)
       expect(tokens(dt).has('min-w-0')).toBe(true)
-      expect(tokens(dt).has('break-words')).toBe(true)
+      expect(tokens(dt).has('truncate')).toBe(true)
+      expect(dt.getAttribute('data-truncates')).toBe('label')
     })
 
     it('the rows block keeps its 4px top rhythm under the title', () => {
@@ -402,7 +429,9 @@ describe('contract v3.1 — option card polish', () => {
         store: {
           ceeAnalysisReady: {
             options: [
-              // FOUR targets: the card shows three rows (Paul 25 Sep), so one is behind `+1 more`.
+              // FOUR targets. ⚠ RE-PINNED 28 Sep (Paul's staging test 64c5eccc):
+              // the rows are two-line at the bound, so the card's six row lines
+              // hold two of them and `+2 more` counts the rest (was three + `+1 more`).
               { id: 'option-1', interventions: { 'f-head': { value: 3, display_value: '3 engineers' }, 'f-cost': 5, 'f-risk': 2, 'f-seats': 4 } },
               { id: 'option-2', interventions: { 'f-cost': 5 } },
             ],
@@ -411,7 +440,7 @@ describe('contract v3.1 — option card polish', () => {
       })
       const more = inRows('option-change-more-option-1')
       expect(more, 'precondition: the overflow link renders on the card').not.toBeNull()
-      expect(more!.textContent).toBe('+1 more')
+      expect(more!.textContent).toBe('+2 more')
       const t = tokens(more)
       expect(t.has('text-info')).toBe(true)
       expect(t.has('no-underline')).toBe(true)
@@ -434,14 +463,30 @@ describe('contract v3.1 — option card polish', () => {
       expect(byTestId('option-baseline-meta-option-b')!.textContent).toBe('Baseline · no changes')
     })
 
-    it('a baseline that DOES set values never claims "no changes"', () => {
+    // ⭐ RE-PINNED 27 Sep (side-by-side DIFF item 10; NODE-ANATOMY v3.2
+    // "Baseline · no changes"): the meta keys on CONCRETE changes, not on the
+    // target total. This case used `BASELINE_SETS_VALUES`, whose one target sets
+    // Developer headcount to 0 — the factor's current value, so no change by the
+    // card's own filter; it is now the pair's second case. The claim this test
+    // owns — a baseline that CHANGES something never says "no changes" — now uses
+    // a target that moves the factor (0 → 2).
+    it('a baseline that DOES change a value never claims "no changes"', () => {
       renderCard({
         id: 'option-b',
-        data: { label: 'Status quo', is_baseline: true, interventions: { 'f-head': { value: 0, display_value: '0 engineers' } } },
+        data: { label: 'Status quo', is_baseline: true, interventions: { 'f-head': { value: 2, display_value: '2 engineers' } } },
+        store: { nodes: [FACTOR_HEAD, FACTOR_COST, FACTOR_RISK, OPTION_1, OPTION_2, BASELINE_CHANGES_A_VALUE] },
       })
       const meta = byTestId('option-baseline-meta-option-b')!
       expect(meta.textContent).toBe('Baseline option')
       expect(meta.textContent).not.toContain('no changes')
+    })
+
+    it('a baseline whose targets equal the factors\' current values reads "Baseline · no changes"', () => {
+      renderCard({
+        id: 'option-b',
+        data: { label: 'Status quo', is_baseline: true, interventions: { 'f-head': { value: 0, display_value: '0 engineers' } } },
+      })
+      expect(byTestId('option-baseline-meta-option-b')!.textContent).toBe('Baseline · no changes')
     })
   })
 })

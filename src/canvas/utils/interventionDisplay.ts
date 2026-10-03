@@ -27,7 +27,7 @@
 // UI-SEM-064: shared intervention-change formatter (no-change epsilon,
 // count-unit singularisation, tier→percentage rendering). Display only.
 import { formatPercent } from '../../utils/formatPercent'
-import { compactCarriedReading } from '../../utils/unitClassifier'
+import { classifyUnit, compactCarriedReading, unitIsDisplayable } from '../../utils/unitClassifier'
 import {
   formatInterventionValue,
   denormaliseInterventionValue,
@@ -35,6 +35,7 @@ import {
   isSuppressedUnit,
   isCountUnit,
   isTierLabel,
+  toFiniteNumber,
 } from './labelUtils'
 import { encodingMapPhrase, factorCardVisibleText, formatFactorDisplayParts, formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 
@@ -149,6 +150,51 @@ export function tierReadingNumber(value: number): number {
  * the tier fallback means no unit, cap or raw anchor was recoverable, so the
  * value is an ordinal position and a "%" would assert a frame nothing set.
  */
+/**
+ * ⛔ WOULD THIS PRINT THE MODEL'S INTERNAL 0–1 NUMBER BESIDE A REAL UNIT?
+ * (canvas audit paul-models POM-2, board 3f89249e.)
+ *
+ * "Add £99 premium tier" read `£0 / month → 0.495 GBP per month` whenever
+ * `analysis_ready` (the only carrier of CEE's `display_value: "£99/month"`) was
+ * absent: the option's value 0.495 is on the MODEL scale, the factor's frame
+ * lived only in an undeclared node-level `scale_frame`, and with observed value
+ * 0 / raw 0 and no cap no scale was recoverable — so the formatters appended
+ * the real unit to the internal number. A figure in a unit it is not measured
+ * in is a false statement about the user's money.
+ *
+ * Reached only when nothing else has spoken (no encoding-map phrase, no
+ * `display_value`). It fires for a real unit (a currency, or a word unit that
+ * is displayable), a non-zero value inside the model's ±1 range, and NO scale:
+ *   · a recoverable scale (cap, or a raw anchor over a non-zero value) → the
+ *     value is denormalised as before;
+ *   · an anchor showing raw EQUALS model value (a real quantity ≤ 1, e.g.
+ *     £0.40 per call) → the number is the quantity, printed as before;
+ *   · 0 → 0 in any proportional frame, printed as before;
+ *   · |value| > 1 → cannot be on the model scale, printed as before;
+ *   · the plain percent class keeps its declared 0–1 → % convention;
+ *     `fraction` / `proportion` are ratios by definition; placeholder units
+ *     (`scale`, `index`) already print no unit.
+ * The row then says what the option DOES ("Increases"), the estate's
+ * directional fallback in `buildOptionChangeRow` — never an arrow at a lie.
+ */
+function modelValueWouldWearARealUnit(
+  chip: InterventionValueInput,
+  effectiveUnit: string | null,
+  scaleBase: number | null,
+): boolean {
+  if (!effectiveUnit || scaleBase != null) return false
+  if (!Number.isFinite(chip.value) || chip.value === 0 || Math.abs(chip.value) > 1) return false
+  if (!unitIsDisplayable(effectiveUnit)) return false
+  const { kind, canonical } = classifyUnit(effectiveUnit)
+  if (kind !== 'symbol' && kind !== 'iso' && kind !== 'other') return false
+  const lower = canonical.toLowerCase()
+  if (lower === 'fraction' || lower === 'proportion') return false
+  const anchorRaw = toFiniteNumber(chip.observedRawValue)
+  const anchorValue = typeof chip.observedValue === 'number' && Number.isFinite(chip.observedValue) ? chip.observedValue : null
+  if (anchorRaw !== null && anchorValue !== null && anchorValue !== 0 && anchorRaw === anchorValue) return false
+  return true
+}
+
 export function formatInterventionTargetText(chip: InterventionValueInput): string {
   // A13 (AUDIT-SYNTH 20260925) — a declared encoding_map is the producer's own
   // words for THIS value, and it outranks display_value here exactly as it
@@ -174,6 +220,7 @@ export function formatInterventionTargetText(chip: InterventionValueInput): stri
   // raw anchor exists, so anchor-less behaviour is unchanged.
   const effectiveUnit = chip.unit && !isSuppressedUnit(chip.unit) ? chip.unit : null
   const scaleBase = inferInterventionScaleBase(chip.cap ?? null, chip.observedValue, chip.observedRawValue)
+  if (modelValueWouldWearARealUnit(chip, effectiveUnit, scaleBase)) return ''
   let rawValue: number | string | null = null
   if (effectiveUnit && scaleBase != null && scaleBase > 1) {
     const raw = denormaliseInterventionValue(chip.value, chip.cap ?? null, chip.observedValue, chip.observedRawValue)

@@ -9,8 +9,9 @@
  * - Smooth transitions
  */
 
-import { memo, useState, useCallback, useEffect, useMemo, type ReactNode, type CSSProperties } from 'react'
+import { memo, useState, useCallback, useEffect, useMemo, useRef, type ReactNode, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react'
 import { nodeTitleChannels } from './shared/nodeRenameAffordance'
+import { nodeCardTitle } from './shared/nodeCardTitle'
 import { optionsWereAssessed } from '../domain/optionAssessment'
 import { linkedOptionIds } from '../domain/linkedOptions'
 import { Handle, Position, type NodeProps, useUpdateNodeInternals } from '@xyflow/react'
@@ -23,9 +24,16 @@ import { UnknownKindWarning } from '../components/UnknownKindWarning'
 import { NodeCoachingMarker, useNodeCoachingMarkerShown } from './shared/NodeCoachingMarker'
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
+import { EditPencilCue } from './shared/EditPencilCue'
 import { useCanvasStore } from '../store'
+import { nodeTypeNumber, NODE_NUMBER_PREFIX, NODE_TYPE_ORDINAL_ATTR, type NumberedNodeKind } from './shared/nodeTypeOrdinal'
+import { optionOrdinalBadgeAccessibleName } from './shared/metricVocabulary'
+import { selectOptionComparedInRun, selectWinSharesWithheld } from '../state/winShareGate'
+import { optionTakenOutLine } from '../domain/optionStatus'
+import { EditableLabel } from '../ui/inspector-v2/shared/EditableLabel'
+import { TITLE_DOUBLE_CLICK_WINDOW_MS, handTitleClickToCard } from './shared/titleClickHandBack'
 import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
-import { selectLodBodyHidden, selectLensDetailActive, LOD_BLANKED_BODY_ATTR, LOD_FAR_TITLE_ATTR, NODE_RUNG_PADDING_ATTR } from '../utils/zoomLegibility'
+import { selectLodBodyHidden, selectLensDetailActive, LOD_BLANKED_BODY_ATTR, LOD_FAR_TITLE_ATTR, NODE_BODY_BOUND_STYLE_ATTR, NODE_RUNG_PADDING_ATTR } from '../utils/zoomLegibility'
 import { useLayoutStore } from '../layoutStore'
 import {
   KIND_GLYPH_PX,
@@ -41,6 +49,7 @@ import { nodeColors } from './colors'
 import { typography } from '../../styles/typography'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { isFactorNeedsInput } from '../utils/observedStateHelpers'
+import { graphDeclaresBaseline } from '../utils/baselineDetection'
 import { resolveLodMetricLineDetail } from './shared/lodMetricLine'
 import { driverRankFor, useInfluenceRank } from '../hooks/useInfluenceRank'
 import { ESTIMATE_SUBJECT_TITLE } from './shared/EstimateMarker'
@@ -91,6 +100,9 @@ import {
 } from './shared/canvasGlyphScale'
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
+import { usePopoverHover } from '../hooks/usePopoverHover'
+import { NodeHoverCard } from '../components/hoverCard/NodeHoverCard'
+import { HOVER_CARD_OPEN_DELAY_MS } from '../components/hoverCard/hoverCardPlacement'
 import { NodeProvenanceMark, useProvenanceDefaultKind } from './shared/NodeProvenanceMark'
 import { STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { useNodeAttention } from './shared/useNodeAttention'
@@ -100,6 +112,8 @@ import { NodeSignalRailIcons } from './shared/NodeRailIcons'
 import type { ResolvedCoaching } from './coaching/resolveNodeCoaching'
 import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
+import { RunChangeBadge } from '../graphChanges/RunChangeBadge'
+import { selectRunChangesRouteLit } from '../graphChanges/routeFocus'
 
 /**
  * ⛔ GAP-36 (24 Sep 2026, DESIGN-GAP-AUDIT-20260924.md row 36) REMOVED THIS
@@ -227,7 +241,7 @@ interface BaseNodeProps extends NodeProps {
    * owner's `useModelChangedSinceRun()`, passed in already answered.
    *
    * Read by the one run-derived factor figure this component draws: the
-   * driver arm of the reduced line ("Driver N of M analysed"), which keeps
+   * driver arm of the reduced line ("Driver N of M ranked in this run"), which keeps
    * its rank and opens with `LAST_RUN_PREFIX` (Paul's Ruling 3, ROADMAP 2.651:
    * "out-of-date results are labelled, not withheld"). The `Key driver N`
    * badge #1891 also labelled is retired by the locked design (ED 02:31Z D1a);
@@ -285,6 +299,13 @@ interface BaseNodeProps extends NodeProps {
 const CONNECTOR_GLYPH_PX = KIND_GLYPH_PX
 
 /**
+ * ⭐ THE GAP BETWEEN A CARD'S ROWS, scaled with its text (Paul, 1 Oct 2026: "We have a consistent text spacing rule").
+ * DS v5 §4.1's 4px step, times the label counter-scale, so the gap keeps its proportion to the 11px rows at every
+ * zoom instead of halving at the landing zoom.
+ */
+const NODE_ROW_GAP_SCALED = 'calc(4px * var(--canvas-label-scale, 1))'
+
+/**
  * ⭐ v3.1 WS1 #15: the target handle's TOP is the kind shape's top
  * (−`CONNECTOR_GLYPH_PX`/2 × scale), so an inbound edge — which xyflow ends at
  * a top handle's top edge — ends ON the shape ("bezier from bottom port to top
@@ -303,12 +324,18 @@ const TARGET_HANDLE_STYLE: CSSProperties = {
 
 /**
  * ⭐ v3.1 WS1 #25: the FAR-rung title — the same declared 14px and tracking as
- * `typography.nodeTitle`, scaled by `--canvas-far-title-scale`
+ * `typography.nodeTitleWide` (`FAR_TITLE_DECLARED_PX`), scaled by `--canvas-far-title-scale`
  * (`farTitleScale`: the contract's 9px far chip, held as the camera pulls back)
  * instead of the capped label scale. `line` rung only.
  */
 const FAR_TITLE_TYPE =
   'text-[length:calc(14px*var(--canvas-far-title-scale,var(--canvas-label-scale,1)))] tracking-[calc(-0.08px*var(--canvas-far-title-scale,var(--canvas-label-scale,1)))] font-sans leading-tight'
+
+/** Contract `--muted: #666762`, scoped to every card (see the card root's style). */
+const CARD_MUTED_TOKEN_STYLE = {
+  '--text-light-rgb': '102 103 98',
+  '--text-light': 'rgb(102 103 98)',
+} as CSSProperties
 
 /** The anchor's bottom padding (contract `.node.wide{padding:11px 13px 9px}`). */
 const ANCHOR_PAD_BOTTOM_PX = 9
@@ -329,8 +356,11 @@ function anchorBodyRailStyle(buttons: number): CSSProperties {
   const scale = 'var(--canvas-glyph-scale, 1)'
   const reserve = anchorRailReservePx(anchorRailButtonsKey(buttons))
   return {
-    paddingRight: `calc(${reserve}px * ${scale} + ${CANVAS_QUICK_ACTION_INSET_PX - 12}px)`,
-    minHeight: `calc(${CANVAS_QUICK_ACTION_BOX_PX}px * ${scale} + ${CANVAS_QUICK_ACTION_INSET_PX - ANCHOR_PAD_BOTTOM_PX}px)`,
+    paddingRight: `calc(${reserve}px * ${scale} + ${CANVAS_QUICK_ACTION_INSET_PX - 13}px)`,
+    // − 0.5: the contract's wide card is 65px (`.node.wide{height:65px}`), its
+    // rail top at y 33 — half a pixel above this body's top (y 33.5, the
+    // header's 29.5 + 4). Without it every Question and Goal drew 65.5.
+    minHeight: `calc(${CANVAS_QUICK_ACTION_BOX_PX}px * ${scale} + ${CANVAS_QUICK_ACTION_INSET_PX - ANCHOR_PAD_BOTTOM_PX - 0.5}px)`,
   }
 }
 
@@ -369,18 +399,63 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * with the satisfaction probability the run computed — a strictly richer
    * surface. A second line here would say less, twice.
    */
-  const { lines: constraintLines } = useNodeConstraints(id, label)
+  // `cardLines`: a limit the Goal card already shows is not repeated here (DIFF
+  // pre-run item 7, 28 Sep) — see `useNodeConstraints`.
+  const { cardLines: constraintLines } = useNodeConstraints(id, label)
   // NODE-ANATOMY v3.2, Factor "Never on the card: a limit line (the boundary
   // lives on the Goal)" — the factor card no longer repeats the Goal's boundary.
   const showConstraintLines = nodeType !== 'goal' && nodeType !== 'factor' && constraintLines.length > 0
   const description = typeof data?.description === 'string' ? data.description : undefined
+  /**
+   * ⭐ THE ONE TITLE OWNER (Paul's staging test, 28 Sep 2026, export 64c5eccc):
+   * the producer's own cut ("Help me decide whether to hire…") recovered from
+   * the description it was cut from, and an all-lower-case first word raised
+   * ("ability …" → "Ability …") — `shared/nodeCardTitle.ts`. DISPLAY ONLY: the
+   * store keeps the label. Every place the card states its name reads this —
+   * the visible title, the causal-lens title, the name tooltip and the
+   * accessible name — so no channel keeps the cut. `titleOverride` still
+   * replaces only the visible words.
+   */
+  const cardTitle = nodeCardTitle(label, description)
 
   // Phase 3: Get node colours from new system
   const colors = nodeColors[nodeType as keyof typeof nodeColors] || nodeColors.factor
 
   // Local state for expand/collapse (no persistence per spec)
   const [isExpanded, setIsExpanded] = useState(false)
+  // ⭐ E1c — the title is renamed ON THE CARD (Paul 29 Sep: "click the title … to rename"), through the inspector's own
+  // rename route (`store.updateNodeLabel`: the durable `structural_rename` capture) and its own editor (`EditableLabel`).
+  const [renamingOnCard, setRenamingOnCard] = useState(false)
+  // ⭐ THE TITLE'S CLICKS STAY LOCAL THROUGH THE WHOLE DOUBLE-CLICK (PR Review on #2318, 5895008733). A browser sends
+  // click, click, dblclick; React Flow's node click (`ReactFlowGraph.handleNodeClick`) opens the full inspector — or,
+  // mid-reconnect, COMPLETES the connection — on each of the two clicks, before the dblclick that renames. So the
+  // title stops every click, and hands a LONE click back to the card once the double-click window has passed
+  // (`handTitleClickToCard`): a single click on the title still does exactly what a click anywhere else on the card
+  // does; a double-click does only the rename.
+  const titleClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cancelTitleClick = useCallback(() => {
+    if (titleClickTimer.current !== null) clearTimeout(titleClickTimer.current)
+    titleClickTimer.current = null
+  }, [])
+  useEffect(() => cancelTitleClick, [cancelTitleClick])
+  const onTitleClick = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
+    e.stopPropagation()
+    cancelTitleClick()
+    if (e.detail > 1) return // the second click of a double-click: the rename owns the gesture
+    const card = e.currentTarget.closest('.react-flow__node')
+    const init: MouseEventInit = {
+      bubbles: true, cancelable: true, clientX: e.clientX, clientY: e.clientY,
+      shiftKey: e.shiftKey, metaKey: e.metaKey, ctrlKey: e.ctrlKey, altKey: e.altKey,
+    }
+    titleClickTimer.current = setTimeout(() => {
+      titleClickTimer.current = null
+      handTitleClickToCard(card, init)
+    }, TITLE_DOUBLE_CLICK_WINDOW_MS)
+  }, [cancelTitleClick])
   const updateNodeInternals = useUpdateNodeInternals()
+  // The card's hover pop-up (Paul, 29 Sep 2026): opens on hover intent or
+  // keyboard focus, closes on leave or Escape — see `NodeHoverCard`.
+  const hoverCard = usePopoverHover(HOVER_CARD_OPEN_DELAY_MS)
 
   // Phase 3: Node highlighting
   // React #185 FIX: Return primitive boolean from selector to prevent re-renders
@@ -388,6 +463,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // Set references change on each store update.
   const allNodes = useCanvasStore(s => s.nodes)
   const isHighlighted = useCanvasStore(s => s.highlightedNodes.has(id))
+  // CURRENT-READ row 9: a withheld leader withholds the option's share at every zoom (`winShareGate.ts`).
+  const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
+  // …and the reduced line's "Compared · share not shown" holds only for an option the Run compared (F1b, 52f8cd), as
+  // on the full-zoom card. A left-out option never reads "Compared".
+  const optionComparedInRun = useCanvasStore((s) => nodeType === 'option' && selectOptionComparedInRun(s, id))
   /**
    * Olumi attention — held while the AI is explaining THIS element, unlike the
    * two-second acknowledgement above. Primitive-boolean selectors (React #185),
@@ -424,6 +504,26 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // chaining so store doubles without the slice stay safe.
   const isAnalysisDriver = useCanvasStore(
     s => s.analysisHighlight?.source === 'drivers' && s.analysisHighlight?.nodeIds?.has(id) === true,
+  )
+  /**
+   * The Changes view (row E, `graphChanges/`): while the Compare tab shows a Run pair, the card an input changed on
+   * carries the info outline + its word, and every card nothing happened to is subdued. Primitive selectors
+   * (React #185). ⚠ `nodeIds.size > 0`: a projection that marks no node dims no node (the attention lesson above).
+   */
+  const runChangeMark = useCanvasStore(
+    s => (s.analysisHighlight?.source === 'run_changes' ? s.analysisHighlight.nodeMarks?.get(id) ?? null : null),
+  )
+  // ⭐ A LINK-ONLY CHANGE SUBDUES TOO (audit 5942900903 (a)): the rule is the edges' — anything marked subdues what is
+  // not — bar the cards at the ends of a marked link, which are the link's context. A projection that marks nothing
+  // still subdues nothing.
+  const isRunChangeSubdued = useCanvasStore(
+    s =>
+      s.analysisHighlight?.source === 'run_changes' &&
+      (s.analysisHighlight.nodeIds?.size ?? 0) + (s.analysisHighlight.edgeIds?.size ?? 0) > 0 &&
+      s.analysisHighlight.nodeIds.has(id) === false &&
+      s.analysisHighlight.contextNodeIds?.has(id) !== true &&
+      // WHERE THIS CHANGE FLOWS: while a C1 row's element is selected, its route focus owns prominence.
+      !selectRunChangesRouteLit(s),
   )
   /**
    * D2: level-of-detail — which rung of the semantic-zoom ladder the canvas is
@@ -601,6 +701,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const edges = useCanvasStore(s => s.edges)
   const isPreRunMode = resultsStatus !== 'complete'
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  // POM-3: a boolean selector (React-185 safe) — does any option DECLARE the baseline?
+  const graphHasDeclaredBaseline = useCanvasStore(s => nodeType === 'option' && graphDeclaresBaseline(s.nodes, s.ceeAnalysisReady?.options))
 
   /**
    * ⚠ THE FACT THAT DOES NOT LIVE ON THE NODE, and whose absence was the
@@ -634,8 +736,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const lodFacts = useMemo(() => {
     if (!bodyReduced) return undefined
     if (nodeType === 'factor') {
-      // One rank wording on every rung: "Driver N of M analysed"
-      // (ED 5806207128, M = the analysed count), from the
+      // One rank wording on every rung: "Driver N of M ranked in this run"
+      // (M = the ranked count; NODE-ANATOMY v3.2), from the
       // SAME rule the card's driver line reads (`driverRankFor`): a current run,
       // or a known-changed model's last run labelled `Last run · ` (#1891's rule,
       // Paul's Ruling 3). Never-run / cannot-confirm → null.
@@ -646,7 +748,13 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         resultsFromLastRun,
         displayMetadata.influenceRankedCount,
       )
-      return { influenceRank, driverRank, influenceFromLastRun: resultsFromLastRun }
+      return {
+        influenceRank,
+        driverRank,
+        influenceFromLastRun: resultsFromLastRun,
+        // PJ-B3: the run held no value for this factor — the reduced line says so.
+        driverNoValueYet: displayMetadata.unvaluedInRun === true,
+      }
     }
     if (nodeType !== 'option') return undefined
     return {
@@ -655,10 +763,13 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         nodeId: id,
         data: data as Record<string, unknown> | undefined,
         ceeOptions: ceeAnalysisReady?.options,
+        graphHasDeclaredBaseline,
       }),
       optionResultCaption: resultCaption ?? null,
+      winSharesWithheld: winSharesWithheld && optionComparedInRun,
+      optionTakenOutLine: optionTakenOutLine(data),
     }
-  }, [bodyReduced, nodeType, id, ceeAnalysisReady, data, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, resultCaption, resultsFromLastRun])
+  }, [bodyReduced, nodeType, id, ceeAnalysisReady, graphHasDeclaredBaseline, data, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, displayMetadata.unvaluedInRun, resultCaption, resultsFromLastRun, winSharesWithheld, optionComparedInRun])
 
   const lodBody = useMemo<{ text: string | null; unconfirmedEstimate: boolean }>(() => {
     if (!bodyReduced) return { text: null, unconfirmedEstimate: false }
@@ -927,6 +1038,25 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
       const ceeOption = ceeAnalysisReady.options?.find(opt => opt.id === id)
       if (!ceeOption) return false // Option not in analysisReady — not necessarily incomplete
+      /**
+       * ⛔ THE DECLARED BASELINE NEEDS NO INPUT (canvas audit paul-models POM-1).
+       * CEE sends the baseline with `interventions: {}` BY DESIGN — status
+       * 'ready', "every factor holds at its observed value, so no effect values
+       * are needed" — so the empty-map arm below put "Needs input" on the
+       * baseline of every real CEE model (all 4 of Paul's boards). Typed flags
+       * only, never the label heuristic: a "keep …" option that genuinely lacks
+       * values must still be flagged.
+       */
+      if (ceeOption.is_baseline === true || (data as { is_baseline?: unknown } | undefined)?.is_baseline === true) return false
+      /**
+       * ⭐ AND THE OPTION CEE SAYS IS MISSING A VALUE IS MARKED (POM-1, second
+       * half). Its typed `analysis_ready.blockers[]` entry (`option_id` +
+       * `blocker_type: 'missing_value'`) is the producer's own statement — read,
+       * never derived. On 90b8 the option CEE blocked on
+       * `fac_existing_customers_grandfathered` carried one set target, so the
+       * empty-map arm alone never saw it.
+       */
+      if (ceeAnalysisReady.blockers?.some(b => b.option_id === id && b.blocker_type === 'missing_value')) return true
       return !ceeOption.interventions || Object.keys(ceeOption.interventions).length === 0
     }
     return false
@@ -965,7 +1095,19 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // answers a different, narrower question (what does opening this card do),
   // so this gap follows the contract literally rather than inventing a
   // longer hybrid sentence.
-  const accessibleNameWithoutAffordance = `${NODE_REGISTRY[nodeType].label}: ${label}. Open details.`
+  // ⭐ The card's number within its type (Paul, 1 Oct 2026): options 1…N, factors 1…N, outcomes, risks. Display only.
+  const typeOrdinal = useCanvasStore((s) => nodeTypeNumber(nodeType, id, s.nodes as never, s.optionNumbering))
+  // GAP-36's name first, unchanged ("Option: Rebuild. Open details."), then the card's number as its own sentence
+  // ("Option 1."). #2392 put the number inside the kind ("Option 1: Rebuild") and turned every reader keyed on
+  // `<Kind>: <title>. Open details.` red.
+  // An option's number carries the legend's not-a-ranking gloss (the builder, never a copy of its words).
+  const typeOrdinalSentence =
+    typeOrdinal === undefined
+      ? ''
+      : nodeType === 'option'
+        ? ` ${optionOrdinalBadgeAccessibleName(typeOrdinal)}.`
+        : ` ${NODE_REGISTRY[nodeType].label} ${typeOrdinal}.`
+  const accessibleNameWithoutAffordance = `${NODE_REGISTRY[nodeType].label}: ${cardTitle}. Open details.${typeOrdinalSentence}`
   /**
    * ⭐⭐⭐ AND THE ONE EDIT EVERY KIND SUPPORTS IS NOW SAID OUT LOUD — on all
    * six, from here, because here is the only place all six pass through.
@@ -980,7 +1122,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * why it promises the interaction only.
    */
   const titleChannels = nodeTitleChannels({
-    label,
+    label: cardTitle,
     accessibleName: accessibleNameWithoutAffordance,
   })
   const accessibleName = titleChannels.accessibleName
@@ -1089,7 +1231,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     if (nodeType === 'decision' || nodeType === 'option') return 1
     return 2
   })()
-  const padAdj = legacyBorderPx - 1
+  // ⭐⭐ RETIRED 29 Sep 2026 (Paul: "pixel perfect with the design artefact").
+  // The compensation kept each box byte-identical to its old border width, so
+  // the padding was 11.5 on a factor and 13 on an outcome, risk or unfinished
+  // card, against the contract's single `.node{padding:12px 12px 32px}`. Every
+  // card now has the contract's padding; the layout measures the new heights
+  // from the DOM like any other content change. `legacyBorderPx` is kept only
+  // as the record of what each kind used to draw.
+  void legacyBorderPx
+  const padAdj = 0
 
   // Graph Editing Experience Task 5: Edit impact preview indicator
   const impactDirection = useEditPreviewStore(s => s.impactMap.get(id))
@@ -1367,6 +1517,14 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * card's full measure at every scale.
    */
   const anchorRailBeside = isAnchorCard && showQuickActions
+  /**
+   * The anchor body's box beside its rail — drawn wherever the rail is beside it,
+   * and DECLARED on the body at every rung (`NODE_BODY_BOUND_STYLE_ATTR`) so the
+   * layout measurer can re-apply it where the rail is unmounted (the `line`
+   * rung). Without it a layout run zoomed out reserved the Question 73 at 0.4
+   * while it drew 75, and 97 at landing (Canvas Browser Gate `heightVsZoom`).
+   */
+  const anchorBodyBox = isAnchorCard ? anchorBodyRailStyle(anchorRailButtons) : undefined
   /** Quick actions inside the card: every card at Normal, and an anchor wherever its rail is mounted. */
   const quickActionsInset = anchorRailBeside || atNormalZoom
   /**
@@ -1403,8 +1561,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     // landing height — so the Question and Goal drew TALLER below the floor than
     // anywhere above it (Canvas Browser Gate `heightVsZoom`, build-vs-buy
     // 1280×800: decision 126 → 132, goal 131 → 134).
+    // Contract `.node.wide{padding:11px 13px 9px}` — 13px sides on the Question
+    // and Goal (they were 12, so every anchor row sat 1px left of the design).
     if (isAnchorCard) {
-      return { paddingTop: '11px', paddingRight: side, paddingBottom: '9px', paddingLeft: side }
+      return { paddingTop: '11px', paddingRight: px(13), paddingBottom: '9px', paddingLeft: px(13) }
     }
     return { paddingTop: side, paddingRight: side, paddingBottom: side, paddingLeft: side }
   }
@@ -1459,7 +1619,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // v3.1 WS1 #17: the yield is decided by THIS title's first word, not the
   // corpus's widest (see `CornerMarksTitleBox.firstWordPx`).
   // Not a hook: this runs after the lens early return. Cached per word inside.
-  const firstTitleWordPx = cornerMarkCount > 0 ? titleFirstWordPx(titleOverride ?? label) : undefined
+  const firstTitleWordPx = cornerMarkCount > 0 ? titleFirstWordPx(titleOverride ?? cardTitle) : undefined
   const cornerTitleSpacer = cornerMarksTitleSpacerCss(cornerMarkCount, {
     measurePx: titleBoxMeasurePx,
     rightToFramePx: renderedCardW - 2 * CANVAS_CARD_FRAME_PX - cardPaddingLeftPx - titleBoxMeasurePx,
@@ -1756,6 +1916,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
   return (
     <div
+      ref={hoverCard.nodeElRef as React.Ref<HTMLDivElement>}
+      onMouseEnter={hoverCard.nodeHandlers.onMouseEnter}
+      onMouseLeave={hoverCard.nodeHandlers.onMouseLeave}
       role="group"
       aria-label={accessibleName}
       aria-expanded={description ? isExpanded : undefined}
@@ -1765,6 +1928,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
          sighted reader; a screen reader hears it as the description. */
       {...(nodeType === 'factor' && data?.category === 'external' ? { 'aria-description': 'Outside your control' } : {})}
       {...(isAnalysisDriver ? { 'data-analysis-driver': 'true' } : {})}
+      {...(runChangeMark !== null ? { 'data-run-change': runChangeMark } : {})}
+      {...(isRunChangeSubdued ? { 'data-run-change-subdued': 'true' } : {})}
       {...(isAssistantFocused ? { 'data-assistant-focused': 'true' } : {})}
       {...{ [NODE_RUNG_PADDING_ATTR]: rungPadding }}
       // ⭐ `text-left` IS A DECLARATION, AND THE CARD PREVIOUSLY HAD NONE.
@@ -1793,8 +1958,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
              `rounded-lg` rendered 14px through the index.css override.
              Selection lifts one step (`shadow-2`) with its ring (FRAME-09).
              ⭐ The resting value is the contract's own (`--shadow-card-rest`,
-             DESIGN-GAP-v31 #43); it was DS v5 `shadow-1`. */
-          selected && !isHighlighted ? 'shadow-2' : 'shadow-card-rest'
+             DESIGN-GAP-v31 #43); it was DS v5 `shadow-1`.
+             ⭐ HOVER LIFTS TO THE SAME NEUTRAL STEP (Paul, 1 Oct 2026: "The hover states look genuinely shit compared
+             to what they used to look like"; Grammar v0 §2: hover = a small lift, never a colour). The card had NO
+             hover state of its own: `colors.ts`' per-family `hover:` classes were never applied. Selection keeps
+             the lift and adds the card's actions (`NodeQuickActions`), so the two still read apart. */
+          selected && !isHighlighted ? 'shadow-2' : 'shadow-card-rest hover:shadow-2'
         }
         ${borderColourClass}
         ${lodKindFillClass}
@@ -1803,7 +1972,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         ${selected && !isHighlighted ? colors.selected : ''}
         ${isHighlighted && !isAttended ? 'ring-4 ring-info/60 ai-highlight-pulse' : ''}
         ${isAttended ? 'ring-4 ring-info olumi-attended' : ''}
-        ${isAttentionDimmed ? 'opacity-30 saturate-50 transition-opacity duration-300' : ''}
+        ${isAttentionDimmed || isRunChangeSubdued ? 'opacity-30 saturate-50 transition-opacity duration-300' : ''}
         ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-25' : ''}
       `}
       style={{
@@ -1816,8 +1985,17 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         // transitions its VISUAL channels only — it was `transition-all`, which
         // also eased the inline width / padding, so on a relayout a card slid to
         // its new ELK width over 200ms while its edges snapped).
-        outline: isAnalysisDriver ? '2px solid var(--semantic-info)' : undefined,
-        outlineOffset: isAnalysisDriver ? '3px' : undefined,
+        outline: isAnalysisDriver || runChangeMark !== null ? '2px solid var(--semantic-info)' : undefined,
+        // ⭐ THE CARD'S MUTED TEXT IS THE CONTRACT'S `--muted` (#666762), SCOPED
+        // TO THE CARD (Paul 29 Sep, "pixel perfect with the design artefact").
+        // The app-wide `--text-light` is #6E6B6B; every muted run on a card —
+        // row-meta, labels, marks, small states — read 8 levels lighter and
+        // warmer than the design. Darker than the token it overrides, so every
+        // contrast margin `text-light-contrast.spec.ts` pins only grows. Both
+        // spellings are set: `--text-light` is resolved where it is declared
+        // (:root), so overriding the channel alone would not reach it.
+        ...CARD_MUTED_TOKEN_STYLE,
+        outlineOffset: isAnalysisDriver || runChangeMark !== null ? '3px' : undefined,
         // ⚠ THE INLINE PAINT MUST STAND DOWN WHERE THE KIND FILL APPLIES, or the
         // class below is overridden by specificity and the fix is invisible.
         backgroundColor: evidenceBgStyle ?? (lodKindFillClass === '' ? 'var(--bg-panel)' : undefined),
@@ -1944,6 +2122,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >
+      {runChangeMark !== null ? <RunChangeBadge mark={runChangeMark} nodeId={id} /> : null}
       {/* R5 contextual efficiency layer — quiet at rest, revealed on hover, on
           keyboard focus within the card, and while the node is selected. One
           home for it (here) rather than per-node-type, so every node speaks the
@@ -2250,7 +2429,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         {/* ⭐ THE KEY-DRIVER BADGE IS RETIRED (ED 02:31Z, D1a: "RETIRE the
             Key-driver badge once the body driver line is present"). One rank is
             stated once, in one vocabulary — the factor card's driver line
-            ("Driver N of M analysed") and its reduced line — and never in
+            ("Driver N of M ranked in this run") and its reduced line — and never in
             a corner badge a stale run could keep alive (the badge was not
             freshness-gated; the driver line is).
 
@@ -2351,7 +2530,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           // Same source as the layout's header reservation, so the gap the card
           // is sized for is the gap it renders (NODE_HEADER_RESERVE_PX).
           gap: `${NODE_HEADER_GAP_PX}px`,
-          marginBottom: '4px',
+          // Scaled with the text (Paul 1 Oct, "no spacing between different lines"): a fixed 4px rendered 2px at
+          // the landing zoom while the title above it rendered at 0.82×.
+          marginBottom: NODE_ROW_GAP_SCALED,
           // Gap 11: clear of the corner marks when the title shares its line.
           ...(cornerHeaderReserve !== undefined ? { paddingRight: cornerHeaderReserve } : {}),
           // Let the header slot drop below the title rather than squeezing the
@@ -2467,33 +2648,48 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               The direction that lane's argument rests on is unchanged and the
               margin is larger. The layout itself does not re-run in this band —
               it keys on `layoutVersion`, not on zoom. */}
-          {/* ⭐ v3.1 (DESIGN-GAP-v31 row 36): ONE tooltip system. This element is
-              `line-clamp-2`, so a hover route back to a clipped name must stay —
-              it is now the styled tooltip, carrying the full name, instead of a
-              native `title` ("…\n\nDouble-click to rename it") beside it
-              (`shared/nodeRenameAffordance.ts`). Design audit #13 (26 Sep): the
-              rename hint left the hover; the inspector's title is the rename
-              control, and the accessible name still says it.
-              `data-node-tooltip` makes the card preview yield while the name's
-              tooltip is up — one overlay at a time, the rule every other
-              node-surface tooltip follows. A SELECTED card offers none (v3.1
-              row 6, "a click opens only the inspector"): the hover delay could
-              elapse after the click and stand the tooltip beside the
-              inspector, whose title is the full, unclipped name. */}
-          <Tooltip
-            asChild
-            delay={NODE_TOOLTIP_DELAY_MS}
-            content={selected || titleChannels.tooltip.name === null ? null : (
-              <span data-testid="node-title-tooltip-name" className="block">
-                {titleChannels.tooltip.name}
-              </span>
-            )}
-          >
+          {/* ⭐ NO TOOLTIP ON THE NAME (Paul, 29 Sep 2026): the card's hover
+              pop-up (`NodeHoverCard`, mounted at the foot of this card) carries
+              the full name first, in the light panel style, so the black
+              one-line name tooltip went. No native `title` either (design
+              audit #13); the accessible name still carries the rename
+              affordance. The name no longer carries `data-node-tooltip`, which
+              would make the pop-up yield while the pointer rests on the name. */}
+          {renamingOnCard && !lodBodyHidden ? (
+            <div
+              data-testid="node-title-rename"
+              className="nodrag nopan"
+              style={{ fontWeight: NODE_TITLE_WEIGHT }}
+              onPointerDown={(e) => e.stopPropagation()}
+              // A click into the field (placing the caret) is the editor's, never the card's: it must not open the
+              // inspector or complete a reconnect under the user's typing.
+              onClick={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+            >
+              <EditableLabel
+                value={label}
+                onSave={(next) => useCanvasStore.getState().updateNodeLabel(id, next)}
+                autoEdit
+                onEditEnd={() => setRenamingOnCard(false)}
+                className={`${isAnchorCard ? typography.nodeTitleWide : typography.nodeTitle} text-text-body`}
+                counterClassName={typography.nodeLabel}
+                wrap
+              />
+            </div>
+          ) : (
           <div
             data-testid="node-title"
-            data-node-tooltip
+            /* ⭐ THE PER-TYPE NUMBER (O1 / F2 / OC1 / R1, Paul 1 Oct) IS GENERATED CONTENT, NOT TEXT: a `::before` that
+               reads this attribute. The title's text, its `textContent` and every reader of it stay the label alone
+               (#2392 put a span inside the title and turned the "a title never carries a digit" and title-text readers
+               red). Not in the accessible name either: the card's own `aria-label` carries "Option 1." */
+            {...(typeOrdinal !== undefined && !lodBodyHidden
+              ? { [NODE_TYPE_ORDINAL_ATTR]: `${NODE_NUMBER_PREFIX[nodeType as NumberedNodeKind]}${typeOrdinal}` }
+              : {})}
+            onClick={lodBodyHidden ? undefined : onTitleClick}
+            onDoubleClick={lodBodyHidden ? undefined : (e) => { e.stopPropagation(); cancelTitleClick(); setRenamingOnCard(true) }}
             {...(lodBodyHidden ? { [LOD_FAR_TITLE_ATTR]: 'true' } : {})}
-            className={
+            className={'group/edit ' + (
               /* ⭐ v3.1 WS1 #2 (26 Sep 2026): NO CLAMP AT A READING RUNG. The
                  contract's `.node h3` wraps (`overflow-wrap:break-word`) and never
                  clips; `line-clamp-2` ellipsised 2–12 titles per starter at the
@@ -2504,7 +2700,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               lodBodyHidden
                 ? `${FAR_TITLE_TYPE} break-words ${lodBoostTitle || isAnchorCard ? 'font-semibold text-text-header line-clamp-1' : 'text-text-body line-clamp-2'}`
                 : lodBoostTitle
-                ? `${typography.nodeTitle} font-semibold text-text-header break-words`
+                ? `${typography.nodeTitle} font-semibold text-text-body break-words`
                 /* ⭐ THE ANCHORS TAKE THEIR EMPHASIS AT EVERY ZOOM, NOT ONLY BELOW
                    THE FLOOR (contract v3.1 ANC-04: `.node h3{font-weight:610}`,
                    the wide card's title one step above the others). The note
@@ -2513,10 +2709,14 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                    body is hidden; at reading zoom the Question and Goal titles
                    were set exactly like a factor's. Same size token (DS v5 §2.3
                    forbids a fourth canvas size), so hierarchy is weight + ink. */
+                /* ⭐ CONTRACT v3.1 (Paul 29 Sep, "pixel perfect"): `.node.wide
+                   h3{font-size:14px}` and every title in the card's ink
+                   (`.node` sets no title colour; #3F3F3E). The anchors were
+                   #262626 at the repeated cards' 14px; the step is now size. */
                 : isAnchorCard
-                  ? `${typography.nodeTitle} font-semibold text-text-header break-words`
+                  ? `${typography.nodeTitleWide} font-semibold text-text-body break-words`
                   : `${typography.nodeTitle} text-text-body break-words`
-            }
+            )}
             /* ⭐ CONTRACT `.node h3{font-weight:610}` — EVERY card's title, set
                inline so it cannot lose a cascade race with the size token's
                `font-medium`. Measured before landing (24 Sep, local dev build,
@@ -2537,9 +2737,13 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                 style={{ float: 'right', width: cornerTitleSpacer.width, height: cornerTitleSpacer.height }}
               />
             )}
-            {titleOverride ?? label}
+            {/* The title's words are their OWN element, so the pencil beside them never makes the title a non-leaf:
+                `cardCopyCensus` reads leaf text runs, and #2322's pencil hid every card's own label from it. */}
+            <span>{titleOverride ?? cardTitle}</span>
+            {/* E1d: the pencil says the title renames in place (double-click). Zero-width; see `EditPencilCue`. */}
+            {!lodBodyHidden && <EditPencilCue testId="node-title-pencil" />}
           </div>
-          </Tooltip>
+          )}
         </div>
 
         {/* S1-UNK: Warning chip for unknown backend kinds */}
@@ -2690,7 +2894,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               style={{ float: 'right', width: causalTitleSpacer.width, height: causalTitleSpacer.height }}
             />
           )}
-          {label}
+          {cardTitle}
         </div>
       )}
 
@@ -2709,7 +2913,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         <div
           data-testid={`node-state-row-${id}`}
           className="flex flex-wrap items-center gap-1 [&>*]:max-w-full [&>*]:whitespace-normal"
-          style={{ marginBottom: '4px' }}
+          style={{ marginBottom: NODE_ROW_GAP_SCALED }}
         >
           {/* Caller-supplied state member — first in DOM order. Today it has
               exactly one caller: OptionNode's "Leading option" pill, which used
@@ -2819,8 +3023,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           className="relative text-left"
           data-testid={anchorRailBeside ? 'anchor-body-rail-beside' : undefined}
           data-anchor-rail-buttons={anchorRailBeside ? anchorRailButtonsKey(anchorRailButtons) : undefined}
-          style={lodBodyBlanked ? LOD_BLANKED_BODY_STYLE : anchorRailBeside ? anchorBodyRailStyle(anchorRailButtons) : undefined}
+          style={lodBodyBlanked ? LOD_BLANKED_BODY_STYLE : anchorRailBeside ? anchorBodyBox : undefined}
           {...(lodBodyBlanked ? { [LOD_BLANKED_BODY_ATTR]: 'true' } : {})}
+          {...(anchorBodyBox ? { [NODE_BODY_BOUND_STYLE_ATTR]: JSON.stringify(anchorBodyBox) } : {})}
         >
           {children as ReactNode}
           {/* ⭐ THE READER'S OWN LIMIT, ON THE CARD, IN BOTH PHASES.
@@ -2935,6 +3140,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           unmounted, not hidden: a second door for the same question is the
           duplicate Paul's screenshot B showed. */}
 
+      {/* Never beside the inspector (v3.1 row 6: a click opens only the
+          inspector) and never over the on-card rename field. */}
+      <NodeHoverCard
+        nodeId={id}
+        nodeType={nodeType}
+        data={data as Record<string, unknown> | undefined}
+        visible={hoverCard.showPopover && !selected && !renamingOnCard}
+        anchorRef={hoverCard.nodeElRef}
+      />
       {/* ⭐ A 3px DARK PORT, NOT A 12px KIND DISC (contract v3.1 FRAME-04:
           `.node .bottom-port{width:3px;height:3px;background:#51554F}` centred
           on the bottom border). Fifteen to nineteen coloured discs on a board

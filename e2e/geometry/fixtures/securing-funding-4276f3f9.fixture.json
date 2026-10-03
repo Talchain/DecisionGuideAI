@@ -1,0 +1,1007 @@
+{
+ "_source": "Paul live test 30 Sep 2026 13:29Z, debug export 4276f3f9 (staging UI 5562c08d), payloads.cee_response of turn c46bf079 (Run 3 of 3). Scenario \"securing funding\". CURRENT-READ row 9 finding 9.",
+ "draft": {
+  "nodes": [
+   {
+    "id": "decision_securing_funding",
+    "kind": "decision",
+    "label": "Decision: securing funding"
+   },
+   {
+    "id": "securing_funding",
+    "kind": "goal",
+    "label": "securing funding"
+   },
+   {
+    "id": "investment_firm_outreach",
+    "kind": "factor",
+    "label": "Investment firm outreach"
+   },
+   {
+    "id": "warm_connections_pursued",
+    "kind": "factor",
+    "label": "Warm connections pursued"
+   },
+   {
+    "id": "angel_investor_outreach",
+    "kind": "factor",
+    "label": "Angel investor outreach"
+   },
+   {
+    "id": "fundraising_overhead",
+    "kind": "factor",
+    "label": "Fundraising overhead"
+   },
+   {
+    "id": "runway_exhaustion",
+    "kind": "risk",
+    "label": "Runway exhaustion"
+   },
+   {
+    "id": "investment_firm_meetings",
+    "kind": "outcome",
+    "label": "Investment firm meetings"
+   },
+   {
+    "id": "angel_investor_meetings",
+    "kind": "outcome",
+    "label": "Angel investor meetings"
+   },
+   {
+    "id": "fac_existing_supporter_outreach",
+    "kind": "factor",
+    "label": "Existing supporter outreach"
+   },
+   {
+    "id": "current_outreach",
+    "kind": "option",
+    "label": "Current outreach"
+   },
+   {
+    "id": "angel_bridge",
+    "kind": "option",
+    "label": "Angel bridge"
+   },
+   {
+    "id": "targeted_angel_pilot",
+    "kind": "option",
+    "label": "Targeted angel pilot"
+   },
+   {
+    "id": "10979ab0",
+    "kind": "option",
+    "label": "Convertible bridge from existing supporters"
+   }
+  ],
+  "edges": [
+   {
+    "from": "decision_securing_funding",
+    "to": "current_outreach"
+   },
+   {
+    "from": "decision_securing_funding",
+    "to": "angel_bridge"
+   },
+   {
+    "from": "decision_securing_funding",
+    "to": "targeted_angel_pilot"
+   },
+   {
+    "from": "angel_bridge",
+    "to": "investment_firm_outreach"
+   },
+   {
+    "from": "angel_bridge",
+    "to": "warm_connections_pursued"
+   },
+   {
+    "from": "angel_bridge",
+    "to": "angel_investor_outreach"
+   },
+   {
+    "from": "angel_bridge",
+    "to": "fundraising_overhead"
+   },
+   {
+    "from": "targeted_angel_pilot",
+    "to": "investment_firm_outreach"
+   },
+   {
+    "from": "targeted_angel_pilot",
+    "to": "warm_connections_pursued"
+   },
+   {
+    "from": "targeted_angel_pilot",
+    "to": "angel_investor_outreach"
+   },
+   {
+    "from": "targeted_angel_pilot",
+    "to": "fundraising_overhead"
+   },
+   {
+    "from": "current_outreach",
+    "to": "investment_firm_outreach"
+   },
+   {
+    "from": "current_outreach",
+    "to": "warm_connections_pursued"
+   },
+   {
+    "from": "current_outreach",
+    "to": "angel_investor_outreach"
+   },
+   {
+    "from": "current_outreach",
+    "to": "fundraising_overhead"
+   },
+   {
+    "from": "investment_firm_outreach",
+    "to": "investment_firm_meetings"
+   },
+   {
+    "from": "warm_connections_pursued",
+    "to": "investment_firm_meetings"
+   },
+   {
+    "from": "warm_connections_pursued",
+    "to": "angel_investor_meetings"
+   },
+   {
+    "from": "angel_investor_outreach",
+    "to": "angel_investor_meetings"
+   },
+   {
+    "from": "fundraising_overhead",
+    "to": "investment_firm_outreach"
+   },
+   {
+    "from": "fundraising_overhead",
+    "to": "runway_exhaustion"
+   },
+   {
+    "from": "investment_firm_meetings",
+    "to": "securing_funding"
+   },
+   {
+    "from": "angel_investor_meetings",
+    "to": "securing_funding"
+   },
+   {
+    "from": "runway_exhaustion",
+    "to": "securing_funding"
+   },
+   {
+    "from": "decision_securing_funding",
+    "to": "10979ab0"
+   },
+   {
+    "from": "fac_existing_supporter_outreach",
+    "to": "securing_funding"
+   },
+   {
+    "from": "10979ab0",
+    "to": "fac_existing_supporter_outreach"
+   },
+   {
+    "from": "fundraising_overhead",
+    "to": "securing_funding"
+   }
+  ]
+ },
+ "analysis_ready": {
+  "status": "ready",
+  "options": [
+   {
+    "option_id": "current_outreach",
+    "label": "Current outreach",
+    "status": "ready",
+    "interventions": {},
+    "is_baseline": true,
+    "status_reason": "Baseline: every factor holds at its observed value, so no effect values are needed"
+   },
+   {
+    "option_id": "angel_bridge",
+    "label": "Angel bridge",
+    "status": "ready",
+    "interventions": {
+     "fundraising_overhead": 0.25,
+     "angel_investor_outreach": 0.1,
+     "investment_firm_outreach": 0.2,
+     "warm_connections_pursued": 0.08
+    },
+    "is_baseline": false,
+    "intervention_details": {
+     "fundraising_overhead": {
+      "display_value": "20 hours/week",
+      "normalised_value": 0.25,
+      "raw_value": 20,
+      "unit": "hours/week"
+     },
+     "angel_investor_outreach": {
+      "display_value": "50 angels contacted/month",
+      "normalised_value": 0.1,
+      "raw_value": 50,
+      "unit": "angels contacted/month"
+     },
+     "investment_firm_outreach": {
+      "display_value": "100 firms contacted/month",
+      "normalised_value": 0.2,
+      "raw_value": 100,
+      "unit": "firms contacted/month"
+     },
+     "warm_connections_pursued": {
+      "display_value": "8 connections/month",
+      "normalised_value": 0.08,
+      "raw_value": 8,
+      "unit": "connections/month"
+     }
+    },
+    "raw_interventions": {
+     "fundraising_overhead": 20,
+     "angel_investor_outreach": 50,
+     "investment_firm_outreach": 100,
+     "warm_connections_pursued": 8
+    },
+    "status_reason": "4 intervention(s) ready for analysis"
+   },
+   {
+    "option_id": "targeted_angel_pilot",
+    "label": "Targeted angel pilot",
+    "status": "ready",
+    "interventions": {
+     "fundraising_overhead": 0.15,
+     "angel_investor_outreach": 0.04,
+     "investment_firm_outreach": 0.18,
+     "warm_connections_pursued": 0.1
+    },
+    "is_baseline": false,
+    "intervention_details": {
+     "fundraising_overhead": {
+      "display_value": "12 hours/week",
+      "normalised_value": 0.15,
+      "raw_value": 12,
+      "unit": "hours/week"
+     },
+     "angel_investor_outreach": {
+      "display_value": "20 angels contacted/month",
+      "normalised_value": 0.04,
+      "raw_value": 20,
+      "unit": "angels contacted/month"
+     },
+     "investment_firm_outreach": {
+      "display_value": "90 firms contacted/month",
+      "normalised_value": 0.18,
+      "raw_value": 90,
+      "unit": "firms contacted/month"
+     },
+     "warm_connections_pursued": {
+      "display_value": "10 connections/month",
+      "normalised_value": 0.1,
+      "raw_value": 10,
+      "unit": "connections/month"
+     }
+    },
+    "raw_interventions": {
+     "fundraising_overhead": 12,
+     "angel_investor_outreach": 20,
+     "investment_firm_outreach": 90,
+     "warm_connections_pursued": 10
+    },
+    "status_reason": "4 intervention(s) ready for analysis"
+   },
+   {
+    "option_id": "10979ab0",
+    "label": "Convertible bridge from existing supporters",
+    "status": "ready",
+    "interventions": {
+     "fac_existing_supporter_outreach": 0.15
+    },
+    "is_baseline": false,
+    "intervention_details": {
+     "fac_existing_supporter_outreach": {
+      "display_value": "15 supporters contacted/month",
+      "normalised_value": 0.15,
+      "raw_value": 15,
+      "unit": "supporters contacted/month"
+     }
+    },
+    "raw_interventions": {
+     "fac_existing_supporter_outreach": 15
+    },
+    "status_reason": "1 intervention(s) ready for analysis"
+   }
+  ],
+  "goal_node_id": "securing_funding",
+  "goal_threshold": 0.8,
+  "goal_threshold_raw": 1200000,
+  "goal_threshold_unit": "\u00a3",
+  "goal_threshold_cap": 1500000,
+  "goal_threshold_cap_provenance": "target_derived_headroom",
+  "bias_findings": [],
+  "may_run": true,
+  "analysis_admission": {
+   "structurally_analysable": true,
+   "missing_important_inputs": [],
+   "semantic_quality_sufficient": true,
+   "permitted_analysis_mode": "comparative_leader",
+   "reasons": [
+    {
+     "field": "structurally_analysable",
+     "code": "READY_TO_COMPARE",
+     "message": "Analysis can run on this model as it stands."
+    },
+    {
+     "field": "semantic_quality_sufficient",
+     "code": "CONFIDENCE_PARAMETERS_PARTLY_USER_STATED",
+     "message": "At least one of the estimates this comparison rests on is yours, so a leading option can be named."
+    },
+    {
+     "field": "permitted_analysis_mode",
+     "code": "CONFIDENCE_PARAMETERS_PARTLY_USER_STATED",
+     "message": "At least one of the estimates this comparison rests on is yours, so a leading option can be named."
+    }
+   ],
+   "graph_hash": "b7740352fa8d609e226fb938ea35412ce40551c9fc83ced31cc82f3806c760a8",
+   "semantic_signals": {
+    "confidence_parameters_total": 20,
+    "confidence_parameters_user_stated": 3,
+    "confidence_parameters_machine_authored": 13,
+    "confidence_parameters_unattributed": 4,
+    "material_parameters_total": 16,
+    "material_parameters_user_stated": 3,
+    "intervened_factor_baselines_total": 5,
+    "intervened_factor_baselines_user_stated": 1,
+    "material_parameters_awaiting_user_node_ids": [
+     "investment_firm_outreach",
+     "warm_connections_pursued",
+     "angel_investor_outreach",
+     "fac_existing_supporter_outreach"
+    ],
+    "goal_target_stated": true
+   }
+  },
+  "freshness": "fresh",
+  "freshness_reason": "agent_readback_run_state_current",
+  "graph_hash_at_run": "b7740352fa8d609e",
+  "current_graph_hash": "b7740352fa8d609e",
+  "computed_at": "2026-09-30T13:29:05.105Z"
+ },
+ "analysis_block": {
+  "type": "analysis_result",
+  "summary": "Ran analysis on your current scenario. 'Current outreach' was analysed as no change \u2014 the factors it compares against were held at the values your model records today. One limit on your model could not be checked: \u201csecuring funding\u201d. We could not line it up with anything this analysis measures, so it was not part of the comparison. The part of your model it points at is worked out from other parts, and Olumi cannot yet test a limit on a quantity like that, so it cannot be checked in this model yet; this one stays on the model unchecked. I supplied 21 of the values behind this, because your brief did not state them. They are mine rather than yours. Changing any of them changes what this model implies.",
+  "leading_option_id": null,
+  "win_probabilities": {
+   "Angel bridge": 0.13196666666666668,
+   "Current outreach": 0.07146666666666666,
+   "Convertible bridge from existing supporters": 0.7965666666666664
+  },
+  "enrichment": {
+   "option_comparison": [
+    {
+     "id": "current_outreach",
+     "label": "Current outreach",
+     "status": "computed",
+     "outcome": {
+      "p10": -0.004196240705940115,
+      "p50": 0.1748395089619038,
+      "p90": 0.30032732710624077,
+      "std": 0.11675412941811872,
+      "mean": 0.1622016833651387,
+      "n_samples": 10000,
+      "validity_ratio": 1,
+      "n_valid_samples": 10000,
+      "percentiles_source": "samples"
+     },
+     "downside": {
+      "p05": -0.059856560682432725,
+      "cvar_10": -0.06337797734057779,
+      "expected_regret": 0.04025708543377399
+     },
+     "option_id": "current_outreach",
+     "option_label": "Current outreach",
+     "win_probability": 0.07146666666666666
+    },
+    {
+     "id": "angel_bridge",
+     "label": "Angel bridge",
+     "status": "computed",
+     "outcome": {
+      "p10": 0.0213064093999851,
+      "p50": 0.14357619704924174,
+      "p90": 0.23274935608257347,
+      "std": 0.08064372612832942,
+      "mean": 0.13625917930548093,
+      "n_samples": 10000,
+      "validity_ratio": 1,
+      "n_valid_samples": 10000,
+      "percentiles_source": "samples"
+     },
+     "downside": {
+      "p05": -0.010419666402553584,
+      "cvar_10": -0.017462971938444562,
+      "expected_regret": 0.06619958949343178
+     },
+     "option_id": "angel_bridge",
+     "option_label": "Angel bridge",
+     "win_probability": 0.13196666666666668
+    },
+    {
+     "id": "10979ab0",
+     "label": "Convertible bridge from existing supporters",
+     "status": "computed",
+     "outcome": {
+      "p10": 0.028908713005214623,
+      "p50": 0.21072876935412282,
+      "p90": 0.33762643473008913,
+      "std": 0.11814578817037212,
+      "mean": 0.19826661131339535,
+      "n_samples": 10000,
+      "validity_ratio": 1,
+      "n_valid_samples": 10000,
+      "percentiles_source": "samples"
+     },
+     "downside": {
+      "p05": -0.022084262751424954,
+      "cvar_10": -0.02929554662072284,
+      "expected_regret": 0.004192157485517356
+     },
+     "option_id": "10979ab0",
+     "option_label": "Convertible bridge from existing supporters",
+     "win_probability": 0.7965666666666664
+    }
+   ],
+   "factor_sensitivity": [
+    {
+     "source": "graph",
+     "direction": "positive",
+     "factor_id": "warm_connections_pursued",
+     "confidence": 0.44615,
+     "elasticity": 0,
+     "zero_reason": "intervention_override",
+     "driver_label": "biggest",
+     "factor_label": "Warm connections pursued",
+     "value_source": "cee_inference",
+     "influence_rank": 1,
+     "rank_flip_rate": 0.05,
+     "importance_rank": 1,
+     "influence_basis": "isl_structural",
+     "influence_score": 1,
+     "importance_basis": "isl_structural",
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "sensitivity_score": 0,
+     "flip_risk_category": "negligible",
+     "value_of_information": 0,
+     "attribution_stability": "low",
+     "confidence_components": {
+      "sampling_stability": 0.25,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "input_quality": "standard",
+      "is_provisional": true,
+      "formula_version": "plot_unified_v3",
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap"
+     },
+     "value_extraction_type": "inferred",
+     "range_derivation_source": "scale_frame"
+    },
+    {
+     "source": "graph",
+     "direction": "positive",
+     "factor_id": "fundraising_overhead",
+     "confidence": 0.3,
+     "elasticity": 0,
+     "zero_reason": "intervention_override",
+     "driver_label": "strong",
+     "factor_label": "Fundraising overhead",
+     "value_source": "user_override",
+     "influence_rank": 2,
+     "rank_flip_rate": 0,
+     "importance_rank": 2,
+     "influence_basis": "isl_structural",
+     "influence_score": 0.8109999999999999,
+     "importance_basis": "isl_structural",
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "sensitivity_score": 0,
+     "flip_risk_category": "correlated",
+     "value_of_information": 0,
+     "attribution_stability": "negligible",
+     "confidence_components": {
+      "sampling_stability": 0,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "input_quality": "standard",
+      "is_provisional": true,
+      "formula_version": "plot_unified_v3",
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap"
+     },
+     "range_derivation_source": "scale_frame"
+    },
+    {
+     "source": "graph",
+     "direction": "positive",
+     "factor_id": "fac_existing_supporter_outreach",
+     "confidence": 0.44975,
+     "elasticity": 0,
+     "zero_reason": "intervention_override",
+     "driver_label": "strong",
+     "factor_label": "Existing supporter outreach",
+     "value_source": "user_assumption",
+     "influence_rank": 3,
+     "rank_flip_rate": 0.3,
+     "importance_rank": 3,
+     "influence_basis": "isl_structural",
+     "influence_score": 0.7499999999999998,
+     "importance_basis": "isl_structural",
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "sensitivity_score": 0,
+     "flip_risk_category": "correlated",
+     "value_of_information": 0,
+     "attribution_stability": "low",
+     "confidence_components": {
+      "sampling_stability": 0.25,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "input_quality": "standard",
+      "is_provisional": true,
+      "formula_version": "plot_unified_v3",
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap"
+     },
+     "range_derivation_source": "explicit_cap"
+    },
+    {
+     "source": "graph",
+     "direction": "positive",
+     "factor_id": "investment_firm_outreach",
+     "confidence": 0.59395,
+     "elasticity": 0,
+     "zero_reason": "intervention_override",
+     "driver_label": "strong",
+     "factor_label": "Investment firm outreach",
+     "value_source": "cee_inference",
+     "influence_rank": 4,
+     "rank_flip_rate": 0,
+     "importance_rank": 4,
+     "influence_basis": "isl_structural",
+     "influence_score": 0.5,
+     "importance_basis": "isl_structural",
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "sensitivity_score": 0,
+     "flip_risk_category": "correlated",
+     "value_of_information": 0,
+     "attribution_stability": "low",
+     "confidence_components": {
+      "sampling_stability": 0.25,
+      "structural_certainty": 0.8
+     },
+     "confidence_provenance": {
+      "input_quality": "standard",
+      "is_provisional": true,
+      "formula_version": "plot_unified_v3",
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap"
+     },
+     "value_extraction_type": "inferred",
+     "range_derivation_source": "scale_frame"
+    },
+    {
+     "source": "graph",
+     "direction": "positive",
+     "factor_id": "angel_investor_outreach",
+     "confidence": 0.3,
+     "elasticity": 0,
+     "zero_reason": "intervention_override",
+     "driver_label": "strong",
+     "factor_label": "Angel investor outreach",
+     "value_source": "cee_inference",
+     "influence_rank": 5,
+     "rank_flip_rate": 0,
+     "importance_rank": 5,
+     "influence_basis": "isl_structural",
+     "influence_score": 0.5,
+     "importance_basis": "isl_structural",
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "sensitivity_score": 0,
+     "flip_risk_category": "negligible",
+     "value_of_information": 0,
+     "attribution_stability": "negligible",
+     "confidence_components": {
+      "sampling_stability": 0,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "input_quality": "standard",
+      "is_provisional": true,
+      "formula_version": "plot_unified_v3",
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap"
+     },
+     "value_extraction_type": "inferred",
+     "range_derivation_source": "scale_frame"
+    }
+   ],
+   "robustness": {
+    "level": "moderate",
+    "near_tie": {
+     "gap": 0.6645999999999997,
+     "is_tie": false,
+     "threshold": 0.1
+    },
+    "is_robust": true,
+    "confidence": 0.7965666666666664,
+    "robust_edges": [],
+    "fragile_edges": [
+     {
+      "to_id": "securing_funding",
+      "edge_id": "fundraising_overhead->securing_funding",
+      "from_id": "fundraising_overhead",
+      "visible": true,
+      "severity": "warning",
+      "to_label": "securing funding",
+      "from_label": "Fundraising overhead",
+      "switch_probability": 0.3632,
+      "alternative_winner_id": "angel_bridge",
+      "alternative_winner_label": "Angel bridge",
+      "marginal_switch_probability": 0
+     },
+     {
+      "to_id": "securing_funding",
+      "edge_id": "fac_existing_supporter_outreach->securing_funding",
+      "from_id": "fac_existing_supporter_outreach",
+      "visible": true,
+      "severity": "warning",
+      "to_label": "securing funding",
+      "from_label": "Existing supporter outreach",
+      "switch_probability": 0.2856,
+      "alternative_winner_id": "current_outreach",
+      "alternative_winner_label": "Current outreach",
+      "marginal_switch_probability": 0
+     },
+     {
+      "to_id": "securing_funding",
+      "edge_id": "runway_exhaustion->securing_funding",
+      "from_id": "runway_exhaustion",
+      "visible": true,
+      "severity": "warning",
+      "to_label": "securing funding",
+      "from_label": "Runway exhaustion",
+      "switch_probability": 0.176,
+      "alternative_winner_id": "angel_bridge",
+      "alternative_winner_label": "Angel bridge",
+      "marginal_switch_probability": 0
+     },
+     {
+      "to_id": "investment_firm_meetings",
+      "edge_id": "investment_firm_outreach->investment_firm_meetings",
+      "from_id": "investment_firm_outreach",
+      "visible": false,
+      "severity": "warning",
+      "to_label": "Investment firm meetings",
+      "from_label": "Investment firm outreach",
+      "switch_probability": 0.126,
+      "alternative_winner_id": "angel_bridge",
+      "alternative_winner_label": "Angel bridge",
+      "marginal_switch_probability": 0
+     },
+     {
+      "to_id": "securing_funding",
+      "edge_id": "investment_firm_meetings->securing_funding",
+      "from_id": "investment_firm_meetings",
+      "visible": false,
+      "severity": "warning",
+      "to_label": "securing funding",
+      "from_label": "Investment firm meetings",
+      "switch_probability": 0.1128,
+      "alternative_winner_id": "angel_bridge",
+      "alternative_winner_label": "Angel bridge",
+      "marginal_switch_probability": 0
+     },
+     {
+      "to_id": "runway_exhaustion",
+      "edge_id": "fundraising_overhead->runway_exhaustion",
+      "from_id": "fundraising_overhead",
+      "visible": false,
+      "severity": "warning",
+      "to_label": "Runway exhaustion",
+      "from_label": "Fundraising overhead",
+      "switch_probability": 0.082,
+      "alternative_winner_id": "current_outreach",
+      "alternative_winner_label": "Current outreach",
+      "marginal_switch_probability": 0
+     },
+     {
+      "to_id": "securing_funding",
+      "edge_id": "angel_investor_meetings->securing_funding",
+      "from_id": "angel_investor_meetings",
+      "visible": false,
+      "severity": "warning",
+      "to_label": "securing funding",
+      "from_label": "Angel investor meetings",
+      "switch_probability": 0.0776,
+      "alternative_winner_id": "current_outreach",
+      "alternative_winner_label": "Current outreach",
+      "marginal_switch_probability": 0
+     }
+    ],
+    "display_verdict": "moderate",
+    "confidence_basis": "recommendation_stability_uncalibrated",
+    "display_verdict_reason": "this run was only moderately stable under the changes we tested",
+    "recommended_option_compliance": "not_assessed",
+    "recommended_option_compliance_reason": "we could not check every limit you set on this run"
+   },
+   "option_comparison_status": "computed",
+   "edge_e_values": [
+    {
+     "to_id": "securing_funding",
+     "e_value": 1,
+     "edge_id": "fac_existing_supporter_outreach::securing_funding",
+     "from_id": "fac_existing_supporter_outreach",
+     "to_label": "securing funding",
+     "flip_mean": -1e-06,
+     "stability": {
+      "n_seeds": 10,
+      "band_max": 0.471806,
+      "band_min": -1e-06,
+      "band_width": 0.471807,
+      "band_median": -1e-06,
+      "n_seeds_flipped": 10,
+      "seed_flip_means": [
+       -1e-06,
+       0.471806,
+       -1e-06,
+       -1e-06,
+       -1e-06,
+       -1e-06,
+       0.094326,
+       -1e-06,
+       -1e-06,
+       -1e-06
+      ]
+     },
+     "from_label": "Existing supporter outreach",
+     "current_mean": 0.3,
+     "flip_direction": "decrease"
+    },
+    {
+     "to_id": "securing_funding",
+     "e_value": 1,
+     "edge_id": "fundraising_overhead::securing_funding",
+     "from_id": "fundraising_overhead",
+     "to_label": "securing funding",
+     "flip_mean": -0.064001,
+     "stability": {
+      "n_seeds": 10,
+      "band_max": 0.309033,
+      "band_min": -0.316695,
+      "band_width": 0.6257280000000001,
+      "band_median": -0.050887,
+      "n_seeds_flipped": 10,
+      "seed_flip_means": [
+       -0.273671,
+       0.268525,
+       -0.28584,
+       -0.072539,
+       -0.029235,
+       0.002884,
+       0.309033,
+       0.050265,
+       -0.093806,
+       -0.316695
+      ]
+     },
+     "from_label": "Fundraising overhead",
+     "current_mean": 0.55,
+     "flip_direction": "decrease"
+    }
+   ],
+   "inference_warnings": [
+    {
+     "code": "CONSTRAINT_TARGET_UNRELIABLE",
+     "message": "The target on \"securing funding\" can't be scored against this model: \"securing funding\" is calculated from the factors feeding into it, so the analysis produces a modelled change for it, not a reading on the same scale as your target. The two are not on the same scale, so goal-fit probabilities were withheld for this run rather than computed against the wrong number. Setting a current value for \"securing funding\" would not change that \u2014 it is calculated from its inputs, so it has no measured starting point of its own to anchor to. Your limit is recorded and was left unscored rather than scored against the wrong number.",
+     "severity": "warning",
+     "constraint_ids": [
+      "gc-063988fd-b2ad-4a51-8261-cf2f1ab105f6"
+     ]
+    },
+    {
+     "code": "EDGE_E_VALUE_NON_FINITE_DROPPED",
+     "message": "9 edge E-value entries were omitted from edge_e_values: 9 carried no finite E-value from the analysis engine (an unflippable edge, whose current and flip means coincide, has no evidence ratio). edge_e_values is shorter because those entries could not be represented, not because they were computed empty. All other analyses are unaffected.",
+     "severity": "info"
+    },
+    {
+     "code": "CONSTRAINT_NODE_DEFAULT_BASE",
+     "field": "nodes[securing_funding].base",
+     "message": "Node 'securing_funding' is the objective node and has no ParameterUncertainty \u2014 defaulted to base=0.0 as expected for a non-root objective; its constraint probability is scored from the modelled outcome distribution, not a missing-data placeholder",
+     "severity": "info"
+    },
+    {
+     "code": "CONSTRAINT_NOT_CONVERTIBLE",
+     "field": "nodes[securing_funding].observed_state.baseline",
+     "message": "A 'level' frame requires constraint target node 'securing_funding' to carry observed_state.baseline to convert the level into the samples' frame, but it carries no observed_state at all.",
+     "severity": "warning"
+    },
+    {
+     "code": "GOAL_DIRECTION_UNATTESTED",
+     "field": "goal_direction",
+     "message": "No objective sense was stated for the goal node, so options were ranked by largest goal value. That is an assumption, not the team's stated aim: if the goal is a quantity to reduce, or the aim is to land near a target rather than as high as possible, this ranking answers a different question. Send goal_direction to rank against the stated objective.",
+     "severity": "warning"
+    },
+    {
+     "code": "GOAL_THRESHOLD_NOT_CONVERTIBLE",
+     "field": "nodes[securing_funding].observed_state.baseline",
+     "message": "A 'level' frame requires goal node 'securing_funding' to carry observed_state.baseline to convert the level into the samples' frame, but it carries no observed_state at all.",
+     "severity": "warning"
+    },
+    {
+     "code": "EVPI_UNAVAILABLE",
+     "field": "p_win_sensitivity",
+     "message": "Win-probability sensitivity (p_win_sensitivity) was skipped: its metric is P(joint_goal) and at least one goal constraint could not be resolved into its target's sample frame. Base analysis is unaffected.",
+     "severity": "warning",
+     "elapsed_ms": 2459.5
+    },
+    {
+     "code": "FACTOR_EVPPI_NOT_COMPUTED",
+     "field": "factor_evppi",
+     "message": "Value-of-information ran but produced no rows. The reason is not known at this layer and has deliberately not been inferred.",
+     "severity": "info"
+    }
+   ],
+   "confidence_tier": "needs_work",
+   "flip_thresholds": [
+    {
+     "unit": "connections/month",
+     "factor_id": "warm_connections_pursued",
+     "flip_value": null,
+     "flip_reason": "no_effect_within_bounds",
+     "probes_used": 0,
+     "factor_label": "Warm connections pursued",
+     "current_value": 10,
+     "iterations_used": 0,
+     "no_flip_in_range": true,
+     "alternative_winner_id": null,
+     "alternative_winner_label": null
+    },
+    {
+     "unit": "angels contacted/month",
+     "factor_id": "angel_investor_outreach",
+     "flip_value": null,
+     "flip_reason": "no_effect_within_bounds",
+     "probes_used": 0,
+     "factor_label": "Angel investor outreach",
+     "current_value": 0,
+     "iterations_used": 0,
+     "no_flip_in_range": true,
+     "alternative_winner_id": null,
+     "alternative_winner_label": null
+    },
+    {
+     "unit": "hours/week",
+     "direction": "decrease",
+     "factor_id": "fundraising_overhead",
+     "flip_value": 12.457,
+     "flip_reason": "found",
+     "probes_used": 0,
+     "factor_label": "Fundraising overhead",
+     "current_value": 30,
+     "iterations_used": 0,
+     "alternative_winner_id": "angel_bridge",
+     "alternative_winner_label": "Angel bridge"
+    },
+    {
+     "unit": "supporters contacted/month",
+     "direction": "increase",
+     "factor_id": "fac_existing_supporter_outreach",
+     "flip_value": 15,
+     "flip_reason": "found",
+     "probes_used": 0,
+     "value_scale": "display",
+     "factor_label": "Existing supporter outreach",
+     "flip_display": "15 supporters contacted/month",
+     "current_value": 0,
+     "current_display": "0 supporters contacted/month",
+     "iterations_used": 0,
+     "alternative_winner_id": "current_outreach",
+     "alternative_winner_label": "Current outreach"
+    }
+   ],
+   "decision_brief": {
+    "options": [
+     {
+      "label": "Convertible bridge from existing supporters",
+      "option_id": "10979ab0",
+      "win_probability": 0.7965666666666664
+     },
+     {
+      "label": "Angel bridge",
+      "option_id": "angel_bridge",
+      "win_probability": 0.13196666666666668
+     },
+     {
+      "label": "Current outreach",
+      "option_id": "current_outreach",
+      "win_probability": 0.07146666666666666
+     }
+    ],
+    "version": "1",
+    "brief_id": "fde68344-6248-43be-b5bd-e7682979527a",
+    "warnings": [
+     {
+      "code": "CONSTRAINT_NODE_DEFAULT_BASE",
+      "message": "Constraint node 'securing_funding' is the objective node and has no ParameterUncertainty \u2014 defaulted to base=0.0 as expected for a non-root objective; its constraint probability is scored from the modelled outcome distribution, not a missing-data placeholder",
+      "severity": "warning"
+     },
+     {
+      "code": "CONSTRAINT_UNGROUNDED",
+      "message": "Constraint on \"securing funding\" lacks a baseline value. The feasibility assessment for this constraint is based on defaults rather than evidence.",
+      "severity": "warning"
+     },
+     {
+      "code": "M2_UNAVAILABLE",
+      "message": "Decision review was unavailable; brief uses deterministic coaching fallback",
+      "severity": "warning"
+     }
+    ],
+    "created_at": "2026-09-30T13:29:09.771Z",
+    "robustness": "moderate",
+    "top_drivers": [],
+    "warning_codes": [
+     "CONSTRAINT_NOT_CONVERTIBLE",
+     "CONSTRAINT_TARGET_UNRELIABLE",
+     "EVPI_UNAVAILABLE",
+     "GOAL_DIRECTION_UNATTESTED",
+     "GOAL_THRESHOLD_NOT_CONVERTIBLE"
+    ],
+    "key_assumptions": [],
+    "analysis_summary": {
+     "robustness_band": "moderate"
+    },
+    "what_would_change": [
+     "Runway exhaustion \u2192 securing funding",
+     "Investment firm meetings \u2192 securing funding",
+     "Angel investor meetings \u2192 securing funding"
+    ],
+    "defaulted_assumptions": [
+     {
+      "code": "CONSTRAINT_NODE_DEFAULT_BASE",
+      "note": "Node 'securing_funding' is the objective node and has no ParameterUncertainty \u2014 defaulted to base=0.0 as expected for a non-root objective; its constraint probability is scored from the modelled outcome distribution, not a missing-data placeholder",
+      "source": "default_disclosure",
+      "doctrine": "provisional_doctrine_v0",
+      "factor_label": null
+     }
+    ]
+   },
+   "decision_evpi": 0.004192157485517356,
+   "conditional_winners": []
+  },
+  "computed_against_hash": "b7740352fa8d609e"
+ },
+ "analysis_state": {
+  "run_state": {
+   "kind": "complete_current",
+   "computed_at": "2026-09-30T13:29:05.105Z"
+  },
+  "readiness": {
+   "status": "ready",
+   "blockers": []
+  },
+  "leader_claim": {
+   "permitted": false,
+   "withheld_reason": "constraint_verdict_withheld",
+   "separation": "separated"
+  },
+  "robustness": {
+   "aggregate_level": "moderate"
+  },
+  "usable_for_prose": true,
+  "usable_for_chips": true,
+  "usable_for_followup": true,
+  "requires_rerun": false,
+  "blocked_unusable": false,
+  "contradictions": []
+ }
+}

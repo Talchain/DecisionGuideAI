@@ -68,7 +68,7 @@
  *
  * @panel-act-opt-out full-width disclosure toggles; a tier is an inline control and would shrink each row to its text width
  */
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { ComponentType, ReactNode } from 'react'
 import {
   BarChart3,
@@ -108,6 +108,7 @@ import { action, ACTION_FOCUS, icon, PANEL_RULE } from '../panelSurfaces'
 import { useReviewTopicCount } from '../useReviewTopicCount'
 import type { ReviewTopicSource } from '../useReviewTopicCount'
 import { goalBandIsInUserUnits } from '../goalBandUnits'
+import { useUIStore } from '../../../../stores/uiStore'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Copy. Furniture and short status values only; every claim-bearing sentence
@@ -361,7 +362,30 @@ export function AboutThisAnalysis({
   const reviewCount = useReviewTopicCount(reviewTopics)
 
   const preRun = vm.status.isPreRun
-  if (preRun && !foldedHasContent) return null
+  /*
+   * The tab strip's ⓘ "Inspect this analysis" (`requestReasoningAbout`): open
+   * this section and move focus to its toggle, which scrolls it into view. The
+   * request is cleared here even when there is nothing to open, so it can never
+   * fire later on a section the user did not ask for.
+   */
+  const pendingAbout = useUIStore((s) => s.pendingReasoningAbout)
+  const toggleRef = useRef<HTMLButtonElement | null>(null)
+  const [focusToggle, setFocusToggle] = useState(false)
+  const rendered = !(preRun && !foldedHasContent)
+  useEffect(() => {
+    if (!pendingAbout) return
+    useUIStore.getState().requestReasoningAbout(false)
+    if (!rendered) return
+    setOpen(true)
+    setFocusToggle(true)
+  }, [pendingAbout, rendered])
+  useEffect(() => {
+    if (!focusToggle) return
+    setFocusToggle(false)
+    toggleRef.current?.focus()
+  }, [focusToggle])
+
+  if (!rendered) return null
 
   // Pre-run: no row and no detail — each is a statement about a run.
   const rows: StatusRow[] = preRun ? [] : [
@@ -501,6 +525,7 @@ export function AboutThisAnalysis({
             type gap 27 removes. The region stays a labelled landmark: its name
             is the title span below. */}
         <button
+          ref={toggleRef}
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}

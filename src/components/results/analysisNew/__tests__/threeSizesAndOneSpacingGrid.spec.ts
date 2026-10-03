@@ -8,6 +8,10 @@
  *   2. Spacing is on the 4px grid. Hairline/optical nudges of 1–2px are allowed;
  *      3/5/6/7/9/10/11/13/15px and Tailwind's `x.5` steps are not.
  * Comment lines are skipped: they cite historical classes on purpose.
+ *
+ * Paul, 28 Sep 2026: "Does the modal adhere to all of this?" The modals the tab
+ * opens (`results/modals`, the Ask Olumi drawer) are held to the same two rules:
+ * they were measured on staging 7227d9e4 at 10/11px padding, 6/7px gaps.
  */
 import { describe, expect, it } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -32,6 +36,10 @@ function codeLines(file: string): Array<[number, string]> {
 }
 
 const FILES = sourceFiles(ROOT)
+const MODAL_FILES = [
+  ...sourceFiles(join(ROOT, '../modals')),
+  join(ROOT, '../coaching/AskOlumiDrawer.tsx'),
+]
 const RAW_SIZE = /(?<![\w-])text-(xs|sm|base|lg|xl|2xl|3xl|\[\d+(\.\d+)?px\])(?![\w-])/
 const OFF_GRID = /(?<![\w-])!?-?(m|p|gap|space-y|space-x)(?:[tbyxlr]|-[xy])?-(\[(3|5|6|7|9|10|11|13|14|15|17|18|19|21|22|23)px\]|[1-9]\.5)(?![\w.\]-])/
 const PX: Record<string, number> = { 'text-xs': 12, 'text-sm': 14, 'text-[11px]': 11 }
@@ -65,6 +73,33 @@ describe('the Reasoning tab: three font sizes, one spacing grid', () => {
   it('no spacing class is off the 4px grid (1–2px optical nudges excepted)', () => {
     const hits = FILES.flatMap((f) => codeLines(f).filter(([, l]) => OFF_GRID.test(l)).map(([n, l]) => `${relative(ROOT, f)}:${n} ${l.trim().slice(0, 90)}`))
     expect(hits).toEqual([])
+  })
+
+  describe('the modals it opens hold the same rules', () => {
+    it('PRECONDITION: the census sees the record, success and Ask Olumi surfaces', () => {
+      for (const name of ['ModalShell.tsx', 'DecisionRecordModal.tsx', 'DefineSuccessModal.tsx', 'AskOlumiDrawer.tsx']) {
+        expect(MODAL_FILES.some((f) => f.endsWith(name)), name).toBe(true)
+      }
+    })
+
+    it('every type token they use is one of the three panel sizes', () => {
+      const bad: string[] = []
+      for (const f of MODAL_FILES) for (const [n, l] of codeLines(f)) for (const m of l.matchAll(/typography\.(\w+)/g)) {
+        const cls = (typography as Record<string, string>)[m[1]] ?? ''
+        const size = cls.split(/\s+/).find((c) => c in PX)
+        if (size === undefined) bad.push(`${relative(ROOT, f)}:${n} typography.${m[1]} = "${cls}"`)
+      }
+      expect(bad).toEqual([])
+    })
+
+    it('no raw font-size class and no off-grid spacing class', () => {
+      const hits = MODAL_FILES.flatMap((f) =>
+        codeLines(f)
+          .filter(([, l]) => RAW_SIZE.test(l) || OFF_GRID.test(l))
+          .map(([n, l]) => `${relative(ROOT, f)}:${n} ${l.trim().slice(0, 90)}`),
+      )
+      expect(hits).toEqual([])
+    })
   })
 
   it('CONTROL: both patterns catch what they are meant to', () => {

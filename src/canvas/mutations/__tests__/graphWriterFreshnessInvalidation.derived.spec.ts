@@ -144,11 +144,11 @@ const REGISTRY: Record<string, Entry> = {
       'Envelope apply; its commit site calls markGraphStructurallyEdited (which sets the overlay). The second site (23 Sep, Codex 5798417040) is a METADATA STAMP reached only when no value moved: it records the receipt\'s validated `serverStrength` tuple, which is outside the analytical field registry and the registration projection, so invalidating would mark a still-current analysis stale.',
   },
 
-  'canvas/hooks/useFocusCamera.ts': {
+  'canvas/hooks/useRestoredLayoutWidth.ts': {
     sites: 1,
     disposition: 'exempt',
     reason:
-      'COSMETIC: writes only `selected` on edges to highlight a focus target. No analytical field moves, so invalidating would fabricate cannot-confirm on a user clicking an edge.',
+      "COSMETIC GEOMETRY: the restore re-spread (`planSubFloorRespread`, #2235) writes only `position.x` of the cards in a row saved too tight for the card floor, once per restore, inside the 'hydrate' window. Position is outside the analytical field registry (`analyticalNodeFields.ts` excludes it from 'stale'), so invalidating would mark a verdict stale because an old board was reopened.",
   },
   'canvas/starters/loadStarter.ts': {
     sites: 1,

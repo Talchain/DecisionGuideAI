@@ -103,7 +103,7 @@ export function ProvenanceHubTab({
             placeholder="Search citations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className={`w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md ${typography.body} focus:ring-2 focus:ring-info focus:border-transparent`}
+            className={`w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md ${typography.body} focus-visible:ring-2 focus-visible:ring-info focus:border-transparent`}
           />
         </div>
       </div>

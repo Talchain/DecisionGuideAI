@@ -149,7 +149,7 @@ describe('getBasisLabel', () => {
     ['brief_explicit', 'Based on your brief'],
     ['structural_inference', 'Inferred from model structure'],
     ['domain_prior', 'Based on general domain knowledge'],
-    ['weak_guess', 'Uncertain — your input would help'],
+    ['weak_guess', 'Uncertain: your input would help'], // DS v5 §29: no em dashes (Panel, 30 Sep 2026)
   ]
   it.each(cases)('maps %s correctly', (basis, expected) => {
     expect(getBasisLabel(basis)).toBe(expected)

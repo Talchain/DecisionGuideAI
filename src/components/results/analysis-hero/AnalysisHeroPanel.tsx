@@ -333,7 +333,9 @@ export function AnalysisHeroPanel({
       ? model.showGoalHint
         ? HERO_COPY.lensUnavailable.goalNoTarget
         : HERO_COPY.lensUnavailable.goalProducerGap
-      : HERO_COPY.lensUnavailable[lens]
+      : lens === 'outcome'
+        ? (model.outcomeWithheldBody ?? HERO_COPY.lensUnavailable.outcome)
+        : HERO_COPY.lensUnavailable[lens]
     : null
 
   const leaderId = model.leaders[lens]
@@ -422,7 +424,7 @@ export function AnalysisHeroPanel({
         )}
         {/* ⭐ SUBSET DISCLOSURE — the headline names a LEADER, and a superlative
             ranges over the candidate set even where the underlying per-option
-            quantity is subset-invariant. "Highest chance of hitting your goal"
+            quantity is subset-invariant. "Reaches the target in the most model runs"
             is a claim about the field, so a field smaller than the user's
             option set has to be named right here, under the claim. */}
         <ComparisonScopeNote scope={comparisonScope} surface="hero" withDetail />
@@ -436,6 +438,7 @@ export function AnalysisHeroPanel({
             data are muted but selectable and explain themselves below. */}
         <HeroLensTabs
           available={model.lenses}
+          alsoVisible={model.outcomeWithheldBody != null ? ['outcome'] : []}
           active={lens}
           onSelect={setLensState}
           panelId={panelId}

@@ -72,14 +72,15 @@ import {
   LAYOUT_PADDING_Y,
   DEFAULT_NODE_HEIGHT,
   COLLISION_GAP,
-  CANONICAL_LAYOUT_WIDTH,
   CANVAS_MARGIN,
   TIER_BY_KIND,
   cardWidthCapForTier,
   LAYOUT_NODE_GAP,
   LAYOUT_LAYER_GAP,
   MAX_CARDS_PER_ROW,
+  NODE_LAYOUT_MIN_W,
   REPEATED_CARD_W,
+  ROW_BUDGET_W,
   ROW_PROMPT_W,
   rowPromptKindsFor,
   rowPromptColumnHeight,
@@ -191,7 +192,7 @@ function promptSlotWidth(promptKinds: readonly string[], gap: number): number {
  * The fair share is taken for the tier's WIDEST sub-row of `k` cards, with the
  * row-end prompt slot inside the budget:
  *
- *     share = floor((CANONICAL_LAYOUT_WIDTH − promptSlot − (k−1)·gap) / k) − padding
+ *     share = floor((ROW_BUDGET_W − promptSlot − (k−1)·gap) / k) − padding   (was CANONICAL_LAYOUT_WIDTH, 1482, until 30 Sep)
  *     width = max(REPEATED_CARD_W, min(tier cap, share))   (REPEATED_CARD_W ≥ NODE_LAYOUT_MIN_W)
  *
  * ⚠ LEGIBILITY WINS OVER THE BUDGET, in that order and on purpose: a share below
@@ -205,11 +206,31 @@ function promptSlotWidth(promptKinds: readonly string[], gap: number): number {
  * the board to `NODE_LAYOUT_MIN_W` as soon as any tier split; here a tier's width
  * depends only on its own widest sub-row.
  */
-function tierCardWidth(tier: number, widestSubRow: number, promptKinds: readonly string[], gap: number): number {
+function tierCardWidth(
+  tier: number,
+  widestSubRow: number,
+  promptKinds: readonly string[],
+  subRowCount: number = 1,
+): number {
   const k = Math.max(1, widestSubRow)
-  const share =
-    Math.floor((CANONICAL_LAYOUT_WIDTH - promptSlotWidth(promptKinds, gap) - (k - 1) * gap) / k) -
+  // ⚠ THE SHARE IS TAKEN AT THE DEFAULT GAP, NOT THE USER'S SPACING (30 Sep 2026). A card's width stays a
+  // function of the graph alone, which is what `solveLayoutNodeWidth` and the restore path assume
+  // (`layoutNodeWidthDerivation.spec.ts`: taken at the user's spacing, 60 of 288 cells disagreed). A wider
+  // user spacing widens the ROW, as it always did, not the card.
+  const shareGap = LAYOUT_NODE_GAP
+  const rowShare =
+    Math.floor((ROW_BUDGET_W - promptSlotWidth(promptKinds, shareGap) - (k - 1) * shareGap) / k) -
     LAYOUT_PADDING_X
+  // ⭐ A WRAPPED TIER ALSO HAS A BRICK-SHIFTED COURSE (`brickRowOffsets`): one course
+  // starts half a stride in, so its right edge is (k + ½)·box + (k − ½)·gap. With
+  // the flat 248 card that never reached the budget. Once cards take their fair
+  // share (30 Sep), the 4+4 factor tier's shifted course ran 111 units past the
+  // 1280 frame (right edge 1767 against 1656), so the share must fit that course too.
+  const brickShare =
+    subRowCount > 1
+      ? Math.floor((ROW_BUDGET_W - (k - 0.5) * shareGap) / (k + 0.5)) - LAYOUT_PADDING_X
+      : Number.POSITIVE_INFINITY
+  const share = Math.min(rowShare, brickShare)
   // ⚠ THE FLOOR IS THE REPEATED-CARD WIDTH, not `NODE_LAYOUT_MIN_W` (27 Sep 2026).
   // They were the same number (260) until the landing text ceiling put the
   // legibility floor (190.88) under the ED repeated-card target (248); a floor
@@ -238,7 +259,7 @@ interface TierPlan {
  * Row wrapping and prompt slots are DOWN-only, as the old splitting was: in the
  * other directions a "row" is not a horizontal line and there is no row end.
  */
-function planTiers(unlocked: Node[], isDownLayout: boolean, gap: number): Map<number, TierPlan> {
+function planTiers(unlocked: Node[], isDownLayout: boolean): Map<number, TierPlan> {
   const occupancy = tierOccupancyOf(unlocked)
   const kinds = kindsByTierOf(unlocked)
   const plans = new Map<number, TierPlan>()
@@ -248,7 +269,7 @@ function planTiers(unlocked: Node[], isDownLayout: boolean, gap: number): Map<nu
     plans.set(tier, {
       rowSizes,
       promptKinds,
-      cardW: tierCardWidth(tier, Math.max(...rowSizes), promptKinds, gap),
+      cardW: tierCardWidth(tier, Math.max(...rowSizes), promptKinds, rowSizes.length),
     })
   }
   return plans
@@ -257,8 +278,8 @@ function planTiers(unlocked: Node[], isDownLayout: boolean, gap: number): Map<nu
 /** The width a tier's cards draw at, falling back to a one-card plan for a tier
  *  with no unlocked members (it still needs a width for its locked or future
  *  cards). */
-function cardWidthFromPlan(plans: Map<number, TierPlan>, tier: number, gap: number): number {
-  return plans.get(tier)?.cardW ?? tierCardWidth(tier, 1, [], gap)
+function cardWidthFromPlan(plans: Map<number, TierPlan>, tier: number): number {
+  return plans.get(tier)?.cardW ?? tierCardWidth(tier, 1, [])
 }
 
 /** The tier every kind the layout does not name falls into — `tierOf`'s default. */
@@ -283,11 +304,12 @@ export function solveLayoutNodeWidth(
   nodes: Node[],
   options: { direction?: LayoutDirection; preserveLocked?: boolean; spacing?: number } = {},
 ): number {
-  const { direction = 'DOWN', preserveLocked = true, spacing = LAYOUT_NODE_GAP } = options
+  // `spacing` is accepted for the callers' symmetry with `layoutGraph`; since 30 Sep a card's width does
+  // not depend on it (`tierCardWidth` takes the share at the default gap).
+  const { direction = 'DOWN', preserveLocked = true } = options
   const unlocked = preserveLocked ? nodes.filter(isUnlocked) : nodes
   if (unlocked.length === 0) return REPEATED_CARD_W
-  const gap = Math.max(LAYOUT_NODE_GAP, spacing)
-  return cardWidthFromPlan(planTiers(unlocked, direction === 'DOWN', gap), UNKNOWN_KIND_TIER, gap)
+  return cardWidthFromPlan(planTiers(unlocked, direction === 'DOWN'), UNKNOWN_KIND_TIER)
 }
 
 /**
@@ -303,14 +325,13 @@ export function solveLayoutCardWidths(
   nodes: Node[],
   options: { direction?: LayoutDirection; preserveLocked?: boolean; spacing?: number } = {},
 ): Record<string, number> {
-  const { direction = 'DOWN', preserveLocked = true, spacing = LAYOUT_NODE_GAP } = options
+  const { direction = 'DOWN', preserveLocked = true } = options
   const unlocked = preserveLocked ? nodes.filter(isUnlocked) : nodes
   if (unlocked.length === 0) return {}
-  const gap = Math.max(LAYOUT_NODE_GAP, spacing)
-  const plans = planTiers(unlocked, direction === 'DOWN', gap)
+  const plans = planTiers(unlocked, direction === 'DOWN')
   const widths: Record<string, number> = {}
   for (const kind of Object.keys(TIER_BY_KIND)) {
-    widths[kind] = cardWidthFromPlan(plans, TIER_BY_KIND[kind], gap)
+    widths[kind] = cardWidthFromPlan(plans, TIER_BY_KIND[kind])
   }
   return widths
 }
@@ -345,9 +366,10 @@ export function solveLayoutCardWidths(
  * ⭐ THE RULE IS THE ONE THE FRESH PATH ALREADY USES, POINTED AT THE RIGHT BOARD.
  * `tierBoxWidth` lets a tier spend only its share of the widest row the board
  * ALREADY has. Here the board that already exists is the SAVED one, so the bound
- * is measured from the saved positions: per tier, the smallest centre-to-centre
- * distance between adjacent cards sharing a row, minus the gap the layout
- * guarantees. Reusing the rule rather than inventing a second one is deliberate —
+ * is measured from the saved positions: per tier, the dominant (median)
+ * centre-to-centre distance between adjacent cards sharing a row, minus the gap
+ * the layout guarantees — never less than the card floor (see the loop below
+ * for why it is not the smallest pair, F1). Reusing the rule rather than inventing a second one is deliberate —
  * two rules for one question is how the two authorities in this hook disagreed.
  *
  * ⚠ A TIER WITH NO TWO CARDS IN ONE ROW IS NOT BOUNDED, AND THAT IS THE POINT,
@@ -484,18 +506,52 @@ export function solveRestoredCardWidths(
     if (group === undefined) byTier.set(tier, [n])
     else group.push(n)
   }
+  /**
+   * ⛔⛔ THE TIER'S STRIDE IS THE ONE ITS LAYOUT USED — THE DOMINANT ADJACENT
+   * STRIDE — NOT THE CLOSEST PAIR ON THE BOARD (canvas audit edit-structure/F1,
+   * 27 Sep 2026, reproduced on the served build).
+   *
+   * This read the MINIMUM over every same-row pair. One card the user moved
+   * 90 units towards its neighbour (`build-vs-buy`, stride 296 -> 206) then
+   * capped EVERY factor at 182, drawn at the 191 floor; the narrower cards
+   * wrapped taller and two cards the user never touched overlapped the row
+   * below. Narrowing is not the free, safe direction the notes on `shareARow`
+   * assume: a narrower card is a TALLER card, and a taller card crosses the
+   * next row.
+   *
+   * ⭐ Each card contributes the stride to its nearest same-row neighbour on the
+   * right, and the tier takes the MEDIAN of those (the upper middle on an even
+   * count). A layout places a row on one stride, so a board it wrote — however
+   * old, however narrow — still reads as that stride and is still bounded by it.
+   * A minority of hand-moved pairs cannot set it, in either direction; their
+   * overlap is the user's own, local and visible. An even split (a three-card
+   * row with one card moved) resolves to the WIDER stride for the reason above:
+   * the narrow reading shrinks the whole kind, the wide one touches one pair.
+   *
+   * ⚠ A TIER WITH ONE SAME-ROW PAIR CANNOT TELL A HAND MOVE FROM A NARROW LAYOUT
+   * — the pair is all the evidence there is, so it still bounds. Stated, not
+   * solved: a two-card row whose cards are pushed together narrows both.
+   */
   for (const [tier, group] of byTier) {
+    const adjacent: number[] = []
     for (let i = 0; i < group.length; i++) {
-      for (let j = i + 1; j < group.length; j++) {
-        if (!shareARow(group[i], group[j])) continue
-        const stride = Math.abs((group[i].position?.x ?? 0) - (group[j].position?.x ?? 0))
-        // A zero stride is two cards at the same x — already degenerate, and not
+      const xi = group[i].position?.x ?? 0
+      let nearest = Number.POSITIVE_INFINITY
+      for (let j = 0; j < group.length; j++) {
+        if (j === i) continue
+        const dx = (group[j].position?.x ?? 0) - xi
+        // Right-hand neighbours only, so each adjacent pair is counted once. A
+        // zero stride is two cards at the same x — already degenerate, and not
         // evidence about how much width the row can afford.
-        if (stride <= 0) continue
-        const seen = strideByTier.get(tier)
-        if (seen === undefined || stride < seen) strideByTier.set(tier, stride)
+        if (dx <= 0 || dx >= nearest) continue
+        if (!shareARow(group[i], group[j])) continue
+        nearest = dx
       }
+      if (nearest !== Number.POSITIVE_INFINITY) adjacent.push(nearest)
     }
+    if (adjacent.length === 0) continue
+    adjacent.sort((a, b) => a - b)
+    strideByTier.set(tier, adjacent[Math.floor(adjacent.length / 2)])
   }
   if (strideByTier.size === 0) return fresh
   const bounded: Record<string, number> = {}
@@ -515,10 +571,192 @@ export function solveRestoredCardWidths(
     // cards closer together than the gap). Fall through to the fresh answer and
     // leave that board to the single-width limb, rather than returning a zero
     // that every consumer would have to special-case.
-    const cap = stride - gap
-    bounded[kind] = cap > 0 ? Math.min(fresh[kind], cap) : fresh[kind]
+    //
+    // ⛔ AND A POSITIVE CAP BELOW `NODE_LAYOUT_MIN_W` IS NOT A WIDTH EITHER — it is
+    // narrower than `BaseNode`'s own CSS `minWidth`, so no card can ever draw it
+    // (F1 published 182 and 124; both drew at 191). The answer is the narrowest
+    // width a card CAN draw, never the fresh one: on a board laid out at a narrow
+    // stride the floor is the least overlap available without moving anything,
+    // and the fresh width would widen every pair. What changes is only that the
+    // published record now says what is on screen — `BaseNode` bounds the title's
+    // measure by it, and a record 9 units narrower than the card mis-measured it.
+    // ⭐ `stride − (padding + gap)`, not `stride − gap` (30 Sep 2026): a layout's visible gap is the ELK box
+    // padding PLUS the sibling gap (`layout.sameRowGap.spec.ts`: 48). While `fresh` never exceeded the saved
+    // card width the cap never bound, so the missing padding was invisible. Once a tier's fair share can be wider
+    // (350 on a board saved at 248), a board saved before 30 Sep reopened at 272 with its gap halved to 24. Now it
+    // reopens exactly as saved (248, gap 48), and a board saved under the new rule reopens at its own width.
+    const cap = stride - gap - LAYOUT_PADDING_X
+    bounded[kind] = cap > 0 ? Math.min(fresh[kind], Math.max(cap, NODE_LAYOUT_MIN_W)) : fresh[kind]
   }
   return bounded
+}
+
+/**
+ * ⭐⭐ NO OVERLAP BEATS AN OLD STRIDE — A RESTORED ROW TOO TIGHT FOR THE NARROWEST
+ * CARD IS RE-SPREAD (Canvas owner, 27 Sep 2026, canvas/landing-text-cap).
+ *
+ * `solveRestoredCardWidths` can narrow a card only as far as `NODE_LAYOUT_MIN_W`,
+ * the card's own CSS floor. The landing text cap raised that floor 190.88 →
+ * 221.12, so a board saved before 17 Aug at a 196 stride (140 cards, 56 gap)
+ * overlaps by 25.12 on reopen however narrow the record says the card is — no
+ * width repairs it. The owner's rule, which relaxes "never move a node" for this
+ * one case:
+ *
+ *   - a row whose saved stride — the MEDIAN adjacent stride, the width solver's
+ *     own reading — is below `NODE_LAYOUT_MIN_W` + the sibling gap is re-spread
+ *     to the minimum workable stride (that sum, rounded up to a whole unit), in
+ *     its saved card order, every y kept;
+ *   - a row whose saved stride fits stays exactly as saved, hand-moved cards in
+ *     it included (their overlap is the user's own, local and visible — F1).
+ *
+ * ⛔ ONLY THE CARDS THAT ARE TOO TIGHT MOVE, EACH RUN ABOUT ITS MEDIAN CARD
+ * (Delivery Lead, #2235 r1). The first cut spread the WHOLE row about the
+ * midpoint of its first and last card, so one card the user had dragged 2,000
+ * units off the end dragged the row's centre with it: the DL's probe (four
+ * cards at a 196 stride, one at x 2,600) moved the tight cards +808 to +958 and
+ * pulled the far card back across the board. Now the row is cut at every
+ * adjacent step that already clears the floor + gap, so a card that far off is
+ * its own run and is left where the user put it. Each run of two or more cards
+ * is spread about its MEDIAN card (its middle pair's midpoint on an even
+ * count), so an odd card at one end cannot shift it, and no card moves further
+ * than the floor requires. Where a spread run would now come within the floor
+ * of its neighbour run, the two are merged and spread as one, until no two runs
+ * crowd each other — so the result never overlaps and never reorders.
+ *   The TRIGGER is unchanged, and deliberately so: it is still the median stride
+ * of the whole row. An outlier cannot push a row UNDER the floor (a far card
+ * only adds one wide step), and reading a row with one card dragged close as
+ * "sub-floor" would re-spread a fitting row the user arranged, which F1 forbids.
+ *
+ * ⚠ WHAT IT WILL NOT MOVE:
+ *   - A row without height evidence on every card. A row is `shareARow`'s
+ *     answer, and with no heights its safe answer is "same tier, same row" —
+ *     safe for a width, wrong for a position: it merges two sub-rows, which a
+ *     re-spread would interleave. `useRestoredLayoutWidth` calls this only once
+ *     every card is measured, so this is the residue, not the norm.
+ *   - A row holding a locked card, while `preserveLocked` is on.
+ *   - A card with no same-row neighbour (the Question, the Goal): it cannot
+ *     overlap one.
+ *   - A card already clear of both neighbours by the floor + gap, unless a
+ *     spread neighbour run grows into it.
+ *
+ * ⚠ IT PLANS AND WRITES NOTHING. `planSubFloorRespread` returns the new x of
+ * each card that moves, and nothing else; `respreadSubFloorRows` applies it and
+ * returns the SAME array when no card moves, and the same node object for every
+ * card it does not move. A re-spread row reads as fitting on the next restore,
+ * so the rule applies once.
+ */
+export function planSubFloorRespread(
+  nodes: ReadonlyArray<Node>,
+  options: { preserveLocked?: boolean; spacing?: number } = {},
+): ReadonlyMap<string, number> {
+  const { preserveLocked = true, spacing = LAYOUT_NODE_GAP } = options
+  const gap = Math.max(LAYOUT_NODE_GAP, spacing)
+  const need = NODE_LAYOUT_MIN_W + gap
+  const workable = Math.ceil(need)
+  const measured = (n: Node) => {
+    const h = (n as { measured?: { height?: number } }).measured?.height
+    return typeof h === 'number' && h > 0
+  }
+  const byTier = new Map<number, Node[]>()
+  for (const n of nodes) {
+    // A hidden card is not drawn, so it neither overlaps nor is measured.
+    if ((n as { hidden?: boolean }).hidden === true) continue
+    const tier = tierOf(n)
+    const group = byTier.get(tier)
+    if (group === undefined) byTier.set(tier, [n])
+    else group.push(n)
+  }
+  const movedX = new Map<string, number>()
+  for (const group of byTier.values()) {
+    // Rows = cards joined by `shareARow`, transitively (a staggered row is one row).
+    const rowOf = group.map((_, i) => i)
+    const find = (i: number): number => (rowOf[i] === i ? i : (rowOf[i] = find(rowOf[i])))
+    for (let i = 0; i < group.length; i++) {
+      for (let j = i + 1; j < group.length; j++) {
+        if (shareARow(group[i], group[j])) rowOf[find(i)] = find(j)
+      }
+    }
+    const rows = new Map<number, Node[]>()
+    group.forEach((n, i) => {
+      const r = rows.get(find(i))
+      if (r === undefined) rows.set(find(i), [n])
+      else r.push(n)
+    })
+    for (const row of rows.values()) {
+      if (row.length < 2 || !row.every(measured)) continue
+      if (preserveLocked && !row.every(isUnlocked)) continue
+      // Saved order: by x, ties kept in array order (`sort` is stable).
+      const ordered = [...row].sort((a, b) => (a.position?.x ?? 0) - (b.position?.x ?? 0))
+      const xs = ordered.map((n) => n.position?.x ?? 0)
+      const steps = xs.slice(1).map((x, i) => x - xs[i])
+      const sortedSteps = [...steps].sort((a, b) => a - b)
+      // The upper middle on an even count, as `solveRestoredCardWidths` reads it.
+      if (sortedSteps[Math.floor(sortedSteps.length / 2)] >= need) continue
+
+      // Runs of cards too tight for the floor, cut at every step that clears it.
+      const runs: Array<{ from: number; to: number }> = []
+      let from = 0
+      steps.forEach((step, i) => {
+        if (step >= need) {
+          runs.push({ from, to: i })
+          from = i + 1
+        }
+      })
+      runs.push({ from, to: xs.length - 1 })
+      // A lone card keeps its saved x; a run is spread about its median card.
+      const place = (run: { from: number; to: number }): number[] => {
+        const members = xs.slice(run.from, run.to + 1)
+        if (members.length === 1) return members
+        const k = members.length
+        const median = k % 2 === 1 ? members[(k - 1) / 2] : (members[k / 2 - 1] + members[k / 2]) / 2
+        return members.map((_, i) => median + (i - (k - 1) / 2) * workable)
+      }
+      // Merge any two neighbouring runs the spread has brought within the floor.
+      for (let r = 0; r + 1 < runs.length; ) {
+        const left = place(runs[r])
+        const right = place(runs[r + 1])
+        if (right[0] - left[left.length - 1] < need) {
+          runs.splice(r, 2, { from: runs[r].from, to: runs[r + 1].to })
+          r = Math.max(0, r - 1) // the merged run may now crowd the run before it
+        } else {
+          r += 1
+        }
+      }
+      for (const run of runs) {
+        place(run).forEach((x, i) => {
+          const n = ordered[run.from + i]
+          if (x !== (n.position?.x ?? 0)) movedX.set(n.id, x)
+        })
+      }
+    }
+  }
+  return movedX
+}
+
+/**
+ * Apply `planSubFloorRespread`'s x values: x only, and only for the cards named.
+ * Returns the SAME array when no card changes, and the same object for every
+ * card that does not. Also the functional write `useRestoredLayoutWidth` makes
+ * against the store's CURRENT nodes, so a write that landed after its render is
+ * kept (Delivery Lead, #2235 r1).
+ */
+export function applyRespreadX<T extends Node>(nodes: T[], movedX: ReadonlyMap<string, number>): T[] {
+  if (movedX.size === 0) return nodes
+  let changed = false
+  const next = nodes.map((n) => {
+    const x = movedX.get(n.id)
+    if (x === undefined || x === n.position?.x) return n
+    changed = true
+    return { ...n, position: { ...n.position, x } }
+  })
+  return changed ? next : nodes
+}
+
+export function respreadSubFloorRows(
+  nodes: Node[],
+  options: { preserveLocked?: boolean; spacing?: number } = {},
+): Node[] {
+  return applyRespreadX(nodes, planSubFloorRespread(nodes, options))
 }
 
 /**
@@ -622,8 +860,8 @@ export async function layoutGraph(
    * board is already paying for") — ED: that was permission, not a requirement
    * to keep options at ~300–430px. See `CARD_W_CAP_BY_TIER`.
    */
-  const plans = planTiers(unlocked, isDownLayout, gap)
-  const cardWOf = (tier: number): number => cardWidthFromPlan(plans, tier, gap)
+  const plans = planTiers(unlocked, isDownLayout)
+  const cardWOf = (tier: number): number => cardWidthFromPlan(plans, tier)
   const tierBoxW = (tier: number): number => cardWOf(tier) + LAYOUT_PADDING_X
   /** The box a width-less stray falls back to — the repeated card's. */
   const fallbackBoxW = REPEATED_CARD_W + LAYOUT_PADDING_X
@@ -727,6 +965,9 @@ export async function layoutGraph(
     applyTierRowSplitting(positionMap, sizeMap, tierAssignments, MAX_CARDS_PER_ROW, fallbackBoxW, gap, effectiveLayerSpacing, splitterCreatedTiers, inTierCausalDepth(tierAssignments, edges))
     normaliseTierRows(positionMap, sizeMap, tierAssignments, effectiveLayerSpacing, splitterCreatedTiers, promptRowFloorByTier)
     placeTierRowsOnSpine(positionMap, sizeMap, unlocked, tierAssignments, fallbackBoxW, gap, promptSlotByTier)
+    // X is final only now, so this is the first point the consequence row can be
+    // ordered against where its factors actually stand.
+    orderConsequenceRowsByUpstream(positionMap, sizeMap, tierAssignments, edges, fallbackBoxW)
   }
 
   applyCollisionGuard(positionMap, sizeMap, fallbackBoxW)
@@ -1174,6 +1415,111 @@ function applyGlobalTranslation(
 
   for (const [id, p] of positionMap) {
     positionMap.set(id, { x: p.x + offsetX, y: p.y + offsetY })
+  }
+}
+
+/** The outcome/risk row — read off the one tier map, never restated. */
+const CONSEQUENCE_TIER = TIER_BY_KIND.outcome
+
+/**
+ * How many pairs of links cross between one row and the cards on ONE side of
+ * it: two links cross when their row ends and their far ends are in opposite
+ * left-to-right order. Links sharing an end never count.
+ */
+function rowLinkCrossings(links: ReadonlyArray<readonly [string, string]>, x: (id: string) => number): number {
+  let n = 0
+  for (let i = 0; i < links.length; i++) {
+    const [r1, o1] = links[i]!
+    for (let j = i + 1; j < links.length; j++) {
+      const [r2, o2] = links[j]!
+      if (r1 === r2 || o1 === o2) continue
+      if ((x(r1) - x(r2)) * (x(o1) - x(o2)) < 0) n++
+    }
+  }
+  return n
+}
+
+/**
+ * ⭐ THE CONSEQUENCE ROW READS IN THE ORDER OF THE CARDS IT HANGS FROM
+ * (Paul's staging test, 28 Sep 2026; build-vs-buy, served 662afcfd).
+ *
+ * ELK's crossing pass orders the outcome/risk row against the factor layer AS
+ * ELK LAID IT OUT. `applyTierRowSplitting` then deals an eight-card factor band
+ * into two brick courses and `placeTierRowsOnSpine` re-places every X, so the
+ * order ELK chose is tuned to positions that no longer exist. On build-vs-buy
+ * the links into the consequence row crossed 33 times where 16 is the fewest
+ * any order reaches, drawn as a tangle of near-horizontal runs above the row.
+ *
+ * Once X is final, each consequence row is re-seated by the barycentre of its
+ * links from above (the mean centre-x of each card's far ends; a card with none
+ * keys on its own centre; ties keep the current order).
+ *
+ * ⭐ IT IS A PERMUTATION OF THE ROW'S OWN SLOTS, the argument
+ * `seatNodesIntoRankedSlots` makes: the multiset of positions is unchanged, so
+ * no card can land on another and no row, width or height moves. A row whose
+ * cards differ in width is left alone, because swapping unequal footprints is
+ * not a permutation.
+ *
+ * ⚠ IT IS APPLIED ONLY WHEN IT STRICTLY REDUCES CROSSINGS (links above plus
+ * links below). Barycentre is a heuristic and can be worse than the order it
+ * replaces (the spec holds a 6 → 7 case), so this step can only remove
+ * crossings, never add them. Nor may it lengthen the links that run between
+ * two cards of the same row (Paul's pa_vs_ai: risks into "Delegation quality").
+ */
+export function orderConsequenceRowsByUpstream(
+  positionMap: Map<string, { x: number; y: number }>,
+  sizeMap: Map<string, { width: number; height: number }>,
+  tierAssignments: Map<number, string[]>,
+  edges: ReadonlyArray<{ source: string; target: string }>,
+  fallbackBoxW: number,
+): void {
+  const tierIds = (tierAssignments.get(CONSEQUENCE_TIER) ?? []).filter((id) => positionMap.has(id))
+  if (tierIds.length < 2) return
+  const inTier = new Set(tierIds)
+  const widthOf = (id: string) => sizeMap.get(id)?.width ?? fallbackBoxW
+  const centreOf = (id: string) => positionMap.get(id)!.x + widthOf(id) / 2
+
+  for (const ids of groupByYRow(tierIds, positionMap).values()) {
+    if (ids.length < 2) continue
+    const w0 = widthOf(ids[0]!)
+    if (ids.some((id) => Math.abs(widthOf(id) - w0) > 0.5)) continue
+    const rowY = positionMap.get(ids[0]!)!.y
+    const inRow = new Set(ids)
+
+    const above: Array<[string, string]> = []
+    const below: Array<[string, string]> = []
+    const within: Array<[string, string]> = []
+    for (const e of edges) {
+      if (inRow.has(e.source) && inRow.has(e.target)) {
+        within.push([e.source, e.target])
+        continue
+      }
+      const [rowEnd, farEnd] = inRow.has(e.target) ? [e.target, e.source] : inRow.has(e.source) ? [e.source, e.target] : [null, null]
+      if (rowEnd === null || farEnd === null || inTier.has(farEnd) || !positionMap.has(farEnd)) continue
+      ;(positionMap.get(farEnd)!.y < rowY ? above : below).push([rowEnd, farEnd])
+    }
+    if (above.length === 0) continue
+
+    const barycentre = new Map<string, number>()
+    for (const id of ids) {
+      const far = above.filter(([r]) => r === id).map(([, f]) => centreOf(f))
+      barycentre.set(id, far.length > 0 ? far.reduce((s, v) => s + v, 0) / far.length : centreOf(id))
+    }
+    const slots = ids.map((id) => positionMap.get(id)!)
+    const proposed = [...ids].sort(
+      (a, b) => barycentre.get(a)! - barycentre.get(b)! || ids.indexOf(a) - ids.indexOf(b),
+    )
+    const seat = new Map(proposed.map((id, i) => [id, slots[i]!]))
+    const xNow = (id: string) => centreOf(id)
+    const xThen = (id: string) => (seat.has(id) ? seat.get(id)!.x + w0 / 2 : centreOf(id))
+    const before = rowLinkCrossings(above, xNow) + rowLinkCrossings(below, xNow)
+    const after = rowLinkCrossings(above, xThen) + rowLinkCrossings(below, xThen)
+    if (after >= before) continue
+    // A link between two cards of this row (a risk into an outcome) runs along
+    // the row; the reorder may not stretch those runs to buy fewer crossings.
+    const runLength = (x: (id: string) => number) => within.reduce((s, [a, b]) => s + Math.abs(x(a) - x(b)), 0)
+    if (runLength(xThen) > runLength(xNow)) continue
+    for (const [id, slot] of seat) positionMap.set(id, { x: slot.x, y: slot.y })
   }
 }
 

@@ -109,12 +109,23 @@ export type OptionOrigin = 'ai_suggested'
  * (`STRUCTURAL_PROVENANCE_LABEL.ai`). British English; no em dashes.
  */
 export const OPTION_ORIGIN_COPY: Record<OptionOrigin, string> = {
-  ai_suggested: 'Olumi suggested this option, you did not name it',
+  ai_suggested: 'Olumi suggested this option; you did not name it',
 }
 
 /** The same fact when it is true of EVERY option in the list: said once, no per-row marks (27 Sep 2026). */
 export const OPTION_ORIGIN_ALL_COPY: Record<OptionOrigin, string> = {
   ai_suggested: 'Olumi suggested all of these options; you did not name them',
+}
+
+/**
+ * `OPTION_ORIGIN_ALL_COPY`'s sentence when EVERY option (two or more) shares one origin, else `null`.
+ * The same test `OptionsComparison` applies before it drops the per-row marks.
+ */
+export function allOptionsOriginSentence(rows: readonly { readonly origin: OptionOrigin | null }[]): string | null {
+  if (rows.length < 2) return null
+  const first = rows[0].origin
+  if (first === null || !rows.every((r) => r.origin === first)) return null
+  return OPTION_ORIGIN_ALL_COPY[first]
 }
 
 /**

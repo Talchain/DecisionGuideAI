@@ -4,9 +4,9 @@
  * Uses guidanceStore._dispatchAction for chip actions with proper metadata.
  */
 import { memo, useCallback } from 'react'
-import { Sparkles } from 'lucide-react'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { typography } from '../../styles/typography'
+import { OlumiAiIcon } from '../../components/results/analysisNew/OlumiAiIcon'
 
 interface CoachingCardChip {
   label: string
@@ -73,7 +73,7 @@ export const CoachingCard = memo(({
   return (
     <div className={`bg-panel border ${borderColour} rounded-lg px-2.5 py-2 mt-1.5 flex flex-col gap-1.5`}>
       <div className="flex items-start gap-1.5">
-        <Sparkles size={12} className={`${iconColour} shrink-0 mt-0.5`} aria-hidden="true" />
+        <OlumiAiIcon size={12} className={`olumi-glyph-ai ${iconColour} shrink-0 mt-0.5`} aria-hidden="true" />
         <span className={`${typography.nodeLabel} text-text-secondary leading-snug`}>
           {message}
           {linkLabel && linkMessage && (

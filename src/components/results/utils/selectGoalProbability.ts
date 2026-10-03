@@ -178,11 +178,36 @@ export type GoalProbabilityBasis =
 export interface GoalProbabilityInput extends Partial<Record<OwnedField, number>> {
   constraint_analysis?: { constraints?: unknown[] } | null
   goal_fit_basis?: { scored_from?: string } | null
+  /** Stamped by the V5 mapper (`goalLevelFromIdentityCaveat`), fail-closed. */
+  goalLevelAuthor?: 'olumi' | 'unattested'
+  /**
+   * Stamped by the mappers from the producer's typed `GOAL_PROBABILITY_IDENTITY_NOT_EVALUATED` warning
+   * (`readGoalIdentityWithheld`, PLoT #416). The goal figure is withheld; the joint figure is not (AIQ 5885033487 (2)).
+   */
+  goalIdentityWithheld?: true
+  /**
+   * Stamped by the V5 mapper from CEE's stored goal-certainty fact (`storedGoalCertainty.ts`, CEE #2270/#2280): this
+   * option's 0/1 figure is UNEARNED, so it is never shown as a percentage. `say` is the producer's sentence.
+   */
+  goalCertaintyUnearned?: { say: string | null }
 }
+
+/**
+ * Which base-caveat a shown goal figure needs (ISL #207): `olumi_estimate` when the goal's typed
+ * entry says Olumi's; `from_inputs` when the author is not attested (fail-closed, author-neutral —
+ * AIQ #72 5877139338: never attribute authorship the carrier does not state).
+ */
+export type GoalFitBaseCaveat = 'olumi_estimate' | 'from_inputs'
 
 export interface GoalProbabilitySelection {
   /** The number to display, or null when no source is admissible. */
   goalProbability: number | null
+  /**
+   * Non-null when the goal figure was withheld because its 0/1 certainty is UNEARNED (CEE #2270/#2280, stamped by the
+   * mapper). Sites show `say` (the producer's sentence), or the fallback when it is null — never a percentage.
+   * Optional so hand-built selections elsewhere stay valid; the chooser always sets it.
+   */
+  goalCertaintyUnearned?: { say: string | null } | null
   /** True when `goalProbability` is the joint-goal (constrained) figure. */
   goalProbabilityIsJoint: boolean
   /**
@@ -213,6 +238,22 @@ export interface GoalProbabilitySelection {
    * with the caveat and another show it without.
    */
   goalFitIsModelledBasis: boolean
+  /**
+   * AIQ #72 5883088747: the modelled-basis caveat MOVES WITH THE JOINT NUMBER. True when the joint figure
+   * ("Chance all your limits hold") is present AND the producer marked it scored from a modelled outcome
+   * distribution. Every surface that prints `jointGoalProbability` must render `GOAL_FIT_BASIS_CAVEAT_COPY`
+   * beside it when this is true. (`goalFitIsModelledBasis` above can no longer be true: the goal slot never
+   * shows the joint figure.)
+   */
+  jointGoalIsModelledBasis: boolean
+  /**
+   * Display-honesty, the same doctrine as `goalFitIsModelledBasis`: non-null ONLY when a goal
+   * figure is shown AND its base (today's level of the goal) was worked out from its inputs
+   * rather than given (ISL #207; carrier `identity_evaluations[].level_author`, fail-closed in the
+   * V5 mapper). EVERY surface that renders the number must render `goalFitBaseCaveatCopy(this)`
+   * adjacent to it when this is non-null.
+   */
+  goalFitBaseCaveat: GoalFitBaseCaveat | null
   /**
    * Whether prose may call the thing this number measures "YOUR goal".
    *
@@ -270,13 +311,17 @@ export function selectGoalProbability(
   // the mapped `goal_probability` wins where a payload carries both, so every
   // existing caller — all of which hold post-mapper shapes — is unaffected.
   const unconstrained =
-    typeof prob?.goal_probability === 'number'
-      ? prob.goal_probability
-      : typeof prob?.probability_of_goal === 'number'
-        ? prob.probability_of_goal
-        : null
+    prob?.goalIdentityWithheld === true || prob?.goalCertaintyUnearned !== undefined
+      ? null
+      : typeof prob?.goal_probability === 'number'
+        ? prob.goal_probability
+        : typeof prob?.probability_of_goal === 'number'
+          ? prob.probability_of_goal
+          : null
   const goalFitBasisScoredFrom =
     typeof prob?.goal_fit_basis?.scored_from === 'string' ? prob.goal_fit_basis.scored_from : null
+  const baseCaveat: GoalFitBaseCaveat | null =
+    prob?.goalLevelAuthor === 'olumi' ? 'olumi_estimate' : prob?.goalLevelAuthor === 'unattested' ? 'from_inputs' : null
 
   // Honesty gate (UI-SEM-088, seam 1): while true, `probability_of_joint_goal`
   // can INVERT, so we NEVER substitute it — every surface falls back to the
@@ -307,6 +352,9 @@ export function selectGoalProbability(
       jointGoalProbability: jointGoalProb,
       basis: unconstrained != null ? 'goal_probability' : 'none',
       goalFitIsModelledBasis: false,
+      jointGoalIsModelledBasis: jointGoalProb != null && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
+      goalFitBaseCaveat: unconstrained != null ? baseCaveat : null,
+      goalCertaintyUnearned: prob?.goalCertaintyUnearned ?? null,
       mayUsePossessiveGoalFraming: unconstrained != null,
       // This arm never substitutes either, so nothing is withheld FROM a
       // substitution here — the L62 gate below is what owns that state.
@@ -321,19 +369,29 @@ export function selectGoalProbability(
   // a per-option constraint analysis makes the joint figure the right answer;
   // otherwise the goal quantity is the right answer whenever the run carries
   // it; only when it does not does the joint figure stand in for it.
+  // ⭐⭐ AIQ RULING #72 5882498938 (29 Sep 2026, fail-closed): the goal-fit slot
+  // reads `probability_of_goal` and NOTHING ELSE, constrained or not. The joint
+  // figure is P(ALL LIMITS jointly hold) — the DL's served run carried goal = 0 /
+  // joint = 1 (limits on other nodes), and goal = 1 / joint = 0 is just as
+  // reachable (a goal-node limit plus a failing limit elsewhere), so it can never
+  // stand in for the goal at ANY constraint layout. It keeps only its own row
+  // (`jointGoalProbability`, "chance all your limits hold"). `'joint_goal_constrained'`
+  // is no longer produced: that arm put P(limits) in the goal slot whenever an
+  // option carried a constraint analysis.
+  void hasConstraints
   const basis: GoalProbabilityBasis =
-    hasConstraints && jointGoalProb != null
-      ? 'joint_goal_constrained'
-      : unconstrained != null
-        ? 'goal_probability'
-        : jointGoalProb != null
-          ? // ⭐ L62: was `'joint_goal_substituted'`, and the joint number was
-            // returned here. It is now withheld — see the L62 block in the
-            // module header for the derivation.
-            'joint_goal_withheld'
-          : 'none'
+    unconstrained != null
+      ? 'goal_probability'
+      : jointGoalProb != null
+        ? // ⭐ L62: was `'joint_goal_substituted'`, and the joint number was
+          // returned here. It is now withheld — see the L62 block in the
+          // module header for the derivation.
+          'joint_goal_withheld'
+        : 'none'
 
-  const goalProbabilityIsJoint = basis === 'joint_goal_constrained'
+  // AIQ 5882498938: no arm above produces 'joint_goal_constrained' any more, so this is always false. The
+  // widening cast keeps the retired literal compiling (TS2367 on the narrowed const) until the member is removed.
+  const goalProbabilityIsJoint = (basis as GoalProbabilityBasis) === 'joint_goal_constrained'
 
   // Derived FROM the basis (never computed in parallel with it), so the
   // number and the statement of which quantity it is cannot diverge.
@@ -357,7 +415,10 @@ export function selectGoalProbability(
     basis,
     goalFitIsModelledBasis:
       goalProbabilityIsJoint && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
+    jointGoalIsModelledBasis: jointGoalProb != null && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
+    goalFitBaseCaveat: goalProbability != null ? baseCaveat : null,
     mayUsePossessiveGoalFraming: goalProbability != null,
     jointSubstitutionWithheld: basis === 'joint_goal_withheld',
+    goalCertaintyUnearned: prob?.goalCertaintyUnearned ?? null,
   }
 }

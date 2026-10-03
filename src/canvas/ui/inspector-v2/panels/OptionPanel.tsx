@@ -7,6 +7,7 @@
 import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { Sparkles } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
+import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../../state/winShareGate'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../../../hooks/useAnalysisReady'
 import { parseDraftingNotes, composeDescription } from '../draftingNote'
 import type { NodeType, OptionNodeData } from '../../../domain/nodes'
@@ -15,18 +16,20 @@ import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { controls } from '../../../../styles/controls'
 import { OPTION_RESULT_COPY } from '../../../nodes/shared/metricVocabulary'
+import { useRunCurrency, optionResultCaption, optionResultCurrencyNote } from '../../../nodes/shared/runCurrency'
 import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { useNodeMutations } from '../useInspectorMutations'
 import { useOptionInterventionCommit } from '../shared/useOptionInterventionCommit'
-import { resolveOptionTargetEntryFrame } from '../shared/optionTargetEntry'
+import { optionEntryScaleOf, resolveOptionTargetEntryFrame } from '../shared/optionTargetEntry'
 import {
   GROUP_LABELS,
   DESCRIPTION_PLACEHOLDERS,
   EMPTY_STATES,
   OPTION_STRINGS,
 } from '../inspectorStrings'
-import { formatFactorValue, unwrapInterventionValue, formatWinProbability } from '../../../utils/labelUtils'
-import { resolveOptionIsBaseline } from '../../../utils/baselineDetection'
+import { unwrapInterventionValue, formatWinProbability } from '../../../utils/labelUtils'
+import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
+import { resolveOptionIsBaseline, graphDeclaresBaseline } from '../../../utils/baselineDetection'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
 import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
@@ -44,6 +47,7 @@ import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
 import { resolveElementLabel, resolveFirstStatedLabel } from '../../../domain/elementLabel'
 import {
   buildOptionTargetRow,
+  optionTargetReading,
   readingShowsModelValue,
   resolveBaselineOptionReference,
   resolveOptionTargets,
@@ -220,6 +224,21 @@ export const OptionPanel = memo(function OptionPanel({
     dismiss: dismissIntervention,
   } = useOptionInterventionCommit(nodeId ?? null)
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'option')
+  // CURRENT-READ row 9 (AIQ 5912710392): a withheld leader withholds the share hero AND the comparison bars;
+  // the panel says why instead (`winShareGate.ts`).
+  const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
+  const winShareWithheldReason = useCanvasStore(selectWinShareWithheldReason)
+  /**
+   * ⭐ THE RESULT'S CAPTION FOLLOWS THE RUN'S CURRENCY, AS THE CARD'S DOES
+   * (canvas audit edit-values F5). This read `Current model` unconditionally,
+   * so after an edit the card said `Last run 62% of runs` and this panel said
+   * `62% Current model · of runs`, titled "the model as it stands" — a result
+   * CEE itself had marked `complete_stale`. Same owner as the card
+   * (`OptionNode`): `useRunCurrency` → `optionResultCaption`.
+   */
+  const runCurrency = useRunCurrency()
+  const resultCaption = optionResultCaption(runCurrency) ?? OPTION_RESULT_COPY.unconfirmed
+  const resultCurrencyNote = optionResultCurrencyNote(runCurrency)
 
   // ROADMAP 2.1204 — the drafter's rephrase-absorption notes are separated
   // from the user's description. CEE APPENDS `\n\n<note>` per absorbed twin
@@ -339,7 +358,8 @@ export const OptionPanel = memo(function OptionPanel({
          * than showing `0.5` beside a card that says `£60k` and ignoring
          * `80000` (served `a4434670`, CDP starter). Same defensive unwrap.
          */
-        cap: unwrapInterventionValue(obs?.cap).value ?? undefined,
+        // …else CEE's node-level `scale_frame` (`optionEntryScaleOf`), the same reference the card's editor uses.
+        cap: optionEntryScaleOf(unwrapInterventionValue(obs?.cap).value, (factorNode?.data as Record<string, unknown> | undefined)?.scale_frame),
         value,
         displayValue: displayValue ?? undefined,
         /*
@@ -429,7 +449,10 @@ export const OptionPanel = memo(function OptionPanel({
       .filter(n => (n.data?.category as string | undefined) === 'controllable' && n.id !== nodeId)
       .map(n => {
         const obs = (n.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
-        const valueDisplay = formatFactorValue(obs as Parameters<typeof formatFactorValue>[0])
+        // The card's own reader (`factorDisplayText`), so the add list says what the
+        // factor card says: "£0", "$10,000 / year". It read the deprecated
+        // `formatFactorValue`, which printed "GBP 0" (Paul's test, 28 Sep).
+        const valueDisplay = factorDisplayText(n.data as Record<string, unknown>, resolveElementLabel(n.data))
         return {
           id: n.id,
           label: resolveElementLabel(n.data),
@@ -474,9 +497,12 @@ export const OptionPanel = memo(function OptionPanel({
   // Baseline indication — mirrors OptionNode.tsx. Explicit `is_baseline` wins;
   // regex fallback only fires when the flag is absent (null/undefined).
   const optionData = node?.data as OptionNodeData | undefined
+  const arOptionsForBaseline = (ceeAnalysisReady as { options?: { id: string; is_baseline?: boolean | null }[] } | null | undefined)?.options
   const isBaselineOption = resolveOptionIsBaseline(
     optionData,
-    (ceeAnalysisReady as { options?: { id: string; is_baseline?: boolean | null }[] } | null | undefined)?.options?.find(o => o.id === nodeId),
+    arOptionsForBaseline?.find(o => o.id === nodeId),
+    // POM-3: the keyword guess may not mint a second baseline on a board that declares one.
+    graphDeclaresBaseline(nodes, arOptionsForBaseline),
   )
 
   /**
@@ -530,13 +556,16 @@ export const OptionPanel = memo(function OptionPanel({
         displayValue: iv.displayValue ?? null,
         source: iv.provenanceSource ?? null,
       }
+      const factorNode = nodes.find(n => n.id === iv.factorId) as TargetNodeLike | undefined
       const row = buildOptionTargetRow({
         factorId: iv.factorId,
         target,
-        factorNode: nodes.find(n => n.id === iv.factorId) as TargetNodeLike | undefined,
+        factorNode,
         baselineReference,
       })
-      const reading = row.target || row.change
+      // DIFF N7 (28 Sep): never a bare 0–1 figure where the factor card shows a
+      // word — the card's band word, in the tier-reading form (`optionTargetReading`).
+      const reading = optionTargetReading(row, factorNode?.data)
       const fieldTakesTheReadingsUnit =
         row.target !== '' &&
         target.value === iv.value &&
@@ -912,8 +941,10 @@ export const OptionPanel = memo(function OptionPanel({
         // afterwards. The first round's fixture used a ONE-option comparison,
         // the single shape in which the old predicate happened to be false.
         // Gating on `nodeWasInRun` makes the whole predicate per-node.
+        const showsShares = !winSharesWithheld
         const hasImpactContent =
-          displayMetadata.winRate !== null
+          (showsShares && displayMetadata.winRate !== null)
+          || (!showsShares && nodeWasInRun && winShareWithheldReason !== null)
           || !!headline
           || (nodeWasInRun && allOptions.length > 1 && allOptions.some(o => o.winPct != null))
         return (
@@ -921,8 +952,13 @@ export const OptionPanel = memo(function OptionPanel({
           <StaleGuardBanner hasResults={isResultsMode}>
             {hasImpactContent ? (
             <div>
+              {!showsShares && nodeWasInRun && winShareWithheldReason !== null && (
+                <p className={`${typography.panelMeta} text-text-light`} data-testid="option-panel-not-ranked">
+                  {winShareWithheldReason}
+                </p>
+              )}
               {/* Win probability hero */}
-              {displayMetadata.winRate !== null && (
+              {showsShares && displayMetadata.winRate !== null && (
                 <div className="flex items-center gap-3">
                   <div className="text-center">
                     <div className={`${typography.panelHeader} text-2xl`} style={{ color: 'var(--option)' }}>
@@ -930,11 +966,13 @@ export const OptionPanel = memo(function OptionPanel({
                     </div>
                     <div
                       className={`${typography.panelMeta} text-text-light`}
-                      title={OPTION_RESULT_COPY.sentence(formatWinProbability(displayMetadata.winRate))}
+                      title={[OPTION_RESULT_COPY.sentence(formatWinProbability(displayMetadata.winRate)), resultCurrencyNote].filter(Boolean).join(' ')}
+                      data-testid="option-panel-result-caption"
                     >
-                      {OPTION_RESULT_COPY.current} · of runs
+                      {resultCaption} · of runs
                     </div>
-                    <ResultsLink label="Compare all options" tab="compare" />
+                    {/* SC-24 v3: Compare is now previous Run vs this Run; the options are compared on Analysis. */}
+                    <ResultsLink label="Compare all options" tab="results" />
                   </div>
                 </div>
               )}
@@ -1007,8 +1045,16 @@ export const OptionPanel = memo(function OptionPanel({
               )}
 
               {/* Comparison bars */}
-              {allOptions.length > 1 && allOptions.some(o => o.winPct != null) && (
+              {showsShares && allOptions.length > 1 && allOptions.some(o => o.winPct != null) && (
                 <div className="mt-2">
+                  {/* F5: after the model changes these are the LAST run's
+                      shares — labelled with the contract's stale-option words
+                      (v3 §02, `lastRunNoNewComparison`), never shown bare. */}
+                  {runCurrency === 'changed' && (
+                    <p className={`${typography.panelMeta} text-text-light`} data-testid="option-panel-compare-last-run">
+                      {OPTION_RESULT_COPY.lastRunNoNewComparison}
+                    </p>
+                  )}
                   {allOptions.map(o => (
                     <div key={o.id} className="flex items-center gap-2 py-0.5">
                       <span

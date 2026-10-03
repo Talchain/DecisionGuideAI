@@ -6,6 +6,7 @@
 
 import { memo, useState, useMemo, useCallback } from 'react'
 import { useCanvasStore } from '../../../store'
+import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../../state/winShareGate'
 import type { NodeType } from '../../../domain/nodes'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
@@ -13,7 +14,7 @@ import { typography } from '../../../../styles/typography'
 import { controls } from '../../../../styles/controls'
 import { inspectorButton, inspectorDetailRow, INSPECTOR_RULE } from '../inspectorStyle'
 import { useNodeMutations } from '../useInspectorMutations'
-import { resolveOptionIsBaseline } from '../../../utils/baselineDetection'
+import { resolveOptionIsBaseline, graphDeclaresBaseline } from '../../../utils/baselineDetection'
 import { formatWinProbability } from '../../../utils/labelUtils'
 import {
   GROUP_LABELS,
@@ -107,6 +108,10 @@ export const DecisionPanel = memo(function DecisionPanel({
   const edges = useCanvasStore(s => s.edges)
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
+  // CURRENT-READ row 9 (AIQ 5912710392): a withheld leader withholds every option's share and bar here too.
+  const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
+  const winShareWithheldReason = useCanvasStore(selectWinShareWithheldReason)
+  const showsShares = isResultsMode && !winSharesWithheld
   const optionComparison = useCanvasStore(s => s.results?.report?.option_comparison)
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
@@ -127,6 +132,8 @@ export const DecisionPanel = memo(function DecisionPanel({
   const ceeOptions = useCanvasStore(s => (s.ceeAnalysisReady as { options?: { id: string; is_baseline?: boolean | null }[] } | null | undefined)?.options)
   const connectedOptions = useMemo(() => {
     const seen = new Set<string>()
+    // POM-3: the keyword guess may not mint a second baseline on a board that declares one.
+    const declaredBaseline = graphDeclaresBaseline(nodes, ceeOptions)
     return edges
       .filter(e => e.source === nodeId || e.target === nodeId)
       .map(e => {
@@ -150,6 +157,7 @@ export const DecisionPanel = memo(function DecisionPanel({
         const isBaseline = resolveOptionIsBaseline(
           { is_baseline: (optNode.data as { is_baseline?: boolean | null })?.is_baseline, label },
           ceeOptions?.find((o: { id: string }) => o.id === otherId),
+          declaredBaseline,
         )
         // Raw win probability — formatted via formatWinProbability() at render.
         const rawWinProb = optionComparison && Array.isArray(optionComparison)
@@ -248,6 +256,11 @@ export const DecisionPanel = memo(function DecisionPanel({
             reach it. An empty bordered card would be a box with nothing in it. */}
         {connectedOptions.length > 0 && (
         <PrimaryControlCard>
+          {isResultsMode && winSharesWithheld && winShareWithheldReason !== null && (
+            <p className={`${typography.panelMeta} text-text-light pb-1`} data-testid="decision-panel-not-ranked">
+              {winShareWithheldReason}
+            </p>
+          )}
           {/* Flat option rows — the contract's hairline rule between rows. */}
           {connectedOptions.map((opt) => (
             <div
@@ -268,13 +281,13 @@ export const DecisionPanel = memo(function DecisionPanel({
                     </span>
                   )}
                 </div>
-                {isResultsMode && opt.winProb != null && (
+                {showsShares && opt.winProb != null && (
                   <span className={`${typography.panelMeta} text-text-body tabular-nums`}>
                     {formatWinProbability(opt.winProb)}
                   </span>
                 )}
               </div>
-              {isResultsMode && opt.winProb != null && (
+              {showsShares && opt.winProb != null && (
                 <div className="mt-1.5">
                   <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
                     <div

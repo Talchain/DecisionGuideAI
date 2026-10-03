@@ -183,7 +183,10 @@ const targetsIn = (root: ParentNode): HTMLElement[] =>
     el => (el.textContent ?? '').trim() === '',
   )
 /** Every icon drawn inside the surface, whether or not it is a control. */
-const glyphsIn = (root: ParentNode): SVGElement[] => [...root.querySelectorAll<SVGElement>('svg')]
+// The Olumi brand mark is an <img> since Paul's 1 Oct "use the actual Olumi brand icon" (#2392); it sits in the same
+// counter-scaled glyph box as the Lucide <svg>s, so it is measured with them.
+const glyphsIn = (root: ParentNode): SVGElement[] =>
+  [...root.querySelectorAll<SVGElement>('svg, img[data-icon="olumi-brand-mark"]')]
 
 const idOf = (el: Element): string =>
   el.getAttribute('data-testid') ?? el.getAttribute('aria-label') ?? el.tagName.toLowerCase()
@@ -610,7 +613,9 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
       expect(rail.contains(row), 'the quick-action row is not inside the card rail').toBe(true)
       expect(screen.queryByTestId('node-card-rail-resting-node-a')).toBeNull()
       // `bottom-1.5 right-1.5` -> 6px, unscaled. Read from the rail, not restated.
-      const inset = sizeFromClass(cls(rail).replace(/(^|\s)(bottom|right)-/g, '$1h-'), 'h')
+      // The HORIZONTAL footprint reads the RIGHT inset (29 Sep: a repeated card's
+      // rail is `bottom-[5px] right-[6px]`, so the two insets no longer agree).
+      const inset = sizeFromClass(cls(rail).replace(/(^|\s)right-/g, '$1h-'), 'h')
       expect(inset, 'the rail carries no corner inset to measure from').not.toBeNull()
       let visual = 0
       for (const b of buttons) {

@@ -6,7 +6,7 @@
  * - Border/Text: {color} (main shade)
  * - Frame: the card's resting 1px frame (contract v3.1 — see below)
  * - Hover: {color}-hover (derived state)
- * - Selected: ONE info ring on every family (contract v3.1 — see below)
+ * - Selected: ONE neutral lift on every family, never a blue ring (Paul, 1 Oct — see below)
  *
  * ⭐ `frame` IS THE CARD'S OWN BORDER, AND IT IS NOT `border` (contract v3.1
  * FRAME-08 / OR-03 / T10). The contract draws every card with
@@ -22,14 +22,17 @@
  * spelled out in full; a template-built `border-[color:...${kind}...]` would emit
  * no CSS at all.
  *
- * ⭐ `selected` IS ONE TOKEN ON EVERY FAMILY (contract v3.1 FRAME-09 / OR-10 /
- * T03): `.node.selected{box-shadow:0 0 0 2px var(--info),…}`. It was a 4px ring
- * in the node's own hue plus a white 2px offset — a six-hue, two-tone halo, and
- * on a risk card a 4px Danger halo triggered by the neutral act of clicking it.
- * Selection is an interaction state, so it takes the interaction colour (info)
- * at the focus width (2px, DS v5 §6.3). The AI states (highlight / attended)
- * keep their own wider rings in `BaseNode` so they stay distinguishable.
+ * ⭐ `selected` IS ONE TOKEN ON EVERY FAMILY, AND IT IS NOT BLUE (Paul, 1 Oct 2026: "We need to remove all of the
+ * blue highlighted borders when anything is clicked on. That needs to be stripped completely from the PoC.").
+ * - **Before:** contract v3.1 FRAME-09 drew selection as a 2px info ring (`ring-2 ring-info`). Earlier still, it was
+ *   a 4px ring in each node's own hue, so clicking a risk card gave it a Danger halo.
+ * - **Now:** a selected card lifts on the neutral `shadow-2` elevation, with no border and no ring, so it still
+ *   reads as the one picked out. It is still ONE token on every family.
+ * - The AI states (highlight / attended) keep their own rings in `BaseNode`: the AI sets those, not a click.
  */
+
+/** The one selection treatment for every card family: a neutral lift, never a blue ring (Paul, 1 Oct 2026). */
+export const NODE_SELECTED_CLASSES = 'shadow-2'
 
 export const nodeColors = {
   goal: {
@@ -37,7 +40,7 @@ export const nodeColors = {
     border: 'border-goal',
     frame: 'border-[color:color-mix(in_srgb,var(--goal)_76%,var(--border-default))]',
     hover: 'hover:border-goal-hover',
-    selected: 'ring-2 ring-info',
+    selected: NODE_SELECTED_CLASSES,
     text: 'text-goal',
   },
   decision: {
@@ -45,7 +48,7 @@ export const nodeColors = {
     border: 'border-info',
     frame: 'border-[color:color-mix(in_srgb,var(--info)_76%,var(--border-default))]',
     hover: 'hover:border-info-hover',
-    selected: 'ring-2 ring-info',
+    selected: NODE_SELECTED_CLASSES,
     text: 'text-info',
   },
   option: {
@@ -53,7 +56,7 @@ export const nodeColors = {
     border: 'border-option',
     frame: 'border-[color:color-mix(in_srgb,var(--option)_76%,var(--border-default))]',
     hover: 'hover:border-option/80',
-    selected: 'ring-2 ring-info',
+    selected: NODE_SELECTED_CLASSES,
     text: 'text-option',
   },
   outcome: {
@@ -61,7 +64,7 @@ export const nodeColors = {
     border: 'border-success',
     frame: 'border-[color:color-mix(in_srgb,var(--success)_76%,var(--border-default))]',
     hover: 'hover:border-success-hover',
-    selected: 'ring-2 ring-info',
+    selected: NODE_SELECTED_CLASSES,
     text: 'text-success',
   },
   factor: {
@@ -69,7 +72,7 @@ export const nodeColors = {
     border: 'border-factor',
     frame: 'border-[color:color-mix(in_srgb,var(--factor)_76%,var(--border-default))]',
     hover: 'hover:border-factor/80',
-    selected: 'ring-2 ring-info',
+    selected: NODE_SELECTED_CLASSES,
     text: 'text-factor',
   },
   risk: {
@@ -77,7 +80,7 @@ export const nodeColors = {
     border: 'border-danger',
     frame: 'border-[color:color-mix(in_srgb,var(--danger)_76%,var(--border-default))]',
     hover: 'hover:border-danger-hover',
-    selected: 'ring-2 ring-info',
+    selected: NODE_SELECTED_CLASSES,
     text: 'text-danger',
   },
   action: {
@@ -85,7 +88,7 @@ export const nodeColors = {
     border: 'border-success',
     frame: 'border-[color:color-mix(in_srgb,var(--success)_76%,var(--border-default))]',
     hover: 'hover:border-success-hover',
-    selected: 'ring-2 ring-info',
+    selected: NODE_SELECTED_CLASSES,
     text: 'text-success',
   },
 } as const

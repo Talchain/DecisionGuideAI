@@ -167,7 +167,7 @@ describe('OptionCards — the option that was never analysed', () => {
       expect(screen.getByTestId(`option-card-not-analysed-${NOT_ANALYSED}`)).toBeInTheDocument()
       expect(screen.queryByTestId(`not-analysed-resolve-${NOT_ANALYSED}`)).not.toBeInTheDocument()
       expect(screen.getByTestId(`not-analysed-reason-${NOT_ANALYSED}`).textContent ?? '').toContain(
-        'returned no result',
+        'has no result for this option',
       )
     } finally {
       useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false } as never)

@@ -152,7 +152,7 @@ describe('selectBoundMayRun — a verdict counts only for the revision it was co
     })
     expect(selectBoundAdmission(store({ ceeAnalysisReady: refused }))).toEqual({
       mayRun: false,
-      wording: { requiredInputs: [], structural: 'An option is not connected to the decision.', reasonCodes: ['OPTION_NOT_LINKED_TO_DECISION'] },
+      wording: { requiredInputs: [], requiredInputItems: [], structural: 'An option is not connected to the decision.', reasonCodes: ['OPTION_NOT_LINKED_TO_DECISION'] },
     })
   })
 
@@ -162,6 +162,8 @@ describe('selectBoundMayRun — a verdict counts only for the revision it was co
     expect(bound?.wording).toEqual({
       // the one input CEE REQUIRES; the `offered` value question is not a requirement
       requiredInputs: ['An option is not connected from the decision. Link the decision to it.'],
+      // The same row with the producer's scope where it names one (none on this served row).
+      requiredInputItems: [{ text: 'An option is not connected from the decision. Link the decision to it.' }],
       structural: 'Review all 2 readiness issues together before analysis.',
       reasonCodes: ['MODEL_HAS_BLOCKERS', 'MODEL_HAS_BLOCKERS', 'CONFIDENCE_PARAMETERS_PARTLY_USER_STATED', 'MODEL_HAS_BLOCKERS'],
     })

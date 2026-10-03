@@ -27,6 +27,7 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { OptionsComparison } from '../sections/OptionsComparison'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { ANALYSIS_NEW_COPY as COPY, leaderWithholdCause } from '../analysisNewCopy'
+import { COMMITMENT_QUALIFIER_COPY } from '../commitmentQualifier'
 import { useCanvasStore } from '../../../../canvas/store'
 import { decisionWithLeaderWithheld, genuineDecision } from './analysisNewFixtures'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
@@ -151,6 +152,17 @@ describe('"How the options compare" states it above the shares', () => {
   })
 })
 
+/**
+ * ⭐ CUT-BACK (Paul, 30 Sep 2026): in the TAB BODY "goal only" rides on the commitment's one
+ * Provisional line (`notesInQualifier`), and the chart prints no separate line. A mounted chart
+ * outside the tab (above) still prints its own.
+ */
+const tabQualifier = () => {
+  expect(screen.queryByTestId(`${TESTID}-goal-only`), 'the chart prints no separate Goal-only line in the tab').toBeNull()
+  const line = screen.queryByTestId('analysis-new-commitment-qualifier')
+  return line && line.textContent!.includes(COMMITMENT_QUALIFIER_COPY.goalOnly) ? line : null
+}
+
 describe('wired: the tab body reads the reason CEE sent from the result in the store', () => {
   beforeEach(() => {
     holdResultWithCause(LIMITS_UNSCORED)
@@ -167,7 +179,7 @@ describe('wired: the tab body reads the reason CEE sent from the result in the s
       />,
     )
     openAllSections()
-    expect(qualifier()).not.toBeNull()
+    expect(tabQualifier()).not.toBeNull()
   })
 })
 
@@ -204,17 +216,17 @@ describe('mounted: the qualifier follows a cause that changes after mount', () =
     holdResultWithCause(null)
     renderTab()
     openAllSections()
-    expect(qualifier(), 'PRECONDITION: nothing to qualify yet').toBeNull()
+    expect(tabQualifier(), 'PRECONDITION: nothing to qualify yet').toBeNull()
     restamp(LIMITS_UNSCORED)
-    expect(qualifier()).not.toBeNull()
+    expect(tabQualifier()).not.toBeNull()
   })
 
   it('⛔ the limits cause is replaced by another reason → the qualifier goes', () => {
     holdResultWithCause(LIMITS_UNSCORED)
     renderTab()
     openAllSections()
-    expect(qualifier(), 'PRECONDITION').not.toBeNull()
+    expect(tabQualifier(), 'PRECONDITION').not.toBeNull()
     restamp(OTHER_REASON)
-    expect(qualifier()).toBeNull()
+    expect(tabQualifier()).toBeNull()
   })
 })

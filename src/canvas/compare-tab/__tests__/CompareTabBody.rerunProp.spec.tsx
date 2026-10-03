@@ -21,16 +21,9 @@ import * as path from 'node:path'
 const ROOT = path.resolve(__dirname, '../../../..')
 
 describe('CompareTabBody rerun prop wiring (correction 5)', () => {
-  it('OutputsDock passes handleRunAnalysis to CompareTabBody.onRunAnalysis', () => {
-    const source = fs.readFileSync(
-      path.join(ROOT, 'src/canvas/components/OutputsDock.tsx'),
-      'utf-8',
-    )
-    // ROADMAP 2.581 reshaped this mount from a single-prop self-closing tag to
-    // a multi-line element (expert mode is now owned by OutputsDock and passed
-    // down), so the pin is on the wiring rather than on one line's whitespace.
-    expect(source).toMatch(/<CompareTabBodyV2[\s\S]{0,200}?onRunAnalysis=\{handleRunAnalysis\}/)
-  })
+  // 30 Sep 2026 (SC-24 v3): the dock no longer mounts CompareTabBody (Compare's body is CompareRunPairBody), so
+  // the row pinning OutputsDock -> CompareTabBody.onRunAnalysis is retired with the mount. The component's own
+  // prop path, below, is unchanged.
 
   it('CompareTabBody.onRunAnalysis prop signature is still a single callback', () => {
     const source = fs.readFileSync(

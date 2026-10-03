@@ -107,6 +107,7 @@
 import type { Edge } from '@xyflow/react'
 
 import { serverStatedStrengthOf } from './edgeServerStatedStrength'
+import { isStrengthDefinitional } from '../domain/strengthDefinitional'
 import type { WireSystemEvent } from './types'
 
 /**
@@ -356,9 +357,26 @@ export function buildEdgeStrengthConfirmEvent({
  * DISABLED — an edge that could have been edited looking like one that cannot,
  * which is the SAFE direction. The unsafe direction (an editor whose write
  * cannot land) is unreachable while this asks the builder rather than telling it.
+ *
+ * ⭐ AND A LINK THAT HOLDS BY DEFINITION IS NOT EDITABLE (MG ruling, 1 Oct 2026).
+ * The builder WOULD build an event for it — it carries a server-stated tuple —
+ * but CEE refuses every strength change on a definitional link (the parts of a
+ * total, a risk's exposure to the goal), so an editor there is the same harm as
+ * one whose write never leaves the browser: an offer that cannot land. ONE
+ * predicate, `isStrengthDefinitional`, asked here so every caller of this gate
+ * (the inspector fence and its note, the double-click hint, the Model tab row,
+ * the results review entries) closes together. It is live only while the weight
+ * is still CEE's: a strength the person set stays editable exactly as before.
+ *
+ * ⚠ THE BUILDER IS DELIBERATELY UNTOUCHED. Returning `null` there would turn a
+ * stray write into a LOCAL-ONLY one (`not_wire_encodable`); this gate keeps the
+ * editor from opening instead. And a caller whose false branch has words must
+ * check `isStrengthDefinitional` FIRST: a definition is never "no strength on
+ * record" or "cannot reach the model" — that is a different, transport fact.
  */
 export function edgeStrengthEditIsAssertable(edge: Edge | undefined | null): boolean {
   if (!edge) return false
+  if (isStrengthDefinitional(edge.data as Record<string, unknown> | undefined)) return false
   return buildEdgeStrengthEditEvent({ edge, requestedMean: 0, preserveDirection: true }) !== null
 }
 
@@ -457,4 +475,98 @@ export function buildEdgeDirectionEditEvent({
 export function edgeDirectionEditIsAssertable(edge: Edge | undefined | null): boolean {
   if (!edge) return false
   return buildEdgeDirectionEditEvent({ edge, direction: 'positive' }) !== null
+}
+
+/**
+ * What the deferral queue does with a QUEUED link-strength `set` at the moment
+ * it finally dispatches.
+ *
+ *   · `unchanged`    — send the payload exactly as queued.
+ *   · `rebased`      — send `event`: the same request, with `expected`
+ *                      re-read from what the server holds NOW.
+ *   · `already_held` — the server already holds exactly what this edit asks
+ *                      for, so there is nothing to send.
+ */
+export type DeferredEdgeStrengthDispatch<E extends QueuedSystemEvent = WireSystemEvent> =
+  | { kind: 'unchanged' }
+  | { kind: 'rebased'; event: E }
+  | { kind: 'already_held' }
+
+/** The shape a queued send carries — wire or internal event, same `type` + `payload`. */
+interface QueuedSystemEvent {
+  readonly type: string
+  readonly payload?: Record<string, unknown>
+}
+
+/**
+ * ⭐⭐ `expected` IS A CLAIM ABOUT THE SERVER AT DISPATCH, NOT AT THE CLICK
+ * (canvas audit edit-values F1/F2, reproduced 3/3 on served `d87eeb94`).
+ *
+ * `setStrength` builds its whole wire event at the click, including
+ * `expected` from `serverStatedStrengthOf(edge.data)`. That is right for a send
+ * that leaves at once. It is wrong for one the in-flight lock QUEUES: the queued
+ * payload carries the tuple the server held before the edit already on the
+ * wire, so once that edit applies CEE refuses the queued one with 409
+ * `edge_expected_tuple_mismatch` — every step of a slow slider drag, the second
+ * of two quick band clicks. Worse, when the user later moves the link back to
+ * that old value, the stale tuple matches again and a superseded gesture
+ * APPLIES over the newer choice (the skeptic's resurrect run: CEE -0.85, panel
+ * "Moderate 0.30").
+ *
+ * The request the user made (`magnitude`, `direction_intent`) is unchanged
+ * here; only the ASSERTION about what the server holds is re-read, from the same
+ * `serverStatedStrengthOf` the builder uses, off the edge as it stands when the
+ * send actually leaves. That is exactly what a click made after the first
+ * receipt would have sent — the control run with an 8 s gap, which applied.
+ *
+ * ⛔ WHAT THIS DOES NOT REBASE, deliberately:
+ *   · `confirm_current` — "I agree with THIS number". Its magnitude IS the
+ *     asserted tuple (`refineEdgeStrengthEdit` rule 2); re-reading it would
+ *     confirm a number the person never saw. Left to CEE to refuse.
+ *   · a DIRECTION edit (`directionEdit`) — its magnitude is the server's `|mean|`
+ *     read at the click (`buildEdgeDirectionEditEvent`), so re-reading only
+ *     `expected` would send the old magnitude against the new tuple and silently
+ *     undo a strength edit that landed in between. Rebasing it needs the pending
+ *     register re-keyed as well; left as queued, so a stale one is refused.
+ *   · an edge the store no longer holds, an endpoint pair that no longer
+ *     matches, or no server-stated tuple — nothing proves a better answer, so
+ *     the queued payload stands and CEE decides.
+ *
+ * `already_held` is returned only when the tuple MOVED since the click and now
+ * equals the request (drag 0.25 → 0.3 → 0.35 → back to 0.3 while the 0.3 was on
+ * the wire). Sending it would earn `set_target_unchanged`, "That link already
+ * has exactly that strength", about a gesture that landed. An unmoved tuple is
+ * never short-circuited: that send is the click's own business.
+ */
+export function rebaseDeferredEdgeStrengthEdit<E extends QueuedSystemEvent>(
+  event: E,
+  edge: Edge | undefined | null,
+  opts: { directionEdit: boolean },
+): DeferredEdgeStrengthDispatch<E> {
+  if (event.type !== 'edge_strength_edit' || opts.directionEdit) return { kind: 'unchanged' }
+  const payload = event.payload
+  if (!payload || payload.intent !== 'set') return { kind: 'unchanged' }
+  if (!edge || edge.source !== payload.from || edge.target !== payload.to) return { kind: 'unchanged' }
+  const now = serverStatedStrengthOf(edge.data as Record<string, unknown> | undefined)
+  if (!now) return { kind: 'unchanged' }
+  const queued = payload.expected as { mean?: unknown; effect_direction?: unknown } | undefined
+  if (queued && queued.mean === now.mean && queued.effect_direction === now.effect_direction) {
+    return { kind: 'unchanged' }
+  }
+  const magnitude = payload.magnitude
+  const intent = payload.direction_intent
+  if (
+    typeof magnitude === 'number' &&
+    Math.abs(now.mean) === magnitude &&
+    (intent === 'preserve' || intent === now.effect_direction)
+  ) {
+    return { kind: 'already_held' }
+  }
+  return {
+    kind: 'rebased',
+    event: {
+      ...event,
+      payload: { ...payload, expected: { mean: now.mean, effect_direction: now.effect_direction } },
+    },
+  }
 }

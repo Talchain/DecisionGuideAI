@@ -148,7 +148,8 @@ describe('FactorNode face: a placeholder unit never reaches the card as if measu
     // keeps its provenance: the face is the title plus the figure-less `est.`.
     const withDv = faceText(renderFactor(founderFactor(0.3, '0.3 scale')).container)
     // Design bundle 1: the producer arm states the figure in tier words (0.3 → Low) beside its mark.
-    expect(withDv).toBe(`${withoutDv}Lowest.`)
+    // RE-PINNED 27 Sep (side-by-side DIFF item 3): one breakable space now separates the figure from its mark.
+    expect(withDv).toBe(`${withoutDv}Low est.`)
     expect(withDv).not.toContain('0.3')
     expect(withDv).not.toContain('scale')
 

@@ -148,7 +148,7 @@ export const SliderWithLabel = memo(function SliderWithLabel({
             className={`
               w-16 px-2 py-1 text-xs text-right tabular-nums
               border border-sand-200 rounded-lg
-              focus:border-sky-500 focus:ring-1 focus:ring-sky-500/20
+              focus-visible:ring-1 focus-visible:ring-sky-500/20
               disabled:opacity-50 disabled:cursor-not-allowed
             `}
             aria-label={`${label} value`}

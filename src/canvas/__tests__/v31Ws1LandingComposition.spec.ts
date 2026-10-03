@@ -5,7 +5,8 @@
  * identity and by the real `layoutGraph` / `withGhostTiers` / placement code:
  *   #10 edges never run under a non-endpoint card (brick courses + vertical leads)
  *   #11 the row gap is one constant, whatever a browser persisted (64 visible
- *       since the review of #2074: it budgets the kind shape and the band title)
+ *       again since the 27 Sep landing text cap; 56 under the laptop-width ruling
+ *       before it; 64 from the review of #2074 until then)
  *   #17 the corner-mark spacer yields line 1 only when THIS title's first word needs it
  *   #25 far-zoom title scale
  *   #26 band words
@@ -15,6 +16,9 @@
  * specs laid out at height 100 prove row assignment only, so this lays out
  * boards whose cards differ in height by up to 4×, in both orders, and samples
  * every card and every edge over its WHOLE extent.
+ *
+ * 27 Sep 2026: Paul's laptop-width ruling — five per row, anchors ≤720, row gap 40.
+ * Five no longer wraps, so the both-families-wrap shape below is six and six (was five and five).
  */
 import { describe, it, expect } from 'vitest'
 import type { Node, Edge } from '@xyflow/react'
@@ -22,22 +26,22 @@ import { layoutGraph } from '../utils/layout'
 import { withGhostTiers, CONSEQUENCE_DOOR_ID, CONSEQUENCE_DOOR_LABEL } from '../utils/ghostTiers'
 import { isGhostNode } from '../utils/fitTargets'
 import {
-  CANONICAL_LAYOUT_WIDTH,
   LAYOUT_LAYER_GAP,
   LAYOUT_NODE_GAP,
   LAYOUT_PADDING_X,
   LAYOUT_PADDING_Y,
   REPEATED_CARD_W,
+  ROW_BUDGET_W,
   ROW_PROMPT_W,
   TIER_BY_KIND,
   cardWidthCapForTier,
 } from '../utils/nodeLayoutConstants'
 import { resolveLayeredEdgeLeads, layeredLeadPath, type RouteBox } from '../edges/sameRowRoute'
-import { resolvePolarityGlyphOffset, GLYPH_PAINTED_BOX_FLOW } from '../utils/edgeGlyphPlacement'
+import { resolveArrivalSlot, resolvePolarityGlyphOnPath, glyphMetricsAt } from '../utils/edgeGlyphPlacement'
+import { flattenSvgPath } from '../edges/fragileCuePlacement'
 import { deriveTierLanes, tierLaneTitleBoxFor } from '../utils/tierLanes'
 import { cornerMarksTitleSpacerCss } from '../nodes/shared/canvasGlyphScale'
-import { farTitleScale, labelCounterScale, FAR_TITLE_PX, FAR_TITLE_MAX_SCALE, MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE } from '../utils/zoomLegibility'
-import { CANVAS_TYPE_PX } from '../../styles/typography'
+import { farTitleScale, labelCounterScale, FAR_TITLE_DECLARED_PX, FAR_TITLE_PX, FAR_TITLE_MAX_SCALE, MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE } from '../utils/zoomLegibility'
 
 /* ── fixtures ─────────────────────────────────────────────────────────────── */
 
@@ -149,39 +153,68 @@ const PROFILES: Record<string, (kind: string, i: number) => number> = {
   tallMiddle: (k, i) => (k === 'decision' || k === 'goal' ? 140 : i === 1 || i === 2 ? 420 : 100),
   alternating: (k, i) => (k === 'decision' || k === 'goal' ? 110 : i % 2 === 0 ? 100 : 380),
 }
-const SHAPES = {
-  'five factors (3+2), five consequences (3+2)': { options: 4, factors: 5, outcomes: 2, risks: 3 },
+/** A board's counts, and optionally the sibling gap the layout is asked for (`layoutGraph`'s `spacing`). */
+type Shape = { options: number; factors: number; outcomes: number; risks: number; spacing?: number }
+const SHAPES: Record<string, Shape> = {
+  'six factors (3+3), six consequences (3+3)': { options: 4, factors: 6, outcomes: 3, risks: 3 },
   'eight factors (4+4)': { options: 4, factors: 8, outcomes: 2, risks: 3 },
   'three options, seven factors (4+3)': { options: 3, factors: 7, outcomes: 2, risks: 2 },
+  // 27 Sep 2026: five per row — a factor band that wraps 5+4 / 5+5 over a
+  // consequence band that wraps 3+3 / 4+3. A factor → consequence link that
+  // skips the first consequence course must not pass under a first-course card.
+  'nine factors (5+4), six consequences (3+3)': { options: 4, factors: 9, outcomes: 3, risks: 3 },
+  'ten factors (5+5), seven consequences (4+3)': { options: 4, factors: 10, outcomes: 3, risks: 4 },
+  // …and the same two at a sibling gap of 32 (the constant before 27 Sep's
+  // 32 → 24; `layoutGraph` still takes it as `spacing`). On tall-middle,
+  // fac_5 → risk_1's diagonal cut out_0's lower-left corner BETWEEN two of the
+  // router's 64 point samples, so the router called it clear and drew no lead.
+  'nine factors (5+4), six consequences (3+3), sibling gap 32': { options: 4, factors: 9, outcomes: 3, risks: 3, spacing: 32 },
+  'ten factors (5+5), seven consequences (4+3), sibling gap 32': { options: 4, factors: 10, outcomes: 3, risks: 4, spacing: 32 },
 }
 
 /* ── #10 + mixed heights ──────────────────────────────────────────────────── */
 
 describe('WS1 #10 — a wrapped family is laid in brick courses', () => {
-  it('eight factors: the FIRST course is shifted by half a stride, so the block stays at 4 cards + prompt', async () => {
+  it('eight factors: the FIRST course is shifted by half a stride, and the block — now the shifted course — stays inside the row budget', async () => {
     const { nodes, edges, heights } = board({ options: 3, factors: 8, outcomes: 1, risks: 1 }, () => 150)
     const out = await layoutGraph(nodes, edges, { heightAtLabelBound: heights })
     const facs = out.nodes.filter((n) => n.id.startsWith('fac_'))
     const ys = [...new Set(facs.map((n) => n.position.y))].sort((a, b) => a - b)
     expect(ys).toHaveLength(2)
     const left = (y: number) => Math.min(...facs.filter((n) => n.position.y === y).map((n) => n.position.x))
-    const stride = REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP
+    // ⚠ 30 Sep 2026: the factor tier's OWN width — a 4 + 4 wrap takes the fair
+    // share of four capped by its brick course, min(350, 325) = 325 (was 248).
+    const factorW = out.layoutCardWidths.factor
+    expect(factorW).toBe(Math.floor((ROW_BUDGET_W - 3.5 * LAYOUT_NODE_GAP) / 4.5) - LAYOUT_PADDING_X)
+    const box = factorW + LAYOUT_PADDING_X
+    const stride = box + LAYOUT_NODE_GAP
+    // (325 + 24 + 24) / 2 = 186.5 (was 148).
     expect(left(ys[0]!) - left(ys[1]!)).toBeCloseTo(stride / 2, 6)
     // The block: the shifted upper course, or the lower course plus the row-end
     // prompt slot, whichever reaches further right.
-    const rightOf = (y: number) => Math.max(...facs.filter((n) => n.position.y === y).map((n) => n.position.x + REPEATED_CARD_W + LAYOUT_PADDING_X))
+    const rightOf = (y: number) => Math.max(...facs.filter((n) => n.position.y === y).map((n) => n.position.x + factorW + LAYOUT_PADDING_X))
     const block = Math.max(rightOf(ys[0]!), rightOf(ys[1]!) + LAYOUT_NODE_GAP + ROW_PROMPT_W) - left(ys[1]!)
-    expect(block).toBeCloseTo(4 * (REPEATED_CARD_W + LAYOUT_PADDING_X) + 3 * LAYOUT_NODE_GAP + LAYOUT_NODE_GAP + ROW_PROMPT_W, 6)
-    expect(block).toBeLessThanOrEqual(CANONICAL_LAYOUT_WIDTH)
+    // ⚠ RE-EXPRESSED 30 Sep 2026. With the 248 card and the 160 tile the half-stride
+    // shift (148) was smaller than the prompt slot (184), so the block was the lower
+    // course + prompt. With the 64 icon (slot 88) the shift (186.5) is larger, so the
+    // block is the SHIFTED course, (k + ½) boxes + (k − ½) gaps = 4.5 × 349 + 3.5 × 24
+    // = 1654.5 — which is exactly what `tierCardWidth`'s brick cap sizes to fit.
+    expect(block).toBeCloseTo(4.5 * box + 3.5 * LAYOUT_NODE_GAP, 6)
+    expect(block).toBeGreaterThan(4 * box + 4 * LAYOUT_NODE_GAP + ROW_PROMPT_W)
+    // The budget is ROW_BUDGET_W (the 1280 dock-open frame at the floor), not the
+    // retired CANONICAL_LAYOUT_WIDTH (1482) the share no longer reads.
+    expect(block).toBeLessThanOrEqual(ROW_BUDGET_W)
   })
 
-  it('five factors: the SECOND course is shifted (the narrower of the two brick choices)', async () => {
-    const { nodes, edges, heights } = board({ options: 2, factors: 5, outcomes: 1, risks: 0 }, () => 150)
+  it('seven factors (4+3): the SECOND course is shifted (the narrower of the two brick choices)', async () => {
+    const { nodes, edges, heights } = board({ options: 2, factors: 7, outcomes: 1, risks: 0 }, () => 150)
     const out = await layoutGraph(nodes, edges, { heightAtLabelBound: heights })
     const facs = out.nodes.filter((n) => n.id.startsWith('fac_'))
     const ys = [...new Set(facs.map((n) => n.position.y))].sort((a, b) => a - b)
     const left = (y: number) => Math.min(...facs.filter((n) => n.position.y === y).map((n) => n.position.x))
-    expect(left(ys[1]!) - left(ys[0]!)).toBeCloseTo((REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP) / 2, 6)
+    // 30 Sep 2026: the factor tier's own width (7 → 4 + 3 → 325), not the flat 248.
+    expect(left(ys[1]!) - left(ys[0]!)).toBeCloseTo((out.layoutCardWidths.factor + LAYOUT_PADDING_X + LAYOUT_NODE_GAP) / 2, 6)
+    expect(out.layoutCardWidths.factor).toBeGreaterThan(REPEATED_CARD_W)
   })
 
   it('CONTRAST — a family that does not wrap is not shifted', async () => {
@@ -197,7 +230,7 @@ describe('WS1 mixed-height / tall-card check — every card and every edge sampl
     for (const [profile, h] of Object.entries(PROFILES)) {
       it(`${shapeName}, ${profile}: no two cards overlap, and no edge runs under a card that is not its endpoint`, async () => {
         const { nodes, edges, heights } = board(counts, h)
-        const out = await layoutGraph(nodes, edges, { heightAtLabelBound: heights })
+        const out = await layoutGraph(nodes, edges, { heightAtLabelBound: heights, spacing: counts.spacing })
         const boxes = boxesOf(out.nodes, out.layoutCardWidths, heights)
         // Cards: full-rectangle intersection, not a midpoint sample.
         for (let i = 0; i < boxes.length; i++) {
@@ -260,6 +293,41 @@ describe('WS1 #10 — resolveLayeredEdgeLeads', () => {
     expect(leads!.outY).toBe(100)
   })
 
+  /*
+   * 27 Sep 2026 — the nine-factor board at sibling gap 32, tall-middle, as laid
+   * out (fac_5 → risk_1 past out_0). The plain diagonal cuts out_0's lower-left
+   * corner — (407.1, 1407.5) at t = 0.35 — but the router's 64 point samples
+   * straddle it: (403.8, 1403.3) at t = 22/64 is left of the card and
+   * (412.0, 1413.9) at t = 23/64 is below it. The curve is inside the card only
+   * for t in [0.3441, 0.3566], at most 3.7 units deep — between those two
+   * samples — so the router saw nothing in the way and drew no lead.
+   */
+  const CORNER_CUT = {
+    boxes: [
+      B('fac_5', 176, 1156, 248, 100, 2), B('fac_6', 480, 1156, 248, 100, 2),
+      B('out_0', 404, 1312, 248, 100, 3), B('out_1', 708, 1312, 248, 420, 3),
+      B('risk_0', 252, 1772, 248, 100, 3), B('risk_1', 556, 1772, 248, 420, 3),
+    ],
+    sx: 300, sy: 1256, tx: 680, ty: 1772,
+  }
+
+  it('CONTRAST — the corner cut is real: the plain diagonal runs under out_0 (the probe sees it)', () => {
+    const { boxes, sx, sy, tx, ty } = CORNER_CUT
+    const src = boxes.find((b) => b.id === 'fac_5')!
+    const tgt = boxes.find((b) => b.id === 'risk_1')!
+    expect(cardsUnder(plainPath(sx, sy, tx, ty), src, tgt, boxes)).toEqual(['out_0'])
+  })
+
+  it('a diagonal that cuts a card\'s corner between two samples still gets its lead-in, and the drawn path is clear', () => {
+    const { boxes, sx, sy, tx, ty } = CORNER_CUT
+    const src = boxes.find((b) => b.id === 'fac_5')!
+    const tgt = boxes.find((b) => b.id === 'risk_1')!
+    const leads = resolveLayeredEdgeLeads('fac_5', 'risk_1', sx, sy, tx, ty, boxes)
+    expect(leads).not.toBeNull()
+    expect(leads!.inY).toBeLessThanOrEqual(1312 - 10)
+    expect(cardsUnder(layeredLeadPath(sx, sy, tx, ty, leads!)[0], src, tgt, boxes)).toEqual([])
+  })
+
   it('CONTRAST — nothing in the way: no leads, the plain diagonal', () => {
     const boxes = [B('s', 0, 0, 260, 100, 1), B('t', 0, 200, 260, 100, 2)]
     expect(resolveLayeredEdgeLeads('s', 't', 130, 100, 130, 200, boxes)).toBeNull()
@@ -277,6 +345,9 @@ describe('WS1 #10 — resolveLayeredEdgeLeads', () => {
  * The visible gap was 48 here until the review of #2074 (Blocker 1): at the
  * bound the kind shape's 24-unit overhang and the band title's 24-unit line
  * need 64 with their clearances, so the constant went back to 48 (64 visible).
+ * 27 Sep 2026: Paul's laptop-width ruling — the constant is 40 (56 visible).
+ * 27 Sep 2026, landing text cap 1.36 → 1.64: the budget is 63.04, so the constant
+ * rose by the rounded-up shortfall, 40 → 48 (64 visible) — Canvas owner.
  * The budget itself is asserted by `bandTitleClearsKindGlyph.guard.spec.ts`;
  * this arm keeps #11's point — ONE gap, whatever a browser persisted.
  */
@@ -329,33 +400,78 @@ describe('WS1 #27 — one row-end prompt per band', () => {
 /* ── #28 ──────────────────────────────────────────────────────────────────── */
 
 describe('WS1 #28 — a polarity glyph keeps off the band title', () => {
-  const half = GLYPH_PAINTED_BOX_FLOW / 2
-  const clear = (o: { dx: number; dy: number }, k: { x0: number; y0: number; x1: number; y1: number }) =>
-    o.dx + half <= k.x0 || o.dx - half >= k.x1 || o.dy + half <= k.y0 || o.dy - half >= k.y1
+  // ⚠ RE-WRITTEN 28 Sep 2026 (canvas/paul-test-edges): the sign no longer stands
+  // in a row that the title shifts sideways by whole slots — that shift is what
+  // left a `+` 130 flow units off its own line on Paul's `pa_vs_ai`. Each sign
+  // now sits ON its own line (`edgeGlyphPlacement.ts` rule B) and slides ALONG
+  // it off the title; and a card whose apex the title covers takes its link just
+  // past the word (rule A). Judged at the bound: the title box is `boxAtBound`,
+  // the sign's box `GLYPH_PAINTED_BOX_FLOW`, the head the widest band's.
+  const AT_BOUND = glyphMetricsAt(3, MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE)
+  const reach = AT_BOUND.halfBox + AT_BOUND.gap
+  const clear = (p: { x: number; y: number }, k: { x0: number; y0: number; x1: number; y1: number }) =>
+    p.x + reach <= k.x0 || p.x - reach >= k.x1 || p.y + reach <= k.y0 || p.y - reach >= k.y1
+  /** A link falling into a card whose top is y 1000, from up and to the right. */
+  const LINE = flattenSvgPath('M300,940 C300,970 100,970 100,1000')!
 
-  it('a glyph whose natural spot is on the title moves off it', () => {
-    const target = { x: 0, y: 60 }
-    const siblings = [{ id: 'e1', sourceCentre: { x: 0, y: -400 } }]
-    const free = resolvePolarityGlyphOffset('e1', target, siblings)
-    // A title box covering the natural spot.
-    const keepOut = { x0: free.dx - 40, y0: free.dy - 15, x1: free.dx + 40, y1: free.dy + 15 }
-    expect(clear(free, keepOut)).toBe(false) // CONTRAST: without the keep-out it IS on the title
-    const moved = resolvePolarityGlyphOffset('e1', target, siblings, keepOut)
-    expect(clear(moved, keepOut)).toBe(true)
+  it('a sign whose natural spot is on the title slides along its own line off it', () => {
+    const free = resolvePolarityGlyphOnPath(LINE, 1000, AT_BOUND)
+    const title = { x0: free.x - 40, y0: free.y - 15, x1: free.x + 40, y1: free.y + 15 }
+    expect(clear(free, title)).toBe(false) // CONTRAST: without the keep-out it IS on the title
+    const moved = resolvePolarityGlyphOnPath(LINE, 1000, AT_BOUND, [title])
+    expect(moved.clear).toBe(true)
+    expect(clear(moved, title)).toBe(true)
+    // ON its own line: within a unit of the flattened path's nearest segment.
+    let off = Infinity
+    for (let k = 1; k < LINE.points.length; k++) {
+      const a = LINE.points[k - 1]
+      const b = LINE.points[k]
+      const vx = b.x - a.x
+      const vy = b.y - a.y
+      const t = Math.max(0, Math.min(1, ((moved.x - a.x) * vx + (moved.y - a.y) * vy) / (vx * vx + vy * vy)))
+      off = Math.min(off, Math.hypot(moved.x - (a.x + t * vx), moved.y - (a.y + t * vy)))
+    }
+    expect(off).toBeLessThan(1)
   })
 
-  it('two edges approaching from the same direction still get distinct spots under a keep-out', () => {
-    const target = { x: 0, y: 60 }
+  it('a thin title strip over the sign\'s spot still moves it', () => {
+    const free = resolvePolarityGlyphOnPath(LINE, 1000, AT_BOUND)
+    const title = { x0: free.x - 40, y0: free.y - 2, x1: free.x + 40, y1: free.y + 2 }
+    expect(clear(free, title)).toBe(false)
+    expect(clear(resolvePolarityGlyphOnPath(LINE, 1000, AT_BOUND, [title]), title)).toBe(true)
+  })
+
+  it('two links from the same place into one card still get distinct arrivals, and distinct signs under a keep-out', () => {
+    const card = { x: 0, width: 720 }
     const siblings = [
-      { id: 'a', sourceCentre: { x: 0, y: -400 } },
-      { id: 'b', sourceCentre: { x: 0, y: -400 } },
+      { id: 'a', sourceCentre: { x: 360, y: -400 } },
+      { id: 'b', sourceCentre: { x: 360, y: -400 } },
     ]
-    const base = resolvePolarityGlyphOffset('a', target, siblings)
-    const keepOut = { x0: base.dx - 40, y0: base.dy - 15, x1: base.dx + 40, y1: base.dy + 15 }
-    const a = resolvePolarityGlyphOffset('a', target, siblings, keepOut)
-    const b = resolvePolarityGlyphOffset('b', target, siblings, keepOut)
+    const a = resolveArrivalSlot('a', card, siblings)
+    const b = resolveArrivalSlot('b', card, siblings)
     expect(a).not.toEqual(b)
-    expect(clear(a, keepOut) && clear(b, keepOut)).toBe(true)
+    const lineOf = (dx: number) => flattenSvgPath(`M360,700 C360,850 ${360 + dx},850 ${360 + dx},1000`)!
+    const title = { x0: 300, y0: 940, x1: 420, y1: 960 }
+    const ga = resolvePolarityGlyphOnPath(lineOf(a.dx), 1000, AT_BOUND, [title])
+    const gb = resolvePolarityGlyphOnPath(lineOf(b.dx), 1000, AT_BOUND, [title])
+    expect(Math.hypot(ga.x - gb.x, ga.y - gb.y)).toBeGreaterThan(2 * AT_BOUND.halfBox)
+    expect(clear(ga, title) && clear(gb, title)).toBe(true)
+  })
+
+  it('on a laid-out board, the first consequence card\'s one link arrives past its row\'s band word', async () => {
+    const { nodes, edges, heights } = board({ options: 2, factors: 2, outcomes: 2, risks: 1 }, () => 150)
+    const out = await layoutGraph(nodes, edges, { heightAtLabelBound: heights })
+    const laid = out.nodes.map((n) => ({ ...n, measured: { width: REPEATED_CARD_W, height: heights.get(n.id) } })) as Node[]
+    const lane = deriveTierLanes(laid).find((l) => l.tier === TIER_BY_KIND.outcome)!
+    const first = laid.filter((n) => TIER_BY_KIND[n.type as string] === lane.tier).sort((p, q) => p.position.x - q.position.x)[0]
+    const title = tierLaneTitleBoxFor(laid, first.id)!
+    const cx = first.position.x + REPEATED_CARD_W / 2
+    // PRECONDITION: the word stands over that card's apex.
+    expect(title.x0).toBeLessThan(cx)
+    expect(title.x1).toBeGreaterThan(cx)
+    const slot = resolveArrivalSlot('e', { x: first.position.x, width: REPEATED_CARD_W }, [{ id: 'e', sourceCentre: { x: cx + 300, y: 0 } }], title)
+    expect(slot.onKindShape).toBe(false)
+    expect(cx + slot.dx).toBeGreaterThan(title.x1)
   })
 
   it('the title box is the band label\'s own, left-anchored at the board column, above the row', async () => {
@@ -446,8 +562,9 @@ describe('WS1 #17 — the title yields line 1 to the corner mark only when ITS f
 describe('WS1 #25 — the far-zoom title holds the contract\'s 9px chip size', () => {
   it('at the six-zoom-outs camera (0.167) the title renders at 9px, not 4.7px', () => {
     const z = 0.167
-    expect(CANVAS_TYPE_PX.nodeTitle * labelCounterScale(z) * z).toBeLessThan(5)
-    expect(CANVAS_TYPE_PX.nodeTitle * farTitleScale(z) * z).toBeCloseTo(FAR_TITLE_PX, 6)
+    // The far title is DECLARED at 14px (`FAR_TITLE_DECLARED_PX`), not the 13px card title.
+    expect(FAR_TITLE_DECLARED_PX * labelCounterScale(z) * z).toBeLessThan(5)
+    expect(FAR_TITLE_DECLARED_PX * farTitleScale(z) * z).toBeCloseTo(FAR_TITLE_PX, 6)
   })
   it('CONTRAST — at and above the landing floor it is the ordinary label scale', () => {
     for (const z of [0.5, 0.75, 1, 2]) expect(farTitleScale(z)).toBe(labelCounterScale(z))
@@ -456,7 +573,7 @@ describe('WS1 #25 — the far-zoom title holds the contract\'s 9px chip size', (
     // the ordinary scale, holding the contract's 9px where the capped title
     // would draw 6.66px. (At the old 2x cap the two met down to 0.32.)
     expect(farTitleScale(0.35)).toBeGreaterThan(labelCounterScale(0.35))
-    expect(CANVAS_TYPE_PX.nodeTitle * farTitleScale(0.35) * 0.35).toBeCloseTo(FAR_TITLE_PX, 6)
+    expect(FAR_TITLE_DECLARED_PX * farTitleScale(0.35) * 0.35).toBeCloseTo(FAR_TITLE_PX, 6)
   })
   it('is bounded at twice the landing bound — the GLYPH bound, so the 9px chip survives the text ceiling', () => {
     expect(farTitleScale(0.05)).toBe(FAR_TITLE_MAX_SCALE)

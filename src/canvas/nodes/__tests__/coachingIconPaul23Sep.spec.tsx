@@ -193,8 +193,9 @@ describe('Paul 23 Sep point 6 — ONE discreet coaching icon on EVERY card at No
     expect(el.closest(`[data-testid="node-quick-actions-${id}"]`)).toBeNull()
     // ONE glyph on every card — v3.1 `coaching`, the bubble with "?" (DESIGN-GAP
     // #42; was MessageCircle under Panel R3 — conflict named in askOlumiOneGlyph).
-    expect(el.querySelector('svg.lucide-message-circle-question')).toBeTruthy()
-    expect(el.querySelectorAll('svg')).toHaveLength(1)
+    // Paul 1 Oct 2026: the REAL full-colour Olumi brand mark (was the §9.8 single-colour outline, Paul 30 Sep).
+    expect(el.querySelector('img.olumi-glyph-ai[data-icon="olumi-brand-mark"]')).toBeTruthy()
+    expect(el.querySelectorAll('svg, img')).toHaveLength(1)
     // Point 12 — an accessible name, never an unnamed icon.
     expect((el.getAttribute('aria-label') ?? '').trim().length).toBeGreaterThan(0)
   })
@@ -300,11 +301,15 @@ describe('Paul 23 Sep point 12 — the icon is discreet at rest and visibly labe
   // ⛔ UPDATED 25 Sep 2026 (gap 34, Visual Contract §02 `.icon-btn{color:#777B77}`):
   // the resting grey is now the rail's contract grey, not `text-text-light`. The
   // point-6 claim — grey at rest, never Info at rest — is unchanged.
-  it('muted at rest (the rail grey, #777B77), info on hover AND keyboard focus, with a visible focus ring', () => {
+  // ⛔ UPDATED 29 Sep 2026 (Paul, "pixel perfect with the design artefact"): the
+  // contract's `.icon-btn.coaching{color:var(--muted)}` — the card-scoped muted ink
+  // (#666762), one step quieter than the rail's other icons. Still grey, never Info.
+  it('muted at rest (the contract --muted), info on hover AND keyboard focus, with a visible focus ring', () => {
     setState({ lodRung: 'full' })
     renderCard('fac-price')
     const cls = icon('fac-price')!.className
-    expect(cls.split(/\s+/)).toContain(NODE_RAIL_REST_TONE_CLASS)
+    expect(cls.split(/\s+/)).toContain('text-text-light')
+    expect(cls.split(/\s+/)).not.toContain(NODE_RAIL_REST_TONE_CLASS)
     expect(cls.split(/\s+/)).not.toContain('text-info')
     expect(cls).toContain('hover:text-info')
     expect(cls).toContain('focus-visible:text-info')

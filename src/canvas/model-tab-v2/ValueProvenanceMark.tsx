@@ -38,10 +38,15 @@ export interface ValueProvenanceMarkProps {
   source: string | null | undefined
   /** Row id, for a testid that binds to THIS row and not to a sibling. */
   rowId: string
+  /**
+   * The row's observed state is Olumi's figure, ACCEPTED (`ModelRow.provenanceAccepted`, derived by
+   * `classifyObservedValueProvenance`; 52f8cd). The stamp alone (`user_assumption`) cannot say so.
+   */
+  accepted?: boolean
 }
 
-export function ValueProvenanceMark({ source, rowId }: ValueProvenanceMarkProps) {
-  const cls = classifyValueProvenance(source)
+export function ValueProvenanceMark({ source, rowId, accepted = false }: ValueProvenanceMarkProps) {
+  const cls = accepted ? { kind: 'accepted' as const } : classifyValueProvenance(source)
   // Absence is rendered as absence — the same rule `SourceProvenancePill` keeps
   // with `showWhenAbsent={false}`. An unrecognised literal is NOT drawn as a
   // neutral glyph, because that would assert "we know where this came from".

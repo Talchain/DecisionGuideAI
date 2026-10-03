@@ -41,6 +41,7 @@
  * drawn: direction is a line colour plus a + or - marker. Every row here is now
  * derived from what StyledEdge actually paints.
  */
+import { topLeftChromeBottomPx } from '../utils/topBarClearance'
 import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { factorValueSourceMark } from '../nodes/shared/valueSourceMark'
 import { hasAnyStatedValue } from '../utils/observedStateHelpers'
@@ -53,7 +54,7 @@ import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../domain/vocabulary
 import { classifyNodeProvenance } from '../domain/valueProvenance'
 import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
-import { CURRENT_MODEL_NOUN, METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
+import { CURRENT_MODEL_NOUN, METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, TYPE_NUMBER_LEGEND_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
 import { ATTENTION_MARKER_GLYPH } from '../nodes/shared/NodeAttentionMarker'
 import { EVIDENCE_RAIL_GLYPH, BEHAVIOUR_RAIL_GLYPH, NODE_RAIL_TONE_CLASS } from '../nodes/shared/NodeRailIcons'
@@ -614,7 +615,7 @@ const PROVENANCE_ROWS: LegendRow[] = (['user_set', 'from_brief', 'ai_inferred'] 
  * mark no card can carry yet — the rule the fragility row already follows.
  */
 function CardIconSwatch({ Icon, inkClass, strokeWidth }: {
-  Icon: typeof ATTENTION_MARKER_GLYPH.Icon
+  Icon: typeof ATTENTION_MARKER_GLYPH.Icon | typeof COACHING_ICON_GLYPH.Icon
   inkClass: string
   strokeWidth?: number
 }) {
@@ -913,7 +914,7 @@ const METRIC_ROW_VISIBLE: Readonly<Record<string, (b: LegendBoardState) => boole
   // puzzled reader opens it for. Importing the constant makes that
   // unreachable rather than caught.
   [SENSITIVITY_RANK_LEGEND_NOUN]: (b) => b.isPostAnalysis,
-  '1, 2, 3 on an option': (b) => b.ordinalsOnScreen,
+  [TYPE_NUMBER_LEGEND_NOUN]: (b) => b.ordinalsOnScreen,
   // ALWAYS LIVE, and pre-run is exactly when it is most on screen: a drafted
   // model arrives with every bridge strength unset, so the risk and outcome
   // cards say this before any analysis has run.
@@ -1174,8 +1175,8 @@ export function CanvasLegendPopover({ variant = 'icon', open: openProp, onOpenCh
       // panel's heading under the bar at every x — measured at 1280x800: panel
       // top 12, bar bottom 51. `--topbar-h` is the bar's bottom edge
       // (`TopBar.tsx`); 0 when no bar is mounted, which is the old cap.
-      const topBarBottom =
-        parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 0
+      // 1 Oct 2026: the bar is now a top-left pill; clear ITS bottom edge (`topLeftChromeBottomPx`).
+      const topBarBottom = topLeftChromeBottomPx()
       setMaxHeightPx(Math.max(0, bottom - topBarBottom - VIEWPORT_GUTTER_PX))
     }
     measure()

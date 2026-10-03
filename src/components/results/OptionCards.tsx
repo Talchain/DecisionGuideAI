@@ -61,6 +61,7 @@ import {
 import { formatDownsideValue } from './utils/formatDownsideValue'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { useCanvasStore, selectResultsStatus } from '../../canvas/store'
+import { selectWinSharesWithheld } from '../../canvas/state/winShareGate'
 import { isGraphLensEnabled } from '../../flags'
 import type { OptionResult, DecisionState, HingeInfo, ConfidenceTier, OutcomeUnitType } from './types'
 import {
@@ -71,6 +72,7 @@ import { buildSegmentColorMap, WIN_GAUGE_COLORS } from './WinGauge'
 import Tooltip from '../Tooltip'
 import { winnerChipLabel, winnerChipPrompt } from './utils/winnerChipCopy'
 import { openAskOlumi } from './coaching/askOlumiStore'
+import { RESTS_ON_ACCEPTED_OLUMI_LABEL } from './utils/goalIdentityWithheld'
 
 export interface OptionCardsProps {
   options: OptionResult[]
@@ -378,7 +380,7 @@ function hingeAwareDescription(
     // above. The conditional-flip line is honest copy where a leader HAS been
     // designated; it is the designation it presupposes, not the factor it
     // names, that made it unrenderable on a withheld one.
-    if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === option.label) {
+    if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === (option.labelAsWritten ?? option.label)) {
       return `If ${hinge.label} shifts, this option overtakes`
     }
     // The retired point-gap line and its surviving near-tie predicate — see
@@ -550,9 +552,15 @@ function OptionCard({
   outcomeUnit,
   outcomeUnitSymbol,
   isNormalised,
+  winSharesWithheld = false,
 }: {
   option: OptionResult
   isWinner: boolean
+  /**
+   * CURRENT-READ-v1 row 9 — the producer withheld the leader, so this card shows no win share: no header figure
+   * and no fill bar. From `winShareGate` via `OptionCards`; default `false` renders exactly as before.
+   */
+  winSharesWithheld?: boolean
   /** ROADMAP 1.223 — see OptionCardsProps. Gates the comparative SENTENCES. */
   hasLeadingOption?: boolean
   /**
@@ -757,7 +765,7 @@ function OptionCard({
           </span>
         )}
         <span className="flex-1" />
-        {option.winProbability != null && (
+        {option.winProbability != null && !winSharesWithheld && (
           <Tooltip
             content={
               isBelowSimulationResolution(option.winProbability, option.nValidSamples)
@@ -787,7 +795,7 @@ function OptionCard({
       ) : null}
 
       {/* Task 6b: Coloured fill bar matching wins-bar segment colour */}
-      {option.winProbability != null && segmentFillColor && !neutralised && (
+      {option.winProbability != null && segmentFillColor && !neutralised && !winSharesWithheld && (
         <div
           className="w-full rounded-full overflow-hidden"
           style={{ height: 5, backgroundColor: 'var(--border-default, #EEE6D8)' }}
@@ -870,9 +878,7 @@ function OptionCard({
                 className={`${typography.panelMeta} inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-danger/30 text-text-body`}
                 data-testid={`low-goal-warning-${option.id}`}
               >
-                {goalFitSubstituted
-                  ? GOAL_ANCHOR_COPY.phrase(lowGoalReadout, goalFitSubstituted)
-                  : `${lowGoalReadout} likely to reach target`}
+                {GOAL_ANCHOR_COPY.readout(lowGoalReadout, goalFitSubstituted)}
               </span>
             </div>
           )}
@@ -927,8 +933,18 @@ function OptionCard({
                 Dots show the median. Bars show the realistic range (10th to 90th
                 percentile).
               </p>
+              {option.outcomeRestsOnAcceptedOlumi === true && (
+                <p
+                  className={`${typography.panelMeta} text-text-light`}
+                  data-testid={`option-rests-on-accepted-${option.id}`}
+                >
+                  {RESTS_ON_ACCEPTED_OLUMI_LABEL}
+                </p>
+              )}
             </>
-          ) : option.outcome?.mean != null ? (
+            // B3 (DL R1 condition 3): under a goal-figure withhold the outcome is shown only WITH its spread, never as a
+            // bare centre.
+          ) : option.outcome?.mean != null && option.goalFigureWithheld !== true ? (
             <p className={`${typography.panelMeta} text-text-light`}>
               Expected: {option.outcome.mean.toLocaleString()}
             </p>
@@ -1127,7 +1143,7 @@ export function OptionCards({
   confidenceTier,
   recommendationStability,
   leadingOptionDownsideFlag,
-  hasLeadingOption,
+  hasLeadingOption: hasLeadingOptionProp,
   outcomeUnit,
   outcomeUnitSymbol,
   isNormalised,
@@ -1135,6 +1151,15 @@ export function OptionCards({
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
   const refMap = cardRefMap ?? internalRefMap
+
+  // ⭐⭐ WIN SHARES FOLLOW THE LEADER CLAIM (CURRENT-READ-v1 row 9; AIQ #75 5912710392). When the producer withheld
+  // the leader (any reason), no card shows its win share: no header figure, no fill bar (`OptionCard` below), and
+  // no leader sentence. The leader sentence, the crown, the rank swatch and "This option currently leads…" all
+  // read ONE entitlement here, so the gate folds into it rather than being repeated per branch. Read through
+  // `winShareGate`; the options panel's reason line is WinGauge's, directly above these cards, so a card adds
+  // none of its own. A PERMITTED run keeps the caller's entitlement unchanged.
+  const winSharesAreWithheld = useCanvasStore(selectWinSharesWithheld)
+  const hasLeadingOption = winSharesAreWithheld ? false : hasLeadingOptionProp
 
   // V11: Indeterminate neutralisation — stone colours, no success border
   const neutralised = decisionState === 'indeterminate'
@@ -1461,6 +1486,7 @@ export function OptionCards({
             outcomeUnitSymbol={outcomeUnitSymbol}
             isNormalised={isNormalised}
             hasLeadingOption={hasLeadingOption}
+            winSharesWithheld={winSharesAreWithheld}
           />
         )
       })}

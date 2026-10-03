@@ -87,6 +87,8 @@ const metadata = (rank: number | null, setSize: number | null, rankedCount: numb
   influenceImportanceBasis: null,
   influenceSetSize: setSize,
   influenceRankedCount: rankedCount,
+  // The bar's figure exists exactly when a rank does (`rankFactor`); rank 1 → 1.
+  driverRelativeSensitivity: rank === null ? null : influence,
   confidence: null,
   confidenceIsDefaulted: false,
   confidenceIsProvisional: false,
@@ -180,14 +182,17 @@ afterEach(() => {
 })
 
 describe('prototype · the driver line is ON the resting card after a run', () => {
-  it('ranked: value line → `Driver N of M analysed` + bar, on the card and not in the popover', () => {
+  it('ranked: value line → `Driver N of M ranked in this run` + bar, on the card and not in the popover', () => {
     displayMetadata = SECOND()
     seed(VALUED, { phase: 'post' })
     renderFactor(VALUED)
     const c = card()
     const value = within(c).getByTestId('factor-recorded-value')
     const driver = within(c).getByTestId('factor-driver-line')
-    expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 3 analysed')
+    // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
+    // one-line slot prints the LONGEST form that fits at the landing bound
+    // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
+    expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 3 ranked')
     expect(within(driver).getByTestId('factor-driver-line-bar')).toBeTruthy()
     expect(before(value, driver)).toBe(true)
     // Never both: the popover (if it mounts) does not repeat it.
@@ -202,7 +207,7 @@ describe('prototype · the driver line is ON the resting card after a run', () =
     seed(VALUED, { phase: 'post' })
     renderFactor(VALUED)
     act(() => useCanvasStore.setState({ analysisFreshnessDirty: true }))
-    expect(within(card()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 2 of 3 analysed')
+    expect(within(card()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 2 of 3')
   })
 
   it('CONTRAST — before a run there is no driver line anywhere (the value line is present)', () => {
@@ -230,7 +235,7 @@ describe('prototype · the TOP driver carries its turning-point track at rest', 
     const c = card()
     const driver = within(c).getByTestId('factor-driver-line')
     const tp = within(c).getByTestId('factor-turning-point')
-    expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 analysed')
+    expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
     // v3.1's `flipPlot` caption (DESIGN-GAP-v31 #38): the direction sentence.
     expect(visibleText(within(tp).getByTestId('factor-turning-point-caption'))).toBe('Below 6.5%, the current model comparison changes.')
     expect(within(tp).queryByTestId('factor-turning-point-caption-value')).toBeNull()
@@ -352,6 +357,17 @@ describe('prototype · an external factor shows its range with a band, on the ca
     if (pop) expect(within(pop).queryByTestId(`factor-prior-range-${ID}`)).toBeNull()
   })
 
+  it('⭐ before a run the range sits directly under the title: the EMPTY driver slot goes below it, and still reserves its line', () => {
+    seed(RANGE_PCT, { phase: 'pre' })
+    renderFactor(RANGE_PCT)
+    const c = card('Feature adoption')
+    const line = within(c).getByTestId(`factor-prior-range-${ID}`)
+    const slot = within(c).getByTestId(`factor-driver-slot-${ID}`)
+    expect(slot.textContent).toBe('')
+    expect(slot.className).toContain('h-[1lh]')
+    expect(before(line, slot), 'a blank line between the title and the range (contract side-by-side, 27 Sep)').toBe(true)
+  })
+
   it('unitless normalised prior: the band ends are the line’s own `0.3` and `0.8`', () => {
     // Review F2 (#2085): a bare 0–1 range of unrecorded origin stays on the
     // card (it may be the person's inspector edit), with its `no source` mark.
@@ -399,6 +415,9 @@ describe('prototype · a currency rate reads `£39,000/year` on the card', () =>
     observedState: { value: 0.39, raw_value: 39000, cap: 100000, unit, extractionType: 'inferred', source: 'cee_inference' },
   })
 
+  // RE-PINNED 27 Sep (side-by-side DIFF item 3): the three value lines below end
+  // `<unit> est.` — one breakable space between the value and its mark, so the
+  // mark wraps with the value (was glued text, `yearest.`, in a no-wrap flex row).
   it('GBP/year → figure `£39,000`, muted unit `/ year` (the compact-unit owner spaces every rate)', () => {
     const data = money('GBP/year')
     seed(data, { phase: 'pre' })
@@ -406,7 +425,7 @@ describe('prototype · a currency rate reads `£39,000/year` on the card', () =>
     const c = card('Annual PA salary')
     expect(within(c).getByTestId(`factor-value-figure-${ID}`).textContent).toBe('£39,000')
     expect(within(c).getByTestId(`factor-value-unit-${ID}`).textContent).toBe('/ year')
-    expect(visibleText(within(c).getByTestId('factor-recorded-value'))).toBe('£39,000 / yearest.')
+    expect(visibleText(within(c).getByTestId('factor-recorded-value'))).toBe('£39,000 / year est.')
   })
 
   it('CONTRAST — a non-currency rate (`hours/week`) is untouched: `40 hours/week`', () => {
@@ -416,13 +435,13 @@ describe('prototype · a currency rate reads `£39,000/year` on the card', () =>
     const c = card('Annual PA salary')
     expect(within(c).getByTestId(`factor-value-figure-${ID}`).textContent).toBe('40')
     expect(within(c).getByTestId(`factor-value-unit-${ID}`).textContent).toBe('hours/week')
-    expect(visibleText(within(c).getByTestId('factor-recorded-value'))).toBe('40 hours/weekest.')
+    expect(visibleText(within(c).getByTestId('factor-recorded-value'))).toBe('40 hours/week est.')
   })
 
   it('CONTRAST — a currency code with no glyph mapping (`CHF/year`) is untouched', () => {
     const data = money('CHF/year')
     seed(data, { phase: 'pre' })
     renderFactor(data)
-    expect(visibleText(within(card('Annual PA salary')).getByTestId('factor-recorded-value'))).toBe('39,000 CHF/yearest.')
+    expect(visibleText(within(card('Annual PA salary')).getByTestId('factor-recorded-value'))).toBe('39,000 CHF/year est.')
   })
 })

@@ -30,6 +30,8 @@ import { resolve } from 'node:path'
 import { OVERLAY_PRIORITY, OVERLAY_BAND_PILL_GUTTER, type OverlayCell } from '../components/CanvasOverlayBand'
 import { CANVAS_LOD_NOTICE_TESTID } from '../components/CanvasLodNotice'
 import { FIRST_MODEL_NOTICE_TESTID } from '../components/FirstModelNotice'
+import { RUN_CHANGES_SUMMARY_TESTID } from '../components/RunChangesSummary'
+import { CANVAS_PROVENANCE_KEY_TESTID } from '../components/CanvasProvenanceKey'
 
 const COMPONENTS = resolve(__dirname, '../components')
 
@@ -44,15 +46,36 @@ const MIGRATED = [
   // 26 Sep 2026) — it is the quiet top-right context line now, and makes no
   // `useOverlayCell` call. Pinned below as a departure, not merely dropped.
   'LensInfoPanel.tsx',
-  // Paul 23 Sep contract feedback point 14 — the bottom-right cell's claimant.
+  // Paul 23 Sep contract feedback point 14. Since 27 Sep 2026 (canvas-8ffc
+  // sbs-post DIFF item 8) it holds the bottom-LEFT slot — the contract's canvas
+  // foot — but paints beneath the graph instead of inside the band; see
+  // `PAINTS_BENEATH_THE_GRAPH` below.
   'AnalysisStateCue.tsx',
   // DESIGN-GAP-AUDIT row 6, 24 Sep 2026 — the bottom-left cell's second
   // claimant, joining `LensInfoPanel.tsx`.
   'CanvasFooterSummary.tsx',
-  // A16 AUDIT, 25 Sep 2026 — the bottom-right cell's second claimant, ranked
-  // ahead of `AnalysisStateCue.tsx`.
+  // A16 AUDIT, 25 Sep 2026 — the bottom-right cell's claimant (it outranked
+  // `AnalysisStateCue.tsx` there until the cue moved to the canvas foot).
   'DegradedBanner.tsx',
+  // M2 (PTL #85 5933452605, 1 Oct 2026): the rerun's compact summary, a bottom-centre claimant.
+  'RunChangesSummary.tsx',
+  // The canvas key (DL #85 5939855664 / PTL 5941434564, 1 Oct 2026): a bottom-right claimant after degraded-banner.
+  'CanvasProvenanceKey.tsx',
 ] as const
+
+/**
+ * ⭐ THE ONE CLAIMANT THAT IS NOT DRAWN INTO ITS CELL (27 Sep 2026, canvas-8ffc
+ * sbs-post DIFF item 8). `AnalysisStateCue` claims the bottom-left slot for
+ * arbitration and width, but renders inside `.react-flow` BELOW the renderer,
+ * because the band paints above the graph and on a board that overflows at the
+ * legibility floor (Paul's 90b8) no band slot is card-free at landing. So the
+ * band's `pointer-events: none` never reaches it, and it has no control to
+ * re-enable: it is a sentence, and the pane above it must keep every pan and
+ * click. The pointer-events rule below does not apply to it; its own spec
+ * (`AnalysisStateCue.band.spec.tsx`) pins `pointer-events: none` and the paint
+ * order instead.
+ */
+const PAINTS_BENEATH_THE_GRAPH = new Set(['AnalysisStateCue.tsx'])
 
 function readComponent(file: string): string {
   return readFileSync(resolve(COMPONENTS, file), 'utf8')
@@ -72,6 +95,8 @@ function stripComments(source: string): string {
 const TOKEN_TO_ID: Record<string, string> = {
   CANVAS_LOD_NOTICE_TESTID,
   FIRST_MODEL_NOTICE_TESTID,
+  RUN_CHANGES_SUMMARY_TESTID,
+  CANVAS_PROVENANCE_KEY_TESTID,
 }
 
 interface FoundClaim {
@@ -177,7 +202,15 @@ describe('overlay ownership — derived from the migrated components’ bytes', 
     //
     // ⚠ SCOPE, STATED: this proves the DECLARATION is present in the component's
     // bytes. It is not a real-browser hit test, and jsdom cannot perform one.
+    // The exemption is PINNED, not a hole: a file may claim it only while it
+    // really does not portal into the band and really enables no pointer events.
+    for (const file of PAINTS_BENEATH_THE_GRAPH) {
+      const stripped = stripComments(readComponent(file))
+      expect(stripped, `${file}: claims to paint beneath the graph but portals into the band`).not.toContain('createPortal')
+      expect(ENABLES_POINTER_EVENTS.test(stripped), `${file}: paints beneath the graph yet re-enables pointer events`).toBe(false)
+    }
     for (const file of MIGRATED) {
+      if (PAINTS_BENEATH_THE_GRAPH.has(file)) continue
       const stripped = stripComments(readComponent(file))
       expect(
         ENABLES_POINTER_EVENTS.test(stripped),

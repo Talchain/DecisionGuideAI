@@ -254,6 +254,11 @@ export interface ReadinessDisplayInput {
   readonly blockedListing?: GateBlockedListing
   /** `readinessNothingHasAnswered(...)`, from the same two authorities the gate reads. */
   readonly nothingHasAnswered: boolean
+  /**
+   * `selectSavedRunUnconfirmed`: a saved Run exists that the boot could not confirm. Read only on the resting (ready)
+   * arm, where it replaces the subline; every other arm (outage, running, blocked, pending) says more and keeps its words.
+   */
+  readonly savedRunUnconfirmed?: boolean
   /** What this surface says when none of the arms above fire. */
   readonly resting: ReadinessDisplay
 }
@@ -342,6 +347,9 @@ export function deriveReadinessDisplay(input: ReadinessDisplayInput): ReadinessD
       headline: FOOTER_COPY.readinessPending,
       subline: FOOTER_COPY.readinessPendingSub,
     }
+  }
+  if (input.savedRunUnconfirmed === true) {
+    return { ...input.resting, subline: FOOTER_COPY.savedRunUnconfirmedSub }
   }
   return input.resting
 }

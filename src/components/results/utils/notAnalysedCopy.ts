@@ -40,6 +40,24 @@ import type { NotAnalysedReason } from './notAnalysedOptions'
 export const NOT_ANALYSED_BADGE = 'Not analysed'
 
 /**
+ * THE USER TOOK IT OUT (schemas 0.69.0 `excluded_infeasible` / `excluded_removed`): the DL's words (5932328304), one
+ * wording on the panel and the canvas card. It is the user's own act, so never "Not analysed" or "not compared", and it
+ * holds on any Run that recorded it.
+ */
+export const TAKEN_OUT_INFEASIBLE_LABEL = 'Taken out: not feasible'
+export const TAKEN_OUT_REMOVED_LABEL = 'Taken out'
+export function takenOutLabel(reason: NotAnalysedReason): string | null {
+  if (reason === 'taken_out_infeasible') return TAKEN_OUT_INFEASIBLE_LABEL
+  if (reason === 'taken_out_removed') return TAKEN_OUT_REMOVED_LABEL
+  return null
+}
+
+/** The badge beside the option's name: the taken-out label when the user took it out, else "Not analysed". */
+export function notAnalysedBadge(reason: NotAnalysedReason): string {
+  return takenOutLabel(reason) ?? NOT_ANALYSED_BADGE
+}
+
+/**
  * Why this option carries no rank and no probability.
  *
  * Both sentences state the CONSEQUENCE explicitly ("no rank and no
@@ -47,10 +65,57 @@ export const NOT_ANALYSED_BADGE = 'Not analysed'
  * A card that silently omits numbers reads as a rendering gap; a card that says
  * why reads as a decision.
  */
-export function notAnalysedReasonCopy(reason: NotAnalysedReason): string {
+export function notAnalysedReasonCopy(reason: NotAnalysedReason, resultsCurrent = true): string {
+  const takenOut = takenOutLabel(reason)
+  if (takenOut !== null) return takenOut
+  if (reason === 'excluded_olumi_proposed') return OLUMI_PROPOSED_EXCLUDED_COPY
+  // ⛔ AIQ pre-share hold (R3 B0 S3): on a Run that is not current, the option may have been added after it — "left out
+  // of the comparison" is a claim about that Run. The graph fact stays; the Run claim goes.
+  if (reason === 'no_interventions' && !resultsCurrent) return NOT_ANALYSED_NO_VALUES_NOT_CURRENT
   return reason === 'no_interventions'
     ? 'This option has no values set yet, so it was left out of the comparison. It has no rank and no probability.'
-    : 'The analysis returned no result for this option, so it has no rank and no probability.'
+    : NOT_ANALYSED_NO_RESULT_COPY
+}
+
+/**
+ * ⛔ CAUSE-NEUTRAL, AND THAT IS THE POINT (AIQ #75 5924727155). `not_returned` means: configured, absent from the
+ * comparison, and NO participation record. That covers a computation that came back empty AND an option CEE left out
+ * on purpose (an unadopted Olumi suggestion, whose typed fact CEE does not emit yet: Panel #75 5924723004). "The
+ * analysis returned no result" told Paul the analysis failed on an option it never ran, so he could re-run for a result
+ * that will never come. This sentence is true of both causes and names neither.
+ */
+export const NOT_ANALYSED_NO_RESULT_COPY = 'This run has no result for this option, so it has no rank and no probability.'
+
+/**
+ * The Run's typed participation fact (Runtime #72 5888341208), said as it is. Olumi's proposal is never presented as the
+ * user's option or as endorsed (AIQ 5887015488, DL 5887510885). Meaning: AIQ.
+ */
+export const OLUMI_SUGGESTION_TAG = "Olumi's suggestion"
+/** `kept_olumi_provisional`'s tag suffix. Not "provisional": that word already means "rests on Olumi's assumptions" (AIQ 5888943993). */
+export const OLUMI_KEPT_TAG_SUFFIX = 'compared for now'
+export const OLUMI_PROPOSED_EXCLUDED_COPY =
+  "Olumi suggested this option. It isn't one of yours, so this run compared your options without it. It has no rank and no probability."
+/**
+ * `kept_olumi_provisional`: the comparison kept Olumi's option. WITH ids, because the gate excluded the user's own
+ * option(s) — they are named. WITHOUT ids, because the user named fewer than two options: nothing failed, so nothing is
+ * said to be unanalysable (DL CHANGES_REQUIRED on #2305; Runtime 5888591648). Meaning: AIQ.
+ */
+export type OlumiKeptCause =
+  /** The fact names no ids (the no-ids keep cannot tell WHY fewer than two of the user's options were compared). */
+  | { readonly kind: 'fewer_than_two' }
+  /** The fact names ids and every one resolves to a label on the canvas. */
+  | { readonly kind: 'named'; readonly labels: readonly string[] }
+  /** The fact names ids that no longer all resolve (e.g. an option since deleted): no cause is claimed. */
+  | { readonly kind: 'unresolved' }
+export function olumiProposedKeptCopy(cause: OlumiKeptCause): string {
+  // AIQ 5889823627: true whether the user named fewer than two options or one of theirs could not be analysed — so it
+  // also serves ids the canvas can no longer name, and never claims which cause it was.
+  if (cause.kind === 'fewer_than_two' || cause.kind === 'unresolved') {
+    return 'Olumi suggested this option. It is compared only because fewer than two of your own options could be compared in this run, so this run puts no option forward.'
+  }
+  const named = cause.labels.map((l) => `\u2018${l}\u2019`)
+  const who = named.length === 1 ? named[0] : `${named.slice(0, -1).join(', ')} and ${named[named.length - 1]}`
+  return `Olumi suggested this option. It is compared only because ${who} can't be analysed yet, so this run puts no option forward.`
 }
 
 /*
@@ -91,6 +156,21 @@ export function notAnalysedReasonCopy(reason: NotAnalysedReason): string {
  * claim needing a fact the authority does not hold is a claim to drop, not one
  * to re-gate — which is the whole lesson of this pair of PRs.
  */
+
+/**
+ * ⭐ THE KEPT FIRST HALF, AS ITS OWN SENTENCE (canvas card, side-by-side DIFF
+ * 27 Sep, item 5). When the result on screen cannot be vouched for, the canvas
+ * withholds the `not_returned` sentence but keeps the `Not analysed` state, as
+ * `NotAnalysedOptionCard` already does. The card still needs a hover and a
+ * screen-reader sentence, and this is the one the note above says was right:
+ * "HAS no result", never "RETURNED". It asserts no change, so it is true
+ * whether the option was left out of the run or added after it.
+ */
+export const NOT_ANALYSED_NO_VALUES_NOT_CURRENT =
+  'This option has no values set yet, and the last analysis has no result for it. It has no rank and no probability.'
+
+export const NOT_ANALYSED_IN_LAST_ANALYSIS =
+  'The last analysis has no result for this option, so it has no rank and no probability.'
 
 /**
  * The label on the resolve affordance, or `null` when there is nothing for the
@@ -159,9 +239,11 @@ export const BRING_INTO_COMPARISON_LABEL = 'What would bring this in?'
  *     submitted, because there was nothing to submit. A question that said the
  *     analysis returned nothing for it would assert a computation that never
  *     happened, on the one card whose whole subject is a missing computation.
- *   · `not_returned` — it WAS submitted and the run came back with nothing for
- *     it. Here naming the run is the true thing to say, and saying "you have
- *     not set this up" instead would blame the user for an engine outcome.
+ *   · `not_returned` — it is configured and this run has nothing for it. That is
+ *     an engine miss OR a deliberate exclusion CEE has not typed yet, so the
+ *     ground names neither cause (AIQ 5924727155): "you have not set this up"
+ *     would blame the user, and "the analysis returned no result" would blame
+ *     the engine for an option it may never have run.
  *
  * Each arm states only what its own ground licenses. Neither implies the option
  * was scored, compared, or found wanting, and neither promises that answering
@@ -185,7 +267,7 @@ export function bringIntoComparisonQuestion(
   const ground =
     reason === 'no_interventions'
       ? `${optionLabel} has no values set yet, so it was left out of the comparison.`
-      : `The analysis returned no result for ${optionLabel}, so it was left out of the comparison.`
+      : `This run has no result for ${optionLabel}.`
   return `${ground} What would it take to bring it in?`
 }
 

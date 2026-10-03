@@ -115,6 +115,7 @@ export const STRUCTURAL_PROVENANCE_LABEL: Readonly<Record<ValueProvenanceKind, s
     brief: GOAL_LABEL_FROM_BRIEF_COPY.pill,
     /** Olumi put this element on the board. The founder's actual question. */
     ai: 'Olumi suggested this',
+    accepted: 'Olumi suggested this', // the element's origin is Olumi's; the user accepted its figure
     /** A person put it there; the wire does not say by which act. */
     human: 'You added this',
     confirmed: 'You confirmed this',

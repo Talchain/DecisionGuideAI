@@ -105,6 +105,10 @@ describe('readProvisionalApplyStore is bound to the REAL canvas store', () => {
     // leg simply never reached it, so a completed analysis arriving here left a
     // pre-run "model changed" standing over its own results.
     expect(typeof view.noteRunCompletedWithoutVerdict).toBe('function')
+    // B5: the per-limit verdicts beside the analysis this leg writes (the turn leg's `setLimitVerdicts`).
+    expect(typeof view.setLimitVerdicts).toBe('function')
+    // SC-24: the pair's comparison beside the analysis this leg writes (the turn leg's `setRunDelta`).
+    expect(view.setRunDelta).toBe(useCanvasStore.getState().setRunDelta)
 
     // BOUNDARY: `applyScenarioAnalysisRead`'s header says the graph belongs to
     // `serverGraphHydration`. The previous spread handed over the entire store,
@@ -113,6 +117,10 @@ describe('readProvisionalApplyStore is bound to the REAL canvas store', () => {
     expect(Object.keys(view).sort()).toEqual(
       [
         'currentResultsHash',
+        // ⚠ ADDED FOR B5 READ-LEG PARITY (Canonical, 28 Sep 2026), ON PURPOSE: the verdicts CEE serves beside the
+        // analysis this leg displays are stamped with the scenario they belong to, exactly as the turn leg stamps them.
+        // A read-only fact from the scenario slice, not a graph slice.
+        'currentScenarioId',
         // ⚠ ADDED BY THE DIVERGENCE GUARDS, AND THIS SPEC CORRECTLY OBJECTED.
         // The applier now needs ONE more fact — whether the canvas on screen
         // derives from a server graph we accepted — so the member set genuinely
@@ -127,7 +135,18 @@ describe('readProvisionalApplyStore is bound to the REAL canvas store', () => {
         // decision rather than being quietly widened.
         'noteRunCompletedWithoutVerdict',
         'resultsComplete',
+        // ⚠ ADDED 30 SEP (row 9 served FAIL on a80db4a9), ON PURPOSE: a results-slice writer the applier already calls
+        // after its results write (`applyScenarioAnalysisRead`, the withholding is MONOTONE — it can only subtract a
+        // claim). Absent from this view, a withheld leader was dropped on every fresh-browser cold open.
+        'resultsWithholdLeaderClaim',
         'setAnalysisStateV1',
+        // ⚠ ADDED FOR B5 READ-LEG PARITY, ON PURPOSE: a results-slice writer (the per-limit verdicts beside the analysis
+        // `resultsComplete` just wrote), never a graph-slice one.
+        'setLimitVerdicts',
+        // ⚠ ADDED FOR SC-24 (30 Sep 2026), ON PURPOSE: the pair's `run_delta` CEE serves beside the analysis this leg
+        // displays is stored with that analysis's hash, exactly as the turn leg stores it (#84 5914416431) — so a
+        // cold reload shows the same A/B pair. A comparison writer, not a graph slice.
+        'setRunDelta',
       ].sort(),
     )
   })

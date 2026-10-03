@@ -20,11 +20,37 @@
  * file chooses words and renders them.
  */
 
+import { useState } from 'react'
 import { typography } from '../../../../styles/typography'
-import { surface } from '../panelSurfaces'
-import type { NoiseVerdict, RunDeltaMovement, RunDeltaView } from '../runDeltaView'
+import { action, surface } from '../panelSurfaces'
+import { INPUT_ROWS_SHOWN_FIRST } from '../runDeltaView'
+import { linkRowText } from '../runDeltaLinkWords'
+import type { NoiseVerdict, RunDeltaInputRow, RunDeltaInputsView, RunDeltaMovement, RunDeltaView } from '../runDeltaView'
+import { useCanvasStore } from '../../../../canvas/store'
+import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../../../canvas/state/winShareGate'
 
 export const WHATS_CHANGED_TESTID = 'analysis-new-whats-changed'
+
+/**
+ * Said when the producer sent no comparable pair for ANY option (an empty `win_probabilities`); shared with the canvas's
+ * compact summary. ⛔ TRUE UNDER EVERY CAUSE THE EMPTY LIST HAS: the earlier Run's figures were withheld (R3 5936720411:
+ * the investor moment, the first Run with figures, read "nothing to compare here"), the current Run's are withheld, or
+ * the options do not match. It names no cause because the wire carries none yet (CANVAS 5936762171: 52f8cd adds a typed
+ * reason; RC's "The options can be compared for the first time" then renders on `prior_withheld`).
+ */
+export const WHATS_CHANGED_NO_PAIRS = 'No option has figures from both runs to compare.'
+
+/**
+ * 0.70.0, RC's UNWITHHELD (contract RERUN-EXPLANATION): the earlier Run withheld its figures, so this is the FIRST
+ * comparison. Said ONLY on the producer's typed `win_probabilities_unavailable === 'prior_withheld'`, never inferred from
+ * an empty array; it claims no movement, because there were no earlier figures (`RX-NO-MOVEMENT-WITHOUT-PRIOR`).
+ */
+export const WHATS_CHANGED_FIRST_COMPARISON = 'The options can be compared for the first time.'
+
+/** The sentence for an empty `win_probabilities`, by the producer's typed reason. */
+export function noPairsText(view: Pick<RunDeltaView, 'winProbabilitiesUnavailable'>): string {
+  return view.winProbabilitiesUnavailable === 'prior_withheld' ? WHATS_CHANGED_FIRST_COMPARISON : WHATS_CHANGED_NO_PAIRS
+}
 
 /**
  * A score, as a percentage.
@@ -59,16 +85,24 @@ export function noiseQualifier(v: NoiseVerdict): string | null {
   return null
 }
 
-/** What a person is told about ONE option's movement. */
-function MovementLine({ m, sharedQualifier }: { m: RunDeltaMovement; sharedQualifier: boolean }): JSX.Element {
+/**
+ * ONE option's movement in words ("Option B: 41% → 55%"). Exported so the canvas's compact summary
+ * (`graphChanges/RunChangesSummary`) says exactly what this section says, never a second phrasing.
+ */
+export function movementText(m: RunDeltaMovement): string {
   const name = m.label ?? 'An option this run does not name'
   // ⛔ `not_noise_qualified` IS DIRECTION ONLY. The contract: "reported as
   // direction only, never dressed as signal" — so the two numbers are withheld
   // rather than printed with a caveat, because a caveat under a precise figure
   // is read as precision.
-  const body = m.mayShowMagnitude
+  return m.mayShowMagnitude
     ? `${name}: ${pct(m.prior)} → ${pct(m.current)}`
     : `${name}: ${m.direction === 'up' ? 'scored higher' : m.direction === 'down' ? 'scored lower' : 'scored the same'} than last time`
+}
+
+/** What a person is told about ONE option's movement. */
+function MovementLine({ m, sharedQualifier }: { m: RunDeltaMovement; sharedQualifier: boolean }): JSX.Element {
+  const body = movementText(m)
 
   const qualifier = sharedQualifier ? null : noiseQualifier(m.noiseVerdict)
 
@@ -89,15 +123,141 @@ function MovementLine({ m, sharedQualifier }: { m: RunDeltaMovement; sharedQuali
   )
 }
 
-export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Element | null {
+/** One input row: "Pro price, Raise to £60: £59 → £60". Words only — the values are the producer's. */
+/** Exported for the canvas's compact summary, so both surfaces say one thing. */
+/** How a sizing literal reads, for a sizing change RC's contract has no sentence for (any other transition). */
+export function inputRowText(row: RunDeltaInputRow): string {
+  const link = linkRowText(row)
+  if (link !== null) return link
+  if (row.change === 'changed') return `${row.subject}: ${row.before} → ${row.after}`
+  if (row.kind === 'option') return row.change === 'added' ? `${row.subject} joined the comparison` : `${row.subject} left the comparison`
+  // AIQ #75 5918248701: a link added or removed is structure, not a value — say so, never "now on" / "now not set".
+  if (row.kind === 'link') return row.change === 'added' ? `${row.subject} added to the model` : `${row.subject} removed from the model`
+  if (row.change === 'added') return `${row.subject}: now ${row.after}`
+  return `${row.subject}: ${row.before}, now not set`
+}
+
+/**
+ * The Compare tab's link from a row to the canvas (CANVAS, lease DL #75 5920620752 / UNDO grant 5920635710).
+ * Returns the row's focus action, `null` when nothing on the current canvas stands for it, or `undefined` when the
+ * surface has no canvas link at all (the Reasoning receipt). The ids behind it are the row's own, never its key text.
+ */
+export type InputRowFocus = (row: RunDeltaInputRow) => (() => void) | null | undefined
+/**
+ * Hover / keyboard-focus lighting of the row's element on the canvas (CANVAS, DL #85 5939855664), by the same identity
+ * as `InputRowFocus`. `null` = nothing on the canvas stands for the row, so nothing lights.
+ */
+export type InputRowLight = (row: RunDeltaInputRow) => { on: () => void; off: () => void } | null
+
+export const INPUTS_NOT_RECORDED_TEXT = 'The earlier run did not record its inputs, so only the result is compared here.'
+/**
+ * "Same input VALUES", not "same inputs" (DL 5936794868): a provenance-only change (an Accept of Olumi's estimate) leaves
+ * every value equal and still changes the model, so "the same inputs" would be false on it. Until 52f8cd's typed row names
+ * that change, this is the sentence that is true for both an identical rerun and an Accept.
+ */
+export const INPUTS_UNCHANGED_TEXT = 'Both runs used the same input values.'
+export const INPUTS_PARTIAL_TEXT = 'Some inputs could not be compared between these two runs.'
+
+/**
+ * What an EMPTY input list means, by coverage — the one wording both this section and the canvas's compact summary use
+ * (R3 5936613334: the canvas said "The inputs were not recorded" over a `complete` pair, a second phrasing that was false).
+ * `null` when there are rows, or no input comparison at all (a pre-SC-24 delta: nothing is said).
+ * ⛔ "Same inputs" is true ONLY on `complete` + no rows (AIQ 5921719917). On `partial` the producer could not compare
+ * every input, so an empty list is NOT "nothing changed" — the partial line wins (served 4f61c322: an option-setting
+ * edit read "Both runs used the same inputs", CANVAS 5921676745; DL re-balance 5921830092).
+ */
+export function emptyInputsText(inputs: RunDeltaInputsView | null): string | null {
+  if (inputs === null) return null
+  if (inputs.coverage === 'not_recorded') return INPUTS_NOT_RECORDED_TEXT
+  if (inputs.rows.length > 0) return null
+  return inputs.coverage === 'complete' ? INPUTS_UNCHANGED_TEXT : INPUTS_PARTIAL_TEXT
+}
+
+function InputChanges({ inputs, rowFocus, rowLight }: { inputs: RunDeltaInputsView | null; rowFocus?: InputRowFocus; rowLight?: InputRowLight }): JSX.Element | null {
+  const [expanded, setExpanded] = useState(false)
+  if (inputs === null) return null
+  const empty = emptyInputsText(inputs)
+  if (empty !== null) {
+    const id = inputs.coverage === 'not_recorded' ? 'inputs-not-recorded' : inputs.coverage === 'complete' ? 'inputs-unchanged' : 'inputs-partial'
+    return (
+      <p className={`${typography.panelMeta} text-text-light mt-2 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-${id}`}>
+        {empty}
+      </p>
+    )
+  }
+  const shown = expanded ? inputs.rows : inputs.rows.slice(0, INPUT_ROWS_SHOWN_FIRST)
+  return (
+    <div className="mt-3" data-testid={`${WHATS_CHANGED_TESTID}-inputs`} data-coverage={inputs.coverage}>
+      <p className={`${typography.panelMeta} text-text-light m-0`} data-testid={`${WHATS_CHANGED_TESTID}-inputs-heading`}>Changed between the two runs</p>
+      <ul className="list-none p-0 mt-1 mb-0 space-y-1">
+        {shown.map((row) => {
+          const focus = rowFocus?.(row)
+          const light = focus ? rowLight?.(row) ?? null : null
+          return (
+            <li key={row.key} className={`${typography.panelBody} text-text m-0`} data-testid={`${WHATS_CHANGED_TESTID}-input-row`} data-kind={row.kind} data-change={row.change} data-on-canvas={focus === undefined ? undefined : focus === null ? 'false' : 'true'}>
+              {focus ? (
+                <button
+                  type="button"
+                  className={`${action('inline')} text-left`}
+                  data-testid={`${WHATS_CHANGED_TESTID}-input-row-focus`}
+                  aria-label={`Show on the canvas: ${inputRowText(row)}`}
+                  onClick={focus}
+                  onMouseEnter={light?.on}
+                  onMouseLeave={light?.off}
+                  onFocus={light?.on}
+                  onBlur={light?.off}
+                >
+                  {inputRowText(row)}
+                </button>
+              ) : (
+                inputRowText(row)
+              )}
+              {/* A removed input already says it left; a changed one with nothing drawn says why a click does nothing. */}
+              {focus === null && row.change !== 'removed' ? (
+                <span className={`${typography.panelMeta} text-text-light`} data-testid={`${WHATS_CHANGED_TESTID}-input-row-off-canvas`}> · not on the canvas now</span>
+              ) : null}
+            </li>
+          )
+        })}
+      </ul>
+      {inputs.rows.length > INPUT_ROWS_SHOWN_FIRST ? (
+        <button
+          type="button"
+          className={`${typography.panelMeta} ${action('inline')} mt-1`}
+          data-testid={`${WHATS_CHANGED_TESTID}-inputs-toggle`}
+          aria-expanded={expanded}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? 'Show fewer' : `See all ${inputs.rows.length} changes`}
+        </button>
+      ) : null}
+      {inputs.coverage === 'partial' ? (
+        <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-inputs-partial`}>
+          Some inputs could not be compared between these two runs.
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+export function WhatsChanged({ view, rowFocus, rowLight }: { view: RunDeltaView | null; rowFocus?: InputRowFocus; rowLight?: InputRowLight }): JSX.Element | null {
+  // ⭐⭐ WIN SHARES FOLLOW THE LEADER CLAIM (CURRENT-READ-v1 row 9; AIQ #75 5912710392). Every movement line is one
+  // option's WIN SHARE, prior → current (or its direction). When the producer withheld the leader (any reason) a
+  // per-option share change singles an option out in numbers, so the lines give way to the reason line, once, and
+  // the leader-change line names no option. Comparability and the attribution limit stay. Read through
+  // `winShareGate`; hooks sit above the early return. A PERMITTED run renders exactly as before.
+  const winSharesAreWithheld = useCanvasStore(selectWinSharesWithheld)
+  const winShareReasonLine = useCanvasStore(selectWinShareWithheldReason)
   // ⛔ ABSENCE RENDERS NOTHING — never an "everything is fine" arm. The producer
   // withholds the block for several reasons that all reach the client as one
   // silence, so there is no honest sentence to print here.
   if (!view) return null
+  const leaderMayName = view.leader.mayName && !winSharesAreWithheld
   // Two or more rows with one producer verdict: its qualifier is said once.
   const verdicts = new Set(view.movements.map((m) => m.noiseVerdict))
   const shared =
     view.movements.length >= 2 && verdicts.size === 1 ? noiseQualifier(view.movements[0].noiseVerdict) : null
+  const inputsLead = (winSharesAreWithheld || view.movementsUnavailable) && (view.inputs?.rows.length ?? 0) > 0
 
   return (
     <section
@@ -127,30 +287,35 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
         What&rsquo;s changed
       </h3>
 
-      <p
-        className={`${typography.panelBody} text-text mt-2 mb-0`}
-        data-testid={`${WHATS_CHANGED_TESTID}-comparability`}
-      >
-        {view.comparability}
-      </p>
-
-      {view.attributionLimit ? (
-        <p
-          className={`${typography.panelBody} text-text mt-1 mb-0`}
-          data-testid={`${WHATS_CHANGED_TESTID}-attribution-limit`}
-        >
-          {view.attributionLimit}
+      {view.comparedWith ? (
+        <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-compared-with`}>
+          {view.comparedWith}
         </p>
       ) : null}
 
-      {view.movementsUnavailable ? (
+      {/*
+        SC-24: WHAT CHANGED IN THE INPUTS — after the outcome, before the limit (result first, ChatGPT 5914416431).
+        When no outcome can be shown (win shares withheld, or no option matched across the pair), the input rows lead
+        instead, so the section never invents a result.
+      */}
+      {inputsLead ? <InputChanges inputs={view.inputs} rowFocus={rowFocus} rowLight={rowLight} /> : null}
+
+      {winSharesAreWithheld ? (
+        // Row 9: no per-option share change — the reason line in its place.
+        <p
+          className={`${typography.panelMeta} text-text-light mt-2 mb-0`}
+          data-testid={`${WHATS_CHANGED_TESTID}-win-shares-withheld`}
+        >
+          {winShareReasonLine}
+        </p>
+      ) : view.movementsUnavailable ? (
         // ⚠ "NO COMPARABLE PAIR", NEVER "NOTHING MOVED". An empty list is the
         // producer saying it could not match any option across the two runs.
         <p
           className={`${typography.panelMeta} text-text-light mt-2 mb-0`}
           data-testid={`${WHATS_CHANGED_TESTID}-no-pairs`}
         >
-          No option could be matched across these two analyses, so there is nothing to compare here.
+          {noPairsText(view)}
         </p>
       ) : (
         <>
@@ -182,7 +347,7 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
         client-side computation the contract forbids. The scope is always true
         and removes the false implication without inventing a number.
       */}
-      {view.movements.length > 0 ? (
+      {view.movements.length > 0 && !winSharesAreWithheld ? (
         <p
           className={`${typography.panelMeta} text-text-light mt-2 mb-0`}
           data-testid={`${WHATS_CHANGED_TESTID}-movement-scope`}
@@ -201,10 +366,10 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
         <p
           className={`${typography.panelMeta} text-text-light mt-2 mb-0`}
           data-testid={`${WHATS_CHANGED_TESTID}-highest-scoring`}
-          data-may-name={view.leader.mayName ? 'true' : 'false'}
+          data-may-name={leaderMayName ? 'true' : 'false'}
           data-noise-verdict={view.leader.noiseVerdict}
         >
-          {view.leader.mayName && view.leader.priorLabel && view.leader.currentLabel
+          {leaderMayName && view.leader.priorLabel && view.leader.currentLabel
             ? `In this model, the option with the highest score moved from ${view.leader.priorLabel} to ${view.leader.currentLabel}.`
             : 'In this model, the option with the highest score is not the same one as last time.'}
           {/*
@@ -217,6 +382,23 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
               {noiseQualifier(view.leader.noiseVerdict)}
             </span>
           ) : null}
+        </p>
+      ) : null}
+      {inputsLead ? null : <InputChanges inputs={view.inputs} rowFocus={rowFocus} rowLight={rowLight} />}
+
+      <p
+        className={`${typography.panelBody} text-text mt-2 mb-0`}
+        data-testid={`${WHATS_CHANGED_TESTID}-comparability`}
+      >
+        {view.comparability}
+      </p>
+
+      {view.attributionLimit ? (
+        <p
+          className={`${typography.panelBody} text-text mt-1 mb-0`}
+          data-testid={`${WHATS_CHANGED_TESTID}-attribution-limit`}
+        >
+          {view.attributionLimit}
         </p>
       ) : null}
     </section>

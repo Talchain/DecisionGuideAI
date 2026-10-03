@@ -240,22 +240,26 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       if (pop) expect(within(pop).queryByTestId('option-change-rows-option-1')).toBeNull()
     })
 
-    // RE-PINNED (design audit #9, 26 Sep): ONE clamped line (`line-clamp-1`) at
-    // every rung; the DOM text is still the whole name, never a horizontal cut.
-    it('each label is the FULL factor name on ONE clamped line, never a horizontal cut (contract v3.1 #9, audit #9)', () => {
+    // RE-PINNED (design audit #9, 26 Sep): ONE line at every rung; the DOM text
+    // is still the whole name.
+    // ⭐ RE-PINNED 27 Sep (side-by-side DIFF item 1): the one line is a CHARACTER
+    // ellipsis (`truncate`) after the amount has taken its natural width — the
+    // word-break `line-clamp-1` left one word ("Bottom-up…") with room for more.
+    // It is the e2e clipping gate's one exemption: `data-truncates="label"` and
+    // the full name on the row line's `title`; still no title on the cell (#36).
+    it('each label is the FULL factor name on ONE ellipsised line, recoverable from the row (contract v3.1 #9, audit #9, DIFF item 1)', () => {
       renderCard()
       const dd = onCard('option-change-row-option-1-f-adopt')!
       const dt = dd.previousElementSibling as HTMLElement
       expect(dt.tagName).toBe('DT')
       expect(dt.textContent).toBe('Feature adoption across active accounts')
-      // Whole on the card, so no title to recover it from (and no native tooltip, #36).
       expect(dt.getAttribute('title')).toBeNull()
-      expect(dt.getAttribute('data-truncates')).toBeNull()
+      expect(dt.getAttribute('data-truncates')).toBe('label')
+      expect(dt.closest('[title]')?.getAttribute('title')).toBe('Feature adoption across active accounts')
       const t = tokens(dt)
-      expect(t.has('truncate')).toBe(false)
-      expect(t.has('break-words')).toBe(true)
+      expect(t.has('truncate')).toBe(true)
       expect(t.has('min-w-0')).toBe(true)
-      expect(t.has('line-clamp-1')).toBe(true)
+      expect(t.has('line-clamp-1')).toBe(false)
     })
 
     it('`from → to` is never inside a truncating element, and the source mark TRAILS the value', () => {
@@ -284,14 +288,16 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       const dd = onCard('option-change-row-option-2-f-price')!
       const factorCardReading = factorCardVisibleText(factorDisplayText(PRICE_DATA), factorDisplayParts(PRICE_DATA))
       expect(factorCardReading, 'precondition: the factor card has a reading').toBe('£49 / month')
-      // IDENTITY: the muted "before" IS the factor card's VISIBLE text, not a re-formatting.
-      expect(onCard('option-change-row-before-option-2-f-price')?.textContent).toBe(factorCardReading)
+      // IDENTITY: the muted "before" IS the factor card's VISIBLE figure, not a re-formatting. RE-PINNED 30 Sep (one
+      // unit per row, contract `£49 → £59`): when the target reads in the SAME unit, the unit is said once, after it.
+      expect(onCard('option-change-row-before-option-2-f-price')?.textContent).toBe('£49')
+      expect(onCard('option-change-row-value-option-2-f-price')?.textContent).toBe('£49 → £59 / month')
       // The "to" is CEE's own display_value. Its FIGURE is never re-derived; the
       // one re-spelling is the notation of the carried unit when CEE's string is
       // exactly `<figure> <that unit>` ("59 GBP/month" on a `GBP/month` factor),
       // the same compact owner the factor card reads (`compactCarriedReading`,
       // served cd6a82e4). Producer ask D8 (#69) still stands: send "£59 / month".
-      expect(dd.textContent!.startsWith(`${factorCardReading} → £59 / month`)).toBe(true)
+      expect(dd.textContent!.startsWith('£49 → £59 / month')).toBe(true) // RE-PINNED 30 Sep: one unit per row
     })
 
     it('contrast: a factor with no value states the target alone — nothing is filled in', () => {

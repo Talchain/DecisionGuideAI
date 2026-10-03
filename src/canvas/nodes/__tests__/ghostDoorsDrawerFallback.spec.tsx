@@ -29,6 +29,7 @@ import { GHOST_OPTION_DOOR_LABEL } from '../../utils/ghostTiers'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { AskOlumiDrawer } from '../../../components/results/coaching/AskOlumiDrawer'
 import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiStore'
+import { chooseWhatElse } from './chooseWhatElse'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -106,6 +107,7 @@ describe('frontier doors with no composer registered: the Ask drawer is the conf
 
       // ── Activation: the question is in front of the person; nothing is sent.
       act(() => { door.activate() })
+      chooseWhatElse(doorName === 'option ghost' ? 'option' : 'factor')
       expect(c.allSends(), 'zero sends on activation').toEqual([])
       expect(drawer()).not.toBeNull()
       expect(useAskOlumiStore.getState().draft).toBe(door.prompt)
@@ -131,6 +133,7 @@ describe('frontier doors with no composer registered: the Ask drawer is the conf
       // ── A second ask: the drawer comes back with the prompt, still unsent,
       // and the person's EDIT is what goes out.
       act(() => { door.activate() })
+      chooseWhatElse(doorName === 'option ghost' ? 'option' : 'factor')
       expect(drawer()).not.toBeNull()
       expect(draftBox().value).toBe(door.prompt)
       expect(c.allSends(), 'the second activation sends nothing either').toEqual([door.prompt])

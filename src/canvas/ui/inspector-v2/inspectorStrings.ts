@@ -4,7 +4,7 @@
  */
 
 import type { NodeType, FactorCategory } from '../../domain/nodes'
-import { classifyValueProvenance, type ValueProvenanceKind } from '../../domain/valueProvenance'
+import { classifyValueProvenance, isAcceptedOlumiFigure, VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from '../../domain/valueProvenance'
 import { factorValueSourceMark, VALUE_SOURCE_MARK_LABEL, type ValueSourceMarkKind } from '../../nodes/shared/valueSourceMark'
 import type { ParticipantNameResolution } from '../../../collab/participantNames'
 import { DECISION_NODE_LABEL } from '../../domain/vocabulary'
@@ -101,6 +101,7 @@ const ATTRIBUTED_LABEL: Record<ValueProvenanceKind, string | null> = {
   // Producer kinds keep each function's own pre-existing copy — see below.
   brief: null,
   ai: null,
+  accepted: null, // Olumi's figure, accepted — a producer kind: never first-person copy
   // 0.40.0 — a named colleague's panel answer, applied by the owner.
   //
   // ⚠ NOT `null`, AND THE FIRST VERSION OF THIS LINE WAS `null` AND WAS WRONG.
@@ -166,7 +167,10 @@ function namedPanelLabel(label: string): string {
 function attributedLabelFor(
   source: string,
   attributedTo?: ParticipantNameResolution,
+  /** Olumi's figure the user ACCEPTED (`isAcceptedOlumiFigure`); the stamp alone cannot say so (52f8cd). */
+  accepted = false,
 ): string | null {
+  if (accepted) return VALUE_PROVENANCE_LABEL.accepted
   const cls = classifyValueProvenance(source)
   if (!cls) return null
   // The name is consulted ONLY for the kind it can describe. Passing a
@@ -183,9 +187,11 @@ function attributedLabelFor(
 export function getProvenanceLabel(
   source?: string,
   attributedTo?: ParticipantNameResolution,
+  /** Olumi's figure the user ACCEPTED — the caller holds the node (`isAcceptedOlumiFigure`). */
+  accepted = false,
 ): string {
   if (!source) return 'No evidence yet'
-  const attributed = attributedLabelFor(source, attributedTo)
+  const attributed = attributedLabelFor(source, attributedTo, accepted)
   if (attributed) return attributed
   switch (source) {
     case 'brief_extraction': return 'Generated from your brief'
@@ -225,7 +231,7 @@ export function factorValueSourceLabel(
   const d = data as Record<string, unknown> | undefined
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
   const source = typeof obs?.source === 'string' ? obs.source : undefined
-  const attributed = source ? attributedLabelFor(source, attributedTo) : null
+  const attributed = source ? attributedLabelFor(source, attributedTo, isAcceptedOlumiFigure(obs)) : null
   if (attributed) return attributed
   const words: Readonly<Record<ValueSourceMarkKind, string>> = {
     olumi: 'Estimated by Olumi',
@@ -429,6 +435,7 @@ const INPUT_GROUP_LABEL: Record<ValueProvenanceKind, string> = {
   // authored a number.
   brief: GROUP_LABELS.inputUnattributed,
   ai:    GROUP_LABELS.inputUnattributed,
+  accepted: GROUP_LABELS.inputUnattributed, // Olumi's figure, accepted: not the user's input
   panel: GROUP_LABELS.inputUnattributed,
 }
 
@@ -441,8 +448,10 @@ const INPUT_GROUP_LABEL: Record<ValueProvenanceKind, string> = {
 export function getInputGroupLabel(
   source: string | null | undefined,
   hasValue: boolean,
+  /** Olumi's figure the user ACCEPTED — the caller holds the node (`isAcceptedOlumiFigure`; 52f8cd). */
+  accepted = false,
 ): string {
-  const cls = classifyValueProvenance(source)
+  const cls = accepted ? { kind: 'accepted' as const } : classifyValueProvenance(source)
   // `classifyValueProvenance` returns null — never a guessed class — for an
   // absent or unrecognised literal. Guessing here is precisely how "Estimated
   // by Olumi" ended up over a confirmed value.
@@ -609,8 +618,9 @@ export const EDGE_COPY = {
    * not always between the other two as printed — it equals `low` whenever the
    * span opens upwards — and the sentence must stay true in that case.
    */
-  strengthSpansBands: (low: string, high: string, word: string) =>
-    `Anywhere from ${low} to ${high} fits this estimate — "${word}" is the word for the stated number, not for the range around it.`,
+  strengthSpansBands: (low: string, high: string, word: string, opts?: { readonly placeholder?: boolean }) =>
+    // POM-8: a placeholder is not an estimate, so the sentence does not call it one.
+    `Anywhere from ${low} to ${high} fits this ${opts?.placeholder ? 'placeholder' : 'estimate'} — "${word}" is the word for the stated number, not for the range around it.`,
   /**
    * The magnitude and its spread together. A bare point estimate reads as a
    * measurement; this reads as an estimate, which is what it is.
@@ -988,12 +998,19 @@ export const GOAL_CONSTRAINT_COPY = {
   cancelButton:        'Cancel',
   errorSelectFactor:   'Select a factor',
   errorInvalidNumber:  'Enter a valid number',
-  jointProbability:    'Chance of hitting every target',
+  // AIQ #72 5882498938: `probability_of_joint_goal` is P(all limits jointly hold) — never the goal chance.
+  // AIQ #72 5885033487: "All your limits hold in N% of model runs" — a share of model runs, never a chance.
+  jointProbabilityLead: 'All your limits hold in',
+  jointProbabilityTail: 'of model runs',
   addConstraintButton: '+ Add constraint',
   // v3.1 (DESIGN-GAP-v31 row 33): no "simulation" wording. This is the
   // COMPLETE-results arm only — `GoalPanel` shows `EMPTY_STATES.noAnalysis`
   // before any results exist, so neither sentence claims something false.
-  runForProbability:   'No probability of reaching this target is available from this run.',
+  runForProbability:   'This run did not return the share of model runs that reach this target.',
+  // Served f5d503b0 (29 Sep): no option put forward, yet the run carried every option's goal
+  // figure and Analysis showed them. The arm above would deny them; this one says where they are.
+  perOptionOnly:       'No single option is put forward on this run. Each option\u2019s share of model runs that reach this target is in Analysis.',
+  perOptionOnlyLink:   'Open Analysis',
   targetUnlocks:       'Adding a specific target unlocks probability calculations.',
   // Canonical State Copy (see DESIGN_SYSTEM.md): honest status for GUEST
   // sessions. A guest's canvas graph lives only in the browser — the client

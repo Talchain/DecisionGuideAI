@@ -256,7 +256,7 @@ export function DefineSuccessModal() {
         titleId={titleId}
         testId="define-success-modal"
       >
-        <div className="mt-[11px] grid grid-cols-2 gap-2">
+        <div className="mt-3 grid grid-cols-2 gap-2">
           <div className="col-span-2 flex flex-col gap-1">
             <FieldLabel htmlFor={metricId}>{DEFINE_SUCCESS_COPY.metricLabel}</FieldLabel>
             <input
@@ -387,12 +387,12 @@ export function DefineSuccessModal() {
             (border-only colour treatment per DS; bg stays panel). */}
         <p
           data-testid="measure-preview"
-          className={`mt-[9px] rounded-[9px] border border-goal bg-panel px-[9px] py-2 ${typography.panelBody} text-text-body`}
+          className={`mt-2 rounded-[9px] border border-goal bg-panel px-2 py-2 ${typography.panelBody} text-text-body`}
         >
           {sentence}
         </p>
 
-        <p className={`mt-[7px] ${typography.panelMeta} text-text-light`}>
+        <p className={`mt-2 ${typography.panelMeta} text-text-light`}>
           {DEFINE_SUCCESS_COPY.writeNote}
         </p>
         <p
@@ -402,7 +402,7 @@ export function DefineSuccessModal() {
           {DEFINE_SUCCESS_COPY.honestyNote}
         </p>
 
-        <div className="mt-[11px] flex justify-end gap-[7px]">
+        <div className="mt-3 flex justify-end gap-2">
           <button type="button" onClick={close} className={GHOST_BUTTON_CLASS}>
             {DEFINE_SUCCESS_COPY.cancel}
           </button>

@@ -32,6 +32,7 @@
  */
 import type { CEEGoalConstraint } from '../../../adapters/cee/types'
 import { formatTargetValue } from '../utils/formatTargetValue'
+import { formatMoneyFigure } from '../../../utils/unitClassifier'
 // ⚠ A deliberate two-way import: `goalConstraintText` reads this module's
 // operator/value formatters, and this module stands down to its rungs. Both
 // sides only call each other inside function bodies, so evaluation order is
@@ -40,6 +41,7 @@ import { formatTargetValue } from '../utils/formatTargetValue'
 import {
   goalConstraintReadsInReadersTerms,
   goalConstraintShortText,
+  limitChangeFrameOf,
 } from '../../../canvas/utils/goalConstraintText'
 
 /**
@@ -69,6 +71,10 @@ const CURRENCY_SYMBOLS = new Set(['£', '$', '€', '¥'])
  * did not specify.
  */
 export function formatStatedLimitValue(value: number, unit?: string): string {
+  // ⭐ THE ONE MONEY RULE FIRST (`formatMoneyFigure`). Served d3a476b6: `{ 700000, "GBP per year" }` read
+  // "≤ 700,000" here, because only a bare glyph was recognised; the rule says "£700,000 / year".
+  const money = unit != null ? formatMoneyFigure(value, unit) : null
+  if (money !== null) return money
   if (unit != null && CURRENCY_SYMBOLS.has(unit)) return formatTargetValue(value, 'currency', unit)
   if (unit === '%') return formatTargetValue(value, 'percent')
   return formatTargetValue(value)
@@ -116,7 +122,9 @@ export function selectStatedLimits(
      * (audit) or words (quote), this surface prints exactly what the goal
      * card's limit pill prints, and never re-derives a scale from magnitude.
      */
-    if (goalConstraintReadsInReadersTerms(constraint)) {
+    // R1 S4-core (CEE #2261): a limit stated as a CHANGE from today is said by the same authority ("≤+10% vs
+    // today"), never as the level "≤ 0.1" the line below would print.
+    if (goalConstraintReadsInReadersTerms(constraint) || limitChangeFrameOf(constraint) !== null) {
       limits.push({ id, text: goalConstraintShortText(constraint) })
       return
     }

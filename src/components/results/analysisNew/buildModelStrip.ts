@@ -39,9 +39,9 @@
  */
 
 import { resolveNodeTypeLiteral } from '../../../canvas/domain/nodes'
-import { factorIsConfirmable } from '../../../canvas/domain/valueProvenance'
+import { factorIsConfirmable, isAcceptedOlumiFigure } from '../../../canvas/domain/valueProvenance'
 import { nodeValueSource } from '../driverValueProvenance'
-import { factorDisplayText, readFactorDisplayValue } from '../../../utils/formatFactorDisplayValue'
+import { factorCardVisibleText, factorDisplayParts, factorDisplayText, readFactorDisplayValue } from '../../../utils/formatFactorDisplayValue'
 
 /**
  * Above this many nodes a row shows the first `MARK_CAP` marks and says plainly
@@ -145,6 +145,8 @@ export interface StripNode {
    * that survives review.
    */
   valueSource: string | undefined
+  /** Olumi's figure the user ACCEPTED (`isAcceptedOlumiFigure`) — the fact `valueSource` alone cannot carry (52f8cd). */
+  valueAccepted?: true
 }
 
 export interface StripRow {
@@ -166,6 +168,8 @@ export interface StripRow {
 }
 
 export interface ModelStrip {
+  /** Exactly one goal whose label the producer inferred, independent of any numerical target. */
+  provisionalGoalLabel?: string | null
   /** The goal or decision node's label, when the model names one. */
   goalLabel: string | null
   /**
@@ -369,7 +373,7 @@ export function stripNodeValueSignature(node: { data?: unknown } | undefined): s
   // their Ask/Disagree payloads; without it here a label-only rename left the
   // strip and the review item naming the OLD factor. Position is still NOT
   // read, so a drag never rebuilds either reader.
-  const parts: unknown[] = [inner?.label, readFactorDisplayValue(inner)]
+  const parts: unknown[] = [inner?.label, inner?.provenance, readFactorDisplayValue(inner)]
   // `display_value` is included because `factorDisplayText` prefers it, so a
   // producer changing only that would otherwise be invisible here.
   if (obs) parts.push(obs.value, obs.raw_value, obs.unit, obs.cap, obs.source, obs.display_value)
@@ -501,11 +505,18 @@ export function buildModelStrip(
       // Scoped to the predicate's own domain — see `StripNode.needsCheck`.
       needsCheck: isFactor && factorIsConfirmable(node.data),
       // Both scoped to factors for the reasons on the fields themselves.
+      // ⭐ THE CARD'S OWN VISIBLE TEXT, not the formatter's raw string: served b8906035 read
+      // "58.8 GBP per month" here beside a card reading "£58.80 / month" (ONE money-figure rule,
+      // DL #72 5870353946). Null exactly when `factorDisplayText` is, so the counts are unchanged.
       valueText: isFactor
-        ? factorDisplayText(node.data as Record<string, unknown> | null | undefined)
+        ? factorCardVisibleText(
+            factorDisplayText(node.data as Record<string, unknown> | null | undefined),
+            factorDisplayParts(node.data as Record<string, unknown> | null | undefined),
+          )
         : null,
       hasValue: isFactor && factorCarriesValue(node),
       valueSource: isFactor ? nodeValueSource(node) : undefined,
+      ...(isFactor && isAcceptedOlumiFigure((node as { data?: unknown }).data ?? node) ? { valueAccepted: true as const } : {}),
     }
     if (bucket) bucket.push(entry)
     else byKind.set(kind, [entry])
@@ -519,6 +530,9 @@ export function buildModelStrip(
   }
 
   return {
+    provisionalGoalLabel: goalNodeId !== null && nodes.filter((n) => resolveNodeTypeLiteral(n) === 'goal').length === 1
+      && (nodes.find((n) => n.id === goalNodeId)?.data as { provenance?: unknown } | undefined)?.provenance === 'ai_inferred'
+      ? goalLabel : null,
     // The decision node names the question when no goal node does; both are
     // the thing the rows are about, so either serves as the header.
     goalLabel: goalLabel ?? decisionLabel,

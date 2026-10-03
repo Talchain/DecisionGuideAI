@@ -137,19 +137,32 @@ describe('served cd6a82e4 — an option row reads its amount compactly, inside t
     const { container } = renderOption('raise_pro_price_to_59', 'Raise Pro price to £59')
     const v = value(container, 'raise_pro_price_to_59')
     expect(v, 'PRECONDITION: the pro_plan_price row renders on the card').not.toBeNull()
-    expect(v!.textContent).toBe('£49 / month → £59 / month')
-    expect(container.querySelector(`[data-testid="option-change-row-before-raise_pro_price_to_59-${FID}"]`)!.textContent).toBe('£49 / month')
+    expect(v!.textContent).toBe('£49 → £59 / month') // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
+    expect(container.querySelector(`[data-testid="option-change-row-before-raise_pro_price_to_59-${FID}"]`)!.textContent).toBe('£49')
   })
 
   it('Set at £54: "£49 / month → £54 / month" — the same grammar on the sibling card', () => {
     const { container } = renderOption('set_pro_price_at_54', 'Set Pro price at £54')
-    expect(value(container, 'set_pro_price_at_54')!.textContent).toBe('£49 / month → £54 / month')
+    expect(value(container, 'set_pro_price_at_54')!.textContent).toBe('£49 → £54 / month')
   })
 
   it('the second board\'s "£/month" reads the SAME string — one grammar for one concept', () => {
     board = { unit: '£/month', spell: (n) => `${n} £/month` }
     const { container } = renderOption('raise_pro_price_to_59', 'Raise Pro price to £59')
-    expect(value(container, 'raise_pro_price_to_59')!.textContent).toBe('£49 / month → £59 / month')
+    expect(value(container, 'raise_pro_price_to_59')!.textContent).toBe('£49 → £59 / month')
+  })
+
+  // R3 #72 5887848246 / AIQ 5887805333 (2): the drafter now writes the per-subscriber price unit (CEE #2291). The
+  // canvas option card must say it as a price per subscriber, in both served spellings, never raw "GBP".
+  it.each([
+    ['GBP per subscriber per month', (n: number) => `${n} GBP per subscriber per month`],
+    ['GBP/subscriber/month', (n: number) => `${n} GBP/subscriber/month`],
+  ])('per-subscriber price "%s" reads as a price per subscriber, never raw GBP', (unit, spell) => {
+    board = { unit, spell }
+    const { container } = renderOption('raise_pro_price_to_59', 'Raise Pro price to £59')
+    const text = value(container, 'raise_pro_price_to_59')!.textContent ?? ''
+    expect(text).not.toMatch(/GBP/)
+    expect(text).toMatch(/^£49 → £59 per subscriber/) // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
   })
 
   it.each([
@@ -163,7 +176,7 @@ describe('served cd6a82e4 — an option row reads its amount compactly, inside t
     const v = value(container, 'raise_pro_price_to_59') as HTMLElement
     const dd = amount(container, 'raise_pro_price_to_59') as HTMLElement
     expect(dd, 'PRECONDITION: the amount cell renders').not.toBeNull()
-    expect(v.textContent).toBe(unit === 'GBP per month' ? '£49 / month → £59 / month' : '49 CHF per month → 59 CHF per month')
+    expect(v.textContent).toBe(unit === 'GBP per month' ? '£49 → £59 / month' : '49 → 59 CHF per month')
     const runs = [...dd.querySelectorAll<HTMLElement>('.whitespace-nowrap')]
     // CONTRAST: the instrument sees the no-wrap runs that DO exist (value halves + the mark).
     expect(runs.length).toBeGreaterThan(0)
@@ -191,6 +204,30 @@ describe('served cd6a82e4 — the one compact owner, read by the row target and 
     expect(formatInterventionTargetText({ label: 'Pro plan price', value: 0.295, unit: 'GBP per month', displayValue: '59 GBP/month' }))
       .toBe('59 GBP/month')
     expect(formatInterventionTargetText({ label: 'Ad spend', value: 0.9, unit: '£', displayValue: '£18k' })).toBe('£18k')
+  })
+
+  // ⭐ Served 08323c77 (28 Sep, Paul's pricing brief): CEE now authors the reading with the
+  // glyph already on it — `{display_value:"£54/month", raw_value:54, unit:"GBP per month"}` —
+  // and the row read "£58.80 / month → £54/month", two spellings on one line.
+  it.each([
+    ['£54/month', 'GBP per month', '£54 / month'],
+    ['£59/month', 'GBP/month', '£59 / month'],
+    ['£59/subscriber per month', 'GBP per subscriber per month', '£59 per subscriber / month'],
+  ])('CEE\'s glyph-led "%s" (unit %s) reads "%s"; the digits are CEE\'s', (displayValue, unit, expected) => {
+    expect(formatInterventionTargetText({ label: 'Pro plan price', value: 0.27, unit, displayValue })).toBe(expected)
+  })
+
+  it.each([
+    // a magnitude word is the producer's own figure: never rescaled
+    ['£840k/year', 'GBP/year'],
+    // another currency's glyph, another period, extra prose: not the carried unit
+    ['$59/month', 'GBP per month'],
+    ['£59/year', 'GBP per month'],
+    ['£59/month (est.)', 'GBP per month'],
+    // a bare amount is already how the rule spells it
+    ['£40', '£'],
+  ])('CONTROL — glyph-led "%s" against %s stays verbatim', (displayValue, unit) => {
+    expect(formatInterventionTargetText({ label: 'Pro plan price', value: 0.27, unit, displayValue })).toBe(displayValue)
   })
 
   it('the goal target "20,000 GBP per month" reads "£20,000 / month"', () => {

@@ -53,9 +53,9 @@ describe('canvas toolbar chrome geometry (contract v3.1 rows 32 / 25)', () => {
     expect(rule('.surface').left).toBe('13px')
     expect(rule('.surface').position).toBe('fixed')
     expect(rule('.iconButton').width).toBe('29px')
-    // contract `.canvas-tools{top:21px}` measured from the canvas area, whose
-    // top is the app bar's bottom.
-    expect(rule('.sidebar').top).toBe('calc(var(--topbar-h) + 21px)')
+    // contract `.canvas-tools{top:21px}` below the app chrome — since 1 Oct 2026 the top-left pill's bottom edge
+    // (`--chrome-top-left`), or a full-width bar's if one ever returns.
+    expect(rule('.sidebar').top).toBe('calc(max(var(--topbar-h, 0px), var(--chrome-top-left, 0px)) + 21px)')
   })
 
   it('⭐ row 32: the shared toolbar surface takes the contract radius, 12px', () => {

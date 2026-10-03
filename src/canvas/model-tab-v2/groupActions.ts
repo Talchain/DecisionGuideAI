@@ -107,7 +107,7 @@ const DISCUSS_GOAL: GroupAction = {
       return `Help me understand my goal '${goal}' and whether the target of ${target} is appropriate`
     }
     if (goal) {
-      return `Help me understand my goal '${goal}'. I have not set a target for it yet — help me work out what it should be.`
+      return `Help me understand my goal '${goal}'. I have not set a target for it yet. Help me work out what it should be.`
     }
     if (target) {
       return `I have a target of ${target} but I have not written my goal yet. Help me work out what I am actually trying to achieve.`

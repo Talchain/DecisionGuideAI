@@ -282,6 +282,14 @@ const KNOWN_FIXED = [
  * caller, was deleted. NodeQuickActions is a new scoped caller, so the exact
  * derivation requires the entry again; this is not an un-portalled text gap.
  */
+/*
+ * `ui/inspector-v2/shared/EditableLabel.tsx` (E1c, #2318, 29 Sep 2026): `BaseNode` renders the inspector's title
+ *   editor IN the card while a title is renamed on the card. Its sized text is host-supplied at this crossing: the
+ *   field takes the card's own counter-scaled title token (`typography.nodeTitle` / `nodeTitleWide`), and the
+ *   near-limit counter takes `counterClassName={typography.nodeLabel}` (counter-scaled, 11px) instead of its
+ *   inspector default `panelMeta` (fixed 11px, which would shrink with zoom). The only fixed-size thing it draws
+ *   in the card is the 12px pencil ICON of its non-editing trigger, which is not text.
+ */
 /**
  * ⭐ FILES THAT MOUNT INTO THE TRANSFORMED SUBTREE VIA `<ViewportPortal>`.
  *
@@ -290,12 +298,28 @@ const KNOWN_FIXED = [
  * censused directory, so the declaration is an entry in the census rather than
  * an exemption from it.
  */
-const VIEWPORT_PORTALLED = ['src/canvas/nodes/TierLanes.tsx'] as const
+// `ProposalGhostLayer` (suggestion preview, DL 5941839936): the ghost of a proposed node/link lives in graph space for
+// the same reason the tier bands do; its text goes through `typography.nodeTitle` / `nodeLabel` / `edgeLabel` only.
+const VIEWPORT_PORTALLED = ['src/canvas/nodes/ProposalGhostLayer.tsx', 'src/canvas/nodes/TierLanes.tsx'] as const
 
 const FOREIGN_RENDERED = [
   'src/canvas/components/CoachingCard.tsx',
   'src/canvas/components/UnknownKindWarning.tsx',
+  // 29 Sep 2026 (Paul: bring the hover pop-ups back): the card pop-up portals to
+  // `document.body` (outside the transform); the link pop-up renders in
+  // `EdgeLabelRenderer` and counter-scales ITSELF (`scale(1/zoom)`), like the
+  // one-line tooltip it replaced. Both use panel tokens at screen size.
+  'src/canvas/components/hoverCard/LinkHoverCard.tsx',
+  'src/canvas/components/hoverCard/NodeHoverCard.tsx',
+  // 30 Sep 2026 (CANVAS, row E — the Changes view, #2370): the card's change word ("Changed" / "Result moved") is the
+  // canvas state-word pill (`typography.edgeLabel` + `STATE_WORD_STYLE`, the SAME counter-scaled geometry as
+  // `StatusPill`'s "Not analysed"), rendered by BaseNode from `graphChanges/`.
+  'src/canvas/graphChanges/RunChangeBadge.tsx',
+  'src/canvas/ui/inspector-v2/shared/EditableLabel.tsx',
   'src/canvas/ui/shared/DataBar.tsx',
+  // 30 Sep 2026 (Paul: "the canvas card should use the Olumi icon"; DS v5 §9.8): the card's Ask Olumi / coaching glyph
+  // is the ONE Olumi AI mark. An svg with no text; the card sizes it with the rail's counter-scaled glyph classes.
+  // `OlumiAiIcon` left the canvas on 1 Oct 2026: the card's Ask Olumi door draws the full-colour brand mark <img>.
   'src/components/Tooltip.tsx',
 ] as const
 
@@ -413,9 +437,15 @@ function readTypographyTokens(): Map<string, string> {
   return tokens
 }
 
-/** A token carries the counter-scale iff its class string reads the CSS variable. */
+/**
+ * A token carries the counter-scale iff its class string reads one of the CSS variables: the label scale, or (2 Oct
+ * 2026, #85 5944575143) the SMALL-TEXT scale `--canvas-small-label-scale` — `smallLabelCounterScale`, written by the
+ * same `CanvasLabelScaleSync`, pinned by `measureNodeHeightsAtLabelBound`, declared `1` in `brand.css`
+ * (`smallLabelHoldsTheLandingFloor.spec.ts` pins all three). It carries text declared below `nodeLabel` to the same
+ * 9px landing floor.
+ */
 function isCounterScaled(classString: string): boolean {
-  return classString.includes('var(--canvas-label-scale')
+  return classString.includes('var(--canvas-label-scale') || classString.includes('var(--canvas-small-label-scale,1)')
 }
 
 const CANVAS = path.join(ROOT, 'src/canvas')
@@ -437,6 +467,7 @@ const ARBITRARY_TEXT_SIZE = /text-\[(?!color:)(?:length:)?([^\]]+)\]/g
  * A captured arbitrary size, classified. Counter-scaled means `calc(<px> *` one
  * of the canvas's counter-scale variables:
  *   · `var(--canvas-label-scale` — every canvas type token;
+ *   · `var(--canvas-small-label-scale,1)` — text declared below `nodeLabel` (2 Oct 2026; see `isCounterScaled`);
  *   · `var(--canvas-far-title-scale, var(--canvas-label-scale` — v3.1 WS1 #25's
  *     far-rung title (`BaseNode` `FAR_TITLE_TYPE`, set by
  *     `CanvasLabelScaleSync` from `farTitleScale`, which IS `labelCounterScale`
@@ -447,6 +478,7 @@ const ARBITRARY_TEXT_SIZE = /text-\[(?!color:)(?:length:)?([^\]]+)\]/g
  */
 function classifyArbitrarySize(value: string): 'counterscaled' | 'fixed' | 'unresolvable' {
   if (/^calc\(\s*\d+(?:\.\d+)?px\s*\*\s*var\(--canvas-(?:far-title-scale,\s*var\(--canvas-)?label-scale/.test(value)) return 'counterscaled'
+  if (/^calc\(\s*\d+(?:\.\d+)?px\s*\*\s*var\(--canvas-small-label-scale,\s*1\)\)$/.test(value)) return 'counterscaled'
   if (/^\d+(?:\.\d+)?px$/.test(value)) return 'fixed'
   return 'unresolvable'
 }
@@ -579,6 +611,13 @@ describe('canvas text — counter-scale census (DS v5 §2.3/§2.4)', () => {
   it('CLASSIFIER CONTRACT: the label scale and the far-title scale WITH its label-scale fallback are counter-scales; nothing else is', () => {
     expect(classifyArbitrarySize('calc(14px*var(--canvas-label-scale,1))')).toBe('counterscaled')
     expect(classifyArbitrarySize('calc(14px*var(--canvas-far-title-scale,var(--canvas-label-scale,1)))')).toBe('counterscaled')
+    // 2 Oct 2026: the small-text scale (sub-`nodeLabel` text to the 9px landing floor) is a counter-scale.
+    expect(classifyArbitrarySize('calc(10px*var(--canvas-small-label-scale,1))')).toBe('counterscaled')
+    // CONTRAST — only that exact shape. Both fixtures are DEFINED properties with no drifting fallback (as `--topbar-h`
+    // below), so they cannot trip `css-var-resolution.spec`: the GLYPH scale is not a text counter-scale, and the small
+    // scale without its `,1` fallback is not the sanctioned shape.
+    expect(classifyArbitrarySize('calc(10px*var(--canvas-glyph-scale,1))')).toBe('unresolvable')
+    expect(classifyArbitrarySize('calc(10px*var(--canvas-small-label-scale))')).toBe('unresolvable')
     expect(classifyArbitrarySize('10px')).toBe('fixed')
     // CONTRAST — a far scale with no label-scale fallback, or any other variable, is not read as scaled.
     expect(classifyArbitrarySize('calc(14px*var(--canvas-far-title-scale,1))')).toBe('unresolvable')
@@ -626,7 +665,9 @@ describe('canvas text — counter-scale census (DS v5 §2.3/§2.4)', () => {
       .map(h => h.key.split(':').pop()))
     // 26 Sep 2026: + `typography.nodeMark` (v3.1 `.prov`, the card source mark), which
     // carries the same `calc(<px>*var(--canvas-label-scale,1))` machinery as its siblings.
-    expect([...scaled].sort()).toEqual(['typography.edgeLabel', 'typography.nodeLabel', 'typography.nodeMark', 'typography.nodeTitle', 'typography.nodeValue'])
+    // 29 Sep 2026: + `typography.nodeTitleWide` (contract `.node.wide h3{font-size:14px}`,
+    // the Question and Goal title) — the same machinery, one step up from `nodeTitle`'s 13px.
+    expect([...scaled].sort()).toEqual(['typography.edgeLabel', 'typography.nodeLabel', 'typography.nodeMark', 'typography.nodeTitle', 'typography.nodeTitleWide', 'typography.nodeValue'])
   })
 
   it('every font size inside the viewport transform is counter-scaled, except the pinned set', () => {

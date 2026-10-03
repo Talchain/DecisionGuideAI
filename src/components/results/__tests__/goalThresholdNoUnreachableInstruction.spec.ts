@@ -139,7 +139,7 @@ describe('GOAL_THRESHOLD_NOT_CONVERTIBLE prescribes no action, because no action
     // target", which is not what the code means.
     expect(r.title).toMatch(/\b(was|were)\s+(recorded|captured|received|saved)\b/i)
     // Fact 2 — the withhold, on the surface that actually renders.
-    expect(r.title).toMatch(/withheld|left out/i)
+    expect(r.title).toMatch(/withheld|left out|not shown/i) // PTL item 7: 'not shown', never 'withheld'
     // Still goal-scoped, still banner-eligible, still no raw producer prose.
     expect(r.title.toLowerCase()).toContain('goal')
     expect(r.title.toLowerCase()).not.toContain('factor')

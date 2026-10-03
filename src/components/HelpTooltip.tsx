@@ -22,7 +22,7 @@ export function HelpTooltip({ term, explanation, citation, learnMoreUrl }: HelpT
     <span className="inline-flex items-center gap-1 group relative">
       <button
         type="button"
-        className="underline decoration-dotted hover:text-sky-600 focus:text-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-1 rounded transition-colors"
+        className="underline decoration-dotted hover:text-sky-600 focus:text-sky-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-1 rounded transition-colors"
         aria-describedby={tooltipId}
         aria-label={`Show definition for ${term}`}
       >

@@ -356,7 +356,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             disabled={isThinking}
             rows={1}
             aria-label="Message input"
-            className={`flex-1 bg-transparent border-none outline-none resize-none text-text-body placeholder:text-text-light ${typography.bodySmall}`}
+            className={`flex-1 bg-transparent border-none outline-none resize-none text-text-body placeholder:text-text-light ${typography.chatBody}`}
             style={{
               fontFamily: 'inherit',
               padding: '12px 4px',
@@ -416,7 +416,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
                 borderRadius: '50%',
                 marginBottom: 2,
                 transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
-                background: composer.canSend ? 'var(--primary, #277A9D)' : 'var(--bg-panel-hover, #FEF9F3)',
+                background: composer.canSend ? 'var(--primary, #277A9D)' : 'var(--bg-panel-hover, #FCF7F1)',
                 border: composer.canSend ? 'none' : '1px solid var(--border-default, #EEE6D8)',
                 boxShadow: composer.canSend ? '0 1px 2px rgba(38,38,38,0.06)' : 'none',
                 cursor: composer.canSend ? 'pointer' : 'default',
@@ -448,11 +448,11 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             transform: scale(0.92);
           }
           .composer-icon-btn:not(:disabled):hover {
-            background: var(--bg-panel-hover, #FEF9F3);
+            background: var(--bg-panel-hover, #FCF7F1);
             color: var(--text-body, #3F3F3E);
           }
           .composer-run-chip:not(:disabled):hover {
-            background: var(--bg-panel-hover, #FEF9F3);
+            background: var(--bg-panel-hover, #FCF7F1);
           }
         `}</style>
       </div>

@@ -29,10 +29,17 @@
  * button is visible on a real screen, and nothing here witnesses the RPC.
  */
 
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+vi.mock('../../../services/scenarioSharingService', () => ({
+  listScenarioMembers: vi.fn(async () => ({ ok: true, members: [] })),
+  shareScenario: vi.fn(),
+  unshareScenario: vi.fn(),
+}))
 import { TopBar } from '../TopBar'
+import { act } from '@testing-library/react'
+import { __resetViewerModeForTests, setOwnerScenario } from '../../../lib/viewerMode'
 import { ToastProvider } from '../../../canvas/ToastContext'
 
 const baseProps = {
@@ -95,5 +102,29 @@ describe('TopBar share control', () => {
     // POSITIVE CONTROL for the probe: it must be able to read a non-empty name
     // at all, or the assertion above would pass on an unlabelled button.
     expect(name.length).toBeGreaterThan(0)
+  })
+})
+
+describe('TopBar invite control (ACCOUNTS: invite a colleague, view only)', () => {
+  beforeEach(() => __resetViewerModeForTests())
+
+  it('is ABSENT for a guest / unsaved canvas and for a viewer (CanvasMVP passes null)', () => {
+    act(() => setOwnerScenario('scn_abc123'))
+    renderBar({ shareScenarioId: null })
+    expect(screen.queryByTestId('topbar-invite')).toBeNull()
+  })
+
+  it('is ABSENT while ownership is unconfirmed, even with a scenario id (Codex R4: the access answer is pending)', () => {
+    renderBar({ shareScenarioId: 'scn_abc123' })
+    expect(screen.queryByTestId('topbar-invite')).toBeNull()
+    expect(screen.getByTestId('topbar-share')).toBeInTheDocument()
+  })
+
+  it('is PRESENT for the CONFIRMED owner of a persisted scenario and opens the invite dialog for THAT scenario', async () => {
+    act(() => setOwnerScenario('scn_abc123'))
+    renderBar({ shareScenarioId: 'scn_abc123' })
+    expect(screen.queryByTestId('share-decision-dialog')).toBeNull()
+    fireEvent.click(screen.getByTestId('topbar-invite'))
+    expect(await screen.findByTestId('share-decision-dialog')).toHaveTextContent('Pricing decision')
   })
 })

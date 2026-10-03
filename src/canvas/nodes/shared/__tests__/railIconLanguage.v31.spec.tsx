@@ -119,9 +119,12 @@ describe('ICON-02 / OPT-14 / F12 / FRAME-11 — one glyph size across the rail r
         coaching={null}
       />,
     )
-    const svgs = [...container.querySelectorAll('button svg')]
+    // The coaching icon is the brand-mark <img> since Paul's 1 Oct "use the actual Olumi brand icon" (#2392); the
+    // rest are Lucide <svg>s. Both sit in the one glyph box.
+    const svgs = [...container.querySelectorAll('button svg, button img')]
     // Positive control: challenge + more + the resting icon + the coaching icon.
     expect(svgs.length).toBeGreaterThanOrEqual(4)
+    expect(container.querySelectorAll('button img[data-icon="olumi-brand-mark"]')).toHaveLength(1)
     for (const svg of svgs) {
       expect(svg.getAttribute('class'), lucideName(svg) ?? 'svg').toContain(CANVAS_GLYPH_SIZE_CLASSES[15])
       expect(svg.getAttribute('class')).not.toContain(CANVAS_GLYPH_SIZE_CLASSES[11])
@@ -396,10 +399,12 @@ describe('PILL-14 — SaveStatusPill is a DS v5 §8.5 outlined pill', () => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-describe('RHY-08 — node title line-height is the contract 1.25', () => {
-  it('nodeTitle carries leading-tight, not leading-snug', () => {
+describe('RHY-08 → Paul 1 Oct: node title line-height is 1.3 (the contract\'s 1.25 read cramped)', () => {
+  it('nodeTitle carries leading-[1.3], neither leading-tight nor leading-snug', () => {
+    // Paul, 1 Oct 2026: "They're all really cramped up, with no spacing between different lines".
     const t = typography.nodeTitle.split(/\s+/)
-    expect(t).toContain('leading-tight')
+    expect(t).toContain('leading-[1.3]')
+    expect(t).not.toContain('leading-tight')
     expect(t).not.toContain('leading-snug')
   })
 })

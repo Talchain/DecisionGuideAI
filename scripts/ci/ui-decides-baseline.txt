@@ -38,15 +38,15 @@ src/canvas/components/ModelQualityScore.tsx:264
 #                                        outcome" at winProb > 0.6
 src/adapters/cee/client.ts:735
 src/adapters/plot/v2/responseMapper.ts:1576
-src/canvas/contextMenu/actions.ts:1092
+src/canvas/contextMenu/actions.ts:1139
 src/canvas/hooks/useModelHealth.ts:148
 src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:8006
-src/canvas/stores/readinessStore.ts:782
-src/canvas/stores/readinessStore.ts:875
+src/canvas/store.ts:8150
+src/canvas/stores/readinessStore.ts:829
+src/canvas/stores/readinessStore.ts:922
 src/canvas/utils/briefValidation.ts:43
 src/canvas/utils/ceeAnalysisReadyValidation.ts:159
 src/canvas/utils/ceeDataAdapter.ts:328
@@ -56,8 +56,8 @@ src/canvas/utils/graphHealthStrings.ts:22
 src/canvas/utils/graphHealthStrings.ts:26
 src/canvas/utils/limitsStatus.ts:47
 src/canvas/utils/limitsStatus.ts:51
-src/components/results/TornadoChart.tsx:670
-src/components/results/TornadoChart.tsx:687
+src/components/results/TornadoChart.tsx:673
+src/components/results/TornadoChart.tsx:690
 src/hooks/useCEEDraft.ts:101
 src/lib/stability.ts:110
 src/lib/stability.ts:123
@@ -88,6 +88,10 @@ src/types/constraints.ts:78
 #    (`readinessStore.ts:744` -> `782` and `:840` -> `875` are pure line shifts
 #    from the `publishCheckFailure` helper #1982 adds above them (25 Sep 2026,
 #    the readiness-outage gate fix); the 429 and 404 branch text is identical.)
+#    (`readinessStore.ts:782` -> `829` and `:875` -> `922` are pure line shifts
+#    from #2256's +47 lines above them (28 Sep 2026: the readiness body built
+#    from the registration projection, READINESS_EXCLUDED_NODE_FIELDS and its
+#    helper); the 429 and 404 branch text is identical.)
 #    (`analysisNewCopy.ts:2433` -> `2440`, and the docblock range above by the
 #    same +7, is a pure line shift from #1922's seven added lines —
 #    `optionFigures.goalOnlyQualifier` and its docblock, above this site — when
@@ -121,6 +125,24 @@ src/types/constraints.ts:78
 #    (`store.ts:7895` -> `7902`, the union of #1991's +8 (landed in U4b) and this
 #    branch's +7, both above this site. Line text identical
 #    (`if (currentTotal + displayBytes > MAX_TOTAL_CHARS) {`).)
+#    (`store.ts:8027` -> `8044`, a pure +17 line shift from
+#    `canvas/b5r` (28 Sep 2026): the restored-layout stride fields and the
+#    raise-to-front order, all above this site. Line text identical
+#    (`if (currentTotal + displayBytes > MAX_TOTAL_CHARS) {`).)
+#    (`store.ts:8044` -> `8049` and `contextMenu/actions.ts:1092` -> `1139`,
+#    pure line shifts from `canvas/b7-write` (28 Sep 2026, edit-structure):
+#    +5 in `store.ts` (the `isCanvasOnlyLink` import and the stand-down retry
+#    gate in `retryStructuralAddEdgeCapture`) and +47 in `actions.ts` (the
+#    delete confirmation when an option loses a change, and the Question
+#    refusal on connected adds), all above these sites. Line text
+#    identical (`if (currentTotal + displayBytes > MAX_TOTAL_CHARS) {` /
+#    `if (attempts < MAX_ATTEMPTS) {`); the scanner's added and gone were
+#    exactly these two pairs.)
+#    (`store.ts:8006` -> `8027`, a pure +21 line shift from Panel B5
+#    (`panel/b5-limit-verdicts`, 27 Sep 2026): the `limitVerdicts` field, its
+#    setter type and body (the at-run limits snapshot), its import and two
+#    initial-state lines, all above this site. Line text identical
+#    (`if (currentTotal + displayBytes > MAX_TOTAL_CHARS) {`).)
 #    (`store.ts:7902` -> `7953`, a pure +51 line shift from
 #    `canvas/add-option-hash-chain` (26 Sep 2026): the chained-link capture in
 #    `addNodeWithEdge`, the `takePendingStructuralAddEdges` filter and the
@@ -148,9 +170,31 @@ src/types/constraints.ts:78
 #    the settlement toasts) and Reset was removed, all above this site. Line
 #    text identical (`if (attempts < MAX_ATTEMPTS) {`); added and gone were
 #    exactly this pair.)
+#    (`analysisNewCopy.ts:2495` -> `2497`, a pure +2 line shift from Panel
+#    `panel/r7-x4-strip-truth` (27 Sep 2026): `modelStrip.valueNotShown`, the
+#    detail line for a factor that HAS a value the formatter declines to show,
+#    above this site. Line text identical (`: topFigurePercent === 100`).)
 #    (`analysisNewCopy.ts:2472` -> `2489`, a pure +17 line shift from
 #    `panel/design-model` (design audit B5): the Reasoning tab's success-row
 #    and goal-form copy appended to `successTarget`, above this site. Line text
 #    identical (`: topFigurePercent === 100`); the scanner's added and gone
 #    were exactly this pair.)
-src/components/results/analysisNew/analysisNewCopy.ts:2495
+# 28 Sep 2026 (Panel, V2 "Draft" bundle): re-lined 2497 → 2506, the same `topFigurePercent === 100`
+#    line; 9 copy lines (`staleRow` / `reanalyseRow`) were added above it. Scanner added/gone = exactly this pair.
+# 28 Sep 2026 (Panel, threshold money): re-lined 2506 → 2507, the same `topFigurePercent === 100` line; one import line added above it.
+# 29 Sep 2026 (Canvas #2296): re-lined 2507 → 2510, the same `topFigurePercent === 100` line; 3 comment/label lines
+#    (the goal-fit label's register note) were added above it. Scanner added/gone = exactly this pair.
+# 29 Sep 2026 (Canvas, leader cause `options_not_reconciled_with_brief`): re-lined 2510 → 2519, the same line; 9 copy lines above it.
+# 1 Oct 2026 (Canvas, fix-forward of #2379's staging red): re-lined 2519 → 2524, the same `topFigurePercent === 100` line;
+#    5 lines (`savedRunStale` + its docblock) were added above it. Scanner added/gone = exactly this pair.
+src/components/results/analysisNew/analysisNewCopy.ts:2524
+# 30 Sep 2026 (Canvas, row 9 PR): re-lined store.ts 8049 → 8065, the same `currentTotal + displayBytes > MAX_TOTAL_CHARS` line;
+#    a pure +16 shift from #2350 (`forgetDurableDeletion`), which left staging red on this check. Scanner added/gone = exactly this pair.
+# 1 Oct 2026 (Canvas, #2370 Changes view): re-lined store.ts 8065 → 8087, a pure +22 line shift from the `run_changes`
+#    projection (slice type + `setRunChangesHighlight`) above it; the same `currentTotal + displayBytes > MAX_TOTAL_CHARS` line.
+# 1 Oct 2026 (Panel, fix-forward of #2418's staging red): re-lined store.ts 8087 → 8121, a pure +34 line shift from
+#    `scenarioResetState` + `adoptScenario` + `scenarioEpoch` above it; the same `currentTotal + displayBytes > MAX_TOTAL_CHARS` line.
+# 2 Oct 2026 (ACCOUNTS-UI, invite viewer mode): re-lined store.ts 8134 → 8137, a pure +3 line shift from the `isViewerSession`
+#   import and the two-line viewer guard in `updateNodeLabel` (both above this site). Line text identical.
+#   Then 8137 → 8141: the two-line viewer change filters at the top of `onNodesChange` / `onEdgesChange` (above). Same line.
+# 2 Oct 2026 (ACCOUNTS-UI, merge of staging 69ec63d3 into #2449): store.ts 8143 (staging) + this PR's +7 (viewer guards above) → 8150. Same line text.

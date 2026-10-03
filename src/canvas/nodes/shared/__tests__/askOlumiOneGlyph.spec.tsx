@@ -38,17 +38,22 @@ import { useGuidanceStore } from '../../../stores/guidanceStore'
 
 const NODE = { id: 'node-a', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Hiring spend' } }
 
-const ASK_GLYPH = 'lucide-message-circle'
+// Paul 30 Sep 2026: "the canvas card should use the Olumi icon" (DS v5 §9.8) — the coaching door and the hover ask
+// are ONE act again, so ONE glyph: the Olumi mark, token `olumi-glyph-ai` — since Paul's 1 Oct 2026 ask, the real
+// full-colour brand mark (`/olumi-mark-card.svg`), no longer the single-colour `OlumiAiIcon` outline.
+const ASK_GLYPH = 'olumi-glyph-ai'
 /** v3.1 `ICONS.coaching` — the bubble with "?" (DESIGN-GAP-v31 #42). */
-const COACHING_GLYPH = 'lucide-message-circle-question'
-const RETIRED_ASK_GLYPHS = ['lucide-message-circle-question', 'lucide-message-square'] as const
-const RETIRED_COACHING_GLYPHS = ['lucide-message-circle', 'lucide-message-square'] as const
+// 29 Sep 2026: the contract's own path (`ContractCoachingGlyph`), not lucide's drawing of it.
+const COACHING_GLYPH = 'olumi-glyph-ai'
+const RETIRED_ASK_GLYPHS = ['lucide-message-circle', 'lucide-message-circle-question', 'lucide-message-square', 'olumi-glyph-coaching'] as const
+const RETIRED_COACHING_GLYPHS = ['lucide-message-circle', 'lucide-message-square', 'lucide-message-circle-question', 'olumi-glyph-coaching'] as const
 
 /** The lucide identity token of the ONE svg inside an element. */
 const glyphOf = (el: HTMLElement): string => {
-  const svgs = el.querySelectorAll('svg')
+  // The ONE glyph element: a Lucide <svg>, or (Paul, 1 Oct 2026) the full-colour brand mark <img>.
+  const svgs = el.querySelectorAll('svg, img')
   expect(svgs).toHaveLength(1)
-  const token = Array.from(svgs[0].classList).find((c) => c.startsWith('lucide-'))
+  const token = Array.from(svgs[0].classList).find((c) => c.startsWith('lucide-') || c.startsWith('olumi-glyph-'))
   expect(token).toBeDefined()
   return token as string
 }
@@ -62,7 +67,7 @@ beforeEach(() => {
 })
 
 describe('"Ask Olumi" glyphs on the card — v3.1 coaching door vs Panel R3 ask', () => {
-  it('the rail coaching icon is v3.1 `coaching` — MessageCircleQuestion, not the plain MessageCircle (#42)', () => {
+  it('the rail coaching icon is the Olumi AI mark (Paul 30 Sep; DS v5 §9.8), not a speech bubble', () => {
     render(
       <NodeCoachingIcon
         nodeId="node-a"
@@ -74,7 +79,7 @@ describe('"Ask Olumi" glyphs on the card — v3.1 coaching door vs Panel R3 ask'
     for (const retired of RETIRED_COACHING_GLYPHS) expect(icon.querySelector(`svg.${retired}`)).toBeNull()
   })
 
-  it('the hover quick action "Ask Olumi" is MessageCircle, not MessageSquare', () => {
+  it('the hover quick action "Ask Olumi" is the Olumi AI mark too', () => {
     // Paul 23 Sep contract feedback point 6: at Normal zoom the resting coaching
     // icon is the card's Ask Olumi door and the hover ask is withheld; the hover
     // ask renders at the quiet rung, where the resting icon is hidden.
@@ -86,7 +91,7 @@ describe('"Ask Olumi" glyphs on the card — v3.1 coaching door vs Panel R3 ask'
     for (const retired of RETIRED_ASK_GLYPHS) expect(ask.querySelector(`svg.${retired}`)).toBeNull()
   })
 
-  it('⚠ RULING CONFLICT PINNED — the coaching door (v3.1 #42) and the hover ask (Panel R3) now render DIFFERENT glyphs', () => {
+  it('⭐ ONE GLYPH — the coaching door and the hover ask render the SAME Olumi AI mark (the conflict is closed, Paul 30 Sep)', () => {
     // Was "both carriers of the one act render the SAME glyph". v3.1 redrew the
     // coaching door; the hover ask is outside this lane. If the lane owner rules
     // "one glyph" again, the quick action imports `COACHING_ICON_GLYPH` and this
@@ -102,7 +107,7 @@ describe('"Ask Olumi" glyphs on the card — v3.1 coaching door vs Panel R3 ask'
     useCanvasStore.setState({ lodRung: 'quiet' } as never) // point 6: the hover ask's rung
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
     expect(coaching).toBe(COACHING_GLYPH)
-    expect(glyphOf(screen.getByTestId('node-action-ask-node-a'))).toBe(ASK_GLYPH)
+    expect(glyphOf(screen.getByTestId('node-action-ask-node-a'))).toBe(coaching)
   })
 
   it('Paul 23 Sep point 6 — at Normal zoom the rail carries ONE Ask Olumi door: the resting icon, v3.1 glyph, no hover twin', () => {
@@ -116,7 +121,9 @@ describe('"Ask Olumi" glyphs on the card — v3.1 coaching door vs Panel R3 ask'
   it('CONTROL — a different act keeps its own glyph, so the probe discriminates', () => {
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
     const challenge = screen.getByRole('button', { name: 'Challenge Hiring spend' })
-    expect(glyphOf(challenge)).toBe('lucide-zap')
+    // Challenge is HelpCircle in the rail AND the menu since Paul's 1 Oct feedback (#2409: "We have a standard set of
+    // icons we should be using, and nothing else"), one glyph for the one act.
+    expect(glyphOf(challenge)).toBe('lucide-help-circle')
     expect(glyphOf(challenge)).not.toBe(ASK_GLYPH)
     expect(glyphOf(challenge)).not.toBe(COACHING_GLYPH)
   })

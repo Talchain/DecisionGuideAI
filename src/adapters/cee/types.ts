@@ -342,6 +342,13 @@ export interface CEEGoalConstraint {
     /** The unit that figure was stated in. */
     original_unit: string
   }
+  /**
+   * ⭐ THE FRAME THE LIMIT'S `value` IS STATED IN (`@talchain/schemas` 0.61.0 `GoalConstraint.value_frame`; CEE #2261):
+   * `level` — the value itself; `change_abs` — a change from TODAY in the quantity's unit; `change_rel` — a change from
+   * today as a FRACTION of today's level (0.1 = 10% above today, no unit); `delta` — legacy, said as a level. Absent
+   * means a level. Read only through `limitChangeFrameOf` (`canvas/utils/goalConstraintText.ts`).
+   */
+  value_frame?: 'level' | 'delta' | 'change_abs' | 'change_rel'
   /** Extraction confidence (0-1). Regex path: 0.85 explicit / 0.6 inferred. */
   confidence?: number
   /** How the constraint was obtained — drives UI provenance display. */

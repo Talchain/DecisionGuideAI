@@ -23,10 +23,12 @@
  *   · gluing never pushes an unbreakable run past the card: any no-wrap run that
  *     ends the value is short enough to carry the mark as well
  *     (`optionAmountSegmentNoWrap`, #2119's rule, applied to run + mark);
- *   · the label is ONE line (`line-clamp-1` + `min-w-0`), and the FULL label is
- *     still recoverable: it is the label's whole DOM text (screen readers read
- *     it all), it is in the option's popover, and a brief mark's accessible name
- *     carries it. No native `title` is added (#2126 is removing them).
+ *   · the label is ONE line (`line-clamp-1` + `min-w-0`; since side-by-side
+ *     DIFF item 1, 27 Sep, a character ellipsis, `truncate`), and the FULL label
+ *     is still recoverable: it is the label's whole DOM text (screen readers
+ *     read it all), it is in the option's popover, and a brief mark's accessible
+ *     name carries it. No native `title` on the label cell itself (#2126); the
+ *     row line carries the name (`OptionNode.contractRowLine.spec.tsx`).
  *
  * FIXTURE: the shipped pricing starter itself (`pricing-model.draft.json`, the
  * board the audit measured), mapped the way a draft lands on the canvas.
@@ -73,7 +75,7 @@ import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useAnalysisResultsAreCurrent } from '../../hooks/useAnalysisResultsAreCurrent'
 import { OptionNode } from '../OptionNode'
-import { OPTION_ROW_SOURCE_MARK_SEPARATOR, optionAmountSegmentNoWrap } from '../shared/optionChangeRows'
+import { optionAmountSegmentNoWrap } from '../shared/optionChangeRows'
 import { VALUE_SOURCE_MARK_TOKEN, VALUE_SOURCE_MARK_LABEL, type ValueSourceMarkKind } from '../shared/valueSourceMark'
 import { mapDraftNodeToCanvas, mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
 import { changeRowValueText } from './__helpers__/optionChangeRowText'
@@ -91,6 +93,17 @@ const SERVED_ROWS = [
   { factorId: 'fac_enterprise_revenue_risk', label: 'Enterprise revenue cannibalization risk', value: 'Low → Moderate' },
   { factorId: 'fac_usage_exposure', label: 'Usage-based pricing exposure', value: 'No usage pricing → Moderate' },
 ] as const
+
+/**
+ * ⚠ RE-PINNED 28 Sep 2026 (Paul's staging test 64c5eccc; Canvas owner
+ * decision, `optionRowForm` / `fitRowsToLineBudget`). None of these amounts
+ * fits beside 12 characters of its name at the landing bound, so each row is
+ * TWO lines — the name alone, then the amount — and the card's six row lines
+ * (`OPTION_CARD_ROW_LINE_BUDGET`) hold the first two (3 + 2 lines). The third,
+ * `fac_usage_exposure`, is counted by `+1 more` and stays in the popover and
+ * the inspector. Every per-row pin below holds for the rows on the card.
+ */
+const ON_CARD_ROWS = SERVED_ROWS.slice(0, 2)
 
 const NBSP = ' '
 
@@ -171,14 +184,16 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('audit #9 — the fixture is the served opt_hybrid card', () => {
-  it('renders exactly the three served rows, in the served order, each with a brief mark', () => {
+  it('renders the first two served rows, in the served order, each with a brief mark — the third behind +1 more', () => {
     const { container } = renderHybrid()
     const rows = cardRows(container)
     const lines = [...rows.querySelectorAll<HTMLElement>('[data-testid^="option-change-row-line-"]')]
     expect(lines.map(l => l.getAttribute('data-testid'))).toEqual(
-      SERVED_ROWS.map(r => `option-change-row-line-${OPTION}-${r.factorId}`),
+      ON_CARD_ROWS.map(r => `option-change-row-line-${OPTION}-${r.factorId}`),
     )
-    for (const r of SERVED_ROWS) {
+    expect(lines.map(l => l.getAttribute('data-row-form'))).toEqual(['two-line', 'two-line'])
+    expect(rows.querySelector(`[data-testid="option-change-more-${OPTION}"]`)?.textContent).toBe('+1 more')
+    for (const r of ON_CARD_ROWS) {
       const { dd, dt, source } = rowParts(container, r.factorId)
       expect(dt.textContent).toBe(r.label)
       expect(changeRowValueText(dd)).toBe(r.value)
@@ -188,7 +203,7 @@ describe('audit #9 — the fixture is the served opt_hybrid card', () => {
 })
 
 describe('audit #9 — the source mark sits on the value line', () => {
-  for (const r of SERVED_ROWS) {
+  for (const r of ON_CARD_ROWS) {
     it(`${r.factorId}: the only thing between "${r.value}" and its mark is one no-break space`, () => {
       const { container } = renderHybrid()
       const { dd, value, mark } = rowParts(container, r.factorId)
@@ -212,7 +227,9 @@ describe('audit #9 — the source mark sits on the value line', () => {
     it(`${r.factorId}: gluing the mark never makes an unbreakable run wider than the row budget`, () => {
       const { value, source } = rowParts(container_(), r.factorId)
       const kind = source.getAttribute('data-value-source') as ValueSourceMarkKind
-      const suffix = ` ${OPTION_ROW_SOURCE_MARK_SEPARATOR} ${VALUE_SOURCE_MARK_TOKEN[kind]}`
+      // RE-PINNED 27 Sep (side-by-side DIFF item 1): no `·` separator any more
+      // (the contract row reads `£49 → £59 brief`) — the glue, then the token.
+      const suffix = ` ${VALUE_SOURCE_MARK_TOKEN[kind]}`
       const valueText = (value.textContent ?? '').replace(/\s+/g, ' ').trim()
       // Every no-wrap run whose text ENDS the value now carries the mark too, so
       // it must fit one line of the row budget WITH the mark (#2119's rule).
@@ -228,7 +245,7 @@ describe('audit #9 — the source mark sits on the value line', () => {
 })
 
 describe('audit #9 — the label is one line, and the full label is still reachable', () => {
-  for (const r of SERVED_ROWS) {
+  for (const r of ON_CARD_ROWS) {
     it(`${r.factorId}: "${r.label}" is clamped to one line; the whole name is its text, in the popover and in the mark's name`, () => {
       const { container } = renderHybrid()
       const { dt, source } = rowParts(container, r.factorId)

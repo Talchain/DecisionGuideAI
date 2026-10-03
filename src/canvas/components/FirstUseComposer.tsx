@@ -11,11 +11,24 @@ import { useFloatingPanelState, canAutoDock } from '../hooks/useFloatingPanelSta
 import { useUIStore } from '../../stores/uiStore'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
-import { AIInputBar, type AIInputBarHandle } from './AIInputBar'
+import { AIInputBar, GENERATE_MODEL_SEND, type AIInputBarHandle } from './AIInputBar'
 import { focusFloating, registerFloatingFocus } from '../hooks/useFloatingFocus'
 import { measureDockInset, clampPositionToViewport } from './FloatingOlumiPanel'
 import { ThinkingIndicator } from '../conversation/zones/ThinkingIndicator'
 import { StarterDecisions } from './StarterDecisions'
+import { BriefReadingCard } from './BriefReadingCard'
+import { takeQueuedBriefCoachingPrefill } from './briefCoaching'
+import { requestAsk } from '../ui/inspector-v2/askSemantic'
+import { StructuredBriefFields } from './StructuredBriefFields'
+import {
+  EMPTY_BRIEF_FIELDS,
+  composeStructuredBrief,
+  readStructuredBrief,
+  type BriefFields,
+  type BriefSlotKey,
+} from './structuredBrief'
+import { Button } from '../../components/ui/Button'
+import { useDraftStore, draftStreamPhaseFor } from '../stores/draftStore'
 
 interface FirstUseComposerProps {
   /** Cog popover handler. Receives the cog button element for anchoring. */
@@ -107,9 +120,15 @@ const REPOSITION_EDGE_MARGIN = 16
  * Reduced motion: the auto-reposition fires synchronously without the
  * 300ms slide delay.
  */
+/** Hands a queued brief-coaching pre-fill to Olumi's composer: never sends, and no-op when nothing was picked. */
+function flushBriefCoachingPrefill(): void {
+  const text = takeQueuedBriefCoachingPrefill()
+  if (text) requestAsk({ text, label: 'Coaching from your brief', source: 'brief_coaching' })
+}
+
 export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = false }: FirstUseComposerProps) {
   const nodeCount = useCanvasStore((s) => s.nodes.length)
-  const { messages, isThinking, lastSendFailure, draft, setDraft } = useConversationContext()
+  const { messages, isThinking, lastSendFailure, draft, setDraft, clearDraft, sendMessage } = useConversationContext()
   const realMessageCount = messages.filter((m) => !m.synthetic).length
   // Round-12: during the first-use generating window (user submitted a
   // brief, no graph yet) the composer freezes, its placeholder swaps to
@@ -121,12 +140,49 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
   // indicator unmounts as soon as the first graph appears (nodeCount > 0
   // → hero unmounts entirely).
   const isGenerating = isThinking && nodeCount === 0
+  // ⭐ A coaching action picked while the draft was built (`BriefReadingCard`) lands as a PRE-FILL of Olumi's next
+  // message once the build ends, never sent. That moment is either when the draft draws (this hero unmounts) or when
+  // the build stops without one.
+  const wasGeneratingRef = useRef(false)
+  useEffect(() => {
+    if (wasGeneratingRef.current && !isGenerating) flushBriefCoachingPrefill()
+    wasGeneratingRef.current = isGenerating
+  }, [isGenerating])
+  useEffect(() => () => flushBriefCoachingPrefill(), [])
+  // C6-2: the user's own goal and options, read from the brief while this scenario's draft is still `drafting`.
+  // The store clears it on every phase change, and the hero unmounts once the model draws (nodeCount > 0).
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  const briefReading = useDraftStore((s) =>
+    draftStreamPhaseFor(s, currentScenarioId) === 'drafting' ? s.draftStreamBriefReading : null,
+  )
 
   // Trust item #3 (paired defect): when the send fails while the hero is
   // the active surface, the failure must be visible HERE — not only in the
   // collapsed dock's transcript. Notice below the composer + the user's
   // text restored into it, so nothing reads as vanished.
   const showSendFailure = lastSendFailure !== null && !isGenerating
+
+  // "STRUCTURE IT": four labelled fields as an alternative to the single box (the default). Every field edit is
+  // mirrored into `draft` as the composed brief, so switching back to the box — or a surface swap that hands the
+  // draft to another composer — carries the text over. `sentFields` is the user's own four fields as sent: the
+  // brief reading shows them while the model is drafted, and a failed send puts them back.
+  const [briefMode, setBriefMode] = useState<'single' | 'structured'>('single')
+  const [fields, setFields] = useState<BriefFields>(EMPTY_BRIEF_FIELDS)
+  const [sentFields, setSentFields] = useState<BriefFields | null>(null)
+  const handleFieldChange = useCallback(
+    (key: BriefSlotKey, value: string) => {
+      const next = { ...fields, [key]: value }
+      setFields(next)
+      setDraft(composeStructuredBrief(next))
+    },
+    [fields, setDraft],
+  )
+  const structureIt = useCallback(() => {
+    // The box's text in the labelled form reads back into its fields; any other text stays whole, under Context.
+    setFields(readStructuredBrief(draft) ?? { ...EMPTY_BRIEF_FIELDS, context: draft.trim() })
+    setBriefMode('structured')
+  }, [draft])
+  const backToOneBox = useCallback(() => setBriefMode('single'), [])
 
   // Restore the failed text into the composer once per failure instance —
   // never clobber text the user has already retyped.
@@ -141,7 +197,8 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
     if (draft.trim() === '' && lastSendFailure.inputText) {
       setDraft(lastSendFailure.inputText)
     }
-  }, [lastSendFailure, draft, setDraft])
+    if (sentFields !== null && composeStructuredBrief(fields) === '') setFields(sentFields)
+  }, [lastSendFailure, draft, setDraft, sentFields, fields])
 
   const isOpen = useFloatingPanelState((s) => s.isOpen)
   const source = useFloatingPanelState((s) => s.source)
@@ -164,7 +221,20 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
   const userSentFromFirstUseRef = useRef(false)
   const handleAfterSend = useCallback(() => {
     userSentFromFirstUseRef.current = true
+    setSentFields(null)
   }, [])
+
+  // The "Structure it" send: ONE labelled brief through the single box's own path (`GENERATE_MODEL_SEND`) — no new
+  // wire field. The hero only renders on an empty canvas, so this is always the model-drafting turn.
+  const composedBrief = composeStructuredBrief(fields)
+  const handleStructuredSend = useCallback(() => {
+    if (composedBrief === '' || isThinking) return
+    sendMessage(composedBrief, GENERATE_MODEL_SEND)
+    clearDraft()
+    userSentFromFirstUseRef.current = true
+    setSentFields(fields)
+    setFields(EMPTY_BRIEF_FIELDS)
+  }, [composedBrief, isThinking, sendMessage, clearDraft, fields])
 
   // Open the hero on first mount when the canvas is empty and no real
   // conversation has begun. Fires once unless a canvas reset re-engages it.
@@ -586,43 +656,71 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
         style={{ height: 'auto' }}
         draggable={false}
       />
-      <div className="relative w-full max-w-2xl">
-        <AIInputBar
-          ref={inputBarRef}
-          variant="welcome"
-          hideChevron
-          /*
-           * ⭐ THIS SURFACE PASSES ITS OWN COPY, SO THE HOOK CHANGE NEVER REACHED IT.
-           * `AIInputBar` resolves `placeholder ?? stagePlaceholder` — an explicit
-           * prop WINS — so widening `useStageAwarePlaceholder` left the FIRST-USE
-           * screen, the most prominent entry surface there is, still demanding a
-           * decision. Correcting only the claim about it would have made the
-           * change accurate and left the defect where it matters most.
-           */
-          placeholder={FIRST_USE_PLACEHOLDER}
-          ariaLabel="Describe your decision or challenge"
-          testId="first-use-input-bar"
-          onAfterSend={handleAfterSend}
-        />
-        {isGenerating ? (
-          // Overlay positioned to mirror the welcome variant's known
-          // geometry: pr-24 (96px) matches AIInputBar's icon-stack inset
-          // (cog + send) so the shapes never collide with them; pt-9
-          // (36px = 8 outer pt-2 + 8 textarea py-2 + 18 line-height +
-          // 2 gap) drops the shape row onto line 2 of the textbox,
-          // immediately below the "Generating your decision model…"
-          // placeholder. If the welcome variant's padding or line
-          // height ever changes in AIInputBar, update these classes.
-          <div
-            role="status"
-            aria-live="polite"
-            data-testid="first-use-thinking"
-            className="pointer-events-none absolute inset-0 flex items-start justify-center pt-9 pr-24"
+      {briefMode === 'structured' && !isGenerating ? (
+        <div className="w-full max-w-2xl">
+          <StructuredBriefFields
+            fields={fields}
+            onChange={handleFieldChange}
+            onSend={handleStructuredSend}
+            canSend={composedBrief !== '' && !isThinking}
+          />
+        </div>
+      ) : (
+        <div className="relative w-full max-w-2xl">
+          <AIInputBar
+            ref={inputBarRef}
+            variant="welcome"
+            hideChevron
+            /*
+             * ⭐ THIS SURFACE PASSES ITS OWN COPY, SO THE HOOK CHANGE NEVER REACHED IT.
+             * `AIInputBar` resolves `placeholder ?? stagePlaceholder` — an explicit
+             * prop WINS — so widening `useStageAwarePlaceholder` left the FIRST-USE
+             * screen, the most prominent entry surface there is, still demanding a
+             * decision. Correcting only the claim about it would have made the
+             * change accurate and left the defect where it matters most.
+             */
+            placeholder={FIRST_USE_PLACEHOLDER}
+            ariaLabel="Describe your decision or challenge"
+            testId="first-use-input-bar"
+            onAfterSend={handleAfterSend}
+          />
+          {isGenerating ? (
+            // Overlay positioned to mirror the welcome variant's known
+            // geometry: pr-24 (96px) matches AIInputBar's icon-stack inset
+            // (cog + send) so the shapes never collide with them; pt-9
+            // (36px = 8 outer pt-2 + 8 textarea py-2 + 18 line-height +
+            // 2 gap) drops the shape row onto line 2 of the textbox,
+            // immediately below the "Generating your decision model…"
+            // placeholder. If the welcome variant's padding or line
+            // height ever changes in AIInputBar, update these classes.
+            <div
+              role="status"
+              aria-live="polite"
+              data-testid="first-use-thinking"
+              className="pointer-events-none absolute inset-0 flex items-start justify-center pt-9 pr-24"
+            >
+              <ThinkingIndicator />
+            </div>
+          ) : null}
+        </div>
+      )}
+      {/* The single box is the default ("just tell us"); "Structure it" swaps in the four labelled fields and the
+          text carries over both ways. Hidden while generating: the brief is already committed. */}
+      {!isGenerating ? (
+        <div className="w-full max-w-2xl flex justify-end" style={{ marginTop: -16 }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={briefMode === 'single' ? structureIt : backToOneBox}
+            data-testid="first-use-brief-mode-toggle"
           >
-            <ThinkingIndicator />
-          </div>
-        ) : null}
-      </div>
+            {briefMode === 'single' ? 'Structure it' : 'Use one box'}
+          </Button>
+        </div>
+      ) : null}
+      {isGenerating && (sentFields !== null || briefReading !== null) ? (
+        <BriefReadingCard reading={briefReading} userFields={sentFields} />
+      ) : null}
       {/* Trust item #3: send-failure notice at the point of failure. Plain
           visible content — deliberately NOT a live region (the
           conversation's role="log" owner announces; adding aria-live here
@@ -653,7 +751,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
           Deliberately NOT a minimum, a counter, or a send block — sending
           still needs only `draft.trim().length > 0`. It is guidance, not a
           gate. Hidden while generating: the brief is already committed. */}
-      {!isGenerating && draft.length > 0 ? (
+      {!isGenerating && briefMode === 'single' && draft.length > 0 ? (
         <p
           data-testid="first-use-brief-guidance"
           className="w-full max-w-2xl text-center text-sm text-text-light m-0"

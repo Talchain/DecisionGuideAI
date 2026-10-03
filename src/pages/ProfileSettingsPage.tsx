@@ -11,11 +11,12 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { typography } from '../styles/typography'
 import { UserAvatarMenu } from '../components/layout/UserAvatarMenu'
+import ChangeEmailSection from '../components/auth/ChangeEmailSection'
 
 type FeedbackState = { type: 'success' | 'error'; message: string } | null
 
 export default function ProfileSettingsPage() {
-  const { user, profile, signOut } = useAuth()
+  const { user, profile, signOut, requestEmailChange } = useAuth()
   const navigate = useNavigate()
 
   // Form state
@@ -145,23 +146,16 @@ export default function ProfileSettingsPage() {
             value={displayName}
             onChange={e => setDisplayName(e.target.value)}
             placeholder="Your name"
-            className={`w-full rounded-lg border border-[rgba(38,38,38,0.12)] bg-panel px-3 py-2 ${typography.body} text-text-body placeholder:text-text-light focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow duration-fast`}
+            className={`w-full rounded-lg border border-[rgba(38,38,38,0.12)] bg-panel px-3 py-2 ${typography.body} text-text-body placeholder:text-text-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-shadow duration-fast`}
           />
         </div>
 
-        {/* Email (read-only) */}
-        <div className="mb-6">
-          <label htmlFor="email" className={`${typography.label} text-text-header block mb-1.5`}>
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            readOnly
-            className={`w-full rounded-lg border border-[rgba(38,38,38,0.12)] bg-canvas px-3 py-2 ${typography.body} text-text-light cursor-not-allowed`}
-          />
-        </div>
+        {/* Email: changed through Supabase's confirm-both-inboxes flow, never edited in place */}
+        <ChangeEmailSection
+          currentEmail={email}
+          pendingEmail={user?.new_email ?? null}
+          requestEmailChange={requestEmailChange}
+        />
 
         {/* Research consent */}
         <div className="mb-8 flex items-start gap-3">
@@ -170,7 +164,7 @@ export default function ProfileSettingsPage() {
             type="checkbox"
             checked={researchConsent}
             onChange={e => setResearchConsent(e.target.checked)}
-            className="mt-1 h-4 w-4 rounded border-[rgba(38,38,38,0.12)] text-primary focus:ring-primary/40"
+            className="mt-1 h-4 w-4 rounded border-[rgba(38,38,38,0.12)] text-primary focus-visible:ring-primary/40"
           />
           <label htmlFor="research-consent" className={`${typography.bodySmall} text-text-body`}>
             I consent to anonymised usage data being used for research purposes.
@@ -225,7 +219,7 @@ export default function ProfileSettingsPage() {
               value={deleteConfirmText}
               onChange={e => setDeleteConfirmText(e.target.value)}
               placeholder="Type DELETE"
-              className={`w-full rounded-lg border border-danger/30 bg-canvas px-3 py-2 ${typography.body} text-text-body placeholder:text-text-light focus:outline-none focus:ring-2 focus:ring-danger/40 mb-4`}
+              className={`w-full rounded-lg border border-danger/30 bg-canvas px-3 py-2 ${typography.body} text-text-body placeholder:text-text-light focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/40 mb-4`}
             />
             <div className="flex justify-end gap-3">
               <button

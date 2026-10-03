@@ -165,6 +165,43 @@ export function focusExistingTarget(
 }
 
 /**
+ * ⭐ WHAT A MODEL TARGET ID NAMES ON THIS CANVAS — the ONE resolution `focusModelTarget` focuses by, extracted as a pure
+ * function so a reader asking only "does this target exist here?" (`strengthenStore`'s foreign-target guard) asks the
+ * same question the focus does, never a second copy of it. Order: a node id, an edge id, a `from→to` / `from->to` pair
+ * (the edge, else an endpoint that exists), then an edge's `data.edge_id` / `data.plot_edge_id`. `null` = names nothing.
+ */
+export function resolveModelTarget(
+  targetId: string,
+  nodes: ReadonlyArray<{ id: string }>,
+  edges: ReadonlyArray<{ id: string; source: string; target: string; data?: unknown }>,
+  /**
+   * `endpointFallback` (default true, what FOCUSING wants): a `from→to` pair with no such edge resolves to an endpoint
+   * that exists, so the reader is taken somewhere useful. An EXISTENCE question must pass `false`: a link is not "on
+   * this canvas" because one of its ends is (PR Review on #2317, 5894785604 — the partial-overlap counterexample).
+   */
+  opts: { endpointFallback?: boolean } = {},
+): { id: string; kind: 'node' | 'edge' } | null {
+  if (!targetId) return null
+  if (nodes.some((n) => n.id === targetId)) return { id: targetId, kind: 'node' }
+  if (edges.some((e) => e.id === targetId)) return { id: targetId, kind: 'edge' }
+  const parts = targetId.split(/->|\u2192/)
+  if (parts.length === 2) {
+    const [from, to] = parts.map((x) => x.trim())
+    const edge = edges.find((e) => e.source === from && e.target === to)
+    if (edge) return { id: edge.id, kind: 'edge' }
+    if (opts.endpointFallback !== false) {
+      const endpoint = [from, to].find((id) => nodes.some((n) => n.id === id))
+      if (endpoint) return { id: endpoint, kind: 'node' }
+    }
+  }
+  const byData = edges.find((e) => {
+    const d = e.data as Record<string, unknown> | undefined
+    return d?.edge_id === targetId || d?.plot_edge_id === targetId
+  })
+  return byData ? { id: byData.id, kind: 'edge' } : null
+}
+
+/**
  * Parity P1 (audit: broken-function) — universal model-target resolver.
  *
  * Guidance items and Strengthen recommendations carry ids that may be a
@@ -235,44 +272,13 @@ export function focusModelTarget(
     requestOlumiAttention({ edgeIds: [resolvedId], nodeIds: endpoints, note })
   }
 
-  if (nodes.some((n) => n.id === targetId)) {
-    focusByTarget(targetId, 'node')
-    hold(targetId, 'node')
-    return true
-  }
-  if (edges.some((e) => e.id === targetId)) {
-    focusByTarget(targetId, 'edge')
-    hold(targetId, 'edge')
-    return true
-  }
-  const parts = targetId.split(/->|\u2192/)
-  if (parts.length === 2) {
-    const [from, to] = parts.map((x) => x.trim())
-    const edge = edges.find((e) => e.source === from && e.target === to)
-    if (edge) {
-      focusByTarget(edge.id, 'edge')
-      hold(edge.id, 'edge')
-      return true
-    }
-    const endpoint = [from, to].find((id) => nodes.some((n) => n.id === id))
-    if (endpoint) {
-      focusByTarget(endpoint, 'node')
-      hold(endpoint, 'node')
-      return true
-    }
-  }
-  const byData = edges.find((e) => {
-    const d = e.data as Record<string, unknown> | undefined
-    return d?.edge_id === targetId || d?.plot_edge_id === targetId
-  })
-  if (byData) {
-    focusByTarget(byData.id, 'edge')
-    hold(byData.id, 'edge')
-    return true
-  }
+  const hit = resolveModelTarget(targetId, nodes, edges)
   // Nothing resolved: no focus, and NO attention. A card pointing at an element
   // that is not on the canvas would dim the model around nothing.
-  return false
+  if (hit === null) return false
+  focusByTarget(hit.id, hit.kind)
+  hold(hit.id, hit.kind)
+  return true
 }
 
 export function focusByTarget(

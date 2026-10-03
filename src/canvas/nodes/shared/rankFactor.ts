@@ -19,22 +19,32 @@ type DriverFeed = ReturnType<typeof selectDriverPolicyFeed>
 export interface FactorRanks {
   /**
    * Distinct factors in the run's driver feed — the ELIGIBLE ANALYSED factors.
-   * Both the LICENCE set `influenceRankReadout` checks (a rank inside a
-   * comparison of at least two) AND, again since ED #63 5806207128, the printed
-   * `M` of "Driver N of M analysed" ("Denominator = eligible analysed factors,
-   * not 'number of ranks we happen to render'").
+   * The LICENCE set `influenceRankReadout` checks (a rank inside a comparison
+   * of at least two). Not printed: it counts factors the canvas never ranks
+   * (side-by-side DIFF item 3, 27 Sep 2026 — `Driver 1 of 5 analysed` beside
+   * three silent cards).
    */
   influenceSetSize: number
   /**
    * The number of factors this rule gives a rank (inside `determinedDepth`).
-   * Set-level, the same for every factor in the feed. Since ED 5806207128 it
-   * is NOT printed: it is the fail-closed PUBLICATION guard `driverRankFor` and
-   * the attention plan read (a rank beyond it states nothing). Contract v3.1
-   * pt 5 had made it the printed `M`; that reading is retired.
+   * Set-level, the same for every factor in the feed. It is BOTH the printed
+   * `M` of "Driver N of M ranked in this run" (NODE-ANATOMY v3.2; contract v3.1
+   * pt 5, "M is the number of factors the run ranked") AND the fail-closed
+   * publication guard `driverRankFor` and the attention plan read (a rank
+   * beyond it states nothing) — one number, so every one of the M is shown.
    */
   rankedSetSize: number
   /** 1..MAX_BADGED_RANK where the ordering is determined; otherwise null. */
   sensitivityRank: number | null
+  /**
+   * ⭐ THE DRIVER BAR'S FIGURE (side-by-side DIFF item 4, 27 Sep 2026): this
+   * factor's sort key (|elasticity|, the quantity the rank is ORDERED by) over
+   * rank 1's, 0..1 — so rank 1 is exactly 1 and the bars fall with the rank.
+   * Present exactly when `sensitivityRank` is. It replaced the displayed
+   * `influence_score` over the max of ALL factors, which drew Driver 1 at 81%
+   * because the max was a factor the card calls unranked.
+   */
+  relativeSensitivity: number | null
   /** 1..3 by value of information; otherwise null. */
   voiRank: number | null
 }
@@ -47,6 +57,9 @@ export interface FactorRanks {
  */
 function orderBySensitivity(rows: DriverFeed['policyRows']) {
   return rows
+    // ⭐ A covered-withheld row (ISL #213: influence depends on the option
+    // chosen) is never ranked, nor counted in M or the licence set.
+    .filter((r) => r.influenceGated !== true)
     .map((r) => ({
       key: r.key,
       elasticity: r.rawElasticity,
@@ -227,8 +240,17 @@ export function rankFactor(
   sensitivityRank = rank > 0 && rank <= determinedDepth ? rank : null
   // The ranked count — the distinct keys whose position is inside the SAME
   // depth that licenses each one (a duplicate row is one factor, as in
-  // `influenceSetSize`). A publication guard, not the printed M (ED 5806207128).
+  // `influenceSetSize`). The printed M AND the publication guard.
   const rankedSetSize = new Set(ranked.slice(0, determinedDepth).map((f) => f.key)).size
+  // The bar: off THIS array and THIS key, so it cannot disagree with the order
+  // beside it. `ranked[0]` is rank 1 whenever any rank is licensed; a licensed
+  // rank-1 key is > INFLUENCE_TIE_EPSILON (it clears the next factor by more),
+  // but the zero guard stays so no division can print a figure the run lacks.
+  const top = ranked[0]?.value ?? 0
+  const relativeSensitivity =
+    sensitivityRank !== null && top > 0
+      ? Math.min(1, Math.max(0, ranked[sensitivityRank - 1].value / top))
+      : null
 
   // VoI rank: top-3 factors by value_of_information. Keyed off the shared
   // feed's canonical key (node_id → factor_id → id → label), so a row
@@ -240,7 +262,7 @@ export function rankFactor(
     .sort((a, b) => b.voi - a.voi)
   const voiPos = rankedByVoi.findIndex(f => f.id === nodeId) + 1
   if (voiPos > 0 && voiPos <= 3) voiRank = voiPos
-  return { influenceSetSize, rankedSetSize, sensitivityRank, voiRank }
+  return { influenceSetSize, rankedSetSize, sensitivityRank, voiRank, relativeSensitivity }
 }
 
 /**

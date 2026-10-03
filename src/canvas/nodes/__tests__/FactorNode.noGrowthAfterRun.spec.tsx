@@ -25,7 +25,7 @@
  *   · pre-run it reads the contract line on a factor that shows a value; it is
  *     empty and aria-hidden where the contract says nothing (a range-only or
  *     needs-input factor);
- *   · post-run the ranked factor's `Driver N of M analysed` + bar fill it;
+ *   · post-run the ranked factor's `Driver N of M ranked in this run` + bar fill it;
  *   · MG's #2123 B1 trap: a factor the Run does NOT rank keeps the SAME slot,
  *     empty and aria-hidden — never removed, so it cannot shrink either.
  *
@@ -106,7 +106,9 @@ const SERVED_FACTORS = [
 const VALUED = new Set(['fac_adoption_friction', 'fac_enterprise_revenue_risk', 'fac_usage_exposure'])
 const nodes = SERVED_FACTORS.map(f => ({ id: f.id, type: 'factor', position: { x: 0, y: 0 }, data: f.data }))
 
-// Served post-run: only the top factor is ranked ("Driver 1 of 5 analysed").
+// Served post-run: only the top factor is ranked — "Driver 1 of 1 ranked in this
+// run" since the ranked-count M (NODE-ANATOMY v3.2; served then as "Driver 1 of
+// 5 analysed", which counted four factors no card ranked — DIFF item 3).
 const SERVED_ORDER = [RANK_1, 'fac_enterprise_revenue_risk', 'fac_usage_exposure', 'fac_adoption_friction', 'fac_market_competition']
 const meta = (id: string, ran: boolean, rankedCount = 1) => {
   const rank = SERVED_ORDER.indexOf(id) + 1
@@ -114,6 +116,8 @@ const meta = (id: string, ran: boolean, rankedCount = 1) => {
     sensitivityRank: ran ? rank : null, influence: ran ? [1, 0.7, 0.5, 0.3, 0.1][rank - 1] : null,
     influenceProvenance: 'influence_score', influenceImportanceBasis: null,
     influenceSetSize: ran ? 5 : null, influenceRankedCount: ran ? rankedCount : null,
+    // The bar's figure (`rankFactor.relativeSensitivity`): rank 1 → 1.
+    driverRelativeSensitivity: ran ? [1, 0.7, 0.5, 0.3, 0.1][rank - 1] : null,
     confidence: null, confidenceIsDefaulted: false, confidenceIsProvisional: false,
     inSensitivityAnalysis: ran, achievementProbability: null,
     achievementProbabilityIsModelledBasis: false, stabilityPercentage: null, winRate: null,
@@ -210,20 +214,28 @@ describe('served pricing factors — the driver line has ONE slot, reserved befo
     },
   )
 
-  it('fac_top_account_concentration post-run: "Driver 1 of 5 analysed" + its bar fill the reserved slot, on one line', () => {
+  it('fac_top_account_concentration post-run: "Driver 1 of 1 ranked in this run" + its bar fill the reserved slot, on one line', () => {
     seed('post')
     renderCard(RANK_1)
     const s = slot(RANK_1)!
     expect(s.getAttribute('aria-hidden')).toBeNull()
     const line = screen.getByTestId('factor-driver-line')
     expect(line.parentElement).toBe(s)
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 analysed')
+    // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
+    // one-line slot prints the LONGEST form that fits at the landing bound
+    // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
+    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 1 ranked')
     expect(within(s).getByTestId('factor-driver-line-bar')).toBeInTheDocument()
-    // One line: the row never wraps; the caption ellipsises, whole in the button's name.
-    expect(tokens(line)).toContain('flex-nowrap')
+    // One line: the SLOT is one line and clips. Inside it the caption never wraps
+    // (it fits whole at the landing bound — `FactorDriverLine.landingFit.spec`),
+    // and a bar that does not fit beside it wraps into the clipped second line,
+    // drawn whole or not at all (DIFF item 11 review) — never squashed.
+    expect(tokens(s)).toContain('h-[1lh]')
+    expect(tokens(s)).toContain('overflow-hidden')
+    expect(tokens(line)).toContain('flex-wrap')
     expect(tokens(line)).toContain('whitespace-nowrap')
     expect(tokens(line)).not.toContain('mt-1')
-    expect(line.getAttribute('aria-label')!.startsWith('Driver 1 of 5 analysed.')).toBe(true)
+    expect(line.getAttribute('aria-label')!.startsWith('Driver 1 of 1 ranked in this run.')).toBe(true)
   })
 
   it('MG B1 (#2123 review): a factor the Run does NOT rank keeps its reserved slot after the Run — empty, aria-hidden, no substitute', () => {
@@ -254,7 +266,7 @@ describe('(b) "No turning point in this run" is NOT on the card', () => {
     seed('post')
     renderCard(RANK_1)
     const c = card('Top Account Revenue Concentration')
-    expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 analysed')
+    expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 1 ranked')
     expect(within(c).queryByTestId('factor-turning-point-none')).toBeNull()
     expect(c.textContent).not.toContain('No turning point')
   })
@@ -280,8 +292,12 @@ const FOUND_REPORT = { ...SERVED_REPORT, flip_thresholds: [FOUND_ROW] }
 const MG_ADDED = [
   `node-card-rail-resting-${RANK_1}`, `attention-marker-${RANK_1}`, 'attention-marker-ring', 'node-title-corner-spacer',
   'factor-driver-line', 'factor-driver-line-caption', 'factor-driver-line-bar', 'factor-driver-line-bar-fill',
-  'factor-turning-point', 'factor-turning-point-caption', 'factor-turning-point-run-value',
+  // Post-run DIFF item 10 (28 Sep 2026, contract v3.1 `flipPlot`): the track
+  // and its labels are one plot (`-plot`), the run's value BENEATH the line —
+  // so it follows the marks in document order. Same elements, one wrapper.
+  'factor-turning-point', 'factor-turning-point-caption', 'factor-turning-point-plot',
   'factor-turning-point-track', 'factor-turning-point-current', 'factor-turning-point-flip',
+  'factor-turning-point-run-value',
 ]
 const FLIP_PLOT_IDS = MG_ADDED.filter(t => t.startsWith('factor-turning-point'))
 
@@ -316,10 +332,13 @@ describe('FOUND turning point on the rank-1 factor — the ONE card that may gro
     const plot = within(c).getByTestId('factor-turning-point')
     // On the card FACE, the sibling right after the slot — not in a popover.
     expect(s.nextElementSibling).toBe(plot)
+    // At rest the caption is the contract's sentence; the producer's option
+    // scope is in the name (post-run DIFF item 10: at most two lines).
     expect(within(plot).getByTestId('factor-turning-point-caption').textContent).toBe(
-      'Above 0.7, the current model comparison shifts towards Full Switch to Usage-Based at Renewal.',
+      'Above 0.7, the current model comparison changes.',
     )
-    expect(within(s).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 analysed')
+    expect(plot.getAttribute('aria-label')).toContain('It shifts towards Full Switch to Usage-Based at Renewal.')
+    expect(within(s).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 1 ranked')
     // "None found" is not the arm here, and never on the card.
     expect(within(c).queryByTestId('factor-turning-point-none')).toBeNull()
   })
@@ -343,7 +362,7 @@ describe('FOUND turning point on the rank-1 factor — the ONE card that may gro
   )
 
   it('the rank-1 GATE: a FOUND row on the rank-2 factor stays off its card face (popover/inspector); rank 1 keeps its plot (present control)', () => {
-    // MG's row shape, on two factors, with the Run ranking two ("Driver 2 of 5 analysed").
+    // MG's row shape, on two factors, with the Run ranking two ("Driver 2 of 2 ranked in this run").
     const RANK_2 = 'fac_enterprise_revenue_risk'
     const twoFound = {
       ...SERVED_REPORT,
@@ -363,7 +382,7 @@ describe('FOUND turning point on the rank-1 factor — the ONE card that may gro
     seed('post', twoFound, 2)
     const { container } = renderCard(RANK_2)
     const c = card('Enterprise Revenue Cannibalization Risk')
-    expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 5 analysed')
+    expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 2 ranked')
     expect(allIds(container).filter(t => FLIP_PLOT_IDS.includes(t))).toEqual([])
     // What DOES arrive is the run's attention mark (`nodeAttention`: a found row
     // qualifies) — a corner mark, not the plot. Chromium, this title, found row on

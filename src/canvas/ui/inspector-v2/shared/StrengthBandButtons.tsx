@@ -272,7 +272,7 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
               title={disclosure}
               className={`${typography.panelMeta} px-2 py-1 rounded-full bg-transparent border transition-colors cursor-pointer inline-flex flex-col items-center leading-tight
                 ${isActive
-                  ? 'border-primary text-primary'
+                  ? 'border-text-body text-text-body bg-panel-hover'
                   : 'border-panel-border text-text-light hover:border-text-light hover:bg-panel-hover'
                 }`}
               aria-pressed={isActive}

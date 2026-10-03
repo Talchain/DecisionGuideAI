@@ -4,6 +4,7 @@
 import { StrictMode, useState, useEffect, Suspense, useMemo, useCallback, useRef, lazy } from 'react'
 import type React from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { isCanvasRouteHash } from './canvasRouteHash'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { simulateTokens, getJSON } from './adapters/StreamAdapter'
 import { feature } from '../lib/pocFlags'
@@ -15,6 +16,7 @@ import GraphCanvas from '../components/GraphCanvas'
 import RouteLoadingFallback from '../components/RouteLoadingFallback'
 import { CanvasErrorBoundary } from '../canvas/ErrorBoundary'
 import { AuthProvider } from '../contexts/AuthContext'
+import GuestCopyOnSignIn from '../components/auth/GuestCopyOnSignIn'
 // P1 (external review round 2): gate the DebugPanel MOUNT on the ?diag/env check
 // so the ~250 KB chunk downloads only when diagnostics are requested. This is the
 // SINGLE mount — the duplicate ReactFlowGraph mount was removed.
@@ -102,6 +104,7 @@ const ParticipantPacketPage = lazyWithStallBound(() => import('../pages/Particip
 const PanelSetupPage = lazyWithStallBound(() => import('../pages/PanelSetupPage'), 'Panel setup')
 const LoginPage = lazyWithStallBound(() => import('../components/auth/LoginPage'), 'The sign-in page')
 const AuthCallback = lazyWithStallBound(() => import('../components/auth/AuthCallback'), 'Sign-in')
+const AuthConfirmPage = lazyWithStallBound(() => import('../components/auth/AuthConfirmPage'), 'Sign-in')
 // ⚠ A LAYOUT ROUTE: a stall here blocks EVERY guarded route at once, so it needs
 // the bound at least as much as the leaf pages it wraps.
 const AuthGuard = lazyWithStallBound(() => import('../components/auth/AuthGuard'), 'The workspace')
@@ -156,6 +159,7 @@ const queryClient: any = (QueryClient && typeof QueryClient === 'function')
       },
     })
   : {}
+
 
 export default function AppPoC() {
   // P1: the single, gated DebugPanel mount lives here (the app shell).
@@ -212,6 +216,10 @@ export default function AppPoC() {
         if (isTypingTarget(e.target as Element)) return
         const isZ = e.key === 'z' || e.key === 'Z'
         const meta = e.ctrlKey || e.metaKey
+        // ⌘Z on the CANVAS belongs to the canvas (saved-change undo,
+        // `canvas/undo/undoCommand.ts`). This sandbox history must not also
+        // swallow it there — see `isCanvasRouteHash`.
+        if (meta && isZ && isCanvasRouteHash(window.location.hash)) return
         if (meta && isZ) {
           e.preventDefault()
           setHist(prev => (e.shiftKey ? doRedo(prev) : doUndo(prev)))
@@ -938,6 +946,10 @@ export default function AppPoC() {
       <QueryClientProvider client={queryClient}>
         <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AuthProvider>
+            {/* ACCOUNTS B3: copies a guest's decision into the account on EVERY
+                sign-in path (password, magic link, invite, another tab), so it
+                sits at the shell rather than inside one auth page. Renders null. */}
+            <GuestCopyOnSignIn />
             {/* PR #156 follow-up — debug-export UI mount. P1 (external review
                 round 2): the MOUNT is now gated on useShouldShowDebugPanel() so
                 React.lazy fetches the ~250 KB chunk ONLY when ?diag is set —
@@ -957,6 +969,7 @@ export default function AppPoC() {
                 {/* Public routes */}
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/auth/confirm" element={<AuthConfirmPage />} />
                 <Route path="/brief/:slug" element={<SharedBriefPage />} />
                 {/* COLLAB — the participant's panel page. OUTSIDE AuthGuard,
                     DELIBERATELY: a participant holds no Supabase session, and

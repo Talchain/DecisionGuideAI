@@ -818,6 +818,37 @@ describe('applyDraftResult', () => {
     expect(result.totalUpdatedCount).toBe(0)
   })
 
+  /**
+   * ⭐ POM-3 (canvas audit 27 Sep, paul-models, board 90b8f080). CEE's typed
+   * `is_baseline: false` for "£59 for new Pro customers; grandfather existing
+   * customers" was compared against `existing ?? false`, read as unchanged,
+   * and — its interventions already matching — never stamped. The node's only
+   * record of "not the baseline" was session-only `analysis_ready`.
+   */
+  it('POM-3 — stamps CEE\'s typed is_baseline:false onto a node with no flag, even when the interventions already match', () => {
+    storeNodes = [
+      { id: 'g1', type: 'goal', data: { kind: 'goal', label: 'Revenue' }, position: { x: 0, y: 0 } },
+      { id: '146aa89d', type: 'option', data: { kind: 'option', label: '£59 for new Pro customers; grandfather existing customers', interventions: { f1: 0.59 } }, position: { x: 0, y: 0 } },
+    ]
+    const result = backfillInterventionsOntoOptionNodes({
+      options: [{ id: '146aa89d', interventions: { f1: 0.59 }, is_baseline: false }],
+    })
+    const o = storeNodes.find((n: any) => n.id === '146aa89d')
+    expect(o.data.is_baseline).toBe(false)
+    expect(result.baselineOnlyUpdatedCount).toBe(1)
+  })
+
+  it('POM-3 CONTRAST — a regex MISS when CEE omits the flag is not a typed false, and is not stamped', () => {
+    storeNodes = [
+      { id: 'g1', type: 'goal', data: { kind: 'goal', label: 'Revenue' }, position: { x: 0, y: 0 } },
+      { id: 'o1', type: 'option', data: { kind: 'option', label: 'Raise the price', interventions: { f1: 0.7 } }, position: { x: 0, y: 0 } },
+    ]
+    const result = backfillInterventionsOntoOptionNodes({ options: [{ id: 'o1', interventions: { f1: 0.7 } }] })
+    const o = storeNodes.find((n: any) => n.id === 'o1')
+    expect(o.data.is_baseline).toBeUndefined()
+    expect(result.totalUpdatedCount).toBe(0)
+  })
+
   it('returns all-zero result for null/empty analysisReady input', () => {
     expect(backfillInterventionsOntoOptionNodes(null)).toEqual({
       interventionBackfilledCount: 0,

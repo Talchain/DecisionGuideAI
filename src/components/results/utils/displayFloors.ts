@@ -1,6 +1,7 @@
 import {
   SUB_ONE_PERCENT_FLOOR,
   SUB_ONE_PERCENT_READOUT,
+  ceilBelowCertain,
   formatPercent,
   formatProbabilityWithResolution,
 } from '../../../utils/formatPercent'
@@ -101,5 +102,5 @@ export function formatGoalProbability(value: number, nSamples?: number | null): 
   }
   return value < SUB_ONE_PERCENT_FLOOR
     ? SUB_ONE_PERCENT_READOUT
-    : formatPercent(value, { fromDecimal: true })
+    : ceilBelowCertain(value, formatPercent(value, { fromDecimal: true }))
 }

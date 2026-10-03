@@ -93,6 +93,8 @@ import { addRun, generateGraphHash, loadRuns, type StoredRun, type RestorableRun
 import { createIdleResults } from './store/idleResults'
 import { RUN_COMPLETED_WITHOUT_VERDICT, VERDICT_ABSENT_FROM_PAYLOAD, deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
 import { rowEndPositionForNewNode } from './utils/newNodePlacement'
+import { withoutPersistedMeasurement } from './utils/persistedMeasurement'
+import { raiseToFront } from './utils/raiseToFront'
 import type { AnalysisRefusalNotice } from './store/analysisRefusalNotice'
 import {
   captureStructuralDelete,
@@ -132,6 +134,7 @@ import {
 import {
   EMPTY_DURABLE_DELETION_RECORD,
   addDurableDeletion,
+  forgetDurableDeletion,
   buildDurableDeletionNotice,
   reconcileDurableDeletions,
   withholdDurableDeletions,
@@ -171,6 +174,7 @@ import type { LimitsV1 } from '../adapters/plot/types'
 import type { ScenarioStage, ScenarioEvent } from '../types/scenario'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { identityFromCanvasGraph } from './utils/graphIdentity'
+import { isCanvasOnlyLink } from './utils/canvasOnlyLink'
 // Static import, deliberately: this runs in the LAYOUT FAILURE path, so it must
 // not depend on a dynamic import that can fail alongside the layout engine it
 // is rescuing (the `./utils/layout` import above is dynamic and is one of the
@@ -194,6 +198,7 @@ import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferen
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
 import type { StoredRunDelta } from './state/storedRunDelta'
+import type { LimitVerdictsWrite, StoredLimitVerdicts } from './state/storedLimitVerdicts'
 import { recordCrossSurfaceEvent, recordUserAction } from '../lib/debug-state'
 import {
   isSelfLoop,
@@ -311,6 +316,7 @@ function tryRestoreResultsFromHistory(
 // because this is where every existing consumer already imports it from, and
 // this file uses it in its own action signatures.
 import type { CeeQualityDimensions } from './utils/ceeQualityDimensions'
+import { isViewerSession } from '../lib/viewerMode'
 export type { CeeQualityDimensions }
 
 // Results panel state machine
@@ -690,6 +696,8 @@ interface CanvasState {
    * `runDeltaDescribesDisplayedAnalysis` is the one predicate that decides.
    */
   runDelta: StoredRunDelta | null
+  /** B5 per-limit + joint verdicts, bound to the analysis they arrived beside (`storedLimitVerdicts.ts`). */
+  limitVerdicts: StoredLimitVerdicts | null
   /**
    * THE PRODUCER'S LAST ADMISSION, RETAINED ACROSS INVALIDATION AS UNCONFIRMED.
    *
@@ -1239,9 +1247,20 @@ interface CanvasState {
    * switches away. Pure id projection — no fabricated values, no thresholds.
    */
   analysisHighlight: {
-    source: 'flip_risks' | 'drivers' | null
+    source: 'flip_risks' | 'drivers' | 'run_changes' | null
     edgeIds: Set<string>
     nodeIds: Set<string>
+    /**
+     * `run_changes` only (the Changes view, `graphChanges/`): WHICH mark each id carries — `changed` / `added` /
+     * `moved`. The id Sets above stay the membership test every existing reader uses. Absent on other sources.
+     */
+    nodeMarks?: ReadonlyMap<string, import('./graphChanges/graphChangesView').RunChangeMark>
+    /**
+     * `run_changes` only: the two cards at the ends of every marked link. They stay at full strength while the rest
+     * are subdued, so a link-only change reads as "this link, between these two" (audit 5942900903 (a)).
+     */
+    contextNodeIds?: ReadonlySet<string>
+    edgeMarks?: ReadonlyMap<string, import('./graphChanges/graphChangesView').RunChangeMark>
   }
   dimmedNodeIds: Set<string>
   /** 6A (selection focus): edges NOT in the selected element's neighbourhood.
@@ -1256,6 +1275,9 @@ interface CanvasState {
    * focused node), cleared on blur/deselect/manual pan/node removal. While
    * active, usePathHighlight must not overwrite dimmedNodeIds. */
   focusDimSourceId: string | null
+  /** WHERE THIS CHANGE FLOWS (`graphChanges/routeFocus`): the node or link a Changes row on a C1 pair asked to show the
+   * route of. Acts only while the selection IS that element; set by a C1 row, released by its surface. Null otherwise. */
+  runChangesRouteFocusId: string | null
   /** D2 (graph-visuals): level-of-detail — which rung of the semantic-zoom
    * ladder the main canvas zoom sits on (`full` / `quiet` / `line`), written by
    * `LodSync`. `line` is below the legibility floor and is exactly what the
@@ -1470,6 +1492,19 @@ interface CanvasState {
   applySimpleLayout: (preset: 'grid' | 'hierarchy' | 'flow', spacing: 'small' | 'medium' | 'large') => void
   applyGuidedLayout: (policy?: Partial<import('./layout/policy').LayoutPolicy>) => void
   resetCanvas: () => void
+  /**
+   * Open ANOTHER scenario on a clean slate: the whole scenario-scoped state `resetCanvas` clears (graph, analysis
+   * state, results, freshness, authority identity, comparison, draft models), applied whether or not the canvas is
+   * empty, plus a fresh undo stack (undo must never restore one scenario's graph into another), then the id adopted.
+   * The empty-canvas `resetCanvas` keeps its narrower contract; adoption never takes that early return.
+   */
+  adoptScenario: (scenarioId: string) => void
+  /**
+   * Bumped by every scenario boundary (`resetCanvas`, both branches, and `adoptScenario`). An async open captures it
+   * and refuses to apply if it moved: on an EMPTY canvas "Start fresh" changes neither the id nor the emptiness, so
+   * this is the only signal that the user moved on while a read was in flight (#2418 delta CR, P1-2).
+   */
+  scenarioEpoch: number
   createNodeId: () => string
   createEdgeId: () => string
   reseedIds: (nodes: Node[], edges: Edge[]) => void
@@ -1719,6 +1754,7 @@ interface CanvasState {
    * this one.
    */
   setRunDelta: (stored: StoredRunDelta | null) => void
+  setLimitVerdicts: (stored: LimitVerdictsWrite | null) => void
   /**
    * Write the V5 analysis-fact slice. Pass null to clear (e.g. on scenario
    * switch). Do NOT clear on every conversational turn — per
@@ -1917,6 +1953,15 @@ interface CanvasState {
     readonly nodeIds: readonly string[]
     readonly edgeIds: readonly string[]
   }) => void
+  /**
+   * A VERSION RESTORE put these elements back on the saved model, so they are
+   * no longer proven deleted. The twin of `recordDurableDeletion`; call it only
+   * with ids the restored server graph actually holds.
+   */
+  forgetDurableDeletion: (heldAgain: {
+    readonly nodeIds: readonly string[]
+    readonly edgeIds: readonly string[]
+  }) => void
   /** Dismiss the durable-deletion notice once the canvas has shown it. */
   clearDurableDeletionNotice: () => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
@@ -1949,6 +1994,11 @@ interface CanvasState {
     source: 'flip_risks' | 'drivers',
     ids: { edgeIds?: string[]; nodeIds?: string[] },
   ) => void
+  /** The Changes view's projection (row E): the marks of the displayed Run pair. Replaces any projection wholesale. */
+  setRunChangesHighlight: (marks: {
+    nodeMarks: ReadonlyMap<string, import('./graphChanges/graphChangesView').RunChangeMark>
+    edgeMarks: ReadonlyMap<string, import('./graphChanges/graphChangesView').RunChangeMark>
+  }) => void
   /** Analysis-graph projection: clear all projection marks. No-op (no state
    * write, no Set-identity churn) when nothing is currently projected. */
   clearAnalysisHighlight: () => void
@@ -1962,6 +2012,7 @@ interface CanvasState {
    * when no focus dim is active, so it never clobbers the selection
    * path-dim written via setDimmedNodes. */
   clearFocusDim: () => void
+  setRunChangesRouteFocus: (id: string | null) => void
   /** N3: replace the edited-since-run set (called by the useEditedSinceRun effect). */
   setEditedSinceRunNodes: (ids: string[]) => void
   /** D2: set by the LodSync zoom watcher (skip-if-same). */
@@ -2319,6 +2370,7 @@ const DECISION_CONTEXT_CLEAR = {
   // because this failure is silent and a reader would see a real, producer-
   // computed comparison sitting under a model it was never about.
   runDelta: null,
+  limitVerdicts: null,
   // The retained admission is scoped to ONE decision. A full-context replacement
   // brings a different graph, so the previous decision's licence (or refusal)
   // must not govern edits made to this one — the same hazard as the stale
@@ -2403,6 +2455,90 @@ function firstGoalNodeId(
     (n) => n.type === 'goal' || (n.data as { type?: string } | undefined)?.type === 'goal',
   )
   return goal?.id ?? null
+}
+
+/**
+ * The whole scenario-scoped state a scenario boundary clears: `resetCanvas`'s full branch, and `adoptScenario`
+ * (which applies it even on an empty canvas). A function, so every reset gets fresh Set/lens instances.
+ */
+function scenarioResetState(): Partial<CanvasState> {
+  return {
+    // Clear graph
+    nodes: [],
+    // Wave F-A: fresh decision, fresh option-ordinal history
+    optionNumbering: {},
+    edges: [],
+    touchedNodeIds: new Set(),
+    nextNodeId: 1,
+    nextEdgeId: 1,
+    // Clear CEE analysis_ready payload, pipeline trace and quality.
+    // (ceeAnalysisReady, ceeAnalysisReadyNodeIds, goalConstraints and
+    // lastAuthoritativeGraph are all cleared via DECISION_CONTEXT_CLEAR
+    // below — Lane 5, extended by B2/B3. They are deliberately NOT repeated
+    // here: the duplicate keys this file used to carry were dead weight
+    // that only agreed with the spread by coincidence.)
+    analysisFreshness: null,
+    analysisFreshnessDirty: false,
+    // ROADMAP 2.1163 / EXT-2: a refusal describes ONE turn against ONE model.
+    // Carrying it across an import/reset/scenario switch would claim a refusal
+    // that never happened for the model now on the canvas.
+    analysisRefusalNotice: null,
+    // Step 5 — same argument, and it matters more here because this verdict
+    // OUTRANKS the local derivations: carrying a composed verdict across an
+    // import/reset/scenario switch would let CEE's statement about the
+    // PREVIOUS model silently govern what may be said about this one.
+    analysisStateV1: null,
+    // Interim 2.467 — release. ⚠ NOT derived (same correction as the
+    // empty-graph branch above): resetCanvas installs an EMPTY graph, for
+    // which the digest is null by the empty-graph rule, so a derivation here
+    // is constant `false`. Stated as the literal it is; the empty-graph rule
+    // is what keeps it correct.
+    importPendingServerRegistration: false,
+    // V5 canonical analysis fact — clear on scenario reset (the fact does
+    // not survive a graph reset; rerun analysis to mint a fresh one).
+    v5AnalysisFact: null,
+    draftCoaching: null,
+    ceePipelineTrace: null,
+    nodeRationales: {},
+    ceeQuality: null,
+    // Phase 1b: Clear extended CEE data
+    ceeExtendedWarnings: null,
+    ceeGoalConnectivity: null,
+    ceeModelQualityFactors: null,
+    ceeInterventionHints: null,
+    preAnalysisSensitivity: null,
+    // Clear results and analysis state
+    previousReport: null, // A1: Clear stale deltas on canvas reset
+    results: { status: 'idle', progress: 0 },
+    // Lane 1b/5 review folds: the goal threshold, its representation and the
+    // outcome-node selection are per-decision — left standing they ride the
+    // NEXT decision's runs (the canonical run default-attaches the store
+    // threshold). ceeAnalysisReady/-NodeIds are already cleared above.
+    ...DECISION_CONTEXT_CLEAR,
+    runMeta: {},
+    hasCompletedFirstRun: false,
+    graphEditedSinceLastRun: false,
+    analysisStateReady: false,
+    // Clear validation state
+    graphHealth: null,
+    needleMovers: [],
+    // Close results panel
+    showResultsPanel: false,
+    // Clear scenario tracking in store state
+    currentScenarioId: null,
+    scenarioPersistedToDb: false,
+    // A.15: Clear lifecycle stage
+    currentStage: null,
+    // A.5+: Clear draft snapshot
+    draftChatPreDraftSnapshot: null,
+    // Phase 2A: Clear analysis metadata
+    lastAnalysisSeed: null,
+    lastQualityMode: null,
+    repairsApplied: null,
+    rawV2Response: null,
+    // Graph Lens: reset on canvas clear
+    lens: createDefaultLensState(),
+  }
 }
 
 /**
@@ -2864,9 +3000,13 @@ function retryStructuralAddEdgeCapture(
 ): (Partial<CanvasState> & { deferredCapture?: boolean }) | null {
   const edge = state.edges.find((e) => e.id === edgeId)
   if (!edge) return null
-  const data = edge.data as EdgeData | undefined
-  // Bound by IDENTITY of the recorded reason, never "some marker is present".
-  if (data?.structuralAddStandDown !== 'strength_not_stated') return null
+  // Bound by IDENTITY of the recorded reason, never "some marker is present" —
+  // AND never for a pair the server already holds (review r06 blocker 2, 28 Sep
+  // 2026): a receipt on such a pair is stale, and re-running the capture would
+  // queue a second `structural_add_edge` for a link CEE has. One predicate with
+  // the on-link word and the add-control (`utils/canvasOnlyLink.ts`), so no
+  // surface can offer a send this gate then refuses, or the reverse.
+  if (!isCanvasOnlyLink(edge, state.lastAuthoritativeGraph)) return null
 
   const plan = planStructuralAddEdgeIntent(state, state.edges, edgeId)
   // Nothing captured — still no stated strength, or a different stand-down.
@@ -3257,6 +3397,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   nodes: initialNodes,
   edges: initialEdges,
   history: { past: [], future: [] },
+  scenarioEpoch: 0,
   selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
   _internal: { lastHistoryHash: '' },
   clipboard: null,
@@ -3308,6 +3449,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   ceeAnalysisReady: null,
   // No run has completed, so there is no run-over-run consequence to describe.
   runDelta: null,
+  limitVerdicts: null,
   // No producer has spoken at cold start, so absence genuinely means "no
   // authority" and `licensesComparativeLeaderClaim` keeps its `true` arm.
   retainedAnalysisAdmission: null,
@@ -3390,6 +3532,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   dimmedNodeIds: new Set<string>(),
   dimmedEdgeIds: new Set<string>(),
   focusDimSourceId: null,
+  runChangesRouteFocusId: null,
   editedSinceRunNodeIds: new Set<string>(),
   lodRung: 'full',
   confirmedNodeIds: new Set<string>(),
@@ -3733,6 +3876,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   updateNodeLabel: (id, label) => {
+    // ACCOUNTS viewer mode: a viewer cannot rename (only user gestures call this).
+    if (isViewerSession()) return
     // 0.50.0 — CAPTURE BEFORE THE LOCAL WRITE, and that ordering is the whole
     // point. `expected_label` is an assertion about the label the user was
     // LOOKING AT; reading it after the local mutation would assert the label we
@@ -3910,6 +4055,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   onNodesChange: (changes) => {
+    // ACCOUNTS viewer mode: a viewer selects and is measured, nothing else (no drag, add or remove).
+    if (isViewerSession()) changes = changes?.filter((c) => c.type === 'select' || c.type === 'dimensions')
     // Guard no-op changes
     if (!changes || changes.length === 0) return
 
@@ -3948,8 +4095,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
     const hasSelectChange = acceptedChanges.some(c => c.type === 'select')
 
+    // ⛔ A COMMITTED MOVE PAINTS ON TOP (edit-structure/F4): a released drag, or
+    // React Flow's own keyboard move of a focused selection box, arrives as a
+    // position change with `dragging: false`. See `raiseToFront`.
+    const committedMoveIds = new Set(
+      acceptedChanges
+        .filter(c => c.type === 'position' && !(c as { dragging?: boolean }).dragging && (c as { position?: unknown }).position)
+        .map(c => (c as { id: string }).id),
+    )
+
     set((s) => {
-      const updatedNodes = applyNodeChanges(acceptedChanges, s.nodes)
+      const updatedNodes = raiseToFront(applyNodeChanges(acceptedChanges, s.nodes), committedMoveIds)
 
       let selection = s.selection
 
@@ -4058,6 +4214,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   onEdgesChange: (changes) => {
+    // ACCOUNTS viewer mode: a viewer selects edges, nothing else (no remove).
+    if (isViewerSession()) changes = changes?.filter((c) => c.type === 'select')
     // Guard no-op changes
     if (!changes || changes.length === 0) return
 
@@ -4630,12 +4788,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       pushToHistory(get, set)
     }
 
-    // Apply nudge immediately (responsive)
+    // Apply nudge immediately (responsive). The nudged cards paint on top
+    // (edit-structure/F4) — once per burst, see `raiseToFront`.
     set((s) => ({
-      nodes: s.nodes.map(n => 
-        selection.nodeIds.has(n.id)
-          ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }
-          : n
+      nodes: raiseToFront(
+        s.nodes.map(n =>
+          selection.nodeIds.has(n.id)
+            ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }
+            : n
+        ),
+        selection.nodeIds,
       )
     }))
 
@@ -5098,7 +5260,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // COUPLING is what matters: it is the empty-graph null rule (pinned by
       // its own test) that makes this safe — break that rule and this line
       // becomes wrong, silently.
-      set({ ...DECISION_CONTEXT_CLEAR, importPendingServerRegistration: false })
+      set({ ...DECISION_CONTEXT_CLEAR, importPendingServerRegistration: false, scenarioEpoch: get().scenarioEpoch + 1 })
       return
     }
 
@@ -5107,88 +5269,24 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Clear current scenario ID - user is starting fresh, not editing old scenario
     scenarios.clearCurrentScenarioId()
 
-    set({
-      // Clear graph
-      nodes: [],
-      // Wave F-A: fresh decision, fresh option-ordinal history
-      optionNumbering: {},
-      edges: [],
-      touchedNodeIds: new Set(),
-      nextNodeId: 1,
-      nextEdgeId: 1,
-      // Clear CEE analysis_ready payload, pipeline trace and quality.
-      // (ceeAnalysisReady, ceeAnalysisReadyNodeIds, goalConstraints and
-      // lastAuthoritativeGraph are all cleared via DECISION_CONTEXT_CLEAR
-      // below — Lane 5, extended by B2/B3. They are deliberately NOT repeated
-      // here: the duplicate keys this file used to carry were dead weight
-      // that only agreed with the spread by coincidence.)
-      analysisFreshness: null,
-      analysisFreshnessDirty: false,
-      // ROADMAP 2.1163 / EXT-2: a refusal describes ONE turn against ONE model.
-      // Carrying it across an import/reset/scenario switch would claim a refusal
-      // that never happened for the model now on the canvas.
-      analysisRefusalNotice: null,
-      // Step 5 — same argument, and it matters more here because this verdict
-      // OUTRANKS the local derivations: carrying a composed verdict across an
-      // import/reset/scenario switch would let CEE's statement about the
-      // PREVIOUS model silently govern what may be said about this one.
-      analysisStateV1: null,
-      // Interim 2.467 — release. ⚠ NOT derived (same correction as the
-      // empty-graph branch above): resetCanvas installs an EMPTY graph, for
-      // which the digest is null by the empty-graph rule, so a derivation here
-      // is constant `false`. Stated as the literal it is; the empty-graph rule
-      // is what keeps it correct.
-      importPendingServerRegistration: false,
-      // V5 canonical analysis fact — clear on scenario reset (the fact does
-      // not survive a graph reset; rerun analysis to mint a fresh one).
-      v5AnalysisFact: null,
-      draftCoaching: null,
-      ceePipelineTrace: null,
-      nodeRationales: {},
-      ceeQuality: null,
-      // Phase 1b: Clear extended CEE data
-      ceeExtendedWarnings: null,
-      ceeGoalConnectivity: null,
-      ceeModelQualityFactors: null,
-      ceeInterventionHints: null,
-      preAnalysisSensitivity: null,
-      // Clear results and analysis state
-      previousReport: null, // A1: Clear stale deltas on canvas reset
-      results: { status: 'idle', progress: 0 },
-      // Lane 1b/5 review folds: the goal threshold, its representation and the
-      // outcome-node selection are per-decision — left standing they ride the
-      // NEXT decision's runs (the canonical run default-attaches the store
-      // threshold). ceeAnalysisReady/-NodeIds are already cleared above.
-      ...DECISION_CONTEXT_CLEAR,
-      runMeta: {},
-      hasCompletedFirstRun: false,
-      graphEditedSinceLastRun: false,
-      analysisStateReady: false,
-      // Clear validation state
-      graphHealth: null,
-      needleMovers: [],
-      // Close results panel
-      showResultsPanel: false,
-      // Clear scenario tracking in store state
-      currentScenarioId: null,
-      scenarioPersistedToDb: false,
-      // A.15: Clear lifecycle stage
-      currentStage: null,
-      // A.5+: Clear draft snapshot
-      draftChatPreDraftSnapshot: null,
-      // Phase 2A: Clear analysis metadata
-      lastAnalysisSeed: null,
-      lastQualityMode: null,
-      repairsApplied: null,
-      rawV2Response: null,
-      // Graph Lens: reset on canvas clear
-      lens: createDefaultLensState(),
-    })
+    set({ ...scenarioResetState(), scenarioEpoch: get().scenarioEpoch + 1 })
     // Reset comparison state on canvas clear (lives in useComparisonStore as of C3-3)
     useComparisonStore.getState().resetComparison()
     // Clear AI model selections (lives in useDraftStore as of C3-5).
     // Historical behaviour: resetCanvas cleared only the three selectedXxxModel
     // fields, not the broader draft state. Preserving that narrow reset.
+    useDraftStore.getState().resetAllModels()
+  },
+  adoptScenario: (scenarioId) => {
+    const scenarioIdBeingLeft = scenarios.getCurrentScenarioId()
+    const isSavedRecord = scenarioIdBeingLeft
+      ? scenarios.getScenario(scenarioIdBeingLeft) !== undefined
+      : false
+    scenarios.clearAutosave()
+    if (!isSavedRecord) clearTranscript(scenarioIdBeingLeft)
+    set({ ...scenarioResetState(), history: { past: [], future: [] }, currentScenarioId: scenarioId, scenarioEpoch: get().scenarioEpoch + 1 })
+    scenarios.setCurrentScenarioId(scenarioId)
+    useComparisonStore.getState().resetComparison()
     useDraftStore.getState().resetAllModels()
   },
 
@@ -6101,7 +6199,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   resultsWithholdLeaderClaim: (reason, producerCause) => {
-    const held = get().results.report
+    const held = get().results?.report
     // ⚠ NOTHING HELD, NOTHING TO WITHDRAW — and NOTHING is the operative word,
     // not an empty stamp. A withholding written with no report to attach it to
     // would be a claim about an artefact that does not exist, and the next
@@ -6449,7 +6547,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       return false
     }
 
-    const { nodes, edges: rawEdges } = scenario.graph
+    const { nodes: persistedNodes, edges: rawEdges } = scenario.graph
+    // ⛔ A persisted `measured` is another session's DOM (edit-structure/F1).
+    const nodes = withoutPersistedMeasurement(persistedNodes)
 
     // Upgrade persisted edges (generic Edge) to strongly-typed Edge<EdgeData>
     const edges: Edge<EdgeData>[] = rawEdges.map((edge) => ({
@@ -7022,6 +7122,21 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set({ runDelta: stored })
   },
 
+  setLimitVerdicts: (stored: LimitVerdictsWrite | null) => {
+    if (!stored) {
+      set({ limitVerdicts: null })
+      return
+    }
+    // Snapshot the limits these verdicts judged. The applicator flushes this turn's
+    // limits before it stores the verdicts, so `get()` is the set the run saw; a
+    // re-delivery of the SAME analysis keeps the first snapshot, never limits edited since.
+    const prev = get().limitVerdicts
+    const sameAnalysis = prev !== null && prev.analysisHash === stored.analysisHash && prev.scenarioId === stored.scenarioId
+    set({
+      limitVerdicts: { ...stored, goalConstraintsAtRun: sameAnalysis ? prev.goalConstraintsAtRun : get().goalConstraints },
+    })
+  },
+
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => {
     if (import.meta.env.DEV) {
       console.warn('[Canvas] === SET CEE_ANALYSIS_READY ===')
@@ -7567,6 +7682,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     markAnalysisFreshnessDirty(get, set)
   },
 
+  forgetDurableDeletion: (heldAgain) => {
+    const current = get().durablyDeletedElements
+    const next = forgetDurableDeletion(current, heldAgain)
+    if (next !== current) set({ durablyDeletedElements: next })
+  },
+
   clearDurableDeletionNotice: () => {
     if (get().durableDeletionNotice === null) return
     set({ durableDeletionNotice: null })
@@ -7822,6 +7943,25 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       },
     })
   },
+  setRunChangesHighlight: ({ nodeMarks, edgeMarks }) => {
+    const contextNodeIds = new Set<string>()
+    for (const e of get().edges) {
+      if (edgeMarks.has(e.id)) {
+        contextNodeIds.add(e.source)
+        contextNodeIds.add(e.target)
+      }
+    }
+    set({
+      analysisHighlight: {
+        source: 'run_changes',
+        edgeIds: new Set(edgeMarks.keys()),
+        nodeIds: new Set(nodeMarks.keys()),
+        nodeMarks: new Map(nodeMarks),
+        edgeMarks: new Map(edgeMarks),
+        contextNodeIds,
+      },
+    })
+  },
   clearAnalysisHighlight: () => {
     const cur = get().analysisHighlight
     // Idempotent: skip the write when already clear so we never churn the Set
@@ -7852,6 +7992,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   clearFocusDim: () => {
     if (get().focusDimSourceId === null) return
     set({ focusDimSourceId: null, dimmedNodeIds: new Set<string>() })
+  },
+  setRunChangesRouteFocus: (id: string | null) => {
+    if (get().runChangesRouteFocusId === id) return
+    set({ runChangesRouteFocusId: id })
   },
   setLodRung: (rung: LodRung) => {
     if (get().lodRung === rung) return
@@ -8504,7 +8648,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
     // Only merge known graph/scenario keys
     if (loaded.nodes !== undefined) {
-      updates.nodes = loaded.nodes
+      // ⛔ Every caller hydrates a PERSISTED graph, whose `measured` is another
+      // session's DOM — see `withoutPersistedMeasurement` (edit-structure/F1).
+      updates.nodes = withoutPersistedMeasurement(loaded.nodes)
     }
     if (loaded.edges !== undefined) {
       updates.edges = loaded.edges

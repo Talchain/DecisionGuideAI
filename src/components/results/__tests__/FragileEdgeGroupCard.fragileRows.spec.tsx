@@ -61,7 +61,7 @@ describe('FragileEdgeGroupCard — Brief 5.2 Task 6 fragile-row layout', () => {
     // Alt-winner lives in the card header (data-testid="fragile-alt-winner").
     const altWinner = screen.getByTestId('fragile-alt-winner')
     expect(altWinner.textContent).toBe('Option B')
-    expect(altWinner.className).toContain('font-semibold')
+    expect(altWinner.className).toContain('font-medium') // panelHeader, 14/500 since 30 Sep 2026
     // Header reads: "The answer could flip to Option B"
     expect(document.body.textContent).toContain('The answer could flip to')
     expect(document.body.textContent).toContain('Option B')

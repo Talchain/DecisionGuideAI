@@ -73,14 +73,11 @@
  * never by a value predicate another object could satisfy).
  */
 
+import type { CSSProperties } from 'react'
 import type { ValidationMetadata } from '../../types/validation'
 import type { ExistenceDash } from '../utils/graphDisplayCalculations'
-import { MAX_GLYPH_COUNTER_SCALE } from '../utils/zoomLegibility'
-import {
-  GLYPH_ANCHOR_RADIUS,
-  GLYPH_PAINTED_BOX_FLOW,
-  GLYPH_BOX_GAP_FLOW,
-} from '../utils/edgeGlyphPlacement'
+import { MEASURED_EDGE_STROKE_WIDTH_FLOOR } from '../utils/graphDisplayCalculations'
+import { glyphCounterScale } from '../utils/zoomLegibility'
 
 // ── Colour constants ────────────────────────────────────────────────────────
 
@@ -94,8 +91,14 @@ import {
  * muted-ink token at 50%, which composites on the canvas ground to within a
  * few units of the contract's grey. Width 1 and no arrowhead are unchanged
  * (rule `structural` below and `EDGE_DIRECTION_MARKER_RULES`).
+ *
+ * ⭐ 0.5 → 0.75 (Paul, 30 Sep: "the graph is nearly invisible"). The contract's
+ * 1px grey is drawn at 100%; ours is a 1px `non-scaling-stroke` BEZIER, and its
+ * anti-aliasing halves the ink. Measured on served `61f5b909` (1440×900, MRR):
+ * the darkest pixel of a question→option link was ~40 below the ground, the
+ * contract's ~64. At 0.75 the curve reaches the contract's contrast.
  */
-export const STRUCTURAL_EDGE_COLOUR = 'rgb(var(--text-light-rgb) / 0.5)'
+export const STRUCTURAL_EDGE_COLOUR = 'rgb(var(--text-light-rgb) / 0.75)'
 
 /**
  * The exception hue, reserved — see `resolveEdgeStroke` — for the ONE state that
@@ -524,165 +527,99 @@ export function resolveEdgeDirectionMarker(
 // ── Arrowhead geometry ──────────────────────────────────────────────────────
 
 /**
- * ⭐⭐ THE MARK'S SCREEN SIZE AT THE ZOOM THE CANVAS ACTUALLY PARKS AT.
+ * ⭐⭐ THE HEAD SCALES WITH ITS LINE — contract v3.1, side-by-side DIFF item 13
+ * (27 Sep 2026).
  *
- * A marker's geometry is USER SPACE, multiplied by the viewport transform before
- * it reaches a pixel — and `vector-effect: non-scaling-stroke`, the mechanism
- * the edge STROKE uses for exactly this problem, DOES NOT REACH IT: that governs
- * stroke rendering, and an arrowhead is a filled polygon.
+ * The contract's marker is `viewBox="0 0 6 6"`, `markerWidth="4"`, in SVG's
+ * default `markerUnits="strokeWidth"`: the head is FOUR TIMES THE LINE — 8px on
+ * a 2px line, 12px on 3px, 16px on 4px, a 1:1 triangle. The mark it replaces was
+ * a fixed 12 × 12 `userSpaceOnUse` triangle on every line, so a 1.5px link
+ * carried a 12px head and width stopped reading at the arrival.
  *
- * ⚠⚠ THE FIGURE THAT STOOD HERE WAS WRONG, AND THE CORRECTION MATTERS BECAUSE IT
- * WEAKENS THIS MODULE'S OWN CASE. This docblock said the deleted `<defs>`
- * markers' 6 units "would have rendered at 3px at the 0.50 auto-fit floor". They
- * would not. They carried NO `markerUnits` attribute, so the SVG default
- * `strokeWidth` applied: the marker viewport is `markerWidth × stroke-width` =
- * 6 × 2 = **12 user units**, which is **6px** at zoom 0.50, not 3px. The claim
- * was repeated in three places and understated the old marker by exactly the
- * stroke-width factor. Corrected 7 Sep 2026 at a re-review; the assertions that
- * carried it now pin exact px rather than `toBeGreaterThan` a wrong number,
- * because a loose assertion is how a wrong figure survives.
+ * ⚠ THE WIDTH IT READS IS THE RESTING STRENGTH WIDTH, NOT THE PAINTED ONE, and
+ * that is why this is not simply `markerUnits="strokeWidth"`. The canvas widens
+ * a hovered (+1) or selected (+2) line; the contract never does (it glows). Under
+ * `strokeWidth` units the interaction channel would leak into the direction
+ * mark. `StyledEdge` passes the strength width and the marker stays in user
+ * space.
  *
- * So the honest comparison at the 0.50 park is **6px × 8px against 6px × 6px**:
- * the same length, a third wider. The size scheme is NOT justified by beating
- * the dead markers — they were referenced by nothing and rendered nothing, so
- * the real baseline is NO ARROW AT ALL. It is justified by the two things
- * below: it does not shrink with the camera, and it does not crowd the glyph.
+ * ⭐ AND IT IS COUNTER-SCALED, BECAUSE THE LINE IS. The stroke is
+ * `non-scaling-stroke`, so its width is a SCREEN width at every zoom. A head in
+ * plain graph units would shrink against its own line as the camera pulls back
+ * — 2:1 at the 0.50 landing floor instead of 4:1. So the polygon is scaled by
+ * `--canvas-glyph-scale` (`zoomLegibility.ts`: glyphs, marks "and the edge
+ * arrowhead keep `rendered === declared` down to the landing floor"), about the
+ * TIP, which is the origin of its viewBox. That replaces "size for the bound",
+ * which was right at one zoom only (6px at 0.50 and 12px at 1:1, on every line).
  *
- * THE ANSWER IS THIS CODEBASE'S OWN, TAKEN FOR ITS OWN STATED REASON. Node
- * GEOMETRY faces the identical trade and `zoomLegibility.ts` resolves it:
- * *"the settle zoom IS the worst case, and the worst case is a CONSTANT rather
- * than a number that has to be tracked at runtime."* So the size is sized for
- * the BOUND — `MAX_LABEL_COUNTER_SCALE`, imported, not restated — and is a
- * compile-time constant.
- *
- * WHY THAT MATTERS BEYOND TIDINESS: no edge subscribes to zoom. A per-edge
- * `useStore(s => s.transform[2])` would re-render every edge on every wheel
- * frame — precisely the cost `CanvasLabelScaleSync` was built to avoid
- * (*"would re-render every node and every edge on every zoom tick"*). Sizing for
- * the bound buys the legibility with zero added render pressure.
- *
- * THE TRADE, STATED: past 1:1 the mark grows with the canvas, like node geometry
- * and unlike the stroke width — which is `non-scaling-stroke` and therefore 2px
- * at every zoom. So the arrow-to-line ratio is not constant: 4:1 across at the
- * 0.50 park, 8:1 at 1:1, and 32:1 at this canvas's `maxZoom={4}` ceiling.
- * `zoomLegibility.ts` already rules that magnification past 1:1 "is then the
- * user's own deliberate choice". Below the legibility floor it shrinks with
- * everything else, which is the honest LOD rendering — structure without detail.
- * ⚠ No paint witness exists for any ratio in that sentence; it is arithmetic.
- *
- * ⭐ contract v3.1 (E7, 24 Sep 2026): 8 → 6. At 8 the head was 16 across × 12
- * long in graph units — a broad, stubby ~67° apex, the same on a 1.5px line as
- * on a 4px one. The contract's marker is `viewBox="0 0 6 6"`, path
- * `M0 0 6 3 0 6Z`: length EQUAL to base, a ~53° apex, 8 × 8px on its default
- * 2px line at 100%. At 6 this head is 12 × 12 graph units — 1:1 like the
- * contract's, 6 × 6px at the 0.50 park and 7.8 × 7.8px at the 0.65 landing
- * zoom. The LENGTH is untouched (it is derived from the glyph below, not from
- * this constant), so the 2px glyph clearance is unchanged. Every "8px" /
- * "16 units" figure in the history above describes the superseded base.
+ * ⚠ WITNESS, STATED AT ITS RUNG. jsdom proves the attributes and the style are
+ * carried; it cannot paint. The mechanism — a CSS `scale(var(…))` on a marker's
+ * polygon, `overflow="visible"` on the marker, the var inherited from the
+ * `.react-flow` root — was witnessed in Chromium on a static page (27 Sep 2026):
+ * var 2 painted the head at twice the size of var-fallback 1, tip fixed on the
+ * path end. The product's own heads have not been measured on a served build by
+ * this change.
  */
-export const EDGE_ARROWHEAD_BASE_PX = 6
+export const EDGE_ARROWHEAD_STROKE_MULTIPLE = 2.5
 
 /**
- * ACROSS the path — the arrowhead's base. This is the legibility dimension: it
- * is what makes the mark visible as a mark against a 2px line, so it is the one
- * sized for the zoom bound. 12 graph units → 6px at the 0.50 park (contract
- * v3.1, E7; it was 16 → 8px).
+ * ⭐ THE SMALLEST HEAD, in glyph units (Paul, 1 Oct 2026: "The arrows connecting to the nodes are too big").
+ * The 4× rule drew 8 / 12 / 16 / 20px heads on screen, up to 3.3× the pre-27 Sep 6px. At 2.5× the bands give
+ * 5 / 7.5 / 10 / 12.5; the floor keeps the thinnest head at the old 6px so direction still reads.
  */
-export const EDGE_ARROWHEAD_FLOW_WIDTH = EDGE_ARROWHEAD_BASE_PX * MAX_GLYPH_COUNTER_SCALE
+export const EDGE_ARROWHEAD_MIN_PX = 6
 
 /**
- * ⛔⛔ ALONG the path — and it is BOUNDED BY THE POLARITY GLYPH, not chosen.
+ * The head's length AND base, in glyph units (screen px at glyph-scale 1).
  *
- * THE COLLISION THIS CLOSES, MEASURED 7 SEP 2026 (arithmetic over constants; no
- * paint witness — see the honest limit at the foot of this block).
- *
- * Both marks live at the TARGET end, on very nearly the same axis:
- *
- *   - the arrowhead's `refX` sits at its tip, so the mark occupies
- *     `0 → length` graph units BACK from the target anchor, along the path's
- *     end tangent (`orient="auto"`);
- *   - the `+`/`−` polarity glyph's centre sits at `GLYPH_ANCHOR_RADIUS` = 26
- *     graph units back from the SAME anchor, along the target→source centre
- *     direction (`edgeGlyphPlacement.ts`). On a straight edge whose end tangent
- *     runs to the source — the ordinary case — those two directions coincide.
- *
- * With the length this module originally shipped (16 units, the same value as
- * the width), at `LABEL_LEGIBLE_ZOOM`:
- *
- *   arrowhead tail      16 units  →  8.0px back from the anchor
- *   glyph near edge     26 − 20/2 = 16 units  →  8.0px back from the anchor
- *   ────────────────────────────────────────────────────────────────
- *   CLEARANCE            0 units  →  0.0px    THEY ABUT.
- *
- * ⛔ AND THAT IS A TRUST DEFECT, NOT CLUTTER. `directionStroke.ts:23-32` carries
- * the measurement: the shipped green/rose polarity pair separates by ΔE2000
- * **11.7** under deuteranopia (against 28.3 for the green/red it replaced), so
- * *"the +/− glyph, not the colour, is what carries polarity for a red-green
- * dichromat here."* An arrowhead that crowds or occludes that glyph trades a
- * direction-of-CAUSATION gain for a direction-of-EFFECT loss — and it takes it
- * from exactly the readers with the least redundancy to spare.
- *
- * ⭐ SO THE LENGTH IS DERIVED FROM THE NEIGHBOUR RATHER THAN PICKED, and the two
- * marks are separated by the same allowance the glyph placement already uses to
- * keep two GLYPHS apart (`GLYPH_BOX_GAP_FLOW`, the slack `GLYPH_RING_STEP`
- * leaves over `GLYPH_PAINTED_BOX_FLOW`). One separation rule, one place:
- *
- *   length = 26 − 20/2 − 4 = **12 graph units → 6px at the 0.50 park**,
- *   leaving a measured clearance of **4 graph units → 2.0px**.
- *
- * Decoupling length from width is what buys this: the mark keeps its full 8px
- * base — the dimension that makes it legible — and gives up only the 2px of
- * length that was landing on the glyph. It also reads BETTER small: a broad,
- * short head is a clearer direction mark at 6px than a long narrow one.
- *
- * ⚠ HONEST LIMIT, and it is the whole of the epistemics here. Every number above
- * is ARITHMETIC OVER CONSTANTS. jsdom has no layout, no text metrics and no
- * viewport transform; `Visual Regression` is a standing estate-wide red; and
- * `Canvas Browser Gate` is green on staging as well as on this change, so it
- * discriminates nothing about this mark. **Nobody — author or reviewer — has
- * seen this arrowhead painted.** `GLYPH_PAINTED_BOX_FLOW` is this codebase's own
- * committed figure for the glyph box and is used as found, NOT re-derived: the
- * glyph's line box is taller than 20 units and the ink of a `+` is smaller, and
- * settling which of the three governs would move a shipped placement rule that
- * is not this lane's to move. Treat the 2.0px as the best available arithmetic
- * and not as an observation.
+ * ⭐ FLOORED AT THE THINNEST MEASURED BAND (code-review F2, 27 Sep 2026). The
+ * 4× rule is the contract's, over the contract key's widths (2 / 3 / 4). The
+ * product's 1px UNSET floor (`UNSET_EDGE_STROKE_WIDTH` — nobody set a strength,
+ * which includes every link a user draws) is not in that key: the contract
+ * draws such a link at 2px (`e.width||2`). Applied to 1px the rule gave a 4px
+ * head at every zoom — a third of the old 12px at 1:1, and below anything the
+ * contract draws. The head therefore reads the width floored at
+ * `MEASURED_EDGE_STROKE_WIDTH_FLOOR` (derived from the bands, never a literal):
+ * an unset link carries the contract's smallest head, and its 1px LINE still
+ * says "not set" on the width channel.
  */
-export const EDGE_ARROWHEAD_FLOW_LENGTH =
-  GLYPH_ANCHOR_RADIUS - GLYPH_PAINTED_BOX_FLOW / 2 - GLYPH_BOX_GAP_FLOW
-
-/**
- * The arrowhead triangle, in the marker's own coordinates.
- *
- * ⚠ THE VIEWBOX IS THE MARKER'S OWN SIZE, 1:1 — and that is load-bearing rather
- * than stylistic. `preserveAspectRatio` defaults to `xMidYMid meet`, so a
- * viewBox whose aspect ratio differs from `markerWidth`/`markerHeight` is
- * LETTERBOXED, not stretched: the mark would silently render smaller than every
- * number in this file says. Deriving both from the same two constants makes an
- * aspect mismatch unrepresentable. Pinned in the spec.
- */
-export const EDGE_ARROWHEAD_VIEWBOX =
-  `0 0 ${EDGE_ARROWHEAD_FLOW_LENGTH} ${EDGE_ARROWHEAD_FLOW_WIDTH}`
-
-export const EDGE_ARROWHEAD_POLYGON_POINTS =
-  `0 0, ${EDGE_ARROWHEAD_FLOW_LENGTH} ${EDGE_ARROWHEAD_FLOW_WIDTH / 2}, 0 ${EDGE_ARROWHEAD_FLOW_WIDTH}`
-
-/**
- * The rendered size, in CSS px, of the arrowhead at a given viewport zoom.
- *
- * Two functions rather than one because the mark is no longer square: the width
- * is the legibility dimension and the length is bounded by the glyph, and a
- * single `renderedArrowheadPx` would have to lie about one of them.
- *
- * Exported for the same reason `renderedLabelPx` is: jsdom has no layout, so a
- * DOM assertion proves an attribute is present and proves nothing about size on
- * screen. Specs assert this arithmetic instead, and say so.
- */
-export function renderedArrowheadWidthPx(zoom: number): number {
-  return EDGE_ARROWHEAD_FLOW_WIDTH * zoom
+export function edgeArrowheadSize(strokeWidth: number): number {
+  return Math.max(
+    EDGE_ARROWHEAD_MIN_PX,
+    EDGE_ARROWHEAD_STROKE_MULTIPLE * Math.max(strokeWidth, MEASURED_EDGE_STROKE_WIDTH_FLOOR),
+  )
 }
 
-export function renderedArrowheadLengthPx(zoom: number): number {
-  return EDGE_ARROWHEAD_FLOW_LENGTH * zoom
+/**
+ * The marker's viewBox: the tip at the origin, the base `size` back along the
+ * path. Square and the same size as the marker box, so `preserveAspectRatio`
+ * cannot letterbox it, and the counter-scale (transform-origin `0 0`) pivots on
+ * the tip, so the point never leaves the path's end.
+ */
+export function edgeArrowheadViewBox(size: number): string {
+  return `${-size} ${-size / 2} ${size} ${size}`
+}
+
+export function edgeArrowheadPolygonPoints(size: number): string {
+  return `${-size} ${-size / 2}, 0 0, ${-size} ${size / 2}`
+}
+
+/** The polygon's counter-scale, about the tip (see the docblock above). */
+export const EDGE_ARROWHEAD_COUNTER_SCALE_STYLE: Readonly<CSSProperties> = Object.freeze({
+  // The var name is written literally (it is `CANVAS_GLYPH_SCALE_VAR`): the
+  // css-var census guard (`tests/ci-guards/css-var-resolution.spec.ts`)
+  // resolves literal names and counts every interpolated one as a new site.
+  transform: 'scale(var(--canvas-glyph-scale, 1))',
+  transformOrigin: '0 0',
+  transformBox: 'view-box',
+})
+
+/**
+ * The rendered size, in CSS px, of the head on a `strokeWidth` line at `zoom`.
+ * Exported because jsdom has no layout: specs assert this arithmetic, and say so.
+ */
+export function renderedArrowheadPx(strokeWidth: number, zoom: number): number {
+  return edgeArrowheadSize(strokeWidth) * glyphCounterScale(zoom) * zoom
 }
 
 /**

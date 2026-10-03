@@ -325,6 +325,13 @@ export const CONSENT_CHIP_PREFIX = 'agent-approve-proposal:'
  */
 export const RESEARCH_CHIP_PREFIX = 'agent-public-research:'
 
+/**
+ * CEE's plan pick on an asked pre-mortem with no plan — `agent-premortem-plan:<12 hex>`, one per own option, then
+ * "Talk it through" (CEE #2480 `src/orchestrator-v5/agent-lane/method-turn/method-turn.ts`, `PLAN_PICK_PREFIX`).
+ * A turn that carries one is the method asking which plan to stress, so its whole set is shown.
+ */
+export const PLAN_PICK_CHIP_PREFIX = 'agent-premortem-plan:'
+
 /** Whether a turn's own chips ask the user to consent to a proposal. */
 export function offersPendingConsent(chips: readonly { id?: unknown }[] | undefined): boolean {
   return (chips ?? []).some((c) => typeof c.id === 'string' && c.id.startsWith(CONSENT_CHIP_PREFIX))

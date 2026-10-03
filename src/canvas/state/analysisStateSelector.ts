@@ -57,6 +57,8 @@ import type {
 } from '@talchain/schemas/boundary'
 
 import { useCanvasStore } from '../store'
+import { analysisResultsAreCurrentIn } from '../hooks/useAnalysisResultsAreCurrent'
+import { isV5CanonicalAnalysisEnabled } from '../../flags'
 import type { AnalysisReadinessAuthority } from '../utils/canRunAnalysis'
 import {
   classifyFreshnessForDisplay,
@@ -66,6 +68,7 @@ import {
   type FreshnessDisplaySemantic,
 } from '../store/analysisFreshness'
 import {
+  classifyAnalysisStateSource,
   useAnalysisStateSource,
   type AnalysisStateSource,
 } from '../hooks/useAnalysisStateSource'
@@ -663,8 +666,18 @@ export function composeAnalysisState(
       false,
       hasCompletedFirstRun,
     ) === 'changed'
+  // ⛔ AIQ pre-share hold, HOT turn (#75 5903550244; P0 5903544574): a newer Run the server says supersedes the saved
+  // one (the C2 contradiction) or that asks for a rerun outranks an older `complete_current` label, exactly as a local
+  // edit does — the held report is never presented as current.
+  const wireSaysRerun =
+    wire !== null && wire.run_state.kind === 'complete_current' && (
+      (wire as { requires_rerun?: unknown }).requires_rerun === true ||
+      (Array.isArray((wire as { contradictions?: unknown }).contradictions) &&
+        ((wire as { contradictions: unknown[] }).contradictions).includes('fact_status_success_but_degraded_newer'))
+    )
   const wireCurrencySuperseded =
     (wire !== null && wire.run_state.kind === 'complete_current' && dirty === true) ||
+    wireSaysRerun ||
     localEditOverUnclassifiedTurn
 
   // THE PRECEDENCE RULE. When the wire is present its verdict wins outright —
@@ -925,6 +938,43 @@ export function useAnalysisState(): ComposedAnalysisState {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * ⭐ ONE STORE-READABLE ANSWER TO "IS THE RUN ON SCREEN AFFIRMATIVELY CURRENT?" — the composed verdict
+ * (`composeAnalysisState`, the same inputs `useAnalysisState` reads) affirming `trust.semantic === 'current'`, AND the
+ * local affirmative (`analysisResultsAreCurrentIn`). A wire `unknown_degraded` / `refused` composes to `cannot_confirm`
+ * even while local freshness still says `fresh`, so the local read alone is not enough (#2408 delta CR,
+ * CODEX_CLI_OVERFLOW). For an action that WRITES on the strength of the Run: read it at render
+ * (`useCanvasStore(selectRunAffirmedCurrent)`, a boolean) and again at click time (`selectRunAffirmedCurrent(getState())`).
+ */
+export function selectRunAffirmedCurrent(s: ReturnType<typeof useCanvasStore.getState>): boolean {
+  if (!analysisResultsAreCurrentIn(s)) return false
+  const fact = s.v5AnalysisFact
+  const { source } = classifyAnalysisStateSource({
+    canonicalFlagOn: isV5CanonicalAnalysisEnabled(),
+    reportPresent: !!s.results?.report,
+    reportHash: s.results?.hash ?? null,
+    currentScenarioId: s.currentScenarioId,
+    fact: fact
+      ? { scenarioId: fact.scenarioId, analysisHash: fact.analysisHash, hasRunAnalysisFact: fact.hasRunAnalysisFact, freshness: fact.freshness }
+      : null,
+  })
+  const composed = composeAnalysisState({
+    analysisState: s.analysisStateV1,
+    freshness: s.analysisFreshness,
+    dirty: s.analysisFreshnessDirty,
+    source,
+    resultsStatus: s.results?.status,
+    resultsStartedAt: s.results?.startedAt,
+    importHold: s.importPendingServerRegistration,
+    hasReport: s.results?.report != null,
+    hasCompletedFirstRun: s.hasCompletedFirstRun,
+    hasRenderableResult: selectHasRenderableAnalysisResult(s),
+    ceeAnalysisReadyStatus: s.ceeAnalysisReady?.status,
+    aiPanelV2On: true,
+  })
+  return composed.trust.semantic === 'current'
+}
+
+/**
  * The producer's readiness verdict for the run gate, or `null` when the wire
  * stated none.
  *
@@ -1011,4 +1061,17 @@ export function selectAnalysisReadinessAuthority(
 export function useAnalysisReadinessAuthority(): AnalysisReadinessAuthority | null {
   const analysisState = useCanvasStore((s) => s.analysisStateV1)
   return useMemo(() => selectAnalysisReadinessAuthority(analysisState), [analysisState])
+}
+
+/**
+ * HAS THIS SCENARIO A RUN ON RECORD? The server's own run state says so: a Run completed and is either still current
+ * (`complete_current`) or has since been overtaken by an edit (`complete_stale`). The run control then offers to run
+ * AGAIN, never a "first pass" — a stale cold reload restores the `complete_stale` verdict
+ * (`BOOT_RESTORABLE_RUN_STATE_KINDS`) without the result block, and the pre-run surface used to call its button
+ * "Analyse first pass" over a scenario that had been Run (P0 Shared Data builder, #72 5890601642). No verdict, a
+ * `never_run`, a run in flight or a failure are not a Run on record.
+ */
+export function selectRunOnRecord(state: AnalysisStateV1 | null | undefined): boolean {
+  const kind = (state?.run_state as { kind?: unknown } | undefined)?.kind
+  return kind === 'complete_current' || kind === 'complete_stale'
 }

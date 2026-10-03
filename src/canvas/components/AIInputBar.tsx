@@ -31,8 +31,19 @@ import {
   messageForSettlingAfterCoaching,
 } from './DraftLoadingAnimation'
 import { useDraftStore, draftStreamPhaseFor, draftStreamInFlight } from '../stores/draftStore'
+import { useIsViewer, VIEWER_COMPOSER_NOTICE } from '../../lib/viewerMode'
 
 export type AIInputBarVariant = 'strip' | 'docked-tab' | 'floating' | 'first-use' | 'welcome'
+
+/**
+ * The turn an empty-canvas brief is sent as: drafting a model, not chatting. Shared with the first-use hero's
+ * "Structure it" fields so both brief inputs go out through this one path.
+ */
+export const GENERATE_MODEL_SEND = {
+  turnType: 'explicit_generate',
+  debugSource: 'generate_model',
+  debugSourceSurface: 'ai_panel',
+} as const
 
 export interface AIInputBarHandle {
   focus(): void
@@ -105,7 +116,8 @@ const MAX_LINES = 2
  *
  * This was the only line-height the auto-grow maths knew, and it is a HAND-COPY
  * of a value that lives somewhere else: the textarea renders at
- * `typography.panelBody` = `text-xs leading-relaxed` = 12px x 1.625 = **19.5px**.
+ * `typography.chatBody` = `text-[13px] leading-relaxed` = 13px x 1.625 = **21.125px**
+ * (it was panelBody, 12px, until the chat's 14/13/12 scale of 28 Sep).
  * Every "N lines" bound computed from 18 was therefore ~8% short, so a composer
  * advertised as growing to eight lines began scrolling inside itself at seven
  * and a bit — the exact stale-mirror class CLAUDE.md calls trap 12.
@@ -226,6 +238,7 @@ export const AIInputBar = memo(
     },
     ref,
   ) {
+    const isViewer = useIsViewer()
     const { draft, setDraft, clearDraft, sendMessage, dispatchAction, isThinking, cancelTurn } =
       useConversationContext()
     const stagePlaceholder = useStageAwarePlaceholder()
@@ -424,11 +437,7 @@ export const AIInputBar = memo(
       if (!text || disabled || isThinking) return
       if (nodeCount === 0) {
         // Empty canvas: drafting a model, not chatting.
-        sendMessage(text, {
-          turnType: 'explicit_generate',
-          debugSource: 'generate_model',
-          debugSourceSurface: 'ai_panel',
-        })
+        sendMessage(text, GENERATE_MODEL_SEND)
         clearDraft()
         onAfterSend?.(text)
         return
@@ -731,7 +740,7 @@ export const AIInputBar = memo(
         aria-label={ariaLabel ?? 'Chat message'}
         data-testid={`${base}-textarea`}
         className={typo(
-          'panelBody',
+          'chatBody',
           `w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light ${textareaVerticalPad} pl-3 ${textareaRightPad}`,
         )}
       />
@@ -748,11 +757,23 @@ export const AIInputBar = memo(
         data-testid={`${base}-generating`}
         className={`pointer-events-none absolute left-0 top-0 ${textareaVerticalPad} pl-3 ${textareaRightPad}`}
       >
-        <span className={typo('panelBody', 'text-text-light animate-gentle-text-flash')}>
+        <span className={typo('chatBody', 'text-text-light animate-gentle-text-flash')}>
           {generatingMessage}
         </span>
       </div>
     ) : null
+
+    // ACCOUNTS viewer mode: a decision shared WITH this user is view-only, and the
+    // owner's conversation is never sent to them. ONE gate for all three mounts
+    // (floating panel, first-use hero, docked strip): the composer and its Run
+    // control become a plain notice. Placed after every hook.
+    if (isViewer) {
+      return (
+        <p data-testid="viewer-composer-notice" className={typo('chatBody', 'text-text-light px-3 py-2')}>
+          {VIEWER_COMPOSER_NOTICE}
+        </p>
+      )
+    }
 
     return (
       <>

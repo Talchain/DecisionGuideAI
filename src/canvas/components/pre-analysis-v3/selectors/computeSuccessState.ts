@@ -19,7 +19,8 @@
 
 import type { Node } from '@xyflow/react'
 import { classifyUnit } from '../../../utils/labelUtils'
-import { isStatedTargetValue, statedTargetNumber } from '../../../domain/goalTarget'
+import { goalTargetChangeFrameOf, goalTargetFrameIsUnread, goalTargetStampedFromBrief, isStatedTargetValue, statedTargetNumber, type GoalTargetSource } from '../../../domain/goalTarget'
+import { formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
 import type { Attribution } from '../types'
 
 export interface SuccessState {
@@ -100,16 +101,30 @@ function formatWithUnit(value: number, unit: string | null): string {
  * from the CEE response root (DraftChat/applyDraftResult), so `provenance`
  * is read defensively — it is not part of the UI's CEEGoalConstraint type.
  */
-function matchesExplicitConstraint(
+function matchesConstraintProvenance(
   value: number,
   goalConstraints: readonly unknown[] | null | undefined,
+  provenances: readonly string[],
 ): boolean {
   if (!Array.isArray(goalConstraints)) return false
   return goalConstraints.some((c) => {
     if (c == null || typeof c !== 'object') return false
     const entry = c as Record<string, unknown>
-    return entry.provenance === 'explicit' && typeof entry.value === 'number' && entry.value === value
+    return typeof entry.provenance === 'string' && provenances.includes(entry.provenance)
+      && typeof entry.value === 'number' && entry.value === value
   })
+}
+function matchesExplicitConstraint(value: number, goalConstraints: readonly unknown[] | null | undefined): boolean {
+  return matchesConstraintProvenance(value, goalConstraints, ['explicit'])
+}
+/**
+ * ⛔ AIQ 5904308095 (pre-share, false authorship): the user's own "cut costs by 20%" read "Olumi estimate" because
+ * every UNMATCHED target defaulted to Olumi. "Olumi estimate" now needs a TYPED Olumi source — CEE's `inferred` /
+ * `proxy` goal constraint at this exact value. With no typed source the target carries no attribution (the goal
+ * card's "Source not recorded" is the same fact); it is never credited to the user either.
+ */
+function matchesOlumiConstraint(value: number, goalConstraints: readonly unknown[] | null | undefined): boolean {
+  return matchesConstraintProvenance(value, goalConstraints, ['inferred', 'proxy'])
 }
 
 export function computeSuccessState(
@@ -134,6 +149,16 @@ export function computeSuccessState(
     (typeof analysisReady?.goal_threshold_unit === 'string' &&
       (analysisReady.goal_threshold_unit as string)) ||
     null
+  /**
+   * ⭐ R1 S4-core (MG 5879952291): a target stated as a CHANGE from today is said as the change by the one sayer
+   * (`formatGoalTarget`, CEE's `sayGoalChange` words) — never the fraction beside the metric's unit ("-0.15 GBP/month").
+   * A level is said exactly as before.
+   */
+  const changeFrame = goalTargetChangeFrameOf(data.goal_threshold_frame)
+  // ⛔ AIQ 5880974047: a frame this UI cannot read — the figure's meaning is unknown, so no measure is claimed.
+  if (goalTargetFrameIsUnread(data.goal_threshold_frame)) return unset
+  const sayTarget = (n: number): string =>
+    (changeFrame !== null ? formatGoalTarget(n, unit, changeFrame) : null) ?? formatWithUnit(n, unit)
 
   /**
    * ⭐⭐ EXISTENCE IS DECIDED NON-NUMERICALLY; THE NUMBER STAYS STRICT. This
@@ -191,7 +216,7 @@ export function computeSuccessState(
     return {
       isSet: true,
       displayText:
-        numeric !== null ? formatWithUnit(numeric, unit) : String(userStatedTarget).trim(),
+        numeric !== null ? sayTarget(numeric) : String(userStatedTarget).trim(),
       rawValue: numeric,
       unit,
       attribution: currentUser ?? { kind: 'person', displayName: 'You' },
@@ -215,15 +240,22 @@ export function computeSuccessState(
     // compares numbers; a stated `'200k'` cannot be matched against one, so it
     // keeps the Olumi attribution rather than borrowing the user's voice —
     // which is what that helper's own header demands of every unmatched case.
-    const userStated = numeric !== null && matchesExplicitConstraint(numeric, goalConstraints)
+    //
+    // ⭐ OR CEE STAMPED IT FROM THE BRIEF: `threshold_source: 'brief_extraction'` is written ONLY when the brief
+    // writes this figure in the goal's unit (CEE `holdStatedGoalAttributes`, `figureTheUserWrote`). It is on the NODE,
+    // so it holds only for the node's own `goal_threshold_raw`, never for the analysis-ready fallback.
+    const briefStamped = rawCandidate === data.goal_threshold_raw && goalTargetStampedFromBrief(data as GoalTargetSource)
+    const userStated = briefStamped || (numeric !== null && matchesExplicitConstraint(numeric, goalConstraints))
     return {
       isSet: true,
-      displayText: numeric !== null ? formatWithUnit(numeric, unit) : String(rawCandidate).trim(),
+      displayText: numeric !== null ? sayTarget(numeric) : String(rawCandidate).trim(),
       rawValue: numeric,
       unit,
       attribution: userStated
         ? (currentUser ?? { kind: 'person', displayName: 'You' })
-        : { kind: 'olumi' },
+        : numeric !== null && matchesOlumiConstraint(numeric, goalConstraints)
+          ? { kind: 'olumi' }
+          : null,
       scaleAmbiguous: false,
     }
   }

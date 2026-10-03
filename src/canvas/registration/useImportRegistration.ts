@@ -64,6 +64,7 @@ import {
   useBootGraphReadStore,
 } from '../hydrate/bootGraphRead'
 import { identityFromCanvasGraph } from '../utils/graphIdentity'
+import { isViewerSession } from '../../lib/viewerMode'
 
 /**
  * Why a registration attempt did not end in an acknowledgement.
@@ -210,6 +211,9 @@ export function useImportRegistration(): void {
    * design always claimed it was.
    */
   useEffect(() => {
+    // ACCOUNTS viewer mode: a shared decision is view-only. CEE's register route is
+    // owner-only, so a viewer never offers its copy (and never sees the refusal).
+    if (isViewerSession()) return
     const st = useCanvasStore.getState()
     if (st.importPendingServerRegistration) return
     // ONE WRITER: an optimistic write is not a model the server lacks — it is
@@ -238,6 +242,7 @@ export function useImportRegistration(): void {
 
   useEffect(() => {
     if (!pending) return
+    if (isViewerSession()) return
     // ONE WRITER: stand down BEFORE the attempt key is spent, so the same
     // model can still be offered once delivery settles.
     {

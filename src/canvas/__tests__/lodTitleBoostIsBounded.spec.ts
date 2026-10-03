@@ -348,8 +348,10 @@ describe('LOD title boost is bounded BY THE RESERVED HEIGHT, not merely small', 
     // stays a literal on purpose — deriving it from the same expression the
     // assertion uses would be the guard agreeing with itself (trap 13b).
     // ⚠ 28 → 19.04 (27 Sep 2026): the landing text ceiling, 14 × 1.36.
+    // ⚠ 19.04 → 22.96 (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231): 14 × 1.64.
+    // ⚠ 22.96 → 21.32 (29 Sep 2026: contract v3.1 repeated title 14 → 13px, Paul "pixel perfect"): 13 × 1.64.
     const reservedPx = declaredNodeTitlePx() * MAX_LABEL_COUNTER_SCALE
-    expect(reservedPx).toBeCloseTo(19.04, 10)
+    expect(reservedPx).toBeCloseTo(21.32, 10)
 
     // FIXED mechanism — the original control, unchanged.
     expect(priceBoostSize('text-lg foo')).toEqual({ px: 18, mechanism: 'fixed', spelling: 'text-lg' })
@@ -358,10 +360,10 @@ describe('LOD title boost is bounded BY THE RESERVED HEIGHT, not merely small', 
 
     // COUNTER-SCALED mechanism — the arm added 2 Sep 2026. An oversized
     // counter-scaled boost must be rejected exactly as an oversized fixed one
-    // is: 18px at the 1.36 cap is 24.48px, over the 19.04 reserve (27 Sep 2026;
-    // it was 36 over 28 at the old 2x cap).
-    expect(priceBoostSize('text-[length:calc(12px*var(--canvas-label-scale,1))]')!.px).toBeCloseTo(16.32, 10)
-    expect(priceBoostSize('text-[length:calc(18px*var(--canvas-label-scale,1))]')!.px).toBeCloseTo(24.48, 10)
+    // is: 18px at the 1.64 cap is 29.52px, over the 22.96 reserve (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231;
+    // it was 24.48 over 19.04 at 1.36, and 36 over 28 at the old 2x cap).
+    expect(priceBoostSize('text-[length:calc(12px*var(--canvas-label-scale,1))]')!.px).toBeCloseTo(19.68, 10)
+    expect(priceBoostSize('text-[length:calc(18px*var(--canvas-label-scale,1))]')!.px).toBeCloseTo(29.52, 10)
     expect(priceBoostSize('text-[length:calc(18px*var(--canvas-label-scale,1))]')!.px).toBeGreaterThan(reservedPx)
 
     // An unpriceable class is a RED, never a pass.

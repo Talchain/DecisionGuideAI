@@ -67,7 +67,7 @@ export function TemplateCard({ template, nodes, edges, onInsert, onMerge, onLear
             lastClickTime.current = now
             onInsert(template.id)
           }}
-          className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 ${typography.panelBody} text-text-on-color bg-info-500 hover:bg-info-600 rounded-md focus:outline-none focus:ring-2 focus:ring-info-500 transition-colors`}
+          className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 ${typography.panelBody} text-text-on-color bg-info-500 hover:bg-info-600 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500 transition-colors`}
           aria-label={`Insert ${template.name}`}
         >
           <Plus className="w-3.5 h-3.5" />
@@ -89,7 +89,7 @@ export function TemplateCard({ template, nodes, edges, onInsert, onMerge, onLear
                 lastMergeClickTime.current = now
                 onMerge(template.id)
               }}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 ${typography.panelBody} text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors`}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 ${typography.panelBody} text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 transition-colors`}
               aria-label={`Merge ${template.name} into current canvas`}
               title="Add template to current canvas"
             >
@@ -100,7 +100,7 @@ export function TemplateCard({ template, nodes, edges, onInsert, onMerge, onLear
           {onLearnMore && (
             <button
               onClick={() => onLearnMore(template.id)}
-              className={`flex-1 px-2 py-1.5 ${typography.panelBody} text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors`}
+              className={`flex-1 px-2 py-1.5 ${typography.panelBody} text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 transition-colors`}
             >
               Learn more
             </button>

@@ -162,15 +162,9 @@ describe('2.581 — the expert modes, counted both ways', () => {
     expect(code).not.toMatch(/useState[^\n]*[Ss]howExpert/)
   })
 
-  it('OutputsDock passes its single expert state down to the Compare tab', () => {
-    const source = fs.readFileSync(
-      path.join(ROOT, 'src/canvas/components/OutputsDock.tsx'),
-      'utf-8',
-    )
-    expect(source).toMatch(
-      /<CompareTabBodyV2[\s\S]{0,300}?expertMode=\{expertMode\}[\s\S]{0,300}?onToggleExpert=\{setExpertMode\}/,
-    )
-  })
+  // 30 Sep 2026 (SC-24 v3): the dock no longer mounts CompareTabBody — Compare's body is CompareRunPairBody, which
+  // has no expert mode. The row that pinned the old mount's props is retired with the mount; the rows below still
+  // hold the one-expert-mode rule for every file that remains.
 
   it('exactly ONE storage key is NAMED for expert mode — sweeping by name', () => {
     const keys = new Set<string>()

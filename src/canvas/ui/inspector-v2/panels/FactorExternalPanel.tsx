@@ -48,6 +48,7 @@ import {
   userValueReplacesPrior,
   USER_VALUE_REPLACES_THIS_RANGE,
 } from '../../../nodes/shared/factorPriorRange'
+import { isAcceptedOlumiFigure } from '../../../domain/valueProvenance'
 
 // Quick-set presets
 const QUICK_SET = {
@@ -58,6 +59,13 @@ const QUICK_SET = {
 } as const
 
 type QuickSetKey = keyof typeof QUICK_SET
+
+/** The other end of a range: the card's, else what the user typed in its box; never a default. */
+function storedOrTypedEnd(stored: number | undefined, typed: string): number | null {
+  if (stored != null) return stored
+  const parsed = parseFloat(typed)
+  return Number.isFinite(parsed) ? parsed : null
+}
 
 export const FactorExternalPanel = memo(function FactorExternalPanel({
   nodeId,
@@ -150,21 +158,31 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
   const [localMin, setLocalMin] = useState<string>(rangeMin != null ? rangeMin.toFixed(2) : '')
   const [localMax, setLocalMax] = useState<string>(rangeMax != null ? rangeMax.toFixed(2) : '')
 
+  /**
+   * ⭐ ONE END TYPED IS NOT A RANGE. The other end comes from the card, else
+   * from the sibling box the user typed into; with neither, the typed end is
+   * HELD in its box and nothing is written or sent. These handlers used to
+   * complete the pair with `rangeMax ?? parsed` and `rangeMin ?? 0`, numbers
+   * nobody entered, which `setPriorRange` wrote to the card and sent to Olumi
+   * as the user's judgement (`priorRangeNeverInventsAnEnd.spec.tsx`).
+   */
   const handleMinBlur = useCallback(() => {
     const parsed = parseFloat(localMin)
-    if (!isNaN(parsed)) {
-      setSelected(null)
-      mutations.setPriorRange(parsed, rangeMax ?? parsed)
-    }
-  }, [localMin, rangeMax, mutations])
+    if (isNaN(parsed)) return
+    const max = storedOrTypedEnd(rangeMax, localMax)
+    if (max === null) return
+    setSelected(null)
+    mutations.setPriorRange(parsed, max)
+  }, [localMin, localMax, rangeMax, mutations])
 
   const handleMaxBlur = useCallback(() => {
     const parsed = parseFloat(localMax)
-    if (!isNaN(parsed)) {
-      setSelected(null)
-      mutations.setPriorRange(rangeMin ?? 0, parsed)
-    }
-  }, [localMax, rangeMin, mutations])
+    if (isNaN(parsed)) return
+    const min = storedOrTypedEnd(rangeMin, localMin)
+    if (min === null) return
+    setSelected(null)
+    mutations.setPriorRange(min, parsed)
+  }, [localMax, localMin, rangeMin, mutations])
 
   const [selected, setSelected] = useState<QuickSetKey | null>(() => {
     if (rangeMin == null || rangeMax == null) return null
@@ -447,7 +465,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
       {/* The header is a CLAIM about who supplied this number, not a static
           caption. "Your input" over an Olumi estimate is false attribution —
           see getInputGroupLabel (inspectorStrings.ts) for both directions. */}
-      <PanelGroup kind="input" label={getInputGroupLabel(source, (obs?.raw_value ?? obs?.value) != null)}>
+      <PanelGroup kind="input" label={getInputGroupLabel(source, (obs?.raw_value ?? obs?.value) != null, isAcceptedOlumiFigure(node?.data))}>
         <PrimaryControlCard>
           {canonicalDisplayText && (
             <div className={`${typography.panelBody} text-text-body mb-1.5`} data-testid="factor-display-text">

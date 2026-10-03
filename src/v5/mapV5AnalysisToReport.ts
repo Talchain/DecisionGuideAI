@@ -41,6 +41,11 @@ import {
   type OptionComputeStatus,
 } from '../adapters/plot/optionComputeStatus'
 import type { DecisionVerdictReportLike } from '../lib/decisionVerdict'
+import { goalLevelFromIdentityCaveat } from '../components/results/utils/goalLevelFromIdentity'
+import { readGoalFigureWithholds, winSharesWithheld, withheldClaimsFor } from '../components/results/utils/goalIdentityWithheld'
+import { goalCertaintyStamp, type GoalCertaintyEntry } from '../canvas/state/storedGoalCertainty'
+import type { OptionParticipationEntry } from '../canvas/state/storedOptionParticipation'
+import { readInfluenceGatedBy } from '../components/results/driverDisplayModel'
 import {
   factorDirectionToPolarity,
   normaliseFactorDirection,
@@ -211,7 +216,8 @@ function narrowPercentilesSource(raw: unknown): PercentilesSource | undefined {
 interface NormalisedFactor {
   factor_id: string
   factor_label: string
-  sensitivity: number // absolute magnitude
+  /** Absolute magnitude. ABSENT only on an ISL-gated row the producer sent without one (never fabricated). */
+  sensitivity?: number // absolute magnitude
   /**
    * The producer's direction, carried VERBATIM across the contract's full
    * domain, or `null` when the producer sent none (ROADMAP 2.234).
@@ -230,6 +236,12 @@ interface NormalisedFactor {
    * never defaulted; absent when the producer omitted it.
    */
   influence_score?: number
+  /**
+   * ISL #213: the gate ids when `influence_score` is withheld because the
+   * influence depends on the option chosen. Verbatim array passthrough; what
+   * counts as a gate is decided once, by `readInfluenceGatedBy`.
+   */
+  gated_by?: unknown[]
   /** Producer influence_rank (1 = most influential). Additive passthrough. */
   influence_rank?: number
   /**
@@ -252,6 +264,17 @@ interface NormalisedFactor {
   evpi_percentage_points?: number
   evpi_method?: string
   evpi_status?: string
+  /**
+   * R7 / X4: the RUN's own value provenance for this factor
+   * (`EnrichmentFactorSensitivityEntrySchema.value_source` / `value_defaulted` /
+   * `value_extraction_type`). It says what the run CONSUMED, which the live canvas
+   * cannot: a value edited after the run changes the node, not the run. Verbatim,
+   * absent stays absent. `useResultsSectionData` already reads all three
+   * ("Track S"); this mapper used to drop them, so they never arrived on V5.
+   */
+  value_source?: string
+  value_defaulted?: boolean
+  value_extraction_type?: string
 }
 
 /**
@@ -274,7 +297,17 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
     safeFiniteNumber(entry.sensitivity) ??
     safeFiniteNumber(entry.elasticity) ??
     safeFiniteNumber(entry.importance_score)
-  if (rawMagnitude === undefined) return null
+  // ⛔ PR Review #2290: PLoT #408 emits the gate as `influence_gated_by` (FactorSensitivityResultV3; CEE stores the
+  // envelope verbatim) — `gated_by` is ISL's own name, read as a fallback only. A GATED row may carry no magnitude
+  // (sensitivity_score / elasticity are optional there); it is kept, with no magnitude fabricated. A non-gated row
+  // with no usable magnitude is still dropped.
+  const gatedRaw = Array.isArray(entry.influence_gated_by)
+    ? entry.influence_gated_by
+    : Array.isArray(entry.gated_by) ? entry.gated_by : undefined
+  // Admission asks THE shared reader, so the mapper cannot keep a magnitude-free row the panel then reads as NOT
+  // gated (e.g. `influence_gated_by: [7]`) — PR Review #2290 @6f2b74c8 item 1. `gatedRaw` is still carried verbatim.
+  const gatedRow = readInfluenceGatedBy(entry) !== null
+  if (rawMagnitude === undefined && !gatedRow) return null
 
   const factorId =
     safeString(entry.factor_id) ??
@@ -301,6 +334,7 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
   // derivation, no defaults — undefined when absent so downstream consumers
   // can distinguish "not provided" from any real value.
   const influenceScore = safeFiniteNumber(entry.influence_score)
+  const gatedBy = gatedRaw !== undefined ? [...(gatedRaw as unknown[])] : undefined
   const influenceRank = safeFiniteNumber(entry.influence_rank)
   const zeroReason = safeString(entry.zero_reason)
 
@@ -312,19 +346,26 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
   const evpiPercentagePoints = safeFiniteNumber(entry.evpi_percentage_points)
   const evpiMethod = safeString(entry.evpi_method)
   const evpiStatus = safeString(entry.evpi_status)
+  const valueSource = safeString(entry.value_source)
+  const valueDefaulted = typeof entry.value_defaulted === 'boolean' ? entry.value_defaulted : undefined
+  const valueExtractionType = safeString(entry.value_extraction_type)
 
   return {
     factor_id: factorId,
     factor_label: factorLabel,
-    sensitivity: Math.abs(rawMagnitude),
+    ...(rawMagnitude !== undefined ? { sensitivity: Math.abs(rawMagnitude) } : {}),
     direction,
     ...(influenceScore !== undefined ? { influence_score: influenceScore } : {}),
+    ...(gatedBy !== undefined ? { gated_by: gatedBy } : {}),
     ...(influenceRank !== undefined ? { influence_rank: influenceRank } : {}),
     ...(zeroReason !== undefined ? { zero_reason: zeroReason } : {}),
     ...(valueOfInformation !== undefined ? { value_of_information: valueOfInformation } : {}),
     ...(evpiPercentagePoints !== undefined ? { evpi_percentage_points: evpiPercentagePoints } : {}),
     ...(evpiMethod !== undefined ? { evpi_method: evpiMethod } : {}),
     ...(evpiStatus !== undefined ? { evpi_status: evpiStatus } : {}),
+    ...(valueSource !== undefined ? { value_source: valueSource } : {}),
+    ...(valueDefaulted !== undefined ? { value_defaulted: valueDefaulted } : {}),
+    ...(valueExtractionType !== undefined ? { value_extraction_type: valueExtractionType } : {}),
   }
 }
 
@@ -356,7 +397,7 @@ function collectFactors(enrichment: Record<string, unknown>): NormalisedFactor[]
     const norm = normaliseFactorEntry(raw)
     if (!norm) continue
     const existing = byId.get(norm.factor_id)
-    if (!existing || norm.sensitivity > existing.sensitivity) {
+    if (!existing || (norm.sensitivity ?? -1) > (existing.sensitivity ?? -1)) {
       byId.set(norm.factor_id, norm)
     }
   }
@@ -767,10 +808,15 @@ export function buildV5VerdictReportLike(block: {
   // still yields probabilities. They will be LABEL-keyed, the id-space
   // producer signals will not apply, and the verdict fails closed — which is
   // the correct outcome, reached without a special case.
-  const winById = resolveWinProbabilitiesById(
-    candidates.length > 0 ? candidates : winProbabilityCandidates([], winProbs),
-    winProbs,
-  )
+  // PLoT #416 / AIQ #72 5886183999: under the typed identity withhold the win figures are not valid for this run,
+  // so no leader is derived from them (census R3-B 5886351619, step 3).
+  // B3: win shares are one comparison across options, so any warning withholding `win_share` empties them all.
+  const winById = winSharesWithheld(readGoalFigureWithholds(enrichment))
+    ? new Map<string, number>()
+    : resolveWinProbabilitiesById(
+        candidates.length > 0 ? candidates : winProbabilityCandidates([], winProbs),
+        winProbs,
+      )
 
   const option_probabilities: Record<string, { win_probability?: number | null }> = {}
   for (const [optionId, win] of winById) {
@@ -867,6 +913,16 @@ export function resolveOptionLabelById(
 
 export interface MapV5AnalysisOptions {
   /**
+   * CEE's stored goal-certainty fact for THIS Run (`readGoalCertainty`, schemas 0.63.0), from the turn key or the cold
+   * read. Each option whose 0/1 figure is UNEARNED is stamped so the chooser withholds it. Absent = not recorded.
+   */
+  goalCertainty?: readonly GoalCertaintyEntry[] | null
+  /**
+   * The Run's stored participation fact (`readOptionParticipation`; Runtime #72 5888341208): the options OUTSIDE the
+   * ordinary comparison and why. Carried on the report as-is so it is bound to THIS Run. Absent = not recorded.
+   */
+  optionParticipation?: readonly OptionParticipationEntry[] | null
+  /**
    * Seed used for the run. The V5 contract carries NO seed field, so when
    * the caller has no real value the report carries null and the Seed
    * receipt row fails closed (hides). Never default to 0 — a fabricated
@@ -907,7 +963,11 @@ export function mapV5AnalysisToReport(
   // Factor sensitivity — collected once IN PRODUCER ORDER (ROADMAP 2.235);
   // reused for drivers + factor_sensitivity passthrough.
   const factors = enrichment ? collectFactors(enrichment) : []
-  const drivers = factors.slice(0, 5).map((f) => ({
+  // A gated row (no score, the gate named) is never a ranked driver, and may carry no magnitude (PR Review #2290).
+  const drivers = factors
+    .flatMap((f) => (f.sensitivity === undefined || f.gated_by?.length ? [] : [{ ...f, sensitivity: f.sensitivity }]))
+    .slice(0, 5)
+    .map((f) => ({
     label: f.factor_label,
     // ROADMAP 2.234: `mixed` / `unknown` / absent take the neutral affordance
     // the driver surfaces already ship, never the "up" arrow they used to get
@@ -982,6 +1042,17 @@ export function mapV5AnalysisToReport(
      * per the honesty rule in UI-BOUNDARY-DATA-INVENTORY.md §5.
      */
     goal_fit_basis?: { scored_from?: string; node_ids?: string[] }
+    /** ISL #207 — whose base the goal figure stands on, when it must be caveated (fail-closed). */
+    goalLevelAuthor?: 'olumi' | 'unattested'
+    /** PLoT #416 — the producer withheld P(goal): a declared identity on its path was not evaluated. */
+    goalIdentityWithheld?: true
+    /**
+     * B3b (DL R1 condition 4): this option's KEPT outcome rests on Olumi's estimates the user accepted (B2
+     * `rests_on_accepted_olumi`). Every surface showing the figure says so beside it.
+     */
+    outcomeRestsOnAcceptedOlumi?: true
+    /** CEE #2270/#2280 — this option's 0/1 goal figure is UNEARNED; the producer's sentence, or null. */
+    goalCertaintyUnearned?: { say: string | null }
     /**
      * ROADMAP 2.449 — per-option tail-risk view, in `outcome`'s units.
      * Present only when the producer emitted all three components as finite
@@ -1026,6 +1097,10 @@ export function mapV5AnalysisToReport(
      */
     status_reason?: string
   }
+  const goalLevelAuthor = goalLevelFromIdentityCaveat(enrichment)
+  // B3 (52f8cd #85 5931020890): withheld PER OPTION × CLAIM. With no B2 keys every warning covers every claim on
+  // every option, which is today's run-wide strip, byte for byte.
+  const withholds = readGoalFigureWithholds(enrichment)
   const option_probabilities: Record<string, ResultsOptionProbability> = {}
 
   // Resolution path A: option_comparison is the canonical source.
@@ -1044,12 +1119,18 @@ export function mapV5AnalysisToReport(
   // keys verbatim. Honest miss in the Results panel when those keys are
   // labels.
   const iterator = optionIterator(resolvedOptions, winProbs)
-  const winProbabilityById = resolveWinProbabilitiesById(
-    winProbabilityCandidates(resolvedOptions, winProbs),
-    winProbs,
-  )
+  // PLoT #416 / AIQ #72 5886183999: the win %, means, ranges and downside come from the same invalid walk as the
+  // withheld goal figure. Absent stays absent: no fallback (win_probabilities map, decision_brief, expected_outcome,
+  // CI midpoint) may re-show them (census R3-B 5886351619, step 3).
+  const winProbabilityById = winSharesWithheld(withholds)
+    ? new Map<string, number>()
+    : resolveWinProbabilitiesById(winProbabilityCandidates(resolvedOptions, winProbs), winProbs)
 
   for (const { optionId, enriched } of iterator) {
+    const held = withheldClaimsFor(withholds, optionId)
+    const outcomeHeld = held.has('outcome')
+    const goalHeld = held.has('goal_probability')
+    const restsOnAcceptedOlumi = !outcomeHeld && withholds.some((w) => w.restsOnAcceptedOlumi.includes(optionId))
     const winProb = winProbabilityById.get(optionId)
 
     const ci = Array.isArray(enriched?.confidence_interval)
@@ -1062,10 +1143,10 @@ export function mapV5AnalysisToReport(
     const ciMid =
       ciLow != null && ciHigh != null ? (ciLow + ciHigh) / 2 : null
 
-    const outcome = isPlainObject(enriched?.outcome) ? enriched.outcome : undefined
+    const outcome = !outcomeHeld && isPlainObject(enriched?.outcome) ? enriched.outcome : undefined
     const rawMean = safeFiniteNumber(outcome?.mean)
-    const rawExpected = safeFiniteNumber(enriched?.expected_outcome)
-    const expected = rawMean ?? rawExpected ?? ciMid ?? undefined
+    const rawExpected = outcomeHeld ? undefined : safeFiniteNumber(enriched?.expected_outcome)
+    const expected = outcomeHeld ? undefined : (rawMean ?? rawExpected ?? ciMid ?? undefined)
 
     // ⚠ ROADMAP 2.800a — PERCENTILES ARE THE PRODUCER'S OR THEY ARE ABSENT.
     // These reads used to end `?? ciLow` / `?? ciHigh`, putting a
@@ -1107,7 +1188,7 @@ export function mapV5AnalysisToReport(
     const percentilesSource = narrowPercentilesSource(outcome?.percentiles_source)
 
     const goalFitBasis = normaliseGoalFitBasis(enriched?.goal_fit_basis)
-    const downside = normaliseDownside(enriched?.downside)
+    const downside = held.has('downside') ? undefined : normaliseDownside(enriched?.downside)
 
     // ⭐ Per-option computation classification — narrowed to the producer's
     // closed vocabulary and carried verbatim, NO fallback chain and NO
@@ -1121,6 +1202,11 @@ export function mapV5AnalysisToReport(
     // 'samples'` fabrication the note below refuses.
     const computeStatus = narrowOptionComputeStatus(enriched?.status)
     const computeStatusReason = narrowOptionComputeStatusReason(enriched?.status_reason)
+    // The goal figure this mapper writes out (the attested wire boundary below), read ONCE so the certainty stamp binds
+    // to exactly the figure that is displayed.
+    const displayedGoalProbability = safeFiniteNumber(enriched?.probability_of_goal)
+    // CEE #2270/#2280: is a displayed 0/1 attested by the Run's stored decision? (`goalCertaintyStamp`, the contract.)
+    const certaintyStamp = goalCertaintyStamp(displayedGoalProbability, optionId, options.goalCertainty)
 
     option_probabilities[optionId] = {
       /**
@@ -1133,10 +1219,10 @@ export function mapV5AnalysisToReport(
        *   `selectGoalProbability`. Suppressed count is baselined and ratcheted.
        */
       // No silent defaults — undefined when missing.
-      ...(safeFiniteNumber(enriched?.probability_of_goal) !== undefined
-        ? { goal_probability: safeFiniteNumber(enriched?.probability_of_goal) }
-        : {}),
-      ...(safeFiniteNumber(enriched?.probability_of_joint_goal) !== undefined
+      ...(displayedGoalProbability !== undefined ? { goal_probability: displayedGoalProbability } : {}),
+      // B3: a joint figure withheld on its own is left out. With the goal figure withheld it is written as before and the
+      // stamp below withholds both (so a Run with no B2 keys maps byte for byte as it did).
+      ...(!(held.has('joint_probability') && !goalHeld) && safeFiniteNumber(enriched?.probability_of_joint_goal) !== undefined
         ? {
             probability_of_joint_goal: safeFiniteNumber(
               enriched?.probability_of_joint_goal,
@@ -1147,6 +1233,11 @@ export function mapV5AnalysisToReport(
       // normaliseGoalFitBasis. Carried alongside the number it qualifies;
       // render sites must show both together (UI-BOUNDARY-DATA-INVENTORY §5).
       ...(goalFitBasis !== undefined ? { goal_fit_basis: goalFitBasis } : {}),
+      // ISL #207 — the run's goal base is Olumi's estimate (fail-closed, see the helper).
+      ...(goalLevelAuthor !== null ? { goalLevelAuthor } : {}),
+      ...(goalHeld ? { goalIdentityWithheld: true as const } : {}),
+      ...(restsOnAcceptedOlumi ? { outcomeRestsOnAcceptedOlumi: true as const } : {}),
+      ...(certaintyStamp !== null ? { goalCertaintyUnearned: certaintyStamp } : {}),
       confidence: 0.5,
       ...(winProb !== undefined ? { win_probability: winProb } : {}),
       ...(expected !== undefined ? { expected } : {}),
@@ -1560,7 +1651,7 @@ export function mapV5AnalysisToReport(
     widened.factor_sensitivity = factors.map((f) => ({
       factor_id: f.factor_id,
       factor_label: f.factor_label,
-      sensitivity: f.sensitivity,
+      ...(f.sensitivity !== undefined ? { sensitivity: f.sensitivity } : {}),
       // ROADMAP 2.234: absence stays absence — the key is omitted rather than
       // written as a default, exactly like the additive passthroughs below, so
       // a consumer can still tell "the producer said nothing" from "the
@@ -1572,6 +1663,9 @@ export function mapV5AnalysisToReport(
       // influence measure instead of falling back to a UI-normalised
       // sensitivity (influence ≠ sensitivity). Omitted when absent.
       ...(f.influence_score !== undefined ? { influence_score: f.influence_score } : {}),
+      // ISL #213 covered-withheld gate: without it a gated row reads as a
+      // missing score and drops the whole run onto the fallback basis.
+      ...(f.gated_by !== undefined ? { gated_by: f.gated_by } : {}),
       ...(f.influence_rank !== undefined ? { influence_rank: f.influence_rank } : {}),
       ...(f.zero_reason !== undefined ? { zero_reason: f.zero_reason } : {}),
       // P0 F5: EVPI family reaches the store so ModelTabBody's EVPI map
@@ -1582,6 +1676,10 @@ export function mapV5AnalysisToReport(
       ...(f.evpi_percentage_points !== undefined ? { evpi_percentage_points: f.evpi_percentage_points } : {}),
       ...(f.evpi_method !== undefined ? { evpi_method: f.evpi_method } : {}),
       ...(f.evpi_status !== undefined ? { evpi_status: f.evpi_status } : {}),
+      // R7 / X4: the run's own value provenance (see `NormalisedFactor`).
+      ...(f.value_source !== undefined ? { value_source: f.value_source } : {}),
+      ...(f.value_defaulted !== undefined ? { value_defaulted: f.value_defaulted } : {}),
+      ...(f.value_extraction_type !== undefined ? { value_extraction_type: f.value_extraction_type } : {}),
     }))
   }
   if (robustness) widened.robustness = robustness
@@ -1641,6 +1739,7 @@ export function mapV5AnalysisToReport(
   if (block.leading_option_id != null) {
     widened.leading_option_id = block.leading_option_id
   }
+  if (options.optionParticipation != null) widened.option_participation = options.optionParticipation
   if (Object.keys(option_probabilities).length > 0) {
     // ReportV1 declares `option_probabilities` as Record<string, OptionProbability>
     // where OptionProbability.goal_probability is required. The V4 mapper widens
@@ -1689,9 +1788,10 @@ export function mapV5AnalysisToReport(
         // three-place lookup lands in one place.
         const winProb = winProbabilityById.get(optionId)
         if (winProb !== undefined) entry.win_probability = winProb
-        const expected = safeFiniteNumber(enriched.expected_outcome)
+        const outcomeHeld = withheldClaimsFor(withholds, optionId).has('outcome')
+        const expected = outcomeHeld ? undefined : safeFiniteNumber(enriched.expected_outcome)
         if (expected !== undefined) entry.expected_outcome = expected
-        const outcome = isPlainObject(enriched.outcome) ? enriched.outcome : undefined
+        const outcome = !outcomeHeld && isPlainObject(enriched.outcome) ? enriched.outcome : undefined
         if (outcome) {
           const mean = safeFiniteNumber(outcome.mean)
           const p10 = safeFiniteNumber(outcome.p10)

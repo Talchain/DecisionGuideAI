@@ -24,6 +24,7 @@
  */
 import { joinInterventionDetails, unwrapInterventionValue } from '../../utils/labelUtils'
 import {
+  binaryTargetReading,
   buildOptionChangeRow,
   buildOptionNeedsInputRow,
   type FactorContext,
@@ -31,6 +32,8 @@ import {
   type OptionTargetLike,
 } from './optionChangeRows'
 import { tierReadingNumber } from '../../utils/interventionDisplay'
+import { qualitativeTierLabel } from '../../utils/labelUtils'
+import { readoutIsBareModelFigure } from './bareModelFigure'
 
 /** The slice of `ceeAnalysisReady.options[]` these readers use. */
 export interface CeeOptionTargetsLike {
@@ -223,6 +226,42 @@ export function buildOptionTargetRow({
       ? { value: ref.value, displayValue: ref.displayValue ?? null }
       : null,
   })
+}
+
+/**
+ * ⭐⭐ WHAT A SURFACE THAT STATES A TARGET ON ITS OWN PRINTS FOR IT — the
+ * inspector's "This option sets …" (side-by-side DIFF N7, 28 Sep 2026).
+ *
+ * Served `b40d5436`, vendor-selection "Adopt Segment": "Operational Overhead on
+ * Data Team — This option sets 0.5" and, on market-entry, "Localisation and
+ * Compliance Cost — This option sets 0.5". The producer's reading was
+ * `0.5 scale`; the row drops the placeholder word (contract v3.1 pt 7) and a
+ * BARE model number was left — while the factor card for the same factor reads
+ * "Medium" (contract `checks.factor`: "no bare internal model scale").
+ *
+ * So the reading is the row's own (`row.target`, the card's formatter: the
+ * encoding-map word, the producer's reading, or the unit and figure), except
+ * where that is a bare 0–1 figure on a factor with no real unit
+ * (`readoutIsBareModelFigure`, the factor card's own shape test). That figure is
+ * given the factor card's band word (`qualitativeTierLabel`, the word the card
+ * prints for a bare model value) in the estate's tier-reading form —
+ * `Medium (0.5)`, the shape CEE itself writes (`Moderate (0.5)`) — so the
+ * inspector still states the figure (R6: "detail on hover/inspector") and its
+ * model-scale box still stands beside a reading that shows its number
+ * (`readingShowsModelValue`, ED #63 §9).
+ *
+ * ⛔ A PERSON'S OWN NUMBER IS LEFT AS THEY GAVE IT (`you`): the factor card never
+ * re-words one either (`readoutIsBareModelScale`'s provenance gate).
+ */
+export function optionTargetReading(row: OptionChangeRow, factorData: unknown): string {
+  const reading = row.target || row.change
+  if (!row.target || row.targetSource.kind === 'you') return reading
+  // A yes/no factor reads as the card reads it: "In use", never CEE's bare "on".
+  const binary = binaryTargetReading(factorData, reading)
+  if (binary !== null) return binary
+  if (!readoutIsBareModelFigure(row.target, factorData)) return reading
+  const figure = Number(row.target.trim())
+  return `${qualitativeTierLabel(figure)} (${tierReadingNumber(figure)})`
 }
 
 /**

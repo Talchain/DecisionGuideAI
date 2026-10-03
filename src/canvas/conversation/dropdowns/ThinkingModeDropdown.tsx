@@ -50,7 +50,7 @@ export function ThinkingModeChip({ selectedMode, onClick }: ThinkingModeChipProp
       type="button"
       onClick={onClick}
       aria-haspopup="true"
-      className={`top-bar-chip cursor-pointer ${typography.panelBody} font-medium`} /* F3 snap: 13px/500 → panelBody 12px + medium */
+      className={`top-bar-chip cursor-pointer ${typography.chatBody} font-medium`} /* F3 snap: 13px/500 → panelBody 12px + medium */
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -143,7 +143,7 @@ export function ThinkingModeDropdown({
               border: mode.enabled && isSelected
                 ? '1px solid color-mix(in srgb, var(--info) 40%, transparent)'
                 : '1px solid var(--border-default, #EEE6D8)',
-              background: mode.enabled && isSelected ? 'var(--bg-panel-hover, #FEF9F3)' : 'transparent',
+              background: mode.enabled && isSelected ? 'var(--bg-panel-hover, #FCF7F1)' : 'transparent',
               marginBottom: 4,
               opacity: !mode.enabled ? 0.4 : 1,
               cursor: !mode.enabled ? 'default' : 'pointer',
@@ -157,14 +157,14 @@ export function ThinkingModeDropdown({
                 width: 28,
                 height: 28,
                 borderRadius: 999,
-                background: 'var(--bg-panel, #FEFEFE)',
+                background: 'var(--bg-panel, #FEF9F3)',
                 border: '1px solid var(--border-default, #EEE6D8)',
               }}
             >
               <NodeShape kind={mode.shapeKind} size={14} />
             </div>
             <div>
-              <div className={`${typography.panelBody} font-semibold`} style={{ color: 'var(--text-header, #262626)' }}>{mode.label}</div>
+              <div className={`${typography.chatBody} font-semibold`} style={{ color: 'var(--text-header, #262626)' }}>{mode.label}</div>
               <div className={typography.chatMeta} style={{ color: 'var(--text-light, #6E6B6B)', marginTop: 1 }}>{mode.description}</div>
             </div>
           </button>

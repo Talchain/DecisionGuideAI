@@ -42,33 +42,55 @@ describe('GOAL_ANCHOR_COPY — the possessive gate', () => {
     expect(text).toContain('every target this run scored')
   })
 
+  // AIQ #72 5885116642 (29 Sep 2026): the permitted basis names THE TARGET as a share of model runs; neither basis
+  // says "your goal" or any "chance". The two bases still say different things, so the gate still discriminates.
   it.each([
     ['label', () => GOAL_ANCHOR_COPY.label(false)],
     ['phrase', () => GOAL_ANCHOR_COPY.phrase(N, false)],
     ['sentence', () => GOAL_ANCHOR_COPY.sentence(N, false)],
     ['headline', () => GOAL_ANCHOR_COPY.headline('Option A', N, false)],
     ['byOptionAria', () => GOAL_ANCHOR_COPY.byOptionAria(false)],
-  ])('%s uses the possessive when the basis permits it', (_name, build) => {
-    expect(build().toLowerCase()).toContain('your goal')
+  ])('%s names the target as a share of model runs when the basis permits it', (_name, build) => {
+    const text = build().toLowerCase()
+    expect(text).toContain('reach')
+    expect(text).toContain('the target')
+    expect(text).toContain('model runs')
+    expect(text).not.toContain('every target this run scored')
+  })
+
+  it.each([true, false])('no form says "chance" or "your goal" (substituted=%s) — AIQ 5885116642', (substituted) => {
+    const all = [
+      GOAL_ANCHOR_COPY.label(substituted),
+      GOAL_ANCHOR_COPY.phrase(N, substituted),
+      GOAL_ANCHOR_COPY.readout(N, substituted),
+      GOAL_ANCHOR_COPY.sentence(N, substituted),
+      GOAL_ANCHOR_COPY.headline('Option A', N, substituted),
+      GOAL_ANCHOR_COPY.byOptionAria(substituted),
+    ].join(' | ').toLowerCase()
+    expect(all).not.toMatch(/chance|probability of success|your goal/)
   })
 })
 
 describe('GOAL_ANCHOR_COPY — forms cannot drift apart', () => {
   it.each([true, false])(
-    'sentence() is phrase() plus a full stop, and nothing else (substituted=%s)',
+    'sentence() is readout() plus a full stop, and readout() is phrase() capitalised — nothing else (substituted=%s)',
     (substituted) => {
-      expect(GOAL_ANCHOR_COPY.sentence(N, substituted)).toBe(
-        `${GOAL_ANCHOR_COPY.phrase(N, substituted)}.`,
-      )
+      const p = GOAL_ANCHOR_COPY.phrase(N, substituted)
+      expect(GOAL_ANCHOR_COPY.readout(N, substituted)).toBe(p.charAt(0).toUpperCase() + p.slice(1))
+      expect(GOAL_ANCHOR_COPY.sentence(N, substituted)).toBe(`${GOAL_ANCHOR_COPY.readout(N, substituted)}.`)
     },
   )
 
   it.each([true, false])(
-    'label() is phrase() with the number removed and the first letter capitalised (substituted=%s)',
+    'label() names the same quantity as phrase(), with no number (substituted=%s)',
     (substituted) => {
-      const withoutNumber = GOAL_ANCHOR_COPY.phrase(N, substituted).replace(`${N} `, '')
-      const capitalised = withoutNumber.charAt(0).toUpperCase() + withoutNumber.slice(1)
-      expect(GOAL_ANCHOR_COPY.label(substituted)).toBe(capitalised)
+      const label = GOAL_ANCHOR_COPY.label(substituted)
+      expect(label).toMatch(/^Share of model runs /)
+      expect(label).not.toContain(N)
+      // The same object of the claim as the phrase: the target, or every target this run scored.
+      const object = substituted ? 'every target this run scored' : 'the target'
+      expect(label).toContain(object)
+      expect(GOAL_ANCHOR_COPY.phrase(N, substituted)).toContain(object)
     },
   )
 
@@ -76,7 +98,7 @@ describe('GOAL_ANCHOR_COPY — forms cannot drift apart', () => {
     const h = GOAL_ANCHOR_COPY.headline('Option A', N, false)
     expect(h).toContain('Option A')
     expect(h).toContain(N)
-    expect(h.toLowerCase()).toContain('your goal')
+    expect(h).toBe(`Option A reaches the target in the most model runs (${N})`)
   })
 })
 

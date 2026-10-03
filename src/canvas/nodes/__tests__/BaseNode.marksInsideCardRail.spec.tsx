@@ -50,7 +50,13 @@ import {
   NODE_RAIL_GLYPH_PX,
   NODE_RAIL_REST_TONE_CLASS,
 } from '../shared/nodeCardRailStyles'
-import { NODE_TITLE_WIDEST_WORD_PX, NODE_TITLE_MIN_MEASURE_PX, REPEATED_CARD_W } from '../../utils/nodeLayoutConstants'
+import {
+  NODE_TITLE_WIDEST_WORD_PX,
+  NODE_TITLE_MIN_MEASURE_PX,
+  REPEATED_CARD_W,
+  REPEATED_CARD_MAX_W,
+  restingCardWidthForKind,
+} from '../../utils/nodeLayoutConstants'
 import { MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
 import { CANVAS_TYPE_PX } from '../../../styles/typography'
 import { NodeRailIcon, NodeSignalRailIcons } from '../shared/NodeRailIcons'
@@ -233,9 +239,15 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
     expect(tokens(mark)).not.toContain('absolute')
   })
 
-  it('a repeated card: the title stops 1px before the mark on line 1 at 100% AND at the bound, where the widest word still fits beside it', () => {
+  it('a repeated card: the title stops 1px before the mark on line 1 at 100%, and at the bound — where the widest word no longer fits beside ONE mark — yields line 1', () => {
     attentionMarked = true
-    const root = renderCard('outcome', 'o1', 'Customer retention after a price rise')
+    // ⚠ 30 Sep 2026 (wider cards): an unlaid-out repeated card now RESTS at its
+    // tier cap, REPEATED_CARD_MAX_W (400), where the widest word fits beside a
+    // mark at every scale and the yield branch below is unreachable. A crowded
+    // row still draws at the REPEATED_CARD_W floor (248), so the card is drawn
+    // there EXPLICITLY — the narrowest repeated card, the case this row is about.
+    expect(restingCardWidthForKind('outcome'), 'precondition: the resting width moved to the cap').toBe(REPEATED_CARD_MAX_W)
+    const root = renderCard('outcome', 'o1', 'Customer retention after a price rise', { maxWidth: REPEATED_CARD_W })
     const cardW = parseFloat(root.style.width)
     const padL = parseFloat(root.style.paddingLeft)
     // RE-PINNED 27 Sep 2026 (landing text ceiling): the repeated card is the ED
@@ -254,18 +266,31 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
     expect(px(spacer.style.height, 1, at(1))).toBeCloseTo(at(1).lh, 6)
     expect(spacer).toHaveAttribute('aria-hidden', 'true')
     expect(spacer.textContent).toBe('')
-    for (const g of [1, MAX_GLYPH_COUNTER_SCALE]) {
-      const box = titleBoxWidthAt(root, wrapperMin, g)
-      const line1Right = padL + box - px(spacer.style.width, scalesAt(g), { pct: box, lh: at(scalesAt(g).text).lh })
-      expect(line1Right, `glyph scale ${g}`).toBeCloseTo(markLeftAt(cardW, 1, g) - CONTRACT_MARK_CLEARANCE_PX, 6)
+    {
+      const box = titleBoxWidthAt(root, wrapperMin, 1)
+      const line1Right = padL + box - px(spacer.style.width, scalesAt(1), { pct: box, lh: at(scalesAt(1).text).lh })
+      expect(line1Right, 'glyph scale 1').toBeCloseTo(markLeftAt(cardW, 1, 1) - CONTRACT_MARK_CLEARANCE_PX, 6)
     }
-    // At the bound the widest word (at the TEXT bound) and the mark (at the GLYPH
-    // bound) SHARE line 1 — at a shared 2x the title had to yield it. The
-    // FIRST-LINE spacer is what keeps line 1 clear there.
+    // RE-PINNED (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231). At the 1.36 ceiling the
+    // widest word (at the TEXT bound) and ONE mark (at the GLYPH bound) SHARED line 1
+    // here. At 1.64 the widest word needs 108 × 1.64 = 177.12 and line 1 beside the
+    // mark holds 188 − 13 (padding) = 175, so the title YIELDS line 1 at the bound — the same
+    // regime a shared 2x forced before 27 Sep, and the one the GAP 11 rule allows
+    // ("line 1 holds the widest word, or it yields"; never a mid-word break).
     const boxAtBound = titleBoxWidthAt(root, wrapperMin, MAX_GLYPH_COUNTER_SCALE)
-    const spacerAtBound = px(spacer.style.width, scalesAt(MAX_GLYPH_COUNTER_SCALE), { pct: boxAtBound })
-    expect(spacerAtBound).toBeGreaterThan(0)
-    expect(boxAtBound - spacerAtBound).toBeGreaterThanOrEqual(NODE_TITLE_WIDEST_WORD_PX * MAX_LABEL_COUNTER_SCALE)
+    const sc = scalesAt(MAX_GLYPH_COUNTER_SCALE)
+    const lhAtBound = at(sc.text).lh
+    const spacerAtBound = px(spacer.style.width, sc, { pct: boxAtBound, lh: lhAtBound })
+    const besideAtBound = markLeftAt(cardW, 1, MAX_GLYPH_COUNTER_SCALE) - CONTRACT_MARK_CLEARANCE_PX - padL
+    // 29 Sep: the contract's 12px padding on every card (was 13 on this kind) → 176.
+    expect(besideAtBound).toBeCloseTo(176, 6)
+    expect(besideAtBound).toBeLessThan(NODE_TITLE_WIDEST_WORD_PX * MAX_LABEL_COUNTER_SCALE)
+    // Yielded: the spacer takes the whole of line 1…
+    expect(boxAtBound - spacerAtBound).toBeCloseTo(0, 6)
+    // …and reaches past the mark box, so no line of text runs under it.
+    expect(px(spacer.style.height, sc, { pct: boxAtBound, lh: lhAtBound })).toBeGreaterThanOrEqual(
+      CONTRACT_MARK_TOP_PX + CONTRACT_MARK_BOX_PX * MAX_GLYPH_COUNTER_SCALE + CONTRACT_MARK_CLEARANCE_PX - parseFloat(root.style.paddingTop) - 1e-6,
+    )
     // ⭐ RE-PINNED 27 Sep 2026 (served e8ba18e6): NO all-lines reserve on a
     // repeated card. With it, the mark a Run adds narrowed EVERY title line, and
     // "Enterprise Revenue Cannibalization Risk" re-wrapped 2 → 4 lines after the
@@ -409,7 +434,8 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
  */
 describe('GAP 11 — line 1 holds the widest word or yields to the marks (never a mid-word break)', () => {
   // The GLYPH scale across the band (1.00 … 2.00, the bound); the TEXT scale is
-  // `scalesAt(g).text` — it follows g up to the 1.36 ceiling (27 Sep 2026).
+  // `scalesAt(g).text` — it follows g up to the text ceiling (1.64 since the 27 Sep
+  // 2026 landing text cap; it was 1.36).
   const SCALES = Array.from({ length: 101 }, (_, i) => 1 + i / 100)
   const EPS = 1e-6
   const lineHeightAt = (t: number) => CANVAS_TYPE_PX.nodeTitle * CONTRACT_TITLE_LEADING * t
@@ -459,22 +485,31 @@ describe('GAP 11 — line 1 holds the widest word or yields to the marks (never 
 
   it('a 248 repeated card, ONE mark: beside the title at every scale (the verifier\'s "Concentratio|n" no longer yields)', () => {
     attentionMarked = true
-    const root = renderCard('outcome', 'o1', 'Concentration risk in the top accounts')
+    // 30 Sep 2026: drawn at the REPEATED_CARD_W floor explicitly — an unlaid-out
+    // card rests at the 400 cap now, where the yield control below cannot fire.
+    const root = renderCard('outcome', 'o1', 'Concentration risk in the top accounts', { maxWidth: REPEATED_CARD_W })
+    expect(parseFloat(root.style.width), 'precondition: the 248 card').toBe(REPEATED_CARD_W)
     const title = screen.getByTestId('node-title')
     const min = parseFloat((title.parentElement as HTMLElement).style.minWidth)
     expect(min).toBe(NODE_TITLE_MIN_MEASURE_PX)
     const boxAt = (g: number) => ({ left: parseFloat(root.style.paddingLeft), width: titleBoxWidthAt(root, min, g) })
     const r = assertLineOne(within(title).getByTestId('node-title-corner-spacer'), boxAt, cardOf(root), 1, 'outcome 248')
-    // ⚠ 27 Sep 2026: at the text ceiling the widest word (146.88) fits beside ONE
-    // mark at the glyph bound on a 248 card, so only the beside regime is reached
-    // here; the YIELD half is exercised by the two-mark case below, not vacuous.
-    expect(r).toEqual({ yieldedSomewhere: false, besideSomewhere: true })
+    // ⚠ 27 Sep 2026: at the 1.36 text ceiling the widest word (146.88) fit beside
+    // ONE mark at the glyph bound on a 248 card, so only the beside regime was
+    // reached here.
+    // RE-PINNED (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231): at 1.64 the widest word
+    // (177.12) no longer fits beside ONE mark near the bound (line 1 holds 175 at
+    // glyph 2), so BOTH regimes are reached: beside at 100%, yielded at the bound.
+    // `assertLineOne` has checked the yield is only taken where both cannot fit.
+    expect(r).toEqual({ yieldedSomewhere: true, besideSomewhere: true })
   })
 
   it('a 260 repeated card, TWO marks (attention + coaching): the same rule over the wider run', () => {
     attentionMarked = true
     useGuidanceStore.getState().setGuidanceItems([guidance('o1')])
-    const root = renderCard('outcome', 'o1', 'Cannibalization of the entry tier')
+    // 30 Sep 2026: the floor width, explicitly (see the case above).
+    const root = renderCard('outcome', 'o1', 'Cannibalization of the entry tier', { maxWidth: REPEATED_CARD_W })
+    expect(parseFloat(root.style.width), 'precondition: the 248 card').toBe(REPEATED_CARD_W)
     const title = screen.getByTestId('node-title')
     const min = parseFloat((title.parentElement as HTMLElement).style.minWidth)
     const boxAt = (g: number) => ({ left: parseFloat(root.style.paddingLeft), width: titleBoxWidthAt(root, min, g) })
@@ -499,7 +534,9 @@ describe('GAP 11 — line 1 holds the widest word or yields to the marks (never 
     attentionMarked = true
     graphLensOn = true
     useCanvasStore.setState({ lens: { ...INITIAL_LENS, active: 'causal' } } as never)
-    const root = renderCard('outcome', 'o1', 'Concentration risk in the top accounts')
+    // 30 Sep 2026: the floor width, explicitly (see the first case of this block).
+    const root = renderCard('outcome', 'o1', 'Concentration risk in the top accounts', { maxWidth: REPEATED_CARD_W })
+    expect(parseFloat(root.style.width), 'precondition: the 248 card').toBe(REPEATED_CARD_W)
     // Positive control: this IS the causal-lens title — the header row is not drawn.
     expect(screen.queryByTestId('node-header-row')).toBeNull()
     const spacer = within(root).getByTestId('node-title-corner-spacer')
@@ -511,8 +548,12 @@ describe('GAP 11 — line 1 holds the widest word or yields to the marks (never 
       width: card.width - 2 * CONTRACT_FRAME_PX - parseFloat(root.style.paddingLeft) - parseFloat(root.style.paddingRight),
     }
     const r = assertLineOne(spacer, () => box, card, 1, 'causal lens 248')
-    // 27 Sep 2026: ONE mark never forces the yield on the full-width lens title.
-    expect(r).toEqual({ yieldedSomewhere: false, besideSomewhere: true })
+    // 27 Sep 2026: at 1.36 ONE mark never forced the yield on the full-width lens title.
+    // RE-PINNED (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231): at 1.64 it does, near the
+    // bound — the same arithmetic as the 248 header title (the lens title's box is
+    // the card's full inner width, as the header title's is at the bound); both
+    // regimes reached, never a mid-word break.
+    expect(r).toEqual({ yieldedSomewhere: true, besideSomewhere: true })
   })
 
   it('CONTRAST — at 100% the title sits beside ONE or TWO marks (the contract layout is untouched), and no mark means no spacer', () => {
@@ -630,9 +671,10 @@ describe('GAP 34 — rail geometry and colours are the contract .icon-btn', () =
     useCanvasStore.setState({ nodes: [{ id: 'n1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Hiring spend' } }] } as never)
     render(<NodeCoachingIcon nodeId="n1" chips={null} />)
     const icon = screen.getByTestId('node-coaching-icon-n1')
-    expect(tokens(icon)).toContain(NODE_RAIL_REST_TONE_CLASS)
+    // 29 Sep 2026: the contract's `.icon-btn.coaching{color:var(--muted)}`.
+    expect(tokens(icon)).toContain('text-text-light')
     expect(tokens(icon)).not.toContain('text-info')
-    expect(tokens(icon)).not.toContain('text-text-light')
+    expect(tokens(icon)).not.toContain(NODE_RAIL_REST_TONE_CLASS)
   })
 
   it('the hover quick actions rest in the same icon grey (one rail, one grey)', () => {

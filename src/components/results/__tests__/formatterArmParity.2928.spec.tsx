@@ -101,14 +101,16 @@ describe('ROADMAP 2.928 (c) — the fixture actually discriminates the two arms'
 
     // Named, so a change to either arm fails HERE with the reason, rather than
     // quietly turning every parity test below into a tautology.
-    expect(roundingArm).toBe('100%')
+    // R3 5903852225: the ceiling mirrors the floor — a value below 1 never prints "100%".
+    expect(roundingArm).toBe('> 99%')
     expect(resolutionArm).toBe('99.95%')
     expect(roundingArm).not.toBe(resolutionArm)
   })
 
-  it('the rounding arm is the one that over-claims: it says 100% of a value below 1', () => {
+  it('the rounding arm no longer over-claims: a value below 1 reads "> 99%", never "100%"', () => {
+    // R3 5903852225: the ceiling mirrors the floor — a value below 1 never prints "100%".
     expect(LEADER_WIN).toBeLessThan(1)
-    expect(formatProbabilityWithResolution(LEADER_WIN, null)).toBe('100%')
+    expect(formatProbabilityWithResolution(LEADER_WIN, null)).toBe('> 99%')
   })
 })
 

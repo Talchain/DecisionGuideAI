@@ -28,9 +28,11 @@ import { useStore } from '@xyflow/react'
 import {
   labelCounterScale,
   glyphCounterScale,
+  smallLabelCounterScale,
   farTitleScale,
   CANVAS_LABEL_SCALE_VAR,
   CANVAS_GLYPH_SCALE_VAR,
+  CANVAS_SMALL_LABEL_SCALE_VAR,
   CANVAS_FAR_TITLE_SCALE_VAR,
   CANVAS_LABEL_SCALE_MARKER_TESTID,
   LABEL_SCALE_QUANTUM,
@@ -60,6 +62,8 @@ export function CanvasLabelScaleSync() {
   // Glyphs, marks and hit targets: the UNCAPPED scale (`glyphCounterScale`), so the
   // text ceiling never shrinks what a user must hit or recognise.
   const glyphScale = useStore((s) => Math.ceil(glyphCounterScale(s.transform[2]) * SCALE_QUANTUM) / SCALE_QUANTUM)
+  // Text declared below `nodeLabel` (the 10px source mark, 10/10.5px metas): the same landing floor (`smallLabelCounterScale`).
+  const smallScale = useStore((s) => Math.ceil(smallLabelCounterScale(s.transform[2]) * SCALE_QUANTUM) / SCALE_QUANTUM)
   // v3.1 WS1 #25: the far-zoom title's own scale, read by the `line` rung only.
   const farScale = useStore((s) => Math.ceil(farTitleScale(s.transform[2]) * SCALE_QUANTUM) / SCALE_QUANTUM)
   const markerRef = useRef<HTMLSpanElement | null>(null)
@@ -83,6 +87,15 @@ export function CanvasLabelScaleSync() {
       root.style.removeProperty(CANVAS_GLYPH_SCALE_VAR)
     }
   }, [glyphScale])
+
+  useEffect(() => {
+    const root = markerRef.current?.closest('.react-flow') as HTMLElement | null
+    if (!root) return
+    root.style.setProperty(CANVAS_SMALL_LABEL_SCALE_VAR, String(smallScale))
+    return () => {
+      root.style.removeProperty(CANVAS_SMALL_LABEL_SCALE_VAR)
+    }
+  }, [smallScale])
 
   useEffect(() => {
     const root = markerRef.current?.closest('.react-flow') as HTMLElement | null

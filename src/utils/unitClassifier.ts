@@ -170,7 +170,7 @@ export function applyUnitPlacement(figure: string, unit: string | null | undefin
  * ISO code → glyph, for the three codes whose glyph is unambiguous in this
  * product. Moved here unchanged from `formatFactorDisplayValue`'s
  * `CURRENCY_RATE_GLYPH` so the compact reading below and the factor card read
- * ONE map (the patch receipt's `CURRENCY_PREFIXES` maps the same three). Any
+ * ONE map (the patch receipt reads it too, through `moneyFigureParts`). Any
  * other code (`CHF`, `SEK`, …) keeps its code: a glyph this product has never
  * shown for it would be a guess.
  */
@@ -184,6 +184,11 @@ export interface CompactUnitParts {
 
 /** `<head> per <period>` or `<head>/<period>` — a single-word period. */
 const COMPOUND_RATE_UNIT = /^(.+?)(\s*\/\s*|\s+per\s+)([A-Za-z]+)$/i
+/**
+ * A rate's head that is money per ONE thing: `GBP per subscriber`, `£/subscriber`, and (R3 #72 5888087172, served on
+ * a C-brief draft) a thing of up to three words: `£/Pro subscriber`. Words only — `GBP per 1000 users` stays unread.
+ */
+const CURRENCY_PER_THING_HEAD = /^(\S+?)(?:\s*\/\s*|\s+per\s+)([A-Za-z]+(?:\s+[A-Za-z]+){0,2})$/i
 /** `<head> out of <N>` — the head may be empty or a placeholder word. */
 const OUT_OF_UNIT = /^(.*?)\s*\bout of\s+(\d[\d,]*(?:\.\d+)?)$/i
 
@@ -221,7 +226,12 @@ const OUT_OF_UNIT = /^(.*?)\s*\bout of\s+(\d[\d,]*(?:\.\d+)?)$/i
  * ⚠ DELIBERATELY NARROW, and each narrowing is pinned:
  *   · a word head already written with a slash (`hours/week`) is left as it is —
  *     it is already compact, and re-spacing it changes no meaning;
- *   · a head that is itself compound (`GBP per subscriber per month`) is left;
+ *   · a head that is itself compound is left (`GBP MRR per seat per month`,
+ *     `GBP per 1000 users per month`) — with ONE exception, money per a thing:
+ *     a currency then one per-word (`GBP per subscriber per month`,
+ *     `£/subscriber/month`) reads `£49` + `per subscriber / month`, the contract
+ *     board's own spelling (served d1ee022d: "…would have to rise from 58.8 GBP
+ *     per subscriber per month…");
  *   · a negative currency figure is left (`£-500` is not how a negative is
  *     written, and choosing a sign convention is not this function's call);
  *   · a placeholder head on a rate (`index per month`) is left.
@@ -238,14 +248,26 @@ export function compactUnitParts(figure: string, unit: string | null | undefined
     return { figure, unit: `/ ${outOf[2]}` }
   }
 
+  const currencyHead = currencyHeadParts(figure, trimmed)
+  if (currencyHead !== undefined) return currencyHead
+  const percentHead = percentHeadParts(figure, trimmed)
+  if (percentHead !== undefined) return percentHead
+
   const rate = COMPOUND_RATE_UNIT.exec(trimmed)
   if (!rate) return null
   const head = rate[1].trim()
   const slashed = rate[2].includes('/')
   const period = rate[3]
-  if (/\/|\bper\b/i.test(head)) return null
-  const { kind, canonical } = classifyUnit(head)
   const negative = figure.trim().startsWith('-')
+  if (/\/|\bper\b/i.test(head)) {
+    // Money per a thing: `GBP per subscriber` → `£49` + `per subscriber / month`.
+    const perThing = CURRENCY_PER_THING_HEAD.exec(head)
+    if (perThing === null || negative) return null
+    const { kind, canonical } = classifyUnit(perThing[1])
+    const glyph = kind === 'symbol' ? canonical : kind === 'iso' ? ISO_CURRENCY_GLYPHS[canonical.toUpperCase()] : undefined
+    return glyph === undefined ? null : { figure: `${glyph}${figure}`, unit: `per ${perThing[2]} / ${period}` }
+  }
+  const { kind, canonical } = classifyUnit(head)
   if (kind === 'symbol') {
     if (negative) return null
     return { figure: `${canonical}${figure}`, unit: `/ ${period}` }
@@ -261,9 +283,139 @@ export function compactUnitParts(figure: string, unit: string | null | undefined
   return null
 }
 
+/** A currency token, then at least one more word: `GBP over 6 months`, `£ MRR`. */
+const CURRENCY_HEAD_UNIT = /^(\S+)\s+(\S.*)$/
+
+/**
+ * ⭐ `<currency> <words>` → the glyph on the figure, the words after it
+ * (canvas audit paul-models POM-9: money written four ways on one board).
+ *
+ * The rate arm above only knew `<currency> per|/ <period>`, so every OTHER
+ * currency-led unit printed the ISO code as a trailing word beside a card that
+ * printed `£49 / month`: `0 GBP over 6 months`, `1,000 GBP MRR added / month`,
+ * `0 GBP over 6 months → 20,000 GBP over 6 months`. Now `£0 over 6 months`,
+ * `£1,000 MRR added / month`, `£100,000 MRR`.
+ *
+ * Returns `undefined` whenever it declines, and the caller goes on to the rate
+ * arm exactly as before — so every declined unit keeps today's output:
+ *   · not currency-led, or the rest opens with `per` or `/` — the rate arm's
+ *     own shape (`GBP per month`, `GBP per subscriber per month`);
+ *   · a negative figure (`£-500` is not how a negative is written);
+ *   · a code with no glyph in `ISO_CURRENCY_GLYPHS` (`CHF`, `SEK`) — a glyph
+ *     this product has never shown for it would be a guess;
+ *   · a rest that is itself a compound rate (`MRR per seat per month`).
+ * A single trailing ` per <word>` / `/<word>` in the rest is spaced as the rate
+ * arm spaces it (`MRR added / month`); a word already written with a slash
+ * (`MRR/month`) is left as written. The figure's digits never change.
+ */
+function currencyHeadParts(figure: string, unit: string): CompactUnitParts | undefined {
+  const m = CURRENCY_HEAD_UNIT.exec(unit)
+  if (m === null) return undefined
+  const { kind, canonical } = classifyUnit(m[1])
+  const glyph = kind === 'symbol' ? canonical : kind === 'iso' ? ISO_CURRENCY_GLYPHS[canonical.toUpperCase()] : undefined
+  if (glyph === undefined) return undefined
+  const rest = m[2].trim()
+  if (/^(per\b|\/)/i.test(rest)) return undefined
+  // A rest that OPENS with a digit (`GBP 000s`) may be a magnitude, not a name:
+  // decline, so the caller prints the unit as written (post-run DIFF item 10
+  // guard). A digit later in the rest (`GBP over 6 months`) is a name.
+  if (/^\d/.test(rest)) return undefined
+  if (figure.trim().startsWith('-')) return undefined
+  const restRate = COMPOUND_RATE_UNIT.exec(rest)
+  if (restRate !== null) {
+    const restHead = restRate[1].trim()
+    if (/\/|\bper\b/i.test(restHead)) return undefined
+    if (restRate[2].includes('/')) return { figure: `${glyph}${figure}`, unit: rest }
+    return { figure: `${glyph}${figure}`, unit: `${restHead} / ${restRate[3]}` }
+  }
+  if (/\/|\bper\b/i.test(rest)) return undefined
+  return { figure: `${glyph}${figure}`, unit: rest }
+}
+
+/**
+ * ⭐ `<percent> <words>` → the sign on the figure, the words after it: `3%` +
+ * `monthly churn`, `4.5%` + `of qualified prospects / month`. Served a6200164
+ * (Paul's pricing brief), the factor card read "3 % monthly churn": the rate arm
+ * owned `% per month` but not a percent followed by words.
+ *
+ * Mirrors `currencyHeadParts`: a rest that is itself a rate (`% per month`) is
+ * the rate arm's; a compound head or a slashed word rate is left as written.
+ * NOTATION ONLY — the figure is never scaled (UI-SEM-093's ×100 is the plain
+ * percent class's, not a compound's).
+ */
+function percentHeadParts(figure: string, unit: string): CompactUnitParts | undefined {
+  const m = CURRENCY_HEAD_UNIT.exec(unit)
+  if (m === null || classifyUnit(m[1]).kind !== 'percent') return undefined
+  const rest = m[2].trim()
+  if (/^(per\b|\/|\d)/i.test(rest)) return undefined
+  const sign = applyUnitPlacement(figure, m[1])
+  const restRate = COMPOUND_RATE_UNIT.exec(rest)
+  if (restRate !== null) {
+    const restHead = restRate[1].trim()
+    if (/\/|\bper\b/i.test(restHead)) return undefined
+    if (restRate[2].includes('/')) return { figure: sign, unit: rest }
+    return { figure: sign, unit: `${restHead} / ${restRate[3]}` }
+  }
+  if (/\/|\bper\b/i.test(rest)) return undefined
+  return { figure: sign, unit: rest }
+}
+
 /** The visible text of `compactUnitParts` — figure and unit words joined by one space. */
 export function joinCompactUnitParts(parts: CompactUnitParts): string {
   return parts.unit === null ? parts.figure : `${parts.figure} ${parts.unit}`
+}
+
+/**
+ * Money is never "£58.8": a non-whole amount shows its pence; thousands are
+ * grouped. The magnitude only — the sign is placed by `moneyFigureParts`.
+ */
+export function moneyDigits(value: number): string {
+  const abs = Math.abs(value)
+  return Number.isInteger(abs)
+    ? abs.toLocaleString('en-GB')
+    : abs.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+/**
+ * ⭐⭐⭐ THE ONE MONEY-FIGURE RULE (UI) — every surface that prints an amount of
+ * money calls this, and none composes a currency glyph itself (DL #72
+ * 5870353946: ROOT, Product Experience).
+ *
+ * WHY. Served f0c8814f, one price edit (49 → 58.8, `unit: "GBP/month"`) read
+ * three ways at once: the factor card "£58.8 / month", the Reasoning tab
+ * "£58.80 / month", the Olumi-tab receipt "49 GBP/month → 58.8 GBP/month". Four
+ * formatters, each with its own glyph map and its own digits.
+ *
+ * THE RULE, over `compactUnitParts` (the compound-unit owner) and
+ * `ISO_CURRENCY_GLYPHS` (the one glyph map):
+ *   · a currency rate or a currency-led unit → the glyph on the figure, the rest
+ *     after it: `£49 / month`, `£1,000 MRR added / month`;
+ *   · a bare currency → `£50,000`; a negative amount → `-£500` (the sign before
+ *     the glyph; `£-500` is not how a negative is written);
+ *   · the digits are `moneyDigits`: pence on a non-whole amount (`£58.80`).
+ * Returns `null` for anything that is not money this product can put a glyph on
+ * — a count, a percent, `CHF 49` (a glyph never shown for it would be a guess),
+ * a negative rate, a compound head (`GBP MRR per seat per month`) — and the
+ * caller prints what it printed before. `tests/ci-guards/oneMoneyFigureRule`
+ * fails when a new file composes a glyph outside this rule.
+ */
+export function moneyFigureParts(value: number, unit: string | null | undefined): CompactUnitParts | null {
+  if (!Number.isFinite(value) || unit == null || !unit.trim()) return null
+  if (value >= 0) {
+    const parts = compactUnitParts(moneyDigits(value), unit)
+    // A glyph leads a money reading; a digit leads every other compact reading.
+    if (parts !== null) return /^\d/.test(parts.figure) ? null : parts
+  }
+  const { kind, canonical } = classifyUnit(unit)
+  const glyph = kind === 'symbol' ? canonical : kind === 'iso' ? ISO_CURRENCY_GLYPHS[canonical.toUpperCase()] : undefined
+  if (glyph === undefined) return null
+  return { figure: `${value < 0 ? '-' : ''}${glyph}${moneyDigits(value)}`, unit: null }
+}
+
+/** `moneyFigureParts` as one string, or `null` when the value is not money. */
+export function formatMoneyFigure(value: number, unit: string | null | undefined): string | null {
+  const parts = moneyFigureParts(value, unit)
+  return parts === null ? null : joinCompactUnitParts(parts)
 }
 
 /** A reading that is exactly `<number> <unit>` — the producer's figure, then the carried unit. */
@@ -279,17 +431,41 @@ const NUMBER_THEN_UNIT = /^([-+]?\d[\d,]*(?:\.\d+)?)\s+(.+)$/
  * so it takes the same compact notation as every UI-composed reading — the
  * figure's digits are the producer's own (`"59"`), never re-derived.
  *
+ * ⭐ ONE MORE SHAPE, served 08323c77 (28 Sep): CEE now puts the glyph on itself —
+ * `{display_value:"£54/month", raw_value:54, unit:"GBP per month"}` — and the
+ * option row read "£58.80 / month → £54/month". A reading that is the carried
+ * unit's OWN glyph, a figure, then the carried unit's OWN rate words (`/` and
+ * `per` being one separator, as in `COMPOUND_RATE_UNIT`) takes the same compact
+ * notation; the figure is still the producer's (`"54"`).
+ *
  * ⛔ Anything else is the producer's prose and is left verbatim: a reading
  * whose trailing text is NOT exactly the carried unit (`"£18k"`, `"Low (0.1)"`,
- * `"59 GBP/month"` against a `"GBP per month"` unit), or a unit
- * `compactUnitParts` does not recognise.
+ * `"59 GBP/month"` against a `"GBP per month"` unit), a magnitude word
+ * (`"£840k/year"`), another glyph or period (`"$59/month"`, `"£59/year"` against
+ * `"GBP per month"`), or a unit `compactUnitParts` does not recognise.
  */
 export function compactCarriedReading(reading: string, unit: string | null | undefined): string | null {
   if (unit == null || !unit.trim()) return null
   const m = NUMBER_THEN_UNIT.exec(reading.trim())
-  if (m === null || m[2] !== unit.trim()) return null
+  if (m === null) return glyphLedCarriedReading(reading.trim(), unit)
+  if (m[2] !== unit.trim()) return null
   const parts = compactUnitParts(m[1], unit)
   return parts === null ? null : joinCompactUnitParts(parts)
+}
+
+/** A reading that leads with a currency glyph: `£54/month`, `£59/subscriber per month`. */
+const GLYPH_THEN_FIGURE = /^([£$€])(\d[\d,]*(?:\.\d+)?)(\s*(?:\/|\bper\b).*)$/i
+
+/** A rate's words with `/` and `per` as one separator, spacing and case ignored. */
+const rateWords = (s: string): string => s.toLowerCase().replace(/\bper\s+/g, '/').replace(/\s+/g, '')
+
+function glyphLedCarriedReading(reading: string, unit: string): string | null {
+  const g = GLYPH_THEN_FIGURE.exec(reading)
+  if (g === null) return null
+  const parts = compactUnitParts(g[2], unit)
+  // The carried unit's own glyph, and its own rate words — nothing else is re-spelt.
+  if (parts === null || parts.unit === null || parts.figure !== `${g[1]}${g[2]}`) return null
+  return rateWords(g[3]) === rateWords(parts.unit) ? joinCompactUnitParts(parts) : null
 }
 
 /**

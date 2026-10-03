@@ -54,6 +54,10 @@ export const HERO_COPY = {
     goalDefineSuccess: GOAL_ANCHOR_COPY.noTargetCta,
     goalProducerGap: 'Goal fit is not available for this run.',
     outcome: 'Likely outcome is not available for this run.',
+    /** W3 (AIQ #72 5894808343 (3)): the outcomes are unitless scores because the goal has no today's level, so they
+     *  are not shown — never as a "% change". AIQ's words, naming the goal; the unit is named only when the run has one. */
+    outcomeNoTodayLevel: (goalLabel: string, unitSymbol: string | null): string =>
+      `Not shown: Olumi doesn't hold today's level of ${goalLabel.trim() ? `‘${goalLabel.trim()}’` : 'the goal'}, so these outcomes can't be given ${unitSymbol ? `in ${unitSymbol}` : "in the goal's units"} or as a change.`,
     stability:
       'This view needs per-option stability data, which the analysis does not provide yet.',
     /**
@@ -92,7 +96,7 @@ export const HERO_COPY = {
      * gains the arm this string goes RED instead of staying a quiet duplicate.
      */
     goalWithLimits: (label: string, readout: string) =>
-      `${label} has the highest chance of meeting your goal and limits: ${readout}.`,
+      `${label} meets your goal and limits in the most model runs (${readout}).`,
     /**
      * GOAL-ATTAINMENT IDENTITY, interim wording (family 2, slice −1) — the
      * same claim, in the same words, as `caption.goalOnly` and
@@ -342,7 +346,7 @@ export const HERO_COPY = {
     /** Grounded lines from existing adapted fields — never authored prose. */
     range: (low: string, high: string) => `Realistic range: ${low} to ${high}.`,
     goalFit: (readout: string) => GOAL_ANCHOR_COPY.sentence(readout, false),
-    goalFitWithLimits: (readout: string) => `${readout} chance of meeting your goal and limits.`,
+    goalFitWithLimits: (readout: string) => `Meets your goal and limits in ${readout} of model runs.`,
     /**
      * Goal-probability IDENTITY: the voice for a row whose number is
      * `probability_of_joint_goal` STANDING IN for an absent

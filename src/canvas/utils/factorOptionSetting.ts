@@ -84,3 +84,33 @@ export function factorOptionSetting(raw: unknown, observedState?: ObservedState)
     : raw != null && typeof raw === 'object' && 'value' in raw ? raw.value : null
   return typeof text === 'string' && text.trim() ? text : null
 }
+
+/**
+ * ⭐ DOES EVERY OPTION SET ITS OWN VALUE FOR THIS FACTOR? (canvas audit
+ * edit-values F9)
+ *
+ * When it does, the factor's own recorded value is a baseline that every option
+ * replaces, so editing it cannot move the comparison — CEE says exactly that in
+ * its reply to such an edit ("Every option here sets its own value for this
+ * factor … changing it will not move the comparison"), and the card said
+ * nothing. `getFactorOptionRows` cannot answer this: it turns "this option has
+ * no setting" into the display string `No setting recorded`, so it is asked here
+ * of the same shared reader instead.
+ *
+ * ⛔ FAILS TOWARD "NO". No options, or ANY option without a setting (absent or
+ * `null`), answers `false` — a factor at least one option leaves at its baseline
+ * is a factor whose value matters, and the card must not tell a person it does
+ * not.
+ */
+export function everyOptionSetsFactor(
+  factorId: string,
+  nodes: readonly SettingNode[],
+  options: readonly SettingOption[] | null | undefined,
+): boolean {
+  const optionNodes = nodes.filter(n => (n.type ?? n.data?.kind ?? n.data?.type) === 'option')
+  if (optionNodes.length === 0) return false
+  return optionNodes.every(option => {
+    const interventions = resolveOptionInterventionsForDisplay(option, options?.find(o => o.id === option.id))
+    return interventions?.[factorId] != null
+  })
+}

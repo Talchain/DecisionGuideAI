@@ -44,7 +44,7 @@ import {
   ROW_PROMPT_W,
   TIER_BY_KIND,
 } from '../utils/nodeLayoutConstants'
-import { MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE, LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
+import { MAX_LABEL_COUNTER_SCALE, LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
 import { deriveTierLanes, tierLaneTitleBoxFor, LANE_TITLE_GAP } from '../utils/tierLanes'
 import { KIND_GLYPH_PX } from '../utils/nodeLayoutConstants'
 import { LANE_TITLE_LINE_PX } from '../utils/tierLanes'
@@ -66,11 +66,11 @@ const STARTERS: Record<string, Draft> = {
 const HEIGHTS = (capture as { heights: Record<string, Record<string, number>> }).heights
 
 /**
- * The landing bounds: the band TITLE is text (`MAX_LABEL_COUNTER_SCALE`, 1.36 since
- * 27 Sep 2026); the kind SHAPE is a glyph (`MAX_GLYPH_COUNTER_SCALE`, 2).
+ * The landing bounds: the band TITLE is text (`MAX_LABEL_COUNTER_SCALE`, 1.64 since
+ * the 27 Sep 2026 landing text cap — it was 1.36); the kind SHAPE is a glyph
+ * (`MAX_GLYPH_COUNTER_SCALE`, 2).
  */
 const S = MAX_LABEL_COUNTER_SCALE
-const G = MAX_GLYPH_COUNTER_SCALE
 
 type Box = { x0: number; y0: number; x1: number; y1: number }
 const area = (a: Box, b: Box): { w: number; h: number } => ({
@@ -82,7 +82,8 @@ const area = (a: Box, b: Box): { w: number; h: number } => ({
 function kindShapeBox(n: Node, cardW: number, s: number): Box {
   const size = KIND_GLYPH_PX * s
   const cx = n.position.x + cardW / 2
-  const top = n.position.y - (KIND_GLYPH_PX / 2) * s
+  // Since 27 Sep the shape's lower edge sits KIND_GLYPH_PX / 2 inside the border at every scale.
+  const top = n.position.y + KIND_GLYPH_PX / 2 - size
   return { x0: cx - size / 2, y0: top, x1: cx + size / 2, y1: top + size }
 }
 
@@ -126,7 +127,7 @@ async function laidOutBoard(
     const member = cards.find((n) => TIER_BY_KIND[n.type as string] === lane.tier)!
     return { lane, box: tierLaneTitleBoxFor(laid, member.id)! }
   })
-  const shapes = cards.map((n) => ({ id: n.id, box: kindShapeBox(n, cardW(n), G) }))
+  const shapes = cards.map((n) => ({ id: n.id, box: kindShapeBox(n, cardW(n), S) }))
   const cardBoxes = [
     ...cards.map((n) => ({ id: n.id, box: { x0: n.position.x, y0: n.position.y, x1: n.position.x + cardW(n), y1: n.position.y + heights[n.id]! } })),
     ...prompts.map((n) => ({ id: n.id, box: { x0: n.position.x, y0: n.position.y, x1: n.position.x + ROW_PROMPT_W, y1: n.position.y + ROW_PROMPT_H } })),
@@ -159,12 +160,26 @@ afterAll(() => {
 describe('the row gap holds a kind shape and a band title, both at the bound', () => {
   it('visible gap ≥ shape overhang + clearance + title line + clearance', () => {
     const visible = LAYOUT_LAYER_GAP + LAYOUT_PADDING_Y
-    const needed = (KIND_GLYPH_PX / 2) * G + LANE_TITLE_GAP + LANE_TITLE_LINE_PX * S + LANE_TITLE_GAP
-    expect(G).toBe(2)
-    expect(S).toBe(1.36)
-    // 24 + 8 + 12 × 1.36 + 8 = 56.32 (was 64 at a shared scale of 2): the title line shrank.
-    expect(needed).toBeCloseTo(56.32, 10)
+    // The shape scales with the TEXT since 27 Sep: overhang = 24 × S − 12.
+    const needed = (KIND_GLYPH_PX * S - KIND_GLYPH_PX / 2) + LANE_TITLE_GAP + LANE_TITLE_LINE_PX * S + LANE_TITLE_GAP
+    // 27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231:
+    //   S 1.36 → 1.64; needed 52.96 → 63.04 = 27.36 + 8 + 12 × 1.64 + 8
+    //   (56.32 with a shape at the glyph scale of 2, before 1.36).
+    // 1 Oct 2026 (Paul: "node shape types … 20% smaller"): the shape is 19.2, so
+    //   needed 63.04 → 57.568 = 21.888 + 8 + 12 × 1.64 + 8.
+    expect(S).toBe(1.64)
+    expect(needed).toBeCloseTo(57.568, 10)
     expect(visible).toBeGreaterThanOrEqual(needed)
+    // …and NO TALLER than it has to be (Canvas owner, 27 Sep 2026: boards grow
+    // only where unavoidable). The title's line box is already one 1.2 line, so
+    // the 7.04 shortfall at 40 raised the gap by 8 — the smallest whole unit.
+    expect(LANE_TITLE_LINE_PX).toBeCloseTo(10 * 1.2, 10)
+    expect(LAYOUT_LAYER_GAP).toBe(48)
+    // ⭐ CANVAS OWNER, 1 Oct 2026: the smaller shape leaves 6.43 units of slack, and the gap KEEPS it. Paul's same
+    // note says the cards are "really cramped up"; the row gap is breathing room he asked for, not waste, and
+    // shrinking it would re-lay every board for 6 units. The slack is pinned so any further change is a decision.
+    expect(visible - needed).toBeCloseTo(6.432, 6)
+    expect(visible - needed).toBeLessThan(8)
   })
 })
 
@@ -182,7 +197,7 @@ describe('every band title × every kind shape: intersection area 0 (five starte
     expect(hits.map((h) => `${h.title} × ${h.with} ${h.w.toFixed(1)}×${h.h.toFixed(1)}`)).toEqual([])
   })
 
-  it('CONTRAST — the probe bites: held on its cards (bottom = band top − LANE_TITLE_GAP, the pre-fix anchor), a title IS under a shape on four starters', async () => {
+  it('CONTRAST — the probe bites: held on its cards (bottom = band top − LANE_TITLE_GAP, the pre-fix anchor), a title IS under a shape on every starter', async () => {
     const hitStarters: string[] = []
     for (const starter of Object.keys(STARTERS)) {
       const t = await laidOut(starter)
@@ -196,7 +211,12 @@ describe('every band title × every kind shape: intersection area 0 (five starte
       }
       if (titleShapeHits(onCards).length > 0) hitStarters.push(starter)
     }
-    expect(hitStarters.sort()).toEqual(['build-vs-buy', 'headcount-allocation', 'pricing-model', 'vendor-selection'])
+    // Re-recorded 27 Sep (five per row, anchors ≤720, text-scaled shape): still four starters bite.
+    // Re-recorded 30 Sep (wider cards: every repeated row takes its fair share of
+    // ROW_BUDGET_W, so the four-card rows of pricing-model now reach the title
+    // column as well): all FIVE starters bite. The control only got stronger; the
+    // landing assertion above (intersection area 0) is unchanged and passes.
+    expect(hitStarters.sort()).toEqual(['build-vs-buy', 'headcount-allocation', 'market-entry', 'pricing-model', 'vendor-selection'])
   })
 })
 
@@ -253,7 +273,10 @@ describe('…and the title that rises clear of a shape lands on nothing else', (
       expect(lane.x, `tier ${tier} does not start at the title column`).toBe(column)
     }
     const risen = t.titles.filter(({ lane, box }) => box.y1 < lane.y - LANE_TITLE_GAP)
-    expect(risen.length).toBeGreaterThanOrEqual(2)
+    // ≥ 1 since Paul's 1 Oct half-size row-end prompt widened the cards (and the shape is 20% smaller): one fewer
+    // title's run reaches a shape on this board (it was 2). Still non-vacuous: a title really rose, and the two rows
+    // below check where it landed.
+    expect(risen.length).toBeGreaterThanOrEqual(1)
     expect(titleShapeHits(t)).toEqual([])
     expect(titleLandingHits(t)).toEqual([])
   })

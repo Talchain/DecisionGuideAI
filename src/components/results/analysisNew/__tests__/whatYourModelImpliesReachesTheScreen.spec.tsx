@@ -326,9 +326,9 @@ describe('the implication block reaches a screen', () => {
     renderTab(divergingRun(), true)
     const ribbons = screen.getAllByTestId('analysis-new-status-stale')
     expect(ribbons, 'the freshness statement is made exactly once').toHaveLength(1)
-    expect(ribbons[0].textContent).toBe(COPY.status.stale)
+    expect(ribbons[0].textContent).toBe(COPY.status.staleRow)
     const body = screen.getByTestId('analysis-new-tab-body').textContent ?? ''
-    expect(body.split(COPY.status.stale).length - 1, 'the ribbon sentence is on screen once').toBe(1)
+    expect(body.split(COPY.status.staleRow).length - 1, 'the ribbon sentence is on screen once').toBe(1)
     // ⚠ RE-POINTED (26 Sep, V2 `.stale`): the status row now sits INSIDE the
     // block, after the synthesis and before the chart, and bullet 1's label
     // reads "Last run" — so the claim is framed as the last run's before the

@@ -11,6 +11,11 @@
  * `transparent`, and the row-label token/tracking swap) had a spec pinning
  * its new value. This file is that pin, one `describe` per file touched.
  *
+ * ⭐ 30 Sep 2026: both ghost doors render the icon-only `RowEndPromptIcon`, so
+ * the two ghost pins move to the icon — its `Plus` counter-scales at the icon
+ * size, `CANVAS_GLYPH_SIZE_CLASSES[24]` (there is no label row left to gap), and
+ * its fill is the `bg-panel` utility (was an inline `var(--bg-panel)` style).
+ *
  * Bound by IDENTITY — role+accessible-name, an exported test id, or the
  * shared class-token constant the source itself now imports — never a
  * substring another element could also satisfy.
@@ -69,7 +74,7 @@ import { GhostOptionNode } from '../GhostOptionNode'
 import { GhostTierNode, GHOST_TIER_TESTID } from '../GhostTierNode'
 import { TierLanes } from '../TierLanes'
 import { deriveTierLanes } from '../../utils/tierLanes'
-import { CANVAS_GAP_CLASSES, CANVAS_GLYPH_SIZE_CLASSES } from '../shared/canvasGlyphScale'
+import { CANVAS_GLYPH_SIZE_CLASSES } from '../shared/canvasGlyphScale'
 
 afterEach(cleanup)
 
@@ -116,8 +121,8 @@ describe('BaseNode — path-dim rung is opacity-25, not the old opacity-60', () 
   })
 })
 
-describe('GhostOptionNode — the "+" and its row share the counter-scale contract', () => {
-  it('the Plus glyph carries `CANVAS_GLYPH_SIZE_CLASSES[14]`, and its row carries `CANVAS_GAP_CLASSES[6]`', () => {
+describe('GhostOptionNode — the "+" counter-scales at the icon size', () => {
+  it('the Plus glyph carries `CANVAS_GLYPH_SIZE_CLASSES[12]` (Paul 1 Oct: 50% smaller than the 30 Sep [24]; not the retired label row\'s [14]), directly inside the icon button', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       (selector as (s: unknown) => unknown)(makeStoreState() as never),
     )
@@ -142,18 +147,23 @@ describe('GhostOptionNode — the "+" and its row share the counter-scale contra
     // that identity, not to "the first svg on the page".
     const icon = document.querySelector('svg[aria-hidden="true"]')
     expect(icon, 'the ghost-option "+" did not mount').toBeTruthy()
+    const glyphClasses = (icon!.getAttribute('class') ?? '').split(/\s+/)
+    for (const token of CANVAS_GLYPH_SIZE_CLASSES[12].split(' ').filter(Boolean)) {
+      expect(glyphClasses).toContain(token)
+    }
+    // Discriminating: the old 14 box is gone, not merely joined by the 24.
     for (const token of CANVAS_GLYPH_SIZE_CLASSES[14].split(' ').filter(Boolean)) {
-      expect(icon!.getAttribute('class')).toContain(token)
+      expect(glyphClasses).not.toContain(token)
     }
-    const row = icon!.parentElement as HTMLElement
-    for (const token of CANVAS_GAP_CLASSES[6].split(' ').filter(Boolean)) {
-      expect(row.className).toContain(token)
-    }
+    // No label row between the glyph and the button any more.
+    const button = icon!.parentElement as HTMLElement
+    expect(button.getAttribute('role')).toBe('button')
+    expect(button.getAttribute('data-testid')).toBe('ghost-option-node')
   })
 })
 
 describe('GhostTierNode — the prompt fill matches the panel, never `transparent`', () => {
-  it('the door background is the panel token, --bg-panel', () => {
+  it('the door background is the panel utility, `bg-panel` (→ --bg-panel)', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       (selector as (s: unknown) => unknown)(makeStoreState() as never),
     )
@@ -175,8 +185,11 @@ describe('GhostTierNode — the prompt fill matches the panel, never `transparen
       </ReactFlowProvider>,
     )
     const door = screen.getByTestId(GHOST_TIER_TESTID) as HTMLElement
-    expect(door.style.background).toContain('var(--bg-panel')
-    expect(door.style.background).not.toBe('transparent')
+    const tokens = door.className.split(/\s+/)
+    expect(tokens).toContain('bg-panel')
+    expect(tokens).not.toContain('bg-transparent')
+    // No inline background competing with the utility (the tile's old spelling).
+    expect(door.style.background).toBe('')
   })
 })
 
@@ -213,7 +226,7 @@ describe('TierLanes — row labels are 10px (contract v3.1 `.layer-label`) at 0.
     // contract v3.1 `.layer-label` = 10px; edgeLabel = 11px; nodeLabel (the
     // old token) = 12px — three distinct class strings, so this cannot pass
     // against any of the other two by accident.
-    expect(title.className).toContain('text-[length:calc(10px*var(--canvas-label-scale,1))]')
+    expect(title.className).toContain('text-[length:calc(10px*var(--canvas-small-label-scale,1))]')
     expect(title.className).not.toContain('text-[length:calc(11px*var(--canvas-label-scale,1))]')
     expect(title.className).not.toContain('text-[length:calc(12px*var(--canvas-label-scale,1))]')
     // v3.1 WS1 #26: 0.5px ON SCREEN — counter-scaled with the 10px beside it

@@ -7,7 +7,99 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.59.0.tgz` ← **THE CURRENT PIN** (27 Sep 2026, A8)
+### `talchain-schemas-0.70.0.tgz` ← **THE CURRENT PIN** (1 Oct 2026, M2 rows: DGAI first, then CEE emits; DL 380e54 peer msg 18:2xZ)
+
+**Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF, not a local re-pack.** Downloaded by CANVAS 39e656 from
+`https://npm.pkg.github.com/download/@talchain/schemas/0.70.0/a987224c3442bdf1bb1c9efe02e2f0f2470769e8`
+(registry `dist-tags.latest` = 0.70.0); registry gitHead `cace462d3c8c65353f91833544aa5f44fb44a76a` (olumi-schemas
+`main` after #80, the DL's publish run 36905581486). **766,456 bytes.** Verified, all exact:
+
+```
+npm shasum (sha1)  a987224c3442bdf1bb1c9efe02e2f0f2470769e8   (the registry download id)
+integrity (sha512) sha512-+IUB15tcl7WCOUgJNkqTh1LEtzr4j+0pALo2a57uvb9DHqUPQWR33um8ywigiHOSAEOKA1AOAuOadpgYudRmlg==
+sha256             d7764a0067639b4b207234960eb6779c9a0d3e9d6f495f57c5fb723aebb1806e   (the .sha256 sidecar)
+```
+
+**What 0.70.0 adds:** additive/optional only (schemas #80): the run-input snapshot `links[].band?` / `links[].sizing?`,
+`RunInputField` += `sizing`, and `run_delta.win_probabilities_unavailable?` (`prior_withheld | no_matched_option`).
+Replaces 0.69.0 (no longer vendored).
+
+### `talchain-schemas-0.69.0.tgz` (historical, no longer vendored) (1 Oct 2026, F1: DGAI first, then CEE; DL 380e54 #85 5931482042)
+
+**Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF — not a local re-pack.** Downloaded by MG 0ebb952a from
+`https://npm.pkg.github.com/download/@talchain/schemas/0.69.0/939f5c9ecfcb8cfc27329bf7bd94cf91adb1ad8c`
+(`output/schemas-0.69.0/REGISTRY-PROVENANCE.md`); registry gitHead `5b0ca7f5404465300ed497661d15bec41d0f4ff1`
+(olumi-schemas `main` after #78). **761,983 bytes.** Verified, all exact:
+
+```
+npm shasum (sha1)  939f5c9ecfcb8cfc27329bf7bd94cf91adb1ad8c   (the registry download id)
+integrity (sha512) sha512-uj3eCrm41M/WZjW8hgAuxeCPDviP+Sh8v/bIEQdwBrNrGGGcZmTe2e260Ymvz5jaZQUM45jqV7cHGn9rfKIhjw==
+sha256             ebd1745c6581cf163242b7af5e68546dfbaac58b25596fbe427eda6234e2a5d4   (the .sha256 sidecar)
+```
+
+**What 0.69.0 adds:** additive/optional only (schemas #78). DGAI pins first so the UI's strict parsers accept it
+before CEE emits it. Replaces 0.68.0 (no longer vendored).
+
+### `talchain-schemas-0.61.0.tgz` (historical) (28 Sep 2026, R1 reader-first)
+
+**Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF — not a local re-pack.** Byte-identical to the
+file CEE vendors in CEE #2261 and PLoT vendors in PLoT #403 (git blob
+`b9de7b3029e9a0831e52d416dba07a4703a630ba` in all three). It is the tarball `npm publish` produced from
+`olumi-schemas` `main` **`4d039fab754392300965fbdb58d77ea1838b4148`** (the schemas #69 merge, tag
+`v0.61.0`). Registry download id, per CEE's vendor README:
+`https://npm.pkg.github.com/download/@talchain/schemas/0.61.0/caba31ec2fe9cb7f427de5d0c1d4d0f4ea036ba6`.
+**611,419 bytes.** Verified, all exact:
+
+```
+npm shasum (sha1)  caba31ec2fe9cb7f427de5d0c1d4d0f4ea036ba6   (the registry download id)
+integrity (sha512) sha512-427890xgnS+wevQwUFWk5ykgrcI42edOAt6egTL085jKdmvomb3lV3J20V5f67K4YuPtp0IRuR72NtsLm052mQ==
+                   (== CEE's recorded registry metadata, == what `pnpm install` wrote here)
+sha256             4e3873ddd9c80ca374d738566f423e57667acd373ca87c4e717f193b7a470a71   (the .sha256 sidecar; == CEE's and PLoT's sidecars)
+```
+
+**Why now (reader first).** 0.60.0's `GoalThresholdFrame` is `level | delta`, and the UI's strict turn parser
+(`src/v5/responseParser.ts`, `OlumiResponseSchema`) rejects a whole turn whose `draft_graph` block carries a limit with
+`value_frame: 'change_rel'` or `'change_abs'`. Measured on staging `9253f60c`: `parse_error`, "body did not match
+OlumiResponse schema"; the `level` control parses. CEE R1 S4 (#2261) stamps those values, so the UI must serve 0.61.0
+before it merges (#72 5879900931). What 0.61.0 adds, all optional/additive on the wire: the two `GoalThresholdFrame`
+values, `NodeV3Schema.quantity_frame`, `EnrichmentConstraintResultSchema.frame_verdict`, and the canonical graph-hash
+projection v2. Wording a change-frame limit is a separate consumer change.
+
+### `talchain-schemas-0.60.0.tgz` (historical — no longer vendored as of 0.61.0; was THE CURRENT PIN 27 Sep 2026, A8/B5-enable)
+
+**Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF — not a local re-pack**, as
+0.59.0 was. The byte-identical file CEE vendors in its matching 0.60.0 adoption
+PR (`cmp` equal), downloaded from GitHub Packages at
+`https://npm.pkg.github.com/download/@talchain/schemas/0.60.0/e30caa3828f1cf1a35ae6290bbd18ec71a02332e`
+— the tarball `npm publish` produced from `olumi-schemas` `main`
+**`2a451c7e2177459793258da65e6ed330139fdda3`** (the schemas #68 merge; the
+registry's `gitHead` binds that commit; `Publish Package` run `36324213776`).
+**595,889 bytes.** Verified, all exact:
+
+```
+npm shasum (sha1)  e30caa3828f1cf1a35ae6290bbd18ec71a02332e   (the registry download id)
+integrity (sha512) sha512-M/qX8uWxdD5lF6eVRrTCFioV452cwN7sp1DJpuWmNNAWNKmp8x+IHy2fyebSYeYPhLe1a65sNSgMbMy44B4PPA==
+                   (== the registry's published metadata, == what `pnpm install` wrote here)
+sha256             31b5f066a2a086af6d2669f5ac1e76d683992ce544655bdc3bd2c703380ff92b   (the .sha256 sidecar)
+```
+
+Cross-check against THE BYTE RULE below: a local `npm ci && npm run build &&
+npm pack` at `2a451c7e` (HEAD asserted) gives 596,507 bytes — a different outer
+envelope, exactly as rule 3 predicts — and its 231 unpacked files are
+content-identical to the registry tarball's. The registry bytes are vendored so
+that CEE and the UI compile against ONE artefact (as #2193 did for 0.59.0).
+
+**What 0.60.0 adds** (all OPTIONAL; every schema stays `.strict()`):
+- `ConstraintVerdictSchema.per_limit` `[{ constraint_id, state: scored | estimate_only | unscored, reason? }]`
+- `ConstraintVerdictSchema.joint` `{ state: scored | estimate_only | withheld, withheld_reason?, constraint_ids? }`
+- `SystemEventSchema#edge_strength_edit.band` (`StrengthBand`)
+
+**Adoption only.** This pin bump reads none of them and sends no `band`: a
+pre-0.60.0 CEE rejects an `edge_strength_edit` carrying `band`, so the UI sends
+it only after CEE's 0.60.0 reader is deployed, and B5's producer emits
+`per_limit`/`joint` only after both consumers are on 0.60.0.
+
+### `talchain-schemas-0.59.0.tgz` (historical — no longer vendored as of 0.60.0)
 
 **Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF — not a local re-pack.**
 The byte-identical file CEE vendors (`olumi-assistants-service` `vendor/`), which

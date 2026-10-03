@@ -18,15 +18,19 @@ import {
 import type { DriverDisplayProvenance } from '../../components/results/driverDisplayModel'
 import { selectDriverPolicyFeed } from '../../components/results/useResultsSectionData'
 import { rankFactor } from '../nodes/shared/rankFactor'
+import { runHoldsNoValueFor } from '../nodes/shared/unvaluedDriver'
+import { holdsValueOrRange } from '../utils/observedStateHelpers'
 import { resolveFactorConfidenceDisplay } from '../../components/results/driverConfidenceDisplayPolicy'
 import {
   selectGoalProbability,
   type GoalProbabilityInput,
   type GoalProbabilityBasis,
+  type GoalFitBaseCaveat,
 } from '../../components/results/utils/selectGoalProbability'
 import type { ResultsReport } from '../../components/results/types'
 import { optionComputationProducedResult } from '../../components/results/utils/notAnalysedOptions'
 import type { OptionComputeStatus } from '../../adapters/plot/optionComputeStatus'
+import { readGoalIdentityWithheld, type GoalIdentityWithheld } from '../../components/results/utils/goalIdentityWithheld'
 
 /**
  * The deepest ordinal the canvas badge is willing to print ("Key driver #N").
@@ -127,13 +131,31 @@ export interface NodeDisplayMetadata {
   influenceSetSize?: number | null
   /**
    * How many factors the run's rank rule ranked (`rankFactor`'s
-   * `rankedSetSize`) — the PUBLICATION guard `driverRankFor` reads: a rank
-   * beyond it, or an absent count, states no rank (fail closed). NOT the
-   * printed `M`: since ED #63 5806207128 the line prints `influenceSetSize`,
-   * the eligible analysed factors. Optional for the same mock-ratchet reason as
+   * `rankedSetSize`) — the printed `M` of "Driver N of M ranked in this run"
+   * (NODE-ANATOMY v3.2; contract v3.1 pt 5) AND the PUBLICATION guard
+   * `driverRankFor` reads: a rank beyond it, or an absent count, states no rank
+   * (fail closed). Optional for the same mock-ratchet reason as
    * `influenceSetSize`; assigned beside it, unconditionally in the factor branch.
    */
   influenceRankedCount?: number | null
+  /**
+   * The driver bar's figure (`rankFactor`'s `relativeSensitivity`): this
+   * factor's rank key over rank 1's, 0..1, so rank 1 draws 100% and the bars
+   * fall with the rank (side-by-side DIFF item 4, 27 Sep 2026). Non-null
+   * exactly when `sensitivityRank` is. Optional for the mock-ratchet reason
+   * above: an absent value renders no driver line (fail closed).
+   */
+  driverRelativeSensitivity?: number | null
+  /**
+   * ⭐ PJ-B3: the run held NO value for this factor — its `factor_sensitivity`
+   * row carries no `value_source` while another row of the same run carries
+   * one (`runHoldsNoValueFor`, `nodes/shared/unvaluedDriver.ts`; CEE #2154's
+   * row rule). Read off the SAME shared feed the rank is, so the rank and its
+   * "no value yet" can never come from two runs. It never withholds or moves a
+   * rank; the card adds the words beside it. Optional for the mock-ratchet
+   * reason above: absent reads as false, i.e. the card as it was.
+   */
+  unvaluedInRun?: boolean
   /**
    * Factor confidence score (0-1), ALREADY GATED by the shared display policy
    * (`components/results/driverConfidenceDisplayPolicy`). Null when the
@@ -178,6 +200,16 @@ export interface NodeDisplayMetadata {
    * `GOAL_FIT_BASIS_CAVEAT_COPY` alongside it when this is true.
    */
   achievementProbabilityIsModelledBasis: boolean
+  /**
+   * Display-honesty (ISL #207, AIQ #72 5877139338): non-null when the figure is
+   * measured from a goal level worked out from its inputs, not one the user
+   * gave. Read straight off `selectGoalProbability(...).goalFitBaseCaveat`.
+   * Surfaces rendering the number MUST render `goalFitBaseCaveatCopy(this)`
+   * beside it; never the modelled-basis copy in its place. Optional in the
+   * TYPE only so hand-built mocks of this hook stay valid; the hook always
+   * sets it, and `goalFitBaseCaveatCopy(undefined)` is null.
+   */
+  achievementProbabilityBaseCaveat?: GoalFitBaseCaveat | null
   /**
    * ROADMAP 2.283 — WHICH QUANTITY `achievementProbability` ACTUALLY IS.
    *
@@ -233,6 +265,8 @@ export interface NodeDisplayMetadata {
    * `useNodeDisplayMetadata.jointGoal.spec.ts` pins that.
    */
   jointGoalProbability?: number | null
+  /** The selector's `jointGoalIsModelledBasis`, carried beside the joint figure it qualifies (AIQ 5883088747). */
+  jointGoalProbabilityIsModelledBasis?: boolean
   /**
    * ROADMAP 2.275. True when this run carries an admissible per-option goal
    * figure (per `selectGoalProbability`) even though no single probability is
@@ -254,6 +288,16 @@ export interface NodeDisplayMetadata {
    * impose that cost.
    */
   goalFitAvailable?: boolean
+  /**
+   * PLoT #416 / AIQ #72 5885033487 (2): the producer withheld P(goal) because a declared identity on the goal's
+   * path was not evaluated, with AIQ's words. Goal nodes only; OPTIONAL for the reason `goalFitAvailable` is.
+   */
+  goalIdentityWithheld?: GoalIdentityWithheld | null
+  /**
+   * CEE #2270/#2280: the recommended option's 0/1 goal figure is UNEARNED (the chooser withheld it). The producer's
+   * sentence, or null for the fallback. Goal nodes only; OPTIONAL for the reason `goalFitAvailable` is.
+   */
+  achievementCertaintyUnearned?: { say: string | null } | null
   /** Recommendation stability (0-1) - fallback for Goal nodes when probability unavailable */
   stabilityPercentage: number | null
   /** Win rate for options (0-1) */
@@ -318,6 +362,16 @@ export function useNodeDisplayMetadata(
 ): NodeDisplayMetadata {
   const resultsStatus = useCanvasStore(state => state.results.status)
   const report = useCanvasStore(state => state.results.report)
+  // PJ-B3, owner (Canvas, 28 Sep 2026): "no value yet" also needs the factor to
+  // hold NO stated value now — CEE #2154's second condition. PLoT does not send
+  // `value_source` for every factor (`valueProvenance.ts`), so the row fact alone
+  // could mark a factor that has a value. A boolean, so it re-renders only when
+  // the factor gains or loses a value.
+  const factorHoldsValue = useCanvasStore(state => {
+    if (nodeType !== 'factor') return false
+    const node = state.nodes?.find((n) => n.id === nodeId)
+    return node ? holdsValueOrRange(node.data) : false
+  })
 
   const isResultsMode = resultsStatus === 'complete'
 
@@ -330,14 +384,18 @@ export function useNodeDisplayMetadata(
         influenceImportanceBasis: null,
         influenceSetSize: null,
         influenceRankedCount: null,
+        driverRelativeSensitivity: null,
+        unvaluedInRun: false,
         confidence: null,
         confidenceIsDefaulted: false,
         confidenceIsProvisional: false,
         inSensitivityAnalysis: false,
         achievementProbability: null,
         achievementProbabilityIsModelledBasis: false,
+        achievementProbabilityBaseCaveat: null,
         achievementProbabilityBasis: null,
         jointGoalProbability: null,
+        jointGoalProbabilityIsModelledBasis: false,
         goalFitAvailable: false,
         stabilityPercentage: null,
         winRate: null,
@@ -356,6 +414,8 @@ export function useNodeDisplayMetadata(
     let influenceImportanceBasis: string | null = null
     let influenceSetSize: number | null = null
     let influenceRankedCount: number | null = null
+    let driverRelativeSensitivity: number | null = null
+    let unvaluedInRun = false
     let confidence: number | null = null
     let confidenceIsDefaulted = false
     let confidenceIsProvisional = false
@@ -386,8 +446,11 @@ export function useNodeDisplayMetadata(
       const ranks = rankFactor(rows, displayModel, nodeId)
       influenceSetSize = ranks.influenceSetSize
       influenceRankedCount = ranks.rankedSetSize
+      driverRelativeSensitivity = ranks.relativeSensitivity
       sensitivityRank = ranks.sensitivityRank
       voiRank = ranks.voiRank
+      // PJ-B3: the run's own typed fact, from the same feed rows as the rank.
+      unvaluedInRun = runHoldsNoValueFor(feed, nodeId) && !factorHoldsValue
 
       // Task 3: Extract influence, confidence, and VoI for this factor
       const factorRow = rows.find((r) => r.key === nodeId)
@@ -478,10 +541,13 @@ export function useNodeDisplayMetadata(
     // Read from option_probabilities (the field the responseMapper actually populates)
     let achievementProbability: number | null = null
     let achievementProbabilityIsModelledBasis = false
+    let achievementProbabilityBaseCaveat: GoalFitBaseCaveat | null = null
     let achievementProbabilityBasis: GoalProbabilityBasis | null = null
     let jointGoalProbability: number | null = null
+    let jointGoalProbabilityIsModelledBasis = false
     let stabilityPercentage: number | null = null
     let goalFitAvailable = false
+    let achievementCertaintyUnearned: { say: string | null } | null = null
 
     if (nodeType === 'outcome' || nodeType === 'goal') {
       const optionProbabilities = report.option_probabilities ?? {}
@@ -510,12 +576,15 @@ export function useNodeDisplayMetadata(
           const decision = selectGoalProbability(rec)
           achievementProbability = decision.goalProbability
           achievementProbabilityIsModelledBasis = decision.goalFitIsModelledBasis
+          achievementProbabilityBaseCaveat = decision.goalFitBaseCaveat
           // ROADMAP 2.283. Forwarded, not interpreted: the one place the basis
           // was previously read and thrown away.
           achievementProbabilityBasis = decision.basis
           // ROADMAP 2.296 item 5. Same discipline: the joint figure rides the
           // SAME decision — never a second read of the raw record.
           jointGoalProbability = decision.jointGoalProbability
+          jointGoalProbabilityIsModelledBasis = decision.jointGoalIsModelledBasis
+          achievementCertaintyUnearned = decision.goalCertaintyUnearned ?? null
         }
       }
 
@@ -661,15 +730,21 @@ export function useNodeDisplayMetadata(
       influenceImportanceBasis,
       influenceSetSize,
       influenceRankedCount,
+      driverRelativeSensitivity,
+      unvaluedInRun,
       confidence,
       confidenceIsDefaulted,
       confidenceIsProvisional,
       inSensitivityAnalysis,
       achievementProbability,
       achievementProbabilityIsModelledBasis,
+      achievementProbabilityBaseCaveat,
       achievementProbabilityBasis,
       jointGoalProbability,
+      jointGoalProbabilityIsModelledBasis,
       goalFitAvailable,
+      goalIdentityWithheld: nodeType === 'goal' ? readGoalIdentityWithheld(report) : null,
+      achievementCertaintyUnearned,
       stabilityPercentage,
       winRate,
       winComputationFailed,
@@ -686,5 +761,5 @@ export function useNodeDisplayMetadata(
     // The memo is keyed on the REPORT, which is exactly right for a question
     // about the report; the render site re-reads its own gate on every render
     // and is not memoised on this.
-  }, [isResultsMode, report, nodeId, nodeType])
+  }, [isResultsMode, report, nodeId, nodeType, factorHoldsValue])
 }

@@ -66,7 +66,8 @@
  * change", which the contract explicitly sanctions.
  */
 
-import type { RunDelta } from '@talchain/schemas/boundary'
+import type { RunDelta, RunDeltaInputChange } from '@talchain/schemas/boundary'
+import { formatRawValueWithUnit } from '../../../canvas/utils/labelUtils'
 
 export type NoiseVerdict = 'signal' | 'within_noise' | 'not_noise_qualified'
 
@@ -120,6 +121,12 @@ export interface RunDeltaView {
   /** True when the producer sent no comparable pair for ANY option. */
   readonly movementsUnavailable: boolean
   /**
+   * 0.70.0: the producer's TYPED reason for an empty `win_probabilities`, or `null` when it sent none. `prior_withheld`
+   * = the earlier Run withheld its figures, so this is the first comparison (RC's UNWITHHELD). Never inferred from an
+   * empty array.
+   */
+  readonly winProbabilitiesUnavailable: 'prior_withheld' | 'no_matched_option' | null
+  /**
    * ⛔ NOT NULLABLE, AND THE `| null` THAT WAS HERE MADE A TAUTOLOGY DOWNSTREAM.
    * `leader` is REQUIRED on the producer's block — proven by execution against
    * the vendored 0.55.0 with a must-pass control: the same block PARSES with it
@@ -130,7 +137,54 @@ export interface RunDeltaView {
    * `changed: false` renders nothing, and `mayName: false` withholds the names.
    */
   readonly leader: RunDeltaLeaderLine
+  /**
+   * SC-24 (schemas 0.68.0) — WHAT DIFFERED IN THE INPUTS, independent of `attributable`. Producer-built rows in the
+   * producer's order; `null` when the producer sent no input comparison (a pre-SC-24 delta).
+   */
+  readonly inputs: RunDeltaInputsView | null
+  /** "Compared with the earlier run at 14:02" — the EARLIER Run named as earlier (AIQ 5915390400 gate 3). */
+  readonly comparedWith: string | null
 }
+
+/** One exact input difference, as sentence parts. Nothing here is computed: before/after are the producer's values. */
+export interface RunDeltaInputRow {
+  /** A React key only (a colon join plus the index; ids can hold ':'). Never parse it — bind to the ids below. */
+  readonly key: string
+  readonly kind: RunDeltaInputChange['entity_kind']
+  /**
+   * The producer's identity for this input, copied VERBATIM from its `input_changes` row (UNDO grant #75
+   * 5920635710). The canvas binds its marks and click-to-focus to these, so the list and the graph read one row.
+   */
+  readonly entityId: string
+  readonly optionId: string | null
+  /** `link` rows only: the link's two ends, verbatim (`entity_id` is opaque for a link). */
+  readonly linkEnds: { readonly from: string; readonly to: string } | null
+  /** What the input is, in this surface's words ("Pro price, Raise to £60"). */
+  readonly subject: string
+  /** The producer's before → after, formatted; `null` on the side where the input did not exist. */
+  readonly before: string | null
+  readonly after: string | null
+  readonly change: RunDeltaInputChange['change']
+  /** The producer's field, verbatim: the words branch on it by IDENTITY (0.70.0 `sizing` / `strength`), never on text. */
+  readonly field: RunDeltaInputChange['field']
+  /** `link` rows only: the link's two ends in this surface's labels (`null` where a label is unknown). */
+  readonly linkLabels: { readonly from: string | null; readonly to: string | null } | null
+  /**
+   * RC's one-sentence-per-link rule (contract `change_label_templates.one_sentence_per_link`): when the producer sends a
+   * `sizing` row AND a `strength` row for the same link ("Edit the strength" writes both), the two are ONE change. The
+   * strength row is folded into the sizing row here (and dropped from the list), so it counts once and says once.
+   */
+  readonly strength: { readonly before: string | null; readonly after: string | null } | null
+}
+
+export interface RunDeltaInputsView {
+  /** `complete` / `partial` carry rows; `not_recorded` carries none and says so. */
+  readonly coverage: NonNullable<RunDelta['input_coverage']>
+  readonly rows: readonly RunDeltaInputRow[]
+}
+
+/** The rows shown before "See all N changes" (ChatGPT 5914416431: up to two, then the producer's total). */
+export const INPUT_ROWS_SHOWN_FIRST = 2
 
 /**
  * PART A, by identity. The case enum is "the ONLY input the sentence builder may
@@ -150,8 +204,11 @@ const COMPARABILITY: Record<RunDelta['attribution_case'], string> = {
   // we cannot even name WHAT changed, let alone who did it.
   C1_attributable:
     'The only difference between this analysis and the previous one is a change to the model.',
+  // ⛔ BOUNDED TO WHAT `hash_equal` PROVES (P0 5943180154, served 2 Oct): the ANALYSIS-AFFECTING hash excludes
+  // authorship and provenance, so an accepted estimate (sizing olumi_estimate → accepted) is a real model change on a
+  // C0 pair. "Nothing about the model … differed" was false there; "nothing the analysis uses" is what C0 proves.
   C0_identical:
-    'Nothing about the model, or the way it was worked out, differed between this analysis and the previous one.',
+    'Nothing the analysis uses differed between this analysis and the previous one, and it was worked out the same way.',
   // ⛔ THE SEED AND NOTHING ELSE. CEE returns C2 on `!seed_equal` before it
   // reads the build or the sample count (`build-run-delta.ts:374`), and a
   // factor-value edit moves the seed, so this is the sentence an ordinary
@@ -164,6 +221,10 @@ const COMPARABILITY: Record<RunDelta['attribution_case'], string> = {
     'The way this analysis was worked out changed between the two.',
   C4_budget_drift:
     'This analysis and the previous one were worked out to different levels of precision.',
+  // SC-24 (0.68.0): the pair exists but the table names no case for it — the engine builds could not be confirmed
+  // equal. It is a refusal to attribute, like C2–C4; the input rows below still say what the user changed.
+  C5_unattributed:
+    'Whether this analysis and the previous one were worked out the same way cannot be confirmed.',
 }
 
 /**
@@ -191,6 +252,16 @@ const COMPARABILITY: Record<RunDelta['attribution_case'], string> = {
  * claim. C0 states a proven negative. C2/C3/C4 REFUSE TO ATTRIBUTE, which is the
  * honest shape of "we cannot tell from this pair".
  */
+/**
+ * ⛔ C0 WITH `partial` COVERAGE (P0 5943351889; producer owner 52f8cd 5943379851, 2 Oct). `partial` means Olumi cannot
+ * VERIFY that every sent input was the same — since 0.71 `complete` needs equal residuals on BOTH ends, so a legacy end
+ * with no residual reads `partial` on a no-edit rerun. It never means "an input changed". So neither "nothing … differed"
+ * (unverified) nor "an input changed" (false on the legacy no-edit pair): say what is unconfirmed, and refuse to
+ * attribute.
+ */
+const C0_PARTIAL_COMPARABILITY =
+  "This analysis was worked out the same way as the previous one, but Olumi can't confirm that every input was the same between these runs."
+
 const CANNOT_ESTABLISH =
   'Whether a change to the model explains anything below cannot be established from this pair.'
 
@@ -201,7 +272,7 @@ const ATTRIBUTION_LIMIT: Record<RunDelta['attribution_case'], string | null> = {
   // ⭐ PROVEN, NOT UNKNOWN. `hash_equal` is true by the case's own preconditions,
   // so this is the one arm entitled to say a model change is NOT the explanation.
   C0_identical:
-    'The model itself did not change between these two, so nothing below can be explained by an edit to it.',
+    'The parts of the model the analysis uses did not change between these two, so nothing below can be explained by an edit to them.',
   // ⛔ REFUSAL TO ATTRIBUTE, NOT DENIAL. C2 is decided on the seed alone; the hash
   // is never consulted, so a change to the model may well be the cause and this
   // pair simply cannot show it.
@@ -214,6 +285,80 @@ const ATTRIBUTION_LIMIT: Record<RunDelta['attribution_case'], string | null> = {
   C2_unpaired: CANNOT_ESTABLISH,
   C3_engine_drift: CANNOT_ESTABLISH,
   C4_budget_drift: CANNOT_ESTABLISH,
+  C5_unattributed: CANNOT_ESTABLISH,
+}
+
+/** A producer value, formatted for display. Numbers take the one raw-value formatter; nothing is converted. */
+/**
+ * RC's one-sentence-per-link rule: a `sizing` row and a `strength` row for the SAME link (same entity id) become ONE row,
+ * the sizing row carrying the strength's before → after. Every other row passes through in the producer's order.
+ */
+function foldSizingAndStrength(rows: RunDeltaInputRow[]): RunDeltaInputRow[] {
+  const strengthOf = new Map<string, RunDeltaInputRow>()
+  for (const r of rows) if (r.kind === 'link' && r.field === 'strength' && r.change === 'changed') strengthOf.set(r.entityId, r)
+  const folded = new Set<RunDeltaInputRow>()
+  const out: RunDeltaInputRow[] = []
+  for (const r of rows) {
+    if (r.kind === 'link' && r.field === 'sizing') {
+      const s = strengthOf.get(r.entityId)
+      if (s) {
+        folded.add(s)
+        out.push({ ...r, strength: { before: s.before, after: s.after } })
+        continue
+      }
+    }
+    out.push(r)
+  }
+  return out.filter((r) => !folded.has(r))
+}
+
+function formatInputValue(v: { raw: number | string | boolean; unit?: string } | null): string | null {
+  if (v === null) return null
+  if (typeof v.raw === 'number') return formatRawValueWithUnit(v.raw, v.unit ?? null)
+  if (typeof v.raw === 'boolean') return v.raw ? 'on' : 'off'
+  return v.unit ? `${v.raw} ${v.unit}` : v.raw
+}
+
+const GOAL_FIELD_WORDS: Record<string, string> = {
+  target: 'Goal target',
+  unit: 'Goal unit',
+  operator: 'Goal comparison',
+  direction: 'Goal direction',
+}
+
+function inputSubject(
+  row: RunDeltaInputChange,
+  labelFor: (optionId: string) => string | null,
+  nodeLabelFor: (nodeId: string) => string | null,
+): string {
+  const own = row.label_after ?? row.label_before ?? nodeLabelFor(row.entity_id)
+  switch (row.entity_kind) {
+    case 'option_setting': {
+      const option = (row.option_id !== undefined ? labelFor(row.option_id) : null) ?? 'an option'
+      return `${own ?? 'A factor'}, ${option}`
+    }
+    case 'option':
+      return own ?? labelFor(row.entity_id) ?? 'An option'
+    case 'goal':
+      return row.field === 'presence' ? (own ?? 'The goal') : (GOAL_FIELD_WORDS[row.field] ?? 'The goal')
+    case 'constraint':
+      return `${own ?? 'A limit'}${row.field === 'operator' ? ' (comparison)' : ''}`
+    case 'link': {
+      const from = row.link ? nodeLabelFor(row.link.from) : null
+      const to = row.link ? nodeLabelFor(row.link.to) : null
+      return from && to ? `Link from ${from} to ${to}` : 'A link'
+    }
+    default:
+      return own ?? 'An input'
+  }
+}
+
+/** "14:02" in the viewer's clock, or null when the producer sent no time. */
+function clockOf(iso: string | undefined): string | null {
+  if (iso === undefined) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 }
 
 function directionOf(prior: number, current: number): MovementDirection {
@@ -232,6 +377,7 @@ function directionOf(prior: number, current: number): MovementDirection {
 export function buildRunDeltaView(
   delta: RunDelta,
   labelFor: (optionId: string) => string | null,
+  nodeLabelFor: (nodeId: string) => string | null = () => null,
 ): RunDeltaView {
   const attributable = delta.attribution_case === 'C1_attributable'
 
@@ -245,6 +391,7 @@ export function buildRunDeltaView(
     mayShowMagnitude: w.noise_verdict !== 'not_noise_qualified',
   }))
 
+  const c0Partial = delta.attribution_case === 'C0_identical' && delta.input_coverage === 'partial'
   const priorId = delta.leader.prior_leading_option_id
   const currentId = delta.leader.current_leading_option_id
   const mayName =
@@ -252,15 +399,16 @@ export function buildRunDeltaView(
     typeof currentId === 'string' && currentId.length > 0
 
   return {
-    comparability: COMPARABILITY[delta.attribution_case],
+    comparability: c0Partial ? C0_PARTIAL_COMPARABILITY : COMPARABILITY[delta.attribution_case],
     attributable,
-    attributionLimit: ATTRIBUTION_LIMIT[delta.attribution_case],
+    attributionLimit: c0Partial ? CANNOT_ESTABLISH : ATTRIBUTION_LIMIT[delta.attribution_case],
     movements,
     // ⚠ AN EMPTY LIST IS "NO OPTION HAD A COMPARABLE PAIR", NEVER "NOTHING
     // MOVED". The contract permits an empty array on a pair where no option
     // could be matched; reading it as stillness would be the same fabrication
     // `flip_thresholds` is withheld to avoid, one field over.
     movementsUnavailable: movements.length === 0,
+    winProbabilitiesUnavailable: delta.win_probabilities_unavailable ?? null,
     leader: {
       changed: delta.leader.changed,
       noiseVerdict: delta.leader.noise_verdict,
@@ -268,5 +416,29 @@ export function buildRunDeltaView(
       priorLabel: mayName ? labelFor(priorId as string) : null,
       currentLabel: mayName ? labelFor(currentId as string) : null,
     },
+    inputs:
+      delta.input_coverage === undefined
+        ? null
+        : {
+            coverage: delta.input_coverage,
+            rows: foldSizingAndStrength((delta.input_changes ?? []).map((row, i) => ({
+              key: `${row.entity_kind}:${row.entity_id}:${row.option_id ?? ''}:${row.field}:${i}`,
+              kind: row.entity_kind,
+              entityId: row.entity_id,
+              optionId: row.option_id ?? null,
+              linkEnds: row.link ? { from: row.link.from, to: row.link.to } : null,
+              subject: inputSubject(row, labelFor, nodeLabelFor),
+              before: formatInputValue(row.before),
+              after: formatInputValue(row.after),
+              change: row.change,
+              field: row.field,
+              linkLabels: row.link ? { from: nodeLabelFor(row.link.from), to: nodeLabelFor(row.link.to) } : null,
+              strength: null,
+            }))),
+          },
+    comparedWith: (() => {
+      const at = clockOf(delta.endpoints?.prior.computed_at)
+      return at !== null ? `Compared with the earlier run at ${at}.` : null
+    })(),
   }
 }

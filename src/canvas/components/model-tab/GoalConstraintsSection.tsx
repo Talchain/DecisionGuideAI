@@ -101,6 +101,7 @@ import { DataBar } from '../../ui/shared/DataBar'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import type { CEEGoalConstraint } from '../../../adapters/cee/types'
+import { wholePercentBelowCertain } from '@/utils/formatPercent'
 
 /**
  * A constraint as this surface receives it.
@@ -140,18 +141,18 @@ export const GOAL_CONSTRAINT_UNATTACHED_TESTID = (constraintId: string): string 
   `model-goal-constraint-${constraintId}-unattached`
 
 export const GOAL_CONSTRAINTS_COPY = {
-  heading: 'Constraints',
+  heading: 'Limits',
   /**
    * Answers Paul's question in the product rather than in a document: this list
    * IS what the word means when Olumi uses it.
    */
-  intro: 'The limits recorded on this model — what Olumi means when it refers to your constraints.',
+  intro: 'The limits recorded on this model. When Olumi says constraints, it means these.',
   /**
    * ⚠ Scoped to THIS surface on purpose. Not "constraints cannot be edited"
    * (a claim about other surfaces) and not a signpost to a control that does
    * not work.
    */
-  readOnly: 'Read-only — limits are shown here, not edited here.',
+  readOnly: 'Shown here, not edited here.',
   /** The narrow structural fact. No transport claim. See the header. */
   unattached: "Doesn't match an element in this model.",
 } as const
@@ -292,7 +293,7 @@ export function GoalConstraintsSection({
                      magnitude is the fact; how good 43% is, is a judgement this
                      surface is not entitled to make. */
                   <span className={`${typography.panelMeta} shrink-0 text-text-body`}>
-                    {Math.round(probability * 100)}%
+                    {wholePercentBelowCertain(probability)}
                   </span>
                 )}
               </div>

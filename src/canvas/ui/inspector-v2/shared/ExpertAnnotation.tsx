@@ -59,7 +59,7 @@ export function ExpertAnnotation(props: ExpertAnnotationProps) {
             const v = Number(raw)
             if (Number.isFinite(v)) onChange(v)
           }}
-          className={`${typography.code} leading-none text-right bg-panel border border-panel-border rounded px-1 py-0.5 w-16 text-text-body focus:outline-none focus:border-primary`}
+          className={`${typography.code} leading-none text-right bg-panel border border-panel-border rounded px-1 py-0.5 w-16 text-text-body focus:outline-none`}
         />
       </div>
     )

@@ -32,7 +32,7 @@ import { fileURLToPath } from 'node:url'
 
 import { fetchScenarioGraph } from '../scenarioGraph'
 import { registerScenarioGraph } from '../registerScenarioGraph'
-import { listModelVersions, saveModelVersion, restoreModelVersion } from '../modelVersions'
+import { listModelVersions, saveModelVersion, restoreModelVersion, compareModelVersions } from '../modelVersions'
 
 const SCENARIO_ID = '11111111-2222-4333-8444-555555555555'
 const USER_ID = '99999999-8888-4777-8666-555555555555'
@@ -75,7 +75,7 @@ afterEach(() => {
 })
 
 /**
- * One table, five routes. Each entry drives its adapter with a signed-in
+ * One table, six routes. Each entry drives its adapter with a signed-in
  * identity and then with a guest identity, so the pair is applied uniformly
  * and a route added later without a token is visible as a missing row.
  */
@@ -129,6 +129,18 @@ const ROUTES: ReadonlyArray<{
         versionId: 'v1',
         mutationId: '22222222-8888-4888-8888-222222222222',
         expectedGraphIdentityHash: null,
+      }),
+  },
+  {
+    name: 'compareModelVersions (read)',
+    fn: 'compareModelVersions',
+    // This case asserts the REQUEST HEADERS, so the 200 body need not parse as a diff.
+    ok: { schema: 'model_version_diff.v1' },
+    call: (o) =>
+      compareModelVersions(SCENARIO_ID, {
+        ...o,
+        fromVersionId: '33333333-8888-4888-8888-333333333333',
+        toVersionId: '44444444-8888-4888-8888-444444444444',
       }),
   },
 ]

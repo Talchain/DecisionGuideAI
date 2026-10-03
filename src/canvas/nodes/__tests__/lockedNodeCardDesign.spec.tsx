@@ -242,23 +242,29 @@ afterEach(() => cleanup())
 // FACTOR
 // ═════════════════════════════════════════════════════════════════════════════
 
-// ED #63 5806207128: the printed M is the ANALYSED set (4), never the ranked count (3).
-const DRIVER_META = { sensitivityRank: 1, influence: 1, influenceProvenance: 'normalised_elasticity', influenceSetSize: 4, influenceRankedCount: 3, inSensitivityAnalysis: true, isResultsMode: true }
+// NODE-ANATOMY v3.2 (re-pinned 27 Sep 2026, side-by-side DIFF item 3): the printed M
+// is the RANKED count (3), never the analysed set (4) — ED 5806207128's analysed M
+// counted factors no card ranks. `driverRelativeSensitivity` is the bar (rank 1 → 1).
+const DRIVER_META = { sensitivityRank: 1, influence: 1, influenceProvenance: 'normalised_elasticity', influenceSetSize: 4, influenceRankedCount: 3, driverRelativeSensitivity: 1, inSensitivityAnalysis: true, isResultsMode: true }
 
 describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z D1a; ED 11:52Z point 3)', () => {
-  it('a current, ranked factor reads "Driver 1 of 4 analysed" (ED 5806207128) with a bar — no "%", no "#"; the % lives in its disclosure', () => {
+  it('a current, ranked factor reads "Driver 1 of 3 ranked in this run" (NODE-ANATOMY v3.2) with a bar — no "%", no "#"; the % lives in its disclosure', () => {
     setState({ phase: 'post' })
     setCurrency('current')
     setMeta({ 'fac-price': DRIVER_META })
     renderCard(FactorNode as never, 'fac-price')
     const card = face('Monthly price')
     const line = popoverFinding('Monthly price', 'factor-driver-line')
-    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
+    // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
+    // one-line slot prints the LONGEST form that fits at the landing bound
+    // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
+    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
     expect(within(line).getByTestId('factor-driver-line-bar')).toBeTruthy()
     expect(line.textContent).not.toContain('%')
     expect(card.textContent).not.toContain('#')
-    expect(line.getAttribute('aria-label')).toContain('100% of the strongest factor')
-    expect(line.getAttribute('aria-label')).toContain('not an absolute causal percentage')
+    // DIFF item 4: the bar is relative sensitivity against the top-ranked driver.
+    expect(line.getAttribute('aria-label')).toContain('100% of the top-ranked driver')
+    expect(line.getAttribute('aria-label')).toContain('not a causal contribution percentage')
   })
 
   // ⛔ SUPERSEDED BY CONTRACT v3.1 pt 5 (was: "carries the quantity’s own
@@ -267,7 +273,7 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
   it('an unranked factor shows no rank, no line and no bar; it says "Not ranked in this run" to AT', () => {
     setState({ phase: 'post' })
     setCurrency('current')
-    setMeta({ 'fac-price': { ...DRIVER_META, sensitivityRank: null, influence: 0.4 } })
+    setMeta({ 'fac-price': { ...DRIVER_META, sensitivityRank: null, influence: 0.4, driverRelativeSensitivity: null } })
     renderCard(FactorNode as never, 'fac-price')
     const card = face('Monthly price')
     // Document-wide (ED 5809278282): neither the face nor the popover.
@@ -303,7 +309,7 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     setCurrency('current')
     renderCard(FactorNode as never, 'fac-conv')
     const freshLine = popoverFinding('Trial conversion', 'factor-driver-line')
-    expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
+    expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
     // At rest, contract v3.1 point 3 (DESIGN-GAP-v31 #38): the caption IS the
     // direction sentence (was the prototype's caption + number, 25 Sep).
     const freshTp = popoverFinding('Trial conversion', 'factor-turning-point')
@@ -313,10 +319,13 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     setCurrency('changed')
     renderCard(FactorNode as never, 'fac-conv')
     const line = popoverFinding('Trial conversion', 'factor-driver-line')
-    // ED 5806207128 stale form: "Last run · Driver N of M analysed".
-    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 4 analysed')
+    // NODE-ANATOMY v3.2 stale form: "Last run · Driver N of M ranked" — in the
+    // name; the one-line slot prints the longest form that fits at the landing
+    // bound, "Last run · Driver N of M" at 1.64 (Canvas owner, 27 Sep 2026).
+    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3')
     // Label in Name (WCAG 2.5.3): the visible caption opens the spoken name.
-    expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 4 analysed')).toBe(true)
+    expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 3')).toBe(true)
+    expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 3 ranked. ')).toBe(true)
     const tp = popoverFinding('Trial conversion', 'factor-turning-point')
     expect(within(tp).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · Below 6.5%, the model comparison changes.')
     expect(tp.getAttribute('aria-label')!.startsWith('Last run · Below 6.5%, the model comparison changes.')).toBe(true)
@@ -477,17 +486,26 @@ describe('Option — "what this option changes": ≤3 rows in ONE shared order, 
     const bundleRows = within(face('Bundle seats')).getByTestId('option-change-rows-opt-bundle')
     const bundleOrder = [...bundleRows.querySelectorAll('dd')].map(d => d.getAttribute('data-testid'))
     // fac-price (set by both) leads, then fac-seats (set by both) — shared across
-    // the row; opt-raise's own fac-conv follows.
+    // the row; opt-raise's own fac-conv follows. ⚠ RE-PINNED 28 Sep (Paul's
+    // staging test 64c5eccc; Canvas owner): at the landing bound none of these
+    // amounts fits beside 12 characters of its name, so each row is two lines
+    // and the card's six row lines hold price (2) + seats (3); fac-conv, next in
+    // the SAME order, is counted by `+1 more`.
+    // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`): the shorter amounts fit the six row lines, so all
+    // three rows show, in the SAME order, and there is no `+N more`.
     expect(raiseOrder).toEqual([
       'option-change-row-opt-raise-fac-price',
       'option-change-row-opt-raise-fac-seats',
       'option-change-row-opt-raise-fac-conv',
     ])
+    expect(within(raiseFace).queryByTestId('option-change-more-opt-raise')).toBeNull()
     expect(bundleOrder).toEqual(['option-change-row-opt-bundle-fac-price', 'option-change-row-opt-bundle-fac-seats'])
   })
 
-  it('+N more counts from the ONE total (4 targets − 3 rows = +1), and the from→to uses the baseline option', () => {
-    // A fourth target, so one change is behind `+1 more` (three rows at rest).
+  it('+N more counts from the ONE total (4 targets − 2 rows = +2), and the from→to uses the baseline option', () => {
+    // A fourth target. ⚠ RE-PINNED 28 Sep (Paul's staging test 64c5eccc): the
+    // rows are two-line at the bound, so two fit the card's six row lines and
+    // `+2 more` counts the other two (was three rows + `+1 more`).
     const cee = {
       ...CEE,
       options: CEE.options.map(o => (o.id === 'opt-raise'
@@ -497,7 +515,7 @@ describe('Option — "what this option changes": ≤3 rows in ONE shared order, 
     setState({ phase: 'pre', over: { ceeAnalysisReady: cee } })
     renderCard(OptionNode as never, 'opt-raise')
     const more = within(face('Raise the plan price')).getByTestId('option-change-more-opt-raise')
-    expect(more.textContent).toBe('+1 more')
+    expect(more.textContent).toBe('+1 more') // RE-PINNED 30 Sep: three rows now fit, so 4 − 3
     expect(cardRows('opt-raise').getByTestId('option-change-more-opt-raise')).toBe(more)
     expect(cardRows('opt-raise').getByTestId('option-change-row-opt-raise-fac-price').textContent).toContain('£49 → £59')
   })
@@ -515,14 +533,16 @@ describe('Option — "what this option changes": ≤3 rows in ONE shared order, 
     expect(cardRows('opt-bundle').queryByTestId('option-change-row-estimate-opt-bundle-fac-seats')).toBeNull()
   })
 
-  it('⛔ MT-18: no bare numeral at rest — control: Detailed still carries the ordinal', () => {
+  it('⛔ MT-18 → Paul 1 Oct: no BARE numeral at rest — the number shows prefixed ("O1"), at rest and in Detailed', () => {
     setState({ phase: 'pre' })
     renderCard(OptionNode as never, 'opt-raise')
+    const rest = within(face('Raise the plan price')).getByTestId('node-title').getAttribute('data-type-ordinal')
+    if (rest !== null) expect(rest).toMatch(/^O\d+$/)
     expect(within(face('Raise the plan price')).queryByTestId('option-stable-number-opt-raise')).toBeNull()
     cleanup()
     setState({ phase: 'pre', viewMode: 'expert' })
     renderCard(OptionNode as never, 'opt-raise')
-    expect(within(face('Raise the plan price')).getByTestId('option-stable-number-opt-raise')).toBeTruthy()
+    expect(within(face('Raise the plan price')).queryByTestId('option-stable-number-opt-raise')).toBeNull()
   })
 
   it('the Standard face advertises the edit route in the rail (spec §4)', () => {
@@ -857,9 +877,9 @@ describe('copy guard — the locked design’s ban list holds on every rendered 
     expect(lockedCardCopyViolations('You are anchored on the first number')).toHaveLength(1)
     expect(lockedCardCopyViolations('You have anchoring bias')).toHaveLength(1)
     // …and passes the locked wording.
-    // ED #63 5806207128 wording (current, stale), and the unranked AT line.
-    expect(lockedCardCopyViolations('Driver 1 of 6 analysed')).toEqual([])
-    expect(lockedCardCopyViolations('Last run · Driver 1 of 6 analysed')).toEqual([])
+    // NODE-ANATOMY v3.2 wording (current, stale), and the unranked AT line.
+    expect(lockedCardCopyViolations('Driver 1 of 3 ranked in this run')).toEqual([])
+    expect(lockedCardCopyViolations('Last run · Driver 1 of 3 ranked')).toEqual([])
     expect(lockedCardCopyViolations('Not ranked in this run')).toEqual([])
     expect(lockedCardCopyViolations('Current model · 55% of runs · Goal only')).toEqual([])
     expect(lockedCardCopyViolations('Current model · 55% of runs')).toEqual([])

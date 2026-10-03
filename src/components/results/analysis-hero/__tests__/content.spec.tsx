@@ -32,7 +32,7 @@ describe('AnalysisHeroPanel — content', () => {
   it('renders the headline, tension subline, and goal readouts from response values', () => {
     renderPanel(chartModel())
     expect(screen.getByTestId('hero-headline')).toHaveTextContent(
-      'Upskill the team has the highest chance of meeting every target this run scored: 49%.',
+      'Upskill the team meets every target this run scored in the most model runs (49%).',
     )
     expect(screen.getByTestId('hero-subline')).toHaveTextContent(
       'Two developers has the highest expected outcome: 68.',
@@ -119,7 +119,7 @@ describe('AnalysisHeroPanel — content', () => {
     expect(screen.getByTestId('hero-detail-label')).toHaveTextContent('Two developers')
     expect(screen.getByTestId('hero-detail-range')).toHaveTextContent('Realistic range: 54 to 82.')
     expect(screen.getByTestId('hero-detail-goal-fit')).toHaveTextContent(
-      '34% chance of hitting your goal.',
+      'Reaches the target in 34% of model runs.',
     )
   })
 

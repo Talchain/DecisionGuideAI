@@ -14,7 +14,8 @@
  * Every caller therefore grew its own string→kind mapping, and by 2026-08 the
  * three had drifted:
  *
- *   GoalNode.tsx      percent → rounded; 'count'/'' → bare; currency → symbol;
+ *   GoalNode.tsx      percent → rounded (retired 27 Sep, F4 — see below);
+ *                     'count'/'' → bare; currency → symbol;
  *                     otherwise "N unit"                        ← correct
  *   NodeInspector.tsx ANY non-count, non-percent unit → 'currency', so a
  *                     "months" target renders as "months9"      ← latent bug
@@ -39,12 +40,14 @@
  *
  * DECLARED, DELIBERATE INHERITANCE — ISO SPACING
  * ----------------------------------------------
- * An ISO code renders with NO space ("GBP800,000") because `formatTargetValue`
+ * An ISO code renders with NO space ("CHF800,000") because `formatTargetValue`
  * treats its third argument as a symbol. That is the canvas card's existing
  * output; preserving it keeps this extraction behaviour-preserving for the
  * card. It differs from `formatValueWithUnit`'s §2.4 spec ("ISO prefix WITH a
  * space") and is pinned in the spec so a future correction is a decision
- * rather than a drift.
+ * rather than a drift. ⭐ The decision WAS taken on 27 Sep 2026 for the three
+ * codes with an unambiguous glyph (`ISO_CURRENCY_GLYPHS`): `GBP` reads
+ * `£800,000`, as the contract and the limit pills write money.
  *
  * `'count'` IS SUPPRESSED, AND THAT IS THE ESTATE'S EXISTING RULE
  * --------------------------------------------------------------
@@ -70,24 +73,61 @@
  * question "is this value on a normalised scale?". Joining it would make a
  * 0.8 count render as "very high".
  */
-import { classifyUnit, compactUnitParts, joinCompactUnitParts, unitIsDisplayable } from '../../../utils/unitClassifier'
+import { unnamedCurrencyWords } from '../../../utils/unnamedCurrencyUnit'
+import { classifyUnit, compactUnitParts, ISO_CURRENCY_GLYPHS, joinCompactUnitParts, unitIsDisplayable } from '../../../utils/unitClassifier'
 import { formatTargetValue } from './formatTargetValue'
+import { goalHeldComparatorOf, goalTargetChangeFrameOf, goalTargetFrameIsUnread, type GoalTargetChangeFrame } from '../../../canvas/domain/goalTarget'
 
 /**
  * Render a goal target magnitude with its unit.
  *
  * @param value - the target magnitude, in the units `unit` describes
  * @param unit  - the unit string as the producer sent it (may be absent)
+ * @param frame - the node's `goal_threshold_frame` (`@talchain/schemas` 0.61.0). A change from today is said as the
+ *                change (R1 S4-core, below); absent, `level`, legacy `delta` or unknown → the level, byte-identical.
  * @returns the display string, or `null` when `value` is not a finite number —
  *          callers show no target rather than "≥ NaN".
  */
-export function formatGoalTarget(value: number, unit: string | null | undefined): string | null {
+export function formatGoalTarget(value: number, unit: string | null | undefined, frame?: unknown): string | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null
+
+  /**
+   * ⭐⭐ R1 S4-core — A TARGET STATED AS A CHANGE FROM TODAY IS SAID AS THE CHANGE (MG 5879952291).
+   *
+   * "Cut the cloud bill by 15%" is `change_rel` −0.15 beside the METRIC's unit (GBP/month). Read as a level it
+   * printed "-0.15 GBP/month" — a price nobody stated. `change_rel` is a fraction BY CONTRACT, so it is said as a
+   * percentage of today and the metric's unit is not said at all; `change_abs` is said in the metric's unit through
+   * this same function, unsigned, with the direction in words. Never raw × cap.
+   */
+  // ⛔ A frame this UI cannot read: the figure's meaning is unknown, so no number (AIQ 5880974047).
+  if (goalTargetFrameIsUnread(frame)) return null
+  const change = goalTargetChangeFrameOf(frame)
+  if (change !== null) {
+    const { direction, size } = goalChangeParts(value, unit, change)
+    return `${direction} ${size} from today`
+  }
+
+  // An unnamed currency (the drafter's "currency/<period>" placeholder) is said in words, never printed raw and never
+  // given a currency it does not have (MG ruling #85 5943427770; `unnamedCurrencyUnit.ts`).
+  const unnamed = unnamedCurrencyWords(unit)
+  if (unnamed !== null) return `${value.toLocaleString()} ${unnamed}`
 
   const { kind, canonical } = classifyUnit(unit ?? null)
 
-  // Percent: rounded to whole percentage points, as the canvas card does.
-  if (kind === 'percent') return formatTargetValue(Math.round(value), 'percent')
+  /**
+   * Percent: the user's own figure, never rounded to whole points.
+   *
+   * ⛔ THIS WAS `Math.round(value)` UNTIL 27 Sep 2026 (canvas audit edit-values
+   * F4). A target set to "at least 99.5%" read `Target: 100%` on the card and in
+   * the inspector — a STRICTER target than the user set — while the limit pill
+   * beside it (`goalConstraintText`, `${value}%`), Chat and the persisted
+   * `goal_threshold_raw` all said 99.5%. The rounding was a card convention
+   * carried into the consolidation, not a design rule.
+   *
+   * `toPrecision(12)` strips binary float noise (`0.07 * 100` →
+   * 7.000000000000001 → 7) and nothing a person could have typed.
+   */
+  if (kind === 'percent') return formatTargetValue(Number(value.toPrecision(12)), 'percent')
 
   /**
    * A unit that names no real-world scale — render the bare magnitude.
@@ -109,8 +149,21 @@ export function formatGoalTarget(value: number, unit: string | null | undefined)
    */
   if (!unitIsDisplayable(unit)) return formatTargetValue(value)
 
-  // Currency, symbol or ISO code, prefixed.
-  if (kind === 'symbol' || kind === 'iso') return formatTargetValue(value, 'currency', canonical)
+  /**
+   * Currency, symbol or ISO code, prefixed.
+   *
+   * ⭐ AN ISO CODE WITH AN UNAMBIGUOUS GLYPH READS AS THE GLYPH (canvas audit
+   * paul-models POM-9 + side-by-side item 6, 27 Sep 2026). `GBP` printed
+   * `GBP800,000` — the code jammed against the figure — beside limit pills that
+   * already read `≤£20,000` and a contract that writes every amount `£20,000`.
+   * The one glyph map (`ISO_CURRENCY_GLYPHS`: GBP, USD, EUR) decides; any other
+   * code keeps the declared, inherited no-space form (`CHF800,000`, pinned).
+   */
+  if (kind === 'symbol') return formatTargetValue(value, 'currency', canonical)
+  if (kind === 'iso') return formatTargetValue(value, 'currency', ISO_CURRENCY_GLYPHS[canonical.toUpperCase()] ?? canonical)
+
+  const magnitude = currencyMagnitudeTarget(value, canonical)
+  if (magnitude !== null) return magnitude
 
   /**
    * A real unit ('months', 'users', …) — suffixed, after a space, because it is
@@ -139,4 +192,66 @@ export function formatGoalTarget(value: number, unit: string | null | undefined)
   const compact = compactUnitParts(value.toLocaleString(), canonical)
   if (compact !== null) return joinCompactUnitParts(compact)
   return `${value.toLocaleString()} ${canonical}`
+}
+
+function goalChangeParts(value: number, unit: string | null | undefined, change: GoalTargetChangeFrame): { direction: string; size: string } {
+  return {
+    direction: value < 0 ? 'down' : 'up',
+    size: change === 'change_rel'
+      ? `${Math.round(Math.abs(value) * 100 * 1e6) / 1e6}%`
+      : (formatGoalTarget(Math.abs(value), unit) ?? String(Math.abs(value))),
+  }
+}
+
+/**
+ * A change target as a BOUND, for a sentence about what success means (AIQ 5880974047). `formatGoalTarget` alone reads
+ * as an exact figure.
+ *
+ * ⛔ The bound is said from the node's HELD COMPARATOR (`goal_direction`, UI #2287 review + DL ruling) — `change <op> v`:
+ * `<=` −0.15 → "down at least 15%", `<=` +0.1 → "up no more than 10%" (a ceiling), and `>` / `<` say "more than" /
+ * "less than". There is no node strict bit: strictness IS the comparator. The authored comparator is said as held —
+ * no typed objective sense reaches this surface to contradict it.
+ * `null` — say no number — for a level, an unread frame, a non-finite or zero change, or no readable comparator.
+ */
+export function formatGoalChangeBound(value: number, unit: string | null | undefined, frame: unknown, comparator: unknown): string | null {
+  const change = goalTargetChangeFrameOf(frame)
+  const held = goalHeldComparatorOf(comparator)
+  if (change === null || held === null || typeof value !== 'number' || !Number.isFinite(value) || value === 0) return null
+  const { direction, size } = goalChangeParts(value, unit, change)
+  const strict = held === '>' || held === '<'
+  // The comparator points the way the change moves (≥ a rise, ≤ a fall) → a floor on the move; otherwise a ceiling.
+  const floor = (held === '>=' || held === '>') === (value > 0)
+  const words = floor ? (strict ? 'more than' : 'at least') : (strict ? 'less than' : 'no more than')
+  return `${direction} ${words} ${size} from today`
+}
+
+/** A currency token with a magnitude letter written onto it, then optional words: `£M ARR`, `$k`, `£bn revenue`. */
+const CURRENCY_MAGNITUDE_UNIT = /^(\S+?)(k|m|bn|b)(?:\s+(\S.*))?$/i
+
+/**
+ * ⭐ `11` + `£M ARR` READS `£11M ARR` — the contract's money notation (canvas
+ * side-by-side vs contract v3.1, item 6: the market-entry Goal read
+ * `Target: 11 £M ARR`, the currency AFTER the number and the unit echoed raw;
+ * the contract writes `£20,000 / month`).
+ *
+ * The producer carries the scale INSIDE the unit (`goal_threshold_raw: 11`,
+ * `goal_threshold_unit: "£M ARR"` — the market-entry starter and 12 captured
+ * boards). The glyph moves onto the figure and the magnitude letter stays
+ * exactly where the producer wrote it, after the digits: `£` + `11` + `M`, then
+ * the words (`ARR`). ⛔ The digits never change and nothing is scaled — `11 £M`
+ * is not rewritten as `11,000,000`, and `m` is not re-cased.
+ *
+ * Returns `null` (the caller prints exactly what it printed before) unless the
+ * head is a currency glyph, or an ISO code with a glyph in `ISO_CURRENCY_GLYPHS`,
+ * with ONE magnitude letter (`k`, `m`, `bn`, `b`, either case) written onto it,
+ * and the figure is not negative (the same sign rule `compactUnitParts` keeps).
+ */
+function currencyMagnitudeTarget(value: number, unit: string): string | null {
+  const m = CURRENCY_MAGNITUDE_UNIT.exec(unit.trim())
+  if (m === null || value < 0) return null
+  const { kind, canonical } = classifyUnit(m[1])
+  const glyph = kind === 'symbol' ? canonical : kind === 'iso' ? ISO_CURRENCY_GLYPHS[canonical.toUpperCase()] : undefined
+  if (glyph === undefined) return null
+  const words = m[3] === undefined ? '' : ` ${m[3].trim()}`
+  return `${glyph}${value.toLocaleString()}${m[2]}${words}`
 }

@@ -69,7 +69,12 @@ export function isInsideOwnedSurface(nodeEl: Element, target: EventTarget | null
   return owner !== null && owner.getAttribute('data-node-popover') === ownerId
 }
 
-export function usePopoverHover() {
+/**
+ * `enterDelayMs`: the card hover pop-up (`BaseNode` → `NodeHoverCard`, 29 Sep
+ * 2026) opens after `HOVER_CARD_OPEN_DELAY_MS`; the wrappers' instances keep
+ * the 300ms default.
+ */
+export function usePopoverHover(enterDelayMs: number = ENTER_DELAY) {
   const [showPopover, setShowPopover] = useState(false)
   const enterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -126,8 +131,8 @@ export function usePopoverHover() {
       if (!actionHovered.current && !actionFocused.current && !dismissed.current) {
         setShowPopover(true)
       }
-    }, ENTER_DELAY)
-  }, [cancelEnter])
+    }, enterDelayMs)
+  }, [cancelEnter, enterDelayMs])
 
   useEffect(() => {
     const node = nodeElRef.current

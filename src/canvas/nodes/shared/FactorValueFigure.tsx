@@ -34,9 +34,11 @@
  */
 import { typography } from '../../../styles/typography'
 import { factorCardVisibleText, joinFactorDisplayParts, type FactorDisplayParts } from '../../../utils/formatFactorDisplayValue'
-import { classifyValueProvenance, factorValueIsUnconfirmedEstimate } from '../../domain/valueProvenance'
-import { classifyUnit } from '../../../utils/unitClassifier'
-import { isSuppressedUnit } from '../../utils/labelUtils'
+import { classifyObservedValueProvenance, factorValueIsUnconfirmedEstimate } from '../../domain/valueProvenance'
+import { readoutIsBareModelFigure } from './bareModelFigure'
+
+// Moved to `bareModelFigure.ts` (a pure rule, kept out of this component's import closure); re-exported for callers.
+export { readoutIsBareModelFigure }
 
 export function FactorValueFigure({ readout, parts, nodeId }: {
   /** The card's recorded readout — the one string every affordance shows. */
@@ -68,7 +70,6 @@ export function FactorValueFigure({ readout, parts, nodeId }: {
 }
 
 /** A readout that is nothing but one number: "0.5", "1", ".25". */
-const BARE_NUMBER = /^-?(\d+(\.\d+)?|\.\d+)$/
 
 /**
  * ⭐⭐ IS THIS READOUT A BARE INTERNAL MODEL NUMBER? — contract v3.1
@@ -100,20 +101,13 @@ const BARE_NUMBER = /^-?(\d+(\.\d+)?|\.\d+)$/
  * wrong scale; the inspector and the Model tab still state it.
  */
 export function readoutIsBareModelScale(readout: string | null, data: unknown): boolean {
-  if (readout === null) return false
-  const text = readout.trim()
-  if (!BARE_NUMBER.test(text)) return false
-  const n = Number(text)
-  if (!Number.isFinite(n) || n < 0 || n > 1) return false
+  if (!readoutIsBareModelFigure(readout, data)) return false
   const d = data as Record<string, unknown> | null | undefined
   if (d?.pending_user_value != null) return false
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
-  const rawUnit = typeof obs?.unit === 'string' ? obs.unit : typeof d?.unit === 'string' ? (d.unit as string) : null
-  // The card's own display guard: an internal descriptor ("other") is no unit.
-  const unit = rawUnit !== null && !isSuppressedUnit(rawUnit) ? rawUnit : null
-  const unitKind = classifyUnit(unit).kind
-  if (unitKind !== 'none' && unitKind !== 'placeholder') return false
-  const source = typeof obs?.source === 'string' ? obs.source : null
-  if (classifyValueProvenance(source)?.userOwned === true) return false
+  // The whole observed state: Olumi's figure the user ACCEPTED is not "unconfirmed" either (52f8cd; AIQ 5921018606).
+  const cls = classifyObservedValueProvenance(obs)
+  if (cls?.userOwned === true || cls?.kind === 'accepted') return false
   return factorValueIsUnconfirmedEstimate(data)
 }
+

@@ -28,6 +28,7 @@ import { applyDraftResult } from '../../utils/applyDraftResult'
 import { logger } from '../../../lib/logger'
 import { renderHook } from '@testing-library/react'
 import { useCoachingCurrency } from '../../../v5/blocks/useCoachingCurrency'
+import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 
 const SCENARIO_ID = '11111111-2222-4333-8444-555555555555'
 
@@ -35,6 +36,7 @@ type Turn = { turn: string; json: Record<string, unknown> }
 const turns = (served as { turns: Turn[] }).turns
 const C1 = turns.find((t) => t.turn === 'C1 brief')!.json
 const C2 = turns.find((t) => t.turn === 'C2 run')!.json
+const C2_RESULT = (C2.blocks as Array<{ type: string }>).find((block) => block.type === 'analysis_result')!
 const DRAFT = C1.draft_graph as { nodes: unknown[]; edges: unknown[]; goal_constraints?: unknown[] }
 
 type Graph = {
@@ -74,6 +76,7 @@ function readBody() {
     request_id: 'req-drafted-canvas-replay',
     graph_hash: C2.graph_hash,
     analysis_state: C2.analysis_state,
+    analysis_result: C2_RESULT,
   }
 }
 
@@ -95,12 +98,15 @@ beforeEach(() => {
   // The live session drafted the canvas from the served turn, through the real path.
   applyDraftResult(DRAFT as never, { skipHistory: true, skipAutosave: true })
   // A reload keeps the canvas and drops the session's analysis beliefs.
+  const report = mapV5AnalysisToReport(C2_RESULT as never)
   useCanvasStore.setState({
     analysisStateV1: null,
     analysisFreshness: null,
     analysisFreshnessDirty: false,
     serverGraphIdentity: null,
     lastAuthoritativeGraph: null,
+    results: { status: 'complete', progress: 100, report, hash: report.model_card.response_hash },
+    v5AnalysisFact: null,
   } as never)
   readGraph = draftGraph()
   warnSpy = vi.spyOn(logger, 'warn')
@@ -130,35 +136,62 @@ describe('⭐ a reload of a DRAFTED model keeps its current Run card current (se
     expect(runCardCurrency()).toBe('current')
   })
 
-  it('RESIDUAL, not fixed here: an approval\'s `observed_state.source` stamp the canvas lacks still declines, as `edited_since_read`', async () => {
-    // The currency proof ignores `source` (CEE's hash excludes it), but the boot
-    // MERGE counts the stamp as a model change and marks the model edited
-    // (`mergeServerGraph.ts` `modelChanged`), so the restore declines on
-    // `edited_since_read`. Whether a served canvas lacks the stamp after an
-    // approval is UNVERIFIED; the decline log names it on the next served run.
-    // Owner of `mergeServerGraph.ts` `modelChanged`: flip this test when fixed.
+  it('FLIPPED (was RESIDUAL; P0 #75 5921880401): an approval\'s `observed_state.source` stamp the canvas lacks no longer declines', async () => {
+    // The currency proof ignores `source` (CEE's hash excludes it). The boot MERGE still counts the stamp as a model
+    // change and marks the model edited (`mergeServerGraph.ts` `modelChanged`), but the mark was clear before the
+    // merge and the canvas is proven equal to the read both ways, so it is the read's own change, not an edit.
     const n = readGraph.nodes.find((x) => x.observed_state && typeof x.observed_state === 'object')!
     n.observed_state = { ...(n.observed_state as object), source: 'user_assumption' }
     await hydrateCanvasFromServer(SCENARIO_ID)
-    expect(declineLog()).toMatchObject({ reason: 'edited_since_read', mergeChanged: true })
+    expect(declineLog()).toBeUndefined()
+    expect(runCardCurrency()).toBe('current')
+  })
+
+  it('TWIN: the same source stamp over a canvas marked edited BEFORE the read: declined `edited_since_read` (CODEX UI BUDDY 5922309936)', async () => {
+    useCanvasStore.setState({ analysisFreshnessDirty: true } as never)
+    const n = readGraph.nodes.find((x) => x.observed_state && typeof x.observed_state === 'object')!
+    n.observed_state = { ...(n.observed_state as object), source: 'user_assumption' }
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(declineLog()).toMatchObject({ reason: 'edited_since_read', mergeChanged: true, unproven: null })
     expect(runCardCurrency()).not.toBe('current')
   })
 })
 
-describe('CONTROLS: an ANALYSIS-AFFECTING difference still declines', () => {
-  it('an edge strength CEE holds that the canvas does not: the merge adopts it, so the model changed: declined', async () => {
+describe('CONTROLS: an ANALYSIS-AFFECTING difference the merge ADOPTS is the read\'s own; one the canvas KEEPS, or a local edit, still declines', () => {
+  // P0 #75 5921880401: a model edited and re-run elsewhere, then a reload. The merge writes CEE's value onto the
+  // canvas, so the canvas IS the graph CEE's `complete_current` describes; each row has a twin whose mark was set
+  // BEFORE the read (a local edit), which still declines.
+  it('an edge strength CEE holds that the canvas does not: the merge adopts it, so the Run is current', async () => {
     const e = readGraph.edges.find((x) => x.defaulted === true)!
     e.strength = { mean: 0.91, std: 0.02 }
     await hydrateCanvasFromServer(SCENARIO_ID)
-    expect(declineLog()).toMatchObject({ reason: 'edited_since_read', mergeChanged: true })
+    expect(declineLog()).toBeUndefined()
+    expect(runCardCurrency()).toBe('current')
+  })
+
+  it('TWIN: the same strength over a canvas marked edited BEFORE the read: declined `edited_since_read`', async () => {
+    useCanvasStore.setState({ analysisFreshnessDirty: true } as never)
+    const e = readGraph.edges.find((x) => x.defaulted === true)!
+    e.strength = { mean: 0.91, std: 0.02 }
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(declineLog()).toMatchObject({ reason: 'edited_since_read', mergeChanged: true, unproven: null })
     expect(runCardCurrency()).not.toBe('current')
   })
 
-  it('an observed value CEE holds that the canvas does not: declined', async () => {
+  it('an observed value CEE holds that the canvas does not: the merge adopts it, so the Run is current', async () => {
     const n = readGraph.nodes.find((x) => x.observed_state && typeof x.observed_state === 'object')!
     n.observed_state = { ...(n.observed_state as object), value: 123456 }
     await hydrateCanvasFromServer(SCENARIO_ID)
-    expect(declineLog()?.reason).toMatch(/^(edited_since_read|canvas_not_proven_equal)$/)
+    expect(declineLog()).toBeUndefined()
+    expect(runCardCurrency()).toBe('current')
+  })
+
+  it('TWIN: the same observed value over a canvas marked edited BEFORE the read: declined `edited_since_read`', async () => {
+    useCanvasStore.setState({ analysisFreshnessDirty: true } as never)
+    const n = readGraph.nodes.find((x) => x.observed_state && typeof x.observed_state === 'object')!
+    n.observed_state = { ...(n.observed_state as object), value: 123456 }
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(declineLog()).toMatchObject({ reason: 'edited_since_read', unproven: null })
     expect(runCardCurrency()).not.toBe('current')
   })
 

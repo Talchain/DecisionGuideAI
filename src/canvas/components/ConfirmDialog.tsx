@@ -90,13 +90,13 @@ export function ConfirmDialog({
         <div className="flex gap-3 justify-end">
           <button
             onClick={onCancel}
-            className={`px-4 py-2 ${typography.label} text-text-body bg-panel-hover rounded-lg hover:bg-panel-border focus:outline-none focus:ring-2 focus:ring-panel-border transition-colors`}
+            className={`px-4 py-2 ${typography.label} text-text-body bg-panel-hover rounded-lg hover:bg-panel-border focus:outline-none focus-visible:ring-2 focus-visible:ring-panel-border transition-colors`}
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
-            className={`px-4 py-2 ${typography.label} text-text-on-color bg-danger hover:bg-danger/90 rounded-lg focus:outline-none focus:ring-2 focus:ring-danger/50 transition-colors`}
+            className={`px-4 py-2 ${typography.label} text-text-on-color bg-danger hover:bg-danger/90 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/50 transition-colors`}
             autoFocus
           >
             {confirmLabel}

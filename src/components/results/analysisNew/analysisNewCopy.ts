@@ -13,7 +13,8 @@
  * describing the analysis, that is the fabrication boundary being crossed.
  */
 
-import { applyUnitPlacement } from '../../../utils/unitClassifier'
+import { formatThresholdFigure } from './thresholdFigure'
+
 import { isSuppressedUnit } from '../../../canvas/utils/labelUtils'
 import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
 
@@ -263,6 +264,15 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
    */
   separation_unavailable:
     'This run could not work out how far apart the options are, so it cannot put one forward.',
+  /**
+   * Canonical's intake cause (#72 5886426614; DL 5886466744): an option Olumi added cannot be reconciled
+   * to the user's brief, so no option is named the leader. Served before it was minted as
+   * `constraint_verdict_withheld` while every limit was `scored` (Canvas 5886223069). About the options'
+   * provenance, not the limits — so it must not read as a limit check that declined.
+   */
+  // AIQ #72 5886555442. The ‹label› parenthetical waits for Canonical's carrier to name the option ids.
+  options_not_reconciled_with_brief:
+    "Olumi added an option your brief didn't name, so this run doesn't put one forward. You can remove it and re-run.",
 }
 
 /**
@@ -905,7 +915,7 @@ export const ANALYSIS_NEW_COPY = {
       // class shipped as "Customer demand passes index0.361111". This is the
       // site that could not reach it, and it is the third outing of the class.
       const n = (v: number) =>
-        applyUnitPlacement(v.toLocaleString('en-GB', { maximumFractionDigits: 2 }), unit)
+        formatThresholdFigure(v.toLocaleString('en-GB', { maximumFractionDigits: 2 }), v, unit)
       const verb = flipValue > currentValue ? 'rise' : 'fall'
       const claim = `${factorLabel} would have to ${verb} from ${n(currentValue)} to ${n(flipValue)} before ${alternativeLabel} leads in this model.`
       /**
@@ -1649,6 +1659,8 @@ export const ANALYSIS_NEW_COPY = {
    * question either answers, which is worse than one. So the goal figure is
    * NAMED and the comparative one is named beside it, and neither ships alone.
    *
+   * ⚠ SUPERSEDED 29 Sep (AIQ #72 5885033487): the label is now the register's
+   * "Share of model runs that reach the target". The note below is kept for provenance.
    * ⚠ "Reaches your target" IS POSSESSIVE ON PURPOSE. It names the target the
    * USER set, which is the only case this surface renders (a substituted joint
    * figure is suppressed upstream rather than relabelled — see the view model).
@@ -1665,7 +1677,8 @@ export const ANALYSIS_NEW_COPY = {
     /** Model-scale axis ends: direction only, no numbers (#2133 omits the ticks). */
     axisLower: 'Lower',
     axisHigher: 'Higher',
-    goalLabel: 'Reaches your target',
+    // AIQ #72 5885033487 / 5885116642: a goal figure is a share of model runs; the register's label.
+    goalLabel: GOAL_ANCHOR_COPY.label(false),
     winLabel: 'Highest in this model',
     /**
      * ⭐ SAYS WHAT THE PICTURE IS, AND NOTHING ELSE. It states that the segments
@@ -1784,6 +1797,8 @@ export const ANALYSIS_NEW_COPY = {
      */
     valueLabel: 'Value',
     noValue: 'No value set',
+    /** A value IS set but has no form this panel can show (no usable unit). Never "No value set". */
+    valueNotShown: "A value is set but can't be shown here",
     /**
      * The edit affordance. Named for the ACT, not the field: "Edit" alone reads
      * as a mode, and the reader is being offered one specific change.
@@ -2136,6 +2151,11 @@ export const ANALYSIS_NEW_COPY = {
   status: {
     preRun: 'No analysis has run yet for this model.',
     /**
+     * ⭐ A RUN IS ON RECORD BUT ITS RESULT IS NOT HELD HERE (`selectRunOnRecordWithoutResult`). `preRun` above is false
+     * then. Same shape as the Run control's `savedRunUnconfirmedSub`, which `unconfirmed` reuses verbatim.
+     */
+    savedRunStale: "A saved Run exists, but the model has changed since it ran, so it isn't shown. Re-run to analyse the model as it stands.",
+    /**
      * ⚠ SAYS WHAT THE PANEL IS, AND ASSERTS NO RUN. `tabIntro` cannot serve
      * pre-run — it says "a second reading of the same analysis run", which is
      * false when none has happened, and it shipped sitting directly above the
@@ -2264,6 +2284,15 @@ export const ANALYSIS_NEW_COPY = {
      * model and an unconfirmable one are resolved by the same act.
      */
     reanalyseToBeSure: 'Re-run to be sure',
+    /**
+     * ⭐ V2 prototype `.stale` row (28 Sep 2026, Panel): inside "Move towards
+     * commitment" the row reads "Last run · model changed" with a "Re-run" act.
+     * The same claim as `stale` (the model moved), in the prototype's words; the
+     * act keeps `reanalyseToBeSure` as its accessible name, which starts with the
+     * visible word. The boxed ribbon (`part: 'all'`) keeps the long forms.
+     */
+    staleRow: 'Last run · model changed',
+    reanalyseRow: 'Re-run',
     /**
      * ⚠ COVERAGE, NOT READINESS. Says the RESULT is incomplete; never that
      * analysis may not run — `RunAdmission` owns readiness and this surface

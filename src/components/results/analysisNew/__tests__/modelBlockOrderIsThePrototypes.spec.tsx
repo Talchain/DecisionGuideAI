@@ -43,7 +43,7 @@ afterEach(() => {
 })
 
 describe('the tab mounts the model block in the prototype’s order', () => {
-  it('census → "N to review" → success line → review tool → detail', () => {
+  it('census → detail → "N to review" → success line → review tool', () => {
     render(
       <AnalysisNewTabBody
         resultsSectionData={openStrategicChallenge()}
@@ -64,9 +64,9 @@ describe('the tab mounts the model block in the prototype’s order', () => {
     fireEvent.click(toggle)
     const review = screen.getByTestId('analysis-new-review-item')
     const detail = screen.getByTestId('analysis-new-model-strip-detail')
-    expect(before(rows, toggle), 'census before "N to review"').toBe(true)
+    expect(before(rows, detail), 'census before the detail').toBe(true)
+    expect(before(detail, toggle), 'the detail sits directly under the shapes (Paul, 1 Oct 2026)').toBe(true)
     expect(before(toggle, success), '"N to review" before the success line').toBe(true)
     expect(before(success, review), 'the success line before the review tool').toBe(true)
-    expect(before(review, detail), 'the review tool before the detail').toBe(true)
   })
 })

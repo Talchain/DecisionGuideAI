@@ -1,12 +1,13 @@
 /**
- * WhatChangedChip — run-over-run graph delta chip (seamlessness R6; first
- * shippable slice of ROADMAP 2.1 what-changed/compare/timeline).
+ * WhatChangedChip — the "What changed since the last analysis run?" ask
+ * (seamlessness R6; ROADMAP 2.1). The ANSWER is the server's run comparison.
  *
- * Diffs the LATEST stored run's graph snapshot against the PREVIOUS run's
- * (loadRuns() returns newest-first → runs[0] vs runs[1]; the original
- * orphaned version indexed runs[length-2], the second-OLDEST run). The diff
- * is CLIENT-SIDE over cached runs only — the copy says so; an engine-backed
- * run delta is a later contract.
+ * ⚠ 2 Oct 2026 (Compare audit (d)): the client-side graph diff over
+ * `olumi-canvas-run-history` and its canvas pulse are REMOVED. Nothing live
+ * writes that history, so the diff could only read legacy entries, from any
+ * decision — a second comparison authority beside the served run delta. The
+ * history notes below (F2/F2B/F8) are kept for provenance; where they mention
+ * the local diff or pulse, that half no longer exists.
  *
  * F2 CHANGE B (2026-07-22) — AUGMENT, not replace. Ruled decision: the canvas
  * pulse STAYS (it answers the STRUCTURAL graph-diff question, device-local),
@@ -44,21 +45,8 @@
  * CEE answers "only one run so far, nothing to compare yet" honestly when true.
  * Local runHistory continues to gate ONLY the pulse/highlight extras.
  *
- * Click pulses the added+modified elements via pulseAppliedTargets (same
- * 2s ring as applied AI edits). Removed elements no longer exist on the
- * canvas and are excluded — the pulse util would filter them fail-closed
- * anyway.
- *
- * Node "modified" = label change only. Position moves are layout, not an
- * analytical delta (auto-layout would otherwise mark every node modified
- * on every run). Edge "modified" = weight or belief change.
  */
 
-import { useMemo, useSyncExternalStore } from 'react'
-import { loadRuns } from '../store/runHistory'
-import * as runsBus from '../store/runsBus'
-import { pulseAppliedTargets } from '../utils/appliedEditPulse'
-import type { Node, Edge } from '@xyflow/react'
 import { GitCompareArrows } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { useOptionalConversationContext } from '../conversation/ConversationContext'
@@ -71,146 +59,11 @@ import { WHAT_CHANGED_CHIP_MESSAGE } from './whatChangedChipMessage'
 // transitive hook graph into the typecheck.
 export { WHAT_CHANGED_CHIP_MESSAGE }
 
-interface GraphDiff {
-  nodes: { added: string[]; removed: string[]; modified: string[] }
-  edges: { added: string[]; removed: string[]; modified: string[] }
-}
-
-function computeGraphDiff(
-  currentNodes: Node[],
-  currentEdges: Edge[],
-  previousNodes: Node[],
-  previousEdges: Edge[]
-): GraphDiff {
-  const diff: GraphDiff = {
-    nodes: { added: [], removed: [], modified: [] },
-    edges: { added: [], removed: [], modified: [] },
-  }
-
-  const currentNodeMap = new Map(currentNodes.map(n => [n.id, n]))
-  const previousNodeMap = new Map(previousNodes.map(n => [n.id, n]))
-
-  for (const node of currentNodes) {
-    const prev = previousNodeMap.get(node.id)
-    if (!prev) {
-      diff.nodes.added.push(node.id)
-    } else if (node.data?.label !== prev.data?.label) {
-      diff.nodes.modified.push(node.id)
-    }
-  }
-  for (const node of previousNodes) {
-    if (!currentNodeMap.has(node.id)) diff.nodes.removed.push(node.id)
-  }
-
-  const currentEdgeMap = new Map(currentEdges.map(e => [e.id, e]))
-  const previousEdgeMap = new Map(previousEdges.map(e => [e.id, e]))
-
-  for (const edge of currentEdges) {
-    const prev = previousEdgeMap.get(edge.id)
-    if (!prev) {
-      diff.edges.added.push(edge.id)
-    } else if (edge.data?.weight !== prev.data?.weight || edge.data?.belief !== prev.data?.belief) {
-      diff.edges.modified.push(edge.id)
-    }
-  }
-  for (const edge of previousEdges) {
-    if (!currentEdgeMap.has(edge.id)) diff.edges.removed.push(edge.id)
-  }
-
-  return diff
-}
-
-function formatCounts(label: string, c: { added: string[]; removed: string[]; modified: string[] }): string | null {
-  const parts: string[] = []
-  if (c.added.length > 0) parts.push(`+${c.added.length}`)
-  if (c.removed.length > 0) parts.push(`-${c.removed.length}`)
-  if (c.modified.length > 0) parts.push(`~${c.modified.length}`)
-  return parts.length > 0 ? `${label}: ${parts.join(', ')}` : null
-}
-
-// The runs list changes only when runsBus emits (add/consolidate/delete).
-// A module-level version + useSyncExternalStore keys the memoised parse so
-// the analysis tab's frequent re-renders (node drags re-render the dock)
-// never re-run loadRuns()'s localStorage JSON.parse of full run payloads.
-let runsVersion = 0
-const subscribeToRuns = (onStoreChange: () => void) =>
-  runsBus.on(() => {
-    runsVersion++
-    onStoreChange()
-  })
-const getRunsVersion = () => runsVersion
-
 export function WhatChangedChip() {
-  const version = useSyncExternalStore(subscribeToRuns, getRunsVersion)
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- version is the cache key for the localStorage read
-  const runs = useMemo(() => loadRuns(), [version])
-  // FAIL-SAFE seam: optional context is null when this chip renders outside a
-  // <ConversationProvider> (no conversation hook) — the CEE send is then
-  // skipped and only the canvas pulse fires. Hook is read unconditionally
-  // (before the early returns below) to keep hook order stable.
   const dispatchAction = useOptionalConversationContext()?.dispatchAction
-  // F2B (2026-07-22): the chip's MOUNT is decoupled from the local run count.
-  // The old `runs.length < 2 → return null` boundary stranded the CEE send
-  // behind a dead precondition — on the live guest path runHistory stays EMPTY
-  // even after completed analyses (the writer never records there), so the chip
-  // never mounted and the send was unreachable. The SERVER owns comparison
-  // honesty (its what_changed gate answers insufficient_runs / stale /
-  // unconfirmed / incomparable), so the chip renders and stays actionable
-  // whenever its host analysis surface (ResultsBody) renders — regardless of how
-  // many runs are stored locally. Only the pulse/highlight extras below stay
-  // gated on a computable local pair.
-  const latest = runs[0] // newest-first per loadRuns()'s sort; may be undefined
-  const previous = runs[1] // second-newest; undefined with < 2 stored runs
-  // LOCAL structural diff — only computable when BOTH runs carry an alignable
-  // graph snapshot. A run without one (legacy pre-v1.2 entries) is
-  // NON-COMPARABLE locally, not empty — diffing against [] would fabricate an
-  // "everything added/removed" delta, so we compute NOTHING and treat the
-  // local highlight as unavailable (same rule as computeRunSummary's
-  // "Snapshot unavailable" precedent). The SERVER can still answer the
-  // outcome delta, so the chip stays actionable regardless.
-  const diff =
-    latest?.graph && previous?.graph
-      ? computeGraphDiff(
-          latest.graph.nodes ?? [],
-          latest.graph.edges ?? [],
-          previous.graph.nodes ?? [],
-          previous.graph.edges ?? []
-        )
-      : null
-
-  const parts = diff
-    ? [formatCounts('Nodes', diff.nodes), formatCounts('Edges', diff.edges)].filter(
-        (p): p is string => p !== null
-      )
-    : []
-
-  // F2 CHANGE B follow-up (2026-07-22): the LOCAL-diff availability gate no
-  // longer decides whether the chip renders — it only decides whether the
-  // canvas pulse can fire. The pulse needs an alignable local pair AND a
-  // non-empty delta descriptor to highlight anything ("pulse-when-computable").
-  // A zero-delta pair (identical runs) or a missing snapshot yields no local
-  // highlight — but the chip is still actionable and the CEE send still fires.
-  const localHighlightAvailable = diff !== null && parts.length > 0
 
   const handleClick = () => {
-    // (1) STRUCTURAL answer — the canvas pulse, GATED on local-diff
-    // availability. It needs an alignable local pair to highlight anything, so
-    // it fires only when a delta is computable; a zero-delta / missing-snapshot
-    // click simply skips it (never crashes).
-    // F4 (graph-visuals): fit-before-pulse lives at the pulse choke point —
-    // appliedEditPulse's flush fits every surviving target into view before
-    // the ring fires, for EVERY feeder (applyPatch, applyV5State, this chip).
-    // A chip-local fit on top would double the camera move, so the chip
-    // delegates. Removed elements are gone from the canvas — only surviving
-    // changes can be highlighted (the flush filters fail-closed anyway).
-    if (localHighlightAvailable) {
-      pulseAppliedTargets({
-        nodeIds: [...diff.nodes.added, ...diff.nodes.modified],
-        edgeIds: [...diff.edges.added, ...diff.edges.modified],
-      })
-    }
-
-    // (2) OUTCOME answer — the CEE send fires on EVERY click, UNCONDITIONALLY.
+    // (1) The answer is the SERVER's — the CEE send fires on EVERY click, UNCONDITIONALLY.
     // The SERVER owns freshness/mode honesty: its four-way gate answers
     // compared / insufficient_runs / stale / unconfirmed / incomparable
     // honestly (F2B byte-confirm §3). Gating the send on the LOCAL diff would
@@ -219,7 +72,7 @@ export function WhatChangedChip() {
     // (dispatchAction → buildChipMeta → buildV5Payload); the send gate promotes
     // source to 'chip_click' because 'what_changed' passes isSendableToken
     // — the payload is not built here. FAIL-SAFE: when dispatchAction is absent
-    // (no conversation hook), the click is a no-op beyond the optional pulse.
+    // (no conversation hook), the chip is disabled (below), so this never runs.
     if (dispatchAction) {
       void dispatchAction({
         action_type: 'what_changed',
@@ -231,7 +84,7 @@ export function WhatChangedChip() {
         // surfaces its own send-failure notice.
       })
 
-      // (3) REVEAL — bring the Olumi thread into view so the answer is SEEN.
+      // (2) REVEAL — bring the Olumi thread into view so the answer is SEEN.
       //
       // The server owns comparison honesty and answers `insufficient_runs`
       // when there is only one run — but that reply lands in a thread that may
@@ -261,32 +114,20 @@ export function WhatChangedChip() {
     }
   }
 
-  // Label + accessible name. With the send always available the chip is always
-  // actionable, so the resting state names the ACTION, never a disability claim.
-  // When a local delta IS computable we additionally show the counts and name
-  // the highlight it will pulse.
-  //
-  // ⚠ VOCABULARY (16 Aug 2026, trap 21). This chip and the version-history
-  // panel both said "What changed", and they answer DIFFERENT questions about
-  // DIFFERENT objects: this one compares two ANALYSIS RUNS (what the engine
-  // computed), the panel compares two VERSIONS (what the user authored). One
-  // phrase serving both taught users the two were the same thing. Every user-
-  // facing string here now names the analysis run explicitly; the panel names
-  // the version. See canvas/versions/versionLabels.ts for the other half.
-  const label = localHighlightAvailable
-    ? `Since your last analysis run: ${parts.join(' • ')}`
-    : 'What changed since the last analysis run?'
-  const ariaLabel = localHighlightAvailable
-    ? `Since your last analysis run: ${parts.join(', ')}. Highlight the changes on the canvas.`
-    : 'What changed since the last analysis run?'
+  // ⚠ ONE COMPARISON AUTHORITY (Compare audit (d), DL #85 5943446984, 2 Oct).
+  // This chip used to diff the two newest entries of `olumi-canvas-run-history`
+  // and, when they differed, say "Since your last analysis run: Nodes: +2". No
+  // live path writes that history any more (V5 carries no seed), so the diff
+  // could only come from LEGACY entries — and it was not scenario-scoped, so a
+  // long-time tester's browser showed counts from two old runs of ANY decision
+  // beside the served run delta. Measured on served 7403a842. The chip is now
+  // only the ask; the answer is the server's run comparison. The label names the
+  // analysis run, never a version (trap 21; canvas/versions/versionLabels.ts).
+  const label = 'What changed since the last analysis run?'
 
-  // F8 (honesty): the click can only DO something when either the pulse is
-  // available (a computable local delta) OR a dispatcher is in scope (the CEE
-  // send). With NEITHER, the button is a dead affordance — clicking is a pure
-  // no-op — so it must present itself as disabled rather than actionable. When a
-  // dispatcher exists it stays enabled and the send fires unconditionally (F2-B),
-  // regardless of local-diff availability.
-  const isNoOp = !localHighlightAvailable && !dispatchAction
+  // F8 (honesty): with no dispatcher the click can do nothing, so the button
+  // presents itself as disabled rather than actionable.
+  const isNoOp = !dispatchAction
 
   return (
     <span className="inline-flex flex-col items-start gap-0.5">
@@ -302,31 +143,12 @@ export function WhatChangedChip() {
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-info',
         'disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:no-underline',
       ].join(' ')}
-      aria-label={ariaLabel}
-      // F8 (honesty): the device-local comparison basis is only claimed when a
-      // real local comparison happened (an alignable pair with a computable,
-      // non-empty delta). With no such pair the tooltip must not assert one.
-      title={
-        localHighlightAvailable
-          ? 'Compared with the previous analysis stored on this device'
-          : undefined
-      }
+      aria-label={label}
       data-testid="what-changed-chip"
     >
       <GitCompareArrows size={14} className="text-info flex-none" aria-hidden="true" />
       <span>{label}</span>
     </button>
-    {/* Paul's ruling 2026-07-12 (keep + improve): the comparison basis is a
-        VISIBLE label, never tooltip-only — this is a device-local diff of
-        the last two runs, not producer-versioned comparison.
-        F8 (honesty): shown ONLY when a real local pair was compared
-        (localHighlightAvailable) — never when no pair exists, where the claim
-        would be false. */}
-    {localHighlightAvailable && (
-      <span className={`${typography.panelMeta} text-text-light pl-1`}>
-        Compared with your previous analysis run on this device
-      </span>
-    )}
     </span>
   )
 }

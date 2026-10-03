@@ -1,0 +1,76 @@
+{
+ "_source": "R3 06:00Z acceptance guest 4644486f (#75 5925627855), served POST /graph read with include_conversation_turns, Panel 1 Oct 2026 06:0xZ, UI f6dda841, CEE 3b0537c1",
+ "scenario_id": "4644486f-7527-4efe-bad1-87824a556ac5",
+ "run_state": {
+  "kind": "complete_current",
+  "computed_at": "2026-10-01T05:49:42.345Z"
+ },
+ "conversation_turns": [
+  {
+   "turn_id": "749ed19f-8aca-4dd4-ba85-274eb6019ebf",
+   "created_at": "2026-10-01T05:46:43.431954+00:00",
+   "user_message": "I need to accelerate securing funding within the next 2 months. We've been focused on investment firms that do deals between £1-2 million, mostly based in the UK. We'll keep sending cold emails and trying to find warm connections, but I want to explore alternatives to support the funding process, as we'll run out of money soon. For example, angel investors might be able to provide a small amount of funding quicker to buy us more time, but we would need to decide whether the overhead would be worth it.",
+   "assistant_message": "I’ve mapped three paths: continue current outreach; broader angel investor outreach; and an Olumi-suggested, time-boxed angel pilot. Carrying on holds today’s values.\n\nA provisional first pass exists, but it is not a conclusion: the model currently relies on Olumi estimates, including 8 hours/week on cold emails, 4 on warm introductions, no angel outreach, and assumed response rates. Your stated £1–2m firm deal range is retained; it uses £1m as the lower bound per closed deal.\n\nThe key trade-off is whether angel conversations can produce enough bridging capital quickly without materially distracting from the larger round. The most decision-useful missing fact is: **how much funding must be secured within two months, and how much is secured today?**\n\nThis model doesn't yet say whether any option gets there within 2 months.\n\nThe model was saved. Held fixed (no option changes them): Hours per week on investment-firm cold emails; Hours per week finding warm connections. Questions this model does not answer yet: Does \"securing funding\" get there within 2 months? The model holds the deadline; no result answers that yet. Olumi's starting guess is that raising \"Qualified angel investor conversations\" by 1 conversations in 2 month raises \"securing funding\" by 25000 GBP, but the model doesn't hold it yet. How much does \"Qualified angel investor conversations\" change \"securing funding\"? (2 of 10 shown.)"
+  },
+  {
+   "turn_id": "55f2e4ed-2375-4088-869c-270aced8ae1d",
+   "created_at": "2026-10-01T05:47:06.779594+00:00",
+   "user_message": "Run analysis",
+   "assistant_message": "These figures are provisional: every estimate behind them is machine-authored and unconfirmed. A share of runs in which an option fitted your goal better than the others is not the chance of reaching your target.\n\n**The model provisionally favours angel investor outreach on Olumi’s unconfirmed estimates, but the result is fragile—not a recommendation.** Small changes to the modelled relationships could reverse the comparison.\n\n- It compared **Continue current outreach**, holding today’s recorded values, with **Angel investor outreach**, using Olumi’s assumption of **8 hours/week**. The **Angel outreach pilot** has no reported comparison result.\n- It assumed more funding is better, but could not test whether either option secures enough within your two-month deadline.\n- No single assumption measurably changes which option leads in the sensitivity test.\n\nThe useful next step is to state the minimum funding you need secured within two months.\n\nThis model doesn't yet say whether any option gets there within 2 months.\n\nWhat figure should \"securing funding\" reach or stay under within 2 months? I'll propose it as your target."
+  },
+  {
+   "turn_id": "0299e4bd-12bd-4bc9-84bf-088acae85de7",
+   "created_at": "2026-10-01T05:47:23.332637+00:00",
+   "user_message": "Tell me about the link from \"Qualified angel investor conversations\" to \"securing funding\".",
+   "assistant_message": "These figures are provisional: every estimate behind them is machine-authored and unconfirmed. A share of runs in which an option fitted your goal better than the others is not the chance of reaching your target.\n\nIt is an **Olumi-inferred positive link**: more qualified angel investor conversations are assumed to increase funding secured.\n\nThe canvas labels it **strong**, but that is a default placeholder—not a strength you supplied or anyone has estimated yet.\n\nIt jumps directly from conversations to funding, without separate steps for investor commitments, deal completion or time-to-cash. So it does not establish how much money arrives, or whether it arrives within two months.\n\nThe useful test is whether those conversations reliably become **cash received before your deadline**, rather than expressions of interest."
+  },
+  {
+   "turn_id": "cf3c16b5-ee1b-4e92-a395-9459f4ac5272",
+   "created_at": "2026-10-01T05:47:47.833082+00:00",
+   "user_message": "Each extra conversation (\"Qualified angel investor conversations\") brings in about £20,000 towards \"securing funding\" within the two months.",
+   "assistant_message": "These figures are provisional: every estimate behind them is machine-authored and unconfirmed. A share of runs in which an option fitted your goal better than the others is not the chance of reaching your target.\n\nYour estimate is **about £20,000 more funding per extra qualified angel conversation, within two months**. The current link uses an Olumi default, not your estimate.\n\nI couldn’t prepare the change: the recording tool requires both quantities written numerically and did not accept “each extra conversation”.\n\nCould you restate it with the conversation increment written as a number alongside the funding increase?"
+  },
+  {
+   "turn_id": "4a66c142-25a4-4d6f-b54f-5e75f362f12d",
+   "created_at": "2026-10-01T05:48:25.455968+00:00",
+   "user_message": "Suggest starting assumptions for what this model is missing, so I can review and approve them.",
+   "assistant_message": "These figures are provisional: every estimate behind them is machine-authored and unconfirmed. A share of runs in which an option fitted your goal better than the others is not the chance of reaching your target.\n\nNo new change was prepared: all factor starting values and option levels are already filled.\n\nThe existing **Olumi assumptions—not measurements** are:\n- Cold emails: **8 hours/week**; warm connections: **4**; angel outreach today: **0**.\n- Firm responsiveness: **5%**; angel responsiveness: **10%**.\n- Angel outreach option: **8 hours/week**; Olumi’s pilot suggestion: **4**.\n\nWhat is missing is a funding baseline and success target. Your **£20,000 per additional conversation** estimate also remains unrecorded.\n\nRather than invent your funding requirement, **how much is secured today, and what minimum must be secured within two months?**"
+  },
+  {
+   "turn_id": "2f853de3-b573-46a9-afc6-354fc9e5b4e0",
+   "created_at": "2026-10-01T05:48:54.530211+00:00",
+   "user_message": "We have about £180k in the bank and spend roughly £45k a month, so about 4 months of runway. We have secured £0 so far and need at least £1 million.",
+   "assistant_message": "These figures are provisional: every estimate behind them is machine-authored and unconfirmed. A share of runs in which an option fitted your goal better than the others is not the chance of reaching your target.\n\nSimple arithmetic: **£180,000 ÷ £45,000/month = about four months’ runway**, assuming spending stays constant. That bank balance is separate from the new funding secured.\n\nThe proposed change would record, together:\n- **Funding secured today: £0**\n- **Success target: at least £1,000,000**\n\nBoth are your figures. This sets the funding baseline and target; it does not yet establish whether money arrives within your two-month deadline.\n\n**Shall I apply this change?**"
+  },
+  {
+   "turn_id": "d4b8e02b-caff-4f51-8bc6-89b3d61460a4",
+   "created_at": "2026-10-01T05:49:00.915335+00:00",
+   "user_message": "Yes, set that target.",
+   "assistant_message": "The goal \"securing funding\" now has the target at least £1,000,000, as you stated it. Its level today is recorded as £0, your figure.\n\nSaved. The analysis on screen was computed before this change; run it again to see the comparison with this change."
+  },
+  {
+   "turn_id": "d6895f54-6525-4552-af9a-1e81d8aa97da",
+   "created_at": "2026-10-01T05:49:24.753847+00:00",
+   "user_message": "Help me examine the assumption for \"Hours per week on investment-firm cold emails\".",
+   "assistant_message": "**8 hours/week is Olumi’s starting assumption, not a workload you reported.** It stays unchanged when angel outreach is added, so the model assumes you can maintain cold-email effort alongside that extra work.\n\nExamine two separate things:\n- **Time:** does it include prospect research, personalisation and follow-ups, or just sending?\n- **Pay-off:** its positive link to qualified investment-firm conversations has a **slight default strength**—no one has estimated that effect yet.\n\nA realistic workload does not establish a productive channel.\n\n**What weekly figure would you use, including preparation and follow-ups?**"
+  },
+  {
+   "turn_id": "f9ea2cde-2ab5-41b7-b86e-126fb49dd0d4",
+   "created_at": "2026-10-01T05:49:35.061934+00:00",
+   "user_message": "About 5 hours/week.",
+   "assistant_message": "The proposed change is **Hours per week on investment-firm cold emails: 8 → 5 hours/week**—replacing Olumi’s starting assumption with your figure of about 5 hours/week.\n\nNothing has changed yet. **Shall I apply it?**"
+  },
+  {
+   "turn_id": "c655500a-0b42-4468-9822-0938ac91c56b",
+   "created_at": "2026-10-01T05:49:39.284035+00:00",
+   "user_message": "Yes, use those.",
+   "assistant_message": "Saved 1 of 1 starting values. The analysis on screen was computed before this change; run it again to see the comparison with this change."
+  },
+  {
+   "turn_id": "0d6d81e0-6b15-46c4-ab73-25eabdcf0bf6",
+   "created_at": "2026-10-01T05:50:43.916455+00:00",
+   "user_message": "Run analysis.",
+   "assistant_message": "No option can be put forward: the reported outcomes are nearly identical, and angel funding effects remain unsized.\n\nThis run doesn’t show how often each option reaches the goal’s target.\n\n‘securing funding’ was checked against the figures in your model. For ‘Angel investor outreach’ and ‘Angel outreach pilot’ it couldn’t be checked: those options move it through a link Olumi has not sized (a placeholder, not an estimate).\n\nThe rerun includes your 5 hours/week cold-email figure; 16 inputs are Olumi assumptions.\n\nHow much does ‘Hours per week on angel outreach’ change ‘securing funding’?\n\nThis model doesn't yet say whether any option gets there within 2 months."
+  }
+ ]
+}

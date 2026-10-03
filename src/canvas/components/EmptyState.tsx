@@ -65,7 +65,7 @@ export function EmptyState({
           className={`
             ${typography.button} px-4 py-2 rounded-lg
             bg-sky-500 text-white hover:bg-sky-600
-            transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500/50
+            transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50
           `}
         >
           {action.label}

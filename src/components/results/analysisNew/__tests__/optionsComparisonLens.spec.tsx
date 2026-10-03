@@ -139,6 +139,17 @@ describe('the two lenses', () => {
     expect(comparisonLensAvailability(vmFor(dataFor({ ranges: false })).optionsComparison)).toEqual({ outcome: false, goal: true })
   })
 
+  it('⛔ an arm never wraps its words: arms size to content (flex-auto) and stay on one line (served: 2 lines at 288px)', () => {
+    // jsdom has no layout: this pins the class contract; R3's dock-run.mjs at 1024 (dock 288) is the served proof.
+    renderRun(dataFor({}))
+    for (const arm of ['outcome', 'goal'] as const) {
+      const cls = lensArm(arm).classList
+      expect(cls.contains('whitespace-nowrap')).toBe(true)
+      expect(cls.contains('flex-auto')).toBe(true)
+      expect(cls.contains('flex-1')).toBe(false)
+    }
+  })
+
   it('⭐ both available: Goal fit shows first, and Modelled outcome swaps the figures', () => {
     renderRun(dataFor({}))
 
@@ -195,12 +206,42 @@ describe('the two lenses', () => {
     expect(goal).toHaveAttribute('data-locked', 'true')
     expect(goal).toHaveAttribute('aria-disabled', 'true')
     expect(goal).toHaveAccessibleDescription(LENS_COPY.locked.goal)
+    // CONTRAST: no producer withhold → no visible withheld line.
+    expect(screen.queryByTestId(`${T}-goal-withheld`)).toBeNull()
     expect(goal.querySelector('.lucide-lock')).not.toBeNull()
     fireEvent.click(goal)
     expect(goal).toHaveAttribute('aria-checked', 'false')
     expect(screen.getByTestId(`${T}-lens-outcome`)).toHaveAttribute('aria-checked', 'true')
     // The outcome figures are what shows.
     expect(bandsDrawn()).toEqual(IDS)
+    expect(screen.queryAllByTestId(`${T}-goal`)).toHaveLength(0)
+  })
+
+  // CEE #2270/#2280: an UNEARNED 0/1 goal figure is withheld by the chooser, which empties the goal-fit lens; the
+  // producer's sentence is the visible reason (DL 5887061638).
+  it('an unearned certainty: the lens is locked and the producer’s sentence is the visible reason', () => {
+    const SAY = "I can't yet say how likely 'Raise to £59' is to reach the target: it depends on how 'Pro plan price' moves 'MRR', which isn't sized yet."
+    const data = dataFor({ goals: false })
+    const rec = (data as unknown as { recommendation: { allOptions: Array<Record<string, unknown>> } }).recommendation
+    rec.allOptions = rec.allOptions.map((o, i) => (i === 0 ? { ...o, goalCertaintyUnearned: { say: SAY } } : o))
+    renderRun(data)
+    expect(screen.getByTestId(`${T}-goal-withheld`)).toHaveTextContent(SAY)
+    expect(screen.getByTestId(`${T}-lens-goal`)).toHaveAttribute('data-locked', 'true')
+  })
+
+  // PLoT #416 / AIQ #72 5885033487 (2): the producer withheld every goal figure for an unevaluated identity; the
+  // locked arm carries ITS words (typed code), not the generic "did not return one". Contrast: the row above.
+  it('PLoT #416: the producer withheld every goal figure → the locked arm states the producer’s words', () => {
+    const WORDS = "Not shown. 'MRR' depends on Pro plan price × Pro paying subscribers, but this run couldn't calculate it that way, so the figures for each option would be wrong."
+    const data = dataFor({ goals: false })
+    const withheld = {
+      ...data,
+      confidence: { ...(data.confidence ?? {}), inferenceWarnings: [{ code: 'GOAL_PROBABILITY_IDENTITY_NOT_EVALUATED', message: WORDS, affected_nodes: [], affected_labels: [] }] },
+    } as unknown as ResultsSectionDataReturn
+    renderRun(withheld)
+    expect(screen.getByTestId(`${T}-lens-goal`)).toHaveAccessibleDescription(WORDS)
+    // AIQ 5887096626: the reason is VISIBLE beside the emptied rows, not only in the tooltip.
+    expect(screen.getByTestId(`${T}-goal-withheld`)).toHaveTextContent(WORDS)
     expect(screen.queryAllByTestId(`${T}-goal`)).toHaveLength(0)
   })
 

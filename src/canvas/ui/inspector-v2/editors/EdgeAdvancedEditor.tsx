@@ -7,6 +7,7 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
 import { resolveEdgeValueDisplay } from '../../../domain/edgeValueProvenance'
+import { isStrengthDefinitional, STRENGTH_HOLDS_BY_DEFINITION } from '../../../domain/strengthDefinitional'
 import { METRIC_UNSET } from '../../../nodes/shared/metricVocabulary'
 import { useEdgeMutations } from '../useInspectorMutations'
 import { EDGE_COPY } from '../inspectorStrings'
@@ -170,6 +171,16 @@ export function EdgeAdvancedEditor({ edgeId, linkKind, onSendSettled }: EdgeAdva
     ? (direction === 'negative' ? -betaDisplay.value : betaDisplay.value)
     : undefined
 
+  /**
+   * ⭐ A LINK THAT HOLDS BY DEFINITION OFFERS NO β AND NO DIRECTION EDIT (MG
+   * ruling, 1 Oct 2026). CEE refuses both on it. The coefficient stays VISIBLE —
+   * it is real and this is the surface people open for the numbers — but
+   * read-only, with the definition where the field's own definition would be.
+   * A strength the person set is not definitional by the predicate and keeps
+   * both fields exactly as before.
+   */
+  const strengthIsDefinitional = isStrengthDefinitional(edge?.data as Record<string, unknown> | undefined)
+
   // CIL warnings from pipeline + provenance-derived defaults
   const cilWarnings = useMemo(() => {
     const warnings = [...((edge?.data as Record<string, unknown>)?.cil_warnings as string[] ?? [])]
@@ -190,7 +201,8 @@ export function EdgeAdvancedEditor({ edgeId, linkKind, onSendSettled }: EdgeAdva
         <AdvancedField
           label="Effect coefficient (β)"
           value={signedMean === undefined ? undefined : Number(signedMean.toFixed(4))}
-          onChange={v => mutations.setStrength(v as number, { onSendSettled })}
+          onChange={strengthIsDefinitional ? undefined : v => mutations.setStrength(v as number, { onSendSettled })}
+          disabled={strengthIsDefinitional}
           type="number"
           min={-1}
           max={1}
@@ -200,7 +212,9 @@ export function EdgeAdvancedEditor({ edgeId, linkKind, onSendSettled }: EdgeAdva
              empty box reads as "type something here"; it does not say that
              nobody has. When the value is set the range hint returns. */
           placeholder={betaDisplay.show ? undefined : METRIC_UNSET.standalone}
-          helperText={betaDisplay.show ? BETA_DEFINITION : unsetHelper(BETA_DEFINITION)}
+          helperText={strengthIsDefinitional
+            ? STRENGTH_HOLDS_BY_DEFINITION
+            : betaDisplay.show ? BETA_DEFINITION : unsetHelper(BETA_DEFINITION)}
         />
         {/* ⛔ DO NOT "FIX" THIS BY HIDING OR DISABLING THE FIELD ABOVE. The
             no-hiding ruling applies: the coefficient is real, it is stored, and
@@ -278,7 +292,8 @@ export function EdgeAdvancedEditor({ edgeId, linkKind, onSendSettled }: EdgeAdva
         <AdvancedField
           label="Effect direction"
           value={direction}
-          onChange={v => mutations.setDirection(v as 'positive' | 'negative')}
+          onChange={strengthIsDefinitional ? undefined : v => mutations.setDirection(v as 'positive' | 'negative')}
+          disabled={strengthIsDefinitional}
           type="select"
           options={[
             { value: 'positive', label: 'positive' },

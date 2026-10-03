@@ -14,7 +14,12 @@ import { EmptyState } from './EmptyState'
 import { ChatMessage } from './ChatMessage'
 import type { HeldProposalSettlement } from '../../../v5/blocks/V5HeldProposalBlock'
 import { SessionDivider } from '../primitives/SessionDivider'
-import { ThinkingDots } from './ThinkingDots'
+import { ThinkingDots, waitingPhaseOf } from './ThinkingDots'
+
+/** The real stage name while request 2 runs: `inferLoadingHint`'s own words for an explanation. */
+const PREPARING_EXPLANATION = 'Preparing explanation\u2026'
+import { GuidanceRows } from './GuidanceRows'
+import { useProposalGhostBridge } from '../useProposalGhostBridge'
 import { SuggestedChips, type RunChipGate } from './SuggestedChips'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
@@ -86,6 +91,10 @@ interface ChatThreadProps {
   isThinking: boolean
   longRunningHint: string | null
   nodeCount: number
+  /** A Run is in flight (`results.status` preparing/connecting/streaming): the waiting line's phase. */
+  analysisRunning?: boolean
+  /** Result-first request 2 (the auto-sent explanation) is in flight: "Preparing explanation…" with its lines. */
+  explainingRun?: boolean
   patchBlockStates: Map<string, PatchBlockState>
   patchRejections: Map<string, PatchRejectionInfo>
   onChipClick: (chip: ActionChip) => Promise<void>
@@ -186,6 +195,8 @@ export const ChatThread = memo(function ChatThread({
   isThinking,
   longRunningHint,
   nodeCount,
+  analysisRunning = false,
+  explainingRun = false,
   patchBlockStates,
   patchRejections,
   onChipClick,
@@ -268,14 +279,21 @@ export const ChatThread = memo(function ChatThread({
   // is enabled.
   let lastUserMsg: ConversationMessage | undefined
   let lastAssistantMsg: ConversationMessage | undefined
+  // T4: the coaching row's host. The restore appends an assistant-role "Session resumed" divider
+  // (useConversation `sessionDivider`), which is not a reply: the row stays on the reply before it.
+  let lastReplyMsg: ConversationMessage | undefined
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
     if (!lastUserMsg && m.role === 'user') lastUserMsg = m
     if (!lastAssistantMsg && m.role === 'assistant') lastAssistantMsg = m
-    if (lastUserMsg && lastAssistantMsg) break
+    if (!lastReplyMsg && m.role === 'assistant' && typeof m.sessionDivider !== 'string') lastReplyMsg = m
+    if (lastUserMsg && lastAssistantMsg && lastReplyMsg) break
   }
   const failedSendRetryId =
     lastUserMsg && lastUserMsg.deliveryState === 'failed' ? lastUserMsg.id : null
+  // Suggestion preview: the latest reply's proposal, while its consent chip is offered, is drawn on the canvas as a
+  // ghost (useProposalGhostBridge.ts). Render-only; Accept stays on the chip.
+  useProposalGhostBridge(messages)
 
   // Get suggested chips from last assistant message.
   //
@@ -351,12 +369,15 @@ export const ChatThread = memo(function ChatThread({
             compact={compact}
           />
         )
+        // T4: the latest turn's coaching rows sit between the reply and its chips (guidanceRows.ts).
+        const guidanceRows = msg === lastReplyMsg && msg.guidance ? <GuidanceRows guidance={msg.guidance} /> : null
         // Attach suggested chips directly below the last assistant message
         // so they read as one visual unit rather than floating orphans.
         if (isLastAssistant && suggestedChips.length > 0) {
           return (
             <div key={msg.id} className="response-chip-group" data-testid="response-chip-group">
               {chatMsg}
+              {guidanceRows}
               <SuggestedChips
                 chips={suggestedChips}
                 onChipClick={onChipClick}
@@ -366,12 +387,23 @@ export const ChatThread = memo(function ChatThread({
             </div>
           )
         }
+        if (guidanceRows) {
+          return (
+            <div key={msg.id}>
+              {chatMsg}
+              {guidanceRows}
+            </div>
+          )
+        }
         return chatMsg
       })}
 
       {/* ThinkingDots (DS v5 §21.3): only when EmptyState is NOT handling the loading display */}
       {isThinking && !showEmptyState && !messages.some(m => m.isStreaming) && (
-        <ThinkingDots label={thinkingLabel(longRunningHint, settlingState)} />
+        <ThinkingDots
+          label={explainingRun ? PREPARING_EXPLANATION : thinkingLabel(longRunningHint, settlingState)}
+          phase={waitingPhaseOf({ settling: settlingState !== 'none', analysisRunning, nodeCount, explaining: explainingRun })}
+        />
       )}
 
       {/* New messages pill */}

@@ -181,7 +181,8 @@ describe('Model tab text-entry controls hold the 14px minimum', () => {
     })
 
     it('A7 the calc shape the old regex could not read resolves, and bites', () => {
-      // ⚠ 11px → 12px (12 Sep 2026). `typography.nodeLabel` moved with the
+      // ⚠ 12px → 11px (27 Sep 2026, three type sizes on the graph); it was
+      // 11px → 12px on 12 Sep. `typography.nodeLabel` moved with the
       // canvas ramp. The MAGNITUDE is pinned deliberately — this file's own
       // rule is "pinned by reason AND magnitude, not by location alone", so a
       // token drifting to a different below-minimum size must still RED here
@@ -191,7 +192,7 @@ describe('Model tab text-entry controls hold the 14px minimum', () => {
         typography as Record<string, string>,
       )
       expect(out.map(o => o.kind)).toEqual(['below-minimum'])
-      expect(out[0].detail).toMatch(/12px/)
+      expect(out[0].detail).toMatch(/11px/)
     })
 
     it('⭐ A7b THE CANVAS TITLE IS NO LONGER BELOW THE MINIMUM, which is the point of the ramp', () => {
@@ -199,12 +200,16 @@ describe('Model tab text-entry controls hold the 14px minimum', () => {
        * ⭐⭐ THE OPPOSITE-DIRECTION TWIN, and the reason A7 alone is not enough.
        * A7 shows the scanner can resolve a `calc` shape and call it too small.
        * It would read identically if the scanner called EVERY token too small.
-       * `typography.nodeTitle` is now 14px — exactly the minimum — so it must
+       * `typography.nodeTitle` was 14px — exactly the minimum — so it must
        * come back CLEAN through the same code path, on the same day the canvas
        * stopped being the one surface below its own declared floor.
+       * ⚠ 29 Sep 2026: the repeated card title is 13px (contract v3.1, #2288);
+       * the 14px token is now `typography.nodeTitleWide` (the Question/Goal
+       * title), so the synthetic control reads that one. No Model-tab input
+       * uses either token — the live scan above is unchanged.
        */
       const out = judgeControls(
-        scanSource(`<input className={typography.nodeTitle} />`, 'f.tsx'),
+        scanSource(`<input className={typography.nodeTitleWide} />`, 'f.tsx'),
         typography as Record<string, string>,
       )
       expect(out).toEqual([])

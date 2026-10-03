@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import { ChevronDown, ChevronUp, Paperclip, Settings, Sparkles, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Paperclip, Settings, X } from 'lucide-react'
 import { useCEEDraft } from '../../hooks/useCEEDraft'
 import { DraftLoadingAnimation } from './DraftLoadingAnimation'
 import { ErrorAlert } from '../../components/ErrorAlert'
@@ -14,6 +14,8 @@ import { RateLimitNotice } from './RateLimitNotice'
 import { ThinkingModePopover } from './ThinkingModePopover'
 import { DEFAULT_EDGE_DATA, trimProvenance, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../domain/edges'
 import { readWireNaturalEffect } from '../domain/naturalEffect'
+import { strengthPlaceholderPatch } from '../domain/strengthPlaceholder'
+import { strengthDefinitionalPatch } from '../domain/strengthDefinitional'
 import { edgeValueSourcePatch, stripEdgeValueSourceKeys } from '../domain/edgeValueProvenance'
 import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
@@ -33,6 +35,7 @@ import { useStructuralAddEvents } from '../conversation/useStructuralAddEvents'
 import { useStructuralAddEdgeEvents } from '../conversation/useStructuralAddEdgeEvents'
 import { usePanelApplyDrain } from '../conversation/usePanelApplyDrain'
 import { useAnalysisCompleteEvent } from '../conversation/useAnalysisCompleteEvent'
+import { OlumiAiIcon } from '../../components/results/analysisNew/OlumiAiIcon'
 // useSessionResumeEvent disabled — session_resume not in CEE v3 schema
 // import { useSessionResumeEvent } from '../conversation/useSessionResumeEvent'
 
@@ -552,6 +555,11 @@ export function DraftChat() {
         style: _style, curvature: _curvature, kind: _kind,
         functionType: _funcType, beliefStrength: _beliefStr,
         schemaVersion: _schemaVer,
+        // MG 0ebb952a: likewise canvas-internal, written below from its ONE reader.
+        strengthDefinitional: _strengthDefinitional,
+        // POM-8: a canvas-internal key, written below from the ONE reader —
+        // never taken from the untrusted wire remainder.
+        strengthPlaceholder: _strengthPlaceholder,
         ...edgeRest
       } = e as Record<string, unknown>
 
@@ -724,6 +732,13 @@ export function DraftChat() {
           ...(serverStrength !== undefined ? { serverStrength } : {}),
           // The edge's size in the target's units — the ONE reader, every hop (domain/naturalEffect).
           ...(naturalEffect !== undefined ? { naturalEffect } : {}),
+          // POM-8: a placeholder strength — HOP 3 OF 3, the same one reader
+          // (domain/strengthPlaceholder). The key is destructured OUT of
+          // `edgeRest` above, so only this reader can write it.
+          ...strengthPlaceholderPatch(e as Record<string, unknown>, weight, weightSource !== 'default'),
+          // A definitional link — HOP 3 OF 3, the same one reader
+          // (domain/strengthDefinitional); destructured OUT of `edgeRest` above.
+          ...strengthDefinitionalPatch(e as Record<string, unknown>, weightSource !== 'default'),
           provenance: provenanceText,
           // Brief v2.2: New edge properties
           ...(direction ? { direction } : {}),
@@ -1206,7 +1221,7 @@ export function DraftChat() {
             <div className="flex items-center justify-between px-4 py-3 border-b border-sand-100" style={{ backgroundColor: '#FEFEFE' }}>
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-mint-500 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-white" />
+                  <OlumiAiIcon size={16} className="olumi-glyph-ai text-white" aria-hidden="true" />
                 </div>
                 <div>
                   <h2 id="draft-chat-title" className={`${typography.label} text-ink-900`}>
@@ -1516,7 +1531,7 @@ export function DraftChat() {
                     : "Describe your decision... e.g., We're deciding whether to expand into the European market. Key factors include regulatory costs, market size, and competition..."}
                   className={`
                     ${typography.body} w-full p-3 pb-12 rounded-md border border-sand-200
-                    focus:border-sand-200 focus:outline-none focus:ring-0 focus:shadow-none
+                    focus:border-sand-200 focus:outline-none focus-visible:ring-0 focus:shadow-none
                     resize-none
                     placeholder:text-ink-400
                   `}

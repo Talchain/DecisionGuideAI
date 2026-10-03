@@ -83,7 +83,7 @@
   color: var(--text-primary, #262626);
 }
 
-.closeButton:focus {
+.closeButton:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--semantic-info, #277A9D);
   border-radius: 4px;

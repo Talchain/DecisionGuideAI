@@ -16,7 +16,7 @@ import { resolve } from 'node:path'
 import {
   LABEL_LEGIBLE_ZOOM,
   LABEL_COUNTER_SCALE_CAP,
-  LANDING_TITLE_FLOOR_PX,
+  LANDING_BODY_FLOOR_PX,
   glyphCounterScale,
   labelCounterScale,
   renderedGlyphPx,
@@ -27,7 +27,8 @@ import {
 
 /**
  * ⭐ 27 Sep 2026 (canvas/landing-text-scale): TEXT carries a ceiling,
- * `LABEL_COUNTER_SCALE_CAP` (1.36), so in the band [LABEL_LEGIBLE_ZOOM, 1 / CAP)
+ * `LABEL_COUNTER_SCALE_CAP` (1.64 since the owner's 27 Sep landing text cap,
+ * #70 5859837231; it was 1.36), so in the band [LABEL_LEGIBLE_ZOOM, 1 / CAP)
  * it renders below its declared size — the brief's trade of type size for a
  * board that fits. GLYPHS and TARGETS keep the old, uncapped rule
  * (`glyphCounterScale`). The arms below that used to say "rendered === declared
@@ -73,7 +74,8 @@ const TEXT_EXACT_FROM = 1 / LABEL_COUNTER_SCALE_CAP
  * it is checking). The completeness check belongs in the census, which asserts
  * the exact token set.
  */
-const DECLARED = { nodeTitle: 14, nodeValue: 14, nodeLabel: 12, edgeLabel: 11 } as const
+// 29 Sep 2026 (contract v3.1, Paul "pixel perfect"): title/value 13, the wide title 14.
+const DECLARED = { nodeTitle: 13, nodeTitleWide: 14, nodeValue: 13, nodeLabel: 11, edgeLabel: 11 } as const
 
 /** DS v5 §2.4: panel and canvas contexts bottom out at 10px. */
 const DS_CANVAS_FLOOR_PX = 10
@@ -137,14 +139,22 @@ describe('renderedLabelPx — the invariant the DS actually asks for', () => {
     }
   })
 
-  it('at the auto-fit settle zoom a title clears the LANDING title floor, and each token renders exactly its pinned landing size', () => {
+  it('at the auto-fit settle zoom body text clears the LANDING body floor, and each token renders exactly its pinned landing size', () => {
     // `useFitViewOnLayoutVersion` passes LABEL_LEGIBLE_ZOOM as fitView's
     // minZoom, and a post-draft graph clamps there — so this IS the zoom the
-    // product parks a fresh user at. Since 27 Sep the brief's floor there is
-    // LANDING_TITLE_FLOOR_PX (9.5px), below DS v5 §2.4's 10px: STATED, and
-    // pinned per token so a further drop is a decision, not a drift.
-    expect(renderedLabelPx(DECLARED.nodeTitle, LABEL_LEGIBLE_ZOOM)).toBeGreaterThanOrEqual(LANDING_TITLE_FLOOR_PX)
-    const LANDING_PX = { nodeTitle: 9.52, nodeValue: 9.52, nodeLabel: 8.16, edgeLabel: 7.48 } as const
+    // product parks a fresh user at. Since 27 Sep the owner's floor there is
+    // LANDING_BODY_FLOOR_PX (9px) on the BODY token, below DS v5 §2.4's 10px:
+    // STATED, and pinned per token so a further drop is a decision, not a drift.
+    //
+    // 27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231.
+    //   token       old (1.36)  new (1.64)
+    //   nodeTitle   9.52        11.48
+    //   nodeValue   9.52        11.48
+    //   nodeLabel   7.48         9.02
+    //   edgeLabel   7.48         9.02
+    expect(renderedLabelPx(DECLARED.nodeLabel, LABEL_LEGIBLE_ZOOM)).toBeGreaterThanOrEqual(LANDING_BODY_FLOOR_PX)
+    // 29 Sep 2026: 13 × 1.64 × 0.5 = 10.66 (title, value); the wide title keeps 11.48.
+    const LANDING_PX = { nodeTitle: 10.66, nodeTitleWide: 11.48, nodeValue: 10.66, nodeLabel: 9.02, edgeLabel: 9.02 } as const
     for (const [name, declared] of Object.entries(DECLARED)) {
       expect(renderedLabelPx(declared, LABEL_LEGIBLE_ZOOM), name).toBeCloseTo(LANDING_PX[name as keyof typeof LANDING_PX], 10)
     }
@@ -228,10 +238,13 @@ describe('renderedLabelPx — the invariant the DS actually asks for', () => {
     // Below LABEL_LEGIBLE_ZOOM the LOD view has hidden most labels; the few that
     // are kept (goal / decision / the leading option) shrink linearly from the
     // capped scale instead of vanishing.
-    // 14 × LABEL_COUNTER_SCALE_CAP (1.36) × zoom since 27 Sep 2026 (was × 2:
-    // 12.6 and 11.2).
-    expect(renderedLabelPx(DECLARED.nodeTitle, 0.45)).toBeCloseTo(8.568, 6)
-    expect(renderedLabelPx(DECLARED.nodeTitle, 0.4)).toBeCloseTo(7.616, 6)
+    // 14 × LABEL_COUNTER_SCALE_CAP (1.64) × zoom since the 27 Sep 2026 landing
+    // text cap (#70 5859837231): was × 1.36 (8.568 and 7.616), and × 2 before
+    // that (12.6 and 11.2).
+    // 29 Sep 2026: the repeated title is 13px (13 × 1.64 × zoom); the wide title keeps 14.
+    expect(renderedLabelPx(DECLARED.nodeTitle, 0.45)).toBeCloseTo(9.594, 6)
+    expect(renderedLabelPx(DECLARED.nodeTitle, 0.4)).toBeCloseTo(8.528, 6)
+    expect(renderedLabelPx(DECLARED.nodeTitleWide, 0.45)).toBeCloseTo(10.332, 6)
 
     /*
      * ⭐⭐ THE 12 Sep 2026 RAMP REPAYS THE TRADE THE 1 Sep CHANGE ACCEPTED —
@@ -264,12 +277,17 @@ describe('renderedLabelPx — the invariant the DS actually asks for', () => {
      * This assertion is the thing that will notice if someone shaves the
      * declared size again, so the next person has to come here and re-argue it.
      */
-    // ⚠ 27 Sep 2026: with the text ceiling the title crosses the 10px floor at
-    // 10 / (14 × 1.36) ≈ 0.525 — ABOVE the landing floor. The landing promise is
-    // now LANDING_TITLE_FLOOR_PX (9.5px), and it still holds AT the landing floor.
+    // ⚠ 27 Sep 2026: with the 1.64 text ceiling the title crosses the 10px floor
+    // at 10 / (14 × 1.64) ≈ 0.4355 — below the landing floor again (at 1.36 it was
+    // 0.525, above it). The landing promise is LANDING_BODY_FLOOR_PX (9px) on
+    // the body token, and it holds AT the landing floor: body text reaches it at
+    // 9 / (11 × 1.64) ≈ 0.4989 ≤ 0.5.
+    // ⚠ 29 Sep 2026: at 13px the crossing is 10 / (13 × 1.64) ≈ 0.4690 — still BELOW the
+    // landing floor (0.5), so at landing a repeated title renders 10.66px ≥ 10.
     const floorCrossingZoom = DS_CANVAS_FLOOR_PX / (DECLARED.nodeTitle * MAX_LABEL_COUNTER_SCALE)
-    expect(floorCrossingZoom).toBeCloseTo(0.52521, 4)
-    expect(LANDING_TITLE_FLOOR_PX / (DECLARED.nodeTitle * MAX_LABEL_COUNTER_SCALE)).toBeLessThanOrEqual(LABEL_LEGIBLE_ZOOM)
+    expect(floorCrossingZoom).toBeCloseTo(0.46904, 4)
+    expect(floorCrossingZoom).toBeLessThan(LABEL_LEGIBLE_ZOOM)
+    expect(LANDING_BODY_FLOOR_PX / (DECLARED.nodeLabel * MAX_LABEL_COUNTER_SCALE)).toBeLessThanOrEqual(LABEL_LEGIBLE_ZOOM)
   })
 })
 

@@ -114,6 +114,7 @@ import { resolveOptionInterventionCount } from '../nodes/shared/optionInterventi
 import { useAnalysisResultsAreCurrent } from './useAnalysisResultsAreCurrent'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
 import type { ResultsReport } from '../../components/results/types'
+import { optionParticipationOf } from '../state/storedOptionParticipation'
 import {
   deriveNotAnalysedReason,
   isAnalysedOption,
@@ -161,13 +162,16 @@ import {
  * same fabrication one level up. So the fourth reason, its type and its copy are
  * WITHDRAWN, and the arm simply returns `null`.
  *
- * ⭐ WHAT `null` COSTS AND WHAT IT BUYS. The card falls back to
- * `option-result-unavailable-*` — *"On the data so far, no support percentage
- * for this option"* — which is the pooled sentence this hook was built to split.
- * That is a real loss of precision and it is the chosen direction: pooled-but-
- * true beats specific-and-false, and it is what "withhold rather than gate on a
- * flag that lies" means here. The split still happens on every run the product
- * can vouch for.
+ * ⭐ WHAT `null` COSTS, CORRECTED 27 Sep 2026. This said the card then fell back
+ * to the pooled `option-result-unavailable-*` line, and called it "pooled-but-
+ * true". Measured on Paul's `mrr-90b8f080` after a model edit, that line read
+ * "On the data so far, the model gave no share of runs for this option": a
+ * computed-looking zero for an option no run ever scored, with no `Last run ·`.
+ * The null withholds the REASON, and the card no longer uses it to decide the
+ * STATE. It reads {@link useOptionAbsentFromRunShown} for that, keeps
+ * `Not analysed` exactly as `NotAnalysedOptionCard` does, and replaces only the
+ * engine-blaming sentence with `NOT_ANALYSED_IN_LAST_ANALYSIS` ("has", never
+ * "returned").
  *
  * ⚠ THE GATE COVERS `not_returned` ONLY, AND POOLING `no_interventions` IN WOULD
  * BE A WORSE CARD. `no_interventions` is a property of the graph AS IT IS NOW —
@@ -216,13 +220,49 @@ import {
  * adds no re-render beyond an actual change of the answer.
  */
 export function useOptionLeftOutOfRun(optionNodeId: string): NotAnalysedReason | null {
-  // ⚠ READ BEFORE THE SELECTOR, NOT INSIDE IT. It is a hook of its own (three
-  // store subscriptions plus the shared classifier), so it cannot be called
-  // from within a zustand selector; the selector below closes over its value,
-  // which is a primitive, so a change of currency re-renders and re-evaluates
-  // the selector exactly once.
+  // ⚠ READ ALONGSIDE THE ABSENCE, NOT INSIDE ITS SELECTOR. It is a hook of its
+  // own (three store subscriptions plus the shared classifier), so it cannot be
+  // called from within a zustand selector.
   const resultsAreCurrent = useAnalysisResultsAreCurrent()
+  const reason = useOptionAbsentFromRunShown(optionNodeId)
 
+  // ⭐⭐ THE ONE ARM THAT BLAMES THE ENGINE IS WITHHELD UNLESS WE CAN VOUCH
+  // FOR THE RESULT.
+  //
+  // `not_returned` is the claim "the run HAD this option and answered nothing
+  // about it". That is only ours to make while the result on screen is
+  // confirmably about the graph in front of the user. When it is not, we
+  // cannot tell that world from "this option was never submitted", and we
+  // cannot say which — `false` here pools 'changed' with 'cannot_confirm', so
+  // there is no replacement REASON to reach for either.
+  //
+  // ⚠ `no_interventions` IS NOT GATED. It reports the graph as it is now, not
+  // as the run saw it, so it needs no licence from the currency signal — and
+  // it is the only arm carrying an action.
+  if (reason === 'not_returned' && !resultsAreCurrent) return null
+
+  return reason
+}
+
+/**
+ * ⭐ IS THIS OPTION ABSENT FROM THE RESULT ON SCREEN? — the fact under the
+ * reason, with no currency licence (side-by-side DIFF 27 Sep, item 5).
+ *
+ * `useOptionLeftOutOfRun` answers "which REASON may the card state", and it
+ * withholds `not_returned` on a result it cannot vouch for. That withholding is
+ * about the SENTENCE. The ABSENCE is still true: the result on screen has no
+ * entry for this option, whether the run left it out or the option was added
+ * after it. The results panel has always drawn it that way
+ * (`NotAnalysedOptionCard`: the badge stays, only the paragraph is withheld).
+ * Before this export the canvas card had only the licensed answer, so on a
+ * stale run it lost the state as well and fell back to "On the data so far,
+ * the model gave no share of runs for this option", which reads as a computed
+ * zero (measured on Paul's `mrr-90b8f080`).
+ *
+ * Same selector, same domain guard, same order as before; only the currency
+ * gate is left to `useOptionLeftOutOfRun`, which reads this.
+ */
+export function useOptionAbsentFromRunShown(optionNodeId: string): NotAnalysedReason | null {
   // ⚠ THE SELECTOR CARRIES ITS OWN RETURN ANNOTATION, AND IT IS LOAD-BEARING.
   // Without it TypeScript infers the selector's return type from its bodies and
   // WIDENS the returned literals to `string`, so zustand's `U` resolves to
@@ -256,29 +296,12 @@ export function useOptionLeftOutOfRun(optionNodeId: string): NotAnalysedReason |
 
     // MT-21: a linked option with NO values is `no_interventions`, not an
     // engine miss — counted by the one owner of "how many values".
-    const reason = deriveNotAnalysedReason(optionNodeId, state.edges, optionNodeIds, (oid) =>
+    return deriveNotAnalysedReason(optionNodeId, state.edges, optionNodeIds, (oid) =>
       resolveOptionInterventionCount(oid, {
         ceeOptions: state.ceeAnalysisReady?.options,
         nodeInterventions: (state.nodes.find((n) => n.id === oid)?.data as { interventions?: unknown } | undefined)?.interventions,
       }),
+      (oid) => optionParticipationOf(report as unknown as ResultsReport, oid)?.state === 'excluded_olumi_proposed',
     )
-
-    // ⭐⭐ THE ONE ARM THAT BLAMES THE ENGINE IS WITHHELD UNLESS WE CAN VOUCH
-    // FOR THE RESULT.
-    //
-    // `not_returned` is the claim "the run HAD this option and answered nothing
-    // about it". That is only ours to make while the result on screen is
-    // confirmably about the graph in front of the user. When it is not, we
-    // cannot tell that world from "this option was never submitted", and we
-    // cannot say which — `false` here pools 'changed' with 'cannot_confirm', so
-    // there is no replacement sentence to reach for either. Nothing is
-    // returned; the card falls back to the pooled-but-true line below it.
-    //
-    // ⚠ `no_interventions` IS NOT GATED. It reports the graph as it is now, not
-    // as the run saw it, so it needs no licence from the currency signal — and
-    // it is the only arm carrying an action.
-    if (reason === 'not_returned' && !resultsAreCurrent) return null
-
-    return reason
   })
 }

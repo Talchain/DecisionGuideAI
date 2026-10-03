@@ -178,6 +178,25 @@ export type ScenarioGraphResult =
        */
       analysisResult: unknown
       /**
+       * CEE's per-limit and joint verdicts for the analysis in `analysisResult` (`analysis_limit_verdicts`), raw —
+       * parsed downstream by the SAME reader the turn leg uses (`readLimitVerdicts`). CEE ships it exactly when it
+       * ships that block; `null` = none attested, never "scored".
+       */
+      limitVerdicts?: unknown
+      /** CEE's stored goal-certainty fact for the analysis in `analysisResult` (`analysis_goal_certainty`, CEE #2280), raw. */
+      goalCertainty?: unknown
+      /** The Run's stored option-participation fact (`analysis_option_participation`, Runtime 5888341208), raw. */
+      optionParticipation?: unknown
+      /**
+       * SC-24: the displayed Run's comparison with the Run before it (`run_delta`), raw — the SAME producer block the
+       * turn that ran it carried, served on the cold read so a reload shows the same pair. Parsed downstream by the
+       * contract (`RunDeltaSchema`); absent = no delta for this Run.
+       * CARRIER: `current_read.run_delta` ONLY (P0 PARTNER ruling #75 5917382664, CURRENT-READ-v1 row 1 @ `2395d434`) —
+       * CEE sets it only when the read is `complete_current` AND the displayed Run is the pair's newer end. A top-level
+       * `run_delta` is not the contract and is ignored.
+       */
+      runDelta?: unknown
+      /**
        * CEE's run admission for this revision (`analysis_admission.admitted`), or
        * `null` / absent when the read did not answer. The boot restore of a
        * gate-closing verdict needs it: CEE may admit a run whose readiness still
@@ -187,6 +206,10 @@ export type ScenarioGraphResult =
        * stored bytes it judged) starts with this read's `graph_hash`.
        */
       admitted?: boolean | null
+      /** Subject-bound machine census for disclosure; never original Run admission. */
+      currentReadInputBasis?: unknown
+      /** The read's `conversation_turns`, raw (sent only on `includeConversationTurns`); undefined when absent. */
+      conversationTurns?: unknown
       requestId: string | null
     }
   /** 200, `graph_present:false` — the scenario exists and has no graph yet. Normal. */
@@ -221,6 +244,12 @@ export interface FetchScenarioGraphOptions {
   retryDelayMs?: number
   /** Per-attempt deadline. See `DEFAULT_TIMEOUT_MS`. */
   timeoutMs?: number
+  /**
+   * Ask for the stored chat (`conversation_turns`) — MG 5907618888: OPT-IN, so every other caller's body stays
+   * byte-identical. Only the cold open sends it. A CEE without the read ignores the key (measured 30 Sep 09:0xZ on
+   * served staging: same 200, same 18 keys), so this is inert until the read serves.
+   */
+  includeConversationTurns?: boolean
 }
 
 function sleep(ms: number): Promise<void> {
@@ -254,6 +283,16 @@ function readIdentityEnvelope(raw: unknown): ScenarioGraphIdentity | null {
     return null
   }
   return { value, projectionVersion }
+}
+
+/**
+ * SC-24 — the cold read's `run_delta` lives ONLY inside `current_read` (P0 PARTNER ruling #75 5917382664). CEE puts it
+ * there under the same gate as the read's figures (`complete_current` + newer end), so a stale read never gains a delta.
+ * Carried raw; `RunDeltaSchema` parses it downstream (`applyScenarioAnalysisRead`).
+ */
+function readCurrentReadRunDelta(raw: unknown): unknown {
+  if (raw === null || typeof raw !== 'object') return null
+  return (raw as { run_delta?: unknown }).run_delta ?? null
 }
 
 /**
@@ -358,7 +397,14 @@ function parseOk(body: unknown): ScenarioGraphResult {
     // being the one block type this leg may carry, so a future CEE key cannot
     // arrive here as an unlabelled object.
     analysisResult: readAnalysisResultBlock(b.analysis_result),
+    limitVerdicts: b.analysis_limit_verdicts ?? null,
+    goalCertainty: b.analysis_goal_certainty ?? null,
+    optionParticipation: b.analysis_option_participation ?? null,
+    runDelta: readCurrentReadRunDelta(b.current_read),
     admitted: readAdmitted(b.analysis_admission, b.graph_hash),
+    currentReadInputBasis: readCurrentReadInputBasis(b.analysis_admission, b.graph_hash),
+    // Carried raw; the ONE reader is `readServerConversationTurns` (canvas/conversation/serverConversationTurns.ts).
+    conversationTurns: b.conversation_turns,
     requestId,
   }
 }
@@ -376,6 +422,13 @@ function readAdmitted(raw: unknown, readGraphHash: unknown): boolean | null {
   if (typeof readGraphHash !== 'string' || readGraphHash.length === 0) return null
   if (typeof admissionHash !== 'string' || !admissionHash.startsWith(readGraphHash)) return null
   return admitted
+}
+
+function readCurrentReadInputBasis(raw: unknown, readGraphHash: unknown): unknown {
+  // Reuse this read's existing subject binding; never compare it to a Run hash.
+  if (readAdmitted(raw, readGraphHash) === null) return null
+  const admission = raw as { semantic_signals?: unknown; graph_hash?: unknown }
+  return { semantic_signals: admission.semantic_signals, graph_hash: admission.graph_hash }
 }
 
 /**
@@ -414,6 +467,9 @@ export async function fetchScenarioGraph(
   const body: Record<string, unknown> = {}
   if (identityUserId !== null) {
     body.user_id = identityUserId
+  }
+  if (opts.includeConversationTurns === true) {
+    body.include_conversation_turns = true
   }
 
   // ONE builder, shared with the turn path (`src/v5/turnAuthHeaders.ts`) — a

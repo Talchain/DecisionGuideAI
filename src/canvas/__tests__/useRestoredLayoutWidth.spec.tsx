@@ -13,12 +13,42 @@
  * individually-correct conclusions purely by omitting it.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, render } from '@testing-library/react'
+import { useLayoutEffect } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { useLayoutStore } from '../layoutStore'
 import { useRestoredLayoutWidth } from '../hooks/useRestoredLayoutWidth'
-import { NODE_CARD_MAX_W, NODE_LAYOUT_MIN_W, REPEATED_CARD_W, ANCHOR_CARD_MAX_W } from '../utils/nodeLayoutConstants'
+import {
+  NODE_CARD_MAX_W,
+  NODE_LAYOUT_MIN_W,
+  REPEATED_CARD_W,
+  REPEATED_CARD_MAX_W,
+  ANCHOR_CARD_MAX_W,
+  LAYOUT_NODE_GAP,
+  LAYOUT_PADDING_X,
+  ROW_BUDGET_W,
+  ROW_PROMPT_W,
+} from '../utils/nodeLayoutConstants'
+
+/**
+ * ⭐ A REPEATED TIER'S FAIR SHARE (Paul, 30 Sep 2026: "wider and shorter"),
+ * written from the rule in `ROW_BUDGET_W`'s header, not read from the layout:
+ * the widest sub-row of `k` cards plus its prompt slot shares ROW_BUDGET_W; a
+ * wrapped tier's brick course must fit it too; clamped to [248, 400]. The prompt
+ * slot exists only in DOWN (the only direction with a row end).
+ */
+function fairShare(k: number, opts: { wrapped?: boolean; prompt?: boolean } = {}): number {
+  const g = LAYOUT_NODE_GAP
+  const slot = opts.prompt === false ? 0 : g + ROW_PROMPT_W
+  let share = Math.floor((ROW_BUDGET_W - slot - (k - 1) * g) / k) - LAYOUT_PADDING_X
+  if (opts.wrapped) share = Math.min(share, Math.floor((ROW_BUDGET_W - (k - 0.5) * g) / (k + 0.5)) - LAYOUT_PADDING_X)
+  return Math.max(REPEATED_CARD_W, Math.min(REPEATED_CARD_MAX_W, share))
+}
+
+/** The factor stride `restoredGraph` saves at, and the option stride. */
+const SAVED_FACTOR_STRIDE = 350
+const SAVED_OPTION_STRIDE = 400
 
 function n(id: string, type: string, x: number, y: number): Node {
   return { id, type, position: { x, y }, data: { label: id } } as Node
@@ -34,6 +64,11 @@ function n(id: string, type: string, x: number, y: number): Node {
  * therefore observe the hook through what still varies — the PER-KIND record
  * (the Question is wide, repeated cards are not) and the latch itself (a
  * sentinel width the hook must leave alone, or must replace on a new restore).
+ *
+ * ⭐ 30 Sep 2026 (Paul, "wider and shorter"): the single width VARIES again — a
+ * tier draws at its row's fair share of `ROW_BUDGET_W` (9 → 5 + 4 → 257; 6 → 3 + 3
+ * → 400; 4 → 350; 3 → 400). The sentinels are kept (they still isolate the latch),
+ * and the twins can once more see the derived value itself.
  */
 function restoredGraph(factors: number): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [
@@ -98,34 +133,139 @@ describe('useRestoredLayoutWidth', () => {
     // RE-PINNED 27 Sep 2026: the S4 single width is the repeated width, which
     // NODE_LAYOUT_MIN_W used to equal (260). Under the landing text ceiling the
     // floor is 190.88 and the repeated width is the ED target, 248.
-    expect(useLayoutStore.getState().layoutNodeWidth).toBe(REPEATED_CARD_W)
-    expect(useLayoutStore.getState().layoutNodeWidth).toBeGreaterThanOrEqual(NODE_LAYOUT_MIN_W)
-    expect(useLayoutStore.getState().layoutNodeWidth).not.toBe(NODE_CARD_MAX_W)
+    // RE-PINNED 30 Sep 2026: nine factors wrap 5 + 4 and take the fair share of
+    // five capped by the brick course, min(270, floor((1656 − 4.5 × 24) / 5.5) − 24)
+    // = 257.
+    const w = useLayoutStore.getState().layoutNodeWidth
+    expect(w).toBe(fairShare(5, { wrapped: true }))
+    expect(w).toBe(257)
+    expect(w).toBeGreaterThanOrEqual(NODE_LAYOUT_MIN_W)
+    expect(w).not.toBe(NODE_CARD_MAX_W)
+    // …and it fits the stride the restored positions sit on, with the sibling gap.
+    expect(w! + LAYOUT_NODE_GAP).toBeLessThanOrEqual(SAVED_FACTOR_STRIDE)
   })
 
-  it('[saved reload] a restored 4-wide model derives the SAME repeated width (S4) — and the per-kind record still tells the Question from a factor', () => {
-    // The discriminating twin of the case above. Under S4 the single width is
-    // the repeated width at every tier size (ED: split rows keep full card
-    // width), so the twin that proves the hook is not "always install one
-    // value" moves to the per-kind record, which a measured restore publishes.
+  it('[saved reload] a restored 4-wide model derives a DIFFERENT, wider width than the 9-wide — and the per-kind record, bounded by the saved stride, still tells the Question from a factor', () => {
+    // The discriminating twin of the case above. Under S4 the single width was
+    // the repeated width at every tier size, so this twin had moved to the
+    // per-kind record. Since 30 Sep the single width is the tier's fair share
+    // again, so the twin sees the hook's answer change with the graph directly:
+    // four factors on one row → floor((1656 − 56 − 72) / 4) − 24 = 358, not 257 (350 before Paul's 1 Oct
+    // half-size row-end prompt took the slot from 24 + 64 to 24 + 32).
     const { nodes, edges } = restoredGraph(4)
     const measured = nodes.map((x) => ({ ...x, measured: { width: 260, height: 120 } })) as Node[]
     seed({ nodes: measured, edges, currentScenarioId: 'scB' })
 
     renderHook(() => useRestoredLayoutWidth())
 
-    expect(useLayoutStore.getState().layoutNodeWidth).toBe(REPEATED_CARD_W)
+    expect(useLayoutStore.getState().layoutNodeWidth).toBe(fairShare(4))
+    expect(useLayoutStore.getState().layoutNodeWidth).toBe(358)
+    expect(useLayoutStore.getState().layoutNodeWidth).not.toBe(fairShare(5, { wrapped: true }))
+    // The per-kind record is BOUNDED BY THE SAVED STRIDE (`solveRestoredCardWidths`):
+    // min(fair share, stride − padding − gap). Factors: min(358, 350 − 48) = 302; options
+    // (2 → the 400 cap): min(400, 400 − 48) = 352. The Question keeps the anchor width.
     const perKind = useLayoutStore.getState().layoutCardWidths
-    expect(perKind?.factor).toBe(REPEATED_CARD_W)
+    expect(perKind?.factor).toBe(Math.min(fairShare(4), SAVED_FACTOR_STRIDE - LAYOUT_NODE_GAP - LAYOUT_PADDING_X))
+    expect(perKind?.factor).toBe(302)
+    expect(perKind?.option).toBe(Math.min(fairShare(2), SAVED_OPTION_STRIDE - LAYOUT_NODE_GAP - LAYOUT_PADDING_X))
     expect(perKind?.decision).toBe(ANCHOR_CARD_MAX_W)
     expect(perKind?.decision).not.toBe(perKind?.factor)
+  })
+
+  it('[saved reload, pre-17-Aug stride] re-spreads ONLY the sub-floor row, in the store, and the widths it publishes clear it', () => {
+    // Canvas owner, 27 Sep 2026 (landing text cap): no overlap beats an old
+    // stride. Options saved at 196 (140 cards + 56 gap) — under the narrowest
+    // drawable card plus the sibling gap, so no width clears them. Factors at
+    // 350, which fits and must come back untouched.
+    const nodes = [
+      n('d1', 'decision', 0, 0),
+      n('o1', 'option', 100, 400), n('o2', 'option', 296, 400), n('o3', 'option', 492, 400),
+      ...[0, 1, 2].map((i) => n(`f${i}`, 'factor', i * 350, 900)),
+    ].map((x) => ({ ...x, measured: { width: 248, height: 120 } })) as Node[]
+    seed({ nodes, currentScenarioId: 'scR' })
+    const factorsBefore = useCanvasStore.getState().nodes.filter((x) => x.type === 'factor')
+
+    renderHook(() => useRestoredLayoutWidth())
+
+    const gap = Math.max(LAYOUT_NODE_GAP, useLayoutStore.getState().nodeSpacing)
+    const workable = Math.ceil(NODE_LAYOUT_MIN_W + gap)
+    const after = useCanvasStore.getState().nodes
+    const opts = after.filter((x) => x.type === 'option').sort((a, b) => a.position.x - b.position.x)
+    expect(opts.map((o) => o.id), 'the saved card order changed').toEqual(['o1', 'o2', 'o3'])
+    expect(opts[1].position.x - opts[0].position.x, 'the sub-floor row was not re-spread').toBeCloseTo(workable, 9)
+    expect(opts[2].position.x - opts[1].position.x).toBeCloseTo(workable, 9)
+    expect((opts[0].position.x + opts[2].position.x) / 2, 'the row left its saved centre').toBeCloseTo(296, 9)
+    expect(opts.every((o) => o.position.y === 400)).toBe(true)
+    after.filter((x) => x.type === 'factor').forEach((f, i) => expect(f, 'a fitting row was touched').toBe(factorsBefore[i]))
+    const optionW = useLayoutStore.getState().layoutCardWidths?.option
+    expect(optionW).toBeGreaterThanOrEqual(NODE_LAYOUT_MIN_W)
+    expect(opts[1].position.x - opts[0].position.x - optionW!, 'the published width still overlaps the re-spread row').toBeGreaterThanOrEqual(0)
+    // A producer write inside the hydrate window, and the window is closed again.
+    expect(useCanvasStore.getState()._externalMutationActive).toBe(0)
+  })
+
+  /**
+   * ⛔⛔ A STORE WRITE BETWEEN THE RENDER AND THE EFFECT SURVIVES THE RE-SPREAD
+   * (Delivery Lead, #2235 r1). The re-spread used to write
+   * `setState({ nodes: restored })` with `restored` built from the render-time
+   * `nodes`, so a write that landed after the hook's render and before its
+   * effect — the boot readback merge, a measurement batch — was silently
+   * undone, and the autosave then saved the older state.
+   *
+   * THE SLOT, MODELLED EXACTLY: every layout effect in a commit runs before any
+   * passive effect, so a sibling `useLayoutEffect` writes after the hook has
+   * rendered and before its `useEffect` reads. The write is a readback-shaped
+   * merge: a new label on `o1` (a card the re-spread MOVES) and on `f1` (a card
+   * in a fitting row it must not touch).
+   */
+  it('[saved reload, pre-17-Aug stride] ⛔ a store write landing between render and the effect survives the re-spread', () => {
+    const nodes = [
+      n('d1', 'decision', 0, 0),
+      n('o1', 'option', 100, 400), n('o2', 'option', 296, 400), n('o3', 'option', 492, 400),
+      ...[0, 1, 2].map((i) => n(`f${i}`, 'factor', i * 350, 900)),
+    ].map((x) => ({ ...x, measured: { width: 248, height: 120 } })) as Node[]
+    seed({ nodes, currentScenarioId: 'scW' })
+    const merged = { o1: 'o1 (from the server)', f1: 'f1 (from the server)' } as Record<string, string>
+
+    let renderedBeforeWrite: Node[] | null = null
+    function RestoreThenReadback() {
+      useRestoredLayoutWidth()
+      useLayoutEffect(() => {
+        renderedBeforeWrite = useCanvasStore.getState().nodes
+        useCanvasStore.setState((s) => ({
+          nodes: s.nodes.map((x) =>
+            merged[x.id] ? { ...x, data: { ...(x.data as object), label: merged[x.id] } } : x,
+          ),
+        }))
+      }, [])
+      return null
+    }
+    render(<RestoreThenReadback />)
+
+    // Precondition: the write really landed on the array the hook rendered with.
+    expect(renderedBeforeWrite, 'the intervening write never ran').not.toBeNull()
+    expect(renderedBeforeWrite).toBe(nodes)
+
+    const after = useCanvasStore.getState().nodes
+    const gap = Math.max(LAYOUT_NODE_GAP, useLayoutStore.getState().nodeSpacing)
+    const workable = Math.ceil(NODE_LAYOUT_MIN_W + gap)
+    const opts = after.filter((x) => x.type === 'option').sort((a, b) => a.position.x - b.position.x)
+    // Precondition: the re-spread really ran, or the survival below is trivial.
+    expect(opts[1].position.x - opts[0].position.x, 'the sub-floor row was not re-spread').toBeCloseTo(workable, 9)
+    expect(opts[0].position.x, 'o1 did not move, so this cannot tell a merge from an overwrite').not.toBe(100)
+    // THE ROW: the intervening write is still there, on a moved card and an unmoved one.
+    const label = (id: string) => (after.find((x) => x.id === id)!.data as { label: string }).label
+    expect(label('o1'), 'the re-spread UNDID the readback write on a card it moved').toBe(merged.o1)
+    expect(label('f1'), 'the re-spread UNDID the readback write on a card it did not move').toBe(merged.f1)
+    expect(useCanvasStore.getState()._externalMutationActive).toBe(0)
   })
 
   it('[saved reload] fires once, and re-arms on a scenario SWITCH', () => {
     const wide = restoredGraph(9)
     seed({ nodes: wide.nodes, edges: wide.edges, currentScenarioId: 'scA' })
     const { rerender } = renderHook(() => useRestoredLayoutWidth())
-    expect(useLayoutStore.getState().layoutNodeWidth).toBe(REPEATED_CARD_W)
+    // 30 Sep: nine factors → 5 + 4 → 257 (see the first case).
+    expect(useLayoutStore.getState().layoutNodeWidth).toBe(fairShare(5, { wrapped: true }))
 
     // A re-render with no restore must not re-derive. Observed with a SENTINEL,
     // because under S4 a re-derivation would return the same value and be
@@ -143,7 +283,10 @@ describe('useRestoredLayoutWidth', () => {
     const narrow = restoredGraph(3)
     seed({ nodes: narrow.nodes, edges: narrow.edges, currentScenarioId: 'scB' })
     rerender()
-    expect(useLayoutStore.getState().layoutNodeWidth).toBe(REPEATED_CARD_W)
+    // Three factors: their share, floor((1656 − 88 − 48) / 3) − 24 = 482, is past
+    // the cap, so the switch installs REPEATED_CARD_MAX_W (400) over the sentinel.
+    expect(useLayoutStore.getState().layoutNodeWidth).toBe(fairShare(3))
+    expect(useLayoutStore.getState().layoutNodeWidth).toBe(REPEATED_CARD_MAX_W)
   })
 
   // ── DOES NOT FIRE: the "stored width wins" direction ──────────────────────
@@ -181,7 +324,9 @@ describe('useRestoredLayoutWidth', () => {
     const six = restoredGraph(6)
     seed({ nodes: six.nodes, edges: six.edges, currentScenarioId: 'scA' })
     const { rerender } = renderHook(() => useRestoredLayoutWidth())
-    expect(useLayoutStore.getState().layoutNodeWidth).toBe(REPEATED_CARD_W)
+    // 30 Sep: six factors wrap 3 + 3 → min(482, 432) → the 400 cap.
+    expect(useLayoutStore.getState().layoutNodeWidth).toBe(fairShare(3, { wrapped: true }))
+    expect(useLayoutStore.getState().layoutNodeWidth).toBe(REPEATED_CARD_MAX_W)
     // S4: the derived width no longer differs between six and nine, so the
     // latch is observed through a SENTINEL standing for "the width the restored
     // positions are drawn at" — it must survive the edit untouched.
@@ -230,12 +375,18 @@ describe('useRestoredLayoutWidth', () => {
   })
 
   // ── The persisted layout options are real inputs, not decoration ──────────
-  it('[saved reload] honours the persisted direction — and under S4 every direction derives the repeated width', () => {
+  it('[saved reload] honours the persisted direction — RIGHT has no row-end prompt slot, so its share is wider than DOWN\'s', () => {
     // Until S4 a 4-wide tier took the full width under DOWN and a clamped one
     // under RIGHT, so the persisted direction changed the answer. S4 removed
     // that dependence: the card width is the repeated width in every direction
     // (only DOWN wraps rows). Pinned, so a direction-dependent width cannot
     // come back unnoticed.
+    //
+    // ⚠ IT HAS COME BACK, AND THIS IS THE NOTICE (30 Sep 2026). A tier's width is
+    // its fair share of ROW_BUDGET_W, and only DOWN reserves the row-end prompt
+    // slot (gap + icon, 88), so four factors draw at 350 under DOWN and at
+    // floor((1656 − 3 × 24) / 4) − 24 = 372 under RIGHT. Both are pinned here, so
+    // the persisted direction is again a real input to the derived width.
     const { nodes, edges } = restoredGraph(4)
     act(() => {
       useLayoutStore.setState({ direction: 'RIGHT' } as never)
@@ -246,7 +397,10 @@ describe('useRestoredLayoutWidth', () => {
 
     const width = useLayoutStore.getState().layoutNodeWidth
     expect(width).not.toBeNull()
-    expect(width).toBe(REPEATED_CARD_W)
+    expect(width).toBe(fairShare(4, { prompt: false }))
+    expect(width).toBe(372)
     expect(width).not.toBe(NODE_CARD_MAX_W)
+    // CONTRAST: the same graph under DOWN derives the prompt-slot share, 350.
+    expect(width).not.toBe(fairShare(4))
   })
 })

@@ -340,7 +340,7 @@ describe('the *_NOT_CONVERTIBLE family names the baseline, never the target', ()
     // REDs the day a goal editor gains an `observed_state` writer, and that red
     // is the signal to restore the instruction.
     expect(suggestion).toBeUndefined()
-    expect(description).toMatch(/withheld/i)
+    expect(description).toMatch(/not shown/i)
     // Banner-eligible: no internal token tripped by the new wording.
     expect(displayText).toBe(title)
   })

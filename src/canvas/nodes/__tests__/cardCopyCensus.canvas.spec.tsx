@@ -278,9 +278,10 @@ const OUTCOME_IDS = ['outcome-1', 'outcome-2', 'outcome-3']
 // and the line read the quantity noun `Influence`, which v3.1 retires.
 const RANKED = { influenceSetSize: 3, influenceRankedCount: 3 }
 const META: Record<string, Record<string, unknown>> = {
-  'factor-1': { sensitivityRank: 1, influence: 0.82, influenceProvenance: 'model', confidence: 0.71, inSensitivityAnalysis: true, ...RANKED },
-  'factor-2': { sensitivityRank: 2, influence: 0.41, influenceProvenance: 'model', confidence: 0.33, inSensitivityAnalysis: true, ...RANKED },
-  'factor-3': { sensitivityRank: 3, influence: 0.24, influenceProvenance: 'model', confidence: 0.58, inSensitivityAnalysis: true, ...RANKED },
+  // `driverRelativeSensitivity`: the bar's figure, present exactly when a rank is (`rankFactor`).
+  'factor-1': { sensitivityRank: 1, influence: 0.82, influenceProvenance: 'model', confidence: 0.71, inSensitivityAnalysis: true, ...RANKED, driverRelativeSensitivity: 1 },
+  'factor-2': { sensitivityRank: 2, influence: 0.41, influenceProvenance: 'model', confidence: 0.33, inSensitivityAnalysis: true, ...RANKED, driverRelativeSensitivity: 0.5 },
+  'factor-3': { sensitivityRank: 3, influence: 0.24, influenceProvenance: 'model', confidence: 0.58, inSensitivityAnalysis: true, ...RANKED, driverRelativeSensitivity: 0.29 },
   'option-1': { winRate: 0.47 },
   'option-2': { winRate: 0.31 },
   'option-3': { winRate: 0.15 },
@@ -550,26 +551,28 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // prototype) — each row's mark and its separator.
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     //          option target is marked (this fixture's interventions carry no `source`).
-    '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
+    // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
   ],
   'option · pre · expert': [
     // Locked Canvas design (23 Sep 2026): `What could go wrong?` was the card
     // question in BOTH views; it is the rail icon in both now.
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     //          option target is marked (this fixture's interventions carry no `source`).
-    '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
+    // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
   ],
   'option · post · standard': [
     'Current model', // CAPTION — `OPTION_RESULT_COPY.current`, beside `N% of runs`.
     //            ⭐ WAS 'Ahead' until 7 Sep 2026, then 'Support' until the
     //            locked Canvas design (23 Sep 2026; ED 11:52Z point 4). The
     //            sentence is on the `title` and in `sr-only` text.
+    'best in', // PREFIX — R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance). Its own aria-hidden leaf before `N%`; the row's name carries it.
     // ⭐ RE-ADJUDICATED 25 Sep 2026: `no source` and `·` are BACK. They left
     // with the bounded anatomy (ED #63 5809278282, rows in the popover); Paul's
     // prototype ruling puts the rows on the face in both phases, the share line
     // below them. Same MARK and SEPARATOR as `option · pre · standard`.
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
-    '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
+    // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
+    'of runs', // UNIT — 27 Sep (post-run side-by-side item 1): the share's unit is its own leaf so it can give way as a whole word at landing; the figure it counts (`N%`) is the adjacent leaf and never gives way.
   ],
   // Sorted, because `invariantRuns` sorts — the pinned set must be read as a
   // SET, and an order that depended on render order would RED on an unrelated
@@ -579,9 +582,11 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'View parameters', // CONTROL
     'What this option sets:', // HEADING
     'What would make this better supported?', // CONTROL
+    'best in', // PREFIX — R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance). Its own aria-hidden leaf before `N%`; the row's name carries it.
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     //          option target is marked (this fixture's interventions carry no `source`).
-    '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
+    // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
+    'of runs', // UNIT — 27 Sep (post-run side-by-side item 1): the share's unit is its own leaf so it can give way as a whole word at landing; the figure it counts (`N%`) is the adjacent leaf and never gives way.
   ],
   'factor · pre · standard': [],
   'factor · pre · expert': [
@@ -595,7 +600,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   ],
   // ⭐ ADJUDICATED 24 Sep 2026 — contract v3.1 pt 5 retires the unranked
   // driver line, so the quantity-noun caption `Influence` is gone. The ranked
-  // line reads `Driver N of M analysed` (ED #63 5806207128), which VARIES per card, so it
+  // line reads `Driver N of M ranked in this run` (NODE-ANATOMY v3.2), which VARIES per card, so it
   // is no invariant run; its position is pinned by REACH (`factor · the driver
   // line`).
   'factor · post · standard': [],
@@ -712,7 +717,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // rows (Paul's prototype ruling: the rows stay on the face after a run; the
     // not-computed badge is added below them). See `option · post · standard`.
     'no source', // MARK — see `option · post · standard`.
-    '·', // MARK SEPARATOR — see `option · post · standard`.
+    // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
   ],
   // The change-COUNT fallback lives here and nowhere else. It does NOT enter
   // the census — `Changes 1 factor` / `Changes 2 factors` / `Changes 3 factors`
@@ -726,13 +731,13 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // more` and the rail's edit-targets icon (REACH, and the two-carrier case).
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     //          option target is marked (this fixture's interventions carry no `source`).
-    '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
+    // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
   ],
   'option · pre · lod-line': [],
   'option · post · lod-line': [],
   'factor · pre · lod-line': [],
   // ⭐ ADJUDICATED 24 Sep 2026 (contract v3.1 pt 5): the factors are ranked
-  // now, so each has a reduced line — `Driver N of M analysed`, which
+  // now, so each has a reduced line — `Driver N of M ranked in this run`, which
   // varies per card — and no invariant run is left at this rung.
   'factor · post · lod-line': [],
   'risk · pre · lod-line': [],
@@ -854,7 +859,7 @@ const ADJUDICATED_POSITIONS: Position[] = [
   // ⭐ RE-POINTED AGAIN — prototype, Paul 25 Sep 2026: where ED 5809278282
   // conflicts with the prototype's card bodies, the prototype wins. The driver
   // line is back ON the resting face (and the wordless cue is retired). It stays
-  // a HAND call: `Driver N of M analysed` varies per card, so it is no invariant
+  // a HAND call: `Driver N of M ranked in this run` varies per card, so it is no invariant
   // run (see 'factor · post · standard'). `present` now binds the exact testid
   // ON the face and refuses a match inside the popover.
   {

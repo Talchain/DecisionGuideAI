@@ -53,10 +53,17 @@ export const INSPECTOR_WIDTH_PX = 330
 
 export const INSPECTOR_SHELL_STYLE = {
   width: INSPECTOR_WIDTH_PX,
-  border: '1px solid rgb(var(--info-rgb) / 0.3)',
+  // Neutral frame, never blue: the inspector opens on a click (Paul, 1 Oct 2026: no blue highlighted border
+  // when anything is clicked). Was the contract's info-at-30% `#B8D5CF`.
+  border: '1px solid var(--border-default)',
   borderRadius: 12,
   boxShadow: '0 10px 40px #22333024',
-  maxHeight: 'calc(100vh - 135px)',
+  // The contract's cap, further bounded by the room the canvas actually has
+  // between the app bar and the overlay band (`--inspector-room`, written by
+  // `InspectorModal` at each placement — audit SI-2: at 1280x800 the contract
+  // cap is 665px and the room is 641px, so the panel ran into the focus chip).
+  // Unset (no placement yet, or a host without the band) → the contract cap.
+  maxHeight: 'min(calc(100vh - 135px), var(--inspector-room, 100vh))',
 } as const
 
 /** Rules: the head's, a detail row's, and the note's (`--line`). */
@@ -72,7 +79,7 @@ const BUTTON_BASE =
 
 /** `.button.small` — the one secondary button. */
 export const inspectorButton =
-  `${BUTTON_BASE} border-field/40 bg-white text-text-body hover:border-info hover:bg-info/5`
+  `${BUTTON_BASE} border-field/40 bg-panel text-text-body hover:border-text-light hover:bg-panel-hover`
 
 /** `.button.small.primary` — the one primary button. */
 export const inspectorButtonPrimary =

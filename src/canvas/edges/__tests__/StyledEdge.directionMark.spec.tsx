@@ -42,16 +42,11 @@ import { Position } from '@xyflow/react'
 import {
   edgeArrowheadMarkerId,
   STRUCTURAL_EDGE_COLOUR,
-  EDGE_ARROWHEAD_FLOW_LENGTH,
-  EDGE_ARROWHEAD_FLOW_WIDTH,
-  EDGE_ARROWHEAD_VIEWBOX,
-  EDGE_ARROWHEAD_POLYGON_POINTS,
+  edgeArrowheadViewBox,
+  EDGE_ARROWHEAD_MIN_PX,
+  EDGE_ARROWHEAD_STROKE_MULTIPLE,
+  edgeArrowheadPolygonPoints,
 } from '../edgePresentation'
-import {
-  GLYPH_ANCHOR_RADIUS,
-  GLYPH_PAINTED_BOX_FLOW,
-  GLYPH_BOX_GAP_FLOW,
-} from '../../utils/edgeGlyphPlacement'
 
 // ── Node kind registry — switched per-test ───────────────────────────────────
 const nodeKinds: Record<string, string> = {}
@@ -140,10 +135,13 @@ vi.mock('../../utils/fragileEdgeMatch', () => ({
 }))
 // ⛔ importOriginal-SPREAD, never a hand-listed replacement: a `vi.mock` factory
 // REPLACES the module, so any export added later silently vanishes.
+// The strength width the edge draws at, switchable per test so the arrowhead's
+// size can be observed against TWO widths (a discriminating pair, not one value).
+const strengthWidth = vi.hoisted(() => ({ px: 2 }))
 vi.mock('../../utils/graphDisplayCalculations', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../utils/graphDisplayCalculations')>()),
   calculateEdgeImportance: () => 0.5,
-  weightMagnitudeToStrokeWidth: () => 2,
+  weightMagnitudeToStrokeWidth: () => strengthWidth.px,
 }))
 vi.mock('../../theme/edges', () => ({ applyEdgeVisualProps: (_: any, props: any) => props }))
 vi.mock('../../ui/inspector-v2/inspectorStrings', () => ({
@@ -179,6 +177,7 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
     document.body.innerHTML = ''
     nodeKinds.src = 'factor'
     nodeKinds.tgt = 'outcome'
+    strengthWidth.px = 2
   })
 
   it('points a marker at the target end of a causal edge', () => {
@@ -329,56 +328,87 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
   })
 
   /**
-   * `markerUnits="userSpaceOnUse"` decouples the mark from stroke width. Under
-   * the default (`strokeWidth`) a selected edge — width 4 rather than 2 — would
-   * get a DOUBLE-SIZED arrowhead, leaking the interaction/thickness channel into
-   * the direction channel. One mark, one meaning.
+   * ⭐ contract v3.1 (side-by-side DIFF item 13, 27 Sep 2026): THE HEAD SCALES
+   * WITH THE STROKE. The superseded mark was a fixed 12 × 12 `userSpaceOnUse`
+   * triangle, so a 1.5px line carried a 12px head. Paul, 1 Oct ("The arrows
+   * connecting to the nodes are too big", DGAI #2409): the multiple is 2.5, not
+   * the contract's 4, with a 6px floor so the thinnest line still shows its
+   * direction — 7.5px on a 3px line, 10px on a 4px one, 6px on a 2px one.
+   * Observed against TWO strength widths — one width alone could be satisfied by
+   * a constant that happens to equal it — plus the floor.
    */
-  it('sizes itself independently of stroke width', () => {
-    const root = renderEdge({ data: { direction: 'positive', direction_source: 'user' } })
-    expect(markerOf(root)!.getAttribute('markerUnits')).toBe('userSpaceOnUse')
+  it('is 2.5 × the strength width (Paul 1 Oct), floored at 6px — a discriminating pair', () => {
+    expect(EDGE_ARROWHEAD_STROKE_MULTIPLE).toBe(2.5)
+    expect(EDGE_ARROWHEAD_MIN_PX).toBe(6)
+    const stated = { strength_mean: 0.6, effect_direction: 'positive', exists_probability: 0.8 }
+    strengthWidth.px = 3
+    const thin = markerOf(renderEdge({ data: stated }))!
+    expect(Number(thin.getAttribute('markerWidth'))).toBe(7.5)
+    expect(Number(thin.getAttribute('markerHeight'))).toBe(7.5)
+    document.body.innerHTML = ''
+    strengthWidth.px = 4
+    const thick = markerOf(renderEdge({ data: stated }))!
+    expect(Number(thick.getAttribute('markerWidth'))).toBe(10)
+    expect(Number(thick.getAttribute('markerHeight'))).toBe(10)
+    document.body.innerHTML = ''
+    // The floor: 2.5 × 2 = 5 would be a near-invisible head on the thinnest line.
+    strengthWidth.px = 2
+    expect(Number(markerOf(renderEdge({ data: stated }))!.getAttribute('markerWidth'))).toBe(6)
   })
 
   /**
-   * ⛔ THE MARK MUST STOP SHORT OF THE POLARITY GLYPH — ASSERTED ON THE RENDERED
-   * ELEMENT, not only on the constants.
-   *
-   * The constant-level derivation lives in
-   * `edgePresentation.directionMarker.spec.ts`; this case is the other half of
-   * the pair, and it is the one that bites if someone hardcodes a size back into
-   * the JSX. `markerWidth` is the ALONG-path dimension under `orient="auto"`, so
-   * it is the distance the mark reaches back from the target anchor — and the
-   * glyph's near edge sits at `GLYPH_ANCHOR_RADIUS - GLYPH_PAINTED_BOX_FLOW/2`
-   * back from the same anchor, on very nearly the same axis.
-   *
-   * ⚠ Arithmetic over constants. jsdom has no layout: this proves the attributes
-   * carry the derived numbers, never that anything clears on screen.
+   * ⚠ THE WIDTH IT READS IS THE RESTING STRENGTH WIDTH, NEVER THE INTERACTION
+   * WIDTH. Under SVG's default `markerUnits="strokeWidth"` a SELECTED edge
+   * (+2) would get a bigger head, leaking the interaction channel into the
+   * direction channel. The contract never widens a selected line (it glows), so
+   * the mark stays `userSpaceOnUse`, sized from the strength width alone.
    */
-  it('reaches back less far than the polarity glyph begins, by the full gap', () => {
-    const root = renderEdge({ data: { direction: 'positive', direction_source: 'user' } })
-    const marker = markerOf(root)!
-    const tailFlow = Number(marker.getAttribute('markerWidth'))
-    const glyphNearEdgeFlow = GLYPH_ANCHOR_RADIUS - GLYPH_PAINTED_BOX_FLOW / 2
-    expect(tailFlow).toBe(EDGE_ARROWHEAD_FLOW_LENGTH)
-    expect(glyphNearEdgeFlow - tailFlow).toBe(GLYPH_BOX_GAP_FLOW)
-    expect(glyphNearEdgeFlow - tailFlow).toBeGreaterThan(0)
+  it('does not grow when the edge is selected — the head reads strength, not interaction', () => {
+    const stated = { strength_mean: 0.6, effect_direction: 'positive', exists_probability: 0.8 }
+    strengthWidth.px = 3
+    const marker = markerOf(renderEdge({ data: stated, selected: true }))!
+    expect(marker.getAttribute('markerUnits')).toBe('userSpaceOnUse')
+    expect(Number(marker.getAttribute('markerWidth'))).toBe(7.5)
+    // CONTRAST: the line itself IS wider while selected.
+    expect((baseEdgeProps?.style as Record<string, unknown>).strokeWidth).toBe(5)
   })
 
   /**
-   * The across-path dimension is the legibility one and is NOT bounded by the
-   * glyph — the glyph sits along the axis, not across it. Pinned separately so a
-   * future shrink of the length cannot quietly take the width with it.
+   * ⭐ COUNTER-SCALED LIKE EVERY CANVAS GLYPH. The line is `non-scaling-stroke`
+   * (its width is a SCREEN width at every zoom), so a head in plain graph units
+   * would shrink against its own line as the camera pulls back — 2:1 at the
+   * 0.50 landing floor instead of the contract's 4:1. The polygon carries
+   * `--canvas-glyph-scale` (`zoomLegibility.ts`: "the edge arrowhead keep[s]
+   * rendered === declared down to the landing floor"), scaled about the tip.
+   *
+   * ⚠ jsdom proves the style is carried, not that it paints. The mechanism — a
+   * CSS `scale(var(...))` on a `<marker>`'s polygon, with `overflow="visible"`,
+   * the var inherited from an HTML ancestor — was witnessed in Chromium on a
+   * static page (27 Sep 2026): var 2 painted the head twice the size of var
+   * fallback 1, tip fixed at the path end.
    */
-  it('keeps its full across-path base, and its viewBox at 1:1 so nothing is letterboxed', () => {
-    const root = renderEdge({ data: { direction: 'positive', direction_source: 'user' } })
-    const marker = markerOf(root)!
-    expect(Number(marker.getAttribute('markerHeight'))).toBe(EDGE_ARROWHEAD_FLOW_WIDTH)
-    expect(marker.getAttribute('viewBox')).toBe(EDGE_ARROWHEAD_VIEWBOX)
-    expect(marker.querySelector('polygon')!.getAttribute('points'))
-      .toBe(EDGE_ARROWHEAD_POLYGON_POINTS)
-    // refX at the tip: the point lands ON the path's end, not past it.
-    expect(Number(marker.getAttribute('refX'))).toBe(EDGE_ARROWHEAD_FLOW_LENGTH)
-    expect(Number(marker.getAttribute('refY'))).toBe(EDGE_ARROWHEAD_FLOW_WIDTH / 2)
+  it('is counter-scaled about its tip by the glyph scale, and is not clipped by its own box', () => {
+    const marker = markerOf(renderEdge({ data: { strength_mean: 0.6, effect_direction: 'positive', exists_probability: 0.8 } }))!
+    const polygon = marker.querySelector('polygon') as SVGPolygonElement
+    expect(polygon.style.transform).toBe('scale(var(--canvas-glyph-scale, 1))')
+    expect(polygon.style.transformOrigin).toBe('0 0')
+    expect(marker.getAttribute('overflow')).toBe('visible')
+  })
+
+  /**
+   * THE TIP IS THE ORIGIN, so the counter-scale grows the head BACK along the
+   * line and the point never leaves the path's end. The viewBox and the marker
+   * box are the same size, so nothing is letterboxed.
+   */
+  it('keeps its tip on the path end and its viewBox at 1:1 with the marker box', () => {
+    strengthWidth.px = 3
+    const marker = markerOf(renderEdge({ data: { strength_mean: 0.6, effect_direction: 'positive', exists_probability: 0.8 } }))!
+    expect(marker.getAttribute('viewBox')).toBe(edgeArrowheadViewBox(7.5))
+    expect(marker.getAttribute('viewBox')).toBe('-7.5 -3.75 7.5 7.5')
+    expect(marker.querySelector('polygon')!.getAttribute('points')).toBe(edgeArrowheadPolygonPoints(7.5))
+    expect(marker.querySelector('polygon')!.getAttribute('points')).toBe('-7.5 -3.75, 0 0, -7.5 3.75')
+    expect(Number(marker.getAttribute('refX'))).toBe(0)
+    expect(Number(marker.getAttribute('refY'))).toBe(0)
   })
 
   /**

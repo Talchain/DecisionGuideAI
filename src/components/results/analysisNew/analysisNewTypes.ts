@@ -20,6 +20,7 @@
  */
 
 import type { RunDeltaView } from './runDeltaView'
+import type { LimitVerdictView } from './limitVerdictView'
 import type { DriversSectionData, InferenceWarning, ZeroReasonCode } from '../types'
 import type { CritiqueWarningEntry } from '../CritiqueWarningStrip'
 import type { Recommendation } from '../strengthen/strengthenTypes'
@@ -490,6 +491,11 @@ export interface AnalysisNewStatus {
    * token being shown.
    */
   missingResults: readonly string[]
+  /**
+   * The producer withheld every option's goal figures (`goalFiguresWithheldMessage`). Not "partial": nothing was
+   * lost. But a run whose goal figures would be wrong has not "held up" either, so the held-up banner reads it.
+   */
+  goalFiguresWithheld: boolean
 }
 
 /**
@@ -613,6 +619,11 @@ export type ComparisonOption =
        */
       goalBasisIsModelled: boolean
       /**
+       * `goalFitBaseCaveat` — read, not derived: the figure's base (where the goal is today) was
+       * worked out from its inputs (ISL #207). Same doctrine: the caveat renders ADJACENT.
+       */
+      goalBaseCaveat: 'olumi_estimate' | 'from_inputs' | null
+      /**
        * ⭐⭐ THE RANGE THIS RUN ACTUALLY PRODUCED, so a reader can see when an
        * ordering is NOT settled.
        *
@@ -642,6 +653,10 @@ export type ComparisonOption =
        * certainty rather than an absence.
        */
       outcomeRange: { p10: number; p50: number | null; p90: number } | null
+      /** B3b (DL R1 condition 4): the range rests on Olumi's estimates the user accepted; the row says so. */
+      restsOnAcceptedOlumi?: true
+      /** B3c (DL R2): unsized links the user can accept at Olumi's starting strength, one click each. */
+      unsizedLinks?: ReadonlyArray<{ edgeId: string; fromLabel: string; toLabel: string }>
       /**
        * ⭐ THE PRODUCER'S OWN SENTENCE ABOUT THIS OPTION —
        * `recommendation.storyHeadlines[option.id]`, sanitised at the data layer
@@ -779,6 +794,11 @@ export type ComparisonOption =
  */
 export interface OptionsComparisonSection {
   rows: ComparisonOption[]
+  /**
+   * PLoT #416 / AIQ #72 5885033487 (2): the producer withheld every goal figure (a declared identity on the goal's
+   * path was not evaluated). Its words, for the locked goal-fit arm; absent otherwise.
+   */
+  goalWithheldMessage?: string | null
   /**
    * How many options exist in total, INCLUDING any this list cannot name.
    *
@@ -972,6 +992,11 @@ export interface AnalysisNewViewModel {
   whatsChanged: RunDeltaView | null
   /** CEE's `analysis_ready.run_delta_absence_reason` for this turn, verbatim; null when none was sent. */
   runDeltaAbsenceReason: string | null
+  /**
+   * B5 — what this run could say about each stated limit, or `null` when CEE sent no
+   * per-limit verdict for the analysis on screen. `null` is "not attested", never "scored".
+   */
+  limitVerdicts: LimitVerdictView | null
 
   status: AnalysisNewStatus
   /**
@@ -1417,6 +1442,8 @@ export type GlanceComparisonScope =
 export type GlanceWithheldRemedy = 'estimate'
 
 export interface AtAGlance {
+  /** Named input-origin disclosure for a current licensed comparison; no new wire field. */
+  conditionalInputBasis?: string | null
   /** The current read. Absent when no producer licenses a synthesis. */
   headline: string | null
   /**

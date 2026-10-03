@@ -63,7 +63,6 @@
  * is revealed first so the turn never lands where the user is not looking.
  */
 import { memo, useCallback } from 'react'
-import { MessageCircleQuestion } from 'lucide-react'
 import Tooltip from '../../../components/Tooltip'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -74,7 +73,8 @@ import { buildAskAIPrompt } from '../../contextMenu/actions'
 import type { NodeType } from '../../domain/nodes'
 import type { CoachingChip, ResolvedCoaching } from '../coaching/resolveNodeCoaching'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
-import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX, NODE_RAIL_REST_TONE_CLASS } from './nodeCardRailStyles'
+import type { LucideProps } from 'lucide-react'
+import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
 
 export const NODE_COACHING_ICON_TESTID_PREFIX = 'node-coaching-icon-'
 
@@ -84,17 +84,37 @@ export const NODE_COACHING_ICON_TESTID_PREFIX = 'node-coaching-icon-'
  * Olumi"), so the key imports this mark rather than redrawing one.
  */
 /**
- * ⭐ CONTRACT v3.1 `ICONS.coaching` — a speech bubble WITH A QUESTION MARK
- * (DESIGN-GAP-v31 #42), lucide's `MessageCircleQuestion`, the library's drawing
- * of the contract's own path. It was the plain `MessageCircle`.
+ * ⭐ THE REAL OLUMI BRAND MARK ON THE CARD (Paul, 1 Oct 2026: "You haven't implemented the actual Olumi brand icon.
+ * You've just added three black and white shapes to the right-hand corner.").
  *
- * ⚠ RULING CONFLICT, NAMED: #63 5796486697 / 5796609717 (Panel R3) settled "one
- * glyph for 'ask / hand this to Olumi'", shared with the quick-action "Ask
- * Olumi" and the panel. v3.1 (Paul, 23 Sep) draws the COACHING door as a
- * question, distinct from a generic ask; the common brief says v3.1 wins. The
- * quick action and the panel keep their own glyph (not this file's).
+ * - **30 Sep (#2360):** this drew `OlumiAiIcon`, DS v5 §9.8's single-colour OUTLINE of the mark, without its arcs.
+ *   At 15px those three outlines read as random shapes, not the brand.
+ * - **Now:** it draws the brand mark itself, `public/olumi-mark-card.svg`: the dark arcs, the orange circle, the blue
+ *   triangle and the green square, in their own colours.
+ *   - That file is `olumi-mark.svg` without its `prefers-color-scheme: dark` rule. The app is light-only, and in an
+ *     `<img>` that rule would follow the OS and fade the arcs on a dark-mode Mac.
+ *   - The size stays the rail's (15px, counter-scaled via the caller's class). The identity token `olumi-glyph-ai`
+ *     still binds the glyph, and `data-icon="olumi-brand-mark"` names the new drawing.
+ * - The hover quick-action "Ask Olumi" and the canvas key read this same glyph, so the act still wears one mark.
+ *   The panel's own asks keep `OlumiAiIcon` (Panel's surface).
  */
-export const COACHING_ICON_GLYPH = { Icon: MessageCircleQuestion, inkClass: NODE_RAIL_REST_TONE_CLASS } as const
+export const OLUMI_CARD_MARK_SRC = '/olumi-mark-card.svg'
+function OlumiCardGlyph({ size = 15, className, 'aria-hidden': ariaHidden }: LucideProps) {
+  return (
+    <img
+      src={OLUMI_CARD_MARK_SRC}
+      alt=""
+      width={typeof size === 'number' ? size : undefined}
+      height={typeof size === 'number' ? size : undefined}
+      draggable={false}
+      data-icon="olumi-brand-mark"
+      className={`olumi-glyph-ai select-none${className ? ` ${className}` : ''}`}
+      aria-hidden={ariaHidden ?? true}
+    />
+  )
+}
+
+export const COACHING_ICON_GLYPH = { Icon: OlumiCardGlyph, inkClass: 'text-text-light' } as const
 
 /** A typed chip keeps its typed route; `run_analysis` is a run, not a question. */
 export function coachingChipIsTyped(chip: CoachingChip): boolean {

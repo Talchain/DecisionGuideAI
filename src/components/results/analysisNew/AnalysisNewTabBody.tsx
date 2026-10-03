@@ -42,10 +42,17 @@
  * elements per screen. The outer panel is unchanged.
  */
 
+import { noValueDriverIds as noValueDriverIdsFor } from '../noValueDriverIds'
+import { selectDriverPolicyFeed } from '../useResultsSectionData'
+import type { ResultsReport } from '../types'
+import { caveatRestatesVerdictReason, useRobustnessCaveatOnScreen } from './robustnessStanding'
+import { buildReasoningSignals } from './reasoningSignals'
 import { useCallback, useMemo, useRef, useState, useEffect } from 'react'
 import { AlertTriangle, Star, TrendingUp, GitBranch } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
+import { openModelValueEditor } from '../../../canvas/nodes/shared/openModelValueEditor'
+import { resolveNodeTypeLiteral } from '../../../canvas/domain/nodes'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { attentionNoteForRecommendation } from '../strengthen/recommendationAttention'
@@ -53,6 +60,8 @@ import { openDecisionRecord, useDecisionRecordForScenario, hasAnalysedOptions } 
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { distinctDriverSubjects } from './driverSubjectCount'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
+import { FOOTER_COPY } from '../../../canvas/components/pre-analysis-v3/constants'
+import type { RunOnRecordWithoutResult } from '../../../canvas/stores/declinedSavedRunStore'
 import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
 import type { AnalysisNewFinding, AnalysisNewViewModel } from './analysisNewTypes'
 
@@ -84,7 +93,7 @@ import {
 import type { WhatIWasGivenSectionHandle } from '../contextIntegrity/WhatIWasGivenSection'
 import { useWhatIWasGivenWillRender } from '../contextIntegrity/WhatIWasGivenSection'
 import { ModelStrip } from './sections/ModelStrip'
-import { WhatsChanged } from './sections/WhatsChanged'
+import { WhatsChangedReceipt } from './sections/WhatsChangedReceipt'
 import { AtAGlance } from './sections/AtAGlance'
 import { ModelHeldUp } from './sections/ModelHeldUp'
 import { RobustnessCaveat } from './sections/RobustnessCaveat'
@@ -92,8 +101,9 @@ import { BiasGrounding } from './sections/BiasGrounding'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { SectionShell } from './sections/SectionShell'
 import { MethodStrip } from './sections/MethodStrip'
-import { CommitmentSummary } from './sections/CommitmentSummary'
-import { buildCommitmentSynthesis } from './commitmentSynthesis'
+import { ReasoningAskBox } from './sections/ReasoningAskBox'
+import { CommitmentSummary, PreRunCommitment } from './sections/CommitmentSummary'
+import { buildCommitmentSynthesis, buildPreRunCommitmentBullets } from './commitmentSynthesis'
 import { ChallengeCard, methodOfIntervention } from './sections/ChallengeCard'
 import { ReasoningSignals } from './sections/ReasoningSignals'
 import { AboutThisAnalysis } from './sections/AboutThisAnalysis'
@@ -105,6 +115,8 @@ import { methodIdsRaisedBy } from './recommendationMethod'
 import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import { buildCommitmentQualifier } from './commitmentQualifier'
+import { allOptionsOriginSentence } from './optionOriginDisclosure'
+import { useIsViewer } from '../../../lib/viewerMode'
 
 /**
  * ⭐ THIS TAB OPTS IN TO CORRECTING AN ESTIMATE WHERE IT IS STATED, and says so
@@ -137,6 +149,11 @@ export interface AnalysisNewTabBodyProps {
   /** THE SAME instance OutputsDock hands ResultsBody. Never re-derived here. */
   resultsSectionData: ResultsSectionDataReturn
   isPreRun: boolean
+  /**
+   * A Run on record whose result is not held here (`selectRunOnRecordWithoutResult`, computed by the dock from the
+   * Run control's own facts). Pre-run only; absent means no Run on record, so "No analysis has run yet" stands.
+   */
+  runOnRecordWithoutResult?: RunOnRecordWithoutResult
   isRunning: boolean
   /**
    * ⭐ THE COMPOSED RUN AUTHORITY, AND IT IS A DIFFERENT QUESTION FROM
@@ -650,6 +667,7 @@ const COMMIT_ZONE_ASK = {
 export function AnalysisNewTabBody({
   resultsSectionData,
   isPreRun,
+  runOnRecordWithoutResult = null,
   isRunning,
   isBusy,
   waitExhausted,
@@ -1154,7 +1172,10 @@ export function AnalysisNewTabBody({
    * against, so no door.
    */
   const resultsStatus = useCanvasStore((state) => state.results?.status)
-  const canCaptureDecision = hasAnalysedOptions(nodes, resultsStatus)
+  // ACCOUNTS viewer mode (MG 5951262086): a decision record is the OWNER's own; CEE
+  // `/commit` refuses a non-owner, so a viewer is never offered "Record your view".
+  const isViewer = useIsViewer()
+  const canCaptureDecision = hasAnalysedOptions(nodes, resultsStatus) && !isViewer
   /**
    * ⭐ WHAT HAPPENED TO THE LATEST ATTEMPT, when it did not produce what is on
    * screen: refused (CEE's typed refusal) or failed (`results.status`). Until
@@ -1186,6 +1207,17 @@ export function AnalysisNewTabBody({
   // needs the same object, and two `buildModelStrip` calls over one node list
   // would be two authorities on what the model contains (trap 12).
   const modelStrip = useMemo(() => buildModelStrip(nodes ?? []), [nodes])
+  /**
+   * ⭐ PJ-B3 (28 Sep 2026; Canvas 5868665431): drivers the run RANKED but held no value for, and
+   * the model states none — Canvas's rule verbatim (`runHoldsNoValueFor` over the same
+   * `selectDriverPolicyFeed` rows the rank comes from, ∧ `!hasAnyStatedValue`), so the Reasoning
+   * tab's driver rows and the canvas card say the same thing about the same node.
+   */
+  const runReport = useCanvasStore((state) => state.results?.report ?? null)
+  const noValueDriverIds = useMemo(
+    () => noValueDriverIdsFor(runReport === null ? null : selectDriverPolicyFeed(runReport as ResultsReport), nodes),
+    [runReport, nodes],
+  )
   const stripOffersTarget = useMemo(
     () => stripRendersTargetAffordance(modelStrip),
     [modelStrip],
@@ -1355,9 +1387,25 @@ export function AnalysisNewTabBody({
    * its reading after it (see the reading mount for why). One element, so the
    * two halves cannot receive different props.
    */
+  /**
+   * ⭐ SAID ONCE (28 Sep 2026, Panel; served `ac2def0f`, a £-goal re-run): the reading repeated
+   * the caveat's first sentence and the Challenge row's tipping point. The two facts below are
+   * the SAME derivations those surfaces render on, so the glance steps aside only where the
+   * other surface is actually saying it.
+   */
+  const glanceReasonOwner = useRobustnessCaveatOnScreen(vm.leaderClaimPermitted, vm.atAGlance.verdict?.reason ?? null)
+  const verdictReasonSaidByCaveat =
+    glanceReasonOwner.onScreen &&
+    caveatRestatesVerdictReason(glanceReasonOwner.caveatText, vm.atAGlance.verdict?.reason ?? null)
+  const conditionSaidInChallenge =
+    vm.leaderClaimPermitted &&
+    (buildReasoningSignals(vm, resultsSectionData.recommendation.flipThresholds)?.tipping ?? null) !== null
+
   const renderGlance = (part: 'status' | 'reading') => (
     <AtAGlance
       glance={vm.atAGlance}
+      verdictReasonSaidByCaveat={verdictReasonSaidByCaveat}
+      conditionSaidInChallenge={conditionSaidInChallenge}
       onFocusTarget={focusTarget}
       /* ⭐⭐ THE ACT THAT ANSWERS THE REFUSAL — IN PAGE FIRST, THE DOCK'S
          ROUTE AS THE FALLBACK. ⚠ AMENDED 11 Sep 2026: this read
@@ -1427,6 +1475,126 @@ export function AnalysisNewTabBody({
     />
   )
 
+  /** ⭐ V2 "Draft": the pre-run status block, mounted inside `PreRunCommitment`. */
+  const preRunStatus = vm.status.isPreRun ? (
+      <div className="space-y-1" data-testid="analysis-new-status-pre-run">
+        {!isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'did_not_run' ? (
+          <p
+            className={`${typography.panelBody} text-text-body`}
+            data-testid="analysis-new-status-did-not-run"
+          >
+            {ANALYSIS_REFUSAL_HEADLINE} {latestRunNote.reason} {ANALYSIS_REFUSAL_POINTER}
+          </p>
+        ) : !isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'blocked' ? (
+          <p
+            className={`${typography.panelBody} text-text-body`}
+            data-testid="analysis-new-status-blocked"
+          >
+            {ANALYSIS_REFUSAL_REASON_COPY.analysis_not_ready}
+          </p>
+        ) : !isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'failed' ? (
+          <p
+            className={`${typography.panelBody} text-text-body`}
+            data-testid="analysis-new-status-run-failed"
+          >
+            {COPY.status.firstRunFailed}
+          </p>
+        ) : (
+          <p className={`${typography.panelBody} text-text-body`}>
+            {isBusyNow
+              ? COPY.status.running
+              : runWaitExhausted
+                ? COPY.status.waitExhausted
+                : runOnRecordWithoutResult === 'unconfirmed'
+                  ? FOOTER_COPY.savedRunUnconfirmedSub
+                  : runOnRecordWithoutResult === 'stale'
+                    ? COPY.status.savedRunStale
+                    : COPY.status.preRun}
+          </p>
+        )}
+        {/* ⭐⭐⭐ WHY, AND IT IS THE HALF THAT MAKES THE SENTENCE USABLE.
+            "This analysis has not reached this page." on its own reads as a
+            fault the reader caused. This line says what the client actually
+            knows — that the run may well have completed somewhere it could
+            not be sent from — and names the one act that can change it.
+
+            ⚠ IT IS NOT A SECOND ORIENTATION LINE. `preRunWhatThisIs` above
+            stays in every state and describes what the panel is FOR; this
+            describes what happened to one run, and only in the state where
+            something did. */}
+        {runWaitExhausted ? (
+          <p className={`${typography.panelMeta} text-text-light`}>
+            {COPY.status.waitExhaustedWhy}
+          </p>
+        ) : null}
+        {/* ⭐⭐ AND WHY IT HAS NOT — the half this state was missing. The two
+            sentences above orient a reader who has not run one yet; neither
+            says anything to the reader who TRIED and was refused, which on
+            a saved model is the common case. Every line below is the run
+            gate's own; see `WhyNoAnalysisYet`. */}
+        {isBusyNow ? null : (
+          <WhyNoAnalysisYet
+            listing={blockedListing}
+            /* ⭐⭐ THE GATE'S SINGLE-BLOCKER SENTENCE, so a refusal that
+               publishes no itemised listing is still explained rather than
+               silent. Passed only when the gate actually refuses — the
+               tooltip is also the carrier for a `warning` on an ALLOWED
+               run, and printing that under "Why no analysis yet" would
+               invent an obstacle. */
+            reason={runRefusedByGate ? runBlockedReason : null}
+            onFocusTarget={focusTarget}
+            onAsk={openAskOlumi}
+          />
+        )}
+        {/* ⭐⭐⭐ A REFUSAL CARRIES ITS REMEDY, OR IT IS A DEAD END.
+            This block states the blocker — "No analysis has run yet" — and
+            until now offered no way past it, on the FIRST SCREEN a new user
+            meets. `onReanalyse` was already passed to this body
+            (`OutputsDock` hands it `handleRunAnalysis`) and reached only
+            `AtAGlance`, which ZONE: ANSWER gates off pre-run. So the handler
+            was present and unreachable in the one state that needs it.
+
+            ⛔ WITNESSED, which is why this is not a nicety: a user sent a
+            brief, read a substantial coaching reply, and concluded an
+            analysis had run. CEE was returning a `run_analysis` suggested
+            action on that very turn. The panel rendered seven "Methods you
+            can run" and no way to run the analysis.
+
+            ⚠⚠ ABSENT WHEN A RUN WOULD FAIL, NEVER DISABLED. The remedy for
+            a refused run is resolving its blockers, which the box above
+            states; offering a button that refuses is the defect one level
+            down, and this panel has adjudicated it out twice.
+
+            ⛔ AND IT ASKS THE GATE, NOT THE LISTING — corrected 22 Sep
+            2026, witnessed on staging `1f77130d`. This condition read
+            `blockedListing == null`, on the strength of a contract line
+            that said a null listing means the run is not blocked. It does
+            not: `canRunAnalysis` publishes NO listing from any of its early
+            returns, and says so above them. On a model whose registration
+            CEE had aborted (`graph/register` → `net::ERR_ABORTED`, `/graph`
+            → 404) the hold was armed, the gate refused, and this control
+            rendered ENABLED with no reason anywhere on the tab — one click
+            from asking CEE to analyse a graph it answers 404 for.
+            `canRunAnalysis` is the gate's own `allowed`, already passed
+            here by `OutputsDock` and already read by the ribbon one section
+            down: present and unreachable, exactly as `onReanalyse` was.
+
+            ⚠ AND ABSENT WITH NO HANDLER: a host with no run affordance
+            renders nothing rather than a control that does nothing — the
+            same fail-closed shape `onSendMessage` uses one section over. */}
+        {!isBusyNow && !runRefusedByGate && onReanalyse ? (
+          <button
+            type="button"
+            onClick={onReanalyse}
+            className={`${typography.panelMeta} ${action('primary')} mt-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            data-testid="analysis-new-status-pre-run-act"
+          >
+            {COPY.status.preRunRunAction}
+          </button>
+        ) : null}
+      </div>
+  ) : null
+
   const answerBlock = (
     <CommitmentSummary
       synthesis={commitmentSynthesis}
@@ -1435,7 +1603,21 @@ export function AnalysisNewTabBody({
       record={decisionRecord}
       onRecord={openDecisionRecord}
       onAsk={openAskOlumi}
-      qualifier={buildCommitmentQualifier(vm, { runProvisional: vm.status.runProvisional })}
+      qualifier={buildCommitmentQualifier(vm, {
+        runProvisional: vm.status.runProvisional,
+        // ⭐ CUT-BACK (Paul, 30 Sep 2026): the chart's "Goal only" and every-option origin
+        // lines ride on this one qualifier; `notesInQualifier` below stops the chart printing them.
+        // The chart's own gate, `sharesExcludeLimits && !noneNumbered`, restated over the same rows.
+        goalOnly:
+          vm.checks.sharesExcludeLimits &&
+          !(
+            vm.optionsComparison.rows.length > 0 &&
+            vm.optionsComparison.rows.every((o) => o.kind !== 'analysed' || o.winReadout === null)
+          ),
+        goalOnlyCause:
+          commitmentSynthesis.open?.source === 'leader_withheld_cause' ? null : vm.checks.leaderWithholdCause,
+        allOptionsOrigin: allOptionsOriginSentence(vm.optionsComparison.rows),
+      })}
       status={renderGlance('status')}
     >
         <OptionsComparison
@@ -1450,6 +1632,7 @@ export function AnalysisNewTabBody({
             commitmentSynthesis.open?.source === 'leader_withheld_cause' ? null : vm.checks.leaderWithholdCause
           }
           sharesExcludeLimits={vm.checks.sharesExcludeLimits}
+          notesInQualifier={true}
           /* The SAME writer this body already hands `WhatIWasGivenSection` for
              its own ask (:1253). One composer, one validation, one policy — a
              second route to the chat would be a second thing to keep honest. */
@@ -1536,6 +1719,24 @@ export function AnalysisNewTabBody({
         />
     </CommitmentSummary>
   )
+
+  /**
+   * ⭐ "INSPECT IN MODEL" OPENS THE GROUP ITS SUBJECT LIVES IN. The Challenge
+   * zone's tipping point, driver and gap rows name a FACTOR, and binding them
+   * straight to `onReviewTarget` sent the factor to RELATIONSHIPS — the dock's
+   * route for edges — with the Factors group shut. So the reader asked to look at
+   * the factor a tipping point names landed in the wrong group (#85 5963788754).
+   *
+   * A factor (the estate's predicate, as the value-of-information resolver reads
+   * it) goes to `openModelValueEditor`, the factors route's single owner; anything
+   * else keeps the dock's route. Gated on `onReviewTarget` exactly as before, so a
+   * host that offers no Model route still renders no act.
+   */
+  const inspectInModel = (targetId: string) => {
+    const node = useCanvasStore.getState().nodes.find((n) => n.id === targetId)
+    if (node && resolveNodeTypeLiteral(node) === 'factor') openModelValueEditor(targetId)
+    else onReviewTarget?.(targetId)
+  }
 
   /**
    * ⭐⭐ WORK THROUGH THIS FINDING WITH OLUMI — the act Paul said the Reasoning
@@ -1656,7 +1857,7 @@ export function AnalysisNewTabBody({
     >
       {/* The narrower measure (§11): wider gutters and a capped line length
           inside the unchanged 416px dock. */}
-      <div className="px-4 py-4 space-y-4 max-w-[440px] mx-auto">
+      <div className="px-4 pt-2 pb-4 space-y-4 max-w-[440px] mx-auto">
         {/* ⭐ V2 — ONE METHOD STRIP, FIRST (Paul + ChatGPT brief, 23 Sep 2026).
             It replaces BOTH the "Methods you can run" chip shelf and this tab's
             Actions dropdown, which rendered the same seven methods twice. Five
@@ -1732,121 +1933,9 @@ export function AnalysisNewTabBody({
             `buildAnalysisNewViewModel`'s header argues for its own pre-run
             gates: "Gating here makes it a property of the code." A refusal has
             no subject while the thing it refuses is happening. */}
-        {vm.status.isPreRun ? (
-          <div className="space-y-1" data-testid="analysis-new-status-pre-run">
-            {!isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'did_not_run' ? (
-              <p
-                className={`${typography.panelBody} text-text-body`}
-                data-testid="analysis-new-status-did-not-run"
-              >
-                {ANALYSIS_REFUSAL_HEADLINE} {latestRunNote.reason} {ANALYSIS_REFUSAL_POINTER}
-              </p>
-            ) : !isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'blocked' ? (
-              <p
-                className={`${typography.panelBody} text-text-body`}
-                data-testid="analysis-new-status-blocked"
-              >
-                {ANALYSIS_REFUSAL_REASON_COPY.analysis_not_ready}
-              </p>
-            ) : !isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'failed' ? (
-              <p
-                className={`${typography.panelBody} text-text-body`}
-                data-testid="analysis-new-status-run-failed"
-              >
-                {COPY.status.firstRunFailed}
-              </p>
-            ) : (
-              <p className={`${typography.panelBody} text-text-body`}>
-                {isBusyNow
-                  ? COPY.status.running
-                  : runWaitExhausted
-                    ? COPY.status.waitExhausted
-                    : COPY.status.preRun}
-              </p>
-            )}
-            {/* ⭐⭐⭐ WHY, AND IT IS THE HALF THAT MAKES THE SENTENCE USABLE.
-                "This analysis has not reached this page." on its own reads as a
-                fault the reader caused. This line says what the client actually
-                knows — that the run may well have completed somewhere it could
-                not be sent from — and names the one act that can change it.
-
-                ⚠ IT IS NOT A SECOND ORIENTATION LINE. `preRunWhatThisIs` above
-                stays in every state and describes what the panel is FOR; this
-                describes what happened to one run, and only in the state where
-                something did. */}
-            {runWaitExhausted ? (
-              <p className={`${typography.panelMeta} text-text-light`}>
-                {COPY.status.waitExhaustedWhy}
-              </p>
-            ) : null}
-            <p className={`${typography.panelMeta} text-text-light`}>{COPY.status.preRunWhatThisIs}</p>
-            {/* ⭐⭐ AND WHY IT HAS NOT — the half this state was missing. The two
-                sentences above orient a reader who has not run one yet; neither
-                says anything to the reader who TRIED and was refused, which on
-                a saved model is the common case. Every line below is the run
-                gate's own; see `WhyNoAnalysisYet`. */}
-            {isBusyNow ? null : (
-              <WhyNoAnalysisYet
-                listing={blockedListing}
-                /* ⭐⭐ THE GATE'S SINGLE-BLOCKER SENTENCE, so a refusal that
-                   publishes no itemised listing is still explained rather than
-                   silent. Passed only when the gate actually refuses — the
-                   tooltip is also the carrier for a `warning` on an ALLOWED
-                   run, and printing that under "Why no analysis yet" would
-                   invent an obstacle. */
-                reason={runRefusedByGate ? runBlockedReason : null}
-                onFocusTarget={focusTarget}
-                onAsk={openAskOlumi}
-              />
-            )}
-            {/* ⭐⭐⭐ A REFUSAL CARRIES ITS REMEDY, OR IT IS A DEAD END.
-                This block states the blocker — "No analysis has run yet" — and
-                until now offered no way past it, on the FIRST SCREEN a new user
-                meets. `onReanalyse` was already passed to this body
-                (`OutputsDock` hands it `handleRunAnalysis`) and reached only
-                `AtAGlance`, which ZONE: ANSWER gates off pre-run. So the handler
-                was present and unreachable in the one state that needs it.
-
-                ⛔ WITNESSED, which is why this is not a nicety: a user sent a
-                brief, read a substantial coaching reply, and concluded an
-                analysis had run. CEE was returning a `run_analysis` suggested
-                action on that very turn. The panel rendered seven "Methods you
-                can run" and no way to run the analysis.
-
-                ⚠⚠ ABSENT WHEN A RUN WOULD FAIL, NEVER DISABLED. The remedy for
-                a refused run is resolving its blockers, which the box above
-                states; offering a button that refuses is the defect one level
-                down, and this panel has adjudicated it out twice.
-
-                ⛔ AND IT ASKS THE GATE, NOT THE LISTING — corrected 22 Sep
-                2026, witnessed on staging `1f77130d`. This condition read
-                `blockedListing == null`, on the strength of a contract line
-                that said a null listing means the run is not blocked. It does
-                not: `canRunAnalysis` publishes NO listing from any of its early
-                returns, and says so above them. On a model whose registration
-                CEE had aborted (`graph/register` → `net::ERR_ABORTED`, `/graph`
-                → 404) the hold was armed, the gate refused, and this control
-                rendered ENABLED with no reason anywhere on the tab — one click
-                from asking CEE to analyse a graph it answers 404 for.
-                `canRunAnalysis` is the gate's own `allowed`, already passed
-                here by `OutputsDock` and already read by the ribbon one section
-                down: present and unreachable, exactly as `onReanalyse` was.
-
-                ⚠ AND ABSENT WITH NO HANDLER: a host with no run affordance
-                renders nothing rather than a control that does nothing — the
-                same fail-closed shape `onSendMessage` uses one section over. */}
-            {!isBusyNow && !runRefusedByGate && onReanalyse ? (
-              <button
-                type="button"
-                onClick={onReanalyse}
-                className={`${typography.panelMeta} ${action('primary')} mt-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                data-testid="analysis-new-status-pre-run-act"
-              >
-                {COPY.status.preRunRunAction}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
+        {/* ⭐ V2 "Draft" (28 Sep 2026, Panel): the pre-run status block — its sentence,
+            any refusal and the run act — moved, unchanged, into "Move towards commitment"
+            below (`PreRunCommitment`), where the prototype carries its run act. */}
         {/* ⚠⚠ AND STALENESS IS SUPPRESSED PRE-RUN — THE SAME CONTRADICTION AS
             THE ONE ABOVE, IN A DIFFERENT PAIRING. Witnessed on the deployed
             build at `4401d6d8` (30 Aug 2026), guest, saved example
@@ -1928,6 +2017,7 @@ export function AnalysisNewTabBody({
           openAtRest
           revealReviewSeq={revealReviewSeq}
           insights={nodeInsights}
+          limitVerdicts={vm.limitVerdicts}
           /* V2 prototype order (design audit B5/B6/B12): the strip hands the
              tool its success line and a mark's route, so the block reads
              census → "N to review" → success line → review tool → detail. */
@@ -2163,9 +2253,10 @@ export function AnalysisNewTabBody({
         />
         <ReasoningSignals
           vm={vm}
+          noValueIds={noValueDriverIds}
           flipThresholds={vm.leaderClaimPermitted ? resultsSectionData.recommendation.flipThresholds : undefined}
           onFocus={focusTarget}
-          onInspect={onReviewTarget}
+          onInspect={onReviewTarget ? inspectInModel : undefined}
           onAsk={openAskOlumi}
           closedAtRest={true}
           evidenceSlot={
@@ -2666,7 +2757,17 @@ export function AnalysisNewTabBody({
         </>
         )}
         </div>
-        {vm.status.isPreRun ? null : (
+        {vm.status.isPreRun ? (
+          <PreRunCommitment
+            bullets={buildPreRunCommitmentBullets({
+              optionCount: modelStrip.rows.find((r) => r.kind === 'option')?.nodes.length ?? 0,
+              // Exactly the pre-run act's own condition (inside `preRunStatus`).
+              canRun: !isBusyNow && !runRefusedByGate && Boolean(onReanalyse),
+            })}
+            status={preRunStatus}
+            onAsk={openAskOlumi}
+          />
+        ) : (
         <div className="space-y-2" data-testid="analysis-new-zone-answer-group">
         {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
             of blocks, so it carries no border, no fill and no radius of its
@@ -2785,7 +2886,8 @@ export function AnalysisNewTabBody({
             ⚠ SCOPED TO THE PRE-RUN STATE ONLY. Every post-run path still renders
             it, including the no-verdict one. */}
 
-        <WhatsChanged view={vm.whatsChanged} />
+        {/* SC-24 v3: the full comparison is the Compare tab's; Reasoning keeps the receipt (same view). */}
+        <WhatsChangedReceipt view={vm.whatsChanged} />
 
         <RobustnessCaveat
           leaderClaimPermitted={vm.leaderClaimPermitted}
@@ -2833,8 +2935,10 @@ export function AnalysisNewTabBody({
           /* ⚠⚠ THE FIFTH LIMB, from independent review. `AtAGlance` directly
              above renders `missingResults` on a provisional run — without this
              the panel names the results that did not come back and then
-             congratulates the reader on the model, in that order. */
-          isProvisional={vm.status.isProvisional}
+             congratulates the reader on the model, in that order.
+             A run whose goal figures the producer withheld is not partial (nothing was lost), but it has not held
+             up either: its figures for each option would be wrong (`aWithheldGoalFigureIsNotALostOne.spec.tsx`). */
+          isProvisional={vm.status.isProvisional || vm.status.goalFiguresWithheld}
           /* ⚠⚠ `onRecord={openDecisionRecord}` STOOD HERE AND HAS MOVED DOWN.
              The banner's predicate answers "did this model hold up?"; the act
              answers "may I write down what we chose?" — and hanging the second
@@ -3189,6 +3293,9 @@ export function AnalysisNewTabBody({
             ) : null
           }
         />
+        {/* ⭐ V2 prototype: the panel ends with "Ask about your thinking…" (27 Sep 2026).
+            It opens the same Ask Olumi drawer as every ✦ act, as a draft; it sends nothing. */}
+        <ReasoningAskBox />
       </div>
     </div>
   )

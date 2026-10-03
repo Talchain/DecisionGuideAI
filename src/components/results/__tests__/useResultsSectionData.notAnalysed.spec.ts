@@ -318,9 +318,12 @@ describe('useResultsSectionData — an option the run never analysed', () => {
     // options; the `every` inside it is the same quantifier defect one level
     // up from the sort.
     const options = renderOptions()
-    const { recommendedId, determinedBy } = determineWinnerSelection(options)
+    // R7 (DL #70 5859773247): the leader is the TYPED id only; a not-analysed
+    // option does not disturb how that id is resolved, and no id names none.
+    const { recommendedId, determinedBy } = determineWinnerSelection(options, HIRE)
     expect(determinedBy).toBe('win_probability')
     expect(recommendedId).toBe(HIRE)
+    expect(determineWinnerSelection(options).recommendedId).toBeNull()
   })
 
   it('UNCHANGED BEHAVIOUR — a run where every option was analysed is untouched', () => {

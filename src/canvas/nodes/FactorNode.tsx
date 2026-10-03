@@ -15,17 +15,24 @@ import { NodeValueEditor } from './shared/NodeValueEditor'
 import { FactorValueFigure, readoutIsBareModelScale } from './shared/FactorValueFigure'
 import { usePendingFactorEditValue } from '../hooks/usePendingFactorEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
-import { resolveValueInputSeed } from '../conversation/factorValueEdit'
+import { modelScaleValueIsTheTypedScale, resolveValueInputSeed } from '../conversation/factorValueEdit'
+import { OPTION_TARGET_ENTRY_REFUSAL } from '../ui/inspector-v2/shared/optionTargetEntry'
 import { typography } from '../../styles/typography'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
 import { cleanFactorLabel, isSuppressedUnit, qualitativeTierLabel, unwrapInterventionValue } from '../utils/labelUtils'
 import { factorDisplayParts, factorDisplayText } from '../../utils/formatFactorDisplayValue'
-import { factorOptionSetting, getFactorOptionRows, resolveOptionInterventionsForDisplay } from '../utils/factorOptionSetting'
+import { everyOptionSetsFactor, factorOptionSetting, getFactorOptionRows, resolveOptionInterventionsForDisplay } from '../utils/factorOptionSetting'
 import { isGraphBadgesEnabled } from '../../flags'
 import { DataBar } from '../ui/shared/DataBar'
 import { useFactorRunCues } from './shared/useFactorRunCues'
 import { useHasCompletedFirstRun } from '../selectors/results'
-import { FACTOR_NO_ANALYSIS_YET, FACTOR_NO_ANALYSIS_YET_SHORT } from './shared/metricVocabulary'
+import {
+  FACTOR_BASELINE_REPLACED_BY_EVERY_OPTION,
+  FACTOR_BASELINE_REPLACED_BY_EVERY_OPTION_SHORT,
+  FACTOR_NO_ANALYSIS_YET,
+  FACTOR_NO_ANALYSIS_YET_SHORT,
+  FACTOR_VALUE_MODEL_SCALE_HINT,
+} from './shared/metricVocabulary'
 import { FactorDriverLine, FactorDriverNotRanked } from './shared/FactorDriverLine'
 import { FactorTurningPointSlot } from './shared/FactorTurningPointTrack'
 import { turningPointNumberPrints } from './shared/factorTurningPoint'
@@ -41,17 +48,18 @@ import { resolveFactorPriorRangeEndsOnCard, resolveFactorPriorRangeOnCard } from
 import { FactorRangeBand } from './shared/FactorRangeBand'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
-import { classifyValueProvenance, VALUE_PROVENANCE_LABEL, factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
+import { classifyObservedValueProvenance, VALUE_PROVENANCE_LABEL, factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { VALUE_PROVENANCE_ICON, PROVENANCE_ICON_SIZE_CLASSES } from '../domain/valueProvenanceIcon'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import { factorValueSourceMark, PRIOR_RANGE_SOURCE_MARK, ValueSourceMark } from './shared/valueSourceMark'
+import { useValuePrefillStore } from '../graphChanges/valuePrefill'
 
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
   const observedState = props.data?.observedState as ObservedState | undefined
-  const currentValueOrigin = classifyValueProvenance(observedState?.source)
+  const currentValueOrigin = classifyObservedValueProvenance(observedState)
   // Derived once: the drivers that are actually evidence. See
   // `meaningfulUncertaintyDrivers` for why a placeholder is not one.
   const meaningfulDrivers = meaningfulUncertaintyDrivers(observedState?.uncertainty_drivers)
@@ -95,6 +103,10 @@ export const FactorNode = memo((props: NodeProps) => {
    * model — which is the trap-21 shape this estate keeps paying for.
    */
   const editAuthority = useModelEditAuthority(props.id)
+  // WHAT-IF "PUT IT BACK" (DL #85 5942153284): the "Since the last run" card may ask THIS card's editor to open with the
+  // earlier value; the user commits it with Enter through `editAuthority`, like any edit (`graphChanges/valuePrefill.ts`).
+  const valuePrefill = useValuePrefillStore((s) => (s.request?.nodeId === props.id ? s.request : null))
+  const consumeValuePrefill = useValuePrefillStore((s) => s.consumePrefill)
   /**
    * ⭐⭐ THE NUMBER THIS CARD WOULD OTHERWISE BE HIDING.
    *
@@ -204,6 +216,17 @@ export const FactorNode = memo((props: NodeProps) => {
     if (rows.length === 0) return null
     return { rows: showAllOptionValues ? rows : rows.slice(0, 4), overflow: showAllOptionValues ? 0 : Math.max(0, rows.length - 4) }
   }, [nodes, props.id, nodeCategory, observedState, ceeAnalysisReady, showAllOptionValues])
+
+  // F3 — does the card's value field show the number the model stores? Then
+  // that number is on the model's 0–1 scale and the field is bounded to it.
+  const valueFieldIsModelScale = useMemo(() => modelScaleValueIsTheTypedScale(props.data), [props.data])
+  // F9 — a baseline every option replaces: an edit here cannot move the
+  // comparison, and the editor says so while it is open. Asked of ALL options,
+  // not the preview rows (`optionComparisonRows` is sliced to 4).
+  const baselineReplacedByEveryOption = useMemo(
+    () => nodeCategory !== 'external' && everyOptionSetsFactor(props.id, nodes, ceeAnalysisReady?.options),
+    [nodeCategory, props.id, nodes, ceeAnalysisReady],
+  )
 
   // Retain the shared value reader and the card's existing display-only guard
   // against internal descriptors such as "other" being shown as units.
@@ -316,8 +339,29 @@ export const FactorNode = memo((props: NodeProps) => {
   const openSourceDetail = () => { openNodeInspector(props.id) }
   const renderValueSourceMark = () =>
     valueSourceMark === null ? null
-      : valueSourceMark.kind === 'olumi' ? <EstimateMarker onOpenSource={openSourceDetail} />
+      // ⛔ Olumi's figure the user ACCEPTED keeps Olumi's token but says so: `EstimateMarker`'s fixed copy ("not yet
+      // confirmed — filled in for you") is false once accepted (served UI `cb25e5e2`, guest `9cec5206`; AIQ 5921018606).
+      : valueSourceMark.kind === 'olumi' && currentValueOrigin?.kind !== 'accepted' ? <EstimateMarker onOpenSource={openSourceDetail} />
         : <ValueSourceMark mark={valueSourceMark} testId={`factor-value-source-${props.id}`} subject={cleanedLabel} onOpenSource={openSourceDetail} />
+  // The on-graph editor holds the value — the SAME predicate as the value
+  // line's editable branch below (kept inline there for its type narrowing).
+  const valueHeldByEditor = nodeCategory === 'controllable' && typeof observedState?.value === 'number'
+  // The value line's join + mark slot: ONE space, then the mark. In Standard
+  // that space belongs to a `nowrap` row, so it is NOT a break opportunity
+  // (CSS Text: a space's own box decides) and nor is the edge of the atomic
+  // mark (their common ancestor decides) — the mark can only wrap WITH the
+  // value's last word. In Detailed the flex row drops the space anyway.
+  const valueMarkJoin = valueSourceMark === null ? null : (
+    <>
+      {' '}
+      {/* Contract `.node .own-value{gap:6px}` between the value and its mark
+          (29 Sep pixel-match): the join space is ≈3.5px of 13px type, so the
+          slot adds 2.5px, counter-scaled with the type beside it. */}
+      <span data-testid={`factor-value-mark-slot-${props.id}`} className="whitespace-nowrap ml-[calc(2.5px*var(--canvas-label-scale,1))]">
+        {renderValueSourceMark()}
+      </span>
+    </>
+  )
 
   // ⭐ WHO PUT THIS NUMBER HERE — read from the EXISTING owners, never re-derived.
   //
@@ -450,8 +494,9 @@ export const FactorNode = memo((props: NodeProps) => {
   // A wider-range invitation needs a stated reference, never a placeholder.
   const anchoringMessage = useMemo(() => {
     if (!isDetailed || isPostAnalysis) return null
-    const referenceOrigin = classifyValueProvenance(typeof observedState?.source === 'string' ? observedState.source : null)
-    if (!referenceOrigin || referenceOrigin.kind === 'ai') return null
+    // Olumi's figure — accepted or not — is not a stated reference (52f8cd: the whole observed state decides).
+    const referenceOrigin = classifyObservedValueProvenance(observedState)
+    if (!referenceOrigin || referenceOrigin.kind === 'ai' || referenceOrigin.kind === 'accepted') return null
     const options = ceeAnalysisReady?.options
     if (!options || options.length < 3) return null
     const vals: number[] = []
@@ -492,7 +537,7 @@ export const FactorNode = memo((props: NodeProps) => {
    *   1  title
    *   2  `<value> <mark>` as plain text (no chip), OR "Needs input · Value not
    *      set yet" in the body (no border pill). Pre-run with a value: nothing more.
-   *   3+ ONLY for a factor the run RANKED: "Driver N of M analysed" + a thin
+   *   3+ ONLY for a factor the run RANKED: "Driver N of M ranked in this run" + a thin
    *      neutral bar, M = the eligible ANALYSED factors (ED #63 5806207128:
    *      "not 'number of ranks we happen to render'"). Then a FOUND turning
    *      point, on any factor (it is the run's finding for THIS factor).
@@ -500,7 +545,7 @@ export const FactorNode = memo((props: NodeProps) => {
    *      5806207128: "Absence of a turning point = no mini-visual"); a limit
    *      line (the Goal's); a badge on the border (Standard).
    *   STALE `Last run ·` only on the rank and a found turning point (ED #63
-   *      5805528520 §6): `Last run · Driver 1 of 6 analysed`.
+   *      5805528520 §6): `Last run · Driver 1 of 3 ranked`.
    * Pinned state by state in `__tests__/FactorNode.anatomyV32.spec.tsx`.
    *
    * ⭐ THE LOCKED FACTOR FACE (spec §3 Normal; ED 02:31Z D1a; ED 11:52Z point 3):
@@ -546,7 +591,7 @@ export const FactorNode = memo((props: NodeProps) => {
   // "…on a factor that SHOWS a value": a bare-scale estimate the card omits
   // (v3.1 #20) shows none, so it gets no "Working assumption" about it either.
   const noAnalysisYet = !isPostAnalysis && !hasCompletedFirstRun && runCurrency === 'none' && valueDisplay !== null && !bareModelValue
-  // ED #63 5806207128: `driverLine` ("Driver N of M analysed") is for a RANKED
+  // ED #63 5806207128: `driverLine` ("Driver N of M ranked in this run") is for a RANKED
   // factor only; an unranked one says "Not ranked in this run" to AT only.
   // The run's turning-point state for this factor: a PLoT `found` row, or the
   // "none" fallback. Never-run / cannot-confirm stay null (the same
@@ -607,8 +652,9 @@ export const FactorNode = memo((props: NodeProps) => {
    *
    * So, in the STANDARD view only (Detailed keeps its inline detail):
    *   · card body = the value line (value + mark) OR the `Needs input` row —
-   *     one row, whose mark can never wrap or be cut (`factor-value-mark-slot`);
-   *   · the S3 findings — `Driver N of M analysed` + bar, a FOUND turning point,
+   *     one row, whose mark can never be cut (`factor-value-mark-slot`; since
+   *     side-by-side DIFF item 3 it wraps WITH the value, never apart from it);
+   *   · the S3 findings — `Driver N of M ranked in this run` + bar, a FOUND turning point,
    *     the external prior-range line — MOVE, verbatim and with their
    *     `Last run ·` labels, into this factor's `NodePopover` (`standardFindings`
    *     below), which now mounts for them whatever the factor's priority; the
@@ -637,7 +683,7 @@ export const FactorNode = memo((props: NodeProps) => {
    * re-layout, ED 5808428246). They leave the popover (never both at once);
    * the inline `FactorDriverCue` is retired, since the line it stood in for is
    * now on the card. A non-top factor's found turning point stays in the
-   * popover. The wording of each line is unchanged (`Driver N of M analysed`,
+   * popover. The wording of each line is unchanged (`Driver N of M ranked in this run`,
    * ED 5806207128). Pinned in `__tests__/FactorNode.prototypeBodyAtRest.spec.tsx`.
    */
   //
@@ -983,7 +1029,7 @@ export const FactorNode = memo((props: NodeProps) => {
               provenance means no influence number is rendered. */}
           {/* ⭐ ONE DRIVER VOCABULARY IN EVERY VIEW. Detailed and the popover
               render the SAME `FactorDriverLine` the resting face does ("Driver N
-              of M analysed" + relative bar, the % in its tooltip), and it
+              of M ranked in this run" + relative-sensitivity bar, the % in its tooltip), and it
               is withheld on a stale run exactly as it is there. The old
               "Most influential ▬ of 5" row here was the fourth wording of one
               rank (purpose audit, #1899 finding 3). */}
@@ -993,9 +1039,8 @@ export const FactorNode = memo((props: NodeProps) => {
               testId="factor-driver-line-detail"
               rank={driverLine.rank}
               value={driverLine.value}
-              provenance={driverLine.provenance}
-              importanceBasis={driverLine.importanceBasis}
               fromLastRun={resultsFromLastRun}
+              noValueYet={driverLine.noValueYet}
             />
           )}
           {/* Confidence — gated upstream by the shared display policy
@@ -1125,7 +1170,7 @@ export const FactorNode = memo((props: NodeProps) => {
    *     "don't say it twice" rule targets (that rule is about DIFFERENT
    *     provenance facts competing for one glyph, not the same sentence
    *     appearing on the card and in its own popover);
-   *   · `Driver N of M analysed` + its neutral bar, `Last run · ` when stale;
+   *   · `Driver N of M ranked in this run` + its neutral bar, `Last run · ` when stale;
    *   · a FOUND turning point (Standard never shows the "none" fallback —
    *     ED 5806207128), `Last run · ` when stale;
    *   · the external prior-range line, with its `no source` mark when it is
@@ -1135,6 +1180,9 @@ export const FactorNode = memo((props: NodeProps) => {
   const needsInputSentenceMoved = !isDetailed && needsInput && valueDisplay === null
   // Row 10: whole here when the card's one-line driver slot cuts it.
   const noAnalysisYetMoved = !isDetailed && noAnalysisYet
+  // The Standard driver slot renders nothing visible (no ranked line, no pre-run
+  // line) while a range line follows it: draw the range first (see the slot).
+  const rangeBeforeEmptySlot = !isDetailed && driverLine === null && !noAnalysisYet && priorRangeLine !== null
   // PROTOTYPE AT REST (Paul 25 Sep): the driver line and the top driver's
   // turning point render on the card; only what is NOT at rest moves here.
   const turningPointInPopover = !isDetailed && turningPointShown && turningPointState !== null && !turningPointAtRest
@@ -1272,19 +1320,40 @@ export const FactorNode = memo((props: NodeProps) => {
             margin — title → value is the header's 4px on every family (audit
             F6; RiskNode's value row is `m-0`).
             ⭐ ED 5809278282 (bounded anatomy): in STANDARD this is the card's
-            ONE primary line. The row does not wrap (`flex-nowrap`): the mark
-            sits in a `shrink-0 whitespace-nowrap` slot, so it can never drop
-            to a second line or be cut, and nothing on the line is ellipsised —
-            values are never cut. Only a value longer than the whole line would
-            wrap, and then inside its own `min-w-0` span, with the mark still
-            beside it. (The inline driver cue that ended this line is retired: the
-            driver line is on the card again — prototype, Paul 25 Sep.) Detailed
-            keeps the wrapping row it had. */}
+            ONE primary line, and nothing on it is ellipsised — values are
+            never cut. (The inline driver cue that ended this line is retired:
+            the driver line is on the card again — prototype, Paul 25 Sep.)
+            ⭐ THE VALUE AND ITS MARK WRAP TOGETHER (side-by-side DIFF item 3,
+            27 Sep; contract `.own-value`: the mark right after the value,
+            `flex-wrap:wrap`). This row was `flex-nowrap` with the mark in a
+            `shrink-0` slot, so a long value ("Moderate engineering allocation
+            (2 of 4 engineers)") wrapped inside its own narrowed column while
+            `est.` hung at the card's right edge, 54px from the text at 100%.
+            Now the row is plain INLINE FLOW: the value, one breakable space
+            (the gap), then the mark in a `whitespace-nowrap` slot — so the
+            mark follows the value's last word, and when that line is full it
+            wraps onto the next line under the value, never to the far edge.
+            Inline rather than the contract's flex items because a wrapping
+            flex item takes the full width and always pushes the mark to a
+            line of its own; the editable value is an atomic box (a button),
+            so there a wrapped value still puts the mark under it. Detailed
+            keeps the wrapping flex row it had. */}
+        {/* ⭐ AND THE MARK NEVER STANDS ALONE (Paul's staging test, 28 Sep
+            2026, export 64c5eccc: "No ai assistant use in place" / `est.` alone
+            on the next line). The join above was ONE BREAKABLE space, and the
+            controllable factor's value was an atomic `<button>` — so a value
+            that filled its line pushed the mark onto a line of its own. In
+            STANDARD the row is now `whitespace-nowrap` (so its one joining
+            space is no break opportunity), the value re-opens its own spaces
+            (`whitespace-normal`), and the editor rests as inline text
+            (`NodeValueEditor restingFlow="inline"`, the glue and mark passed as
+            its `trailing`): the mark can only wrap WITH the value's last word.
+            The option rows' N5 rule: the break is governed by the nowrap cell. */}
         {valueDisplay !== null && !bareModelValue && (
           <div
             className={isDetailed
               ? `${typography.nodeValue} text-text-body flex max-w-full flex-wrap items-baseline gap-x-1.5`
-              : `${typography.nodeValue} text-text-body flex max-w-full min-w-0 flex-nowrap items-baseline gap-x-1.5`}
+              : `${typography.nodeValue} text-text-body max-w-full min-w-0 break-words whitespace-nowrap`}
             data-testid="factor-recorded-value"
           >
             {/* ⭐⭐ EDITABLE ON THE GRAPH — and ONLY where an edit reaches the
@@ -1339,26 +1408,56 @@ export const FactorNode = memo((props: NodeProps) => {
                 `NodeValueEditor` is in that scale too. */}
             {nodeCategory === 'controllable' && typeof observedState?.value === 'number' ? (
               <span className="min-w-0">
+                {/* ⭐ BOUNDED WHERE THE TYPED NUMBER IS THE STORED ONE (canvas
+                    audit edit-values F3). On a factor with no unit and no cap
+                    the field shows the model's own 0–1 value, and the commit
+                    sends the typed number unchanged as that value — so 5 on
+                    "Very high" was saved as "5 Set by you", readiness said
+                    ready, and the next Run refused the factor as an unscaled
+                    amount. The option target editor already refuses the same
+                    number on the same scale with this sentence
+                    (`optionTargetEntry.ts`); the card now asks the same
+                    question. `modelScaleValueIsTheTypedScale` is the existing
+                    predicate for "field scale = model scale"; a capped or
+                    magnitude-scaled factor reads user units and gets no bound
+                    here (fails OPEN, as `resolveFactorValueAdmission` does). */}
                 <NodeValueEditor
                   value={resolveValueInputSeed(props.data).seed ?? observedState.value}
                   readout={<FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} />}
                   onCommit={(v, opts) => editAuthority.proposeFactorValue(v, opts)}
+                  prefill={valuePrefill}
+                  onPrefillConsumed={consumeValuePrefill}
                   readCommittedValue={() =>
                     resolveValueInputSeed(useCanvasStore.getState().nodes.find(n => n.id === props.id)?.data).seed ?? null}
+                  {...(valueFieldIsModelScale
+                    ? {
+                        min: 0,
+                        max: 1,
+                        outOfRangeCopy: OPTION_TARGET_ENTRY_REFUSAL.outOfRangeModelScale,
+                        scaleHint: FACTOR_VALUE_MODEL_SCALE_HINT,
+                      }
+                    : {})}
+                  {...(baselineReplacedByEveryOption
+                    ? {
+                        editNote: FACTOR_BASELINE_REPLACED_BY_EVERY_OPTION,
+                        editNoteShort: FACTOR_BASELINE_REPLACED_BY_EVERY_OPTION_SHORT,
+                      }
+                    : {})}
                   ariaLabel={`Value for ${props.data?.label ?? 'this factor'}`}
                   testId={`node-value-editor-${props.id}`}
+                  {...(isDetailed ? {} : { restingFlow: 'inline' as const, trailing: valueMarkJoin })}
                 />
               </span>
             ) : (
-              <span className="min-w-0 break-words">
+              <span className={isDetailed ? 'min-w-0 break-words' : 'min-w-0 break-words whitespace-normal'}>
                 <FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} />
               </span>
             )}
-            {valueSourceMark !== null && (
-              <span data-testid={`factor-value-mark-slot-${props.id}`} className="shrink-0 whitespace-nowrap">
-                {renderValueSourceMark()}
-              </span>
-            )}
+            {/* The join, then the mark. Standard: ONE space inside a `nowrap`
+                row (see above) — unless the inline editor already carries it
+                as its `trailing`. Detailed: a flex row drops the whitespace
+                between its items and keeps its 6px `gap-x-1.5`. */}
+            {!(valueHeldByEditor && !isDetailed) && valueMarkJoin}
           </div>
         )}
         {/* ⭐ #20's number is omitted; its PROVENANCE is not (review F1, #2085).
@@ -1369,16 +1468,18 @@ export const FactorNode = memo((props: NodeProps) => {
             and the mark still opens the inspector, which states the figure. */}
         {bareModelValue && valueSourceMark !== null && (
           <div
-            className={`${typography.nodeValue} text-text-body flex max-w-full min-w-0 flex-nowrap items-baseline gap-x-1.5`}
+            className={`${typography.nodeValue} text-text-body max-w-full min-w-0 break-words`}
             data-testid={`factor-value-mark-only-${props.id}`}
           >
             {/* Design bundle 1 (re-audit #3): the figure in the estate's tier
                 words (`qualitativeTierLabel`), never a bare 0–1 number and never
-                an orphan mark. */}
-            <span className="min-w-0" data-testid={`factor-value-tier-${props.id}`}>
+                an orphan mark. The same inline value line as above (DIFF item
+                3): the tier word, one breakable space, the mark. */}
+            <span data-testid={`factor-value-tier-${props.id}`}>
               {qualitativeTierLabel(Number(valueDisplay))}
             </span>
-            <span data-testid={`factor-value-mark-slot-${props.id}`} className="shrink-0 whitespace-nowrap">
+            {' '}
+            <span data-testid={`factor-value-mark-slot-${props.id}`} className="whitespace-nowrap ml-[calc(2.5px*var(--canvas-label-scale,1))]">
               {renderValueSourceMark()}
             </span>
           </div>
@@ -1447,6 +1548,12 @@ export const FactorNode = memo((props: NodeProps) => {
         {/* ⭐⭐ ONE RESERVED DRIVER SLOT, EVERY PHASE: a Run never grows the
             card (DL #70 5849644637). Row-10 line pre-run, ranked driver line
             post-run, else empty + aria-hidden. `FactorNode.noGrowthAfterRun.spec`. */}
+        {/* ⭐ AN EMPTY SLOT GOES BELOW THE RANGE, NOT ABOVE IT (27 Sep 2026, contract
+            side-by-side: 14 range-only cards showed a blank line between the title
+            and `Range: …`, pushing the range to the card's foot). The slot still
+            reserves its line, so a Run never grows the card; the prototype order
+            (driver → turning point → range) holds whenever the slot has content. */}
+        {rangeBeforeEmptySlot && priorRangeLine}
         {!isDetailed && (
           <div
             data-testid={`factor-driver-slot-${props.id}`}
@@ -1458,9 +1565,8 @@ export const FactorNode = memo((props: NodeProps) => {
                 nodeId={props.id}
                 rank={driverLine.rank}
                 value={driverLine.value}
-                provenance={driverLine.provenance}
-                importanceBasis={driverLine.importanceBasis}
                 fromLastRun={resultsFromLastRun}
+                noValueYet={driverLine.noValueYet}
                 inSlot
               />
             ) : noAnalysisYet ? (
@@ -1487,7 +1593,7 @@ export const FactorNode = memo((props: NodeProps) => {
             atRest
           />
         ) : null}
-        {!isDetailed && priorRangeLine}
+        {!isDetailed && !rangeBeforeEmptySlot && priorRangeLine}
 
         {/* ⭐ AT MOST ONE MINI-VISUAL (spec §3 precedence): a real turning point
             (PLoT `found`; current run, or the last run labelled), else a GENUINE range (the external

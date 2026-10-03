@@ -101,6 +101,29 @@ describe('only C1_attributable licenses a causal reading', () => {
     expect(limit).not.toMatch(/cannot be established/i)
   })
 
+  // P0 5943180154 (served 2 Oct): an accepted estimate changes sizing AUTHORSHIP, which the analysis hash excludes, so
+  // a C0 pair can follow a real model change. C0 may claim only what hash_equal proves: the analysis's inputs.
+  // P0 5943351889 + 52f8cd 5943379851: `partial` = Olumi cannot VERIFY every sent input was the same (never "changed").
+  it('⛔ C0 + partial coverage keeps the uncertainty; CONTRAST: C0 + complete keeps the C0 claim', () => {
+    const partial = buildRunDeltaView(delta({ attribution_case: 'C0_identical', input_coverage: 'partial', input_changes: [] } as never), labelFor)
+    const said = `${partial.comparability} ${partial.attributionLimit}`
+    expect(said).not.toMatch(/nothing the analysis uses differed|did not change/i)
+    // A legacy no-edit rerun reads `partial` (fb3e5f1c, 52f8cd 5943379851): it must NOT be told an input changed.
+    expect(said).not.toMatch(/\bchanged\b/i)
+    expect(partial.comparability).toMatch(/can't confirm that every input was the same/i)
+    expect(partial.attributionLimit).toMatch(/cannot be established/i)
+    const complete = buildRunDeltaView(delta({ attribution_case: 'C0_identical', input_coverage: 'complete', input_changes: [] } as never), labelFor)
+    expect(complete.comparability).toMatch(/nothing the analysis uses differed/i)
+  })
+
+  it('⛔ C0 never claims the WHOLE model is unchanged — only what the analysis uses', () => {
+    const v = buildRunDeltaView(delta({ attribution_case: 'C0_identical' }), labelFor)
+    const words = `${v.comparability ?? ''} ${v.attributionLimit ?? ''}`
+    expect(words).toMatch(/the analysis uses/i)
+    expect(words).not.toMatch(/nothing about the model/i)
+    expect(words).not.toMatch(/the model itself did not change/i)
+  })
+
   it('⛔ the rider is selected per case, not by a binary on `attributable`', () => {
     const read = (c: RunDelta['attribution_case']): string | null =>
       buildRunDeltaView(delta({ attribution_case: c }), labelFor).attributionLimit

@@ -26,6 +26,7 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
 import { typography } from '../../../styles/typography'
 import { ModalShell } from './ModalShell'
+import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
 import { useHowComputedStore, closeHowComputed } from './howComputedStore'
 import { buildMethodCard, type MethodCardModel, type Provenanced } from './buildMethodCard'
 
@@ -55,7 +56,8 @@ export const HOW_COMPUTED_COPY = {
     {
       heading: 'It answers two questions, and they are not the same question',
       body:
-        'We run the model on your canvas many times over. Each run draws a different plausible value for every input you left a range on. Two readings come out of those runs. "Chance of hitting your goal" is the share of runs in which an option reached the success target you set. "Most likely outcome" is the middle of the results an option produced — half the runs landed above it, half below. An option can look strong on one and weak on the other, so both are shown.',
+        `We run the model on your canvas many times over. Each run draws a different plausible value for every input you left a range on. Two readings come out of those runs. "${GOAL_ANCHOR_COPY.label(false)}" counts the runs in which an option reached the success target you set.`
+        + ' "Most likely outcome" is the middle of the results an option produced — half the runs landed above it, half below. An option can look strong on one and weak on the other, so both are shown.',
     },
     {
       heading: 'It also counts which option scored highest most often',
@@ -83,7 +85,8 @@ export const HOW_COMPUTED_COPY = {
      * not a zero, not a fallback. Saying so here is what makes the panel's
      * "Set a success target…" line an invitation rather than an error.
      */
-    'It does not produce a goal figure without a success target. "Chance of hitting your goal" needs a target to measure against. Without one, the panel shows how the options compare with each other and nothing about your goal.',
+    `It does not produce a goal figure without a success target. "${GOAL_ANCHOR_COPY.label(false)}" needs a target to measure against.`
+    + ' Without one, the panel shows how the options compare with each other and nothing about your goal.',
     'It does not look anything up. No external data, research, literature or web sources feed these numbers. Everything comes from the model you and Olumi built on the canvas — so there are no sources to cite here.',
     'It does not forecast what will happen. It compares options under the uncertainty you described; it has no view on the world beyond your model.',
     'It does not check whether your model is right. Wrong inputs produce confident-looking wrong answers, which is why the drivers list exists.',
@@ -164,7 +167,7 @@ function Section({ heading, children }: { heading: string; children: React.React
 
 function Bullets({ items, testId }: { items: readonly string[]; testId: string }) {
   return (
-    <ul className="mt-1 flex list-disc flex-col gap-1.5 pl-4" data-testid={testId}>
+    <ul className="mt-1 flex list-disc flex-col gap-2 pl-4" data-testid={testId}>
       {items.map((text) => (
         <li key={text} className={`${typography.panelBody} text-text-body`}>
           {text}
@@ -211,8 +214,8 @@ export function HowComputedCard({ model }: HowComputedCardProps) {
       </Section>
 
       <Section heading={C.runHeading}>
-        <p className={`${typography.panelMeta} mt-0.5 text-text-light`}>{C.runNote}</p>
-        <dl className="mt-1.5 grid grid-cols-[1fr_auto] items-baseline gap-x-3 gap-y-1">
+        <p className={`${typography.panelMeta} mt-1 text-text-light`}>{C.runNote}</p>
+        <dl className="mt-2 grid grid-cols-[1fr_auto] items-baseline gap-x-3 gap-y-1">
           <RunFact
             label={C.labels.nSamples}
             fact={model.nSamples}

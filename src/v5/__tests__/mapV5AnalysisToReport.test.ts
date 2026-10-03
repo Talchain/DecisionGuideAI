@@ -1218,6 +1218,40 @@ describe('mapV5AnalysisToReport — display_verdict / confidence_tier / goal_fit
     })
   })
 
+  // ISL #207 (proposal 3): WHOSE base the goal figure stands on. Carrier
+  // `identity_evaluations[].level_author` (R3 #72 5876843426), FAIL-CLOSED (AIQ 5876871320): with
+  // the anchoring code present, only the goal's own typed "user" entry lifts the caveat.
+  const ANCHORED = { code: 'GOAL_LEVEL_FROM_IDENTITY_INPUTS', field: 'nodes[mrr].nonlinear_identity', message: 'm', severity: 'warning' }
+  const entry = (node_id: string, level_author: string) => ({ node_id, level_source: 'identity_inputs', level_author })
+  it.each([
+    // AIQ's row: a hop drops the carrier, the code survives → the caveat still renders
+    // AIQ 5877139338 (1): an unattested author is `unattested` (author-neutral copy), never "olumi"
+    ['code, no identity_evaluations (carrier dropped)', [ANCHORED], undefined, 'unattested'],
+    ['code, the goal entry says "olumi"', [ANCHORED], [entry('mrr', 'olumi')], 'olumi'],
+    ['code, the goal entry says "user"', [ANCHORED], [entry('mrr', 'user')], undefined],
+    // a "user" entry for ANOTHER node never lifts the goal's caveat
+    ['code, only another node says "user"', [ANCHORED], [entry('pro_mrr', 'user')], 'unattested'],
+    // no anchoring code → nothing to caveat, whatever the entries say
+    ['no code', [], [entry('mrr', 'olumi')], undefined],
+    // Codex CR (#2280 5878788201): a field that is NOT exactly `nodes[<id>].nonlinear_identity`
+    // names no goal — a "user" entry for that id never lifts the caveat
+    ['malformed field nodes[mrr].observed_state', [{ ...ANCHORED, field: 'nodes[mrr].observed_state' }], [entry('mrr', 'user')], 'unattested'],
+    ['malformed field nodes[mrr]junk', [{ ...ANCHORED, field: 'nodes[mrr]junk' }], [entry('mrr', 'user')], 'unattested'],
+    ['no field at all', [{ code: 'GOAL_LEVEL_FROM_IDENTITY_INPUTS', message: 'm', severity: 'warning' }], [entry('mrr', 'user')], 'unattested'],
+  ])('goal level from identity: %s → stamped %s', (_case, warnings, identity_evaluations, stamped) => {
+    const block = baseBlock({
+      enrichment: {
+        inference_warnings: warnings,
+        ...(identity_evaluations !== undefined ? { identity_evaluations } : {}),
+        option_comparison: [{ option_id: 'opt_a', probability_of_goal: 0.62 }],
+      },
+    })
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      option_probabilities?: Record<string, { goalLevelAuthor?: string }>
+    }
+    expect(report.option_probabilities?.opt_a?.goalLevelAuthor).toBe(stamped)
+  })
+
   it('constraints_status: forward-compatible passthrough when present, absent by default (NOT on CEE keep-list today)', () => {
     // Documents the residual: CEE's compose.ts P0B_SAFE_TRANSPORT_ENRICHMENT_KEEP
     // does not include constraints_status, so a real Seam-A payload never

@@ -40,6 +40,7 @@ import { render } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { GoalNode } from '../GoalNode'
 import { formatGoalTarget } from '../../../components/results/utils/formatGoalTarget'
+import marketEntryStarter from '../../starters/data/market-entry.draft.json'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -144,10 +145,34 @@ describe('GoalNode target string — the canvas half of the one-goal-one-string 
     expect(text).toContain(formatGoalTarget(9, 'months'))
   })
 
-  it('renders percent as a rounded percentage', () => {
+  /**
+   * ⛔ RE-PINNED 27 Sep 2026 (canvas audit edit-values F4). This row was
+   * "renders percent as a rounded percentage" and pinned `84.6 → '85%'`. The
+   * rounding was a convention carried into the consolidation (2f3b7420a), not a
+   * truth rule; it made "at least 99.5%" read `Target: 100%`. The agreement this
+   * file exists for is unchanged — the card still prints exactly
+   * `formatGoalTarget`'s string — and that string is now the user's figure.
+   */
+  it("renders percent at the user's own precision, as formatGoalTarget does", () => {
     const text = cardText({ goal_threshold_raw: 84.6, goal_threshold_unit: 'percent' })
-    expect(text).toContain('85%')
+    expect(text).toContain('84.6%')
+    expect(text).not.toContain('85%')
     expect(text).toContain(formatGoalTarget(84.6, 'percent'))
+  })
+
+  /**
+   * ⭐ Canvas side-by-side vs contract v3.1, item 6: the market-entry Goal read
+   * `Target: 11 £M ARR` — the currency after the figure. The contract writes money
+   * glyph-first (`£20,000 / month`). Real bytes: the shipped starter's goal node.
+   */
+  it('market-entry starter: the card reads "£11M ARR", never "11 £M ARR"', () => {
+    const goal = (marketEntryStarter as unknown as { nodes: Array<Record<string, unknown>> }).nodes
+      .find((n) => n.kind === 'goal')!
+    expect(goal).toMatchObject({ goal_threshold_raw: 11, goal_threshold_unit: '£M ARR' })
+    const text = cardText({ goal_threshold_raw: goal.goal_threshold_raw, goal_threshold_unit: goal.goal_threshold_unit })
+    expect(text).toContain('Target: £11M ARR')
+    expect(text).not.toContain('11 £M')
+    expect(text).toContain(formatGoalTarget(11, '£M ARR'))
   })
 })
 

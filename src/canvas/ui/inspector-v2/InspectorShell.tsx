@@ -108,7 +108,7 @@ export const InspectorShell = memo(function InspectorShell({
       {/* Head — `.inspector-head`: kind, title, Close. The drag surface. */}
       <div
         data-testid="inspector-header"
-        className={`relative flex items-start gap-2 px-3.5 py-[13px] border-b ${INSPECTOR_RULE.head} bg-white select-none shrink-0 ${
+        className={`relative flex items-start gap-2 px-3.5 py-[13px] border-b ${INSPECTOR_RULE.head} bg-panel select-none shrink-0 ${
           dragHandlers ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : ''
         }`}
         {...(dragHandlers ? {

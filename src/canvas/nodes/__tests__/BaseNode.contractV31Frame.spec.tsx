@@ -118,19 +118,30 @@ describe('contract v3.1 — one 1px frame, one radius, one resting elevation (FR
     expect(tokens(root)).not.toContain('border-2')
   })
 
-  it('the box stays byte-identical: padding absorbs the old stroke (factor 0.5px → 11.5px pad, risk 2px → 13px pad)', () => {
-    // Border + padding on each side is what the old stroke + 12px made, so the
-    // content box — and every height ELK reserved — is unchanged.
+  // ⛔ SUPERSEDED 29 Sep 2026 (Paul, "pixel perfect with the design artefact"): the
+  // byte-identical compensation (factor 11.5px, risk/outcome 13px) is retired; every
+  // repeated card carries the contract's `.node{padding:12px 12px 32px}` and the
+  // Question/Goal `.node.wide{padding:11px 13px 9px}`. The layout measures the new
+  // heights from the DOM. The row below is the contract, by kind.
+  it('every card has the contract padding: 12px sides on a repeated card of any kind, 13px on the anchors', () => {
     const factor = renderCard('factor', { label: 'F', observed_state: { value: 4 } }).root
-    expect(factor.style.paddingLeft).toBe('11.5px')
-    expect(factor.style.paddingRight).toBe('11.5px')
+    expect(factor.style.paddingLeft).toBe('12px')
+    expect(factor.style.paddingRight).toBe('12px')
+    expect(factor.style.paddingTop).toBe('12px')
     cleanup()
     const risk = renderCard('risk', { label: 'R' }).root
-    expect(risk.style.paddingLeft).toBe('13px')
-    expect(risk.style.paddingTop).toBe('13px')
+    expect(risk.style.paddingLeft).toBe('12px')
+    expect(risk.style.paddingTop).toBe('12px')
     cleanup()
     const option = renderCard('option', { label: 'O' }).root
     expect(option.style.paddingLeft).toBe('12px')
+    cleanup()
+    // CONTRAST — the anchors: 11 / 13 / 9 / 13.
+    const goal = renderCard('goal', { label: 'G' }).root
+    expect(goal.style.paddingLeft).toBe('13px')
+    expect(goal.style.paddingRight).toBe('13px')
+    expect(goal.style.paddingTop).toBe('11px')
+    expect(goal.style.paddingBottom).toBe('9px')
   })
 })
 
@@ -173,21 +184,26 @@ describe('contract v3.1 — no dashed card for "uncertain" (FRAME-06; Paul pt 4:
   })
 })
 
-describe('contract v3.1 — selection is one Info ring, flush, with a lift (FRAME-09, OR-10, T03)', () => {
-  it.each(KINDS)('%s selected: `ring-2 ring-info` + `shadow-2`, no kind hue and no white offset', (kind) => {
+describe('selection is ONE neutral lift, never a blue ring (Paul, 1 Oct 2026: "remove all of the blue highlighted borders when anything is clicked on"; supersedes contract v3.1 FRAME-09)', () => {
+  it.each(KINDS)('%s selected: `shadow-2` only — no ring, no info colour, no kind hue, no white offset', (kind) => {
     const { root } = renderCard(kind, { label: 'Picked' }, { selected: true })
     const t = tokens(root)
-    expect(t).toContain('ring-2')
-    expect(t).toContain('ring-info')
     expect(t).toContain('shadow-2')
+    expect(t).not.toContain('ring-2')
+    expect(t).not.toContain('ring-info')
     expect(t).not.toContain('ring-offset-2')
     expect(t).not.toContain('ring-4')
     expect(t.some((c) => /^ring-(goal|option|success|factor|danger)\//.test(c))).toBe(false)
   })
 
+  it('CONTROL: an unselected card carries no selection lift', () => {
+    const { root } = renderCard('factor', { label: 'Not picked' }, { selected: false })
+    expect(tokens(root)).not.toContain('shadow-2')
+  })
+
   it('colors.ts: every family spells the SAME selected token', () => {
     const selected = new Set(Object.values(nodeColors).map((c) => c.selected))
-    expect([...selected]).toEqual(['ring-2 ring-info'])
+    expect([...selected]).toEqual(['shadow-2'])
   })
 })
 
@@ -210,13 +226,14 @@ describe('contract v3.1 — the connectors (FRAME-03, FRAME-04, OR-05)', () => {
     }
     // v3.1 WS1 #15: the contract's 24px at −12px (`.node .shape`), counter-scaled
     // like the canvas type — it was 22 flow units, 11px on screen at landing.
-    expect(glyph.style.top).toBe('calc(12px - 24px * var(--canvas-label-scale, 1))')
-    expect(glyph.style.width).toBe('calc(24px * var(--canvas-label-scale, 1))')
+    // ⭐ Paul, 1 Oct 2026: "20% smaller" — 19.2px, its lower edge 9.6px inside the border.
+    expect(glyph.style.top).toBe('calc(9.6px - 19.2px * var(--canvas-label-scale, 1))')
+    expect(glyph.style.width).toBe('calc(19.2px * var(--canvas-label-scale, 1))')
     const shape = glyph.querySelector('polygon, circle, rect') as SVGElement
     expect(shape.getAttribute('stroke')).toBe('var(--bg-panel)')
     // The svg fills the counter-scaled box (its `width` attribute is the
     // unscaled fallback; the class sizes it).
-    expect(glyph.querySelector('svg')?.getAttribute('width')).toBe('24')
+    expect(glyph.querySelector('svg')?.getAttribute('width')).toBe('19.2')
     expect(tokens(glyph.querySelector('svg') as Element)).toEqual(expect.arrayContaining(['h-full', 'w-full']))
   })
 
@@ -227,13 +244,13 @@ describe('contract v3.1 — the connectors (FRAME-03, FRAME-04, OR-05)', () => {
    * TARGET scale (2 at the landing floor): a 48-unit shape 24 units into a 12-unit
    * padding, over the first line of every title on all five starters.
    */
-  it('⭐ the kind shape never reaches the title: its lower edge is 12px inside the border at every label scale', () => {
+  it('⭐ the kind shape never reaches the title: its lower edge is half its size (9.6px since 1 Oct) inside the border at every label scale', () => {
     const { container } = renderCard('outcome')
     const glyph = screen.getByTestId('node-type-glyph')
     const at = (css: string, ls: number) =>
       Function(`return ${css.replace(/var\(--canvas-label-scale, 1\)/g, String(ls)).replace(/calc\(|px|\)/g, (m) => (m === 'calc(' ? '(' : m === ')' ? ')' : ''))}`)() as number
     for (const ls of [1, 1.2, 1.36]) {
-      expect(at(glyph.style.top, ls) + at(glyph.style.height, ls), `label scale ${ls}`).toBeCloseTo(12, 6)
+      expect(at(glyph.style.top, ls) + at(glyph.style.height, ls), `label scale ${ls}`).toBeCloseTo(9.6, 6)
       expect(at(glyph.style.top, ls), `label scale ${ls}: the shape still stands on the border`).toBeLessThan(0)
     }
     // The inbound edge still ends ON the shape: the 12px target handle is centred on the shape's top.
@@ -261,10 +278,11 @@ describe('contract v3.1 — the connectors (FRAME-03, FRAME-04, OR-05)', () => {
     expect(tokens(inHandle)).not.toContain('bg-factor')
   })
 
-  it('index.css draws the port as a 3px dark dot and re-lights it on hover / selection', () => {
+  it('index.css draws the port as a 3px dark dot and re-lights it on hover / selection, in the body ink — never blue (Paul, 1 Oct 2026)', () => {
     const css = readFileSync(path.resolve(__dirname, '../../../index.css'), 'utf8')
     expect(css).toMatch(/\.react-flow__handle\.olumi-node-port\s*\{[^}]*radial-gradient\(circle, var\(--text-body\) 0 1\.5px, transparent 2px\)/)
-    expect(css).toMatch(/\.react-flow__node:hover \.react-flow__handle\.olumi-node-port,\s*\n\.react-flow__node\.selected \.react-flow__handle\.olumi-node-port\s*\{[^}]*var\(--info\)/)
+    expect(css).toMatch(/\.react-flow__node:hover \.react-flow__handle\.olumi-node-port,\s*\n\.react-flow__node\.selected \.react-flow__handle\.olumi-node-port\s*\{[^}]*background: var\(--text-body\)/)
+    expect(css).not.toMatch(/\.react-flow__node\.selected \.react-flow__handle\.olumi-node-port\s*\{[^}]*var\(--info\)/)
   })
 })
 
@@ -290,8 +308,9 @@ describe('contract v3.1 — the anchors are wide and shallow, rail beside the la
     const body = screen.getByTestId('anchor-body-rail-beside')
     // Challenge + More + Ask/coaching = 3, plus the caller's run icon = 4.
     expect(body.getAttribute('data-anchor-rail-buttons')).toBe('4')
-    expect(body.style.paddingRight).toBe(`calc(${anchorRailReservePx(4)}px * var(--canvas-glyph-scale, 1) + -6px)`)
-    expect(body.style.minHeight).toBe('calc(25px * var(--canvas-glyph-scale, 1) + -3px)')
+    // 29 Sep: measured from the anchor's 13px side padding, and 0.5px under the rail so the card is the contract's 65.
+    expect(body.style.paddingRight).toBe(`calc(${anchorRailReservePx(4)}px * var(--canvas-glyph-scale, 1) + -7px)`)
+    expect(body.style.minHeight).toBe('calc(25px * var(--canvas-glyph-scale, 1) + -3.5px)')
     // CONTRAST — the card root carries no rail reserve: the title is not squeezed.
     expect(root.style.paddingRight).not.toMatch(/canvas-glyph-scale/)
     expect(tokens(body)).not.toContain(ANCHOR_RAIL_RESERVE_CLASSES[4])
@@ -368,16 +387,18 @@ describe('contract v3.1 — the rendered rail band tracks the live scale (RHY-01
   // scale, not a fixed band — is unchanged.
   it('an ordinary card renders the band as a calc over --canvas-glyph-scale, not a fixed band', () => {
     const { root } = renderCard('option', { label: 'O' }, { children: <div>row</div> })
-    expect(root.style.paddingBottom).toBe('calc(6px + 27px * var(--canvas-glyph-scale, 1))')
+    // 29 Sep: 5 + 27 = 32 at 100%, the contract's `padding-bottom:32px` (rail at `bottom:5px`).
+    expect(root.style.paddingBottom).toBe('calc(5px + 27px * var(--canvas-glyph-scale, 1))')
   })
 })
 
-describe('contract v3.1 — the anchor title is semibold header ink at reading zoom (ANC-04)', () => {
-  it.each(['decision', 'goal'] as const)('%s title: font-semibold text-text-header', (kind) => {
+describe('contract v3.1 — the anchor title is semibold, 14px, in the card ink at reading zoom (ANC-04)', () => {
+  it.each(['decision', 'goal'] as const)('%s title: font-semibold, the wide 14px, text-text-body', (kind) => {
     renderCard(kind)
     const t = tokens(screen.getByTestId('node-title'))
     expect(t).toContain('font-semibold')
-    expect(t).toContain('text-text-header')
+    expect(t).toContain('text-text-body')
+    expect(t).toContain('text-[length:calc(14px*var(--canvas-label-scale,1))]')
   })
 
   it('twin: a factor title stays body ink at reading zoom', () => {
@@ -416,9 +437,9 @@ describe('contract v3.1 — the assumption flag is a neutral ring, not amber (IC
 })
 
 describe('BaseNode titleOverride — display-only (ANC-11 enabler)', () => {
-  // v3.1 row 36: the name's hover route is the styled tooltip, no longer a
+  // The name's hover route is the card hover pop-up (29 Sep 2026), never a
   // native `title` — it still carries the REAL label, not the override.
-  it('replaces the VISIBLE words only; the name tooltip and the card name keep the real label', () => {
+  it('replaces the VISIBLE words only; the hover pop-up and the card name keep the real label', () => {
     const { root } = renderCard('decision', { label: 'Question' }, { titleOverride: 'What are we exploring?' })
     const title = screen.getByTestId('node-title')
     expect(title.textContent).toBe('What are we exploring?')
@@ -431,7 +452,7 @@ describe('BaseNode titleOverride — display-only (ANC-11 enabler)', () => {
     } finally {
       vi.useRealTimers()
     }
-    expect(screen.getByTestId('node-title-tooltip-name').textContent).toBe('Question')
+    expect(screen.getByTestId('node-hover-card-title').textContent).toBe('Question')
     expect(root.getAttribute('aria-label') ?? '').toContain('Question')
   })
 

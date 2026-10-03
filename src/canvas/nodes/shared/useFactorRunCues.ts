@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '../../store'
 import { driverRankFor, useInfluenceRank } from '../../hooks/useInfluenceRank'
 import type { NodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
-import type { DriverDisplayProvenance } from '../../../components/results/driverDisplayModel'
 import { useRunCurrency, type RunCurrency } from './runCurrency'
 import { selectFactorTurningPointState, type FactorTurningPointState } from './factorTurningPoint'
 
@@ -15,8 +14,9 @@ import { selectFactorTurningPointState, type FactorTurningPointState } from './f
  * for — a RANKED factor whose run attested no flip — so it has to read the
  * SAME rank licence, not a second spelling of it that could drift.
  *
- *   · `driverLine` — "Driver N of M analysed" + its bar, ONLY for a factor the
- *     run RANKED (ED #63 5806207128; `driverRankFor` is the one rank rule);
+ *   · `driverLine` — "Driver N of M ranked in this run" + its bar, ONLY for a
+ *     factor the run RANKED (`driverRankFor` is the one rank rule; M = the
+ *     ranked count), the bar being its relative sensitivity (rank 1 = 1);
  *   · `driverNotRanked` — a run whose cues may be shown did not rank it;
  *   · `turningPointState` — the run's `found` row or its "none" fallback;
  *     never-run / cannot-confirm stay null, so no past run is invented;
@@ -31,9 +31,15 @@ export interface FactorRunCues {
   runCuesShown: boolean
   driverLine: {
     rank: { rank: number; setSize: number }
-    value: number
-    provenance: DriverDisplayProvenance
-    importanceBasis: string | null
+    /** Relative sensitivity, 0..1, rank 1 = 1 (`rankFactor.relativeSensitivity`); null → no bar. */
+    value: number | null
+    /**
+     * PJ-B3: the run held no value for this ranked factor
+     * (`NodeDisplayMetadata.unvaluedInRun`, `unvaluedDriver.ts`) — the line adds
+     * "no value yet". Read off the SAME run as the rank, so a stale rank carries
+     * the same run's fact under `Last run · `.
+     */
+    noValueYet: boolean
   } | null
   driverNotRanked: boolean
   turningPointState: FactorTurningPointState | null
@@ -49,7 +55,7 @@ export function useFactorRunCues(nodeId: string, displayMetadata: NodeDisplayMet
    * ⭐ THE RANKED READING OF THE SAME NUMBER — derived ONCE and consumed by
    * every driver render on this card. (Historical: it fed the Standard-view
    * `NodeMetricRow` and the Detailed-view `DataBar`; since the locked design of
-   * 23 Sep 2026 both are ONE `FactorDriverLine`, "Driver N of M analysed".) They show the same figure, so they carry the
+   * 23 Sep 2026 both are ONE `FactorDriverLine`, "Driver N of M ranked in this run".) They show the same figure, so they carry the
    * same misread, and fixing one would have left `Relative influence … 100%`
    * reachable one view away — four presentations of one idea, which is the
    * inconsistency this card's rows were unified to remove.
@@ -110,7 +116,6 @@ export function useFactorRunCues(nodeId: string, displayMetadata: NodeDisplayMet
   const runCurrency = useRunCurrency()
   const resultsFromLastRun = runCurrency === 'changed'
   const runCuesShown = runCurrency === 'current' || resultsFromLastRun
-  const influencePct = displayMetadata.influence != null ? Math.round(displayMetadata.influence * 100) : null
   const driverRank =
     isPostAnalysis && runCuesShown
       ? driverRankFor(
@@ -121,13 +126,23 @@ export function useFactorRunCues(nodeId: string, displayMetadata: NodeDisplayMet
           displayMetadata.influenceRankedCount,
         )
       : null
+  // ⭐ THE BAR IS THE RANK'S OWN QUANTITY (side-by-side DIFF item 4, 27 Sep
+  // 2026). It was `displayMetadata.influence` — `influence_score` over the max of
+  // ALL factors — so on Paul's MRR run Driver 1 drew 81% "of the strongest
+  // factor", the strongest being `pro_plan_price`, which this card calls
+  // unranked. It is now relative sensitivity over rank 1 (contract `driver()`:
+  // rank 1 = 100). The LINE is gated on the rank licence alone (`driverRankFor`),
+  // no longer also on the influence figure, so every factor counted in M shows
+  // its rank (item 3); with no finite figure the line keeps its rank and draws
+  // no bar. (`rankFactor` sets the figure exactly when it sets the rank.) The
+  // influence figure itself is unchanged and stays in the inspector.
+  const relativeSensitivity = displayMetadata.driverRelativeSensitivity
   const driverLine =
-    driverRank !== null && influencePct != null && displayMetadata.influenceProvenance != null
+    driverRank !== null
       ? {
           rank: driverRank,
-          value: influencePct / 100,
-          provenance: displayMetadata.influenceProvenance,
-          importanceBasis: displayMetadata.influenceImportanceBasis,
+          value: typeof relativeSensitivity === 'number' && Number.isFinite(relativeSensitivity) ? relativeSensitivity : null,
+          noValueYet: displayMetadata.unvaluedInRun === true,
         }
       : null
   const driverNotRanked = isPostAnalysis && runCuesShown && driverRank === null

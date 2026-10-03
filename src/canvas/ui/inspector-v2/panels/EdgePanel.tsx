@@ -10,6 +10,7 @@ import { Activity } from 'lucide-react'
 import { FRAGILE_CUE_SENTENCE } from '../../../edges/connectorCopy'
 import { resolveEdgeDirectionMarker } from '../../../edges/edgePresentation'
 import { useCanvasStore } from '../../../store'
+import { isCanvasOnlyLink } from '../../../utils/canvasOnlyLink'
 import { useRobustness, useEdgeEValues } from '../useAnalysisResults'
 import { useEditConfirmation } from '../useEditConfirmation'
 import { EditConfirmation } from '../shared/EditConfirmation'
@@ -40,6 +41,8 @@ import { ResultsLink } from '../shared/ResultsLink'
 import type { InspectorPanelProps } from '../types'
 import { isEdgeFragile, getFragileEdgeSwitchProbability, parallelEdgeIdsFor } from '../../../utils/fragileEdgeMatch'
 import { resolveEdgeValuesCoaching, resolveEdgeValuesProvenance } from '../coachingConfig'
+import { isStrengthPlaceholder } from '../../../domain/strengthPlaceholder'
+import { BY_DEFINITION, isStrengthDefinitional } from '../../../domain/strengthDefinitional'
 import {
   edgeValueBand,
   edgeValueSource,
@@ -48,7 +51,7 @@ import {
   withLiveEdgeValue,
   type EdgeValueBand,
 } from '../../../domain/edgeValueProvenance'
-import { METRIC_UNSET } from '../../../nodes/shared/metricVocabulary'
+import { LINK_STRENGTH_COPY, METRIC_UNSET } from '../../../nodes/shared/metricVocabulary'
 import { resolveStrengthSpread, inlineStrengthLabel } from '../../../domain/strengthBandSpan'
 import { getStrengthLabel } from '../../../domain/vocabulary'
 import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
@@ -209,6 +212,7 @@ export const EdgePanel = memo(function EdgePanel({
 }: InspectorPanelProps) {
   const edges = useCanvasStore(s => s.edges)
   const nodes = useCanvasStore(s => s.nodes)
+  const serverHeldPairs = useCanvasStore(s => s.lastAuthoritativeGraph)
   const robustness = useRobustness()
   const edgeEValues = useEdgeEValues()
   const resultsStatus = useCanvasStore(s => s.results?.status)
@@ -269,12 +273,26 @@ export const EdgePanel = memo(function EdgePanel({
   // other direction. A disclosure that answers "where did this come from?"
   // with a fixed string is a stronger over-claim than the number it sits
   // under, so it is now derived from the edge's actual stamps.
+  // POM-8: CEE's PLACEHOLDER strength is not an estimate. One predicate, the
+  // one the canvas line and hover read (`domain/strengthPlaceholder`).
+  const strengthIsPlaceholder = useMemo(
+    () => isStrengthPlaceholder(edge?.data as Record<string, unknown> | undefined),
+    [edge?.data],
+  )
+  // MG 0ebb952a: a link that holds BY DEFINITION is nobody's estimate — not
+  // "Olumi estimated", and nothing to confirm (`domain/strengthDefinitional`).
+  const strengthIsDefinitional = useMemo(
+    () => isStrengthDefinitional(edge?.data as Record<string, unknown> | undefined),
+    [edge?.data],
+  )
   const edgeValuesCoaching = useMemo(
     () => resolveEdgeValuesCoaching({
       strength: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'weight'),
       existence: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
+      strengthPlaceholder: strengthIsPlaceholder,
+      strengthDefinitional: strengthIsDefinitional,
     }),
-    [edge?.data],
+    [edge?.data, strengthIsPlaceholder, strengthIsDefinitional],
   )
   // v3.1 row 32: the same two provenance facts, stated flat in the pane (the
   // generic card that used to carry them is gone — see the resolver's note).
@@ -282,8 +300,10 @@ export const EdgePanel = memo(function EdgePanel({
     () => resolveEdgeValuesProvenance({
       strength: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'weight'),
       existence: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
+      strengthPlaceholder: strengthIsPlaceholder,
+      strengthDefinitional: strengthIsDefinitional,
     }),
-    [edge?.data],
+    [edge?.data, strengthIsPlaceholder, strengthIsDefinitional],
   )
 
   // A confirm-as-is action is licensed only by a real producer value. A bare
@@ -325,13 +345,20 @@ export const EdgePanel = memo(function EdgePanel({
   const currentEstimatedWeight = useMemo(() => {
     const data = edge?.data as Record<string, unknown> | undefined
     const value = data?.weight
+    // POM-8: a placeholder is not "Olumi's current estimate", and confirming it
+    // "as an estimate" would ratify a number nobody estimated. The strength
+    // control above is how it gets set.
+    if (strengthIsPlaceholder) return null
+    // MG 0ebb952a: a definition is not "Olumi's current estimate", and CEE
+    // refuses any change to it — there is nothing to confirm.
+    if (strengthIsDefinitional) return null
     return edgeValueSource(data, 'weight') === 'cee' &&
       // the act's own authority — one function, both readers
       serverStatedStrengthOf(data) !== null &&
       typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
       ? value
       : null
-  }, [edge?.data])
+  }, [edge?.data, strengthIsPlaceholder, strengthIsDefinitional])
 
   /**
    * ⛔⛔ THE HOUSE BOUND ERASES SMALL MAGNITUDES, SO IT CANNOT BE USED ALONE.
@@ -645,6 +672,46 @@ export const EdgePanel = memo(function EdgePanel({
   )
 
   /**
+   * ⭐⭐ ONLY THE LATEST STRENGTH EDIT MAY SPEAK (canvas audit edit-values F1).
+   *
+   * A drag or two quick band clicks put several sends on one link: the first
+   * leaves, the rest queue. Their settlements arrive out of order — the first
+   * send's `'sent'` lands AFTER the queued one's `'queued'` — and with no guard
+   * the last to ARRIVE won, so the panel read "Sent to Olumi" about the earlier
+   * value while showing the later one (skeptic timeline on served `d87eeb94`).
+   * The same sequence rule `handleDirectionChange` already follows: a late
+   * answer to a superseded press is dropped.
+   *
+   * ⭐ AND ONCE THE LATEST EDIT IS ANSWERED, THE PANEL SHOWS WHAT THE CANVAS
+   * SHOWS. `localStrength` is `useState(signedValue)` and nothing resyncs it
+   * (see `handleStateStrengthForSave`). Two settlements move the store off it:
+   * `'refused'` (`resolveEdgeEditSettlement` reverts the link), and a QUEUED
+   * edit's late answer — the receipt of the edit ahead of it reconciles the
+   * link to the server's value first, so a queued edit the server then declines
+   * leaves the canvas on that value. The skeptic's served end state was exactly
+   * this: panel "Very strong 0.85 ± 0.15", canvas "Moderate boost". Both reach
+   * the panel as `'refused'` or `'unverified'`, so those two resync. `'sent'`
+   * does not: the receipt put the sent number on the link, which is the
+   * panel's — and resyncing there could pull a slider thumb back during the
+   * 120 ms before its next debounced move. `'queued'` is not an answer at all.
+   */
+  const strengthSendSeqRef = useRef(0)
+  const beginStrengthSend = useCallback(() => {
+    const seq = ++strengthSendSeqRef.current
+    return (settlement: SystemEventSendSettlement, detail?: SystemEventSendSettlementDetail) => {
+      if (seq !== strengthSendSeqRef.current) return
+      if ((settlement === 'refused' || settlement === 'unverified') && edgeId) {
+        const stored = useCanvasStore.getState().edges.find((e) => e.id === edgeId)?.data
+        const storedWeight = stored?.weight ?? 0.5
+        const storedSigned = stored?.direction === 'negative' ? -storedWeight : storedWeight
+        setLocalStrength(storedSigned)
+        origStrengthRef.current = storedSigned
+      }
+      handleStrengthSendSettled(settlement, detail)
+    }
+  }, [edgeId, handleStrengthSendSettled])
+
+  /**
    * ⛔⛔ A SETTLEMENT DOES NOT ALWAYS ARRIVE, AND MY FIRST VERSION ASSUMED IT DID.
    *
    * `setStrength` returns BEFORE the send on two paths — `not_wire_encodable`
@@ -672,9 +739,9 @@ export const EdgePanel = memo(function EdgePanel({
     // the one that describes where the value ended up. Clearing first means a
     // stale "not recorded" can never survive over a later send that landed.
     setStrengthEditSend(null)
-    noteStrengthOutcome(mutations.setStrength(v, { onSendSettled: handleStrengthSendSettled }))
+    noteStrengthOutcome(mutations.setStrength(v, { onSendSettled: beginStrengthSend() }))
     if (edgeId) previewEdit(edgeId, v - origStrengthRef.current)
-  }, [mutations, edgeId, previewEdit, handleStrengthSendSettled])
+  }, [mutations, edgeId, previewEdit, beginStrengthSend])
 
   const handleStrengthBlur = useCallback(() => {
     clearPreview()
@@ -694,12 +761,12 @@ export const EdgePanel = memo(function EdgePanel({
     setStrengthEditSend(null)
     noteStrengthOutcome(mutations.setStrength(v, {
       preserveDirection: true,
-      onSendSettled: handleStrengthSendSettled,
+      onSendSettled: beginStrengthSend(),
     }))
     clearPreview()
     origStrengthRef.current = v
     confirmEdit('strength')
-  }, [mutations, clearPreview, confirmEdit, handleStrengthSendSettled])
+  }, [mutations, clearPreview, confirmEdit, beginStrengthSend])
 
   /**
    * ⛔⛔ THIS HANDLER SENT AN ACT THE SERVER REFUSES AND THEN REPORTED SUCCESS.
@@ -863,9 +930,12 @@ export const EdgePanel = memo(function EdgePanel({
    */
   // `edge` is narrowed a few lines below, not here — optional access, because the
   // repo's typecheck GATE flags what a bare `tsc --noEmit` let through.
-  const awaitingStatedStrength =
-    (edge?.data as { structuralAddStandDown?: string } | undefined)?.structuralAddStandDown ===
-    'strength_not_stated'
+  //
+  // ⛔ THE SHARED PREDICATE, NOT THE RAW RECEIPT (review r06 blocker 2, 28 Sep
+  // 2026): a receipt on a pair the server holds is stale, and this add-control
+  // would send a second `structural_add_edge` for it. Same reader as the
+  // on-link word and the capture retry (`utils/canvasOnlyLink.ts`).
+  const awaitingStatedStrength = isCanvasOnlyLink(edge, serverHeldPairs)
 
   /**
    * States the strength for a link that has never reached the model, with the
@@ -987,7 +1057,24 @@ export const EdgePanel = memo(function EdgePanel({
                 same mechanism `InspectorRouter` used to apply to the whole
                 panel — kept, but pointed at the question that actually decides
                 it: can THIS edge's strength be asserted? */}
-            {awaitingStatedStrength ? (
+            {strengthIsDefinitional ? (
+              /* ⭐ A LINK THAT HOLDS BY DEFINITION HAS NO STRENGTH EDITOR (MG
+                 ruling, 1 Oct 2026). CEE refuses every strength or direction
+                 change on it, so the whole edit fieldset — direction, bands,
+                 fine-tune, β — is replaced, not disabled: a fenced editor reads
+                 as "not yet", and a definition is not waiting for anything.
+                 The full sentence is the provenance line directly above
+                 (`edge-values-provenance`), so this slot states the strength in
+                 the short words rather than printing that sentence twice. */
+              <PrimaryControlCard>
+                <p
+                  className={`${typography.panelBody} text-text-body`}
+                  data-testid="edge-strength-definitional"
+                >
+                  {`${LINK_STRENGTH_COPY.noun}: ${BY_DEFINITION.toLowerCase()}`}
+                </p>
+              </PrimaryControlCard>
+            ) : awaitingStatedStrength ? (
               /* ⭐ THE ADD CONTROL. Rendered INSTEAD of the edit fieldset, never
                  beside it: two strength controls on one edge would be two
                  answers to one question, which is the defect this panel already
@@ -1160,6 +1247,7 @@ export const EdgePanel = memo(function EdgePanel({
                         inlineStrengthLabel(strengthSpread.lowLabel),
                         inlineStrengthLabel(strengthSpread.highLabel),
                         getStrengthLabel(strengthSpread.magnitude),
+                        { placeholder: strengthIsPlaceholder },
                       )}
                     </p>
                   )}

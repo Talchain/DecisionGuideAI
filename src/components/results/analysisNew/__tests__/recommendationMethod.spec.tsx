@@ -34,7 +34,7 @@ describe('the map is anchored to both real sources', () => {
    * and that its lookups actually resolve, so hollowing it out REDs here.
    */
   it('the map is non-empty and every prefix resolves to a real method', () => {
-    expect(MAPPED_RECOMMENDATION_PREFIXES.length).toBeGreaterThanOrEqual(3)
+    expect(MAPPED_RECOMMENDATION_PREFIXES.length).toBeGreaterThanOrEqual(2)
     for (const prefix of MAPPED_RECOMMENDATION_PREFIXES) {
       expect(methodForRecommendation(prefix), `${prefix} resolved to nothing`).not.toBeNull()
     }
@@ -48,10 +48,18 @@ describe('attachment is exact, and absence is the common case', () => {
   })
 
   it('matches a per-target id through its prefix', () => {
-    // `strengthen:flip:${edgeId}` — four of the eight builders mint ids this way.
-    expect(methodForRecommendation('strengthen:flip:e_warm_network')?.id).toBe(
-      'consider_opposite',
-    )
+    expect(methodForRecommendation('strengthen:robustness:opt_a')?.id).toBe('pre_mortem')
+  })
+
+  /**
+   * ⛔ RETIRED TRIGGER (REASONING COACH 5931857395, `ui_trigger_map` @ `33141ba5`). The flip finding keys on the
+   * producer's `fragile_edges` "could flip", false 7 times in 10 (P3C never-coach), so it names no technique.
+   * `consider_opposite` itself stays on the always-available menu.
+   */
+  it('a flip finding names no technique; Consider the opposite stays in the catalogue', () => {
+    expect(methodForRecommendation('strengthen:flip:e_warm_network')).toBeNull()
+    expect(methodForRecommendation('strengthen:flip')).toBeNull()
+    expect(METHOD_CATALOGUE.some((m) => m.id === 'consider_opposite')).toBe(true)
   })
 
   /**

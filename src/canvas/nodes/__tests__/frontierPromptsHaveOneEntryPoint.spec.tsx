@@ -34,6 +34,7 @@ import { OptionNode } from '../OptionNode'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { GhostTierNode } from '../GhostTierNode'
+import { chooseWhatElse } from './chooseWhatElse'
 import {
   GHOST_TIERS,
   tierInvitations,
@@ -211,6 +212,7 @@ describe('the factor / risk / outcome questions have ONE entry point: the row-en
       </ReactFlowProvider>,
     )
     fireEvent.click(screen.getByRole('button', { name: FACTOR_LABEL }))
+    chooseWhatElse('factor') // E4: the door opens the "What else…?" chooser; its Factor chip keeps this row's question.
     // #1931 (merged 24 Sep, 5c4aa6f4): prefill-and-confirm, never send — the
     // person reads the question in the composer and chooses to send it
     // (Experience Design #63 5807363175).

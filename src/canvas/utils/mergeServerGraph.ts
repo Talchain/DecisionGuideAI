@@ -115,6 +115,7 @@ import { logger } from '../../lib/logger'
 import { canonicalJson } from '../../lib/canonical-hash'
 import { normaliseInterventionKeys } from './normaliseInterventionKeys'
 import { canvasEdgePairKey, wireEdgePairKey } from './graphIdentity'
+import { recordsStrengthStandDown } from './canvasOnlyLink'
 import { editDeliveryHold, type EditDeliveryState } from '../registration/editDeliveryHold'
 import { pulseAppliedTargets } from './appliedEditPulse'
 import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from './applyDraftResult'
@@ -223,9 +224,20 @@ export interface MergeServerGraphResult {
    * `data.label` (its id when it has none), then each edge removed on its OWN
    * pair — both endpoints survive — as "the link from A to B". An edge that
    * went with its endpoint is not listed separately; the node names it.
-   * Empty exactly when nothing was removed.
+   * Empty exactly when nothing was removed — except that a CANVAS-ONLY link
+   * (below) is named there instead of here.
    */
   removedLabels: string[]
+  /**
+   * ⭐ Pair-removed links that were NEVER SENT (canvas audit edit-structure/F3,
+   * 27 Sep 2026): the canvas recorded their stand-down at `strength_not_stated`
+   * (`utils/canvasOnlyLink.ts`), so the UI KNOWS why the saved model lacks them.
+   * Named apart so the reload line can say so, rather than the generic "removed
+   * in another tab, or never finished saving" guess. Same wording shape as
+   * `removedLabels` ("the link from A to B"); the user's own words, so kept out
+   * of logs like it.
+   */
+  removedCanvasOnlyLinkLabels: string[]
   /**
    * ⚠ WHETHER THE SERVER'S GRAPH WAS READ AT ALL — NOT WHETHER IT MOVED ANYTHING.
    *
@@ -261,7 +273,14 @@ const NO_CHANGE = Object.freeze({
 })
 
 function refused(reason: MergeServerGraphRefusal): MergeServerGraphResult {
-  return { ...NO_CHANGE, removedLabels: [], accepted: false, refusedReason: reason, changed: false }
+  return {
+    ...NO_CHANGE,
+    removedLabels: [],
+    removedCanvasOnlyLinkLabels: [],
+    accepted: false,
+    refusedReason: reason,
+    changed: false,
+  }
 }
 
 /**
@@ -304,6 +323,24 @@ function nodeDisplayName(n: { id?: unknown; data?: unknown } | undefined, fallba
   return typeof label === 'string' && label.trim().length > 0 ? label.trim() : fallbackId
 }
 
+
+/**
+ * ⛔ DL #75 5904550441 (signed-in `520aab46`): producer PROVENANCE a boot read carries that an older snapshot lacks is
+ * acquired metadata, not a changed model value — the node twin of the edge mask below (`origin`, `naturalEffect`).
+ * CEE #2337 added `proposed_by`; counting its arrival as an edit hid every Run saved before it ("Run a first pass").
+ * ⚠ Every key here is OUTSIDE the registry's stale set (the fields the analysis hash reads) — pinned by the spec, so
+ * no analysis-affecting edit can ever be masked (AIQ 5904679135).
+ */
+export const NODE_ACQUIRED_METADATA_KEYS = ['proposed_by', 'threshold_source', 'goal_threshold_cap_provenance'] as const
+function onlyAcquiredNodeMetadataDiffers(previous: unknown, incoming: unknown): boolean {
+  const strip = (d: unknown): Record<string, unknown> => {
+    const c = { ...((d ?? {}) as Record<string, unknown>) }
+    for (const k of NODE_ACQUIRED_METADATA_KEYS) delete c[k]
+    return c
+  }
+  return deepEqual(strip(previous), strip(incoming))
+}
+
 /**
  * Merge the server's graph onto the live canvas.
  *
@@ -327,6 +364,8 @@ export function mergeServerGraphOnHydrate(
   if (rawNodes.length === 0 && rawEdges.length === 0) return refused('emptyServerGraph')
 
   const store = useCanvasStore.getState()
+  // Read BEFORE anything is written: an empty canvas here means this merge can only ADD — see `adoptingIntoEmptyCanvas`.
+  const canvasWasEmpty = store.nodes.length === 0 && store.edges.length === 0
 
   // ROADMAP 2.467/2.503 — refuse while the canvas holds an UNREGISTERED import.
   // Placed AFTER the shape guards (an unusable or empty server graph is still
@@ -488,7 +527,7 @@ export function mergeServerGraphOnHydrate(
     if (next.type === n.type && deepEqual(incomingData, previousData)) return n
 
     updatedNodeCount += 1
-    if (!recordAcquisition) valueChangedNodeIds.push(n.id)
+    if (!recordAcquisition && !onlyAcquiredNodeMetadataDiffers(previousData, incomingData)) valueChangedNodeIds.push(n.id)
     return next
   })
 
@@ -539,6 +578,13 @@ export function mergeServerGraphOnHydrate(
       serverStrength: e.data?.serverStrength,
       origin: e.data?.origin,
       naturalEffect: e.data?.naturalEffect,
+      // The stand-down receipt `overlayEdge` drops (the server holds this pair,
+      // so "never sent" is false): corrected, but not a changed model value.
+      structuralAddStandDown: e.data?.structuralAddStandDown,
+      // POM-8: the placeholder label is acquired metadata too.
+      strengthPlaceholder: e.data?.strengthPlaceholder,
+      // The by-definition label (MG 0ebb952a) is acquired metadata too.
+      strengthDefinitional: e.data?.strengthDefinitional,
     }
     if (!deepEqual(comparableReadback, e.data)) {
       valueChangedEdgeIds.push(e.id)
@@ -657,15 +703,21 @@ export function mergeServerGraphOnHydrate(
   // The removed labels are named against what the user sees NOW: a removed node
   // by its own label, a pair-removed edge by its endpoints' post-merge labels.
   const displayNodeById = new Map<string, any>(mergedNodes.map((n: any) => [n.id, n]))
+  const linkName = (e: any) =>
+    `the link from ${nodeDisplayName(displayNodeById.get(e.source), e.source)} to ${nodeDisplayName(displayNodeById.get(e.target), e.target)}`
+  // A link that stood down for want of a strength was never sent, and the
+  // canvas recorded that on it; its absence from the saved model is expected.
+  // The raw receipt is the whole test HERE: every pair-removed edge is on a pair
+  // this read just showed the server does not hold.
+  const canvasOnlyPairRemoved = pairRemovedEdges.filter((e) => recordsStrengthStandDown(e?.data))
+  const otherPairRemoved = pairRemovedEdges.filter((e) => !recordsStrengthStandDown(e?.data))
   const removedLabels = [
     ...(store.nodes as any[])
       .filter((n) => removedNodeIds.has(n.id))
       .map((n) => nodeDisplayName(n, n.id)),
-    ...pairRemovedEdges.map(
-      (e) =>
-        `the link from ${nodeDisplayName(displayNodeById.get(e.source), e.source)} to ${nodeDisplayName(displayNodeById.get(e.target), e.target)}`,
-    ),
+    ...otherPairRemoved.map(linkName),
   ]
+  const removedCanvasOnlyLinkLabels = canvasOnlyPairRemoved.map(linkName)
   const result: MergeServerGraphResult = {
     addedNodeCount: addedNodes.length,
     addedEdgeCount: addedEdges.length,
@@ -674,6 +726,7 @@ export function mergeServerGraphOnHydrate(
     removedNodeCount: removedNodeIds.size,
     removedEdgeCount: removedEdgeIds.size,
     removedLabels,
+    removedCanvasOnlyLinkLabels,
     accepted: true,
     refusedReason: null,
     changed: false, // set below, once the counts are known
@@ -852,7 +905,24 @@ export function mergeServerGraphOnHydrate(
   // and equivalent option-record acquisition are stored without invalidating
   // unchanged analysis; real overwrites, additions AND removals still
   // invalidate it — a removal is a model change like any other.
-  if (modelChanged) useCanvasStore.getState().markGraphStructurallyEdited?.()
+  //
+  // ⭐ ADOPTION INTO AN EMPTY BROWSER IS NOT AN EDIT (fresh browser; Canvas #72, served `7f1be5d8`, scenario
+  // `0c238873`). The question above is about "the graph the current freshness verdict was established against". When
+  // the canvas was EMPTY before this merge and the browser holds NO verdict, freshness, result or Run of its own, there
+  // is no such graph and nothing can have been overwritten or removed: the canvas is adopting the server's model.
+  // Marking that an edit made the boot decline the server's own `complete_current` Run as `edited_since_read` on every
+  // fresh browser, so a saved Run never showed on a second device. A canvas that held ANY model keeps the mark exactly
+  // as before (its local content may just have been overwritten or removed), and so does anything held.
+  const held = useCanvasStore.getState()
+  const adoptingIntoEmptyCanvas =
+    canvasWasEmpty &&
+    held.analysisStateV1 == null &&
+    held.analysisFreshness == null &&
+    held.v5AnalysisFact == null &&
+    held.hasCompletedFirstRun !== true &&
+    held.results?.status !== 'complete' &&
+    held.results?.report == null
+  if (modelChanged && !adoptingIntoEmptyCanvas) useCanvasStore.getState().markGraphStructurallyEdited?.()
 
   // ── DISCLOSURE: never move a number the user is looking at in silence ──────
   //
@@ -869,11 +939,16 @@ export function mergeServerGraphOnHydrate(
   }
 
   // Counts only: the removed labels are the user's own words and stay out of logs.
-  const { removedLabels: labelsForUser, ...counts } = result
+  const {
+    removedLabels: labelsForUser,
+    removedCanvasOnlyLinkLabels: canvasOnlyLabelsForUser,
+    ...counts
+  } = result
   logger.info('merge_server_graph.applied', {
     scenarioId: store.currentScenarioId ?? null,
     ...counts,
     removedLabelCount: labelsForUser.length,
+    removedCanvasOnlyLinkCount: canvasOnlyLabelsForUser.length,
   })
 
   return result

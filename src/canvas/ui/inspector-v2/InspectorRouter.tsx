@@ -5,11 +5,12 @@
 
 import { memo, useMemo, useCallback, type ComponentType } from 'react'
 import { useCanvasStore } from '../../store'
+import { isCanvasOnlyLink } from '../../utils/canvasOnlyLink'
 import type { NodeType, FactorCategory } from '../../domain/nodes'
 import { InspectorShell } from './InspectorShell'
 import { TechnicalDisclosure } from './shared/TechnicalDisclosure'
 import { useTechToggle } from './useTechToggle'
-import { INSPECTOR_EDGE_REASON, INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON, INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON, INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON, INSPECTOR_FACTOR_CONTROLLABLE_REASON, INSPECTOR_FACTOR_EXTERNAL_REASON } from './useInspectorMutations'
+import { INSPECTOR_EDGE_REASON, INSPECTOR_EDGE_DEFINITIONAL_REASON, INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON, INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON, INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON, INSPECTOR_FACTOR_CONTROLLABLE_REASON, INSPECTOR_FACTOR_EXTERNAL_REASON } from './useInspectorMutations'
 import { getTypeLabel, EDGE_TYPE_LABEL } from './inspectorStrings'
 
 // Panel imports — lazy would be premature, these are small
@@ -27,10 +28,13 @@ import { GenericNodePanel } from './panels/GenericNodePanel'
 import { InspectorQuickActions } from './shared/InspectorQuickActions'
 import { InspectorAgencyNote } from './shared/InspectorAgencyNote'
 import { InspectorAttentionContext, attentionAskContext } from './shared/InspectorAttentionContext'
+import { ExamineAssumption } from './examine/ExamineAssumption'
+import { ExamineLink } from './examine/ExamineLink'
 import { useNodeAttention } from '../../nodes/shared/useNodeAttention'
 import { revealOlumiSurface } from '../../conversation/revealOlumi'
 import { resolveElementLabel } from '../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
+import { isStrengthDefinitional } from '../../domain/strengthDefinitional'
 import { isStructuralEdge } from '../../domain/edgeUtils'
 import type { EdgeData } from '../../domain/edges'
 import type { Edge } from '@xyflow/react'
@@ -140,6 +144,7 @@ export const InspectorRouter = memo(function InspectorRouter({
 }: InspectorRouterProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
+  const serverHeldPairs = useCanvasStore(s => s.lastAuthoritativeGraph)
   const { techMode, setTechMode } = useTechToggle()
 
   const panelType = useMemo(
@@ -238,6 +243,9 @@ export const InspectorRouter = memo(function InspectorRouter({
      * — one derivation with two readers, not two rules kept in step by hand.
      */
     const edgeStrengthReaches = edgeStrengthEditIsAssertable(edge)
+    // MG ruling (1 Oct 2026): the gate above says no for a link that holds BY
+    // DEFINITION, and neither of its false-branch sentences is true of one.
+    const edgeStrengthIsDefinitional = isStrengthDefinitional(edge.data as Record<string, unknown> | undefined)
     /**
      * ⛔ THE THIRD CASE, AND WITHOUT IT THIS PANEL WOULD CONTRADICT ITSELF.
      *
@@ -251,9 +259,9 @@ export const InspectorRouter = memo(function InspectorRouter({
      * Two populations, one sentence — CLAUDE.md trap 21, and this is the branch
      * that names them apart.
      */
-    const edgeAwaitingStatedStrength =
-      (edge.data as { structuralAddStandDown?: string } | undefined)?.structuralAddStandDown ===
-      'strength_not_stated'
+    // The shared predicate, as `EdgePanel` reads it (review r06 blocker 2): a
+    // receipt on a pair the server holds does not make it a drawn, unsent link.
+    const edgeAwaitingStatedStrength = isCanvasOnlyLink(edge, serverHeldPairs)
 
     return (
       <InspectorShell
@@ -264,18 +272,32 @@ export const InspectorRouter = memo(function InspectorRouter({
         onClose={onClose}
         dragHandlers={dragHandlers}
         quickActions={
-          <InspectorQuickActions
-            elementId={edgeId}
-            elementLabel={edgeLabel}
-            panelType="edge"
-            labelContext={{ sourceLabel, targetLabel }}
-            onBackToConversation={handleBackToConversation}
-          />
+          <>
+            {/* ⭐ Slice 1 (52f8cd): examine a link's strength — the twin of the factor section. Prefill-only (`requestAsk`). */}
+            <ExamineLink
+              edgeId={edgeId}
+              source={edge.source}
+              target={edge.target}
+              sourceLabel={sourceLabel}
+              targetLabel={targetLabel}
+              data={edge.data as Record<string, unknown> | undefined}
+              structural={isStructural}
+            />
+            <InspectorQuickActions
+              elementId={edgeId}
+              elementLabel={edgeLabel}
+              panelType="edge"
+              labelContext={{ sourceLabel, targetLabel }}
+              onBackToConversation={handleBackToConversation}
+            />
+          </>
         }
         footerNote={
           <InspectorAgencyNote>
             {isStructural
               ? INSPECTOR_EDGE_STRUCTURAL_REASON
+              : edgeStrengthIsDefinitional
+                ? INSPECTOR_EDGE_DEFINITIONAL_REASON
               : edgeStrengthReaches
                 ? INSPECTOR_EDGE_REASON
                 : edgeAwaitingStatedStrength
@@ -523,6 +545,15 @@ export const InspectorRouter = memo(function InspectorRouter({
           {/* Paul 23 Sep point 11: the reason first, then the route to the
               conversation directly beneath it. */}
           <InspectorAttentionContext reasons={attention.reasons} />
+          {/* ⭐ Slice 1 (52f8cd): examine a factor's figure, beneath the reasons the Run gave. Prefill-only (`requestAsk`). */}
+          {panelType.startsWith('factor-') && (
+            <ExamineAssumption
+              nodeId={nodeId}
+              label={label}
+              data={node.data as Record<string, unknown> | undefined}
+              reasons={attention.reasons}
+            />
+          )}
           <InspectorQuickActions
             elementId={nodeId}
             elementLabel={label}

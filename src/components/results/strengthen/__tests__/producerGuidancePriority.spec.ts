@@ -37,6 +37,7 @@ import {
 } from '../../../../canvas/stores/guidanceStore'
 import { buildRecommendations, toStrengthenPhase3Item } from '../buildRecommendations'
 import type { StrengthenInputs } from '../strengthenTypes'
+import { resolveFactorConfidenceDisplay } from '../../driverConfidenceDisplayPolicy'
 
 // ─── Wire plumbing (the real sidecar path the live V5 writer uses) ─────────
 
@@ -79,8 +80,19 @@ const baseInputs: StrengthenInputs = {
   phase3Items: [],
 }
 
-const withFlip: Pick<StrengthenInputs, 'fragileEdges'> = {
-  fragileEdges: [{ edgeId: 'e1', factorLabel: 'Salary cost', switchProbability: 0.62 }],
+/** The producer-backed voi rec (band 120). It replaces the flip rec (band 100),
+ * retired by Reasoning Coach 5931857395 + 5932849641: both sit below every
+ * producer-ranked phase-3 row, which is the property the rank pin below needs. */
+const withVoi: Pick<StrengthenInputs, 'factors'> = {
+  factors: [
+    {
+      factorId: 'f1',
+      label: 'Salary cost',
+      worthInvestigating: true,
+      canFocus: true,
+      confidenceDisplay: resolveFactorConfidenceDisplay({ confidence: null }, true),
+    },
+  ],
 }
 
 const UNRANKED_LINE = 'Source: Olumi model review (not ranked, shown in the order received).'
@@ -193,7 +205,7 @@ describe('deriveGuidance — consumes 0.19.0 producer fields on their own terms'
 describe('buildRecommendations — ascending producer rank, no collapse, bands intact', () => {
   const wireToInputs = (blocks: Array<Record<string, unknown>>): StrengthenInputs => ({
     ...baseInputs,
-    ...withFlip,
+    ...withVoi,
     phase3Items: extract(blocks).guidanceItems.map(toStrengthenPhase3Item),
   })
 
@@ -218,15 +230,17 @@ describe('buildRecommendations — ascending producer rank, no collapse, bands i
     expect(new Set(phase3.map((r) => r.priority)).size).toBe(3)
   })
 
-  it('a producer-ranked block stays ABOVE the flip trigger whatever its band (ranks are unbounded)', () => {
+  it('a producer-ranked block stays ABOVE the producer-backed voi trigger whatever its band (ranks are unbounded)', () => {
     const recs = buildRecommendations(
       wireToInputs([
         coachingBlock({ block_id: 'c-1', title: 'Prompt-band rank', priority_rank: 201 }),
       ]),
     )
     const phase3 = recs.find((r) => r.id === 'strengthen:phase3:c-1')!
-    const flip = recs.find((r) => r.id.startsWith('strengthen:flip:'))!
-    expect(phase3.priority).toBeLessThan(flip.priority)
+    const voi = recs.find((r) => r.id === 'strengthen:voi:f1')!
+    expect(phase3, 'PRECONDITION: the phase-3 row is built').toBeDefined()
+    expect(voi, 'PRECONDITION: the voi rec is built').toBeDefined()
+    expect(phase3.priority).toBeLessThan(voi.priority)
   })
 
   it('equal ranks are producer-order ties: arrival order holds (schema-blessed, labelled ranked)', () => {

@@ -19,12 +19,11 @@ import type { Node, Edge } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { useCanvasStore } from '../../store'
 import { NodeCoachingMarker } from '../shared/NodeCoachingMarker'
-import { COACHING_ICON_GLYPH } from '../shared/NodeCoachingIcon'
+import { COACHING_ICON_GLYPH, OLUMI_CARD_MARK_SRC } from '../shared/NodeCoachingIcon'
 import { RISK_EXPOSURE_UNSET_LINE } from '../RiskNode'
 import { ASSUMPTIONS_OPEN_LINE, modelHasOpenAssumptions } from '../DecisionNode'
 import { OPEN_FULL_INSPECTOR_EVENT } from '../../utils/openEdgeStrengthEditor'
 import { ESTIMATE_SUBJECT_TITLE } from '../shared/EstimateMarker'
-import { MessageCircleQuestion } from 'lucide-react'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -284,7 +283,7 @@ describe('#21 — a source mark is focusable, named, 10px/400, and opens the sou
     renderFactor(QUALITATIVE)
     const mark = within(card()).getByTestId('estimate-marker')
     expect(mark.tagName).toBe('BUTTON')
-    expect(tokens(mark).has('text-[length:calc(10px*var(--canvas-label-scale,1))]')).toBe(true)
+    expect(tokens(mark).has('text-[length:calc(10px*var(--canvas-small-label-scale,1))]')).toBe(true)
     expect(tokens(mark).has('font-normal')).toBe(true)
     expect(mark.textContent).toContain('est.')
     const opened = vi.fn()
@@ -384,7 +383,13 @@ describe('#34 / #39 / #42 — resting copy and glyph', () => {
     expect(modelHasOpenAssumptions([{ type: 'factor', data: USER_BARE }])).toBe(false)
   })
 
-  it('#42: the coaching glyph is the bubble with "?"', () => {
-    expect(COACHING_ICON_GLYPH.Icon).toBe(MessageCircleQuestion)
+  it('#42 (SUPERSEDED 30 Sep, then 1 Oct, Paul: "use the actual Olumi brand icon"): the coaching glyph is the brand mark', () => {
+    // Paul 1 Oct (#2392): the card draws the FULL-COLOUR brand mark file, not the single-colour outline.
+    const { container } = render(<COACHING_ICON_GLYPH.Icon />)
+    const img = container.querySelector('img')!
+    expect(img.getAttribute('data-icon')).toBe('olumi-brand-mark')
+    expect(img.getAttribute('src')).toBe(OLUMI_CARD_MARK_SRC)
+    // CONTROL: the retired outline glyph is gone.
+    expect(container.querySelector('svg[data-icon="olumi-ai"]')).toBeNull()
   })
 })

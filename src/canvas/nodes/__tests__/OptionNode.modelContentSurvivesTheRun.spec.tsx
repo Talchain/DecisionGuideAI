@@ -175,7 +175,8 @@ describe('OptionNode — the run must not delete the model content', () => {
   const IDLE = { status: 'idle' }
   const COMPLETE = { status: 'complete', report: {} }
   /** Bound by IDENTITY to this fixture's pair, not a substring another chip could satisfy. */
-  const CHIP = '0 engineers → 3 engineers'
+  // RE-PINNED 30 Sep (one unit per row, contract `£49 → £59`; `elideSharedUnit`)
+  const CHIP = '0 → 3 engineers'
   /**
    * Locked Canvas design (23 Sep 2026; spec §4, ED 11:52Z point 4): the
    * "Reference: <baseline>" line is gone from the face. The reference now
@@ -197,7 +198,9 @@ describe('OptionNode — the run must not delete the model content', () => {
     // RE-PINNED (design audit #9, 26 Sep): the value and its mark are joined by
     // ONE no-break space (U+00A0) so the mark cannot drop to a line of its own.
     // Was an ordinary breakable space; every other byte is unchanged.
-    expect(row.textContent).toBe(`${CHIP}\u00A0· no sourceSource not recorded`)
+    // RE-PINNED 27 Sep (side-by-side DIFF item 1): the `·` is retired (contract
+    // row `£49 → £59 brief`); the mark's own 10px muted type sets it apart.
+    expect(row.textContent).toBe(`${CHIP}\u00A0no sourceSource not recorded`)
     // The title also restates the full row ("<factor>: <from> → <to>."); the
     // reference clause is the claim this file owns.
     expect(row.getAttribute('title')).toContain(REFERENCE_TITLE)
@@ -231,16 +234,21 @@ describe('OptionNode — the run must not delete the model content', () => {
     expectReferenceOnTheRow()
   })
 
+  // RE-PINNED 27 Sep (side-by-side DIFF item 10, NODE-ANATOMY v3.2 "Baseline ·
+  // no changes"): this baseline's only target sets Developer headcount to 0, the
+  // factor's current value — not a concrete change (`isConcreteChangeRow`), so the
+  // meta now says so. What this pair pins is unchanged: the SAME baseline line
+  // before and after the run.
   it('⭐ POST-ANALYSIS: the baseline card still says it is the baseline', () => {
     renderCard(COMPLETE, { is_baseline: true }, 'option-b')
-    expect(screen.getByTestId('option-baseline-meta-option-b').textContent).toBe('Baseline option')
+    expect(screen.getByTestId('option-baseline-meta-option-b').textContent).toBe('Baseline · no changes')
   })
 
   it('THE TWIN: pre-analysis baseline is UNCHANGED', () => {
     // Held constant so the pair isolates `isPostAnalysis` alone: a mutant that
     // restores either gate REDs a POST case and leaves its twin GREEN.
     renderCard(IDLE, { is_baseline: true }, 'option-b')
-    expect(screen.getByTestId('option-baseline-meta-option-b').textContent).toBe('Baseline option')
+    expect(screen.getByTestId('option-baseline-meta-option-b').textContent).toBe('Baseline · no changes')
   })
 
   /**

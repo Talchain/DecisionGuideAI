@@ -63,6 +63,7 @@ import { COMMITMENT_COPY } from '../commitmentSynthesis'
 import { openDecisionRecord, useDecisionRecordStore } from '../../modals'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import { useCanvasStore } from '../../../../canvas/store'
+import { __resetViewerModeForTests, setViewerScenario } from '../../../../lib/viewerMode'
 import { genuineDecision, highUncertainty, openStrategicChallenge } from './analysisNewFixtures'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
@@ -277,6 +278,22 @@ describe('THE DOOR IS NOT OFFERED WHERE THE CAPTURE WOULD BE REFUSED', () => {
    * modal's `options` is empty either way. Testing only the status limb would
    * leave a gate that agrees with the modal on one of its two conditions.
    */
+  /**
+   * ACCOUNTS viewer mode (MG 5951262086): a decision record is the OWNER's own and CEE
+   * `/commit` refuses a non-owner, so a colleague viewing a shared decision is never
+   * offered "Record your view". Same fixture as the control above, one flag different.
+   */
+  it('a VIEWER of a shared decision is never offered the door, on the same completed run as the control', () => {
+    act(() => setViewerScenario('3b241101-e2bb-4255-8caf-4136c566a962'))
+    try {
+      setCanvas({ status: 'complete' })
+      renderPanel(genuineDecision())
+      expect(screen.queryByTestId(DOOR)).toBeNull()
+    } finally {
+      act(() => __resetViewerModeForTests())
+    }
+  })
+
   it('a completed run with no option nodes withholds the door too', () => {
     setCanvas({ status: 'complete', nodes: [] })
     renderPanel(genuineDecision())

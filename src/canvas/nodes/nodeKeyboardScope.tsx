@@ -83,8 +83,15 @@
  * NODE ITSELF never enters the scope, so `onKeyDownCapture` never fires, no
  * class is ever added, and React Flow's handler runs exactly as before. The
  * node div is also the tab stop a keyboard user reaches BEFORE its contents, so
- * Tab-then-Enter still selects a node and opens the Inspector. Both directions
- * are measured.
+ * Tab-then-Enter still selects a node.
+ *
+ * ⛔ CORRECTED 27 Sep 2026 (audit SI-5): this paragraph used to end "…selects a
+ * node and opens the Inspector. Both directions are measured." The second half
+ * was FALSE on every build: React Flow's key handler only ever SELECTS
+ * (`handleNodeClick` in the library, never the `onClick` prop), and the app
+ * opens the inspector from `onNodeClick` alone. Enter on a card whose
+ * accessible name says "Open details" selected it and opened nothing. The
+ * bridge that makes it true is `useEnterOpensWhatAClickOpens` below.
  *
  * ── ESCAPE ─────────────────────────────────────────────────────────────────
  *
@@ -147,8 +154,10 @@ export const NODE_KEYBOARD_SCOPE_ATTR = 'data-node-keyboard-scope'
  * the DOM tree; React propagates the event through the REACT tree, so React
  * Flow's node handler still fires). Re-implementing the arm/disarm rules there
  * would be a hand-maintained mirror of three separately-learned timing
- * decisions — the timer-not-microtask disarm, the one-listener-per-instance
- * pointerdown disarm, and the no-`className`-prop rule (CLAUDE.md trap 12).
+ * decisions — the timer-not-microtask disarm, the pointerdown disarm that can
+ * never outlive its arm, and the no-`className`-prop rule (CLAUDE.md trap 12).
+ * The first two now live in `armNodeKeyboardScopeForOneDispatch`, which this
+ * hook calls and the canvas's arrow-key guard calls too (27 Sep 2026).
  *
  * Every "why" for each of those decisions is in this file's header and in the
  * comments below; they are properties of the mechanism, not of the node.
@@ -161,68 +170,126 @@ export function useNodeKeyboardScope<T extends HTMLElement>(): {
 
   /*
    * CAPTURE PHASE, so the class is on the element before the event reaches
-   * either the control's own handler or React Flow's node handler; TIMER
-   * removal, so it is gone the instant the dispatch finishes. React's event
-   * dispatch is synchronous, so every handler in this keydown — including the
-   * document-level ones the app relies on — runs before the timer task.
+   * either the control's own handler or React Flow's node handler. The arming
+   * and both disarms live in `armNodeKeyboardScopeForOneDispatch` below, which
+   * the canvas's keyboard hook also uses for the node wrapper itself — one
+   * mechanism, two callers.
    */
-  const disarmTimer = useRef<number | undefined>(undefined)
-
-  /*
-   * ⚠ ONE LISTENER FOR THE LIFETIME OF THE SCOPE, NOT ONE PER KEYSTROKE.
-   *
-   * This was registered inside the keydown handler with `{ once: true }`,
-   * which self-removes ONLY IF A POINTERDOWN EVER ARRIVES. Typing thirty
-   * characters with no click in between left thirty listeners on `document`,
-   * for every mounted node. A real leak, and it grew with use.
-   *
-   * Registered here it is one per scope, removed on unmount, and disarming an
-   * already-disarmed scope is a no-op — so nothing is lost by it being
-   * unconditional.
-   *
-   * It stays on `document` in the CAPTURE phase because that is what makes it
-   * run before `Pane.onPointerDownCapture` (the pane is a descendant of
-   * document): React Flow decides whether to start a marquee having seen no
-   * `.nokey`, whatever a pending timer is doing.
-   */
-  useEffect(() => {
-    const disarm = () => ref.current?.classList.remove(NODE_KEYBOARD_SCOPE_CLASS)
-    document.addEventListener('pointerdown', disarm, { capture: true })
-    return () => {
-      document.removeEventListener('pointerdown', disarm, { capture: true })
-      window.clearTimeout(disarmTimer.current)
-    }
-  }, [])
-
   const onKeyDownCapture = useCallback(() => {
     const el = ref.current
-    if (!el) return
-    el.classList.add(NODE_KEYBOARD_SCOPE_CLASS)
-
-    /*
-     * ⚠⚠ `queueMicrotask` WAS THE FIRST IMPLEMENTATION AND IT IS WRONG —
-     * caught by execution, not by reading. A microtask checkpoint runs every
-     * time the JS stack empties, and the browser empties it BETWEEN listener
-     * invocations of a single dispatch. So for a REAL key press the class was
-     * added during React's capture phase at the root container and removed
-     * again before the event bubbled back to React's node handler: the guard
-     * armed and disarmed without ever being read, and the bleed survived.
-     *
-     * It looked correct under a synthetic `dispatchEvent`, because calling
-     * `dispatchEvent` from script keeps the stack non-empty for the whole
-     * dispatch — AN INSTRUMENT THAT SHARED THE CODE'S OWN ASSUMPTION AND SO
-     * COULD NOT CONTRADICT IT. Only a real, trusted key press in a browser
-     * could see it.
-     *
-     * A timer task cannot run until the entire dispatch, including every
-     * document-level listener, has finished. The previous timer is cleared so
-     * a stale one cannot disarm a scope a later keystroke has just armed.
-     */
-    window.clearTimeout(disarmTimer.current)
-    disarmTimer.current = window.setTimeout(() => el.classList.remove(NODE_KEYBOARD_SCOPE_CLASS), 0)
+    if (el) armNodeKeyboardScopeForOneDispatch(el)
   }, [])
 
   return { ref, onKeyDownCapture }
+}
+
+/**
+ * ⭐⭐ ENTER/SPACE ON A FOCUSED CARD OPENS WHAT A CLICK OPENS (audit SI-5,
+ * 27 Sep 2026; the node twin of `StyledEdge.tsx` "ROW 35").
+ *
+ * Measured on pricing, local and served: Tab to "Bottom-Up Adoption Friction"
+ * (accessible name "Factor: … Open details. …"), press Enter → the card is
+ * selected and the path chip shows, and NO inspector opens; Enter again and
+ * Space, the same. A mouse click on the same card opens it.
+ *
+ * Why: React Flow's node `onKeyDown` (`@xyflow/react@12.10.2`
+ * `dist/esm/index.mjs:2173-2182`) answers `elementSelectionKeys` by calling its
+ * internal `handleNodeClick` — SELECTION ONLY. It never calls the `onClick`
+ * prop, which only the mouse path (`onSelectNodeHandler`, :2156-2171) calls,
+ * and `ReactFlowGraph.tsx` opens the inspector from `onNodeClick` alone.
+ *
+ * The fix re-uses the click path a mouse already drives rather than writing a
+ * second "what does Enter do" rule: a real `click` dispatched on the
+ * `.react-flow__node` reaches React Flow's `onSelectNodeHandler`, which selects
+ * the node AND calls `onNodeClick` — so the inspector, the reconnect branch
+ * and the canvas-interaction hook all behave exactly as for a click. React
+ * Flow's own key handler then runs on the same keystroke and finds nothing
+ * more to do.
+ *
+ * Guards, each the edge bridge's own:
+ *  · ONLY a key AT the card (`event.target === rfNode`). A control inside the
+ *    card has its own Enter/Space and is additionally fenced by the scope
+ *    above; bubbling from it must not also open the inspector.
+ *  · NO modifier: Cmd/Ctrl+Enter belongs to the canvas shortcuts, Shift+F10 to
+ *    the context menu.
+ *  · ONLY a selectable card (`.selectable`): a frontier door is not a card a
+ *    click inspects.
+ *  · Space is prevented — unprevented it scrolls the page.
+ *
+ * A native listener on the wrapper, not a React prop: the wrapper is React
+ * Flow's element, not ours, and a target-phase listener there runs before
+ * React's delegated handler for the same keystroke.
+ */
+function useEnterOpensWhatAClickOpens(scopeRef: RefObject<HTMLElement>): void {
+  useEffect(() => {
+    const rfNode = scopeRef.current?.closest<HTMLElement>('.react-flow__node')
+    if (!rfNode) return
+    const onNodeKeyDown = (event: KeyboardEvent) => {
+      if (event.target !== rfNode) return
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
+      if (event.key !== 'Enter' && event.key !== ' ') return
+      if (!rfNode.classList.contains('selectable')) return
+      event.preventDefault()
+      rfNode.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    }
+    rfNode.addEventListener('keydown', onNodeKeyDown)
+    return () => rfNode.removeEventListener('keydown', onNodeKeyDown)
+  }, [scopeRef])
+}
+
+/**
+ * Pending disarm per armed element, so a re-arm settles the previous one first
+ * and at most one pointerdown listener exists per element at any moment.
+ */
+const pendingDisarm = new WeakMap<Element, () => void>()
+
+/**
+ * ⭐ ARM `.nokey` ON `el` FOR THE DURATION OF ONE KEY DISPATCH — THE MECHANISM.
+ *
+ * Call it from a keydown CAPTURE listener that runs before React Flow's node
+ * handler. Two callers: the scope element inside every node (the hook above),
+ * and the React Flow node WRAPPER itself for arrow keys
+ * (`useKeyboardShortcuts`), which is where React Flow's built-in keyboard move
+ * lives and where no scope element can reach — the scope is a descendant of the
+ * wrapper, and a keydown AT the wrapper never passes through it.
+ *
+ * ⚠⚠ `queueMicrotask` WAS THE FIRST IMPLEMENTATION AND IT IS WRONG — caught by
+ * execution, not by reading. A microtask checkpoint runs every time the JS
+ * stack empties, and the browser empties it BETWEEN listener invocations of a
+ * single dispatch. So for a REAL key press the class was added during React's
+ * capture phase at the root container and removed again before the event
+ * bubbled back to React's node handler: the guard armed and disarmed without
+ * ever being read, and the bleed survived.
+ *
+ * It looked correct under a synthetic `dispatchEvent`, because calling
+ * `dispatchEvent` from script keeps the stack non-empty for the whole
+ * dispatch — AN INSTRUMENT THAT SHARED THE CODE'S OWN ASSUMPTION AND SO COULD
+ * NOT CONTRADICT IT. Only a real, trusted key press in a browser could see it.
+ *
+ * A timer task cannot run until the entire dispatch, including every
+ * document-level listener, has finished.
+ *
+ * ⚠ AND A POINTERDOWN DISARMS AT ONCE. Input tasks may be scheduled ahead of
+ * the timer, and React Flow decides whether to start a marquee in
+ * `Pane.onPointerDownCapture` (`.nokey` refuses one). The listener sits on
+ * `document` in the CAPTURE phase, so it runs first. It is registered PER ARM
+ * and removed by whichever disarm runs first — the per-keystroke
+ * `{ once: true }` version leaked one listener per keystroke that no
+ * pointerdown ever followed; this one cannot outlive its timer.
+ */
+export function armNodeKeyboardScopeForOneDispatch(el: Element): void {
+  pendingDisarm.get(el)?.()
+  el.classList.add(NODE_KEYBOARD_SCOPE_CLASS)
+  let timer: number | undefined
+  const disarm = () => {
+    window.clearTimeout(timer)
+    document.removeEventListener('pointerdown', disarm, { capture: true })
+    el.classList.remove(NODE_KEYBOARD_SCOPE_CLASS)
+    if (pendingDisarm.get(el) === disarm) pendingDisarm.delete(el)
+  }
+  pendingDisarm.set(el, disarm)
+  document.addEventListener('pointerdown', disarm, { capture: true })
+  timer = window.setTimeout(disarm, 0)
 }
 
 /**
@@ -237,6 +304,9 @@ export function useNodeKeyboardScope<T extends HTMLElement>(): {
 export function withNodeKeyboardScope(NodeComponent: NodeRenderer): NodeRenderer {
   const Scoped: NodeRenderer = (props) => {
     const { ref, onKeyDownCapture } = useNodeKeyboardScope<HTMLDivElement>()
+    // SI-5: the card itself (React Flow's wrapper around this scope) answers
+    // Enter/Space the way it answers a click. See the hook's header.
+    useEnterOpensWhatAClickOpens(ref)
 
     /*
      * ⚠ NO `className` PROP, DELIBERATELY. React only writes `className` when it

@@ -36,7 +36,7 @@ import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
 import { selectWithheldLeaderDisclosure } from './withheldLeaderDisclosure'
-import { STRUCTURAL_UNSET } from './shared/metricVocabulary'
+import { DRIVER_LINE_COPY, STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { typography } from '../../styles/typography'
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
@@ -219,6 +219,18 @@ export function composeOptionCountLine(optionCount: number): string | null {
  * canvas carries — see `selectEvidencePriorityFactorId`.
  */
 export const EVIDENCE_PRIORITY_LABEL = 'Evidence priority'
+
+/**
+ * The row's clause: "Evidence priority: <factor>", and — PJ-B3 (Canvas owner,
+ * 28 Sep 2026) — "Evidence priority: <factor> · no value yet" when the run
+ * held NO value for the factor it ranks first (its `factor_sensitivity` row
+ * carries no `value_source` while other rows carry one; `unvaluedDriver.ts`).
+ * The graph never crowns an unvalued driver without the words its own card
+ * carries (`DRIVER_LINE_COPY.noValueYet`).
+ */
+export function evidencePriorityClause(priority: { label: string; noValueYet: boolean }): string {
+  return `${EVIDENCE_PRIORITY_LABEL}: ${priority.label}${priority.noValueYet ? ` · ${DRIVER_LINE_COPY.noValueYet}` : ''}`
+}
 
 /**
  * The id of the factor ON THIS CANVAS that the run ranks first by sensitivity,
@@ -793,7 +805,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     evidencePriorityMeta.sensitivityRank,
     evidencePriorityMeta.influenceSetSize,
   )
-  const evidencePriority = useMemo<{ factorId: string; label: string } | null>(() => {
+  const evidencePriority = useMemo<{ factorId: string; label: string; noValueYet: boolean } | null>(() => {
     if (evidencePriorityFactorId === null) return null
     const rank = driverRankFor(
       evidencePriorityReadout,
@@ -806,7 +818,9 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     if (evidencePriorityMeta.influence == null || evidencePriorityMeta.influenceProvenance == null) return null
     const rawLabel = nodes.find(n => n.id === evidencePriorityFactorId)?.data?.label
     const label = typeof rawLabel === 'string' ? rawLabel.trim() : ''
-    return label.length > 0 ? { factorId: evidencePriorityFactorId, label } : null
+    return label.length > 0
+      ? { factorId: evidencePriorityFactorId, label, noValueYet: evidencePriorityMeta.unvaluedInRun === true }
+      : null
   }, [evidencePriorityFactorId, evidencePriorityReadout, evidencePriorityMeta, nodes])
 
   // ⛔ `showSupportShareAbsent` IS DELIBERATELY NOT A CONJUNCT HERE, AND IT WAS
@@ -1089,7 +1103,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       data-factor-id={evidencePriority.factorId}
       className={`${typography.edgeLabel} ml-[calc(4px*var(--canvas-label-scale,1))] text-text-light`}
     >
-      {`${EVIDENCE_PRIORITY_LABEL}: ${evidencePriority.label}`}
+      {evidencePriorityClause(evidencePriority)}
     </span>
   ) : assumptionsOpen ? (
     // Contract v3.1 "Before analysis" row (#39): the visible second clause.
@@ -1133,7 +1147,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     focusSignal === null || isUnnamed || (!isPostAnalysisBranch && !isPreAnalysisBranch)
       ? null
       : evidencePriority !== null
-        ? `${EVIDENCE_PRIORITY_LABEL}: ${evidencePriority.label}`
+        ? evidencePriorityClause(evidencePriority)
         : assumptionsOpen
           ? ASSUMPTIONS_OPEN_LINE
           : null
@@ -1242,14 +1256,18 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               (tests/ci-guards/the-recorded-value-carries-its-weight.spec.ts).
             · title → row is 7px, the wide card's gap (`.node.wide{gap:7px}`):
               the header's 4px plus 3px here (was 4 + 4), so the card shrinks.
+              ⚠ PADDING, NOT MARGIN (29 Sep 2026): as `mt-[3px]` it collapsed
+              through the body wrapper into the header's 4px bottom margin
+              (max(4, 3) = 4), so the served gap was 4px, not 7 — measured
+              against the contract, row-meta at y 33.5 vs the design's 36.5.
             · the gap counter-scales like the text (4px at every zoom on
               screen), and 4px x the bound scale 2 is the 8px it replaces, so
               the row is never wider at the height the layout reserves. */}
         <div
           className={
             rowMetaClause !== null
-              ? `mt-[3px] min-w-0 line-clamp-2 break-words ${typography.edgeLabel} text-text-light`
-              : 'mt-[3px] flex min-w-0 items-baseline gap-x-[calc(4px*var(--canvas-label-scale,1))] flex-wrap gap-y-0.5'
+              ? `pt-[3px] min-w-0 line-clamp-2 break-words ${typography.edgeLabel} text-text-light`
+              : 'pt-[3px] flex min-w-0 items-baseline gap-x-[calc(4px*var(--canvas-label-scale,1))] flex-wrap gap-y-0.5'
           }
           data-testid="decision-node-resting-state"
         >

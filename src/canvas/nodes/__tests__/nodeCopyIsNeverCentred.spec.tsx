@@ -134,6 +134,7 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 import { RiskNode } from '../RiskNode'
 import { GhostTierNode } from '../GhostTierNode'
 import { GhostOptionNode } from '../GhostOptionNode'
+import { GHOST_OPTION_DOOR_LABEL } from '../../utils/ghostTiers'
 import { DecisionNode } from '../DecisionNode'
 import { BaseNode } from '../BaseNode'
 import { sensitivityRankBadgeLabel } from '../shared/metricVocabulary'
@@ -322,22 +323,46 @@ describe('the five walked components render no centred copy (see header: 9 of 14
     expect(found, `RiskNode (Detailed) centres copy:\n${report(found)}`).toEqual([])
   })
 
-  it('GhostTierNode — the door label is a whole sentence', () => {
+  /**
+   * ⭐ 30 Sep 2026: both ghost doors are the icon-only `RowEndPromptIcon` — the
+   * question is the accessible name and the DS tooltip, and the button's ONLY
+   * child is the aria-hidden `Plus`. That button IS a flex row with
+   * `justify-center`, so it centres whatever it holds; what it holds is one
+   * glyph, which this walker exempts by construction (no owned copy), not by a
+   * `data-node-glyph` declaration. So each row proves three things: the door
+   * rendered with its question (positive control), no copy is centred, and — the
+   * discriminating half — copy written INTO that same button is caught. Without
+   * the last, "no copy found" would be equally true of a walker gone blind.
+   */
+  const ghostDoorRow = (container: HTMLElement, testId: string, question: string) => {
+    const door = container.querySelector(`[data-testid="${testId}"]`) as HTMLElement
+    expect(door, `${testId} did not mount`).toBeTruthy()
+    expect(door.getAttribute('aria-label')).toBe(question)
+    // Icon-only: no copy anywhere in the door's subtree to centre.
+    expect(container.textContent?.trim()).toBe('')
+    expect(door.children).toHaveLength(1)
+    expect(door.children[0].tagName.toLowerCase()).toBe('svg')
+    expect(door.children[0].getAttribute('aria-hidden')).toBe('true')
+    const found = centredCopy(container)
+    expect(found, `${testId} centres copy:\n${report(found)}`).toEqual([])
+    // MUTATION CONTROL: the question written into the button as text is centred
+    // copy, and the walker must say so — the exemption is the glyph, not the button.
+    door.appendChild(document.createTextNode(question))
+    expect(centredCopy(container).map((v) => v.copy)).toEqual([question])
+  }
+
+  it('GhostTierNode — an icon-only door: its question is the name and tooltip, and no copy is centred', () => {
     const container = mount(
       <GhostTierNode {...nodeProps({ id: '__ghost-risk__', type: 'ghost-tier', data: { tier: 'risk', label: 'What else could go wrong?' } })} />,
     )
-    expect(container.textContent).toContain('What else could go wrong?')
-    const found = centredCopy(container)
-    expect(found, `GhostTierNode centres copy:\n${report(found)}`).toEqual([])
+    ghostDoorRow(container, 'ghost-tier-node', 'What else could go wrong?')
   })
 
-  it('GhostOptionNode — same sentence-length copy as the tier door', () => {
+  it('GhostOptionNode — the same icon-only door as the tier door', () => {
     const container = mount(
       <GhostOptionNode {...nodeProps({ id: '__ghost-option__', type: 'ghost-option', data: {} })} />,
     )
-    expect(container.textContent?.length ?? 0).toBeGreaterThan(2)
-    const found = centredCopy(container)
-    expect(found, `GhostOptionNode centres copy:\n${report(found)}`).toEqual([])
+    ghostDoorRow(container, 'ghost-option-node', GHOST_OPTION_DOOR_LABEL)
   })
 
   it('DecisionNode — the anchor card, title and body', () => {

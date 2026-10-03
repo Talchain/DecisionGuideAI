@@ -67,6 +67,17 @@
  * pinned by identity, per file. A new `justify-center` around copy elsewhere
  * in the node surface is a real residual gap in this guard; it is named here
  * rather than papered over.
+ *
+ * ⭐ 30 SEP 2026 — THE GHOST DOORS CARRY NO COPY. Both now render the shared
+ * `RowEndPromptIcon` (Paul: "icons with hover states"): a 64 × 64 round button
+ * whose question is its accessible name and DS tooltip, and whose only child is
+ * the aria-hidden `Plus` glyph. The doors' own files carry no class at all now,
+ * and the icon adds ONE `justify-center` — on a flex ROW, centring a single glyph
+ * in a box of explicit small dimension (`ROW_PROMPT_W` × `ROW_PROMPT_H`), i.e.
+ * the cannot-wrap case above, not copy. It is EXEMPTED BY IDENTITY in the test
+ * below, with the conditions that make it a glyph asserted rather than assumed.
+ * Recount at 5c941315b (`grep -rn justify-center` over the non-test surface,
+ * comment lines dropped): 12 code lines, the icon's included.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -291,30 +302,44 @@ describe('canvas node surface — copy is never centrally aligned', () => {
     expect(hits((l) => l.includes('flex-col') && l.includes('items-center'))).toEqual([])
   })
 
-  it('the ghost tier door does not centre its copy block (flex-row ⇒ justify-* is horizontal)', () => {
-    // Bound by IDENTITY to the file, not to a value predicate another element
-    // could satisfy. This door's label is a full sentence ("What else could go
-    // wrong?") in a box sized for three lines, so wrapping is the intended state
-    // and centring it is the defect Paul reported.
-    //
-    // ⭐ S4: the door is now laid out like its sibling option prompt — a flex
-    // ROW, icon beside the question — so the four row-end prompts read as one
-    // family. On a row `items-center` is the VERTICAL axis and correct (asserted
-    // present so this is not read as a ban on the class); the horizontal axis
-    // is `justify-*`, and nothing may centre the copy on it.
-    const src = blankComments(readFileSync(join(NODES_DIR, 'GhostTierNode.tsx'), 'utf8'))
-    expect(src).not.toContain('flex-col')
-    expect(src).toContain('items-center')
+  it.each(['GhostTierNode.tsx', 'GhostOptionNode.tsx'])('the ghost door %s lays out no copy of its own — it renders the shared icon', (file) => {
+    // Bound by IDENTITY to the file. Until 30 Sep each door laid out its own
+    // sentence in a flex row (icon beside the question), and nothing could
+    // centre that copy on the horizontal axis. Now each door hands its question
+    // to `RowEndPromptIcon` as a name and tooltip, so the door file must carry
+    // no layout of its own that could centre anything — and it must really be
+    // the icon (positive control: the scan read the file it names).
+    const src = blankComments(readFileSync(join(NODES_DIR, file), 'utf8'))
+    expect(src).toContain('<RowEndPromptIcon ')
+    expect(src).not.toContain('className')
     expect(src).not.toContain('justify-center')
     expect(src).not.toContain('text-center')
+    expect(src).not.toContain('flex-col')
   })
 
-  it('the ghost option door does not centre its copy block (flex-row ⇒ justify-* is horizontal)', () => {
-    const src = blankComments(readFileSync(join(NODES_DIR, 'GhostOptionNode.tsx'), 'utf8'))
-    // `items-center` is the CROSS axis on this row and is correct — asserting
-    // it is still present stops this test being "read" as a ban on the class.
-    expect(src).toContain('items-center')
-    expect(src).not.toContain('justify-center')
+  it('EXEMPT BY IDENTITY: the row-end icon centres ONE aria-hidden glyph in a fixed 32 square (Paul 1 Oct: half size) — a glyph, not copy', () => {
+    // Why this is not centred copy: the button renders no text at all (its
+    // question is `aria-label` + tooltip), its only child is the decorative
+    // `Plus`, and the box is ROW_PROMPT_W × ROW_PROMPT_H — nothing can wrap, so
+    // there is no line for centring to misplace. Each condition is asserted, so
+    // if copy is ever written into this button the exemption stops holding here.
+    const src = blankComments(readFileSync(join(NODES_DIR, 'shared', 'RowEndPromptIcon.tsx'), 'utf8'))
+    const values = classValueExtents(src)
+    const button = values.filter((v) => v.includes('justify-center'))
+    expect(button, 'the icon should carry exactly one justify-center').toHaveLength(1)
+    // On a flex ROW (so justify-* is the horizontal axis — this IS a centring),
+    // in the round icon box that fills the fixed wrapper.
+    expect(button[0]).toContain('flex items-center justify-center rounded-full')
+    expect(button[0]).not.toContain('flex-col')
+    expect(button[0]).toContain('absolute inset-0')
+    expect(src).toMatch(/style=\{\{\s*width:\s*ROW_PROMPT_W,\s*height:\s*ROW_PROMPT_H\b/)
+    // The ONE child is the decorative glyph; no copy element, no text child.
+    expect(src).toMatch(/<Plus size=\{12\}[^>]*aria-hidden="true"\s*\/>/)
+    expect(src).not.toContain('<span')
+    expect(src).not.toMatch(/>\s*\{label\}\s*</)
+    // The question reaches the user as name + tooltip only.
+    expect(src).toContain('aria-label={label}')
+    expect(src).toMatch(/content=\{hidden \? undefined : label\}/)
   })
 })
 

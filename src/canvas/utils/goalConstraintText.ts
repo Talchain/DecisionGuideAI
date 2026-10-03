@@ -1,7 +1,7 @@
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatStatedLimitValue, renderLimitOperator } from '../../components/results/decision-overview/statedLimits'
-import { classifyUnit } from '../../utils/unitClassifier'
-import { resolveElementLabel } from '../domain/elementLabel'
+import { classifyUnit, compactUnitParts, formatMoneyFigure, ISO_CURRENCY_GLYPHS, joinCompactUnitParts } from '../../utils/unitClassifier'
+import { resolveElementLabel, UNNAMED_ELEMENT_LABEL } from '../domain/elementLabel'
 
 /** State the recorded boundary and its origin, independently of probability or evidence quality. */
 /**
@@ -12,13 +12,40 @@ import { resolveElementLabel } from '../domain/elementLabel'
  * handling is precisely the mirror that let `<=` reach a reader and a unit go
  * missing before `goalConstraintText` existed.
  */
+/**
+ * A percentage-POINT unit, however the producer spelled it (served 29 Sep: "percentage points" printed "1% points",
+ * "percentage_points" printed the snake_case word). Bare "points"/"pts" is NOT one: it can be a score.
+ */
+const PERCENTAGE_POINT_UNIT = /^(pp|ppt|%\s*points?|percentage[\s_-]*points?)$/i
+function isPercentagePointUnit(unit: string | null | undefined): boolean {
+  return typeof unit === 'string' && PERCENTAGE_POINT_UNIT.test(unit.trim())
+}
+
 function formatLimitMagnitude(value: number, unit: string | null | undefined): string {
+  // A LEVEL stated in percentage points is a percent level: "churn under 4 percentage points" is 4%.
+  if (isPercentagePointUnit(unit)) return `${value}%`
+  // The one money rule first, as `formatStatedLimitValue` asks it: the branches below are for what it declines.
+  const money = formatMoneyFigure(value, unit ?? null)
+  if (money !== null) return money
   const { kind, canonical } = classifyUnit(unit ?? null)
   let out = formatStatedLimitValue(value, unit ?? undefined)
-  if (kind === 'iso') out = `${canonical} ${value.toLocaleString('en-GB')}`
+  // ⭐ An ISO code with an unambiguous glyph reads as the glyph (canvas audit
+  // paul-models POM-9): the pill said `≤GBP 20,000` and the outcome `Limit ≤
+  // GBP 20,000` beside a factor card reading `£49 / month`. The one glyph map
+  // (`ISO_CURRENCY_GLYPHS`: GBP, USD, EUR); any other code keeps `CHF 20,000`.
+  if (kind === 'iso') {
+    const glyph = ISO_CURRENCY_GLYPHS[canonical.toUpperCase()]
+    out = glyph !== undefined ? `${glyph}${value.toLocaleString('en-GB')}` : `${canonical} ${value.toLocaleString('en-GB')}`
+  }
   else if (kind === 'symbol') out = `${canonical}${value.toLocaleString('en-GB')}`
   else if (kind === 'percent') out = `${value}%`
-  else if (kind === 'other' && canonical.toLowerCase() !== 'count') out += ` ${canonical}`
+  else if (kind === 'other' && canonical.toLowerCase() !== 'count') {
+    // The one compact-unit owner, as the factor card, the option rows and the
+    // goal target read it (POM-9): `20,000 GBP over 6 months` → `£20,000 over 6
+    // months`. Anything it does not recognise is suffixed exactly as before.
+    const compact = compactUnitParts(out, canonical)
+    out = compact !== null ? joinCompactUnitParts(compact) : `${out} ${canonical}`
+  }
   return out
 }
 
@@ -203,6 +230,121 @@ export function goalConstraintTextUsesQuote(constraint: CEEGoalConstraint): bool
 }
 
 /**
+ * ⭐⭐ R1 S4-core — A LIMIT STATED AS A CHANGE FROM TODAY IS SAID AS THE CHANGE (CEE #2261, `@talchain/schemas`
+ * 0.61.0 `value_frame`; #72 5879833520, merge condition 1 "reader first").
+ *
+ * CEE writes "cost must not rise more than 10% above today" as `{operator: '<=', value: 0.1, value_frame:
+ * 'change_rel'}`: a FRACTION of today's level, with no unit. Read as a level it printed "≤ 0.1". The words mirror
+ * CEE's `sayLimitInFrame` (`limit-frame.ts`) exactly, so the card and the chat say one sentence; only the figure goes
+ * through this file's own formatter (`change_abs` 5000 GBP → "£5,000"). The scale is the CONTRACT's, typed by the
+ * frame — `change_rel` is a fraction by definition — never inferred from a magnitude.
+ *
+ * `level`, legacy `delta` (CEE says it as a level too), an absent or unknown frame → `null`: the level path below,
+ * byte-identical to before.
+ */
+export type LimitChangeFrame = 'change_abs' | 'change_rel'
+
+/**
+ * The four frames this UI can read (`@talchain/schemas` 0.61.0). A frame that is PRESENT but not one of these means the
+ * UI does not know what the number measures, so the writers refuse it rather than keep it as a level (PR Review
+ * 5880865579). Absent is a level, as before.
+ */
+export function isKnownLimitFrame(frame: unknown): frame is 'level' | 'delta' | 'change_abs' | 'change_rel' {
+  return frame === 'level' || frame === 'delta' || frame === 'change_abs' || frame === 'change_rel'
+}
+
+export function limitChangeFrameOf(constraint: CEEGoalConstraint): LimitChangeFrame | null {
+  const frame: unknown = constraint.value_frame
+  return frame === 'change_abs' || frame === 'change_rel' ? frame : null
+}
+
+type ChangeOperator = '<=' | '<' | '>=' | '>'
+
+/** CEE's `changeWords`: on a FALL the same comparator reads the other way round ("<=" −15% is "at least 15% below"). */
+function changeWords(operator: ChangeOperator, rising: boolean): string {
+  return operator === '<=' ? (rising ? 'no more than' : 'at least')
+    : operator === '<' ? (rising ? 'less than' : 'more than')
+      : operator === '>=' ? (rising ? 'at least' : 'no more than')
+        : (rising ? 'more than' : 'less than')
+}
+
+interface LimitChange {
+  readonly operator: ChangeOperator
+  readonly rising: boolean
+  /** The size of the change, unsigned, formatted: "10%" / "£5,000" / "1 percentage point". */
+  readonly magnitude: string
+  /** The pill's compact form when it differs from `magnitude`: "1pp". */
+  readonly shortMagnitude?: string
+  /** A change of exactly zero — "without hurting reliability" — is said against today, never as "+0pp". */
+  readonly zero?: boolean
+}
+
+/**
+ * The change a limit states, or `null` when it is not a change (or has no usable value/operator, which the callers'
+ * `limit not captured` branch answers). `change_rel` is always the stored fraction × 100 (CEE's rounding); a
+ * `change_abs` in the reader's audited figure when the producer handed one over (rung 1 above), else its own value.
+ */
+function limitChangeOf(constraint: CEEGoalConstraint): LimitChange | null {
+  const frame = limitChangeFrameOf(constraint)
+  const { operator, value } = constraint as { operator?: unknown; value?: unknown }
+  if (frame === null || typeof value !== 'number' || !Number.isFinite(value)) return null
+  if (operator !== '<=' && operator !== '<' && operator !== '>=' && operator !== '>') return null
+  const rising = value >= 0
+  const zero = value === 0
+  if (frame === 'change_rel') {
+    return { operator, rising, zero, magnitude: `${Math.round(Math.abs(value) * 100 * 1e6) / 1e6}%` }
+  }
+  const audit = constraint.provenance_unit_normalised
+  const audited = Boolean(audit && hasAuditedFigure(constraint))
+  const n = audited ? Math.abs(audit!.original_value as number) : Math.abs(value)
+  const unit = audited ? audit!.original_unit : constraint.unit
+  // A CHANGE in percentage points is said in points, never as a percent (+1pp is not +1%).
+  if (isPercentagePointUnit(unit)) {
+    return { operator, rising, zero, magnitude: `${n} percentage point${n === 1 ? '' : 's'}`, shortMagnitude: `${n}pp` }
+  }
+  return { operator, rising, zero, magnitude: formatLimitMagnitude(n, unit) }
+}
+
+/**
+ * The change both forms say FIRST — before the audit, quote and A11-label rungs, which are all about a LEVEL (a label
+ * such as "Cloud cost <= 0.1" shown alone would read as one). One exception keeps rung 2's reason: a `change_abs` in a
+ * rewritten-scale or percent unit with no audited figure has no honest figure to say, so the reader's quote answers.
+ */
+function sayableLimitChange(constraint: CEEGoalConstraint): LimitChange | null {
+  const change = limitChangeOf(constraint)
+  if (change === null) return null
+  const quoteAnswers = limitChangeFrameOf(constraint) === 'change_abs' && !hasAuditedFigure(constraint)
+    && goalConstraintTextUsesQuote(constraint)
+  return quoteAnswers ? null : change
+}
+
+/** "no more than 10% above today" — CEE's sentence. */
+const ZERO_CHANGE_WORDS: Record<ChangeOperator, string> = {
+  '>=': 'no lower than today', '>': 'higher than today', '<=': 'no higher than today', '<': 'lower than today',
+}
+
+function sayLimitChange(change: LimitChange): string {
+  if (change.zero) return ZERO_CHANGE_WORDS[change.operator]
+  return `${changeWords(change.operator, change.rising)} ${change.magnitude} ${change.rising ? 'above' : 'below'} today`
+}
+
+/**
+ * The change a limit states, in CEE's words, or `null` for a level (the caller says it exactly as before). For readers
+ * that phrase a limit themselves — the chat receipt (`v5GraphPatchDescription`, PR Review 5880215622 blocking 2) — so
+ * no surface can print a change as "at most 0.1". The operator must already be ASCII (`<=`, `<`, `>=`, `>`).
+ */
+export function limitChangeSentence(constraint: CEEGoalConstraint): string | null {
+  const change = sayableLimitChange(constraint)
+  return change === null ? null : sayLimitChange(change)
+}
+
+/** The pill's short form: the level pill's `<op><figure>` with the change signed and anchored — "≤+10% vs today". */
+function sayLimitChangeShort(change: LimitChange): string {
+  if (change.zero) return `${renderLimitOperator(change.operator)} today`
+  return `${renderLimitOperator(change.operator)}${change.rising ? '+' : '−'}${change.shortMagnitude ?? change.magnitude} vs today`
+}
+
+/**
  * ⭐ `omitLabel` EXISTS SO THERE IS STILL EXACTLY ONE FORMATTER.
  *
  * On the constrained factor's own card the target's name is the card's title,
@@ -231,7 +373,7 @@ export interface GoalConstraintTextOptions {
  */
 const LABEL_OPERATOR_PATTERN = /[<>≤≥]=?/
 
-function labelAlreadyStatesLimit(label: string): boolean {
+export function labelAlreadyStatesLimit(label: string): boolean {
   return LABEL_OPERATOR_PATTERN.test(label) && /\d/.test(label)
 }
 
@@ -246,6 +388,18 @@ export function goalConstraintText(
   const origin = constraint.provenance === 'inferred' ? ' · Inferred limit'
     : constraint.provenance === 'proxy' ? ' · Proxy limit' : ''
   const prefix = options.omitLabel ? '' : `${label} `
+
+  // R1 S4-core: a change from today is said as the change (`sayableLimitChange`, above), never as a level.
+  const change = sayableLimitChange(constraint)
+  if (change !== null) {
+    // ⛔ AIQ 5880929109: a carried label that already states a LEVEL ("Cloud cost <= 0.1") beside the change would
+    // offer the reader both readings. The subject is then the constrained element's own name, or none at all.
+    const targetName = target ? resolveElementLabel(target.data) : UNNAMED_ELEMENT_LABEL
+    const subject = options.omitLabel ? ''
+      : !labelAlreadyStatesLimit(label) ? `${label} `
+        : targetName !== UNNAMED_ELEMENT_LABEL ? `${targetName.trim()} ` : ''
+    return `${subject}${sayLimitChange(change)}${origin}`
+  }
 
   /**
    * ⭐⭐⭐ ON A PERCENT LIMIT, THE READER'S OWN WORDS BEAT OUR RECONSTRUCTION —
@@ -354,23 +508,57 @@ export function goalConstraintText(
  */
 export function goalConstraintShortText(
   constraint: CEEGoalConstraint,
-  nodes: readonly { id: string; data?: unknown }[] = [],
+  nodes: readonly { id: string; type?: string; data?: unknown }[] = [],
 ): string {
   const target = constraint.node_id ? nodes.find(n => n.id === constraint.node_id) : undefined
-  const label = (typeof constraint.label === 'string' ? constraint.label.trim() : '') || (target ? resolveElementLabel(target.data) : 'Constraint')
+  const carried = typeof constraint.label === 'string' ? constraint.label.trim() : ''
+  const label = carried || (target ? resolveElementLabel(target.data) : 'Constraint')
+  /**
+   * ⭐ THE PILL NAMES THE METRIC — `<metric> <op><value>`, contract v3.1
+   * `.pill.mini` "Churn <4%" (side-by-side vs contract, item 8, 27 Sep 2026).
+   *
+   * The pricing starter's pill read `net revenue retention floor ≥110%`: the
+   * constraint's own lower-case LABEL, with a role word ("floor") restating the
+   * operator beside it — about 179px, where the contract's pill is a few words.
+   * On Paul's MRR boards it already read `Monthly churn ≤4%`, because there the
+   * carried label and the constrained factor's title happen to be one string.
+   *
+   * So when the limit binds to a graph element that is a MEASURE (anything but
+   * the goal itself), the pill's subject is that element's own title — the name
+   * the reader sees on its card — never a word trimmed from the label here (a
+   * closed lexicon over open labels). A limit on the GOAL node keeps its carried
+   * label: the goal's title is a sentence about success, not a metric
+   * ("Delivery deadline ≤2 months", not "Achieve ARR Growth by Q3 ≤2 months").
+   * The full sentence — accessible name and tooltip — keeps the carried label
+   * (`goalConstraintText`, unchanged), so nothing the producer said is lost.
+   */
+  const targetData = target?.data as { type?: unknown; kind?: unknown } | undefined
+  const targetIsGoal = target?.type === 'goal' || targetData?.type === 'goal' || targetData?.kind === 'goal'
+  const metric = target && !targetIsGoal ? resolveElementLabel(target.data) : UNNAMED_ELEMENT_LABEL
+  const subject = metric !== UNNAMED_ELEMENT_LABEL ? metric.trim() : label
   // The SAME origin rule as `goalConstraintText` — never dropped.
   const origin = constraint.provenance === 'inferred' ? ' · Inferred limit'
     : constraint.provenance === 'proxy' ? ' · Proxy limit' : ''
+  // R1 S4-core: the change first, exactly as the full form orders it.
+  const change = sayableLimitChange(constraint)
+  // AIQ 5880929109: never a carried label that states a level beside the change (the pill's subject is the metric's
+  // own title whenever it binds to one; a stale carried label is dropped rather than shown).
+  if (change !== null) {
+    const pillSubject = subject === label && labelAlreadyStatesLimit(label) ? '' : `${subject} `
+    return `${pillSubject}${sayLimitChangeShort(change)}${origin}`
+  }
   const audit = constraint.provenance_unit_normalised
   if (audit && hasAuditedFigure(constraint)) {
-    return `${label} ${renderLimitOperator(constraint.operator)}${formatLimitMagnitude(audit.original_value as number, audit.original_unit)}${origin}`
+    return `${subject} ${renderLimitOperator(constraint.operator)}${formatLimitMagnitude(audit.original_value as number, audit.original_unit)}${origin}`
   }
   if (goalConstraintTextUsesQuote(constraint)) {
     return `“${(constraint.source_quote as string).trim()}”${origin}`
   }
   if (typeof constraint.value !== 'number' || !Number.isFinite(constraint.value) || !constraint.operator) {
-    return `${label} · limit not captured${origin}`
+    return `${subject} · limit not captured${origin}`
   }
-  if (labelAlreadyStatesLimit(label)) return `${label}${origin}`
-  return `${label} ${renderLimitOperator(constraint.operator)}${formatLimitMagnitude(constraint.value, constraint.unit)}${origin}`
+  // A11: a CARRIED label that already states the limit is shown alone — unless the
+  // pill names the metric, in which case the structured limit is the statement.
+  if (subject === label && labelAlreadyStatesLimit(label)) return `${label}${origin}`
+  return `${subject} ${renderLimitOperator(constraint.operator)}${formatLimitMagnitude(constraint.value, constraint.unit)}${origin}`
 }

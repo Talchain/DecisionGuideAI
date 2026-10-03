@@ -9,7 +9,15 @@ import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import { Target } from 'lucide-react'
 import { BaseNode } from '../BaseNode'
-import { NODE_CARD_MAX_W, REPEATED_CARD_W, ANCHOR_CARD_MAX_W, restingCardWidthForKind } from '../../utils/nodeLayoutConstants'
+import {
+  NODE_CARD_MAX_W,
+  REPEATED_CARD_W,
+  REPEATED_CARD_MAX_W,
+  ANCHOR_CARD_MAX_W,
+  CARD_W_CAP_BY_TIER,
+  TIER_BY_KIND,
+  restingCardWidthForKind,
+} from '../../utils/nodeLayoutConstants'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -79,9 +87,18 @@ describe('BaseNode — maxWidth (H1)', () => {
     // literal, and for two kinds so one constant cannot satisfy both.
     // `deletable`/`selectable`/`draggable` are required by `BaseNodeProps` and read by no
     // assertion here; supplied so this case adds no type error to the file's baseline.
+    //
+    // ⚠ RE-PINNED 30 Sep 2026 (wider cards): the resting width is the tier CAP,
+    // and a repeated tier's cap is now REPEATED_CARD_MAX_W (400), not the flat
+    // REPEATED_CARD_W (248). The layout gives a repeated row its fair share inside
+    // [248, 400] (5 cards → 270, 4 → 350, ≤ 3 → 400), so the premise above — "the
+    // width the layout will give this kind" — now holds only for rows of three or
+    // fewer; a longer row's first measure is taken at 400, wider than its slot.
     const factor = render(<BaseNode {...baseProps} deletable={false} selectable draggable={false} nodeType="factor" icon={Target} />)
     expect((factor.container.firstChild as HTMLElement).style.maxWidth).toBe(`${restingCardWidthForKind('factor')}px`)
-    expect(restingCardWidthForKind('factor')).toBe(REPEATED_CARD_W)
+    expect(restingCardWidthForKind('factor')).toBe(CARD_W_CAP_BY_TIER[TIER_BY_KIND.factor])
+    expect(restingCardWidthForKind('factor')).toBe(REPEATED_CARD_MAX_W)
+    expect(REPEATED_CARD_W).toBeLessThan(REPEATED_CARD_MAX_W)
     const decision = render(<BaseNode {...baseProps} deletable={false} selectable draggable={false} nodeType="decision" icon={Target} />)
     expect((decision.container.firstChild as HTMLElement).style.maxWidth).toBe(`${ANCHOR_CARD_MAX_W}px`)
     expect(REPEATED_CARD_W).not.toBe(NODE_CARD_MAX_W)

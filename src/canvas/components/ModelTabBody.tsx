@@ -47,11 +47,13 @@ import { ModelHealthSection, type AuditTrailData } from './model-tab/ModelHealth
 import { StructuralIssuesSection } from './model-tab/StructuralIssuesSection'
 import { normalizeAutoNoiseProvenance } from '../../components/results/types'
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
+import { goalDirectionWarningIsMoot, GOAL_DIRECTION_UNATTESTED_CODE, type GoalTargetSource } from '../domain/goalTarget'
 import { DetailToggleContext } from './model-tab/DetailToggleContext'
 import { ModelFooter } from './model-tab/ModelFooter'
 import { StreamingDiagnostics } from './model-tab/StreamingDiagnostics'
 import { buildSynthesisedPriorMap } from './model-tab/synthesisedPriorHelpers'
 import { modelTabFactorsToVerify, mapSourceToDisplay } from './model-tab/utils'
+import { isAcceptedOlumiFigure } from '../domain/valueProvenance'
 import { ModelAdjustments } from './model-tab/ModelAdjustments'
 // The Model Editor v2 (16 Aug 2026 mount train). Mounted ON, no flag: the
 // no-dark-launches rule. Its factor-value edits ride the SAME canonical
@@ -512,9 +514,11 @@ export const ModelTabBody = memo(function ModelTabBody({
       // banner and audit row were permanently blank. See
       // readInferenceWarnings' header for the adoption history.
       const raw = readInferenceWarnings(results?.report as never)
-      return Array.isArray(raw)
-        ? (raw as NonNullable<AuditTrailData['inferenceWarnings']>)
-        : null
+      if (!Array.isArray(raw)) return null
+      // AIQ 5902450527: a goal that HOLDS `>=`/`>` (not a negative change) makes ISL's "does not say which way" false.
+      const goal = nodes.find((n) => n.type === 'goal' || (n.data as { kind?: unknown } | undefined)?.kind === 'goal')
+      const moot = goalDirectionWarningIsMoot(goal?.data as GoalTargetSource | undefined)
+      return (moot ? raw.filter((w: { code?: unknown }) => w?.code !== GOAL_DIRECTION_UNATTESTED_CODE) : raw) as NonNullable<AuditTrailData['inferenceWarnings']>
     })(),
     // ⛔ REMOVED (ROADMAP 2.1273): `recommendationStability`. The Model card no
     // longer declares the field, because PLoT withholds the wire value it came
@@ -531,7 +535,7 @@ export const ModelTabBody = memo(function ModelTabBody({
       ?? null,
     autoNoiseProvenance: normalizeAutoNoiseProvenance(rawV2Response?.auto_noise_provenance),
     stabilityPenaltyFactor: (rawV2Response as any)?.stability_penalty_factor ?? null,
-  }), [rawV2Response, repairsApplied, results, robustness])
+  }), [rawV2Response, repairsApplied, results, robustness, nodes])
 
   // ── Synthesised prior lookup from repair summary ───────────────────────────
 
@@ -738,7 +742,7 @@ export const ModelTabBody = memo(function ModelTabBody({
          "null" into a user's document — strictly worse than the wire token it
          replaced. "No source" and "a source we cannot name" are different facts
          and the clipboard says which. */
-      const namedSource = obs.source ? mapSourceToDisplay(obs.source) : null
+      const namedSource = obs.source ? mapSourceToDisplay(obs.source, isAcceptedOlumiFigure(obs)) : null
       const src = namedSource
         ? ` [${namedSource}]`
         : obs.source

@@ -219,6 +219,9 @@ export const CANONICAL_EDIT_AUTHORITY = {
   goalSuccessTarget: 'disabled',
   canvasSemanticMutations: 'disabled',
   inspectorSemanticControls: 'disabled',
+  // (Canvas Undo/Redo has NO key since Undo S5 — DL #75 5912949238: the temporary `canvasUndoRedo` existed only
+  // between S4 and S5. Every gesture now runs `undo/undoCommand.ts`, a SAVED restore of the edit's own pre-edit
+  // version that refuses guests, in-flight edits and a stale head by itself; it is never `canvasSemanticMutations`.)
 } as const satisfies Record<string, MutationAuthority>
 
 export const SHARED_MODEL_AUTHORITY_COPY =

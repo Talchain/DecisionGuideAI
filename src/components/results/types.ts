@@ -7,6 +7,7 @@
  * "Coaching over gates" philosophy - users see clear decision guidance.
  */
 
+import type { GoalFitBaseCaveat } from './utils/selectGoalProbability'
 import type { FactorDirection } from '../../lib/factorDirection'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import type { ConstraintAnalysis } from '../../types/constraints'
@@ -177,8 +178,14 @@ export interface OptionDownside {
 }
 
 export interface OptionResult {
+  /** AIQ 5903604206: an UNADOPTED Olumi suggestion (`isUnadoptedOlumiSuggestion`) — never counted as "your" option. Adopted (participation `included`) counts. */
+  proposedByOlumi?: true
+  /** The Run on screen is not current (AIQ pre-share hold): nothing is said about how today's options relate to it. */
+  runNotCurrent?: true
   id: string
   label: string
+  /** The option node's label exactly as written (identity reads); `label` may carry "(set to …)" (AIQ 5908802422). */
+  labelAsWritten?: string
   /** Explicit expected value (mean) - primary value for "Expected" display */
   expected: number | null
   /** Full outcome distribution when available */
@@ -206,6 +213,16 @@ export interface OptionResult {
    * at all rather than a zero or a placeholder.
    */
   downside?: OptionDownside
+  /** B3 (DL R1): the producer withheld this option's goal figure (`GOAL_FIGURES_*`, per option × claim). */
+  goalFigureWithheld?: true
+  /** B3b (DL R1 condition 4): the KEPT outcome rests on Olumi's estimates the user accepted; say so beside it. */
+  outcomeRestsOnAcceptedOlumi?: true
+  /**
+   * B3c (DL R2, 5930827933): links on this option's path the producer named as unsized but acceptable at Olumi's
+   * starting strength (B2 `acceptable_links`), resolved to canvas edges. One click sizes each through the canvas's own
+   * `edge_strength_edit` confirm path; the figure then appears after a re-run.
+   */
+  unsizedLinks?: ReadonlyArray<{ edgeId: string; fromLabel: string; toLabel: string }>
   /**
    * ROADMAP 2.646 — the producer's PERCENTILE PROVENANCE for this option,
    * carried verbatim from `enrichment.option_comparison[].outcome
@@ -276,6 +293,15 @@ export interface OptionResult {
    * surface a caveat when this is true (UI-BOUNDARY-DATA-INVENTORY.md §5).
    */
   goalFitIsModelledBasis?: boolean
+  /**
+   * Display-honesty: which caveat the rendered `goalProbability` needs, or null — the goal's
+   * level today was worked out from its inputs (ISL #207; carrier
+   * `identity_evaluations[].level_author`, fail-closed). Render sites MUST show the matching copy
+   * beside the number (`goalFitBaseCaveatCopy`).
+   */
+  goalFitBaseCaveat?: GoalFitBaseCaveat | null
+  /** CEE #2270/#2280: this option's 0/1 goal figure is UNEARNED (withheld by the chooser); the producer's sentence. */
+  goalCertaintyUnearned?: { say: string | null } | null
   /**
    * Goal-probability IDENTITY: true when the rendered `goalProbability` is
    * `probability_of_joint_goal` STANDING IN for an absent `goal_probability`.
@@ -507,6 +533,8 @@ export interface DecisionResultData {
    * hydrated report with no record), never a refusal.
    */
   runAnalysisAdmission?: AnalysisAdmissionV1
+  /** Disclosure only; this does not participate in claim permission or readiness. */
+  currentReadInputBasis?: ReportV1['current_read_input_basis']
   /** Task 6: Flip thresholds for tipping points visualisation */
   flipThresholds?: FlipThreshold[]
   /**
@@ -584,6 +612,13 @@ export interface DecisionResultData {
    * When true, UI must label values as "Relative score" with tooltip, never as user units.
    */
   isNormalised?: boolean
+  /**
+   * ⛔ R3 #75 5905239972: the goal node HOLDS today's level (a finite `observedState.raw_value`, e.g. MRR's £75,000 from
+   * the brief). When true, "Olumi doesn't hold today's level" is never the reason an outcome is withheld.
+   */
+  goalHoldsTodayLevel?: boolean
+  /** The producer's own "Not shown." words when it withheld the goal figures (`readGoalIdentityWithheld`), else null. */
+  goalFiguresWithheldMessage?: string | null
 }
 
 // =============================================================================
@@ -910,6 +945,28 @@ export interface DriversSectionData {
    * named different factors.
    */
   driverLeader?: SensitivityLeader | null
+  /**
+   * Node ids this run ranked with no value, which the model still leaves
+   * unvalued (`noValueDriverIds` — the canvas card's rule). A flagged row says
+   * "No value yet" beside its influence pill, crown included (DL 5869404773).
+   */
+  noValueIds?: ReadonlySet<string>
+  /**
+   * ⭐ COVERED-WITHHELD factors (ISL #213; AIQ #72 5881953818): the producer
+   * withheld the influence because it depends on the option chosen. Kept OUT
+   * of `drivers` so no reader of a `DriverItem` can figure, bar, rank or hide
+   * them as zero; the panel lists them after the ranked rows with the words
+   * only. Optional: absent means none.
+   */
+  gatedDrivers?: GatedDriverItem[]
+}
+
+/** A covered-withheld factor row: identity only, never a figure or a rank. */
+export interface GatedDriverItem {
+  factorKey: string
+  factorLabel: string
+  canFocus: boolean
+  matchedNodeId?: string
 }
 
 // =============================================================================
@@ -1354,8 +1411,11 @@ export interface FocusCanvasEvent {
 // Raw Factor Data (from response, before presentation transform)
 // =============================================================================
 
-/** ISL zero_reason codes - explains why influence is zero for intervention factors */
-export type ZeroReasonCode = 'intervention_override' | 'disconnected' | 'zero_outcome_diff' | null
+/** ISL zero_reason codes - explains why influence is zero for intervention factors.
+ * `no_path_to_goal` / `zero_net_influence` are PLoT's graph-path codes (`plot-lite-service` `src/lib/factor-influence.ts`,
+ * served on 5cb272bd, 30 Sep 2026). The wire value is cast to this type, so `suppressedZeroReasons` keeps only codes
+ * with words (`isLabelledZeroReason`): an unknown one is left unnamed, never rendered as `undefined` (Paul's test, 1 Oct). */
+export type ZeroReasonCode = 'intervention_override' | 'disconnected' | 'zero_outcome_diff' | 'no_path_to_goal' | 'zero_net_influence' | null
 
 /** PLoT flip_risk_category - how a factor contributes to decision uncertainty */
 export type FlipRiskCategory = 'isolated' | 'correlated' | 'negligible'
@@ -1426,6 +1486,13 @@ export interface UiFactorSensitivity {
   importanceBasis?: string
   /** ISL influence_score (0-1) - structural causal influence */
   influenceScore?: number
+  /**
+   * ISL #213 `gated_by`: the ids gating a WITHHELD `influence_score` (the
+   * influence depends on the option chosen). Set only by
+   * `readInfluenceGatedBy` — a non-empty string array beside a non-finite
+   * score; absent otherwise.
+   */
+  influenceGatedBy?: string[]
   /** Producer influence_rank (1 = most influential). Additive; roadmap 1.7 (provisional_doctrine_v0). */
   influenceRank?: number
   /** ISL zero_reason - explains why sensitivity is zero */
@@ -1543,6 +1610,14 @@ export interface ResultsVM {
 export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
   /** Widened option_probabilities with V2 pass-through fields */
   option_probabilities?: Record<string, ResultsOptionProbability>
+  /**
+   * CEE's typed leader (`analysis_result.leading_option_id`), carried by the V5
+   * mapper when non-null. `null`/absent is the withheld-turn contract: NO option
+   * leads. The ONLY source of which option leads (R7, DL #70 5859773247).
+   */
+  leading_option_id?: string | null
+  /** The Run's stored participation fact (`storedOptionParticipation.ts`); absent = not recorded, `[]` = none outside. */
+  option_participation?: readonly import('../../canvas/state/storedOptionParticipation').OptionParticipationEntry[]
   // V2 pass-through fields from responseMapper
   factor_sensitivity?: V2FactorSensitivity[]
   robustness?: {
@@ -1752,6 +1827,8 @@ export interface ResultsOptionProbability extends OptionProbability {
    * UI-BOUNDARY-DATA-INVENTORY.md §5.
    */
   goal_fit_basis?: { scored_from?: string; node_ids?: string[] }
+  /** UI-derived (V5 mapper), ISL #207: whose base the goal figure stands on, when it needs a caveat. */
+  goalLevelAuthor?: 'olumi' | 'unattested'
   /**
    * ROADMAP 2.449 — per-option tail-risk view from ISL, forwarded by PLoT.
    * Values are in the SAME units and on the SAME axis as `outcome.mean` /

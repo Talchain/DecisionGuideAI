@@ -127,6 +127,13 @@ function seedCompletedRun() {
     goalThreshold: null,
     confirmedNodeIds: new Set(),
     _internal: {},
+    // ⚠ SEEDED CURRENT, EXPLICITLY (27 Sep, audit F5). The caption now follows
+    // the run's currency exactly as the option card's does; with no freshness
+    // verdict at all the card reads `Model result`, and so does this panel. The
+    // old seed carried no verdict and passed only because the caption was
+    // hard-coded — the defect the F5 arms below pin.
+    analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
+    analysisFreshnessDirty: false,
   } as never)
 }
 
@@ -215,6 +222,35 @@ describe("the option inspector captions the win probability with the canvas's no
     expect(copy, 'the retired inspector caption is back on screen').not.toContain(
       RETIRED_INSPECTOR_CAPTION,
     )
+  })
+
+  /**
+   * ⭐ F5 (canvas audit 27 Sep, edit-values, served `23ff3ca8`): after an edit
+   * the card read `Last run 62% of runs` and this hero read `62% Current model ·
+   * of runs`, titled "the model as it stands". Same figure, same moment.
+   */
+  it('F5 — after the model changes, the hero caption reads "Last run · of runs" and its title says so', () => {
+    // CEE's own verdict after the served edit: `complete_stale`, cause `graph_changed`.
+    useCanvasStore.setState({ analysisFreshness: { freshness: 'stale', freshnessReason: 'graph_changed' }, analysisFreshnessDirty: true } as never)
+    const { dialog } = openInspector(OPTION_ID)
+    const caption = within(dialog).getByTestId('option-panel-result-caption')
+    // Positive control: the caption is the one beside THIS figure.
+    expect(caption.previousElementSibling?.textContent?.trim()).toBe('62%')
+    expect(caption.textContent).toBe(`${OPTION_RESULT_COPY.lastRun} · of runs`)
+    expect(caption.textContent).not.toContain(OPTION_RESULT_COPY.current)
+    expect(caption.getAttribute('title')).toContain(OPTION_RESULT_COPY.changedNote)
+    // The comparison bars beneath it are the same last run's shares, and say so.
+    expect(within(dialog).getByTestId('option-panel-compare-last-run').textContent).toBe(OPTION_RESULT_COPY.lastRunNoNewComparison)
+  })
+
+  it('F5 — with no freshness verdict the hero claims no currency ("Model result"), as the card does', () => {
+    useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false } as never)
+    const { dialog } = openInspector(OPTION_ID)
+    const caption = within(dialog).getByTestId('option-panel-result-caption')
+    expect(caption.previousElementSibling?.textContent?.trim()).toBe('62%')
+    expect(caption.textContent).toBe(`${OPTION_RESULT_COPY.unconfirmed} · of runs`)
+    // `Last run` is licensed only by a KNOWN change (ED 02:31Z) — not here.
+    expect(within(dialog).queryByTestId('option-panel-compare-last-run')).toBeNull()
   })
 
   it('the retired phrase this pins is the one the register retired', () => {

@@ -55,10 +55,11 @@ export function DegradedBanner() {
   // -translate-x-1/2 z-[1050]`), which drew it directly over the Question
   // card, the anchor of the whole model. `CanvasOverlayBand` is the one
   // place overlay space is reserved and arbitrated (`CanvasOverlayBand.tsx`'s
-  // own header); this claims the SAME 'bottom-right' cell `AnalysisStateCue`
-  // does, ranked ahead of it — an engine the UI cannot reach or that is
-  // reporting failure is a more urgent fact than the model having changed
-  // since the last run.
+  // own header); this claims the 'bottom-right' cell. It shared that cell with
+  // `AnalysisStateCue`, ranked ahead of it — an engine the UI cannot reach or
+  // that is reporting failure is a more urgent fact than the model having
+  // changed since the last run — until the cue moved to the canvas foot
+  // (bottom-left, 27 Sep 2026).
   const { granted, target } = useOverlayCell('bottom-right', 'degraded-banner', wants)
 
   if (!wants || !granted) {

@@ -83,7 +83,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { typography } from '../../../styles/typography'
 import { controls } from '../../../styles/controls'
-import { admitNumericField } from '../../ui/inspector-v2/shared/numericFieldAdmission'
+import { EditPencilCue } from './EditPencilCue'
+import { admitNumericField, NUMERIC_FIELD_REFUSAL } from '../../ui/inspector-v2/shared/numericFieldAdmission'
 import {
   valueCommitSettlementWord,
   VALUE_COMMIT_SETTLEMENT_COPY,
@@ -91,6 +92,9 @@ import {
   type ValueCommitSettlementWord,
 } from '../../conversation/valueCommitSettlement'
 import type { SystemEventSendSettlement } from '../../conversation/settleSystemEventSend'
+
+/** What a typed entry admits to: the value to commit, or the sentence saying why not. */
+export type NodeValueEntryAdmission = { ok: true; value: number } | { ok: false; reason: string }
 
 export interface NodeValueEditorProps {
   /**
@@ -111,7 +115,28 @@ export interface NodeValueEditorProps {
   onCommit: (
     value: number,
     opts: { onSendSettled: (settlement: SystemEventSendSettlement) => void },
-  ) => 'dispatched' | 'local_only' | 'not_encodable'
+  ) => 'dispatched' | 'local_only' | 'not_encodable' | { refused: string }
+  /**
+   * ⭐ E1b — AN ENTRY NOT ON `value`'S OWN SCALE. An option target is typed in the factor's unit ("£80,000", "80k")
+   * and committed on the model scale; the one rule for that is `optionTargetEntry` (`admitOptionTargetEntry`), the
+   * inspector's own. With `admit` the field is a TEXT field seeded with `seedText`, and a refusal shows `admit`'s
+   * sentence. Without them nothing changes: a number field seeded with `String(value)`, admitted by
+   * `admitNumericField` with `min`/`max`.
+   */
+  admit?: (draft: string) => NodeValueEntryAdmission
+  seedText?: string
+  /**
+   * WHAT-IF "PUT IT BACK" (`graphChanges/valuePrefill.ts`, DL #85 5942153284): a request to OPEN this editor with
+   * `text` in the field. Each new `seq` opens it once; the user still commits (Enter) through `onCommit`, the same
+   * writer as any edit. `onPrefillConsumed(seq)` lets the requester retire the request so a remount never re-opens it.
+   */
+  prefill?: { text: string; seq: number } | null
+  onPrefillConsumed?: (seq: number) => void
+  /** The unit printed BEFORE the open field (`£`), where the card prints it. */
+  prefix?: string
+  /** Type for the INLINE resting readout; defaults to `typography.nodeValue`. A row that sits in smaller type (an option
+   *  card's change row) passes its own, so becoming a control changes no size on the card. */
+  restingTypography?: string
   /**
    * The model's CURRENT value, read at settlement time from the store rather
    * than from this render's prop, which may not have re-rendered yet when the
@@ -120,12 +145,65 @@ export interface NodeValueEditorProps {
   readCommittedValue?: () => number | null
   min?: number
   max?: number
+  /**
+   * ⭐ THE SENTENCE AN OUT-OF-BOUNDS ENTRY SHOWS (canvas audit edit-values F3).
+   * `admitNumericField`'s own refusal is a bare `Max: 1`, which tells a person
+   * nothing about WHY 5 is not a value; a caller that knows what the bound means
+   * passes the estate's sentence for it. A non-number keeps the admission's own
+   * reason.
+   */
+  outOfRangeCopy?: string
+  /**
+   * The scale the number in the field is on, shown beside the OPEN field only
+   * (e.g. `0–1`). At rest the card keeps its tier word or unit — contract v3.1
+   * rules out a bare model-scale figure on a factor card — but once the field is
+   * open it shows the raw number, and a `0.8` with no scale beside it is the
+   * reason a person typed `5` (F3).
+   */
+  scaleHint?: string
+  /**
+   * One sentence about what an edit here DOES (canvas audit edit-values F9 — a
+   * baseline every option replaces). Carried in full by the resting control's
+   * accessible name and hover title and by the open field's description.
+   * Nothing is added to the card at rest (NODE-ANATOMY v3.2, Factor line 2).
+   */
+  editNote?: string
+  /**
+   * The SHORTEST form of `editNote`, the one shown under the open field —
+   * NODE-ANATOMY v3.2 principle 2: the short form on the card, "with the full
+   * sentence in the hover and aria". Measured on the served card at fit
+   * (1440×900, 150 px wide) the full sentence took four lines under the field.
+   */
+  editNoteShort?: string
   ariaLabel: string
   testId: string
+  /**
+   * ⭐ HOW THE RESTING VALUE FLOWS (Paul's staging test, 28 Sep 2026, export
+   * 64c5eccc). `'box'` (the default, every panel caller) is the `<button>` it
+   * always was — and a `<button>` is ALWAYS an atomic inline-block (HTML's
+   * button layout turns `display:inline` into `inline-block`), so a value that
+   * wraps fills its whole line and whatever follows it drops below: on the
+   * factor card, `est.` stood alone on the next line under "No ai assistant
+   * use in place".
+   *
+   * `'inline'` rests as INLINE TEXT that is still a control: a `<span
+   * role="button" tabIndex={0}>` with the same classes, name, title and click,
+   * and Enter / Space opening the field as a native button would. Its words
+   * wrap like any text, so `trailing` (the card's glue + source mark) follows
+   * the value's LAST WORD. The open field is unchanged.
+   */
+  restingFlow?: 'box' | 'inline'
+  /**
+   * Rendered straight after the resting value, in its flow, and before any
+   * settlement words — so a mark glued to the value can never be pushed past
+   * "Not saved". Only read in the `'inline'` resting flow.
+   */
+  trailing?: React.ReactNode
 }
 
 export function NodeValueEditor({
-  value, readout, onCommit, readCommittedValue, min, max, ariaLabel, testId,
+  value, readout, onCommit, readCommittedValue, min, max, outOfRangeCopy, scaleHint, editNote, editNoteShort, ariaLabel, testId,
+  restingFlow = 'box', trailing, admit, seedText, prefix, restingTypography, prefill, onPrefillConsumed,
 }: NodeValueEditorProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -155,15 +233,39 @@ export function NodeValueEditor({
     // stale "Not saved" must not survive past the edit that supersedes it.
     commitSeqRef.current += 1
     setSettlement(null)
-    setDraft(value != null ? String(value) : '')
+    setDraft(seedText ?? (value != null ? String(value) : ''))
     setRefusal(null)
     setIsEditing(true)
-  }, [value])
+  }, [value, seedText])
+
+  // WHAT-IF "PUT IT BACK": open with the requested text, once per request. Same opening as a click (a new edit retires
+  // any prior settlement word); only the draft differs. Nothing is committed here: Enter does that.
+  const prefillSeq = prefill?.seq ?? null
+  useEffect(() => {
+    if (!prefill) return
+    commitSeqRef.current += 1
+    setSettlement(null)
+    setDraft(prefill.text)
+    setRefusal(null)
+    setIsEditing(true)
+    onPrefillConsumed?.(prefill.seq)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillSeq])
 
   const commit = useCallback(() => {
     if (draft.trim().length === 0) { setIsEditing(false); return }
-    const admission = admitNumericField(draft, { min, max })
-    if (!admission.ok) { setRefusal(admission.reason); return }
+    const admission = admit ? admit(draft) : admitNumericField(draft, { min, max })
+    if (!admission.ok) {
+      // A number outside the bounds gets the caller's sentence; a non-number
+      // keeps the admission's own reason — it is not a range question. A
+      // caller's own `admit` always speaks for itself.
+      setRefusal(
+        !admit && outOfRangeCopy && admission.reason !== NUMERIC_FIELD_REFUSAL.NOT_FINITE
+          ? outOfRangeCopy
+          : admission.reason,
+      )
+      return
+    }
     // A commit that changes nothing is a no-op, not a dispatch.
     if (value != null && admission.value === value) { setIsEditing(false); return }
     const seq = ++commitSeqRef.current
@@ -188,11 +290,13 @@ export function NodeValueEditor({
     }
     // ⛔ STAY OPEN. See the header: a refusal must not read as a save.
     setRefusal(
-      outcome === 'not_encodable'
-        ? VALUE_NOT_ENCODABLE_COPY
-        : VALUE_COMMIT_SETTLEMENT_COPY.local_only.message,
+      typeof outcome === 'object'
+        ? outcome.refused
+        : outcome === 'not_encodable'
+          ? VALUE_NOT_ENCODABLE_COPY
+          : VALUE_COMMIT_SETTLEMENT_COPY.local_only.message,
     )
-  }, [draft, min, max, value, onCommit, readCommittedValue])
+  }, [draft, min, max, outOfRangeCopy, value, onCommit, readCommittedValue, admit])
 
   // `nodrag nopan` and the pointer stop are not optional: without them React
   // Flow treats a drag inside the field as a node drag and the caret never
@@ -208,60 +312,130 @@ export function NodeValueEditor({
   // it moves nothing. `controls.editableResting` stays the inspector's.
   if (!isEditing) {
     const settlementCopy = settlement ? VALUE_COMMIT_SETTLEMENT_COPY[settlement] : null
+    const settlementWords = settlementCopy && (
+      <span
+        role={settlementCopy.role}
+        data-testid={`${testId}-settlement`}
+        className={`${restingFlow === 'inline' ? 'block ' : ''}${typography.edgeLabel} ${
+          settlementCopy.role === 'alert' ? 'text-text-body' : 'text-text-light'
+        }`}
+      >
+        {settlementCopy.message}
+      </span>
+    )
+    if (restingFlow === 'inline') {
+      // Inline text, still a control (see `restingFlow`). `whitespace-normal`
+      // is explicit: the card's value row is `nowrap` so the mark's glue holds,
+      // and the value must re-open its own spaces to wrap inside the card.
+      return (
+        <>
+          <span
+            role="button"
+            tabIndex={0}
+            data-testid={testId}
+            className={`nodrag nopan ${restingTypography ?? typography.nodeValue} group group/edit whitespace-normal ${controls.editableRestingCanvas}`}
+            aria-label={`${ariaLabel} — click to edit${editNote ? `. ${editNote}` : ''}`}
+            title={editNote}
+            {...guard}
+            onClick={(e) => { e.stopPropagation(); open() }}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter' && e.key !== ' ') return
+              e.preventDefault()
+              e.stopPropagation()
+              open()
+            }}
+          >
+            {readout}
+            <EditPencilCue testId={`${testId}-pencil`} />
+          </span>
+          {trailing}
+          {settlementWords}
+        </>
+      )
+    }
     return (
       <span className="inline-flex flex-col items-start gap-0.5">
         <button
           type="button"
           data-testid={testId}
-          className={`nodrag nopan ${typography.nodeValue} group inline-flex items-baseline ${controls.editableRestingCanvas}`}
-          aria-label={`${ariaLabel} — click to edit`}
+          className={`nodrag nopan ${typography.nodeValue} group group/edit inline-flex items-baseline ${controls.editableRestingCanvas}`}
+          aria-label={`${ariaLabel} — click to edit${editNote ? `. ${editNote}` : ''}`}
+          title={editNote}
           {...guard}
           onClick={(e) => { e.stopPropagation(); open() }}
         >
           <span className="min-w-0">{readout}</span>
+          <EditPencilCue testId={`${testId}-pencil`} />
         </button>
         {/* DESIGN-GAP-AUDIT row 37 — the truth strip's words, on the card. A
             `dispatched` commit is not a settled one (see this file's header);
             this is the ONLY new visible state, since `refusal` below already
             covers the two synchronous outcomes. */}
-        {settlementCopy && (
-          <span
-            role={settlementCopy.role}
-            data-testid={`${testId}-settlement`}
-            className={`${typography.edgeLabel} ${
-              settlementCopy.role === 'alert' ? 'text-text-body' : 'text-text-light'
-            }`}
-          >
-            {settlementCopy.message}
-          </span>
-        )}
+        {settlementWords}
       </span>
     )
   }
 
-  return (
+  const editingBox = (
     <span className="nodrag nopan inline-flex flex-col items-start gap-0.5" {...guard}>
-      <input
-        ref={inputRef}
-        type="number"
-        inputMode="decimal"
-        step="any"
-        min={min}
-        max={max}
-        value={draft}
-        data-testid={`${testId}-input`}
-        aria-label={ariaLabel}
-        aria-invalid={refusal != null}
-        onChange={(e) => { setDraft(e.target.value); if (refusal) setRefusal(null) }}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') { e.preventDefault(); commit() }
-          if (e.key === 'Escape') { setIsEditing(false); setRefusal(null) }
-        }}
-        className={`${typography.nodeValue} w-24 ${
-          refusal ? controls.editableFieldCanvas.replace('border-field', 'border-danger') : controls.editableFieldCanvas
-        }`}
-      />
+      <span className="inline-flex items-baseline gap-1">
+        {prefix && (
+          <span data-testid={`${testId}-prefix`} className={`${typography.nodeValue} text-text-light`}>{prefix}</span>
+        )}
+        <input
+          ref={inputRef}
+          type={admit ? 'text' : 'number'}
+          inputMode="decimal"
+          step={admit ? undefined : 'any'}
+          min={admit ? undefined : min}
+          max={admit ? undefined : max}
+          value={draft}
+          data-testid={`${testId}-input`}
+          aria-label={ariaLabel}
+          aria-describedby={[
+            scaleHint ? `${testId}-scale` : null,
+            editNote ? `${testId}-note` : null,
+          ].filter(Boolean).join(' ') || undefined}
+          aria-invalid={refusal != null}
+          onChange={(e) => { setDraft(e.target.value); if (refusal) setRefusal(null) }}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commit() }
+            if (e.key === 'Escape') { setIsEditing(false); setRefusal(null) }
+          }}
+          className={`${typography.nodeValue} w-24 ${
+            refusal ? controls.editableFieldCanvas.replace('border-field', 'border-danger') : controls.editableFieldCanvas
+          }`}
+        />
+        {/* F3: the scale of the number in the field, beside it — same row, so
+            opening the field still moves nothing below it. */}
+        {scaleHint && (
+          <span
+            id={`${testId}-scale`}
+            data-testid={`${testId}-scale`}
+            className={`${typography.edgeLabel} text-text-light whitespace-nowrap`}
+          >
+            {scaleHint}
+          </span>
+        )}
+      </span>
+      {/* F9: what an edit here does, while the person is making it — short on
+          the card, the full sentence in the hover and for assistive tech. */}
+      {editNote && (
+        <span
+          id={`${testId}-note`}
+          data-testid={`${testId}-note`}
+          title={editNote}
+          className={`${typography.edgeLabel} text-text-light`}
+        >
+          {editNoteShort ? (
+            <>
+              <span aria-hidden="true">{editNoteShort}</span>
+              <span className="sr-only">{editNote}</span>
+            </>
+          ) : editNote}
+        </span>
+      )}
       {refusal && (
         /* ⚠ `text-text-body`, NOT `text-danger` — and the guard that caught this
            is right. `nodeSystem.semanticColourOnText.spec.ts` (rule 5) measured
@@ -281,4 +455,7 @@ export function NodeValueEditor({
       )}
     </span>
   )
+  // The inline resting flow keeps its `trailing` (the card's mark) beside the
+  // open field too, exactly where it sat beside the box before this flow.
+  return restingFlow === 'inline' ? <>{editingBox}{trailing}</> : editingBox
 }

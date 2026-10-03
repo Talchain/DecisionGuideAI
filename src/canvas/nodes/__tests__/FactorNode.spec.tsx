@@ -379,6 +379,8 @@ describe('FactorNode', () => {
       influenceImportanceBasis: null,
       influenceSetSize: 5,
       influenceRankedCount: 3,
+      // Rank 1 is the top-ranked driver: its relative sensitivity is 1 by construction.
+      driverRelativeSensitivity: 1,
       confidence: 0.45,
       confidenceIsDefaulted: false,
       confidenceIsProvisional: false,
@@ -403,11 +405,16 @@ describe('FactorNode', () => {
        (History: this row read "Relative influence 80%"; measured on staging
        `6497a251` the unqualified "Influence 100%" read as absolute.) */
     const line = screen.getByTestId('factor-driver-line-detail')
-    // Contract v3.1 pt 5: the caption is the rank; the quantity's noun moved to
-    // the disclosure ("Bar: structural influence, 80% …").
-    expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
-    expect(line).toHaveAccessibleName(/structural influence, 80% of the strongest factor/)
+    // Contract v3.1 pt 5: the caption is the rank (M = the ranked count, 3).
+    // ⛔ RE-PINNED 27 Sep 2026 (side-by-side DIFF items 3 and 4): this pinned
+    // "Driver 1 of 5 analysed" and "structural influence, 80% of the strongest
+    // factor" — the rank-1 driver drawn at 80% of some other factor, the exact
+    // contradiction Paul's MRR run showed. The bar is relative sensitivity now,
+    // and rank 1 is 100% of itself; the 80% influence figure stays off the line.
+    expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
+    expect(line).toHaveAccessibleName(/relative sensitivity, 100% of the top-ranked driver/)
     expect(line.textContent).not.toContain('80%')
+    expect(line.getAttribute('aria-label')).not.toContain('80%')
     expect(screen.getByText('Confidence')).toBeDefined()
     expect(screen.getByText('45%')).toBeDefined()
   })
@@ -519,7 +526,7 @@ describe('FactorNode', () => {
   // P3: Rank badge in the top-right corner stack.
   // ⭐ Locked Canvas design (23 Sep 2026), ED 02:31Z D1a: "RETIRE the Key-driver
   // badge once the body driver line is present." The rank is stated ONCE, by the
-  // driver line on the card face ("Driver N of M analysed"), and the corner
+  // driver line on the card face ("Driver N of M ranked in this run"), and the corner
   // stack no longer holds a badge. What this test still pins: the stack owns the
   // corner (its own constant), and the rank reaches the reader — now on the line.
   it('the retired rank badge does NOT render; the rank is stated by the driver line (P3, ED 02:31Z D1a)', () => {
@@ -548,6 +555,8 @@ describe('FactorNode', () => {
       influenceImportanceBasis: null,
       influenceSetSize: 5,
       influenceRankedCount: 3,
+      // Rank 1 is the top-ranked driver: its relative sensitivity is 1 by construction.
+      driverRelativeSensitivity: 1,
       confidence: null,
       confidenceIsDefaulted: false,
       confidenceIsProvisional: false,
@@ -572,8 +581,11 @@ describe('FactorNode', () => {
     expect(container.textContent).not.toContain('#1')
     // The rank is stated by the driver line instead — on the face again
     // (prototype, Paul 25 Sep; the inline cue is retired).
-    // ED #63 5806207128: "Driver N of M analysed", M = the eligible analysed factors.
-    expect(captionOf(popoverDriverLine())).toBe('Driver 1 of 5 analysed')
+    // NODE-ANATOMY v3.2: "Driver N of M ranked in this run", M = the ranked count.
+    // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
+    // one-line slot prints the LONGEST form that fits at the landing bound
+    // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
+    expect(captionOf(popoverDriverLine())).toBe('Driver 1 of 3 ranked')
     expect(screen.queryByTestId('factor-driver-cue-factor-1')).toBeNull()
     // Positioning is still owned by the shared corner STACK (Codex P1-5) — the
     // members that remain in it are static flex children.
@@ -648,6 +660,8 @@ describe('FactorNode', () => {
       influenceImportanceBasis: null,
       influenceSetSize: 5,
       influenceRankedCount: 3,
+      // Rank 1 is the top-ranked driver: its relative sensitivity is 1 by construction.
+      driverRelativeSensitivity: 1,
       confidence: 0.6,
       confidenceIsDefaulted: false,
       confidenceIsProvisional: false,
@@ -801,6 +815,8 @@ describe('FactorNode', () => {
       influenceImportanceBasis: null,
       influenceSetSize: 5,
       influenceRankedCount: 3,
+      // Rank 1 is the top-ranked driver: its relative sensitivity is 1 by construction.
+      driverRelativeSensitivity: 1,
       confidence: 0.6,
       confidenceIsDefaulted: false,
       confidenceIsProvisional: false,
@@ -822,7 +838,8 @@ describe('FactorNode', () => {
     // is now the one progressbar here. Both readings are still present.
     expect(progressbars.length).toBeGreaterThanOrEqual(1)
     const driver = screen.getByTestId('factor-driver-line-detail')
-    expect(driver).toHaveAccessibleName(/80% of the strongest factor/)
+    // DIFF item 4 (27 Sep 2026): the bar is relative sensitivity; rank 1 = 100%.
+    expect(driver).toHaveAccessibleName(/100% of the top-ranked driver/)
     expect(within(driver).getByTestId('factor-driver-line-detail-bar')).toHaveAttribute('aria-hidden', 'true')
     // A confidence without a default/provisional qualifier has no explanation
     // to open. Retain the value, without adding a redundant keyboard stop.
@@ -901,9 +918,11 @@ describe('FactorNode', () => {
          to survive in the disclosure. The pre-ranking strings are not lost
          either: they are pinned verbatim in the fail-closed twin below. */
       influenceSetSize: 5,
-      // The ranked count — the publication guard only; the printed M is the
-      // analysed set (ED #63 5806207128).
+      // The ranked count — the printed M AND the publication guard
+      // (NODE-ANATOMY v3.2; it was the analysed set under ED 5806207128).
       influenceRankedCount: 3,
+      // Rank 1 is the top-ranked driver: its relative sensitivity is 1 by construction.
+      driverRelativeSensitivity: 1,
       confidence: null,
       confidenceIsDefaulted: false,
       confidenceIsProvisional: false,
@@ -930,14 +949,18 @@ describe('FactorNode', () => {
     // Paul 25 Sep); both channels are pinned on the face's line.
     const line = popoverDriverLine()
     fireEvent.mouseEnter(line)
+    // ⛔ RE-PINNED 27 Sep 2026 (DIFF items 3 and 4): M is the ranked count, and
+    // the bar is relative sensitivity against the top-ranked driver — the old
+    // pin's "of the strongest factor" measured the bar against factors the card
+    // does not rank. The scale sentence the claim needs is still here, verbatim.
     const RANKED_DISCLOSURE =
-      'Driver 1 of 5 analysed. Ranked by how strongly the comparison responds to each factor in this model. ' +
-      'Bar: outcome sensitivity, 100% of the strongest factor. ' +
-      'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
-      'How much the outcome shifts when this factor changes. How sure are you of its value?'
+      'Driver 1 of 3 ranked in this run. Ranked by how strongly the comparison responds to each factor in this model. ' +
+      'Bar: relative sensitivity, 100% of the top-ranked driver. ' +
+      'Relative to the top-ranked driver in this model, not a causal contribution percentage. ' +
+      'How sure are you of its value?'
     expect(await screen.findByRole('tooltip')).toHaveTextContent(RANKED_DISCLOSURE)
     // The visible line is a RANKING, which is the claim a reader can push back on.
-    expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
+    expect(captionOf(line)).toBe('Driver 1 of 3 ranked')
     // ⛔ AND THE BARE PERCENTAGE IS GONE FROM THE FACE OF THE CARD — this is the
     // assertion that would RED if the face reverted to printing the figure.
     expect(line.textContent).not.toContain('100%')
@@ -1076,6 +1099,8 @@ describe('FactorNode', () => {
            licence set 5, ranked count 3. */
         influenceSetSize: 5,
         influenceRankedCount: 3,
+        // Rank 1 is the top-ranked driver: its relative sensitivity is 1 by construction.
+        driverRelativeSensitivity: 1,
         confidence: 0.45, confidenceIsDefaulted: false, confidenceIsProvisional: false,
         inSensitivityAnalysis: true,
         achievementProbability: null, achievementProbabilityIsModelledBasis: false,
@@ -1092,9 +1117,10 @@ describe('FactorNode', () => {
       // no figure (ED 11:52Z point 3). On the face again (prototype, Paul 25
       // Sep), so it precedes the popover's confidence row in document order.
       const line = popoverDriverLine()
-      expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
+      expect(captionOf(line)).toBe('Driver 1 of 3 ranked')
       expect(line.textContent).not.toContain('80%')
-      expect(line).toHaveAccessibleName(/80% of the strongest factor/)
+      // DIFF item 4: the bar is the rank's own quantity; rank 1 = 100%.
+      expect(line).toHaveAccessibleName(/100% of the top-ranked driver/)
       expect(screen.queryByTestId('factor-influence-row')).toBeNull()
       // The pill form of INFLUENCE and of CONFIDENCE are gone — asserted by
       // their single-text-node spellings, which no row produces.
@@ -1120,8 +1146,8 @@ describe('FactorNode', () => {
          its accessible name beside "of the strongest factor". Confidence keeps
          its labelled bar (label + value separate). */
       const line = screen.getByTestId('factor-driver-line-detail')
-      expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
-      expect(line).toHaveAccessibleName(/80% of the strongest factor/)
+      expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
+      expect(line).toHaveAccessibleName(/100% of the top-ranked driver/)
       expect(screen.getByText('Confidence')).toBeDefined()
       expect(screen.getByText('45%')).toBeDefined()
     })
@@ -1167,6 +1193,8 @@ describe('FactorNode', () => {
         // basis disclosure is pinned on the ranked arm (set 5, ranked 3).
         influenceSetSize: 5,
         influenceRankedCount: 3,
+        // Rank 1 is the top-ranked driver: its relative sensitivity is 1 by construction.
+        driverRelativeSensitivity: 1,
         confidence: null,
         inSensitivityAnalysis: true,
         achievementProbability: null,
@@ -1185,57 +1213,58 @@ describe('FactorNode', () => {
     // `FactorDriverLine` (`factor-driver-line-detail`). Its bar is decorative, so
     // the scale disclosure lives in the line's accessible name AND its tooltip —
     // ONE sentence, built once — and the bar's FILL still carries the fraction.
-    it('fallback basis: the line discloses that the figure is relative to the strongest factor', async () => {
+    //
+    // ⛔ RE-PINNED 27 Sep 2026 (side-by-side DIFF item 4). These pinned the bar
+    // as the displayed INFLUENCE figure on each basis ("outcome sensitivity" /
+    // "structural influence", "NN% of the strongest factor"), so a rank-1 driver
+    // drew 60% here — and 81% on Paul's MRR run, of a factor the card calls
+    // unranked. The bar is now the rank's own quantity against rank 1, the same
+    // on either influence basis; the influence figure and its basis-specific
+    // disclosure stay in the inspector. The claim these guarded (no figure
+    // without the sentence that stops it being read as absolute) still holds
+    // and is pinned below, word for word.
+    const RANK_1_DISCLOSURE =
+      'Driver 1 of 3 ranked in this run. Ranked by how strongly the comparison responds to each factor in this model. ' +
+      'Bar: relative sensitivity, 100% of the top-ranked driver. ' +
+      'Relative to the top-ranked driver in this model, not a causal contribution percentage. ' +
+      'How sure are you of its value?'
+
+    it('fallback basis: the line discloses that the bar is relative to the top-ranked driver', async () => {
       renderDetailedWithProvenance('normalised_elasticity', 1)
       const line = screen.getByTestId('factor-driver-line-detail')
-      const DISCLOSURE =
-        'Driver 1 of 5 analysed. Ranked by how strongly the comparison responds to each factor in this model. ' +
-        'Bar: outcome sensitivity, 100% of the strongest factor. ' +
-        'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
-        'How much the outcome shifts when this factor changes. How sure are you of its value?'
-      expect(line).toHaveAccessibleName(DISCLOSURE)
+      expect(line).toHaveAccessibleName(RANK_1_DISCLOSURE)
       expect(fillOf(line)).toBe('max(4px, 100%)')
       // Pointer users get the same disclosure on the line.
       fireEvent.mouseEnter(line)
-      expect(await screen.findByRole('tooltip')).toHaveTextContent(DISCLOSURE)
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(RANK_1_DISCLOSURE)
     })
 
-    it('producer basis: the line discloses the set-relative scale, and names its OWN quantity', async () => {
+    it('DISCRIMINATING — producer basis at 60% influence: rank 1 still draws 100%, and the 60% is not on the line', async () => {
       renderDetailedWithProvenance('influence_score', 0.6)
       const line = screen.getByTestId('factor-driver-line-detail')
-      // ⚠ THE PRODUCER ARM NAMES ITS OWN QUANTITY, and the two arms are
-      // deliberately NOT one string — #1221's positive control forbids
-      // collapsing them and is right: the scale is shared, the measurement is
-      // not. Here: "structural influence" + its own gloss, vs the fallback's
-      // "outcome sensitivity" above.
-      const DISCLOSURE =
-        'Driver 1 of 5 analysed. Ranked by how strongly the comparison responds to each factor in this model. ' +
-        'Bar: structural influence, 60% of the strongest factor. ' +
-        'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
-        'How strongly this factor connects to the goal in your model. How sure are you of its value?'
-      // Contract v3.1 pt 5: the caption is the rank; the quantity is named in
-      // the disclosure, where the two arms still differ.
-      expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
-      expect(line).toHaveAccessibleName(DISCLOSURE)
-      expect(line.getAttribute('aria-label')).not.toContain('outcome sensitivity')
-      expect(fillOf(line)).toBe('max(4px, 60%)')
+      expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
+      expect(line).toHaveAccessibleName(RANK_1_DISCLOSURE)
+      expect(line.getAttribute('aria-label')).not.toContain('60%')
+      expect(line.getAttribute('aria-label')).not.toContain('structural influence')
+      expect(fillOf(line)).toBe('max(4px, 100%)')
       fireEvent.mouseEnter(line)
-      expect(await screen.findByRole('tooltip')).toHaveTextContent(DISCLOSURE)
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(RANK_1_DISCLOSURE)
     })
 
-    it('no provenance stamp: withholds the influence value and its scale claim', () => {
+    it('no provenance stamp: withholds the influence value and its scale claim (the rank itself still shows)', () => {
       renderDetailedWithProvenance(null, 0.6)
-      // Locked Canvas design (23 Sep 2026): bound by the driver line's test ids,
-      // on both mounts, so the absence cannot go vacuous under the new wording.
-      expect(screen.queryByTestId('factor-driver-line-detail')).toBeNull()
-      expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+      // ⛔ RE-PINNED 27 Sep 2026 (DIFF item 3): this pinned NO line at all, so a
+      // ranked factor counted in M could show no rank. The line is licensed by
+      // the rank alone now; the influence figure it guarded is still withheld.
+      expect(captionOf(screen.getByTestId('factor-driver-line-detail'))).toBe('Driver 1 of 3 ranked in this run')
       expect(screen.queryByRole('progressbar', { name: /Influence/ })).toBeNull()
       expect(screen.queryByText('Influence')).toBeNull()
-    // ⚠ AND the relative spelling, or this absence assertion goes vacuous:
-    // the card no longer renders the bare noun under a stamped basis, so a
-    // query for it would pass whether the row is absent or merely renamed.
-    expect(screen.queryByText('Relative influence')).toBeNull()
+      // ⚠ AND the relative spelling, or this absence assertion goes vacuous:
+      // the card no longer renders the bare noun under a stamped basis, so a
+      // query for it would pass whether the row is absent or merely renamed.
+      expect(screen.queryByText('Relative influence')).toBeNull()
       expect(screen.queryByText('60%')).toBeNull()
+      expect(document.body.textContent).not.toContain('60%')
     })
   })
 })

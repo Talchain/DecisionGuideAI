@@ -12,6 +12,12 @@ import { canRestoreSharedVersions } from './versions/sharedVersionsAvailability'
 import { isPersistenceSessionActive } from '../lib/persistenceSession'
 import { deleteSelectionAction, type ShowToastFn } from './contextMenu/actions'
 import { useConfirmDialogStore } from './stores/confirmDialogStore'
+import { armNodeKeyboardScopeForOneDispatch } from './nodes/nodeKeyboardScope'
+import { runCanvasUndo } from './undo/undoCommand'
+import { isViewerSession } from '../lib/viewerMode'
+
+/** The keys React Flow's node handler moves a node on — and the nudge's keys. */
+const ARROW_KEYS: ReadonlySet<string> = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'])
 
 export type InteractionMode = 'select' | 'hand'
 
@@ -309,6 +315,22 @@ export function isUndoRedoGesture(key: string, cmdOrCtrl: boolean): boolean {
 }
 
 /**
+ * True when the user has highlighted text anywhere on the page — the AI panel,
+ * a dock tab, a pop-up.
+ *
+ * ⌘C is window-scoped, so without this the canvas took every copy: it cancelled
+ * the browser's copy and copied the selected cards instead, and highlighted
+ * panel text never reached the clipboard (Paul, 29 Sep 2026: only right-click
+ * → Copy worked). Highlighted text wins; with nothing highlighted ⌘C still
+ * copies cards. A bare caret (a collapsed selection) is not highlighted text.
+ */
+export function hasHighlightedText(): boolean {
+  if (typeof window === 'undefined' || typeof window.getSelection !== 'function') return false
+  const selection = window.getSelection()
+  return selection != null && !selection.isCollapsed && selection.toString().length > 0
+}
+
+/**
  * True for the clipboard gestures that MUTATE and are permanently inert:
  * Cmd/Ctrl+X (cut) and Cmd/Ctrl+V (paste).
  *
@@ -422,9 +444,6 @@ function escapeBelongsToAnOpenSurface(target: Element | null): boolean {
   return typeof document !== 'undefined' && document.querySelector(ESCAPE_OPEN_ELSEWHERE) !== null
 }
 
-/** Repeat window, so holding ⌘Z does not stack a column of identical toasts. */
-const UNDO_NOTICE_QUIET_MS = 3000
-
 /** Repeat window for the cut/paste notice. */
 const CLIPBOARD_NOTICE_QUIET_MS = 3000
 
@@ -443,12 +462,8 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
   // it the release paths below (modifiers, blur, visibilitychange) would fire
   // `false` repeatedly at a consumer that is already false.
   const spaceHeldRef = useRef(false)
-  // Last time the "undo isn't available" notice was emitted, so a held or
-  // repeatedly-pressed ⌘Z produces one message rather than a column of them.
-  const lastUndoNoticeAtRef = useRef(0)
-  // Same, for the cut/paste notice. A SEPARATE window from the undo one: they
-  // are different sentences answering different gestures, and sharing a window
-  // would let one gesture silence the other.
+  // Last time the cut/paste notice was emitted, so a held or repeatedly-pressed
+  // gesture produces one message rather than a column of them.
   const lastClipboardNoticeAtRef = useRef(0)
   // Fix: Use getState() inside handler to avoid dependency array issues.
   // Previously, all 12 action functions were in the dependency array, but
@@ -472,6 +487,29 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
         event.key === 'Escape' && escapeBelongsToAnOpenSurface(event.target as Element | null) ? event : null
     }
 
+    /**
+     * ⛔ ONE ARROW PRESS, ONE MOVE (edit-structure F1/F4 skeptics, 27 Sep 2026).
+     *
+     * React Flow moves a focused, selected node on the arrow keys itself (5
+     * units, ×4 with Shift), and clicking a card focuses it — so the nudge below
+     * ALSO ran, and one Shift+ArrowRight moved a card 30 (served build). The
+     * canvas's nudge is the one handler: it is the one that moves an unfocused
+     * selection too, so distance no longer depends on where focus is, and it
+     * coalesces a burst into one undo frame.
+     *
+     * React Flow's node handler is withheld through React Flow's OWN opt-out,
+     * `.nokey` on the node wrapper for this one dispatch — never
+     * `stopPropagation`, which would also stop every window/document listener
+     * (see `nodeKeyboardScope`'s header). Arrow keys only: Enter, Space and
+     * Escape at the node still select and deselect it.
+     */
+    const handleArrowCapture = (event: KeyboardEvent) => {
+      if (!ARROW_KEYS.has(event.key)) return
+      const target = event.target as Element | null
+      if (!target || typeof target.matches !== 'function') return
+      if (target.matches('.react-flow__node')) armNodeKeyboardScopeForOneDispatch(target)
+    }
+
     const handleKeyDown = (event: KeyboardEvent) => {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
       const cmdOrCtrl = isMac ? event.metaKey : event.ctrlKey
@@ -493,22 +531,30 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
         return
       }
 
+      // ACCOUNTS viewer mode: no editing gesture for a viewer. Tool keys (V / H /
+      // Space) still work; undo/redo, delete, nudge and every Cmd/Ctrl shortcut do not.
+      if (
+        isViewerSession() &&
+        (cmdOrCtrl || event.key === 'Delete' || event.key === 'Backspace' || ARROW_KEYS.has(event.key))
+      ) {
+        return
+      }
+
       // Get fresh state for each keydown - avoids stale closure issues
       const state = useCanvasStore.getState()
       const canMutateSharedModel = hasServerGraphAuthority(
         CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations,
       )
-
-      // Answer the recovery gesture rather than swallowing it. Runs BEFORE the
-      // undo/redo branches and fires only when they are inert, so the day
-      // `canvasSemanticMutations` becomes `'server_graph'` this branch stops
-      // firing on its own and real undo takes over — no second place to
-      // remember to update.
-      if (!canMutateSharedModel && isUndoRedoGesture(event.key, cmdOrCtrl)) {
+      // CANVAS UNDO / REDO as SAVED changes (`undo/undoCommand.ts`): a restore
+      // of the edit's own pre-edit version, never a screen revert. Since Undo S5
+      // it reads no key: the command itself answers guests, in-flight edits,
+      // "nothing to undo" and a stale head. The old local `state.undo()` is not
+      // reachable from any gesture, so flipping `canvasSemanticMutations` can
+      // never bring the screen-only undo back (`undoGestureRouting.blanketFlip.spec`).
+      if (isUndoRedoGesture(event.key, cmdOrCtrl)) {
         event.preventDefault()
-        if (!event.repeat && Date.now() - lastUndoNoticeAtRef.current > UNDO_NOTICE_QUIET_MS) {
-          lastUndoNoticeAtRef.current = Date.now()
-          showCanvasUndoUnavailableNotice()
+        if (!event.repeat) {
+          void runCanvasUndo(event.shiftKey || event.key.toLowerCase() === 'y' ? 'redo' : 'undo')
         }
         return
       }
@@ -530,22 +576,6 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
         return
       }
 
-      // Undo: Cmd/Ctrl + Z
-      if (canMutateSharedModel && cmdOrCtrl && event.key === 'z' && !event.shiftKey && state.canUndo()) {
-        event.preventDefault()
-        state.undo()
-        return
-      }
-
-      // Redo: Cmd/Ctrl + Shift + Z or Cmd/Ctrl + Y
-      if (canMutateSharedModel && ((cmdOrCtrl && event.key === 'z' && event.shiftKey) || (cmdOrCtrl && event.key === 'y'))) {
-        if (state.canRedo()) {
-          event.preventDefault()
-          state.redo()
-        }
-        return
-      }
-
       // Duplicate: Cmd/Ctrl + D
       if (canMutateSharedModel && cmdOrCtrl && event.key === 'd') {
         event.preventDefault()
@@ -560,8 +590,9 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
         return
       }
 
-      // Copy: Cmd/Ctrl + C
+      // Copy: Cmd/Ctrl + C — unless text is highlighted, which the browser copies.
       if (cmdOrCtrl && event.key === 'c') {
+        if (hasHighlightedText()) return
         event.preventDefault()
         state.copySelected()
         return
@@ -630,7 +661,12 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
         return
       }
 
-      // Nudge with arrow keys
+      // Nudge with arrow keys.
+      //
+      // ⛔ Never a press another handler already consumed — React Flow's own move
+      // on a focused multi-selection box, which `.nokey` cannot withhold, or the
+      // lens's option cycling. Moving it again is the double move.
+      if (ARROW_KEYS.has(event.key) && event.defaultPrevented) return
       const nudgeAmount = event.shiftKey ? 10 : 1
       if (event.key === 'ArrowLeft') {
         event.preventDefault()
@@ -689,6 +725,7 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
     }
 
     window.addEventListener('keydown', handleEscapeCapture, true)
+    window.addEventListener('keydown', handleArrowCapture, true)
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
     window.addEventListener('blur', handleBlur)
@@ -697,6 +734,7 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
     }
     return () => {
       window.removeEventListener('keydown', handleEscapeCapture, true)
+      window.removeEventListener('keydown', handleArrowCapture, true)
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
       window.removeEventListener('blur', handleBlur)

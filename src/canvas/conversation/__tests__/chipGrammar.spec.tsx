@@ -108,8 +108,9 @@ describe('chip grammar — the PX-B ruling itself (hand-written; derivation cann
     expect(CHIP_CLASS).not.toContain('px-4 py-2')
   })
 
-  it('uses the 12px panel type token, not the 14px body token', () => {
-    expect(CHIP_CLASS).toContain(typography.panelBody)
+  it('uses the chat\'s 13px reading token, neither the 12px label nor the 14px heading size', () => {
+    expect(CHIP_CLASS).toContain(typography.chatBody)
+    expect(CHIP_CLASS).not.toContain(typography.panelBody)
     expect(CHIP_CLASS).not.toContain(typography.bodySmall)
   })
 

@@ -9,7 +9,7 @@
  * value, which used to render nothing and must now render its influence.
  *
  * Locked Canvas design (23 Sep 2026): "its influence" is now its DRIVER RANK in
- * the card's own words — `Driver N of M analysed` (ED 02:31Z D1a) — and
+ * the card's own words — `Driver N of M ranked in this run` (NODE-ANATOMY v3.2) — and
  * never a bare `Influence N%` (ED 11:52Z: "no pseudo-precise `% influence` on
  * the face"). The rank arrives as the `driverRank` fact, which `BaseNode`
  * resolves from the current-run licence only.
@@ -53,34 +53,35 @@ const meta = (o: Partial<NodeDisplayMetadata>): NodeDisplayMetadata =>
  * Locked Canvas design (23 Sep 2026): the factor fallback reads this fact, so
  * every factor test that exercises — or must exclude — that arm supplies it.
  */
-const DRIVER_2_OF_5 = { driverRank: { rank: 2, setSize: 5 } }
+const DRIVER_2_OF_3 = { driverRank: { rank: 2, setSize: 3 } }
 
 describe('the deployed defect: a factor with no stated value said nothing', () => {
   it('falls back to the driver rank the card already shows', () => {
     // Locked Canvas design (23 Sep 2026): the card's driver line reads
-    // "Driver N of M analysed" (ED #63 5806207128), so the reduced line says
-    // the same words — it once said the bare "Influence 62%".
+    // "Driver N of M ranked in this run" (NODE-ANATOMY v3.2; M = the ranked
+    // count), so the reduced line says the same words — it once said the bare
+    // "Influence 62%", then ED 5806207128's "Driver N of M analysed".
     expect(
       resolveLodMetricLine({
         nodeType: 'factor',
         data: { label: 'Team capacity' },
         label: 'Team capacity',
         displayMetadata: meta({ influence: 0.62, influenceProvenance: 'influence_score' as never }),
-        facts: DRIVER_2_OF_5,
+        facts: DRIVER_2_OF_3,
       }),
-    ).toBe('Driver 2 of 5 analysed') // ED #63 5806207128
+    ).toBe('Driver 2 of 3 ranked in this run') // NODE-ANATOMY v3.2
   })
 
-  it('ED 5806207128 stale form — "Last run · Driver N of M analysed"', () => {
+  it('the contract’s stale form — "Last run · Driver N of M ranked" (drops "in this run" so it fits)', () => {
     expect(
       resolveLodMetricLine({
         nodeType: 'factor',
         data: { label: 'Team capacity' },
         label: 'Team capacity',
         displayMetadata: meta({ influence: 0.62, influenceProvenance: 'influence_score' as never }),
-        facts: { ...DRIVER_2_OF_5, influenceFromLastRun: true },
+        facts: { ...DRIVER_2_OF_3, influenceFromLastRun: true },
       }),
-    ).toBe('Last run · Driver 2 of 5 analysed')
+    ).toBe('Last run · Driver 2 of 3 ranked')
   })
 
   it('⛔ the bare "Influence N%" fallback is GONE — influence with no current rank says nothing analysis-derived', () => {
@@ -106,7 +107,7 @@ describe('the deployed defect: a factor with no stated value said nothing', () =
         data: { label: 'Team capacity' },
         label: 'Team capacity',
         displayMetadata: meta({ influence: null, influenceProvenance: 'influence_score' as never }),
-        facts: DRIVER_2_OF_5,
+        facts: DRIVER_2_OF_3,
       }),
     ).toBeNull()
   })
@@ -120,7 +121,7 @@ describe('the deployed defect: a factor with no stated value said nothing', () =
         data: { label: 'Team capacity' },
         label: 'Team capacity',
         displayMetadata: meta({ influence: 0.62, influenceProvenance: null }),
-        facts: DRIVER_2_OF_5,
+        facts: DRIVER_2_OF_3,
       }),
     ).toBeNull()
   })
@@ -137,7 +138,7 @@ describe('the deployed defect: a factor with no stated value said nothing', () =
       displayMetadata: meta({ influence: 0.62, influenceProvenance: 'influence_score' as never }),
       // Locked Canvas design (23 Sep 2026): the rank fact is supplied so the
       // fallback arm WOULD fire if the value did not win first.
-      facts: DRIVER_2_OF_5,
+      facts: DRIVER_2_OF_3,
     })
     expect(line).not.toBeNull()
     expect(line).not.toContain('Influence')
@@ -158,7 +159,8 @@ describe('the other three types, which rendered nothing at any zoom before', () 
       displayMetadata: meta({ isResultsMode: true, winRate: 0.47 }),
       facts: { optionResultCaption: 'Current model' },
     })
-    expect(line).toBe('Current model · 47% of runs')
+    // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance).
+    expect(line).toBe('Current model · best in 47% of runs')
     expect(line).not.toContain(METRIC_NOUN.support)
   })
 
@@ -393,7 +395,7 @@ describe('the pre-analysis arms, and the opposite-direction twin for each', () =
         displayMetadata: meta({ isResultsMode: true, winRate: 0.41 }),
         facts: { optionIsBaseline: false, optionInterventionCount: 2, optionResultCaption: 'Last run' },
       }),
-    ).toBe('Last run · 41% of runs')
+    ).toBe('Last run · best in 41% of runs') // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance).
   })
 
   it('TWIN — with no caption the share is withheld and the change count speaks instead', () => {
@@ -435,17 +437,17 @@ describe('the pre-analysis arms, and the opposite-direction twin for each', () =
   })
 
   it('TWIN — the driver rank still outranks the range, so no post-analysis card changes', () => {
-    // Locked Canvas design (23 Sep 2026): the rank is `Driver N of M analysed`
-    // (ED 02:31Z D1a; ED #63 5806207128), not `Influence N%` (ED 11:52Z).
+    // Locked Canvas design (23 Sep 2026): the rank is `Driver N of M ranked in
+    // this run` (ED 02:31Z D1a; NODE-ANATOMY v3.2), not `Influence N%` (ED 11:52Z).
     expect(
       resolveLodMetricLine({
         nodeType: 'factor',
         data: { label: 'Attrition', category: 'external', prior: { range_min: 0.3, range_max: 0.9 } },
         label: 'Attrition',
         displayMetadata: meta({ influence: 0.67, influenceProvenance: 'influence_score' as never }),
-        facts: { driverRank: { rank: 1, setSize: 4 } },
+        facts: { driverRank: { rank: 1, setSize: 3 } },
       }),
-    ).toBe('Driver 1 of 4 analysed') // ED #63 5806207128
+    ).toBe('Driver 1 of 3 ranked in this run') // NODE-ANATOMY v3.2
   })
 
   it('TWIN — influence with NO current rank falls through to the prior range, never to a bare percentage', () => {

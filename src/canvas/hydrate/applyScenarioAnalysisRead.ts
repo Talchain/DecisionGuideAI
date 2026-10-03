@@ -80,6 +80,8 @@
  * This applier reads only the two analysis keys and never the `graph` member.
  */
 
+import { RunDeltaSchema } from '@talchain/schemas/boundary'
+import type { StoredRunDelta } from '../state/storedRunDelta'
 import type { AnalysisResultBlock, AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 import { mapV5AnalysisToReport } from '../../v5/mapV5AnalysisToReport'
@@ -89,6 +91,9 @@ import {
 } from '../../lib/coherence/crossSurfaceCoherence'
 import { selectAnalysisReadinessAuthority } from '../state/analysisStateSelector'
 import { readinessObjectsToRun } from '../utils/canRunAnalysis'
+import { readLimitVerdicts, type LimitVerdictsWrite } from '../state/storedLimitVerdicts'
+import { readGoalCertainty } from '../state/storedGoalCertainty'
+import { readOptionParticipation } from '../state/storedOptionParticipation'
 
 /**
  * Which producer fact withdrew the leading-option designation.
@@ -269,6 +274,20 @@ export interface ScenarioAnalysisApplyStore {
     v5Enrichment?: unknown
   }) => void
   readonly currentResultsHash?: string | null
+  /** Update only the held report's disclosure when an accepted read dedupes its Run. */
+  readonly setCurrentReadInputBasis?: (basis: unknown, reportHash: string) => void
+  /**
+   * B5 parity with the turn leg (`applyV5State.ts`): the per-limit verdicts CEE serves beside this analysis
+   * (`analysis_limit_verdicts`). Optional so a store that does not render them is unaffected.
+   */
+  readonly setLimitVerdicts?: (stored: LimitVerdictsWrite | null) => void
+  /**
+   * SC-24 — the turn leg's `run_delta` rule on the read leg: the delta CEE serves beside THIS analysis is stored with
+   * the hash just written (`runDeltaDescribesDisplayedAnalysis` then decides), and a new analysis without one evicts.
+   */
+  readonly setRunDelta?: (stored: StoredRunDelta | null) => void
+  /** The scenario the verdicts belong to, as the turn leg stamps it. */
+  readonly currentScenarioId?: string | null
   /**
    * Withdraw the leading-option designation from whatever report the slice
    * currently holds. See `LeaderClaimWithholdingReason`.
@@ -352,6 +371,16 @@ export type ScenarioAnalysisApplyOutcome =
 export interface ApplyScenarioAnalysisReadInput {
   readonly analysisState: AnalysisStateV1 | null
   readonly analysisResult: unknown
+  /** Supplied only under the caller's accepted-current-read proof; null means unavailable. */
+  readonly currentReadInputBasis?: unknown
+  /** The read's `analysis_goal_certainty`, raw (CEE #2280); parsed by the SAME reader the turn leg uses. */
+  readonly goalCertainty?: unknown
+  /** The read's `analysis_option_participation`, raw (Runtime 5888341208); parsed by the SAME reader the turn leg uses. */
+  readonly optionParticipation?: unknown
+  /** The read's `analysis_limit_verdicts`, raw; parsed by the SAME reader the turn leg uses. */
+  readonly limitVerdicts?: unknown
+  /** The read's `run_delta`, raw (SC-24); parsed by the contract, as the turn leg's parser does. */
+  readonly runDelta?: unknown
   readonly store: ScenarioAnalysisApplyStore
 }
 
@@ -473,13 +502,20 @@ export function applyScenarioAnalysisRead(
   let resultsHydrated = false
   const block = input.analysisResult
   if (block !== null && block !== undefined && typeof input.store.resultsComplete === 'function') {
-    const report = mapV5AnalysisToReport(block as AnalysisResultBlock)
+    const report = mapV5AnalysisToReport(block as AnalysisResultBlock, {
+      goalCertainty: readGoalCertainty(input.goalCertainty),
+      optionParticipation: readOptionParticipation(input.optionParticipation),
+    })
+    if (input.currentReadInputBasis !== undefined) report.current_read_input_basis = input.currentReadInputBasis
     const hash = report.model_card.response_hash
     // The SAME hash dedupe the turn applier uses: a re-read of an analysis we
     // already display must not re-write the slice (it would restart animations
     // and re-seed the Compare capture). `alreadyHeld` still SETTLES the caller —
     // the answer arrived, we simply had it.
     if (hash === (input.store.currentResultsHash ?? null)) {
+      if (input.currentReadInputBasis !== undefined) {
+        input.store.setCurrentReadInputBasis?.(input.currentReadInputBasis, hash)
+      }
       // ⚠ THE DEDUPE MUST NOT SWALLOW THE REFUSAL. The report is the same one;
       // the PERMISSION over it is what has changed. Returning here without
       // applying the withholding would let a second poll silently re-permit a
@@ -487,6 +523,14 @@ export function applyScenarioAnalysisRead(
       // to stop the producer changing its mind about what may be said.
       if (withholdingReason !== null) {
         input.store.resultsWithholdLeaderClaim?.(withholdingReason, producerLeaderClaimCause(verdict))
+      }
+      // SC-24: NOR THE PAIR. A same-browser reload restores this analysis from the autosave BEFORE the read lands, so
+      // the read dedupes here; the delta is never autosaved, so skipping it lost the comparison on every reload (served
+      // 30 Sep, #75 5920973524). A delta the read carries for the held analysis is stored under the held hash. A read
+      // without one, or with a malformed one, writes nothing: a turn's delta for this same analysis stays.
+      const heldRunDelta = input.runDelta == null ? null : RunDeltaSchema.safeParse(input.runDelta)
+      if (heldRunDelta?.success) {
+        input.store.setRunDelta?.({ delta: heldRunDelta.data, analysisHash: hash, scenarioId: input.store.currentScenarioId ?? null })
       }
       return { outcome: 'alreadyHeld', kind }
     }
@@ -522,6 +566,24 @@ export function applyScenarioAnalysisRead(
       v5Enrichment: (block as { enrichment?: unknown }).enrichment ?? null,
     })
     resultsHydrated = true
+    // B5, THE TURN LEG'S RULE ON THE READ LEG (Canonical, 28 Sep 2026): the verdicts CEE served beside THIS analysis
+    // are stored with the hash just written, and a new analysis that arrives without any evicts the held ones. Only
+    // here, inside the new-analysis branch: the `alreadyHeld` dedupe above returns first, and a verdict-only read
+    // (no block) never reaches this line.
+    const readLimitVerdictsBlock = readLimitVerdicts(input.limitVerdicts)
+    input.store.setLimitVerdicts?.(
+      readLimitVerdictsBlock
+        ? { verdicts: readLimitVerdictsBlock, analysisHash: hash, scenarioId: input.store.currentScenarioId ?? null }
+        : null,
+    )
+    // SC-24: the same rule for the pair's comparison. A malformed block is refused WHOLE by the contract (as the turn
+    // parser quarantines it) and reads as absent, never as a partial delta.
+    const readRunDelta = input.runDelta == null ? null : RunDeltaSchema.safeParse(input.runDelta)
+    input.store.setRunDelta?.(
+      readRunDelta?.success
+        ? { delta: readRunDelta.data, analysisHash: hash, scenarioId: input.store.currentScenarioId ?? null }
+        : null,
+    )
   }
 
   // ⚠ AFTER the results write, and the ORDER IS THE CORRECTNESS. The

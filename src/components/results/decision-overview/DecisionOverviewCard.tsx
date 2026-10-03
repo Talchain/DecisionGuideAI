@@ -31,6 +31,7 @@ import { typography } from '../../../styles/typography'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { computeSuccessState } from '../../../canvas/components/pre-analysis-v3/selectors/computeSuccessState'
 import { computeGraphFacts } from '../../../canvas/components/pre-analysis-v3/selectors/graphFacts'
+import { goalTargetChangeFrameOf } from '../../../canvas/domain/goalTarget'
 import { ActionsMenu } from './ActionsMenu'
 import { REVIEW_BRIEF_ASK } from './actionsCatalogue'
 import { formatStatedLimitsNote, parseStatedLimitsKey, selectStatedLimitsKey } from './statedLimits'
@@ -247,6 +248,15 @@ export function selectSuccessMeasureDisplayText(
   ).displayText
 }
 
+/**
+ * ⭐ R1 S4-core (MG 5879952291): is the goal's target stated as a CHANGE from today? Then the success line says the
+ * change ("Success target: down 15% from today"), never "≥" a level. A primitive, like the selector above.
+ */
+export function selectSuccessMeasureIsChange(s: Pick<CanvasStoreState, 'nodes'>): boolean {
+  const goal = computeGraphFacts(s.nodes as never).goalNode
+  return goalTargetChangeFrameOf((goal?.data as { goal_threshold_frame?: unknown } | undefined)?.goal_threshold_frame) !== null
+}
+
 export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewCardProps) {
   const analysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
   // All selectors below return primitives (Zustand inline-selector rule).
@@ -294,6 +304,7 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
    */
   const successDisplayText = useCanvasStore(selectSuccessMeasureDisplayText)
   const successIsSet = successDisplayText !== null
+  const successIsChange = useCanvasStore(selectSuccessMeasureIsChange)
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
   const optionCount = useCanvasStore((s) => s.nodes.filter((n) => n.type === 'option').length)
   const constraintCount = useCanvasStore((s) => s.goalConstraints?.length ?? 0)
@@ -567,7 +578,7 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
       ? `${savedMeasure.metric}: ${savedMeasure.direction === 'decrease_below' ? '≤' : '≥'} ${savedMeasure.threshold}${savedMeasure.unit === 'none' ? '' : savedMeasure.unit}, ${savedMeasure.timeframe}`
       : !successIsSet
         ? OVERVIEW_COPY.goalNoteMissing
-        : `Success target ≥ ${successDisplayText}`
+        : successIsChange ? `Success target: ${successDisplayText}` : `Success target ≥ ${successDisplayText}`
   // CONTEXT — no claim, rather than a false denial.
   //
   // `currentBriefText` has exactly ONE non-null writer in the whole of src/:

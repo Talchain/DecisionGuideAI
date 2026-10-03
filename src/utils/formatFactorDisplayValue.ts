@@ -17,12 +17,39 @@
  */
 
 import { classifyUnit, unwrapInterventionValue } from '../canvas/utils/labelUtils'
-import { compactUnitParts } from './unitClassifier'
+import { compactUnitParts, formatMoneyFigure, joinCompactUnitParts, moneyFigureParts } from './unitClassifier'
+
+/**
+ * ⛔ A FACTOR'S PERCENT KEEPS ITS DECIMAL (WebMCP finding #75 5907516955, scenario `815ae68b`): the user's "3.7%" monthly
+ * churn (`raw_value 3.7`, `brief_extraction`) printed "4%" on the card — the MRR brief's churn LIMIT — so the card read
+ * as if churn were already at the limit. One decimal when the value has one, none when it is whole; the ONE rule for
+ * every percent arm below so the text and its split parts cannot disagree.
+ */
+export function percentFigure(scaled: number): string {
+  const r = Math.round(scaled * 10) / 10
+  return `${Number.isInteger(r) ? r.toFixed(0) : r.toFixed(1)}%`
+}
 
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
 
 function stripSuffixes(label: string): string {
   return label.replace(KNOWN_SUFFIXES, '').trim()
+}
+
+/**
+ * A label set mid-sentence ("No <label> in place"): each word lower-cased
+ * UNLESS it carries a capital after its first letter — an acronym or a
+ * spelling ("AI", "NPS", "SaaS", "iPhone") keeps its letters exactly.
+ *
+ * Paul's staging test, 28 Sep 2026 (export 64c5eccc): `.toLowerCase()` on the
+ * whole label made factor "AI assistant use" read "No ai assistant use in
+ * place". The sentence is this formatter's own; the label's words are not.
+ */
+function labelMidSentence(label: string): string {
+  return label
+    .split(/(\s+)/)
+    .map(word => (/\p{Lu}/u.test(word.slice(1)) ? word : word.toLowerCase()))
+    .join('')
 }
 
 function formatNumber(value: number): string {
@@ -404,6 +431,9 @@ export function formatFactorDisplayParts(input: FactorDisplayInput): FactorDispl
   // Built from a raw NUMBER. A string `raw_value` is the producer's text.
   if (typeof raw_value !== 'number' || !Number.isFinite(raw_value)) return null
   if (!unit) return null
+  // Money: the rule's own parts, which ARE the formatter's string (see Pattern 1).
+  const money = moneyFigureParts(raw_value, unit)
+  if (money !== null && joinCompactUnitParts(money) === text) return { figure: money.figure, unit: money.unit }
   const { kind, canonical } = classifyUnit(unit)
   const amount = formatNumber(raw_value)
   let parts: FactorDisplayParts
@@ -412,13 +442,11 @@ export function formatFactorDisplayParts(input: FactorDisplayInput): FactorDispl
   else if (kind === 'percent') {
     // Pattern 1's own 0–1 rule; the byte check below binds it to the original.
     const scaled = raw_value > 0 && raw_value < 1 ? raw_value * 100 : raw_value
-    parts = { figure: `${Math.round(scaled)}%`, unit: null }
+    parts = { figure: percentFigure(scaled), unit: null }
   } else if (kind === 'other') {
-    const compound = compoundUnitParts(amount, canonical || unit, text)
-    if (compound !== null) return compound
-    parts = { figure: amount, unit: canonical || unit }
+    parts = compoundUnitParts(amount, canonical || unit, text) ?? { figure: amount, unit: canonical || unit }
   } else return null
-  return joinFactorDisplayParts(parts) === text ? parts : null
+  return (parts.restates ?? joinFactorDisplayParts(parts)) === text ? parts : null
 }
 
 /**
@@ -520,6 +548,15 @@ function displayValueRestatesValue(displayValue: string | null | undefined, valu
   if (typeof displayValue !== 'string' || typeof value !== 'number' || !Number.isFinite(value)) return false
   const parenthesised = /\(\s*(-?\d+(?:\.\d+)?)\s*\)/.exec(displayValue)
   if (parenthesised !== null) return Number(parenthesised[1]) === value
+  // ⭐ THE BARE FORM — `"1"` beside `value: 1` (canvas audit edit-values F6).
+  // CEE writes it after a user edit on a unitless factor (the readback carries
+  // `display_value: "1"`, `raw_value: 1`, no unit), and it restates the node's
+  // own number with nothing else at all. Unrecognised, it outranked the
+  // encoding map: the card read "1 Set by you" while the option rows on the
+  // same board read "No usage pricing → Full usage pricing". Still structural —
+  // the figure must EQUAL `value`, and the map must already have matched.
+  const bareFigure = /^\s*([-+]?\d[\d,]*(?:\.\d+)?)\s*$/.exec(displayValue)
+  if (bareFigure !== null) return Number(bareFigure[1].replace(/,/g, '')) === value
   // ⭐ SECOND SURFACE FORM OF THE SAME SUMMARY, and it must be recognised here
   // or the encoding map silently loses to it. `"0 scale"` restates the node's
   // own number just as `"Low (0)"` does — it simply spells the scale instead of
@@ -807,6 +844,12 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
       if (unitKind === 'placeholder') {
         return formatNumber(numericRaw)
       }
+      // ⭐⭐ MONEY THROUGH THE ONE RULE (`formatMoneyFigure`, DL #72 5870353946). This string
+      // feeds the card, the Reasoning strip, the inspector, the Model tab, option rows and the
+      // export: fixing it here is fixing it for every consumer at once. Served b8906035 read
+      // "58.8 GBP per month" where the card read "£58.80 / month". Non-money falls through.
+      const money = formatMoneyFigure(numericRaw, unit)
+      if (money !== null) return money
       if (unitKind === 'symbol') {
         return `${unitCanonical}${formatNumber(numericRaw)}`
       }
@@ -821,7 +864,7 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
         // revert to a bare Math.round, which produces "0%" for 0.25 and was
         // the source of the V5 value-display bug.
         const scaled = numericRaw > 0 && numericRaw < 1 ? numericRaw * 100 : numericRaw
-        return `${Math.round(scaled)}%`
+        return percentFigure(scaled)
       }
       // 'other' | 'none' (unreachable here — unit is truthy)
       return `${formatNumber(numericRaw)} ${unitCanonical || unit}`
@@ -921,7 +964,7 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
   if (displayValueContradicted && raw_value == null && value != null) {
     if (unitKind === 'percent') {
       const scaled = value > 0 && value < 1 ? value * 100 : value
-      return `${Math.round(scaled)}%`
+      return percentFigure(scaled)
     }
     if (!unit) {
       return formatNumber(value)
@@ -972,7 +1015,7 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
     }
     if (isMeaningless && !isExplicitlyBinary) {
       if (value === 0 && factorTypeUnset) {
-        const stripped = stripSuffixes(label).toLowerCase()
+        const stripped = labelMidSentence(stripSuffixes(label))
         return `No ${stripped} in place`
       }
       // NOTE: the value === 1 mirror case is deliberately NOT implemented yet.
@@ -982,7 +1025,7 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
       // considering both branches together.
       return null
     }
-    const stripped = stripSuffixes(label).toLowerCase()
+    const stripped = labelMidSentence(stripSuffixes(label))
     if (value === 0) {
       return `No ${stripped} in place`
     }

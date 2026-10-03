@@ -528,7 +528,7 @@ export const RiskNode = memo((props: NodeProps) => {
    */
   const riskExposureLine = !isDetailed && !recordedValue ? (
     <div
-      className={`${typography.edgeLabel} text-text-light break-words`}
+      className={`${typography.edgeLabel} !leading-[1.4] text-text-light break-words`}
       data-testid={exposureReadout ? 'risk-exposure-line' : 'risk-exposure-unset'}
       data-card-primary-line="risk"
     >

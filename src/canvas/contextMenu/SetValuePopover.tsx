@@ -114,7 +114,7 @@ export function SetValuePopover({ nodeId, anchorPos, onConfirm, onClose }: SetVa
           onChange={(e) => { setValue(e.target.value); if (refusal) setRefusal(null) }}
           onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm() }}
           placeholder="Enter value"
-          className="h-8 flex-1 rounded-lg border border-panel-border bg-surface px-2 text-text-body outline-none focus:border-primary"
+          className="h-8 flex-1 rounded-lg border border-panel-border bg-surface px-2 text-text-body outline-none"
           aria-label="Custom value"
         />
         {unit && <span className={`${typography.panelMeta} text-text-light`}>{unit}</span>}

@@ -36,7 +36,8 @@ import { registerCanonicalRunner, RUN_DISPATCHER_UNAVAILABLE_REASON, type Canoni
 import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt, selectReportIsFromEarlierRun } from '../store'
-import { useAnalysisState } from '../state/analysisStateSelector'
+import { selectRunOnRecord, useAnalysisState } from '../state/analysisStateSelector'
+import { selectRunOnRecordWithoutResult, selectSavedRunUnconfirmed, useDeclinedSavedRunStore } from '../stores/declinedSavedRunStore'
 import { useAnalysisWaitExhausted } from '../../components/results/analysisNew/useAnalysisWaitExhausted'
 import { getScenario } from '../store/scenarios'
 // ── The workspace-shell contract ────────────────────────────────────────────
@@ -133,6 +134,7 @@ import { useAnalysisHoldReason } from '../hooks/useAnalysisHold'
 import { selectOptionsNeedingValues } from '../utils/composeBlockedReason'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
+import { degradedAnalysisTypes } from './degradedAnalysisTypes'
 // ROADMAP 2.109: the goal-threshold normalisation helpers and the
 // success-measure/scenario-key lookups left with the retired chip parameter —
 // only the goal-node resolver is still used (the atomic target commit).
@@ -147,7 +149,7 @@ import {
   readinessNothingHasAnswered,
 } from './pre-analysis-v3/footer/readinessDisplay'
 import { JourneyTabBody } from '../journey/JourneyTabBody'
-import { CompareTabBody as CompareTabBodyV2 } from '../compare-tab/CompareTabBody'
+import { CompareRunPairBody } from '../compare-tab/CompareRunPairBody'
 // Results Panel Redesign: v7 four-section layout components
 import { useResultsSectionData } from '../../components/results/useResultsSectionData'
 import type { TornadoRow } from '../../components/results/TornadoChart'
@@ -197,6 +199,7 @@ import { useReadinessStore } from '../stores/readinessStore'
 import { AskOlumiDrawer } from '../../components/results/coaching/AskOlumiDrawer'
 import { AssistantOpenedNotice } from './AssistantOpenedNotice'
 import { DefineSuccessModal, DecisionRecordModal, HowComputedModal } from '../../components/results/modals'
+import { useIsViewer } from '../../lib/viewerMode'
 
 /**
  * Map API critique format (CritiqueItemV1) to ValidationPanel format
@@ -771,6 +774,17 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     }))
   )
 
+  // The server's run state says whether this scenario has been Run — the run control then offers to run AGAIN
+  // (`selectRunOnRecord`; a stale cold reload restores that verdict without the result block).
+  const runOnRecordLocally = useCanvasStore(s => selectRunOnRecord(s.analysisStateV1))
+  // A saved Run the boot could not confirm still EXISTS: the control offers to run again and one sentence says why the
+  // Run is not shown, never "first pass" (`declinedSavedRunStore.ts`; P0 #72 5893379882).
+  const declinedSavedRun = useDeclinedSavedRunStore(s => s.declined)
+  const currentScenarioIdForRun = useCanvasStore(s => s.currentScenarioId)
+  const savedRunUnconfirmed = selectSavedRunUnconfirmed(declinedSavedRun, currentScenarioIdForRun, runOnRecordLocally)
+  const runOnRecord = runOnRecordLocally || savedRunUnconfirmed
+  const runStateKindForStatus = useCanvasStore(s => s.analysisStateV1?.run_state.kind ?? null)
+
   // Actions don't need shallow - they're stable references
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
   const setShowComparePanel = useCanvasStore(s => s.setShowComparePanel)
@@ -793,6 +807,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   )
 
   const isPreRun = !hasCompletedFirstRun
+  // Reasoning's pre-run status names a Run on record instead of "No analysis has run yet" (DL #75 5922639119).
+  const runOnRecordWithoutResult = selectRunOnRecordWithoutResult({ isPreRun, savedRunUnconfirmed, runStateKind: runStateKindForStatus })
   // Empty state: hide panel when canvas has no nodes (FF off).
   const hasGraphContent = nodes.length > 0
 
@@ -843,6 +859,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // the rail). Defined once here and reused by the docked-Olumi close-effect
   // below, the --dock-right-offset effect, and render.
   const effectiveIsOpen = isFirstUse ? false : state.isOpen
+  // ACCOUNTS viewer mode (PANEL 5947736451): a viewer keeps the results and loses the
+  // readiness / re-analyse bars and the Run action. Only the owner can run.
+  const isViewer = useIsViewer()
 
   // Round 3 UX correction: clicking the Olumi tab CLOSES the floating panel
   // and shows the docked Olumi conversation (see handleTabClick). For the
@@ -2992,7 +3011,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     right: 0,
     top: 'var(--topbar-h, 0px)',
     bottom: 'var(--bottombar-h)',
-    background: 'rgba(255, 255, 255, 0.95)',
+    background: 'rgb(var(--bg-panel-rgb) / 0.95)',
     backdropFilter: 'blur(8px)',
     borderLeft: '1px solid var(--panel-edge-rule)',
     borderRadius: 0,
@@ -3136,7 +3155,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
       <div
         className="sticky top-0 z-10 border-b"
         // Contract `.panel-tabs{border-bottom:1px solid #E6E1D8}`.
-        style={{ background: 'rgba(255, 255, 255, 0.95)', borderBottomColor: 'var(--panel-tab-rule)' }}
+        style={{ background: 'rgb(var(--bg-panel-rgb) / 0.95)', borderBottomColor: 'var(--panel-tab-rule)' }}
       >
         {!effectiveIsOpen && <WorkspaceShellCollapsedStrip onToggleOpen={toggleOpen} />}
 
@@ -3162,6 +3181,12 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             // omitting it here left a never-run model showing a freshness glyph
             // (`OutputsDock.neverRunTabGlyph.spec.tsx`).
             hasCompletedFirstRun={hasCompletedFirstRun}
+            // The ⓘ "Inspect this analysis": front Reasoning like a tab click,
+            // then ask its About section to open (the consumer clears it).
+            onInspectAnalysis={() => {
+              handleTabClick('analysisNew')
+              useUIStore.getState().requestReasoningAbout(true)
+            }}
           />
         )}
         {/* ROADMAP 2.1132 — when the ASSISTANT fronted this dock via an
@@ -3646,6 +3671,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                           canRun={canRunAnalysis}
                           blockedReason={runBlockedTooltip}
                           blockedListing={runBlockedListing}
+                          runOnRecord={runOnRecord}
+                          savedRunUnconfirmed={savedRunUnconfirmed}
                         />
                       </Suspense>
                     </div>
@@ -3756,20 +3783,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                       (resultsSectionData?.confidence?.robustnessStatus !== 'computed' &&
                        resultsSectionData?.confidence?.robustnessStatus !== undefined)
                     }
-                    analysisTypes={[
-                      {
-                        name: 'Comparison',
-                        available: resultsSectionData?.recommendation?.analysisStatus === 'computed',
-                      },
-                      {
-                        name: 'Drivers',
-                        available: resultsSectionData?.drivers?.driversStatus === 'computed',
-                      },
-                      {
-                        name: 'Robustness',
-                        available: resultsSectionData?.confidence?.robustnessStatus === 'computed',
-                      },
-                    ].filter(() => resultsSectionData != null)}
+                    analysisTypes={degradedAnalysisTypes(resultsSectionData)}
                     onDismiss={() => setDegradedBannerDismissed(true)}
                   />
                 )}
@@ -4016,7 +4030,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                       semantic: composedAnalysisState.semantic,
                     })}
                     actionVariant="secondary"
-                    onAction={handleRunAnalysis}
+                    onAction={isViewer ? undefined : handleRunAnalysis}
                     actionDisabled={isRunning || !canRunAnalysis}
                     actionLoading={isRunning}
                     actionTitle={!canRunAnalysis && !isRunning ? runBlockedTooltip : undefined}
@@ -4101,6 +4115,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 <AnalysisNewTabBody
                   resultsSectionData={resultsSectionData}
                   isPreRun={isPreRun}
+                  runOnRecordWithoutResult={runOnRecordWithoutResult}
                   isRunning={isRunning}
                   /* ⭐ THE SAME AUTHORITY THE COVER ABOVE READS. `isRunning` is
                      the dock's LOCAL flag and stays where it is because it
@@ -4187,16 +4202,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
               </>
             )}
             {effectiveActiveTab === 'compare' && (
-              // 2.581 — ONE expert mode for the product. The Compare pill used
-              // to own a separate `feature.compareExpert` state, so the only
-              // control in the UI whose visible text says "Expert" turned on a
-              // different thing from the `</>` toggle beside it — the measured
-              // cause of the "downside tail is scenario-dependent" report.
-              <CompareTabBodyV2
-                onRunAnalysis={handleRunAnalysis}
-                expertMode={expertMode}
-                onToggleExpert={setExpertMode}
-              />
+              // SC-24 v3 (ChatGPT #75 5917800777; lease DL #75 5917856638): previous Run vs this Run, rendered from
+              // the comparison CEE produced for the analysis on screen — the SAME reader and section the Reasoning
+              // receipt uses. The old browser-derived body (`CompareTabBody`) is no longer on this path.
+              <CompareRunPairBody responseHash={results?.hash} runOnRecordWithoutResult={runOnRecordWithoutResult} />
             )}
             {effectiveActiveTab === 'diagnostics' && (
               <ModelTabBody
@@ -4278,7 +4287,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             the footer stack below is flag-gated, and hosting the control there
             would make it vanish entirely on rollback. The bar renders its own
             null when the analysis is not stale. */}
-        {effectiveIsOpen && surfaceFor(effectiveActiveTab).footerBar !== 'none' ? (
+        {effectiveIsOpen && surfaceFor(effectiveActiveTab).footerBar !== 'none' && !isViewer ? (
           <div className="flex-shrink-0" data-testid="shell-surface-footer-bar">
             {/* ⭐ ONE OWNER, TWO BARS. The gate reads the SURFACE DESCRIPTOR's
                 `footerBar` and switches on its value; it does not test a tab id
@@ -4324,6 +4333,26 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                     />
                   )
                 case 'readiness':
+                  // ⭐ AFTER THE FIRST RUN THE READINESS ARM IS THE REANALYSE ARM
+                  // (R3 journey witness 1, 5938917543 step 5: "after Accept #2 the
+                  // UI showed no Re-run control" while CEE said `complete_stale`).
+                  // `AnalysisReadinessBar` is pre-run only (its own null at :140),
+                  // so once a Run existed the Olumi tab, where an Accept happens,
+                  // had no surface saying the model changed and no control to
+                  // rerun; only the Analysis footer and the Model tab did. The
+                  // SAME bar and gate trio as the 'reanalyse' arm above: it renders
+                  // its own null unless the model changed (or a held import cannot
+                  // confirm), so a fresh Run shows nothing here.
+                  if (!isPreRun) {
+                    return (
+                      <ReanalyseBar
+                        onReanalyse={handleRunAnalysis}
+                        canRun={canRunAnalysis}
+                        blockedReason={runBlockedTooltip}
+                        isAnalysing={isRunning}
+                      />
+                    )
+                  }
                   return (
                     <AnalysisReadinessBar
                       preRunWithModel={isPreRun && nodes.length > 0}
@@ -4339,6 +4368,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                       readinessCheck={readinessCheckForBar}
                       nothingHasAnswered={readinessUnanswered}
                       onAnalyse={handleRunAnalysis}
+                      runOnRecord={runOnRecord}
                     />
                   )
                 // Unreachable through the guard above, and handled anyway so
@@ -4417,7 +4447,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             aria-label="Generating scenario comparison"
             data-testid="scenario-comparison-loading"
           >
-            <div className="bg-white px-6 py-4 rounded-lg shadow-3 flex items-center gap-3">
+            <div className="bg-panel px-6 py-4 rounded-lg shadow-3 flex items-center gap-3">
               <div className="w-5 h-5 border-2 border-info border-t-transparent rounded-full animate-spin" />
               <span className={`${typography.panelBody} text-text-header`}>Generating comparison...</span>
             </div>

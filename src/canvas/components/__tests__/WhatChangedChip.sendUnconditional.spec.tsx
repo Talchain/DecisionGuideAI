@@ -137,7 +137,7 @@ describe('WhatChangedChip — the CEE send fires on every click, unconditionally
     expect(pulseMock).not.toHaveBeenCalled()
   })
 
-  it('LOCAL DIFF AVAILABLE (real delta): BOTH the send AND the pulse fire', () => {
+  it('Compare audit (d): stored runs that WOULD differ → the send fires, and no browser-derived pulse', () => {
     const dispatchMock = vi.fn().mockResolvedValue(undefined)
     ctxMock.mockReturnValue({ dispatchAction: dispatchMock })
     seedRunsWithDelta()
@@ -147,7 +147,7 @@ describe('WhatChangedChip — the CEE send fires on every click, unconditionally
 
     expect(dispatchMock).toHaveBeenCalledTimes(1)
     expect(dispatchMock).toHaveBeenCalledWith(EXPECTED_DISPATCH)
-    expect(pulseMock).toHaveBeenCalledTimes(1)
+    expect(pulseMock).not.toHaveBeenCalled()
   })
 
   it('does NOT hand-build a chip_click source in the unavailable state — it passes chip and lets the gate promote', () => {

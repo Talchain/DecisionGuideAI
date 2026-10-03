@@ -9,6 +9,8 @@
 import { useCanvasStore } from '../../store'
 import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../../domain/edges'
 import { readWireNaturalEffect } from '../../domain/naturalEffect'
+import { strengthPlaceholderPatch } from '../../domain/strengthPlaceholder'
+import { strengthDefinitionalPatch } from '../../domain/strengthDefinitional'
 import { edgeValueSourcePatch } from '../../domain/edgeValueProvenance'
 import { edgeProvenanceDisplayPatch } from '../../utils/draftIngestion'
 import { saveAutosave } from '../../store/scenarios'
@@ -192,6 +194,10 @@ function buildEdge(op: PatchOperation) {
       ...(serverStrength !== undefined ? { serverStrength } : {}),
       // The edge's size in the target's units — the ONE reader, every hop (domain/naturalEffect).
       ...(naturalEffect !== undefined ? { naturalEffect } : {}),
+      // POM-8: a placeholder strength — HOP 2 OF 3, the same one reader (domain/strengthPlaceholder).
+      ...strengthPlaceholderPatch(d as Record<string, unknown>, weight, wireSuppliedStrength),
+      // A definitional link — HOP 2 OF 3, the same one reader (domain/strengthDefinitional).
+      ...strengthDefinitionalPatch(d as Record<string, unknown>, wireSuppliedStrength),
       // Set-vs-defaulted markers — see domain/edgeValueProvenance.ts. Omitted
       // when the patch carried no value, so an operation that supplies neither
       // leaves the edge honestly marked as unset rather than claiming a

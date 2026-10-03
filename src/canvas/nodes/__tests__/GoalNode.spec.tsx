@@ -79,7 +79,7 @@ const renderGoal = (data: Record<string, unknown> = {}) =>
 
 /**
  * ⭐ LOCKED CANVAS DESIGN (23 Sep 2026; ED 11:52Z point 2) — the prose readout
- * "X chance of reaching target" is OFF the face. ONE NodeMetricRow carries the
+ * "Reaches the target in X of model runs." is OFF the face. ONE NodeMetricRow carries the
  * figure (`goal-achievement-metric-row`, visible "Chance" + "N%"), and the
  * sentence rides its accessible name and tooltip. These read those accessible
  * names BY TESTID, so a sentence can only satisfy an assertion from the row it
@@ -160,8 +160,8 @@ describe('GoalNode', () => {
     const row = screen.getByTestId(ACHIEVEMENT_ROW)
     expect(row.textContent).toContain('Chance')
     expect(row.textContent).toContain('73%')
-    expect(rowName(ACHIEVEMENT_ROW)).toMatch(/73.*% chance of reaching target/)
-    expect(screen.queryByText(/chance of reaching target/)).toBeNull()
+    expect(rowName(ACHIEVEMENT_ROW)).toMatch(/Reaches the target in 73.*% of model runs/)
+    expect(screen.queryByText(/of model runs/)).toBeNull()
   })
 
   // Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): modelled-basis
@@ -209,7 +209,7 @@ describe('GoalNode', () => {
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
     // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the figure's
     // presence is read off the Chance row's accessible name.
-    expect(rowName(ACHIEVEMENT_ROW)).toMatch(/73.*% chance of reaching target/)
+    expect(rowName(ACHIEVEMENT_ROW)).toMatch(/Reaches the target in 73.*% of model runs/)
     expect(screen.queryByTestId('goal-fit-basis-caveat-node')).toBeNull()
     // …and the row does not carry the caveat either (it rides the row's name
     // only when flagged).
@@ -379,12 +379,21 @@ describe('GoalNode', () => {
     expect(screen.getByText(/Target:/)).toBeDefined()
   })
 
-  // Assessment fix: float percent thresholds must be rounded to integer
-  it('rounds float percent threshold to integer: 85.5% → 86%', () => {
+  /**
+   * ⛔ RE-PINNED 27 Sep 2026 (canvas audit edit-values F4). This row was
+   * "Assessment fix: float percent thresholds must be rounded to integer" and
+   * pinned `85.5% → 86%`. The rounding (2f3b7420a, "consistent with all other
+   * percentage displays") was a display convention, not a truth rule — and it
+   * made the card state a STRICTER target than the user set: "at least 99.5%"
+   * read `Target: 100%` beside a limit pill, Chat and the persisted
+   * `goal_threshold_raw` all saying 99.5%. The card now prints the user's own
+   * figure (`formatGoalTarget`, the same re-pin as `formatGoalTarget.spec.ts`).
+   */
+  it("prints a float percent threshold at the user's own precision: 85.5% stays 85.5%", () => {
     renderGoal({ goal_threshold_raw: 85.5, goal_threshold_unit: '%' })
     const el = screen.getByText(/Target:/)
-    expect(el.textContent).toContain('86%')
-    expect(el.textContent).not.toContain('85.5%')
+    expect(el.textContent).toContain('Target: 85.5%')
+    expect(el.textContent).not.toContain('86%')
   })
 
   // P1.4: null and empty string must NOT display threshold — show coaching prompt instead
@@ -838,7 +847,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     expect(screen.queryByText(/See each option/)).toBeNull()
     // No fabricated number, no designated option.
     expect(screen.queryByTestId(ACHIEVEMENT_ROW)).toBeNull()
-    expect(allAccessibleNames()).not.toMatch(/% chance of reaching target/)
+    expect(allAccessibleNames()).not.toMatch(/% of model runs/)
     expect(allAccessibleNames()).not.toMatch(/Rerun the analysis/)
   })
 
@@ -903,7 +912,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
     // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the Chance row wins
     // and the unset row (which would carry any rerun line) is absent.
-    expect(rowName(ACHIEVEMENT_ROW)).toMatch(/73.*% chance of reaching target/)
+    expect(rowName(ACHIEVEMENT_ROW)).toMatch(/Reaches the target in 73.*% of model runs/)
     expect(screen.queryByTestId(ACHIEVEMENT_UNSET)).toBeNull()
     expect(allAccessibleNames()).not.toMatch(/Rerun the analysis/)
     expect(screen.queryByText(/Set a target to see how likely you are to reach it/)).toBeNull()
@@ -913,7 +922,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
   // The producer can synthesise an auto_goal_threshold and return a
   // goal_probability even when the USER set no target (the selector adopts
   // probability_of_joint_goal — UI-SEM-071 class). The card must NOT crown a
-  // "chance of reaching target" against a target the user never set, and the
+  // "of model runs" against a target the user never set, and the
   // "Set a target" invitation and the probability line must NEVER co-render.
   it('target unset + probability available (auto-threshold): probability SUPPRESSED, invitation shown (mutual exclusivity)', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
@@ -942,13 +951,13 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     // Invitation shown…
     expect(screen.getByTestId('goal-node-no-target-chip')).toBeDefined()
     // …and the goal-fit claim SUPPRESSED — the two strings never co-render.
-    expect(screen.queryByText(/chance of reaching target/)).toBeNull()
+    expect(screen.queryByText(/of model runs/)).toBeNull()
     expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
     // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the claim now
     // lives on the Chance row, so its absence is asserted there too; a text
     // scan alone can no longer see the sentence.
     expect(screen.queryByTestId(ACHIEVEMENT_ROW)).toBeNull()
-    expect(allAccessibleNames()).not.toMatch(/chance of reaching target/)
+    expect(allAccessibleNames()).not.toMatch(/of model runs/)
   })
 
   it('target unset + low auto-probability: the "Target may be ambitious" guidance is also suppressed', () => {
@@ -978,7 +987,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     )
     renderGoal() // hasThreshold === false
     expect(screen.getByTestId('goal-node-no-target-chip')).toBeDefined()
-    expect(screen.queryByText(/chance of reaching target/)).toBeNull()
+    expect(screen.queryByText(/of model runs/)).toBeNull()
     expect(screen.queryByText(/Target may be ambitious/)).toBeNull()
     // Locked Canvas design (23 Sep 2026): the claim's new home is the Chance
     // row — asserted absent there as well (this spec renders Detailed, where
@@ -1009,7 +1018,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     renderGoal({ goal_threshold_raw: '60', goal_threshold_unit: '%' }) // hasThreshold === true
     // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the probability is
     // the Chance row; the invitation is the no-target chip.
-    expect(rowName(ACHIEVEMENT_ROW)).toMatch(/40.*% chance of reaching target/)
+    expect(rowName(ACHIEVEMENT_ROW)).toMatch(/Reaches the target in 40.*% of model runs/)
     expect(screen.queryByTestId('goal-node-no-target-chip')).toBeNull()
     expect(screen.queryByText(/Set a target to see how likely you are to reach it/)).toBeNull()
   })

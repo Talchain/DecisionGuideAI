@@ -1264,7 +1264,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock }: F
         title="Restore Olumi"
       >
         <MessageSquare className="w-3.5 h-3.5 text-text-light" aria-hidden="true" />
-        <span className={typo('panelMeta', 'text-text-body')}>Olumi</span>
+        <span className={typo('chatMeta', 'text-text-body')}>Olumi</span>
       </button>
     )
   }
@@ -1392,8 +1392,8 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock }: F
          the thin drag handle. `floating-density` activates the scoped
          compact CSS overrides defined in Conversation.module.css (tighter
          message gap, bubble padding, chip sizing). `compact={true}` makes
-         MessageBubble swap from typography.body (16px) to typography.panelBody
-         (12px) and apply markdownContentCompact line-height — keeping the
+         MessageBubble swap from typography.chatProse (14px) to typography.chatBody
+         (13px, the chat's reading size) and apply markdownContentCompact line-height — keeping the
          floating surface a compact assistant, not a second full dashboard. */}
       <div
         className="floating-density flex flex-1 min-h-0 flex-col"

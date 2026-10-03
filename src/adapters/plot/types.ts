@@ -234,6 +234,8 @@ export interface ReportV1 {
    * effective admission (`recommendation.analysisAdmission`).
    */
   run_analysis_admission?: AnalysisAdmissionV1 | null
+  /** Accepted-current-read census, disclosure only. Null means unavailable; undefined means no read carrier. */
+  current_read_input_basis?: unknown
   // Goal node info for display
   goal_node?: {
     id: string

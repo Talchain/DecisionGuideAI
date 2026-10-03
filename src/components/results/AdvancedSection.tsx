@@ -608,7 +608,9 @@ export function RiskAppetiteFilter({
 }: RiskAppetiteFilterProps) {
   return (
     <div data-testid="winner-by-control">
-      <div className="flex items-center gap-1.5">
+      {/* flex-wrap: at the dock's 280-287px floor the three arms overflowed the dock by ~35px ("Optimistic" past
+          the edge, served D1, deploy 6abeee47, 1 Oct 23:5xZ). They wrap to a second line instead. */}
+      <div className="flex flex-wrap items-center gap-1.5">
         {/* Eye icon signals "view filter" (what you see right now), distinguishing
             this display-only control from the persistent "Risk profile" above. */}
         <Eye size={12} className="text-text-light flex-shrink-0" aria-hidden="true" />

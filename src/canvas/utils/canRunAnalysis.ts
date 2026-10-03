@@ -567,7 +567,10 @@ export function admissionRefusalItems(
   sideCarItems: readonly GateBlockedItem[] = [],
 ): readonly GateBlockedItem[] {
   if (wording !== undefined && wording.requiredInputs.length > 0) {
-    return wording.requiredInputs.map((text) => ({ text }))
+    // Each row keeps the producer's own scope, so it routes to the node it asks about.
+    return wording.requiredInputItems !== undefined && wording.requiredInputItems.length === wording.requiredInputs.length
+      ? wording.requiredInputItems
+      : wording.requiredInputs.map((text) => ({ text }))
   }
   if (sideCarItems.some((item) => !GENERIC_GATE_SENTENCES.has(item.text))) return sideCarItems
   if (wording?.structural) return [{ text: wording.structural }]
@@ -1132,7 +1135,16 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
     const ladderItems: readonly GateBlockedItem[] =
       producerBlockers !== null
         ? (corroboration ?? analysisBlockedItems(producerBlockers))
-        : [{ text: composeReadinessBlockedReason(readiness, optionsNeedingValues, readinessStale) }]
+        : // ⭐ NO TURN VERDICT YET (a starter, a fresh model): the side-car is already the
+          // only authority on this branch. Its owed repairs are itemised WITH their
+          // producer scope (`readinessAuthoredRefusalItems`), so "What is X today?"
+          // routes to X — served 28 Sep 2026 on UI `79f5c52c`, the pricing starter's
+          // first screen, where the composed single sentence carried no route. Same
+          // trust, same decision; only the explanation gains its routes. Stale or
+          // nothing owed falls back to the composed sentence exactly as before.
+          ((!readinessStale ? readinessAuthoredRefusalItems(readiness) : null) ?? [
+            { text: composeReadinessBlockedReason(readiness, optionsNeedingValues, readinessStale) },
+          ])
     // ⭐ A refusal the BOUND admission verdict made is worded by that verdict's
     // own text first, then the side-car's named cause, most specific first
     // (`admissionRefusalItems`). Producer-itemised blockers, when there are any,

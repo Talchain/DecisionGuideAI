@@ -498,6 +498,15 @@ export const CANVAS_CORNER_INSET_CLASSES: Readonly<Record<6, string>> = Object.f
 export const CANVAS_QUICK_ACTION_BOX_PX = 25 as const
 export const CANVAS_QUICK_ACTION_INSET_PX = 6 as const
 export const CANVAS_QUICK_ACTION_SLOP_PX = 2 as const
+/**
+ * ⭐ A REPEATED CARD'S RAIL SITS 5px OFF ITS BOTTOM EDGE, NOT 6 (contract v3.1
+ * `.node .rail{right:6px;bottom:5px}`; only `.node.wide .rail` is `bottom:6px`).
+ * With it the band is 5 + 27 = 32px at 100% — the contract's
+ * `.node{padding-bottom:32px}` exactly (it was 33; Paul 29 Sep, "pixel perfect").
+ */
+export const CANVAS_QUICK_ACTION_BOTTOM_INSET_PX = 5 as const
+/** The repeated card's rail corner (`right:6px;bottom:5px`); the anchors keep `CANVAS_CORNER_INSET_CLASSES[6]`. */
+export const CANVAS_REPEATED_RAIL_INSET_CLASSES = 'bottom-[5px] right-[6px]' as const
 
 /**
  * ⭐⭐⭐ THE BOTTOM BAND A CARD MUST RESERVE SO ITS OWN CONTROLS NEVER COVER ITS
@@ -554,7 +563,7 @@ export const CANVAS_QUICK_ACTION_SLOP_PX = 2 as const
  * hit area rather than the visual box costs 4px at the bound and closes both.
  */
 export const NODE_QUICK_ACTION_BAND_PX =
-  CANVAS_QUICK_ACTION_INSET_PX +
+  CANVAS_QUICK_ACTION_BOTTOM_INSET_PX +
   (CANVAS_QUICK_ACTION_BOX_PX + CANVAS_QUICK_ACTION_SLOP_PX) * MAX_GLYPH_COUNTER_SCALE
 
 /**
@@ -583,7 +592,7 @@ export const NODE_QUICK_ACTION_BAND_PX =
  * (`cardsThatGrew: 0`).
  */
 export const NODE_QUICK_ACTION_BAND_CSS =
-  `calc(${CANVAS_QUICK_ACTION_INSET_PX}px + ${CANVAS_QUICK_ACTION_BOX_PX + CANVAS_QUICK_ACTION_SLOP_PX}px * var(--canvas-glyph-scale, 1))`
+  `calc(${CANVAS_QUICK_ACTION_BOTTOM_INSET_PX}px + ${CANVAS_QUICK_ACTION_BOX_PX + CANVAS_QUICK_ACTION_SLOP_PX}px * var(--canvas-glyph-scale, 1))`
 
 /**
  * ⭐ THE WIDTH THE ANCHOR RAIL NEEDS BESIDE ITS LAST ROW (contract v3.1 ANC-02 /

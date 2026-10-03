@@ -38,7 +38,7 @@ import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
  */
 const GROUPS: ReadonlyArray<{ heading: string; kinds: readonly ValueProvenanceKind[] }> = [
   { heading: 'From what you gave us', kinds: ['brief'] },
-  { heading: "Olumi's own estimate", kinds: ['ai'] },
+  { heading: "Olumi's own estimate", kinds: ['ai', 'accepted'] }, // `accepted`: Olumi's figure the user accepted — origin Olumi (52f8cd)
   { heading: 'You own this value', kinds: ['confirmed', 'edited', 'assumption', 'human'] },
   { heading: 'From your panel', kinds: ['panel'] },
 ]
