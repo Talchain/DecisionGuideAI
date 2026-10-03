@@ -42,6 +42,7 @@
  */
 
 import { formatThresholdFigure } from './thresholdFigure'
+import { conditionalInputBasis } from './conditionalInputBasis'
 import { classifyUnit } from '../../../utils/unitClassifier'
 import { truncateAtWordBoundary } from '../../../utils/text'
 import { leaderDesignationPermitted, rankingWasWithheld } from '../leaderDesignation'
@@ -285,6 +286,8 @@ export interface AnalysisNewViewModelInputs {
   nodeValueSources?: ReadonlyMap<string, string>
   /** `AcceptedFigureBinding`: Olumi's figures the user ACCEPTED, bound to the displayed Run (52f8cd; CODEX UI 5923625039). */
   acceptedFigures?: AcceptedFigureBinding
+  /** Live nodes, used only while the displayed Run is affirmatively current. */
+  analysisNodes?: readonly unknown[]
   /**
    * Node id → label, from the graph store. Lets a producer gap name the factor
    * it is about instead of repeating one anonymous sentence per unset root.
@@ -2416,6 +2419,7 @@ function buildAtAGlance(
   nodeOrigins?: ReadonlyMap<string, OptionOrigin>,
   analysisIdentityIsCurrent = false,
   acceptedFigures?: AcceptedFigureBinding,
+  analysisNodes?: readonly unknown[],
 ): AtAGlance {
   const rec = data.recommendation
   const { drivers, setRelative } = glanceDrivers(data)
@@ -2783,6 +2787,10 @@ function buildAtAGlance(
     influenceIsSetRelative: setRelative,
     condition,
     inputProvenance: glanceInputProvenance(data, nodeValueSources, acceptedFigures),
+    conditionalInputBasis: headline && analysisIdentityIsCurrent
+      ? conditionalInputBasis(analysisNodes, rec.currentReadInputBasis !== undefined
+        ? rec.currentReadInputBasis : rec.runAnalysisAdmission ?? rec.analysisAdmission,
+        allOptions.filter((o) => o.notAnalysed !== true && !optionComputationFailed(o.computeStatus)).map((o) => o.id)) : null,
     /**
      * ⭐⭐ GATED ON `headline && leader`, WHICH IS THE ENTITLEMENT ITSELF, NOT A
      * SECOND COPY OF IT. `headline` is non-null only where
@@ -3890,6 +3898,7 @@ export function buildAnalysisNewViewModel(
     inputs.nodeOrigins,
     analysisIdentityIsCurrent,
     inputs.acceptedFigures,
+    inputs.analysisNodes,
   )
 
   /**

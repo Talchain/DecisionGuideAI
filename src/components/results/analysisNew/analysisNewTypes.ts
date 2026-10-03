@@ -1442,6 +1442,8 @@ export type GlanceComparisonScope =
 export type GlanceWithheldRemedy = 'estimate'
 
 export interface AtAGlance {
+  /** Named input-origin disclosure for a current licensed comparison; no new wire field. */
+  conditionalInputBasis?: string | null
   /** The current read. Absent when no producer licenses a synthesis. */
   headline: string | null
   /**
