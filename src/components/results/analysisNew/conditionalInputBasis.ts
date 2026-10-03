@@ -5,7 +5,7 @@ type Rec = Record<string, unknown>
 const rec = (v: unknown): Rec | undefined => v !== null && typeof v === 'object' && !Array.isArray(v) ? v as Rec : undefined
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 const UNAVAILABLE = 'The sources of this comparison’s factor starting values are unavailable.'
-const COVERAGE = 'These are factor starting values on the comparison’s paths. Other model assumptions may also affect the result.'
+const COVERAGE = 'These are factor starting values on the comparison’s paths. Other model assumptions may also affect this comparison.'
 
 /** Disclosure from existing fields. The caller owns displayed-run identity and permission. */
 export function conditionalInputBasis(nodes: readonly unknown[] | undefined, admission: unknown, analysedOptionIds: readonly string[]): string | null {

@@ -29,6 +29,7 @@ describe('B3-8 on the mounted result, from existing bound fields', () => {
     render(<AtAGlance reanalyseBlocked={false} isRunning={false} reanalyseBlockedReason={null} glance={build().atAGlance} />)
     expect(screen.getByTestId(TID)).toHaveTextContent('Olumi’s estimates for "Subscribers"')
     expect(screen.getByTestId(TID)).toHaveTextContent('factor starting values on the comparison’s paths')
+    expect(screen.getByTestId(TID)).toHaveTextContent('Other model assumptions may also affect')
   })
   it('RED: the named basis remains visible without a sensitivity feed', () => {
     const data = genuineDecision(); data.drivers.drivers = []
