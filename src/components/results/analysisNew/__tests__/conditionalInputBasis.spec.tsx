@@ -58,6 +58,13 @@ describe('B3-8 on the mounted result, from existing bound fields', () => {
     const vm = buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false, analysisIdentityIsCurrent: true, analysisNodes: graph })
     expect(vm.atAGlance.conditionalInputBasis).toBeNull()
   })
+  it('CONTROL: a partial computation still uses its non-overridden baseline', () => {
+    const data = genuineDecision(); data.recommendation.runAnalysisAdmission = admission() as never
+    data.recommendation.allOptions!.push({ ...data.recommendation.allOptions![0]!, id: 'partial', label: 'Partial option', computeStatus: 'partial' })
+    const graph = [...nodes('cee_inference', undefined, true), { id: 'partial', type: 'option', data: { interventions: {} } }]
+    const vm = buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false, analysisIdentityIsCurrent: true, analysisNodes: graph })
+    expect(vm.atAGlance.conditionalInputBasis).toContain('Subscribers')
+  })
   it('RED: unavailable/malformed/unresolved census remains distinct', () => {
     for (const raw of [{}, admission(null), admission(['missing']), admission([42])]) {
       expect(build('cee_inference', raw).atAGlance.conditionalInputBasis).toContain('unavailable')
