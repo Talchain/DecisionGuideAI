@@ -283,6 +283,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
         limitVerdicts,
         nodeValueSources,
         acceptedFigures,
+        analysisNodes: nodes,
         nodeLabels,
         nodeOrigins,
         // ⭐ THE SAME READING Strengthen gets above, now also the licence for
@@ -334,6 +335,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
       limitVerdicts,
       nodeValueSources,
       acceptedFigures,
+      nodes,
       nodeLabels,
       nodeOrigins,
       // Store-derived, not an arg: a currency flip must re-license the

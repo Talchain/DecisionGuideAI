@@ -677,7 +677,7 @@ export function AtAGlance({
      run consumed, and it is a qualifier: it must render only where there is
      something on this surface for it to qualify. The driver rows were such a
      thing and are no longer here. */
-  const showInputProvenance = Boolean(glance.inputProvenance) && readingOnScreen
+  const showInputProvenance = Boolean(glance.conditionalInputBasis || glance.inputProvenance) && readingOnScreen
 
   /**
    * ⛔⛔ AN EMPTY LABELLED LANDMARK, AND THE GUARD WRITTEN TO PREVENT ONE WAS
@@ -1279,7 +1279,12 @@ export function AtAGlance({
               ⚠ GATED ON A READING BEING PRESENT. A bare statement of what the
               inputs were, with no conclusion above it to condition, is a caveat
               orphaned from its claim. */}
-          {showInputProvenance && glance.inputProvenance ? (
+          {showInputProvenance && glance.conditionalInputBasis ? (
+            <p className={`${typography.panelMeta} text-text-light m-0 mt-1`}
+              data-testid={`${testId}-conditional-input-basis`}>
+              {glance.conditionalInputBasis}
+            </p>
+          ) : showInputProvenance && glance.inputProvenance ? (
             <p
               className={`${typography.panelMeta} text-text-light m-0 mt-1`}
               data-testid={`${testId}-input-provenance`}

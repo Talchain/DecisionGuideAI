@@ -1198,6 +1198,12 @@ export function ModelStrip({
               {subjectSubLabel}
             </span>
           )}
+          {strip.provisionalGoalLabel ? (
+            <span className={`${typography.panelMeta} text-text-light block`}
+              data-testid={`${testId}-provisional-objective`}>
+              Provisional objective: {strip.provisionalGoalLabel}.
+            </span>
+          ) : null}
 
           {/* ⚠ THE CENSUS, AND IT IS THE THING THE CANVAS CANNOT SAY. A reader
               can see the shapes on the canvas; they cannot count fourteen
