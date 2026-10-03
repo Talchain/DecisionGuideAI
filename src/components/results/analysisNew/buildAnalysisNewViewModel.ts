@@ -88,7 +88,7 @@ import { isLabelledZeroReason } from '../influenceScaleCopy'
 // spelling of the Resolve next register" by its own header; a second copy in
 // this surface's deck would be the mirror that drifts silently (trap 12).
 import { RESOLVE_NEXT_COPY as RESOLVE_NEXT } from '../voi/resolveNextCopy'
-import type { VoiRanking } from '../voi/voiRanking'
+import type { VoiRanking, VoiRankingRow } from '../voi/voiRanking'
 import { hasAnyGoalValue, selectGoalLeader } from '../utils/selectGoalLeader'
 import { getExpectedValue } from '../utils/getExpectedValue'
 import { formatGoalProbability } from '../utils/displayFloors'
@@ -108,6 +108,7 @@ import {
 import type {
   AnalysisNewFinding,
   AnalysisNewStatus,
+  AnalysisNewRankedItem,
   AnalysisNewViewModel,
   ContextualIntervention,
   InspectRow,
@@ -1019,14 +1020,18 @@ function evidenceGapFinding(
  * that leads to a dead end. `RESOLVE_NEXT_COPY.gate` is deliberately unused
  * here for that reason.
  *
- * ⚠ AND THE LIMIT, STATED RATHER THAN HIDDEN. Ranks 2..n are named but not
- * individually focusable or actionable — `AnalysisNewFinding` carries ONE
- * `targetId` and ONE `intervention`, so only rank 1 reaches the canvas. The
- * existing tab gives every row a focus target and a `valueAffordance` act. That
- * is a real gap against it, and closing it needs either a bespoke section (a
- * second disclosure pattern this surface bans) or a mount change this lane does
- * not own. Named so the next session inherits the gap and not the impression
- * of parity.
+ * ⭐ EVERY RANK IS ACTIONABLE (SCI-HERO-DELTAS G3; #85 lease 5963583773). This
+ * used to name ranks 2..n as a sentence only, so a reader told what was worth
+ * resolving next could reach rank 1 and nothing after it, while the Analysis tab
+ * gave every row a focus target and a `valueAffordance` act. Ranks 2..n now ride
+ * `rankedItems`, which the ONE disclosure primitive renders at level 2 — no
+ * bespoke section, no second pattern. Rank 1's value act rides
+ * `valueTargetId`.
+ *
+ * ⚠ NO SECOND SELECTOR. Each item's acts come from its OWN row's `canFocus` and
+ * `valueAffordance`, which `voi/voiRanking.ts` decided; nothing here re-derives
+ * eligibility, and items keep producer wire order. `detail` keeps the same ranks
+ * as prose because the "Work through with Olumi" ask is seeded from it.
  */
 function voiFinding(voi: VoiRanking, recommendations: Recommendation[]): AnalysisNewFinding {
   const lead = voi.resolved[0]
@@ -1064,10 +1069,27 @@ function voiFinding(voi: VoiRanking, recommendations: Recommendation[]): Analysi
     // `RESOLVE_NEXT_COPY.then` is documented as "Ranks 2..n, producer wire
     // order" — this is that, as a list rather than as a per-row suffix.
     detail: rest.length > 0 ? `${RESOLVE_NEXT.then} ${rest.map((r) => r.label).join(', ')}.` : undefined,
+    ...(rest.length > 0 ? { rankedItems: rest.map(rankedVoiItem) } : {}),
     groundedIn: 'the value-of-information ranking',
     targetId: lead.canFocus ? lead.factorId : undefined,
+    ...valueActOf(lead),
     inspect,
     intervention: interventionFor(recommendations, lead.factorId),
+  }
+}
+
+/** The value act a ranked row licenses — `'none'` (not a factor) licenses none. */
+function valueActOf(r: VoiRankingRow): Pick<AnalysisNewRankedItem, 'valueTargetId' | 'valueAffordance'> {
+  return r.valueAffordance === 'none' ? {} : { valueTargetId: r.factorId, valueAffordance: r.valueAffordance }
+}
+
+/** One rank below the headline, carrying only what ITS OWN row licenses. */
+function rankedVoiItem(r: VoiRankingRow): AnalysisNewRankedItem {
+  return {
+    id: r.factorId,
+    label: r.label,
+    ...(r.canFocus ? { focusTargetId: r.factorId } : {}),
+    ...valueActOf(r),
   }
 }
 

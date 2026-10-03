@@ -105,6 +105,29 @@ export interface ContextualIntervention {
   targetId: string | null
 }
 
+/**
+ * A factor value act: `'review'` where the destination will display a value,
+ * `'set'` where it will open an editor with nothing in it. The verdict is
+ * `voi/voiRanking.ts`'s (`VoiRankingRow.valueAffordance`); this only carries it.
+ */
+export type FactorValueAffordance = 'review' | 'set'
+
+/**
+ * One ranked subject a finding names BENEATH its headline, in producer order —
+ * today the value-of-information ranks 2..n. Each item carries only the acts
+ * ITS OWN producer row licenses; absent ⇒ that act does not render.
+ */
+export interface AnalysisNewRankedItem {
+  /** Producer identity (the factor id). */
+  id: string
+  label: string
+  /** Canvas focus target. */
+  focusTargetId?: string
+  /** The factor whose value the reader can review or set, and how to word it. */
+  valueTargetId?: string
+  valueAffordance?: FactorValueAffordance
+}
+
 /** Shared shape for a progressively-disclosed row across all four sections. */
 export interface AnalysisNewFinding {
   /** Stable identity. Tests bind to this, never to a value predicate. */
@@ -166,6 +189,23 @@ export interface AnalysisNewFinding {
   flipReadout?: string
   focusTargetId?: string
   reviewTargetId?: string
+  /**
+   * The FACTOR whose value this row's subject is, for the value act — Model tab
+   * → factors (`openModelValueEditor`).
+   *
+   * ⚠ NOT `reviewTargetId`, which is an EDGE and opens Relationships. A factor
+   * sent there lands the reader in the wrong group. Absent ⇒ no value act.
+   */
+  valueTargetId?: string
+  /** Wording of the value act; present in lockstep with `valueTargetId`. */
+  valueAffordance?: FactorValueAffordance
+  /**
+   * Further subjects the row ranks below its headline, each actionable on its
+   * own. When present it IS the row's level-2 detail: `detail` keeps the same
+   * ranks as prose (the "Work through with Olumi" context), and the row prints
+   * one or the other, never both.
+   */
+  rankedItems?: AnalysisNewRankedItem[]
   /** Level 3 — inspect. Empty array renders no inspect affordance. */
   inspect: InspectRow[]
   intervention?: ContextualIntervention

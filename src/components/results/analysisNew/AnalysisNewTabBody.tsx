@@ -3282,6 +3282,11 @@ export function AnalysisNewTabBody({
                   emptyMessage={uncertaintyEmptyMessage}
                   onFocusTarget={focusTarget}
                   onReviewTarget={onReviewTarget}
+                  // ⭐ A FACTOR's value act goes to the Model tab's FACTORS editor,
+                  // through the route's one owner — never `onReviewTarget`, which
+                  // opens Relationships for an edge. "Most worth resolving next"
+                  // rows carry it for every rank (SCI-HERO-DELTAS G3).
+                  onReviewValue={openModelValueEditor}
                   onRunIntervention={runIntervention}
                   onAskOlumi={askOlumiAbout}
                   icon={AlertTriangle}
