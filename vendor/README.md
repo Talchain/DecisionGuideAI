@@ -7,7 +7,25 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.70.0.tgz` ← **THE CURRENT PIN** (1 Oct 2026, M2 rows: DGAI first, then CEE emits; DL 380e54 peer msg 18:2xZ)
+### `talchain-schemas-0.74.0.tgz` ← **THE CURRENT PIN** (2 Oct 2026, version result-diff: DL schema publication → CEE opt-in producer → CANVAS UI; DL #85 5947565590)
+
+**Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF, not a local re-pack.** Downloaded by CANVAS 39e656 from
+`https://npm.pkg.github.com/download/@talchain/schemas/0.74.0/ea5d0acdf3a277c243dfa391161450e1b2675df5`
+(registry `dist-tags.latest` = 0.74.0); registry gitHead `c47767f9690c49d092145cbd90247fd0da22da34` (olumi-schemas
+`main` after #84, the DL's publish run 36988699914). **775,202 bytes.** Verified, all exact:
+
+```
+npm shasum (sha1)  ea5d0acdf3a277c243dfa391161450e1b2675df5   (the registry download id)
+integrity (sha512) sha512-elhMD41qf21TI+x9hk305AUAGfMtPB1RBa12KKtAoanN/ulbvqVqcbZs2oWGhi6GnmDSgRWSkpu9Ru69bEt+lw==
+sha256             3850f3aaa1f7e064d8c5649068eae773a0c97c3633d1b27e7fc8452766a2df07   (the .sha256 sidecar; = CEE's vendored copy)
+```
+
+**What 0.71.0–0.74.0 add:** additive/optional only. 0.71 `RunInputSnapshot.residual_digest?`; 0.72/0.73 link and
+factor `authorship_digest?` (CEE-internal; `RunDelta` unchanged); 0.74 the opt-in `ModelVersionDiffV2Schema`
+(`model_version_diff.v2` = v1 + `result_comparison`: `paired_runs` carrying the same `RunDeltaSchema`, `shared_run`
+once, or `unavailable` with a typed reason). v1 is unchanged. Replaces 0.70.0 (no longer vendored).
+
+### `talchain-schemas-0.70.0.tgz` (historical, no longer vendored) (1 Oct 2026, M2 rows: DGAI first, then CEE emits; DL 380e54 peer msg 18:2xZ)
 
 **Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF, not a local re-pack.** Downloaded by CANVAS 39e656 from
 `https://npm.pkg.github.com/download/@talchain/schemas/0.70.0/a987224c3442bdf1bb1c9efe02e2f0f2470769e8`

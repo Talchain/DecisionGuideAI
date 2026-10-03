@@ -6,7 +6,7 @@
 import type { StrengthBand } from '@talchain/schemas'
 import { CANVAS_STRENGTH_BANDS, type CanvasStrengthBandId } from '../../../canvas/domain/vocabulary'
 import { inlineStrengthLabel } from '../../../canvas/domain/strengthBandSpan'
-import type { RunDeltaInputRow } from './runDeltaView'
+import type { RunDeltaFrame, RunDeltaInputRow } from './runDeltaView'
 
 /**
  * A `strength` row's raw is the contract's `StrengthBand` literal (52f8cd #85 5937970750: CEE `strengthBandFromEdgeBand`).
@@ -42,21 +42,30 @@ const SIZING_WORDS: Record<string, string> = {
  *   strength alone            "You changed how much {from} changes {to}: {before} → {after}."
  * `null` = not one of these (the generic row wording applies).
  */
-export function linkRowText(row: RunDeltaInputRow): string | null {
+export function linkRowText(row: RunDeltaInputRow, frame: RunDeltaFrame = 'rerun'): string | null {
   if (row.kind !== 'link' || row.change !== 'changed') return null
   const from = row.linkLabels?.from ?? 'one factor'
   const to = row.linkLabels?.to ?? 'another'
+  // Saved versions do not establish that the viewer authored either change.
+  const historical = frame === 'versions'
   if (row.field === 'sizing') {
-    if (row.after === 'olumi_accepted') return `You accepted Olumi's estimate for how much ${from} changes ${to}.`
+    if (row.after === 'olumi_accepted') return historical
+      ? `Olumi's estimate for how much ${from} changes ${to} was accepted.`
+      : `You accepted Olumi's estimate for how much ${from} changes ${to}.`
     if (row.after === 'user') {
+      const subject = historical ? 'A user estimate was recorded' : 'You gave your own estimate'
       return row.strength
-        ? `You gave your own estimate for how much ${from} changes ${to}: ${strengthBandWords(row.strength.before)} → ${strengthBandWords(row.strength.after)}.`
-        : `You gave your own estimate for how much ${from} changes ${to}.`
+        ? `${subject} for how much ${from} changes ${to}: ${strengthBandWords(row.strength.before)} → ${strengthBandWords(row.strength.after)}.`
+        : `${subject} for how much ${from} changes ${to}.`
     }
-    const b = row.before !== null ? SIZING_WORDS[row.before] ?? row.before : null
-    const a = row.after !== null ? SIZING_WORDS[row.after] ?? row.after : null
+    const sizingWords = (value: string | null) => value === null ? null
+      : historical && value === 'user' ? 'a user estimate' : SIZING_WORDS[value] ?? value
+    const b = sizingWords(row.before)
+    const a = sizingWords(row.after)
     return `How much ${from} changes ${to}: ${b} → ${a}`
   }
-  if (row.field === 'strength') return `You changed how much ${from} changes ${to}: ${strengthBandWords(row.before)} → ${strengthBandWords(row.after)}.`
+  if (row.field === 'strength') return historical
+    ? `The estimate for how much ${from} changes ${to} changed: ${strengthBandWords(row.before)} → ${strengthBandWords(row.after)}.`
+    : `You changed how much ${from} changes ${to}: ${strengthBandWords(row.before)} → ${strengthBandWords(row.after)}.`
   return null
 }
