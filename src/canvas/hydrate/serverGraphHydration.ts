@@ -471,6 +471,7 @@ async function readAndMergeServerGraph(
       const runRead = applyScenarioAnalysisRead({
         analysisState: result.analysisState,
         analysisResult: result.analysisResult,
+        currentReadInputBasis: result.currentReadInputBasis ?? null,
         limitVerdicts: result.limitVerdicts,
         goalCertainty: result.goalCertainty,
         runDelta: result.runDelta,
@@ -483,7 +484,13 @@ async function readAndMergeServerGraph(
         // written `fresh`; the applier's run-completion transition demoted it to `unknown · run_completed_without_verdict`
         // on every fresh-browser cold open, so `useRunCurrency()` stopped saying current and the Driver badges (every run
         // cue) vanished — while a same-browser reload, whose report dedupes, kept them.
-        store: { ...readProvisionalApplyStore(), setAnalysisStateV1: () => {}, noteRunCompletedWithoutVerdict: () => {} },
+        store: {
+          ...readProvisionalApplyStore(), setAnalysisStateV1: () => {}, noteRunCompletedWithoutVerdict: () => {},
+          setCurrentReadInputBasis: (basis, hash) => useCanvasStore.setState((state) => {
+            if (state.currentScenarioId !== scenarioId || state.results.hash !== hash || !state.results.report) return state
+            return { results: { ...state.results, report: { ...state.results.report, current_read_input_basis: basis } } }
+          }),
+        },
       })
       logger.debug('server_graph_hydration.boot_run_currency', { scenarioId, exit, outcome: 'restored', runFact: fact !== null, runRead: runRead.outcome })
       return

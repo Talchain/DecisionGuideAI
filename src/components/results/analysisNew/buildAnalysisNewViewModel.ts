@@ -2788,7 +2788,8 @@ function buildAtAGlance(
     condition,
     inputProvenance: glanceInputProvenance(data, nodeValueSources, acceptedFigures),
     conditionalInputBasis: headline && analysisIdentityIsCurrent
-      ? conditionalInputBasis(analysisNodes, rec.runAnalysisAdmission ?? rec.analysisAdmission,
+      ? conditionalInputBasis(analysisNodes, rec.currentReadInputBasis !== undefined
+        ? rec.currentReadInputBasis : rec.runAnalysisAdmission ?? rec.analysisAdmission,
         allOptions.filter((o) => o.notAnalysed !== true && !optionComputationFailed(o.computeStatus)).map((o) => o.id)) : null,
     /**
      * ⭐⭐ GATED ON `headline && leader`, WHICH IS THE ENTITLEMENT ITSELF, NOT A
