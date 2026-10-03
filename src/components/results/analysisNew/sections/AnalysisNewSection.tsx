@@ -81,6 +81,8 @@ export interface AnalysisNewSectionProps {
   onFocusTarget?: (targetId: string) => void
   /** Routes a row to the editor for its subject. Threaded, never composed here. */
   onReviewTarget?: (targetId: string) => void
+  /** Routes a row's FACTOR to its value editor. Threaded, never composed here. */
+  onReviewValue?: (factorId: string) => void
   onRunIntervention?: (recommendationId: string) => void
   /** Work through a finding with Olumi. Passed straight through to the row. */
   onAskOlumi?: (finding: AnalysisNewFinding) => void
@@ -172,6 +174,7 @@ export function AnalysisNewSection({
   emptyMessage,
   onFocusTarget,
   onReviewTarget,
+  onReviewValue,
   onRunIntervention,
   onAskOlumi,
   icon,
@@ -258,6 +261,7 @@ export function AnalysisNewSection({
                 finding={withoutRunScopedMarker(f)}
                 onFocusTarget={onFocusTarget}
                 onReviewTarget={onReviewTarget}
+                onReviewValue={onReviewValue}
                 onRunIntervention={onRunIntervention}
                 onAskOlumi={onAskOlumi}
                 testIdPrefix={testId}
