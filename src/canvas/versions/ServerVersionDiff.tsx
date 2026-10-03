@@ -80,6 +80,22 @@ export function undetectableLabel(token: string): string {
   return /[.!?]$/.test(sentence) ? sentence : `${sentence}.`
 }
 
+/** A saved version's (or a recorded Run's) time, as the versions panel prints it everywhere. */
+export function formatTimestamp(iso: string): string {
+  const parsed = new Date(iso)
+  if (Number.isNaN(parsed.getTime())) return iso
+  try {
+    return parsed.toLocaleString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  } catch {
+    return parsed.toISOString()
+  }
+}
+
 export function versionCaption(version: Pick<ServerModelVersion, 'versionNumber' | 'label'>): string {
   return `v${version.versionNumber}${version.label === null ? '' : ` · ${version.label}`}`
 }

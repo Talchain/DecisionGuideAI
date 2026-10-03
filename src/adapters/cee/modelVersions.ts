@@ -72,7 +72,13 @@ import { logger } from '../../lib/logger'
 import { sanitiseUserId } from '../../lib/guestIdentity'
 import { classifySignInRefusal, type SignInRefusalCause } from './signInRefusal'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
-import { ModelVersionDiffV1Schema, type ModelVersionDiffV1 } from '@talchain/schemas/boundary'
+import {
+  ModelVersionDiffV1Schema,
+  ModelVersionDiffV2Schema,
+  type ModelVersionDiffV1,
+  type ModelVersionDiffV2,
+  type ModelVersionResultComparison,
+} from '@talchain/schemas/boundary'
 
 /** The same-origin Netlify edge path. NOT `VITE_CEE_BFF_BASE` — see header. */
 export const MODEL_VERSIONS_BASE = '/bff/cee'
@@ -225,10 +231,17 @@ export type RestoreModelVersionResult =
  * own type (`@talchain/schemas` `ModelVersionDiffV1`), parsed by its own schema.
  * Never a local mirror: the diff is CEE's verdict, rendered verbatim.
  */
-export type ModelVersionDiff = ModelVersionDiffV1
+export type ModelVersionDiff = ModelVersionDiffV1 | Omit<ModelVersionDiffV2, 'result_comparison'>
+
+/**
+ * The recorded results CEE bound to the two versions (schemas 0.74 `result_comparison`), verbatim: `paired_runs` with
+ * the same `RunDelta` the Compare tab reads, `shared_run` (one Run for both), or `unavailable` with a typed reason.
+ * `null` = a v1 reply (a CEE without the opt-in): nothing is said about results.
+ */
+export type ModelVersionResults = ModelVersionResultComparison
 
 export type CompareModelVersionsResult =
-  | { status: 'compared'; diff: ModelVersionDiff }
+  | { status: 'compared'; diff: ModelVersionDiff; results: ModelVersionResults | null }
   | { status: 'signInRequired'; cause: SignInRefusalCause }
   /** 404 VERSION_NOT_FOUND — one of the two versions is gone. */
   | { status: 'versionNotFound' }
@@ -666,6 +679,10 @@ export async function restoreModelVersion(
  * The 200 body is parsed by the published `ModelVersionDiffV1Schema`. A body
  * that fails it is `unusable`, never a partial diff: a shortened list of
  * changes would misstate what changed.
+ *
+ * 0.74: the request also asks for the recorded results (`response_schema: model_version_diff.v2`), parsed by
+ * `ModelVersionDiffV2Schema`. A CEE without that opt-in refuses ANY extra key with 422
+ * `VERSION_COMPARE_SERVER_AUTHORITY_REQUIRED`, so exactly that refusal is retried ONCE as the plain v1 request.
  */
 export async function compareModelVersions(
   scenarioId: string,
@@ -674,8 +691,18 @@ export async function compareModelVersions(
   const payload = identityBody(opts.userId)
   payload.from_version_id = opts.fromVersionId
   payload.to_version_id = opts.toVersionId
+  payload.response_schema = 'model_version_diff.v2'
 
-  const outcome = await postOnce(modelVersionsUrl(scenarioId, 'compare'), payload, opts)
+  const url = modelVersionsUrl(scenarioId, 'compare')
+  let outcome = await postOnce(url, payload, opts)
+  if (
+    outcome.kind === 'http' &&
+    outcome.status === 422 &&
+    detailsCode(outcome.body) === 'VERSION_COMPARE_SERVER_AUTHORITY_REQUIRED'
+  ) {
+    delete payload.response_schema
+    outcome = await postOnce(url, payload, opts)
+  }
 
   if (outcome.kind === 'http') {
     const code = detailsCode(outcome.body)
@@ -689,7 +716,9 @@ export async function compareModelVersions(
   if (refusal) return refusal
   const body = (outcome as { kind: 'ok'; body: unknown }).body
 
-  const parsed = ModelVersionDiffV1Schema.safeParse(body)
+  // The schema literal picks the parser; each parser is strict, so a v2 body is never read as v1 or vice versa.
+  const isV2 = body !== null && typeof body === 'object' && (body as { schema?: unknown }).schema === 'model_version_diff.v2'
+  const parsed = isV2 ? ModelVersionDiffV2Schema.safeParse(body) : ModelVersionDiffV1Schema.safeParse(body)
   if (!parsed.success) {
     logger.warn('model_versions.compare_contract_refused', { scenarioId })
     return { status: 'unusable' }
@@ -703,5 +732,9 @@ export async function compareModelVersions(
     logger.warn('model_versions.compare_pair_mismatch_refused', { scenarioId })
     return { status: 'unusable' }
   }
-  return { status: 'compared', diff: parsed.data }
+  if ('result_comparison' in parsed.data) {
+    const { result_comparison: results, ...diff } = parsed.data
+    return { status: 'compared', diff, results }
+  }
+  return { status: 'compared', diff: parsed.data, results: null }
 }
