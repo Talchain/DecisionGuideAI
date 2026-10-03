@@ -702,7 +702,7 @@ export function HeroEvidenceDisclosure({
                         // resolver in `useResultsSectionData.ts`.
                         const affordance = onReviewValue ? r.valueAffordance : 'none'
                         const actLabel =
-                          affordance === 'review' ? 'Review this value' : 'Set a value'
+                          affordance === 'review' ? R.act.review : R.act.set
                         return (
                           <li key={`${r.factorId}-${i}`} data-testid="hero-resolve-next-row">
                             <div className="flex min-w-0 items-center gap-1">

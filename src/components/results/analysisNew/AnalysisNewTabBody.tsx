@@ -51,6 +51,7 @@ import { useCallback, useMemo, useRef, useState, useEffect } from 'react'
 import { AlertTriangle, Star, TrendingUp, GitBranch } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
+import { openModelValueEditor } from '../../../canvas/nodes/shared/openModelValueEditor'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { attentionNoteForRecommendation } from '../strengthen/recommendationAttention'
@@ -3262,6 +3263,11 @@ export function AnalysisNewTabBody({
                   emptyMessage={uncertaintyEmptyMessage}
                   onFocusTarget={focusTarget}
                   onReviewTarget={onReviewTarget}
+                  // ⭐ A FACTOR's value act goes to the Model tab's FACTORS editor,
+                  // through the route's one owner — never `onReviewTarget`, which
+                  // opens Relationships for an edge. "Most worth resolving next"
+                  // rows carry it for every rank (SCI-HERO-DELTAS G3).
+                  onReviewValue={openModelValueEditor}
                   onRunIntervention={runIntervention}
                   onAskOlumi={askOlumiAbout}
                   icon={AlertTriangle}
