@@ -30,6 +30,7 @@ import {
   splitServerOpenQuestions,
 } from '../serverOpenQuestions'
 import { ADDITIVE_EXTENSIONS_KEY } from '../../../v5/responseParser'
+import b3Placement from './fixtures/b3-host-placement.local-wire.json'
 import served2054 from './fixtures/openai-route-open-questions-2054.served.json'
 import servedShaped from './fixtures/openai-route-open-questions-answer-shape.served.json'
 import served from './fixtures/openai-route-construction-reply.served.json'
@@ -183,6 +184,18 @@ describe('MessageBubble — the served first reply at rest', () => {
     expect(bare(screen.getByTestId('message-body-text').textContent ?? '')).toContain(bare(HELD_AS_CONTEXT))
     fireEvent.click(screen.getByTestId('message-show-open-questions'))
     expect(screen.getByTestId('message-open-questions').textContent).not.toContain('fixed context')
+  })
+})
+
+describe('B3 host placement on the mounted chat face', () => {
+  it.each(b3Placement.cases)('keeps captured $source obligation outside the closed toggle: $line', ({ text, line, question }) => {
+    render(<MessageBubble message={makeMsg({ content: text })} onChipClick={noop} />)
+    expect(bare(screen.getByTestId('message-body-text').textContent ?? '')).toContain(bare(line))
+    expect(screen.getByTestId('message-show-open-questions').getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(screen.getByTestId('message-show-open-questions'))
+    expect(screen.getByTestId('message-open-questions').textContent).toContain(question)
+    expect(screen.getByTestId('message-open-questions').textContent).not.toContain(line)
+    expect(text.split(line)).toHaveLength(2)
   })
 })
 

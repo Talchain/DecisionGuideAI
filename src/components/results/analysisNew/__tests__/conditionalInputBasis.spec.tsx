@@ -26,7 +26,7 @@ afterEach(cleanup)
 
 describe('B3-8 on the mounted result, from existing bound fields', () => {
   it('RED: names the Olumi input beside the licensed result and states bounded coverage', () => {
-    render(<AtAGlance glance={build().atAGlance} />)
+    render(<AtAGlance reanalyseBlocked={false} isRunning={false} reanalyseBlockedReason={null} glance={build().atAGlance} />)
     expect(screen.getByTestId(TID)).toHaveTextContent('Olumi’s estimates for "Subscribers"')
     expect(screen.getByTestId(TID)).toHaveTextContent('factor starting values on the comparison’s paths')
   })
@@ -35,7 +35,7 @@ describe('B3-8 on the mounted result, from existing bound fields', () => {
     data.recommendation.runAnalysisAdmission = admission() as never
     const vm = buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false, analysisIdentityIsCurrent: true, analysisNodes: nodes() })
     expect(vm.atAGlance.inputProvenance).toBeNull()
-    render(<AtAGlance glance={vm.atAGlance} />)
+    render(<AtAGlance reanalyseBlocked={false} isRunning={false} reanalyseBlockedReason={null} glance={vm.atAGlance} />)
     expect(screen.getByTestId(TID)).toHaveTextContent('Olumi’s estimates for "Subscribers"')
   })
   it('RED: a licensed comparison without a stability verdict keeps its named basis visible', () => {
@@ -45,7 +45,7 @@ describe('B3-8 on the mounted result, from existing bound fields', () => {
     const vm = buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false, analysisIdentityIsCurrent: true, analysisNodes: nodes() })
     expect(vm.atAGlance.headline).not.toBeNull()
     expect(vm.atAGlance.verdict).toBeNull()
-    render(<AtAGlance glance={vm.atAGlance} />)
+    render(<AtAGlance reanalyseBlocked={false} isRunning={false} reanalyseBlockedReason={null} glance={vm.atAGlance} />)
     expect(screen.getByTestId(TID)).toHaveTextContent('Olumi’s estimates for "Subscribers"')
   })
   it.each(['user_confirmed', 'inferred', 'cee_repair'])('RED: %s remains an Olumi-authored input', (source) => {
@@ -104,7 +104,7 @@ describe('B3-8 on the mounted result, from existing bound fields', () => {
     readCurrent()
     function MountedResult() {
       const vm = useAnalysisNewViewModel({ data, isPreRun: false, isRunning: false, isStale: false })
-      return <AtAGlance glance={vm.atAGlance} />
+      return <AtAGlance reanalyseBlocked={false} isRunning={false} reanalyseBlockedReason={null} glance={vm.atAGlance} />
     }
     const mounted = render(<MountedResult />)
     expect(screen.getByTestId(TID)).toHaveTextContent('Olumi’s estimates for "Subscribers"')

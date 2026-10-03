@@ -62,7 +62,7 @@ function readBody(kind: CensusCase, current = true) {
 function MountedResult() {
   const data = useResultsSectionData()
   const vm = useAnalysisNewViewModel({ data, isPreRun: false, isRunning: false, isStale: false })
-  return <AtAGlance glance={vm.atAGlance} />
+  return <AtAGlance reanalyseBlocked={false} isRunning={false} reanalyseBlockedReason={null} glance={vm.atAGlance} />
 }
 
 async function coldRead(kind: CensusCase, current = true, licensed = true) {
