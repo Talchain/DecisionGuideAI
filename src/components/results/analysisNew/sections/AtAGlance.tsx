@@ -677,7 +677,9 @@ export function AtAGlance({
      run consumed, and it is a qualifier: it must render only where there is
      something on this surface for it to qualify. The driver rows were such a
      thing and are no longer here. */
-  const showInputProvenance = Boolean(glance.conditionalInputBasis || glance.inputProvenance) && readingOnScreen
+  // The named basis is already bound to a current licensed comparison. Its disclosure must survive a missing
+  // stability verdict; only the older generic provenance line needs the on-screen win-share reading.
+  const showInputProvenance = Boolean(glance.conditionalInputBasis) || (Boolean(glance.inputProvenance) && readingOnScreen)
 
   /**
    * ⛔⛔ AN EMPTY LABELLED LANDMARK, AND THE GUARD WRITTEN TO PREVENT ONE WAS

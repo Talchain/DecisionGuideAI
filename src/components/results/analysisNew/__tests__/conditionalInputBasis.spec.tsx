@@ -38,6 +38,16 @@ describe('B3-8 on the mounted result, from existing bound fields', () => {
     render(<AtAGlance glance={vm.atAGlance} />)
     expect(screen.getByTestId(TID)).toHaveTextContent('Olumi’s estimates for "Subscribers"')
   })
+  it('RED: a licensed comparison without a stability verdict keeps its named basis visible', () => {
+    const data = genuineDecision(); data.drivers.drivers = []
+    data.recommendation.robustnessVerdict = undefined
+    data.recommendation.runAnalysisAdmission = admission() as never
+    const vm = buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false, analysisIdentityIsCurrent: true, analysisNodes: nodes() })
+    expect(vm.atAGlance.headline).not.toBeNull()
+    expect(vm.atAGlance.verdict).toBeNull()
+    render(<AtAGlance glance={vm.atAGlance} />)
+    expect(screen.getByTestId(TID)).toHaveTextContent('Olumi’s estimates for "Subscribers"')
+  })
   it.each(['user_confirmed', 'inferred', 'cee_repair'])('RED: %s remains an Olumi-authored input', (source) => {
     expect(build(source).atAGlance.conditionalInputBasis).toContain('Olumi’s estimates')
   })
