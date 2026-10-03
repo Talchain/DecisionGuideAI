@@ -206,6 +206,8 @@ export type ScenarioGraphResult =
        * stored bytes it judged) starts with this read's `graph_hash`.
        */
       admitted?: boolean | null
+      /** Subject-bound machine census for disclosure; never original Run admission. */
+      currentReadInputBasis?: unknown
       /** The read's `conversation_turns`, raw (sent only on `includeConversationTurns`); undefined when absent. */
       conversationTurns?: unknown
       requestId: string | null
@@ -400,6 +402,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     optionParticipation: b.analysis_option_participation ?? null,
     runDelta: readCurrentReadRunDelta(b.current_read),
     admitted: readAdmitted(b.analysis_admission, b.graph_hash),
+    currentReadInputBasis: readCurrentReadInputBasis(b.analysis_admission, b.graph_hash),
     // Carried raw; the ONE reader is `readServerConversationTurns` (canvas/conversation/serverConversationTurns.ts).
     conversationTurns: b.conversation_turns,
     requestId,
@@ -419,6 +422,13 @@ function readAdmitted(raw: unknown, readGraphHash: unknown): boolean | null {
   if (typeof readGraphHash !== 'string' || readGraphHash.length === 0) return null
   if (typeof admissionHash !== 'string' || !admissionHash.startsWith(readGraphHash)) return null
   return admitted
+}
+
+function readCurrentReadInputBasis(raw: unknown, readGraphHash: unknown): unknown {
+  // Reuse this read's existing subject binding; never compare it to a Run hash.
+  if (readAdmitted(raw, readGraphHash) === null) return null
+  const admission = raw as { semantic_signals?: unknown; graph_hash?: unknown }
+  return { semantic_signals: admission.semantic_signals, graph_hash: admission.graph_hash }
 }
 
 /**

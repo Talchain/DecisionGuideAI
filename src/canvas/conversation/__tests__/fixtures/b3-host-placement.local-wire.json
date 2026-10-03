@@ -1,0 +1,53 @@
+{
+  "scope": "6 actual Agent route outputs with stubbed model/Run/readback +2 actual selected-objective host-helper outputs; no computation/serving claim",
+  "cases": [
+    {
+      "source": "actual Agent route; stubbed model/Run/readback",
+      "text": "The comparison is conditional.\n\nThe sources of this comparison\u2019s factor starting values are unavailable.\n\nQuestions this model does not answer yet: What baseline should we use?",
+      "line": "The sources of this comparison\u2019s factor starting values are unavailable.",
+      "question": "What baseline should we use?"
+    },
+    {
+      "source": "actual Agent route; stubbed model/Run/readback",
+      "text": "The comparison is conditional.\n\nThe sources of this comparison\u2019s factor starting values are unavailable.\n\nQuestions this model does not answer yet: What baseline should we use?",
+      "line": "The sources of this comparison\u2019s factor starting values are unavailable.",
+      "question": "What baseline should we use?"
+    },
+    {
+      "source": "actual Agent route; stubbed model/Run/readback",
+      "text": "The comparison is conditional.\n\nThe sources of this comparison\u2019s factor starting values are unavailable.\n\nQuestions this model does not answer yet: The baseline is unknown",
+      "line": "The sources of this comparison\u2019s factor starting values are unavailable.",
+      "question": "The baseline is unknown"
+    },
+    {
+      "source": "actual Agent route; stubbed model/Run/readback",
+      "text": "The comparison is conditional.\n\nThe sources of this comparison\u2019s factor starting values are unavailable.\n\nQuestions this model does not answer yet: The baseline is unknown",
+      "line": "The sources of this comparison\u2019s factor starting values are unavailable.",
+      "question": "The baseline is unknown"
+    },
+    {
+      "source": "actual host ask selection/composition helper; not a route",
+      "text": "This model is a sketch.\n\nI used \"Quarterly revenue\" as a provisional objective. What should this model help you explore?\n\nQuestions this model does not answer yet: Future demand is unknown.\n\nThis model doesn't yet say whether any option gets there within 2 months.",
+      "line": "I used \"Quarterly revenue\" as a provisional objective. What should this model help you explore?",
+      "question": "Future demand is unknown."
+    },
+    {
+      "source": "actual host ask selection/composition helper; not a route",
+      "text": "This model is a sketch.\n\nI used \"Quarterly revenue\" as a provisional objective. What should this model help you explore?\n\nQuestions this model does not answer yet: Future demand is unknown\n\nThis model doesn't yet say whether any option gets there within 2 months.",
+      "line": "I used \"Quarterly revenue\" as a provisional objective. What should this model help you explore?",
+      "question": "Future demand is unknown"
+    },
+    {
+      "source": "actual Agent route; stubbed model/Run/readback",
+      "text": "This comparison is conditional.\n\nThis comparison uses Olumi\u2019s estimates for \"Subscribers\". These are factor starting values on the comparison\u2019s paths. Other model assumptions may also affect the result.\n\nQuestions this model does not answer yet: Future demand is unknown",
+      "line": "This comparison uses Olumi\u2019s estimates for \"Subscribers\". These are factor starting values on the comparison\u2019s paths. Other model assumptions may also affect the result.",
+      "question": "Future demand is unknown"
+    },
+    {
+      "source": "actual Agent route; stubbed model/Run/readback",
+      "text": "This comparison is conditional.\n\n\"Subscribers\": source unrecorded. These are factor starting values on the comparison\u2019s paths. Other model assumptions may also affect the result.\n\nQuestions this model does not answer yet: Future demand is unknown",
+      "line": "\"Subscribers\": source unrecorded. These are factor starting values on the comparison\u2019s paths. Other model assumptions may also affect the result.",
+      "question": "Future demand is unknown"
+    }
+  ]
+}

@@ -16,7 +16,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: () => true }))
 vi.mock('../../../../canvas/utils/highlightHelpers', () => ({
@@ -38,6 +38,34 @@ const recordBrief = (briefText: string | null) =>
   useContextIntegrityStore.setState({ scenarioId: SCENARIO, briefText, manifest: null, modelBuildingNotices: null })
 
 const setNodes = (nodes: unknown[]) => useCanvasStore.setState({ nodes, currentScenarioId: SCENARIO } as never)
+
+describe('B3-7: the mounted Reasoning model names its provisional objective', () => {
+  it('RED: inferred goal is provisional even with a user-stated target', () => {
+    setNodes([node('g1', 'goal', { label: 'Quarterly revenue', provenance: 'ai_inferred', goal_threshold_raw: 100, threshold_source: 'user' }), node('f1', 'factor', { label: 'Sprint capacity' })])
+    render(<ModelStrip isPreRun={false} />)
+    expect(screen.getByTestId(`${TID}-provisional-objective`)).toHaveTextContent('Provisional objective: Quarterly revenue.')
+  })
+  it.each(['from_brief', 'user_set'])('CONTROL: %s is not represented as an inferred objective', (provenance) => {
+    setNodes([node('g1', 'goal', { label: 'Quarterly revenue', provenance }), node('f1', 'factor', { label: 'Sprint capacity' })])
+    render(<ModelStrip isPreRun={false} />)
+    expect(screen.getByTestId(TID)).toBeInTheDocument()
+    expect(screen.queryByTestId(`${TID}-provisional-objective`)).not.toBeInTheDocument()
+  })
+  it('RED: a same-label authorship store update retires the live notice, including remount', () => {
+    const goal = node('g1', 'goal', { label: 'Quarterly revenue', provenance: 'ai_inferred' })
+    const factor = node('f1', 'factor', { label: 'Sprint capacity' })
+    setNodes([goal, factor])
+    const mounted = render(<ModelStrip isPreRun={false} />)
+    expect(screen.getByTestId(`${TID}-provisional-objective`)).toBeInTheDocument()
+    const persisted = [node('g1', 'goal', { label: 'Quarterly revenue', provenance: 'user_set' }), factor]
+    act(() => setNodes(persisted))
+    expect(screen.queryByTestId(`${TID}-provisional-objective`)).not.toBeInTheDocument()
+    mounted.unmount()
+    setNodes(JSON.parse(JSON.stringify(persisted)))
+    render(<ModelStrip isPreRun={false} />)
+    expect(screen.queryByTestId(`${TID}-provisional-objective`)).not.toBeInTheDocument()
+  })
+})
 
 beforeEach(() => {
   setNodes([])

@@ -274,6 +274,8 @@ export interface ScenarioAnalysisApplyStore {
     v5Enrichment?: unknown
   }) => void
   readonly currentResultsHash?: string | null
+  /** Update only the held report's disclosure when an accepted read dedupes its Run. */
+  readonly setCurrentReadInputBasis?: (basis: unknown, reportHash: string) => void
   /**
    * B5 parity with the turn leg (`applyV5State.ts`): the per-limit verdicts CEE serves beside this analysis
    * (`analysis_limit_verdicts`). Optional so a store that does not render them is unaffected.
@@ -369,6 +371,8 @@ export type ScenarioAnalysisApplyOutcome =
 export interface ApplyScenarioAnalysisReadInput {
   readonly analysisState: AnalysisStateV1 | null
   readonly analysisResult: unknown
+  /** Supplied only under the caller's accepted-current-read proof; null means unavailable. */
+  readonly currentReadInputBasis?: unknown
   /** The read's `analysis_goal_certainty`, raw (CEE #2280); parsed by the SAME reader the turn leg uses. */
   readonly goalCertainty?: unknown
   /** The read's `analysis_option_participation`, raw (Runtime 5888341208); parsed by the SAME reader the turn leg uses. */
@@ -502,12 +506,16 @@ export function applyScenarioAnalysisRead(
       goalCertainty: readGoalCertainty(input.goalCertainty),
       optionParticipation: readOptionParticipation(input.optionParticipation),
     })
+    if (input.currentReadInputBasis !== undefined) report.current_read_input_basis = input.currentReadInputBasis
     const hash = report.model_card.response_hash
     // The SAME hash dedupe the turn applier uses: a re-read of an analysis we
     // already display must not re-write the slice (it would restart animations
     // and re-seed the Compare capture). `alreadyHeld` still SETTLES the caller —
     // the answer arrived, we simply had it.
     if (hash === (input.store.currentResultsHash ?? null)) {
+      if (input.currentReadInputBasis !== undefined) {
+        input.store.setCurrentReadInputBasis?.(input.currentReadInputBasis, hash)
+      }
       // ⚠ THE DEDUPE MUST NOT SWALLOW THE REFUSAL. The report is the same one;
       // the PERMISSION over it is what has changed. Returning here without
       // applying the withholding would let a second poll silently re-permit a

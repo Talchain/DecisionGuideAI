@@ -52,6 +52,7 @@ import { AlertTriangle, Star, TrendingUp, GitBranch } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { openModelValueEditor } from '../../../canvas/nodes/shared/openModelValueEditor'
+import { resolveNodeTypeLiteral } from '../../../canvas/domain/nodes'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { attentionNoteForRecommendation } from '../strengthen/recommendationAttention'
@@ -1720,6 +1721,24 @@ export function AnalysisNewTabBody({
   )
 
   /**
+   * ⭐ "INSPECT IN MODEL" OPENS THE GROUP ITS SUBJECT LIVES IN. The Challenge
+   * zone's tipping point, driver and gap rows name a FACTOR, and binding them
+   * straight to `onReviewTarget` sent the factor to RELATIONSHIPS — the dock's
+   * route for edges — with the Factors group shut. So the reader asked to look at
+   * the factor a tipping point names landed in the wrong group (#85 5963788754).
+   *
+   * A factor (the estate's predicate, as the value-of-information resolver reads
+   * it) goes to `openModelValueEditor`, the factors route's single owner; anything
+   * else keeps the dock's route. Gated on `onReviewTarget` exactly as before, so a
+   * host that offers no Model route still renders no act.
+   */
+  const inspectInModel = (targetId: string) => {
+    const node = useCanvasStore.getState().nodes.find((n) => n.id === targetId)
+    if (node && resolveNodeTypeLiteral(node) === 'factor') openModelValueEditor(targetId)
+    else onReviewTarget?.(targetId)
+  }
+
+  /**
    * ⭐⭐ WORK THROUGH THIS FINDING WITH OLUMI — the act Paul said the Reasoning
    * tab had lost, and the census agrees with him.
    *
@@ -2237,7 +2256,7 @@ export function AnalysisNewTabBody({
           noValueIds={noValueDriverIds}
           flipThresholds={vm.leaderClaimPermitted ? resultsSectionData.recommendation.flipThresholds : undefined}
           onFocus={focusTarget}
-          onInspect={onReviewTarget}
+          onInspect={onReviewTarget ? inspectInModel : undefined}
           onAsk={openAskOlumi}
           closedAtRest={true}
           evidenceSlot={
