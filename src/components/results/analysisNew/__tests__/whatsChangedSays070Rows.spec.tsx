@@ -157,3 +157,43 @@ describe('W6 · every strength band literal reads as words (52f8cd 5937970750)',
     })
   }
 })
+
+
+describe('saved versions · link wording has neutral historical authorship', () => {
+  it('Accept is neutral in versions while the default rerun sentence is unchanged', () => {
+    const delta = withChanges([maximalRunDeltaInputChangeSizing])
+    const rerun = buildRunDeltaView(delta, () => null, nodeLabel)
+    expect(inputRowText(rerun.inputs!.rows[0])).toBe("You accepted Olumi's estimate for how much Sales team size changes New revenue.")
+    render(<WhatsChanged view={buildRunDeltaView(delta, () => null, nodeLabel, 'versions')} />)
+    const section = screen.getByTestId(WHATS_CHANGED_TESTID)
+    expect(section).toHaveTextContent("Olumi's estimate for how much Sales team size changes New revenue was accepted.")
+    expect(section).not.toHaveTextContent('You accepted')
+  })
+
+  it('a saved user sizing and strength change does not claim the viewer authored it', () => {
+    const delta = withChanges([
+      { ...link('fixture_factor_2', 'fixture_factor_3'), field: 'sizing', before: { raw: 'placeholder' }, after: { raw: 'user' }, change: 'changed' },
+      { ...link('fixture_factor_2', 'fixture_factor_3'), field: 'strength', before: { raw: 'moderate' }, after: { raw: 'strong' }, change: 'changed' },
+      { ...link('fixture_factor_1', 'fixture_factor_3'), field: 'strength', before: { raw: 'slight' }, after: { raw: 'moderate' }, change: 'changed' },
+    ])
+    render(<WhatsChanged view={buildRunDeltaView(delta, () => null, nodeLabel, 'versions')} />)
+    const rows = screen.getAllByTestId(`${WHATS_CHANGED_TESTID}-input-row`)
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toHaveTextContent('A user estimate was recorded for how much Sales team size changes New revenue: moderate → strong.')
+    expect(rows[1]).toHaveTextContent('The estimate for how much Monthly churn changes New revenue changed: slight → moderate.')
+    expect(rows.map((row) => row.textContent).join(' ')).not.toMatch(/\byou(?:r)?\b/i)
+  })
+
+  it.each([
+    ['placeholder', 'user', 'A user estimate was recorded for how much Sales team size changes New revenue.'],
+    ['user', 'placeholder', 'How much Sales team size changes New revenue: a user estimate → not yet sized'],
+  ])('neutral sizing without a strength row: %s → %s', (before, after, expected) => {
+    const delta = withChanges([
+      { ...link('fixture_factor_2', 'fixture_factor_3'), field: 'sizing', before: { raw: before }, after: { raw: after }, change: 'changed' },
+    ])
+    render(<WhatsChanged view={buildRunDeltaView(delta, () => null, nodeLabel, 'versions')} />)
+    const row = screen.getByTestId(`${WHATS_CHANGED_TESTID}-input-row`)
+    expect(row).toHaveTextContent(expected)
+    expect(row).not.toHaveTextContent(/\byou(?:r)?\b/i)
+  })
+})

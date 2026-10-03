@@ -135,7 +135,11 @@ function MovementLine({ m, sharedQualifier, frame }: { m: RunDeltaMovement; shar
 /** Exported for the canvas's compact summary, so both surfaces say one thing. */
 /** How a sizing literal reads, for a sizing change RC's contract has no sentence for (any other transition). */
 export function inputRowText(row: RunDeltaInputRow): string {
-  const link = linkRowText(row)
+  return inputRowTextForFrame(row, 'rerun')
+}
+
+function inputRowTextForFrame(row: RunDeltaInputRow, frame: RunDeltaFrame): string {
+  const link = linkRowText(row, frame)
   if (link !== null) return link
   if (row.change === 'changed') return `${row.subject}: ${row.before} → ${row.after}`
   if (row.kind === 'option') return row.change === 'added' ? `${row.subject} joined the comparison` : `${row.subject} left the comparison`
@@ -211,17 +215,17 @@ function InputChanges({ inputs, rowFocus, rowLight, frame }: { inputs: RunDeltaI
                   type="button"
                   className={`${action('inline')} text-left`}
                   data-testid={`${WHATS_CHANGED_TESTID}-input-row-focus`}
-                  aria-label={`Show on the canvas: ${inputRowText(row)}`}
+                  aria-label={`Show on the canvas: ${inputRowTextForFrame(row, frame ?? 'rerun')}`}
                   onClick={focus}
                   onMouseEnter={light?.on}
                   onMouseLeave={light?.off}
                   onFocus={light?.on}
                   onBlur={light?.off}
                 >
-                  {inputRowText(row)}
+                  {inputRowTextForFrame(row, frame ?? 'rerun')}
                 </button>
               ) : (
-                inputRowText(row)
+                inputRowTextForFrame(row, frame ?? 'rerun')
               )}
               {/* A removed input already says it left; a changed one with nothing drawn says why a click does nothing. */}
               {focus === null && row.change !== 'removed' ? (
@@ -257,12 +261,16 @@ export function WhatsChanged({ view, rowFocus, rowLight }: { view: RunDeltaView 
   // per-option share change singles an option out in numbers, so the lines give way to the reason line, once, and
   // the leader-change line names no option. Comparability and the attribution limit stay. Read through
   // `winShareGate`; hooks sit above the early return. A PERMITTED run renders exactly as before.
-  const winSharesAreWithheld = useCanvasStore(selectWinSharesWithheld)
-  const winShareReasonLine = useCanvasStore(selectWinShareWithheldReason)
+  const currentWinSharesAreWithheld = useCanvasStore(selectWinSharesWithheld)
+  const currentWinShareReasonLine = useCanvasStore(selectWinShareWithheldReason)
   // ⛔ ABSENCE RENDERS NOTHING — never an "everything is fine" arm. The producer
   // withholds the block for several reasons that all reach the client as one
   // silence, so there is no honest sentence to print here.
   if (!view) return null
+  // Saved pairs are already qualified against BOTH bound Runs by the producer;
+  // its delta omits unlicensed figures/IDs. Today's Run cannot override that pair.
+  const winSharesAreWithheld = view.frame === 'versions' ? false : currentWinSharesAreWithheld
+  const winShareReasonLine = view.frame === 'versions' ? null : currentWinShareReasonLine
   const leaderMayName = view.leader.mayName && !winSharesAreWithheld
   // Two or more rows with one producer verdict: its qualifier is said once.
   const verdicts = new Set(view.movements.map((m) => m.noiseVerdict))

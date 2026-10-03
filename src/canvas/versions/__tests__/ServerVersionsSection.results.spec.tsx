@@ -23,7 +23,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import {
   maximalModelVersionDiffV1 as V1,
   maximalModelVersionDiffV2 as PAIRED,
@@ -51,7 +51,9 @@ import {
   INPUTS_NOT_RECORDED_TEXT_VERSIONS,
   WHATS_CHANGED_FIRST_COMPARISON,
   WHATS_CHANGED_FROM_VERSION_WITHHELD,
+  WHATS_CHANGED_TESTID,
 } from '../../../components/results/analysisNew/sections/WhatsChanged'
+import { EXPLORATORY_REASON_LINE } from '../../state/winShareGate'
 import { useCanvasStore } from '../../store'
 
 const SCENARIO = V1.scenario_id
@@ -99,7 +101,7 @@ async function compare(replies: Reply[]) {
 beforeEach(() => {
   fetchMock.mockClear()
   vi.stubGlobal('fetch', fetchMock)
-  useCanvasStore.setState({ currentScenarioId: SCENARIO, nodes: [] } as never)
+  useCanvasStore.setState({ currentScenarioId: SCENARIO, nodes: [], results: null } as never)
 })
 afterEach(() => {
   cleanup()
@@ -244,5 +246,85 @@ describe('VR7 · the reader\'s versions frame', () => {
     expect(noPairsText({ winProbabilitiesUnavailable: 'prior_withheld', frame: 'versions' })).toBe(WHATS_CHANGED_FROM_VERSION_WITHHELD)
     expect(noPairsText({ winProbabilitiesUnavailable: 'prior_withheld' })).toBe(WHATS_CHANGED_FIRST_COMPARISON)
     expect(WHATS_CHANGED_FROM_VERSION_WITHHELD).not.toMatch(RERUN_SHAPED)
+  })
+})
+
+// Transferred repair lease PTL5966436528: production section + strict wire parse,
+// with an unrelated current Run as a negative control. No new client licence.
+describe('VR9 · saved-pair authority survives unrelated current-canvas permission', () => {
+  it('renders the exact producer-qualified pair even when the current Run is withheld', async () => {
+    useCanvasStore.setState({ results: { status: 'complete', report: {
+      producer_leader_permission: { permitted: false, producer_cause: 'constraint_verdict_withheld' },
+    } } } as never)
+    const wire = ModelVersionDiffV2Schema.parse(PAIRED)
+    if (wire.result_comparison.status !== 'available' || wire.result_comparison.kind !== 'paired_runs') throw new Error('fixture')
+    const delta = wire.result_comparison.run_delta
+    await compare([{ status: 200, body: wire }])
+    const block = await screen.findByTestId(R)
+    const rows = within(block).queryAllByTestId(`${WHATS_CHANGED_TESTID}-movement`)
+    expect(rows).toHaveLength(delta.win_probabilities.length)
+    for (const movement of delta.win_probabilities) {
+      const row = rows.find((el) => el.getAttribute('data-option-id') === movement.option_id)
+      expect(row).toHaveAttribute('data-prior', String(movement.prior))
+      expect(row).toHaveAttribute('data-current', String(movement.current))
+    }
+    expect(within(block).queryByTestId(`${WHATS_CHANGED_TESTID}-win-shares-withheld`)).toBeNull()
+    expect(block).not.toHaveTextContent(EXPLORATORY_REASON_LINE)
+  })
+
+  it.each(['prior', 'current'] as const)('%s bound Run withheld: a permitted live Run cannot supply missing figures or leader IDs', async (side) => {
+    const base = ModelVersionDiffV2Schema.parse(PAIRED)
+    if (base.result_comparison.status !== 'available' || base.result_comparison.kind !== 'paired_runs') throw new Error('fixture')
+    // This is the producer-qualified projection, not a client-computed licence:
+    // when either bound Run cannot license the pair, the figures/IDs are absent.
+    const wire = ModelVersionDiffV2Schema.parse({ ...base, result_comparison: {
+      ...base.result_comparison, run_delta: {
+        ...base.result_comparison.run_delta,
+        win_probabilities: [],
+        win_probabilities_unavailable: side === 'prior' ? 'prior_withheld' : undefined,
+        leader: { changed: true, noise_verdict: 'signal' },
+      },
+    } })
+    useCanvasStore.setState({ results: { status: 'complete', report: {
+      producer_leader_permission: { permitted: true },
+    } } } as never)
+    await compare([{ status: 200, body: wire }])
+    const block = await screen.findByTestId(R)
+    expect(within(block).queryAllByTestId(`${WHATS_CHANGED_TESTID}-movement`)).toHaveLength(0)
+    expect(within(block).getByTestId(`${WHATS_CHANGED_TESTID}-highest-scoring`)).toHaveAttribute('data-may-name', 'false')
+    expect(within(block).getByTestId(`${WHATS_CHANGED_TESTID}-no-pairs`)).toHaveTextContent(
+      side === 'prior' ? WHATS_CHANGED_FROM_VERSION_WITHHELD : 'No option has figures from both runs to compare.',
+    )
+  })
+})
+
+describe('VR10 · historical labels never borrow the live canvas', () => {
+  it('keeps saved row labels and neutral result fallbacks after live nodes are renamed', async () => {
+    const ids = ['fixture_option_a', 'fixture_option_b', 'fixture_option_c', 'fixture_factor_1', 'fixture_factor_2', 'fixture_factor_3']
+    const nodes = (prefix: string) => ids.map((id) => ({ id, position: { x: 0, y: 0 }, data: { label: `${prefix} ${id}` } }))
+    useCanvasStore.setState({ nodes: nodes('LIVE ONLY') } as never)
+    await compare([{ status: 200, body: PAIRED }])
+    const block = await screen.findByTestId(R)
+    expect(block).toHaveTextContent('Pro price') // producer's saved input row
+    expect(block).not.toHaveTextContent('LIVE ONLY')
+    expect(within(block).getAllByTestId(`${WHATS_CHANGED_TESTID}-movement`)[0])
+      .toHaveTextContent('An option this result does not name')
+    const before = block.textContent
+    act(() => useCanvasStore.setState({ nodes: nodes('RENAMED LIVE') } as never))
+    expect(block.textContent).toBe(before)
+    expect(block).not.toHaveTextContent('RENAMED LIVE')
+  })
+})
+
+describe('VR11 · historical acceptance has no confirmed viewer authorship', () => {
+  it('says a saved acceptance neutrally through the real versions frame', async () => {
+    await compare([{ status: 200, body: PAIRED }])
+    const block = await screen.findByTestId(R)
+    fireEvent.click(within(block).getByTestId(`${WHATS_CHANGED_TESTID}-inputs-toggle`))
+    const acceptance = within(block).getAllByTestId(`${WHATS_CHANGED_TESTID}-input-row`)
+      .find((el) => el.textContent?.includes('accepted'))
+    expect(acceptance).toBeDefined()
+    expect(acceptance).toHaveTextContent("Olumi's estimate for how much one factor changes another was accepted.")
+    expect(acceptance).not.toHaveTextContent('You accepted')
   })
 })

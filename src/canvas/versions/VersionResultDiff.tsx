@@ -18,10 +18,8 @@
 import { useMemo } from 'react'
 import type { ModelVersionResults, ServerModelVersion } from '../../adapters/cee/modelVersions'
 import { buildRunDeltaView } from '../../components/results/analysisNew/runDeltaView'
-import { nodeLabelMap } from '../../components/results/analysisNew/displayedRunDeltaView'
 import { WhatsChanged } from '../../components/results/analysisNew/sections/WhatsChanged'
 import { typography } from '../../styles/typography'
-import { useCanvasStore } from '../store'
 import { formatTimestamp, versionCaption } from './ServerVersionDiff'
 
 export const VERSION_RESULT_DIFF_TESTID = 'version-result-diff'
@@ -44,13 +42,12 @@ export interface VersionResultDiffProps {
 }
 
 export function VersionResultDiff({ results, fromVersion, toVersion }: VersionResultDiffProps) {
-  const nodes = useCanvasStore((s) => s.nodes)
-  const labels = useMemo(() => nodeLabelMap(nodes), [nodes])
   const view = useMemo(() => {
     if (results?.status !== 'available' || results.kind !== 'paired_runs') return null
-    const label = (id: string) => labels.get(id) ?? null
-    return buildRunDeltaView(results.run_delta, label, label, 'versions')
-  }, [results, labels])
+    // Saved input rows carry their own labels. The contract has no saved option/link-end
+    // label map, so use the reader's neutral fallback rather than today's canvas names.
+    return buildRunDeltaView(results.run_delta, () => null, () => null, 'versions')
+  }, [results])
 
   if (results === null) return null
 
