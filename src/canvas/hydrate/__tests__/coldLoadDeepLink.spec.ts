@@ -24,6 +24,8 @@ import {
   claimColdLoadDeepLink,
   coldLoadClaimedRoute,
   settleKeyedAutosaveCopy,
+  refreshExistingCopy,
+  coldLoadBlocksBootRestore,
   __resetColdLoadDeepLinkForTests,
 } from '../coldLoadDeepLink'
 import { resolveBootLoadSource, bindRestoredScenarioId } from '../../ReactFlowGraph'
@@ -69,7 +71,7 @@ function newPage(): void {
 /** `ReactFlowGraph`'s PROD boot, autosave branch, in its own order (§6 pins that order in the source). */
 function bootRestore(): string | null | 'not_autosave' {
   const currentId = scenarios.getCurrentScenarioId()
-  const autosave = scenarios.loadAutosave()
+  const autosave = coldLoadBlocksBootRestore() ? null : scenarios.loadAutosave()
   const scenario = currentId ? scenarios.getScenario(currentId) : null
   const loadSource = resolveBootLoadSource(currentId, autosave, scenario)
   if (loadSource !== 'autosave' || !autosave) return 'not_autosave'
@@ -623,6 +625,189 @@ describe('§9 SIGN-OUT (Codex round 1): the preserved copies are as private as t
   })
 })
 
+describe('§10 TRANSACTIONS (Codex round 2): a read-back that fails once, a rollback that fails, an emergency that fails', () => {
+  /** getItem(key) throws exactly once, the first time it is read after `armed()` turns true. */
+  function throwOnceOnRead(key: string, armed: () => boolean): void {
+    const real = Storage.prototype.getItem
+    let thrown = false
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, k: string) {
+      if (!thrown && k === key && armed()) {
+        thrown = true
+        throw new DOMException('denied', 'SecurityError')
+      }
+      return real.call(this, k)
+    })
+  }
+  function watchWrites(): { removed: Set<string>; set: Set<string> } {
+    const removed = new Set<string>()
+    const set = new Set<string>()
+    const realRemove = Storage.prototype.removeItem
+    const realSet = Storage.prototype.setItem
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (this: Storage, k: string) {
+      removed.add(k)
+      return realRemove.call(this, k)
+    })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+      set.add(k)
+      return realSet.call(this, k, v)
+    })
+    return { removed, set }
+  }
+
+  it('⭐ the main slot\'s removal took but its read-back failed: Z\'s graph is put BACK before its copy is undone (never lost)', () => {
+    const zRaw = rememberScenario(Z)
+    const w = watchWrites()
+    throwOnceOnRead(MAIN_AUTOSAVE_SLOT, () => w.removed.has(MAIN_AUTOSAVE_SLOT))
+    expect(claimColdLoadDeepLink(Y)).toBe('declined')
+    vi.restoreAllMocks()
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBe(zRaw)
+    expect(localStorage.getItem(POINTER)).toBe(Z)
+    expect(keyedKeys()).toEqual([])
+    expect(coldLoadBlocksBootRestore()).toBe(false)
+  })
+
+  it('⭐ a promotion that took but read back badly: never Z\'s graph under pointer Y, and Y\'s copy is not removed', () => {
+    const zRaw = rememberScenario(Z)
+    claimColdLoadDeepLink(Y)
+    useCanvasStore.setState({ nodes: GRAPH[Y], edges: [] })
+    const yRaw = autosaveFromStore()
+    newPage()
+    const w = watchWrites()
+    throwOnceOnRead(MAIN_AUTOSAVE_SLOT, () => w.set.has(MAIN_AUTOSAVE_SLOT))
+    expect(claimColdLoadDeepLink(Z)).toBe('declined')
+    vi.restoreAllMocks()
+    expect(localStorage.getItem(POINTER)).toBe(Y)
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBe(yRaw)
+    expect(localStorage.getItem(keyedAutosaveSlot(Z))).toBe(zRaw)
+    expect(localStorage.getItem(keyedAutosaveSlot(Y))).toBeNull()
+  })
+
+  it('⭐ the pointer took but read back badly and cannot be put back: storage converges on the route (main emptied, Z kept in its copy)', () => {
+    const zRaw = rememberScenario(Z)
+    const w = watchWrites()
+    vi.restoreAllMocks()
+    const real = Storage.prototype.setItem
+    let pointerWrites = 0
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === POINTER && ++pointerWrites > 1) throw new DOMException('quota', 'QuotaExceededError')
+      w.set.add(k)
+      return real.call(this, k, v)
+    })
+    throwOnceOnRead(POINTER, () => pointerWrites === 1)
+    expect(claimColdLoadDeepLink(Y)).toBe('applied')
+    vi.restoreAllMocks()
+    expect(localStorage.getItem(POINTER)).toBe(Y)
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBeNull()
+    expect(localStorage.getItem(keyedAutosaveSlot(Z))).toBe(zRaw)
+    expect(useCanvasStore.getState().currentScenarioId).toBe(Y)
+  })
+
+  it('⭐ nothing can be put back AND the main slot cannot be emptied: declined, and this page restores NO autosave at boot', () => {
+    const zRaw = rememberScenario(Z)
+    claimColdLoadDeepLink(Y)
+    useCanvasStore.setState({ nodes: GRAPH[Y], edges: [] })
+    autosaveFromStore()
+    newPage()
+    const realSet = Storage.prototype.setItem
+    const realRemove = Storage.prototype.removeItem
+    let pointerWrites = 0
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === MAIN_AUTOSAVE_SLOT) throw new DOMException('quota', 'QuotaExceededError')
+      if (k === POINTER && ++pointerWrites > 1) throw new DOMException('quota', 'QuotaExceededError')
+      return realSet.call(this, k, v)
+    })
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (this: Storage, k: string) {
+      if (k === MAIN_AUTOSAVE_SLOT) throw new DOMException('denied', 'SecurityError')
+      return realRemove.call(this, k)
+    })
+    expect(claimColdLoadDeepLink(Z)).toBe('declined')
+    vi.restoreAllMocks()
+    expect(coldLoadBlocksBootRestore()).toBe(true)
+    expect(bootRestore()).toBe('not_autosave') // the mismatched slot is never bound to anything
+    expect(onCanvas()).toEqual([])
+    expect(localStorage.getItem(keyedAutosaveSlot(Z))).toBe(zRaw)
+  })
+})
+
+describe('§11 FRESHNESS (Codex round 2): a copy is never older than its scenario\'s own newer work', () => {
+  const slot = (id: string, timestamp: number, label: string) =>
+    JSON.stringify({ timestamp, scenarioId: id, nodes: [goal(`${label}_n`, label)], edges: [] })
+
+  it('⭐ a NEWER preserved copy is never overwritten by an older main slot', () => {
+    localStorage.setItem(POINTER, Z)
+    localStorage.setItem(MAIN_AUTOSAVE_SLOT, slot(Z, 100, 'older'))
+    localStorage.setItem(keyedAutosaveSlot(Z), slot(Z, 200, 'newer'))
+    newPage()
+    expect(claimColdLoadDeepLink(Y)).toBe('applied')
+    expect(localStorage.getItem(keyedAutosaveSlot(Z))).toBe(slot(Z, 200, 'newer'))
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBeNull()
+  })
+
+  it('⭐ re-entering Z in the page and leaving it again refreshes Z\'s copy, so a later link promotes the newer work', () => {
+    rememberScenario(Z)
+    expect(claimColdLoadDeepLink(Y)).toBe('applied') // Z preserved; the page now watches copies
+    // In-page: back into Z (an in-app load), moved on, autosaved; then off to W.
+    useCanvasStore.setState({ currentScenarioId: Z, nodes: [goal('z_goal', 'Z: grow revenue (moved)')], edges: [] })
+    const zNewer = autosaveFromStore()
+    useCanvasStore.setState({ currentScenarioId: W, nodes: [], edges: [] })
+    expect(localStorage.getItem(keyedAutosaveSlot(Z))).toBe(zNewer)
+    // The main slot moves on to W; later, a cold link to Z promotes the newer copy.
+    useCanvasStore.setState({ nodes: GRAPH[Z], edges: [] })
+    autosaveFromStore()
+    newPage()
+    expect(claimColdLoadDeepLink(Z)).toBe('applied')
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBe(zNewer)
+  })
+
+  it('CONTROL: leaving a scenario that has no copy creates none, and an older main slot never refreshes a copy', () => {
+    rememberScenario(Z)
+    claimColdLoadDeepLink(Y)
+    useCanvasStore.setState({ currentScenarioId: W, nodes: [], edges: [] }) // leave Y: Y has no copy
+    expect(localStorage.getItem(keyedAutosaveSlot(Y))).toBeNull()
+    localStorage.setItem(keyedAutosaveSlot(Z), slot(Z, 500, 'copy'))
+    localStorage.setItem(MAIN_AUTOSAVE_SLOT, slot(Z, 400, 'older'))
+    expect(refreshExistingCopy(Z)).toBe(false)
+    expect(localStorage.getItem(keyedAutosaveSlot(Z))).toBe(slot(Z, 500, 'copy'))
+  })
+})
+
+describe('§12 RECOVERY ENTRY (Codex round 2): a waiting copy is found without a remembered scenario, and without a route', () => {
+  it('⭐ after "Start fresh" (nothing remembered), a link to Z promotes Z\'s waiting copy', () => {
+    const zRaw = rememberScenario(Z)
+    claimColdLoadDeepLink(Y)
+    localStorage.removeItem(POINTER) // Start fresh: pointer and main slot cleared
+    localStorage.removeItem(MAIN_AUTOSAVE_SLOT)
+    newPage()
+    expect(planColdLoadDeepLink(Z)).toEqual({ kind: 'promote', route: Z })
+    expect(claimColdLoadDeepLink(Z)).toBe('applied')
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBe(zRaw)
+    expect(localStorage.getItem(POINTER)).toBe(Z)
+    expect(bootRestore()).toBe(Z)
+    expect(onCanvas()).toEqual(['z_factor', 'z_goal'])
+  })
+
+  it('⭐ a routeless load (`/canvas`) of the remembered Z with an empty main slot promotes Z\'s waiting copy', () => {
+    const zRaw = rememberScenario(Z)
+    claimColdLoadDeepLink(Y)
+    localStorage.setItem(POINTER, Z)
+    localStorage.removeItem(MAIN_AUTOSAVE_SLOT)
+    newPage()
+    expect(claimColdLoadDeepLink(undefined)).toBe('applied')
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBe(zRaw)
+    expect(bootRestore()).toBe(Z)
+  })
+
+  it('CONTROL: a routeless load with nothing waiting writes nothing; an unaddressable route never targets the remembered one', () => {
+    const zRaw = rememberScenario(Z)
+    const before = storageSnapshot()
+    expect(planColdLoadDeepLink(undefined)).toBeNull()
+    expect(planColdLoadDeepLink('local-draft-1')).toBeNull()
+    expect(claimColdLoadDeepLink(undefined)).toBe('declined')
+    expect(storageSnapshot()).toEqual(before)
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBe(zRaw)
+  })
+})
+
 describe('§6 the steps the drive cannot execute (SOURCE scans, and only these)', () => {
   const src = (p: string) => readFileSync(join(process.cwd(), 'src', p), 'utf8')
 
@@ -632,7 +817,7 @@ describe('§6 the steps the drive cannot execute (SOURCE scans, and only these)'
     expect(anchor).toBeGreaterThan(-1)
     const decide = rfg.lastIndexOf('const loadSource = resolveBootLoadSource(currentId, autosave, scenario)', anchor)
     expect(decide).toBeGreaterThan(rfg.lastIndexOf('const currentId = scenarios.getCurrentScenarioId()', anchor))
-    expect(rfg.lastIndexOf('const autosave = scenarios.loadAutosave()', anchor)).toBeGreaterThan(-1)
+    expect(rfg.lastIndexOf('const autosave = coldLoadBlocksBootRestore() ? null : scenarios.loadAutosave()', anchor)).toBeGreaterThan(-1)
     const hydrate = rfg.indexOf('useCanvasStore.getState().hydrateGraphSlice({', anchor)
     const bind = rfg.indexOf('const restoredBoundId = bindRestoredScenarioId(currentId, autosave)', anchor)
     const settle = rfg.indexOf('settleKeyedAutosaveCopy(restoredBoundId)', anchor)

@@ -111,15 +111,18 @@ export function rememberedScenarioId(): string | null {
 }
 
 /**
- * What the first canvas mount of this page should do for `route`, decided by READS ONLY:
- *   'supersede' — another scenario is remembered (the three writes above);
- *   'promote'   — the route IS remembered, its main slot is empty, and its own preserved copy is waiting (a promotion
- *                 that could not complete earlier is retried, so a copy is never stranded);
- *   null        — nothing to do (also for every later mount, and for an ambiguous main slot).
+ * What the first canvas mount of this page should do, decided by READS ONLY. The target is the route, or, on a routeless
+ * mount (`/canvas`), the remembered scenario:
+ *   'supersede' — a route names a scenario other than the remembered one (the three writes above);
+ *   'promote'   — the target's main slot is empty and its own preserved copy is waiting: after "Start fresh" (nothing
+ *                 remembered), after a promotion that could not complete, or on a routeless return. A copy is never
+ *                 stranded;
+ *   null        — nothing to do (also for every later mount, an unaddressable route, and an ambiguous main slot).
  */
 export type ColdLoadPlan = { readonly kind: 'supersede' | 'promote'; readonly route: string }
 export function planColdLoadDeepLink(route: string | null | undefined): ColdLoadPlan | null {
-  if (settled || !isCeeAddressableScenarioId(route)) return null
+  if (settled) return null
+  if (route != null && !isCeeAddressableScenarioId(route)) return null
   const st = useCanvasStore.getState()
   if (st.nodes.length > 0 || st.edges.length > 0) return null
   const main = read(MAIN_AUTOSAVE_SLOT)
@@ -128,55 +131,89 @@ export function planColdLoadDeepLink(route: string | null | undefined): ColdLoad
   // A main slot that states no readable owner is ambiguous: never move it under a guess.
   if (main !== null && stampOf(main) === null) return null
   const remembered = resolveRestoredScenarioId(pointer, stampOf(main))
-  if (remembered === null) return null
-  if (remembered !== route) return { kind: 'supersede', route }
-  const own = read(keyedAutosaveSlot(route))
-  return main === null && stampOf(own) === route ? { kind: 'promote', route } : null
+  const target = route ?? remembered
+  if (target === null) return null
+  if (remembered !== null && remembered !== target) return { kind: 'supersede', route: target }
+  return main === null && stampOf(read(keyedAutosaveSlot(target))) === target ? { kind: 'promote', route: target } : null
+}
+
+/** Set when this page could not verify which scenario the main slot belongs to: the boot then restores no autosave. */
+let bootRestoreBlocked = false
+/** Read by `ReactFlowGraph`'s boot: true only after a claim this page could neither complete nor verifiably undo. */
+export function coldLoadBlocksBootRestore(): boolean {
+  return bootRestoreBlocked
 }
 
 /** Apply `plan` (re-validated by the caller). 'applied' when the pointer and the store now name the route. */
 function applyColdLoadPlan(plan: ColdLoadPlan): 'applied' | 'declined' {
   const { route } = plan
   const originalPointer = read(POINTER_KEY)
-  const main = read(MAIN_AUTOSAVE_SLOT)
+  const originalMain = read(MAIN_AUTOSAVE_SLOT)
   const own = read(keyedAutosaveSlot(route))
-  if (originalPointer === undefined || main === undefined || own === undefined) return 'declined'
+  if (originalPointer === undefined || originalMain === undefined || own === undefined) return 'declined'
   const promotable = stampOf(own) === route ? own : null
 
-  // 1. PRESERVE the main slot under its own stamp, unless it is already the route's.
-  const owner = main === null ? null : stampOf(main)
+  // 1. PRESERVE the main slot under its own stamp, unless it is already the route's, and never over a NEWER copy of
+  //    the same scenario (that copy is kept; the older slot is the duplicate).
+  const owner = originalMain === null ? null : stampOf(originalMain)
   const mainIsTheRoutes = owner === route
-  let undoPreserve = (): boolean => true
-  if (main !== null && owner !== null && !mainIsTheRoutes) {
-    const ownerKey = keyedAutosaveSlot(owner)
-    const previousCopy = read(ownerKey)
-    if (previousCopy === undefined || !write(ownerKey, main)) return 'declined'
-    // Never deletes evidence it cannot replace: a failed restore of the earlier copy leaves the (newer) duplicate.
-    undoPreserve = () => write(ownerKey, previousCopy)
+  const ownerKey = originalMain !== null && owner !== null && !mainIsTheRoutes ? keyedAutosaveSlot(owner) : null
+  let previousCopy: string | null = null
+  if (ownerKey !== null) {
+    const prev = read(ownerKey)
+    if (prev === undefined) return 'declined'
+    previousCopy = prev
+    const keepsNewerCopy = stampOf(prev) === owner && (timestampOf(prev) ?? -Infinity) > (timestampOf(originalMain) ?? Infinity)
+    if (!keepsNewerCopy && (!write(ownerKey, originalMain) || read(ownerKey) !== originalMain)) {
+      if (previousCopy !== null && read(ownerKey) !== previousCopy) write(ownerKey, previousCopy) // never a removal
+      return 'declined'
+    }
   }
-  const undoPointer = (): boolean =>
-    read(POINTER_KEY) === originalPointer || (write(POINTER_KEY, originalPointer) && read(POINTER_KEY) === originalPointer)
-  // 2. THE POINTER. Undone first on a failure: only once it is back does a rolled-back preserve leave nothing to recover.
-  if (!write(POINTER_KEY, route) || read(POINTER_KEY) !== route) {
-    if (undoPointer()) undoPreserve()
+
+  const adopt = (): 'applied' => {
+    useCanvasStore.setState({ currentScenarioId: route })
+    return 'applied'
+  }
+  /** The main slot is the route's or empty: what the boot reads under a pointer that names the route. */
+  const mainFitsTheRoute = (): boolean => {
+    const m = read(MAIN_AUTOSAVE_SLOT)
+    return m === null || (typeof m === 'string' && stampOf(m) === route)
+  }
+
+  /**
+   * On any step that does not hold. First undo, verifying each step: the pointer, then the main slot back to its
+   * ORIGINAL bytes, and only then the preserve (by then a redundant duplicate). A copy is never removed while the bytes
+   * it holds might exist nowhere else. If storage cannot be put back, make it name ONE scenario. If the pointer names the
+   * route, the main slot must be the route's or empty (every graph it could hold is in its copy), and the route is
+   * adopted so that the store agrees. If even that cannot be verified, this page restores no autosave at boot.
+   */
+  const recover = (): 'applied' | 'declined' => {
+    const pointerBack =
+      read(POINTER_KEY) === originalPointer || (write(POINTER_KEY, originalPointer) && read(POINTER_KEY) === originalPointer)
+    const mainBack =
+      read(MAIN_AUTOSAVE_SLOT) === originalMain || (write(MAIN_AUTOSAVE_SLOT, originalMain) && read(MAIN_AUTOSAVE_SLOT) === originalMain)
+    if (pointerBack && mainBack) {
+      if (ownerKey !== null && read(ownerKey) !== previousCopy) write(ownerKey, previousCopy)
+      return 'declined'
+    }
+    if (read(POINTER_KEY) === route && (mainFitsTheRoute() || (write(MAIN_AUTOSAVE_SLOT, null) && read(MAIN_AUTOSAVE_SLOT) === null))) {
+      return adopt()
+    }
+    bootRestoreBlocked = true
     return 'declined'
   }
 
-  // 3. THE MAIN SLOT: the route's own copy, or (unless the slot is already the route's) nothing.
-  const next = mainIsTheRoutes ? main : promotable
-  if (next !== main && (!write(MAIN_AUTOSAVE_SLOT, next) || read(MAIN_AUTOSAVE_SLOT) !== next)) {
-    // A promotion that does not take declines the whole claim, and is retried on the next cold load ('promote').
-    if (undoPointer()) {
-      undoPreserve()
-      return 'declined'
-    }
-    // The pointer cannot be put back, so it names the route. The remembered graph must then not sit under it (it is
-    // safe in its preserved copy), and the route is adopted so that the store and the pointer agree.
-    write(MAIN_AUTOSAVE_SLOT, null)
-  }
+  // 2. THE POINTER.
+  if (!write(POINTER_KEY, route) || read(POINTER_KEY) !== route) return recover()
 
-  useCanvasStore.setState({ currentScenarioId: route })
-  return 'applied'
+  // 3. THE MAIN SLOT: the route's own copy, or (unless the slot is already the route's) nothing. A promotion that does
+  //    not take declines the whole claim, and is retried on the next cold load ('promote').
+  const next = mainIsTheRoutes ? originalMain : promotable
+  if (next !== originalMain && (!write(MAIN_AUTOSAVE_SLOT, next) || read(MAIN_AUTOSAVE_SLOT) !== next)) return recover()
+
+  // 4. VERIFY what the boot will read: the pointer names the route, and the main slot is the route's or empty.
+  if (read(POINTER_KEY) !== route || !mainFitsTheRoute()) return recover()
+  return adopt()
 }
 
 let settled = false
@@ -184,7 +221,8 @@ let claimedRoute: string | null = null
 
 /**
  * The page's first committed canvas mount, settled once: applies the plan for `route` when `apply` (the gate decided at
- * render that one is due), and only marks the page settled otherwise. 'not_first' for every later call.
+ * render that one is due), and only marks the page settled otherwise. 'not_first' for every later call. Either way it
+ * starts the copies' freshness watch for the page.
  */
 export function claimColdLoadDeepLink(
   route: string | null | undefined,
@@ -193,6 +231,7 @@ export function claimColdLoadDeepLink(
   if (settled) return 'not_first'
   const plan = apply ? planColdLoadDeepLink(route) : null
   settled = true
+  watchCopyFreshness()
   if (plan === null || applyColdLoadPlan(plan) !== 'applied') return 'declined'
   claimedRoute = plan.route
   return 'applied'
@@ -229,14 +268,42 @@ export function settleKeyedAutosaveCopy(boundId: string | null): boolean {
   const keyed = read(key)
   const main = read(MAIN_AUTOSAVE_SLOT)
   if (typeof keyed !== 'string' || typeof main !== 'string') return false
-  const sameBytes = keyed === main
-  const keyedAt = timestampOf(keyed)
+  return (keyed === main || isNewerOwnSlot(main, keyed, boundId)) && write(key, null)
+}
+
+function isNewerOwnSlot(main: string, copy: string, id: string): boolean {
+  const copyAt = timestampOf(copy)
   const mainAt = timestampOf(main)
-  const newerOwn = stampOf(main) === boundId && keyedAt !== null && mainAt !== null && mainAt >= keyedAt
-  return (sameBytes || newerOwn) && write(key, null)
+  return stampOf(main) === id && copyAt !== null && mainAt !== null && mainAt >= copyAt
+}
+
+/**
+ * ⭐ A COPY FOLLOWS ITS SCENARIO'S NEWER WORK. When the page leaves scenario X by any path (an in-app switch, a load),
+ * the main slot still holds X's latest local state (stamped X). An existing copy of X is refreshed from it if it is
+ * newer, so a later link to X never promotes older bytes. Only an EXISTING copy is refreshed: a departure that never
+ * went through a cold-load supersede creates nothing. Installed once per page by the first claim.
+ */
+let stopWatching: (() => void) | null = null
+function watchCopyFreshness(): void {
+  if (stopWatching !== null) return
+  stopWatching = useCanvasStore.subscribe((state, prev) => {
+    const left = prev.currentScenarioId
+    if (!left || left === state.currentScenarioId) return
+    refreshExistingCopy(left)
+  })
+}
+export function refreshExistingCopy(id: string): boolean {
+  const key = keyedAutosaveSlot(id)
+  const copy = read(key)
+  const main = read(MAIN_AUTOSAVE_SLOT)
+  if (typeof copy !== 'string' || typeof main !== 'string' || main === copy) return false
+  return isNewerOwnSlot(main, copy, id) && write(key, main)
 }
 
 export function __resetColdLoadDeepLinkForTests(): void {
   settled = false
   claimedRoute = null
+  bootRestoreBlocked = false
+  stopWatching?.()
+  stopWatching = null
 }

@@ -46,7 +46,7 @@ import { armRecoveryNotice, consumeRecoveryNotice } from './persist/recoveryNoti
 import * as scenarios from './store/scenarios'
 import type { Scenario } from './store/scenarios'
 import { isUUID } from '../services/turn-request-builder'
-import { resolveRestoredScenarioId, settleKeyedAutosaveCopy } from './hydrate/coldLoadDeepLink'
+import { coldLoadBlocksBootRestore, resolveRestoredScenarioId, settleKeyedAutosaveCopy } from './hydrate/coldLoadDeepLink'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
 import type { CEEAnalysisReady } from '../adapters/cee/types'
 import { CanvasContextMenu } from './contextMenu/CanvasContextMenu'
@@ -2066,7 +2066,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       // ENHANCED PERSISTENCE: Compare autosave vs scenario timestamps
       // Load whichever is newer to prevent losing unsaved work
       const currentId = scenarios.getCurrentScenarioId()
-      const autosave = scenarios.loadAutosave()
+      // A cold-load deep link that could neither complete nor verifiably undo its writes cannot say whose graph the
+      // autosave slot holds, so this page restores none (`hydrate/coldLoadDeepLink.ts`); the server read still runs.
+      const autosave = coldLoadBlocksBootRestore() ? null : scenarios.loadAutosave()
       const scenario = currentId ? scenarios.getScenario(currentId) : null
 
       // Determine which source to load. DRIVEN, not inlined — see
