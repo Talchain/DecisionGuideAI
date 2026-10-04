@@ -542,8 +542,9 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     'src/canvas/components/SectionErrorBoundary.tsx': 6,
     'src/canvas/components/ValidationPanel.tsx': 4,
     'src/canvas/components/WarningBanner.tsx': 1,
-    // WhatChangedChip.tsx removed on 2026-10-04: it measures 0 (its one raw site was repaired earlier and the
-    // pin was left behind, so this guard was red on staging f682154a). A `?? 0` now ratchets it at the repair.
+    // WhatChangedChip.tsx REMOVED on 2026-10-04, not zeroed, under this map's header rule: #2470 unmounted it from
+    // ResultsBody, so it LEFT THE DOCK CLOSURE still carrying its one raw site (`font-medium`). It is unfixed and
+    // unpinned here; if it re-enters the closure it arrives as `grew` against `?? 0` and reds on the way back in.
     'src/canvas/components/pre-analysis/PreAnalysisPanel.tsx': 4,
     'src/canvas/components/pre-analysis/SharpenYourThinking.tsx': 2,
     'src/canvas/conversation/InlineBlocks.tsx': 1,
@@ -694,7 +695,7 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // 30 Sep 2026 (SC-24 v3, Compare re-tabbed): 28 -> 24 files, as the old CompareTabBody tree (CompareFooter 2,
     // DotProgression 2, EmptyState 1, TrajectorySection 3) left the dock closure. Its body is now CompareRunPairBody,
     // which carries no raw typography. Lowered in the same PR as the map entries, as the pair requires.
-    // 4 Oct 2026: 24 -> 23, a real burn-down: WhatChangedChip.tsx measures 0 (repaired earlier; its pin was left behind).
+    // 4 Oct 2026: 24 -> 23. NOT a burn-down: WhatChangedChip.tsx left the dock closure (#2470 unmounted it).
     expect(files).toBe(23)
     // 19 Sep 2026: 98 -> 99, paired with the `typography.ts` 39 -> 40 above.
     // The pair is the whole mechanism: raising the map entry alone would turn
@@ -705,7 +706,7 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // 27 Sep 2026: 100 -> 101, paired with the `typography.ts` 41 -> 42 above (`chatMeta`).
     // 29 Sep 2026: 100 -> 101, paired with `typography.ts` 41 -> 42 (`nodeTitleWide`). `files` stays 28.
     // 30 Sep 2026: 101 -> 93, the same four files' 8 occurrences (see `files` above).
-    // 4 Oct 2026: 93 -> 92, WhatChangedChip.tsx's one occurrence (see `files` above).
+    // 4 Oct 2026: 93 -> 92, WhatChangedChip.tsx's one occurrence leaving with it (see `files` above).
     expect(total).toBe(92)
   })
 })
