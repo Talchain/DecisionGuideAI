@@ -50,9 +50,9 @@ import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
 import { BY_DEFINITION, isStrengthDefinitional } from '../domain/strengthDefinitional'
 
 /** What the reader is offered when the strength can be set here. */
-export const EDGE_AFFORDANCE_EDITABLE = 'Double-click to set its strength'
+export const EDGE_AFFORDANCE_EDITABLE = 'Click to set its strength'
 /** And when it cannot — accurate, and all the panel can honestly offer. */
-export const EDGE_AFFORDANCE_READ_ONLY = 'Double-click to inspect'
+export const EDGE_AFFORDANCE_READ_ONLY = 'Click to inspect'
 /**
  * And when the link holds BY DEFINITION (MG ruling, 1 Oct 2026): the hint says
  * what the strength is, then the honest gesture. Never the read-only reason a
@@ -82,7 +82,11 @@ export const EDGE_AFFORDANCE_DIRECT_ACTION = 'Set strength'
  */
 export const EDGE_AFFORDANCE_CHAT_ALTERNATIVE = 'Ask Olumi to adjust it'
 
-export function edgeDoubleClickAffordance(
+/**
+ * What ONE click on this link offers (S.1 for links, Paul 4 Oct 2026: a single click opens the link's inspector,
+ * replacing #2322's double-click-only route; formerly `edgeDoubleClickAffordance`, "Double-click to …").
+ */
+export function edgeClickAffordance(
   edge: Parameters<typeof edgeStrengthEditIsAssertable>[0],
 ): string {
   // The definition first: the gate below also says no for it, and its false

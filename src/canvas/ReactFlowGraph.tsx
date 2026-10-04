@@ -1,11 +1,10 @@
-import { LinkQuickEditorHost, openLinkQuickEditForClick, useLinkQuickEditStore } from './components/LinkQuickEditor'
 import { WhatElseChooserHost } from './components/WhatElseChooser'
 import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo } from 'react'
 import { resolveRestoredFreshnessUpdate } from './store/analysisFreshness'
 import { X } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, useReactFlow, useStoreApi, type NodeChange, type EdgeChange } from '@xyflow/react'
-import { retargetEdgeClick, resolveContextMenuEdge } from './edges/edgePointerTarget'
+import { edgeClickOpensInspector, retargetEdgeClick, resolveContextMenuEdge } from './edges/edgePointerTarget'
 import '@xyflow/react/dist/style.css'
 // Note: shallow from 'zustand/shallow' was removed - causes infinite loops with Zustand v5
 // Use individual selectors instead (see React #185 fix comment below)
@@ -1511,7 +1510,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [nodeCount, edgeCount, validateGraph])
 
   const handleNodeClick = useCallback((_: any, node: any) => {
-    useLinkQuickEditStore.getState().close()
     // Close Templates panel when interacting with canvas
     onCanvasInteraction?.()
 
@@ -1537,12 +1535,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     // selection (`edges/edgePointerTarget.ts` has the rule, the multi-select
     // toggle and the focus; `edges/nearestEdgeAtPoint.ts` the measurement).
     const intendedId = retargetEdgeClick(event, edge, flowStoreApi.getState())
-    // ⭐ E2 (Paul 29 Sep): a plain click edits the POINTED-AT link where it was clicked (the resolver's return, never
-    // the first selected edge — PR Review 5897003679). ⛔ A Meta/Control selection toggle, or a click that resolved no
-    // link, is a SELECTION gesture: it opens NEITHER editor (PR Review 5897538379). The full inspector is the
-    // double-click (`handleEdgeDoubleClick`) or the mini-editor's "More detail".
-    openLinkQuickEditForClick(event, intendedId, flowStoreApi.getState().multiSelectionActive)
-    setShowFullInspector(false)
+    // ⭐ S.1 FOR LINKS TOO (Paul, 4 Oct 2026, Canvas lane — DL 0df0e1 #87): one click on a link opens the FULL link
+    // inspector, exactly as one click on a card opens its inspector. This REVERSES #2322's "E2 (Paul 29 Sep)" at-pointer
+    // mini-editor, which journey 4 measured as "the link inspector needs a double click": the inspector already holds
+    // the same strength band and direction writers (`EdgePanel` → `useEdgeMutations`), plus "Test without this link".
+    // Do not restore the mini-editor. The rule (and its selection-gesture exceptions) is `edgeClickOpensInspector`.
+    setShowFullInspector(edgeClickOpensInspector(event, intendedId, flowStoreApi.getState().multiSelectionActive))
   }, [onCanvasInteraction, flowStoreApi])
 
   /**
@@ -1577,7 +1575,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [])
 
   const handleEdgeDoubleClick = useCallback(() => {
-    useLinkQuickEditStore.getState().close()
     setShowFullInspector(true)
   }, [])
 
@@ -3039,8 +3036,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           <InfluenceExplainer forceShow={isInfluenceExplainerForced} onDismiss={hideInfluenceExplainer} compact />
         </div>
       )}
-      {/* ⭐ E2: a link click opens a small strength editor at the pointer; "More detail" opens the inspector. */}
-      <LinkQuickEditorHost onMoreDetail={() => setShowFullInspector(true)} />
       {/* ⭐ E4: a ghost door's "What else…?" chooser (it only prefills the ask). */}
       <WhatElseChooserHost />
       {/* S.1: Compact popover removed — single-click now opens full inspector directly */}

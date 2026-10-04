@@ -42,7 +42,8 @@ describe('"remove all of the blue highlighted borders when anything is clicked o
   it('the pressed strength, direction and "What else" chips use the neutral ink', () => {
     expect(src('src/canvas/ui/inspector-v2/shared/StrengthBandButtons.tsx')).toContain("? 'border-text-body text-text-body bg-panel-hover'")
     expect(src('src/canvas/ui/inspector-v2/shared/StrengthBandButtons.tsx')).not.toContain("'border-primary text-primary'")
-    expect(src('src/canvas/components/LinkQuickEditor.tsx')).toContain("pressed ? 'border-text-body bg-panel-hover text-text-body'")
+    // (The link mini-editor's own chip row was retired with the mini-editor, Paul 4 Oct 2026: one click opens the
+    // full link inspector, whose strength chips are `StrengthBandButtons`, pinned above.)
     expect(src('src/canvas/components/WhatElseChooser.tsx')).toContain("open.doorKind === c.kind ? 'border-text-body text-text-body'")
   })
 
