@@ -65,6 +65,13 @@ export const NaturalEffectSchema = z.object({
   strengthMean: z.number().finite(),
   author: z.enum(['user', 'olumi_estimate', 'olumi_placeholder']),
   /**
+   * ⭐ Beat 1 (Canvas lane, 4 Oct 2026): WHERE the user's size came from, read off the same stored `provenance` at the
+   * same hop — `brief_extraction` → "from your brief", anything else the user authored (`user_specified`, a size they
+   * stated outside the brief) → "your figure". Only on the user's own size; absent on a copy persisted before this
+   * field (that copy says what it always said: no author words).
+   */
+  userOrigin: z.enum(['brief', 'entered']).optional(),
+  /**
    * ⭐ A4 (CEE #2409; R3 C1/C2 #75 5918513716, AIQ 5919755441): the user's amount is ONE END of a range they wrote
    * ("deals between £1-2 million" → £1,000,000, the low end). Said WITH the range, as a bound — never as the user's
    * single figure. Read only on the user's own size.
@@ -130,7 +137,9 @@ export function readWireNaturalEffect(
   // amount as the user's single figure. Olumi's own size never carries one.
   const range = author === 'user' ? readRecord(ne.stated_range) : null
   if (author === 'user' && ne.stated_range !== undefined && range === null) return undefined
+  const userOrigin = author !== 'user' ? undefined : provenance.source === 'brief_extraction' ? 'brief' : 'entered'
   const parsed = NaturalEffectSchema.safeParse({
+    ...(userOrigin !== undefined ? { userOrigin } : {}),
     ...(range !== null
       ? { statedRange: { low: range.low, high: range.high, text: nonEmpty(range.text), end: range.end } }
       : {}),
@@ -182,10 +191,15 @@ function amountWithUnit(amount: number, unit: string): string {
   return formatRawValueWithUnit(amount, u)
 }
 
-const AUTHOR_SUFFIX: Record<NaturalEffectAuthor, string> = {
-  user: '',
-  olumi_estimate: " · Olumi's estimate",
-  olumi_placeholder: ' · not judged yet (a placeholder, not an estimate)',
+/**
+ * WHOSE size, in the one vocabulary every surface uses for a link (Paul, 4 Oct 2026: full words on links — "from your
+ * brief" / "your figure" / "Olumi's estimate"). The user's words need `userOrigin`; a copy persisted before it says
+ * nothing, as before.
+ */
+export function naturalEffectAuthorWords(effect: Pick<NaturalEffect, 'author' | 'userOrigin'>): string {
+  if (effect.author === 'olumi_estimate') return "Olumi's estimate"
+  if (effect.author === 'olumi_placeholder') return 'not judged yet (a placeholder, not an estimate)'
+  return effect.userOrigin === 'brief' ? 'from your brief' : effect.userOrigin === 'entered' ? 'your figure' : ''
 }
 
 /**
@@ -210,6 +224,30 @@ export function naturalEffectPhrase(
   direction: EdgeDirectionDisplay,
   definitional = false,
 ): string | null {
+  const parts = naturalEffectPhraseParts(effect, currentMean, direction, definitional)
+  return parts === null ? null : composeNaturalEffectPhrase(parts)
+}
+
+/**
+ * The parts as one phrase. A size that is one end of the user's written range already says whose it is ("the low end
+ * of YOUR £1-2 million range"), so the author words are not repeated beside it.
+ */
+export function composeNaturalEffectPhrase(parts: { size: string; whose: string; ofRange: string }): string {
+  const whose = parts.whose === '' || parts.ofRange !== '' ? '' : ` · ${parts.whose}`
+  return `${parts.size}${whose}${parts.ofRange}`
+}
+
+/**
+ * The phrase in its three parts, for a surface that sets the size and its author apart (the link inspector says
+ * "From your brief: …"). The same gates as `naturalEffectPhrase`, which composes these; `whose` is
+ * `naturalEffectAuthorWords`, or the definitional words.
+ */
+export function naturalEffectPhraseParts(
+  effect: NaturalEffect | undefined | null,
+  currentMean: number,
+  direction: EdgeDirectionDisplay,
+  definitional = false,
+): { size: string; whose: string; ofRange: string } | null {
   if (!effect) return null
   if (!Number.isFinite(currentMean) || Math.abs(currentMean - effect.strengthMean) > SAME_MEAN_EPSILON) return null
   if (!direction.show || effect.amount === 0) return null
@@ -224,5 +262,5 @@ export function naturalEffectPhrase(
     ? ''
     : ` per ${amountWithUnit(effect.perSourceChange, effect.sourceUnit)}`
   const ofRange = range === undefined ? '' : ` · the ${range.end} end of your ${range.text} range`
-  return `${change}${per}${definitional ? DEFINITIONAL_SUFFIX : AUTHOR_SUFFIX[effect.author]}${ofRange}`
+  return { size: `${change}${per}`, whose: definitional ? BY_DEFINITION.toLowerCase() : naturalEffectAuthorWords(effect), ofRange }
 }

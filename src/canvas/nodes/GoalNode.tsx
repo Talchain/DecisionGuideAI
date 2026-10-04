@@ -1217,7 +1217,7 @@ export const GoalNode = memo((props: NodeProps) => {
           ))}
         </div>
 
-        {/* ⭐ Today's level on a change goal (cut-costs `09af9019`; AIQ 5902409861): "down 20% from today" now says
+        {/* ⭐ Today's level (cut-costs `09af9019`; AIQ 5902409861; Beat 1 4 Oct: level goals, "— from your brief"): "down 20% from today" now says
             what today is, from the typed reading or the user's stated level only (`goalTodayLevel`). */}
         {todayLevel !== null && (
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`} data-testid={`goal-today-level-${props.id}`}>

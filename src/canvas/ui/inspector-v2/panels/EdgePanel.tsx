@@ -45,6 +45,7 @@ import { isEdgeFragile, getFragileEdgeSwitchProbability, parallelEdgeIdsFor } fr
 import { resolveEdgeValuesCoaching, resolveEdgeValuesProvenance } from '../coachingConfig'
 import { isStrengthPlaceholder } from '../../../domain/strengthPlaceholder'
 import { BY_DEFINITION, isStrengthDefinitional } from '../../../domain/strengthDefinitional'
+import { edgeSizePhrase } from '../../../edges/edgeSizePhrase'
 import {
   edgeValueBand,
   edgeValueSource,
@@ -306,14 +307,20 @@ export const EdgePanel = memo(function EdgePanel({
     () => isStrengthDefinitional(edge?.data as Record<string, unknown> | undefined),
     [edge?.data],
   )
+  // ⭐ Beat 1: the link's stored size and whose it is — the same resolver the hover card and the Model tab read.
+  const usersFigure = useMemo(() => {
+    const size = edgeSizePhrase(edge?.data as Record<string, unknown> | undefined)
+    return size !== null && size.usersFigure ? size : null
+  }, [edge?.data])
   const edgeValuesCoaching = useMemo(
     () => resolveEdgeValuesCoaching({
       strength: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'weight'),
       existence: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
       strengthPlaceholder: strengthIsPlaceholder,
       strengthDefinitional: strengthIsDefinitional,
+      usersFigure,
     }),
-    [edge?.data, strengthIsPlaceholder, strengthIsDefinitional],
+    [edge?.data, strengthIsPlaceholder, strengthIsDefinitional, usersFigure],
   )
   // v3.1 row 32: the same two provenance facts, stated flat in the pane (the
   // generic card that used to carry them is gone — see the resolver's note).
@@ -323,8 +330,9 @@ export const EdgePanel = memo(function EdgePanel({
       existence: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
       strengthPlaceholder: strengthIsPlaceholder,
       strengthDefinitional: strengthIsDefinitional,
+      usersFigure,
     }),
-    [edge?.data, strengthIsPlaceholder, strengthIsDefinitional],
+    [edge?.data, strengthIsPlaceholder, strengthIsDefinitional, usersFigure],
   )
 
   // A confirm-as-is action is licensed only by a real producer value. A bare
