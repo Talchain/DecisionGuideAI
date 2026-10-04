@@ -84,7 +84,7 @@ export function ImportanceBar({ importanceScore, sensitivityRank, influenceProve
   const rankLabel = sensitivityRank != null ? ordinalFor(sensitivityRank) : null
   // ⭐ The number needs its basis; the rank does not. See `influenceProvenance`.
   const mayStateThePercentage = influenceProvenance != null
-  const plainBand = scienceBand('confidence', Math.max(0, Math.min(1, importanceScore)))
+  const plainBand = scienceBand('influence', Math.max(0, Math.min(1, importanceScore)))
 
   return (
     <div data-testid="importance-bar">

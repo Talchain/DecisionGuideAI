@@ -2,8 +2,16 @@ import { useContext, useState } from 'react'
 import { DetailToggleContext } from '../../canvas/components/model-tab/DetailToggleContext'
 import { getStrengthLabel } from '../../canvas/domain/vocabulary'
 import { getConfidenceLabel, getExistenceLabel } from '../../canvas/components/model-tab/strengthBands'
+import { influenceTierLabel } from '../results/driverDisplayModel'
 
-export type ScienceQuantityKind = 'strength' | 'confidence' | 'probability'
+export type ScienceQuantityKind = 'strength' | 'confidence' | 'probability' | 'influence'
+
+/**
+ * An influence (set-relative, 0–1) in the Drivers panel's words, on the one owner of its thresholds
+ * (`influenceTierLabel`: 0.50 / 0.20). An influence is not a confidence: "Low confidence" on an influence bar said the
+ * wrong thing about the right number.
+ */
+const INFLUENCE_WORDS = { strong: 'High-impact driver', moderate: 'Moderate influence', minor: 'Lower influence' } as const
 
 export function scienceKindForField(field: string): ScienceQuantityKind | undefined {
   if (/^(weight|beliefStrength|strength_mean|strengthStd|belief)$/i.test(field)) return 'strength'
@@ -14,12 +22,13 @@ export function scienceKindForField(field: string): ScienceQuantityKind | undefi
 export function scienceBand(kind: ScienceQuantityKind, value: number): string {
   if (kind === 'strength') return getStrengthLabel(Math.abs(value))
   if (kind === 'confidence') return getConfidenceLabel(value)
+  if (kind === 'influence') return INFLUENCE_WORDS[influenceTierLabel(value)]
   return getExistenceLabel(value)
 }
 
 export function scienceQuantityText(kind: ScienceQuantityKind, value: number, advanced: boolean, open: boolean): string {
   if (!(advanced || open)) return scienceBand(kind, value)
-  if (kind === 'probability') return `${Math.round(value * 100)}%`
+  if (kind === 'probability' || kind === 'influence') return `${Math.round(value * 100)}%`
   return Math.abs(value) < 0.0001 ? value.toString() : Number(value.toFixed(4)).toString()
 }
 

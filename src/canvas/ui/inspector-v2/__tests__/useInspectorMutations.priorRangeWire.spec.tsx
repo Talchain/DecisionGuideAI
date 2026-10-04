@@ -70,7 +70,9 @@ describe('setPriorRange — wire emission', () => {
     })
   })
 
-  it('omits distribution when the node states none', () => {
+  // #2469 ("ranges state their shape"): a node that states no distribution sends 'uniform', so every range edit can be
+  // written to the model. Re-pinned exactly; the row's earlier 'omits' expectation predates that decision.
+  it('states distribution \'uniform\' when the node states none', () => {
     useCanvasStore.setState(
       { nodes: [{ ...NODE, data: {} }], edges: [], updateNode } as never,
       false,
@@ -78,7 +80,7 @@ describe('setPriorRange — wire emission', () => {
     const { result } = renderHook(() => useNodeMutations('fac_adoption'))
     act(() => result.current.setPriorRange(0.3, 0.5))
     const [event] = sendSystemEvent.mock.calls[0]!
-    expect(event.payload).toEqual({ target_id: 'fac_adoption', range_min: 0.3, range_max: 0.5 })
+    expect(event.payload).toEqual({ target_id: 'fac_adoption', range_min: 0.3, range_max: 0.5, distribution: 'uniform' })
   })
 
   it('an INVERTED range still writes locally but emits nothing (fail-closed, no wire 422)', () => {
