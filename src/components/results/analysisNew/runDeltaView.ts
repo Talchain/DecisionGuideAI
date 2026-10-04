@@ -68,6 +68,7 @@
 
 import type { RunDelta, RunDeltaInputChange } from '@talchain/schemas/boundary'
 import { formatRawValueWithUnit } from '../../../canvas/utils/labelUtils'
+import { scienceBand } from '../../../components/science/ScienceQuantity'
 
 export type NoiseVerdict = 'signal' | 'within_noise' | 'not_noise_qualified'
 
@@ -338,8 +339,9 @@ function foldSizingAndStrength(rows: RunDeltaInputRow[]): RunDeltaInputRow[] {
   return out.filter((r) => !folded.has(r))
 }
 
-function formatInputValue(v: { raw: number | string | boolean; unit?: string } | null): string | null {
+function formatInputValue(v: { raw: number | string | boolean; unit?: string } | null, field?: string): string | null {
   if (v === null) return null
+  if (field === 'strength' && typeof v.raw === 'number') return scienceBand('strength', v.raw)
   if (typeof v.raw === 'number') return formatRawValueWithUnit(v.raw, v.unit ?? null)
   if (typeof v.raw === 'boolean') return v.raw ? 'on' : 'off'
   return v.unit ? `${v.raw} ${v.unit}` : v.raw
@@ -458,8 +460,8 @@ export function buildRunDeltaView(
               optionId: row.option_id ?? null,
               linkEnds: row.link ? { from: row.link.from, to: row.link.to } : null,
               subject: inputSubject(row, labelFor, nodeLabelFor),
-              before: formatInputValue(row.before),
-              after: formatInputValue(row.after),
+              before: formatInputValue(row.before, row.field),
+              after: formatInputValue(row.after, row.field),
               change: row.change,
               field: row.field,
               linkLabels: row.link ? { from: nodeLabelFor(row.link.from), to: nodeLabelFor(row.link.to) } : null,
