@@ -122,6 +122,13 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     description: 'The computation completed but produced fewer results than expected.',
     suggestion: 'Check your model structure and try running the analysis again',
   }),
+  // CEE's A7 on the Run (`decision-input-ask.ts`, DL 0df0e1 beat 2): the goal holds a deadline that no duration limit
+  // scores. The hero shows CEE's own sentence; lists that humanise by code say this. No action is prescribed: whether
+  // the deadline should be modelled is the user's call.
+  GOAL_HORIZON_NOT_TESTED: () => ({
+    title: 'Your deadline isn\'t tested',
+    description: 'This analysis doesn\'t say whether any option meets your goal by the deadline you gave.',
+  }),
   GRAPH_SIZE_INFO: () => ({
     title: 'Large model',
     description: 'Your model has many nodes. Analysis may take longer and results could be less precise.',

@@ -52,6 +52,7 @@ function fixtureChart(o: Partial<HeroChartModel>): HeroChartModel {
     // constructor rather than letting the gallery quietly show a refusal
     // sentence the fixture never declared.
     designationWithheldReason: null,
+    goalHorizonUntested: null,
     lenses: ['outcome'],
     defaultLens: 'outcome',
     hasConstraints: false,
