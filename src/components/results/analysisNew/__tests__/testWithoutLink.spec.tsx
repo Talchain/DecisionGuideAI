@@ -131,6 +131,30 @@ describe('Test without this link on the existing Challenge signals', () => {
     expect(screen.getByTestId('challenge-test-without-link-hold')).toHaveAttribute('data-hold', 'option_wiring')
   })
 
+  // ⭐ THE CANVAS SEAM (Canvas ↔ Reasoning, 5 Oct): Canvas's admission-on-hydrate writes the read's admission into
+  // `retainedAnalysisAdmission`, with no live admission beside it. The gate must honour that slot alone, or a cold
+  // load of an exploratory Run would offer a press the service refuses.
+  it('holds on a cold load whose READ carried an exploratory admission (retained slot, no live admission)', () => {
+    localStorage.setItem(FLAG, '1')
+    useCanvasStore.setState({
+      ceeAnalysisReady: null,
+      retainedAnalysisAdmission: { permitted_analysis_mode: 'exploratory' },
+    } as never)
+    mount()
+    expect(screen.queryByRole('button', { name: 'Test without this link' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('challenge-test-without-link-hold')).toHaveAttribute('data-hold', 'not_quantified')
+  })
+
+  it('CONTROL: the same retained slot at quantified_provisional offers the press', () => {
+    localStorage.setItem(FLAG, '1')
+    useCanvasStore.setState({
+      ceeAnalysisReady: null,
+      retainedAnalysisAdmission: { permitted_analysis_mode: 'quantified_provisional' },
+    } as never)
+    mount()
+    expect(screen.getByRole('button', { name: 'Test without this link' })).toBeInTheDocument()
+  })
+
   it('still offers the press when no admission is loaded (a fresh-browser cold load stores none)', () => {
     localStorage.setItem(FLAG, '1')
     useCanvasStore.setState({ ceeAnalysisReady: null, retainedAnalysisAdmission: null } as never)
