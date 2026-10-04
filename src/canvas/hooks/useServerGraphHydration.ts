@@ -45,6 +45,7 @@ import {
   waitForRetry,
 } from '../hydrate/absentGraphRetry'
 import { useServerGraphRetryStore } from '../stores/serverGraphRetryStore'
+import { coldLoadClaimedRoute } from '../hydrate/coldLoadDeepLink'
 import { logger } from '../../lib/logger'
 import { getSessionIdentity } from '../../lib/supabase'
 
@@ -56,11 +57,13 @@ let routeAdoptedScenarioId: string | null = null
 
 /**
  * Whether the READ follows a CEE-addressable route id: the store holds no scenario, this one, or one a route set (so a
- * link-to-link change re-reads). ADOPTION into the store is narrower: an empty store only (see the effect).
+ * link-to-link change re-reads). A route set it here (the adoption effect) or on the page's cold load
+ * (`claimColdLoadDeepLink`, which `CanvasMVP` runs before this hook). ADOPTION into the store is narrower: an empty
+ * store only (see the effect).
  */
 function routeIsAdoptable(route: string | null | undefined, held: string | null): boolean {
   if (!route || !isCeeAddressableScenarioId(route)) return false
-  return held === null || held === route || held === routeAdoptedScenarioId
+  return held === null || held === route || held === routeAdoptedScenarioId || held === coldLoadClaimedRoute()
 }
 
 /**
@@ -102,7 +105,9 @@ export function useServerGraphHydration(
   // turn goes (CODEX UI BUDDY #2383 5923784243). A scenario the store got any other way (autosave, a draft, a turn) still
   // wins, exactly as before. Declared BEFORE the read effect, so the read's proof sees the adopted id.
   // ⚠ STORE ONLY, NEVER THE POINTER: the route already says which scenario a reload means, and a pointer written here
-  // would seed the NEXT session's store, so a later link to another scenario would be ignored.
+  // would seed the NEXT session's store, so a later link to another scenario would be ignored. (A browser that
+  // REMEMBERS another scenario is a different case, handled before this hook: `claimColdLoadDeepLink` does write the
+  // pointer, because there the autosave would otherwise be stamped with an id the pointer contradicts.)
   // ⚠ AND AN EMPTY CANVAS, NOT JUST A NULL ID (CODEX UI BUDDY #2383 5923937552): a guest's unsaved draft has nodes and
   // no id. Adopting the link there would point the draft's next turn at the linked model while the read (refused, zero
   // overlap) leaves the draft on screen. With anything on the canvas, today's behaviour stands.

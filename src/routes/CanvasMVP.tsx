@@ -18,6 +18,7 @@ import { TopBar } from '../components/layout/TopBar'
 import { getScenario } from '../canvas/store/scenarios'
 import { useScenario } from '../hooks/useScenario'
 import { useServerGraphHydration } from '../canvas/hooks/useServerGraphHydration'
+import { claimColdLoadDeepLink } from '../canvas/hydrate/coldLoadDeepLink'
 import { useBootServerRead, useSupabaseLoadTracker } from '../canvas/hooks/useBootServerReadEnabled'
 import { useIsViewer } from '../lib/viewerMode'
 import { useScenarioViewerAccess } from '../lib/useScenarioViewerAccess'
@@ -64,6 +65,10 @@ export default function CanvasMVP() {
 
   // C.1a: Supabase scenario persistence
   const { id: scenarioIdFromRoute } = useParams<{ id: string }>()
+  // ⭐ A COLD-LOAD DEEP LINK WINS OVER THE SCENARIO THIS BROWSER REMEMBERS — decided HERE, before `useScenario` and
+  // every hook below reads the scenario id, so none of them ever starts on the remembered one. Once per page; idempotent.
+  // See `canvas/hydrate/coldLoadDeepLink.ts` for the three writes and why this is the render, not an effect.
+  claimColdLoadDeepLink(scenarioIdFromRoute)
   const {
     loadScenario: loadSupabaseScenario,
     saveStatus: supabaseSaveStatus,
