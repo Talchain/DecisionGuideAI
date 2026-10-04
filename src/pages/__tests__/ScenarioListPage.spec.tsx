@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import React from 'react'
 
@@ -206,6 +206,63 @@ describe('ScenarioListPage', () => {
       expect(screen.getByText('monthly recurring revenue')).toBeTruthy()
     })
     expect(screen.queryByText('Untitled decision')).toBeNull()
+  })
+
+  it('tells same-named cards apart by their options and exact creation time; a uniquely named card is unchanged', async () => {
+    // Served defect (4 Oct 2026 journey): five drafts of similar briefs all
+    // read "monthly recurring revenue" and nothing else on the card differed.
+    const real = realSavedScenarios.staleRow
+    const createdA = '2026-10-04T09:15:00.000Z'
+    const createdB = '2026-10-04T13:40:00.000Z'
+    const relabelOptions = (labels: string[]) => {
+      let i = 0
+      return {
+        ...real.graph,
+        nodes: real.graph.nodes.map((node: { kind?: string }) =>
+          node.kind === 'option' && i < labels.length ? { ...node, label: labels[i++] } : node),
+      }
+    }
+    mockListScenarios.mockResolvedValue([
+      { ...real, id: 'dup-a', created_at: createdA },
+      { ...real, id: 'dup-b', created_at: createdB, graph: relabelOptions(['Bundle annual plans']) },
+      {
+        id: 'unique', title: 'Cash runway', framing: null, graph: real.graph,
+        stage: 'frame', analysis_status: 'none', is_pinned: false, is_archived: false,
+        created_at: createdA, updated_at: new Date().toISOString(), events: [],
+      },
+    ])
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getAllByText('monthly recurring revenue')).toHaveLength(2)
+    })
+    const exact = (iso: string) =>
+      new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso))
+    const card = (id: string) => {
+      const cards = screen.getAllByTestId('scenario-card')
+      const order = ['dup-a', 'dup-b', 'unique']
+      return within(cards[order.indexOf(id)])
+    }
+
+    // The real row's own option labels, in stored order.
+    const realOptions = real.graph.nodes
+      .filter((node: { kind?: string }) => node.kind === 'option')
+      .map((node: { label: string }) => node.label)
+    expect(realOptions.length).toBeGreaterThanOrEqual(2)
+    expect(card('dup-a').getByTestId('scenario-card-options').textContent).toBe(realOptions.join(' · '))
+    expect(card('dup-b').getByTestId('scenario-card-options').textContent)
+      .toBe(['Bundle annual plans', ...realOptions.slice(1)].join(' · '))
+
+    // Exact creation date and time, on the one existing activity line.
+    expect(card('dup-a').getByTestId('scenario-card-activity').textContent).toContain(`Created ${exact(createdA)}`)
+    expect(card('dup-b').getByTestId('scenario-card-activity').textContent).toContain(`Created ${exact(createdB)}`)
+    expect(card('dup-a').getByTestId('scenario-card-activity').textContent)
+      .not.toBe(card('dup-b').getByTestId('scenario-card-activity').textContent)
+
+    // The uniquely named card keeps exactly what it had.
+    expect(card('unique').queryByTestId('scenario-card-options')).toBeNull()
+    expect(card('unique').getByTestId('scenario-card-activity').textContent).toBe('Created just now')
   })
 
   it('renders last-activity subtitle for analysis_run event', async () => {

@@ -51,6 +51,26 @@ export function storedGoalNodeLabel(graph: unknown): string | null {
   return null
 }
 
+/**
+ * The option labels in a stored graph, in stored order, without repeats. Used
+ * by the scenario list to tell apart rows that resolve to the same title.
+ */
+export function storedOptionLabels(graph: unknown): string[] {
+  const nodes = asObject(graph)?.nodes
+  if (!Array.isArray(nodes)) return []
+  const labels: string[] = []
+  for (const raw of nodes) {
+    const node = asObject(raw)
+    if (!node) continue
+    const data = asObject(node.data)
+    const kind = node.kind ?? data?.kind ?? data?.type ?? node.type
+    if (kind !== 'option') continue
+    const label = text(node.label) ?? text(data?.label)
+    if (label && !labels.includes(label)) labels.push(label)
+  }
+  return labels
+}
+
 export function scenarioDisplayTitle(row: {
   title?: unknown
   framing?: unknown
