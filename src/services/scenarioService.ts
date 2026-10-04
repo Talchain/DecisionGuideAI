@@ -118,7 +118,7 @@ export async function listScenarios(
 
   const { data, error } = await supabase
     .from('scenarios')
-    .select('id, title, stage, analysis_status, updated_at, created_at, events, is_pinned, is_archived')
+    .select('id, title, framing, graph, stage, analysis_status, updated_at, created_at, events, is_pinned, is_archived')
     .eq('user_id', userId)
     .order('is_pinned', { ascending: false })
     .order('updated_at', { ascending: false })

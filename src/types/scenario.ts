@@ -47,6 +47,7 @@ export type ScenarioListItem = Pick<
   'id' | 'title' | 'stage' | 'analysis_status' | 'updated_at' | 'events'
   | 'is_pinned' | 'is_archived' | 'created_at'
 >
+  & Pick<ScenarioRow, 'framing' | 'graph'>
 
 // ---------------------------------------------------------------------------
 // § 2.1 — stage and analysis_status enums
