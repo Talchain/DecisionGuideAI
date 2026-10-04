@@ -96,6 +96,7 @@ const DebugPanel = lazy(() => import('../components/DebugPanel'))
 
 // C.1a: Scenario persistence routes
 const ScenarioListPage = lazyWithStallBound(() => import('../pages/ScenarioListPage'), 'Your scenarios')
+const ScenarioComparePage = lazyWithStallBound(() => import('../pages/ScenarioComparePage'), 'Scenario comparison')
 // Internal hero fixture gallery — flag-gated (staging-on/prod-off), unlinked.
 const HeroGallery = lazyWithStallBound(() => import('../routes/HeroGallery'), 'The hero gallery')
 const ReasoningPrototype = lazyWithStallBound(() => import('../routes/ReasoningPrototype'), 'The reasoning prototype')
@@ -984,6 +985,7 @@ export default function AppPoC() {
                   <Route path="/" element={<ScenarioListPage />} />
                   <Route path="/scenarios" element={<ScenarioListPage />} />
                   <Route path="/scenario/:id" element={<RouteContent><CanvasMVP /></RouteContent>} />
+                  <Route path="/scenario/:id/compare" element={<RouteContent><ScenarioComparePage /></RouteContent>} />
                   {/* COLLAB — the owner's side. INSIDE AuthGuard: minting a
                       round pins a version of the owner's model and names real
                       people, so it requires a verified session. */}
