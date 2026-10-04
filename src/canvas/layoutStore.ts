@@ -43,6 +43,7 @@ interface LayoutOptions {
   setRespectLocked: (respect: boolean) => void
   setLayoutNodeWidth: (width: number) => void
   setLayoutCardWidths: (widths: Readonly<Record<string, number>>) => void
+  resetForAuth: () => void
 }
 
 // v6: nodeSpacing reduced 20 → 15 (intended). The rendered gap stays at 20 px
@@ -170,6 +171,7 @@ export const useLayoutStore = create<LayoutOptions>((set, get) => ({
   ...loadPersistedOptions(),
   layoutNodeWidth: null,
   layoutCardWidths: null,
+  resetForAuth: () => set({ direction: 'DOWN', nodeSpacing: 15, layerSpacing: 48, respectLocked: true, layoutNodeWidth: null, layoutCardWidths: null }),
 
   setDirection: (dir) => {
     set({ direction: dir })

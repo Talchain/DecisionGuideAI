@@ -133,6 +133,9 @@ export const CANONICAL_EDIT_AUTHORITY = {
   priorRangeJudgement: 'server_fact',
   canvasSelectionAndLayout: 'local_presentation',
   modelOptionIntervention: 'server_graph',
+  constraintEdit: 'disabled',
+  edgeDirectionReversal: 'disabled',
+  optionInterventionMembership: 'disabled',
   modelFactorConfirmation: 'disabled',
   /**
    * Ratifying the strength the SERVER already holds for a relationship.
