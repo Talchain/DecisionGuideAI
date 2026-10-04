@@ -62,7 +62,7 @@ function deltaText(delta: number | null): string {
 function ChangeValue({ field, value }: { field: string; value: unknown }) {
   const kind = scienceKindForField(field)
   if (kind && typeof value === 'number') return <ScienceQuantity kind={kind} value={value} />
-  return <>{formatChangeValue(value, field)}</>
+  return <>{formatChangeValue(value)}</>
 }
 
 export function TransitionCard({
