@@ -64,6 +64,10 @@ const RELATIVE_EXPLAINER =
 const GENERIC_EXPLAINER = 'Ranked by how much each factor affects the outcome'
 const CAPTION_COPY =
   'Influence is relative to the strongest factor. The strongest factor always shows 100%.'
+// Plain words first (4 Oct 2026): rows print no percentage by default, so the
+// default caption names the bar; CAPTION_COPY returns with the figures.
+const CAPTION_COPY_PLAIN =
+  'Influence is relative to the strongest factor. The strongest factor always fills the bar.'
 
 function makeDriver(overrides: Partial<DriverItem> & { factorKey: string }): DriverItem {
   return {
@@ -263,7 +267,9 @@ describe('DriversSection influence-scale disclosure (lane C4)', () => {
     it('renders the relative-scale caption near the panel', () => {
       render(<DriversSection data={relativeBasisData()} goalLabel="test" />)
       const caption = screen.getByTestId('influence-scale-caption')
-      expect(caption.textContent).toBe(CAPTION_COPY)
+      expect(caption.textContent).toBe(CAPTION_COPY_PLAIN)
+      fireEvent.click(screen.getByTestId('influence-details-toggle'))
+      expect(screen.getByTestId('influence-scale-caption').textContent).toBe(CAPTION_COPY)
     })
 
     it('explainer carries the relative framing', () => {
@@ -309,7 +315,9 @@ describe('DriversSection influence-scale disclosure (lane C4)', () => {
     it('renders the relative-scale caption (the top row is 1.0 by construction)', () => {
       render(<DriversSection data={producerBasisData()} goalLabel="test" />)
       const caption = screen.getByTestId('influence-scale-caption')
-      expect(caption.textContent).toBe(CAPTION_COPY)
+      expect(caption.textContent).toBe(CAPTION_COPY_PLAIN)
+      fireEvent.click(screen.getByTestId('influence-details-toggle'))
+      expect(screen.getByTestId('influence-scale-caption').textContent).toBe(CAPTION_COPY)
     })
 
     it('explainer carries the relative framing, not the generic wording', () => {

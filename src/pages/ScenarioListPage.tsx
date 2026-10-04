@@ -27,7 +27,7 @@ import { UserAvatarMenu } from '../components/layout/UserAvatarMenu'
 import { typography } from '../styles/typography'
 import { trackEvent } from '../lib/posthog'
 import { GUEST_COPIED_EVENT } from '../lib/guestCopyOnSignIn'
-import { scenarioDisplayTitle } from '../canvas/domain/scenarioDisplayTitle'
+import { scenarioDisplayTitle, storedOptionLabels } from '../canvas/domain/scenarioDisplayTitle'
 
 // ---------------------------------------------------------------------------
 // Stage badge styles — semantic colours from the design system
@@ -160,6 +160,48 @@ function formatLastActivity(events: ScenarioEvent[] | null | undefined, updatedA
 function listTitle(scenario: ScenarioListItem): string {
   // The same name the canvas shows for this row — see `scenarioDisplayTitle`.
   return scenarioDisplayTitle(scenario) ?? 'Untitled decision'
+}
+
+// ---------------------------------------------------------------------------
+// Telling same-named cards apart
+// ---------------------------------------------------------------------------
+//
+// A drafted scenario is named from its goal, so several drafts of similar briefs
+// share one title (five cards all reading "monthly recurring revenue" on the
+// 4 Oct 2026 journey). Only cards whose title is shared get the extra detail;
+// a uniquely named card is unchanged.
+
+const titleKey = (scenario: ScenarioListItem): string => listTitle(scenario).trim().toLowerCase()
+
+/** The title keys that two or more of the given (visible) cards share. */
+function sharedTitleKeys(scenarios: ScenarioListItem[]): Set<string> {
+  const seen = new Set<string>()
+  const shared = new Set<string>()
+  for (const scenario of scenarios) {
+    const key = titleKey(scenario)
+    if (seen.has(key)) shared.add(key)
+    seen.add(key)
+  }
+  return shared
+}
+
+/** Date and time in the user's locale, or null when the stamp is unreadable. */
+function formatExactDateTime(iso: string | null | undefined): string | null {
+  if (!iso) return null
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return null
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+}
+
+/**
+ * The activity line for a same-named card: the usual line plus the exact
+ * creation date and time. A line that already says "Created …" is replaced, not
+ * repeated.
+ */
+function activityWithCreated(activity: string, createdAt: string | null | undefined): string {
+  const created = formatExactDateTime(createdAt)
+  if (!created) return activity
+  return activity.startsWith('Created ') ? `Created ${created}` : `${activity} · Created ${created}`
 }
 
 // ---------------------------------------------------------------------------
@@ -362,6 +404,8 @@ export default function ScenarioListPage() {
         return scenarios
     }
   }, [scenarios, filter])
+
+  const sharedTitles = useMemo(() => sharedTitleKeys(filteredScenarios), [filteredScenarios])
 
   const handleCreate = async () => {
     setCreating(true)
@@ -653,7 +697,11 @@ export default function ScenarioListPage() {
             {/* ---- Scenario cards ---- */}
             {filteredScenarios.length > 0 && (
               <div className="grid gap-4 sm:grid-cols-2" data-testid="scenario-list">
-                {filteredScenarios.map((scenario) => (
+                {filteredScenarios.map((scenario) => {
+                  const sharesTitle = sharedTitles.has(titleKey(scenario))
+                  const optionLine = sharesTitle ? storedOptionLabels(scenario.graph).join(' · ') : ''
+                  const activity = formatLastActivity(scenario.events, scenario.updated_at)
+                  return (
                   <div
                     key={scenario.id}
                     onClick={() => {
@@ -694,6 +742,15 @@ export default function ScenarioListPage() {
                     <h4 className={`${typography.h4} text-text-header pr-16 truncate`}>
                       {listTitle(scenario) === 'Untitled decision' ? <span className="text-text-light">Untitled decision</span> : listTitle(scenario)}
                     </h4>
+                    {optionLine && (
+                      <p
+                        className={`${typography.bodySmall} text-text-body mt-1 truncate`}
+                        title={optionLine}
+                        data-testid="scenario-card-options"
+                      >
+                        {optionLine}
+                      </p>
+                    )}
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); navigate(`/scenario/${scenario.id}/compare`) }}
@@ -712,11 +769,12 @@ export default function ScenarioListPage() {
                     </div>
 
                     {/* Last activity */}
-                    <p className={`${typography.bodySmall} text-text-light mt-3 truncate`}>
-                      {formatLastActivity(scenario.events, scenario.updated_at)}
+                    <p className={`${typography.bodySmall} text-text-light mt-3 truncate`} data-testid="scenario-card-activity">
+                      {sharesTitle ? activityWithCreated(activity, scenario.created_at) : activity}
                     </p>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </>

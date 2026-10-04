@@ -42,6 +42,7 @@ import {
   INFLUENCE_RANKING_EXPLAINER_GENERIC,
   INFLUENCE_RANKING_EXPLAINER_RELATIVE,
   INFLUENCE_SCALE_CAPTION,
+  INFLUENCE_SCALE_CAPTION_PLAIN,
   INFLUENCE_GATED_COPY,
   ZERO_REASON_BADGE_LABELS,
   influenceQuantityRunDisclosureForRun,
@@ -53,6 +54,15 @@ import { isExpertField } from './utils/isExpertField'
 import { DISPLAY_SAFE_DRIVER_CONFIDENCE } from './driverConfidenceDisplayPolicy'
 import { openAskOlumi } from './coaching/askOlumiStore'
 import { DRIVER_LINE_COPY } from '../../canvas/nodes/shared/metricVocabulary'
+import { useScienceExact } from '../science/ScienceQuantity'
+
+/** The row's plain-word influence band, by the upstream influence-derived tier. */
+const INFLUENCE_PILL: Record<DriverSemanticLabel, string> = {
+  biggest: 'Top driver',
+  strong: 'High-impact driver',
+  moderate: 'Moderate influence',
+  minor: 'Lower influence',
+}
 
 /** The canvas card's words (`DRIVER_LINE_COPY.noValueYet`), as a pill label. */
 const NO_VALUE_YET_PILL =
@@ -358,6 +368,7 @@ function DriverRow({
   registerRef,
   onSendMessage,
   expertMode,
+  showExact,
   isTopDriver,
   driverLeader,
   noValueYet,
@@ -373,6 +384,9 @@ function DriverRow({
   /** V12.2: Microline overtake warning label (only for first driver) */
   onSendMessage?: (text: string) => void
   expertMode?: boolean
+  /** Plain words first: the exact influence percentage is printed only when
+   *  the section's advanced view or its "Show details" disclosure is on. */
+  showExact?: boolean
   /** Brief 5.4 Phase 3 (Path A): technique hint chip only shown on top-ranked driver */
   isTopDriver?: boolean
   /** The run's one driver authority (`DriversSectionData.driverLeader`): the
@@ -405,6 +419,19 @@ function DriverRow({
   // Use ISL influence_score (0-1) directly for Sensitivity column
   const sensitivityValue = driver.displayInfluence ?? driver.influenceScore ?? driver.normalisedInfluence
   const hasSensitivityData = sensitivityValue != null && sensitivityValue >= 0
+
+  // The row's plain-word influence band (the pill below). Computed here so the
+  // bar's accessible name can state the same words when the figure is hidden.
+  // ⭐ ONE TOP DRIVER (served 7ad369b7): "Top driver" only on the row the
+  // run's driver authority also ranks first; any other crowned row reads
+  // its tier off the same number its bar prints (`sensitivityValue`).
+  const pillLabel = yieldCrownToDriverLeader(
+    driver.factorKey,
+    driver.semanticLabel,
+    sensitivityValue ?? 0,
+    driverLeader,
+  )
+  const pillText = INFLUENCE_PILL[pillLabel] ?? 'Lower influence'
 
   // Confidence value (0-1)
   const confidenceValue = typeof driver.confidence === 'number'
@@ -564,9 +591,11 @@ function DriverRow({
           <DataBar
             value={sensitivityValue}
             colourVar={BAR_COLORS[barColor]}
-            label={`${cleanedLabel} influence: ${Math.round(sensitivityValue * 100)}%`}
+            label={showExact
+              ? `${cleanedLabel} influence: ${Math.round(sensitivityValue * 100)}%`
+              : `${cleanedLabel} influence: ${pillText}`}
             size="standard"
-            showPercent
+            showPercent={showExact}
           />
         ) : (
           <div className={`${typography.panelBody} font-mono text-text-light w-9 text-right`}>-</div>
@@ -659,22 +688,6 @@ function DriverRow({
           display-safe-gated Confidence column; fragility ("could change the
           result") belongs in the fragile-factors section, not here. */}
       {(() => {
-        const INFLUENCE_PILL: Record<DriverSemanticLabel, string> = {
-          biggest: 'Top driver',
-          strong: 'High-impact driver',
-          moderate: 'Moderate influence',
-          minor: 'Lower influence',
-        }
-        // ⭐ ONE TOP DRIVER (served 7ad369b7): "Top driver" only on the row the
-        // run's driver authority also ranks first; any other crowned row reads
-        // its tier off the same number its bar prints (`sensitivityValue`).
-        const pillLabel = yieldCrownToDriverLeader(
-          driver.factorKey,
-          driver.semanticLabel,
-          sensitivityValue ?? 0,
-          driverLeader,
-        )
-        const pillText = INFLUENCE_PILL[pillLabel] ?? 'Lower influence'
         // Subtle emphasis for the strongest influence — colour conveys
         // prominence, NOT confidence/quality (outlined, text-text-body per DS).
         const emphasised = pillLabel === 'biggest' || pillLabel === 'strong'
@@ -889,6 +902,11 @@ export function DriversSection({
   sensitivityReferenceLabel,
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
+  // Plain words first, numbers on request: rows show a band and a bar; the
+  // exact percentage needs the advanced view or this disclosure.
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const advancedView = useScienceExact(false, expertMode === true)
+  const showExact = advancedView || detailsOpen
   const { drivers, driversStatus, hasMagnitudeData, islError, hiddenZeroImpactCount } = data
   // Covered-withheld factors (ISL #213): listed after every ranked row, words only.
   const gatedDrivers = data.gatedDrivers ?? []
@@ -1207,7 +1225,7 @@ export function DriversSection({
           data-testid="influence-scale-caption"
           className={`${typography.panelMeta} text-text-light`}
         >
-          {INFLUENCE_SCALE_CAPTION}
+          {showExact ? INFLUENCE_SCALE_CAPTION : INFLUENCE_SCALE_CAPTION_PLAIN}
         </p>
       )}
 
@@ -1258,6 +1276,21 @@ export function DriversSection({
           exactly (gap-2 items-center px-3), and pb-3 gives the brief-required
           12px below headers. Row spacing tightened to space-y-2 (8px) per brief. */}
       <div data-testid="drivers-list">
+        {/* The disclosure for the exact figures. Absent in the advanced view,
+            which already shows them. */}
+        {!advancedView && displayDrivers.length > 0 && (
+          <div className="flex justify-end px-3 pb-1">
+            <button
+              type="button"
+              className={`${typography.panelMeta} text-text-light underline hover:text-text-body`}
+              aria-expanded={detailsOpen}
+              onClick={() => setDetailsOpen(v => !v)}
+              data-testid="influence-details-toggle"
+            >
+              {detailsOpen ? 'Hide details' : 'Show details'}
+            </button>
+          </div>
+        )}
         {/* Column headers — identical grid to DriverRow's inner grid */}
         <div className={`grid ${GRID_COLS} gap-2 items-center px-3 pb-3`}>
           {/* Empty cell for factor name column */}
@@ -1352,6 +1385,7 @@ export function DriversSection({
               }
               onSendMessage={onSendMessage}
               expertMode={expertMode}
+              showExact={showExact}
               isTopDriver={index === 0}
               driverLeader={data.driverLeader}
               noValueYet={

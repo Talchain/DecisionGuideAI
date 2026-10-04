@@ -35,6 +35,17 @@ export function scienceChangeText(field: string, before: unknown, after: unknown
   return afterBand
 }
 
+/**
+ * The ONE gate for "may this surface print the exact science figure?": the
+ * advanced toggle (`DetailToggleContext`, or a surface's own advanced prop) or
+ * an opened `Show details` disclosure. For surfaces that already carry their own
+ * plain-word band and visual indicator (so must not print a second band word).
+ */
+export function useScienceExact(open: boolean, advanced = false): boolean {
+  const { showDetail } = useContext(DetailToggleContext)
+  return showDetail || advanced || open
+}
+
 export function ScienceQuantity({ kind, value, label }: { kind: ScienceQuantityKind; value: number; label?: string }): JSX.Element {
   const { showDetail } = useContext(DetailToggleContext)
   const [open, setOpen] = useState(false)
