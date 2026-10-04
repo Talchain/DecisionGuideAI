@@ -53,7 +53,8 @@ function mount(model = vm()) {
 }
 
 describe('Test without this link on the existing Challenge signals', () => {
-  it('is dark by default even when the Challenge has a link', () => {
+  it('can be switched off even when the Challenge has a link', () => {
+    localStorage.setItem(FLAG, '0')
     expect(isTestWithoutLinkEnabled()).toBe(false)
     mount()
     expect(screen.queryByRole('button', { name: 'Test without this link' })).not.toBeInTheDocument()
