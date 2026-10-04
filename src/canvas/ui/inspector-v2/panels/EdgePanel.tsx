@@ -68,6 +68,7 @@ import { serverStatedStrengthOf } from '../../../conversation/edgeServerStatedSt
 import { formatNumber } from '../../../utils/formatValueWithUnit'
 import { isQuestionAssumptionEnabled } from '../../../../flags'
 import { ScienceQuantity } from '../../../../components/science/ScienceQuantity'
+import { TestWithoutLinkButton } from '../../../../components/results/analysisNew/sections/TestWithoutLinkButton'
 
 /**
  * The turn fence's own sentence for a `refused` edge edit (CEE #1868 `turn_fence_*`), else null.
@@ -961,6 +962,22 @@ export const EdgePanel = memo(function EdgePanel({
                 Question this assumption
               </button>
             ) : null}
+            {/* "Test without this link" — reachable for ANY link on a current Run, not
+                only the one a Challenge signal happens to name. The Reasoning mount
+                needs the Run to report a sensitive Olumi-estimated link; a Run whose
+                leader is withheld reports none, so the press had no door at all.
+                The component owns the gate (flag, link, current Run, a conversation
+                to send into) and the sender, so this is the same press, not a second
+                one. A link that is on the canvas only is not in the Run. */}
+            {awaitingStatedStrength ? null : (
+              <TestWithoutLinkButton
+                key={edge.id}
+                edgeId={edge.id}
+                testId="edge-test-without-link"
+                buttonClassName={inspectorButton}
+                className="mb-2"
+              />
+            )}
             {/* Strength — primary editing surface. THE ONE CONTROL IN THIS PANEL
                 WITH A WIRE CARRIER (`edge_strength_edit`), so it is the one that
                 may present itself as a shared-model edit. The fieldset is the

@@ -240,7 +240,11 @@
   # isl-staging removed (login 3.4 item 4): the browser has no legitimate
   # direct ISL path — all ISL traffic is same-origin /bff/isl via the edge
   # proxy (adapters/isl/client.ts), which browser CSP does not govern.
-  Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://plot-lite-service-staging.onrender.com https://olumi-assistants-service.onrender.com https://cee-staging.onrender.com https://*.supabase.co https://api.openai.com wss://*.supabase.co; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
+  # Sentry ingest: the exact host of the configured DSN (EU region), not a
+  # wildcard. Without it the browser refuses every error report the app sends
+  # (src/lib/monitoring.ts). If the DSN moves to another Sentry organisation
+  # or region, this host must move with it.
+  Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://plot-lite-service-staging.onrender.com https://olumi-assistants-service.onrender.com https://cee-staging.onrender.com https://*.supabase.co https://api.openai.com https://o4509582080016384.ingest.de.sentry.io wss://*.supabase.co; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
   # Prevent clickjacking
   X-Frame-Options = "DENY"
   # Prevent MIME sniffing
