@@ -23,15 +23,20 @@ export const USER_SCOPED_STORAGE_PREFIXES = ['olumi.dissent.v2.', 'olumi.dissent
 
 /** One identity boundary for sign-out and A→B auth transitions. */
 export function clearUserScopedState(): void {
-  useCanvasStore.getState().resetCanvas()
-  clearAllScenarioStorage()
-  clearAllTranscripts()
-  clearAllVersions()
-  useLayoutStore.getState().resetForAuth()
-  clearDurableDissent()
-  useStrengthenStore.getState()._reset()
-  useDecisionRecordStore.getState()._reset()
-  useSuccessMeasureStore.getState()._reset()
+  // Each step on its own: one that throws (`clearAllScenarioStorage` removes three keys unguarded) never stops the steps
+  // after it, so the storage sweep below always runs.
+  const step = (fn: () => void): void => {
+    try { fn() } catch { /* the boundary goes on */ }
+  }
+  step(() => useCanvasStore.getState().resetCanvas())
+  step(clearAllScenarioStorage)
+  step(clearAllTranscripts)
+  step(clearAllVersions)
+  step(() => useLayoutStore.getState().resetForAuth())
+  step(clearDurableDissent)
+  step(() => useStrengthenStore.getState()._reset())
+  step(() => useDecisionRecordStore.getState()._reset())
+  step(() => useSuccessMeasureStore.getState()._reset())
   // Each removal on its own: one that throws never leaves the keys after it behind (browser storage can be unavailable).
   const remove = (storage: () => Storage, key: string): void => {
     try { storage().removeItem(key) } catch { /* the sweep goes on */ }

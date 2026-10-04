@@ -622,8 +622,16 @@ describe('§9 SIGN-OUT (Codex round 1): the preserved copies are as private as t
     expect(localStorage.getItem('olumi-canvas-autosave-v1')).toBe('versioned-storage-contrast')
   })
 
-  it('⭐ (Codex round 3) one key that cannot be removed never stops the sweep: every other user-scoped key is still removed', () => {
+  // Codex (scoped delta review): `clearAllScenarioStorage` removes the main slot, the scenarios list and the pointer
+  // unguarded BEFORE the sweep, so each of those refusing used to stop it too.
+  it.each([
+    ['a preserved copy', keyedAutosaveSlot(Z)],
+    ['the main slot', MAIN_AUTOSAVE_SLOT],
+    ['the scenarios list', 'olumi-canvas-scenarios'],
+    ['the pointer', POINTER],
+  ])('⭐ (Codex round 3) %s cannot be removed: the sweep never stops, every other user-scoped key is still removed', (_what, refused) => {
     const planted = [
+      'olumi-canvas-scenarios',
       keyedAutosaveSlot(W), 'olumi.dissent.v2.first', keyedAutosaveSlot(Z), keyedAutosaveSlot(Y), 'olumi.dissent.v2.last',
       MAIN_AUTOSAVE_SLOT, POINTER,
     ]
@@ -631,12 +639,12 @@ describe('§9 SIGN-OUT (Codex round 1): the preserved copies are as private as t
     sessionStorage.setItem('olumi-cee-analysis-ready', 'ready')
     const realRemove = Storage.prototype.removeItem
     vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (this: Storage, k: string) {
-      if (k === keyedAutosaveSlot(Z)) throw new DOMException('denied', 'SecurityError')
+      if (k === refused) throw new DOMException('denied', 'SecurityError')
       return realRemove.call(this, k)
     })
-    clearUserScopedState()
+    expect(() => clearUserScopedState()).not.toThrow()
     vi.restoreAllMocks()
-    expect(planted.filter((k) => localStorage.getItem(k) !== null)).toEqual([keyedAutosaveSlot(Z)])
+    expect(planted.filter((k) => localStorage.getItem(k) !== null)).toEqual([refused])
     expect(sessionStorage.getItem('olumi-cee-analysis-ready')).toBeNull()
   })
 
