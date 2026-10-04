@@ -2,9 +2,9 @@
  * ⭐ THE CHAT BESIDE A COLD-LOAD DEEP LINK IS THE LINK'S CHAT (Canvas, DL 0df0e1 row, 4 Oct 2026).
  *
  * `useConversation` restores a transcript ONCE per mount (`didMountRestoreRef`), for the `currentScenarioId` of its
- * first render. That is the class `claimColdLoadDeepLink` runs in the route's RENDER for: a supersede done in a layout
- * effect still leaves every hook's first render holding the remembered id, and React flushes that commit's passive
- * effects before re-rendering. MEASURED here, and stated exactly: under a layout-effect supersede the first-mount restore
+ * first render. That is the class the route's GATE (`useColdLoadDeepLinkGate`) exists for: a supersede done in a layout
+ * effect BESIDE the hook still leaves the hook's first render holding the remembered id, and React flushes that commit's
+ * passive effects before re-rendering; the gate instead mounts the body only after its commit-time claim. MEASURED here, and stated exactly: under a layout-effect supersede the first-mount restore
  * ASKS FOR Z's transcript (`loadTranscript(Z)`), and Z's chat is still never rendered — its update lands behind the
  * synchronous re-render, and the scenario-switch effect replaces it with Y's. So the visible harm in this hook is nil
  * either way; what the render-time claim buys is that no first render, here or in any hook below the route, starts on Z.
@@ -15,7 +15,7 @@
  * Mock preamble trimmed from `useConversation.serverTurnsRestore.spec.tsx` (it stops the hook reaching a network path).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, render, act } from '@testing-library/react'
 import { useLayoutEffect } from 'react'
 import { useConversation } from '../../conversation/useConversation'
 import { useCanvasStore } from '../../store'
@@ -27,7 +27,7 @@ import {
   __resetTranscriptTombstonesForTests,
 } from '../../conversation/utils/transcriptStore'
 import type { ConversationMessage } from '../../conversation/types'
-import { claimColdLoadDeepLink, supersedeRememberedScenario, __resetColdLoadDeepLinkForTests } from '../coldLoadDeepLink'
+import { claimColdLoadDeepLink, useColdLoadDeepLinkGate, __resetColdLoadDeepLinkForTests } from '../coldLoadDeepLink'
 import { projectAutosaveData, autosaveSourceFromStore } from '../../store/autosaveProjection'
 
 // A passthrough: `useConversation` imports this module's `loadTranscript`, so the spy sees exactly what it asked for.
@@ -107,17 +107,22 @@ describe('the chat a cold-load deep link opens beside', () => {
     expect(said(result.current.messages)).toEqual([`question about ${Z}`, `answer about ${Z}`])
   })
 
-  it('⭐ claimed in the route\'s render, before the hook: the first-mount restore reads Y, and no render ever shows Z\'s chat', async () => {
+  it('⭐ behind the route\'s gate (as CanvasMVP mounts it): the first-mount restore reads Y, and no render ever shows Z\'s chat', async () => {
     const frames: Frame[] = []
-    const { result } = renderHook(() => {
-      claimColdLoadDeepLink(Y)
+    let last: ConversationMessage[] = []
+    function Body(): null {
       const conv = useConversation()
       frames.push({ id: useCanvasStore.getState().currentScenarioId, chat: said(conv.messages) })
-      return conv
-    })
+      last = conv.messages
+      return null
+    }
+    function Route(): JSX.Element | null {
+      return useColdLoadDeepLinkGate(Y) ? <Body /> : null
+    }
+    render(<Route />)
     await act(async () => { await Promise.resolve() })
     expect(useCanvasStore.getState().currentScenarioId).toBe(Y)
-    expect(said(result.current.messages)).toEqual(CHAT(Y))
+    expect(said(last)).toEqual(CHAT(Y))
     expect(askedFor()).toContain(Y)
     expect(askedFor()).not.toContain(Z)
     expect(frames.filter((f) => f.chat.some((c) => c.includes(Z)))).toEqual([])
@@ -127,7 +132,7 @@ describe('the chat a cold-load deep link opens beside', () => {
   it('WHY IT IS THE RENDER: the same supersede from a layout effect leaves the first-mount restore asking for Z (never rendered)', async () => {
     const frames: Frame[] = []
     const { result } = renderHook(() => {
-      useLayoutEffect(() => { supersedeRememberedScenario(Y) }, [])
+      useLayoutEffect(() => { claimColdLoadDeepLink(Y) }, [])
       const conv = useConversation()
       frames.push({ id: useCanvasStore.getState().currentScenarioId, chat: said(conv.messages) })
       return conv

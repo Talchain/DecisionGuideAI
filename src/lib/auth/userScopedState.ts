@@ -17,7 +17,9 @@ export const USER_SCOPED_STORAGE_KEYS = [
   'olumi-cee-analysis-ready-node-ids',
 ] as const
 
-export const USER_SCOPED_STORAGE_PREFIXES = ['olumi.dissent.v2.', 'olumi.dissent.'] as const
+// `olumi-canvas-autosave:` — a cold-load deep link's preserved copies (`scenarios.keyedAutosaveKey`): one per scenario,
+// unbounded, and as private as the main slot above.
+export const USER_SCOPED_STORAGE_PREFIXES = ['olumi.dissent.v2.', 'olumi.dissent.', 'olumi-canvas-autosave:'] as const
 
 /** One identity boundary for sign-out and A→B auth transitions. */
 export function clearUserScopedState(): void {
