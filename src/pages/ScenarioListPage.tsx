@@ -688,6 +688,14 @@ export default function ScenarioListPage() {
                     <h4 className={`${typography.h4} text-text-header pr-16 truncate`}>
                       {scenario.title || <span className="text-text-light">Untitled decision</span>}
                     </h4>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); navigate(`/scenario/${scenario.id}/compare`) }}
+                      className="mt-3 rounded-lg border border-border-default px-3 py-1.5 text-sm text-text-body hover:bg-canvas"
+                      data-testid="compare-scenario"
+                    >
+                      Compare with another scenario
+                    </button>
 
                     {/* Stage badge + analysis status */}
                     <div className="flex items-center gap-2 mt-2">
