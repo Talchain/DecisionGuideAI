@@ -144,6 +144,8 @@ import { StructuralRenameDrainHost } from './conversation/StructuralRenameDrainH
 import { StructuralAddDrainHost } from './conversation/StructuralAddDrainHost'
 import { StructuralAddEdgeDrainHost } from './conversation/StructuralAddEdgeDrainHost'
 import { GuidanceInvalidationHost } from './conversation/GuidanceInvalidationHost'
+// EXPERIMENT ONLY (experiment/webmcp-investor-demo, #76): Olumi WebMCP site tools.
+import { WebMcpHost } from '../webmcp/WebMcpHost'
 import { FloatingOlumiPanel } from './components/FloatingOlumiPanel'
 import {
   CANONICAL_EDIT_AUTHORITY,
@@ -3323,6 +3325,9 @@ export function MaybeConversationProvider({ children }: { children: import('reac
             no transport, so it cannot switch on `direct_graph_edit` emission as
             a side effect. */}
         <GuidanceInvalidationHost />
+        {/* EXPERIMENT ONLY (#76): inert unless the webmcp flag is on and
+            document.modelContext exists. */}
+        <WebMcpHost />
         {children}
       </ConversationProvider>
     )
