@@ -62,6 +62,15 @@ export function resolveRestoredScenarioId(
   return null
 }
 
+/** A removal that cannot throw: this runs in the route's render, and storage can fail at any call. */
+function removeQuietly(key: string): void {
+  try {
+    localStorage.removeItem(key)
+  } catch {
+    // Storage unavailable: there is nothing it could still be holding for us.
+  }
+}
+
 /** The scenario a cold boot of this browser would restore. */
 export function rememberedScenarioId(): string | null {
   return resolveRestoredScenarioId(scenarios.getCurrentScenarioId(), scenarios.loadAutosave()?.scenarioId)
@@ -83,24 +92,40 @@ export function supersedeRememberedScenario(route: string): 'applied' | 'decline
   } catch {
     return 'declined'
   }
-  scenarios.setCurrentScenarioId(route)
-  if (scenarios.getCurrentScenarioId() !== route) {
-    // Roll the preserve back: a copy left behind could go stale and come back later through a link to this scenario.
+  // Roll the preserve back: a copy left behind could go stale and come back later through a link to this scenario.
+  const rollBackPreserve = (): void => {
     try {
       if (previousCopy === null) localStorage.removeItem(keyedRemembered)
       else localStorage.setItem(keyedRemembered, previousCopy)
     } catch {
-      localStorage.removeItem(keyedRemembered)
+      removeQuietly(keyedRemembered)
     }
+  }
+  scenarios.setCurrentScenarioId(route)
+  if (scenarios.getCurrentScenarioId() !== route) {
+    rollBackPreserve()
     return 'declined'
   }
+  let mainIsTheRoutes: boolean
   try {
     const own = localStorage.getItem(keyedAutosaveSlot(route))
     if (own === null) localStorage.removeItem(MAIN_AUTOSAVE_SLOT)
     else localStorage.setItem(MAIN_AUTOSAVE_SLOT, own)
+    mainIsTheRoutes = true
   } catch {
-    // The preserved copy did not fit back. Z's graph must still never sit under Y's pointer.
-    localStorage.removeItem(MAIN_AUTOSAVE_SLOT)
+    // The preserved copy did not fit back: empty the slot instead.
+    removeQuietly(MAIN_AUTOSAVE_SLOT)
+    try {
+      mainIsTheRoutes = localStorage.getItem(MAIN_AUTOSAVE_SLOT) === null
+    } catch {
+      mainIsTheRoutes = false
+    }
+  }
+  if (!mainIsTheRoutes) {
+    // Storage would leave the remembered graph under the route's pointer. Undo, and today's behaviour stands.
+    scenarios.setCurrentScenarioId(remembered)
+    rollBackPreserve()
+    return 'declined'
   }
   useCanvasStore.setState({ currentScenarioId: route })
   return 'applied'

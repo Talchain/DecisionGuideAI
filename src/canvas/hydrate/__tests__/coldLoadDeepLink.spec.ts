@@ -389,6 +389,50 @@ describe('FAIL CLOSED: a write that does not hold leaves today\'s behaviour', ()
   })
 })
 
+describe('NEVER THROWS INTO THE ROUTE\'S RENDER', () => {
+  it('storage that refuses every call: the claim declines, and nothing escapes', () => {
+    rememberScenario(Z)
+    for (const m of ['getItem', 'setItem', 'removeItem'] as const) {
+      vi.spyOn(Storage.prototype, m).mockImplementation(() => {
+        throw new DOMException('denied', 'SecurityError')
+      })
+    }
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(() => claimColdLoadDeepLink(Y)).not.toThrow()
+    expect(useCanvasStore.getState().currentScenarioId).toBe(Z)
+  })
+
+  it('storage that fails after the pointer took, even to empty the main slot: no throw, and Z\'s graph is never left under pointer Y (the pointer is undone)', () => {
+    const zRaw = rememberScenario(Z)
+    const realGet = Storage.prototype.getItem
+    const realRemove = Storage.prototype.removeItem
+    let pointerWritten = false
+    const realSet = Storage.prototype.setItem
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === POINTER) pointerWritten = true
+      return realSet.call(this, k, v)
+    })
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, k: string) {
+      if (pointerWritten && k === keyedAutosaveSlot(Y)) throw new DOMException('denied', 'SecurityError')
+      return realGet.call(this, k)
+    })
+    let removeCalls = 0
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (this: Storage, k: string) {
+      removeCalls += 1
+      if (k === MAIN_AUTOSAVE_SLOT && removeCalls === 1) throw new DOMException('denied', 'SecurityError')
+      return realRemove.call(this, k)
+    })
+    let result: string | undefined
+    expect(() => { result = claimColdLoadDeepLink(Y) }).not.toThrow()
+    vi.restoreAllMocks()
+    expect(result).toBe('declined')
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBe(zRaw)
+    expect(localStorage.getItem(POINTER)).toBe(Z)
+    expect(useCanvasStore.getState().currentScenarioId).toBe(Z)
+    expect(keyedKeys()).toEqual([])
+  })
+})
+
 describe('§6 the steps the drive cannot execute (SOURCE scans, and only these)', () => {
   const src = (p: string) => readFileSync(join(process.cwd(), 'src', p), 'utf8')
 
