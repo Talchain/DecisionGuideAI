@@ -71,6 +71,9 @@ import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
 import { buildNodeInsights, mentionSectionsFrom } from './nodeInsights'
 import { buildModelStrip, stripRendersTargetAffordance } from './buildModelStrip'
 import { useCanvasStore } from '../../../canvas/store'
+import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
+import { selectRunAffirmedCurrent } from '../../../canvas/state/analysisStateSelector'
+import { selectWinSharesWithheld } from '../../../canvas/state/winShareGate'
 import { SUCCESS_MEASURE_RECOMMENDATION_ID } from '../strengthen/buildRecommendations'
 import { WhyNoAnalysisYet } from './sections/WhyNoAnalysisYet'
 import { useAnalysisRunState } from '../analysisState/useAnalysisRunState'
@@ -685,6 +688,9 @@ export function AnalysisNewTabBody({
   onSendMessage,
   blockedListing = null,
 }: AnalysisNewTabBodyProps) {
+  const runAffirmedCurrent = useCanvasStore(selectRunAffirmedCurrent)
+  const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
+  const sendScienceChip = useGuidanceStore((s) => s._sendChip)
   /**
    * ⭐ THE PRESENTATION PREDICATE, IN THE SHAPE THE OTHER READERS OF THIS
    * VERDICT ALREADY USE (`AnalysisReadinessBar`, `PanelFooter`, and the dock's
@@ -2236,6 +2242,20 @@ export function AnalysisNewTabBody({
             leader claim is withheld that is the panel naming an order it may not
             state (the same rule #1881 applies to the panel's own leader words).
             So the thresholds are passed only when the claim is permitted. */}
+        {!isPreRun && !isBusyNow && runAffirmedCurrent && !winSharesWithheld && vm.leaderClaimPermitted && sendScienceChip ? (
+          <button
+            type="button"
+            className={`${typography.panelBody} ${action('secondary')}`}
+            data-testid="analysis-what-would-change-result"
+            onClick={() => sendScienceChip(
+              'What would change the result?',
+              'What would most likely change this result?',
+              { id: 'agent-next-what-would-change' },
+            )}
+          >
+            What would change the result?
+          </button>
+        ) : null}
         <ChallengeCard
           title="Challenge the thinking"
           titleTestId="analysis-new-zone-also"
@@ -2254,7 +2274,8 @@ export function AnalysisNewTabBody({
         <ReasoningSignals
           vm={vm}
           noValueIds={noValueDriverIds}
-          flipThresholds={vm.leaderClaimPermitted ? resultsSectionData.recommendation.flipThresholds : undefined}
+          flipThresholds={runAffirmedCurrent && !winSharesWithheld && vm.leaderClaimPermitted ? resultsSectionData.recommendation.flipThresholds : undefined}
+          offerFactorEdit={runAffirmedCurrent && !winSharesWithheld && vm.leaderClaimPermitted}
           onFocus={focusTarget}
           onInspect={onReviewTarget ? inspectInModel : undefined}
           onAsk={openAskOlumi}

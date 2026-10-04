@@ -11,7 +11,7 @@
  * value, into the flags chunk. Each entry below is narrowed by Vite to that one
  * value, so the chunk now carries only keys the app actually declares.
  *
- * DERIVED, NOT HAND-LISTED: 65 flag keys from `src/flags.ts` FLAGS_CONFIG
+ * DERIVED, NOT HAND-LISTED: 67 flag keys from `src/flags.ts` FLAGS_CONFIG
  * (via the same AST walker `pnpm flags:check` uses) + 22 `VITE_FEATURE_*`/
  * `VITE_ENABLE_*` keys declared in `netlify.toml`. Adding a flag and re-running the
  * generator is the whole workflow; `--check` reds if this file falls behind.
@@ -79,6 +79,7 @@ export const FLAG_ENV: Record<string, unknown> = {
   VITE_FEATURE_PLOT_USES_PLC_CANVAS: import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS,
   VITE_FEATURE_PRE_ANALYSIS_ENRICHED: import.meta.env?.VITE_FEATURE_PRE_ANALYSIS_ENRICHED,
   VITE_FEATURE_PRE_ANALYSIS_V3: import.meta.env?.VITE_FEATURE_PRE_ANALYSIS_V3,
+  VITE_FEATURE_QUESTION_ASSUMPTION: import.meta.env?.VITE_FEATURE_QUESTION_ASSUMPTION,
   VITE_FEATURE_REAL_REPORT: import.meta.env?.VITE_FEATURE_REAL_REPORT,
   VITE_FEATURE_REASONING_DISCLOSURE: import.meta.env?.VITE_FEATURE_REASONING_DISCLOSURE,
   VITE_FEATURE_REPLAY: import.meta.env?.VITE_FEATURE_REPLAY,
@@ -102,6 +103,7 @@ export const FLAG_ENV: Record<string, unknown> = {
   VITE_FEATURE_STRENGTHEN_PANEL: import.meta.env?.VITE_FEATURE_STRENGTHEN_PANEL,
   VITE_FEATURE_SUMMARY_V2: import.meta.env?.VITE_FEATURE_SUMMARY_V2,
   VITE_FEATURE_TELEMETRY: import.meta.env?.VITE_FEATURE_TELEMETRY,
+  VITE_FEATURE_TEST_WITHOUT_LINK: import.meta.env?.VITE_FEATURE_TEST_WITHOUT_LINK,
   VITE_FEATURE_THREAD_HYDRATE: import.meta.env?.VITE_FEATURE_THREAD_HYDRATE,
   VITE_FEATURE_THREAD_PERSIST: import.meta.env?.VITE_FEATURE_THREAD_PERSIST,
   VITE_FEATURE_TLDRAW: import.meta.env?.VITE_FEATURE_TLDRAW,

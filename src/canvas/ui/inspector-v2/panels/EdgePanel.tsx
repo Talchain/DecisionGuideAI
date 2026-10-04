@@ -10,6 +10,8 @@ import { Activity } from 'lucide-react'
 import { FRAGILE_CUE_SENTENCE } from '../../../edges/connectorCopy'
 import { resolveEdgeDirectionMarker } from '../../../edges/edgePresentation'
 import { useCanvasStore } from '../../../store'
+import { useGuidanceStore } from '../../../stores/guidanceStore'
+import { findPathsToGoal } from '../../../utils/pathFinding'
 import { isCanvasOnlyLink } from '../../../utils/canvasOnlyLink'
 import { useRobustness, useEdgeEValues } from '../useAnalysisResults'
 import { useEditConfirmation } from '../useEditConfirmation'
@@ -64,6 +66,7 @@ import { resolveElementLabel } from '../../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable, edgeDirectionEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
 import { serverStatedStrengthOf } from '../../../conversation/edgeServerStatedStrength'
 import { formatNumber } from '../../../utils/formatValueWithUnit'
+import { isQuestionAssumptionEnabled } from '../../../../flags'
 
 /**
  * The turn fence's own sentence for a `refused` edge edit (CEE #1868 `turn_fence_*`), else null.
@@ -212,6 +215,10 @@ export const EdgePanel = memo(function EdgePanel({
 }: InspectorPanelProps) {
   const edges = useCanvasStore(s => s.edges)
   const nodes = useCanvasStore(s => s.nodes)
+  const goalNodeId = useCanvasStore(s => s.ceeAnalysisReady?.goal_node_id ?? s.nodes.find(
+    n => n.type === 'goal' || n.data?.kind === 'goal' || n.data?.type === 'goal',
+  )?.id ?? null)
+  const sendScienceChip = useGuidanceStore(s => s._sendChip)
   const serverHeldPairs = useCanvasStore(s => s.lastAuthoritativeGraph)
   const robustness = useRobustness()
   const edgeEValues = useEdgeEValues()
@@ -219,6 +226,17 @@ export const EdgePanel = memo(function EdgePanel({
   const isResultsMode = resultsStatus === 'complete'
 
   const edge = edgeId ? edges.find(e => e.id === edgeId) : undefined
+  // The mapper retains the magnitude author on naturalEffect and an explicit placeholder marker,
+  // rather than raw provenance.magnitude. Unknown authorship stays ineligible.
+  const magnitudeProvenance = edge?.data?.naturalEffect?.author
+  const storedPlaceholder = isStrengthPlaceholder(edge?.data as Record<string, unknown> | undefined)
+  const storedOlumiEstimate = magnitudeProvenance === 'olumi_estimate'
+    && edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'weight') === 'cee'
+  const canQuestionAssumption = useMemo(() => (
+    isQuestionAssumptionEnabled() && !!edge && !!goalNodeId
+    && (storedOlumiEstimate || storedPlaceholder)
+    && findPathsToGoal(edge.source, goalNodeId, edges, { maxDepth: nodes.length }).includes(edge.id)
+  ), [edge, goalNodeId, storedOlumiEstimate, storedPlaceholder, edges, nodes.length])
   const mutations = useEdgeMutations(edgeId ?? '')
   const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
 
@@ -1051,6 +1069,20 @@ export const EdgePanel = memo(function EdgePanel({
             <p data-testid="edge-values-provenance" className={`${typography.panelBody} !leading-[1.55] text-text-body mt-0 mb-2`}>
               {edgeValuesProvenance}
             </p>
+            {canQuestionAssumption && sendScienceChip ? (
+              <button
+                type="button"
+                className={`${inspectorButton} mb-2`}
+                data-testid="edge-question-assumption"
+                onClick={() => sendScienceChip(
+                  'Question this assumption',
+                  'Question this assumption',
+                  { id: `agent-question-assumption:${edge.source}>${edge.target}` },
+                )}
+              >
+                Question this assumption
+              </button>
+            ) : null}
             {/* Strength — primary editing surface. THE ONE CONTROL IN THIS PANEL
                 WITH A WIRE CARRIER (`edge_strength_edit`), so it is the one that
                 may present itself as a shared-model edit. The fieldset is the
