@@ -7,6 +7,10 @@ import type { UserProfile } from '../types/database';
 import { authLogger } from '../lib/auth/authLogger';
 import { clearAuthStates } from '../lib/auth/authUtils';
 import { clearUserScopedState } from '../lib/auth/userScopedState';
+
+// The last signed-in user in this tab. Module-level, not a hook: there is one auth provider, and a different
+// user arriving without an explicit sign-out must still clear the previous user's state.
+let lastSignedInUserId: string | null = null;
 import { observeDecisionRecordOwner } from '../components/results/modals/decisionRecordStore';
 import { isE2EEnabled } from '../flags';
 import { isGuestAuth } from '../lib/poc';
@@ -366,7 +370,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Fetch profile in a separate effect reacting to user changes —
   // keeps onAuthStateChange callback lightweight (no chained Supabase queries).
   const [pendingUser, setPendingUser] = React.useState<User | null>(null);
-  const previousUserId = React.useRef<string | null>(null);
 
   const handleAuthStateChange = useCallback((session: Session | null) => {
     observeDecisionRecordOwner(session?.user.id ?? null);
@@ -382,8 +385,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Set user immediately (synchronous side-effects only).
     // Profile fetch is deferred to the useEffect below.
     const u = session.user;
-    if (previousUserId.current !== null && previousUserId.current !== u.id) clearUserScopedState();
-    previousUserId.current = u.id;
+    if (lastSignedInUserId !== null && lastSignedInUserId !== u.id) clearUserScopedState();
+    lastSignedInUserId = u.id;
     setSentryUser(u.id, u.email ?? '');
     identifyUser(u.id, u.email ?? '', u.user_metadata?.full_name);
     trackEvent('signed_in', { provider: u.app_metadata?.provider ?? 'unknown' });
