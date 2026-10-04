@@ -644,6 +644,13 @@ export function useScenario(): UseScenarioReturn {
       const existingTitle = framingObj?.title
       if (existingTitle && typeof existingTitle === 'string' && existingTitle.trim().length > 0) {
         titleAutoSetForScenarioRef.current = sid
+        if (existingTitle.trim() !== lastSavedTitleRef.current) {
+          scenarioService.saveTitle(sid, existingTitle.trim()).then(() => {
+            lastSavedTitleRef.current = existingTitle.trim()
+          }).catch((err) => {
+            console.error('[useScenario] Title sync failed:', err)
+          })
+        }
         return
       }
 

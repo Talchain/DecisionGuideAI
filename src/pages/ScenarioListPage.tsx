@@ -553,7 +553,7 @@ export default function ScenarioListPage() {
     <div className="min-h-screen bg-canvas">
       {/* Hub header — minimal, with logo and avatar */}
       <header className="flex items-center justify-between px-6 py-4 sm:px-8">
-        <a href="/" aria-label="Olumi home">
+        <a href="/#/scenarios" aria-label="Olumi home">
           <img src="/olumi-logo.png" alt="Olumi" className="h-8" />
         </a>
         <UserAvatarMenu />

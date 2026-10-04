@@ -2242,7 +2242,7 @@ export function AnalysisNewTabBody({
             leader claim is withheld that is the panel naming an order it may not
             state (the same rule #1881 applies to the panel's own leader words).
             So the thresholds are passed only when the claim is permitted. */}
-        {!isPreRun && !isBusyNow && runAffirmedCurrent && !winSharesWithheld && vm.leaderClaimPermitted && sendScienceChip ? (
+        {!isPreRun && !isBusyNow && runAffirmedCurrent && sendScienceChip ? (
           <button
             type="button"
             className={`${typography.panelBody} ${action('secondary')}`}
