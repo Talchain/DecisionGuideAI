@@ -101,9 +101,13 @@ describe('elasticityShiftCopy — only a real direction gets a signed claim (ROA
 // carries `aria-expanded`), so this exercises the path a user takes.
 // ─────────────────────────────────────────────────────────────────────────────
 describe('DriversSection — the honest string reaches the RENDERED tooltip (ROADMAP 2.234, R3 wiring)', () => {
-  function renderDrivers(direction: DriverItem['direction']) {
+  // The shift line is a science figure, so it renders only in the advanced view (or under "Show details"; Paul's
+  // plain-words rule). These rows are about that figure's HONESTY, so they render the advanced view; the plain row
+  // at the end of this describe pins that the default view shows no figure at all.
+  function renderDrivers(direction: DriverItem['direction'], view: 'advanced' | 'plain' = 'advanced') {
     return render(
       <DriversSection
+        expertMode={view === 'advanced'}
         data={{
           // ⚠ `enrichment` is REQUIRED for the tooltip to exist at all.
           // `hasTooltipContent` now has TWO arms: `hasEnrichment` and a
@@ -158,6 +162,14 @@ describe('DriversSection — the honest string reaches the RENDERED tooltip (ROA
     const { container } = renderDrivers('negative')
     openTooltip()
     expect(container.textContent ?? '').toContain('-12%')
+  })
+
+  it('PLAIN VIEW — the open tooltip carries no shift figure (plain words first)', () => {
+    const { container } = renderDrivers('positive', 'plain')
+    openTooltip()
+    const text = container.textContent ?? ''
+    expect(text).not.toMatch(/tends to shift/)
+    expect(text).not.toContain('12%')
   })
 
   it('POSITIVE CONTROL — the tooltip is genuinely CLOSED before the click', () => {

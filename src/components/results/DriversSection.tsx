@@ -483,7 +483,9 @@ function DriverRow({
   // v7.5 T7: Softened tooltip copy. The RULE lives in `elasticityShiftCopy`
   // (exported, unit-pinned) — it was previously reachable only through a
   // hover-only Tooltip, which is how it kept a fabricated direction so long.
-  const tooltipElasticityCopy = elasticityShiftCopy(driver)
+  // Plain words first (Paul, standing): the shift is a science figure, so it shows only in the advanced view or
+  // under "Show details", the same gate as this row's influence percentage.
+  const tooltipElasticityCopy = showExact ? elasticityShiftCopy(driver) : null
 
   // Task 7c: technique suggestion for the (confidence-gated) body chip
   const techniqueSuggestion = (() => {

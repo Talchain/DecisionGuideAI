@@ -465,10 +465,6 @@ export const ResultsBody = memo(function ResultsBody({
         hasResults={(resultsSectionData.recommendation.allOptions?.length ?? 0) > 0}
       />
 
-      {/* Seamlessness R6 / ROADMAP 2.1 slice 1: run-over-run delta chip.
-          Client-side diff of the two most recent stored runs; self-hides on
-          first runs or zero delta; click pulses the surviving changes. */}
-
       {/* ── THE ANALYSIS COCKPIT ────────────────────────────────────────
           ONE implementation, mounted UNCONDITIONALLY. Read-only presentation
           over the SAME resultsSectionData object every section below

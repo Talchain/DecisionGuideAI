@@ -529,7 +529,9 @@ function buildKeyInsights(
   // two rows would collide on `key={f.id}`, the defect `uncertaintyKey`'s header
   // below documents at length. Two different splits for one factor contradict
   // each other anyway; the producer's first is kept.
-  const conditionalWinners: ConditionalWinner[] = conf.conditionalWinners ?? []
+  // ⛔ NOT ON A WITHHELD RANKING, for the hinge's reason (insight 5 below): "which option leads depends on X" and
+  // "Above S, A scores higher" are the leader claim restated as a split. `rankingWasWithheld`, as the hinge uses.
+  const conditionalWinners: ConditionalWinner[] = rankingWasWithheld(rec) ? [] : conf.conditionalWinners ?? []
   const seenConditionalFactors = new Set<string>()
   for (const cw of conditionalWinners) {
     if (cw.winner_flips === false) continue
@@ -1446,8 +1448,11 @@ function buildUncertainty(
      * slots. That row and this one are the discriminating pair.
      */
     const labelLength = truncateAtWordBoundary(text, 80)
+    // "…which option leads" presupposes a current leader; on a withheld ranking the row says the answer could move.
     const headlineText = u.threshold
-      ? `${u.threshold.variable} could change which option leads in this model`
+      ? rankingWasWithheld(data.recommendation)
+        ? `${u.threshold.variable} could change the answer in this model`
+        : `${u.threshold.variable} could change which option leads in this model`
       : labelLength === text
         ? text
         : rowTitle(u)

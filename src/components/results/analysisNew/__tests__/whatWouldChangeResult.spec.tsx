@@ -58,33 +58,41 @@ function mount(overrides: Partial<React.ComponentProps<typeof AnalysisNewTabBody
 describe('What would change the result in Analysis', () => {
   it('shows one obvious entry on a current run and dispatches the existing exact press', () => {
     mount()
-    const entry = screen.getByRole('button', { name: 'What would change the result?' })
-    expect(screen.getAllByRole('button', { name: 'What would change the result?' })).toHaveLength(1)
+    const entry = screen.getByRole('button', { name: 'What would change this?' })
+    expect(screen.getAllByRole('button', { name: 'What would change this?' })).toHaveLength(1)
     fireEvent.click(entry)
     expect(sendChip).toHaveBeenCalledTimes(1)
     expect(sendChip).toHaveBeenCalledWith(
-      'What would change the result?', 'What would most likely change this result?',
+      'What would change this?', 'What would most likely change this result?',
       { id: 'agent-next-what-would-change' },
     )
   })
 
-  it.each(['pre-run', 'running', 'wire-running', 'stale', 'unconfirmed', 'withheld', 'no sender'])(
+  it.each(['pre-run', 'running', 'wire-running', 'stale', 'unconfirmed', 'no sender'])(
     'hides the entry when %s', (state) => {
       if (state === 'stale') useCanvasStore.setState({ analysisFreshnessDirty: true })
       if (state === 'unconfirmed') useCanvasStore.setState({ analysisFreshness: null })
-      if (state === 'withheld') useCanvasStore.setState({
-        results: { status: 'complete', report: { producer_leader_permission: { permitted: false } } },
-      } as never)
       if (state === 'no sender') useGuidanceStore.setState({ _sendChip: null })
       mount({ isPreRun: state === 'pre-run', isRunning: state === 'running', isBusy: state === 'running' || state === 'wire-running' })
-      expect(screen.queryByRole('button', { name: 'What would change the result?' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'What would change this?' })).not.toBeInTheDocument()
     },
   )
 
-  it('also respects the view model leader permission', () => {
-    mount({ resultsSectionData: decisionWithLeaderWithheld() })
-    expect(screen.queryByRole('button', { name: 'What would change the result?' })).not.toBeInTheDocument()
-    expect(screen.queryByTestId('analysis-new-signals-tipping')).not.toBeInTheDocument()
+  // #2466 (4 Oct, journey fix): the entry no longer requires a named leader, because "it is most useful exactly when
+  // the result is withheld"; CEE answers a withheld Run with its own honest limit. The two rows here asserted the
+  // pre-#2466 gate and were red on staging. The tipping row stays leader-gated: its sentence names an option.
+  it.each([
+    ['the producer withheld the leader', () => useCanvasStore.setState({
+      results: { status: 'complete', report: { producer_leader_permission: { permitted: false } } },
+    } as never)],
+    ['the view model withheld the leader', () => undefined],
+  ])('offers the entry on a current Run when %s, and still states no tipping point', (state, seed) => {
+    seed()
+    mount(state === 'the view model withheld the leader' ? { resultsSectionData: decisionWithLeaderWithheld() } : {})
+    expect(screen.getByRole('button', { name: 'What would change this?' })).toBeInTheDocument()
+    if (state === 'the view model withheld the leader') {
+      expect(screen.queryByTestId('analysis-new-signals-tipping')).not.toBeInTheDocument()
+    }
   })
 
   it('takes the tipping factor to its existing edit door and names rerun then Compare', () => {

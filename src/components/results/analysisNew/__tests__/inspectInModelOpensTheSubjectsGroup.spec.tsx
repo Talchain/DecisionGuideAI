@@ -20,7 +20,7 @@
  * `theTippingPointRenders.spec.tsx` already uses), node `3457913d`.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
@@ -32,6 +32,7 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { useCanvasStore } from '../../../../canvas/store'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { manyFragileEdges } from './analysisNewFixtures'
+import { seedCurrentRun } from './seedCurrentRun'
 
 const TIP_NODE = '3457913d'
 const FOUND_TIP = {
@@ -73,8 +74,16 @@ const renderBody = (onReviewTarget?: (id: string) => void) =>
     />,
   )
 
-const pressTipInspect = () => fireEvent.click(screen.getByTestId('analysis-new-signals-tipping-inspect'))
+// #2462: on a current, licensed Run the tipping row's Inspect act is replaced by its explicit "Edit <factor>" door
+// (ReasoningSignals, \`offerFactorEdit\`), which calls the SAME \`onInspect\`. So the subject's route is pressed
+// there; the old act is asserted absent so a second door cannot quietly come back.
+const pressTipInspect = () => {
+  expect(screen.queryByTestId('analysis-new-signals-tipping-inspect')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: `Edit ${FOUND_TIP.label}` }))
+}
 
+// A current Run: since #2462 the tipping row is passed thresholds only on one (see seedCurrentRun.ts).
+beforeEach(seedCurrentRun)
 afterEach(() => {
   cleanup()
   vi.mocked(openModelValueEditor).mockClear()
