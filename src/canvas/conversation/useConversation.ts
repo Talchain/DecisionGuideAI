@@ -349,24 +349,10 @@ function mapSourceSurface(triggerSurface: string, mode: 'user' | 'system'): stri
 }
 
 /**
- * Infer a task-specific loading hint from the user message and graph state.
- * Used as the first long-running hint (15s) to give users a sense of what's happening.
+ * A loading hint names an operation only when the caller supplies its turn type.
+ * User wording cannot confirm whether analysis or explanation is running.
  */
-export function inferLoadingHint(message: string, _nodeCount: number, turnType?: string): string {
-  const lower = message.toLowerCase()
-  if (lower.includes('analys') || lower.includes('evaluat') || lower.includes('compare') || lower.includes('run')) return 'Analysing your options\u2026'
-  // ⛔ THE 'Researching evidence…' BRANCH IS DELETED (29 Aug 2026) AND MUST
-  // NOT COME BACK WHILE THE TOOL IS ABSENT. The research tool was removed on
-  // 22 Jul 2026; CEE answers "I can't fetch external sources". So this hint
-  // described a retrieval that never happened — on EVERY path that reached
-  // it, including a user simply typing "find evidence on this", which is why
-  // relabelling the one chip that sent it would not have been enough.
-  // These messages now fall through to 'Thinking…', which is true.
-  // Re-add this branch in the same change that lands a research producer,
-  // never before. Pinned by `outsideViewChipTruthful.spec.tsx` case (c),
-  // whose case (d) proves the surviving branches still discriminate.
-  if (lower.includes('brief')) return 'Assembling your decision brief\u2026'
-  if (lower.includes('explain') || lower.includes('why')) return 'Preparing explanation\u2026'
+export function inferLoadingHint(_message: string, _nodeCount: number, turnType?: string): string {
   if (turnType === 'explicit_generate') return 'Building your decision model\u2026'
   return 'Thinking\u2026'
 }
