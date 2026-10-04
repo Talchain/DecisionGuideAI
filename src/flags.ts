@@ -456,11 +456,11 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_STRENGTHEN_PANEL',
     storageKey: 'feature.strengthenPanel',
   },
-  // Dark until the typed agent link-test route is served.
+  // On: the typed agent link-test route (CEE #2553) is served on staging.
   testWithoutLink: {
     envKey: 'VITE_FEATURE_TEST_WITHOUT_LINK',
     storageKey: 'feature.testWithoutLink',
-    defaultValue: false,
+    defaultValue: true,
   },
   // On: the service's "question this assumption" turn (Living Model, CEE #2534) is served on staging.
   questionAssumption: {
