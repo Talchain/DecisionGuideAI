@@ -10,6 +10,7 @@
 
 import { type Edge } from '@xyflow/react'
 import type { StoredRun } from '../store/runHistory'
+import { ScienceQuantity } from '../../components/science/ScienceQuantity'
 
 export interface EdgeDiffRow {
   edgeId: string
@@ -185,9 +186,9 @@ export function EdgeDiffTable({ runA, runB, limit = 5, onFocusEdge }: EdgeDiffTa
                 <td className="px-4 py-3">
                   {row.runA ? (
                     <div className="font-mono text-xs">
-                      <span className="text-gray-900">{row.runA.weight.toFixed(2)}</span>
+                      <ScienceQuantity kind="strength" value={row.runA.weight} />
                       <span className="text-gray-400 mx-1">/</span>
-                      <span className="text-gray-600">{row.runA.belief.toFixed(2)}</span>
+                      <ScienceQuantity kind="probability" value={row.runA.belief} />
                     </div>
                   ) : (
                     <span className="text-gray-400 text-xs">—</span>
@@ -196,9 +197,9 @@ export function EdgeDiffTable({ runA, runB, limit = 5, onFocusEdge }: EdgeDiffTa
                 <td className="px-4 py-3">
                   {row.runB ? (
                     <div className="font-mono text-xs">
-                      <span className="text-gray-900">{row.runB.weight.toFixed(2)}</span>
+                      <ScienceQuantity kind="strength" value={row.runB.weight} />
                       <span className="text-gray-400 mx-1">/</span>
-                      <span className="text-gray-600">{row.runB.belief.toFixed(2)}</span>
+                      <ScienceQuantity kind="probability" value={row.runB.belief} />
                     </div>
                   ) : (
                     <span className="text-gray-400 text-xs">—</span>
@@ -217,8 +218,7 @@ export function EdgeDiffTable({ runA, runB, limit = 5, onFocusEdge }: EdgeDiffTa
                         }`}
                       >
                         <span className="text-gray-400 text-xs font-normal">Δw:</span>{' '}
-                        {row.deltaWeight > 0 ? '+' : ''}
-                        {row.deltaWeight.toFixed(3)}
+                        <ScienceQuantity kind="strength" value={row.deltaWeight} label="" />
                       </span>
                       <span
                         className={`font-mono text-xs ${
@@ -230,8 +230,7 @@ export function EdgeDiffTable({ runA, runB, limit = 5, onFocusEdge }: EdgeDiffTa
                         }`}
                       >
                         <span className="text-gray-400 text-xs font-normal">Δb:</span>{' '}
-                        {row.deltaBelief > 0 ? '+' : ''}
-                        {row.deltaBelief.toFixed(3)}
+                        <ScienceQuantity kind="probability" value={row.deltaBelief} label="" />
                       </span>
                     </div>
                   ) : (

@@ -18,6 +18,7 @@ import { ChevronDown, ChevronRight, ClipboardCheck, Wrench } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import type { ModelReceiptData } from '../adapters/modelCardAdapter'
 import { PANEL_LIST_STACK } from './panelLists'
+import { scienceChangeText } from '../../components/science/ScienceQuantity'
 
 // ---------------------------------------------------------------------------
 // § 1 — Readiness label (neutral; demoted to the "Model details" disclosure)
@@ -142,7 +143,7 @@ export const ModelReceiptBlock = memo(function ModelReceiptBlock({ data }: Model
                 <li key={i} className={`${typography.chatMeta} text-text-light`}>
                   <span className="font-medium text-text-body">{a.action}</span> {a.label}
                   {a.before != null && a.after != null && (
-                    <span> ({a.before} → {a.after})</span>
+                    <span> ({scienceChangeText(a.label, Number(a.before), Number(a.after)) ?? `${a.before} → ${a.after}`})</span>
                   )}
                 </li>
               ))}

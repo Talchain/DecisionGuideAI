@@ -26,6 +26,7 @@ import {
   type GraphChangeKind,
   type GraphChangeVerdict,
 } from './graphChangeDiff'
+import { scienceChangeText } from '../../components/science/ScienceQuantity'
 
 // ---------------------------------------------------------------------------
 // Magnitude classification
@@ -441,7 +442,7 @@ function deriveEditLines(verdict: GraphChangeVerdict, to: AnalysisSnapshot): str
     }
     for (const c of verdict.fieldChanges) {
       lines.push(
-        `${c.label}: ${fieldDisplayLabel(c.field)} ${formatChangeValue(c.before)} → ${formatChangeValue(c.after)}`,
+        `${c.label}: ${fieldDisplayLabel(c.field)} ${scienceChangeText(c.field, c.before, c.after) ?? `${formatChangeValue(c.before)} → ${formatChangeValue(c.after)}`}`,
       )
     }
     return lines

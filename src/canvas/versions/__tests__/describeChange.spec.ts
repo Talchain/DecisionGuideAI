@@ -136,11 +136,11 @@ describe('describeChangeset', () => {
     const changeset = diffModelVersions(a, b)
 
     expect(describeChangeset(changeset).map((l) => l.text)).toEqual([
-      'Link n1 → n2 strength 0.5 → 0.9',
+      'Link n1 → n2 strength Strong → Very strong',
     ])
     expect(
       describeChangeset(changeset, buildVersionLabelIndex(a, b)).map((l) => l.text),
-    ).toEqual(['Link Price → Revenue strength 0.5 → 0.9'])
+    ).toEqual(['Link Price → Revenue strength Strong → Very strong'])
   })
 
   it('prefers the later label when a node was renamed', () => {
@@ -155,7 +155,7 @@ describe('describeChangeset', () => {
     const a = version('a', nodes, [edge('e1', 'n1', 'n2', { weight: 0.5 })])
     const b = version('b', nodes, [edge('e1', 'n1', 'n2', { weight: 0.9 })])
 
-    expect(textOf(a, b)).toEqual(['Link Price → Revenue strength 0.5 → 0.9'])
+    expect(textOf(a, b)).toEqual(['Link Price → Revenue strength Strong → Very strong'])
   })
 
   it('renders an unmapped field under its raw name rather than hiding it', () => {

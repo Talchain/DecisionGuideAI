@@ -27,6 +27,7 @@ import type {
   ModelVersion,
   NodeChange,
 } from './types'
+import { scienceChangeText } from '../../components/science/ScienceQuantity'
 
 export interface ChangeLine {
   /** Stable React key — element id plus field, unique within a changeset. */
@@ -95,7 +96,7 @@ function kindLabel(kind: string): string {
 }
 
 function describeField(change: FieldChange): string {
-  return `${fieldLabel(change.field)} ${formatFieldValue(change.before)} → ${formatFieldValue(change.after)}`
+  return `${fieldLabel(change.field)} ${scienceChangeText(change.field, change.before, change.after) ?? `${formatFieldValue(change.before)} → ${formatFieldValue(change.after)}`}`
 }
 
 /**
