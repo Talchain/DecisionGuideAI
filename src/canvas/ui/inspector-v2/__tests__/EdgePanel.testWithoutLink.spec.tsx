@@ -51,8 +51,20 @@ function seedCurrentRun(extra: Record<string, unknown> = {}) {
     ],
     hasCompletedFirstRun: true,
     analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
-    analysisFreshnessDirty: false, analysisStateV1: null, importPendingServerRegistration: false,
+    analysisFreshnessDirty: false, importPendingServerRegistration: false,
     results: { status: 'complete', report: { option_probabilities: null } },
+    // The served shape the offer gate reads. `analysisStateV1` is the analysis_state of a served turn VERBATIM
+    // (journey 4, 4 Oct, CEE 24e9b102, wire/16); only the admission's mode is lifted to quantified_provisional,
+    // the lowest the service answers this press on (that capture's own mode was exploratory).
+    ceeAnalysisReady: { analysis_admission: { permitted_analysis_mode: 'quantified_provisional' } },
+    analysisStateV1: {
+      run_state: { kind: 'complete_current', computed_at: '2026-10-04T18:32:06.624Z' },
+      readiness: { status: 'ready', blockers: [] },
+      leader_claim: { permitted: false, withheld_reason: 'separation_unavailable' },
+      robustness: {},
+      usable_for_prose: true, usable_for_chips: true, usable_for_followup: true,
+      requires_rerun: false, blocked_unusable: false, contradictions: [],
+    },
     ...extra,
   } as never)
 }
@@ -106,6 +118,13 @@ describe('Test without this link in the link inspector', () => {
     render(<EdgePanel {...panelProps} />)
     expect(screen.queryByTestId('edge-test-without-link')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: NAME })).not.toBeInTheDocument()
+  })
+
+  it('says why, in plain words, instead of offering the press on an exploratory Run', () => {
+    seedCurrentRun({ ceeAnalysisReady: { analysis_admission: { permitted_analysis_mode: 'exploratory' } } })
+    render(<EdgePanel {...panelProps} />)
+    expect(screen.queryByRole('button', { name: NAME })).not.toBeInTheDocument()
+    expect(screen.getByTestId('edge-test-without-link-hold')).toHaveAttribute('data-hold', 'not_quantified')
   })
 
   it('is hidden when there is no conversation to send into', () => {

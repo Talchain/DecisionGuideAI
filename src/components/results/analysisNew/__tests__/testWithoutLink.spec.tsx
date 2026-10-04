@@ -38,8 +38,20 @@ beforeEach(() => {
     nodes: [], edges: [{ id: 'link-1', source: 'factor-a', target: 'goal-b', data: {} }],
     hasCompletedFirstRun: true,
     analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
-    analysisFreshnessDirty: false, analysisStateV1: null, importPendingServerRegistration: false,
+    analysisFreshnessDirty: false, importPendingServerRegistration: false,
     results: { status: 'complete', report: { option_probabilities: { a: 0.6, b: 0.4 } } },
+    // The served shape the offer gate reads. `analysisStateV1` is the analysis_state of a served turn VERBATIM
+    // (journey 4, 4 Oct, CEE 24e9b102, wire/16); only the admission's mode is lifted to quantified_provisional,
+    // the lowest the service answers this press on (that capture's own mode was exploratory).
+    ceeAnalysisReady: { analysis_admission: { permitted_analysis_mode: 'quantified_provisional' } },
+    analysisStateV1: {
+      run_state: { kind: 'complete_current', computed_at: '2026-10-04T18:32:06.624Z' },
+      readiness: { status: 'ready', blockers: [] },
+      leader_claim: { permitted: false, withheld_reason: 'separation_unavailable' },
+      robustness: {},
+      usable_for_prose: true, usable_for_chips: true, usable_for_followup: true,
+      requires_rerun: false, blocked_unusable: false, contradictions: [],
+    },
   } as never)
 })
 afterEach(() => {
@@ -95,6 +107,36 @@ describe('Test without this link on the existing Challenge signals', () => {
     const { id } = sendChip.mock.calls[0][0]
     expect(id).toBe('agent-test-without-link:["factor:price_rise","goal:mrr"]')
     expect(JSON.parse(id.slice('agent-test-without-link:'.length))).toEqual(['factor:price_rise', 'goal:mrr'])
+  })
+
+  // The offer gate (testWithoutLinkEligibility): a press the service is certain to refuse is not offered, and the
+  // reason is said in one plain sentence instead. Each row changes one producer field of the served seed.
+  it('says why instead of offering the press when the admission is below quantified_provisional', () => {
+    localStorage.setItem(FLAG, '1')
+    useCanvasStore.setState({ ceeAnalysisReady: { analysis_admission: { permitted_analysis_mode: 'exploratory' } } } as never)
+    mount()
+    expect(screen.queryByRole('button', { name: 'Test without this link' })).not.toBeInTheDocument()
+    const hold = screen.getByTestId('challenge-test-without-link-hold')
+    expect(hold).toHaveAttribute('data-hold', 'not_quantified')
+    expect(hold).toHaveTextContent('this analysis cannot measure that yet')
+  })
+
+  it('says why for an option-wiring link, whatever the Run', () => {
+    localStorage.setItem(FLAG, '1')
+    useCanvasStore.setState({
+      nodes: [{ id: 'factor-a', type: 'option', position: { x: 0, y: 0 }, data: {} }],
+    } as never)
+    mount()
+    expect(screen.queryByRole('button', { name: 'Test without this link' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('challenge-test-without-link-hold')).toHaveAttribute('data-hold', 'option_wiring')
+  })
+
+  it('still offers the press when no admission is loaded (a fresh-browser cold load stores none)', () => {
+    localStorage.setItem(FLAG, '1')
+    useCanvasStore.setState({ ceeAnalysisReady: null, retainedAnalysisAdmission: null } as never)
+    mount()
+    expect(screen.getByRole('button', { name: 'Test without this link' })).toBeInTheDocument()
+    expect(screen.queryByTestId('challenge-test-without-link-hold')).not.toBeInTheDocument()
   })
 
   it.each(['missing link', 'no sender', 'stale', 'pre-run', 'non-link finding'])(
