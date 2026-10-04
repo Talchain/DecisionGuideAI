@@ -71,7 +71,8 @@ function bootRestore(): string | null | 'not_autosave' {
   const scenario = currentId ? scenarios.getScenario(currentId) : null
   const loadSource = resolveBootLoadSource(currentId, autosave, scenario)
   if (loadSource !== 'autosave' || !autosave) return 'not_autosave'
-  useCanvasStore.getState().hydrateGraphSlice({ nodes: autosave.nodes, edges: autosave.edges, goalConstraints: autosave.goalConstraints ?? null })
+  // The effect passes the same three fields; the persisted record's edge type is the wider React Flow one.
+  useCanvasStore.getState().hydrateGraphSlice({ nodes: autosave.nodes, edges: autosave.edges as never, goalConstraints: autosave.goalConstraints ?? null })
   const restoredBoundId = bindRestoredScenarioId(currentId, autosave)
   settleKeyedAutosaveCopy(restoredBoundId)
   return restoredBoundId
