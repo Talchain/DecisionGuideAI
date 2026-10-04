@@ -27,6 +27,10 @@ import type { RunOnRecordWithoutResult } from '../stores/declinedSavedRunStore'
 import { useCanvasStore } from '../store'
 import { selectRunDeltaAbsenceReason } from '../state/storedRunDelta'
 import { runDeltaSentence } from '../../components/results/analysisNew/commitmentSynthesis'
+import { selectRunAffirmedCurrent } from '../state/analysisStateSelector'
+import { selectWinSharesWithheld } from '../state/winShareGate'
+import { buildRunChangeArtefact } from './runChangeArtefact'
+import { RunChangeArtefactCard } from './RunChangeArtefactCard'
 
 export const COMPARE_RUN_PAIR_TESTID = 'compare-run-pair'
 
@@ -49,6 +53,16 @@ export function CompareRunPairBody({
   runOnRecordWithoutResult?: RunOnRecordWithoutResult
 }): JSX.Element {
   const view = useDisplayedRunDeltaView(responseHash)
+  const endpoints = useCanvasStore(s => s.runDelta?.delta.endpoints)
+  const runIsCurrent = useCanvasStore(selectRunAffirmedCurrent)
+  const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
+  const artefact = buildRunChangeArtefact({
+    view,
+    priorRun: endpoints?.prior,
+    currentRun: endpoints?.current,
+    runIsCurrent,
+    winSharesWithheld,
+  })
   // CANVAS (lease DL #75 5920620752, UNDO grant 5920635710): the same view marks the canvas while this tab shows it,
   // and each row focuses the element its producer ids name — or says it is not on the canvas now.
   const changes = useRunChangesProjection(view)
@@ -100,6 +114,7 @@ export function CompareRunPairBody({
   }
   return (
     <div data-testid={COMPARE_RUN_PAIR_TESTID}>
+      <RunChangeArtefactCard artefact={artefact} />
       <WhatsChanged view={view} rowFocus={rowFocus} rowLight={rowLight} />
     </div>
   )
