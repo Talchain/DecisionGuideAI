@@ -666,6 +666,42 @@ describe('§10 TRANSACTIONS (Codex round 2): a read-back that fails once, a roll
     expect(coldLoadBlocksBootRestore()).toBe(false)
   })
 
+  it('⭐ the pointer comes back but the main slot cannot: the copy is then Z\'s ONLY graph, and it is kept (boot restore blocked)', () => {
+    const zRaw = rememberScenario(Z)
+    const w = watchWrites()
+    vi.restoreAllMocks()
+    const realSet = Storage.prototype.setItem
+    const realRemove = Storage.prototype.removeItem
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === MAIN_AUTOSAVE_SLOT) throw new DOMException('quota', 'QuotaExceededError')
+      return realSet.call(this, k, v)
+    })
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (this: Storage, k: string) {
+      w.removed.add(k)
+      return realRemove.call(this, k)
+    })
+    throwOnceOnRead(MAIN_AUTOSAVE_SLOT, () => w.removed.has(MAIN_AUTOSAVE_SLOT))
+    expect(claimColdLoadDeepLink(Y)).toBe('declined')
+    vi.restoreAllMocks()
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBeNull()
+    expect(localStorage.getItem(keyedAutosaveSlot(Z))).toBe(zRaw)
+    expect(localStorage.getItem(POINTER)).toBe(Z)
+    expect(coldLoadBlocksBootRestore()).toBe(true)
+  })
+
+  it('the final check cannot read the pointer back: fail closed, storage is put back exactly (Z, its graph, no copy)', () => {
+    const zRaw = rememberScenario(Z)
+    const w = watchWrites()
+    throwOnceOnRead(POINTER, () => w.removed.has(MAIN_AUTOSAVE_SLOT))
+    expect(claimColdLoadDeepLink(Y)).toBe('declined')
+    vi.restoreAllMocks()
+    expect(useCanvasStore.getState().currentScenarioId).not.toBe(Y)
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBe(zRaw)
+    expect(localStorage.getItem(POINTER)).toBe(Z)
+    expect(keyedKeys()).toEqual([])
+    expect(coldLoadBlocksBootRestore()).toBe(false)
+  })
+
   it('⭐ a promotion that took but read back badly: never Z\'s graph under pointer Y, and Y\'s copy is not removed', () => {
     const zRaw = rememberScenario(Z)
     claimColdLoadDeepLink(Y)
