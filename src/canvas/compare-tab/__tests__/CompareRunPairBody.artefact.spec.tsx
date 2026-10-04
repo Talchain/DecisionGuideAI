@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { AnalysisResultBlockSchema, AnalysisStateV1Schema, type AnalysisStateV1 } from '@talchain/schemas/boundary'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { WHATS_CHANGED_TESTID } from '../../../components/results/analysisNew/sections/WhatsChanged'
@@ -62,7 +62,7 @@ afterEach(() => {
 })
 
 describe('the artefact mounted in the existing Compare body', () => {
-  it('shows edits, stated results and the attribution limit beside the existing detail, with wire traces', () => {
+  it('shows business edits and the pair limit, with science figures disclosed in result details', () => {
     const hash = seed()
     expect(selectRunAffirmedCurrent(useCanvasStore.getState())).toBe(true)
     expect(selectWinSharesWithheld(useCanvasStore.getState())).toBe(false)
@@ -71,13 +71,15 @@ describe('the artefact mounted in the existing Compare body', () => {
     expect(artefact).toHaveAttribute('data-testid', RUN_CHANGE_ARTEFACT_TESTID)
     expect(artefact).toHaveAttribute('data-prior-run-id', 'run-a')
     expect(artefact).toHaveAttribute('data-current-run-id', 'run-b')
-    expect(within(artefact).getByText('Pro price, Raise to £60: £59 → £60')).toHaveAttribute(
+    expect(within(screen.getByRole('region', { name: 'What you changed' })).getByText('Pro price, Raise to £60: £59 → £60')).toHaveAttribute(
       'data-wire-fields', expect.stringContaining('run_delta.input_changes[].before'),
     )
-    expect(within(artefact).getByText('Raise to £60: 41% → 44% chance of leading.')).toHaveAttribute(
+    expect(screen.queryByText('Raise to £60: 41% → 44% chance of leading.')).toBeNull()
+    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
+    expect(screen.getByText('Raise to £60: 41% → 44% chance of leading.')).toHaveAttribute(
       'data-wire-fields', expect.stringContaining('run_delta.win_probabilities[].current'),
     )
-    expect(artefact).toHaveTextContent('Whether a change to the model explains anything below cannot be established from this pair.')
+    expect(screen.getByRole('region', { name: 'How to read this comparison' })).toHaveTextContent('Whether a change to the model explains anything below cannot be established from this pair.')
     expect(artefact).not.toHaveTextContent('Price is an influential input on this run.')
     expect(screen.getByTestId(WHATS_CHANGED_TESTID)).toBeInTheDocument()
     expect(globalThis.fetch).not.toHaveBeenCalled()
