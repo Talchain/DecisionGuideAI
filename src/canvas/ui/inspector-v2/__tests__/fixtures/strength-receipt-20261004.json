@@ -1,0 +1,43 @@
+{
+  "source": "Talchain/olumi-programme-docs@06e6498cf109d4441c0ebcce2fddeced6c964208 / 06-approval-response.json",
+  "graph_patch": {
+    "type": "graph_patch",
+    "status": "applied",
+    "operation": "adjust_edge_strength",
+    "target_id": "monthly_operating_spend\u2192monthly_recurring_revenue",
+    "before": {
+      "from": "monthly_operating_spend",
+      "to": "monthly_recurring_revenue",
+      "strength": {
+        "mean": 0.3333333333333333,
+        "std": 0.16666666666666666
+      },
+      "effect_direction": "positive"
+    },
+    "after": {
+      "from": "monthly_operating_spend",
+      "to": "monthly_recurring_revenue",
+      "strength": {
+        "mean": 0.55,
+        "std": 0.275
+      },
+      "effect_direction": "positive"
+    }
+  },
+  "returned_edge": {
+    "to": "monthly_recurring_revenue",
+    "from": "monthly_operating_spend",
+    "strength": {
+      "std": 0.275,
+      "mean": 0.55
+    },
+    "provenance": {
+      "source": "user_specified"
+    },
+    "std_defaulted": true,
+    "effect_direction": "positive",
+    "exists_defaulted": true,
+    "exists_probability": 0.8,
+    "provenance_display": "user_set"
+  }
+}

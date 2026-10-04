@@ -12,7 +12,7 @@
  * live path).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { EdgePanel } from '../panels/EdgePanel'
 import { FRAGILE_CUE_SENTENCE } from '../../../edges/connectorCopy'
 import { useCanvasStore } from '../../../store'
@@ -35,6 +35,8 @@ function seed(edgeIds: string[]) {
 
 function inspectorShowsFinding(edgeId: string): boolean {
   render(<EdgePanel edgeId={edgeId} techMode={false} onClose={vi.fn()} onNavigate={vi.fn()} />)
+  const context = screen.queryByTestId('edge-fragility-context')
+  if (context) fireEvent.click(context.querySelector('button')!)
   const shows = screen.queryByText('55% flip risk') !== null
   // The heading and the number travel together; a half-rendered finding is a defect too.
   expect(screen.queryByText(FRAGILE_CUE_SENTENCE) !== null).toBe(shows)

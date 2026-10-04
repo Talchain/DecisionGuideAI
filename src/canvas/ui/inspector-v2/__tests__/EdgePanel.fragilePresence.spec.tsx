@@ -83,6 +83,7 @@ describe('EdgePanel — flip-risk percentage presence-branches on measured switc
       { edge_id: 'e1', from: 'fac1', to: 'out1', switch_probability: 0.65, marginal_switch_probability: 0.9 },
     ])
     render(<EdgePanel {...panelProps} />)
+    fireEvent.click(screen.getByTestId('edge-fragility-context').querySelector('button')!)
     expect(screen.getByText('65% flip risk')).toBeTruthy()
     expect(screen.queryByText(/90%/)).toBeNull()
   })
@@ -92,6 +93,7 @@ describe('EdgePanel — flip-risk percentage presence-branches on measured switc
       { edge_id: 'e1', from: 'fac1', to: 'out1', switch_probability: 0.65, marginal_switch_probability: 0.9 },
     ])
     render(<EdgePanel {...panelProps} />)
+    fireEvent.click(screen.getByTestId('edge-fragility-context').querySelector('button')!)
     const heading = screen.getByText(FRAGILE_CUE_SENTENCE)
     const tooltip = screen.getByText('65% flip risk').getAttribute('title') ?? ''
     // Bound to the heading's OWN rendered text, not a second literal.

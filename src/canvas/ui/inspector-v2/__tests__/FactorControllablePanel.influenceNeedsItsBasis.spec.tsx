@@ -20,7 +20,7 @@
  * rowed separately rather than swept in.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, cleanup } from '@testing-library/react'
+import { render, cleanup, screen, fireEvent } from '@testing-library/react'
 import { FactorControllablePanel } from '../panels/FactorControllablePanel'
 import { useCanvasStore } from '../../../store'
 
@@ -54,6 +54,7 @@ describe('FactorControllablePanel — influence needs its basis', () => {
       ...BASE, influence: 0.62, influenceProvenance: 'sensitivity',
     } as never)
     render(<FactorControllablePanel nodeId="fac1" techMode={false} onClose={() => {}} onNavigate={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Show details' }))
     expect(document.body.textContent, 'a basis-backed influence was withheld').toMatch(/62\s*%/)
   })
 

@@ -18,7 +18,9 @@ export function scienceBand(kind: ScienceQuantityKind, value: number): string {
 }
 
 export function scienceQuantityText(kind: ScienceQuantityKind, value: number, advanced: boolean, open: boolean): string {
-  return advanced || open ? value.toString() : scienceBand(kind, value)
+  if (!(advanced || open)) return scienceBand(kind, value)
+  if (kind === 'probability') return `${Math.round(value * 100)}%`
+  return Math.abs(value) < 0.0001 ? value.toString() : Number(value.toFixed(4)).toString()
 }
 
 /** Plain-string counterpart for producers that have no disclosure affordance. */

@@ -126,12 +126,15 @@ interface StrengthBandButtonsProps {
    * DISPLAY-LEVEL ONLY — there is deliberately no second store field.
    */
   unset?: boolean
+  /** Preserve legacy callers; Inspector uses words until technical detail is requested. */
+  technicalDetails?: boolean
 }
 
 export const StrengthBandButtons = memo(function StrengthBandButtons({
   value,
   onChange,
   unset = false,
+  technicalDetails = true,
 }: StrengthBandButtonsProps) {
   const absMagnitude = Math.abs(value)
   const isNegative = value < 0
@@ -155,10 +158,12 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
         return {
           band,
           signedMidpoint,
-          disclosure: `${band.label}: set strength to ${signedMidpoint.toFixed(2)}`,
+          disclosure: technicalDetails
+            ? `${band.label}: set strength to ${signedMidpoint.toFixed(2)}`
+            : `${band.label}: use this strength band (${isNegative ? 'decreases' : 'increases'})`,
         }
       }),
-    [isNegative],
+    [isNegative, technicalDetails],
   )
 
   // ⚠ THE `-1` ARM IS LOAD-BEARING AND IS NOT WHAT `getCanvasStrengthBand` RETURNS.
@@ -246,7 +251,9 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
       ? presets[engagedIndex].disclosure
       : hasHoverChannel
         ? null
-        : `Each preset writes, in order: ${presets.map(p => p.signedMidpoint.toFixed(2)).join(', ')}`
+        : technicalDetails
+          ? `Each preset writes, in order: ${presets.map(p => p.signedMidpoint.toFixed(2)).join(', ')}`
+          : 'Choose a strength band; the current direction is preserved.'
 
   return (
     <div className="mb-2">

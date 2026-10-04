@@ -239,7 +239,7 @@ describe('EdgePanel — how much of this answer is still open', () => {
 
   it('shows the magnitude WITH its spread, not a bare point estimate', () => {
     seedEdge(SPANNING_EDGE)
-    render(<EdgePanel {...panelProps} />)
+    render(<EdgePanel {...expertProps} />)
     const readout = screen.getByTestId('edge-strength-spread').textContent ?? ''
     expect(readout).toContain('0.45')
     expect(readout).toContain('±')
@@ -261,7 +261,7 @@ describe('EdgePanel — how much of this answer is still open', () => {
     // edge it would carry no information and the first test would be proving
     // only that the string exists.
     seedEdge(TIGHT_EDGE)
-    render(<EdgePanel {...panelProps} />)
+    render(<EdgePanel {...expertProps} />)
     expect(screen.queryByTestId('edge-strength-spans-bands')).toBeNull()
     // …but the value ± spread readout is still there, because both are stated.
     expect(screen.getByTestId('edge-strength-spread').textContent ?? '').toContain('±')

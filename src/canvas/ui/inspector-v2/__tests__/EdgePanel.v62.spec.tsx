@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { EdgePanel } from '../panels/EdgePanel'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
@@ -94,6 +94,7 @@ describe('EdgePanel v6.2 — context group', () => {
     // Paul 23 Sep contract feedback point 4: the canvas cue's sentence, no "Sensitive".
     expect(screen.getByText("If this connection's strength changes, the current model comparison could change")).toBeTruthy()
     expect(screen.queryByText(/Sensitive/)).toBeNull()
+    fireEvent.click(screen.getByTestId('edge-fragility-context').querySelector('button')!)
     expect(screen.getByText('65% flip risk')).toBeTruthy()
   })
 })
@@ -114,6 +115,7 @@ describe('EdgePanel v6.2 — your input group', () => {
     setStore()
     render(<EdgePanel {...panelProps} />)
     expect(screen.getByText('Does this connection exist?')).toBeTruthy()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Show details' })[0])
     expect(screen.getByText('82%')).toBeTruthy()
     expect(screen.getByText('Unlikely')).toBeTruthy()
     expect(screen.getByText('Very likely')).toBeTruthy()
