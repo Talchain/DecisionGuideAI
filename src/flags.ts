@@ -462,11 +462,11 @@ const FLAGS_CONFIG = {
     storageKey: 'feature.testWithoutLink',
     defaultValue: false,
   },
-  // Dark until the service's "question this assumption" turn (Living Model) is served.
+  // On: the service's "question this assumption" turn (Living Model, CEE #2534) is served on staging.
   questionAssumption: {
     envKey: 'VITE_FEATURE_QUESTION_ASSUMPTION',
     storageKey: 'feature.questionAssumption',
-    defaultValue: false,
+    defaultValue: true,
   },
   // Developer route estate — the scaffolding surfaces in src/poc/AppPoC.tsx
   // that are NOT the product. The authoritative list is the children of the
