@@ -226,7 +226,7 @@ describe('the seam that feeds <ReactFlow> actually applies it', () => {
  * 0.33, "Confirm this estimate" beside it. The edit worked; nothing said so.
  *
  * ⛔ SO THIS IS NOT A SECOND VOCABULARY. It is the SAME
- * `edgeDoubleClickAffordance` derivation reaching the channel that has none —
+ * `edgeClickAffordance` derivation reaching the channel that has none —
  * and putting it only on the tooltip would leave this module's two channels
  * saying different things, which is the drift its header forbids by name.
  *

@@ -503,5 +503,24 @@ describe('StyledEdge edge label — strength words (ROADMAP 2.950, #627 lineage)
       expect(queryByLabelText('Weight slider')).toBeNull()
       expect(updateEdgeDataSpy).not.toHaveBeenCalled()
     })
+
+    // ⭐ S.1 for links (Paul, 4 Oct 2026): the chip sits at the midpoint, where people click a link, in the label
+    // portal outside the edge's <g>, so xyflow's onEdgeClick never sees a click on it. With only a double-click
+    // handler it swallowed every single click (journey 4: "the link inspector needs a double click").
+    it('ONE click on the chip opens THIS link\'s inspector, camera left where it is, and the click stops there', () => {
+      openEdgeStrengthEditorSpy.mockClear() // the double-click row above called it; this row counts its own calls
+      const { container } = renderEdge(NO_STRENGTH_DATA)
+      // Above React's root (the container), so it sees only a click the chip's handler let through.
+      const outer = vi.fn()
+      document.body.addEventListener('click', outer)
+
+      fireEvent.click(labelEl(container))
+      document.body.removeEventListener('click', outer)
+
+      expect(openEdgeStrengthEditorSpy).toHaveBeenCalledTimes(1)
+      expect(openEdgeStrengthEditorSpy).toHaveBeenCalledWith('e-under-test', { centre: false })
+      expect(outer).not.toHaveBeenCalled()
+      expect(updateEdgeDataSpy).not.toHaveBeenCalled()
+    })
   })
 })

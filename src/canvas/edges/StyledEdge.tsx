@@ -17,7 +17,7 @@
 
 import { memo, useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react'
 import {
-  edgeDoubleClickAffordance,
+  edgeClickAffordance,
   EDGE_AFFORDANCE_EDITABLE,
 } from './edgeAffordance'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, Position, type EdgeProps, useReactFlow, useStore } from '@xyflow/react'
@@ -1238,8 +1238,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    * the label and the control cannot drift into promising different things
    * (CLAUDE.md trap 12 — a second copy agrees on the day it is written).
    */
-  const affordanceSentence = edgeDoubleClickAffordance(
-    { id, source, target, data } as unknown as Parameters<typeof edgeDoubleClickAffordance>[0],
+  const affordanceSentence = edgeClickAffordance(
+    { id, source, target, data } as unknown as Parameters<typeof edgeClickAffordance>[0],
   )
   const strengthIsEditable = affordanceSentence === EDGE_AFFORDANCE_EDITABLE
 
@@ -1271,6 +1271,17 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     event.stopPropagation()
     openEdgeStrengthEditor(edgeIdKey)
     // Dismiss the first-time hint once the details route is discovered.
+    if (showEdgeHint) dismissEdgeHint()
+  }
+
+  // ⭐ S.1 FOR LINKS (Paul, 4 Oct 2026): ONE click on the chip opens the link's inspector, as one click on the line
+  // does (`edgeClickOpensInspector`). The chip sits at the midpoint — exactly where people click a link — and lives in
+  // the label portal, outside the edge's `<g>`, so a click on it never reaches xyflow's `onEdgeClick`. With only a
+  // double-click handler it swallowed every single click (journey 4: "the link inspector needs a double click").
+  // The camera stays put: the link is already under the pointer.
+  const handleChipClick = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    openEdgeStrengthEditor(edgeIdKey, { centre: false })
     if (showEdgeHint) dismissEdgeHint()
   }
 
@@ -3032,7 +3043,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // a cue is painted — the budgeted top flip risk in the default view.
             role={fragileCueOnly ? 'button' : 'note'}
             tabIndex={fragileCueOnly ? 0 : undefined}
-            onClick={fragileCueOnly ? handleFragileCueActivate : undefined}
+            onClick={fragileCueOnly ? handleFragileCueActivate : handleChipClick}
             onKeyDown={fragileCueOnly ? handleFragileCueKeyDown : undefined}
             data-fragile-cue={fragileCueOnly ? 'disc' : undefined}
             // Identity binding, as the polarity glyph's `data-edge-id`: which

@@ -69,9 +69,10 @@ describe('instrument checks (not claims)', () => {
     // Both calls live INSIDE these bodies; a body cut short at a stray brace
     // would read as "no call". (Thresholds sit below the base bodies' own
     // lengths, so a revert fails the claims below, not this check.)
-    // E2 (#2322): the body now ends by closing the full inspector — a click opens the link mini-editor, and the
-    // full inspector is the double-click (PR Review 5897538379).
-    expect(CLICK as string).toMatch(/onCanvasInteraction\?\.\(\)[\s\S]*setShowFullInspector\(false\)\s*\}$/)
+    // S.1 for links (Paul, 4 Oct 2026; reverses #2322's E2 mini-editor): the body now ENDS by setting the full
+    // inspector from the click rule — a plain click on a link opens it, as a click on a card does. (Was: it ended by
+    // closing the inspector, `setShowFullInspector(false)`, because a click opened the at-pointer mini-editor.)
+    expect(CLICK as string).toMatch(/onCanvasInteraction\?\.\(\)[\s\S]*setShowFullInspector\(\s*edgeClickOpensInspector\([\s\S]*?\)\s*\)\s*\}$/)
     expect(MENU as string).toMatch(/event\.preventDefault\(\)[\s\S]*setContextMenuTarget\(/)
     expect((MENU as string).length).toBeGreaterThan(300)
   })
@@ -102,6 +103,41 @@ describe('the click: handleEdgeClick re-points through retargetEdgeClick', () =>
     const bindings = SOURCE.match(/onEdgeClick=\{[^}]*\}/g) ?? []
     expect(bindings.length).toBeGreaterThan(0)
     expect(new Set(bindings)).toEqual(new Set(['onEdgeClick={handleEdgeClick}']))
+  })
+})
+
+const OPEN_CALL =
+  /setShowFullInspector\(\s*edgeClickOpensInspector\(\s*event\s*,\s*intendedId\s*,\s*flowStoreApi\.getState\(\)\.multiSelectionActive\s*\)\s*\)/
+
+describe('S.1 for links (Paul, 4 Oct 2026): one click opens the full link inspector for the POINTED-AT link', () => {
+  it('the matcher binds the exact arguments (positive and negative controls)', () => {
+    expect(OPEN_CALL.test('setShowFullInspector(edgeClickOpensInspector(event, intendedId, flowStoreApi.getState().multiSelectionActive))')).toBe(true)
+    // the first selected edge instead of the resolver's return (PR Review 5897003679)
+    expect(OPEN_CALL.test('setShowFullInspector(edgeClickOpensInspector(event, edge?.id ?? null, flowStoreApi.getState().multiSelectionActive))')).toBe(false)
+    // the multi-selection gesture dropped (PR Review 5897538379)
+    expect(OPEN_CALL.test('setShowFullInspector(edgeClickOpensInspector(event, intendedId, false))')).toBe(false)
+    expect(OPEN_CALL.test('setShowFullInspector(true)')).toBe(false)
+  })
+
+  it('handleEdgeClick opens the inspector through the click rule, on the resolver\'s return', () => {
+    expect(OPEN_CALL.test(CLICK as string)).toBe(true)
+    expect(CLICK as string).toMatch(/const\s+intendedId\s*=\s*retargetEdgeClick\(/)
+    expect(SOURCE).toMatch(/import \{[^}]*\bedgeClickOpensInspector\b[^}]*\} from '\.\/edges\/edgePointerTarget'/)
+  })
+
+  it('never picks the link by "first selected edge" (carried from the retired mini-editor spec)', () => {
+    expect(CLICK as string).not.toMatch(/\.find\(\s*\(?\s*e\s*\)?\s*=>\s*e\.selected\s*\)/)
+  })
+
+  it('the retired at-pointer mini-editor is gone from the canvas — click no longer closes the inspector', () => {
+    expect(CLICK as string).not.toMatch(/setShowFullInspector\(\s*false\s*\)/)
+    expect(SOURCE).not.toMatch(/openLinkQuickEditForClick|LinkQuickEditorHost|useLinkQuickEditStore/)
+  })
+
+  it('CONTRAST — the double-click still opens the full inspector', () => {
+    const dbl = arrowBody(SOURCE, 'const handleEdgeDoubleClick = useCallback(')
+    expect(dbl).not.toBeNull()
+    expect(dbl as string).toMatch(/setShowFullInspector\(\s*true\s*\)/)
   })
 })
 

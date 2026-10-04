@@ -15,7 +15,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest'
 import type { EdgeChange } from '@xyflow/react'
-import { retargetEdgeClick, resolveContextMenuEdge, type EdgeClickFlowStore } from '../edgePointerTarget'
+import { edgeClickOpensInspector, retargetEdgeClick, resolveContextMenuEdge, type EdgeClickFlowStore } from '../edgePointerTarget'
 import { edgeGroup, stubElementsFromPoint, restoreElementsFromPoint } from './__helpers__/edgeLineGeometry'
 
 afterEach(() => {
@@ -121,5 +121,27 @@ describe('a right-click (onEdgeContextMenu) — the menu acts on the nearest lin
     gutter()
     const xyflowEdge = { ...storeE10 }
     expect(resolveContextMenuEdge(ON_E9_LINE, xyflowEdge, [storeE10])).toBe(xyflowEdge)
+  })
+})
+
+describe('edgeClickOpensInspector — S.1 for links (Paul, 4 Oct 2026: one click opens the full link inspector)', () => {
+  const CLICK = { clientX: 120, clientY: 80 }
+
+  it('⭐ a plain click that resolved a link opens the inspector', () => {
+    expect(edgeClickOpensInspector(CLICK, 'e-9', false)).toBe(true)
+  })
+
+  it('⛔ a Meta/Control multi-selection click is a selection gesture: it opens nothing (PR Review 5897538379)', () => {
+    expect(edgeClickOpensInspector(CLICK, 'e-9', true)).toBe(false)
+  })
+
+  it('⛔ a click that resolved no link, or carried no pointer event, opens nothing', () => {
+    expect(edgeClickOpensInspector(CLICK, null, false)).toBe(false)
+    expect(edgeClickOpensInspector(CLICK, '', false)).toBe(false)
+    expect(edgeClickOpensInspector(undefined, 'e-9', false)).toBe(false)
+  })
+
+  it('keyboard Enter/Space reaches it as a click at (0, 0) and still opens the inspector (no editor at the screen corner)', () => {
+    expect(edgeClickOpensInspector({ clientX: 0, clientY: 0 }, 'e-9', false)).toBe(true)
   })
 })
