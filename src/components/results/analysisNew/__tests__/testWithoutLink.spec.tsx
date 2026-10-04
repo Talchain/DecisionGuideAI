@@ -73,7 +73,7 @@ describe('Test without this link on the existing Challenge signals', () => {
     fireEvent.click(pending)
     expect(sendChip).toHaveBeenCalledTimes(1)
     expect(sendChip).toHaveBeenCalledWith({
-      id: 'agent-test-without-link:factor-a::goal-b',
+      id: 'agent-test-without-link:["factor-a","goal-b"]',
       label: 'Test without this link', message: 'Test without this link', intent: 'primary',
       sourceBlockKey: 'test-without-link:scenario-1:factor-a::goal-b',
     })
@@ -81,6 +81,20 @@ describe('Test without this link on the existing Challenge signals', () => {
     expect(screen.getByRole('button', { name: 'Test without this link' })).toBeEnabled()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  // The wire literal is CEE's canonical press, `structuralChallengePressId`: the prefix, then the JSON pair
+  // [from, to]. Node ids may contain ':', so a '::' join is ambiguous ("a:::b") and the served CEE parser
+  // (JSON.parse of the suffix) refused it, so every press fell through to an ordinary model turn.
+  it('sends the canonical JSON press, which keeps colon-bearing node ids unambiguous', () => {
+    localStorage.setItem(FLAG, '1')
+    useCanvasStore.setState({ edges: [{ id: 'link-1', source: 'factor:price_rise', target: 'goal:mrr', data: {} }] } as never)
+    mount()
+    fireEvent.click(screen.getByRole('button', { name: 'Test without this link' }))
+    expect(sendChip).toHaveBeenCalledTimes(1)
+    const { id } = sendChip.mock.calls[0][0]
+    expect(id).toBe('agent-test-without-link:["factor:price_rise","goal:mrr"]')
+    expect(JSON.parse(id.slice('agent-test-without-link:'.length))).toEqual(['factor:price_rise', 'goal:mrr'])
   })
 
   it.each(['missing link', 'no sender', 'stale', 'pre-run', 'non-link finding'])(
