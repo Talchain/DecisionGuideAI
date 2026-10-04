@@ -118,9 +118,9 @@ describe('Question this assumption in the existing link inspector', () => {
 })
 
 
-describe('Question this assumption stays dark until its service turn is served', () => {
+describe('Question this assumption can be switched off', () => {
   it('hides the press on an eligible link while the switch is off', () => {
-    localStorage.removeItem('feature.questionAssumption')
+    localStorage.setItem('feature.questionAssumption', '0')
     seed('olumi_estimate')
     render(<EdgePanel {...panelProps} />)
     expect(screen.queryByRole('button', { name: 'Question this assumption' })).not.toBeInTheDocument()
