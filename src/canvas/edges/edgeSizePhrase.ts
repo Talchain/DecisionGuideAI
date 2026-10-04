@@ -14,7 +14,7 @@
  * read a link's size without importing the Model tab's adapters.
  */
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../domain/edgeValueProvenance'
-import { NaturalEffectSchema, naturalEffectPhraseParts, type NaturalEffectAuthor } from '../domain/naturalEffect'
+import { NaturalEffectSchema, composeNaturalEffectPhrase, naturalEffectPhraseParts, type NaturalEffectAuthor } from '../domain/naturalEffect'
 import { isStrengthDefinitional } from '../domain/strengthDefinitional'
 
 /**
@@ -98,7 +98,7 @@ export function edgeSizePhrase(data: Record<string, unknown> | undefined): EdgeS
   const parts = naturalEffectPhraseParts(natural.data, seed.seed, resolveEdgeDirectionDisplay(data), definitional)
   if (parts === null) return null
   return {
-    sentence: `${parts.size}${parts.whose === '' ? '' : ` · ${parts.whose}`}${parts.ofRange}`,
+    sentence: composeNaturalEffectPhrase(parts),
     ...parts,
     author: natural.data.author,
     usersFigure: natural.data.author === 'user' && !definitional,

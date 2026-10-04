@@ -225,8 +225,16 @@ export function naturalEffectPhrase(
   definitional = false,
 ): string | null {
   const parts = naturalEffectPhraseParts(effect, currentMean, direction, definitional)
-  if (parts === null) return null
-  return `${parts.size}${parts.whose === '' ? '' : ` · ${parts.whose}`}${parts.ofRange}`
+  return parts === null ? null : composeNaturalEffectPhrase(parts)
+}
+
+/**
+ * The parts as one phrase. A size that is one end of the user's written range already says whose it is ("the low end
+ * of YOUR £1-2 million range"), so the author words are not repeated beside it.
+ */
+export function composeNaturalEffectPhrase(parts: { size: string; whose: string; ofRange: string }): string {
+  const whose = parts.whose === '' || parts.ofRange !== '' ? '' : ` · ${parts.whose}`
+  return `${parts.size}${whose}${parts.ofRange}`
 }
 
 /**

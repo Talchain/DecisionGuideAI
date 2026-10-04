@@ -14,6 +14,8 @@ import { describe, it, expect } from 'vitest'
 import type { Node } from '@xyflow/react'
 import { toModelRows, type ModelProjectionInput } from '../adapters'
 import { mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
+import { edgeSizePhrase } from '../../edges/edgeSizePhrase'
+import { resolveEdgeValuesProvenance } from '../../ui/inspector-v2/coachingConfig'
 
 const SOURCE_ID = 'deals_closed'
 const TARGET_ID = 'securing_funding'
@@ -65,8 +67,23 @@ describe('A4: the user\'s size from one end of their range is said with the rang
       .toBe('Increase of at most £2,000,000 per 1 deal · the high end of your £1-2 million range')
   })
 
-  it('CONTROL: the user\'s single figure (no range on the wire) reads exactly as before', () => {
-    expect(rowValue(users(natural(1000000)))).toBe('Increase of about £1,000,000 per 1 deal')
+  // Beat 1 (Paul, 4 Oct 2026: full provenance words on links): a user's single figure now says whose it is. This wire's
+  // source is `cee_hypothesis`, not `brief_extraction`, so "your figure", never "from your brief".
+  it('CONTROL: the user\'s single figure (no range on the wire) carries no range clause, only whose it is', () => {
+    expect(rowValue(users(natural(1000000)))).toBe('Increase of about £1,000,000 per 1 deal · your figure')
+  })
+
+  it('a bound from the user\'s range never repeats whose it is: the range already says "your"', () => {
+    expect(rowValue(users(natural(1000000, RANGE_LOW)))).not.toMatch(/your figure|from your brief/)
+  })
+
+  it('the link inspector says the range with the bound too (R3 C1: never "£1m" alone as the user\'s figure)', () => {
+    const data = mapDraftEdgeToCanvas(users(natural(1000000, RANGE_LOW)), 0).data as Record<string, unknown>
+    const size = edgeSizePhrase(data)
+    expect(size?.usersFigure).toBe(true)
+    expect(resolveEdgeValuesProvenance({ strength: 'cee', existence: 'cee', usersFigure: size })).toMatch(
+      /^Your figure: increase of at least £1,000,000 per 1 deal · the low end of your £1-2 million range\. Olumi sized this link from it\./,
+    )
   })
 
   it('CONTROL: Olumi\'s own size never carries the user\'s range, even if one arrives', () => {

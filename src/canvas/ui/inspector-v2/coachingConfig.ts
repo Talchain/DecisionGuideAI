@@ -157,10 +157,11 @@ const EXISTENCE_PROVENANCE_COPY: Record<EdgeProvenanceKey, string> = {
  * "From your brief: increase of about £49 / month per 1 subscriber. Olumi sized this link from it." — the size and
  * its author words come from `edgeSizePhrase` (one vocabulary with the hover card and the Model tab), never re-typed.
  */
-function usersFigureSentence(f: { readonly size: string; readonly whose: string }): string {
+function usersFigureSentence(f: { readonly size: string; readonly whose: string; readonly ofRange?: string }): string {
   const whose = f.whose === '' ? 'Your figure' : `${f.whose.charAt(0).toUpperCase()}${f.whose.slice(1)}`
   const size = `${f.size.charAt(0).toLowerCase()}${f.size.slice(1)}`
-  return `${whose}: ${size}. Olumi sized this link from it.`
+  // A4 (R3 C1): a size from one end of the user's range is never said without the range.
+  return `${whose}: ${size}${f.ofRange ?? ''}. Olumi sized this link from it.`
 }
 
 /**
@@ -181,7 +182,7 @@ export function resolveEdgeValuesCoaching(sources: {
    * ⭐ Beat 1 (Canvas lane, 4 Oct 2026): the link's size is the USER's own stated figure (`edgeSizePhrase`, only when
    * `usersFigure`), so the β was sized from it and "Olumi estimated this strength" is untrue of it.
    */
-  usersFigure?: { readonly size: string; readonly whose: string } | null
+  usersFigure?: { readonly size: string; readonly whose: string; readonly ofRange?: string } | null
 }): string {
   return `${resolveEdgeValuesProvenance(sources)} ${COACHING.edgeWeight}`
 }
@@ -205,7 +206,7 @@ export function resolveEdgeValuesProvenance(sources: {
    * ⭐ Beat 1 (Canvas lane, 4 Oct 2026): the link's size is the USER's own stated figure (`edgeSizePhrase`, only when
    * `usersFigure`), so the β was sized from it and "Olumi estimated this strength" is untrue of it.
    */
-  usersFigure?: { readonly size: string; readonly whose: string } | null
+  usersFigure?: { readonly size: string; readonly whose: string; readonly ofRange?: string } | null
 }): string {
   const strengthKey: EdgeProvenanceKey = sources.strength ?? 'not_set'
   const existenceKey: EdgeProvenanceKey = sources.existence ?? 'not_set'
