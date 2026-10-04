@@ -241,6 +241,7 @@ describe('ImportanceBar', () => {
     const { container } = render(
       <ImportanceBar importanceScore={0.65} sensitivityRank={2} influenceProvenance="sensitivity" />,
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Show details' }))
     // Rank label
     expect(screen.getByText('2nd')).toBeTruthy()
     // Percentage
@@ -255,6 +256,7 @@ describe('ImportanceBar', () => {
 
   it('renders without rank label when sensitivityRank is null', () => {
     render(<ImportanceBar importanceScore={0.4} sensitivityRank={null} influenceProvenance="sensitivity" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Show details' }))
     // Still shows bar and percentage
     expect(screen.getByText('40%')).toBeTruthy()
     expect(screen.getByText('Influence on results')).toBeTruthy()
@@ -264,6 +266,7 @@ describe('ImportanceBar', () => {
     const { container } = render(
       <ImportanceBar importanceScore={1.5} sensitivityRank={1} influenceProvenance="sensitivity" />,
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Show details' }))
     const bar = container.querySelector('[role="progressbar"]')
     expect(bar?.getAttribute('aria-valuenow')).toBe('100')
     expect(screen.getByText('100%')).toBeTruthy()
@@ -301,6 +304,7 @@ describe('ImportanceBar', () => {
     const { container } = render(
       <ImportanceBar importanceScore={1} sensitivityRank={1} influenceProvenance="sensitivity" />,
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Show details' }))
     expect(screen.getByText('100%')).toBeTruthy()
     expect(container.querySelector('[role="progressbar"]')).not.toBeNull()
   })

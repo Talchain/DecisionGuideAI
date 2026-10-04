@@ -214,6 +214,7 @@ export const EdgePanel = memo(function EdgePanel({
   onClose,
   onNavigate,
 }: InspectorPanelProps) {
+  const [showFlipRiskDetails, setShowFlipRiskDetails] = useState(false)
   const edges = useCanvasStore(s => s.edges)
   const nodes = useCanvasStore(s => s.nodes)
   const goalNodeId = useCanvasStore(s => s.ceeAnalysisReady?.goal_node_id ?? s.nodes.find(
@@ -913,13 +914,18 @@ export const EdgePanel = memo(function EdgePanel({
                     <Activity size={13} className="text-text-body shrink-0" aria-hidden="true" />
                     {FRAGILE_CUE_SENTENCE}
                   </div>
-                  {techMode && fragileEdgeSwitchProb !== null && (
+                  {fragileEdgeSwitchProb !== null && (
+                    <div className="mt-1.5">
                     <p
                       className={`${typography.panelMeta} text-text-body mt-1.5`}
                       title={EDGE_COPY.flipRiskTooltip(Math.round(fragileEdgeSwitchProb * 100))}
                     >
-                      {Math.round(fragileEdgeSwitchProb * 100)}% flip risk
+                      {showFlipRiskDetails ? `${Math.round(fragileEdgeSwitchProb * 100)}% flip risk` : 'Some risk of changing the conclusion'}
                     </p>
+                    <button type="button" className="text-[11px] underline" aria-expanded={showFlipRiskDetails} onClick={() => setShowFlipRiskDetails(v => !v)}>
+                      {showFlipRiskDetails ? 'Hide details' : 'Show details'}
+                    </button>
+                    </div>
                   )}
                   {techMode && edgeEValue != null && (
                     <p className={`${typography.panelMeta} mt-1.5 ${edgeEValue > 3 ? 'text-success' : edgeEValue >= 1.5 ? 'text-warning' : 'text-danger'}`}>
@@ -1399,11 +1405,7 @@ export const EdgePanel = memo(function EdgePanel({
                   />
                 </div>
                 <span data-testid="edge-existence-readout" className={`${typography.panelBody} min-w-[32px] text-right ${EXISTENCE_BAND_TEXT[existenceBand]}`}>
-                  {existenceDisplay.show
-                    ? techMode
-                      ? `${Math.round(existenceDisplay.value * 100)}%`
-                      : <ScienceQuantity kind="probability" value={existenceDisplay.value} />
-                    : METRIC_UNSET.standalone}
+                  {existenceDisplay.show ? <ScienceQuantity kind="probability" value={existenceDisplay.value} /> : METRIC_UNSET.standalone}
                 </span>
               </div>
               {/* The same fabricated figure in a third channel. Gated on the
