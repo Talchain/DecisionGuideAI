@@ -115,3 +115,45 @@ describe('What would change the result in Analysis', () => {
     expect(screen.queryByTestId('analysis-new-signals-tipping')).not.toBeInTheDocument()
   })
 })
+
+/**
+ * BEAT 5 entry: "Strengthen the model" sends CEE's own next-step press (`agent-next-strengthen`,
+ * NEXT_STEP_CHIPS at CEE 24e9b102 agent-v1-turn.ts:590-594), whose answer is ONE held link-strength card with
+ * no model call, or CEE's ordinary answer when no unsized link exists (strengthen-press.ts). The tab decides
+ * nothing: same gate as "What would change this?", the exact chip id and message, and nothing of its own after
+ * the press. The card names no option, so a withheld leader does not hide it.
+ */
+describe('Strengthen the model in Analysis (beat 5)', () => {
+  const STRENGTHEN = 'Strengthen the model'
+
+  it('shows one entry on a current Run and sends CEE\'s exact next-step press, once', () => {
+    mount()
+    expect(screen.getAllByRole('button', { name: STRENGTHEN })).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: STRENGTHEN }))
+    expect(sendChip).toHaveBeenCalledTimes(1)
+    expect(sendChip).toHaveBeenCalledWith(STRENGTHEN, 'What would most strengthen this model?', { id: 'agent-next-strengthen' })
+  })
+
+  it.each(['pre-run', 'running', 'wire-running', 'stale', 'unconfirmed', 'no sender'])(
+    'hides the entry when %s', (state) => {
+      if (state === 'stale') useCanvasStore.setState({ analysisFreshnessDirty: true })
+      if (state === 'unconfirmed') useCanvasStore.setState({ analysisFreshness: null })
+      if (state === 'no sender') useGuidanceStore.setState({ _sendChip: null })
+      mount({ isPreRun: state === 'pre-run', isRunning: state === 'running', isBusy: state === 'running' || state === 'wire-running' })
+      expect(screen.queryByRole('button', { name: STRENGTHEN })).not.toBeInTheDocument()
+    },
+  )
+
+  it('is offered when the leader is withheld (the card names no option)', () => {
+    mount({ resultsSectionData: decisionWithLeaderWithheld() })
+    expect(screen.getByRole('button', { name: STRENGTHEN })).toBeInTheDocument()
+  })
+
+  it('adds nothing of its own after the press: the answer, card or not, is CEE\'s reply in the conversation', () => {
+    const { container } = mount()
+    const before = container.textContent
+    fireEvent.click(screen.getByRole('button', { name: STRENGTHEN }))
+    expect(sendChip).toHaveBeenCalledTimes(1)
+    expect(container.textContent).toBe(before)
+  })
+})
