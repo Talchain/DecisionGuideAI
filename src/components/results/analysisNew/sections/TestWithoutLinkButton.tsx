@@ -8,8 +8,29 @@ import { isTestWithoutLinkEnabled } from '../../../../flags'
 import { typography } from '../../../../styles/typography'
 import { action } from '../panelSurfaces'
 
-/** Dark UI for the supplied future typed press. Replies stay in the existing conversation. */
-export function TestWithoutLinkButton({ edgeId }: { edgeId: string }) {
+export interface TestWithoutLinkButtonProps {
+  edgeId: string
+  /** Host surface's own hook; the Reasoning mount keeps the default. */
+  testId?: string
+  /** Host surface's button and wrapper styling; the Reasoning mount keeps the defaults. */
+  buttonClassName?: string
+  className?: string
+}
+
+/**
+ * The typed "Test without this link" press. Replies stay in the existing conversation.
+ *
+ * Two mounts, one sender: the Reasoning tab's Challenge signal (only when the Run named a
+ * sensitive, Olumi-estimated link) and the link inspector (any link on a current Run).
+ * The service answers the press only for a link on a current Run, so both mounts share
+ * the gate below rather than each restating it.
+ */
+export function TestWithoutLinkButton({
+  edgeId,
+  testId = 'challenge-test-without-link',
+  buttonClassName = `${typography.panelBody} ${action('secondary')}`,
+  className = 'mt-1',
+}: TestWithoutLinkButtonProps) {
   const edge = useCanvasStore(s => s.edges.find(e => e.id === edgeId))
   const scenarioId = useCanvasStore(s => s.currentScenarioId)
   const current = useCanvasStore(selectRunAffirmedCurrent)
@@ -48,13 +69,13 @@ export function TestWithoutLinkButton({ edgeId }: { edgeId: string }) {
   }
 
   return (
-    <div className="mt-1" data-testid="challenge-test-without-link">
+    <div className={className} data-testid={testId}>
       <button
         type="button"
         onClick={() => void testLink()}
         disabled={pending || conversation.isThinking}
         aria-busy={pending || undefined}
-        className={`${typography.panelBody} ${action('secondary')}`}
+        className={buttonClassName}
       >
         {pending ? 'Testing without this link…' : 'Test without this link'}
       </button>

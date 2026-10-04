@@ -33,4 +33,17 @@ describe('netlify.toml CSP connect-src', () => {
     expect(src).toContain('cee-staging.onrender.com')
     expect(src).toContain('supabase.co')
   })
+
+  /**
+   * Error reports go straight from the browser to Sentry's ingest host (the
+   * host of `VITE_SENTRY_DSN`). Served staging refused every one of them
+   * because the policy did not list it. Exact host, never a wildcard.
+   */
+  it('allows the Sentry ingest host of the configured DSN, and only that host', () => {
+    const sources = connectSrc().split(/\s+/)
+    expect(sources).toContain('https://o4509582080016384.ingest.de.sentry.io')
+    expect(sources.filter(s => s.includes('sentry.io'))).toEqual([
+      'https://o4509582080016384.ingest.de.sentry.io',
+    ])
+  })
 })
