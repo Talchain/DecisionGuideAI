@@ -39,6 +39,7 @@ vi.mock('../../services/scenarioService', () => ({
 
 import ScenarioListPage from '../ScenarioListPage'
 import { GUEST_STORAGE_CLAIM_PATTERNS } from '../../test/guestStorageClaims'
+import realSavedScenarios from './fixtures/realSavedScenarios.json'
 
 const USER_ID = '550e8400-e29b-41d4-a716-446655440000'
 
@@ -191,6 +192,20 @@ describe('ScenarioListPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Untitled decision')).toBeTruthy()
     })
+  })
+
+  it('names a real CEE-drafted row (title null, framing null) after its goal, as the canvas does', async () => {
+    // Read-only capture of a real staging row, ids redacted. See fixtures/realSavedScenarios.json.
+    expect(realSavedScenarios.staleRow.title).toBeNull()
+    expect(realSavedScenarios.staleRow.framing).toBeNull()
+    mockListScenarios.mockResolvedValue([realSavedScenarios.staleRow])
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByText('monthly recurring revenue')).toBeTruthy()
+    })
+    expect(screen.queryByText('Untitled decision')).toBeNull()
   })
 
   it('renders last-activity subtitle for analysis_run event', async () => {

@@ -27,6 +27,7 @@ import { UserAvatarMenu } from '../components/layout/UserAvatarMenu'
 import { typography } from '../styles/typography'
 import { trackEvent } from '../lib/posthog'
 import { GUEST_COPIED_EVENT } from '../lib/guestCopyOnSignIn'
+import { scenarioDisplayTitle } from '../canvas/domain/scenarioDisplayTitle'
 
 // ---------------------------------------------------------------------------
 // Stage badge styles — semantic colours from the design system
@@ -157,12 +158,8 @@ function formatLastActivity(events: ScenarioEvent[] | null | undefined, updatedA
 }
 
 function listTitle(scenario: ScenarioListItem): string {
-  if (scenario.title?.trim()) return scenario.title.trim()
-  const framing = scenario.framing as { title?: unknown; decision_question?: unknown; question?: unknown } | null
-  for (const candidate of [framing?.title, framing?.decision_question, framing?.question]) {
-    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
-  }
-  return 'Untitled decision'
+  // The same name the canvas shows for this row — see `scenarioDisplayTitle`.
+  return scenarioDisplayTitle(scenario) ?? 'Untitled decision'
 }
 
 // ---------------------------------------------------------------------------
