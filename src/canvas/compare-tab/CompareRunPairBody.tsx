@@ -2,8 +2,8 @@
  * The Compare tab — previous Run vs this Run (SC-24 v3, ChatGPT #75 5917800777; lease DL #75 5917856638).
  *
  * ⭐ THIS BODY DECIDES NOTHING. It renders the comparison CEE produced for the analysis on screen, read by the
- * ONE reader both surfaces share (`displayedRunDeltaView.ts`) and shown by the SAME section the Reasoning tab
- * used (`WhatsChanged`). The old Compare body computed its own comparison in the browser from snapshots it
+ * ONE reader both surfaces share (`displayedRunDeltaView.ts`), presented in the Reasoning design system.
+ * The old Compare body computed its own comparison in the browser from snapshots it
  * captured (`deriveRunPairComparison`, `leaderClaim`, `deriveTransitions`, `graphChangeDiff`) — a second
  * authority that contradicted the rest of the product once already (5 Aug). It is no longer on this path.
  *
@@ -15,10 +15,12 @@
  * reads the SAME fact Reasoning reads (`selectRunOnRecordWithoutResult`, from the Run control's own facts), passed
  * down by the dock; it decides nothing of its own.
  */
+import { useMemo } from 'react'
 import { Shuffle } from 'lucide-react'
 import { typography } from '../../styles/typography'
-import { WhatsChanged, type InputRowFocus, type InputRowLight } from '../../components/results/analysisNew/sections/WhatsChanged'
-import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
+import type { InputRowFocus, InputRowLight } from '../../components/results/analysisNew/sections/WhatsChanged'
+import { nodeLabelMap, useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
+import { icon } from '../../components/results/analysisNew/panelSurfaces'
 import { useRunChangesProjection } from '../graphChanges/useRunChangesProjection'
 import { canvasLinkOfTarget, useCanvasLight } from '../graphChanges/rowCanvasLink'
 import { useRunChangesRouteFocus } from '../graphChanges/routeFocus'
@@ -28,9 +30,10 @@ import { useCanvasStore } from '../store'
 import { selectRunDeltaAbsenceReason } from '../state/storedRunDelta'
 import { runDeltaSentence } from '../../components/results/analysisNew/commitmentSynthesis'
 import { selectRunAffirmedCurrent } from '../state/analysisStateSelector'
-import { selectWinSharesWithheld } from '../state/winShareGate'
+import { selectWinSharesWithheld, selectWinShareWithheldReason } from '../state/winShareGate'
 import { buildRunChangeArtefact } from './runChangeArtefact'
-import { RunChangeArtefactCard } from './RunChangeArtefactCard'
+import { ComparePairSections } from './ComparePairSections'
+import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
 
 export const COMPARE_RUN_PAIR_TESTID = 'compare-run-pair'
 
@@ -53,7 +56,13 @@ export function CompareRunPairBody({
   runOnRecordWithoutResult?: RunOnRecordWithoutResult
 }): JSX.Element {
   const view = useDisplayedRunDeltaView(responseHash)
-  const endpoints = useCanvasStore(s => s.runDelta?.delta.endpoints)
+  const delta = useCanvasStore(s => s.runDelta?.delta)
+  const endpoints = delta?.endpoints
+  const nodes = useCanvasStore(s => s.nodes)
+  const labels = useMemo(() => nodeLabelMap(nodes), [nodes])
+  // Current-run tie words come from the existing producer-verdict reader, not the delta noise tag.
+  const nearTie = useCanvasStore(s => s.results?.hash === responseHash && deriveDecisionVerdict(s.results?.report).separation === 'tied')
+  const withheldReason = useCanvasStore(selectWinShareWithheldReason)
   const runIsCurrent = useCanvasStore(selectRunAffirmedCurrent)
   const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
   const artefact = buildRunChangeArtefact({
@@ -78,7 +87,7 @@ export function CompareRunPairBody({
         data-testid={`${COMPARE_RUN_PAIR_TESTID}-run-on-record`}
         data-run-on-record={runOnRecordWithoutResult}
       >
-        <Shuffle size={36} className="text-panel-border" aria-hidden="true" />
+        <Shuffle className={`${icon('section')} text-text-light`} aria-hidden="true" />
         <p className={`${typography.panelHeader} text-text-body mt-3 mb-1.5`}>{copy.title}</p>
         <p className={`${typography.panelBody} text-text-light max-w-[260px] m-0`}>{copy.body}</p>
       </div>
@@ -94,7 +103,7 @@ export function CompareRunPairBody({
         data-testid={`${COMPARE_RUN_PAIR_TESTID}-empty`}
         data-absence-reason={why !== null ? absenceReason ?? undefined : undefined}
       >
-        <Shuffle size={36} className="text-panel-border" aria-hidden="true" />
+        <Shuffle className={`${icon('section')} text-text-light`} aria-hidden="true" />
         <p className={`${typography.panelHeader} text-text-body mt-3 mb-1.5`}>No comparison yet</p>
         <p className={`${typography.panelBody} text-text-light max-w-[260px] m-0`}>
           {why ?? 'The two most recent runs of this model are compared here.'}
@@ -114,8 +123,8 @@ export function CompareRunPairBody({
   }
   return (
     <div data-testid={COMPARE_RUN_PAIR_TESTID}>
-      <RunChangeArtefactCard artefact={artefact} />
-      <WhatsChanged view={view} rowFocus={rowFocus} rowLight={rowLight} />
+      <ComparePairSections view={view} delta={delta!} artefact={artefact} label={id => labels.get(id) ?? null}
+        nearTie={nearTie} resultsAllowed={runIsCurrent && !winSharesWithheld} withheldReason={withheldReason} rowFocus={rowFocus} rowLight={rowLight} />
     </div>
   )
 }
