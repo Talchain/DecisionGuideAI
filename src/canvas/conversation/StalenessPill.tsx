@@ -31,7 +31,7 @@ interface StalenessPillProps {
 
 const COPY: Record<StalenessFreshness, string> = {
   stale: 'Model changed since last analysis',
-  unknown: 'Based on latest available analysis',
+  unknown: 'Cannot confirm this analysis is up to date',
 }
 
 export function StalenessPill({ freshness }: StalenessPillProps) {
