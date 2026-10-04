@@ -181,7 +181,7 @@ describe('scenarioService', () => {
 
       const result = await service.listScenarios(VALID_UUID)
 
-      expect(selectFn).toHaveBeenCalledWith('id, title, stage, analysis_status, updated_at, created_at, events, is_pinned, is_archived')
+      expect(selectFn).toHaveBeenCalledWith('id, title, framing, graph, stage, analysis_status, updated_at, created_at, events, is_pinned, is_archived')
       expect(eqFn).toHaveBeenCalledWith('user_id', VALID_UUID)
       expect(order1Fn).toHaveBeenCalledWith('is_pinned', { ascending: false })
       expect(order2Fn).toHaveBeenCalledWith('updated_at', { ascending: false })

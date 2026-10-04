@@ -156,6 +156,15 @@ function formatLastActivity(events: ScenarioEvent[] | null | undefined, updatedA
   }
 }
 
+function listTitle(scenario: ScenarioListItem): string {
+  if (scenario.title?.trim()) return scenario.title.trim()
+  const framing = scenario.framing as { title?: unknown; decision_question?: unknown; question?: unknown } | null
+  for (const candidate of [framing?.title, framing?.decision_question, framing?.question]) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+  }
+  return 'Untitled decision'
+}
+
 // ---------------------------------------------------------------------------
 // Confirmation dialog
 // ---------------------------------------------------------------------------
@@ -686,7 +695,7 @@ export default function ScenarioListPage() {
 
                     {/* Title */}
                     <h4 className={`${typography.h4} text-text-header pr-16 truncate`}>
-                      {scenario.title || <span className="text-text-light">Untitled decision</span>}
+                      {listTitle(scenario) === 'Untitled decision' ? <span className="text-text-light">Untitled decision</span> : listTitle(scenario)}
                     </h4>
                     <button
                       type="button"
@@ -726,7 +735,7 @@ export default function ScenarioListPage() {
       {shareTarget && (
         <ShareDecisionDialog
           scenarioId={shareTarget.id}
-          scenarioTitle={shareTarget.title || 'Untitled decision'}
+          scenarioTitle={listTitle(shareTarget)}
           onClose={() => setShareTarget(null)}
         />
       )}
@@ -734,7 +743,7 @@ export default function ScenarioListPage() {
       {/* Delete confirmation */}
       {deleteTarget && (
         <DeleteConfirmDialog
-          scenarioTitle={deleteTarget.title || 'Untitled decision'}
+          scenarioTitle={listTitle(deleteTarget)}
           onConfirm={handleDeleteConfirm}
           onCancel={() => setDeleteTarget(null)}
         />
