@@ -2243,18 +2243,34 @@ export function AnalysisNewTabBody({
             state (the same rule #1881 applies to the panel's own leader words).
             So the thresholds are passed only when the claim is permitted. */}
         {!isPreRun && !isBusyNow && runAffirmedCurrent && sendScienceChip ? (
-          <button
-            type="button"
-            className={`${typography.panelBody} ${action('secondary')}`}
-            data-testid="analysis-what-would-change-result"
-            onClick={() => sendScienceChip(
-              'What would change this?',
-              'What would most likely change this result?',
-              { id: 'agent-next-what-would-change' },
-            )}
-          >
-            What would change this?
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={`${typography.panelBody} ${action('secondary')}`}
+              data-testid="analysis-what-would-change-result"
+              onClick={() => sendScienceChip(
+                'What would change this?',
+                'What would most likely change this result?',
+                { id: 'agent-next-what-would-change' },
+              )}
+            >
+              What would change this?
+            </button>
+            {/* Beat 5: CEE's own "Strengthen the model" next step (NEXT_STEP_CHIPS). CEE answers it with one held
+                link-strength card and no model call, or its ordinary answer; the tab decides nothing. */}
+            <button
+              type="button"
+              className={`${typography.panelBody} ${action('secondary')}`}
+              data-testid="analysis-strengthen-model"
+              onClick={() => sendScienceChip(
+                'Strengthen the model',
+                'What would most strengthen this model?',
+                { id: 'agent-next-strengthen' },
+              )}
+            >
+              Strengthen the model
+            </button>
+          </div>
         ) : null}
         <ChallengeCard
           title="Challenge the thinking"
