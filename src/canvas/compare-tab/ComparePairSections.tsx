@@ -23,10 +23,10 @@ function headline(delta: RunDelta, label: (id: string) => string | null, nearTie
   const prior = delta.leader.prior_leading_option_id
   const current = delta.leader.current_leading_option_id
   const currentName = current ? label(current) : null
-  if (!current) return 'The latest run does not name a leading option'
-  if (!prior) return `The latest run names ${currentName ?? 'a leading option'}; the previous run did not name one`
-  if (delta.leader.changed) return 'The named leading option changed'
-  return 'The named leading option is unchanged'
+  if (!current) return 'The latest run does not put an option forward'
+  if (!prior) return `The latest run puts forward ${currentName ?? 'an option'}; the previous run did not put one forward`
+  if (delta.leader.changed) return 'The option put forward changed'
+  return 'The option put forward is unchanged'
 }
 
 function Endpoint({ name, endpoint, leaderId, label, nearTie, resultsAllowed }: {
@@ -41,7 +41,7 @@ function Endpoint({ name, endpoint, leaderId, label, nearTie, resultsAllowed }: 
           {endpoint?.computed_at ? <time dateTime={endpoint.computed_at}>{new Date(endpoint.computed_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</time> : 'Run time not recorded'}
         </span>
         <span className="block mt-1" data-wire-fields={LEADER_FIELDS}>
-          {!resultsAllowed ? 'Leading option not shown' : nearTie ? 'Too close to call' : leaderId ? `${label(leaderId) ?? 'Named option no longer labelled on the canvas'} · named by this run` : 'Leading option not named'}
+          {!resultsAllowed ? 'Option put forward not shown' : nearTie ? 'Too close to call' : leaderId ? `${label(leaderId) ?? 'Named option no longer labelled on the canvas'} · put forward by this run` : 'No option put forward'}
         </span>
       </dd>
     </div>
