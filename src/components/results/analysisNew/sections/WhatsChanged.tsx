@@ -93,6 +93,27 @@ export function noiseQualifier(v: NoiseVerdict): string | null {
   return null
 }
 
+/** Why an option can be missing from the movements: only options in BOTH analyses have a pair (contract scope). */
+export const MOVEMENT_SCOPE_TEXT = 'Only options that appear in both analyses are listed here.'
+
+/** Which way one option's score went, in the words `movementText` uses for a direction-only movement. */
+export function directionWords(m: Pick<RunDeltaMovement, 'direction'>, frame: RunDeltaFrame = 'rerun'): string {
+  const verb = m.direction === 'up' ? 'scored higher' : m.direction === 'down' ? 'scored lower' : 'scored the same'
+  return `${verb} ${frame === 'versions' ? 'than in the version compared from' : 'than last time'}`
+}
+
+/**
+ * ONE option's movement in plain words, no figures (Compare's default read; the figures sit behind Result details).
+ * The direction, then the producer's noise verdict verbatim: `signal` is the only verdict that may say the movement
+ * is beyond ordinary run-to-run variation; the other two say exactly what `noiseQualifier` says.
+ */
+export function movementVerdictText(m: Pick<RunDeltaMovement, 'direction' | 'noiseVerdict'>): string {
+  const direction = directionWords(m)
+  const sentence = `${direction.charAt(0).toUpperCase()}${direction.slice(1)}`
+  if (m.noiseVerdict === 'signal') return `${sentence}, beyond ordinary run-to-run variation.`
+  return `${sentence}. ${noiseQualifier(m.noiseVerdict)}`
+}
+
 /**
  * ONE option's movement in words ("Option B: 41% → 55%"). Exported so the canvas's compact summary
  * (`graphChanges/RunChangesSummary`) says exactly what this section says, never a second phrasing.
@@ -105,7 +126,7 @@ export function movementText(m: RunDeltaMovement, frame: RunDeltaFrame = 'rerun'
   // is read as precision.
   return m.mayShowMagnitude
     ? `${name}: ${pct(m.prior)} → ${pct(m.current)}`
-    : `${name}: ${m.direction === 'up' ? 'scored higher' : m.direction === 'down' ? 'scored lower' : 'scored the same'} ${frame === 'versions' ? 'than in the version compared from' : 'than last time'}`
+    : `${name}: ${directionWords(m, frame)}`
 }
 
 /** What a person is told about ONE option's movement. */
@@ -371,7 +392,7 @@ export function WhatsChanged({ view, rowFocus, rowLight }: { view: RunDeltaView 
           className={`${typography.panelMeta} text-text-light mt-2 mb-0`}
           data-testid={`${WHATS_CHANGED_TESTID}-movement-scope`}
         >
-          Only options that appear in both analyses are listed here.
+          {MOVEMENT_SCOPE_TEXT}
         </p>
       ) : null}
 

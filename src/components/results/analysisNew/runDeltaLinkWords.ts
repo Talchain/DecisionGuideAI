@@ -35,6 +35,11 @@ const SIZING_WORDS: Record<string, string> = {
   unmarked: 'not recorded',
 }
 
+/** A `sizing` row's raw value in the words above ("Olumi's estimate, accepted"), never the contract literal. */
+export function sizingWords(raw: string | null): string | null {
+  return raw === null ? null : SIZING_WORDS[raw] ?? raw.replace(/_/g, ' ')
+}
+
 /**
  * 0.70.0 link rows, in RC's contract words (`RERUN-EXPLANATION.change_label_templates`), by FIELD IDENTITY:
  *   sizing → olumi_accepted   "You accepted Olumi's estimate for how much {from} changes {to}."

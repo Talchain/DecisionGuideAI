@@ -49,11 +49,12 @@ beforeEach(() => {
 afterEach(() => { cleanup(); useCanvasStore.setState(original, true); useAskOlumiStore.setState(originalAsk, true) })
 
 describe('Compare v1 anatomy and producer-only rendering', () => {
-  it('orders headline, endpoints, exact inputs, qualification, Ask Olumi, then canvas rows', () => {
+  it('orders headline, endpoints, exact canvas-linked inputs, qualification, then Ask Olumi — one change list, not two', () => {
     const { container } = mount()
     expect([...container.querySelectorAll('[data-compare-section]')].map(el => el.getAttribute('data-compare-section'))).toEqual([
-      'headline', 'endpoints', 'inputs', 'qualification', 'ask', 'canvas',
+      'headline', 'endpoints', 'inputs', 'qualification', 'ask',
     ])
+    expect(screen.getAllByTestId('analysis-new-whats-changed-input-row')).toHaveLength(1)
   })
 
   it('reads each section from the licensed producer pair and ignores current graph values and unrelated result prose', () => {
@@ -69,7 +70,8 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     expect(within(endpoints).getByText('Previous run').parentElement).toHaveAttribute('data-run-id', 'run-a')
     expect(within(endpoints).getByText('Latest run').parentElement).toHaveAttribute('data-run-id', 'run-b')
     expect([...endpoints.querySelectorAll('time')].map(t => t.getAttribute('datetime'))).toEqual([delta.endpoints!.prior.computed_at, delta.endpoints!.current.computed_at])
-    expect(section('What you changed')).toHaveTextContent('Pro price, Raise to £60: £59 → £60')
+    expect(section('What you changed')).toHaveTextContent('Pro price, Raise to £60')
+    expect(section('What you changed')).toHaveTextContent('£59 → £60')
     expect(section('How to read this comparison')).toHaveTextContent('Whether a change to the model explains anything below cannot be established from this pair.')
     expect(container.textContent).not.toMatch(/POISON|999999/)
     expect(globalThis.fetch).not.toHaveBeenCalled()
@@ -160,13 +162,14 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
   it('opens the existing editable Ask Olumi draft only on user click, with producer pair context', () => {
     mount()
     expect(useAskOlumiStore.getState().isOpen).toBe(false)
-    fireEvent.click(screen.getByRole('button', { name: 'Ask Olumi' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Ask Olumi about this comparison' }))
     const ask = useAskOlumiStore.getState()
     expect(ask.isOpen).toBe(true)
     expect(ask.context).toContain('Previous run: run-a. Latest run: run-b.')
     expect(ask.context).toContain('This pair gives no basis for saying whether that is a real difference.')
     expect(ask.context).toContain('cannot be established from this pair')
-    expect(ask.draft).toBe('Help me understand what changed between these runs and what to investigate next.')
+    // The draft carries the changes the panel shows, as editable text. It is context, never a pair binding.
+    expect(ask.draft).toBe('Help me understand what changed between these runs and what to investigate next.\n\nChanges recorded between the two runs:\n- Pro price, Raise to £60: £59 → £60')
     expect(globalThis.fetch).not.toHaveBeenCalled()
   })
 
@@ -175,7 +178,8 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     const nodes = useCanvasStore.getState().nodes
     useCanvasStore.setState({ nodes: [{ ...nodes[0], id: 'decoy' }, ...nodes] })
     render(<CompareRunPairBody responseHash={hash} />)
-    const button = within(section('Changes on the canvas')).getByRole('button')
+    const button = within(section('What you changed')).getByTestId('analysis-new-whats-changed-input-row-focus')
+    expect(button).toHaveAccessibleName('Show on the canvas: Pro price, Raise to £60: £59 → £60')
     expect(canvasLinkOfTarget).toHaveBeenCalledWith({ kind: 'node', id: 'opt_60' }, { route: true })
     expect(canvasLinkOfTarget).toHaveBeenCalledWith({ kind: 'node', id: 'opt_60' })
     fireEvent.mouseEnter(button)
@@ -196,8 +200,8 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     mount(runChangeDelta({ input_changes: [delta.input_changes![0], { ...delta.input_changes![0], option_id: 'opt_49' }, { ...delta.input_changes![0], entity_id: 'other', label_after: 'Another input', option_id: 'opt_49' }] }))
     expect(within(section('What you changed')).queryByText(/Another input/)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'See all 3 changes' }))
-    expect(within(section('What you changed')).getByText('Another input, Keep £49: £59 → £60')).toBeInTheDocument()
-    expect(within(section('Changes on the canvas')).getAllByRole('listitem')).toHaveLength(3)
+    expect(within(section('What you changed')).getByText('Another input, Keep £49')).toBeInTheDocument()
+    expect(within(section('What you changed')).getAllByTestId('analysis-new-whats-changed-input-row')).toHaveLength(3)
   })
 
 
@@ -205,7 +209,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     const hash = seed(runChangeDelta({ input_changes: [{ entity_kind: 'link', entity_id: 'opaque-link', field: 'strength', link: { from: 'fac_price', to: 'opt_60' }, before: { raw: 'moderate' }, after: { raw: 'strong' }, change: 'changed' }] }))
     useCanvasStore.setState({ edges: [{ id: 'wrong-edge', source: 'fac_price', target: 'opt_49' }, { id: 'actual-edge', source: 'fac_price', target: 'opt_60' }] })
     render(<CompareRunPairBody responseHash={hash} />)
-    const button = within(section('Changes on the canvas')).getByRole('button')
+    const button = within(section('What you changed')).getByTestId('analysis-new-whats-changed-input-row-focus')
     expect(canvasLinkOfTarget).toHaveBeenCalledWith({ kind: 'edge', id: 'actual-edge' }, { route: false })
     fireEvent.mouseEnter(button)
     expect(lightOn).toHaveBeenLastCalledWith(expect.objectContaining({ target: { kind: 'edge', id: 'actual-edge' } }))
@@ -217,6 +221,10 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
   it('shows science input bands in plain words and never fabricates an exact value absent from the wire', () => {
     mount(runChangeDelta({ input_changes: [{ entity_kind: 'link', entity_id: 'opaque-link', field: 'strength', link: { from: 'fac_price', to: 'opt_60' }, before: { raw: 'moderate' }, after: { raw: 'strong' }, change: 'changed' }] }))
     expect(section('What you changed')).toHaveTextContent('moderate → strong')
+    // The band steps are the visual indicator: previous outlined, latest filled, never a number.
+    const steps = within(section('What you changed')).getByTestId('compare-strength-steps')
+    expect(steps.querySelector('[data-band="strong"]')!.className).toContain('bg-info')
+    expect(steps.querySelector('[data-band="moderate"]')!.className).toContain('border-text-light')
     expect(section('What you changed')).not.toHaveTextContent('0.5')
     fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
     expect(screen.getByTestId('compare-result-details-region')).not.toHaveTextContent('0.5')
@@ -229,7 +237,11 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     }
     expect(screen.getByTestId('compare-result-details')).toHaveAttribute('data-section-open', 'false')
     expect(screen.getByRole('heading', { name: 'The latest run does not put an option forward' }).className).toContain('text-sm font-medium')
-    expect(screen.getByRole('button', { name: 'Ask Olumi' }).querySelector('svg')).toHaveClass('w-3', 'h-3')
+    // Section labels sit at the meta scale so the result headline is the only 14px line.
+    expect(screen.getByRole('heading', { name: 'What you changed' }).className).toContain('text-[11px]')
+    expect(screen.getByRole('heading', { name: 'How to read this comparison' }).className).toContain('text-[11px]')
+    // The AI-triggering action carries the Olumi AI mark at row-icon size.
+    expect(screen.getByRole('button', { name: 'Ask Olumi about this comparison' }).querySelector('svg[data-icon="olumi-ai"]')).toHaveClass('w-3.5', 'h-3.5')
   })
 
   it('also respects advanced mode through the shared science gate', () => {

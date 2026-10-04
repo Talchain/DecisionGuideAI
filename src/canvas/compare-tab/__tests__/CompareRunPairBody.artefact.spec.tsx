@@ -71,9 +71,10 @@ describe('the artefact mounted in the existing Compare body', () => {
     expect(artefact).toHaveAttribute('data-testid', RUN_CHANGE_ARTEFACT_TESTID)
     expect(artefact).toHaveAttribute('data-prior-run-id', 'run-a')
     expect(artefact).toHaveAttribute('data-current-run-id', 'run-b')
-    expect(within(screen.getByRole('region', { name: 'What you changed' })).getByText('Pro price, Raise to £60: £59 → £60')).toHaveAttribute(
-      'data-wire-fields', expect.stringContaining('run_delta.input_changes[].before'),
-    )
+    const row = within(screen.getByRole('region', { name: 'What you changed' })).getByTestId(`${WHATS_CHANGED_TESTID}-input-row`)
+    expect(row).toHaveTextContent('Pro price, Raise to £60')
+    expect(row).toHaveTextContent('£59 → £60')
+    expect(row).toHaveAttribute('data-wire-fields', expect.stringContaining('run_delta.input_changes[].before'))
     expect(screen.queryByText('Raise to £60: 41% → 44% chance of leading.')).toBeNull()
     fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
     expect(screen.getByText('Raise to £60: 41% → 44% chance of leading.')).toHaveAttribute(

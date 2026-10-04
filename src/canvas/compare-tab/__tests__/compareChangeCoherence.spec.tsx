@@ -29,7 +29,7 @@
  * every fixture so a differ that reports "some edge changed" cannot pass.
  */
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { Node, Edge } from '@xyflow/react'
@@ -41,6 +41,8 @@ import { RunPairCompare } from '../RunPairCompare'
 import type { AnalysisSnapshot } from '../types'
 import type { V2RunResponse } from '../../../adapters/plot/v2/types'
 import type { ReportV1 } from '../../../adapters/plot/types'
+import { scienceBand, scienceChangeText } from '../../../components/science/ScienceQuantity'
+import { DetailToggleContext } from '../../components/model-tab/DetailToggleContext'
 
 // ---------------------------------------------------------------------------
 // The identities under test. Named constants, not literals scattered through
@@ -273,14 +275,32 @@ describe('ROADMAP 2.578 — the labels cannot contradict each other', () => {
     expect(noEdits && structure).toBeFalsy()
   })
 
-  it('renders the edit as "+0.5 → +0.8" against the edited relationship', () => {
+  // ⚠ #2463 (plain words first, 4 Oct) moved this row onto the shared `ScienceQuantity` primitive: the band by default,
+  // the exact figure in the advanced view. The row is still bound to the EDITED edge and to BOTH exact values — through
+  // the primitive's own band function and its advanced read, never a re-recorded string.
+  it('renders the edit against the edited relationship: plain-word bands by default, the exact 0.5 → 0.8 in the advanced view', () => {
     const tr = valueOnlyEditTransition()
     render(
       <TransitionCard transition={tr} startOpen showExpert allDeltas={tr.winnerProbDelta != null ? [tr.winnerProbDelta] : []} />,
     )
-    expect(screen.getByTestId(`change-edge-${EDITED_EDGE_ID}-weight`)).toHaveTextContent(
-      `${STRENGTH_BEFORE} → ${STRENGTH_AFTER}`,
+    const [before, after] = within(screen.getByTestId(`change-edge-${EDITED_EDGE_ID}-weight`)).getAllByTestId('science-quantity')
+    expect(before).toHaveTextContent(scienceBand('strength', STRENGTH_BEFORE))
+    expect(after).toHaveTextContent(scienceBand('strength', STRENGTH_AFTER))
+    // The two bands differ for this edit, so the default read still shows that something moved.
+    expect(scienceBand('strength', STRENGTH_BEFORE)).not.toBe(scienceBand('strength', STRENGTH_AFTER))
+    expect(before).not.toHaveTextContent(String(STRENGTH_BEFORE))
+  })
+
+  it('the advanced view shows the exact before and after figures on the same row', () => {
+    const tr = valueOnlyEditTransition()
+    render(
+      <DetailToggleContext.Provider value={{ showDetail: true }}>
+        <TransitionCard transition={tr} startOpen showExpert allDeltas={tr.winnerProbDelta != null ? [tr.winnerProbDelta] : []} />
+      </DetailToggleContext.Provider>,
     )
+    const [before, after] = within(screen.getByTestId(`change-edge-${EDITED_EDGE_ID}-weight`)).getAllByTestId('science-quantity')
+    expect(before).toHaveTextContent(String(STRENGTH_BEFORE))
+    expect(after).toHaveTextContent(String(STRENGTH_AFTER))
   })
 
   it('describes the change exactly ONCE — no prose bullet duplicating the detail row', () => {
@@ -290,7 +310,11 @@ describe('ROADMAP 2.578 — the labels cannot contradict each other', () => {
     )
     // The same edit rendered as both a prose bullet and a detail row would make
     // one change look like two on a surface whose whole job is counting changes.
-    expect(screen.getAllByText(/strength 0\.5 → 0\.8/)).toHaveLength(1)
+    expect(screen.getAllByTestId(`change-edge-${EDITED_EDGE_ID}-weight`)).toHaveLength(1)
+    // Contrast: the prose line for this edit EXISTS (in `tr.edits`, the fallback), so its absence below is real.
+    const prose = tr.edits.find((l) => l.includes(`strength ${scienceChangeText('weight', STRENGTH_BEFORE, STRENGTH_AFTER)}`))
+    expect(prose).toBeDefined()
+    expect(screen.queryByText(prose!)).toBeNull()
   })
 
   it('renders no change row for the untouched edge', () => {
@@ -489,7 +513,10 @@ describe('ROADMAP 2.578 F1 — the pair view explains the model row from the VER
     // The card lists the exact edit; the pair view must not be denying that any
     // value moved on the same screen. This is the coherence rule of 2.578
     // applied to the surface the F1 review found still breaking it.
-    expect(tr.edits.some(l => /strength 0\.5 → 0\.8/.test(l))).toBe(true)
+    // The card's line is the shared plain-words change text for this exact edit (#2463), e.g. "Strong → Very strong".
+    const words = scienceChangeText('weight', STRENGTH_BEFORE, STRENGTH_AFTER)
+    expect(words).toBe(`${scienceBand('strength', STRENGTH_BEFORE)} → ${scienceBand('strength', STRENGTH_AFTER)}`)
+    expect(tr.edits.some(l => l.includes(`strength ${words}`))).toBe(true)
     expect(detail).toMatch(/values changed/)
   })
 
