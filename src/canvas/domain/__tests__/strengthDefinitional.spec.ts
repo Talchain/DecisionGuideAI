@@ -249,10 +249,13 @@ describe('D1 — the Model tab relationship sentence', () => {
     )
   })
 
-  it("CONTROL: the user's own reads as theirs, unchanged (no suffix)", () => {
-    expect(relationshipRow(ingest(USER_STATED)).primaryValue).toBe(
-      'Increase of about 1 % of upcoming sprint capacity per 1 % of upcoming sprint capacity',
-    )
+  // Beat 1 (Paul, 4 Oct 2026: full provenance words on links): the user's own size now SAYS it is theirs — "your
+  // figure" (stated outside the brief) — where it used to carry no words. The control's point is unchanged: no
+  // "Olumi", no "by definition".
+  it("CONTROL: the user's own reads as theirs (\"your figure\"), never Olumi's or a definition", () => {
+    const value = relationshipRow(ingest(USER_STATED)).primaryValue
+    expect(value).toBe('Increase of about 1 % of upcoming sprint capacity per 1 % of upcoming sprint capacity · your figure')
+    expect(value).not.toMatch(/Olumi|definition/)
   })
 })
 

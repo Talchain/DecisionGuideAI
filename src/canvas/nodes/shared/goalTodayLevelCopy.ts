@@ -8,5 +8,6 @@ import type { GoalTodayLevel } from '../../domain/goalTarget'
 export function goalTodayLevelCopy(t: GoalTodayLevel): string {
   const figure = formatGoalTarget(t.level, t.unit) ?? String(t.level)
   if (t.basis === 'olumi_reading' && t.quote !== null) return `Today: ${figure} — Olumi's reading of ‘${t.quote}’`
+  if (t.basis === 'from_brief') return `Today: ${figure} — from your brief`
   return t.basis === 'user_confirmed' ? `Today: ${figure} — you confirmed` : `Today: ${figure} — you said`
 }

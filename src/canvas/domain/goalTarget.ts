@@ -387,20 +387,29 @@ export function goalTargetInPlaceEdit(data: GoalTargetSource | null | undefined)
  *     REFRESHED reading after a correction when the goal's subject differs from the user's words.
  *   · a user-stated level (`observedState.raw_value` with a user `source`, no reading) → "you said".
  * ⛔ The figure is `level` / `raw_value` in its OWN unit, never `value`/`baseline` (normalised: 0.8 on cut-costs), and
- * the unit must be the goal's, or nothing is said. A level goal, or a change goal with neither carrier, says nothing.
+ * the unit must be the goal's, or nothing is said. A goal with neither carrier says nothing.
+ *
+ * ⭐ BEAT 1 (Canvas lane, 4 Oct 2026; DL 0df0e1 ruling, Paul's standing "user-entered business quantities remain
+ * visible"): the user's OWN level now speaks on a LEVEL goal too, and a level read from the user's BRIEF speaks on
+ * either frame — "Today: £120,000 / month — from your brief" (journey 4's MRR goal, `observed_state.raw_value`,
+ * `source: brief_extraction`). This is AIQ 5902409861's own named follow-up ("an r1-shape goal (`source:
+ * brief_extraction`, no reading) could show '— from your brief'"); its rule — "a level goal with NEITHER field → no
+ * line" — is unchanged, as is the false-figure guard above. An Olumi-estimated level, an unread frame, or another
+ * unit still says nothing. The typed reading stays a change-goal carrier, as it was.
  */
 export interface GoalTodayLevel {
   readonly level: number
   readonly unit: string
-  readonly basis: 'olumi_reading' | 'user_stated' | 'user_confirmed'
+  readonly basis: 'olumi_reading' | 'user_stated' | 'user_confirmed' | 'from_brief'
   readonly quote: string | null
 }
 export function goalTodayLevel(data: (GoalTargetSource & { goal_level_reading?: unknown; observedState?: unknown }) | null | undefined): GoalTodayLevel | null {
-  if (!data || goalTargetChangeFrameOf(data.goal_threshold_frame) === null) return null
+  if (!data || goalTargetFrameIsUnread(data.goal_threshold_frame)) return null
+  const isChangeGoal = goalTargetChangeFrameOf(data.goal_threshold_frame) !== null
   const goalUnit = typeof data.goal_threshold_unit === 'string' ? data.goal_threshold_unit.trim() : ''
   if (goalUnit === '') return null
   const reading = data.goal_level_reading as { level?: unknown; level_unit?: unknown; quote?: unknown } | null | undefined
-  if (reading && typeof reading === 'object') {
+  if (isChangeGoal && reading && typeof reading === 'object') {
     const quote = typeof reading.quote === 'string' ? reading.quote.trim() : ''
     const unit = typeof reading.level_unit === 'string' ? reading.level_unit.trim() : ''
     if (typeof reading.level === 'number' && Number.isFinite(reading.level) && quote !== '' && unit === goalUnit) {
@@ -412,9 +421,10 @@ export function goalTodayLevel(data: (GoalTargetSource & { goal_level_reading?: 
   const kind = classifyObservedValueProvenance(observed)?.kind
   const raw = typeof observed?.raw_value === 'number' ? observed.raw_value : NaN
   const unit = typeof observed?.unit === 'string' ? observed.unit.trim() : ''
-  if ((kind === 'edited' || kind === 'confirmed') && Number.isFinite(raw) && unit === goalUnit) {
+  if ((kind === 'edited' || kind === 'confirmed' || kind === 'brief') && Number.isFinite(raw) && unit === goalUnit) {
     // AIQ 5902964135 nit: a `confirmed` source is one the user CONFIRMED, not one they typed.
-    return { level: raw, unit, basis: kind === 'confirmed' ? 'user_confirmed' : 'user_stated', quote: null }
+    const basis = kind === 'confirmed' ? 'user_confirmed' : kind === 'brief' ? 'from_brief' : 'user_stated'
+    return { level: raw, unit, basis, quote: null }
   }
   return null
 }

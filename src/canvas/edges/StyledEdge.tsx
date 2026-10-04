@@ -23,6 +23,7 @@ import {
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, Position, type EdgeProps, useReactFlow, useStore } from '@xyflow/react'
 import { Lightbulb, Activity, Flag } from 'lucide-react'
 import { LinkHoverCard } from '../components/hoverCard/LinkHoverCard'
+import { edgeSizePhrase } from './edgeSizePhrase'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../components/hoverCard/hoverCardPlacement'
 import { EstimateMarker, ESTIMATE_SUBJECT_TITLE } from '../nodes/shared/EstimateMarker'
 import { CANVAS_GLYPH_SIZE_CLASSES, CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES } from '../nodes/shared/canvasGlyphScale'
@@ -834,6 +835,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [edgeSignedStrength, edgeData, strengthIsDefinitional]
   )
   /**
+   * ⭐ BEAT 1 (Canvas lane, 4 Oct 2026): the link's stored size and WHOSE it is (`edgeSizePhrase`) — said in the hover
+   * card. When the size is the USER's own figure (journey 4: four links the brief stated, `magnitude: user_stated`),
+   * the β beside it was sized from that figure: it is not "Olumi's estimate", so it carries no `est.` marker. Only
+   * the marker narrows; `strengthUnconfirmed` keeps its meaning (nobody confirmed the β) for every other reader.
+   */
+  const edgeSize = useMemo(() => edgeSizePhrase(edgeData as Record<string, unknown> | undefined), [edgeData])
+  const strengthMarkedEstimate = strengthUnconfirmed && edgeSize?.usersFigure !== true
+  /**
    * ⭐⭐ THE LABEL'S LIKELIHOOD, FROM THE SAME OWNER THE HOVER POPOVER READS.
    *
    * The label used to be handed `belief` (:372) — the v3 legacy scalar, which
@@ -1246,7 +1255,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const ariaLabel =
     `Edge from ${srcTitle} to ${tgtTitle}${confText}, ${edgeDescription.label}` +
     (canvasOnlyLink ? `. ${CANVAS_ONLY_LINK_MARK.word}` : '') +
-    (strengthUnconfirmed ? `. ${ESTIMATE_SUBJECT_TITLE.strength}` : '') +
+    (strengthMarkedEstimate ? `. ${ESTIMATE_SUBJECT_TITLE.strength}` : '') +
     // ⭐ THE SAME PROMISE ON THE ASSISTIVE CHANNEL. A `title` is not reachable
     // by keyboard focus and is absent on touch, so a sighted keyboard user and
     // a screen-reader user would otherwise never learn the edge is editable at
@@ -3104,7 +3113,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 // absent on touch, so the chip that shows the marker also
                 // carries what it means. Derived from `ESTIMATE_SUBJECT_TITLE`,
                 // never re-typed — the cards say this in exactly one place.
-                ...(showLabel && strengthUnconfirmed ? [ESTIMATE_SUBJECT_TITLE.strength] : []),
+                ...(showLabel && strengthMarkedEstimate ? [ESTIMATE_SUBJECT_TITLE.strength] : []),
                 ...(paintFragileCue ? [fragileSentence] : []),
               ]
               // ⭐⭐ SAY WHAT THE DOUBLE-CLICK ACTUALLY DOES.
@@ -3219,7 +3228,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                       says so and names itself as pinned only by tests). Nothing
                       new is minted here — an existing, reviewed disclosure is
                       being plugged in. */}
-                  {strengthUnconfirmed && (
+                  {strengthMarkedEstimate && (
                     <span style={{ flexShrink: 0, display: 'inline-flex' }}>
                       <EstimateMarker subject="strength" />
                     </span>
@@ -3432,6 +3441,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               strengthDefinitional={strengthIsDefinitional}
               placeholderSentence={strengthIsPlaceholder ? EDGE_STRENGTH_PLACEHOLDER_SENTENCE : null}
               fragileSentence={isFragileEdge ? fragileSentence : null}
+              size={edgeSize}
             />
           </EdgeLabelRenderer>
         )
