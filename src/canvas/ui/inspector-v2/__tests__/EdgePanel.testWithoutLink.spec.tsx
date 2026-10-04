@@ -90,7 +90,7 @@ describe('Test without this link in the link inspector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Testing without this link…' }))
     expect(sendChip).toHaveBeenCalledTimes(1)
     expect(sendChip).toHaveBeenCalledWith({
-      id: 'agent-test-without-link:factor-a::goal-b',
+      id: 'agent-test-without-link:["factor-a","goal-b"]',
       label: NAME, message: NAME, intent: 'primary',
       sourceBlockKey: 'test-without-link:scenario-1:factor-a::goal-b',
     })

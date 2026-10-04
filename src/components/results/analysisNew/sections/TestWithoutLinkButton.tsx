@@ -41,7 +41,8 @@ export function TestWithoutLinkButton({
 
   if (!isTestWithoutLinkEnabled() || !edge || !current || !conversation?.sendChip) return null
 
-  const id = `agent-test-without-link:${edge.source}::${edge.target}`
+  // CEE's canonical press (`structuralChallengePressId`): a JSON pair, because node ids may contain ':'.
+  const id = `agent-test-without-link:${JSON.stringify([edge.source, edge.target])}`
   // Existing UI-only correlation key, never a wire field or a science result.
   const sourceBlockKey = `test-without-link:${scenarioId ?? ''}:${edge.source}::${edge.target}`
   const ownSend = [...conversation.messages as SourceKeyedMessage[]].reverse().find(m => m.role === 'user' && m.sourceBlockKey === sourceBlockKey)
@@ -80,7 +81,9 @@ export function TestWithoutLinkButton({
         {pending ? 'Testing without this link…' : 'Test without this link'}
       </button>
       {pending ? <p role="status" className={`${typography.panelMeta} text-text-light`}>Waiting for Olumi.</p> : null}
-      {failed ? <p role="alert" className={`${typography.panelMeta} text-danger`}>This test could not be sent. Try again.</p> : null}
+      {/* Neutral body text, like this surface's other alerts: `text-danger` fails 4.5:1 on panel grounds
+          (tests/ci-guards/reasoning-model-text-contrast-per-site). The role and the words carry the meaning. */}
+      {failed ? <p role="alert" className={`${typography.panelMeta} text-text-body`}>This test could not be sent. Try again.</p> : null}
     </div>
   )
 }
