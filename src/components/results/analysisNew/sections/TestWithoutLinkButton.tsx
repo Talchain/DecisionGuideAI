@@ -5,6 +5,8 @@ import { useOptionalConversationContext } from '../../../../canvas/conversation/
 import type { SourceKeyedMessage } from '../../../../canvas/conversation/utils/transcriptStore'
 import { revealOlumiSurface } from '../../../../canvas/conversation/revealOlumi'
 import { isTestWithoutLinkEnabled } from '../../../../flags'
+import { resolveEffectiveAdmission } from '../../../../canvas/hooks/useAnalysisReady'
+import { TEST_WITHOUT_LINK_HOLD_COPY, testWithoutLinkEligibility } from '../testWithoutLinkEligibility'
 import { typography } from '../../../../styles/typography'
 import { action } from '../panelSurfaces'
 
@@ -35,11 +37,33 @@ export function TestWithoutLinkButton({
   const scenarioId = useCanvasStore(s => s.currentScenarioId)
   const current = useCanvasStore(selectRunAffirmedCurrent)
   const conversation = useOptionalConversationContext()
+  // The offer gate's producer fields (see `testWithoutLinkEligibility`), each read as a primitive.
+  const permittedAnalysisMode = useCanvasStore(s =>
+    resolveEffectiveAdmission(s.ceeAnalysisReady?.analysis_admission, s.retainedAnalysisAdmission)?.permitted_analysis_mode)
+  const analysisState = useCanvasStore(s => s.analysisStateV1)
+  const hasResult = useCanvasStore(s => s.results?.report != null)
+  const sourceType = useCanvasStore(s => s.nodes.find(n => n.id === edge?.source)?.type)
+  const targetType = useCanvasStore(s => s.nodes.find(n => n.id === edge?.target)?.type)
   const [pending, setPending] = useState(false)
   const [sendFailed, setSendFailed] = useState(false)
   const inFlight = useRef(false)
 
   if (!isTestWithoutLinkEnabled() || !edge || !current || !conversation?.sendChip) return null
+
+  // Offer the press only when the service can answer it; otherwise say why, in one plain sentence.
+  const eligibility = testWithoutLinkEligibility({
+    permittedAnalysisMode, analysisState, hasResult, sourceType, targetType,
+    edgeType: typeof edge.data?.edge_type === 'string' ? edge.data.edge_type : undefined,
+  })
+  if (!eligibility.eligible) {
+    return (
+      <div className={className} data-testid={testId}>
+        <p className={`${typography.panelMeta} text-text-light`} data-testid={`${testId}-hold`} data-hold={eligibility.hold}>
+          {TEST_WITHOUT_LINK_HOLD_COPY[eligibility.hold]}
+        </p>
+      </div>
+    )
+  }
 
   // CEE's canonical press (`structuralChallengePressId`): a JSON pair, because node ids may contain ':'.
   const id = `agent-test-without-link:${JSON.stringify([edge.source, edge.target])}`
