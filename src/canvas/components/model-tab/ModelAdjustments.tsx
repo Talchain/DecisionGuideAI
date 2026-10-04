@@ -16,6 +16,7 @@
 import { useState } from 'react'
 import { ChevronRight, Wrench } from 'lucide-react'
 import { typography } from '@/styles/typography'
+import { scienceChangeText } from '@/components/science/ScienceQuantity'
 
 interface ModelAdjustment {
   /** Legacy type identifier */
@@ -447,7 +448,7 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
                   <div>
                     <span>{repair.label}: {repair.action}</span>
                     {repair.before != null && repair.after != null && (
-                      <span className="ml-1">({repair.before} → {repair.after})</span>
+                      <span className="ml-1">({scienceChangeText(repair.label, Number(repair.before), Number(repair.after)) ?? `${repair.before} → ${repair.after}`})</span>
                     )}
                     {repair.reason && (
                       <p className="text-text-light mt-0.5">{repair.reason}</p>

@@ -8,6 +8,17 @@ DecisionGuideAI is a decision modeling tool with an interactive canvas interface
 
 ## Design System
 
+### Plain words first, numbers on request
+
+Science quantities are shown in plain words with a visual indicator by default.
+Exact causal strengths, probabilities, effect sizes and model statistics belong
+behind the existing advanced toggle or an explicit `Show details` disclosure.
+Use the shared `ScienceQuantity` primitive in
+`src/components/science/ScienceQuantity.tsx` for new science-number UI.
+Do not create a second band table or format raw science values directly in a
+component. User-entered business quantities and requested headline outcomes
+are not covered by this rule.
+
 See [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) for the quick reference. Full specification: [`docs/design/Olumi_Design_System_v4.md`](docs/design/Olumi_Design_System_v4.md). Key rules:
 
 - **Three-channel system**: Shapes (what it is) · Colour (how it's doing) · Icons (what you can do) — no channel duplicates another

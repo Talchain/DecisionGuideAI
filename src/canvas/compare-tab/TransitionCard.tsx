@@ -5,6 +5,7 @@ import { GraphLink } from '../../components/results/GraphLink'
 import { highlightNode, clearHighlight } from '../utils/highlightHelpers'
 import { useCanvasStore } from '../store'
 import { fieldDisplayLabel, formatChangeValue } from './graphChangeDiff'
+import { ScienceQuantity, scienceKindForField } from '../../components/science/ScienceQuantity'
 import type { Transition } from './types'
 
 interface TransitionCardProps {
@@ -56,6 +57,12 @@ const NOT_ASSESSED = 'Not assessed'
  */
 function deltaText(delta: number | null): string {
   return delta != null ? `${delta >= 0 ? '+' : ''}${delta}pp` : NOT_ASSESSED
+}
+
+function ChangeValue({ field, value }: { field: string; value: unknown }) {
+  const kind = scienceKindForField(field)
+  if (kind && typeof value === 'number') return <ScienceQuantity kind={kind} value={value} />
+  return <>{formatChangeValue(value, field)}</>
 }
 
 export function TransitionCard({
@@ -146,7 +153,7 @@ export function TransitionCard({
                     className={typography.panelBody}
                     data-testid={`change-${c.element}-${c.id}-${c.field}`}
                   >
-                    • {c.label} · {fieldDisplayLabel(c.field)} {formatChangeValue(c.before)} → {formatChangeValue(c.after)}
+                    • {c.label} · {fieldDisplayLabel(c.field)} <ChangeValue field={c.field} value={c.before} /> → <ChangeValue field={c.field} value={c.after} />
                   </div>
                 ))}
               </>

@@ -48,6 +48,7 @@ import {
   ANALYTICAL_EDGE_FIELDS,
   deepEqual,
 } from '../domain/analyticalChange'
+import { scienceChangeText } from '../../components/science/ScienceQuantity'
 
 // ---------------------------------------------------------------------------
 // The projection
@@ -322,4 +323,8 @@ export function formatChangeValue(value: unknown): string {
   if (typeof value === 'string') return value
   if (typeof value === 'boolean') return value ? 'yes' : 'no'
   return JSON.stringify(value)
+}
+
+export function formatFieldChangeValue(field: string, value: unknown, other: unknown): string {
+  return scienceChangeText(field, value, other) ?? formatChangeValue(value)
 }
