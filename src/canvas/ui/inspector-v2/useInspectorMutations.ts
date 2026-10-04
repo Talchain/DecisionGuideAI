@@ -886,7 +886,7 @@ export function useNodeMutations(nodeId: string) {
     if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) return
     const distribution = typeof existing?.distribution === 'string' && existing.distribution.length > 0
       ? existing.distribution
-      : undefined
+      : 'uniform'
     void Promise.resolve(
       sendSystemEvent({
         type: 'prior_range_edit',
@@ -894,7 +894,7 @@ export function useNodeMutations(nodeId: string) {
           target_id: nodeId,
           range_min: min,
           range_max: max,
-          ...(distribution !== undefined ? { distribution } : {}),
+          distribution,
         },
       }),
     ).catch(() => {

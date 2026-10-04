@@ -61,6 +61,12 @@ const AUTOSAVE_KEY = 'olumi-canvas-autosave'
 const CURRENT_SCENARIO_KEY = 'olumi-canvas-current-scenario-id'
 const MAX_SCENARIOS = 50 // Reasonable limit to prevent localStorage bloat
 
+export function clearAllScenarioStorage(): void {
+  localStorage.removeItem(STORAGE_KEY)
+  localStorage.removeItem(AUTOSAVE_KEY)
+  localStorage.removeItem(CURRENT_SCENARIO_KEY)
+}
+
 /**
  * Check if localStorage is available (guards against SSR, tests)
  */
