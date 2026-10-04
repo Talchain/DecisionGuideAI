@@ -32,13 +32,20 @@ export function clearUserScopedState(): void {
   useStrengthenStore.getState()._reset()
   useDecisionRecordStore.getState()._reset()
   useSuccessMeasureStore.getState()._reset()
+  // Each removal on its own: one that throws never leaves the keys after it behind (browser storage can be unavailable).
+  const remove = (storage: () => Storage, key: string): void => {
+    try { storage().removeItem(key) } catch { /* the sweep goes on */ }
+  }
+  for (const key of USER_SCOPED_STORAGE_KEYS) remove(() => localStorage, key)
+  // Enumerate first, then remove: a removal neither shifts the index nor stops the sweep.
+  const prefixed: string[] = []
   try {
-    for (const key of USER_SCOPED_STORAGE_KEYS) localStorage.removeItem(key)
-    for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+    for (let i = 0; i < localStorage.length; i += 1) {
       const key = localStorage.key(i)
-      if (key && USER_SCOPED_STORAGE_PREFIXES.some(prefix => key.startsWith(prefix))) localStorage.removeItem(key)
+      if (key && USER_SCOPED_STORAGE_PREFIXES.some(prefix => key.startsWith(prefix))) prefixed.push(key)
     }
-    sessionStorage.removeItem('olumi-cee-analysis-ready')
-    sessionStorage.removeItem('olumi-cee-analysis-ready-node-ids')
   } catch { /* browser storage can be unavailable */ }
+  for (const key of prefixed) remove(() => localStorage, key)
+  remove(() => sessionStorage, 'olumi-cee-analysis-ready')
+  remove(() => sessionStorage, 'olumi-cee-analysis-ready-node-ids')
 }

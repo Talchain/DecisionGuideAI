@@ -153,17 +153,21 @@ function applyColdLoadPlan(plan: ColdLoadPlan): 'applied' | 'declined' {
   if (originalPointer === undefined || originalMain === undefined || own === undefined) return 'declined'
   const promotable = stampOf(own) === route ? own : null
 
-  // 1. PRESERVE the main slot under its own stamp, unless it is already the route's, and never over a NEWER copy of
-  //    the same scenario (that copy is kept; the older slot is the duplicate).
+  // 1. PRESERVE the main slot under its own stamp, unless it is already the route's. A copy already there is replaced
+  //    only by a PROVABLY newer state of its scenario, and kept when it is provably newer itself (the older slot is then
+  //    the duplicate). Two states that cannot be ordered (a missing or equal timestamp, bytes of another scenario)
+  //    decline the claim: neither is destroyed.
   const owner = originalMain === null ? null : stampOf(originalMain)
   const mainIsTheRoutes = owner === route
   const ownerKey = originalMain !== null && owner !== null && !mainIsTheRoutes ? keyedAutosaveSlot(owner) : null
   let previousCopy: string | null = null
-  if (ownerKey !== null) {
+  if (ownerKey !== null && owner !== null && originalMain !== null) {
     const prev = read(ownerKey)
     if (prev === undefined) return 'declined'
     previousCopy = prev
-    const keepsNewerCopy = stampOf(prev) === owner && (timestampOf(prev) ?? -Infinity) > (timestampOf(originalMain) ?? Infinity)
+    const keepsNewerCopy = prev !== null && prev !== originalMain && isNewerOwnSlot(prev, originalMain, owner)
+    const mainIsNewer = prev === null || prev === originalMain || isNewerOwnSlot(originalMain, prev, owner)
+    if (!keepsNewerCopy && !mainIsNewer) return 'declined'
     if (!keepsNewerCopy && (!write(ownerKey, originalMain) || read(ownerKey) !== originalMain)) {
       if (previousCopy !== null && read(ownerKey) !== previousCopy) write(ownerKey, previousCopy) // never a removal
       return 'declined'
@@ -183,9 +187,10 @@ function applyColdLoadPlan(plan: ColdLoadPlan): 'applied' | 'declined' {
   /**
    * On any step that does not hold. First undo, verifying each step: the pointer, then the main slot back to its
    * ORIGINAL bytes, and only then the preserve (by then a redundant duplicate). A copy is never removed while the bytes
-   * it holds might exist nowhere else. If storage cannot be put back, make it name ONE scenario. If the pointer names the
-   * route, the main slot must be the route's or empty (every graph it could hold is in its copy), and the route is
-   * adopted so that the store agrees. If even that cannot be verified, this page restores no autosave at boot.
+   * it holds might exist nowhere else. If storage cannot be put back, make it name ONE scenario: with the pointer back,
+   * an empty main slot (the copy keeps its bytes); with the pointer on the route, a main slot that is the route's or
+   * empty, and the route is adopted so that the store agrees. If even that cannot be verified, this page restores no
+   * autosave at boot.
    */
   const recover = (): 'applied' | 'declined' => {
     const pointerBack =
@@ -194,6 +199,12 @@ function applyColdLoadPlan(plan: ColdLoadPlan): 'applied' | 'declined' {
       read(MAIN_AUTOSAVE_SLOT) === originalMain || (write(MAIN_AUTOSAVE_SLOT, originalMain) && read(MAIN_AUTOSAVE_SLOT) === originalMain)
     if (pointerBack && mainBack) {
       if (ownerKey !== null && read(ownerKey) !== previousCopy) write(ownerKey, previousCopy)
+      return 'declined'
+    }
+    // The pointer is back but the main slot is not. Its original bytes (or a newer state of the same scenario) are in
+    // the copy, so empty the slot and KEEP the copy: storage then names one scenario across a reload, and the next cold
+    // load promotes the copy.
+    if (pointerBack && ownerKey !== null && (read(MAIN_AUTOSAVE_SLOT) === null || (write(MAIN_AUTOSAVE_SLOT, null) && read(MAIN_AUTOSAVE_SLOT) === null))) {
       return 'declined'
     }
     if (read(POINTER_KEY) === route && (mainFitsTheRoute() || (write(MAIN_AUTOSAVE_SLOT, null) && read(MAIN_AUTOSAVE_SLOT) === null))) {
@@ -271,10 +282,15 @@ export function settleKeyedAutosaveCopy(boundId: string | null): boolean {
   return (keyed === main || isNewerOwnSlot(main, keyed, boundId)) && write(key, null)
 }
 
-function isNewerOwnSlot(main: string, copy: string, id: string): boolean {
-  const copyAt = timestampOf(copy)
-  const mainAt = timestampOf(main)
-  return stampOf(main) === id && copyAt !== null && mainAt !== null && mainAt >= copyAt
+/**
+ * `a` is PROVABLY a later state of scenario `id` than `b`: both are stamped `id`, both timestamps are finite, and `a`'s
+ * is strictly later. The one ordering the preserve, the retire and the refresh all use; an equal or missing timestamp
+ * orders nothing, so nothing is overwritten or retired on it.
+ */
+function isNewerOwnSlot(a: string, b: string, id: string): boolean {
+  const aAt = timestampOf(a)
+  const bAt = timestampOf(b)
+  return stampOf(a) === id && stampOf(b) === id && aAt !== null && bAt !== null && aAt > bAt
 }
 
 /**

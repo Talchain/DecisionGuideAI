@@ -81,6 +81,11 @@ function bootRestore(): string | null | 'not_autosave' {
   settleKeyedAutosaveCopy(restoredBoundId)
   return restoredBoundId
 }
+/** An OLDER state of the same scenario: the same stamp, a finite timestamp strictly earlier (an orderable copy). */
+function olderStateOf(raw: string): string {
+  const state = JSON.parse(raw) as { timestamp: number }
+  return JSON.stringify({ ...state, timestamp: state.timestamp - 500 })
+}
 const storageSnapshot = () =>
   Object.fromEntries(Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i) as string).sort().map((k) => [k, localStorage.getItem(k)]))
 const onCanvas = () => useCanvasStore.getState().nodes.map((n) => n.id).sort()
@@ -386,7 +391,7 @@ describe('FAIL CLOSED: a write that does not hold leaves today\'s behaviour', ()
   // back later through a link to Z.
   it('the pointer does not take: declined; main slot, store and keyed slots exactly as before (the preserve rolled back)', () => {
     const zRaw = rememberScenario(Z)
-    localStorage.setItem(keyedAutosaveSlot(Z), 'an-older-copy-of-z')
+    localStorage.setItem(keyedAutosaveSlot(Z), olderStateOf(zRaw))
     const before = storageSnapshot()
     vi.spyOn(console, 'error').mockImplementation(() => {})
     failSetItemFor(POINTER)
@@ -489,7 +494,7 @@ describe('FAIL CLOSED: a write that does not hold leaves today\'s behaviour', ()
 
   it('a rollback that cannot complete KEEPS the copy: recovery evidence is never deleted on a failure', () => {
     const zRaw = rememberScenario(Z)
-    localStorage.setItem(keyedAutosaveSlot(Z), 'an-older-copy-of-z')
+    localStorage.setItem(keyedAutosaveSlot(Z), olderStateOf(zRaw))
     const real = Storage.prototype.setItem
     let keyedWrites = 0
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
@@ -617,6 +622,24 @@ describe('§9 SIGN-OUT (Codex round 1): the preserved copies are as private as t
     expect(localStorage.getItem('olumi-canvas-autosave-v1')).toBe('versioned-storage-contrast')
   })
 
+  it('⭐ (Codex round 3) one key that cannot be removed never stops the sweep: every other user-scoped key is still removed', () => {
+    const planted = [
+      keyedAutosaveSlot(W), 'olumi.dissent.v2.first', keyedAutosaveSlot(Z), keyedAutosaveSlot(Y), 'olumi.dissent.v2.last',
+      MAIN_AUTOSAVE_SLOT, POINTER,
+    ]
+    for (const k of planted) localStorage.setItem(k, `value-of-${k}`)
+    sessionStorage.setItem('olumi-cee-analysis-ready', 'ready')
+    const realRemove = Storage.prototype.removeItem
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (this: Storage, k: string) {
+      if (k === keyedAutosaveSlot(Z)) throw new DOMException('denied', 'SecurityError')
+      return realRemove.call(this, k)
+    })
+    clearUserScopedState()
+    vi.restoreAllMocks()
+    expect(planted.filter((k) => localStorage.getItem(k) !== null)).toEqual([keyedAutosaveSlot(Z)])
+    expect(sessionStorage.getItem('olumi-cee-analysis-ready')).toBeNull()
+  })
+
   it('the sweep\'s prefix is the key format\'s owner (`keyedAutosaveKey`), and it never matches the main slot', () => {
     const prefix = USER_SCOPED_STORAGE_PREFIXES.find((p) => keyedAutosaveSlot(Z).startsWith(p))
     expect(prefix).toBe('olumi-canvas-autosave:')
@@ -666,7 +689,7 @@ describe('§10 TRANSACTIONS (Codex round 2): a read-back that fails once, a roll
     expect(coldLoadBlocksBootRestore()).toBe(false)
   })
 
-  it('⭐ the pointer comes back but the main slot cannot: the copy is then Z\'s ONLY graph, and it is kept (boot restore blocked)', () => {
+  it('⭐ the pointer comes back but the main slot cannot: it is EMPTIED, the copy (Z\'s only graph) is kept, and a reload brings Z back', () => {
     const zRaw = rememberScenario(Z)
     const w = watchWrites()
     vi.restoreAllMocks()
@@ -686,7 +709,50 @@ describe('§10 TRANSACTIONS (Codex round 2): a read-back that fails once, a roll
     expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBeNull()
     expect(localStorage.getItem(keyedAutosaveSlot(Z))).toBe(zRaw)
     expect(localStorage.getItem(POINTER)).toBe(Z)
-    expect(coldLoadBlocksBootRestore()).toBe(true)
+    // Storage names ONE scenario (Z, nothing in the main slot), so nothing needs blocking, on this page or the next.
+    expect(coldLoadBlocksBootRestore()).toBe(false)
+    newPage()
+    expect(claimColdLoadDeepLink(undefined)).toBe('applied') // the routeless reload promotes the copy
+    expect(bootRestore()).toBe(Z)
+    expect(onCanvas()).toEqual(['z_factor', 'z_goal'])
+    expect(keyedKeys()).toEqual([])
+  })
+
+  it('⭐ (Codex round 3) a promotion that cannot be undone over a page that remembers Y: the main slot is EMPTIED, never Z\'s graph under pointer Y across a reload', () => {
+    const zRaw = rememberScenario(Z)
+    claimColdLoadDeepLink(Y)
+    useCanvasStore.setState({ nodes: GRAPH[Y], edges: [] })
+    const yRaw = autosaveFromStore()
+    newPage() // pointer Y, main slot Y's, Z's copy waiting
+    const realSet = Storage.prototype.setItem
+    const realGet = Storage.prototype.getItem
+    let mainWrites = 0
+    let thrown = false
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === MAIN_AUTOSAVE_SLOT && ++mainWrites > 1) throw new DOMException('quota', 'QuotaExceededError')
+      return realSet.call(this, k, v)
+    })
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, k: string) {
+      if (!thrown && k === MAIN_AUTOSAVE_SLOT && mainWrites === 1) {
+        thrown = true
+        throw new DOMException('denied', 'SecurityError')
+      }
+      return realGet.call(this, k)
+    })
+    expect(claimColdLoadDeepLink(Z)).toBe('declined')
+    vi.restoreAllMocks()
+    expect(thrown).toBe(true)
+    expect(localStorage.getItem(POINTER)).toBe(Y)
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBeNull()
+    expect(localStorage.getItem(keyedAutosaveSlot(Y))).toBe(yRaw)
+    expect(localStorage.getItem(keyedAutosaveSlot(Z))).toBe(zRaw)
+    expect(coldLoadBlocksBootRestore()).toBe(false)
+    // The reload (the page flag is gone) restores Y's own graph under Y, and Z's copy still waits for Z's link.
+    newPage()
+    expect(claimColdLoadDeepLink(undefined)).toBe('applied')
+    expect(bootRestore()).toBe(Y)
+    expect(onCanvas()).toEqual(['y_goal'])
+    expect(keyedKeys()).toEqual([keyedAutosaveSlot(Z)])
   })
 
   it('the final check cannot read the pointer back: fail closed, storage is put back exactly (Z, its graph, no copy)', () => {
@@ -841,6 +907,59 @@ describe('§12 RECOVERY ENTRY (Codex round 2): a waiting copy is found without a
     expect(claimColdLoadDeepLink(undefined)).toBe('declined')
     expect(storageSnapshot()).toEqual(before)
     expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBe(zRaw)
+  })
+})
+
+describe('§13 ORDERING (Codex round 3): a copy is replaced or retired only by a PROVABLY newer state of its scenario', () => {
+  const slot = (id: string, timestamp: number, label: string) =>
+    JSON.stringify({ timestamp, scenarioId: id, nodes: [goal(`${label}_n`, label)], edges: [] })
+  function remember(main: string, copy: string): Record<string, string | null> {
+    localStorage.setItem(POINTER, Z)
+    localStorage.setItem(MAIN_AUTOSAVE_SLOT, main)
+    localStorage.setItem(keyedAutosaveSlot(Z), copy)
+    newPage()
+    return storageSnapshot()
+  }
+
+  it('⭐ a main slot with NO timestamp never overwrites Z\'s valid copy: the claim declines and storage is untouched', () => {
+    const before = remember(JSON.stringify({ scenarioId: Z }), slot(Z, 200, 'only'))
+    expect(claimColdLoadDeepLink(Y)).toBe('declined')
+    expect(storageSnapshot()).toEqual(before)
+    expect(useCanvasStore.getState().currentScenarioId).toBe(Z)
+  })
+
+  it('EQUAL timestamps with different bytes cannot be ordered: declined, both kept', () => {
+    const before = remember(slot(Z, 200, 'main'), slot(Z, 200, 'copy'))
+    expect(claimColdLoadDeepLink(Y)).toBe('declined')
+    expect(storageSnapshot()).toEqual(before)
+  })
+
+  it('another scenario\'s bytes under Z\'s key are never overwritten, even by a later Z', () => {
+    const before = remember(slot(Z, 300, 'z'), slot(W, 100, 'w'))
+    expect(claimColdLoadDeepLink(Y)).toBe('declined')
+    expect(storageSnapshot()).toEqual(before)
+  })
+
+  it('CONTROL: a STRICTLY newer main slot replaces the older copy, and the link wins', () => {
+    remember(slot(Z, 300, 'newer'), slot(Z, 200, 'older'))
+    expect(claimColdLoadDeepLink(Y)).toBe('applied')
+    expect(localStorage.getItem(keyedAutosaveSlot(Z))).toBe(slot(Z, 300, 'newer'))
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBeNull()
+    expect(localStorage.getItem(POINTER)).toBe(Y)
+  })
+
+  it('CONTROL: a copy byte-identical to the main slot is no obstacle: the link wins and the copy stays', () => {
+    remember(slot(Z, 200, 'same'), slot(Z, 200, 'same'))
+    expect(claimColdLoadDeepLink(Y)).toBe('applied')
+    expect(localStorage.getItem(keyedAutosaveSlot(Z))).toBe(slot(Z, 200, 'same'))
+  })
+
+  it('the retire and the refresh never act on an equal timestamp with different bytes: the copy is kept', () => {
+    localStorage.setItem(keyedAutosaveSlot(Z), slot(Z, 200, 'copy'))
+    localStorage.setItem(MAIN_AUTOSAVE_SLOT, slot(Z, 200, 'main'))
+    expect(settleKeyedAutosaveCopy(Z)).toBe(false)
+    expect(refreshExistingCopy(Z)).toBe(false)
+    expect(localStorage.getItem(keyedAutosaveSlot(Z))).toBe(slot(Z, 200, 'copy'))
   })
 })
 
