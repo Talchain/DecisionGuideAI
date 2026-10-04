@@ -55,6 +55,10 @@ import { getSessionIdentity } from '../../lib/supabase'
  */
 let routeAdoptedScenarioId: string | null = null
 
+export function __resetRouteAdoptedScenarioForTests(): void {
+  routeAdoptedScenarioId = null
+}
+
 /**
  * Whether the READ follows a CEE-addressable route id: the store holds no scenario, this one, or one a route set (so a
  * link-to-link change re-reads). A route set it here (the adoption effect) or on the page's cold load

@@ -41,9 +41,12 @@ import { isCeeAddressableScenarioId } from './bootGraphRead'
 /** `scenarios.ts`'s AUTOSAVE_KEY, which it does not export. Pinned by a row that drives the real `saveAutosave`. */
 export const MAIN_AUTOSAVE_SLOT = 'olumi-canvas-autosave'
 
-/** Where a superseded scenario's main slot is kept, verbatim, until a link brings that scenario back. */
+/**
+ * Where a superseded scenario's main slot is kept, verbatim, until a link brings that scenario back. The key belongs to
+ * `scenarios.ts`, whose `deleteScenario` removes it with the record (no resurrection of a deleted model).
+ */
 export function keyedAutosaveSlot(scenarioId: string): string {
-  return `${MAIN_AUTOSAVE_SLOT}:${scenarioId}`
+  return scenarios.keyedAutosaveKey(scenarioId)
 }
 
 /**

@@ -14,7 +14,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 
 import served from './fixtures/served-deep-link-2d5982b5-b0d5ea2d.read.json'
-import { useServerGraphHydration } from '../useServerGraphHydration'
+import { useServerGraphHydration, __resetRouteAdoptedScenarioForTests } from '../useServerGraphHydration'
 import { useCanvasStore } from '../../store'
 import { logger } from '../../../lib/logger'
 import { buildV5Payload } from '../../../v5/buildPayload'
@@ -52,6 +52,7 @@ function freshBrowser(over: Record<string, unknown> = {}): void {
   localStorage.removeItem(MAIN_AUTOSAVE_SLOT)
   for (const id of [SID, OTHER]) localStorage.removeItem(keyedAutosaveSlot(id))
   __resetColdLoadDeepLinkForTests()
+  __resetRouteAdoptedScenarioForTests() // module state: a row's adoption must not answer for the next row
   useCanvasStore.setState(PRISTINE, true)
   useCanvasStore.setState({
     currentScenarioId: null, nodes: [], edges: [], goalConstraints: null, lastAuthoritativeGraph: null,

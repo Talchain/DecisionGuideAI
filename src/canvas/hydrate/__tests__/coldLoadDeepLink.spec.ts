@@ -257,6 +257,35 @@ describe('§5 DL row 5: a preserved copy never lands in another scenario', () =>
   })
 })
 
+describe('§5b DL row: a DELETED scenario\'s preserved copy never comes back', () => {
+  it('⭐ deleting Z removes its preserved copy, so a later link to Z restores nothing of Z', () => {
+    rememberScenario(Z)
+    claimColdLoadDeepLink(Y)
+    useCanvasStore.setState({ nodes: GRAPH[Y], edges: [] })
+    const yRaw = autosaveFromStore()
+    expect(localStorage.getItem(keyedAutosaveSlot(Z)), 'precondition: Z was preserved').not.toBeNull()
+
+    scenarios.deleteScenario(Z) // the one delete both paths reach (`useScenario.deleteScenario` calls it)
+    expect(localStorage.getItem(keyedAutosaveSlot(Z))).toBeNull()
+    expect(localStorage.getItem(keyedAutosaveSlot(Y)), 'CONTROL: another scenario\'s copy is not touched').toBeNull()
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT), 'CONTROL: the live slot (Y\'s) is not touched').toBe(yRaw)
+
+    newPage()
+    claimColdLoadDeepLink(Z)
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBeNull()
+    expect(bootRestore()).toBe('not_autosave')
+    expect(onCanvas()).toEqual([])
+    expect(onCanvas().some((id) => id.startsWith('z_'))).toBe(false)
+  })
+
+  it('CONTROL: deleting a scenario leaves every other preserved copy alone', () => {
+    const zRaw = rememberScenario(Z)
+    claimColdLoadDeepLink(Y)
+    scenarios.deleteScenario(W)
+    expect(localStorage.getItem(keyedAutosaveSlot(Z))).toBe(zRaw)
+  })
+})
+
 describe('CONTROLS: everything else is exactly as before', () => {
   it('the remembered scenario IS the link: nothing written', () => {
     const yRaw = rememberScenario(Y)

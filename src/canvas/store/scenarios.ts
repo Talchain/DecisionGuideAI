@@ -59,6 +59,14 @@ export interface Scenario {
 const STORAGE_KEY = 'olumi-canvas-scenarios'
 const AUTOSAVE_KEY = 'olumi-canvas-autosave'
 const CURRENT_SCENARIO_KEY = 'olumi-canvas-current-scenario-id'
+
+/**
+ * Where a cold-load deep link keeps a superseded scenario's autosave, verbatim (`hydrate/coldLoadDeepLink.ts`). The key
+ * is owned HERE so the writer there and `deleteScenario` below cannot disagree about it.
+ */
+export function keyedAutosaveKey(scenarioId: string): string {
+  return `${AUTOSAVE_KEY}:${scenarioId}`
+}
 const MAX_SCENARIOS = 50 // Reasonable limit to prevent localStorage bloat
 
 export function clearAllScenarioStorage(): void {
@@ -475,6 +483,16 @@ export function deleteScenario(id: string): void {
   // And drop an autosave that belongs to the record just removed.
   if (loadAutosave()?.scenarioId === id) {
     clearAutosave()
+  }
+
+  // …and a cold-load deep link's preserved copy of it: otherwise a later link to this id would put the deleted model
+  // back on screen (the same resurrection, through `hydrate/coldLoadDeepLink.ts`).
+  if (isLocalStorageAvailable()) {
+    try {
+      localStorage.removeItem(keyedAutosaveKey(id))
+    } catch {
+      // Ignore errors
+    }
   }
 }
 
