@@ -28,7 +28,7 @@
  *     which is the only tip the section header can still carry.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
@@ -38,6 +38,7 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { sectionOpensItself } from '../sections/AnalysisNewSection'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { manyFragileEdges } from './analysisNewFixtures'
+import { seedCurrentRun } from './seedCurrentRun'
 import { openGroupsIfPresent } from './openNamedGroups'
 
 /** Paul's run `1dd2133d`, verbatim — the row the producer marked `found`. */
@@ -125,6 +126,8 @@ const atRest = (data: ResultsSectionDataReturn) => {
   openGroupsIfPresent()
 }
 
+// A current Run: since #2462 the tipping row is passed thresholds only on one (see seedCurrentRun.ts).
+beforeEach(seedCurrentRun)
 afterEach(cleanup)
 
 describe('a row that promises nothing may not hide something', () => {

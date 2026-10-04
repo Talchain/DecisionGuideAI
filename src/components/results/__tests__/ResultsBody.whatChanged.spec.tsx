@@ -1,5 +1,6 @@
 /**
- * ResultsBody — WhatChangedChip mount (seamlessness R6 / ROADMAP 2.1 slice 1).
+ * ResultsBody — WhatChangedChip mount (seamlessness R6 / ROADMAP 2.1 slice 1). ⛔ SUPERSEDED by #2470: the chip
+ * is no longer mounted here (see the describe below). The history is kept because it explains the fixtures.
  *
  * The run-delta chip mounts in the analysis-tab header stack, after the
  * freshness notice slot and above the hero block. F2B (2026-07-22): its MOUNT
@@ -132,9 +133,6 @@ function renderBody() {
   )
 }
 
-const before = (a: HTMLElement, b: HTMLElement) =>
-  Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
-
 beforeEach(() => {
   loadRunsMock.mockReset()
   pulseMock.mockReset()
@@ -142,48 +140,24 @@ beforeEach(() => {
   useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
 })
 
-describe('ResultsBody — WhatChangedChip mount (R6)', () => {
-  it('mounts the chip in the header stack when the last two runs differ', () => {
-    loadRunsMock.mockReturnValue([
-      runFx([nodeFx('a', 'A'), nodeFx('b', 'B')], 1), // latest
-      runFx([nodeFx('a', 'A')], 2), // previous
-    ])
+/**
+ * ⛔ REMOVED BY DESIGN (#2470, 4 Oct 2026): the chat-only "What changed since the last run?" chip stuck on
+ * "Thinking", and Compare is the run-change surface. The four rows that pinned its mount went red on staging and
+ * stayed red, because DGAI PR CI runs no test shards. They now pin the removal across the same four run-history
+ * states, each with the hero as a contrast so "absent" cannot pass on a body that rendered nothing.
+ */
+describe('ResultsBody — the What-changed chip is not mounted (Compare is the run-change surface, #2470)', () => {
+  const same = [nodeFx('a', 'A')]
+  it.each([
+    ['the last two runs differ', () => [runFx([nodeFx('a', 'A'), nodeFx('b', 'B')], 1), runFx([nodeFx('a', 'A')], 2)]],
+    ['runHistory is empty', () => []],
+    ['one stored run', () => [runFx([nodeFx('a', 'A')], 1)]],
+    ['nothing changed between runs', () => [runFx(same, 1), runFx(same, 2)]],
+  ])('no chip when %s, while the analysis surface renders', (_state, runs) => {
+    loadRunsMock.mockReturnValue(runs())
     renderBody()
-    const chip = screen.getByTestId('what-changed-chip')
-    const existingHero = screen.getByTestId('analysis-hero-panel')
-    expect(before(chip, existingHero), 'chip must precede the hero block').toBe(true)
-  })
-
-  it('F2B — mounts the chip when runHistory is EMPTY but the analysis surface is present (the live finding)', () => {
-    // The deployed guest build renders ResultsBody after completed analyses, yet
-    // runHistory is EMPTY (no run/history key written on the live path). Under
-    // the old `runs.length < 2` boundary the chip never mounted and the CEE send
-    // was stranded. The chip must now mount and stay actionable — the server
-    // answers "only one run so far, nothing to compare yet" honestly on click.
-    loadRunsMock.mockReturnValue([])
-    renderBody()
-    const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
-    const existingHero = screen.getByTestId('analysis-hero-panel')
-    expect(before(chip, existingHero), 'chip must precede the hero block').toBe(true)
-  })
-
-  it('F2B — mounts the chip on a single stored run (still no comparison pair)', () => {
-    loadRunsMock.mockReturnValue([runFx([nodeFx('a', 'A')], 1)])
-    renderBody()
-    const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
-  })
-
-  it('KEEPS the chip mounted and actionable when nothing changed between runs (send is unconditional; only the pulse is gated)', () => {
-    const same = [nodeFx('a', 'A')]
-    loadRunsMock.mockReturnValue([runFx(same, 1), runFx(same, 2)])
-    renderBody()
-    // A previous run exists, so the chip stays actionable even at zero local
-    // delta — its resting name is the ACTION, not a "(not available)" claim.
-    const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
-    const existingHero = screen.getByTestId('analysis-hero-panel')
-    expect(before(chip, existingHero), 'chip must precede the hero block').toBe(true)
+    expect(screen.getByTestId('analysis-hero-panel')).toBeInTheDocument()
+    expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
+    expect(screen.queryByText(/what changed since the last analysis run\?/i)).not.toBeInTheDocument()
   })
 })

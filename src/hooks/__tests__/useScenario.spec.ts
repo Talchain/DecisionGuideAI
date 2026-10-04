@@ -740,12 +740,16 @@ describe('useScenario', () => {
       expect(mockSaveTitle).toHaveBeenCalledWith('scenario-1', 'Increase revenue by 20%')
     })
 
-    it('does NOT fire saveTitle when framing already has a non-empty title', async () => {
+    // #2466 (4 Oct, journey fix): the title the canvas shows is SYNCED to the scenario row, so the list stops saying
+    // "Untitled decision". So an existing framing title is saved as itself, and is never replaced by the goal.
+    // (Before #2466 this row asserted no save at all; it went red when #2466 merged, because PR CI runs no tests.)
+    it('syncs an existing framing title as itself, never overwriting it with the goal', async () => {
       setAuth(REAL_USER_ID, true)
       setStoreState({
         currentScenarioId: 'scenario-1',
         currentScenarioFraming: { title: 'My Custom Title', goal: 'Increase revenue' },
       })
+      mockSaveTitle.mockResolvedValue(undefined)
 
       renderUseScenario()
 
@@ -753,7 +757,9 @@ describe('useScenario', () => {
         await vi.runAllTimersAsync()
       })
 
-      expect(mockSaveTitle).not.toHaveBeenCalled()
+      expect(mockSaveTitle).toHaveBeenCalledTimes(1)
+      expect(mockSaveTitle).toHaveBeenCalledWith('scenario-1', 'My Custom Title')
+      expect(mockSaveTitle).not.toHaveBeenCalledWith('scenario-1', 'Increase revenue')
     })
 
     it('truncates goals longer than 60 characters', async () => {

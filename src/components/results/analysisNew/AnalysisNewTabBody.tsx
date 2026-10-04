@@ -2248,12 +2248,12 @@ export function AnalysisNewTabBody({
             className={`${typography.panelBody} ${action('secondary')}`}
             data-testid="analysis-what-would-change-result"
             onClick={() => sendScienceChip(
-              'What would change the result?',
+              'What would change this?',
               'What would most likely change this result?',
               { id: 'agent-next-what-would-change' },
             )}
           >
-            What would change the result?
+            What would change this?
           </button>
         ) : null}
         <ChallengeCard
