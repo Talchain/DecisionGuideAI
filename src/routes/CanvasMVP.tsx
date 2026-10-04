@@ -18,6 +18,7 @@ import { TopBar } from '../components/layout/TopBar'
 import { getScenario } from '../canvas/store/scenarios'
 import { useScenario } from '../hooks/useScenario'
 import { useServerGraphHydration } from '../canvas/hooks/useServerGraphHydration'
+import { useColdLoadDeepLinkGate } from '../canvas/hydrate/coldLoadDeepLink'
 import { useBootServerRead, useSupabaseLoadTracker } from '../canvas/hooks/useBootServerReadEnabled'
 import { useIsViewer } from '../lib/viewerMode'
 import { useScenarioViewerAccess } from '../lib/useScenarioViewerAccess'
@@ -42,7 +43,17 @@ const TEMPLATE_GRAPH_MUTATIONS_CONNECTED = hasServerGraphAuthority(
 const TemplatesPanel = lazy(() => import('../canvas/panels/TemplatesPanel').then(m => ({ default: m.TemplatesPanel })))
 const VersionsPanelHost = lazy(() => import('../canvas/versions/VersionsPanelHost').then(m => ({ default: m.VersionsPanelHost })))
 
+/**
+ * ⭐ THE ROUTE'S GATE: A COLD-LOAD DEEP LINK WINS OVER THE SCENARIO THIS BROWSER REMEMBERS. Decided by a pure read at
+ * render, written at commit (`canvas/hydrate/coldLoadDeepLink.ts`), and only then is the body mounted, so `useScenario`
+ * and every hook below it first render with the linked scenario. Renders the body at once whenever nothing is due.
+ */
 export default function CanvasMVP() {
+  const { id: scenarioIdFromRoute } = useParams<{ id: string }>()
+  return useColdLoadDeepLinkGate(scenarioIdFromRoute) ? <CanvasMVPBody /> : null
+}
+
+function CanvasMVPBody() {
   // Brief 37 Task 3: Render counter to detect if parent is causing re-renders
   const renderCountRef = useRef(0)
   renderCountRef.current++

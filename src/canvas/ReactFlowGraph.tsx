@@ -46,6 +46,7 @@ import { armRecoveryNotice, consumeRecoveryNotice } from './persist/recoveryNoti
 import * as scenarios from './store/scenarios'
 import type { Scenario } from './store/scenarios'
 import { isUUID } from '../services/turn-request-builder'
+import { coldLoadBlocksBootRestore, resolveRestoredScenarioId, settleKeyedAutosaveCopy } from './hydrate/coldLoadDeepLink'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
 import type { CEEAnalysisReady } from '../adapters/cee/types'
 import { CanvasContextMenu } from './contextMenu/CanvasContextMenu'
@@ -503,14 +504,8 @@ export function resolveBootLoadSource(
   return 'none'
 }
 
-export function resolveRestoredScenarioId(
-  pointerId: string | null,
-  autosaveScenarioId: string | null | undefined,
-): string | null {
-  if (pointerId && isUUID(pointerId)) return pointerId
-  if (autosaveScenarioId && isUUID(autosaveScenarioId)) return autosaveScenarioId
-  return null
-}
+// Moved unchanged to `hydrate/coldLoadDeepLink.ts`, where the cold-load deep link decides by the same rule.
+export { resolveRestoredScenarioId }
 
 /**
  * THE BOOT CALL SITE, EXPORTED SO IT CAN BE DRIVEN RATHER THAN SCANNED.
@@ -2071,7 +2066,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       // ENHANCED PERSISTENCE: Compare autosave vs scenario timestamps
       // Load whichever is newer to prevent losing unsaved work
       const currentId = scenarios.getCurrentScenarioId()
-      const autosave = scenarios.loadAutosave()
+      // A cold-load deep link that could neither complete nor verifiably undo its writes cannot say whose graph the
+      // autosave slot holds, so this page restores none (`hydrate/coldLoadDeepLink.ts`); the server read still runs.
+      const autosave = coldLoadBlocksBootRestore() ? null : scenarios.loadAutosave()
       const scenario = currentId ? scenarios.getScenario(currentId) : null
 
       // Determine which source to load. DRIVEN, not inlined — see
@@ -2122,7 +2119,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         // to an id the load-source decision never saw. No subscriber writes the
         // pointer today, so that was latent — reusing the value costs nothing and
         // closes it.
-        bindRestoredScenarioId(currentId, autosave)
+        const restoredBoundId = bindRestoredScenarioId(currentId, autosave)
+        // A cold-load deep link moved this scenario's preserved copy into the main slot
+        // (`hydrate/coldLoadDeepLink.ts`). It is on screen now, so the copy is retired; a
+        // restore that threw above never gets here, and the copy is kept.
+        settleKeyedAutosaveCopy(restoredBoundId)
         // FIX: Do NOT clear autosave after consuming it.
         // Keep autosave data until user explicitly saves (scenario save) or next autosave cycle.
         // This ensures if browser crashes again before manual save, data can still be recovered.
