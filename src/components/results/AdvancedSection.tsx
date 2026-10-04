@@ -15,7 +15,7 @@ import { typography } from '../../styles/typography'
 import { evaluativeVar } from '../../styles/evaluative'
 import { Accordion } from './Accordion'
 import { SCIENCE_LIMITATIONS_DISCLOSURE } from './analysisMethodCopy'
-import { selectHumanisedInferenceWarningsOutsideStrip } from './utils/humaniseInferenceWarning'
+import { GOAL_HORIZON_NOT_TESTED_CODE, selectHumanisedInferenceWarningsOutsideStrip } from './utils/humaniseInferenceWarning'
 import { useRiskProfile, RISK_PRESETS } from '../../canvas/hooks/useRiskProfile'
 import { derivePostFooterStatus } from '../../canvas/components/utils/postAnalysisFooter'
 import type { RobustnessDisplayVerdict } from './types'
@@ -217,8 +217,12 @@ export function AdvancedSection({
   // `InferenceWarningStrip` at the top of the results body, always visible and
   // never collapsed — auto-expanding a five-screen-down accordion for entries
   // it no longer shows would expand it for a reason that is not on screen.
-  const hasInferenceWarnings =
-    selectHumanisedInferenceWarningsOutsideStrip(inferenceWarnings).length > 0
+  //
+  // ⭐ EXCEPT A FACT THE HERO ALREADY SAYS (DL 0df0e1, beat 2). `GOAL_HORIZON_NOT_TESTED` rides on every Run whose
+  // goal holds a deadline, and the Analysis hero shows its sentence above the fold. Letting it open this panel would
+  // pop "Advanced and receipts" on every such Run, for a reason already on screen. It is still LISTED below.
+  const hasInferenceWarnings = selectHumanisedInferenceWarningsOutsideStrip(inferenceWarnings)
+    .some((w) => w.code !== GOAL_HORIZON_NOT_TESTED_CODE)
 
   return (
     <Accordion

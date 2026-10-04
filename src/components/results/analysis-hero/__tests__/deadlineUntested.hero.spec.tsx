@@ -13,7 +13,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
-import { buildHeroModel, GOAL_HORIZON_NOT_TESTED_CODE, readGoalHorizonUntested } from '../buildHeroModel'
+import { buildHeroModel, readGoalHorizonUntested } from '../buildHeroModel'
+import { GOAL_HORIZON_NOT_TESTED_CODE } from '../../utils/humaniseInferenceWarning'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import type { HeroChartModel } from '../heroTypes'
 import { makeHeroData } from '../__fixtures__/hero.fixtures'

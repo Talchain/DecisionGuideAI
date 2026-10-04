@@ -6,6 +6,7 @@ import {
   FRESHNESS_RECEIPT_D1_MODE,
   RiskAppetiteFilter,
 } from '../AdvancedSection'
+import { GOAL_HORIZON_NOT_TESTED_CODE } from '../utils/humaniseInferenceWarning'
 
 // Mock useRiskProfile hook
 vi.mock('../../../canvas/hooks/useRiskProfile', () => ({
@@ -201,6 +202,30 @@ describe('AdvancedSection', () => {
       />,
     )
     expect(screen.getByTestId('advanced-hash-row')).toBeInTheDocument()
+  })
+
+  // ⭐ DL 0df0e1 (beat 2): CEE's GOAL_HORIZON_NOT_TESTED rides on every Run whose goal holds a deadline, and the
+  // Analysis hero already says it. On its own it must not open this panel; another limiting warning still does.
+  describe('the untested-deadline warning never opens the panel by itself', () => {
+    const HORIZON = {
+      code: GOAL_HORIZON_NOT_TESTED_CODE,
+      message: 'This model doesn\'t yet say whether any option gets there within 9 months.',
+      severity: 'info',
+    }
+    const LIMITING = { code: 'weak_evidence', message: 'Low evidence on 3 factors', severity: 'info' }
+    const header = () => screen.getByRole('button', { name: /Advanced and receipts/ })
+
+    it('RED: a horizon-only Run keeps "Advanced and receipts" closed, and lists it once opened', () => {
+      render(<AdvancedSection inferenceWarnings={[HORIZON]} />)
+      expect(header()).toHaveAttribute('aria-expanded', 'false')
+      fireEvent.click(header())
+      expect(screen.getByTestId('trust-inference-warnings').textContent).toContain('Your deadline isn\'t tested')
+    })
+
+    it('CONTROL: an existing limiting warning still opens it, with the horizon beside it', () => {
+      render(<AdvancedSection inferenceWarnings={[HORIZON, LIMITING]} />)
+      expect(header()).toHaveAttribute('aria-expanded', 'true')
+    })
   })
 
   // P0-3 fold (external review 2026-07-14): the Advanced accordion humanises

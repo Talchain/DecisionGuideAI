@@ -123,6 +123,13 @@ export function valueNodeIdFromWarning(w: HumanisableInferenceWarning): string |
  * 12): the day someone widens the strip, the Advanced side would start
  * repeating again and nothing would say so. Both sides now call this.
  */
+/**
+ * CEE's typed "the deadline is untested" (A7 on the Run, CEE `decision-input-ask.ts`; DL 0df0e1 beat 2). `info`, so
+ * never a strip entry. The Analysis hero shows its sentence (`buildHeroModel` `readGoalHorizonUntested`), so the
+ * Advanced list carries it but it never opens that panel on its own (`AdvancedSection`).
+ */
+export const GOAL_HORIZON_NOT_TESTED_CODE = 'GOAL_HORIZON_NOT_TESTED'
+
 export function isStripEntry(w: HumanisableInferenceWarning): boolean {
   return w.severity === 'warning' && typeof w.message === 'string' && w.message.trim().length > 0
 }

@@ -72,6 +72,7 @@ import { formatPercent, formatProbabilityWithResolution } from '@/utils/formatPe
 import { driverValueProvenance, type AcceptedFigureBinding } from '../driverValueProvenance'
 import { flipDirectionWording, formatFlipValue } from '../utils/flipThresholdDisplay'
 import { HERO_COPY } from './heroCopy'
+import { GOAL_HORIZON_NOT_TESTED_CODE } from '../utils/humaniseInferenceWarning'
 import { DRIVER_LINE_COPY } from '../../../canvas/nodes/shared/metricVocabulary'
 import type { SensitivityLeader } from '../../../canvas/nodes/shared/rankFactor'
 import type {
@@ -213,9 +214,6 @@ function goalReadout(value: number | null, nSamples?: number | null): string {
 // 2.291) so the V7 signal chip renders the same producer rows through the
 // same formatter — "one threshold must never render two ways in one panel"
 // now holds across surfaces, not just within this module.
-
-/** CEE's typed "the deadline is untested" (A7 on the Run, `decision-input-ask.ts` `GOAL_HORIZON_NOT_TESTED`). */
-export const GOAL_HORIZON_NOT_TESTED_CODE = 'GOAL_HORIZON_NOT_TESTED'
 
 /** snake_case ids or structural characters mean producer text is not display-safe (`goalIdentityWithheld.ts`'s rule). */
 const NOT_DISPLAY_SAFE = /\b[a-z0-9]+_[a-z0-9_]+\b|[{}[\]<>]/
