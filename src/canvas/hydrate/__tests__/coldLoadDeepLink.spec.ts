@@ -444,6 +444,19 @@ describe('FAIL CLOSED: a write that does not hold leaves today\'s behaviour', ()
     expect(localStorage.getItem(keyedAutosaveSlot(Z))).toBe(zRaw)
   })
 
+  it('a failed promotion puts an ABSENT original pointer back as absent (never the remembered stamp)', () => {
+    const { zRaw, yRaw } = backToZFromAPageThatRemembersY()
+    localStorage.removeItem(POINTER) // Y is remembered by its slot's own stamp only
+    newPage()
+    failSetItemFor(MAIN_AUTOSAVE_SLOT)
+    expect(claimColdLoadDeepLink(Z)).toBe('declined')
+    vi.restoreAllMocks()
+    expect(localStorage.getItem(POINTER)).toBeNull()
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBe(yRaw)
+    expect(localStorage.getItem(keyedAutosaveSlot(Z))).toBe(zRaw)
+    expect(localStorage.getItem(keyedAutosaveSlot(Y))).toBeNull()
+  })
+
   it('a copy that could not be promoted is never stranded: the next cold load of that route promotes it', () => {
     const { zRaw } = backToZFromAPageThatRemembersY()
     // The state the previous row leaves: pointer Z, empty main slot, Z's copy waiting.
