@@ -113,6 +113,7 @@ beforeEach(() => {
   providerMounted = true
   // The pending-edit register is module state: a row's in-flight edit must not make the next row's link unsettled.
   __resetPendingEdgeEditsForTest()
+  useCanvasStore.setState({ currentScenarioId: null } as never, false)
 })
 
 describe('setStrength: the value the server already states is not an edit', () => {
@@ -133,7 +134,7 @@ describe('setStrength: the value the server already states is not an edit', () =
     expect(result.current.setStrength(mean, { preserveDirection, onSendSettled: noSettlementExpectedHere })).toBe('dispatched')
     expect(sendSystemEvent).toHaveBeenCalledTimes(1)
     expect((dispatchedEvent().payload as { intent?: unknown }).intent).toBe('set')
-    expect(sendSystemEvent.mock.calls[0]?.[1]).toBeUndefined() // no `optimisticEdgeEdit` to "confirm" later
+    expect(sendSystemEvent.mock.calls[0]?.[1]).not.toHaveProperty('optimisticEdgeEdit') // nothing to "confirm" later
     expect(readEdge(EDGE)?.data).toEqual(before)
     expect((readEdge(EDGE)?.data as Record<string, unknown>).weightSource).toBeUndefined()
   })
@@ -197,5 +198,79 @@ describe('setStrength: the server\'s value over an unsettled canvas is a restora
     const { result } = renderHook(() => useEdgeMutations(EDGE))
     expect(result.current.setStrength(0.4, { preserveDirection: true, onSendSettled: noSettlementExpectedHere })).toBe('local_only')
     expect(readEdge(EDGE)?.data).toMatchObject({ weight: 0.4, weightSource: 'cee' })
+  })
+})
+
+/**
+ * ⭐ Codex #2489 round 2: a restoration borrows the pending edit's pre-edit stamps ONLY while they still describe this
+ * link's current server state; and an agreement that QUEUES still settles when the queue sends it.
+ */
+describe('setStrength: a restoration never restores superseded provenance', () => {
+  const USER_SET = { ...PRODUCER_DATA, weightSource: 'user', directionSource: 'user' }
+  const ingest = (patch: { source?: string; data: Record<string, unknown> }) =>
+    useCanvasStore.setState({
+      edges: useCanvasStore.getState().edges.map((e) => (e.id === EDGE
+        ? { ...e, ...(patch.source ? { source: patch.source } : {}), data: { ...(e.data as Record<string, unknown>), ...patch.data } }
+        : e)),
+    } as never, false)
+
+  it('RED: user-set 0.4, 0.75 pending, then Olumi\'s 0.6 ingested → choosing 0.6 keeps the ingested stamp, never the old "user"', () => {
+    seed(USER_SET)
+    const { result } = renderHook(() => useEdgeMutations(EDGE))
+    result.current.setStrength(0.75, { preserveDirection: true, onSendSettled: noSettlementExpectedHere })
+    ingest({ data: { weight: 0.6, strength_mean: 0.6, weightSource: 'cee' } })
+    result.current.setStrength(0.6, { preserveDirection: true, onSendSettled: noSettlementExpectedHere })
+    expect(readEdge(EDGE)?.data).toMatchObject({ weight: 0.6, weightSource: 'cee' })
+  })
+
+  it('RED: the same edge id re-pointed to another factor → the departed link\'s stamps are not inherited', () => {
+    seed(USER_SET)
+    const { result } = renderHook(() => useEdgeMutations(EDGE))
+    result.current.setStrength(0.75, { preserveDirection: true, onSendSettled: noSettlementExpectedHere })
+    ingest({ source: 'fac_churn', data: { weightSource: 'cee' } })
+    result.current.setStrength(0.4, { preserveDirection: true, onSendSettled: noSettlementExpectedHere })
+    expect(readEdge(EDGE)?.data).toMatchObject({ weight: 0.4, weightSource: 'cee' })
+  })
+
+  it('RED: another scenario with the same edge id → the departed scenario\'s stamps are not inherited', () => {
+    useCanvasStore.setState({ currentScenarioId: 'scen-a' } as never, false)
+    seed(USER_SET)
+    const { result } = renderHook(() => useEdgeMutations(EDGE))
+    result.current.setStrength(0.75, { preserveDirection: true, onSendSettled: noSettlementExpectedHere })
+    useCanvasStore.setState({ currentScenarioId: 'scen-b' } as never, false)
+    ingest({ data: { weightSource: 'cee' } })
+    result.current.setStrength(0.4, { preserveDirection: true, onSendSettled: noSettlementExpectedHere })
+    expect(readEdge(EDGE)?.data).toMatchObject({ weight: 0.4, weightSource: 'cee' })
+  })
+
+  it('RED: Olumi FLIPPED the sign while 0.75 was pending (same magnitude) → choosing −0.4 keeps the ingested stamps', () => {
+    seed(USER_SET)
+    const { result } = renderHook(() => useEdgeMutations(EDGE))
+    result.current.setStrength(0.75, { onSendSettled: noSettlementExpectedHere })
+    ingest({ data: { strength_mean: -0.4, effect_direction: 'negative', direction: 'negative', weightSource: 'cee', directionSource: 'cee' } })
+    result.current.setStrength(-0.4, { onSendSettled: noSettlementExpectedHere })
+    expect(readEdge(EDGE)?.data).toMatchObject({ weight: 0.4, direction: 'negative', weightSource: 'cee', directionSource: 'cee' })
+  })
+
+  it('CONTROL: nothing moved → the pre-edit stamps ARE put back (the round-1 restoration)', () => {
+    seed(USER_SET)
+    const { result } = renderHook(() => useEdgeMutations(EDGE))
+    result.current.setStrength(0.75, { preserveDirection: true, onSendSettled: noSettlementExpectedHere })
+    ingest({ data: { weightSource: 'cee' } }) // a stamp-only change: the server state `before` describes is unchanged
+    result.current.setStrength(0.4, { preserveDirection: true, onSendSettled: noSettlementExpectedHere })
+    expect(readEdge(EDGE)?.data).toMatchObject({ weight: 0.4, weightSource: 'user' })
+  })
+
+  it('RED (P2): a settled agreement that QUEUES settles again when the queue sends it', async () => {
+    seed(PRODUCER_DATA)
+    sendSystemEvent.mockImplementationOnce(() => Promise.resolve('send_deferred'))
+    const settled: string[] = []
+    const { result } = renderHook(() => useEdgeMutations(EDGE))
+    result.current.setStrength(0.4, { preserveDirection: true, onSendSettled: (s) => { settled.push(s) } })
+    await vi.waitFor(() => expect(settled).toEqual(['queued']))
+    const opts = sendSystemEvent.mock.calls[0]?.[1] as { onDeferredSettled?: (d: Promise<unknown>) => void } | undefined
+    expect(opts).not.toHaveProperty('optimisticEdgeEdit')
+    opts?.onDeferredSettled?.(Promise.resolve(undefined))
+    await vi.waitFor(() => expect(settled).toEqual(['queued', 'sent']))
   })
 })

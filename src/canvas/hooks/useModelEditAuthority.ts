@@ -1007,7 +1007,10 @@ export function useModelEditAuthority(
       if (activeEdgeId === null || edgeId !== activeEdgeId) return 'not_encodable'
       const edge = useCanvasStore.getState().edges.find(e => e.id === edgeId)
       if (!edge) return 'not_encodable'
-      if (opts?.reviewed !== undefined && !edgeStillShowsReview(edge, opts.reviewed)) return 'moved_since_review'
+      if (
+        opts?.reviewed !== undefined &&
+        !edgeStillShowsReview(edge, opts.reviewed, useCanvasStore.getState().currentScenarioId ?? null)
+      ) return 'moved_since_review'
 
       const event = buildEdgeStrengthConfirmEvent({ edge })
       if (!event) return 'refused_unassertable'

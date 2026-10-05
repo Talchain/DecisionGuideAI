@@ -182,6 +182,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   __resetPendingEdgeEditsForTest()
   seedStore()
+  useCanvasStore.setState({ currentScenarioId: null } as never, false)
 })
 
 afterEach(() => cleanup())
@@ -268,6 +269,17 @@ describe('the confirmation carries the Review\'s snapshot', () => {
     expect(screen.getByText(MOVED_NOTICE)).toBeTruthy()
   })
 
+  it('RED (r2): the Review was made in ANOTHER scenario (same id, endpoints, tuple) → refused visibly, nothing sent', () => {
+    useCanvasStore.setState({ currentScenarioId: 'scen-a' } as never, false)
+    render(<ModelTabV2Panel nodes={allNodes()} edges={allEdges()} goalThreshold={null} />)
+    openOutlineGroups()
+    propose(SERVER_STATED_EDGE, String(SERVER_MEAN))
+    useCanvasStore.setState({ currentScenarioId: 'scen-b' } as never, false)
+    fireEvent.click(screen.getByTestId(`model-row-v2-${SERVER_STATED_EDGE}-confirm`))
+    expect(sentFor(FACTOR_STATED)).toEqual([])
+    expect(screen.getByText(MOVED_NOTICE)).toBeTruthy()
+  })
+
   it('RED: the link is re-pointed (same id, new source) after the Review → refused visibly, nothing sent for either end', () => {
     const { rerender } = render(<ModelTabV2Panel nodes={allNodes()} edges={allEdges()} goalThreshold={null} />)
     openOutlineGroups()
@@ -291,7 +303,7 @@ describe('the server\'s value over an unsettled row restores it', () => {
       ? ({ ...e, data: { ...e.data, weight: 0.75, weightSource: 'user', directionSource: 'user' } } as Edge)
       : e))
     useCanvasStore.setState({ edges: diverged } as never, false)
-    markEdgeEditInFlight(SERVER_STATED_EDGE, 0.75, before)
+    markEdgeEditInFlight(SERVER_STATED_EDGE, 0.75, before, undefined, { scenarioId: null, from: FACTOR_STATED, to: GOAL_ID })
     render(<ModelTabV2Panel nodes={allNodes()} edges={diverged} goalThreshold={null} />)
     openOutlineGroups()
     commit(SERVER_STATED_EDGE, String(SERVER_MEAN))

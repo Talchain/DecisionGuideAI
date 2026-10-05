@@ -967,7 +967,7 @@ export function ModelTabV2Panel({
           phase: 'editing',
           draft: String(seeded.seed),
           from: row.primaryValue ?? 'Not set',
-          reviewedStrength: reviewedEdgeStrengthOf(edge),
+          reviewedStrength: reviewedEdgeStrengthOf(edge, authority.captureScenarioId()),
         })
         return
       }

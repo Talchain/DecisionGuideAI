@@ -1177,12 +1177,20 @@ export function useEdgeMutations(edgeId: string) {
     const restoring = event !== null && edgeStrengthEditChangesNothing(event)
     if (restoring && edgeShowsServerStatedStrength(edge)) {
       if (!sendSystemEvent) return 'not_encodable'
-      settleSystemEventSend(sendSystemEvent(event), opts?.onSendSettled)
+      // No optimistic carrier (nothing was written); a QUEUED send still settles again at flush (Codex #2489 r2 P2).
+      settleSystemEventSend(
+        sendSystemEvent(event, { onDeferredSettled: (dispatch) => settleSystemEventSend(dispatch, opts?.onSendSettled) }),
+        opts?.onSendSettled,
+      )
       return 'dispatched'
     }
-    // A restoration puts back the stamps the server's value had before the pending edit (its `before`); with none
-    // pending, it leaves the stamps as they stand. Explicit `undefined` for an absent key: the store merges.
-    const pendingBefore = restoring ? pendingEdgeStrengthEditBefore(edgeId) : null
+    // A restoration puts back the stamps the server's value had before the pending edit (its `before`), only while that
+    // `before` still describes this link's current server state; otherwise it leaves the stamps as they stand.
+    // Explicit `undefined` for an absent key: the store merges.
+    const identity = { scenarioId: useCanvasStore.getState().currentScenarioId ?? null, from: edge.source, to: edge.target }
+    const pendingBefore = restoring
+      ? pendingEdgeStrengthEditBefore(edgeId, { ...identity, data: edge.data as Record<string, unknown> | undefined })
+      : null
     const stamps: Record<string, unknown> = !restoring
       ? { weightSource: 'user', ...(opts?.preserveDirection ? {} : { directionSource: 'user' }) }
       : pendingBefore
@@ -1273,7 +1281,7 @@ export function useEdgeMutations(edgeId: string) {
     // CEE just recorded. A proven no-write reverts; anything unconfirmed keeps
     // the number and stays held. `edge.data` is the PRE-write read above.
     const before = (edge.data ?? {}) as Record<string, unknown>
-    markEdgeEditInFlight(edgeId, absWeight, before)
+    markEdgeEditInFlight(edgeId, absWeight, before, undefined, identity)
     // The detail rides beside the resolved settlement: WHICH no-write it was (a stopped
     // turn is not a moved model) is the envelope's fact, not the resolver's.
     const settle = (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) =>
