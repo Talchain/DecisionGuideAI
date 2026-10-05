@@ -594,7 +594,10 @@ test.describe.serial('J1 · whole PoC', () => {
     expect(g, '[J11] the copy opens with no model').toBeTruthy()
     expect(nodesOf(g), '[J11] the copy carries different nodes from S').toEqual(nodesOf(latest))
     expect(edgesOf(g), '[J11] the copy carries different links from S').toEqual(edgesOf(latest))
-    expect(copy.body!.graph_identity_hash, '[J11] the copy\'s model identity differs from S\'s').toBe(src.graph_identity_hash)
+    // The identity hash is an object ({ algorithm, projection_version, value, ... }): S's value must be a
+    // real sha256 first, so two absent hashes cannot agree, then the whole object must match.
+    expect(src.graph_identity_hash?.value, '[J11] COULD NOT MEASURE: S carries no identity hash').toMatch(/^[0-9a-f]{64}$/)
+    expect(copy.body!.graph_identity_hash, '[J11] the copy\'s model identity differs from S\'s').toEqual(src.graph_identity_hash)
 
     // Open the copy from its own card, found by elimination: the one card whose name is not
     // S's (the name is J11b's to judge). A card has no id: the binding is the exact route + read.
@@ -683,21 +686,28 @@ test.describe.serial('J1 · whole PoC', () => {
     }
     pageA.on('request', onRequest)
     try {
-      // Last opened is C, so the remembered scenario is C: the link to S must still open S.
-      // Then S is remembered, and the link to C must open C.
-      for (const [target, other] of [[S, C], [C, S]] as const) {
-        await pageA.goto(`${ORIGIN}/#/scenario/${target}`, { waitUntil: 'load' })
+      // One open, judged at its terminal state: the read of `target` answered, its model
+      // rendered, the network settled (a remembered-scenario override would arrive late), and
+      // then the route is still exactly `target` and nothing read `other` since the open began.
+      const judge = async (target: string, other: string, how: string, open: () => Promise<unknown>) => {
         reads.length = 0
         const read = graphRead(pageA, target)
-        await pageA.reload({ waitUntil: 'load' })
+        await open()
         const res = await read
-        expect(res, `[J13] COULD NOT MEASURE: the cold load never read ${target}`).not.toBeNull()
-        expect(res!.status(), `[J13] the cold load's read of ${target} was refused`).toBe(200)
-        await expect.poll(async () => (await renderedNodeIds(pageA)).sort(), { message: `[J13] ${target} does not render`, timeout: 120_000 }).toEqual(latest)
-        // Terminal state, not first paint: a remembered-scenario override would arrive late.
-        await pageA.waitForLoadState('networkidle', { timeout: 60_000 }).catch(() => undefined)
-        expect(new URL(pageA.url()).hash, `[J13] the link to ${target} was overridden`).toBe(`#/scenario/${target}`)
-        expect(reads, `[J13] the cold load of ${target} also read ${other}`).not.toContain(other)
+        expect(res, `[J13] COULD NOT MEASURE: the ${how} of ${target} never read it`).not.toBeNull()
+        expect(res!.status(), `[J13] the ${how}'s read of ${target} was refused`).toBe(200)
+        await expect.poll(async () => (await renderedNodeIds(pageA)).sort(), { message: `[J13] the ${how} of ${target} does not render`, timeout: 120_000 }).toEqual(latest)
+        await pageA.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => undefined)
+        expect(new URL(pageA.url()).hash, `[J13] the ${how} of ${target} was overridden`).toBe(`#/scenario/${target}`)
+        expect(reads, `[J13] the ${how} of ${target} also read ${other}`).not.toContain(other)
+      }
+      // Last opened is C, so the remembered scenario is C: the link to S must still open S.
+      // Then S is remembered, and the link to C must open C. Each is a new document in the same
+      // browser (about:blank first, so no in-app navigation is counted), then a reload.
+      for (const [target, other] of [[S, C], [C, S]] as const) {
+        await pageA.goto('about:blank')
+        await judge(target, other, 'cold deep link', () => pageA.goto(`${ORIGIN}/#/scenario/${target}`, { waitUntil: 'load' }))
+        await judge(target, other, 'reload', () => pageA.reload({ waitUntil: 'load' }))
       }
     } finally {
       pageA.off('request', onRequest)
