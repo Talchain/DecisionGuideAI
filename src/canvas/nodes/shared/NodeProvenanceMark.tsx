@@ -1,5 +1,5 @@
 import { Fragment } from 'react'
-import { classifyNodeProvenance, classifyObservedValueProvenance } from '../../domain/valueProvenance'
+import { classifyNodeProvenance, classifyObservedValueProvenance, isUserOwnedKind } from '../../domain/valueProvenance'
 import type { ValueProvenanceKind } from '../../domain/valueProvenance'
 import { nodeProvenanceClaim, provenanceClaimLabel } from '../../domain/nodeProvenanceClaim'
 import type { NodeProvenanceClaim } from '../../domain/nodeProvenanceClaim'
@@ -532,8 +532,16 @@ function renderMark(claim: Exclude<NodeProvenanceClaim, 'none'>, kind: ValueProv
 
 /**
  * ⭐ THE BOARD'S DEFAULT PROVENANCE KIND — the single-mark kind most cards on
- * the canvas carry (a fresh AI draft: `ai`). `null` when there is no single
- * most-common kind (a tie, or no marks), so nothing is ever hidden on a guess.
+ * the canvas carry. `null` when there is no single most-common kind (a tie, or
+ * no marks), so nothing is ever hidden on a guess.
+ *
+ * ⛔ NEVER ONE OF OLUMI'S KINDS (principle audit, DL 0df0e1 #87 5992243567: "always
+ * mark Olumi's additions on the canvas, including the compact view"). This used to
+ * return `ai` on a fresh draft, so at rest every card Olumi added showed no mark and
+ * read as nobody's. Only a kind a PERSON owns (`isUserOwnedKind`) may go quiet at
+ * rest: the user knows what they set. When the most common kind is Olumi's (or a
+ * brief extraction, a colleague's panel answer, an accepted estimate), there is no
+ * default and every card keeps its mark.
  * Memoised per `nodes` array at module level: every card asks, one derivation.
  */
 let defaultKindCache: { nodes: unknown; kind: ValueProvenanceKind | null } | null = null
@@ -563,7 +571,7 @@ export function provenanceDefaultKind(
     }
   }
   // A default is a REPEATED mark: one marked card is not a pattern to suppress.
-  const result = tied || best < 2 ? null : kind
+  const result = tied || best < 2 || kind === null || !isUserOwnedKind(kind) ? null : kind
   defaultKindCache = { nodes, kind: result }
   return result
 }

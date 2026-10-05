@@ -451,10 +451,12 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
   })
 
   describe('the baseline', () => {
-    it('a DECLARED baseline with no changes reads "Baseline · no changes" and "Reference for the other alternatives."', () => {
+    // ⛔ RE-PINNED 5 Oct 2026 (gate 5 item 4, DL 0df0e1): "Reference for the other alternatives." is dropped.
+    it('a DECLARED baseline with no changes reads "Baseline · no changes", and no reference sentence', () => {
       renderCard({ id: 'option-b' })
       expect(onCard('option-baseline-meta-option-b')?.textContent).toBe('Baseline · no changes')
-      expect(onCard('option-baseline-reference-option-b')?.textContent).toBe('Reference for the other alternatives.')
+      expect(onCard('option-baseline-reference-option-b')).toBeNull()
+      expect(document.body.textContent ?? '').not.toContain('Reference for the other alternatives.')
     })
 
     it('post-run the baseline keeps both lines on the card, above the share line', () => {
@@ -467,7 +469,7 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       expect(follows(meta!, share!)).toBe(true)
     })
 
-    it('a declared baseline WITH its own description shows that line INSTEAD of the reference — one muted line, never two', () => {
+    it('a declared baseline WITH its own description shows that line — one muted line, never two', () => {
       renderCard({ id: 'option-b', store: { nodes: withOptionData('option-b', { description: 'Hold the current plan while we learn.' }) } })
       expect(onCard('option-card-differentiator-option-b')?.textContent).toBe('Hold the current plan while we learn.')
       expect(onCard('option-baseline-reference-option-b')).toBeNull()

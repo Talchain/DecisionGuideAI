@@ -94,7 +94,9 @@ describe('MessageBubble — staleness pill', () => {
     render(<MessageBubble message={makeMsg('unknown')} onChipClick={noop} />)
     const pill = screen.getByTestId('staleness-pill')
     expect(pill.getAttribute('data-freshness')).toBe('unknown')
-    expect(pill.textContent).toContain('Based on latest available analysis')
+    // StalenessPill.tsx COPY.unknown (#2461): unconfirmed freshness admits it
+    // cannot confirm currency; it no longer claims "latest available".
+    expect(pill.textContent).toContain('Cannot confirm this analysis is up to date')
   })
 
   it('renders no pill when freshness is "fresh"', () => {
@@ -175,7 +177,7 @@ describe('MessageBubble — staleness pill', () => {
     render(<MessageBubble message={message} onChipClick={noop} />)
     const pill = screen.getByTestId('staleness-pill')
     expect(pill.getAttribute('data-freshness')).toBe('unknown')
-    expect(pill.textContent).toContain('Based on latest available analysis')
+    expect(pill.textContent).toContain('Cannot confirm this analysis is up to date')
   })
 
   it('places the pill OUTSIDE the message bubble (sibling, not nested)', () => {
