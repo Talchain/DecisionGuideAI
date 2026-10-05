@@ -43,6 +43,8 @@ import { logCanvasBreadcrumb, describeError } from '../canvas/utils/canvasBreadc
 import { deriveModelNameFromGoal } from '../canvas/domain/modelDisplayName'
 import { isViewerSession } from '../lib/viewerMode'
 import { getScenarioAccess } from '../services/scenarioSharingService'
+import { awaitCanonicalOpen, canonicalOpenSequence } from '../canvas/hydrate/canonicalOpenOutcome'
+import { track } from '../lib/telemetry'
 
 export type SaveStatus = 'saved' | 'saving' | 'error'
 
@@ -296,6 +298,33 @@ export async function flushPendingGraphSave(isPersistenceActive: boolean): Promi
  * listened to in `ReactFlowGraph`. Kept as one function so the two call sites
  * above cannot drift apart in level or transport.
  */
+/**
+ * How long a not-found row waits for CEE's canonical read to answer for the same scenario. The read is held until this
+ * load settles (`useBootServerRead`), then may retry; past this the notice reports as it always did.
+ */
+const CANONICAL_OPEN_WAIT_MS = 20_000
+
+/**
+ * ⭐ THE NOT-FOUND NOTICE ASKS THE ONE AUTHORITY (`canvas/hydrate/canonicalOpenOutcome.ts`, DL 0df0e1 5 Oct 2026).
+ * A missing Supabase row is not, on its own, "this model could not be opened". CEE's canonical graph read decides.
+ * When CEE served this same scenario, the model opened: no notice, and the row/read mismatch is COUNTED
+ * (`scenario.row_missing_canonical_ok`), never silent. When CEE refused, failed, or never answered, the notice shows as
+ * before. Run detached, because the CEE read waits for THIS load to settle, so awaiting it inside the load would stall
+ * both.
+ */
+async function decideNotFoundNotice(id: string, since: number, stillCurrent: () => boolean): Promise<void> {
+  const outcome = await awaitCanonicalOpen(id, since, CANONICAL_OPEN_WAIT_MS)
+  if (!stillCurrent()) return
+  if (outcome === 'opened') {
+    track('scenario.row_missing_canonical_ok')
+    logCanvasBreadcrumb('scenario:row_missing_canonical_ok', { scenarioIdPrefix: id.slice(0, 8) })
+    return
+  }
+  notifyScenarioLoadProblem(
+    'This model could not be opened. It may have been removed, or you may not have access to it.',
+  )
+}
+
 function notifyScenarioLoadProblem(message: string): void {
   if (typeof window === 'undefined') return
   window.dispatchEvent(new CustomEvent('topbar:show-toast', {
@@ -766,6 +795,7 @@ export function useScenario(): UseScenarioReturn {
       if (!isPersistenceActive) return
       const loadSeq = ++loadSeqRef.current
       const loadUserId = userIdRef.current
+      const canonicalSince = canonicalOpenSequence()
 
       /**
        * ⛔ A MODEL THAT WILL NOT LOAD MUST SAY SO — ON A PRODUCTION BUILD.
@@ -846,8 +876,11 @@ export function useScenario(): UseScenarioReturn {
           })
           return
         }
-        notifyScenarioLoadProblem(
-          'This model could not be opened. It may have been removed, or you may not have access to it.',
+        void decideNotFoundNotice(id, canonicalSince, () =>
+          loadSeqRef.current === loadSeq &&
+          mountedRef.current &&
+          isPersistenceActiveRef.current &&
+          userIdRef.current === loadUserId,
         )
         return
       }

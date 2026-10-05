@@ -34,6 +34,8 @@ export type TelemetryEvent =
   | 'sandbox.autofix.success'
   | 'sandbox.autofix.failed'
   | 'sandbox.autofix.strength_clamped'
+  // CAN cold-load (DL 0df0e1, 5 Oct): CEE's canonical read opened the model, the Supabase row read found none
+  | 'scenario.row_missing_canonical_ok'
 
 const counters: Record<TelemetryEvent, number> = {
   'edge.stream.start': 0,
@@ -62,6 +64,7 @@ const counters: Record<TelemetryEvent, number> = {
   'sandbox.autofix.success': 0,
   'sandbox.autofix.failed': 0,
   'sandbox.autofix.strength_clamped': 0,
+  'scenario.row_missing_canonical_ok': 0,
 }
 
 export function track(event: TelemetryEvent): void {
