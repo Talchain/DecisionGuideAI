@@ -706,7 +706,7 @@ let lastAutosavePayload: string | null = null
  */
 export const IDENTITY_EPOCH_KEY = 'olumi-canvas-identity-epoch'
 /** The shared epoch: a string, `null` before the first boundary, `undefined` when storage refused the read. */
-function readIdentityEpoch(): string | null | undefined {
+export function readIdentityEpoch(): string | null | undefined {
   try {
     const epoch = localStorage.getItem(IDENTITY_EPOCH_KEY)
     return epoch && epoch.length > 0 ? epoch : null

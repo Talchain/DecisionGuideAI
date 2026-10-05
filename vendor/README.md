@@ -7,7 +7,26 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.74.0.tgz` ← **THE CURRENT PIN** (2 Oct 2026, version result-diff: DL schema publication → CEE opt-in producer → CANVAS UI; DL #85 5947565590)
+### `talchain-schemas-0.76.0.tgz` ← **THE CURRENT PIN** (5 Oct 2026, estate pin alignment: one contract version across CEE/UI/PLoT; DL 0df0e1, Integrator github-26)
+
+**Provenance: CEE's vendored bytes, byte-identical.** Copied from `olumi-assistants-service` staging
+`c5fd360d6ae453fd3ea77c6741fb376d0718e680` `vendor/talchain-schemas-0.76.0.tgz` (its `.sha256` sidecar matches). The
+contents are tag `v0.76.0`: `dist/contracts/generated-constants.js` `SCHEMA_SHA` = `79cb3d3e…` = the tag's source.
+The GitHub Packages registry was not read (no token on this machine), so this is not a registry download. **807,836 bytes.**
+
+```
+integrity (sha512) sha512-u5PDC7qeVzDDrY8vlKNMPz2r4tgarIrjRMbA0E/zvWu09m7hNI07VtPqGelEPQ0dJ8A8VX8nCv12Yf32fQt8uQ==
+sha256             594fcedb65b385fe701ea9dcac98cce2b73e85c7e3c9e10ba1ceddd82999268d   (the .sha256 sidecar; = CEE's vendored copy)
+```
+
+**What 0.75.0–0.76.0 add: new exports only.** 0.75 `DecisionFlipBlockV1Schema` ("what would change this?", CEE
+strict-parses it). 0.76 `StructuralChallengeResultV1Schema` ("test without this link"; CEE-only today).
+**Runtime no-op here:** `git diff v0.74.0 v0.76.0 -- src` touches no existing schema. Every one of this repo's 24
+runtime imports from the package is unchanged, the `dist/*.js` of every existing schema is identical, and the `.d.ts`
+differences are member reordering only. Replaces 0.74.0 (no longer vendored). Evidence: programme-docs
+`integrator/github-26` `output/integrator/PIN-ALIGNMENT.md`.
+
+### `talchain-schemas-0.74.0.tgz` (historical, no longer vendored) (2 Oct 2026, version result-diff: DL schema publication → CEE opt-in producer → CANVAS UI; DL #85 5947565590)
 
 **Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF, not a local re-pack.** Downloaded by CANVAS 39e656 from
 `https://npm.pkg.github.com/download/@talchain/schemas/0.74.0/ea5d0acdf3a277c243dfa391161450e1b2675df5`

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { listSnapshots, loadSnapshot, deleteSnapshot, saveSnapshot } from '../persist'
+import { readIdentityEpoch } from '../store/scenarios'
 import { useCanvasStore } from '../store'
 import { useToast } from '../ToastContext'
 import { BottomSheet } from './BottomSheet'
@@ -27,6 +28,11 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
   const { showToast } = useToast()
+  // An identity boundary in this document (sign-out, or A→B from another tab) moves the epoch and always installs a fresh
+  // undo history (`clearUserScopedState`). Watching the history only while open re-renders on it, so an open manager
+  // re-lists and never keeps the previous identity's rows; closed, it costs nothing per edit.
+  const historyWhileOpen = useCanvasStore((s) => (isOpen ? s.history : null))
+  const identityEpoch = readIdentityEpoch()
 
   const refreshSnapshots = () => {
     const rawSnapshots = listSnapshots()
@@ -49,7 +55,7 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
     if (isOpen) {
       refreshSnapshots()
     }
-  }, [isOpen])
+  }, [isOpen, identityEpoch, historyWhileOpen])
 
   const handleSave = () => {
     const currentSize = JSON.stringify({ nodes, edges }).length
@@ -81,6 +87,9 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
       const json = JSON.stringify(data)
       importCanvas(json)
       onClose()
+    } else {
+      // Gone, or not this identity's: show what is actually there.
+      refreshSnapshots()
     }
   }
 
@@ -100,10 +109,11 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
 
   const handleRenameCommit = (key: string) => {
     const trimmed = editName.trim()
-    if (trimmed) {
+    // Only a snapshot this identity can load gets a name: a stale row never writes an orphan name key.
+    if (trimmed && loadSnapshot(key) !== null) {
       localStorage.setItem(`${key}-name`, trimmed.slice(0, 50))
-      refreshSnapshots()
     }
+    refreshSnapshots()
     setEditingKey(null)
   }
 
