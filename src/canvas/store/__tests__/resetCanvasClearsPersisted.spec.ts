@@ -236,4 +236,39 @@ describe('resetCanvas — a fresh start is fresh on the next load', () => {
       'server evidence about a different decision kept this unsaved one\'s conversation: the demo hazard reopens',
     ).not.toContain(SERVER_ONLY_ID)
   })
+
+  // ── adoptScenario (opening an example, adopting a guest copy) leaves a decision too: SAME rule ──────────────────
+  const ADOPTED_ID = 'dddddddd-1111-4222-8333-444444444444'
+
+  it('adoptScenario: does NOT destroy the server-saved decision being left (no local record)', () => {
+    seedServerOnly({ identity: true })
+
+    useCanvasStore.getState().adoptScenario(ADOPTED_ID)
+
+    expect(useCanvasStore.getState().currentScenarioId, 'precondition: the adoption happened').toBe(ADOPTED_ID)
+    expect(
+      transcriptIds(),
+      'opening another decision destroyed a SERVER-saved decision\'s conversation (adoptScenario, F1)',
+    ).toContain(SERVER_ONLY_ID)
+    expect(
+      saveTranscript(SERVER_ONLY_ID, [{ id: 'm2', role: 'user', content: 'again' }] as never),
+      'adoptScenario tombstoned a saved decision for the rest of the page load',
+    ).not.toBeNull()
+  })
+
+  it('adoptScenario: DOES discard an unsaved decision being left: the twin', () => {
+    seedServerOnly({})
+
+    useCanvasStore.getState().adoptScenario(ADOPTED_ID)
+
+    expect(transcriptIds(), 'adoptScenario kept an UNSAVED decision\'s conversation').not.toContain(SERVER_ONLY_ID)
+  })
+
+  it('adoptScenario: server evidence for a DIFFERENT decision does not save the one being left: the binding twin', () => {
+    seedServerOnly({ identity: true, hash: true }, 'bbbbbbbb-1111-4222-8333-444444444444')
+
+    useCanvasStore.getState().adoptScenario(ADOPTED_ID)
+
+    expect(transcriptIds(), 'server evidence about another decision kept this unsaved one\'s conversation').not.toContain(SERVER_ONLY_ID)
+  })
 })
