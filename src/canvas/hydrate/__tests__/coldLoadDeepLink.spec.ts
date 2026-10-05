@@ -971,6 +971,158 @@ describe('§13 ORDERING (Codex round 3): a copy is replaced or retired only by a
   })
 })
 
+describe('§14 IDENTITY (CAN-F2w): a slot whose removal was refused at sign-out never reaches the next account', () => {
+  const EPOCH = scenarios.IDENTITY_EPOCH_KEY
+  function refuseRemovalOf(key: string): void {
+    const realRemove = Storage.prototype.removeItem
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (this: Storage, k: string) {
+      if (k === key) throw new DOMException('denied', 'SecurityError')
+      return realRemove.call(this, k)
+    })
+  }
+
+  it('⭐ (the staging probe) A signs out with the main slot\'s removal REFUSED: B\'s routeless cold load restores nothing', () => {
+    const zRaw = rememberScenario(Z)
+    refuseRemovalOf(MAIN_AUTOSAVE_SLOT)
+    expect(() => clearUserScopedState()).not.toThrow()
+    vi.restoreAllMocks()
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBe(zRaw) // the refusal held: A's bytes are still in the slot
+    newPage()
+    claimColdLoadDeepLink(undefined)
+    expect(scenarios.loadAutosave()).toBeNull()
+    expect(bootRestore()).toBe('not_autosave')
+    expect(onCanvas()).toEqual([])
+  })
+
+  it('⭐ A\'s preserved copy survives a refused removal; B cold-opens A\'s scenario link: never promoted, nothing restored', () => {
+    const zRaw = rememberScenario(Z)
+    expect(claimColdLoadDeepLink(Y)).toBe('applied') // A followed a link: Z kept as a copy
+    refuseRemovalOf(keyedAutosaveSlot(Z))
+    clearUserScopedState()
+    vi.restoreAllMocks()
+    expect(localStorage.getItem(keyedAutosaveSlot(Z))).toBe(zRaw)
+    newPage()
+    expect(planColdLoadDeepLink(Z)).toBeNull()
+    claimColdLoadDeepLink(Z)
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBeNull()
+    expect(bootRestore()).toBe('not_autosave')
+    expect(onCanvas()).toEqual([])
+  })
+
+  it('CONTROL: A\'s own reload restores A\'s work (no boundary between), also after an earlier boundary made an epoch', () => {
+    clearUserScopedState() // an earlier sign-out: an epoch exists from here on
+    expect(localStorage.getItem(EPOCH)).toBeTruthy()
+    rememberScenario(Z)
+    newPage()
+    claimColdLoadDeepLink(undefined)
+    expect(bootRestore()).toBe(Z)
+    expect(onCanvas()).toEqual(['z_factor', 'z_goal'])
+  })
+
+  it('CONTROL: after the boundary, B\'s own work is B\'s: B\'s reload restores it, and B\'s link wins over B\'s remembered scenario', () => {
+    rememberScenario(Z)
+    clearUserScopedState()
+    rememberScenario(Y) // B works on Y, stamped with the new epoch
+    newPage()
+    expect(bootRestore()).toBe(Y)
+    expect(onCanvas()).toEqual(['y_goal'])
+  })
+
+  // The drive cannot sign in; the guard is the source. A first sign-in on a page (guest → A) is NOT a boundary, so the
+  // guest's work keeps its epoch and stays A's to restore; only sign-out and A → B are boundaries.
+  it('CONTROL (source): guest → sign-in is not a boundary — the boundary sits only at sign-out, a session-less change and A → B', () => {
+    const auth = readFileSync(join(process.cwd(), 'src', 'contexts/AuthContext.tsx'), 'utf8')
+    expect(auth.match(/clearUserScopedState\(\)/g)).toHaveLength(1)
+    expect(auth).toContain('if (lastSignedInUserId !== null && lastSignedInUserId !== u.id) clearUserScopedState();')
+    const guest = auth.slice(auth.indexOf('function OptionalAuthProvider('))
+    const signOutAt = guest.indexOf('signOut: async () =>')
+    expect(signOutAt).toBeGreaterThan(0)
+    expect(guest.match(/clearAuthStates\(\)/g)).toHaveLength(1)
+    expect(guest.indexOf('clearAuthStates()')).toBeGreaterThan(signOutAt)
+  })
+
+  it('every boundary is a NEW identity: work done after one sign-out is fenced by the next (the epoch is fresh each time)', () => {
+    clearUserScopedState() // A's earlier sign-out
+    const zRaw = rememberScenario(Z) // A's (or B's) work under that epoch
+    refuseRemovalOf(MAIN_AUTOSAVE_SLOT)
+    clearUserScopedState() // the next sign-out, removal refused
+    vi.restoreAllMocks()
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBe(zRaw)
+    newPage()
+    expect(bootRestore()).toBe('not_autosave')
+    expect(onCanvas()).toEqual([])
+  })
+
+  it('the quota retry (graph without the analysis) keeps the stamp, so the user\'s own work still restores after a boundary', () => {
+    clearUserScopedState()
+    const epoch = localStorage.getItem(EPOCH)
+    const realSet = Storage.prototype.setItem
+    let mainWrites = 0
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === MAIN_AUTOSAVE_SLOT && ++mainWrites === 1) throw new DOMException('quota', 'QuotaExceededError')
+      return realSet.call(this, k, v)
+    })
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    scenarios.saveAutosave({ timestamp: 5_000_000, scenarioId: Z, nodes: GRAPH[Z], edges: [], analysis: { report: {} } as never })
+    vi.restoreAllMocks()
+    expect(mainWrites).toBe(2)
+    const restored = scenarios.loadAutosave()
+    expect(restored?.scenarioId).toBe(Z)
+    expect(restored?.identityEpoch).toBe(epoch)
+    expect(restored?.analysis).toBeNull()
+  })
+
+  it('a legacy slot with NO epoch stamp, before the first boundary, behaves exactly as today', () => {
+    const zRaw = rememberScenario(Z)
+    expect(localStorage.getItem(EPOCH)).toBeNull()
+    expect((JSON.parse(zRaw) as { identityEpoch?: unknown }).identityEpoch).toBeUndefined()
+    newPage()
+    claimColdLoadDeepLink(undefined)
+    expect(bootRestore()).toBe(Z)
+    expect(onCanvas()).toEqual(['z_factor', 'z_goal'])
+  })
+
+  it('the writer stamps the CURRENT epoch, and the reader keeps only that epoch\'s slot', () => {
+    clearUserScopedState()
+    const epoch = localStorage.getItem(EPOCH) as string
+    const raw = rememberScenario(Z)
+    expect((JSON.parse(raw) as { identityEpoch?: unknown }).identityEpoch).toBe(epoch)
+    expect(scenarios.loadAutosave()?.scenarioId).toBe(Z)
+    localStorage.setItem(EPOCH, 'another-identity')
+    expect(scenarios.loadAutosave()).toBeNull()
+  })
+
+  it('an epoch write that is REFUSED at sign-out: the boundary still completes and sweeps (no worse than today)', () => {
+    rememberScenario(Z)
+    const realSet = Storage.prototype.setItem
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === EPOCH) throw new DOMException('quota', 'QuotaExceededError')
+      return realSet.call(this, k, v)
+    })
+    expect(() => clearUserScopedState()).not.toThrow()
+    vi.restoreAllMocks()
+    expect(localStorage.getItem(EPOCH)).toBeNull()
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBeNull()
+    expect(localStorage.getItem(POINTER)).toBeNull()
+    newPage()
+    expect(bootRestore()).toBe('not_autosave')
+  })
+
+  it('RESIDUAL (as today, recorded): the epoch write AND the main slot\'s removal both refused — storage that refuses writes; B\'s boot is as before', () => {
+    rememberScenario(Z)
+    const realSet = Storage.prototype.setItem
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === EPOCH) throw new DOMException('quota', 'QuotaExceededError')
+      return realSet.call(this, k, v)
+    })
+    refuseRemovalOf(MAIN_AUTOSAVE_SLOT)
+    clearUserScopedState()
+    vi.restoreAllMocks()
+    newPage()
+    expect(bootRestore()).toBe(Z) // today's behaviour, unchanged: only storage that refuses writes reaches it
+  })
+})
+
 describe('§6 the steps the drive cannot execute (SOURCE scans, and only these)', () => {
   const src = (p: string) => readFileSync(join(process.cwd(), 'src', p), 'utf8')
 

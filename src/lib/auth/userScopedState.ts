@@ -1,5 +1,5 @@
 import { useCanvasStore } from '../../canvas/store'
-import { clearAllScenarioStorage } from '../../canvas/store/scenarios'
+import { clearAllScenarioStorage, IDENTITY_EPOCH_KEY } from '../../canvas/store/scenarios'
 import { clearAllTranscripts } from '../../canvas/conversation/utils/transcriptStore'
 import { clearAllVersions } from '../../canvas/versions/versionStorage'
 import { useLayoutStore } from '../../canvas/layoutStore'
@@ -21,6 +21,10 @@ export const USER_SCOPED_STORAGE_KEYS = [
 // unbounded, and as private as the main slot above.
 export const USER_SCOPED_STORAGE_PREFIXES = ['olumi.dissent.v2.', 'olumi.dissent.', 'olumi-canvas-autosave:'] as const
 
+function freshIdentityEpoch(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+}
+
 /** One identity boundary for sign-out and A→B auth transitions. */
 export function clearUserScopedState(): void {
   // Each step on its own: one that throws (`clearAllScenarioStorage` removes three keys unguarded) never stops the steps
@@ -28,6 +32,9 @@ export function clearUserScopedState(): void {
   const step = (fn: () => void): void => {
     try { fn() } catch { /* the boundary goes on */ }
   }
+  // CAN-F2w: a fresh identity epoch FIRST, so a slot this sweep cannot remove is already another identity's and is never
+  // restored, remembered or promoted for the next account (`scenarios.IDENTITY_EPOCH_KEY`). The sweep never removes it.
+  step(() => localStorage.setItem(IDENTITY_EPOCH_KEY, freshIdentityEpoch()))
   step(() => useCanvasStore.getState().resetCanvas())
   step(clearAllScenarioStorage)
   step(clearAllTranscripts)
