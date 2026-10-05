@@ -62,6 +62,7 @@ async function renderGuestProvider(): Promise<{ fire: (event: string, s: unknown
   await act(async () => {
     render(<MemoryRouter><AuthProvider><Probe /></AuthProvider></MemoryRouter>)
   })
+  expect(onAuthStateChange).toHaveBeenCalledTimes(1)
   const callback = onAuthStateChange.mock.calls[0][0] as (event: string, s: unknown) => void
   return {
     fire: async (event, s) => { await act(async () => { callback(event, s) }) },
@@ -70,9 +71,12 @@ async function renderGuestProvider(): Promise<{ fire: (event: string, s: unknown
 }
 
 describe('CAN-F2w × guest posture: the identity boundary', () => {
-  beforeEach(() => {
-    vi.resetModules()
+  // ONE module instance for the whole file (no `vi.resetModules`): the boundary under test and the page's epoch must be
+  // the same `scenarios` module, as they are in a real page. Each case starts as a fresh page load instead.
+  beforeEach(async () => {
+    vi.clearAllMocks() // each case fires ITS OWN provider's callback, never a previous case's
     localStorage.clear()
+    ;(await import('../../canvas/store/scenarios')).__resetPageIdentityEpochForTests()
     boundary.calls = 0
     vi.stubEnv('VITE_AUTH_MODE', 'guest')
     getSession.mockResolvedValue({ data: { session: null } })

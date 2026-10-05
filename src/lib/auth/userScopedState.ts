@@ -1,5 +1,5 @@
 import { useCanvasStore } from '../../canvas/store'
-import { adoptIdentityEpoch, clearAllScenarioStorage, IDENTITY_EPOCH_KEY } from '../../canvas/store/scenarios'
+import { adoptIdentityEpoch, clearAllScenarioStorage, IDENTITY_EPOCH_KEY, pageHoldsCurrentIdentity } from '../../canvas/store/scenarios'
 import { clearAllTranscripts } from '../../canvas/conversation/utils/transcriptStore'
 import { clearAllVersions } from '../../canvas/versions/versionStorage'
 import { useLayoutStore } from '../../canvas/layoutStore'
@@ -32,23 +32,36 @@ export function clearUserScopedState(): void {
   const step = (fn: () => void): void => {
     try { fn() } catch { /* the boundary goes on */ }
   }
-  // CAN-F2w: a fresh identity epoch FIRST, so a slot this sweep cannot remove is already another identity's and is never
+  // CAN-F2w: PUBLISH a boundary only from a page that still holds the current identity. A page another tab's boundary
+  // already revoked OBSERVES it: it resets its own memory, but never sweeps shared storage or rotates the epoch again,
+  // because that storage may already be the next account's work (`scenarios.pageHoldsCurrentIdentity`).
+  const publishes = pageHoldsCurrentIdentity()
+  // A fresh identity epoch FIRST, so a slot this sweep cannot remove is already another identity's and is never
   // restored, remembered or promoted for the next account (`scenarios.IDENTITY_EPOCH_KEY`). The sweep never removes it.
   // This page adopts the epoch only once the write reads back, so a refused write leaves it writing as before.
-  step(() => {
-    const epoch = freshIdentityEpoch()
-    localStorage.setItem(IDENTITY_EPOCH_KEY, epoch)
-    if (localStorage.getItem(IDENTITY_EPOCH_KEY) === epoch) adoptIdentityEpoch(epoch)
-  })
+  if (publishes) {
+    step(() => {
+      const epoch = freshIdentityEpoch()
+      localStorage.setItem(IDENTITY_EPOCH_KEY, epoch)
+      if (localStorage.getItem(IDENTITY_EPOCH_KEY) === epoch) adoptIdentityEpoch(epoch)
+    })
+  }
   step(() => useCanvasStore.getState().resetCanvas())
-  step(clearAllScenarioStorage)
-  step(clearAllTranscripts)
-  step(clearAllVersions)
+  // The previous identity's graph also lives in undo/redo, the clipboard and the pre-draft snapshot, which `resetCanvas`
+  // keeps (its empty-canvas branch keeps the pre-draft snapshot too). Undo, paste or undo-draft would bring it back,
+  // and autosave would then write it for the next account (Codex, #2484 round 2).
+  step(() => useCanvasStore.setState({ history: { past: [], future: [] }, clipboard: null, draftChatPreDraftSnapshot: null }))
+  if (publishes) {
+    step(clearAllScenarioStorage)
+    step(clearAllTranscripts)
+    step(clearAllVersions)
+  }
   step(() => useLayoutStore.getState().resetForAuth())
-  step(clearDurableDissent)
+  if (publishes) step(clearDurableDissent)
   step(() => useStrengthenStore.getState()._reset())
   step(() => useDecisionRecordStore.getState()._reset())
   step(() => useSuccessMeasureStore.getState()._reset())
+  if (!publishes) return
   // Each removal on its own: one that throws never leaves the keys after it behind (browser storage can be unavailable).
   const remove = (storage: () => Storage, key: string): void => {
     try { storage().removeItem(key) } catch { /* the sweep goes on */ }

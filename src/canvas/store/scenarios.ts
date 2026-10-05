@@ -274,6 +274,7 @@ export function setCurrentScenarioId(id: string): void {
   if (!isLocalStorageAvailable()) {
     return
   }
+  if (!pageMayMutateSharedSlots()) return // CAN-F2w: a revoked page never moves the next account's pointer
 
   try {
     localStorage.setItem(CURRENT_SCENARIO_KEY, id)
@@ -289,6 +290,7 @@ export function clearCurrentScenarioId(): void {
   if (!isLocalStorageAvailable()) {
     return
   }
+  if (!pageMayMutateSharedSlots()) return // CAN-F2w: a revoked page never removes the next account's pointer
 
   try {
     localStorage.removeItem(CURRENT_SCENARIO_KEY)
@@ -732,6 +734,27 @@ let pageEpoch: string | null | undefined = readIdentityEpoch()
 export function adoptIdentityEpoch(epoch: string): void {
   pageEpoch = epoch
 }
+/**
+ * Whether this page still holds the CURRENT identity: its epoch is the shared one (both readable). A page that does
+ * not was revoked by another tab's boundary: it may OBSERVE that boundary (reset its own memory) but must never
+ * publish it again (sweep shared storage or rotate the epoch), because that storage may already be the next account's
+ * work (Codex, #2484 round 2). An unreadable epoch on either side reads as holding, so a page that cannot tell still
+ * sweeps, as it always has.
+ */
+export function pageHoldsCurrentIdentity(): boolean {
+  const shared = readIdentityEpoch()
+  if (pageEpoch === undefined || shared === undefined) return true
+  return shared === pageEpoch
+}
+/**
+ * Whether this page may WRITE OR REMOVE the shared autosave slot and the pointer: it holds the current epoch, and both
+ * epochs are readable. A revoked page (another tab's boundary), or one whose own epoch was unknown at load, mutates
+ * neither: `resetCanvas` on such a page would otherwise delete the next account's work and pointer (Codex, #2484 r2).
+ */
+function pageMayMutateSharedSlots(): boolean {
+  const shared = readIdentityEpoch()
+  return pageEpoch !== undefined && shared !== undefined && shared === pageEpoch
+}
 /** A fresh page load in tests: the page reads the shared epoch afresh. */
 export function __resetPageIdentityEpochForTests(): void {
   pageEpoch = readIdentityEpoch()
@@ -742,15 +765,15 @@ export function saveAutosave(data: AutosaveData): void {
     return
   }
 
-  // CAN-F2w: write only under an epoch this page still holds. An unreadable epoch skips this write (the next autosave
-  // retries); a page another tab's boundary revoked never writes the previous identity's model again.
-  if (pageEpoch === undefined) pageEpoch = readIdentityEpoch()
-  const shared = readIdentityEpoch()
-  if (pageEpoch === undefined || shared === undefined || shared !== pageEpoch) {
+  // CAN-F2w: write only under an epoch this page still holds. An unreadable shared epoch skips this write (the next
+  // autosave retries). A page another tab's boundary revoked never writes the previous identity's model again, and
+  // neither does a page whose OWN epoch could not be read at load, until its own boundary adopts one: adopting the
+  // shared epoch later could adopt the next account's (Codex, #2484 round 2).
+  if (!pageMayMutateSharedSlots()) {
     console.warn('[scenarios] Autosave skipped: this page no longer holds the current identity (CAN-F2w)')
     return
   }
-  const epoch = pageEpoch
+  const epoch = pageEpoch as string | null
   const stamped: AutosaveData = epoch === null ? data : { ...data, identityEpoch: epoch }
   try {
     const payload = JSON.stringify(stamped)
@@ -831,6 +854,7 @@ export function clearAutosave(): void {
   if (!isLocalStorageAvailable()) {
     return
   }
+  if (!pageMayMutateSharedSlots()) return // CAN-F2w: a revoked page never removes the next account's work
 
   try {
     localStorage.removeItem(AUTOSAVE_KEY)
