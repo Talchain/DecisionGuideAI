@@ -584,10 +584,13 @@ test.describe.serial('J1 · whole PoC', () => {
     expect(edgesOf(g), '[J11] the copy carries different links from S').toEqual(edgesOf(latest))
     expect(copy.body!.graph_identity_hash, '[J11] the copy\'s model identity differs from S\'s').toBe(src.graph_identity_hash)
 
-    // Open the copy from its own card. A card has no id, so the binding is the URL plus the read.
-    const copyCard = cards.filter({ hasText: '(copy)' })
-    await expect(copyCard, '[J11] no card is named as the copy').toHaveCount(1)
-    const copyTitle = (await copyCard.innerText()).split('\n')[0].trim()
+    // Open the copy from its own card, found by elimination: the one card that is not S's (its
+    // name is J11b's to judge). A card has no id, so the binding is the URL plus the read.
+    const firstLines = (await cards.allInnerTexts()).map((t) => t.split('\n')[0].trim())
+    const others = firstLines.flatMap((line, i) => (line === J.cardS ? [] : [i]))
+    expect(others, `[J11] cannot tell the copy's card from S's: first lines ${JSON.stringify(firstLines)}`).toHaveLength(1)
+    const copyCard = cards.nth(others[0]!)
+    const copyTitle = firstLines[others[0]!]!
     const readC = graphRead(pageA, C)
     await copyCard.click()
     const res = await readC
@@ -633,10 +636,15 @@ test.describe.serial('J1 · whole PoC', () => {
       expect([403, 404], `[J12] CEE served A's copy to account B (status ${bRead.status})`).toContain(bRead.status)
       expect(JSON.stringify(bRead.body ?? {}), '[J12] CEE\'s refusal to B carries A\'s graph').not.toContain(`"${latest[0]}"`)
 
-      // The product's own Duplicate, under B's token, on A's scenario and on A's copy.
+      // The product's own Duplicate, under B's token, on A's scenario and on A's copy. Bound to
+      // the function's OWN refusal (auth_hub_profiles.sql:96, its only definition): a missing
+      // RPC (404 PGRST202) or a bad argument (400) is also "not 200" and proves nothing.
       for (const id of [S, C]) {
         const dup = await duplicateAs(id, B.user.accessToken)
-        expect(dup.status, `[J12] account B copied A's scenario ${id}`).not.toBe(200)
+        const err = (dup.body ?? {}) as { code?: string; message?: string }
+        expect({ status: dup.status, code: err.code, owned: /not owned by user/.test(err.message ?? '') },
+          `[J12] account B's copy of A's scenario ${id} was not refused by duplicate_scenario itself`)
+          .toEqual({ status: 400, code: 'P0001', owned: true })
         expect(JSON.stringify(dup.body ?? {}), '[J12] B\'s refused copy carries A\'s graph').not.toContain(`"${latest[0]}"`)
       }
       const bAfter = await scenariosVisibleTo(B.user.accessToken)
@@ -678,7 +686,7 @@ test.describe.serial('J1 · whole PoC', () => {
         await pageA.reload({ waitUntil: 'load' })
         const res = await read
         expect(res, `[J13] COULD NOT MEASURE: the cold load never read ${target}`).not.toBeNull()
-        expect(res!.status()).toBe(200)
+        expect(res!.status(), `[J13] the cold load's read of ${target} was refused`).toBe(200)
         await expect.poll(async () => (await renderedNodeIds(pageA)).sort(), { message: `[J13] ${target} does not render`, timeout: 120_000 }).toEqual(latest)
         // Terminal state, not first paint: a remembered-scenario override would arrive late.
         await pageA.waitForLoadState('networkidle', { timeout: 60_000 }).catch(() => undefined)
