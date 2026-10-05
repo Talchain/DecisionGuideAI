@@ -467,9 +467,12 @@ export interface ModelEditAuthorityLive {
   /**
    * Ratify the ACTIVE FACTOR's existing value as correct.
    *
-   * ⚠ STAMPS `user_confirmed`, NEVER `user`. See the implementation.
+   * Signed-in (SD-1): a `factor_value_edit` `confirm_current` wire act; CEE's receipt is the only write. Guest: stamps
+   * `user_confirmed`, NEVER `user`. See the implementation.
    */
-  proposeFactorConfirmation: () => LocalCommitOutcome
+  proposeFactorConfirmation: (opts?: {
+    onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void
+  }) => FactorConfirmationOutcome
   /**
    * Set the ACTIVE EDGE's strength — the `edge_strength_edit` carrier.
    *
@@ -1009,7 +1012,7 @@ export function useModelEditAuthority(
    *
    * ⛔⛔ IT WRITES NOTHING LOCALLY, AND THAT IS THE LOAD-BEARING DECISION.
    * `proposeFactorConfirmation` above stamps `user_confirmed` on the store and
-   * returns `committed`. This must not, and the reason is exactly the one
+   * returns `committed` for a GUEST (signed-in, it now writes nothing either). This must not, and the reason is exactly the one
    * `ModelTabV2Panel`'s own header gives for rendering no `applied` phase: *"a
    * row that showed 'applied' from its own echo would be an optimistic write
    * wearing a confirmation."* Here that would be literal — the thing being

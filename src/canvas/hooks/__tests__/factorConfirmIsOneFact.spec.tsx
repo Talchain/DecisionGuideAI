@@ -78,7 +78,8 @@ describe('producer: a signed-in Confirm is a confirm_current wire act and nothin
 
     expect(sendSystemEvent).toHaveBeenCalledTimes(1)
     const [event, opts] = sendSystemEvent.mock.calls[0] as [{ type: string; payload: Record<string, unknown> }, unknown]
-    const shown = typeof (shape as { raw_value?: unknown }).raw_value === 'number' ? (shape as { raw_value: number }).raw_value : shape.value
+    const raw = (shape as { raw_value?: unknown }).raw_value
+    const shown = typeof raw === 'number' ? raw : shape.value
     const asSet = buildFactorValueEditEvent({ nodeId: FACTOR, typedValue: shown, nodeData: { observedState: shape } })!
     expect(event).toEqual({ type: 'factor_value_edit', payload: { ...asSet.payload, intent: 'confirm_current' } })
     expect(opts).toEqual({ deferIfBusy: false })
