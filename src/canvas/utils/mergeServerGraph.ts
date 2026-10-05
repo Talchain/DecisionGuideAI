@@ -121,6 +121,8 @@ import { pulseAppliedTargets } from './appliedEditPulse'
 import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from './applyDraftResult'
 import { overlayEdge, overlayNode } from './mergeAppliedGraph'
 import { placeAddedNodes } from './newNodePlacement'
+import { isThinClientSession, loadThinLayout } from '../thinClient/thinClient'
+import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import {
   captureUserProvenance,
   clearEdgeUserReviewOnValueChange,
@@ -656,6 +658,27 @@ export function mergeServerGraphOnHydrate(
   // which is exactly why the false sentence read as true.
   const hydratingEmptyCanvas = store.nodes.length === 0 && addedNodes.length > 0
 
+  // THIN CLIENT: a signed-in browser restores no model, so every reload hydrates an EMPTY canvas, and the
+  // only thing it keeps is the LAYOUT, by node id. Nodes it has a position for go back where the user left them; any
+  // others join rows clear of them (the same `placeAddedNodes` as below). Either way no auto-layout is requested, so
+  // the arrangement is not scrambled. With no stored layout the designed empty-canvas path below runs unchanged.
+  const thinLayout = hydratingEmptyCanvas && isThinClientSession() ? loadThinLayout(store.currentScenarioId) : null
+  const thinPlaced = thinLayout ? addedNodes.filter((n: any) => thinLayout[n.id] !== undefined) : []
+  const thinLayoutRestored = thinPlaced.length > 0
+  if (thinLayout && thinLayoutRestored) {
+    thinPlaced.forEach((n: any) => {
+      const p = thinLayout[n.id]
+      n.position = { x: p.x, y: p.y }
+    })
+    const unplaced = addedNodes.filter((n: any) => thinLayout[n.id] === undefined)
+    if (unplaced.length > 0) {
+      const positions = placeAddedNodes(thinPlaced, unplaced)
+      unplaced.forEach((n: any, idx: number) => {
+        n.position = positions[idx]
+      })
+    }
+  }
+
   // Deterministic placement: each added node joins its own row, clear of every
   // existing card — never a re-layout of nodes the user has already arranged.
   // The SAME helper as the receipt path (`placeAddedNodes`), so the two
@@ -851,15 +874,24 @@ export function mergeServerGraphOnHydrate(
       // the intermediate frame the paragraph above exists to prevent. Read
       // fresh at write time rather than from the `store` snapshot captured at
       // entry, so a bump landing during the merge is not overwritten.
+      // THIN CLIENT: a restored layout asks for no arrangement (`pendingLayout: false`), but the generation
+      // still moves, so a layout started for the PREVIOUS scenario cannot commit over this one.
       ...(hydratingEmptyCanvas
         ? {
-            pendingLayout: true,
+            pendingLayout: !thinLayoutRestored,
             layoutRequestId: useCanvasStore.getState().layoutRequestId + 1,
           }
         : {}),
     })
   } finally {
     useCanvasStore.getState().endExternalGraphMutation?.()
+  }
+
+  // THIN CLIENT: CEE's read is the only source of the model, so its saved limits come from here too (the Supabase row's
+  // copy is not put on the canvas). Same rule as the receipt path: a carried list is adopted, absence clears nothing.
+  const readGoalConstraints = g.goal_constraints
+  if (hydratingEmptyCanvas && isThinClientSession() && Array.isArray(readGoalConstraints) && readGoalConstraints.length > 0) {
+    useCanvasStore.getState().setGoalConstraints(readGoalConstraints as CEEGoalConstraint[], { fromProducerSync: true })
   }
 
   // ── THE ANALYSIS NO LONGER DESCRIBES THIS CANVAS (A3) ─────────────────────

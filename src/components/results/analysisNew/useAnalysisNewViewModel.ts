@@ -184,8 +184,8 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
    * either side renders nothing.
    */
   const storedRunDelta = useCanvasStore((s) => s.runDelta)
-  // CEE's reason for sending no run_delta on this turn (passed through `analysis_ready`).
-  const runDeltaAbsenceReason = useCanvasStore(selectRunDeltaAbsenceReason)
+  // CEE's reason for sending no run_delta, bound to the displayed analysis.
+  const runDeltaAbsenceReason = useCanvasStore(s => selectRunDeltaAbsenceReason(s, responseHash))
   const whatsChanged = useMemo(() => {
     // SC-24: the ONE reader, shared with the Compare tab (`displayedRunDeltaView.ts`). Labels come from the SAME
     // node map the rest of this surface uses, so the section cannot call an option something the tab above it does not.

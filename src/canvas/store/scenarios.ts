@@ -16,6 +16,7 @@ import type { Node, Edge } from '@xyflow/react'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
 import type { ReportV1 } from '../../adapters/plot/types'
 import { buildPersistedGraph, type PersistedGraph } from '../utils/persistedGraph'
+import { isThinClientSession, saveThinLayout } from '../thinClient/thinClient'
 
 export interface ScenarioFraming {
   title?: string          // Decision or question
@@ -203,7 +204,11 @@ export function loadScenarios(): Scenario[] {
       return []
     }
 
-    return scenarios.sort((a, b) => b.updatedAt - a.updatedAt) // Most recently updated first
+    const sorted = scenarios.sort((a, b) => b.updatedAt - a.updatedAt) // Most recently updated first
+    // THIN CLIENT: a record written before sign-in (or by another account) never puts a model on screen here.
+    return isThinClientSession()
+      ? sorted.map((sc) => ({ ...sc, graph: buildPersistedGraph([], [], null) as Scenario['graph'] }))
+      : sorted
   } catch (error) {
     console.error('[scenarios] Failed to load:', error)
     return []
@@ -226,9 +231,12 @@ export function saveScenarios(scenarios: Scenario[]): void {
     }
 
     // Prune to MAX_SCENARIOS (keep most recently updated)
+    // THIN CLIENT: a signed-in browser keeps each record's metadata, never its graph.
+    const thin = isThinClientSession()
     const pruned = scenarios
       .sort((a, b) => b.updatedAt - a.updatedAt)
       .slice(0, MAX_SCENARIOS)
+      .map((sc) => (thin ? { ...sc, graph: buildPersistedGraph([], [], null) as Scenario['graph'] } : sc))
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(pruned))
   } catch (error) {
@@ -238,7 +246,10 @@ export function saveScenarios(scenarios: Scenario[]): void {
         console.error('[scenarios] Storage quota exceeded, clearing oldest scenarios')
         // Try to save with fewer scenarios
         try {
-          const minimal = scenarios.slice(0, 20)
+          // THIN CLIENT: the retry is stripped exactly as the first write was — never the graphs that write omitted.
+          const minimal = scenarios
+            .slice(0, 20)
+            .map((sc) => (isThinClientSession() ? { ...sc, graph: buildPersistedGraph([], [], null) as Scenario['graph'] } : sc))
           localStorage.setItem(STORAGE_KEY, JSON.stringify(minimal))
         } catch {
           console.error('[scenarios] Failed to save even minimal scenarios')
@@ -729,6 +740,13 @@ export function saveAutosave(data: AutosaveData): void {
     return
   }
 
+  // THIN CLIENT: a signed-in browser writes the LAYOUT only, never the model. Every writer that reaches the
+  // main slot (`useAutosave`, `crashFlush`, `applyDraftResult`) comes through here.
+  if (isThinClientSession()) {
+    saveThinLayout(data.scenarioId, data.nodes)
+    return
+  }
+
   // CAN-F2w: every write is stamped with the current identity epoch.
   const epoch = readIdentityEpoch()
   if (epoch === undefined) {
@@ -790,6 +808,8 @@ export function loadAutosave(): AutosaveData | null {
   if (!isLocalStorageAvailable()) {
     return null
   }
+  // THIN CLIENT: a signed-in browser restores no local model, whoever's slot this is.
+  if (isThinClientSession()) return null
 
   try {
     const stored = localStorage.getItem(AUTOSAVE_KEY)

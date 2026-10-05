@@ -72,7 +72,7 @@ describe('StrengthenPanel — §8.3 presentation', () => {
 
   it('empty state renders honestly when nothing is active (spec copy)', () => {
     render(<StrengthenPanel {...baseProps} active={[]} />)
-    expect(screen.getByText('No recommendations need attention right now.')).toBeInTheDocument()
+    expect(screen.getByText('No findings need attention right now.')).toBeInTheDocument()
   })
 
   it('the collapsed row is a two-line block: the trigger signal is visible WITHOUT expanding', () => {
@@ -196,7 +196,7 @@ describe('StrengthenPanel — action feedback', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Not relevant' }))
     expect(onNotRelevant).toHaveBeenCalled()
     const notice = screen.getByTestId('strengthen-notice')
-    expect(notice).toHaveTextContent('Recommendation dismissed')
+    expect(notice).toHaveTextContent('Finding set aside')
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
     expect(onUndoDismiss).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }))
     expect(screen.queryByTestId('strengthen-notice')).toBeNull() // cleared after undo

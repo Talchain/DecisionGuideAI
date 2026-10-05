@@ -25,7 +25,7 @@ import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../.
 // and this file is one block from a capture, not a turn.
 import capture from './fixtures/openai-57f903c-pricing-explicit-run.analysis-block.json'
 
-const CONFIDENT = 'This result looks fairly confident.'
+const CONFIDENT = "Under this model's assumptions, the result held in most simulated futures. It is only as sound as the inputs it rests on."
 const COPY_ID = 'v5-analysis-result-uncertainty-copy'
 const RAISE = 'raise_pro_to_59_at_release'
 const KEEP = 'keep_pro_at_49'

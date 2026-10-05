@@ -53,9 +53,10 @@ const NODES = [
   { id: 'fac_price', data: { label: 'Pro price' } },
 ]
 
-function seed(over: Partial<{ runDelta: unknown; currentScenarioId: string | null; ceeAnalysisReady: unknown }> = {}): void {
+function seed(over: Partial<{ runDelta: unknown; runDeltaAbsence: unknown; currentScenarioId: string | null; ceeAnalysisReady: unknown }> = {}): void {
   useCanvasStore.setState({
     runDelta: { delta: DELTA as unknown as RunDelta, analysisHash: 'hash-A', scenarioId: 'scn-1' },
+    runDeltaAbsence: null,
     currentScenarioId: 'scn-1',
     nodes: NODES,
     ceeAnalysisReady: null,
@@ -102,7 +103,7 @@ describe('C2 · no comparison that describes the analysis on screen → the empt
 
 describe('E1 · CEE\'s typed reason for no comparison is said here as Reasoning says it (audit 5942900903 (b))', () => {
   it('unrequested_run_in_pair → Reasoning\'s own sentence, not the generic line', () => {
-    seed({ runDelta: null, ceeAnalysisReady: { run_delta_absence_reason: 'unrequested_run_in_pair' } })
+    seed({ runDelta: null, runDeltaAbsence: { reason: 'unrequested_run_in_pair', analysisHash: 'hash-A', scenarioId: 'scn-1' } })
     render(<CompareRunPairBody responseHash="hash-A" />)
     const empty = screen.getByTestId(`${COMPARE_RUN_PAIR_TESTID}-empty`)
     const reasoning = runDeltaSentence(null, { isStale: false, absenceReason: 'unrequested_run_in_pair' })
@@ -112,7 +113,7 @@ describe('E1 · CEE\'s typed reason for no comparison is said here as Reasoning 
     expect(empty).not.toHaveTextContent('The two most recent runs of this model are compared here.')
   })
   it('CONTRAST: a reason Reasoning does not word keeps the generic line (nothing inferred from it)', () => {
-    seed({ runDelta: null, ceeAnalysisReady: { run_delta_absence_reason: 'insufficient_runs' } })
+    seed({ runDelta: null, runDeltaAbsence: { reason: 'insufficient_runs', analysisHash: 'hash-A', scenarioId: 'scn-1' } })
     render(<CompareRunPairBody responseHash="hash-A" />)
     const empty = screen.getByTestId(`${COMPARE_RUN_PAIR_TESTID}-empty`)
     expect(empty).toHaveTextContent('The two most recent runs of this model are compared here.')
@@ -192,7 +193,8 @@ describe('G1 · the pair on screen marks the canvas; a row focuses its element',
     seed({ nodes: [{ id: 'fac_price', data: { label: 'Pro price' } }] } as never)
     render(<CompareRunPairBody responseHash="hash-A" />)
     expect(screen.queryByTestId(`${WHATS_CHANGED_TESTID}-input-row-focus`)).toBeNull()
-    expect(screen.getByTestId(`${WHATS_CHANGED_TESTID}-input-row-off-canvas`)).toHaveTextContent('Not on the canvas now')
+    // Compare mounts Reasoning's own input row (`InputChanges`), so the note is the shared wording.
+    expect(screen.getByTestId(`${WHATS_CHANGED_TESTID}-input-row-off-canvas`)).toHaveTextContent('· not on the canvas now')
     expect(useCanvasStore.getState().analysisHighlight.source).not.toBe('run_changes')
   })
 

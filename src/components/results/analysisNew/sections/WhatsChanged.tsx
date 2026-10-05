@@ -209,21 +209,25 @@ export function emptyInputsText(inputs: RunDeltaInputsView | null, frame: RunDel
   return inputs.coverage === 'complete' ? INPUTS_UNCHANGED_TEXT : INPUTS_PARTIAL_TEXT
 }
 
-function InputChanges({ inputs, rowFocus, rowLight, frame }: { inputs: RunDeltaInputsView | null; rowFocus?: InputRowFocus; rowLight?: InputRowLight; frame?: RunDeltaFrame }): JSX.Element | null {
+/**
+ * The input rows of a run pair: Reasoning's own list, also mounted by the Compare tab, so the two surfaces show one
+ * change list in one style. `flush`: the list opens its section (Compare), so it takes no top margin of its own.
+ */
+export function InputChanges({ inputs, rowFocus, rowLight, frame, flush = false }: { inputs: RunDeltaInputsView | null; rowFocus?: InputRowFocus; rowLight?: InputRowLight; frame?: RunDeltaFrame; flush?: boolean }): JSX.Element | null {
   const [expanded, setExpanded] = useState(false)
   if (inputs === null) return null
   const empty = emptyInputsText(inputs, frame)
   if (empty !== null) {
     const id = inputs.coverage === 'not_recorded' ? 'inputs-not-recorded' : inputs.coverage === 'complete' ? 'inputs-unchanged' : 'inputs-partial'
     return (
-      <p className={`${typography.panelMeta} text-text-light mt-2 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-${id}`}>
+      <p className={`${typography.panelMeta} text-text-light ${flush ? 'mt-0' : 'mt-2'} mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-${id}`}>
         {empty}
       </p>
     )
   }
   const shown = expanded ? inputs.rows : inputs.rows.slice(0, INPUT_ROWS_SHOWN_FIRST)
   return (
-    <div className="mt-3" data-testid={`${WHATS_CHANGED_TESTID}-inputs`} data-coverage={inputs.coverage}>
+    <div className={flush ? undefined : 'mt-3'} data-testid={`${WHATS_CHANGED_TESTID}-inputs`} data-coverage={inputs.coverage}>
       <p className={`${typography.panelMeta} text-text-light m-0`} data-testid={`${WHATS_CHANGED_TESTID}-inputs-heading`}>Changed between the two runs</p>
       <ul className="list-none p-0 mt-1 mb-0 space-y-1">
         {shown.map((row) => {

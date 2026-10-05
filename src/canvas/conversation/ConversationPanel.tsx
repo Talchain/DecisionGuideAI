@@ -669,7 +669,7 @@ export const ConversationPanel = memo(function ConversationPanel({
 
   // ── Chip handler ──────────────────────────────────────────────────────
   const handleChipClick = useCallback(
-    async (chip: ActionChip): Promise<void> => {
+    async (chip: ActionChip, messageId?: string): Promise<void> => {
       // Chips routed BY ID to a local handler. These never reach `sendChip`, so
       // they carry no `message` — which is why the chip rows have to be told
       // about them (`isChipRenderable`, ROADMAP 2.138); before that, the
@@ -693,7 +693,9 @@ export const ConversationPanel = memo(function ConversationPanel({
       const recordTaken = () => {
         let lastAssistant: typeof messages[number] | undefined
         for (let i = messages.length - 1; i >= 0; i--) {
-          if (messages[i].role === 'assistant') { lastAssistant = messages[i]; break }
+          const message = messages[i]
+          if (message.role === 'assistant' && typeof message.sessionDivider !== 'string'
+            && (messageId === undefined || message.id === messageId)) { lastAssistant = message; break }
         }
         if (lastAssistant) {
           onChipTaken(lastAssistant.id, chip.id)

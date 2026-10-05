@@ -81,7 +81,7 @@ beforeEach(() => {
 })
 
 describe('OptionCards winner chip — prefill, never auto-send', () => {
-  it('clicking "What makes this the best-supported option?" opens the drawer prefilled and dispatches nothing', () => {
+  it('clicking "Why does this come out best in this model?" opens the drawer prefilled and dispatches nothing', () => {
     const onSendMessage = vi.fn()
     render(
       <>
@@ -91,7 +91,7 @@ describe('OptionCards winner chip — prefill, never auto-send', () => {
     )
 
     // The winner chip on Option A.
-    fireEvent.click(screen.getByText('What makes this the best-supported option?'))
+    fireEvent.click(screen.getByText('Why does this come out best in this model?'))
 
     // No auto-send: the threaded send path is never touched.
     expect(onSendMessage).not.toHaveBeenCalled()
@@ -100,7 +100,7 @@ describe('OptionCards winner chip — prefill, never auto-send', () => {
     const draft = screen.getByTestId('ask-olumi-draft') as HTMLTextAreaElement
     expect(draft).toBeInTheDocument()
     expect(draft.value).toMatch(/Option A/)
-    expect(draft.value).toMatch(/leading option|key advantages/i)
+    expect(draft.value).toMatch(/Why does "Option A" come out best in this model\?/)
 
     // Composer is focused for immediate editing.
     expect(document.activeElement).toBe(draft)
@@ -117,7 +117,7 @@ describe('OptionCards winner chip — prefill, never auto-send', () => {
       </>,
     )
 
-    fireEvent.click(screen.getByText('What makes this the best-supported option?'))
+    fireEvent.click(screen.getByText('Why does this come out best in this model?'))
     expect(send).not.toHaveBeenCalled() // nothing sent on prefill
 
     const drawer = screen.getByTestId('ask-olumi-drawer')
