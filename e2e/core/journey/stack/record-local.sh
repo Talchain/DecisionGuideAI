@@ -40,6 +40,10 @@ awk -v l="$load" 'BEGIN { exit !(l < 45) }' || { say "load $load ≥ 45: not sta
 docker info > /dev/null 2>&1 || { say "Docker is not running: start Docker Desktop first"; exit 3; }
 
 rm -rf "$W"; mkdir -p "$W/logs" "$W/keys"
+# Each repo's .npmrc expands a token for the @talchain registry (DGAI NODE_AUTH_TOKEN,
+# CEE NPM_PACKAGES_TOKEN, PLoT GITHUB_TOKEN); unset, the install fails before it starts.
+# The local gh login's token is handed to the INSTALL commands only, as CI hands its job token.
+PKG_TOKEN="$(gh auth token)"
 for repo in olumi-assistants-service:cee plot-lite-service:plot Inference-Service-Layer:isl; do
   name="${repo%%:*}"; dir="${repo##*:}"
   git clone -q --depth 1 --branch staging "https://github.com/Talchain/$name.git" "$W/$dir"
@@ -109,7 +113,7 @@ cd "$DGAI"
 PIDS+=($!)
 
 # ── PLoT ──
-(cd "$W/plot" && npm ci --no-audit --no-fund && npm run build) > "$W/logs/plot-build.log" 2>&1
+(cd "$W/plot" && GITHUB_TOKEN="$PKG_TOKEN" npm ci --no-audit --no-fund && npm run build) > "$W/logs/plot-build.log" 2>&1
 (set -a; . "$STACK/plot.staging-flags.env"; set +a; cd "$W/plot" && \
   NODE_ENV=staging PORT=$PLOT_PORT ISL_BASE_URL="http://127.0.0.1:$ISL_PORT" ISL_API_KEY=journey-local \
   CEE_BASE_URL="http://127.0.0.1:$CEE_PORT" CEE_API_KEY=journey-local \
@@ -119,7 +123,7 @@ PIDS+=($!)
 PIDS+=($!)
 
 # ── CEE, with the staging OpenAI key in ITS environment only ──
-(cd "$W/cee" && npx -y pnpm@10.18.0 install --frozen-lockfile && npx -y pnpm@10.18.0 build) > "$W/logs/cee-build.log" 2>&1
+(cd "$W/cee" && NPM_PACKAGES_TOKEN="$PKG_TOKEN" npx -y pnpm@10.18.0 install --frozen-lockfile && npx -y pnpm@10.18.0 build) > "$W/logs/cee-build.log" 2>&1
 # The key reader is written to the run dir and run once; it prints only the value,
 # straight into a shell variable that is handed to CEE's environment and then unset.
 cat > "$W/openai-key.py" <<'PY'
@@ -146,7 +150,8 @@ PIDS+=($!)
 unset OPENAI_KEY
 
 # ── UI ──
-[ -d node_modules ] || npx -y pnpm@10.18.0 install --frozen-lockfile > "$W/logs/ui-install.log" 2>&1
+[ -d node_modules ] || NODE_AUTH_TOKEN="$PKG_TOKEN" npx -y pnpm@10.18.0 install --frozen-lockfile > "$W/logs/ui-install.log" 2>&1
+unset PKG_TOKEN
 (set -a; . "$STACK/ui.staging-flags.env"; set +a; \
   VITE_V5_ENDPOINT="http://localhost:$CEE_PORT/proxy/v5/turn" VITE_SUPABASE_URL="$SB_API_URL" VITE_SUPABASE_ANON_KEY="$SB_ANON_KEY" \
   NODE_OPTIONS=--max-old-space-size=6144 npm run build) > "$W/logs/ui-build.log" 2>&1
@@ -159,6 +164,7 @@ for u in "http://127.0.0.1:$ISL_PORT/" "http://127.0.0.1:$PLOT_PORT/" "http://12
   for i in $(seq 1 90); do [ "$(curl -s -o /dev/null -w '%{http_code}' "$u" || true)" != 000 ] && break; sleep 2; done
   [ "$(curl -s -o /dev/null -w '%{http_code}' "$u" || true)" != 000 ] || { say "never answered: $u"; tail -30 "$W"/logs/*.log; exit 1; }
 done
+npx playwright install chromium > "$W/logs/playwright-install.log" 2>&1
 say "stack up; recording"
 
 DGAI_SHA="$DGAI_SHA" CEE_SHA="$CEE_SHA" PLOT_SHA="$PLOT_SHA" ISL_SHA="$ISL_SHA" J1_MODE=record \
@@ -170,3 +176,5 @@ J1_CEE_URL="http://127.0.0.1:$CEE_PORT" \
 say "ledger: $(node -e 'const c={};for(const l of require("fs").readFileSync(process.argv[1],"utf8").trim().split("\n")){const r=JSON.parse(l);c[r.outcome]=(c[r.outcome]||0)+1};console.log(JSON.stringify(c))' "$W/ledger.ndjson")"
 say "recordings: $(ls "$FIX"/[0-9]*.json 2>/dev/null | wc -l | tr -d ' ') in $FIX (commit these only)"
 say "evidence: test-results/journey/evidence, logs: $W/logs"
+# Bank only a clean recording (DL 0df0e1): J1 passed, no upstream error, no 429, none under timeouts.
+say "bank only if: J1 passed in playwright.log, ledger has 0 upstream_error/rate_limited, scan-recordings.sh is clean"
