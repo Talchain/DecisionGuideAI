@@ -3442,6 +3442,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               placeholderSentence={strengthIsPlaceholder ? EDGE_STRENGTH_PLACEHOLDER_SENTENCE : null}
               fragileSentence={isFragileEdge ? fragileSentence : null}
               size={edgeSize}
+              runChanged={isRunChangedEdge}
             />
           </EdgeLabelRenderer>
         )

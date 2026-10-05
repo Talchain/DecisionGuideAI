@@ -192,8 +192,7 @@ export const DECISION_READINESS_COPY = {
  * canvas matches the PROTOTYPE: `olumi-canvas-visual-contract.html:192` reads
  * "3 alternatives \u00b7 Evidence priority: conversion", and its layer label is
  * ALTERNATIVES. The noun changes; the claim does not \u2014 still a count of linked
- * option nodes, still not "comparable". `OPTION_BASELINE_REFERENCE` in
- * `metricVocabulary` already says "the other alternatives". No ED ruling in
+ * option nodes, still not "comparable". No ED ruling in
  * DESIGN-AUTHORITY.md fixes "options" (5809278282 leaves the Question card
  * unchanged). The coaching MESSAGES ("My model has N options so far") are sent
  * text, not card copy, and keep their wording.
