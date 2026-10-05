@@ -165,6 +165,11 @@ describe('the withheld leader is not blamed on limits the user never set', () =>
     expect(checks.rerunWouldNotHelp).toBe(false)
   })
 
+  it('⭐ the no-limits first pass says Science\'s corrected sentence, verbatim (d5, 5 Oct)', () => {
+    expect(checksOf(pricingFirstPass()).leaderWithholdCause)
+      .toBe('Olumi’s checks on this run don’t support naming one option in this model. Change a figure you’re unsure about to see how much it matters.')
+  })
+
   it('OPPOSITE CONTROL: the same token behind a REFUSING admission is durable (a re-run would not help)', () => {
     const checks = checksOf(decisionWithLeaderWithheldAndReason())
     expect(checks.leaderWithholdCause).toBe(LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS)
