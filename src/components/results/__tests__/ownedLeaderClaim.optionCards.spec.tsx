@@ -87,6 +87,11 @@ const LEADER_LANGUAGE: ReadonlyArray<[string, RegExp]> = [
   ['Compare against the leading option', /compare against the leading option/i],
   ['This option currently leads', /this option currently leads/i],
   ['best supported', /best supported/i],
+  // The principle-audit wording (5 Oct): every comparative now says the option came out best IN THIS MODEL, so the
+  // withheld turn must not say that either. Without these two rows the list above would only guard retired words.
+  ['came out best', /came out best/i],
+  ['come out best', /come out best/i],
+  ['the softened leader chip', /What does this rest on in this model\?/],
 ]
 
 describe('OptionCards — withheld leader claim', () => {
@@ -147,8 +152,8 @@ describe('OptionCards — permitted leader claim (over-suppression controls)', (
   it('keeps the leader chip copy', () => {
     const { container } = renderCards(true)
     // `fair` tier + stability 0.5 is the softened branch, i.e. the exact
-    // combination that produces "best supported".
-    expect(container.textContent ?? '').toMatch(/best supported/i)
+    // combination that produces the softened chip.
+    expect(container.textContent ?? '').toMatch(/What does this rest on in this model\?/)
   })
 
   it('an ABSENT flag behaves exactly as a permitted one (older callers/fixtures)', () => {

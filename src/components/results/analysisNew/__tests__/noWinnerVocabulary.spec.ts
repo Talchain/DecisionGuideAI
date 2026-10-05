@@ -687,7 +687,7 @@ describe('the Reasoning tab does not speak as an oracle', () => {
       'Chance the answer changes',
       'These numbers are sensitive to this relationship.',
       'On the data so far, these numbers held up under stress-testing.',
-      'Improving this factor could change the answer.',
+      'Firming up this factor could change which option comes out best in this model.',
       'Add the missing elements below before relying on the analysis.',
       'Are these 2 relationships that could flip the answer to Plan B reliable?',
     ]) {

@@ -320,7 +320,7 @@ describe('CONTROL: headline-option resolution was already ID↔ID (refutes brief
     // entries[0] (opt_dell) straddles zero and would be downgraded to the
     // "meaningful uncertainty" wording.
     expect(screen.getByTestId('v5-analysis-result-uncertainty-copy')).toHaveTextContent(
-      'This result looks fairly confident.',
+      "Under this model's assumptions, the result held in most simulated futures. It is only as sound as the inputs it rests on.",
     )
   })
 })

@@ -65,7 +65,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     const delta = runChangeDelta({ leader: { changed: true, prior_leading_option_id: 'opt_49', current_leading_option_id: 'opt_60', noise_verdict: 'signal' } })
     const { container } = mount(delta)
     // Both leaders are named from the producer's own ids, once, in the headline.
-    expect(screen.getByRole('heading', { name: 'The option put forward changed from Keep £49 to Raise to £60' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'In this model, the option that came out best changed from Keep £49 to Raise to £60' })).toBeInTheDocument()
     // Plain words: a run's raw identity is bound by data-run-id, never shown as text.
     expect(runTimes()).not.toHaveTextContent('run-a')
     expect(runTimes()).not.toHaveTextContent('run-b')
@@ -82,7 +82,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
   it('states withheld-before to caveated-leader-after from independent producer IDs without claiming a switch', () => {
     mount(runChangeDelta({ leader: { changed: false, current_leading_option_id: 'opt_60', noise_verdict: 'not_noise_qualified' }, win_probabilities: [], win_probabilities_unavailable: 'prior_withheld' }))
     const hero = section('What changed between runs')
-    expect(hero).toHaveTextContent('The latest run puts forward Raise to £60; the previous run did not put one forward')
+    expect(hero).toHaveTextContent('In this model, Raise to £60 came out best on the latest run; the previous run named no option')
     expect(hero).toHaveTextContent('This pair gives no basis for saying whether that is a real difference.')
     expect(hero).not.toHaveTextContent('changed')
     // No pair of figures: the producer's reason stands in the figures' place, and no details row promises figures.
@@ -99,6 +99,9 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     // A near tie names no leader anywhere in the headline section.
     expect(section('What changed between runs')).not.toHaveTextContent('still the option put forward')
     expect(section('What changed between runs')).not.toHaveTextContent('put forward Keep £49')
+    // Union, never replace: the model-relative words that replaced them (principle audit, 5 Oct).
+    expect(section('What changed between runs')).not.toHaveTextContent('Keep £49 still came out best')
+    expect(section('What changed between runs')).not.toHaveTextContent('came out best')
   })
 
 
@@ -121,7 +124,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     render(<CompareRunPairBody responseHash={hash} />)
     expect(screen.getByRole('heading', { name: 'Result comparison not shown' })).toBeInTheDocument()
     // No option is named and no share is reachable: there is no details row to open.
-    expect(screen.queryByText(/Keep £49|Raise to £60 is|put forward/)).toBeNull()
+    expect(screen.queryByText(/Keep £49|Raise to £60 is|put forward|came out best/)).toBeNull()
     expect(screen.queryByTestId('compare-result-details')).toBeNull()
     expect(screen.queryByText(/%/)).toBeNull()
     expect(section('What you changed')).toHaveTextContent('£59 → £60')
@@ -129,17 +132,23 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
 
   it('never upgrades within-noise movement into an option tie', () => {
     mount(runChangeDelta({ leader: { changed: true, prior_leading_option_id: 'opt_49', current_leading_option_id: 'opt_60', noise_verdict: 'within_noise' } }))
-    expect(section('What changed between runs')).toHaveTextContent('The option put forward changed')
+    expect(section('What changed between runs')).toHaveTextContent('In this model, the option that came out best changed from Keep £49 to Raise to £60')
     expect(section('What changed between runs')).toHaveTextContent('Too small to tell apart from ordinary run-to-run movement.')
     expect(screen.queryByText('Too close to call')).toBeNull()
+  })
+
+  it('says an unchanged option as what came out best in this model, never as one a run puts forward', () => {
+    mount(runChangeDelta({ leader: { changed: false, prior_leading_option_id: 'opt_49', current_leading_option_id: 'opt_49', noise_verdict: 'signal' } }))
+    expect(screen.getByRole('heading', { name: 'In this model, Keep £49 still came out best' })).toBeInTheDocument()
+    expect(section('What changed between runs')).not.toHaveTextContent('put forward')
   })
 
   it('renders missing endpoints, inputs and leader claims as absence, never a probability-based substitute', () => {
     mount(runChangeDelta({ endpoints: undefined, input_changes: undefined, input_coverage: undefined }))
     expect(runTimes()).toHaveTextContent('Previous run time not recorded · Latest run time not recorded')
     expect(section('What you changed')).toHaveTextContent('Input changes were not recorded for this pair.')
-    expect(section('Result comparison')).toHaveTextContent('The latest run does not put an option forward')
-    expect(screen.getByRole('heading', { name: 'The latest run does not put an option forward' })).toBeInTheDocument()
+    expect(section('Result comparison')).toHaveTextContent('The latest run names no option')
+    expect(screen.getByRole('heading', { name: 'The latest run names no option' })).toBeInTheDocument()
     expect(screen.queryByText('Both runs used the same input values.')).toBeNull()
     expect(screen.queryByText('0%')).toBeNull()
   })
@@ -237,7 +246,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     // Sections are divided by the shared full-width rule, never boxed.
     expect(section('What you changed').className).toBe(PANEL_RULE)
     // The one headline uses Reasoning's section heading style; it is the only heading in the body.
-    const heading = screen.getByRole('heading', { name: 'The latest run does not put an option forward' })
+    const heading = screen.getByRole('heading', { name: 'The latest run names no option' })
     expect(heading.className).toContain('text-sm font-medium')
     expect(heading.className).toContain('text-text-header')
     expect(screen.getAllByRole('heading')).toHaveLength(1)

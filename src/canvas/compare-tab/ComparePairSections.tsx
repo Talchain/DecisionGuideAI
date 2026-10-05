@@ -21,20 +21,23 @@ export const COMPARE_ASK_LABEL = 'Ask Olumi about this comparison'
 
 /**
  * The one headline. Words selected from entitled producer claims, never from a score or a client comparison: an
- * option is named only by a leader id the producer sent, and only while results may be shown.
+ * option is named only by a leader id the producer sent, and only while results may be shown. Principle audit (5 Oct):
+ * it is named as what came out best IN THIS MODEL (Science's phrase), never as one a run "puts forward".
  */
 function headline(delta: RunDelta, label: (id: string) => string | null, nearTie: boolean): string {
   if (nearTie) return 'Too close to call'
   const prior = delta.leader.prior_leading_option_id
   const current = delta.leader.current_leading_option_id
-  if (!current) return 'The latest run does not put an option forward'
+  if (!current) return 'The latest run names no option'
   const currentName = label(current)
-  if (!prior) return `The latest run puts forward ${currentName ?? 'an option'}; the previous run did not put one forward`
+  if (!prior) return `In this model, ${currentName ?? 'an option'} came out best on the latest run; the previous run named no option`
   const priorName = label(prior)
   if (delta.leader.changed) {
-    return currentName && priorName ? `The option put forward changed from ${priorName} to ${currentName}` : 'The option put forward changed'
+    return currentName && priorName
+      ? `In this model, the option that came out best changed from ${priorName} to ${currentName}`
+      : 'Which option came out best in this model changed'
   }
-  return currentName ? `${currentName} is still the option put forward` : 'The option put forward is unchanged'
+  return currentName ? `In this model, ${currentName} still came out best` : 'The option that came out best in this model is unchanged'
 }
 
 function RunTime({ name, endpoint }: { name: string; endpoint?: RunDeltaEndpoint }): JSX.Element {
