@@ -768,6 +768,21 @@ test.describe.serial('J1 · whole PoC', () => {
         stored_keys: Object.keys(stored ?? {}), live_keys: Object.keys(J.AR2 ?? {}),
         diff: blockDiff(J.AR2, stored),
       })
+      // Run 37386112834: the two analysis_result blocks are identical, so the panel's difference
+      // comes from OUTSIDE the block. Record what else each path carries: R2's live turn (bound by
+      // its block's computed_against_hash) against the cold read's top level and current_read.
+      const r2Turn = [...turns].reverse().find((t) => {
+        const ar = analysisResultOf(t.body)
+        return ar != null && ar.computed_against_hash === J.AR2?.computed_against_hash
+      })
+      const shape = (v: unknown) => (Array.isArray(v) ? `array(${v.length})` : v === null ? 'null' : typeof v === 'object' ? `object{${Object.keys(v as object).join(',')}}` : typeof v)
+      writeEvidence('J8c-turn-vs-read.json', {
+        live_turn_found: r2Turn != null,
+        live_turn_top: Object.fromEntries(Object.entries(r2Turn?.body ?? {}).map(([k, v]) => [k, shape(v)])),
+        live_turn_blocks: (r2Turn?.body?.blocks ?? []).map((b: any) => ({ type: b?.type, keys: Object.keys(b ?? {}) })),
+        read_top: Object.fromEntries(Object.entries(storedBody).map(([k, v]) => [k, shape(v)])),
+        read_current_read: Object.fromEntries(Object.entries(storedBody.current_read ?? {}).map(([k, v]) => [k, shape(v)])),
+      })
       const differ = ([['reloaded', reloaded], ['fresh', fresh]] as const)
         .filter(([, p]) => panelKey(p) !== panelKey(before)).map(([name]) => name)
       if (differ.length) throw new Error(`the panel differs from before the reload in: ${differ.join(', ')} (texts in J8c-CL1-CL2.json)`)
