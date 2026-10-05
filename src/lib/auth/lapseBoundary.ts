@@ -68,23 +68,39 @@ export function sessionLapsedHere(): boolean {
 }
 
 /**
- * Before the app renders: a lapse is an identity boundary. Resolves true when it ran. Never rejects, so the app always
- * renders: the boundary loads with the canvas store, and a failure to load it leaves the page exactly as it was before
- * this existed.
+ * The boundary's own wait for its chunk. It runs before ANY route mounts, so a chunk that never settles must not blank
+ * the app (Review Desk, #2530): past this bound the app renders WITHOUT the sweep, the record stays, and the next boot
+ * decides again. Well inside AppPoC's own chunk bound (`CHUNK_STALL_BOUND_MS`, 45 s), so the app still has its time.
+ */
+export const LAPSE_BOUNDARY_BOUND_MS = 8_000
+
+/**
+ * Before the app renders: a lapse is an identity boundary. Resolves true when it ran. Never rejects and never waits
+ * past `boundMs`, so the app always renders. A failure to load leaves the page exactly as it was before this existed,
+ * and a chunk that arrives AFTER the bound never sweeps (the app is already mounted by then).
  */
 export async function runLapseBoundaryIfNeeded(
   loadBoundary: () => Promise<{ clearUserScopedState: () => void }> = () => import('./userScopedState'),
+  boundMs: number = LAPSE_BOUNDARY_BOUND_MS,
 ): Promise<boolean> {
   if (!sessionLapsedHere()) return false
+  let timer: ReturnType<typeof setTimeout> | undefined
   try {
-    const { clearUserScopedState } = await loadBoundary()
+    const loaded = await Promise.race([
+      loadBoundary(),
+      new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), boundMs) }),
+    ])
+    // The bound passed first: render without the sweep; the record stays, so the next boot decides again.
+    if (loaded === null) return false
     // Decided again AFTER the await: another tab may have stored a session meanwhile, and a sweep then would delete a
     // signed-in identity's work (Codex, #2530 r1).
     if (!sessionLapsedHere()) return false
     // Its sweep removes `SIGNED_IN_HERE_KEY` too (`USER_SCOPED_STORAGE_KEYS`), so the next guest boot is not a lapse.
-    clearUserScopedState()
+    loaded.clearUserScopedState()
   } catch {
     return false
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
   }
   return true
 }

@@ -122,8 +122,9 @@ function Shell() {
 //
 // ⭐ LAPSE-BOUNDARY FIRST (`lib/auth/lapseBoundary.ts`): a signed-in session that ended without a sign-out is an
 // identity boundary, and it must run before ANY route mounts, restores or reads `?run=`. Everything is inside AppPoC,
-// so its loader runs the boundary, then loads the app. It never rejects, and costs one storage read when there is no lapse.
-const AppPoC = lazyWithStallBound(() => runLapseBoundaryIfNeeded().then(() => import('./poc/AppPoC')), 'Olumi');
+// so its loader runs the boundary, then loads the app. It never rejects, waits at most `LAPSE_BOUNDARY_BOUND_MS`, and
+// costs one storage read when there is no lapse. ONE arrow, so the routed-lazy census counts this one declaration once.
+const AppPoC = lazyWithStallBound(async () => { await runLapseBoundaryIfNeeded(); return import('./poc/AppPoC'); }, 'Olumi');
 
 (function boot() {
   try {

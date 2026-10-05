@@ -9,7 +9,8 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { runLapseBoundaryIfNeeded, sessionLapsedHere, SIGNED_IN_HERE_KEY, __resetLapseBoundaryForTests } from '../lapseBoundary'
+import { LAPSE_BOUNDARY_BOUND_MS, runLapseBoundaryIfNeeded, sessionLapsedHere, SIGNED_IN_HERE_KEY, __resetLapseBoundaryForTests } from '../lapseBoundary'
+import { CHUNK_STALL_BOUND_MS } from '../../staleBuildRecovery'
 import { clearUserScopedState, USER_SCOPED_STORAGE_KEYS } from '../userScopedState'
 import { isThinClientSession, loadThinLayout, saveThinLayout, __latchThinClientForTests, __resetThinClientForTests } from '../../../canvas/thinClient/thinClient'
 import { __resetPersistenceSessionForTests, setPersistenceSessionActive } from '../../persistenceSession'
@@ -180,6 +181,38 @@ describe('LAPSE-BOUNDARY — Codex #2530 r1', () => {
   })
 })
 
+describe('LAPSE-BOUNDARY — a boundary chunk that never settles never blanks the app (Review Desk, #2530)', () => {
+  it('⭐ a never-settling chunk: resolves false WITHIN the bound, nothing swept, the record stays for the next boot', async () => {
+    signedInPageWritesWork()
+    sessionLapsesAndNextPageLoads()
+    const before = snapshot()
+    const started = Date.now()
+    await expect(runLapseBoundaryIfNeeded(() => new Promise(() => { /* never settles */ }), 60)).resolves.toBe(false)
+    expect(Date.now() - started).toBeLessThan(1_000)
+    expect(snapshot()).toEqual(before)
+    expect(sessionLapsedHere()).toBe(true) // the next boot decides again
+  }, 2_000)
+
+  it('a chunk that arrives AFTER the bound never sweeps (the app is already mounted)', async () => {
+    signedInPageWritesWork()
+    sessionLapsesAndNextPageLoads()
+    const before = snapshot()
+    let swept = false
+    const late = () => new Promise<{ clearUserScopedState: () => void }>((resolve) => {
+      setTimeout(() => resolve({ clearUserScopedState: () => { swept = true } }), 120)
+    })
+    await expect(runLapseBoundaryIfNeeded(late, 40)).resolves.toBe(false)
+    await new Promise((r) => setTimeout(r, 200))
+    expect(swept).toBe(false)
+    expect(snapshot()).toEqual(before)
+  }, 2_000)
+
+  it('the bound sits well inside AppPoC\'s own chunk bound', () => {
+    expect(LAPSE_BOUNDARY_BOUND_MS).toBeGreaterThan(0)
+    expect(LAPSE_BOUNDARY_BOUND_MS * 4).toBeLessThanOrEqual(CHUNK_STALL_BOUND_MS)
+  })
+})
+
 describe('LAPSE-BOUNDARY — boot order (main.tsx)', () => {
   it('AppPoC\'s loader runs the boundary BEFORE it imports the app (every route is inside AppPoC)', async () => {
     // Bound to the SOURCE ORDER, as `participantTokenHygiene.spec.ts` binds main.tsx's: main.tsx self-boots and cannot be
@@ -187,13 +220,13 @@ describe('LAPSE-BOUNDARY — boot order (main.tsx)', () => {
     const { readFileSync } = await import('node:fs')
     const { resolve } = await import('node:path')
     const src = readFileSync(resolve(process.cwd(), 'src/main.tsx'), 'utf8')
-    const factory = src.match(/const AppPoC = lazyWithStallBound\(\(\) => ([^\n]+)\n/)
+    const factory = src.match(/const AppPoC = lazyWithStallBound\(([^\n]+)\n/)
     expect(factory).not.toBeNull() // POSITIVE CONTROL: the one AppPoC loader exists
     const body = factory![1]
-    const boundaryAt = body.indexOf('runLapseBoundaryIfNeeded()')
+    const boundaryAt = body.indexOf('await runLapseBoundaryIfNeeded()')
     const appAt = body.indexOf("import('./poc/AppPoC')")
     expect(boundaryAt).toBeGreaterThan(-1)
     expect(appAt).toBeGreaterThan(boundaryAt)
-    expect(body).toMatch(/runLapseBoundaryIfNeeded\(\)\.then\(\(\) => import\('\.\/poc\/AppPoC'\)\)/)
+    expect(body).toMatch(/^async \(\) => \{ await runLapseBoundaryIfNeeded\(\); return import\('\.\/poc\/AppPoC'\); \}/)
   })
 })
