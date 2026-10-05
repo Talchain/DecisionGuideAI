@@ -65,7 +65,6 @@ function rememberScenario(id: string): string {
 /** A new page load: the store as module load seeds it (`currentScenarioId` from the pointer), nothing on the canvas. */
 function newPage(): void {
   __resetColdLoadDeepLinkForTests()
-  scenarios.__resetPageIdentityEpochForTests()
   useCanvasStore.setState(PRISTINE, true)
   useCanvasStore.setState({ currentScenarioId: scenarios.getCurrentScenarioId(), nodes: [], edges: [] })
 }
@@ -1063,22 +1062,6 @@ describe('§14 IDENTITY (CAN-F2w): a slot whose removal was refused at sign-out 
     expect(restored?.analysis).toBeNull()
   })
 
-  it('⭐ (Codex, multi-tab, no storage failure) A\'s still-open tab never re-saves A\'s model after ANOTHER tab signs out', () => {
-    rememberScenario(Z)
-    useCanvasStore.setState({ currentScenarioId: Z, nodes: GRAPH[Z], edges: [] }) // A's tab, still live
-    // ANOTHER tab's boundary: a fresh shared epoch and the sweep. This page never adopts it.
-    localStorage.setItem(EPOCH, 'the-other-tab-epoch')
-    localStorage.removeItem(MAIN_AUTOSAVE_SLOT)
-    localStorage.removeItem(POINTER)
-    vi.spyOn(console, 'warn').mockImplementation(() => {})
-    autosaveFromStore() // A's tab saves again (its timer, its unload flush)
-    vi.restoreAllMocks()
-    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBeNull()
-    newPage() // B opens the app
-    expect(bootRestore()).toBe('not_autosave')
-    expect(onCanvas()).toEqual([])
-  })
-
   it('an UNREADABLE epoch fails closed: no slot is restored, and no save is written while it cannot be read', () => {
     clearUserScopedState()
     const raw = rememberScenario(Z)
@@ -1097,53 +1080,10 @@ describe('§14 IDENTITY (CAN-F2w): a slot whose removal was refused at sign-out 
     expect(scenarios.loadAutosave()?.scenarioId).toBe(Z) // and readable again once the epoch is
   })
 
-  it('(Codex round 2) a page whose OWN epoch could not be read at load stays fenced: it never adopts the next account\'s epoch', () => {
-    rememberScenario(Z)
-    const realGet = Storage.prototype.getItem
-    const refused = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, k: string) {
-      if (k === EPOCH) throw new DOMException('denied', 'SecurityError')
-      return realGet.call(this, k)
-    })
-    newPage() // this page loads while its epoch read is refused
-    refused.mockRestore() // storage recovers
-    useCanvasStore.setState({ currentScenarioId: Z, nodes: [goal('a_private', 'A private')], edges: [] })
-    localStorage.setItem(EPOCH, 'the-other-tab-epoch') // another tab's boundary
-    localStorage.removeItem(MAIN_AUTOSAVE_SLOT)
-    localStorage.removeItem(POINTER)
-    vi.spyOn(console, 'warn').mockImplementation(() => {})
-    autosaveFromStore()
-    vi.restoreAllMocks()
-    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBeNull()
-    newPage()
-    expect(bootRestore()).toBe('not_autosave')
-  })
-
-  it('⭐ (Codex round 2, multi-tab) a REVOKED page that processes a delayed sign-out resets its memory, but never sweeps B\'s work or rotates the epoch', () => {
-    rememberScenario(Z)
-    useCanvasStore.setState({ currentScenarioId: Z, nodes: GRAPH[Z], edges: [] }) // this tab still shows A's model
-    // Tab 1: A signed out (fresh epoch, sweep), then B worked and saved.
-    localStorage.setItem(EPOCH, 'tab-1-epoch')
-    localStorage.removeItem(MAIN_AUTOSAVE_SLOT)
-    localStorage.setItem(MAIN_AUTOSAVE_SLOT, JSON.stringify({ timestamp: 9_000_000, scenarioId: Y, nodes: GRAPH[Y], edges: [], identityEpoch: 'tab-1-epoch' }))
-    localStorage.setItem(POINTER, Y)
-    // The decision-record store's own owner record is ITS mechanism (#2469; rewritten by its reset on every boundary,
-    // before and after this change) — recorded as F2b, not this fence's to keep.
-    const canvasKeys = () => { const all = storageSnapshot(); delete all['decisionRecord.v2:owner']; return all }
-    const before = canvasKeys()
-    clearUserScopedState() // this tab's delayed A → none
-    expect(canvasKeys()).toEqual(before) // B's slot, B's pointer and the epoch, byte for byte
-    expect(onCanvas()).toEqual([]) // and this tab no longer shows A's model
-    scenarios.setCurrentScenarioId(Z) // this tab opens another of A's scenarios
-    expect(localStorage.getItem(POINTER)).toBe(Y) // B's pointer never moves
-    newPage()
-    expect(bootRestore()).toBe(Y) // B's reload restores B's work
-    expect(onCanvas()).toEqual(['y_goal'])
-  })
-
   it.each([
     ['a populated', true],
     ['an EMPTY', false],
-  ])('(Codex round 2) after the boundary on %s canvas, undo, redo, paste and undo-draft cannot bring A\'s graph back', (_what, populated) => {
+  ])('(Codex rounds 2–3) after the boundary on %s canvas, undo, redo, paste and undo-draft cannot bring A\'s graph back, and A\'s id is gone', (_what, populated) => {
     const aGraph = { nodes: [goal('a_private', 'A private')], edges: [] }
     useCanvasStore.setState({
       currentScenarioId: Z,
@@ -1158,6 +1098,7 @@ describe('§14 IDENTITY (CAN-F2w): a slot whose removal was refused at sign-out 
     expect(st.history).toEqual({ past: [], future: [] })
     expect(st.clipboard).toBeNull()
     expect(st.draftChatPreDraftSnapshot).toBeNull()
+    expect(st.currentScenarioId).toBeNull() // a late response for A's scenario no longer passes the id fence
     st.undo()
     st.redo()
     expect(onCanvas()).toEqual([])

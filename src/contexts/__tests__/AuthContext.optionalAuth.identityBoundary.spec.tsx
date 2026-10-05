@@ -76,7 +76,6 @@ describe('CAN-F2w × guest posture: the identity boundary', () => {
   beforeEach(async () => {
     vi.clearAllMocks() // each case fires ITS OWN provider's callback, never a previous case's
     localStorage.clear()
-    ;(await import('../../canvas/store/scenarios')).__resetPageIdentityEpochForTests()
     boundary.calls = 0
     vi.stubEnv('VITE_AUTH_MODE', 'guest')
     getSession.mockResolvedValue({ data: { session: null } })

@@ -274,7 +274,6 @@ export function setCurrentScenarioId(id: string): void {
   if (!isLocalStorageAvailable()) {
     return
   }
-  if (!pageMayMutateSharedSlots()) return // CAN-F2w: a revoked page never moves the next account's pointer
 
   try {
     localStorage.setItem(CURRENT_SCENARIO_KEY, id)
@@ -290,7 +289,6 @@ export function clearCurrentScenarioId(): void {
   if (!isLocalStorageAvailable()) {
     return
   }
-  if (!pageMayMutateSharedSlots()) return // CAN-F2w: a revoked page never removes the next account's pointer
 
   try {
     localStorage.removeItem(CURRENT_SCENARIO_KEY)
@@ -703,7 +701,8 @@ let lastAutosavePayload: string | null = null
  * at sign-out never reaches the next account. Measured on staging 088c9781 before this: B's routeless cold load
  * restored A's graph. An epoch, not the account id: a cold boot cannot know the id synchronously (the session restores
  * async), and fencing on it would block a signed-in user's own restore. Before the first boundary there is no epoch,
- * and every slot behaves exactly as before; an unreadable epoch reads as none (never worse than before).
+ * and every slot behaves exactly as before. An unreadable epoch fails closed: no slot is restored and nothing is
+ * written that tick. A boundary in ANOTHER TAB is follow-up F2c ("a boundary in any tab is a boundary in every tab").
  */
 export const IDENTITY_EPOCH_KEY = 'olumi-canvas-identity-epoch'
 /** The shared epoch: a string, `null` before the first boundary, `undefined` when storage refused the read. */
@@ -724,56 +723,19 @@ export function belongsToThisIdentity(stamp: unknown): boolean {
   if (epoch === undefined) return false
   return epoch === null || stamp === epoch
 }
-/**
- * The epoch THIS PAGE writes under: fixed when the page loads, and moved only by this page's own boundary
- * (`adoptIdentityEpoch`, called by `clearUserScopedState` once its write reads back). When the shared epoch has moved
- * past it, another tab crossed a boundary and this page's model is the previous identity's. It is then never written
- * again, or it would land in the slot the next account restores (Codex, #2484: reproduced with no storage failure).
- */
-let pageEpoch: string | null | undefined = readIdentityEpoch()
-export function adoptIdentityEpoch(epoch: string): void {
-  pageEpoch = epoch
-}
-/**
- * Whether this page still holds the CURRENT identity: its epoch is the shared one (both readable). A page that does
- * not was revoked by another tab's boundary: it may OBSERVE that boundary (reset its own memory) but must never
- * publish it again (sweep shared storage or rotate the epoch), because that storage may already be the next account's
- * work (Codex, #2484 round 2). An unreadable epoch on either side reads as holding, so a page that cannot tell still
- * sweeps, as it always has.
- */
-export function pageHoldsCurrentIdentity(): boolean {
-  const shared = readIdentityEpoch()
-  if (pageEpoch === undefined || shared === undefined) return true
-  return shared === pageEpoch
-}
-/**
- * Whether this page may WRITE OR REMOVE the shared autosave slot and the pointer: it holds the current epoch, and both
- * epochs are readable. A revoked page (another tab's boundary), or one whose own epoch was unknown at load, mutates
- * neither: `resetCanvas` on such a page would otherwise delete the next account's work and pointer (Codex, #2484 r2).
- */
-function pageMayMutateSharedSlots(): boolean {
-  const shared = readIdentityEpoch()
-  return pageEpoch !== undefined && shared !== undefined && shared === pageEpoch
-}
-/** A fresh page load in tests: the page reads the shared epoch afresh. */
-export function __resetPageIdentityEpochForTests(): void {
-  pageEpoch = readIdentityEpoch()
-}
 
 export function saveAutosave(data: AutosaveData): void {
   if (!isLocalStorageAvailable()) {
     return
   }
 
-  // CAN-F2w: write only under an epoch this page still holds. An unreadable shared epoch skips this write (the next
-  // autosave retries). A page another tab's boundary revoked never writes the previous identity's model again, and
-  // neither does a page whose OWN epoch could not be read at load, until its own boundary adopts one: adopting the
-  // shared epoch later could adopt the next account's (Codex, #2484 round 2).
-  if (!pageMayMutateSharedSlots()) {
-    console.warn('[scenarios] Autosave skipped: this page no longer holds the current identity (CAN-F2w)')
+  // CAN-F2w: every write is stamped with the current identity epoch.
+  const epoch = readIdentityEpoch()
+  if (epoch === undefined) {
+    // An unreadable epoch cannot say whose this write is: skip it (the next autosave retries), never stamp a guess.
+    console.warn('[scenarios] Autosave skipped: the identity epoch could not be read (CAN-F2w)')
     return
   }
-  const epoch = pageEpoch as string | null
   const stamped: AutosaveData = epoch === null ? data : { ...data, identityEpoch: epoch }
   try {
     const payload = JSON.stringify(stamped)
@@ -854,7 +816,6 @@ export function clearAutosave(): void {
   if (!isLocalStorageAvailable()) {
     return
   }
-  if (!pageMayMutateSharedSlots()) return // CAN-F2w: a revoked page never removes the next account's work
 
   try {
     localStorage.removeItem(AUTOSAVE_KEY)
