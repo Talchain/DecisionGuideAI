@@ -8,6 +8,7 @@ import { useStrengthenStore } from '../../canvas/stores/strengthenStore'
 import { useDecisionRecordStore } from '../../components/results/modals/decisionRecordStore'
 import { useSuccessMeasureStore } from '../../components/results/modals/successMeasureStore'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
+import { useServerConversationTurnsStore } from '../../canvas/stores/serverConversationTurnsStore'
 import { clearCitedEvidenceCache } from '../../collab/citedEvidenceCache'
 import { clearRoundRosterCache } from '../../collab/roundRosterCache'
 
@@ -20,6 +21,12 @@ export const USER_SCOPED_STORAGE_KEYS = [
   'olumi-cee-analysis-ready-node-ids',
   // An unregistered import's node ids and edge pairs (`importRegistrationMarker.ts`): the previous identity's model shape.
   'olumi.import.pendingServerRegistration.v1',
+  // Its sibling: which scenario's model CEE acknowledged (`importRegistrationMarker.ts`), keyed by the previous identity's
+  // scenario id.
+  'olumi.import.serverAcknowledged.v1',
+  // Run history (`runHistory.ts`): whole reports and graph snapshots with no owner. Nothing writes it on the live path,
+  // but entries from the retired Play path are still read by the palette, ShareDrawer and ReactFlowGraph's restore.
+  'olumi-canvas-run-history',
 ] as const
 
 // `olumi-canvas-autosave:` — a cold-load deep link's preserved copies (`scenarios.keyedAutosaveKey`): one per scenario,
@@ -76,6 +83,9 @@ export function clearUserScopedState(): void {
   // singleton already holds without re-checking its scenario (`guidanceStore.rehydrateGuidance`). Clear it in memory;
   // the blob goes with the session keys below (its own clear needs a mounted canvas to name the scenario).
   step(() => useGuidanceStore.getState().clearGuidanceItems())
+  // CEE's stored chat turns offered to the panel (`serverConversationTurnsStore`), held in memory and keyed by scenario
+  // only: an offer read under the previous identity and not yet taken would be handed to the next account's panel.
+  step(() => useServerConversationTurnsStore.setState({ offer: null }))
   // Panel participants' names and their cited evidence, fetched with the previous owner's token (in memory, 5-min TTL).
   step(clearRoundRosterCache)
   step(clearCitedEvidenceCache)
