@@ -50,7 +50,7 @@ import type { EdgeDirectionDisplay } from './edgeValueProvenance'
 import { BY_DEFINITION } from './strengthDefinitional'
 
 /** Whose figure the size is. `user` outranks the producer's own label. */
-export type NaturalEffectAuthor = 'user' | 'olumi_estimate' | 'olumi_placeholder'
+export type NaturalEffectAuthor = 'user' | 'olumi_estimate' | 'olumi_placeholder' | 'example_figure'
 
 export const NaturalEffectSchema = z.object({
   /** Signed change in the TARGET's own unit, as admitted. */
@@ -63,7 +63,7 @@ export const NaturalEffectSchema = z.object({
   sourceUnit: z.string().min(1),
   /** The signed β the amount was admitted for — the staleness key (see header). */
   strengthMean: z.number().finite(),
-  author: z.enum(['user', 'olumi_estimate', 'olumi_placeholder']),
+  author: z.enum(['user', 'olumi_estimate', 'olumi_placeholder', 'example_figure']),
   /**
    * ⭐ Beat 1 (Canvas lane, 4 Oct 2026): WHERE the user's size came from, read off the same stored `provenance` at the
    * same hop — `brief_extraction` → "from your brief", anything else the user authored (`user_specified`, a size they
@@ -98,6 +98,7 @@ const MAGNITUDE_AUTHORS: Record<string, NaturalEffectAuthor> = {
   user_stated: 'user',
   olumi_estimate: 'olumi_estimate',
   olumi_placeholder: 'olumi_placeholder',
+  example_figure: 'example_figure',
 }
 
 function readRecord(value: unknown): Record<string, unknown> | null {
@@ -108,6 +109,29 @@ function readRecord(value: unknown): Record<string, unknown> | null {
 
 function nonEmpty(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+}
+
+/** RT-12: example attribution also survives when the producer supplied no natural-effect amount. */
+export function strengthExampleFigurePatch(
+  wireEdge: Record<string, unknown> | undefined | null,
+  signedMean: number,
+  wireSuppliedStrength: boolean,
+): { strengthExampleFigure?: number } {
+  const provenance = readRecord(wireEdge?.provenance)
+  if (!wireSuppliedStrength || !Number.isFinite(signedMean) || provenance?.source === 'user_specified' ||
+      provenance?.magnitude !== 'example_figure') return {}
+  const natural = readRecord(provenance.natural_effect)
+  // A supplied natural effect keeps its own admitted key; no amount or unit is fabricated for an unsized link.
+  if (provenance.natural_effect !== undefined &&
+      (natural?.strength_mean_frame !== STRENGTH_MEAN_FRAME ||
+       typeof natural.strength_mean !== 'number' || !Number.isFinite(natural.strength_mean))) return {}
+  return { strengthExampleFigure: natural === null ? signedMean : natural.strength_mean as number }
+}
+
+/** One staleness rule for both the stored amount and example attribution without an amount. */
+export function naturalEffectStrengthIsCurrent(currentMean: number, admittedMean: unknown): boolean {
+  return Number.isFinite(currentMean) && typeof admittedMean === 'number' && Number.isFinite(admittedMean) &&
+    Math.abs(currentMean - admittedMean) <= SAME_MEAN_EPSILON
 }
 
 /**
@@ -197,6 +221,7 @@ function amountWithUnit(amount: number, unit: string): string {
  * nothing, as before.
  */
 export function naturalEffectAuthorWords(effect: Pick<NaturalEffect, 'author' | 'userOrigin'>): string {
+  if (effect.author === 'example_figure') return 'example figure'
   if (effect.author === 'olumi_estimate') return "Olumi's estimate"
   if (effect.author === 'olumi_placeholder') return 'not judged yet (a placeholder, not an estimate)'
   return effect.userOrigin === 'brief' ? 'from your brief' : effect.userOrigin === 'entered' ? 'your figure' : ''
@@ -249,18 +274,19 @@ export function naturalEffectPhraseParts(
   definitional = false,
 ): { size: string; whose: string; ofRange: string } | null {
   if (!effect) return null
-  if (!Number.isFinite(currentMean) || Math.abs(currentMean - effect.strengthMean) > SAME_MEAN_EPSILON) return null
+  if (!naturalEffectStrengthIsCurrent(currentMean, effect.strengthMean)) return null
   if (!direction.show || effect.amount === 0) return null
   if ((effect.amount < 0 ? 'negative' : 'positive') !== direction.direction) return null
 
   const size = Math.abs(effect.amount)
   // A4: one end of the user's written range bounds the size — the low end "at least", the high end "at most".
-  const range = effect.author === 'user' && !definitional ? effect.statedRange : undefined
-  const bound = definitional ? '' : range === undefined ? 'about ' : range.end === 'low' ? 'at least ' : 'at most '
+  const holdsByDefinition = definitional && effect.author !== 'example_figure'
+  const range = effect.author === 'user' && !holdsByDefinition ? effect.statedRange : undefined
+  const bound = holdsByDefinition ? '' : range === undefined ? 'about ' : range.end === 'low' ? 'at least ' : 'at most '
   const change = `${direction.direction === 'negative' ? 'Decrease' : 'Increase'} of ${bound}${amountWithUnit(size, effect.unit)}`
   const per = effect.sourceUnit === SWITCH_SOURCE_UNIT
     ? ''
     : ` per ${amountWithUnit(effect.perSourceChange, effect.sourceUnit)}`
   const ofRange = range === undefined ? '' : ` · the ${range.end} end of your ${range.text} range`
-  return { size: `${change}${per}`, whose: definitional ? BY_DEFINITION.toLowerCase() : naturalEffectAuthorWords(effect), ofRange }
+  return { size: `${change}${per}`, whose: holdsByDefinition ? BY_DEFINITION.toLowerCase() : naturalEffectAuthorWords(effect), ofRange }
 }

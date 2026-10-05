@@ -17,8 +17,10 @@
  */
 import { strengthAcceptedPatch } from './strengthAccepted'
 import { strengthStatedPatch } from './strengthStated'
+import { strengthExampleFigurePatch } from './naturalEffect'
+import { resolveEdgeSignedStrengthDisplay } from './edgeValueProvenance'
 
-export const LINK_SIZING_LABEL_KEYS = ['strengthAccepted', 'strengthStated'] as const
+export const LINK_SIZING_LABEL_KEYS = ['strengthAccepted', 'strengthStated', 'strengthExampleFigure'] as const
 
 const SAME_WEIGHT_EPSILON = 1e-9
 
@@ -63,5 +65,12 @@ export function relabelLinkSizing(
   if (!carriesProvenance) return out
   if (updateStrengthMagnitudes(update).some((m) => Math.abs(m - weight) > SAME_WEIGHT_EPSILON)) return out
   const carrier = { provenance: update.provenance }
-  return { ...out, ...strengthAcceptedPatch(carrier, weight, true), ...strengthStatedPatch(carrier, weight, true) }
+  // RT-12: an example key is signed, just like natural_effect.strength_mean. Read the resulting stated direction.
+  const strength = resolveEdgeSignedStrengthDisplay(merged)
+  return {
+    ...out,
+    ...strengthAcceptedPatch(carrier, weight, true),
+    ...strengthStatedPatch(carrier, weight, true),
+    ...(strength.show ? strengthExampleFigurePatch(carrier, strength.value, true) : {}),
+  }
 }

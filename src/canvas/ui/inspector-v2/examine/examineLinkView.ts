@@ -8,7 +8,8 @@
  * A natural-effect sentence ("1 more conversation every 2 months") is refused by today's link door, so the limit line
  * names the route that works — a strength in words — and never promises more.
  *
- * Four bases, each from a fact the client already holds; never a score this module invents:
+ * Five bases, each from a fact the client already holds; never a score this module invents:
+ *   · `example`        — the example decision's live strength (`edgeSizePhrase` `exampleFigure`).
  *   · `analysis`       — the last Run found the comparison could change with this link's strength (`isEdgeFragile`).
  *   · `placeholder`    — Olumi has not sized the link; it carries a starting strength (`isStrengthPlaceholder`).
  *   · `accepted`       — Olumi's strength the user accepted (`isStrengthAccepted`, gate 5): still Olumi's figure, so
@@ -34,7 +35,7 @@ import { isStrengthStated } from '../../../domain/strengthStated'
 import { edgeSizePhrase } from '../../../edges/edgeSizePhrase'
 import { EXAMINE_WHY } from './examineAssumptionView'
 
-export type ExamineLinkBasis = 'analysis' | 'placeholder' | 'accepted' | 'olumi_estimate'
+export type ExamineLinkBasis = 'example' | 'analysis' | 'placeholder' | 'accepted' | 'olumi_estimate'
 
 export interface ExamineLinkView {
   /** The strength as a band word (`getStrengthLabel`), never a number. */
@@ -52,6 +53,7 @@ export const EXAMINE_LINK_LIMIT =
   'Olumi will ask what you know. Say how strong you think it is, for example “strong” or “weak”. Nothing changes until you approve it.'
 
 export const EXAMINE_LINK_WHY: Readonly<Record<ExamineLinkBasis, string>> = Object.freeze({
+  example: 'This is an example figure, not a figure about your situation. Change it to see how much it matters.',
   analysis: 'Your last Run found the comparison could change if this link is stronger or weaker than assumed.',
   placeholder: 'Olumi hasn’t sized this link yet. It uses a starting strength, not an estimate.',
   accepted: EXAMINE_WHY.accepted,
@@ -71,16 +73,20 @@ export function buildExamineLinkView(input: {
   if (input.structural || !input.data || isStrengthDefinitional(input.data)) return null
   const display = resolveEdgeSignedStrengthDisplay(input.data)
   if (!display.show) return null
+  const size = edgeSizePhrase(input.data)
+  const example = size?.exampleFigure === true
   const olumis = edgeValueSource(input.data, 'weight') === 'cee' &&
-    edgeSizePhrase(input.data)?.usersFigure !== true && !isStrengthStated(input.data)
-  if (!input.fragile && !olumis) return null
-  const basis: ExamineLinkBasis = input.fragile
-    ? 'analysis'
-    : isStrengthPlaceholder(input.data)
-      ? 'placeholder'
-      : isStrengthAccepted(input.data)
-        ? 'accepted'
-        : 'olumi_estimate'
+    size?.usersFigure !== true && !example && !isStrengthStated(input.data)
+  if (!input.fragile && !olumis && !example) return null
+  const basis: ExamineLinkBasis = example
+    ? 'example'
+    : input.fragile
+      ? 'analysis'
+      : isStrengthPlaceholder(input.data)
+        ? 'placeholder'
+        : isStrengthAccepted(input.data)
+          ? 'accepted'
+          : 'olumi_estimate'
   const band = getStrengthLabel(Math.abs(display.value))
   return {
     value: band,
