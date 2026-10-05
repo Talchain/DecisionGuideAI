@@ -61,6 +61,15 @@ describe('⭐ Paul\'s test: CEE\'s bare-level fallback beside a real unit and a 
 })
 
 describe('CEE\'s value still prints whenever it is not that fallback, or a unit or scale is missing', () => {
+  it('⭐ after CEE-ECHO-F1 the wire carries "6 developers" on "Developers": read once, never converted twice', () => {
+    // CEE #2578 keeps a reading synthesised from the option's own figure, so the detail is the quantity itself. The
+    // workaround above stays for stored pre-fix payloads (a cold reload of an older Run) and must not touch this one.
+    const row = cardRow(B1_LEVEL, '6 developers')
+    expect(row.change).toBe('4 → 6 developers')
+    expect(carriedInterventionDisplay({ label: 'Developers', value: 0.2, displayValue: '6 developers', unit: 'developers', cap: 30 }))
+      .toBe('6 developers')
+  })
+
   it('control: a real CEE reading ("6 developers", label not echoed) prints as it did', () => {
     const row = cardRow(B1_LEVEL, '6 developers', factorNode('Team size'))
     expect(row.change).toBe('4 → 6 developers')
