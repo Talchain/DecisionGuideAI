@@ -209,6 +209,30 @@ describe('sign-out sweep: the previous account\'s conversation stays gone', () =
     ).not.toContain(A_BRIEF)
   })
 
+  // Codex #2523 r1: the file is not the whole fence. A conversation still mounted may have no entry on disk, because
+  // `saveTranscript` removes the key when even one message does not fit, and the sweep then frees the quota.
+  it("does not write A's conversation back when it is on screen but not on disk at the sweep", async () => {
+    scenarios.setCurrentScenarioId(SCENARIO_A)
+    useCanvasStore.setState({ currentScenarioId: SCENARIO_A })
+    writePreviousPageTranscript(SCENARIO_A, 'a-previous-page-load', A_BRIEF)
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await Promise.resolve() })
+    expect(result.current.messages.map(m => m.content), 'precondition: A\'s transcript was restored').toContain(A_BRIEF)
+    useCanvasStore.setState({ lastServerGraphHash: 'v5:a-server-graph' })
+    localStorage.removeItem(TRANSCRIPT_STORAGE_KEY)
+    expect(localStorage.getItem(TRANSCRIPT_STORAGE_KEY), 'precondition: A\'s words are on screen only').toBeNull()
+
+    await act(async () => {
+      clearUserScopedState()
+      await Promise.resolve()
+    })
+
+    expect(
+      localStorage.getItem(TRANSCRIPT_STORAGE_KEY) ?? '',
+      "A's brief is on disk after the sweep: a live owner with no entry on disk was not fenced",
+    ).not.toContain(A_BRIEF)
+  })
+
   it("CONTROL: B's own conversation, opened after the sweep in the same page, is restored and saved again", async () => {
     scenarios.setCurrentScenarioId(SCENARIO_A)
     useCanvasStore.setState({ currentScenarioId: SCENARIO_A })
