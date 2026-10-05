@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useNodesInitialized, useStore as useReactFlowStore } from '@xyflow/react'
 import { useCanvasStore } from '../store'
+import { isThinClientSession } from '../thinClient/thinClient'
 import { useAnchorRailFloorStore } from '../nodes/shared/anchorRailFloor'
 import {
   evaluateMeasurementGate,
@@ -140,6 +141,22 @@ export function useMeasureThenLayout(): void {
     laidOutHeightsRef.current = heights
     baselineByRungRef.current = new Map([[layoutStateKey(), heights]])
   }
+
+  // THIN CLIENT: the correction state above belongs to ONE scenario's layout. Carried across a switch, the previous
+  // scenario's fallback flag (or its height baseline, for a shared node id) starts a NEW layout over the positions the
+  // next scenario just restored from its saved layout (Codex #2511 r2). Reset on the switch; within a scenario the
+  // corrections work as before. Declared before the effect below so it runs first in the same commit. Guests unchanged.
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  const correctionsScenarioRef = useRef(currentScenarioId)
+  useEffect(() => {
+    if (correctionsScenarioRef.current === currentScenarioId) return
+    correctionsScenarioRef.current = currentScenarioId
+    if (!isThinClientSession()) return
+    laidOutWithFallbackRef.current = false
+    fallbackDeadlineRef.current = null
+    laidOutHeightsRef.current = new Map()
+    baselineByRungRef.current = new Map()
+  }, [currentScenarioId])
 
   useEffect(() => {
     const measured = allUnlockedNodesMeasured(storeNodes, nodeLookup)

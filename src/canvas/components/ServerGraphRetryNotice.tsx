@@ -100,7 +100,7 @@ import {
   draftStreamInFlight,
   draftStreamPhaseFor,
 } from '../stores/draftStore'
-import { useServerGraphRetryStore } from '../stores/serverGraphRetryStore'
+import { useServerGraphRetryStore, type ServerGraphTerminalReason } from '../stores/serverGraphRetryStore'
 import { typography } from '../../styles/typography'
 
 export const SERVER_GRAPH_RETRY_NOTICE_TESTID = 'server-graph-retry-notice'
@@ -140,8 +140,26 @@ export const SERVER_GRAPH_RETRY_UNDISPLAYABLE_COPY =
 /** The action measured to recover it every time. */
 export const SERVER_GRAPH_RETRY_ACTION_COPY = 'Reload the page'
 
+/**
+ * THIN CLIENT (GAP-1) — the read ENDED without a model (`stage: 'terminal'`). Each sentence says only what the client
+ * observed for that ending (this store's header forbids any claim about where the work lives), and each action is the
+ * one that can help: a sign-in for an expired session (never "try again" — `HydrationOutcome.signInRequired`), the
+ * list for a decision this account cannot open (a reload will not change a 404), a reload for everything transient.
+ */
+export const SERVER_GRAPH_TERMINAL_COPY: Record<ServerGraphTerminalReason, string> = {
+  notReadable: 'Olumi could not open this decision for this account.',
+  unavailable: 'Olumi could not load this decision just now.',
+  unusable: 'Olumi could not load this decision just now.',
+  refused: 'Olumi did not load this decision for this account just now.',
+  signInRequired: 'Your sign-in has ended. Sign in again to open this decision.',
+  mergeRefused: SERVER_GRAPH_RETRY_UNDISPLAYABLE_COPY,
+}
+export const SERVER_GRAPH_SIGN_IN_ACTION_COPY = 'Sign in'
+export const SERVER_GRAPH_LIST_ACTION_COPY = 'Your decisions'
+
 export function ServerGraphRetryNotice(): JSX.Element | null {
   const stage = useServerGraphRetryStore((s) => s.stage)
+  const terminalReason = useServerGraphRetryStore((s) => s.reason)
   const noticeScenarioId = useServerGraphRetryStore((s) => s.scenarioId)
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
   const nodeCount = useCanvasStore((s) => s.nodes.length)
@@ -190,6 +208,10 @@ export function ServerGraphRetryNotice(): JSX.Element | null {
   if (draftingThisDecision) return null
 
   const exhausted = stage === 'exhausted'
+  const terminal = stage === 'terminal' && terminalReason !== null
+  // A terminal stage that cannot say WHICH ending is a stage with nothing true to say.
+  if (stage === 'terminal' && !terminal) return null
+  const settled = exhausted || terminal
 
   return (
     <div
@@ -203,20 +225,31 @@ export function ServerGraphRetryNotice(): JSX.Element | null {
       aria-live="polite"
       className="pointer-events-auto absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1.5 shadow-sm"
     >
-      {!exhausted && (
+      {!settled && (
         <div
           className="h-3.5 w-3.5 flex-none animate-spin rounded-full border-2 border-text-light border-t-transparent motion-reduce:animate-none"
           aria-hidden="true"
         />
       )}
       <span className={`${typography.panelMeta} text-text-body`}>
-        {exhausted
-          ? modelWasDelivered
-            ? SERVER_GRAPH_RETRY_UNDISPLAYABLE_COPY
-            : SERVER_GRAPH_RETRY_EXHAUSTED_COPY
-          : SERVER_GRAPH_RETRY_LOOKING_COPY}
+        {terminal && terminalReason !== null
+          ? SERVER_GRAPH_TERMINAL_COPY[terminalReason]
+          : exhausted
+            ? modelWasDelivered
+              ? SERVER_GRAPH_RETRY_UNDISPLAYABLE_COPY
+              : SERVER_GRAPH_RETRY_EXHAUSTED_COPY
+            : SERVER_GRAPH_RETRY_LOOKING_COPY}
       </span>
-      {exhausted && (
+      {terminal && (terminalReason === 'signInRequired' || terminalReason === 'notReadable') && (
+        <a
+          href={terminalReason === 'signInRequired' ? '#/login' : '#/'}
+          data-testid={`${SERVER_GRAPH_RETRY_NOTICE_TESTID}-action`}
+          className={`${typography.panelMeta} rounded text-info underline hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+        >
+          {terminalReason === 'signInRequired' ? SERVER_GRAPH_SIGN_IN_ACTION_COPY : SERVER_GRAPH_LIST_ACTION_COPY}
+        </a>
+      )}
+      {settled && !(terminal && (terminalReason === 'signInRequired' || terminalReason === 'notReadable')) && (
         <button
           type="button"
           data-testid={`${SERVER_GRAPH_RETRY_NOTICE_TESTID}-action`}

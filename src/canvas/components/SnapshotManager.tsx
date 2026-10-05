@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { listSnapshots, loadSnapshot, deleteSnapshot, saveSnapshot } from '../persist'
 import { readIdentityEpoch } from '../store/scenarios'
+import { isThinClientSession } from '../thinClient/thinClient'
 import { useCanvasStore } from '../store'
 import { useToast } from '../ToastContext'
 import { BottomSheet } from './BottomSheet'
@@ -20,7 +21,11 @@ interface SnapshotItem {
   size: number
 }
 
+/** THIN CLIENT (GAP-2): what a signed-in browser shows instead of "Save Current Canvas". */
+export const SNAPSHOTS_NOT_KEPT_SIGNED_IN = 'Snapshots are not kept in this browser while you are signed in.'
+
 export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
+  const thinClient = isThinClientSession()
   const [snapshots, setSnapshots] = useState<SnapshotItem[]>([])
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
@@ -160,6 +165,13 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Snapshot Manager">
       <div className="space-y-4">
           {/* Save New */}
+          {/* THIN CLIENT (GAP-2): a signed-in browser keeps no local model copy, so `saveSnapshot` refuses and the old
+              failure toast blamed storage quota for a save that was never attempted. Not offered, as WhatChangedPanel. */}
+          {thinClient ? (
+            <p data-testid="snapshot-manager-thin-note" className={`${typography.caption} text-gray-500 mb-6`}>
+              {SNAPSHOTS_NOT_KEPT_SIGNED_IN}
+            </p>
+          ) : (
           <div className="mb-6">
             <button
               onClick={handleSave}
@@ -171,6 +183,7 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
               {snapshots.length}/10 snapshots • Auto-rotates oldest
             </p>
           </div>
+          )}
 
           {/* Snapshot List */}
             {snapshots.length === 0 ? (

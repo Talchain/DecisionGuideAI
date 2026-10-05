@@ -2,6 +2,7 @@
 import { Node, Edge } from '@xyflow/react'
 import type { EdgeData } from './domain/edges'
 import { belongsToThisIdentity, readIdentityEpoch } from './store/scenarios'
+import { isThinClientSession } from './thinClient/thinClient'
 
 const STORAGE_KEY = 'canvas-storage'
 const SNAPSHOT_PREFIX = 'canvas-snapshot-'
@@ -176,6 +177,8 @@ export function clearState(): void {
 // Snapshot management (versioned saves)
 
 export function saveSnapshot(state: { nodes: Node[]; edges: Edge<EdgeData>[] }): boolean {
+  // THIN CLIENT: a signed-in browser keeps no model copy; Version history is its saved state.
+  if (isThinClientSession()) return false
   // A snapshot is a whole graph, so it carries the same owner fence as every autosave slot (CAN-F2w): stamped with the
   // identity epoch it was written under, and listed or loaded only under that epoch. An unreadable epoch cannot say whose
   // this write is, so nothing is written.
@@ -218,6 +221,8 @@ export function saveSnapshot(state: { nodes: Node[]; edges: Edge<EdgeData>[] }):
 
 export function listSnapshots(): SnapshotMetadata[] {
   const snapshots: SnapshotMetadata[] = []
+  // THIN CLIENT: never list a snapshot for a signed-in browser — it may be another account's model.
+  if (isThinClientSession()) return snapshots
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
@@ -248,6 +253,7 @@ export function listSnapshots(): SnapshotMetadata[] {
 }
 
 export function loadSnapshot(key: string): PersistedState | null {
+  if (isThinClientSession()) return null
   try {
     const raw = localStorage.getItem(key)
     if (!raw) return null

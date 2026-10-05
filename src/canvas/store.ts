@@ -197,7 +197,7 @@ import { useDraftStore } from './stores/draftStore'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
-import type { StoredRunDelta } from './state/storedRunDelta'
+import type { StoredRunDelta, StoredRunDeltaAbsence } from './state/storedRunDelta'
 import type { LimitVerdictsWrite, StoredLimitVerdicts } from './state/storedLimitVerdicts'
 import { recordCrossSurfaceEvent, recordUserAction } from '../lib/debug-state'
 import {
@@ -696,6 +696,8 @@ interface CanvasState {
    * `runDeltaDescribesDisplayedAnalysis` is the one predicate that decides.
    */
   runDelta: StoredRunDelta | null
+  /** Why this analysis has no pair; later readiness-only turns cannot replace it. */
+  runDeltaAbsence: StoredRunDeltaAbsence | null
   /** B5 per-limit + joint verdicts, bound to the analysis they arrived beside (`storedLimitVerdicts.ts`). */
   limitVerdicts: StoredLimitVerdicts | null
   /**
@@ -1754,6 +1756,7 @@ interface CanvasState {
    * this one.
    */
   setRunDelta: (stored: StoredRunDelta | null) => void
+  setRunDeltaAbsence: (stored: StoredRunDeltaAbsence | null) => void
   setLimitVerdicts: (stored: LimitVerdictsWrite | null) => void
   /**
    * Write the V5 analysis-fact slice. Pass null to clear (e.g. on scenario
@@ -2370,6 +2373,7 @@ const DECISION_CONTEXT_CLEAR = {
   // because this failure is silent and a reader would see a real, producer-
   // computed comparison sitting under a model it was never about.
   runDelta: null,
+  runDeltaAbsence: null,
   limitVerdicts: null,
   // The retained admission is scoped to ONE decision. A full-context replacement
   // brings a different graph, so the previous decision's licence (or refusal)
@@ -3470,6 +3474,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   ceeAnalysisReady: null,
   // No run has completed, so there is no run-over-run consequence to describe.
   runDelta: null,
+  runDeltaAbsence: null,
   limitVerdicts: null,
   // No producer has spoken at cold start, so absence genuinely means "no
   // authority" and `licensesComparativeLeaderClaim` keeps its `true` arm.
@@ -7138,6 +7143,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setRunDelta: (stored: StoredRunDelta | null) => {
     set({ runDelta: stored })
+  },
+
+  setRunDeltaAbsence: (stored: StoredRunDeltaAbsence | null) => {
+    set({ runDeltaAbsence: stored })
   },
 
   setLimitVerdicts: (stored: LimitVerdictsWrite | null) => {

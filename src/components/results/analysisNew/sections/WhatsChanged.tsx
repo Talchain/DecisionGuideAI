@@ -98,7 +98,11 @@ export const MOVEMENT_SCOPE_TEXT = 'Only options that appear in both analyses ar
 
 /** Which way one option's score went, in the words `movementText` uses for a direction-only movement. */
 export function directionWords(m: Pick<RunDeltaMovement, 'direction'>, frame: RunDeltaFrame = 'rerun'): string {
-  const verb = m.direction === 'up' ? 'scored higher' : m.direction === 'down' ? 'scored lower' : 'scored the same'
+  // "the same AS", never "the same than" (Acceptance #87 5996584359).
+  if (m.direction !== 'up' && m.direction !== 'down') {
+    return `scored the same ${frame === 'versions' ? 'as in the version compared from' : 'as last time'}`
+  }
+  const verb = m.direction === 'up' ? 'scored higher' : 'scored lower'
   return `${verb} ${frame === 'versions' ? 'than in the version compared from' : 'than last time'}`
 }
 

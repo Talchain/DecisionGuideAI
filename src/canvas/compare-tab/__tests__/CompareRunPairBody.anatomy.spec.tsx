@@ -95,7 +95,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     const results = useCanvasStore.getState().results
     useCanvasStore.setState({ results: { ...results, report: { ...results.report!, robustness: { near_tie: { is_tie: true, top_option_id: 'opt_49' } } } } } as never)
     render(<CompareRunPairBody responseHash={hash} />)
-    expect(screen.getByRole('heading', { name: 'Too close to call' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Too close to call in this model' })).toBeInTheDocument()
     // A near tie names no leader anywhere in the headline section.
     expect(section('What changed between runs')).not.toHaveTextContent('still the option put forward')
     expect(section('What changed between runs')).not.toHaveTextContent('put forward Keep £49')
@@ -114,7 +114,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     report.producer_leader_permission = { permitted: true }
     useCanvasStore.setState({ results: { ...useCanvasStore.getState().results, report, hash } })
     render(<CompareRunPairBody responseHash={hash} />)
-    expect(section('What changed between runs')).toHaveTextContent('Too close to call')
+    expect(section('What changed between runs')).toHaveTextContent('Too close to call in this model')
   })
 
   it('withheld result permission hides named endpoints and every science share even on disclosure', () => {
@@ -134,7 +134,8 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     mount(runChangeDelta({ leader: { changed: true, prior_leading_option_id: 'opt_49', current_leading_option_id: 'opt_60', noise_verdict: 'within_noise' } }))
     expect(section('What changed between runs')).toHaveTextContent('In this model, the option that came out best changed from Keep £49 to Raise to £60')
     expect(section('What changed between runs')).toHaveTextContent('Too small to tell apart from ordinary run-to-run movement.')
-    expect(screen.queryByText('Too close to call')).toBeNull()
+    // Union, never replace: a regex, so neither the old nor the model-relative near-tie words slip through.
+    expect(screen.queryByText(/too close to call/i)).toBeNull()
   })
 
   it('says an unchanged option as what came out best in this model, never as one a run puts forward', () => {
