@@ -5,8 +5,12 @@
  * dispatches. No `targetId`: the ask binds to the selection, which holds this edge while its inspector is open.
  * Fragility is read the way `EdgePanel` reads it (`isEdgeFragile` with the parallel-edge context), so the section and
  * the panel's own fragile cue cannot disagree. Hidden, not disabled, when nothing can receive an ask.
+ *
+ * ⭐ ONE OLUMI ACTION PER LINK (gate 5 item 3c, DL 0df0e1, 5 Oct 2026). `after` receives whether this section is shown,
+ * so the inspector's generic "Explore with Olumi" is left out where the specific "Examine with Olumi" already stands.
+ * The answer is this component's own render condition, never a re-derived copy of it.
  */
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, type ReactNode } from 'react'
 
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
@@ -25,7 +29,10 @@ export function ExamineLink({
   targetLabel,
   data,
   structural,
+  after,
 }: {
+  /** Rendered after the section, told whether the section is shown (the inspector's generic quick actions). */
+  after?: (examineShown: boolean) => ReactNode
   edgeId: string
   source: string
   target: string
@@ -52,9 +59,11 @@ export function ExamineLink({
     requestAsk({ text: view.prepare.text, label: view.prepare.label })
   }, [view])
 
-  if (!view || !canAsk) return null
+  const shown = view !== null && canAsk
+  if (!shown) return after ? <>{after(false)}</> : null
 
   return (
+    <>
     <section data-testid="inspector-examine-link" data-basis={view.basis} aria-label={EXAMINE_LINK_HEADING}>
       <h4 className={inspectorHeading}>{EXAMINE_LINK_HEADING}</h4>
       <div className={inspectorDetailRow}>
@@ -69,5 +78,7 @@ export function ExamineLink({
       </div>
       <p className={`mt-1.5 ${typography.panelMeta} text-text-light`}>{EXAMINE_LINK_LIMIT}</p>
     </section>
+    {after?.(true)}
+    </>
   )
 }

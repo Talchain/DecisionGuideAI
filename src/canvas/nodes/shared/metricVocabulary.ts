@@ -1108,11 +1108,6 @@ export const OPTION_RESULT_COPY = {
   noNewComparisonNote: 'No new comparison yet.',
 } as const
 
-/**
- * Visual contract v3 §02, the baseline option — verbatim (design-gap row 22).
- * Said only of the ONE declared baseline (`is_baseline === true`).
- */
-export const OPTION_BASELINE_REFERENCE = 'Reference for the other alternatives.'
 
 /**
  * A factor card before ANY analysis (visual contract v3 §02 draft; design-gap

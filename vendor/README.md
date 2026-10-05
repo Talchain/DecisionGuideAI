@@ -7,7 +7,28 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.76.0.tgz` ← **THE CURRENT PIN** (5 Oct 2026, estate pin alignment: one contract version across CEE/UI/PLoT; DL 0df0e1, Integrator github-26)
+### `talchain-schemas-0.77.0.tgz` ← **THE CURRENT PIN** (5 Oct 2026, SPINE X8: DGAI first, then PLoT, then CEE emits; DL 0df0e1, Integrator github-26)
+
+**Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF, not a local re-pack.** Downloaded by CANVAS 0df0e1 from
+`https://npm.pkg.github.com/download/@talchain/schemas/0.77.0/57f6764c02225a80cd4a8d992acb872724ea1a9f`
+(registry `dist-tags.latest` = 0.77.0); registry gitHead `b0378e7fc52724d259b4b08b426ce8a4f4ee1d53` = tag `v0.77.0`
+(olumi-schemas `main` after #88, Publish Package run on b0378e7f, success). **807,162 bytes.** Verified, all exact:
+
+```
+npm shasum (sha1)  57f6764c02225a80cd4a8d992acb872724ea1a9f   (the registry download id)
+integrity (sha512) sha512-UntaRpeyLzQhz3NO9slhaUaLpjc5GLzb1Ggc7RPcSLrtCZ6u/BL+T3r5libE9pt4cvJn8NzBsd5rq/3MKW8zwg==
+sha256             ed6ca2a58beee5166d81abe92d5d7a2359bc7a24820b7f9bd6b70efafd1659ad   (the .sha256 sidecar)
+```
+
+**What 0.77.0 adds: one enum member.** `ModelBuildingNoticeKindSchema` gains `stated_relationship_not_used` (a
+relationship THE USER STATED that the model could not use as written; `relationship_not_used` stays Olumi-authored).
+Runtime diff vs 0.76.0 in `dist/`: that member in `boundary/olumi-response.js`, the fixture's extra group
+(`total_count` 21 → 28), and the version stamps. READER-FIRST: the enum is closed and `OlumiResponseSchema` is strict,
+so a consumer on <= 0.76.0 refuses a notice block carrying it; no producer may emit it until every consumer serves
+>= 0.77.0. `modelBuildingNotices.ts` gives it its three table entries (description, `user_stated`, `absent`).
+Replaces 0.76.0 (no longer vendored).
+
+### `talchain-schemas-0.76.0.tgz` (historical, no longer vendored) (5 Oct 2026, estate pin alignment: one contract version across CEE/UI/PLoT; DL 0df0e1, Integrator github-26)
 
 **Provenance: CEE's vendored bytes, byte-identical.** Copied from `olumi-assistants-service` staging
 `c5fd360d6ae453fd3ea77c6741fb376d0718e680` `vendor/talchain-schemas-0.76.0.tgz` (its `.sha256` sidecar matches). The

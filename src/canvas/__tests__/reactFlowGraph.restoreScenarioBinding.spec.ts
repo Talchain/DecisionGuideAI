@@ -117,8 +117,12 @@ describe('resolveRestoredScenarioId', () => {
    *
    * Neutral ids, for the reason given at LIVE_POINTER_ID.
    */
-  it('prefers the pointer over the record when both are well-formed and DIFFER', () => {
-    expect(resolveRestoredScenarioId(LIVE_POINTER_ID, GRAPH_OWN_ID)).toBe(LIVE_POINTER_ID)
+  // ⛔ RE-PINNED 5 Oct 2026 (P0, CORE PLATFORM, DL ruling). The structural argument above missed one writer:
+  // `useScenario.loadScenario` moved the store (and so the stamp) without the pointer, so the record WAS ahead, and
+  // pointer-first bound scenario A2's bytes to A1; a register then wrote them to the server (request af95a22f).
+  // The record's own stamp is written with the bytes, so it is the one that can never name the wrong scenario.
+  it('prefers the record\'s own stamp over the pointer when both are well-formed and DIFFER', () => {
+    expect(resolveRestoredScenarioId(LIVE_POINTER_ID, GRAPH_OWN_ID)).toBe(GRAPH_OWN_ID)
   })
 
   /**
@@ -212,14 +216,15 @@ describe('bindRestoredScenarioId (driven against the real store and localStorage
    * genuinely DISAGREE — is asserted rather than assumed, so this cannot pass by
    * the fixture quietly collapsing them into one id (trap 13b).
    */
-  it('keeps the live pointer when both are well-formed and differ', () => {
+  it('binds the restored bytes to their own stamp when both are well-formed and differ, and reconverges the pointer (P0 re-pin)', () => {
     writeAutosave(GRAPH_OWN_ID)
     scenarios.setCurrentScenarioId(LIVE_POINTER_ID)
     const autosave = scenarios.loadAutosave()!
     expect(autosave.scenarioId).not.toBe(scenarios.getCurrentScenarioId())
 
-    expect(bindRestoredScenarioId(scenarios.getCurrentScenarioId(), autosave)).toBe(LIVE_POINTER_ID)
-    expect(useCanvasStore.getState().currentScenarioId).toBe(LIVE_POINTER_ID)
+    expect(bindRestoredScenarioId(scenarios.getCurrentScenarioId(), autosave)).toBe(GRAPH_OWN_ID)
+    expect(useCanvasStore.getState().currentScenarioId).toBe(GRAPH_OWN_ID)
+    expect(scenarios.getCurrentScenarioId()).toBe(GRAPH_OWN_ID)
   })
 
   /**
