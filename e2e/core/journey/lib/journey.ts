@@ -124,3 +124,56 @@ export async function scenariosVisibleTo(
   const rows = (await r.json().catch(() => [])) as { id: string }[]
   return { status: r.status(), ids: Array.isArray(rows) ? rows.map((x) => x.id) : [] }
 }
+
+// ── Turn capture ─────────────────────────────────────────────────────────────
+// The served turn bodies, read from OUTSIDE the app (Playwright's response
+// listener), so the app receives exactly what CEE sent. A streamed draft's body is
+// the terminal frame's `payload` (`event: stage`, `status: "complete"`).
+
+export interface CapturedTurn { url: string; status: number; at: number; body: Record<string, any> | null }
+
+export function captureTurns(page: import('@playwright/test').Page): CapturedTurn[] {
+  const turns: CapturedTurn[] = []
+  page.on('response', async (r) => {
+    const url = r.url()
+    if (!/\/proxy\/v\d+\/turn(\/stream)?(\?|$)/.test(url)) return
+    const rec: CapturedTurn = { url, status: r.status(), at: Date.now(), body: null }
+    turns.push(rec)
+    try {
+      const text = await r.text()
+      if (/\/turn\/stream/.test(url)) {
+        for (const line of text.split('\n')) {
+          if (!line.startsWith('data:')) continue
+          try {
+            const frame = JSON.parse(line.slice(5).trim())
+            if (frame?.status === 'complete' && frame?.payload) rec.body = frame.payload
+          } catch { /* partial frame */ }
+        }
+      } else {
+        rec.body = JSON.parse(text)
+      }
+    } catch { /* body unavailable: the assertion that needs it fails by name */ }
+  })
+  return turns
+}
+
+/** The `analysis_result` block of a turn body, if it carries one. */
+export const analysisResultOf = (body: Record<string, any> | null): Record<string, any> | null =>
+  (Array.isArray(body?.blocks) ? body!.blocks.find((b: any) => b?.type === 'analysis_result') : null) ?? null
+
+/** Wait until a turn that started after `since` has a parsed body. */
+export async function nextTurn(
+  turns: CapturedTurn[], since: number, label: string, timeoutMs = 240_000,
+): Promise<CapturedTurn> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const t = turns.find((x) => x.at >= since && x.body)
+    if (t) return t
+    await new Promise((r) => setTimeout(r, 1_000))
+  }
+  throw new Error(`[j1] ${label}: no turn with a parsed body arrived within ${Math.round(timeoutMs / 1000)}s ` +
+    `(${turns.filter((x) => x.at >= since).length} turn response(s) seen, none parsed)`)
+}
+
+/** `from::to` pairs, the only edge identity the stored graph carries. */
+export const edgeKey = (e: { from: string; to: string }): string => `${e.from}::${e.to}`

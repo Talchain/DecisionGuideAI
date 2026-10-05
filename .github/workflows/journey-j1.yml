@@ -149,6 +149,15 @@ jobs:
           enabled = false
           [analytics]
           enabled = false
+          # J1 needs db, auth, rest and the gateway only: fewer images, fewer anonymous pulls.
+          [inbucket]
+          enabled = false
+          [realtime]
+          enabled = false
+          [storage]
+          enabled = false
+          [edge_runtime]
+          enabled = false
           [auth]
           enabled = true
           site_url = "http://localhost:5173"
