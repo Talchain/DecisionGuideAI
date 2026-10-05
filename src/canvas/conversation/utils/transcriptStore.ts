@@ -133,7 +133,23 @@ export function heldProposalSourceBlockKey(
 /** localStorage key. Sibling of `olumi-canvas-autosave` / `-scenarios`. */
 export const TRANSCRIPT_STORAGE_KEY = 'olumi-canvas-transcript'
 
+/**
+ * The identity boundary's clear (`clearUserScopedState`). Tombstones every decision it removes, FIRST: the sweep's
+ * `resetCanvas` re-runs `useConversation`'s persist effect with the old owner and messages still in hand, which wrote
+ * the previous account's whole conversation straight back for the next one (J1 ISO-1: 15 KB with A's brief after B
+ * signed in). Same race and same scope as `clearTranscript`'s tombstone below.
+ *
+ * The file is not the whole fence: a conversation still on screen may have no entry on disk (a quota refusal removes
+ * the key), and freeing quota is exactly what the sweep does. So every decision this page load has read or written a
+ * transcript for is fenced too (Codex, #2523 r1).
+ *
+ * Accepted cost: the same account signing back in on THIS page does not re-save a fenced decision's local transcript
+ * until the user re-enters it (`releaseTranscriptTombstone`); CEE's stored turns restore it either way.
+ */
 export function clearAllTranscripts(): void {
+  for (const scenarioId of Object.keys(readFile())) forgottenThisPageLoad.add(scenarioId)
+  for (const scenarioId of touchedThisPageLoad) forgottenThisPageLoad.add(scenarioId)
+  touchedThisPageLoad.clear()
   try { localStorage.removeItem(TRANSCRIPT_STORAGE_KEY) } catch { /* unavailable */ }
 }
 
@@ -406,7 +422,9 @@ export function saveTranscript(
   scenarioId: string | null | undefined,
   messages: readonly ConversationMessage[],
 ): number | null {
-  if (!scenarioId || !storageAvailable()) return null
+  if (!scenarioId) return null
+  touchedThisPageLoad.add(scenarioId)
+  if (!storageAvailable()) return null
   // A forgotten decision must stay forgotten for the rest of this page load —
   // see the tombstone block above `clearTranscript`. Without this the clear is
   // nominal: it is undone on the very commit it happens.
@@ -479,7 +497,9 @@ export function saveTranscript(
  * standing, because in that case it is TRUE.
  */
 export function loadTranscript(scenarioId: string | null | undefined): LoadedTranscript | null {
-  if (!scenarioId || !storageAvailable()) return null
+  if (!scenarioId) return null
+  touchedThisPageLoad.add(scenarioId)
+  if (!storageAvailable()) return null
 
   const entry = readFile()[scenarioId]
   if (entry == null || typeof entry !== 'object') return null
@@ -528,6 +548,9 @@ export function loadTranscript(scenarioId: string | null | undefined): LoadedTra
  */
 const forgottenThisPageLoad = new Set<string>()
 
+/** Every decision this page load has read or written a transcript for, since the last identity sweep. */
+const touchedThisPageLoad = new Set<string>()
+
 /**
  * The user has genuinely entered this decision, so it is no longer forgotten.
  * Called from the scenario-switch effect. Without it, resetting and then
@@ -543,6 +566,7 @@ export function releaseTranscriptTombstone(scenarioId: string | null | undefined
 /** Test-only: the tombstone is module state and must not leak between cases. */
 export function __resetTranscriptTombstonesForTests(): void {
   forgottenThisPageLoad.clear()
+  touchedThisPageLoad.clear()
 }
 
 /** Forget one scenario's transcript (scenario deleted / canvas reset). */
