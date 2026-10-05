@@ -154,7 +154,7 @@ describe('the gate, without a store', () => {
   })
 })
 
-describe('MC P0\'s full list (`links`, nearest the goal first): read in its order, every link or none', () => {
+describe('MC P0\'s full list (`links`, nearest the goal first): read in its order; the shown links named, or counted', () => {
   const labels: Record<string, string> = { a: 'Hours on the AI module', b: 'AI module availability', c: 'Team capacity', d: 'Delivered points' }
   const labelOf = (id: string) => labels[id] ?? null
   const reason = (warning: Record<string, unknown>) => winShareWithheldReason(stamp('goal_path_unsized'), { inferenceWarnings: [warning], labelOf })
@@ -166,8 +166,20 @@ describe('MC P0\'s full list (`links`, nearest the goal first): read in its orde
     expect(reason({ code: 'GOAL_FIGURES_PLACEHOLDER_PATH', node_ids: ['a', 'b'], links: [{ from: 'a', to: 'b' }, { from: 'a', to: 'b' }] }))
       .toBe('This comparison turns on the link from ‘Hours on the AI module’ to ‘AI module availability’, whose strength nobody has set yet. Set it to see how much it matters.')
   })
-  it('one link that cannot be named → no partial list: the unnamed line', () => {
+  it('⭐ only the FIRST link can be named → Science\'s count form (#87 6002254753 item 1), never a partial list', () => {
     expect(reason({ code: 'GOAL_FIGURES_PLACEHOLDER_PATH', node_ids: ['a', 'b'], links: [{ from: 'a', to: 'b' }, { from: 'c', to: 'not_on_this_canvas' }] }))
+      .toBe('This comparison turns on the link from ‘Hours on the AI module’ to ‘AI module availability’ and 1 other link on the way, whose strengths nobody has set yet. Set them to see how much they matter.')
+  })
+  it('the count form counts every other link (plural)', () => {
+    expect(reason({ code: 'GOAL_FIGURES_PLACEHOLDER_PATH', links: [{ from: 'a', to: 'b' }, { from: 'c', to: 'd' }, { from: 'c', to: 'not_on_this_canvas' }] }))
+      .toBe('This comparison turns on the link from ‘Hours on the AI module’ to ‘AI module availability’ and 2 other links on the way, whose strengths nobody has set yet. Set them to see how much they matter.')
+  })
+  it('a link counted in "and N more" needs no labels: the three shown are named', () => {
+    expect(reason({ code: 'GOAL_FIGURES_PLACEHOLDER_PATH', links: [{ from: 'a', to: 'b' }, { from: 'c', to: 'd' }, { from: 'b', to: 'c' }, { from: 'x', to: 'not_on_this_canvas' }] }))
+      .toBe('This comparison turns on the links from ‘Hours on the AI module’ to ‘AI module availability’, from ‘Team capacity’ to ‘Delivered points’, from ‘AI module availability’ to ‘Team capacity’ and 1 more, whose strengths nobody has set yet. Set them to see how much they matter.')
+  })
+  it('the FIRST link cannot be named → the unnamed line', () => {
+    expect(reason({ code: 'GOAL_FIGURES_PLACEHOLDER_PATH', links: [{ from: 'x', to: 'not_on_this_canvas' }, { from: 'a', to: 'b' }] }))
       .toBe(WORDS.goal_path_unsized_unnamed)
   })
 })

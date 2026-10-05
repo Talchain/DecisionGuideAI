@@ -305,46 +305,61 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
 export const GOAL_PATH_UNSIZED_CAUSE = 'goal_path_unsized'
 
 /**
- * The withhold as an invitation (DL copy rule #87 6002222614: never "Give a figure"), naming the failing link's own
- * ends in Science d5's phrasing ("the link from ‘A’ to ‘B’"), or null when they cannot be named
+ * The withhold as an invitation (DL copy rule #87 6002222614: never "Give a figure"), naming the failing links' own
+ * ends in Science's phrasing ("the link from ‘A’ to ‘B’"), or null when not even the first link can be named
  * (no such warning, fewer than two ends, or an end with no display label); the caller then says the unnamed line
  * (`LEADER_WITHHOLD_CAUSE.goal_path_unsized`).
- * No "(and N other links)" clause: the warning carries no count, and a guessed count is never shown (Science d5).
  */
 export function goalPathUnsizedCause(
   inferenceWarnings: unknown,
   labelOf: (nodeId: string) => string | null | undefined,
 ): string | null {
-  const named = namedLinks(unsizedLinksOf(inferenceWarnings), labelOf)
-  return named === null ? null : unsizedLinksSentence(named)
+  const naming = nameLinks(unsizedLinksOf(inferenceWarnings), labelOf)
+  if (naming === null) return null
+  if (naming.kind === 'first') {
+    // Science's count form (#87 6002254753 item 1): only the first link's ends can be named, so the rest are counted.
+    const { first, others } = naming
+    return `This comparison turns on the link from ‘${first.from}’ to ‘${first.to}’ and ${others} other ${others === 1 ? 'link' : 'links'} on the way, whose strengths nobody has set yet. Set them to see how much they matter.`
+  }
+  return unsizedLinksSentence(naming.shown, naming.total)
 }
 
-/** Every link's two ends as display labels, or null when there is no link or any end has none. */
-function namedLinks(
-  links: ReadonlyArray<{ from: string; to: string }>,
+type LinkEnds = { from: string; to: string }
+
+/**
+ * Science's ONE plural rule for both strings (#87; MC github-21): name up to three links in the carrier's order
+ * (nearest the goal first, ties by graph edge order: MC's), then "and N more".
+ * - `named`: every link that is NAMED has both labels; links counted in "N more" need none.
+ * - `first`: only the first link's ends can be named; the withhold's count form says the rest as a number.
+ * - null: not even the first link can be named.
+ */
+type LinkNaming = { kind: 'named'; shown: LinkEnds[]; total: number } | { kind: 'first'; first: LinkEnds; others: number } | null
+
+function nameLinks(
+  links: ReadonlyArray<LinkEnds>,
   labelOf: (nodeId: string) => string | null | undefined,
-): Array<{ from: string; to: string }> | null {
+): LinkNaming {
   if (links.length === 0) return null
   const label = (id: string): string | null => {
     const raw = labelOf(id)
     const text = typeof raw === 'string' ? raw.trim() : ''
     return text.length > 0 && text.length <= 120 ? text : null
   }
-  const named: Array<{ from: string; to: string }> = []
-  for (const link of links) {
+  const ends = (link: LinkEnds): LinkEnds | null => {
     const from = label(link.from)
     const to = label(link.to)
-    // Every link or none: a partial list would say one cause as if it were the whole of it.
-    if (from === null || to === null) return null
-    named.push({ from, to })
+    return from === null || to === null ? null : { from, to }
   }
-  return named
+  const shown = links.slice(0, 3).map(ends)
+  // A partial list never stands in for the whole: a name is never dropped from the three that are shown.
+  if (shown.every((l): l is LinkEnds => l !== null)) return { kind: 'named', shown, total: links.length }
+  return shown[0] ? { kind: 'first', first: shown[0], others: links.length - 1 } : null
 }
 
-/** Two or more links in Science d5's phrasing: up to three named ("from ‘A’ to ‘B’"), then "and N more". */
-function linksListed(links: ReadonlyArray<{ from: string; to: string }>): string {
-  const phrases = links.slice(0, 3).map((l) => `from ‘${l.from}’ to ‘${l.to}’`)
-  const more = links.length - phrases.length
+/** Two or more links in Science's phrasing: the shown ones named ("from ‘A’ to ‘B’"), then "and N more". */
+function linksListed(shown: ReadonlyArray<LinkEnds>, total: number): string {
+  const phrases = shown.map((l) => `from ‘${l.from}’ to ‘${l.to}’`)
+  const more = total - phrases.length
   return more > 0
     ? `${phrases.join(', ')} and ${more} more`
     : `${phrases.slice(0, -1).join(', ')} and ${phrases[phrases.length - 1]}`
@@ -380,12 +395,12 @@ function warningLinksOf(warning: Record<string, unknown> | null): Array<{ from: 
 }
 
 /** Science d5's words (#87 6002254753; plural and cap, d5 20:3xZ): one link, or up to three named then "and N more". */
-function unsizedLinksSentence(links: ReadonlyArray<{ from: string; to: string }>): string {
-  if (links.length === 1) {
-    const [only] = links
+function unsizedLinksSentence(shown: ReadonlyArray<LinkEnds>, total: number): string {
+  if (total === 1) {
+    const [only] = shown
     return `This comparison turns on the link from ‘${only.from}’ to ‘${only.to}’, whose strength nobody has set yet. Set it to see how much it matters.`
   }
-  return `This comparison turns on the links ${linksListed(links)}, whose strengths nobody has set yet. Set them to see how much they matter.`
+  return `This comparison turns on the links ${linksListed(shown, total)}, whose strengths nobody has set yet. Set them to see how much they matter.`
 }
 
 /**
@@ -396,9 +411,9 @@ function unsizedLinksSentence(links: ReadonlyArray<{ from: string; to: string }>
 export const OLUMI_SUPPLIED_LINK_CODE = 'GOAL_FIGURES_OLUMI_SUPPLIED_LINK'
 
 /**
- * Science d5's words, verbatim (one link; 2+ with the same cap of three, then "and N more"), or null when the Run
- * carries no such warning. When any end cannot be named the line is still said, label-free: it is the truth the
- * finding rests on, so it is never omitted (d5).
+ * Science d5's words, verbatim (one link; 2+ with the same plural rule: three named, then "and N more"), or null when
+ * the Run carries no such warning. When a shown link cannot be named the line is still said, label-free (the
+ * disclosure has no count form): it is the truth the finding rests on, so it is never omitted (d5).
  */
 export function olumiSuppliedFiguresDisclosure(
   inferenceWarnings: unknown,
@@ -406,15 +421,15 @@ export function olumiSuppliedFiguresDisclosure(
 ): string | null {
   const warning = warningWithCode(inferenceWarnings, OLUMI_SUPPLIED_LINK_CODE)
   if (warning === null) return null
-  const named = namedLinks(warningLinksOf(warning), labelOf)
-  if (named === null) {
+  const naming = nameLinks(warningLinksOf(warning), labelOf)
+  if (naming === null || naming.kind === 'first') {
     return 'Olumi supplied the figures for at least one link this finding rests on. Set your own to see how much it matters.'
   }
-  if (named.length === 1) {
-    const [only] = named
+  if (naming.total === 1) {
+    const [only] = naming.shown
     return `Olumi supplied the figures for the link from ‘${only.from}’ to ‘${only.to}’. Set your own to see how much it matters.`
   }
-  return `Olumi supplied the figures for the links ${linksListed(named)}. Set your own to see how much they matter.`
+  return `Olumi supplied the figures for the links ${linksListed(naming.shown, naming.total)}. Set your own to see how much they matter.`
 }
 
 /**

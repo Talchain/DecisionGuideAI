@@ -11,6 +11,7 @@ import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { AtAGlance } from '../sections/AtAGlance'
 import { OLUMI_SUPPLIED_LINK_CODE, olumiSuppliedFiguresDisclosure } from '../analysisNewCopy'
 import { genuineDecision } from './analysisNewFixtures'
+import { readGoalIdentityWithheld } from '../../utils/goalIdentityWithheld'
 
 const LABELS = new Map([
   ['subscribers', 'Subscribers'], ['revenue', 'Revenue'], ['churn', 'Churn'], ['price', 'Price'],
@@ -47,7 +48,8 @@ describe('d5\'s words, verbatim', () => {
     ['two links', [['subscribers', 'revenue'], ['churn', 'revenue']], TWO],
     ['five links: three named, then "and 2 more"', [['subscribers', 'revenue'], ['churn', 'revenue'], ['price', 'demand'], ['margin', 'revenue'], ['cost', 'margin']], FIVE],
     ['an end with no label: the label-free line, never omitted', [['subscribers', 'node_without_a_label']], UNNAMED],
-    ['one end unnamed among several: label-free (every link or none)', [['subscribers', 'revenue'], ['churn', 'node_without_a_label']], UNNAMED],
+    ['only the first link nameable: label-free (the disclosure has no count form)', [['subscribers', 'revenue'], ['churn', 'node_without_a_label']], UNNAMED],
+    ['a link counted in "and N more" needs no labels: the three shown are named', [['subscribers', 'revenue'], ['churn', 'revenue'], ['price', 'demand'], ['margin', 'node_without_a_label']], 'Olumi supplied the figures for the links from ‘Subscribers’ to ‘Revenue’, from ‘Churn’ to ‘Revenue’, from ‘Price’ to ‘Demand’ and 1 more. Set your own to see how much they matter.'],
   ] as const)('%s', (_n, links, words) => {
     expect(olumiSuppliedFiguresDisclosure([supplied(links.map(l => [...l] as [string, string]))], labelOf)).toBe(words)
   })
@@ -59,6 +61,11 @@ describe('d5\'s words, verbatim', () => {
   })
   it('duplicate links are said once', () => {
     expect(olumiSuppliedFiguresDisclosure([supplied([['subscribers', 'revenue'], ['subscribers', 'revenue']])], labelOf)).toBe(ONE)
+  })
+  it('⭐ a DISCLOSURE, not a withhold: the goal figures stay shown (it is not in GOAL_FIGURES_WITHHELD_CODES)', () => {
+    expect(readGoalIdentityWithheld({ inference_warnings: [supplied([['subscribers', 'revenue']])] })).toBeNull()
+    // contrast: the unsized-path warning with the same links DOES withhold them
+    expect(readGoalIdentityWithheld({ inference_warnings: [{ ...supplied([['subscribers', 'revenue']]), code: 'GOAL_FIGURES_PLACEHOLDER_PATH', message: 'Not shown. x' }] })).not.toBeNull()
   })
   it('CONTROL — only its own code: the unsized-path warning, same links, says nothing here', () => {
     expect(olumiSuppliedFiguresDisclosure([{ ...supplied([['subscribers', 'revenue']]), code: 'GOAL_FIGURES_PLACEHOLDER_PATH' }], labelOf)).toBeNull()
