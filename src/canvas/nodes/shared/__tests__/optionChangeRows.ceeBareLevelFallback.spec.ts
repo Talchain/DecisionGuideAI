@@ -39,7 +39,7 @@ const ceeOption = (displayValue: string) => ({
   intervention_details: { [FAC]: { display_value: displayValue, normalised_value: 0.2, raw_value: 6, unit: 'developers' } },
 })
 
-function cardRow(level: Record<string, unknown>, displayValue: string, node = factorNode('Developers')) {
+function cardRow(level: Record<string, unknown>, displayValue: string, node: unknown = factorNode('Developers')) {
   const targets = resolveOptionTargets({ interventions: { [FAC]: level } }, ceeOption(displayValue) as never)
   const target = targets.get(FAC)
   expect(target, 'the joined target for fac_dev').toBeDefined()
