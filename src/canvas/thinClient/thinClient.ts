@@ -22,7 +22,7 @@
  */
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { purgePreThinModelCopies } from './preThinPurge'
-import { markSignedInHere, signedInHereRecordedSinceBoundary } from '../../lib/auth/lapseBoundary'
+import { markSignedInHere } from '../../lib/auth/lapseBoundary'
 
 /** supabase-js v2's persisted-session key. The PKCE `…-auth-token-code-verifier` key is NOT a session. */
 const SUPABASE_SESSION_KEY = /^sb-.+-auth-token$/
@@ -60,12 +60,9 @@ let thinThisPage = false
  * It also records that this browser was signed in (`lib/auth/lapseBoundary.ts`), so a lapse is an identity boundary.
  */
 export function isThinClientSession(): boolean {
-  if (thinThisPage) {
-    // LAPSE-BOUNDARY (Codex, #2530 r1): a sign-out on this latched page swept the record; a later sign-in on the SAME
-    // page records it again, so that identity's lapse is still a boundary. Checked only until it is recorded.
-    if (!signedInHereRecordedSinceBoundary() && (isPersistenceSessionActive() || hasStoredSupabaseSession())) markSignedInHere()
-    return true
-  }
+  // A sign-in later on this latched page (after a sign-out) is recorded by the auth provider's adoption
+  // (`lapseBoundary.recordSignInAfterBoundary`), never here: a stored token or the canvas mirror can outlive a sign-out.
+  if (thinThisPage) return true
   const thin = isPersistenceSessionActive() || hasStoredSupabaseSession()
   if (thin) {
     purgePreThinModelCopies()

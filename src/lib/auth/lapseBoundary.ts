@@ -32,18 +32,30 @@ export function markSignedInHere(): void {
   }
 }
 
-/**
- * False after an identity boundary on this page, until a session is recorded again. The thin predicate latches for the
- * page, so a sign-out followed by another sign-in WITHOUT a reload would otherwise never record the second identity, and
- * that identity's lapse would go unseen (Codex, #2530 r1).
- */
-export function signedInHereRecordedSinceBoundary(): boolean {
-  return markedSinceBoundary
-}
+/** Whether an identity boundary has run on this page (sign-out, A→B, A→none). */
+let boundaryOnThisPage = false
 
-/** `clearUserScopedState` calls this: its sweep has removed the record, so the next signed-in moment writes it again. */
+/** `clearUserScopedState` calls this: its sweep has removed the record. */
 export function noteIdentityBoundary(): void {
   markedSinceBoundary = false
+  boundaryOnThisPage = true
+}
+
+/**
+ * The auth provider calls this when it ADOPTS a real session. After a boundary on this page, that session is a new
+ * sign-in the latched thin predicate will never answer for afresh, so it is recorded here (Codex, #2530 r1 P1-2).
+ * Only from confirmed adoption, never from "a session is stored": during a sign-out the SDK removes the stored token
+ * only after its logout request, and the canvas mirror can outlive its page, so either would re-record the identity
+ * that just signed out and turn the next guest's boot into a false lapse (Codex, #2530 r2). No boundary on this page
+ * means nothing to do: a first sign-in is recorded by the predicate, and leaves the provider's storage untouched (#2484).
+ */
+export function recordSignInAfterBoundary(): void {
+  if (boundaryOnThisPage && !markedSinceBoundary) markSignedInHere()
+}
+
+export function __resetLapseBoundaryForTests(): void {
+  markedSinceBoundary = false
+  boundaryOnThisPage = false
 }
 
 /** Synchronous: this browser was signed in, and the session is gone without the boundary having run. */

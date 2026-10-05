@@ -9,10 +9,10 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { runLapseBoundaryIfNeeded, sessionLapsedHere, SIGNED_IN_HERE_KEY } from '../lapseBoundary'
+import { runLapseBoundaryIfNeeded, sessionLapsedHere, SIGNED_IN_HERE_KEY, __resetLapseBoundaryForTests } from '../lapseBoundary'
 import { clearUserScopedState, USER_SCOPED_STORAGE_KEYS } from '../userScopedState'
 import { isThinClientSession, loadThinLayout, saveThinLayout, __latchThinClientForTests, __resetThinClientForTests } from '../../../canvas/thinClient/thinClient'
-import { __resetPersistenceSessionForTests } from '../../persistenceSession'
+import { __resetPersistenceSessionForTests, setPersistenceSessionActive } from '../../persistenceSession'
 import { loadTranscript, saveTranscript, __resetTranscriptTombstonesForTests } from '../../../canvas/conversation/utils/transcriptStore'
 import { loadRuns, saveRuns, type StoredRun } from '../../../canvas/store/runHistory'
 import { IDENTITY_EPOCH_KEY } from '../../../canvas/store/scenarios'
@@ -56,6 +56,7 @@ beforeEach(() => {
   localStorage.clear()
   sessionStorage.clear()
   sessionLapsesAndNextPageLoads()
+  __resetLapseBoundaryForTests()
 })
 afterEach(() => { vi.restoreAllMocks() })
 
@@ -152,23 +153,30 @@ describe('LAPSE-BOUNDARY — Codex #2530 r1', () => {
     expect(snapshot()).toEqual({ ...before, [SESSION_KEY]: SESSION })
   })
 
-  it('a LATCHED page: A signs out, B signs in on the same page, B lapses → the next boot still sweeps B\'s work', async () => {
+  it('⭐ NO FALSE LAPSE (Codex #2530 r2): the canvas asks while the SDK is still removing A\'s token — nothing is recorded', async () => {
     localStorage.setItem(SESSION_KEY, SESSION)
     expect(isThinClientSession()).toBe(true)
     __latchThinClientForTests() // production: the page stays thin after its first signed-in answer
-    localStorage.removeItem(SESSION_KEY)
-    clearUserScopedState() // A's sign-out: the record goes with the sweep
+    clearUserScopedState() // AuthContext.signOut: the boundary runs BEFORE the SDK's logout request returns
+    expect(isThinClientSession()).toBe(true) // a canvas render during that wait: A's token is still stored
     expect(localStorage.getItem(SIGNED_IN_HERE_KEY)).toBeNull()
-    expect(isThinClientSession()).toBe(true) // still latched, no session: nothing recorded (a guest later is not a lapse)
-    expect(localStorage.getItem(SIGNED_IN_HERE_KEY)).toBeNull()
-    localStorage.setItem(SESSION_KEY, JSON.stringify({ access_token: 't2', refresh_token: 'r2', user: { id: 'account-b' } }))
-    expect(isThinClientSession()).toBe(true) // B is signed in on the same page
-    expect(localStorage.getItem(SIGNED_IN_HERE_KEY)).toBe('1')
-    saveTranscript(A, [message(`B's notes on ${A_LABEL}.`)])
+    localStorage.removeItem(SESSION_KEY) // the SDK finishes the sign-out
     sessionLapsesAndNextPageLoads()
-    expect(await runLapseBoundaryIfNeeded()).toBe(true)
-    expect(loadTranscript(A)).toBeNull()
-    expect(keysNamingA()).toEqual([])
+    saveTranscript(A, [message('A guest, after the sign-out.')])
+    const before = snapshot()
+    expect(await runLapseBoundaryIfNeeded()).toBe(false) // the guest's own work is never swept
+    expect(snapshot()).toEqual(before)
+  })
+
+  it('⭐ NO FALSE LAPSE (Codex #2530 r2): the canvas mirror outlives the sign-out (Profile → sign out → canvas) — nothing is recorded', async () => {
+    localStorage.setItem(SESSION_KEY, SESSION)
+    expect(isThinClientSession()).toBe(true)
+    __latchThinClientForTests()
+    localStorage.removeItem(SESSION_KEY)
+    clearUserScopedState()
+    setPersistenceSessionActive(true) // CanvasMVP's mirror left true on unmount
+    expect(isThinClientSession()).toBe(true)
+    expect(localStorage.getItem(SIGNED_IN_HERE_KEY)).toBeNull()
   })
 })
 
