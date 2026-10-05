@@ -42,6 +42,7 @@ async function localUser(label: string): Promise<LocalUser> {
   const r = await fetch(`${base}/auth/v1/signup`, {
     method: 'POST', headers: { apikey: process.env.CORE_SUPABASE_KEY!, 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
+    signal: AbortSignal.timeout(60_000),
   })
   const b = (await r.json().catch(() => null)) as Record<string, any> | null
   if (!r.ok || !b?.access_token || !b?.user?.id) throw new Error(`[iso] local sign-up ${label} failed: http ${r.status}`)

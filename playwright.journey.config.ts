@@ -35,6 +35,10 @@ export default defineConfig({
     // isolation rows' form fills, and the evidence artifact is uploaded as is (Codex buddy
     // #2513 finding 1). Failures are diagnosed from evidence/*.json, screenshots and video.
     trace: 'off',
+    // Playwright's defaults are 0 (wait forever): ISO-2 sat on an unbounded wait to its 900 s test
+    // timeout with no step named (record 3). Bounded, a stall fails at the step that stalled.
+    actionTimeout: 60_000,
+    navigationTimeout: 90_000,
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
     viewport: { width: 1440, height: 900 },

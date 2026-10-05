@@ -91,7 +91,7 @@ export async function storedRead(
 async function credentialedFetch(label: string, url: string, init: RequestInit): Promise<{ status: number; body: unknown }> {
   let r: Response
   try {
-    r = await fetch(url, init)
+    r = await fetch(url, { ...init, signal: AbortSignal.timeout(60_000) })
   } catch (e) {
     throw new Error(`[j1] ${label} could not measure: transport ${(e as Error)?.name ?? 'error'}`)
   }

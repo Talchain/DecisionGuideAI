@@ -1,5 +1,5 @@
 {
- "_source": "record 2, local, 5 Oct 2026 12:44-13:0xZ; tuple ui f4fd24df cee b43bb79e plot 2aa6ed41 isl 620ee5f0; 6 calls, all HTTP 200",
+ "_source": "record 3, local, 5 Oct 2026 15:36-16:00Z (DL-approved, HEAVY WINDOW #87 5997690639); tuple ui 40ca62c6 cee 43e51050 plot 2473aced isl d74b5f6a; 13 calls (J1 + isolation incl. guest draft), all HTTP 200",
  "goal_direction_assumed": false,
  "enrichment_keys": [
   "conditional_winners",
