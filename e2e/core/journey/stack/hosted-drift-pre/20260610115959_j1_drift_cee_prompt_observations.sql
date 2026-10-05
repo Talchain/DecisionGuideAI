@@ -1,0 +1,15 @@
+-- J1 stack PRE-shim (applied in timestamp order, just before the migration that needs it;
+-- reported as DRIFT-SHIM, never as a repo migration).
+--
+-- cee_prompt_observations exists on the hosted project but NO migration in either repo
+-- creates it (both trees searched, with a positive control: J1 builder, 5 Oct). CEE's
+-- 20260610120000_v5_db_security_tier1_hardening.sql wraps itself in BEGIN/COMMIT and
+-- names it in its FIRST statement, so on a fresh database that whole transaction
+-- aborts. Every later statement then fails with 25P02, including the anon REVOKEs on
+-- append_turn_atomic, insert_conversation_turn, purge_old_observations and
+-- ensure_scenario_exists. Local grants would then be looser than the migrations say.
+--
+-- Shape: deliberately ZERO columns. The hardening migration needs only the relation
+-- (REVOKE TRUNCATE, ENABLE/FORCE RLS). The hosted columns are named in a comment in CEE's
+-- src/prompts/stores/supabase.ts:10, but their types are UNVERIFIED, so none is invented here.
+CREATE TABLE IF NOT EXISTS public.cee_prompt_observations ();
