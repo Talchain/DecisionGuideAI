@@ -53,15 +53,29 @@ export function keyedAutosaveSlot(scenarioId: string): string {
 }
 
 /**
- * The id a restored autosave is bound to: the pointer when it is well formed, else the autosave's own stamp. Moved here
- * unchanged from `ReactFlowGraph.tsx`, which re-exports it (see `bindRestoredScenarioId` there for why the pointer wins).
+ * The id a restored autosave is bound to: the autosave's OWN STAMP when it is well formed, else the pointer.
+ *
+ * ⛔ P0, 5 Oct 2026 (CORE PLATFORM, DL 0df0e1). This used to prefer the pointer, on the premise that the autosave's id
+ * is a copy of the pointer and never ahead of it. A signed-in switch broke that premise (`useScenario.loadScenario`
+ * moved the store, and so the stamp, but not the pointer), and the pointer-first rule then bound scenario A2's bytes to
+ * A1. The next whole-graph register wrote A2's model into A1 on the server (request af95a22f; incoming identity = A2's).
+ *
+ * The stamp is written in the same record as the bytes (`saveAutosave`), so it always names the scenario they belong
+ * to; the pointer is a separate key that can drift. Stamp-first can never pair one scenario's bytes with another's id.
+ * When the two disagree, a cold deep link now SUPERSEDES (the slot is kept under its own keyed copy) and a routeless
+ * boot restores the slot as the scenario that wrote it. Only an ABSENT stamp yields to the pointer; a legacy non-UUID stamp
+ * that differs from it binds nothing (draft mode).
+ * Pinned by `__tests__/bootSlotOwner.p0.spec.ts`.
  */
 export function resolveRestoredScenarioId(
   pointerId: string | null,
   autosaveScenarioId: string | null | undefined,
 ): string | null {
-  if (pointerId && isUUID(pointerId)) return pointerId
   if (autosaveScenarioId && isUUID(autosaveScenarioId)) return autosaveScenarioId
+  // A stamp that is present but not a UUID (a legacy local id) still names whose bytes these are: they are never bound to
+  // a pointer that names another scenario. Draft mode instead (Codex #2503 r1).
+  if (typeof autosaveScenarioId === 'string' && autosaveScenarioId.length > 0 && autosaveScenarioId !== pointerId) return null
+  if (pointerId && isUUID(pointerId)) return pointerId
   return null
 }
 
@@ -136,10 +150,18 @@ export function planColdLoadDeepLink(route: string | null | undefined): ColdLoad
   if (main === undefined || pointer === undefined) return null
   // A main slot that states no readable owner is ambiguous: never move it under a guess.
   if (main !== null && stampOf(main) === null) return null
-  const remembered = resolveRestoredScenarioId(pointer, stampOf(main))
+  const stamp = main === null ? null : stampOf(main)
+  // A routeless mount targets the scenario the boot will actually show: the pointer's own saved record when it has one
+  // (`resolveBootLoadSource` then loads that record, not a slot stamped otherwise), else the slot's owner.
+  const pointerHasRecord = typeof pointer === 'string' && isUUID(pointer) && scenarios.getScenario(pointer) !== undefined
+  const remembered = pointerHasRecord ? pointer : resolveRestoredScenarioId(pointer, stamp)
   const target = route ?? remembered
   if (target === null) return null
-  if (remembered !== null && remembered !== target) return { kind: 'supersede', route: target }
+  // Supersede when EITHER record names another scenario (P0, 5 Oct): the slot's stamp (whose bytes these are) or the
+  // pointer (what the store seeds from). With stamp-first binding alone, a pointer that drifted from a slot that is
+  // already the route's would seed the body's first render with the stale id.
+  const namesAnother = (id: string | null | undefined): boolean => typeof id === 'string' && isUUID(id) && id !== target
+  if (namesAnother(stamp) || namesAnother(pointer)) return { kind: 'supersede', route: target }
   return main === null && stampOf(read(keyedAutosaveSlot(target))) === target ? { kind: 'promote', route: target } : null
 }
 
