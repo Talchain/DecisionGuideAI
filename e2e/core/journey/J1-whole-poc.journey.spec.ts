@@ -19,6 +19,7 @@
  * Advisory until 3 greens: J3p J7, and J6's prior = R1 binding where R1 is not
  * identifiable (UNBOUND). Advisory rows write a verdict to evidence/advisory.json and
  * never fail the run. Not built yet: J3b J4 J5b J5c.
+ * SD-1 (domain 2, github-07): J14 ONE-FACT, factor Confirm, advisory until its fix lands (ONE_FACT_REQUIRED).
  *
  * Every step also asserts the LLM boundary answered every call EXACTLY as frozen
  * (assertBoundaryClean): a drifted, missing, exhausted or reused recording is red.
@@ -68,6 +69,10 @@ const HASH = /^[0-9a-f]{16}([0-9a-f]{48})?$/
 const RUN_ID = /^[0-9a-f]{16,64}$/
 // J6 promotion rule (Integrator, 5 Oct): true after 3 consecutive greens with J6 BOUND.
 const J6_BOUND_REQUIRED = false
+// SD-1 promotion rule (lease, github-07): true in the PR that makes factor Confirm one fact (sent, stored, shown).
+const ONE_FACT_REQUIRED = false
+// The product's own words for a confirm that stays on one screen (thinClient.ts:88-89 @ 72543cff).
+const ON_THIS_SCREEN_ONLY = 'Confirmed on this screen only. It is not saved to the shared model'
 // The product's own words for a draft that ended before its values arrived
 // (canRunAnalysis.ts:115, DraftLoadingAnimation.tsx:210 @ 410fa444). Seen on the first
 // local record, 5 Oct 12:04Z, when the agent lane's last call failed: J1 must not pass then.
@@ -131,6 +136,55 @@ async function fragileTaggedPairs(page: Page): Promise<string[]> {
 function expectedTagged(fragile: Fragile[]): string[] {
   const top = [...fragile].sort((a, b) => b.switch_probability - a.switch_probability)[0]
   return top && top.switch_probability > FRAGILE_PAINT_THRESHOLD ? [`${top.from_label} → ${top.to_label}`] : []
+}
+
+/**
+ * The factor node ids the Analysis panel's review tool offers "Confirm as my estimate" on (`analysis-new-review-confirm`
+ * carries `data-node-id`, ModelReviewTool.tsx:727 @ 72543cff). The tool shows one item at a time, so every item is
+ * selected in turn. A tool that is not there THROWS: nothing offered by an unread tool is not nothing offered.
+ */
+async function confirmableFactors(page: Page, label: string): Promise<string[]> {
+  await expect(page.getByTestId('analysis-new-review'), `[${label}] COULD NOT MEASURE: no review tool on the Analysis panel`)
+    .toBeVisible({ timeout: 60_000 })
+  const toggle = page.getByTestId('analysis-new-review-toggle')
+  if ((await toggle.count()) === 0) {
+    await expect(page.getByTestId('analysis-new-review-empty'), `[${label}] COULD NOT MEASURE: the review tool shows neither items nor "nothing to review"`).toBeVisible()
+    return []
+  }
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click()
+  const select = page.getByTestId('analysis-new-review-select')
+  await expect(select, `[${label}] COULD NOT MEASURE: the review tool did not open`).toBeVisible({ timeout: 15_000 })
+  const n = await select.locator('option').count()
+  const ids: string[] = []
+  for (let i = 0; i < n; i++) {
+    await select.selectOption(String(i))
+    await expect(select, `[${label}] the review tool did not move to item ${i + 1}`).toHaveValue(String(i))
+    const confirm = page.getByTestId('analysis-new-review-confirm')
+    if ((await confirm.count()) > 0) ids.push((await confirm.getAttribute('data-node-id')) ?? `UNRESOLVED(item ${i + 1})`)
+  }
+  return [...new Set(ids)].sort()
+}
+
+/** Open the review item whose Confirm names `nodeId`, and press it. */
+async function confirmFactor(page: Page, nodeId: string, label: string): Promise<void> {
+  const select = page.getByTestId('analysis-new-review-select')
+  const n = await select.locator('option').count()
+  for (let i = 0; i < n; i++) {
+    await select.selectOption(String(i))
+    await expect(select).toHaveValue(String(i))
+    const confirm = page.getByTestId('analysis-new-review-confirm')
+    if ((await confirm.count()) > 0 && (await confirm.getAttribute('data-node-id')) === nodeId) { await confirm.click(); return }
+  }
+  throw new Error(`[${label}] COULD NOT MEASURE: no review item offers Confirm on ${nodeId}`)
+}
+
+/** Every `factor_value_edit` a turn request carries, wherever the payload nests it. */
+function factorValueEditsIn(value: unknown, out: Record<string, any>[] = [], depth = 0): Record<string, any>[] {
+  if (depth > 5 || value === null || typeof value !== 'object') return out
+  const o = value as Record<string, any>
+  if (o.kind === 'factor_value_edit') out.push(o)
+  for (const v of Object.values(o)) factorValueEditsIn(v, out, depth + 1)
+  return out
 }
 
 async function runAdvisory(name: string, fn: () => Promise<unknown>): Promise<void> {
@@ -879,5 +933,86 @@ test.describe.serial('J1 · whole PoC', () => {
     }
     assertBoundaryClean('J13')
     writeEvidence('J13-deep-link.json', { S, C })
+  })
+
+  // ── SD-1 ONE-FACT (domain 2, github-07; lease output/thin-client-spike/SD-1-LEASE.md) ─────────────────────────
+  // One user act is ONE fact: what A's screen shows after it is what CEE stored and what a fresh browser on the same
+  // account shows. Factor Confirm is the first kind: today it is a browser-only stamp (useModelEditAuthority.ts:850 @
+  // 72543cff), so this row is RED on staging by construction. That RED is the row's control (the lease's "local-only
+  // edit turns the row RED"); after the producer fix, the fix-reverted branch is. Last in the run, so it moves no
+  // recording any earlier row replays.
+  test('J14 · ONE-FACT (SD-1): a factor Confirm is sent, stored, and shown the same in a fresh browser', async ({ browser }) => {
+    const oneFact = async () => {
+      const S = J.S!
+      const latest = nodesOf(J.G2 ?? J.G1!)
+      await pageA.goto('about:blank')
+      await pageA.goto(`${ORIGIN}/#/scenario/${S}`, { waitUntil: 'load' })
+      await expect.poll(async () => (await renderedNodeIds(pageA)).sort(), { message: '[J14] A does not render S', timeout: 120_000 }).toEqual(latest)
+      await openDockTab(pageA, 'Analysis')
+      await expect(pageA.getByTestId('results-body-stale-wrapper'), '[J14] COULD NOT MEASURE: A shows no complete result for S')
+        .toHaveAttribute('data-run-status', 'complete', { timeout: 120_000 })
+
+      const offeredBefore = await confirmableFactors(pageA, 'J14 A before')
+      expect(offeredBefore.length, '[J14] COULD NOT MEASURE: the review tool offers Confirm on no factor').toBeGreaterThan(0)
+      const N = offeredBefore[0]
+      const nodeBefore = ((await read('J14 before')).graph as any)?.nodes?.find((n: any) => n.id === N)
+      expect(nodeBefore, `[J14] COULD NOT MEASURE: the stored graph has no node ${N}`).toBeTruthy()
+      expect(nodeBefore.observed_state?.reviewed_by_user?.intent, `[J14] COULD NOT MEASURE: ${N} is already stored as reviewed`).not.toBe('confirm')
+
+      const sent: Record<string, any>[] = []
+      const onRequest = (r: Request) => {
+        if (r.method() !== 'POST' || !/\/proxy\/v\d+\/turn(\/stream)?(\?|$)/.test(r.url())) return
+        try { factorValueEditsIn(r.postDataJSON(), sent) } catch { /* not JSON: no edit carried */ }
+      }
+      pageA.on('request', onRequest)
+      let offeredA: string[]
+      let localOnlyNotice: boolean
+      try {
+        await confirmFactor(pageA, N, 'J14')
+        // A's own screen settles first: the confirmed factor is no longer offered.
+        await expect.poll(() => confirmableFactors(pageA, 'J14 A after'), { message: `[J14] A still offers Confirm on ${N} after confirming it`, timeout: 30_000 })
+          .not.toContain(N)
+        offeredA = await confirmableFactors(pageA, 'J14 A after')
+        localOnlyNotice = await pageA.getByText(ON_THIS_SCREEN_ONLY).isVisible().catch(() => false)
+        // The wire and the store get a bounded window to catch up before they are judged.
+        await expect.poll(() => sent.some((e) => e.target_id === N && e.intent === 'confirm_current'), { timeout: 30_000 }).toBe(true).catch(() => undefined)
+      } finally {
+        pageA.off('request', onRequest)
+      }
+      const reviewedOf = async () => ((await read('J14 after')).graph as any)?.nodes?.find((n: any) => n.id === N)?.observed_state?.reviewed_by_user?.intent ?? null
+      await expect.poll(reviewedOf, { timeout: 30_000 }).toBe('confirm').catch(() => undefined)
+      const stored = await reviewedOf()
+
+      const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+      let offeredFresh: string[]
+      try {
+        const page = await ctx.newPage()
+        await injectSession(page, J.A!.storageKey, J.A!.raw)
+        await page.goto(`${ORIGIN}/#/scenario/${S}`, { waitUntil: 'load' })
+        await expect.poll(async () => (await renderedNodeIds(page)).sort(), { message: '[J14] the fresh browser does not render S', timeout: 120_000 }).toEqual(latest)
+        await openDockTab(page, 'Analysis')
+        await expect(page.getByTestId('results-body-stale-wrapper'), '[J14] COULD NOT MEASURE: the fresh browser shows no complete result for S')
+          .toHaveAttribute('data-run-status', 'complete', { timeout: 120_000 })
+        offeredFresh = await confirmableFactors(page, 'J14 fresh')
+      } finally {
+        await ctx.close()
+      }
+
+      const facts = {
+        node: N, offered_before: offeredBefore, offered_A: offeredA, offered_fresh: offeredFresh,
+        sent: sent.map((e) => ({ target_id: e.target_id, intent: e.intent ?? null })), stored_review: stored, local_only_notice: localOnlyNotice,
+      }
+      writeEvidence('J14-one-fact-confirm.json', facts)
+      const broken: string[] = []
+      if (!sent.some((e) => e.target_id === N && e.intent === 'confirm_current')) broken.push('NOT SENT (no factor_value_edit confirm_current)')
+      if (stored !== 'confirm') broken.push(`NOT STORED (reviewed_by_user.intent = ${stored})`)
+      if (localOnlyNotice) broken.push('A says "on this screen only"')
+      if (JSON.stringify(offeredFresh) !== JSON.stringify(offeredA)) broken.push(`FRESH DIFFERS (A offers [${offeredA.join(', ')}], fresh offers [${offeredFresh.join(', ')}])`)
+      if (broken.length) throw new Error(`[J14] Confirm on ${N} is not one fact: ${broken.join('; ')}`)
+      assertBoundaryClean('J14')
+      return facts
+    }
+    if (ONE_FACT_REQUIRED) await oneFact()
+    else await runAdvisory('J14_one_fact_confirm', oneFact)
   })
 })
