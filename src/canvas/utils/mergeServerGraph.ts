@@ -122,6 +122,7 @@ import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from './applyDraftResult'
 import { overlayEdge, overlayNode } from './mergeAppliedGraph'
 import { placeAddedNodes } from './newNodePlacement'
 import { isThinClientSession, loadThinLayout } from '../thinClient/thinClient'
+import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import {
   captureUserProvenance,
   clearEdgeUserReviewOnValueChange,
@@ -868,15 +869,24 @@ export function mergeServerGraphOnHydrate(
       // the intermediate frame the paragraph above exists to prevent. Read
       // fresh at write time rather than from the `store` snapshot captured at
       // entry, so a bump landing during the merge is not overwritten.
-      ...(hydratingEmptyCanvas && !thinLayoutRestored
+      // THIN CLIENT: a restored layout asks for no arrangement (`pendingLayout: false`), but the generation
+      // still moves, so a layout started for the PREVIOUS scenario cannot commit over this one.
+      ...(hydratingEmptyCanvas
         ? {
-            pendingLayout: true,
+            pendingLayout: !thinLayoutRestored,
             layoutRequestId: useCanvasStore.getState().layoutRequestId + 1,
           }
         : {}),
     })
   } finally {
     useCanvasStore.getState().endExternalGraphMutation?.()
+  }
+
+  // THIN CLIENT: CEE's read is the only source of the model, so its saved limits come from here too (the Supabase row's
+  // copy is not put on the canvas). Same rule as the receipt path: a carried list is adopted, absence clears nothing.
+  const readGoalConstraints = g.goal_constraints
+  if (hydratingEmptyCanvas && isThinClientSession() && Array.isArray(readGoalConstraints) && readGoalConstraints.length > 0) {
+    useCanvasStore.getState().setGoalConstraints(readGoalConstraints as CEEGoalConstraint[], { fromProducerSync: true })
   }
 
   // ── THE ANALYSIS NO LONGER DESCRIBES THIS CANVAS (A3) ─────────────────────

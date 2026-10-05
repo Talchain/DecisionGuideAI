@@ -246,7 +246,10 @@ export function saveScenarios(scenarios: Scenario[]): void {
         console.error('[scenarios] Storage quota exceeded, clearing oldest scenarios')
         // Try to save with fewer scenarios
         try {
-          const minimal = scenarios.slice(0, 20)
+          // THIN CLIENT: the retry is stripped exactly as the first write was — never the graphs that write omitted.
+          const minimal = scenarios
+            .slice(0, 20)
+            .map((sc) => (isThinClientSession() ? { ...sc, graph: buildPersistedGraph([], [], null) as Scenario['graph'] } : sc))
           localStorage.setItem(STORAGE_KEY, JSON.stringify(minimal))
         } catch {
           console.error('[scenarios] Failed to save even minimal scenarios')

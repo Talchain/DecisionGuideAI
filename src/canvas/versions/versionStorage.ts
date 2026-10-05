@@ -107,8 +107,9 @@ export function loadVersions(): ModelVersion[] {
 }
 
 function writePayload(versions: readonly ModelVersion[]): void {
-  // THIN CLIENT: never write a model copy for a signed-in browser.
-  if (isThinClientSession()) return
+  // THIN CLIENT: never write a model copy for a signed-in browser. Thrown, not returned, so `saveVersions` reports a
+  // failure instead of a save that did not happen (the panel hides the local section for these sessions anyway).
+  if (isThinClientSession()) throw new Error('Local versions are not kept in a signed-in session.')
   const payload: VersionedPayload<ModelVersion[]> = {
     schema: VERSIONS_SCHEMA,
     version: VERSIONS_SCHEMA_VERSION,
