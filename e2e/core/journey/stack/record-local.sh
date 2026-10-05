@@ -171,7 +171,7 @@ DGAI_SHA="$DGAI_SHA" CEE_SHA="$CEE_SHA" PLOT_SHA="$PLOT_SHA" ISL_SHA="$ISL_SHA" 
 JOURNEY_LLM_LEDGER="$W/ledger.ndjson" JOURNEY_LLM_FIXTURES="$FIX" \
 CORE_UI_URL="http://localhost:$UI_PORT" CORE_SUPABASE_URL="$SB_API_URL" CORE_SUPABASE_KEY="$SB_ANON_KEY" \
 J1_CEE_URL="http://127.0.0.1:$CEE_PORT" \
-  npx playwright test --config playwright.journey.config.ts 2>&1 | tee "$W/logs/playwright.log" || true
+  npx playwright test --config playwright.journey.config.ts J1-whole-poc 2>&1 | tee "$W/logs/playwright.log" || true
 
 say "ledger: $(node -e 'const c={};for(const l of require("fs").readFileSync(process.argv[1],"utf8").trim().split("\n")){const r=JSON.parse(l);c[r.outcome]=(c[r.outcome]||0)+1};console.log(JSON.stringify(c))' "$W/ledger.ndjson")"
 say "recordings: $(ls "$FIX"/[0-9]*.json 2>/dev/null | wc -l | tr -d ' ') in $FIX (commit these only)"

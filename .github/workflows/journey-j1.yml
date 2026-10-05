@@ -293,7 +293,7 @@ jobs:
           CORE_SUPABASE_URL: ${{ env.SB_URL }}
           CORE_SUPABASE_KEY: ${{ env.SB_ANON_KEY }}
           J1_CEE_URL: http://127.0.0.1:${{ env.CEE_PORT }}
-        run: npx playwright test --config playwright.journey.config.ts
+        run: npx playwright test --config playwright.journey.config.ts J1-whole-poc
 
       # ── 8. Evidence ───────────────────────────────────────────────────────
       - name: LLM boundary ledger
@@ -324,6 +324,21 @@ jobs:
             exit 1
           fi
 
+      # Two-account rows in ONE browser (Red-team A1-A4, Core Platform #2501 sweep).
+      # Advisory, after J1 and its ledger gate, so they never colour J1's verdict. Their
+      # drafts replay J1's frozen set (hit_reuse).
+      - name: Isolation rows · same browser (advisory)
+        if: always()
+        continue-on-error: true
+        working-directory: dgai
+        env:
+          CORE_UI_URL: http://localhost:${{ env.UI_PORT }}
+          CORE_SUPABASE_URL: ${{ env.SB_URL }}
+          CORE_SUPABASE_KEY: ${{ env.SB_ANON_KEY }}
+          J1_CEE_URL: http://127.0.0.1:${{ env.CEE_PORT }}
+          PLAYWRIGHT_HTML_REPORT: playwright-report-isolation
+        run: npx playwright test --config playwright.journey.config.ts isolation-same-browser --output test-results/isolation
+
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -335,6 +350,8 @@ jobs:
             ${{ runner.temp }}/j1/tuple.json
             ${{ runner.temp }}/j1/cee-health.json
             dgai/playwright-report-journey/
+            dgai/playwright-report-isolation/
             dgai/test-results/journey/
+            dgai/test-results/isolation/
           retention-days: 14
           if-no-files-found: warn

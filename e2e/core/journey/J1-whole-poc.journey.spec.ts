@@ -77,6 +77,7 @@ const J: {
   A?: MintedSession; S?: string
   G1?: Graph; H1?: string; H1id?: string
   AR1?: Record<string, any>; A1?: string; R1?: string | null
+  autoPassAt?: string | null; R1at?: string | null; R2at?: string | null
   fragile1?: Fragile[]; edited?: Fragile
   G2?: Graph; H2?: string; H2id?: string
   AR2?: Record<string, any>; R2?: string; fragile2?: Fragile[]
@@ -183,6 +184,7 @@ test.describe.serial('J1 · whole PoC', () => {
 
     const body = await read('J1')
     J.G1 = body.graph as Graph
+    J.autoPassAt = body.analysis_state?.run_state?.computed_at ?? null
     J.H1 = body.graph_hash
     J.H1id = body.graph_identity_hash?.value
     expect(J.H1, '[J1] the stored read has no 16-hex graph_hash').toMatch(/^[0-9a-f]{16}$/)
@@ -226,6 +228,8 @@ test.describe.serial('J1 · whole PoC', () => {
     expect(J.AR1.computed_against_hash, '[J2] the turn and the stored read disagree on what the run was computed on').toBe(J.A1)
     expect(body.current_read?.current_analysis_hash, '[J2] the run was not computed on the current model').toBe(J.A1)
     J.R1 = body.current_read?.run_delta?.endpoints?.current?.run_id ?? null
+    J.R1at = body.analysis_state?.run_state?.computed_at ?? null
+    expect(J.R1at, '[J2] the stored run has no computed_at').toBeTruthy()
 
     // The Analysis tab names G1's options by their exact labels.
     const options = J.G1!.nodes.filter((n) => n.kind === 'option')
@@ -355,23 +359,43 @@ test.describe.serial('J1 · whole PoC', () => {
     expect(body.current_read?.computed_against_hash, '[J6] the rerun reused R1\'s analysis hash').not.toBe(J.A1)
     const ends = body.current_read?.run_delta?.endpoints
     J.R2 = ends?.current?.run_id
+    J.R2at = body.analysis_state?.run_state?.computed_at ?? null
     expect(J.R2, '[J6] the stored read has no current run id').toBeTruthy()
-    expect(ends?.prior?.run_id, '[J6] the delta names no prior run').toBeTruthy()
     expect(ends?.prior?.run_id, '[J6] the delta\'s prior run is the current one').not.toBe(J.R2)
     if (J.R1) expect(ends?.prior?.run_id, '[J6] the delta does not point back at R1').toBe(J.R1)
+    // Bind the pair by computed_at (Integrator amendment @7cbd02f6): prior = R1, current = R2,
+    // and the prior is NOT the automatic first pass (the C10a pair). Absent endpoints = UNBOUND.
+    if (ends?.prior?.computed_at !== undefined && ends?.current?.computed_at !== undefined) {
+      expect(ends.current.computed_at, '[J6] the delta\'s current run is not R2').toBe(J.R2at)
+      expect(ends.prior.computed_at, '[J6] the delta\'s prior run is not R1').toBe(J.R1at)
+      if (J.autoPassAt) expect(ends.prior.computed_at, '[J6] the delta pairs R2 with the automatic first pass, not R1').not.toBe(J.autoPassAt)
+    } else {
+      advisory['J6-endpoint-binding'] = { verdict: 'UNBOUND', detail: `run_delta.endpoints lacks computed_at (keys: ${Object.keys(ends ?? {}).join(',') || 'none'})` }
+      writeEvidence('advisory.json', advisory)
+    }
     J.fragile2 = (J.AR2.enrichment?.robustness?.fragile_edges ?? []) as Fragile[]
-    writeEvidence('J6-rerun.json', { R1: J.R1, R2: J.R2, prior: ends?.prior?.run_id, fragile2: J.fragile2 })
+    writeEvidence('J6-rerun.json', { R1: J.R1, R2: J.R2, prior: ends?.prior?.run_id, prior_at: ends?.prior?.computed_at, current_at: ends?.current?.computed_at, R1at: J.R1at, R2at: J.R2at, autoPassAt: J.autoPassAt, fragile2: J.fragile2 })
 
     await runAdvisory('J7-compare-run-delta', async () => {
       await pageA.getByRole('tablist', { name: 'Outputs sections' }).getByRole('tab', { name: 'Compare' }).click()
-      const art = pageA.getByTestId('compare-run-change-artefact')
-      await expect(art).toBeVisible({ timeout: 30_000 })
-      expect(await art.getAttribute('data-current-run-id')).toBe(J.R2)
-      if (ends?.prior?.run_id) expect(await art.getAttribute('data-prior-run-id')).toBe(ends.prior.run_id)
+      // The pair renders, or the body says why not (CompareRunPairBody: -empty carries data-absence-reason).
+      const pair = pageA.getByTestId('compare-run-pair')
+      const empty = pageA.getByTestId('compare-run-pair-empty').or(pageA.getByTestId('compare-run-pair-run-on-record'))
+      await expect(pair.or(empty).first()).toBeVisible({ timeout: 30_000 })
+      if (await empty.count()) throw new Error(`Compare shows no pair: ${await empty.first().getAttribute('data-absence-reason') ?? await empty.first().getAttribute('data-run-on-record') ?? 'no reason given'}`)
+      // Identity: the edited link's input_changes rows, by entity_id, are the rows the tab lists.
       const changes = (body.current_read?.run_delta?.input_changes ?? []) as any[]
       const touched = changes.filter((c) => c?.link?.from === J.edited!.from_id && c?.link?.to === J.edited!.to_id)
       if (!touched.length) throw new Error(`run_delta.input_changes does not name the edited link (${changes.length} rows)`)
-      return { rows: changes.length, edited_rows: touched.length }
+      const shown = await pair.locator('[data-testid$="-input-row"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-entity-id')))
+      const missing = touched.map((c) => String(c.entity_id)).filter((id) => !shown.includes(id))
+      if (missing.length) throw new Error(`Compare does not list the edited link's change row(s) ${missing.join(', ')} (shown: ${shown.join(', ')})`)
+      // The run pair, when the headline carries the artefact (it does only under some verdict states).
+      const art = pair.locator('[data-compare-section="headline"][data-current-run-id]')
+      const runIds = (await art.count())
+        ? { prior: await art.getAttribute('data-prior-run-id'), current: await art.getAttribute('data-current-run-id') } : null
+      if (runIds && runIds.current !== J.R2) throw new Error(`Compare names current run ${runIds.current}, not R2 ${J.R2}`)
+      return { rows: changes.length, edited_rows: touched.length, shown: shown.length, run_ids: runIds ?? 'artefact not rendered' }
     })
   })
 
@@ -393,15 +417,14 @@ test.describe.serial('J1 · whole PoC', () => {
       const e = (r.body!.graph as Graph).edges.find((x) => x.from === J.edited!.from_id && x.to === J.edited!.to_id)
       expect(e?.provenance?.source, '[J8] the edit\'s provenance did not survive the fresh browser').toBe('user_specified')
 
-      // The fragile marks R2 painted are painted again from the server alone. When R2 has
-      // none above the threshold this half measures nothing, and says so (J3r carries it).
+      // The canvas marks exactly R2's own fragile edges, and not R1's (Integrator amendment
+      // @7cbd02f6). J3r, earlier in this run, is the positive control: R1's mark did paint
+      // after a reload, so its absence here is a measurement, not blindness.
+      expect(J.AR2!.enrichment?.robustness, '[J8] COULD NOT MEASURE: R2 carries no robustness block').toBeTruthy()
       const want = expectedTagged(J.fragile2!)
-      if (want.length) {
-        await expect.poll(() => fragileTaggedPairs(page), { message: '[J8] the fresh browser does not re-mark R2\'s fragile edge(s)', timeout: 60_000 }).toEqual(want)
-      } else {
-        advisory['J8-fragile-half'] = { verdict: 'VACUOUS', detail: 'R2 has no fragile edge above the paint threshold; J3r measures the reload of a real mark' }
-        writeEvidence('advisory.json', advisory)
-      }
+      const r1Mark = `${J.edited!.from_label} → ${J.edited!.to_label}`
+      await expect.poll(() => fragileTaggedPairs(page), { message: '[J8] the fresh browser does not mark exactly R2\'s fragile edge(s)', timeout: 60_000 }).toEqual(want)
+      if (!want.includes(r1Mark)) expect(await fragileTaggedPairs(page), '[J8] R1\'s stale fragile mark is still painted').not.toContain(r1Mark)
       writeEvidence('J8-fresh.json', { H2: J.H2, R2: J.R2, tagged: want })
     } finally {
       await ctx.close()
