@@ -185,7 +185,9 @@ say "stack up; recording"
 # that are identical across specs (J1's and ISO-1's first draft call) get different LLM answers,
 # and the replay serves the first unused exact match, so record order must equal replay order or a
 # spec inherits another spec's model (record 3: J1 took ISO-1's draft and its Run drifted).
-REC_ENV=(DGAI_SHA="$DGAI_SHA" CEE_SHA="$CEE_SHA" PLOT_SHA="$PLOT_SHA" ISL_SHA="$ISL_SHA" J1_MODE="$REC_MODE"
+# Thin client (#2511) or not, read from the build like the workflow does.
+UI_THIN=0; [ -f "$DGAI/src/canvas/thinClient/thinClient.ts" ] && UI_THIN=1
+REC_ENV=(J1_UI_THIN="$UI_THIN" DGAI_SHA="$DGAI_SHA" CEE_SHA="$CEE_SHA" PLOT_SHA="$PLOT_SHA" ISL_SHA="$ISL_SHA" J1_MODE="$REC_MODE"
   JOURNEY_LLM_LEDGER="$W/ledger.ndjson" JOURNEY_LLM_FIXTURES="$FIX"
   CORE_UI_URL="http://localhost:$UI_PORT" CORE_SUPABASE_URL="$SB_API_URL" CORE_SUPABASE_KEY="$SB_ANON_KEY"
   J1_SB_SERVICE_ROLE_KEY="$SB_SERVICE_ROLE_KEY" J1_CEE_URL="http://127.0.0.1:$CEE_PORT")

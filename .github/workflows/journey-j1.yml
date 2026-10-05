@@ -96,7 +96,10 @@ jobs:
           else
             { echo "J1_CEE_REF=$IN_CEE"; echo "J1_PLOT_REF=$IN_PLOT"; echo "J1_ISL_REF=$IN_ISL"; } >> "$GITHUB_ENV"
           fi
-          cat "$GITHUB_ENV" | grep '^J1_.*_REF='
+          # Is the UI the THIN client (#2511)? Read from the build, never from the screen (ISO-1's
+          # snapshot step differs: a signed-in thin page has no local snapshot save).
+          if [ -f "$GITHUB_WORKSPACE/dgai/src/canvas/thinClient/thinClient.ts" ]; then echo "J1_UI_THIN=1" >> "$GITHUB_ENV"; else echo "J1_UI_THIN=0" >> "$GITHUB_ENV"; fi
+          grep '^J1_' "$GITHUB_ENV"
 
       - name: Checkout CEE
         uses: actions/checkout@v4
