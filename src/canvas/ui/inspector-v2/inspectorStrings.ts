@@ -618,9 +618,9 @@ export const EDGE_COPY = {
    * not always between the other two as printed — it equals `low` whenever the
    * span opens upwards — and the sentence must stay true in that case.
    */
-  strengthSpansBands: (low: string, high: string, word: string, opts?: { readonly placeholder?: boolean }) =>
+  strengthSpansBands: (low: string, high: string, word: string, opts?: { readonly placeholder?: boolean; readonly exampleFigure?: boolean }) =>
     // POM-8: a placeholder is not an estimate, so the sentence does not call it one.
-    `Anywhere from ${low} to ${high} fits this ${opts?.placeholder ? 'placeholder' : 'estimate'} — "${word}" is the word for the stated number, not for the range around it.`,
+    `Anywhere from ${low} to ${high} fits this ${opts?.exampleFigure ? 'example figure' : opts?.placeholder ? 'placeholder' : 'estimate'} — "${word}" is the word for the stated number, not for the range around it.`,
   /**
    * The magnitude and its spread together. A bare point estimate reads as a
    * measurement; this reads as an estimate, which is what it is.

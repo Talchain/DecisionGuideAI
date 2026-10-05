@@ -10,6 +10,8 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import type { CSSProperties, ReactNode } from 'react'
 import { Position } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
@@ -27,7 +29,7 @@ import {
   resolveEdgeDirectionDisplay,
   resolveEdgeSignedStrengthDisplay,
 } from '../edgeValueProvenance'
-import { NaturalEffectSchema, naturalEffectAuthorWords, type NaturalEffect } from '../naturalEffect'
+import { NaturalEffectSchema, naturalEffectAuthorWords, naturalEffectPhraseParts, type NaturalEffect } from '../naturalEffect'
 import { strengthIsHumanSettled } from '../edgeStrengthSettlement'
 import { EdgeDataSchema } from '../edges'
 import { buildExamineLinkView } from '../../ui/inspector-v2/examine/examineLinkView'
@@ -205,6 +207,9 @@ describe('RT-12 — seven explicitly bound example links through the real ingest
           expect(effect?.author).toBe('example_figure')
           expect(NaturalEffectSchema.safeParse(effect).success).toBe(true)
           expect(naturalEffectAuthorWords(effect)).toBe('example figure')
+          // Example authorship must win even if an older canvas copy has a
+          // definitional flag: this size remains an example, never arithmetic.
+          expect(naturalEffectPhraseParts(effect, wireMean, resolveEdgeDirectionDisplay(edge.data), true)?.whose).toBe('example figure')
         }
       })
 
@@ -306,6 +311,18 @@ describe('RT-12 — seven explicitly bound example links through the real ingest
       })
     })
   }
+})
+
+describe('RT-12 — DraftChat third-hop source pin', () => {
+  it('calls the same example reader and strips the canvas-internal key before taking the wire remainder', () => {
+    // DraftChat's mapper is inline in its component. This is a source pin of
+    // that hop, not a rendered behavior witness, as in strengthPlaceholder.spec.
+    const src = readFileSync(path.resolve(__dirname, '../../components/DraftChat.tsx'), 'utf8')
+    expect(src).toMatch(/\.\.\.strengthExampleFigurePatch\(e as Record<string, unknown>, rawWeight, weightSource !== 'default'\)/)
+    expect(src).toMatch(/strengthExampleFigure: _strengthExampleFigure,[^}]*?\.\.\.edgeRest/)
+    // The earlier source pin's ownership stays byte-identical at the boundary.
+    expect(src).toMatch(/strengthPlaceholder: _strengthPlaceholder,\s*\.\.\.edgeRest/)
+  })
 })
 
 describe('RT-12 — real served controls through the same ingestion hop', () => {

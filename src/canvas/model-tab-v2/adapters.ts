@@ -818,6 +818,8 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
     input.edges as Edge<EdgeData>[],
   )) {
     const data = edge.data as Record<string, unknown> | undefined
+    // RT-12: only the live admitted example strength carries this attribution.
+    const exampleFigure = edgeSizePhrase(data)?.exampleFigure === true
     const attention: AttentionReason[] = []
     if (edgeIsContested(data)) attention.push('contested')
     if (input.fragileEdgeIds?.has(getDisplayEdgeId(edge))) attention.push('fragile')
@@ -850,6 +852,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
       !isStrengthDefinitional(data) &&
       !isStrengthAccepted(data) &&
       !isStrengthStated(data) &&
+      !exampleFigure &&
       (data as { provenanceDisplay?: unknown } | undefined)?.provenanceDisplay === 'ai_inferred' &&
       edgeStrengthEditIsAssertable(edge)
     ) {
@@ -867,10 +870,13 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
       })(),
       // Gate 5: the mark says whose the SIZE is — the user's stated figure reads as their brief (the wire's own
       // `provenance.source`), an accepted Olumi strength as accepted (the factor rows' `provenanceAccepted`, :659).
-      provenanceSource: isStrengthStated(data)
-        ? 'brief_extraction'
-        : typeof data?.weightSource === 'string' ? data.weightSource : undefined,
-      ...(isStrengthAccepted(data) ? { provenanceAccepted: true as const } : {}),
+      // Example attribution is carried by the size sentence and detail basis, not the factor-source taxonomy.
+      provenanceSource: exampleFigure
+        ? undefined
+        : isStrengthStated(data)
+          ? 'brief_extraction'
+          : typeof data?.weightSource === 'string' ? data.weightSource : undefined,
+      ...(!exampleFigure && isStrengthAccepted(data) ? { provenanceAccepted: true as const } : {}),
       attention,
       editable: true,
     })
@@ -1212,7 +1218,7 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
     // stamp is a FACTOR's. Explicit rather than omitted so the union stays total.
     classification: null,
     secondaryValues: [],
-    basis: edgeProvenanceBasis(data?.provenance),
+    basis: edgeSizePhrase(data)?.exampleFigure === true ? 'Source: example figure' : edgeProvenanceBasis(data?.provenance),
     adjustments: [],
     affects: [
       { id: edge.target, label: endpointLabel(edge.target, nodeLabels) },
