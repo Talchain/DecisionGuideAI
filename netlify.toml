@@ -60,8 +60,9 @@
 # publish that exact deploy to production. INERT for every other branch.
 # Mirrors the 2 Oct release commit 4df3dcd2 (whose served bundle carries the
 # real Supabase client) so the deployed UI SHA can equal a staging SHA.
-# Deliberately ABSENT: VITE_FEATURE_HERO_FIXTURE_GALLERY and
-# VITE_ENABLE_DEV_ROUTES — never on production (see the staging block below).
+# Deliberately ABSENT: the hero fixture gallery flag and the dev-routes flag
+# — never on production (see the staging block below; named there only, as
+# fixtureIsolation.spec counts the gallery key repo-wide).
 # Without VITE_STUB_SUPABASE=0 a guest-mode build stubs Supabase and sign-in
 # is absent (scripts/supabase-stub-decision.mjs).
 # =============================================================================

@@ -5,6 +5,8 @@ import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { makeData } from './analysisNewFixtures'
 import { useCanvasStore } from '../../../../canvas/store'
 import { isTestWithoutLinkEnabled } from '../../../../flags'
+import { recordBootReadAdmission, __resetBootReadAdmissionForTests } from '../../../../canvas/hydrate/bootReadAdmission'
+import type { PermittedAnalysisMode } from '../../../../adapters/cee/types'
 import type { ConversationContextValue } from '../../../../canvas/conversation/ConversationContext'
 import type { SourceKeyedMessage } from '../../../../canvas/conversation/utils/transcriptStore'
 
@@ -201,5 +203,64 @@ describe('Test without this link on the existing Challenge signals', () => {
     }]
     view.rerender(<ReasoningSignals vm={vm()} flipThresholds={null} />)
     expect(screen.getByRole('alert')).toHaveTextContent('This test could not be sent. Try again.')
+  })
+})
+
+describe('⭐ a cold load uses the graph read\'s mode while no turn has spoken (bootReadAdmission; Reasoning conditions 1–3)', () => {
+  const READ = 'read-revision-1'
+  /** A cold load before any turn: no live or retained admission; the read's revision is the one on screen. */
+  function coldLoad(mode: PermittedAnalysisMode, over: Record<string, unknown> = {}, recordedFor = 'scenario-1') {
+    useCanvasStore.setState({
+      ceeAnalysisReady: null, retainedAnalysisAdmission: null,
+      bootAdmittedRevision: READ, lastServerGraphHash: READ, pendingEmittedEdits: 0, ...over,
+    } as never)
+    recordBootReadAdmission({ scenarioId: recordedFor, graphHash: READ, permittedAnalysisMode: mode })
+  }
+  const holdOf = () => screen.queryByTestId('challenge-test-without-link-hold')?.getAttribute('data-hold') ?? null
+  const offered = () => screen.queryByRole('button', { name: 'Test without this link' }) !== null
+  beforeEach(() => { localStorage.setItem(FLAG, '1') })
+  afterEach(() => { __resetBootReadAdmissionForTests() })
+
+  it('⭐ hydrate only, a mode below quantified: holds with the plain sentence (it was offered, then refused)', () => {
+    coldLoad('exploratory')
+    mount()
+    expect(holdOf()).toBe('not_quantified')
+    expect(offered()).toBe(false)
+  })
+  it('control: hydrate only, quantified_provisional: offered', () => {
+    coldLoad('quantified_provisional')
+    mount()
+    expect(offered()).toBe(true)
+    expect(holdOf()).toBeNull()
+  })
+
+  it('⭐ a turn\'s admission wins over the read\'s mode', () => {
+    coldLoad('exploratory', { ceeAnalysisReady: { analysis_admission: { permitted_analysis_mode: 'quantified_provisional' } } })
+    mount()
+    expect(offered()).toBe(true)
+  })
+  it('control: the same read without the turn holds', () => {
+    coldLoad('exploratory')
+    mount()
+    expect(holdOf()).toBe('not_quantified')
+  })
+
+  it('⭐ the read was recorded for ANOTHER scenario: its mode is not this one\'s (absent = not loaded, offered)', () => {
+    coldLoad('exploratory', {}, 'scenario-2')
+    mount()
+    expect(holdOf()).toBeNull()
+    expect(offered()).toBe(true)
+  })
+
+  it('⭐ the revision on screen moved since the read (an edit or a turn): its mode is not used', () => {
+    coldLoad('exploratory', { lastServerGraphHash: 'moved-revision' })
+    mount()
+    expect(holdOf()).toBeNull()
+    expect(offered()).toBe(true)
+  })
+  it('⭐ the boot revision is no longer the read\'s (a decision-context clear): its mode is not used', () => {
+    coldLoad('exploratory', { bootAdmittedRevision: null })
+    mount()
+    expect(holdOf()).toBeNull()
   })
 })
