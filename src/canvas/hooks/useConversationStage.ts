@@ -22,7 +22,7 @@
  * invitation, which is also more honest: silencing one surface should not
  * silently decide what the other says.
  */
-import { useCanvasStore, selectResultsStatus } from '../store'
+import { useCanvasStore, selectResultsStatus, selectAnalysisStaleReasonWords } from '../store'
 import { useMayStalenessVoiceSpeak } from '../conversation/stalenessVoice'
 import { useAnalysisTrust } from './useAnalysisTrust'
 // ⚠ THE LEAF, NOT THE COMPONENT. `firstUsePlaceholder.ts` carries no imports
@@ -110,8 +110,11 @@ export function useConversationStage(): ConversationStage {
  */
 export function useEmptyConversationInvitation(): string {
   const stage = useConversationStage()
+  const staleWords = useCanvasStore(selectAnalysisStaleReasonWords)
   switch (stage) {
     case 'changed':
+      // RT-10 B′: a hash-equal stale is not a model change; say CEE's reason instead.
+      if (staleWords !== null) return `This analysis is out of date: ${staleWords}. Ask Olumi what that means, or run it again.`
       return 'Your model has changed since the last analysis. Ask Olumi what that means, or run it again.'
     case 'current':
       return 'Your analysis is ready. Ask Olumi about any part of it, or say what you would like to change.'

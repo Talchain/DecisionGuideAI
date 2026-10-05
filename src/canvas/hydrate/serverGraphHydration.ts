@@ -371,7 +371,8 @@ async function readAndMergeServerGraph(
   const restoreVerdict = (): void => {
     const verdictOutcome = applyBootAnalysisVerdict({
       analysisState: result.analysisState,
-      store: { setAnalysisStateV1: useCanvasStore.getState().setAnalysisStateV1 },
+      // RT-10 B′: the read's own reason sentence rides WITH its verdict (kept only while that verdict is complete_stale).
+      store: { setAnalysisStateV1: (v) => useCanvasStore.getState().setAnalysisStateV1(v, result.staleReasonWords ?? null) },
     })
     logger.debug('server_graph_hydration.boot_verdict', {
       scenarioId,
@@ -466,7 +467,7 @@ async function readAndMergeServerGraph(
       canvasProvenEqualToRead: notProvenEqual === null,
       store: {
         analysisFreshnessDirty: markIsThisReadsOwn ? false : st.analysisFreshnessDirty,
-        setAnalysisStateV1: st.setAnalysisStateV1,
+        setAnalysisStateV1: (v) => st.setAnalysisStateV1(v, result.staleReasonWords ?? null),
         setAnalysisFreshness: st.setAnalysisFreshness,
         readCurrentGraphHash: () => useCanvasStore.getState().analysisFreshness?.currentGraphHash,
       },
@@ -537,7 +538,7 @@ async function readAndMergeServerGraph(
       isRestorableKind: isBootRestorableRunState,
       store: {
         analysisFreshnessDirty: useCanvasStore.getState().analysisFreshnessDirty,
-        setAnalysisStateV1: useCanvasStore.getState().setAnalysisStateV1,
+        setAnalysisStateV1: (v) => useCanvasStore.getState().setAnalysisStateV1(v, result.staleReasonWords ?? null),
       },
     })
     logger.debug('server_graph_hydration.boot_blocked_verdict', {

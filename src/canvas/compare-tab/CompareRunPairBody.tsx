@@ -24,7 +24,7 @@ import { canvasLinkOfTarget, useCanvasLight } from '../graphChanges/rowCanvasLin
 import { useRunChangesRouteFocus } from '../graphChanges/routeFocus'
 import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
 import type { RunOnRecordWithoutResult } from '../stores/declinedSavedRunStore'
-import { useCanvasStore } from '../store'
+import { useCanvasStore, selectAnalysisStaleReasonWords } from '../store'
 import { selectRunDeltaAbsenceReason } from '../state/storedRunDelta'
 import { runDeltaSentence } from '../../components/results/analysisNew/commitmentSynthesis'
 import { selectRunAffirmedCurrent } from '../state/analysisStateSelector'
@@ -60,6 +60,17 @@ export const COMPARE_RUN_ON_RECORD_COPY = {
   // The Run control's own sentence, verbatim — the same words Reasoning shows for this state.
   unconfirmed: { title: 'Comparison not shown', body: FOOTER_COPY.savedRunUnconfirmedSub },
 } as const
+
+/**
+ * RT-10 B′: the stale notice when the MODEL DID NOT CHANGE (a hash-equal stale): "The model has changed" is false there,
+ * so the notice states CEE's own reason (`selectAnalysisStaleReasonWords`).
+ */
+export function compareOutOfDateCopy(words: string): { title: string; body: string } {
+  return {
+    title: 'The last Run is out of date',
+    body: `${words.charAt(0).toUpperCase()}${words.slice(1)}. Re-run to compare the model as it stands with the last Run.`,
+  }
+}
 
 export function CompareRunPairBody({
   responseHash,
@@ -97,8 +108,10 @@ export function CompareRunPairBody({
   // WHERE THIS CHANGE FLOWS: on a C1 pair only, a row click also lights its element's route to the Goal.
   const route = useRunChangesRouteFocus(view?.attributable === true)
   const absenceReason = useCanvasStore(selectRunDeltaAbsenceReason)
+  const staleWords = useCanvasStore(selectAnalysisStaleReasonWords)
   if (view === null && runOnRecordWithoutResult !== null) {
-    const copy = COMPARE_RUN_ON_RECORD_COPY[runOnRecordWithoutResult]
+    const copy = runOnRecordWithoutResult === 'stale' && staleWords !== null
+      ? compareOutOfDateCopy(staleWords) : COMPARE_RUN_ON_RECORD_COPY[runOnRecordWithoutResult]
     return (
       <CompareNotice title={copy.title} body={copy.body}
         data-testid={`${COMPARE_RUN_PAIR_TESTID}-run-on-record`} data-run-on-record={runOnRecordWithoutResult} />

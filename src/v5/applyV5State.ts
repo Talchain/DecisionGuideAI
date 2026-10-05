@@ -46,6 +46,7 @@
  */
 import type { OlumiResponse, StageType, AnalysisStateV1 } from '@talchain/schemas/boundary'
 import type { StoredRunDelta } from '../canvas/state/storedRunDelta'
+import { hashEqualStaleReasonWords } from './hashEqualStaleReasonWords'
 import {
   limitVerdictsFromResponse,
   readLimitVerdicts,
@@ -229,7 +230,7 @@ export interface V5ApplicatorStore {
    * Retaining it would make a stale verdict outrank live local derivations,
    * which is strictly worse than having no verdict.
    */
-  setAnalysisStateV1?: (state: AnalysisStateV1 | null) => void
+  setAnalysisStateV1?: (state: AnalysisStateV1 | null, staleReasonWords?: string | null) => void
   /** Optional: clear the local dirty overlay when a genuinely new analysis run completes (new analysis_result response_hash). */
   clearAnalysisFreshnessDirty?: () => void
   /** Optional (F10): a genuinely new analysis_result landed with NO explicit
@@ -2071,7 +2072,9 @@ export function applyV5State(
     if (parsedAnalysisState.success) {
       const verdict: AnalysisStateV1 = parsedAnalysisState.data
       turnVerdict = verdict
-      store.setAnalysisStateV1?.(verdict)
+      // RT-10 B′: a hash-equal stale's reason sentence rides with its verdict (the store keeps it only while stale).
+      const turnReady = (response as { analysis_ready?: { freshness_reason?: unknown; graph_hash_at_run?: unknown; current_graph_hash?: unknown } | null }).analysis_ready
+      store.setAnalysisStateV1?.(verdict, hashEqualStaleReasonWords(turnReady?.freshness_reason, turnReady?.graph_hash_at_run, turnReady?.current_graph_hash))
       applied.push('analysis_state:set')
       logV5StateStep({
         step_number: 4,
