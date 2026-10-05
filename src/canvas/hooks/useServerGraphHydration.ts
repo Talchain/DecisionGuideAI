@@ -48,6 +48,7 @@ import { useServerGraphRetryStore } from '../stores/serverGraphRetryStore'
 import { coldLoadClaimedRoute } from '../hydrate/coldLoadDeepLink'
 import { logger } from '../../lib/logger'
 import { getSessionIdentity } from '../../lib/supabase'
+import { isThinClientSession } from '../thinClient/thinClient'
 
 /**
  * The scenario id this hook last ADOPTED from a route (see the adoption effect). Module-level, not a ref: a remounted
@@ -67,6 +68,9 @@ export function __resetRouteAdoptedScenarioForTests(): void {
  */
 function routeIsAdoptable(route: string | null | undefined, held: string | null): boolean {
   if (!route || !isCeeAddressableScenarioId(route)) return false
+  // THIN CLIENT: the route IS the scenario. No local copy of another scenario can be on screen for long:
+  // `useScenario.loadScenario` clears it when the route changes (same-tab A → B), and this read then fills B from CEE.
+  if (isThinClientSession()) return true
   return held === null || held === route || held === routeAdoptedScenarioId || held === coldLoadClaimedRoute()
 }
 
