@@ -8,6 +8,8 @@ import { useStrengthenStore } from '../../canvas/stores/strengthenStore'
 import { useDecisionRecordStore } from '../../components/results/modals/decisionRecordStore'
 import { useSuccessMeasureStore } from '../../components/results/modals/successMeasureStore'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
+import { clearCitedEvidenceCache } from '../../collab/citedEvidenceCache'
+import { clearRoundRosterCache } from '../../collab/roundRosterCache'
 
 /** All browser state that belongs to an authenticated user's reasoning work. */
 export const USER_SCOPED_STORAGE_KEYS = [
@@ -74,6 +76,9 @@ export function clearUserScopedState(): void {
   // singleton already holds without re-checking its scenario (`guidanceStore.rehydrateGuidance`). Clear it in memory;
   // the blob goes with the session keys below (its own clear needs a mounted canvas to name the scenario).
   step(() => useGuidanceStore.getState().clearGuidanceItems())
+  // Panel participants' names and their cited evidence, fetched with the previous owner's token (in memory, 5-min TTL).
+  step(clearRoundRosterCache)
+  step(clearCitedEvidenceCache)
   // Each removal on its own: one that throws never leaves the keys after it behind (browser storage can be unavailable).
   const remove = (storage: () => Storage, key: string): void => {
     try { storage().removeItem(key) } catch { /* the sweep goes on */ }

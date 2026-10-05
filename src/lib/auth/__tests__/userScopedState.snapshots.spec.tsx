@@ -20,6 +20,17 @@ import { setGuidancePersistenceContext, useGuidanceStore } from '../../../canvas
 import { rememberPendingApply } from '../../../collab/panelApplyHandoff'
 import { rememberOpenRound } from '../../../collab/openRoundRecord'
 import { markGraphImported } from '../../../canvas/store/importRegistrationMarker'
+import { ensureRoster, peekRoster, __resetRosterCacheForTests } from '../../../collab/roundRosterCache'
+import { ensureDisagreement, peekDisagreement, __resetCitedEvidenceCacheForTests } from '../../../collab/citedEvidenceCache'
+
+/** The Panel owner endpoints, answered as account A's token would be. Only the two caches below call them here. */
+const collabFetch = vi.hoisted(() => ({ roster: vi.fn(), disagreement: vi.fn() }))
+vi.mock('../../../collab/ownerAccessToken', () => ({ requireOwnerAccessToken: async () => 'token-of-a' }))
+vi.mock('../../../collab/collabService', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../collab/collabService')>()),
+  fetchRoundRoster: (...args: unknown[]) => collabFetch.roster(...args),
+  fetchOwnerDisagreement: (...args: unknown[]) => collabFetch.disagreement(...args),
+}))
 import { useCanvasStore } from '../../../canvas/store'
 import { SnapshotManager } from '../../../canvas/components/SnapshotManager'
 import { ToastProvider } from '../../../canvas/ToastContext'
@@ -271,5 +282,75 @@ describe('identity boundary: the rest of the class (Codex #2501 r1)', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(localStorage.getItem(`${only.key}-name`)).toBeNull()
     expect(useCanvasStore.getState().nodes.map((n) => (n.data as { label?: string }).label)).not.toContain(A_SENTINEL)
+  })
+})
+
+describe('identity boundary: Panel caches fetched with the owner\'s token (Codex #2501 r2)', () => {
+  const aRoster = { roster: [{ participant_id: 'p-a', display_name: `Panelist ${A_SENTINEL}`, status: 'submitted' }] }
+  const aView = { round_id: 'r-a', cited: [{ text: `Evidence ${A_SENTINEL}` }] }
+
+  beforeEach(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+    __resetRosterCacheForTests()
+    __resetCitedEvidenceCacheForTests()
+    collabFetch.roster.mockReset()
+    collabFetch.disagreement.mockReset()
+  })
+  afterEach(() => {
+    __resetRosterCacheForTests()
+    __resetCitedEvidenceCacheForTests()
+    localStorage.clear()
+    sessionStorage.clear()
+  })
+
+  /** A request whose answer the test releases later. */
+  function deferred<T>(): { promise: Promise<T>; resolve: (v: T) => void } {
+    let resolve!: (v: T) => void
+    const promise = new Promise<T>((r) => { resolve = r })
+    return { promise, resolve }
+  }
+
+  it('⭐ the names and cited evidence A fetched are forgotten at the boundary', async () => {
+    collabFetch.roster.mockResolvedValue(aRoster)
+    collabFetch.disagreement.mockResolvedValue(aView)
+    await ensureRoster('r-a')
+    await ensureDisagreement('r-a')
+    expect(JSON.stringify(peekRoster('r-a'))).toContain(A_SENTINEL)
+    expect(JSON.stringify(peekDisagreement('r-a'))).toContain(A_SENTINEL)
+    clearUserScopedState()
+    expect(peekRoster('r-a')).toBeUndefined()
+    expect(peekDisagreement('r-a')).toBeUndefined()
+  })
+
+  it('⭐ a request still in flight at the boundary never stores A\'s answer for B', async () => {
+    const roster = deferred<unknown>()
+    const view = deferred<unknown>()
+    collabFetch.roster.mockReturnValue(roster.promise)
+    collabFetch.disagreement.mockReturnValue(view.promise)
+    const pendingRoster = ensureRoster('r-a')
+    const pendingView = ensureDisagreement('r-a')
+    clearUserScopedState()
+    roster.resolve(aRoster)
+    view.resolve(aView)
+    await pendingRoster
+    await pendingView
+    expect(peekRoster('r-a')).toBeUndefined()
+    expect(peekDisagreement('r-a')).toBeUndefined()
+  })
+
+  it('CONTRAST: with no boundary, the same in-flight answers are stored', async () => {
+    const roster = deferred<unknown>()
+    const view = deferred<unknown>()
+    collabFetch.roster.mockReturnValue(roster.promise)
+    collabFetch.disagreement.mockReturnValue(view.promise)
+    const pendingRoster = ensureRoster('r-a')
+    const pendingView = ensureDisagreement('r-a')
+    roster.resolve(aRoster)
+    view.resolve(aView)
+    await pendingRoster
+    await pendingView
+    expect(JSON.stringify(peekRoster('r-a'))).toContain(A_SENTINEL)
+    expect(JSON.stringify(peekDisagreement('r-a'))).toContain(A_SENTINEL)
   })
 })

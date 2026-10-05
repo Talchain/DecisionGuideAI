@@ -60,6 +60,11 @@ interface CacheEntry {
 const cache = new Map<string, CacheEntry>()
 const inFlight = new Map<string, Promise<DisagreementView | null>>()
 const subscribers = new Set<() => void>()
+/**
+ * Bumped by `clearCitedEvidenceCache` at every identity boundary. A request started under an earlier generation was
+ * made with the previous owner's token, so its answer is never stored for the next one.
+ */
+let generation = 0
 
 function notify(): void {
   // A copy, because a subscriber may unsubscribe itself while being called.
@@ -106,13 +111,16 @@ export function ensureDisagreement(roundId: string): Promise<DisagreementView | 
   const existing = inFlight.get(roundId)
   if (existing !== undefined) return existing
 
+  const startedIn = generation
   const request = (async (): Promise<DisagreementView | null> => {
     try {
       const accessToken = await requireOwnerAccessToken()
       const view = await fetchOwnerDisagreement(accessToken, roundId)
+      if (startedIn !== generation) return null
       cache.set(roundId, { view, storedAt: Date.now() })
       return view
     } catch {
+      if (startedIn !== generation) return null
       // Signed out, a round the caller does not own, a round still open (CEE
       // refuses `collab_round_open` and it is RIGHT to), a network failure. All
       // are "cannot show the citation" at the surface, and none is worth
@@ -120,13 +128,26 @@ export function ensureDisagreement(roundId: string): Promise<DisagreementView | 
       cache.set(roundId, { view: null, storedAt: Date.now() })
       return null
     } finally {
-      inFlight.delete(roundId)
-      notify()
+      if (startedIn === generation) {
+        inFlight.delete(roundId)
+        notify()
+      }
     }
   })()
 
   inFlight.set(roundId, request)
   return request
+}
+
+/**
+ * The identity boundary (`clearUserScopedState`): forget every view, and every request still in flight, fetched with
+ * the previous owner's token. Mounted surfaces are told, so a cited line already on screen goes away with it.
+ */
+export function clearCitedEvidenceCache(): void {
+  generation += 1
+  cache.clear()
+  inFlight.clear()
+  notify()
 }
 
 /**
