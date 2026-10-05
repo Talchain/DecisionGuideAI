@@ -989,6 +989,8 @@ export interface UncertaintyItem {
   /** V14.3b: Pre-sanitised text for JSX render fallback. Computed at data layer via internal-token guard. */
   displayText?: string
   suggestion?: string
+  /** `GOAL_DIRECTION_UNATTESTED` only: the goal's target line can set 'at most', so the title may offer that correction. */
+  goalDirectionCorrectable?: boolean
   affectedNodes?: string[]
   /**
    * The producer's endpoint ids for a fragile-relationship row.
@@ -1248,6 +1250,11 @@ export interface InferenceWarning {
    * hidden. Optional/additive — absent when the producer omitted it.
    */
   severity?: string
+  /**
+   * UI-derived, never producer: set only on `GOAL_DIRECTION_UNATTESTED` by the adapter, from the goal node
+   * (`goalDirectionCorrectableByTarget`). `true` lets the copy offer the 'at most' correction; absent means none.
+   */
+  goal_direction_correctable?: boolean
 }
 
 export interface ConfidenceSectionData {

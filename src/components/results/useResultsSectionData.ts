@@ -105,7 +105,7 @@ import {
   type AttributionSuppressionVerdict,
 } from './voi/attributionSuppression'
 import { resolveNodeTypeLiteral } from '../../canvas/domain/nodes'
-import { resolveGoalTarget, goalDirectionWarningIsMoot, GOAL_DIRECTION_UNATTESTED_CODE, type GoalTargetSource } from '../../canvas/domain/goalTarget'
+import { resolveGoalTarget, goalDirectionWarningIsMoot, goalDirectionCorrectableByTarget, GOAL_DIRECTION_UNATTESTED_CODE, type GoalTargetSource } from '../../canvas/domain/goalTarget'
 import { factorDisplaysValue } from '../../canvas/components/model-tab/utils'
 import {
   selectAssumedStrengthToResolve,
@@ -3409,6 +3409,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     () => goalDirectionWarningIsMoot(goalNode?.data as GoalTargetSource | undefined),
     [goalNode?.data],
   )
+  // B′: the goal's target line can set 'at most' (a level target or none), so the copy may offer that correction.
+  const goalDirectionCorrectable = useMemo(
+    () => goalDirectionCorrectableByTarget(goalNode?.data as GoalTargetSource | undefined),
+    [goalNode?.data],
+  )
   const confidence = useMemo<ConfidenceSectionData>(() => {
     // Get graph readiness from CEE review V1
     const ceeReviewV1 = runMeta?.ceeReviewV1
@@ -4524,6 +4529,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             // defaulted). Warning-severity entries surface on the Analysis
             // tab; info-severity stays hidden there.
             severity: typeof w.severity === 'string' ? w.severity : undefined,
+            ...(w.code === GOAL_DIRECTION_UNATTESTED_CODE && goalDirectionCorrectable ? { goal_direction_correctable: true } : {}),
           }
         })
       })(),
@@ -4606,7 +4612,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // decide from ONE adapted array. Listing it is a correctness dependency,
     // not lint appeasement: with a stale closure the CX5 suppression would be
     // computed from the previous run's flip evidence.
-  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap, runMeta?.ceeReviewV1, recommendation, goalDirectionWarningMoot])
+  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap, runMeta?.ceeReviewV1, recommendation, goalDirectionWarningMoot, goalDirectionCorrectable])
 
   /**
    * ⭐⭐ WHICH SENSITIVITY ROWS NAME A RELATIONSHIP THE READER CAN GO AND CHANGE.
