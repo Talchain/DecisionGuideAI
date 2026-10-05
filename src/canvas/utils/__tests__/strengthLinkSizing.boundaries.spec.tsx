@@ -12,7 +12,7 @@
  * `provenance_display: 'ai_inferred'` (CEE's V3 display for a `cee_hypothesis` link) where the Model tab keys on it.
  */
 import { beforeEach, describe, expect, it } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, cleanup } from '@testing-library/react'
 import served from '../../domain/__tests__/fixtures/servedLinkSizing.20261005.json'
 import { mapDraftEdgeToCanvas } from '../applyDraftResult'
 import { useCanvasStore } from '../../store'
@@ -27,7 +27,8 @@ import { isStrengthAccepted } from '../../domain/strengthAccepted'
 import { isStrengthStated } from '../../domain/strengthStated'
 import { buildExamineLinkView } from '../../ui/inspector-v2/examine/examineLinkView'
 import { resolveEdgeValuesProvenance } from '../../ui/inspector-v2/coachingConfig'
-import { edgeValueSource } from '../../domain/edgeValueProvenance'
+import { edgeValueSource, resolveEdgeDirectionDisplay, resolveEdgeSignedStrengthDisplay } from '../../domain/edgeValueProvenance'
+import { LinkHoverCard } from '../../components/hoverCard/LinkHoverCard'
 
 type WireEdge = Record<string, unknown> & { from: string; to: string; provenance: Record<string, unknown> }
 const ACCEPTED = served.accepted as unknown as WireEdge
@@ -140,6 +141,48 @@ describe('P1-4 — update_edge: the labels are never taken from a payload key, a
     update({ provenance: PRE_PROV })
     expect(edgeOf(ACCEPTED).data.strengthAccepted).toBeUndefined()
   })
+  // Codex r2 P1-2: provenance about one number never labels another.
+  it('r3 · provenance arriving with a DIFFERENT strength (strength_mean / strength.mean) labels nothing', () => {
+    update({ provenance: ACCEPTED.provenance, strength: { mean: 0.9, std: 0.1 } })
+    expect(edgeOf(ACCEPTED).data.strengthAccepted).toBeUndefined()
+    expect(isStrengthAccepted(edgeOf(ACCEPTED).data)).toBe(false)
+    update({ provenance: ACCEPTED.provenance, strength_mean: 0.9 })
+    expect(edgeOf(ACCEPTED).data.strengthAccepted).toBeUndefined()
+  })
+  it('r3 · control: provenance arriving with the SAME strength still labels it', () => {
+    update({ provenance: ACCEPTED.provenance, strength: { mean: 0.25, std: 0.125 } })
+    expect(isStrengthAccepted(edgeOf(ACCEPTED).data)).toBe(true)
+  })
+})
+
+// Codex r2 P1-3: an acceptance of A→B is not an acceptance of A→C.
+describe('r3 · update_edge REWIRE: the labels belong to the relationship, not the edge id', () => {
+  let id = ''
+  beforeEach(() => {
+    seedCanvas(nodesFor(ACCEPTED, 'factor'), [mapDraftEdgeToCanvas({ ...ACCEPTED } as never, 0)])
+    id = edgeOf(ACCEPTED).id
+    expect(isStrengthAccepted(edgeOf(ACCEPTED).data)).toBe(true) // PRECONDITION
+  })
+  const update = (data: Record<string, unknown>) =>
+    act(() => { applyAutoApplyPatch({ operations: [{ op: 'update_edge', target_id: id, data }] } as never) })
+  const byId = (): any => useCanvasStore.getState().edges.find((x: any) => x.id === id)
+  it.each([
+    ['target only', { to: 'elsewhere' }],
+    ['source only', { from: 'elsewhere' }],
+    ['both', { from: 'elsewhere_a', to: 'elsewhere_b' }],
+    ['target only (canvas spelling)', { target: 'elsewhere' }],
+  ])('%s, with no provenance → cleared', (_n, data) => {
+    update(data)
+    expect(byId().data.strengthAccepted).toBeUndefined()
+  })
+  it('control: the same endpoints restated → kept', () => {
+    update({ from: ACCEPTED.from, to: ACCEPTED.to })
+    expect(isStrengthAccepted(byId().data)).toBe(true)
+  })
+  it('control: a rewire CARRYING the confirm review → labelled for the new relationship', () => {
+    update({ to: 'elsewhere', provenance: ACCEPTED.provenance })
+    expect(isStrengthAccepted(byId().data)).toBe(true)
+  })
 })
 
 describe('P1-4 — the strength acknowledgement (parseV5Response → applyV5State)', () => {
@@ -179,5 +222,57 @@ describe('P1-4 — the strength acknowledgement (parseV5Response → applyV5Stat
   it('a legacy-shaped acknowledgement never carries a payload strengthAccepted key onto the edge', async () => {
     await receive({ weight: 0.25, strengthAccepted: 0.25 })
     expect(edgeOf(ACCEPTED).data.strengthAccepted).toBeUndefined()
+  })
+  // Codex r2 P1-1: the clear must survive `updateEdgeData`'s shallow merge onto the stored data.
+  const signed = { from: ACCEPTED.from, to: ACCEPTED.to, strength: ACCEPTED.strength, effect_direction: ACCEPTED.effect_direction }
+  it('r3 · SIGNED: accepted, then a same-strength acknowledgement WITHOUT the review → no longer accepted', async () => {
+    await receive({ ...signed, provenance: ACCEPTED.provenance })
+    expect(isStrengthAccepted(edgeOf(ACCEPTED).data)).toBe(true) // PRECONDITION
+    await receive({ ...signed, provenance: PRE_PROV })
+    expect(edgeOf(ACCEPTED).data.strengthAccepted).toBeUndefined()
+  })
+  it('r3 · LEGACY: accepted, then a same-weight acknowledgement WITHOUT the review → no longer accepted', async () => {
+    await receive({ ...signed, provenance: ACCEPTED.provenance })
+    expect(isStrengthAccepted(edgeOf(ACCEPTED).data)).toBe(true) // PRECONDITION
+    await receive({ weight: 0.25, provenance: PRE_PROV })
+    expect(edgeOf(ACCEPTED).data.strengthAccepted).toBeUndefined()
+  })
+  it('r3 · class switch: accepted → stated holds ONE label, not both', async () => {
+    await receive({ ...signed, provenance: ACCEPTED.provenance })
+    await receive({ ...signed, provenance: { ...PRE_PROV, magnitude: 'user_stated' } })
+    const data = edgeOf(ACCEPTED).data
+    expect(data.strengthAccepted).toBeUndefined()
+    expect(isStrengthStated(data)).toBe(true)
+  })
+})
+
+// Codex r2 P1-5: `strengthStated` is a STRENGTH fact; it never credits the direction to the user.
+describe('r3 · the hover card\'s Direction row (rendered <LinkHoverCard>)', () => {
+  const directionWords = (wire: WireEdge) => {
+    seedCanvas(nodesFor(wire), [mapDraftEdgeToCanvas({ ...wire } as never, 0)])
+    const data = edgeOf(wire).data
+    render(
+      <LinkHoverCard
+        edgeId={edgeOf(wire).id} labelX={0} labelY={0} zoom={1} surfaceRef={{ current: document.body as never }}
+        arrowSentence="" doubtSentence={null} direction={resolveEdgeDirectionDisplay(data)} disputedSentence={null}
+        strength={resolveEdgeSignedStrengthDisplay(data)} strengthSettled={false} strengthStated={isStrengthStated(data)}
+        placeholderSentence={null} fragileSentence={null} size={edgeSizePhrase(data)}
+      />,
+    )
+    const out = { stated: isStrengthStated(data), phrase: edgeSizePhrase(data), words: screen.getByTestId('edge-hover-direction').textContent }
+    cleanup()
+    return out
+  }
+  it('control: the served stated link (sign agrees) → "from your figure"', () => {
+    const r = directionWords(STATED)
+    expect(r.phrase?.usersFigure).toBe(true) // PRECONDITION: the phrase speaks
+    expect(r.words).toContain('from your figure')
+  })
+  it('⭐ the stated figure with a CONTRADICTORY sign → the phrase refuses and the direction is NOT "from your figure"', () => {
+    const flipped: WireEdge = { ...STATED, strength: { ...(STATED.strength as Record<string, unknown>), mean: 0.8 }, effect_direction: 'positive' }
+    const r = directionWords(flipped)
+    expect(r.stated).toBe(true) // PRECONDITION: the strength fact still holds
+    expect(r.phrase).toBeNull() // PRECONDITION: the phrase refuses
+    expect(r.words).not.toContain('from your figure')
   })
 })

@@ -363,6 +363,9 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
     const update = edgeUpdates.get(e.id)
     if (!update) return e
     const { _rewireSource, _rewireTarget, ...dataUpdate } = update
+    const relationshipChanged =
+      (typeof _rewireSource === 'string' && _rewireSource !== e.source) ||
+      (typeof _rewireTarget === 'string' && _rewireTarget !== e.target)
     return {
       ...e,
       ...(typeof _rewireSource === 'string' ? { source: _rewireSource } : {}),
@@ -371,6 +374,7 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
         { ...e.data, ...dataUpdate },
         dataUpdate,
         Math.abs(Number(({ ...e.data, ...dataUpdate } as Record<string, unknown>).weight)),
+        { relationshipChanged },
       ),
     }
   })

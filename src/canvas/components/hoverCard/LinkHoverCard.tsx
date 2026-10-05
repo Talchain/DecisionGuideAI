@@ -157,7 +157,9 @@ export function LinkHoverCard(props: LinkHoverCardProps) {
                   ? BY_DEFINITION
                   // Beat 1: the size phrase speaks only when this direction agrees with the sign of the user's own
                   // amount (`naturalEffectPhrase`), so the direction is their figure's too — not Olumi's estimate.
-                  : (props.size?.usersFigure === true || props.strengthStated === true) && direction.source === 'cee'
+                  // ⛔ NOT `strengthStated` (Codex r2 P1-5): that fact is about the STRENGTH only. With a contradictory
+                  // sign the phrase refuses, and the direction is then not known to be the user's.
+                  : props.size?.usersFigure === true && direction.source === 'cee'
                     ? 'from your figure'
                     : DIRECTION_SOURCE_WORDS[direction.source]
                 : NOT_ON_RECORD}
