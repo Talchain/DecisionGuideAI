@@ -18,7 +18,7 @@ import { TopBar } from '../components/layout/TopBar'
 import { getScenario } from '../canvas/store/scenarios'
 import { useScenario } from '../hooks/useScenario'
 import { useServerGraphHydration } from '../canvas/hooks/useServerGraphHydration'
-import { useColdLoadDeepLinkGate } from '../canvas/hydrate/coldLoadDeepLink'
+import { useColdLoadDeepLinkGate, useInAppLinkSwitch } from '../canvas/hydrate/coldLoadDeepLink'
 import { useBootServerRead, useSupabaseLoadTracker } from '../canvas/hooks/useBootServerReadEnabled'
 import { useIsViewer } from '../lib/viewerMode'
 import { useScenarioViewerAccess } from '../lib/useScenarioViewerAccess'
@@ -50,6 +50,7 @@ const VersionsPanelHost = lazy(() => import('../canvas/versions/VersionsPanelHos
  */
 export default function CanvasMVP() {
   const { id: scenarioIdFromRoute } = useParams<{ id: string }>()
+  useInAppLinkSwitch(scenarioIdFromRoute)
   return useColdLoadDeepLinkGate(scenarioIdFromRoute) ? <CanvasMVPBody /> : null
 }
 

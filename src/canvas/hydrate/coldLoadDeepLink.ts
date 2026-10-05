@@ -34,11 +34,12 @@
  * remembered id equal to the route, and a browser that remembers nothing (#2383's fresh guest) all behave as before.
  */
 
-import { useLayoutEffect, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import * as scenarios from '../store/scenarios'
 import { useCanvasStore } from '../store'
 import { isUUID } from '../../services/turn-request-builder'
 import { isCeeAddressableScenarioId } from './bootGraphRead'
+import { flushWorkToAutosave } from '../persist/crashFlush'
 
 /** `scenarios.ts`'s AUTOSAVE_KEY, which it does not export. Pinned by a row that drives the real `saveAutosave`. */
 export const MAIN_AUTOSAVE_SLOT = 'olumi-canvas-autosave'
@@ -261,6 +262,43 @@ export function useColdLoadDeepLinkGate(route: string | null | undefined): boole
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   return ready
+}
+
+/**
+ * ⭐ A LINK OPENED LATER IN THE SAME TAB SWITCHES TO ITS SCENARIO (BLOCKER22, Acceptance #87 5986279838; DL 0df0e1, its
+ * own HIGH PR). Changing the address to `#/scenario/B` in a tab that holds A is a same-document navigation: the canvas
+ * stays mounted, the gate above has already decided for this page, and a held scenario never adopts a link. So A stayed
+ * on screen under B's address, and B's graph was never read.
+ *
+ * THE RULE. When the route changes after the first committed mount to a CEE-addressable B while the store holds ANOTHER
+ * scenario A, A's newest work is flushed to its autosave (`flushWorkToAutosave`, gated inside) and the page reloads. The
+ * reload is a cold load of B, so the tested path above makes the switch: A's slot is preserved under its own stamp, the
+ * pointer becomes B, and the main slot becomes B's own copy or nothing. Every in-memory store (conversation, results,
+ * decision context) starts clean on B, so nothing of A's session carries over.
+ *
+ * NOT A SWITCH: the first mount (the gate decides that); the same route; a route that names no addressable scenario
+ * (`/canvas`); a store that already holds B (the app's own navigations set the store first: `createScenario`, the guest
+ * copy's `adoptScenario`); and an unbound canvas (a guest's draft with no id: today's behaviour, #2383). A page with
+ * unsaved work asks before it goes (`useScenario`'s beforeunload), as any reload does.
+ *
+ * In a LAYOUT effect of the route's gate: it runs before the body's passive effects, so no load or read of B starts on
+ * a page that is about to go.
+ */
+let reloadPage: () => void = () => window.location.reload()
+export function useInAppLinkSwitch(route: string | null | undefined): void {
+  const seen = useRef(route)
+  useLayoutEffect(() => {
+    if (seen.current === route) return
+    seen.current = route
+    if (route == null || !isCeeAddressableScenarioId(route)) return
+    const held = useCanvasStore.getState().currentScenarioId ?? null
+    if (held === null || held === route) return
+    flushWorkToAutosave()
+    reloadPage()
+  }, [route])
+}
+export function __setReloadForTests(fn: (() => void) | null): void {
+  reloadPage = fn ?? (() => window.location.reload())
 }
 
 /** The route this page's cold load adopted, if any: the store's id then came from a link (`useServerGraphHydration`). */
