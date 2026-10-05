@@ -84,11 +84,17 @@ function write(key: string, value: string | null): boolean {
   }
 }
 
-/** The stamp a slot's bytes carry, when they parse as an autosave stamped with a well-formed id. */
+/**
+ * The stamp a slot's bytes carry, when they parse as an autosave stamped with a well-formed id AND written under this
+ * browser's current identity (CAN-F2w, `scenarios.belongsToThisIdentity`). Another identity's slot is unowned: never
+ * remembered, preserved, promoted, retired or refreshed.
+ */
 function stampOf(raw: string | null | undefined): string | null {
   if (typeof raw !== 'string') return null
   try {
-    const id = (JSON.parse(raw) as { scenarioId?: unknown } | null)?.scenarioId
+    const slot = JSON.parse(raw) as { scenarioId?: unknown; identityEpoch?: unknown } | null
+    if (!scenarios.belongsToThisIdentity(slot?.identityEpoch)) return null
+    const id = slot?.scenarioId
     return typeof id === 'string' && isUUID(id) ? id : null
   } catch {
     return null

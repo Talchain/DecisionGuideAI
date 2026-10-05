@@ -573,6 +573,13 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
   // Scoped, deliberately, to the INITIAL restore. See the field's doc comment.
   const [restoreFailed, setRestoreFailed] = React.useState(false);
 
+  // CAN-F2w: THE IDENTITY BOUNDARY IN THE GUEST POSTURE, as the real-auth provider has it. A different account
+  // replacing the one on this page (A → B), or a session that ends here because it ended elsewhere (A → none: another
+  // tab signed out), clears the previous identity's state and rotates the autosave epoch (`clearUserScopedState`).
+  // A first sign-in (guest → A) and a same-owner refresh are NOT boundaries: the guest's work stays theirs. A stored
+  // session that fails to restore is not one either (it may be the same person), and is a follow-up.
+  const ownerRef = React.useRef<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     let cleanup: (() => void) | undefined;
@@ -587,7 +594,12 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
 
     const adopt = (s: Session | null) => {
       if (cancelled) return;
-      observeDecisionRecordOwner(s?.user.id ?? null);
+      const nextOwner = s?.user.id ?? null;
+      // The boundary FIRST, then B is observed: the cleanup resets the decision-record store to no owner, so observing
+      // B before it left B's records owned by nobody (Codex #2484 final round).
+      if (ownerRef.current !== null && nextOwner !== ownerRef.current) clearUserScopedState();
+      ownerRef.current = nextOwner;
+      observeDecisionRecordOwner(nextOwner);
       if (!s) {
         setSession(null);
         setPendingUser(null);
@@ -737,6 +749,7 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
       authLogger.debug('SIGN_OUT', 'Sign out attempt (optional-auth posture)');
       try {
         clearAuthStates();
+        ownerRef.current = null; // this IS the boundary; the SIGNED_OUT event that follows must not run it again
         clearSentryUser();
         resetPostHog();
         setSession(null);

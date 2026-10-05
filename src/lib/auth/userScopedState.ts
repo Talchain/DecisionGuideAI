@@ -1,5 +1,5 @@
 import { useCanvasStore } from '../../canvas/store'
-import { clearAllScenarioStorage } from '../../canvas/store/scenarios'
+import { clearAllScenarioStorage, IDENTITY_EPOCH_KEY } from '../../canvas/store/scenarios'
 import { clearAllTranscripts } from '../../canvas/conversation/utils/transcriptStore'
 import { clearAllVersions } from '../../canvas/versions/versionStorage'
 import { useLayoutStore } from '../../canvas/layoutStore'
@@ -21,6 +21,10 @@ export const USER_SCOPED_STORAGE_KEYS = [
 // unbounded, and as private as the main slot above.
 export const USER_SCOPED_STORAGE_PREFIXES = ['olumi.dissent.v2.', 'olumi.dissent.', 'olumi-canvas-autosave:'] as const
 
+function freshIdentityEpoch(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+}
+
 /** One identity boundary for sign-out and A→B auth transitions. */
 export function clearUserScopedState(): void {
   // Each step on its own: one that throws (`clearAllScenarioStorage` removes three keys unguarded) never stops the steps
@@ -28,7 +32,21 @@ export function clearUserScopedState(): void {
   const step = (fn: () => void): void => {
     try { fn() } catch { /* the boundary goes on */ }
   }
+  // CAN-F2w: a fresh identity epoch FIRST, so a slot this sweep cannot remove is already another identity's and is never
+  // restored, remembered or promoted for the next account (`scenarios.IDENTITY_EPOCH_KEY`). The sweep never removes it.
+  step(() => localStorage.setItem(IDENTITY_EPOCH_KEY, freshIdentityEpoch()))
   step(() => useCanvasStore.getState().resetCanvas())
+  // The previous identity's graph also lives in undo/redo, the clipboard and the pre-draft snapshot, which `resetCanvas`
+  // keeps (its empty-canvas branch keeps the pre-draft snapshot too). Undo, paste or undo-draft would bring it back,
+  // and autosave would then write it for the next account (Codex, #2484 round 2).
+  // …and its id: `resetCanvas`'s empty-canvas branch keeps `currentScenarioId`, so a late response for the previous
+  // identity's scenario would still pass the scenario-id fence and be saved for the next account (Codex, #2484 r3).
+  step(() => useCanvasStore.setState({
+    history: { past: [], future: [] },
+    clipboard: null,
+    draftChatPreDraftSnapshot: null,
+    currentScenarioId: null,
+  }))
   step(clearAllScenarioStorage)
   step(clearAllTranscripts)
   step(clearAllVersions)
