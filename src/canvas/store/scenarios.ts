@@ -702,7 +702,7 @@ let lastAutosavePayload: string | null = null
  * restored A's graph. An epoch, not the account id: a cold boot cannot know the id synchronously (the session restores
  * async), and fencing on it would block a signed-in user's own restore. Before the first boundary there is no epoch,
  * and every slot behaves exactly as before. An unreadable epoch fails closed: no slot is restored and nothing is
- * written that tick. A boundary in ANOTHER TAB is follow-up F2c ("a boundary in any tab is a boundary in every tab").
+ * written that tick. A boundary in ANOTHER TAB is fenced per tab: `epochThisTabMayWriteUnder` below (CAN-F2g).
  */
 export const IDENTITY_EPOCH_KEY = 'olumi-canvas-identity-epoch'
 /** The shared epoch: a string, `null` before the first boundary, `undefined` when storage refused the read. */
@@ -724,18 +724,48 @@ export function belongsToThisIdentity(stamp: unknown): boolean {
   return epoch === null || stamp === epoch
 }
 
+/**
+ * ⭐ THIS TAB's epoch (CAN-F2g, the F2c follow-up above: "a boundary in any tab is a boundary in every tab"). Captured
+ * when this module loads (the tab's boot) and moved only by THIS tab's own boundary (`adoptIdentityEpochForThisTab`,
+ * called by `clearUserScopedState` right after it rotates the shared key). Measured 5 Oct (J1 TC3-F2g / TC4-F2w, run
+ * 37314393647; also prod UI 42f3c1ba and pre-#2503 400a71f1): the writers stamped the SHARED epoch read at write time,
+ * so after tab 1's sign-out rotated it, a drag in tab 2, still showing account A, saved A's model stamped as B's, and
+ * B's routeless boot restored it. A tab whose epoch no longer matches the shared one is showing a previous identity's
+ * model: its writes are skipped, never stamped. A reload re-captures, and that tab then boots as the new identity.
+ */
+let tabIdentityEpoch: string | null | undefined = readIdentityEpoch()
+/** This tab crossed an identity boundary itself: it now owns whatever epoch the boundary left in shared storage. */
+export function adoptIdentityEpochForThisTab(): void {
+  tabIdentityEpoch = readIdentityEpoch()
+}
+/**
+ * Whether this tab may write identity-stamped state now, and under which epoch. `null` = skip: the shared epoch is
+ * unreadable (CAN-F2w), or ANOTHER tab set an epoch this tab does not hold (CAN-F2g: rotated, or the browser's first
+ * boundary). A shared `null` means no boundary has happened in this browser (the sweep never removes the key), so a
+ * write proceeds unstamped exactly as before CAN-F2w; only a wholesale storage wipe reaches that state after a
+ * boundary, and it takes the session with it.
+ */
+export function epochThisTabMayWriteUnder(): { epoch: string | null } | null {
+  const shared = readIdentityEpoch()
+  if (shared === undefined) return null
+  if (shared !== null && shared !== tabIdentityEpoch) return null
+  return { epoch: shared }
+}
+
 export function saveAutosave(data: AutosaveData): void {
   if (!isLocalStorageAvailable()) {
     return
   }
 
-  // CAN-F2w: every write is stamped with the current identity epoch.
-  const epoch = readIdentityEpoch()
-  if (epoch === undefined) {
-    // An unreadable epoch cannot say whose this write is: skip it (the next autosave retries), never stamp a guess.
-    console.warn('[scenarios] Autosave skipped: the identity epoch could not be read (CAN-F2w)')
+  // CAN-F2w: every write is stamped with the current identity epoch. CAN-F2g: and only by a tab that holds it.
+  const may = epochThisTabMayWriteUnder()
+  if (may === null) {
+    // Unreadable, or another tab changed the identity under this one: whose model this is cannot be vouched for, so
+    // skip it (never stamp a guess). A reload boots this tab as the new identity.
+    console.warn('[scenarios] Autosave skipped: the identity epoch is unreadable or was changed by another tab (CAN-F2w/F2g)')
     return
   }
+  const epoch = may.epoch
   const stamped: AutosaveData = epoch === null ? data : { ...data, identityEpoch: epoch }
   try {
     const payload = JSON.stringify(stamped)
