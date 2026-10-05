@@ -177,12 +177,14 @@ export function coldLoadBlocksBootRestore(): boolean {
   return bootRestoreBlocked
 }
 
-/** Apply `plan` (re-validated by the caller). 'applied' when the pointer and the store now name the route. */
+/** Apply `plan` (re-validated by the caller). 'applied' when the store (and, for a guest, the pointer) now names the route. */
 function applyColdLoadPlan(plan: ColdLoadPlan): 'applied' | 'declined' {
   const { route } = plan
-  // THIN CLIENT: the pointer is only an id (never a model); the store takes the route. No slot is moved.
+  // THIN CLIENT: the store takes the route, and NOTHING is written. No slot holds a model to stamp, so the pointer has
+  // nothing to agree with; it names a scenario only once that scenario's row has been admitted (`useScenario.loadScenario`
+  // writes it after the read, #2503). A link this account cannot open must leave no trace of it in the browser: J1's J9
+  // measured `olumi-canvas-current-scenario-id` = A's scenario in B's fresh browser after B's refused link (#87 5998666452).
   if (isThinClientSession()) {
-    write(POINTER_KEY, route)
     useCanvasStore.setState({ currentScenarioId: route })
     return 'applied'
   }
