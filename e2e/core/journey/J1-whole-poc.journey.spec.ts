@@ -13,7 +13,7 @@
  *   on the canvas, by their exact "Connection from <A> to <B>" labels (canvas ids are local).
  * A value another object could satisfy ("a result appeared") is never enough.
  *
- * Required (deterministic under frozen replay): J0 J1 J2(+a,b) J3 J5(+a) J8 J9.
+ * Required (deterministic under frozen replay): J0 J1 J2(+a,b) J3 J3r J5(+a) J8 J9.
  * Advisory until 3 greens: J3p J7. Advisory rows write a verdict to
  * evidence/advisory.json and never fail the run. Not built yet: J3b J4 J5b J5c.
  *
@@ -270,6 +270,26 @@ test.describe.serial('J1 · whole PoC', () => {
     })
   })
 
+  test('J3r · fresh browser, same account: R1\'s fragile mark is painted again from the server alone', async ({ browser }) => {
+    // Before the edit, while R1 still has a fragile edge above the paint threshold, so
+    // "the verdict's marks survive a fresh browser" is measured on a mark that exists.
+    const want = expectedTagged(J.fragile1!)
+    expect(want.length, '[J3r] no fragile mark to carry across: the check would be vacuous').toBeGreaterThan(0)
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+    const page = await ctx.newPage()
+    try {
+      await injectSession(page, J.A!.storageKey, J.A!.raw)
+      await page.goto(`${ORIGIN}/#/scenario/${J.S}`, { waitUntil: 'load' })
+      await expect.poll(async () => (await renderedNodeIds(page)).sort(), {
+        message: '[J3r] a fresh browser does not render G1 by id', timeout: 120_000,
+      }).toEqual(nodesOf(J.G1!))
+      await expect.poll(() => fragileTaggedPairs(page), { message: '[J3r] a fresh browser does not re-mark R1\'s fragile edge', timeout: 60_000 }).toEqual(want)
+      writeEvidence('J3r-fresh-fragile.json', { tagged: want })
+    } finally {
+      await ctx.close()
+    }
+  })
+
   test('J5 · approved typed edit on the fragile link: H2 ≠ H1, provenance user_specified (+J5a staleness)', async () => {
     const top = [...J.fragile1!].sort((a, b) => b.switch_probability - a.switch_probability)[0]
     J.edited = top
@@ -336,6 +356,8 @@ test.describe.serial('J1 · whole PoC', () => {
     const ends = body.current_read?.run_delta?.endpoints
     J.R2 = ends?.current?.run_id
     expect(J.R2, '[J6] the stored read has no current run id').toBeTruthy()
+    expect(ends?.prior?.run_id, '[J6] the delta names no prior run').toBeTruthy()
+    expect(ends?.prior?.run_id, '[J6] the delta\'s prior run is the current one').not.toBe(J.R2)
     if (J.R1) expect(ends?.prior?.run_id, '[J6] the delta does not point back at R1').toBe(J.R1)
     J.fragile2 = (J.AR2.enrichment?.robustness?.fragile_edges ?? []) as Fragile[]
     writeEvidence('J6-rerun.json', { R1: J.R1, R2: J.R2, prior: ends?.prior?.run_id, fragile2: J.fragile2 })
@@ -371,9 +393,15 @@ test.describe.serial('J1 · whole PoC', () => {
       const e = (r.body!.graph as Graph).edges.find((x) => x.from === J.edited!.from_id && x.to === J.edited!.to_id)
       expect(e?.provenance?.source, '[J8] the edit\'s provenance did not survive the fresh browser').toBe('user_specified')
 
-      // The fragile marks R2 painted are painted again from the server alone.
+      // The fragile marks R2 painted are painted again from the server alone. When R2 has
+      // none above the threshold this half measures nothing, and says so (J3r carries it).
       const want = expectedTagged(J.fragile2!)
-      await expect.poll(() => fragileTaggedPairs(page), { message: '[J8] the fresh browser does not re-mark R2\'s fragile edge(s)', timeout: 60_000 }).toEqual(want)
+      if (want.length) {
+        await expect.poll(() => fragileTaggedPairs(page), { message: '[J8] the fresh browser does not re-mark R2\'s fragile edge(s)', timeout: 60_000 }).toEqual(want)
+      } else {
+        advisory['J8-fragile-half'] = { verdict: 'VACUOUS', detail: 'R2 has no fragile edge above the paint threshold; J3r measures the reload of a real mark' }
+        writeEvidence('advisory.json', advisory)
+      }
       writeEvidence('J8-fresh.json', { H2: J.H2, R2: J.R2, tagged: want })
     } finally {
       await ctx.close()
