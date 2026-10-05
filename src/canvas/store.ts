@@ -849,13 +849,6 @@ interface CanvasState {
    */
   analysisStateV1: AnalysisStateV1 | null
   /**
-   * RT-10 B′: CEE's own sentence for WHY the stated `complete_stale` verdict holds although the model did not change
-   * (a hash-equal goal-snapshot stale; CEE #2596). Written ONLY together with the verdict it belongs to, by
-   * `setAnalysisStateV1`, so it can never outlive or precede it. Read only through `selectAnalysisStaleReasonWords`,
-   * which also requires that verdict to still be `complete_stale`.
-   */
-  analysisStaleReasonWords: string | null
-  /**
    * Interim 2.467 mitigation (P0 trust, live-witnessed 2026-08-04,
    * rewalk-2459b attempt 2): true while the canvas graph came from a local
    * IMPORT that the server has never seen. An import replaces the whole graph
@@ -1783,7 +1776,7 @@ interface CanvasState {
    * is not a verdict, and this field's whole contract is that non-null means
    * CEE spoke.
    */
-  setAnalysisStateV1: (state: AnalysisStateV1 | null, staleReasonWords?: string | null) => void
+  setAnalysisStateV1: (state: AnalysisStateV1 | null) => void
   /** Public dirty-overlay setter for external graph mutators (e.g. accepted CEE graph patches) that bypass the internal edit chokepoints. */
   markAnalysisFreshnessDirty: () => void
   /** Atomically set all three staleness flags — the entry point for external structural mutators. */
@@ -3492,7 +3485,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // Step 5: no turn has stated an analysis_state verdict at cold start. Null
   // means NOT STATED, which is what routes the selector to the legacy branch.
   analysisStateV1: null,
-  analysisStaleReasonWords: null,
   // Interim 2.467: no import has happened at cold start.
   importPendingServerRegistration: false,
   // No edit can be awaiting dispatch before any edit has been made.
@@ -7351,12 +7343,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // Step 5. Deliberately a bare set with NO sessionStorage write and NO
   // autosave-projection entry — see the field's doc for why persisting a
   // composed verdict would assert it into a session where CEE never gave it.
-  setAnalysisStateV1: (state: AnalysisStateV1 | null, staleReasonWords?: string | null) => {
-    // RT-10 B′: the words travel WITH their verdict; any verdict that brings none clears them.
-    set({
-      analysisStateV1: state,
-      analysisStaleReasonWords: state?.run_state.kind === 'complete_stale' ? (staleReasonWords ?? null) : null,
-    })
+  setAnalysisStateV1: (state: AnalysisStateV1 | null) => {
+    set({ analysisStateV1: state })
   },
 
   setAnalysisFreshness: (rawAnalysisReady: unknown) => {
@@ -8964,13 +8952,3 @@ export const selectLensOptionId = (state: CanvasState): string | null => state.l
  */
 export type ViewMode = 'standard' | 'expert'
 export const selectViewMode = (state: CanvasState): ViewMode => state.viewMode
-
-/**
- * RT-10 B′: CEE's reason sentence for a `complete_stale` Run whose model did not change, or null. Surfaces that would
- * say "Model changed" say this instead: when the user changed nothing, "Model changed" is false.
- */
-export function selectAnalysisStaleReasonWords(
-  state: { readonly analysisStateV1: AnalysisStateV1 | null; readonly analysisStaleReasonWords: string | null },
-): string | null {
-  return state.analysisStateV1?.run_state.kind === 'complete_stale' ? state.analysisStaleReasonWords : null
-}

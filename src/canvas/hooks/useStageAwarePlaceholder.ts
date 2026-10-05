@@ -4,7 +4,8 @@
 // every other voice that reads the same state. Its header carries the RED that
 // put it there.
 import { useConversationStage } from './useConversationStage'
-import { useCanvasStore, selectAnalysisStaleReasonWords } from '../store'
+import { useCanvasStore } from '../store'
+import { useAnalysisStaleReasonWords } from './useAnalysisStaleReasonWords'
 import { useReadinessStore } from '../stores/readinessStore'
 import { selectAnalysisReadinessAuthority } from '../state/analysisStateSelector'
 import { selectBoundMayRun } from './useAnalysisReady'
@@ -83,7 +84,7 @@ function useRunGateObjects(): boolean {
 export function useStageAwarePlaceholder(): string {
   const stage = useConversationStage()
   const gateObjects = useRunGateObjects()
-  const staleWords = useCanvasStore(selectAnalysisStaleReasonWords)
+  const staleWords = useAnalysisStaleReasonWords()
 
   if (stage === 'changed') {
     // RT-10 B′: when the MODEL DID NOT CHANGE (a hash-equal stale), "Model changed" is false; say CEE's reason instead.

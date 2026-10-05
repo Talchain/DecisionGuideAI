@@ -24,7 +24,8 @@ import { canvasLinkOfTarget, useCanvasLight } from '../graphChanges/rowCanvasLin
 import { useRunChangesRouteFocus } from '../graphChanges/routeFocus'
 import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
 import type { RunOnRecordWithoutResult } from '../stores/declinedSavedRunStore'
-import { useCanvasStore, selectAnalysisStaleReasonWords } from '../store'
+import { useCanvasStore } from '../store'
+import { useAnalysisStaleReasonWords } from '../hooks/useAnalysisStaleReasonWords'
 import { selectRunDeltaAbsenceReason } from '../state/storedRunDelta'
 import { runDeltaSentence } from '../../components/results/analysisNew/commitmentSynthesis'
 import { selectRunAffirmedCurrent } from '../state/analysisStateSelector'
@@ -108,7 +109,7 @@ export function CompareRunPairBody({
   // WHERE THIS CHANGE FLOWS: on a C1 pair only, a row click also lights its element's route to the Goal.
   const route = useRunChangesRouteFocus(view?.attributable === true)
   const absenceReason = useCanvasStore(selectRunDeltaAbsenceReason)
-  const staleWords = useCanvasStore(selectAnalysisStaleReasonWords)
+  const staleWords = useAnalysisStaleReasonWords()
   if (view === null && runOnRecordWithoutResult !== null) {
     const copy = runOnRecordWithoutResult === 'stale' && staleWords !== null
       ? compareOutOfDateCopy(staleWords) : COMPARE_RUN_ON_RECORD_COPY[runOnRecordWithoutResult]

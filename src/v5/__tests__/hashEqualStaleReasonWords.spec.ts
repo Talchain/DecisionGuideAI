@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest'
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 import { hashEqualStaleReasonWords } from '../hashEqualStaleReasonWords'
 import { readHashEqualStaleReasonWords } from '../../adapters/cee/scenarioGraph'
-import { useCanvasStore, selectAnalysisStaleReasonWords } from '../../canvas/store'
+import { recordAnalysisStaleReasonWords, analysisStaleReasonWordsFor } from '../../canvas/state/analysisStaleReasonWords'
 import { outOfDatePlaceholder } from '../../canvas/hooks/useStageAwarePlaceholder'
 import { compareOutOfDateCopy, COMPARE_RUN_ON_RECORD_COPY } from '../../canvas/compare-tab/CompareRunPairBody'
 
@@ -62,21 +62,29 @@ describe('the cold read carries the words only for a hash-equal complete_stale',
   })
 })
 
-describe('the store keeps the words only WITH their complete_stale verdict', () => {
-  it('a stale verdict with words → the selector says them; a later verdict without words clears them', () => {
-    useCanvasStore.getState().setAnalysisStateV1(verdict('complete_stale'), WORDS)
-    expect(selectAnalysisStaleReasonWords(useCanvasStore.getState())).toBe(WORDS)
-    useCanvasStore.getState().setAnalysisStateV1(verdict('complete_stale'))
-    expect(selectAnalysisStaleReasonWords(useCanvasStore.getState())).toBeNull()
+describe('the words are bound to their complete_stale verdict BY IDENTITY', () => {
+  it('the recorded verdict object → the words; ANOTHER object (even an equal-looking one) → null', () => {
+    const stale = verdict('complete_stale')
+    recordAnalysisStaleReasonWords(stale, WORDS)
+    expect(analysisStaleReasonWordsFor(stale)).toBe(WORDS)
+    expect(analysisStaleReasonWordsFor(verdict('complete_stale'))).toBeNull()
+  })
+  it('a later verdict recorded WITHOUT words clears them for the old one too', () => {
+    const first = verdict('complete_stale')
+    recordAnalysisStaleReasonWords(first, WORDS)
+    recordAnalysisStaleReasonWords(verdict('complete_stale'), null)
+    expect(analysisStaleReasonWordsFor(first)).toBeNull()
   })
   it('CONTRAST: words offered with a CURRENT verdict are never kept', () => {
-    useCanvasStore.getState().setAnalysisStateV1(verdict('complete_current'), WORDS)
-    expect(selectAnalysisStaleReasonWords(useCanvasStore.getState())).toBeNull()
+    const current = verdict('complete_current')
+    recordAnalysisStaleReasonWords(current, WORDS)
+    expect(analysisStaleReasonWordsFor(current)).toBeNull()
   })
-  it('CONTRAST: a verdict cleared to null leaves nothing to say', () => {
-    useCanvasStore.getState().setAnalysisStateV1(verdict('complete_stale'), WORDS)
-    useCanvasStore.getState().setAnalysisStateV1(null)
-    expect(selectAnalysisStaleReasonWords(useCanvasStore.getState())).toBeNull()
+  it('CONTRAST: no verdict leaves nothing to say', () => {
+    recordAnalysisStaleReasonWords(verdict('complete_stale'), WORDS)
+    expect(analysisStaleReasonWordsFor(null)).toBeNull()
+    recordAnalysisStaleReasonWords(null, WORDS)
+    expect(analysisStaleReasonWordsFor(null)).toBeNull()
   })
 })
 

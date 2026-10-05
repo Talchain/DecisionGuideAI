@@ -765,18 +765,12 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // `olumi-schemas` PR #48: "PRODUCERS MUST NOT INFER THIS FROM A NODE
   // LABEL"). A wrong inferred aim would be worse than the honest disclosure it
   // replaced.
-  //
-  // ⭐ RT-10 B′ (CEE #2600, DL-approved words, 5 Oct): the SAME words as CEE's headline. The assumption is Olumi's and
-  // model-relative, and the second sentence names the one correction that now works: an "at most" target on the goal
-  // (the Model panel goal editor, `goal_target_edit`) holds the user's ceiling, and the rerun minimises. Still no
-  // inferred direction: the user chooses it.
-  // ⛔ Codex r1 (#2600): this template sees no goal, so it cannot tell whether the "at most" door opens (it refuses a
-  // target written as a CHANGE, `goal_is_a_change`). The title states the assumption alone; the description names the
-  // correction AND its limit, so nothing is promised that would refuse. CEE's headline gates the same sentence per goal.
   GOAL_DIRECTION_UNATTESTED: () => ({
-    title: 'In this model I’ve assumed a higher value is better for your goal.',
+    title:
+      'Your options were ordered by which one produces the largest value at your goal, because the model does not say which way your goal should go. If you want it lower, or held at a particular level, that ordering answers a different question.',
     description:
-      'If lower is better, set the goal’s target to ‘at most’ and re-run. A target written as a change from today (such as a 20% cut) cannot be set that way yet. Every other number in this analysis stands.',
+      'Every other number in this analysis stands. What is missing is the objective sense: on this run, the option that scored highest was simply the one that produced the largest number at your goal on the most draws, and nothing confirmed that is the question you are asking.',
+    // No suggestion — see the block above. There is no writer for this.
   }),
 
   /**

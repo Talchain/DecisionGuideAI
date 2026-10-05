@@ -100,6 +100,8 @@
  * one graph-ingestion authority.
  */
 
+import { recordAnalysisStaleReasonWords } from '../state/analysisStaleReasonWords'
+import type { ScenarioAnalysisApplyStore } from '../hydrate/applyScenarioAnalysisRead'
 import { useEffect, useRef } from 'react'
 import { recordDeliveryArmed, recordDeliverySettled } from './provisionalDeliveryRecord'
 
@@ -298,8 +300,8 @@ export async function runProvisionalDeliverySchedule(deps: {
       goalCertainty: result.goalCertainty,
       optionParticipation: result.optionParticipation,
       runDelta: result.runDelta,
-      staleReasonWords: result.staleReasonWords ?? null,
-      store: getStore(),
+      // RT-10 B′: this read's reason sentence is recorded WITH the verdict it writes (`analysisStaleReasonWords`).
+      store: withStaleReasonWords(getStore(), result.staleReasonWords),
     })
     if (outcome.outcome === 'applied') {
       /**
@@ -529,4 +531,11 @@ export function useProvisionalAnalysisDelivery(scenarioIdFromRoute?: string | nu
       if (!settled) armedRef.current = null
     }
   }, [scenarioId, armKey, userId])
+}
+
+/** RT-10 B′: the store view whose verdict writer records the read's reason words with the verdict, then writes it. */
+function withStaleReasonWords(store: ScenarioAnalysisApplyStore, words: string | null | undefined): ScenarioAnalysisApplyStore {
+  const write = store.setAnalysisStateV1
+  if (write === undefined) return store
+  return { ...store, setAnalysisStateV1: (verdict) => { recordAnalysisStaleReasonWords(verdict, words); write(verdict) } }
 }

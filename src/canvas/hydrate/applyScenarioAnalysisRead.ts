@@ -264,7 +264,7 @@ export interface ScenarioAnalysisApplyStore {
    * caller that never had this concept behaves exactly as it does today.
    */
   readonly graphAcceptedForCanvas?: boolean
-  readonly setAnalysisStateV1?: (verdict: AnalysisStateV1 | null, staleReasonWords?: string | null) => void
+  readonly setAnalysisStateV1?: (verdict: AnalysisStateV1 | null) => void
   readonly resultsComplete?: (params: {
     report: ReturnType<typeof mapV5AnalysisToReport>
     hash: string
@@ -381,8 +381,6 @@ export interface ApplyScenarioAnalysisReadInput {
   readonly limitVerdicts?: unknown
   /** The read's `run_delta`, raw (SC-24); parsed by the contract, as the turn leg's parser does. */
   readonly runDelta?: unknown
-  /** RT-10 B′: the read's reason sentence for a hash-equal `complete_stale` (`readHashEqualStaleReasonWords`); rides with the verdict. */
-  readonly staleReasonWords?: string | null
   readonly store: ScenarioAnalysisApplyStore
 }
 
@@ -621,7 +619,7 @@ export function applyScenarioAnalysisRead(
     input.store.noteRunCompletedWithoutVerdict()
   }
 
-  input.store.setAnalysisStateV1?.(verdict, input.staleReasonWords ?? null)
+  input.store.setAnalysisStateV1?.(verdict)
   return { outcome: 'applied', kind, resultsHydrated }
 }
 
