@@ -116,12 +116,12 @@ function renderBaseline(hasLeadingOption: boolean | undefined) {
 describe('OptionCards — withheld turn (ROADMAP 1.239)', () => {
   it('withholds the runner-up overtake line', () => {
     const { container } = renderRunnerUp(false)
-    expect(/this option overtakes/i.test(container.textContent ?? '')).toBe(false)
+    expect(/this option would come out best/i.test(container.textContent ?? '')).toBe(false)
   })
 
   it('withholds the baseline superlative', () => {
     const { container } = renderBaseline(false)
-    expect(/lowest risk but lowest expected outcome/i.test(container.textContent ?? '')).toBe(false)
+    expect(/Baseline: what happens if nothing changes/i.test(container.textContent ?? '')).toBe(false)
   })
 
   it('still renders both options and their win probabilities — data is not a claim', () => {
@@ -142,20 +142,20 @@ describe('OptionCards — withheld turn (ROADMAP 1.239)', () => {
 describe('OptionCards — permitted turn (over-suppression controls)', () => {
   it('keeps the runner-up overtake line', () => {
     const { container } = renderRunnerUp(true)
-    expect(container.textContent ?? '').toMatch(/If Customer churn shifts, this option overtakes/i)
+    expect(container.textContent ?? '').toMatch(/If Customer churn shifts, this option would come out best in this model/i)
   })
 
   it('keeps the baseline superlative', () => {
     const { container } = renderBaseline(true)
-    expect(container.textContent ?? '').toMatch(/Lowest risk but lowest expected outcome/i)
+    expect(container.textContent ?? '').toMatch(/Baseline: what happens if nothing changes\. Compare the others against it\./i)
   })
 
   it('an ABSENT flag behaves exactly as a permitted one (legacy callers)', () => {
     // The same concession #493 pinned for the sentences it gated: the default
     // must not drift to silence and blank every legacy caller's cards.
-    expect(renderRunnerUp(undefined).container.textContent ?? '').toMatch(/this option overtakes/i)
+    expect(renderRunnerUp(undefined).container.textContent ?? '').toMatch(/this option would come out best/i)
     expect(renderBaseline(undefined).container.textContent ?? '')
-      .toMatch(/lowest risk but lowest expected outcome/i)
+      .toMatch(/Baseline: what happens if nothing changes/i)
   })
 })
 

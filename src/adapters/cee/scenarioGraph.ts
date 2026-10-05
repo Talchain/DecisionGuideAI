@@ -220,6 +220,8 @@ export type ScenarioGraphResult =
       currentReadInputBasis?: unknown
       /** The read's `conversation_turns`, raw (sent only on `includeConversationTurns`); undefined when absent. */
       conversationTurns?: unknown
+      /** Opt-in, currently executable original approve/amend offers; absent means no authority. */
+      heldProposalOffers?: unknown
       requestId: string | null
     }
   /** 200, `graph_present:false` — the scenario exists and has no graph yet. Normal. */
@@ -418,6 +420,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     currentReadInputBasis: readCurrentReadInputBasis(b.analysis_admission, b.graph_hash),
     // Carried raw; the ONE reader is `readServerConversationTurns` (canvas/conversation/serverConversationTurns.ts).
     conversationTurns: b.conversation_turns,
+    heldProposalOffers: b.held_proposal_offers,
     requestId,
   }
 }

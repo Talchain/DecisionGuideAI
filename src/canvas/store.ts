@@ -2458,6 +2458,27 @@ function firstGoalNodeId(
 }
 
 /**
+ * Whether the decision being LEFT at a scenario boundary (`resetCanvas`, `adoptScenario`) is saved, so its
+ * conversation belongs to it and must survive. Only an unsaved decision's transcript is discarded (the demo hazard).
+ *
+ * ⚠ SAVED ON THE SERVER IS SAVED (F1, 5 Oct; Codex P2 on #2503). A decision opened from the server list has NO
+ * local record, and `loadScenario` writes the pointer to it, so a local-record-only test called it unsaved: leaving
+ * it deleted its conversation and tombstoned the id for the page load, while its graph survived on the server. The
+ * server holding a graph for the store's OWN decision is the proof: `serverGraphIdentity` (hydration) or
+ * `lastServerGraphHash` (hydration, or a successful register). Both are cleared at every scenario boundary
+ * (`DECISION_CONTEXT_CLEAR`), and the store's id must equal the id being left, or the evidence is about another
+ * decision. Rows: `resetCanvasClearsPersisted.spec.ts`.
+ */
+function leavingDecisionIsSaved(idBeingLeft: string | null, atBoundary: CanvasState): boolean {
+  if (!idBeingLeft) return false
+  if (scenarios.getScenario(idBeingLeft) !== undefined) return true
+  return (
+    atBoundary.currentScenarioId === idBeingLeft &&
+    (atBoundary.serverGraphIdentity !== null || atBoundary.lastServerGraphHash !== null)
+  )
+}
+
+/**
  * The whole scenario-scoped state a scenario boundary clears: `resetCanvas`'s full branch, and `adoptScenario`
  * (which applies it even on an empty canvas). A function, so every reset gets fresh Set/lens instances.
  */
@@ -5234,10 +5255,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // state and is cleared; a saved record's transcript belongs to the record and
     // is left alone. Only an UNSAVED decision's transcript is discarded, which is
     // the demo-hazard case this item exists for.
+    // Saved means a local record OR a server graph for this decision (F1): `leavingDecisionIsSaved`.
     const scenarioIdBeingReset = scenarios.getCurrentScenarioId()
-    const isSavedRecord = scenarioIdBeingReset
-      ? scenarios.getScenario(scenarioIdBeingReset) !== undefined
-      : false
+    const isSavedRecord = leavingDecisionIsSaved(scenarioIdBeingReset, get())
     scenarios.clearAutosave()
     if (!isSavedRecord) clearTranscript(scenarioIdBeingReset)
 
@@ -5279,9 +5299,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
   adoptScenario: (scenarioId) => {
     const scenarioIdBeingLeft = scenarios.getCurrentScenarioId()
-    const isSavedRecord = scenarioIdBeingLeft
-      ? scenarios.getScenario(scenarioIdBeingLeft) !== undefined
-      : false
+    const isSavedRecord = leavingDecisionIsSaved(scenarioIdBeingLeft, get()) // same rule as resetCanvas (F1)
     scenarios.clearAutosave()
     if (!isSavedRecord) clearTranscript(scenarioIdBeingLeft)
     set({ ...scenarioResetState(), history: { past: [], future: [] }, currentScenarioId: scenarioId, scenarioEpoch: get().scenarioEpoch + 1 })

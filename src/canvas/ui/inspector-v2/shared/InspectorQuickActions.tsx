@@ -59,6 +59,11 @@ interface InspectorQuickActionsProps {
   askContext?: string
   /** "Back to the conversation" — fronts the conversation and closes. */
   onBackToConversation?: () => void
+  /**
+   * Leave out "Explore with Olumi": the pane already offers a SPECIFIC Olumi action for this element ("Examine with
+   * Olumi", gate 5 item 3c). Two Olumi buttons for one link read as two different things to do.
+   */
+  omitExplore?: boolean
   /** A pane-specific action drawn in the same row (e.g. "+ Add option"). */
   extra?: ReactNode
 }
@@ -71,6 +76,7 @@ export function InspectorQuickActions({
   askContext = '',
   onBackToConversation,
   extra,
+  omitExplore = false,
 }: InspectorQuickActionsProps) {
   const canAsk = useGuidanceStore(
     (s) => s._prefillChat !== null || s._sendMessage !== null || s._dispatchAction !== null,
@@ -97,7 +103,7 @@ export function InspectorQuickActions({
 
   return (
     <div data-testid="inspector-quick-actions" className={`${inspectorButtonRow} pt-3`}>
-      {canAsk && (
+      {canAsk && !omitExplore && (
         <button
           type="button"
           data-testid="inspector-quick-ask"
