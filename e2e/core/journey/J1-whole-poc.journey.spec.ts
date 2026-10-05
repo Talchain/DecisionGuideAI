@@ -33,7 +33,7 @@ import {
 } from '../lib/harness'
 import {
   analysisResultOf, assertBoundaryClean, browserStorage, captureTurns, CEE_URL, edgeKey,
-  frozenRecordings, injectSession, ledger, nextTurn, scenarioIdFromUrl, scenariosVisibleTo,
+  frozenRecordings, handlerFactsVisibleTo, injectSession, ledger, nextTurn, scenarioIdFromUrl, scenariosVisibleTo,
   storedRead, tuple, writeEvidence, type CapturedTurn,
 } from './lib/journey'
 
@@ -64,6 +64,8 @@ const FRAGILE_PAINT_THRESHOLD = 0.15
 // Identity shapes: an analysis hash (16 or 64 hex) and a run id. A missing value never matches.
 const HASH = /^[0-9a-f]{16}([0-9a-f]{48})?$/
 const RUN_ID = /^[0-9a-f]{16,64}$/
+// J6 promotion rule (Integrator, 5 Oct): true after 3 consecutive greens with J6 BOUND.
+const J6_BOUND_REQUIRED = false
 // The product's own words for a draft that ended before its values arrived
 // (canRunAnalysis.ts:115, DraftLoadingAnimation.tsx:210 @ 410fa444). Seen on the first
 // local record, 5 Oct 12:04Z, when the agent lane's last call failed: J1 must not pass then.
@@ -378,12 +380,19 @@ test.describe.serial('J1 · whole PoC', () => {
     expect(ends.prior.run_id, '[J6] the delta\'s prior run is the current one').not.toBe(J.R2)
     if (J.R1) expect(ends?.prior?.run_id, '[J6] the delta does not point back at R1').toBe(J.R1)
     // Bind the pair by computed_at (Integrator amendment @7cbd02f6): prior = R1, current = R2,
-    // and the prior is NOT the automatic first pass (the C10a pair). Absent endpoints = UNBOUND.
-    if (ends?.prior?.computed_at !== undefined && ends?.current?.computed_at !== undefined) {
+    // and the prior is NOT the automatic first pass (the C10a pair: the load-bearing contrast).
+    // Absent endpoints = UNBOUND, advisory (the known X9 gap). PROMOTION RULE (Integrator,
+    // 5 Oct): once this branch is BOUND in 3 consecutive greens, J6_BOUND_REQUIRED flips to
+    // true and UNBOUND is red: absence is then a regression.
+    // Present means a value: a null computed_at is UNBOUND, not a mismatch.
+    if (ends?.prior?.computed_at && ends?.current?.computed_at) {
       expect(ends.current.computed_at, '[J6] the delta\'s current run is not R2').toBe(J.R2at)
       expect(ends.prior.computed_at, '[J6] the delta\'s prior run is not R1').toBe(J.R1at)
       if (J.autoPassAt) expect(ends.prior.computed_at, '[J6] the delta pairs R2 with the automatic first pass, not R1').not.toBe(J.autoPassAt)
+      advisory['J6-endpoint-binding'] = { verdict: 'BOUND', detail: 'prior = R1 and current = R2 by computed_at; prior is not the automatic first pass' }
+      writeEvidence('advisory.json', advisory)
     } else {
+      expect(J6_BOUND_REQUIRED, '[J6] UNBOUND: run_delta.endpoints lacks computed_at after the bound branch was promoted').toBe(false)
       advisory['J6-endpoint-binding'] = { verdict: 'UNBOUND', detail: `run_delta.endpoints lacks computed_at (keys: ${Object.keys(ends ?? {}).join(',') || 'none'})` }
       writeEvidence('advisory.json', advisory)
     }
@@ -460,6 +469,9 @@ test.describe.serial('J1 · whole PoC', () => {
     expect(aRest.ids, '[J9 control] account A cannot list its own scenario S via PostgREST').toContain(S)
     const aRead = await storedRead(request, S, J.A!.user)
     expect(aRead.status, '[J9 control] account A cannot read S from CEE').toBe(200)
+    // The UI reads v5_handler_facts directly with the user's token: A sees S's facts.
+    const aFacts = await handlerFactsVisibleTo(request, S, J.A!.user.accessToken)
+    expect(aFacts, '[J9 control] A sees no v5_handler_facts for S, so B\'s zero would prove nothing').toBeGreaterThan(0)
     // The storage scan below can see S: A's own browser storage names it.
     const aStore = await browserStorage(pageA)
     expect(Object.entries(aStore).filter(([k, v]) => k.includes(S) || v.includes(S)).length,
@@ -474,6 +486,7 @@ test.describe.serial('J1 · whole PoC', () => {
       const bRest = await scenariosVisibleTo(request, B.user.accessToken)
       expect(bRest.status, '[J9] PostgREST refused B outright (a probe that sees nothing proves nothing)').toBe(200)
       expect(bRest.ids, '[J9] account B can list account A\'s scenario S').not.toContain(S)
+      expect(await handlerFactsVisibleTo(request, S, B.user.accessToken), '[J9] account B can read A\'s v5_handler_facts for S').toBe(0)
 
       const bRead = await storedRead(request, S, B.user)
       expect([403, 404], `[J9] CEE served S to account B (status ${bRead.status})`).toContain(bRead.status)
@@ -496,7 +509,7 @@ test.describe.serial('J1 · whole PoC', () => {
       expect(leaks, '[J9] B\'s browser storage names A\'s scenario').toEqual([])
 
       writeEvidence('J9-account-b.json', {
-        S, a_rest_ids: aRest.ids.length, a_read: aRead.status, b_rest_status: bRest.status,
+        S, a_rest_ids: aRest.ids.length, a_read: aRead.status, a_facts: aFacts, b_rest_status: bRest.status,
         b_rest_ids: bRest.ids.length, b_read: bRead.status, b_ui_read: refused!.status(), b_mounted: mounted.length, b_storage_keys: Object.keys(store).length,
       })
       assertBoundaryClean('J9')

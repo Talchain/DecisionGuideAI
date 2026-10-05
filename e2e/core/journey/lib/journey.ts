@@ -139,21 +139,47 @@ export async function scenariosVisibleTo(
 /**
  * One `scenarios` row read with the LOCAL job's service role (this run's own Supabase;
  * the key is minted per run and masked). For rows no user token can read, e.g. a guest's.
+ * Node fetch, never Playwright `request`: Playwright appends the request's headers to a
+ * thrown error, and errors reach the uploaded HTML report (Codex buddy r2, #2513). Every
+ * failure is rethrown with a message built here, which holds no header.
  */
-export async function scenarioRowAsService(
-  request: APIRequestContext, scenarioId: string,
-): Promise<Record<string, unknown>> {
+export async function scenarioRowAsService(scenarioId: string): Promise<Record<string, unknown>> {
   const base = process.env.CORE_SUPABASE_URL!
   const key = process.env.J1_SB_SERVICE_ROLE_KEY
   if (!key) throw new Error('[j1] J1_SB_SERVICE_ROLE_KEY is unset: cannot read the row')
-  const r = await request.get(`${base}/rest/v1/scenarios?id=eq.${encodeURIComponent(scenarioId)}&select=*`, {
-    headers: { apikey: key, Authorization: `Bearer ${key}` },
-  })
-  const rows = (await r.json().catch(() => null)) as Record<string, unknown>[] | null
-  if (r.status() !== 200 || !Array.isArray(rows) || rows.length !== 1) {
-    throw new Error(`[j1] service read of scenario ${scenarioId} could not measure: http ${r.status()}, ${Array.isArray(rows) ? rows.length : 'no'} row(s)`)
+  let status = 0
+  let rows: Record<string, unknown>[] | null = null
+  try {
+    const r = await fetch(`${base}/rest/v1/scenarios?id=eq.${encodeURIComponent(scenarioId)}&select=*`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    })
+    status = r.status
+    rows = (await r.json().catch(() => null)) as Record<string, unknown>[] | null
+  } catch (e) {
+    throw new Error(`[j1] service read of scenario ${scenarioId} could not measure: transport ${(e as Error)?.name ?? 'error'}`)
+  }
+  if (status !== 200 || !Array.isArray(rows) || rows.length !== 1) {
+    throw new Error(`[j1] service read of scenario ${scenarioId} could not measure: http ${status}, ${Array.isArray(rows) ? rows.length : 'no'} row(s)`)
   }
   return rows[0]
+}
+
+/**
+ * `v5_handler_facts` rows for one scenario visible to a user token (RLS decides). The UI
+ * reads this table directly (analysisRunHistoryService.ts:95). Throws unless 200 + array.
+ */
+export async function handlerFactsVisibleTo(
+  request: APIRequestContext, scenarioId: string, accessToken: string,
+): Promise<number> {
+  const base = process.env.CORE_SUPABASE_URL!
+  const r = await request.get(`${base}/rest/v1/v5_handler_facts?scenario_id=eq.${encodeURIComponent(scenarioId)}&select=scenario_id`, {
+    headers: { apikey: process.env.CORE_SUPABASE_KEY!, Authorization: `Bearer ${accessToken}` },
+  })
+  const rows = (await r.json().catch(() => null)) as unknown[] | null
+  if (r.status() !== 200 || !Array.isArray(rows)) {
+    throw new Error(`[j1] PostgREST v5_handler_facts probe could not measure: http ${r.status()}`)
+  }
+  return rows.length
 }
 
 // ── Turn capture ─────────────────────────────────────────────────────────────

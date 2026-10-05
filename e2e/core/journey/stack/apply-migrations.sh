@@ -81,8 +81,11 @@ fi
 # ── X7: every statement error must be on the allow-list, exactly ──────────────
 [ -s "$EXPECTED" ] || { echo "[migrations] $EXPECTED is missing: could not measure X7"; exit 1; }
 KEYS="$(mktemp)"; grep -v '^#' "$EXPECTED" | awk -F'\t' 'NF >= 4 { print $1 "\t" $2 "\t" $3 "\t" $4 }' > "$KEYS"
-unlisted="$(awk -F'\t' 'NR == FNR { k[$0] = 1; next } !(($1 "\t" $2 "\t" $3 "\t" $4) in k)' "$KEYS" "$ERRORS")"
-stale="$(awk -F'\t' 'NR == FNR { k[$1 "\t" $2 "\t" $3 "\t" $4] = 1; next } !($0 in k)' "$ERRORS" "$KEYS")"
+# FILENAME, never NR == FNR: with an EMPTY first file, NR == FNR holds for every line of the
+# second, and each error would be swallowed as a key (Codex buddy r2, #2513: a comments-only
+# allow-list reported MATCH).
+unlisted="$(awk -F'\t' -v keys="$KEYS" 'FILENAME == keys { k[$0] = 1; next } !(($1 "\t" $2 "\t" $3 "\t" $4) in k)' "$KEYS" "$ERRORS")"
+stale="$(awk -F'\t' -v errs="$ERRORS" 'FILENAME == errs { k[$1 "\t" $2 "\t" $3 "\t" $4] = 1; next } !($0 in k)' "$ERRORS" "$KEYS")"
 errs="$(wc -l < "$ERRORS" | tr -d ' ')"
 {
   if [ -n "$unlisted" ]; then

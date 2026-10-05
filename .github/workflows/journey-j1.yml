@@ -346,7 +346,7 @@ jobs:
           set -uo pipefail
           V="$J1/logs/X7-MIGRATIONS.txt"; A="$J1/logs/SCHEMA-ASSERT.tsv"; red=0
           {
-            echo "### X7 · schema seam"
+            echo "### X7 · schema seam (the migration-built DB; proves the migrations, never the live ACL)"
             if [ -s "$V" ]; then echo '```'; cat "$V"; echo '```'; else echo "Migrations: COULD NOT MEASURE (no X7-MIGRATIONS.txt)"; fi
             if [ -s "$A" ]; then
               echo "Schema assert: $(grep -c $'\tPASS\t' "$A") PASS, $(grep -c $'\tFAIL\t' "$A") FAIL, $(grep -c $'\tREPORT\t' "$A") REPORT"

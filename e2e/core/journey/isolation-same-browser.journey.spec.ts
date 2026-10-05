@@ -18,7 +18,7 @@
  * UNMEASURED (recorded in the evidence), never a pass.
  */
 import { expect, test, type Page, type Request } from '@playwright/test'
-import { enterAsGuest, ORIGIN, renderedNodeIds, submitBrief, waitForDraftTurnComplete } from '../lib/harness'
+import { enterAsGuest, installWireInterceptor, ORIGIN, renderedNodeIds, submitBrief, waitForDraftTurnComplete } from '../lib/harness'
 import { browserStorage, scenarioIdFromUrl, scenarioRowAsService, scenariosVisibleTo, storedRead, writeEvidence } from './lib/journey'
 
 const BRIEF =
@@ -80,7 +80,9 @@ async function draft(page: Page): Promise<{ S: string; nodes: string[] }> {
 const storageNaming = async (page: Page, needle: string): Promise<string[]> =>
   Object.entries(await browserStorage(page)).filter(([k, v]) => k.includes(needle) || v.includes(needle)).map(([k]) => k)
 
-test.describe.serial('ISO · same browser, two accounts', () => {
+// Not serial: the two rows share nothing, so one failing must not skip the other
+// (231ad3ec run 37315190922: ISO-1 failed and serial mode never ran ISO-2).
+test.describe('ISO · same browser, two accounts', () => {
   const ev: Record<string, unknown> = {}
   test.afterAll(() => writeEvidence('ISO-same-browser.json', ev))
 
@@ -99,6 +101,10 @@ test.describe.serial('ISO · same browser, two accounts', () => {
     })
     const tab1 = await ctx.newPage()
     const tab2 = await ctx.newPage()
+    // The harness's draft-complete wait reads the wire interceptor, which must be in
+    // place before the first navigation (ISO-1 failed without it: "ZERO draft turn streams").
+    await installWireInterceptor(tab1)
+    await installWireInterceptor(tab2)
     try {
       // ── A, tab 1: a model, a named snapshot, coaching. ──
       await signInViaForm(tab1, A)
@@ -183,6 +189,7 @@ test.describe.serial('ISO · same browser, two accounts', () => {
     const A = await localUser('a4')
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
     const page = await ctx.newPage()
+    await installWireInterceptor(page)
     try {
       await enterAsGuest(page)
       await submitBrief(page, BRIEF)
@@ -190,7 +197,7 @@ test.describe.serial('ISO · same browser, two accounts', () => {
       const guestId = await page.evaluate(() => localStorage.getItem('olumi-canvas-current-scenario-id'))
       expect(guestId, '[ISO-2 control] the guest model has no scenario id').toMatch(/^[0-9a-f-]{36}$/)
       // The guest row, read with the LOCAL job's service role (no user token can read it).
-      const guestBefore = JSON.stringify(await scenarioRowAsService(request, guestId!))
+      const guestBefore = JSON.stringify(await scenarioRowAsService(guestId!))
       const copied = page.evaluate(() => new Promise((res) => window.addEventListener('accounts:guest-copied', (e: any) => res(e.detail), { once: true })))
 
       await signInViaForm(page, A)
@@ -202,7 +209,7 @@ test.describe.serial('ISO · same browser, two accounts', () => {
       const copy = await storedRead(request, detail.scenarioId, A)
       expect(copy.status, '[ISO-2] A cannot read its own copy from CEE').toBe(200)
       expect(copy.body!.analysis_state?.run_state?.kind, '[ISO-2] the copy carries a Run').toBe('never_run')
-      const guestAfter = JSON.stringify(await scenarioRowAsService(request, guestId!))
+      const guestAfter = JSON.stringify(await scenarioRowAsService(guestId!))
       expect(guestAfter.length, '[ISO-2 control] the guest row read is empty').toBeGreaterThan(2)
       expect(guestAfter, '[ISO-2] the guest row changed on sign-in (byte-for-byte)').toBe(guestBefore)
 

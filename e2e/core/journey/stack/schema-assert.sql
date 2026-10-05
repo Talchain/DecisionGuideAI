@@ -8,6 +8,11 @@
 --   REPORT    REPORT        recorded, never red (authenticated EXECUTE on SECURITY DEFINER RPCs:
 --                           which state is live on the hosted project is UNVERIFIED).
 -- A check whose object is missing FAILS; it never silently drops out of the table.
+--
+-- SCOPE (Integrator, 5 Oct): this measures the STACK's migration-built database. It proves
+-- what the migrations declare, never the live ACL: the hosted project has objects no
+-- migration creates (cee_prompt_observations, SPINE X7 out-of-band, owner Core Platform).
+-- The live ACL is Core Platform's read-only verify (X10).
 WITH rpc(name) AS (VALUES
   ('append_turn_atomic_v2'), ('append_agent_answer_with_guidance'), ('append_turn_atomic_v3'),
   ('append_turn_atomic_v4'), ('append_turn_atomic_v5'), ('store_draft_graph'), ('ensure_scenario_exists'),
@@ -48,26 +53,32 @@ checks AS (
          CASE WHEN EXISTS (SELECT 1 FROM pg_class c WHERE c.oid = to_regclass('public.' || t) AND c.relrowsecurity) THEN 'PASS' ELSE 'FAIL' END, ''
   FROM unnest(ARRAY['scenarios', 'v5_handler_facts']) AS t
   UNION ALL
-  -- scenarios: an own-row policy (auth.uid()) for each of the four commands the UI uses.
-  -- (the alias is `want`, never `cmd`: pg_policies has a cmd column, and an unqualified name
-  -- inside the subquery would bind to it and match every row.)
-  SELECT 'REQUIRED', 'scenarios ' || want || ' policy scoped to auth.uid()',
-         CASE WHEN EXISTS (
-           SELECT 1 FROM pg_policies p WHERE p.schemaname = 'public' AND p.tablename = 'scenarios'
-             AND p.cmd IN (w.want, 'ALL')
-             AND (coalesce(p.qual, '') || ' ' || coalesce(p.with_check, '')) ILIKE '%auth.uid()%'
-         ) THEN 'PASS' ELSE 'FAIL' END,
-         (SELECT string_agg(p.policyname, ', ') FROM pg_policies p WHERE p.schemaname = 'public' AND p.tablename = 'scenarios' AND p.cmd IN (w.want, 'ALL'))
-  FROM unnest(ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE']) AS w(want)
-  UNION ALL
-  -- v5_handler_facts: a SELECT policy scoped to the scenario owner/member (the UI reads it directly).
-  SELECT 'REQUIRED', 'v5_handler_facts SELECT policy scoped to owner/member',
-         CASE WHEN EXISTS (
-           SELECT 1 FROM pg_policies p WHERE p.schemaname = 'public' AND p.tablename = 'v5_handler_facts'
-             AND p.cmd IN ('SELECT', 'ALL')
-             AND coalesce(p.qual, '') ~* '(auth\.uid\(\)|is_scenario_member|scenarios)'
-         ) THEN 'PASS' ELSE 'FAIL' END,
-         (SELECT string_agg(p.policyname || ' USING ' || left(coalesce(p.qual, ''), 120), ' | ') FROM pg_policies p WHERE p.schemaname = 'public' AND p.tablename = 'v5_handler_facts')
+  -- Policies. Permissive policies OR together, so the EFFECTIVE set is open if ANY applicable
+  -- permissive policy is (Codex buddy r2: an ALL policy USING(true) WITH CHECK(auth.uid() = ...)
+  -- passed a token check). For each command the UI uses: at least one applicable permissive
+  -- policy (cmd or ALL, a role the UI or anon can hold), and EVERY one of them scopes the
+  -- predicate that command evaluates: SELECT/DELETE → USING, INSERT → WITH CHECK, UPDATE → both
+  -- (WITH CHECK defaults to USING). "Scopes" = names auth.uid() or is_scenario_member. Static,
+  -- so J9 and the ISO rows also probe the same tables BEHAVIOURALLY (B reads A's rows → 0).
+  -- (The alias is `want`, never `cmd`: pg_policies has a cmd column, and an unqualified name
+  -- inside a subquery would bind to it and match every row.)
+  SELECT 'REQUIRED', w.tbl || ' ' || w.want || ': every applicable permissive policy scopes its predicate',
+         CASE WHEN count(p.policyname) > 0 AND bool_and(
+                CASE w.want
+                  WHEN 'SELECT' THEN coalesce(p.qual, 'true') ~* '(auth\.uid\(\)|is_scenario_member)'
+                  WHEN 'DELETE' THEN coalesce(p.qual, 'true') ~* '(auth\.uid\(\)|is_scenario_member)'
+                  WHEN 'INSERT' THEN coalesce(p.with_check, 'true') ~* '(auth\.uid\(\)|is_scenario_member)'
+                  WHEN 'UPDATE' THEN coalesce(p.qual, 'true') ~* '(auth\.uid\(\)|is_scenario_member)'
+                                 AND coalesce(p.with_check, p.qual, 'true') ~* '(auth\.uid\(\)|is_scenario_member)'
+                END)
+              THEN 'PASS' ELSE 'FAIL' END,
+         count(p.policyname) || ' applicable: ' || coalesce(string_agg(p.policyname, ', ' ORDER BY p.policyname), 'NONE')
+  FROM (VALUES ('scenarios', 'SELECT'), ('scenarios', 'INSERT'), ('scenarios', 'UPDATE'), ('scenarios', 'DELETE'),
+               ('v5_handler_facts', 'SELECT')) AS w(tbl, want)
+  LEFT JOIN pg_policies p ON p.schemaname = 'public' AND p.tablename = w.tbl
+    AND p.cmd IN (w.want, 'ALL') AND p.permissive = 'PERMISSIVE'
+    AND p.roles && ARRAY['public', 'anon', 'authenticated']::name[]
+  GROUP BY w.tbl, w.want
   UNION ALL
   -- user_profiles: the column the sign-up trigger writes, and the trigger itself.
   SELECT 'REQUIRED', 'user_profiles.email exists',

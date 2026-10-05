@@ -18,7 +18,8 @@
 //            aborts: every later call is refused and the ledger says why.
 //
 // Matching (scheme 2, after the Codex buddy review of #2513, 5 Oct). A call's
-// SIGNATURE is host, path, model, stream, and hashes of the FULL tool definitions and
+// SIGNATURE is host, HTTP method, the full request target (path + query), model, stream,
+// and hashes of the FULL tool definitions and
 // the FULL structured-output format (schemas included). Its DETAIL hash covers the
 // whole request body, canonical (sorted keys), with only these values normalised,
 // each a measured per-run volatility:
@@ -81,11 +82,12 @@ const normalise = (s) => String(s)
   .replace(ISO_TS, '<ts>')
   .replace(DECIMAL, (m) => String(Number(Number(m).toPrecision(6))))
 
-function shapeOf(host, urlPath, body) {
+function shapeOf(host, method, target, body) {
   const b = body && typeof body === 'object' ? body : {}
   const tools = sha(JSON.stringify(canonical(b.tools ?? null)))
   const format = sha(JSON.stringify(canonical([b.text?.format ?? null, b.response_format ?? null, b.tool_choice ?? null])))
-  const signature = [host, urlPath, `model=${b.model ?? ''}`, `stream=${b.stream === true}`, `tools=${tools}`, `format=${format}`].join('|')
+  // method + the FULL request target (path and query): a PUT, or a query, is a different call.
+  const signature = [host, method, target, `model=${b.model ?? ''}`, `stream=${b.stream === true}`, `tools=${tools}`, `format=${format}`].join('|')
   const norm = normalise(JSON.stringify(canonical(b)))
   return { signature, detail: sha(norm), norm }
 }
@@ -103,7 +105,9 @@ const recordings = MODE === 'replay'
       .map((f) => {
         const r = JSON.parse(fs.readFileSync(path.join(FIXTURES, f), 'utf8'))
         // Re-key from the stored request, so every recording is matched under this scheme.
-        const k = shapeOf(r.host, r.path, r.request)
+        // Scheme-1 recordings stored neither method nor query: every one was POST /v1/responses
+        // with no query (the Responses API); a replayed call with a query therefore misses.
+        const k = shapeOf(r.host, r.method ?? 'POST', r.target ?? r.path, r.request)
         return { file: f, ...r, signature: k.signature, detail: k.detail, norm: k.norm }
       })
   : []
@@ -182,11 +186,13 @@ function handle(req, res) {
   req.on('data', (c) => chunks.push(c))
   req.on('end', async () => {
     const host = String(req.headers['x-journey-host'] ?? req.headers.host ?? '').replace(/:\d+$/, '')
-    const urlPath = String(req.url ?? '').split('?')[0]
+    const target = String(req.url ?? '')
+    const urlPath = target.split('?')[0]
+    const method = String(req.method ?? '')
     const bodyBuf = Buffer.concat(chunks)
     let body = null
     try { body = JSON.parse(bodyBuf.toString('utf8')) } catch { /* non-JSON request */ }
-    const { signature, detail, norm } = shapeOf(host, urlPath, body)
+    const { signature, detail, norm } = shapeOf(host, method, target, body)
 
     // The workflow's boot check: proves the redirect, the TLS trust and the mode,
     // without touching the ledger.
@@ -253,7 +259,7 @@ function handle(req, res) {
       } else {
         const file = `${String(n).padStart(4, '0')}-${host.split('.')[1]}.json`
         fs.writeFileSync(path.join(FIXTURES, file), JSON.stringify({
-          seq: n, signature, detail, host, path: urlPath, model: body?.model ?? null,
+          seq: n, signature, detail, host, method, target, path: urlPath, model: body?.model ?? null,
           status: up.status, content_type: contentType, recorded_at: new Date().toISOString(),
           // the request is kept for diagnosis only; credentials never reach the file
           request: body, body: up.body.toString('utf8'),
