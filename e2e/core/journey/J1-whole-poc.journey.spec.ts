@@ -27,7 +27,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { expect, test, type BrowserContext, type Page, type Request } from '@playwright/test'
+import { expect, test, type BrowserContext, type Locator, type Page, type Request } from '@playwright/test'
 import {
   enterAuthenticated, installWireInterceptor, mintAndInject, openDockTab, ORIGIN, renderedNodeIds,
   submitBrief, waitForDraftTurnComplete, type MintedSession,
@@ -530,6 +530,24 @@ test.describe.serial('J1 · whole PoC', () => {
     page.waitForResponse((r) => r.url().includes(`/bff/cee/scenarios/${id}/graph`) && r.request().method() === 'POST', { timeout: 90_000 })
       .catch(() => null)
 
+  /** A card's name, as the list shows it (its h4). */
+  const cardName = async (card: Locator) => (await card.getByRole('heading', { level: 4 }).innerText()).trim()
+
+  /**
+   * Open a Your-scenarios card the way a user does, on its name. The card's centre is its
+   * "Compare with another scenario" button (first run, 5 Oct: a centre click opened Compare),
+   * and /scenario/<id>/compare also contains the id, so the route is asserted EXACTLY.
+   */
+  async function openCard(card: Locator, id: string, label: string) {
+    const read = graphRead(pageA, id)
+    await card.getByRole('heading', { level: 4 }).click()
+    await expect.poll(() => new URL(pageA.url()).hash, { message: `[${label}] the card did not open #/scenario/${id}`, timeout: 30_000 })
+      .toBe(`#/scenario/${id}`)
+    const res = await read
+    expect(res, `[${label}] COULD NOT MEASURE: opening the card never read ${id} from CEE`).not.toBeNull()
+    expect(res!.status(), `[${label}] the card's read of ${id} was refused`).toBe(200)
+  }
+
   test('J10 · select: Your scenarios lists S, and choosing its card opens S by identity', async () => {
     const S = J.S!
     const latest = nodesOf(J.G2 ?? J.G1!)
@@ -540,14 +558,8 @@ test.describe.serial('J1 · whole PoC', () => {
     await pageA.goto(`${ORIGIN}/#/scenarios`, { waitUntil: 'load' })
     const cards = pageA.getByTestId('scenario-card')
     await expect(cards, '[J10] Your scenarios does not show exactly A\'s one row').toHaveCount(1, { timeout: 60_000 })
-    J.cardS = (await cards.first().innerText()).split('\n')[0].trim()
-
-    const read = graphRead(pageA, S)
-    await cards.first().click()
-    const res = await read
-    expect(res, '[J10] COULD NOT MEASURE: choosing the card never read S from CEE').not.toBeNull()
-    expect(res!.status(), '[J10] the chosen card\'s read of S was refused').toBe(200)
-    await expect.poll(() => scenarioIdFromUrl(pageA.url()), { message: '[J10] the card did not open S', timeout: 30_000 }).toBe(S)
+    J.cardS = await cardName(cards.first())
+    await openCard(cards.first(), S, 'J10')
     await expect.poll(async () => (await renderedNodeIds(pageA)).sort(), {
       message: '[J10] the chosen scenario does not render S\'s model by id', timeout: 120_000,
     }).toEqual(latest)
@@ -584,19 +596,13 @@ test.describe.serial('J1 · whole PoC', () => {
     expect(edgesOf(g), '[J11] the copy carries different links from S').toEqual(edgesOf(latest))
     expect(copy.body!.graph_identity_hash, '[J11] the copy\'s model identity differs from S\'s').toBe(src.graph_identity_hash)
 
-    // Open the copy from its own card, found by elimination: the one card that is not S's (its
-    // name is J11b's to judge). A card has no id, so the binding is the URL plus the read.
-    const firstLines = (await cards.allInnerTexts()).map((t) => t.split('\n')[0].trim())
-    const others = firstLines.flatMap((line, i) => (line === J.cardS ? [] : [i]))
-    expect(others, `[J11] cannot tell the copy's card from S's: first lines ${JSON.stringify(firstLines)}`).toHaveLength(1)
-    const copyCard = cards.nth(others[0]!)
-    const copyTitle = firstLines[others[0]!]!
-    const readC = graphRead(pageA, C)
-    await copyCard.click()
-    const res = await readC
-    expect(res, '[J11] COULD NOT MEASURE: opening the copy never read C from CEE').not.toBeNull()
-    expect(res!.status(), '[J11] the copy\'s read was refused').toBe(200)
-    await expect.poll(() => scenarioIdFromUrl(pageA.url()), { message: '[J11] the copy\'s card did not open C', timeout: 30_000 }).toBe(C)
+    // Open the copy from its own card, found by elimination: the one card whose name is not
+    // S's (the name is J11b's to judge). A card has no id: the binding is the exact route + read.
+    const names = await cards.getByRole('heading', { level: 4 }).allInnerTexts()
+    const others = names.flatMap((name, i) => (name.trim() === J.cardS ? [] : [i]))
+    expect(others, `[J11] cannot tell the copy's card from S's: names ${JSON.stringify(names)}`).toHaveLength(1)
+    const copyTitle = names[others[0]!]!.trim()
+    await openCard(cards.nth(others[0]!), C, 'J11')
     await expect.poll(async () => (await renderedNodeIds(pageA)).sort(), {
       message: '[J11] the copy does not render S\'s model by id', timeout: 120_000,
     }).toEqual(nodesOf(latest))
@@ -669,7 +675,7 @@ test.describe.serial('J1 · whole PoC', () => {
   test('J13 · deep link: with two scenarios, a cold load opens the linked one and a reload keeps it, both ways', async () => {
     const S = J.S!, C = J.C!
     const latest = nodesOf(J.G2 ?? J.G1!)
-    expect(scenarioIdFromUrl(pageA.url()), '[J13] COULD NOT MEASURE: A is not on the copy, so nothing is remembered to override').toBe(C)
+    expect(new URL(pageA.url()).hash, '[J13] COULD NOT MEASURE: A is not on the copy, so nothing is remembered to override').toBe(`#/scenario/${C}`)
     const reads: string[] = []
     const onRequest = (r: Request) => {
       const m = r.url().match(/\/bff\/cee\/scenarios\/([0-9a-f-]{36})\/graph(\?|$)/i)
@@ -690,7 +696,7 @@ test.describe.serial('J1 · whole PoC', () => {
         await expect.poll(async () => (await renderedNodeIds(pageA)).sort(), { message: `[J13] ${target} does not render`, timeout: 120_000 }).toEqual(latest)
         // Terminal state, not first paint: a remembered-scenario override would arrive late.
         await pageA.waitForLoadState('networkidle', { timeout: 60_000 }).catch(() => undefined)
-        expect(scenarioIdFromUrl(pageA.url()), `[J13] the link to ${target} was overridden`).toBe(target)
+        expect(new URL(pageA.url()).hash, `[J13] the link to ${target} was overridden`).toBe(`#/scenario/${target}`)
         expect(reads, `[J13] the cold load of ${target} also read ${other}`).not.toContain(other)
       }
     } finally {
