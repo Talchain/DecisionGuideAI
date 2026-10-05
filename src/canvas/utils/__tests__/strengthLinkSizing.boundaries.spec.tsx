@@ -11,6 +11,8 @@
  * named where made: the user-stated edge WITHOUT its natural effect (the partial-metadata case Codex reproduced), and
  * `provenance_display: 'ai_inferred'` (CEE's V3 display for a `cee_hypothesis` link) where the Model tab keys on it.
  */
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { render, screen, act, cleanup } from '@testing-library/react'
 import served from '../../domain/__tests__/fixtures/servedLinkSizing.20261005.json'
@@ -149,9 +151,34 @@ describe('P1-4 — update_edge: the labels are never taken from a payload key, a
     update({ provenance: ACCEPTED.provenance, strength_mean: 0.9 })
     expect(edgeOf(ACCEPTED).data.strengthAccepted).toBeUndefined()
   })
+  // Codex r3 P1: same-edge ops in ONE patch apply in order; a later op never erases an earlier op's provenance.
+  const updateAll = (...datas: Record<string, unknown>[]) =>
+    act(() => { applyAutoApplyPatch({ operations: datas.map((data) => ({ op: 'update_edge', target_id: edgeOf(ACCEPTED).id, data })) } as never) })
+  it('r4 · ONE patch: acquire, then revoke, then an unrelated op → revoked', () => {
+    updateAll({ provenance: ACCEPTED.provenance })
+    expect(isStrengthAccepted(edgeOf(ACCEPTED).data)).toBe(true) // PRECONDITION
+    updateAll({ provenance: PRE_PROV }, { exists_probability: 0.8 })
+    expect(edgeOf(ACCEPTED).data.strengthAccepted).toBeUndefined()
+    expect(edgeOf(ACCEPTED).data.exists_probability).toBe(0.8) // both ops landed
+  })
+  it('r4 · control: ONE patch: acquire, then an unrelated op → accepted', () => {
+    updateAll({ provenance: ACCEPTED.provenance }, { exists_probability: 0.8 })
+    expect(isStrengthAccepted(edgeOf(ACCEPTED).data)).toBe(true)
+  })
   it('r3 · control: provenance arriving with the SAME strength still labels it', () => {
     update({ provenance: ACCEPTED.provenance, strength: { mean: 0.25, std: 0.125 } })
     expect(isStrengthAccepted(edgeOf(ACCEPTED).data)).toBe(true)
+  })
+})
+
+// Codex r3 P2: hop 3 (DraftChat) keeps BOTH labels out of the untrusted wire remainder, in the SAME destructure as the
+// placeholder key — a structural pin, like `strengthDefinitional.spec`'s.
+describe('r4 · DraftChat destructures the labels out of `edgeRest` (source pin)', () => {
+  it('both keys sit in the destructure that ends in `...edgeRest`', () => {
+    const src = readFileSync(path.resolve(__dirname, '../../components/DraftChat.tsx'), 'utf8')
+    expect(src).toMatch(/strengthAccepted: _strengthAccepted,[^}]*?\.\.\.edgeRest/)
+    expect(src).toMatch(/strengthStated: _strengthStated,[^}]*?\.\.\.edgeRest/)
+    expect(src).toMatch(/strengthPlaceholder: _strengthPlaceholder,\s*\n\s*\.\.\.edgeRest/) // the placeholder pin still holds
   })
 })
 
@@ -187,14 +214,14 @@ describe('r3 · update_edge REWIRE: the labels belong to the relationship, not t
 
 describe('P1-4 — the strength acknowledgement (parseV5Response → applyV5State)', () => {
   const target = `${ACCEPTED.from}→${ACCEPTED.to}`
-  async function receive(after: Record<string, unknown>) {
+  async function receive(after: Record<string, unknown>, ...more: Record<string, unknown>[]) {
     const body = {
       response_version: 2, assistant_text: '', suggested_actions: [], insights: [], stage_indicator: 'frame',
-      blocks: [{
+      blocks: [after, ...more].map((a) => ({
         type: 'graph_patch', operation: 'adjust_edge_strength', status: 'applied', target_id: target,
         before: { from: ACCEPTED.from, to: ACCEPTED.to, strength: ACCEPTED.strength, effect_direction: ACCEPTED.effect_direction },
-        after,
-      }],
+        after: a,
+      })),
     }
     const parsed = await parseV5Response(new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } }))
     expect(parsed.kind).toBe('response') // PRECONDITION: the producer-shaped body parses
@@ -236,6 +263,24 @@ describe('P1-4 — the strength acknowledgement (parseV5Response → applyV5Stat
     expect(isStrengthAccepted(edgeOf(ACCEPTED).data)).toBe(true) // PRECONDITION
     await receive({ weight: 0.25, provenance: PRE_PROV })
     expect(edgeOf(ACCEPTED).data.strengthAccepted).toBeUndefined()
+  })
+  // Codex r3 P1: two acknowledgements of one edge in ONE response apply in order, not both against the snapshot.
+  it('r4 · ONE response, two blocks: revoke, then a same-strength block with no provenance → still revoked', async () => {
+    await receive({ ...signed, provenance: ACCEPTED.provenance })
+    expect(isStrengthAccepted(edgeOf(ACCEPTED).data)).toBe(true) // PRECONDITION
+    await receive({ ...signed, provenance: PRE_PROV }, { ...signed })
+    expect(edgeOf(ACCEPTED).data.strengthAccepted).toBeUndefined()
+  })
+  it('r4 · ONE response, two blocks: accepted → stated, then no provenance → ONE label (stated)', async () => {
+    await receive({ ...signed, provenance: ACCEPTED.provenance })
+    await receive({ ...signed, provenance: { ...PRE_PROV, magnitude: 'user_stated' } }, { weight: 0.25 })
+    const data = edgeOf(ACCEPTED).data
+    expect(data.strengthAccepted).toBeUndefined()
+    expect(isStrengthStated(data)).toBe(true)
+  })
+  it('r4 · control: ONE response, acquire then a no-provenance block → still accepted', async () => {
+    await receive({ ...signed, provenance: ACCEPTED.provenance }, { ...signed })
+    expect(isStrengthAccepted(edgeOf(ACCEPTED).data)).toBe(true)
   })
   it('r3 · class switch: accepted → stated holds ONE label, not both', async () => {
     await receive({ ...signed, provenance: ACCEPTED.provenance })

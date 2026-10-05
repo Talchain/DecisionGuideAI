@@ -269,7 +269,7 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
   const newNodes: ReturnType<typeof buildNode>[] = []
   const newEdges: ReturnType<typeof buildEdge>[] = []
   const nodeUpdates = new Map<string, Record<string, unknown>>()
-  const edgeUpdates = new Map<string, Record<string, unknown>>()
+  const edgeUpdates = new Map<string, Record<string, unknown>[]>()
   const removeNodeIds = new Set<string>()
   const removeEdgeIds = new Set<string>()
 
@@ -324,7 +324,9 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
         // Clean raw endpoint fields from data payload (they live on the edge top-level)
         delete edgeUpdate.source; delete edgeUpdate.from
         delete edgeUpdate.target; delete edgeUpdate.to
-        edgeUpdates.set(op.target_id, edgeUpdate)
+        // Gate 5 (Codex r3 P1): same-edge updates in one patch apply IN ORDER (below); a later one never erases an
+        // earlier one's provenance.
+        edgeUpdates.set(op.target_id, [...(edgeUpdates.get(op.target_id) ?? []), edgeUpdate])
         result.modifiedIds.push(op.target_id)
         break
       }
@@ -359,9 +361,7 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
   })
 
   // 2. Apply edge updates to existing edges (including endpoint rewires)
-  let mergedEdges = existingEdges.map((e) => {
-    const update = edgeUpdates.get(e.id)
-    if (!update) return e
+  const applyEdgeUpdate = (e: (typeof existingEdges)[number], update: Record<string, unknown>) => {
     const { _rewireSource, _rewireTarget, ...dataUpdate } = update
     const relationshipChanged =
       (typeof _rewireSource === 'string' && _rewireSource !== e.source) ||
@@ -376,7 +376,12 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
         Math.abs(Number(({ ...e.data, ...dataUpdate } as Record<string, unknown>).weight)),
         { relationshipChanged },
       ),
-    }
+    } as typeof e
+  }
+  let mergedEdges = existingEdges.map((e) => {
+    const updates = edgeUpdates.get(e.id)
+    if (!updates) return e
+    return updates.reduce(applyEdgeUpdate, e)
   })
 
   // 3. Append new nodes and edges
@@ -491,9 +496,11 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
     return !!u && hasAnalyticalNodeChange(n, { data: u })
   })
   const hadRealEdgeUpdate = existingEdges.some((e) => {
-    const u = edgeUpdates.get(e.id)
-    if (!u) return false
-    const { _rewireSource, _rewireTarget, ...dataUpdate } = u as Record<string, unknown>
+    const updates = edgeUpdates.get(e.id)
+    if (!updates) return false
+    // The ops' combined effect, last write per field (the fold above applies them in this same order).
+    const u = Object.assign({}, ...updates) as Record<string, unknown>
+    const { _rewireSource, _rewireTarget, ...dataUpdate } = u
     const endpointUpdates = {
       ...(typeof _rewireSource === 'string' ? { source: _rewireSource } : {}),
       ...(typeof _rewireTarget === 'string' ? { target: _rewireTarget } : {}),

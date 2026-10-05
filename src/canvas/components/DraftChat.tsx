@@ -557,14 +557,15 @@ export function DraftChat() {
         style: _style, curvature: _curvature, kind: _kind,
         functionType: _funcType, beliefStrength: _beliefStr,
         schemaVersion: _schemaVer,
+        // Gate 5: canvas-internal, written below from its ONE reader. Kept ABOVE the placeholder key, whose source pin
+        // (strengthPlaceholder.spec) owns the line directly above `...edgeRest`.
+        strengthAccepted: _strengthAccepted,
+        strengthStated: _strengthStated,
         // MG 0ebb952a: likewise canvas-internal, written below from its ONE reader.
         strengthDefinitional: _strengthDefinitional,
         // POM-8: a canvas-internal key, written below from the ONE reader —
         // never taken from the untrusted wire remainder.
         strengthPlaceholder: _strengthPlaceholder,
-        // Gate 5: likewise canvas-internal, written below from its ONE reader.
-        strengthAccepted: _strengthAccepted,
-        strengthStated: _strengthStated,
         ...edgeRest
       } = e as Record<string, unknown>
 

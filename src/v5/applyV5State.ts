@@ -1066,6 +1066,10 @@ export function applyV5State(
   let pendingAttentionNote: OlumiAttentionNote | null = null
   let pendingAttentionCaveat: OlumiAttentionCaveat | null = null
   const pulsedEdgeIds: string[] = []
+  // Gate 5 (Codex r3 P1): the edge data each strength acknowledgement in THIS response wrote. The store snapshot is
+  // frozen at apply time, so a second acknowledgement of the same edge must build on the first, not on the snapshot —
+  // or a label the first one revoked comes back.
+  const acknowledgedEdgeData = new Map<string, Record<string, unknown>>()
   // add_constraint patches are collected here and flushed to
   // setGoalConstraints ONCE after the loop: the store snapshot's
   // goalConstraints is frozen at apply time, so a per-patch read-modify-write
@@ -1229,12 +1233,14 @@ export function applyV5State(
             deferred.push({ reason: 'adjust_edge_strength_target_not_found', block, detail: target })
             break
           }
-          const data = strengthAcknowledgementData(edge, after)
+          const progressed = acknowledgedEdgeData.get(edge.id)
+          const data = strengthAcknowledgementData(progressed ? ({ ...edge, data: progressed } as Edge) : edge, after)
           if (!data) {
             deferred.push({ reason: 'adjust_edge_strength_invalid_after', block, detail: target })
             break
           }
           store.updateEdgeData(edge.id, data)
+          acknowledgedEdgeData.set(edge.id, data)
           applied.push(`graph_patch:adjust_edge_strength:${edge.id}`)
           pulsedEdgeIds.push(edge.id)
           break
