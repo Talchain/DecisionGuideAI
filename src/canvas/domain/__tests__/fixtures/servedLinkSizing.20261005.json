@@ -1,0 +1,92 @@
+{
+  "_source": "Served CEE cold reads, Acceptance branch wip/harness-restart-20261004 @d5f0bafe03b93709a237d183b70d2a1d8146d808: openai/ai-experience/2026-10-04/harness-restart/resume-acceptance/25-SPINE-RESULT.json (canonical_cold_receipts) and 21-FIGURE-COLD-READ.json. Edges copied verbatim; classes by CEE src/cee/magnitude/link-sizing.ts:41-48 @8feb2617.",
+  "accepted": {
+    "to": "integration_step_bug_resolution",
+    "from": "sprint_capacity_for_integration_fix",
+    "strength": {
+      "std": 0.125,
+      "mean": 0.25
+    },
+    "defaulted": true,
+    "provenance": {
+      "source": "cee_hypothesis",
+      "magnitude": "olumi_estimate",
+      "natural_effect": {
+        "amount": 0.25,
+        "amount_unit": "0-1",
+        "strength_mean": 0.25,
+        "per_source_change": 100,
+        "strength_mean_frame": "edge_strength",
+        "per_source_change_unit": "%"
+      },
+      "reviewed_by_user": {
+        "at": "2026-10-05T03:31:48.429Z",
+        "intent": "confirm"
+      }
+    },
+    "effect_direction": "positive",
+    "exists_probability": 0.8
+  },
+  "userSet": {
+    "to": "enterprise_prospect_signing_likelihood",
+    "from": "ai_reporting_module_availability",
+    "strength": {
+      "std": 0.05,
+      "mean": 0.1
+    },
+    "provenance": {
+      "source": "user_specified"
+    },
+    "std_defaulted": true,
+    "effect_direction": "positive",
+    "exists_defaulted": true,
+    "exists_probability": 0.8,
+    "provenance_display": "user_set"
+  },
+  "olumi": {
+    "to": "enterprise_prospect_signing_likelihood",
+    "from": "ai_reporting_module_availability",
+    "strength": {
+      "std": 0.3,
+      "mean": 0.6
+    },
+    "defaulted": true,
+    "provenance": {
+      "source": "cee_hypothesis",
+      "magnitude": "olumi_estimate",
+      "natural_effect": {
+        "amount": 60,
+        "amount_unit": "percentage points",
+        "strength_mean": 0.6,
+        "per_source_change": 1,
+        "strength_mean_frame": "edge_strength",
+        "per_source_change_unit": "switch"
+      }
+    },
+    "effect_direction": "positive",
+    "exists_probability": 0.8
+  },
+  "userStated": {
+    "to": "monthly_recurring_revenue",
+    "from": "existing_customers_lost_from_price_rise",
+    "strength": {
+      "std": 0.4,
+      "mean": -0.8
+    },
+    "defaulted": true,
+    "provenance": {
+      "source": "brief_extraction",
+      "magnitude": "user_stated",
+      "natural_effect": {
+        "amount": -300,
+        "amount_unit": "\u00a3/month",
+        "strength_mean": -0.8,
+        "per_source_change": 1,
+        "strength_mean_frame": "edge_strength",
+        "per_source_change_unit": "customers"
+      }
+    },
+    "effect_direction": "negative",
+    "exists_probability": 0.8
+  }
+}

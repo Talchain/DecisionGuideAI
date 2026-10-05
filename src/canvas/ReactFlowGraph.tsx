@@ -508,6 +508,10 @@ export function resolveBootLoadSource(
 export { resolveRestoredScenarioId }
 
 /**
+ * ⛔ SUPERSEDED 5 Oct 2026 (P0, CORE PLATFORM): the "pointer wins" rule described above bound one scenario's bytes to
+ * another's id whenever the pointer drifted (a signed-in switch never wrote it), and a register then wrote them to the
+ * server. `resolveRestoredScenarioId` now binds the slot to its own stamp; see its header in `hydrate/coldLoadDeepLink.ts`.
+ *
  * THE BOOT CALL SITE, EXPORTED SO IT CAN BE DRIVEN RATHER THAN SCANNED.
  *
  * ⚠ WHY THIS IS A FUNCTION AND NOT FIVE LINES INSIDE THE EFFECT. The first cut
