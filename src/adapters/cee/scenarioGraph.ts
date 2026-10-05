@@ -68,6 +68,7 @@ import { logger } from '../../lib/logger'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
 import { isSignInRequired } from './signInRefusal'
 import { parseNotModelled, type NotModelledManifest } from './notModelled'
+import { PERMITTED_ANALYSIS_MODES, type PermittedAnalysisMode } from './types'
 
 /**
  * The same-origin Netlify edge path. NOT `VITE_CEE_BFF_BASE` — see the header.
@@ -208,6 +209,13 @@ export type ScenarioGraphResult =
        * stored bytes it judged) starts with this read's `graph_hash`.
        */
       admitted?: boolean | null
+      /**
+       * The read's `analysis_admission.permitted_analysis_mode`, under the SAME binding as `admitted` (the admission
+       * names this read's revision), and only a literal of the UI's one list (`PERMITTED_ANALYSIS_MODES`); else null.
+       * CEE's read carries a PROJECTION of the admission (`projectAnalysisAdmission`), not an `AnalysisAdmissionV1`,
+       * so only this field is lifted from it (`bootReadAdmission.ts`).
+       */
+      permittedAnalysisMode?: PermittedAnalysisMode | null
       /** Subject-bound machine census for disclosure; never original Run admission. */
       currentReadInputBasis?: unknown
       /** The read's `conversation_turns`, raw (sent only on `includeConversationTurns`); undefined when absent. */
@@ -406,6 +414,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     optionParticipation: b.analysis_option_participation ?? null,
     runDelta: readCurrentReadRunDelta(b.current_read),
     admitted: readAdmitted(b.analysis_admission, b.graph_hash),
+    permittedAnalysisMode: readPermittedAnalysisMode(b.analysis_admission, b.graph_hash),
     currentReadInputBasis: readCurrentReadInputBasis(b.analysis_admission, b.graph_hash),
     // Carried raw; the ONE reader is `readServerConversationTurns` (canvas/conversation/serverConversationTurns.ts).
     conversationTurns: b.conversation_turns,
@@ -426,6 +435,12 @@ function readAdmitted(raw: unknown, readGraphHash: unknown): boolean | null {
   if (typeof readGraphHash !== 'string' || readGraphHash.length === 0) return null
   if (typeof admissionHash !== 'string' || !admissionHash.startsWith(readGraphHash)) return null
   return admitted
+}
+
+function readPermittedAnalysisMode(raw: unknown, readGraphHash: unknown): PermittedAnalysisMode | null {
+  if (readAdmitted(raw, readGraphHash) === null) return null
+  const mode = (raw as { permitted_analysis_mode?: unknown }).permitted_analysis_mode
+  return (PERMITTED_ANALYSIS_MODES as readonly unknown[]).includes(mode) ? (mode as PermittedAnalysisMode) : null
 }
 
 function readCurrentReadInputBasis(raw: unknown, readGraphHash: unknown): unknown {

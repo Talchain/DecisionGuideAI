@@ -6,6 +6,7 @@ import type { SourceKeyedMessage } from '../../../../canvas/conversation/utils/t
 import { revealOlumiSurface } from '../../../../canvas/conversation/revealOlumi'
 import { isTestWithoutLinkEnabled } from '../../../../flags'
 import { resolveEffectiveAdmission } from '../../../../canvas/hooks/useAnalysisReady'
+import { selectBootReadPermittedMode, useBootReadAdmissionStore } from '../../../../canvas/hydrate/bootReadAdmission'
 import { TEST_WITHOUT_LINK_HOLD_COPY, testWithoutLinkEligibility } from '../testWithoutLinkEligibility'
 import { typography } from '../../../../styles/typography'
 import { action } from '../panelSurfaces'
@@ -38,8 +39,12 @@ export function TestWithoutLinkButton({
   const current = useCanvasStore(selectRunAffirmedCurrent)
   const conversation = useOptionalConversationContext()
   // The offer gate's producer fields (see `testWithoutLinkEligibility`), each read as a primitive.
+  // A turn's admission (live, else retained) wins; on a cold load before any turn, the graph read's mode, only
+  // while the canvas is still that read (`bootReadAdmission.ts`). Absent all three, absence stays "not loaded".
+  const bootRecord = useBootReadAdmissionStore(s => s.record)
   const permittedAnalysisMode = useCanvasStore(s =>
-    resolveEffectiveAdmission(s.ceeAnalysisReady?.analysis_admission, s.retainedAnalysisAdmission)?.permitted_analysis_mode)
+    resolveEffectiveAdmission(s.ceeAnalysisReady?.analysis_admission, s.retainedAnalysisAdmission)?.permitted_analysis_mode
+    ?? selectBootReadPermittedMode(s, bootRecord))
   const analysisState = useCanvasStore(s => s.analysisStateV1)
   const hasResult = useCanvasStore(s => s.results?.report != null)
   const sourceType = useCanvasStore(s => s.nodes.find(n => n.id === edge?.source)?.type)
