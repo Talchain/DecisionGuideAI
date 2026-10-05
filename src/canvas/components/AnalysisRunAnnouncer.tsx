@@ -28,7 +28,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useCanvasStore } from '../store'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { runAnnouncementForTransition } from './analysisRunStatus'
-import { selectHasRenderableAnalysisResult } from '../ui/inspector-v2/useAnalysisResults'
+import { selectHasRenderableAnalysisResult, selectRunWithholdsFigures } from '../ui/inspector-v2/useAnalysisResults'
 
 export interface AnalysisRunAnnouncerProps {
   /** The Analysis tab is fronted (dock open, results tab active). */
@@ -66,6 +66,7 @@ export function AnalysisRunAnnouncer({
   // The same content selector as the overall display state, not a probability
   // widget's narrower guard. Withheld ranking can still carry real outcomes.
   const hasRenderableResult = useCanvasStore(selectHasRenderableAnalysisResult)
+  const figuresWithheld = useCanvasStore(selectRunWithholdsFigures)
   const settledWithoutNewReport = useCanvasStore(
     (s) => s.results?.settledWithoutNewReport ?? false,
   )
@@ -101,6 +102,7 @@ export function AnalysisRunAnnouncer({
       willFrontAnalysisTab,
       settledWithoutNewReport,
       hasRenderableResult,
+      figuresWithheld,
     })
     if (!isRunning) preRunStatusRef.current = resultsStatus
     // A yielded transition clears the region (an empty string announces
@@ -113,6 +115,7 @@ export function AnalysisRunAnnouncer({
     willFrontAnalysisTab,
     settledWithoutNewReport,
     hasRenderableResult,
+    figuresWithheld,
   ])
 
   return (

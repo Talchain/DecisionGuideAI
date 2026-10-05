@@ -148,6 +148,14 @@ export const RUN_ENDED_WITHOUT_NEW_RESULTS_COPY =
  */
 export const RUN_FINISHED_WITHOUT_RESULT_COPY = 'Analysis finished without a result.'
 
+/**
+ * ⭐ The same state when the producer WITHHELD the figures with a typed code (`selectRunWithholdsFigures`; gate 2
+ * consumer, DL 0df0e1, 5 Oct; Acceptance #87 5987804248): the Run finished honestly, so it is not announced as a
+ * failure. Matches `deriveAnalysisDisplayState`'s 'Analysis finished: figures not shown yet' headline, one vocabulary
+ * across the two surfaces.
+ */
+export const RUN_FINISHED_FIGURES_WITHHELD_COPY = 'Analysis finished: figures not shown yet.'
+
 export interface RunAnnouncementInput {
   /** Which transition just happened. */
   transition: 'start' | 'settle'
@@ -197,6 +205,8 @@ export interface RunAnnouncementInput {
    * behaviour rather than silently claiming emptiness.
    */
   hasRenderableResult?: boolean
+  /** The producer withheld the figures with a typed code (`selectRunWithholdsFigures`). Absent ⇒ false (today). */
+  figuresWithheld?: boolean
   /**
    * The settle restored the previous report without new results
    * (results.settledWithoutNewReport — abort/timeout). Settle transitions
@@ -213,6 +223,7 @@ export function runAnnouncementForTransition({
   willFrontAnalysisTab = false,
   settledWithoutNewReport,
   hasRenderableResult = true,
+  figuresWithheld = false,
 }: RunAnnouncementInput): string | null {
   const firstRun = preRunStatus === 'idle' || preRunStatus === 'cancelled'
   // ⭐⭐ THE START ARM ASKS "WILL THIS TAB BE SPEAKING?", NOT "IS IT FRONTED?"
@@ -303,7 +314,7 @@ export function runAnnouncementForTransition({
       // specific statement — it tells the user their PREVIOUS analysis is
       // showing, which is a real fallback. The empty-result case has no such
       // fallback, so it must not borrow that copy.
-      if (!hasRenderableResult) return RUN_FINISHED_WITHOUT_RESULT_COPY
+      if (!hasRenderableResult) return figuresWithheld ? RUN_FINISHED_FIGURES_WITHHELD_COPY : RUN_FINISHED_WITHOUT_RESULT_COPY
       return 'Analysis complete.'
     case 'error':
       return 'Analysis failed.'

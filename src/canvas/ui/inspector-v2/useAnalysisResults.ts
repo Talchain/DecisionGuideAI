@@ -6,6 +6,7 @@
  */
 
 import { useCanvasStore } from '../../store'
+import { readGoalIdentityWithheld } from '../../../components/results/utils/goalIdentityWithheld'
 import type { CEEGoalConstraint } from '../../../adapters/cee/types'
 import type { ConditionalProbability } from '../../../types/constraints'
 
@@ -150,4 +151,12 @@ export function hasRenderableAnalysisResult(report: InspectorReport | undefined 
 /** Shared store read for overall result surfaces; probability widgets stay strict. */
 export function selectHasRenderableAnalysisResult(s: { results?: { report?: unknown } }): boolean {
   return hasRenderableAnalysisResult(selectReport(s))
+}
+
+/**
+ * Did the producer WITHHOLD this report's figures, with a typed code (`GOAL_FIGURES_WITHHELD_CODES`, the one reader
+ * `readGoalIdentityWithheld`)? Gate 2 consumer (DL 0df0e1, 5 Oct): the headline must not call such a Run a failure.
+ */
+export function selectRunWithholdsFigures(s: { results?: { report?: unknown } }): boolean {
+  return readGoalIdentityWithheld(selectReport(s)) !== null
 }
