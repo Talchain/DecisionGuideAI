@@ -17,6 +17,7 @@
  * reintroduced here by treating any of these as "no graph".
  */
 
+import { recordCanonicalOpen } from './canonicalOpenOutcome'
 import { useCanvasStore } from '../store'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { useServerConversationTurnsStore } from '../stores/serverConversationTurnsStore'
@@ -249,6 +250,13 @@ async function readAndMergeServerGraph(
     logger.debug('server_graph_hydration.superseded', { scenarioId })
     return 'skipped'
   }
+
+  // ⭐ ONE AUTHORITY FOR "DID THIS MODEL OPEN?" (`canonicalOpenOutcome.ts`): CEE's canonical read, bound by identity.
+  // 'opened' only when CEE served the SAME scenario_id it was asked for; a refusal, an outage or another id is not.
+  recordCanonicalOpen(
+    scenarioId,
+    (result.status === 'graph' || result.status === 'absent') && result.scenarioId === scenarioId ? 'opened' : 'not_opened',
+  )
 
   // ── Every non-graph answer: leave the canvas alone, say why, surface nothing.
   if (result.status !== 'graph') {

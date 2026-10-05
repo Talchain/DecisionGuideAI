@@ -37,8 +37,14 @@ import {
 vi.mock('../../lib/supabase', () => supabaseMockModule())
 vi.mock('react-router-dom', () => routerMockModule())
 vi.mock('../../contexts/AuthContext', () => authMockModule())
+const tracked = vi.hoisted(() => [] as string[])
+vi.mock('../../lib/telemetry', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../../lib/telemetry')>()
+  return { ...real, track: (event: string) => { tracked.push(event) } }
+})
 
 import { useScenario } from '../useScenario'
+import { recordCanonicalOpen, __resetCanonicalOpenForTests } from '../../canvas/hydrate/canonicalOpenOutcome'
 
 type Crumb = { m?: string; data?: Record<string, unknown> }
 
@@ -55,6 +61,8 @@ const onToast = (e: Event) => { toasts.push((e as CustomEvent).detail ?? {}) }
 
 beforeEach(() => {
   resetScenarioHarness()
+  __resetCanonicalOpenForTests()
+  tracked.length = 0
   toasts = []
   const w = window as unknown as { __SAFE_DEBUG__?: { logs?: Crumb[] } }
   if (w.__SAFE_DEBUG__?.logs) w.__SAFE_DEBUG__.logs.length = 0
@@ -66,12 +74,24 @@ async function load(id: string) {
   const { result } = renderHook(() => useScenario())
   await act(async () => { await result.current.loadScenario(id) })
 }
+/**
+ * CEE's canonical read answers for `id` (the one authority on whether the model opened, `canonicalOpenOutcome.ts`).
+ * A not-found row now waits for it, so a case asserting the notice says what CEE answered.
+ */
+async function ceeAnswers(id: string, outcome: 'opened' | 'not_opened') {
+  await act(async () => {
+    recordCanonicalOpen(id, outcome)
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+}
 
 describe('useScenario.loadScenario — a load failure reaches a production build', () => {
   it('NOT FOUND: breadcrumbs the reason and tells the user, rather than returning silently', async () => {
     // PRECONDITION (trap 13b): an unseeded id is served Supabase's real
     // PGRST116 by the harness, so this case cannot pass for the wrong reason.
     await load('scenario-that-does-not-exist')
+    await ceeAnswers('scenario-that-does-not-exist', 'not_opened') // CEE refuses it too
 
     const hits = loadFailures()
     expect(hits).toHaveLength(1)
@@ -102,6 +122,7 @@ describe('useScenario.loadScenario — a load failure reaches a production build
 
   it('DISCRIMINATES the two reasons — one message for both would be false half the time', async () => {
     await load('scenario-that-does-not-exist')
+    await ceeAnswers('scenario-that-does-not-exist', 'not_opened')
     const notFound = loadFailures()[0]
 
     const w = window as unknown as { __SAFE_DEBUG__?: { logs?: Crumb[] } }
@@ -117,10 +138,46 @@ describe('useScenario.loadScenario — a load failure reaches a production build
 
   it('promises no recovery it cannot perform', async () => {
     await load('scenario-that-does-not-exist')
+    await ceeAnswers('scenario-that-does-not-exist', 'not_opened')
     // ⛔ The not-found arm must not offer a retry: whether the model can be
     // re-fetched is not knowable here. #1473 removed a control that claimed an
     // action it could not do; this must not reintroduce one.
     expect(String(toasts[0].message)).not.toMatch(/try again|retry/i)
+  })
+
+  it('⭐ ONE AUTHORITY: no Supabase row, but CEE\'s canonical read OPENED this model — no notice, and the mismatch is counted', async () => {
+    await load('a58f1537-49a1-4506-9df2-4657bad594fc')
+    expect(toasts).toHaveLength(0) // not before CEE answers either
+    await ceeAnswers('a58f1537-49a1-4506-9df2-4657bad594fc', 'opened')
+    expect(toasts).toHaveLength(0)
+    expect(tracked).toEqual(['scenario.row_missing_canonical_ok'])
+    const mismatch = crumbs().filter(c => typeof c.m === 'string' && c.m.includes('scenario:row_missing_canonical_ok'))
+    expect(mismatch).toHaveLength(1)
+    expect(mismatch[0].data?.scenarioIdPrefix).toBe('a58f1537')
+    expect(JSON.stringify(mismatch[0].data)).not.toContain('4657bad594fc') // a prefix only, never the whole id
+  })
+
+  it('an answer CEE gave BEFORE this load began never decides it (an earlier read, an earlier account)', async () => {
+    await ceeAnswers('scenario-that-does-not-exist', 'opened')
+    await load('scenario-that-does-not-exist')
+    expect(toasts).toHaveLength(0)
+    await ceeAnswers('scenario-that-does-not-exist', 'not_opened')
+    expect(toasts).toHaveLength(1)
+    expect(String(toasts[0].message)).toMatch(/could not be opened/i)
+    expect(tracked).toEqual([])
+  })
+
+  it('CEE never answers within the bound: the notice shows, as before', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      await load('scenario-that-does-not-exist')
+      expect(toasts).toHaveLength(0)
+      await act(async () => { await vi.advanceTimersByTimeAsync(20_000) })
+      expect(toasts).toHaveLength(1)
+      expect(String(toasts[0].message)).toMatch(/could not be opened/i)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('CONTROL — a successful load writes no failure crumb and raises no toast', async () => {

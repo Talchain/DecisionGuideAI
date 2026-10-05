@@ -34,6 +34,7 @@ vi.mock('../../contexts/AuthContext', () => ({
 
 import { useScenario } from '../useScenario'
 import { useCanvasStore } from '../../canvas/store'
+import { recordCanonicalOpen } from '../../canvas/hydrate/canonicalOpenOutcome'
 
 const OWN = 'own-decision-a'
 const SHARED = 'shared-decision-b'
@@ -78,6 +79,8 @@ describe('useScenario.loadScenario: a decision shared with this user', () => {
     access.getScenarioAccess.mockResolvedValue('none')
     const { result } = renderHook(() => useScenario())
     await act(async () => { await result.current.loadScenario(SHARED) })
+    // Not a member, and CEE's canonical read refuses it too: the one authority says it did not open.
+    await act(async () => { recordCanonicalOpen(SHARED, 'not_opened'); await Promise.resolve(); await Promise.resolve() })
 
     expect(toasts).toHaveLength(1)
     expect(String(toasts[0].message)).toMatch(/could not be opened/i)
