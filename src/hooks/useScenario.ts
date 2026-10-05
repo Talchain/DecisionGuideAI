@@ -985,7 +985,7 @@ export function useScenario(): UseScenarioReturn {
       // B3: goalConstraints is passed on EVERY load — the value or null. It
       // is not conditional, because "this scenario has no constraint" must
       // overwrite the previous scenario's, not fall through to it.
-      // THIN CLIENT (spike): CEE's read is the ONLY source of the graph, so this row's own `graph` column is never put
+      // THIN CLIENT: CEE's read is the ONLY source of the graph, so this row's own `graph` column is never put
       // on the canvas. Same scenario already on screen → keep what CEE put there (nodes/edges omitted, so nothing is
       // cleared). Another scenario → clear it; `useServerGraphHydration` reads this one into the empty canvas.
       const thinClient = isThinClientSession()

@@ -68,7 +68,7 @@ export function __resetRouteAdoptedScenarioForTests(): void {
  */
 function routeIsAdoptable(route: string | null | undefined, held: string | null): boolean {
   if (!route || !isCeeAddressableScenarioId(route)) return false
-  // THIN CLIENT (spike): the route IS the scenario. No local copy of another scenario can be on screen for long:
+  // THIN CLIENT: the route IS the scenario. No local copy of another scenario can be on screen for long:
   // `useScenario.loadScenario` clears it when the route changes (same-tab A → B), and this read then fills B from CEE.
   if (isThinClientSession()) return true
   return held === null || held === route || held === routeAdoptedScenarioId || held === coldLoadClaimedRoute()

@@ -2068,7 +2068,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         } catch {}
       }
 
-      // THIN CLIENT (spike): a signed-in browser restores NO local model, no local analysis and no recovery notice.
+      // THIN CLIENT: a signed-in browser restores NO local model, no local analysis and no recovery notice.
       // CEE's read (`useServerGraphHydration`) is the only source of the graph; the layout comes back with it.
       if (isThinClientSession()) return
 

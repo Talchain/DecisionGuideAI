@@ -861,9 +861,9 @@ export function useModelEditAuthority(
     if (!factorHasConfirmableValue(node.data)) return 'not_encodable'
 
     mutations.setObservedSource('user_confirmed')
-    // THIN CLIENT (spike; DL ruling (a), 5 Oct): this stamp has NO server carrier, and a signed-in browser keeps no local
+    // THIN CLIENT (DL ruling (a), 5 Oct): this stamp has NO server carrier, and a signed-in browser keeps no local
     // model, so it lives on this screen only and the next CEE graph replaces it. Say so, rather than let a confirmation
-    // look saved. (A CEE carrier is the INTEGRATOR's seam row, not this spike.)
+    // look saved. (A CEE carrier is the INTEGRATOR's seam row, not this change.)
     if (isThinClientSession() && typeof window !== 'undefined') {
       window.dispatchEvent(
         new CustomEvent('topbar:show-toast', { detail: { message: THIN_CLIENT_NOT_SAVED_NOTICE, level: 'warning' } }),

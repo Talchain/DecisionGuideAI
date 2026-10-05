@@ -221,7 +221,7 @@ export function saveSnapshot(state: { nodes: Node[]; edges: Edge<EdgeData>[] }):
 
 export function listSnapshots(): SnapshotMetadata[] {
   const snapshots: SnapshotMetadata[] = []
-  // THIN CLIENT (spike): never list a snapshot for a signed-in browser — it may be another account's model.
+  // THIN CLIENT: never list a snapshot for a signed-in browser — it may be another account's model.
   if (isThinClientSession()) return snapshots
   try {
     for (let i = 0; i < localStorage.length; i++) {

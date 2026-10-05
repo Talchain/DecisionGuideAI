@@ -80,7 +80,7 @@ function isModelVersion(value: unknown): value is ModelVersion {
  */
 export function loadVersions(): ModelVersion[] {
   if (!isLocalStorageAvailable()) return []
-  // THIN CLIENT (spike): a signed-in browser's versions are the SERVER's (Version history); no local model copies.
+  // THIN CLIENT: a signed-in browser's versions are the SERVER's (Version history); no local model copies.
   if (isThinClientSession()) return []
 
   try {
@@ -107,7 +107,7 @@ export function loadVersions(): ModelVersion[] {
 }
 
 function writePayload(versions: readonly ModelVersion[]): void {
-  // THIN CLIENT (spike): never write a model copy for a signed-in browser.
+  // THIN CLIENT: never write a model copy for a signed-in browser.
   if (isThinClientSession()) return
   const payload: VersionedPayload<ModelVersion[]> = {
     schema: VERSIONS_SCHEMA,

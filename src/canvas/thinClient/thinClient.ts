@@ -1,5 +1,5 @@
 /**
- * ⭐ THE THIN CLIENT — SPIKE (DL 0df0e1 brief D, 5 Oct 2026; branch `spike/thin-client`, never merged to staging).
+ * ⭐ THE THIN CLIENT (DL 0df0e1 brief D; spike verdict PASS, #87 5994401558, matrix in CI on the J1 stack).
  *
  * For a SIGNED-IN browser the canvas keeps no saved copy of the model:
  *   · on load, CEE's read (`useServerGraphHydration`) is the only source of the graph;
@@ -44,7 +44,7 @@ function hasStoredSupabaseSession(): boolean {
  * a sign-out (its own, or another tab's: supabase-js removes the shared session and this tab becomes a "guest" with A's
  * graph on screen). Unlatched, that tab's guest autosave would write A's model into the slots the next guest boot
  * restores: CAN-F2g's shape on the guest path. Latched, a page that was ever signed in never writes or reads a local
- * model; the next full load decides afresh. The cost, accepted for the spike: a guest who stays in the SAME page after
+ * model; the next full load decides afresh. The accepted cost: a guest who stays in the SAME page after
  * signing out gets no local autosave until a reload.
  */
 let thinThisPage = false

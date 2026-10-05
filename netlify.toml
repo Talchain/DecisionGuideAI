@@ -79,26 +79,6 @@
   VITE_FEATURE_GRAPH_LENS = "true"
 
 # =============================================================================
-# THIN-CLIENT SPIKE (DL 0df0e1 brief D, 5 Oct 2026) — branch `spike/thin-client`
-# only, never merged. Mirrors [context.staging.environment] below so the branch
-# deploy serves staging's surface, minus the two dev-only gallery/route keys
-# (not needed, and fixtureIsolation.spec counts the gallery key repo-wide).
-# Dashboard env is the shared `branch-deploy` context, the same as staging's.
-# =============================================================================
-[context."spike/thin-client".environment]
-  # Publishable (anon-class) key — PUBLIC BY DESIGN; same as the staging block.
-  VITE_SUPABASE_ANON_KEY = "sb_publishable_Bhx6ZBWU7aLGmTfEedg60g_O5P1SQ-T"
-  VITE_FEATURE_AI_PANEL_V2 = "true"
-  VITE_FEATURE_GRAPH_LENS = "true"
-  VITE_APP_ENV = "staging"
-  VITE_FEATURE_DECISION_OVERVIEW = "1"
-  VITE_FEATURE_STRENGTHEN_PANEL = "1"
-  VITE_STUB_SUPABASE = "0"
-  VITE_V5_CANONICAL_ANALYSIS = "true"
-  VITE_FEATURE_COMPARE_TAB = "1"
-  VITE_FEATURE_PRE_ANALYSIS_V3 = "1"
-
-# =============================================================================
 # Staging-only env overrides
 # Netlify's deploy-context syntax scopes env vars to a specific branch's
 # builds. `[context.staging.environment]` applies only to builds for the

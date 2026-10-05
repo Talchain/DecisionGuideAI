@@ -1,5 +1,5 @@
 /**
- * THIN CLIENT (spike) — a signed-in browser keeps no local copy of the model.
+ * THIN CLIENT — a signed-in browser keeps no local copy of the model.
  *
  * Each row that asserts "nothing written / nothing read" has its CONTRAST row first: the same call as a guest DOES
  * write and read, so a gate that never applied (or a storage mock that drops everything) cannot pass vacuously.

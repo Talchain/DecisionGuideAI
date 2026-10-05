@@ -146,7 +146,7 @@ export function planColdLoadDeepLink(route: string | null | undefined): ColdLoad
   if (route != null && !isCeeAddressableScenarioId(route)) return null
   const st = useCanvasStore.getState()
   if (st.nodes.length > 0 || st.edges.length > 0) return null
-  // THIN CLIENT (spike): no slot holds a model to preserve or promote, so a route simply IS the scenario on screen.
+  // THIN CLIENT: no slot holds a model to preserve or promote, so a route simply IS the scenario on screen.
   if (isThinClientSession()) {
     return route != null && st.currentScenarioId !== route ? { kind: 'supersede', route } : null
   }
@@ -180,7 +180,7 @@ export function coldLoadBlocksBootRestore(): boolean {
 /** Apply `plan` (re-validated by the caller). 'applied' when the pointer and the store now name the route. */
 function applyColdLoadPlan(plan: ColdLoadPlan): 'applied' | 'declined' {
   const { route } = plan
-  // THIN CLIENT (spike): the pointer is only an id (never a model); the store takes the route. No slot is moved.
+  // THIN CLIENT: the pointer is only an id (never a model); the store takes the route. No slot is moved.
   if (isThinClientSession()) {
     write(POINTER_KEY, route)
     useCanvasStore.setState({ currentScenarioId: route })

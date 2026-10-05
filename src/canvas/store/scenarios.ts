@@ -205,7 +205,7 @@ export function loadScenarios(): Scenario[] {
     }
 
     const sorted = scenarios.sort((a, b) => b.updatedAt - a.updatedAt) // Most recently updated first
-    // THIN CLIENT (spike): a record written before sign-in (or by another account) never puts a model on screen here.
+    // THIN CLIENT: a record written before sign-in (or by another account) never puts a model on screen here.
     return isThinClientSession()
       ? sorted.map((sc) => ({ ...sc, graph: buildPersistedGraph([], [], null) as Scenario['graph'] }))
       : sorted
@@ -231,7 +231,7 @@ export function saveScenarios(scenarios: Scenario[]): void {
     }
 
     // Prune to MAX_SCENARIOS (keep most recently updated)
-    // THIN CLIENT (spike): a signed-in browser keeps each record's metadata, never its graph.
+    // THIN CLIENT: a signed-in browser keeps each record's metadata, never its graph.
     const thin = isThinClientSession()
     const pruned = scenarios
       .sort((a, b) => b.updatedAt - a.updatedAt)
@@ -737,7 +737,7 @@ export function saveAutosave(data: AutosaveData): void {
     return
   }
 
-  // THIN CLIENT (spike): a signed-in browser writes the LAYOUT only, never the model. Every writer that reaches the
+  // THIN CLIENT: a signed-in browser writes the LAYOUT only, never the model. Every writer that reaches the
   // main slot (`useAutosave`, `crashFlush`, `applyDraftResult`) comes through here.
   if (isThinClientSession()) {
     saveThinLayout(data.scenarioId, data.nodes)
@@ -805,7 +805,7 @@ export function loadAutosave(): AutosaveData | null {
   if (!isLocalStorageAvailable()) {
     return null
   }
-  // THIN CLIENT (spike): a signed-in browser restores no local model, whoever's slot this is.
+  // THIN CLIENT: a signed-in browser restores no local model, whoever's slot this is.
   if (isThinClientSession()) return null
 
   try {

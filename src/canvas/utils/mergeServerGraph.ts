@@ -652,7 +652,7 @@ export function mergeServerGraphOnHydrate(
   // which is exactly why the false sentence read as true.
   const hydratingEmptyCanvas = store.nodes.length === 0 && addedNodes.length > 0
 
-  // THIN CLIENT (spike): a signed-in browser restores no model, so every reload hydrates an EMPTY canvas, and the
+  // THIN CLIENT: a signed-in browser restores no model, so every reload hydrates an EMPTY canvas, and the
   // only thing it keeps is the LAYOUT, by node id. Nodes it has a position for go back where the user left them; any
   // others join rows clear of them (the same `placeAddedNodes` as below). Either way no auto-layout is requested, so
   // the arrangement is not scrambled. With no stored layout the designed empty-canvas path below runs unchanged.
