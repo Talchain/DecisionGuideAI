@@ -2,10 +2,15 @@
 #
 # The local pre-push hook (scripts/validate-prepush.sh) runs only fast checks
 # (typecheck, lint on changed files, smoke tests). This workflow runs the
-# complete 6,900+ test suite on integrated staging pushes and manual/merge-queue
-# runs. PRs get typecheck, lint, production build and dependency audit. Owners
-# supply focused affected-path evidence for staging changes; high-risk contracts
-# still need independent review under the current delivery policy.
+# complete test suite on PRs into staging, integrated staging pushes and
+# manual/merge-queue runs. PRs get typecheck, lint, production build, dependency
+# audit AND the full sharded suite (5 Oct 2026, CI OPTIMISER: before this, PR CI
+# ran no tests and lanes dispatched this workflow by hand per branch).
+#
+# ⚠ THREADS (5 Oct 2026). vitest.config.ts pins `poolOptions.threads.maxThreads: 1`
+# for LOCAL runs (heap). Measured on CI: shard 5/6 of run 37298873782 spent
+# 740s of per-file work in a 799s wall clock, i.e. ONE core of the runner's 4,
+# and only 111s of it executing tests. CI overrides it with VITEST_THREADS below.
 #
 # Sharding (ROADMAP 1.26, chronic-CI-red fix): the vitest job runs as a
 # `SHARD_COUNT`-way matrix (`--shard=N/6` since 2 Oct 2026; 4 before), each
@@ -68,6 +73,8 @@ env:
   # Must equal the length of `vitest.strategy.matrix.shard` — the Summary job
   # fails when the number of shard artifacts differs from this.
   SHARD_COUNT: 6
+  # Worker threads per shard on CI (overrides vitest.config.ts's local 1; see header).
+  VITEST_THREADS: 4
 
 jobs:
   # ── Install & cache (shared by all downstream jobs) ──────────────────
@@ -909,7 +916,6 @@ jobs:
   vitest:
     name: Full Test Suite (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     needs: install
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -979,7 +985,7 @@ jobs:
         timeout-minutes: 20
         run: |
           set +e
-          pnpm exec vitest run --reporter=verbose --no-color --shard=${{ matrix.shard }}/${{ env.SHARD_COUNT }} 2>&1 | tee vitest-output.raw.txt
+          pnpm exec vitest run --reporter=verbose --no-color --shard=${{ matrix.shard }}/${{ env.SHARD_COUNT }} --poolOptions.threads.maxThreads=${{ env.VITEST_THREADS }} 2>&1 | tee vitest-output.raw.txt
           code=${PIPESTATUS[0]}
           sed -E 's/\x1b\[[0-9;]*m//g' vitest-output.raw.txt > vitest-output.txt
           echo "exit_code=${code}" >> "$GITHUB_OUTPUT"
@@ -1102,7 +1108,7 @@ jobs:
   vitest-summary:
     name: Full Test Suite Summary
     needs: vitest
-    if: ${{ github.event_name != 'pull_request' && always() }}
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
       - name: Download all shard outputs
@@ -1172,6 +1178,62 @@ jobs:
           fi
 
   # ── Build ────────────────────────────────────────────────────────────
+  # ⚠⚠ TEMPORARY MEASUREMENT — CI OPTIMISER, 5 Oct 2026. REMOVED BEFORE REVIEW-READY.
+  # Measures the alternative to the full suite on PRs: vitest --changed (import
+  # graph) for three real merged PRs, plus the always-run set of specs that read
+  # files by path or import dynamically (the import graph cannot see their reads).
+  affected-probe:
+    name: Affected-only probe (#${{ matrix.pr }})
+    needs: install
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { pr: '2501', sha: 'be430fc3918e42cb42ad3607ce579c3ba9dbfc23' }
+          - { pr: '2491', sha: '1d22cbfb94c0fcad3a600375b09a3063396c89b0' }
+          - { pr: '2496', sha: '8ef8e2c99f2219b40b5eff6851712ec7871d1b22' }
+    steps:
+      - name: Checkout the merged PR
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.sha }}
+          fetch-depth: 2
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Changed files
+        run: git diff --name-only HEAD^1 HEAD
+      - name: vitest --changed HEAD^1 (import graph)
+        env:
+          NODE_OPTIONS: "--max-old-space-size=7168"
+        run: |
+          set +e
+          start=$(date +%s)
+          pnpm exec vitest run --changed HEAD^1 --reporter=dot --no-color --poolOptions.threads.maxThreads=${{ env.VITEST_THREADS }} 2>&1 | tail -12
+          echo "PROBE changed_secs=$(( $(date +%s) - start ))"
+      - name: Always-run set (path readers + dynamic imports)
+        env:
+          NODE_OPTIONS: "--max-old-space-size=7168"
+        run: |
+          set +e
+          git ls-files | grep -E '^(src/.*/(__tests__|tests)/|tests/).*\.(test|spec)\.(c|m)?[jt]sx?$' \
+            | xargs grep -lE "readFileSync|readdirSync|readFile\(|globSync|fast-glob|import\.meta\.glob|execSync|spawnSync|import\(\s*[^'\"\` ]" > scanners.txt
+          echo "PROBE scanner_files=$(wc -l < scanners.txt)"
+          start=$(date +%s)
+          pnpm exec vitest run $(cat scanners.txt) --reporter=dot --no-color --poolOptions.threads.maxThreads=${{ env.VITEST_THREADS }} 2>&1 | tail -12
+          echo "PROBE scanner_secs=$(( $(date +%s) - start ))"
+
   build:
     name: Production Build
     needs: install
