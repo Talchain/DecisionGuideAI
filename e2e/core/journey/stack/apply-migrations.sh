@@ -44,9 +44,16 @@ for f in $(ls "$DIR"/*.sql | sort); do
   fi
 done
 rm -f "$LOG"
+# Hosted-only objects no migration creates (hosted-drift.sql): applied last, reported.
+DRIFT="$(dirname "$0")/hosted-drift.sql"
+if "${PSQL[@]}" -q -X -v ON_ERROR_STOP=1 --single-transaction -f - < "$DRIFT" > /dev/null 2>&1; then
+  grep -E '^ALTER|^CREATE' "$DRIFT" | sed 's/^/DRIFT-SHIM\t/' >> "$REPORT"
+else
+  echo "[migrations] hosted-drift.sql FAILED to apply"; exit 1
+fi
 # PostgREST caches the schema: make it see the tables just created.
 "${PSQL[@]}" -q -X -c "NOTIFY pgrst, 'reload schema';" > /dev/null
-echo "[migrations] applied: $ok OK, $partial PARTIAL (report: $REPORT)"
+echo "[migrations] applied: $ok OK, $partial PARTIAL, $(grep -c '^DRIFT-SHIM' "$REPORT") DRIFT-SHIM (report: $REPORT)"
 grep '^PARTIAL' "$REPORT" || true
 # Zero files applied means a wrong path, not a clean history.
 [ $((ok + partial)) -gt 0 ] || { echo "[migrations] no files applied"; exit 1; }
