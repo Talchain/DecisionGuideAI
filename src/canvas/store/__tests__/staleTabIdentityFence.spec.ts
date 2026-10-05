@@ -119,10 +119,10 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     localStorage.setItem(EPOCH_KEY, 'epoch-A')
     const tab2 = await bootTab() // both tabs loaded while A was signed in
     const tab1 = await bootTab()
-    tab1.auth.clearUserScopedState() // tab 1 signs out
+    tab1.auth.clearUserScopedState(null) // tab 1 signs out (every sign-out path passes null: clearAuthStates, adopt(null))
     const afterTab1 = localStorage.getItem(EPOCH_KEY)
     expect(afterTab1, 'precondition: tab 1 rotated the epoch').not.toBe('epoch-A')
-    tab2.auth.clearUserScopedState() // tab 2 hears SIGNED_OUT and sweeps too
+    tab2.auth.clearUserScopedState(null) // tab 2 hears SIGNED_OUT and sweeps too (AuthContext adopt(null))
 
     expect(localStorage.getItem(EPOCH_KEY), 'the second sweep minted another epoch, stranding tab 1').toBe(afterTab1)
     // tab 1 signs in as B (not a boundary there: its owner is already null) and works
@@ -151,5 +151,39 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
 
     expect(tab2.crash.flushWorkToAutosave(), '"Reloading will restore your latest work" would be shown for a write that never happened').toBe(false)
     expect(localStorage.getItem(SLOT)).toBeNull()
+  })
+
+  it('⭐ a tab that missed A→B and then crosses A→C does NOT join B\'s era: B\'s surviving records are never C\'s', async () => {
+    localStorage.setItem(EPOCH_KEY, 'epoch-A')
+    const stale = await bootTab() // still on A; it misses the next transition
+    const other = await bootTab()
+    other.auth.clearUserScopedState('user-B') // A→B in another tab
+    const eraB = localStorage.getItem(EPOCH_KEY)
+    expect(other.scenarios.saveAutosave(graph(B_ID, 'B work')), 'precondition: B works in its era').toBe(true)
+
+    // this tab now crosses A→C itself, and the sweep's removal of B's slot is REFUSED (the supported degradation)
+    const realRemove = Storage.prototype.removeItem
+    const spy = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (this: Storage, k: string) {
+      if (k === SLOT) return undefined
+      return realRemove.call(this, k)
+    })
+    stale.auth.clearUserScopedState('user-C')
+    spy.mockRestore()
+
+    expect(localStorage.getItem(SLOT), 'precondition: B\'s slot survived the refused removal').not.toBeNull()
+    expect(localStorage.getItem(EPOCH_KEY), 'this tab joined B\'s era for C').not.toBe(eraB)
+    const tabC = await bootTab()
+    expect(tabC.scenarios.loadAutosave()?.scenarioId ?? null, 'C restores B\'s model').toBeNull()
+  })
+
+  it('⭐ real-auth: a tab that signed out and signs back in can save, even after another tab\'s null-session boot rotated', async () => {
+    localStorage.setItem(EPOCH_KEY, 'epoch-A')
+    const tab1 = await bootTab()
+    tab1.auth.clearUserScopedState(null) // tab 1 signs A out
+    const tab3 = await bootTab() // a new tab opens signed out: real-auth sweeps on its null session (AuthContext:377)
+    tab3.auth.clearUserScopedState(null)
+
+    tab1.auth.adoptIdentityEpochAtSignIn() // A signs back in in tab 1: not a boundary there (AuthContext:388)
+    expect(tab1.scenarios.saveAutosave(graph(A_ID, 'A again')), 'tab 1 is locked out until a reload').toBe(true)
   })
 })

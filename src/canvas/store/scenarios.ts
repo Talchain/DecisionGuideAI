@@ -735,24 +735,51 @@ export function belongsToThisIdentity(stamp: unknown): boolean {
  */
 let tabIdentityEpoch: string | null | undefined = readIdentityEpoch()
 /**
- * THIS tab crosses an identity boundary (`clearUserScopedState`). If another tab has ALREADY rotated the shared epoch
- * since this tab last held it, this is the same boundary arriving here second (gotrue relays SIGNED_OUT across tabs):
- * join that epoch, never mint another. Minting again left the tab that crossed first holding a dead epoch, unable to
- * save anything, its own new account's work included, until a reload (Review Desk + Codex #2516 r1). Otherwise rotate
- * to `freshEpoch`, then adopt whatever the shared key actually HOLDS, so a refused or silently dropped epoch write is
+ * An epoch names the identity whose ERA it opens: `<random>|owner:<user id | none | ?>`, in the one value, so the tag
+ * can never tear from the epoch. Readers compare whole strings, so they are unaffected. `?` = the boundary did not say
+ * who comes next: such an era is never joined.
+ */
+const EPOCH_OWNER_TAG = '|owner:'
+function ownerTag(nextOwner: string | null | undefined): string {
+  return nextOwner === undefined ? '?' : nextOwner === null ? 'none' : nextOwner
+}
+function eraOwnerOf(epoch: string): string | undefined {
+  const at = epoch.lastIndexOf(EPOCH_OWNER_TAG)
+  if (at < 0) return undefined
+  const tag = epoch.slice(at + EPOCH_OWNER_TAG.length)
+  return tag === '?' ? undefined : tag
+}
+/**
+ * THIS tab crosses an identity boundary (`clearUserScopedState`), leading to `nextOwner` (a user id; `null` = signed
+ * out; `undefined` = not said). It JOINS the shared epoch only with evidence that this is the same transition arriving
+ * here second (gotrue relays SIGNED_OUT across tabs): another tab has rotated since this tab last held the epoch, AND
+ * that era belongs to the identity this boundary leads to. Minting again stranded the tab that crossed first, unable
+ * to save until a reload (Review Desk + Codex #2516 r1). Joining WITHOUT the owner match let a tab that missed A→B and
+ * then crossed A→C join B's era, so B's records that survived a refused removal were C's to restore (Codex #2516 r2).
+ * Otherwise rotate, then adopt whatever the shared key actually HOLDS, so a refused or silently dropped epoch write is
  * never adopted (coldLoadDeepLink.spec, "an epoch write … at sign-out").
  */
-export function crossIdentityBoundaryInThisTab(freshEpoch: string): void {
+export function crossIdentityBoundaryInThisTab(freshEpoch: string, nextOwner?: string | null): void {
   const shared = readIdentityEpoch()
-  if (typeof shared === 'string' && shared !== tabIdentityEpoch) {
+  const next = nextOwner === undefined ? undefined : ownerTag(nextOwner)
+  if (typeof shared === 'string' && shared !== tabIdentityEpoch && next !== undefined && eraOwnerOf(shared) === next) {
     tabIdentityEpoch = shared
     return
   }
   try {
-    localStorage.setItem(IDENTITY_EPOCH_KEY, freshEpoch)
+    localStorage.setItem(IDENTITY_EPOCH_KEY, `${freshEpoch}${EPOCH_OWNER_TAG}${ownerTag(nextOwner)}`)
   } catch {
     /* adopt whatever is held */
   }
+  tabIdentityEpoch = readIdentityEpoch()
+}
+/**
+ * A sign-in that is NOT an identity boundary in this tab (the same account again, or this tab's first). That tab
+ * already swept its own previous identity, or never had one, so it holds no other account's model, and it takes
+ * whatever era the browser is now in. Without this, a tab whose epoch another tab rotated (a null-session boot sweep)
+ * stayed unable to save after signing back in, until a reload (Codex #2516 r2, real-auth).
+ */
+export function adoptIdentityEpochAtSignIn(): void {
   tabIdentityEpoch = readIdentityEpoch()
 }
 /**

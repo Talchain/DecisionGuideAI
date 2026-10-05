@@ -1,5 +1,7 @@
 import { useCanvasStore } from '../../canvas/store'
 import { clearAllScenarioStorage, crossIdentityBoundaryInThisTab } from '../../canvas/store/scenarios'
+// The non-boundary half of the identity-epoch contract, for the auth layer (CAN-F2g, #2516).
+export { adoptIdentityEpochAtSignIn } from '../../canvas/store/scenarios'
 import { clearAllTranscripts } from '../../canvas/conversation/utils/transcriptStore'
 import { clearAllVersions } from '../../canvas/versions/versionStorage'
 import { useLayoutStore } from '../../canvas/layoutStore'
@@ -43,7 +45,8 @@ function freshIdentityEpoch(): string {
 }
 
 /** One identity boundary for sign-out and A→B auth transitions. */
-export function clearUserScopedState(): void {
+/** `nextOwner`: the identity this boundary leads to (a user id; `null` = signed out); omitted = not known (the epoch always rotates). */
+export function clearUserScopedState(nextOwner?: string | null): void {
   // Each step on its own: one that throws (`clearAllScenarioStorage` removes three keys unguarded) never stops the steps
   // after it, so the storage sweep below always runs.
   const step = (fn: () => void): void => {
@@ -53,7 +56,7 @@ export function clearUserScopedState(): void {
   // restored, remembered or promoted for the next account (`scenarios.IDENTITY_EPOCH_KEY`). The sweep never removes it.
   // CAN-F2g: THIS tab crosses the boundary and owns the resulting epoch (joining one another tab already rotated for
   // the same boundary); every tab that has not crossed it is stale and cannot write.
-  step(() => crossIdentityBoundaryInThisTab(freshIdentityEpoch()))
+  step(() => crossIdentityBoundaryInThisTab(freshIdentityEpoch(), nextOwner))
   step(() => useCanvasStore.getState().resetCanvas())
   // The previous identity's graph also lives in undo/redo, the clipboard and the pre-draft snapshot, which `resetCanvas`
   // keeps (its empty-canvas branch keeps the pre-draft snapshot too). Undo, paste or undo-draft would bring it back,
