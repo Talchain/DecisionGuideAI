@@ -54,6 +54,11 @@ const inFlight = new Map<string, Promise<readonly RosterEntry[] | null>>()
 
 /** Listeners woken when an entry lands, so a render can be re-run. */
 const subscribers = new Set<() => void>()
+/**
+ * Bumped by `clearRoundRosterCache` at every identity boundary. A request started under an earlier generation was made
+ * with the previous owner's token, so the names it returns are never stored for the next one.
+ */
+let generation = 0
 
 function notify(): void {
   // A copy, because a subscriber may unsubscribe itself while being called.
@@ -101,10 +106,12 @@ export function ensureRoster(roundId: string): Promise<readonly RosterEntry[] | 
   const existing = inFlight.get(roundId)
   if (existing !== undefined) return existing
 
+  const startedIn = generation
   const request = (async (): Promise<readonly RosterEntry[] | null> => {
     try {
       const accessToken = await requireOwnerAccessToken()
       const view = await fetchRoundRoster(accessToken, roundId)
+      if (startedIn !== generation) return null
       // PICKED, never spread. The response also carries `status` per row and the
       // round's whole target manifest; the resolver's contract is two fields,
       // and a spread would quietly widen what the cache holds about a person.
@@ -125,19 +132,33 @@ export function ensureRoster(roundId: string): Promise<readonly RosterEntry[] | 
       cache.set(roundId, { roster, storedAt: Date.now() })
       return roster
     } catch {
+      if (startedIn !== generation) return null
       // Signed out, a round the caller does not own, a network failure. All
       // three are "cannot name them" at the surface, and none is worth
       // distinguishing there — the copy is the same and it is truthful.
       cache.set(roundId, { roster: null, storedAt: Date.now() })
       return null
     } finally {
-      inFlight.delete(roundId)
-      notify()
+      if (startedIn === generation) {
+        inFlight.delete(roundId)
+        notify()
+      }
     }
   })()
 
   inFlight.set(roundId, request)
   return request
+}
+
+/**
+ * The identity boundary (`clearUserScopedState`): forget every roster, and every request still in flight, fetched with
+ * the previous owner's token. Mounted surfaces are told, so a name already on screen goes away with it.
+ */
+export function clearRoundRosterCache(): void {
+  generation += 1
+  cache.clear()
+  inFlight.clear()
+  notify()
 }
 
 /** Test seam. Never called by product code. */
