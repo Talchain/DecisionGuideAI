@@ -11,6 +11,12 @@
 # for LOCAL runs (heap). Measured on CI: shard 5/6 of run 37298873782 spent
 # 740s of per-file work in a 799s wall clock, i.e. ONE core of the runner's 4,
 # and only 111s of it executing tests. CI overrides it with VITEST_THREADS below.
+# MEASURED on the PR that made this change (run 37313445811, 6 shards x 4 threads):
+# shard jobs 268-458s (were 661-813s at 1 thread the same day); per-file component
+# sums ~3.6x the wall clock; failures = exactly the 3 standing staging reds, no new
+# ones. The alternative, `vitest --changed` + the 368 always-run path-reader specs,
+# was SLOWER (383s, 1656s and a 30-min timeout on three real merged PRs), so PRs run
+# the full suite.
 #
 # Sharding (ROADMAP 1.26, chronic-CI-red fix): the vitest job runs as a
 # `SHARD_COUNT`-way matrix (`--shard=N/6` since 2 Oct 2026; 4 before), each
@@ -1135,7 +1141,10 @@ jobs:
         if: needs.vitest.result != 'skipped'
         run: |
           set +e
-          min_total=700
+          # 700 -> 3121 (5 Oct 2026, CI OPTIMISER): 90% of the measured cross-shard total
+          # (3468 files, run 37313445811). At 700 (~20%) four fifths of the suite could
+          # vanish and still pass. Raise it when the suite grows; a real drop of >10% REDs.
+          min_total=3121
           max_skipped=50
           total_sum=0
           skipped_sum=0
@@ -1190,62 +1199,6 @@ jobs:
           fi
 
   # ── Build ────────────────────────────────────────────────────────────
-  # ⚠⚠ TEMPORARY MEASUREMENT — CI OPTIMISER, 5 Oct 2026. REMOVED BEFORE REVIEW-READY.
-  # Measures the alternative to the full suite on PRs: vitest --changed (import
-  # graph) for three real merged PRs, plus the always-run set of specs that read
-  # files by path or import dynamically (the import graph cannot see their reads).
-  affected-probe:
-    name: Affected-only probe (#${{ matrix.pr }})
-    needs: install
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { pr: '2501', sha: 'be430fc3918e42cb42ad3607ce579c3ba9dbfc23' }
-          - { pr: '2491', sha: '1d22cbfb94c0fcad3a600375b09a3063396c89b0' }
-          - { pr: '2496', sha: '8ef8e2c99f2219b40b5eff6851712ec7871d1b22' }
-    steps:
-      - name: Checkout the merged PR
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ matrix.sha }}
-          fetch-depth: 2
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-      - name: Use Node.js from .nvmrc
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-      - name: Install
-        run: pnpm install --frozen-lockfile
-      - name: Changed files
-        run: git diff --name-only HEAD^1 HEAD
-      - name: vitest --changed HEAD^1 (import graph)
-        env:
-          NODE_OPTIONS: "--max-old-space-size=7168"
-        run: |
-          set +e
-          start=$(date +%s)
-          pnpm exec vitest run --changed HEAD^1 --reporter=dot --no-color --poolOptions.threads.maxThreads=${{ env.VITEST_THREADS }} 2>&1 | tail -12
-          echo "PROBE changed_secs=$(( $(date +%s) - start ))"
-      - name: Always-run set (path readers + dynamic imports)
-        env:
-          NODE_OPTIONS: "--max-old-space-size=7168"
-        run: |
-          set +e
-          git ls-files | grep -E '^(src/.*/(__tests__|tests)/|tests/).*\.(test|spec)\.(c|m)?[jt]sx?$' \
-            | xargs grep -lE "readFileSync|readdirSync|readFile\(|globSync|fast-glob|import\.meta\.glob|execSync|spawnSync|import\(\s*[^'\"\` ]" > scanners.txt
-          echo "PROBE scanner_files=$(wc -l < scanners.txt)"
-          start=$(date +%s)
-          pnpm exec vitest run $(cat scanners.txt) --reporter=dot --no-color --poolOptions.threads.maxThreads=${{ env.VITEST_THREADS }} 2>&1 | tail -12
-          echo "PROBE scanner_secs=$(( $(date +%s) - start ))"
-
   build:
     name: Production Build
     needs: install
