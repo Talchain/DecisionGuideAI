@@ -230,7 +230,7 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
   every_option_likely_breaks_limit: 'On these estimates, every option is more likely than not to break one of your limits.',
   // Science d5 (#87 6002222614 copy rule: an invitation, never "put one forward").
   constraint_verdict_withheld:
-    'This comparison depends on a limit on your model that this run couldn’t check. Check that limit’s figures, then run again to see how the options compare.',
+    "Olumi's checks on this run do not support putting one option forward.",
   /**
    * ⚠ ABOUT THE RUN, NOT ABOUT THE OPTIONS. A statement about what the run
    * could establish; "they are level" would be a finding about the options,

@@ -178,16 +178,19 @@ describe('Science d5 20:3xZ: several links, the separation echo, the overlap, an
     expect(say('options_do_not_separate'))
       .toBe('In this model, the options’ results overlap too much to tell apart. Change a figure you’re unsure about to see what separates them.')
   })
-  it('constraint_verdict_withheld in the cause map (the Analysis tab, the card\'s provisional line)', () => {
+  it('constraint_verdict_withheld stays at staging\'s sentence: names the checks, never a limit (pending Science\'s no-limits words)', () => {
+    // CEE sends this token for any unentitled verdict, including a first pass on a brief with no limits
+    // (theWithholdNamesNoLimitsTheUserNeverSet), so a sentence naming "a limit" is false there.
     expect(leaderWithholdCause('constraint_verdict_withheld'))
-      .toBe('This comparison depends on a limit on your model that this run couldn’t check. Check that limit’s figures, then run again to see how the options compare.')
+      .toBe("Olumi's checks on this run do not support putting one option forward.")
   })
   it('options_not_reconciled_with_brief', () => {
     expect(leaderWithholdCause('options_not_reconciled_with_brief'))
       .toBe('This comparison includes an option Olumi added that your brief didn’t name. Remove it and run again to see the comparison.')
   })
   it.each([
-    'no_option_meets_limit', 'every_option_likely_breaks_limit', 'constraint_verdict_withheld', 'separation_unavailable',
+    // constraint_verdict_withheld is held at staging's sentence until Science rules words that name no limits (above).
+    'no_option_meets_limit', 'every_option_likely_breaks_limit', 'separation_unavailable',
     'options_not_reconciled_with_brief', 'intake_identity_unverified', 'intake_options_missing', 'goal_path_unsized',
     'options_do_not_separate',
   ])('the copy rule over the WHOLE map: %s never recommends, ranks or says "put one forward"', (code) => {
