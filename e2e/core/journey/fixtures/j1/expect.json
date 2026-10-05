@@ -1,0 +1,19 @@
+{
+ "_source": "record 3, local, 5 Oct 2026 15:36-16:00Z (DL-approved, HEAVY WINDOW #87 5997690639); tuple ui 40ca62c6 cee 43e51050 plot 2473aced isl d74b5f6a; 13 calls (J1 + isolation incl. guest draft), all HTTP 200",
+ "goal_direction_assumed": false,
+ "enrichment_keys": [
+  "conditional_winners",
+  "confidence_tier",
+  "critiques",
+  "decision_brief",
+  "decision_evpi",
+  "edge_e_values",
+  "factor_sensitivity",
+  "flip_thresholds",
+  "inference_warnings",
+  "option_comparison",
+  "option_comparison_status",
+  "p_win_sensitivity",
+  "robustness"
+ ]
+}
