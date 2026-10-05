@@ -1,0 +1,344 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# J1 · the whole-PoC journey, on one GitHub runner (brief F, DL 0df0e1).
+#
+# Spec owner: the Integrator (programme-docs integrator/github-26
+# output/integrator/J1-SPEC-RULING.md). Builder: Journey Builder github-f7.
+#
+# The run boots all four real services at their heads, plus a throwaway local
+# Supabase that has BOTH repos' migrations applied in timestamp order:
+#   UI (built here) → CEE → PLoT → ISL.
+# It then drives brief → model → Run → science → edit → fresh browser → account B,
+# asserting each step by identity.
+#
+# LLM boundary. On this runner, api.openai.com and api.anthropic.com resolve to a
+# local TLS server (e2e/core/journey/stack/llm-replay-server.mjs):
+#   replay (push)          answers from the frozen recordings and makes 0 provider
+#                          calls. A miss is RED (could-not-measure).
+#   record (nightly/manual) is live. It aborts at the first 429 and uploads the
+#                          recording as the next frozen set.
+#
+# Nothing here touches the shared staging/production Supabase. Accounts A and B
+# are local sign-ups.
+#
+# ADVISORY. This check is not required. It may be promoted after 3 consecutive
+# greens, on the DL's decision; that is a shared-CI change, so it is HIGH.
+# ─────────────────────────────────────────────────────────────────────────────
+name: Journey J1 · whole PoC
+
+on:
+  push:
+    branches: [ staging, 'journey/**' ]
+  schedule:
+    # Nightly live record. GitHub fires schedules only from the default branch,
+    # so this arms once the file reaches main.
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'replay (frozen, 0 LLM) or record (live, refreshes the frozen set)'
+        type: choice
+        options: [ replay, record ]
+        default: replay
+      cee_ref:
+        description: 'olumi-assistants-service ref'
+        default: staging
+      plot_ref:
+        description: 'plot-lite-service ref'
+        default: staging
+      isl_ref:
+        description: 'Inference-Service-Layer ref'
+        default: staging
+
+permissions:
+  contents: read
+
+concurrency:
+  group: journey-j1-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  j1:
+    name: Journey J1 · whole PoC (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    env:
+      # record: the nightly schedule, a manual dispatch with mode=record, or a push
+      # to a journey/record* branch (dispatch needs the file on main).
+      J1_MODE: ${{ (github.event_name == 'schedule' || inputs.mode == 'record' || startsWith(github.ref_name, 'journey/record')) && 'record' || 'replay' }}
+      CEE_REF: ${{ inputs.cee_ref || 'staging' }}
+      PLOT_REF: ${{ inputs.plot_ref || 'staging' }}
+      ISL_REF: ${{ inputs.isl_ref || 'staging' }}
+      CEE_PORT: '3101'
+      PLOT_PORT: '4311'
+      ISL_PORT: '8000'
+      UI_PORT: '5173'
+    steps:
+      # ── 0. The tuple ──────────────────────────────────────────────────────
+      - name: Checkout UI (this repo)
+        uses: actions/checkout@v4
+        with: { path: dgai }
+      - name: Checkout CEE
+        uses: actions/checkout@v4
+        with: { repository: Talchain/olumi-assistants-service, ref: '${{ env.CEE_REF }}', path: cee }
+      - name: Checkout PLoT
+        uses: actions/checkout@v4
+        with: { repository: Talchain/plot-lite-service, ref: '${{ env.PLOT_REF }}', path: plot }
+      - name: Checkout ISL
+        uses: actions/checkout@v4
+        with: { repository: Talchain/Inference-Service-Layer, ref: '${{ env.ISL_REF }}', path: isl }
+
+      - name: Record the tuple (J0)
+        run: |
+          set -euo pipefail
+          J1="$RUNNER_TEMP/j1"; mkdir -p "$J1/logs" "$J1/ledger"
+          echo "J1=$J1" >> "$GITHUB_ENV"
+          for r in dgai cee plot isl; do
+            sha=$(git -C "$r" rev-parse HEAD)
+            [ "${#sha}" -eq 40 ] || { echo "::error::$r HEAD is not a 40-char SHA: $sha"; exit 1; }
+            echo "$(echo "$r" | tr a-z A-Z)_SHA=$sha" >> "$GITHUB_ENV"
+          done
+          node -e 'const e=process.env;require("fs").writeFileSync(process.argv[1],JSON.stringify({mode:e.J1_MODE,ui:e.DGAI_SHA,cee:e.CEE_SHA,plot:e.PLOT_SHA,isl:e.ISL_SHA,run:e.GITHUB_RUN_ID},null,1))' "$J1/tuple.json"
+          cat "$J1/tuple.json"
+
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+
+      # ── 1. The LLM boundary ───────────────────────────────────────────────
+      - name: Generate signing key + boundary TLS
+        run: node dgai/e2e/core/journey/stack/gen-tls-and-keys.mjs "$J1/keys"
+
+      - name: Point the provider hosts at the boundary
+        run: |
+          set -euo pipefail
+          echo '127.0.0.1 api.openai.com api.anthropic.com' | sudo tee -a /etc/hosts
+          sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443
+          cat /etc/ssl/certs/ca-certificates.crt "$J1/keys/ca.pem" > "$J1/keys/bundle.pem"
+
+      - name: Start the LLM boundary (${{ env.J1_MODE }})
+        env:
+          JOURNEY_OPENAI_API_KEY: ${{ env.J1_MODE == 'record' && secrets.JOURNEY_OPENAI_API_KEY || '' }}
+        run: |
+          set -euo pipefail
+          if [ "$J1_MODE" = record ] && [ -z "$JOURNEY_OPENAI_API_KEY" ]; then
+            echo "::error::record mode needs the DGAI Actions secret JOURNEY_OPENAI_API_KEY (Paul via DL). Not recording."
+            exit 1
+          fi
+          # replay reads the committed frozen set; record writes a fresh one
+          if [ "$J1_MODE" = record ]; then FIX="$J1/recording"; else FIX="$GITHUB_WORKSPACE/dgai/e2e/core/journey/fixtures/j1/llm"; fi
+          echo "JOURNEY_LLM_FIXTURES=$FIX" >> "$GITHUB_ENV"
+          echo "JOURNEY_LLM_LEDGER=$J1/ledger/llm.ndjson" >> "$GITHUB_ENV"
+          JOURNEY_LLM_MODE="$J1_MODE" JOURNEY_LLM_FIXTURES="$FIX" JOURNEY_LLM_LEDGER="$J1/ledger/llm.ndjson" \
+          JOURNEY_LLM_CERT="$J1/keys/leaf.pem" JOURNEY_LLM_KEY="$J1/keys/leaf.key" JOURNEY_LLM_PORT=443 \
+            nohup node dgai/e2e/core/journey/stack/llm-replay-server.mjs > "$J1/logs/llm-boundary.log" 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf --cacert "$J1/keys/ca.pem" https://api.openai.com/__journey_selftest > "$J1/llm-selftest.json"; then break; fi
+            sleep 1
+          done
+          cat "$J1/llm-selftest.json"
+          node -e 'const s=require(process.argv[1]); if(!s.ok||s.mode!==process.env.J1_MODE||s.host!=="api.openai.com"){console.error("boundary self-test failed");process.exit(1)}' "$J1/llm-selftest.json"
+
+      # ── 2. Local Supabase with both repos' migrations ─────────────────────
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+
+      - name: Start local Supabase (DGAI + CEE migrations, timestamp order)
+        run: |
+          set -euo pipefail
+          mkdir -p "$J1/sb" && cd "$J1/sb"
+          # A minimal config, written whole: every key not set here keeps the CLI default.
+          # Postgres 15 matches the hosted project (DGAI supabase/.temp/postgres-version).
+          mkdir -p supabase
+          cat > supabase/config.toml <<'EOF'
+          project_id = "j1-journey"
+          [api]
+          enabled = true
+          port = 54321
+          schemas = ["public", "graphql_public"]
+          extra_search_path = ["public", "extensions"]
+          max_rows = 1000
+          [db]
+          port = 54322
+          major_version = 15
+          [studio]
+          enabled = false
+          [analytics]
+          enabled = false
+          [auth]
+          enabled = true
+          site_url = "http://localhost:5173"
+          additional_redirect_urls = ["http://localhost:5173"]
+          jwt_expiry = 3600
+          enable_signup = true
+          signing_keys_path = "./signing_keys.json"
+          [auth.email]
+          enable_signup = true
+          enable_confirmations = false
+          EOF
+          sed -i 's/^          //' supabase/config.toml
+          node "$GITHUB_WORKSPACE/dgai/e2e/core/journey/stack/merge-migrations.mjs" \
+            "$GITHUB_WORKSPACE/dgai/supabase/migrations" "$GITHUB_WORKSPACE/cee/supabase/migrations" supabase/migrations
+          cp "$J1/keys/signing_keys.json" supabase/signing_keys.json
+          grep -n 'signing_keys_path\|site_url\|enable_confirmations' supabase/config.toml
+          supabase start -x studio,imgproxy,vector,logflare,edge-runtime,supavisor 2>&1 | tee "$J1/logs/supabase-start.log"
+          supabase status -o env > "$J1/sb.env"
+          set -a; . "$J1/sb.env"; set +a
+          echo "::add-mask::$SERVICE_ROLE_KEY"
+          {
+            echo "SB_URL=$API_URL"
+            echo "SB_ANON_KEY=$ANON_KEY"
+            echo "SB_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+          cp supabase/MIGRATION-ORDER.tsv "$J1/logs/"
+          # CEE's verifier is JWKS-only, ES256/RS256: prove the local project publishes an asymmetric key.
+          curl -sf "$API_URL/auth/v1/.well-known/jwks.json" | tee "$J1/jwks.json"
+          node -e 'const k=require(process.argv[1]).keys||[]; if(!k.some(x=>x.alg==="ES256"||x.kty==="EC")){console.error("local JWKS has no ES256 key: CEE would refuse every user token");process.exit(1)}' "$J1/jwks.json"
+
+      # ── 3. ISL ────────────────────────────────────────────────────────────
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Boot ISL
+        working-directory: isl
+        run: |
+          set -euo pipefail
+          pip install -q 'poetry==2.2.1'
+          poetry config virtualenvs.in-project true
+          poetry install --only main --no-root -q
+          set -a; . "$GITHUB_WORKSPACE/dgai/e2e/core/journey/stack/isl.staging-flags.env"; set +a
+          ISL_API_KEYS=journey-local SSL_CERT_FILE="$J1/keys/bundle.pem" REQUESTS_CA_BUNDLE="$J1/keys/bundle.pem" \
+            nohup .venv/bin/python -m uvicorn src.api.main:app --host 127.0.0.1 --port "$ISL_PORT" > "$J1/logs/isl.log" 2>&1 &
+
+      # ── 4. PLoT ───────────────────────────────────────────────────────────
+      - name: Boot PLoT
+        working-directory: plot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm run build
+          set -a; . "$GITHUB_WORKSPACE/dgai/e2e/core/journey/stack/plot.staging-flags.env"; set +a
+          export NODE_ENV=staging PORT="$PLOT_PORT" \
+            ISL_BASE_URL="http://127.0.0.1:$ISL_PORT" ISL_API_KEY=journey-local \
+            CEE_BASE_URL="http://127.0.0.1:$CEE_PORT" CEE_API_KEY=journey-local \
+            PLOT_AUTH_TOKEN=journey-local-plot-token AUTH_TOKEN=journey-local-plot-token AUTH_V2_ENABLED=0 \
+            TOKEN_HMAC_SECRET="$(openssl rand -hex 32)" PRINCIPAL_HMAC_SECRET_ACTIVE="$(openssl rand -hex 32)" \
+            CORS_ORIGINS="http://localhost:$UI_PORT" NODE_EXTRA_CA_CERTS="$J1/keys/ca.pem"
+          nohup node dist/main.js > "$J1/logs/plot.log" 2>&1 &
+
+      # ── 5. CEE ────────────────────────────────────────────────────────────
+      # CEE and DGAI both pin pnpm@10.18.0 (packageManager)
+      - uses: pnpm/action-setup@v4
+        with: { package_json_file: cee/package.json, run_install: false }
+      - name: Boot CEE
+        working-directory: cee
+        env:
+          NPM_PACKAGES_TOKEN: ${{ github.token }}
+          JOURNEY_OPENAI_API_KEY: ${{ env.J1_MODE == 'record' && secrets.JOURNEY_OPENAI_API_KEY || '' }}
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm build
+          set -a; . "$GITHUB_WORKSPACE/dgai/e2e/core/journey/stack/cee.staging-flags.env"; set +a
+          # replay: a dummy key satisfies the boot check; the boundary answers every call.
+          KEY="${JOURNEY_OPENAI_API_KEY:-sk-journey-replay-no-provider-calls}"
+          export NODE_ENV=staging PORT="$CEE_PORT" LOG_LEVEL=info \
+            SUPABASE_URL="$SB_URL" SUPABASE_SERVICE_ROLE_KEY="$SB_SERVICE_ROLE_KEY" \
+            PLOT_BASE_URL="http://127.0.0.1:$PLOT_PORT" PLOT_AUTH_TOKEN=journey-local-plot-token \
+            ISL_BASE_URL="http://127.0.0.1:$ISL_PORT" ISL_API_KEY=journey-local \
+            OPENAI_API_KEY="$KEY" PROXY_V5_TARGET=agent \
+            ALLOWED_ORIGINS="http://localhost:$UI_PORT" BROWSER_PROXY_ALLOWED_ORIGINS="http://localhost:$UI_PORT" \
+            NODE_EXTRA_CA_CERTS="$J1/keys/ca.pem"
+          nohup node dist/src/server.js > "$J1/logs/cee.log" 2>&1 &
+
+      # ── 6. UI ─────────────────────────────────────────────────────────────
+      - name: Build + serve the UI
+        working-directory: dgai
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          set -a; . e2e/core/journey/stack/ui.staging-flags.env; set +a
+          export VITE_V5_ENDPOINT="http://localhost:$CEE_PORT/proxy/v5/turn" \
+            VITE_SUPABASE_URL="$SB_URL" VITE_SUPABASE_ANON_KEY="$SB_ANON_KEY"
+          NODE_OPTIONS=--max-old-space-size=6144 npm run build
+          echo "{\"commit\":\"$DGAI_SHA\",\"short\":\"${DGAI_SHA:0:8}\",\"branch\":\"$GITHUB_REF_NAME\",\"deploy_id\":\"j1-$GITHUB_RUN_ID\",\"deploy_url\":\"\"}" > dist/version.json
+          CEE_SERVICE_URL="http://127.0.0.1:$CEE_PORT" ENGINE_SERVICE_URL="http://127.0.0.1:$PLOT_PORT" \
+          ISL_SERVICE_URL="http://127.0.0.1:$ISL_PORT" \
+            nohup npx vite preview --port "$UI_PORT" --strictPort > "$J1/logs/ui-preview.log" 2>&1 &
+
+      - name: Wait for the four services
+        run: |
+          set -euo pipefail
+          up() { curl -s -o /dev/null -w '%{http_code}' "$1" 2>/dev/null | grep -qv '^000$'; }
+          for svc in "ISL http://127.0.0.1:$ISL_PORT/" "PLoT http://127.0.0.1:$PLOT_PORT/" "CEE http://127.0.0.1:$CEE_PORT/" "UI http://localhost:$UI_PORT/version.json"; do
+            set -- $svc
+            for i in $(seq 1 90); do up "$2" && break; sleep 2; done
+            up "$2" || { echo "::error::$1 never answered at $2"; tail -50 "$J1/logs/"*.log; exit 1; }
+            echo "$1 up"
+          done
+          # local CEE only (ephemeral DB): the served commit must be the checkout
+          curl -s "http://127.0.0.1:$CEE_PORT/healthz" > "$J1/cee-health.json"
+          node -e 'const h=require(process.argv[1]); if(h.commit_full!==process.env.CEE_SHA){console.error(`CEE serves ${h.commit_full}, checkout is ${process.env.CEE_SHA}`);process.exit(1)}; console.log("CEE commit", h.commit_full, "provider", h.provider)' "$J1/cee-health.json"
+
+      # ── 7. The journey ────────────────────────────────────────────────────
+      - name: Install Chromium
+        working-directory: dgai
+        run: npx playwright install --with-deps chromium
+
+      - name: Run J1
+        working-directory: dgai
+        env:
+          CORE_UI_URL: http://localhost:${{ env.UI_PORT }}
+          CORE_SUPABASE_URL: ${{ env.SB_URL }}
+          CORE_SUPABASE_KEY: ${{ env.SB_ANON_KEY }}
+          J1_CEE_URL: http://127.0.0.1:${{ env.CEE_PORT }}
+        run: npx playwright test --config playwright.journey.config.ts
+
+      # ── 8. Evidence ───────────────────────────────────────────────────────
+      - name: LLM boundary ledger
+        if: always()
+        run: |
+          L="$J1/ledger/llm.ndjson"
+          {
+            echo "### J1 · whole PoC · mode \`$J1_MODE\`"
+            echo ""
+            echo "| repo | sha |"; echo "| --- | --- |"
+            for r in DGAI CEE PLOT ISL; do v="${r}_SHA"; echo "| $r | \`${!v:-?}\` |"; done
+            echo ""
+            if [ -s "$L" ]; then
+              echo "LLM boundary outcomes:"; echo '```'
+              node -e 'const c={};for(const l of require("fs").readFileSync(process.argv[1],"utf8").trim().split("\n")){const r=JSON.parse(l);c[r.outcome]=(c[r.outcome]||0)+1};console.log(JSON.stringify(c))' "$L"
+              echo '```'
+            else
+              echo "LLM boundary: no calls reached it."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$J1_MODE" = replay ] && grep -q '"outcome":"miss"' "$L" 2>/dev/null; then
+            echo "::error::REPLAY MISS: a call had no frozen recording. Could not measure; this is red, never a pass."
+            exit 1
+          fi
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: j1-evidence-${{ env.J1_MODE }}
+          path: |
+            ${{ runner.temp }}/j1/logs/
+            ${{ runner.temp }}/j1/ledger/
+            ${{ runner.temp }}/j1/tuple.json
+            ${{ runner.temp }}/j1/cee-health.json
+            dgai/playwright-report-journey/
+            dgai/test-results/journey/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload the recording (record mode)
+        if: always() && env.J1_MODE == 'record'
+        uses: actions/upload-artifact@v4
+        with:
+          name: j1-llm-recording
+          path: ${{ runner.temp }}/j1/recording/
+          retention-days: 30
+          if-no-files-found: warn
