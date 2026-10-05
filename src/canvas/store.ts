@@ -5234,9 +5234,24 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // state and is cleared; a saved record's transcript belongs to the record and
     // is left alone. Only an UNSAVED decision's transcript is discarded, which is
     // the demo-hazard case this item exists for.
+    //
+    // ⚠ SAVED ON THE SERVER IS SAVED (F1, 5 Oct; Codex P2 on #2503). A decision
+    // opened from the server list has NO local record, and `loadScenario` now
+    // writes the pointer to it, so a local-record-only test called it unsaved:
+    // "Start new" deleted its conversation and tombstoned the id while its graph
+    // survived on the server. The server holding a graph for the store's OWN
+    // decision is the proof: `serverGraphIdentity` (hydration) or
+    // `lastServerGraphHash` (hydration, or a successful register). Both are
+    // cleared at every scenario boundary (`DECISION_CONTEXT_CLEAR`), and the
+    // store's id must equal the pointer's, or the evidence is about another
+    // decision. Rows: `resetCanvasClearsPersisted.spec.ts`.
     const scenarioIdBeingReset = scenarios.getCurrentScenarioId()
+    const atReset = get()
+    const serverHoldsThisDecision =
+      atReset.currentScenarioId === scenarioIdBeingReset &&
+      (atReset.serverGraphIdentity !== null || atReset.lastServerGraphHash !== null)
     const isSavedRecord = scenarioIdBeingReset
-      ? scenarios.getScenario(scenarioIdBeingReset) !== undefined
+      ? scenarios.getScenario(scenarioIdBeingReset) !== undefined || serverHoldsThisDecision
       : false
     scenarios.clearAutosave()
     if (!isSavedRecord) clearTranscript(scenarioIdBeingReset)

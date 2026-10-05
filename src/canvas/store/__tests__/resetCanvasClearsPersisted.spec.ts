@@ -20,14 +20,15 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useCanvasStore } from '../../store'
 import * as scenarios from '../scenarios'
-import { TRANSCRIPT_STORAGE_KEY } from '../../conversation/utils/transcriptStore'
+import { TRANSCRIPT_STORAGE_KEY, saveTranscript, __resetTranscriptTombstonesForTests } from '../../conversation/utils/transcriptStore'
 
 const AUTOSAVE_KEY = 'olumi-canvas-autosave'
 
 describe('resetCanvas — a fresh start is fresh on the next load', () => {
   beforeEach(() => {
     localStorage.clear()
-    useCanvasStore.setState({ nodes: [], edges: [] })
+    __resetTranscriptTombstonesForTests()
+    useCanvasStore.setState({ nodes: [], edges: [], currentScenarioId: null, serverGraphIdentity: null, lastServerGraphHash: null })
   })
 
   it('clears the persisted autosave, so the boot arbiter cannot restore the previous model', () => {
@@ -163,5 +164,76 @@ describe('resetCanvas — a fresh start is fresh on the next load', () => {
       'the guard is too wide: an unsaved decision\'s conversation survived "start fresh" and will be restored ' +
         'into what the next visitor enters as a fresh session',
     ).not.toContain(unsavedId)
+  })
+
+  /**
+   * ── A decision saved ON THE SERVER is saved, with or without a local record ──
+   *
+   * F1 (5 Oct, Codex P2 on #2503): opening a decision from the server list loads it with NO local record, and
+   * since #2503 `loadScenario` writes the pointer to it. "Start new" then read it as UNSAVED and deleted its
+   * conversation, tombstoning the id for the rest of the page load, while its graph survives on the server.
+   * Re-opening it showed the model beside an empty chat.
+   *
+   * The server holding a graph for the store's OWN decision is the proof it is saved: `serverGraphIdentity`
+   * (written by server hydration) or `lastServerGraphHash` (written by hydration and by a successful register).
+   * Both are cleared at every scenario boundary (`DECISION_CONTEXT_CLEAR`), so a value present belongs to the
+   * decision on screen, and the store's id must equal the pointer's, or it is evidence about a different decision.
+   */
+  const SERVER_ONLY_ID = 'aaaaaaaa-1111-4222-8333-444444444444'
+  const seedServerOnly = (server: { identity?: boolean; hash?: boolean }, storeId: string = SERVER_ONLY_ID) => {
+    scenarios.setCurrentScenarioId(SERVER_ONLY_ID)
+    expect(scenarios.getScenario(SERVER_ONLY_ID), 'precondition: NO local record (server-only decision)').toBeUndefined()
+    localStorage.setItem(
+      TRANSCRIPT_STORAGE_KEY,
+      JSON.stringify({ [SERVER_ONLY_ID]: { savedAt: Date.now(), dropped: 0, messages: [{ id: 'm1', role: 'user', content: 'hi' }] } }),
+    )
+    useCanvasStore.setState({
+      nodes: [{ id: 'n1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Server decision' } }] as never,
+      edges: [],
+      currentScenarioId: storeId,
+    })
+    // The store's own setters, the only write paths the production writers use.
+    if (server.identity) useCanvasStore.getState().setServerGraphIdentity({ value: 'f'.repeat(64), projectionVersion: 'identity.v1' })
+    if (server.hash) useCanvasStore.getState().setLastServerGraphHash('0123456789abcdef')
+  }
+  const transcriptIds = () => Object.keys(JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY) ?? '{}'))
+
+  it('does NOT destroy a server-saved decision\'s conversation (hydrated identity, no local record)', () => {
+    seedServerOnly({ identity: true })
+    expect(useCanvasStore.getState().serverGraphIdentity, 'precondition: the server identity was recorded').not.toBeNull()
+
+    useCanvasStore.getState().resetCanvas()
+
+    expect(
+      transcriptIds(),
+      '"Start new" destroyed a SERVER-saved decision\'s conversation: its graph survives on the server, so re-opening ' +
+        'it from the list shows the model beside an empty chat',
+    ).toContain(SERVER_ONLY_ID)
+    // …and it is not tombstoned: re-opening it in this page load can keep saving its chat.
+    expect(
+      saveTranscript(SERVER_ONLY_ID, [{ id: 'm2', role: 'user', content: 'again' }] as never),
+      'the reset tombstoned a saved decision: its next turns would be refused for the rest of the page load',
+    ).not.toBeNull()
+  })
+
+  it('does NOT destroy a server-saved decision\'s conversation (registered write base, no local record)', () => {
+    seedServerOnly({ hash: true })
+    expect(useCanvasStore.getState().lastServerGraphHash, 'precondition: the server write base was recorded').toBe('0123456789abcdef')
+
+    useCanvasStore.getState().resetCanvas()
+
+    expect(transcriptIds(), 'a registered decision\'s conversation was destroyed by "Start new"').toContain(SERVER_ONLY_ID)
+  })
+
+  it('DOES discard it when the server evidence belongs to a DIFFERENT decision than the pointer: the binding twin', () => {
+    // The store holds a server graph for ANOTHER id; the pointer's decision has neither a record nor server proof.
+    seedServerOnly({ identity: true, hash: true }, 'bbbbbbbb-1111-4222-8333-444444444444')
+
+    useCanvasStore.getState().resetCanvas()
+
+    expect(
+      transcriptIds(),
+      'server evidence about a different decision kept this unsaved one\'s conversation: the demo hazard reopens',
+    ).not.toContain(SERVER_ONLY_ID)
   })
 })
