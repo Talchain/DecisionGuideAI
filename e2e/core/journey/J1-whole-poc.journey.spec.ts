@@ -15,6 +15,7 @@
  *
  * Required (deterministic under frozen replay): J0 J1 J2(+a,b) J3 J3r J5(+a) J6 J8 J9,
  * and gate 3's J10 J11 J12 J13 (no LLM call; advisory J11a brief, J11b name).
+ * Advisory, item 3c (panel after a cold load): J5r (CL-3) and J8c (CL-1/CL-2).
  * Advisory until 3 greens: J3p J7, and J6's prior = R1 binding where R1 is not
  * identifiable (UNBOUND). Advisory rows write a verdict to evidence/advisory.json and
  * never fail the run. Not built yet: J3b J4 J5b J5c.
@@ -354,6 +355,36 @@ test.describe.serial('J1 · whole PoC', () => {
     writeEvidence('J5-edit.json', { edited: edgeKey({ from: top.from_id, to: top.to_id }), band, H2: J.H2, H2id: J.H2id, mean_before: before.strength?.mean, mean_after: after!.strength?.mean })
   })
 
+  test('J5r · CL-3 (advisory): after the edit, a fresh browser reads R1 as out of date and says so in the live tab\'s words', async ({ browser }) => {
+    // Read-only on pageA: J6 continues in that tab, with the inspector still open.
+    const liveNotice = pageA.getByTestId('analysis-freshness-notice')
+    const live = { freshness: await liveNotice.getAttribute('data-freshness'), text: (await liveNotice.innerText()).trim() }
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+    const page = await ctx.newPage()
+    try {
+      await runAdvisory('J5r_CL3_fresh_says_stale', async () => {
+        await injectSession(page, J.A!.storageKey, J.A!.raw)
+        const readS = graphRead(page, J.S!)
+        await page.goto(`${ORIGIN}/#/scenario/${J.S}`, { waitUntil: 'load' })
+        const res = await readS
+        if (!res || res.status() !== 200) throw new Error(`COULD NOT MEASURE: the fresh read of S answered ${res?.status() ?? 'nothing'}`)
+        const kind = (await res.json().catch(() => null))?.analysis_state?.run_state?.kind
+        if (kind !== 'complete_stale') throw new Error(`COULD NOT MEASURE: the fresh read calls R1 ${kind}, not complete_stale`)
+        await openDockTab(page, 'Analysis')
+        await expect(page.getByTestId('analysis-freshness-notice'), 'the fresh browser shows no stale notice')
+          .toHaveAttribute('data-freshness', 'stale', { timeout: 60_000 })
+        const fresh = await panelSnapshot(page)
+        writeEvidence('J5r-CL3.json', { live, fresh })
+        if (fresh.notice?.text !== live.text) throw new Error(`the fresh browser says "${fresh.notice?.text}", the live tab "${live.text}"`)
+        if (fresh.freshness_confirmed !== 'false') throw new Error(`the fresh panel presents R1 as confirmed fresh (data-freshness-confirmed=${fresh.freshness_confirmed})`)
+        return { live, fresh: { run_status: fresh.run_status, freshness_confirmed: fresh.freshness_confirmed, notice: fresh.notice } }
+      })
+      assertBoundaryClean('J5r')
+    } finally {
+      await ctx.close()
+    }
+  })
+
   test('J6 · rerun: R2 is computed on H2, its delta has a distinct prior, and the prior is R1 wherever R1 is identifiable (+J7 Compare, advisory)', async () => {
     await pageA.keyboard.press('Escape')
     const footer = pageA.getByTestId('results-analysis-footer-action')
@@ -462,6 +493,46 @@ test.describe.serial('J1 · whole PoC', () => {
     }
   })
 
+  test('J8c · CL-1/CL-2 (advisory): the panel says the same before a reload, after a same-tab reload, and in a fresh browser', async ({ browser }) => {
+    await runAdvisory('J8c_CL1_CL2_panel_agrees', async () => {
+      // J7 left the tab on Compare (the dock tab lives in ?tab=, the scenario in the hash).
+      if (new URL(pageA.url()).hash !== `#/scenario/${J.S}`) throw new Error(`COULD NOT MEASURE: A's tab is on ${new URL(pageA.url()).hash}, not S`)
+      await openDockTab(pageA, 'Analysis')
+      await expect(pageA.getByTestId('results-body-stale-wrapper'), 'COULD NOT MEASURE: A\'s tab has no complete result before the reload')
+        .toHaveAttribute('data-run-status', 'complete', { timeout: 60_000 })
+      const before = await panelSnapshot(pageA)
+
+      const readS = graphRead(pageA, J.S!)
+      await pageA.reload({ waitUntil: 'load' })
+      const res = await readS
+      if (!res || res.status() !== 200) throw new Error(`COULD NOT MEASURE: the reload read S as ${res?.status() ?? 'nothing'}`)
+      await expect(pageA.getByTestId('results-body-stale-wrapper'), 'the reloaded tab never restored a complete result')
+        .toHaveAttribute('data-run-status', 'complete', { timeout: 120_000 })
+      const reloaded = await panelSnapshot(pageA)
+
+      const fresh: PanelSnapshot = await (async () => {
+        const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+        try {
+          const page = await ctx.newPage()
+          await injectSession(page, J.A!.storageKey, J.A!.raw)
+          await page.goto(`${ORIGIN}/#/scenario/${J.S}`, { waitUntil: 'load' })
+          await openDockTab(page, 'Analysis')
+          await expect(page.getByTestId('results-body-stale-wrapper'), 'the fresh browser never restored a complete result')
+            .toHaveAttribute('data-run-status', 'complete', { timeout: 120_000 })
+          return await panelSnapshot(page)
+        } finally {
+          await ctx.close()
+        }
+      })()
+      writeEvidence('J8c-CL1-CL2.json', { before, reloaded, fresh })
+      const differ = ([['reloaded', reloaded], ['fresh', fresh]] as const)
+        .filter(([, p]) => panelKey(p) !== panelKey(before)).map(([name]) => name)
+      if (differ.length) throw new Error(`the panel differs from before the reload in: ${differ.join(', ')} (texts in J8c-CL1-CL2.json)`)
+      return { equal: true, time_matches: { before: before.matches, reloaded: reloaded.matches, fresh: fresh.matches } }
+    })
+    assertBoundaryClean('J8c')
+  })
+
   test('J9 · account B, in a fresh browser, sees nothing of S', async ({ browser }) => {
     const S = J.S!
     const latest = nodesOf(J.G2 ?? J.G1!)
@@ -529,6 +600,40 @@ test.describe.serial('J1 · whole PoC', () => {
   const graphRead = (page: Page, id: string) =>
     page.waitForResponse((r) => r.url().includes(`/bff/cee/scenarios/${id}/graph`) && r.request().method() === 'POST', { timeout: 90_000 })
       .catch(() => null)
+
+  // ── Item 3c: the panel after a cold load (CL rows; Core Platform github-c0, DL lease 5 Oct 22:5xZ) ──
+  // There are no per-figure test ids, so the panel is compared as text. Relative times are the only
+  // thing normalised, and every match is written to the evidence: the rows stay ADVISORY until the
+  // matches have been read against the raw texts (a normaliser once erased £120000 and every float).
+  const PANEL_TIME = [/\b(?:\d+|an?|one) (?:second|minute|hour|day)s? ago\b/gi, /\bjust now\b/gi, /\b\d{1,2}:\d{2}(?::\d{2})?\b/g]
+  function normalisePanel(text: string): { normalised: string; matches: string[] } {
+    const matches: string[] = []
+    let normalised = text
+    for (const re of PANEL_TIME) normalised = normalised.replace(re, (m) => { matches.push(m); return '<time>' })
+    return { normalised, matches }
+  }
+
+  /** What the Analysis panel says, read once its own state has settled. */
+  async function panelSnapshot(page: Page) {
+    await openDockTab(page, 'Analysis')
+    const body = page.getByTestId('results-body-stale-wrapper')
+    await expect(body, '[CL] the Analysis panel never rendered a result').toBeVisible({ timeout: 120_000 })
+    await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => undefined)
+    const notice = page.getByTestId('analysis-freshness-notice')
+    const text = (await body.innerText()).trim()
+    return {
+      run_status: await body.getAttribute('data-run-status'),
+      freshness_confirmed: await body.getAttribute('data-freshness-confirmed'),
+      notice: (await notice.count())
+        ? { freshness: await notice.first().getAttribute('data-freshness'), text: (await notice.first().innerText()).trim() }
+        : null,
+      text,
+      ...normalisePanel(text),
+    }
+  }
+  type PanelSnapshot = Awaited<ReturnType<typeof panelSnapshot>>
+  const panelKey = (p: PanelSnapshot) =>
+    JSON.stringify({ run_status: p.run_status, freshness_confirmed: p.freshness_confirmed, notice: p.notice, text: p.normalised })
 
   /** A card's name, as the list shows it (its h4). */
   const cardName = async (card: Locator) => (await card.getByRole('heading', { level: 4 }).innerText()).trim()
