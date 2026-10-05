@@ -210,6 +210,8 @@ describe('model-building notices — ⭐ the breakdown separates loss from handl
     { kind: 'alternative_consolidated', count: 5 },
     { kind: 'conflict_resolved_conservatively', count: 3 },
     { kind: 'target_not_modelled_as_threshold', count: 1 },
+    // schemas 0.77.0: one row per enum member, so the grouping row below sees every kind.
+    { kind: 'stated_relationship_not_used', count: 2 },
     { kind: 'other', count: 1 },
   ])
 
