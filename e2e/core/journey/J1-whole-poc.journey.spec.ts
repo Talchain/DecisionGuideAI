@@ -194,6 +194,8 @@ test.describe.serial('J1 · whole PoC', () => {
     await expect.poll(async () => (await renderedNodeIds(pageA)).sort(), {
       message: '[J1] the canvas does not render the stored graph G1 by id', timeout: 60_000,
     }).toEqual(nodesOf(J.G1))
+    // J1 is the first draft in the job: it must have used each recording at most once.
+    expect(ledger().filter((r) => r.outcome === 'hit_reuse').length, '[J1] the draft made more calls than the frozen set holds').toBe(0)
     writeEvidence('J1-model.json', { S: J.S, H1: J.H1, H1id: J.H1id, nodes: nodesOf(J.G1), edges: edgesOf(J.G1) })
   })
 

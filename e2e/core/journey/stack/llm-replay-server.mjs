@@ -80,6 +80,10 @@ const recordings = MODE === 'replay'
       .map((f) => ({ file: f, ...JSON.parse(fs.readFileSync(path.join(FIXTURES, f), 'utf8')) }))
   : []
 const used = new Set()
+// Once every recording of a signature is used, a later spec that drafts the same frozen
+// brief (e.g. the isolation rows) gets them again, in recorded order, ledgered as
+// `hit_reuse`. J1 runs first and asserts it caused none, so J1's own count stays exact.
+const reuse = new Map()
 if (MODE === 'replay') {
   console.log(`[llm-replay] replay mode: ${recordings.length} recordings in ${FIXTURES}`)
   ledger({ outcome: 'index', recordings: recordings.length })
@@ -172,13 +176,21 @@ function handle(req, res) {
 
     if (MODE === 'replay') {
       const free = recordings.filter((r) => !used.has(r.file) && r.signature === signature)
-      const pick = free.find((r) => r.detail === detail) ?? free[0]
+      let pick = free.find((r) => r.detail === detail) ?? free[0]
+      let outcome = pick ? (pick.detail === detail ? 'hit' : 'hit_drift') : null
+      if (!pick) {
+        const same = recordings.filter((r) => r.signature === signature)
+        if (same.length) {
+          const k = reuse.get(signature) ?? 0
+          pick = same[k % same.length]; reuse.set(signature, k + 1); outcome = 'hit_reuse'
+        }
+      }
       if (!pick) {
         ledger({ seq: n, outcome: 'miss', signature, detail })
         return refuse(res, 400, 'journey_replay_miss', `no frozen recording for call ${n} (${signature})`)
       }
       used.add(pick.file)
-      ledger({ seq: n, outcome: pick.detail === detail ? 'hit' : 'hit_drift', signature, detail, recorded_detail: pick.detail, file: pick.file })
+      ledger({ seq: n, outcome, signature, detail, recorded_detail: pick.detail, file: pick.file })
       res.writeHead(pick.status, { 'content-type': pick.content_type ?? 'application/json' })
       return res.end(pick.body)
     }
