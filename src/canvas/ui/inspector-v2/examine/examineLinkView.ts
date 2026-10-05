@@ -8,12 +8,18 @@
  * A natural-effect sentence ("1 more conversation every 2 months") is refused by today's link door, so the limit line
  * names the route that works — a strength in words — and never promises more.
  *
- * Three bases, each from a fact the client already holds; never a score this module invents:
+ * Four bases, each from a fact the client already holds; never a score this module invents:
  *   · `analysis`       — the last Run found the comparison could change with this link's strength (`isEdgeFragile`).
  *   · `placeholder`    — Olumi has not sized the link; it carries a starting strength (`isStrengthPlaceholder`).
+ *   · `accepted`       — Olumi's strength the user accepted (`isStrengthAccepted`, gate 5): still Olumi's figure, so
+ *                        still worth examining, said in the factor twin's words (`EXAMINE_WHY.accepted`).
  *   · `olumi_estimate` — the strength is Olumi's (`edgeValueSource(…, 'weight') === 'cee'`).
- * ⛔ The why line never says "you haven't confirmed it": the UI carries no review marker for a link, so a link the user
- * confirmed would read falsely. It says what stays true after any confirmation (origin ≠ acceptance).
+ * ⛔ A strength SIZED FROM THE USER'S OWN FIGURE (`edgeSizePhrase` `usersFigure`, `magnitude: user_stated`) is not
+ * Olumi's: it gets no Olumi basis, so the pane never says "Olumi estimated" beside "From your brief: £49" (RA
+ * `21-j4-49-inspector.txt`, gate 5 item 2). Fragile, it is still examined, on the `analysis` basis.
+ * ⛔ The why line never says "you haven't confirmed it": a review the canvas does not hold (one made before it was
+ * carried, or on another path) would read falsely. `olumi_estimate` says what stays true after any confirmation (origin ≠
+ * acceptance); a review the canvas DOES hold (`isStrengthAccepted`) has its own basis, `accepted`.
  * ⛔ A SOUND LINK GETS NO CHALLENGE: the user's own (or a starter's) strength with nothing flagged, a structural link, a
  * link that holds BY DEFINITION (`isStrengthDefinitional`, MG 0ebb952a — arithmetic, not a belief; CEE refuses any change
  * to it, fragile or not), or a link with no stated strength returns `null` — no section, no warning chrome.
@@ -23,8 +29,12 @@ import { edgeValueSource, resolveEdgeSignedStrengthDisplay } from '../../../doma
 import { isStrengthPlaceholder } from '../../../domain/strengthPlaceholder'
 import { isStrengthDefinitional } from '../../../domain/strengthDefinitional'
 import { getStrengthLabel } from '../../../domain/vocabulary'
+import { isStrengthAccepted } from '../../../domain/strengthAccepted'
+import { isStrengthStated } from '../../../domain/strengthStated'
+import { edgeSizePhrase } from '../../../edges/edgeSizePhrase'
+import { EXAMINE_WHY } from './examineAssumptionView'
 
-export type ExamineLinkBasis = 'analysis' | 'placeholder' | 'olumi_estimate'
+export type ExamineLinkBasis = 'analysis' | 'placeholder' | 'accepted' | 'olumi_estimate'
 
 export interface ExamineLinkView {
   /** The strength as a band word (`getStrengthLabel`), never a number. */
@@ -44,6 +54,7 @@ export const EXAMINE_LINK_LIMIT =
 export const EXAMINE_LINK_WHY: Readonly<Record<ExamineLinkBasis, string>> = Object.freeze({
   analysis: 'Your last Run found the comparison could change if this link is stronger or weaker than assumed.',
   placeholder: 'Olumi hasn’t sized this link yet. It uses a starting strength, not an estimate.',
+  accepted: EXAMINE_WHY.accepted,
   olumi_estimate: 'Olumi estimated how strong this link is. It is an estimate, not a measurement.',
 })
 
@@ -60,9 +71,16 @@ export function buildExamineLinkView(input: {
   if (input.structural || !input.data || isStrengthDefinitional(input.data)) return null
   const display = resolveEdgeSignedStrengthDisplay(input.data)
   if (!display.show) return null
-  const olumis = edgeValueSource(input.data, 'weight') === 'cee'
+  const olumis = edgeValueSource(input.data, 'weight') === 'cee' &&
+    edgeSizePhrase(input.data)?.usersFigure !== true && !isStrengthStated(input.data)
   if (!input.fragile && !olumis) return null
-  const basis: ExamineLinkBasis = input.fragile ? 'analysis' : isStrengthPlaceholder(input.data) ? 'placeholder' : 'olumi_estimate'
+  const basis: ExamineLinkBasis = input.fragile
+    ? 'analysis'
+    : isStrengthPlaceholder(input.data)
+      ? 'placeholder'
+      : isStrengthAccepted(input.data)
+        ? 'accepted'
+        : 'olumi_estimate'
   const band = getStrengthLabel(Math.abs(display.value))
   return {
     value: band,

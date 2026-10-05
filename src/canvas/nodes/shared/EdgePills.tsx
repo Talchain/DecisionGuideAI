@@ -44,6 +44,9 @@ import { BY_DEFINITION, isStrengthDefinitional } from '../../domain/strengthDefi
 import { LINK_STRENGTH_COPY } from './metricVocabulary'
 import type { NodeType } from '../../domain/nodes'
 import { CANVAS_GLYPH_SIZE_CLASSES } from './canvasGlyphScale'
+import { isStrengthAccepted } from '../../domain/strengthAccepted'
+import { isStrengthStated } from '../../domain/strengthStated'
+import { sizingWords } from '../../../components/results/analysisNew/runDeltaLinkWords'
 
 interface EdgePillsProps {
   nodeId: string
@@ -78,7 +81,7 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
         // a measurement or silently hiding the relationship.
         const edgeData = e.data as Record<string, unknown> | undefined
         if (!isEdgeValueSet(edgeData, 'weight')) {
-          return { id: e.id, kind, label, direction: null, pct: null, settled: false, definitional: false }
+          return { id: e.id, kind, label, direction: null, pct: null, settled: false, definitional: false, accepted: false, stated: false }
         }
         // Retain the sign so the pill can show direction (raises / lowers).
         const signed = computeSignedMean(edgeData)
@@ -93,6 +96,10 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
           settled: strengthIsHumanSettled(edgeData),
           // MG 0ebb952a: a link that holds BY DEFINITION is nobody's estimate.
           definitional: isStrengthDefinitional(edgeData),
+          // Gate 5: settled by ACCEPTING Olumi's estimate is not "set by a person"; the user's own stated figure is not
+          // Olumi's estimate. Authorship and acceptance are said apart (domain/strengthAccepted, domain/strengthStated).
+          accepted: isStrengthAccepted(edgeData),
+          stated: isStrengthStated(edgeData),
         }
       })
       .filter((p): p is NonNullable<typeof p> => p !== null)
@@ -144,6 +151,22 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
               >
                 {`· ${LINK_STRENGTH_COPY.noun} ${p.pct}%`}
                 <span className="sr-only">{` (${BY_DEFINITION.toLowerCase()})`}</span>
+              </span>
+            ) : p.accepted ? (
+              <span
+                data-testid={`edge-pill-strength-accepted-${p.id}`}
+                title={`${LINK_STRENGTH_COPY.noun}: ${p.pct}%, ${sizingWords('olumi_accepted')}`}
+              >
+                {`· ${LINK_STRENGTH_COPY.noun} ${p.pct}%`}
+                <span className="sr-only">{` (${sizingWords('olumi_accepted')})`}</span>
+              </span>
+            ) : p.stated && !p.settled ? (
+              <span
+                data-testid={`edge-pill-strength-stated-${p.id}`}
+                title={`${LINK_STRENGTH_COPY.noun}: ${p.pct}%, from your figure`}
+              >
+                {`· ${LINK_STRENGTH_COPY.noun} ${p.pct}%`}
+                <span className="sr-only">{' (from your figure)'}</span>
               </span>
             ) : p.settled ? (
               <span

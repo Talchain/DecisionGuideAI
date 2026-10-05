@@ -16,6 +16,8 @@ import { DEFAULT_EDGE_DATA, trimProvenance, readServerStatedStrength, readWireEd
 import { readWireNaturalEffect } from '../domain/naturalEffect'
 import { strengthPlaceholderPatch } from '../domain/strengthPlaceholder'
 import { strengthDefinitionalPatch } from '../domain/strengthDefinitional'
+import { strengthAcceptedPatch } from '../domain/strengthAccepted'
+import { strengthStatedPatch } from '../domain/strengthStated'
 import { edgeValueSourcePatch, stripEdgeValueSourceKeys } from '../domain/edgeValueProvenance'
 import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
@@ -555,6 +557,10 @@ export function DraftChat() {
         style: _style, curvature: _curvature, kind: _kind,
         functionType: _funcType, beliefStrength: _beliefStr,
         schemaVersion: _schemaVer,
+        // Gate 5: canvas-internal, written below from its ONE reader. Kept ABOVE the placeholder key, whose source pin
+        // (strengthPlaceholder.spec) owns the line directly above `...edgeRest`.
+        strengthAccepted: _strengthAccepted,
+        strengthStated: _strengthStated,
         // MG 0ebb952a: likewise canvas-internal, written below from its ONE reader.
         strengthDefinitional: _strengthDefinitional,
         // POM-8: a canvas-internal key, written below from the ONE reader —
@@ -739,6 +745,10 @@ export function DraftChat() {
           // A definitional link — HOP 3 OF 3, the same one reader
           // (domain/strengthDefinitional); destructured OUT of `edgeRest` above.
           ...strengthDefinitionalPatch(e as Record<string, unknown>, weightSource !== 'default'),
+          // Gate 5: an accepted Olumi strength — HOP 3 OF 3, the same one reader
+          // (domain/strengthAccepted); destructured OUT of `edgeRest` above.
+          ...strengthAcceptedPatch(e as Record<string, unknown>, weight, weightSource !== 'default'),
+          ...strengthStatedPatch(e as Record<string, unknown>, weight, weightSource !== 'default'),
           provenance: provenanceText,
           // Brief v2.2: New edge properties
           ...(direction ? { direction } : {}),

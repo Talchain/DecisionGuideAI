@@ -140,6 +140,8 @@ import type { ValidationMetadata } from '../domain/validation'
 import { getCausalEdges } from '../domain/edgeUtils'
 import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
 import { isStrengthDefinitional } from '../domain/strengthDefinitional'
+import { isStrengthAccepted } from '../domain/strengthAccepted'
+import { isStrengthStated } from '../domain/strengthStated'
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../domain/edgeValueProvenance'
 import { getDirectionalStrengthLabel } from '../components/model-tab/strengthBands'
 import { DEFINITIONAL_SUFFIX } from '../domain/naturalEffect'
@@ -841,8 +843,13 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
      */
     // ⚠ A link that holds BY DEFINITION (`isStrengthDefinitional`) is nobody's
     // estimate and CEE refuses any change to it, so it is never offered for adoption.
+    // Gate 5 (Codex r1 P1-1): an ACCEPTED Olumi strength keeps `provenanceDisplay: 'ai_inferred'` byte-identical (CEE
+    // records the approval as review), and a strength sized from the user's own figure is not Olumi's estimate: neither
+    // is an unconfirmed estimate to offer for confirmation (domain/strengthAccepted, domain/strengthStated).
     if (
       !isStrengthDefinitional(data) &&
+      !isStrengthAccepted(data) &&
+      !isStrengthStated(data) &&
       (data as { provenanceDisplay?: unknown } | undefined)?.provenanceDisplay === 'ai_inferred' &&
       edgeStrengthEditIsAssertable(edge)
     ) {
@@ -858,7 +865,12 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         const value = edgeValueParts(data)
         return { primaryValue: value.text, ...(value.sentence ? { valueIsSentence: true as const } : {}) }
       })(),
-      provenanceSource: typeof data?.weightSource === 'string' ? data.weightSource : undefined,
+      // Gate 5: the mark says whose the SIZE is — the user's stated figure reads as their brief (the wire's own
+      // `provenance.source`), an accepted Olumi strength as accepted (the factor rows' `provenanceAccepted`, :659).
+      provenanceSource: isStrengthStated(data)
+        ? 'brief_extraction'
+        : typeof data?.weightSource === 'string' ? data.weightSource : undefined,
+      ...(isStrengthAccepted(data) ? { provenanceAccepted: true as const } : {}),
       attention,
       editable: true,
     })

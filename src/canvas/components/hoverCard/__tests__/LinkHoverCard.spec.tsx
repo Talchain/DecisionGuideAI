@@ -4,7 +4,7 @@
  * Replaces the v3.1 one-line dark tooltip (`StyledEdge.hoverTooltip.contractV31`).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, fireEvent, act } from '@testing-library/react'
+import { render, fireEvent, act, cleanup } from '@testing-library/react'
 import { Position } from '@xyflow/react'
 import { StyledEdge } from '../../../edges/StyledEdge'
 import { EDGE_EXISTENCE_DOUBT_SENTENCE } from '../../../edges/connectorCopy'
@@ -27,9 +27,12 @@ vi.mock('@xyflow/react', async () => {
     useStore: (selector: any) => selector({ nodes: [] }),
   }
 })
+// Gate 5 item 5: a row may add store slices (e.g. the run-changes light) without touching the others.
+const storeExtra = vi.hoisted(() => ({ value: {} as Record<string, unknown> }))
 vi.mock('../../../store', () => ({
   useCanvasStore: vi.fn((selector: any) =>
     selector({
+      ...storeExtra.value,
       updateEdgeData: vi.fn(),
       runMeta: { ceeReview: null },
       results: { status: 'idle', report: null },
@@ -165,5 +168,28 @@ describe('link hover pop-up', () => {
   it('CONTROL — a link with no stored size has no Size row', () => {
     const pop = hover({ weight: 0.35, weightSource: 'cee', direction: 'positive', directionSource: 'user' })!
     expect(pop.querySelector('[data-testid="edge-hover-size"]')).toBeNull()
+  })
+})
+
+/**
+ * ⭐ GATE 5 ITEM 5: a link the last Run's changes light (`analysisHighlight.source === 'run_changes'`) is marked on the
+ * canvas by a glow — colour alone. The hover says it in the Changes view's own word. Bound by the edge's id in the light.
+ */
+describe('a link the last run changed says so on hover', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers(); storeExtra.value = {} })
+  const DATA = { weight: 0.35, weightSource: 'cee', direction: 'positive', directionSource: 'user' }
+
+  it('lit by the run changes → "Changed since the last run."', () => {
+    storeExtra.value = { analysisHighlight: { source: 'run_changes', edgeIds: new Set(['e1']) } }
+    const pop = hover(DATA)!
+    expect(text(pop, 'edge-hover-run-changed')).toBe('Changed since the last run.')
+  })
+  it('CONTRAST: another link lit, or a light from another source → no such line', () => {
+    storeExtra.value = { analysisHighlight: { source: 'run_changes', edgeIds: new Set(['e-other']) } }
+    expect(text(hover(DATA)!, 'edge-hover-run-changed')).toBeNull()
+    cleanup()
+    storeExtra.value = { analysisHighlight: { source: 'flip_risks', edgeIds: new Set(['e1']) } }
+    expect(text(hover(DATA)!, 'edge-hover-run-changed')).toBeNull()
   })
 })
