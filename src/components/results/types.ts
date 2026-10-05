@@ -1244,6 +1244,11 @@ export interface InferenceWarning {
    * names (MC github-21).
    */
   node_ids?: string[]
+  /**
+   * MC P0's full list of the links the warning is about (`GOAL_FIGURES_PLACEHOLDER_PATH`: every unsized deciding link,
+   * nearest the goal first), carried verbatim. Dropping it here named only the first link on the Analysis tab.
+   */
+  links?: Array<{ from: string; to: string }>
   /** Affected node labels (resolved from canvas) */
   affected_labels?: string[]
   /** Human-readable message */

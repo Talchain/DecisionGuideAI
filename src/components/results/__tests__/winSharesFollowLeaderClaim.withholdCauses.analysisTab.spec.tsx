@@ -16,9 +16,12 @@ import { fx, resetPaulRun, seedPaulRun } from './helpers/paulRun4276f3f9'
 const FROM = 'investment_firm_outreach'
 const TO = 'investment_firm_meetings'
 const UNSIZED_WARNING = { code: 'GOAL_FIGURES_PLACEHOLDER_PATH', severity: 'warning', node_ids: [FROM, TO], option_ids: ['angel_bridge'], message: 'Not shown.' }
+/** MC P0's carrier with its full `links` list (two unsized deciding links, nearest the goal first). */
+const TWO_LINK_WARNING = { ...UNSIZED_WARNING, links: [{ from: FROM, to: TO }, { from: 'angel_investor_outreach', to: 'angel_investor_meetings' }] }
 
 const WORDS = {
   goal_path_unsized: 'This comparison turns on the link from ‘Investment firm outreach’ to ‘Investment firm meetings’, whose strength nobody has set yet. Set it to see how much it matters.',
+  goal_path_unsized_two: 'This comparison turns on the links from ‘Investment firm outreach’ to ‘Investment firm meetings’ and from ‘Angel investor outreach’ to ‘Angel investor meetings’, whose strengths nobody has set yet. Set them to see how much they matter.',
   intake_identity_unverified: 'This comparison depends on which of the model’s options are the ones your brief lists, and that hasn’t been confirmed yet.',
   intake_options_missing: 'Your brief lists at least one option that isn’t in the model yet, so this comparison leaves it out. Check the model’s options against your brief.',
 } as const
@@ -38,6 +41,8 @@ afterEach(() => { cleanup(); resetPaulRun() })
 
 describe.each([
   ['⭐ goal_path_unsized', 'goal_path_unsized', [UNSIZED_WARNING], WORDS.goal_path_unsized],
+  // The tab's check row reads the hook's ADAPTED warnings: the adapter must carry `links`, or it names the first only.
+  ['⭐ goal_path_unsized, two links (MC links list)', 'goal_path_unsized', [TWO_LINK_WARNING], WORDS.goal_path_unsized_two],
   ['⭐ intake_identity_unverified', 'intake_identity_unverified', [], WORDS.intake_identity_unverified],
   ['⭐ intake_options_missing', 'intake_options_missing', [], WORDS.intake_options_missing],
 ] as const)('%s', (_name, cause, warnings, words) => {

@@ -4527,6 +4527,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             field: typeof w.field === 'string' ? w.field : undefined,
             affected_nodes: nodeIds,
             ...(Array.isArray(w.node_ids) ? { node_ids: w.node_ids.filter((id: unknown): id is string => typeof id === 'string') } : {}),
+            ...(Array.isArray(w.links) ? { links: w.links.filter((l: any) => typeof l?.from === 'string' && typeof l?.to === 'string').map((l: any) => ({ from: l.from as string, to: l.to as string })) } : {}),
             affected_labels: nodeIds.map(id => nodeLabelMap.get(id) ?? id),
             message: w.message ? String(w.message) : undefined,
             // Roadmap 1.12: producer severity carried verbatim (never
