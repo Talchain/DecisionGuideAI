@@ -173,8 +173,8 @@ describe('served pricing options — the share line is ONE line in a slot reserv
     expect(screen.getByTestId('option-win-figure-opt_full_switch').textContent).toBe('34%')
     // Whatever gives way on a narrow card stays whole in the row's name (the
     // existing tooltip reads the same string).
-    // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance).
-    expect(row.getAttribute('aria-label')!.startsWith('Current model · best in 34% of runs.')).toBe(true)
+    // R3 5903852225 / AIQ 5903874730: the share says "supported in" (it is not a chance).
+    expect(row.getAttribute('aria-label')!.startsWith('Current model · supported in 34% of runs.')).toBe(true)
   })
 
   it('MG B1 (#2123 review): an option the Run does NOT score keeps its reserved slot after the Run — no shrink, no re-lay', () => {

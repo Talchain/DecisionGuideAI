@@ -1043,12 +1043,14 @@ export const OPTION_RESULT_COPY = {
   compact: 'Model',
   /**
    * ⛔ R3 5903852225 / AIQ 5903874730: "Current model 100% of runs" beside the goal card's "Chance 84%" read as a
-   * chance. The share is how often this option does best, so it says so. On the card the prefix never gives way
-   * without a qualifier; with one it narrows away exactly where the caption does (the row's name keeps it).
+   * chance. The share is how often the simulated runs supported this option, so it says so. On the card the prefix
+   * never gives way without a qualifier; with one it narrows away exactly where the caption does (the row's name keeps
+   * it). ⛔ NEVER "best in" (Acceptance investor matrix, 5 Oct, d3130958): there is never a winner (Paul, 7 Sep), and
+   * "supported" is #2536's direction-neutral word, true under a maximise or a minimise goal alike.
    */
-  sharePrefix: 'best in',
+  sharePrefix: 'supported in',
   shareUnit: OPTION_SHARE_UNIT,
-  share: (formatted: string): string => `best in ${formatted} ${OPTION_SHARE_UNIT}`,
+  share: (formatted: string): string => `supported in ${formatted} ${OPTION_SHARE_UNIT}`,
   sentence: (formatted: string): string =>
     `In ${formatted} of the simulated runs, the model favoured this option over the others. ` +
     'A finding about the model as it stands, not a recommendation.',

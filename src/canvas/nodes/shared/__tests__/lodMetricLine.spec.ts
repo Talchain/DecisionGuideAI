@@ -159,8 +159,8 @@ describe('the other three types, which rendered nothing at any zoom before', () 
       displayMetadata: meta({ isResultsMode: true, winRate: 0.47 }),
       facts: { optionResultCaption: 'Current model' },
     })
-    // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance).
-    expect(line).toBe('Current model · best in 47% of runs')
+    // R3 5903852225 / AIQ 5903874730: the share says "supported in" (it is not a chance).
+    expect(line).toBe('Current model · supported in 47% of runs')
     expect(line).not.toContain(METRIC_NOUN.support)
   })
 
@@ -395,7 +395,7 @@ describe('the pre-analysis arms, and the opposite-direction twin for each', () =
         displayMetadata: meta({ isResultsMode: true, winRate: 0.41 }),
         facts: { optionIsBaseline: false, optionInterventionCount: 2, optionResultCaption: 'Last run' },
       }),
-    ).toBe('Last run · best in 41% of runs') // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance).
+    ).toBe('Last run · supported in 41% of runs') // R3 5903852225 / AIQ 5903874730: the share says "supported in" (it is not a chance).
   })
 
   it('TWIN — with no caption the share is withheld and the change count speaks instead', () => {
