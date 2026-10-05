@@ -304,7 +304,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
   // leading option" four rules below.
   if (!verdict.hasLeadingOption && verdict.separation === 'unknown') {
     return {
-      headline: 'the analysis did not put an option forward',
+      headline: 'this run names no option in this model',
       sub: null,
       caveat: null,
       conservative: true,

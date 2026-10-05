@@ -70,6 +70,7 @@ import { deriveDecisionVerdict, comparableOptions, type DecisionVerdictReportLik
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
 import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
+import { resultsGoalLabel } from './utils/resultsGoalLabel'
 import { mapM2BiasFindings } from './mapM2BiasFindings'
 import { mapDecisionQualityPrompts } from './utils/decisionQualityPrompts'
 import { humaniseCritique } from './utils/humaniseCritique'
@@ -105,7 +106,9 @@ import {
   type AttributionSuppressionVerdict,
 } from './voi/attributionSuppression'
 import { resolveNodeTypeLiteral } from '../../canvas/domain/nodes'
-import { resolveGoalTarget, goalDirectionWarningIsMoot, GOAL_DIRECTION_UNATTESTED_CODE, type GoalTargetSource } from '../../canvas/domain/goalTarget'
+import { resolveGoalTarget, goalDirectionWarningIsMoot, goalDirectionCorrectableByTarget, GOAL_DIRECTION_UNATTESTED_CODE, type GoalTargetSource } from '../../canvas/domain/goalTarget'
+import { goalOwnLimitRow } from '../../canvas/domain/goalOwnTargetRow'
+import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { factorDisplaysValue } from '../../canvas/components/model-tab/utils'
 import {
   selectAssumedStrengthToResolve,
@@ -116,6 +119,7 @@ import { deriveRobustnessStatus } from './robustnessStatus'
 import { readGoalFigureWithholds, readGoalIdentityWithheld } from './utils/goalIdentityWithheld'
 import { isStrengthPlaceholder } from '../../canvas/domain/strengthPlaceholder'
 import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisParticipation'
+import { goalLabelOf } from './analysisNew/analysisNewCopy'
 import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
 
 // =============================================================================
@@ -1372,6 +1376,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     reviewStatus,
     m1ReviewAssumptions,
     goalThreshold,
+    goalConstraints,
     ceeAnalysisReady,
     retainedAnalysisAdmission,
     rawV2FlipThresholds,
@@ -1396,6 +1401,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       reviewStatus: s.runMeta?.reviewStatus,
       m1ReviewAssumptions: s.runMeta?.m1ReviewAssumptions ?? null,
       goalThreshold: s.goalThreshold,
+      goalConstraints: s.goalConstraints,
       ceeAnalysisReady: s.ceeAnalysisReady,
       retainedAnalysisAdmission: s.retainedAnalysisAdmission,
       // Extract only flip_thresholds from raw V2 response to avoid subscribing to entire object.
@@ -1466,7 +1472,6 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // `results: null` (the `?.` above) — `admissionGatesHarness.resetStore()` is that state, and the selector threw on it.
   const leaderPermission = report?.producer_leader_permission ?? null
   const winSharesAreWithheld = winSharesWithheld(leaderPermission)
-  const winShareReasonLine = winSharesAreWithheld ? winShareWithheldReason(leaderPermission) : null
   const resultsStatus = results?.status
 
   const isLoading = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
@@ -1478,37 +1483,14 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     [nodes]
   )
 
-  // Goal label fallback chain: framing > node label > default
-  // V14.1: Sanitize + guard against short/ambiguous labels that read awkwardly as "To a Cat"
-  const goalLabel = useMemo(() => {
-    let raw = 'your goal'
-    if (currentScenarioFraming?.goal) {
-      raw = currentScenarioFraming.goal
-    } else if (goalNode?.data && typeof (goalNode.data as ResultsCanvasNodeData).label === 'string') {
-      raw = (goalNode.data as ResultsCanvasNodeData).label
-    }
-    if (raw === 'your goal') return raw
-
-    // Sanitize encoding notation and arrows
-    const cleaned = sanitizeCoachingText(raw)
-    if (!cleaned || cleaned === 'your goal') return 'your goal'
-
-    // Guard: single-word labels or labels that collide with option/factor names
-    // read awkwardly as "To Cat" — prefix with context → "the best outcome for Cat"
-    // Multi-word verb phrases ("increase revenue") read fine as-is.
-    const optionLabels = new Set(
-      nodes.filter(n => (n.data as ResultsCanvasNodeData)?.kind === 'option').map(n => (n.data as ResultsCanvasNodeData)?.label as string).filter(Boolean)
-    )
-    const factorLabels = new Set(
-      nodes.filter(n => (n.data as ResultsCanvasNodeData)?.kind === 'factor').map(n => (n.data as ResultsCanvasNodeData)?.label as string).filter(Boolean)
-    )
-    const wordCount = cleaned.split(/\s+/).length
-    if (wordCount < 2 || optionLabels.has(cleaned) || factorLabels.has(cleaned)) {
-      return `the best outcome for ${cleaned}`
-    }
-
-    return cleaned
-  }, [currentScenarioFraming, goalNode, nodes])
+  // Goal label fallback chain: framing > node label > default (the goal's own label, verbatim: resultsGoalLabel)
+  const goalLabel = useMemo(
+    () => resultsGoalLabel(
+      currentScenarioFraming?.goal,
+      (goalNode?.data as ResultsCanvasNodeData | undefined)?.label,
+    ),
+    [currentScenarioFraming, goalNode],
+  )
 
   const goalNodeId = goalNode?.id
 
@@ -1741,8 +1723,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     if (stated(goalThreshold)) return true
     if (stated(ceeAnalysisReady?.goal_threshold_raw)) return true
     const fromNode = resolveGoalTarget(goalNode?.data as GoalTargetSource | null | undefined)
-    return fromNode !== null && stated(fromNode.raw)
-  }, [goalThreshold, ceeAnalysisReady, goalNode])
+    if (fromNode !== null && stated(fromNode.raw)) return true
+    // CEE's rule (red team #87 6003539060): "at most 400" is stored ONLY as the goal's own `<=` row, never on the node.
+    // The current graph's rows, else the run's.
+    const rows = goalConstraints ?? (report as { goal_constraints?: CEEGoalConstraint[] | null } | null | undefined)?.goal_constraints
+    return goalOwnLimitRow(rows, goalNode?.id) !== null
+  }, [goalThreshold, ceeAnalysisReady, goalNode, goalConstraints, report])
 
   /**
    * ⭐ THE NUMBER — *what value should a numeric consumer use?* `null` here
@@ -1785,6 +1771,16 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     })
     return map
   }, [nodes])
+
+  // The reason line beside every withheld share. `goal_path_unsized` names its link from this Run's typed warning and
+  // the canvas labels (`winShareGate`); every other cause reads the copy map.
+  const winShareReasonLine = winSharesAreWithheld
+    ? winShareWithheldReason(leaderPermission, {
+      inferenceWarnings: (report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings,
+      labelOf: (nodeId) => nodeLabelMap.get(nodeId) ?? null,
+      goalLabel: goalLabelOf(nodes),
+    })
+    : null
 
   /**
    * V7-C slice 1 (ROADMAP 2.141) — the value-of-information ranking.
@@ -2760,6 +2756,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       outcomeUnit,
       outcomeUnitSymbol,
       goalThreshold: effectiveGoalThreshold,
+      // EXISTENCE on a completed run: the previous answer (a number to compute with) OR a stated target, which now
+      // includes the goal's own limit row ("at most 400", red team #87 6003539060). Widening only: never newly "unset".
+      hasGoalTarget: hasStatedGoalTarget || effectiveGoalThreshold != null,
       recommendationStability,
       // Task 1.3: Win probability for display
       winProbability,
@@ -3407,6 +3406,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // AIQ 5902450527: a goal that HOLDS `>=`/`>` (not a negative change) makes ISL's "does not say which way" false.
   const goalDirectionWarningMoot = useMemo(
     () => goalDirectionWarningIsMoot(goalNode?.data as GoalTargetSource | undefined),
+    [goalNode?.data],
+  )
+  // B′: the goal's target line can set 'at most' (a level target or none), so the copy may offer that correction.
+  const goalDirectionCorrectable = useMemo(
+    () => goalDirectionCorrectableByTarget(goalNode?.data as GoalTargetSource | undefined),
     [goalNode?.data],
   )
   const confidence = useMemo<ConfidenceSectionData>(() => {
@@ -4518,12 +4522,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             // producer shapes straight past this adapter.
             field: typeof w.field === 'string' ? w.field : undefined,
             affected_nodes: nodeIds,
+            ...(Array.isArray(w.node_ids) ? { node_ids: w.node_ids.filter((id: unknown): id is string => typeof id === 'string') } : {}),
+            ...(Array.isArray(w.links) ? { links: w.links.filter((l: any) => typeof l?.from === 'string' && typeof l?.to === 'string').map((l: any) => ({ from: l.from as string, to: l.to as string })) } : {}),
             affected_labels: nodeIds.map(id => nodeLabelMap.get(id) ?? id),
             message: w.message ? String(w.message) : undefined,
             // Roadmap 1.12: producer severity carried verbatim (never
             // defaulted). Warning-severity entries surface on the Analysis
             // tab; info-severity stays hidden there.
             severity: typeof w.severity === 'string' ? w.severity : undefined,
+            ...(w.code === GOAL_DIRECTION_UNATTESTED_CODE && goalDirectionCorrectable ? { goal_direction_correctable: true } : {}),
           }
         })
       })(),
@@ -4606,7 +4613,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // decide from ONE adapted array. Listing it is a correctness dependency,
     // not lint appeasement: with a stale closure the CX5 suppression would be
     // computed from the previous run's flip evidence.
-  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap, runMeta?.ceeReviewV1, recommendation, goalDirectionWarningMoot])
+  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap, runMeta?.ceeReviewV1, recommendation, goalDirectionWarningMoot, goalDirectionCorrectable])
 
   /**
    * ⭐⭐ WHICH SENSITIVITY ROWS NAME A RELATIONSHIP THE READER CAN GO AND CHANGE.

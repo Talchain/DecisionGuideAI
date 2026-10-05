@@ -989,6 +989,8 @@ export interface UncertaintyItem {
   /** V14.3b: Pre-sanitised text for JSX render fallback. Computed at data layer via internal-token guard. */
   displayText?: string
   suggestion?: string
+  /** `GOAL_DIRECTION_UNATTESTED` only: the goal's target line can set 'at most', so the title may offer that correction. */
+  goalDirectionCorrectable?: boolean
   affectedNodes?: string[]
   /**
    * The producer's endpoint ids for a fragile-relationship row.
@@ -1238,6 +1240,17 @@ export interface InferenceWarning {
   field?: string
   /** Affected node IDs */
   affected_nodes: string[]
+  /**
+   * CEE's own node carrier (`node_ids`), carried verbatim beside `affected_nodes` (which it does not populate). For
+   * `GOAL_FIGURES_PLACEHOLDER_PATH`, `node_ids[0]` → `node_ids[1]` is the unsized link a `goal_path_unsized` withhold
+   * names (MC github-21).
+   */
+  node_ids?: string[]
+  /**
+   * MC P0's full list of the links the warning is about (`GOAL_FIGURES_PLACEHOLDER_PATH`: every unsized deciding link,
+   * nearest the goal first), carried verbatim. Dropping it here named only the first link on the Analysis tab.
+   */
+  links?: Array<{ from: string; to: string }>
   /** Affected node labels (resolved from canvas) */
   affected_labels?: string[]
   /** Human-readable message */
@@ -1248,6 +1261,11 @@ export interface InferenceWarning {
    * hidden. Optional/additive — absent when the producer omitted it.
    */
   severity?: string
+  /**
+   * UI-derived, never producer: set only on `GOAL_DIRECTION_UNATTESTED` by the adapter, from the goal node
+   * (`goalDirectionCorrectableByTarget`). `true` lets the copy offer the 'at most' correction; absent means none.
+   */
+  goal_direction_correctable?: boolean
 }
 
 export interface ConfidenceSectionData {

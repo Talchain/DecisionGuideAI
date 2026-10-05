@@ -117,6 +117,8 @@ describe('OptionCards — withheld turn (ROADMAP 1.239)', () => {
   it('withholds the runner-up overtake line', () => {
     const { container } = renderRunnerUp(false)
     expect(/this option would come out best/i.test(container.textContent ?? '')).toBe(false)
+    // Union, never replace: the direction-neutral overtake line (Paul, 5 Oct).
+    expect(/more runs would support this option/i.test(container.textContent ?? '')).toBe(false)
   })
 
   it('withholds the baseline superlative', () => {
@@ -142,7 +144,7 @@ describe('OptionCards — withheld turn (ROADMAP 1.239)', () => {
 describe('OptionCards — permitted turn (over-suppression controls)', () => {
   it('keeps the runner-up overtake line', () => {
     const { container } = renderRunnerUp(true)
-    expect(container.textContent ?? '').toMatch(/If Customer churn shifts, this option would come out best in this model/i)
+    expect(container.textContent ?? '').toMatch(/If Customer churn shifts, more runs would support this option in this model/i)
   })
 
   it('keeps the baseline superlative', () => {
@@ -153,7 +155,7 @@ describe('OptionCards — permitted turn (over-suppression controls)', () => {
   it('an ABSENT flag behaves exactly as a permitted one (legacy callers)', () => {
     // The same concession #493 pinned for the sentences it gated: the default
     // must not drift to silence and blank every legacy caller's cards.
-    expect(renderRunnerUp(undefined).container.textContent ?? '').toMatch(/this option would come out best/i)
+    expect(renderRunnerUp(undefined).container.textContent ?? '').toMatch(/more runs would support this option/i)
     expect(renderBaseline(undefined).container.textContent ?? '')
       .toMatch(/Baseline: what happens if nothing changes/i)
   })

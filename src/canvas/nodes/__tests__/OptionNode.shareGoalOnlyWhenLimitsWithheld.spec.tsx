@@ -171,13 +171,13 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
   it('PERMITTED run — the share row still opens its name with the visible line, and its tooltip opens on focus', async () => {
     seed(envelope({ permitted: true, separation: 'separated' }), { permitted: true })
     renderCard()
-    // R3 5903852225 / AIQ 5903874730: the share says "best in" (it is not a chance).
-    expect(label().startsWith('Current model · best in 81% of runs.')).toBe(true)
+    // R3 5903852225 / AIQ 5903874730: the share says "favoured in" (it is not a chance).
+    expect(label().startsWith('Current model · favoured in 81% of runs.')).toBe(true)
     expect(shareRow().getAttribute('tabindex')).toBe('0')
     act(() => shareRow().focus())
     expect(document.activeElement).toBe(shareRow())
     const tip = await screen.findByRole('tooltip')
-    expect(tip).toHaveTextContent('Current model · best in 81% of runs.')
+    expect(tip).toHaveTextContent('Current model · favoured in 81% of runs.')
   })
 
   // CURRENT-READ row 9 (AIQ 5912710392): WAS checked on the `Goal only` qualifier; now on the marker.
@@ -232,6 +232,8 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     expect(provisional()).toBeNull()
     expect(qualifier()).toBeNull()
     expect(document.body.textContent).not.toContain('these shares are not a verdict')
+    // Union, never replace: the provisional note's direction-neutral words (5 Oct).
+    expect(document.body.textContent).not.toContain('these shares are findings in this model, not a verdict')
   })
 
   // CURRENT-READ row 9 (AIQ 5912710392): WAS "`Provisional`, not `Goal only`".
@@ -284,6 +286,9 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     expectNotRanked(WITHHELD_REASON_FALLBACK)
     expect(notRanked()!.getAttribute('aria-label')).not.toContain('could not put an option forward')
     expect(document.body.textContent).not.toContain('could not put an option forward')
+    // Union, never replace: the provisional note's direction-neutral words (5 Oct) are not said either.
+    expect(notRanked()!.getAttribute('aria-label')).not.toContain('This run names no option, so these shares')
+    expect(document.body.textContent).not.toContain('This run names no option, so these shares')
   })
 
   // CURRENT-READ row 9 (AIQ 5912710392): WAS "the goal-only case keeps `Goal only`". Neither qualifier

@@ -560,7 +560,10 @@ const resolveOption = (r: Extract<NodeCoachingRequest, { kind: 'option' }>): Res
         // ⚠ CONTRASTIVE, NOT A VERDICT. This message lands in the user's OWN
         // transcript, so asking about the ALTERNATIVE keeps the whole
         // what_would_flip question while presupposing nothing about the leader.
-        label: 'What would change this?',
+        // ⛔ NEVER 'What would change this?': that is the Reasoning-tab button's label (AnalysisNewTabBody,
+        // chip agent-next-what-would-change, 0-LLM typed press). Sharing it made the R1 incident (5 Oct
+        // 10:51Z): a press meant for the Reasoning tab hit this free-text chip instead.
+        label: 'What would make another option better supported?',
         message: `What would need to change for another option to be better supported than ${label}?`,
         actionType: 'what_would_flip',
       },
@@ -591,7 +594,7 @@ const resolveOption = (r: Extract<NodeCoachingRequest, { kind: 'option' }>): Res
       ? [
           {
             id: 'option_what_would_change_close_call',
-            label: 'What would change this?',
+            label: 'What would need to be true for this?', // not the Reasoning-tab label (R1)
             message: `What would need to be true for ${label} to be the better choice?`,
             actionType: 'what_would_flip',
           } as const,

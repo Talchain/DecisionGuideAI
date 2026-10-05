@@ -187,7 +187,11 @@ src/types/constraints.ts:78
 # 29 Sep 2026 (Canvas, leader cause `options_not_reconciled_with_brief`): re-lined 2510 → 2519, the same line; 9 copy lines above it.
 # 1 Oct 2026 (Canvas, fix-forward of #2379's staging red): re-lined 2519 → 2524, the same `topFigurePercent === 100` line;
 #    5 lines (`savedRunStale` + its docblock) were added above it. Scanner added/gone = exactly this pair.
-src/components/results/analysisNew/analysisNewCopy.ts:2524
+# 5 Oct 2026 (Thin-client #2535, withheld-leader causes): re-lined 2524 → 2630, the same `topFigurePercent === 100` line;
+#    106 copy lines (the cause map's new codes + the unsized-link readers) were added above it. Scanner added/gone = exactly this pair.
+# 5 Oct 2026 (Thin-client, Olumi-supplied disclosure + R6 codes + Science's plural rule): re-lined 2630 → 2730, the same
+#    `topFigurePercent === 100` line; 100 copy lines were added above it. Scanner added/gone = exactly this pair.
+src/components/results/analysisNew/analysisNewCopy.ts:2730
 # 30 Sep 2026 (Canvas, row 9 PR): re-lined store.ts 8049 → 8065, the same `currentTotal + displayBytes > MAX_TOTAL_CHARS` line;
 #    a pure +16 shift from #2350 (`forgetDurableDeletion`), which left staging red on this check. Scanner added/gone = exactly this pair.
 # 1 Oct 2026 (Canvas, #2370 Changes view): re-lined store.ts 8065 → 8087, a pure +22 line shift from the `run_changes`

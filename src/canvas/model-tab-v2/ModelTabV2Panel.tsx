@@ -118,6 +118,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import type { Edge, Node } from '@xyflow/react'
 import { typography } from '../../styles/typography'
 import { ModelQuestionLine } from './ModelQuestionLine'
@@ -236,6 +237,8 @@ export interface ModelTabV2PanelProps {
   edges: Edge[]
   /** RAW user units — the store scalar, never converted here. */
   goalThreshold: number | null
+  /** The graph's limit rows (the host's read): the goal row's target when only the goal's own row states it. */
+  goalConstraints?: readonly CEEGoalConstraint[] | null
   /**
    * Fragile edge ids from the robustness report. Pass `undefined` when no
    * analysis has run: nothing is then KNOWN to be fragile, and no row claims
@@ -400,6 +403,7 @@ export function ModelTabV2Panel({
   nodes,
   edges,
   goalThreshold,
+  goalConstraints = null,
   fragileEdgeIds,
   openGroupRequest,
   onHandOffToOlumi,
@@ -578,8 +582,9 @@ export function ModelTabV2Panel({
       edges: edges as Edge<EdgeData>[],
       goalThreshold,
       fragileEdgeIds,
+      goalConstraints,
     }),
-    [nodes, edges, goalThreshold, fragileEdgeIds],
+    [nodes, edges, goalThreshold, fragileEdgeIds, goalConstraints],
   )
 
   const rows = useMemo(() => toModelRows(projection), [projection])

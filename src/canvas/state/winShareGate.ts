@@ -16,7 +16,7 @@
  * gate (AIQ 5912710392: "gate on `leader_claim.permitted === false` for ANY `withheld_reason`"). When
  * it serves, only `winShareWithheldReason` gains the typed branch; every surface keeps calling this module.
  */
-import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
+import { goalLabelOf, goalProductNotReadCause, leaderWithholdCause, unsizedAwareCause } from '../../components/results/analysisNew/analysisNewCopy'
 import { isAnalysedOption } from '../../components/results/utils/notAnalysedOptions'
 
 export interface ProducerLeaderPermission {
@@ -54,13 +54,33 @@ export function winSharesWithheld(permission: ProducerLeaderPermission | null | 
 }
 
 /**
- * The reason line for a withheld leader, from the TYPED reason, never raw producer text:
- * `constraint_verdict_withheld` → the exploratory line; any other stated reason → its existing words
- * (`leaderWithholdCause`); none → the fallback.
+ * What `goal_path_unsized` needs to name its link: the same Run's inference warnings and a node-label lookup. Absent,
+ * or not enough to name both ends, its unnamed line stands (Science d5: never a guessed link).
  */
-export function winShareWithheldReason(permission: ProducerLeaderPermission | null | undefined): string {
+export interface WithheldReasonContext {
+  inferenceWarnings?: unknown
+  labelOf?: (nodeId: string) => string | null | undefined
+  /** The goal node's own label (`goalLabelOf`), for `goal_product_not_read`. */
+  goalLabel?: string | null
+}
+
+/**
+ * The reason line for a withheld leader, from the TYPED reason, never raw producer text:
+ * `constraint_verdict_withheld` → the exploratory line; `goal_path_unsized` (and `separation_unavailable` echoing that
+ * upstream withhold) → the unsized links named from the Run's typed warning; any other stated reason → its existing words (`leaderWithholdCause`); none → the fallback.
+ */
+export function winShareWithheldReason(
+  permission: ProducerLeaderPermission | null | undefined,
+  context?: WithheldReasonContext,
+): string {
   const cause = typeof permission?.producer_cause === 'string' ? permission.producer_cause.trim() : ''
   if (cause === 'constraint_verdict_withheld') return EXPLORATORY_REASON_LINE
+  if (context?.labelOf) {
+    const unsized = unsizedAwareCause(cause, context.inferenceWarnings, context.labelOf)
+    if (unsized !== null) return unsized
+  }
+  const goalProduct = goalProductNotReadCause(cause, context?.goalLabel)
+  if (goalProduct !== null) return goalProduct
   return leaderWithholdCause(cause) ?? WITHHELD_REASON_FALLBACK
 }
 
@@ -93,8 +113,17 @@ export function selectOptionComparedInRun(
   return isAnalysedOption(report?.option_probabilities, optionId)
 }
 
+/** The canvas nodes a selector may name a link from (ids and display labels only). */
+type WithNodes = { nodes?: ReadonlyArray<{ id: string; data?: unknown }> | null }
+
 /** Store selector for the reason line (a string or null, a primitive). */
-export function selectWinShareWithheldReason(s: WithReport): string | null {
+export function selectWinShareWithheldReason(s: WithReport & WithNodes): string | null {
   const permission = permissionOf(s)
-  return winSharesWithheld(permission) ? winShareWithheldReason(permission) : null
+  if (!winSharesWithheld(permission)) return null
+  const report = s.results?.report as { inference_warnings?: unknown } | null | undefined
+  const labelOf = (nodeId: string): string | null => {
+    const label = (s.nodes ?? []).find(n => n.id === nodeId)?.data as { label?: unknown } | undefined
+    return typeof label?.label === 'string' ? label.label : null
+  }
+  return winShareWithheldReason(permission, { inferenceWarnings: report?.inference_warnings, labelOf, goalLabel: goalLabelOf(s.nodes) })
 }

@@ -16,13 +16,13 @@ const sentences = (text: string): string[] => text.split(/(?<=\.)\s+/).filter(Bo
 
 describe('RT-14 · the Analysis headline names an option only in this model', () => {
   it('slight separation', () => {
-    expect(HERO_COPY.headline.slightlyAhead(OPT)).toBe(`In this model, ${OPT} came out best slightly more often.`)
+    expect(HERO_COPY.headline.slightlyAhead(OPT)).toBe(`In this model, slightly more runs supported ${OPT}.`)
   })
   it('clear separation, with and without the share', () => {
     expect(HERO_COPY.headline.mostLikelyStrongest(OPT, '57%'))
-      .toBe(`In this model, ${OPT} came out best in 57% of simulated futures.`)
+      .toBe(`In this model, ${OPT} was supported by 57% of runs.`)
     expect(HERO_COPY.headline.mostLikelyStrongest(OPT, null))
-      .toBe(`In this model, ${OPT} came out best in more simulated futures than any other option.`)
+      .toBe(`In this model, ${OPT} was supported by more runs than any other option.`)
   })
   it('no clear separation names no option', () => {
     expect(HERO_COPY.headline.noClearLeader).toBe('In this model, no option is clearly most likely.')

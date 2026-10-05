@@ -189,12 +189,12 @@ function fallbackDescription(
   // its bar, so no DATA is lost. Only the claim is.
   const noLeader = hasLeadingOption === false
   if (option.isRecommended && totalOptions > 1) {
-    return noLeader ? '' : 'Came out best in this model, on its current estimates.'
+    return noLeader ? '' : 'The most runs supported it in this model, on its current estimates.'
   }
   if (option.isBaseline) {
     return 'Baseline for comparison.'
   }
-  return noLeader ? '' : 'Compare it against the option that came out best in this model.'
+  return noLeader ? '' : 'Compare it against the option the most runs supported in this model.'
 }
 
 /**
@@ -245,7 +245,7 @@ function tiedOrWithheld(
     if (gapPct > 0) {
       return ''
     }
-    return 'Effectively tied, in this model, with the option that came out best'
+    return 'Effectively tied, in this model, with the option the most runs supported'
   }
   return null
 }
@@ -381,13 +381,13 @@ function hingeAwareDescription(
     // designated; it is the designation it presupposes, not the factor it
     // names, that made it unrenderable on a withheld one.
     if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === (option.labelAsWritten ?? option.label)) {
-      return `If ${hinge.label} shifts, this option would come out best in this model`
+      return `If ${hinge.label} shifts, more runs would support this option in this model`
     }
     // The retired point-gap line and its surviving near-tie predicate — see
     // `tiedOrWithheld`, which is the single copy both non-winner arms call.
     const runnerUpTied = tiedOrWithheld(winnerWinProbability, option.winProbability)
     if (runnerUpTied !== null) return runnerUpTied
-    return 'Close to the option that came out best in this model'
+    return 'Close to the option the most runs supported in this model'
   }
   // Task 9: Status quo / baseline — specific copy. ROADMAP 1.239 corrects the
   // note that used to sit here ("non-comparative … so it is not gated"): both
@@ -403,7 +403,7 @@ function hingeAwareDescription(
   // quantity on screen for whoever happens to have three options).
   const tied = tiedOrWithheld(winnerWinProbability, option.winProbability)
   if (tied !== null) return tied
-  return 'Compare it against the option that came out best in this model'
+  return 'Compare it against the option the most runs supported in this model'
 }
 
 /**
@@ -825,7 +825,7 @@ function OptionCard({
           className={`${typography.panelMeta} text-text-light`}
           data-testid={`leading-option-downside-${option.id}`}
         >
-          In this model, this option came out best, but the lower range of its simulated outcomes includes meaningful downside.
+          In this model, the most runs supported this option, but the lower range of its simulated outcomes includes meaningful downside.
         </p>
       )}
 

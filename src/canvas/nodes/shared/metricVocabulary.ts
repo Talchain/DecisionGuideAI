@@ -1043,12 +1043,15 @@ export const OPTION_RESULT_COPY = {
   compact: 'Model',
   /**
    * ⛔ R3 5903852225 / AIQ 5903874730: "Current model 100% of runs" beside the goal card's "Chance 84%" read as a
-   * chance. The share is how often this option does best, so it says so. On the card the prefix never gives way
-   * without a qualifier; with one it narrows away exactly where the caption does (the row's name keeps it).
+   * chance. The share is how often the model favoured this option across the runs, so it says so. On the card the prefix
+   * never gives way without a qualifier; with one it narrows away exactly where the caption does (the row's name keeps
+   * it). ⛔ NEVER "best in" (Acceptance investor matrix, 5 Oct, d3130958): there is never a winner (Paul, 7 Sep). Not
+   * "supported" either: ED 11:52Z retired Support on this result ("it reads as endorsement"). "favoured" is the
+   * register's own verb (`sentence` below: "the model favoured this option"), true under a maximise or minimise goal.
    */
-  sharePrefix: 'best in',
+  sharePrefix: 'favoured in',
   shareUnit: OPTION_SHARE_UNIT,
-  share: (formatted: string): string => `best in ${formatted} ${OPTION_SHARE_UNIT}`,
+  share: (formatted: string): string => `favoured in ${formatted} ${OPTION_SHARE_UNIT}`,
   sentence: (formatted: string): string =>
     `In ${formatted} of the simulated runs, the model favoured this option over the others. ` +
     'A finding about the model as it stands, not a recommendation.',
@@ -1087,7 +1090,7 @@ export const OPTION_RESULT_COPY = {
    * producer cause other than `constraint_verdict_withheld` (which keeps `goalOnly`).
    */
   provisional: 'Provisional',
-  provisionalNote: 'The analysis could not put an option forward on this run, so these shares are not a verdict.',
+  provisionalNote: 'This run names no option, so these shares are findings in this model, not a verdict.',
   /**
    * The short, VISIBLE reason beside `Not analysed` when CEE's typed blocker says
    * this option lacks a value (`analysis_ready.blockers[]`: `option_id` +

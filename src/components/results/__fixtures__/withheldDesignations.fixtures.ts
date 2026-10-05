@@ -258,7 +258,11 @@ export const HERO_CLAIM_RE =
   // "supported in {N}% …". Every retired alternative is KEPT rather than
   // swapped out: this probe screens for a claim of ANY vintage, and dropping
   // the old wording would blind it to a surface that had not been migrated.
-  /\b(highest|strongest|most likely|slightly ahead|leads|leading|winner|best|came out ahead|supported in)\b/i
+  //
+  // ⚠ WIDENED A THIRD TIME 2026-10-05: the direction-neutral wording (Paul: never "best / ahead / winner /
+  // recommend") says "was supported by {N} of runs" / "slightly more runs supported {X}", which carries none of
+  // the words above, so the PERMITTED controls would match nothing and the withheld sweeps would go blind.
+  /\b(highest|strongest|most likely|slightly ahead|leads|leading|winner|best|came out ahead|supported in|runs supported|runs (?:would|could|still) support|most runs (?:still )?supported|was supported by|more runs than any other option|the most runs|be supported by the most runs)\b/i
 
 /**
  * Every string a screen reader can reach that is NOT ordinary body text:
@@ -289,4 +293,4 @@ export function renderedRowIds(container: HTMLElement): string[] {
 }
 
 /** Designation vocabulary that must never reach a screen reader on withheld. */
-export const DESIGNATION_RE = /highest|leading|leads|winner|best|top option|rank ?1|#1/i
+export const DESIGNATION_RE = /highest|leading|leads|winner|best|top option|rank ?1|#1|runs supported|runs (?:would|could|still) support|most runs (?:still )?supported|was supported by .{0,12} of runs|more runs than any other option|the most runs|be supported by the most runs/i

@@ -211,6 +211,10 @@ describe('ISL inference-warning vocabulary — honesty by kind', () => {
     // is `@deprecated`, takes the direction as a PROP and has no product
     // importer. Telling a reader to state their aim would reinstate, one code
     // over, the false prescription removed from the entry above it.
+    // ⭐ B′ (5 Oct): the goal's target line now records the sense ('at most'),
+    // but only where the target is a level. So the correction rides the adapter's
+    // `goal_direction_correctable` (goalDirectionCorrection.bPrime.spec.tsx), and
+    // the CODE-ONLY title asserted here still prescribes nothing: it stays.
     'GOAL_DIRECTION_UNATTESTED',
   ] as const
 
