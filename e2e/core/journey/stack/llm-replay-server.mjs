@@ -90,13 +90,45 @@ let abortedBy429 = false
 const resolver = new dns.promises.Resolver()
 resolver.setServers(['1.1.1.1', '8.8.8.8'])
 
+// The real provider address, for record mode. On the CI runner /etc/hosts points the
+// provider hosts at this server, so the system lookup returns loopback and public DNS
+// is used instead. On a Mac (fetch redirected by the preload) the system lookup is
+// right. One address per host is cached, and a lookup is retried: the first local
+// record lost the draft's last call to a single DNS timeout at load 130 (5 Oct 12:04Z).
+const addressCache = new Map()
+async function providerAddress(host) {
+  const hit = addressCache.get(host)
+  if (hit && hit.until > Date.now()) return hit.ip
+  let lastErr
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      const sys = await dns.promises.lookup(host, { family: 4 })
+      const ip = /^127\./.test(sys.address) ? (await resolver.resolve4(host))[0] : sys.address
+      addressCache.set(host, { ip, until: Date.now() + 10 * 60_000 })
+      return ip
+    } catch (e) { lastErr = e; await new Promise((r) => setTimeout(r, 1_000 * attempt)) }
+  }
+  throw lastErr
+}
+
 function refuse(res, status, type, message) {
   res.writeHead(status, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: { type, message } }))
 }
 
 async function forward(req, host, bodyBuf) {
-  const [ip] = await resolver.resolve4(host)
+  // A transport failure (no HTTP status) is retried here, invisibly to CEE; an HTTP
+  // answer from the provider, error or not, is the product's and is recorded as is.
+  let lastErr
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try { return await forwardOnce(req, host, bodyBuf) }
+    catch (e) { lastErr = e; await new Promise((r) => setTimeout(r, 1_500 * attempt)) }
+  }
+  throw lastErr
+}
+
+async function forwardOnce(req, host, bodyBuf) {
+  const ip = await providerAddress(host)
   const headers = { ...req.headers, host }
   delete headers['x-journey-host']
   delete headers['accept-encoding'] // identity bodies, so recordings are plain text

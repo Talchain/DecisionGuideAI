@@ -57,6 +57,10 @@ const ENRICHMENT_KEEP_LIST = [
 const ASSUMED_DIRECTION = 'The analysis was not told which way your goal points, so it assumed a higher value is better'
 // StyledEdge paints the fragile cue only above this switch probability (constants.ts:23).
 const FRAGILE_PAINT_THRESHOLD = 0.15
+// The product's own words for a draft that ended before its values arrived
+// (canRunAnalysis.ts:115, DraftLoadingAnimation.tsx:210 @ 410fa444). Seen on the first
+// local record, 5 Oct 12:04Z, when the agent lane's last call failed: J1 must not pass then.
+const DRAFT_ENDED_EARLY = /Drafting ended before (this|your) model.s values arrived/
 // J3p ban-list (Integrator ruling §1(4)). Advisory until its base rate is measured.
 const VERDICT_WORDS = [/clearly ahead/i, /with high confidence/i, /\brecommend/i, /\byou should\b/i, /\bbest (option|choice)\b(?![^.?]*\?)/i, /\bwinner\b/i]
 
@@ -163,6 +167,14 @@ test.describe.serial('J1 · whole PoC', () => {
     await submitBrief(pageA, J1_BRIEF)
     await waitForDraftTurnComplete(pageA, { timeoutMs: 420_000 })
     assertNoReplayMiss('J1')
+    // A draft whose agent lane failed still closes its stream: read the product's verdict on it.
+    const failedLlm = ledger().filter((r) => ['upstream_error', 'rate_limited', 'refused_after_429'].includes(r.outcome))
+    expect(failedLlm.map((r) => `#${r.seq} ${r.outcome}`), '[J1] an LLM call in the draft failed at the boundary').toEqual([])
+    await openDockTab(pageA, 'Analysis')
+    // Control first: the footer that would carry the sentence has rendered, so its absence means something.
+    await expect(pageA.getByTestId('pre-analysis-v3-footer').or(pageA.getByTestId('results-analysis-footer')).first(),
+      '[J1] the Analysis footer never rendered, so the draft-ended-early check would be blind').toBeVisible({ timeout: 60_000 })
+    await expect(pageA.locator('body'), '[J1] the product says the draft ended before its values arrived').not.toContainText(DRAFT_ENDED_EARLY, { timeout: 5_000 })
 
     await expect.poll(() => scenarioIdFromUrl(pageA.url()), {
       message: '[J1] the URL never named a scenario after the draft', timeout: 60_000,
@@ -186,11 +198,14 @@ test.describe.serial('J1 · whole PoC', () => {
   })
 
   test('J2 · Run: the analysis is computed on H1 and names G1\'s options (+J2a direction, +J2b keep-list)', async () => {
-    // Before any result the run control is the pre-analysis footer ("Analyse now/anyway",
-    // StickyFooter → AnalysisFooter default testId `sticky-footer`); after an automatic first
-    // pass it is the results footer ("Rerun"). Either is the user pressing Run.
+    // Before any result the run control is the V3 pre-analysis footer (`pre-analysis-v3-analyse`,
+    // "Analyse first pass" / "Re-run analysis"; VITE_FEATURE_PRE_ANALYSIS_V3=1 on staging), or the
+    // legacy StickyFooter (`sticky-footer-action`); after a result it is the results footer
+    // ("Rerun"). Whichever shows is the user pressing Run.
     await openDockTab(pageA, 'Analysis')
-    const run = pageA.getByTestId('results-analysis-footer-action').or(pageA.getByTestId('sticky-footer-action')).first()
+    const run = pageA.getByTestId('results-analysis-footer-action')
+      .or(pageA.getByTestId('pre-analysis-v3-analyse'))
+      .or(pageA.getByTestId('sticky-footer-action')).first()
     await expect(run, '[J2] no run control on the Analysis tab after the draft').toBeVisible({ timeout: 180_000 })
     await expect(run, '[J2] the run control stayed disabled').toBeEnabled({ timeout: 180_000 })
     const runLabel = (await run.innerText()).trim()
