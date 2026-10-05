@@ -216,7 +216,9 @@ describe('one noun per idea — the option card speaks the register', () => {
     // rest must be explicitly model-relative, e.g. `Current model · 55% of runs`."
     // The register's words for this quantity are now `OPTION_RESULT_COPY`: a
     // currency caption + "N% of runs". Positive half bound to the row's own
-    // anchor/readout by test id; "Support" asserted ABSENT in any form.
+    // anchor/readout by test id. "Support" as the result LABEL is asserted ABSENT
+    // below; the verb "supported" is the ruled run-share verb (DL #87 6004906342,
+    // which supersedes the broader reading of ED 11:52Z).
     const anchor = screen.getByTestId(`option-win-anchor-${LEADER_ID}`).textContent ?? ''
     expect([OPTION_RESULT_COPY.current, OPTION_RESULT_COPY.lastRun, OPTION_RESULT_COPY.unconfirmed]).toContain(anchor)
     // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance). The prefix is its own
@@ -227,7 +229,13 @@ describe('one noun per idea — the option card speaks the register', () => {
     expect(readout).toBe(`${Math.round(WIN_LEADER * 100)}% ${OPTION_RESULT_COPY.shareUnit}`)
     expect(`${prefix} ${readout}`).toBe(OPTION_RESULT_COPY.share(`${Math.round(WIN_LEADER * 100)}%`))
     expect(spoken).toContain(`${anchor} · ${prefix} ${readout}`)
-    expect(spoken, 'the option card still speaks "Support"').not.toMatch(/\bsupport/i)
+    // ED 11:52Z point 4 retired "Support" as the result LABEL. The caption is never it, and no "Support N%" /
+    // "Support:" label form is spoken. Discriminating pair first, so the narrowed pattern cannot pass vacuously.
+    const SUPPORT_LABEL = /\bSupport(?![a-z])/
+    expect('Support 66% of runs').toMatch(SUPPORT_LABEL)
+    expect(OPTION_RESULT_COPY.share('66%')).not.toMatch(SUPPORT_LABEL)
+    expect(anchor).not.toMatch(/support/i)
+    expect(spoken, 'the option card still labels the result "Support"').not.toMatch(SUPPORT_LABEL)
     // "Leads" stays retired as a caption, which is what the register ruled.
     expect(RETIRED_METRIC_NOUNS).toContain('Leads')
   })
