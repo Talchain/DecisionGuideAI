@@ -376,7 +376,10 @@ export function stripNodeValueSignature(node: { data?: unknown } | undefined): s
   const parts: unknown[] = [inner?.label, inner?.provenance, readFactorDisplayValue(inner)]
   // `display_value` is included because `factorDisplayText` prefers it, so a
   // producer changing only that would otherwise be invisible here.
-  if (obs) parts.push(obs.value, obs.raw_value, obs.unit, obs.cap, obs.source, obs.display_value)
+  // SD-1 (Codex buddy #2543 r1 item 4): CEE's review record changes `needsCheck`, so a review-only receipt must rebuild
+  // the strip and the review tool, or a confirmed factor stays offered until something else moves.
+  if (obs) parts.push(obs.value, obs.raw_value, obs.unit, obs.cap, obs.source, obs.display_value,
+    (obs.reviewed_by_user as { intent?: unknown } | null | undefined)?.intent)
   return parts.map((v) => (v === undefined || v === null ? '' : String(v))).join(',')
 }
 

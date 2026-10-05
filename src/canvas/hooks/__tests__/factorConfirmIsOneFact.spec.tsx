@@ -26,6 +26,8 @@ import { useModelEditAuthority } from '../useModelEditAuthority'
 import { useCanvasStore } from '../../store'
 import { buildFactorValueEditEvent } from '../../conversation/factorValueEdit'
 import { factorIsConfirmable } from '../../domain/valueProvenance'
+import { stripNodeValueSignature } from '../../../components/results/analysisNew/buildModelStrip'
+import { isReviewedByUser } from '../../components/pre-analysis/utils/isReviewedByUser'
 import { setPersistenceSessionActive, __resetPersistenceSessionForTests } from '../../../lib/persistenceSession'
 import { setViewerScenario } from '../../../lib/viewerMode'
 import { __resetThinClientForTests } from '../../thinClient/thinClient'
@@ -142,5 +144,18 @@ describe("consumer: CEE's review record is what clears \"still needs a person\""
     ['a null review', { observedState: { ...CHURN, reviewed_by_user: null } }],
   ])('CONTRAST, %s: still offered', (_name, data) => {
     expect(factorIsConfirmable(data)).toBe(true)
+  })
+})
+
+describe('consumer, buddy r1: every reader of "reviewed" sees the record, and a review-only receipt rebuilds the strip', () => {
+  const AT = '2026-10-06T00:00:00.000Z'
+  const node = (observedState: Record<string, unknown>) => ({ id: FACTOR, type: 'factor', position: { x: 0, y: 0 }, data: { kind: 'factor', observedState } })
+  it('the strip signature moves on a review-only change (else the confirmed factor stays offered)', () => {
+    expect(stripNodeValueSignature(node({ ...CHURN, reviewed_by_user: { intent: 'confirm', at: AT } })))
+      .not.toBe(stripNodeValueSignature(node({ ...CHURN })))
+  })
+  it('isReviewedByUser reads the record; CONTRAST: Olumi\'s unreviewed figure is not reviewed', () => {
+    expect(isReviewedByUser(node({ ...CHURN, reviewed_by_user: { intent: 'confirm', at: AT } }) as never)).toBe(true)
+    expect(isReviewedByUser(node({ ...CHURN }) as never)).toBe(false)
   })
 })

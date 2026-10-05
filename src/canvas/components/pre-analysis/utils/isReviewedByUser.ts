@@ -118,6 +118,11 @@ export function isReviewedByUser(node: Node): boolean {
   const source =
     data?.observed_state?.source ?? data?.observedState?.source ?? data?.source
   if (isReviewedSource(source)) return true
+  // SD-1 (Codex buddy #2543 r1 item 3): CEE's record that a person reviewed this figure as it stands
+  // (`factor_value_edit` `confirm_current` → `observed_state.reviewed_by_user`, source kept). Receipt-backed like
+  // `user_set` below, so it survives a reload; the withdrawal rung above still outranks it.
+  const review = (data?.observed_state ?? data?.observedState) as { reviewed_by_user?: { intent?: unknown } | null } | undefined
+  if (review?.reviewed_by_user?.intent === 'confirm') return true
 
   // Final rung — the WIRE-CARRIED claim (L66, final-walk defect 0, P1).
   //
