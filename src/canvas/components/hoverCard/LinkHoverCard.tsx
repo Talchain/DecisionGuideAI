@@ -27,6 +27,7 @@ import { NOT_ON_RECORD } from './NodeHoverCard'
 import { StrengthBar } from './StrengthBar'
 import { BY_DEFINITION } from '../../domain/strengthDefinitional'
 import type { EdgeSizePhrase } from '../../edges/edgeSizePhrase'
+import { sizingWords } from '../../../components/results/analysisNew/runDeltaLinkWords'
 
 const DIRECTION_SOURCE_WORDS: Record<EdgeValueSource, string> = {
   user: 'Set by you',
@@ -49,7 +50,14 @@ export function linkStrengthSourceWords(
   // ⭐ Beat 1: the strength was sized from the USER's own stated figure (`EdgeSizePhrase.usersFigure`) — not Olumi's
   // estimate, and not "confirmed" either (nobody confirmed the β). Only narrows Olumi's own stamp.
   if (sizedFromUsersFigure && !settled && source === 'cee') return 'from your figure'
-  if (settled) return source === 'user' ? 'Set by you' : 'Confirmed by you'
+  if (settled) {
+    if (source === 'user') return 'Set by you'
+    // Gate 5 (DL 0df0e1 words): Olumi's own strength, settled by the person, is Olumi's estimate they ACCEPTED — in
+    // Compare's one vocabulary (`sizingWords('olumi_accepted')`: "Olumi's estimate, accepted"). A strength sized from
+    // the user's own figure is not Olumi's, so it keeps the status.
+    if (source === 'cee' && !sizedFromUsersFigure) return sizingWords('olumi_accepted') ?? 'Confirmed by you'
+    return 'Confirmed by you'
+  }
   if (source === 'cee') return 'Olumi’s estimate'
   if (source === 'template') return 'Template estimate'
   return 'Estimate'
@@ -70,6 +78,8 @@ export interface LinkHoverCardProps {
   strengthSettled: boolean
   /** The link holds by definition (`isStrengthDefinitional`): its direction and strength are arithmetic. */
   strengthDefinitional?: boolean
+  /** Gate 5: the strength was sized from the user's own stated figure (`isStrengthStated`), phrase or no phrase. */
+  strengthStated?: boolean
   placeholderSentence: string | null
   fragileSentence: string | null
   /** The link's stored size and whose it is (`edgeSizePhrase`), or null when it must not be said. */
@@ -147,6 +157,8 @@ export function LinkHoverCard(props: LinkHoverCardProps) {
                   ? BY_DEFINITION
                   // Beat 1: the size phrase speaks only when this direction agrees with the sign of the user's own
                   // amount (`naturalEffectPhrase`), so the direction is their figure's too — not Olumi's estimate.
+                  // ⛔ NOT `strengthStated` (Codex r2 P1-5): that fact is about the STRENGTH only. With a contradictory
+                  // sign the phrase refuses, and the direction is then not known to be the user's.
                   : props.size?.usersFigure === true && direction.source === 'cee'
                     ? 'from your figure'
                     : DIRECTION_SOURCE_WORDS[direction.source]
@@ -165,7 +177,7 @@ export function LinkHoverCard(props: LinkHoverCardProps) {
               <>
                 <StrengthBar magnitude={strength.value} testId="edge-hover-strength-bar" />
                 <span data-testid="edge-hover-strength-value" className="tabular-nums">{Math.abs(strength.value).toFixed(2)}</span>
-                <span className="text-text-light"> · {linkStrengthSourceWords(props.strengthSettled, strength.source, props.strengthDefinitional === true, props.size?.usersFigure === true)}</span>
+                <span className="text-text-light"> · {linkStrengthSourceWords(props.strengthSettled, strength.source, props.strengthDefinitional === true, props.size?.usersFigure === true || props.strengthStated === true)}</span>
               </>
             ) : NOT_ON_RECORD}
           </Row>
