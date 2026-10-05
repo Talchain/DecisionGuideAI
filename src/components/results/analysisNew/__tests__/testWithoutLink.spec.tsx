@@ -218,8 +218,8 @@ describe('⭐ a cold load uses the graph read\'s mode while no turn has spoken (
   }
   const holdOf = () => screen.queryByTestId('challenge-test-without-link-hold')?.getAttribute('data-hold') ?? null
   const offered = () => screen.queryByRole('button', { name: 'Test without this link' }) !== null
-  beforeEach(() => localStorage.setItem(FLAG, '1'))
-  afterEach(() => __resetBootReadAdmissionForTests())
+  beforeEach(() => { localStorage.setItem(FLAG, '1') })
+  afterEach(() => { __resetBootReadAdmissionForTests() })
 
   it('⭐ hydrate only, a mode below quantified: holds with the plain sentence (it was offered, then refused)', () => {
     coldLoad('exploratory')
