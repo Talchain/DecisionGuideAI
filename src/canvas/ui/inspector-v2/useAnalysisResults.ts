@@ -156,7 +156,13 @@ export function selectHasRenderableAnalysisResult(s: { results?: { report?: unkn
 /**
  * Did the producer WITHHOLD this report's figures, with a typed code (`GOAL_FIGURES_WITHHELD_CODES`, the one reader
  * `readGoalIdentityWithheld`)? Gate 2 consumer (DL 0df0e1, 5 Oct): the headline must not call such a Run a failure.
+ *
+ * ⛔ Only about a COMPLETED Run whose report ARRIVED with it (Codex #2494 P1): an error, a cancel, a Run in flight, or a
+ * settle that restored the earlier report (`settledWithoutNewReport`, abort or timeout) is not that Run's withhold, so
+ * it keeps today's headline and its Rerun. A report restored on reload is a completed Run's own report, so it counts.
  */
-export function selectRunWithholdsFigures(s: { results?: { report?: unknown } }): boolean {
+export function selectRunWithholdsFigures(s: { results?: { status?: unknown; settledWithoutNewReport?: unknown; report?: unknown } }): boolean {
+  const results = s.results
+  if (results?.status !== 'complete' || results.settledWithoutNewReport === true) return false
   return readGoalIdentityWithheld(selectReport(s)) !== null
 }
