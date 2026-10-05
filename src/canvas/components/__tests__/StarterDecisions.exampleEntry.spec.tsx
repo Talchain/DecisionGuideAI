@@ -35,7 +35,8 @@ describe('"Open the example decision" on the first-use gallery', () => {
     render(<StarterDecisions />)
     const b = screen.getByTestId('open-example-decision')
     expect(b).toHaveTextContent(EXAMPLE_DECISION_LABEL)
-    expect(b).toHaveTextContent('Goal: Quarterly revenue · 4 options')
+    // RT-12 (Science d1.patch, 5 Oct 2026): the example's goal node is now labelled "Grow quarterly revenue" (held sense by label).
+    expect(b).toHaveTextContent('Goal: Grow quarterly revenue · 4 options')
   })
 
   it('⛔ a signed-in session does not see it (guest mints are refused there)', () => {

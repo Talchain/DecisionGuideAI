@@ -601,7 +601,7 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
         headlineBanded: { band: 'very_close', leaderOptionId: 'opt_b', robustnessGated: false },
       },
     })))
-    expect(m.headline).toBe('No option is clearly ahead.')
+    expect(m.headline).toBe('In this model, no option is clearly most likely.')
     expect(m.subline).toBe('Compare the top options before deciding.')
   })
 
@@ -612,7 +612,7 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
         headlineBanded: { band: 'slightly_ahead', leaderOptionId: 'opt_b', robustnessGated: true },
       },
     })))
-    expect(m.headline).toBe('Upskill the team is slightly ahead.')
+    expect(m.headline).toBe('In this model, Upskill the team came out best slightly more often.')
   })
 
   it('producer band naming a DIFFERENT leader than the hero headline is not applied (identity gate → NO claim)', () => {
@@ -652,7 +652,7 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
         verdict: { leaderId: 'opt_b', separation: 'tied', hasLeadingOption: false, gapPp: 3, source: 'producer_near_tie' },
       },
     })))
-    expect(m.headline).toBe('No option is clearly ahead.')
+    expect(m.headline).toBe('In this model, no option is clearly most likely.')
   })
 
   it('SINGLE VERDICT: a clear verdict claims a leader even where the producer band said very_close', () => {

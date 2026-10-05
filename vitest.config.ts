@@ -80,6 +80,11 @@ export default defineConfig({
     passWithNoTests: true,
     // Single thread to avoid JS heap OOM locally. CI has more RAM and uses
     // sharded runners for parallelism instead.
+    // ⚠ `process.cpuUsage()` is PROCESS-wide. CI runs several worker THREADS per
+    // shard (VITEST_THREADS in staging-full-tests.yml), so a spec that measures
+    // CPU time must run in its own PROCESS or its siblings inflate the reading
+    // (src/signals/__tests__/realtime-signals.test.ts, "performance").
+    poolMatchGlobs: [['**/src/signals/__tests__/realtime-signals.test.ts', 'forks']],
     poolOptions: {
       threads: {
         maxThreads: 1,

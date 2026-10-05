@@ -8,6 +8,7 @@ import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiS
 import { canvasLinkOfTarget, useCanvasLight } from '../../graphChanges/rowCanvasLink'
 import { DetailToggleContext } from '../../components/model-tab/DetailToggleContext'
 import { CompareRunPairBody } from '../CompareRunPairBody'
+import { PANEL_RULE } from '../../../components/results/analysisNew/panelSurfaces'
 import { RUN_CHANGE_LABELS, runChangeDelta } from './__fixtures__/runChangeArtefact'
 
 vi.mock('../../graphChanges/rowCanvasLink', () => ({ canvasLinkOfTarget: vi.fn(), useCanvasLight: vi.fn() }))
@@ -38,6 +39,7 @@ function seed(delta: RunDelta = runChangeDelta()): string {
 }
 function mount(delta?: RunDelta) { return render(<CompareRunPairBody responseHash={seed(delta)} />) }
 const section = (name: string) => screen.getByRole('region', { name })
+const runTimes = () => screen.getByTestId('compare-run-times')
 
 beforeEach(() => {
   useCanvasStore.setState(original, true)
@@ -49,30 +51,30 @@ beforeEach(() => {
 afterEach(() => { cleanup(); useCanvasStore.setState(original, true); useAskOlumiStore.setState(originalAsk, true) })
 
 describe('Compare v1 anatomy and producer-only rendering', () => {
-  it('orders headline, endpoints, exact canvas-linked inputs, qualification, then Ask Olumi — one change list, not two', () => {
+  it('orders the headline (with its ✦ Ask), then the canvas-linked inputs with the reading note, then result details — one change list, not two', () => {
     const { container } = mount()
-    expect([...container.querySelectorAll('[data-compare-section]')].map(el => el.getAttribute('data-compare-section'))).toEqual([
-      'headline', 'endpoints', 'inputs', 'qualification', 'ask',
-    ])
+    expect([...container.querySelectorAll('[data-compare-section]')].map(el => el.getAttribute('data-compare-section'))).toEqual(['headline', 'inputs'])
+    expect(within(section('What changed between runs')).getByRole('button', { name: 'Ask Olumi about this comparison' })).toBeInTheDocument()
     expect(screen.getAllByTestId('analysis-new-whats-changed-input-row')).toHaveLength(1)
+    // The details row follows the inputs: the last thing in the body.
+    const details = screen.getByTestId('compare-result-details')
+    expect(section('What you changed').compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('reads each section from the licensed producer pair and ignores current graph values and unrelated result prose', () => {
     const delta = runChangeDelta({ leader: { changed: true, prior_leading_option_id: 'opt_49', current_leading_option_id: 'opt_60', noise_verdict: 'signal' } })
     const { container } = mount(delta)
-    expect(section('What changed between runs')).toHaveTextContent('The option put forward changed')
-    const endpoints = section('Previous and latest runs')
+    // Both leaders are named from the producer's own ids, once, in the headline.
+    expect(screen.getByRole('heading', { name: 'In this model, the option that came out best changed from Keep £49 to Raise to £60' })).toBeInTheDocument()
     // Plain words: a run's raw identity is bound by data-run-id, never shown as text.
-    expect(endpoints).not.toHaveTextContent('run-a')
-    expect(endpoints).not.toHaveTextContent('run-b')
-    expect(endpoints).toHaveTextContent('Keep £49 · put forward by this run')
-    expect(endpoints).toHaveTextContent('Raise to £60 · put forward by this run')
-    expect(within(endpoints).getByText('Previous run').parentElement).toHaveAttribute('data-run-id', 'run-a')
-    expect(within(endpoints).getByText('Latest run').parentElement).toHaveAttribute('data-run-id', 'run-b')
-    expect([...endpoints.querySelectorAll('time')].map(t => t.getAttribute('datetime'))).toEqual([delta.endpoints!.prior.computed_at, delta.endpoints!.current.computed_at])
+    expect(runTimes()).not.toHaveTextContent('run-a')
+    expect(runTimes()).not.toHaveTextContent('run-b')
+    expect(runTimes().querySelector('[data-run-id="run-a"]')).toHaveTextContent('Previous run')
+    expect(runTimes().querySelector('[data-run-id="run-b"]')).toHaveTextContent('Latest run')
+    expect([...runTimes().querySelectorAll('time')].map(t => t.getAttribute('datetime'))).toEqual([delta.endpoints!.prior.computed_at, delta.endpoints!.current.computed_at])
     expect(section('What you changed')).toHaveTextContent('Pro price, Raise to £60')
     expect(section('What you changed')).toHaveTextContent('£59 → £60')
-    expect(section('How to read this comparison')).toHaveTextContent('Whether a change to the model explains anything below cannot be established from this pair.')
+    expect(screen.getByTestId('compare-comparability')).toHaveTextContent('Whether a change to the model explains anything below cannot be established from this pair.')
     expect(container.textContent).not.toMatch(/POISON|999999/)
     expect(globalThis.fetch).not.toHaveBeenCalled()
   })
@@ -80,11 +82,12 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
   it('states withheld-before to caveated-leader-after from independent producer IDs without claiming a switch', () => {
     mount(runChangeDelta({ leader: { changed: false, current_leading_option_id: 'opt_60', noise_verdict: 'not_noise_qualified' }, win_probabilities: [], win_probabilities_unavailable: 'prior_withheld' }))
     const hero = section('What changed between runs')
-    expect(hero).toHaveTextContent('The latest run puts forward Raise to £60; the previous run did not put one forward')
+    expect(hero).toHaveTextContent('In this model, Raise to £60 came out best on the latest run; the previous run named no option')
     expect(hero).toHaveTextContent('This pair gives no basis for saying whether that is a real difference.')
     expect(hero).not.toHaveTextContent('changed')
-    expect(section('Previous and latest runs')).toHaveTextContent('No option put forward')
-    expect(section('How to read this comparison')).toHaveTextContent('The options can be compared for the first time.')
+    // No pair of figures: the producer's reason stands in the figures' place, and no details row promises figures.
+    expect(hero).toHaveTextContent('The options can be compared for the first time.')
+    expect(screen.queryByTestId('compare-result-details')).toBeNull()
   })
 
   it('renders a producer near tie as too close to call, never a named latest leader', () => {
@@ -92,10 +95,13 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     const results = useCanvasStore.getState().results
     useCanvasStore.setState({ results: { ...results, report: { ...results.report!, robustness: { near_tie: { is_tie: true, top_option_id: 'opt_49' } } } } } as never)
     render(<CompareRunPairBody responseHash={hash} />)
-    expect(section('What changed between runs')).toHaveTextContent('Too close to call')
-    const latest = within(section('Previous and latest runs')).getByText('Latest run').parentElement!
-    expect(latest).toHaveTextContent('Too close to call')
-    expect(latest).not.toHaveTextContent('put forward by this run')
+    expect(screen.getByRole('heading', { name: 'Too close to call in this model' })).toBeInTheDocument()
+    // A near tie names no leader anywhere in the headline section.
+    expect(section('What changed between runs')).not.toHaveTextContent('still the option put forward')
+    expect(section('What changed between runs')).not.toHaveTextContent('put forward Keep £49')
+    // Union, never replace: the model-relative words that replaced them (principle audit, 5 Oct).
+    expect(section('What changed between runs')).not.toHaveTextContent('Keep £49 still came out best')
+    expect(section('What changed between runs')).not.toHaveTextContent('came out best')
   })
 
 
@@ -108,7 +114,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     report.producer_leader_permission = { permitted: true }
     useCanvasStore.setState({ results: { ...useCanvasStore.getState().results, report, hash } })
     render(<CompareRunPairBody responseHash={hash} />)
-    expect(section('What changed between runs')).toHaveTextContent('Too close to call')
+    expect(section('What changed between runs')).toHaveTextContent('Too close to call in this model')
   })
 
   it('withheld result permission hides named endpoints and every science share even on disclosure', () => {
@@ -116,27 +122,34 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     const results = useCanvasStore.getState().results
     useCanvasStore.setState({ results: { ...results, report: { ...results.report!, producer_leader_permission: { permitted: false, producer_cause: 'constraint_verdict_withheld' } } } })
     render(<CompareRunPairBody responseHash={hash} />)
-    expect(within(section('Previous and latest runs')).getAllByText('Option put forward not shown')).toHaveLength(2)
-    expect(section('Previous and latest runs')).not.toHaveTextContent('put forward by this run')
-    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.getByTestId('compare-result-details-region')).not.toHaveTextContent('%')
+    expect(screen.getByRole('heading', { name: 'Result comparison not shown' })).toBeInTheDocument()
+    // No option is named and no share is reachable: there is no details row to open.
+    expect(screen.queryByText(/Keep £49|Raise to £60 is|put forward|came out best/)).toBeNull()
+    expect(screen.queryByTestId('compare-result-details')).toBeNull()
+    expect(screen.queryByText(/%/)).toBeNull()
     expect(section('What you changed')).toHaveTextContent('£59 → £60')
   })
 
   it('never upgrades within-noise movement into an option tie', () => {
     mount(runChangeDelta({ leader: { changed: true, prior_leading_option_id: 'opt_49', current_leading_option_id: 'opt_60', noise_verdict: 'within_noise' } }))
-    expect(section('What changed between runs')).toHaveTextContent('The option put forward changed')
+    expect(section('What changed between runs')).toHaveTextContent('In this model, the option that came out best changed from Keep £49 to Raise to £60')
     expect(section('What changed between runs')).toHaveTextContent('Too small to tell apart from ordinary run-to-run movement.')
-    expect(screen.queryByText('Too close to call')).toBeNull()
+    // Union, never replace: a regex, so neither the old nor the model-relative near-tie words slip through.
+    expect(screen.queryByText(/too close to call/i)).toBeNull()
+  })
+
+  it('says an unchanged option as what came out best in this model, never as one a run puts forward', () => {
+    mount(runChangeDelta({ leader: { changed: false, prior_leading_option_id: 'opt_49', current_leading_option_id: 'opt_49', noise_verdict: 'signal' } }))
+    expect(screen.getByRole('heading', { name: 'In this model, Keep £49 still came out best' })).toBeInTheDocument()
+    expect(section('What changed between runs')).not.toHaveTextContent('put forward')
   })
 
   it('renders missing endpoints, inputs and leader claims as absence, never a probability-based substitute', () => {
     mount(runChangeDelta({ endpoints: undefined, input_changes: undefined, input_coverage: undefined }))
-    expect(within(section('Previous and latest runs')).getAllByText('Run time not recorded')).toHaveLength(2)
+    expect(runTimes()).toHaveTextContent('Previous run time not recorded · Latest run time not recorded')
     expect(section('What you changed')).toHaveTextContent('Input changes were not recorded for this pair.')
-    expect(section('Result comparison')).toHaveTextContent('The latest run does not put an option forward')
-    expect(screen.getByRole('heading', { name: 'The latest run does not put an option forward' })).toBeInTheDocument()
-    expect(section('Previous and latest runs')).not.toHaveTextContent('put forward by this run')
+    expect(section('Result comparison')).toHaveTextContent('The latest run names no option')
+    expect(screen.getByRole('heading', { name: 'The latest run names no option' })).toBeInTheDocument()
     expect(screen.queryByText('Both runs used the same input values.')).toBeNull()
     expect(screen.queryByText('0%')).toBeNull()
   })
@@ -200,7 +213,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     mount(runChangeDelta({ input_changes: [delta.input_changes![0], { ...delta.input_changes![0], option_id: 'opt_49' }, { ...delta.input_changes![0], entity_id: 'other', label_after: 'Another input', option_id: 'opt_49' }] }))
     expect(within(section('What you changed')).queryByText(/Another input/)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'See all 3 changes' }))
-    expect(within(section('What you changed')).getByText('Another input, Keep £49')).toBeInTheDocument()
+    expect(within(section('What you changed')).getByText(/^Another input, Keep £49: /)).toBeInTheDocument()
     expect(within(section('What you changed')).getAllByTestId('analysis-new-whats-changed-input-row')).toHaveLength(3)
   })
 
@@ -220,28 +233,30 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
 
   it('shows science input bands in plain words and never fabricates an exact value absent from the wire', () => {
     mount(runChangeDelta({ input_changes: [{ entity_kind: 'link', entity_id: 'opaque-link', field: 'strength', link: { from: 'fac_price', to: 'opt_60' }, before: { raw: 'moderate' }, after: { raw: 'strong' }, change: 'changed' }] }))
+    // The shared link wording (`linkRowText`), the same sentence every surface prints.
     expect(section('What you changed')).toHaveTextContent('moderate → strong')
-    // The band steps are the visual indicator: previous outlined, latest filled, never a number.
-    const steps = within(section('What you changed')).getByTestId('compare-strength-steps')
-    expect(steps.querySelector('[data-band="strong"]')!.className).toContain('bg-info')
-    expect(steps.querySelector('[data-band="moderate"]')!.className).toContain('border-text-light')
     expect(section('What you changed')).not.toHaveTextContent('0.5')
     fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
     expect(screen.getByTestId('compare-result-details-region')).not.toHaveTextContent('0.5')
   })
 
-  it('retains neutral Reasoning surfaces, panel typography and the existing SectionShell', () => {
-    const { container } = mount()
-    for (const el of container.querySelectorAll('[data-compare-section]')) {
-      expect(el.className).toBe('border-b py-3 border-panel-border')
-    }
+  it('is built from Reasoning\'s own parts: its measure, its rule, its heading row, its disclose row', () => {
+    mount()
+    // Reasoning's inner measure (AnalysisNewTabBody), owned by the body (`padding: 'self'`).
+    expect(screen.getByTestId('compare-run-pair').className).toBe('px-4 pt-2 pb-4 space-y-4 max-w-[440px] mx-auto')
+    // Sections are divided by the shared full-width rule, never boxed.
+    expect(section('What you changed').className).toBe(PANEL_RULE)
+    // The one headline uses Reasoning's section heading style; it is the only heading in the body.
+    const heading = screen.getByRole('heading', { name: 'The latest run names no option' })
+    expect(heading.className).toContain('text-sm font-medium')
+    expect(heading.className).toContain('text-text-header')
+    expect(screen.getAllByRole('heading')).toHaveLength(1)
+    // CommitmentSummary's ✦: the shared PanelIconButton carrying the Olumi AI mark, beside the headline.
+    const ask = screen.getByRole('button', { name: 'Ask Olumi about this comparison' })
+    expect(ask).toHaveAttribute('data-ai', 'true')
+    expect(heading.parentElement).toContainElement(ask)
+    // The exact shares sit behind SectionShell's `disclose` row, closed by default.
     expect(screen.getByTestId('compare-result-details')).toHaveAttribute('data-section-open', 'false')
-    expect(screen.getByRole('heading', { name: 'The latest run does not put an option forward' }).className).toContain('text-sm font-medium')
-    // Section labels sit at the meta scale so the result headline is the only 14px line.
-    expect(screen.getByRole('heading', { name: 'What you changed' }).className).toContain('text-[11px]')
-    expect(screen.getByRole('heading', { name: 'How to read this comparison' }).className).toContain('text-[11px]')
-    // The AI-triggering action carries the Olumi AI mark at row-icon size.
-    expect(screen.getByRole('button', { name: 'Ask Olumi about this comparison' }).querySelector('svg[data-icon="olumi-ai"]')).toHaveClass('w-3.5', 'h-3.5')
   })
 
   it('also respects advanced mode through the shared science gate', () => {

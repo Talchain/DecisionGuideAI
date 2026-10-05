@@ -36,7 +36,7 @@ import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../.
 // block beside it: that directory is the whole-turn live-capture corpus.
 import capture from './fixtures/openai-06325c6-pricing-explicit-run.analysis-block.json'
 
-const MODERATE = "This result appears to hold, though there's meaningful uncertainty in the estimate."
+const MODERATE = "Under this model's assumptions, the result held in many simulated futures, with meaningful uncertainty."
 const COPY_ID = 'v5-analysis-result-uncertainty-copy'
 const RAISE_59 = 'raise_pro_to_59'
 const KEEP_49 = 'keep_pro_at_49'

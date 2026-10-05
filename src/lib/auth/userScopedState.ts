@@ -11,6 +11,7 @@ import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { useServerConversationTurnsStore } from '../../canvas/stores/serverConversationTurnsStore'
 import { clearCitedEvidenceCache } from '../../collab/citedEvidenceCache'
 import { clearRoundRosterCache } from '../../collab/roundRosterCache'
+import { noteIdentityBoundary, SIGNED_IN_HERE_KEY } from './lapseBoundary'
 
 /** All browser state that belongs to an authenticated user's reasoning work. */
 export const USER_SCOPED_STORAGE_KEYS = [
@@ -27,6 +28,8 @@ export const USER_SCOPED_STORAGE_KEYS = [
   // Run history (`runHistory.ts`): whole reports and graph snapshots with no owner. Nothing writes it on the live path,
   // but entries from the retired Play path are still read by the palette, ShareDrawer and ReactFlowGraph's restore.
   'olumi-canvas-run-history',
+  // "This browser was signed in" (`lapseBoundary.ts`): the boundary has now run, so the next guest boot is not a lapse.
+  SIGNED_IN_HERE_KEY,
 ] as const
 
 // `olumi-canvas-autosave:` — a cold-load deep link's preserved copies (`scenarios.keyedAutosaveKey`): one per scenario,
@@ -35,9 +38,11 @@ export const USER_SCOPED_STORAGE_KEYS = [
 // graphs with labels, listed with no owner check (`persist.listSnapshots`), so the next account could restore one.
 // `olumi.collab.pending-apply.` / `olumi.collab.open-round.` — a Panel round's pending model change and its participants,
 // one per scenario (`collab/panelApplyHandoff.ts`, `collab/openRoundRecord.ts`).
+// `olumi-thin-layout:` — a signed-in browser's layout, one per scenario (`thinClient.LAYOUT_KEY_PREFIX`): positions only,
+// but keyed by node ids, and CEE derives node ids from labels (Acceptance, #2511 witness W2), so it names the model.
 export const USER_SCOPED_STORAGE_PREFIXES = [
   'olumi.dissent.v2.', 'olumi.dissent.', 'olumi-canvas-autosave:', 'canvas-snapshot-',
-  'olumi.collab.pending-apply.', 'olumi.collab.open-round.',
+  'olumi.collab.pending-apply.', 'olumi.collab.open-round.', 'olumi-thin-layout:',
 ] as const
 
 /** Per-tab user work in sessionStorage: the analysis-ready mirror and the coaching blob (`guidanceStore.ts`). */
@@ -104,4 +109,6 @@ export function clearUserScopedState(): void {
   } catch { /* browser storage can be unavailable */ }
   for (const key of prefixed) remove(() => localStorage, key)
   for (const key of USER_SCOPED_SESSION_KEYS) remove(() => sessionStorage, key)
+  // The sweep removed `SIGNED_IN_HERE_KEY`: the next signed-in moment on this page records it again (`lapseBoundary.ts`).
+  step(noteIdentityBoundary)
 }

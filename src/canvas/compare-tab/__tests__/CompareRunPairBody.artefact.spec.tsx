@@ -74,13 +74,14 @@ describe('the artefact mounted in the existing Compare body', () => {
     const row = within(screen.getByRole('region', { name: 'What you changed' })).getByTestId(`${WHATS_CHANGED_TESTID}-input-row`)
     expect(row).toHaveTextContent('Pro price, Raise to £60')
     expect(row).toHaveTextContent('£59 → £60')
-    expect(row).toHaveAttribute('data-wire-fields', expect.stringContaining('run_delta.input_changes[].before'))
+    // Reasoning's shared row; the wire fields it renders are named once, on its section.
+    expect(row.closest('[data-wire-fields]')).toHaveAttribute('data-wire-fields', expect.stringContaining('run_delta.input_changes[].before'))
     expect(screen.queryByText('Raise to £60: 41% → 44% chance of leading.')).toBeNull()
     fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
     expect(screen.getByText('Raise to £60: 41% → 44% chance of leading.')).toHaveAttribute(
       'data-wire-fields', expect.stringContaining('run_delta.win_probabilities[].current'),
     )
-    expect(screen.getByRole('region', { name: 'How to read this comparison' })).toHaveTextContent('Whether a change to the model explains anything below cannot be established from this pair.')
+    expect(screen.getByTestId('compare-comparability')).toHaveTextContent('Whether a change to the model explains anything below cannot be established from this pair.')
     expect(artefact).not.toHaveTextContent('Price is an influential input on this run.')
     expect(screen.getByTestId(WHATS_CHANGED_TESTID)).toBeInTheDocument()
     expect(globalThis.fetch).not.toHaveBeenCalled()

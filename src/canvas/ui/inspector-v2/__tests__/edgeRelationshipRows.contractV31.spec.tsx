@@ -69,14 +69,18 @@ describe('v3.1 row 12 — the edge inspector states Direction / Stroke width / E
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
     expect(valueOf('direction')).toBe('Not set yet')
     expect(valueOf('stroke-width')).toBe('Strength not set yet')
-    expect(valueOf('existence')).toBe('No dashed exception shown')
+    // ⛔ RE-PINNED 5 Oct 2026 (gate 5 item 3b, DL 0df0e1): with no stated doubt there is no Existence row at all
+    // (it used to say "No dashed exception shown"). The other two rows are still there (positive control).
+    expect(screen.queryByTestId('edge-detail-existence')).toBeNull()
+    expect(screen.getByTestId('edge-detail-rows').textContent).not.toContain('No dashed exception shown')
   })
 
   it('a negative stated direction, and a stated likelihood at or above the cut, draw solid', () => {
     seed({ ...STATED, direction: 'negative', beliefExists: 0.9 })
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
     expect(valueOf('direction')).toBe('Negative (−)')
-    expect(valueOf('existence')).toBe('No dashed exception shown')
+    // Gate 5 item 3b: a stated likelihood at or above the cut is not a doubt → no Existence row.
+    expect(screen.queryByTestId('edge-detail-existence')).toBeNull()
   })
 
   it('a sign disputed by Olumi\'s review is never stated as a direction', () => {

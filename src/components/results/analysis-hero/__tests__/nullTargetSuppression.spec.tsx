@@ -117,7 +117,7 @@ describe('buildHeroModel — null-target suppression (model truth)', () => {
     const m = chart(buildHeroModel(makeHeroData()))
     expect(m.lenses).toEqual(['goal', 'outcome'])
     expect(m.defaultLens).toBe('goal')
-    expect(m.headline).toBe('Upskill the team meets every target this run scored in the most model runs (49%).')
+    expect(m.headline).toBe('In this model, Upskill the team meets every target this run scored in the most model runs (49%).')
     expect(m.leaders.goal).toBe('opt_b')
     expect(m.rows[0].goal.value).toBe(OPTION_A.goalProbability)
     expect(m.rows[0].goal.readout).toBe('34%')
@@ -177,7 +177,7 @@ describe('AnalysisHeroPanel — null-target suppression (rendered)', () => {
     // the value-based caption.
     renderPanel(chart(buildHeroModel(makeHeroData())))
     expect(screen.getByTestId('hero-headline')).toHaveTextContent(
-      'Upskill the team meets every target this run scored in the most model runs (49%).',
+      'In this model, Upskill the team meets every target this run scored in the most model runs (49%).',
     )
     expect(within(screen.getByTestId('hero-option-row-1')).getByText('34%')).toBeInTheDocument()
     expect(screen.getByTestId('hero-caption')).toHaveTextContent(

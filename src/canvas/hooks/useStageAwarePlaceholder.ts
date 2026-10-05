@@ -5,6 +5,7 @@
 // put it there.
 import { useConversationStage } from './useConversationStage'
 import { useCanvasStore } from '../store'
+import { useAnalysisStaleReasonWords } from './useAnalysisStaleReasonWords'
 import { useReadinessStore } from '../stores/readinessStore'
 import { selectAnalysisReadinessAuthority } from '../state/analysisStateSelector'
 import { selectBoundMayRun } from './useAnalysisReady'
@@ -19,6 +20,15 @@ export const PLACEHOLDER_CHANGED_RUNNABLE = 'Model changed. Ask or rerun…'
  * "Ask or rerun…" — an invitation the product would refuse.
  */
 export const PLACEHOLDER_CHANGED_BLOCKED = 'Model changed. Ask what it needs before a rerun…'
+/**
+ * RT-10 B′: the 'changed' rung when the model did NOT change: the saved Run is out of date for CEE's stated reason
+ * (`selectAnalysisStaleReasonWords`, e.g. "which way counts as better for your goal changed"). Same two endings.
+ */
+export function outOfDatePlaceholder(words: string, gateObjects: boolean): string {
+  return gateObjects
+    ? `Out of date: ${words}. Ask what it needs before a rerun…`
+    : `Out of date: ${words}. Ask or rerun…`
+}
 
 /**
  * Does the Run gate object right now? The SAME predicate and the SAME three
@@ -74,8 +84,11 @@ function useRunGateObjects(): boolean {
 export function useStageAwarePlaceholder(): string {
   const stage = useConversationStage()
   const gateObjects = useRunGateObjects()
+  const staleWords = useAnalysisStaleReasonWords()
 
   if (stage === 'changed') {
+    // RT-10 B′: when the MODEL DID NOT CHANGE (a hash-equal stale), "Model changed" is false; say CEE's reason instead.
+    if (staleWords !== null) return outOfDatePlaceholder(staleWords, gateObjects)
     return gateObjects ? PLACEHOLDER_CHANGED_BLOCKED : PLACEHOLDER_CHANGED_RUNNABLE
   }
   if (stage === 'current') {

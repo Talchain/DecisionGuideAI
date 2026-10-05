@@ -34,7 +34,8 @@
 import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { useAuth } from '../../contexts/AuthContext'
-import { hydrateCanvasFromServer } from '../hydrate/serverGraphHydration'
+import { hydrateCanvasFromServer, type HydrationOutcome } from '../hydrate/serverGraphHydration'
+import { setCurrentScenarioId } from '../store/scenarios'
 import {
   beginBootGraphRead,
   isCeeAddressableScenarioId,
@@ -44,10 +45,11 @@ import {
   runAbsentGraphRetrySchedule,
   waitForRetry,
 } from '../hydrate/absentGraphRetry'
-import { useServerGraphRetryStore } from '../stores/serverGraphRetryStore'
+import { isServerGraphTerminalReason, useServerGraphRetryStore } from '../stores/serverGraphRetryStore'
 import { coldLoadClaimedRoute } from '../hydrate/coldLoadDeepLink'
 import { logger } from '../../lib/logger'
 import { getSessionIdentity } from '../../lib/supabase'
+import { isThinClientSession } from '../thinClient/thinClient'
 
 /**
  * The scenario id this hook last ADOPTED from a route (see the adoption effect). Module-level, not a ref: a remounted
@@ -67,6 +69,9 @@ export function __resetRouteAdoptedScenarioForTests(): void {
  */
 function routeIsAdoptable(route: string | null | undefined, held: string | null): boolean {
   if (!route || !isCeeAddressableScenarioId(route)) return false
+  // THIN CLIENT: the route IS the scenario. No local copy of another scenario can be on screen for long:
+  // `useScenario.loadScenario` clears it when the route changes (same-tab A → B), and this read then fills B from CEE.
+  if (isThinClientSession()) return true
   return held === null || held === route || held === routeAdoptedScenarioId || held === coldLoadClaimedRoute()
 }
 
@@ -77,6 +82,9 @@ function routeIsAdoptable(route: string | null | undefined, held: string | null)
  * `readEpoch` (default ''): part of the once-per-scenario guard's key. A new epoch for the same scenario is a new read
  * (`bootServerReadEpoch`: one more read after a late signed-in Supabase load wiped the restored identity).
  */
+/** The outcomes in which CEE served this scenario to this account: a graph, an unchanged token, or an empty scenario. */
+export const CEE_ADMITTED_READS: ReadonlySet<HydrationOutcome> = new Set<HydrationOutcome>(['merged', 'unchanged', 'absent', 'mergeRefused'])
+
 export function useServerGraphHydration(
   scenarioIdFromRoute?: string | null,
   opts?: { enabled?: boolean; readEpoch?: string },
@@ -111,7 +119,8 @@ export function useServerGraphHydration(
   // ⚠ STORE ONLY, NEVER THE POINTER: the route already says which scenario a reload means, and a pointer written here
   // would seed the NEXT session's store, so a later link to another scenario would be ignored. (A browser that
   // REMEMBERS another scenario is a different case, handled before this hook: `claimColdLoadDeepLink` does write the
-  // pointer, because there the autosave would otherwise be stamped with an id the pointer contradicts.)
+  // pointer, because there the autosave would otherwise be stamped with an id the pointer contradicts. A signed-in page
+  // has no autosave to stamp, so there it writes nothing either.)
   // ⚠ AND AN EMPTY CANVAS, NOT JUST A NULL ID (CODEX UI BUDDY #2383 5923937552): a guest's unsaved draft has nodes and
   // no id. Adopting the link there would point the draft's next turn at the linked model while the read (refused, zero
   // overlap) leaves the draft on screen. With anything on the canvas, today's behaviour stands.
@@ -181,11 +190,28 @@ export function useServerGraphHydration(
         })
         logger.debug('server_graph_hydration.outcome', { scenarioId, outcome })
 
+        // THIN CLIENT (J9; Codex, #2529 r1): a signed-in page's pointer names a scenario once CEE has ADMITTED its read:
+        // never at the deep-link claim (a refused link must leave no trace), and not only when the browser's own row
+        // arrives (a slow or failed row read would leave a routeless reload on the previous scenario). Only while the
+        // store still names this scenario: a user who has moved on is never pulled back.
+        if (!controller.signal.aborted && isThinClientSession() && CEE_ADMITTED_READS.has(outcome)
+          && useCanvasStore.getState().currentScenarioId === scenarioId) {
+          setCurrentScenarioId(scenarioId)
+        }
+
         // ── THE RETURNING-GUEST WINDOW ────────────────────────────────────
         // `absent` alone means "exists, no graph YET". Everything else is a
         // settled answer and returns here unchanged, having cost exactly one
         // request — which is what keeps the 404 path byte-identical.
-        if (outcome !== 'absent') return
+        if (outcome !== 'absent') {
+          // THIN CLIENT (GAP-1): a signed-in page has no local model behind the empty canvas, so a read that ENDED
+          // without one must say so (`ServerGraphRetryNotice`), never leave the canvas silently empty. Guests keep
+          // their local copy and today's behaviour.
+          if (!controller.signal.aborted && isThinClientSession() && isServerGraphTerminalReason(outcome)) {
+            useServerGraphRetryStore.getState().setTerminal({ scenarioId, reason: outcome })
+          }
+          return
+        }
 
         const retry = await runAbsentGraphRetrySchedule({
           scenarioId,
@@ -193,6 +219,7 @@ export function useServerGraphHydration(
           accessToken: identity.accessToken,
           signal: controller.signal,
           hydrate: hydrateCanvasFromServer,
+          includeConversationTurns: true,
           wait: waitForRetry,
           // The stage is keyed by scenario, so a late write cannot describe a
           // decision the user has since left (`serverGraphRetryStore` header).

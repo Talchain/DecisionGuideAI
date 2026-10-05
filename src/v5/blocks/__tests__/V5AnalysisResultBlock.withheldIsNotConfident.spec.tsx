@@ -25,7 +25,7 @@ import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../.
 
 const RAISE = 'Raise Pro to £59'
 const HOLD = 'Hold Pro at £49'
-const CONFIDENT = 'This result looks fairly confident.'
+const CONFIDENT = "Under this model's assumptions, the result held in most simulated futures. It is only as sound as the inputs it rests on."
 const COPY_ID = 'v5-analysis-result-uncertainty-copy'
 
 type NearTie = Record<string, unknown>
@@ -119,6 +119,6 @@ describe('the confident tier needs a licensed leader', () => {
 
   it('CONTRAST: a permitted run with a moderate band still says it appears to hold', () => {
     render(<V5AnalysisResultBlock block={block({ leadingOptionId: 'opt_raise', nearTie: permitting(), robustnessLevel: 'moderate' })} />)
-    expect(screen.getByTestId(COPY_ID).textContent ?? '').toMatch(/^This result appears to hold/)
+    expect(screen.getByTestId(COPY_ID).textContent ?? '').toMatch(/^Under this model's assumptions, the result held in many simulated futures/)
   })
 })

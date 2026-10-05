@@ -7,12 +7,14 @@
  * builder of the restored thread. It is pure: no store, no fetch.
  *
  *   · History reads as history: the restored turns sit under ONE divider, "Earlier in this conversation".
- *   · Cards are inert by construction: the carrier holds text only, so no chip or block is ever rebuilt.
+ *   · Text history is inert unless the separate held-offer sidecar attests an executable original approve/amend pair.
  *   · Stale figures are marked (AIQ row 2), keyed on the SAME read the Goal panel uses: when the read says the Run is
  *     not current, every restored figure-bearing reply carries the line; otherwise only replies written before the
  *     current Run was computed.
  *   · A refused or absent field restores nothing (the local transcript, when present, is the caller's first choice).
  */
+import { ActionSchema } from '@talchain/schemas/boundary'
+import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
 import type { ConversationMessage } from './types'
 
 export const CONVERSATION_TURNS_READ_KEY = 'conversation_turns' as const
@@ -73,6 +75,7 @@ export interface RestoreRunContext {
 export function buildRestoredThread(
   turns: readonly ServerConversationTurn[],
   run: RestoreRunContext,
+  heldProposalOffers?: unknown,
 ): ConversationMessage[] {
   if (turns.length === 0) return []
   const runAt = run.currentRunComputedAt !== null ? Date.parse(run.currentRunComputedAt) : Number.NaN
@@ -107,5 +110,76 @@ export function buildRestoredThread(
     const last = out[lastEarlierReply]
     out[lastEarlierReply] = { ...last, content: `${last.content}\n\n${RESTORED_STALE_FIGURES_NOTE}` }
   }
+  return reconcileRestoredHeldControls(out, heldProposalOffers, true)
+}
+
+
+export interface ServerHeldProposalOffer {
+  readonly turnId: string
+  readonly proposalId: string
+  readonly actions: Parameters<typeof buildSuggestedActionChips>[1]
+}
+
+/** The only held-offer reader. Both exact identities and the pinned ActionSchema must validate; no partial pair. */
+export function readServerHeldProposalOffers(raw: unknown): readonly ServerHeldProposalOffer[] {
+  if (!Array.isArray(raw)) return []
+  const out: ServerHeldProposalOffer[] = []
+  for (const entry of raw) {
+    if (entry === null || typeof entry !== 'object') continue
+    const row = entry as Record<string, unknown>
+    if (typeof row.turn_id !== 'string' || row.turn_id.length === 0 || typeof row.proposal_id !== 'string'
+      || !/^prop_[0-9a-f]{32}$/.test(row.proposal_id) || !Array.isArray(row.suggested_actions) || row.suggested_actions.length !== 2) continue
+    const parsed = row.suggested_actions.map(action => ActionSchema.safeParse(action))
+    if (!parsed.every(p => p.success)) continue
+    const actions = parsed.flatMap(p => p.success ? [p.data] : [])
+    if (actions[0].id !== `agent-approve-proposal:${row.proposal_id}` || actions[1].id !== 'agent-amend-proposal') continue
+    out.push({ turnId: row.turn_id, proposalId: row.proposal_id, actions })
+  }
   return out
+}
+
+/**
+ * Local history keeps its words. ONLY this fresh server sidecar rebuilds restored approve/amend controls.
+ * The saved proposal/turn association locates a card, never authorises it. No match or unreadable/absent sidecar → inert.
+ * Replies without a held association or a restored-server id are left untouched by a late read.
+ */
+export function reconcileRestoredHeldControls(
+  messages: readonly ConversationMessage[],
+  rawOffers: unknown,
+  freshlyBuiltServerHistory = false,
+): ConversationMessage[] {
+  const offers = readServerHeldProposalOffers(rawOffers)
+  const used = new Set<string>()
+  // Fresh history has no saved proposal association: a repeated turn cannot locate an unambiguous reply.
+  const serverReplyCounts = new Map<string, number>()
+  if (freshlyBuiltServerHistory) {
+    for (const message of messages) {
+      if (message.role !== 'assistant' || message.sessionDivider || message.synthetic
+        || !message.id.startsWith('restored-assistant-')) continue
+      const turnId = message.id.slice('restored-assistant-'.length)
+      serverReplyCounts.set(turnId, (serverReplyCounts.get(turnId) ?? 0) + 1)
+    }
+  }
+  // The latest eligible local reply owns a duplicate exact pair; keep display order unchanged.
+  return [...messages].reverse().map(message => {
+    if (message.role !== 'assistant' || message.sessionDivider || message.synthetic) return message
+    const hasServerPrefix = message.id.startsWith('restored-assistant-')
+    // Only the builder above knows that this id came from THIS read's turn_id.
+    // A persisted prefix is not a saved (turn_id, proposal_id) association.
+    const serverTurnId = freshlyBuiltServerHistory && hasServerPrefix
+      ? message.id.slice('restored-assistant-'.length) : undefined
+    if (message.heldProposalId === undefined && !hasServerPrefix) return message
+    const turnId = message.heldTurnId ?? serverTurnId
+    const offer = offers.find(o => !used.has(o.proposalId)
+      && turnId !== undefined && o.turnId === turnId
+      && (serverTurnId === undefined || serverReplyCounts.get(serverTurnId) === 1)
+      && (o.proposalId === message.heldProposalId
+        || (serverTurnId !== undefined && message.heldProposalId === undefined)))
+    // Drop any prior restored controls before adopting the fresh authority; saved chips never participate.
+    const { actionChips: _oldChips, ...rest } = message
+    if (offer === undefined) return rest
+    used.add(offer.proposalId)
+    return { ...rest, heldProposalId: offer.proposalId, heldTurnId: offer.turnId,
+      actionChips: buildSuggestedActionChips([], offer.actions) }
+  }).reverse()
 }

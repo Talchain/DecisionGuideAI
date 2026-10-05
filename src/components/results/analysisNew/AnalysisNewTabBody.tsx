@@ -2244,6 +2244,21 @@ export function AnalysisNewTabBody({
             So the thresholds are passed only when the claim is permitted. */}
         {!isPreRun && !isBusyNow && runAffirmedCurrent && sendScienceChip ? (
           <div className="flex flex-wrap gap-2">
+            {/* A4 slice 1: CEE's "Review this decision" press (`agent-next-review-decision`, decision-review-press.ts).
+                CEE lists what to check before relying on this Run, each item a typed fact with its existing next step,
+                and calls no model; the tab sends the press and decides nothing. */}
+            <button
+              type="button"
+              className={`${typography.panelBody} ${action('secondary')}`}
+              data-testid="analysis-review-decision"
+              onClick={() => sendScienceChip(
+                'Review this decision',
+                'Review this decision',
+                { id: 'agent-next-review-decision' },
+              )}
+            >
+              Review this decision
+            </button>
             <button
               type="button"
               className={`${typography.panelBody} ${action('secondary')}`}

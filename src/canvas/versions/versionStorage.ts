@@ -27,6 +27,7 @@
 import type { StorageResult, VersionedPayload } from '../persist/types'
 import { StorageErrorType } from '../persist/types'
 import type { ModelVersion } from './types'
+import { isThinClientSession } from '../thinClient/thinClient'
 
 export const VERSIONS_STORAGE_KEY = 'olumi-canvas-model-versions-v1'
 export const VERSIONS_SCHEMA = 'canvas.versions.v1'
@@ -79,6 +80,8 @@ function isModelVersion(value: unknown): value is ModelVersion {
  */
 export function loadVersions(): ModelVersion[] {
   if (!isLocalStorageAvailable()) return []
+  // THIN CLIENT: a signed-in browser's versions are the SERVER's (Version history); no local model copies.
+  if (isThinClientSession()) return []
 
   try {
     const stored = localStorage.getItem(VERSIONS_STORAGE_KEY)
@@ -104,6 +107,9 @@ export function loadVersions(): ModelVersion[] {
 }
 
 function writePayload(versions: readonly ModelVersion[]): void {
+  // THIN CLIENT: never write a model copy for a signed-in browser. Thrown, not returned, so `saveVersions` reports a
+  // failure instead of a save that did not happen (the panel hides the local section for these sessions anyway).
+  if (isThinClientSession()) throw new Error('Local versions are not kept in a signed-in session.')
   const payload: VersionedPayload<ModelVersion[]> = {
     schema: VERSIONS_SCHEMA,
     version: VERSIONS_SCHEMA_VERSION,
