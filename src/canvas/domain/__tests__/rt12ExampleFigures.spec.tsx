@@ -202,6 +202,11 @@ describe('RT-12 — seven explicitly bound example links through the real ingest
         const wireMean = (exampleWire(link).strength as { mean: number }).mean
         expect(edge.data.strengthExampleFigure).toBe(wireMean)
         expect(EdgeDataSchema.parse(edge.data).strengthExampleFigure).toBe(wireMean)
+        // A passthrough schema retaining an undeclared key is insufficient:
+        // the persisted admission must validate its signed finite mean.
+        for (const invalid of ['not a number', Number.NaN, Number.POSITIVE_INFINITY]) {
+          expect(EdgeDataSchema.safeParse({ ...edge.data, strengthExampleFigure: invalid }).success).toBe(false)
+        }
         if (link.natural) {
           const effect = edge.data.naturalEffect as NaturalEffect
           expect(effect?.author).toBe('example_figure')

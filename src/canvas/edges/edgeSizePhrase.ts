@@ -102,6 +102,8 @@ export function edgeSizePhrase(data: Record<string, unknown> | undefined): EdgeS
     const parts = { size, whose: 'example figure', ofRange: '' }
     return { sentence: composeNaturalEffectPhrase(parts), ...parts, author: 'example_figure', usersFigure: false, exampleFigure: true }
   }
+  // An authoritative partial update can retire the example class while retaining the old admitted amount.
+  if (natural.data.author === 'example_figure' && !naturalEffectStrengthIsCurrent(seed.seed, data?.strengthExampleFigure)) return null
   const definitional = isStrengthDefinitional(data)
   const parts = naturalEffectPhraseParts(natural.data, seed.seed, resolveEdgeDirectionDisplay(data), definitional)
   if (parts === null) return null
