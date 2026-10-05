@@ -80,6 +80,8 @@ export function readProvisionalApplyStore(): ScenarioAnalysisApplyStore {
     setLimitVerdicts: s.setLimitVerdicts,
     // SC-24 on the read leg: the pair's comparison beside the analysis this leg displays, stamped as the turn leg does.
     setRunDelta: s.setRunDelta,
+    // C10a: accepted new analyses clear a superseded turn's bound absence reason.
+    setRunDeltaAbsence: s.setRunDeltaAbsence,
     currentScenarioId: s.currentScenarioId,
     // ⭐ THE WITHHOLDING THE APPLIER STAMPS AFTER ITS RESULTS WRITE (row 9 served FAIL, 30 Sep: R3's bc9640d4 cold-opened
     // with `leader_claim.permitted: false` and cards reading "best in 49% / 51%"). Absent here, the applier's `?.` call
