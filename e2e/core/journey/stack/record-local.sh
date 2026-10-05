@@ -17,6 +17,10 @@
 # HEAVY WINDOW on #87 first and run only when vm.loadavg < 45.
 #
 # usage: record-local.sh            (from the DGAI checkout root)
+#   J1_RECORD_MODE=fill  keep the frozen set; replay every recorded call (CI timing) and record ONLY
+#                        calls it lacks, appended after the last file (DL-approved gap fills).
+#   J1_TUPLE=pinned      check CEE/PLoT/ISL out at fixtures/j1/tuple.json (default: staging tips),
+#                        and leave tuple.json as it is.
 set -euo pipefail
 
 DGAI="$(pwd)"
@@ -44,9 +48,17 @@ rm -rf "$W"; mkdir -p "$W/logs" "$W/keys"
 # CEE NPM_PACKAGES_TOKEN, PLoT GITHUB_TOKEN); unset, the install fails before it starts.
 # The local gh login's token is handed to the INSTALL commands only, as CI hands its job token.
 PKG_TOKEN="$(gh auth token)"
+REC_MODE="${J1_RECORD_MODE:-record}"; TUPLE="${J1_TUPLE:-tips}"
+case "$REC_MODE" in record|fill) ;; *) say "J1_RECORD_MODE must be record or fill"; exit 2 ;; esac
 for repo in olumi-assistants-service:cee plot-lite-service:plot Inference-Service-Layer:isl; do
   name="${repo%%:*}"; dir="${repo##*:}"
-  git clone -q --depth 1 --branch staging "https://github.com/Talchain/$name.git" "$W/$dir"
+  if [ "$TUPLE" = pinned ]; then
+    sha="$(node -e 'process.stdout.write(String(require(process.argv[1])[process.argv[2]] ?? ""))' "$DGAI/e2e/core/journey/fixtures/j1/tuple.json" "$dir")"
+    [ "${#sha}" -eq 40 ] || { say "pinned $dir is not a 40-char SHA"; exit 1; }
+    git init -q "$W/$dir" && git -C "$W/$dir" fetch -q --depth 1 "https://github.com/Talchain/$name.git" "$sha" && git -C "$W/$dir" checkout -q FETCH_HEAD
+  else
+    git clone -q --depth 1 --branch staging "https://github.com/Talchain/$name.git" "$W/$dir"
+  fi
 done
 DGAI_SHA=$(git -C "$DGAI" rev-parse HEAD); CEE_SHA=$(git -C "$W/cee" rev-parse HEAD)
 PLOT_SHA=$(git -C "$W/plot" rev-parse HEAD); ISL_SHA=$(git -C "$W/isl" rev-parse HEAD)
@@ -56,9 +68,9 @@ say "tuple ui=$DGAI_SHA cee=$CEE_SHA plot=$PLOT_SHA isl=$ISL_SHA"
 node "$STACK/gen-tls-and-keys.mjs" "$W/keys"
 
 # ── LLM boundary, record mode, plain HTTP for the preload ──
-rm -f "$FIX"/[0-9]*.json
+[ "$REC_MODE" = fill ] || rm -f "$FIX"/[0-9]*.json
 # JOURNEY_LLM_MAX_CALLS: the DL's call budget for this record run (record 3: 15). Call 16 is refused.
-JOURNEY_LLM_MODE=record JOURNEY_LLM_FIXTURES="$FIX" JOURNEY_LLM_LEDGER="$W/ledger.ndjson" \
+JOURNEY_LLM_MODE="$REC_MODE" JOURNEY_LLM_FIXTURES="$FIX" JOURNEY_LLM_LEDGER="$W/ledger.ndjson" \
 JOURNEY_LLM_MAX_CALLS="${J1_MAX_CALLS:-15}" JOURNEY_LLM_HTTP_PORT=$LLM_PORT node "$STACK/llm-replay-server.mjs" > "$W/logs/llm-boundary.log" 2>&1 &
 PIDS+=($!)
 
@@ -173,7 +185,7 @@ say "stack up; recording"
 # that are identical across specs (J1's and ISO-1's first draft call) get different LLM answers,
 # and the replay serves the first unused exact match, so record order must equal replay order or a
 # spec inherits another spec's model (record 3: J1 took ISO-1's draft and its Run drifted).
-REC_ENV=(DGAI_SHA="$DGAI_SHA" CEE_SHA="$CEE_SHA" PLOT_SHA="$PLOT_SHA" ISL_SHA="$ISL_SHA" J1_MODE=record
+REC_ENV=(DGAI_SHA="$DGAI_SHA" CEE_SHA="$CEE_SHA" PLOT_SHA="$PLOT_SHA" ISL_SHA="$ISL_SHA" J1_MODE="$REC_MODE"
   JOURNEY_LLM_LEDGER="$W/ledger.ndjson" JOURNEY_LLM_FIXTURES="$FIX"
   CORE_UI_URL="http://localhost:$UI_PORT" CORE_SUPABASE_URL="$SB_API_URL" CORE_SUPABASE_KEY="$SB_ANON_KEY"
   J1_SB_SERVICE_ROLE_KEY="$SB_SERVICE_ROLE_KEY" J1_CEE_URL="http://127.0.0.1:$CEE_PORT")
@@ -181,7 +193,8 @@ env "${REC_ENV[@]}" npx playwright test --config playwright.journey.config.ts J1
 env "${REC_ENV[@]}" npx playwright test --config playwright.journey.config.ts isolation-same-browser --output test-results/isolation 2>&1 | tee "$W/logs/playwright-isolation.log" || true
 
 # The tuple this set was recorded on: the pinned leg of the CI workflow replays against exactly these.
-node -e 'const [f, ui, cee, plot, isl] = process.argv.slice(1); require("fs").writeFileSync(f, JSON.stringify({ cee, plot, isl, recorded_with_ui: ui, recorded_at: new Date().toISOString() }, null, 1) + "\n")' \
+# A fill on the pinned tuple leaves it as it is.
+[ "$TUPLE" = pinned ] || node -e 'const [f, ui, cee, plot, isl] = process.argv.slice(1); require("fs").writeFileSync(f, JSON.stringify({ cee, plot, isl, recorded_with_ui: ui, recorded_at: new Date().toISOString() }, null, 1) + "\n")' \
   "$DGAI/e2e/core/journey/fixtures/j1/tuple.json" "$DGAI_SHA" "$CEE_SHA" "$PLOT_SHA" "$ISL_SHA"
 say "ledger: $(node -e 'const c={};for(const l of require("fs").readFileSync(process.argv[1],"utf8").trim().split("\n")){const r=JSON.parse(l);c[r.outcome]=(c[r.outcome]||0)+1};console.log(JSON.stringify(c))' "$W/ledger.ndjson")"
 say "recordings: $(ls "$FIX"/[0-9]*.json 2>/dev/null | wc -l | tr -d ' ') in $FIX (commit these only)"

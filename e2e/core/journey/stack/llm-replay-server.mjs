@@ -68,7 +68,7 @@ const MAX_CALLS = process.env.JOURNEY_LLM_MAX_CALLS ? Number(process.env.JOURNEY
 for (const [k, v] of Object.entries({ JOURNEY_LLM_MODE: MODE, JOURNEY_LLM_FIXTURES: FIXTURES, JOURNEY_LLM_LEDGER: LEDGER })) {
   if (!v) { console.error(`[llm-replay] ${k} is required`); process.exit(2) }
 }
-if (MODE !== 'replay' && MODE !== 'record') { console.error(`[llm-replay] unknown mode ${MODE}`); process.exit(2) }
+if (MODE !== 'replay' && MODE !== 'record' && MODE !== 'fill') { console.error(`[llm-replay] unknown mode ${MODE}`); process.exit(2) }
 if (!(CERT && KEY) && HTTP_PORT === null) { console.error('[llm-replay] need JOURNEY_LLM_CERT+KEY (TLS) or JOURNEY_LLM_HTTP_PORT'); process.exit(2) }
 
 fs.mkdirSync(FIXTURES, { recursive: true })
@@ -128,7 +128,7 @@ function firstDifference(a, b) {
 }
 
 // ── replay index ────────────────────────────────────────────────────────────
-const recordings = MODE === 'replay'
+const recordings = MODE === 'replay' || MODE === 'fill'
   ? fs.readdirSync(FIXTURES).filter((f) => /^\d+-.*\.json$/.test(f)).sort()
       .map((f) => {
         const r = JSON.parse(fs.readFileSync(path.join(FIXTURES, f), 'utf8'))
@@ -143,8 +143,11 @@ const used = new Set()
 // Reuse: off until /__journey_allow_reuse (advisory isolation rows only).
 let reuseAllowed = false
 const reuse = new Map()
-if (MODE === 'replay') {
-  console.log(`[llm-replay] replay mode: ${recordings.length} recordings in ${FIXTURES}`)
+// fill: new recordings are numbered after the last frozen one, never over it.
+let lastFile = recordings.reduce((m, r) => Math.max(m, Number(r.file.slice(0, 4)) || 0), 0)
+let forwarded = 0
+if (MODE === 'replay' || MODE === 'fill') {
+  console.log(`[llm-replay] ${MODE} mode: ${recordings.length} recordings in ${FIXTURES}`)
   ledger({ outcome: 'index', recordings: recordings.length, scheme: 2 })
 }
 
@@ -241,7 +244,11 @@ function handle(req, res) {
       return refuse(res, 400, 'journey_unknown_host', `journey LLM boundary does not serve ${host}`)
     }
 
-    if (MODE === 'replay') {
+    // fill (DL-approved gap fill on the PINNED tuple): an exact unused match is served exactly as in
+    // replay, so the run keeps CI's timing; anything else is forwarded live and appended as a new
+    // recording, under the same call cap and 429 abort as record mode.
+    const fillGap = MODE === 'fill' && !recordings.some((r) => r.signature === signature && r.detail === detail && !used.has(r.file))
+    if (MODE === 'replay' || (MODE === 'fill' && !fillGap)) {
       const exact = recordings.filter((r) => r.signature === signature && r.detail === detail)
       let pick = exact.find((r) => !used.has(r.file))
       let outcome = pick ? 'hit' : null
@@ -276,8 +283,8 @@ function handle(req, res) {
       return res.end(pick.body)
     }
 
-    // record
-    if (MAX_CALLS && n > MAX_CALLS) {
+    // record (and fill's gaps)
+    if (MAX_CALLS && forwarded + 1 > MAX_CALLS) {
       ledger({ seq: n, outcome: 'refused_budget', signature })
       return refuse(res, 400, 'journey_budget_exhausted', `record budget of ${MAX_CALLS} calls reached`)
     }
@@ -286,13 +293,19 @@ function handle(req, res) {
       return refuse(res, 400, 'journey_aborted_after_429', 'record run aborted at the first 429')
     }
     try {
+      forwarded++
       const up = await forward(req, host, bodyBuf)
       const contentType = String(up.headers['content-type'] ?? 'application/json')
       if (up.status === 429) {
         abortedBy429 = true
         ledger({ seq: n, outcome: 'rate_limited', signature, status: 429 })
       } else {
-        const file = `${String(n).padStart(4, '0')}-${host.split('.')[1]}.json`
+        const fileNo = MODE === 'fill' ? ++lastFile : n
+        const file = `${String(fileNo).padStart(4, '0')}-${host.split('.')[1]}.json`
+        if (MODE === 'fill') {
+          recordings.push({ file, host, path: urlPath, method, target, request: body, signature, detail, norm, status: up.status, content_type: contentType, body: up.body.toString('utf8') })
+          used.add(file)
+        }
         fs.writeFileSync(path.join(FIXTURES, file), JSON.stringify({
           seq: n, signature, detail, host, method, target, path: urlPath, model: body?.model ?? null,
           status: up.status, content_type: contentType, recorded_at: new Date().toISOString(),

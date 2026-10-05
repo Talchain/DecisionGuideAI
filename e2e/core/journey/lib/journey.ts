@@ -19,7 +19,7 @@ export function tuple(): Tuple {
   for (const [k, v] of Object.entries(t)) {
     if (k !== 'mode' && !/^[0-9a-f]{40}$/.test(v)) throw new Error(`[j1] tuple.${k} is not a 40-char SHA: "${v}"`)
   }
-  if (t.mode !== 'replay' && t.mode !== 'record') throw new Error(`[j1] J1_MODE is "${t.mode}"`)
+  if (t.mode !== 'replay' && t.mode !== 'record' && t.mode !== 'fill') throw new Error(`[j1] J1_MODE is "${t.mode}"`)
   return t
 }
 
@@ -49,7 +49,9 @@ export function frozenRecordings(): string[] {
  * is red until named here. Codex buddy #2513 findings 6+7.)
  */
 export function assertBoundaryClean(step: string): void {
-  const allowed = process.env.J1_MODE === 'record' ? ['recorded'] : ['index', 'hit']
+  // fill (a DL-approved gap fill on the pinned tuple): exact hits, plus the gaps it records.
+  const mode = process.env.J1_MODE
+  const allowed = mode === 'record' ? ['recorded'] : mode === 'fill' ? ['index', 'hit', 'recorded'] : ['index', 'hit']
   const bad = ledger().filter((r) => !allowed.includes(r.outcome))
   if (bad.length) {
     const counts = bad.reduce<Record<string, number>>((c, r) => ({ ...c, [r.outcome]: (c[r.outcome] ?? 0) + 1 }), {})
