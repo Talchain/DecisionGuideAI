@@ -47,6 +47,9 @@ const WORDS = {
   intake_identity_unverified: 'This comparison depends on which of the model’s options are the ones your brief lists, and that hasn’t been confirmed yet.',
   goal_path_unsized_unnamed: 'This comparison turns on a link whose strength nobody has set yet.',
   intake_options_missing: 'Your brief lists at least one option that isn’t in the model yet, so this comparison leaves it out. Check the model’s options against your brief.',
+  /** RT-10 a8's R6 follow-up codes (Science d5, #87 6002718281); the goal is Paul's goal node, by its own label. */
+  goal_product_not_read: 'This comparison depends on how the parts of ‘securing funding’ combine, which Olumi hasn’t been able to read yet.',
+  options_identical: 'In this model, your options change the same things by the same amounts, so their results come out the same. Change what one of them does to see how they compare.',
 } as const
 
 const stamp = (cause: string) => ({ permitted: false, withheld_reason: 'leader_claim_withheld', producer_cause: cause })
@@ -76,6 +79,8 @@ const CASES: ReadonlyArray<readonly [string, string, unknown[], string]> = [
   ['goal_path_unsized with NO such warning → its unnamed line, never a guessed link', 'goal_path_unsized', [], WORDS.goal_path_unsized_unnamed],
   ['goal_path_unsized naming a node the canvas lacks → its unnamed line', 'goal_path_unsized',
     [{ ...UNSIZED_WARNING, node_ids: [FROM, 'not_on_this_canvas'] }], WORDS.goal_path_unsized_unnamed],
+  ['⭐ goal_product_not_read (RT-10 R6), the goal named by its own node label', 'goal_product_not_read', [], WORDS.goal_product_not_read],
+  ['⭐ options_identical (RT-10 R6)', 'options_identical', [], WORDS.options_identical],
   ['CONTROL: an unknown code → the existing fallback, unchanged', 'a_cause_nobody_mapped', [], WITHHELD_REASON_FALLBACK],
   ['CONTROL: the old generic code (prod (d)) → the existing fallback, unchanged', 'analysis_leader_withheld', [], WITHHELD_REASON_FALLBACK],
 ]
@@ -119,6 +124,24 @@ describe.each(CASES)('%s', (_name, cause, warnings, words) => {
   })
 })
 
+describe('goal_product_not_read never guesses the goal', () => {
+  it('no goal label in the context: the existing fallback, never a goal-free paraphrase', () => {
+    expect(winShareWithheldReason(stamp('goal_product_not_read'), { goalLabel: null })).toBe(WITHHELD_REASON_FALLBACK)
+    expect(winShareWithheldReason(stamp('goal_product_not_read'))).toBe(WITHHELD_REASON_FALLBACK)
+  })
+  it('two goal nodes on the canvas: no goal is named (the selector falls back)', () => {
+    seed('goal_product_not_read')
+    const state = useCanvasStore.getState()
+    const second = { id: 'second_goal', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Another goal', type: 'goal' } }
+    expect(selectWinShareWithheldReason({ ...state, nodes: [...state.nodes, second] } as never)).toBe(WITHHELD_REASON_FALLBACK)
+  })
+  it('PRECONDITION: Paul\'s canvas holds exactly one goal node, labelled "securing funding"', () => {
+    seed('goal_product_not_read')
+    expect(useCanvasStore.getState().nodes.filter((n) => n.type === 'goal').map((n) => (n.data as { label: string }).label))
+      .toEqual(['securing funding'])
+  })
+})
+
 describe('the gate, without a store', () => {
   it('goal_path_unsized with no context (a caller that passes none) → its unnamed line', () => {
     expect(winShareWithheldReason(stamp('goal_path_unsized'))).toBe(WORDS.goal_path_unsized_unnamed)
@@ -131,7 +154,7 @@ describe('the gate, without a store', () => {
   })
 })
 
-describe('MC P0\'s full list (`links`, nearest the goal first): read in its order, every link or none', () => {
+describe('MC P0\'s full list (`links`, nearest the goal first): read in its order; the shown links named, or counted', () => {
   const labels: Record<string, string> = { a: 'Hours on the AI module', b: 'AI module availability', c: 'Team capacity', d: 'Delivered points' }
   const labelOf = (id: string) => labels[id] ?? null
   const reason = (warning: Record<string, unknown>) => winShareWithheldReason(stamp('goal_path_unsized'), { inferenceWarnings: [warning], labelOf })
@@ -143,8 +166,20 @@ describe('MC P0\'s full list (`links`, nearest the goal first): read in its orde
     expect(reason({ code: 'GOAL_FIGURES_PLACEHOLDER_PATH', node_ids: ['a', 'b'], links: [{ from: 'a', to: 'b' }, { from: 'a', to: 'b' }] }))
       .toBe('This comparison turns on the link from ‘Hours on the AI module’ to ‘AI module availability’, whose strength nobody has set yet. Set it to see how much it matters.')
   })
-  it('one link that cannot be named → no partial list: the unnamed line', () => {
+  it('⭐ only the FIRST link can be named → Science\'s count form (#87 6002254753 item 1), never a partial list', () => {
     expect(reason({ code: 'GOAL_FIGURES_PLACEHOLDER_PATH', node_ids: ['a', 'b'], links: [{ from: 'a', to: 'b' }, { from: 'c', to: 'not_on_this_canvas' }] }))
+      .toBe('This comparison turns on the link from ‘Hours on the AI module’ to ‘AI module availability’ and 1 other link on the way, whose strengths nobody has set yet. Set them to see how much they matter.')
+  })
+  it('the count form counts every other link (plural)', () => {
+    expect(reason({ code: 'GOAL_FIGURES_PLACEHOLDER_PATH', links: [{ from: 'a', to: 'b' }, { from: 'c', to: 'd' }, { from: 'c', to: 'not_on_this_canvas' }] }))
+      .toBe('This comparison turns on the link from ‘Hours on the AI module’ to ‘AI module availability’ and 2 other links on the way, whose strengths nobody has set yet. Set them to see how much they matter.')
+  })
+  it('a link counted in "and N more" needs no labels: the three shown are named', () => {
+    expect(reason({ code: 'GOAL_FIGURES_PLACEHOLDER_PATH', links: [{ from: 'a', to: 'b' }, { from: 'c', to: 'd' }, { from: 'b', to: 'c' }, { from: 'x', to: 'not_on_this_canvas' }] }))
+      .toBe('This comparison turns on the links from ‘Hours on the AI module’ to ‘AI module availability’, from ‘Team capacity’ to ‘Delivered points’, from ‘AI module availability’ to ‘Team capacity’ and 1 more, whose strengths nobody has set yet. Set them to see how much they matter.')
+  })
+  it('the FIRST link cannot be named → the unnamed line', () => {
+    expect(reason({ code: 'GOAL_FIGURES_PLACEHOLDER_PATH', links: [{ from: 'x', to: 'not_on_this_canvas' }, { from: 'a', to: 'b' }] }))
       .toBe(WORDS.goal_path_unsized_unnamed)
   })
 })
@@ -178,19 +213,18 @@ describe('Science d5 20:3xZ: several links, the separation echo, the overlap, an
     expect(say('options_do_not_separate'))
       .toBe('In this model, the options’ results overlap too much to tell apart. Change a figure you’re unsure about to see what separates them.')
   })
-  it('constraint_verdict_withheld stays at staging\'s sentence: names the checks, never a limit (pending Science\'s no-limits words)', () => {
+  it('constraint_verdict_withheld: Science\'s corrected words, which name the checks and never a limit', () => {
     // CEE sends this token for any unentitled verdict, including a first pass on a brief with no limits
-    // (theWithholdNamesNoLimitsTheUserNeverSet), so a sentence naming "a limit" is false there.
+    // (theWithholdNamesNoLimitsTheUserNeverSet), so the sentence names no limit (d5, 5 Oct).
     expect(leaderWithholdCause('constraint_verdict_withheld'))
-      .toBe("Olumi's checks on this run do not support putting one option forward.")
+      .toBe('Olumi’s checks on this run don’t support naming one option in this model. Change a figure you’re unsure about to see how much it matters.')
   })
   it('options_not_reconciled_with_brief', () => {
     expect(leaderWithholdCause('options_not_reconciled_with_brief'))
       .toBe('This comparison includes an option Olumi added that your brief didn’t name. Remove it and run again to see the comparison.')
   })
   it.each([
-    // constraint_verdict_withheld is held at staging's sentence until Science rules words that name no limits (above).
-    'no_option_meets_limit', 'every_option_likely_breaks_limit', 'separation_unavailable',
+    'no_option_meets_limit', 'every_option_likely_breaks_limit', 'constraint_verdict_withheld', 'separation_unavailable',
     'options_not_reconciled_with_brief', 'intake_identity_unverified', 'intake_options_missing', 'goal_path_unsized',
     'options_do_not_separate',
   ])('the copy rule over the WHOLE map: %s never recommends, ranks or says "put one forward"', (code) => {

@@ -230,7 +230,7 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
   every_option_likely_breaks_limit: 'On these estimates, every option is more likely than not to break one of your limits.',
   // Science d5 (#87 6002222614 copy rule: an invitation, never "put one forward").
   constraint_verdict_withheld:
-    "Olumi's checks on this run do not support putting one option forward.",
+    'Olumi’s checks on this run don’t support naming one option in this model. Change a figure you’re unsure about to see how much it matters.',
   /**
    * ⚠ ABOUT THE RUN, NOT ABOUT THE OPTIONS. A statement about what the run
    * could establish; "they are level" would be a finding about the options,
@@ -292,6 +292,9 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
    * labels name it, `goalPathUnsizedCause` says which link instead.
    */
   goal_path_unsized: 'This comparison turns on a link whose strength nobody has set yet.',
+  /** RT-10 a8's R6 follow-up (DL-ruled): the options change the same things by the same amounts (Science d5, #87 6002718281). */
+  options_identical:
+    'In this model, your options change the same things by the same amounts, so their results come out the same. Change what one of them does to see how they compare.',
 }
 
 /**
@@ -302,32 +305,64 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
 export const GOAL_PATH_UNSIZED_CAUSE = 'goal_path_unsized'
 
 /**
- * The withhold as an invitation (DL copy rule #87 6002222614: never "Give a figure"), naming the failing link's own
- * ends in Science d5's phrasing ("the link from ‘A’ to ‘B’"), or null when they cannot be named
+ * The withhold as an invitation (DL copy rule #87 6002222614: never "Give a figure"), naming the failing links' own
+ * ends in Science's phrasing ("the link from ‘A’ to ‘B’"), or null when not even the first link can be named
  * (no such warning, fewer than two ends, or an end with no display label); the caller then says the unnamed line
  * (`LEADER_WITHHOLD_CAUSE.goal_path_unsized`).
- * No "(and N other links)" clause: the warning carries no count, and a guessed count is never shown (Science d5).
  */
 export function goalPathUnsizedCause(
   inferenceWarnings: unknown,
   labelOf: (nodeId: string) => string | null | undefined,
 ): string | null {
-  const links = unsizedLinksOf(inferenceWarnings)
+  const naming = nameLinks(unsizedLinksOf(inferenceWarnings), labelOf)
+  if (naming === null) return null
+  if (naming.kind === 'first') {
+    // Science's count form (#87 6002254753 item 1): only the first link's ends can be named, so the rest are counted.
+    const { first, others } = naming
+    return `This comparison turns on the link from ‘${first.from}’ to ‘${first.to}’ and ${others} other ${others === 1 ? 'link' : 'links'} on the way, whose strengths nobody has set yet. Set them to see how much they matter.`
+  }
+  return unsizedLinksSentence(naming.shown, naming.total)
+}
+
+type LinkEnds = { from: string; to: string }
+
+/**
+ * Science's ONE plural rule for both strings (#87; MC github-21): name up to three links in the carrier's order
+ * (nearest the goal first, ties by graph edge order: MC's), then "and N more".
+ * - `named`: every link that is NAMED has both labels; links counted in "N more" need none.
+ * - `first`: only the first link's ends can be named; the withhold's count form says the rest as a number.
+ * - null: not even the first link can be named.
+ */
+type LinkNaming = { kind: 'named'; shown: LinkEnds[]; total: number } | { kind: 'first'; first: LinkEnds; others: number } | null
+
+function nameLinks(
+  links: ReadonlyArray<LinkEnds>,
+  labelOf: (nodeId: string) => string | null | undefined,
+): LinkNaming {
   if (links.length === 0) return null
   const label = (id: string): string | null => {
     const raw = labelOf(id)
     const text = typeof raw === 'string' ? raw.trim() : ''
     return text.length > 0 && text.length <= 120 ? text : null
   }
-  const named: Array<{ from: string; to: string }> = []
-  for (const link of links) {
+  const ends = (link: LinkEnds): LinkEnds | null => {
     const from = label(link.from)
     const to = label(link.to)
-    // Every link or none: a partial list would say one cause as if it were the whole of it.
-    if (from === null || to === null) return null
-    named.push({ from, to })
+    return from === null || to === null ? null : { from, to }
   }
-  return unsizedLinksSentence(named)
+  const shown = links.slice(0, 3).map(ends)
+  // A partial list never stands in for the whole: a name is never dropped from the three that are shown.
+  if (shown.every((l): l is LinkEnds => l !== null)) return { kind: 'named', shown, total: links.length }
+  return shown[0] ? { kind: 'first', first: shown[0], others: links.length - 1 } : null
+}
+
+/** Two or more links in Science's phrasing: the shown ones named ("from ‘A’ to ‘B’"), then "and N more". */
+function linksListed(shown: ReadonlyArray<LinkEnds>, total: number): string {
+  const phrases = shown.map((l) => `from ‘${l.from}’ to ‘${l.to}’`)
+  const more = total - phrases.length
+  return more > 0
+    ? `${phrases.join(', ')} and ${more} more`
+    : `${phrases.slice(0, -1).join(', ')} and ${phrases[phrases.length - 1]}`
 }
 
 /**
@@ -335,9 +370,17 @@ export function goalPathUnsizedCause(
  * else the first named link (`node_ids[0]` → `node_ids[1]`). Deduplicated; empty when there is none.
  */
 function unsizedLinksOf(inferenceWarnings: unknown): Array<{ from: string; to: string }> {
-  if (!Array.isArray(inferenceWarnings)) return []
-  const warning = inferenceWarnings.find((w): w is Record<string, unknown> =>
-    w !== null && typeof w === 'object' && (w as { code?: unknown }).code === 'GOAL_FIGURES_PLACEHOLDER_PATH')
+  return warningLinksOf(warningWithCode(inferenceWarnings, 'GOAL_FIGURES_PLACEHOLDER_PATH'))
+}
+
+function warningWithCode(inferenceWarnings: unknown, code: string): Record<string, unknown> | null {
+  if (!Array.isArray(inferenceWarnings)) return null
+  return inferenceWarnings.find((w): w is Record<string, unknown> =>
+    w !== null && typeof w === 'object' && (w as { code?: unknown }).code === code) ?? null
+}
+
+/** A link-carrying warning's links: `links` when MC P0 carries the list, else `node_ids[0]` → `node_ids[1]`; deduplicated. */
+function warningLinksOf(warning: Record<string, unknown> | null): Array<{ from: string; to: string }> {
   if (!warning) return []
   const listed = Array.isArray(warning.links)
     ? warning.links.filter((l): l is { from: string; to: string } =>
@@ -352,17 +395,41 @@ function unsizedLinksOf(inferenceWarnings: unknown): Array<{ from: string; to: s
 }
 
 /** Science d5's words (#87 6002254753; plural and cap, d5 20:3xZ): one link, or up to three named then "and N more". */
-function unsizedLinksSentence(links: ReadonlyArray<{ from: string; to: string }>): string {
-  if (links.length === 1) {
-    const [only] = links
+function unsizedLinksSentence(shown: ReadonlyArray<LinkEnds>, total: number): string {
+  if (total === 1) {
+    const [only] = shown
     return `This comparison turns on the link from ‘${only.from}’ to ‘${only.to}’, whose strength nobody has set yet. Set it to see how much it matters.`
   }
-  const phrases = links.slice(0, 3).map((l) => `from ‘${l.from}’ to ‘${l.to}’`)
-  const more = links.length - phrases.length
-  const listed = more > 0
-    ? `${phrases.join(', ')} and ${more} more`
-    : `${phrases.slice(0, -1).join(', ')} and ${phrases[phrases.length - 1]}`
-  return `This comparison turns on the links ${listed}, whose strengths nobody has set yet. Set them to see how much they matter.`
+  return `This comparison turns on the links ${linksListed(shown, total)}, whose strengths nobody has set yet. Set them to see how much they matter.`
+}
+
+/**
+ * MC P0's disclosure for a KEPT leader: the finding rests on a deciding link whose figures Olumi supplied (info
+ * warning, `node_ids` = the first link, `links` = every one; MC github-21). DL's fa027 ruling: a leader resting on
+ * Olumi-supplied figures must say so beside it.
+ */
+export const OLUMI_SUPPLIED_LINK_CODE = 'GOAL_FIGURES_OLUMI_SUPPLIED_LINK'
+
+/**
+ * Science d5's words, verbatim (one link; 2+ with the same plural rule: three named, then "and N more"), or null when
+ * the Run carries no such warning. When a shown link cannot be named the line is still said, label-free (the
+ * disclosure has no count form): it is the truth the finding rests on, so it is never omitted (d5).
+ */
+export function olumiSuppliedFiguresDisclosure(
+  inferenceWarnings: unknown,
+  labelOf: (nodeId: string) => string | null | undefined,
+): string | null {
+  const warning = warningWithCode(inferenceWarnings, OLUMI_SUPPLIED_LINK_CODE)
+  if (warning === null) return null
+  const naming = nameLinks(warningLinksOf(warning), labelOf)
+  if (naming === null || naming.kind === 'first') {
+    return 'Olumi supplied the figures for at least one link this finding rests on. Set your own to see how much it matters.'
+  }
+  if (naming.total === 1) {
+    const [only] = naming.shown
+    return `Olumi supplied the figures for the link from ‘${only.from}’ to ‘${only.to}’. Set your own to see how much it matters.`
+  }
+  return `Olumi supplied the figures for the links ${linksListed(naming.shown, naming.total)}. Set your own to see how much they matter.`
 }
 
 /**
@@ -379,6 +446,39 @@ export function unsizedAwareCause(
   const upstream = unsizedLinksOf(inferenceWarnings).length > 0
   if (token !== GOAL_PATH_UNSIZED_CAUSE && !(token === 'separation_unavailable' && upstream)) return null
   return goalPathUnsizedCause(inferenceWarnings, labelOf) ?? LEADER_WITHHOLD_CAUSE[GOAL_PATH_UNSIZED_CAUSE]
+}
+
+/**
+ * RT-10 a8's R6 follow-up (DL-ruled): the goal is a product of parts whose combination Olumi could not read from the
+ * model. Science d5's form (#87 6002718281) until the identity-card route can clear the state: it names the goal by its
+ * own label, so it is not a static entry; the "Confirm…" sentence ships with that route.
+ */
+export const GOAL_PRODUCT_NOT_READ_CAUSE = 'goal_product_not_read'
+
+/** The sentence for `goal_product_not_read`, or null for any other code or when the goal has no usable label. */
+export function goalProductNotReadCause(
+  producerReason: string | null | undefined,
+  goalLabel: string | null | undefined,
+): string | null {
+  const token = typeof producerReason === 'string' ? producerReason.trim() : ''
+  const goal = typeof goalLabel === 'string' ? goalLabel.trim() : ''
+  if (token !== GOAL_PRODUCT_NOT_READ_CAUSE || goal.length === 0 || goal.length > 120) return null
+  return `This comparison depends on how the parts of ‘${goal}’ combine, which Olumi hasn’t been able to read yet.`
+}
+
+/**
+ * The goal node's own label (not a framing or a decorated fallback), when the canvas holds exactly one goal node;
+ * otherwise null, so no goal is guessed.
+ */
+export function goalLabelOf(nodes: ReadonlyArray<unknown> | null | undefined): string | null {
+  const goals = (nodes ?? []).filter((n): n is { type?: unknown; data?: { kind?: unknown; type?: unknown; label?: unknown } } => {
+    if (n === null || typeof n !== 'object') return false
+    const node = n as { type?: unknown; data?: { kind?: unknown; type?: unknown } }
+    return node.type === 'goal' || node.data?.kind === 'goal' || node.data?.type === 'goal'
+  })
+  if (goals.length !== 1) return null
+  const label = goals[0].data?.label
+  return typeof label === 'string' && label.trim().length > 0 ? label.trim() : null
 }
 
 /**
@@ -3067,8 +3167,15 @@ const ADMISSION_EXPLAINS_THE_WITHHOLD: ReadonlySet<string> = new Set([
 export function withheldLeaderCause(
   producerReason: string | null | undefined,
   refusalAsksForAnEstimate: boolean,
-  /** For `goal_path_unsized` only: the Run's warnings and a node-label lookup, to name the unsized link. */
-  unsizedLink?: { inferenceWarnings: unknown; labelOf: (nodeId: string) => string | null | undefined },
+  /**
+   * The Run's warnings and a node-label lookup, to name the unsized link (`goal_path_unsized`); and the goal node's
+   * own label, to name the goal (`goal_product_not_read`).
+   */
+  unsizedLink?: {
+    inferenceWarnings: unknown
+    labelOf: (nodeId: string) => string | null | undefined
+    goalLabel?: string | null
+  },
 ): string | null {
   const token = typeof producerReason === 'string' ? producerReason.trim() : ''
   if (refusalAsksForAnEstimate && ADMISSION_EXPLAINS_THE_WITHHOLD.has(token)) {
@@ -3077,6 +3184,8 @@ export function withheldLeaderCause(
   if (unsizedLink) {
     const unsized = unsizedAwareCause(token, unsizedLink.inferenceWarnings, unsizedLink.labelOf)
     if (unsized !== null) return unsized
+    const goalProduct = goalProductNotReadCause(token, unsizedLink.goalLabel)
+    if (goalProduct !== null) return goalProduct
   }
   return leaderWithholdCause(producerReason)
 }

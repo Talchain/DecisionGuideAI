@@ -1654,6 +1654,13 @@ export interface AtAGlance {
    * See `optionOriginDisclosure.ts` for the predicate and why it is CEE's.
    */
   optionOrigin: OptionOrigin | null
+  /**
+   * The leader's finding rests on a deciding link whose figures Olumi supplied (MC P0's info
+   * `GOAL_FIGURES_OLUMI_SUPPLIED_LINK`), in Science d5's words; said beside the finding line, never behind a
+   * disclosure. Under the same entitlement as `headline`; null when the Run carries no such warning.
+   * Optional so a glance built before it existed still type-checks.
+   */
+  olumiSuppliedFigures?: string | null
 }
 
 /**

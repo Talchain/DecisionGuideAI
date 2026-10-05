@@ -24,6 +24,8 @@ const WORDS = {
   goal_path_unsized_two: 'This comparison turns on the links from ‘Investment firm outreach’ to ‘Investment firm meetings’ and from ‘Angel investor outreach’ to ‘Angel investor meetings’, whose strengths nobody has set yet. Set them to see how much they matter.',
   intake_identity_unverified: 'This comparison depends on which of the model’s options are the ones your brief lists, and that hasn’t been confirmed yet.',
   intake_options_missing: 'Your brief lists at least one option that isn’t in the model yet, so this comparison leaves it out. Check the model’s options against your brief.',
+  goal_product_not_read: 'This comparison depends on how the parts of ‘securing funding’ combine, which Olumi hasn’t been able to read yet.',
+  options_identical: 'In this model, your options change the same things by the same amounts, so their results come out the same. Change what one of them does to see how they compare.',
 } as const
 
 const UNNAMED = 'This comparison turns on a link whose strength nobody has set yet.'
@@ -45,6 +47,8 @@ describe.each([
   ['⭐ goal_path_unsized, two links (MC links list)', 'goal_path_unsized', [TWO_LINK_WARNING], WORDS.goal_path_unsized_two],
   ['⭐ intake_identity_unverified', 'intake_identity_unverified', [], WORDS.intake_identity_unverified],
   ['⭐ intake_options_missing', 'intake_options_missing', [], WORDS.intake_options_missing],
+  ['⭐ goal_product_not_read (RT-10 R6)', 'goal_product_not_read', [], WORDS.goal_product_not_read],
+  ['⭐ options_identical (RT-10 R6)', 'options_identical', [], WORDS.options_identical],
 ] as const)('%s', (_name, cause, warnings, words) => {
   it('the results hook\'s reason line (hero, cards)', () => {
     seed(cause, [...warnings])
@@ -54,7 +58,7 @@ describe.each([
     seed(cause, [...warnings])
     const vm = buildAnalysisNewViewModel({
       data: data(), recommendations: [], isPreRun: false, isRunning: false, isStale: false,
-      producerLeaderWithholdReason: cause, nodeLabels,
+      producerLeaderWithholdReason: cause, nodeLabels, analysisNodes: useCanvasStore.getState().nodes,
     })
     expect(vm.checks.leaderWithheld).toBe(true) // PRECONDITION: the tab shows a withheld leader on this Run
     expect(vm.checks.leaderWithholdCause).toBe(words)

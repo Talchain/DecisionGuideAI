@@ -16,7 +16,7 @@
  * gate (AIQ 5912710392: "gate on `leader_claim.permitted === false` for ANY `withheld_reason`"). When
  * it serves, only `winShareWithheldReason` gains the typed branch; every surface keeps calling this module.
  */
-import { leaderWithholdCause, unsizedAwareCause } from '../../components/results/analysisNew/analysisNewCopy'
+import { goalLabelOf, goalProductNotReadCause, leaderWithholdCause, unsizedAwareCause } from '../../components/results/analysisNew/analysisNewCopy'
 import { isAnalysedOption } from '../../components/results/utils/notAnalysedOptions'
 
 export interface ProducerLeaderPermission {
@@ -60,6 +60,8 @@ export function winSharesWithheld(permission: ProducerLeaderPermission | null | 
 export interface WithheldReasonContext {
   inferenceWarnings?: unknown
   labelOf?: (nodeId: string) => string | null | undefined
+  /** The goal node's own label (`goalLabelOf`), for `goal_product_not_read`. */
+  goalLabel?: string | null
 }
 
 /**
@@ -77,6 +79,8 @@ export function winShareWithheldReason(
     const unsized = unsizedAwareCause(cause, context.inferenceWarnings, context.labelOf)
     if (unsized !== null) return unsized
   }
+  const goalProduct = goalProductNotReadCause(cause, context?.goalLabel)
+  if (goalProduct !== null) return goalProduct
   return leaderWithholdCause(cause) ?? WITHHELD_REASON_FALLBACK
 }
 
@@ -121,5 +125,5 @@ export function selectWinShareWithheldReason(s: WithReport & WithNodes): string 
     const label = (s.nodes ?? []).find(n => n.id === nodeId)?.data as { label?: unknown } | undefined
     return typeof label?.label === 'string' ? label.label : null
   }
-  return winShareWithheldReason(permission, { inferenceWarnings: report?.inference_warnings, labelOf })
+  return winShareWithheldReason(permission, { inferenceWarnings: report?.inference_warnings, labelOf, goalLabel: goalLabelOf(s.nodes) })
 }
