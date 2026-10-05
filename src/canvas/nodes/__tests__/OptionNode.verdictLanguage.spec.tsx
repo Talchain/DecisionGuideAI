@@ -220,7 +220,7 @@ describe('OptionNode leader chip — no SYSTEM VERDICT in the user\'s transcript
 
   it('composes a CONTRASTIVE flip question, presupposing no verdict about the leader', () => {
     renderPostAnalysisOption('option-1', 0.72)
-    const dispatched = clickChipsAndCollect('What would put another option ahead?')
+    const dispatched = clickChipsAndCollect('What would make another option better supported?')
 
     // Precondition pin (trap 13b third face): the fixture must actually have
     // reproduced the leader branch. Without this, the copy assertion below could
@@ -235,7 +235,7 @@ describe('OptionNode leader chip — no SYSTEM VERDICT in the user\'s transcript
 
   it('never sends a crowning verdict — "best choice"/"best option" cannot reach the transcript', () => {
     renderPostAnalysisOption('option-1', 0.72)
-    const dispatched = clickChipsAndCollect('What would put another option ahead?')
+    const dispatched = clickChipsAndCollect('What would make another option better supported?')
 
     expect(Object.keys(dispatched)).toContain('option_what_would_change')
     const chip = dispatched['option_what_would_change']
@@ -254,7 +254,7 @@ describe('OptionNode leader chip — no SYSTEM VERDICT in the user\'s transcript
    */
   it('binds to the leader chip by identity: the non-leader resolves the close-call chip instead', () => {
     renderPostAnalysisOption('option-2', 0.7)
-    const dispatched = clickChipsAndCollect('What would put this option ahead?')
+    const dispatched = clickChipsAndCollect('What would need to be true for this?')
 
     expect(Object.keys(dispatched)).toContain('option_what_would_change_close_call')
     expect(Object.keys(dispatched)).not.toContain('option_what_would_change')
@@ -273,8 +273,8 @@ describe('OptionNode leader chip — no SYSTEM VERDICT in the user\'s transcript
    * rendered (positive twin), so the absence cannot pass on an empty card.
    */
   it.each([
-    ['leader', 'option-1', 0.72, 'What would put another option ahead?', 'option_what_would_change'],
-    ['close-call non-leader', 'option-2', 0.7, 'What would put this option ahead?', 'option_what_would_change_close_call'],
+    ['leader', 'option-1', 0.72, 'What would make another option better supported?', 'option_what_would_change'],
+    ['close-call non-leader', 'option-2', 0.7, 'What would need to be true for this?', 'option_what_would_change_close_call'],
   ] as const)('the %s card never offers the Reasoning-tab label "What would change this?"', (_case, nodeId, winRate, ownLabel, ownId) => {
     renderPostAnalysisOption(nodeId, winRate)
     // Positive twin first: this card's own chip rendered...

@@ -698,7 +698,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     expect(screen.queryByText(/percentage point/i)).toBeNull()
   })
 
-  it('Standard post close-call: "What would put this option ahead?" chip is added alongside "What would make this better supported?"', () => {
+  it('Standard post close-call: "What would need to be true for this?" chip is added alongside "What would make this better supported?"', () => {
     applyStore(closeCallTopology(3))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -711,11 +711,11 @@ describe('Render matrix — OptionNode × view × phase', () => {
       isResultsMode: true,
     } as any)
     renderOption({})
-    expect(screen.getByText('What would put this option ahead?')).toBeDefined()
+    expect(screen.getByText('What would need to be true for this?')).toBeDefined()
     expect(screen.getByText('What would make this better supported?')).toBeDefined()
   })
 
-  it('Standard post non-leader, gap 10pp: NO close-call line, NO "What would put this option ahead?" chip', () => {
+  it('Standard post non-leader, gap 10pp: NO close-call line, NO "What would need to be true for this?" chip', () => {
     applyStore(closeCallTopology(10))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -737,7 +737,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // /Close to the option most runs favour/i would now pass against a card that renders the marker in
     // full. The comment above was already the warning; this is it firing.
     expect(screen.queryByText(/Close to the option most runs favour/i)).toBeNull()
-    expect(screen.queryByText('What would put this option ahead?')).toBeNull()
+    expect(screen.queryByText('What would need to be true for this?')).toBeNull()
     // The standard "What would make this better supported?" chip is still present.
     expect(screen.getByText('What would make this better supported?')).toBeDefined()
     // Locked Canvas design (23 Sep 2026): the marker is Detailed-only, so the
