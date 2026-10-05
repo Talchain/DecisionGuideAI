@@ -588,6 +588,8 @@ export function mergeServerGraphOnHydrate(
       // Gate 5: the accepted label is acquired metadata too — an approval is not a changed model value.
       strengthAccepted: e.data?.strengthAccepted,
       strengthStated: e.data?.strengthStated,
+      // RT-12: the example-figure label is acquired metadata too: a reload that learns it is not an edit.
+      strengthExampleFigure: e.data?.strengthExampleFigure,
     }
     if (!deepEqual(comparableReadback, e.data)) {
       valueChangedEdgeIds.push(e.id)
