@@ -54,8 +54,18 @@ export const WHATS_CHANGED_FIRST_COMPARISON = 'The options can be compared for t
 export const WHATS_CHANGED_FROM_VERSION_WITHHELD =
   'The recorded result for the version compared from has no figures to compare.'
 
+/**
+ * ONE line in place of every per-option movement when the goal's direction or comparison changed between the pair
+ * (`RunDeltaView.goalFramingChanged`). Science's words (github-d5, 5 Oct), frame-neutral ("results", not "runs"), so
+ * it reads true for re-runs and saved versions. It fires ONLY on the goal's direction or comparison side; a changed
+ * target figure with the same direction leaves shares comparable and keeps the verdicts.
+ */
+export const WHATS_CHANGED_GOAL_FRAMING_CHANGED =
+  'These two results answer different questions: the goal’s direction changed between them, so each option’s share isn’t comparable. Compare results made with the same direction to see what changed.'
+
 /** The sentence for an empty `win_probabilities`, by the producer's typed reason. */
-export function noPairsText(view: Pick<RunDeltaView, 'winProbabilitiesUnavailable' | 'frame'>): string {
+export function noPairsText(view: Pick<RunDeltaView, 'winProbabilitiesUnavailable' | 'frame' | 'goalFramingChanged'>): string {
+  if (view.goalFramingChanged) return WHATS_CHANGED_GOAL_FRAMING_CHANGED
   if (view.winProbabilitiesUnavailable !== 'prior_withheld') return WHATS_CHANGED_NO_PAIRS
   return view.frame === 'versions' ? WHATS_CHANGED_FROM_VERSION_WITHHELD : WHATS_CHANGED_FIRST_COMPARISON
 }

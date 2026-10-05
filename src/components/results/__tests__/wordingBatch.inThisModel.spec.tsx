@@ -41,7 +41,7 @@ describe('RT-13 · the flip-risk callout says the conditional with its condition
   it('measured: the share is printed only with the quarter it is conditional on', () => {
     expect(calloutText(withEdge(PERMITTED()))).toContain(
       `In this model, in the quarter of simulated futures where ${FACTOR_LABEL}'s effect on ${TARGET} is weakest, ` +
-        `${ALT_LABEL} comes out best in 57% of them.`,
+        `57% of them support ${ALT_LABEL}.`,
     )
   })
   it('never the bare figure', () => {
@@ -51,7 +51,7 @@ describe('RT-13 · the flip-risk callout says the conditional with its condition
   })
   it('not measured: no figure, still in this model', () => {
     expect(calloutText(withEdge(PERMITTED(), { switchProbability: undefined })))
-      .toContain(`In this model, if ${FACTOR_LABEL} shifts, ${ALT_LABEL} could come out best instead.`)
+      .toContain(`In this model, if ${FACTOR_LABEL} shifts, ${ALT_LABEL} could be supported by the most runs instead.`)
   })
   it('withheld: unchanged, and it names no option', () => {
     const text = calloutText(withEdge(WITHHELD()))

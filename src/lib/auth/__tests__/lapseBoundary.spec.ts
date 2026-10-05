@@ -9,9 +9,9 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { LAPSE_BOUNDARY_BOUND_MS, runLapseBoundaryIfNeeded, sessionLapsedHere, SIGNED_IN_HERE_KEY, __resetLapseBoundaryForTests } from '../lapseBoundary'
+import { LAPSE_BOUNDARY_BOUND_MS, recordSignInAfterBoundary, runLapseBoundaryIfNeeded, sessionLapsedHere, SIGNED_IN_HERE_KEY, __resetLapseBoundaryForTests } from '../lapseBoundary'
 import { CHUNK_STALL_BOUND_MS } from '../../staleBuildRecovery'
-import { clearUserScopedState, USER_SCOPED_STORAGE_KEYS } from '../userScopedState'
+import { clearUserScopedState, USER_SCOPED_SESSION_KEYS, USER_SCOPED_STORAGE_KEYS, USER_SCOPED_STORAGE_PREFIXES } from '../userScopedState'
 import { isThinClientSession, loadThinLayout, saveThinLayout, __latchThinClientForTests, __resetThinClientForTests } from '../../../canvas/thinClient/thinClient'
 import { __resetPersistenceSessionForTests, setPersistenceSessionActive } from '../../persistenceSession'
 import { loadTranscript, saveTranscript, __resetTranscriptTombstonesForTests } from '../../../canvas/conversation/utils/transcriptStore'
@@ -51,6 +51,17 @@ function sessionLapsesAndNextPageLoads(): void {
   __resetThinClientForTests()
   __resetPersistenceSessionForTests()
   __resetTranscriptTombstonesForTests()
+}
+
+/** What a guest boot may hold after the boundary ran: none of A's transcript, runs, layout or record; a fresh epoch. */
+function expectAsGuestAfterTheBoundary(): void {
+  expect(loadTranscript(A)).toBeNull()
+  expect(loadRuns()).toEqual([])
+  expect(loadThinLayout(A)).toBeNull()
+  expect(keysNamingA()).toEqual([])
+  expect(localStorage.getItem(IDENTITY_EPOCH_KEY)).toBeTruthy()
+  expect(localStorage.getItem(SIGNED_IN_HERE_KEY)).toBeNull()
+  expect(sessionLapsedHere()).toBe(false) // the next guest boot is not a lapse
 }
 
 beforeEach(() => {
@@ -129,12 +140,11 @@ describe('LAPSE-BOUNDARY — the DL rows', () => {
     expect(snapshot()).toEqual(before)
   })
 
-  it('a boundary that cannot load leaves the page as it was and never rejects (the app still renders)', async () => {
+  it('⭐ LAPSE-FC: a boundary chunk that fails to load still sweeps (fails CLOSED) and never rejects (the app still renders)', async () => {
     signedInPageWritesWork()
     sessionLapsesAndNextPageLoads()
-    const before = snapshot()
-    await expect(runLapseBoundaryIfNeeded(() => Promise.reject(new Error('chunk failed')))).resolves.toBe(false)
-    expect(snapshot()).toEqual(before)
+    await expect(runLapseBoundaryIfNeeded(() => Promise.reject(new Error('chunk failed')))).resolves.toBe(true)
+    expectAsGuestAfterTheBoundary()
   })
 })
 
@@ -182,34 +192,110 @@ describe('LAPSE-BOUNDARY — Codex #2530 r1', () => {
 })
 
 describe('LAPSE-BOUNDARY — a boundary chunk that never settles never blanks the app (Review Desk, #2530)', () => {
-  it('⭐ a never-settling chunk: resolves false WITHIN the bound, nothing swept, the record stays for the next boot', async () => {
+  it('⭐ LAPSE-FC: a never-settling chunk: resolves true WITHIN the bound, and the guest gets none of A\'s work (fails CLOSED)', async () => {
     signedInPageWritesWork()
     sessionLapsesAndNextPageLoads()
-    const before = snapshot()
     const started = Date.now()
-    await expect(runLapseBoundaryIfNeeded(() => new Promise(() => { /* never settles */ }), 60)).resolves.toBe(false)
+    await expect(runLapseBoundaryIfNeeded(() => new Promise(() => { /* never settles */ }), 60)).resolves.toBe(true)
     expect(Date.now() - started).toBeLessThan(1_000)
-    expect(snapshot()).toEqual(before)
-    expect(sessionLapsedHere()).toBe(true) // the next boot decides again
+    expectAsGuestAfterTheBoundary()
   }, 2_000)
 
-  it('a chunk that arrives AFTER the bound never sweeps (the app is already mounted)', async () => {
+  it('a chunk that arrives AFTER the bound runs nothing more: storage was swept at the bound, the late chunk is not called', async () => {
     signedInPageWritesWork()
     sessionLapsesAndNextPageLoads()
-    const before = snapshot()
-    let swept = false
+    let lateBoundaryRan = false
     const late = () => new Promise<{ clearUserScopedState: () => void }>((resolve) => {
-      setTimeout(() => resolve({ clearUserScopedState: () => { swept = true } }), 120)
+      setTimeout(() => resolve({ clearUserScopedState: () => { lateBoundaryRan = true } }), 120)
     })
-    await expect(runLapseBoundaryIfNeeded(late, 40)).resolves.toBe(false)
+    await expect(runLapseBoundaryIfNeeded(late, 40)).resolves.toBe(true)
+    expectAsGuestAfterTheBoundary()
+    saveTranscript(A, [message('A guest, after the boundary.')]) // the mounted app's own work
+    const guestWork = snapshot()
     await new Promise((r) => setTimeout(r, 200))
-    expect(swept).toBe(false)
-    expect(snapshot()).toEqual(before)
+    expect(lateBoundaryRan).toBe(false)
+    expect(snapshot()).toEqual(guestWork)
   }, 2_000)
 
   it('the bound sits well inside AppPoC\'s own chunk bound', () => {
     expect(LAPSE_BOUNDARY_BOUND_MS).toBeGreaterThan(0)
     expect(LAPSE_BOUNDARY_BOUND_MS * 4).toBeLessThanOrEqual(CHUNK_STALL_BOUND_MS)
+  })
+})
+
+describe('LAPSE-FC — the boundary without its chunk (DL row after #2530)', () => {
+  const hanging = () => new Promise<never>(() => { /* never settles */ })
+  const failing = () => Promise.reject(new Error('chunk failed'))
+
+  it.each([['never settles', hanging], ['fails to load', failing]] as const)(
+    'a chunk that %s: EVERY user-scoped key, prefixed key and session key goes (the one sweep), and the epoch is fresh',
+    async (_label, loadBoundary) => {
+      for (const key of USER_SCOPED_STORAGE_KEYS) localStorage.setItem(key, 'user-a')
+      for (const prefix of USER_SCOPED_STORAGE_PREFIXES) localStorage.setItem(`${prefix}scenario-a`, 'user-a')
+      for (const key of USER_SCOPED_SESSION_KEYS) sessionStorage.setItem(key, 'user-a')
+      localStorage.setItem(IDENTITY_EPOCH_KEY, 'epoch-of-a')
+      expect(sessionLapsedHere()).toBe(true) // PRECONDITION: the record is among the keys, and no session is stored
+      expect(await runLapseBoundaryIfNeeded(loadBoundary, 40)).toBe(true)
+      for (const key of USER_SCOPED_STORAGE_KEYS) expect(localStorage.getItem(key)).toBeNull()
+      for (const prefix of USER_SCOPED_STORAGE_PREFIXES) expect(localStorage.getItem(`${prefix}scenario-a`)).toBeNull()
+      for (const key of USER_SCOPED_SESSION_KEYS) expect(sessionStorage.getItem(key)).toBeNull()
+      expect(localStorage.getItem(IDENTITY_EPOCH_KEY)).toBeTruthy()
+      expect(localStorage.getItem(IDENTITY_EPOCH_KEY)).not.toBe('epoch-of-a')
+    }, 2_000)
+
+  it.each([['never settles', hanging], ['fails to load', failing]] as const)(
+    'a chunk that %s while ANOTHER TAB stores a session: decided again before the sweep, nothing is swept',
+    async (_label, loadBoundary) => {
+      signedInPageWritesWork()
+      sessionLapsesAndNextPageLoads()
+      expect(sessionLapsedHere()).toBe(true) // PRECONDITION: a lapse when the boot looked
+      const before = snapshot()
+      const ran = runLapseBoundaryIfNeeded(() => {
+        localStorage.setItem(SESSION_KEY, SESSION) // the other tab signs in while the chunk loads
+        return loadBoundary()
+      }, 40)
+      expect(await ran).toBe(false)
+      expect(snapshot()).toEqual({ ...before, [SESSION_KEY]: SESSION })
+    }, 2_000)
+
+  it('a session another tab commits AFTER the final decision: the sweep still runs to the end (fails CLOSED), and that session is kept', async () => {
+    // Codex #2534 r1 P1-2 modelled this interleaving. There is no lock shared with supabase-js's session write, so it is
+    // pinned, not prevented: once decided, nothing of A is left half-swept, and the new session itself is never removed.
+    signedInPageWritesWork()
+    sessionLapsesAndNextPageLoads()
+    const setItem = Storage.prototype.setItem
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+      setItem.call(this, key, value)
+      if (key === IDENTITY_EPOCH_KEY) setItem.call(localStorage, SESSION_KEY, SESSION) // the other tab, just after the decision
+    })
+    expect(await runLapseBoundaryIfNeeded(failing)).toBe(true)
+    expect(localStorage.getItem(SESSION_KEY)).toBe(SESSION)
+    expect(loadTranscript(A)).toBeNull()
+    expect(loadRuns()).toEqual([])
+    expect(keysNamingA()).toEqual([])
+  })
+
+  it('the boundary is noted: a sign-in later on this page is recorded again, so its own lapse is caught', async () => {
+    signedInPageWritesWork()
+    sessionLapsesAndNextPageLoads()
+    expect(await runLapseBoundaryIfNeeded(failing)).toBe(true)
+    expect(localStorage.getItem(SIGNED_IN_HERE_KEY)).toBeNull()
+    recordSignInAfterBoundary() // AuthContext adopts the next sign-in on this page
+    expect(localStorage.getItem(SIGNED_IN_HERE_KEY)).toBe('1')
+  })
+
+  it('storage that refuses the epoch write: the sweep still runs and the boundary never rejects', async () => {
+    signedInPageWritesWork()
+    sessionLapsesAndNextPageLoads()
+    const setItem = Storage.prototype.setItem
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key === IDENTITY_EPOCH_KEY) throw new DOMException('denied', 'SecurityError')
+      return setItem.call(this, key, value)
+    })
+    await expect(runLapseBoundaryIfNeeded(failing)).resolves.toBe(true)
+    expect(loadTranscript(A)).toBeNull()
+    expect(loadRuns()).toEqual([])
+    expect(keysNamingA()).toEqual([])
   })
 })
 

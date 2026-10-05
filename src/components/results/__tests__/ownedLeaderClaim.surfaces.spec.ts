@@ -65,6 +65,9 @@ const LEADER_LANGUAGE: ReadonlyArray<[string, RegExp]> = [
   ['highest expected outcome', /highest expected outcome/i],
   // The principle-audit leader sentence (5 Oct, Science's ruling): kept beside every retired form, never instead.
   ['came out best', /came out best/i],
+  // Union, never replace: the direction-neutral leader wording (Paul, 5 Oct).
+  ['runs supported', /runs supported|runs (?:would|could|still) support|most runs (?:still )?supported|the most runs|be supported by the most runs/i],
+  ['was supported by N of runs', /was supported by .{0,12} of runs|more runs than any other option/i],
 ]
 
 function expectNoLeaderLanguage(where: string, ...strings: Array<string | null | undefined>) {
@@ -92,7 +95,7 @@ describe('results-panel certainty headline', () => {
   it('WITHHELD: makes no leader claim on ANY of its assertion branches', () => {
     const c = certainty(WITHHELD_VERDICT)
     expectNoLeaderLanguage('certaintyCopy', c.headline, c.sub, c.caveat)
-    expect(c.headline).toBe('the analysis did not put an option forward')
+    expect(c.headline).toBe('this run names no option in this model')
     expect(c.conservative).toBe(true)
   })
 

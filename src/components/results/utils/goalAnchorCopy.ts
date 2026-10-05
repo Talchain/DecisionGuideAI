@@ -309,9 +309,9 @@ export const COMPARATIVE_COPY = {
    * N of simulated futures" after "In this model, {label}". "Came out best" holds whatever the goal's direction (a churn
    * goal is minimised, so "highest" would read as the most churn).
    */
-  modelLeaderClause: (formatted: string): string => `came out best in ${formatted} of simulated futures`,
+  modelLeaderClause: (formatted: string): string => `was supported by ${formatted} of runs`,
   /** The magnitude-free form of `modelLeaderClause` (no placeholder ever stands in for the share). */
-  modelLeaderNoMagnitude: 'came out best in more simulated futures than any other option',
+  modelLeaderNoMagnitude: 'was supported by more runs than any other option',
   /** Mid-sentence honest-absence form, parallel to `clause`. */
   unavailableClause: 'comparative support is unavailable for this run',
   /** Sentence form. */

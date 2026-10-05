@@ -11,48 +11,12 @@ import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { useServerConversationTurnsStore } from '../../canvas/stores/serverConversationTurnsStore'
 import { clearCitedEvidenceCache } from '../../collab/citedEvidenceCache'
 import { clearRoundRosterCache } from '../../collab/roundRosterCache'
-import { noteIdentityBoundary, SIGNED_IN_HERE_KEY } from './lapseBoundary'
+import { noteIdentityBoundary } from './lapseBoundary'
+import { freshIdentityEpoch, sweepUserScopedStorage } from './userScopedKeys'
 
-/** All browser state that belongs to an authenticated user's reasoning work. */
-export const USER_SCOPED_STORAGE_KEYS = [
-  'olumi-canvas-scenarios', 'olumi-canvas-autosave', 'olumi-canvas-current-scenario-id',
-  'olumi-canvas-model-versions-v1', 'olumi-canvas-transcript',
-  'defineSuccess.measure.v1', 'strengthen.lifecycle.v1', 'canvas-layout-options-v6',
-  'canvas-layout-options-v5', 'canvas-layout-options-v4', 'olumi-cee-analysis-ready',
-  'olumi-cee-analysis-ready-node-ids',
-  // An unregistered import's node ids and edge pairs (`importRegistrationMarker.ts`): the previous identity's model shape.
-  'olumi.import.pendingServerRegistration.v1',
-  // Its sibling: which scenario's model CEE acknowledged (`importRegistrationMarker.ts`), keyed by the previous identity's
-  // scenario id.
-  'olumi.import.serverAcknowledged.v1',
-  // Run history (`runHistory.ts`): whole reports and graph snapshots with no owner. Nothing writes it on the live path,
-  // but entries from the retired Play path are still read by the palette, ShareDrawer and ReactFlowGraph's restore.
-  'olumi-canvas-run-history',
-  // "This browser was signed in" (`lapseBoundary.ts`): the boundary has now run, so the next guest boot is not a lapse.
-  SIGNED_IN_HERE_KEY,
-] as const
-
-// `olumi-canvas-autosave:` — a cold-load deep link's preserved copies (`scenarios.keyedAutosaveKey`): one per scenario,
-// unbounded, and as private as the main slot above.
-// `canvas-snapshot-` — manual snapshots (⌘S, Model ▸ Snapshots; `persist.saveSnapshot`) and their `-name` keys: whole
-// graphs with labels, listed with no owner check (`persist.listSnapshots`), so the next account could restore one.
-// `olumi.collab.pending-apply.` / `olumi.collab.open-round.` — a Panel round's pending model change and its participants,
-// one per scenario (`collab/panelApplyHandoff.ts`, `collab/openRoundRecord.ts`).
-// `olumi-thin-layout:` — a signed-in browser's layout, one per scenario (`thinClient.LAYOUT_KEY_PREFIX`): positions only,
-// but keyed by node ids, and CEE derives node ids from labels (Acceptance, #2511 witness W2), so it names the model.
-export const USER_SCOPED_STORAGE_PREFIXES = [
-  'olumi.dissent.v2.', 'olumi.dissent.', 'olumi-canvas-autosave:', 'canvas-snapshot-',
-  'olumi.collab.pending-apply.', 'olumi.collab.open-round.', 'olumi-thin-layout:',
-] as const
-
-/** Per-tab user work in sessionStorage: the analysis-ready mirror and the coaching blob (`guidanceStore.ts`). */
-export const USER_SCOPED_SESSION_KEYS = [
-  'olumi-cee-analysis-ready', 'olumi-cee-analysis-ready-node-ids', 'guidance.items.v1',
-] as const
-
-function freshIdentityEpoch(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
-}
+// The key lists and the storage sweep live in a leaf with no imports, so the lapse boundary can sweep without this chunk
+// (`userScopedKeys.ts`). Re-exported here for the boundary's existing readers.
+export { USER_SCOPED_STORAGE_KEYS, USER_SCOPED_STORAGE_PREFIXES, USER_SCOPED_SESSION_KEYS } from './userScopedKeys'
 
 /** One identity boundary for sign-out and A→B auth transitions. */
 export function clearUserScopedState(): void {
@@ -94,21 +58,7 @@ export function clearUserScopedState(): void {
   // Panel participants' names and their cited evidence, fetched with the previous owner's token (in memory, 5-min TTL).
   step(clearRoundRosterCache)
   step(clearCitedEvidenceCache)
-  // Each removal on its own: one that throws never leaves the keys after it behind (browser storage can be unavailable).
-  const remove = (storage: () => Storage, key: string): void => {
-    try { storage().removeItem(key) } catch { /* the sweep goes on */ }
-  }
-  for (const key of USER_SCOPED_STORAGE_KEYS) remove(() => localStorage, key)
-  // Enumerate first, then remove: a removal neither shifts the index nor stops the sweep.
-  const prefixed: string[] = []
-  try {
-    for (let i = 0; i < localStorage.length; i += 1) {
-      const key = localStorage.key(i)
-      if (key && USER_SCOPED_STORAGE_PREFIXES.some(prefix => key.startsWith(prefix))) prefixed.push(key)
-    }
-  } catch { /* browser storage can be unavailable */ }
-  for (const key of prefixed) remove(() => localStorage, key)
-  for (const key of USER_SCOPED_SESSION_KEYS) remove(() => sessionStorage, key)
+  step(sweepUserScopedStorage)
   // The sweep removed `SIGNED_IN_HERE_KEY`: the next signed-in moment on this page records it again (`lapseBoundary.ts`).
   step(noteIdentityBoundary)
 }

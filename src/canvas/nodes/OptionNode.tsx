@@ -196,7 +196,8 @@ import { LAST_RUN_PREFIX, OPTION_RESULT_COPY } from './shared/metricVocabulary'
 import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
 import { optionTakenOutLine } from '../domain/optionStatus'
 import { useRunCurrency, optionResultCaption, optionResultCompactCaption, optionResultCurrencyNote } from './shared/runCurrency'
-import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
+import { leaderWithholdCause, olumiSuppliedFiguresDisclosure } from '../../components/results/analysisNew/analysisNewCopy'
+import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { ValueSourceMark, VALUE_SOURCE_MARK_TOKEN } from './shared/valueSourceMark'
 import { parseDraftingNotes } from '../ui/inspector-v2/draftingNote'
 import { optionEntryScaleOf } from '../ui/inspector-v2/shared/optionTargetEntry'
@@ -220,8 +221,11 @@ import { optionEntryScaleOf } from '../ui/inspector-v2/shared/optionTargetEntry'
  */
 const SHARE_CAPTION_WIDE_ONLY = 'hidden [@container(min-width:17.5em)]:block'
 const SHARE_CAPTION_NARROW_ONLY = '[@container(min-width:17.5em)]:hidden'
-/** `Current model best in 100% · Provisional` ≈ 19.5em (letters-estimated, as above): the prefix shows from there. */
-const SHARE_PREFIX_WIDE_ONLY = 'hidden [@container(min-width:19.5em)]:inline'
+/**
+ * `Current model favoured in 100% · Provisional` ≈ 21.5em (letters-estimated, as above: the old 40-letter `best in`
+ * line was 19.5em, so 44 letters ≈ 21.45em): the prefix shows from there.
+ */
+const SHARE_PREFIX_WIDE_ONLY = 'hidden [@container(min-width:21.5em)]:inline'
 
 /** The existing `est.` mark hover on a change row — one spelling for the row and the card line. */
 const OPTION_ROW_ESTIMATE_NOTE = 'Olumi chose this target; it is not yet confirmed.'
@@ -842,7 +846,7 @@ export const OptionNode = memo((props: NodeProps) => {
   //
   // ⭐ PREDICATE ONLY SINCE 2026-08-10 — the number is NEVER RENDERED. It
   // decides two things: whether the qualitative "Close call" marker shows, and
-  // whether the extra "What would change this?" chip is offered. The 5pp
+  // whether the extra "What would need to be true for this?" chip is offered. The 5pp
   // window and the 1pp floor are kept exactly as they were, so the set of runs
   // that qualify is provably unchanged by this retirement; only the sentence
   // moved. Do not reintroduce it into copy.
@@ -1374,6 +1378,17 @@ export const OptionNode = memo((props: NodeProps) => {
       label: cleanFactorLabel((factorNode?.data?.label as string) ?? '') || ((factorNode?.data?.label as string) ?? ''),
     }
   }, [isPostAnalysis, isRecommended, resultsReport, ceeAnalysisReady, props.id, nodes])
+
+  // MC P0's disclosure for a KEPT leader (DL fa027 ruling): this card's finding rests on a deciding link whose figures
+  // Olumi supplied. Science d5's words, on the leader's card only, at the share line's level, in every view mode.
+  const olumiSuppliedFigures = useMemo(() => {
+    if (!isPostAnalysis || !isRecommended) return null
+    const labelOf = (nodeId: string): string | null => {
+      const label = nodes.find(n => n.id === nodeId)?.data?.label
+      return typeof label === 'string' ? label : null
+    }
+    return olumiSuppliedFiguresDisclosure(readInferenceWarnings(resultsReport), labelOf)
+  }, [isPostAnalysis, isRecommended, resultsReport, nodes])
 
   // Goal probability for warning.
   // ROADMAP 1.49: uses the shared selectGoalProbability fallback chain (same
@@ -2894,7 +2909,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 nothing box that gives way first. A unit that does not fit wraps
                 onto the box's clipped second line; the zero-width spacer keeps
                 line 1 open, so no sliver of a glyph is left. */}
-            {/* "best in" (R3 5903852225 / AIQ 5903874730): the share is not a chance. With a qualifier it narrows
+            {/* "favoured in" (R3 5903852225 / AIQ 5903874730): the share is not a chance. With a qualifier it narrows
                 with the caption (`SHARE_PREFIX_WIDE_ONLY`), so `Model 100% · Provisional` still fits the capped slot. */}
             <span
               data-testid={`option-win-prefix-${props.id}`}
@@ -3037,6 +3052,14 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
         </div>
+        {olumiSuppliedFigures !== null && (
+          <p
+            className={`${typography.edgeLabel} text-text-body mt-1 mb-0`}
+            data-testid={`option-olumi-supplied-figures-${props.id}`}
+          >
+            {olumiSuppliedFigures}
+          </p>
+        )}
         {/* Row 22: Detailed carries the stale state inline (Standard: popover). */}
         {isDetailed && staleStateLine}
         {/* The Run kept Olumi's proposal in a provisional comparison (typed fact; never an authorship guess). */}

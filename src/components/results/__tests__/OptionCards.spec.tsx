@@ -554,7 +554,7 @@ describe('OptionCards', () => {
       )
 
       // Option B is runnerId AND matches hinge.alternativeWinnerLabel
-      expect(screen.getByText('If Customer churn shifts, this option would come out best in this model')).toBeInTheDocument()
+      expect(screen.getByText('If Customer churn shifts, more runs would support this option in this model')).toBeInTheDocument()
     })
 
     it('runner-up: unmatched alternate winner shows generic runner-up', () => {
@@ -783,10 +783,10 @@ describe('Codex B1 — a lens never re-crowns leader SEMANTICS', () => {
     // Lens card: lens copy, NO leader downside predicate, NO leader CTA.
     expect(lensCard).toHaveTextContent('Ahead on this outcome view. The goal ranking above is unchanged.')
     // Union, never replace: the retired leader words AND the model-relative ones that replaced them (principle audit).
-    expect(lensCard.textContent).not.toMatch(/currently leads|this option came out best/i)
-    expect(lensCard.textContent).not.toMatch(/What makes this|come out best in this model|rest on in this model/i)
+    expect(lensCard.textContent).not.toMatch(/currently leads|this option came out best|most runs supported this option/i)
+    expect(lensCard.textContent).not.toMatch(/What makes this|come out best in this model|rest on in this model|runs in this model support/i)
     // Canonical card: keeps the leader predicates even without the crown styling.
-    expect(canonicalCard.textContent).toMatch(/this option came out best, but the lower range of its simulated outcomes includes meaningful downside/)
-    expect(canonicalCard.textContent).toMatch(/come out best in this model|rest on in this model/i)
+    expect(canonicalCard.textContent).toMatch(/the most runs supported this option, but the lower range of its simulated outcomes includes meaningful downside/)
+    expect(canonicalCard.textContent).toMatch(/runs in this model support|rest on in this model/i)
   })
 })

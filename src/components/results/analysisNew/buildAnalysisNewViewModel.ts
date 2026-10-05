@@ -103,6 +103,8 @@ import {
   ANALYSIS_NEW_COPY as COPY,
   ANALYSIS_NEW_LABEL_FALLBACK,
   formatConjunctionList,
+  goalLabelOf,
+  olumiSuppliedFiguresDisclosure,
   withheldLeaderCause,
 } from './analysisNewCopy'
 import type {
@@ -2833,6 +2835,10 @@ function buildAtAGlance(
      * error this disclosure exists to correct.
      */
     optionOrigin: headline && leader ? (nodeOrigins?.get(leader.id) ?? null) : null,
+    // MC P0's disclosure for a kept leader (DL fa027 ruling), under the leader's own entitlement.
+    olumiSuppliedFigures: headline && leader
+      ? olumiSuppliedFiguresDisclosure(data.confidence?.inferenceWarnings, (nodeId) => nodeLabels?.get(nodeId) ?? null)
+      : null,
   }
 }
 
@@ -3652,6 +3658,10 @@ function buildChecks(
    * evidence either way and must not earn a suppression.
    */
   staleReason: 'changed' | 'unconfirmed' | null | undefined,
+  /** Canvas labels, so a `goal_path_unsized` withhold can name its link (`withheldLeaderCause`). */
+  nodeLabels?: ReadonlyMap<string, string>,
+  /** The goal node's own label (`goalLabelOf`), so a `goal_product_not_read` withhold can name the goal. */
+  goalLabel?: string | null,
 ): AnalysisNewViewModel['checks'] {
   const rec = data.recommendation
   const conf = data.confidence
@@ -3784,7 +3794,11 @@ function buildChecks(
       ? null
       : // One rule for every surface; see `withheldLeaderCause`. It is handed the
         // narrow refusal (one that asks for an estimate), never any refusal.
-        withheldLeaderCause(producerWithholdReason, refusalAsksForAnEstimate)
+        withheldLeaderCause(producerWithholdReason, refusalAsksForAnEstimate, {
+          inferenceWarnings: conf?.inferenceWarnings,
+          labelOf: (nodeId) => nodeLabels?.get(nodeId) ?? null,
+          goalLabel,
+        })
   /*
    * ⚠ A NAMEABLE CAUSE IS NOT ALWAYS A DURABLE ONE. `constraint_verdict_withheld`
    * covers the automatic first pass's own policy, and an explicit Run on the
@@ -4153,7 +4167,7 @@ export function buildAnalysisNewViewModel(
         // decide whether a re-run could help, and pre-run there is no result
         // for it to be about.
         { items: [], leaderWithholdCause: null, leaderWithheld: false, leaderWithholdDetail: null, sharesExcludeLimits: false, firstPassWithheld: false, rerunWouldNotHelp: false }
-      : buildChecks(data, inputs.producerLeaderWithholdReason, inputs.staleReason),
+      : buildChecks(data, inputs.producerLeaderWithholdReason, inputs.staleReason, inputs.nodeLabels, goalLabelOf(inputs.analysisNodes)),
   }
 }
 
