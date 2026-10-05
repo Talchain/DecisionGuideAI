@@ -168,13 +168,17 @@ done
 npx playwright install chromium > "$W/logs/playwright-install.log" 2>&1
 say "stack up; recording"
 
-# One run records J1 AND the isolation rows (their guest draft is a different LLM shape from J1's
-# signed-in draft: run 37329013928 drifted on it). Workers 1: J1 first, then ISO.
-DGAI_SHA="$DGAI_SHA" CEE_SHA="$CEE_SHA" PLOT_SHA="$PLOT_SHA" ISL_SHA="$ISL_SHA" J1_MODE=record \
-JOURNEY_LLM_LEDGER="$W/ledger.ndjson" JOURNEY_LLM_FIXTURES="$FIX" \
-CORE_UI_URL="http://localhost:$UI_PORT" CORE_SUPABASE_URL="$SB_API_URL" CORE_SUPABASE_KEY="$SB_ANON_KEY" \
-J1_SB_SERVICE_ROLE_KEY="$SB_SERVICE_ROLE_KEY" J1_CEE_URL="http://127.0.0.1:$CEE_PORT" \
-  npx playwright test --config playwright.journey.config.ts J1-whole-poc isolation-same-browser 2>&1 | tee "$W/logs/playwright.log" || true
+# One boundary records J1 AND the isolation rows, in the SAME ORDER CI replays them: J1 first,
+# then the isolation rows (two invocations; one invocation ran the isolation file first). Requests
+# that are identical across specs (J1's and ISO-1's first draft call) get different LLM answers,
+# and the replay serves the first unused exact match, so record order must equal replay order or a
+# spec inherits another spec's model (record 3: J1 took ISO-1's draft and its Run drifted).
+REC_ENV=(DGAI_SHA="$DGAI_SHA" CEE_SHA="$CEE_SHA" PLOT_SHA="$PLOT_SHA" ISL_SHA="$ISL_SHA" J1_MODE=record
+  JOURNEY_LLM_LEDGER="$W/ledger.ndjson" JOURNEY_LLM_FIXTURES="$FIX"
+  CORE_UI_URL="http://localhost:$UI_PORT" CORE_SUPABASE_URL="$SB_API_URL" CORE_SUPABASE_KEY="$SB_ANON_KEY"
+  J1_SB_SERVICE_ROLE_KEY="$SB_SERVICE_ROLE_KEY" J1_CEE_URL="http://127.0.0.1:$CEE_PORT")
+env "${REC_ENV[@]}" npx playwright test --config playwright.journey.config.ts J1-whole-poc 2>&1 | tee "$W/logs/playwright.log" || true
+env "${REC_ENV[@]}" npx playwright test --config playwright.journey.config.ts isolation-same-browser --output test-results/isolation 2>&1 | tee "$W/logs/playwright-isolation.log" || true
 
 # The tuple this set was recorded on: the pinned leg of the CI workflow replays against exactly these.
 node -e 'const [f, ui, cee, plot, isl] = process.argv.slice(1); require("fs").writeFileSync(f, JSON.stringify({ cee, plot, isl, recorded_with_ui: ui, recorded_at: new Date().toISOString() }, null, 1) + "\n")' \

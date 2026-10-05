@@ -74,8 +74,8 @@ async function draft(page: Page): Promise<{ S: string; nodes: string[] }> {
   await submitBrief(page, BRIEF)
   await waitForDraftTurnComplete(page, { timeoutMs: 420_000 })
   await expect.poll(() => scenarioIdFromUrl(page.url()), { timeout: 60_000 }).not.toBeNull()
-  await expect.poll(async () => (await renderedNodeIds(page)).length, { timeout: 60_000 }).toBeGreaterThan(0)
-  return { S: scenarioIdFromUrl(page.url())!, nodes: (await renderedNodeIds(page)).sort() }
+  await expect.poll(async () => (await nodeIds(page, 'draft')).length, { timeout: 60_000 }).toBeGreaterThan(0)
+  return { S: scenarioIdFromUrl(page.url())!, nodes: (await nodeIds(page, 'draft')).sort() }
 }
 
 /**
@@ -99,8 +99,29 @@ function assertIsolationBoundaryClean(label: string): void {
   }
 }
 
+/**
+ * Rejects with a NAMED error if `p` has not settled in `ms`. page.evaluate (storage scans, the
+ * rendered-node-id read) has no timeout of its own: on UI bases with #2511 (thin client) ISO-1 sat
+ * to its 900 s test timeout with the hang point unreported (Core Platform, runs 37337813996 et al.).
+ */
+function bounded<T>(p: Promise<T>, label: string, ms = 60_000): Promise<T> {
+  let t: ReturnType<typeof setTimeout> | undefined
+  return Promise.race([p, new Promise<T>((_, rej) => { t = setTimeout(() => rej(new Error(`${label}: no answer in ${ms / 1000}s`)), ms) })])
+    .finally(() => clearTimeout(t))
+}
+
+/** Step checkpoints written to the evidence file AS THEY HAPPEN: a timeout leaves its last step on disk. */
+function checkpoints(file: string, ev: Record<string, unknown>): (step: string) => void {
+  const t0 = Date.now()
+  const steps: { step: string; at_s: number }[] = []
+  ev.steps = steps
+  return (step: string) => { steps.push({ step, at_s: Math.round((Date.now() - t0) / 1000) }); writeEvidence(file, ev) }
+}
+
+const nodeIds = (page: Page, label: string): Promise<string[]> => bounded(renderedNodeIds(page), `${label} (rendered node ids)`)
+
 const storageNaming = async (page: Page, needle: string): Promise<string[]> =>
-  Object.entries(await browserStorage(page)).filter(([k, v]) => k.includes(needle) || v.includes(needle)).map(([k]) => k)
+  Object.entries(await bounded(browserStorage(page), 'storage scan')).filter(([k, v]) => k.includes(needle) || v.includes(needle)).map(([k]) => k)
 
 // Not serial: the two rows share nothing, so one failing must not skip the other
 // (231ad3ec run 37315190922: ISO-1 failed and serial mode never ran ISO-2).
@@ -110,6 +131,8 @@ test.describe('ISO · same browser, two accounts', () => {
 
   test('ISO-1 · A signs out, B signs in: no snapshot, coaching, storage or register crosses (Core Platform + Red-team A1–A3)', async ({ browser }) => {
     const ev: Record<string, unknown> = {}
+    const mark = checkpoints('ISO-1.json', ev)
+    mark('sign up A and B (local)')
     const A = await localUser('a')
     const B = await localUser('b')
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
@@ -130,10 +153,13 @@ test.describe('ISO · same browser, two accounts', () => {
     await installWireInterceptor(tab2)
     try {
       // ── A, tab 1: a model, a named snapshot, coaching. ──
+      mark('tab 1: A signs in via the form')
       await signInViaForm(tab1, A)
+      mark('tab 1: A drafts')
       const { S, nodes } = await draft(tab1)
       assertIsolationBoundaryClean('ISO-1')
       const sentinel = `ISO-SENTINEL-${Date.now().toString(36)}`
+      mark('tab 1: save + rename a snapshot')
       await tab1.getByRole('button', { name: 'More options' }).click()
       await tab1.getByTestId('kebab-snapshots').click()
       const manager = tab1.getByRole('dialog', { name: 'Snapshot Manager' })
@@ -144,22 +170,27 @@ test.describe('ISO · same browser, two accounts', () => {
       // Controls: the sentinel is visible and stored; A's model is in tab 2 too.
       await expect(manager.getByRole('heading', { name: sentinel }), '[ISO-1 control] the named snapshot is not listed for A').toBeVisible()
       expect((await storageNaming(tab1, sentinel)).length, '[ISO-1 control] the sentinel is not in storage for A').toBeGreaterThan(0)
+      mark('tab 2: opens S')
       await tab2.goto(`${ORIGIN}/#/scenario/${S}`, { waitUntil: 'load' })
-      await expect.poll(async () => (await renderedNodeIds(tab2)).sort(), { message: '[ISO-1 control] tab 2 does not show A\'s model', timeout: 120_000 }).toEqual(nodes)
-      const tab2Before = await browserStorage(tab2)
+      await expect.poll(async () => (await nodeIds(tab2, 'tab 2 opens S')).sort(), { message: '[ISO-1 control] tab 2 does not show A\'s model', timeout: 120_000 }).toEqual(nodes)
+      mark('controls before the switch')
+      const tab2Before = await bounded(browserStorage(tab2), 'tab 2 storage before the switch')
       ev.iso1_tab2_session_before = Object.keys(tab2Before)
       // Controls for every absence checked after the switch:
       for (const [name, tab] of [['tab1', tab1], ['tab2', tab2]] as const) {
         expect((await storageNaming(tab, S)).length, `[ISO-1 control] ${name} storage does not name S before the switch`).toBeGreaterThan(0)
       }
       expect((await scenariosVisibleTo(A.accessToken)).ids, '[ISO-1 control] A cannot list its own S via PostgREST').toContain(S)
-      const coachingBefore = await tab1.evaluate(() => sessionStorage.getItem('guidance.items.v1'))
+      const coachingBefore = await bounded(tab1.evaluate(() => sessionStorage.getItem('guidance.items.v1')), 'tab 1 coaching read')
       const aRegistered = registers.some((r) => r.scenario === S && r.sub === A.userId)
       ev.iso1_controls = { coaching_present_for_A: coachingBefore !== null, register_seen_for_A: aRegistered }
 
       // ── Switch, with Snapshots left OPEN in tab 1 (Core Platform variant). ──
+      mark('tab 2: A signs out')
       await signOut(tab2)
+      mark('tab 2: B signs in via the form')
       await signInViaForm(tab2, B)
+      mark('tab 1: open Snapshot Manager loses A\'s rows')
 
       // Tab 1's open manager loses A's rows without being closed.
       await expect(manager.getByRole('heading', { name: sentinel }), '[ISO-1] the open Snapshot Manager still lists A\'s snapshot after B signed in').toHaveCount(0, { timeout: 30_000 })
@@ -167,8 +198,9 @@ test.describe('ISO · same browser, two accounts', () => {
       // Evidence first, for every key that still names S: which area holds it, how big it is, and
       // whether it carries A's own words (the brief), so a leak is a finding, not a guess.
       const briefProbe = BRIEF.slice(0, 40)
+      mark('storage evidence (keys naming S)')
       for (const [name, tab] of [['tab1', tab1], ['tab2', tab2]] as const) {
-        ev[`iso1_${name}_keys_naming_S`] = await tab.evaluate(([needle, probe]) => {
+        ev[`iso1_${name}_keys_naming_S`] = await bounded(tab.evaluate(([needle, probe]) => {
           const out: { key: string; area: string; bytes: number; carries_brief: boolean }[] = []
           for (const [area, st] of [['local', localStorage], ['session', sessionStorage]] as const) {
             for (let i = 0; i < st.length; i++) {
@@ -177,24 +209,28 @@ test.describe('ISO · same browser, two accounts', () => {
             }
           }
           return out
-        }, [S, briefProbe] as const)
+        }, [S, briefProbe] as const), `${name} storage evidence`)
       }
+      mark('storage assertions')
       for (const [name, tab] of [['tab1', tab1], ['tab2', tab2]] as const) {
         expect(await storageNaming(tab, sentinel), `[ISO-1] ${name} storage still holds A's snapshot`).toEqual([])
         expect(await storageNaming(tab, S), `[ISO-1] ${name} storage still names A's scenario`).toEqual([])
       }
       // B's own Snapshots list is empty.
+      mark('tab 2: B home + REST list')
       await tab2.goto(`${ORIGIN}/#/`, { waitUntil: 'load' })
       // A3: B's list and RLS hold no S; B's deep link mounts none of A's nodes.
       expect((await scenariosVisibleTo(B.accessToken)).ids, '[ISO-1/A3] B can list A\'s scenario').not.toContain(S)
       // Terminal state first: tab 2's own CEE read of S under B is refused.
+      mark('tab 2: B deep-links S')
       const uiRead = tab2.waitForResponse((r) => r.url().includes(`/bff/cee/scenarios/${S}/graph`) && r.request().method() === 'POST', { timeout: 90_000 }).catch(() => null)
       await tab2.goto(`${ORIGIN}/#/scenario/${S}`, { waitUntil: 'load' })
       const refused = await uiRead
       expect(refused, '[ISO-1/A3] COULD NOT MEASURE: B\'s tab never read S from CEE').not.toBeNull()
       expect([403, 404], `[ISO-1/A3] CEE served S to B (status ${refused!.status()})`).toContain(refused!.status())
-      expect((await renderedNodeIds(tab2)).filter((id) => nodes.includes(id)), '[ISO-1/A3] A\'s model rendered for B').toEqual([])
+      expect((await nodeIds(tab2, 'tab 2 under B')).filter((id) => nodes.includes(id)), '[ISO-1/A3] A\'s model rendered for B').toEqual([])
       // A1/A2: tab 1, reloaded under B, shows nothing of A.
+      mark('tab 1: reload under B')
       const tab1Read = tab1.waitForResponse((r) => r.url().includes(`/bff/cee/scenarios/${S}/graph`) && r.request().method() === 'POST', { timeout: 90_000 }).catch(() => null)
       await tab1.reload({ waitUntil: 'load' })
       const tab1Refused = await tab1Read
@@ -205,9 +241,10 @@ test.describe('ISO · same browser, two accounts', () => {
         await expect(tab1.getByRole('button', { name: 'Account menu' }), '[ISO-1/A2] tab 1 never rendered signed in after reload').toBeVisible({ timeout: 60_000 })
         ev.iso1_tab1_reload = 'tab 1 did not read S after reload (pointer swept); shell rendered'
       }
-      expect((await renderedNodeIds(tab1)).filter((id) => nodes.includes(id)), '[ISO-1/A2] tab 1 restored A\'s model under B').toEqual([])
+      expect((await nodeIds(tab1, 'tab 1 under B')).filter((id) => nodes.includes(id)), '[ISO-1/A2] tab 1 restored A\'s model under B').toEqual([])
+      mark('coaching + register checks')
       if (coachingBefore !== null) {
-        expect(await tab1.evaluate(() => sessionStorage.getItem('guidance.items.v1')), '[ISO-1] A\'s coaching survived in tab 1').toBeNull()
+        expect(await bounded(tab1.evaluate(() => sessionStorage.getItem('guidance.items.v1')), 'tab 1 coaching after'), '[ISO-1] A\'s coaching survived in tab 1').toBeNull()
       } else {
         ev.iso1_coaching = 'UNMEASURED: A had no coaching items in tab 1 before the switch'
       }
@@ -219,6 +256,7 @@ test.describe('ISO · same browser, two accounts', () => {
         ev.iso1_register = `UNMEASURED: no register from A's session to S was seen (${registers.length} register(s) in all)`
       }
       ev.iso1 = { S, sentinel, registers: registers.length, crossed: crossed.length }
+      mark('done')
     } finally {
       writeEvidence('ISO-1.json', ev)
       await ctx.close()
@@ -227,23 +265,28 @@ test.describe('ISO · same browser, two accounts', () => {
 
   test('ISO-2 · guest → sign in as A: exactly one owned copy, guest row untouched, no transcript (Red-team A4, Core Platform ruling)', async ({ browser }) => {
     const ev: Record<string, unknown> = {}
+    const mark = checkpoints('ISO-2.json', ev)
+    mark('sign up A (local)')
     const A = await localUser('a4')
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
     const page = await ctx.newPage()
     await installWireInterceptor(page)
     try {
       // enterAsGuest expects the landing screen already loaded (run 37322670650: blank page).
+      mark('guest enters + drafts')
       await page.goto(`${ORIGIN}/`, { waitUntil: 'load' })
       await enterAsGuest(page)
       await submitBrief(page, BRIEF)
       await waitForDraftTurnComplete(page, { timeoutMs: 420_000 })
       assertIsolationBoundaryClean('ISO-2')
-      const guestId = await page.evaluate(() => localStorage.getItem('olumi-canvas-current-scenario-id'))
+      const guestId = await bounded(page.evaluate(() => localStorage.getItem('olumi-canvas-current-scenario-id')), 'guest pointer read')
       expect(guestId, '[ISO-2 control] the guest model has no scenario id').toMatch(/^[0-9a-f-]{36}$/)
       // The guest row, read with the LOCAL job's service role (no user token can read it).
+      mark('guest row before sign-in')
       const guestBefore = JSON.stringify(await scenarioRowAsService(guestId!))
       const copied = page.evaluate(() => new Promise((res) => window.addEventListener('accounts:guest-copied', (e: any) => res(e.detail), { once: true })))
 
+      mark('A signs in via the form (guest copy)')
       await signInViaForm(page, A)
       const detail = (await Promise.race([copied, new Promise((r) => setTimeout(() => r(null), 60_000))])) as any
       expect(detail?.sourceScenarioId, '[ISO-2] no guest copy event for the guest model').toBe(guestId)
@@ -258,22 +301,24 @@ test.describe('ISO · same browser, two accounts', () => {
       expect(guestAfter, '[ISO-2] the guest row changed on sign-in (byte-for-byte)').toBe(guestBefore)
 
       // Re-sign-in makes no second copy.
+      mark('A signs out + back in (no second copy)')
       await signOut(page)
       // A window flag, never a pending page.evaluate (one held the test to its 900 s timeout).
-      await page.evaluate(() => {
+      await bounded(page.evaluate(() => {
         const w = window as unknown as { __isoSecondCopy?: boolean }
         w.__isoSecondCopy = false
         window.addEventListener('accounts:guest-copied', () => { w.__isoSecondCopy = true }, { once: true })
-      })
+      }), 'second-copy flag set')
       await signInViaForm(page, A)
       await expect(page.getByRole('button', { name: 'Account menu' }), '[ISO-2] the re-sign-in never rendered signed in').toBeVisible({ timeout: 60_000 })
       await page.waitForTimeout(15_000)
-      const secondCopy = await page.evaluate(() => (window as unknown as { __isoSecondCopy?: boolean }).__isoSecondCopy)
+      const secondCopy = await bounded(page.evaluate(() => (window as unknown as { __isoSecondCopy?: boolean }).__isoSecondCopy), 'second-copy flag read')
       // undefined = the document was replaced, so the listener is gone: the REST count below still measures.
       ev.iso2_second_copy_event = secondCopy ?? 'UNMEASURED (document replaced)'
       expect(secondCopy === true, '[ISO-2] the re-sign-in fired a second guest copy').toBe(false)
       expect((await scenariosVisibleTo(A.accessToken)).ids, '[ISO-2] a re-sign-in made a second copy').toEqual([detail.scenarioId])
       ev.iso2 = { guestId, copy: detail.scenarioId, owned: owned.length }
+      mark('done')
     } finally {
       writeEvidence('ISO-2.json', ev)
       await ctx.close()
