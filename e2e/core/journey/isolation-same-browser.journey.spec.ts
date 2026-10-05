@@ -58,11 +58,29 @@ async function signInViaForm(page: Page, u: LocalUser): Promise<void> {
   await expect.poll(() => page.url(), { message: `[iso] sign-in as ${u.email} did not leave the form`, timeout: 30_000 }).not.toContain('login')
 }
 
-/** Account menu → Sign out (UserAvatarMenu.tsx). */
+/** Account menu → Sign out (UserAvatarMenu.tsx). AuthContext.signOut clears the session first (the menu goes at once),
+ * then awaits supabase signOut, then navigate('/', { replace: true }). A #/login goto inside that gap is replaced by the
+ * late navigate and the form detaches under the click (runs 37341662955, 37341921615), so wait for that navigation. */
 async function signOut(page: Page): Promise<void> {
+  await bounded(page.evaluate(() => {
+    const w = window as unknown as { __isoSignOutNav?: boolean; __isoNavWatch?: boolean }
+    w.__isoSignOutNav = false
+    if (w.__isoNavWatch) return
+    w.__isoNavWatch = true
+    const replace = history.replaceState.bind(history)
+    history.replaceState = (data: unknown, unused: string, url?: string | URL | null) => {
+      if (url != null && /#\/$/.test(String(url))) w.__isoSignOutNav = true
+      return replace(data, unused, url)
+    }
+  }), 'sign-out navigation watch')
   await page.getByRole('button', { name: 'Account menu' }).click()
   await page.getByRole('menuitem', { name: 'Sign out' }).click()
   await expect(page.getByRole('button', { name: 'Account menu' }), '[iso] still signed in after Sign out').toHaveCount(0, { timeout: 30_000 })
+  const settled = () => bounded(page.evaluate(() => ({
+    navigated: (window as unknown as { __isoSignOutNav?: boolean }).__isoSignOutNav ?? null,
+    token: Object.keys(localStorage).some((k) => /^sb-.+-auth-token$/.test(k)),
+  })), 'sign-out settle read')
+  await expect.poll(settled, { message: '[iso] sign-out never removed the session and navigated to #/', timeout: 30_000 }).toEqual({ navigated: true, token: false })
 }
 
 /** A fresh scenario drafted from the frozen brief; returns its id and node ids. */
