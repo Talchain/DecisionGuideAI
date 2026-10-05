@@ -14,7 +14,7 @@
 import { useCanvasStore } from '../store'
 import { captureBeforeIngest } from '../versions/autoCapture'
 import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../domain/edges'
-import { readWireNaturalEffect } from '../domain/naturalEffect'
+import { readWireNaturalEffect, strengthExampleFigurePatch } from '../domain/naturalEffect'
 import { strengthPlaceholderPatch } from '../domain/strengthPlaceholder'
 import { strengthDefinitionalPatch } from '../domain/strengthDefinitional'
 import { strengthAcceptedPatch } from '../domain/strengthAccepted'
@@ -176,6 +176,7 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
       ...(serverStrength !== undefined ? { serverStrength } : {}),
       // The edge's size in the target's units — the ONE reader, every hop (domain/naturalEffect).
       ...(naturalEffect !== undefined ? { naturalEffect } : {}),
+      ...strengthExampleFigurePatch(e as Record<string, unknown>, rawWeight, wireSuppliedStrength),
       // POM-8: a PLACEHOLDER strength, labelled on the wire, is not an estimate —
       // the ONE reader, every hop (domain/strengthPlaceholder).
       ...strengthPlaceholderPatch(e as Record<string, unknown>, weight, wireSuppliedStrength),

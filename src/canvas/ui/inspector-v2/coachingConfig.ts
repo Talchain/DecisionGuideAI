@@ -152,6 +152,9 @@ const STRENGTH_DEFINITIONAL_COPY = STRENGTH_HOLDS_BY_DEFINITION
 /** Gate 5 (Codex r1 P1-2): sized from the user's own figure when no size phrase can be said (`isStrengthStated`). */
 const STRENGTH_STATED_COPY = 'From your figure. Olumi sized this link from a figure you stated.'
 const STRENGTH_ACCEPTED_COPY = 'You accepted Olumi\u2019s estimate of this strength. It is still an estimate, not a measurement.'
+/** RT-12: the example's strength belongs to no one's situation or judgement. */
+const STRENGTH_EXAMPLE_COPY =
+  'Example figure. The example decision comes with this strength so you can see a Run; change it to see how much it matters.'
 const EXISTENCE_DEFINITIONAL_COPY = 'By definition, this connection always exists.'
 
 const EXISTENCE_PROVENANCE_COPY: Record<EdgeProvenanceKey, string> = {
@@ -190,6 +193,8 @@ export function resolveEdgeValuesCoaching(sources: {
   strengthAccepted?: boolean
   /** Gate 5: sized from the user's own stated figure (`isStrengthStated`), phrase or no phrase. */
   strengthStated?: boolean
+  /** RT-12: a live example figure (`edgeSizePhrase`), retired when its strength changes. */
+  strengthExampleFigure?: boolean
   /**
    * ⭐ Beat 1 (Canvas lane, 4 Oct 2026): the link's size is the USER's own stated figure (`edgeSizePhrase`, only when
    * `usersFigure`), so the β was sized from it and "Olumi estimated this strength" is untrue of it.
@@ -218,6 +223,8 @@ export function resolveEdgeValuesProvenance(sources: {
   strengthAccepted?: boolean
   /** Gate 5: sized from the user's own stated figure (`isStrengthStated`), phrase or no phrase. */
   strengthStated?: boolean
+  /** RT-12: a live example figure (`edgeSizePhrase`), retired when its strength changes. */
+  strengthExampleFigure?: boolean
   /**
    * ⭐ Beat 1 (Canvas lane, 4 Oct 2026): the link's size is the USER's own stated figure (`edgeSizePhrase`, only when
    * `usersFigure`), so the β was sized from it and "Olumi estimated this strength" is untrue of it.
@@ -226,20 +233,22 @@ export function resolveEdgeValuesProvenance(sources: {
 }): string {
   const strengthKey: EdgeProvenanceKey = sources.strength ?? 'not_set'
   const existenceKey: EdgeProvenanceKey = sources.existence ?? 'not_set'
-  // Both flags only ever narrow a `'cee'` claim: neither can relabel a strength
+  // These flags only ever narrow a `'cee'` claim: none can relabel a strength
   // the person set, a template's, or an unset one. A definition is checked first.
   const definitional = sources.strengthDefinitional === true && strengthKey === 'cee'
   const strengthSentence = definitional
     ? STRENGTH_DEFINITIONAL_COPY
-    : sources.strengthPlaceholder === true && strengthKey === 'cee'
-      ? STRENGTH_PLACEHOLDER_COPY
-      : sources.usersFigure != null && strengthKey === 'cee'
-        ? usersFigureSentence(sources.usersFigure)
-        : sources.strengthStated === true && strengthKey === 'cee'
-          ? STRENGTH_STATED_COPY
-        : sources.strengthAccepted === true && strengthKey === 'cee'
-          ? STRENGTH_ACCEPTED_COPY
-          : STRENGTH_PROVENANCE_COPY[strengthKey]
+    : sources.strengthExampleFigure === true && strengthKey === 'cee'
+      ? STRENGTH_EXAMPLE_COPY
+      : sources.strengthPlaceholder === true && strengthKey === 'cee'
+        ? STRENGTH_PLACEHOLDER_COPY
+        : sources.usersFigure != null && strengthKey === 'cee'
+          ? usersFigureSentence(sources.usersFigure)
+          : sources.strengthStated === true && strengthKey === 'cee'
+            ? STRENGTH_STATED_COPY
+            : sources.strengthAccepted === true && strengthKey === 'cee'
+              ? STRENGTH_ACCEPTED_COPY
+              : STRENGTH_PROVENANCE_COPY[strengthKey]
   const existenceSentence = definitional && existenceKey === 'cee'
     ? EXISTENCE_DEFINITIONAL_COPY
     : EXISTENCE_PROVENANCE_COPY[existenceKey]

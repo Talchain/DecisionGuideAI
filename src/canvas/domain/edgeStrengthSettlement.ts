@@ -52,6 +52,7 @@
 import type { UserAction } from '../../types/validation'
 import { edgeValueSource } from './edgeValueProvenance'
 import { isStrengthAccepted } from './strengthAccepted'
+import { edgeSizePhrase } from '../edges/edgeSizePhrase'
 
 /**
  * Which resolutions of a contested edge mean a human has taken responsibility
@@ -108,6 +109,8 @@ export function strengthIsHumanSettled(
   data: Record<string, unknown> | undefined | null,
 ): boolean {
   if (!data) return false
+  // RT-12: an example figure is no one's judgement. The phrase retires it when the admitted strength changes.
+  if (edgeSizePhrase(data)?.exampleFigure === true) return false
 
   // The person typed or dragged the number themselves. `edgeValueSource` — not
   // a raw `data.weightSource` read — so the back-compat rules stay in one place.

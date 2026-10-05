@@ -47,6 +47,7 @@ import { CANVAS_GLYPH_SIZE_CLASSES } from './canvasGlyphScale'
 import { isStrengthAccepted } from '../../domain/strengthAccepted'
 import { isStrengthStated } from '../../domain/strengthStated'
 import { sizingWords } from '../../../components/results/analysisNew/runDeltaLinkWords'
+import { edgeSizePhrase } from '../../edges/edgeSizePhrase'
 
 interface EdgePillsProps {
   nodeId: string
@@ -81,7 +82,7 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
         // a measurement or silently hiding the relationship.
         const edgeData = e.data as Record<string, unknown> | undefined
         if (!isEdgeValueSet(edgeData, 'weight')) {
-          return { id: e.id, kind, label, direction: null, pct: null, settled: false, definitional: false, accepted: false, stated: false }
+          return { id: e.id, kind, label, direction: null, pct: null, settled: false, definitional: false, accepted: false, stated: false, exampleFigure: false }
         }
         // Retain the sign so the pill can show direction (raises / lowers).
         const signed = computeSignedMean(edgeData)
@@ -100,6 +101,8 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
           // Olumi's estimate. Authorship and acceptance are said apart (domain/strengthAccepted, domain/strengthStated).
           accepted: isStrengthAccepted(edgeData),
           stated: isStrengthStated(edgeData),
+          // RT-12: the size resolver owns the existing strength-mean staleness gate.
+          exampleFigure: edgeSizePhrase(edgeData)?.exampleFigure === true,
         }
       })
       .filter((p): p is NonNullable<typeof p> => p !== null)
@@ -144,7 +147,14 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
           )}
           <span>{p.label}</span>
           {p.pct !== null ? (
-            p.definitional ? (
+            p.exampleFigure ? (
+              <span
+                data-testid={`edge-pill-strength-example-${p.id}`}
+                title={`${LINK_STRENGTH_COPY.noun}: ${p.pct}%, example figure`}
+              >
+                {`· ${LINK_STRENGTH_COPY.noun} ${p.pct}% · example figure`}
+              </span>
+            ) : p.definitional ? (
               <span
                 data-testid={`edge-pill-strength-definitional-${p.id}`}
                 title={`${LINK_STRENGTH_COPY.noun}: ${p.pct}%, ${BY_DEFINITION.toLowerCase()}`}

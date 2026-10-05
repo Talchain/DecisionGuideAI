@@ -46,7 +46,9 @@ export function linkStrengthSourceWords(
   source: EdgeValueSource,
   definitional = false,
   sizedFromUsersFigure = false,
+  exampleFigure = false,
 ): string {
+  if (exampleFigure) return 'example figure'
   if (definitional) return BY_DEFINITION
   // ⭐ Beat 1: the strength was sized from the USER's own stated figure (`EdgeSizePhrase.usersFigure`) — not Olumi's
   // estimate, and not "confirmed" either (nobody confirmed the β). Only narrows Olumi's own stamp.
@@ -162,7 +164,9 @@ export function LinkHoverCard(props: LinkHoverCardProps) {
           {props.disputedSentence === null && (
             <Row label="Direction" testId="edge-hover-direction">
               {direction.show
-                ? props.strengthDefinitional === true && direction.source === 'cee'
+                ? props.size?.exampleFigure === true
+                  ? 'example figure'
+                  : props.strengthDefinitional === true && direction.source === 'cee'
                   ? BY_DEFINITION
                   // Beat 1: the size phrase speaks only when this direction agrees with the sign of the user's own
                   // amount (`naturalEffectPhrase`), so the direction is their figure's too — not Olumi's estimate.
@@ -186,7 +190,7 @@ export function LinkHoverCard(props: LinkHoverCardProps) {
               <>
                 <StrengthBar magnitude={strength.value} testId="edge-hover-strength-bar" />
                 <span data-testid="edge-hover-strength-value" className="tabular-nums">{Math.abs(strength.value).toFixed(2)}</span>
-                <span className="text-text-light"> · {linkStrengthSourceWords(props.strengthSettled, strength.source, props.strengthDefinitional === true, props.size?.usersFigure === true || props.strengthStated === true)}</span>
+                <span className="text-text-light"> · {linkStrengthSourceWords(props.strengthSettled, strength.source, props.strengthDefinitional === true, props.size?.usersFigure === true || props.strengthStated === true, props.size?.exampleFigure === true)}</span>
               </>
             ) : NOT_ON_RECORD}
           </Row>

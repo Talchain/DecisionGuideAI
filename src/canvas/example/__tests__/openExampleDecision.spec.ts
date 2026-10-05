@@ -1,6 +1,7 @@
 /**
  * INVESTOR STEP 0 — "Open the example decision" (DL 5936312621 / 5936446785).
- * Rows: the seed is RC's D1 capture UNMODIFIED, and RC's three invariants hold on it (5936325909); every click mints a
+ * Rows: RT-12 / Science 5993266380 pre-sizes RC's D1 with seven example figures; the other RC invariants hold;
+ * every click mints a
  * FRESH id; nothing ever writes over an existing scenario; the open is the id switch the cold-reload read keys on.
  */
 import { createHash } from 'node:crypto'
@@ -40,19 +41,27 @@ const sha = (s: string) => createHash('sha256').update(s).digest('hex')
 const POINTER = 'olumi-canvas-current-scenario-id'
 const ACK = { status: 'registered', identity: null, nodeCount: 13, edgeCount: 19, requestId: 'r' }
 
-describe('the seed is RC’s D1, unmodified, and RC’s invariants hold on it', () => {
-  it('the shipped graph hashes to the pinned value extracted from capture eeeff8b4 (13 nodes / 19 edges)', () => {
+describe('the seed is Science’s RT-12 patch of RC’s D1 and retains its structural invariants', () => {
+  it('the shipped graph matches the RT-12 Science 5993266380 hash (13 nodes / 19 edges)', () => {
     expect(EXAMPLE_DECISION_PROVENANCE.captureSha256.startsWith('eeeff8b4')).toBe(true)
+    // RT-12 / Science 5993266380 changes the shipped graph, not the original capture identity.
+    expect(EXAMPLE_DECISION_PROVENANCE.graphSha256).toBe('b0abef2da7be9348f3b99cdab6b19f880ebae58db8ee345ba2e19f1d78000a8a')
     expect(sha(JSON.stringify(SHIPPED))).toBe(EXAMPLE_DECISION_PROVENANCE.graphSha256)
     expect([SHIPPED.nodes.length, SHIPPED.edges.length]).toEqual([13, 19])
   })
 
-  it('invariant 1: exactly the two named links are olumi_placeholder (M1 one-click + RC S1 target)', () => {
-    const ph = SHIPPED.edges.filter((e) => e.provenance?.magnitude === 'olumi_placeholder').map((e) => `${e.from}->${e.to}`).sort()
-    expect(ph).toEqual([
+  it('RT-12: exactly seven named links are example figures, with no placeholder strengths', () => {
+    const figures = SHIPPED.edges.filter((e) => e.provenance?.magnitude === 'example_figure').map((e) => `${e.from}->${e.to}`).sort()
+    expect(figures).toEqual([
+      'ai_reporting_module_availability->enterprise_prospect_signing_likelihood',
+      'enterprise_prospect_signing_likelihood->quarterly_revenue',
+      'integration_step_bug_resolution->trial_profile_abandonment_rate',
+      'revenue_lost_to_trial_abandonment->quarterly_revenue',
       'sprint_capacity_for_ai_reporting->ai_reporting_module_availability',
       'sprint_capacity_for_integration_fix->integration_step_bug_resolution',
+      'trial_profile_abandonment_rate->revenue_lost_to_trial_abandonment',
     ])
+    expect(SHIPPED.edges.filter((e) => e.provenance?.magnitude === 'olumi_placeholder')).toHaveLength(0)
   })
 
   it('invariant 2: split_sprint_capacity is Olumi-proposed (CEE derives excluded_olumi_proposed from it)', () => {

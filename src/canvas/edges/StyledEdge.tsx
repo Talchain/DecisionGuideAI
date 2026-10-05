@@ -844,7 +844,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const edgeSize = useMemo(() => edgeSizePhrase(edgeData as Record<string, unknown> | undefined), [edgeData])
   // Gate 5: the typed fact too (`isStrengthStated`), so an unsayable size phrase never re-labels the user's figure.
   const strengthIsStated = useMemo(() => isStrengthStated(edgeData as Record<string, unknown> | undefined), [edgeData])
-  const strengthMarkedEstimate = strengthUnconfirmed && edgeSize?.usersFigure !== true && !strengthIsStated
+  // RT-12: the example decision's current strength is an example figure, never an Olumi estimate.
+  const strengthMarkedEstimate = strengthUnconfirmed && edgeSize?.usersFigure !== true && edgeSize?.exampleFigure !== true && !strengthIsStated
   /**
    * ⭐⭐ THE LABEL'S LIKELIHOOD, FROM THE SAME OWNER THE HOVER POPOVER READS.
    *

@@ -14,8 +14,9 @@
  * read a link's size without importing the Model tab's adapters.
  */
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../domain/edgeValueProvenance'
-import { NaturalEffectSchema, composeNaturalEffectPhrase, naturalEffectPhraseParts, type NaturalEffectAuthor } from '../domain/naturalEffect'
+import { NaturalEffectSchema, composeNaturalEffectPhrase, naturalEffectPhraseParts, naturalEffectStrengthIsCurrent, type NaturalEffectAuthor } from '../domain/naturalEffect'
 import { isStrengthDefinitional } from '../domain/strengthDefinitional'
+import { getDirectionalStrengthLabel } from '../components/model-tab/strengthBands'
 
 /**
  * The NUMBER behind a relationship row's label, and whether the edge's direction
@@ -85,6 +86,8 @@ export interface EdgeSizePhrase {
   readonly author: NaturalEffectAuthor
   /** The size is the USER's own (stated in the brief or entered): the β beside it was sized from their figure. */
   readonly usersFigure: boolean
+  /** The shipped example's figure, held live only while its admitted strength still matches. */
+  readonly exampleFigure: boolean
 }
 
 /** The link's size and author, or null when it must not be said (then the band speaks, as before). */
@@ -93,7 +96,14 @@ export function edgeSizePhrase(data: Record<string, unknown> | undefined): EdgeS
   if (seed === null) return null
   // Re-parsed here: persisted edge data is not proof of shape.
   const natural = NaturalEffectSchema.safeParse(data?.naturalEffect)
-  if (!natural.success) return null
+  if (!natural.success) {
+    if (!naturalEffectStrengthIsCurrent(seed.seed, data?.strengthExampleFigure)) return null
+    const size = getDirectionalStrengthLabel(seed.seed, resolveEdgeDirectionDisplay(data))
+    const parts = { size, whose: 'example figure', ofRange: '' }
+    return { sentence: composeNaturalEffectPhrase(parts), ...parts, author: 'example_figure', usersFigure: false, exampleFigure: true }
+  }
+  // An authoritative partial update can retire the example class while retaining the old admitted amount.
+  if (natural.data.author === 'example_figure' && !naturalEffectStrengthIsCurrent(seed.seed, data?.strengthExampleFigure)) return null
   const definitional = isStrengthDefinitional(data)
   const parts = naturalEffectPhraseParts(natural.data, seed.seed, resolveEdgeDirectionDisplay(data), definitional)
   if (parts === null) return null
@@ -102,5 +112,6 @@ export function edgeSizePhrase(data: Record<string, unknown> | undefined): EdgeS
     ...parts,
     author: natural.data.author,
     usersFigure: natural.data.author === 'user' && !definitional,
+    exampleFigure: natural.data.author === 'example_figure',
   }
 }

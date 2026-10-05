@@ -25,7 +25,7 @@ export const COMPARE_ASK_LABEL = 'Ask Olumi about this comparison'
  * it is named as what came out best IN THIS MODEL (Science's phrase), never as one a run "puts forward".
  */
 function headline(delta: RunDelta, label: (id: string) => string | null, nearTie: boolean): string {
-  if (nearTie) return 'Too close to call'
+  if (nearTie) return 'Too close to call in this model'
   const prior = delta.leader.prior_leading_option_id
   const current = delta.leader.current_leading_option_id
   if (!current) return 'The latest run names no option'
