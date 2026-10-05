@@ -770,11 +770,13 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // model-relative, and the second sentence names the one correction that now works: an "at most" target on the goal
   // (the Model panel goal editor, `goal_target_edit`) holds the user's ceiling, and the rerun minimises. Still no
   // inferred direction: the user chooses it.
+  // ⛔ Codex r1 (#2600): this template sees no goal, so it cannot tell whether the "at most" door opens (it refuses a
+  // target written as a CHANGE, `goal_is_a_change`). The title states the assumption alone; the description names the
+  // correction AND its limit, so nothing is promised that would refuse. CEE's headline gates the same sentence per goal.
   GOAL_DIRECTION_UNATTESTED: () => ({
-    title:
-      'In this model I’ve assumed a higher value is better for your goal. If lower is better, set the goal’s target to ‘at most’ and re-run.',
+    title: 'In this model I’ve assumed a higher value is better for your goal.',
     description:
-      'Every other number in this analysis stands. On this run the option that scored highest was the one that produced the largest value at your goal on the most draws, because nothing in the model says which way your goal should go.',
+      'If lower is better, set the goal’s target to ‘at most’ and re-run. A target written as a change from today (such as a 20% cut) cannot be set that way yet. Every other number in this analysis stands.',
   }),
 
   /**
