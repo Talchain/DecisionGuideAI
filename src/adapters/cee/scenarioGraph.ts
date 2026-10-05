@@ -66,6 +66,7 @@ import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 import { logger } from '../../lib/logger'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
+import { hashEqualStaleReasonWords } from '../../v5/hashEqualStaleReasonWords'
 import { isSignInRequired } from './signInRefusal'
 import { parseNotModelled, type NotModelledManifest } from './notModelled'
 import { PERMITTED_ANALYSIS_MODES, type PermittedAnalysisMode } from './types'
@@ -200,6 +201,14 @@ export type ScenarioGraphResult =
        */
       runDelta?: unknown
       /**
+       * RT-10 B′: CEE's own words for WHY the saved Run is out of date when the MODEL DID NOT CHANGE — a
+       * `complete_stale` read whose `computed_against_hash` equals `current_analysis_hash` (the Run's own goal snapshot
+       * disagrees: its goal unit, or the direction it sent, CEE #2596). CEE carries the sentence on
+       * `current_read.analysis_ready.freshness_reason`. Null otherwise. Surfaces say it INSTEAD of "Model changed", which
+       * is false when the user changed nothing (`selectAnalysisStaleReasonWords`).
+       */
+      staleReasonWords?: string | null
+      /**
        * CEE's run admission for this revision (`analysis_admission.admitted`), or
        * `null` / absent when the read did not answer. The boot restore of a
        * gate-closing verdict needs it: CEE may admit a run whose readiness still
@@ -220,6 +229,8 @@ export type ScenarioGraphResult =
       currentReadInputBasis?: unknown
       /** The read's `conversation_turns`, raw (sent only on `includeConversationTurns`); undefined when absent. */
       conversationTurns?: unknown
+      /** Opt-in, currently executable original approve/amend offers; absent means no authority. */
+      heldProposalOffers?: unknown
       requestId: string | null
     }
   /** 200, `graph_present:false` — the scenario exists and has no graph yet. Normal. */
@@ -304,6 +315,28 @@ function readCurrentReadRunDelta(raw: unknown): unknown {
   if (raw === null || typeof raw !== 'object') return null
   return (raw as { run_delta?: unknown }).run_delta ?? null
 }
+
+/**
+ * RT-10 B′ — CEE's reason sentence for a Run that is out of date although the model did not change. All four must
+ * hold, or the answer is null (and the surfaces keep their ordinary copy):
+ *   · `current_read.run_state.kind` is `complete_stale`;
+ *   · `computed_against_hash` is a non-empty string EQUAL to `current_analysis_hash` (the graph did not move);
+ *   · `analysis_ready.freshness_reason` is CEE PROSE, not a reason code: it has a space and no underscore. CEE sends
+ *     its human sentence only for the hash-equal goal-snapshot reasons (`goalSnapshotStaleMessage`);
+ *   · at most 200 characters.
+ */
+export function readHashEqualStaleReasonWords(raw: unknown): string | null {
+  if (raw === null || typeof raw !== 'object') return null
+  const read = raw as {
+    run_state?: { kind?: unknown } | null
+    computed_against_hash?: unknown
+    current_analysis_hash?: unknown
+    analysis_ready?: { freshness_reason?: unknown } | null
+  }
+  if (read.run_state?.kind !== 'complete_stale') return null
+  return hashEqualStaleReasonWords(read.analysis_ready?.freshness_reason, read.computed_against_hash, read.current_analysis_hash)
+}
+
 
 /**
  * ROADMAP 2.1271 — parse CEE's verdict with the CONTRACT, never a local mirror.
@@ -413,11 +446,13 @@ function parseOk(body: unknown): ScenarioGraphResult {
     goalCertainty: b.analysis_goal_certainty ?? null,
     optionParticipation: b.analysis_option_participation ?? null,
     runDelta: readCurrentReadRunDelta(b.current_read),
+    staleReasonWords: readHashEqualStaleReasonWords(b.current_read),
     admitted: readAdmitted(b.analysis_admission, b.graph_hash),
     permittedAnalysisMode: readPermittedAnalysisMode(b.analysis_admission, b.graph_hash),
     currentReadInputBasis: readCurrentReadInputBasis(b.analysis_admission, b.graph_hash),
     // Carried raw; the ONE reader is `readServerConversationTurns` (canvas/conversation/serverConversationTurns.ts).
     conversationTurns: b.conversation_turns,
+    heldProposalOffers: b.held_proposal_offers,
     requestId,
   }
 }

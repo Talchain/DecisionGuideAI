@@ -16,17 +16,16 @@
  * down by the dock; it decides nothing of its own.
  */
 import { useMemo } from 'react'
-import { Shuffle } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import type { InputRowFocus, InputRowLight } from '../../components/results/analysisNew/sections/WhatsChanged'
 import { nodeLabelMap, useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
-import { icon } from '../../components/results/analysisNew/panelSurfaces'
 import { useRunChangesProjection } from '../graphChanges/useRunChangesProjection'
 import { canvasLinkOfTarget, useCanvasLight } from '../graphChanges/rowCanvasLink'
 import { useRunChangesRouteFocus } from '../graphChanges/routeFocus'
 import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
 import type { RunOnRecordWithoutResult } from '../stores/declinedSavedRunStore'
 import { useCanvasStore } from '../store'
+import { useAnalysisStaleReasonWords } from '../hooks/useAnalysisStaleReasonWords'
 import { selectRunDeltaAbsenceReason } from '../state/storedRunDelta'
 import { runDeltaSentence } from '../../components/results/analysisNew/commitmentSynthesis'
 import { selectRunAffirmedCurrent } from '../state/analysisStateSelector'
@@ -37,6 +36,21 @@ import type { OptionCanvasLink } from './CompareSupportFigures'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
 
 export const COMPARE_RUN_PAIR_TESTID = 'compare-run-pair'
+/**
+ * Reasoning's own measure (`AnalysisNewTabBody`'s inner wrapper): the same gutters, rhythm and line length, so moving
+ * between the two tabs never shifts the text. The surface declares `padding: 'self'` to own it.
+ */
+const COMPARE_MEASURE = 'px-4 pt-2 pb-4 space-y-4 max-w-[440px] mx-auto'
+
+/** An empty Compare body: a plain left-aligned title and sentence, as Reasoning words its own empty and pre-run states. */
+function CompareNotice({ title, body, ...data }: { title: string; body: string } & Record<`data-${string}`, string | undefined>): JSX.Element {
+  return (
+    <div className={COMPARE_MEASURE} {...data}>
+      <p className={`${typography.panelHeader} text-text-header m-0`}>{title}</p>
+      <p className={`${typography.panelBody} text-text-body mt-1 mb-0`}>{body}</p>
+    </div>
+  )
+}
 
 /** What the empty Compare body says when a Run is on record but its result is not held here. */
 export const COMPARE_RUN_ON_RECORD_COPY = {
@@ -47,6 +61,17 @@ export const COMPARE_RUN_ON_RECORD_COPY = {
   // The Run control's own sentence, verbatim — the same words Reasoning shows for this state.
   unconfirmed: { title: 'Comparison not shown', body: FOOTER_COPY.savedRunUnconfirmedSub },
 } as const
+
+/**
+ * RT-10 B′: the stale notice when the MODEL DID NOT CHANGE (a hash-equal stale): "The model has changed" is false there,
+ * so the notice states CEE's own reason (`selectAnalysisStaleReasonWords`).
+ */
+export function compareOutOfDateCopy(words: string): { title: string; body: string } {
+  return {
+    title: 'The last Run is out of date',
+    body: `${words.charAt(0).toUpperCase()}${words.slice(1)}. Re-run to compare the model as it stands with the last Run.`,
+  }
+}
 
 export function CompareRunPairBody({
   responseHash,
@@ -83,19 +108,14 @@ export function CompareRunPairBody({
   const light = useCanvasLight()
   // WHERE THIS CHANGE FLOWS: on a C1 pair only, a row click also lights its element's route to the Goal.
   const route = useRunChangesRouteFocus(view?.attributable === true)
-  const absenceReason = useCanvasStore(selectRunDeltaAbsenceReason)
+  const absenceReason = useCanvasStore(s => selectRunDeltaAbsenceReason(s, responseHash))
+  const staleWords = useAnalysisStaleReasonWords()
   if (view === null && runOnRecordWithoutResult !== null) {
-    const copy = COMPARE_RUN_ON_RECORD_COPY[runOnRecordWithoutResult]
+    const copy = runOnRecordWithoutResult === 'stale' && staleWords !== null
+      ? compareOutOfDateCopy(staleWords) : COMPARE_RUN_ON_RECORD_COPY[runOnRecordWithoutResult]
     return (
-      <div
-        className="flex flex-col items-center px-6 py-10 text-center"
-        data-testid={`${COMPARE_RUN_PAIR_TESTID}-run-on-record`}
-        data-run-on-record={runOnRecordWithoutResult}
-      >
-        <Shuffle className={`${icon('section')} text-text-light`} aria-hidden="true" />
-        <p className={`${typography.panelHeader} text-text-body mt-3 mb-1.5`}>{copy.title}</p>
-        <p className={`${typography.panelBody} text-text-light max-w-[260px] m-0`}>{copy.body}</p>
-      </div>
+      <CompareNotice title={copy.title} body={copy.body}
+        data-testid={`${COMPARE_RUN_PAIR_TESTID}-run-on-record`} data-run-on-record={runOnRecordWithoutResult} />
     )
   }
   if (view === null) {
@@ -103,17 +123,8 @@ export function CompareRunPairBody({
     // (b)). `isStale: false`: the reason is about the run PAIR, which a later edit to the model does not change.
     const why = runDeltaSentence(null, { isStale: false, absenceReason })
     return (
-      <div
-        className="flex flex-col items-center px-6 py-10 text-center"
-        data-testid={`${COMPARE_RUN_PAIR_TESTID}-empty`}
-        data-absence-reason={why !== null ? absenceReason ?? undefined : undefined}
-      >
-        <Shuffle className={`${icon('section')} text-text-light`} aria-hidden="true" />
-        <p className={`${typography.panelHeader} text-text-body mt-3 mb-1.5`}>No comparison yet</p>
-        <p className={`${typography.panelBody} text-text-light max-w-[260px] m-0`}>
-          {why ?? 'The two most recent runs of this model are compared here.'}
-        </p>
-      </div>
+      <CompareNotice title="No comparison yet" body={why ?? 'The two most recent runs of this model are compared here.'}
+        data-testid={`${COMPARE_RUN_PAIR_TESTID}-empty`} data-absence-reason={why !== null ? absenceReason ?? undefined : undefined} />
     )
   }
   // Each row's link to the canvas, by the row's own ids: click focuses; hover / keyboard focus lights (DL 5939855664).
@@ -133,7 +144,7 @@ export function CompareRunPairBody({
     return link ? { focus: link.focus, on: () => light.on(link), off: light.off } : null
   }
   return (
-    <div data-testid={COMPARE_RUN_PAIR_TESTID}>
+    <div className={COMPARE_MEASURE} data-testid={COMPARE_RUN_PAIR_TESTID} aria-busy={analysing || undefined}>
       <ComparePairSections view={view} delta={delta!} artefact={artefact} label={id => labels.get(id) ?? null}
         nearTie={nearTie} resultsAllowed={runIsCurrent && !winSharesWithheld} withheldReason={withheldReason} rowFocus={rowFocus} rowLight={rowLight}
         runIsCurrent={runIsCurrent} analysing={analysing} designationsWithheld={designationsWithheld} optionLink={optionLink} />

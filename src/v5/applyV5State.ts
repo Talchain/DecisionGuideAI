@@ -45,7 +45,9 @@
  * mutations are property assignments keyed by target_id.
  */
 import type { OlumiResponse, StageType, AnalysisStateV1 } from '@talchain/schemas/boundary'
-import type { StoredRunDelta } from '../canvas/state/storedRunDelta'
+import type { StoredRunDelta, StoredRunDeltaAbsence } from '../canvas/state/storedRunDelta'
+import { hashEqualStaleReasonWords } from './hashEqualStaleReasonWords'
+import { recordAnalysisStaleReasonWords } from '../canvas/state/analysisStaleReasonWords'
 import {
   limitVerdictsFromResponse,
   readLimitVerdicts,
@@ -156,6 +158,8 @@ export interface V5ApplicatorStore {
    * so it is always present there; a double without it keeps the old evict-on-new-hash behaviour.
    */
   readonly runDelta?: StoredRunDelta | null
+  /** Absence reason: same analysis/scenario binding and new-hash eviction as B5. */
+  setRunDeltaAbsence?: (stored: StoredRunDeltaAbsence | null) => void
   /** B5 — same binding and eviction as `setRunDelta`. */
   setLimitVerdicts?: (stored: LimitVerdictsWrite | null) => void
   /**
@@ -2071,6 +2075,9 @@ export function applyV5State(
     if (parsedAnalysisState.success) {
       const verdict: AnalysisStateV1 = parsedAnalysisState.data
       turnVerdict = verdict
+      // RT-10 B′: a hash-equal stale's reason sentence is recorded WITH this verdict (`analysisStaleReasonWords`).
+      const turnReady = (response as { analysis_ready?: { freshness_reason?: unknown; graph_hash_at_run?: unknown; current_graph_hash?: unknown } | null }).analysis_ready
+      recordAnalysisStaleReasonWords(verdict, hashEqualStaleReasonWords(turnReady?.freshness_reason, turnReady?.graph_hash_at_run, turnReady?.current_graph_hash))
       store.setAnalysisStateV1?.(verdict)
       applied.push('analysis_state:set')
       logV5StateStep({
@@ -2602,6 +2609,22 @@ export function applyV5State(
           heldRunAt === runAt &&
           held.scenarioId === (store.currentScenarioId ?? null)
         store.setRunDelta?.(sameRun && held !== null ? { ...held, analysisHash: hash } : null)
+      }
+      // C10a: the reason describes THIS analysis's pair, not the live graph's
+      // readiness. Only an accepted analysis_result can write it; a later
+      // readiness-only turn must retain it. A new hash without a reason clears
+      // it, like B5; a duplicate-hash echo without one leaves it untouched.
+      const turnAbsenceReason = (
+        rawAnalysisReady as { run_delta_absence_reason?: unknown } | null | undefined
+      )?.run_delta_absence_reason
+      if (typeof turnAbsenceReason === 'string') {
+        store.setRunDeltaAbsence?.({
+          reason: turnAbsenceReason,
+          analysisHash: hash,
+          scenarioId: store.currentScenarioId ?? null,
+        })
+      } else if (hash !== prevHash) {
+        store.setRunDeltaAbsence?.(null)
       }
       // B5: the same rule as run_delta — stored with the analysis it came beside,
       // evicted when a genuinely new analysis lands without one.

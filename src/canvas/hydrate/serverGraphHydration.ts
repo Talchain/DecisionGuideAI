@@ -17,6 +17,7 @@
  * reintroduced here by treating any of these as "no graph".
  */
 
+import { recordAnalysisStaleReasonWords } from '../state/analysisStaleReasonWords'
 import { recordCanonicalOpen } from './canonicalOpenOutcome'
 import { recordBootReadAdmission } from './bootReadAdmission'
 import { useCanvasStore } from '../store'
@@ -329,12 +330,14 @@ async function readAndMergeServerGraph(
   // ⭐ THE CHAT SURVIVES A RELOAD — offer the stored chat to the panel (it takes it only when empty with no local
   // transcript). The stale line keys on the SAME read verdict the held-Run drop uses, before any merge moves it.
   const serverTurns = readServerConversationTurns(result.conversationTurns)
-  if (serverTurns !== null && serverTurns.length > 0) {
+  if (opts.includeConversationTurns === true || serverTurns !== null) {
     const runState = result.analysisState?.run_state
     const computedAt = runState != null && 'computed_at' in runState ? runState.computed_at : null
     useServerConversationTurnsStore.getState().offerServerConversationTurns({
       scenarioId,
-      turns: serverTurns,
+      turns: serverTurns ?? [],
+      // Held actions belong to the response envelope, never merely to the request.
+      heldProposalOffers: result.scenarioId === scenarioId ? result.heldProposalOffers : [],
       run: {
         runNotCurrent: heldRunIsNotCurrentPerRead(result.analysisState, result.analysisResult),
         currentRunComputedAt: typeof computedAt === 'string' ? computedAt : null,
@@ -369,7 +372,8 @@ async function readAndMergeServerGraph(
   const restoreVerdict = (): void => {
     const verdictOutcome = applyBootAnalysisVerdict({
       analysisState: result.analysisState,
-      store: { setAnalysisStateV1: useCanvasStore.getState().setAnalysisStateV1 },
+      // RT-10 B′: the read's own reason sentence rides WITH its verdict (kept only while that verdict is complete_stale).
+      store: { setAnalysisStateV1: (v) => { recordAnalysisStaleReasonWords(v, result.staleReasonWords); useCanvasStore.getState().setAnalysisStateV1(v) } },
     })
     logger.debug('server_graph_hydration.boot_verdict', {
       scenarioId,
@@ -464,7 +468,7 @@ async function readAndMergeServerGraph(
       canvasProvenEqualToRead: notProvenEqual === null,
       store: {
         analysisFreshnessDirty: markIsThisReadsOwn ? false : st.analysisFreshnessDirty,
-        setAnalysisStateV1: st.setAnalysisStateV1,
+        setAnalysisStateV1: (v) => { recordAnalysisStaleReasonWords(v, result.staleReasonWords); st.setAnalysisStateV1(v) },
         setAnalysisFreshness: st.setAnalysisFreshness,
         readCurrentGraphHash: () => useCanvasStore.getState().analysisFreshness?.currentGraphHash,
       },
@@ -535,7 +539,7 @@ async function readAndMergeServerGraph(
       isRestorableKind: isBootRestorableRunState,
       store: {
         analysisFreshnessDirty: useCanvasStore.getState().analysisFreshnessDirty,
-        setAnalysisStateV1: useCanvasStore.getState().setAnalysisStateV1,
+        setAnalysisStateV1: (v) => { recordAnalysisStaleReasonWords(v, result.staleReasonWords); useCanvasStore.getState().setAnalysisStateV1(v) },
       },
     })
     logger.debug('server_graph_hydration.boot_blocked_verdict', {

@@ -32,9 +32,28 @@
 import { create } from 'zustand'
 
 import type { AbsentGraphRetryStage } from '../hydrate/absentGraphRetry'
+import type { HydrationOutcome } from '../hydrate/serverGraphHydration'
+
+/**
+ * THIN CLIENT (GAP-1): the read answered, and it was not a model. A signed-in page keeps no local copy, so without a
+ * word here the canvas would simply sit empty. Only the outcomes that END the read are listed; `absent` has its own
+ * bounded re-ask (`retrying` → `exhausted`), and `skipped` asked nothing.
+ */
+export type ServerGraphTerminalReason = Extract<
+  HydrationOutcome,
+  'notReadable' | 'unavailable' | 'signInRequired' | 'refused' | 'unusable' | 'mergeRefused'
+>
+
+const TERMINAL_REASONS: ReadonlySet<HydrationOutcome> = new Set<ServerGraphTerminalReason>([
+  'notReadable', 'unavailable', 'signInRequired', 'refused', 'unusable', 'mergeRefused',
+])
+
+export function isServerGraphTerminalReason(outcome: HydrationOutcome): outcome is ServerGraphTerminalReason {
+  return TERMINAL_REASONS.has(outcome)
+}
 
 /** `idle` = nothing to say. The initial value, and the value after any clear. */
-export type ServerGraphRetryStageValue = 'idle' | AbsentGraphRetryStage
+export type ServerGraphRetryStageValue = 'idle' | AbsentGraphRetryStage | 'terminal'
 
 export interface ServerGraphRetryState {
   /**
@@ -48,6 +67,8 @@ export interface ServerGraphRetryState {
    */
   scenarioId: string | null
   stage: ServerGraphRetryStageValue
+  /** Set only with `stage: 'terminal'`: which ending the read had, so the words can say what is true of it. */
+  reason: ServerGraphTerminalReason | null
   /**
    * `scenarioId` is REQUIRED, deliberately — a stage this store cannot attribute
    * to a decision is a stage the surface must never show, and making the caller
@@ -57,13 +78,16 @@ export interface ServerGraphRetryState {
     scenarioId: string
     stage: AbsentGraphRetryStage
   }) => void
+  /** THIN CLIENT (GAP-1): the read ended without a model. Same scenario keying as `setRetryStage`. */
+  setTerminal: (input: { scenarioId: string; reason: ServerGraphTerminalReason }) => void
   clear: () => void
 }
 
-const EMPTY = { scenarioId: null, stage: 'idle' } as const
+const EMPTY = { scenarioId: null, stage: 'idle', reason: null } as const
 
 export const useServerGraphRetryStore = create<ServerGraphRetryState>((set) => ({
   ...EMPTY,
-  setRetryStage: ({ scenarioId, stage }) => set({ scenarioId, stage }),
+  setRetryStage: ({ scenarioId, stage }) => set({ scenarioId, stage, reason: null }),
+  setTerminal: ({ scenarioId, reason }) => set({ scenarioId, stage: 'terminal', reason }),
   clear: () => set({ ...EMPTY }),
 }))

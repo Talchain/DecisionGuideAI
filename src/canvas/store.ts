@@ -197,7 +197,7 @@ import { useDraftStore } from './stores/draftStore'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
-import type { StoredRunDelta } from './state/storedRunDelta'
+import type { StoredRunDelta, StoredRunDeltaAbsence } from './state/storedRunDelta'
 import type { LimitVerdictsWrite, StoredLimitVerdicts } from './state/storedLimitVerdicts'
 import { recordCrossSurfaceEvent, recordUserAction } from '../lib/debug-state'
 import {
@@ -696,6 +696,8 @@ interface CanvasState {
    * `runDeltaDescribesDisplayedAnalysis` is the one predicate that decides.
    */
   runDelta: StoredRunDelta | null
+  /** Why this analysis has no pair; later readiness-only turns cannot replace it. */
+  runDeltaAbsence: StoredRunDeltaAbsence | null
   /** B5 per-limit + joint verdicts, bound to the analysis they arrived beside (`storedLimitVerdicts.ts`). */
   limitVerdicts: StoredLimitVerdicts | null
   /**
@@ -1754,6 +1756,7 @@ interface CanvasState {
    * this one.
    */
   setRunDelta: (stored: StoredRunDelta | null) => void
+  setRunDeltaAbsence: (stored: StoredRunDeltaAbsence | null) => void
   setLimitVerdicts: (stored: LimitVerdictsWrite | null) => void
   /**
    * Write the V5 analysis-fact slice. Pass null to clear (e.g. on scenario
@@ -2370,6 +2373,7 @@ const DECISION_CONTEXT_CLEAR = {
   // because this failure is silent and a reader would see a real, producer-
   // computed comparison sitting under a model it was never about.
   runDelta: null,
+  runDeltaAbsence: null,
   limitVerdicts: null,
   // The retained admission is scoped to ONE decision. A full-context replacement
   // brings a different graph, so the previous decision's licence (or refusal)
@@ -2455,6 +2459,27 @@ function firstGoalNodeId(
     (n) => n.type === 'goal' || (n.data as { type?: string } | undefined)?.type === 'goal',
   )
   return goal?.id ?? null
+}
+
+/**
+ * Whether the decision being LEFT at a scenario boundary (`resetCanvas`, `adoptScenario`) is saved, so its
+ * conversation belongs to it and must survive. Only an unsaved decision's transcript is discarded (the demo hazard).
+ *
+ * ⚠ SAVED ON THE SERVER IS SAVED (F1, 5 Oct; Codex P2 on #2503). A decision opened from the server list has NO
+ * local record, and `loadScenario` writes the pointer to it, so a local-record-only test called it unsaved: leaving
+ * it deleted its conversation and tombstoned the id for the page load, while its graph survived on the server. The
+ * server holding a graph for the store's OWN decision is the proof: `serverGraphIdentity` (hydration) or
+ * `lastServerGraphHash` (hydration, or a successful register). Both are cleared at every scenario boundary
+ * (`DECISION_CONTEXT_CLEAR`), and the store's id must equal the id being left, or the evidence is about another
+ * decision. Rows: `resetCanvasClearsPersisted.spec.ts`.
+ */
+function leavingDecisionIsSaved(idBeingLeft: string | null, atBoundary: CanvasState): boolean {
+  if (!idBeingLeft) return false
+  if (scenarios.getScenario(idBeingLeft) !== undefined) return true
+  return (
+    atBoundary.currentScenarioId === idBeingLeft &&
+    (atBoundary.serverGraphIdentity !== null || atBoundary.lastServerGraphHash !== null)
+  )
 }
 
 /**
@@ -3449,6 +3474,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   ceeAnalysisReady: null,
   // No run has completed, so there is no run-over-run consequence to describe.
   runDelta: null,
+  runDeltaAbsence: null,
   limitVerdicts: null,
   // No producer has spoken at cold start, so absence genuinely means "no
   // authority" and `licensesComparativeLeaderClaim` keeps its `true` arm.
@@ -5234,10 +5260,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // state and is cleared; a saved record's transcript belongs to the record and
     // is left alone. Only an UNSAVED decision's transcript is discarded, which is
     // the demo-hazard case this item exists for.
+    // Saved means a local record OR a server graph for this decision (F1): `leavingDecisionIsSaved`.
     const scenarioIdBeingReset = scenarios.getCurrentScenarioId()
-    const isSavedRecord = scenarioIdBeingReset
-      ? scenarios.getScenario(scenarioIdBeingReset) !== undefined
-      : false
+    const isSavedRecord = leavingDecisionIsSaved(scenarioIdBeingReset, get())
     scenarios.clearAutosave()
     if (!isSavedRecord) clearTranscript(scenarioIdBeingReset)
 
@@ -5279,9 +5304,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
   adoptScenario: (scenarioId) => {
     const scenarioIdBeingLeft = scenarios.getCurrentScenarioId()
-    const isSavedRecord = scenarioIdBeingLeft
-      ? scenarios.getScenario(scenarioIdBeingLeft) !== undefined
-      : false
+    const isSavedRecord = leavingDecisionIsSaved(scenarioIdBeingLeft, get()) // same rule as resetCanvas (F1)
     scenarios.clearAutosave()
     if (!isSavedRecord) clearTranscript(scenarioIdBeingLeft)
     set({ ...scenarioResetState(), history: { past: [], future: [] }, currentScenarioId: scenarioId, scenarioEpoch: get().scenarioEpoch + 1 })
@@ -7120,6 +7143,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setRunDelta: (stored: StoredRunDelta | null) => {
     set({ runDelta: stored })
+  },
+
+  setRunDeltaAbsence: (stored: StoredRunDeltaAbsence | null) => {
+    set({ runDeltaAbsence: stored })
   },
 
   setLimitVerdicts: (stored: LimitVerdictsWrite | null) => {

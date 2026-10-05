@@ -23,8 +23,12 @@ export interface ConversationMessage {
   blocks?: ConversationBlock[]
   actionChips?: ActionChip[]
   timestamp: Date
-  /** Echoed from request for deduplication */
+  /** Echoed from request for deduplication. Live replies leave it unset; thread-hydrated replies carry it (FeedbackRow). */
   clientTurnId?: string
+  /** Historical held association; only a fresh server offer authorises restored actions. */
+  heldProposalId?: string
+  /** Request correlation for the held card, separate from durable message deduplication. */
+  heldTurnId?: string
   /** Whether this is a synthetic UI-only message (e.g. welcome, error) */
   synthetic?: boolean
   /** Track 3: Session boundary divider text (rendered as centred divider, not a chat bubble) */

@@ -282,13 +282,17 @@ export const InspectorRouter = memo(function InspectorRouter({
               targetLabel={targetLabel}
               data={edge.data as Record<string, unknown> | undefined}
               structural={isStructural}
-            />
-            <InspectorQuickActions
-              elementId={edgeId}
-              elementLabel={edgeLabel}
-              panelType="edge"
-              labelContext={{ sourceLabel, targetLabel }}
-              onBackToConversation={handleBackToConversation}
+              // Gate 5 item 3c: where "Examine with Olumi" stands, the generic "Explore with Olumi" is left out.
+              after={(examineShown) => (
+                <InspectorQuickActions
+                  elementId={edgeId}
+                  elementLabel={edgeLabel}
+                  panelType="edge"
+                  labelContext={{ sourceLabel, targetLabel }}
+                  onBackToConversation={handleBackToConversation}
+                  omitExplore={examineShown}
+                />
+              )}
             />
           </>
         }

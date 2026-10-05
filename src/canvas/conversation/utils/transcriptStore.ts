@@ -97,7 +97,7 @@ export type SourceKeyedMessage = ConversationMessage & {
 // THE RULE. Whether a turn OFFERED consent is a fact about that turn, not a
 // live control. The store records the fact (`consentOffered`), never the
 // chips, so the restored turn composes exactly as it did live and offers no
-// consent button to click again.
+// consent button until a current server held-offer read authorises it.
 
 /** Whether this turn asked the user to consent: live chips, or the restored fact. */
 export function turnOfferedConsent(m: SourceKeyedMessage): boolean {
@@ -133,7 +133,23 @@ export function heldProposalSourceBlockKey(
 /** localStorage key. Sibling of `olumi-canvas-autosave` / `-scenarios`. */
 export const TRANSCRIPT_STORAGE_KEY = 'olumi-canvas-transcript'
 
+/**
+ * The identity boundary's clear (`clearUserScopedState`). Tombstones every decision it removes, FIRST: the sweep's
+ * `resetCanvas` re-runs `useConversation`'s persist effect with the old owner and messages still in hand, which wrote
+ * the previous account's whole conversation straight back for the next one (J1 ISO-1: 15 KB with A's brief after B
+ * signed in). Same race and same scope as `clearTranscript`'s tombstone below.
+ *
+ * The file is not the whole fence: a conversation still on screen may have no entry on disk (a quota refusal removes
+ * the key), and freeing quota is exactly what the sweep does. So every decision this page load has read or written a
+ * transcript for is fenced too (Codex, #2523 r1).
+ *
+ * Accepted cost: the same account signing back in on THIS page does not re-save a fenced decision's local transcript
+ * until the user re-enters it (`releaseTranscriptTombstone`); CEE's stored turns restore it either way.
+ */
 export function clearAllTranscripts(): void {
+  for (const scenarioId of Object.keys(readFile())) forgottenThisPageLoad.add(scenarioId)
+  for (const scenarioId of touchedThisPageLoad) forgottenThisPageLoad.add(scenarioId)
+  touchedThisPageLoad.clear()
   try { localStorage.removeItem(TRANSCRIPT_STORAGE_KEY) } catch { /* unavailable */ }
 }
 
@@ -194,6 +210,9 @@ interface StoredMessage {
   /** The turn asked for consent (`turnOfferedConsent`). The chips themselves
    *  are never stored. Absent on older saves and on every other turn. */
   consentOffered?: true
+  /** Historical association only; actionChips are never persisted. */
+  heldProposalId?: string
+  heldTurnId?: string
   /**
    * The producer's answer shape (`_answer_shape`: headline, bullets, detail),
    * verbatim. Stored so a reply that arrived short, with its detail behind
@@ -314,6 +333,11 @@ function toStored(m: SourceKeyedMessage): StoredMessage {
   if (m.sourceBlockKey) out.sourceBlockKey = m.sourceBlockKey
   if (m.deliveryState === 'unconfirmed') out.deliveryState = 'unconfirmed'
   if (turnOfferedConsent(m)) out.consentOffered = true
+  const heldId = m.heldProposalId ?? m.actionChips?.find(c => /^agent-approve-proposal:prop_[0-9a-f]{32}$/.test(c.id))?.id.slice('agent-approve-proposal:'.length)
+  if (m.role === 'assistant' && typeof heldId === 'string' && /^prop_[0-9a-f]{32}$/.test(heldId)) {
+    out.heldProposalId = heldId
+    if (typeof m.heldTurnId === 'string' && m.heldTurnId.length > 0) out.heldTurnId = m.heldTurnId
+  }
   if (m.answerShape) out.answerShape = m.answerShape
   if (m.openQuestionList) out.openQuestionList = [...m.openQuestionList]
   if (m.provisionalView) {
@@ -354,6 +378,9 @@ function fromStored(s: StoredMessage): SourceKeyedMessage {
       : {}),
     ...(s.deliveryState === 'unconfirmed' ? { deliveryState: 'unconfirmed' as const } : {}),
     ...(s.consentOffered === true ? { consentOffered: true as const } : {}),
+    ...(s.role === 'assistant' && typeof s.heldProposalId === 'string' && /^prop_[0-9a-f]{32}$/.test(s.heldProposalId)
+      ? { heldProposalId: s.heldProposalId,
+        ...(typeof s.heldTurnId === 'string' && s.heldTurnId.length > 0 ? { heldTurnId: s.heldTurnId } : {}) } : {}),
     ...restoredAnswerShape(s.answerShape),
     ...restoredOpenQuestionList(s.openQuestionList),
     ...restoredProvisionalView(s.provisionalView),
@@ -406,7 +433,9 @@ export function saveTranscript(
   scenarioId: string | null | undefined,
   messages: readonly ConversationMessage[],
 ): number | null {
-  if (!scenarioId || !storageAvailable()) return null
+  if (!scenarioId) return null
+  touchedThisPageLoad.add(scenarioId)
+  if (!storageAvailable()) return null
   // A forgotten decision must stay forgotten for the rest of this page load —
   // see the tombstone block above `clearTranscript`. Without this the clear is
   // nominal: it is undone on the very commit it happens.
@@ -479,7 +508,9 @@ export function saveTranscript(
  * standing, because in that case it is TRUE.
  */
 export function loadTranscript(scenarioId: string | null | undefined): LoadedTranscript | null {
-  if (!scenarioId || !storageAvailable()) return null
+  if (!scenarioId) return null
+  touchedThisPageLoad.add(scenarioId)
+  if (!storageAvailable()) return null
 
   const entry = readFile()[scenarioId]
   if (entry == null || typeof entry !== 'object') return null
@@ -528,6 +559,9 @@ export function loadTranscript(scenarioId: string | null | undefined): LoadedTra
  */
 const forgottenThisPageLoad = new Set<string>()
 
+/** Every decision this page load has read or written a transcript for, since the last identity sweep. */
+const touchedThisPageLoad = new Set<string>()
+
 /**
  * The user has genuinely entered this decision, so it is no longer forgotten.
  * Called from the scenario-switch effect. Without it, resetting and then
@@ -543,6 +577,7 @@ export function releaseTranscriptTombstone(scenarioId: string | null | undefined
 /** Test-only: the tombstone is module state and must not leak between cases. */
 export function __resetTranscriptTombstonesForTests(): void {
   forgottenThisPageLoad.clear()
+  touchedThisPageLoad.clear()
 }
 
 /** Forget one scenario's transcript (scenario deleted / canvas reset). */

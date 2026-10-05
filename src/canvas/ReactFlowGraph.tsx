@@ -42,6 +42,7 @@ import {
   REACT_FLOW_DELETE_KEY_CODE,
 } from './useKeyboardShortcuts'
 import { loadState, saveState } from './persist'
+import { isThinClientSession } from './thinClient/thinClient'
 import { armRecoveryNotice, consumeRecoveryNotice } from './persist/recoveryNotice'
 import * as scenarios from './store/scenarios'
 import type { Scenario } from './store/scenarios'
@@ -2047,6 +2048,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     // Always load visual/settings preferences (grid, snap, etc.)
     loadSettings()
 
+    // THIN CLIENT: a signed-in browser restores NO local model, no local analysis and no recovery notice — on a
+    // production build AND in development (`loadState` below). CEE's read (`useServerGraphHydration`) is the only
+    // source of the graph; the layout comes back with it.
+    if (isThinClientSession()) return
+
     // In production, disable legacy canvas-storage graph persistence entirely.
     // This avoids loading potentially incompatible or corrupted graphs that
     // could trigger ReactFlow/React update loops on mount.
@@ -2385,9 +2391,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     // for convenience while iterating on the editor.
     if (import.meta.env.PROD) return
 
-    const unsubscribe = useCanvasStore.subscribe((state) =>
+    const unsubscribe = useCanvasStore.subscribe((state) => {
+      // THIN CLIENT: never a local model copy for a signed-in browser (checked per write: the predicate can turn on mid-page).
+      if (isThinClientSession()) return
       saveState({ nodes: state.nodes, edges: state.edges })
-    )
+    })
     return unsubscribe
   }, [])
 
