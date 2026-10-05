@@ -84,10 +84,6 @@ export function __latchThinClientForTests(): void {
   thinThisPage = true
 }
 
-/** The copy the user sees when a change exists only on this screen (factor Confirm has no server carrier yet). */
-export const THIN_CLIENT_NOT_SAVED_NOTICE =
-  'Confirmed on this screen only. It is not saved to the shared model, so it will not be there after a reload.'
-
 // ── LAYOUT: the one thing this browser keeps ─────────────────────────────────────────────────────────────────────
 
 /** Sign-out removes every key under it (`lib/auth/userScopedState.USER_SCOPED_STORAGE_PREFIXES`). */

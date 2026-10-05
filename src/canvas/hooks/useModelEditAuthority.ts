@@ -54,7 +54,8 @@
  * exactly what `OptionPanel` did, leaving 3 of 5 options on the founder's board
  * carrying no effect at all.
  *
- * `proposeFactorConfirmation` still has no carrier and keeps `LocalCommitOutcome`.
+ * `proposeFactorConfirmation` now rides `confirm_current` for a signed-in session (SD-1) and keeps
+ * `LocalCommitOutcome`'s local stamp for guests only (`FactorConfirmationOutcome`).
  * The two are named apart rather than sharing a union now true of only one. They reach CEE exactly as they always have — through the debounced,
  * VALUE-LESS `direct_graph_edit` notification that `useGraphEditEvents`
  * emits off the store. Nothing here claims otherwise, and `LocalCommitOutcome`
@@ -137,7 +138,7 @@ import {
   useNodeMutations,
   type EdgeStrengthCommitOutcome,
 } from '../ui/inspector-v2/useInspectorMutations'
-import { buildFactorValueEditEvent } from '../conversation/factorValueEdit'
+import { buildFactorValueEditEvent, resolveValueInputSeed } from '../conversation/factorValueEdit'
 import { buildEdgeStrengthEditEvent, buildEdgeStrengthConfirmEvent } from '../conversation/edgeStrengthEdit'
 import { edgeStillShowsReview, type ReviewedEdgeStrength } from '../conversation/pendingEdgeEdit'
 import { captureOptimisticFactorEdit } from '../conversation/optimisticFactorEdit'
@@ -160,7 +161,7 @@ import {
   type SystemEventSendSettlementDetail,
 } from '../conversation/settleSystemEventSend'
 import { isViewerSession } from '../../lib/viewerMode'
-import { isThinClientSession, THIN_CLIENT_NOT_SAVED_NOTICE } from '../thinClient/thinClient'
+import { isThinClientSession } from '../thinClient/thinClient'
 
 /**
  * ⛔ A NAMED GAP, SO IT CANNOT PASS FOR A DECISION.
@@ -212,6 +213,17 @@ export type FactorValueProposalOutcome = 'dispatched' | 'local_only' | 'not_enco
 export type LocalCommitOutcome = 'committed' | 'not_encodable'
 
 /**
+ * How a FACTOR CONFIRMATION left this seam (SD-1). A guest's is still a local commit; a signed-in one is a wire act.
+ *
+ * - `committed`     — guest only: the local `user_confirmed` stamp landed.
+ * - `dispatched`    — signed-in: nothing was written here; the `confirm_current` event is with the dispatcher and
+ *                     CEE's receipt owns the write. A statement left, NOT that it landed: no caller may say "recorded".
+ * - `no_carrier`    — signed-in with no conversation to send through: nothing happened anywhere.
+ * - `not_encodable` — nothing happened anywhere: no factor, no number to ratify, or a viewer session.
+ */
+export type FactorConfirmationOutcome = LocalCommitOutcome | 'dispatched' | 'no_carrier'
+
+/**
  * How an OPTION-INTERVENTION proposal left this seam (schemas 0.54.0).
  *
  * ⚠ IT IS NO LONGER `LocalCommitOutcome`, AND THE SPLIT IS THE POINT. That type
@@ -219,8 +231,8 @@ export type LocalCommitOutcome = 'committed' | 'not_encodable'
  * value-bearing wire carrier — "the type makes the honest statement the only
  * statement available". `option_intervention_edit` now IS that carrier, so
  * keeping this gesture on the local-commit union would force it to report
- * `committed` for a write the server owns. `proposeFactorConfirmation` still has
- * no carrier and keeps the old type; the two gestures are named apart rather
+ * `committed` for a write the server owns. `proposeFactorConfirmation` (SD-1) has
+ * its own union, `committed` for guests only; the gestures are named apart rather
  * than sharing a union that is now true of only one of them.
  *
  * - `dispatched`       — nothing was written locally; the typed event is with
@@ -825,6 +837,8 @@ export function useModelEditAuthority(
   )
 
   /**
+   * ⚠ GUESTS ONLY SINCE SD-1: a signed-in confirm is CEE's `reviewed_by_user` (below), never this stamp.
+   *
    * ⚠ THE STAMP IS `user_confirmed`, AND THAT IS THE WHOLE FIX.
    *
    * The v1 Model tab wrote `setObservedSource('user')` for this gesture. The
@@ -848,7 +862,12 @@ export function useModelEditAuthority(
    * count — `countFactorsToVerify` clears on any source that is neither absent
    * nor `cee_inference`. The gap would stop being reported without being fixed.
    */
-  const proposeFactorConfirmation = useCallback((): LocalCommitOutcome => {
+  const proposeFactorConfirmation = useCallback((
+    opts?: {
+      /** Called once when the SENDER settles (signed-in only). `'sent'` says a POST left, never that CEE recorded it. */
+      onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void
+    },
+  ): FactorConfirmationOutcome => {
     if (!activeNodeId) return 'not_encodable'
     const node = useCanvasStore.getState().nodes.find(n => n.id === activeNodeId)
     if (!node || resolveNodeTypeLiteral(node) !== 'factor') return 'not_encodable'
@@ -860,17 +879,35 @@ export function useModelEditAuthority(
     // cannot offer what this will decline.
     if (!factorHasConfirmableValue(node.data)) return 'not_encodable'
 
-    mutations.setObservedSource('user_confirmed')
-    // THIN CLIENT (DL ruling (a), 5 Oct): this stamp has NO server carrier, and a signed-in browser keeps no local
-    // model, so it lives on this screen only and the next CEE graph replaces it. Say so, rather than let a confirmation
-    // look saved. (A CEE carrier is the INTEGRATOR's seam row, not this change.)
-    if (isThinClientSession() && typeof window !== 'undefined') {
-      window.dispatchEvent(
-        new CustomEvent('topbar:show-toast', { detail: { message: THIN_CLIENT_NOT_SAVED_NOTICE, level: 'warning' } }),
-      )
+    // ⭐⭐ SD-1 (domain 2, github-07): A SIGNED-IN CONFIRM IS ONE FACT. It was a browser-only `user_confirmed` stamp, so
+    // the next CEE graph erased it and a fresh browser asked again (J1 J14). It now rides `factor_value_edit`
+    // `confirm_current` (schemas 0.62.0; the carrier CEE already implements, #87 5992264179): CEE records
+    // `observed_state.reviewed_by_user`, keeps whose the number is, and its receipt is the only write here — nothing is
+    // stamped locally, the same discipline as `proposeEdgeStrengthConfirmation`.
+    //
+    // ⚠ THE NUMBER SENT IS THE ONE THE FACTOR SHOWS, THROUGH THE SET'S OWN BUILDER. CEE resolves a confirm exactly as a
+    // set of the same number and refuses one that lands anywhere else (`confirm_value_moved`, near-exact). So the
+    // event is what re-typing the shown number would send (`resolveValueInputSeed`: the stored `raw_value` when there
+    // is one, else `value`), never a hand-built `{ value }`: a capless percent stores 0.032 and is SET as 3.2.
+    if (isThinClientSession()) {
+      if (isViewerSession()) return 'not_encodable'
+      const { seed } = resolveValueInputSeed(node.data)
+      if (seed === undefined) return 'not_encodable'
+      const event = buildFactorValueEditEvent({
+        nodeId: activeNodeId, typedValue: seed, nodeData: node.data, intent: 'confirm_current',
+      })
+      if (!event) return 'not_encodable'
+      if (!sendSystemEvent) return 'no_carrier'
+      // Opted out of the sender's hidden queue for `proposeEdgeStrengthConfirmation`'s reason: `SEND_DEFERRED`
+      // resolves before the turn exists, and a deferred confirm would ratify a number the model may no longer hold.
+      settleSystemEventSend(sendSystemEvent(event, { deferIfBusy: false }), opts?.onSendSettled)
+      return 'dispatched'
     }
+
+    // GUESTS ARE UNCHANGED (SD-2 is theirs): no server copy of their model, so the local stamp is their only record.
+    mutations.setObservedSource('user_confirmed')
     return 'committed'
-  }, [activeNodeId, mutations])
+  }, [activeNodeId, mutations, sendSystemEvent])
 
   /**
    * ⭐⭐ `directionStated` → `preserveDirection`, AND THE MAPPING IS EXACT RATHER
