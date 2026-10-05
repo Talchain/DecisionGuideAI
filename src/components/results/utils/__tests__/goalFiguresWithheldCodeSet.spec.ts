@@ -52,6 +52,14 @@ describe('the one reader matches every typed reason for withholding the goal fig
     expect(r?.nodeIds.sort()).toEqual(['mrr', 'pro_paying_subscribers'])
   })
 
+  it('identical options (CEE #2574 gate 1 v2) are read, in the producer\'s own words', () => {
+    // CEE's own expected string (identical-arms.test.ts BASELINE_LINE), "Not shown." + the disclosure.
+    const words = "Not shown. Hire Two came out identical to Carry On: in this model it doesn't change the outcome. The comparison is held back until it differs: edit its value, or remove it."
+    const identical = { code: 'GOAL_FIGURES_OPTIONS_IDENTICAL', severity: 'warning', option_ids: ['carry_on', 'hire_two'], message: words }
+    expect(readGoalIdentityWithheld({ inference_warnings: [identical] })).toEqual({ nodeIds: [], message: words })
+    expect(readGoalIdentityWithheld({ inference_warnings: [{ ...identical, code: 'GOAL_FIGURES_OPTIONS_IDENTICAL_X' }] })).toBeNull()
+  })
+
   it('CONTRAST — the disclosure-only code withholds nothing', () => {
     expect(readGoalIdentityWithheld({ inference_warnings: [DISCLOSED] })).toBeNull()
   })
