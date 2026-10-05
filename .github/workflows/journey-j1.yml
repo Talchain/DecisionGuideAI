@@ -1,0 +1,417 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# J1 · the whole-PoC journey, on one GitHub runner (brief F, DL 0df0e1).
+#
+# Spec owner: the Integrator (programme-docs integrator/github-26
+# output/integrator/J1-SPEC-RULING.md). Builder: Journey Builder github-f7.
+#
+# The run boots all four real services at their heads, plus a throwaway local
+# Supabase that has BOTH repos' migrations applied in timestamp order:
+#   UI (built here) → CEE → PLoT → ISL.
+# It then drives brief → model → Run → science → edit → fresh browser → account B,
+# asserting each step by identity.
+#
+# LLM boundary. On this runner, api.openai.com and api.anthropic.com resolve to a
+# local TLS server (e2e/core/journey/stack/llm-replay-server.mjs) that answers from
+# the committed frozen recordings: 0 provider calls. A miss is RED (could-not-measure).
+#
+# Recording is NEVER done here. No provider key goes into any GitHub field (Paul,
+# 5 Oct, via DL 0df0e1). The frozen set is recorded locally with the same boundary in
+# record mode, and only the recordings are committed.
+#
+# Nothing here touches the shared staging/production Supabase. Accounts A and B
+# are local sign-ups.
+#
+# ADVISORY. This check is not required. It may be promoted after 3 consecutive
+# greens, on the DL's decision; that is a shared-CI change, so it is HIGH.
+# ─────────────────────────────────────────────────────────────────────────────
+name: Journey J1 · whole PoC
+
+on:
+  push:
+    branches: [ staging, 'journey/**' ]
+  workflow_dispatch:
+    inputs:
+      cee_ref:
+        description: 'olumi-assistants-service ref'
+        default: staging
+      plot_ref:
+        description: 'plot-lite-service ref'
+        default: staging
+      isl_ref:
+        description: 'Inference-Service-Layer ref'
+        default: staging
+
+permissions:
+  contents: read
+
+concurrency:
+  group: journey-j1-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  j1:
+    name: Journey J1 · whole PoC (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    env:
+      J1_MODE: replay
+      CEE_REF: ${{ inputs.cee_ref || 'staging' }}
+      PLOT_REF: ${{ inputs.plot_ref || 'staging' }}
+      ISL_REF: ${{ inputs.isl_ref || 'staging' }}
+      CEE_PORT: '3101'
+      PLOT_PORT: '4311'
+      ISL_PORT: '8000'
+      UI_PORT: '5173'
+    steps:
+      # ── 0. The tuple ──────────────────────────────────────────────────────
+      - name: Checkout UI (this repo)
+        uses: actions/checkout@v4
+        with: { path: dgai }
+      - name: Checkout CEE
+        uses: actions/checkout@v4
+        with: { repository: Talchain/olumi-assistants-service, ref: '${{ env.CEE_REF }}', path: cee }
+      - name: Checkout PLoT
+        uses: actions/checkout@v4
+        with: { repository: Talchain/plot-lite-service, ref: '${{ env.PLOT_REF }}', path: plot }
+      - name: Checkout ISL
+        uses: actions/checkout@v4
+        with: { repository: Talchain/Inference-Service-Layer, ref: '${{ env.ISL_REF }}', path: isl }
+
+      - name: Record the tuple (J0)
+        run: |
+          set -euo pipefail
+          J1="$RUNNER_TEMP/j1"; mkdir -p "$J1/logs" "$J1/ledger"
+          echo "J1=$J1" >> "$GITHUB_ENV"
+          for r in dgai cee plot isl; do
+            sha=$(git -C "$r" rev-parse HEAD)
+            [ "${#sha}" -eq 40 ] || { echo "::error::$r HEAD is not a 40-char SHA: $sha"; exit 1; }
+            echo "$(echo "$r" | tr a-z A-Z)_SHA=$sha" >> "$GITHUB_ENV"
+            # GITHUB_ENV reaches LATER steps only: export for tuple.json below too.
+            export "$(echo "$r" | tr a-z A-Z)_SHA=$sha"
+          done
+          node -e 'const e=process.env;require("fs").writeFileSync(process.argv[1],JSON.stringify({mode:e.J1_MODE,ui:e.DGAI_SHA,cee:e.CEE_SHA,plot:e.PLOT_SHA,isl:e.ISL_SHA,run:e.GITHUB_RUN_ID},null,1))' "$J1/tuple.json"
+          cat "$J1/tuple.json"
+
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+
+      # ── 1. The LLM boundary ───────────────────────────────────────────────
+      - name: Generate signing key + boundary TLS
+        run: node dgai/e2e/core/journey/stack/gen-tls-and-keys.mjs "$J1/keys"
+
+      - name: Point the provider hosts at the boundary
+        run: |
+          set -euo pipefail
+          echo '127.0.0.1 api.openai.com api.anthropic.com' | sudo tee -a /etc/hosts
+          # Isolation: the shared deployed services and the shared Supabase project are
+          # unreachable from this job, so nothing here can read or write them by accident.
+          echo '127.0.0.2 cee-staging.onrender.com plot-lite-service-staging.onrender.com isl-staging.onrender.com cee-production.onrender.com plot-lite-service.onrender.com isl-production.onrender.com etmmuzwxtcjipwphdola.supabase.co' | sudo tee -a /etc/hosts
+          sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443
+          cat /etc/ssl/certs/ca-certificates.crt "$J1/keys/ca.pem" > "$J1/keys/bundle.pem"
+
+      - name: Start the LLM boundary (replay, 0 provider calls)
+        run: |
+          set -euo pipefail
+          FIX="$GITHUB_WORKSPACE/dgai/e2e/core/journey/fixtures/j1/llm"
+          echo "JOURNEY_LLM_FIXTURES=$FIX" >> "$GITHUB_ENV"
+          echo "JOURNEY_LLM_LEDGER=$J1/ledger/llm.ndjson" >> "$GITHUB_ENV"
+          JOURNEY_LLM_MODE="$J1_MODE" JOURNEY_LLM_FIXTURES="$FIX" JOURNEY_LLM_LEDGER="$J1/ledger/llm.ndjson" \
+          JOURNEY_LLM_CERT="$J1/keys/leaf.pem" JOURNEY_LLM_KEY="$J1/keys/leaf.key" JOURNEY_LLM_PORT=443 \
+            nohup node dgai/e2e/core/journey/stack/llm-replay-server.mjs > "$J1/logs/llm-boundary.log" 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf --cacert "$J1/keys/ca.pem" https://api.openai.com/__journey_selftest > "$J1/llm-selftest.json"; then break; fi
+            sleep 1
+          done
+          cat "$J1/llm-selftest.json"
+          node -e 'const s=require(process.argv[1]); if(!s.ok||s.mode!==process.env.J1_MODE||s.host!=="api.openai.com"){console.error("boundary self-test failed");process.exit(1)}' "$J1/llm-selftest.json"
+
+      # ── 2. Local Supabase with both repos' migrations ─────────────────────
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+
+      - name: Start local Supabase (DGAI + CEE migrations, timestamp order)
+        run: |
+          set -euo pipefail
+          mkdir -p "$J1/sb" && cd "$J1/sb"
+          # A minimal config, written whole: every key not set here keeps the CLI default.
+          # Postgres 15 matches the hosted project (DGAI supabase/.temp/postgres-version).
+          mkdir -p supabase
+          cat > supabase/config.toml <<'EOF'
+          project_id = "j1-journey"
+          [api]
+          enabled = true
+          port = 54321
+          schemas = ["public", "graphql_public"]
+          extra_search_path = ["public", "extensions"]
+          max_rows = 1000
+          [db]
+          port = 54322
+          major_version = 15
+          [studio]
+          enabled = false
+          [analytics]
+          enabled = false
+          # J1 needs db, auth, rest and the gateway only: fewer images, fewer anonymous pulls.
+          [inbucket]
+          enabled = false
+          [realtime]
+          enabled = false
+          [storage]
+          enabled = false
+          [edge_runtime]
+          enabled = false
+          [auth]
+          enabled = true
+          site_url = "http://localhost:5173"
+          additional_redirect_urls = ["http://localhost:5173"]
+          jwt_expiry = 3600
+          enable_signup = true
+          signing_keys_path = "./signing_keys.json"
+          [auth.email]
+          enable_signup = true
+          enable_confirmations = false
+          EOF
+          sed -i 's/^          //' supabase/config.toml
+          node "$GITHUB_WORKSPACE/dgai/e2e/core/journey/stack/merge-migrations.mjs" \
+            "$GITHUB_WORKSPACE/dgai/supabase/migrations" "$GITHUB_WORKSPACE/cee/supabase/migrations" "$J1/merged/migrations" \
+            "$GITHUB_WORKSPACE/dgai/e2e/core/journey/stack/hosted-drift-pre"
+          cp "$J1/keys/signing_keys.json" supabase/signing_keys.json
+          grep -n 'signing_keys_path\|site_url\|enable_confirmations' supabase/config.toml
+          # Start EMPTY, then apply every file and report each outcome (apply-migrations.sh).
+          supabase start -x studio,imgproxy,vector,logflare,edge-runtime,supavisor 2>&1 | tee "$J1/logs/supabase-start.log"
+          bash "$GITHUB_WORKSPACE/dgai/e2e/core/journey/stack/apply-migrations.sh" "$J1/merged/migrations" "$J1/logs/MIGRATION-REPORT.tsv"
+          # X7 schema assert (Integrator's object list): recorded here, enforced by the X7 step.
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -X -q -A -t -F "$(printf '\t')" -v ON_ERROR_STOP=1 \
+            -f "$GITHUB_WORKSPACE/dgai/e2e/core/journey/stack/schema-assert.sql" \
+            > "$J1/logs/SCHEMA-ASSERT.tsv" 2> "$J1/logs/SCHEMA-ASSERT.err" || true
+          supabase status -o env > "$J1/sb.env"
+          set -a; . "$J1/sb.env"; set +a
+          echo "::add-mask::$SERVICE_ROLE_KEY"
+          {
+            echo "SB_URL=$API_URL"
+            echo "SB_ANON_KEY=$ANON_KEY"
+            echo "SB_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+          cp "$J1/merged/MIGRATION-ORDER.tsv" "$J1/logs/"
+          # CEE's verifier is JWKS-only, ES256/RS256: prove the local project publishes an asymmetric key.
+          curl -sf "$API_URL/auth/v1/.well-known/jwks.json" | tee "$J1/jwks.json"
+          node -e 'const k=require(process.argv[1]).keys||[]; if(!k.some(x=>x.alg==="ES256"||x.kty==="EC")){console.error("local JWKS has no ES256 key: CEE would refuse every user token");process.exit(1)}' "$J1/jwks.json"
+
+      # ── 3. ISL ────────────────────────────────────────────────────────────
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Boot ISL
+        working-directory: isl
+        run: |
+          set -euo pipefail
+          pip install -q 'poetry==2.2.1'
+          poetry config virtualenvs.in-project true
+          poetry install --only main --no-root -q
+          set -a; . "$GITHUB_WORKSPACE/dgai/e2e/core/journey/stack/isl.staging-flags.env"; set +a
+          ISL_API_KEYS=journey-local SSL_CERT_FILE="$J1/keys/bundle.pem" REQUESTS_CA_BUNDLE="$J1/keys/bundle.pem" \
+            nohup .venv/bin/python -m uvicorn src.api.main:app --host 127.0.0.1 --port "$ISL_PORT" > "$J1/logs/isl.log" 2>&1 &
+
+      # ── 4. PLoT ───────────────────────────────────────────────────────────
+      - name: Boot PLoT
+        working-directory: plot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm run build
+          set -a; . "$GITHUB_WORKSPACE/dgai/e2e/core/journey/stack/plot.staging-flags.env"; set +a
+          export NODE_ENV=staging PORT="$PLOT_PORT" \
+            ISL_BASE_URL="http://127.0.0.1:$ISL_PORT" ISL_API_KEY=journey-local \
+            CEE_BASE_URL="http://127.0.0.1:$CEE_PORT" CEE_API_KEY=journey-local \
+            PLOT_AUTH_TOKEN=journey-local-plot-token AUTH_TOKEN=journey-local-plot-token AUTH_V2_ENABLED=0 \
+            TOKEN_HMAC_SECRET="$(openssl rand -hex 32)" PRINCIPAL_HMAC_SECRET_ACTIVE="$(openssl rand -hex 32)" \
+            CORS_ORIGINS="http://localhost:$UI_PORT" NODE_EXTRA_CA_CERTS="$J1/keys/ca.pem"
+          nohup node dist/main.js > "$J1/logs/plot.log" 2>&1 &
+
+      # ── 5. CEE ────────────────────────────────────────────────────────────
+      # CEE and DGAI both pin pnpm@10.18.0 (packageManager)
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.18.0, run_install: false }
+      - name: Boot CEE
+        working-directory: cee
+        env:
+          NPM_PACKAGES_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm build
+          set -a; . "$GITHUB_WORKSPACE/dgai/e2e/core/journey/stack/cee.staging-flags.env"; set +a
+          # A dummy key satisfies CEE's boot check; the boundary answers every call.
+          KEY=sk-journey-replay-no-provider-calls
+          export NODE_ENV=staging PORT="$CEE_PORT" LOG_LEVEL=info \
+            SUPABASE_URL="$SB_URL" SUPABASE_SERVICE_ROLE_KEY="$SB_SERVICE_ROLE_KEY" \
+            PLOT_BASE_URL="http://127.0.0.1:$PLOT_PORT" PLOT_AUTH_TOKEN=journey-local-plot-token \
+            ISL_BASE_URL="http://127.0.0.1:$ISL_PORT" ISL_API_KEY=journey-local \
+            OPENAI_API_KEY="$KEY" PROXY_V5_TARGET=agent ASSIST_API_KEYS=journey-local \
+            ALLOWED_ORIGINS="http://localhost:$UI_PORT" BROWSER_PROXY_ALLOWED_ORIGINS="http://localhost:$UI_PORT" \
+            NODE_EXTRA_CA_CERTS="$J1/keys/ca.pem"
+          nohup node dist/src/server.js > "$J1/logs/cee.log" 2>&1 &
+
+      # ── 6. UI ─────────────────────────────────────────────────────────────
+      - name: Build + serve the UI
+        working-directory: dgai
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          set -a; . e2e/core/journey/stack/ui.staging-flags.env; set +a
+          export VITE_V5_ENDPOINT="http://localhost:$CEE_PORT/proxy/v5/turn" \
+            VITE_SUPABASE_URL="$SB_URL" VITE_SUPABASE_ANON_KEY="$SB_ANON_KEY"
+          NODE_OPTIONS=--max-old-space-size=6144 npm run build
+          echo "{\"commit\":\"$DGAI_SHA\",\"short\":\"${DGAI_SHA:0:8}\",\"branch\":\"$GITHUB_REF_NAME\",\"deploy_id\":\"j1-$GITHUB_RUN_ID\",\"deploy_url\":\"\"}" > dist/version.json
+          # ASSIST_API_KEY: the preview proxy sends it to CEE as X-Olumi-Assist-Key, as the
+          # Netlify edge function does on staging. CEE refuses to boot with user-JWT on and no
+          # service auth, so one local key is shared by the UI proxy, PLoT and CEE.
+          CEE_SERVICE_URL="http://127.0.0.1:$CEE_PORT" ENGINE_SERVICE_URL="http://127.0.0.1:$PLOT_PORT" \
+          ISL_SERVICE_URL="http://127.0.0.1:$ISL_PORT" ASSIST_API_KEY=journey-local \
+            nohup npx vite preview --port "$UI_PORT" --strictPort > "$J1/logs/ui-preview.log" 2>&1 &
+
+      - name: Wait for the four services
+        run: |
+          set -euo pipefail
+          up() { curl -s -o /dev/null -w '%{http_code}' "$1" 2>/dev/null | grep -qv '^000$'; }
+          for svc in "ISL http://127.0.0.1:$ISL_PORT/" "PLoT http://127.0.0.1:$PLOT_PORT/" "CEE http://127.0.0.1:$CEE_PORT/" "UI http://localhost:$UI_PORT/version.json"; do
+            set -- $svc
+            for i in $(seq 1 90); do up "$2" && break; sleep 2; done
+            up "$2" || { echo "::error::$1 never answered at $2"; tail -n 50 "$J1/logs/"*.log; exit 1; }
+            echo "$1 up"
+          done
+          # local CEE only (ephemeral DB): the served build (7-char short SHA on the public
+          # /healthz) must be the prefix of the checkout's 40-char SHA
+          curl -s "http://127.0.0.1:$CEE_PORT/healthz" > "$J1/cee-health.json"
+          node -e 'const h=require(process.argv[1]); const b=String(h.build||""); if(b.length<7||!process.env.CEE_SHA.startsWith(b)){console.error(`CEE serves build "${b}", checkout is ${process.env.CEE_SHA}`);process.exit(1)}; console.log("CEE build", b, "= checkout", process.env.CEE_SHA, "| degraded:", JSON.stringify(h.degraded_reasons||[]))' "$J1/cee-health.json"
+
+      # ── 7. The journey ────────────────────────────────────────────────────
+      - name: Install Chromium
+        working-directory: dgai
+        run: npx playwright install --with-deps chromium
+
+      - name: Run J1
+        working-directory: dgai
+        env:
+          CORE_UI_URL: http://localhost:${{ env.UI_PORT }}
+          CORE_SUPABASE_URL: ${{ env.SB_URL }}
+          CORE_SUPABASE_KEY: ${{ env.SB_ANON_KEY }}
+          J1_CEE_URL: http://127.0.0.1:${{ env.CEE_PORT }}
+        run: npx playwright test --config playwright.journey.config.ts J1-whole-poc
+
+      # ── 8. Evidence ───────────────────────────────────────────────────────
+      - name: LLM boundary ledger
+        if: always()
+        run: |
+          L="$J1/ledger/llm.ndjson"
+          {
+            echo "### J1 · whole PoC · mode \`$J1_MODE\`"
+            echo ""
+            echo "| repo | sha |"; echo "| --- | --- |"
+            for r in DGAI CEE PLOT ISL; do v="${r}_SHA"; echo "| $r | \`${!v:-?}\` |"; done
+            echo ""
+            if [ -s "$J1/logs/MIGRATION-REPORT.tsv" ]; then
+              echo "Migrations (DGAI + CEE, timestamp order): $(grep -c '^OK' "$J1/logs/MIGRATION-REPORT.tsv") OK, $(grep -c '^PARTIAL' "$J1/logs/MIGRATION-REPORT.tsv") PARTIAL"
+              grep '^PARTIAL' "$J1/logs/MIGRATION-REPORT.tsv" | sed 's/^/    /' || true
+              echo ""
+            fi
+            if [ -s "$L" ]; then
+              echo "LLM boundary outcomes:"; echo '```'
+              node -e 'const c={};for(const l of require("fs").readFileSync(process.argv[1],"utf8").trim().split("\n")){const r=JSON.parse(l);c[r.outcome]=(c[r.outcome]||0)+1};console.log(JSON.stringify(c))' "$L"
+              echo '```'
+            else
+              echo "LLM boundary: no calls reached it."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Allow-list: before the isolation rows switch reuse on, only exact hits.
+          if [ "$J1_MODE" = replay ]; then
+            [ -s "$L" ] || { echo "::error::LLM ledger is empty: could not measure"; exit 1; }
+            bad=$(node -e 'const ok=new Set(["index","hit"]);const b=require("fs").readFileSync(process.argv[1],"utf8").trim().split("\n").map(JSON.parse).filter(r=>!ok.has(r.outcome));console.log(b.map(r=>`#${r.seq} ${r.outcome}${r.diagnosis?" "+r.diagnosis:""}`).join("; "))' "$L")
+            if [ -n "$bad" ]; then
+              echo "::error::LLM boundary served calls other than exactly as frozen: $bad. Could not measure; this is red, never a pass."
+              exit 1
+            fi
+          fi
+
+      # X7 (SPINE, Integrator): the schema J1 ran on. Red when a migration error is not on
+      # expected-partials.tsv (file + line + SQLSTATE + exact text), when a REQUIRED or
+      # SECURITY row of schema-assert.sql fails, or when either was not measured. The schema
+      # result is labelled PARTIAL even when it matches: never "schema rebuild green".
+      - name: X7 · schema seam (migration allow-list + schema assert)
+        if: always()
+        run: |
+          # This step decides red itself (red=1 → exit 1). GitHub runs it under `bash -e`, where a
+          # grep that selects nothing (an empty known list) killed it silently: run 37325381283.
+          set +e
+          set -uo pipefail
+          V="$J1/logs/X7-MIGRATIONS.txt"; A="$J1/logs/SCHEMA-ASSERT.tsv"; red=0
+          {
+            echo "### X7 · schema seam (the migration-built DB; proves the migrations, never the live ACL)"
+            if [ -s "$V" ]; then echo '```'; cat "$V"; echo '```'; else echo "Migrations: COULD NOT MEASURE (no X7-MIGRATIONS.txt)"; fi
+            if [ -s "$A" ]; then
+              echo "Schema assert: $(grep -c $'\tPASS\t' "$A") PASS, $(grep -c $'\tFAIL\t' "$A") FAIL, $(grep -c $'\tREPORT\t' "$A") REPORT"
+              echo '```'; grep -v $'\tPASS\t' "$A" || true; echo '```'
+            else
+              echo "Schema assert: COULD NOT MEASURE"; echo '```'; head -5 "$J1/logs/SCHEMA-ASSERT.err" 2>/dev/null; echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$V" 2>/dev/null; cat "$A" 2>/dev/null
+          if ! { [ -s "$V" ] && [ "$(head -1 "$V")" = MATCH ]; }; then echo "::error::X7: a migration error is not on expected-partials.tsv, or it was not measured"; red=1; fi
+          # Known SECURITY defects (Integrator, 5 Oct): keyed on "<signature> · <role> · <privilege>",
+          # printed in EVERY summary with their owner. A REQUIRED FAIL, an unlisted FAIL, a STALE
+          # known row (it no longer fails: delete it) or no measurement is red.
+          K="$GITHUB_WORKSPACE/dgai/e2e/core/journey/stack/expected-security.tsv"
+          KN="$(mktemp)"; { grep -v '^#' "$K" || true; } | sed '/^$/d' > "$KN"
+          if [ ! -s "$A" ]; then
+            echo "::error::X7: the schema assert was not measured"; red=1
+          else
+            fails="$(awk -F'\t' -v kn="$KN" 'FILENAME == kn { k[$1] = 1; next } $3 == "FAIL" && !($1 == "SECURITY" && ($2 in k))' "$KN" "$A")"
+            known="$(awk -F'\t' -v a="$A" 'FILENAME == a { if ($1 == "SECURITY" && $3 == "FAIL") f[$2] = 1; next } ($1 in f) { n++; print "KNOWN SECURITY DEFECT " n " · " $1 " · " $2 }' "$A" "$KN")"
+            stale="$(awk -F'\t' -v a="$A" 'FILENAME == a { if ($1 == "SECURITY" && $3 == "FAIL") f[$2] = 1; next } !($1 in f) { print $1 " · " $2 }' "$A" "$KN")"
+            { [ -z "$known" ] || printf '%s\n' "$known"
+              [ -z "$stale" ] || { echo "STALE known security rows (no longer failing): DELETE them from expected-security.tsv"; printf '%s\n' "$stale" | sed 's/^/  /'; }
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            if [ -n "$fails" ]; then echo "::error::X7: schema assert FAIL:"; printf '%s\n' "$fails"; red=1; fi
+            if [ -n "$stale" ]; then echo "::error::X7: a known security defect no longer fails; delete its line"; red=1; fi
+          fi
+          exit $red
+
+      # Two-account rows in ONE browser (Red-team A1-A4, Core Platform #2501 sweep).
+      # Advisory, after J1 and its ledger gate, so they never colour J1's verdict. Their
+      # drafts replay J1's frozen set (hit_reuse).
+      - name: Isolation rows · same browser (advisory)
+        if: always()
+        continue-on-error: true
+        working-directory: dgai
+        env:
+          CORE_UI_URL: http://localhost:${{ env.UI_PORT }}
+          CORE_SUPABASE_URL: ${{ env.SB_URL }}
+          CORE_SUPABASE_KEY: ${{ env.SB_ANON_KEY }}
+          J1_CEE_URL: http://127.0.0.1:${{ env.CEE_PORT }}
+          J1_SB_SERVICE_ROLE_KEY: ${{ env.SB_SERVICE_ROLE_KEY }}
+          PLAYWRIGHT_HTML_REPORT: playwright-report-isolation
+        run: |
+          # Reuse is OFF for J1 (any second serving of a recording is red there). The
+          # isolation drafts replay J1's frozen brief, so switch it on now, ledgered.
+          curl -sf -X POST --cacert "$J1/keys/ca.pem" https://api.openai.com/__journey_allow_reuse
+          npx playwright test --config playwright.journey.config.ts isolation-same-browser --output test-results/isolation
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: j1-evidence-${{ env.J1_MODE }}
+          path: |
+            ${{ runner.temp }}/j1/logs/
+            ${{ runner.temp }}/j1/ledger/
+            ${{ runner.temp }}/j1/tuple.json
+            ${{ runner.temp }}/j1/cee-health.json
+            dgai/playwright-report-journey/
+            dgai/playwright-report-isolation/
+            dgai/test-results/journey/
+            dgai/test-results/isolation/
+          retention-days: 14
+          if-no-files-found: warn

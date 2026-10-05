@@ -27,6 +27,8 @@ coverage/
 playwright-report/
 playwright-report-visual/
 playwright-report-core/
+playwright-report-journey/
+playwright-report-isolation/
 test-results/
 
 # Cache
