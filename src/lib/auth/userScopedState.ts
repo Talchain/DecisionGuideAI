@@ -20,6 +20,9 @@ export const USER_SCOPED_STORAGE_KEYS = [
   'olumi-cee-analysis-ready-node-ids',
   // An unregistered import's node ids and edge pairs (`importRegistrationMarker.ts`): the previous identity's model shape.
   'olumi.import.pendingServerRegistration.v1',
+  // Its sibling: which scenario's model CEE acknowledged (`importRegistrationMarker.ts`), keyed by the previous identity's
+  // scenario id.
+  'olumi.import.serverAcknowledged.v1',
   // Run history (`runHistory.ts`): whole reports and graph snapshots with no owner. Nothing writes it on the live path,
   // but entries from the retired Play path are still read by the palette, ShareDrawer and ReactFlowGraph's restore.
   'olumi-canvas-run-history',
