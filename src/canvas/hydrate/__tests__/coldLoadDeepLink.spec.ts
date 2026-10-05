@@ -1117,11 +1117,19 @@ describe('§14 IDENTITY (CAN-F2w): a slot whose removal was refused at sign-out 
     expect(scenarios.loadAutosave()).toBeNull()
   })
 
-  it('an epoch write that is REFUSED at sign-out: the boundary still completes and sweeps (no worse than today)', () => {
+  // Two ways an epoch write fails: it throws, or it is accepted and does not hold (the read-back differs). Either way
+  // this page must NOT adopt an epoch the shared slot does not hold, or it would refuse every later save of its own.
+  it.each([
+    ['REFUSED (throws)', 'throw'],
+    ['accepted but NOT HELD', 'silent'],
+  ])('an epoch write %s at sign-out: the boundary still completes and sweeps, and this page still saves (no worse than today)', (_how, how) => {
     rememberScenario(Z)
     const realSet = Storage.prototype.setItem
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
-      if (k === EPOCH) throw new DOMException('quota', 'QuotaExceededError')
+      if (k === EPOCH) {
+        if (how === 'throw') throw new DOMException('quota', 'QuotaExceededError')
+        return undefined
+      }
       return realSet.call(this, k, v)
     })
     expect(() => clearUserScopedState()).not.toThrow()
