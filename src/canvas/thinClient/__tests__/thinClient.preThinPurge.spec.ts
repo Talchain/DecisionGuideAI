@@ -44,6 +44,8 @@ const signIn = () => localStorage.setItem(SESSION_KEY, '{"access_token":"t","use
 /** Every model-copy class, each by its REAL writer on a guest page, under scenario `id`. */
 function seedModelCopies(id: string, label: string): void {
   saveAutosave({ timestamp: Date.now() + Math.random(), scenarioId: id, nodes: nodes(label), edges: edges() })
+  // Byte-identical to what a cold-load deep link preserves (`coldLoadDeepLink.applyColdLoadPlan`): the main slot, verbatim,
+  // under its own scenario's keyed key.
   localStorage.setItem(keyedAutosaveKey(id), localStorage.getItem('olumi-canvas-autosave') as string)
   expect(saveState({ nodes: nodes(label), edges: edges() as never })).toBe(true)
   expect(saveSnapshot({ nodes: nodes(label), edges: edges() as never })).toBe(true)
@@ -90,7 +92,7 @@ describe('GAP-3 — every key is its writer\'s key (no literal drifts from the c
     expect(allKeys()).toEqual([LAYOUT_KEY_PREFIX + A])
   })
 
-  it('PRECONDITION — the seed writes every class: main + keyed slot, canvas-storage, a snapshot (+ name), versions, a list graph', () => {
+  it('PRECONDITION — the seed writes every class: main + keyed slot, canvas-storage, a snapshot, versions, a list graph', () => {
     seedModelCopies(A, 'Alpha')
     const keys = modelKeys()
     expect(keys).toEqual(expect.arrayContaining(['olumi-canvas-autosave', keyedAutosaveKey(A), VERSIONS_STORAGE_KEY]))

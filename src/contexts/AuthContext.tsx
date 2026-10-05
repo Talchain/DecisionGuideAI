@@ -15,6 +15,7 @@ import { observeDecisionRecordOwner } from '../components/results/modals/decisio
 import { isE2EEnabled } from '../flags';
 import { isGuestAuth } from '../lib/poc';
 import { hasStoredSupabaseSession } from '../lib/storedSupabaseSession';
+import { isThinClientSession } from '../canvas/thinClient/thinClient';
 import { setSentryUser, clearSentryUser } from '../lib/monitoring';
 import { identifyUser, resetPostHog, trackEvent } from '../lib/posthog';
 
@@ -624,6 +625,11 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
     // Armed only when there is something to wait for, so a guest never has a
     // timer at all.
     if (!expectingStoredSession) observeDecisionRecordOwner(null);
+    // GAP-3 (Codex, #2525 r1): a page that BOOTS signed in removes this browser's pre-thin model copies, whichever route
+    // it opens. The thin predicate's first true runs the purge (`canvas/thinClient/preThinPurge.ts`), and a route with no
+    // canvas (Profile) would otherwise never ask it. A session already stored at boot only: a first sign-in on this page
+    // is not an identity boundary, and leaves storage as it was (`AuthContext.optionalAuth.identityBoundary.spec.tsx`).
+    if (expectingStoredSession) isThinClientSession();
     if (expectingStoredSession) {
       timeout = setTimeout(() => {
         if (cancelled) return;

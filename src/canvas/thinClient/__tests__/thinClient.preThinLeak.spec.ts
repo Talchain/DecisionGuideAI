@@ -43,6 +43,7 @@ const sessionLapses = () => {
 /** A's model, written by every real guest-path writer, as a pre-#2511 signed-in page wrote it. */
 function seedAsPreThinPage(): void {
   saveAutosave({ timestamp: Date.now() + Math.random(), scenarioId: A_SCENARIO, nodes: nodesOfA(), edges: edgesOfA() })
+  // Byte-identical to what a cold-load deep link preserves (`coldLoadDeepLink.applyColdLoadPlan`): the main slot, verbatim.
   localStorage.setItem(keyedAutosaveKey(A_SCENARIO), localStorage.getItem('olumi-canvas-autosave') as string)
   expect(saveSnapshot({ nodes: nodesOfA(), edges: edgesOfA() as never })).toBe(true)
   expect(appendVersion({ id: 'v1', name: 'Before pricing', createdAt: Date.now(), origin: 'manual', nodes: nodesOfA() as never, edges: edgesOfA() as never }).success).toBe(true)
