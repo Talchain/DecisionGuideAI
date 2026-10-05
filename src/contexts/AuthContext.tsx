@@ -594,10 +594,12 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
 
     const adopt = (s: Session | null) => {
       if (cancelled) return;
-      observeDecisionRecordOwner(s?.user.id ?? null);
       const nextOwner = s?.user.id ?? null;
+      // The boundary FIRST, then B is observed: the cleanup resets the decision-record store to no owner, so observing
+      // B before it left B's records owned by nobody (Codex #2484 final round).
       if (ownerRef.current !== null && nextOwner !== ownerRef.current) clearUserScopedState();
       ownerRef.current = nextOwner;
+      observeDecisionRecordOwner(nextOwner);
       if (!s) {
         setSession(null);
         setPendingUser(null);

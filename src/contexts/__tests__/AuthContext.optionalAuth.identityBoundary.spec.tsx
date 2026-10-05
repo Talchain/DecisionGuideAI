@@ -103,6 +103,16 @@ describe('CAN-F2w × guest posture: the identity boundary', () => {
     expect(localStorage.getItem(EPOCH)).toBeTruthy()
   })
 
+  it('⭐ A → B: the cleanup runs BEFORE B is observed, so B owns its decision records (Codex final round P0)', async () => {
+    // The boundary resets the decision-record store, whose reset returns its owner to null. Observing B first and
+    // cleaning after left B's next record captured as ownerId:null — refused on commit, and erased on B's next load.
+    getSession.mockResolvedValue({ data: { session: session('account-a') } })
+    const { fire } = await renderGuestProvider()
+    await fire('SIGNED_IN', session('account-b'))
+    expect(boundary.calls).toBe(1)
+    expect(JSON.parse(localStorage.getItem(DECISION_RECORD_OWNER) ?? 'null')?.ownerId).toBe('account-b')
+  })
+
   it('⭐ A → none (the session ended in another tab) is a boundary', async () => {
     getSession.mockResolvedValue({ data: { session: session('account-a') } })
     const { fire } = await renderGuestProvider()
