@@ -33,6 +33,7 @@ import { selectRunAffirmedCurrent } from '../state/analysisStateSelector'
 import { selectWinSharesWithheld, selectWinShareWithheldReason } from '../state/winShareGate'
 import { buildRunChangeArtefact } from './runChangeArtefact'
 import { ComparePairSections } from './ComparePairSections'
+import type { OptionCanvasLink } from './CompareSupportFigures'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
 
 export const COMPARE_RUN_PAIR_TESTID = 'compare-run-pair'
@@ -64,6 +65,10 @@ export function CompareRunPairBody({
   const nearTie = useCanvasStore(s => s.results?.hash === responseHash && deriveDecisionVerdict(s.results?.report).separation === 'tied')
   const withheldReason = useCanvasStore(selectWinShareWithheldReason)
   const runIsCurrent = useCanvasStore(selectRunAffirmedCurrent)
+  // A run in flight keeps the previous pair on screen; Ask waits for the new pair (the one Olumi's tools will read).
+  const analysing = useCanvasStore(s => s.results?.status === 'preparing' || s.results?.status === 'connecting' || s.results?.status === 'streaming')
+  // The shared display order's own gate (`sortOptionsForDisplay`): a run that withholds designations keeps the producer's order.
+  const designationsWithheld = useCanvasStore(s => !deriveDecisionVerdict(s.results?.report).hasLeadingOption)
   const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
   const artefact = buildRunChangeArtefact({
     view,
@@ -121,10 +126,17 @@ export function CompareRunPairBody({
     const link = canvasLinkOfTarget(changes.focusByRowKey.get(row.key))
     return link ? { on: () => light.on(link), off: light.off } : null
   }
+  // An option's movement row lights and focuses the option's own node, by id, only when the canvas has it now.
+  const optionLink: OptionCanvasLink = (optionId) => {
+    if (!nodes.some(n => n.id === optionId)) return null
+    const link = canvasLinkOfTarget({ kind: 'node', id: optionId })
+    return link ? { focus: link.focus, on: () => light.on(link), off: light.off } : null
+  }
   return (
     <div data-testid={COMPARE_RUN_PAIR_TESTID}>
       <ComparePairSections view={view} delta={delta!} artefact={artefact} label={id => labels.get(id) ?? null}
-        nearTie={nearTie} resultsAllowed={runIsCurrent && !winSharesWithheld} withheldReason={withheldReason} rowFocus={rowFocus} rowLight={rowLight} />
+        nearTie={nearTie} resultsAllowed={runIsCurrent && !winSharesWithheld} withheldReason={withheldReason} rowFocus={rowFocus} rowLight={rowLight}
+        runIsCurrent={runIsCurrent} analysing={analysing} designationsWithheld={designationsWithheld} optionLink={optionLink} />
     </div>
   )
 }
