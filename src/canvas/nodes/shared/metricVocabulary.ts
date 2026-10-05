@@ -1087,7 +1087,7 @@ export const OPTION_RESULT_COPY = {
    * producer cause other than `constraint_verdict_withheld` (which keeps `goalOnly`).
    */
   provisional: 'Provisional',
-  provisionalNote: 'The analysis could not put an option forward on this run, so these shares are not a verdict.',
+  provisionalNote: 'This run names no option, so these shares are findings in this model, not a verdict.',
   /**
    * The short, VISIBLE reason beside `Not analysed` when CEE's typed blocker says
    * this option lacks a value (`analysis_ready.blockers[]`: `option_id` +

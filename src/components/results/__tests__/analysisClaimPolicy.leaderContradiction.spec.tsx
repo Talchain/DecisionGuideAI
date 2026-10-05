@@ -185,6 +185,13 @@ describe('§0 PRECONDITION PINS — the fixtures reproduce the witnessed states'
       .toMatch(LEADER_CLAIM_RE)
     expect(`In this model, if ${FACTOR_LABEL} shifts, ${ALT_LABEL} could come out best instead.`)
       .toMatch(LEADER_CLAIM_RE)
+    // Union, never replace: the direction-neutral forms of the same three sentences (Paul, 5 Oct).
+    expect(`In this model, in the quarter of simulated futures where ${FACTOR_LABEL}'s effect on its target is weakest, 57% of them support ${ALT_LABEL}`)
+      .toMatch(LEADER_CLAIM_RE)
+    expect(`In this model, if ${FACTOR_LABEL} shifts, ${ALT_LABEL} could be supported by the most runs instead`)
+      .toMatch(LEADER_CLAIM_RE)
+    expect(`In this model, if ${FACTOR_LABEL} shifts, more runs could support ${ALT_LABEL}`)
+      .toMatch(LEADER_CLAIM_RE)
     // CONTRAST: the sentences that should SURVIVE a withheld run must not be
     // caught by the matcher, or every suppression arm passes for the wrong
     // reason.
@@ -295,7 +302,7 @@ describe('§3 SURFACE B — the T1 flip-risk callout', () => {
     const t = screen.getByTestId('t1-flip-risk-callout').textContent ?? ''
     expect(t).toContain('In this model, in the quarter of simulated futures where')
     expect(t).toContain(ALT_LABEL)
-    expect(t).toContain('comes out best in 57% of them')
+    expect(t).toContain(`57% of them support ${ALT_LABEL}`)
   })
 
   it('WITHHELD: the callout still renders, and claims no leader', () => {
@@ -371,7 +378,7 @@ describe('§5 COMPOSED — the withholding and the claim cannot share a panel', 
   it('OPPOSITE DIRECTION: a licensed run keeps BOTH witnessed sentences', () => {
     const { footer, prose } = renderPanel(PERMITTED())
     expect(prose).toContain('In this model, in the quarter of simulated futures where')
-    expect(prose).toContain('comes out best in 57% of them')
+    expect(prose).toContain(`57% of them support ${ALT_LABEL}`)
     expect(prose).toContain('the leading option could change')
     expect(footer).toContain('In this model, one option is most likely')
   })

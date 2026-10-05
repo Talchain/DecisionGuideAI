@@ -91,6 +91,11 @@ const LEADER_LANGUAGE: ReadonlyArray<[string, RegExp]> = [
   // withheld turn must not say that either. Without these two rows the list above would only guard retired words.
   ['came out best', /came out best/i],
   ['come out best', /come out best/i],
+  // Union, never replace: the direction-neutral wording that replaced "came out best" (Paul, 5 Oct).
+  ['runs supported', /runs supported/i],
+  ['runs would/could/still support', /runs (?:would|could|still) support/i],
+  ['the direction-neutral leader chip', /most runs in this model support/i],
+  ['the most runs', /the most runs|be supported by the most runs/i],
   ['the softened leader chip', /What does this rest on in this model\?/],
 ]
 

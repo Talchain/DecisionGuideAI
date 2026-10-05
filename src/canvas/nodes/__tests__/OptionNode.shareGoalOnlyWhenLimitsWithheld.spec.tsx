@@ -232,6 +232,8 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     expect(provisional()).toBeNull()
     expect(qualifier()).toBeNull()
     expect(document.body.textContent).not.toContain('these shares are not a verdict')
+    // Union, never replace: the provisional note's direction-neutral words (5 Oct).
+    expect(document.body.textContent).not.toContain('these shares are findings in this model, not a verdict')
   })
 
   // CURRENT-READ row 9 (AIQ 5912710392): WAS "`Provisional`, not `Goal only`".
@@ -284,6 +286,9 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     expectNotRanked(WITHHELD_REASON_FALLBACK)
     expect(notRanked()!.getAttribute('aria-label')).not.toContain('could not put an option forward')
     expect(document.body.textContent).not.toContain('could not put an option forward')
+    // Union, never replace: the provisional note's direction-neutral words (5 Oct) are not said either.
+    expect(notRanked()!.getAttribute('aria-label')).not.toContain('This run names no option, so these shares')
+    expect(document.body.textContent).not.toContain('This run names no option, so these shares')
   })
 
   // CURRENT-READ row 9 (AIQ 5912710392): WAS "the goal-only case keeps `Goal only`". Neither qualifier

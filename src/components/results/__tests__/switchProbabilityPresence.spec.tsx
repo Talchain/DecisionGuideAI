@@ -149,7 +149,7 @@ describe('chain A — topFragileEdge presence-branches on switch_probability (sc
     // PRECONDITION: the leader gate is open, so an absent percentage is the
     // switch_probability branch and not the claim-policy branch.
     expect(callout.textContent, 'leader gate closed — this pin would be vacuous')
-      .toContain('could come out best instead')
+      .toContain('could be supported by the most runs instead')
     // Honest absent state: "In this model, if Price shifts, Plan B could come out best instead." — no number.
     expect(callout.textContent).not.toMatch(/%\s*probability/)
     expect(callout.textContent).not.toMatch(/\d+\s*%/)
@@ -164,7 +164,7 @@ describe('chain A — topFragileEdge presence-branches on switch_probability (sc
     const callout = screen.getByTestId('t1-flip-risk-callout')
     expect(callout.textContent, 'leader gate closed — this control would be vacuous')
       .toContain('In this model, in the quarter of simulated futures where')
-    expect(callout.textContent).toMatch(/comes out best in 42% of them/)
+    expect(callout.textContent).toMatch(/42% of them support/)
     // The marginal (0.99) is never the number printed.
     expect(callout.textContent).not.toMatch(/99%/)
   })
@@ -188,6 +188,8 @@ describe('chain A — topFragileEdge presence-branches on switch_probability (sc
     const callout = screen.getByTestId('t1-flip-risk-callout')
     expect(callout.textContent).not.toContain('could overtake')
     expect(callout.textContent).not.toMatch(/comes? out best/)
+    // Union, never replace: the direction-neutral comparative verbs (Paul, 5 Oct).
+    expect(callout.textContent).not.toMatch(/runs (?:would|could|still) support|of them support|the most runs|be supported by the most runs/)
     expect(callout.textContent).not.toMatch(/42%/)
     // …and the finding itself survives.
     expect(callout.textContent).toContain('Price')

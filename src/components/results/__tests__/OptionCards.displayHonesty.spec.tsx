@@ -103,7 +103,7 @@ describe('OptionCards — display-honesty (C) leading-option downside qualificat
     const note = screen.getByTestId('leading-option-downside-a')
     expect(note).toBeInTheDocument()
     expect(note.textContent).toContain(
-      'In this model, this option came out best, but the lower range of its simulated outcomes includes meaningful downside.',
+      'In this model, the most runs supported this option, but the lower range of its simulated outcomes includes meaningful downside.',
     )
   })
 
