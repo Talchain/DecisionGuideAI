@@ -6039,12 +6039,14 @@ export function useConversation(): UseConversationReturn {
               setPendingExplainKey(narration.runKey)
             }
           }
-          const heldProposalId = actionChips.find(c => /^agent-approve-proposal:prop_[0-9a-f]{32}$/.test(c.id))?.id.slice('agent-approve-proposal:'.length)
+          // A LIVE held reply carries only its request correlation. heldProposalId is written solely by transcriptStore at
+          // save, so reconcile (which acts on restored history) can never strip a live card's controls on a late read.
+          const offersHeldApproval = actionChips.some(c => /^agent-approve-proposal:prop_[0-9a-f]{32}$/.test(c.id))
           if (!isForeignExplanation(narration, latestRunKeyRef.current)) addMessage({
             id: crypto.randomUUID(),
             role: 'assistant',
             content: target.response.assistant_text,
-            ...(heldProposalId ? { heldProposalId, heldTurnId: turnClientId } : {}),
+            ...(offersHeldApproval ? { heldTurnId: turnClientId } : {}),
             ...(narration ? { narration } : {}),
             ...(guidance ? { guidance } : {}),
             ...(proposalPreview ? { proposalPreview } : {}),

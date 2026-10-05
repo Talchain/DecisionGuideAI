@@ -683,7 +683,8 @@ describe('R3 P2-a CLASS: separate heldTurnId from normalised reply identity', ()
     })))
     for (const reply of replies) {
       expect(reply.clientTurnId).toBeUndefined()
-      expect([reply.heldTurnId, reply.heldProposalId]).toEqual([correlations[0], PID])
+      // Live replies carry the correlation only; heldProposalId is written by transcriptStore at save.
+      expect([reply.heldTurnId, reply.heldProposalId]).toEqual([correlations[0], undefined])
     }
     hook.unmount()
   })
@@ -806,5 +807,40 @@ describe('R3 staging parity: an assistant reply\'s own clientTurnId survives the
     expect(reply?.clientTurnId).toBe('turn-hydrated-1')
     expect(reply?.heldTurnId).toBeUndefined(); expect(reply?.heldProposalId).toBeUndefined()
     expect(loaded?.messages.find(m => m.id === 'u-1')?.clientTurnId).toBe('turn-hydrated-1')
+  })
+})
+
+// R3b (buddy round 3, DL ruling FIX): a read in flight before a LIVE held reply must never strip that reply's controls.
+describe('R3b race: an older graph read resolving after a live held reply leaves its controls', () => {
+  const EARLIER = 'prop_ffffffffffffffffffffffffffffffff'
+  it.each<[string, unknown]>([
+    ['empty offers', []],
+    ['absent offers', undefined],
+    ['an earlier proposal only', [{ turn_id: 'earlier-turn', proposal_id: EARLIER, suggested_actions: actionsFor(EARLIER) }]],
+  ])('deferred read → live held reply → late read with %s → both control ids remain', async (_kind, lateOffers) => {
+    localStorage.removeItem(TRANSCRIPT_STORAGE_KEY)
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
+    useCanvasStore.setState({ nodes: [{ id: 'f', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Factor' } }] })
+    mockCallV5Turn.mockResolvedValueOnce({ kind: 'response' as const, response: {
+      response_version: 2, assistant_text: held.content, blocks: [], suggested_actions: actions, insights: [], stage_indicator: 'frame',
+    } })
+    let release!: () => void
+    const gate = new Promise<void>(resolve => { release = resolve })
+    fetchSpy.mockImplementation(async (_url: unknown, request: RequestInit) => {
+      await gate
+      return replyResponse(graphBody(lateOffers, SID, JSON.parse(String(request.body)).include_conversation_turns === true, []))
+    })
+    const hook = renderHook(() => useConversation())
+    const read = hydrateCanvasFromServer(SID, { includeConversationTurns: true })
+    await act(async () => { await hook.result.current.sendMessage('Consider this link') })
+    const live = hook.result.current.messages.filter(m => m.role === 'assistant' && !m.synthetic && !m.sessionDivider)
+    expect(live.map(m => m.content)).toEqual([held.content])
+    expect(live[0].actionChips?.map(c => c.id)).toEqual([APPROVE, AMEND])
+    release()
+    await act(async () => { await read })
+    const after = hook.result.current.messages.find(m => m.id === live[0].id)!
+    expect(after.actionChips?.map(c => c.id)).toEqual([APPROVE, AMEND])
+    show(hook.result.current.messages); expectControls(true)
+    hook.unmount()
   })
 })
