@@ -15,6 +15,14 @@
  *       `VALUE_SOURCE_MARK_TOKEN/LABEL`: "est." = Olumi estimate); CONTRAST: a factor with no value → no value entry.
  *   P6  options: while the Run withheld shares, the option card's `NOT_RANKED_MARKER` with the gate's own reason;
  *       CONTRAST: shares not withheld → no option entry.
+ *   P8  OLUMI'S ADDITIONS ARE ALWAYS MARKED (principle audit, DL 0df0e1 #87 5992243567): on a board whose most common
+ *       mark is Olumi's (`NODES`, a fresh draft's shape) there is no default, so an Olumi card keeps its mark at rest
+ *       and the key flags nothing "Unmarked"; CONTROL: on a board whose most common mark is the person's own
+ *       (`USER_NODES`), that mark still goes quiet at rest while an Olumi card on the same board keeps its own.
+ *
+ * ⚠ RE-PINNED 5 Oct (gate 5, PR-2): the P1/P4 default rows and the positive control used `NODES`, whose default was
+ * Olumi's `ai`. The DL's principle-audit ruling makes an Olumi kind never a default, so those rows now read
+ * `USER_NODES` (a person's mark is the default) and `NODES` moved to P8, where it pins the new rule.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -23,7 +31,7 @@ import { useCanvasStore } from '../../store'
 import { provenanceKey } from '../provenanceKey'
 import { CanvasProvenanceKey, CANVAS_PROVENANCE_KEY_COPY, CANVAS_PROVENANCE_KEY_TESTID } from '../CanvasProvenanceKey'
 import { OVERLAY_PRIORITY } from '../CanvasOverlayBand'
-import { provenanceDefaultKind, resolveProvenanceMarks } from '../../nodes/shared/NodeProvenanceMark'
+import { NodeProvenanceMark, provenanceDefaultKind, resolveProvenanceMarks } from '../../nodes/shared/NodeProvenanceMark'
 import { provenanceClaimLabel } from '../../domain/nodeProvenanceClaim'
 import { resolveNodeTypeLiteral } from '../../domain/nodes'
 import { isStrengthPlaceholder } from '../../domain/strengthPlaceholder'
@@ -41,6 +49,14 @@ const NODES = [
   { id: 'opt-a', type: 'option', position: { x: 0, y: 0 }, data: { type: 'option', label: 'Keep', provenance: 'ai_inferred' } },
   { id: 'opt-b', type: 'option', position: { x: 0, y: 0 }, data: { type: 'option', label: 'Raise', provenance: 'ai_inferred' } },
   { id: 'risk-1', type: 'risk', position: { x: 0, y: 0 }, data: { type: 'risk', label: 'Churn spike', provenance: 'ai_inferred' } },
+  { id: 'risk-2', type: 'risk', position: { x: 0, y: 0 }, data: { type: 'risk', label: 'Competitor', provenance: 'user_set' } },
+]
+/** A board whose most common card mark is the PERSON's own (`user_set` → `human`), beside one Olumi card. */
+const USER_NODES = [
+  { id: 'goal-1', type: 'goal', position: { x: 0, y: 0 }, data: { type: 'goal', label: 'Grow net revenue', provenance: 'from_brief' } },
+  { id: 'opt-a', type: 'option', position: { x: 0, y: 0 }, data: { type: 'option', label: 'Keep', provenance: 'ai_inferred' } },
+  { id: 'opt-b', type: 'option', position: { x: 0, y: 0 }, data: { type: 'option', label: 'Raise', provenance: 'user_set' } },
+  { id: 'risk-1', type: 'risk', position: { x: 0, y: 0 }, data: { type: 'risk', label: 'Churn spike', provenance: 'user_set' } },
   { id: 'risk-2', type: 'risk', position: { x: 0, y: 0 }, data: { type: 'risk', label: 'Competitor', provenance: 'user_set' } },
 ]
 const PLACEHOLDER_EDGE = { id: 'e-ph', source: 'opt-a', target: 'goal-1', data: { weight: 0.5, weightSource: 'cee', strengthPlaceholder: 0.5, direction: 'positive', directionSource: 'cee' } }
@@ -61,19 +77,22 @@ describe('fixtures fire the real predicates (positive controls)', () => {
     expect(isStrengthPlaceholder(PLAIN_EDGE.data)).toBe(false)
     expect(doubtDash(PLAIN_EDGE as never)).toBeUndefined()
   })
-  it('the cards resolve to marks, with a board default', () => {
-    expect(NODES.flatMap((n) => resolveProvenanceMarks(resolveNodeTypeLiteral(n)!, n.data)).length).toBeGreaterThan(0)
-    expect(provenanceDefaultKind(NODES)).not.toBeNull()
+  it('the cards resolve to marks; NODES is Olumi-majority, USER_NODES is the person\'s, with a board default', () => {
+    const kinds = (ns: typeof NODES) => ns.flatMap((n) => resolveProvenanceMarks(resolveNodeTypeLiteral(n)!, n.data)).map((m) => m.kind)
+    expect(kinds(NODES).filter((k) => k === 'ai').length).toBe(3)
+    expect(kinds(USER_NODES).filter((k) => k === 'human').length).toBe(3)
+    expect(kinds(USER_NODES)).toContain('ai')
+    expect(provenanceDefaultKind(USER_NODES)).toBe('human')
   })
 })
 
 describe('P1 · card marks, in the mark\'s own words', () => {
   it('one entry per (claim, kind) on the board; the default first, flagged', () => {
-    const key = provenanceKey(NODES, [])
+    const key = provenanceKey(USER_NODES, [])
     const expected = new Map<string, string>()
-    for (const n of NODES) for (const m of resolveProvenanceMarks(resolveNodeTypeLiteral(n)!, n.data)) expected.set(`${m.claim}|${m.kind}`, provenanceClaimLabel(m.claim, m.kind))
+    for (const n of USER_NODES) for (const m of resolveProvenanceMarks(resolveNodeTypeLiteral(n)!, n.data)) expected.set(`${m.claim}|${m.kind}`, provenanceClaimLabel(m.claim, m.kind))
     expect(new Map(key.marks.map((m) => [`${m.claim}|${m.kind}`, m.label]))).toEqual(expected)
-    const def = provenanceDefaultKind(NODES)
+    const def = provenanceDefaultKind(USER_NODES)
     expect(key.marks[0].kind).toBe(def)
     expect(key.marks[0].isDefault).toBe(true)
     expect(key.marks.filter((m) => m.isDefault).every((m) => m.kind === def)).toBe(true)
@@ -108,13 +127,13 @@ describe('P3 · CONTRAST: no cue, no entry', () => {
 
 describe('P4 · the key opens, shows the derived entries, and closes', () => {
   it('toggle → entries; Escape → closed', () => {
-    useCanvasStore.setState({ nodes: NODES, edges: [PLACEHOLDER_EDGE, DOUBT_EDGE, PLAIN_EDGE] } as never)
+    useCanvasStore.setState({ nodes: USER_NODES, edges: [PLACEHOLDER_EDGE, DOUBT_EDGE, PLAIN_EDGE] } as never)
     render(<CanvasProvenanceKey />)
     const toggle = screen.getByTestId(`${T}-toggle`)
     expect(toggle).toHaveTextContent(CANVAS_PROVENANCE_KEY_COPY.toggle)
     expect(screen.queryByTestId(`${T}-panel`)).toBeNull()
     fireEvent.click(toggle)
-    const derived = provenanceKey(NODES, [PLACEHOLDER_EDGE, DOUBT_EDGE, PLAIN_EDGE])
+    const derived = provenanceKey(USER_NODES, [PLACEHOLDER_EDGE, DOUBT_EDGE, PLAIN_EDGE])
     expect(screen.getAllByTestId(`${T}-mark`).map((li) => li.getAttribute('data-provenance-kind'))).toEqual(derived.marks.map((m) => m.kind))
     expect(screen.getAllByTestId(`${T}-link`).map((li) => li.textContent)).toEqual(derived.links.map((l) => l.label))
     expect(screen.getAllByTestId(`${T}-mark`)[0]).toHaveTextContent(CANVAS_PROVENANCE_KEY_COPY.unmarked)
@@ -147,5 +166,27 @@ describe('P7 · value source words, in the card\'s own token and meaning', () =>
     expect(provenanceKey([EST], []).values).toEqual([{ kind: 'olumi', token: VALUE_SOURCE_MARK_TOKEN.olumi, label: VALUE_SOURCE_MARK_LABEL.olumi }])
     expect(VALUE_SOURCE_MARK_TOKEN.olumi).toBe('est.')
     expect(provenanceKey([NO_VALUE], []).values).toEqual([])
+  })
+})
+
+describe('P8 · Olumi\'s additions are always marked, including at rest', () => {
+  const markAtRest = (nodes: typeof NODES, id: string) => {
+    const n = nodes.find((x) => x.id === id)!
+    const { container } = render(<NodeProvenanceMark nodeType={resolveNodeTypeLiteral(n)!} data={n.data} hideKind={provenanceDefaultKind(nodes)} />)
+    const marks = Array.from(container.querySelectorAll('[data-testid="node-provenance-mark"]')).map((el) => el.getAttribute('data-provenance-kind'))
+    cleanup()
+    return marks
+  }
+  it('an Olumi-majority board has NO default: every Olumi card keeps its mark at rest, and nothing is "Unmarked"', () => {
+    expect(provenanceDefaultKind(NODES)).toBeNull()
+    for (const id of ['opt-a', 'opt-b', 'risk-1']) expect(markAtRest(NODES, id)).toEqual(['ai'])
+    expect(provenanceKey(NODES, []).marks.some((m) => m.isDefault)).toBe(false)
+  })
+  it('a board of Olumi cards only has no default either', () => {
+    expect(provenanceDefaultKind(NODES.filter((n) => n.data.provenance === 'ai_inferred'))).toBeNull()
+  })
+  it('CONTROL: the person\'s own majority mark still goes quiet at rest; an Olumi card on that board keeps its mark', () => {
+    expect(markAtRest(USER_NODES, 'risk-1')).toEqual([])
+    expect(markAtRest(USER_NODES, 'opt-a')).toEqual(['ai'])
   })
 })

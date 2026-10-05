@@ -11,6 +11,9 @@ import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength, re
 import { readWireNaturalEffect } from '../../domain/naturalEffect'
 import { strengthPlaceholderPatch } from '../../domain/strengthPlaceholder'
 import { strengthDefinitionalPatch } from '../../domain/strengthDefinitional'
+import { strengthAcceptedPatch } from '../../domain/strengthAccepted'
+import { strengthStatedPatch } from '../../domain/strengthStated'
+import { relabelLinkSizing, withoutLinkSizingLabels } from '../../domain/linkSizingLabels'
 import { edgeValueSourcePatch } from '../../domain/edgeValueProvenance'
 import { edgeProvenanceDisplayPatch } from '../../utils/draftIngestion'
 import { saveAutosave } from '../../store/scenarios'
@@ -198,6 +201,9 @@ function buildEdge(op: PatchOperation) {
       ...strengthPlaceholderPatch(d as Record<string, unknown>, weight, wireSuppliedStrength),
       // A definitional link — HOP 2 OF 3, the same one reader (domain/strengthDefinitional).
       ...strengthDefinitionalPatch(d as Record<string, unknown>, wireSuppliedStrength),
+      // Gate 5: an accepted Olumi strength — HOP 2 OF 3, the same one reader (domain/strengthAccepted).
+      ...strengthAcceptedPatch(d as Record<string, unknown>, weight, wireSuppliedStrength),
+      ...strengthStatedPatch(d as Record<string, unknown>, weight, wireSuppliedStrength),
       // Set-vs-defaulted markers — see domain/edgeValueProvenance.ts. Omitted
       // when the patch carried no value, so an operation that supplies neither
       // leaves the edge honestly marked as unset rather than claiming a
@@ -263,7 +269,7 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
   const newNodes: ReturnType<typeof buildNode>[] = []
   const newEdges: ReturnType<typeof buildEdge>[] = []
   const nodeUpdates = new Map<string, Record<string, unknown>>()
-  const edgeUpdates = new Map<string, Record<string, unknown>>()
+  const edgeUpdates = new Map<string, Record<string, unknown>[]>()
   const removeNodeIds = new Set<string>()
   const removeEdgeIds = new Set<string>()
 
@@ -308,8 +314,9 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
 
       case 'update_edge': {
         if (!op.data) break
-        // Normalise CEE endpoint field names for rewires
-        const edgeUpdate = { ...op.data }
+        // Normalise CEE endpoint field names for rewires. The link-sizing labels are canvas-internal: a payload key with
+        // their name is never taken (domain/linkSizingLabels); they are re-derived below when the update carries provenance.
+        const edgeUpdate = withoutLinkSizingLabels({ ...op.data })
         const rewireSource = (edgeUpdate.source as string) ?? (edgeUpdate.from as string)
         const rewireTarget = (edgeUpdate.target as string) ?? (edgeUpdate.to as string)
         if (rewireSource) { edgeUpdate._rewireSource = rewireSource }
@@ -317,7 +324,9 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
         // Clean raw endpoint fields from data payload (they live on the edge top-level)
         delete edgeUpdate.source; delete edgeUpdate.from
         delete edgeUpdate.target; delete edgeUpdate.to
-        edgeUpdates.set(op.target_id, edgeUpdate)
+        // Gate 5 (Codex r3 P1): same-edge updates in one patch apply IN ORDER (below); a later one never erases an
+        // earlier one's provenance.
+        edgeUpdates.set(op.target_id, [...(edgeUpdates.get(op.target_id) ?? []), edgeUpdate])
         result.modifiedIds.push(op.target_id)
         break
       }
@@ -352,16 +361,27 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
   })
 
   // 2. Apply edge updates to existing edges (including endpoint rewires)
-  let mergedEdges = existingEdges.map((e) => {
-    const update = edgeUpdates.get(e.id)
-    if (!update) return e
+  const applyEdgeUpdate = (e: (typeof existingEdges)[number], update: Record<string, unknown>) => {
     const { _rewireSource, _rewireTarget, ...dataUpdate } = update
+    const relationshipChanged =
+      (typeof _rewireSource === 'string' && _rewireSource !== e.source) ||
+      (typeof _rewireTarget === 'string' && _rewireTarget !== e.target)
     return {
       ...e,
       ...(typeof _rewireSource === 'string' ? { source: _rewireSource } : {}),
       ...(typeof _rewireTarget === 'string' ? { target: _rewireTarget } : {}),
-      data: { ...e.data, ...dataUpdate },
-    }
+      data: relabelLinkSizing(
+        { ...e.data, ...dataUpdate },
+        dataUpdate,
+        Math.abs(Number(({ ...e.data, ...dataUpdate } as Record<string, unknown>).weight)),
+        { relationshipChanged },
+      ),
+    } as typeof e
+  }
+  let mergedEdges = existingEdges.map((e) => {
+    const updates = edgeUpdates.get(e.id)
+    if (!updates) return e
+    return updates.reduce(applyEdgeUpdate, e)
   })
 
   // 3. Append new nodes and edges
@@ -476,9 +496,11 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
     return !!u && hasAnalyticalNodeChange(n, { data: u })
   })
   const hadRealEdgeUpdate = existingEdges.some((e) => {
-    const u = edgeUpdates.get(e.id)
-    if (!u) return false
-    const { _rewireSource, _rewireTarget, ...dataUpdate } = u as Record<string, unknown>
+    const updates = edgeUpdates.get(e.id)
+    if (!updates) return false
+    // The ops' combined effect, last write per field (the fold above applies them in this same order).
+    const u = Object.assign({}, ...updates) as Record<string, unknown>
+    const { _rewireSource, _rewireTarget, ...dataUpdate } = u
     const endpointUpdates = {
       ...(typeof _rewireSource === 'string' ? { source: _rewireSource } : {}),
       ...(typeof _rewireTarget === 'string' ? { target: _rewireTarget } : {}),

@@ -498,7 +498,8 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
     label: 'Compare',
     footerBar: 'none',
     scroll: 'shell',
-    padding: 'shell',
+    // `self`: the body takes Reasoning's own measure (px-4, 440px line length), so the two tabs read as one panel.
+    padding: 'self',
     // ⭐ RULING (30 Sep 2026, SC-24 v3 — ChatGPT #75 5917800777, DL lease #75 5917856638): Compare is its OWN
     // tab again, as previous Run vs this Run. It supersedes the 18 Aug hide (Fable), whose two reasons no longer
     // hold: the body no longer reads browser history that needs a `userId` (it renders the comparison CEE

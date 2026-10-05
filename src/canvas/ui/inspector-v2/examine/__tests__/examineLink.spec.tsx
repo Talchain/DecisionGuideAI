@@ -128,3 +128,29 @@ describe('the mounted section (InspectorModal → InspectorRouter edge branch)',
     expect(within(open()).queryByTestId('inspector-examine-link')).toBeNull()
   })
 })
+
+/**
+ * ⭐ ONE OLUMI ACTION PER LINK (gate 5 item 3c, DL 0df0e1, 5 Oct 2026): where "Examine with Olumi" stands, the generic
+ * "Explore with Olumi" is left out; where it does not, Explore stays. Bound by the two buttons' own test ids, on the
+ * deployed chain (InspectorModal → InspectorRouter).
+ */
+describe('gate 5 item 3c — Examine replaces the generic Explore on a link', () => {
+  beforeEach(() => {
+    useGuidanceStore.setState({ _prefillChat: vi.fn(), _sendMessage: vi.fn(), _dispatchAction: vi.fn() } as never)
+  })
+
+  it.each([['Olumi’s estimate', OLUMIS], ['a starting strength', PLACEHOLDER]])('%s: Examine is shown and Explore is not', (_n, data) => {
+    seed(data)
+    const dialog = open()
+    expect(within(dialog).getByTestId('inspector-examine-link-prepare').textContent).toBe('Examine with Olumi')
+    expect(within(dialog).queryByTestId('inspector-quick-ask')).toBeNull()
+    expect(within(dialog).getByTestId('inspector-back-to-conversation'), 'the row itself is still there').toBeTruthy()
+  })
+
+  it('CONTROL: the user’s own link (no Examine) keeps "Explore with Olumi"', () => {
+    seed(USERS)
+    const dialog = open()
+    expect(within(dialog).queryByTestId('inspector-examine-link')).toBeNull()
+    expect(within(dialog).getByTestId('inspector-quick-ask').textContent).toBe('Explore with Olumi')
+  })
+})

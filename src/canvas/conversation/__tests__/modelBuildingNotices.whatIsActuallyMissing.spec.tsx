@@ -110,8 +110,9 @@ describe('model-building notices — ⭐⭐ the classification answers the PRODU
     // This is the load-bearing claim. `alternative_consolidated` and
     // `conflict_resolved_conservatively` have ZERO absent reasons, so the
     // headline may never count them as things left out.
+    // schemas 0.77.0: `stated_relationship_not_used` joins — the user's link that "could not be used as written".
     expect([...unanimouslyAbsent].sort()).toEqual(
-      ['detail_not_connected', 'relationship_not_used'].sort(),
+      ['detail_not_connected', 'relationship_not_used', 'stated_relationship_not_used'].sort(),
     )
 
     for (const kind of kinds) {
@@ -209,6 +210,8 @@ describe('model-building notices — ⭐ the breakdown separates loss from handl
     { kind: 'alternative_consolidated', count: 5 },
     { kind: 'conflict_resolved_conservatively', count: 3 },
     { kind: 'target_not_modelled_as_threshold', count: 1 },
+    // schemas 0.77.0: one row per enum member, so the grouping row below sees every kind.
+    { kind: 'stated_relationship_not_used', count: 2 },
     { kind: 'other', count: 1 },
   ])
 

@@ -41,7 +41,7 @@
  *
  * ── COMPLETENESS IS COMPILE-TIME, NOT HAND-MAINTAINED (CLAUDE.md trap 12) ───
  * `KIND_DESCRIPTIONS` is typed `Record<ModelBuildingNoticeKind, string>`. A
- * seventh enum member arriving in a future schema bump FAILS TYPECHECK here
+ * new enum member arriving in a future schema bump FAILS TYPECHECK here
  * rather than silently rendering one fewer row than the count promises. A
  * hand-kept list with a `default:` arm would drift green; this cannot.
  */
@@ -112,6 +112,8 @@ const KIND_DESCRIPTIONS: Record<ModelBuildingNoticeKind, string> = {
   conflict_resolved_conservatively:
     "Points Olumi couldn't settle, so it took the cautious reading",
   target_not_modelled_as_threshold: "Targets you set that the model doesn't test against",
+  // schemas 0.77.0 (SPINE X8): the USER's own stated relationship — never "Connections Olumi proposed".
+  stated_relationship_not_used: "Relationships you described that the model couldn't use as written",
   other: 'Other choices Olumi made while building the model',
 }
 
@@ -157,7 +159,7 @@ const KIND_DESCRIPTIONS: Record<ModelBuildingNoticeKind, string> = {
  * ban on the second person would under-attribute a real loss of the user's own
  * words, and would leave the guard unable to discriminate at all.
  *
- * ⚠ COMPLETENESS IS COMPILE-TIME (trap 12), as with `KIND_OUTCOME`: a seventh
+ * ⚠ COMPLETENESS IS COMPILE-TIME (trap 12), as with `KIND_OUTCOME`: a new
  * enum member FAILS TYPECHECK here rather than silently defaulting into
  * `user_stated`, which is the direction that would hurt.
  */
@@ -175,6 +177,8 @@ const KIND_ATTRIBUTION: Record<ModelBuildingNoticeKind, ModelBuildingNoticeAttri
   conflict_resolved_conservatively: 'mixed',
   // Both reasons emit `claim_kind: "stated_item"` with the user's own quote.
   target_not_modelled_as_threshold: 'user_stated',
+  // schemas 0.77.0: the member exists so a relationship THE USER STATED is not counted as Olumi-authored.
+  stated_relationship_not_used: 'user_stated',
   // `claim_label_not_a_name` is gated on `ai_inferred`; a STATED option is never
   // dropped for budget; the merged factor is the model's restatement.
   other: 'olumi_authored',
@@ -242,7 +246,7 @@ export function modelBuildingNoticeAttribution(kind: string): ModelBuildingNotic
  * about what was lost"*. They render under their own heading, claiming neither.
  *
  * ⚠ COMPLETENESS IS COMPILE-TIME (trap 12). `Record<ModelBuildingNoticeKind, …>`
- * means a seventh enum member FAILS TYPECHECK here rather than silently
+ * means a new enum member FAILS TYPECHECK here rather than silently
  * defaulting into `absent` and inflating the omission count — which is the
  * direction that would hurt, and exactly what a `default:` arm would do.
  */
@@ -260,6 +264,8 @@ const KIND_OUTCOME: Record<ModelBuildingNoticeKind, ModelBuildingNoticeOutcome> 
   // `stated_target_not_represented_as_threshold` is on the graph;
   // `stated_target_value_dropped` reached it "NOWHERE". Mixed — claim neither.
   target_not_modelled_as_threshold: 'other_notes',
+  // schemas 0.77.0: like `relationship_not_used`, the LINK is left unmade.
+  stated_relationship_not_used: 'absent',
   // `claim_label_not_a_name` and `factor_merged_into_stated_cause` are on the
   // graph; `option_budget_exceeded` was "left OFF". Mixed — claim neither.
   other: 'other_notes',

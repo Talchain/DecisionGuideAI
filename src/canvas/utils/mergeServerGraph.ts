@@ -587,6 +587,9 @@ export function mergeServerGraphOnHydrate(
       strengthPlaceholder: e.data?.strengthPlaceholder,
       // The by-definition label (MG 0ebb952a) is acquired metadata too.
       strengthDefinitional: e.data?.strengthDefinitional,
+      // Gate 5: the accepted label is acquired metadata too — an approval is not a changed model value.
+      strengthAccepted: e.data?.strengthAccepted,
+      strengthStated: e.data?.strengthStated,
     }
     if (!deepEqual(comparableReadback, e.data)) {
       valueChangedEdgeIds.push(e.id)

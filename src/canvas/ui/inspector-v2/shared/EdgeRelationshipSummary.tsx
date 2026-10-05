@@ -19,7 +19,11 @@
  *   · Stroke width — `resolveEdgeSignedStrengthDisplay` (what the width
  *                   encodes; an unset strength draws the fixed unset width);
  *   · Existence   — `resolveExistenceDash` over `resolveEdgeValueDisplay(…,
- *                   'beliefExists')` (the dash).
+ *                   'beliefExists')` (the dash). ⭐ ONLY WHEN A DOUBT IS STATED
+ *                   (gate 5 item 3b, DL 0df0e1, 5 Oct 2026): the row used to say
+ *                   "No dashed exception shown" on every link, a legend line
+ *                   about something not drawn. With no stated doubt there is no
+ *                   dash to explain, so there is no row.
  * No row states a figure: the figures, their provenance and their controls are
  * the panel's own sections below.
  */
@@ -49,7 +53,6 @@ export const EDGE_RELATIONSHIP_COPY = {
   strokeWidthMeaning: 'Modelled strength magnitude',
   strokeWidthUnset: `Strength ${METRIC_UNSET.standalone.toLowerCase()}`,
   existenceDoubt: 'A stated doubt',
-  existenceNoDash: 'No dashed exception shown',
 } as const
 
 export function EdgeRelationshipSummary({ data }: { data: Record<string, unknown> | undefined }) {
@@ -67,16 +70,14 @@ export function EdgeRelationshipSummary({ data }: { data: Record<string, unknown
       strokeWidth: strength.show
         ? EDGE_RELATIONSHIP_COPY.strokeWidthMeaning
         : EDGE_RELATIONSHIP_COPY.strokeWidthUnset,
-      existence: dash.kind === 'stated' && dash.dash !== undefined
-        ? EDGE_RELATIONSHIP_COPY.existenceDoubt
-        : EDGE_RELATIONSHIP_COPY.existenceNoDash,
+      existence: dash.kind === 'stated' && dash.dash !== undefined ? EDGE_RELATIONSHIP_COPY.existenceDoubt : null,
     }
   }, [data])
 
   const rows: Array<[string, string, string]> = [
     ['direction', EDGE_RELATIONSHIP_COPY.directionLabel, values.direction],
     ['stroke-width', EDGE_RELATIONSHIP_COPY.strokeWidthLabel, values.strokeWidth],
-    ['existence', EDGE_RELATIONSHIP_COPY.existenceLabel, values.existence],
+    ...(values.existence !== null ? [['existence', EDGE_RELATIONSHIP_COPY.existenceLabel, values.existence] as [string, string, string]] : []),
   ]
 
   return (
