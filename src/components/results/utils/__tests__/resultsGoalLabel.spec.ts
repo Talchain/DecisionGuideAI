@@ -5,16 +5,10 @@
  */
 import { describe, expect, it } from 'vitest'
 import { resultsGoalLabel } from '../resultsGoalLabel'
-import { HERO_COPY } from '../../analysis-hero/heroCopy'
 
 describe('the Results goal label is the goal’s own label, verbatim', () => {
-  it('RED: the dental fixture (one-word goal) → today’s level of ‘no-shows’, never "best"', () => {
-    const label = resultsGoalLabel(undefined, 'no-shows')
-    expect(label).toBe('no-shows')
-    const served = HERO_COPY.lensUnavailable.outcomeNoTodayLevel(label, null)
-    expect(served).toContain('today\'s level of ‘no-shows’')
-    expect(served).not.toMatch(/\bbest\b/i)
-    expect(served).not.toContain('the best outcome for')
+  it('RED: the dental fixture (one-word goal) → ‘no-shows’, never wrapped (the composed hero row lives in analysis-hero/__tests__/goalLabelVerbatim.spec.ts)', () => {
+    expect(resultsGoalLabel(undefined, 'no-shows')).toBe('no-shows')
   })
 
   it.each([
