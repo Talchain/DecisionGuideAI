@@ -37,11 +37,12 @@ const DELTA = {
 
 function harness() {
   const setRunDelta = vi.fn()
+  const setRunDeltaAbsence = vi.fn()
   const store = {
-    setAnalysisStateV1: vi.fn(), resultsComplete: vi.fn(), setLimitVerdicts: vi.fn(), setRunDelta,
+    setAnalysisStateV1: vi.fn(), resultsComplete: vi.fn(), setLimitVerdicts: vi.fn(), setRunDelta, setRunDeltaAbsence,
     currentResultsHash: null, currentScenarioId: 'scn-sc24',
   } as unknown as ScenarioAnalysisApplyStore
-  return { store, setRunDelta, resultsComplete: store.resultsComplete as ReturnType<typeof vi.fn> }
+  return { store, setRunDelta, setRunDeltaAbsence, resultsComplete: store.resultsComplete as ReturnType<typeof vi.fn> }
 }
 
 describe('SC-24 · the cold read stores the pair it was served', () => {
@@ -56,6 +57,7 @@ describe('SC-24 · the cold read stores the pair it was served', () => {
     const h = harness()
     applyScenarioAnalysisRead({ analysisState: CURRENT, analysisResult: BLOCK, store: h.store })
     expect(h.setRunDelta).toHaveBeenCalledWith(null)
+    expect(h.setRunDeltaAbsence).toHaveBeenCalledWith(null)
   })
 
   it('a malformed delta is refused WHOLE and reads as absent — never a partial comparison', () => {
@@ -73,6 +75,7 @@ describe('SC-24 · the cold read stores the pair it was served', () => {
     ;(again.store as { currentResultsHash: string }).currentResultsHash = hash
     applyScenarioAnalysisRead({ analysisState: CURRENT, analysisResult: BLOCK, store: again.store })
     expect(again.setRunDelta).not.toHaveBeenCalled()
+    expect(again.setRunDeltaAbsence).not.toHaveBeenCalled()
   })
 
   // Served 30 Sep (UI 7bfe1b04, #75 5920973524): a SAME-BROWSER reload restores the analysis from the autosave first, so

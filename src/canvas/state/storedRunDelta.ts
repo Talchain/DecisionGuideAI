@@ -59,6 +59,14 @@ export interface StoredRunDelta {
   readonly scenarioId: string | null
 }
 
+/** CEE's reason for no pair, bound to the analysis it arrived beside. */
+export interface StoredRunDeltaAbsence {
+  readonly reason: string
+  readonly analysisHash: string
+  /** `null` matches only a scenario whose id is also absent. */
+  readonly scenarioId: string | null
+}
+
 /**
  * Is this stored delta about the analysis currently on screen, in the scenario
  * currently open?
@@ -71,7 +79,7 @@ export interface StoredRunDelta {
  * would go red.
  */
 export function runDeltaDescribesDisplayedAnalysis(
-  stored: StoredRunDelta | null | undefined,
+  stored: Pick<StoredRunDelta, 'analysisHash' | 'scenarioId'> | null | undefined,
   displayedAnalysisHash: string | null | undefined,
   currentScenarioId: string | null | undefined,
 ): boolean {
@@ -85,12 +93,15 @@ export function runDeltaDescribesDisplayedAnalysis(
 }
 
 /**
- * CEE's reason for sending NO run_delta on the latest analysis (`analysis_ready.run_delta_absence_reason`), as the
- * store holds it; null when absent or not a string. THE ONE READER: Reasoning (`useAnalysisNewViewModel`) and the
- * Compare tab's empty state both read it here, and both word it through `runDeltaSentence`, so the two surfaces
- * cannot say different things about the same pair (audit 5942900903 (b)).
+ * CEE's reason for sending NO run_delta on the displayed analysis. Read the
+ * bound fact, never live readiness: later conversational turns replace that
+ * payload. Reasoning and Compare share this reader and `runDeltaSentence`.
  */
-export function selectRunDeltaAbsenceReason(s: { ceeAnalysisReady?: unknown }): string | null {
-  const r = (s.ceeAnalysisReady as { run_delta_absence_reason?: unknown } | null | undefined)?.run_delta_absence_reason
-  return typeof r === 'string' ? r : null
+export function selectRunDeltaAbsenceReason(
+  s: { runDeltaAbsence?: StoredRunDeltaAbsence | null; currentScenarioId?: string | null },
+  displayedAnalysisHash: string | null | undefined,
+): string | null {
+  const stored = s.runDeltaAbsence
+  if (!runDeltaDescribesDisplayedAnalysis(stored, displayedAnalysisHash, s.currentScenarioId)) return null
+  return typeof stored?.reason === 'string' ? stored.reason : null
 }
