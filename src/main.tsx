@@ -12,6 +12,7 @@ import { preloadPrompts } from './lib/prompt-preloader';
 // that made the branch unreachable passed straight through.
 import { BootErrorBoundary } from './BootErrorBoundary';
 import { lazyWithStallBound } from './lib/lazyWithStallBound';
+import { runLapseBoundaryIfNeeded } from './lib/auth/lapseBoundary';
 
 declare global {
   interface Window {
@@ -118,7 +119,11 @@ function Shell() {
 // unbounded wait here is the worst version of the defect: the whole app, with a
 // message that is a lie the moment the byte stream stops. BootErrorBoundary is
 // directly below and already knows how to say so.
-const AppPoC = lazyWithStallBound(() => import('./poc/AppPoC'), 'Olumi');
+//
+// ⭐ LAPSE-BOUNDARY FIRST (`lib/auth/lapseBoundary.ts`): a signed-in session that ended without a sign-out is an
+// identity boundary, and it must run before ANY route mounts, restores or reads `?run=`. Everything is inside AppPoC,
+// so its loader runs the boundary, then loads the app. It never rejects, and costs one storage read when there is no lapse.
+const AppPoC = lazyWithStallBound(() => runLapseBoundaryIfNeeded().then(() => import('./poc/AppPoC')), 'Olumi');
 
 (function boot() {
   try {

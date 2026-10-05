@@ -158,7 +158,8 @@ describe('GAP-3 — once per identity epoch', () => {
   it('a second signed-in load under the same epoch is a no-op: a slot written since is left alone', () => {
     seedModelCopies(A, 'Alpha')
     signIn()
-    expect(purgePreThinModelCopies().ran).toBe(true)
+    expect(isThinClientSession()).toBe(true) // the first signed-in answer: purges (and records the sign-in)
+    expect(modelKeys()).toEqual([])
     localStorage.setItem('olumi-canvas-autosave', '{"marker":"written after the purge"}')
     const before = snapshotOf()
     expect(purgePreThinModelCopies()).toEqual({ ran: false, removed: [], strippedEntries: 0 })

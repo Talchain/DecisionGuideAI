@@ -22,6 +22,7 @@
  */
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { purgePreThinModelCopies } from './preThinPurge'
+import { markSignedInHere } from '../../lib/auth/lapseBoundary'
 
 /** supabase-js v2's persisted-session key. The PKCE `…-auth-token-code-verifier` key is NOT a session. */
 const SUPABASE_SESSION_KEY = /^sb-.+-auth-token$/
@@ -56,11 +57,16 @@ let thinThisPage = false
  * GAP-3: the first time it answers true, it also removes the model copies this browser wrote before a signed-in page
  * stopped writing them (`preThinPurge.ts`; once per identity epoch, so every later call is a marker read at most).
  * Here, not in one boot hook, so EVERY signed-in page purges, whichever route it opens and whichever caller asks first.
+ * It also records that this browser was signed in (`lib/auth/lapseBoundary.ts`), so a lapse is an identity boundary.
  */
 export function isThinClientSession(): boolean {
   if (thinThisPage) return true
   const thin = isPersistenceSessionActive() || hasStoredSupabaseSession()
-  if (thin) purgePreThinModelCopies()
+  if (thin) {
+    purgePreThinModelCopies()
+    // LAPSE-BOUNDARY: remember this browser was signed in, so a session that ends without a sign-out is still a boundary.
+    markSignedInHere()
+  }
   // Not latched under the test runner: one module instance serves a whole spec file, so a latch set by one row
   // would silently turn every later guest-path row in that file thin.
   if (thin && import.meta.env.MODE !== 'test') thinThisPage = true
