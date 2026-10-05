@@ -70,6 +70,7 @@ import { deriveDecisionVerdict, comparableOptions, type DecisionVerdictReportLik
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
 import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
+import { resultsGoalLabel } from './utils/resultsGoalLabel'
 import { mapM2BiasFindings } from './mapM2BiasFindings'
 import { mapDecisionQualityPrompts } from './utils/decisionQualityPrompts'
 import { humaniseCritique } from './utils/humaniseCritique'
@@ -1478,37 +1479,14 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     [nodes]
   )
 
-  // Goal label fallback chain: framing > node label > default
-  // V14.1: Sanitize + guard against short/ambiguous labels that read awkwardly as "To a Cat"
-  const goalLabel = useMemo(() => {
-    let raw = 'your goal'
-    if (currentScenarioFraming?.goal) {
-      raw = currentScenarioFraming.goal
-    } else if (goalNode?.data && typeof (goalNode.data as ResultsCanvasNodeData).label === 'string') {
-      raw = (goalNode.data as ResultsCanvasNodeData).label
-    }
-    if (raw === 'your goal') return raw
-
-    // Sanitize encoding notation and arrows
-    const cleaned = sanitizeCoachingText(raw)
-    if (!cleaned || cleaned === 'your goal') return 'your goal'
-
-    // Guard: single-word labels or labels that collide with option/factor names
-    // read awkwardly as "To Cat" — prefix with context → "the best outcome for Cat"
-    // Multi-word verb phrases ("increase revenue") read fine as-is.
-    const optionLabels = new Set(
-      nodes.filter(n => (n.data as ResultsCanvasNodeData)?.kind === 'option').map(n => (n.data as ResultsCanvasNodeData)?.label as string).filter(Boolean)
-    )
-    const factorLabels = new Set(
-      nodes.filter(n => (n.data as ResultsCanvasNodeData)?.kind === 'factor').map(n => (n.data as ResultsCanvasNodeData)?.label as string).filter(Boolean)
-    )
-    const wordCount = cleaned.split(/\s+/).length
-    if (wordCount < 2 || optionLabels.has(cleaned) || factorLabels.has(cleaned)) {
-      return `the best outcome for ${cleaned}`
-    }
-
-    return cleaned
-  }, [currentScenarioFraming, goalNode, nodes])
+  // Goal label fallback chain: framing > node label > default (the goal's own label, verbatim: resultsGoalLabel)
+  const goalLabel = useMemo(
+    () => resultsGoalLabel(
+      currentScenarioFraming?.goal,
+      (goalNode?.data as ResultsCanvasNodeData | undefined)?.label,
+    ),
+    [currentScenarioFraming, goalNode],
+  )
 
   const goalNodeId = goalNode?.id
 
