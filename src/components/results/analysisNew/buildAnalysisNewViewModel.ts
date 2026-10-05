@@ -103,6 +103,7 @@ import {
   ANALYSIS_NEW_COPY as COPY,
   ANALYSIS_NEW_LABEL_FALLBACK,
   formatConjunctionList,
+  olumiSuppliedFiguresDisclosure,
   withheldLeaderCause,
 } from './analysisNewCopy'
 import type {
@@ -2833,6 +2834,10 @@ function buildAtAGlance(
      * error this disclosure exists to correct.
      */
     optionOrigin: headline && leader ? (nodeOrigins?.get(leader.id) ?? null) : null,
+    // MC P0's disclosure for a kept leader (DL fa027 ruling), under the leader's own entitlement.
+    olumiSuppliedFigures: headline && leader
+      ? olumiSuppliedFiguresDisclosure(data.confidence?.inferenceWarnings, (nodeId) => nodeLabels?.get(nodeId) ?? null)
+      : null,
   }
 }
 

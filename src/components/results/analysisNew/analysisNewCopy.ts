@@ -312,7 +312,15 @@ export function goalPathUnsizedCause(
   inferenceWarnings: unknown,
   labelOf: (nodeId: string) => string | null | undefined,
 ): string | null {
-  const links = unsizedLinksOf(inferenceWarnings)
+  const named = namedLinks(unsizedLinksOf(inferenceWarnings), labelOf)
+  return named === null ? null : unsizedLinksSentence(named)
+}
+
+/** Every link's two ends as display labels, or null when there is no link or any end has none. */
+function namedLinks(
+  links: ReadonlyArray<{ from: string; to: string }>,
+  labelOf: (nodeId: string) => string | null | undefined,
+): Array<{ from: string; to: string }> | null {
   if (links.length === 0) return null
   const label = (id: string): string | null => {
     const raw = labelOf(id)
@@ -327,7 +335,16 @@ export function goalPathUnsizedCause(
     if (from === null || to === null) return null
     named.push({ from, to })
   }
-  return unsizedLinksSentence(named)
+  return named
+}
+
+/** Two or more links in Science d5's phrasing: up to three named ("from ‘A’ to ‘B’"), then "and N more". */
+function linksListed(links: ReadonlyArray<{ from: string; to: string }>): string {
+  const phrases = links.slice(0, 3).map((l) => `from ‘${l.from}’ to ‘${l.to}’`)
+  const more = links.length - phrases.length
+  return more > 0
+    ? `${phrases.join(', ')} and ${more} more`
+    : `${phrases.slice(0, -1).join(', ')} and ${phrases[phrases.length - 1]}`
 }
 
 /**
@@ -335,9 +352,17 @@ export function goalPathUnsizedCause(
  * else the first named link (`node_ids[0]` → `node_ids[1]`). Deduplicated; empty when there is none.
  */
 function unsizedLinksOf(inferenceWarnings: unknown): Array<{ from: string; to: string }> {
-  if (!Array.isArray(inferenceWarnings)) return []
-  const warning = inferenceWarnings.find((w): w is Record<string, unknown> =>
-    w !== null && typeof w === 'object' && (w as { code?: unknown }).code === 'GOAL_FIGURES_PLACEHOLDER_PATH')
+  return warningLinksOf(warningWithCode(inferenceWarnings, 'GOAL_FIGURES_PLACEHOLDER_PATH'))
+}
+
+function warningWithCode(inferenceWarnings: unknown, code: string): Record<string, unknown> | null {
+  if (!Array.isArray(inferenceWarnings)) return null
+  return inferenceWarnings.find((w): w is Record<string, unknown> =>
+    w !== null && typeof w === 'object' && (w as { code?: unknown }).code === code) ?? null
+}
+
+/** A link-carrying warning's links: `links` when MC P0 carries the list, else `node_ids[0]` → `node_ids[1]`; deduplicated. */
+function warningLinksOf(warning: Record<string, unknown> | null): Array<{ from: string; to: string }> {
   if (!warning) return []
   const listed = Array.isArray(warning.links)
     ? warning.links.filter((l): l is { from: string; to: string } =>
@@ -357,12 +382,36 @@ function unsizedLinksSentence(links: ReadonlyArray<{ from: string; to: string }>
     const [only] = links
     return `This comparison turns on the link from ‘${only.from}’ to ‘${only.to}’, whose strength nobody has set yet. Set it to see how much it matters.`
   }
-  const phrases = links.slice(0, 3).map((l) => `from ‘${l.from}’ to ‘${l.to}’`)
-  const more = links.length - phrases.length
-  const listed = more > 0
-    ? `${phrases.join(', ')} and ${more} more`
-    : `${phrases.slice(0, -1).join(', ')} and ${phrases[phrases.length - 1]}`
-  return `This comparison turns on the links ${listed}, whose strengths nobody has set yet. Set them to see how much they matter.`
+  return `This comparison turns on the links ${linksListed(links)}, whose strengths nobody has set yet. Set them to see how much they matter.`
+}
+
+/**
+ * MC P0's disclosure for a KEPT leader: the finding rests on a deciding link whose figures Olumi supplied (info
+ * warning, `node_ids` = the first link, `links` = every one; MC github-21). DL's fa027 ruling: a leader resting on
+ * Olumi-supplied figures must say so beside it.
+ */
+export const OLUMI_SUPPLIED_LINK_CODE = 'GOAL_FIGURES_OLUMI_SUPPLIED_LINK'
+
+/**
+ * Science d5's words, verbatim (one link; 2+ with the same cap of three, then "and N more"), or null when the Run
+ * carries no such warning. When any end cannot be named the line is still said, label-free: it is the truth the
+ * finding rests on, so it is never omitted (d5).
+ */
+export function olumiSuppliedFiguresDisclosure(
+  inferenceWarnings: unknown,
+  labelOf: (nodeId: string) => string | null | undefined,
+): string | null {
+  const warning = warningWithCode(inferenceWarnings, OLUMI_SUPPLIED_LINK_CODE)
+  if (warning === null) return null
+  const named = namedLinks(warningLinksOf(warning), labelOf)
+  if (named === null) {
+    return 'Olumi supplied the figures for at least one link this finding rests on. Set your own to see how much it matters.'
+  }
+  if (named.length === 1) {
+    const [only] = named
+    return `Olumi supplied the figures for the link from ‘${only.from}’ to ‘${only.to}’. Set your own to see how much it matters.`
+  }
+  return `Olumi supplied the figures for the links ${linksListed(named)}. Set your own to see how much they matter.`
 }
 
 /**

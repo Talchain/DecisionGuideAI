@@ -196,7 +196,8 @@ import { LAST_RUN_PREFIX, OPTION_RESULT_COPY } from './shared/metricVocabulary'
 import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
 import { optionTakenOutLine } from '../domain/optionStatus'
 import { useRunCurrency, optionResultCaption, optionResultCompactCaption, optionResultCurrencyNote } from './shared/runCurrency'
-import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
+import { leaderWithholdCause, olumiSuppliedFiguresDisclosure } from '../../components/results/analysisNew/analysisNewCopy'
+import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { ValueSourceMark, VALUE_SOURCE_MARK_TOKEN } from './shared/valueSourceMark'
 import { parseDraftingNotes } from '../ui/inspector-v2/draftingNote'
 import { optionEntryScaleOf } from '../ui/inspector-v2/shared/optionTargetEntry'
@@ -1374,6 +1375,17 @@ export const OptionNode = memo((props: NodeProps) => {
       label: cleanFactorLabel((factorNode?.data?.label as string) ?? '') || ((factorNode?.data?.label as string) ?? ''),
     }
   }, [isPostAnalysis, isRecommended, resultsReport, ceeAnalysisReady, props.id, nodes])
+
+  // MC P0's disclosure for a KEPT leader (DL fa027 ruling): this card's finding rests on a deciding link whose figures
+  // Olumi supplied. Science d5's words, on the leader's card only, at the share line's level, in every view mode.
+  const olumiSuppliedFigures = useMemo(() => {
+    if (!isPostAnalysis || !isRecommended) return null
+    const labelOf = (nodeId: string): string | null => {
+      const label = nodes.find(n => n.id === nodeId)?.data?.label
+      return typeof label === 'string' ? label : null
+    }
+    return olumiSuppliedFiguresDisclosure(readInferenceWarnings(resultsReport), labelOf)
+  }, [isPostAnalysis, isRecommended, resultsReport, nodes])
 
   // Goal probability for warning.
   // ROADMAP 1.49: uses the shared selectGoalProbability fallback chain (same
@@ -3037,6 +3049,14 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
         </div>
+        {olumiSuppliedFigures !== null && (
+          <p
+            className={`${typography.edgeLabel} text-text-body mt-1 mb-0`}
+            data-testid={`option-olumi-supplied-figures-${props.id}`}
+          >
+            {olumiSuppliedFigures}
+          </p>
+        )}
         {/* Row 22: Detailed carries the stale state inline (Standard: popover). */}
         {isDetailed && staleStateLine}
         {/* The Run kept Olumi's proposal in a provisional comparison (typed fact; never an authorship guess). */}

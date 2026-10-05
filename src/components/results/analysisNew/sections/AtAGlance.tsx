@@ -1177,6 +1177,17 @@ export function AtAGlance({
                 </span>
               </div>
 
+              {/* ⭐ WHOSE FIGURES THE FINDING RESTS ON (MC P0; DL fa027 ruling). Directly under the finding line, at its
+                  type size, never behind a disclosure (Science d5's placement). */}
+              {glance.olumiSuppliedFigures ? (
+                <p
+                  className={`${typography.panelBody} text-text-body mt-1 mb-0`}
+                  data-testid={`${testId}-olumi-supplied-figures`}
+                >
+                  {glance.olumiSuppliedFigures}
+                </p>
+              ) : null}
+
               {/* ⚠ DIRECTLY UNDER THE LABEL, BEFORE THE BAR — the producer's reason
                   is the SECOND CLAUSE of a sentence whose first clause is the
                   verdict label, so it begins lowercase by construction:
