@@ -16,7 +16,8 @@
  */
 import { useState } from 'react'
 import { typography } from '../../styles/typography'
-import { action } from '../../components/results/analysisNew/panelSurfaces'
+import { action, icon } from '../../components/results/analysisNew/panelSurfaces'
+import { NodeMark } from '../../components/results/analysisNew/nodeMarks'
 import { FIGURE_RADIUS, FIGURE_TRACK_HEIGHT, FIGURE_TRACK_TONE, markerLeft } from '../../components/results/analysisNew/PanelFigure'
 import { movementVerdictText, WHATS_CHANGED_TESTID } from '../../components/results/analysisNew/sections/WhatsChanged'
 import type { RunDeltaMovement } from '../../components/results/analysisNew/runDeltaView'
@@ -65,17 +66,21 @@ function Legend(): JSX.Element {
   )
 }
 
+/** Reasoning's option name (OptionsComparison): the option's own mark, then its name; the name is the canvas link. */
+const OPTION_NAME = `${typography.panelBody} text-text-body break-words text-left`
+
 function OptionRow({ m, link }: { m: RunDeltaMovement; link: ReturnType<OptionCanvasLink> }): JSX.Element {
   const name = m.label ?? 'An option this run does not name'
+  const label = <><NodeMark kind="option" className={`${icon('inline')} mr-1 inline-block align-[-1px]`} />{name}</>
   return (
     <li className="py-1.5" data-testid={`${COMPARE_SUPPORT_TESTID}-option`} data-option-id={m.optionId} data-verdict={m.noiseVerdict}
       data-wire-fields="run_delta.win_probabilities[].option_id run_delta.win_probabilities[].prior run_delta.win_probabilities[].current run_delta.win_probabilities[].noise_verdict">
       {link ? (
-        <button type="button" className={`${typography.panelBody} text-text text-left rounded hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+        <button type="button" className={`${OPTION_NAME} rounded-md -ml-1 px-1 py-0.5 cursor-pointer transition-colors hover:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
           aria-label={`Show on the canvas: ${name}`} onClick={link.focus} onMouseEnter={link.on} onMouseLeave={link.off} onFocus={link.on} onBlur={link.off}>
-          {name}
+          {label}
         </button>
-      ) : <span className={`${typography.panelBody} text-text`}>{name}</span>}
+      ) : <span className={`${OPTION_NAME} block`}>{label}</span>}
       {m.mayShowMagnitude ? <SupportPairFigure m={m} /> : null}
       <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`}>{movementVerdictText(m)}</p>
     </li>
@@ -106,7 +111,7 @@ export function CompareSupportFigures({ movements, designationsWithheld, optionL
         <button type="button" className={`${typography.panelMeta} ${action('inline')} mt-1 text-left justify-start`} aria-expanded={all} onClick={() => setAll((v) => !v)}
           data-testid={`${COMPARE_SUPPORT_TESTID}-more`}>
           {all
-            ? 'Show fewer options'
+            ? 'Show less'
             : `Show ${hidden.length} more ${hidden.length === 1 ? 'option' : 'options'}${hiddenSignals > 0 ? ` (${hiddenSignals} moved beyond ordinary run-to-run variation)` : ''}`}
         </button>
       ) : null}
