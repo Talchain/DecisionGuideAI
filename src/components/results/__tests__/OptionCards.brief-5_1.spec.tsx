@@ -131,7 +131,7 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
     render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="strong" />)
 
     // Winner renders the strong-tier chip; non-winner always uses the forward-looking copy.
-    expect(screen.getByText('Why does this come out best in this model?')).toBeInTheDocument()
+    expect(screen.getByText('Why did the most runs in this model support this?')).toBeInTheDocument()
     expect(screen.getByText('What would make this better supported?')).toBeInTheDocument()
   })
 
@@ -144,7 +144,7 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
     ]
     render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="fair" recommendationStability={0.90} />)
 
-    expect(screen.getByText('Why does this come out best in this model?')).toBeInTheDocument()
+    expect(screen.getByText('Why did the most runs in this model support this?')).toBeInTheDocument()
     expect(screen.queryByText('What does this rest on in this model?')).not.toBeInTheDocument()
     expect(screen.getByText('What would make this better supported?')).toBeInTheDocument()
   })
@@ -160,6 +160,7 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
 
     expect(screen.getByText('What does this rest on in this model?')).toBeInTheDocument()
     expect(screen.queryByText('Why does this come out best in this model?')).not.toBeInTheDocument()
+    expect(screen.queryByText('Why did the most runs in this model support this?')).not.toBeInTheDocument()
   })
 
   it('Brief 5.4 QA P4: winner chip hedges for needs_work tier without stability (absent = weak)', () => {
@@ -172,6 +173,7 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
 
     expect(screen.getByText('What does this rest on in this model?')).toBeInTheDocument()
     expect(screen.queryByText('Why does this come out best in this model?')).not.toBeInTheDocument()
+    expect(screen.queryByText('Why did the most runs in this model support this?')).not.toBeInTheDocument()
     expect(screen.getByText('What would make this better supported?')).toBeInTheDocument()
   })
 

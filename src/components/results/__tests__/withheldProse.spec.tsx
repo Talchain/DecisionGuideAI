@@ -599,7 +599,7 @@ describe('buildCertaintyCopy — no caller can reach the leader rules without a 
 
   it('the explicit no-claim verdict lands on the withheld headline, not a leader claim', () => {
     const copy = buildCertaintyCopy({ ...base, verdict: NO_CLAIM_VERDICT })
-    expect(copy.headline).toBe('the analysis did not put an option forward')
+    expect(copy.headline).toBe('this run names no option in this model')
     expect(copy.headline).not.toMatch(LEADER_PRESUPPOSITION_RE)
     // conservative: true is what blocks the producer's coaching headline from
     // overriding this line in DecisionConfidencePanel.

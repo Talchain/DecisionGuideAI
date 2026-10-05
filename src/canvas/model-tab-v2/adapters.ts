@@ -125,7 +125,9 @@
 import type { Edge, Node } from '@xyflow/react'
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { goalLabelIsUnconfirmedBriefExtract } from '../domain/goalLabelProvenance'
-import { goalTargetFrameIsUnread, resolveGoalTarget } from '../domain/goalTarget'
+import { goalTargetFrameIsUnread } from '../domain/goalTarget'
+import { goalTargetBound, resolveGoalTargetWithOwnRow } from '../domain/goalOwnTargetRow'
+import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
 import { isUnquantifiedPrior } from '../domain/nodes'
 import { hasAnyStatedValue } from '../utils/observedStateHelpers'
@@ -221,6 +223,11 @@ export interface ModelProjectionInput {
    * name-similarity trap.
    */
   fragileEdgeIds?: ReadonlySet<string>
+  /**
+   * The graph's limit rows (the store's, else the run's). The goal row reads its target from the goal's OWN limit row
+   * when the node holds none: "at most 400" is stored only there (CEE's rule, `resolveGoalTargetWithOwnRow`).
+   */
+  goalConstraints?: readonly CEEGoalConstraint[] | null
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -680,7 +687,9 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
     }
 
     if (kind === 'goal') {
-      const target = resolveGoalTarget(data)
+      const target = resolveGoalTargetWithOwnRow(data, input.goalConstraints, node.id)
+      // A target read from the goal's own limit row carries its bound ("at most"): it is said before the figure.
+      const bound = goalTargetBound(target)
       /**
        * ⭐ A PREFIX CURRENCY GOES IN FRONT OF THE NUMBER.
        *
@@ -748,7 +757,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
        * Routing wholesale through `formatGoalTarget` instead would have undone
        * both, and `Math.round`ed a fractional percent away.
        */
-      const targetText = target
+      const figureText = target
         // R1 S4-core (MG 5879952291): a change target is said as the change ("down 15% from today"), never the
         // fraction beside the metric's unit ("-0.15 GBP/month").
         ? target.frame != null && typeof target.raw === 'number' && formatGoalTarget(target.raw, target.unit, target.frame) !== null
@@ -760,6 +769,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         // ⛔ AIQ 5880974047: an unread frame shows no number — not even the store's scalar.
         : input.goalThreshold === null || goalTargetFrameIsUnread((data as { goal_threshold_frame?: unknown }).goal_threshold_frame)
           ? null : formatSmartNumber(input.goalThreshold)
+      const targetText = figureText !== null && bound !== null ? `${bound} ${figureText}` : figureText
       rows.push({
         id: node.id,
         kind,

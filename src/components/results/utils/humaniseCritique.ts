@@ -29,6 +29,19 @@ export interface HumanisedCritique {
   factorId?: string
 }
 
+// ─── GOAL_DIRECTION_UNATTESTED (B′) ─────────────────────────────────────────
+// The assumption in CEE's own words, in this model; the reason for each ending is at the template below.
+const GOAL_DIRECTION_ASSUMED =
+  'In this model I’ve assumed a higher value is better for your goal, so the options were ordered by which one produces the largest value.'
+/** No correction: a change target, an unread frame or a code-only call. Carries both facts ISL states; prescribes nothing. */
+export const GOAL_DIRECTION_UNATTESTED_TITLE =
+  `${GOAL_DIRECTION_ASSUMED} If you want it lower, or held at a particular level, that ordering answers a different question.`
+/** The goal's target line can set 'at most' (`goalDirectionCorrectableByTarget`): CEE's correction, verbatim. */
+export const GOAL_DIRECTION_CORRECTABLE_TITLE =
+  `${GOAL_DIRECTION_ASSUMED} If lower is better, set the goal’s target to ‘at most’ and re-run.`
+const GOAL_DIRECTION_UNATTESTED_DESCRIPTION =
+  'Every other number in this analysis stands. What is missing is the objective sense: on this run, the option that scored highest in this model was simply the one that produced the largest number at your goal on the most draws, and nothing confirmed that is the question you are asking.'
+
 // ─── CEE-owned display-copy codes ────────────────────────────────────────────
 
 /**
@@ -765,12 +778,18 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // `olumi-schemas` PR #48: "PRODUCERS MUST NOT INFER THIS FROM A NODE
   // LABEL"). A wrong inferred aim would be worse than the honest disclosure it
   // replaced.
+  //
+  // ⭐ B′ (5 Oct, RT-10; Science 5999608477 + 6000086883; DL github-e8): THERE IS NOW A WRITER, BUT NOT FOR EVERY GOAL.
+  // The goal's target line records the objective sense: set to 'at most', CEE runs the comparison lowest-first. CEE's own
+  // Run line says so: "In this model I've assumed a higher value is better for your goal. If lower is better, set the
+  // goal's target to 'at most' and re-run." This copy opens with the same assumption, in this model. The correction is
+  // added ONLY where the adapter derived `goalDirectionCorrectable` from the goal node (`goalDirectionCorrectableByTarget`):
+  // a change target, an unread frame or a context-free call (the Model card's code-only title) gets this default, which
+  // still prescribes nothing. That is why the code stays in `NO_ROUTE_EXISTS` for the code-only call.
   GOAL_DIRECTION_UNATTESTED: () => ({
-    title:
-      'Your options were ordered by which one produces the largest value at your goal, because the model does not say which way your goal should go. If you want it lower, or held at a particular level, that ordering answers a different question.',
-    description:
-      'Every other number in this analysis stands. What is missing is the objective sense: on this run, the option that scored highest was simply the one that produced the largest number at your goal on the most draws, and nothing confirmed that is the question you are asking.',
-    // No suggestion — see the block above. There is no writer for this.
+    title: GOAL_DIRECTION_UNATTESTED_TITLE,
+    description: GOAL_DIRECTION_UNATTESTED_DESCRIPTION,
+    // No suggestion: both live surfaces render the title only (see above). The correction, where true, is in the title.
   }),
 
   /**
@@ -1182,6 +1201,16 @@ export function humaniseCritique(
       // `suggested_fix` → consumer `suggestion`) rides along when present —
       // no auto-generated CTA is invented for producer rows without one.
       ...(item.suggestion ? { suggestion: item.suggestion } : {}),
+      factorId,
+    }
+  }
+
+  // B′: the one code whose correction depends on the goal, carried on the item by the adapter (never by the producer).
+  if (item.code === 'GOAL_DIRECTION_UNATTESTED' && item.goalDirectionCorrectable === true) {
+    return {
+      title: GOAL_DIRECTION_CORRECTABLE_TITLE,
+      description: GOAL_DIRECTION_UNATTESTED_DESCRIPTION,
+      displayText: GOAL_DIRECTION_CORRECTABLE_TITLE,
       factorId,
     }
   }

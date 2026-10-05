@@ -94,7 +94,7 @@ export function winnerChipLabel(
   }
   return shouldSoftenPhrasing(confidenceTier, recommendationStability)
     ? 'What does this rest on in this model?'
-    : 'Why does this come out best in this model?'
+    : 'Why did the most runs in this model support this?'
 }
 
 /**
@@ -115,7 +115,7 @@ export function winnerChipPrompt(
   if (isWinner && hasLeadingOption !== false) {
     // Principle audit (5 Oct): a counter-case, never a case for it. The user is asked what it rests on and what would
     // have to be true for it not to come out best, so the model is tested rather than argued for.
-    return `Why does "${label}" come out best in this model? Which assumptions does that rest on, and what would have to be true for it not to?`
+    return `Why did the most runs in this model support "${label}"? Which assumptions does that rest on, and what would have to be true for it not to?`
   }
   return `What would make "${label}" better supported instead? What changes would be needed?`
 }

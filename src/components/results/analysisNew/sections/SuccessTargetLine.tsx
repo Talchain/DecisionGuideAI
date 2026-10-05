@@ -80,12 +80,13 @@ import { useCanvasStore } from '../../../../canvas/store'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { goalTargetSourceMark } from '../../../../canvas/nodes/shared/valueSourceMark'
 import {
-  resolveGoalTarget,
   declaredGoalUnit,
   goalTargetFrameIsUnread,
   statedTargetNumber,
   type GoalTargetSource,
 } from '../../../../canvas/domain/goalTarget'
+import { goalTargetBound, resolveGoalTargetWithOwnRow } from '../../../../canvas/domain/goalOwnTargetRow'
+import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
 import { formatGoalTarget } from '../../utils/formatGoalTarget'
 import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuthority'
 import type {
@@ -266,6 +267,9 @@ export function SuccessTargetLine({
    * defect that showed 0.8 for a 20% target (`store.ts:5059`).
    */
   const threshold = useCanvasStore((s) => s.goalThreshold)
+  // The graph's limit rows, else the run's: "at most 400" is stored ONLY as the goal's own row (CEE's rule).
+  const goalConstraintRows = useCanvasStore((s) =>
+    s.goalConstraints ?? (s.results?.report as { goal_constraints?: CEEGoalConstraint[] | null } | null | undefined)?.goal_constraints ?? null)
   const representation = useCanvasStore((s) => s.goalThresholdRepresentation)
 
   /**
@@ -348,7 +352,9 @@ export function SuccessTargetLine({
    * user's units — printing it would be the 0.8-for-20% defect. `null` and
    * `normalised` are DIFFERENT states and get different sentences below.
    */
-  const fromNode = resolveGoalTarget(goalData as GoalTargetSource | null)
+  const fromNode = resolveGoalTargetWithOwnRow(goalData as GoalTargetSource | null, goalConstraintRows, goalNodeId)
+  // Read from the goal's own limit row, the target carries its bound ("at most"), said before the figure.
+  const bound = goalTargetBound(fromNode)
   /**
    * ⛔ R1 S4-core (MG 5879952291): a target stated as a CHANGE from today ("down 15% from today") is not edited here.
    * This editor writes a LEVEL figure, and CEE refuses that write over a change goal by name (`goal_is_a_change`, all
@@ -361,13 +367,16 @@ export function SuccessTargetLine({
   const changeGoal = fromNode?.frame != null || unreadFrame
   const fromStore = threshold != null && representation === 'raw' && !goalTargetFrameIsUnread((goalData as GoalTargetSource | null)?.goal_threshold_frame) ? threshold : null
   /** The node first — it is the only source guaranteed to be in user units. */
+  const nodeFigure = fromNode !== null
+    ? (formatGoalTarget(
+        typeof fromNode.raw === 'number' ? fromNode.raw : Number(fromNode.raw),
+        fromNode.unit,
+        fromNode.frame,
+      ) ?? String(fromNode.raw))
+    : null
   const shownText =
-    fromNode !== null
-      ? (formatGoalTarget(
-          typeof fromNode.raw === 'number' ? fromNode.raw : Number(fromNode.raw),
-          fromNode.unit,
-          fromNode.frame,
-        ) ?? String(fromNode.raw))
+    nodeFigure !== null
+      ? (bound !== null ? `${bound} ${nodeFigure}` : nodeFigure)
       : fromStore != null
         ? String(fromStore)
         : null

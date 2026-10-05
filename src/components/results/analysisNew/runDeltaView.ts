@@ -119,8 +119,18 @@ export interface RunDeltaView {
   readonly attributionLimit: string | null
   /** PART B. Empty array + `movementsUnavailable` are different states. */
   readonly movements: readonly RunDeltaMovement[]
-  /** True when the producer sent no comparable pair for ANY option. */
+  /**
+   * True when no option has a comparable pair: the producer sent none, OR the goal's direction or comparison changed
+   * between the two Runs (`goalFramingChanged`), so each side's support answers a different question.
+   */
   readonly movementsUnavailable: boolean
+  /**
+   * ⛔ The two Runs answered DIFFERENT QUESTIONS (red team #87 6003625586): the goal's `direction` or `operator` is in
+   * the producer's input rows, e.g. "at most" turned "which option scores highest" into "which comes out lowest". The
+   * producer still pairs support by option id, but higher/lower or beyond-variation across the two is a direction
+   * artefact, so `movements` is withheld and `noPairsText` says why. Absent = no such row (including no input record).
+   */
+  readonly goalFramingChanged?: true
   /**
    * 0.70.0: the producer's TYPED reason for an empty `win_probabilities`, or `null` when it sent none. `prior_withheld`
    * = the earlier Run withheld its figures, so this is the first comparison (RC's UNWITHHELD). Never inferred from an
@@ -396,6 +406,15 @@ function directionOf(prior: number, current: number): MovementDirection {
 }
 
 /**
+ * The goal's direction or comparison differs between the two Runs, BY IDENTITY: a `goal` input row whose producer
+ * field is `direction` or `operator` (schemas 0.77 `RunInputField`). A limit's comparison (`constraint`) and the
+ * goal's target, unit or presence do not change what an option's support measures, so they never match.
+ */
+export function goalFramingChanged(delta: Pick<RunDelta, 'input_changes'>): boolean {
+  return (delta.input_changes ?? []).some((row) => row.entity_kind === 'goal' && (row.field === 'direction' || row.field === 'operator'))
+}
+
+/**
  * Build the view model.
  *
  * `labelFor` resolves an option id to what this surface already calls it —
@@ -410,7 +429,9 @@ export function buildRunDeltaView(
 ): RunDeltaView {
   const attributable = delta.attribution_case === 'C1_attributable'
 
-  const movements: RunDeltaMovement[] = delta.win_probabilities.map((w) => ({
+  const framingChanged = goalFramingChanged(delta)
+  // Withheld, not emptied by accident: across a direction change no option has a comparable pair (see the field).
+  const movements: RunDeltaMovement[] = framingChanged ? [] : delta.win_probabilities.map((w) => ({
     optionId: w.option_id,
     label: labelFor(w.option_id),
     prior: w.prior,
@@ -440,6 +461,7 @@ export function buildRunDeltaView(
     // could be matched; reading it as stillness would be the same fabrication
     // `flip_thresholds` is withheld to avoid, one field over.
     movementsUnavailable: movements.length === 0,
+    ...(framingChanged ? { goalFramingChanged: true as const } : {}),
     winProbabilitiesUnavailable: delta.win_probabilities_unavailable ?? null,
     leader: {
       changed: delta.leader.changed,

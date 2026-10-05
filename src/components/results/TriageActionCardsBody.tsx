@@ -477,14 +477,14 @@ function T1FlipRiskCallout({
         {showConditional ? (
           <>
             In this model, in the quarter of simulated futures where <strong>{fromLabelDisplay}</strong>
-            {"'s effect on "}{toLabelDisplay} is weakest, <strong>{altWinnerLabelDisplay}</strong> comes out best in{' '}
-            {switchPct}% of them
+            {"'s effect on "}{toLabelDisplay} is weakest, {switchPct}% of them support{' '}
+            <strong>{altWinnerLabelDisplay}</strong>
           </>
         ) : mayNameLeader ? (
           <>
             In this model, if <strong>{fromLabelDisplay}</strong> shifts,{' '}
-            <strong>{altWinnerLabelDisplay}</strong>{' '}
-            {attestsNoFlip ? 'could gain ground' : 'could come out best instead'}
+            {attestsNoFlip ? 'more runs could support ' : ''}<strong>{altWinnerLabelDisplay}</strong>
+            {attestsNoFlip ? '' : ' could be supported by the most runs instead'}
           </>
         ) : (
           <>

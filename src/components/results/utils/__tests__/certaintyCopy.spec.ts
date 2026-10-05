@@ -173,6 +173,7 @@ describe('buildCertaintyCopy — decision table', () => {
     })
     expect(result.headline).toBe(`${WINNER} is your only option`)
     expect(result.headline).not.toBe('the analysis did not put an option forward')
+    expect(result.headline).not.toBe('this run names no option in this model')
   })
 
   // Positive control for the guard above: the SAME `unknown` verdict on a
@@ -189,7 +190,7 @@ describe('buildCertaintyCopy — decision table', () => {
       coachingReadiness: 'ready',
       verdict: withheldVerdict,
     })
-    expect(result.headline).toBe('the analysis did not put an option forward')
+    expect(result.headline).toBe('this run names no option in this model')
   })
 
   it('row 3: single option renders its own copy before any tier check', () => {

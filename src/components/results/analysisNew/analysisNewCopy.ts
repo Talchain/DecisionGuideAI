@@ -228,8 +228,9 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
   // CEE per-option limit verdicts (DL 5850643426 tier 1, 5850672588 tier 2).
   no_option_meets_limit: 'On this run, no option meets one of your limits.',
   every_option_likely_breaks_limit: 'On these estimates, every option is more likely than not to break one of your limits.',
+  // Science d5 (#87 6002222614 copy rule: an invitation, never "put one forward").
   constraint_verdict_withheld:
-    "Olumi's checks on this run do not support putting one option forward.",
+    'Olumi’s checks on this run don’t support naming one option in this model. Change a figure you’re unsure about to see how much it matters.',
   /**
    * ⚠ ABOUT THE RUN, NOT ABOUT THE OPTIONS. A statement about what the run
    * could establish; "they are level" would be a finding about the options,
@@ -263,7 +264,7 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
    * carry the difference, because nothing else on the surface does.
    */
   separation_unavailable:
-    'This run could not work out how far apart the options are, so it cannot put one forward.',
+    'Olumi couldn’t measure how far apart the options’ results are on this run. Run it again to see the comparison.',
   /**
    * Canonical's intake cause (#72 5886426614; DL 5886466744): an option Olumi added cannot be reconciled
    * to the user's brief, so no option is named the leader. Served before it was minted as
@@ -272,7 +273,212 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
    */
   // AIQ #72 5886555442. The ‹label› parenthetical waits for Canonical's carrier to name the option ids.
   options_not_reconciled_with_brief:
-    "Olumi added an option your brief didn't name, so this run doesn't put one forward. You can remove it and re-run.",
+    'This comparison includes an option Olumi added that your brief didn’t name. Remove it and run again to see the comparison.',
+  /** A real overlap (Science d5): lever-free until the levers are typed on this code. */
+  options_do_not_separate:
+    'In this model, the options’ results overlap too much to tell apart. Change a figure you’re unsure about to see what separates them.',
+  /**
+   * CEE's intake reconciliation (a8, #87 6002009604; DL ruling): the saved model has not established that its options
+   * are the ones the brief lists. Science d5's words, first sentence only: the "confirm" action ships once a route
+   * actually clears the state.
+   */
+  intake_identity_unverified:
+    'This comparison depends on which of the model’s options are the ones your brief lists, and that hasn’t been confirmed yet.',
+  /** The brief lists an option the model does not carry. Label-free until a typed carrier names it (Science d5). */
+  intake_options_missing:
+    'Your brief lists at least one option that isn’t in the model yet, so this comparison leaves it out. Check the model’s options against your brief.',
+  /**
+   * MC P0's unsized-path withhold when its link cannot be named (Science d5). Where the Run's warning and the canvas
+   * labels name it, `goalPathUnsizedCause` says which link instead.
+   */
+  goal_path_unsized: 'This comparison turns on a link whose strength nobody has set yet.',
+  /** RT-10 a8's R6 follow-up (DL-ruled): the options change the same things by the same amounts (Science d5, #87 6002718281). */
+  options_identical:
+    'In this model, your options change the same things by the same amounts, so their results come out the same. Change what one of them does to see how they compare.',
+}
+
+/**
+ * MC P0's every-Run withhold: a link on a compared option's path to the goal that nobody sized. The claim carries only
+ * this code; the link's two ends come from the same Run's typed `GOAL_FIGURES_PLACEHOLDER_PATH` warning
+ * (`node_ids[0]` → `node_ids[1]`, MC github-21).
+ */
+export const GOAL_PATH_UNSIZED_CAUSE = 'goal_path_unsized'
+
+/**
+ * The withhold as an invitation (DL copy rule #87 6002222614: never "Give a figure"), naming the failing links' own
+ * ends in Science's phrasing ("the link from ‘A’ to ‘B’"), or null when not even the first link can be named
+ * (no such warning, fewer than two ends, or an end with no display label); the caller then says the unnamed line
+ * (`LEADER_WITHHOLD_CAUSE.goal_path_unsized`).
+ */
+export function goalPathUnsizedCause(
+  inferenceWarnings: unknown,
+  labelOf: (nodeId: string) => string | null | undefined,
+): string | null {
+  const naming = nameLinks(unsizedLinksOf(inferenceWarnings), labelOf)
+  if (naming === null) return null
+  if (naming.kind === 'first') {
+    // Science's count form (#87 6002254753 item 1): only the first link's ends can be named, so the rest are counted.
+    const { first, others } = naming
+    return `This comparison turns on the link from ‘${first.from}’ to ‘${first.to}’ and ${others} other ${others === 1 ? 'link' : 'links'} on the way, whose strengths nobody has set yet. Set them to see how much they matter.`
+  }
+  return unsizedLinksSentence(naming.shown, naming.total)
+}
+
+type LinkEnds = { from: string; to: string }
+
+/**
+ * Science's ONE plural rule for both strings (#87; MC github-21): name up to three links in the carrier's order
+ * (nearest the goal first, ties by graph edge order: MC's), then "and N more".
+ * - `named`: every link that is NAMED has both labels; links counted in "N more" need none.
+ * - `first`: only the first link's ends can be named; the withhold's count form says the rest as a number.
+ * - null: not even the first link can be named.
+ */
+type LinkNaming = { kind: 'named'; shown: LinkEnds[]; total: number } | { kind: 'first'; first: LinkEnds; others: number } | null
+
+function nameLinks(
+  links: ReadonlyArray<LinkEnds>,
+  labelOf: (nodeId: string) => string | null | undefined,
+): LinkNaming {
+  if (links.length === 0) return null
+  const label = (id: string): string | null => {
+    const raw = labelOf(id)
+    const text = typeof raw === 'string' ? raw.trim() : ''
+    return text.length > 0 && text.length <= 120 ? text : null
+  }
+  const ends = (link: LinkEnds): LinkEnds | null => {
+    const from = label(link.from)
+    const to = label(link.to)
+    return from === null || to === null ? null : { from, to }
+  }
+  const shown = links.slice(0, 3).map(ends)
+  // A partial list never stands in for the whole: a name is never dropped from the three that are shown.
+  if (shown.every((l): l is LinkEnds => l !== null)) return { kind: 'named', shown, total: links.length }
+  return shown[0] ? { kind: 'first', first: shown[0], others: links.length - 1 } : null
+}
+
+/** Two or more links in Science's phrasing: the shown ones named ("from ‘A’ to ‘B’"), then "and N more". */
+function linksListed(shown: ReadonlyArray<LinkEnds>, total: number): string {
+  const phrases = shown.map((l) => `from ‘${l.from}’ to ‘${l.to}’`)
+  const more = total - phrases.length
+  return more > 0
+    ? `${phrases.join(', ')} and ${more} more`
+    : `${phrases.slice(0, -1).join(', ')} and ${phrases[phrases.length - 1]}`
+}
+
+/**
+ * Every unsized deciding link the Run's typed warning carries, in its order: `links` when MC P0 carries the full list,
+ * else the first named link (`node_ids[0]` → `node_ids[1]`). Deduplicated; empty when there is none.
+ */
+function unsizedLinksOf(inferenceWarnings: unknown): Array<{ from: string; to: string }> {
+  return warningLinksOf(warningWithCode(inferenceWarnings, 'GOAL_FIGURES_PLACEHOLDER_PATH'))
+}
+
+function warningWithCode(inferenceWarnings: unknown, code: string): Record<string, unknown> | null {
+  if (!Array.isArray(inferenceWarnings)) return null
+  return inferenceWarnings.find((w): w is Record<string, unknown> =>
+    w !== null && typeof w === 'object' && (w as { code?: unknown }).code === code) ?? null
+}
+
+/** A link-carrying warning's links: `links` when MC P0 carries the list, else `node_ids[0]` → `node_ids[1]`; deduplicated. */
+function warningLinksOf(warning: Record<string, unknown> | null): Array<{ from: string; to: string }> {
+  if (!warning) return []
+  const listed = Array.isArray(warning.links)
+    ? warning.links.filter((l): l is { from: string; to: string } =>
+      l !== null && typeof l === 'object' && typeof (l as { from?: unknown }).from === 'string'
+      && typeof (l as { to?: unknown }).to === 'string')
+    : []
+  const ids = Array.isArray(warning.node_ids) ? warning.node_ids : []
+  const links = listed.length > 0 ? listed
+    : typeof ids[0] === 'string' && typeof ids[1] === 'string' ? [{ from: ids[0], to: ids[1] }] : []
+  const seen = new Set<string>()
+  return links.filter((l) => !seen.has(`${l.from}->${l.to}`) && seen.add(`${l.from}->${l.to}`) !== undefined)
+}
+
+/** Science d5's words (#87 6002254753; plural and cap, d5 20:3xZ): one link, or up to three named then "and N more". */
+function unsizedLinksSentence(shown: ReadonlyArray<LinkEnds>, total: number): string {
+  if (total === 1) {
+    const [only] = shown
+    return `This comparison turns on the link from ‘${only.from}’ to ‘${only.to}’, whose strength nobody has set yet. Set it to see how much it matters.`
+  }
+  return `This comparison turns on the links ${linksListed(shown, total)}, whose strengths nobody has set yet. Set them to see how much they matter.`
+}
+
+/**
+ * MC P0's disclosure for a KEPT leader: the finding rests on a deciding link whose figures Olumi supplied (info
+ * warning, `node_ids` = the first link, `links` = every one; MC github-21). DL's fa027 ruling: a leader resting on
+ * Olumi-supplied figures must say so beside it.
+ */
+export const OLUMI_SUPPLIED_LINK_CODE = 'GOAL_FIGURES_OLUMI_SUPPLIED_LINK'
+
+/**
+ * Science d5's words, verbatim (one link; 2+ with the same plural rule: three named, then "and N more"), or null when
+ * the Run carries no such warning. When a shown link cannot be named the line is still said, label-free (the
+ * disclosure has no count form): it is the truth the finding rests on, so it is never omitted (d5).
+ */
+export function olumiSuppliedFiguresDisclosure(
+  inferenceWarnings: unknown,
+  labelOf: (nodeId: string) => string | null | undefined,
+): string | null {
+  const warning = warningWithCode(inferenceWarnings, OLUMI_SUPPLIED_LINK_CODE)
+  if (warning === null) return null
+  const naming = nameLinks(warningLinksOf(warning), labelOf)
+  if (naming === null || naming.kind === 'first') {
+    return 'Olumi supplied the figures for at least one link this finding rests on. Set your own to see how much it matters.'
+  }
+  if (naming.total === 1) {
+    const [only] = naming.shown
+    return `Olumi supplied the figures for the link from ‘${only.from}’ to ‘${only.to}’. Set your own to see how much it matters.`
+  }
+  return `Olumi supplied the figures for the links ${linksListed(naming.shown, naming.total)}. Set your own to see how much they matter.`
+}
+
+/**
+ * The cause a withhold names when the Run's own typed warning says a deciding link is unsized: `goal_path_unsized`
+ * always; `separation_unavailable` only when that upstream withhold is present (Science d5: there it echoes the withhold
+ * that emptied robustness, #87 6002390259). The links named, or the unnamed line; null when neither applies.
+ */
+export function unsizedAwareCause(
+  producerReason: string | null | undefined,
+  inferenceWarnings: unknown,
+  labelOf: (nodeId: string) => string | null | undefined,
+): string | null {
+  const token = typeof producerReason === 'string' ? producerReason.trim() : ''
+  const upstream = unsizedLinksOf(inferenceWarnings).length > 0
+  if (token !== GOAL_PATH_UNSIZED_CAUSE && !(token === 'separation_unavailable' && upstream)) return null
+  return goalPathUnsizedCause(inferenceWarnings, labelOf) ?? LEADER_WITHHOLD_CAUSE[GOAL_PATH_UNSIZED_CAUSE]
+}
+
+/**
+ * RT-10 a8's R6 follow-up (DL-ruled): the goal is a product of parts whose combination Olumi could not read from the
+ * model. Science d5's form (#87 6002718281) until the identity-card route can clear the state: it names the goal by its
+ * own label, so it is not a static entry; the "Confirm…" sentence ships with that route.
+ */
+export const GOAL_PRODUCT_NOT_READ_CAUSE = 'goal_product_not_read'
+
+/** The sentence for `goal_product_not_read`, or null for any other code or when the goal has no usable label. */
+export function goalProductNotReadCause(
+  producerReason: string | null | undefined,
+  goalLabel: string | null | undefined,
+): string | null {
+  const token = typeof producerReason === 'string' ? producerReason.trim() : ''
+  const goal = typeof goalLabel === 'string' ? goalLabel.trim() : ''
+  if (token !== GOAL_PRODUCT_NOT_READ_CAUSE || goal.length === 0 || goal.length > 120) return null
+  return `This comparison depends on how the parts of ‘${goal}’ combine, which Olumi hasn’t been able to read yet.`
+}
+
+/**
+ * The goal node's own label (not a framing or a decorated fallback), when the canvas holds exactly one goal node;
+ * otherwise null, so no goal is guessed.
+ */
+export function goalLabelOf(nodes: ReadonlyArray<unknown> | null | undefined): string | null {
+  const goals = (nodes ?? []).filter((n): n is { type?: unknown; data?: { kind?: unknown; type?: unknown; label?: unknown } } => {
+    if (n === null || typeof n !== 'object') return false
+    const node = n as { type?: unknown; data?: { kind?: unknown; type?: unknown } }
+    return node.type === 'goal' || node.data?.kind === 'goal' || node.data?.type === 'goal'
+  })
+  if (goals.length !== 1) return null
+  const label = goals[0].data?.label
+  return typeof label === 'string' && label.trim().length > 0 ? label.trim() : null
 }
 
 /**
@@ -2961,10 +3167,25 @@ const ADMISSION_EXPLAINS_THE_WITHHOLD: ReadonlySet<string> = new Set([
 export function withheldLeaderCause(
   producerReason: string | null | undefined,
   refusalAsksForAnEstimate: boolean,
+  /**
+   * The Run's warnings and a node-label lookup, to name the unsized link (`goal_path_unsized`); and the goal node's
+   * own label, to name the goal (`goal_product_not_read`).
+   */
+  unsizedLink?: {
+    inferenceWarnings: unknown
+    labelOf: (nodeId: string) => string | null | undefined
+    goalLabel?: string | null
+  },
 ): string | null {
   const token = typeof producerReason === 'string' ? producerReason.trim() : ''
   if (refusalAsksForAnEstimate && ADMISSION_EXPLAINS_THE_WITHHOLD.has(token)) {
     return LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS
+  }
+  if (unsizedLink) {
+    const unsized = unsizedAwareCause(token, unsizedLink.inferenceWarnings, unsizedLink.labelOf)
+    if (unsized !== null) return unsized
+    const goalProduct = goalProductNotReadCause(token, unsizedLink.goalLabel)
+    if (goalProduct !== null) return goalProduct
   }
   return leaderWithholdCause(producerReason)
 }

@@ -612,7 +612,7 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
         headlineBanded: { band: 'slightly_ahead', leaderOptionId: 'opt_b', robustnessGated: true },
       },
     })))
-    expect(m.headline).toBe('In this model, Upskill the team came out best slightly more often.')
+    expect(m.headline).toBe('In this model, slightly more runs supported Upskill the team.')
   })
 
   it('producer band naming a DIFFERENT leader than the hero headline is not applied (identity gate → NO claim)', () => {

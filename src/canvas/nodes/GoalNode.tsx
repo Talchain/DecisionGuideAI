@@ -75,7 +75,7 @@ import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { goalConstraintShortText, goalConstraintText } from '../utils/goalConstraintText'
-import { goalCardShownLimits, goalStatedLimits } from '../domain/goalOwnTargetRow'
+import { goalCardShownLimits, goalOwnLimitRow, goalStatedLimits } from '../domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatGoalProbability } from '../../components/results/utils/displayFloors'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
@@ -984,6 +984,10 @@ export const GoalNode = memo((props: NodeProps) => {
   // (see the header). Withdrawing it from the visible chip alone would have
   // left the promise in the two channels nobody greps, so all three are DERIVED
   // from `goalNoTargetChannels` and asserted equal to it.
+  // ⭐ "AT MOST 400" IS NOT "TARGET NOT CAPTURED" (DL 0df0e1, red team #87 6003539060). CEE stores a `<=` target only
+  // as the goal's own limit row, so the node holds none; that row's pill (above) states it. SUPPRESS-ONLY: the editor
+  // admission (`canCaptureTarget`) and every other reading of it are unchanged.
+  const goalOwnRowIsTheTarget = canCaptureTarget && goalOwnLimitRow(activeConstraints, props.id) !== null
   const noTargetDiagnostic = isPostAnalysis && !hasAnyProbability
   const noTargetChannels = goalNoTargetChannels({ diagnostic: noTargetDiagnostic })
   const targetSourceMark =
@@ -1123,7 +1127,7 @@ export const GoalNode = memo((props: NodeProps) => {
               height the layout reserves, the row is never wider than before,
               so it can never wrap onto a line it did not already take. */}
         <div className="pt-[3px] flex min-w-0 flex-wrap items-center gap-x-[min(8px,calc(7px*var(--canvas-label-scale,1)))] gap-y-0.5" data-testid="goal-node-resting-state">
-          {canCaptureTarget && noTargetStatusChip}
+          {canCaptureTarget && !goalOwnRowIsTheTarget && noTargetStatusChip}
           {inPlaceTarget !== null && thresholdDisplay !== null && (
             <span className={`nodrag nopan ${GOAL_TARGET_ROW_TYPE} text-text-body inline-flex min-w-0 items-baseline gap-x-1`}>
               <span>{GOAL_TARGET_PREFIX}</span>

@@ -16,7 +16,7 @@ import { isE2EEnabled } from '../flags';
 import { isGuestAuth } from '../lib/poc';
 import { hasStoredSupabaseSession } from '../lib/storedSupabaseSession';
 import { isThinClientSession } from '../canvas/thinClient/thinClient';
-import { recordSignInAfterBoundary } from '../lib/auth/lapseBoundary';
+import { recordSignInAfterBoundary, sessionLapsedHere } from '../lib/auth/lapseBoundary';
 import { setSentryUser, clearSentryUser } from '../lib/monitoring';
 import { identifyUser, resetPostHog, trackEvent } from '../lib/posthog';
 
@@ -579,7 +579,7 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
   // replacing the one on this page (A → B), or a session that ends here because it ended elsewhere (A → none: another
   // tab signed out), clears the previous identity's state and rotates the autosave epoch (`clearUserScopedState`).
   // A first sign-in (guest → A) and a same-owner refresh are NOT boundaries: the guest's work stays theirs. A stored
-  // session that fails to restore is not one either (it may be the same person), and is a follow-up.
+  // session the SDK DROPS while restoring IS one: see the lapse in place below (DL ruling, #2534).
   const ownerRef = React.useRef<string | null>(null);
 
   useEffect(() => {
@@ -645,6 +645,12 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const { data, error } = await supabase.auth.getSession();
         const restored = data?.session ?? null;
+        // LAPSE-BOUNDARY IN PLACE (Codex #2534 r2 P1-2; DL ruling): this page booted with a stored session and the SDK
+        // has dropped it (its refresh failed), so the session ended here without a sign-out. The owner above starts
+        // null, so `adopt(null)` sees no change; the boundary runs now, before the guest can act. Otherwise the guest
+        // reads A's local keys until a reload, and the record left behind turns the NEXT tab's boot into a lapse that
+        // sweeps this guest's own work. A restore that only timed out still has its token, so nothing runs.
+        if (!cancelled && !restored && expectingStoredSession && sessionLapsedHere()) clearUserScopedState();
         adopt(restored);
         // Failed ONLY if this browser held a session and we could not bring it
         // back. A visitor who never had one has not failed at anything, and

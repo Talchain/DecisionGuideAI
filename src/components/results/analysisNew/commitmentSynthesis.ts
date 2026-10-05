@@ -124,7 +124,7 @@ export const COMMITMENT_COPY = {
    * check on Paul's test (27 Sep); the true cause is the policy. "Can", not
    * "will": a run the user starts may still withhold for another reason.
    */
-  firstPassWithheld: "This is Olumi's automatic first pass, which does not put an option forward; a run you start can.",
+  firstPassWithheld: "This is Olumi's automatic first pass, which names no option. Start a run to see how the options compare in this model.",
   /** Bullet 3 on that run: the move that can change it. */
   firstPassBefore: "Check Olumi's estimates, then run the analysis.",
   /** V2 `synthesisHTML()` (re-run): the consequence leads. Producer noise verdicts only. */
