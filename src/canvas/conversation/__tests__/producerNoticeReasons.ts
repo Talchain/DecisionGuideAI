@@ -48,6 +48,12 @@ export const PRODUCER_CORPUS: ReadonlyArray<{
   { reason: 'ref_kind_illegal', kind: 'relationship_not_used', inModel: false, because: '"cannot form a legal edge under any repair"' },
   { reason: 'endpoint_demoted_duplicate', kind: 'relationship_not_used', inModel: false, because: '"a link whose endpoint was demoted"' },
 
+  // ── stated_relationship_not_used (schemas 0.77.0, SPINE X8) — CONTRACT-DECLARED, PRODUCER PENDING ────────────────
+  // No CEE site emits it yet: CEE emits only after every consumer serves >= 0.77.0 (DL order DGAI → PLoT → CEE). The row
+  // stands for the contract's own definition (olumi-schemas b0378e7f `olumi-response.ts`: "A relationship THE USER STATED
+  // that the model could not use as written"). Replace it with the producer's real reasons when CEE ships them.
+  { reason: 'contract:stated_relationship_not_used', kind: 'stated_relationship_not_used', inModel: false, because: 'contract: "could not use as written": the LINK is not in the model' },
+
   // ── detail_not_connected — the RECORD is withdrawn in both ─────────────────
   { reason: 'unconnected_to_goal', kind: 'detail_not_connected', inModel: false, because: '"projected as a node and then WITHDRAWN"' },
   { reason: 'disconnected_by_shape_gate', kind: 'detail_not_connected', inModel: false, because: '"the connectivity prune WITHDRAWS any factor/constraint that cannot reach the goal"' },
