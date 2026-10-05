@@ -103,6 +103,7 @@ import {
   ANALYSIS_NEW_COPY as COPY,
   ANALYSIS_NEW_LABEL_FALLBACK,
   formatConjunctionList,
+  goalLabelOf,
   olumiSuppliedFiguresDisclosure,
   withheldLeaderCause,
 } from './analysisNewCopy'
@@ -3659,6 +3660,8 @@ function buildChecks(
   staleReason: 'changed' | 'unconfirmed' | null | undefined,
   /** Canvas labels, so a `goal_path_unsized` withhold can name its link (`withheldLeaderCause`). */
   nodeLabels?: ReadonlyMap<string, string>,
+  /** The goal node's own label (`goalLabelOf`), so a `goal_product_not_read` withhold can name the goal. */
+  goalLabel?: string | null,
 ): AnalysisNewViewModel['checks'] {
   const rec = data.recommendation
   const conf = data.confidence
@@ -3794,6 +3797,7 @@ function buildChecks(
         withheldLeaderCause(producerWithholdReason, refusalAsksForAnEstimate, {
           inferenceWarnings: conf?.inferenceWarnings,
           labelOf: (nodeId) => nodeLabels?.get(nodeId) ?? null,
+          goalLabel,
         })
   /*
    * ⚠ A NAMEABLE CAUSE IS NOT ALWAYS A DURABLE ONE. `constraint_verdict_withheld`
@@ -4163,7 +4167,7 @@ export function buildAnalysisNewViewModel(
         // decide whether a re-run could help, and pre-run there is no result
         // for it to be about.
         { items: [], leaderWithholdCause: null, leaderWithheld: false, leaderWithholdDetail: null, sharesExcludeLimits: false, firstPassWithheld: false, rerunWouldNotHelp: false }
-      : buildChecks(data, inputs.producerLeaderWithholdReason, inputs.staleReason, inputs.nodeLabels),
+      : buildChecks(data, inputs.producerLeaderWithholdReason, inputs.staleReason, inputs.nodeLabels, goalLabelOf(inputs.analysisNodes)),
   }
 }
 

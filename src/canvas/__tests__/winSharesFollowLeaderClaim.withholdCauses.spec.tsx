@@ -47,6 +47,9 @@ const WORDS = {
   intake_identity_unverified: 'This comparison depends on which of the model’s options are the ones your brief lists, and that hasn’t been confirmed yet.',
   goal_path_unsized_unnamed: 'This comparison turns on a link whose strength nobody has set yet.',
   intake_options_missing: 'Your brief lists at least one option that isn’t in the model yet, so this comparison leaves it out. Check the model’s options against your brief.',
+  /** RT-10 a8's R6 follow-up codes (Science d5, #87 6002718281); the goal is Paul's goal node, by its own label. */
+  goal_product_not_read: 'This comparison depends on how the parts of ‘securing funding’ combine, which Olumi hasn’t been able to read yet.',
+  options_identical: 'In this model, your options change the same things by the same amounts, so their results come out the same. Change what one of them does to see how they compare.',
 } as const
 
 const stamp = (cause: string) => ({ permitted: false, withheld_reason: 'leader_claim_withheld', producer_cause: cause })
@@ -76,6 +79,8 @@ const CASES: ReadonlyArray<readonly [string, string, unknown[], string]> = [
   ['goal_path_unsized with NO such warning → its unnamed line, never a guessed link', 'goal_path_unsized', [], WORDS.goal_path_unsized_unnamed],
   ['goal_path_unsized naming a node the canvas lacks → its unnamed line', 'goal_path_unsized',
     [{ ...UNSIZED_WARNING, node_ids: [FROM, 'not_on_this_canvas'] }], WORDS.goal_path_unsized_unnamed],
+  ['⭐ goal_product_not_read (RT-10 R6), the goal named by its own node label', 'goal_product_not_read', [], WORDS.goal_product_not_read],
+  ['⭐ options_identical (RT-10 R6)', 'options_identical', [], WORDS.options_identical],
   ['CONTROL: an unknown code → the existing fallback, unchanged', 'a_cause_nobody_mapped', [], WITHHELD_REASON_FALLBACK],
   ['CONTROL: the old generic code (prod (d)) → the existing fallback, unchanged', 'analysis_leader_withheld', [], WITHHELD_REASON_FALLBACK],
 ]
@@ -116,6 +121,24 @@ describe.each(CASES)('%s', (_name, cause, warnings, words) => {
     const block = { type: 'comparison', narrative: '', options: [{ option_id: '10979ab0', label: 'Convertible bridge from existing supporters', win_probability: 0.7966 }] }
     const { getByTestId } = render(<V5ComparisonBlock block={block as never} />)
     expect(getByTestId('v5-comparison-not-ranked').textContent).toBe(words)
+  })
+})
+
+describe('goal_product_not_read never guesses the goal', () => {
+  it('no goal label in the context: the existing fallback, never a goal-free paraphrase', () => {
+    expect(winShareWithheldReason(stamp('goal_product_not_read'), { goalLabel: null })).toBe(WITHHELD_REASON_FALLBACK)
+    expect(winShareWithheldReason(stamp('goal_product_not_read'))).toBe(WITHHELD_REASON_FALLBACK)
+  })
+  it('two goal nodes on the canvas: no goal is named (the selector falls back)', () => {
+    seed('goal_product_not_read')
+    const state = useCanvasStore.getState()
+    const second = { id: 'second_goal', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Another goal', type: 'goal' } }
+    expect(selectWinShareWithheldReason({ ...state, nodes: [...state.nodes, second] } as never)).toBe(WITHHELD_REASON_FALLBACK)
+  })
+  it('PRECONDITION: Paul\'s canvas holds exactly one goal node, labelled "securing funding"', () => {
+    seed('goal_product_not_read')
+    expect(useCanvasStore.getState().nodes.filter((n) => n.type === 'goal').map((n) => (n.data as { label: string }).label))
+      .toEqual(['securing funding'])
   })
 })
 

@@ -116,6 +116,7 @@ import { deriveRobustnessStatus } from './robustnessStatus'
 import { readGoalFigureWithholds, readGoalIdentityWithheld } from './utils/goalIdentityWithheld'
 import { isStrengthPlaceholder } from '../../canvas/domain/strengthPlaceholder'
 import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisParticipation'
+import { goalLabelOf } from './analysisNew/analysisNewCopy'
 import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
 
 // =============================================================================
@@ -1791,6 +1792,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     ? winShareWithheldReason(leaderPermission, {
       inferenceWarnings: (report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings,
       labelOf: (nodeId) => nodeLabelMap.get(nodeId) ?? null,
+      goalLabel: goalLabelOf(nodes),
     })
     : null
 

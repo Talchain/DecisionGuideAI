@@ -292,6 +292,9 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
    * labels name it, `goalPathUnsizedCause` says which link instead.
    */
   goal_path_unsized: 'This comparison turns on a link whose strength nobody has set yet.',
+  /** RT-10 a8's R6 follow-up (DL-ruled): the options change the same things by the same amounts (Science d5, #87 6002718281). */
+  options_identical:
+    'In this model, your options change the same things by the same amounts, so their results come out the same. Change what one of them does to see how they compare.',
 }
 
 /**
@@ -428,6 +431,39 @@ export function unsizedAwareCause(
   const upstream = unsizedLinksOf(inferenceWarnings).length > 0
   if (token !== GOAL_PATH_UNSIZED_CAUSE && !(token === 'separation_unavailable' && upstream)) return null
   return goalPathUnsizedCause(inferenceWarnings, labelOf) ?? LEADER_WITHHOLD_CAUSE[GOAL_PATH_UNSIZED_CAUSE]
+}
+
+/**
+ * RT-10 a8's R6 follow-up (DL-ruled): the goal is a product of parts whose combination Olumi could not read from the
+ * model. Science d5's form (#87 6002718281) until the identity-card route can clear the state: it names the goal by its
+ * own label, so it is not a static entry; the "Confirm…" sentence ships with that route.
+ */
+export const GOAL_PRODUCT_NOT_READ_CAUSE = 'goal_product_not_read'
+
+/** The sentence for `goal_product_not_read`, or null for any other code or when the goal has no usable label. */
+export function goalProductNotReadCause(
+  producerReason: string | null | undefined,
+  goalLabel: string | null | undefined,
+): string | null {
+  const token = typeof producerReason === 'string' ? producerReason.trim() : ''
+  const goal = typeof goalLabel === 'string' ? goalLabel.trim() : ''
+  if (token !== GOAL_PRODUCT_NOT_READ_CAUSE || goal.length === 0 || goal.length > 120) return null
+  return `This comparison depends on how the parts of ‘${goal}’ combine, which Olumi hasn’t been able to read yet.`
+}
+
+/**
+ * The goal node's own label (not a framing or a decorated fallback), when the canvas holds exactly one goal node;
+ * otherwise null, so no goal is guessed.
+ */
+export function goalLabelOf(nodes: ReadonlyArray<unknown> | null | undefined): string | null {
+  const goals = (nodes ?? []).filter((n): n is { type?: unknown; data?: { kind?: unknown; type?: unknown; label?: unknown } } => {
+    if (n === null || typeof n !== 'object') return false
+    const node = n as { type?: unknown; data?: { kind?: unknown; type?: unknown } }
+    return node.type === 'goal' || node.data?.kind === 'goal' || node.data?.type === 'goal'
+  })
+  if (goals.length !== 1) return null
+  const label = goals[0].data?.label
+  return typeof label === 'string' && label.trim().length > 0 ? label.trim() : null
 }
 
 /**
@@ -3116,8 +3152,15 @@ const ADMISSION_EXPLAINS_THE_WITHHOLD: ReadonlySet<string> = new Set([
 export function withheldLeaderCause(
   producerReason: string | null | undefined,
   refusalAsksForAnEstimate: boolean,
-  /** For `goal_path_unsized` only: the Run's warnings and a node-label lookup, to name the unsized link. */
-  unsizedLink?: { inferenceWarnings: unknown; labelOf: (nodeId: string) => string | null | undefined },
+  /**
+   * The Run's warnings and a node-label lookup, to name the unsized link (`goal_path_unsized`); and the goal node's
+   * own label, to name the goal (`goal_product_not_read`).
+   */
+  unsizedLink?: {
+    inferenceWarnings: unknown
+    labelOf: (nodeId: string) => string | null | undefined
+    goalLabel?: string | null
+  },
 ): string | null {
   const token = typeof producerReason === 'string' ? producerReason.trim() : ''
   if (refusalAsksForAnEstimate && ADMISSION_EXPLAINS_THE_WITHHOLD.has(token)) {
@@ -3126,6 +3169,8 @@ export function withheldLeaderCause(
   if (unsizedLink) {
     const unsized = unsizedAwareCause(token, unsizedLink.inferenceWarnings, unsizedLink.labelOf)
     if (unsized !== null) return unsized
+    const goalProduct = goalProductNotReadCause(token, unsizedLink.goalLabel)
+    if (goalProduct !== null) return goalProduct
   }
   return leaderWithholdCause(producerReason)
 }
