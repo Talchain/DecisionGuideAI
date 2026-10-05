@@ -102,6 +102,7 @@ import { readServerStatedStrength } from '../canvas/domain/edges'
 import { USER_VALUE_STAMP } from '../canvas/domain/valueProvenance'
 import { isKnownLimitFrame, limitChangeFrameOf } from '../canvas/utils/goalConstraintText'
 import { logger } from '../lib/logger'
+import { relabelLinkSizing, withoutLinkSizingLabels } from '../canvas/domain/linkSizingLabels'
 
 /**
  * Minimal store-shape interface. useCanvasStore.getState() returns a larger
@@ -938,7 +939,10 @@ function strengthAcknowledgementData(
   if (!('strength' in after) && !('strength_mean' in after) && !('effect_direction' in after)) {
     // Legacy UI-shaped patches have no signed server tuple to record. Preserve
     // existing data: updateEdgeData inserts undefined weight/belief when omitted.
-    return { ...edge.data, ...after }
+    // Gate 5: the link-sizing labels are canvas-internal — never taken from the payload, re-derived when it carries
+    // provenance (domain/linkSizingLabels).
+    const merged = { ...edge.data, ...withoutLinkSizingLabels(after) }
+    return relabelLinkSizing(merged, after, Math.abs(Number((merged as Record<string, unknown>).weight)))
   }
   const serverStrength = readServerStatedStrength(after)
   if (!serverStrength) return null
@@ -946,7 +950,9 @@ function strengthAcknowledgementData(
   if (strength !== undefined && (strength === null || typeof strength !== 'object' || Array.isArray(strength))) return null
   const std = strength?.std !== undefined ? strength.std : after.strength_std
   if (std !== undefined && (typeof std !== 'number' || !Number.isFinite(std) || std < 0)) return null
-  return {
+  // Gate 5 (Codex r1 P1-4): a signed acknowledgement that carries the edge's provenance is authoritative for the
+  // link-sizing labels — an approval's `reviewed_by_user` must not be dropped here (domain/linkSizingLabels).
+  return relabelLinkSizing({
     ...edge.data,
     weight: Math.abs(serverStrength.mean),
     direction: serverStrength.effect_direction,
@@ -956,7 +962,7 @@ function strengthAcknowledgementData(
     ...(strength ? { strength: { ...strength, mean: serverStrength.mean } } : {}),
     ...(std !== undefined ? { strengthStd: std, strength_std: std } : {}),
     serverStrength,
-  }
+  }, after, Math.abs(serverStrength.mean))
 }
 /**
  * ⭐ THE ONE SENTENCE THIS FILE AUTHORS, AND WHY IT IS ALLOWED TO.

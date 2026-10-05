@@ -30,6 +30,7 @@ import { isStrengthPlaceholder } from '../../../domain/strengthPlaceholder'
 import { isStrengthDefinitional } from '../../../domain/strengthDefinitional'
 import { getStrengthLabel } from '../../../domain/vocabulary'
 import { isStrengthAccepted } from '../../../domain/strengthAccepted'
+import { isStrengthStated } from '../../../domain/strengthStated'
 import { edgeSizePhrase } from '../../../edges/edgeSizePhrase'
 import { EXAMINE_WHY } from './examineAssumptionView'
 
@@ -70,7 +71,8 @@ export function buildExamineLinkView(input: {
   if (input.structural || !input.data || isStrengthDefinitional(input.data)) return null
   const display = resolveEdgeSignedStrengthDisplay(input.data)
   if (!display.show) return null
-  const olumis = edgeValueSource(input.data, 'weight') === 'cee' && edgeSizePhrase(input.data)?.usersFigure !== true
+  const olumis = edgeValueSource(input.data, 'weight') === 'cee' &&
+    edgeSizePhrase(input.data)?.usersFigure !== true && !isStrengthStated(input.data)
   if (!input.fragile && !olumis) return null
   const basis: ExamineLinkBasis = input.fragile
     ? 'analysis'

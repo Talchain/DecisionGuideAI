@@ -42,7 +42,7 @@ const WIRE_NODES = [
   { id: FROM, kind: 'factor', label: 'Sprint capacity for integration fix' },
   { id: TO, kind: 'factor', label: 'Integration step bug resolution' },
 ]
-const ACCEPTED_WORDS = 'Olumi’s estimate · you accepted it'
+const ACCEPTED_WORDS = "Olumi's estimate, accepted" // DL 0df0e1 words: Compare's `sizingWords('olumi_accepted')`
 
 const theEdge = (): any => useCanvasStore.getState().edges.find((e: any) => e.source === FROM && e.target === TO)
 

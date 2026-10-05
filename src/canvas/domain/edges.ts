@@ -314,6 +314,16 @@ export const EdgeDataSchema = z.object({
    */
   strengthAccepted: z.number().min(0).max(2).optional(),
 
+  /**
+   * Gate 5 (Codex r1 P1-2): the canvas `weight` sized from the USER's own stated figure — the wire's
+   * `provenance.magnitude: 'user_stated'` (not `user_specified`). Written by the ONE reader `strengthStatedPatch` at every
+   * ingestion hop; read through `isStrengthStated` (`./strengthStated`), live only while the weight is still CEE's and
+   * still equals this number — independent of whether a size phrase can be said.
+   *
+   * ⚠ ABSENT ⇒ NOT KNOWN TO BE THE USER'S FIGURE. Never defaulted.
+   */
+  strengthStated: z.number().min(0).max(2).optional(),
+
   // Set-vs-defaulted markers. ABSENT MEANS DEFAULTED — see
   // ./edgeValueProvenance.ts for the full rationale. Stamped only where the
   // value demonstrably came from a named source, so a construction site that

@@ -17,6 +17,7 @@ import { readWireNaturalEffect } from '../domain/naturalEffect'
 import { strengthPlaceholderPatch } from '../domain/strengthPlaceholder'
 import { strengthDefinitionalPatch } from '../domain/strengthDefinitional'
 import { strengthAcceptedPatch } from '../domain/strengthAccepted'
+import { strengthStatedPatch } from '../domain/strengthStated'
 import { edgeValueSourcePatch, stripEdgeValueSourceKeys } from '../domain/edgeValueProvenance'
 import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
@@ -563,6 +564,7 @@ export function DraftChat() {
         strengthPlaceholder: _strengthPlaceholder,
         // Gate 5: likewise canvas-internal, written below from its ONE reader.
         strengthAccepted: _strengthAccepted,
+        strengthStated: _strengthStated,
         ...edgeRest
       } = e as Record<string, unknown>
 
@@ -745,6 +747,7 @@ export function DraftChat() {
           // Gate 5: an accepted Olumi strength — HOP 3 OF 3, the same one reader
           // (domain/strengthAccepted); destructured OUT of `edgeRest` above.
           ...strengthAcceptedPatch(e as Record<string, unknown>, weight, weightSource !== 'default'),
+          ...strengthStatedPatch(e as Record<string, unknown>, weight, weightSource !== 'default'),
           provenance: provenanceText,
           // Brief v2.2: New edge properties
           ...(direction ? { direction } : {}),

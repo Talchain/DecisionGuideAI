@@ -98,6 +98,7 @@ import {
   EDGE_STRENGTH_PLACEHOLDER_SENTENCE,
 } from './connectorCopy'
 import { isStrengthPlaceholder } from '../domain/strengthPlaceholder'
+import { isStrengthStated } from '../domain/strengthStated'
 import { isStrengthDefinitional } from '../domain/strengthDefinitional'
 import { registerEdgeHover, routeEdgeHover, routeEdgeHoverOnMove, endEdgeHover, claimEdgeHover, type EdgeHoverBehaviour, type EdgeHoverSeat } from './edgeHoverArbiter'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
@@ -841,7 +842,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    * the marker narrows; `strengthUnconfirmed` keeps its meaning (nobody confirmed the β) for every other reader.
    */
   const edgeSize = useMemo(() => edgeSizePhrase(edgeData as Record<string, unknown> | undefined), [edgeData])
-  const strengthMarkedEstimate = strengthUnconfirmed && edgeSize?.usersFigure !== true
+  // Gate 5: the typed fact too (`isStrengthStated`), so an unsayable size phrase never re-labels the user's figure.
+  const strengthIsStated = useMemo(() => isStrengthStated(edgeData as Record<string, unknown> | undefined), [edgeData])
+  const strengthMarkedEstimate = strengthUnconfirmed && edgeSize?.usersFigure !== true && !strengthIsStated
   /**
    * ⭐⭐ THE LABEL'S LIKELIHOOD, FROM THE SAME OWNER THE HOVER POPOVER READS.
    *
@@ -3439,6 +3442,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               strength={edgeSignedStrength}
               strengthSettled={!strengthUnconfirmed}
               strengthDefinitional={strengthIsDefinitional}
+              strengthStated={strengthIsStated}
               placeholderSentence={strengthIsPlaceholder ? EDGE_STRENGTH_PLACEHOLDER_SENTENCE : null}
               fragileSentence={isFragileEdge ? fragileSentence : null}
               size={edgeSize}

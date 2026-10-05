@@ -12,6 +12,8 @@ import { readWireNaturalEffect } from '../../domain/naturalEffect'
 import { strengthPlaceholderPatch } from '../../domain/strengthPlaceholder'
 import { strengthDefinitionalPatch } from '../../domain/strengthDefinitional'
 import { strengthAcceptedPatch } from '../../domain/strengthAccepted'
+import { strengthStatedPatch } from '../../domain/strengthStated'
+import { relabelLinkSizing, withoutLinkSizingLabels } from '../../domain/linkSizingLabels'
 import { edgeValueSourcePatch } from '../../domain/edgeValueProvenance'
 import { edgeProvenanceDisplayPatch } from '../../utils/draftIngestion'
 import { saveAutosave } from '../../store/scenarios'
@@ -201,6 +203,7 @@ function buildEdge(op: PatchOperation) {
       ...strengthDefinitionalPatch(d as Record<string, unknown>, wireSuppliedStrength),
       // Gate 5: an accepted Olumi strength — HOP 2 OF 3, the same one reader (domain/strengthAccepted).
       ...strengthAcceptedPatch(d as Record<string, unknown>, weight, wireSuppliedStrength),
+      ...strengthStatedPatch(d as Record<string, unknown>, weight, wireSuppliedStrength),
       // Set-vs-defaulted markers — see domain/edgeValueProvenance.ts. Omitted
       // when the patch carried no value, so an operation that supplies neither
       // leaves the edge honestly marked as unset rather than claiming a
@@ -311,8 +314,9 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
 
       case 'update_edge': {
         if (!op.data) break
-        // Normalise CEE endpoint field names for rewires
-        const edgeUpdate = { ...op.data }
+        // Normalise CEE endpoint field names for rewires. The link-sizing labels are canvas-internal: a payload key with
+        // their name is never taken (domain/linkSizingLabels); they are re-derived below when the update carries provenance.
+        const edgeUpdate = withoutLinkSizingLabels({ ...op.data })
         const rewireSource = (edgeUpdate.source as string) ?? (edgeUpdate.from as string)
         const rewireTarget = (edgeUpdate.target as string) ?? (edgeUpdate.to as string)
         if (rewireSource) { edgeUpdate._rewireSource = rewireSource }
@@ -363,7 +367,11 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
       ...e,
       ...(typeof _rewireSource === 'string' ? { source: _rewireSource } : {}),
       ...(typeof _rewireTarget === 'string' ? { target: _rewireTarget } : {}),
-      data: { ...e.data, ...dataUpdate },
+      data: relabelLinkSizing(
+        { ...e.data, ...dataUpdate },
+        dataUpdate,
+        Math.abs(Number(({ ...e.data, ...dataUpdate } as Record<string, unknown>).weight)),
+      ),
     }
   })
 
