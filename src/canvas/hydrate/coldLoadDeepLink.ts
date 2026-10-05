@@ -39,6 +39,7 @@ import * as scenarios from '../store/scenarios'
 import { useCanvasStore } from '../store'
 import { isUUID } from '../../services/turn-request-builder'
 import { isCeeAddressableScenarioId } from './bootGraphRead'
+import { isThinClientSession } from '../thinClient/thinClient'
 
 /** `scenarios.ts`'s AUTOSAVE_KEY, which it does not export. Pinned by a row that drives the real `saveAutosave`. */
 export const MAIN_AUTOSAVE_SLOT = 'olumi-canvas-autosave'
@@ -145,6 +146,10 @@ export function planColdLoadDeepLink(route: string | null | undefined): ColdLoad
   if (route != null && !isCeeAddressableScenarioId(route)) return null
   const st = useCanvasStore.getState()
   if (st.nodes.length > 0 || st.edges.length > 0) return null
+  // THIN CLIENT (spike): no slot holds a model to preserve or promote, so a route simply IS the scenario on screen.
+  if (isThinClientSession()) {
+    return route != null && st.currentScenarioId !== route ? { kind: 'supersede', route } : null
+  }
   const main = read(MAIN_AUTOSAVE_SLOT)
   const pointer = read(POINTER_KEY)
   if (main === undefined || pointer === undefined) return null
@@ -175,6 +180,12 @@ export function coldLoadBlocksBootRestore(): boolean {
 /** Apply `plan` (re-validated by the caller). 'applied' when the pointer and the store now name the route. */
 function applyColdLoadPlan(plan: ColdLoadPlan): 'applied' | 'declined' {
   const { route } = plan
+  // THIN CLIENT (spike): the pointer is only an id (never a model); the store takes the route. No slot is moved.
+  if (isThinClientSession()) {
+    write(POINTER_KEY, route)
+    useCanvasStore.setState({ currentScenarioId: route })
+    return 'applied'
+  }
   const originalPointer = read(POINTER_KEY)
   const originalMain = read(MAIN_AUTOSAVE_SLOT)
   const own = read(keyedAutosaveSlot(route))
@@ -302,7 +313,7 @@ export function coldLoadClaimedRoute(): string | null {
  * is kept: a copy is never lost to a restore that did not take it.
  */
 export function settleKeyedAutosaveCopy(boundId: string | null): boolean {
-  if (!boundId) return false
+  if (!boundId || isThinClientSession()) return false
   const key = keyedAutosaveSlot(boundId)
   const keyed = read(key)
   const main = read(MAIN_AUTOSAVE_SLOT)
@@ -337,6 +348,7 @@ function watchCopyFreshness(): void {
   })
 }
 export function refreshExistingCopy(id: string): boolean {
+  if (isThinClientSession()) return false
   const key = keyedAutosaveSlot(id)
   const copy = read(key)
   const main = read(MAIN_AUTOSAVE_SLOT)

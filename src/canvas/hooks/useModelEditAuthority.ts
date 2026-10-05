@@ -160,6 +160,7 @@ import {
   type SystemEventSendSettlementDetail,
 } from '../conversation/settleSystemEventSend'
 import { isViewerSession } from '../../lib/viewerMode'
+import { isThinClientSession, THIN_CLIENT_NOT_SAVED_NOTICE } from '../thinClient/thinClient'
 
 /**
  * ⛔ A NAMED GAP, SO IT CANNOT PASS FOR A DECISION.
@@ -860,6 +861,14 @@ export function useModelEditAuthority(
     if (!factorHasConfirmableValue(node.data)) return 'not_encodable'
 
     mutations.setObservedSource('user_confirmed')
+    // THIN CLIENT (spike; DL ruling (a), 5 Oct): this stamp has NO server carrier, and a signed-in browser keeps no local
+    // model, so it lives on this screen only and the next CEE graph replaces it. Say so, rather than let a confirmation
+    // look saved. (A CEE carrier is the INTEGRATOR's seam row, not this spike.)
+    if (isThinClientSession() && typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('topbar:show-toast', { detail: { message: THIN_CLIENT_NOT_SAVED_NOTICE, level: 'warning' } }),
+      )
+    }
     return 'committed'
   }, [activeNodeId, mutations])
 

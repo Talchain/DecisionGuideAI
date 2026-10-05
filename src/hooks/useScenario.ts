@@ -35,6 +35,7 @@ import { readPersistedGoalConstraints } from '../canvas/utils/persistedGraph'
 import { normalisePersistedGraph } from '../canvas/utils/normalisePersistedGraph'
 import { isPersistenceActive as computeIsPersistenceActive } from '../lib/persistenceActive'
 import { shouldPersistGraphForScenario } from '../canvas/stores/draftStore'
+import { isThinClientSession } from '../canvas/thinClient/thinClient'
 // P0 2026-08-13 — may this client write `scenarios.graph` at all? Its own module
 // so the specs that pin the write MECHANISM can lift the policy and keep proving
 // the plumbing. See that file's header for the whole derivation.
@@ -984,12 +985,21 @@ export function useScenario(): UseScenarioReturn {
       // B3: goalConstraints is passed on EVERY load — the value or null. It
       // is not conditional, because "this scenario has no constraint" must
       // overwrite the previous scenario's, not fall through to it.
-      useCanvasStore.getState().hydrateGraphSlice({
-        nodes: graphNodes,
-        edges: graphEdges,
-        currentScenarioId: row.id,
-        goalConstraints: loadedGoalConstraints,
-      })
+      // THIN CLIENT (spike): CEE's read is the ONLY source of the graph, so this row's own `graph` column is never put
+      // on the canvas. Same scenario already on screen → keep what CEE put there (nodes/edges omitted, so nothing is
+      // cleared). Another scenario → clear it; `useServerGraphHydration` reads this one into the empty canvas.
+      const thinClient = isThinClientSession()
+      const thinSameScenario = thinClient && useCanvasStore.getState().currentScenarioId === row.id
+      useCanvasStore.getState().hydrateGraphSlice(
+        thinSameScenario
+          ? { currentScenarioId: row.id, goalConstraints: loadedGoalConstraints }
+          : {
+              nodes: thinClient ? [] : graphNodes,
+              edges: thinClient ? [] : graphEdges,
+              currentScenarioId: row.id,
+              goalConstraints: loadedGoalConstraints,
+            },
+      )
       // ⛔ P0 (5 Oct 2026): the disk pointer follows the store. Without it, a switch left the pointer on the previous
       // scenario while the autosave was stamped with this one, and the next cold boot bound this scenario's bytes to
       // the previous id (`hydrate/__tests__/bootSlotOwner.p0.spec.ts`).
