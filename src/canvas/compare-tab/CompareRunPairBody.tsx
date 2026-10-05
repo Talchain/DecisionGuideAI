@@ -83,7 +83,7 @@ export function CompareRunPairBody({
   const light = useCanvasLight()
   // WHERE THIS CHANGE FLOWS: on a C1 pair only, a row click also lights its element's route to the Goal.
   const route = useRunChangesRouteFocus(view?.attributable === true)
-  const absenceReason = useCanvasStore(selectRunDeltaAbsenceReason)
+  const absenceReason = useCanvasStore(s => selectRunDeltaAbsenceReason(s, responseHash))
   if (view === null && runOnRecordWithoutResult !== null) {
     const copy = COMPARE_RUN_ON_RECORD_COPY[runOnRecordWithoutResult]
     return (
