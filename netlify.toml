@@ -53,6 +53,31 @@
   VITE_ENABLE_ORCHESTRATOR_V2 = "true"
 
 # =============================================================================
+# Private production test slot: the `manual-test` branch builds staging UI
+# source against PRODUCTION backends (dashboard `branch:manual-test` endpoints
+# → cee-production / plot-lite-service). Promotion = push a candidate staging
+# SHA to `manual-test` unchanged, witness manual-test--olumi.netlify.app, then
+# publish that exact deploy to production. INERT for every other branch.
+# Mirrors the 2 Oct release commit 4df3dcd2 (whose served bundle carries the
+# real Supabase client) so the deployed UI SHA can equal a staging SHA.
+# Deliberately ABSENT: VITE_FEATURE_HERO_FIXTURE_GALLERY and
+# VITE_ENABLE_DEV_ROUTES — never on production (see the staging block below).
+# Without VITE_STUB_SUPABASE=0 a guest-mode build stubs Supabase and sign-in
+# is absent (scripts/supabase-stub-decision.mjs).
+# =============================================================================
+[context.manual-test.environment]
+  # Publishable (anon-class) key — PUBLIC BY DESIGN; same as the staging block.
+  VITE_SUPABASE_ANON_KEY = "sb_publishable_Bhx6ZBWU7aLGmTfEedg60g_O5P1SQ-T"
+  VITE_STUB_SUPABASE = "0"
+  VITE_V5_CANONICAL_ANALYSIS = "true"
+  VITE_FEATURE_COMPARE_TAB = "1"
+  VITE_FEATURE_PRE_ANALYSIS_V3 = "1"
+  VITE_FEATURE_DECISION_OVERVIEW = "1"
+  VITE_FEATURE_STRENGTHEN_PANEL = "1"
+  VITE_FEATURE_AI_PANEL_V2 = "true"
+  VITE_FEATURE_GRAPH_LENS = "true"
+
+# =============================================================================
 # Staging-only env overrides
 # Netlify's deploy-context syntax scopes env vars to a specific branch's
 # builds. `[context.staging.environment]` applies only to builds for the
