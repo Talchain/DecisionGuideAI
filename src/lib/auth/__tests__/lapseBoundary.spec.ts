@@ -258,6 +258,23 @@ describe('LAPSE-FC — the boundary without its chunk (DL row after #2530)', () 
       expect(snapshot()).toEqual({ ...before, [SESSION_KEY]: SESSION })
     }, 2_000)
 
+  it('a session another tab commits AFTER the final decision: the sweep still runs to the end (fails CLOSED), and that session is kept', async () => {
+    // Codex #2534 r1 P1-2 modelled this interleaving. There is no lock shared with supabase-js's session write, so it is
+    // pinned, not prevented: once decided, nothing of A is left half-swept, and the new session itself is never removed.
+    signedInPageWritesWork()
+    sessionLapsesAndNextPageLoads()
+    const setItem = Storage.prototype.setItem
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+      setItem.call(this, key, value)
+      if (key === IDENTITY_EPOCH_KEY) setItem.call(localStorage, SESSION_KEY, SESSION) // the other tab, just after the decision
+    })
+    expect(await runLapseBoundaryIfNeeded(failing)).toBe(true)
+    expect(localStorage.getItem(SESSION_KEY)).toBe(SESSION)
+    expect(loadTranscript(A)).toBeNull()
+    expect(loadRuns()).toEqual([])
+    expect(keysNamingA()).toEqual([])
+  })
+
   it('the boundary is noted: a sign-in later on this page is recorded again, so its own lapse is caught', async () => {
     signedInPageWritesWork()
     sessionLapsesAndNextPageLoads()

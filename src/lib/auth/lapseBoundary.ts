@@ -81,8 +81,12 @@ export const LAPSE_BOUNDARY_BOUND_MS = 8_000
 /**
  * The boundary without its chunk: the same fresh epoch FIRST and the same storage sweep as `clearUserScopedState`, from
  * the main bundle. Its in-memory resets have nothing to reset yet: no store it resets is in `main.tsx`'s static graph,
- * so none has run before the app's chunks load.
- * Decided again first, as after the await: a session another tab stored meanwhile is a signed-in identity's.
+ * so none has run before the app's chunks load. (If that chunk's own evaluation throws part-way, a store it evaluated
+ * may hold what it read before this sweep; but the built app imports the same chunk, so it cannot render on this page,
+ * and the next page starts clean.)
+ * Decided again first, as after the await: a session another tab stored meanwhile is a signed-in identity's. Once
+ * decided, the sweep runs to the end (fails CLOSED). A session another tab commits DURING it is kept (the sweep never
+ * names `sb-*` keys); storage has no lock shared with supabase-js, the same as the loaded path (Codex, #2534 r1 P1-2).
  */
 function sweepWithoutTheChunk(): boolean {
   if (!sessionLapsedHere()) return false

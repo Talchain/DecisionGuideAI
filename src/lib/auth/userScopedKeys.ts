@@ -49,9 +49,15 @@ export const USER_SCOPED_STORAGE_PREFIXES = [
   'olumi.collab.pending-apply.', 'olumi.collab.open-round.', 'olumi-thin-layout:',
 ] as const
 
-/** Per-tab user work in sessionStorage: the analysis-ready mirror and the coaching blob (`guidanceStore.ts`). */
+/**
+ * Per-tab user work in sessionStorage (a same-tab reload keeps it): the analysis-ready mirror, the coaching blob
+ * (`guidanceStore.ts`), the success measure (`successMeasureStore.ts`) and the Strengthen findings
+ * (`strengthenStore.ts`). The full boundary also clears the last two through each store's `_reset`; the sweep must
+ * name them itself, because the lapse fallback runs without those stores (Codex, #2534 r1 P1-1).
+ */
 export const USER_SCOPED_SESSION_KEYS = [
   'olumi-cee-analysis-ready', 'olumi-cee-analysis-ready-node-ids', 'guidance.items.v1',
+  'defineSuccess.measure.v1', 'strengthen.lifecycle.v1',
 ] as const
 
 /** Removes every user-scoped key, prefixed key and session key. Synchronous; never throws. */
