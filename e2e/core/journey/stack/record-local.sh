@@ -138,7 +138,7 @@ rm -f "$W/openai-key.py"
   NODE_ENV=staging PORT=$CEE_PORT LOG_LEVEL=info SUPABASE_URL="$SB_API_URL" SUPABASE_SERVICE_ROLE_KEY="$SB_SERVICE_ROLE_KEY" \
   PLOT_BASE_URL="http://127.0.0.1:$PLOT_PORT" PLOT_AUTH_TOKEN=journey-local-plot-token \
   ISL_BASE_URL="http://127.0.0.1:$ISL_PORT" ISL_API_KEY=journey-local \
-  OPENAI_API_KEY="$OPENAI_KEY" PROXY_V5_TARGET=agent \
+  OPENAI_API_KEY="$OPENAI_KEY" PROXY_V5_TARGET=agent ASSIST_API_KEYS=journey-local \
   ALLOWED_ORIGINS="http://localhost:$UI_PORT" BROWSER_PROXY_ALLOWED_ORIGINS="http://localhost:$UI_PORT" \
   JOURNEY_LLM_REDIRECT="http://127.0.0.1:$LLM_PORT" \
   exec node --import "$STACK/llm-redirect-preload.mjs" dist/src/server.js) > "$W/logs/cee.log" 2>&1 &
@@ -151,7 +151,7 @@ unset OPENAI_KEY
   VITE_V5_ENDPOINT="http://localhost:$CEE_PORT/proxy/v5/turn" VITE_SUPABASE_URL="$SB_API_URL" VITE_SUPABASE_ANON_KEY="$SB_ANON_KEY" \
   NODE_OPTIONS=--max-old-space-size=6144 npm run build) > "$W/logs/ui-build.log" 2>&1
 echo "{\"commit\":\"$DGAI_SHA\",\"short\":\"${DGAI_SHA:0:8}\",\"branch\":\"local-record\",\"deploy_id\":\"j1-local\",\"deploy_url\":\"\"}" > dist/version.json
-(CEE_SERVICE_URL="http://127.0.0.1:$CEE_PORT" ENGINE_SERVICE_URL="http://127.0.0.1:$PLOT_PORT" ISL_SERVICE_URL="http://127.0.0.1:$ISL_PORT" \
+(CEE_SERVICE_URL="http://127.0.0.1:$CEE_PORT" ENGINE_SERVICE_URL="http://127.0.0.1:$PLOT_PORT" ISL_SERVICE_URL="http://127.0.0.1:$ISL_PORT" ASSIST_API_KEY=journey-local \
   exec npx vite preview --port $UI_PORT --strictPort) > "$W/logs/ui-preview.log" 2>&1 &
 PIDS+=($!)
 

@@ -241,7 +241,7 @@ jobs:
             SUPABASE_URL="$SB_URL" SUPABASE_SERVICE_ROLE_KEY="$SB_SERVICE_ROLE_KEY" \
             PLOT_BASE_URL="http://127.0.0.1:$PLOT_PORT" PLOT_AUTH_TOKEN=journey-local-plot-token \
             ISL_BASE_URL="http://127.0.0.1:$ISL_PORT" ISL_API_KEY=journey-local \
-            OPENAI_API_KEY="$KEY" PROXY_V5_TARGET=agent \
+            OPENAI_API_KEY="$KEY" PROXY_V5_TARGET=agent ASSIST_API_KEYS=journey-local \
             ALLOWED_ORIGINS="http://localhost:$UI_PORT" BROWSER_PROXY_ALLOWED_ORIGINS="http://localhost:$UI_PORT" \
             NODE_EXTRA_CA_CERTS="$J1/keys/ca.pem"
           nohup node dist/src/server.js > "$J1/logs/cee.log" 2>&1 &
@@ -259,8 +259,11 @@ jobs:
             VITE_SUPABASE_URL="$SB_URL" VITE_SUPABASE_ANON_KEY="$SB_ANON_KEY"
           NODE_OPTIONS=--max-old-space-size=6144 npm run build
           echo "{\"commit\":\"$DGAI_SHA\",\"short\":\"${DGAI_SHA:0:8}\",\"branch\":\"$GITHUB_REF_NAME\",\"deploy_id\":\"j1-$GITHUB_RUN_ID\",\"deploy_url\":\"\"}" > dist/version.json
+          # ASSIST_API_KEY: the preview proxy sends it to CEE as X-Olumi-Assist-Key, as the
+          # Netlify edge function does on staging. CEE refuses to boot with user-JWT on and no
+          # service auth, so one local key is shared by the UI proxy, PLoT and CEE.
           CEE_SERVICE_URL="http://127.0.0.1:$CEE_PORT" ENGINE_SERVICE_URL="http://127.0.0.1:$PLOT_PORT" \
-          ISL_SERVICE_URL="http://127.0.0.1:$ISL_PORT" \
+          ISL_SERVICE_URL="http://127.0.0.1:$ISL_PORT" ASSIST_API_KEY=journey-local \
             nohup npx vite preview --port "$UI_PORT" --strictPort > "$J1/logs/ui-preview.log" 2>&1 &
 
       - name: Wait for the four services
