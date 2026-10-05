@@ -219,7 +219,7 @@ describe('one noun per idea — the option card speaks the register', () => {
     // anchor/readout by test id; "Support" asserted ABSENT in any form.
     const anchor = screen.getByTestId(`option-win-anchor-${LEADER_ID}`).textContent ?? ''
     expect([OPTION_RESULT_COPY.current, OPTION_RESULT_COPY.lastRun, OPTION_RESULT_COPY.unconfirmed]).toContain(anchor)
-    // R3 5903852225 / AIQ 5903874730: the share says "favoured in" (it is not a chance). The prefix is its own
+    // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance). The prefix is its own
     // leaf before the readout (figure + unit); the row's name speaks them as the register's one `share()` string.
     const prefix = screen.getByTestId(`option-win-prefix-${LEADER_ID}`).textContent ?? ''
     expect(prefix).toBe(OPTION_RESULT_COPY.sharePrefix)
@@ -250,8 +250,8 @@ describe('one noun per idea — the option card speaks the register', () => {
     // assertion — and binding the result to the row by identity is what makes
     // it about THIS surface rather than whichever element matched first.
     // Locked Canvas design (23 Sep 2026): ED 11:52Z point 4 — the comparative
-    // claim is now the model-relative `OPTION_RESULT_COPY.sentence` ("In N% of
-    // the simulated runs, the model favoured this option over the others. …"),
+    // claim is now the model-relative `OPTION_RESULT_COPY.sentence` ("In this
+    // model, N% of runs supported this option."; DL #87 6004906342),
     // never "supported in …". Same carrier (`role="img"` + aria-label), same
     // exactly-once property; the retired wording is asserted gone.
     const claim = OPTION_RESULT_COPY.sentence(`${Math.round(WIN_LEADER * 100)}%`)

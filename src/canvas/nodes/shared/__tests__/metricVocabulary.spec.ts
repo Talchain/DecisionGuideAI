@@ -160,12 +160,14 @@ describe('METRIC_LEGEND_ROWS', () => {
     // present row above IS — so this absence is read from a populated list.
     expect(explained).not.toContain(METRIC_NOUN.support)
     // ED decision 2's second half, on the row itself: conditional on the model
-    // and its assumptions, and not a recommendation. Asserted on the PROPERTY,
-    // not the sentence, so a rewording that keeps the condition stays green.
+    // and its assumptions, and in the run-share verb (DL #87 6004906342).
+    // ⛔ ED's "not a recommendation" half is retired: the recommend stem is
+    // banned even negated (J1 ruling), so it is asserted GONE.
     const row = METRIC_LEGEND_ROWS.find((r) => r.noun === CURRENT_MODEL_NOUN)!
     expect(row.gloss).toMatch(/\bmodel\b/)
     expect(row.gloss).toMatch(/\bassumptions?\b/)
-    expect(row.gloss).toMatch(/not a recommendation/)
+    expect(row.gloss).toMatch(/the share of runs that supported this option/)
+    expect(row.gloss).not.toMatch(/recommend/i)
   })
 
   it('the influence gloss is DERIVED from the producer, not re-worded', () => {
@@ -453,5 +455,39 @@ describe('METRIC_LEGEND_ROWS', () => {
     const row = METRIC_LEGEND_ROWS.find((r) => r.noun === METRIC_NOUN.chance)!
     expect(row.gloss).not.toMatch(/\byour\b/i)
     expect(row.gloss).toMatch(/the goal target/)
+  })
+
+  // ⭐ ONE VERB FOR THE RUN SHARE (DL ruling #87 6004906342, 5 Oct 22:57Z): "supported", matching the results
+  // cards and CEE ("In this model, N% of runs supported ‘X’"). "favoured" (cut 3) is retired; the recommend
+  // stem is banned even negated (J1 ruling).
+  it('⭐ the run share reads "supported", in exactly these words', () => {
+    expect(OPTION_RESULT_COPY.sharePrefix).toBe('supported by')
+    expect(OPTION_RESULT_COPY.share('72%')).toBe('supported by 72% of runs')
+    expect(OPTION_RESULT_COPY.sentence('72%')).toBe('In this model, 72% of runs supported this option.')
+    expect(METRIC_LEGEND_ROWS.find((r) => r.noun === CURRENT_MODEL_NOUN)!.gloss).toBe(
+      'on option cards “N% of runs”: the share of runs that supported this option under this model’s assumptions',
+    )
+    expect(METRIC_LEGEND_ROWS.find((r) => r.noun === METRIC_NOUN.chance)!.gloss).toBe(
+      'how often the option supported by the most runs reached the goal target across the runs',
+    )
+  })
+
+  it('⭐ SCAN: no option-result string or legend gloss says "favour…" or carries the recommend stem', () => {
+    const optionStrings = Object.entries(OPTION_RESULT_COPY).map(([key, value]) => ({
+      key,
+      text: typeof value === 'function' ? (value as (formatted: string) => string)('72%') : String(value),
+    }))
+    const glosses = METRIC_LEGEND_ROWS.map((r) => ({ key: `legend:${r.noun}`, text: r.gloss }))
+    const scanned = [...optionStrings, ...glosses]
+    // CONTRAST (populated scan): the register is read, and the run-share verb is present in it.
+    expect(optionStrings.length).toBeGreaterThanOrEqual(15)
+    expect(glosses.length).toBeGreaterThanOrEqual(3)
+    expect(scanned.filter((s) => /\bsupported\b/.test(s.text)).map((s) => s.key)).toEqual(
+      expect.arrayContaining(['sharePrefix', 'share', 'sentence', `legend:${CURRENT_MODEL_NOUN}`]),
+    )
+    for (const { key, text } of scanned) {
+      expect(text, `${key}: "favour…" is retired for the run share`).not.toMatch(/\bfavou?r/i)
+      expect(text, `${key}: the recommend stem is banned even negated`).not.toMatch(/recommend/i)
+    }
   })
 })

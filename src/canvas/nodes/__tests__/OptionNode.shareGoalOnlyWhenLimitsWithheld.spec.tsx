@@ -171,13 +171,13 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
   it('PERMITTED run — the share row still opens its name with the visible line, and its tooltip opens on focus', async () => {
     seed(envelope({ permitted: true, separation: 'separated' }), { permitted: true })
     renderCard()
-    // R3 5903852225 / AIQ 5903874730: the share says "favoured in" (it is not a chance).
-    expect(label().startsWith('Current model · favoured in 81% of runs.')).toBe(true)
+    // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
+    expect(label().startsWith('Current model · supported by 81% of runs.')).toBe(true)
     expect(shareRow().getAttribute('tabindex')).toBe('0')
     act(() => shareRow().focus())
     expect(document.activeElement).toBe(shareRow())
     const tip = await screen.findByRole('tooltip')
-    expect(tip).toHaveTextContent('Current model · favoured in 81% of runs.')
+    expect(tip).toHaveTextContent('Current model · supported by 81% of runs.')
   })
 
   // CURRENT-READ row 9 (AIQ 5912710392): WAS checked on the `Goal only` qualifier; now on the marker.
