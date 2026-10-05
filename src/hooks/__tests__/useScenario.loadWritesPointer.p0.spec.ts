@@ -55,6 +55,25 @@ describe('useScenario.loadScenario keeps the disk pointer on the scenario it ope
     expect(scenarios.getCurrentScenarioId()).toBe(A2)
   })
 
+  it('⭐ (Codex r1) a load answered after a sign-out writes neither the store nor the pointer', async () => {
+    let release!: () => void
+    const gate = new Promise<void>((r) => { release = r })
+    setScenarioRow(A2, scenarioRow(A2, { nodes: HARNESS_NODES, edges: [] }))
+    const { result, unmount } = renderHook(() => useScenario())
+    let pending!: Promise<void>
+    const { mockSingle } = await import('../../test/helpers/useScenarioSupabaseHarness')
+    const answer = mockSingle.getMockImplementation()!
+    mockSingle.mockImplementationOnce(async (...args: unknown[]) => { await gate; return answer(...(args as [string])) })
+    act(() => { pending = result.current.loadScenario(A2) })
+    // The sign-out sweep removes the pointer, and the canvas unmounts, while the load is in flight.
+    scenarios.clearCurrentScenarioId()
+    unmount()
+    release()
+    await act(async () => { await pending })
+    expect(scenarios.getCurrentScenarioId()).toBeNull()
+    expect(useCanvasStore.getState().currentScenarioId).toBe(A1)
+  })
+
   it('CONTRAST: a load that finds nothing (not a member) changes neither the store nor the pointer', async () => {
     access.getScenarioAccess.mockResolvedValue('none')
     const { result } = renderHook(() => useScenario())

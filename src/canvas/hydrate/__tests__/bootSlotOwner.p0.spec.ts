@@ -108,6 +108,8 @@ describe('P0 — restored bytes are bound to the scenario that wrote them (stamp
   it('⭐ a routeless boot binds the restored bytes to their own stamp (display and identity agree)', () => {
     earlierPageSwitchedA1toA2WithoutPointer()
     coldLoadGate(null)
+    // The store already names the slot's owner before the body's first render (no first-commit effect runs on A1).
+    expect(useCanvasStore.getState().currentScenarioId).toBe(A2)
     const bound = bootRestore()
     expect(bound).toBe(A2)
     expect(boundPair()).toEqual({ scenarioId: A2, nodes: ids(A2) })
@@ -125,12 +127,32 @@ describe('P0 — restored bytes are bound to the scenario that wrote them (stamp
     expect(boundPair()).toEqual({ scenarioId: A1, nodes: ids(A1) })
   })
 
-  it('CONTRAST: a stamp that is not a UUID (a guest\'s local id) still yields to a well-formed pointer, as before', () => {
+  it('CONTRAST (guest): a switch A→B that wrote the pointer, reloaded before the slot caught up, still lands on B\'s own record; A\'s lagging slot is kept under A', () => {
+    scenarios.createScenario({ id: A1, name: 'A', nodes: GRAPH[A1] as never, edges: [] } as never)
+    scenarios.createScenario({ id: A2, name: 'B', nodes: GRAPH[A2] as never, edges: [] } as never)
+    useCanvasStore.setState({ currentScenarioId: A1, nodes: GRAPH[A1], edges: [] })
+    autosaveFromStore() // the slot still holds A (stamped A1)
+    scenarios.setCurrentScenarioId(A2) // the guest switch wrote the pointer first
+    newPage()
+    coldLoadGate(null)
+    expect(scenarios.getCurrentScenarioId()).toBe(A2)
+    expect(useCanvasStore.getState().currentScenarioId).toBe(A2)
+    expect(bootRestore()).toBe('not_autosave') // the boot loads B's own record, never A's slot as B
+    const kept = localStorage.getItem(keyedAutosaveSlot(A1))
+    expect(kept).not.toBeNull()
+    expect(JSON.parse(kept as string).scenarioId).toBe(A1)
+  })
+
+  it('⭐ (Codex r1) a legacy non-UUID stamp is never bound to a pointer that names another scenario: draft mode instead', () => {
+    // A legacy local scenario X's bytes, stamped with its non-UUID id; the pointer then moved to A1 (no local record).
     scenarios.setCurrentScenarioId(A1)
-    useCanvasStore.setState({ currentScenarioId: 'scenario-local-legacy', nodes: GRAPH[A1], edges: [] })
+    useCanvasStore.setState({ currentScenarioId: 'scenario-1712345678-ab12', nodes: GRAPH[A2], edges: [] })
     autosaveFromStore()
     newPage()
     coldLoadGate(null)
-    expect(bootRestore()).toBe(A1)
+    expect(bootRestore()).toBeNull()
+    const pair = boundPair()
+    expect(pair.scenarioId).toBeNull()
+    expect(pair.scenarioId === A1 && pair.nodes.some((id) => id.startsWith('a2_'))).toBe(false)
   })
 })

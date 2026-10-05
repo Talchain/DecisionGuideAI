@@ -63,7 +63,8 @@ export function keyedAutosaveSlot(scenarioId: string): string {
  * The stamp is written in the same record as the bytes (`saveAutosave`), so it always names the scenario they belong
  * to; the pointer is a separate key that can drift. Stamp-first can never pair one scenario's bytes with another's id.
  * When the two disagree, a cold deep link now SUPERSEDES (the slot is kept under its own keyed copy) and a routeless
- * boot restores the slot as the scenario that wrote it. A stamp that is absent or not a UUID still yields to the pointer.
+ * boot restores the slot as the scenario that wrote it. Only an ABSENT stamp yields to the pointer; a legacy non-UUID stamp
+ * that differs from it binds nothing (draft mode).
  * Pinned by `__tests__/bootSlotOwner.p0.spec.ts`.
  */
 export function resolveRestoredScenarioId(
@@ -71,6 +72,9 @@ export function resolveRestoredScenarioId(
   autosaveScenarioId: string | null | undefined,
 ): string | null {
   if (autosaveScenarioId && isUUID(autosaveScenarioId)) return autosaveScenarioId
+  // A stamp that is present but not a UUID (a legacy local id) still names whose bytes these are: they are never bound to
+  // a pointer that names another scenario. Draft mode instead (Codex #2503 r1).
+  if (typeof autosaveScenarioId === 'string' && autosaveScenarioId.length > 0 && autosaveScenarioId !== pointerId) return null
   if (pointerId && isUUID(pointerId)) return pointerId
   return null
 }
@@ -147,7 +151,10 @@ export function planColdLoadDeepLink(route: string | null | undefined): ColdLoad
   // A main slot that states no readable owner is ambiguous: never move it under a guess.
   if (main !== null && stampOf(main) === null) return null
   const stamp = main === null ? null : stampOf(main)
-  const remembered = resolveRestoredScenarioId(pointer, stamp)
+  // A routeless mount targets the scenario the boot will actually show: the pointer's own saved record when it has one
+  // (`resolveBootLoadSource` then loads that record, not a slot stamped otherwise), else the slot's owner.
+  const pointerHasRecord = typeof pointer === 'string' && isUUID(pointer) && scenarios.getScenario(pointer) !== undefined
+  const remembered = pointerHasRecord ? pointer : resolveRestoredScenarioId(pointer, stamp)
   const target = route ?? remembered
   if (target === null) return null
   // Supersede when EITHER record names another scenario (P0, 5 Oct): the slot's stamp (whose bytes these are) or the

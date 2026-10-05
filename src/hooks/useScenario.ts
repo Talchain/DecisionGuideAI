@@ -886,6 +886,16 @@ export function useScenario(): UseScenarioReturn {
         return
       }
 
+      // ⛔ THE ANSWER MUST STILL BE CURRENT before it writes the store or the pointer (Codex #2503 r1): a newer load
+      // (A→B), an unmount or a sign-out since the await means it describes something no longer on screen, and writing it
+      // would recreate the previous identity's pointer after the boundary swept it. The viewer branch's four guards.
+      if (
+        loadSeqRef.current !== loadSeq ||
+        !mountedRef.current ||
+        !isPersistenceActiveRef.current ||
+        userIdRef.current !== loadUserId
+      ) return
+
       // The graph JSONB column stores { nodes, edges } in ONE OF TWO SHAPES —
       // CEE/GraphV3 or React Flow. Normalise to canvas shape BEFORE anything
       // touches it (P0, 2026-08-13): this used to hydrate verbatim, which put
