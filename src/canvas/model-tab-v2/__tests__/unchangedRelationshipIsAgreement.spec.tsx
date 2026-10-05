@@ -1,0 +1,314 @@
+/**
+ * ⭐ REVIEWING A RELATIONSHIP'S CURRENT STRENGTH IS AGREEMENT, NOT AN EDIT (Acceptance #87 5986653143; DL 0df0e1, 5 Oct).
+ *
+ * Served (programme-docs @72641fa7, resume-acceptance/23-SPINE-COPY-APPROVAL-STOP.md): Model → Relationships →
+ * Change → Review "0.25 → 0.25 · Confirm" sent an `edge_strength_edit` `set`; CEE refused it ("I haven't recorded it as
+ * your judgement… Confirm the current strength explicitly"), yet the row and "Where it came from" said "User edited"
+ * until a cold read. Two defects, each pinned here by identity (testids, endpoints, the stored edge):
+ *   1. the unchanged value must send `confirm_current` — the "Accept starting strength" carrier — not a refused `set`;
+ *   2. nothing may stamp the edge "User edited" for a write the server refuses by contract.
+ *
+ * Harness: `relationshipStrengthReachesTheServer.spec.tsx` (real store, conversation context mocked at its seam).
+ */
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { render, cleanup, fireEvent, screen } from '@testing-library/react'
+import type { Node, Edge } from '@xyflow/react'
+import type { ReactElement } from 'react'
+
+const sendSystemEvent = vi.fn()
+
+// Trap 12: spread the real module rather than hand-listing its exports.
+vi.mock('../../conversation/ConversationContext', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    useOptionalConversationContext: () => ({ sendSystemEvent }),
+  }
+})
+
+vi.mock('../../utils/focusHelpers', () => ({
+  focusNodeById: vi.fn(),
+  focusEdgeById: vi.fn(),
+}))
+
+import { ModelTabV2Panel } from '../ModelTabV2Panel'
+import { useCanvasStore } from '../../store'
+import { openOutlineGroups } from './openOutlineGroups'
+import { __resetPendingEdgeEditsForTest, markEdgeEditInFlight } from '../../conversation/pendingEdgeEdit'
+
+const GOAL_ID = 'goal_arr'
+const FACTOR_STATED = 'fac_price'
+const FACTOR_LOCAL = 'fac_churn'
+const FACTOR_MAGNITUDE = 'fac_capacity'
+
+const SERVER_STATED_EDGE = 'e_server_stated'
+const LOCAL_ONLY_EDGE = 'e_local_only'
+const MAGNITUDE_ONLY_EDGE = 'e_magnitude_only'
+
+/** The signed mean the server last stated for `SERVER_STATED_EDGE`. */
+const SERVER_MEAN = 0.4
+/** The magnitude the server last stated for `MAGNITUDE_ONLY_EDGE`. */
+const SERVER_MAGNITUDE = 0.6
+
+function factorNode(id: string, label: string): Node {
+  return {
+    id,
+    type: 'factor',
+    position: { x: 0, y: 0 },
+    data: {
+      label,
+      kind: 'factor',
+      category: 'observable',
+      observedState: { value: 0.5, raw_value: 50, cap: 100, unit: '%', source: 'cee_inference' },
+    },
+  } as unknown as Node
+}
+
+function goalNode(): Node {
+  return {
+    id: GOAL_ID,
+    type: 'goal',
+    position: { x: 0, y: 0 },
+    data: { label: 'Hit ARR target', kind: 'goal' },
+  } as unknown as Node
+}
+
+/**
+ * QUALIFIES. `serverStrength` is the tuple ingestion recorded, and it is the ONLY
+ * thing here that makes `expected` assertable — `weightSource: 'cee'` does not,
+ * deliberately (see `edgeServerStatedStrength.ts`'s writer enumeration: two live
+ * client paths stamp `'cee'` on a number the server's graph does not hold).
+ */
+function serverStatedEdge(): Edge {
+  return {
+    id: SERVER_STATED_EDGE,
+    source: FACTOR_STATED,
+    target: GOAL_ID,
+    data: {
+      label: 'Price affects ARR',
+      weight: Math.abs(SERVER_MEAN),
+      weightSource: 'cee',
+      direction: 'positive',
+      directionSource: 'cee',
+      serverStrength: { mean: SERVER_MEAN, effect_direction: 'positive' },
+    },
+  } as unknown as Edge
+}
+
+/**
+ * DOES NOT QUALIFY — THE F6 CASE. Displayed identically to its twin above (a
+ * stamped weight, a stamped direction, so the row renders a real band label) and
+ * carrying NO `serverStrength`. Nothing here proves what the server holds, so
+ * `expected` cannot be asserted and the edit would land local-only.
+ */
+function localOnlyEdge(): Edge {
+  return {
+    id: LOCAL_ONLY_EDGE,
+    source: FACTOR_LOCAL,
+    target: GOAL_ID,
+    data: {
+      label: 'Churn affects ARR',
+      weight: Math.abs(SERVER_MEAN),
+      weightSource: 'user',
+      direction: 'positive',
+      directionSource: 'user',
+    },
+  } as unknown as Edge
+}
+
+/**
+ * QUALIFIES, WITH NO STATED DIRECTION. `serverStrength` makes `expected`
+ * assertable; the absence of `direction`/`directionSource`/`effect_direction`
+ * makes `resolveEdgeDirectionDisplay` refuse, so the row says so and the editor
+ * must not mint a sign.
+ */
+function magnitudeOnlyEdge(): Edge {
+  return {
+    id: MAGNITUDE_ONLY_EDGE,
+    source: FACTOR_MAGNITUDE,
+    target: GOAL_ID,
+    data: {
+      label: 'Capacity affects ARR',
+      weight: SERVER_MAGNITUDE,
+      weightSource: 'cee',
+      serverStrength: { mean: SERVER_MAGNITUDE, effect_direction: 'positive' },
+    },
+  } as unknown as Edge
+}
+
+function allNodes(): Node[] {
+  return [
+    goalNode(),
+    factorNode(FACTOR_STATED, 'Price'),
+    factorNode(FACTOR_LOCAL, 'Churn'),
+    factorNode(FACTOR_MAGNITUDE, 'Capacity'),
+  ]
+}
+
+function allEdges(): Edge[] {
+  return [serverStatedEdge(), localOnlyEdge(), magnitudeOnlyEdge()]
+}
+
+function seedStore() {
+  useCanvasStore.setState({ nodes: allNodes(), edges: allEdges() } as never, false)
+}
+
+/** The edge as the STORE holds it — what a reload would rebuild the row from. */
+function storedEdgeData(id: string): Record<string, unknown> {
+  const e = useCanvasStore.getState().edges.find(x => x.id === id)
+  return (e?.data ?? {}) as Record<string, unknown>
+}
+
+function renderPanel() {
+  render(<ModelTabV2Panel nodes={allNodes()} edges={allEdges()} goalThreshold={null} />)
+  openOutlineGroups()
+}
+
+/** Drive one row's three-beat to PROPOSED: click the value, type, Enter. */
+function propose(rowId: string, raw: string) {
+  fireEvent.click(screen.getByTestId(`model-row-v2-${rowId}-value`))
+  const input = screen.getByTestId(`model-row-v2-${rowId}-value-input`)
+  fireEvent.change(input, { target: { value: raw } })
+  fireEvent.keyDown(input, { key: 'Enter' })
+}
+
+/** …and confirm it. */
+function commit(rowId: string, raw: string) {
+  propose(rowId, raw)
+  fireEvent.click(screen.getByTestId(`model-row-v2-${rowId}-confirm`))
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  __resetPendingEdgeEditsForTest()
+  seedStore()
+  useCanvasStore.setState({ currentScenarioId: null } as never, false)
+})
+
+afterEach(() => cleanup())
+
+/** Every `edge_strength_edit` sent for this source, with its intent. */
+function sentFor(source: string): Array<Record<string, unknown>> {
+  return sendSystemEvent.mock.calls
+    .map(c => c[0] as { type?: string; payload?: Record<string, unknown> })
+    .filter(e => e?.type === 'edge_strength_edit' && e.payload?.from === source)
+    .map(e => e.payload as Record<string, unknown>)
+}
+
+describe('an unchanged Review → Confirm sends confirm_current and claims nothing locally', () => {
+  it('PRECONDITION: the row opens on the value the model holds', () => {
+    renderPanel()
+    fireEvent.click(screen.getByTestId(`model-row-v2-${SERVER_STATED_EDGE}-value`))
+    expect((screen.getByTestId(`model-row-v2-${SERVER_STATED_EDGE}-value-input`) as HTMLInputElement).value).toBe(String(SERVER_MEAN))
+  })
+
+  it('RED: confirming the SAME signed strength sends exactly one confirm_current, never a set', () => {
+    renderPanel()
+    commit(SERVER_STATED_EDGE, String(SERVER_MEAN))
+    const sent = sentFor(FACTOR_STATED)
+    expect(sent.map(p => p.intent)).toEqual(['confirm_current'])
+    expect(sent[0]).toMatchObject({ from: FACTOR_STATED, to: GOAL_ID, magnitude: SERVER_MEAN, expected: { mean: SERVER_MEAN, effect_direction: 'positive' } })
+  })
+
+  it('RED: …and the stored edge is byte-identical — never stamped "User edited"', () => {
+    renderPanel()
+    const before = { ...storedEdgeData(SERVER_STATED_EDGE) }
+    commit(SERVER_STATED_EDGE, String(SERVER_MEAN))
+    expect(storedEdgeData(SERVER_STATED_EDGE)).toEqual(before)
+    expect(storedEdgeData(SERVER_STATED_EDGE).weightSource).toBe('cee')
+  })
+
+  it('RED: a magnitude-only row confirming its same magnitude sends confirm_current too', () => {
+    renderPanel()
+    const before = { ...storedEdgeData(MAGNITUDE_ONLY_EDGE) }
+    commit(MAGNITUDE_ONLY_EDGE, String(SERVER_MAGNITUDE))
+    expect(sentFor(FACTOR_MAGNITUDE).map(p => p.intent)).toEqual(['confirm_current'])
+    expect(storedEdgeData(MAGNITUDE_ONLY_EDGE)).toEqual(before)
+  })
+
+  it('CONTROL: a CHANGED strength is still an edit — one set, written locally as the user\'s', () => {
+    renderPanel()
+    commit(SERVER_STATED_EDGE, '0.8')
+    expect(sentFor(FACTOR_STATED).map(p => p.intent)).toEqual(['set'])
+    expect(storedEdgeData(SERVER_STATED_EDGE)).toMatchObject({ weight: 0.8, weightSource: 'user' })
+  })
+})
+
+/** Replace one edge in the store AND the panel's props — what a landed server turn does to both. */
+function moveEdge(rerender: (ui: ReactElement) => void, id: string, patch: (e: Edge) => Edge) {
+  const edges = useCanvasStore.getState().edges.map(e => (e.id === id ? patch(e as Edge) : e)) as Edge[]
+  useCanvasStore.setState({ edges } as never, false)
+  rerender(<ModelTabV2Panel nodes={allNodes()} edges={edges} goalThreshold={null} />)
+  openOutlineGroups()
+}
+
+const MOVED_NOTICE = 'Not sent: this link changed after you reviewed it. Review it again.'
+
+/**
+ * ⭐ THE CONFIRMATION RATIFIES WHAT THE REVIEW SHOWED (Codex on #2489 @c23042b5, P1). The Review's snapshot — endpoints,
+ * the server tuple, settled — travels with the confirmation; a link that moved since is refused visibly, never re-read.
+ */
+describe('the confirmation carries the Review\'s snapshot', () => {
+  it('RED: reviewed 0.6 (magnitude-only), the server moves to −0.6 → refused visibly, NO confirm_current for −0.6', () => {
+    const { rerender } = render(<ModelTabV2Panel nodes={allNodes()} edges={allEdges()} goalThreshold={null} />)
+    openOutlineGroups()
+    propose(MAGNITUDE_ONLY_EDGE, String(SERVER_MAGNITUDE))
+    moveEdge(rerender, MAGNITUDE_ONLY_EDGE, e => ({ ...e, data: { ...e.data, serverStrength: { mean: -SERVER_MAGNITUDE, effect_direction: 'negative' } } }))
+    fireEvent.click(screen.getByTestId(`model-row-v2-${MAGNITUDE_ONLY_EDGE}-confirm`))
+    expect(sentFor(FACTOR_MAGNITUDE)).toEqual([])
+    expect(screen.getByText(MOVED_NOTICE)).toBeTruthy()
+  })
+
+  it('RED: reviewed 0.4 → 0.4, the server moves to 0.6 → refused visibly, NO set of 0.4 over it', () => {
+    const { rerender } = render(<ModelTabV2Panel nodes={allNodes()} edges={allEdges()} goalThreshold={null} />)
+    openOutlineGroups()
+    propose(SERVER_STATED_EDGE, String(SERVER_MEAN))
+    moveEdge(rerender, SERVER_STATED_EDGE, e => ({ ...e, data: { ...e.data, weight: 0.6, serverStrength: { mean: 0.6, effect_direction: 'positive' } } }))
+    fireEvent.click(screen.getByTestId(`model-row-v2-${SERVER_STATED_EDGE}-confirm`))
+    expect(sentFor(FACTOR_STATED)).toEqual([])
+    expect(screen.getByText(MOVED_NOTICE)).toBeTruthy()
+  })
+
+  it('RED (r2): the Review was made in ANOTHER scenario (same id, endpoints, tuple) → refused visibly, nothing sent', () => {
+    useCanvasStore.setState({ currentScenarioId: 'scen-a' } as never, false)
+    render(<ModelTabV2Panel nodes={allNodes()} edges={allEdges()} goalThreshold={null} />)
+    openOutlineGroups()
+    propose(SERVER_STATED_EDGE, String(SERVER_MEAN))
+    useCanvasStore.setState({ currentScenarioId: 'scen-b' } as never, false)
+    fireEvent.click(screen.getByTestId(`model-row-v2-${SERVER_STATED_EDGE}-confirm`))
+    expect(sentFor(FACTOR_STATED)).toEqual([])
+    expect(screen.getByText(MOVED_NOTICE)).toBeTruthy()
+  })
+
+  it('RED: the link is re-pointed (same id, new source) after the Review → refused visibly, nothing sent for either end', () => {
+    const { rerender } = render(<ModelTabV2Panel nodes={allNodes()} edges={allEdges()} goalThreshold={null} />)
+    openOutlineGroups()
+    propose(SERVER_STATED_EDGE, String(SERVER_MEAN))
+    moveEdge(rerender, SERVER_STATED_EDGE, e => ({ ...e, source: FACTOR_LOCAL }))
+    fireEvent.click(screen.getByTestId(`model-row-v2-${SERVER_STATED_EDGE}-confirm`))
+    expect(sentFor(FACTOR_STATED)).toEqual([])
+    expect(sentFor(FACTOR_LOCAL)).toEqual([])
+    expect(screen.getByText(MOVED_NOTICE)).toBeTruthy()
+  })
+})
+
+/**
+ * ⭐ …AND THE SERVER'S VALUE CHOSEN OVER AN UNSETTLED ROW IS A RESTORATION (Codex #2489 P1). 0.75 is on the wire; the
+ * server holds 0.4; "0.75 → 0.4 · Confirm" must move the canvas back through the edit path, not confirm or block.
+ */
+describe('the server\'s value over an unsettled row restores it', () => {
+  it('RED: 0.75 in flight, Review → 0.4 → one set of 0.4, and the store shows 0.4 again', () => {
+    const before = { ...storedEdgeData(SERVER_STATED_EDGE) }
+    const diverged = allEdges().map(e => (e.id === SERVER_STATED_EDGE
+      ? ({ ...e, data: { ...e.data, weight: 0.75, weightSource: 'user', directionSource: 'user' } } as Edge)
+      : e))
+    useCanvasStore.setState({ edges: diverged } as never, false)
+    markEdgeEditInFlight(SERVER_STATED_EDGE, 0.75, before, undefined, { scenarioId: null, from: FACTOR_STATED, to: GOAL_ID })
+    render(<ModelTabV2Panel nodes={allNodes()} edges={diverged} goalThreshold={null} />)
+    openOutlineGroups()
+    commit(SERVER_STATED_EDGE, String(SERVER_MEAN))
+    expect(sentFor(FACTOR_STATED).map(p => p.intent)).toEqual(['set'])
+    expect(sentFor(FACTOR_STATED)[0]).toMatchObject({ magnitude: SERVER_MEAN, expected: { mean: SERVER_MEAN, effect_direction: 'positive' } })
+    expect(storedEdgeData(SERVER_STATED_EDGE)).toMatchObject({ weight: SERVER_MEAN, weightSource: 'cee', directionSource: 'cee' })
+  })
+})
