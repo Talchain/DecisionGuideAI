@@ -19,7 +19,11 @@ export const USER_SCOPED_STORAGE_KEYS = [
 
 // `olumi-canvas-autosave:` — a cold-load deep link's preserved copies (`scenarios.keyedAutosaveKey`): one per scenario,
 // unbounded, and as private as the main slot above.
-export const USER_SCOPED_STORAGE_PREFIXES = ['olumi.dissent.v2.', 'olumi.dissent.', 'olumi-canvas-autosave:'] as const
+// `canvas-snapshot-` — manual snapshots (⌘S, Model ▸ Snapshots; `persist.saveSnapshot`) and their `-name` keys: whole
+// graphs with labels, listed with no owner check (`persist.listSnapshots`), so the next account could restore one.
+export const USER_SCOPED_STORAGE_PREFIXES = [
+  'olumi.dissent.v2.', 'olumi.dissent.', 'olumi-canvas-autosave:', 'canvas-snapshot-',
+] as const
 
 function freshIdentityEpoch(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
