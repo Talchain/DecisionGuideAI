@@ -133,7 +133,14 @@ export function heldProposalSourceBlockKey(
 /** localStorage key. Sibling of `olumi-canvas-autosave` / `-scenarios`. */
 export const TRANSCRIPT_STORAGE_KEY = 'olumi-canvas-transcript'
 
+/**
+ * The identity boundary's clear (`clearUserScopedState`). Tombstones every decision it removes, FIRST: the sweep's
+ * `resetCanvas` re-runs `useConversation`'s persist effect with the old owner and messages still in hand, which wrote
+ * the previous account's whole conversation straight back for the next one (J1 ISO-1: 15 KB with A's brief after B
+ * signed in). Same race and same scope as `clearTranscript`'s tombstone below.
+ */
 export function clearAllTranscripts(): void {
+  for (const scenarioId of Object.keys(readFile())) forgottenThisPageLoad.add(scenarioId)
   try { localStorage.removeItem(TRANSCRIPT_STORAGE_KEY) } catch { /* unavailable */ }
 }
 
