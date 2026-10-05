@@ -293,7 +293,8 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
 export const GOAL_PATH_UNSIZED_CAUSE = 'goal_path_unsized'
 
 /**
- * Science d5's sentence for `goal_path_unsized`, naming the failing link's own ends, or null when they cannot be named
+ * The withhold as an invitation (DL copy rule #87 6002222614: never "Give a figure"), naming the failing link's own
+ * ends in Science d5's phrasing ("the link from ‘A’ to ‘B’"), or null when they cannot be named
  * (no such warning, fewer than two ends, or an end with no display label); the caller then keeps its generic line.
  * No "(and N other links)" clause: the warning carries no count, and a guessed count is never shown (Science d5).
  */
@@ -315,7 +316,7 @@ export function goalPathUnsizedCause(
   const from = label(ids[0])
   const to = label(ids[1])
   if (from === null || to === null) return null
-  return `Olumi hasn’t sized how ‘${from}’ moves ‘${to}’, so it isn’t naming an option on this run. Give a figure for that link and Olumi will use it.`
+  return `This comparison turns on the link from ‘${from}’ to ‘${to}’, whose strength nobody has set. Set it to see how much it matters.`
 }
 
 /**

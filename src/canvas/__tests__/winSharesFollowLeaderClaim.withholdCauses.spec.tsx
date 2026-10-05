@@ -42,7 +42,7 @@ const UNSIZED_WARNING = {
 
 /** Science d5's words, verbatim (#87 thread; one source). */
 const WORDS = {
-  goal_path_unsized: 'Olumi hasn’t sized how ‘Investment firm outreach’ moves ‘Investment firm meetings’, so it isn’t naming an option on this run. Give a figure for that link and Olumi will use it.',
+  goal_path_unsized: 'This comparison turns on the link from ‘Investment firm outreach’ to ‘Investment firm meetings’, whose strength nobody has set. Set it to see how much it matters.',
   intake_identity_unverified: 'Olumi isn’t naming an option yet: it hasn’t confirmed that the model’s options are the ones your brief lists.',
   intake_options_missing: 'Olumi isn’t naming an option yet: your brief lists at least one option that isn’t in the model.',
 } as const
@@ -126,6 +126,12 @@ describe('the gate, without a store', () => {
     expect(winShareWithheldReason(stamp('goal_path_unsized'), {
       inferenceWarnings: [UNSIZED_WARNING], labelOf: (id) => (id === FROM ? long : 'Investment firm meetings'),
     })).toBe(WITHHELD_REASON_FALLBACK)
+  })
+})
+
+describe('the copy rule (DL #87 6002222614, Paul "It doesn\'t provide a recommendation"): a withhold is an invitation', () => {
+  it.each(Object.entries(WORDS))('%s never recommends, ranks or tells the user what to do', (_code, words) => {
+    expect(words).not.toMatch(/recommend|\bbest\b|winner|you should|give a figure/i)
   })
 })
 

@@ -84,7 +84,7 @@ const seedCause = (cause: string, warnings: unknown[]) => {
 
 describe.each([
   ['⭐ goal_path_unsized', 'goal_path_unsized', [UNSIZED_WARNING],
-    'Olumi hasn’t sized how ‘Investment firm outreach’ moves ‘Investment firm meetings’, so it isn’t naming an option on this run. Give a figure for that link and Olumi will use it.'],
+    'This comparison turns on the link from ‘Investment firm outreach’ to ‘Investment firm meetings’, whose strength nobody has set. Set it to see how much it matters.'],
   ['⭐ intake_identity_unverified', 'intake_identity_unverified', [],
     'Olumi isn’t naming an option yet: it hasn’t confirmed that the model’s options are the ones your brief lists.'],
   ['⭐ intake_options_missing', 'intake_options_missing', [],

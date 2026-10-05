@@ -18,7 +18,7 @@ const TO = 'investment_firm_meetings'
 const UNSIZED_WARNING = { code: 'GOAL_FIGURES_PLACEHOLDER_PATH', severity: 'warning', node_ids: [FROM, TO], option_ids: ['angel_bridge'], message: 'Not shown.' }
 
 const WORDS = {
-  goal_path_unsized: 'Olumi hasn’t sized how ‘Investment firm outreach’ moves ‘Investment firm meetings’, so it isn’t naming an option on this run. Give a figure for that link and Olumi will use it.',
+  goal_path_unsized: 'This comparison turns on the link from ‘Investment firm outreach’ to ‘Investment firm meetings’, whose strength nobody has set. Set it to see how much it matters.',
   intake_identity_unverified: 'Olumi isn’t naming an option yet: it hasn’t confirmed that the model’s options are the ones your brief lists.',
   intake_options_missing: 'Olumi isn’t naming an option yet: your brief lists at least one option that isn’t in the model.',
 } as const
