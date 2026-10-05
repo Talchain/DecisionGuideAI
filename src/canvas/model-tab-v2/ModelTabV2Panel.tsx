@@ -156,7 +156,8 @@ import { formatValueWithUnit } from '../components/model-tab/utils'
 import type { ConstraintType } from '../../v5/chipParameters'
 import type { SystemEventSendSettlement } from '../conversation/settleSystemEventSend'
 import { fenceRefusalCopyForCategory } from '../../v5/failureTypeRetryability'
-import type { EdgeStrengthConfirmOutcome } from '../ui/inspector-v2/useInspectorMutations'
+import type { ReviewedEdgeStrengthConfirmOutcome } from '../hooks/useModelEditAuthority'
+import { edgeShowsServerStatedStrength, reviewedEdgeStrengthOf, type ReviewedEdgeStrength } from '../conversation/pendingEdgeEdit'
 import { optionInterventionDeclinedNotice } from '../ui/inspector-v2/shared/useOptionInterventionCommit'
 
 /**
@@ -203,12 +204,31 @@ const CONFIRM_SEND_NOTICE: Readonly<
 
 /** The refusals that happen BEFORE any send, and were equally silent. */
 const CONFIRM_REFUSAL_NOTICE: Readonly<
-  Record<Exclude<EdgeStrengthConfirmOutcome, 'dispatched'>, string>
+  Record<Exclude<ReviewedEdgeStrengthConfirmOutcome, 'dispatched'>, string>
 > = {
   refused_unassertable:
     'Olumi has not stated a strength for this link, so there is nothing to agree with yet.',
   no_carrier: 'Not sent: this decision has no open conversation to record it in.',
   not_encodable: 'Not sent: this link could not be identified.',
+  moved_since_review: 'Not sent: this link changed after you reviewed it. Review it again.',
+}
+
+/**
+ * Does the request restate what a SETTLED Review showed? The builder's own derivation (`edgeStrengthEditChangesNothing`
+ * over `buildEdgeStrengthEditEvent`), asked of the snapshot instead of a re-read of the link (Codex #2489 P1).
+ */
+function restatesReview(edge: Edge, reviewed: ReviewedEdgeStrength, requestedMean: number, preserveDirection: boolean): boolean {
+  if (!reviewed.settled) return false
+  return edgeStrengthEditChangesNothing(buildEdgeStrengthEditEvent({
+    edge: {
+      ...edge,
+      source: reviewed.from,
+      target: reviewed.to,
+      data: { ...(edge.data ?? {}), serverStrength: { mean: reviewed.mean, effect_direction: reviewed.effect_direction } },
+    } as Edge,
+    requestedMean,
+    preserveDirection,
+  }))
 }
 
 export interface ModelTabV2PanelProps {
@@ -370,6 +390,8 @@ interface ActiveEdit {
   direction?: ConstraintType
   scenarioId?: string | null
   notice?: string
+  /** A relationship row's Review snapshot, captured with its `from` (Codex #2489 P1); `null` = nothing server-stated. */
+  reviewedStrength?: ReviewedEdgeStrength | null
   /** What the row displayed when the edit began — the `from` of the proposal. */
   from: string
 }
@@ -719,7 +741,7 @@ export function ModelTabV2Panel({
   const confirmAttemptRef = useRef(0)
 
   const [pendingConfirm, setPendingConfirm] = useState<
-    { id: string; kind: 'node' | 'edge' } | null
+    { id: string; kind: 'node' | 'edge'; reviewed?: ReviewedEdgeStrength } | null
   >(null)
   const confirmAuthority = useModelEditAuthority(
     pendingConfirm?.kind === 'node' ? pendingConfirm.id : null,
@@ -738,6 +760,7 @@ export function ModelTabV2Panel({
 
     if (pendingConfirm.kind === 'edge') {
       const outcome = confirmAuthority.proposeEdgeStrengthConfirmation(rowId, {
+        ...(pendingConfirm.reviewed !== undefined ? { reviewed: pendingConfirm.reviewed } : {}),
         onSendSettled: (settlement, detail) => {
           if (settlement === 'sent') return
           // A STOPPED or SUPERSEDED turn (CEE #1868) is not "the model moved on":
@@ -944,6 +967,7 @@ export function ModelTabV2Panel({
           phase: 'editing',
           draft: String(seeded.seed),
           from: row.primaryValue ?? 'Not set',
+          reviewedStrength: reviewedEdgeStrengthOf(edge),
         })
         return
       }
@@ -1187,13 +1211,28 @@ export function ModelTabV2Panel({
         // 5 Oct). "0.25 → 0.25 · Confirm" sent a `set` CEE refuses by contract, and the row still said "User edited".
         // It now sends `confirm_current` through the row's own Confirm path (the "Accept starting strength" carrier):
         // nothing is written locally, CEE records the review, and a refusal arrives as that path's notice.
-        if (edge !== undefined && edgeStrengthEditChangesNothing(
-          buildEdgeStrengthEditEvent({ edge, requestedMean: num, preserveDirection: !seeded.directionStated }),
-        )) {
-          setEdit(null)
-          setConfirmNotice(null)
-          setPendingConfirm({ id: rowId, kind: 'edge' })
-          return
+        // ⚠ ONLY WHAT A SETTLED REVIEW SHOWED (Codex #2489 P1). The confirmation carries the Review's snapshot and the
+        // authority refuses it visibly if the link has moved since (`moved_since_review`). The server's value chosen
+        // over a canvas that was NOT settled (an edit on the wire) is a RESTORATION: it goes through
+        // `proposeEdgeStrength`, so the canvas moves back.
+        if (edge !== undefined) {
+          const preserveDirection = !seeded.directionStated
+          const reviewed = edit.reviewedStrength ?? null
+          const agreedAtReview = reviewed !== null && restatesReview(edge, reviewed, num, preserveDirection)
+          const unchangedNow = edgeStrengthEditChangesNothing(
+            buildEdgeStrengthEditEvent({ edge, requestedMean: num, preserveDirection }),
+          )
+          const restoration = unchangedNow && !agreedAtReview && !edgeShowsServerStatedStrength(edge)
+          if ((agreedAtReview || unchangedNow) && !restoration) {
+            setEdit(null)
+            if (reviewed === null) {
+              setConfirmNotice({ rowId, reason: CONFIRM_REFUSAL_NOTICE.moved_since_review })
+              return
+            }
+            setConfirmNotice(null)
+            setPendingConfirm({ id: rowId, kind: 'edge', reviewed })
+            return
+          }
         }
         // Fail CLOSED on anything the wire cannot carry: `proposeEdgeStrength`
         // returns `refused_unassertable` and writes NOTHING, so the row keeps

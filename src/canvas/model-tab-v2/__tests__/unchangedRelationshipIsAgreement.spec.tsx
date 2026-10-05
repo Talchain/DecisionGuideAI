@@ -13,6 +13,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, cleanup, fireEvent, screen } from '@testing-library/react'
 import type { Node, Edge } from '@xyflow/react'
+import type { ReactElement } from 'react'
 
 const sendSystemEvent = vi.fn()
 
@@ -33,6 +34,7 @@ vi.mock('../../utils/focusHelpers', () => ({
 import { ModelTabV2Panel } from '../ModelTabV2Panel'
 import { useCanvasStore } from '../../store'
 import { openOutlineGroups } from './openOutlineGroups'
+import { __resetPendingEdgeEditsForTest, markEdgeEditInFlight } from '../../conversation/pendingEdgeEdit'
 
 const GOAL_ID = 'goal_arr'
 const FACTOR_STATED = 'fac_price'
@@ -178,6 +180,7 @@ function commit(rowId: string, raw: string) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  __resetPendingEdgeEditsForTest()
   seedStore()
 })
 
@@ -227,5 +230,73 @@ describe('an unchanged Review → Confirm sends confirm_current and claims nothi
     commit(SERVER_STATED_EDGE, '0.8')
     expect(sentFor(FACTOR_STATED).map(p => p.intent)).toEqual(['set'])
     expect(storedEdgeData(SERVER_STATED_EDGE)).toMatchObject({ weight: 0.8, weightSource: 'user' })
+  })
+})
+
+/** Replace one edge in the store AND the panel's props — what a landed server turn does to both. */
+function moveEdge(rerender: (ui: ReactElement) => void, id: string, patch: (e: Edge) => Edge) {
+  const edges = useCanvasStore.getState().edges.map(e => (e.id === id ? patch(e as Edge) : e)) as Edge[]
+  useCanvasStore.setState({ edges } as never, false)
+  rerender(<ModelTabV2Panel nodes={allNodes()} edges={edges} goalThreshold={null} />)
+  openOutlineGroups()
+}
+
+const MOVED_NOTICE = 'Not sent: this link changed after you reviewed it. Review it again.'
+
+/**
+ * ⭐ THE CONFIRMATION RATIFIES WHAT THE REVIEW SHOWED (Codex on #2489 @c23042b5, P1). The Review's snapshot — endpoints,
+ * the server tuple, settled — travels with the confirmation; a link that moved since is refused visibly, never re-read.
+ */
+describe('the confirmation carries the Review\'s snapshot', () => {
+  it('RED: reviewed 0.6 (magnitude-only), the server moves to −0.6 → refused visibly, NO confirm_current for −0.6', () => {
+    const { rerender } = render(<ModelTabV2Panel nodes={allNodes()} edges={allEdges()} goalThreshold={null} />)
+    openOutlineGroups()
+    propose(MAGNITUDE_ONLY_EDGE, String(SERVER_MAGNITUDE))
+    moveEdge(rerender, MAGNITUDE_ONLY_EDGE, e => ({ ...e, data: { ...e.data, serverStrength: { mean: -SERVER_MAGNITUDE, effect_direction: 'negative' } } }))
+    fireEvent.click(screen.getByTestId(`model-row-v2-${MAGNITUDE_ONLY_EDGE}-confirm`))
+    expect(sentFor(FACTOR_MAGNITUDE)).toEqual([])
+    expect(screen.getByText(MOVED_NOTICE)).toBeTruthy()
+  })
+
+  it('RED: reviewed 0.4 → 0.4, the server moves to 0.6 → refused visibly, NO set of 0.4 over it', () => {
+    const { rerender } = render(<ModelTabV2Panel nodes={allNodes()} edges={allEdges()} goalThreshold={null} />)
+    openOutlineGroups()
+    propose(SERVER_STATED_EDGE, String(SERVER_MEAN))
+    moveEdge(rerender, SERVER_STATED_EDGE, e => ({ ...e, data: { ...e.data, weight: 0.6, serverStrength: { mean: 0.6, effect_direction: 'positive' } } }))
+    fireEvent.click(screen.getByTestId(`model-row-v2-${SERVER_STATED_EDGE}-confirm`))
+    expect(sentFor(FACTOR_STATED)).toEqual([])
+    expect(screen.getByText(MOVED_NOTICE)).toBeTruthy()
+  })
+
+  it('RED: the link is re-pointed (same id, new source) after the Review → refused visibly, nothing sent for either end', () => {
+    const { rerender } = render(<ModelTabV2Panel nodes={allNodes()} edges={allEdges()} goalThreshold={null} />)
+    openOutlineGroups()
+    propose(SERVER_STATED_EDGE, String(SERVER_MEAN))
+    moveEdge(rerender, SERVER_STATED_EDGE, e => ({ ...e, source: FACTOR_LOCAL }))
+    fireEvent.click(screen.getByTestId(`model-row-v2-${SERVER_STATED_EDGE}-confirm`))
+    expect(sentFor(FACTOR_STATED)).toEqual([])
+    expect(sentFor(FACTOR_LOCAL)).toEqual([])
+    expect(screen.getByText(MOVED_NOTICE)).toBeTruthy()
+  })
+})
+
+/**
+ * ⭐ …AND THE SERVER'S VALUE CHOSEN OVER AN UNSETTLED ROW IS A RESTORATION (Codex #2489 P1). 0.75 is on the wire; the
+ * server holds 0.4; "0.75 → 0.4 · Confirm" must move the canvas back through the edit path, not confirm or block.
+ */
+describe('the server\'s value over an unsettled row restores it', () => {
+  it('RED: 0.75 in flight, Review → 0.4 → one set of 0.4, and the store shows 0.4 again', () => {
+    const before = { ...storedEdgeData(SERVER_STATED_EDGE) }
+    const diverged = allEdges().map(e => (e.id === SERVER_STATED_EDGE
+      ? ({ ...e, data: { ...e.data, weight: 0.75, weightSource: 'user', directionSource: 'user' } } as Edge)
+      : e))
+    useCanvasStore.setState({ edges: diverged } as never, false)
+    markEdgeEditInFlight(SERVER_STATED_EDGE, 0.75, before)
+    render(<ModelTabV2Panel nodes={allNodes()} edges={diverged} goalThreshold={null} />)
+    openOutlineGroups()
+    commit(SERVER_STATED_EDGE, String(SERVER_MEAN))
+    expect(sentFor(FACTOR_STATED).map(p => p.intent)).toEqual(['set'])
+    expect(sentFor(FACTOR_STATED)[0]).toMatchObject({ magnitude: SERVER_MEAN, expected: { mean: SERVER_MEAN, effect_direction: 'positive' } })
+    expect(storedEdgeData(SERVER_STATED_EDGE)).toMatchObject({ weight: SERVER_MEAN, weightSource: 'cee', directionSource: 'cee' })
   })
 })

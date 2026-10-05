@@ -42,6 +42,7 @@ vi.mock('../../../conversation/ConversationContext', async (importOriginal) => {
 
 import { useEdgeMutations } from '../useInspectorMutations'
 import { useCanvasStore } from '../../../store'
+import { __resetPendingEdgeEditsForTest } from '../../../conversation/pendingEdgeEdit'
 
 /**
  * ⛔ `onSendSettled` IS REQUIRED, AND THESE CALLS ARE WHY THAT IS WORTH THE CHURN.
@@ -110,6 +111,8 @@ function readEdge(id: string) {
 beforeEach(() => {
   sendSystemEvent.mockClear()
   providerMounted = true
+  // The pending-edit register is module state: a row's in-flight edit must not make the next row's link unsettled.
+  __resetPendingEdgeEditsForTest()
 })
 
 describe('setStrength: the value the server already states is not an edit', () => {
@@ -154,5 +157,45 @@ describe('setStrength: the value the server already states is not an edit', () =
     expect(result.current.setStrength(mean, { onSendSettled: noSettlementExpectedHere })).toBe('dispatched')
     expect(readEdge(EDGE)?.data).toMatchObject({ weight: Math.abs(mean), weightSource: 'user' })
     expect(sendSystemEvent.mock.calls[0]?.[1]).toMatchObject({ optimisticEdgeEdit: { edgeId: EDGE, sentMagnitude: Math.abs(mean) } })
+  })
+})
+
+/**
+ * ⭐ THE SERVER'S VALUE CHOSEN OVER AN UNSETTLED CANVAS IS A RESTORATION, NOT AGREEMENT (Codex on #2489 @c23042b5, P1).
+ * The server holds 0.4; 0.75 is on the wire (or shown local-only); the user picks 0.4. The canvas must move back, the
+ * send must carry its optimistic carrier (so a queued one is rebased at dispatch), and no `'user'` stamp is minted.
+ */
+describe('setStrength: the server\'s value over an unsettled canvas is a restoration', () => {
+  it.each([
+    ['magnitude, direction preserved', true],
+    ['signed, direction restated', false],
+  ])('RED: 0.75 on the wire, then 0.4 (%s) → the canvas moves back with its carrier, the stamps put back', (_name, preserveDirection) => {
+    seed({ ...PRODUCER_DATA, weightSource: 'cee', directionSource: 'cee' })
+    const { result } = renderHook(() => useEdgeMutations(EDGE))
+    expect(result.current.setStrength(0.75, { preserveDirection, onSendSettled: noSettlementExpectedHere })).toBe('dispatched')
+    expect(readEdge(EDGE)?.data).toMatchObject({ weight: 0.75, weightSource: 'user' })
+
+    expect(result.current.setStrength(0.4, { preserveDirection, onSendSettled: noSettlementExpectedHere })).toBe('dispatched')
+    expect(readEdge(EDGE)?.data).toMatchObject({ weight: 0.4, weightSource: 'cee', directionSource: 'cee', direction: 'positive' })
+    expect(sendSystemEvent).toHaveBeenCalledTimes(2)
+    expect(dispatchedEvent(1).payload).toMatchObject({ from: 'fac_price', to: 'goal_revenue', intent: 'set', magnitude: 0.4, expected: { mean: 0.4, effect_direction: 'positive' } })
+    expect(sendSystemEvent.mock.calls[1]?.[1]).toMatchObject({ optimisticEdgeEdit: { edgeId: EDGE, sentMagnitude: 0.4 } })
+    expect(readEdge(OTHER_EDGE)?.data).toEqual(PRODUCER_DATA)
+  })
+
+  it('RED: a LOCAL-ONLY divergence (0.75 shown, nothing pending, server 0.4) → back to 0.4, stamps left as they stand', () => {
+    seed({ ...PRODUCER_DATA, weight: 0.75, weightSource: 'cee' })
+    const { result } = renderHook(() => useEdgeMutations(EDGE))
+    expect(result.current.setStrength(0.4, { preserveDirection: true, onSendSettled: noSettlementExpectedHere })).toBe('dispatched')
+    expect(readEdge(EDGE)?.data).toMatchObject({ weight: 0.4, weightSource: 'cee' })
+    expect(sendSystemEvent.mock.calls[0]?.[1]).toMatchObject({ optimisticEdgeEdit: { edgeId: EDGE, sentMagnitude: 0.4 } })
+  })
+
+  it('RED: …and with NO carrier the restoration still lands on the canvas (local_only)', () => {
+    providerMounted = false
+    seed({ ...PRODUCER_DATA, weight: 0.75, weightSource: 'cee' })
+    const { result } = renderHook(() => useEdgeMutations(EDGE))
+    expect(result.current.setStrength(0.4, { preserveDirection: true, onSendSettled: noSettlementExpectedHere })).toBe('local_only')
+    expect(readEdge(EDGE)?.data).toMatchObject({ weight: 0.4, weightSource: 'cee' })
   })
 })

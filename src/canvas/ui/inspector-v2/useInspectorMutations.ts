@@ -10,7 +10,12 @@ import { useCanvasStore } from '../../store'
 import type { RiskImpact } from '../../domain/nodes'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
 import { settleSystemEventSend } from '../../conversation/settleSystemEventSend'
-import { markEdgeEditInFlight, resolveEdgeEditSettlement } from '../../conversation/pendingEdgeEdit'
+import {
+  edgeShowsServerStatedStrength,
+  markEdgeEditInFlight,
+  pendingEdgeStrengthEditBefore,
+  resolveEdgeEditSettlement,
+} from '../../conversation/pendingEdgeEdit'
 import type { SystemEventSendSettlement, SystemEventSendSettlementDetail } from '../../conversation/settleSystemEventSend'
 import {
   buildEdgeStrengthEditEvent,
@@ -1166,11 +1171,23 @@ export function useEdgeMutations(edgeId: string) {
     // confirmed only by "the model shows the sent magnitude" — which an unchanged value always does — kept "User
     // edited" on a write the server refused. It is still SENT, without the optimistic write, so CEE's own sentence
     // ("Confirm the current strength explicitly…") answers the user; nothing local is claimed. No carrier: nothing.
-    if (event !== null && edgeStrengthEditChangesNothing(event)) {
+    // ⚠ ONLY ON A SETTLED LINK (Codex #2489 P1). With the canvas off the server's value — an edit on the wire, or a
+    // local-only one — the same number is a RESTORATION: it takes the edit path below, so the canvas moves back and
+    // a queued send is rebased, but it re-mints no `'user'` stamp (`restoring`).
+    const restoring = event !== null && edgeStrengthEditChangesNothing(event)
+    if (restoring && edgeShowsServerStatedStrength(edge)) {
       if (!sendSystemEvent) return 'not_encodable'
       settleSystemEventSend(sendSystemEvent(event), opts?.onSendSettled)
       return 'dispatched'
     }
+    // A restoration puts back the stamps the server's value had before the pending edit (its `before`); with none
+    // pending, it leaves the stamps as they stand. Explicit `undefined` for an absent key: the store merges.
+    const pendingBefore = restoring ? pendingEdgeStrengthEditBefore(edgeId) : null
+    const stamps: Record<string, unknown> = !restoring
+      ? { weightSource: 'user', ...(opts?.preserveDirection ? {} : { directionSource: 'user' }) }
+      : pendingBefore
+        ? { weightSource: pendingBefore.weightSource, ...(opts?.preserveDirection ? {} : { directionSource: pendingBefore.directionSource }) }
+        : {}
     updateEdge(edgeId, {
       data: {
         ...edge.data,
@@ -1185,8 +1202,8 @@ export function useEdgeMutations(edgeId: string) {
         // a magnitude edit must not mint a direction claim (ROADMAP 2.263).
         ...(opts?.preserveDirection
           ? {}
-          : { direction: mean >= 0 ? 'positive' : 'negative', directionSource: 'user' }),
-        weightSource: 'user',
+          : { direction: mean >= 0 ? 'positive' : 'negative' }),
+        ...stamps,
       },
     })
 

@@ -139,6 +139,7 @@ import {
 } from '../ui/inspector-v2/useInspectorMutations'
 import { buildFactorValueEditEvent } from '../conversation/factorValueEdit'
 import { buildEdgeStrengthEditEvent, buildEdgeStrengthConfirmEvent } from '../conversation/edgeStrengthEdit'
+import { edgeStillShowsReview, type ReviewedEdgeStrength } from '../conversation/pendingEdgeEdit'
 import { captureOptimisticFactorEdit } from '../conversation/optimisticFactorEdit'
 import { USER_VALUE_STAMP } from '../domain/valueProvenance'
 import {
@@ -375,6 +376,9 @@ export type OptionInterventionSendSettlement = SystemEventSendSettlement
  */
 export type EdgeStrengthProposalOutcome = EdgeStrengthCommitOutcome | 'refused_unassertable'
 
+/** A confirmation's outcome, plus the one refusal a REVIEWED confirmation adds: the link moved since the Review. */
+export type ReviewedEdgeStrengthConfirmOutcome = EdgeStrengthConfirmOutcome | 'moved_since_review'
+
 /**
  * The outcome of ratifying a strength the server already holds.
  *
@@ -469,8 +473,11 @@ export interface ModelEditAuthorityLive {
    */
   proposeEdgeStrengthConfirmation: (
     edgeId: string,
-    opts?: { onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void },
-  ) => EdgeStrengthConfirmOutcome
+    opts?: {
+      onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void
+      reviewed?: ReviewedEdgeStrength
+    },
+  ) => ReviewedEdgeStrengthConfirmOutcome
   proposeEdgeStrength: (
     edgeId: string,
     signedMean: number,
@@ -988,13 +995,19 @@ export function useModelEditAuthority(
          * that state has no way to end.
          */
         onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void
+        /**
+         * What the Review showed (Codex #2489 P1). The confirmation ratifies THAT: a link whose endpoints or server
+         * tuple moved since, or that is no longer settled, is refused visibly (`moved_since_review`), never re-read.
+         */
+        reviewed?: ReviewedEdgeStrength
       },
-    ): EdgeStrengthConfirmOutcome => {
+    ): ReviewedEdgeStrengthConfirmOutcome => {
       // Keyed to ONE edge, same fail-closed rule as `proposeEdgeStrength`: an id
       // that is not the active edge is a caller holding the wrong authority.
       if (activeEdgeId === null || edgeId !== activeEdgeId) return 'not_encodable'
       const edge = useCanvasStore.getState().edges.find(e => e.id === edgeId)
       if (!edge) return 'not_encodable'
+      if (opts?.reviewed !== undefined && !edgeStillShowsReview(edge, opts.reviewed)) return 'moved_since_review'
 
       const event = buildEdgeStrengthConfirmEvent({ edge })
       if (!event) return 'refused_unassertable'

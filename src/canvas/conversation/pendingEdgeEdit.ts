@@ -189,6 +189,69 @@ export function unconfirmedEdgeEditOnGraph(edges: ReadonlyArray<{ id?: unknown; 
   return null
 }
 
+/**
+ * ⭐ IS THIS LINK SETTLED — does the canvas show exactly the strength the server states, with no edit of its own
+ * pending? (Codex on DGAI #2489 @c23042b5, P1.) Only then is choosing the server's value AGREEMENT. Otherwise it is a
+ * RESTORATION — the server holds 0.4, 0.75 is on the wire, the user picks 0.4 — and the canvas must move back, through
+ * the edit path's supersession, rebase and settlement, rather than be left showing 0.75.
+ * A `direction` the canvas does not state is not a disagreement (a magnitude-only link).
+ */
+export function edgeShowsServerStatedStrength(edge: { id?: unknown; data?: unknown } | undefined): boolean {
+  if (!edge || typeof edge.id !== 'string') return false
+  if (inFlight.has(entryKey(edge.id, 'strength')) || inFlight.has(entryKey(edge.id, 'direction'))) return false
+  const data = edge.data as Record<string, unknown> | undefined
+  const stated = serverStatedStrengthOf(data)
+  if (!stated || edgeMagnitudeOf(edge) !== Math.abs(stated.mean)) return false
+  return data?.direction === undefined || data.direction === stated.effect_direction
+}
+
+/**
+ * The data a pending STRENGTH edit on `edgeId` keeps from before the edits now on the wire — what the server held —
+ * or `null` when none is pending. A restoration puts back its provenance stamps rather than minting `'user'`.
+ */
+export function pendingEdgeStrengthEditBefore(edgeId: string): Readonly<Record<string, unknown>> | null {
+  return inFlight.get(entryKey(edgeId, 'strength'))?.before ?? null
+}
+
+/**
+ * What a Model-tab Review showed for a link, captured with its "from" (Codex #2489 P1): the endpoints, the server's
+ * tuple and whether the canvas then showed exactly that. A confirmation ratifies THIS, never a re-read of the link.
+ */
+export interface ReviewedEdgeStrength {
+  readonly from: string
+  readonly to: string
+  readonly mean: number
+  readonly effect_direction: 'positive' | 'negative'
+  readonly settled: boolean
+}
+
+export function reviewedEdgeStrengthOf(
+  edge: { id?: unknown; source?: unknown; target?: unknown; data?: unknown } | undefined,
+): ReviewedEdgeStrength | null {
+  if (!edge || typeof edge.source !== 'string' || typeof edge.target !== 'string') return null
+  const stated = serverStatedStrengthOf(edge.data as Record<string, unknown> | undefined)
+  if (!stated) return null
+  return {
+    from: edge.source,
+    to: edge.target,
+    mean: stated.mean,
+    effect_direction: stated.effect_direction,
+    settled: edgeShowsServerStatedStrength(edge),
+  }
+}
+
+/** Does the link still show exactly what a settled Review showed — same endpoints, same server tuple, still settled? */
+export function edgeStillShowsReview(
+  edge: { id?: unknown; source?: unknown; target?: unknown; data?: unknown } | undefined,
+  reviewed: ReviewedEdgeStrength,
+): boolean {
+  const now = reviewedEdgeStrengthOf(edge)
+  return (
+    now !== null && reviewed.settled && now.settled &&
+    now.from === reviewed.from && now.to === reviewed.to &&
+    now.mean === reviewed.mean && now.effect_direction === reviewed.effect_direction
+  )
+}
 
 /**
  * `current` with the keys the strength write touches put back as they were in
