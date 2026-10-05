@@ -19,7 +19,7 @@
  */
 import { expect, test, type Page, type Request } from '@playwright/test'
 import { enterAsGuest, installWireInterceptor, ORIGIN, renderedNodeIds, submitBrief, waitForDraftTurnComplete } from '../lib/harness'
-import { browserStorage, scenarioIdFromUrl, scenarioRowAsService, scenariosVisibleTo, storedRead, writeEvidence } from './lib/journey'
+import { browserStorage, ledger, scenarioIdFromUrl, scenarioRowAsService, scenariosVisibleTo, storedRead, writeEvidence } from './lib/journey'
 
 const BRIEF =
   'We are a B2B software company with £120,000 monthly recurring revenue from 400 customers paying £300 a month. ' +
@@ -77,16 +77,32 @@ async function draft(page: Page): Promise<{ S: string; nodes: string[] }> {
   return { S: scenarioIdFromUrl(page.url())!, nodes: (await renderedNodeIds(page)).sort() }
 }
 
+/**
+ * The isolation drafts replay J1's frozen set. Every LLM call after the reuse switch must have
+ * been served from it (hit / hit_reuse); a drift or miss means the product ran on a refusal, so
+ * the row could not measure (run 37325381283: the GUEST draft's second call carries a function
+ * call item J1's signed-in recording does not, so it drifts; a guest recording is DL-gated).
+ */
+function assertIsolationBoundaryClean(label: string): void {
+  const rows = ledger()
+  const from = rows.findIndex((r) => r.outcome === 'reuse_enabled')
+  const bad = rows.slice(from + 1).filter((r) => r.outcome !== 'hit' && r.outcome !== 'hit_reuse')
+  if (from < 0 || bad.length) {
+    throw new Error(`[${label}] COULD NOT MEASURE: ${from < 0 ? 'reuse was never enabled' : `${bad.length} LLM call(s) not served from the frozen set (first: #${bad[0].seq} ${bad[0].outcome})`}`)
+  }
+}
+
 const storageNaming = async (page: Page, needle: string): Promise<string[]> =>
   Object.entries(await browserStorage(page)).filter(([k, v]) => k.includes(needle) || v.includes(needle)).map(([k]) => k)
 
 // Not serial: the two rows share nothing, so one failing must not skip the other
 // (231ad3ec run 37315190922: ISO-1 failed and serial mode never ran ISO-2).
 test.describe('ISO · same browser, two accounts', () => {
-  const ev: Record<string, unknown> = {}
-  test.afterAll(() => writeEvidence('ISO-same-browser.json', ev))
+  // Evidence is per test, written in each test's finally: a failed test restarts the worker, and
+  // a describe-level afterAll in the next worker overwrote ISO-1's evidence with {} (run 37325381283).
 
   test('ISO-1 · A signs out, B signs in: no snapshot, coaching, storage or register crosses (Core Platform + Red-team A1–A3)', async ({ browser }) => {
+    const ev: Record<string, unknown> = {}
     const A = await localUser('a')
     const B = await localUser('b')
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
@@ -109,6 +125,7 @@ test.describe('ISO · same browser, two accounts', () => {
       // ── A, tab 1: a model, a named snapshot, coaching. ──
       await signInViaForm(tab1, A)
       const { S, nodes } = await draft(tab1)
+      assertIsolationBoundaryClean('ISO-1')
       const sentinel = `ISO-SENTINEL-${Date.now().toString(36)}`
       await tab1.getByRole('button', { name: 'More options' }).click()
       await tab1.getByTestId('kebab-snapshots').click()
@@ -196,11 +213,13 @@ test.describe('ISO · same browser, two accounts', () => {
       }
       ev.iso1 = { S, sentinel, registers: registers.length, crossed: crossed.length }
     } finally {
+      writeEvidence('ISO-1.json', ev)
       await ctx.close()
     }
   })
 
   test('ISO-2 · guest → sign in as A: exactly one owned copy, guest row untouched, no transcript (Red-team A4, Core Platform ruling)', async ({ browser }) => {
+    const ev: Record<string, unknown> = {}
     const A = await localUser('a4')
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
     const page = await ctx.newPage()
@@ -211,6 +230,7 @@ test.describe('ISO · same browser, two accounts', () => {
       await enterAsGuest(page)
       await submitBrief(page, BRIEF)
       await waitForDraftTurnComplete(page, { timeoutMs: 420_000 })
+      assertIsolationBoundaryClean('ISO-2')
       const guestId = await page.evaluate(() => localStorage.getItem('olumi-canvas-current-scenario-id'))
       expect(guestId, '[ISO-2 control] the guest model has no scenario id').toMatch(/^[0-9a-f-]{36}$/)
       // The guest row, read with the LOCAL job's service role (no user token can read it).
@@ -232,14 +252,23 @@ test.describe('ISO · same browser, two accounts', () => {
 
       // Re-sign-in makes no second copy.
       await signOut(page)
-      const second = page.evaluate(() => new Promise((res) => window.addEventListener('accounts:guest-copied', () => res(true), { once: true })))
+      // A window flag, never a pending page.evaluate (one held the test to its 900 s timeout).
+      await page.evaluate(() => {
+        const w = window as unknown as { __isoSecondCopy?: boolean }
+        w.__isoSecondCopy = false
+        window.addEventListener('accounts:guest-copied', () => { w.__isoSecondCopy = true }, { once: true })
+      })
       await signInViaForm(page, A)
       await expect(page.getByRole('button', { name: 'Account menu' }), '[ISO-2] the re-sign-in never rendered signed in').toBeVisible({ timeout: 60_000 })
-      const secondCopy = await Promise.race([second, new Promise((r) => setTimeout(() => r(false), 15_000))])
-      expect(secondCopy, '[ISO-2] the re-sign-in fired a second guest copy').toBe(false)
+      await page.waitForTimeout(15_000)
+      const secondCopy = await page.evaluate(() => (window as unknown as { __isoSecondCopy?: boolean }).__isoSecondCopy)
+      // undefined = the document was replaced, so the listener is gone: the REST count below still measures.
+      ev.iso2_second_copy_event = secondCopy ?? 'UNMEASURED (document replaced)'
+      expect(secondCopy === true, '[ISO-2] the re-sign-in fired a second guest copy').toBe(false)
       expect((await scenariosVisibleTo(A.accessToken)).ids, '[ISO-2] a re-sign-in made a second copy').toEqual([detail.scenarioId])
       ev.iso2 = { guestId, copy: detail.scenarioId, owned: owned.length }
     } finally {
+      writeEvidence('ISO-2.json', ev)
       await ctx.close()
     }
   })

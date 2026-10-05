@@ -343,6 +343,9 @@ jobs:
       - name: X7 · schema seam (migration allow-list + schema assert)
         if: always()
         run: |
+          # This step decides red itself (red=1 → exit 1). GitHub runs it under `bash -e`, where a
+          # grep that selects nothing (an empty known list) killed it silently: run 37325381283.
+          set +e
           set -uo pipefail
           V="$J1/logs/X7-MIGRATIONS.txt"; A="$J1/logs/SCHEMA-ASSERT.tsv"; red=0
           {
@@ -361,7 +364,7 @@ jobs:
           # printed in EVERY summary with their owner. A REQUIRED FAIL, an unlisted FAIL, a STALE
           # known row (it no longer fails: delete it) or no measurement is red.
           K="$GITHUB_WORKSPACE/dgai/e2e/core/journey/stack/expected-security.tsv"
-          KN="$(mktemp)"; grep -v '^#' "$K" | sed '/^$/d' > "$KN"
+          KN="$(mktemp)"; { grep -v '^#' "$K" || true; } | sed '/^$/d' > "$KN"
           if [ ! -s "$A" ]; then
             echo "::error::X7: the schema assert was not measured"; red=1
           else
