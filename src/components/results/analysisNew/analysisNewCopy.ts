@@ -273,6 +273,49 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
   // AIQ #72 5886555442. The ‹label› parenthetical waits for Canonical's carrier to name the option ids.
   options_not_reconciled_with_brief:
     "Olumi added an option your brief didn't name, so this run doesn't put one forward. You can remove it and re-run.",
+  /**
+   * CEE's intake reconciliation (a8, #87 6002009604; DL ruling): the saved model has not established that its options
+   * are the ones the brief lists. Science d5's words, first sentence only: the "confirm" action ships once a route
+   * actually clears the state.
+   */
+  intake_identity_unverified:
+    'Olumi isn’t naming an option yet: it hasn’t confirmed that the model’s options are the ones your brief lists.',
+  /** The brief lists an option the model does not carry. Label-free until a typed carrier names it (Science d5). */
+  intake_options_missing:
+    'Olumi isn’t naming an option yet: your brief lists at least one option that isn’t in the model.',
+}
+
+/**
+ * MC P0's every-Run withhold: a link on a compared option's path to the goal that nobody sized. The claim carries only
+ * this code; the link's two ends come from the same Run's typed `GOAL_FIGURES_PLACEHOLDER_PATH` warning
+ * (`node_ids[0]` → `node_ids[1]`, MC github-21).
+ */
+export const GOAL_PATH_UNSIZED_CAUSE = 'goal_path_unsized'
+
+/**
+ * Science d5's sentence for `goal_path_unsized`, naming the failing link's own ends, or null when they cannot be named
+ * (no such warning, fewer than two ends, or an end with no display label); the caller then keeps its generic line.
+ * No "(and N other links)" clause: the warning carries no count, and a guessed count is never shown (Science d5).
+ */
+export function goalPathUnsizedCause(
+  inferenceWarnings: unknown,
+  labelOf: (nodeId: string) => string | null | undefined,
+): string | null {
+  if (!Array.isArray(inferenceWarnings)) return null
+  const warning = inferenceWarnings.find((w): w is { node_ids: unknown[] } =>
+    w !== null && typeof w === 'object' && (w as { code?: unknown }).code === 'GOAL_FIGURES_PLACEHOLDER_PATH'
+    && Array.isArray((w as { node_ids?: unknown }).node_ids))
+  const ids = warning?.node_ids
+  if (!ids || typeof ids[0] !== 'string' || typeof ids[1] !== 'string') return null
+  const label = (id: string): string | null => {
+    const raw = labelOf(id)
+    const text = typeof raw === 'string' ? raw.trim() : ''
+    return text.length > 0 && text.length <= 120 ? text : null
+  }
+  const from = label(ids[0])
+  const to = label(ids[1])
+  if (from === null || to === null) return null
+  return `Olumi hasn’t sized how ‘${from}’ moves ‘${to}’, so it isn’t naming an option on this run. Give a figure for that link and Olumi will use it.`
 }
 
 /**
@@ -2961,10 +3004,15 @@ const ADMISSION_EXPLAINS_THE_WITHHOLD: ReadonlySet<string> = new Set([
 export function withheldLeaderCause(
   producerReason: string | null | undefined,
   refusalAsksForAnEstimate: boolean,
+  /** For `goal_path_unsized` only: the Run's warnings and a node-label lookup, to name the unsized link. */
+  unsizedLink?: { inferenceWarnings: unknown; labelOf: (nodeId: string) => string | null | undefined },
 ): string | null {
   const token = typeof producerReason === 'string' ? producerReason.trim() : ''
   if (refusalAsksForAnEstimate && ADMISSION_EXPLAINS_THE_WITHHOLD.has(token)) {
     return LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS
+  }
+  if (token === GOAL_PATH_UNSIZED_CAUSE) {
+    return unsizedLink ? goalPathUnsizedCause(unsizedLink.inferenceWarnings, unsizedLink.labelOf) : null
   }
   return leaderWithholdCause(producerReason)
 }

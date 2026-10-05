@@ -3652,6 +3652,8 @@ function buildChecks(
    * evidence either way and must not earn a suppression.
    */
   staleReason: 'changed' | 'unconfirmed' | null | undefined,
+  /** Canvas labels, so a `goal_path_unsized` withhold can name its link (`withheldLeaderCause`). */
+  nodeLabels?: ReadonlyMap<string, string>,
 ): AnalysisNewViewModel['checks'] {
   const rec = data.recommendation
   const conf = data.confidence
@@ -3784,7 +3786,10 @@ function buildChecks(
       ? null
       : // One rule for every surface; see `withheldLeaderCause`. It is handed the
         // narrow refusal (one that asks for an estimate), never any refusal.
-        withheldLeaderCause(producerWithholdReason, refusalAsksForAnEstimate)
+        withheldLeaderCause(producerWithholdReason, refusalAsksForAnEstimate, {
+          inferenceWarnings: conf?.inferenceWarnings,
+          labelOf: (nodeId) => nodeLabels?.get(nodeId) ?? null,
+        })
   /*
    * ⚠ A NAMEABLE CAUSE IS NOT ALWAYS A DURABLE ONE. `constraint_verdict_withheld`
    * covers the automatic first pass's own policy, and an explicit Run on the
@@ -4153,7 +4158,7 @@ export function buildAnalysisNewViewModel(
         // decide whether a re-run could help, and pre-run there is no result
         // for it to be about.
         { items: [], leaderWithholdCause: null, leaderWithheld: false, leaderWithholdDetail: null, sharesExcludeLimits: false, firstPassWithheld: false, rerunWouldNotHelp: false }
-      : buildChecks(data, inputs.producerLeaderWithholdReason, inputs.staleReason),
+      : buildChecks(data, inputs.producerLeaderWithholdReason, inputs.staleReason, inputs.nodeLabels),
   }
 }
 
