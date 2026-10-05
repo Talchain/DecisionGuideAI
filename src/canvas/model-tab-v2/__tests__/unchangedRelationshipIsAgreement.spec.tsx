@@ -157,14 +157,6 @@ function storedEdgeData(id: string): Record<string, unknown> {
   return (e?.data ?? {}) as Record<string, unknown>
 }
 
-/** Every `edge_strength_edit` payload sent, bound to its edge by ENDPOINTS. */
-function strengthEditsFor(source: string): Record<string, unknown>[] {
-  return sendSystemEvent.mock.calls
-    .map(c => c[0] as { type?: string; payload?: Record<string, unknown> })
-    .filter(e => e?.type === 'edge_strength_edit' && e.payload?.from === source)
-    .map(e => e.payload as Record<string, unknown>)
-}
-
 function renderPanel() {
   render(<ModelTabV2Panel nodes={allNodes()} edges={allEdges()} goalThreshold={null} />)
   openOutlineGroups()

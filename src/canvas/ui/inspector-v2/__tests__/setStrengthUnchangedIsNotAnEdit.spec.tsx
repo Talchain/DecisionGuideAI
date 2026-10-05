@@ -82,13 +82,6 @@ const PRODUCER_DATA = {
   direction: 'positive' as const,
 }
 
-/**
- * An edge whose weight is the UI FALLTHROUGH (`DEFAULT_EDGE_DATA.weight = 0.5`)
- * with no source stamp and no producer-only raw field — so `expected` cannot be
- * asserted about the server.
- */
-const DEFAULTED_DATA = { weight: 0.5, direction: 'positive' as const }
-
 function seed(edgeData: Record<string, unknown>) {
   useCanvasStore.setState(
     {
