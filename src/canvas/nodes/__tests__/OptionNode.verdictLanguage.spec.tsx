@@ -46,12 +46,12 @@
  *      i.e. the string the doctrine bans was executing in front of users.
  *
  * ── WHY THE ASSERTION BINDS BY IDENTITY (trap 19) ────────────────────────
- * The label "What would change this?" is NOT unique — the non-leader close-call
- * branch (`option_what_would_change_close_call`) uses the identical label with a
- * different message. Binding on label text alone would let this pin pass on the
- * wrong chip. Every assertion here therefore keys on the dispatched
- * `parameters.chip_id`, which is the chip's stable wire identity, and the
- * discrimination test below proves the pin can tell the two apart.
+ * Until 5 Oct 2026 (R1) the label "What would change this?" was NOT unique: the
+ * non-leader close-call branch (`option_what_would_change_close_call`) shared it,
+ * and so did the Reasoning-tab button. The labels now differ, but label text is
+ * still not trusted as identity. Every assertion here keys on the dispatched
+ * `parameters.chip_id`, the chip's stable wire identity, and the discrimination
+ * test below proves the pin can tell the two apart.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -220,7 +220,7 @@ describe('OptionNode leader chip — no SYSTEM VERDICT in the user\'s transcript
 
   it('composes a CONTRASTIVE flip question, presupposing no verdict about the leader', () => {
     renderPostAnalysisOption('option-1', 0.72)
-    const dispatched = clickChipsAndCollect('What would change this?')
+    const dispatched = clickChipsAndCollect('What would put another option ahead?')
 
     // Precondition pin (trap 13b third face): the fixture must actually have
     // reproduced the leader branch. Without this, the copy assertion below could
@@ -235,7 +235,7 @@ describe('OptionNode leader chip — no SYSTEM VERDICT in the user\'s transcript
 
   it('never sends a crowning verdict — "best choice"/"best option" cannot reach the transcript', () => {
     renderPostAnalysisOption('option-1', 0.72)
-    const dispatched = clickChipsAndCollect('What would change this?')
+    const dispatched = clickChipsAndCollect('What would put another option ahead?')
 
     expect(Object.keys(dispatched)).toContain('option_what_would_change')
     const chip = dispatched['option_what_would_change']
@@ -246,14 +246,15 @@ describe('OptionNode leader chip — no SYSTEM VERDICT in the user\'s transcript
   })
 
   /**
-   * DISCRIMINATING PAIR (trap 19). The leader chip and the close-call chip share
-   * the label "What would change this?". This test renders the NON-leader and
-   * proves the harness resolves a DIFFERENT chip_id with a DIFFERENT message —
-   * so a green result above cannot have come from the wrong object.
+   * DISCRIMINATING PAIR (trap 19). The leader chip and the close-call chip are
+   * the same what_would_flip family (they shared one label until R1). This test
+   * renders the NON-leader and proves the harness resolves a DIFFERENT chip_id
+   * with a DIFFERENT message — so a green result above cannot have come from the
+   * wrong object.
    */
-  it('binds to the leader chip by identity, not by its label (the close-call chip shares it)', () => {
+  it('binds to the leader chip by identity: the non-leader resolves the close-call chip instead', () => {
     renderPostAnalysisOption('option-2', 0.7)
-    const dispatched = clickChipsAndCollect('What would change this?')
+    const dispatched = clickChipsAndCollect('What would put this option ahead?')
 
     expect(Object.keys(dispatched)).toContain('option_what_would_change_close_call')
     expect(Object.keys(dispatched)).not.toContain('option_what_would_change')
@@ -261,5 +262,26 @@ describe('OptionNode leader chip — no SYSTEM VERDICT in the user\'s transcript
     expect(dispatched['option_what_would_change_close_call'].message).toBe(
       `What would need to be true for ${OPTION_LABEL} to be the better choice?`
     )
+  })
+
+  /**
+   * R1 (5 Oct 2026, 10:51Z). An acceptance press meant for the Reasoning tab's
+   * "What would change this?" button (chip `agent-next-what-would-change`, a
+   * 0-LLM typed press) landed on THIS card's chip instead, because both carried
+   * that label, and this chip sends free text to the LLM. So no option chip may
+   * carry the Reasoning tab's label. Each case first proves its own chip row
+   * rendered (positive twin), so the absence cannot pass on an empty card.
+   */
+  it.each([
+    ['leader', 'option-1', 0.72, 'What would put another option ahead?', 'option_what_would_change'],
+    ['close-call non-leader', 'option-2', 0.7, 'What would put this option ahead?', 'option_what_would_change_close_call'],
+  ] as const)('the %s card never offers the Reasoning-tab label "What would change this?"', (_case, nodeId, winRate, ownLabel, ownId) => {
+    renderPostAnalysisOption(nodeId, winRate)
+    // Positive twin first: this card's own chip rendered...
+    expect(screen.getByRole('button', { name: ownLabel })).toBeTruthy()
+    // ...and, before any click can re-render the card, the Reasoning-tab label is absent.
+    expect(screen.queryByRole('button', { name: 'What would change this?' })).toBeNull()
+    // The rendered chip is the one this case names (identity, not label).
+    expect(Object.keys(clickChipsAndCollect(ownLabel))).toContain(ownId)
   })
 })

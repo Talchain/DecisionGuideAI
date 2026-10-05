@@ -616,7 +616,7 @@ describe('resolveNodeCoaching — behaviour parity with the pristine per-node se
     expect(out).toEqual([
       {
         id: 'option_what_would_change',
-        label: 'What would change this?',
+        label: 'What would put another option ahead?',
         message: 'What would need to change for another option to be better supported than Build in-house?',
         actionType: 'what_would_flip',
       },
@@ -658,7 +658,7 @@ describe('resolveNodeCoaching — behaviour parity with the pristine per-node se
     ).toEqual([
       {
         id: 'option_what_would_change_close_call',
-        label: 'What would change this?',
+        label: 'What would put this option ahead?',
         message: 'What would need to be true for Build in-house to be the better choice?',
         actionType: 'what_would_flip',
       },

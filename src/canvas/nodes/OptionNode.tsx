@@ -842,7 +842,7 @@ export const OptionNode = memo((props: NodeProps) => {
   //
   // ⭐ PREDICATE ONLY SINCE 2026-08-10 — the number is NEVER RENDERED. It
   // decides two things: whether the qualitative "Close call" marker shows, and
-  // whether the extra "What would change this?" chip is offered. The 5pp
+  // whether the extra "What would put this option ahead?" chip is offered. The 5pp
   // window and the 1pp floor are kept exactly as they were, so the set of runs
   // that qualify is provably unchanged by this retirement; only the sentence
   // moved. Do not reintroduce it into copy.
