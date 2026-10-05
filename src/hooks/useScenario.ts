@@ -866,6 +866,7 @@ export function useScenario(): UseScenarioReturn {
           // non-empty canvas, and CEE's read would be refused or merged into the
           // wrong model. The model and its Run then arrive from CEE's member read.
           useCanvasStore.getState().hydrateGraphSlice({ nodes: [], edges: [], currentScenarioId: id })
+          scenarios.setCurrentScenarioId(id) // the pointer follows the store (P0, see the owner branch below)
           useCanvasStore.setState({
             currentScenarioFraming: null,
             isDirty: false,
@@ -979,6 +980,10 @@ export function useScenario(): UseScenarioReturn {
         currentScenarioId: row.id,
         goalConstraints: loadedGoalConstraints,
       })
+      // ⛔ P0 (5 Oct 2026): the disk pointer follows the store. Without it, a switch left the pointer on the previous
+      // scenario while the autosave was stamped with this one, and the next cold boot bound this scenario's bytes to
+      // the previous id (`hydrate/__tests__/bootSlotOwner.p0.spec.ts`).
+      scenarios.setCurrentScenarioId(row.id)
 
       // Hydrate framing + stage.
       // Also unconditionally clear analysis freshness fields — hydrateGraphSlice
