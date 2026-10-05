@@ -183,6 +183,11 @@ const PRODUCER_ATTRIBUTION: ReadonlyArray<{
   { reason: 'parallel_causal_link_conflict', kind: 'conflict_resolved_conservatively', statedByUser: false, because: '`claim_kind: "causal_link"` (projector.ts:3779)' },
   { reason: 'constraint_direction_unstated', kind: 'conflict_resolved_conservatively', statedByUser: true, because: '`claim_kind: "stated_item"`, `label: quote` (projector.ts:2429-2434)' },
 
+  // ── stated_relationship_not_used (schemas 0.77.0) — UNANIMOUSLY the user's, by the contract's definition ─────────
+  // Contract-declared, producer pending (see `producerNoticeReasons.ts`); the member exists BECAUSE such a row could only be
+  // counted under `relationship_not_used`, which attributes it to Olumi.
+  { reason: 'contract:stated_relationship_not_used', kind: 'stated_relationship_not_used', statedByUser: true, because: 'contract (b0378e7f): "A relationship THE USER STATED that the model could not use as written"' },
+
   // ── target_not_modelled_as_threshold — UNANIMOUSLY the user's ─────────────
   { reason: 'stated_target_not_represented_as_threshold', kind: 'target_not_modelled_as_threshold', statedByUser: true, because: '`claim_kind: "stated_item"`, `label: quote` (projector.ts:2618-2626)' },
   { reason: 'stated_target_value_dropped', kind: 'target_not_modelled_as_threshold', statedByUser: true, because: 'same emission site, same `claim_kind`' },
@@ -201,7 +206,7 @@ const unanimouslyUserStated = (kind: ModelBuildingNoticeKind): boolean => {
 }
 
 describe('model-building notices — ⭐⭐ two hand corpora check each other', () => {
-  it('covers exactly the same 21 producer reasons as the sibling suite', () => {
+  it('covers exactly the same 22 producer reasons as the sibling suite (21 + the 0.77.0 contract row)', () => {
     // Neither list can notice that IT is short. Two independently written lists
     // asking different questions of the same map CAN (trap 12d).
     const mine = PRODUCER_ATTRIBUTION.map((r) => r.reason).sort()
@@ -255,12 +260,14 @@ describe('model-building notices — ⭐⭐ the attribution probe discriminates 
     expect(attributesToUser('Olumi left 4 things out of this model')).toBe(false)
   })
 
-  it('CONTRAST: exactly ONE kind earns a user attribution, and it is the right one', () => {
+  // ⛔ RE-PINNED 5 Oct 2026 (schemas 0.77.0): `stated_relationship_not_used` is the second kind that earns it, BY DESIGN —
+  // it was minted so the user's own stated relationship stops being counted as Olumi's. Still derived from the corpus.
+  it('CONTRAST: exactly TWO kinds earn a user attribution, and they are the right ones', () => {
     const earned = ModelBuildingNoticeKindSchema.options.filter(unanimouslyUserStated)
     // Derived from the corpus, so the expectation cannot be edited to match the
     // code. A probe that returned the same answer for all six would be
     // reporting on itself (trap 13e / trap 20).
-    expect(earned).toEqual(['target_not_modelled_as_threshold'])
+    expect(earned).toEqual(['target_not_modelled_as_threshold', 'stated_relationship_not_used'])
   })
 })
 
@@ -302,15 +309,19 @@ describe('model-building notices — ⭐⭐ row copy attributes only what the pr
 })
 
 describe('model-building notices — ⭐⭐ the omission headline claims no provenance', () => {
-  it('NO absent kind is unanimously the user\'s — so the headline may not attribute', () => {
-    // The invariant the copy rests on, DERIVED rather than assumed. If a future
-    // kind is both `absent` and unanimously stated, this REDs and the headline
-    // becomes re-attributable on purpose rather than by accident.
+  // ⛔ RE-PINNED ON PURPOSE 5 Oct 2026 (schemas 0.77.0), exactly as this row's own comment asked: a kind is now both
+  // `absent` and unanimously stated (`stated_relationship_not_used`). The headline is NOT re-attributed: "Olumi left N
+  // things out of this model" says the ACT of leaving out is Olumi's — true for the user's relationship too — and says
+  // nothing about whose the things are. The row now pins that the headline stays provenance-free for that kind.
+  it('ONE absent kind is unanimously the user\'s — and the headline still attributes only the act, never the things', () => {
     const absentKinds = ModelBuildingNoticeKindSchema.options.filter(
       (k) => modelBuildingNoticeOutcome(k) === 'absent',
     )
     expect(absentKinds.length).toBeGreaterThan(0)
-    expect(absentKinds.filter(unanimouslyUserStated)).toEqual([])
+    expect(absentKinds.filter(unanimouslyUserStated)).toEqual(['stated_relationship_not_used'])
+    const sentence = headline([{ kind: 'stated_relationship_not_used', count: 2 }])
+    expect(sentence).toBe('Olumi left 2 things out of this model')
+    expect(attributesToUser(sentence)).toBe(false)
   })
 
   it('plural: the whole sentence, bound by testid — "4 things" must not pass on "14 things"', () => {

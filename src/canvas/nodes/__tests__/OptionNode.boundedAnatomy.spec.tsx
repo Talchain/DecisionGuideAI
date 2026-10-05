@@ -382,12 +382,14 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
   })
 
   describe('the baseline', () => {
-    it('pre-run it reads its meta, then — declared, with other options — the reference line', () => {
+    // ⛔ RE-PINNED 5 Oct 2026 (gate 5 item 4, DL 0df0e1): the reference line is dropped; the meta is followed by the slot.
+    it('pre-run it reads its meta, then the share line\'s reserved slot (no reference line)', () => {
       renderCard({ id: 'option-b' })
       const meta = onCard('option-baseline-meta-option-b')
       expect(meta?.textContent).toBe('Baseline option')
       // …then the share line's slot, reserved (empty) before the run so a run never grows the card.
-      expect(bodyLines(meta!)).toEqual([meta, onCard('option-baseline-reference-option-b'), onCard('option-share-slot-option-b')])
+      expect(onCard('option-baseline-reference-option-b')).toBeNull()
+      expect(bodyLines(meta!)).toEqual([meta, onCard('option-share-slot-option-b')])
     })
 
     it('post-run the baseline meta STAYS on the card, above the share line', () => {

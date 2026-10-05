@@ -372,7 +372,10 @@ describe('a SERVER-deleted decision does not come back on the next boot', () => 
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ⚠⚠ ACCEPTANCE CASE 5 — NOT A PASS. THIS IS A PINNED KNOWN GAP.
+ * ⭐ ACCEPTANCE CASE 5 — CLOSED 5 Oct 2026 (P0, CORE PLATFORM). Was a pinned known gap; the text below is kept as
+ * its record. Stamp-first binding (`resolveRestoredScenarioId`) closed it: the case now asserts agreement.
+ *
+ * (Original record:) ACCEPTANCE CASE 5 — NOT A PASS. THIS IS A PINNED KNOWN GAP.
  * ═══════════════════════════════════════════════════════════════════════════
  * The acceptance condition is "displayed graph identity == outbound first-edit
  * identity". IT DOES NOT HOLD on this branch, and this test says so out loud
@@ -407,14 +410,14 @@ describe('a SERVER-deleted decision does not come back on the next boot', () => 
  * Fixing it means changing a precedence this PR deliberately chose, which is a
  * different change from the delete-divergence repair and is NOT attempted here.
  */
-describe('KNOWN GAP — displayed-graph identity and bound identity can disagree', () => {
+describe('ACCEPTANCE CASE 5 (closed P0 5 Oct) — displayed-graph identity and bound identity agree', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.clearAllMocks()
     storeState = {}
   })
 
-  it('pins the divergence: the autosave supplies the graph, the pointer supplies the identity', () => {
+  it('CLOSED (was a pinned gap): the autosave supplies the graph AND the identity', () => {
     // The pointer names STILL_OPEN and has a record; the autosave carries DELETED
     // and is NEWER, so the load-source rule selects the autosave's graph.
     const pointerRecord = scenariosModule.createScenario({
@@ -441,15 +444,9 @@ describe('KNOWN GAP — displayed-graph identity and bound identity can disagree
 
     const bound = bindRestoredScenarioId(currentId, autosave)
 
-    // THE GAP, asserted exactly as it currently behaves.
-    expect(
-      bound,
-      'if this flipped to the autosave id, the gap has been CLOSED — delete this pin and ' +
-        'promote the case to a real acceptance assertion',
-    ).toBe(STILL_OPEN)
-    expect(
-      autosave.scenarioId,
-      'the graph on screen belongs to this decision, while the identity above belongs to another',
-    ).toBe(DELETED)
+    // ⭐ CLOSED 5 Oct 2026 (P0, CORE PLATFORM): promoted from a pinned gap to the acceptance assertion, as this pin
+    // instructed. The bound identity IS the identity of the graph the autosave carries (stamp-first binding).
+    expect(bound, 'displayed graph identity == bound identity').toBe(autosave.scenarioId)
+    expect(bound).toBe(DELETED)
   })
 })
