@@ -24,7 +24,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { expect, test, type BrowserContext, type Page } from '@playwright/test'
 import {
-  enterAuthenticated, installWireInterceptor, mintAndInject, ORIGIN, renderedNodeIds,
+  enterAuthenticated, installWireInterceptor, mintAndInject, openDockTab, ORIGIN, renderedNodeIds,
   submitBrief, waitForDraftTurnComplete, type MintedSession,
 } from '../lib/harness'
 import {
@@ -139,8 +139,10 @@ test.describe.serial('J1 · whole PoC', () => {
     writeEvidence('J0-tuple.json', t)
     const v = await (await request.get(`${ORIGIN}/version.json`)).json()
     expect(v.commit, '[J0] the UI is not serving the DGAI checkout').toBe(t.ui)
+    // The public /healthz names the build by its 7-char short SHA.
     const h = await (await request.get(`${CEE_URL}/healthz`)).json()
-    expect(h.commit_full, '[J0] CEE is not serving the CEE checkout').toBe(t.cee)
+    expect(String(h.build ?? ''), '[J0] CEE /healthz names no build').toMatch(/^[0-9a-f]{7,}$/)
+    expect(t.cee.startsWith(h.build), `[J0] CEE serves build ${h.build}, not the checkout ${t.cee}`).toBe(true)
     if (t.mode === 'replay') {
       expect(ledger().find((r) => r.outcome === 'index')?.recordings, '[J0] the LLM boundary did not index the frozen set').toBeDefined()
     }
@@ -184,10 +186,16 @@ test.describe.serial('J1 · whole PoC', () => {
   })
 
   test('J2 · Run: the analysis is computed on H1 and names G1\'s options (+J2a direction, +J2b keep-list)', async () => {
-    const footer = pageA.getByTestId('results-analysis-footer-action')
-    await expect(footer, '[J2] the analysis footer action never appeared after the draft').toBeVisible({ timeout: 180_000 })
+    // Before any result the run control is the pre-analysis footer ("Analyse now/anyway",
+    // StickyFooter → AnalysisFooter default testId `sticky-footer`); after an automatic first
+    // pass it is the results footer ("Rerun"). Either is the user pressing Run.
+    await openDockTab(pageA, 'Analysis')
+    const run = pageA.getByTestId('results-analysis-footer-action').or(pageA.getByTestId('sticky-footer-action')).first()
+    await expect(run, '[J2] no run control on the Analysis tab after the draft').toBeVisible({ timeout: 180_000 })
+    await expect(run, '[J2] the run control stayed disabled').toBeEnabled({ timeout: 180_000 })
+    const runLabel = (await run.innerText()).trim()
     const since = Date.now()
-    await footer.click()
+    await run.click()
     const turn = await nextTurn(turns, since, 'J2 run')
     assertNoReplayMiss('J2')
     J.AR1 = analysisResultOf(turn.body)!
@@ -220,7 +228,7 @@ test.describe.serial('J1 · whole PoC', () => {
     expect(keys, '[J2b] the user-pressed run has no robustness').toContain('robustness')
     if (EXPECT.enrichment_keys) expect(keys, '[J2b] the enrichment key set moved for the frozen journey').toEqual([...EXPECT.enrichment_keys].sort())
 
-    writeEvidence('J2-run.json', { A1: J.A1, R1: J.R1, keys, unattested, summary: J.AR1.summary })
+    writeEvidence('J2-run.json', { run_control: runLabel, A1: J.A1, R1: J.R1, keys, unattested, summary: J.AR1.summary })
   })
 
   test('J3 · science finding: fragile edges are G1 edges, and the canvas marks exactly the ones it should', async () => {

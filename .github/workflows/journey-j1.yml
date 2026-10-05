@@ -273,12 +273,13 @@ jobs:
           for svc in "ISL http://127.0.0.1:$ISL_PORT/" "PLoT http://127.0.0.1:$PLOT_PORT/" "CEE http://127.0.0.1:$CEE_PORT/" "UI http://localhost:$UI_PORT/version.json"; do
             set -- $svc
             for i in $(seq 1 90); do up "$2" && break; sleep 2; done
-            up "$2" || { echo "::error::$1 never answered at $2"; tail -50 "$J1/logs/"*.log; exit 1; }
+            up "$2" || { echo "::error::$1 never answered at $2"; tail -n 50 "$J1/logs/"*.log; exit 1; }
             echo "$1 up"
           done
-          # local CEE only (ephemeral DB): the served commit must be the checkout
+          # local CEE only (ephemeral DB): the served build (7-char short SHA on the public
+          # /healthz) must be the prefix of the checkout's 40-char SHA
           curl -s "http://127.0.0.1:$CEE_PORT/healthz" > "$J1/cee-health.json"
-          node -e 'const h=require(process.argv[1]); if(h.commit_full!==process.env.CEE_SHA){console.error(`CEE serves ${h.commit_full}, checkout is ${process.env.CEE_SHA}`);process.exit(1)}; console.log("CEE commit", h.commit_full, "provider", h.provider)' "$J1/cee-health.json"
+          node -e 'const h=require(process.argv[1]); const b=String(h.build||""); if(b.length<7||!process.env.CEE_SHA.startsWith(b)){console.error(`CEE serves build "${b}", checkout is ${process.env.CEE_SHA}`);process.exit(1)}; console.log("CEE build", b, "= checkout", process.env.CEE_SHA, "| degraded:", JSON.stringify(h.degraded_reasons||[]))' "$J1/cee-health.json"
 
       # ── 7. The journey ────────────────────────────────────────────────────
       - name: Install Chromium
