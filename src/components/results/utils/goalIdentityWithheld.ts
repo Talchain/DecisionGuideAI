@@ -41,6 +41,9 @@ export const GOAL_FIGURES_WITHHELD_CODES: readonly string[] = [
   // CEE #2371 (MG SUCCESSOR #75 5915202903): an `exploratory` run withholds every option's goal figures because the
   // target can't be tested yet; "Not shown. " + the decision-representation sentence, which may end in its one question.
   'GOAL_FIGURES_TARGET_NOT_TESTABLE',
+  // CEE #2574 (gate 1 v2, Science 0df0e1): two or more options came out identical in the Run, so their wins split and
+  // the comparison is withheld; "Not shown. " + which options came out identical and what the user can do.
+  'GOAL_FIGURES_OPTIONS_IDENTICAL',
 ]
 
 /**
