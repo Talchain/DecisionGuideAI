@@ -6,9 +6,11 @@
  * Yet the user was told "This model could not be opened", because the DIRECT Supabase row read
  * (`useScenario.loadScenario`, RLS owner-only) found no row and acted as a second authority on the same question.
  *
- * So the not-found notice now asks THIS module. `hydrateCanvasFromServer` records the read's answer for the scenario
- * it read: 'opened' only when CEE served that SAME `scenario_id` (a graph, or a known scenario with none yet), and
- * 'not_opened' otherwise. Answers are sequence-stamped, so a waiter only accepts one recorded after its own load
+ * So the not-found notice now asks THIS module. `hydrateCanvasFromServer` records, at each of its exits, whether the
+ * model it read is now what the canvas shows: 'opened' only when CEE served that SAME `scenario_id` AND the exit left
+ * it on the canvas (merged, unchanged, or a known scenario with no graph yet over a canvas that is its own or empty).
+ * A read that answered for the scenario but left ANOTHER model on screen (the store moved; a same-tab A→B switch; the
+ * merge refused it) is 'not_opened', so the notice is never hidden over a model the user is not looking at. Answers are sequence-stamped, so a waiter only accepts one recorded after its own load
  * began. An answer left over from an earlier read (or an earlier account) never decides a later load.
  */
 export type CanonicalOpenOutcome = 'opened' | 'not_opened'

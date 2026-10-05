@@ -71,6 +71,71 @@ describe('the canonical read records whether the model opened, bound to the scen
   })
 })
 
+// A canvas node in the store's own shape: what another model (or an unsaved draft) puts on screen.
+const onScreen = (id: string) => ({ id, type: 'decision', position: { x: 0, y: 0 }, data: { label: `On screen ${id}` } })
+
+describe('⭐ opened means the model is ON THE CANVAS, not only that CEE answered (no mask over another model)', () => {
+  it('⭐ same-tab switch A→B: CEE serves B, but the store still holds A → not opened (A is what the user sees)', async () => {
+    useCanvasStore.setState({ currentScenarioId: OTHER, nodes: [onScreen('a-1')], edges: [] } as never)
+    const since = canonicalOpenSequence()
+    fetchSpy.mockResolvedValue(json(200, body(ROUTE)))
+    await expect(hydrateCanvasFromServer(ROUTE, { retryDelayMs: 0 })).resolves.toBe('skipped')
+    await expect(awaitCanonicalOpen(ROUTE, since, 50)).resolves.toBe('not_opened')
+    expect(useCanvasStore.getState().nodes.map((n) => n.id)).toEqual(['a-1'])
+  })
+
+  it('⭐ the merge REFUSES B over an unbound draft (zero overlap) → not opened (the draft stays on screen)', async () => {
+    useCanvasStore.setState({ currentScenarioId: null, nodes: [onScreen('draft-1')], edges: [] } as never)
+    const since = canonicalOpenSequence()
+    fetchSpy.mockResolvedValue(json(200, body(ROUTE)))
+    await expect(hydrateCanvasFromServer(ROUTE, { retryDelayMs: 0 })).resolves.toBe('mergeRefused')
+    await expect(awaitCanonicalOpen(ROUTE, since, 50)).resolves.toBe('not_opened')
+    expect(useCanvasStore.getState().nodes.map((n) => n.id)).toEqual(['draft-1'])
+  })
+
+  it('⭐ a known scenario with no graph yet, while the canvas holds ANOTHER model → not opened', async () => {
+    useCanvasStore.setState({ currentScenarioId: OTHER, nodes: [onScreen('a-1')], edges: [] } as never)
+    const since = canonicalOpenSequence()
+    fetchSpy.mockResolvedValue(json(200, body(ROUTE, false)))
+    await expect(hydrateCanvasFromServer(ROUTE, { retryDelayMs: 0 })).resolves.toBe('absent')
+    await expect(awaitCanonicalOpen(ROUTE, since, 50)).resolves.toBe('not_opened')
+  })
+
+  it('a known scenario with no graph yet over an unbound DRAFT (nodes, no id) → not opened (the draft is on screen)', async () => {
+    useCanvasStore.setState({ currentScenarioId: null, nodes: [onScreen('draft-1')], edges: [] } as never)
+    const since = canonicalOpenSequence()
+    fetchSpy.mockResolvedValue(json(200, body(ROUTE, false)))
+    await expect(hydrateCanvasFromServer(ROUTE, { retryDelayMs: 0 })).resolves.toBe('absent')
+    await expect(awaitCanonicalOpen(ROUTE, since, 50)).resolves.toBe('not_opened')
+  })
+
+  it('control: a known scenario with no graph yet over an EMPTY, unbound canvas → opened', async () => {
+    useCanvasStore.setState({ currentScenarioId: null, nodes: [], edges: [] } as never)
+    const since = canonicalOpenSequence()
+    fetchSpy.mockResolvedValue(json(200, body(ROUTE, false)))
+    await expect(hydrateCanvasFromServer(ROUTE, { retryDelayMs: 0 })).resolves.toBe('absent')
+    await expect(awaitCanonicalOpen(ROUTE, since, 50)).resolves.toBe('opened')
+  })
+
+  it('⭐ the server graph has not moved since this canvas applied it (`unchanged`, the reload path) → opened', async () => {
+    const identity = { value: 'v5:same', projectionVersion: 'v5' }
+    useCanvasStore.setState({ currentScenarioId: ROUTE, nodes: [onScreen('goal-1')], edges: [], serverGraphIdentity: identity } as never)
+    const since = canonicalOpenSequence()
+    fetchSpy.mockResolvedValue(json(200, { ...body(ROUTE), graph_identity_hash: { value: 'v5:same', projection_version: 'v5' } }))
+    await expect(hydrateCanvasFromServer(ROUTE, { retryDelayMs: 0 })).resolves.toBe('unchanged')
+    await expect(awaitCanonicalOpen(ROUTE, since, 50)).resolves.toBe('opened')
+  })
+
+  it('control: B merged onto an empty, unbound canvas → opened, and B is on screen', async () => {
+    useCanvasStore.setState({ currentScenarioId: null, nodes: [], edges: [] } as never)
+    const since = canonicalOpenSequence()
+    fetchSpy.mockResolvedValue(json(200, body(ROUTE)))
+    await expect(hydrateCanvasFromServer(ROUTE, { retryDelayMs: 0 })).resolves.toBe('merged')
+    await expect(awaitCanonicalOpen(ROUTE, since, 50)).resolves.toBe('opened')
+    expect(useCanvasStore.getState().nodes.map((n) => n.id)).toContain('goal-1')
+  })
+})
+
 describe('an answer only decides a load that began before it', () => {
   it('an answer recorded BEFORE the waiter began never decides it; the next answer does', async () => {
     recordCanonicalOpen(ROUTE, 'opened') // an earlier read (an earlier page state, an earlier account)
