@@ -101,7 +101,6 @@
  */
 
 import { recordAnalysisStaleReasonWords } from '../state/analysisStaleReasonWords'
-import type { ScenarioAnalysisApplyStore } from '../hydrate/applyScenarioAnalysisRead'
 import { useEffect, useRef } from 'react'
 import { recordDeliveryArmed, recordDeliverySettled } from './provisionalDeliveryRecord'
 
