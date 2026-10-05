@@ -27,7 +27,8 @@ import { useCanvasStore } from '../../store'
 // else in store/scenarios stays real (the canvas store imports it too).
 // ---------------------------------------------------------------------------
 
-const mockSaveAutosave = vi.fn()
+// saveAutosave reports whether it WROTE (#2516); a successful write is `true`.
+const mockSaveAutosave = vi.fn((..._args: unknown[]) => true)
 const mockLoadAutosave = vi.fn()
 
 vi.mock('../../store/scenarios', async (importOriginal) => {
@@ -104,6 +105,7 @@ function advanceOneAutosaveCycle() {
 beforeEach(() => {
   vi.useFakeTimers()
   mockSaveAutosave.mockReset()
+  mockSaveAutosave.mockReturnValue(true)
   // No competing tab — the multi-tab guard must not block the write.
   mockLoadAutosave.mockReset()
   mockLoadAutosave.mockReturnValue(null)
@@ -269,5 +271,19 @@ describe('useAutosave — value-bearing data changes must flip the dirty hash', 
     advanceOneAutosaveCycle()
     advanceOneAutosaveCycle()
     expect(mockSaveAutosave).toHaveBeenCalledTimes(1)
+  })
+
+  it('a SKIPPED write (saveAutosave reports false: a stale tab, CAN-F2g #2516) stays dirty and is retried, never counted as saved', () => {
+    mockSaveAutosave.mockReturnValueOnce(false)
+    renderHook(() => useAutosave())
+
+    advanceOneAutosaveCycle()
+    expect(mockSaveAutosave).toHaveBeenCalledTimes(1) // skipped
+
+    advanceOneAutosaveCycle()
+    expect(mockSaveAutosave, 'the skipped write was recorded as saved, so it was never retried').toHaveBeenCalledTimes(2)
+
+    advanceOneAutosaveCycle() // the retry WROTE, so the hash advanced
+    expect(mockSaveAutosave).toHaveBeenCalledTimes(2)
   })
 })

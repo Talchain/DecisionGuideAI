@@ -73,7 +73,8 @@ export function validateAuthInputs(email: string, password: string): string | nu
 export function clearAuthStates(): void {
     console.debug('[authUtils] clearAuthStates() called', new Error().stack);
   clearDecisionRecords();
-  clearUserScopedState();
+  // Every caller is a sign-out or a null session: the next identity is nobody (CAN-F2g epoch owner, #2516).
+  clearUserScopedState(null);
   // Clear early access validation state
   clearAccessValidation();
 

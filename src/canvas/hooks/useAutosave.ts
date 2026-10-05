@@ -322,7 +322,7 @@ export function useAutosave() {
         // Shared projection (store/autosaveProjection) — the ONE place the
         // autosave payload is assembled. `now` is threaded through so the
         // instant persisted is the same one the staleness guard above compared.
-        saveAutosave(
+        const written = saveAutosave(
           projectAutosaveData(
             {
               nodes,
@@ -354,8 +354,9 @@ export function useAutosave() {
           ),
         )
 
-        // P1 Fix: Update last saved hash after successful save
-        lastSavedHashRef.current = currentHash
+        // P1 Fix: Update last saved hash after successful save, and ONLY then: a skipped write (a stale tab, CAN-F2g)
+        // stays dirty rather than being reported as saved (Codex #2516 r1).
+        if (written) lastSavedHashRef.current = currentHash
 
         if (import.meta.env.DEV) {
           console.log('[Autosave] Saved graph state', {
