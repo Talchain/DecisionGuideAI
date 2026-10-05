@@ -11,6 +11,7 @@ import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { useServerConversationTurnsStore } from '../../canvas/stores/serverConversationTurnsStore'
 import { clearCitedEvidenceCache } from '../../collab/citedEvidenceCache'
 import { clearRoundRosterCache } from '../../collab/roundRosterCache'
+import { noteIdentityBoundary, SIGNED_IN_HERE_KEY } from './lapseBoundary'
 
 /** All browser state that belongs to an authenticated user's reasoning work. */
 export const USER_SCOPED_STORAGE_KEYS = [
@@ -27,6 +28,8 @@ export const USER_SCOPED_STORAGE_KEYS = [
   // Run history (`runHistory.ts`): whole reports and graph snapshots with no owner. Nothing writes it on the live path,
   // but entries from the retired Play path are still read by the palette, ShareDrawer and ReactFlowGraph's restore.
   'olumi-canvas-run-history',
+  // "This browser was signed in" (`lapseBoundary.ts`): the boundary has now run, so the next guest boot is not a lapse.
+  SIGNED_IN_HERE_KEY,
 ] as const
 
 // `olumi-canvas-autosave:` — a cold-load deep link's preserved copies (`scenarios.keyedAutosaveKey`): one per scenario,
@@ -106,4 +109,6 @@ export function clearUserScopedState(): void {
   } catch { /* browser storage can be unavailable */ }
   for (const key of prefixed) remove(() => localStorage, key)
   for (const key of USER_SCOPED_SESSION_KEYS) remove(() => sessionStorage, key)
+  // The sweep removed `SIGNED_IN_HERE_KEY`: the next signed-in moment on this page records it again (`lapseBoundary.ts`).
+  step(noteIdentityBoundary)
 }

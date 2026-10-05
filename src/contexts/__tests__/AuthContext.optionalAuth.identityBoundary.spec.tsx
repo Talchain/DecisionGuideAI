@@ -76,6 +76,9 @@ describe('CAN-F2w × guest posture: the identity boundary', () => {
     vi.clearAllMocks() // each case fires ITS OWN provider's callback, never a previous case's
     localStorage.clear()
     boundary.calls = 0
+    // A fresh page load also starts with no boundary seen on it (`lapseBoundary.ts` keeps that per page).
+    const { __resetLapseBoundaryForTests } = await import('../../lib/auth/lapseBoundary')
+    __resetLapseBoundaryForTests()
     vi.stubEnv('VITE_AUTH_MODE', 'guest')
     getSession.mockResolvedValue({ data: { session: null } })
     onAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } })

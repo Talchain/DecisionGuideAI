@@ -16,6 +16,7 @@ import { isE2EEnabled } from '../flags';
 import { isGuestAuth } from '../lib/poc';
 import { hasStoredSupabaseSession } from '../lib/storedSupabaseSession';
 import { isThinClientSession } from '../canvas/thinClient/thinClient';
+import { recordSignInAfterBoundary } from '../lib/auth/lapseBoundary';
 import { setSentryUser, clearSentryUser } from '../lib/monitoring';
 import { identifyUser, resetPostHog, trackEvent } from '../lib/posthog';
 
@@ -606,6 +607,8 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
         setPendingUser(null);
         return;
       }
+      // LAPSE-BOUNDARY: a session adopted after an identity boundary on this page is recorded, so its lapse is one too.
+      recordSignInAfterBoundary();
       const u = s.user;
       setSentryUser(u.id, u.email ?? '');
       identifyUser(u.id, u.email ?? '', u.user_metadata?.full_name);
