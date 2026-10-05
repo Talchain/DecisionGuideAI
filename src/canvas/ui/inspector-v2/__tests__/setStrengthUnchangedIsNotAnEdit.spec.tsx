@@ -252,6 +252,25 @@ describe('setStrength: a restoration never restores superseded provenance', () =
     expect(readEdge(EDGE)?.data).toMatchObject({ weight: 0.4, direction: 'negative', weightSource: 'cee', directionSource: 'cee' })
   })
 
+  it('RED (r3): a pending FLIP, a magnitude edit, then the signed server value → the direction stamp is the pre-flip one', () => {
+    seed({ ...PRODUCER_DATA, weightSource: 'cee', directionSource: 'cee' })
+    const { result } = renderHook(() => useEdgeMutations(EDGE))
+    result.current.setDirection('negative', { onSendSettled: noSettlementExpectedHere })
+    result.current.setStrength(0.75, { preserveDirection: true, onSendSettled: noSettlementExpectedHere })
+    expect(readEdge(EDGE)?.data).toMatchObject({ direction: 'negative', directionSource: 'user' }) // the flip's own stamp
+    result.current.setStrength(0.4, { onSendSettled: noSettlementExpectedHere })
+    expect(readEdge(EDGE)?.data).toMatchObject({ weight: 0.4, direction: 'positive', weightSource: 'cee', directionSource: 'cee' })
+  })
+
+  it('RED (r3): no flip pending, but the strength edit\'s snapshot shows ANOTHER sign (a local, unsent direction) → its direction stamp is not borrowed', () => {
+    seed({ ...PRODUCER_DATA, direction: 'negative', directionSource: 'user', weightSource: 'cee' }) // server: +0.4
+    const { result } = renderHook(() => useEdgeMutations(EDGE))
+    result.current.setStrength(0.75, { preserveDirection: true, onSendSettled: noSettlementExpectedHere })
+    ingest({ data: { directionSource: 'cee' } }) // a stamp-only change: the snapshot's 'user' is now NOT what stands
+    result.current.setStrength(0.4, { onSendSettled: noSettlementExpectedHere })
+    expect(readEdge(EDGE)?.data).toMatchObject({ weight: 0.4, direction: 'positive', weightSource: 'cee', directionSource: 'cee' })
+  })
+
   it('CONTROL: nothing moved → the pre-edit stamps ARE put back (the round-1 restoration)', () => {
     seed(USER_SET)
     const { result } = renderHook(() => useEdgeMutations(EDGE))

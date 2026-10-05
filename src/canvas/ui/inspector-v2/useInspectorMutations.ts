@@ -13,7 +13,7 @@ import { settleSystemEventSend } from '../../conversation/settleSystemEventSend'
 import {
   edgeShowsServerStatedStrength,
   markEdgeEditInFlight,
-  pendingEdgeStrengthEditBefore,
+  restoredEdgeStrengthStamps,
   resolveEdgeEditSettlement,
 } from '../../conversation/pendingEdgeEdit'
 import type { SystemEventSendSettlement, SystemEventSendSettlementDetail } from '../../conversation/settleSystemEventSend'
@@ -1188,14 +1188,13 @@ export function useEdgeMutations(edgeId: string) {
     // `before` still describes this link's current server state; otherwise it leaves the stamps as they stand.
     // Explicit `undefined` for an absent key: the store merges.
     const identity = { scenarioId: useCanvasStore.getState().currentScenarioId ?? null, from: edge.source, to: edge.target }
-    const pendingBefore = restoring
-      ? pendingEdgeStrengthEditBefore(edgeId, { ...identity, data: edge.data as Record<string, unknown> | undefined })
-      : null
     const stamps: Record<string, unknown> = !restoring
       ? { weightSource: 'user', ...(opts?.preserveDirection ? {} : { directionSource: 'user' }) }
-      : pendingBefore
-        ? { weightSource: pendingBefore.weightSource, ...(opts?.preserveDirection ? {} : { directionSource: pendingBefore.directionSource }) }
-        : {}
+      : restoredEdgeStrengthStamps(
+        edgeId,
+        { ...identity, data: edge.data as Record<string, unknown> | undefined },
+        { includeDirection: !opts?.preserveDirection },
+      )
     updateEdge(edgeId, {
       data: {
         ...edge.data,
@@ -1435,7 +1434,9 @@ export function useEdgeMutations(edgeId: string) {
     // sends `|expected.mean|`); the SIGN is what this edit changes, so it is
     // carried as `sentDirection` and every proof asks it.
     const sentMagnitude = Math.abs(serverStatedStrengthOf(before)?.mean ?? Number.NaN)
-    markEdgeEditInFlight(edgeId, sentMagnitude, before, direction)
+    markEdgeEditInFlight(edgeId, sentMagnitude, before, direction, {
+      scenarioId: useCanvasStore.getState().currentScenarioId ?? null, from: edge.source, to: edge.target,
+    })
     const settle = (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) =>
       opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, sentMagnitude, settlement, direction), detail)
     settleSystemEventSend(

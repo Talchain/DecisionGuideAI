@@ -221,22 +221,38 @@ export function edgeShowsServerStatedStrength(edge: { id?: unknown; data?: unkno
 }
 
 /**
- * The data a pending STRENGTH edit on `edgeId` keeps from before the edits now on the wire, ONLY while it still
- * describes the link's current authoritative state: the same scenario and endpoints, the same server tuple, and its
- * own weight showing that tuple. Otherwise `null`. A restoration puts these stamps back rather than minting `'user'`;
- * stamps from a superseded state (the server moved since, Codex #2489 r2 P1) are never restored onto the current one.
+ * The provenance stamps a RESTORATION puts back: each taken from a pending edit's pre-edit data ONLY while that data
+ * still describes the link's current authoritative state for that field — the same scenario and endpoints, the same
+ * server tuple, and (for `weightSource`) its weight showing that tuple, (for `directionSource`) its direction showing
+ * that sign. A stamp from a superseded state is never restored onto the current one (Codex #2489 r2/r3 P1); a key
+ * with no describing snapshot is left out, so its stamp stands. While a direction edit is pending it owns the
+ * direction keys (`revertKeysFor`), so `directionSource` is read from ITS pre-edit data.
  */
-export function pendingEdgeStrengthEditBefore(
+export function restoredEdgeStrengthStamps(
   edgeId: string,
   current: PendingEdgeEditIdentity & { readonly data: Record<string, unknown> | undefined },
-): Readonly<Record<string, unknown>> | null {
-  const entry = inFlight.get(entryKey(edgeId, 'strength'))
-  const id = entry?.identity
-  if (!entry || !id || id.scenarioId !== current.scenarioId || id.from !== current.from || id.to !== current.to) return null
-  const then = serverStatedStrengthOf(entry.before as Record<string, unknown>)
+  opts: { readonly includeDirection: boolean },
+): Record<string, unknown> {
   const now = serverStatedStrengthOf(current.data)
-  if (!then || !now || then.mean !== now.mean || then.effect_direction !== now.effect_direction) return null
-  return edgeMagnitudeOf({ data: entry.before }) === Math.abs(now.mean) ? entry.before : null
+  if (!now) return {}
+  const describesNow = (entry: PendingEdgeEdit | undefined): entry is PendingEdgeEdit => {
+    const id = entry?.identity
+    if (!entry || !id || id.scenarioId !== current.scenarioId || id.from !== current.from || id.to !== current.to) return false
+    const then = serverStatedStrengthOf(entry.before as Record<string, unknown>)
+    return !!then && then.mean === now.mean && then.effect_direction === now.effect_direction
+  }
+  const out: Record<string, unknown> = {}
+  const strength = inFlight.get(entryKey(edgeId, 'strength'))
+  if (describesNow(strength) && edgeMagnitudeOf({ data: strength.before }) === Math.abs(now.mean)) {
+    out.weightSource = strength.before.weightSource
+  }
+  if (opts.includeDirection) {
+    const owner = inFlight.get(entryKey(edgeId, 'direction')) ?? strength
+    if (describesNow(owner) && (owner.before.direction === undefined || owner.before.direction === now.effect_direction)) {
+      out.directionSource = owner.before.directionSource
+    }
+  }
+  return out
 }
 
 /**
