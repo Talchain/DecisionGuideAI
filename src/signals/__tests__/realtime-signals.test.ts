@@ -498,10 +498,11 @@ describe('false positive guards', () => {
  *     load, so a mean-based or single-sample design would still flake.
  *   - `process.cpuUsage()` is PROCESS-wide, not thread-wide. A spec running
  *     concurrently in the same process inflates it (2.01x measured from a single
- *     spinning sibling). This test is sound only because `vitest.config.ts` pins
- *     `poolOptions.threads.maxThreads`/`minThreads` to 1 and no CI workflow
- *     overrides it (verified at this tip). Raising maxThreads would silently
- *     degrade this measurement rather than fail it.
+ *     spinning sibling). CI runs several worker threads per shard since 5 Oct 2026
+ *     (VITEST_THREADS in staging-full-tests.yml), so this file is routed to the
+ *     `forks` pool by `poolMatchGlobs` in `vitest.config.ts`: its own process,
+ *     whose cpuUsage no sibling thread can touch. Removing that entry would
+ *     silently degrade this measurement rather than fail it.
  *
  * The doubling is an honest doubling of the pathological dimension: the input is
  * a repeated unit, so 4x repeats quadruples every dimension the hot path scans —
