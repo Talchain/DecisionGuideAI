@@ -123,7 +123,7 @@ import {
   settledSourceBlockKeys as settledSourceBlockKeysOf,
 } from './utils/transcriptStore'
 import { useServerConversationTurnsStore } from '../stores/serverConversationTurnsStore'
-import { buildRestoredThread } from './serverConversationTurns'
+import { buildRestoredThread, reconcileRestoredHeldControls } from './serverConversationTurns'
 import { heldProposalMountKey, heldProposalRetirementKeys } from './selectors'
 import { appendThreadEntries } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
@@ -2994,20 +2994,26 @@ export function useConversation(): UseConversationReturn {
   }, [scenarioId, buildRestoredMessages])
 
   // ⭐ THE CHAT SURVIVES A RELOAD, IN A BROWSER THAT NEVER SAW IT (AIQ rows 5907300125). The cold read offers CEE's
-  // stored turns (`serverConversationTurnsStore`); take them only into an EMPTY panel for the scenario on screen, and
-  // only when this browser holds no transcript of its own — a local transcript (or one the user cleared this page load)
-  // is never overwritten. The offer is spent either way. Restored turns are text only: no chip or card is rebuilt.
+  // stored turns and held authority (`serverConversationTurnsStore`). Local history keeps its words; its restored
+  // held controls are reconciled ONLY with the current server sidecar. Server text fills an empty panel with no local
+  // transcript. The offer is scenario-bound and spent once.
   const serverTurnsOffer = useServerConversationTurnsStore((s) => s.offer)
   useEffect(() => {
     if (!serverTurnsOffer || !scenarioId || serverTurnsOffer.scenarioId !== scenarioId) return
     useServerConversationTurnsStore.getState().takeServerConversationTurns(scenarioId)
-    if (messagesRef.current.length > 0) return
+    if (messagesRef.current.length > 0) {
+      if (messagesOwnerRef.current !== scenarioId) return
+      const next = reconcileRestoredHeldControls(messagesRef.current, serverTurnsOffer.heldProposalOffers)
+      messagesRef.current = next
+      setMessages(next)
+      return
+    }
     try {
       if (loadTranscript(scenarioId) !== null) return
     } catch {
       return
     }
-    const next = buildRestoredThread(serverTurnsOffer.turns, serverTurnsOffer.run)
+    const next = buildRestoredThread(serverTurnsOffer.turns, serverTurnsOffer.run, serverTurnsOffer.heldProposalOffers)
     if (next.length === 0) return
     messagesOwnerRef.current = scenarioId
     messagesRef.current = next
@@ -6030,6 +6036,7 @@ export function useConversation(): UseConversationReturn {
             id: crypto.randomUUID(),
             role: 'assistant',
             content: target.response.assistant_text,
+            clientTurnId: turnClientId,
             ...(narration ? { narration } : {}),
             ...(guidance ? { guidance } : {}),
             ...(proposalPreview ? { proposalPreview } : {}),

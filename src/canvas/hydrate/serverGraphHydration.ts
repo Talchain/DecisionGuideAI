@@ -329,12 +329,13 @@ async function readAndMergeServerGraph(
   // ⭐ THE CHAT SURVIVES A RELOAD — offer the stored chat to the panel (it takes it only when empty with no local
   // transcript). The stale line keys on the SAME read verdict the held-Run drop uses, before any merge moves it.
   const serverTurns = readServerConversationTurns(result.conversationTurns)
-  if (serverTurns !== null && serverTurns.length > 0) {
+  if (opts.includeConversationTurns === true || serverTurns !== null) {
     const runState = result.analysisState?.run_state
     const computedAt = runState != null && 'computed_at' in runState ? runState.computed_at : null
     useServerConversationTurnsStore.getState().offerServerConversationTurns({
       scenarioId,
-      turns: serverTurns,
+      turns: serverTurns ?? [],
+      heldProposalOffers: result.heldProposalOffers,
       run: {
         runNotCurrent: heldRunIsNotCurrentPerRead(result.analysisState, result.analysisResult),
         currentRunComputedAt: typeof computedAt === 'string' ? computedAt : null,

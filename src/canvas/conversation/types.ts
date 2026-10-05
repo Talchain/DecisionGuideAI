@@ -25,6 +25,8 @@ export interface ConversationMessage {
   timestamp: Date
   /** Echoed from request for deduplication */
   clientTurnId?: string
+  /** Historical proposal association on RESTORED answers only; never authorises an action. */
+  heldProposalId?: string
   /** Whether this is a synthetic UI-only message (e.g. welcome, error) */
   synthetic?: boolean
   /** Track 3: Session boundary divider text (rendered as centred divider, not a chat bubble) */
