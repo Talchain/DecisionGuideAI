@@ -123,7 +123,7 @@ import {
   settledSourceBlockKeys as settledSourceBlockKeysOf,
 } from './utils/transcriptStore'
 import { useServerConversationTurnsStore } from '../stores/serverConversationTurnsStore'
-import { buildRestoredThread } from './serverConversationTurns'
+import { buildRestoredThread, reconcileRestoredHeldControls } from './serverConversationTurns'
 import { heldProposalMountKey, heldProposalRetirementKeys } from './selectors'
 import { appendThreadEntries } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
@@ -2994,25 +2994,33 @@ export function useConversation(): UseConversationReturn {
   }, [scenarioId, buildRestoredMessages])
 
   // ⭐ THE CHAT SURVIVES A RELOAD, IN A BROWSER THAT NEVER SAW IT (AIQ rows 5907300125). The cold read offers CEE's
-  // stored turns (`serverConversationTurnsStore`); take them only into an EMPTY panel for the scenario on screen, and
-  // only when this browser holds no transcript of its own — a local transcript (or one the user cleared this page load)
-  // is never overwritten. The offer is spent either way. Restored turns are text only: no chip or card is rebuilt.
+  // stored turns and held authority (`serverConversationTurnsStore`). Local history keeps its words; its restored
+  // held controls are reconciled ONLY with the current server sidecar. Server text fills an empty panel with no local
+  // transcript. The offer is scenario-bound and spent once.
   const serverTurnsOffer = useServerConversationTurnsStore((s) => s.offer)
   useEffect(() => {
     if (!serverTurnsOffer || !scenarioId || serverTurnsOffer.scenarioId !== scenarioId) return
+    // Restoration must finish even when the outgoing scenario has no messages.
+    if (messagesOwnerRef.current !== scenarioId) return
     useServerConversationTurnsStore.getState().takeServerConversationTurns(scenarioId)
-    if (messagesRef.current.length > 0) return
+    if (messagesRef.current.length > 0) {
+      const next = reconcileRestoredHeldControls(messagesRef.current, serverTurnsOffer.heldProposalOffers)
+      messagesRef.current = next
+      setMessages(next)
+      return
+    }
     try {
       if (loadTranscript(scenarioId) !== null) return
     } catch {
       return
     }
-    const next = buildRestoredThread(serverTurnsOffer.turns, serverTurnsOffer.run)
+    const next = buildRestoredThread(serverTurnsOffer.turns, serverTurnsOffer.run, serverTurnsOffer.heldProposalOffers)
     if (next.length === 0) return
     messagesOwnerRef.current = scenarioId
     messagesRef.current = next
     setMessages(next)
-  }, [serverTurnsOffer, scenarioId])
+    // Restoration replaces messages, so a waiting offer is revisited after the new owner has restored.
+  }, [serverTurnsOffer, scenarioId, messages])
 
   // Persist the transcript whenever it changes, so the next session can
   // restore it. Guest sessions never reach Supabase (`isPersistenceActive` is
@@ -3074,6 +3082,11 @@ export function useConversation(): UseConversationReturn {
           } catch (err) {
             console.error('[useConversation] Transcript restore failed — starting fresh', err)
           }
+          // No transcript still completes restoration. Wake a waiting offer after ownership transfers.
+          if (messagesRef.current.length === 0) setMessages([])
+        } else {
+          // Keep in-flight turns intact while signalling that initial ownership has transferred.
+          setMessages([...messagesRef.current])
         }
         return
       }
@@ -6026,10 +6039,14 @@ export function useConversation(): UseConversationReturn {
               setPendingExplainKey(narration.runKey)
             }
           }
+          // A LIVE held reply carries only its request correlation. heldProposalId is written solely by transcriptStore at
+          // save, so reconcile (which acts on restored history) can never strip a live card's controls on a late read.
+          const offersHeldApproval = actionChips.some(c => /^agent-approve-proposal:prop_[0-9a-f]{32}$/.test(c.id))
           if (!isForeignExplanation(narration, latestRunKeyRef.current)) addMessage({
             id: crypto.randomUUID(),
             role: 'assistant',
             content: target.response.assistant_text,
+            ...(offersHeldApproval ? { heldTurnId: turnClientId } : {}),
             ...(narration ? { narration } : {}),
             ...(guidance ? { guidance } : {}),
             ...(proposalPreview ? { proposalPreview } : {}),
