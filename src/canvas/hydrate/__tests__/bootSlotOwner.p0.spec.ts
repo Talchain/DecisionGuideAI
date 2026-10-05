@@ -105,6 +105,35 @@ describe('P0 — restored bytes are bound to the scenario that wrote them (stamp
     expect((JSON.parse(kept as string).nodes as Array<{ id: string }>).map((n) => n.id).sort()).toEqual(ids(A2))
   })
 
+  /**
+   * THE LEGACY STATE + IN-APP NAVIGATION (Acceptance's 11:49Z reproduction: CEE registered D2's bytes into D1 0.5 s
+   * after an in-app navigation from the list). A browser that used the pre-fix build already holds a stale pointer (D1)
+   * and a slot stamped D2. The page has mounted a canvas before, so the cold-load gate is SETTLED ('not_first') and the
+   * remounted canvas's boot restore is the only binder. It must never pair D2's bytes with D1: that pair is exactly what
+   * the whole-graph register then writes into D1.
+   */
+  it('⭐ LEGACY STATE + IN-APP NAVIGATION: with the gate already settled, a stale pointer D1 never receives the D2-stamped slot', () => {
+    earlierPageSwitchedA1toA2WithoutPointer() // pointer A1 (stale), slot stamped A2 holding A2's bytes: the legacy state
+    claimColdLoadDeepLink(null, false) // an earlier canvas mount in this page settled the gate without applying anything
+    expect(claimColdLoadDeepLink(A1)).toBe('not_first') // the in-app navigation to A1 gets no plan
+    expect(scenarios.getCurrentScenarioId()).toBe(A1) // still the legacy pointer when the remounted canvas boots
+    bootRestore()
+    const pair = boundPair()
+    expect(pair.scenarioId === A1 && pair.nodes.some((id) => id.startsWith('a2_'))).toBe(false)
+    expect(pair).toEqual({ scenarioId: A2, nodes: ids(A2) }) // the bytes keep their own identity
+  })
+
+  it('CONTRAST (legacy in-app navigation): pointer and stamp agree on A1 — the remount restores A1 under A1, as before', () => {
+    scenarios.setCurrentScenarioId(A1)
+    useCanvasStore.setState({ currentScenarioId: A1, nodes: GRAPH[A1], edges: [] })
+    autosaveFromStore()
+    newPage()
+    claimColdLoadDeepLink(null, false)
+    expect(claimColdLoadDeepLink(A1)).toBe('not_first')
+    bootRestore()
+    expect(boundPair()).toEqual({ scenarioId: A1, nodes: ids(A1) })
+  })
+
   it('⭐ a routeless boot binds the restored bytes to their own stamp (display and identity agree)', () => {
     earlierPageSwitchedA1toA2WithoutPointer()
     coldLoadGate(null)
