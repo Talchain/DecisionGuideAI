@@ -1,6 +1,7 @@
 // Safe localStorage persistence with schema validation, versioning, and quota handling
 import { Node, Edge } from '@xyflow/react'
 import type { EdgeData } from './domain/edges'
+import { belongsToThisIdentity, readIdentityEpoch } from './store/scenarios'
 
 const STORAGE_KEY = 'canvas-storage'
 const SNAPSHOT_PREFIX = 'canvas-snapshot-'
@@ -12,6 +13,8 @@ interface PersistedState {
   timestamp: number
   nodes: Node[]
   edges: Edge<EdgeData>[]
+  /** Snapshots only: the identity epoch it was written under (absent before the first identity boundary). */
+  identityEpoch?: string
 }
 
 interface SnapshotMetadata {
@@ -173,11 +176,20 @@ export function clearState(): void {
 // Snapshot management (versioned saves)
 
 export function saveSnapshot(state: { nodes: Node[]; edges: Edge<EdgeData>[] }): boolean {
+  // A snapshot is a whole graph, so it carries the same owner fence as every autosave slot (CAN-F2w): stamped with the
+  // identity epoch it was written under, and listed or loaded only under that epoch. An unreadable epoch cannot say whose
+  // this write is, so nothing is written.
+  const epoch = readIdentityEpoch()
+  if (epoch === undefined) {
+    console.warn('[CANVAS] Snapshot skipped: the identity epoch could not be read')
+    return false
+  }
   try {
     const persisted: PersistedState = {
       version: 1,
       timestamp: Date.now(),
       ...state,
+      ...(epoch === null ? {} : { identityEpoch: epoch }),
     }
     const sanitized = sanitizeState(persisted)
     const payload = JSON.stringify(sanitized)
@@ -214,7 +226,9 @@ export function listSnapshots(): SnapshotMetadata[] {
         if (data) {
           try {
             const parsed = JSON.parse(data)
-            if (isValidState(parsed)) {
+            // Another identity's snapshot (a removal the sign-out sweep could not make, or one written before the
+            // sweep covered snapshots) is not listed: it is not this identity's to see or restore.
+            if (isValidState(parsed) && belongsToThisIdentity((parsed as PersistedState).identityEpoch)) {
               snapshots.push({
                 key,
                 timestamp: parsed.timestamp,
@@ -239,6 +253,7 @@ export function loadSnapshot(key: string): PersistedState | null {
     if (!raw) return null
     const data = JSON.parse(raw)
     if (!isValidState(data)) return null
+    if (!belongsToThisIdentity((data as PersistedState).identityEpoch)) return null
     return sanitizeState(data)
   } catch {
     return null
