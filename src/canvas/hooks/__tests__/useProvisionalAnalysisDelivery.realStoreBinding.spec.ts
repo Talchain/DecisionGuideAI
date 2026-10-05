@@ -109,6 +109,8 @@ describe('readProvisionalApplyStore is bound to the REAL canvas store', () => {
     expect(typeof view.setLimitVerdicts).toBe('function')
     // SC-24: the pair's comparison beside the analysis this leg writes (the turn leg's `setRunDelta`).
     expect(view.setRunDelta).toBe(useCanvasStore.getState().setRunDelta)
+    // C10a: a newly displayed analysis clears the prior turn's bound absence reason.
+    expect(view.setRunDeltaAbsence).toBe(useCanvasStore.getState().setRunDeltaAbsence)
 
     // BOUNDARY: `applyScenarioAnalysisRead`'s header says the graph belongs to
     // `serverGraphHydration`. The previous spread handed over the entire store,
@@ -147,6 +149,8 @@ describe('readProvisionalApplyStore is bound to the REAL canvas store', () => {
         // displays is stored with that analysis's hash, exactly as the turn leg stores it (#84 5914416431) — so a
         // cold reload shows the same A/B pair. A comparison writer, not a graph slice.
         'setRunDelta',
+        // C10a: the read leg evicts a superseded analysis's absence reason; same-hash reads preserve it.
+        'setRunDeltaAbsence',
       ].sort(),
     )
   })
