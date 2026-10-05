@@ -389,7 +389,8 @@ export function classifyNodeProvenance(
  * uses `observed_state`, and real graphs carry both. Reading one under-counts.
  *
  * ⚠ ANY SOURCE OTHER THAN ABSENT-OR-`cee_inference` CLEARS IT — including
- * `user_confirmed`, which is what ratifying an estimate now stamps. That is the
+ * `user_confirmed`, which a guest's confirm still stamps — AND SO DOES CEE'S
+ * `reviewed_by_user` confirm, which a signed-in confirm now records (SD-1). That is the
  * behaviour the count has always had; it is stated here because the Confirm
  * gesture is the thing that produces the transition, and a reader of the button
  * needs to know the badge will clear with it.
@@ -458,7 +459,19 @@ export function factorValueIsUnconfirmedEstimate(data: unknown): boolean {
 export function factorNeedsVerification(data: unknown): boolean {
   const d = data as Record<string, unknown> | undefined
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
-  return !obs?.source || obs?.source === 'cee_inference'
+  return (!obs?.source || obs?.source === 'cee_inference') && !valueReviewedByUser(obs)
+}
+
+/**
+ * ⭐ SD-1 (domain 2): CEE'S RECORD THAT A PERSON LOOKED AT THIS NUMBER AND KEPT IT. A factor Confirm is sent as
+ * `factor_value_edit` `confirm_current`; CEE keeps whose the number is (`source` unchanged) and records
+ * `observed_state.reviewed_by_user = { intent: 'confirm', at }` (CEE `set-factor-value.ts`, the `reviewOnly` write). So
+ * after a reload the review lives HERE and nowhere else: a browser-only `user_confirmed` stamp did not survive one.
+ * Authorship words are unchanged by it ({@link classifyObservedValueProvenance}); only "still needs a person" is.
+ */
+function valueReviewedByUser(obs: Record<string, unknown> | undefined): boolean {
+  const review = obs?.reviewed_by_user
+  return review !== null && typeof review === 'object' && (review as { intent?: unknown }).intent === 'confirm'
 }
 
 /**

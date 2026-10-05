@@ -337,8 +337,21 @@ export function ModelReviewTool({
   const confirmNodeId = current?.factor?.needsCheck ? current.factor.nodeId : null
   const authority = useModelEditAuthority(confirmNodeId)
   const confirm = () => {
-    const outcome = authority.proposeFactorConfirmation()
-    showToast(outcome === 'committed' ? COPY.confirmed : COPY.confirmRefused)
+    // SD-1: signed-in, this is a `confirm_current` wire act. Nothing is claimed on `dispatched` or `'sent'`: CEE's
+    // receipt is the answer, and the item leaves the queue when it lands. Only a send that did not land is named.
+    const outcome = authority.proposeFactorConfirmation({
+      onSendSettled: (settlement) => {
+        if (settlement === 'sent') return
+        showToast(
+          settlement === 'unverified' ? COPY.confirmUnverified
+            : settlement === 'refused' ? COPY.confirmNotRecorded
+              : COPY.confirmNotSent,
+        )
+      },
+    })
+    if (outcome === 'committed') showToast(COPY.confirmed)
+    else if (outcome === 'not_encodable') showToast(COPY.confirmRefused)
+    else if (outcome === 'no_carrier') showToast(COPY.confirmNoCarrier)
   }
 
   // ── Not relevant: the strengthen lifecycle store, with its undo ───────────

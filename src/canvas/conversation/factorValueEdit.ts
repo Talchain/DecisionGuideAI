@@ -575,6 +575,13 @@ export interface FactorValueEditInput {
      */
     evidence_event_id?: string
   }
+  /**
+   * `'confirm_current'` (schemas 0.62.0): the user REVIEWS the number already there and changes nothing. CEE resolves
+   * the number exactly as a set of it, compares it near-exactly with the PERSISTED one, records
+   * `observed_state.reviewed_by_user` and keeps whose it is; a confirm that would move the value is refused
+   * (`confirm_value_moved`), never turned into a set (CEE `system-events/factor-value-edit.ts`). Omitted = today's set.
+   */
+  intent?: 'confirm_current'
 }
 
 /**
@@ -587,7 +594,7 @@ export interface FactorValueEditInput {
 export function buildFactorValueEditEvent(
   input: FactorValueEditInput,
 ): WireSystemEvent | null {
-  const { nodeId, typedValue, nodeData, seedBasis, appliedFrom } = input
+  const { nodeId, typedValue, nodeData, seedBasis, appliedFrom, intent } = input
   if (!nodeId) return null
   if (typeof typedValue !== 'number' || !Number.isFinite(typedValue)) return null
 
@@ -644,6 +651,8 @@ export function buildFactorValueEditEvent(
     payload.raw_value = typedValue
     if (unit) payload.unit = unit
   }
+
+  if (intent !== undefined) payload.intent = intent
 
   // The attribution claim rides LAST and alone. No `raw_value`/`unit` can
   // accompany it: `effectiveSeedBasis` forces `'model_scale'`, so `inUserUnits`
