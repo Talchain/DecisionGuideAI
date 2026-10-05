@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { runLapseBoundaryIfNeeded, sessionLapsedHere, SIGNED_IN_HERE_KEY } from '../lapseBoundary'
 import { clearUserScopedState, USER_SCOPED_STORAGE_KEYS } from '../userScopedState'
-import { isThinClientSession, loadThinLayout, saveThinLayout, __resetThinClientForTests } from '../../../canvas/thinClient/thinClient'
+import { isThinClientSession, loadThinLayout, saveThinLayout, __latchThinClientForTests, __resetThinClientForTests } from '../../../canvas/thinClient/thinClient'
 import { __resetPersistenceSessionForTests } from '../../persistenceSession'
 import { loadTranscript, saveTranscript, __resetTranscriptTombstonesForTests } from '../../../canvas/conversation/utils/transcriptStore'
 import { loadRuns, saveRuns, type StoredRun } from '../../../canvas/store/runHistory'
@@ -133,6 +133,42 @@ describe('LAPSE-BOUNDARY — the DL rows', () => {
     const before = snapshot()
     await expect(runLapseBoundaryIfNeeded(() => Promise.reject(new Error('chunk failed')))).resolves.toBe(false)
     expect(snapshot()).toEqual(before)
+  })
+})
+
+describe('LAPSE-BOUNDARY — Codex #2530 r1', () => {
+  it('a session stored by another tab WHILE the boundary loads: decided again after the await, nothing is swept', async () => {
+    signedInPageWritesWork()
+    sessionLapsesAndNextPageLoads()
+    expect(sessionLapsedHere()).toBe(true) // PRECONDITION: a lapse when the boot looked
+    const before = snapshot()
+    const ran = await runLapseBoundaryIfNeeded(async () => {
+      localStorage.setItem(SESSION_KEY, SESSION) // the other tab signs in during the chunk load
+      return import('../userScopedState')
+    })
+    expect(ran).toBe(false)
+    expect(loadTranscript(A)?.messages).toHaveLength(1)
+    expect(loadRuns()).toHaveLength(1)
+    expect(snapshot()).toEqual({ ...before, [SESSION_KEY]: SESSION })
+  })
+
+  it('a LATCHED page: A signs out, B signs in on the same page, B lapses → the next boot still sweeps B\'s work', async () => {
+    localStorage.setItem(SESSION_KEY, SESSION)
+    expect(isThinClientSession()).toBe(true)
+    __latchThinClientForTests() // production: the page stays thin after its first signed-in answer
+    localStorage.removeItem(SESSION_KEY)
+    clearUserScopedState() // A's sign-out: the record goes with the sweep
+    expect(localStorage.getItem(SIGNED_IN_HERE_KEY)).toBeNull()
+    expect(isThinClientSession()).toBe(true) // still latched, no session: nothing recorded (a guest later is not a lapse)
+    expect(localStorage.getItem(SIGNED_IN_HERE_KEY)).toBeNull()
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ access_token: 't2', refresh_token: 'r2', user: { id: 'account-b' } }))
+    expect(isThinClientSession()).toBe(true) // B is signed in on the same page
+    expect(localStorage.getItem(SIGNED_IN_HERE_KEY)).toBe('1')
+    saveTranscript(A, [message(`B's notes on ${A_LABEL}.`)])
+    sessionLapsesAndNextPageLoads()
+    expect(await runLapseBoundaryIfNeeded()).toBe(true)
+    expect(loadTranscript(A)).toBeNull()
+    expect(keysNamingA()).toEqual([])
   })
 })
 

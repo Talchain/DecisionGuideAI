@@ -11,7 +11,7 @@ import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { useServerConversationTurnsStore } from '../../canvas/stores/serverConversationTurnsStore'
 import { clearCitedEvidenceCache } from '../../collab/citedEvidenceCache'
 import { clearRoundRosterCache } from '../../collab/roundRosterCache'
-import { SIGNED_IN_HERE_KEY } from './lapseBoundary'
+import { noteIdentityBoundary, SIGNED_IN_HERE_KEY } from './lapseBoundary'
 
 /** All browser state that belongs to an authenticated user's reasoning work. */
 export const USER_SCOPED_STORAGE_KEYS = [
@@ -109,4 +109,6 @@ export function clearUserScopedState(): void {
   } catch { /* browser storage can be unavailable */ }
   for (const key of prefixed) remove(() => localStorage, key)
   for (const key of USER_SCOPED_SESSION_KEYS) remove(() => sessionStorage, key)
+  // The sweep removed `SIGNED_IN_HERE_KEY`: the next signed-in moment on this page records it again (`lapseBoundary.ts`).
+  step(noteIdentityBoundary)
 }

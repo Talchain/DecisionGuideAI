@@ -19,13 +19,31 @@ import { hasStoredSupabaseSession } from '../storedSupabaseSession'
 /** Written by a signed-in page; removed only by the identity boundary's sweep. */
 export const SIGNED_IN_HERE_KEY = 'olumi-signed-in-here.v1'
 
-/** The thin predicate calls this the first time a page is signed in. Never throws. */
+/** Whether this page has recorded the sign-in since its last identity boundary (the sweep removes the record). */
+let markedSinceBoundary = false
+
+/** The thin predicate calls this when a page is signed in. Never throws. */
 export function markSignedInHere(): void {
   try {
     if (localStorage.getItem(SIGNED_IN_HERE_KEY) !== '1') localStorage.setItem(SIGNED_IN_HERE_KEY, '1')
+    markedSinceBoundary = true
   } catch {
     // Storage refused: the lapse cannot be recognised later, which is today's behaviour, never worse.
   }
+}
+
+/**
+ * False after an identity boundary on this page, until a session is recorded again. The thin predicate latches for the
+ * page, so a sign-out followed by another sign-in WITHOUT a reload would otherwise never record the second identity, and
+ * that identity's lapse would go unseen (Codex, #2530 r1).
+ */
+export function signedInHereRecordedSinceBoundary(): boolean {
+  return markedSinceBoundary
+}
+
+/** `clearUserScopedState` calls this: its sweep has removed the record, so the next signed-in moment writes it again. */
+export function noteIdentityBoundary(): void {
+  markedSinceBoundary = false
 }
 
 /** Synchronous: this browser was signed in, and the session is gone without the boundary having run. */
@@ -48,6 +66,9 @@ export async function runLapseBoundaryIfNeeded(
   if (!sessionLapsedHere()) return false
   try {
     const { clearUserScopedState } = await loadBoundary()
+    // Decided again AFTER the await: another tab may have stored a session meanwhile, and a sweep then would delete a
+    // signed-in identity's work (Codex, #2530 r1).
+    if (!sessionLapsedHere()) return false
     // Its sweep removes `SIGNED_IN_HERE_KEY` too (`USER_SCOPED_STORAGE_KEYS`), so the next guest boot is not a lapse.
     clearUserScopedState()
   } catch {

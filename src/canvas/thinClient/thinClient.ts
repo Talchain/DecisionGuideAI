@@ -22,7 +22,7 @@
  */
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { purgePreThinModelCopies } from './preThinPurge'
-import { markSignedInHere } from '../../lib/auth/lapseBoundary'
+import { markSignedInHere, signedInHereRecordedSinceBoundary } from '../../lib/auth/lapseBoundary'
 
 /** supabase-js v2's persisted-session key. The PKCE `…-auth-token-code-verifier` key is NOT a session. */
 const SUPABASE_SESSION_KEY = /^sb-.+-auth-token$/
@@ -60,7 +60,12 @@ let thinThisPage = false
  * It also records that this browser was signed in (`lib/auth/lapseBoundary.ts`), so a lapse is an identity boundary.
  */
 export function isThinClientSession(): boolean {
-  if (thinThisPage) return true
+  if (thinThisPage) {
+    // LAPSE-BOUNDARY (Codex, #2530 r1): a sign-out on this latched page swept the record; a later sign-in on the SAME
+    // page records it again, so that identity's lapse is still a boundary. Checked only until it is recorded.
+    if (!signedInHereRecordedSinceBoundary() && (isPersistenceSessionActive() || hasStoredSupabaseSession())) markSignedInHere()
+    return true
+  }
   const thin = isPersistenceSessionActive() || hasStoredSupabaseSession()
   if (thin) {
     purgePreThinModelCopies()
@@ -75,6 +80,11 @@ export function isThinClientSession(): boolean {
 
 export function __resetThinClientForTests(): void {
   thinThisPage = false
+}
+
+/** The production latch, for rows that measure a latched page (the runner never latches: see the predicate). */
+export function __latchThinClientForTests(): void {
+  thinThisPage = true
 }
 
 /** The copy the user sees when a change exists only on this screen (factor Confirm has no server carrier yet). */
