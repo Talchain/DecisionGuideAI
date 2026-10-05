@@ -46,6 +46,8 @@
  */
 import type { OlumiResponse, StageType, AnalysisStateV1 } from '@talchain/schemas/boundary'
 import type { StoredRunDelta, StoredRunDeltaAbsence } from '../canvas/state/storedRunDelta'
+import { hashEqualStaleReasonWords } from './hashEqualStaleReasonWords'
+import { recordAnalysisStaleReasonWords } from '../canvas/state/analysisStaleReasonWords'
 import {
   limitVerdictsFromResponse,
   readLimitVerdicts,
@@ -2073,6 +2075,9 @@ export function applyV5State(
     if (parsedAnalysisState.success) {
       const verdict: AnalysisStateV1 = parsedAnalysisState.data
       turnVerdict = verdict
+      // RT-10 B′: a hash-equal stale's reason sentence is recorded WITH this verdict (`analysisStaleReasonWords`).
+      const turnReady = (response as { analysis_ready?: { freshness_reason?: unknown; graph_hash_at_run?: unknown; current_graph_hash?: unknown } | null }).analysis_ready
+      recordAnalysisStaleReasonWords(verdict, hashEqualStaleReasonWords(turnReady?.freshness_reason, turnReady?.graph_hash_at_run, turnReady?.current_graph_hash))
       store.setAnalysisStateV1?.(verdict)
       applied.push('analysis_state:set')
       logV5StateStep({
