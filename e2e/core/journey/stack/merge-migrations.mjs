@@ -7,7 +7,9 @@
 //
 // usage: merge-migrations.mjs <dgai/supabase/migrations> <cee/supabase/migrations> <out dir>
 // Ties on the timestamp are ordered DGAI first (it owns the base tables). A file
-// name that both repos use is a hard error: the second would be silently skipped.
+// that BOTH repos carry under one name is applied once, but only when its SQL is the
+// same ignoring comments; a same-named pair whose SQL differs is a hard error,
+// because the hosted project records one version and only one of them ever ran.
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -17,14 +19,25 @@ if (!dgaiDir || !ceeDir || !outDir) { console.error('usage: merge-migrations.mjs
 
 const PATTERN = /^(\d{14})_[\w.-]+\.sql$/
 const read = (dir, repo) => fs.readdirSync(dir).filter((f) => PATTERN.test(f)).map((f) => ({ repo, dir, file: f, ts: f.match(PATTERN)[1] }))
-const all = [...read(dgaiDir, 'dgai'), ...read(ceeDir, 'cee')]
-  .sort((a, b) => (a.ts === b.ts ? (a.repo === 'dgai' ? -1 : 1) : a.ts < b.ts ? -1 : 1))
+const sqlOf = (m) => fs.readFileSync(path.join(m.dir, m.file), 'utf8')
+  .split('\n').filter((l) => !/^\s*--/.test(l)).join('\n').replace(/\s+/g, ' ').trim()
 
-const names = new Map()
-for (const m of all) {
-  if (names.has(m.file)) { console.error(`[migrations] ${m.file} exists in both repos`); process.exit(1) }
-  names.set(m.file, m.repo)
-}
+const dgai = read(dgaiDir, 'dgai')
+const cee = read(ceeDir, 'cee')
+const shared = []
+const ceeOnly = cee.filter((c) => {
+  const twin = dgai.find((d) => d.file === c.file)
+  if (!twin) return true
+  if (sqlOf(twin) !== sqlOf(c)) {
+    console.error(`[migrations] ${c.file} is in both repos with DIFFERENT SQL; the hosted project ran only one`)
+    process.exit(1)
+  }
+  shared.push(c.file)
+  return false
+})
+const all = [...dgai, ...ceeOnly]
+  .sort((a, b) => (a.ts === b.ts ? (a.repo === 'dgai' ? -1 : 1) : a.ts < b.ts ? -1 : 1))
+for (const f of shared) console.log(`[migrations] ${f}: in both repos, same SQL (comments aside); applied once`)
 
 // Same timestamp in both repos: give the later one a unique version, keeping order.
 fs.mkdirSync(outDir, { recursive: true })
@@ -38,7 +51,7 @@ for (const m of all) {
   fs.copyFileSync(path.join(m.dir, m.file), path.join(outDir, out))
   manifest.push(`${out}\t${m.repo}${ts === m.ts ? '' : `\t(renumbered from ${m.ts})`}`)
 }
-fs.writeFileSync(path.join(outDir, '..', 'MIGRATION-ORDER.tsv'), manifest.join('\n') + '\n')
+fs.writeFileSync(path.join(outDir, '..', 'MIGRATION-ORDER.tsv'), [...manifest, ...shared.map((f) => `${f}\tshared (dgai copy applied)`)].join('\n') + '\n')
 const count = (r) => all.filter((m) => m.repo === r).length
-console.log(`[migrations] ${all.length} applied in order: dgai ${count('dgai')} + cee ${count('cee')}`)
+console.log(`[migrations] ${all.length} applied in order: dgai ${count('dgai')} + cee ${count('cee')} (+${shared.length} shared, applied once)`)
 if (count('dgai') === 0 || count('cee') === 0) { console.error('[migrations] one repo contributed 0 migrations: wrong path'); process.exit(1) }
