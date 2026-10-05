@@ -216,7 +216,7 @@ jobs:
       # ── 5. CEE ────────────────────────────────────────────────────────────
       # CEE and DGAI both pin pnpm@10.18.0 (packageManager)
       - uses: pnpm/action-setup@v4
-        with: { package_json_file: cee/package.json, run_install: false }
+        with: { version: 10.18.0, run_install: false }
       - name: Boot CEE
         working-directory: cee
         env:

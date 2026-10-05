@@ -28,6 +28,7 @@
 import crypto from 'node:crypto'
 import dns from 'node:dns'
 import fs from 'node:fs'
+import http from 'node:http'
 import https from 'node:https'
 import path from 'node:path'
 
@@ -37,12 +38,16 @@ const LEDGER = process.env.JOURNEY_LLM_LEDGER
 const PORT = Number(process.env.JOURNEY_LLM_PORT ?? 443)
 const CERT = process.env.JOURNEY_LLM_CERT
 const KEY = process.env.JOURNEY_LLM_KEY
+// Local record (macOS, no sudo): a plain-HTTP listener for CEE's fetch preload
+// (llm-redirect-preload.mjs), which carries the real host in `x-journey-host`.
+const HTTP_PORT = process.env.JOURNEY_LLM_HTTP_PORT ? Number(process.env.JOURNEY_LLM_HTTP_PORT) : null
 const PROVIDER_HOSTS = new Set(['api.openai.com', 'api.anthropic.com'])
 
-for (const [k, v] of Object.entries({ JOURNEY_LLM_MODE: MODE, JOURNEY_LLM_FIXTURES: FIXTURES, JOURNEY_LLM_LEDGER: LEDGER, JOURNEY_LLM_CERT: CERT, JOURNEY_LLM_KEY: KEY })) {
+for (const [k, v] of Object.entries({ JOURNEY_LLM_MODE: MODE, JOURNEY_LLM_FIXTURES: FIXTURES, JOURNEY_LLM_LEDGER: LEDGER })) {
   if (!v) { console.error(`[llm-replay] ${k} is required`); process.exit(2) }
 }
 if (MODE !== 'replay' && MODE !== 'record') { console.error(`[llm-replay] unknown mode ${MODE}`); process.exit(2) }
+if (!(CERT && KEY) && HTTP_PORT === null) { console.error('[llm-replay] need JOURNEY_LLM_CERT+KEY (TLS) or JOURNEY_LLM_HTTP_PORT'); process.exit(2) }
 
 fs.mkdirSync(FIXTURES, { recursive: true })
 fs.mkdirSync(path.dirname(LEDGER), { recursive: true })
@@ -93,6 +98,7 @@ function refuse(res, status, type, message) {
 async function forward(req, host, bodyBuf) {
   const [ip] = await resolver.resolve4(host)
   const headers = { ...req.headers, host }
+  delete headers['x-journey-host']
   delete headers['accept-encoding'] // identity bodies, so recordings are plain text
   delete headers['content-length']
   headers['content-length'] = String(bodyBuf.length)
@@ -108,11 +114,11 @@ async function forward(req, host, bodyBuf) {
   })
 }
 
-const server = https.createServer({ cert: fs.readFileSync(CERT), key: fs.readFileSync(KEY) }, (req, res) => {
+function handle(req, res) {
   const chunks = []
   req.on('data', (c) => chunks.push(c))
   req.on('end', async () => {
-    const host = String(req.headers.host ?? '').replace(/:\d+$/, '')
+    const host = String(req.headers['x-journey-host'] ?? req.headers.host ?? '').replace(/:\d+$/, '')
     const urlPath = String(req.url ?? '').split('?')[0]
     const bodyBuf = Buffer.concat(chunks)
     let body = null
@@ -173,6 +179,12 @@ const server = https.createServer({ cert: fs.readFileSync(CERT), key: fs.readFil
       refuse(res, 502, 'journey_upstream_error', String(e).slice(0, 200))
     }
   })
-})
+}
 
-server.listen(PORT, '127.0.0.1', () => console.log(`[llm-replay] ${MODE} on 127.0.0.1:${PORT}`))
+if (CERT && KEY) {
+  https.createServer({ cert: fs.readFileSync(CERT), key: fs.readFileSync(KEY) }, handle)
+    .listen(PORT, '127.0.0.1', () => console.log(`[llm-replay] ${MODE} on https://127.0.0.1:${PORT}`))
+}
+if (HTTP_PORT !== null) {
+  http.createServer(handle).listen(HTTP_PORT, '127.0.0.1', () => console.log(`[llm-replay] ${MODE} on http://127.0.0.1:${HTTP_PORT}`))
+}
