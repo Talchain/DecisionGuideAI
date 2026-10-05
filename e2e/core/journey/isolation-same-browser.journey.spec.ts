@@ -92,6 +92,10 @@ function assertIsolationBoundaryClean(label: string): void {
   }
 }
 
+// CORE PLATFORM transcript measurement: is A's own brief anywhere in this tab's rendered DOM?
+const domCarries = (page: Page, probe: string): Promise<boolean> =>
+  page.evaluate((p) => (document.body?.textContent ?? '').includes(p), probe)
+
 const storageNaming = async (page: Page, needle: string): Promise<string[]> =>
   Object.entries(await browserStorage(page)).filter(([k, v]) => k.includes(needle) || v.includes(needle)).map(([k]) => k)
 
@@ -139,6 +143,10 @@ test.describe('ISO · same browser, two accounts', () => {
       expect((await storageNaming(tab1, sentinel)).length, '[ISO-1 control] the sentinel is not in storage for A').toBeGreaterThan(0)
       await tab2.goto(`${ORIGIN}/#/scenario/${S}`, { waitUntil: 'load' })
       await expect.poll(async () => (await renderedNodeIds(tab2)).sort(), { message: '[ISO-1 control] tab 2 does not show A\'s model', timeout: 120_000 }).toEqual(nodes)
+      // [T control] a tab deep-linked to S under A renders A's brief: the probe can see a chat thread in this tab shape.
+      const tProbe = BRIEF.slice(0, 40)
+      await expect.poll(() => domCarries(tab2, tProbe), { message: '[ISO-1/T control] tab 2 under A never rendered A\'s brief', timeout: 30_000 }).toBe(true)
+      ev.iso1_T_control_tab2_A_dom_carries_brief = true
       const tab2Before = await browserStorage(tab2)
       ev.iso1_tab2_session_before = Object.keys(tab2Before)
       // Controls for every absence checked after the switch:
@@ -173,8 +181,8 @@ test.describe('ISO · same browser, two accounts', () => {
         }, [S, briefProbe] as const)
       }
       for (const [name, tab] of [['tab1', tab1], ['tab2', tab2]] as const) {
-        expect(await storageNaming(tab, sentinel), `[ISO-1] ${name} storage still holds A's snapshot`).toEqual([])
-        expect(await storageNaming(tab, S), `[ISO-1] ${name} storage still names A's scenario`).toEqual([])
+        expect.soft(await storageNaming(tab, sentinel), `[ISO-1] ${name} storage still holds A's snapshot`).toEqual([])
+        expect.soft(await storageNaming(tab, S), `[ISO-1] ${name} storage still names A's scenario`).toEqual([])
       }
       // B's own Snapshots list is empty.
       await tab2.goto(`${ORIGIN}/#/`, { waitUntil: 'load' })
@@ -187,6 +195,11 @@ test.describe('ISO · same browser, two accounts', () => {
       expect(refused, '[ISO-1/A3] COULD NOT MEASURE: B\'s tab never read S from CEE').not.toBeNull()
       expect([403, 404], `[ISO-1/A3] CEE served S to B (status ${refused!.status()})`).toContain(refused!.status())
       expect((await renderedNodeIds(tab2)).filter((id) => nodes.includes(id)), '[ISO-1/A3] A\'s model rendered for B').toEqual([])
+      // [T] B's tab 2 on S: A's brief must not be on screen. Settle first: the transcript restore runs after mount.
+      await tab2.waitForTimeout(8_000)
+      ev.iso1_T_tab2_B_on_S_dom_carries_A_brief = await domCarries(tab2, tProbe)
+      await tab2.screenshot({ path: 'test-results/journey/evidence/ISO-1-T-tab2-B-on-S.png', fullPage: true }).catch(() => {})
+      expect.soft(ev.iso1_T_tab2_B_on_S_dom_carries_A_brief, '[ISO-1/T] B\'s tab 2 on S shows A\'s brief words').toBe(false)
       // A1/A2: tab 1, reloaded under B, shows nothing of A.
       const tab1Read = tab1.waitForResponse((r) => r.url().includes(`/bff/cee/scenarios/${S}/graph`) && r.request().method() === 'POST', { timeout: 90_000 }).catch(() => null)
       await tab1.reload({ waitUntil: 'load' })
@@ -199,6 +212,10 @@ test.describe('ISO · same browser, two accounts', () => {
         ev.iso1_tab1_reload = 'tab 1 did not read S after reload (pointer swept); shell rendered'
       }
       expect((await renderedNodeIds(tab1)).filter((id) => nodes.includes(id)), '[ISO-1/A2] tab 1 restored A\'s model under B').toEqual([])
+      await tab1.waitForTimeout(8_000)
+      ev.iso1_T_tab1_B_reload_dom_carries_A_brief = await domCarries(tab1, tProbe)
+      await tab1.screenshot({ path: 'test-results/journey/evidence/ISO-1-T-tab1-B-reload.png', fullPage: true }).catch(() => {})
+      expect.soft(ev.iso1_T_tab1_B_reload_dom_carries_A_brief, '[ISO-1/T] tab 1 reloaded under B shows A\'s brief words').toBe(false)
       if (coachingBefore !== null) {
         expect(await tab1.evaluate(() => sessionStorage.getItem('guidance.items.v1')), '[ISO-1] A\'s coaching survived in tab 1').toBeNull()
       } else {
