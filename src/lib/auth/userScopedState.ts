@@ -7,6 +7,7 @@ import { clearDurableDissent } from '../../canvas/stores/dissentStore'
 import { useStrengthenStore } from '../../canvas/stores/strengthenStore'
 import { useDecisionRecordStore } from '../../components/results/modals/decisionRecordStore'
 import { useSuccessMeasureStore } from '../../components/results/modals/successMeasureStore'
+import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 
 /** All browser state that belongs to an authenticated user's reasoning work. */
 export const USER_SCOPED_STORAGE_KEYS = [
@@ -15,14 +16,24 @@ export const USER_SCOPED_STORAGE_KEYS = [
   'defineSuccess.measure.v1', 'strengthen.lifecycle.v1', 'canvas-layout-options-v6',
   'canvas-layout-options-v5', 'canvas-layout-options-v4', 'olumi-cee-analysis-ready',
   'olumi-cee-analysis-ready-node-ids',
+  // An unregistered import's node ids and edge pairs (`importRegistrationMarker.ts`): the previous identity's model shape.
+  'olumi.import.pendingServerRegistration.v1',
 ] as const
 
 // `olumi-canvas-autosave:` — a cold-load deep link's preserved copies (`scenarios.keyedAutosaveKey`): one per scenario,
 // unbounded, and as private as the main slot above.
 // `canvas-snapshot-` — manual snapshots (⌘S, Model ▸ Snapshots; `persist.saveSnapshot`) and their `-name` keys: whole
 // graphs with labels, listed with no owner check (`persist.listSnapshots`), so the next account could restore one.
+// `olumi.collab.pending-apply.` / `olumi.collab.open-round.` — a Panel round's pending model change and its participants,
+// one per scenario (`collab/panelApplyHandoff.ts`, `collab/openRoundRecord.ts`).
 export const USER_SCOPED_STORAGE_PREFIXES = [
   'olumi.dissent.v2.', 'olumi.dissent.', 'olumi-canvas-autosave:', 'canvas-snapshot-',
+  'olumi.collab.pending-apply.', 'olumi.collab.open-round.',
+] as const
+
+/** Per-tab user work in sessionStorage: the analysis-ready mirror and the coaching blob (`guidanceStore.ts`). */
+export const USER_SCOPED_SESSION_KEYS = [
+  'olumi-cee-analysis-ready', 'olumi-cee-analysis-ready-node-ids', 'guidance.items.v1',
 ] as const
 
 function freshIdentityEpoch(): string {
@@ -59,6 +70,10 @@ export function clearUserScopedState(): void {
   step(() => useStrengthenStore.getState()._reset())
   step(() => useDecisionRecordStore.getState()._reset())
   step(() => useSuccessMeasureStore.getState()._reset())
+  // The coaching on screen is about the previous identity's model, and a later canvas mount adopts whatever the
+  // singleton already holds without re-checking its scenario (`guidanceStore.rehydrateGuidance`). Clear it in memory;
+  // the blob goes with the session keys below (its own clear needs a mounted canvas to name the scenario).
+  step(() => useGuidanceStore.getState().clearGuidanceItems())
   // Each removal on its own: one that throws never leaves the keys after it behind (browser storage can be unavailable).
   const remove = (storage: () => Storage, key: string): void => {
     try { storage().removeItem(key) } catch { /* the sweep goes on */ }
@@ -73,6 +88,5 @@ export function clearUserScopedState(): void {
     }
   } catch { /* browser storage can be unavailable */ }
   for (const key of prefixed) remove(() => localStorage, key)
-  remove(() => sessionStorage, 'olumi-cee-analysis-ready')
-  remove(() => sessionStorage, 'olumi-cee-analysis-ready-node-ids')
+  for (const key of USER_SCOPED_SESSION_KEYS) remove(() => sessionStorage, key)
 }
