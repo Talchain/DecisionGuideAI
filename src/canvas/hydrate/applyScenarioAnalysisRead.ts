@@ -81,7 +81,7 @@
  */
 
 import { RunDeltaSchema } from '@talchain/schemas/boundary'
-import type { StoredRunDelta } from '../state/storedRunDelta'
+import type { StoredRunDelta, StoredRunDeltaAbsence } from '../state/storedRunDelta'
 import type { AnalysisResultBlock, AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 import { mapV5AnalysisToReport } from '../../v5/mapV5AnalysisToReport'
@@ -286,6 +286,8 @@ export interface ScenarioAnalysisApplyStore {
    * the hash just written (`runDeltaDescribesDisplayedAnalysis` then decides), and a new analysis without one evicts.
    */
   readonly setRunDelta?: (stored: StoredRunDelta | null) => void
+  /** C10a: a new analysis read supersedes any absence reason bound to the previous analysis. */
+  readonly setRunDeltaAbsence?: (stored: StoredRunDeltaAbsence | null) => void
   /** The scenario the verdicts belong to, as the turn leg stamps it. */
   readonly currentScenarioId?: string | null
   /**
@@ -584,6 +586,9 @@ export function applyScenarioAnalysisRead(
         ? { delta: readRunDelta.data, analysisHash: hash, scenarioId: input.store.currentScenarioId ?? null }
         : null,
     )
+    // The read does not carry an absence reason. A new hash clears the prior analysis's reason;
+    // an already-held read returned above, so it preserves the turn's reason for that same analysis.
+    input.store.setRunDeltaAbsence?.(null)
   }
 
   // ⚠ AFTER the results write, and the ORDER IS THE CORRECTNESS. The

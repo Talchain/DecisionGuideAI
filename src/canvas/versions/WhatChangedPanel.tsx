@@ -38,6 +38,7 @@ import { PanelSection } from '../panels/_shared/PanelSection'
 import { typography } from '../../styles/typography'
 import { buildVersionLabelIndex, describeChangeset } from './describeChange'
 import { ServerVersionsSection } from './ServerVersionsSection'
+import { isThinClientSession } from '../thinClient/thinClient'
 import { useModelVersions } from './useModelVersions'
 import {
   VERSION_STORAGE_DISCLOSURE,
@@ -124,6 +125,9 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
   // a selection is being changed, and the user must not watch the comparison
   // controls appear and disappear underneath them.
   const canCompare = versions.length >= 2
+  // THIN CLIENT: a signed-in browser keeps no local model copies, so the local list's save and empty states are not
+  // offered; the shared list (`ServerVersionsSection`) below is the versions surface for these sessions.
+  const localVersionsOffered = !isThinClientSession()
 
   return (
     <div
@@ -147,6 +151,7 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
           {VERSION_VS_RUN_DISCLOSURE}
         </p>
 
+        {localVersionsOffered && (
         <PanelSection title="Save a version">
           <div className="flex items-center gap-2">
             <label htmlFor="version-name" className="sr-only">
@@ -181,16 +186,17 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
             {VERSION_STORAGE_DISCLOSURE}
           </p>
         </PanelSection>
+        )}
 
         {/* ── The honest empty states. Exactly one of these renders, and when one
             does, the comparison controls below do NOT (see `canCompare`). ── */}
-        {versions.length === 0 && (
+        {localVersionsOffered && versions.length === 0 && (
           <p className={`${typography.panelBody} text-text-light`} data-testid="versions-empty">
             No versions yet. Save one to start a history of this model.
           </p>
         )}
 
-        {versions.length === 1 && (
+        {localVersionsOffered && versions.length === 1 && (
           <p
             className={`${typography.panelBody} text-text-light`}
             data-testid="versions-single-capture"
