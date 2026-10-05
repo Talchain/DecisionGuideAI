@@ -21,6 +21,7 @@
  * restoring them is the safe direction.
  */
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
+import { purgePreThinModelCopies } from './preThinPurge'
 
 /** supabase-js v2's persisted-session key. The PKCE `…-auth-token-code-verifier` key is NOT a session. */
 const SUPABASE_SESSION_KEY = /^sb-.+-auth-token$/
@@ -49,10 +50,17 @@ function hasStoredSupabaseSession(): boolean {
  */
 let thinThisPage = false
 
-/** THE ONE PREDICATE. True for a signed-in browser: it then reads and writes no local copy of the model. */
+/**
+ * THE ONE PREDICATE. True for a signed-in browser: it then reads and writes no local copy of the model.
+ *
+ * GAP-3: the first time it answers true, it also removes the model copies this browser wrote before a signed-in page
+ * stopped writing them (`preThinPurge.ts`; once per identity epoch, so every later call is a marker read at most).
+ * Here, not in one boot hook, so EVERY signed-in page purges, whichever route it opens and whichever caller asks first.
+ */
 export function isThinClientSession(): boolean {
   if (thinThisPage) return true
   const thin = isPersistenceSessionActive() || hasStoredSupabaseSession()
+  if (thin) purgePreThinModelCopies()
   // Not latched under the test runner: one module instance serves a whole spec file, so a latch set by one row
   // would silently turn every later guest-path row in that file thin.
   if (thin && import.meta.env.MODE !== 'test') thinThisPage = true
@@ -69,7 +77,8 @@ export const THIN_CLIENT_NOT_SAVED_NOTICE =
 
 // ── LAYOUT: the one thing this browser keeps ─────────────────────────────────────────────────────────────────────
 
-const LAYOUT_KEY_PREFIX = 'olumi-thin-layout:'
+/** Sign-out removes every key under it (`lib/auth/userScopedState.USER_SCOPED_STORAGE_PREFIXES`). */
+export const LAYOUT_KEY_PREFIX = 'olumi-thin-layout:'
 
 export type ThinLayout = Readonly<Record<string, { readonly x: number; readonly y: number }>>
 
