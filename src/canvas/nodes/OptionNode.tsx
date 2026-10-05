@@ -28,6 +28,7 @@ import {
   describeInterventionDirection,
   formatInterventionChange,
   formatInterventionTargetText,
+  carriedInterventionDisplay,
 } from '../utils/interventionDisplay'
 import { resolveOptionIsBaseline, graphDeclaresBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -1818,9 +1819,9 @@ export const OptionNode = memo((props: NodeProps) => {
             {interventionChips.map(chip => {
               const targetFormatted = formatInterventionTargetText(chip)
               // F.6 passthrough: skip echo stripping for CEE display_value.
-              const echoStripped = chip.displayValue
-                ? chip.displayValue
-                : (targetFormatted ? stripEcho(chip.label, targetFormatted) : '')
+              // CEE's bare-level fallback is not printed beside a real unit (`carriedInterventionDisplay`).
+              const echoStripped = carriedInterventionDisplay(chip)
+                ?? (targetFormatted ? stripEcho(chip.label, targetFormatted) : '')
               return (
                 <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
                   {/* FULL label, deliberately. This popover is the recovery
