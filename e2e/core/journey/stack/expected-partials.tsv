@@ -1,0 +1,3 @@
+# X7 allow-list (SPINE X7, Integrator). One row per TOLERATED migration statement error.
+# Matched exactly on the first four columns; the fifth says why J1 does not need what failed.
+# file	line	sqlstate	message	why

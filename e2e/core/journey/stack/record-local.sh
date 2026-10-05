@@ -99,7 +99,7 @@ enable_signup = true
 enable_confirmations = false
 EOF
 cp "$W/keys/signing_keys.json" supabase/signing_keys.json
-node "$STACK/merge-migrations.mjs" "$DGAI/supabase/migrations" "$W/cee/supabase/migrations" "$W/merged/migrations"
+node "$STACK/merge-migrations.mjs" "$DGAI/supabase/migrations" "$W/cee/supabase/migrations" "$W/merged/migrations" "$STACK/hosted-drift-pre"
 supabase start -x studio,imgproxy,vector,logflare,edge-runtime,supavisor > "$W/logs/supabase-start.log" 2>&1
 J1_PSQL="docker exec -i supabase_db_j1-journey psql -U postgres -d postgres" \
   bash "$STACK/apply-migrations.sh" "$W/merged/migrations" "$W/logs/MIGRATION-REPORT.tsv"

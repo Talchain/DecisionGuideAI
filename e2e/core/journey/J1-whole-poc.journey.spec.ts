@@ -13,9 +13,13 @@
  *   on the canvas, by their exact "Connection from <A> to <B>" labels (canvas ids are local).
  * A value another object could satisfy ("a result appeared") is never enough.
  *
- * Required (deterministic under frozen replay): J0 J1 J2(+a,b) J3 J3r J5(+a) J8 J9.
- * Advisory until 3 greens: J3p J7. Advisory rows write a verdict to
- * evidence/advisory.json and never fail the run. Not built yet: J3b J4 J5b J5c.
+ * Required (deterministic under frozen replay): J0 J1 J2(+a,b) J3 J3r J5(+a) J6 J8 J9.
+ * Advisory until 3 greens: J3p J7, and J6's prior = R1 binding where R1 is not
+ * identifiable (UNBOUND). Advisory rows write a verdict to evidence/advisory.json and
+ * never fail the run. Not built yet: J3b J4 J5b J5c.
+ *
+ * Every step also asserts the LLM boundary answered every call EXACTLY as frozen
+ * (assertBoundaryClean): a drifted, missing, exhausted or reused recording is red.
  *
  * Serial on purpose. Account A's browser lives across steps (beforeAll), so the
  * edit, the staleness and the rerun happen in the same tab a user would use.
@@ -28,7 +32,7 @@ import {
   submitBrief, waitForDraftTurnComplete, type MintedSession,
 } from '../lib/harness'
 import {
-  analysisResultOf, assertNoReplayMiss, browserStorage, captureTurns, CEE_URL, edgeKey,
+  analysisResultOf, assertBoundaryClean, browserStorage, captureTurns, CEE_URL, edgeKey,
   frozenRecordings, injectSession, ledger, nextTurn, scenarioIdFromUrl, scenariosVisibleTo,
   storedRead, tuple, writeEvidence, type CapturedTurn,
 } from './lib/journey'
@@ -57,6 +61,9 @@ const ENRICHMENT_KEEP_LIST = [
 const ASSUMED_DIRECTION = 'The analysis was not told which way your goal points, so it assumed a higher value is better'
 // StyledEdge paints the fragile cue only above this switch probability (constants.ts:23).
 const FRAGILE_PAINT_THRESHOLD = 0.15
+// Identity shapes: an analysis hash (16 or 64 hex) and a run id. A missing value never matches.
+const HASH = /^[0-9a-f]{16}([0-9a-f]{48})?$/
+const RUN_ID = /^[0-9a-f]{16,64}$/
 // The product's own words for a draft that ended before its values arrived
 // (canRunAnalysis.ts:115, DraftLoadingAnimation.tsx:210 @ 410fa444). Seen on the first
 // local record, 5 Oct 12:04Z, when the agent lane's last call failed: J1 must not pass then.
@@ -167,10 +174,8 @@ test.describe.serial('J1 · whole PoC', () => {
     await enterAuthenticated(pageA)
     await submitBrief(pageA, J1_BRIEF)
     await waitForDraftTurnComplete(pageA, { timeoutMs: 420_000 })
-    assertNoReplayMiss('J1')
-    // A draft whose agent lane failed still closes its stream: read the product's verdict on it.
-    const failedLlm = ledger().filter((r) => ['upstream_error', 'rate_limited', 'refused_after_429'].includes(r.outcome))
-    expect(failedLlm.map((r) => `#${r.seq} ${r.outcome}`), '[J1] an LLM call in the draft failed at the boundary').toEqual([])
+    // Every call so far was answered exactly as frozen (no miss, drift, reuse, upstream error or 429).
+    assertBoundaryClean('J1')
     await openDockTab(pageA, 'Analysis')
     // Control first: the footer that would carry the sentence has rendered, so its absence means something.
     await expect(pageA.getByTestId('pre-analysis-v3-footer').or(pageA.getByTestId('results-analysis-footer')).first(),
@@ -196,8 +201,7 @@ test.describe.serial('J1 · whole PoC', () => {
     await expect.poll(async () => (await renderedNodeIds(pageA)).sort(), {
       message: '[J1] the canvas does not render the stored graph G1 by id', timeout: 60_000,
     }).toEqual(nodesOf(J.G1))
-    // J1 is the first draft in the job: it must have used each recording at most once.
-    expect(ledger().filter((r) => r.outcome === 'hit_reuse').length, '[J1] the draft made more calls than the frozen set holds').toBe(0)
+    assertBoundaryClean('J1 end')
     writeEvidence('J1-model.json', { S: J.S, H1: J.H1, H1id: J.H1id, nodes: nodesOf(J.G1), edges: edgesOf(J.G1) })
   })
 
@@ -216,7 +220,7 @@ test.describe.serial('J1 · whole PoC', () => {
     const since = Date.now()
     await run.click()
     const turn = await nextTurn(turns, since, 'J2 run')
-    assertNoReplayMiss('J2')
+    assertBoundaryClean('J2')
     J.AR1 = analysisResultOf(turn.body)!
     expect(J.AR1, '[J2] the run turn carries no analysis_result block').toBeTruthy()
 
@@ -224,17 +228,21 @@ test.describe.serial('J1 · whole PoC', () => {
     expect(body.graph_hash, '[J2] running the analysis changed the graph').toBe(J.H1)
     expect(body.analysis_state?.run_state?.kind, '[J2] the stored run is not current').toBe('complete_current')
     J.A1 = body.current_read?.computed_against_hash
-    expect(J.A1, '[J2] the stored read names no analysis hash the run was computed on').toBeTruthy()
+    expect(J.A1, '[J2] the stored read names no analysis hash the run was computed on').toMatch(HASH)
     expect(J.AR1.computed_against_hash, '[J2] the turn and the stored read disagree on what the run was computed on').toBe(J.A1)
     expect(body.current_read?.current_analysis_hash, '[J2] the run was not computed on the current model').toBe(J.A1)
     J.R1 = body.current_read?.run_delta?.endpoints?.current?.run_id ?? null
     J.R1at = body.analysis_state?.run_state?.computed_at ?? null
     expect(J.R1at, '[J2] the stored run has no computed_at').toBeTruthy()
 
-    // The Analysis tab names G1's options by their exact labels.
+    // The RESULTS surface (not the page: the canvas already shows the labels) names G1's
+    // options by their exact labels, once it has settled on a complete result.
+    const results = pageA.getByTestId('results-body-stale-wrapper')
+    await expect(results, '[J2] the Analysis tab shows no complete result').toHaveAttribute('data-run-status', 'complete', { timeout: 120_000 })
+    await expect(results, '[J2] the result is still marked busy').not.toHaveAttribute('aria-busy', 'true', { timeout: 60_000 })
     const options = J.G1!.nodes.filter((n) => n.kind === 'option')
-    const panel = await pageA.locator('body').innerText()
-    for (const o of options) expect(panel, `[J2] option "${o.label}" (${o.id}) is not on screen`).toContain(o.label!)
+    expect(options.length, '[J2] G1 has no option to look for').toBeGreaterThan(0)
+    for (const o of options) await expect(results, `[J2] the result does not name option "${o.label}" (${o.id})`).toContainText(o.label!)
 
     // J2a: the assumed-direction sentence appears exactly when CEE says the direction was unattested.
     const unattested = (J.AR1.enrichment?.inference_warnings ?? []).some((w: any) => w?.code === 'GOAL_DIRECTION_UNATTESTED')
@@ -319,6 +327,7 @@ test.describe.serial('J1 · whole PoC', () => {
     await pageA.getByTestId(band).click()
     const turn = await nextTurn(turns, since, 'J5 edit')
     expect(turn.status, '[J5] the edit turn failed').toBe(200)
+    assertBoundaryClean('J5')
 
     const body = await read('J5')
     J.G2 = body.graph as Graph; J.H2 = body.graph_hash; J.H2id = body.graph_identity_hash?.value
@@ -341,27 +350,32 @@ test.describe.serial('J1 · whole PoC', () => {
     writeEvidence('J5-edit.json', { edited: edgeKey({ from: top.from_id, to: top.to_id }), band, H2: J.H2, H2id: J.H2id, mean_before: before.strength?.mean, mean_after: after!.strength?.mean })
   })
 
-  test('J6 · rerun: R2 is computed on H2 and its delta points back at R1 (+J7 Compare, advisory)', async () => {
+  test('J6 · rerun: R2 is computed on H2, its delta has a distinct prior, and the prior is R1 wherever R1 is identifiable (+J7 Compare, advisory)', async () => {
     await pageA.keyboard.press('Escape')
     const footer = pageA.getByTestId('results-analysis-footer-action')
     await expect(footer, '[J6] the footer does not offer the rerun').toBeVisible()
     const since = Date.now()
     await footer.click()
     const turn = await nextTurn(turns, since, 'J6 rerun')
-    assertNoReplayMiss('J6')
+    assertBoundaryClean('J6')
     J.AR2 = analysisResultOf(turn.body)!
     expect(J.AR2, '[J6] the rerun carries no analysis_result').toBeTruthy()
 
     const body = await read('J6')
     expect(body.graph_hash, '[J6] the rerun is not on the edited graph').toBe(J.H2)
     expect(body.analysis_state?.run_state?.kind, '[J6] the rerun is not current').toBe('complete_current')
-    expect(body.current_read?.computed_against_hash, '[J6] the rerun was not computed on the current model').toBe(body.current_read?.current_analysis_hash)
-    expect(body.current_read?.computed_against_hash, '[J6] the rerun reused R1\'s analysis hash').not.toBe(J.A1)
+    // Every identity below is REQUIRED to be present: two missing values never compare equal here.
+    const A2 = body.current_read?.computed_against_hash
+    expect(A2, '[J6] the stored read names no analysis hash for the rerun').toMatch(HASH)
+    expect(body.current_read?.current_analysis_hash, '[J6] the rerun was not computed on the current model').toBe(A2)
+    expect(J.AR2.computed_against_hash, '[J6] the rerun turn and the stored read disagree on what R2 was computed on').toBe(A2)
+    expect(A2, '[J6] the rerun reused R1\'s analysis hash').not.toBe(J.A1)
     const ends = body.current_read?.run_delta?.endpoints
     J.R2 = ends?.current?.run_id
     J.R2at = body.analysis_state?.run_state?.computed_at ?? null
-    expect(J.R2, '[J6] the stored read has no current run id').toBeTruthy()
-    expect(ends?.prior?.run_id, '[J6] the delta\'s prior run is the current one').not.toBe(J.R2)
+    expect(J.R2, '[J6] the stored read has no current run id').toMatch(RUN_ID)
+    expect(ends?.prior?.run_id, '[J6] the delta has no prior run id').toMatch(RUN_ID)
+    expect(ends.prior.run_id, '[J6] the delta\'s prior run is the current one').not.toBe(J.R2)
     if (J.R1) expect(ends?.prior?.run_id, '[J6] the delta does not point back at R1').toBe(J.R1)
     // Bind the pair by computed_at (Integrator amendment @7cbd02f6): prior = R1, current = R2,
     // and the prior is NOT the automatic first pass (the C10a pair). Absent endpoints = UNBOUND.
@@ -408,6 +422,11 @@ test.describe.serial('J1 · whole PoC', () => {
       await expect.poll(async () => (await renderedNodeIds(page)).sort(), {
         message: '[J8] a fresh browser does not render G2 by id', timeout: 120_000,
       }).toEqual(nodesOf(J.G2!))
+      // The result must be RESTORED before its marks are read: an empty expected set
+      // would otherwise pass on a page that has not restored anything yet.
+      await openDockTab(page, 'Analysis')
+      await expect(page.getByTestId('results-body-stale-wrapper'), '[J8] the fresh browser never restored a complete result')
+        .toHaveAttribute('data-run-status', 'complete', { timeout: 120_000 })
 
       const r = await storedRead(page.request, J.S!, J.A!.user)
       expect(r.status).toBe(200)
@@ -425,6 +444,7 @@ test.describe.serial('J1 · whole PoC', () => {
       const r1Mark = `${J.edited!.from_label} → ${J.edited!.to_label}`
       await expect.poll(() => fragileTaggedPairs(page), { message: '[J8] the fresh browser does not mark exactly R2\'s fragile edge(s)', timeout: 60_000 }).toEqual(want)
       if (!want.includes(r1Mark)) expect(await fragileTaggedPairs(page), '[J8] R1\'s stale fragile mark is still painted').not.toContain(r1Mark)
+      assertBoundaryClean('J8')
       writeEvidence('J8-fresh.json', { H2: J.H2, R2: J.R2, tagged: want })
     } finally {
       await ctx.close()
@@ -440,6 +460,10 @@ test.describe.serial('J1 · whole PoC', () => {
     expect(aRest.ids, '[J9 control] account A cannot list its own scenario S via PostgREST').toContain(S)
     const aRead = await storedRead(request, S, J.A!.user)
     expect(aRead.status, '[J9 control] account A cannot read S from CEE').toBe(200)
+    // The storage scan below can see S: A's own browser storage names it.
+    const aStore = await browserStorage(pageA)
+    expect(Object.entries(aStore).filter(([k, v]) => k.includes(S) || v.includes(S)).length,
+      '[J9 control] A\'s browser storage does not name S, so a scan of B\'s would be blind').toBeGreaterThan(0)
 
     const ctx = await browser.newContext()
     const page = await ctx.newPage()
@@ -455,8 +479,15 @@ test.describe.serial('J1 · whole PoC', () => {
       expect([403, 404], `[J9] CEE served S to account B (status ${bRead.status})`).toContain(bRead.status)
       expect(JSON.stringify(bRead.body ?? {}), '[J9] CEE\'s refusal to B carries A\'s graph').not.toContain(`"${latest[0]}"`)
 
+      // Terminal state first: the UI's OWN read of S, under B's session, is refused. Only
+      // then is "none of A's nodes mounted" a measurement rather than a page still loading.
+      const uiRead = page.waitForResponse((r) => r.url().includes(`/bff/cee/scenarios/${S}/graph`) && r.request().method() === 'POST', { timeout: 90_000 })
+        .catch(() => null)
       await page.goto(`${ORIGIN}/#/scenario/${S}`, { waitUntil: 'load' })
-      await page.waitForTimeout(15_000)
+      const refused = await uiRead
+      expect(refused, '[J9] COULD NOT MEASURE: B\'s browser never read S from CEE, so an empty canvas proves nothing').not.toBeNull()
+      expect([403, 404], `[J9] CEE served S to B's browser (status ${refused!.status()})`).toContain(refused!.status())
+      await expect(page.getByRole('button', { name: 'Account menu' }), '[J9] B\'s app shell never rendered signed in').toBeVisible({ timeout: 60_000 })
       const mounted = await renderedNodeIds(page)
       expect(mounted.filter((id) => latest.includes(id)), '[J9] A\'s model rendered in B\'s browser').toEqual([])
 
@@ -466,8 +497,9 @@ test.describe.serial('J1 · whole PoC', () => {
 
       writeEvidence('J9-account-b.json', {
         S, a_rest_ids: aRest.ids.length, a_read: aRead.status, b_rest_status: bRest.status,
-        b_rest_ids: bRest.ids.length, b_read: bRead.status, b_mounted: mounted.length, b_storage_keys: Object.keys(store).length,
+        b_rest_ids: bRest.ids.length, b_read: bRead.status, b_ui_read: refused!.status(), b_mounted: mounted.length, b_storage_keys: Object.keys(store).length,
       })
+      assertBoundaryClean('J9')
     } finally {
       await ctx.close()
     }

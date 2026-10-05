@@ -31,7 +31,10 @@ export default defineConfig({
   use: {
     baseURL: process.env.CORE_UI_URL ?? 'http://localhost:5173',
     headless: true,
-    trace: 'retain-on-failure',
+    // No traces: a trace keeps request headers (the local accounts' bearer tokens) and the
+    // isolation rows' form fills, and the evidence artifact is uploaded as is (Codex buddy
+    // #2513 finding 1). Failures are diagnosed from evidence/*.json, screenshots and video.
+    trace: 'off',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
     viewport: { width: 1440, height: 900 },

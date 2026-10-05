@@ -5,7 +5,9 @@
 // owns the v5 append RPCs. Neither repo's CI ever applies the other's migrations,
 // so this step is itself a seam check (Integrator ruling, J1-SPEC-RULING §0).
 //
-// usage: merge-migrations.mjs <dgai/supabase/migrations> <cee/supabase/migrations> <out dir>
+// usage: merge-migrations.mjs <dgai/supabase/migrations> <cee/supabase/migrations> <out dir> [pre-shim dir]
+// The optional pre-shim dir holds `<ts>_j1_drift_<what>.sql` files: hosted-only objects a
+// LATER migration needs, merged in timestamp order and reported as DRIFT-SHIM (X7).
 // Ties on the timestamp are ordered DGAI first (it owns the base tables). A file
 // that BOTH repos carry under one name is applied once, but only when its SQL is the
 // same ignoring comments; a same-named pair whose SQL differs is a hard error,
@@ -14,7 +16,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-const [dgaiDir, ceeDir, outDir] = process.argv.slice(2)
+const [dgaiDir, ceeDir, outDir, preDir] = process.argv.slice(2)
 if (!dgaiDir || !ceeDir || !outDir) { console.error('usage: merge-migrations.mjs <dgai> <cee> <out>'); process.exit(2) }
 
 const PATTERN = /^(\d{14})_[\w.-]+\.sql$/
@@ -46,7 +48,11 @@ const ceeOnly = cee.filter((c) => {
   shared.push(c.file)
   return false
 })
-const all = [...dgai, ...ceeOnly]
+const pre = preDir ? read(preDir, 'j1-drift') : []
+for (const p of pre) {
+  if (!p.file.includes('_j1_drift_')) { console.error(`[migrations] pre-shim ${p.file} is not named <ts>_j1_drift_<what>.sql`); process.exit(1) }
+}
+const all = [...dgai, ...ceeOnly, ...pre]
   .sort((a, b) => (a.ts === b.ts ? (a.repo === 'dgai' ? -1 : 1) : a.ts < b.ts ? -1 : 1))
 for (const f of shared) console.log(`[migrations] ${f}: in both repos, same SQL (comments aside); applied once`)
 
@@ -68,7 +74,7 @@ for (const m of all) {
 }
 fs.writeFileSync(path.join(outDir, '..', 'MIGRATION-ORDER.tsv'), [...manifest, ...shared.map((f) => `${f}\tshared (dgai copy applied)`)].join('\n') + '\n')
 const count = (r) => all.filter((m) => m.repo === r).length
-console.log(`[migrations] ${all.length} applied in order: dgai ${count('dgai')} + cee ${count('cee')} (+${shared.length} shared, applied once)`)
+console.log(`[migrations] ${all.length} applied in order: dgai ${count('dgai')} + cee ${count('cee')} + j1-drift pre-shims ${count('j1-drift')} (+${shared.length} shared, applied once)`)
 for (const f of Object.keys(NON_REPLAYABLE)) {
   if (!all.some((m) => m.file === f)) { console.error(`[migrations] NON_REPLAYABLE names ${f}, which no repo carries: stale list`); process.exit(1) }
   console.log(`[migrations] ${f}: NON-REPLAYABLE (${NON_REPLAYABLE[f]}), applied with FK triggers off`)

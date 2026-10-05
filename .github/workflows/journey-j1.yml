@@ -86,6 +86,8 @@ jobs:
             sha=$(git -C "$r" rev-parse HEAD)
             [ "${#sha}" -eq 40 ] || { echo "::error::$r HEAD is not a 40-char SHA: $sha"; exit 1; }
             echo "$(echo "$r" | tr a-z A-Z)_SHA=$sha" >> "$GITHUB_ENV"
+            # GITHUB_ENV reaches LATER steps only: export for tuple.json below too.
+            export "$(echo "$r" | tr a-z A-Z)_SHA=$sha"
           done
           node -e 'const e=process.env;require("fs").writeFileSync(process.argv[1],JSON.stringify({mode:e.J1_MODE,ui:e.DGAI_SHA,cee:e.CEE_SHA,plot:e.PLOT_SHA,isl:e.ISL_SHA,run:e.GITHUB_RUN_ID},null,1))' "$J1/tuple.json"
           cat "$J1/tuple.json"
@@ -171,12 +173,17 @@ jobs:
           EOF
           sed -i 's/^          //' supabase/config.toml
           node "$GITHUB_WORKSPACE/dgai/e2e/core/journey/stack/merge-migrations.mjs" \
-            "$GITHUB_WORKSPACE/dgai/supabase/migrations" "$GITHUB_WORKSPACE/cee/supabase/migrations" "$J1/merged/migrations"
+            "$GITHUB_WORKSPACE/dgai/supabase/migrations" "$GITHUB_WORKSPACE/cee/supabase/migrations" "$J1/merged/migrations" \
+            "$GITHUB_WORKSPACE/dgai/e2e/core/journey/stack/hosted-drift-pre"
           cp "$J1/keys/signing_keys.json" supabase/signing_keys.json
           grep -n 'signing_keys_path\|site_url\|enable_confirmations' supabase/config.toml
           # Start EMPTY, then apply every file and report each outcome (apply-migrations.sh).
           supabase start -x studio,imgproxy,vector,logflare,edge-runtime,supavisor 2>&1 | tee "$J1/logs/supabase-start.log"
           bash "$GITHUB_WORKSPACE/dgai/e2e/core/journey/stack/apply-migrations.sh" "$J1/merged/migrations" "$J1/logs/MIGRATION-REPORT.tsv"
+          # X7 schema assert (Integrator's object list): recorded here, enforced by the X7 step.
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -X -q -A -t -F "$(printf '\t')" -v ON_ERROR_STOP=1 \
+            -f "$GITHUB_WORKSPACE/dgai/e2e/core/journey/stack/schema-assert.sql" \
+            > "$J1/logs/SCHEMA-ASSERT.tsv" 2> "$J1/logs/SCHEMA-ASSERT.err" || true
           supabase status -o env > "$J1/sb.env"
           set -a; . "$J1/sb.env"; set +a
           echo "::add-mask::$SERVICE_ROLE_KEY"
@@ -319,10 +326,39 @@ jobs:
               echo "LLM boundary: no calls reached it."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
-          if [ "$J1_MODE" = replay ] && grep -q '"outcome":"miss"' "$L" 2>/dev/null; then
-            echo "::error::REPLAY MISS: a call had no frozen recording. Could not measure; this is red, never a pass."
-            exit 1
+          # Allow-list: before the isolation rows switch reuse on, only exact hits.
+          if [ "$J1_MODE" = replay ]; then
+            [ -s "$L" ] || { echo "::error::LLM ledger is empty: could not measure"; exit 1; }
+            bad=$(node -e 'const ok=new Set(["index","hit"]);const b=require("fs").readFileSync(process.argv[1],"utf8").trim().split("\n").map(JSON.parse).filter(r=>!ok.has(r.outcome));console.log(b.map(r=>`#${r.seq} ${r.outcome}${r.diagnosis?" "+r.diagnosis:""}`).join("; "))' "$L")
+            if [ -n "$bad" ]; then
+              echo "::error::LLM boundary served calls other than exactly as frozen: $bad. Could not measure; this is red, never a pass."
+              exit 1
+            fi
           fi
+
+      # X7 (SPINE, Integrator): the schema J1 ran on. Red when a migration error is not on
+      # expected-partials.tsv (file + line + SQLSTATE + exact text), when a REQUIRED or
+      # SECURITY row of schema-assert.sql fails, or when either was not measured. The schema
+      # result is labelled PARTIAL even when it matches: never "schema rebuild green".
+      - name: X7 · schema seam (migration allow-list + schema assert)
+        if: always()
+        run: |
+          set -uo pipefail
+          V="$J1/logs/X7-MIGRATIONS.txt"; A="$J1/logs/SCHEMA-ASSERT.tsv"; red=0
+          {
+            echo "### X7 · schema seam"
+            if [ -s "$V" ]; then echo '```'; cat "$V"; echo '```'; else echo "Migrations: COULD NOT MEASURE (no X7-MIGRATIONS.txt)"; fi
+            if [ -s "$A" ]; then
+              echo "Schema assert: $(grep -c $'\tPASS\t' "$A") PASS, $(grep -c $'\tFAIL\t' "$A") FAIL, $(grep -c $'\tREPORT\t' "$A") REPORT"
+              echo '```'; grep -v $'\tPASS\t' "$A" || true; echo '```'
+            else
+              echo "Schema assert: COULD NOT MEASURE"; echo '```'; head -5 "$J1/logs/SCHEMA-ASSERT.err" 2>/dev/null; echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$V" 2>/dev/null; cat "$A" 2>/dev/null
+          if ! { [ -s "$V" ] && [ "$(head -1 "$V")" = MATCH ]; }; then echo "::error::X7: a migration error is not on expected-partials.tsv, or it was not measured"; red=1; fi
+          if ! { [ -s "$A" ] && ! grep -q $'\tFAIL\t' "$A"; }; then echo "::error::X7: the schema assert failed, or it was not measured"; red=1; fi
+          exit $red
 
       # Two-account rows in ONE browser (Red-team A1-A4, Core Platform #2501 sweep).
       # Advisory, after J1 and its ledger gate, so they never colour J1's verdict. Their
@@ -336,8 +372,13 @@ jobs:
           CORE_SUPABASE_URL: ${{ env.SB_URL }}
           CORE_SUPABASE_KEY: ${{ env.SB_ANON_KEY }}
           J1_CEE_URL: http://127.0.0.1:${{ env.CEE_PORT }}
+          J1_SB_SERVICE_ROLE_KEY: ${{ env.SB_SERVICE_ROLE_KEY }}
           PLAYWRIGHT_HTML_REPORT: playwright-report-isolation
-        run: npx playwright test --config playwright.journey.config.ts isolation-same-browser --output test-results/isolation
+        run: |
+          # Reuse is OFF for J1 (any second serving of a recording is red there). The
+          # isolation drafts replay J1's frozen brief, so switch it on now, ledgered.
+          curl -sf -X POST --cacert "$J1/keys/ca.pem" https://api.openai.com/__journey_allow_reuse
+          npx playwright test --config playwright.journey.config.ts isolation-same-browser --output test-results/isolation
 
       - name: Upload evidence
         if: always()

@@ -17,13 +17,25 @@
 //            /etc/hosts points at us) and save every exchange. The first 429
 //            aborts: every later call is refused and the ledger says why.
 //
-// Matching. A call's SIGNATURE is its coarse shape: host, path, model, stream,
-// sorted tool names, and the structured-output format name. Its DETAIL hash covers
-// the normalised instructions and input (uuids, long hex, timestamps and long
-// numbers replaced). The replay takes the first unused recording with the same
-// signature, preferring one whose detail hash also matches. A detail mismatch
-// still serves, but it is ledgered as `hit_drift`, so a prompt change since the
-// recording shows up in the summary rather than as a silent pass.
+// Matching (scheme 2, after the Codex buddy review of #2513, 5 Oct). A call's
+// SIGNATURE is host, path, model, stream, and hashes of the FULL tool definitions and
+// the FULL structured-output format (schemas included). Its DETAIL hash covers the
+// whole request body, canonical (sorted keys), with only these values normalised,
+// each a measured per-run volatility:
+//   - uuids (scenario, turn, user and run ids are minted per run);
+//   - ISO timestamps;
+//   - float noise: a decimal with a fraction is compared at 6 significant digits
+//     (Mac arm64 record vs Linux x86_64 replay). Integers are never touched, so
+//     business quantities (120000, 187500) and counts stay exact.
+// Replay serves ONLY an exact (signature, detail) match. Anything else is red:
+//   `drift` - a recording with the same signature exists but the request differs
+//             (a diagnosis file names the first differing position);
+//   `miss`  - no recording of that shape at all;
+//   `exhausted` - an exact match whose every recording was already served, reuse off.
+// `hit_reuse` (a used recording served again) is OFF until a client posts
+// /__journey_allow_reuse, which the workflow does only before the advisory isolation
+// rows. J1 runs first, so J1 sees exact hits or red.
+// Recordings made under scheme 1 are re-keyed at load from their stored `request`.
 
 import crypto from 'node:crypto'
 import dns from 'node:dns'
@@ -55,38 +67,53 @@ fs.mkdirSync(path.dirname(LEDGER), { recursive: true })
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 16)
 const ledger = (row) => fs.appendFileSync(LEDGER, JSON.stringify({ t: new Date().toISOString(), mode: MODE, ...row }) + '\n')
 
+const canonical = (v) => {
+  if (Array.isArray(v)) return v.map(canonical)
+  if (v && typeof v === 'object') return Object.fromEntries(Object.keys(v).sort().map((k) => [k, canonical(v[k])]))
+  return v
+}
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi
+const ISO_TS = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z?/g
+// A decimal WITH a fraction (and optional exponent). Integers never match.
+const DECIMAL = /-?\b\d+\.\d+(?:[eE][-+]?\d+)?/g
 const normalise = (s) => String(s)
-  .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<uuid>')
-  .replace(/\b[0-9a-f]{16,}\b/gi, '<hex>')
-  .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z?/g, '<ts>')
-  .replace(/\b\d{6,}\b/g, '<n>')
+  .replace(UUID, '<uuid>')
+  .replace(ISO_TS, '<ts>')
+  .replace(DECIMAL, (m) => String(Number(Number(m).toPrecision(6))))
 
 function shapeOf(host, urlPath, body) {
   const b = body && typeof body === 'object' ? body : {}
-  const tools = Array.isArray(b.tools)
-    ? b.tools.map((t) => t?.name ?? t?.function?.name ?? t?.type ?? '?').sort().join(',')
-    : ''
-  const format =
-    b.text?.format?.name ?? b.response_format?.json_schema?.name ?? b.response_format?.type ??
-    (typeof b.tool_choice === 'object' ? (b.tool_choice?.name ?? b.tool_choice?.function?.name ?? '') : (b.tool_choice ?? '')) ?? ''
-  const signature = [host, urlPath, `model=${b.model ?? ''}`, `stream=${b.stream === true}`, `tools=${sha(tools)}`, `format=${format}`].join('|')
-  const detail = sha(normalise(JSON.stringify([b.instructions ?? b.system ?? '', b.input ?? b.messages ?? ''])))
-  return { signature, detail }
+  const tools = sha(JSON.stringify(canonical(b.tools ?? null)))
+  const format = sha(JSON.stringify(canonical([b.text?.format ?? null, b.response_format ?? null, b.tool_choice ?? null])))
+  const signature = [host, urlPath, `model=${b.model ?? ''}`, `stream=${b.stream === true}`, `tools=${tools}`, `format=${format}`].join('|')
+  const norm = normalise(JSON.stringify(canonical(b)))
+  return { signature, detail: sha(norm), norm }
+}
+
+/** The first position where two normalised requests differ, with context, for a drift row. */
+function firstDifference(a, b) {
+  let i = 0
+  while (i < a.length && i < b.length && a[i] === b[i]) i++
+  return { at: i, recorded: b.slice(Math.max(0, i - 160), i + 160), served: a.slice(Math.max(0, i - 160), i + 160) }
 }
 
 // ── replay index ────────────────────────────────────────────────────────────
 const recordings = MODE === 'replay'
   ? fs.readdirSync(FIXTURES).filter((f) => /^\d+-.*\.json$/.test(f)).sort()
-      .map((f) => ({ file: f, ...JSON.parse(fs.readFileSync(path.join(FIXTURES, f), 'utf8')) }))
+      .map((f) => {
+        const r = JSON.parse(fs.readFileSync(path.join(FIXTURES, f), 'utf8'))
+        // Re-key from the stored request, so every recording is matched under this scheme.
+        const k = shapeOf(r.host, r.path, r.request)
+        return { file: f, ...r, signature: k.signature, detail: k.detail, norm: k.norm }
+      })
   : []
 const used = new Set()
-// Once every recording of a signature is used, a later spec that drafts the same frozen
-// brief (e.g. the isolation rows) gets them again, in recorded order, ledgered as
-// `hit_reuse`. J1 runs first and asserts it caused none, so J1's own count stays exact.
+// Reuse: off until /__journey_allow_reuse (advisory isolation rows only).
+let reuseAllowed = false
 const reuse = new Map()
 if (MODE === 'replay') {
   console.log(`[llm-replay] replay mode: ${recordings.length} recordings in ${FIXTURES}`)
-  ledger({ outcome: 'index', recordings: recordings.length })
+  ledger({ outcome: 'index', recordings: recordings.length, scheme: 2 })
 }
 
 let seq = 0
@@ -159,13 +186,19 @@ function handle(req, res) {
     const bodyBuf = Buffer.concat(chunks)
     let body = null
     try { body = JSON.parse(bodyBuf.toString('utf8')) } catch { /* non-JSON request */ }
-    const { signature, detail } = shapeOf(host, urlPath, body)
+    const { signature, detail, norm } = shapeOf(host, urlPath, body)
 
     // The workflow's boot check: proves the redirect, the TLS trust and the mode,
     // without touching the ledger.
     if (urlPath === '/__journey_selftest') {
       res.writeHead(200, { 'content-type': 'application/json' })
-      return res.end(JSON.stringify({ ok: true, mode: MODE, host, recordings: recordings.length }))
+      return res.end(JSON.stringify({ ok: true, mode: MODE, host, recordings: recordings.length, reuse: reuseAllowed }))
+    }
+    if (urlPath === '/__journey_allow_reuse' && req.method === 'POST') {
+      reuseAllowed = true
+      ledger({ outcome: 'reuse_enabled' })
+      res.writeHead(200, { 'content-type': 'application/json' })
+      return res.end(JSON.stringify({ ok: true, reuse: true }))
     }
 
     const n = ++seq
@@ -175,22 +208,33 @@ function handle(req, res) {
     }
 
     if (MODE === 'replay') {
-      const free = recordings.filter((r) => !used.has(r.file) && r.signature === signature)
-      let pick = free.find((r) => r.detail === detail) ?? free[0]
-      let outcome = pick ? (pick.detail === detail ? 'hit' : 'hit_drift') : null
-      if (!pick) {
-        const same = recordings.filter((r) => r.signature === signature)
-        if (same.length) {
-          const k = reuse.get(signature) ?? 0
-          pick = same[k % same.length]; reuse.set(signature, k + 1); outcome = 'hit_reuse'
-        }
+      const exact = recordings.filter((r) => r.signature === signature && r.detail === detail)
+      let pick = exact.find((r) => !used.has(r.file))
+      let outcome = pick ? 'hit' : null
+      if (!pick && reuseAllowed && exact.length) {
+        const k = reuse.get(signature + detail) ?? 0
+        pick = exact[k % exact.length]; reuse.set(signature + detail, k + 1); outcome = 'hit_reuse'
       }
       if (!pick) {
+        const near = recordings.find((r) => r.signature === signature && !used.has(r.file)) ??
+          recordings.find((r) => r.signature === signature)
+        if (near && near.detail === detail) {
+          // Same request, every recording of it already served, reuse off: one call too many.
+          ledger({ seq: n, outcome: 'exhausted', signature, detail, nearest: near.file })
+          return refuse(res, 400, 'journey_replay_exhausted', `call ${n} repeats frozen ${near.file}, already served (reuse is off)`)
+        }
+        if (near) {
+          const diff = firstDifference(norm, near.norm)
+          const file = path.join(path.dirname(LEDGER), `drift-${String(n).padStart(4, '0')}.json`)
+          fs.writeFileSync(file, JSON.stringify({ seq: n, signature, detail, nearest: near.file, ...diff }, null, 1))
+          ledger({ seq: n, outcome: 'drift', signature, detail, nearest: near.file, recorded_detail: near.detail, diff_at: diff.at, diagnosis: path.basename(file) })
+          return refuse(res, 400, 'journey_replay_drift', `call ${n} differs from frozen ${near.file} at char ${diff.at}`)
+        }
         ledger({ seq: n, outcome: 'miss', signature, detail })
         return refuse(res, 400, 'journey_replay_miss', `no frozen recording for call ${n} (${signature})`)
       }
       used.add(pick.file)
-      ledger({ seq: n, outcome, signature, detail, recorded_detail: pick.detail, file: pick.file })
+      ledger({ seq: n, outcome, signature, detail, file: pick.file })
       res.writeHead(pick.status, { 'content-type': pick.content_type ?? 'application/json' })
       return res.end(pick.body)
     }

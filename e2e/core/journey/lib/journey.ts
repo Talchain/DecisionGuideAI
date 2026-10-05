@@ -41,18 +41,23 @@ export function frozenRecordings(): string[] {
 }
 
 /**
- * A replay MISS means a call had no frozen answer, so the product ran on a refusal.
- * That run measured nothing: it is red as could-not-measure, never a product verdict
- * and never a pass.
+ * The LLM boundary must have answered EVERY call so far exactly as frozen: in replay, the
+ * only rows allowed are the index and exact `hit`s; in record, only `recorded`. A miss,
+ * a drift (the request changed since the recording), an exhausted recording, a reuse,
+ * an upstream error or a 429 all mean the product ran on something other than the
+ * frozen answer to ITS request. That run measured nothing: red as could-not-measure,
+ * never a product verdict and never a pass. (Allow-list, not deny-list: a new outcome
+ * is red until named here. Codex buddy #2513 findings 6+7.)
  */
-export function assertNoReplayMiss(step: string): void {
-  if (process.env.J1_MODE !== 'replay') return
-  const miss = ledger().filter((r) => r.outcome === 'miss' || r.outcome === 'unknown_host')
-  if (miss.length) {
+export function assertBoundaryClean(step: string): void {
+  const allowed = process.env.J1_MODE === 'record' ? ['recorded'] : ['index', 'hit']
+  const bad = ledger().filter((r) => !allowed.includes(r.outcome))
+  if (bad.length) {
+    const counts = bad.reduce<Record<string, number>>((c, r) => ({ ...c, [r.outcome]: (c[r.outcome] ?? 0) + 1 }), {})
     throw new Error(
-      `[j1] ${step}: COULD NOT MEASURE. ${miss.length} LLM call(s) had no frozen recording ` +
-      `(first: #${miss[0].seq} ${miss[0].signature}). The frozen set is stale for this tuple; ` +
-      `a record run refreshes it.`,
+      `[j1] ${step}: COULD NOT MEASURE. The LLM boundary answered ${bad.length} call(s) other than exactly as frozen ` +
+      `(${JSON.stringify(counts)}; first: #${bad[0].seq} ${bad[0].outcome} ${bad[0].signature ?? ''}). ` +
+      `A drift row names its diagnosis file in the ledger directory.`,
     )
   }
 }
@@ -113,7 +118,10 @@ export const browserStorage = (page: import('@playwright/test').Page): Promise<R
     return out
   })
 
-/** PostgREST `scenarios` rows visible to a token (RLS decides). */
+/**
+ * PostgREST `scenarios` rows visible to a token (RLS decides). Anything but a 200 with
+ * an array THROWS: a refused or broken probe sees nothing, and nothing is not absence.
+ */
 export async function scenariosVisibleTo(
   request: APIRequestContext, accessToken: string,
 ): Promise<{ status: number; ids: string[] }> {
@@ -121,8 +129,31 @@ export async function scenariosVisibleTo(
   const r = await request.get(`${base}/rest/v1/scenarios?select=id`, {
     headers: { apikey: process.env.CORE_SUPABASE_KEY!, Authorization: `Bearer ${accessToken}` },
   })
-  const rows = (await r.json().catch(() => [])) as { id: string }[]
-  return { status: r.status(), ids: Array.isArray(rows) ? rows.map((x) => x.id) : [] }
+  const rows = (await r.json().catch(() => null)) as { id: string }[] | null
+  if (r.status() !== 200 || !Array.isArray(rows)) {
+    throw new Error(`[j1] PostgREST scenarios probe could not measure: http ${r.status()}, body ${Array.isArray(rows) ? 'array' : typeof rows}`)
+  }
+  return { status: r.status(), ids: rows.map((x) => x.id) }
+}
+
+/**
+ * One `scenarios` row read with the LOCAL job's service role (this run's own Supabase;
+ * the key is minted per run and masked). For rows no user token can read, e.g. a guest's.
+ */
+export async function scenarioRowAsService(
+  request: APIRequestContext, scenarioId: string,
+): Promise<Record<string, unknown>> {
+  const base = process.env.CORE_SUPABASE_URL!
+  const key = process.env.J1_SB_SERVICE_ROLE_KEY
+  if (!key) throw new Error('[j1] J1_SB_SERVICE_ROLE_KEY is unset: cannot read the row')
+  const r = await request.get(`${base}/rest/v1/scenarios?id=eq.${encodeURIComponent(scenarioId)}&select=*`, {
+    headers: { apikey: key, Authorization: `Bearer ${key}` },
+  })
+  const rows = (await r.json().catch(() => null)) as Record<string, unknown>[] | null
+  if (r.status() !== 200 || !Array.isArray(rows) || rows.length !== 1) {
+    throw new Error(`[j1] service read of scenario ${scenarioId} could not measure: http ${r.status()}, ${Array.isArray(rows) ? rows.length : 'no'} row(s)`)
+  }
+  return rows[0]
 }
 
 // ── Turn capture ─────────────────────────────────────────────────────────────
