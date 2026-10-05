@@ -160,8 +160,10 @@ jobs:
           node -e 'const s=require(process.argv[1]); if(!s.ok||s.mode!==process.env.J1_MODE||s.host!=="api.openai.com"){console.error("boundary self-test failed");process.exit(1)}' "$J1/llm-selftest.json"
 
       # ── 2. Local Supabase with both repos' migrations ─────────────────────
+      # Pinned: "latest" resolves through the unauthenticated GitHub API and hit its rate limit (run 37347403830).
+      # 2.119.0 = the stable release every earlier J1 run resolved (published 30 Sep).
       - uses: supabase/setup-cli@v1
-        with: { version: latest }
+        with: { version: 2.119.0 }
 
       - name: Start local Supabase (DGAI + CEE migrations, timestamp order)
         run: |
