@@ -4,7 +4,6 @@
 // stored state with the signed-in user's own token.
 import fs from 'node:fs'
 import path from 'node:path'
-import type { APIRequestContext } from '@playwright/test'
 import { ORIGIN } from '../../lib/harness'
 
 export const CEE_URL = process.env.J1_CEE_URL ?? 'http://127.0.0.1:3101'
@@ -72,15 +71,33 @@ export const scenarioIdFromUrl = (url: string): string | null =>
  * the caller from the verified JWT, so `userId` and `accessToken` belong to one account.
  */
 export async function storedRead(
-  request: APIRequestContext, scenarioId: string, who: { userId: string; accessToken: string },
+  scenarioId: string, who: { userId: string; accessToken: string },
 ): Promise<{ status: number; body: Record<string, any> | null }> {
-  const r = await request.post(`${ORIGIN}/bff/cee/scenarios/${encodeURIComponent(scenarioId)}/graph`, {
+  const r = await credentialedFetch('CEE stored read', `${ORIGIN}/bff/cee/scenarios/${encodeURIComponent(scenarioId)}/graph`, {
+    method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-User-Id': who.userId, Authorization: `Bearer ${who.accessToken}` },
-    data: { user_id: who.userId },
+    body: JSON.stringify({ user_id: who.userId }),
   })
-  let body: Record<string, any> | null = null
-  try { body = (await r.json()) as Record<string, any> } catch { /* not JSON */ }
-  return { status: r.status(), body }
+  const body = r.body && typeof r.body === 'object' && !Array.isArray(r.body) ? (r.body as Record<string, any>) : null
+  return { status: r.status, body }
+}
+
+/**
+ * EVERY request that carries a credential goes through here (Codex buddy r2 + r3, #2513):
+ * Node fetch, never Playwright `request`, which appends the request's headers to a thrown
+ * error, and errors reach the uploaded HTML report. A transport failure is rethrown with a
+ * message built here, which holds no header and no body.
+ */
+async function credentialedFetch(label: string, url: string, init: RequestInit): Promise<{ status: number; body: unknown }> {
+  let r: Response
+  try {
+    r = await fetch(url, init)
+  } catch (e) {
+    throw new Error(`[j1] ${label} could not measure: transport ${(e as Error)?.name ?? 'error'}`)
+  }
+  let body: unknown = null
+  try { body = await r.json() } catch { /* not JSON: the caller judges the status */ }
+  return { status: r.status, body }
 }
 
 export const evidenceDir = (): string => {
@@ -122,18 +139,14 @@ export const browserStorage = (page: import('@playwright/test').Page): Promise<R
  * PostgREST `scenarios` rows visible to a token (RLS decides). Anything but a 200 with
  * an array THROWS: a refused or broken probe sees nothing, and nothing is not absence.
  */
-export async function scenariosVisibleTo(
-  request: APIRequestContext, accessToken: string,
-): Promise<{ status: number; ids: string[] }> {
-  const base = process.env.CORE_SUPABASE_URL!
-  const r = await request.get(`${base}/rest/v1/scenarios?select=id`, {
+export async function scenariosVisibleTo(accessToken: string): Promise<{ status: number; ids: string[] }> {
+  const r = await credentialedFetch('PostgREST scenarios probe', `${process.env.CORE_SUPABASE_URL!}/rest/v1/scenarios?select=id`, {
     headers: { apikey: process.env.CORE_SUPABASE_KEY!, Authorization: `Bearer ${accessToken}` },
   })
-  const rows = (await r.json().catch(() => null)) as { id: string }[] | null
-  if (r.status() !== 200 || !Array.isArray(rows)) {
-    throw new Error(`[j1] PostgREST scenarios probe could not measure: http ${r.status()}, body ${Array.isArray(rows) ? 'array' : typeof rows}`)
+  if (r.status !== 200 || !Array.isArray(r.body)) {
+    throw new Error(`[j1] PostgREST scenarios probe could not measure: http ${r.status}, body ${Array.isArray(r.body) ? 'array' : typeof r.body}`)
   }
-  return { status: r.status(), ids: rows.map((x) => x.id) }
+  return { status: r.status, ids: (r.body as { id: string }[]).map((x) => x.id) }
 }
 
 /**
@@ -144,22 +157,14 @@ export async function scenariosVisibleTo(
  * failure is rethrown with a message built here, which holds no header.
  */
 export async function scenarioRowAsService(scenarioId: string): Promise<Record<string, unknown>> {
-  const base = process.env.CORE_SUPABASE_URL!
   const key = process.env.J1_SB_SERVICE_ROLE_KEY
   if (!key) throw new Error('[j1] J1_SB_SERVICE_ROLE_KEY is unset: cannot read the row')
-  let status = 0
-  let rows: Record<string, unknown>[] | null = null
-  try {
-    const r = await fetch(`${base}/rest/v1/scenarios?id=eq.${encodeURIComponent(scenarioId)}&select=*`, {
-      headers: { apikey: key, Authorization: `Bearer ${key}` },
-    })
-    status = r.status
-    rows = (await r.json().catch(() => null)) as Record<string, unknown>[] | null
-  } catch (e) {
-    throw new Error(`[j1] service read of scenario ${scenarioId} could not measure: transport ${(e as Error)?.name ?? 'error'}`)
-  }
-  if (status !== 200 || !Array.isArray(rows) || rows.length !== 1) {
-    throw new Error(`[j1] service read of scenario ${scenarioId} could not measure: http ${status}, ${Array.isArray(rows) ? rows.length : 'no'} row(s)`)
+  const r = await credentialedFetch(`service read of scenario ${scenarioId}`,
+    `${process.env.CORE_SUPABASE_URL!}/rest/v1/scenarios?id=eq.${encodeURIComponent(scenarioId)}&select=*`,
+    { headers: { apikey: key, Authorization: `Bearer ${key}` } })
+  const rows = Array.isArray(r.body) ? (r.body as Record<string, unknown>[]) : null
+  if (r.status !== 200 || !rows || rows.length !== 1) {
+    throw new Error(`[j1] service read of scenario ${scenarioId} could not measure: http ${r.status}, ${rows ? rows.length : 'no'} row(s)`)
   }
   return rows[0]
 }
@@ -168,18 +173,14 @@ export async function scenarioRowAsService(scenarioId: string): Promise<Record<s
  * `v5_handler_facts` rows for one scenario visible to a user token (RLS decides). The UI
  * reads this table directly (analysisRunHistoryService.ts:95). Throws unless 200 + array.
  */
-export async function handlerFactsVisibleTo(
-  request: APIRequestContext, scenarioId: string, accessToken: string,
-): Promise<number> {
-  const base = process.env.CORE_SUPABASE_URL!
-  const r = await request.get(`${base}/rest/v1/v5_handler_facts?scenario_id=eq.${encodeURIComponent(scenarioId)}&select=scenario_id`, {
-    headers: { apikey: process.env.CORE_SUPABASE_KEY!, Authorization: `Bearer ${accessToken}` },
-  })
-  const rows = (await r.json().catch(() => null)) as unknown[] | null
-  if (r.status() !== 200 || !Array.isArray(rows)) {
-    throw new Error(`[j1] PostgREST v5_handler_facts probe could not measure: http ${r.status()}`)
+export async function handlerFactsVisibleTo(scenarioId: string, accessToken: string): Promise<number> {
+  const r = await credentialedFetch('PostgREST v5_handler_facts probe',
+    `${process.env.CORE_SUPABASE_URL!}/rest/v1/v5_handler_facts?scenario_id=eq.${encodeURIComponent(scenarioId)}&select=scenario_id`,
+    { headers: { apikey: process.env.CORE_SUPABASE_KEY!, Authorization: `Bearer ${accessToken}` } })
+  if (r.status !== 200 || !Array.isArray(r.body)) {
+    throw new Error(`[j1] PostgREST v5_handler_facts probe could not measure: http ${r.status}`)
   }
-  return rows.length
+  return (r.body as unknown[]).length
 }
 
 // ── Turn capture ─────────────────────────────────────────────────────────────

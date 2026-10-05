@@ -23,16 +23,17 @@
 // the FULL structured-output format (schemas included). Its DETAIL hash covers the
 // whole request body, canonical (sorted keys), with only these values normalised,
 // each a measured per-run volatility:
-//   - uuids (scenario, turn, user and run ids are minted per run);
+//   - uuids (scenario, turn, user and run ids are minted per run), as ordinals: <uuid#1>…;
 //   - ISO timestamps;
 //   - float noise: a decimal with a fraction is compared at 6 significant digits
 //     (Mac arm64 record vs Linux x86_64 replay). Integers are never touched, so
 //     business quantities (120000, 187500) and counts stay exact;
-//   - run ids, by KEY only (`run_id`): two CI replays of one frozen journey gave R2
+//   - run ids, by the exact KEY `run_id`, as ordinals: two CI replays of one frozen journey gave R2
 //     f349e115… and d4e74b76… (runs 37312998590, 37315190922);
-//   - the Run-explanation chip key `agent-explain-run:<16 hex>`: a digest of scenario_id +
+//   - the Run-explanation chip key `agent-explain-run:<16 hex>`, as ordinals: a digest of scenario_id +
 //     computed_at (CEE run-explanation.ts:47 @b43bb79e), drift #5 of run 37318530007.
-// Graph and analysis hashes are NOT normalised: they are content-derived (H1 2771ec91…,
+// Ordinals keep which references are equal and which differ (prior ≠ current). Graph and
+// analysis hashes are NOT normalised: they are content-derived (H1 2771ec91…,
 // H2 9ad1f20a… identical on the Mac record and on both CI replays).
 // Replay serves ONLY an exact (signature, detail) match. Anything else is red:
 //   `drift` - a recording with the same signature exists but the request differs
@@ -83,15 +84,29 @@ const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi
 const ISO_TS = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z?/g
 // A decimal WITH a fraction (and optional exponent). Integers never match.
 const DECIMAL = /-?\b\d+\.\d+(?:[eE][-+]?\d+)?/g
-// Escaped or not: the run id is often inside a JSON string the request carries.
-const RUN_ID_VALUE = /(run_id\\*"\s*:\s*\\*")[0-9a-f]{16,64}/g
-const RUN_KEY = /agent-explain-run:[0-9a-f]{16}/g
-const normalise = (s) => String(s)
-  .replace(UUID, '<uuid>')
-  .replace(ISO_TS, '<ts>')
-  .replace(RUN_ID_VALUE, '$1<run_id>')
-  .replace(RUN_KEY, 'agent-explain-run:<run_key>')
-  .replace(DECIMAL, (m) => String(Number(Number(m).toPrecision(6))))
+// The key is EXACTLY run_id (a quote, escaped or not, right before it: never graph_run_id),
+// escaped or not, since the run id often sits inside a JSON string the request carries.
+const RUN_ID_VALUE = /(\\*"run_id\\*"\s*:\s*\\*")([0-9a-f]{16,64})/g
+const RUN_KEY = /(agent-explain-run:)([0-9a-f]{16})/g
+// Per-run values are replaced by ORDINALS in order of first appearance (<run_id#1>,
+// <run_id#2>…), never by one constant: which references are EQUAL and which DIFFER is part of
+// the request (prior ≠ current; tipping_point_run_key = selected_run_reference). Codex r3, #2513.
+function ordinals(text, re, tag, group) {
+  const seen = new Map()
+  return text.replace(re, (...m) => {
+    const value = m[group]
+    if (!seen.has(value)) seen.set(value, seen.size + 1)
+    return (group === 2 ? m[1] : '') + `<${tag}#${seen.get(value)}>`
+  })
+}
+const normalise = (s) => {
+  let t = String(s)
+  t = ordinals(t, UUID, 'uuid', 0)
+  t = t.replace(ISO_TS, '<ts>')
+  t = ordinals(t, RUN_ID_VALUE, 'run_id', 2)
+  t = ordinals(t, RUN_KEY, 'run_key', 2)
+  return t.replace(DECIMAL, (m) => String(Number(Number(m).toPrecision(6))))
+}
 
 function shapeOf(host, method, target, body) {
   const b = body && typeof body === 'object' ? body : {}
@@ -232,14 +247,15 @@ function handle(req, res) {
         const k = reuse.get(signature + detail) ?? 0
         pick = exact[k % exact.length]; reuse.set(signature + detail, k + 1); outcome = 'hit_reuse'
       }
+      if (!pick && exact.length) {
+        // The exact request was recorded, but every recording of it is already served and
+        // reuse is off: one call too many.
+        ledger({ seq: n, outcome: 'exhausted', signature, detail, nearest: exact[0].file })
+        return refuse(res, 400, 'journey_replay_exhausted', `call ${n} repeats frozen ${exact[0].file}, already served (reuse is off)`)
+      }
       if (!pick) {
         const near = recordings.find((r) => r.signature === signature && !used.has(r.file)) ??
           recordings.find((r) => r.signature === signature)
-        if (near && near.detail === detail) {
-          // Same request, every recording of it already served, reuse off: one call too many.
-          ledger({ seq: n, outcome: 'exhausted', signature, detail, nearest: near.file })
-          return refuse(res, 400, 'journey_replay_exhausted', `call ${n} repeats frozen ${near.file}, already served (reuse is off)`)
-        }
         if (near) {
           const diff = firstDifference(norm, near.norm)
           const file = path.join(path.dirname(LEDGER), `drift-${String(n).padStart(4, '0')}.json`)

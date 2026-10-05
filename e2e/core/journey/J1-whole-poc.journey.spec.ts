@@ -102,7 +102,7 @@ const edgesOf = (g: Graph) => g.edges.map(edgeKey).sort()
 const labelOf = (g: Graph, id: string) => g.nodes.find((n) => n.id === id)?.label ?? id
 
 async function read(label: string) {
-  const r = await storedRead(pageA.request, J.S!, J.A!.user)
+  const r = await storedRead(J.S!, J.A!.user)
   expect(r.status, `[${label}] CEE's stored read for S=${J.S} returned ${r.status}`).toBe(200)
   return r.body!
 }
@@ -437,7 +437,7 @@ test.describe.serial('J1 · whole PoC', () => {
       await expect(page.getByTestId('results-body-stale-wrapper'), '[J8] the fresh browser never restored a complete result')
         .toHaveAttribute('data-run-status', 'complete', { timeout: 120_000 })
 
-      const r = await storedRead(page.request, J.S!, J.A!.user)
+      const r = await storedRead(J.S!, J.A!.user)
       expect(r.status).toBe(200)
       expect(r.body!.graph_hash, '[J8] the fresh browser reads a different graph').toBe(J.H2)
       expect(r.body!.analysis_state?.run_state?.kind, '[J8] the verdict did not survive as current').toBe('complete_current')
@@ -460,17 +460,17 @@ test.describe.serial('J1 · whole PoC', () => {
     }
   })
 
-  test('J9 · account B, in a fresh browser, sees nothing of S', async ({ browser, request }) => {
+  test('J9 · account B, in a fresh browser, sees nothing of S', async ({ browser }) => {
     const S = J.S!
     const latest = nodesOf(J.G2 ?? J.G1!)
 
     // Positive controls, same run: account A CAN see S on both stores.
-    const aRest = await scenariosVisibleTo(request, J.A!.user.accessToken)
+    const aRest = await scenariosVisibleTo(J.A!.user.accessToken)
     expect(aRest.ids, '[J9 control] account A cannot list its own scenario S via PostgREST').toContain(S)
-    const aRead = await storedRead(request, S, J.A!.user)
+    const aRead = await storedRead(S, J.A!.user)
     expect(aRead.status, '[J9 control] account A cannot read S from CEE').toBe(200)
     // The UI reads v5_handler_facts directly with the user's token: A sees S's facts.
-    const aFacts = await handlerFactsVisibleTo(request, S, J.A!.user.accessToken)
+    const aFacts = await handlerFactsVisibleTo(S, J.A!.user.accessToken)
     expect(aFacts, '[J9 control] A sees no v5_handler_facts for S, so B\'s zero would prove nothing').toBeGreaterThan(0)
     // The storage scan below can see S: A's own browser storage names it.
     const aStore = await browserStorage(pageA)
@@ -483,12 +483,12 @@ test.describe.serial('J1 · whole PoC', () => {
       const B = await mintAndInject(page, 'j1-b')
       expect(B.user.userId, '[J9] account B is account A').not.toBe(J.A!.user.userId)
 
-      const bRest = await scenariosVisibleTo(request, B.user.accessToken)
+      const bRest = await scenariosVisibleTo(B.user.accessToken)
       expect(bRest.status, '[J9] PostgREST refused B outright (a probe that sees nothing proves nothing)').toBe(200)
       expect(bRest.ids, '[J9] account B can list account A\'s scenario S').not.toContain(S)
-      expect(await handlerFactsVisibleTo(request, S, B.user.accessToken), '[J9] account B can read A\'s v5_handler_facts for S').toBe(0)
+      expect(await handlerFactsVisibleTo(S, B.user.accessToken), '[J9] account B can read A\'s v5_handler_facts for S').toBe(0)
 
-      const bRead = await storedRead(request, S, B.user)
+      const bRead = await storedRead(S, B.user)
       expect([403, 404], `[J9] CEE served S to account B (status ${bRead.status})`).toContain(bRead.status)
       expect(JSON.stringify(bRead.body ?? {}), '[J9] CEE\'s refusal to B carries A\'s graph').not.toContain(`"${latest[0]}"`)
 

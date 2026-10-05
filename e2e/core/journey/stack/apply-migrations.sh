@@ -54,7 +54,14 @@ for f in $(ls "$DIR"/*.sql | sort); do
     esac
     # Re-apply statement by statement; VERBOSITY verbose puts the SQLSTATE on every ERROR line:
     #   psql:<stdin>:57: ERROR:  42P01: relation "public.x" does not exist
-    "${PSQL[@]}" -q -X -v ON_ERROR_STOP=0 -v VERBOSITY=verbose -f - < "$f" > "$LOG" 2>&1
+    # With ON_ERROR_STOP=0 a SQL error still exits 0; a non-zero exit is psql itself failing
+    # (2 = the connection went bad, 1 = a fatal client error), so statements after it NEVER
+    # ran and the error list is incomplete: could not measure, never MATCH (Codex buddy r3).
+    rc=0; "${PSQL[@]}" -q -X -v ON_ERROR_STOP=0 -v VERBOSITY=verbose -f - < "$f" > "$LOG" 2>&1 || rc=$?
+    if [ "$rc" -ne 0 ]; then
+      echo "[migrations] $name: the statement-by-statement re-apply did not complete (psql exit $rc): could not measure"
+      tail -n 20 "$LOG"; exit 1
+    fi
     # perl, not sed: BSD sed (the Mac record script runs this too) has no \t in a replacement.
     N="$name" perl -ne 'print "$ENV{N}\t$1\t$2\t$3\n" if /^psql:<stdin>:(\d+): ERROR:  ([0-9A-Z]{5}): (.*?)\r?$/' "$LOG" >> "$ERRORS"
     n="$(grep -c "^$name	" "$ERRORS")"

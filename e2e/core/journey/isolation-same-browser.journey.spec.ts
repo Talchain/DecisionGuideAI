@@ -86,7 +86,7 @@ test.describe('ISO · same browser, two accounts', () => {
   const ev: Record<string, unknown> = {}
   test.afterAll(() => writeEvidence('ISO-same-browser.json', ev))
 
-  test('ISO-1 · A signs out, B signs in: no snapshot, coaching, storage or register crosses (Core Platform + Red-team A1–A3)', async ({ browser, request }) => {
+  test('ISO-1 · A signs out, B signs in: no snapshot, coaching, storage or register crosses (Core Platform + Red-team A1–A3)', async ({ browser }) => {
     const A = await localUser('a')
     const B = await localUser('b')
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
@@ -128,7 +128,7 @@ test.describe('ISO · same browser, two accounts', () => {
       for (const [name, tab] of [['tab1', tab1], ['tab2', tab2]] as const) {
         expect((await storageNaming(tab, S)).length, `[ISO-1 control] ${name} storage does not name S before the switch`).toBeGreaterThan(0)
       }
-      expect((await scenariosVisibleTo(request, A.accessToken)).ids, '[ISO-1 control] A cannot list its own S via PostgREST').toContain(S)
+      expect((await scenariosVisibleTo(A.accessToken)).ids, '[ISO-1 control] A cannot list its own S via PostgREST').toContain(S)
       const coachingBefore = await tab1.evaluate(() => sessionStorage.getItem('guidance.items.v1'))
       const aRegistered = registers.some((r) => r.scenario === S && r.sub === A.userId)
       ev.iso1_controls = { coaching_present_for_A: coachingBefore !== null, register_seen_for_A: aRegistered }
@@ -140,6 +140,21 @@ test.describe('ISO · same browser, two accounts', () => {
       // Tab 1's open manager loses A's rows without being closed.
       await expect(manager.getByRole('heading', { name: sentinel }), '[ISO-1] the open Snapshot Manager still lists A\'s snapshot after B signed in').toHaveCount(0, { timeout: 30_000 })
       // No storage in either tab names the sentinel or S.
+      // Evidence first, for every key that still names S: which area holds it, how big it is, and
+      // whether it carries A's own words (the brief), so a leak is a finding, not a guess.
+      const briefProbe = BRIEF.slice(0, 40)
+      for (const [name, tab] of [['tab1', tab1], ['tab2', tab2]] as const) {
+        ev[`iso1_${name}_keys_naming_S`] = await tab.evaluate(([needle, probe]) => {
+          const out: { key: string; area: string; bytes: number; carries_brief: boolean }[] = []
+          for (const [area, st] of [['local', localStorage], ['session', sessionStorage]] as const) {
+            for (let i = 0; i < st.length; i++) {
+              const k = st.key(i)!; const v = st.getItem(k) ?? ''
+              if (k.includes(needle) || v.includes(needle)) out.push({ key: k, area, bytes: v.length, carries_brief: v.includes(probe) })
+            }
+          }
+          return out
+        }, [S, briefProbe] as const)
+      }
       for (const [name, tab] of [['tab1', tab1], ['tab2', tab2]] as const) {
         expect(await storageNaming(tab, sentinel), `[ISO-1] ${name} storage still holds A's snapshot`).toEqual([])
         expect(await storageNaming(tab, S), `[ISO-1] ${name} storage still names A's scenario`).toEqual([])
@@ -147,7 +162,7 @@ test.describe('ISO · same browser, two accounts', () => {
       // B's own Snapshots list is empty.
       await tab2.goto(`${ORIGIN}/#/`, { waitUntil: 'load' })
       // A3: B's list and RLS hold no S; B's deep link mounts none of A's nodes.
-      expect((await scenariosVisibleTo(request, B.accessToken)).ids, '[ISO-1/A3] B can list A\'s scenario').not.toContain(S)
+      expect((await scenariosVisibleTo(B.accessToken)).ids, '[ISO-1/A3] B can list A\'s scenario').not.toContain(S)
       // Terminal state first: tab 2's own CEE read of S under B is refused.
       const uiRead = tab2.waitForResponse((r) => r.url().includes(`/bff/cee/scenarios/${S}/graph`) && r.request().method() === 'POST', { timeout: 90_000 }).catch(() => null)
       await tab2.goto(`${ORIGIN}/#/scenario/${S}`, { waitUntil: 'load' })
@@ -185,12 +200,14 @@ test.describe('ISO · same browser, two accounts', () => {
     }
   })
 
-  test('ISO-2 · guest → sign in as A: exactly one owned copy, guest row untouched, no transcript (Red-team A4, Core Platform ruling)', async ({ browser, request }) => {
+  test('ISO-2 · guest → sign in as A: exactly one owned copy, guest row untouched, no transcript (Red-team A4, Core Platform ruling)', async ({ browser }) => {
     const A = await localUser('a4')
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
     const page = await ctx.newPage()
     await installWireInterceptor(page)
     try {
+      // enterAsGuest expects the landing screen already loaded (run 37322670650: blank page).
+      await page.goto(`${ORIGIN}/`, { waitUntil: 'load' })
       await enterAsGuest(page)
       await submitBrief(page, BRIEF)
       await waitForDraftTurnComplete(page, { timeoutMs: 420_000 })
@@ -204,9 +221,9 @@ test.describe('ISO · same browser, two accounts', () => {
       const detail = (await Promise.race([copied, new Promise((r) => setTimeout(() => r(null), 60_000))])) as any
       expect(detail?.sourceScenarioId, '[ISO-2] no guest copy event for the guest model').toBe(guestId)
 
-      const owned = (await scenariosVisibleTo(request, A.accessToken)).ids
+      const owned = (await scenariosVisibleTo(A.accessToken)).ids
       expect(owned, '[ISO-2] A does not own exactly one scenario (the copy)').toEqual([detail.scenarioId])
-      const copy = await storedRead(request, detail.scenarioId, A)
+      const copy = await storedRead(detail.scenarioId, A)
       expect(copy.status, '[ISO-2] A cannot read its own copy from CEE').toBe(200)
       expect(copy.body!.analysis_state?.run_state?.kind, '[ISO-2] the copy carries a Run').toBe('never_run')
       const guestAfter = JSON.stringify(await scenarioRowAsService(guestId!))
@@ -220,7 +237,7 @@ test.describe('ISO · same browser, two accounts', () => {
       await expect(page.getByRole('button', { name: 'Account menu' }), '[ISO-2] the re-sign-in never rendered signed in').toBeVisible({ timeout: 60_000 })
       const secondCopy = await Promise.race([second, new Promise((r) => setTimeout(() => r(false), 15_000))])
       expect(secondCopy, '[ISO-2] the re-sign-in fired a second guest copy').toBe(false)
-      expect((await scenariosVisibleTo(request, A.accessToken)).ids, '[ISO-2] a re-sign-in made a second copy').toEqual([detail.scenarioId])
+      expect((await scenariosVisibleTo(A.accessToken)).ids, '[ISO-2] a re-sign-in made a second copy').toEqual([detail.scenarioId])
       ev.iso2 = { guestId, copy: detail.scenarioId, owned: owned.length }
     } finally {
       await ctx.close()
