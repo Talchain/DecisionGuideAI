@@ -5,16 +5,15 @@
  *
  * One row per changed sentence binds the exact words. The SCAN row then renders every naming arm with a distinct option
  * label and fails if any sentence carrying that label drops "in this model". Compare's sentences are bound in
- * `canvas/compare-tab/__tests__/CompareRunPairBody.anatomy.spec.tsx`.
+ * `canvas/compare-tab/__tests__/CompareRunPairBody.anatomy.spec.tsx`; the Analysis headline's in
+ * `analysis-hero/__tests__/wordingBatch.heroInThisModel.spec.ts` (only that folder may import the hero).
  */
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { HERO_COPY } from '../analysis-hero/heroCopy'
 import { TriageActionCardsBody } from '../TriageActionCardsBody'
 import { ALT_LABEL, FACTOR_LABEL, PERMITTED, WITHHELD } from '../__fixtures__/leaderClaim.fixtures'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 
-const OPT = 'AI Reporting Module Sprint'
 const TARGET = 'Quarterly revenue'
 
 type Edge = NonNullable<ResultsSectionDataReturn['confidence']['topFragileEdge']>
@@ -37,29 +36,6 @@ const calloutText = (data: ResultsSectionDataReturn): string => {
 
 /** Sentences, so a label in one sentence cannot borrow "in this model" from another. */
 const sentences = (text: string): string[] => text.split(/(?<=\.)\s+/).filter(Boolean)
-
-describe('RT-14 · the Analysis headline names an option only in this model', () => {
-  it('slight separation', () => {
-    expect(HERO_COPY.headline.slightlyAhead(OPT)).toBe(`In this model, ${OPT} came out best slightly more often.`)
-  })
-  it('clear separation, with and without the share', () => {
-    expect(HERO_COPY.headline.mostLikelyStrongest(OPT, '57%'))
-      .toBe(`In this model, ${OPT} came out best in 57% of simulated futures.`)
-    expect(HERO_COPY.headline.mostLikelyStrongest(OPT, null))
-      .toBe(`In this model, ${OPT} came out best in more simulated futures than any other option.`)
-  })
-  it('no clear separation names no option', () => {
-    expect(HERO_COPY.headline.noClearLeader).toBe('In this model, no option is clearly most likely.')
-  })
-  it('the expected-outcome and goal headlines', () => {
-    expect(HERO_COPY.headline.outcomeLeader(OPT, '£1.2m'))
-      .toBe(`In this model, ${OPT} has the highest expected outcome: £1.2m.`)
-    expect(HERO_COPY.headline.goalOnly(OPT, '49%'))
-      .toBe(`In this model, ${OPT} meets every target this run scored in the most model runs (49%).`)
-    expect(HERO_COPY.headline.goalWithLimits(OPT, '49%'))
-      .toBe(`In this model, ${OPT} meets your goal and limits in the most model runs (49%).`)
-  })
-})
 
 describe('RT-13 · the flip-risk callout says the conditional with its condition', () => {
   it('measured: the share is printed only with the quarter it is conditional on', () => {
@@ -87,12 +63,6 @@ describe('RT-13 · the flip-risk callout says the conditional with its condition
 describe('SCAN · no sentence that names an option drops "in this model"', () => {
   // Thunks: the callout renders inside each row, never at collection time.
   const naming: Array<[string, string, () => string]> = [
-    ['hero slight', OPT, () => HERO_COPY.headline.slightlyAhead(OPT)],
-    ['hero clear', OPT, () => HERO_COPY.headline.mostLikelyStrongest(OPT, '57%')],
-    ['hero clear, no share', OPT, () => HERO_COPY.headline.mostLikelyStrongest(OPT, null)],
-    ['hero outcome', OPT, () => HERO_COPY.headline.outcomeLeader(OPT, '£1.2m')],
-    ['hero goal', OPT, () => HERO_COPY.headline.goalOnly(OPT, '49%')],
-    ['hero goal and limits', OPT, () => HERO_COPY.headline.goalWithLimits(OPT, '49%')],
     ['callout measured', ALT_LABEL, () => calloutText(withEdge(PERMITTED()))],
     ['callout not measured', ALT_LABEL, () => calloutText(withEdge(PERMITTED(), { switchProbability: undefined }))],
   ]
@@ -105,14 +75,7 @@ describe('SCAN · no sentence that names an option drops "in this model"', () =>
   })
 
   it('CONTROL: the scan catches the retired wording', () => {
-    const retired = [`${OPT} is slightly ahead.`, `If ${FACTOR_LABEL} shifts, ${ALT_LABEL} could overtake (56% probability).`]
-    for (const text of retired) {
-      const label = text.includes(OPT) ? OPT : ALT_LABEL
-      expect(sentences(text).filter((s) => s.includes(label)).some((s) => !/in this model/i.test(s))).toBe(true)
-    }
-  })
-
-  it('EXCLUDED, named: "{label} is your only option." states the user\'s own option set, not a finding', () => {
-    expect(HERO_COPY.headline.singleOption(OPT)).toBe(`${OPT} is your only option.`)
+    const retired = `If ${FACTOR_LABEL} shifts, ${ALT_LABEL} could overtake (56% probability).`
+    expect(sentences(retired).filter((s) => s.includes(ALT_LABEL)).some((s) => !/in this model/i.test(s))).toBe(true)
   })
 })
