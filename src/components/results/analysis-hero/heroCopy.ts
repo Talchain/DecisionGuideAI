@@ -144,17 +144,22 @@ export const HERO_COPY = {
      * with. The claim was always grounded in the COMPARATIVE quantity (see
      * the block above), so it now says so, with its magnitude.
      */
+    // Principle audit (5 Oct): every headline arm is a finding about THIS model, never a verdict. The words are the
+    // register's (`COMPARATIVE_COPY.modelLeader*`) and the Reasoning tab's own (`analysisNewCopy.ts`).
     mostLikelyStrongest: (label: string, readout: string | null) => {
-      const claim = readout ? COMPARATIVE_COPY.clause(readout) : COMPARATIVE_COPY.phraseNoMagnitude
-      return `${label} ${claim}.`
+      const claim = readout ? COMPARATIVE_COPY.modelLeaderClause(readout) : COMPARATIVE_COPY.modelLeaderNoMagnitude
+      return `In this model, ${label} ${claim}.`
     },
-    /** Banding state B: ahead on win probability without a strong majority. */
-    slightlyAhead: (label: string) => `${label} is slightly ahead.`,
+    /**
+     * Banding state B: ahead on win probability without a strong majority. "Slightly more often" is said only because
+     * this arm is bound to the producer's named separation class (`separation === 'slight'` / `slightly_ahead`).
+     */
+    slightlyAhead: (label: string) => `In this model, ${label} came out best slightly more often.`,
     /** Banding state C: the win probabilities identify no clear leader. */
-    noClearLeader: 'No option is clearly ahead.',
+    noClearLeader: 'In this model, no option is clearly most likely.',
     /** Fallback when no recommended option exists among the rows: headline the outcome fact itself. */
     outcomeLeader: (label: string, readout: string) =>
-      `${label} has the highest expected outcome: ${readout}.`,
+      `In this model, ${label} has the highest expected outcome: ${readout}.`,
     /**
      * Goal honesty: every option's goal probability sits below the sub-1%
      * floor (UI-SEM-057) — crowning any option would be false, so the headline

@@ -189,12 +189,12 @@ function fallbackDescription(
   // its bar, so no DATA is lost. Only the claim is.
   const noLeader = hasLeadingOption === false
   if (option.isRecommended && totalOptions > 1) {
-    return noLeader ? '' : 'Top-performing option based on current estimates.'
+    return noLeader ? '' : 'Came out best in this model, on its current estimates.'
   }
   if (option.isBaseline) {
     return 'Baseline for comparison.'
   }
-  return noLeader ? '' : 'Compare against the leading option.'
+  return noLeader ? '' : 'Compare it against the option that came out best in this model.'
 }
 
 /**
@@ -245,7 +245,7 @@ function tiedOrWithheld(
     if (gapPct > 0) {
       return ''
     }
-    return 'Statistically tied with the leading option'
+    return 'Effectively tied, in this model, with the option that came out best'
   }
   return null
 }
@@ -381,13 +381,13 @@ function hingeAwareDescription(
     // designated; it is the designation it presupposes, not the factor it
     // names, that made it unrenderable on a withheld one.
     if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === (option.labelAsWritten ?? option.label)) {
-      return `If ${hinge.label} shifts, this option overtakes`
+      return `If ${hinge.label} shifts, this option would come out best in this model`
     }
     // The retired point-gap line and its surviving near-tie predicate — see
     // `tiedOrWithheld`, which is the single copy both non-winner arms call.
     const runnerUpTied = tiedOrWithheld(winnerWinProbability, option.winProbability)
     if (runnerUpTied !== null) return runnerUpTied
-    return 'Close competitor'
+    return 'Close to the option that came out best in this model'
   }
   // Task 9: Status quo / baseline — specific copy. ROADMAP 1.239 corrects the
   // note that used to sit here ("non-comparative … so it is not gated"): both
@@ -395,7 +395,7 @@ function hingeAwareDescription(
   // option in isolation, so the line asserts an ordering. It now sits below
   // the single hoisted gate with everything else.
   if (option.isBaseline) {
-    return 'Lowest risk but lowest expected outcome'
+    return 'Baseline: what happens if nothing changes. Compare the others against it.'
   }
   // Other non-winner. Same retirement and the same near-tie predicate as the
   // runner-up arm above — now literally the same code, so a future change
@@ -403,7 +403,7 @@ function hingeAwareDescription(
   // quantity on screen for whoever happens to have three options).
   const tied = tiedOrWithheld(winnerWinProbability, option.winProbability)
   if (tied !== null) return tied
-  return 'Compare against the leading option'
+  return 'Compare it against the option that came out best in this model'
 }
 
 /**
@@ -825,7 +825,7 @@ function OptionCard({
           className={`${typography.panelMeta} text-text-light`}
           data-testid={`leading-option-downside-${option.id}`}
         >
-          This option currently leads, but the lower range of simulated outcomes includes meaningful downside.
+          In this model, this option came out best, but the lower range of its simulated outcomes includes meaningful downside.
         </p>
       )}
 

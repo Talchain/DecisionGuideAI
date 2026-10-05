@@ -37,7 +37,7 @@ export const STRENGTHEN_COPY = {
   historyAddressed: 'Addressed',
   /** Prefix on an objection carried onto the trail. The user's words follow. */
   historyDisputed: 'You disagreed',
-  empty: 'No recommendations need attention right now.', // (spec)
+  empty: 'No findings need attention right now.', // (spec)
   staleLabel: 'From your last completed analysis',
   workThrough: 'Work through this with Olumi', // (spec — ask icon-button title + aria-label)
   workThroughDraft: (title: string) => `Help me work through: ${title}`, // (spec — drawer prefill)
@@ -57,7 +57,7 @@ export const STRENGTHEN_COPY = {
   } as const,
   reopenedPrefix: 'Reopened:',
   tryThisLead: 'Try this', // (spec — bold info lead-in, followed by a space + tip)
-  dismissedNotice: 'Recommendation dismissed', // (spec — toast copy)
+  dismissedNotice: 'Finding set aside', // (spec — toast copy)
   undo: 'Undo',
   addressedNotice: 'Marked as addressed',
   focusFailedNotice: 'That element is no longer on the canvas',

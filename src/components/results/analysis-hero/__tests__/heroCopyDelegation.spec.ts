@@ -105,7 +105,7 @@ describe('HERO_COPY.headline.mostLikelyStrongest — no magnitude, no placeholde
    */
   it('drops the magnitude clause rather than printing a placeholder', () => {
     const sentence = HERO_COPY.headline.mostLikelyStrongest('Option A', null)
-    expect(sentence).toBe(`Option A ${COMPARATIVE_COPY.phraseNoMagnitude}.`)
+    expect(sentence).toBe(`In this model, Option A ${COMPARATIVE_COPY.modelLeaderNoMagnitude}.`)
     expect(sentence).not.toContain(HERO_COPY.readout.missing)
     expect(sentence).not.toMatch(/came out ahead in\s/)
   })

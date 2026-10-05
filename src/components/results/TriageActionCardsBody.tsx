@@ -31,7 +31,7 @@ import { leaderDesignationPermitted } from './leaderDesignation'
 // The two are read separately here — never conjoined, never one standing in
 // for the other (CLAUDE.md trap 21).
 import { analysisClaimPolicy, leaderClaimWithheld } from './analysisClaimPolicy'
-import { AlertTriangle, Check, ChevronDown, ChevronRight, HelpCircle, X } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, ChevronRight, Circle, HelpCircle, X } from 'lucide-react'
 import { ConditionalWinnerCards } from './ConditionalWinnerCards'
 import { resolveTriageBodyText } from '@/components/shared/resolveTriageBodyText'
 import {
@@ -884,12 +884,14 @@ function T1ChecksFooter({
   // a ternary, and dead copy beside a live selector is an invitation to
   // re-wire it. `useV17Copy` itself is left in place — it gates more than
   // these two labels.
-  const winnerOkLabel = 'Has leading option'
-  const winnerNotOkLabel = 'No clear leader'
+  // Principle audit (5 Oct): the leader check is a FINDING about this model, never a pass or a fail, so it reads in the
+  // Reasoning tab's own model-relative words (`analysisNewCopy.ts`) beside a neutral marker (`neutral` below).
+  const winnerOkLabel = 'In this model, one option is most likely'
+  const winnerNotOkLabel = 'In this model, no option is clearly most likely'
   // States the check could not be determined. It is NOT a third verdict about
   // the options — it is the absence of one, which is why it must not read like
   // "No clear leader" (a finding) nor like "Has leading option".
-  const winnerUndeterminedLabel = 'Leading option not assessed'
+  const winnerUndeterminedLabel = 'Which option is most likely in this model: not assessed'
 
   return (
     <div className="border-t border-panel-border pt-3" data-testid="t1-checks-footer">
@@ -916,6 +918,7 @@ function T1ChecksFooter({
               : undefined
           }
           dataTestid="checks-winner"
+          neutral
         />
         <ChecksGlyph
           ok={robustOk}
@@ -1020,6 +1023,7 @@ function ChecksGlyph({
   okLabel,
   notOkLabel,
   unknown = false,
+  neutral = false,
   title,
   dataTestid,
 }: {
@@ -1032,15 +1036,20 @@ function ChecksGlyph({
    * "X" — an unknown is not a failure.
    */
   unknown?: boolean
+  /**
+   * A finding, not a check: a muted marker in either state, never the tick or the red "X" (which option is most
+   * likely in this model is neither a pass nor a failure). `unknown` still shows the help glyph.
+   */
+  neutral?: boolean
   /** Optional native tooltip — producer-supplied text rendered verbatim. */
   title?: string
   dataTestid: string
 }) {
-  const Icon = unknown ? HelpCircle : ok ? Check : X
+  const Icon = unknown ? HelpCircle : neutral ? Circle : ok ? Check : X
   // Neutral muted colour for unknown (NOT the red danger used for not-ok) — an
   // undetermined check is not a failure. Class-based so snapshot guards that strip
   // classes are unaffected.
-  const colour = unknown ? 'text-text-light' : ok ? 'text-success' : 'text-danger'
+  const colour = unknown || neutral ? 'text-text-light' : ok ? 'text-success' : 'text-danger'
   const label = unknown ? notOkLabel : ok ? okLabel : notOkLabel
   return (
     <span className="inline-flex items-center gap-1" data-testid={dataTestid} title={title}>

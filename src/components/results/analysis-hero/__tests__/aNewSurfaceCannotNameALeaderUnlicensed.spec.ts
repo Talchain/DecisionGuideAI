@@ -168,7 +168,7 @@ describe('a NEW surface cannot name a leader the run never licensed', () => {
   it('silence and denial are distinct copy — the arms below cannot be collapsed', () => {
     expect(HERO_COPY.headline.noLeader).not.toBe(HERO_COPY.headline.noClearLeader)
     expect(HERO_COPY.headline.noLeader).toBe('Here is how your options compare.')
-    expect(HERO_COPY.headline.noClearLeader).toBe('No option is clearly ahead.')
+    expect(HERO_COPY.headline.noClearLeader).toBe('In this model, no option is clearly most likely.')
   })
 
   it.each(CELLS.map((c) => [cellName(c), c] as const))('%s', (_name, cell) => {

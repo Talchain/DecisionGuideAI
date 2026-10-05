@@ -41,7 +41,7 @@ export const ALT_LABEL = 'Two Mid-Level Developers at £70k Each'
  * would make the assertion satisfiable only by deleting the honest half.
  */
 export const LEADER_CLAIM_RE =
-  /leading option|likely leader|could gain ground|could overtake|leads instead|your recommendation|the recommendation/i
+  /leading option|likely leader|could gain ground|could overtake|leads instead|your recommendation|the recommendation|came out best|come out best/i
 
 /**
  * ⚠ WHY `leads instead` AND NOT `\bleads\b`, AND WHY THE BOUND IS WRITTEN DOWN.

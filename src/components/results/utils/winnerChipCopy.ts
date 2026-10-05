@@ -93,8 +93,8 @@ export function winnerChipLabel(
     return 'What would make this better supported?'
   }
   return shouldSoftenPhrasing(confidenceTier, recommendationStability)
-    ? 'What makes this best supported?'
-    : 'What makes this the best-supported option?'
+    ? 'What does this rest on in this model?'
+    : 'Why does this come out best in this model?'
 }
 
 /**
@@ -113,7 +113,9 @@ export function winnerChipPrompt(
   // withheld turn it takes the same forward-looking form as the chip label, so
   // the question the user sends matches the question the chip offered.
   if (isWinner && hasLeadingOption !== false) {
-    return `What makes "${label}" the best-supported option? What are its key advantages?`
+    // Principle audit (5 Oct): a counter-case, never a case for it. The user is asked what it rests on and what would
+    // have to be true for it not to come out best, so the model is tested rather than argued for.
+    return `Why does "${label}" come out best in this model? Which assumptions does that rest on, and what would have to be true for it not to?`
   }
   return `What would make "${label}" better supported instead? What changes would be needed?`
 }

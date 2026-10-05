@@ -131,7 +131,7 @@ describe('OptionCards', () => {
       render(<OptionCards options={optionsWithBaseline} winnerId="option-1" />)
 
       // With win data present, hingeAwareDescription provides specific baseline copy
-      expect(screen.getByText('Lowest risk but lowest expected outcome')).toBeInTheDocument()
+      expect(screen.getByText('Baseline: what happens if nothing changes. Compare the others against it.')).toBeInTheDocument()
     })
   })
 
@@ -554,7 +554,7 @@ describe('OptionCards', () => {
       )
 
       // Option B is runnerId AND matches hinge.alternativeWinnerLabel
-      expect(screen.getByText('If Customer churn shifts, this option overtakes')).toBeInTheDocument()
+      expect(screen.getByText('If Customer churn shifts, this option would come out best in this model')).toBeInTheDocument()
     })
 
     it('runner-up: unmatched alternate winner shows generic runner-up', () => {

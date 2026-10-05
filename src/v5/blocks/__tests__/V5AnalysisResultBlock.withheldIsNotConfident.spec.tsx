@@ -25,7 +25,7 @@ import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../.
 
 const RAISE = 'Raise Pro to £59'
 const HOLD = 'Hold Pro at £49'
-const CONFIDENT = 'This result looks fairly confident.'
+const CONFIDENT = "Under this model's assumptions, the result held in most simulated futures. It is only as sound as the inputs it rests on."
 const COPY_ID = 'v5-analysis-result-uncertainty-copy'
 
 type NearTie = Record<string, unknown>

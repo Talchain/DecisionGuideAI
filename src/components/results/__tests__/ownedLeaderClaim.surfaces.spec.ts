@@ -63,6 +63,8 @@ const LEADER_LANGUAGE: ReadonlyArray<[string, RegExp]> = [
   ['leads in N% of scenarios', /leads in \d+% of scenarios/i],
   ['leads slightly more often', /leads slightly more often/i],
   ['highest expected outcome', /highest expected outcome/i],
+  // The principle-audit leader sentence (5 Oct, Science's ruling): kept beside every retired form, never instead.
+  ['came out best', /came out best/i],
 ]
 
 function expectNoLeaderLanguage(where: string, ...strings: Array<string | null | undefined>) {

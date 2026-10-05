@@ -5,7 +5,7 @@
  * shouldSoftenPhrasing helper imported by winnerChipLabel.
  *
  * Softening gate (Brief 5.5 §2.7):
- *   Hedged copy ("What makes this best supported?") fires ONLY when BOTH:
+ *   Hedged copy ("What does this rest on in this model?") fires ONLY when BOTH:
  *     1. confidenceTier ∈ {'needs_work', 'fair'}
  *     2. recommendationStability < 0.85  (null/undefined treated as weak)
  *   coachingReadiness is NOT a softening trigger (spec correction — the
@@ -30,30 +30,30 @@ import { winnerChipLabel, winnerChipPrompt } from '../winnerChipCopy'
 
 describe('winnerChipLabel — winner copy (definitive paths)', () => {
   it('returns the definitive copy for strong tier regardless of stability', () => {
-    expect(winnerChipLabel(true, 'strong')).toBe('What makes this the best-supported option?')
-    expect(winnerChipLabel(true, 'strong', 0.50)).toBe('What makes this the best-supported option?')
-    expect(winnerChipLabel(true, 'strong', 0.95)).toBe('What makes this the best-supported option?')
+    expect(winnerChipLabel(true, 'strong')).toBe('Why does this come out best in this model?')
+    expect(winnerChipLabel(true, 'strong', 0.50)).toBe('Why does this come out best in this model?')
+    expect(winnerChipLabel(true, 'strong', 0.95)).toBe('Why does this come out best in this model?')
   })
 
   it('returns the definitive copy for unknown tier regardless of stability', () => {
-    expect(winnerChipLabel(true, 'unknown')).toBe('What makes this the best-supported option?')
-    expect(winnerChipLabel(true, 'unknown', 0.50)).toBe('What makes this the best-supported option?')
+    expect(winnerChipLabel(true, 'unknown')).toBe('Why does this come out best in this model?')
+    expect(winnerChipLabel(true, 'unknown', 0.50)).toBe('Why does this come out best in this model?')
   })
 
   it('returns the definitive copy when tier is undefined (defensive default)', () => {
-    expect(winnerChipLabel(true, undefined)).toBe('What makes this the best-supported option?')
-    expect(winnerChipLabel(true, undefined, 0.50)).toBe('What makes this the best-supported option?')
+    expect(winnerChipLabel(true, undefined)).toBe('Why does this come out best in this model?')
+    expect(winnerChipLabel(true, undefined, 0.50)).toBe('Why does this come out best in this model?')
   })
 
   it('returns the definitive copy for fair tier when stability ≥ 0.85 (stability override)', () => {
-    expect(winnerChipLabel(true, 'fair', 0.85)).toBe('What makes this the best-supported option?')
-    expect(winnerChipLabel(true, 'fair', 0.95)).toBe('What makes this the best-supported option?')
+    expect(winnerChipLabel(true, 'fair', 0.85)).toBe('Why does this come out best in this model?')
+    expect(winnerChipLabel(true, 'fair', 0.95)).toBe('Why does this come out best in this model?')
   })
 
   it('returns the definitive copy for needs_work when stability ≥ 0.85 (stability override)', () => {
-    expect(winnerChipLabel(true, 'needs_work', 0.85)).toBe('What makes this the best-supported option?')
-    expect(winnerChipLabel(true, 'needs_work', 0.90)).toBe('What makes this the best-supported option?')
-    expect(winnerChipLabel(true, 'needs_work', 1.00)).toBe('What makes this the best-supported option?')
+    expect(winnerChipLabel(true, 'needs_work', 0.85)).toBe('Why does this come out best in this model?')
+    expect(winnerChipLabel(true, 'needs_work', 0.90)).toBe('Why does this come out best in this model?')
+    expect(winnerChipLabel(true, 'needs_work', 1.00)).toBe('Why does this come out best in this model?')
   })
 })
 
@@ -63,23 +63,23 @@ describe('winnerChipLabel — winner copy (definitive paths)', () => {
 
 describe('winnerChipLabel — winner copy (soft paths)', () => {
   it('returns the hedged copy for needs_work when stability is absent', () => {
-    expect(winnerChipLabel(true, 'needs_work')).toBe('What makes this best supported?')
-    expect(winnerChipLabel(true, 'needs_work', undefined)).toBe('What makes this best supported?')
+    expect(winnerChipLabel(true, 'needs_work')).toBe('What does this rest on in this model?')
+    expect(winnerChipLabel(true, 'needs_work', undefined)).toBe('What does this rest on in this model?')
   })
 
   it('returns the hedged copy for needs_work when stability < 0.85', () => {
-    expect(winnerChipLabel(true, 'needs_work', 0.84)).toBe('What makes this best supported?')
-    expect(winnerChipLabel(true, 'needs_work', 0.70)).toBe('What makes this best supported?')
-    expect(winnerChipLabel(true, 'needs_work', 0.00)).toBe('What makes this best supported?')
+    expect(winnerChipLabel(true, 'needs_work', 0.84)).toBe('What does this rest on in this model?')
+    expect(winnerChipLabel(true, 'needs_work', 0.70)).toBe('What does this rest on in this model?')
+    expect(winnerChipLabel(true, 'needs_work', 0.00)).toBe('What does this rest on in this model?')
   })
 
   it('returns the hedged copy for fair when stability is absent (new per Brief 5.5 §2.7)', () => {
-    expect(winnerChipLabel(true, 'fair')).toBe('What makes this best supported?')
+    expect(winnerChipLabel(true, 'fair')).toBe('What does this rest on in this model?')
   })
 
   it('returns the hedged copy for fair when stability < 0.85 (new per Brief 5.5 §2.7)', () => {
-    expect(winnerChipLabel(true, 'fair', 0.84)).toBe('What makes this best supported?')
-    expect(winnerChipLabel(true, 'fair', 0.50)).toBe('What makes this best supported?')
+    expect(winnerChipLabel(true, 'fair', 0.84)).toBe('What does this rest on in this model?')
+    expect(winnerChipLabel(true, 'fair', 0.50)).toBe('What does this rest on in this model?')
   })
 })
 
@@ -105,7 +105,7 @@ describe('winnerChipLabel — non-winner (always forward-looking)', () => {
 describe('winnerChipPrompt', () => {
   it('builds a winner prompt that quotes the option label', () => {
     expect(winnerChipPrompt(true, 'Option A')).toBe(
-      'What makes "Option A" the best-supported option? What are its key advantages?',
+      'Why does "Option A" come out best in this model? Which assumptions does that rest on, and what would have to be true for it not to?',
     )
   })
 

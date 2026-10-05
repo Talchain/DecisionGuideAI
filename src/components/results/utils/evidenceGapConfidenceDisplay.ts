@@ -49,8 +49,8 @@ export function resolveEvidenceGapConfidenceDisplay(
  */
 export function evidenceGapGenericText(display: EvidenceGapConfidenceDisplay): string {
   return display.show
-    ? `This factor has ${display.pct}% confidence. Improving it could change the answer.`
-    : 'Improving this factor could change the answer.'
+    ? `Olumi's confidence in this factor is ${display.pct}%. Firming it up could change which option comes out best in this model.`
+    : 'Firming up this factor could change which option comes out best in this model.'
 }
 
 /**

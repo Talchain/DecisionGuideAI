@@ -47,9 +47,10 @@ export interface UncertaintyCopy {
   text: string
 }
 
-const CONFIDENT_TEXT = 'This result looks fairly confident.'
+const CONFIDENT_TEXT =
+  "Under this model's assumptions, the result held in most simulated futures. It is only as sound as the inputs it rests on."
 const MODERATE_TEXT =
-  "This result appears to hold, though there's meaningful uncertainty in the estimate."
+  "Under this model's assumptions, the result held in many simulated futures, with meaningful uncertainty."
 const TENTATIVE_TEXT = 'This result is tentative. The uncertainty is substantial.'
 
 type RobustnessBand = 'high' | 'moderate' | 'low'

@@ -336,7 +336,7 @@ describe('analysis hero — PERMITTED prose (over-suppression controls)', () => 
     expect(model.headline).toBe(
       'No option is currently on track to meet every target this run scored.',
     )
-    expect(model.subline).toBe('Hire two developers has the highest expected outcome: 70.')
+    expect(model.subline).toBe('In this model, Hire two developers has the highest expected outcome: 70.')
   })
 
   it('producer band: still bands the recommended option by name', () => {
