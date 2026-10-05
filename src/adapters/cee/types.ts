@@ -483,11 +483,9 @@ export interface UsableCEEAnalysisReady extends Omit<CEEAnalysisReady, 'status'>
  * Only `comparative_leader` licenses naming a leading option, an ordinal, or a
  * strength word ("Stable", "Robust").
  */
-export type PermittedAnalysisMode =
-  | 'none'
-  | 'exploratory'
-  | 'quantified_provisional'
-  | 'comparative_leader'
+export const PERMITTED_ANALYSIS_MODES = ['none', 'exploratory', 'quantified_provisional', 'comparative_leader'] as const
+/** The ONE list of these literals: the type is derived from it, and every runtime reader (a wire parser, a mode set) is typed by it. */
+export type PermittedAnalysisMode = (typeof PERMITTED_ANALYSIS_MODES)[number]
 
 export interface AnalysisAdmissionReason {
   /** Which conjunct refused. Machine-readable; never user copy on its own. */

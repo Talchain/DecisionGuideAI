@@ -18,6 +18,7 @@
  */
 
 import { recordCanonicalOpen } from './canonicalOpenOutcome'
+import { recordBootReadAdmission } from './bootReadAdmission'
 import { useCanvasStore } from '../store'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { useServerConversationTurnsStore } from '../stores/serverConversationTurnsStore'
@@ -442,6 +443,14 @@ async function readAndMergeServerGraph(
       dirtyBeforeMerge === false &&
       st.analysisFreshnessDirty === true &&
       notProvenEqual === null
+    // ⭐ …and its MODE is kept beside it, under the same binding (`bootReadAdmission.ts`): recorded FIRST, so the
+    // store change below already finds it. Any read that does not qualify clears it.
+    const bootAdmits = result.admitted === true && notProvenEqual === null && typeof result.graphHash === 'string'
+    recordBootReadAdmission(
+      bootAdmits && result.permittedAnalysisMode
+        ? { scenarioId, graphHash: result.graphHash as string, permittedAnalysisMode: result.permittedAnalysisMode }
+        : null,
+    )
     // The read's admission stands in for `may_run` until a turn speaks — only an
     // admission, only for this revision, only when the canvas IS that revision.
     st.setBootAdmittedRevision?.(
