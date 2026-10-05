@@ -69,7 +69,9 @@ describe('the WHOLE class reads the small-text scale (source scan)', () => {
 
   it('the small-text scale carries ONLY sub-11px text, and every one reaches the floor at the landing', () => {
     const small = textClasses(SMALL_SCALED)
-    expect(small.length).toBeGreaterThanOrEqual(7)
+    // Positive control on the probe's reach. 7 → 6 on 5 Oct 2026: gate 5 item 4 (DL 0df0e1) DELETED the baseline card's
+    // "Reference for the other alternatives." line, one of these declarations. The class rule below is unchanged.
+    expect(small.length).toBeGreaterThanOrEqual(6)
     for (const c of small) {
       expect(c.px).toBeLessThan(11)
       expect(c.px * MAX_SMALL_LABEL_COUNTER_SCALE * LABEL_LEGIBLE_ZOOM).toBeGreaterThanOrEqual(LANDING_BODY_FLOOR_PX)

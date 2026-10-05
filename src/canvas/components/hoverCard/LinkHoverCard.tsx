@@ -27,6 +27,7 @@ import { NOT_ON_RECORD } from './NodeHoverCard'
 import { StrengthBar } from './StrengthBar'
 import { BY_DEFINITION } from '../../domain/strengthDefinitional'
 import type { EdgeSizePhrase } from '../../edges/edgeSizePhrase'
+import { RUN_CHANGE_WORDS } from '../../graphChanges/RunChangeBadge'
 import { sizingWords } from '../../../components/results/analysisNew/runDeltaLinkWords'
 
 const DIRECTION_SOURCE_WORDS: Record<EdgeValueSource, string> = {
@@ -84,7 +85,15 @@ export interface LinkHoverCardProps {
   fragileSentence: string | null
   /** The link's stored size and whose it is (`edgeSizePhrase`), or null when it must not be said. */
   size?: EdgeSizePhrase | null
+  /**
+   * Gate 5 item 5: the last Run's changes light this link (`analysisHighlight.source === 'run_changes'`). On the canvas
+   * that is a glow, colour alone; here it is said in the Changes view's own word (`RUN_CHANGE_WORDS.changed`).
+   */
+  runChanged?: boolean
 }
+
+/** The hover's sentence for a link the last Run's changes light. Who changed it is not claimed: the light does not say. */
+export const LINK_RUN_CHANGED_SENTENCE = `${RUN_CHANGE_WORDS.changed} since the last run.`
 
 function Row({ label, testId, children }: { label: string; testId: string; children: ReactNode }) {
   return (
@@ -185,6 +194,11 @@ export function LinkHoverCard(props: LinkHoverCardProps) {
         {props.disputedSentence !== null && (
           <p data-testid="edge-hover-direction-disputed" className={`${typography.panelBody} text-text-body m-0 mt-1.5 break-words`}>
             {props.disputedSentence}
+          </p>
+        )}
+        {props.runChanged === true && (
+          <p data-testid="edge-hover-run-changed" className={`${typography.panelBody} text-text-body m-0 mt-1.5 break-words`}>
+            {LINK_RUN_CHANGED_SENTENCE}
           </p>
         )}
         {props.fragileSentence !== null && (

@@ -192,7 +192,7 @@ import {
   type TargetNodeLike,
 } from './shared/optionTargetDisplay'
 import { NodeRailIcon } from './shared/NodeRailIcons'
-import { LAST_RUN_PREFIX, OPTION_BASELINE_REFERENCE, OPTION_RESULT_COPY } from './shared/metricVocabulary'
+import { LAST_RUN_PREFIX, OPTION_RESULT_COPY } from './shared/metricVocabulary'
 import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
 import { optionTakenOutLine } from '../domain/optionStatus'
 import { useRunCurrency, optionResultCaption, optionResultCompactCaption, optionResultCurrencyNote } from './shared/runCurrency'
@@ -2421,32 +2421,11 @@ export const OptionNode = memo((props: NodeProps) => {
   ) : null
 
   /**
-   * ⭐ THE BASELINE'S SECOND LINE — ROW 22 (contract v3 §02) and the prototype:
-   * "Reference for the other alternatives." (`OPTION_BASELINE_REFERENCE`), on
-   * the card at rest under "Baseline · no changes", in both views and both
-   * phases. Stated only when it is TRUE OF THE DATA:
-   *   · this option is the ONE DECLARED baseline (`is_baseline === true`, and no
-   *     other option declares it — `resolveBaselineOptionReference`'s rule: a
-   *     label like "Status quo" declares nothing, and two declared baselines
-   *     leave no single reference);
-   *   · at least one other option exists for it to be the reference of.
-   * The option's own description, when it carries one, is the line instead —
-   * one differentiator line, never two.
+   * ⛔ NO "Reference for the other alternatives." LINE (gate 5 item 4, DL 0df0e1, 5 Oct 2026). The declared baseline
+   * used to carry it under "Baseline · no changes" (contract v3 §02 row 22). The DL dropped it: "Baseline · no changes"
+   * already says what the card is, and the sentence added nothing a person acts on. The option's own description, when
+   * it carries one, is still the line under it (`ownDifferentiatorLine`).
    */
-  const isDeclaredReference =
-    props.data?.is_baseline === true &&
-    nodes.filter(n => (n.type === 'option' || n.data?.type === 'option') && n.data?.is_baseline === true).length === 1 &&
-    nodes.some(n => n.id !== props.id && (n.type === 'option' || n.data?.type === 'option'))
-  const baselineReferenceLine = isDeclaredReference && !ownDifferentiator ? (
-    <p
-      // The prototype sets this line as `.differentiator` (10.5px / 1.3), the
-      // same as the option's own sentence (29 Sep pixel-match; it was 11px).
-      className={`text-[length:calc(10.5px*var(--canvas-small-label-scale,1))] font-sans leading-[1.3] mt-1 m-0 text-text-light`}
-      data-testid={`option-baseline-reference-${props.id}`}
-    >
-      {OPTION_BASELINE_REFERENCE}
-    </p>
-  ) : null
 
   /**
    * The baseline's meta line (contract v3.1 OPT-12). On the card in both phases
@@ -2683,8 +2662,6 @@ export const OptionNode = memo((props: NodeProps) => {
         )}
         {baselineMetaOnCard && baselineMeta}
         {ownDifferentiatorLine}
-        {/* Row 22 + prototype: the declared baseline's reference sentence, on the card in both views. */}
-        {baselineReferenceLine}
 
         {/* Pre-analysis: structured deltas — one ROW per change.
             ⭐ THIS REPLACED WRAPPING PILLS, AND THE MEASUREMENT IS THE REASON.
@@ -2728,9 +2705,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 (`baselineMetaOnCard = isBaselineOption`); a run adds its share
                 line BELOW it, never in place of it;
               · under the rows, ONE muted line at most: the option's own
-                description or rationale (`ownDifferentiatorLine`), else — on a
-                declared baseline with another option to be the reference of —
-                "Reference for the other alternatives." (`baselineReferenceLine`). */}
+                description or rationale (`ownDifferentiatorLine`). */}
 
         {/* ⭐ CONTRACT v3.1 OPT-09 — THE OPTION'S OWN FACTS FIRST, THE RUN BELOW.
             The result and absence rows used to sit BETWEEN the change rows
