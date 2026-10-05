@@ -139,12 +139,12 @@ function expectedTagged(fragile: Fragile[]): string[] {
 }
 
 /**
- * The factor node ids the Analysis panel's review tool offers "Confirm as my estimate" on (`analysis-new-review-confirm`
+ * The factor node ids the Reasoning surface's review tool offers "Confirm as my estimate" on (`analysis-new-review-confirm`
  * carries `data-node-id`, ModelReviewTool.tsx:727 @ 72543cff). The tool shows one item at a time, so every item is
  * selected in turn. A tool that is not there THROWS: nothing offered by an unread tool is not nothing offered.
  */
 async function confirmableFactors(page: Page, label: string): Promise<string[]> {
-  await expect(page.getByTestId('analysis-new-review'), `[${label}] COULD NOT MEASURE: no review tool on the Analysis panel`)
+  await expect(page.getByTestId('analysis-new-review'), `[${label}] COULD NOT MEASURE: no review tool on the Reasoning surface`)
     .toBeVisible({ timeout: 60_000 })
   const toggle = page.getByTestId('analysis-new-review-toggle')
   if ((await toggle.count()) === 0) {
@@ -951,6 +951,9 @@ test.describe.serial('J1 · whole PoC', () => {
       await openDockTab(pageA, 'Analysis')
       await expect(pageA.getByTestId('results-body-stale-wrapper'), '[J14] COULD NOT MEASURE: A shows no complete result for S')
         .toHaveAttribute('data-run-status', 'complete', { timeout: 120_000 })
+      // The review tool is on the Reasoning surface (`analysisNew`, label 'Reasoning', unflagged: shellContract.ts), not
+      // on Analysis. Analysis is read first only to prove the run restored (J8's marker).
+      await openDockTab(pageA, 'Reasoning')
 
       const offeredBefore = await confirmableFactors(pageA, 'J14 A before')
       expect(offeredBefore.length, '[J14] COULD NOT MEASURE: the review tool offers Confirm on no factor').toBeGreaterThan(0)
@@ -993,6 +996,7 @@ test.describe.serial('J1 · whole PoC', () => {
         await openDockTab(page, 'Analysis')
         await expect(page.getByTestId('results-body-stale-wrapper'), '[J14] COULD NOT MEASURE: the fresh browser shows no complete result for S')
           .toHaveAttribute('data-run-status', 'complete', { timeout: 120_000 })
+        await openDockTab(page, 'Reasoning')
         offeredFresh = await confirmableFactors(page, 'J14 fresh')
       } finally {
         await ctx.close()
