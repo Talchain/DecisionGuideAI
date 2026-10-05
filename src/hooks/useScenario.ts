@@ -333,6 +333,17 @@ function notifyScenarioLoadProblem(message: string): void {
   }))
 }
 
+/**
+ * THIN CLIENT — a scenario boundary: an EMPTY canvas under `scenarioId`, which `useServerGraphHydration` then fills
+ * from CEE. The layout generation moves in the same step and no arrangement is requested, so a layout started for the
+ * PREVIOUS scenario fails its generation check instead of committing that scenario's nodes under this id (Codex #2511
+ * r2: they would then block CEE's read as a zero-overlap canvas and stay on screen).
+ */
+export function clearCanvasForThinScenario(scenarioId: string): void {
+  useCanvasStore.getState().hydrateGraphSlice({ nodes: [], edges: [], currentScenarioId: scenarioId })
+  useCanvasStore.setState((s) => ({ pendingLayout: false, layoutRequestId: s.layoutRequestId + 1 }))
+}
+
 export function useScenario(): UseScenarioReturn {
   const { user, authenticated } = useAuth()
   const navigate = useNavigate()
@@ -784,7 +795,7 @@ export function useScenario(): UseScenarioReturn {
       // screen under B's id, and `loadScenario`'s same-scenario branch would then keep it. Same clear as
       // `loadScenario`'s other-scenario branch; the transcript of the scenario being left is untouched.
       if (isThinClientSession()) {
-        useCanvasStore.getState().hydrateGraphSlice({ nodes: [], edges: [], currentScenarioId: row.id })
+        clearCanvasForThinScenario(row.id)
       } else {
         useCanvasStore.setState({ currentScenarioId: row.id })
       }
@@ -996,19 +1007,21 @@ export function useScenario(): UseScenarioReturn {
       // THIN CLIENT: CEE's read is the ONLY source of the graph, so this row's own `graph` column is never put
       // on the canvas. Same scenario already on screen → keep what CEE put there (nodes/edges omitted, so nothing is
       // cleared). Another scenario → clear it; `useServerGraphHydration` reads this one into the empty canvas.
+      // Saved limits follow the graph: in a thin session they come from CEE's read (`mergeServerGraphOnHydrate`).
       const thinClient = isThinClientSession()
       const thinSameScenario = thinClient && useCanvasStore.getState().currentScenarioId === row.id
-      // Saved limits follow the graph: in a thin session they come from CEE's read (`mergeServerGraphOnHydrate`).
-      useCanvasStore.getState().hydrateGraphSlice(
-        thinSameScenario
-          ? { currentScenarioId: row.id }
-          : {
-              nodes: thinClient ? [] : graphNodes,
-              edges: thinClient ? [] : graphEdges,
-              currentScenarioId: row.id,
-              goalConstraints: thinClient ? null : loadedGoalConstraints,
-            },
-      )
+      if (thinSameScenario) {
+        useCanvasStore.getState().hydrateGraphSlice({ currentScenarioId: row.id })
+      } else if (thinClient) {
+        clearCanvasForThinScenario(row.id)
+      } else {
+        useCanvasStore.getState().hydrateGraphSlice({
+          nodes: graphNodes,
+          edges: graphEdges,
+          currentScenarioId: row.id,
+          goalConstraints: loadedGoalConstraints,
+        })
+      }
       // ⛔ P0 (5 Oct 2026): the disk pointer follows the store. Without it, a switch left the pointer on the previous
       // scenario while the autosave was stamped with this one, and the next cold boot bound this scenario's bytes to
       // the previous id (`hydrate/__tests__/bootSlotOwner.p0.spec.ts`).
