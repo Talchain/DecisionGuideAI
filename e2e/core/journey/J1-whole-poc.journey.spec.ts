@@ -59,13 +59,17 @@ const ENRICHMENT_KEEP_LIST = [
 ]
 // analysis-result-headline.ts:297-298 @ a4977d9d
 const ASSUMED_DIRECTION = 'The analysis was not told which way your goal points, so it assumed a higher value is better'
-// Served analysis text describes what the model implies; it never ranks the options (Paul 5 Oct; DL 0df0e1 for record 4,
-// matching WORDING c6's sweep). The option labels are the user's own words, so they are removed before matching.
-const RANKING_WORDS = /\b(?:ahead|best|winners?)\b|\bput forward\b/i
-const rankingWord = (text: string, labels: string[]): string | null => {
-  const own = labels.filter(Boolean).sort((a, b) => b.length - a.length).reduce((t, l) => t.split(l).join(' '), text)
-  return own.match(RANKING_WORDS)?.[0] ?? null
-}
+// Served analysis text describes what the model implies; it never ranks or recommends the options (Paul 5 Oct; DL 0df0e1
+// ruling (b) for record 4). The option labels are the user's own words, so they are removed before matching.
+// "put forward" is still composed by 34 CEE code lines in 16 files (staging 4ef8778b,
+// output/journey-builder/put-forward-class-4ef8778b.txt), WORDING c6's first post-cut-3 item. Until that sweep serves it is
+// an ADVISORY row listing each hit; then PUT_FORWARD_REQUIRED flips to true.
+const RANKING_WORDS = /\b(?:ahead|best|winners?|recommend\w*)\b/i
+const PUT_FORWARD = /\bput forward\b/i
+const PUT_FORWARD_REQUIRED = false
+const ownWordsRemoved = (text: string, labels: string[]): string =>
+  labels.filter(Boolean).sort((a, b) => b.length - a.length).reduce((t, l) => t.split(l).join(' '), text)
+const rankingWord = (text: string, labels: string[]): string | null => ownWordsRemoved(text, labels).match(RANKING_WORDS)?.[0] ?? null
 // StyledEdge paints the fragile cue only above this switch probability (constants.ts:23).
 const FRAGILE_PAINT_THRESHOLD = 0.15
 // Identity shapes: an analysis hash (16 or 64 hex) and a run id. A missing value never matches.
@@ -141,6 +145,18 @@ async function runAdvisory(name: string, fn: () => Promise<unknown>): Promise<vo
   try { advisory[name] = { verdict: 'PASS', detail: await fn() } }
   catch (e) { advisory[name] = { verdict: 'FAIL', detail: String(e).slice(0, 600) } }
   writeEvidence('advisory.json', advisory)
+}
+
+/** The "put forward" row: every surface checked, and each one that says it. Hard only once PUT_FORWARD_REQUIRED. */
+function putForwardRow(where: string, text: string, labels: string[]): void {
+  const row = (advisory['served-put-forward'] ?? { verdict: 'CLEAR', checked: [], hits: [] }) as { verdict: string; checked: string[]; hits: { where: string; sentence: string }[] }
+  row.checked.push(where)
+  const own = ownWordsRemoved(text, labels)
+  const sentence = own.split(/(?<=[.!?])\s+/).find((s) => PUT_FORWARD.test(s))
+  if (sentence) { row.hits.push({ where, sentence: sentence.trim().slice(0, 240) }); row.verdict = 'SAYS PUT FORWARD' }
+  advisory['served-put-forward'] = row
+  writeEvidence('advisory.json', advisory)
+  if (PUT_FORWARD_REQUIRED) expect(sentence ?? null, `[${where}] served text says "put forward"`).toBeNull()
 }
 
 test.describe.serial('J1 · whole PoC', () => {
@@ -254,8 +270,11 @@ test.describe.serial('J1 · whole PoC', () => {
     for (const o of options) await expect(results, `[J2] the result does not name option "${o.label}" (${o.id})`).toContainText(o.label!)
     // J2c: neither R1's served summary nor the Analysis tab the user reads ranks the options.
     const labels = J.G1!.nodes.map((n) => n.label ?? '')
+    const tabText = await results.innerText()
     expect(rankingWord(String(J.AR1.summary ?? ''), labels), '[J2c] R1\'s served summary ranks the options').toBeNull()
-    expect(rankingWord(await results.innerText(), labels), '[J2c] the Analysis tab ranks the options').toBeNull()
+    expect(rankingWord(tabText, labels), '[J2c] the Analysis tab ranks the options').toBeNull()
+    putForwardRow('J2c R1 summary', String(J.AR1.summary ?? ''), labels)
+    putForwardRow('J2c Analysis tab', tabText, labels)
 
     // J2a: the assumed-direction sentence appears exactly when CEE says the direction was unattested.
     const unattested = (J.AR1.enrichment?.inference_warnings ?? []).some((w: any) => w?.code === 'GOAL_DIRECTION_UNATTESTED')
@@ -374,6 +393,7 @@ test.describe.serial('J1 · whole PoC', () => {
     J.AR2 = analysisResultOf(turn.body)!
     expect(J.AR2, '[J6] the rerun carries no analysis_result').toBeTruthy()
     expect(rankingWord(String(J.AR2.summary ?? ''), J.G1!.nodes.map((n) => n.label ?? '')), '[J6] R2\'s served summary ranks the options').toBeNull()
+    putForwardRow('J6 R2 summary', String(J.AR2.summary ?? ''), J.G1!.nodes.map((n) => n.label ?? ''))
 
     const body = await read('J6')
     expect(body.graph_hash, '[J6] the rerun is not on the edited graph').toBe(J.H2)
