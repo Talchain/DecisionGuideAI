@@ -13,7 +13,8 @@
  *   on the canvas, by their exact "Connection from <A> to <B>" labels (canvas ids are local).
  * A value another object could satisfy ("a result appeared") is never enough.
  *
- * Required (deterministic under frozen replay): J0 J1 J2(+a,b) J3 J3r J5(+a) J6 J8 J9.
+ * Required (deterministic under frozen replay): J0 J1 J2(+a,b) J3 J3r J5(+a) J6 J8 J9,
+ * and gate 3's J10 J11 J12 J13 (no LLM call; advisory J11a brief, J11b name).
  * Advisory until 3 greens: J3p J7, and J6's prior = R1 binding where R1 is not
  * identifiable (UNBOUND). Advisory rows write a verdict to evidence/advisory.json and
  * never fail the run. Not built yet: J3b J4 J5b J5c.
@@ -26,14 +27,14 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { expect, test, type BrowserContext, type Page } from '@playwright/test'
+import { expect, test, type BrowserContext, type Locator, type Page, type Request } from '@playwright/test'
 import {
   enterAuthenticated, installWireInterceptor, mintAndInject, openDockTab, ORIGIN, renderedNodeIds,
   submitBrief, waitForDraftTurnComplete, type MintedSession,
 } from '../lib/harness'
 import {
-  analysisResultOf, assertBoundaryClean, browserStorage, captureTurns, CEE_URL, edgeKey,
-  frozenRecordings, handlerFactsVisibleTo, injectSession, ledger, nextTurn, scenarioIdFromUrl, scenariosVisibleTo,
+  analysisResultOf, assertBoundaryClean, browserStorage, captureTurns, CEE_URL, duplicateAs, edgeKey,
+  frozenRecordings, handlerFactsVisibleTo, injectSession, ledger, nextTurn, scenarioIdFromUrl, scenarioRowVisibleTo, scenariosVisibleTo,
   storedRead, tuple, writeEvidence, type CapturedTurn,
 } from './lib/journey'
 
@@ -101,6 +102,7 @@ const J: {
   fragile1?: Fragile[]; edited?: Fragile
   G2?: Graph; H2?: string; H2id?: string
   AR2?: Record<string, any>; R2?: string; fragile2?: Fragile[]
+  cardS?: string; C?: string
 } = {}
 const advisory: Record<string, unknown> = {}
 
@@ -548,5 +550,201 @@ test.describe.serial('J1 · whole PoC', () => {
     } finally {
       await ctx.close()
     }
+  })
+
+  // ── Gate 3: scenario management (Core Platform github-c0, lease 2g; DL GO 5 Oct 22:1xZ) ──
+  // J1/J3r/J8/J9 already carry create, deep link, reload and account B. These add the two
+  // steps never witnessed (select from Your scenarios, Duplicate) and the deep-link override
+  // check across two scenarios A owns. No LLM call: every row asserts the boundary is clean.
+
+  /** The UI's own POST read of one scenario's graph, as J9 waits for it. */
+  const graphRead = (page: Page, id: string) =>
+    page.waitForResponse((r) => r.url().includes(`/bff/cee/scenarios/${id}/graph`) && r.request().method() === 'POST', { timeout: 90_000 })
+      .catch(() => null)
+
+  /** A card's name, as the list shows it (its h4). */
+  const cardName = async (card: Locator) => (await card.getByRole('heading', { level: 4 }).innerText()).trim()
+
+  /**
+   * Open a Your-scenarios card the way a user does, on its name. The card's centre is its
+   * "Compare with another scenario" button (first run, 5 Oct: a centre click opened Compare),
+   * and /scenario/<id>/compare also contains the id, so the route is asserted EXACTLY.
+   */
+  async function openCard(card: Locator, id: string, label: string) {
+    const read = graphRead(pageA, id)
+    await card.getByRole('heading', { level: 4 }).click()
+    await expect.poll(() => new URL(pageA.url()).hash, { message: `[${label}] the card did not open #/scenario/${id}`, timeout: 30_000 })
+      .toBe(`#/scenario/${id}`)
+    const res = await read
+    expect(res, `[${label}] COULD NOT MEASURE: opening the card never read ${id} from CEE`).not.toBeNull()
+    expect(res!.status(), `[${label}] the card's read of ${id} was refused`).toBe(200)
+  }
+
+  test('J10 · select: Your scenarios lists S, and choosing its card opens S by identity', async () => {
+    const S = J.S!
+    const latest = nodesOf(J.G2 ?? J.G1!)
+    // A is minted fresh for this run, so its only row is S: one card, and it can only be S.
+    const rows = await scenariosVisibleTo(J.A!.user.accessToken)
+    expect(rows.ids, '[J10] COULD NOT MEASURE: account A has rows other than S, so the card cannot be bound by elimination').toEqual([S])
+
+    await pageA.goto(`${ORIGIN}/#/scenarios`, { waitUntil: 'load' })
+    const cards = pageA.getByTestId('scenario-card')
+    await expect(cards, '[J10] Your scenarios does not show exactly A\'s one row').toHaveCount(1, { timeout: 60_000 })
+    J.cardS = await cardName(cards.first())
+    await openCard(cards.first(), S, 'J10')
+    await expect.poll(async () => (await renderedNodeIds(pageA)).sort(), {
+      message: '[J10] the chosen scenario does not render S\'s model by id', timeout: 120_000,
+    }).toEqual(latest)
+    assertBoundaryClean('J10')
+    writeEvidence('J10-select.json', { S, card_title: J.cardS })
+  })
+
+  test('J11 · copy: Duplicate makes C, owned by A, sourced from S, carrying S\'s model by identity (+J11a brief, +J11b name)', async () => {
+    const S = J.S!
+    const latest = J.G2 ?? J.G1!
+    await pageA.goto(`${ORIGIN}/#/scenarios`, { waitUntil: 'load' })
+    const cards = pageA.getByTestId('scenario-card')
+    await expect(cards, '[J11] COULD NOT MEASURE: Your scenarios does not show S alone before the copy').toHaveCount(1, { timeout: 60_000 })
+    const before = (await scenariosVisibleTo(J.A!.user.accessToken)).ids
+
+    await cards.first().getByRole('button', { name: 'Actions' }).click()
+    await pageA.getByRole('menuitem', { name: 'Duplicate' }).click()
+    await expect(cards, '[J11] Your scenarios does not show the copy').toHaveCount(2, { timeout: 60_000 })
+    const added = (await scenariosVisibleTo(J.A!.user.accessToken)).ids.filter((id) => !before.includes(id))
+    expect(added, '[J11] Duplicate did not create exactly one new row for A').toHaveLength(1)
+    const C: string = J.C = added[0]!
+    expect(C, '[J11] the copy reuses S\'s id').not.toBe(S)
+
+    const row = await scenarioRowVisibleTo(C, J.A!.user.accessToken)
+    expect(row.user_id, '[J11] the copy is not owned by A').toBe(J.A!.user.userId)
+    expect(row.source_scenario_id, '[J11] the copy does not name S as its source').toBe(S)
+
+    const src = await read('J11 source')
+    const copy = await storedRead(C, J.A!.user)
+    expect(copy.status, `[J11] CEE's stored read of the copy C=${C} returned ${copy.status}`).toBe(200)
+    const g = copy.body!.graph as Graph
+    expect(g, '[J11] the copy opens with no model').toBeTruthy()
+    expect(nodesOf(g), '[J11] the copy carries different nodes from S').toEqual(nodesOf(latest))
+    expect(edgesOf(g), '[J11] the copy carries different links from S').toEqual(edgesOf(latest))
+    // The identity hash is an object ({ algorithm, projection_version, value, ... }): S's value must be a
+    // real sha256 first, so two absent hashes cannot agree, then the whole object must match.
+    expect(src.graph_identity_hash?.value, '[J11] COULD NOT MEASURE: S carries no identity hash').toMatch(/^[0-9a-f]{64}$/)
+    expect(copy.body!.graph_identity_hash, '[J11] the copy\'s model identity differs from S\'s').toEqual(src.graph_identity_hash)
+
+    // Open the copy from its own card, found by elimination: the one card whose name is not
+    // S's (the name is J11b's to judge). A card has no id: the binding is the exact route + read.
+    const names = await cards.getByRole('heading', { level: 4 }).allInnerTexts()
+    const others = names.flatMap((name, i) => (name.trim() === J.cardS ? [] : [i]))
+    expect(others, `[J11] cannot tell the copy's card from S's: names ${JSON.stringify(names)}`).toHaveLength(1)
+    const copyTitle = names[others[0]!]!.trim()
+    await openCard(cards.nth(others[0]!), C, 'J11')
+    await expect.poll(async () => (await renderedNodeIds(pageA)).sort(), {
+      message: '[J11] the copy does not render S\'s model by id', timeout: 120_000,
+    }).toEqual(nodesOf(latest))
+
+    // Advisory: what the copy does not carry. duplicate_scenario copies graph + framing, not
+    // brief_text, and CEE derives not_modelled from brief_text (a code read, 5 Oct).
+    await runAdvisory('J11a_copy_keeps_brief', async () => {
+      const got = { brief_present: !!copy.body!.brief_text, not_modelled: copy.body!.not_modelled?.status ?? null }
+      const want = { brief_present: !!src.brief_text, not_modelled: src.not_modelled?.status ?? null }
+      if (copy.body!.brief_text !== src.brief_text) throw new Error(`the copy opens without S's brief: ${JSON.stringify({ want, got })}`)
+      return { want, got }
+    })
+    await runAdvisory('J11b_copy_keeps_name', async () => {
+      if (copyTitle !== `${J.cardS} (copy)`) throw new Error(`S is listed as "${J.cardS}", its copy as "${copyTitle}"`)
+      return { source: J.cardS, copy: copyTitle }
+    })
+    assertBoundaryClean('J11')
+    writeEvidence('J11-copy.json', { S, C, source_scenario_id: row.source_scenario_id, nodes: nodesOf(g).length, edges: edgesOf(g).length, graph_identity_hash: copy.body!.graph_identity_hash, card_title: copyTitle })
+  })
+
+  test('J12 · account B, in a fresh browser, sees nothing of the copy and cannot copy S', async ({ browser }) => {
+    const S = J.S!, C = J.C!
+    const latest = nodesOf(J.G2 ?? J.G1!)
+    // Positive controls: A can see C on both stores (J11 read it; re-read in this run).
+    expect((await scenariosVisibleTo(J.A!.user.accessToken)).ids, '[J12 control] A cannot list its own copy').toContain(C)
+    expect((await storedRead(C, J.A!.user)).status, '[J12 control] A cannot read its own copy from CEE').toBe(200)
+
+    const ctx = await browser.newContext()
+    const page = await ctx.newPage()
+    try {
+      const B = await mintAndInject(page, 'j1-b-copy')
+      expect(B.user.userId, '[J12] account B is account A').not.toBe(J.A!.user.userId)
+      const bBefore = await scenariosVisibleTo(B.user.accessToken)
+      expect(bBefore.ids, '[J12] account B can list A\'s copy').not.toContain(C)
+
+      const bRead = await storedRead(C, B.user)
+      expect([403, 404], `[J12] CEE served A's copy to account B (status ${bRead.status})`).toContain(bRead.status)
+      expect(JSON.stringify(bRead.body ?? {}), '[J12] CEE\'s refusal to B carries A\'s graph').not.toContain(`"${latest[0]}"`)
+
+      // The product's own Duplicate, under B's token, on A's scenario and on A's copy. Bound to
+      // the function's OWN refusal (auth_hub_profiles.sql:96, its only definition): a missing
+      // RPC (404 PGRST202) or a bad argument (400) is also "not 200" and proves nothing.
+      for (const id of [S, C]) {
+        const dup = await duplicateAs(id, B.user.accessToken)
+        const err = (dup.body ?? {}) as { code?: string; message?: string }
+        expect({ status: dup.status, code: err.code, owned: /not owned by user/.test(err.message ?? '') },
+          `[J12] account B's copy of A's scenario ${id} was not refused by duplicate_scenario itself`)
+          .toEqual({ status: 400, code: 'P0001', owned: true })
+        expect(JSON.stringify(dup.body ?? {}), '[J12] B\'s refused copy carries A\'s graph').not.toContain(`"${latest[0]}"`)
+      }
+      const bAfter = await scenariosVisibleTo(B.user.accessToken)
+      expect(bAfter.ids.sort(), '[J12] B\'s refused copies still added rows B can see').toEqual(bBefore.ids.sort())
+
+      const uiRead = graphRead(page, C)
+      await page.goto(`${ORIGIN}/#/scenario/${C}`, { waitUntil: 'load' })
+      const refused = await uiRead
+      expect(refused, '[J12] COULD NOT MEASURE: B\'s browser never read C from CEE, so an empty canvas proves nothing').not.toBeNull()
+      expect([403, 404], `[J12] CEE served C to B's browser (status ${refused!.status()})`).toContain(refused!.status())
+      await expect(page.getByRole('button', { name: 'Account menu' }), '[J12] B\'s app shell never rendered signed in').toBeVisible({ timeout: 60_000 })
+      expect((await renderedNodeIds(page)).filter((id) => latest.includes(id)), '[J12] A\'s copied model rendered in B\'s browser').toEqual([])
+      const leaks = Object.entries(await browserStorage(page)).filter(([k, v]) => k.includes(C) || v.includes(C)).map(([k]) => k)
+      expect(leaks, '[J12] B\'s browser storage names A\'s copy').toEqual([])
+      assertBoundaryClean('J12')
+      writeEvidence('J12-account-b-copy.json', { C, b_rest_ids: bAfter.ids.length, b_read: bRead.status, b_ui_read: refused!.status() })
+    } finally {
+      await ctx.close()
+    }
+  })
+
+  test('J13 · deep link: with two scenarios, a cold load opens the linked one and a reload keeps it, both ways', async () => {
+    const S = J.S!, C = J.C!
+    const latest = nodesOf(J.G2 ?? J.G1!)
+    expect(new URL(pageA.url()).hash, '[J13] COULD NOT MEASURE: A is not on the copy, so nothing is remembered to override').toBe(`#/scenario/${C}`)
+    const reads: string[] = []
+    const onRequest = (r: Request) => {
+      const m = r.url().match(/\/bff\/cee\/scenarios\/([0-9a-f-]{36})\/graph(\?|$)/i)
+      if (m && r.method() === 'POST') reads.push(m[1])
+    }
+    pageA.on('request', onRequest)
+    try {
+      // One open, judged at its terminal state: the read of `target` answered, its model
+      // rendered, the network settled (a remembered-scenario override would arrive late), and
+      // then the route is still exactly `target` and nothing read `other` since the open began.
+      const judge = async (target: string, other: string, how: string, open: () => Promise<unknown>) => {
+        reads.length = 0
+        const read = graphRead(pageA, target)
+        await open()
+        const res = await read
+        expect(res, `[J13] COULD NOT MEASURE: the ${how} of ${target} never read it`).not.toBeNull()
+        expect(res!.status(), `[J13] the ${how}'s read of ${target} was refused`).toBe(200)
+        await expect.poll(async () => (await renderedNodeIds(pageA)).sort(), { message: `[J13] the ${how} of ${target} does not render`, timeout: 120_000 }).toEqual(latest)
+        await pageA.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => undefined)
+        expect(new URL(pageA.url()).hash, `[J13] the ${how} of ${target} was overridden`).toBe(`#/scenario/${target}`)
+        expect(reads, `[J13] the ${how} of ${target} also read ${other}`).not.toContain(other)
+      }
+      // Last opened is C, so the remembered scenario is C: the link to S must still open S.
+      // Then S is remembered, and the link to C must open C. Each is a new document in the same
+      // browser (about:blank first, so no in-app navigation is counted), then a reload.
+      for (const [target, other] of [[S, C], [C, S]] as const) {
+        await pageA.goto('about:blank')
+        await judge(target, other, 'cold deep link', () => pageA.goto(`${ORIGIN}/#/scenario/${target}`, { waitUntil: 'load' }))
+        await judge(target, other, 'reload', () => pageA.reload({ waitUntil: 'load' }))
+      }
+    } finally {
+      pageA.off('request', onRequest)
+    }
+    assertBoundaryClean('J13')
+    writeEvidence('J13-deep-link.json', { S, C })
   })
 })
