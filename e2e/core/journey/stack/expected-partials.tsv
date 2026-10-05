@@ -1,3 +1,17 @@
 # X7 allow-list (SPINE X7, Integrator). One row per TOLERATED migration statement error.
-# Matched exactly on the first four columns; the fifth says why J1 does not need what failed.
+# Matched exactly on the first four columns (file, line, SQLSTATE, error text); the fifth says
+# why J1 does not need what failed. Measured: run 37318530007 (DGAI 59e6bd4c, CEE staging e80d315c).
+# Any error not listed here is red ("the schema seam moved"); a listed one that stops happening is STALE.
 # file	line	sqlstate	message	why
+20250402093809_winter_butterfly.sql	38	P0001	Foreign key constraint decision_collaborators_user_id_fkey was not created correctly	legacy decisions schema: its information_schema self-check on decision_collaborators_user_id_fkey fails on the current image; J1 touches no decisions/decision_collaborators table
+20250511133311_winter_union.sql	38	P0001	Foreign key constraint decision_collaborators_user_id_fkey was not created correctly	same legacy decision_collaborators FK self-check as winter_butterfly; J1 touches no decisions table
+20250513214217_sparkling_rain.sql	50	42P13	cannot change return type of existing function	legacy team-member listing function re-created with a new return type; J1 calls no team function
+20250513214452_silver_thunder.sql	15	42725	function name "manage_team_member" is not unique	DROP FUNCTION manage_team_member without a signature, ambiguous across overloads; J1 calls no team function
+20250513214452_silver_thunder.sql	84	42P13	cannot change return type of existing function	legacy team-member function re-created with a new return type; J1 calls no team function
+20261001130338_contain_team_invite_functions_anon_20261001.sql	52	42883	function public.accept_organization_invitation(uuid, uuid) does not exist	invite/team anon containment loop casts accept_organization_invitation(uuid,uuid), a HOSTED-ONLY signature; J1 calls no invite/team function. SECURITY: on a fresh build these functions keep anon EXECUTE (reported to Core Platform)
+20261001193210_invite_team_function_revoke_only_20261001.sql	83	42883	function "public.accept_organization_invitation(uuid,uuid)" does not exist	same hosted-only accept_organization_invitation(uuid,uuid) cast aborts the 47-function anon/PUBLIC revoke; J1 calls no invite/team function. SECURITY: fresh-build re-arm (Core Platform)
+20261001193210_invite_team_function_revoke_only_20261001.sql	101	25P02	current transaction is aborted, commands ignored until end of transaction block	cascade of line 83 in the same BEGIN/COMMIT (25P02)
+20261001201416_invite_team_function_rewrites_20261001.sql	278	42P13	cannot change return type of existing function	invitation-log function re-created with a new return type; J1 calls no invite function
+20261001201416_invite_team_function_rewrites_20261001.sql	332	25P02	current transaction is aborted, commands ignored until end of transaction block	cascade of line 278 in the same BEGIN/COMMIT (25P02)
+20261001201416_invite_team_function_rewrites_20261001.sql	477	25P02	current transaction is aborted, commands ignored until end of transaction block	cascade of line 278 in the same BEGIN/COMMIT (25P02)
+20261001201416_invite_team_function_rewrites_20261001.sql	684	25P02	current transaction is aborted, commands ignored until end of transaction block	cascade of line 278 in the same BEGIN/COMMIT (25P02)

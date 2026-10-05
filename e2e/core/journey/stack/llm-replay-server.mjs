@@ -27,7 +27,13 @@
 //   - ISO timestamps;
 //   - float noise: a decimal with a fraction is compared at 6 significant digits
 //     (Mac arm64 record vs Linux x86_64 replay). Integers are never touched, so
-//     business quantities (120000, 187500) and counts stay exact.
+//     business quantities (120000, 187500) and counts stay exact;
+//   - run ids, by KEY only (`run_id`): two CI replays of one frozen journey gave R2
+//     f349e115… and d4e74b76… (runs 37312998590, 37315190922);
+//   - the Run-explanation chip key `agent-explain-run:<16 hex>`: a digest of scenario_id +
+//     computed_at (CEE run-explanation.ts:47 @b43bb79e), drift #5 of run 37318530007.
+// Graph and analysis hashes are NOT normalised: they are content-derived (H1 2771ec91…,
+// H2 9ad1f20a… identical on the Mac record and on both CI replays).
 // Replay serves ONLY an exact (signature, detail) match. Anything else is red:
 //   `drift` - a recording with the same signature exists but the request differs
 //             (a diagnosis file names the first differing position);
@@ -77,9 +83,14 @@ const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi
 const ISO_TS = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z?/g
 // A decimal WITH a fraction (and optional exponent). Integers never match.
 const DECIMAL = /-?\b\d+\.\d+(?:[eE][-+]?\d+)?/g
+// Escaped or not: the run id is often inside a JSON string the request carries.
+const RUN_ID_VALUE = /(run_id\\*"\s*:\s*\\*")[0-9a-f]{16,64}/g
+const RUN_KEY = /agent-explain-run:[0-9a-f]{16}/g
 const normalise = (s) => String(s)
   .replace(UUID, '<uuid>')
   .replace(ISO_TS, '<ts>')
+  .replace(RUN_ID_VALUE, '$1<run_id>')
+  .replace(RUN_KEY, 'agent-explain-run:<run_key>')
   .replace(DECIMAL, (m) => String(Number(Number(m).toPrecision(6))))
 
 function shapeOf(host, method, target, body) {
@@ -232,7 +243,9 @@ function handle(req, res) {
         if (near) {
           const diff = firstDifference(norm, near.norm)
           const file = path.join(path.dirname(LEDGER), `drift-${String(n).padStart(4, '0')}.json`)
-          fs.writeFileSync(file, JSON.stringify({ seq: n, signature, detail, nearest: near.file, ...diff }, null, 1))
+          // The WHOLE normalised request, so every difference (not only the first) can be diffed
+          // against the recording normalised the same way. Bodies only: no header is ever kept.
+          fs.writeFileSync(file, JSON.stringify({ seq: n, signature, detail, nearest: near.file, ...diff, served_norm: norm }, null, 1))
           ledger({ seq: n, outcome: 'drift', signature, detail, nearest: near.file, recorded_detail: near.detail, diff_at: diff.at, diagnosis: path.basename(file) })
           return refuse(res, 400, 'journey_replay_drift', `call ${n} differs from frozen ${near.file} at char ${diff.at}`)
         }

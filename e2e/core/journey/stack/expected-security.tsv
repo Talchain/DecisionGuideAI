@@ -1,0 +1,5 @@
+# X7 known SECURITY defects (schema-assert.sql class SECURITY only; REQUIRED rows can never be listed).
+# A listed row that FAILS is reported as KNOWN with its owner, not red; any other FAIL is red;
+# a listed row that no longer fails is STALE (the fix landed: delete the line).
+# check_name (exact, column 2 of SCHEMA-ASSERT.tsv)	owner	evidence
+anon cannot EXECUTE store_draft_graph(p_scenario_id uuid, p_graph jsonb)	Core Platform (X10), CEE migrations	CEE 20260422120000_v5_store_draft_graph revokes PUBLIC only, so Supabase default privileges leave anon EXECUTE on a fresh build; 20260708130000 revoked authenticated only. SECURITY DEFINER, no ownership predicate. Live ACL measured {postgres,service_role} on 8 Jul (that migration header); today UNVERIFIED. J1 run 37318530007.

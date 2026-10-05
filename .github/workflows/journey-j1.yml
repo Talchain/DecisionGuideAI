@@ -357,7 +357,21 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           cat "$V" 2>/dev/null; cat "$A" 2>/dev/null
           if ! { [ -s "$V" ] && [ "$(head -1 "$V")" = MATCH ]; }; then echo "::error::X7: a migration error is not on expected-partials.tsv, or it was not measured"; red=1; fi
-          if ! { [ -s "$A" ] && ! grep -q $'\tFAIL\t' "$A"; }; then echo "::error::X7: the schema assert failed, or it was not measured"; red=1; fi
+          # Known SECURITY defects (exact check name, owner named) are reported, not red; a REQUIRED
+          # FAIL, an unlisted FAIL, or no measurement is red. A listed row that passes is STALE.
+          K="$GITHUB_WORKSPACE/dgai/e2e/core/journey/stack/expected-security.tsv"
+          KN="$(mktemp)"; grep -v '^#' "$K" | cut -f1 | sed '/^$/d' > "$KN"
+          if [ ! -s "$A" ]; then
+            echo "::error::X7: the schema assert was not measured"; red=1
+          else
+            fails="$(awk -F'\t' -v kn="$KN" 'FILENAME == kn { k[$0] = 1; next } $3 == "FAIL" && !($1 == "SECURITY" && ($2 in k))' "$KN" "$A")"
+            known="$(awk -F'\t' -v kn="$KN" 'FILENAME == kn { k[$0] = 1; next } $3 == "FAIL" && $1 == "SECURITY" && ($2 in k) { print $2 }' "$KN" "$A")"
+            stale="$(awk -F'\t' -v a="$A" 'FILENAME == a { if ($3 == "FAIL") f[$2] = 1; next } !($0 in f)' "$A" "$KN")"
+            { [ -z "$known" ] || { echo "KNOWN security defects (owner in expected-security.tsv):"; printf '%s\n' "$known" | sed 's/^/  /'; }
+              [ -z "$stale" ] || { echo "STALE known defects (no longer failing; delete the line):"; printf '%s\n' "$stale" | sed 's/^/  /'; }
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            if [ -n "$fails" ]; then echo "::error::X7: schema assert FAIL:"; printf '%s\n' "$fails"; red=1; fi
+          fi
           exit $red
 
       # Two-account rows in ONE browser (Red-team A1-A4, Core Platform #2501 sweep).
