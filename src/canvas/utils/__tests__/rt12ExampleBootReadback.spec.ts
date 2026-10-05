@@ -21,7 +21,7 @@ const PRE_PATCH: WireEdge = { ...EDGE, provenance: PRE_PATCH_PROVENANCE }
 const wireNode = (id: string) => (example.nodes as Array<Record<string, unknown>>).find((n) => n.id === id)!
 const WIRE_NODES = [wireNode(EDGE.from), wireNode(EDGE.to)]
 // The canvas copy as the real node hop writes it (the goal end is a GOAL, not a factor).
-const NODES = WIRE_NODES.map((n, i) => ({ ...mapDraftNodeToCanvas(n as never, i) }))
+const NODES = WIRE_NODES.map((n) => ({ ...mapDraftNodeToCanvas(n as never) }))
 const theEdge = (): any => useCanvasStore.getState().edges.find((e: any) => e.source === EDGE.from && e.target === EDGE.to)
 
 describe('RT-12 reload: the boot read acquires the example label, and it is not an edit', () => {
