@@ -193,6 +193,7 @@ export function useServerGraphHydration(
           accessToken: identity.accessToken,
           signal: controller.signal,
           hydrate: hydrateCanvasFromServer,
+          includeConversationTurns: true,
           wait: waitForRetry,
           // The stage is keyed by scenario, so a late write cannot describe a
           // decision the user has since left (`serverGraphRetryStore` header).

@@ -3000,9 +3000,10 @@ export function useConversation(): UseConversationReturn {
   const serverTurnsOffer = useServerConversationTurnsStore((s) => s.offer)
   useEffect(() => {
     if (!serverTurnsOffer || !scenarioId || serverTurnsOffer.scenarioId !== scenarioId) return
+    // Restoration must finish even when the outgoing scenario has no messages.
+    if (messagesOwnerRef.current !== scenarioId) return
     useServerConversationTurnsStore.getState().takeServerConversationTurns(scenarioId)
     if (messagesRef.current.length > 0) {
-      if (messagesOwnerRef.current !== scenarioId) return
       const next = reconcileRestoredHeldControls(messagesRef.current, serverTurnsOffer.heldProposalOffers)
       messagesRef.current = next
       setMessages(next)
@@ -3018,7 +3019,8 @@ export function useConversation(): UseConversationReturn {
     messagesOwnerRef.current = scenarioId
     messagesRef.current = next
     setMessages(next)
-  }, [serverTurnsOffer, scenarioId])
+    // Restoration replaces messages, so a waiting offer is revisited after the new owner has restored.
+  }, [serverTurnsOffer, scenarioId, messages])
 
   // Persist the transcript whenever it changes, so the next session can
   // restore it. Guest sessions never reach Supabase (`isPersistenceActive` is
@@ -3080,6 +3082,11 @@ export function useConversation(): UseConversationReturn {
           } catch (err) {
             console.error('[useConversation] Transcript restore failed — starting fresh', err)
           }
+          // No transcript still completes restoration. Wake a waiting offer after ownership transfers.
+          if (messagesRef.current.length === 0) setMessages([])
+        } else {
+          // Keep in-flight turns intact while signalling that initial ownership has transferred.
+          setMessages([...messagesRef.current])
         }
         return
       }

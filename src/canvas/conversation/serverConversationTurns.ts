@@ -110,7 +110,7 @@ export function buildRestoredThread(
     const last = out[lastEarlierReply]
     out[lastEarlierReply] = { ...last, content: `${last.content}\n\n${RESTORED_STALE_FIGURES_NOTE}` }
   }
-  return reconcileRestoredHeldControls(out, heldProposalOffers)
+  return reconcileRestoredHeldControls(out, heldProposalOffers, true)
 }
 
 
@@ -143,17 +143,26 @@ export function readServerHeldProposalOffers(raw: unknown): readonly ServerHeldP
  * The saved proposal/turn association locates a card, never authorises it. No match or unreadable/absent sidecar → inert.
  * Live answers have neither the restored association nor a restored-server id and are left untouched by a late read.
  */
-export function reconcileRestoredHeldControls(messages: readonly ConversationMessage[], rawOffers: unknown): ConversationMessage[] {
+export function reconcileRestoredHeldControls(
+  messages: readonly ConversationMessage[],
+  rawOffers: unknown,
+  freshlyBuiltServerHistory = false,
+): ConversationMessage[] {
   const offers = readServerHeldProposalOffers(rawOffers)
   const used = new Set<string>()
   return messages.map(message => {
     if (message.role !== 'assistant') return message
-    const serverTurnId = message.id.startsWith('restored-assistant-') ? message.id.slice('restored-assistant-'.length) : undefined
-    if (message.heldProposalId === undefined && serverTurnId === undefined) return message
+    const hasServerPrefix = message.id.startsWith('restored-assistant-')
+    // Only the builder above knows that this id came from THIS read's turn_id.
+    // A persisted prefix is not a saved (turn_id, proposal_id) association.
+    const serverTurnId = freshlyBuiltServerHistory && hasServerPrefix
+      ? message.id.slice('restored-assistant-'.length) : undefined
+    if (message.heldProposalId === undefined && !hasServerPrefix) return message
     const turnId = message.clientTurnId ?? serverTurnId
     const offer = offers.find(o => !used.has(o.proposalId)
-      && (turnId !== undefined ? o.turnId === turnId : o.proposalId === message.heldProposalId)
-      && (message.heldProposalId === undefined || o.proposalId === message.heldProposalId))
+      && turnId !== undefined && o.turnId === turnId
+      && (o.proposalId === message.heldProposalId
+        || (serverTurnId !== undefined && message.heldProposalId === undefined)))
     // Drop any prior restored controls before adopting the fresh authority; saved chips never participate.
     const { actionChips: _oldChips, ...rest } = message
     if (offer === undefined) return rest

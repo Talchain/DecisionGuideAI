@@ -97,7 +97,7 @@ interface ChatThreadProps {
   explainingRun?: boolean
   patchBlockStates: Map<string, PatchBlockState>
   patchRejections: Map<string, PatchRejectionInfo>
-  onChipClick: (chip: ActionChip) => Promise<void>
+  onChipClick: (chip: ActionChip, messageId?: string) => Promise<void>
   onPatchAccept: (key: string, block: GraphPatchBlock) => void
   onPatchDismiss: (key: string) => void
   onFeedback: (turnId: string, rating: 'up' | 'down') => void
@@ -278,16 +278,14 @@ export const ChatThread = memo(function ChatThread({
   // plus two reverses per render, on a path that runs ~60x/sec once streaming
   // is enabled.
   let lastUserMsg: ConversationMessage | undefined
-  let lastAssistantMsg: ConversationMessage | undefined
   // T4: the coaching row's host. The restore appends an assistant-role "Session resumed" divider
   // (useConversation `sessionDivider`), which is not a reply: the row stays on the reply before it.
   let lastReplyMsg: ConversationMessage | undefined
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
     if (!lastUserMsg && m.role === 'user') lastUserMsg = m
-    if (!lastAssistantMsg && m.role === 'assistant') lastAssistantMsg = m
     if (!lastReplyMsg && m.role === 'assistant' && typeof m.sessionDivider !== 'string') lastReplyMsg = m
-    if (lastUserMsg && lastAssistantMsg && lastReplyMsg) break
+    if (lastUserMsg && lastReplyMsg) break
   }
   const failedSendRetryId =
     lastUserMsg && lastUserMsg.deliveryState === 'failed' ? lastUserMsg.id : null
@@ -295,7 +293,7 @@ export const ChatThread = memo(function ChatThread({
   // ghost (useProposalGhostBridge.ts). Render-only; Accept stays on the chip.
   useProposalGhostBridge(messages)
 
-  // Get suggested chips from last assistant message.
+  // Get suggested chips from the latest reply.
   //
   // `SuggestedChips` below is the SOLE render surface for `actionChips`
   // (verified at 4fbc6451: `<ActionChipRow` has zero production render sites,
@@ -307,7 +305,9 @@ export const ChatThread = memo(function ChatThread({
   // mechanism that no longer had anything to suppress. Removed rather than
   // re-documented — a dead guard that reads as a live one is how ROADMAP
   // 2.668's second defect came to be diagnosed against this file at all.
-  const suggestedChips = lastAssistantMsg?.actionChips ?? []
+  // Dividers are assistant-role transcript markers, never the owner of a reply's controls.
+  // The latest real reply still supersedes every earlier reply's chips.
+  const suggestedChips = lastReplyMsg?.actionChips ?? []
 
   // PX-B: the settling phase, read the SAME way AIInputBar reads it —
   // `draftStreamPhaseFor` is the one place that decides scenario ownership, so
@@ -343,7 +343,7 @@ export const ChatThread = memo(function ChatThread({
         // Hide user messages and the streaming placeholder while EmptyState is the loading hub.
         // Same predicate the scroll trigger counts with — derived, never restated.
         if (!isRendered(msg)) return null
-        const isLastAssistant = msg === lastAssistantMsg
+        const isLastAssistant = msg === lastReplyMsg
         if (msg.sessionDivider) {
           return <SessionDivider key={msg.id} text={msg.sessionDivider} />
         }
@@ -371,7 +371,7 @@ export const ChatThread = memo(function ChatThread({
         )
         // T4: the latest turn's coaching rows sit between the reply and its chips (guidanceRows.ts).
         const guidanceRows = msg === lastReplyMsg && msg.guidance ? <GuidanceRows guidance={msg.guidance} /> : null
-        // Attach suggested chips directly below the last assistant message
+        // Attach suggested chips directly below their owning reply
         // so they read as one visual unit rather than floating orphans.
         if (isLastAssistant && suggestedChips.length > 0) {
           return (
@@ -380,7 +380,7 @@ export const ChatThread = memo(function ChatThread({
               {guidanceRows}
               <SuggestedChips
                 chips={suggestedChips}
-                onChipClick={onChipClick}
+                onChipClick={(chip) => onChipClick(chip, msg.id)}
                 isThinking={isThinking}
                 runGate={runGate}
               />
