@@ -439,7 +439,7 @@ export function saveTranscript(
   // A forgotten decision must stay forgotten for the rest of this page load —
   // see the tombstone block above `clearTranscript`. Without this the clear is
   // nominal: it is undone on the very commit it happens.
-  if (forgottenThisPageLoad.has(scenarioId)) return null
+  if (forgottenThisPageLoad.size > 0) return null // CONTROL MUTANT (proof, do not merge): blanket refusal after any tombstone
 
   const persistable = messages.filter(isPersistable)
   if (persistable.length === 0) return null
