@@ -44,7 +44,7 @@ import {
   runAbsentGraphRetrySchedule,
   waitForRetry,
 } from '../hydrate/absentGraphRetry'
-import { useServerGraphRetryStore } from '../stores/serverGraphRetryStore'
+import { isServerGraphTerminalReason, useServerGraphRetryStore } from '../stores/serverGraphRetryStore'
 import { coldLoadClaimedRoute } from '../hydrate/coldLoadDeepLink'
 import { logger } from '../../lib/logger'
 import { getSessionIdentity } from '../../lib/supabase'
@@ -189,7 +189,15 @@ export function useServerGraphHydration(
         // `absent` alone means "exists, no graph YET". Everything else is a
         // settled answer and returns here unchanged, having cost exactly one
         // request — which is what keeps the 404 path byte-identical.
-        if (outcome !== 'absent') return
+        if (outcome !== 'absent') {
+          // THIN CLIENT (GAP-1): a signed-in page has no local model behind the empty canvas, so a read that ENDED
+          // without one must say so (`ServerGraphRetryNotice`), never leave the canvas silently empty. Guests keep
+          // their local copy and today's behaviour.
+          if (!controller.signal.aborted && isThinClientSession() && isServerGraphTerminalReason(outcome)) {
+            useServerGraphRetryStore.getState().setTerminal({ scenarioId, reason: outcome })
+          }
+          return
+        }
 
         const retry = await runAbsentGraphRetrySchedule({
           scenarioId,
