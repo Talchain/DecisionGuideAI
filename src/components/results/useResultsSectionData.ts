@@ -106,6 +106,8 @@ import {
 } from './voi/attributionSuppression'
 import { resolveNodeTypeLiteral } from '../../canvas/domain/nodes'
 import { resolveGoalTarget, goalDirectionWarningIsMoot, goalDirectionCorrectableByTarget, GOAL_DIRECTION_UNATTESTED_CODE, type GoalTargetSource } from '../../canvas/domain/goalTarget'
+import { goalOwnLimitRow } from '../../canvas/domain/goalOwnTargetRow'
+import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { factorDisplaysValue } from '../../canvas/components/model-tab/utils'
 import {
   selectAssumedStrengthToResolve,
@@ -1373,6 +1375,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     reviewStatus,
     m1ReviewAssumptions,
     goalThreshold,
+    goalConstraints,
     ceeAnalysisReady,
     retainedAnalysisAdmission,
     rawV2FlipThresholds,
@@ -1397,6 +1400,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       reviewStatus: s.runMeta?.reviewStatus,
       m1ReviewAssumptions: s.runMeta?.m1ReviewAssumptions ?? null,
       goalThreshold: s.goalThreshold,
+      goalConstraints: s.goalConstraints,
       ceeAnalysisReady: s.ceeAnalysisReady,
       retainedAnalysisAdmission: s.retainedAnalysisAdmission,
       // Extract only flip_thresholds from raw V2 response to avoid subscribing to entire object.
@@ -1741,8 +1745,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     if (stated(goalThreshold)) return true
     if (stated(ceeAnalysisReady?.goal_threshold_raw)) return true
     const fromNode = resolveGoalTarget(goalNode?.data as GoalTargetSource | null | undefined)
-    return fromNode !== null && stated(fromNode.raw)
-  }, [goalThreshold, ceeAnalysisReady, goalNode])
+    if (fromNode !== null && stated(fromNode.raw)) return true
+    // CEE's rule (red team #87 6003539060): "at most 400" is stored ONLY as the goal's own `<=` row, never on the node.
+    // The current graph's rows, else the run's.
+    const rows = goalConstraints ?? (report as { goal_constraints?: CEEGoalConstraint[] | null } | null | undefined)?.goal_constraints
+    return goalOwnLimitRow(rows, goalNode?.id) !== null
+  }, [goalThreshold, ceeAnalysisReady, goalNode, goalConstraints, report])
 
   /**
    * ⭐ THE NUMBER — *what value should a numeric consumer use?* `null` here
@@ -2770,6 +2778,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       outcomeUnit,
       outcomeUnitSymbol,
       goalThreshold: effectiveGoalThreshold,
+      // EXISTENCE on a completed run: the previous answer (a number to compute with) OR a stated target, which now
+      // includes the goal's own limit row ("at most 400", red team #87 6003539060). Widening only: never newly "unset".
+      hasGoalTarget: hasStatedGoalTarget || effectiveGoalThreshold != null,
       recommendationStability,
       // Task 1.3: Win probability for display
       winProbability,

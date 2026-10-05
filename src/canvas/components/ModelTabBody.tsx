@@ -18,6 +18,7 @@ import {
 } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import { useCanvasStore } from '../store'
+import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { AnalysisRunStateCover } from './AnalysisRunStateCover'
 import { useUIStore, type ModelTabSectionId } from '../../stores/uiStore'
@@ -470,6 +471,9 @@ export const ModelTabBody = memo(function ModelTabBody({
   // The v2 outline's goal row reads the store scalar (RAW user units — the
   // single-writer carrier `setGoalThresholdAndUpdateNode` maintains it).
   const goalThreshold = useCanvasStore(s => s.goalThreshold ?? null)
+  // The graph's limit rows, else the run's: the goal row reads "at most 400" from the goal's own row (CEE's rule).
+  const goalConstraintRows = useCanvasStore(s =>
+    s.goalConstraints ?? (s.results?.report as { goal_constraints?: CEEGoalConstraint[] | null } | null | undefined)?.goal_constraints ?? null)
   /**
    * ⚠ READ HERE, NOT IN THE PANEL, AND THAT IS THE LANE BOUNDARY DOING ITS JOB.
    * `modelTabV2Boundary.sourceScan` bans a store import and a foreign hook call
@@ -853,6 +857,7 @@ export const ModelTabBody = memo(function ModelTabBody({
         nodes={nodes}
         edges={edges}
         goalThreshold={goalThreshold}
+        goalConstraints={goalConstraintRows}
         fragileEdgeIds={hasRobustnessData ? fragileEdgeIds : undefined}
         onHandOffToOlumi={olumiHandOff ? handOffToOlumi : undefined}
         currentScenarioId={currentScenarioId}
