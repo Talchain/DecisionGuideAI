@@ -102,7 +102,9 @@ describe('OptionCards — display-honesty (C) leading-option downside qualificat
 
     const note = screen.getByTestId('leading-option-downside-a')
     expect(note).toBeInTheDocument()
-    expect(note.textContent).toContain('lower range of simulated outcomes includes meaningful downside')
+    expect(note.textContent).toContain(
+      'In this model, this option came out best, but the lower range of its simulated outcomes includes meaningful downside.',
+    )
   })
 
   it('does not render the qualification sentence when the flag is false', () => {

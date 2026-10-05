@@ -134,37 +134,23 @@ afterEach(() => {
   } as never)
 })
 
-describe('row 22a — the declared baseline is "Reference for the other alternatives."', () => {
-  it('Standard, pre-run: the sentence is ON THE CARD under the baseline meta (prototype), never also in the popover', () => {
-    seed()
+/**
+ * ⛔ RE-PINNED 5 Oct 2026 (gate 5 item 4, DL 0df0e1): row 22a's "Reference for the other alternatives." is DROPPED from
+ * the declared baseline. These rows asserted the sentence on the card in Standard, Detailed and post-run; they now
+ * assert it is in neither the card nor the popover, with "Baseline · no changes" still on the card (positive control).
+ */
+describe('row 22a (dropped) — the declared baseline no longer says "Reference for the other alternatives."', () => {
+  it.each([
+    ['Standard, pre-run', {}],
+    ['Detailed', { viewMode: 'expert' }],
+    ['post-run (Standard)', { phase: 'current' }],
+  ] as const)('%s: "Baseline · no changes" is on the card; the sentence is nowhere', (_n, opts) => {
+    seed(opts as never)
     renderOption(BASELINE)
-    const meta = onCard('option-baseline-meta-option-b')!
-    expect(meta.textContent).toBe('Baseline · no changes')
-    const ref = onCard('option-baseline-reference-option-b')
-    expect(ref?.textContent).toBe(REFERENCE)
-    expect(Boolean(meta.compareDocumentPosition(ref!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
-    expect(inPopover('option-baseline-reference-option-b')).toBeNull()
-  })
-
-  it('Detailed: the sentence is inline on the card, after the meta', () => {
-    seed({ viewMode: 'expert' })
-    renderOption(BASELINE)
-    const meta = onCard('option-baseline-meta-option-b')!
-    const ref = onCard('option-baseline-reference-option-b')
-    expect(ref?.textContent).toBe(REFERENCE)
-    expect(Boolean(meta.compareDocumentPosition(ref!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
-  })
-
-  it('post-run (Standard): the meta and the sentence stay on the card, above the share line', () => {
-    seed({ phase: 'current' })
-    renderOption(BASELINE)
-    const share = onCard('option-analysis-currency-option-b')
-    expect(share).not.toBeNull()
-    const ref = onCard('option-baseline-reference-option-b')
-    expect(ref?.textContent).toBe(REFERENCE)
     expect(onCard('option-baseline-meta-option-b')?.textContent).toBe('Baseline · no changes')
-    expect(Boolean(ref!.compareDocumentPosition(share!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+    expect(onCard('option-baseline-reference-option-b')).toBeNull()
     expect(inPopover('option-baseline-reference-option-b')).toBeNull()
+    expect(document.body.textContent ?? '').not.toContain(REFERENCE)
   })
 
   it('CONTRAST — a label-only "Status quo" (nothing declared) is NOT called the reference', () => {

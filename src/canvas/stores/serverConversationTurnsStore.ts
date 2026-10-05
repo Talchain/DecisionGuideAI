@@ -3,8 +3,8 @@
  *
  * The cold read (`serverGraphHydration`) resolves AFTER `useConversation`'s mount restore has run, so the read's
  * `conversation_turns` cannot be handed over by call order. The read OFFERS them here, keyed by the scenario they came
- * back for; the panel takes the offer only while it is empty and the browser holds no transcript of its own (a local
- * transcript is the first choice — it is the thread this browser saw, chips and all).
+ * back for. The panel keeps local transcript words and reconciles its held controls with the server sidecar;
+ * server text restores only into an empty panel with no local history. Saved chips never provide authority.
  */
 import { create } from 'zustand'
 import type { RestoreRunContext, ServerConversationTurn } from '../conversation/serverConversationTurns'
@@ -13,6 +13,8 @@ export interface ServerConversationTurnsOffer {
   readonly scenarioId: string
   readonly turns: readonly ServerConversationTurn[]
   readonly run: RestoreRunContext
+  /** Raw opt-in held-offer sidecar; the conversation reader validates it. */
+  readonly heldProposalOffers?: unknown
 }
 
 interface ServerConversationTurnsState {

@@ -161,8 +161,13 @@ describe('inferLoadingHint', () => {
     expect(inferLoadingHint('what budget should I use', 0)).toBe('Thinking\u2026')
   })
 
-  it('returns "Analysing…" for analysis keywords', () => {
-    expect(inferLoadingHint('analyse my options', 3)).toBe('Analysing your options\u2026')
+  // INVERTED 4 Oct 2026 (#2461). This case used to assert 'Analysing your
+  // options…'. inferLoadingHint now names an operation only when the caller
+  // supplies its turn type: "User wording cannot confirm whether analysis or
+  // explanation is running." Kept, inverted, as the guard that REDs if a
+  // keyword branch is reinstated.
+  it('analysis keywords no longer claim an analysis is running', () => {
+    expect(inferLoadingHint('analyse my options', 3)).toBe('Thinking\u2026')
   })
 
   // ⛔ INVERTED 29 Aug 2026. This case used to assert 'Researching evidence…'.

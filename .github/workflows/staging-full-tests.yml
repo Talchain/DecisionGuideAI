@@ -2,10 +2,21 @@
 #
 # The local pre-push hook (scripts/validate-prepush.sh) runs only fast checks
 # (typecheck, lint on changed files, smoke tests). This workflow runs the
-# complete 6,900+ test suite on integrated staging pushes and manual/merge-queue
-# runs. PRs get typecheck, lint, production build and dependency audit. Owners
-# supply focused affected-path evidence for staging changes; high-risk contracts
-# still need independent review under the current delivery policy.
+# complete test suite on PRs into staging, integrated staging pushes and
+# manual/merge-queue runs. PRs get typecheck, lint, production build, dependency
+# audit AND the full sharded suite (5 Oct 2026, CI OPTIMISER: before this, PR CI
+# ran no tests and lanes dispatched this workflow by hand per branch).
+#
+# ⚠ THREADS (5 Oct 2026). vitest.config.ts pins `poolOptions.threads.maxThreads: 1`
+# for LOCAL runs (heap). Measured on CI: shard 5/6 of run 37298873782 spent
+# 740s of per-file work in a 799s wall clock, i.e. ONE core of the runner's 4,
+# and only 111s of it executing tests. CI overrides it with VITEST_THREADS below.
+# MEASURED on the PR that made this change (run 37313445811, 6 shards x 4 threads):
+# shard jobs 268-458s (were 661-813s at 1 thread the same day); per-file component
+# sums ~3.6x the wall clock; failures = exactly the 3 standing staging reds, no new
+# ones. The alternative, `vitest --changed` + the 368 always-run path-reader specs,
+# was SLOWER (383s, 1656s and a 30-min timeout on three real merged PRs), so PRs run
+# the full suite.
 #
 # Sharding (ROADMAP 1.26, chronic-CI-red fix): the vitest job runs as a
 # `SHARD_COUNT`-way matrix (`--shard=N/6` since 2 Oct 2026; 4 before), each
@@ -68,6 +79,8 @@ env:
   # Must equal the length of `vitest.strategy.matrix.shard` — the Summary job
   # fails when the number of shard artifacts differs from this.
   SHARD_COUNT: 6
+  # Worker threads per shard on CI (overrides vitest.config.ts's local 1; see header).
+  VITEST_THREADS: 4
 
 jobs:
   # ── Install & cache (shared by all downstream jobs) ──────────────────
@@ -499,10 +512,20 @@ jobs:
   # be compared here. The job generates the linux set, uploads it for review,
   # and FAILS with instructions. It never commits them — re-blessing is an
   # explicit human commit (scripts/visual/rebless.sh, e2e/visual/README.md).
+  #
+  # ⚠ DISPATCH-ONLY SINCE 5 Oct 2026 (CI OPTIMISER). Measured red on every
+  # completed staging push sampled: 13/13 on 2-4 Sep (runs 33693738336 to
+  # 33833994027) and 3/3 on 5 Oct (37298873782, 37297627975, 37284035844), at
+  # ~13 job-minutes each, on an account whose 20 concurrent jobs every repo
+  # shares. A check that is always red is read by nobody (trap 7) and costs every
+  # other lane a runner. Run it on demand with `gh workflow run
+  # staging-full-tests.yml --ref <branch>`. Put it back on push only after the
+  # linux references are re-blessed by a human (scripts/visual/rebless.sh) and
+  # it has been observed green.
   visual-regression:
     name: Visual Regression (advisory)
     needs: install
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -909,7 +932,6 @@ jobs:
   vitest:
     name: Full Test Suite (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     needs: install
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -979,7 +1001,7 @@ jobs:
         timeout-minutes: 20
         run: |
           set +e
-          pnpm exec vitest run --reporter=verbose --no-color --shard=${{ matrix.shard }}/${{ env.SHARD_COUNT }} 2>&1 | tee vitest-output.raw.txt
+          pnpm exec vitest run --reporter=verbose --no-color --shard=${{ matrix.shard }}/${{ env.SHARD_COUNT }} --poolOptions.threads.maxThreads=${{ env.VITEST_THREADS }} 2>&1 | tee vitest-output.raw.txt
           code=${PIPESTATUS[0]}
           sed -E 's/\x1b\[[0-9;]*m//g' vitest-output.raw.txt > vitest-output.txt
           echo "exit_code=${code}" >> "$GITHUB_OUTPUT"
@@ -1010,8 +1032,8 @@ jobs:
       #    thresholds — vitest hitting --bail=N marks queued-but-never-started
       #    files as "skipped"; a healthy shard skips ~0-2, scaled down from the
       #    unsharded suite's ~4 baseline / ~653 audited-bad case), and
-      #  - tolerance for the KNOWN teardown ERR_WORKER_OUT_OF_MEMORY signature
-      #    (mode B) — and ONLY that signature — when zero tests failed.
+      #  - NO tolerance for a non-zero exit (the teardown-OOM tolerance was removed
+      #    5 Oct 2026 — see the comment at the end of this step).
       # if: always() so it still fires when vitest exits non-zero or is killed.
       #
       # min_total is NOT checked per-shard (an uneven-but-valid file split
@@ -1071,24 +1093,21 @@ jobs:
             echo "::error::Test failures detected: ${files_failed} file(s), ${tests_failed} test(s). This is a real failure, not an infra issue."
             fail=1
           fi
-          # A non-zero exit with zero failures is tolerated ONLY for the known
-          # teardown/worker OOM signature — the exact string ERR_WORKER_OUT_OF_MEMORY
-          # documented in docs/ops/vitest-full-suite-oom-diagnosis.md and matched by
-          # the local pre-push gate (scripts/pre-push-validate.sh), so CI and local
-          # share one OOM signature (the CI pass/fail evaluator is otherwise
-          # stricter). Kept deliberately narrow: erring narrow fails SAFE —
-          # an unmatched OOM yields a false FAILURE (gate red, artifact kept for a
-          # human) rather than a false PASS. A broader match (e.g. bare "JavaScript
-          # heap out of memory") could tolerate a parent-process heap death that
-          # should fail. Broadening to the fuller teardown signature is a
-          # deliberately-deferred future hardening, not a gap in this gate.
+          # ANY non-zero exit is RED (5 Oct 2026, CI OPTIMISER; Codex buddy P1).
+          # This used to tolerate a non-zero exit carrying ERR_WORKER_OUT_OF_MEMORY
+          # when zero tests failed ("teardown OOM", mode B). Under vitest 1.6.1 a
+          # worker that dies BEFORE collecting its file raises an Unhandled Error,
+          # not a failed file: the file vanishes from "Test Files N passed" and the
+          # exit is 1. So the signature could not tell a harmless teardown from a
+          # file that never ran, and the cross-shard floor cannot see one missing file.
+          # MEASURED before removing it: the tolerance fired on 0 of 36 shard jobs
+          # across the 6 staging pushes of 5 Oct (04:52-10:48Z), read from each
+          # job's annotations (contrast: the same API returns this step's
+          # "Test failures detected" error on the red shard 1/6 of 37298873782).
+          # has_oom is still printed above, so an OOM red says so in its log.
           if [ "${VITEST_EXIT}" -ne 0 ] && [ "${fail}" -eq 0 ]; then
-            if [ "${has_oom}" -gt 0 ]; then
-              echo "::warning::vitest exited ${VITEST_EXIT} but every test passed; tolerating the known teardown ERR_WORKER_OUT_OF_MEMORY (see docs/ops/vitest-full-suite-oom-diagnosis.md)."
-            else
-              echo "::error::vitest exited ${VITEST_EXIT} with zero reported failures and no ERR_WORKER_OUT_OF_MEMORY signature — unexplained non-zero exit, not tolerated."
-              fail=1
-            fi
+            echo "::error::vitest exited ${VITEST_EXIT} with zero reported test failures (oom=${has_oom}). A non-zero exit is never tolerated: an Unhandled Error or a worker crash can drop a file from the count without failing it."
+            fail=1
           fi
           exit $fail
 
@@ -1102,7 +1121,12 @@ jobs:
   vitest-summary:
     name: Full Test Suite Summary
     needs: vitest
-    if: ${{ github.event_name != 'pull_request' && always() }}
+    # `!cancelled()`, NOT `always()` (5 Oct 2026, CI OPTIMISER): a job-level always() still
+    # wants a runner after its run is CANCELLED, and that queued job holds the run's
+    # concurrency group. Measured: cancelled run 37304960320's Summary sat queued 12:34-13:0xZ
+    # and the next PR run on the same branch stayed `pending` behind it until a force-cancel.
+    # !cancelled() still runs after a FAILED shard (the case this job exists for).
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - name: Download all shard outputs
@@ -1117,7 +1141,10 @@ jobs:
         if: needs.vitest.result != 'skipped'
         run: |
           set +e
-          min_total=700
+          # 700 -> 3121 (5 Oct 2026, CI OPTIMISER): 90% of the measured cross-shard total
+          # (3468 files, run 37313445811). At 700 (~20%) four fifths of the suite could
+          # vanish and still pass. Raise it when the suite grows; a real drop of >10% REDs.
+          min_total=3121
           max_skipped=50
           total_sum=0
           skipped_sum=0
@@ -1279,7 +1306,8 @@ jobs:
   gate:
     name: Staging Gate
     needs: [tsc, typecheck-selftest, vitest, vitest-summary, build]
-    if: ${{ github.event_name != 'pull_request' && always() }}
+    # !cancelled(), not always(): see vitest-summary.
+    if: ${{ github.event_name != 'pull_request' && !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - name: Check all jobs passed

@@ -310,7 +310,8 @@ function targetCount(draft: Draft, optionId: string): number {
 
 describe('DIFF item 10 — a baseline whose targets are all non-changes reads "Baseline · no changes"', () => {
   for (const b of NO_CHANGE_BASELINES) {
-    it(`${b.starter} ${b.id}: "Baseline · no changes", then "Reference for the other alternatives."`, () => {
+    // ⛔ RE-PINNED 5 Oct 2026 (gate 5 item 4, DL 0df0e1): the "Reference for the other alternatives." line is dropped.
+    it(`${b.starter} ${b.id}: "Baseline · no changes", and no "Reference for the other alternatives."`, () => {
       const draft = b.draft as unknown as Draft
       // The precondition that made the old card say "Baseline option": it names targets.
       expect(targetCount(draft, b.id), 'the status quo names targets').toBeGreaterThan(0)
@@ -318,10 +319,8 @@ describe('DIFF item 10 — a baseline whose targets are all non-changes reads "B
       const meta = onCard(container, `option-baseline-meta-${b.id}`)
       expect(meta, 'the baseline meta is on the card').not.toBeNull()
       expect(meta!.textContent).toBe('Baseline · no changes')
-      const reference = onCard(container, `option-baseline-reference-${b.id}`)
-      expect(reference, 'line 2 is on the card').not.toBeNull()
-      expect(reference!.textContent).toBe('Reference for the other alternatives.')
-      expect(meta!.compareDocumentPosition(reference!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(onCard(container, `option-baseline-reference-${b.id}`), 'the dropped line is not on the card').toBeNull()
+      expect(container.textContent ?? '').not.toContain('Reference for the other alternatives.')
       // The baseline states no delta rows of its own.
       expect(onCard(container, `option-change-rows-${b.id}`)).toBeNull()
     })
@@ -333,7 +332,6 @@ describe('DIFF item 10 — a baseline whose targets are all non-changes reads "B
     const meta = onCard(container, 'option-baseline-meta-opt_uk_fs')
     expect(meta, 'the baseline meta is on the card').not.toBeNull()
     expect(meta!.textContent).toBe('Baseline option')
-    expect(onCard(container, 'option-baseline-reference-opt_uk_fs')!.textContent)
-      .toBe('Reference for the other alternatives.')
+    expect(onCard(container, 'option-baseline-reference-opt_uk_fs')).toBeNull() // gate 5 item 4: dropped
   })
 })

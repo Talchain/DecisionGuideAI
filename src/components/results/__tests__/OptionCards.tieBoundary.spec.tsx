@@ -44,7 +44,7 @@ const WINNER_ID = 'opt_mac'
 const OTHER_ID = 'opt_dell'
 
 /** The exact sentence, spelled out — a regex would survive a truncation. */
-const TIE_SENTENCE = 'Statistically tied with the leading option'
+const TIE_SENTENCE = 'Effectively tied, in this model, with the option that came out best'
 
 /**
  * THE BOUNDARY PAIR. Both have a strictly POSITIVE raw difference; they differ

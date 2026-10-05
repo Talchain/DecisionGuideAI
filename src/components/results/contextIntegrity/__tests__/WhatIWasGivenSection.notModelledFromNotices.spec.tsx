@@ -377,13 +377,19 @@ describe('the notices lead claims no attribution the wire cannot support', () =>
    * before anything is concluded from it.
    */
   it('has absent kinds to reason about at all', () => {
-    expect(ABSENT_KINDS).toEqual(['detail_not_connected', 'relationship_not_used'])
+    expect(ABSENT_KINDS).toEqual(['detail_not_connected', 'relationship_not_used', 'stated_relationship_not_used'])
   })
 
-  it('finds no absent kind that is unanimously the user’s', () => {
-    for (const kind of ABSENT_KINDS) {
-      expect(modelBuildingNoticeAttribution(kind)).not.toBe('user_stated')
-    }
+  /**
+   * ⛔ RE-PINNED ON PURPOSE 5 Oct 2026 (schemas 0.77.0), as this tripwire asked. `stated_relationship_not_used` is absent
+   * AND unanimously the user's. The absent set is now MIXED (Olumi's two kinds + the user's one), so a possession claim
+   * in EITHER direction is still false of what this pane can show, and the notices lead, which claims neither side,
+   * stays exactly right. Pinned: the set is mixed, and the lead makes no possession claim.
+   */
+  it('the absent set is MIXED (one user kind, two Olumi kinds), so the lead still claims neither side', () => {
+    expect(ABSENT_KINDS.filter((k) => modelBuildingNoticeAttribution(k) === 'user_stated')).toEqual(['stated_relationship_not_used'])
+    expect(ABSENT_KINDS.some((k) => modelBuildingNoticeAttribution(k) !== 'user_stated')).toBe(true)
+    expect(NOT_MODELLED_NOTICES_COPY.noticesLead).toBe('These are not in the model yet. Ask about any that matter.')
   })
 
   /**

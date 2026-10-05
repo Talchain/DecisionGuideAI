@@ -133,6 +133,8 @@ export interface AbsentGraphRetryDeps {
   readonly userId: string | null
   /** Supabase access token, travelling the same route as `userId`. */
   readonly accessToken: string | null
+  /** Preserve the cold read's chat/held-offer opt-in on every scheduled re-ask. */
+  readonly includeConversationTurns?: boolean
   readonly signal: AbortSignal
   /**
    * Re-entry point. This is `hydrateCanvasFromServer` in production — the whole
@@ -140,7 +142,7 @@ export interface AbsentGraphRetryDeps {
    */
   readonly hydrate: (
     scenarioId: string,
-    opts: { userId?: string | null; accessToken?: string | null; signal?: AbortSignal },
+    opts: { userId?: string | null; accessToken?: string | null; signal?: AbortSignal; includeConversationTurns?: boolean },
   ) => Promise<HydrationOutcome>
   /**
    * The clock, injected.
@@ -192,6 +194,7 @@ export async function runAbsentGraphRetrySchedule(
       userId: deps.userId,
       accessToken: deps.accessToken,
       signal: deps.signal,
+      ...(deps.includeConversationTurns === true ? { includeConversationTurns: true } : {}),
     })
     if (deps.signal.aborted) return 'aborted'
 
