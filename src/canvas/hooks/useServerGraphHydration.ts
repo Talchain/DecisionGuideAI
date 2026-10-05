@@ -34,7 +34,8 @@
 import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { useAuth } from '../../contexts/AuthContext'
-import { hydrateCanvasFromServer } from '../hydrate/serverGraphHydration'
+import { hydrateCanvasFromServer, type HydrationOutcome } from '../hydrate/serverGraphHydration'
+import { setCurrentScenarioId } from '../store/scenarios'
 import {
   beginBootGraphRead,
   isCeeAddressableScenarioId,
@@ -81,6 +82,9 @@ function routeIsAdoptable(route: string | null | undefined, held: string | null)
  * `readEpoch` (default ''): part of the once-per-scenario guard's key. A new epoch for the same scenario is a new read
  * (`bootServerReadEpoch`: one more read after a late signed-in Supabase load wiped the restored identity).
  */
+/** The outcomes in which CEE served this scenario to this account: a graph, an unchanged token, or an empty scenario. */
+export const CEE_ADMITTED_READS: ReadonlySet<HydrationOutcome> = new Set<HydrationOutcome>(['merged', 'unchanged', 'absent', 'mergeRefused'])
+
 export function useServerGraphHydration(
   scenarioIdFromRoute?: string | null,
   opts?: { enabled?: boolean; readEpoch?: string },
@@ -185,6 +189,15 @@ export function useServerGraphHydration(
           includeConversationTurns: true,
         })
         logger.debug('server_graph_hydration.outcome', { scenarioId, outcome })
+
+        // THIN CLIENT (J9; Codex, #2529 r1): a signed-in page's pointer names a scenario once CEE has ADMITTED its read:
+        // never at the deep-link claim (a refused link must leave no trace), and not only when the browser's own row
+        // arrives (a slow or failed row read would leave a routeless reload on the previous scenario). Only while the
+        // store still names this scenario: a user who has moved on is never pulled back.
+        if (!controller.signal.aborted && isThinClientSession() && CEE_ADMITTED_READS.has(outcome)
+          && useCanvasStore.getState().currentScenarioId === scenarioId) {
+          setCurrentScenarioId(scenarioId)
+        }
 
         // ── THE RETURNING-GUEST WINDOW ────────────────────────────────────
         // `absent` alone means "exists, no graph YET". Everything else is a
