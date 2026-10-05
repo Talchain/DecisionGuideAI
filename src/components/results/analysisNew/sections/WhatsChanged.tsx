@@ -54,8 +54,17 @@ export const WHATS_CHANGED_FIRST_COMPARISON = 'The options can be compared for t
 export const WHATS_CHANGED_FROM_VERSION_WITHHELD =
   'The recorded result for the version compared from has no figures to compare.'
 
+/**
+ * ONE line in place of every per-option movement when the goal's direction or comparison changed between the pair
+ * (`RunDeltaView.goalFramingChanged`). Frame-neutral ("these two results"), so it reads true for re-runs and versions.
+ * ⚠ PLACEHOLDER WORDING pending Science (d5); swap the string only, never the binding.
+ */
+export const WHATS_CHANGED_GOAL_FRAMING_CHANGED =
+  "The goal's direction changed between these two results, so each option's support answers a different question and is not compared option by option."
+
 /** The sentence for an empty `win_probabilities`, by the producer's typed reason. */
-export function noPairsText(view: Pick<RunDeltaView, 'winProbabilitiesUnavailable' | 'frame'>): string {
+export function noPairsText(view: Pick<RunDeltaView, 'winProbabilitiesUnavailable' | 'frame' | 'goalFramingChanged'>): string {
+  if (view.goalFramingChanged) return WHATS_CHANGED_GOAL_FRAMING_CHANGED
   if (view.winProbabilitiesUnavailable !== 'prior_withheld') return WHATS_CHANGED_NO_PAIRS
   return view.frame === 'versions' ? WHATS_CHANGED_FROM_VERSION_WITHHELD : WHATS_CHANGED_FIRST_COMPARISON
 }
