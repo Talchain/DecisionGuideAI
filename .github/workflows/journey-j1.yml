@@ -111,6 +111,9 @@ jobs:
         run: |
           set -euo pipefail
           echo '127.0.0.1 api.openai.com api.anthropic.com' | sudo tee -a /etc/hosts
+          # Isolation: the shared deployed services and the shared Supabase project are
+          # unreachable from this job, so nothing here can read or write them by accident.
+          echo '127.0.0.2 cee-staging.onrender.com plot-lite-service-staging.onrender.com isl-staging.onrender.com cee-production.onrender.com plot-lite-service.onrender.com isl-production.onrender.com etmmuzwxtcjipwphdola.supabase.co' | sudo tee -a /etc/hosts
           sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443
           cat /etc/ssl/certs/ca-certificates.crt "$J1/keys/ca.pem" > "$J1/keys/bundle.pem"
 
