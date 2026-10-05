@@ -35,7 +35,10 @@
  */
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { classifyUnit, ISO_CURRENCY_GLYPHS } from '../../utils/unitClassifier'
-import { canCaptureGoalTarget, statedGoalTargetRaw, statedTargetNumber, type GoalTargetSource } from './goalTarget'
+import {
+  canCaptureGoalTarget, goalTargetChangeFrameOf, goalTargetFrameIsUnread, resolveGoalTarget, statedGoalTargetRaw, statedTargetNumber,
+  type GoalTargetSource, type ResolvedGoalTarget,
+} from './goalTarget'
 
 /** The target a surface STATES — its figure (number or numeric string) and its unit. */
 export interface StatedGoalTargetFigure {
@@ -136,4 +139,80 @@ export function sameConstraintRow(a: CEEGoalConstraint, b: CEEGoalConstraint): b
   if (a === b) return true
   const ka = constraintRowKey(a)
   return ka !== null && ka === constraintRowKey(b)
+}
+
+/**
+ * ⭐ THE GOAL'S OWN LIMIT ROW IS ITS TARGET WHEN THE NODE HOLDS NONE — CEE's ONE target rule, read here as CEE reads it
+ * (`stated-goal-target.ts` `goalOwnLimitRow` / `statedGoalTargetOf`, CEE staging ba4759af; RT-10 a8, DL 0df0e1).
+ *
+ * Served (red team #87 6003539060): "at most 400" set in the Model panel writes ONLY the goal's `<=` row; CEE never
+ * stamps `goal_threshold_raw` for `<=`. So every reader of the node alone said "Not set" (the Model row) and "No
+ * measurable success target is set" (Analysis) for the target the user had just given.
+ *
+ * Counts: `node_id` is the goal's, a finite `value`, and NO `deadline_metadata` (a "within 6 months" row on the goal is
+ * a time limit, not its target). The first such row in stored order. Another node's limit never counts.
+ * ⚠ A second reader of CEE's rule until CEE carries the one authority on `analysis_ready` (a8, after cut 3).
+ */
+export function goalOwnLimitRow<C extends CEEGoalConstraint>(
+  constraints: readonly C[] | null | undefined,
+  goalId: string | null | undefined,
+): C | null {
+  if (!constraints || !goalId) return null
+  return constraints.find((c) => {
+    const deadline = (c as { deadline_metadata?: unknown }).deadline_metadata
+    return c.node_id === goalId && typeof c.value === 'number' && Number.isFinite(c.value)
+      && !(deadline !== null && typeof deadline === 'object' && !Array.isArray(deadline))
+  }) ?? null
+}
+
+/** CEE's words for a limit's comparator (`limit-operator-words.ts`), read through its `statedOperatorOf`. */
+const LIMIT_OPERATOR_WORDS: Readonly<Record<string, string>> = {
+  '>=': 'at least', '<=': 'at most', '>': 'more than', '<': 'less than',
+}
+function statedOperatorOf(row: { readonly operator?: unknown; readonly operator_as_stated?: unknown }): string | undefined {
+  const held = row.operator
+  if (held !== '<=' && held !== '>=') return undefined
+  if (held === '<=' && row.operator_as_stated === '<') return '<'
+  if (held === '>=' && row.operator_as_stated === '>') return '>'
+  return held
+}
+
+/** A target read from the goal's own limit row: the figure and unit as the row states them, and its bound in CEE's words. */
+export interface GoalOwnRowTarget extends ResolvedGoalTarget {
+  /** "at most" / "at least" / "less than" / "more than": said before the figure, since the row's comparator IS the target's sense. */
+  readonly bound: string
+}
+
+/**
+ * The goal's stated target as CEE resolves it: the node's own (`resolveGoalTarget`), else its own limit row
+ * (`goalOwnLimitRow`) with that row's bound. Null when neither states one, when the node's frame is one this UI cannot
+ * read, or when the row's comparator has no words (it still COUNTS as a stated target: `goalOwnLimitRow`).
+ */
+export function resolveGoalTargetWithOwnRow(
+  data: GoalTargetSource | null | undefined,
+  constraints: readonly CEEGoalConstraint[] | null | undefined,
+  goalId: string | null | undefined,
+): ResolvedGoalTarget | GoalOwnRowTarget | null {
+  const fromNode = resolveGoalTarget(data)
+  if (fromNode !== null) return fromNode
+  if (goalTargetFrameIsUnread(data?.goal_threshold_frame)) return null
+  const row = goalOwnLimitRow(constraints, goalId)
+  if (row === null) return null
+  const comparator = statedOperatorOf(row as { operator?: unknown; operator_as_stated?: unknown })
+  const bound = comparator === undefined ? undefined : LIMIT_OPERATOR_WORDS[comparator]
+  if (bound === undefined) return null
+  const changeFrame = goalTargetChangeFrameOf((row as { value_frame?: unknown }).value_frame)
+  return {
+    raw: row.value as number,
+    unit: typeof row.unit === 'string' ? row.unit : undefined,
+    // The row says nothing about who set it in the attestation sense `source` licenses ("Set by you").
+    source: 'unrecorded',
+    ...(changeFrame === null ? {} : { frame: changeFrame }),
+    bound,
+  }
+}
+
+/** The bound a resolved target carries, when it was read from the goal's own limit row. */
+export function goalTargetBound(target: ResolvedGoalTarget | GoalOwnRowTarget | null | undefined): string | null {
+  return target != null && 'bound' in target && typeof target.bound === 'string' ? target.bound : null
 }
