@@ -506,10 +506,20 @@ jobs:
   # be compared here. The job generates the linux set, uploads it for review,
   # and FAILS with instructions. It never commits them — re-blessing is an
   # explicit human commit (scripts/visual/rebless.sh, e2e/visual/README.md).
+  #
+  # ⚠ DISPATCH-ONLY SINCE 5 Oct 2026 (CI OPTIMISER). Measured red on every
+  # completed staging push sampled: 13/13 on 2-4 Sep (runs 33693738336 to
+  # 33833994027) and 3/3 on 5 Oct (37298873782, 37297627975, 37284035844), at
+  # ~13 job-minutes each, on an account whose 20 concurrent jobs every repo
+  # shares. A check that is always red is read by nobody (trap 7) and costs every
+  # other lane a runner. Run it on demand with `gh workflow run
+  # staging-full-tests.yml --ref <branch>`. Put it back on push only after the
+  # linux references are re-blessed by a human (scripts/visual/rebless.sh) and
+  # it has been observed green.
   visual-regression:
     name: Visual Regression (advisory)
     needs: install
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
