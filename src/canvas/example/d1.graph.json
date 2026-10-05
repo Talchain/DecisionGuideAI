@@ -11,7 +11,7 @@
       "id": "quarterly_revenue",
       "ref": "G1",
       "kind": "goal",
-      "label": "Quarterly revenue",
+      "label": "Grow quarterly revenue",
       "provenance": "ai_inferred",
       "goal_threshold_unit": "currency/quarter",
       "goal_threshold_frame": "level"
@@ -389,7 +389,7 @@
       "defaulted": true,
       "provenance": {
         "source": "cee_hypothesis",
-        "magnitude": "olumi_placeholder",
+        "magnitude": "example_figure",
         "natural_effect": {
           "amount": 0.25,
           "amount_unit": "0-1",
@@ -412,7 +412,7 @@
       "defaulted": true,
       "provenance": {
         "source": "cee_hypothesis",
-        "magnitude": "olumi_estimate",
+        "magnitude": "example_figure",
         "natural_effect": {
           "amount": 60,
           "amount_unit": "percentage points",
@@ -434,7 +434,8 @@
       },
       "defaulted": true,
       "provenance": {
-        "source": "cee_hypothesis"
+        "source": "cee_hypothesis",
+        "magnitude": "example_figure"
       },
       "effect_direction": "positive",
       "exists_probability": 0.8
@@ -449,7 +450,7 @@
       "defaulted": true,
       "provenance": {
         "source": "cee_hypothesis",
-        "magnitude": "olumi_placeholder",
+        "magnitude": "example_figure",
         "natural_effect": {
           "amount": 0.25,
           "amount_unit": "0-1",
@@ -472,7 +473,7 @@
       "defaulted": true,
       "provenance": {
         "source": "cee_hypothesis",
-        "magnitude": "olumi_estimate",
+        "magnitude": "example_figure",
         "natural_effect": {
           "amount": -15,
           "amount_unit": "percentage points",
@@ -494,7 +495,8 @@
       },
       "defaulted": true,
       "provenance": {
-        "source": "cee_hypothesis"
+        "source": "cee_hypothesis",
+        "magnitude": "example_figure"
       },
       "effect_direction": "positive",
       "exists_probability": 0.8
@@ -508,7 +510,8 @@
       },
       "defaulted": true,
       "provenance": {
-        "source": "cee_hypothesis"
+        "source": "cee_hypothesis",
+        "magnitude": "example_figure"
       },
       "effect_direction": "negative",
       "exists_probability": 0.8

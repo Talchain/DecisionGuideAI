@@ -2,12 +2,12 @@
  * INVESTOR STEP 0: "Open the example decision" (DL 5936312621 / ruling 5936446785).
  *
  * One click puts D1, a prepared, credible decision, into a FRESH guest scenario and opens it: no brief replay, no
- * model call. The graph is the Reasoning Coach's banked D1 capture, UNMODIFIED (`d1.graph.json` is that capture's
- * `.json.draft_graph`, pinned by hash in the spec), because RC's M1/M3 cases are bound to it.
+ * model call. The graph is the Reasoning Coach's banked D1, pre-sized by RT-12 / Science 5993266380 with seven
+ * example figures and the goal "Grow quarterly revenue". Its shipped hash is pinned separately from the capture.
  *
  * ⛔ WHY NOT THE STARTER PATH. Starters land on the canvas and are registered through `buildRegistrationGraph`, whose
- *   edge projection sends from/to/strength/direction only and DROPS `provenance`. D1's two `olumi_placeholder` links
- *   would reach CEE unsized, and M1's one-click and RC's S1 would never fire (RC invariant 1). So the graph goes to
+ *   edge projection sends from/to/strength/direction only and DROPS `provenance`, losing D1's example attribution.
+ *   So the graph goes to
  *   CEE verbatim through the existing register door, and the canvas then reads it back exactly as a cold reload does
  *   (`useServerGraphHydration` re-reads when `currentScenarioId` changes). The canvas never re-projects it.
  *
@@ -42,7 +42,8 @@ export const EXAMPLE_DECISION_PROVENANCE = {
   captureSha256: 'eeeff8b46bc4bbcae7669ca52118b6a6880c5270f0a1010f3ee4de2159f5473f',
   extracted: '.json.draft_graph',
   /** sha256 of `JSON.stringify(graph)` for the shipped `d1.graph.json`. */
-  graphSha256: '6d009d819a42f90a33901f79cd00377e9bd52ab8b0ad9a096f21d1b782149a70',
+  // RT-12 / Science 5993266380: the pre-sized patch; capture fields above retain the original banked identity.
+  graphSha256: 'b0abef2da7be9348f3b99cdab6b19f880ebae58db8ee345ba2e19f1d78000a8a',
   /** The brief R3 registered with this graph on c77d9373 (read back 13 nodes / 19 edges, 2 placeholders). */
   brief: 'olumi-programme-docs@r3/science-notes:r3-science/f5-20261001/rc-d1-seed/01-cold-brief.json .json.brief_text',
 } as const
