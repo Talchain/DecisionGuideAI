@@ -33,7 +33,10 @@ checks AS (
   UNION ALL
   -- C. anon must not EXECUTE a CEE-only RPC that takes a scenario id. is_scenario_member is
   -- not CEE-only (RLS policies call it as the querying role), so it is reported, not asserted.
-  SELECT 'SECURITY', 'anon cannot EXECUTE ' || name || '(' || args || ')',
+  -- check_name is the exact KEY a known defect is listed by (Integrator, 5 Oct):
+  -- '<signature, types only> · <role> · <privilege>'. Another function, role or privilege is
+  -- another key, so it stays red.
+  SELECT 'SECURITY', oid::regprocedure::text || ' · anon · EXECUTE',
          CASE WHEN has_function_privilege('anon', oid, 'EXECUTE') THEN 'FAIL' ELSE 'PASS' END,
          'secdef=' || prosecdef
   FROM fn WHERE oid IS NOT NULL AND args ILIKE '%scenario%' AND name <> 'is_scenario_member'
