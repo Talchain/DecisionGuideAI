@@ -150,7 +150,7 @@ const renderOption = (data: Record<string, unknown> = {}) =>
  */
 function expectCardMakesNoLeaderClaim(container: HTMLElement, id: string, share: string) {
   expect(screen.getByText('Hire 3 engineers')).toBeDefined()
-  // R3 5903852225 / AIQ 5903874730: the share says "favoured in" (it is not a chance). The prefix is its own
+  // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance). The prefix is its own
   // element; the readout stays the figure + unit.
   expect(screen.getByTestId(`option-win-prefix-${id}`).textContent).toBe(OPTION_RESULT_COPY.sharePrefix)
   expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(`${share} ${OPTION_RESULT_COPY.shareUnit}`)
@@ -220,7 +220,7 @@ describe('OptionNode', () => {
     // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4 — never "Support",
     // results are explicitly model-relative): the row's accessible name is the
     // caption + "N% of runs", then OPTION_RESULT_COPY's sentence.
-    // R3 5903852225 / AIQ 5903874730: the share says "favoured in" (it is not a chance).
+    // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
     const row = screen.getByRole('img', { name: new RegExp(`· ${OPTION_RESULT_COPY.share('72%')}\\. ${OPTION_RESULT_COPY.sentence('72%').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) })
     expect(row.getAttribute('data-testid')).toBe('option-analysis-currency-option-1')
     expect(row.getAttribute('aria-label')).not.toMatch(/\bSupport/)
@@ -622,7 +622,7 @@ describe('OptionNode', () => {
     const percentEl = screen.getByTestId('option-win-readout-option-1')
     // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4): the readout reads
     // "N% of runs" — model-relative — not a bare "N%". R3 5903852225 / AIQ
-    // 5903874730: the "favoured in" prefix is its own element, in the same neutral colour family.
+    // 5903874730: the "supported by" prefix is its own element, in the same neutral colour family.
     expect(percentEl.textContent).toBe(`72% ${OPTION_RESULT_COPY.shareUnit}`)
     expect(screen.getByTestId('option-win-prefix-option-1').className).not.toContain('text-success')
     expect(screen.getByTestId('option-win-prefix-option-1').className).not.toContain('text-option')
@@ -726,7 +726,7 @@ describe('OptionNode', () => {
     // Hidden from assistive tech so the statistic is announced once, in full,
     // by the row's accessible name rather than as a number with no referent.
     expect(percentEl.getAttribute('aria-hidden')).toBe('true')
-    // R3 5903852225 / AIQ 5903874730: the share says "favoured in" (it is not a chance) — a separate
+    // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance) — a separate
     // visible element, also hidden from assistive tech (the row's name carries it), never the sentence.
     const prefixEl = screen.getByTestId('option-win-prefix-option-1')
     expect(prefixEl.textContent).toBe(OPTION_RESULT_COPY.sharePrefix)
@@ -760,10 +760,10 @@ describe('OptionNode', () => {
 
     // Positive control (trap 13): the copy comes from the ratified register,
     // and this test would be vacuous if that register were empty.
-    expect(expected).toBe(
-      'In 72% of the simulated runs, the model favoured this option over the others. ' +
-        'A finding about the model as it stands, not a recommendation.',
-    )
+    // The run-share verb is "supported" (DL #87 6004906342), and the sentence
+    // never carries the recommend stem, not even negated (J1 ruling).
+    expect(expected).toBe('In this model, 72% of runs supported this option.')
+    expect(expected).not.toMatch(/recommend|favou?r/i)
   })
 
   it('density: the visible number and the sentence report the SAME statistic', () => {
@@ -2003,9 +2003,9 @@ describe('OptionNode — display coherence (audit §8)', () => {
     )
     renderOption({ label: 'Status Quo', is_baseline: true })
     // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4): the readout's
-    // accessible name is model-relative ("… · 28% of runs. In 28% of the
-    // simulated runs…"), rendered ONCE.
-    expect(screen.getAllByRole('img', { name: new RegExp(`· ${OPTION_RESULT_COPY.share('28%')}\\. In 28% of the simulated runs`) })).toHaveLength(1)
+    // accessible name is model-relative ("… · supported by 28% of runs. In this
+    // model, 28% of runs supported this option."), rendered ONCE.
+    expect(screen.getAllByRole('img', { name: new RegExp(`· ${OPTION_RESULT_COPY.share('28%')}\\. In this model, 28% of runs supported this option\\.`) })).toHaveLength(1)
     expect(screen.queryByText(/win rate across simulations/i)).toBeNull()
     expect(screen.getByText('Baseline option.')).toBeDefined()
   })
