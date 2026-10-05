@@ -115,7 +115,9 @@ export function goalCardShownLimits<C extends CEEGoalConstraint>(
   isDetailed: boolean,
 ): C[] {
   const hasTarget = !canCaptureGoalTarget(goalData)
-  if (!hasTarget && !isDetailed) return []
+  // CEE's rule (`goalOwnLimitRow`): with no target on the node, the goal's own non-deadline limit row IS its target
+  // ("at most 400"). The card then states it as that row's pill instead of "Target not captured" (DL 0df0e1).
+  if (!hasTarget && !isDetailed && goalOwnLimitRow(constraints, goalId) === null) return []
   const statedTarget = hasTarget ? { raw: statedGoalTargetRaw(goalData), unit: goalData?.goal_threshold_unit } : null
   return goalStatedLimits(constraints, goalId, statedTarget) ?? []
 }
