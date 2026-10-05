@@ -2784,7 +2784,16 @@ export function useConversation(): UseConversationReturn {
   const longRunningTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const elapsedIntervalRef = useRef<ReturnType<typeof setInterval>>()
-  const lastUserInputRef = useRef<{ message: string; clientTurnId?: string }>({ message: '' })
+  // Keep the metadata already built for this press, AND its chip source: a retry of a typed press must be the
+  // SAME request (CEE binds the chip into the turn's request hash, and the shared turn schema admits `chip` only
+  // on 'chip' | 'chip_click' sources), never its words re-sent as free text. Replacing the whole ref on each
+  // visible send also clears the chip when the next send is free text.
+  const lastUserInputRef = useRef<{
+    message: string
+    clientTurnId?: string
+    chipMeta?: ChipMeta
+    chipSource?: 'chip' | 'chip_click'
+  }>({ message: '' })
   const missingDraftRecoveryRef = useRef<(() => Promise<void>) | null>(null)
   // Transcript honesty (trust item #3): id of the most recent VISIBLE user
   // bubble. Written when the V5 path adds a user bubble; read by the
@@ -3090,6 +3099,11 @@ export function useConversation(): UseConversationReturn {
         }
         return
       }
+
+      // Retry belongs to the scenario being left, never the one being opened.
+      // Initial lazy ID assignment returns above and keeps its in-flight input.
+      lastUserInputRef.current = { message: '' }
+      lastVisibleUserBubbleIdRef.current = null
 
       // Track 3: Hydrate conversation from persisted thread on scenario resume
       if (isThreadHydrateEnabled() && scenarioId) {
@@ -4418,7 +4432,8 @@ export function useConversation(): UseConversationReturn {
             raw_message: message,
           },
         })
-        lastUserInputRef.current = { message, clientTurnId: turnClientId }
+        lastUserInputRef.current = { message, clientTurnId: turnClientId,
+          ...(chipMeta && (source === 'chip' || source === 'chip_click') ? { chipMeta, chipSource: source } : {}) }
         setLastSendFailure(null)
       } else if (hidden && source === 'right_panel_action') {
         recordUserAction({
@@ -7187,7 +7202,8 @@ export function useConversation(): UseConversationReturn {
         mode: 'user',
         skipUserBubble: true,
         retryClientTurnId: last.clientTurnId,
-        source: 'retry',
+        // A typed press retries as itself (its chip source + chip); free text retries as 'retry'.
+        ...(last.chipMeta && last.chipSource ? { chipMeta: last.chipMeta, source: last.chipSource } : { source: 'retry' as const }),
       })
     }
   }, [sendTurn])
