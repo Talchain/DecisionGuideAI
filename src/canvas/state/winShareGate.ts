@@ -16,7 +16,7 @@
  * gate (AIQ 5912710392: "gate on `leader_claim.permitted === false` for ANY `withheld_reason`"). When
  * it serves, only `winShareWithheldReason` gains the typed branch; every surface keeps calling this module.
  */
-import { GOAL_PATH_UNSIZED_CAUSE, goalPathUnsizedCause, leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
+import { leaderWithholdCause, unsizedAwareCause } from '../../components/results/analysisNew/analysisNewCopy'
 import { isAnalysedOption } from '../../components/results/utils/notAnalysedOptions'
 
 export interface ProducerLeaderPermission {
@@ -64,8 +64,8 @@ export interface WithheldReasonContext {
 
 /**
  * The reason line for a withheld leader, from the TYPED reason, never raw producer text:
- * `constraint_verdict_withheld` → the exploratory line; `goal_path_unsized` → the unsized link named from the Run's
- * typed warning; any other stated reason → its existing words (`leaderWithholdCause`); none → the fallback.
+ * `constraint_verdict_withheld` → the exploratory line; `goal_path_unsized` (and `separation_unavailable` echoing that
+ * upstream withhold) → the unsized links named from the Run's typed warning; any other stated reason → its existing words (`leaderWithholdCause`); none → the fallback.
  */
 export function winShareWithheldReason(
   permission: ProducerLeaderPermission | null | undefined,
@@ -73,9 +73,9 @@ export function winShareWithheldReason(
 ): string {
   const cause = typeof permission?.producer_cause === 'string' ? permission.producer_cause.trim() : ''
   if (cause === 'constraint_verdict_withheld') return EXPLORATORY_REASON_LINE
-  if (cause === GOAL_PATH_UNSIZED_CAUSE && context?.labelOf) {
-    const named = goalPathUnsizedCause(context.inferenceWarnings, context.labelOf)
-    if (named !== null) return named
+  if (context?.labelOf) {
+    const unsized = unsizedAwareCause(cause, context.inferenceWarnings, context.labelOf)
+    if (unsized !== null) return unsized
   }
   return leaderWithholdCause(cause) ?? WITHHELD_REASON_FALLBACK
 }

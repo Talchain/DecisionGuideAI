@@ -23,6 +23,7 @@ import { OutcomePanel } from '../ui/inspector-v2/panels/OutcomePanel'
 import { V5ComparisonBlock } from '../../v5/blocks/V5ComparisonBlock'
 import { runChangesSummaryLines } from '../graphChanges/runChangesSummaryLines'
 import { WITHHELD_REASON_FALLBACK, selectWinShareWithheldReason, winShareWithheldReason } from '../state/winShareGate'
+import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
 
 const fx = JSON.parse(
   readFileSync(resolve(process.cwd(), 'e2e/geometry/fixtures/securing-funding-4276f3f9.fixture.json'), 'utf8'),
@@ -145,6 +146,54 @@ describe('MC P0\'s full list (`links`, nearest the goal first): read in its orde
   it('one link that cannot be named → no partial list: the unnamed line', () => {
     expect(reason({ code: 'GOAL_FIGURES_PLACEHOLDER_PATH', node_ids: ['a', 'b'], links: [{ from: 'a', to: 'b' }, { from: 'c', to: 'not_on_this_canvas' }] }))
       .toBe(WORDS.goal_path_unsized_unnamed)
+  })
+})
+
+describe('Science d5 20:3xZ: several links, the separation echo, the overlap, and the two rewritten causes', () => {
+  const labels: Record<string, string> = { a: 'A1', b: 'B1', c: 'C1', d: 'D1', e: 'E1', f: 'F1', g: 'G1', h: 'H1', i: 'I1', j: 'J1' }
+  const labelOf = (id: string) => labels[id] ?? null
+  const warn = (pairs: string[][]) => [{ code: 'GOAL_FIGURES_PLACEHOLDER_PATH', node_ids: pairs[0], links: pairs.map(([from, to]) => ({ from, to })) }]
+  const say = (cause: string, warnings: unknown = []) => winShareWithheldReason(stamp(cause), { inferenceWarnings: warnings, labelOf })
+  it('⭐ two links: both named, plural', () => {
+    expect(say('goal_path_unsized', warn([['a', 'b'], ['c', 'd']])))
+      .toBe('This comparison turns on the links from ‘A1’ to ‘B1’ and from ‘C1’ to ‘D1’, whose strengths nobody has set yet. Set them to see how much they matter.')
+  })
+  it('three links: all three named', () => {
+    expect(say('goal_path_unsized', warn([['a', 'b'], ['c', 'd'], ['e', 'f']])))
+      .toBe('This comparison turns on the links from ‘A1’ to ‘B1’, from ‘C1’ to ‘D1’ and from ‘E1’ to ‘F1’, whose strengths nobody has set yet. Set them to see how much they matter.')
+  })
+  it('five links: the first three (nearest the goal), then "and 2 more"', () => {
+    expect(say('goal_path_unsized', warn([['a', 'b'], ['c', 'd'], ['e', 'f'], ['g', 'h'], ['i', 'j']])))
+      .toBe('This comparison turns on the links from ‘A1’ to ‘B1’, from ‘C1’ to ‘D1’, from ‘E1’ to ‘F1’ and 2 more, whose strengths nobody has set yet. Set them to see how much they matter.')
+  })
+  it('⭐ separation_unavailable ECHOING an unsized withhold (Acceptance R6): the upstream cause, never "run again"', () => {
+    expect(say('separation_unavailable', warn([['a', 'b']])))
+      .toBe('This comparison turns on the link from ‘A1’ to ‘B1’, whose strength nobody has set yet. Set it to see how much it matters.')
+  })
+  it('separation_unavailable with no upstream withhold: run it again', () => {
+    expect(say('separation_unavailable'))
+      .toBe('Olumi couldn’t measure how far apart the options’ results are on this run. Run it again to see the comparison.')
+  })
+  it('options_do_not_separate (a real overlap): the overlap sentence', () => {
+    expect(say('options_do_not_separate'))
+      .toBe('In this model, the options’ results overlap too much to tell apart. Change a figure you’re unsure about to see what separates them.')
+  })
+  it('constraint_verdict_withheld in the cause map (the Analysis tab, the card\'s provisional line)', () => {
+    expect(leaderWithholdCause('constraint_verdict_withheld'))
+      .toBe('This comparison depends on a limit on your model that this run couldn’t check. Check that limit’s figures, then run again to see how the options compare.')
+  })
+  it('options_not_reconciled_with_brief', () => {
+    expect(leaderWithholdCause('options_not_reconciled_with_brief'))
+      .toBe('This comparison includes an option Olumi added that your brief didn’t name. Remove it and run again to see the comparison.')
+  })
+  it.each([
+    'no_option_meets_limit', 'every_option_likely_breaks_limit', 'constraint_verdict_withheld', 'separation_unavailable',
+    'options_not_reconciled_with_brief', 'intake_identity_unverified', 'intake_options_missing', 'goal_path_unsized',
+    'options_do_not_separate',
+  ])('the copy rule over the WHOLE map: %s never recommends, ranks or says "put one forward"', (code) => {
+    const words = leaderWithholdCause(code)
+    expect(words).toBeTruthy()
+    expect(words).not.toMatch(/recommend|\bbest\b|winner|you should|give a figure|put (one|an option) forward|putting one option forward/i)
   })
 })
 

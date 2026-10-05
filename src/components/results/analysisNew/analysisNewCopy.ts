@@ -228,8 +228,9 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
   // CEE per-option limit verdicts (DL 5850643426 tier 1, 5850672588 tier 2).
   no_option_meets_limit: 'On this run, no option meets one of your limits.',
   every_option_likely_breaks_limit: 'On these estimates, every option is more likely than not to break one of your limits.',
+  // Science d5 (#87 6002222614 copy rule: an invitation, never "put one forward").
   constraint_verdict_withheld:
-    "Olumi's checks on this run do not support putting one option forward.",
+    'This comparison depends on a limit on your model that this run couldn’t check. Check that limit’s figures, then run again to see how the options compare.',
   /**
    * ⚠ ABOUT THE RUN, NOT ABOUT THE OPTIONS. A statement about what the run
    * could establish; "they are level" would be a finding about the options,
@@ -263,7 +264,7 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
    * carry the difference, because nothing else on the surface does.
    */
   separation_unavailable:
-    'This run could not work out how far apart the options are, so it cannot put one forward.',
+    'Olumi couldn’t measure how far apart the options’ results are on this run. Run it again to see the comparison.',
   /**
    * Canonical's intake cause (#72 5886426614; DL 5886466744): an option Olumi added cannot be reconciled
    * to the user's brief, so no option is named the leader. Served before it was minted as
@@ -272,7 +273,10 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
    */
   // AIQ #72 5886555442. The ‹label› parenthetical waits for Canonical's carrier to name the option ids.
   options_not_reconciled_with_brief:
-    "Olumi added an option your brief didn't name, so this run doesn't put one forward. You can remove it and re-run.",
+    'This comparison includes an option Olumi added that your brief didn’t name. Remove it and run again to see the comparison.',
+  /** A real overlap (Science d5): lever-free until the levers are typed on this code. */
+  options_do_not_separate:
+    'In this model, the options’ results overlap too much to tell apart. Change a figure you’re unsure about to see what separates them.',
   /**
    * CEE's intake reconciliation (a8, #87 6002009604; DL ruling): the saved model has not established that its options
    * are the ones the brief lists. Science d5's words, first sentence only: the "confirm" action ships once a route
@@ -347,10 +351,34 @@ function unsizedLinksOf(inferenceWarnings: unknown): Array<{ from: string; to: s
   return links.filter((l) => !seen.has(`${l.from}->${l.to}`) && seen.add(`${l.from}->${l.to}`) !== undefined)
 }
 
-/** Science d5's words (#87 6002254753), one link or several. */
+/** Science d5's words (#87 6002254753; plural and cap, d5 20:3xZ): one link, or up to three named then "and N more". */
 function unsizedLinksSentence(links: ReadonlyArray<{ from: string; to: string }>): string {
-  const [only] = links
-  return `This comparison turns on the link from ‘${only.from}’ to ‘${only.to}’, whose strength nobody has set yet. Set it to see how much it matters.`
+  if (links.length === 1) {
+    const [only] = links
+    return `This comparison turns on the link from ‘${only.from}’ to ‘${only.to}’, whose strength nobody has set yet. Set it to see how much it matters.`
+  }
+  const phrases = links.slice(0, 3).map((l) => `from ‘${l.from}’ to ‘${l.to}’`)
+  const more = links.length - phrases.length
+  const listed = more > 0
+    ? `${phrases.join(', ')} and ${more} more`
+    : `${phrases.slice(0, -1).join(', ')} and ${phrases[phrases.length - 1]}`
+  return `This comparison turns on the links ${listed}, whose strengths nobody has set yet. Set them to see how much they matter.`
+}
+
+/**
+ * The cause a withhold names when the Run's own typed warning says a deciding link is unsized: `goal_path_unsized`
+ * always; `separation_unavailable` only when that upstream withhold is present (Science d5: there it echoes the withhold
+ * that emptied robustness, #87 6002390259). The links named, or the unnamed line; null when neither applies.
+ */
+export function unsizedAwareCause(
+  producerReason: string | null | undefined,
+  inferenceWarnings: unknown,
+  labelOf: (nodeId: string) => string | null | undefined,
+): string | null {
+  const token = typeof producerReason === 'string' ? producerReason.trim() : ''
+  const upstream = unsizedLinksOf(inferenceWarnings).length > 0
+  if (token !== GOAL_PATH_UNSIZED_CAUSE && !(token === 'separation_unavailable' && upstream)) return null
+  return goalPathUnsizedCause(inferenceWarnings, labelOf) ?? LEADER_WITHHOLD_CAUSE[GOAL_PATH_UNSIZED_CAUSE]
 }
 
 /**
@@ -3046,8 +3074,9 @@ export function withheldLeaderCause(
   if (refusalAsksForAnEstimate && ADMISSION_EXPLAINS_THE_WITHHOLD.has(token)) {
     return LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS
   }
-  if (token === GOAL_PATH_UNSIZED_CAUSE && unsizedLink) {
-    return goalPathUnsizedCause(unsizedLink.inferenceWarnings, unsizedLink.labelOf) ?? leaderWithholdCause(token)
+  if (unsizedLink) {
+    const unsized = unsizedAwareCause(token, unsizedLink.inferenceWarnings, unsizedLink.labelOf)
+    if (unsized !== null) return unsized
   }
   return leaderWithholdCause(producerReason)
 }
