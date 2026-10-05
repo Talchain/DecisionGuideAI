@@ -130,6 +130,24 @@ describe('the gate, without a store', () => {
   })
 })
 
+describe('MC P0\'s full list (`links`, nearest the goal first): read in its order, every link or none', () => {
+  const labels: Record<string, string> = { a: 'Hours on the AI module', b: 'AI module availability', c: 'Team capacity', d: 'Delivered points' }
+  const labelOf = (id: string) => labels[id] ?? null
+  const reason = (warning: Record<string, unknown>) => winShareWithheldReason(stamp('goal_path_unsized'), { inferenceWarnings: [warning], labelOf })
+  it('`links` outranks node_ids: its first link is the one named', () => {
+    expect(reason({ code: 'GOAL_FIGURES_PLACEHOLDER_PATH', node_ids: ['c', 'd'], links: [{ from: 'a', to: 'b' }] }))
+      .toBe('This comparison turns on the link from ‘Hours on the AI module’ to ‘AI module availability’, whose strength nobody has set yet. Set it to see how much it matters.')
+  })
+  it('a duplicated link is one link', () => {
+    expect(reason({ code: 'GOAL_FIGURES_PLACEHOLDER_PATH', node_ids: ['a', 'b'], links: [{ from: 'a', to: 'b' }, { from: 'a', to: 'b' }] }))
+      .toBe('This comparison turns on the link from ‘Hours on the AI module’ to ‘AI module availability’, whose strength nobody has set yet. Set it to see how much it matters.')
+  })
+  it('one link that cannot be named → no partial list: the unnamed line', () => {
+    expect(reason({ code: 'GOAL_FIGURES_PLACEHOLDER_PATH', node_ids: ['a', 'b'], links: [{ from: 'a', to: 'b' }, { from: 'c', to: 'not_on_this_canvas' }] }))
+      .toBe(WORDS.goal_path_unsized_unnamed)
+  })
+})
+
 describe('the copy rule (DL #87 6002222614, Paul "It doesn\'t provide a recommendation"): a withhold is an invitation', () => {
   it.each(Object.entries(WORDS))('%s never recommends, ranks or tells the user what to do', (_code, words) => {
     expect(words).not.toMatch(/recommend|\bbest\b|winner|you should|give a figure/i)
