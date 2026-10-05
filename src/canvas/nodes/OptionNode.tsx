@@ -222,10 +222,10 @@ import { optionEntryScaleOf } from '../ui/inspector-v2/shared/optionTargetEntry'
 const SHARE_CAPTION_WIDE_ONLY = 'hidden [@container(min-width:17.5em)]:block'
 const SHARE_CAPTION_NARROW_ONLY = '[@container(min-width:17.5em)]:hidden'
 /**
- * `Current model supported in 100% · Provisional` ≈ 22em (letters-estimated, as above: the old 40-letter `best in`
- * line was 19.5em, so 45 letters ≈ 21.9em): the prefix shows from there.
+ * `Current model favoured in 100% · Provisional` ≈ 21.5em (letters-estimated, as above: the old 40-letter `best in`
+ * line was 19.5em, so 44 letters ≈ 21.45em): the prefix shows from there.
  */
-const SHARE_PREFIX_WIDE_ONLY = 'hidden [@container(min-width:22em)]:inline'
+const SHARE_PREFIX_WIDE_ONLY = 'hidden [@container(min-width:21.5em)]:inline'
 
 /** The existing `est.` mark hover on a change row — one spelling for the row and the card line. */
 const OPTION_ROW_ESTIMATE_NOTE = 'Olumi chose this target; it is not yet confirmed.'
@@ -2909,7 +2909,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 nothing box that gives way first. A unit that does not fit wraps
                 onto the box's clipped second line; the zero-width spacer keeps
                 line 1 open, so no sliver of a glyph is left. */}
-            {/* "supported in" (R3 5903852225 / AIQ 5903874730): the share is not a chance. With a qualifier it narrows
+            {/* "favoured in" (R3 5903852225 / AIQ 5903874730): the share is not a chance. With a qualifier it narrows
                 with the caption (`SHARE_PREFIX_WIDE_ONLY`), so `Model 100% · Provisional` still fits the capped slot. */}
             <span
               data-testid={`option-win-prefix-${props.id}`}

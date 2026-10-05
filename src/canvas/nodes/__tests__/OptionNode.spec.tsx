@@ -150,7 +150,7 @@ const renderOption = (data: Record<string, unknown> = {}) =>
  */
 function expectCardMakesNoLeaderClaim(container: HTMLElement, id: string, share: string) {
   expect(screen.getByText('Hire 3 engineers')).toBeDefined()
-  // R3 5903852225 / AIQ 5903874730: the share says "supported in" (it is not a chance). The prefix is its own
+  // R3 5903852225 / AIQ 5903874730: the share says "favoured in" (it is not a chance). The prefix is its own
   // element; the readout stays the figure + unit.
   expect(screen.getByTestId(`option-win-prefix-${id}`).textContent).toBe(OPTION_RESULT_COPY.sharePrefix)
   expect(screen.getByTestId(`option-win-readout-${id}`).textContent).toBe(`${share} ${OPTION_RESULT_COPY.shareUnit}`)
@@ -220,7 +220,7 @@ describe('OptionNode', () => {
     // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4 — never "Support",
     // results are explicitly model-relative): the row's accessible name is the
     // caption + "N% of runs", then OPTION_RESULT_COPY's sentence.
-    // R3 5903852225 / AIQ 5903874730: the share says "supported in" (it is not a chance).
+    // R3 5903852225 / AIQ 5903874730: the share says "favoured in" (it is not a chance).
     const row = screen.getByRole('img', { name: new RegExp(`· ${OPTION_RESULT_COPY.share('72%')}\\. ${OPTION_RESULT_COPY.sentence('72%').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) })
     expect(row.getAttribute('data-testid')).toBe('option-analysis-currency-option-1')
     expect(row.getAttribute('aria-label')).not.toMatch(/\bSupport/)
@@ -622,7 +622,7 @@ describe('OptionNode', () => {
     const percentEl = screen.getByTestId('option-win-readout-option-1')
     // Locked Canvas design (23 Sep 2026; ED 11:52Z point 4): the readout reads
     // "N% of runs" — model-relative — not a bare "N%". R3 5903852225 / AIQ
-    // 5903874730: the "supported in" prefix is its own element, in the same neutral colour family.
+    // 5903874730: the "favoured in" prefix is its own element, in the same neutral colour family.
     expect(percentEl.textContent).toBe(`72% ${OPTION_RESULT_COPY.shareUnit}`)
     expect(screen.getByTestId('option-win-prefix-option-1').className).not.toContain('text-success')
     expect(screen.getByTestId('option-win-prefix-option-1').className).not.toContain('text-option')
@@ -726,7 +726,7 @@ describe('OptionNode', () => {
     // Hidden from assistive tech so the statistic is announced once, in full,
     // by the row's accessible name rather than as a number with no referent.
     expect(percentEl.getAttribute('aria-hidden')).toBe('true')
-    // R3 5903852225 / AIQ 5903874730: the share says "supported in" (it is not a chance) — a separate
+    // R3 5903852225 / AIQ 5903874730: the share says "favoured in" (it is not a chance) — a separate
     // visible element, also hidden from assistive tech (the row's name carries it), never the sentence.
     const prefixEl = screen.getByTestId('option-win-prefix-option-1')
     expect(prefixEl.textContent).toBe(OPTION_RESULT_COPY.sharePrefix)

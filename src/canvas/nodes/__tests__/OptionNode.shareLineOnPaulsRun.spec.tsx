@@ -274,9 +274,9 @@ describe('DIFF item 1 — the model-relative anchor always paints with the figur
   it('the accessible name still carries the whole line and its meaning, whatever the width shows (PERMITTED run)', () => {
     seed('current', { stamp: false })
     renderCard('increase_price_to_59')
-    // R3 5903852225 / AIQ 5903874730: the share says "supported in" (it is not a chance).
+    // R3 5903852225 / AIQ 5903874730: the share says "favoured in" (it is not a chance).
     const name = byId('option-analysis-currency-increase_price_to_59')!.getAttribute('aria-label')!
-    expect(name.startsWith('Current model · supported in 68% of runs.')).toBe(true)
+    expect(name.startsWith('Current model · favoured in 68% of runs.')).toBe(true)
     expect(name).not.toContain('Goal only')
   })
 })

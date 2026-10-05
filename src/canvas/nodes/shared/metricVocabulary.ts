@@ -1043,14 +1043,15 @@ export const OPTION_RESULT_COPY = {
   compact: 'Model',
   /**
    * ⛔ R3 5903852225 / AIQ 5903874730: "Current model 100% of runs" beside the goal card's "Chance 84%" read as a
-   * chance. The share is how often the simulated runs supported this option, so it says so. On the card the prefix
+   * chance. The share is how often the model favoured this option across the runs, so it says so. On the card the prefix
    * never gives way without a qualifier; with one it narrows away exactly where the caption does (the row's name keeps
-   * it). ⛔ NEVER "best in" (Acceptance investor matrix, 5 Oct, d3130958): there is never a winner (Paul, 7 Sep), and
-   * "supported" is #2536's direction-neutral word, true under a maximise or a minimise goal alike.
+   * it). ⛔ NEVER "best in" (Acceptance investor matrix, 5 Oct, d3130958): there is never a winner (Paul, 7 Sep). Not
+   * "supported" either: ED 11:52Z retired Support on this result ("it reads as endorsement"). "favoured" is the
+   * register's own verb (`sentence` below: "the model favoured this option"), true under a maximise or minimise goal.
    */
-  sharePrefix: 'supported in',
+  sharePrefix: 'favoured in',
   shareUnit: OPTION_SHARE_UNIT,
-  share: (formatted: string): string => `supported in ${formatted} ${OPTION_SHARE_UNIT}`,
+  share: (formatted: string): string => `favoured in ${formatted} ${OPTION_SHARE_UNIT}`,
   sentence: (formatted: string): string =>
     `In ${formatted} of the simulated runs, the model favoured this option over the others. ` +
     'A finding about the model as it stands, not a recommendation.',

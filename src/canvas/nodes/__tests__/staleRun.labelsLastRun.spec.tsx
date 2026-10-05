@@ -381,9 +381,9 @@ describe('wording parity with the option card', () => {
     // The row's visible caption is the prefix's word, and its accessible name
     // opens with the prefix byte for byte — the same string the factor card uses.
     expect(`${screen.getByTestId('option-win-anchor-opt_a').textContent} · `).toBe(LAST_RUN_PREFIX)
-    // R3 5903852225 / AIQ 5903874730: the share says "supported in" (it is not a chance).
+    // R3 5903852225 / AIQ 5903874730: the share says "favoured in" (it is not a chance).
     expect(screen.getByTestId('option-analysis-currency-opt_a').getAttribute('aria-label'))
-      .toMatch(new RegExp(`^${LAST_RUN_PREFIX}supported in 72% of runs\\. `))
+      .toMatch(new RegExp(`^${LAST_RUN_PREFIX}favoured in 72% of runs\\. `))
     // …and the retired pill does not come back carrying it (this card IS the
     // producer's named leader — the strongest case). Contrast: the row above.
     expect(screen.queryByTestId('leading-option-pill-opt_a')).toBeNull()
