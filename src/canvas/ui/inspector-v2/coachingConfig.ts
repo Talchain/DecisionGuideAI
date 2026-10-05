@@ -144,6 +144,14 @@ const STRENGTH_PLACEHOLDER_COPY =
  */
 // One spelling, shared with the surfaces that show it where a strength editor would be.
 const STRENGTH_DEFINITIONAL_COPY = STRENGTH_HOLDS_BY_DEFINITION
+
+/**
+ * Gate 5 (5 Oct 2026): Olumi's strength the user ACCEPTED (`isStrengthAccepted`). Still Olumi's figure, so never
+ * "yours"; accepted, so never offered as unconfirmed. The factor twin's words (`examineAssumptionView` `accepted`).
+ */
+/** Gate 5 (Codex r1 P1-2): sized from the user's own figure when no size phrase can be said (`isStrengthStated`). */
+const STRENGTH_STATED_COPY = 'From your figure. Olumi sized this link from a figure you stated.'
+const STRENGTH_ACCEPTED_COPY = 'You accepted Olumi\u2019s estimate of this strength. It is still an estimate, not a measurement.'
 const EXISTENCE_DEFINITIONAL_COPY = 'By definition, this connection always exists.'
 
 const EXISTENCE_PROVENANCE_COPY: Record<EdgeProvenanceKey, string> = {
@@ -178,6 +186,10 @@ export function resolveEdgeValuesCoaching(sources: {
   strengthPlaceholder?: boolean
   /** MG 0ebb952a: the link holds by definition (`isStrengthDefinitional`). */
   strengthDefinitional?: boolean
+  /** Gate 5: Olumi's strength the user accepted (`isStrengthAccepted`). */
+  strengthAccepted?: boolean
+  /** Gate 5: sized from the user's own stated figure (`isStrengthStated`), phrase or no phrase. */
+  strengthStated?: boolean
   /**
    * ⭐ Beat 1 (Canvas lane, 4 Oct 2026): the link's size is the USER's own stated figure (`edgeSizePhrase`, only when
    * `usersFigure`), so the β was sized from it and "Olumi estimated this strength" is untrue of it.
@@ -202,6 +214,10 @@ export function resolveEdgeValuesProvenance(sources: {
   strengthPlaceholder?: boolean
   /** MG 0ebb952a: the link holds by definition (`isStrengthDefinitional`). */
   strengthDefinitional?: boolean
+  /** Gate 5: Olumi's strength the user accepted (`isStrengthAccepted`). */
+  strengthAccepted?: boolean
+  /** Gate 5: sized from the user's own stated figure (`isStrengthStated`), phrase or no phrase. */
+  strengthStated?: boolean
   /**
    * ⭐ Beat 1 (Canvas lane, 4 Oct 2026): the link's size is the USER's own stated figure (`edgeSizePhrase`, only when
    * `usersFigure`), so the β was sized from it and "Olumi estimated this strength" is untrue of it.
@@ -219,7 +235,11 @@ export function resolveEdgeValuesProvenance(sources: {
       ? STRENGTH_PLACEHOLDER_COPY
       : sources.usersFigure != null && strengthKey === 'cee'
         ? usersFigureSentence(sources.usersFigure)
-        : STRENGTH_PROVENANCE_COPY[strengthKey]
+        : sources.strengthStated === true && strengthKey === 'cee'
+          ? STRENGTH_STATED_COPY
+        : sources.strengthAccepted === true && strengthKey === 'cee'
+          ? STRENGTH_ACCEPTED_COPY
+          : STRENGTH_PROVENANCE_COPY[strengthKey]
   const existenceSentence = definitional && existenceKey === 'cee'
     ? EXISTENCE_DEFINITIONAL_COPY
     : EXISTENCE_PROVENANCE_COPY[existenceKey]
