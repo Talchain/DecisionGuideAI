@@ -84,12 +84,12 @@ const seedCause = (cause: string, warnings: unknown[]) => {
 
 describe.each([
   ['⭐ goal_path_unsized', 'goal_path_unsized', [UNSIZED_WARNING],
-    'This comparison turns on the link from ‘Investment firm outreach’ to ‘Investment firm meetings’, whose strength nobody has set. Set it to see how much it matters.'],
+    'This comparison turns on the link from ‘Investment firm outreach’ to ‘Investment firm meetings’, whose strength nobody has set yet. Set it to see how much it matters.'],
   ['⭐ intake_identity_unverified', 'intake_identity_unverified', [],
-    'Olumi isn’t naming an option yet: it hasn’t confirmed that the model’s options are the ones your brief lists.'],
+    'This comparison depends on which of the model’s options are the ones your brief lists, and that hasn’t been confirmed yet.'],
   ['⭐ intake_options_missing', 'intake_options_missing', [],
-    'Olumi isn’t naming an option yet: your brief lists at least one option that isn’t in the model.'],
-  ['CONTROL: goal_path_unsized without the warning', 'goal_path_unsized', [], WITHHELD_REASON_FALLBACK],
+    'Your brief lists at least one option that isn’t in the model yet, so this comparison leaves it out. Check the model’s options against your brief.'],
+  ['goal_path_unsized without the warning: its unnamed line', 'goal_path_unsized', [], 'This comparison turns on a link whose strength nobody has set yet.'],
   ['CONTROL: an unknown code', 'a_cause_nobody_mapped', [], WITHHELD_REASON_FALLBACK],
 ] as const)('the card — %s', (_name, cause, warnings, words) => {
   it('no share, and the marker carries this cause\'s words', () => {

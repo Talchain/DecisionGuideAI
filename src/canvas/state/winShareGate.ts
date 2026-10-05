@@ -55,7 +55,7 @@ export function winSharesWithheld(permission: ProducerLeaderPermission | null | 
 
 /**
  * What `goal_path_unsized` needs to name its link: the same Run's inference warnings and a node-label lookup. Absent,
- * or not enough to name both ends, the fallback stands (Science d5: never unvetted or guessed words).
+ * or not enough to name both ends, its unnamed line stands (Science d5: never a guessed link).
  */
 export interface WithheldReasonContext {
   inferenceWarnings?: unknown
@@ -73,8 +73,9 @@ export function winShareWithheldReason(
 ): string {
   const cause = typeof permission?.producer_cause === 'string' ? permission.producer_cause.trim() : ''
   if (cause === 'constraint_verdict_withheld') return EXPLORATORY_REASON_LINE
-  if (cause === GOAL_PATH_UNSIZED_CAUSE) {
-    return (context?.labelOf && goalPathUnsizedCause(context.inferenceWarnings, context.labelOf)) || WITHHELD_REASON_FALLBACK
+  if (cause === GOAL_PATH_UNSIZED_CAUSE && context?.labelOf) {
+    const named = goalPathUnsizedCause(context.inferenceWarnings, context.labelOf)
+    if (named !== null) return named
   }
   return leaderWithholdCause(cause) ?? WITHHELD_REASON_FALLBACK
 }

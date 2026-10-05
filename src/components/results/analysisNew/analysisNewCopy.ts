@@ -279,10 +279,15 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
    * actually clears the state.
    */
   intake_identity_unverified:
-    'Olumi isn’t naming an option yet: it hasn’t confirmed that the model’s options are the ones your brief lists.',
+    'This comparison depends on which of the model’s options are the ones your brief lists, and that hasn’t been confirmed yet.',
   /** The brief lists an option the model does not carry. Label-free until a typed carrier names it (Science d5). */
   intake_options_missing:
-    'Olumi isn’t naming an option yet: your brief lists at least one option that isn’t in the model.',
+    'Your brief lists at least one option that isn’t in the model yet, so this comparison leaves it out. Check the model’s options against your brief.',
+  /**
+   * MC P0's unsized-path withhold when its link cannot be named (Science d5). Where the Run's warning and the canvas
+   * labels name it, `goalPathUnsizedCause` says which link instead.
+   */
+  goal_path_unsized: 'This comparison turns on a link whose strength nobody has set yet.',
 }
 
 /**
@@ -295,7 +300,8 @@ export const GOAL_PATH_UNSIZED_CAUSE = 'goal_path_unsized'
 /**
  * The withhold as an invitation (DL copy rule #87 6002222614: never "Give a figure"), naming the failing link's own
  * ends in Science d5's phrasing ("the link from ‘A’ to ‘B’"), or null when they cannot be named
- * (no such warning, fewer than two ends, or an end with no display label); the caller then keeps its generic line.
+ * (no such warning, fewer than two ends, or an end with no display label); the caller then says the unnamed line
+ * (`LEADER_WITHHOLD_CAUSE.goal_path_unsized`).
  * No "(and N other links)" clause: the warning carries no count, and a guessed count is never shown (Science d5).
  */
 export function goalPathUnsizedCause(
@@ -316,7 +322,7 @@ export function goalPathUnsizedCause(
   const from = label(ids[0])
   const to = label(ids[1])
   if (from === null || to === null) return null
-  return `This comparison turns on the link from ‘${from}’ to ‘${to}’, whose strength nobody has set. Set it to see how much it matters.`
+  return `This comparison turns on the link from ‘${from}’ to ‘${to}’, whose strength nobody has set yet. Set it to see how much it matters.`
 }
 
 /**
@@ -3012,8 +3018,8 @@ export function withheldLeaderCause(
   if (refusalAsksForAnEstimate && ADMISSION_EXPLAINS_THE_WITHHOLD.has(token)) {
     return LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS
   }
-  if (token === GOAL_PATH_UNSIZED_CAUSE) {
-    return unsizedLink ? goalPathUnsizedCause(unsizedLink.inferenceWarnings, unsizedLink.labelOf) : null
+  if (token === GOAL_PATH_UNSIZED_CAUSE && unsizedLink) {
+    return goalPathUnsizedCause(unsizedLink.inferenceWarnings, unsizedLink.labelOf) ?? leaderWithholdCause(token)
   }
   return leaderWithholdCause(producerReason)
 }

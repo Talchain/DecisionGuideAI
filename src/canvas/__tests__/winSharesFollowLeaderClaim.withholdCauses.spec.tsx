@@ -42,9 +42,10 @@ const UNSIZED_WARNING = {
 
 /** Science d5's words, verbatim (#87 thread; one source). */
 const WORDS = {
-  goal_path_unsized: 'This comparison turns on the link from ‘Investment firm outreach’ to ‘Investment firm meetings’, whose strength nobody has set. Set it to see how much it matters.',
-  intake_identity_unverified: 'Olumi isn’t naming an option yet: it hasn’t confirmed that the model’s options are the ones your brief lists.',
-  intake_options_missing: 'Olumi isn’t naming an option yet: your brief lists at least one option that isn’t in the model.',
+  goal_path_unsized: 'This comparison turns on the link from ‘Investment firm outreach’ to ‘Investment firm meetings’, whose strength nobody has set yet. Set it to see how much it matters.',
+  intake_identity_unverified: 'This comparison depends on which of the model’s options are the ones your brief lists, and that hasn’t been confirmed yet.',
+  goal_path_unsized_unnamed: 'This comparison turns on a link whose strength nobody has set yet.',
+  intake_options_missing: 'Your brief lists at least one option that isn’t in the model yet, so this comparison leaves it out. Check the model’s options against your brief.',
 } as const
 
 const stamp = (cause: string) => ({ permitted: false, withheld_reason: 'leader_claim_withheld', producer_cause: cause })
@@ -71,9 +72,9 @@ const CASES: ReadonlyArray<readonly [string, string, unknown[], string]> = [
   ['⭐ goal_path_unsized, the link named from the Run\'s warning', 'goal_path_unsized', [UNSIZED_WARNING], WORDS.goal_path_unsized],
   ['⭐ intake_identity_unverified', 'intake_identity_unverified', [], WORDS.intake_identity_unverified],
   ['⭐ intake_options_missing (label-free)', 'intake_options_missing', [], WORDS.intake_options_missing],
-  ['goal_path_unsized with NO such warning → the fallback, never guessed words', 'goal_path_unsized', [], WITHHELD_REASON_FALLBACK],
-  ['goal_path_unsized naming a node the canvas lacks → the fallback', 'goal_path_unsized',
-    [{ ...UNSIZED_WARNING, node_ids: [FROM, 'not_on_this_canvas'] }], WITHHELD_REASON_FALLBACK],
+  ['goal_path_unsized with NO such warning → its unnamed line, never a guessed link', 'goal_path_unsized', [], WORDS.goal_path_unsized_unnamed],
+  ['goal_path_unsized naming a node the canvas lacks → its unnamed line', 'goal_path_unsized',
+    [{ ...UNSIZED_WARNING, node_ids: [FROM, 'not_on_this_canvas'] }], WORDS.goal_path_unsized_unnamed],
   ['CONTROL: an unknown code → the existing fallback, unchanged', 'a_cause_nobody_mapped', [], WITHHELD_REASON_FALLBACK],
   ['CONTROL: the old generic code (prod (d)) → the existing fallback, unchanged', 'analysis_leader_withheld', [], WITHHELD_REASON_FALLBACK],
 ]
@@ -118,14 +119,14 @@ describe.each(CASES)('%s', (_name, cause, warnings, words) => {
 })
 
 describe('the gate, without a store', () => {
-  it('goal_path_unsized with no context (a caller that passes none) → the fallback', () => {
-    expect(winShareWithheldReason(stamp('goal_path_unsized'))).toBe(WITHHELD_REASON_FALLBACK)
+  it('goal_path_unsized with no context (a caller that passes none) → its unnamed line', () => {
+    expect(winShareWithheldReason(stamp('goal_path_unsized'))).toBe(WORDS.goal_path_unsized_unnamed)
   })
-  it('a label longer than a display line is not shown → the fallback', () => {
+  it('a label longer than a display line is not shown → its unnamed line', () => {
     const long = 'x'.repeat(121)
     expect(winShareWithheldReason(stamp('goal_path_unsized'), {
       inferenceWarnings: [UNSIZED_WARNING], labelOf: (id) => (id === FROM ? long : 'Investment firm meetings'),
-    })).toBe(WITHHELD_REASON_FALLBACK)
+    })).toBe(WORDS.goal_path_unsized_unnamed)
   })
 })
 

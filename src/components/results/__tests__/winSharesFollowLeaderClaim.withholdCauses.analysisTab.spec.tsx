@@ -18,11 +18,12 @@ const TO = 'investment_firm_meetings'
 const UNSIZED_WARNING = { code: 'GOAL_FIGURES_PLACEHOLDER_PATH', severity: 'warning', node_ids: [FROM, TO], option_ids: ['angel_bridge'], message: 'Not shown.' }
 
 const WORDS = {
-  goal_path_unsized: 'This comparison turns on the link from ‘Investment firm outreach’ to ‘Investment firm meetings’, whose strength nobody has set. Set it to see how much it matters.',
-  intake_identity_unverified: 'Olumi isn’t naming an option yet: it hasn’t confirmed that the model’s options are the ones your brief lists.',
-  intake_options_missing: 'Olumi isn’t naming an option yet: your brief lists at least one option that isn’t in the model.',
+  goal_path_unsized: 'This comparison turns on the link from ‘Investment firm outreach’ to ‘Investment firm meetings’, whose strength nobody has set yet. Set it to see how much it matters.',
+  intake_identity_unverified: 'This comparison depends on which of the model’s options are the ones your brief lists, and that hasn’t been confirmed yet.',
+  intake_options_missing: 'Your brief lists at least one option that isn’t in the model yet, so this comparison leaves it out. Check the model’s options against your brief.',
 } as const
 
+const UNNAMED = 'This comparison turns on a link whose strength nobody has set yet.'
 const nodeLabels = new Map((fx as { draft: { nodes: Array<{ id: string; label: string }> } }).draft.nodes.map(n => [n.id, n.label] as const))
 
 function seed(cause: string, warnings: unknown[]): void {
@@ -56,14 +57,14 @@ describe.each([
 })
 
 describe('CONTROLS — nothing guessed, nothing else changed', () => {
-  it('goal_path_unsized without the warning: the hook keeps the fallback, the tab names no cause', () => {
+  it('goal_path_unsized without the warning: the hook and the tab say its unnamed line, never a guessed link', () => {
     seed('goal_path_unsized', [])
-    expect(data().winShareWithheldReason).toBe(WITHHELD_REASON_FALLBACK)
+    expect(data().winShareWithheldReason).toBe(UNNAMED)
     const vm = buildAnalysisNewViewModel({
       data: data(), recommendations: [], isPreRun: false, isRunning: false, isStale: false,
       producerLeaderWithholdReason: 'goal_path_unsized', nodeLabels,
     })
-    expect(vm.checks.leaderWithholdCause).toBeNull()
+    expect(vm.checks.leaderWithholdCause).toBe(UNNAMED)
   })
   it('an unknown code: the hook keeps the fallback, the tab names no cause (unchanged)', () => {
     seed('a_cause_nobody_mapped', [])
