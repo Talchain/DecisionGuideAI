@@ -57,8 +57,9 @@ node "$STACK/gen-tls-and-keys.mjs" "$W/keys"
 
 # ── LLM boundary, record mode, plain HTTP for the preload ──
 rm -f "$FIX"/[0-9]*.json
+# JOURNEY_LLM_MAX_CALLS: the DL's call budget for this record run (record 3: 15). Call 16 is refused.
 JOURNEY_LLM_MODE=record JOURNEY_LLM_FIXTURES="$FIX" JOURNEY_LLM_LEDGER="$W/ledger.ndjson" \
-JOURNEY_LLM_HTTP_PORT=$LLM_PORT node "$STACK/llm-replay-server.mjs" > "$W/logs/llm-boundary.log" 2>&1 &
+JOURNEY_LLM_MAX_CALLS="${J1_MAX_CALLS:-15}" JOURNEY_LLM_HTTP_PORT=$LLM_PORT node "$STACK/llm-replay-server.mjs" > "$W/logs/llm-boundary.log" 2>&1 &
 PIDS+=($!)
 
 # ── Supabase: empty start, then both repos' migrations with a per-file report ──
@@ -167,12 +168,17 @@ done
 npx playwright install chromium > "$W/logs/playwright-install.log" 2>&1
 say "stack up; recording"
 
+# One run records J1 AND the isolation rows (their guest draft is a different LLM shape from J1's
+# signed-in draft: run 37329013928 drifted on it). Workers 1: J1 first, then ISO.
 DGAI_SHA="$DGAI_SHA" CEE_SHA="$CEE_SHA" PLOT_SHA="$PLOT_SHA" ISL_SHA="$ISL_SHA" J1_MODE=record \
 JOURNEY_LLM_LEDGER="$W/ledger.ndjson" JOURNEY_LLM_FIXTURES="$FIX" \
 CORE_UI_URL="http://localhost:$UI_PORT" CORE_SUPABASE_URL="$SB_API_URL" CORE_SUPABASE_KEY="$SB_ANON_KEY" \
-J1_CEE_URL="http://127.0.0.1:$CEE_PORT" \
-  npx playwright test --config playwright.journey.config.ts J1-whole-poc 2>&1 | tee "$W/logs/playwright.log" || true
+J1_SB_SERVICE_ROLE_KEY="$SB_SERVICE_ROLE_KEY" J1_CEE_URL="http://127.0.0.1:$CEE_PORT" \
+  npx playwright test --config playwright.journey.config.ts J1-whole-poc isolation-same-browser 2>&1 | tee "$W/logs/playwright.log" || true
 
+# The tuple this set was recorded on: the pinned leg of the CI workflow replays against exactly these.
+node -e 'const [f, ui, cee, plot, isl] = process.argv.slice(1); require("fs").writeFileSync(f, JSON.stringify({ cee, plot, isl, recorded_with_ui: ui, recorded_at: new Date().toISOString() }, null, 1) + "\n")' \
+  "$DGAI/e2e/core/journey/fixtures/j1/tuple.json" "$DGAI_SHA" "$CEE_SHA" "$PLOT_SHA" "$ISL_SHA"
 say "ledger: $(node -e 'const c={};for(const l of require("fs").readFileSync(process.argv[1],"utf8").trim().split("\n")){const r=JSON.parse(l);c[r.outcome]=(c[r.outcome]||0)+1};console.log(JSON.stringify(c))' "$W/ledger.ndjson")"
 say "recordings: $(ls "$FIX"/[0-9]*.json 2>/dev/null | wc -l | tr -d ' ') in $FIX (commit these only)"
 say "evidence: test-results/journey/evidence, logs: $W/logs"

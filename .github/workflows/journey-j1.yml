@@ -49,15 +49,26 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Two legs (DL ruling, 5 Oct):
+  #   pinned  CEE, PLoT and ISL at the tuple the frozen set was RECORDED on
+  #           (fixtures/j1/tuple.json), against this UI head. Deterministic: only a UI change
+  #           can turn it red. This is the leg proposed as the REQUIRED check.
+  #   tips    the three services at their staging tips (or the dispatch inputs). ADVISORY drift
+  #           detector: CEE copy and prompt changes land several times a day, and each one
+  #           turns this leg red until the set is re-recorded (posted on #87, re-recorded the
+  #           same working session). It never blocks a merge.
   j1:
-    name: Journey J1 · whole PoC (advisory)
+    name: J1 · whole PoC (${{ matrix.backend }})
     runs-on: ubuntu-latest
     timeout-minutes: 80
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [pinned, tips]
+    continue-on-error: ${{ matrix.backend == 'tips' }}
     env:
       J1_MODE: replay
-      CEE_REF: ${{ inputs.cee_ref || 'staging' }}
-      PLOT_REF: ${{ inputs.plot_ref || 'staging' }}
-      ISL_REF: ${{ inputs.isl_ref || 'staging' }}
+      J1_BACKEND: ${{ matrix.backend }}
       CEE_PORT: '3101'
       PLOT_PORT: '4311'
       ISL_PORT: '8000'
@@ -67,15 +78,35 @@ jobs:
       - name: Checkout UI (this repo)
         uses: actions/checkout@v4
         with: { path: dgai }
+      - name: Resolve the backend tuple (${{ matrix.backend }})
+        env:
+          IN_CEE: ${{ inputs.cee_ref || 'staging' }}
+          IN_PLOT: ${{ inputs.plot_ref || 'staging' }}
+          IN_ISL: ${{ inputs.isl_ref || 'staging' }}
+        run: |
+          set -euo pipefail
+          T="$GITHUB_WORKSPACE/dgai/e2e/core/journey/fixtures/j1/tuple.json"
+          if [ "$J1_BACKEND" = pinned ]; then
+            [ -s "$T" ] || { echo "::error::no pinned tuple at $T: could not measure"; exit 1; }
+            for k in cee plot isl; do
+              v="$(node -e 'process.stdout.write(String(require(process.argv[1])[process.argv[2]] ?? ""))' "$T" "$k")"
+              [ "${#v}" -eq 40 ] || { echo "::error::pinned $k is not a 40-char SHA: $v"; exit 1; }
+              echo "J1_$(echo "$k" | tr a-z A-Z)_REF=$v" >> "$GITHUB_ENV"
+            done
+          else
+            { echo "J1_CEE_REF=$IN_CEE"; echo "J1_PLOT_REF=$IN_PLOT"; echo "J1_ISL_REF=$IN_ISL"; } >> "$GITHUB_ENV"
+          fi
+          cat "$GITHUB_ENV" | grep '^J1_.*_REF='
+
       - name: Checkout CEE
         uses: actions/checkout@v4
-        with: { repository: Talchain/olumi-assistants-service, ref: '${{ env.CEE_REF }}', path: cee }
+        with: { repository: Talchain/olumi-assistants-service, ref: '${{ env.J1_CEE_REF }}', path: cee }
       - name: Checkout PLoT
         uses: actions/checkout@v4
-        with: { repository: Talchain/plot-lite-service, ref: '${{ env.PLOT_REF }}', path: plot }
+        with: { repository: Talchain/plot-lite-service, ref: '${{ env.J1_PLOT_REF }}', path: plot }
       - name: Checkout ISL
         uses: actions/checkout@v4
-        with: { repository: Talchain/Inference-Service-Layer, ref: '${{ env.ISL_REF }}', path: isl }
+        with: { repository: Talchain/Inference-Service-Layer, ref: '${{ env.J1_ISL_REF }}', path: isl }
 
       - name: Record the tuple (J0)
         run: |
@@ -403,7 +434,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: j1-evidence-${{ env.J1_MODE }}
+          name: j1-evidence-${{ env.J1_MODE }}-${{ matrix.backend }}
           path: |
             ${{ runner.temp }}/j1/logs/
             ${{ runner.temp }}/j1/ledger/

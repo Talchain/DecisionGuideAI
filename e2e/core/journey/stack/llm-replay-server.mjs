@@ -62,6 +62,8 @@ const KEY = process.env.JOURNEY_LLM_KEY
 // (llm-redirect-preload.mjs), which carries the real host in `x-journey-host`.
 const HTTP_PORT = process.env.JOURNEY_LLM_HTTP_PORT ? Number(process.env.JOURNEY_LLM_HTTP_PORT) : null
 const PROVIDER_HOSTS = new Set(['api.openai.com', 'api.anthropic.com'])
+// Record only: the DL's call budget for one record run; the next call is refused and ledgered.
+const MAX_CALLS = process.env.JOURNEY_LLM_MAX_CALLS ? Number(process.env.JOURNEY_LLM_MAX_CALLS) : 0
 
 for (const [k, v] of Object.entries({ JOURNEY_LLM_MODE: MODE, JOURNEY_LLM_FIXTURES: FIXTURES, JOURNEY_LLM_LEDGER: LEDGER })) {
   if (!v) { console.error(`[llm-replay] ${k} is required`); process.exit(2) }
@@ -275,6 +277,10 @@ function handle(req, res) {
     }
 
     // record
+    if (MAX_CALLS && n > MAX_CALLS) {
+      ledger({ seq: n, outcome: 'refused_budget', signature })
+      return refuse(res, 400, 'journey_budget_exhausted', `record budget of ${MAX_CALLS} calls reached`)
+    }
     if (abortedBy429) {
       ledger({ seq: n, outcome: 'refused_after_429', signature })
       return refuse(res, 400, 'journey_aborted_after_429', 'record run aborted at the first 429')

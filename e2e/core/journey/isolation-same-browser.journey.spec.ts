@@ -85,6 +85,12 @@ async function draft(page: Page): Promise<{ S: string; nodes: string[] }> {
  */
 function assertIsolationBoundaryClean(label: string): void {
   const rows = ledger()
+  if (process.env.J1_MODE === 'record') {
+    // Recording: every call so far must have been forwarded and saved (no 429, no upstream error).
+    const bad = rows.filter((r) => r.outcome !== 'recorded')
+    if (bad.length) throw new Error(`[${label}] RECORD INVALID: ${bad.length} call(s) not recorded (first: #${bad[0].seq} ${bad[0].outcome})`)
+    return
+  }
   const from = rows.findIndex((r) => r.outcome === 'reuse_enabled')
   const bad = rows.slice(from + 1).filter((r) => r.outcome !== 'hit' && r.outcome !== 'hit_reuse')
   if (from < 0 || bad.length) {
