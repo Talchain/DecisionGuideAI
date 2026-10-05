@@ -142,7 +142,8 @@ import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
 import { isStrengthDefinitional } from '../domain/strengthDefinitional'
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../domain/edgeValueProvenance'
 import { getDirectionalStrengthLabel } from '../components/model-tab/strengthBands'
-import { DEFINITIONAL_SUFFIX, NaturalEffectSchema, naturalEffectPhrase } from '../domain/naturalEffect'
+import { DEFINITIONAL_SUFFIX } from '../domain/naturalEffect'
+import { edgeSizePhrase, resolveEdgeStrengthEditSeed } from '../edges/edgeSizePhrase'
 import { getPrimaryValue, formatSmartNumber } from '../components/model-tab/utils'
 // THE ONE value+unit composer this tab already owns. Imported, never
 // re-expressed — see the goal branch below for why a fourth copy of "which
@@ -498,73 +499,19 @@ function edgeValueParts(data: unknown): { text: string | null; sentence: boolean
   // for THIS β (magnitude contract, MG #70 5845713522). The |β| band called
   // "AI cuts churn by 1 point at 4%" (β −0.01) "Negligible effect". A legacy
   // edge, a moved β, or an unstated direction → null → the band, unchanged.
-  // Re-parsed here: persisted edge data is not proof of shape.
-  const natural = NaturalEffectSchema.safeParse(bag?.naturalEffect)
+  // ONE resolver for this row, the canvas hover card and the link inspector (`edges/edgeSizePhrase.ts`), so the
+  // three say the same size with the same author words ("from your brief" / "your figure" / "Olumi's estimate").
+  const size = edgeSizePhrase(bag)
   // A link that holds BY DEFINITION says so, never "Olumi's estimate" (domain/strengthDefinitional).
   const definitional = isStrengthDefinitional(bag)
-  const phrase = naturalEffectPhrase(natural.success ? natural.data : null, seed.seed, direction, definitional)
   // MG ruling (1 Oct 2026): a definitional row offers no editor (`edgeStrengthEditIsAssertable`), so the cell where the
   // editor would be says what the strength is — the band too, when no natural-effect sentence carries the words.
-  return phrase !== null
-    ? { text: phrase, sentence: true }
+  return size !== null
+    ? { text: size.sentence, sentence: true }
     : { text: `${getDirectionalStrengthLabel(seed.seed, direction)}${definitional ? DEFINITIONAL_SUFFIX : ''}`, sentence: false }
 }
 
-/**
- * The NUMBER behind a relationship row's label, and whether the edge's direction
- * is STATED — resolved together, once.
- *
- * ⭐⭐ THE TWO HALVES ARE RETURNED AS ONE FACT ON PURPOSE, and this is the whole
- * reason the function exists rather than two call sites reading two resolvers.
- * The number's MEANING depends on the flag: with a stated direction the seed is
- * SIGNED and the editor is a signed control; without one the seed is a bare
- * MAGNITUDE and the editor may not mint a sign. Deriving the seed in one place
- * and the flag in another is trap 21 waiting to happen — a magnitude edited as
- * though it were signed is precisely "a sign taken off a number", which the
- * `proposeEdgeStrength` contract forbids in capitals.
- *
- * ⚠ `edgeValue` ABOVE IS BUILT FROM THIS, not beside it. The label the row shows
- * and the number its editor opens with are then the same derivation by
- * construction; they cannot drift into disagreeing about what the row means.
- * `RelationshipStrengthEditSeed.directionStated` is exactly
- * `resolveEdgeDirectionDisplay(...).show`, which is also what decides whether the
- * label reads "... positive effect" or "... effect, direction not stated" — so a
- * user reading the row and the authority writing the model consult one answer.
- *
- * ⚠ THE GATES ARE THE POINT, AND THEY ARE NOT MINE. An unstamped weight resolves
- * to NOTHING rather than to the UI default (`resolveEdgeValueDisplay`), and a
- * direction is never inferred from a sign (`resolveEdgeDirectionDisplay`). This
- * surface must not be the one place in the estate that re-fabricates what those
- * two resolvers exist to suppress — the Model tab printed "Strong positive
- * effect" over exactly that fabrication before they were written.
- *
- * ⚠ THIS IS A DISPLAY-SIDE ANSWER AND MAY NOT BE USED FOR `expected`. It says
- * what the row shows; it says NOTHING about what the server holds. That question
- * belongs to `conversation/edgeServerStatedStrength.ts`, and substituting one for
- * the other is the defect #1295 was the fix-forward for.
- */
-export interface RelationshipStrengthEditSeed {
-  /** Signed when the direction is stated, a bare magnitude when it is not. */
-  readonly seed: number
-  /** Whether anyone has STATED this edge's direction — never read off a sign. */
-  readonly directionStated: boolean
-}
-
-export function resolveEdgeStrengthEditSeed(
-  data: Record<string, unknown> | undefined,
-): RelationshipStrengthEditSeed | null {
-  const weight = resolveEdgeValueDisplay(data, 'weight')
-  if (!weight.show) return null
-
-  const direction = resolveEdgeDirectionDisplay(data)
-  // A magnitude with no stated direction is a magnitude, not an effect.
-  if (!direction.show) return { seed: weight.value, directionStated: false }
-
-  return {
-    seed: direction.direction === 'negative' ? -weight.value : weight.value,
-    directionStated: true,
-  }
-}
+export { resolveEdgeStrengthEditSeed, type RelationshipStrengthEditSeed } from '../edges/edgeSizePhrase'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Rows

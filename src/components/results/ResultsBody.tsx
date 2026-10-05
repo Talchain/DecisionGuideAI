@@ -34,7 +34,6 @@ import { StressTestSection } from './StressTestSection'
 import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import { TriageActionCardsBody } from './TriageActionCardsBody'
-import { WhatChangedChip } from '../../canvas/components/WhatChangedChip'
 import { StrengthenContainer } from './strengthen/StrengthenContainer'
 import { InferenceWarningStrip } from './InferenceWarningStrip'
 import { CritiqueWarningStrip } from './CritiqueWarningStrip'
@@ -465,11 +464,6 @@ export const ResultsBody = memo(function ResultsBody({
       <HowComputedTrigger
         hasResults={(resultsSectionData.recommendation.allOptions?.length ?? 0) > 0}
       />
-
-      {/* Seamlessness R6 / ROADMAP 2.1 slice 1: run-over-run delta chip.
-          Client-side diff of the two most recent stored runs; self-hides on
-          first runs or zero delta; click pulses the surviving changes. */}
-      <WhatChangedChip />
 
       {/* ── THE ANALYSIS COCKPIT ────────────────────────────────────────
           ONE implementation, mounted UNCONDITIONALLY. Read-only presentation

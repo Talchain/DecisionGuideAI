@@ -133,6 +133,10 @@ export function heldProposalSourceBlockKey(
 /** localStorage key. Sibling of `olumi-canvas-autosave` / `-scenarios`. */
 export const TRANSCRIPT_STORAGE_KEY = 'olumi-canvas-transcript'
 
+export function clearAllTranscripts(): void {
+  try { localStorage.removeItem(TRANSCRIPT_STORAGE_KEY) } catch { /* unavailable */ }
+}
+
 /**
  * Identity of THIS page load, stamped onto every save.
  *

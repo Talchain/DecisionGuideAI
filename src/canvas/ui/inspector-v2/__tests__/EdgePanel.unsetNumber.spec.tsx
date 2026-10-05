@@ -40,7 +40,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { EdgePanel } from '../panels/EdgePanel'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
@@ -121,6 +121,7 @@ describe('EdgePanel — the existence readout is provenance-gated on its NUMBER'
     // that is a different, worse product. One case alone proves nothing.
     seedEdge({ weight: 0.35, direction: 'positive', beliefExists: 0.82, beliefExistsSource: 'user' })
     render(<EdgePanel {...panelProps} />)
+    fireEvent.click(readout().querySelector('button')!)
     expect(readout().textContent ?? '').toMatch(PERCENT)
     expect(readout().textContent ?? '').toContain('82%')
   })
@@ -128,6 +129,7 @@ describe('EdgePanel — the existence readout is provenance-gated on its NUMBER'
   it('back-compat: a pre-marker CEE edge still prints its percentage', () => {
     seedEdge({ beliefExists: 0.9, exists_probability: 0.9 })
     render(<EdgePanel {...panelProps} />)
+    fireEvent.click(readout().querySelector('button')!)
     expect(readout().textContent ?? '').toContain('90%')
   })
 

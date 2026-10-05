@@ -52,7 +52,7 @@ import {
   resolveEdgeDirectionDisplay,
 } from './edgeValueProvenance'
 import { getEdgeLabel, type EdgeLabelMode } from './edgeLabels'
-import { edgeDoubleClickAffordance } from '../edges/edgeAffordance'
+import { edgeClickAffordance } from '../edges/edgeAffordance'
 import { isStructuralEdge } from './edgeUtils'
 import type { EdgeData } from './edges'
 
@@ -85,7 +85,7 @@ export interface EdgeAccessibleNameInput {
   description?: string | null
   /**
    * What a double-click on this edge actually does, from
-   * `edgeDoubleClickAffordance`. Absent or empty adds no clause.
+   * `edgeClickAffordance`. Absent or empty adds no clause.
    *
    * ⛔ IT IS PASSED IN, RESOLVED, for the same reason `description` is: this
    * module never decides whether an edit can land. The one derivation lives
@@ -223,13 +223,13 @@ export function withEdgeAccessibleNames<E extends NameableEdge>(
           // edge's label renders — the exact asymmetry this module's header was
           // written about. Measured on deployed `7ec3fed2`: 39 connections, 39
           // announcing a strength, 3 rendering a label, and 0 announcing the
-          // affordance. Passed through `edgeDoubleClickAffordance` so the spoken
+          // affordance. Passed through `edgeClickAffordance` so the spoken
           // word and the hovered word cannot drift apart.
           //
           // A14 — NO GESTURE on a structural link: there is no strength to
           // set, so "Double-click to set its strength" would announce a
           // control that does nothing.
-          affordance: structural ? null : edgeDoubleClickAffordance(edge as never),
+          affordance: structural ? null : edgeClickAffordance(edge as never),
         }),
       }),
       ...(hasOwnAriaRole ? {} : { ariaRole: EDGE_ARIA_ROLE }),

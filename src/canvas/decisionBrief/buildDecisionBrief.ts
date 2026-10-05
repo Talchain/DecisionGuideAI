@@ -316,25 +316,14 @@ function runOf(read: SavedScenarioRead): { run: BriefRun; withheld: BriefWithhel
 // ─── The builder ────────────────────────────────────────────────────────────
 
 /**
- * The latest Run's results hash: the value a decision record stores as `analysisHash` (`results.hash`). Derived exactly
- * as the boot currency check derives it from a read (`applyBootRunCurrency`), and as the turn applier does in session
- * (`mapV5AnalysisToReport(block).model_card.response_hash`, no producer override), so the two collide by construction.
+ * ⛔ NO RUN FILTER BY RESULTS HASH: MEASURED, NOT ASSUMED (served D1, UI `919ba207`, record-diag 2 Oct 09:3xZ). A record
+ * stores the IN-SESSION `results.hash`, the turn block's content hash (`v5:6b6d…`). The saved read of the SAME Run hashes to
+ * `v5:c8c7…`: the stored block carries an empty `decision_brief.analysis_summary` and orders two tied options differently.
+ * So a filter on that hash hid every record made in session (#2450's witness). Until a record carries a Run identity both
+ * copies share (MG's later `run_id`), the brief shows the record as the read-back card does, with the date it was recorded.
  */
-function latestRunResultsHash(read: SavedScenarioRead): string | null {
-  if (read.analysisResult == null) return null
-  const hash = mapV5AnalysisToReport(read.analysisResult as AnalysisResultBlock).model_card.response_hash
-  return typeof hash === 'string' && hash !== '' ? hash : null
-}
-
-/**
- * ⛔ COMPARE LIKE WITH LIKE (MG 5948544303). The record is bound to a Run by its results hash. When both hashes exist and
- * differ, the record belongs to another Run and is not shown here. When either is missing, nothing can be compared, so
- * the record is shown with the date it was recorded rather than hidden by a comparison across hash families.
- */
-function briefRecordOf(record: DecisionRecord | null, read: SavedScenarioRead): BriefRecord | null {
+function briefRecordOf(record: DecisionRecord | null): BriefRecord | null {
   if (record == null) return null
-  const runHash = latestRunResultsHash(read)
-  if (runHash !== null && record.analysisHash && record.analysisHash !== runHash) return null
   const copy = ANALYSIS_NEW_COPY.decisionRecord
   const rows: { label: string; text: string }[] = []
   const add = (label: string, text: string | null | undefined) => {
@@ -496,7 +485,7 @@ export function buildDecisionBrief(read: SavedScenarioRead, decisionRecord: Deci
     chancesNote,
     drivers,
     withheld,
-    record: briefRecordOf(decisionRecord, read),
+    record: briefRecordOf(decisionRecord),
     version: {
       graphHash,
       shortVersion: graphHash ? graphHash.slice(0, 8) : null,

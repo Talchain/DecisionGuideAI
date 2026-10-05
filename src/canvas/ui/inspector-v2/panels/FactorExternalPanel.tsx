@@ -473,6 +473,9 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
             </div>
           )}
           <div className={`${typography.panelBody} mb-2`}>How would you describe the level?</div>
+          <p className={`${typography.panelMeta} text-text-light mb-2`}>
+            Equally likely anywhere between the minimum and maximum.
+          </p>
 
           {/* Quick-set buttons */}
           <div className="flex gap-1.5 flex-wrap mb-2.5">

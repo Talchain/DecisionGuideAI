@@ -29,6 +29,8 @@ import { action } from '../panelSurfaces'
 import { ASSUMPTIONS_DOOR_COPY as DOOR } from '../assumptionsDoorCopy'
 import { buildReasoningSignals, type FlipThresholdRow } from '../reasoningSignals'
 import type { AskOlumiPayload } from '../../coaching/askOlumiStore'
+import { ResultsLink } from '../../../../canvas/ui/inspector-v2/shared/ResultsLink'
+import { TestWithoutLinkButton } from './TestWithoutLinkButton'
 
 export interface ReasoningSignalsProps {
   vm: Pick<AnalysisNewViewModel, 'status' | 'drivers' | 'uncertainty'>
@@ -40,6 +42,8 @@ export interface ReasoningSignalsProps {
   flipThresholds: readonly FlipThresholdRow[] | null | undefined
   onFocus?: (targetId: string) => void
   onInspect?: (targetId: string) => void
+  /** Make the current tipping factor's existing edit door explicit. */
+  offerFactorEdit?: boolean
   /** Receives an `openAskOlumi` payload; the body passes `openAskOlumi`. */
   onAsk?: (payload: AskOlumiPayload) => void
   /**
@@ -100,6 +104,7 @@ export function ReasoningSignals({
   flipThresholds,
   onFocus,
   onInspect,
+  offerFactorEdit = false,
   onAsk,
   closedAtRest = false,
   evidenceSlot = null,
@@ -146,15 +151,33 @@ export function ReasoningSignals({
       data-testid={`${testId}-tipping`}
       data-target-id={tipping.targetId ?? undefined}
     >
-      <p className={`${typography.panelBody} text-text-body min-w-0 flex-1`} data-testid={`${testId}-tipping-sentence`}>
-        {tipping.sentence}
-      </p>
+      <div className="min-w-0 flex-1">
+        <p className={`${typography.panelBody} text-text-body`} data-testid={`${testId}-tipping-sentence`}>
+          {tipping.sentence}
+        </p>
+        {offerFactorEdit && tipping.targetId && onInspect ? (
+          <div className="mt-1 space-y-1" data-testid={`${testId}-tipping-next-step`}>
+            <button
+              type="button"
+              className={`${typography.panelBody} ${action('secondary')}`}
+              onClick={() => onInspect(tipping.targetId as string)}
+            >
+              Edit {tipping.factorLabel}
+            </button>
+            <p className={`${typography.panelMeta} text-text-light`}>
+              After editing, rerun the analysis, then open{' '}
+              <ResultsLink label="Compare" tab="compare" />
+              {' '}to see what changed.
+            </p>
+          </div>
+        ) : null}
+      </div>
       <RowActions
         focusId={tipping.targetId}
         inspectId={tipping.targetId}
         ask={tipping.ask}
         onFocus={onFocus}
-        onInspect={onInspect}
+        onInspect={offerFactorEdit ? undefined : onInspect}
         onAsk={onAsk}
         testId={`${testId}-tipping`}
       />
@@ -368,6 +391,9 @@ export function ReasoningSignals({
               <Link2 className="h-3.5 w-3.5 shrink-0" aria-hidden={true} />
               {DOOR.examine}
             </button>
+          ) : null}
+          {gap.kind === 'assumed_strength' && gap.inspectTargetId ? (
+            <TestWithoutLinkButton key={gap.inspectTargetId} edgeId={gap.inspectTargetId} />
           ) : null}
         </div>
       ) : null}

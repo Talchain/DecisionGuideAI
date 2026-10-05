@@ -76,6 +76,23 @@ export function retargetEdgeClick(
 }
 
 /**
+ * ⭐ S.1 FOR LINKS (Paul, 4 Oct 2026): does this click open the FULL link inspector?
+ *
+ * One plain click on a link opens it, exactly as one click on a card does. This reverses #2322's "E2 (Paul 29 Sep)"
+ * at-pointer mini-editor (journey 4: "the link inspector needs a double click"); the inspector holds the same strength
+ * and direction writers. `intendedId` is `retargetEdgeClick`'s RETURN, the line nearest the pointer (PR Review
+ * 5897003679). ⛔ A Meta/Control multi-selection click is a SELECTION gesture (it may be a toggle-off), and a click
+ * that resolved no link names nothing: neither opens anything (PR Review 5897538379).
+ */
+export function edgeClickOpensInspector(
+  event: EdgePointerEvent | undefined,
+  intendedId: string | null,
+  multiSelectionActive: boolean,
+): boolean {
+  return event !== undefined && intendedId !== null && intendedId !== '' && !multiSelectionActive
+}
+
+/**
  * `onEdgeContextMenu`'s edge: the line nearest the pointer, looked up in the
  * canvas store (the menu's actions read the store by id). xyflow's own edge
  * when that line is the one it passed, or when the nearest is not in the store.

@@ -62,6 +62,18 @@ export interface PendingEdgeEdit {
    * before.
    */
   readonly sentDirection?: 'positive' | 'negative'
+  /**
+   * WHICH LINK, IN WHICH SCENARIO, `before` describes — recorded by a strength edit (`setStrength`). A restoration
+   * borrows `before`'s stamps only while this still names the link (Codex #2489 r2 P1: a same-id link re-pointed, or
+   * another scenario, must not inherit a departed link's provenance).
+   */
+  readonly identity?: PendingEdgeEditIdentity
+}
+
+export interface PendingEdgeEditIdentity {
+  readonly scenarioId: string | null
+  readonly from: string
+  readonly to: string
 }
 
 /** Keys the optimistic write can add or change (`setStrength`). A revert restores exactly these. */
@@ -136,6 +148,7 @@ export function markEdgeEditInFlight(
   sentMagnitude: number,
   before: Readonly<Record<string, unknown>> | undefined,
   sentDirection?: 'positive' | 'negative',
+  identity?: PendingEdgeEditIdentity,
 ): void {
   if (!edgeId || !Number.isFinite(sentMagnitude)) return
   const key = entryKey(edgeId, kindOf(sentDirection))
@@ -153,6 +166,8 @@ export function markEdgeEditInFlight(
     sentMagnitude,
     before: prior?.before ?? { ...(before ?? {}) },
     ...(sentDirection !== undefined ? { sentDirection } : {}),
+    // The identity travels with the `before` it describes: a newer edit keeps the original's.
+    ...((prior ? prior.identity : identity) !== undefined ? { identity: prior ? prior.identity : identity } : {}),
   })
   emit()
 }
@@ -189,6 +204,101 @@ export function unconfirmedEdgeEditOnGraph(edges: ReadonlyArray<{ id?: unknown; 
   return null
 }
 
+/**
+ * ⭐ IS THIS LINK SETTLED — does the canvas show exactly the strength the server states, with no edit of its own
+ * pending? (Codex on DGAI #2489 @c23042b5, P1.) Only then is choosing the server's value AGREEMENT. Otherwise it is a
+ * RESTORATION — the server holds 0.4, 0.75 is on the wire, the user picks 0.4 — and the canvas must move back, through
+ * the edit path's supersession, rebase and settlement, rather than be left showing 0.75.
+ * A `direction` the canvas does not state is not a disagreement (a magnitude-only link).
+ */
+export function edgeShowsServerStatedStrength(edge: { id?: unknown; data?: unknown } | undefined): boolean {
+  if (!edge || typeof edge.id !== 'string') return false
+  if (inFlight.has(entryKey(edge.id, 'strength')) || inFlight.has(entryKey(edge.id, 'direction'))) return false
+  const data = edge.data as Record<string, unknown> | undefined
+  const stated = serverStatedStrengthOf(data)
+  if (!stated || edgeMagnitudeOf(edge) !== Math.abs(stated.mean)) return false
+  return data?.direction === undefined || data.direction === stated.effect_direction
+}
+
+/**
+ * The provenance stamps a RESTORATION puts back: each taken from a pending edit's pre-edit data ONLY while that data
+ * still describes the link's current authoritative state for that field — the same scenario and endpoints, the same
+ * server tuple, and (for `weightSource`) its weight showing that tuple, (for `directionSource`) its direction showing
+ * that sign. A stamp from a superseded state is never restored onto the current one (Codex #2489 r2/r3 P1); a key
+ * with no describing snapshot is left out, so its stamp stands. While a direction edit is pending it owns the
+ * direction keys (`revertKeysFor`), so `directionSource` is read from ITS pre-edit data.
+ */
+export function restoredEdgeStrengthStamps(
+  edgeId: string,
+  current: PendingEdgeEditIdentity & { readonly data: Record<string, unknown> | undefined },
+  opts: { readonly includeDirection: boolean },
+): Record<string, unknown> {
+  const now = serverStatedStrengthOf(current.data)
+  if (!now) return {}
+  const describesNow = (entry: PendingEdgeEdit | undefined): entry is PendingEdgeEdit => {
+    const id = entry?.identity
+    if (!entry || !id || id.scenarioId !== current.scenarioId || id.from !== current.from || id.to !== current.to) return false
+    const then = serverStatedStrengthOf(entry.before as Record<string, unknown>)
+    return !!then && then.mean === now.mean && then.effect_direction === now.effect_direction
+  }
+  const out: Record<string, unknown> = {}
+  const strength = inFlight.get(entryKey(edgeId, 'strength'))
+  if (describesNow(strength) && edgeMagnitudeOf({ data: strength.before }) === Math.abs(now.mean)) {
+    out.weightSource = strength.before.weightSource
+  }
+  if (opts.includeDirection) {
+    const owner = inFlight.get(entryKey(edgeId, 'direction')) ?? strength
+    if (describesNow(owner) && (owner.before.direction === undefined || owner.before.direction === now.effect_direction)) {
+      out.directionSource = owner.before.directionSource
+    }
+  }
+  return out
+}
+
+/**
+ * What a Model-tab Review showed for a link, captured with its "from" (Codex #2489 P1): the endpoints, the server's
+ * tuple and whether the canvas then showed exactly that. A confirmation ratifies THIS, never a re-read of the link.
+ */
+export interface ReviewedEdgeStrength {
+  /** The scenario the Review was made in (Codex #2489 r2 P1): a same-id link in another scenario is not the one reviewed. */
+  readonly scenarioId: string | null
+  readonly from: string
+  readonly to: string
+  readonly mean: number
+  readonly effect_direction: 'positive' | 'negative'
+  readonly settled: boolean
+}
+
+export function reviewedEdgeStrengthOf(
+  edge: { id?: unknown; source?: unknown; target?: unknown; data?: unknown } | undefined,
+  scenarioId: string | null,
+): ReviewedEdgeStrength | null {
+  if (!edge || typeof edge.source !== 'string' || typeof edge.target !== 'string') return null
+  const stated = serverStatedStrengthOf(edge.data as Record<string, unknown> | undefined)
+  if (!stated) return null
+  return {
+    scenarioId,
+    from: edge.source,
+    to: edge.target,
+    mean: stated.mean,
+    effect_direction: stated.effect_direction,
+    settled: edgeShowsServerStatedStrength(edge),
+  }
+}
+
+/** Does the link still show exactly what a settled Review showed — same scenario, endpoints and server tuple, still settled? */
+export function edgeStillShowsReview(
+  edge: { id?: unknown; source?: unknown; target?: unknown; data?: unknown } | undefined,
+  reviewed: ReviewedEdgeStrength,
+  scenarioId: string | null,
+): boolean {
+  const now = reviewedEdgeStrengthOf(edge, scenarioId)
+  return (
+    now !== null && reviewed.settled && now.settled && now.scenarioId === reviewed.scenarioId &&
+    now.from === reviewed.from && now.to === reviewed.to &&
+    now.mean === reviewed.mean && now.effect_direction === reviewed.effect_direction
+  )
+}
 
 /**
  * `current` with the keys the strength write touches put back as they were in

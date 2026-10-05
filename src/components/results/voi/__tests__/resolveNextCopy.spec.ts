@@ -35,6 +35,8 @@ const ALL_STRINGS: ReadonlyArray<readonly [string, string]> = [
   ['note', R.note],
   ['lead', R.lead],
   ['then', R.then],
+  ['act.review', R.act.review],
+  ['act.set', R.act.set],
   ['below', R.below('Customer churn rate, Enterprise market demand')],
   ['partial', R.partial],
   ['gate', R.gate],

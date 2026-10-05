@@ -59,7 +59,21 @@ export interface Scenario {
 const STORAGE_KEY = 'olumi-canvas-scenarios'
 const AUTOSAVE_KEY = 'olumi-canvas-autosave'
 const CURRENT_SCENARIO_KEY = 'olumi-canvas-current-scenario-id'
+
+/**
+ * Where a cold-load deep link keeps a superseded scenario's autosave, verbatim (`hydrate/coldLoadDeepLink.ts`). The key
+ * is owned HERE so the writer there and `deleteScenario` below cannot disagree about it.
+ */
+export function keyedAutosaveKey(scenarioId: string): string {
+  return `${AUTOSAVE_KEY}:${scenarioId}`
+}
 const MAX_SCENARIOS = 50 // Reasonable limit to prevent localStorage bloat
+
+export function clearAllScenarioStorage(): void {
+  localStorage.removeItem(STORAGE_KEY)
+  localStorage.removeItem(AUTOSAVE_KEY)
+  localStorage.removeItem(CURRENT_SCENARIO_KEY)
+}
 
 /**
  * Check if localStorage is available (guards against SSR, tests)
@@ -470,6 +484,16 @@ export function deleteScenario(id: string): void {
   if (loadAutosave()?.scenarioId === id) {
     clearAutosave()
   }
+
+  // …and a cold-load deep link's preserved copy of it: otherwise a later link to this id would put the deleted model
+  // back on screen (the same resurrection, through `hydrate/coldLoadDeepLink.ts`).
+  if (isLocalStorageAvailable()) {
+    try {
+      localStorage.removeItem(keyedAutosaveKey(id))
+    } catch {
+      // Ignore errors
+    }
+  }
 }
 
 /**
@@ -631,6 +655,8 @@ export interface PersistedAnalysis {
 export interface AutosaveData {
   timestamp: number
   scenarioId?: string // If editing an existing scenario
+  /** The identity epoch this slot was written under (CAN-F2w; see `IDENTITY_EPOCH_KEY`). Absent before the first boundary. */
+  identityEpoch?: string
   nodes: Node[]
   edges: Edge[]
   /**
@@ -667,13 +693,52 @@ export interface AutosaveData {
 // P2: Track last autosave payload to skip identical writes
 let lastAutosavePayload: string | null = null
 
+/**
+ * ⭐ THE IDENTITY EPOCH (CAN-F2w): an owner fence on every autosave slot, the main slot and its preserved copies alike.
+ * `clearUserScopedState` writes a fresh epoch at every identity boundary (sign-out, A→B) BEFORE it sweeps, and every
+ * autosave is stamped with the epoch it was written under. A slot from another epoch is not this identity's:
+ * `loadAutosave` returns nothing for it, and `coldLoadDeepLink` treats it as unowned. So a slot whose removal was REFUSED
+ * at sign-out never reaches the next account. Measured on staging 088c9781 before this: B's routeless cold load
+ * restored A's graph. An epoch, not the account id: a cold boot cannot know the id synchronously (the session restores
+ * async), and fencing on it would block a signed-in user's own restore. Before the first boundary there is no epoch,
+ * and every slot behaves exactly as before. An unreadable epoch fails closed: no slot is restored and nothing is
+ * written that tick. A boundary in ANOTHER TAB is follow-up F2c ("a boundary in any tab is a boundary in every tab").
+ */
+export const IDENTITY_EPOCH_KEY = 'olumi-canvas-identity-epoch'
+/** The shared epoch: a string, `null` before the first boundary, `undefined` when storage refused the read. */
+function readIdentityEpoch(): string | null | undefined {
+  try {
+    const epoch = localStorage.getItem(IDENTITY_EPOCH_KEY)
+    return epoch && epoch.length > 0 ? epoch : null
+  } catch {
+    return undefined
+  }
+}
+/**
+ * Whether a slot stamped `stamp` belongs to this browser's current identity: the one rule every autosave reader uses.
+ * An UNREADABLE epoch fails closed: whether a boundary happened cannot be known, so no slot is anyone's (Codex, #2484).
+ */
+export function belongsToThisIdentity(stamp: unknown): boolean {
+  const epoch = readIdentityEpoch()
+  if (epoch === undefined) return false
+  return epoch === null || stamp === epoch
+}
+
 export function saveAutosave(data: AutosaveData): void {
   if (!isLocalStorageAvailable()) {
     return
   }
 
+  // CAN-F2w: every write is stamped with the current identity epoch.
+  const epoch = readIdentityEpoch()
+  if (epoch === undefined) {
+    // An unreadable epoch cannot say whose this write is: skip it (the next autosave retries), never stamp a guess.
+    console.warn('[scenarios] Autosave skipped: the identity epoch could not be read (CAN-F2w)')
+    return
+  }
+  const stamped: AutosaveData = epoch === null ? data : { ...data, identityEpoch: epoch }
   try {
-    const payload = JSON.stringify(data)
+    const payload = JSON.stringify(stamped)
 
     // P2: Skip write if payload is identical (shallow diff)
     if (payload === lastAutosavePayload) {
@@ -704,7 +769,7 @@ export function saveAutosave(data: AutosaveData): void {
     // green class this repo keeps catching).
     if (data.analysis) {
       try {
-        const withoutAnalysis = JSON.stringify({ ...data, analysis: null })
+        const withoutAnalysis = JSON.stringify({ ...stamped, analysis: null })
         localStorage.setItem(AUTOSAVE_KEY, withoutAnalysis)
         lastAutosavePayload = withoutAnalysis
         console.warn(
@@ -737,6 +802,8 @@ export function loadAutosave(): AutosaveData | null {
       console.warn('[scenarios] Invalid autosave format, ignoring')
       return null
     }
+    // CAN-F2w: a slot written under another identity is not this one's (see `IDENTITY_EPOCH_KEY`).
+    if (!belongsToThisIdentity(data.identityEpoch)) return null
 
     return data
   } catch (error) {

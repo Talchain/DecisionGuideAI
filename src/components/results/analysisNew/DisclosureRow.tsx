@@ -27,6 +27,7 @@ import { OlumiAiIcon } from './OlumiAiIcon'
 import { IconBtn } from '../../../canvas/components/pre-analysis/primitives/IconBtn'
 import { typography } from '../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
+import { RESOLVE_NEXT_COPY as RESOLVE_NEXT } from '../voi/resolveNextCopy'
 import type { AnalysisNewFinding } from './analysisNewTypes'
 import { action, icon } from './panelSurfaces'
 
@@ -62,6 +63,12 @@ export interface DisclosureRowProps {
    * `finding.reviewTargetId` absent, renders NO act — never a disabled one.
    */
   onReviewTarget?: (targetId: string) => void
+  /**
+   * Opens the editor for a FACTOR's value (`finding.valueTargetId`, and each
+   * ranked item's). A different destination from `onReviewTarget`, which serves
+   * edges. Absent ⇒ no value act renders — never a disabled one.
+   */
+  onReviewValue?: (factorId: string) => void
   /** Runs the row's reasoning intervention through an EXISTING action route. */
   onRunIntervention?: (recommendationId: string) => void
   /**
@@ -85,6 +92,7 @@ export function DisclosureRow({
   finding,
   onFocusTarget,
   onReviewTarget,
+  onReviewValue,
   onRunIntervention,
   onAskOlumi,
   testIdPrefix,
@@ -95,8 +103,12 @@ export function DisclosureRow({
   const regionId = useId()
   const inspectId = useId()
 
+  const ranked = (finding.rankedItems ?? []).filter((item) => item.label.trim() !== '')
   const hasLevel2 =
-    Boolean(finding.detail) || Boolean(finding.intervention) || finding.inspect.length > 0
+    Boolean(finding.detail) ||
+    ranked.length > 0 ||
+    Boolean(finding.intervention) ||
+    finding.inspect.length > 0
   const marker = finding.marker ? MARKER_LABEL[finding.marker] : null
 
   return (
@@ -217,7 +229,54 @@ export function DisclosureRow({
 
       {hasLevel2 && open ? (
         <div id={regionId} className="pl-6 mt-2 space-y-2" data-testid={`${testIdPrefix}-detail`}>
-          {finding.detail ? (
+          {/* ⭐ THE RANKS BELOW THE HEADLINE, EACH ONE ACTIONABLE WHERE IT IS
+              NAMED. When a row ranks further subjects, the list IS its detail:
+              `detail` carries the same ranks as prose (it seeds the Olumi ask),
+              and printing both would say every name twice.
+
+              ⚠ EACH ITEM'S ACTS ARE ITS OWN. The view model set them from that
+              item's producer row; this renders what is there and nothing else —
+              absent, never disabled. The subject is in every act's name, because
+              a column of identical "Review this value" buttons cannot tell a
+              screen reader which factor each one opens. */}
+          {ranked.length > 0 ? (
+            <div data-testid={`${testIdPrefix}-ranked`}>
+              <p className={`${typography.panelMeta} text-text-light`}>{RESOLVE_NEXT.then}</p>
+              <ol className="mt-1 space-y-0.5">
+                {ranked.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex min-w-0 items-center gap-1"
+                    data-testid={`${testIdPrefix}-ranked-item`}
+                    data-factor-id={item.id}
+                  >
+                    <span className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words`}>
+                      {item.label}
+                    </span>
+                    {item.focusTargetId && onFocusTarget ? (
+                      <IconBtn
+                        icon={Crosshair}
+                        tooltip={`${COPY.disclosure.focusTarget}: ${item.label}`}
+                        ariaLabel={`${COPY.disclosure.focusTarget}: ${item.label}`}
+                        onClick={() => onFocusTarget(item.focusTargetId!)}
+                        testId={`${testIdPrefix}-ranked-focus`}
+                      />
+                    ) : null}
+                    {item.valueTargetId && item.valueAffordance && onReviewValue ? (
+                      <IconBtn
+                        icon={Pencil}
+                        tooltip={`${RESOLVE_NEXT.act[item.valueAffordance]}: ${item.label}`}
+                        ariaLabel={`${RESOLVE_NEXT.act[item.valueAffordance]}: ${item.label}`}
+                        onClick={() => onReviewValue(item.valueTargetId!)}
+                        testId={`${testIdPrefix}-ranked-value`}
+                        dataAttrs={{ 'data-affordance': item.valueAffordance }}
+                      />
+                    ) : null}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ) : finding.detail ? (
             <p className={`${typography.panelBody} text-text-body`}>{finding.detail}</p>
           ) : null}
 
@@ -270,6 +329,20 @@ export function DisclosureRow({
                 ariaLabel={COPY.disclosure.reviewTarget}
                 onClick={() => onReviewTarget(finding.reviewTargetId!)}
                 testId={`${testIdPrefix}-review`}
+              />
+            ) : null}
+
+            {/* The FACTOR value act — the row's subject is a factor whose value
+                the reader can review or set. Not the review act above, which
+                opens an edge in Relationships; this opens Factors. */}
+            {finding.valueTargetId && finding.valueAffordance && onReviewValue ? (
+              <IconBtn
+                icon={Pencil}
+                tooltip={RESOLVE_NEXT.act[finding.valueAffordance]}
+                ariaLabel={RESOLVE_NEXT.act[finding.valueAffordance]}
+                onClick={() => onReviewValue(finding.valueTargetId!)}
+                testId={`${testIdPrefix}-value`}
+                dataAttrs={{ 'data-affordance': finding.valueAffordance }}
               />
             ) : null}
 

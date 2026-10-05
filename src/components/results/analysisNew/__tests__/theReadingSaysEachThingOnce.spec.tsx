@@ -19,6 +19,7 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { caveatRestatesVerdictReason } from '../robustnessStanding'
 import { useCanvasStore } from '../../../../canvas/store'
 import { genuineDecision } from './analysisNewFixtures'
+import { seedCurrentRun } from './seedCurrentRun'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
 const REASON = 'The ordering held across the simulated range.' // genuineDecision's own verdict reason
@@ -27,6 +28,7 @@ const setCaveat = (text: string) =>
     results: {
       ...useCanvasStore.getState().results,
       report: {
+        ...useCanvasStore.getState().results?.report,
         decision_brief: {
           version: '1',
           brief_id: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
@@ -42,7 +44,11 @@ const draw = (data: ResultsSectionDataReturn = genuineDecision()) =>
     <AnalysisNewTabBody resultsSectionData={data} isPreRun={false} isRunning={false} isStale={false} responseHash="run_once" />,
   )
 
-beforeEach(() => setCaveat(`${REASON} That is not a guarantee. Defaulted inputs could still change it.`))
+// A current Run: since #2462 the tipping row is passed thresholds only on one (see seedCurrentRun.ts).
+beforeEach(() => {
+  seedCurrentRun()
+  setCaveat(`${REASON} That is not a guarantee. Defaulted inputs could still change it.`)
+})
 afterEach(cleanup)
 
 describe('the held-up sentence is said once', () => {

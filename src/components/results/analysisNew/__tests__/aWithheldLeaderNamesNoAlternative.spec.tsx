@@ -21,6 +21,7 @@ import { openGroups, openAllSections } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import { decisionWithLeaderWithheld, withLeaderLicensed } from './analysisNewFixtures'
+import { seedCurrentRun } from './seedCurrentRun'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
 const SENTINEL = 'Sentinel Alternative Q7'
@@ -60,6 +61,8 @@ const renderOpen = (data: ResultsSectionDataReturn) => {
 
 beforeEach(() => {
   useStrengthenStore.setState({ records: {}, priorityOrder: [] } as never)
+  // A current Run: since #2462 the tipping row is passed thresholds only on one (see seedCurrentRun.ts).
+  seedCurrentRun()
 })
 afterEach(() => cleanup())
 

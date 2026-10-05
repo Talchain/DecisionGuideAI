@@ -8,6 +8,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { EdgeDiffTable, computeEdgeDiffs } from '../EdgeDiffTable'
+import { scienceQuantityText } from '../../../components/science/ScienceQuantity'
+import { DetailToggleContext } from '../../components/model-tab/DetailToggleContext'
 import type { StoredRun } from '../../store/runHistory'
 
 type GraphSnapshot = NonNullable<StoredRun['graph']>
@@ -320,20 +322,28 @@ describe('S9-DIFFS: EdgeDiffTable Enhancements', () => {
       expect(table).toBeInTheDocument()
     })
 
-    it('should show positive deltas with + sign', () => {
-      render(<EdgeDiffTable runA={mockRunA} runB={mockRunB} />)
-
-      // Should have some +0.xxx values
-      const positiveDeltas = screen.getAllByText(/\+0\.\d{3}/)
-      expect(positiveDeltas.length).toBeGreaterThan(0)
+    // ⚠ #2463 (plain words first) moved every figure in this table onto `ScienceQuantity`: a band by default, the exact
+    // value only in the advanced view, and the direction carried by the cell's tone. Bound to the primitive's own output
+    // for this fixture's computed deltas, never a re-recorded string. (Component is unmounted — CompareView has no importer.)
+    it('should show positive deltas in the positive tone, with the exact figure in the advanced view', () => {
+      const exact = computeEdgeDiffs(mockRunA, mockRunB, 50).filter(d => d.status === 'matched' && d.deltaWeight > 0)
+        .map(d => scienceQuantityText('strength', d.deltaWeight, true, false))
+      expect(exact.length).toBeGreaterThan(0)
+      const { container } = render(<DetailToggleContext.Provider value={{ showDetail: true }}><EdgeDiffTable runA={mockRunA} runB={mockRunB} /></DetailToggleContext.Provider>)
+      const positive = [...container.querySelectorAll('span.text-success-600')]
+      expect(positive.length).toBeGreaterThan(0)
+      expect(positive.some(el => exact.some(x => el.textContent?.includes(x)))).toBe(true)
     })
 
-    it('should show negative deltas with - sign', () => {
-      render(<EdgeDiffTable runA={mockRunA} runB={mockRunB} />)
-
-      // Should have some -0.xxx values
-      const negativeDeltas = screen.getAllByText(/-0\.\d{3}/)
-      expect(negativeDeltas.length).toBeGreaterThan(0)
+    it('should show negative deltas in the negative tone, with the signed exact figure in the advanced view', () => {
+      const exact = computeEdgeDiffs(mockRunA, mockRunB, 50).filter(d => d.status === 'matched' && d.deltaWeight < 0)
+        .map(d => scienceQuantityText('strength', d.deltaWeight, true, false))
+      expect(exact.length).toBeGreaterThan(0)
+      expect(exact.every(x => x.startsWith('-'))).toBe(true)
+      const { container } = render(<DetailToggleContext.Provider value={{ showDetail: true }}><EdgeDiffTable runA={mockRunA} runB={mockRunB} /></DetailToggleContext.Provider>)
+      const negative = [...container.querySelectorAll('span.text-danger-600')]
+      expect(negative.length).toBeGreaterThan(0)
+      expect(negative.some(el => exact.some(x => el.textContent?.includes(x)))).toBe(true)
     })
   })
 
@@ -417,9 +427,10 @@ describe('S9-DIFFS: EdgeDiffTable Enhancements', () => {
 
     it('should make rows focusable when onFocusEdge provided', () => {
       const onFocusEdge = vi.fn()
-      render(<EdgeDiffTable runA={mockRunA} runB={mockRunB} onFocusEdge={onFocusEdge} />)
+      const { container } = render(<EdgeDiffTable runA={mockRunA} runB={mockRunB} onFocusEdge={onFocusEdge} />)
 
-      const rows = screen.getAllByRole('button')
+      // The ROWS, not every button: since #2463 each figure also carries its own "Show details" disclosure button.
+      const rows = [...container.querySelectorAll('tr[role="button"]')]
       expect(rows.length).toBeGreaterThan(0)
 
       // Rows should be keyboard accessible
@@ -460,11 +471,14 @@ describe('S9-DIFFS: EdgeDiffTable Enhancements', () => {
     })
 
     it('should not make rows clickable when onFocusEdge not provided', () => {
-      render(<EdgeDiffTable runA={mockRunA} runB={mockRunB} />)
+      const { container } = render(<EdgeDiffTable runA={mockRunA} runB={mockRunB} />)
 
       // Rows should not have role="button"
-      const buttons = screen.queryAllByRole('button')
-      expect(buttons).toHaveLength(0)
+      expect(container.querySelectorAll('tr[role="button"]')).toHaveLength(0)
+      // Contrast: the probe does see buttons here — only the figures' own disclosures, never a row.
+      const buttons = screen.getAllByRole('button')
+      expect(buttons.length).toBeGreaterThan(0)
+      expect(buttons.every(b => b.textContent === 'Show details')).toBe(true)
     })
 
     it('should show cursor pointer when onFocusEdge provided', () => {

@@ -72,6 +72,7 @@ import { formatPercent, formatProbabilityWithResolution } from '@/utils/formatPe
 import { driverValueProvenance, type AcceptedFigureBinding } from '../driverValueProvenance'
 import { flipDirectionWording, formatFlipValue } from '../utils/flipThresholdDisplay'
 import { HERO_COPY } from './heroCopy'
+import { GOAL_HORIZON_NOT_TESTED_CODE } from '../utils/humaniseInferenceWarning'
 import { DRIVER_LINE_COPY } from '../../../canvas/nodes/shared/metricVocabulary'
 import type { SensitivityLeader } from '../../../canvas/nodes/shared/rankFactor'
 import type {
@@ -213,6 +214,22 @@ function goalReadout(value: number | null, nSamples?: number | null): string {
 // 2.291) so the V7 signal chip renders the same producer rows through the
 // same formatter — "one threshold must never render two ways in one panel"
 // now holds across surfaces, not just within this module.
+
+/** snake_case ids or structural characters mean producer text is not display-safe (`goalIdentityWithheld.ts`'s rule). */
+const NOT_DISPLAY_SAFE = /\b[a-z0-9]+_[a-z0-9_]+\b|[{}[\]<>]/
+
+/**
+ * The producer's sentence for {@link GOAL_HORIZON_NOT_TESTED_CODE}, matched by CODE and returned as written; null when
+ * the Run carries no such warning, or its words are missing or not display-safe (fail closed: say nothing rather than
+ * a fragment). Nothing is composed here: the rule that a deadline went untested is CEE's.
+ */
+export function readGoalHorizonUntested(
+  warnings: ReadonlyArray<{ code?: unknown; message?: unknown }> | null | undefined,
+): string | null {
+  const raw = (warnings ?? []).find((w) => w?.code === GOAL_HORIZON_NOT_TESTED_CODE)?.message
+  const words = typeof raw === 'string' ? raw.trim() : ''
+  return words !== '' && words.length <= 300 && !NOT_DISPLAY_SAFE.test(words) ? words : null
+}
 
 // ─── Main mapper ─────────────────────────────────────────────────────────────
 
@@ -1025,6 +1042,7 @@ export function buildHeroModel(
   const designationWithheldReason =
     admissionWithheldReason ??
     (winSharesAreWithheld ? data.winShareWithheldReason?.trim() || null : null)
+  const goalHorizonUntested = readGoalHorizonUntested(data.confidence?.inferenceWarnings)
 
   // Tension subline: the headlined leader vs the strongest expected outcome.
   // PERSISTENT across goal and no-goal headline branches (review-locked):
@@ -1435,6 +1453,7 @@ export function buildHeroModel(
     headline,
     subline,
     designationWithheldReason,
+    goalHorizonUntested,
     lenses,
     defaultLens: goalAvailable ? 'goal' : 'outcome',
     hasConstraints,

@@ -456,6 +456,18 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_STRENGTHEN_PANEL',
     storageKey: 'feature.strengthenPanel',
   },
+  // On: the typed agent link-test route (CEE #2553) is served on staging.
+  testWithoutLink: {
+    envKey: 'VITE_FEATURE_TEST_WITHOUT_LINK',
+    storageKey: 'feature.testWithoutLink',
+    defaultValue: true,
+  },
+  // On: the service's "question this assumption" turn (Living Model, CEE #2534) is served on staging.
+  questionAssumption: {
+    envKey: 'VITE_FEATURE_QUESTION_ASSUMPTION',
+    storageKey: 'feature.questionAssumption',
+    defaultValue: true,
+  },
   // Developer route estate — the scaffolding surfaces in src/poc/AppPoC.tsx
   // that are NOT the product. The authoritative list is the children of the
   // one `<Route element={<DevRoutesGuard/>}>` layout route there; do not mirror
@@ -565,6 +577,8 @@ const flags = {
   requireLogin: makeFlag(FLAGS_CONFIG.requireLogin),
   decisionOverview: makeFlag(FLAGS_CONFIG.decisionOverview),
   strengthenPanel: makeFlag(FLAGS_CONFIG.strengthenPanel),
+  testWithoutLink: makeFlag(FLAGS_CONFIG.testWithoutLink),
+  questionAssumption: makeFlag(FLAGS_CONFIG.questionAssumption),
   devRoutes: makeFlag(FLAGS_CONFIG.devRoutes),
 }
 
@@ -636,6 +650,8 @@ export const isCompactCoachingLinesEnabled = flags.compactCoachingLines
 export const isRequireLoginEnabled = flags.requireLogin
 export const isDecisionOverviewEnabled = flags.decisionOverview
 export const isStrengthenPanelEnabled = flags.strengthenPanel
+export const isTestWithoutLinkEnabled = flags.testWithoutLink
+export const isQuestionAssumptionEnabled = flags.questionAssumption
 export const isDevRoutesEnabled = flags.devRoutes
 
 

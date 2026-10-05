@@ -68,6 +68,7 @@ import { logger } from '../../lib/logger'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
 import { isSignInRequired } from './signInRefusal'
 import { parseNotModelled, type NotModelledManifest } from './notModelled'
+import { PERMITTED_ANALYSIS_MODES, type PermittedAnalysisMode } from './types'
 
 /**
  * The same-origin Netlify edge path. NOT `VITE_CEE_BFF_BASE` — see the header.
@@ -114,6 +115,8 @@ export type ScenarioGraphResult =
   | {
       status: 'graph'
       graph: unknown
+      /** The response's own `scenario_id`: the read's identity binding (`canonicalOpenOutcome.ts`). */
+      scenarioId?: string | null
       briefText: string | null
       /**
        * ROADMAP 2.973 — what of the brief did NOT reach the model.
@@ -206,12 +209,21 @@ export type ScenarioGraphResult =
        * stored bytes it judged) starts with this read's `graph_hash`.
        */
       admitted?: boolean | null
+      /**
+       * The read's `analysis_admission.permitted_analysis_mode`, under the SAME binding as `admitted` (the admission
+       * names this read's revision), and only a literal of the UI's one list (`PERMITTED_ANALYSIS_MODES`); else null.
+       * CEE's read carries a PROJECTION of the admission (`projectAnalysisAdmission`), not an `AnalysisAdmissionV1`,
+       * so only this field is lifted from it (`bootReadAdmission.ts`).
+       */
+      permittedAnalysisMode?: PermittedAnalysisMode | null
+      /** Subject-bound machine census for disclosure; never original Run admission. */
+      currentReadInputBasis?: unknown
       /** The read's `conversation_turns`, raw (sent only on `includeConversationTurns`); undefined when absent. */
       conversationTurns?: unknown
       requestId: string | null
     }
   /** 200, `graph_present:false` — the scenario exists and has no graph yet. Normal. */
-  | { status: 'absent'; requestId: string | null }
+  | { status: 'absent'; requestId: string | null; /** The response's own `scenario_id`. */ scenarioId?: string | null }
   /** 404 — absent ∪ not-yours ∪ oracle-unresolvable. NEVER deletion. */
   | { status: 'notReadable' }
   /** 503 after every attempt — unknown, try again. NEVER an empty canvas. */
@@ -347,6 +359,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
   }
 
   const requestId = typeof b.request_id === 'string' ? b.request_id : null
+  const scenarioId = typeof b.scenario_id === 'string' && b.scenario_id.length > 0 ? b.scenario_id : null
 
   // `graph_present` is explicit precisely so presence is never inferred from a
   // falsy check. It is the authority — but it must AGREE with the bytes.
@@ -361,7 +374,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
       logger.warn('scenario_graph.presence_disagreement', { graphPresent: false })
       return { status: 'unusable' }
     }
-    return { status: 'absent', requestId }
+    return { status: 'absent', requestId, scenarioId }
   }
 
   if (!graphIsObject) {
@@ -372,6 +385,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
   return {
     status: 'graph',
     graph,
+    scenarioId,
     briefText: typeof b.brief_text === 'string' ? b.brief_text : null,
     notModelled: parseNotModelled(b.not_modelled),
     identity: readIdentityEnvelope(b.graph_identity_hash),
@@ -400,6 +414,8 @@ function parseOk(body: unknown): ScenarioGraphResult {
     optionParticipation: b.analysis_option_participation ?? null,
     runDelta: readCurrentReadRunDelta(b.current_read),
     admitted: readAdmitted(b.analysis_admission, b.graph_hash),
+    permittedAnalysisMode: readPermittedAnalysisMode(b.analysis_admission, b.graph_hash),
+    currentReadInputBasis: readCurrentReadInputBasis(b.analysis_admission, b.graph_hash),
     // Carried raw; the ONE reader is `readServerConversationTurns` (canvas/conversation/serverConversationTurns.ts).
     conversationTurns: b.conversation_turns,
     requestId,
@@ -419,6 +435,19 @@ function readAdmitted(raw: unknown, readGraphHash: unknown): boolean | null {
   if (typeof readGraphHash !== 'string' || readGraphHash.length === 0) return null
   if (typeof admissionHash !== 'string' || !admissionHash.startsWith(readGraphHash)) return null
   return admitted
+}
+
+function readPermittedAnalysisMode(raw: unknown, readGraphHash: unknown): PermittedAnalysisMode | null {
+  if (readAdmitted(raw, readGraphHash) === null) return null
+  const mode = (raw as { permitted_analysis_mode?: unknown }).permitted_analysis_mode
+  return (PERMITTED_ANALYSIS_MODES as readonly unknown[]).includes(mode) ? (mode as PermittedAnalysisMode) : null
+}
+
+function readCurrentReadInputBasis(raw: unknown, readGraphHash: unknown): unknown {
+  // Reuse this read's existing subject binding; never compare it to a Run hash.
+  if (readAdmitted(raw, readGraphHash) === null) return null
+  const admission = raw as { semantic_signals?: unknown; graph_hash?: unknown }
+  return { semantic_signals: admission.semantic_signals, graph_hash: admission.graph_hash }
 }
 
 /**

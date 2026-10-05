@@ -11,6 +11,7 @@
 import { memo, useState, useCallback, useMemo } from 'react'
 import { Copy, Check, ChevronDown, ChevronRight, Info } from 'lucide-react'
 import { typography } from '../../styles/typography'
+import { scienceChangeText } from '../../components/science/ScienceQuantity'
 import Tooltip from '../../components/Tooltip'
 import type { ModelCardData, RepairDisplay } from '../adapters/modelCardAdapter'
 import { formatNodeCounts } from '../adapters/modelCardAdapter'
@@ -209,7 +210,7 @@ function AdjustmentsList({ repairs }: { repairs: RepairDisplay[] }) {
           <span className="font-medium text-text-body">{r.action}</span>{' '}
           {r.label}
           {r.before != null && r.after != null && (
-            <span className="text-text-light"> ({r.before} → {r.after})</span>
+            <span className="text-text-light"> ({scienceChangeText(r.label, Number(r.before), Number(r.after)) ?? `${r.before} → ${r.after}`})</span>
           )}
         </li>
       ))}

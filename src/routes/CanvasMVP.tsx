@@ -18,7 +18,11 @@ import { TopBar } from '../components/layout/TopBar'
 import { getScenario } from '../canvas/store/scenarios'
 import { useScenario } from '../hooks/useScenario'
 import { useServerGraphHydration } from '../canvas/hooks/useServerGraphHydration'
+import { useColdLoadDeepLinkGate } from '../canvas/hydrate/coldLoadDeepLink'
 import { useBootServerRead, useSupabaseLoadTracker } from '../canvas/hooks/useBootServerReadEnabled'
+import { useIsViewer } from '../lib/viewerMode'
+import { useScenarioViewerAccess } from '../lib/useScenarioViewerAccess'
+import { useAuth } from '../contexts/AuthContext'
 import { ServerGraphRetryNotice } from '../canvas/components/ServerGraphRetryNotice'
 // ROADMAP 2.1271 — deliver the auto-run's provisional analysis without another
 // turn. Mounted HERE, beside boot hydration, deliberately: the trigger is the
@@ -39,7 +43,17 @@ const TEMPLATE_GRAPH_MUTATIONS_CONNECTED = hasServerGraphAuthority(
 const TemplatesPanel = lazy(() => import('../canvas/panels/TemplatesPanel').then(m => ({ default: m.TemplatesPanel })))
 const VersionsPanelHost = lazy(() => import('../canvas/versions/VersionsPanelHost').then(m => ({ default: m.VersionsPanelHost })))
 
+/**
+ * ⭐ THE ROUTE'S GATE: A COLD-LOAD DEEP LINK WINS OVER THE SCENARIO THIS BROWSER REMEMBERS. Decided by a pure read at
+ * render, written at commit (`canvas/hydrate/coldLoadDeepLink.ts`), and only then is the body mounted, so `useScenario`
+ * and every hook below it first render with the linked scenario. Renders the body at once whenever nothing is due.
+ */
 export default function CanvasMVP() {
+  const { id: scenarioIdFromRoute } = useParams<{ id: string }>()
+  return useColdLoadDeepLinkGate(scenarioIdFromRoute) ? <CanvasMVPBody /> : null
+}
+
+function CanvasMVPBody() {
   // Brief 37 Task 3: Render counter to detect if parent is causing re-renders
   const renderCountRef = useRef(0)
   renderCountRef.current++
@@ -82,6 +96,13 @@ export default function CanvasMVP() {
   useEffect(() => {
     setPersistenceSessionActive(isPersistenceActive)
   }, [isPersistenceActive])
+
+  // ACCOUNTS "Invite a colleague": THE ONE WRITER of the viewer flag (`lib/viewerMode`),
+  // from the server's `scenario_access`. ON only for an exact 'viewer' answer for
+  // this route; every edit surface reads `useIsViewer()`.
+  const { user: signedInUser } = useAuth()
+  useScenarioViewerAccess(scenarioIdFromRoute, isPersistenceActive, signedInUser?.id ?? null)
+  const isViewer = useIsViewer()
 
   // C.1a: Hydrate from Supabase when navigating to /scenario/:id
   const hydratedRef = useRef<string | null>(null)
@@ -358,11 +379,12 @@ export default function CanvasMVP() {
         // COLLAB: the blind-panel entry needs a PERSISTED scenario — CEE's
         // mint refuses guest scenarios (no immutable model version to pin),
         // and the owner route sits behind AuthGuard.
-        panelScenarioId={isPersistenceActive && currentScenarioId ? currentScenarioId : null}
+        panelScenarioId={isPersistenceActive && currentScenarioId && !isViewer ? currentScenarioId : null}
         // SHARE: same condition — a shared brief needs a persisted scenario to
         // point at. Guest/unsaved hides the control rather than copying a link
         // that opens empty on the recipient's machine.
-        shareScenarioId={isPersistenceActive && currentScenarioId ? currentScenarioId : null}
+        // A viewer cannot share a decision they do not own (the server refuses too).
+        shareScenarioId={isPersistenceActive && currentScenarioId && !isViewer ? currentScenarioId : null}
       />
 
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>

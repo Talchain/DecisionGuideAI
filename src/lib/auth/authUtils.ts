@@ -3,6 +3,7 @@ import { clearAccessValidation } from './accessValidation';
 import { authLogger } from './authLogger';
 import { clearDurableDissent } from '../../canvas/stores/dissentStore'
 import { clearDecisionRecords } from '../../components/results/modals/decisionRecordStore';
+import { clearUserScopedState } from './userScopedState'
 
 function parseAuthError(error: AuthError | Error | unknown): string {
   if (!error) return 'An unknown error occurred';
@@ -72,6 +73,7 @@ export function validateAuthInputs(email: string, password: string): string | nu
 export function clearAuthStates(): void {
     console.debug('[authUtils] clearAuthStates() called', new Error().stack);
   clearDecisionRecords();
+  clearUserScopedState();
   // Clear early access validation state
   clearAccessValidation();
 

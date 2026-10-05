@@ -168,6 +168,8 @@ export interface StripRow {
 }
 
 export interface ModelStrip {
+  /** Exactly one goal whose label the producer inferred, independent of any numerical target. */
+  provisionalGoalLabel?: string | null
   /** The goal or decision node's label, when the model names one. */
   goalLabel: string | null
   /**
@@ -371,7 +373,7 @@ export function stripNodeValueSignature(node: { data?: unknown } | undefined): s
   // their Ask/Disagree payloads; without it here a label-only rename left the
   // strip and the review item naming the OLD factor. Position is still NOT
   // read, so a drag never rebuilds either reader.
-  const parts: unknown[] = [inner?.label, readFactorDisplayValue(inner)]
+  const parts: unknown[] = [inner?.label, inner?.provenance, readFactorDisplayValue(inner)]
   // `display_value` is included because `factorDisplayText` prefers it, so a
   // producer changing only that would otherwise be invisible here.
   if (obs) parts.push(obs.value, obs.raw_value, obs.unit, obs.cap, obs.source, obs.display_value)
@@ -528,6 +530,9 @@ export function buildModelStrip(
   }
 
   return {
+    provisionalGoalLabel: goalNodeId !== null && nodes.filter((n) => resolveNodeTypeLiteral(n) === 'goal').length === 1
+      && (nodes.find((n) => n.id === goalNodeId)?.data as { provenance?: unknown } | undefined)?.provenance === 'ai_inferred'
+      ? goalLabel : null,
     // The decision node names the question when no goal node does; both are
     // the thing the rows are about, so either serves as the header.
     goalLabel: goalLabel ?? decisionLabel,

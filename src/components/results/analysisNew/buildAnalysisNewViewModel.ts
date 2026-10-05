@@ -42,6 +42,7 @@
  */
 
 import { formatThresholdFigure } from './thresholdFigure'
+import { conditionalInputBasis } from './conditionalInputBasis'
 import { classifyUnit } from '../../../utils/unitClassifier'
 import { truncateAtWordBoundary } from '../../../utils/text'
 import { leaderDesignationPermitted, rankingWasWithheld } from '../leaderDesignation'
@@ -87,7 +88,7 @@ import { isLabelledZeroReason } from '../influenceScaleCopy'
 // spelling of the Resolve next register" by its own header; a second copy in
 // this surface's deck would be the mirror that drifts silently (trap 12).
 import { RESOLVE_NEXT_COPY as RESOLVE_NEXT } from '../voi/resolveNextCopy'
-import type { VoiRanking } from '../voi/voiRanking'
+import type { VoiRanking, VoiRankingRow } from '../voi/voiRanking'
 import { hasAnyGoalValue, selectGoalLeader } from '../utils/selectGoalLeader'
 import { getExpectedValue } from '../utils/getExpectedValue'
 import { formatGoalProbability } from '../utils/displayFloors'
@@ -107,6 +108,7 @@ import {
 import type {
   AnalysisNewFinding,
   AnalysisNewStatus,
+  AnalysisNewRankedItem,
   AnalysisNewViewModel,
   ContextualIntervention,
   InspectRow,
@@ -285,6 +287,8 @@ export interface AnalysisNewViewModelInputs {
   nodeValueSources?: ReadonlyMap<string, string>
   /** `AcceptedFigureBinding`: Olumi's figures the user ACCEPTED, bound to the displayed Run (52f8cd; CODEX UI 5923625039). */
   acceptedFigures?: AcceptedFigureBinding
+  /** Live nodes, used only while the displayed Run is affirmatively current. */
+  analysisNodes?: readonly unknown[]
   /**
    * Node id → label, from the graph store. Lets a producer gap name the factor
    * it is about instead of repeating one anonymous sentence per unset root.
@@ -525,7 +529,9 @@ function buildKeyInsights(
   // two rows would collide on `key={f.id}`, the defect `uncertaintyKey`'s header
   // below documents at length. Two different splits for one factor contradict
   // each other anyway; the producer's first is kept.
-  const conditionalWinners: ConditionalWinner[] = conf.conditionalWinners ?? []
+  // ⛔ NOT ON A WITHHELD RANKING, for the hinge's reason (insight 5 below): "which option leads depends on X" and
+  // "Above S, A scores higher" are the leader claim restated as a split. `rankingWasWithheld`, as the hinge uses.
+  const conditionalWinners: ConditionalWinner[] = rankingWasWithheld(rec) ? [] : conf.conditionalWinners ?? []
   const seenConditionalFactors = new Set<string>()
   for (const cw of conditionalWinners) {
     if (cw.winner_flips === false) continue
@@ -1016,14 +1022,18 @@ function evidenceGapFinding(
  * that leads to a dead end. `RESOLVE_NEXT_COPY.gate` is deliberately unused
  * here for that reason.
  *
- * ⚠ AND THE LIMIT, STATED RATHER THAN HIDDEN. Ranks 2..n are named but not
- * individually focusable or actionable — `AnalysisNewFinding` carries ONE
- * `targetId` and ONE `intervention`, so only rank 1 reaches the canvas. The
- * existing tab gives every row a focus target and a `valueAffordance` act. That
- * is a real gap against it, and closing it needs either a bespoke section (a
- * second disclosure pattern this surface bans) or a mount change this lane does
- * not own. Named so the next session inherits the gap and not the impression
- * of parity.
+ * ⭐ EVERY RANK IS ACTIONABLE (SCI-HERO-DELTAS G3; #85 lease 5963583773). This
+ * used to name ranks 2..n as a sentence only, so a reader told what was worth
+ * resolving next could reach rank 1 and nothing after it, while the Analysis tab
+ * gave every row a focus target and a `valueAffordance` act. Ranks 2..n now ride
+ * `rankedItems`, which the ONE disclosure primitive renders at level 2 — no
+ * bespoke section, no second pattern. Rank 1's value act rides
+ * `valueTargetId`.
+ *
+ * ⚠ NO SECOND SELECTOR. Each item's acts come from its OWN row's `canFocus` and
+ * `valueAffordance`, which `voi/voiRanking.ts` decided; nothing here re-derives
+ * eligibility, and items keep producer wire order. `detail` keeps the same ranks
+ * as prose because the "Work through with Olumi" ask is seeded from it.
  */
 function voiFinding(voi: VoiRanking, recommendations: Recommendation[]): AnalysisNewFinding {
   const lead = voi.resolved[0]
@@ -1061,10 +1071,27 @@ function voiFinding(voi: VoiRanking, recommendations: Recommendation[]): Analysi
     // `RESOLVE_NEXT_COPY.then` is documented as "Ranks 2..n, producer wire
     // order" — this is that, as a list rather than as a per-row suffix.
     detail: rest.length > 0 ? `${RESOLVE_NEXT.then} ${rest.map((r) => r.label).join(', ')}.` : undefined,
+    ...(rest.length > 0 ? { rankedItems: rest.map(rankedVoiItem) } : {}),
     groundedIn: 'the value-of-information ranking',
     targetId: lead.canFocus ? lead.factorId : undefined,
+    ...valueActOf(lead),
     inspect,
     intervention: interventionFor(recommendations, lead.factorId),
+  }
+}
+
+/** The value act a ranked row licenses — `'none'` (not a factor) licenses none. */
+function valueActOf(r: VoiRankingRow): Pick<AnalysisNewRankedItem, 'valueTargetId' | 'valueAffordance'> {
+  return r.valueAffordance === 'none' ? {} : { valueTargetId: r.factorId, valueAffordance: r.valueAffordance }
+}
+
+/** One rank below the headline, carrying only what ITS OWN row licenses. */
+function rankedVoiItem(r: VoiRankingRow): AnalysisNewRankedItem {
+  return {
+    id: r.factorId,
+    label: r.label,
+    ...(r.canFocus ? { focusTargetId: r.factorId } : {}),
+    ...valueActOf(r),
   }
 }
 
@@ -1421,8 +1448,11 @@ function buildUncertainty(
      * slots. That row and this one are the discriminating pair.
      */
     const labelLength = truncateAtWordBoundary(text, 80)
+    // "…which option leads" presupposes a current leader; on a withheld ranking the row says the answer could move.
     const headlineText = u.threshold
-      ? `${u.threshold.variable} could change which option leads in this model`
+      ? rankingWasWithheld(data.recommendation)
+        ? `${u.threshold.variable} could change the answer in this model`
+        : `${u.threshold.variable} could change which option leads in this model`
       : labelLength === text
         ? text
         : rowTitle(u)
@@ -2416,6 +2446,7 @@ function buildAtAGlance(
   nodeOrigins?: ReadonlyMap<string, OptionOrigin>,
   analysisIdentityIsCurrent = false,
   acceptedFigures?: AcceptedFigureBinding,
+  analysisNodes?: readonly unknown[],
 ): AtAGlance {
   const rec = data.recommendation
   const { drivers, setRelative } = glanceDrivers(data)
@@ -2783,6 +2814,10 @@ function buildAtAGlance(
     influenceIsSetRelative: setRelative,
     condition,
     inputProvenance: glanceInputProvenance(data, nodeValueSources, acceptedFigures),
+    conditionalInputBasis: headline && analysisIdentityIsCurrent
+      ? conditionalInputBasis(analysisNodes, rec.currentReadInputBasis !== undefined
+        ? rec.currentReadInputBasis : rec.runAnalysisAdmission ?? rec.analysisAdmission,
+        allOptions.filter((o) => o.notAnalysed !== true && !optionComputationFailed(o.computeStatus)).map((o) => o.id)) : null,
     /**
      * ⭐⭐ GATED ON `headline && leader`, WHICH IS THE ENTITLEMENT ITSELF, NOT A
      * SECOND COPY OF IT. `headline` is non-null only where
@@ -3890,6 +3925,7 @@ export function buildAnalysisNewViewModel(
     inputs.nodeOrigins,
     analysisIdentityIsCurrent,
     inputs.acceptedFigures,
+    inputs.analysisNodes,
   )
 
   /**

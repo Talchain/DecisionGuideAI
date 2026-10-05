@@ -28,7 +28,8 @@ describe('StalenessPill', () => {
     expect(pill.getAttribute('data-freshness')).toBe('unknown')
     expect(pill.getAttribute('role')).toBe('status')
     expect(pill.getAttribute('aria-live')).toBe('polite')
-    expect(pill.textContent).toContain('Based on latest available analysis')
+    expect(pill.textContent).toContain('Cannot confirm this analysis is up to date')
+    expect(pill.textContent).not.toContain('Model changed')
   })
 
   it('uses outlined warning border on stale; pill text and icon stay text-body (DS strict)', () => {

@@ -139,6 +139,7 @@ import {
 } from '../ui/inspector-v2/useInspectorMutations'
 import { buildFactorValueEditEvent } from '../conversation/factorValueEdit'
 import { buildEdgeStrengthEditEvent, buildEdgeStrengthConfirmEvent } from '../conversation/edgeStrengthEdit'
+import { edgeStillShowsReview, type ReviewedEdgeStrength } from '../conversation/pendingEdgeEdit'
 import { captureOptimisticFactorEdit } from '../conversation/optimisticFactorEdit'
 import { USER_VALUE_STAMP } from '../domain/valueProvenance'
 import {
@@ -158,6 +159,7 @@ import {
   type SystemEventSendSettlement,
   type SystemEventSendSettlementDetail,
 } from '../conversation/settleSystemEventSend'
+import { isViewerSession } from '../../lib/viewerMode'
 
 /**
  * ⛔ A NAMED GAP, SO IT CANNOT PASS FOR A DECISION.
@@ -374,6 +376,9 @@ export type OptionInterventionSendSettlement = SystemEventSendSettlement
  */
 export type EdgeStrengthProposalOutcome = EdgeStrengthCommitOutcome | 'refused_unassertable'
 
+/** A confirmation's outcome, plus the one refusal a REVIEWED confirmation adds: the link moved since the Review. */
+export type ReviewedEdgeStrengthConfirmOutcome = EdgeStrengthConfirmOutcome | 'moved_since_review'
+
 /**
  * The outcome of ratifying a strength the server already holds.
  *
@@ -468,8 +473,11 @@ export interface ModelEditAuthorityLive {
    */
   proposeEdgeStrengthConfirmation: (
     edgeId: string,
-    opts?: { onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void },
-  ) => EdgeStrengthConfirmOutcome
+    opts?: {
+      onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void
+      reviewed?: ReviewedEdgeStrength
+    },
+  ) => ReviewedEdgeStrengthConfirmOutcome
   proposeEdgeStrength: (
     edgeId: string,
     signedMean: number,
@@ -586,6 +594,8 @@ export function useModelEditAuthority(
       opts?: { onSendSettled?: (settlement: SystemEventSendSettlement) => void },
     ): FactorValueProposalOutcome => {
       if (!activeNodeId) return 'not_encodable'
+      // ACCOUNTS viewer mode: a viewer's value edit happens NOWHERE (no local write, no send).
+      if (isViewerSession()) return 'not_encodable'
       const node = useCanvasStore.getState().nodes.find(n => n.id === activeNodeId)
       if (!node) return 'not_encodable'
       const data = node.data as Record<string, unknown>
@@ -922,6 +932,8 @@ export function useModelEditAuthority(
         onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void
       },
     ): EdgeStrengthProposalOutcome => {
+      // ACCOUNTS viewer mode: nothing happens anywhere for a viewer.
+      if (isViewerSession()) return 'refused_unassertable'
       // The hook is keyed to ONE edge. An id that is not that edge is a caller
       // holding the wrong authority — fail closed rather than write the edge it
       // happens to be keyed to, which would be an edit to an element the user
@@ -983,13 +995,22 @@ export function useModelEditAuthority(
          * that state has no way to end.
          */
         onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void
+        /**
+         * What the Review showed (Codex #2489 P1). The confirmation ratifies THAT: a link whose endpoints or server
+         * tuple moved since, or that is no longer settled, is refused visibly (`moved_since_review`), never re-read.
+         */
+        reviewed?: ReviewedEdgeStrength
       },
-    ): EdgeStrengthConfirmOutcome => {
+    ): ReviewedEdgeStrengthConfirmOutcome => {
       // Keyed to ONE edge, same fail-closed rule as `proposeEdgeStrength`: an id
       // that is not the active edge is a caller holding the wrong authority.
       if (activeEdgeId === null || edgeId !== activeEdgeId) return 'not_encodable'
       const edge = useCanvasStore.getState().edges.find(e => e.id === edgeId)
       if (!edge) return 'not_encodable'
+      if (
+        opts?.reviewed !== undefined &&
+        !edgeStillShowsReview(edge, opts.reviewed, useCanvasStore.getState().currentScenarioId ?? null)
+      ) return 'moved_since_review'
 
       const event = buildEdgeStrengthConfirmEvent({ edge })
       if (!event) return 'refused_unassertable'

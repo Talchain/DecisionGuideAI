@@ -195,6 +195,28 @@ function modelValueWouldWearARealUnit(
   return true
 }
 
+/**
+ * ⛔ CEE'S BARE-LEVEL FALLBACK IS NOT A READING (Paul's staging test, 5 Oct 2026: "Developers 4 developers → 0.2").
+ *
+ * CEE's label-echo rule (olumi-assistants-service `src/cee/transforms/analysis-ready.ts:752`, `isLabelEcho`) replaces a
+ * synthesised display that CONTAINS the factor's label with the option's bare normalised level,
+ * `String(parseFloat(level.toFixed(2)))`. So "6 developers", on a factor labelled "Developers", arrived as "0.2", and the
+ * card printed the model's internal 0–1 number beside the factor's real figure. (The CEE rule itself is a separate HIGH
+ * follow-up; this is the reader's half.)
+ *
+ * The carried display is used EXCEPT when it is exactly that fallback for THIS level AND the factor has a real unit AND
+ * a scale the UI can recover: then the UI's own chain below denormalises the level ("4 → 6 developers"). Without a real
+ * unit or a scale, CEE's value prints as before. Returns null when there is nothing to print verbatim.
+ */
+export function carriedInterventionDisplay(chip: InterventionValueInput): string | null {
+  if (!chip.displayValue) return null
+  if (chip.displayValue.trim() !== String(tierReadingNumber(chip.value))) return chip.displayValue
+  const effectiveUnit = chip.unit && !isSuppressedUnit(chip.unit) ? chip.unit : null
+  if (!effectiveUnit || !unitIsDisplayable(effectiveUnit)) return chip.displayValue
+  const scaleBase = inferInterventionScaleBase(chip.cap ?? null, chip.observedValue, chip.observedRawValue)
+  return scaleBase != null && scaleBase > 1 ? null : chip.displayValue
+}
+
 export function formatInterventionTargetText(chip: InterventionValueInput): string {
   // A13 (AUDIT-SYNTH 20260925) — a declared encoding_map is the producer's own
   // words for THIS value, and it outranks display_value here exactly as it
@@ -210,7 +232,8 @@ export function formatInterventionTargetText(chip: InterventionValueInput): stri
   // month" → "£59 / month", served `cd6a82e4`): the same compact owner the
   // factor card and the goal read (`compactCarriedReading`), so a row's "to"
   // never spells the unit one way beside a card spelling it another.
-  if (chip.displayValue) return compactCarriedReading(chip.displayValue, chip.unit) ?? chip.displayValue
+  const carried = carriedInterventionDisplay(chip)
+  if (carried) return compactCarriedReading(carried, chip.unit) ?? carried
   // Denormalise the 0–1 intervention value when a real-world scale exists.
   // Coherence fix (audit §8 P0-4): the option-card chip previously used the
   // crude `value × cap` while the on-canvas annotation used the T3-trusted

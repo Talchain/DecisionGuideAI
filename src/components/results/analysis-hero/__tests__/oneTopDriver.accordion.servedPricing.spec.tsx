@@ -20,7 +20,7 @@
  * the exact pill text.
  */
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, renderHook, screen, cleanup, within } from '@testing-library/react'
+import { fireEvent, render, renderHook, screen, cleanup, within } from '@testing-library/react'
 
 import { useCanvasStore } from '../../../../canvas/store'
 import { mapV5AnalysisToReport } from '../../../../v5/mapV5AnalysisToReport'
@@ -175,13 +175,21 @@ describe('"Top driver" appears on exactly the factor the hero names, or on no ro
     // 100% row is the lever, not the hero's main driver: the crown in words.
     const text = document.body.textContent ?? ''
     expect(text).not.toMatch(/top driver always shows 100/i)
-    // POSITIVE CONTROL: the 100% guarantee itself is still stated.
-    expect(text).toMatch(/The strongest factor always shows 100%/)
+    // POSITIVE CONTROL: the guarantee itself is still stated. In plain words by
+    // default (4 Oct 2026: no percentage unless asked for), and as the 100% it
+    // is once the figures are shown.
+    expect(text).toMatch(/The strongest factor always fills the bar/)
+    fireEvent.click(screen.getByTestId('influence-details-toggle'))
+    const detailed = document.body.textContent ?? ''
+    expect(detailed).not.toMatch(/top driver always shows 100/i)
+    expect(detailed).toMatch(/The strongest factor always shows 100%/)
   })
 
   it('nothing removed: the same rows, the same order, the same percentages, the same other pills', () => {
     seed(blockWith())
     renderDrivers(sectionData().drivers)
+    // Plain words first (4 Oct 2026): the percentages are behind "Show details".
+    fireEvent.click(screen.getByTestId('influence-details-toggle'))
     const rows = servedRows()
     expect(rows.map((r) => r.pct)).toEqual(['100%', '62%', '60%'])
     expect(renderedPills().map(([id]) => id)).toEqual([LEVER, USAGE, TOP])

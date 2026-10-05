@@ -11,6 +11,8 @@ import { EDGE_EXISTENCE_DOUBT_SENTENCE } from '../../../edges/connectorCopy'
 import { TOOLTIP_SURFACE_CLASS } from '../../../../components/Tooltip'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../hoverCardPlacement'
 import { NOT_ON_RECORD } from '../NodeHoverCard'
+import served from '../../../edges/__tests__/fixtures/journey4ServedGraph.d4e6a8ba.json'
+import { mapDraftEdgeToCanvas } from '../../../utils/applyDraftResult'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -134,5 +136,34 @@ describe('link hover pop-up', () => {
 
   it('waits for hover intent before opening', () => {
     expect(hover({ weight: 0.35, weightSource: 'cee' }, HOVER_CARD_OPEN_DELAY_MS - 100)).toBeNull()
+  })
+
+  // ⭐ BEAT 1 (Canvas lane, 4 Oct 2026): SERVED journey-4 links (fixture = wire capture 09, verbatim), through the real
+  // ingestion mapper. Bound by the link's end ids. The size is the user's business figure (visible on hover);
+  // the strength keeps Paul's 29 Sep form (the number + who stands behind it).
+  const servedLink = (from: string, to: string) => {
+    const wire = (served as { graph: { edges: Array<Record<string, unknown>> } }).graph.edges.filter((e) => e.from === from && e.to === to)
+    expect(wire).toHaveLength(1)
+    return mapDraftEdgeToCanvas(wire[0], 0).data as Record<string, unknown>
+  }
+
+  it('⭐ Beat 1: a link the user sized in the brief says its size "from your brief", and its strength "from your figure"', () => {
+    const pop = hover(servedLink('existing_customers_lost_from_price_rise', 'monthly_recurring_revenue'))!
+    expect(text(pop, 'edge-hover-size')).toBe('SizeDecrease of about £300 / month per 1 customer · from your brief')
+    expect(text(pop, 'edge-hover-strength')).toMatch(/^Strength0\.80 · from your figure$/)
+    expect(text(pop, 'edge-hover-direction')).toBe('Directionfrom your figure')
+    expect(pop.textContent).not.toMatch(/Olumi/)
+  })
+
+  it("CONTROL — the served £1,200 link, stored as Olumi's estimate, says so in both rows", () => {
+    const pop = hover(servedLink('existing_price_change_from_today', 'monthly_recurring_revenue'))!
+    expect(text(pop, 'edge-hover-size')).toMatch(/^SizeIncrease of about £1,200 \/ month per 1 ?% · Olumi's estimate$/)
+    expect(text(pop, 'edge-hover-strength')).toMatch(/· Olumi’s estimate$/)
+    expect(text(pop, 'edge-hover-direction')).toBe('DirectionOlumi’s estimate')
+  })
+
+  it('CONTROL — a link with no stored size has no Size row', () => {
+    const pop = hover({ weight: 0.35, weightSource: 'cee', direction: 'positive', directionSource: 'user' })!
+    expect(pop.querySelector('[data-testid="edge-hover-size"]')).toBeNull()
   })
 })

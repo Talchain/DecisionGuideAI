@@ -199,6 +199,7 @@ import { useReadinessStore } from '../stores/readinessStore'
 import { AskOlumiDrawer } from '../../components/results/coaching/AskOlumiDrawer'
 import { AssistantOpenedNotice } from './AssistantOpenedNotice'
 import { DefineSuccessModal, DecisionRecordModal, HowComputedModal } from '../../components/results/modals'
+import { useIsViewer } from '../../lib/viewerMode'
 
 /**
  * Map API critique format (CritiqueItemV1) to ValidationPanel format
@@ -858,6 +859,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // the rail). Defined once here and reused by the docked-Olumi close-effect
   // below, the --dock-right-offset effect, and render.
   const effectiveIsOpen = isFirstUse ? false : state.isOpen
+  // ACCOUNTS viewer mode (PANEL 5947736451): a viewer keeps the results and loses the
+  // readiness / re-analyse bars and the Run action. Only the owner can run.
+  const isViewer = useIsViewer()
 
   // Round 3 UX correction: clicking the Olumi tab CLOSES the floating panel
   // and shows the docked Olumi conversation (see handleTabClick). For the
@@ -4026,7 +4030,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                       semantic: composedAnalysisState.semantic,
                     })}
                     actionVariant="secondary"
-                    onAction={handleRunAnalysis}
+                    onAction={isViewer ? undefined : handleRunAnalysis}
                     actionDisabled={isRunning || !canRunAnalysis}
                     actionLoading={isRunning}
                     actionTitle={!canRunAnalysis && !isRunning ? runBlockedTooltip : undefined}
@@ -4283,7 +4287,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             the footer stack below is flag-gated, and hosting the control there
             would make it vanish entirely on rollback. The bar renders its own
             null when the analysis is not stale. */}
-        {effectiveIsOpen && surfaceFor(effectiveActiveTab).footerBar !== 'none' ? (
+        {effectiveIsOpen && surfaceFor(effectiveActiveTab).footerBar !== 'none' && !isViewer ? (
           <div className="flex-shrink-0" data-testid="shell-surface-footer-bar">
             {/* ⭐ ONE OWNER, TWO BARS. The gate reads the SURFACE DESCRIPTOR's
                 `footerBar` and switches on its value; it does not test a tab id

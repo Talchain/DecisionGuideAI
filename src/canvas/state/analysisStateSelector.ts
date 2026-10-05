@@ -76,7 +76,7 @@ import {
   deriveAnalysisDisplayState,
   type AnalysisDisplayStateView,
 } from '../utils/deriveAnalysisDisplayState'
-import { selectHasRenderableAnalysisResult } from '../ui/inspector-v2/useAnalysisResults'
+import { selectHasRenderableAnalysisResult, selectRunWithholdsFigures } from '../ui/inspector-v2/useAnalysisResults'
 import {
   deriveResultsTabFreshness,
   type ResultsTabFreshnessIndicator,
@@ -453,6 +453,11 @@ export interface ComposeAnalysisStateInput {
    */
   hasRenderableResult?: boolean
   /**
+   * The producer withheld the report's figures with a typed code (`selectRunWithholdsFigures`). Optional, absent ⇒
+   * false: today's headline. Gate 2 consumer (DL 0df0e1, 5 Oct).
+   */
+  figuresWithheld?: boolean
+  /**
    * Whether a run has EVER completed for this model.
    *
    * ⚠ OPTIONAL, DEFAULTING TO `true`, AND THE TRADE-OFF IS STATED RATHER THAN
@@ -753,6 +758,7 @@ export function composeAnalysisState(
     wire !== null && wireKind !== 'complete_current' && wireKind !== 'blocked'
   const displayState: AnalysisDisplayStateView = deriveAnalysisDisplayState({
     hasRenderableResult,
+    figuresWithheld: input.figuresWithheld === true,
     // Readiness under the wire branch is the PRODUCER's own readiness, not the
     // legacy `ceeAnalysisReady` slice — same producer, one less derivation.
     // `blocked` is stated by `run_state`, not by the readiness code, so it is
@@ -881,6 +887,7 @@ export function useAnalysisState(): ComposedAnalysisState {
   // Subscribed as a primitive boolean so this cannot re-render on every report
   // identity change.
   const hasRenderableResult = useCanvasStore(selectHasRenderableAnalysisResult)
+  const figuresWithheld = useCanvasStore(selectRunWithholdsFigures)
   const ceeAnalysisReadyStatus = useCanvasStore((s) => s.ceeAnalysisReady?.status)
   const { source } = useAnalysisStateSource()
 
@@ -897,6 +904,7 @@ export function useAnalysisState(): ComposedAnalysisState {
         hasReport,
         hasCompletedFirstRun,
         hasRenderableResult,
+        figuresWithheld,
         ceeAnalysisReadyStatus,
         // The Results-tab glyph is the only member gated on the aiPanelV2
         // surface, and its existing gate lives at the OutputsDock call site.
@@ -910,6 +918,7 @@ export function useAnalysisState(): ComposedAnalysisState {
       dirty,
       source,
       hasRenderableResult,
+      figuresWithheld,
       resultsStatus,
       resultsStartedAt,
       importHold,
@@ -968,6 +977,7 @@ export function selectRunAffirmedCurrent(s: ReturnType<typeof useCanvasStore.get
     hasReport: s.results?.report != null,
     hasCompletedFirstRun: s.hasCompletedFirstRun,
     hasRenderableResult: selectHasRenderableAnalysisResult(s),
+    figuresWithheld: selectRunWithholdsFigures(s),
     ceeAnalysisReadyStatus: s.ceeAnalysisReady?.status,
     aiPanelV2On: true,
   })

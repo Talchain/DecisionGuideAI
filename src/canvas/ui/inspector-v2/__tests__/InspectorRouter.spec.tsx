@@ -2,7 +2,7 @@
  * InspectorRouter — resolves selection type and renders correct panel
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { InspectorRouter } from '../InspectorRouter'
 import { useCanvasStore } from '../../../store'
 import { DECISION_NODE_LABEL } from '../../../domain/vocabulary'
@@ -245,6 +245,7 @@ describe('InspectorRouter — confidence badges are provenance-gated', () => {
     setStoreState(g.nodes, g.edges)
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={onClose} />)
     expect(screen.queryByTestId('inspector-confidence-badge')).toBeNull()
+    fireEvent.click(screen.getByTestId('edge-existence-readout').querySelector('button')!)
     expect(screen.getByTestId('edge-existence-readout').textContent ?? '').toMatch(/80%/)
   })
 

@@ -48,7 +48,7 @@
  * re-renders on reference changes.
  */
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import {
   findPathsToGoal,
@@ -113,6 +113,15 @@ export function usePathHighlight(): void {
   // Primitive selector (React #185 rule above).
   const routeFocusId = useCanvasStore((s) => s.runChangesRouteFocusId)
 
+  // ⭐ A HOVER THAT ENDS MUST NOT ERASE A STANDING ROUTE (Canvas lane, 4 Oct 2026 — beat 6). The Compare/Changes rows
+  // hover through `highlightEdge` / `clearHighlight`, which write the SAME `highlightedEdges` set the path focus below
+  // draws into, and nothing re-ran this effect on a clear: hover a row → click it (route lit) → leave wiped the route
+  // and its "Showing paths" chip under a selection that still asked for it. `drawnPath` is the path this hook drew
+  // and still stands behind (null in every other mode); the effect after this one puts exactly that back when a
+  // clear empties the set. Primitive selector (React #185 rule above).
+  const drawnPath = useRef<string[] | null>(null)
+  const highlightedEdgesEmpty = useCanvasStore((s) => s.highlightedEdges.size === 0)
+
   useEffect(() => {
     // Access store actions and state via getState() to avoid dependency array issues
     const {
@@ -136,6 +145,7 @@ export function usePathHighlight(): void {
       prominentEdgeIds: Set<string>,
       skipNodeDim: boolean,
     ) => {
+      drawnPath.current = null
       setHighlightedEdges([])
       if (!skipNodeDim) {
         setDimmedNodes(nodes.filter((n) => !prominentNodeIds.has(n.id)).map((n) => n.id))
@@ -178,6 +188,7 @@ export function usePathHighlight(): void {
      * the path stay prominent, everything else dims.
      */
     const applyPathFocus = (pathEdgeIds: string[], anchorIds: string[]) => {
+      drawnPath.current = pathEdgeIds
       setHighlightedEdges(pathEdgeIds)
 
       // Calculate dimmed nodes (not on any highlighted path)
@@ -238,6 +249,7 @@ export function usePathHighlight(): void {
         ? nodes.find((n) => n.id === selectedId)
         : undefined
     if (!selectedNode) {
+      drawnPath.current = null
       setHighlightedEdges([])
       if (!focusDimOwnsDimming) setDimmedNodes([])
       setDimmedEdges([])
@@ -296,6 +308,14 @@ export function usePathHighlight(): void {
     focusDimSourceId,
     routeFocusId,
   ])
+
+  // Declared AFTER the focus effect, so on a selection change that effect has already updated `drawnPath` when this
+  // one reads it. Restores only a non-empty path this hook drew; a hover still lights what it points at meanwhile.
+  useEffect(() => {
+    if (!highlightedEdgesEmpty) return
+    const path = drawnPath.current
+    if (path && path.length > 0) useCanvasStore.getState().setHighlightedEdges(path)
+  }, [highlightedEdgesEmpty])
 }
 
 export default usePathHighlight

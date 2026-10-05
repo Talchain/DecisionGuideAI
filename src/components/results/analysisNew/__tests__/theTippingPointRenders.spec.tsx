@@ -23,7 +23,7 @@
  * of the gate. The two fixtures differ in the two gate fields only.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
@@ -32,6 +32,8 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { manyFragileEdges } from './analysisNewFixtures'
+import { useCanvasStore } from '../../../../canvas/store'
+import { selectRunAffirmedCurrent } from '../../../../canvas/state/analysisStateSelector'
 
 /**
  * V2 RE-POINT (Reasoning V2, 24 Sep 2026). "What would change your mind" moved
@@ -122,7 +124,29 @@ const renderBody = (data: ResultsSectionDataReturn) => {
   return r
 }
 
-afterEach(cleanup)
+/**
+ * ⚠ THE RUN ON SCREEN IS CURRENT. Since #2462 (4 Oct) the tab passes the producer's thresholds to the signals row
+ * only when `selectRunAffirmedCurrent` holds (`AnalysisNewTabBody`, the ReasoningSignals mount), so a tipping point
+ * from a Run the model has moved past is never stated. This file predates that gate and never seeded a current Run,
+ * so all five positive rows went red on staging and stayed red, because DGAI PR CI runs no test shards. Seeded here
+ * the way `whatWouldChangeResult.spec.tsx` seeds it, asserted rather than assumed; the stale contrast is the last row.
+ */
+const initialCanvas = useCanvasStore.getState()
+beforeEach(() => {
+  useCanvasStore.setState({
+    hasCompletedFirstRun: true,
+    analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
+    analysisFreshnessDirty: false,
+    analysisStateV1: null,
+    importPendingServerRegistration: false,
+    results: { status: 'complete', report: { option_probabilities: { opt_a: 0.31, opt_b: 0.69 } } },
+  } as never)
+  expect(selectRunAffirmedCurrent(useCanvasStore.getState())).toBe(true)
+})
+afterEach(() => {
+  cleanup()
+  useCanvasStore.setState(initialCanvas, true)
+})
 
 describe('the tipping point reaches the screen', () => {
   it('states the found threshold, with the producer’s numbers and both names', () => {
@@ -251,5 +275,19 @@ describe('the tipping point reaches the screen', () => {
     renderBody(withFlipThresholds([REAL_ROWS[0], SECOND_FOUND], true))
     expect(screen.queryAllByTestId(SECTION_TIP).length).toBeGreaterThan(0)
     expect(screen.queryAllByTestId('analysis-new-sensitivity-row').length).toBeGreaterThan(0)
+  })
+  it('⛔ a Run the model has moved past states no tipping point (the gate the rows above are seeded through)', () => {
+    useCanvasStore.setState({ analysisFreshnessDirty: true })
+    expect(selectRunAffirmedCurrent(useCanvasStore.getState())).toBe(false)
+    render(
+      <AnalysisNewTabBody
+        resultsSectionData={withFlipThresholds(REAL_ROWS)}
+        isPreRun={false}
+        isRunning={false}
+        isStale={false}
+        responseHash="tipping_point"
+      />,
+    )
+    expect(screen.queryAllByTestId(SIGNAL_TIP)).toHaveLength(0)
   })
 })

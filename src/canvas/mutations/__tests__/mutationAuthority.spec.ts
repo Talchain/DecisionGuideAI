@@ -121,6 +121,9 @@ const EXPECTED_MOUNTED_AUTHORITY = {
     requiredEvidence:
       'accepted option_intervention_edit plus the canonical committed receipt carrying the value',
   },
+  constraintEdit: { authority: 'disabled', entrySurfaces: ['constraint editor'], requiredEvidence: 'no local constraint write mounts' },
+  edgeDirectionReversal: { authority: 'disabled', entrySurfaces: ['edge direction control'], requiredEvidence: 'no local endpoint reversal writes' },
+  optionInterventionMembership: { authority: 'disabled', entrySurfaces: ['option intervention membership'], requiredEvidence: 'no local intervention membership write mounts' },
   modelFactorConfirmation: {
     authority: 'disabled',
     entrySurfaces: ['Model factor row'],
@@ -276,6 +279,9 @@ const FROZEN_REQUIRED_EVIDENCE: Readonly<Record<string, string>> = {
     'copy makes no shared-model or analysis claim',
   modelOptionIntervention:
     'accepted option_intervention_edit plus the canonical committed receipt carrying the value',
+  constraintEdit: 'no local constraint write mounts',
+  edgeDirectionReversal: 'no local endpoint reversal writes',
+  optionInterventionMembership: 'no local intervention membership write mounts',
   modelFactorConfirmation:
     'no pointer or keyboard control mounts',
   postRunFactorValue:
@@ -472,6 +478,10 @@ describe('mutation authority is exhaustive and fail-closed', () => {
       'structuralDeleteWithServerHash',
     ])
     expect(CANONICAL_EDIT_AUTHORITY.modelOptionIntervention).toBe('server_graph')
+    // Unsupported today: visibly and truthfully unavailable, never half-working.
+    expect(CANONICAL_EDIT_AUTHORITY.constraintEdit).toBe('disabled')
+    expect(CANONICAL_EDIT_AUTHORITY.edgeDirectionReversal).toBe('disabled')
+    expect(CANONICAL_EDIT_AUTHORITY.optionInterventionMembership).toBe('disabled')
     expect(CANONICAL_EDIT_AUTHORITY.modelFactorConfirmation).toBe('disabled')
     expect(CANONICAL_EDIT_AUTHORITY.postRunFactorValue).toBe('disabled')
     expect(CANONICAL_EDIT_AUTHORITY.postRunFactorConfirmation).toBe('disabled')

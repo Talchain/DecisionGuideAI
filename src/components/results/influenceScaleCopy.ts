@@ -234,6 +234,15 @@ export const INFLUENCE_SCALE_CAPTION =
   'Influence is relative to the strongest factor. The strongest factor always shows 100%.'
 
 /**
+ * The same disclosure for the DEFAULT (plain words) view of the drivers panel,
+ * where each row shows a band and a bar and no percentage: the caption must not
+ * name a figure the reader cannot see. The exact-figure view (advanced toggle or
+ * "Show details") keeps `INFLUENCE_SCALE_CAPTION`, beside the 100% it explains.
+ */
+export const INFLUENCE_SCALE_CAPTION_PLAIN =
+  'Influence is relative to the strongest factor. The strongest factor always fills the bar.'
+
+/**
  * Basis-aware explanation for tooltips / native titles. Fail-closed: an
  * absent provenance yields the generic wording.
  */

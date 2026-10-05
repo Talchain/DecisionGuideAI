@@ -6,6 +6,8 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { EdgeDiffTable, computeEdgeDiffs } from '../EdgeDiffTable'
+import { scienceBand, scienceQuantityText } from '../../../components/science/ScienceQuantity'
+import { DetailToggleContext } from '../../components/model-tab/DetailToggleContext'
 import type { StoredRun } from '../../store/runHistory'
 
 describe('EdgeDiffTable', () => {
@@ -70,11 +72,16 @@ describe('EdgeDiffTable', () => {
   })
 
   it('shows belief context (w/b format)', () => {
-    render(<EdgeDiffTable runA={mockRunA as StoredRun} runB={mockRunB as StoredRun} />)
-
-    // Should display weight/belief for both runs
-    expect(screen.getByText('0.50')).toBeInTheDocument() // weight A
-    expect(screen.getByText('0.60')).toBeInTheDocument() // belief A
+    // #2463 plain words first: the band by default, the exact figure in the advanced view — both from the shared primitive.
+    const { unmount } = render(<EdgeDiffTable runA={mockRunA as StoredRun} runB={mockRunB as StoredRun} />)
+    const quantities = screen.getAllByTestId('science-quantity')
+    expect(quantities.some(q => q.getAttribute('data-kind') === 'strength' && q.textContent?.includes(scienceBand('strength', 0.5)))).toBe(true) // weight A
+    expect(quantities.some(q => q.getAttribute('data-kind') === 'probability' && q.textContent?.includes(scienceBand('probability', 0.6)))).toBe(true) // belief A
+    unmount()
+    render(<DetailToggleContext.Provider value={{ showDetail: true }}><EdgeDiffTable runA={mockRunA as StoredRun} runB={mockRunB as StoredRun} /></DetailToggleContext.Provider>)
+    const exact = screen.getAllByTestId('science-quantity').map(q => q.textContent ?? '')
+    expect(exact.some(t => t.includes(scienceQuantityText('strength', 0.5, true, false)))).toBe(true) // weight A
+    expect(exact.some(t => t.includes(scienceQuantityText('probability', 0.6, true, false)))).toBe(true) // belief A
   })
 
   it('displays provenance badges when present', () => {

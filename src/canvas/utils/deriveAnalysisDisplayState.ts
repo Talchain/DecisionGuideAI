@@ -81,6 +81,14 @@ export interface DeriveAnalysisDisplayStateInput {
    * completed run to the new state.
    */
   hasRenderableResult?: boolean
+  /**
+   * ⭐ GATE 2 CONSUMER (DL 0df0e1, 5 Oct; Acceptance #87 5987804248, scenario 9b9a4b81): the producer WITHHELD this
+   * Run's figures and said so with a typed code — one of `GOAL_FIGURES_WITHHELD_CODES`, read by
+   * `readGoalIdentityWithheld(report)` (Science: "the code decides, never the words"). A completed, honestly withheld
+   * Run is not "Analysis finished without a result": that headline, its warning colour and its Rerun offer read as a
+   * failure, and a rerun withholds the same figures. Absent ⇒ `false` (today's behaviour).
+   */
+  figuresWithheld?: boolean
 }
 
 export interface AnalysisDisplayCTA {
@@ -176,6 +184,18 @@ export function deriveAnalysisDisplayState(
       state: 'not_ready',
       headline: 'Set up your model',
       iconName: 'AlertCircle',
+      textColorClass: 'text-text-light',
+      cta: null,
+    }
+  }
+
+  if (hasReport && !analysisChanged && !hasRenderableResult && input.figuresWithheld === true) {
+    // The same fourth situation, said truthfully: the Run finished and the producer withheld its figures, for a reason
+    // the result surfaces state in the producer's own words ("Not shown. …"). No Rerun: it would withhold them again.
+    return {
+      state: 'ran_without_result',
+      headline: 'Analysis finished: figures not shown yet',
+      iconName: 'Check',
       textColorClass: 'text-text-light',
       cta: null,
     }

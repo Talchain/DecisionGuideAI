@@ -6,7 +6,7 @@
  * inspector is unaffected.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 
 import { InspectorRouter } from '../InspectorRouter'
 import { useCanvasStore } from '../../../store'
@@ -75,6 +75,7 @@ describe('CONTRAST — an ordinary causal edge keeps its badge and strength clai
     // structural link above shows none.
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
     expect(screen.queryByTestId('inspector-confidence-badge')).toBeNull()
+    fireEvent.click(screen.getByTestId('edge-existence-readout').querySelector('button')!)
     expect(screen.getByTestId('edge-existence-readout').textContent ?? '').toMatch(/80%/)
   })
 

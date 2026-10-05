@@ -45,9 +45,11 @@ import {
   restoreModelVersion,
   saveModelVersion,
   type ModelVersionDiff,
+  type ModelVersionResults,
   type ServerModelVersion,
 } from '../../adapters/cee/modelVersions'
-import { ServerVersionDiff } from './ServerVersionDiff'
+import { ServerVersionDiff, formatTimestamp } from './ServerVersionDiff'
+import { VersionResultDiff } from './VersionResultDiff'
 import type { SignInRefusalCause } from '../../adapters/cee/signInRefusal'
 import { applyRestoredGraph, settleRestoredModel } from './applyRestoredModel'
 import { findRestoredInterventionMismatches } from './restoreInterventionAudit'
@@ -281,7 +283,7 @@ export function defaultComparePair(
 type Comparison =
   | { kind: 'idle' }
   | { kind: 'comparing'; from: string; to: string }
-  | { kind: 'shown'; from: string; to: string; diff: ModelVersionDiff }
+  | { kind: 'shown'; from: string; to: string; diff: ModelVersionDiff; results: ModelVersionResults | null }
   | { kind: 'failed'; copy: string }
 
 export const SERVER_VERSIONS_SIGNIN =
@@ -398,21 +400,6 @@ export function provenanceLabel(provenance: string | null): string | null {
       return 'origin not recorded'
     default:
       return null
-  }
-}
-
-function formatTimestamp(iso: string): string {
-  const parsed = new Date(iso)
-  if (Number.isNaN(parsed.getTime())) return iso
-  try {
-    return parsed.toLocaleString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  } catch {
-    return parsed.toISOString()
   }
 }
 
@@ -871,7 +858,7 @@ export function ServerVersionsSection() {
     if (stale()) return
     switch (result.status) {
       case 'compared':
-        setComparison({ kind: 'shown', from, to, diff: result.diff })
+        setComparison({ kind: 'shown', from, to, diff: result.diff, results: result.results })
         return
       case 'signInRequired':
         setComparison({
@@ -1185,7 +1172,10 @@ function ServerVersionCompare({
         </p>
       )}
       {shown !== null && shownFrom !== undefined && shownTo !== undefined && (
-        <ServerVersionDiff diff={shown.diff} fromVersion={shownFrom} toVersion={shownTo} />
+        <>
+          <ServerVersionDiff diff={shown.diff} fromVersion={shownFrom} toVersion={shownTo} />
+          <VersionResultDiff results={shown.results} fromVersion={shownFrom} toVersion={shownTo} />
+        </>
       )}
     </section>
   )

@@ -17,6 +17,8 @@ import { typography } from '../../../../styles/typography'
 import { INLINE_LABELS } from '../inspectorStrings'
 import { useModelChangedSinceRun } from '../../../hooks/useModelChangedSinceRun'
 import { LAST_RUN_PREFIX } from '../../../nodes/shared/metricVocabulary'
+import { scienceBand } from '../../../../components/science/ScienceQuantity'
+import { useState } from 'react'
 
 interface ImportanceBarProps {
   /** 0..1 normalised importance score. Null → pre-analysis empty state. */
@@ -75,12 +77,14 @@ export function ImportanceBar({ importanceScore, sensitivityRank, influenceProve
    * ⚠ Called before the early return because it is a hook.
    */
   const fromLastRun = useModelChangedSinceRun()
+  const [open, setOpen] = useState(false)
   if (importanceScore == null) return null
 
   const pct = Math.max(0, Math.min(1, importanceScore)) * 100
   const rankLabel = sensitivityRank != null ? ordinalFor(sensitivityRank) : null
   // ⭐ The number needs its basis; the rank does not. See `influenceProvenance`.
   const mayStateThePercentage = influenceProvenance != null
+  const plainBand = scienceBand('influence', Math.max(0, Math.min(1, importanceScore)))
 
   return (
     <div data-testid="importance-bar">
@@ -91,7 +95,7 @@ export function ImportanceBar({ importanceScore, sensitivityRank, influenceProve
             {rankLabel}
           </span>
         )}
-        {mayStateThePercentage && (
+        {mayStateThePercentage && open && (
           <div
             className="flex-1 h-1.5 rounded-full bg-panel-border overflow-hidden"
             role="progressbar"
@@ -108,13 +112,18 @@ export function ImportanceBar({ importanceScore, sensitivityRank, influenceProve
         )}
         {mayStateThePercentage && (
           <span className={`${typography.panelMeta} text-text-body flex-shrink-0`}>
-            {Math.round(pct)}%
+            {open ? `${Math.round(pct)}%` : plainBand}
           </span>
         )}
       </div>
       <div className={`${typography.panelMeta} text-text-light mt-1`}>
         {fromLastRun ? LAST_RUN_PREFIX : ''}{INLINE_LABELS.influenceOnResults}
       </div>
+      {mayStateThePercentage && (
+        <button type="button" className="text-[11px] underline" aria-expanded={open} onClick={() => setOpen(v => !v)}>
+          {open ? 'Hide details' : 'Show details'}
+        </button>
+      )}
     </div>
   )
 }

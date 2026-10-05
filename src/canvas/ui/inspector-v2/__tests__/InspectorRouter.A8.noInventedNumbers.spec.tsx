@@ -15,7 +15,7 @@
  * not reworded or re-banded.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 
 import { InspectorRouter } from '../InspectorRouter'
 import { useCanvasStore } from '../../../store'
@@ -73,6 +73,7 @@ describe('the node header badge never renders — it was an invented mean', () =
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
     // v3.1: the head badge is gone (it repeated this readout); the carried
     // figure is still readable where the body states it.
+    fireEvent.click(screen.getByTestId('edge-existence-readout').querySelector('button')!)
     expect(screen.getByTestId('edge-existence-readout').textContent ?? '').toMatch(/80%/)
   })
 })

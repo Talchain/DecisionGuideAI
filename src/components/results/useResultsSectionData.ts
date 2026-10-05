@@ -2816,6 +2816,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // leader gate above reads the same field off `report` directly. `?? undefined`
       // folds a persisted `null` into the one absence spelling the type allows.
       runAnalysisAdmission: report?.run_analysis_admission ?? undefined,
+      currentReadInputBasis: report?.current_read_input_basis,
       // Task 6: Flip thresholds for tipping points visualisation
       flipThresholds: flipThresholds.length > 0 ? flipThresholds : undefined,
       // Display-honesty: PLoT-side classification of flip_thresholds[].

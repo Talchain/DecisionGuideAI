@@ -75,7 +75,7 @@ export function runChangesSummaryLines(
   // noise"); then the producer's "no pairs"; then signal; else the ONE noise sentence for the whole set.
   if (winSharesWithheld) movedNote = winShareWithheldReason
   else if (view.movementsUnavailable) movedNote = noPairsText(view)
-  else if (signal.length > 0) movedAll = signal.map(movementText)
+  else if (signal.length > 0) movedAll = signal.map((m) => movementText(m))
   else if (view.movements.length > 0) {
     movedNote = noiseQualifier(
       view.movements.every((m) => m.noiseVerdict === 'within_noise') ? 'within_noise' : 'not_noise_qualified',

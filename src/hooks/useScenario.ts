@@ -41,6 +41,10 @@ import { shouldPersistGraphForScenario } from '../canvas/stores/draftStore'
 import { clientCanWriteReadableGraph } from '../lib/clientGraphWritePolicy'
 import { logCanvasBreadcrumb, describeError } from '../canvas/utils/canvasBreadcrumb'
 import { deriveModelNameFromGoal } from '../canvas/domain/modelDisplayName'
+import { isViewerSession } from '../lib/viewerMode'
+import { getScenarioAccess } from '../services/scenarioSharingService'
+import { awaitCanonicalOpen, canonicalOpenSequence } from '../canvas/hydrate/canonicalOpenOutcome'
+import { track } from '../lib/telemetry'
 
 export type SaveStatus = 'saved' | 'saving' | 'error'
 
@@ -238,6 +242,9 @@ async function persistGraphNow(sid: string): Promise<boolean> {
   // the question for its own purposes.
   if (!clientCanWriteReadableGraph()) return false
   if (!shouldPersistGraphForScenario(sid)) return false
+  // ACCOUNTS viewer mode: a shared decision is view-only. The DB door refuses a
+  // member anyway; suppressing here keeps "saved" honest and the viewer quiet.
+  if (isViewerSession()) return false
   const state = useCanvasStore.getState()
   const key = graphSaveKey(state)
   await scenarioService.saveGraphViaGatedPath(
@@ -291,6 +298,33 @@ export async function flushPendingGraphSave(isPersistenceActive: boolean): Promi
  * listened to in `ReactFlowGraph`. Kept as one function so the two call sites
  * above cannot drift apart in level or transport.
  */
+/**
+ * How long a not-found row waits for CEE's canonical read to answer for the same scenario. The read is held until this
+ * load settles (`useBootServerRead`), then may retry; past this the notice reports as it always did.
+ */
+const CANONICAL_OPEN_WAIT_MS = 20_000
+
+/**
+ * ⭐ THE NOT-FOUND NOTICE ASKS THE ONE AUTHORITY (`canvas/hydrate/canonicalOpenOutcome.ts`, DL 0df0e1 5 Oct 2026).
+ * A missing Supabase row is not, on its own, "this model could not be opened". CEE's canonical graph read decides.
+ * When CEE served this same scenario, the model opened: no notice, and the row/read mismatch is COUNTED
+ * (`scenario.row_missing_canonical_ok`), never silent. When CEE refused, failed, or never answered, the notice shows as
+ * before. Run detached, because the CEE read waits for THIS load to settle, so awaiting it inside the load would stall
+ * both.
+ */
+async function decideNotFoundNotice(id: string, since: number, stillCurrent: () => boolean): Promise<void> {
+  const outcome = await awaitCanonicalOpen(id, since, CANONICAL_OPEN_WAIT_MS)
+  if (!stillCurrent()) return
+  if (outcome === 'opened') {
+    track('scenario.row_missing_canonical_ok')
+    logCanvasBreadcrumb('scenario:row_missing_canonical_ok', { scenarioIdPrefix: id.slice(0, 8) })
+    return
+  }
+  notifyScenarioLoadProblem(
+    'This model could not be opened. It may have been removed, or you may not have access to it.',
+  )
+}
+
 function notifyScenarioLoadProblem(message: string): void {
   if (typeof window === 'undefined') return
   window.dispatchEvent(new CustomEvent('topbar:show-toast', {
@@ -329,6 +363,13 @@ export function useScenario(): UseScenarioReturn {
 
   // Track mounted state to avoid setState on unmounted component
   const mountedRef = useRef(true)
+  // ACCOUNTS viewer mode: each loadScenario call's number, so a viewer branch that
+  // awaited `scenario_access` never applies after a newer load started (A→B).
+  const loadSeqRef = useRef(0)
+  // …and the account it ran for: another tab can switch accounts (U1→U2) without a new
+  // load, so a U1 answer must never clear U2's canvas (Codex delta P2).
+  const userIdRef = useRef<string | null>(user?.id ?? null)
+  userIdRef.current = user?.id ?? null
   useEffect(() => {
     mountedRef.current = true
     return () => { mountedRef.current = false }
@@ -406,7 +447,7 @@ export function useScenario(): UseScenarioReturn {
       ) return
 
       const sid = scenarioIdRef.current
-      if (!isPersistenceActiveRef.current || !sid) return
+      if (!isPersistenceActiveRef.current || !sid || isViewerSession()) return
       if (!mountedRef.current) return
       // F4: only the owning mount schedules writes.
       if (!isAutosaveOwner(instanceIdRef.current)) return
@@ -498,7 +539,7 @@ export function useScenario(): UseScenarioReturn {
       if (state.currentScenarioFraming === prevState.currentScenarioFraming) return
 
       const sid = scenarioIdRef.current
-      if (!isPersistenceActiveRef.current || !sid) return
+      if (!isPersistenceActiveRef.current || !sid || isViewerSession()) return
       if (!mountedRef.current) return
       // F4: only the owning mount schedules writes.
       if (!isAutosaveOwner(instanceIdRef.current)) return
@@ -622,7 +663,7 @@ export function useScenario(): UseScenarioReturn {
     // Check on mount and subscribe for changes
     const tryAutoTitle = () => {
       const sid = scenarioIdRef.current
-      if (!isPersistenceActiveRef.current || !sid) return
+      if (!isPersistenceActiveRef.current || !sid || isViewerSession()) return
       // F4: only the owning mount writes the auto-title.
       if (!isAutosaveOwner(instanceIdRef.current)) return
       if (titleAutoSetForScenarioRef.current === sid) return
@@ -632,6 +673,13 @@ export function useScenario(): UseScenarioReturn {
       const existingTitle = framingObj?.title
       if (existingTitle && typeof existingTitle === 'string' && existingTitle.trim().length > 0) {
         titleAutoSetForScenarioRef.current = sid
+        if (existingTitle.trim() !== lastSavedTitleRef.current) {
+          scenarioService.saveTitle(sid, existingTitle.trim()).then(() => {
+            lastSavedTitleRef.current = existingTitle.trim()
+          }).catch((err) => {
+            console.error('[useScenario] Title sync failed:', err)
+          })
+        }
         return
       }
 
@@ -745,6 +793,9 @@ export function useScenario(): UseScenarioReturn {
   const loadScenario = useCallback(
     async (id: string): Promise<void> => {
       if (!isPersistenceActive) return
+      const loadSeq = ++loadSeqRef.current
+      const loadUserId = userIdRef.current
+      const canonicalSince = canonicalOpenSequence()
 
       /**
        * ⛔ A MODEL THAT WILL NOT LOAD MUST SAY SO — ON A PRODUCTION BUILD.
@@ -794,8 +845,42 @@ export function useScenario(): UseScenarioReturn {
           phase: 'not_found',
           scenarioId: id,
         })
-        notifyScenarioLoadProblem(
-          'This model could not be opened. It may have been removed, or you may not have access to it.',
+        // ACCOUNTS viewer mode: a decision SHARED with this user is hidden from the
+        // Supabase read by design (scenarios RLS stays owner-only); its model
+        // arrives through CEE's member read, which this load's settle unblocks.
+        // Asked fresh here rather than read from the flag, which may not have
+        // landed yet. A failed answer is 'none', so the notice still shows.
+        const accessAnswer = await getScenarioAccess(id)
+        // The answer is about THIS load only: a newer load (A→B), an unmount or a
+        // sign-out since the await means it says nothing about what is on screen.
+        if (
+          loadSeqRef.current !== loadSeq ||
+          !mountedRef.current ||
+          !isPersistenceActiveRef.current ||
+          userIdRef.current !== loadUserId
+        ) return
+        if (accessAnswer === 'viewer') {
+          // Open the viewed decision on a CLEAN SLATE under its own id, as an owner's
+          // load does with its row: otherwise the previously open decision (its
+          // model, id and Run) stays on screen, the route is not adopted over a
+          // non-empty canvas, and CEE's read would be refused or merged into the
+          // wrong model. The model and its Run then arrive from CEE's member read.
+          useCanvasStore.getState().hydrateGraphSlice({ nodes: [], edges: [], currentScenarioId: id })
+          useCanvasStore.setState({
+            currentScenarioFraming: null,
+            isDirty: false,
+            analysisStateReady: false,
+            rawV2Response: null,
+            results: createIdleResults(),
+            previousReport: null,
+          })
+          return
+        }
+        void decideNotFoundNotice(id, canonicalSince, () =>
+          loadSeqRef.current === loadSeq &&
+          mountedRef.current &&
+          isPersistenceActiveRef.current &&
+          userIdRef.current === loadUserId,
         )
         return
       }

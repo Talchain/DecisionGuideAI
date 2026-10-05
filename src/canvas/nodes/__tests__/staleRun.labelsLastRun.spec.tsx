@@ -55,7 +55,7 @@
  * from the card face); absences are document-wide and so cover the popover.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
@@ -334,16 +334,20 @@ describe('factor card, below the legibility floor — the reduced line', () => {
 })
 
 describe('inspector — ImportanceBar (the one renderer all four panels mount)', () => {
-  it('a stale run keeps the ordinal and percentage and labels the caption', () => {
+  // Re-pinned after #2467 (plain words first, the figure on request): the face says the INFLUENCE band in the Drivers
+  // panel's words (it said "Low confidence" for a 62% influence), and 62% is kept behind "Show details".
+  it('a stale run keeps the ordinal, the influence band and (behind Show details) the percentage, and labels the caption', () => {
     seedCompletedRun(UNVALUED)
     render(<><TrustProbe /><ImportanceBar importanceScore={0.62} sensitivityRank={1} influenceProvenance="normalised_elasticity" /></>)
     expect(semantic()).toBe('current')
     const bar = screen.getByTestId('importance-bar')
-    expect(bar.textContent).toBe('1st62%Influence on results')
+    expect(bar.textContent).toBe('1stHigh-impact driverInfluence on resultsShow details')
 
     editTheModel()
     expect(semantic()).toBe('changed')
-    expect(screen.getByTestId('importance-bar').textContent).toBe('1st62%Last run · Influence on results')
+    expect(screen.getByTestId('importance-bar').textContent).toBe('1stHigh-impact driverLast run · Influence on resultsShow details')
+    fireEvent.click(screen.getByRole('button', { name: 'Show details' }))
+    expect(screen.getByTestId('importance-bar').textContent).toBe('1st62%Last run · Influence on resultsHide details')
   })
 })
 

@@ -8,7 +8,7 @@
  *
  * Rows:
  *   VC1  the default pair (the version before the head → the head) → Compare → ONE POST to the compare route carrying
- *        only the two ids (+ legacy user_id) and the bearer token → every category's rows render CEE's words verbatim;
+ *        only the two ids (+ legacy user_id, + the 0.74 `response_schema` opt-in) and the bearer token → every category's rows render CEE's words verbatim;
  *        presentation is collapsed; the coverage notes show.
  *   VC2  a body that fails the published contract → no diff, the honest "try again" line. CONTRAST: VC1.
  *   VC3  an answer about a different pair → refused, no diff.
@@ -117,7 +117,8 @@ describe('VC1 · the default pair, compared through the real client, rendered ve
     const [url, init] = compareCalls()[0] as [string, RequestInit]
     expect(url).toBe(`/bff/cee/scenarios/${SCENARIO}/versions/compare`)
     expect(init.method).toBe('POST')
-    expect(JSON.parse(String(init.body))).toEqual({ user_id: USER, from_version_id: V_FROM, to_version_id: V_TO })
+    // 0.74: the request also asks for the recorded results (`ServerVersionsSection.results.spec`); nothing else.
+    expect(JSON.parse(String(init.body))).toEqual({ user_id: USER, from_version_id: V_FROM, to_version_id: V_TO, response_schema: 'model_version_diff.v2' })
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer token-for-USER')
 
     expect(within(diff).getByText('v1 · Before → v6 · After')).toBeInTheDocument()

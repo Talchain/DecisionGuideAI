@@ -25,11 +25,10 @@
  *
  * ## Case (d) is the contrast control (standing brief §2/§3)
  *
- * Deleting the hint branch could be done two ways: removing the one dishonest
- * branch, or gutting `inferLoadingHint` so everything falls through to
- * "Thinking…". Case (d) proves the function still discriminates — a sibling
- * branch that is TRUE of the product still fires. Without it, case (c) passes
- * just as well against a function that returns a constant.
+ * User wording alone does not identify the operation in flight. Case (d)
+ * keeps ordinary messages neutral while the caller's explicit_generate turn
+ * type still names model construction, even when its brief mentions a run.
+ * A constant hint fails that typed positive control.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
@@ -116,9 +115,13 @@ describe('the outside-view chip is truthful about what it can do', () => {
     expect(inferLoadingHint('research the base rates', 3)).not.toBe('Researching evidence…')
   })
 
-  it('(d) CONTRAST — a hint that IS true of the product still fires', () => {
-    expect(inferLoadingHint('analyse my options', 3)).toBe('Analysing your options…')
-    expect(inferLoadingHint('explain this to me', 3)).toBe('Preparing explanation…')
-    expect(inferLoadingHint('hello there', 3)).toBe('Thinking…')
+  it('(d) names only the operation supplied by the caller, not one inferred from user words', () => {
+    for (const message of ['analyse my options', 'explain this to me', 'run through this assumption', 'turn this idea over', 'hello there']) {
+      expect(inferLoadingHint(message, 3)).toBe('Thinking…')
+    }
+    expect(inferLoadingHint('build a model and run it', 3, 'explicit_generate'))
+      .toBe('Building your decision model…')
+    expect(inferLoadingHint('find evidence on this', 3, 'explicit_generate'))
+      .toBe('Building your decision model…')
   })
 })

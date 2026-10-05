@@ -161,6 +161,28 @@ export interface BuildEdgeStrengthEditArgs {
 }
 
 /**
+ * ⭐ DOES THIS `set` CHANGE NOTHING THE SERVER HOLDS? CEE's own rule, mirrored exactly (`edge-strength-edit.ts`,
+ * `set_target_unchanged`): the magnitude asked for IS the server-stated `|mean|`, and the direction is preserved or
+ * restated as it already is. CEE refuses every such `set` — *"That link already has exactly that strength and
+ * direction, so I haven't recorded it as your judgement"* — so it is never an edit, and no caller may write or stamp
+ * it as one. Agreeing with the value that is there is `confirm_current` (`buildEdgeStrengthConfirmEvent`).
+ * Acceptance #87 5986653143 (DL 0df0e1, 5 Oct): Review "0.25 → 0.25 · Confirm" sent this `set`, CEE refused it, and
+ * the row still said "User edited".
+ */
+export function edgeStrengthEditChangesNothing(event: WireSystemEvent | null): boolean {
+  if (event === null || event.type !== 'edge_strength_edit') return false
+  const p = event.payload as {
+    readonly magnitude?: unknown
+    readonly direction_intent?: unknown
+    readonly expected?: { readonly mean?: unknown; readonly effect_direction?: unknown }
+    readonly intent?: unknown
+  }
+  if (p.intent !== 'set' || typeof p.magnitude !== 'number' || typeof p.expected?.mean !== 'number') return false
+  return p.magnitude === Math.abs(p.expected.mean)
+    && (p.direction_intent === 'preserve' || p.direction_intent === p.expected.effect_direction)
+}
+
+/**
  * Build the wire event, or `null` when the edit cannot be asserted truthfully.
  *
  * ⚠ `null` IS NOT AN ERROR AND MUST NOT SUPPRESS THE LOCAL WRITE. See

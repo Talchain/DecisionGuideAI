@@ -68,6 +68,7 @@
 
 import type { RunDelta, RunDeltaInputChange } from '@talchain/schemas/boundary'
 import { formatRawValueWithUnit } from '../../../canvas/utils/labelUtils'
+import { scienceBand } from '../../../components/science/ScienceQuantity'
 
 export type NoiseVerdict = 'signal' | 'within_noise' | 'not_noise_qualified'
 
@@ -144,7 +145,15 @@ export interface RunDeltaView {
   readonly inputs: RunDeltaInputsView | null
   /** "Compared with the earlier run at 14:02" — the EARLIER Run named as earlier (AIQ 5915390400 gate 3). */
   readonly comparedWith: string | null
+  /**
+   * WHICH PAIR THE WORDS DESCRIBE. Absent = `rerun`: this analysis vs the previous one (Compare tab, canvas strip).
+   * `versions`: the recorded results of two saved versions (schemas 0.74 `result_comparison`), where `prior` is the
+   * version compared FROM and may be the LATER Run, so nothing may say "earlier", "previous" or "last time".
+   */
+  readonly frame?: RunDeltaFrame
 }
+
+export type RunDeltaFrame = 'rerun' | 'versions'
 
 /** One exact input difference, as sentence parts. Nothing here is computed: before/after are the producer's values. */
 export interface RunDeltaInputRow {
@@ -262,6 +271,24 @@ const COMPARABILITY: Record<RunDelta['attribution_case'], string> = {
 const C0_PARTIAL_COMPARABILITY =
   "This analysis was worked out the same way as the previous one, but Olumi can't confirm that every input was the same between these runs."
 
+/**
+ * THE SAME CLAIMS, FOR TWO SAVED VERSIONS (`frame: 'versions'`). Each sentence keeps its rerun twin's scope word for
+ * word; only the two things compared are renamed, because "this analysis" and "the previous one" are false nouns when
+ * the user compares a later version FROM and an earlier one TO. Never "earlier", "previous" or "last time".
+ */
+const COMPARABILITY_VERSIONS: Record<RunDelta['attribution_case'], string> = {
+  C1_attributable: 'The only difference between these two recorded results is a change to the model.',
+  C0_identical:
+    'Nothing the analysis uses differed between these two recorded results, and they were worked out the same way.',
+  C2_unpaired: 'These two recorded results drew different random samples.',
+  C3_engine_drift: 'The way these two results were worked out changed between them.',
+  C4_budget_drift: 'These two recorded results were worked out to different levels of precision.',
+  C5_unattributed: 'Whether these two recorded results were worked out the same way cannot be confirmed.',
+}
+
+const C0_PARTIAL_COMPARABILITY_VERSIONS =
+  "These two recorded results were worked out the same way, but Olumi can't confirm that every input was the same between them."
+
 const CANNOT_ESTABLISH =
   'Whether a change to the model explains anything below cannot be established from this pair.'
 
@@ -312,8 +339,9 @@ function foldSizingAndStrength(rows: RunDeltaInputRow[]): RunDeltaInputRow[] {
   return out.filter((r) => !folded.has(r))
 }
 
-function formatInputValue(v: { raw: number | string | boolean; unit?: string } | null): string | null {
+function formatInputValue(v: { raw: number | string | boolean; unit?: string } | null, field?: string): string | null {
   if (v === null) return null
+  if (field === 'strength' && typeof v.raw === 'number') return scienceBand('strength', v.raw)
   if (typeof v.raw === 'number') return formatRawValueWithUnit(v.raw, v.unit ?? null)
   if (typeof v.raw === 'boolean') return v.raw ? 'on' : 'off'
   return v.unit ? `${v.raw} ${v.unit}` : v.raw
@@ -378,6 +406,7 @@ export function buildRunDeltaView(
   delta: RunDelta,
   labelFor: (optionId: string) => string | null,
   nodeLabelFor: (nodeId: string) => string | null = () => null,
+  frame: RunDeltaFrame = 'rerun',
 ): RunDeltaView {
   const attributable = delta.attribution_case === 'C1_attributable'
 
@@ -399,7 +428,10 @@ export function buildRunDeltaView(
     typeof currentId === 'string' && currentId.length > 0
 
   return {
-    comparability: c0Partial ? C0_PARTIAL_COMPARABILITY : COMPARABILITY[delta.attribution_case],
+    comparability:
+      frame === 'versions'
+        ? c0Partial ? C0_PARTIAL_COMPARABILITY_VERSIONS : COMPARABILITY_VERSIONS[delta.attribution_case]
+        : c0Partial ? C0_PARTIAL_COMPARABILITY : COMPARABILITY[delta.attribution_case],
     attributable,
     attributionLimit: c0Partial ? CANNOT_ESTABLISH : ATTRIBUTION_LIMIT[delta.attribution_case],
     movements,
@@ -428,17 +460,20 @@ export function buildRunDeltaView(
               optionId: row.option_id ?? null,
               linkEnds: row.link ? { from: row.link.from, to: row.link.to } : null,
               subject: inputSubject(row, labelFor, nodeLabelFor),
-              before: formatInputValue(row.before),
-              after: formatInputValue(row.after),
+              before: formatInputValue(row.before, row.field),
+              after: formatInputValue(row.after, row.field),
               change: row.change,
               field: row.field,
               linkLabels: row.link ? { from: nodeLabelFor(row.link.from), to: nodeLabelFor(row.link.to) } : null,
               strength: null,
             }))),
           },
+    // `versions`: the surface names both versions and their own dates; "the earlier run" may be the LATER one there.
     comparedWith: (() => {
+      if (frame === 'versions') return null
       const at = clockOf(delta.endpoints?.prior.computed_at)
       return at !== null ? `Compared with the earlier run at ${at}.` : null
     })(),
+    ...(frame === 'versions' ? { frame } : {}),
   }
 }

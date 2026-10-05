@@ -25,7 +25,7 @@
  * ('scale', 'index') are a different classification with their own guards.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
@@ -36,8 +36,11 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { openAllSections } from './openNamedGroups'
 import { genuineDecision } from './analysisNewFixtures'
+import { seedCurrentRun } from './seedCurrentRun'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
+// A current Run: since #2462 the tipping row is passed thresholds only on one (see seedCurrentRun.ts).
+beforeEach(seedCurrentRun)
 afterEach(cleanup)
 
 /** Shaped to reproduce the witnessed sentence; a fixture, not a wire capture. */

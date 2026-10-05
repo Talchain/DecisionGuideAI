@@ -14,11 +14,19 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 
 import served from './fixtures/served-deep-link-2d5982b5-b0d5ea2d.read.json'
-import { useServerGraphHydration } from '../useServerGraphHydration'
+import { useServerGraphHydration, __resetRouteAdoptedScenarioForTests } from '../useServerGraphHydration'
 import { useCanvasStore } from '../../store'
 import { logger } from '../../../lib/logger'
 import { buildV5Payload } from '../../../v5/buildPayload'
 import { isUUID } from '../../../services/turn-request-builder'
+import {
+  claimColdLoadDeepLink,
+  keyedAutosaveSlot,
+  MAIN_AUTOSAVE_SLOT,
+  __resetColdLoadDeepLinkForTests,
+} from '../../hydrate/coldLoadDeepLink'
+import * as scenarios from '../../store/scenarios'
+import { projectAutosaveData, autosaveSourceFromStore } from '../../store/autosaveProjection'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -41,6 +49,10 @@ const PRISTINE = useCanvasStore.getState()
 
 function freshBrowser(over: Record<string, unknown> = {}): void {
   localStorage.removeItem(POINTER)
+  localStorage.removeItem(MAIN_AUTOSAVE_SLOT)
+  for (const id of [SID, OTHER]) localStorage.removeItem(keyedAutosaveSlot(id))
+  __resetColdLoadDeepLinkForTests()
+  __resetRouteAdoptedScenarioForTests() // module state: a row's adoption must not answer for the next row
   useCanvasStore.setState(PRISTINE, true)
   useCanvasStore.setState({
     currentScenarioId: null, nodes: [], edges: [], goalConstraints: null, lastAuthoritativeGraph: null,
@@ -50,6 +62,20 @@ function freshBrowser(over: Record<string, unknown> = {}): void {
     ...over,
   } as never)
 }
+
+/**
+ * A browser that worked on OTHER in an earlier page: its pointer and its autosave (the REAL writer), and the store as
+ * module load seeds it from that pointer. Returns the autosave's bytes.
+ */
+function rememberOther(): string {
+  freshBrowser({ currentScenarioId: OTHER, nodes: [{ id: 'other_goal', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Another decision' } }] })
+  scenarios.setCurrentScenarioId(OTHER)
+  scenarios.saveAutosave(projectAutosaveData(autosaveSourceFromStore(useCanvasStore.getState())))
+  const raw = localStorage.getItem(MAIN_AUTOSAVE_SLOT) as string
+  useCanvasStore.setState({ currentScenarioId: scenarios.getCurrentScenarioId(), nodes: [], edges: [] })
+  return raw
+}
+const fetchedIds = () => fetchSpy.mock.calls.map((c) => String(c[0])).map((u) => (u.includes(OTHER) ? OTHER : u.includes(SID) ? SID : u))
 
 /** A different saved scenario whose model shares no element with the linked one (the merge must refuse it). */
 const OTHER_READ = {
@@ -89,6 +115,8 @@ describe('⭐ a fresh deep link binds the scenario it opens', () => {
 
   it('⭐ the route id becomes the current scenario, and the saved Run is restored, not declined', async () => {
     freshBrowser()
+    // CanvasMVP's order: the cold-load claim, then the hook. Nothing is remembered, so the claim declines (#2383's path).
+    expect(claimColdLoadDeepLink(SID)).toBe('declined')
     renderHook(() => useServerGraphHydration(SID))
     await waitFor(() => expect(useCanvasStore.getState().analysisStateV1?.run_state.kind).toBe('complete_current'))
     const st = useCanvasStore.getState()
@@ -100,12 +128,64 @@ describe('⭐ a fresh deep link binds the scenario it opens', () => {
     expect(declines()).toEqual([])
   })
 
-  it('CONTROL: a scenario the store already holds (autosave / draft) still wins; the link is only read, never adopted', async () => {
+  // ⭐ FLIPPED (Canvas, DL 0df0e1, 4 Oct 2026). This row used to say a scenario the browser REMEMBERS (its autosave)
+  // still wins over a link. It measured a different object: its store id came from nowhere the browser remembers. The
+  // remembered case is below, and there the link now wins (`hydrate/coldLoadDeepLink.ts`).
+  it('⭐ a scenario the browser REMEMBERS (pointer + autosave) gives way to a cold-load link: the link is read and adopted, the remembered one never read', async () => {
+    const otherRaw = rememberOther()
+    expect(useCanvasStore.getState().currentScenarioId, 'precondition: the store seeds the remembered id').toBe(OTHER)
+    expect(claimColdLoadDeepLink(SID)).toBe('applied')
+    renderHook(() => useServerGraphHydration(SID))
+    await waitFor(() => expect(useCanvasStore.getState().analysisStateV1?.run_state.kind).toBe('complete_current'))
+    expect(useCanvasStore.getState().currentScenarioId).toBe(SID)
+    expect(fetchedIds()).toEqual([SID])
+    expect(localStorage.getItem(POINTER)).toBe(SID)
+    expect(localStorage.getItem(keyedAutosaveSlot(OTHER))).toBe(otherRaw)
+    expect(declines()).toEqual([])
+  })
+
+  it('after a cold-load claim, link to link re-reads the new link, and the write target stays on the model on screen', async () => {
+    rememberOther()
+    expect(claimColdLoadDeepLink(SID)).toBe('applied')
+    const { rerender } = renderHook(({ id }) => useServerGraphHydration(id), { initialProps: { id: SID } })
+    await waitFor(() => expect(useCanvasStore.getState().analysisStateV1?.run_state.kind).toBe('complete_current'))
+    rerender({ id: OTHER })
+    await waitFor(() => expect(fetchedIds()).toEqual([SID, OTHER]))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(useCanvasStore.getState().currentScenarioId).toBe(SID)
+  })
+
+  it('CONTROL: a scenario the store got IN THIS PAGE (a draft, a turn), with nothing remembered, still wins; the link is not adopted', async () => {
     freshBrowser({ currentScenarioId: OTHER })
+    expect(claimColdLoadDeepLink(SID)).toBe('declined')
     renderHook(() => useServerGraphHydration(SID))
     await waitFor(() => expect(fetchSpy).toHaveBeenCalled())
     expect(useCanvasStore.getState().currentScenarioId).toBe(OTHER)
+    expect(fetchedIds()).toEqual([OTHER])
     expect(localStorage.getItem(POINTER)).toBeNull()
+  })
+
+  it('CONTROL: a link opened LATER in the page (in-app navigation) never supersedes the remembered scenario', async () => {
+    rememberOther()
+    expect(claimColdLoadDeepLink(undefined)).toBe('declined') // the page's first canvas mount was `/canvas`
+    expect(claimColdLoadDeepLink(SID)).toBe('not_first')
+    renderHook(() => useServerGraphHydration(SID))
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalled())
+    expect(useCanvasStore.getState().currentScenarioId).toBe(OTHER)
+    expect(fetchedIds()).toEqual([OTHER])
+    expect(localStorage.getItem(POINTER)).toBe(OTHER)
+  })
+
+  it('CONTROL (signed in): the read held for the Supabase load starts ONCE, for the link, never for the remembered id', async () => {
+    rememberOther()
+    expect(claimColdLoadDeepLink(SID)).toBe('applied')
+    const { rerender } = renderHook(({ enabled }) => useServerGraphHydration(SID, { enabled }), { initialProps: { enabled: false } })
+    await new Promise((r) => setTimeout(r, 20))
+    expect(fetchSpy).not.toHaveBeenCalled()
+    rerender({ enabled: true })
+    await waitFor(() => expect(useCanvasStore.getState().analysisStateV1?.run_state.kind).toBe('complete_current'))
+    expect(fetchedIds()).toEqual([SID])
+    expect(useCanvasStore.getState().currentScenarioId).toBe(SID)
   })
 
   it('CONTROL: an unsaved local DRAFT (nodes on the canvas, no id) is never retargeted at the link (CODEX UI BUDDY 5923937552)', async () => {
@@ -115,6 +195,7 @@ describe('⭐ a fresh deep link binds the scenario it opens', () => {
     const draftIds = useCanvasStore.getState().nodes.map((n) => n.id)
     expect(draftIds, 'precondition: the draft has a node and no scenario').toHaveLength(1)
     expect(useCanvasStore.getState().currentScenarioId).toBeNull()
+    expect(claimColdLoadDeepLink(SID)).toBe('declined')
     renderHook(() => useServerGraphHydration(SID))
     await waitFor(() => expect(fetchSpy).toHaveBeenCalled())
     await new Promise((r) => setTimeout(r, 20))
@@ -125,6 +206,7 @@ describe('⭐ a fresh deep link binds the scenario it opens', () => {
 
   it('CONTROL: an id CEE cannot address is never adopted', async () => {
     freshBrowser()
+    expect(claimColdLoadDeepLink('local-draft-1')).toBe('declined')
     renderHook(() => useServerGraphHydration('local-draft-1'))
     await new Promise((r) => setTimeout(r, 20))
     expect(useCanvasStore.getState().currentScenarioId).toBeNull()

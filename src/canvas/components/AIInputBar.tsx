@@ -31,6 +31,7 @@ import {
   messageForSettlingAfterCoaching,
 } from './DraftLoadingAnimation'
 import { useDraftStore, draftStreamPhaseFor, draftStreamInFlight } from '../stores/draftStore'
+import { useIsViewer, VIEWER_COMPOSER_NOTICE } from '../../lib/viewerMode'
 
 export type AIInputBarVariant = 'strip' | 'docked-tab' | 'floating' | 'first-use' | 'welcome'
 
@@ -237,6 +238,7 @@ export const AIInputBar = memo(
     },
     ref,
   ) {
+    const isViewer = useIsViewer()
     const { draft, setDraft, clearDraft, sendMessage, dispatchAction, isThinking, cancelTurn } =
       useConversationContext()
     const stagePlaceholder = useStageAwarePlaceholder()
@@ -760,6 +762,18 @@ export const AIInputBar = memo(
         </span>
       </div>
     ) : null
+
+    // ACCOUNTS viewer mode: a decision shared WITH this user is view-only, and the
+    // owner's conversation is never sent to them. ONE gate for all three mounts
+    // (floating panel, first-use hero, docked strip): the composer and its Run
+    // control become a plain notice. Placed after every hook.
+    if (isViewer) {
+      return (
+        <p data-testid="viewer-composer-notice" className={typo('chatBody', 'text-text-light px-3 py-2')}>
+          {VIEWER_COMPOSER_NOTICE}
+        </p>
+      )
+    }
 
     return (
       <>

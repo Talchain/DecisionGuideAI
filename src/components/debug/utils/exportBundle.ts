@@ -165,7 +165,7 @@ import { useUIStore } from '@/stores/uiStore'
 // The panels' own content check — "a populated report is not a result unless
 // something in it is renderable". Imported, not restated, so `analysis_gate`
 // records the same fork the panels act on (see `analysis_gate`).
-import { selectHasRenderableAnalysisResult } from '../../../canvas/ui/inspector-v2/useAnalysisResults'
+import { selectHasRenderableAnalysisResult, selectRunWithholdsFigures } from '../../../canvas/ui/inspector-v2/useAnalysisResults'
 
 // =============================================================================
 // Feature Flag
@@ -3500,6 +3500,7 @@ export async function captureDisplayState(
       hasRenderableResult: selectHasRenderableAnalysisResult(
         state as { results?: { report?: unknown } },
       ),
+      figuresWithheld: selectRunWithholdsFigures(state as { results?: { report?: unknown } }),
       ceeAnalysisReadyStatus: ceeStatus,
       aiPanelV2On: true,
     })

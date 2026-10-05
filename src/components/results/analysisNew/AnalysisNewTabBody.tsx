@@ -51,6 +51,8 @@ import { useCallback, useMemo, useRef, useState, useEffect } from 'react'
 import { AlertTriangle, Star, TrendingUp, GitBranch } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
+import { openModelValueEditor } from '../../../canvas/nodes/shared/openModelValueEditor'
+import { resolveNodeTypeLiteral } from '../../../canvas/domain/nodes'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { attentionNoteForRecommendation } from '../strengthen/recommendationAttention'
@@ -69,6 +71,9 @@ import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
 import { buildNodeInsights, mentionSectionsFrom } from './nodeInsights'
 import { buildModelStrip, stripRendersTargetAffordance } from './buildModelStrip'
 import { useCanvasStore } from '../../../canvas/store'
+import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
+import { selectRunAffirmedCurrent } from '../../../canvas/state/analysisStateSelector'
+import { selectWinSharesWithheld } from '../../../canvas/state/winShareGate'
 import { SUCCESS_MEASURE_RECOMMENDATION_ID } from '../strengthen/buildRecommendations'
 import { WhyNoAnalysisYet } from './sections/WhyNoAnalysisYet'
 import { useAnalysisRunState } from '../analysisState/useAnalysisRunState'
@@ -114,6 +119,7 @@ import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import { buildCommitmentQualifier } from './commitmentQualifier'
 import { allOptionsOriginSentence } from './optionOriginDisclosure'
+import { useIsViewer } from '../../../lib/viewerMode'
 
 /**
  * ⭐ THIS TAB OPTS IN TO CORRECTING AN ESTIMATE WHERE IT IS STATED, and says so
@@ -682,6 +688,9 @@ export function AnalysisNewTabBody({
   onSendMessage,
   blockedListing = null,
 }: AnalysisNewTabBodyProps) {
+  const runAffirmedCurrent = useCanvasStore(selectRunAffirmedCurrent)
+  const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
+  const sendScienceChip = useGuidanceStore((s) => s._sendChip)
   /**
    * ⭐ THE PRESENTATION PREDICATE, IN THE SHAPE THE OTHER READERS OF THIS
    * VERDICT ALREADY USE (`AnalysisReadinessBar`, `PanelFooter`, and the dock's
@@ -1169,7 +1178,10 @@ export function AnalysisNewTabBody({
    * against, so no door.
    */
   const resultsStatus = useCanvasStore((state) => state.results?.status)
-  const canCaptureDecision = hasAnalysedOptions(nodes, resultsStatus)
+  // ACCOUNTS viewer mode (MG 5951262086): a decision record is the OWNER's own; CEE
+  // `/commit` refuses a non-owner, so a viewer is never offered "Record your view".
+  const isViewer = useIsViewer()
+  const canCaptureDecision = hasAnalysedOptions(nodes, resultsStatus) && !isViewer
   /**
    * ⭐ WHAT HAPPENED TO THE LATEST ATTEMPT, when it did not produce what is on
    * screen: refused (CEE's typed refusal) or failed (`results.status`). Until
@@ -1715,6 +1727,24 @@ export function AnalysisNewTabBody({
   )
 
   /**
+   * ⭐ "INSPECT IN MODEL" OPENS THE GROUP ITS SUBJECT LIVES IN. The Challenge
+   * zone's tipping point, driver and gap rows name a FACTOR, and binding them
+   * straight to `onReviewTarget` sent the factor to RELATIONSHIPS — the dock's
+   * route for edges — with the Factors group shut. So the reader asked to look at
+   * the factor a tipping point names landed in the wrong group (#85 5963788754).
+   *
+   * A factor (the estate's predicate, as the value-of-information resolver reads
+   * it) goes to `openModelValueEditor`, the factors route's single owner; anything
+   * else keeps the dock's route. Gated on `onReviewTarget` exactly as before, so a
+   * host that offers no Model route still renders no act.
+   */
+  const inspectInModel = (targetId: string) => {
+    const node = useCanvasStore.getState().nodes.find((n) => n.id === targetId)
+    if (node && resolveNodeTypeLiteral(node) === 'factor') openModelValueEditor(targetId)
+    else onReviewTarget?.(targetId)
+  }
+
+  /**
    * ⭐⭐ WORK THROUGH THIS FINDING WITH OLUMI — the act Paul said the Reasoning
    * tab had lost, and the census agrees with him.
    *
@@ -2212,6 +2242,36 @@ export function AnalysisNewTabBody({
             leader claim is withheld that is the panel naming an order it may not
             state (the same rule #1881 applies to the panel's own leader words).
             So the thresholds are passed only when the claim is permitted. */}
+        {!isPreRun && !isBusyNow && runAffirmedCurrent && sendScienceChip ? (
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={`${typography.panelBody} ${action('secondary')}`}
+              data-testid="analysis-what-would-change-result"
+              onClick={() => sendScienceChip(
+                'What would change this?',
+                'What would most likely change this result?',
+                { id: 'agent-next-what-would-change' },
+              )}
+            >
+              What would change this?
+            </button>
+            {/* Beat 5: CEE's own "Strengthen the model" next step (NEXT_STEP_CHIPS). CEE answers it with one held
+                link-strength card and no model call, or its ordinary answer; the tab decides nothing. */}
+            <button
+              type="button"
+              className={`${typography.panelBody} ${action('secondary')}`}
+              data-testid="analysis-strengthen-model"
+              onClick={() => sendScienceChip(
+                'Strengthen the model',
+                'What would most strengthen this model?',
+                { id: 'agent-next-strengthen' },
+              )}
+            >
+              Strengthen the model
+            </button>
+          </div>
+        ) : null}
         <ChallengeCard
           title="Challenge the thinking"
           titleTestId="analysis-new-zone-also"
@@ -2230,9 +2290,10 @@ export function AnalysisNewTabBody({
         <ReasoningSignals
           vm={vm}
           noValueIds={noValueDriverIds}
-          flipThresholds={vm.leaderClaimPermitted ? resultsSectionData.recommendation.flipThresholds : undefined}
+          flipThresholds={runAffirmedCurrent && !winSharesWithheld && vm.leaderClaimPermitted ? resultsSectionData.recommendation.flipThresholds : undefined}
+          offerFactorEdit={runAffirmedCurrent && !winSharesWithheld && vm.leaderClaimPermitted}
           onFocus={focusTarget}
-          onInspect={onReviewTarget}
+          onInspect={onReviewTarget ? inspectInModel : undefined}
           onAsk={openAskOlumi}
           closedAtRest={true}
           evidenceSlot={
@@ -3258,6 +3319,11 @@ export function AnalysisNewTabBody({
                   emptyMessage={uncertaintyEmptyMessage}
                   onFocusTarget={focusTarget}
                   onReviewTarget={onReviewTarget}
+                  // ⭐ A FACTOR's value act goes to the Model tab's FACTORS editor,
+                  // through the route's one owner — never `onReviewTarget`, which
+                  // opens Relationships for an edge. "Most worth resolving next"
+                  // rows carry it for every rank (SCI-HERO-DELTAS G3).
+                  onReviewValue={openModelValueEditor}
                   onRunIntervention={runIntervention}
                   onAskOlumi={askOlumiAbout}
                   icon={AlertTriangle}

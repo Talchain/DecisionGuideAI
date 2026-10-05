@@ -533,6 +533,8 @@ export interface DecisionResultData {
    * hydrated report with no record), never a refusal.
    */
   runAnalysisAdmission?: AnalysisAdmissionV1
+  /** Disclosure only; this does not participate in claim permission or readiness. */
+  currentReadInputBasis?: ReportV1['current_read_input_basis']
   /** Task 6: Flip thresholds for tipping points visualisation */
   flipThresholds?: FlipThreshold[]
   /**

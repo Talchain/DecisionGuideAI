@@ -7,6 +7,8 @@
  * resolver for the stroke, the glyph and this card):
  *   · the contract's arrow sentence (`edgeArrowSentence`) and its doubt clause;
  *   · Direction — who stated it (`resolveEdgeDirectionDisplay`'s source);
+ *   · Size — the link's stored size in the target's own units and WHOSE it is ("from your brief" / "your
+ *     figure" / "Olumi's estimate"), from `edgeSizePhrase` (Beat 1, Canvas lane 4 Oct 2026);
  *   · Strength — the server's figure and who stands behind it
  *     (`resolveEdgeSignedStrengthDisplay` + `strengthIsHumanSettled`);
  *   · the disputed-sign, flip-risk and placeholder sentences it already said.
@@ -24,6 +26,7 @@ import { HOVER_CARD_GAP, HOVER_CARD_MAX_WIDTH, HOVER_CARD_SURFACE_CLASS, canvasC
 import { NOT_ON_RECORD } from './NodeHoverCard'
 import { StrengthBar } from './StrengthBar'
 import { BY_DEFINITION } from '../../domain/strengthDefinitional'
+import type { EdgeSizePhrase } from '../../edges/edgeSizePhrase'
 
 const DIRECTION_SOURCE_WORDS: Record<EdgeValueSource, string> = {
   user: 'Set by you',
@@ -36,8 +39,16 @@ const DIRECTION_SOURCE_WORDS: Record<EdgeValueSource, string> = {
  * A link that holds BY DEFINITION (`isStrengthDefinitional`, MG 0ebb952a) is
  * nobody's — checked first, so it is neither "Olumi's estimate" nor "Confirmed by you".
  */
-export function linkStrengthSourceWords(settled: boolean, source: EdgeValueSource, definitional = false): string {
+export function linkStrengthSourceWords(
+  settled: boolean,
+  source: EdgeValueSource,
+  definitional = false,
+  sizedFromUsersFigure = false,
+): string {
   if (definitional) return BY_DEFINITION
+  // ⭐ Beat 1: the strength was sized from the USER's own stated figure (`EdgeSizePhrase.usersFigure`) — not Olumi's
+  // estimate, and not "confirmed" either (nobody confirmed the β). Only narrows Olumi's own stamp.
+  if (sizedFromUsersFigure && !settled && source === 'cee') return 'from your figure'
   if (settled) return source === 'user' ? 'Set by you' : 'Confirmed by you'
   if (source === 'cee') return 'Olumi’s estimate'
   if (source === 'template') return 'Template estimate'
@@ -61,6 +72,8 @@ export interface LinkHoverCardProps {
   strengthDefinitional?: boolean
   placeholderSentence: string | null
   fragileSentence: string | null
+  /** The link's stored size and whose it is (`edgeSizePhrase`), or null when it must not be said. */
+  size?: EdgeSizePhrase | null
 }
 
 function Row({ label, testId, children }: { label: string; testId: string; children: ReactNode }) {
@@ -132,8 +145,17 @@ export function LinkHoverCard(props: LinkHoverCardProps) {
               {direction.show
                 ? props.strengthDefinitional === true && direction.source === 'cee'
                   ? BY_DEFINITION
-                  : DIRECTION_SOURCE_WORDS[direction.source]
+                  // Beat 1: the size phrase speaks only when this direction agrees with the sign of the user's own
+                  // amount (`naturalEffectPhrase`), so the direction is their figure's too — not Olumi's estimate.
+                  : props.size?.usersFigure === true && direction.source === 'cee'
+                    ? 'from your figure'
+                    : DIRECTION_SOURCE_WORDS[direction.source]
                 : NOT_ON_RECORD}
+            </Row>
+          )}
+          {props.size != null && (
+            <Row label="Size" testId="edge-hover-size">
+              {props.size.sentence}
             </Row>
           )}
           <Row label="Strength" testId="edge-hover-strength">
@@ -143,7 +165,7 @@ export function LinkHoverCard(props: LinkHoverCardProps) {
               <>
                 <StrengthBar magnitude={strength.value} testId="edge-hover-strength-bar" />
                 <span data-testid="edge-hover-strength-value" className="tabular-nums">{Math.abs(strength.value).toFixed(2)}</span>
-                <span className="text-text-light"> · {linkStrengthSourceWords(props.strengthSettled, strength.source, props.strengthDefinitional === true)}</span>
+                <span className="text-text-light"> · {linkStrengthSourceWords(props.strengthSettled, strength.source, props.strengthDefinitional === true, props.size?.usersFigure === true)}</span>
               </>
             ) : NOT_ON_RECORD}
           </Row>

@@ -32,6 +32,9 @@ vi.mock('../useInspectorMutations', async importOriginal => {
       return {
         ...real,
         setStrength: (mean: number, opts: { onSendSettled: Settle }) => {
+          // Preserve the real optimistic store writer. The double controls only
+          // settlement order; a reader must not require its own numeric mirror.
+          real.setStrength(mean, { ...opts, onSendSettled: () => {} })
           presses.push({ mean, settle: opts.onSendSettled })
           return 'dispatched' as const
         },

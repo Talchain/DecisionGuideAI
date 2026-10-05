@@ -10,6 +10,8 @@ import { Activity } from 'lucide-react'
 import { FRAGILE_CUE_SENTENCE } from '../../../edges/connectorCopy'
 import { resolveEdgeDirectionMarker } from '../../../edges/edgePresentation'
 import { useCanvasStore } from '../../../store'
+import { useGuidanceStore } from '../../../stores/guidanceStore'
+import { findPathsToGoal } from '../../../utils/pathFinding'
 import { isCanvasOnlyLink } from '../../../utils/canvasOnlyLink'
 import { useRobustness, useEdgeEValues } from '../useAnalysisResults'
 import { useEditConfirmation } from '../useEditConfirmation'
@@ -43,6 +45,7 @@ import { isEdgeFragile, getFragileEdgeSwitchProbability, parallelEdgeIdsFor } fr
 import { resolveEdgeValuesCoaching, resolveEdgeValuesProvenance } from '../coachingConfig'
 import { isStrengthPlaceholder } from '../../../domain/strengthPlaceholder'
 import { BY_DEFINITION, isStrengthDefinitional } from '../../../domain/strengthDefinitional'
+import { edgeSizePhrase } from '../../../edges/edgeSizePhrase'
 import {
   edgeValueBand,
   edgeValueSource,
@@ -64,6 +67,9 @@ import { resolveElementLabel } from '../../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable, edgeDirectionEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
 import { serverStatedStrengthOf } from '../../../conversation/edgeServerStatedStrength'
 import { formatNumber } from '../../../utils/formatValueWithUnit'
+import { isQuestionAssumptionEnabled } from '../../../../flags'
+import { ScienceQuantity } from '../../../../components/science/ScienceQuantity'
+import { TestWithoutLinkButton } from '../../../../components/results/analysisNew/sections/TestWithoutLinkButton'
 
 /**
  * The turn fence's own sentence for a `refused` edge edit (CEE #1868 `turn_fence_*`), else null.
@@ -210,8 +216,13 @@ export const EdgePanel = memo(function EdgePanel({
   onClose,
   onNavigate,
 }: InspectorPanelProps) {
+  const [showFlipRiskDetails, setShowFlipRiskDetails] = useState(false)
   const edges = useCanvasStore(s => s.edges)
   const nodes = useCanvasStore(s => s.nodes)
+  const goalNodeId = useCanvasStore(s => s.ceeAnalysisReady?.goal_node_id ?? s.nodes.find(
+    n => n.type === 'goal' || n.data?.kind === 'goal' || n.data?.type === 'goal',
+  )?.id ?? null)
+  const sendScienceChip = useGuidanceStore(s => s._sendChip)
   const serverHeldPairs = useCanvasStore(s => s.lastAuthoritativeGraph)
   const robustness = useRobustness()
   const edgeEValues = useEdgeEValues()
@@ -219,6 +230,17 @@ export const EdgePanel = memo(function EdgePanel({
   const isResultsMode = resultsStatus === 'complete'
 
   const edge = edgeId ? edges.find(e => e.id === edgeId) : undefined
+  // The mapper retains the magnitude author on naturalEffect and an explicit placeholder marker,
+  // rather than raw provenance.magnitude. Unknown authorship stays ineligible.
+  const magnitudeProvenance = edge?.data?.naturalEffect?.author
+  const storedPlaceholder = isStrengthPlaceholder(edge?.data as Record<string, unknown> | undefined)
+  const storedOlumiEstimate = magnitudeProvenance === 'olumi_estimate'
+    && edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'weight') === 'cee'
+  const canQuestionAssumption = useMemo(() => (
+    isQuestionAssumptionEnabled() && !!edge && !!goalNodeId
+    && (storedOlumiEstimate || storedPlaceholder)
+    && findPathsToGoal(edge.source, goalNodeId, edges, { maxDepth: nodes.length }).includes(edge.id)
+  ), [edge, goalNodeId, storedOlumiEstimate, storedPlaceholder, edges, nodes.length])
   const mutations = useEdgeMutations(edgeId ?? '')
   const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
 
@@ -285,14 +307,20 @@ export const EdgePanel = memo(function EdgePanel({
     () => isStrengthDefinitional(edge?.data as Record<string, unknown> | undefined),
     [edge?.data],
   )
+  // ⭐ Beat 1: the link's stored size and whose it is — the same resolver the hover card and the Model tab read.
+  const usersFigure = useMemo(() => {
+    const size = edgeSizePhrase(edge?.data as Record<string, unknown> | undefined)
+    return size !== null && size.usersFigure ? size : null
+  }, [edge?.data])
   const edgeValuesCoaching = useMemo(
     () => resolveEdgeValuesCoaching({
       strength: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'weight'),
       existence: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
       strengthPlaceholder: strengthIsPlaceholder,
       strengthDefinitional: strengthIsDefinitional,
+      usersFigure,
     }),
-    [edge?.data, strengthIsPlaceholder, strengthIsDefinitional],
+    [edge?.data, strengthIsPlaceholder, strengthIsDefinitional, usersFigure],
   )
   // v3.1 row 32: the same two provenance facts, stated flat in the pane (the
   // generic card that used to carry them is gone — see the resolver's note).
@@ -302,8 +330,9 @@ export const EdgePanel = memo(function EdgePanel({
       existence: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
       strengthPlaceholder: strengthIsPlaceholder,
       strengthDefinitional: strengthIsDefinitional,
+      usersFigure,
     }),
-    [edge?.data, strengthIsPlaceholder, strengthIsDefinitional],
+    [edge?.data, strengthIsPlaceholder, strengthIsDefinitional, usersFigure],
   )
 
   // A confirm-as-is action is licensed only by a real producer value. A bare
@@ -431,22 +460,13 @@ export const EdgePanel = memo(function EdgePanel({
   const direction = edge?.data?.direction ?? 'positive'
   const signedValue = direction === 'negative' ? -weight : weight
   const beliefExists = edge?.data?.beliefExists ?? EDGE_CONSTRAINTS.beliefExists.default
-  /**
-   * ⛔ THE SLIDER'S POSITION, AND NOTHING ELSE. This is the ONE remaining raw
-   * read of `strengthStd`, and it is deliberate: a range input's thumb has to
-   * sit somewhere even when the panel is refusing to say where. It seeds
-   * `localStd` below, and `localStd` now reaches NO rendered number — every
-   * channel that used to speak it reads `stdDisplay` instead.
-   *
-   * ⚠ DO NOT RENDER THIS, and do not reintroduce a channel that does. The 0.15
-   * is `USER_EDGE_DEFAULTS.strengthStd`, fabricated on every hand-drawn edge.
-   * If you need the spread as a FACT rather than as a pixel offset, take
-   * `stdDisplay` — which cannot represent an unstamped value at all.
-   */
+  // Pixel fallback for the advanced slider only. Facts use the provenance
+  // resolver below and cannot render an unstamped default as uncertainty.
   const strengthStd = edge?.data?.strengthStd ?? 0.15
 
-  // Local slider state
-  const [localStrength, setLocalStrength] = useState(signedValue)
+  // Numeric controls read the same store edge that canonical receipts reconcile.
+  // The existing mutation writer already publishes optimistic values here; a
+  // second mount-only copy would outlive receipt/reread/refusal updates.
   // Kept OUT of `useEditConfirmation` on purpose: that hook's `lastConfirmed`
   // is what gates `InlineRerunPrompt`, and a confirmation changes no value, so
   // it must not invite a re-run.
@@ -471,8 +491,6 @@ export const EdgePanel = memo(function EdgePanel({
   const [directionEditSend, setDirectionEditSend] =
     useState<{ ts: number; settlement: SystemEventSendSettlement | 'not_sent' | 'pending'; fenceCopy?: string | null } | null>(null)
   const directionSendSeqRef = useRef(0)
-  const [localBelief, setLocalBelief] = useState(beliefExists)
-  const [localStd, setLocalStd] = useState(strengthStd)
 
   // Canvas-wide edge label mode. The numeric form was fully built — the store
   // below, its localStorage persistence, `formatNumericLabel`, and StyledEdge's
@@ -481,133 +499,38 @@ export const EdgePanel = memo(function EdgePanel({
   // already looking at that number, so the control lives here. It is a display
   // preference only: it changes no model value and sends nothing.
 
-  // Existence band for the colour + track-fill channels. Provenance comes from
-  // the STORE (the only thing that knows whether anyone set this); the value
-  // comes from the live slider, so the colour bands the number on screen rather
-  // than one a debounce tick behind it. `withLiveEdgeValue` cannot upgrade an
-  // unset verdict, so this composition cannot fabricate a source.
-  /**
-   * ⭐⭐ ONE UNION, READ BY EVERY CHANNEL ON THIS CONTROL.
-   *
-   * This used to be computed inline for the COLOUR alone, while the NUMBER
-   * three hundred lines below read `localBelief` raw. The colour was gated and
-   * the number was not, so the panel printed "80%" directly beneath its own
-   * sentence "Nobody has said how likely this connection is to exist yet."
-   * One surface, two verdicts, one edge.
-   *
-   * `show: true` REQUIRES a source in the union's own type, so a value nobody
-   * stated is unrepresentable rather than merely discouraged — a guard can be
-   * bypassed; a union member that does not exist cannot.
-   *
-   * ⚠ `withLiveEdgeValue` PRESERVES `show: false` (`edgeValueProvenance.ts:609`),
-   * which is what makes this safe to hang the number on: dragging the slider
-   * cannot fake provenance. It does not need to, because `setExistsProbability`
-   * writes `beliefExistsSource` alongside the value, so the instant a human
-   * states it the union opens and the number appears. Silence is for "nobody
-   * has said", never for "the user is saying it now".
-   */
+  // Every display channel resolves the current store edge, including receipt
+  // overlays and cold rereads. Slider drafts already enter that store through
+  // the existing writer; panel state must not replace its value or provenance.
   const existenceDisplay = useMemo(
     () =>
-      withLiveEdgeValue(
-        resolveEdgeValueDisplay(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
-        localBelief,
-      ),
-    [edge?.data, localBelief],
+      resolveEdgeValueDisplay(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
+    [edge?.data],
   )
   const existenceBand: EdgeValueBand = useMemo(
     () => edgeValueBand(existenceDisplay),
     [existenceDisplay],
   )
 
-  /**
-   * ⭐⭐ THE SAME ONE UNION, FOR THE SPREAD — and it closes the same defect
-   * #1677 closed for the likelihood, on the field beside it.
-   *
-   * `strengthStd` was read RAW at `:264` (`edge?.data?.strengthStd ?? 0.15`) and
-   * that number reached FOUR channels: the translucent band over the fine-tune
-   * slider, the `SignedStrengthSlider`'s own band, the uncertainty slider's
-   * thumb and its `aria-valuenow`, and — loudest — an `ExpertAnnotation`
-   * printing a literal `σ = 0.15`. `USER_EDGE_DEFAULTS` writes that 0.15 with
-   * NO stamp, so an edge the user had just drawn showed them a precise-looking
-   * standard deviation nobody had ever supplied.
-   *
-   * ⛔ AND THE LINE ON THE BOARD ALREADY REFUSED IT. `StyledEdge.tsx:1228` routes
-   * the SAME field through this SAME gate before drawing its ribbon, and its
-   * docblock names the hazard exactly: *"a raw read would paint a ribbon on every
-   * hand-drawn edge announcing an uncertainty nobody stated."* So the canvas
-   * withheld the number and the panel printed it — one quantity, one edge, two
-   * verdicts, which is CLAUDE.md trap 21 with the two surfaces a foot apart.
-   *
-   * ⚠ 0.15 IS NOT ITSELF THE TELL, and a value check would have been the wrong
-   * fix. Measured across the eight captured canvas fixtures in this repo: 240
-   * edges carry `strengthStd`, 201 stamped `'cee'`, 0 stamped `'user'` — and two
-   * of the CEE-stamped ones state exactly 0.15. A real producer estimate and the
-   * fabricated default are the same number; only the STAMP separates them, which
-   * is precisely why the discriminator has to be provenance and not arithmetic.
-   *
-   * `withLiveEdgeValue` preserves `show: false`, so dragging cannot fake a
-   * source — and does not need to, because `setStd` writes `strengthStdSource:
-   * 'user'` alongside the value (`useInspectorMutations.ts:791`).
-   */
+  // A magnitude edit can change the server's spread as well. In the Harness
+  // receipt 0.55/std0.275 replaced 0.333/std0.17; the old local spread was
+  // nevertheless overlaid on this fresh stamp. Read value and source together.
   const stdDisplay = useMemo(
     () =>
-      withLiveEdgeValue(
-        resolveEdgeValueDisplay(edge?.data as Record<string, unknown> | undefined, 'strengthStd'),
-        localStd,
-      ),
-    [edge?.data, localStd],
+      resolveEdgeValueDisplay(edge?.data as Record<string, unknown> | undefined, 'strengthStd'),
+    [edge?.data],
   )
 
-  /**
-   * ⭐⭐ HOW MUCH OF THIS ANSWER IS STILL OPEN.
-   *
-   * Gated on BOTH values, by the resolver's signature: an unstamped magnitude
-   * makes the band words fabrications just as surely as an unstamped spread,
-   * because both ends of the interval are functions of both numbers.
-   *
-   * The magnitude comes from the SIGNED strength resolver — the same one the
-   * band pills consult for their own `unset` — so the sentence and the
-   * highlighted pill cannot disagree about whether this edge has a strength.
-   * `resolveStrengthSpread` takes `Math.abs` itself; the sign is direction, not
-   * strength.
-   *
-   * ⚠ BOTH ENDS TRACK THE LIVE CONTROLS, for the reason the existence colour
-   * does: the pills highlight `localStrength`, so a sentence banded on the
-   * STORE's value would name a range that disagrees with the pill lit beside it
-   * for one debounce tick. Neither `withLiveEdgeValue` can open a closed union,
-   * so tracking the live value cannot manufacture a source.
-   */
-  /**
-   * ⭐⭐ ONE UNION FOR THE STRENGTH — A DIFFERENT QUESTION FROM `stdDisplay`,
-   * AND NAMED APART ON PURPOSE (CLAUDE.md trap 21).
-   *
-   * `stdDisplay` answers *how uncertain is this?*. This answers *how big, and
-   * which way?*. They default independently, they are stamped independently
-   * (`weightSource` vs `strengthStdSource`), and an edge can genuinely have one
-   * without the other — which is why they are two unions and not one gate.
-   *
-   * ⚠ THE GATE ALREADY EXISTED AND WAS WIRED TO ONE CALL SITE OF TWO.
-   * `StrengthBandButtons` carries an `unset` prop whose own docblock names this
-   * exact defect: *"the UI would PROPOSE a number nobody supplied, with
-   * `aria-pressed="true"` on it. Accepting the highlighted band would then stamp
-   * `weightSource: 'user'` and turn a fabricated default into a stated fact."*
-   * It was passed on the stand-down branch (`awaitingStatedStrength`) and NOT on
-   * the ORDINARY branch below — the one a user reaches by selecting any edge
-   * they drew. So the guard was correct, present, and pointed at the rarer path.
-   *
-   * Two fabrications reach it, and they are different numbers:
-   *   · 0.3 — `USER_EDGE_DEFAULTS.weight` (`domain/edges.ts:562`), what an edge
-   *     the user DRAGS is born with. Lights the "Moderate" pill.
-   *   · 0.5 — this component's own `?? 0.5` fallback when `weight` is absent
-   *     entirely. Lights "Strong".
-   */
+  // The strength and spread share one edge snapshot. The existing signed
+  // resolver controls provenance; signedValue is that same snapshot's current
+  // canvas spelling, also used by the band buttons and signed control.
   const strengthDisplay = useMemo(
     () =>
       withLiveEdgeValue(
         resolveEdgeSignedStrengthDisplay(edge?.data as Record<string, unknown> | undefined),
-        localStrength,
+        signedValue,
       ),
-    [edge?.data, localStrength],
+    [edge?.data, signedValue],
   )
 
   const strengthSpread = useMemo(
@@ -682,18 +605,10 @@ export const EdgePanel = memo(function EdgePanel({
    * The same sequence rule `handleDirectionChange` already follows: a late
    * answer to a superseded press is dropped.
    *
-   * ⭐ AND ONCE THE LATEST EDIT IS ANSWERED, THE PANEL SHOWS WHAT THE CANVAS
-   * SHOWS. `localStrength` is `useState(signedValue)` and nothing resyncs it
-   * (see `handleStateStrengthForSave`). Two settlements move the store off it:
-   * `'refused'` (`resolveEdgeEditSettlement` reverts the link), and a QUEUED
-   * edit's late answer — the receipt of the edit ahead of it reconciles the
-   * link to the server's value first, so a queued edit the server then declines
-   * leaves the canvas on that value. The skeptic's served end state was exactly
-   * this: panel "Very strong 0.85 ± 0.15", canvas "Moderate boost". Both reach
-   * the panel as `'refused'` or `'unverified'`, so those two resync. `'sent'`
-   * does not: the receipt put the sent number on the link, which is the
-   * panel's — and resyncing there could pull a slider thumb back during the
-   * 120 ms before its next debounced move. `'queued'` is not an answer at all.
+   * Numeric controls now follow the store on every render, so receipt, refusal
+   * and reread changes need no settlement-specific value resync. The sequence
+   * guard still determines which send feedback may speak. The impact baseline
+   * remains gesture state and is reset on a proven refusal/unverified outcome.
    */
   const strengthSendSeqRef = useRef(0)
   const beginStrengthSend = useCallback(() => {
@@ -704,7 +619,6 @@ export const EdgePanel = memo(function EdgePanel({
         const stored = useCanvasStore.getState().edges.find((e) => e.id === edgeId)?.data
         const storedWeight = stored?.weight ?? 0.5
         const storedSigned = stored?.direction === 'negative' ? -storedWeight : storedWeight
-        setLocalStrength(storedSigned)
         origStrengthRef.current = storedSigned
       }
       handleStrengthSendSettled(settlement, detail)
@@ -733,7 +647,6 @@ export const EdgePanel = memo(function EdgePanel({
   }, [])
 
   const handleStrengthChange = useCallback((v: number) => {
-    setLocalStrength(v)
     // A drag is one gesture that fires repeatedly (`SignedStrengthSlider`
     // debounces `onChange` by 120ms), so the settlement of the LATEST send is
     // the one that describes where the value ended up. Clearing first means a
@@ -745,16 +658,15 @@ export const EdgePanel = memo(function EdgePanel({
 
   const handleStrengthBlur = useCallback(() => {
     clearPreview()
-    origStrengthRef.current = localStrength
+    origStrengthRef.current = signedValue
     confirmEdit('strength')
-  }, [clearPreview, localStrength, confirmEdit])
+  }, [clearPreview, signedValue, confirmEdit])
 
   const handleStrengthPresetChange = useCallback((v: number) => {
     // A preset click is a complete edit, not a continuously-dragged preview.
     // Reuse the canonical strength writer, then close the same confirmation
     // seam the fine-tune slider closes on blur so stale analysis exposes the
     // existing rerun affordance.
-    setLocalStrength(v)
     // Presets choose magnitude only. The sign is retained visually by
     // StrengthBandButtons, but retaining a sign is not the same as the user
     // stating it: preserve both direction and directionSource byte-for-byte.
@@ -838,13 +750,11 @@ export const EdgePanel = memo(function EdgePanel({
   }, [direction, mutations])
 
   const handleBeliefChange = useCallback((v: number) => {
-    setLocalBelief(v)
     mutations.setExistsProbability(v)
     confirmEdit('existence')
   }, [mutations, confirmEdit])
 
   const handleStdChange = useCallback((v: number) => {
-    setLocalStd(v)
     mutations.setStd(v)
   }, [mutations])
 
@@ -946,16 +856,7 @@ export const EdgePanel = memo(function EdgePanel({
   const handleStateStrengthForSave = useCallback(
     (v: number) => {
       if (!edgeId) return
-      // ⭐ THE PANEL'S OWN STATE, NOT JUST THE STORE'S. `localStrength` is
-      // `useState(signedValue)` — its initialiser runs ONCE, at mount, and
-      // nothing resyncs it from the store. Writing only to the store left the
-      // band derived from the mount-time value, so a person who chose "Strong"
-      // watched "Moderate 0.30" light up: the FABRICATED DEFAULT this panel
-      // already refuses to propose BEFORE a save, reappearing after it.
-      // Measured on served `e6d7971b` — stated 0.55 showed 0.30, stated 0.85
-      // showed 0.30, both saved correctly. The model was right; the screen was
-      // wrong about the user's own choice.
-      setLocalStrength(v)
+      // The existing store write below updates the panel and canvas together.
       // ⭐ AND THE PREVIEW BASELINE, which both siblings already maintain —
       // `handleStrengthBlur` (:290) and `handleStrengthPresetChange` (:305).
       // `origStrengthRef` is what every impact delta is measured from
@@ -1023,17 +924,21 @@ export const EdgePanel = memo(function EdgePanel({
                     {FRAGILE_CUE_SENTENCE}
                   </div>
                   {fragileEdgeSwitchProb !== null && (
+                    <div className="mt-1.5">
                     <p
                       className={`${typography.panelMeta} text-text-body mt-1.5`}
                       title={EDGE_COPY.flipRiskTooltip(Math.round(fragileEdgeSwitchProb * 100))}
                     >
-                      {Math.round(fragileEdgeSwitchProb * 100)}% flip risk
+                      {showFlipRiskDetails ? `${Math.round(fragileEdgeSwitchProb * 100)}% flip risk` : 'Some risk of changing the conclusion'}
                     </p>
+                    <button type="button" className="text-[11px] underline" aria-expanded={showFlipRiskDetails} onClick={() => setShowFlipRiskDetails(v => !v)}>
+                      {showFlipRiskDetails ? 'Hide details' : 'Show details'}
+                    </button>
+                    </div>
                   )}
-                  {edgeEValue != null && (
+                  {techMode && edgeEValue != null && (
                     <p className={`${typography.panelMeta} mt-1.5 ${edgeEValue > 3 ? 'text-success' : edgeEValue >= 1.5 ? 'text-warning' : 'text-danger'}`}>
                       Assumption robustness: {edgeEValue.toFixed(1)}x
-                      {!techMode && `. This assumption would need to be ${edgeEValue.toFixed(1)}x wrong to change the result`}
                     </p>
                   )}
                 </div>
@@ -1051,6 +956,36 @@ export const EdgePanel = memo(function EdgePanel({
             <p data-testid="edge-values-provenance" className={`${typography.panelBody} !leading-[1.55] text-text-body mt-0 mb-2`}>
               {edgeValuesProvenance}
             </p>
+            {canQuestionAssumption && sendScienceChip ? (
+              <button
+                type="button"
+                className={`${inspectorButton} mb-2`}
+                data-testid="edge-question-assumption"
+                onClick={() => sendScienceChip(
+                  'Question this assumption',
+                  'Question this assumption',
+                  { id: `agent-question-assumption:${edge.source}>${edge.target}` },
+                )}
+              >
+                Question this assumption
+              </button>
+            ) : null}
+            {/* "Test without this link" — reachable for ANY link on a current Run, not
+                only the one a Challenge signal happens to name. The Reasoning mount
+                needs the Run to report a sensitive Olumi-estimated link; a Run whose
+                leader is withheld reports none, so the press had no door at all.
+                The component owns the gate (flag, link, current Run, a conversation
+                to send into) and the sender, so this is the same press, not a second
+                one. A link that is on the canvas only is not in the Run. */}
+            {awaitingStatedStrength ? null : (
+              <TestWithoutLinkButton
+                key={edge.id}
+                edgeId={edge.id}
+                testId="edge-test-without-link"
+                buttonClassName={inspectorButton}
+                className="mb-2"
+              />
+            )}
             {/* Strength — primary editing surface. THE ONE CONTROL IN THIS PANEL
                 WITH A WIRE CARRIER (`edge_strength_edit`), so it is the one that
                 may present itself as a shared-model edit. The fieldset is the
@@ -1092,9 +1027,10 @@ export const EdgePanel = memo(function EdgePanel({
                     reader `captureStructuralAddEdge` is handed, so the control
                     can only ever highlight a number that reader calls SET. */}
                 <StrengthBandButtons
-                  value={localStrength}
+                  value={signedValue}
                   onChange={handleStateStrengthForSave}
                   unset={!resolveEdgeSignedStrengthDisplay(edge?.data as Record<string, unknown> | undefined).show}
+                  technicalDetails={techMode}
                 />
               </PrimaryControlCard>
             ) : (
@@ -1210,9 +1146,10 @@ export const EdgePanel = memo(function EdgePanel({
                   selecting any connection they drew, so it is the one that was
                   lighting a band nobody chose. Same reader as the other site. */}
               <StrengthBandButtons
-                value={localStrength}
+                value={signedValue}
                 onChange={handleStrengthPresetChange}
                 unset={!strengthDisplay.show}
+                  technicalDetails={techMode}
               />
               {/* ⭐⭐ HOW MUCH OF THIS ANSWER IS STILL OPEN.
                   Renders ONLY where both the magnitude and the spread are
@@ -1223,7 +1160,10 @@ export const EdgePanel = memo(function EdgePanel({
                   edge a user has drawn by hand. */}
               {strengthSpread.known && (
                 <div className="mt-1.5" data-testid="edge-strength-spread">
-                  <p
+                  <div className={`${typography.panelMeta} text-text-body`}>
+                    <ScienceQuantity kind="strength" value={strengthDisplay.show ? strengthDisplay.value : signedValue} />
+                  </div>
+                  {techMode && <p
                     className={`${typography.panelMeta} text-text-body font-mono`}
                     aria-label={EDGE_COPY.strengthSpreadReadoutLabel}
                   >
@@ -1231,7 +1171,7 @@ export const EdgePanel = memo(function EdgePanel({
                       strengthSpread.magnitude.toFixed(2),
                       strengthSpread.spread.toFixed(2),
                     )}
-                  </p>
+                  </p>}
                   {/* ⭐ THE SENTENCE. It appears only when the stated spread
                       reaches across a cut point — i.e. only when the adjective
                       highlighted immediately above is under-determined. A team
@@ -1294,7 +1234,9 @@ export const EdgePanel = memo(function EdgePanel({
                         would make this sentence unable to name the number the
                         button ratifies. The number is the point of the
                         sentence. */}
-                    Olumi’s current estimate is <span className="font-mono">{currentEstimatedWeightDisplay}</span>.
+                    Olumi’s current estimate is {techMode
+                      ? <span className="font-mono">{currentEstimatedWeightDisplay}</span>
+                      : <ScienceQuantity kind="strength" value={currentEstimatedWeight} />}.
                   </p>
                   <button
                     type="button"
@@ -1404,7 +1346,7 @@ export const EdgePanel = memo(function EdgePanel({
                         fabricated centre is a fabricated interval. Both numbers
                         have to be stated for the mark to mean anything. */}
                     {stdDisplay.show && strengthDisplay.show && (
-                      <UncertaintyBand strength={localStrength} std={stdDisplay.value} />
+                      <UncertaintyBand strength={signedValue} std={stdDisplay.value} />
                     )}
                     {/* ⛔⛔ `techMode={true}` IS A LITERAL ON PURPOSE, AND IT IS NOT THE
                         TECH TOGGLE. Measured 19 Sep 2026: this prop's ONLY consumer
@@ -1432,7 +1374,7 @@ export const EdgePanel = memo(function EdgePanel({
                         documents. The row below stays UNCONDITIONAL; only the slider's
                         duplicate is suppressed. `endpointScaleIsNotDuplicated.spec.tsx`
                         REDs if either state stops reading exactly one. */}
-                    <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={stdDisplay.show && strengthDisplay.show ? stdDisplay.value : undefined} techMode={true} />
+                    <SignedStrengthSlider value={signedValue} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={stdDisplay.show && strengthDisplay.show ? stdDisplay.value : undefined} techMode={true} />
                   </div>
                   {/* The panel's OWN endpoint scale — direction anchors for the track
                       above, never band words (`SignedStrengthSlider`'s header names them
@@ -1477,7 +1419,7 @@ export const EdgePanel = memo(function EdgePanel({
               <div className="flex items-center gap-2">
                 <div className="flex-1">
                   <InspectorSlider
-                    value={localBelief}
+                    value={beliefExists}
                     min={0}
                     max={1}
                     step={0.05}
@@ -1488,15 +1430,13 @@ export const EdgePanel = memo(function EdgePanel({
                   />
                 </div>
                 <span data-testid="edge-existence-readout" className={`${typography.panelBody} min-w-[32px] text-right ${EXISTENCE_BAND_TEXT[existenceBand]}`}>
-                  {existenceDisplay.show
-                    ? `${Math.round(localBelief * 100)}%`
-                    : METRIC_UNSET.standalone}
+                  {existenceDisplay.show ? <ScienceQuantity kind="probability" value={existenceDisplay.value} /> : METRIC_UNSET.standalone}
                 </span>
               </div>
               {/* The same fabricated figure in a third channel. Gated on the
                   same union so techMode cannot reveal what the panel withholds. */}
               {existenceDisplay.show && (
-                <ExpertAnnotation techMode={techMode} editable value={localBelief} onChange={handleBeliefChange} suffix="P(exists) =" step={0.01} min={0} max={1} />
+                <ExpertAnnotation techMode={techMode} editable value={beliefExists} onChange={handleBeliefChange} suffix="P(exists) =" step={0.01} min={0} max={1} />
               )}
             </div>
 
@@ -1522,7 +1462,7 @@ export const EdgePanel = memo(function EdgePanel({
                 <div className="flex items-center gap-2">
                   <div className="flex-1">
                     <InspectorSlider
-                      value={localStd}
+                      value={strengthStd}
                       min={0.01}
                       max={0.5}
                       step={0.01}

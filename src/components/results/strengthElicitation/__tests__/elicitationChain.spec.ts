@@ -20,7 +20,7 @@
  * remain separate from this in-process mounted proof.
  */
 import { createElement } from 'react'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import {
@@ -357,6 +357,10 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
       createElement(InspectorModal, { nodeId: null, edgeId: first.id, onClose: () => {} }),
     ))
 
+    // Plain words first (Paul, standing): the estimate reads as a band ("● Strong") until its own "Show details"
+    // disclosure opens (`ScienceQuantity`). This row is about the EXACT live value, so it opens that disclosure, the
+    // way a person would, before reading the figure. Without it, this assertion was red on staging f682154a.
+    fireEvent.click(within(screen.getByText(/Olumi’s current estimate is/)).getByRole('button', { name: 'Show details' }))
     expect(screen.getByText(/Olumi’s current estimate is/)).toHaveTextContent('0.52')
     expect(screen.queryByRole('button', { name: 'Re-run the analysis' })).toBeNull()
 

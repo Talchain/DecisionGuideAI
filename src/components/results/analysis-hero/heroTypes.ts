@@ -441,6 +441,14 @@ export interface HeroChartModel {
    */
   designationWithheldReason: string | null
   /**
+   * ⭐ THE DEADLINE THIS RUN DID NOT TEST (DL 0df0e1, beat 2): CEE's `GOAL_HORIZON_NOT_TESTED` inference warning, its
+   * own sentence ("This model doesn't yet say whether any option gets there within 9 months."), or null. Read by CODE
+   * and shown as the producer wrote it: whether a deadline was tested is CEE's rule (A7), never the UI's. It sits
+   * beside the goal-fit statement it qualifies, so "no option reaches the target" and "the deadline is untested" read
+   * as two facts. REQUIRED for the reason `designationWithheldReason` is: null renders nothing.
+   */
+  goalHorizonUntested: string | null
+  /**
    * DATA-BEARING lenses (never empty). The strip always renders all four
    * prototype lenses; a lens absent from this list renders the honest
    * unavailable body instead of chart rows when selected.

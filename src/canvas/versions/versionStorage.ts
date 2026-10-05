@@ -39,6 +39,10 @@ export const VERSIONS_SCHEMA_VERSION = '1.0.0'
  */
 export const MAX_VERSIONS = 20
 
+export function clearAllVersions(): void {
+  try { localStorage.removeItem(VERSIONS_STORAGE_KEY) } catch { /* unavailable */ }
+}
+
 function isLocalStorageAvailable(): boolean {
   try {
     return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'

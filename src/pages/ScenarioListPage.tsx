@@ -10,12 +10,15 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Plus, Trash2, AlertTriangle, Loader2,
-  Pin, MoreVertical, Copy, Archive, ArchiveRestore,
+  Pin, MoreVertical, Copy, Archive, ArchiveRestore, UserPlus,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { GuestDraftImportBanner } from '../components/auth/GuestDraftImportBanner'
 import { useScenario } from '../hooks/useScenario'
 import * as scenarioService from '../services/scenarioService'
+import { ShareDecisionDialog } from '../components/sharing/ShareDecisionDialog'
+import { SharedWithMeSection } from '../components/sharing/SharedWithMeSection'
+import { sharedScenarioPath } from '../components/sharing/sharedScenarioPath'
 import type { ScenarioListItem, ScenarioStage, AnalysisStatus, ScenarioEvent } from '../types/scenario'
 import { SYSTEM_MARKER_EVENT_TYPES } from '../types/scenario'
 import { Skeleton } from '../components/Skeleton'
@@ -24,6 +27,7 @@ import { UserAvatarMenu } from '../components/layout/UserAvatarMenu'
 import { typography } from '../styles/typography'
 import { trackEvent } from '../lib/posthog'
 import { GUEST_COPIED_EVENT } from '../lib/guestCopyOnSignIn'
+import { scenarioDisplayTitle, storedOptionLabels } from '../canvas/domain/scenarioDisplayTitle'
 
 // ---------------------------------------------------------------------------
 // Stage badge styles — semantic colours from the design system
@@ -153,6 +157,53 @@ function formatLastActivity(events: ScenarioEvent[] | null | undefined, updatedA
   }
 }
 
+function listTitle(scenario: ScenarioListItem): string {
+  // The same name the canvas shows for this row — see `scenarioDisplayTitle`.
+  return scenarioDisplayTitle(scenario) ?? 'Untitled decision'
+}
+
+// ---------------------------------------------------------------------------
+// Telling same-named cards apart
+// ---------------------------------------------------------------------------
+//
+// A drafted scenario is named from its goal, so several drafts of similar briefs
+// share one title (five cards all reading "monthly recurring revenue" on the
+// 4 Oct 2026 journey). Only cards whose title is shared get the extra detail;
+// a uniquely named card is unchanged.
+
+const titleKey = (scenario: ScenarioListItem): string => listTitle(scenario).trim().toLowerCase()
+
+/** The title keys that two or more of the given (visible) cards share. */
+function sharedTitleKeys(scenarios: ScenarioListItem[]): Set<string> {
+  const seen = new Set<string>()
+  const shared = new Set<string>()
+  for (const scenario of scenarios) {
+    const key = titleKey(scenario)
+    if (seen.has(key)) shared.add(key)
+    seen.add(key)
+  }
+  return shared
+}
+
+/** Date and time in the user's locale, or null when the stamp is unreadable. */
+function formatExactDateTime(iso: string | null | undefined): string | null {
+  if (!iso) return null
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return null
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+}
+
+/**
+ * The activity line for a same-named card: the usual line plus the exact
+ * creation date and time. A line that already says "Created …" is replaced, not
+ * repeated.
+ */
+function activityWithCreated(activity: string, createdAt: string | null | undefined): string {
+  const created = formatExactDateTime(createdAt)
+  if (!created) return activity
+  return activity.startsWith('Created ') ? `Created ${created}` : `${activity} · Created ${created}`
+}
+
 // ---------------------------------------------------------------------------
 // Confirmation dialog
 // ---------------------------------------------------------------------------
@@ -204,12 +255,14 @@ function CardActionMenu({
   onPin,
   onArchive,
   onDuplicate,
+  onInvite,
   onDelete,
 }: {
   scenario: ScenarioListItem
   onPin: () => void
   onArchive: () => void
   onDuplicate: () => void
+  onInvite: () => void
   onDelete: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -246,6 +299,12 @@ function CardActionMenu({
             className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-panel-hover ${typography.bodySmall} text-text-body`}>
             <Copy className="w-3.5 h-3.5" />
             Duplicate
+          </button>
+          <button role="menuitem" onClick={() => { onInvite(); setOpen(false) }}
+            className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-panel-hover ${typography.bodySmall} text-text-body`}
+            data-testid="scenario-card-invite">
+            <UserPlus className="w-3.5 h-3.5" />
+            Invite a colleague…
           </button>
           <button role="menuitem" onClick={() => { onArchive(); setOpen(false) }}
             className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-panel-hover ${typography.bodySmall} text-text-body`}>
@@ -295,6 +354,7 @@ export default function ScenarioListPage() {
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<ScenarioListItem | null>(null)
+  const [shareTarget, setShareTarget] = useState<ScenarioListItem | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [filter, setFilter] = useState<HubFilter>('active')
 
@@ -344,6 +404,8 @@ export default function ScenarioListPage() {
         return scenarios
     }
   }, [scenarios, filter])
+
+  const sharedTitles = useMemo(() => sharedTitleKeys(filteredScenarios), [filteredScenarios])
 
   const handleCreate = async () => {
     setCreating(true)
@@ -541,7 +603,7 @@ export default function ScenarioListPage() {
     <div className="min-h-screen bg-canvas">
       {/* Hub header — minimal, with logo and avatar */}
       <header className="flex items-center justify-between px-6 py-4 sm:px-8">
-        <a href="/" aria-label="Olumi home">
+        <a href="/#/scenarios" aria-label="Olumi home">
           <img src="/olumi-logo.png" alt="Olumi" className="h-8" />
         </a>
         <UserAvatarMenu />
@@ -635,7 +697,11 @@ export default function ScenarioListPage() {
             {/* ---- Scenario cards ---- */}
             {filteredScenarios.length > 0 && (
               <div className="grid gap-4 sm:grid-cols-2" data-testid="scenario-list">
-                {filteredScenarios.map((scenario) => (
+                {filteredScenarios.map((scenario) => {
+                  const sharesTitle = sharedTitles.has(titleKey(scenario))
+                  const optionLine = sharesTitle ? storedOptionLabels(scenario.graph).join(' · ') : ''
+                  const activity = formatLastActivity(scenario.events, scenario.updated_at)
+                  return (
                   <div
                     key={scenario.id}
                     onClick={() => {
@@ -667,14 +733,32 @@ export default function ScenarioListPage() {
                         onPin={() => handlePin(scenario)}
                         onArchive={() => handleArchive(scenario)}
                         onDuplicate={() => handleDuplicate(scenario)}
+                        onInvite={() => setShareTarget(scenario)}
                         onDelete={() => setDeleteTarget(scenario)}
                       />
                     </div>
 
                     {/* Title */}
                     <h4 className={`${typography.h4} text-text-header pr-16 truncate`}>
-                      {scenario.title || <span className="text-text-light">Untitled decision</span>}
+                      {listTitle(scenario) === 'Untitled decision' ? <span className="text-text-light">Untitled decision</span> : listTitle(scenario)}
                     </h4>
+                    {optionLine && (
+                      <p
+                        className={`${typography.bodySmall} text-text-body mt-1 truncate`}
+                        title={optionLine}
+                        data-testid="scenario-card-options"
+                      >
+                        {optionLine}
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); navigate(`/scenario/${scenario.id}/compare`) }}
+                      className="mt-3 rounded-lg border border-border-default px-3 py-1.5 text-sm text-text-body hover:bg-canvas"
+                      data-testid="compare-scenario"
+                    >
+                      Compare with another scenario
+                    </button>
 
                     {/* Stage badge + analysis status */}
                     <div className="flex items-center gap-2 mt-2">
@@ -685,21 +769,36 @@ export default function ScenarioListPage() {
                     </div>
 
                     {/* Last activity */}
-                    <p className={`${typography.bodySmall} text-text-light mt-3 truncate`}>
-                      {formatLastActivity(scenario.events, scenario.updated_at)}
+                    <p className={`${typography.bodySmall} text-text-light mt-3 truncate`} data-testid="scenario-card-activity">
+                      {sharesTitle ? activityWithCreated(activity, scenario.created_at) : activity}
                     </p>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </>
         )}
+        {/* ACCOUNTS: decisions colleagues shared with me (view only). Outside the
+            first-run ternary: a colleague whose only decisions are shared ones
+            still sees them. Renders nothing when there are none. */}
+        {isPersistenceActive && user && (
+          <SharedWithMeSection onOpen={(id) => navigate(sharedScenarioPath(id))} />
+        )}
       </main>
+
+      {shareTarget && (
+        <ShareDecisionDialog
+          scenarioId={shareTarget.id}
+          scenarioTitle={listTitle(shareTarget)}
+          onClose={() => setShareTarget(null)}
+        />
+      )}
 
       {/* Delete confirmation */}
       {deleteTarget && (
         <DeleteConfirmDialog
-          scenarioTitle={deleteTarget.title || 'Untitled decision'}
+          scenarioTitle={listTitle(deleteTarget)}
           onConfirm={handleDeleteConfirm}
           onCancel={() => setDeleteTarget(null)}
         />

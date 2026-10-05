@@ -10,15 +10,22 @@ import { useCanvasStore } from '../../store'
 import type { RiskImpact } from '../../domain/nodes'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
 import { settleSystemEventSend } from '../../conversation/settleSystemEventSend'
-import { markEdgeEditInFlight, resolveEdgeEditSettlement } from '../../conversation/pendingEdgeEdit'
+import {
+  edgeShowsServerStatedStrength,
+  markEdgeEditInFlight,
+  restoredEdgeStrengthStamps,
+  resolveEdgeEditSettlement,
+} from '../../conversation/pendingEdgeEdit'
 import type { SystemEventSendSettlement, SystemEventSendSettlementDetail } from '../../conversation/settleSystemEventSend'
 import {
   buildEdgeStrengthEditEvent,
+  edgeStrengthEditChangesNothing,
   buildEdgeDirectionEditEvent,
   buildEdgeStrengthConfirmEvent,
 } from '../../conversation/edgeStrengthEdit'
 import { serverStatedStrengthOf } from '../../conversation/edgeServerStatedStrength'
 import { NODE_LABEL_MAX_LENGTH } from './nodeLabelLimits'
+import { isViewerSession } from '../../../lib/viewerMode'
 
 // ─── Editor-written-field manifest (single source of truth) ────────────
 //
@@ -668,7 +675,14 @@ export const INSPECTOR_EDGE_DEFINITIONAL_REASON =
 
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {
-  const updateNode = useCanvasStore(s => s.updateNode)
+  const storeUpdateNode = useCanvasStore(s => s.updateNode)
+  // ACCOUNTS viewer mode: EVERY local write in this hook goes through `updateNode`,
+  // so this one check keeps a viewer's inspector edits (range, category, label…)
+  // off the canvas. Any send they make is refused by the server and the belt.
+  const updateNode = useCallback<typeof storeUpdateNode>((id, updates) => {
+    if (isViewerSession()) return
+    storeUpdateNode(id, updates)
+  }, [storeUpdateNode])
   // P4 transport — prior-range edits ride the conversation dispatcher when a
   // provider is present; optional so isolated renders still edit locally.
   const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
@@ -878,7 +892,7 @@ export function useNodeMutations(nodeId: string) {
     if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) return
     const distribution = typeof existing?.distribution === 'string' && existing.distribution.length > 0
       ? existing.distribution
-      : undefined
+      : 'uniform'
     void Promise.resolve(
       sendSystemEvent({
         type: 'prior_range_edit',
@@ -886,7 +900,7 @@ export function useNodeMutations(nodeId: string) {
           target_id: nodeId,
           range_min: min,
           range_max: max,
-          ...(distribution !== undefined ? { distribution } : {}),
+          distribution,
         },
       }),
     ).catch(() => {
@@ -1031,8 +1045,9 @@ export function useNodeMutations(nodeId: string) {
  *                          truthfully described to the server, so it was not
  *                          sent. The user's edit is real on this canvas and the
  *                          server does not have it.
- * - `not_encodable`      — nothing happened anywhere. No such edge, or a
- *                          non-finite number.
+ * - `not_encodable`      — nothing happened anywhere. No such edge, a
+ *                          non-finite number, or an UNCHANGED `set` with no
+ *                          carrier (`edgeStrengthEditChangesNothing`).
  *
  * ⚠ NO CALLER READS THIS TOKEN YET, and that is recorded rather than hidden.
  * Four call sites drive `setStrength`. ⚠ CORRECTED: `EdgePanel` now READS the return — an outcome other than `dispatched` means no settlement is coming and the panel must not wait for one. The token
@@ -1068,7 +1083,12 @@ export type EdgeStrengthConfirmOutcome =
 
 // ─── Edge mutations ────────────────────────────────────────────────
 export function useEdgeMutations(edgeId: string) {
-  const updateEdge = useCanvasStore(s => s.updateEdge)
+  const storeUpdateEdge = useCanvasStore(s => s.updateEdge)
+  // ACCOUNTS viewer mode: the same single check for every edge write in this hook.
+  const updateEdge = useCallback<typeof storeUpdateEdge>((id, updates) => {
+    if (isViewerSession()) return
+    storeUpdateEdge(id, updates)
+  }, [storeUpdateEdge])
   const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
   const getEdge = useCallback(() => {
     return useCanvasStore.getState().edges.find(e => e.id === edgeId)
@@ -1146,6 +1166,35 @@ export function useEdgeMutations(edgeId: string) {
       preserveDirection: opts?.preserveDirection,
     })
     const absWeight = Math.abs(mean)
+    // ⛔ AN UNCHANGED `set` IS NOT AN EDIT, so it is neither written nor stamped here (Acceptance #87 5986653143). CEE
+    // refuses it by contract (`edgeStrengthEditChangesNothing`), and the optimistic `weightSource: 'user'` below,
+    // confirmed only by "the model shows the sent magnitude" — which an unchanged value always does — kept "User
+    // edited" on a write the server refused. It is still SENT, without the optimistic write, so CEE's own sentence
+    // ("Confirm the current strength explicitly…") answers the user; nothing local is claimed. No carrier: nothing.
+    // ⚠ ONLY ON A SETTLED LINK (Codex #2489 P1). With the canvas off the server's value — an edit on the wire, or a
+    // local-only one — the same number is a RESTORATION: it takes the edit path below, so the canvas moves back and
+    // a queued send is rebased, but it re-mints no `'user'` stamp (`restoring`).
+    const restoring = event !== null && edgeStrengthEditChangesNothing(event)
+    if (restoring && edgeShowsServerStatedStrength(edge)) {
+      if (!sendSystemEvent) return 'not_encodable'
+      // No optimistic carrier (nothing was written); a QUEUED send still settles again at flush (Codex #2489 r2 P2).
+      settleSystemEventSend(
+        sendSystemEvent(event, { onDeferredSettled: (dispatch) => settleSystemEventSend(dispatch, opts?.onSendSettled) }),
+        opts?.onSendSettled,
+      )
+      return 'dispatched'
+    }
+    // A restoration puts back the stamps the server's value had before the pending edit (its `before`), only while that
+    // `before` still describes this link's current server state; otherwise it leaves the stamps as they stand.
+    // Explicit `undefined` for an absent key: the store merges.
+    const identity = { scenarioId: useCanvasStore.getState().currentScenarioId ?? null, from: edge.source, to: edge.target }
+    const stamps: Record<string, unknown> = !restoring
+      ? { weightSource: 'user', ...(opts?.preserveDirection ? {} : { directionSource: 'user' }) }
+      : restoredEdgeStrengthStamps(
+        edgeId,
+        { ...identity, data: edge.data as Record<string, unknown> | undefined },
+        { includeDirection: !opts?.preserveDirection },
+      )
     updateEdge(edgeId, {
       data: {
         ...edge.data,
@@ -1160,8 +1209,8 @@ export function useEdgeMutations(edgeId: string) {
         // a magnitude edit must not mint a direction claim (ROADMAP 2.263).
         ...(opts?.preserveDirection
           ? {}
-          : { direction: mean >= 0 ? 'positive' : 'negative', directionSource: 'user' }),
-        weightSource: 'user',
+          : { direction: mean >= 0 ? 'positive' : 'negative' }),
+        ...stamps,
       },
     })
 
@@ -1231,7 +1280,7 @@ export function useEdgeMutations(edgeId: string) {
     // CEE just recorded. A proven no-write reverts; anything unconfirmed keeps
     // the number and stays held. `edge.data` is the PRE-write read above.
     const before = (edge.data ?? {}) as Record<string, unknown>
-    markEdgeEditInFlight(edgeId, absWeight, before)
+    markEdgeEditInFlight(edgeId, absWeight, before, undefined, identity)
     // The detail rides beside the resolved settlement: WHICH no-write it was (a stopped
     // turn is not a moved model) is the envelope's fact, not the resolver's.
     const settle = (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) =>
@@ -1385,7 +1434,9 @@ export function useEdgeMutations(edgeId: string) {
     // sends `|expected.mean|`); the SIGN is what this edit changes, so it is
     // carried as `sentDirection` and every proof asks it.
     const sentMagnitude = Math.abs(serverStatedStrengthOf(before)?.mean ?? Number.NaN)
-    markEdgeEditInFlight(edgeId, sentMagnitude, before, direction)
+    markEdgeEditInFlight(edgeId, sentMagnitude, before, direction, {
+      scenarioId: useCanvasStore.getState().currentScenarioId ?? null, from: edge.source, to: edge.target,
+    })
     const settle = (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) =>
       opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, sentMagnitude, settlement, direction), detail)
     settleSystemEventSend(

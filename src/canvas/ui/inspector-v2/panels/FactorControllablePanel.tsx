@@ -6,7 +6,7 @@
  */
 
 import { memo, useState, useMemo, useCallback, useRef, useEffect, type MouseEvent as ReactMouseEvent } from 'react'
-import { Link, MessageSquare } from 'lucide-react'
+import { MessageSquare } from 'lucide-react'
 import Tooltip from '../../../../components/Tooltip'
 import { useCanvasStore } from '../../../store'
 import type { NodeType, ObservedState, FactorNodeData } from '../../../domain/nodes'
@@ -28,7 +28,6 @@ import {
   DESCRIPTION_PLACEHOLDERS,
   EMPTY_STATES,
   factorValueSourceLabel,
-  getProvenanceLabel,
   INLINE_LABELS,
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
@@ -901,13 +900,9 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
               />
             </div>
           )}
-          {/* Provenance inline below value (no separate section title) */}
-          {source && (
-            <div className="flex items-center gap-1 mt-2 pt-2 border-t border-panel-border">
-              <Link size={12} className="text-info" />
-              <span className={`${typography.panelMeta} text-info`}>{getProvenanceLabel(source, attributedTo, isAcceptedOlumiFigure(node?.data))}</span>
-            </div>
-          )}
+          {/* Beat 1 (Canvas lane, 4 Oct 2026): the inline provenance line that sat here said the SAME value's source a
+              second time — "Generated from your brief" under the pill's "From your brief". The source pill above is the
+              one statement (`factorValueSourceLabel`, the card's answer); every shown value already carries it. */}
 
           {/* What the owner cited when they applied it. Renders only when a
               citation resolved; never gated on `source`, because the citation is

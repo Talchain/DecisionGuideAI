@@ -17,6 +17,8 @@
  * reintroduced here by treating any of these as "no graph".
  */
 
+import { recordCanonicalOpen } from './canonicalOpenOutcome'
+import { recordBootReadAdmission } from './bootReadAdmission'
 import { useCanvasStore } from '../store'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { useServerConversationTurnsStore } from '../stores/serverConversationTurnsStore'
@@ -179,6 +181,13 @@ function adoptServerWriteBase(graphHash: string | null, baseAtDispatch: string |
   useCanvasStore.getState().setLastServerGraphHash(graphHash)
 }
 
+/** The canvas is `scenarioId`'s: the store is bound to it, or bound to nothing over an empty canvas. */
+function canvasIsScenarioOrEmpty(scenarioId: string): boolean {
+  const st = useCanvasStore.getState()
+  const held = st.currentScenarioId ?? null
+  return held === scenarioId || (held === null && st.nodes.length === 0 && st.edges.length === 0)
+}
+
 /**
  * Hydrate the canvas from the server's copy of this scenario's graph.
  *
@@ -250,12 +259,23 @@ async function readAndMergeServerGraph(
     return 'skipped'
   }
 
+  // ⭐ ONE AUTHORITY FOR "DID THIS MODEL OPEN?" (`canonicalOpenOutcome.ts`): CEE's canonical read, bound by identity
+  // AND by what the canvas then holds. Recorded at EACH exit below, never at the answer: a read can return this
+  // scenario's graph and still leave another model on screen (the store moved, or the merge refused it over a
+  // same-tab A→B switch), and 'opened' there would hide the notice while A is what the user sees.
+  // 'opened' only when CEE served the SAME scenario_id it was asked for AND this exit leaves that model on the canvas.
+  const servedId = result.status === 'graph' || result.status === 'absent' ? result.scenarioId : undefined
+  const answerOpen = (onCanvas: boolean): void =>
+    recordCanonicalOpen(scenarioId, onCanvas && servedId === scenarioId ? 'opened' : 'not_opened')
+
   // ── Every non-graph answer: leave the canvas alone, say why, surface nothing.
   if (result.status !== 'graph') {
     logger.debug('server_graph_hydration.no_merge', {
       scenarioId,
       outcome: result.status,
     })
+    // A known scenario with no graph yet is open only when the canvas is ITS (bound to it, or empty and unbound).
+    answerOpen(result.status === 'absent' && canvasIsScenarioOrEmpty(scenarioId))
     switch (result.status) {
       case 'absent':
         return 'absent'
@@ -280,6 +300,7 @@ async function readAndMergeServerGraph(
       requestedScenarioId: scenarioId,
       currentScenarioId: currentId,
     })
+    answerOpen(false)
     return 'skipped'
   }
 
@@ -422,6 +443,14 @@ async function readAndMergeServerGraph(
       dirtyBeforeMerge === false &&
       st.analysisFreshnessDirty === true &&
       notProvenEqual === null
+    // ⭐ …and its MODE is kept beside it, under the same binding (`bootReadAdmission.ts`): recorded FIRST, so the
+    // store change below already finds it. Any read that does not qualify clears it.
+    const bootAdmits = result.admitted === true && notProvenEqual === null && typeof result.graphHash === 'string'
+    recordBootReadAdmission(
+      bootAdmits && result.permittedAnalysisMode
+        ? { scenarioId, graphHash: result.graphHash as string, permittedAnalysisMode: result.permittedAnalysisMode }
+        : null,
+    )
     // The read's admission stands in for `may_run` until a turn speaks — only an
     // admission, only for this revision, only when the canvas IS that revision.
     st.setBootAdmittedRevision?.(
@@ -471,6 +500,7 @@ async function readAndMergeServerGraph(
       const runRead = applyScenarioAnalysisRead({
         analysisState: result.analysisState,
         analysisResult: result.analysisResult,
+        currentReadInputBasis: result.currentReadInputBasis ?? null,
         limitVerdicts: result.limitVerdicts,
         goalCertainty: result.goalCertainty,
         runDelta: result.runDelta,
@@ -483,7 +513,13 @@ async function readAndMergeServerGraph(
         // written `fresh`; the applier's run-completion transition demoted it to `unknown · run_completed_without_verdict`
         // on every fresh-browser cold open, so `useRunCurrency()` stopped saying current and the Driver badges (every run
         // cue) vanished — while a same-browser reload, whose report dedupes, kept them.
-        store: { ...readProvisionalApplyStore(), setAnalysisStateV1: () => {}, noteRunCompletedWithoutVerdict: () => {} },
+        store: {
+          ...readProvisionalApplyStore(), setAnalysisStateV1: () => {}, noteRunCompletedWithoutVerdict: () => {},
+          setCurrentReadInputBasis: (basis, hash) => useCanvasStore.setState((state) => {
+            if (state.currentScenarioId !== scenarioId || state.results.hash !== hash || !state.results.report) return state
+            return { results: { ...state.results, report: { ...state.results.report, current_read_input_basis: basis } } }
+          }),
+        },
       })
       logger.debug('server_graph_hydration.boot_run_currency', { scenarioId, exit, outcome: 'restored', runFact: fact !== null, runRead: runRead.outcome })
       return
@@ -583,6 +619,7 @@ async function readAndMergeServerGraph(
     // base, which is the whole defect.
     adoptServerWriteBase(result.graphHash, baseAtDispatch)
     restoreRunCurrency('unchanged', null)
+    answerOpen(true)
     return 'unchanged'
   }
 
@@ -630,6 +667,7 @@ async function readAndMergeServerGraph(
     // (`applyScenarioAnalysisRead.ts`'s "AFTER THE DIVERGENCE GUARDS" note makes
     // the same distinction on the
     // decline side). The refusal simply does not touch this seam.
+    answerOpen(false)
     return 'mergeRefused'
   }
 
@@ -676,6 +714,7 @@ async function readAndMergeServerGraph(
   acknowledgeCanvasThatMatchesTheRead(scenarioId, result.graph)
   restoreRunCurrency('merged', merge.changed, dirtyBeforeMerge)
 
+  answerOpen(true)
   return 'merged'
 }
 

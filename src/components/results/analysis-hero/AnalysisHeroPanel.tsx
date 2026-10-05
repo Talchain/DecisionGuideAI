@@ -422,6 +422,20 @@ export function AnalysisHeroPanel({
             {dashSafe(model.designationWithheldReason)}
           </p>
         )}
+        {/* ⭐ THE DEADLINE THIS RUN DID NOT TEST — CEE's typed sentence
+            (`GOAL_HORIZON_NOT_TESTED`), beside the goal-fit statement it
+            qualifies and whatever lens is open, so "no option reaches the
+            target" and "the deadline is untested" read as two facts (DL
+            0df0e1, beat 2). Null renders nothing. Producer text, so `dashSafe`
+            at the slot, as for every producer slot above. */}
+        {model.goalHorizonUntested && (
+          <p
+            className={`${typography.panelBody} text-text-light`}
+            data-testid="hero-goal-horizon-untested"
+          >
+            {dashSafe(model.goalHorizonUntested)}
+          </p>
+        )}
         {/* ⭐ SUBSET DISCLOSURE — the headline names a LEADER, and a superlative
             ranges over the candidate set even where the underlying per-option
             quantity is subset-invariant. "Reaches the target in the most model runs"

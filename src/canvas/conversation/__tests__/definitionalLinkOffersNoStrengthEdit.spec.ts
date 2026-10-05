@@ -19,7 +19,7 @@ import { describe, it, expect } from 'vitest'
 import type { Edge, Node } from '@xyflow/react'
 import { mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
 import { edgeStrengthEditIsAssertable } from '../edgeStrengthEdit'
-import { edgeDoubleClickAffordance, EDGE_AFFORDANCE_EDITABLE } from '../../edges/edgeAffordance'
+import { edgeClickAffordance, EDGE_AFFORDANCE_EDITABLE } from '../../edges/edgeAffordance'
 import { reviewableStrengthEdgeIds } from '../../../components/results/strengthElicitation/reviewableEdges'
 import { toModelRows, type ModelProjectionInput } from '../../model-tab-v2/adapters'
 
@@ -89,14 +89,14 @@ describe('G1 — the ONE gate: edgeStrengthEditIsAssertable', () => {
 
 describe('G2 — the double-click hint (canvas title + assistive name)', () => {
   it('says "By definition", then the honest gesture — never the edit promise', () => {
-    expect(edgeDoubleClickAffordance(asEdge(DEFINITIONAL_DATA) as never)).toBe('By definition. Double-click to inspect')
+    expect(edgeClickAffordance(asEdge(DEFINITIONAL_DATA) as never)).toBe('By definition. Click to inspect')
   })
   it('CONTROL: the Olumi estimate keeps the edit promise', () => {
-    expect(edgeDoubleClickAffordance(asEdge(ESTIMATE_DATA) as never)).toBe(EDGE_AFFORDANCE_EDITABLE)
-    expect(EDGE_AFFORDANCE_EDITABLE).toBe('Double-click to set its strength')
+    expect(edgeClickAffordance(asEdge(ESTIMATE_DATA) as never)).toBe(EDGE_AFFORDANCE_EDITABLE)
+    expect(EDGE_AFFORDANCE_EDITABLE).toBe('Click to set its strength')
   })
   it("CONTROL: the person's own weight keeps the edit promise", () => {
-    expect(edgeDoubleClickAffordance(asEdge(USER_DATA) as never)).toBe(EDGE_AFFORDANCE_EDITABLE)
+    expect(edgeClickAffordance(asEdge(USER_DATA) as never)).toBe(EDGE_AFFORDANCE_EDITABLE)
   })
 })
 

@@ -102,6 +102,17 @@ export const RESOLVE_NEXT_COPY = {
   /** Ranks 2..n, producer wire order. */
   then: 'then',
   /**
+   * The value act on a ranked factor, on BOTH hosts (Analysis tab and Reasoning
+   * tab). `review` = the destination will display a value; `set` = it will open
+   * an editor with nothing in it (`VoiRankingRow.valueAffordance`). Provenance-
+   * neutral on purpose — a ranked value may be the user's own — and neither
+   * promises a consequence: the destination does not validate the number.
+   */
+  act: {
+    review: 'Review this value',
+    set: 'Set a value',
+  },
+  /**
    * `status: 'below_resolution'`. NEVER "zero value" and never "not worth
    * resolving": below-resolution means indistinguishable from noise AT THIS
    * RUN'S RESOLUTION. Plain register on purpose — this line sits behind no

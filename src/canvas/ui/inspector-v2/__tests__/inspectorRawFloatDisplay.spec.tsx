@@ -92,6 +92,8 @@ function seedCeeEstimate(weight: number) {
 function estimateSentence(): string {
   const box = screen.getByTestId('edge-confirm-current-strength').closest('div')
   expect(box).not.toBeNull()
+  const details = box!.querySelector('button')
+  if (details && details.textContent?.includes('Show details')) fireEvent.click(details)
   return box!.textContent ?? ''
 }
 
@@ -370,7 +372,9 @@ const TINY_NEG = -0.00001
 function estimateValue(): string {
   const box = screen.getByTestId('edge-confirm-current-strength').closest('div')
   expect(box).not.toBeNull()
-  const m = (box!.textContent ?? '').match(/estimate is\s*(-?[\d,]*\.?\d+)/)
+  const details = box!.querySelector('button')
+  if (details && details.textContent?.includes('Show details')) fireEvent.click(details)
+  const m = (box!.textContent ?? '').match(/estimate is\s*[^\d-]*(-?[\d,]*\.?\d+)/)
   expect(m).not.toBeNull()
   return m![1]
 }

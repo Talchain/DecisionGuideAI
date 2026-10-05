@@ -130,9 +130,14 @@ describe('(b) the gated row reads "Depends on the option chosen" and nothing num
     expect(screen.getAllByText(GATED_WORDS)).toHaveLength(1)
     expect(screen.queryByText('Some factors with minimal impact are not shown')).toBeNull()
     expect(data.hiddenZeroImpactCount).toBeUndefined()
-    // CONTROL: the scored rows still render their figures.
+    // CONTROL: the scored rows still render their band, and their figures on
+    // request (plain words first, 4 Oct 2026: no percentage by default).
     expect(screen.getByTestId('driver-influence-pill-fac_a')).toBeTruthy()
+    expect(screen.queryByText('100%')).toBeNull()
+    fireEvent.click(screen.getByTestId('influence-details-toggle'))
     expect(screen.getByText('100%')).toBeTruthy()
+    // The gated row stays words-only with the figures shown.
+    expect(screen.getByTestId('driver-gated-row-fac_g').textContent).not.toMatch(/\d|%/)
   })
 })
 

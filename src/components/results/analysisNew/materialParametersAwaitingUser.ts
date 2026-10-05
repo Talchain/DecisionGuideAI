@@ -58,19 +58,24 @@ export interface NamedMaterialParameter {
  * below consumes it too.
  */
 export function materialParametersAwaitingUserIds(admission: unknown): readonly string[] {
-  if (admission === null || typeof admission !== 'object') return []
+  return materialParameterCensus(admission) ?? []
+}
+
+/** Null = unavailable/malformed; [] = the producer recorded an empty limited census. */
+export function materialParameterCensus(admission: unknown): readonly string[] | null {
+  if (admission === null || typeof admission !== 'object') return null
   const signals = (admission as { semantic_signals?: unknown }).semantic_signals
-  if (signals === null || typeof signals !== 'object') return []
+  if (signals === null || typeof signals !== 'object') return null
   const raw = (signals as { material_parameters_awaiting_user_node_ids?: unknown })
     .material_parameters_awaiting_user_node_ids
-  if (!Array.isArray(raw)) return []
+  if (!Array.isArray(raw)) return null
   // ⚠ ONE BAD MEMBER VOIDS THE SET, rather than being skipped. A producer
   // emitting a non-string here is a producer we have misread, and naming the
   // members we happened to understand would be reporting a PARTIAL set as
   // though it were the whole one — the understatement-the-consumer-cannot-
   // detect defect, committed by the consumer this time.
   for (const id of raw) {
-    if (typeof id !== 'string' || id.length === 0) return []
+    if (typeof id !== 'string' || id.trim().length === 0) return null
   }
   return raw as readonly string[]
 }

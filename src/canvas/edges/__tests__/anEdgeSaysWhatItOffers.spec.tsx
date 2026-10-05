@@ -24,7 +24,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
-import { edgeDoubleClickAffordance, EDGE_AFFORDANCE_EDITABLE, EDGE_AFFORDANCE_READ_ONLY } from '../edgeAffordance'
+import { edgeClickAffordance, EDGE_AFFORDANCE_EDITABLE, EDGE_AFFORDANCE_READ_ONLY } from '../edgeAffordance'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -52,29 +52,29 @@ describe('an edge says what it offers', () => {
     // WORSE FAILURE. A mutant forcing the predicate to `true` — promising an
     // edit on every edge, including those whose write cannot land — left the
     // source text unchanged and every scan GREEN.
-    expect(edgeDoubleClickAffordance(CARRIABLE as never)).toBe(EDGE_AFFORDANCE_EDITABLE)
-    expect(edgeDoubleClickAffordance(REFUSED as never)).toBe(EDGE_AFFORDANCE_READ_ONLY)
+    expect(edgeClickAffordance(CARRIABLE as never)).toBe(EDGE_AFFORDANCE_EDITABLE)
+    expect(edgeClickAffordance(REFUSED as never)).toBe(EDGE_AFFORDANCE_READ_ONLY)
     // And they must genuinely differ, or the pair proves nothing.
     expect(EDGE_AFFORDANCE_EDITABLE).not.toBe(EDGE_AFFORDANCE_READ_ONLY)
   })
 
   it('⛔ an absent or malformed edge never gets the promise', () => {
     for (const bad of [undefined, null, {}, { id: 'x' }]) {
-      expect(edgeDoubleClickAffordance(bad as never)).toBe(EDGE_AFFORDANCE_READ_ONLY)
+      expect(edgeClickAffordance(bad as never)).toBe(EDGE_AFFORDANCE_READ_ONLY)
     }
   })
 
   it('the affordance sentence is CONDITIONAL on the same predicate the panel fences on', () => {
     // Bound to the derivation, not to a second copy of its conditions: a
     // restated rule agrees on the day it is written and drifts after.
-    expect(SOURCE).toContain('edgeDoubleClickAffordance')
+    expect(SOURCE).toContain('edgeClickAffordance')
   })
 
   it('⛔ "inspect" is no longer the UNCONDITIONAL word', () => {
     // The exact shape that shipped: one template literal ending in the old
     // sentence for every edge, editable or not.
     expect(SOURCE, 'the unconditional "inspect" sentence is back')
-      .not.toMatch(/\\n\\nDouble-click to inspect`/)
+      .not.toMatch(/\\n\\n(Double-c|C)lick to inspect`/)
   })
 
   it('⭐ the promise reaches the ASSISTIVE channel too, not just hover', () => {

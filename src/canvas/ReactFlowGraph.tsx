@@ -1,11 +1,10 @@
-import { LinkQuickEditorHost, openLinkQuickEditForClick, useLinkQuickEditStore } from './components/LinkQuickEditor'
 import { WhatElseChooserHost } from './components/WhatElseChooser'
 import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo } from 'react'
 import { resolveRestoredFreshnessUpdate } from './store/analysisFreshness'
 import { X } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, useReactFlow, useStoreApi, type NodeChange, type EdgeChange } from '@xyflow/react'
-import { retargetEdgeClick, resolveContextMenuEdge } from './edges/edgePointerTarget'
+import { edgeClickOpensInspector, retargetEdgeClick, resolveContextMenuEdge } from './edges/edgePointerTarget'
 import '@xyflow/react/dist/style.css'
 // Note: shallow from 'zustand/shallow' was removed - causes infinite loops with Zustand v5
 // Use individual selectors instead (see React #185 fix comment below)
@@ -47,6 +46,7 @@ import { armRecoveryNotice, consumeRecoveryNotice } from './persist/recoveryNoti
 import * as scenarios from './store/scenarios'
 import type { Scenario } from './store/scenarios'
 import { isUUID } from '../services/turn-request-builder'
+import { coldLoadBlocksBootRestore, resolveRestoredScenarioId, settleKeyedAutosaveCopy } from './hydrate/coldLoadDeepLink'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
 import type { CEEAnalysisReady } from '../adapters/cee/types'
 import { CanvasContextMenu } from './contextMenu/CanvasContextMenu'
@@ -221,6 +221,7 @@ import { useAutosave } from './hooks/useAutosave'
 // here was removed — it still downloaded the ~250 KB chunk and, with ?diag,
 // rendered a second overlapping launcher.
 import { verboseWarn } from '../utils/verboseLog'
+import { isViewerSession, useIsViewer } from '../lib/viewerMode'
 
 type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare' | 'rf-minimal' | 'rf-empty' | 'rf-no-fitview' | 'rf-no-bg' | 'rf-store' | 'provider-only' | 'no-provider'
 
@@ -503,14 +504,8 @@ export function resolveBootLoadSource(
   return 'none'
 }
 
-export function resolveRestoredScenarioId(
-  pointerId: string | null,
-  autosaveScenarioId: string | null | undefined,
-): string | null {
-  if (pointerId && isUUID(pointerId)) return pointerId
-  if (autosaveScenarioId && isUUID(autosaveScenarioId)) return autosaveScenarioId
-  return null
-}
+// Moved unchanged to `hydrate/coldLoadDeepLink.ts`, where the cold-load deep link decides by the same rule.
+export { resolveRestoredScenarioId }
 
 /**
  * THE BOOT CALL SITE, EXPORTED SO IT CAN BE DRIVEN RATHER THAN SCANNED.
@@ -790,6 +785,11 @@ function claimCameraOnUserMoveEnd(event: MouseEvent | TouchEvent | null): void {
 }
 
 const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, showStarters = false }: ReactFlowGraphProps) {
+  // ACCOUNTS viewer mode (CANVAS 5947752314): read-only, not inert. A viewer still
+  // selects and inspects (click and marquee); nothing connects or opens an edit menu, and a drag moves
+  // nothing (the store's onNodesChange keeps only select/dimensions changes for a viewer). React Flow's
+  // delete key is off for everyone. FIRST in the component, before any conditional path (hooks ratchet).
+  const isViewer = useIsViewer()
   // React #185 FIX: Use INDIVIDUAL selectors - NOT object + shallow
   //
   // ROOT CAUSE: In Zustand v5 with useSyncExternalStore, when a selector returns a
@@ -1505,7 +1505,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [nodeCount, edgeCount, validateGraph])
 
   const handleNodeClick = useCallback((_: any, node: any) => {
-    useLinkQuickEditStore.getState().close()
     // Close Templates panel when interacting with canvas
     onCanvasInteraction?.()
 
@@ -1531,12 +1530,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     // selection (`edges/edgePointerTarget.ts` has the rule, the multi-select
     // toggle and the focus; `edges/nearestEdgeAtPoint.ts` the measurement).
     const intendedId = retargetEdgeClick(event, edge, flowStoreApi.getState())
-    // ⭐ E2 (Paul 29 Sep): a plain click edits the POINTED-AT link where it was clicked (the resolver's return, never
-    // the first selected edge — PR Review 5897003679). ⛔ A Meta/Control selection toggle, or a click that resolved no
-    // link, is a SELECTION gesture: it opens NEITHER editor (PR Review 5897538379). The full inspector is the
-    // double-click (`handleEdgeDoubleClick`) or the mini-editor's "More detail".
-    openLinkQuickEditForClick(event, intendedId, flowStoreApi.getState().multiSelectionActive)
-    setShowFullInspector(false)
+    // ⭐ S.1 FOR LINKS TOO (Paul, 4 Oct 2026, Canvas lane — DL 0df0e1 #87): one click on a link opens the FULL link
+    // inspector, exactly as one click on a card opens its inspector. This REVERSES #2322's "E2 (Paul 29 Sep)" at-pointer
+    // mini-editor, which journey 4 measured as "the link inspector needs a double click": the inspector already holds
+    // the same strength band and direction writers (`EdgePanel` → `useEdgeMutations`), plus "Test without this link".
+    // Do not restore the mini-editor. The rule (and its selection-gesture exceptions) is `edgeClickOpensInspector`.
+    setShowFullInspector(edgeClickOpensInspector(event, intendedId, flowStoreApi.getState().multiSelectionActive))
   }, [onCanvasInteraction, flowStoreApi])
 
   /**
@@ -1571,7 +1570,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [])
 
   const handleEdgeDoubleClick = useCallback(() => {
-    useLinkQuickEditStore.getState().close()
     setShowFullInspector(true)
   }, [])
 
@@ -2068,7 +2066,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       // ENHANCED PERSISTENCE: Compare autosave vs scenario timestamps
       // Load whichever is newer to prevent losing unsaved work
       const currentId = scenarios.getCurrentScenarioId()
-      const autosave = scenarios.loadAutosave()
+      // A cold-load deep link that could neither complete nor verifiably undo its writes cannot say whose graph the
+      // autosave slot holds, so this page restores none (`hydrate/coldLoadDeepLink.ts`); the server read still runs.
+      const autosave = coldLoadBlocksBootRestore() ? null : scenarios.loadAutosave()
       const scenario = currentId ? scenarios.getScenario(currentId) : null
 
       // Determine which source to load. DRIVEN, not inlined — see
@@ -2119,7 +2119,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         // to an id the load-source decision never saw. No subscriber writes the
         // pointer today, so that was latent — reusing the value costs nothing and
         // closes it.
-        bindRestoredScenarioId(currentId, autosave)
+        const restoredBoundId = bindRestoredScenarioId(currentId, autosave)
+        // A cold-load deep link moved this scenario's preserved copy into the main slot
+        // (`hydrate/coldLoadDeepLink.ts`). It is on screen now, so the copy is retired; a
+        // restore that threw above never gets here, and the copy is kept.
+        settleKeyedAutosaveCopy(restoredBoundId)
         // FIX: Do NOT clear autosave after consuming it.
         // Keep autosave data until user explicitly saves (scenario save) or next autosave cycle.
         // This ensures if browser crashes again before manual save, data can still be recovered.
@@ -2402,6 +2406,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
     event.preventDefault()
+    // ACCOUNTS viewer mode: no edit menu for a viewer (CANVAS 5947752314).
+    if (isViewerSession()) return
     const screenPos = { x: event.clientX, y: event.clientY }
     const { selection } = useCanvasStore.getState()
     const isMulti = selection.nodeIds.size > 1
@@ -2421,6 +2427,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   const onNodeContextMenu = useCallback((event: React.MouseEvent | MouseEvent, node?: any) => {
     event.preventDefault()
+    // ACCOUNTS viewer mode: no edit menu for a viewer (CANVAS 5947752314).
+    if (isViewerSession()) return
     const screenPos = { x: event.clientX, y: event.clientY }
     if (node) {
       const { selection } = useCanvasStore.getState()
@@ -2449,6 +2457,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   const onEdgeContextMenu = useCallback((event: React.MouseEvent | MouseEvent, edge?: any) => {
     event.preventDefault()
+    // ACCOUNTS viewer mode: no edit menu for a viewer (CANVAS 5947752314).
+    if (isViewerSession()) return
     const screenPos = { x: event.clientX, y: event.clientY }
     if (edge) {
       const { nodes, edges: storeEdges } = useCanvasStore.getState()
@@ -2785,7 +2795,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE}
             panOnDrag={effectiveMode === 'hand' ? true : SELECT_MODE_PAN_BUTTONS}
             nodesDraggable={effectiveMode === 'select'}
-            nodesConnectable={CANVAS_EDGE_ADD_CONNECTED}
+            nodesConnectable={CANVAS_EDGE_ADD_CONNECTED && !isViewer}
             nodeClickDistance={NODE_CLICK_DISTANCE}
             paneClickDistance={PANE_CLICK_DISTANCE}
             nodeDragThreshold={NODE_DRAG_THRESHOLD}
@@ -3027,8 +3037,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           <InfluenceExplainer forceShow={isInfluenceExplainerForced} onDismiss={hideInfluenceExplainer} compact />
         </div>
       )}
-      {/* ⭐ E2: a link click opens a small strength editor at the pointer; "More detail" opens the inspector. */}
-      <LinkQuickEditorHost onMoreDetail={() => setShowFullInspector(true)} />
       {/* ⭐ E4: a ghost door's "What else…?" chooser (it only prefills the ask). */}
       <WhatElseChooserHost />
       {/* S.1: Compact popover removed — single-click now opens full inspector directly */}

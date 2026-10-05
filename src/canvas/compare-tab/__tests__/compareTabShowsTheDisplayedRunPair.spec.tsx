@@ -75,7 +75,11 @@ describe('C1 · the Compare body shows the displayed Run pair', () => {
     render(<CompareRunPairBody responseHash="hash-A" />)
     expect(screen.getByTestId(COMPARE_RUN_PAIR_TESTID)).toBeInTheDocument()
     expect(screen.getByTestId(WHATS_CHANGED_TESTID)).toBeInTheDocument()
-    expect(screen.getAllByTestId(`${WHATS_CHANGED_TESTID}-input-row`).map((r) => r.textContent)).toEqual(['Pro price, Raise to £60: £59 → £60'])
+    // ONE list (Compare v2): each row names the input, then its exact before → after in the producer's values.
+    const rows = screen.getAllByTestId(`${WHATS_CHANGED_TESTID}-input-row`)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toHaveTextContent('Pro price, Raise to £60')
+    expect(rows[0]).toHaveTextContent('£59 → £60')
     expect(screen.queryByTestId(`${COMPARE_RUN_PAIR_TESTID}-empty`)).toBeNull()
   })
 })
@@ -188,7 +192,7 @@ describe('G1 · the pair on screen marks the canvas; a row focuses its element',
     seed({ nodes: [{ id: 'fac_price', data: { label: 'Pro price' } }] } as never)
     render(<CompareRunPairBody responseHash="hash-A" />)
     expect(screen.queryByTestId(`${WHATS_CHANGED_TESTID}-input-row-focus`)).toBeNull()
-    expect(screen.getByTestId(`${WHATS_CHANGED_TESTID}-input-row-off-canvas`)).toHaveTextContent('not on the canvas now')
+    expect(screen.getByTestId(`${WHATS_CHANGED_TESTID}-input-row-off-canvas`)).toHaveTextContent('Not on the canvas now')
     expect(useCanvasStore.getState().analysisHighlight.source).not.toBe('run_changes')
   })
 
