@@ -26,7 +26,7 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({ useNodeDisplayMetadata: v
 
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
-import { GoalNode, GOAL_STATE_WORD_CLASSES } from '../GoalNode'
+import { GoalNode } from '../GoalNode'
 
 const baseProps = {
   selected: false, dragging: false, zIndex: 0, isConnectable: false,
@@ -44,7 +44,6 @@ const CHURN = { id: 'fac_churn', type: 'factor', position: { x: 0, y: 0 }, data:
 const NRR = { id: 'out_nrr', type: 'outcome', position: { x: 0, y: 0 }, data: { label: 'Net revenue retention', type: 'outcome' } }
 /** The reader's own limit, stated in the brief: "keep monthly churn under 7%". */
 const CHURN_LIMIT = { id: 'c_churn', node_id: 'fac_churn', operator: '<=', value: 7, unit: '%', provenance: 'explicit' }
-const NRR_LIMIT = { id: 'c_nrr', node_id: 'out_nrr', operator: '>=', value: 110, unit: '%', provenance: 'explicit' }
 
 function mockStore(over: Record<string, unknown> = {}) {
   vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
@@ -68,7 +67,6 @@ function mockStore(over: Record<string, unknown> = {}) {
   )
 }
 
-const WITH_TARGET = { goal_threshold_raw: '20000', goal_threshold_unit: '£' }
 
 function renderGoal(data: Record<string, unknown>) {
   return render(
@@ -81,7 +79,6 @@ function renderGoal(data: Record<string, unknown>) {
 const row = () => screen.getByTestId('goal-node-resting-state')
 const pill = (constraintId: string) => screen.queryByTestId(`goal-limit-pill-${GOAL_ID}-${constraintId}`)
 const allPills = () => screen.queryAllByTestId(new RegExp(`^goal-limit-pill-${GOAL_ID}-`))
-const tokens = (el: Element | null): Set<string> => new Set((el?.getAttribute('class') ?? '').split(/\s+/).filter(Boolean))
 
 /** The goal's own "at most 400" row, as the Confirm turn served it (re-keyed to this harness's goal). */
 const OWN_ROW = {
