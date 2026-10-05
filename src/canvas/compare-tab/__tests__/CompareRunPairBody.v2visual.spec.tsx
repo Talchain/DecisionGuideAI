@@ -18,6 +18,7 @@ import { COMPARE_SUPPORT_TESTID, orderMovements } from '../CompareSupportFigures
 import { compareAskDraft } from '../ComparePairSections'
 import { RUN_CHANGE_LABELS, runChangeDelta } from './__fixtures__/runChangeArtefact'
 import type { RunDeltaInputRow, RunDeltaMovement } from '../../../components/results/analysisNew/runDeltaView'
+import { movementVerdictText } from '../../../components/results/analysisNew/sections/WhatsChanged'
 
 vi.mock('../../graphChanges/rowCanvasLink', () => ({ canvasLinkOfTarget: vi.fn(), useCanvasLight: vi.fn() }))
 const original = useCanvasStore.getState()
@@ -99,6 +100,14 @@ describe('the glance: a two-marker figure per option, plain words, no figures by
     cleanup()
     mount(runChangeDelta())
     expect(screen.getByTestId(COMPARE_SUPPORT_TESTID)).toBeInTheDocument()
+  })
+})
+
+describe('Acceptance #87 5996584359: grammatical', () => {
+  it('a level movement reads "the same AS last time", never "the same than" (control: up/down keep "than")', () => {
+    expect(movementVerdictText({ direction: 'level', noiseVerdict: 'within_noise' })).toMatch(/^Scored the same as last time\. /)
+    expect(movementVerdictText({ direction: 'level', noiseVerdict: 'within_noise' })).not.toContain('same than')
+    expect(movementVerdictText({ direction: 'up', noiseVerdict: 'signal' })).toBe('Scored higher than last time, beyond ordinary run-to-run variation.')
   })
 })
 
