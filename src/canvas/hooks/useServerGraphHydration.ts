@@ -45,7 +45,7 @@ import {
   waitForRetry,
 } from '../hydrate/absentGraphRetry'
 import { useServerGraphRetryStore } from '../stores/serverGraphRetryStore'
-import { coldLoadClaimedRoute } from '../hydrate/coldLoadDeepLink'
+import { coldLoadClaimedRoute, inAppSwitchFences } from '../hydrate/coldLoadDeepLink'
 import { logger } from '../../lib/logger'
 import { getSessionIdentity } from '../../lib/supabase'
 
@@ -116,6 +116,7 @@ export function useServerGraphHydration(
   // no id. Adopting the link there would point the draft's next turn at the linked model while the read (refused, zero
   // overlap) leaves the draft on screen. With anything on the canvas, today's behaviour stands.
   useEffect(() => {
+    if (inAppSwitchFences(scenarioIdFromRoute)) return // a same-tab switch is under way (`useInAppLinkSwitch`)
     const st = useCanvasStore.getState()
     const held = st.currentScenarioId ?? null
     if (held !== null || st.nodes.length > 0 || st.edges.length > 0) return
@@ -127,6 +128,7 @@ export function useServerGraphHydration(
   useEffect(() => {
     if (!enabled) return
     if (!scenarioId) return
+    if (inAppSwitchFences(scenarioIdFromRoute)) return // a same-tab switch is under way: B is not read over A
     const attemptKey = `${scenarioId}\u0000${readEpoch}`
     if (attemptedRef.current === attemptKey) return
     attemptedRef.current = attemptKey

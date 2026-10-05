@@ -35,6 +35,7 @@
  */
 
 import { useLayoutEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import * as scenarios from '../store/scenarios'
 import { useCanvasStore } from '../store'
 import { isUUID } from '../../services/turn-request-builder'
@@ -271,31 +272,81 @@ export function useColdLoadDeepLinkGate(route: string | null | undefined): boole
  * on screen under B's address, and B's graph was never read.
  *
  * THE RULE. When the route changes after the first committed mount to a CEE-addressable B while the store holds ANOTHER
- * scenario A, A's newest work is flushed to its autosave (`flushWorkToAutosave`, gated inside) and the page reloads. The
- * reload is a cold load of B, so the tested path above makes the switch: A's slot is preserved under its own stamp, the
- * pointer becomes B, and the main slot becomes B's own copy or nothing. Every in-memory store (conversation, results,
- * decision context) starts clean on B, so nothing of A's session carries over.
+ * scenario A, in this order, in a LAYOUT effect of the route's gate (it runs before every passive effect of the body):
  *
- * NOT A SWITCH: the first mount (the gate decides that); the same route; a route that names no addressable scenario
- * (`/canvas`); a store that already holds B (the app's own navigations set the store first: `createScenario`, the guest
- * copy's `adoptScenario`); and an unbound canvas (a guest's draft with no id: today's behaviour, #2383). A page with
- * unsaved work asks before it goes (`useScenario`'s beforeunload), as any reload does.
+ *   0. FENCE B's readers for this commit (`inAppSwitchFences`): the body's Supabase load and its CEE read stand down,
+ *      so nothing of B is loaded over A while the switch is decided.
+ *   1. UNSAVED WORK the page itself would warn about (a save in flight, unsaved changes, an edit not yet sent) DECLINES
+ *      the switch. Asked of the app's own unload guards with a cancelable `beforeunload`, which also runs their flushes.
+ *   2. A's work is flushed (`flushWorkToAutosave`, gated inside) and VERIFIED: the main slot must be stamped A and carry
+ *      exactly the store's node and edge ids. A flush that declined or did not land declines the switch.
+ *   3. STORAGE NAMES B before the reload, through the cold load's own writes (`applyColdLoadPlan`): A's slot preserved
+ *      under its own stamp, the pointer B, the main slot B's own copy or nothing; verified, rolled back on failure. So
+ *      the reload never has to infer whose slot it finds, whatever another tab left in the pointer.
+ *   4. The store is emptied under B, so the reload's close flush has nothing of A to write under B; then the page reloads
+ *      and boots B with every in-memory store clean.
  *
- * In a LAYOUT effect of the route's gate: it runs before the body's passive effects, so no load or read of B starts on
- * a page that is about to go.
+ * A DECLINED switch puts the address back where it was (replace), so the address names what is on screen; the user can
+ * open the link in a new tab, the supported path. NOT A SWITCH: the first mount (the gate decides that); the same route;
+ * a route that names no addressable scenario (`/canvas`); a store that already holds B (the app's own navigations set
+ * the store first: `createScenario`, the guest copy's `adoptScenario`); an unbound canvas (a guest's draft, #2383).
  */
+export type InAppSwitchOutcome = 'reloading' | 'declined:unsaved_work' | 'declined:not_preserved' | 'declined:storage'
 let reloadPage: () => void = () => window.location.reload()
+let switchFence: string | null = null
+
+/** True while a same-tab switch to `route` is being decided or is reloading: B's readers stand down. */
+export function inAppSwitchFences(route: string | null | undefined): boolean {
+  return switchFence !== null && route === switchFence
+}
+
+/** The page's own unload guards, asked: would leaving now lose work? Their flushes run, as on a real unload. */
+function leavingWouldLoseWork(): boolean {
+  const probe = new Event('beforeunload', { cancelable: true })
+  window.dispatchEvent(probe)
+  return probe.defaultPrevented
+}
+
+/** The main slot is `held`'s and carries exactly the store's nodes and edges (by id). */
+function mainSlotHoldsTheStore(held: string): boolean {
+  const raw = read(MAIN_AUTOSAVE_SLOT)
+  if (typeof raw !== 'string' || stampOf(raw) !== held) return false
+  try {
+    const slot = JSON.parse(raw) as { nodes?: Array<{ id?: unknown }>; edges?: Array<{ id?: unknown }> }
+    const st = useCanvasStore.getState()
+    const ids = (xs: ReadonlyArray<{ id?: unknown }> | undefined) => (xs ?? []).map((x) => String(x.id)).sort().join('\u0000')
+    return Array.isArray(slot.nodes) && Array.isArray(slot.edges) && ids(slot.nodes) === ids(st.nodes) && ids(slot.edges) === ids(st.edges)
+  } catch {
+    return false
+  }
+}
+
+/** Steps 1–4 of the rule above. `held` is the scenario on screen, `route` the link's. */
+export function switchToLinkedScenario(route: string, held: string): InAppSwitchOutcome {
+  if (leavingWouldLoseWork()) return 'declined:unsaved_work'
+  flushWorkToAutosave()
+  if (!mainSlotHoldsTheStore(held)) return 'declined:not_preserved'
+  if (applyColdLoadPlan({ kind: 'supersede', route }) !== 'applied') return 'declined:storage'
+  useCanvasStore.getState().hydrateGraphSlice({ nodes: [], edges: [], currentScenarioId: route })
+  reloadPage()
+  return 'reloading'
+}
+
 export function useInAppLinkSwitch(route: string | null | undefined): void {
+  const navigate = useNavigate()
   const seen = useRef(route)
   useLayoutEffect(() => {
-    if (seen.current === route) return
+    const from = seen.current
+    if (from === route) return
     seen.current = route
+    if (switchFence !== null && route !== switchFence) switchFence = null // back from a declined switch
     if (route == null || !isCeeAddressableScenarioId(route)) return
     const held = useCanvasStore.getState().currentScenarioId ?? null
     if (held === null || held === route) return
-    flushWorkToAutosave()
-    reloadPage()
-  }, [route])
+    switchFence = route
+    if (switchToLinkedScenario(route, held) === 'reloading') return
+    navigate(from ? `/scenario/${encodeURIComponent(from)}` : '/canvas', { replace: true })
+  }, [route, navigate])
 }
 export function __setReloadForTests(fn: (() => void) | null): void {
   reloadPage = fn ?? (() => window.location.reload())
@@ -356,6 +407,7 @@ export function refreshExistingCopy(id: string): boolean {
 
 export function __resetColdLoadDeepLinkForTests(): void {
   settled = false
+  switchFence = null
   claimedRoute = null
   bootRestoreBlocked = false
   stopWatching?.()

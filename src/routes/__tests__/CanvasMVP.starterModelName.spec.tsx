@@ -44,7 +44,7 @@ vi.mock('../../hooks/useScenario', () => ({
     createSharedBrief: vi.fn(),
   }),
 }))
-vi.mock('react-router-dom', () => ({ useParams: () => ({ id: undefined }) }))
+vi.mock('react-router-dom', () => ({ useParams: () => ({ id: undefined }), useNavigate: () => () => undefined }))
 
 import CanvasMVP from '../CanvasMVP'
 import { useCanvasStore } from '../../canvas/store'

@@ -18,7 +18,7 @@ import { TopBar } from '../components/layout/TopBar'
 import { getScenario } from '../canvas/store/scenarios'
 import { useScenario } from '../hooks/useScenario'
 import { useServerGraphHydration } from '../canvas/hooks/useServerGraphHydration'
-import { useColdLoadDeepLinkGate, useInAppLinkSwitch } from '../canvas/hydrate/coldLoadDeepLink'
+import { useColdLoadDeepLinkGate, useInAppLinkSwitch, inAppSwitchFences } from '../canvas/hydrate/coldLoadDeepLink'
 import { useBootServerRead, useSupabaseLoadTracker } from '../canvas/hooks/useBootServerReadEnabled'
 import { useIsViewer } from '../lib/viewerMode'
 import { useScenarioViewerAccess } from '../lib/useScenarioViewerAccess'
@@ -111,6 +111,8 @@ function CanvasMVPBody() {
   // the current one (the boot race), and a superseded load's late settle changes nothing (A→B→A).
   const { load: supabaseLoad, track: trackSupabaseLoad } = useSupabaseLoadTracker()
   useEffect(() => {
+    // A same-tab switch to this route is being decided or is reloading (`useInAppLinkSwitch`): B is not loaded over A.
+    if (inAppSwitchFences(scenarioIdFromRoute)) return
     if (scenarioIdFromRoute && isPersistenceActive && hydratedRef.current !== scenarioIdFromRoute) {
       const id = scenarioIdFromRoute
       hydratedRef.current = id
