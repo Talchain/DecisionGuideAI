@@ -499,10 +499,17 @@ jobs:
   # be compared here. The job generates the linux set, uploads it for review,
   # and FAILS with instructions. It never commits them — re-blessing is an
   # explicit human commit (scripts/visual/rebless.sh, e2e/visual/README.md).
+  #
+  # ⛔ DISABLED 5 Oct 2026: STALE, NOT FLAKY. Red on every staging push since at least
+  # 1 Sep (34 failed / 19 passed at cd3fdd45). Every reference predates the Sep
+  # redesign (dock 416 -> 360px #2199, nodeTitleWide 14px, 9px landing floor #2443,
+  # new node DOM), so a re-bless would be a wholesale replacement nobody can review
+  # (the #1833 trap). Re-enable = restore `if: github.event_name != 'pull_request'`
+  # in the same PR that re-baselines the specs and references (scripts/visual/rebless.sh).
   visual-regression:
     name: Visual Regression (advisory)
     needs: install
-    if: github.event_name != 'pull_request'
+    if: ${{ false }}
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
