@@ -304,6 +304,16 @@ export const EdgeDataSchema = z.object({
    */
   strengthDefinitional: z.literal(true).optional(),
 
+  /**
+   * Gate 5 (5 Oct 2026): the canvas `weight` the user ACCEPTED as Olumi's estimate — the wire's
+   * `provenance.reviewed_by_user` confirm on an `olumi_*` magnitude (CEE `linkSizing` → `olumi_accepted`). Written by
+   * the ONE reader `strengthAcceptedPatch` at every ingestion hop; read through `isStrengthAccepted`
+   * (`./strengthAccepted`), which holds it live only while the weight is still CEE's and still equals this number.
+   *
+   * ⚠ ABSENT ⇒ NOT KNOWN TO BE ACCEPTED. Never defaulted.
+   */
+  strengthAccepted: z.number().min(0).max(2).optional(),
+
   // Set-vs-defaulted markers. ABSENT MEANS DEFAULTED — see
   // ./edgeValueProvenance.ts for the full rationale. Stamped only where the
   // value demonstrably came from a named source, so a construction site that

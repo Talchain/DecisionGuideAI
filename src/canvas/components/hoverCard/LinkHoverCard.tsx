@@ -27,6 +27,7 @@ import { NOT_ON_RECORD } from './NodeHoverCard'
 import { StrengthBar } from './StrengthBar'
 import { BY_DEFINITION } from '../../domain/strengthDefinitional'
 import type { EdgeSizePhrase } from '../../edges/edgeSizePhrase'
+import { VALUE_PROVENANCE_LABEL } from '../../domain/valueProvenance'
 
 const DIRECTION_SOURCE_WORDS: Record<EdgeValueSource, string> = {
   user: 'Set by you',
@@ -49,7 +50,14 @@ export function linkStrengthSourceWords(
   // ⭐ Beat 1: the strength was sized from the USER's own stated figure (`EdgeSizePhrase.usersFigure`) — not Olumi's
   // estimate, and not "confirmed" either (nobody confirmed the β). Only narrows Olumi's own stamp.
   if (sizedFromUsersFigure && !settled && source === 'cee') return 'from your figure'
-  if (settled) return source === 'user' ? 'Set by you' : 'Confirmed by you'
+  if (settled) {
+    if (source === 'user') return 'Set by you'
+    // Gate 5: Olumi's own strength, settled by the person, is Olumi's estimate they ACCEPTED — the canvas's one word
+    // for that fact on cards too (`VALUE_PROVENANCE_LABEL.accepted`, AIQ 5921018606), and what Compare says ("You
+    // accepted Olumi's estimate…"). A strength sized from the user's own figure is not Olumi's, so it keeps the status.
+    if (source === 'cee' && !sizedFromUsersFigure) return VALUE_PROVENANCE_LABEL.accepted
+    return 'Confirmed by you'
+  }
   if (source === 'cee') return 'Olumi’s estimate'
   if (source === 'template') return 'Template estimate'
   return 'Estimate'

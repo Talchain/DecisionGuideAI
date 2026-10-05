@@ -17,6 +17,7 @@ import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength, re
 import { readWireNaturalEffect } from '../domain/naturalEffect'
 import { strengthPlaceholderPatch } from '../domain/strengthPlaceholder'
 import { strengthDefinitionalPatch } from '../domain/strengthDefinitional'
+import { strengthAcceptedPatch } from '../domain/strengthAccepted'
 import { edgeValueSourcePatch } from '../domain/edgeValueProvenance'
 import { readCeeQualityDimensions } from './ceeQualityDimensions'
 import { saveAutosave } from '../store/scenarios'
@@ -180,6 +181,8 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
       // A link that holds BY DEFINITION is nobody's estimate — the ONE reader,
       // every hop (domain/strengthDefinitional).
       ...strengthDefinitionalPatch(e as Record<string, unknown>, wireSuppliedStrength),
+      // Gate 5: Olumi's strength the user ACCEPTED — the ONE reader, every hop (domain/strengthAccepted).
+      ...strengthAcceptedPatch(e as Record<string, unknown>, weight, wireSuppliedStrength),
       // Set-vs-defaulted markers. Derived from the resolved values themselves,
       // never from "we are in the CEE mapper so it must be CEE": when the wire
       // carried no belief at all, `beliefExists` is `undefined` here and the

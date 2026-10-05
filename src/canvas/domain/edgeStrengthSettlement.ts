@@ -51,6 +51,7 @@
 
 import type { UserAction } from '../../types/validation'
 import { edgeValueSource } from './edgeValueProvenance'
+import { isStrengthAccepted } from './strengthAccepted'
 
 /**
  * Which resolutions of a contested edge mean a human has taken responsibility
@@ -117,6 +118,10 @@ export function strengthIsHumanSettled(
   // today, so this arm is belt-and-braces — but the two are independent facts
   // and a future writer of one without the other must land on `true`.
   if (data.userReviewedStrength === true) return true
+
+  // Gate 5: the SERVER's record of the same act — the user accepted Olumi's estimate (`provenance.reviewed_by_user`
+  // confirm, CEE `olumi_accepted`), held live only while the weight drawn is the one accepted (`isStrengthAccepted`).
+  if (isStrengthAccepted(data)) return true
 
   // The contested-edge adjudication channel.
   const { action, resolvedByUser } = readSettlementFields(data)

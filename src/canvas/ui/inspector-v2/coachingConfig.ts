@@ -144,6 +144,12 @@ const STRENGTH_PLACEHOLDER_COPY =
  */
 // One spelling, shared with the surfaces that show it where a strength editor would be.
 const STRENGTH_DEFINITIONAL_COPY = STRENGTH_HOLDS_BY_DEFINITION
+
+/**
+ * Gate 5 (5 Oct 2026): Olumi's strength the user ACCEPTED (`isStrengthAccepted`). Still Olumi's figure, so never
+ * "yours"; accepted, so never offered as unconfirmed. The factor twin's words (`examineAssumptionView` `accepted`).
+ */
+const STRENGTH_ACCEPTED_COPY = 'You accepted Olumi\u2019s estimate of this strength. It is still an estimate, not a measurement.'
 const EXISTENCE_DEFINITIONAL_COPY = 'By definition, this connection always exists.'
 
 const EXISTENCE_PROVENANCE_COPY: Record<EdgeProvenanceKey, string> = {
@@ -178,6 +184,8 @@ export function resolveEdgeValuesCoaching(sources: {
   strengthPlaceholder?: boolean
   /** MG 0ebb952a: the link holds by definition (`isStrengthDefinitional`). */
   strengthDefinitional?: boolean
+  /** Gate 5: Olumi's strength the user accepted (`isStrengthAccepted`). */
+  strengthAccepted?: boolean
   /**
    * ⭐ Beat 1 (Canvas lane, 4 Oct 2026): the link's size is the USER's own stated figure (`edgeSizePhrase`, only when
    * `usersFigure`), so the β was sized from it and "Olumi estimated this strength" is untrue of it.
@@ -202,6 +210,8 @@ export function resolveEdgeValuesProvenance(sources: {
   strengthPlaceholder?: boolean
   /** MG 0ebb952a: the link holds by definition (`isStrengthDefinitional`). */
   strengthDefinitional?: boolean
+  /** Gate 5: Olumi's strength the user accepted (`isStrengthAccepted`). */
+  strengthAccepted?: boolean
   /**
    * ⭐ Beat 1 (Canvas lane, 4 Oct 2026): the link's size is the USER's own stated figure (`edgeSizePhrase`, only when
    * `usersFigure`), so the β was sized from it and "Olumi estimated this strength" is untrue of it.
@@ -219,7 +229,9 @@ export function resolveEdgeValuesProvenance(sources: {
       ? STRENGTH_PLACEHOLDER_COPY
       : sources.usersFigure != null && strengthKey === 'cee'
         ? usersFigureSentence(sources.usersFigure)
-        : STRENGTH_PROVENANCE_COPY[strengthKey]
+        : sources.strengthAccepted === true && strengthKey === 'cee'
+          ? STRENGTH_ACCEPTED_COPY
+          : STRENGTH_PROVENANCE_COPY[strengthKey]
   const existenceSentence = definitional && existenceKey === 'cee'
     ? EXISTENCE_DEFINITIONAL_COPY
     : EXISTENCE_PROVENANCE_COPY[existenceKey]

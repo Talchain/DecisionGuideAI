@@ -11,6 +11,7 @@ import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength, re
 import { readWireNaturalEffect } from '../../domain/naturalEffect'
 import { strengthPlaceholderPatch } from '../../domain/strengthPlaceholder'
 import { strengthDefinitionalPatch } from '../../domain/strengthDefinitional'
+import { strengthAcceptedPatch } from '../../domain/strengthAccepted'
 import { edgeValueSourcePatch } from '../../domain/edgeValueProvenance'
 import { edgeProvenanceDisplayPatch } from '../../utils/draftIngestion'
 import { saveAutosave } from '../../store/scenarios'
@@ -198,6 +199,8 @@ function buildEdge(op: PatchOperation) {
       ...strengthPlaceholderPatch(d as Record<string, unknown>, weight, wireSuppliedStrength),
       // A definitional link — HOP 2 OF 3, the same one reader (domain/strengthDefinitional).
       ...strengthDefinitionalPatch(d as Record<string, unknown>, wireSuppliedStrength),
+      // Gate 5: an accepted Olumi strength — HOP 2 OF 3, the same one reader (domain/strengthAccepted).
+      ...strengthAcceptedPatch(d as Record<string, unknown>, weight, wireSuppliedStrength),
       // Set-vs-defaulted markers — see domain/edgeValueProvenance.ts. Omitted
       // when the patch carried no value, so an operation that supplies neither
       // leaves the edge honestly marked as unset rather than claiming a
