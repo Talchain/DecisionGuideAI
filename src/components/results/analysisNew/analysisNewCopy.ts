@@ -308,21 +308,49 @@ export function goalPathUnsizedCause(
   inferenceWarnings: unknown,
   labelOf: (nodeId: string) => string | null | undefined,
 ): string | null {
-  if (!Array.isArray(inferenceWarnings)) return null
-  const warning = inferenceWarnings.find((w): w is { node_ids: unknown[] } =>
-    w !== null && typeof w === 'object' && (w as { code?: unknown }).code === 'GOAL_FIGURES_PLACEHOLDER_PATH'
-    && Array.isArray((w as { node_ids?: unknown }).node_ids))
-  const ids = warning?.node_ids
-  if (!ids || typeof ids[0] !== 'string' || typeof ids[1] !== 'string') return null
+  const links = unsizedLinksOf(inferenceWarnings)
+  if (links.length === 0) return null
   const label = (id: string): string | null => {
     const raw = labelOf(id)
     const text = typeof raw === 'string' ? raw.trim() : ''
     return text.length > 0 && text.length <= 120 ? text : null
   }
-  const from = label(ids[0])
-  const to = label(ids[1])
-  if (from === null || to === null) return null
-  return `This comparison turns on the link from ‘${from}’ to ‘${to}’, whose strength nobody has set yet. Set it to see how much it matters.`
+  const named: Array<{ from: string; to: string }> = []
+  for (const link of links) {
+    const from = label(link.from)
+    const to = label(link.to)
+    // Every link or none: a partial list would say one cause as if it were the whole of it.
+    if (from === null || to === null) return null
+    named.push({ from, to })
+  }
+  return unsizedLinksSentence(named)
+}
+
+/**
+ * Every unsized deciding link the Run's typed warning carries, in its order: `links` when MC P0 carries the full list,
+ * else the first named link (`node_ids[0]` → `node_ids[1]`). Deduplicated; empty when there is none.
+ */
+function unsizedLinksOf(inferenceWarnings: unknown): Array<{ from: string; to: string }> {
+  if (!Array.isArray(inferenceWarnings)) return []
+  const warning = inferenceWarnings.find((w): w is Record<string, unknown> =>
+    w !== null && typeof w === 'object' && (w as { code?: unknown }).code === 'GOAL_FIGURES_PLACEHOLDER_PATH')
+  if (!warning) return []
+  const listed = Array.isArray(warning.links)
+    ? warning.links.filter((l): l is { from: string; to: string } =>
+      l !== null && typeof l === 'object' && typeof (l as { from?: unknown }).from === 'string'
+      && typeof (l as { to?: unknown }).to === 'string')
+    : []
+  const ids = Array.isArray(warning.node_ids) ? warning.node_ids : []
+  const links = listed.length > 0 ? listed
+    : typeof ids[0] === 'string' && typeof ids[1] === 'string' ? [{ from: ids[0], to: ids[1] }] : []
+  const seen = new Set<string>()
+  return links.filter((l) => !seen.has(`${l.from}->${l.to}`) && seen.add(`${l.from}->${l.to}`) !== undefined)
+}
+
+/** Science d5's words (#87 6002254753), one link or several. */
+function unsizedLinksSentence(links: ReadonlyArray<{ from: string; to: string }>): string {
+  const [only] = links
+  return `This comparison turns on the link from ‘${only.from}’ to ‘${only.to}’, whose strength nobody has set yet. Set it to see how much it matters.`
 }
 
 /**
