@@ -1240,6 +1240,17 @@ export interface InferenceWarning {
   field?: string
   /** Affected node IDs */
   affected_nodes: string[]
+  /**
+   * CEE's own node carrier (`node_ids`), carried verbatim beside `affected_nodes` (which it does not populate). For
+   * `GOAL_FIGURES_PLACEHOLDER_PATH`, `node_ids[0]` → `node_ids[1]` is the unsized link a `goal_path_unsized` withhold
+   * names (MC github-21).
+   */
+  node_ids?: string[]
+  /**
+   * MC P0's full list of the links the warning is about (`GOAL_FIGURES_PLACEHOLDER_PATH`: every unsized deciding link,
+   * nearest the goal first), carried verbatim. Dropping it here named only the first link on the Analysis tab.
+   */
+  links?: Array<{ from: string; to: string }>
   /** Affected node labels (resolved from canvas) */
   affected_labels?: string[]
   /** Human-readable message */

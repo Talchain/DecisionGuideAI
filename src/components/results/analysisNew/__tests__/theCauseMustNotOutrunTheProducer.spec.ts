@@ -109,7 +109,9 @@ describe('leaderWithholdCause — the cause may not outrun the producer', () => 
     // own rule is that it grows when a capture earns the entry. The arm keeps
     // its job with tokens no run has produced — what it discriminates is
     // unchanged, so the case stays and only the example moved.
-    expect(leaderWithholdCause('options_do_not_separate')).toBeNull()
+    // ⚠ `options_do_not_separate` MOVED too (5 Oct): CEE mints it (`analysis-state-v1.ts:208` WITHHELD_NEAR_TIE at CEE
+    // staging b644ddb8) and the DL ruled its sentence (#87 6002409812). The arm keeps its job with an unminted token.
+    expect(leaderWithholdCause('a_second_token_no_run_has_sent')).toBeNull()
     expect(leaderWithholdCause('a_token_no_capture_has_shown')).toBeNull()
     expect(leaderWithholdCause('')).toBeNull()
     expect(leaderWithholdCause(null)).toBeNull()
@@ -213,8 +215,9 @@ describe('separation_unavailable, now wire-witnessed', () => {
    * leader reads as a finding.
    */
   it('says the run could not work it out', () => {
+    // Science's sentence spells it "couldn’t" (#87 6002409812); the claim is the same.
     expect(leaderWithholdCause('separation_unavailable')!.toLowerCase()).toMatch(
-      /could not|cannot|was unable/,
+      /could not|couldn[’']t|cannot|can[’']t|was unable/,
     )
   })
 

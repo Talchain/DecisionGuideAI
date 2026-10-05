@@ -11,8 +11,8 @@ import { withheldLeaderCause } from '../analysisNewCopy'
 import { decisionWithLeaderWithheld } from './analysisNewFixtures'
 
 const TOKEN = 'options_not_reconciled_with_brief'
-/** AIQ #72 5886555442, without the ‹label› parenthetical until the carrier names the option ids. */
-const SENTENCE = "Olumi added an option your brief didn't name, so this run doesn't put one forward. You can remove it and re-run."
+/** Science d5 under the copy rule (#87 6002222614: an invitation, never "put one forward"); label-free until the carrier names the option. */
+const SENTENCE = 'This comparison includes an option Olumi added that your brief didn’t name. Remove it and run again to see the comparison.'
 
 const vmFor = (reason: string) =>
   buildAnalysisNewViewModel({

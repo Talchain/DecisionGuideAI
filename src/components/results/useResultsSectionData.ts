@@ -1466,7 +1466,6 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // `results: null` (the `?.` above) — `admissionGatesHarness.resetStore()` is that state, and the selector threw on it.
   const leaderPermission = report?.producer_leader_permission ?? null
   const winSharesAreWithheld = winSharesWithheld(leaderPermission)
-  const winShareReasonLine = winSharesAreWithheld ? winShareWithheldReason(leaderPermission) : null
   const resultsStatus = results?.status
 
   const isLoading = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
@@ -1785,6 +1784,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     })
     return map
   }, [nodes])
+
+  // The reason line beside every withheld share. `goal_path_unsized` names its link from this Run's typed warning and
+  // the canvas labels (`winShareGate`); every other cause reads the copy map.
+  const winShareReasonLine = winSharesAreWithheld
+    ? winShareWithheldReason(leaderPermission, {
+      inferenceWarnings: (report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings,
+      labelOf: (nodeId) => nodeLabelMap.get(nodeId) ?? null,
+    })
+    : null
 
   /**
    * V7-C slice 1 (ROADMAP 2.141) — the value-of-information ranking.
@@ -4523,6 +4531,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             // producer shapes straight past this adapter.
             field: typeof w.field === 'string' ? w.field : undefined,
             affected_nodes: nodeIds,
+            ...(Array.isArray(w.node_ids) ? { node_ids: w.node_ids.filter((id: unknown): id is string => typeof id === 'string') } : {}),
+            ...(Array.isArray(w.links) ? { links: w.links.filter((l: any) => typeof l?.from === 'string' && typeof l?.to === 'string').map((l: any) => ({ from: l.from as string, to: l.to as string })) } : {}),
             affected_labels: nodeIds.map(id => nodeLabelMap.get(id) ?? id),
             message: w.message ? String(w.message) : undefined,
             // Roadmap 1.12: producer severity carried verbatim (never

@@ -228,6 +228,7 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
   // CEE per-option limit verdicts (DL 5850643426 tier 1, 5850672588 tier 2).
   no_option_meets_limit: 'On this run, no option meets one of your limits.',
   every_option_likely_breaks_limit: 'On these estimates, every option is more likely than not to break one of your limits.',
+  // Science d5 (#87 6002222614 copy rule: an invitation, never "put one forward").
   constraint_verdict_withheld:
     "Olumi's checks on this run do not support putting one option forward.",
   /**
@@ -263,7 +264,7 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
    * carry the difference, because nothing else on the surface does.
    */
   separation_unavailable:
-    'This run could not work out how far apart the options are, so it cannot put one forward.',
+    'Olumi couldn’t measure how far apart the options’ results are on this run. Run it again to see the comparison.',
   /**
    * Canonical's intake cause (#72 5886426614; DL 5886466744): an option Olumi added cannot be reconciled
    * to the user's brief, so no option is named the leader. Served before it was minted as
@@ -272,7 +273,112 @@ const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
    */
   // AIQ #72 5886555442. The ‹label› parenthetical waits for Canonical's carrier to name the option ids.
   options_not_reconciled_with_brief:
-    "Olumi added an option your brief didn't name, so this run doesn't put one forward. You can remove it and re-run.",
+    'This comparison includes an option Olumi added that your brief didn’t name. Remove it and run again to see the comparison.',
+  /** A real overlap (Science d5): lever-free until the levers are typed on this code. */
+  options_do_not_separate:
+    'In this model, the options’ results overlap too much to tell apart. Change a figure you’re unsure about to see what separates them.',
+  /**
+   * CEE's intake reconciliation (a8, #87 6002009604; DL ruling): the saved model has not established that its options
+   * are the ones the brief lists. Science d5's words, first sentence only: the "confirm" action ships once a route
+   * actually clears the state.
+   */
+  intake_identity_unverified:
+    'This comparison depends on which of the model’s options are the ones your brief lists, and that hasn’t been confirmed yet.',
+  /** The brief lists an option the model does not carry. Label-free until a typed carrier names it (Science d5). */
+  intake_options_missing:
+    'Your brief lists at least one option that isn’t in the model yet, so this comparison leaves it out. Check the model’s options against your brief.',
+  /**
+   * MC P0's unsized-path withhold when its link cannot be named (Science d5). Where the Run's warning and the canvas
+   * labels name it, `goalPathUnsizedCause` says which link instead.
+   */
+  goal_path_unsized: 'This comparison turns on a link whose strength nobody has set yet.',
+}
+
+/**
+ * MC P0's every-Run withhold: a link on a compared option's path to the goal that nobody sized. The claim carries only
+ * this code; the link's two ends come from the same Run's typed `GOAL_FIGURES_PLACEHOLDER_PATH` warning
+ * (`node_ids[0]` → `node_ids[1]`, MC github-21).
+ */
+export const GOAL_PATH_UNSIZED_CAUSE = 'goal_path_unsized'
+
+/**
+ * The withhold as an invitation (DL copy rule #87 6002222614: never "Give a figure"), naming the failing link's own
+ * ends in Science d5's phrasing ("the link from ‘A’ to ‘B’"), or null when they cannot be named
+ * (no such warning, fewer than two ends, or an end with no display label); the caller then says the unnamed line
+ * (`LEADER_WITHHOLD_CAUSE.goal_path_unsized`).
+ * No "(and N other links)" clause: the warning carries no count, and a guessed count is never shown (Science d5).
+ */
+export function goalPathUnsizedCause(
+  inferenceWarnings: unknown,
+  labelOf: (nodeId: string) => string | null | undefined,
+): string | null {
+  const links = unsizedLinksOf(inferenceWarnings)
+  if (links.length === 0) return null
+  const label = (id: string): string | null => {
+    const raw = labelOf(id)
+    const text = typeof raw === 'string' ? raw.trim() : ''
+    return text.length > 0 && text.length <= 120 ? text : null
+  }
+  const named: Array<{ from: string; to: string }> = []
+  for (const link of links) {
+    const from = label(link.from)
+    const to = label(link.to)
+    // Every link or none: a partial list would say one cause as if it were the whole of it.
+    if (from === null || to === null) return null
+    named.push({ from, to })
+  }
+  return unsizedLinksSentence(named)
+}
+
+/**
+ * Every unsized deciding link the Run's typed warning carries, in its order: `links` when MC P0 carries the full list,
+ * else the first named link (`node_ids[0]` → `node_ids[1]`). Deduplicated; empty when there is none.
+ */
+function unsizedLinksOf(inferenceWarnings: unknown): Array<{ from: string; to: string }> {
+  if (!Array.isArray(inferenceWarnings)) return []
+  const warning = inferenceWarnings.find((w): w is Record<string, unknown> =>
+    w !== null && typeof w === 'object' && (w as { code?: unknown }).code === 'GOAL_FIGURES_PLACEHOLDER_PATH')
+  if (!warning) return []
+  const listed = Array.isArray(warning.links)
+    ? warning.links.filter((l): l is { from: string; to: string } =>
+      l !== null && typeof l === 'object' && typeof (l as { from?: unknown }).from === 'string'
+      && typeof (l as { to?: unknown }).to === 'string')
+    : []
+  const ids = Array.isArray(warning.node_ids) ? warning.node_ids : []
+  const links = listed.length > 0 ? listed
+    : typeof ids[0] === 'string' && typeof ids[1] === 'string' ? [{ from: ids[0], to: ids[1] }] : []
+  const seen = new Set<string>()
+  return links.filter((l) => !seen.has(`${l.from}->${l.to}`) && seen.add(`${l.from}->${l.to}`) !== undefined)
+}
+
+/** Science d5's words (#87 6002254753; plural and cap, d5 20:3xZ): one link, or up to three named then "and N more". */
+function unsizedLinksSentence(links: ReadonlyArray<{ from: string; to: string }>): string {
+  if (links.length === 1) {
+    const [only] = links
+    return `This comparison turns on the link from ‘${only.from}’ to ‘${only.to}’, whose strength nobody has set yet. Set it to see how much it matters.`
+  }
+  const phrases = links.slice(0, 3).map((l) => `from ‘${l.from}’ to ‘${l.to}’`)
+  const more = links.length - phrases.length
+  const listed = more > 0
+    ? `${phrases.join(', ')} and ${more} more`
+    : `${phrases.slice(0, -1).join(', ')} and ${phrases[phrases.length - 1]}`
+  return `This comparison turns on the links ${listed}, whose strengths nobody has set yet. Set them to see how much they matter.`
+}
+
+/**
+ * The cause a withhold names when the Run's own typed warning says a deciding link is unsized: `goal_path_unsized`
+ * always; `separation_unavailable` only when that upstream withhold is present (Science d5: there it echoes the withhold
+ * that emptied robustness, #87 6002390259). The links named, or the unnamed line; null when neither applies.
+ */
+export function unsizedAwareCause(
+  producerReason: string | null | undefined,
+  inferenceWarnings: unknown,
+  labelOf: (nodeId: string) => string | null | undefined,
+): string | null {
+  const token = typeof producerReason === 'string' ? producerReason.trim() : ''
+  const upstream = unsizedLinksOf(inferenceWarnings).length > 0
+  if (token !== GOAL_PATH_UNSIZED_CAUSE && !(token === 'separation_unavailable' && upstream)) return null
+  return goalPathUnsizedCause(inferenceWarnings, labelOf) ?? LEADER_WITHHOLD_CAUSE[GOAL_PATH_UNSIZED_CAUSE]
 }
 
 /**
@@ -2961,10 +3067,16 @@ const ADMISSION_EXPLAINS_THE_WITHHOLD: ReadonlySet<string> = new Set([
 export function withheldLeaderCause(
   producerReason: string | null | undefined,
   refusalAsksForAnEstimate: boolean,
+  /** For `goal_path_unsized` only: the Run's warnings and a node-label lookup, to name the unsized link. */
+  unsizedLink?: { inferenceWarnings: unknown; labelOf: (nodeId: string) => string | null | undefined },
 ): string | null {
   const token = typeof producerReason === 'string' ? producerReason.trim() : ''
   if (refusalAsksForAnEstimate && ADMISSION_EXPLAINS_THE_WITHHOLD.has(token)) {
     return LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS
+  }
+  if (unsizedLink) {
+    const unsized = unsizedAwareCause(token, unsizedLink.inferenceWarnings, unsizedLink.labelOf)
+    if (unsized !== null) return unsized
   }
   return leaderWithholdCause(producerReason)
 }
