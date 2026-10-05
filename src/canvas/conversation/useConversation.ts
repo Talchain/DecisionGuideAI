@@ -6039,11 +6039,12 @@ export function useConversation(): UseConversationReturn {
               setPendingExplainKey(narration.runKey)
             }
           }
+          const heldProposalId = actionChips.find(c => /^agent-approve-proposal:prop_[0-9a-f]{32}$/.test(c.id))?.id.slice('agent-approve-proposal:'.length)
           if (!isForeignExplanation(narration, latestRunKeyRef.current)) addMessage({
             id: crypto.randomUUID(),
             role: 'assistant',
             content: target.response.assistant_text,
-            clientTurnId: turnClientId,
+            ...(heldProposalId ? { heldProposalId, heldTurnId: turnClientId } : {}),
             ...(narration ? { narration } : {}),
             ...(guidance ? { guidance } : {}),
             ...(proposalPreview ? { proposalPreview } : {}),

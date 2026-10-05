@@ -10,7 +10,7 @@ import {
   readServerConversationTurns,
 } from '../../serverConversationTurns'
 
-// This spec never sends a turn — it drives mount-restore and `resetCanvas` only.
+// Restore rows drive mount/hydration; R3 also sends and retries through the real persistence path.
 // The mocks below exist solely to stop the hook reaching a network path at mount;
 // the two spies are declared here rather than inherited from the sibling spec the
 // preamble was adapted from (which is how `mockCallTurn` arrived undeclared).
@@ -95,6 +95,7 @@ vi.mock('../../../../lib/posthog', () => ({
 // Mock Supabase getUserId: vi.fn() so tests can reconfigure per-scenario.
 // Default: null (no auth session in test environment).
 const mockGetUserId = vi.fn<[], Promise<string | null>>()
+const mockSupabaseRpc = vi.fn()
 
 // Login 3.4: token knob for the getSessionIdentity bridge — tests that
 // exercise the Bearer path set .value; everything else runs token-less.
@@ -121,6 +122,10 @@ vi.mock('../../../../v5/streamedTurnTransport', async (importOriginal) => {
 })
 
 vi.mock('../../../../lib/supabase', () => ({
+  supabase: {
+    rpc: (...args: unknown[]) => mockSupabaseRpc(...args),
+    auth: { onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }) },
+  },
   getUserId: (...args: unknown[]) => mockGetUserId(...args as []),
   // Login 3.4: useConversation resolves identity via getSessionIdentity
   // (userId + access token in one getSession call). Backed by the same
@@ -156,6 +161,10 @@ import { hydrateCanvasFromServer, type HydrationOutcome } from '../../../hydrate
 import { runAbsentGraphRetrySchedule, ABSENT_GRAPH_RETRY_DELAYS_MS } from '../../../hydrate/absentGraphRetry'
 import { useServerGraphHydration } from '../../../hooks/useServerGraphHydration'
 import type { ThreadEntry } from '../../../journey/threadTypes'
+import * as threadService from '../../../../services/threadService'
+import { useResultsStore } from '../../../stores/resultsStore'
+import { openExampleDecision, __resetExampleDecisionForTests } from '../../../example/exampleDecision'
+import { __resetPersistenceSessionForTests } from '../../../../lib/persistenceSession'
 
 // Observe the real panel's attribution at its persistence boundary; no chip handler or renderer is mocked.
 const mockChipTaken = vi.fn()
@@ -184,7 +193,7 @@ function actionsFor(proposalId = PID) {
 }
 const actions = actionsFor()
 const held: ConversationMessage = {
-  id: 'held-answer', role: 'assistant', content: 'Approve this change?', clientTurnId: TID,
+  id: 'held-answer', role: 'assistant', content: 'Approve this change?', heldTurnId: TID,
   timestamp: new Date('2026-10-05T09:00:00.000Z'), actionChips: buildSuggestedActionChips([], actions),
 }
 const rawOffers = [{ turn_id: TID, proposal_id: PID, suggested_actions: actions }]
@@ -229,12 +238,13 @@ function expectControls(present: boolean) {
 }
 beforeEach(() => {
   localStorage.clear(); sessionStorage.clear(); __resetTranscriptTombstonesForTests()
+  __resetExampleDecisionForTests(); __resetPersistenceSessionForTests()
   vi.stubGlobal('fetch', fetchSpy)
   Element.prototype.scrollIntoView = vi.fn()
   mockRetryWait.mockResolvedValue(undefined)
   useServerConversationTurnsStore.setState({ offer: null })
   useCanvasStore.setState({ nodes: [], edges: [], currentScenarioId: SID, _hydratedThread: null,
-    serverGraphIdentity: null, lastAuthoritativeGraph: null })
+    serverGraphIdentity: null, lastAuthoritativeGraph: null, scenarioPersistedToDb: false })
   scenarios.setCurrentScenarioId(SID)
   mockGetUserId.mockResolvedValue(null); mockLoadScenario.mockResolvedValue(null)
   mockIsV5Eligible.mockReturnValue({ eligible: false })
@@ -253,7 +263,7 @@ describe('R2 server-authorised held controls through the real mount restore, hyd
     show(first.result.current.messages); expectControls(true)
     const saved = JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY)!)[SID].messages.find((m: { id: string }) => m.id === held.id)
     expect(saved.actionChips).toBeUndefined(); expect(saved.consentOffered).toBe(true)
-    expect(saved.clientTurnId).toBe(TID); expect(saved.heldProposalId).toBe(PID)
+    expect(saved.clientTurnId).toBeUndefined(); expect(saved.heldTurnId).toBe(TID); expect(saved.heldProposalId).toBe(PID)
     first.unmount(); cleanup(); earlierPageLoad()
     const second = renderHook(() => useConversation())
     await serverRead(rawOffers)
@@ -367,7 +377,7 @@ describe('P1 CLASS: owning reply across every divider and later real-reply super
 describe('P2-a CLASS: a saved exact pair or freshly built server history; no prefix/proposal shortcuts', () => {
   it.each<[string, ConversationMessage]>([
     ['old server id without saved proposal', { ...held, id: `restored-assistant-${TID}`, actionChips: undefined }],
-    ['proposal without turn identity', { ...held, clientTurnId: undefined, heldProposalId: PID }],
+    ['proposal without turn identity', { ...held, heldTurnId: undefined, heldProposalId: PID }],
     ['turn identity without proposal', { ...held, actionChips: undefined }],
   ])('%s restores inert despite a valid matching server offer', async (_label, message) => {
     saveTranscript(SID, [message]); earlierPageLoad()
@@ -383,7 +393,7 @@ describe('P2-a CLASS: a saved exact pair or freshly built server history; no pre
     await serverRead(rawOffers)
     show(hook.result.current.messages); expectControls(true)
     const reply = hook.result.current.messages.find(m => m.id === `restored-assistant-${TID}`)!
-    expect([reply.clientTurnId, reply.heldProposalId]).toEqual([TID, PID])
+    expect([reply.heldTurnId, reply.heldProposalId]).toEqual([TID, PID])
     hook.unmount(); cleanup(); earlierPageLoad()
     const reload = renderHook(() => useConversation())
     await serverRead(rawOffers)
@@ -392,11 +402,15 @@ describe('P2-a CLASS: a saved exact pair or freshly built server history; no pre
   it('duplicate valid offers arm only one associated reply; user messages and unrelated live chips stay unchanged', () => {
     const reply = { ...held, heldProposalId: PID }
     const user = { ...reply, id: 'user', role: 'user' as const }
-    const live = { ...held, id: 'live', clientTurnId: 'live-turn' }
-    const messages = reconcileRestoredHeldControls([reply, { ...reply, id: 'copy' }, user, live], [...rawOffers, ...rawOffers])
-    expect(messages[0].actionChips?.map(c => c.id)).toEqual([APPROVE, AMEND])
-    expect(messages[1].actionChips).toBeUndefined()
-    expect(messages[2]).toBe(user); expect(messages[3]).toBe(live)
+    const live = { ...held, id: 'live', heldTurnId: 'live-turn' }
+    const messages = reconcileRestoredHeldControls([{ ...reply, content: 'Earlier offered text' }, { ...reply, id: 'copy' }], [...rawOffers, ...rawOffers])
+    expect(messages[0].actionChips).toBeUndefined()
+    expect(messages[1].actionChips?.map(c => c.id)).toEqual([APPROVE, AMEND])
+    show(messages); expectControls(true)
+    expect(within(screen.getByTestId('response-chip-group')).getByTestId('message-assistant')).toHaveTextContent(held.content)
+    expect(screen.getByTestId('response-chip-group')).not.toHaveTextContent('Earlier offered text')
+    const untouched = reconcileRestoredHeldControls([user, live], rawOffers)
+    expect(untouched[0]).toBe(user); expect(untouched[1]).toBe(live)
   })
   it.each<[string, unknown]>([
     ['null', null], ['non-array', {}], ['empty turn id', [{ ...rawOffers[0], turn_id: '' }]],
@@ -430,7 +444,7 @@ describe('P2-b cold-read opt-in survives the whole retry schedule', () => {
       expect(offer.scenarioId).toBe(SID); expect(offer.heldProposalOffers).toEqual(rawOffers)
       expect(offer.turns).toEqual(turns)
       const restored = buildRestoredThread(offer.turns, offer.run, offer.heldProposalOffers).find(m => m.id === `restored-assistant-${TID}`)!
-      expect([restored.clientTurnId, restored.heldProposalId]).toEqual([TID, PID])
+      expect([restored.heldTurnId, restored.heldProposalId]).toEqual([TID, PID])
       const hook = renderHook(() => useConversation())
       show(hook.result.current.messages); expectControls(true)
       expect(useServerConversationTurnsStore.getState().offer).toBeNull()
@@ -557,5 +571,240 @@ describe('P2-c CLASS: restoration owns B before its offer is consumed', () => {
     localStorage.setItem(TRANSCRIPT_STORAGE_KEY, '{unreadable')
     await act(async () => { useCanvasStore.setState({ currentScenarioId: SID }) })
     show(hook.result.current.messages); expectControls(true)
+  })
+})
+
+
+// R3 P1 CLASS: the response's scenario identity binds all executable authority,
+// on first boot, EACH retry position, and the existing example re-read caller.
+const responseIdentities = [
+  ['foreign', OTHER], ['missing', undefined], ['null', null], ['matching', SID],
+] as const
+const p1Reads = [
+  ['boot', -1], ...ABSENT_GRAPH_RETRY_DELAYS_MS.map((at, i) => [`retry ${at} ms`, i] as const),
+] as const
+function bodyWithIdentity(identity: string | null | undefined) {
+  const body: Record<string, unknown> = graphBody(rawOffers)
+  if (identity === undefined) delete body.scenario_id
+  else body.scenario_id = identity
+  return body
+}
+describe('R3 P1 CLASS: response-scenario authority through hydration → restore → ChatThread', () => {
+  it.each(responseIdentities.flatMap(([kind, identity]) => p1Reads.map(([path, successIndex]) =>
+    [kind, identity, path, successIndex] as const)))(
+    'R3 P1 %s response identity (%s) on %s at retry index %s', async (kind, identity, _path, successIndex) => {
+      localStorage.removeItem(TRANSCRIPT_STORAGE_KEY)
+      let reads = 0
+      fetchSpy.mockImplementation(async () => {
+        reads++
+        return replyResponse(reads <= successIndex + 1
+          ? { schema: 'scenario_graph.v1', scenario_id: SID, graph_present: false }
+          : bodyWithIdentity(identity))
+      })
+      let boot!: { unmount: () => void }
+      await act(async () => { boot = renderHook(() => useServerGraphHydration()) })
+      expect(reads).toBe(successIndex + 2)
+      const offer = useServerConversationTurnsStore.getState().offer!
+      expect(offer.scenarioId).toBe(SID)
+      expect(offer.turns).toEqual(turns)
+      expect(offer.heldProposalOffers).toEqual(kind === 'matching' ? rawOffers : [])
+      const hook = renderHook(() => useConversation())
+      show(hook.result.current.messages); expectControls(kind === 'matching')
+      expect(screen.getByText(held.content)).toBeTruthy() // history is still restored
+      hook.unmount(); boot.unmount()
+    },
+  )
+  it.each(responseIdentities)('R3 P1 %s response identity on the real example re-read', async (kind, identity) => {
+    localStorage.removeItem(TRANSCRIPT_STORAGE_KEY)
+    const uuid = vi.spyOn(crypto, 'randomUUID').mockReturnValue(SID)
+    fetchSpy.mockResolvedValue(replyResponse({ schema: 'scenario_graph_registration.v1', registered: true }))
+    let opened!: Awaited<ReturnType<typeof openExampleDecision>>
+    await act(async () => { opened = await openExampleDecision({ readBackTimeoutMs: 1 }) })
+    expect(opened.status).toBe('not_read_back')
+    expect(useCanvasStore.getState().currentScenarioId).toBe(SID)
+    fetchSpy.mockImplementation(async () => replyResponse(bodyWithIdentity(identity)))
+    await act(async () => { await openExampleDecision({ readBackTimeoutMs: 1 }) })
+    const offer = useServerConversationTurnsStore.getState().offer!
+    expect(offer.turns).toEqual(turns)
+    expect(offer.heldProposalOffers).toEqual(kind === 'matching' ? rawOffers : [])
+    const hook = renderHook(() => useConversation())
+    show(hook.result.current.messages); expectControls(kind === 'matching')
+    expect(screen.getByText(held.content)).toBeTruthy()
+    uuid.mockRestore()
+  })
+  it.each(responseIdentities)('R3 P1 %s response identity revokes an already re-armed local card', async (kind, identity) => {
+    const hook = renderHook(() => useConversation())
+    await serverRead(rawOffers)
+    const view = show(hook.result.current.messages); expectControls(true); view.unmount()
+    fetchSpy.mockImplementation(async () => replyResponse(bodyWithIdentity(identity)))
+    await act(async () => { await hydrateCanvasFromServer(SID, { includeConversationTurns: true }) })
+    show(hook.result.current.messages); expectControls(kind === 'matching')
+  })
+})
+
+// R3 P2-a CLASS: held correlation is historical card metadata, never a durable reply id.
+describe('R3 P2-a CLASS: separate heldTurnId from normalised reply identity', () => {
+  it('R3 P2-a reply → retry sharing one correlation both reach insertConversationTurn with staging args', async () => {
+    localStorage.removeItem(TRANSCRIPT_STORAGE_KEY)
+    // No persistence or message producer mock: only the external turn response and RPC are stubbed.
+    const { useThreadPersistence: useRealThreadPersistence } = await vi.importActual<typeof import('../../hooks/useThreadPersistence')>('../../hooks/useThreadPersistence')
+    const insert = vi.spyOn(threadService, 'insertConversationTurn')
+    mockSupabaseRpc.mockResolvedValue({ data: 'persisted-reply', error: null })
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
+    useCanvasStore.setState({ scenarioPersistedToDb: true,
+      nodes: [{ id: 'f', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Factor' } }] })
+    useResultsStore.setState(state => ({ results: { ...state.results, lastSnapshotId: null } }))
+    const response = (assistant_text: string) => ({ kind: 'response' as const, response: {
+      response_version: 2, assistant_text, blocks: [], suggested_actions: actions, insights: [], stage_indicator: 'frame',
+    } })
+    mockCallV5Turn.mockResolvedValueOnce(response('First held reply')).mockResolvedValueOnce(response('Retried held reply'))
+    const hook = renderHook(() => {
+      const conversation = useConversation()
+      useRealThreadPersistence(SID, conversation.messages)
+      return conversation
+    })
+    await act(async () => { await hook.result.current.sendMessage('Consider this link') })
+    await act(async () => { await hook.result.current.retryLast() })
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(2)
+    const correlations = mockCallV5Turn.mock.calls.map(call => call[0].turn_id)
+    expect(typeof correlations[0]).toBe('string'); expect(correlations[0]).toBe(correlations[1])
+    const replies = hook.result.current.messages.filter(m => m.role === 'assistant' && !m.synthetic)
+    expect(replies.map(m => m.content)).toEqual(['First held reply', 'Retried held reply'])
+    expect(replies[0].id).not.toBe(replies[1].id)
+    const args = insert.mock.calls.map(call => call[0]).filter(arg => arg.role === 'assistant')
+    expect(args).toEqual(['First held reply', 'Retried held reply'].map(content => ({
+      scenarioId: SID, role: 'assistant', content, structuredBlocks: undefined, clientTurnId: undefined,
+      snapshotId: undefined, analysisSnapshotId: undefined,
+    })))
+    const rpcArgs = mockSupabaseRpc.mock.calls.filter(call => call[0] === 'insert_conversation_turn' && call[1].p_role === 'assistant')
+    expect(rpcArgs.map(call => call[1])).toEqual(['First held reply', 'Retried held reply'].map(p_content => ({
+      p_scenario_id: SID, p_role: 'assistant', p_content, p_structured_blocks: null,
+      p_client_turn_id: null, p_snapshot_id: null, p_analysis_snapshot_id: null,
+    })))
+    for (const reply of replies) {
+      expect(reply.clientTurnId).toBeUndefined()
+      expect([reply.heldTurnId, reply.heldProposalId]).toEqual([correlations[0], PID])
+    }
+    hook.unmount()
+  })
+  it('R3 P2-a heldTurnId re-arms after local save → restore → next load without serialising chips', async () => {
+    const first = renderHook(() => useConversation())
+    await serverRead(rawOffers)
+    show(first.result.current.messages); expectControls(true)
+    const saved = JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY)!)[SID].messages.find((m: { id: string }) => m.id === held.id)
+    expect(saved.heldTurnId).toBe(TID); expect(saved.heldProposalId).toBe(PID)
+    expect(saved.clientTurnId).toBeUndefined(); expect(saved.actionChips).toBeUndefined()
+    first.unmount(); cleanup(); earlierPageLoad()
+    const reload = renderHook(() => useConversation())
+    expect(reload.result.current.messages.find(m => m.id === held.id)?.heldTurnId).toBe(TID)
+    await serverRead(rawOffers)
+    show(reload.result.current.messages); expectControls(true)
+  })
+  it('R3 P2-a round-2 clientTurnId + heldProposalId save restores INERT; only fresh server history re-arms', async () => {
+    const file = JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY)!)
+    const old = file[SID].messages.find((m: { id: string }) => m.id === held.id)
+    old.clientTurnId = TID; old.heldProposalId = PID; delete old.heldTurnId
+    old.actionChips = held.actionChips // poisoned legacy chips are never authority
+    localStorage.setItem(TRANSCRIPT_STORAGE_KEY, JSON.stringify(file))
+    const hook = renderHook(() => useConversation())
+    await serverRead(rawOffers)
+    show(hook.result.current.messages); expectControls(false)
+    const reply = hook.result.current.messages.find(m => m.id === held.id)!
+    // Staging parity: a stored clientTurnId is kept as-is but is never the held association.
+    expect(reply.heldTurnId).toBeUndefined(); expect(reply.clientTurnId).toBe(TID)
+    hook.unmount(); cleanup(); earlierPageLoad()
+    const reload = renderHook(() => useConversation())
+    await serverRead(rawOffers)
+    show(reload.result.current.messages); expectControls(false)
+    reload.unmount(); cleanup(); localStorage.removeItem(TRANSCRIPT_STORAGE_KEY)
+    const fresh = renderHook(() => useConversation())
+    await serverRead(rawOffers)
+    show(fresh.result.current.messages); expectControls(true)
+  })
+  it.each([undefined, null, '', 42, {}])('R3 P2-a malformed heldTurnId=%s cannot re-arm a saved proposal', async value => {
+    const file = JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY)!)
+    file[SID].messages.find((m: { id: string }) => m.id === held.id).heldTurnId = value
+    localStorage.setItem(TRANSCRIPT_STORAGE_KEY, JSON.stringify(file))
+    const hook = renderHook(() => useConversation())
+    await serverRead(rawOffers)
+    show(hook.result.current.messages); expectControls(false)
+  })
+})
+
+// R3 P2-b CLASS: latest local exact owner, unique fresh reply, multiple proposals, save/reload.
+describe('R3 P2-b CLASS: duplicates cannot hide or misattribute an executable offer', () => {
+  it.each([false, true])('R3 P2-b duplicate local pair → latest owner renders both controls (multiple proposals=%s), first restore and save/reload', async multiple => {
+    const otherPid = 'prop_' + 'f'.repeat(32)
+    const otherHeld = { ...held, id: 'other-proposal', heldProposalId: otherPid, actionChips: buildSuggestedActionChips([], actionsFor(otherPid)) }
+    const latest = { ...held, id: 'latest-held-reply', content: held.content, heldProposalId: PID }
+    saveTranscript(SID, [{ ...held, content: 'Earlier offered text', heldProposalId: PID }, ...(multiple ? [otherHeld] : []), latest])
+    earlierPageLoad()
+    const authority = [...rawOffers, ...rawOffers, ...(multiple ? [{ turn_id: TID, proposal_id: otherPid, suggested_actions: actionsFor(otherPid) }] : [])]
+    for (let load = 0; load < 2; load++) {
+      const hook = renderHook(() => useConversation())
+      await serverRead(authority)
+      const messages = hook.result.current.messages
+      expect(messages.find(m => m.id === held.id)?.actionChips).toBeUndefined()
+      expect(messages.find(m => m.id === latest.id)?.actionChips?.map(c => c.id)).toEqual([APPROVE, AMEND])
+      if (multiple) expect(messages.find(m => m.id === otherHeld.id)?.actionChips?.map(c => c.id)).toEqual([`agent-approve-proposal:${otherPid}`, AMEND])
+      show(messages); expectControls(true)
+      expect(within(screen.getByTestId('response-chip-group')).getByTestId('message-assistant')).toHaveTextContent(held.content)
+      expect(screen.getByTestId('response-chip-group')).not.toHaveTextContent('Earlier offered text')
+      expect(screen.queryByTestId(`suggested-chip-agent-approve-proposal:${otherPid}`)).toBeNull()
+      expect(JSON.stringify(JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY)!)[SID])).not.toContain('actionChips')
+      hook.unmount(); cleanup(); earlierPageLoad()
+    }
+  })
+  it.each([false, true])('R3 P2-b fresh duplicate turn ids → inert (multiple proposals=%s), first restore and save/reload', async multiple => {
+    localStorage.removeItem(TRANSCRIPT_STORAGE_KEY)
+    const otherPid = 'prop_' + 'f'.repeat(32)
+    const authority = [...rawOffers, ...(multiple ? [{ turn_id: TID, proposal_id: otherPid, suggested_actions: actionsFor(otherPid) }] : [])]
+    const history = [{ ...wireTurns[0], assistant_message: 'Earlier offered text' }, { ...wireTurns[0], created_at: '2026-10-05T09:01:00.000Z' }]
+    for (let load = 0; load < 2; load++) {
+      const hook = renderHook(() => useConversation())
+      await serverRead(authority, SID, history)
+      expect(hook.result.current.messages.filter(m => m.role === 'assistant' && !m.sessionDivider)).toHaveLength(2)
+      expect(hook.result.current.messages.every(m => m.actionChips === undefined)).toBe(true)
+      show(hook.result.current.messages); expectControls(false)
+      expect(screen.queryByTestId(`suggested-chip-agent-approve-proposal:${otherPid}`)).toBeNull()
+      hook.unmount(); cleanup(); earlierPageLoad()
+    }
+  })
+  it('R3 P2-b distinct fresh turns with multiple proposals each retain their own association through save/reload', async () => {
+    localStorage.removeItem(TRANSCRIPT_STORAGE_KEY)
+    const otherPid = 'prop_' + 'f'.repeat(32)
+    const authority = [{ turn_id: 'earlier-turn', proposal_id: otherPid, suggested_actions: actionsFor(otherPid) }, ...rawOffers]
+    const history = [{ ...wireTurns[0], turn_id: 'earlier-turn', assistant_message: 'Earlier offered text' }, { ...wireTurns[0], created_at: '2026-10-05T09:01:00.000Z' }]
+    for (let load = 0; load < 2; load++) {
+      const hook = renderHook(() => useConversation())
+      await serverRead(authority, SID, history)
+      const earlier = hook.result.current.messages.find(m => m.id === 'restored-assistant-earlier-turn')!
+      expect([earlier.heldTurnId, earlier.heldProposalId]).toEqual(['earlier-turn', otherPid])
+      expect(earlier.actionChips?.map(c => c.id)).toEqual([`agent-approve-proposal:${otherPid}`, AMEND])
+      show(hook.result.current.messages); expectControls(true)
+      expect(within(screen.getByTestId('response-chip-group')).getByTestId('message-assistant')).toHaveTextContent(held.content)
+      expect(screen.getByTestId('response-chip-group')).not.toHaveTextContent('Earlier offered text')
+      hook.unmount(); cleanup(); earlierPageLoad()
+    }
+  })
+})
+
+describe('R3 staging parity: an assistant reply\'s own clientTurnId survives the local transcript', () => {
+  // Thread-hydrated replies carry clientTurnId (hydrateThread), and FeedbackRow reads it on assistant bubbles.
+  // R2 must not narrow the stored shape; the held association rides heldTurnId alone.
+  it('a thread-hydrated reply keeps clientTurnId through save → load, with no held association inferred', async () => {
+    const { loadTranscript } = await import('../transcriptStore')
+    localStorage.clear(); __resetTranscriptTombstonesForTests()
+    const scenario = 'parity-scenario-0001'
+    const hydrated: ConversationMessage = {
+      id: 'hydrated-reply-1', role: 'assistant', content: 'A hydrated answer.', timestamp: new Date(), clientTurnId: 'turn-hydrated-1',
+    }
+    const user: ConversationMessage = { id: 'u-1', role: 'user', content: 'A question.', timestamp: new Date(), clientTurnId: 'turn-hydrated-1' }
+    saveTranscript(scenario, [user, hydrated])
+    const loaded = loadTranscript(scenario)
+    const reply = loaded?.messages.find(m => m.id === 'hydrated-reply-1')
+    expect(reply?.clientTurnId).toBe('turn-hydrated-1')
+    expect(reply?.heldTurnId).toBeUndefined(); expect(reply?.heldProposalId).toBeUndefined()
+    expect(loaded?.messages.find(m => m.id === 'u-1')?.clientTurnId).toBe('turn-hydrated-1')
   })
 })

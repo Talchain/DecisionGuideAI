@@ -141,7 +141,7 @@ export function readServerHeldProposalOffers(raw: unknown): readonly ServerHeldP
 /**
  * Local history keeps its words. ONLY this fresh server sidecar rebuilds restored approve/amend controls.
  * The saved proposal/turn association locates a card, never authorises it. No match or unreadable/absent sidecar → inert.
- * Live answers have neither the restored association nor a restored-server id and are left untouched by a late read.
+ * Replies without a held association or a restored-server id are left untouched by a late read.
  */
 export function reconcileRestoredHeldControls(
   messages: readonly ConversationMessage[],
@@ -150,24 +150,36 @@ export function reconcileRestoredHeldControls(
 ): ConversationMessage[] {
   const offers = readServerHeldProposalOffers(rawOffers)
   const used = new Set<string>()
-  return messages.map(message => {
-    if (message.role !== 'assistant') return message
+  // Fresh history has no saved proposal association: a repeated turn cannot locate an unambiguous reply.
+  const serverReplyCounts = new Map<string, number>()
+  if (freshlyBuiltServerHistory) {
+    for (const message of messages) {
+      if (message.role !== 'assistant' || message.sessionDivider || message.synthetic
+        || !message.id.startsWith('restored-assistant-')) continue
+      const turnId = message.id.slice('restored-assistant-'.length)
+      serverReplyCounts.set(turnId, (serverReplyCounts.get(turnId) ?? 0) + 1)
+    }
+  }
+  // The latest eligible local reply owns a duplicate exact pair; keep display order unchanged.
+  return [...messages].reverse().map(message => {
+    if (message.role !== 'assistant' || message.sessionDivider || message.synthetic) return message
     const hasServerPrefix = message.id.startsWith('restored-assistant-')
     // Only the builder above knows that this id came from THIS read's turn_id.
     // A persisted prefix is not a saved (turn_id, proposal_id) association.
     const serverTurnId = freshlyBuiltServerHistory && hasServerPrefix
       ? message.id.slice('restored-assistant-'.length) : undefined
     if (message.heldProposalId === undefined && !hasServerPrefix) return message
-    const turnId = message.clientTurnId ?? serverTurnId
+    const turnId = message.heldTurnId ?? serverTurnId
     const offer = offers.find(o => !used.has(o.proposalId)
       && turnId !== undefined && o.turnId === turnId
+      && (serverTurnId === undefined || serverReplyCounts.get(serverTurnId) === 1)
       && (o.proposalId === message.heldProposalId
         || (serverTurnId !== undefined && message.heldProposalId === undefined)))
     // Drop any prior restored controls before adopting the fresh authority; saved chips never participate.
     const { actionChips: _oldChips, ...rest } = message
     if (offer === undefined) return rest
     used.add(offer.proposalId)
-    return { ...rest, heldProposalId: offer.proposalId, clientTurnId: offer.turnId,
+    return { ...rest, heldProposalId: offer.proposalId, heldTurnId: offer.turnId,
       actionChips: buildSuggestedActionChips([], offer.actions) }
-  })
+  }).reverse()
 }

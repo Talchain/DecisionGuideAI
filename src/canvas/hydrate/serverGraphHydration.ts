@@ -335,7 +335,8 @@ async function readAndMergeServerGraph(
     useServerConversationTurnsStore.getState().offerServerConversationTurns({
       scenarioId,
       turns: serverTurns ?? [],
-      heldProposalOffers: result.heldProposalOffers,
+      // Held actions belong to the response envelope, never merely to the request.
+      heldProposalOffers: result.scenarioId === scenarioId ? result.heldProposalOffers : [],
       run: {
         runNotCurrent: heldRunIsNotCurrentPerRead(result.analysisState, result.analysisResult),
         currentRunComputedAt: typeof computedAt === 'string' ? computedAt : null,

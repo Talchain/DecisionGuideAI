@@ -196,6 +196,7 @@ interface StoredMessage {
   consentOffered?: true
   /** Historical association only; actionChips are never persisted. */
   heldProposalId?: string
+  heldTurnId?: string
   /**
    * The producer's answer shape (`_answer_shape`: headline, bullets, detail),
    * verbatim. Stored so a reply that arrived short, with its detail behind
@@ -317,7 +318,10 @@ function toStored(m: SourceKeyedMessage): StoredMessage {
   if (m.deliveryState === 'unconfirmed') out.deliveryState = 'unconfirmed'
   if (turnOfferedConsent(m)) out.consentOffered = true
   const heldId = m.heldProposalId ?? m.actionChips?.find(c => /^agent-approve-proposal:prop_[0-9a-f]{32}$/.test(c.id))?.id.slice('agent-approve-proposal:'.length)
-  if (m.role === 'assistant' && typeof heldId === 'string' && /^prop_[0-9a-f]{32}$/.test(heldId)) out.heldProposalId = heldId
+  if (m.role === 'assistant' && typeof heldId === 'string' && /^prop_[0-9a-f]{32}$/.test(heldId)) {
+    out.heldProposalId = heldId
+    if (typeof m.heldTurnId === 'string' && m.heldTurnId.length > 0) out.heldTurnId = m.heldTurnId
+  }
   if (m.answerShape) out.answerShape = m.answerShape
   if (m.openQuestionList) out.openQuestionList = [...m.openQuestionList]
   if (m.provisionalView) {
@@ -359,7 +363,8 @@ function fromStored(s: StoredMessage): SourceKeyedMessage {
     ...(s.deliveryState === 'unconfirmed' ? { deliveryState: 'unconfirmed' as const } : {}),
     ...(s.consentOffered === true ? { consentOffered: true as const } : {}),
     ...(s.role === 'assistant' && typeof s.heldProposalId === 'string' && /^prop_[0-9a-f]{32}$/.test(s.heldProposalId)
-      ? { heldProposalId: s.heldProposalId } : {}),
+      ? { heldProposalId: s.heldProposalId,
+        ...(typeof s.heldTurnId === 'string' && s.heldTurnId.length > 0 ? { heldTurnId: s.heldTurnId } : {}) } : {}),
     ...restoredAnswerShape(s.answerShape),
     ...restoredOpenQuestionList(s.openQuestionList),
     ...restoredProvisionalView(s.provisionalView),
