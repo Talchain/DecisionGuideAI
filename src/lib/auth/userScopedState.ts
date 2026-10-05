@@ -34,9 +34,11 @@ export const USER_SCOPED_STORAGE_KEYS = [
 // graphs with labels, listed with no owner check (`persist.listSnapshots`), so the next account could restore one.
 // `olumi.collab.pending-apply.` / `olumi.collab.open-round.` — a Panel round's pending model change and its participants,
 // one per scenario (`collab/panelApplyHandoff.ts`, `collab/openRoundRecord.ts`).
+// `olumi-thin-layout:` — a signed-in browser's layout, one per scenario (`thinClient.LAYOUT_KEY_PREFIX`): positions only,
+// but keyed by node ids, and CEE derives node ids from labels (Acceptance, #2511 witness W2), so it names the model.
 export const USER_SCOPED_STORAGE_PREFIXES = [
   'olumi.dissent.v2.', 'olumi.dissent.', 'olumi-canvas-autosave:', 'canvas-snapshot-',
-  'olumi.collab.pending-apply.', 'olumi.collab.open-round.',
+  'olumi.collab.pending-apply.', 'olumi.collab.open-round.', 'olumi-thin-layout:',
 ] as const
 
 /** Per-tab user work in sessionStorage: the analysis-ready mirror and the coaching blob (`guidanceStore.ts`). */
