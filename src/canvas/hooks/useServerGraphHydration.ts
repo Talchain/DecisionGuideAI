@@ -115,7 +115,8 @@ export function useServerGraphHydration(
   // ⚠ STORE ONLY, NEVER THE POINTER: the route already says which scenario a reload means, and a pointer written here
   // would seed the NEXT session's store, so a later link to another scenario would be ignored. (A browser that
   // REMEMBERS another scenario is a different case, handled before this hook: `claimColdLoadDeepLink` does write the
-  // pointer, because there the autosave would otherwise be stamped with an id the pointer contradicts.)
+  // pointer, because there the autosave would otherwise be stamped with an id the pointer contradicts. A signed-in page
+  // has no autosave to stamp, so there it writes nothing either.)
   // ⚠ AND AN EMPTY CANVAS, NOT JUST A NULL ID (CODEX UI BUDDY #2383 5923937552): a guest's unsaved draft has nodes and
   // no id. Adopting the link there would point the draft's next turn at the linked model while the read (refused, zero
   // overlap) leaves the draft on screen. With anything on the canvas, today's behaviour stands.
