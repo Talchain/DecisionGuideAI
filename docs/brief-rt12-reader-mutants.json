@@ -1,0 +1,164 @@
+[
+  {
+    "name": "natural-magnitude-author",
+    "file": "src/canvas/domain/naturalEffect.ts",
+    "old": "  example_figure: 'example_figure',",
+    "new": "  example_figure: 'olumi_estimate',"
+  },
+  {
+    "name": "natural-author-schema",
+    "file": "src/canvas/domain/naturalEffect.ts",
+    "old": "author: z.enum(['user', 'olumi_estimate', 'olumi_placeholder', 'example_figure'])",
+    "new": "author: z.enum(['user', 'olumi_estimate', 'olumi_placeholder'])"
+  },
+  {
+    "name": "natural-author-words",
+    "file": "src/canvas/domain/naturalEffect.ts",
+    "old": "if (effect.author === 'example_figure') return 'example figure'",
+    "new": "if (false) return 'example figure'"
+  },
+  {
+    "name": "natural-phrase-parts",
+    "file": "src/canvas/domain/naturalEffect.ts",
+    "old": "const holdsByDefinition = definitional && effect.author !== 'example_figure'",
+    "new": "const holdsByDefinition = definitional"
+  },
+  {
+    "name": "standalone-example-admission",
+    "file": "src/canvas/domain/naturalEffect.ts",
+    "old": "provenance?.magnitude !== 'example_figure') return {}",
+    "new": "provenance?.magnitude === 'example_figure') return {}"
+  },
+  {
+    "name": "admitted-strength-staleness",
+    "file": "src/canvas/domain/naturalEffect.ts",
+    "old": "Math.abs(currentMean - admittedMean) <= SAME_MEAN_EPSILON",
+    "new": "true"
+  },
+  {
+    "name": "served-estimate-control",
+    "file": "src/canvas/domain/naturalEffect.ts",
+    "old": "if (effect.author === 'olumi_estimate') return \"Olumi's estimate\"",
+    "new": "if (effect.author === 'olumi_estimate') return 'example figure'"
+  },
+  {
+    "name": "served-user-brief-control",
+    "file": "src/canvas/domain/naturalEffect.ts",
+    "old": "effect.userOrigin === 'brief' ? 'from your brief'",
+    "new": "effect.userOrigin === 'brief' ? 'example figure'"
+  },
+  {
+    "name": "size-example-class",
+    "file": "src/canvas/edges/edgeSizePhrase.ts",
+    "old": "exampleFigure: natural.data.author === 'example_figure'",
+    "new": "exampleFigure: false"
+  },
+  {
+    "name": "unsized-example-class",
+    "file": "src/canvas/edges/edgeSizePhrase.ts",
+    "old": "usersFigure: false, exampleFigure: true",
+    "new": "usersFigure: false, exampleFigure: false"
+  },
+  {
+    "name": "size-not-users-figure",
+    "file": "src/canvas/edges/edgeSizePhrase.ts",
+    "old": "usersFigure: natural.data.author === 'user' && !definitional",
+    "new": "usersFigure: (natural.data.author === 'user' || natural.data.author === 'example_figure') && !definitional"
+  },
+  {
+    "name": "hover-strength-source",
+    "file": "src/canvas/components/hoverCard/LinkHoverCard.tsx",
+    "old": "if (exampleFigure) return 'example figure'",
+    "new": "if (false) return 'example figure'"
+  },
+  {
+    "name": "hover-direction-source",
+    "file": "src/canvas/components/hoverCard/LinkHoverCard.tsx",
+    "old": "props.size?.exampleFigure === true\n                  ? 'example figure'",
+    "new": "false\n                  ? 'example figure'"
+  },
+  {
+    "name": "connector-estimate-marker",
+    "file": "src/canvas/edges/StyledEdge.tsx",
+    "old": " && edgeSize?.exampleFigure !== true",
+    "new": ""
+  },
+  {
+    "name": "pill-example-source",
+    "file": "src/canvas/nodes/shared/EdgePills.tsx",
+    "old": "exampleFigure: edgeSizePhrase(edgeData)?.exampleFigure === true",
+    "new": "exampleFigure: false"
+  },
+  {
+    "name": "inspector-example-resolvers",
+    "file": "src/canvas/ui/inspector-v2/coachingConfig.ts",
+    "old": "sources.strengthExampleFigure === true && strengthKey === 'cee'",
+    "new": "false && strengthKey === 'cee'"
+  },
+  {
+    "name": "examine-example-basis",
+    "file": "src/canvas/ui/inspector-v2/examine/examineLinkView.ts",
+    "old": "const basis: ExamineLinkBasis = example",
+    "new": "const basis: ExamineLinkBasis = false"
+  },
+  {
+    "name": "model-estimate-attention",
+    "file": "src/canvas/model-tab-v2/adapters.ts",
+    "old": "      !exampleFigure &&\n",
+    "new": ""
+  },
+  {
+    "name": "model-detail-source",
+    "file": "src/canvas/model-tab-v2/adapters.ts",
+    "old": "basis: edgeSizePhrase(data)?.exampleFigure === true ? 'Source: example figure' : edgeProvenanceBasis(data?.provenance)",
+    "new": "basis: edgeProvenanceBasis(data?.provenance)"
+  },
+  {
+    "name": "example-not-human-settled",
+    "file": "src/canvas/domain/edgeStrengthSettlement.ts",
+    "old": "  if (edgeSizePhrase(data)?.exampleFigure === true) return false\n",
+    "new": ""
+  },
+  {
+    "name": "draft-example-admission",
+    "file": "src/canvas/utils/applyDraftResult.ts",
+    "old": "      ...strengthExampleFigurePatch(e as Record<string, unknown>, rawWeight, wireSuppliedStrength),\n",
+    "new": ""
+  },
+  {
+    "name": "patch-example-admission",
+    "file": "src/canvas/conversation/utils/applyPatch.ts",
+    "old": "      ...strengthExampleFigurePatch(d as Record<string, unknown>, rawWeight as number, wireSuppliedStrength),\n",
+    "new": ""
+  },
+  {
+    "name": "schema-example-retention",
+    "file": "src/canvas/domain/edges.ts",
+    "old": "  strengthExampleFigure: z.number().finite().optional(),\n",
+    "new": ""
+  },
+  {
+    "name": "overlay-example-acquisition",
+    "file": "src/canvas/utils/mergeAppliedGraph.ts",
+    "old": "'strengthStated', 'strengthExampleFigure'] as const",
+    "new": "'strengthStated'] as const"
+  },
+  {
+    "name": "overlay-example-removal",
+    "file": "src/canvas/utils/mergeAppliedGraph.ts",
+    "old": "'strengthStated', 'strengthExampleFigure']\n",
+    "new": "'strengthStated']\n"
+  },
+  {
+    "name": "draftchat-example-admission",
+    "file": "src/canvas/components/DraftChat.tsx",
+    "old": "          ...strengthExampleFigurePatch(e as Record<string, unknown>, rawWeight, weightSource !== 'default'),\n",
+    "new": ""
+  },
+  {
+    "name": "draftchat-wire-remainder-strip",
+    "file": "src/canvas/components/DraftChat.tsx",
+    "old": "        strengthExampleFigure: _strengthExampleFigure,\n",
+    "new": ""
+  }
+]
