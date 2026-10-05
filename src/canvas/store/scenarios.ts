@@ -704,18 +704,37 @@ let lastAutosavePayload: string | null = null
  * and every slot behaves exactly as before; an unreadable epoch reads as none (never worse than before).
  */
 export const IDENTITY_EPOCH_KEY = 'olumi-canvas-identity-epoch'
-function readIdentityEpoch(): string | null {
+/** The shared epoch: a string, `null` before the first boundary, `undefined` when storage refused the read. */
+function readIdentityEpoch(): string | null | undefined {
   try {
     const epoch = localStorage.getItem(IDENTITY_EPOCH_KEY)
     return epoch && epoch.length > 0 ? epoch : null
   } catch {
-    return null
+    return undefined
   }
 }
-/** Whether a slot stamped `stamp` belongs to this browser's current identity: the one rule every autosave reader uses. */
+/**
+ * Whether a slot stamped `stamp` belongs to this browser's current identity: the one rule every autosave reader uses.
+ * An UNREADABLE epoch fails closed: whether a boundary happened cannot be known, so no slot is anyone's (Codex, #2484).
+ */
 export function belongsToThisIdentity(stamp: unknown): boolean {
   const epoch = readIdentityEpoch()
+  if (epoch === undefined) return false
   return epoch === null || stamp === epoch
+}
+/**
+ * The epoch THIS PAGE writes under: fixed when the page loads, and moved only by this page's own boundary
+ * (`adoptIdentityEpoch`, called by `clearUserScopedState` once its write reads back). When the shared epoch has moved
+ * past it, another tab crossed a boundary and this page's model is the previous identity's. It is then never written
+ * again, or it would land in the slot the next account restores (Codex, #2484: reproduced with no storage failure).
+ */
+let pageEpoch: string | null | undefined = readIdentityEpoch()
+export function adoptIdentityEpoch(epoch: string): void {
+  pageEpoch = epoch
+}
+/** A fresh page load in tests: the page reads the shared epoch afresh. */
+export function __resetPageIdentityEpochForTests(): void {
+  pageEpoch = readIdentityEpoch()
 }
 
 export function saveAutosave(data: AutosaveData): void {
@@ -723,7 +742,15 @@ export function saveAutosave(data: AutosaveData): void {
     return
   }
 
-  const epoch = readIdentityEpoch()
+  // CAN-F2w: write only under an epoch this page still holds. An unreadable epoch skips this write (the next autosave
+  // retries); a page another tab's boundary revoked never writes the previous identity's model again.
+  if (pageEpoch === undefined) pageEpoch = readIdentityEpoch()
+  const shared = readIdentityEpoch()
+  if (pageEpoch === undefined || shared === undefined || shared !== pageEpoch) {
+    console.warn('[scenarios] Autosave skipped: this page no longer holds the current identity (CAN-F2w)')
+    return
+  }
+  const epoch = pageEpoch
   const stamped: AutosaveData = epoch === null ? data : { ...data, identityEpoch: epoch }
   try {
     const payload = JSON.stringify(stamped)

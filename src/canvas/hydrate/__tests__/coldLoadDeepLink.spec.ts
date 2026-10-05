@@ -65,6 +65,7 @@ function rememberScenario(id: string): string {
 /** A new page load: the store as module load seeds it (`currentScenarioId` from the pointer), nothing on the canvas. */
 function newPage(): void {
   __resetColdLoadDeepLinkForTests()
+  scenarios.__resetPageIdentityEpochForTests()
   useCanvasStore.setState(PRISTINE, true)
   useCanvasStore.setState({ currentScenarioId: scenarios.getCurrentScenarioId(), nodes: [], edges: [] })
 }
@@ -1028,18 +1029,8 @@ describe('§14 IDENTITY (CAN-F2w): a slot whose removal was refused at sign-out 
     expect(onCanvas()).toEqual(['y_goal'])
   })
 
-  // The drive cannot sign in; the guard is the source. A first sign-in on a page (guest → A) is NOT a boundary, so the
-  // guest's work keeps its epoch and stays A's to restore; only sign-out and A → B are boundaries.
-  it('CONTROL (source): guest → sign-in is not a boundary — the boundary sits only at sign-out, a session-less change and A → B', () => {
-    const auth = readFileSync(join(process.cwd(), 'src', 'contexts/AuthContext.tsx'), 'utf8')
-    expect(auth.match(/clearUserScopedState\(\)/g)).toHaveLength(1)
-    expect(auth).toContain('if (lastSignedInUserId !== null && lastSignedInUserId !== u.id) clearUserScopedState();')
-    const guest = auth.slice(auth.indexOf('function OptionalAuthProvider('))
-    const signOutAt = guest.indexOf('signOut: async () =>')
-    expect(signOutAt).toBeGreaterThan(0)
-    expect(guest.match(/clearAuthStates\(\)/g)).toHaveLength(1)
-    expect(guest.indexOf('clearAuthStates()')).toBeGreaterThan(signOutAt)
-  })
+  // The auth boundaries themselves (guest posture: A → B, A → none; guest → A and a same-owner refresh are NOT
+  // boundaries) are driven through the real provider in `contexts/__tests__/AuthContext.optionalAuth.identityBoundary.spec.tsx`.
 
   it('every boundary is a NEW identity: work done after one sign-out is fenced by the next (the epoch is fresh each time)', () => {
     clearUserScopedState() // A's earlier sign-out
@@ -1070,6 +1061,40 @@ describe('§14 IDENTITY (CAN-F2w): a slot whose removal was refused at sign-out 
     expect(restored?.scenarioId).toBe(Z)
     expect(restored?.identityEpoch).toBe(epoch)
     expect(restored?.analysis).toBeNull()
+  })
+
+  it('⭐ (Codex, multi-tab, no storage failure) A\'s still-open tab never re-saves A\'s model after ANOTHER tab signs out', () => {
+    rememberScenario(Z)
+    useCanvasStore.setState({ currentScenarioId: Z, nodes: GRAPH[Z], edges: [] }) // A's tab, still live
+    // ANOTHER tab's boundary: a fresh shared epoch and the sweep. This page never adopts it.
+    localStorage.setItem(EPOCH, 'the-other-tab-epoch')
+    localStorage.removeItem(MAIN_AUTOSAVE_SLOT)
+    localStorage.removeItem(POINTER)
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    autosaveFromStore() // A's tab saves again (its timer, its unload flush)
+    vi.restoreAllMocks()
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBeNull()
+    newPage() // B opens the app
+    expect(bootRestore()).toBe('not_autosave')
+    expect(onCanvas()).toEqual([])
+  })
+
+  it('an UNREADABLE epoch fails closed: no slot is restored, and no save is written while it cannot be read', () => {
+    clearUserScopedState()
+    const raw = rememberScenario(Z)
+    const realGet = Storage.prototype.getItem
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, k: string) {
+      if (k === EPOCH) throw new DOMException('denied', 'SecurityError')
+      return realGet.call(this, k)
+    })
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(scenarios.loadAutosave()).toBeNull()
+    expect(planColdLoadDeepLink(Y)).toBeNull() // the main slot is nobody's: nothing is moved under a guess
+    useCanvasStore.setState({ currentScenarioId: Z, nodes: [goal('z_goal', 'moved on')], edges: [] })
+    autosaveFromStore()
+    vi.restoreAllMocks()
+    expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBe(raw) // not replaced by an unstamped write
+    expect(scenarios.loadAutosave()?.scenarioId).toBe(Z) // and readable again once the epoch is
   })
 
   it('a legacy slot with NO epoch stamp, before the first boundary, behaves exactly as today', () => {
@@ -1104,8 +1129,11 @@ describe('§14 IDENTITY (CAN-F2w): a slot whose removal was refused at sign-out 
     expect(localStorage.getItem(EPOCH)).toBeNull()
     expect(localStorage.getItem(MAIN_AUTOSAVE_SLOT)).toBeNull()
     expect(localStorage.getItem(POINTER)).toBeNull()
+    // This page did not adopt an epoch it could not write, so the next user's work here is still saved.
+    useCanvasStore.setState({ currentScenarioId: Y, nodes: GRAPH[Y], edges: [] })
+    expect(autosaveFromStore()).not.toBeNull()
     newPage()
-    expect(bootRestore()).toBe('not_autosave')
+    expect(bootRestore()).toBe(Y)
   })
 
   it('RESIDUAL (as today, recorded): the epoch write AND the main slot\'s removal both refused — storage that refuses writes; B\'s boot is as before', () => {

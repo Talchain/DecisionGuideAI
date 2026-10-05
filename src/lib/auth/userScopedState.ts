@@ -1,5 +1,5 @@
 import { useCanvasStore } from '../../canvas/store'
-import { clearAllScenarioStorage, IDENTITY_EPOCH_KEY } from '../../canvas/store/scenarios'
+import { adoptIdentityEpoch, clearAllScenarioStorage, IDENTITY_EPOCH_KEY } from '../../canvas/store/scenarios'
 import { clearAllTranscripts } from '../../canvas/conversation/utils/transcriptStore'
 import { clearAllVersions } from '../../canvas/versions/versionStorage'
 import { useLayoutStore } from '../../canvas/layoutStore'
@@ -34,7 +34,12 @@ export function clearUserScopedState(): void {
   }
   // CAN-F2w: a fresh identity epoch FIRST, so a slot this sweep cannot remove is already another identity's and is never
   // restored, remembered or promoted for the next account (`scenarios.IDENTITY_EPOCH_KEY`). The sweep never removes it.
-  step(() => localStorage.setItem(IDENTITY_EPOCH_KEY, freshIdentityEpoch()))
+  // This page adopts the epoch only once the write reads back, so a refused write leaves it writing as before.
+  step(() => {
+    const epoch = freshIdentityEpoch()
+    localStorage.setItem(IDENTITY_EPOCH_KEY, epoch)
+    if (localStorage.getItem(IDENTITY_EPOCH_KEY) === epoch) adoptIdentityEpoch(epoch)
+  })
   step(() => useCanvasStore.getState().resetCanvas())
   step(clearAllScenarioStorage)
   step(clearAllTranscripts)
