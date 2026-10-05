@@ -96,7 +96,7 @@ export const HERO_COPY = {
      * gains the arm this string goes RED instead of staying a quiet duplicate.
      */
     goalWithLimits: (label: string, readout: string) =>
-      `${label} meets your goal and limits in the most model runs (${readout}).`,
+      `In this model, ${label} meets your goal and limits in the most model runs (${readout}).`,
     /**
      * GOAL-ATTAINMENT IDENTITY, interim wording (family 2, slice −1) — the
      * same claim, in the same words, as `caption.goalOnly` and
@@ -116,7 +116,8 @@ export const HERO_COPY = {
       // the re-anchoring exists to remove. `sentence()` is `phrase()` plus a
       // full stop for the same reason; this is the headline form of the same
       // relationship, pinned in `__tests__/heroCopyDelegation.spec.ts`.
-      `${GOAL_ANCHOR_COPY.headline(label, readout, true)}.`,
+      // Principle audit (5 Oct): said in this model, the Reasoning tab's own `implications.goalClaim` words.
+      `In this model, ${GOAL_ANCHOR_COPY.headline(label, readout, true)}.`,
     // DELETED 2026-07-26 (ROADMAP 1.223): `analysisLeads` — "{label} currently
     // leads the overall analysis." It was the UNBANDED leader claim, reached
     // only when no band could be resolved. Once the UI stopped banding win

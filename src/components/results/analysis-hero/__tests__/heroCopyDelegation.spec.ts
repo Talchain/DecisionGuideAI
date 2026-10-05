@@ -48,8 +48,8 @@ describe('HERO_COPY.headline — the A register exists once here too', () => {
    */
   it.each([
     ['goalOnly', true, (label: string, r: string) => HERO_COPY.headline.goalOnly(label, r)],
-  ])('%s IS GOAL_ANCHOR_COPY.headline(_, _, %s) plus a full stop', (_name, substituted, build) => {
-    expect(build(L, N)).toBe(`${GOAL_ANCHOR_COPY.headline(L, N, substituted as boolean)}.`)
+  ])('%s IS GOAL_ANCHOR_COPY.headline(_, _, %s), said in this model, plus a full stop', (_name, substituted, build) => {
+    expect(build(L, N)).toBe(`In this model, ${GOAL_ANCHOR_COPY.headline(L, N, substituted as boolean)}.`)
   })
 
   /**
@@ -63,10 +63,10 @@ describe('HERO_COPY.headline — the A register exists once here too', () => {
   it('goalWithLimits cannot delegate — the register carries no goal-and-limits arm', () => {
     const withLimits = HERO_COPY.headline.goalWithLimits(L, N)
     for (const substituted of [true, false]) {
-      expect(withLimits).not.toBe(`${GOAL_ANCHOR_COPY.headline(L, N, substituted)}.`)
+      expect(withLimits).not.toBe(`In this model, ${GOAL_ANCHOR_COPY.headline(L, N, substituted)}.`)
     }
     // It is still the register's SHAPE, so a reader sees one voice.
-    expect(withLimits).toMatch(/^Option A .+ in the most model runs \(72%\)\.$/)
+    expect(withLimits).toMatch(/^In this model, Option A .+ in the most model runs \(72%\)\.$/)
   })
 })
 

@@ -41,7 +41,7 @@ export const ALT_LABEL = 'Two Mid-Level Developers at £70k Each'
  * would make the assertion satisfiable only by deleting the honest half.
  */
 export const LEADER_CLAIM_RE =
-  /leading option|likely leader|could gain ground|could overtake|leads instead|your recommendation|the recommendation|came out best|come out best/i
+  /leading option|likely leader|could gain ground|could overtake|leads instead|your recommendation|the recommendation|came out best|comes? out best/i
 
 /**
  * ⚠ WHY `leads instead` AND NOT `\bleads\b`, AND WHY THE BOUND IS WRITTEN DOWN.
@@ -188,7 +188,7 @@ export function makeLeaderClaimData(opts: {
       goalThreshold: null,
       allOptions: [{ id: 'opt_a' }, { id: 'opt_b' }],
       // No flip evidence either way ⇒ `attestsNoFactorFlip` is false ⇒ the
-      // callout takes its STRONG branch ("could overtake" + the percentage).
+      // callout takes its STRONG branch (the conditional "comes out best in N% of them").
       // That is the branch the witnessed defect rendered, and it is the branch
       // a suppression must survive rather than dodge.
       flipThresholds: undefined,

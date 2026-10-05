@@ -149,9 +149,10 @@ describe('chain A — topFragileEdge presence-branches on switch_probability (sc
     // PRECONDITION: the leader gate is open, so an absent percentage is the
     // switch_probability branch and not the claim-policy branch.
     expect(callout.textContent, 'leader gate closed — this pin would be vacuous')
-      .toContain('could overtake')
-    // Honest absent state: "If Price shifts, Plan B could overtake." — no number.
+      .toContain('could come out best instead')
+    // Honest absent state: "In this model, if Price shifts, Plan B could come out best instead." — no number.
     expect(callout.textContent).not.toMatch(/%\s*probability/)
+    expect(callout.textContent).not.toMatch(/\d+\s*%/)
   })
 
   it('CONTROL (render): a measured switch_probability still renders its percentage', () => {
@@ -162,8 +163,10 @@ describe('chain A — topFragileEdge presence-branches on switch_probability (sc
     render(<TriageActionCardsBody data={permitLeaderClaim(result.current)} />)
     const callout = screen.getByTestId('t1-flip-risk-callout')
     expect(callout.textContent, 'leader gate closed — this control would be vacuous')
-      .toContain('could overtake')
-    expect(callout.textContent).toMatch(/42% probability/)
+      .toContain('In this model, in the quarter of simulated futures where')
+    expect(callout.textContent).toMatch(/comes out best in 42% of them/)
+    // The marginal (0.99) is never the number printed.
+    expect(callout.textContent).not.toMatch(/99%/)
   })
 
   /**
@@ -184,7 +187,8 @@ describe('chain A — topFragileEdge presence-branches on switch_probability (sc
     render(<TriageActionCardsBody data={result.current} />)
     const callout = screen.getByTestId('t1-flip-risk-callout')
     expect(callout.textContent).not.toContain('could overtake')
-    expect(callout.textContent).not.toMatch(/42% probability/)
+    expect(callout.textContent).not.toMatch(/comes? out best/)
+    expect(callout.textContent).not.toMatch(/42%/)
     // …and the finding itself survives.
     expect(callout.textContent).toContain('Price')
   })

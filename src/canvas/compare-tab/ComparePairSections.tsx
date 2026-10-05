@@ -35,16 +35,19 @@ const KIND_ICON: Record<RunDeltaInputRow['kind'], LucideIcon> = {
 /** The contract's strength bands, weakest first: ordered categories, not equally spaced amounts. */
 const STRENGTH_BANDS = ['slight', 'moderate', 'strong', 'very_strong'] as const
 
-/** Words selected from entitled producer claims, never from a score or a client comparison. */
+/**
+ * Words selected from entitled producer claims, never from a score or a client comparison. Principle audit (5 Oct):
+ * an option is named only as what came out best IN THIS MODEL (Science's phrase), never as one Olumi "puts forward".
+ */
 function headline(delta: RunDelta, label: (id: string) => string | null, nearTie: boolean): string {
   if (nearTie) return 'Too close to call'
   const prior = delta.leader.prior_leading_option_id
   const current = delta.leader.current_leading_option_id
   const currentName = current ? label(current) : null
-  if (!current) return 'The latest run does not put an option forward'
-  if (!prior) return `The latest run puts forward ${currentName ?? 'an option'}; the previous run did not put one forward`
-  if (delta.leader.changed) return 'The option put forward changed'
-  return 'The option put forward is unchanged'
+  if (!current) return 'The latest run names no option'
+  if (!prior) return `In this model, ${currentName ?? 'an option'} came out best on the latest run; the previous run named no option`
+  if (delta.leader.changed) return 'Which option came out best in this model changed'
+  return 'The option that came out best in this model is unchanged'
 }
 
 const capitalise = (s: string | null): string => (s ? `${s.charAt(0).toUpperCase()}${s.slice(1)}` : '')
@@ -122,7 +125,7 @@ function Endpoint({ name, endpoint, leaderId, label, nearTie, resultsAllowed }: 
           {endpoint?.computed_at ? <time dateTime={endpoint.computed_at}>{new Date(endpoint.computed_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</time> : 'Run time not recorded'}
         </span>
         <span className="block mt-1" data-wire-fields={LEADER_FIELDS}>
-          {!resultsAllowed ? 'Option put forward not shown' : nearTie ? 'Too close to call' : leaderId ? `${label(leaderId) ?? 'Named option no longer labelled on the canvas'} · put forward by this run` : 'No option put forward'}
+          {!resultsAllowed ? 'Which option came out best: not shown' : nearTie ? 'Too close to call' : leaderId ? `${label(leaderId) ?? 'Named option no longer labelled on the canvas'} · came out best on this run, in this model` : 'No option named on this run'}
         </span>
       </dd>
     </div>

@@ -84,14 +84,17 @@ describe('SURFACE 1 — T1FlipRiskCallout consults the flip authority', () => {
   it('ANTI-VACUITY: the callout renders at all, and carries the claim the matcher hunts', () => {
     render(<TriageActionCardsBody data={triageData(FLIPPING_ROWS)} />)
     const el = screen.getByTestId('t1-flip-risk-callout')
-    expect(el.textContent ?? '').toContain('could overtake')
-    expect(el.textContent ?? '').toContain('55% probability')
+    // RT-13 (Science #87 5993266380): the measured figure is said WITH its condition, in this model.
+    expect(el.textContent ?? '').toContain('In this model, in the quarter of simulated futures where')
+    expect(el.textContent ?? '').toContain('comes out best in 55% of them')
   })
 
   it('ATTESTED NO-FLIP: the presupposing verb goes', () => {
     render(<TriageActionCardsBody data={triageData(ATTESTED_ROWS)} />)
     const el = screen.getByTestId('t1-flip-risk-callout')
+    // Union, never replace: the retired verb AND the conditional sentence that replaced it.
     expect(el.textContent ?? '').not.toContain('could overtake')
+    expect(el.textContent ?? '').not.toContain('comes out best in')
   })
 
   it('ATTESTED NO-FLIP: the PERCENTAGE goes with the verb — it is a claim, not data', () => {
@@ -103,6 +106,7 @@ describe('SURFACE 1 — T1FlipRiskCallout consults the flip authority', () => {
     render(<TriageActionCardsBody data={triageData(ATTESTED_ROWS)} />)
     const t = screen.getByTestId('t1-flip-risk-callout').textContent ?? ''
     expect(t).not.toContain('55% probability')
+    expect(t).not.toContain('55% of them')
     expect(t).not.toMatch(/\d+\s*%/)
   })
 
@@ -120,8 +124,8 @@ describe('SURFACE 1 — T1FlipRiskCallout consults the flip authority', () => {
   it('OPPOSITE DIRECTION: a genuinely flip-bearing run keeps the percentage WITH its strong verb', () => {
     render(<TriageActionCardsBody data={triageData(FLIPPING_ROWS)} />)
     const t = screen.getByTestId('t1-flip-risk-callout').textContent ?? ''
-    expect(t).toContain('could overtake')
-    expect(t).toContain('55% probability')
+    expect(t).toContain('In this model, in the quarter of simulated futures where')
+    expect(t).toContain('comes out best in 55% of them')
   })
 })
 

@@ -447,6 +447,14 @@ function T1FlipRiskCallout({
   const validateLabel = useV17Copy
     ? safeInterpolatedLabel(stripEncodingNotation(fragile.fromLabel), 'this factor')
     : stripEncodingNotation(fragile.fromLabel)
+  const toLabelDisplay = useV17Copy
+    ? safeInterpolatedLabel(fragile.toLabel, 'its target')
+    : fragile.toLabel
+  // ⭐ RT-13 (Science, #87 5993266380): `switch_probability` = P(another option comes out best | this link's effect is
+  // in the weakest quarter of its sampled strengths). It partitions the same draws as the option shares, so it is printed
+  // only WITH that condition, never bare, and never the marginal (which this edge never carries, see
+  // `useResultsSectionData`). Same gates as before: the number shows only on a licensed, non-attested run.
+  const showConditional = mayNameLeader && !attestsNoFlip && switchPct != null
   return (
     <div
       className="flex items-start gap-2 px-3 py-2 rounded-lg border border-warning/30 bg-panel"
@@ -466,11 +474,17 @@ function T1FlipRiskCallout({
             squeamishness: outside a ranking claim, "Two Mid-Level Developers
             could…" has no predicate left to attach to. It survives in full on
             the fragile card, which is where the finding lives in detail. */}
-        {mayNameLeader ? (
+        {showConditional ? (
           <>
-            If <strong>{fromLabelDisplay}</strong> shifts,{' '}
+            In this model, in the quarter of simulated futures where <strong>{fromLabelDisplay}</strong>
+            {"'s effect on "}{toLabelDisplay} is weakest, <strong>{altWinnerLabelDisplay}</strong> comes out best in{' '}
+            {switchPct}% of them
+          </>
+        ) : mayNameLeader ? (
+          <>
+            In this model, if <strong>{fromLabelDisplay}</strong> shifts,{' '}
             <strong>{altWinnerLabelDisplay}</strong>{' '}
-            {attestsNoFlip ? 'could gain ground' : 'could overtake'}
+            {attestsNoFlip ? 'could gain ground' : 'could come out best instead'}
           </>
         ) : (
           <>
@@ -496,7 +510,7 @@ function T1FlipRiskCallout({
             it is a ranking claim expressed as a number. A run that may not name
             a leader may not quantify one overtaking it either. It is a CLAIM,
             not data, and it goes with the sentence that carried it. */}
-        {mayNameLeader && !attestsNoFlip && switchPct != null && ` (${switchPct}% probability)`}.
+        .
         {onFocusNode && fragile.fromId && (
           <>
             {' '}

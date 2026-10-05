@@ -180,6 +180,11 @@ describe('§0 PRECONDITION PINS — the fixtures reproduce the witnessed states'
     ).toMatch(LEADER_CLAIM_RE)
     expect(`If ${FACTOR_LABEL} shifts, ${ALT_LABEL} could gain ground.`)
       .toMatch(LEADER_CLAIM_RE)
+    // RT-13's model-relative sentences (both arms of the callout's naming branch) are leader claims too.
+    expect(`In this model, in the quarter of simulated futures where ${FACTOR_LABEL}'s effect on its target is weakest, ${ALT_LABEL} comes out best in 57% of them.`)
+      .toMatch(LEADER_CLAIM_RE)
+    expect(`In this model, if ${FACTOR_LABEL} shifts, ${ALT_LABEL} could come out best instead.`)
+      .toMatch(LEADER_CLAIM_RE)
     // CONTRAST: the sentences that should SURVIVE a withheld run must not be
     // caught by the matcher, or every suppression arm passes for the wrong
     // reason.
@@ -288,9 +293,9 @@ describe('§3 SURFACE B — the T1 flip-risk callout', () => {
   it('ANTI-VACUITY: the PERMITTED run renders the comparative claim and its number', () => {
     render(<TriageActionCardsBody data={PERMITTED()} useV17Copy onFocusNode={() => {}} />)
     const t = screen.getByTestId('t1-flip-risk-callout').textContent ?? ''
-    expect(t).toContain('could overtake')
+    expect(t).toContain('In this model, in the quarter of simulated futures where')
     expect(t).toContain(ALT_LABEL)
-    expect(t).toContain('57% probability')
+    expect(t).toContain('comes out best in 57% of them')
   })
 
   it('WITHHELD: the callout still renders, and claims no leader', () => {
@@ -308,6 +313,7 @@ describe('§3 SURFACE B — the T1 flip-risk callout', () => {
     render(<TriageActionCardsBody data={WITHHELD()} useV17Copy onFocusNode={() => {}} />)
     const t = screen.getByTestId('t1-flip-risk-callout').textContent ?? ''
     expect(t).not.toContain('57% probability')
+    expect(t).not.toContain('57% of them')
     expect(t).not.toMatch(/\d+\s*%/)
   })
 
@@ -364,8 +370,8 @@ describe('§5 COMPOSED — the withholding and the claim cannot share a panel', 
 
   it('OPPOSITE DIRECTION: a licensed run keeps BOTH witnessed sentences', () => {
     const { footer, prose } = renderPanel(PERMITTED())
-    expect(prose).toContain('could overtake')
-    expect(prose).toContain('57% probability')
+    expect(prose).toContain('In this model, in the quarter of simulated futures where')
+    expect(prose).toContain('comes out best in 57% of them')
     expect(prose).toContain('the leading option could change')
     expect(footer).toContain('In this model, one option is most likely')
   })
