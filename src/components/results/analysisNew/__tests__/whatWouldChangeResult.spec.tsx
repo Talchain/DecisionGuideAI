@@ -157,3 +157,45 @@ describe('Strengthen the model in Analysis (beat 5)', () => {
     expect(container.textContent).toBe(before)
   })
 })
+
+/**
+ * A4 SLICE 1 entry: "Review this decision" sends CEE's own press (`agent-next-review-decision`,
+ * `decision-review-press.ts`, CEE #2581). CEE lists what to check before relying on this Run — each item a typed fact
+ * with its existing next step — and calls no model. The tab decides nothing: the same gate as its siblings, the exact
+ * chip id and message, and nothing of its own after the press. Its items name no option on a withheld Run, so a
+ * withheld leader does not hide it.
+ */
+describe('Review this decision in Analysis (A4 slice 1)', () => {
+  const REVIEW = 'Review this decision'
+
+  it('shows one entry on a current Run and sends CEE\'s exact press, once', () => {
+    mount()
+    expect(screen.getAllByRole('button', { name: REVIEW })).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: REVIEW }))
+    expect(sendChip).toHaveBeenCalledTimes(1)
+    expect(sendChip).toHaveBeenCalledWith(REVIEW, REVIEW, { id: 'agent-next-review-decision' })
+  })
+
+  it.each(['pre-run', 'running', 'wire-running', 'stale', 'unconfirmed', 'no sender'])(
+    'hides the entry when %s', (state) => {
+      if (state === 'stale') useCanvasStore.setState({ analysisFreshnessDirty: true })
+      if (state === 'unconfirmed') useCanvasStore.setState({ analysisFreshness: null })
+      if (state === 'no sender') useGuidanceStore.setState({ _sendChip: null })
+      mount({ isPreRun: state === 'pre-run', isRunning: state === 'running', isBusy: state === 'running' || state === 'wire-running' })
+      expect(screen.queryByRole('button', { name: REVIEW })).not.toBeInTheDocument()
+    },
+  )
+
+  it('is offered when the leader is withheld (the review names no option there)', () => {
+    mount({ resultsSectionData: decisionWithLeaderWithheld() })
+    expect(screen.getByRole('button', { name: REVIEW })).toBeInTheDocument()
+  })
+
+  it('adds nothing of its own after the press: the review is CEE\'s reply in the conversation', () => {
+    const { container } = mount()
+    const before = container.textContent
+    fireEvent.click(screen.getByRole('button', { name: REVIEW }))
+    expect(sendChip).toHaveBeenCalledTimes(1)
+    expect(container.textContent).toBe(before)
+  })
+})
