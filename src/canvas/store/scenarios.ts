@@ -726,16 +726,33 @@ export function belongsToThisIdentity(stamp: unknown): boolean {
 
 /**
  * ⭐ THIS TAB's epoch (CAN-F2g, the F2c follow-up above: "a boundary in any tab is a boundary in every tab"). Captured
- * when this module loads (the tab's boot) and moved only by THIS tab's own boundary (`adoptIdentityEpochForThisTab`,
- * called by `clearUserScopedState` right after it rotates the shared key). Measured 5 Oct (J1 TC3-F2g / TC4-F2w, run
+ * when this module loads (the tab's boot) and moved only by THIS tab's own boundary (`crossIdentityBoundaryInThisTab`,
+ * called by `clearUserScopedState`: `crossIdentityBoundaryInThisTab`). Measured 5 Oct (J1 TC3-F2g / TC4-F2w, run
  * 37314393647; also prod UI 42f3c1ba and pre-#2503 400a71f1): the writers stamped the SHARED epoch read at write time,
  * so after tab 1's sign-out rotated it, a drag in tab 2, still showing account A, saved A's model stamped as B's, and
  * B's routeless boot restored it. A tab whose epoch no longer matches the shared one is showing a previous identity's
  * model: its writes are skipped, never stamped. A reload re-captures, and that tab then boots as the new identity.
  */
 let tabIdentityEpoch: string | null | undefined = readIdentityEpoch()
-/** This tab crossed an identity boundary itself: it now owns whatever epoch the boundary left in shared storage. */
-export function adoptIdentityEpochForThisTab(): void {
+/**
+ * THIS tab crosses an identity boundary (`clearUserScopedState`). If another tab has ALREADY rotated the shared epoch
+ * since this tab last held it, this is the same boundary arriving here second (gotrue relays SIGNED_OUT across tabs):
+ * join that epoch, never mint another. Minting again left the tab that crossed first holding a dead epoch, unable to
+ * save anything, its own new account's work included, until a reload (Review Desk + Codex #2516 r1). Otherwise rotate
+ * to `freshEpoch`, then adopt whatever the shared key actually HOLDS, so a refused or silently dropped epoch write is
+ * never adopted (coldLoadDeepLink.spec, "an epoch write … at sign-out").
+ */
+export function crossIdentityBoundaryInThisTab(freshEpoch: string): void {
+  const shared = readIdentityEpoch()
+  if (typeof shared === 'string' && shared !== tabIdentityEpoch) {
+    tabIdentityEpoch = shared
+    return
+  }
+  try {
+    localStorage.setItem(IDENTITY_EPOCH_KEY, freshEpoch)
+  } catch {
+    /* adopt whatever is held */
+  }
   tabIdentityEpoch = readIdentityEpoch()
 }
 /**
@@ -752,9 +769,10 @@ export function epochThisTabMayWriteUnder(): { epoch: string | null } | null {
   return { epoch: shared }
 }
 
-export function saveAutosave(data: AutosaveData): void {
+/** Returns whether the slot now holds this write (an identical payload already does). `false` = nothing was written. */
+export function saveAutosave(data: AutosaveData): boolean {
   if (!isLocalStorageAvailable()) {
-    return
+    return false
   }
 
   // CAN-F2w: every write is stamped with the current identity epoch. CAN-F2g: and only by a tab that holds it.
@@ -763,7 +781,7 @@ export function saveAutosave(data: AutosaveData): void {
     // Unreadable, or another tab changed the identity under this one: whose model this is cannot be vouched for, so
     // skip it (never stamp a guess). A reload boots this tab as the new identity.
     console.warn('[scenarios] Autosave skipped: the identity epoch is unreadable or was changed by another tab (CAN-F2w/F2g)')
-    return
+    return false
   }
   const epoch = may.epoch
   const stamped: AutosaveData = epoch === null ? data : { ...data, identityEpoch: epoch }
@@ -775,7 +793,7 @@ export function saveAutosave(data: AutosaveData): void {
       if (import.meta.env.DEV) {
         console.log('[scenarios] Skipping identical autosave write')
       }
-      return
+      return true
     }
 
     localStorage.setItem(AUTOSAVE_KEY, payload)
@@ -784,6 +802,7 @@ export function saveAutosave(data: AutosaveData): void {
     if (import.meta.env.DEV) {
       console.log('[scenarios] Autosave written')
     }
+    return true
   } catch (error) {
     // DECLARED DEGRADATION, in this order deliberately.
     //
@@ -807,13 +826,14 @@ export function saveAutosave(data: AutosaveData): void {
             'The results panel will not restore this run on return.',
           error,
         )
-        return
+        return true
       } catch (retryError) {
         console.error('[scenarios] Failed to save autosave (graph-only retry):', retryError)
       }
     }
     console.error('[scenarios] Failed to save autosave:', error)
   }
+  return false
 }
 
 export function loadAutosave(): AutosaveData | null {

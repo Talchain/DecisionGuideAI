@@ -1,5 +1,5 @@
 import { useCanvasStore } from '../../canvas/store'
-import { adoptIdentityEpochForThisTab, clearAllScenarioStorage, IDENTITY_EPOCH_KEY } from '../../canvas/store/scenarios'
+import { clearAllScenarioStorage, crossIdentityBoundaryInThisTab } from '../../canvas/store/scenarios'
 import { clearAllTranscripts } from '../../canvas/conversation/utils/transcriptStore'
 import { clearAllVersions } from '../../canvas/versions/versionStorage'
 import { useLayoutStore } from '../../canvas/layoutStore'
@@ -51,9 +51,9 @@ export function clearUserScopedState(): void {
   }
   // CAN-F2w: a fresh identity epoch FIRST, so a slot this sweep cannot remove is already another identity's and is never
   // restored, remembered or promoted for the next account (`scenarios.IDENTITY_EPOCH_KEY`). The sweep never removes it.
-  step(() => localStorage.setItem(IDENTITY_EPOCH_KEY, freshIdentityEpoch()))
-  // CAN-F2g: THIS tab crossed the boundary, so it owns the new epoch; every other tab is now stale and cannot write.
-  step(adoptIdentityEpochForThisTab)
+  // CAN-F2g: THIS tab crosses the boundary and owns the resulting epoch (joining one another tab already rotated for
+  // the same boundary); every tab that has not crossed it is stale and cannot write.
+  step(() => crossIdentityBoundaryInThisTab(freshIdentityEpoch()))
   step(() => useCanvasStore.getState().resetCanvas())
   // The previous identity's graph also lives in undo/redo, the clipboard and the pre-draft snapshot, which `resetCanvas`
   // keeps (its empty-canvas branch keeps the pre-draft snapshot too). Undo, paste or undo-draft would bring it back,

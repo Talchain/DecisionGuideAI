@@ -28,7 +28,9 @@ async function bootTab() {
   vi.resetModules()
   const scenarios = await import('../scenarios')
   const persist = await import('../../persist')
-  return { scenarios, persist }
+  const crash = await import('../../persist/crashFlush')
+  const auth = await import('../../../lib/auth/userScopedState')
+  return { scenarios, persist, crash, auth }
 }
 /** Another tab's identity boundary, as it reaches THIS tab: shared storage changes, this tab's memory does not. */
 function anotherTabRotatesEpoch(next: string) {
@@ -48,8 +50,9 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     const tab2 = await bootTab() // tab 2 loaded while A was signed in
     anotherTabRotatesEpoch('epoch-B') // tab 1 signs out; B signs in
 
-    tab2.scenarios.saveAutosave(graph(A_ID, 'A private')) // tab 2 still shows A; the user drags a node
+    const written = tab2.scenarios.saveAutosave(graph(A_ID, 'A private')) // tab 2 still shows A; a drag
 
+    expect(written, 'a skipped write must report that nothing was written').toBe(false)
     const raw = JSON.parse(localStorage.getItem(SLOT) ?? 'null') as { scenarioId?: string; identityEpoch?: string } | null
     expect(
       raw,
@@ -109,5 +112,44 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     tab.scenarios.saveAutosave(graph(A_ID, 'guest work'))
     const reload = await bootTab()
     expect(reload.scenarios.loadAutosave()?.scenarioId).toBe(A_ID)
+  })
+
+  it('⭐ TWIN (Review Desk): BOTH tabs run the sign-out sweep, and tab 1 still saves its new account\'s work', async () => {
+    // gotrue relays SIGNED_OUT across tabs, so the second tab runs its own sweep for the SAME boundary.
+    localStorage.setItem(EPOCH_KEY, 'epoch-A')
+    const tab2 = await bootTab() // both tabs loaded while A was signed in
+    const tab1 = await bootTab()
+    tab1.auth.clearUserScopedState() // tab 1 signs out
+    const afterTab1 = localStorage.getItem(EPOCH_KEY)
+    expect(afterTab1, 'precondition: tab 1 rotated the epoch').not.toBe('epoch-A')
+    tab2.auth.clearUserScopedState() // tab 2 hears SIGNED_OUT and sweeps too
+
+    expect(localStorage.getItem(EPOCH_KEY), 'the second sweep minted another epoch, stranding tab 1').toBe(afterTab1)
+    // tab 1 signs in as B (not a boundary there: its owner is already null) and works
+    expect(tab1.scenarios.saveAutosave(graph(B_ID, 'B own')), 'tab 1 is locked out of saving B\'s work').toBe(true)
+    const raw = JSON.parse(localStorage.getItem(SLOT) ?? 'null') as { scenarioId?: string; identityEpoch?: string } | null
+    expect(raw?.scenarioId).toBe(B_ID)
+    expect(raw?.identityEpoch).toBe(afterTab1)
+    expect(
+      tab1.persist.saveSnapshot({ nodes: [{ id: 'b-n', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'B own' } }] as never, edges: [] }),
+      'tab 1 is locked out of B\'s snapshots',
+    ).toBe(true)
+    expect(tab1.persist.listSnapshots()).toHaveLength(1)
+  })
+
+  it('crash flush tells the truth: a stale tab\'s flush reports that it wrote nothing', async () => {
+    localStorage.setItem(EPOCH_KEY, 'epoch-A')
+    const tab2 = await bootTab()
+    tab2.crash.registerCrashSnapshotProvider(() => ({
+      nodes: [{ id: 'a-n', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'A private' } }],
+      edges: [],
+      scenarioId: A_ID,
+    }) as never)
+    expect(tab2.crash.flushWorkToAutosave(), 'precondition: an own tab\'s flush writes').toBe(true)
+    localStorage.removeItem(SLOT)
+    anotherTabRotatesEpoch('epoch-B')
+
+    expect(tab2.crash.flushWorkToAutosave(), '"Reloading will restore your latest work" would be shown for a write that never happened').toBe(false)
+    expect(localStorage.getItem(SLOT)).toBeNull()
   })
 })
