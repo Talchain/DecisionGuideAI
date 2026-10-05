@@ -782,10 +782,11 @@ describe('Codex B1 — a lens never re-crowns leader SEMANTICS', () => {
     const canonicalCard = screen.getByTestId('option-card-option-1')
     // Lens card: lens copy, NO leader downside predicate, NO leader CTA.
     expect(lensCard).toHaveTextContent('Ahead on this outcome view. The goal ranking above is unchanged.')
-    expect(lensCard.textContent).not.toMatch(/currently leads/i)
-    expect(lensCard.textContent).not.toMatch(/What makes this/i)
+    // Union, never replace: the retired leader words AND the model-relative ones that replaced them (principle audit).
+    expect(lensCard.textContent).not.toMatch(/currently leads|this option came out best/i)
+    expect(lensCard.textContent).not.toMatch(/What makes this|come out best in this model|rest on in this model/i)
     // Canonical card: keeps the leader predicates even without the crown styling.
-    expect(canonicalCard.textContent).toMatch(/meaningful downside|currently leads/i)
-    expect(canonicalCard.textContent).toMatch(/What makes this/i)
+    expect(canonicalCard.textContent).toMatch(/this option came out best, but the lower range of its simulated outcomes includes meaningful downside/)
+    expect(canonicalCard.textContent).toMatch(/come out best in this model|rest on in this model/i)
   })
 })

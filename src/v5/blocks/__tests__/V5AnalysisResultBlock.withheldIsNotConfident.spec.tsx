@@ -119,6 +119,6 @@ describe('the confident tier needs a licensed leader', () => {
 
   it('CONTRAST: a permitted run with a moderate band still says it appears to hold', () => {
     render(<V5AnalysisResultBlock block={block({ leadingOptionId: 'opt_raise', nearTie: permitting(), robustnessLevel: 'moderate' })} />)
-    expect(screen.getByTestId(COPY_ID).textContent ?? '').toMatch(/^This result appears to hold/)
+    expect(screen.getByTestId(COPY_ID).textContent ?? '').toMatch(/^Under this model's assumptions, the result held in many simulated futures/)
   })
 })

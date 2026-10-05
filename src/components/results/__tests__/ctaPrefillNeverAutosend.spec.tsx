@@ -100,7 +100,7 @@ describe('OptionCards winner chip — prefill, never auto-send', () => {
     const draft = screen.getByTestId('ask-olumi-draft') as HTMLTextAreaElement
     expect(draft).toBeInTheDocument()
     expect(draft.value).toMatch(/Option A/)
-    expect(draft.value).toMatch(/leading option|key advantages/i)
+    expect(draft.value).toMatch(/Why does "Option A" come out best in this model\?/)
 
     // Composer is focused for immediate editing.
     expect(document.activeElement).toBe(draft)

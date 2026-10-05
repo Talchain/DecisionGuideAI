@@ -156,12 +156,12 @@ describe('winnerChipCopy — structural guards', () => {
    * #1281 moved `winnerChipLabel`'s non-winner arm to "better supported" and
    * left `winnerChipPrompt`'s non-winner arm saying "lead instead", so the chip
    * offered one question and sent another. Both directions are asserted: the
-   * winner pair share "the best-supported option", the non-winner pair share
+   * winner pair share "come out best in this model" (principle audit, 5 Oct), the non-winner pair share
    * "better supported". A future edit to either function alone REDs here.
    */
   it('the winner label and the winner prompt share their noun phrase', () => {
-    expect(winnerChipLabel(true, 'strong', 0.95)).toContain('the best-supported option')
-    expect(winnerChipPrompt(true, 'Option A')).toContain('the best-supported option')
+    expect(winnerChipLabel(true, 'strong', 0.95)).toContain('come out best in this model')
+    expect(winnerChipPrompt(true, 'Option A')).toContain('come out best in this model')
   })
 
   it('the non-winner label and the non-winner prompt share their wording', () => {
