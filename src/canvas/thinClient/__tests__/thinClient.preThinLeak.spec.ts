@@ -7,7 +7,8 @@
  * boundary) leaves the epoch unchanged, so the next GUEST page reads those slots as its own.
  *
  * Every slot is written by its REAL writer on a guest page (a pre-#2511 signed-in page wrote exactly these bytes:
- * unstamped before the first boundary), and read back by the REAL guest reader.
+ * unstamped before the first boundary), and read back by the REAL guest reader. `canvas-storage` is not one of them:
+ * no deployed guest boot reads it (a production canvas boot returns before `loadState`); see `preThinPurge.ts`.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Edge, Node } from '@xyflow/react'
@@ -15,7 +16,7 @@ import type { Edge, Node } from '@xyflow/react'
 import { isThinClientSession, loadThinLayout, saveThinLayout, __resetThinClientForTests } from '../thinClient'
 import { __resetPersistenceSessionForTests } from '../../../lib/persistenceSession'
 import { keyedAutosaveKey, loadAutosave, loadScenarios, saveAutosave, saveScenarios, type Scenario } from '../../store/scenarios'
-import { listSnapshots, loadState, saveSnapshot, saveState } from '../../persist'
+import { listSnapshots, saveSnapshot } from '../../persist'
 import { appendVersion, loadVersions } from '../../versions/versionStorage'
 import { clearUserScopedState } from '../../../lib/auth/userScopedState'
 
@@ -43,7 +44,6 @@ const sessionLapses = () => {
 function seedAsPreThinPage(): void {
   saveAutosave({ timestamp: Date.now() + Math.random(), scenarioId: A_SCENARIO, nodes: nodesOfA(), edges: edgesOfA() })
   localStorage.setItem(keyedAutosaveKey(A_SCENARIO), localStorage.getItem('olumi-canvas-autosave') as string)
-  expect(saveState({ nodes: nodesOfA(), edges: edgesOfA() as never })).toBe(true)
   expect(saveSnapshot({ nodes: nodesOfA(), edges: edgesOfA() as never })).toBe(true)
   expect(appendVersion({ id: 'v1', name: 'Before pricing', createdAt: Date.now(), origin: 'manual', nodes: nodesOfA() as never, edges: edgesOfA() as never }).success).toBe(true)
   const entry: Scenario = { id: A_SCENARIO, name: 'Pricing decision', createdAt: 1, updatedAt: 2, graph: { nodes: nodesOfA(), edges: edgesOfA() } }
@@ -64,11 +64,10 @@ describe('GAP-3 — A\'s pre-thin model never reaches a later guest', () => {
   it('PRECONDITION — the seed is real: a guest page reads A\'s model back from every slot', () => {
     seedAsPreThinPage()
     expect(loadAutosave()?.nodes.map((n) => n.id)).toEqual(['enterprise_prospect_signing_likelihood', 'goal_revenue'])
-    expect(loadState()?.nodes).toHaveLength(2)
     expect(listSnapshots()).toHaveLength(1)
     expect(loadVersions().map((v) => v.id)).toEqual(['v1'])
     expect(loadScenarios()[0].graph.nodes).toHaveLength(2)
-    expect(keysNamingA().length).toBeGreaterThanOrEqual(6)
+    expect(keysNamingA().length).toBeGreaterThanOrEqual(5)
   })
 
   it('A signs in once after the upgrade, the session lapses with no sign-out, a guest opens Olumi: nothing of A\'s model is restored', () => {
@@ -79,7 +78,6 @@ describe('GAP-3 — A\'s pre-thin model never reaches a later guest', () => {
     expect(isThinClientSession()).toBe(false)
 
     expect(loadAutosave()).toBeNull()
-    expect(loadState()).toBeNull()
     expect(listSnapshots()).toEqual([])
     expect(loadVersions()).toEqual([])
     expect(loadScenarios().map((s) => ({ id: s.id, name: s.name, nodes: s.graph.nodes.length }))).toEqual([

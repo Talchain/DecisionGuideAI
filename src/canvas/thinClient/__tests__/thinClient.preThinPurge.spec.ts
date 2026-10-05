@@ -3,8 +3,9 @@
  *
  * The leak itself (A's pre-thin model reaching a later guest) is pinned in `thinClient.preThinLeak.spec.ts`, which runs
  * unchanged on the base. Here: a guest page purges nothing; a second signed-in load under the same epoch is a no-op; a
- * new identity epoch re-arms it; a scenario-list entry keeps its id, name and metadata; and the keys a signed-in user
- * still needs (run history, the pointer, the guest-copy keys, the layout) survive.
+ * new identity epoch re-arms it; a refused removal is retried; a scenario-list entry keeps its id, name and metadata;
+ * and the keys a signed-in user still needs (run history, the pointer, the guest-copy keys, the layout, the
+ * draft-import slot) survive.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Edge, Node } from '@xyflow/react'
@@ -20,7 +21,7 @@ import {
 } from '../preThinPurge'
 import { __resetPersistenceSessionForTests, setPersistenceSessionActive } from '../../../lib/persistenceSession'
 import { IDENTITY_EPOCH_KEY, keyedAutosaveKey, saveAutosave, saveScenarios, type Scenario } from '../../store/scenarios'
-import { saveSnapshot, saveState } from '../../persist'
+import { loadState, saveSnapshot, saveState } from '../../persist'
 import { appendVersion, VERSIONS_STORAGE_KEY } from '../../versions/versionStorage'
 import { STORAGE_KEY as RUN_HISTORY_KEY } from '../../store/runHistory'
 import { PENDING_GUEST_COPY_KEY, readCurrentScenarioPointer, readPendingGuestCopy } from '../../../lib/pendingGuestCopy'
@@ -92,7 +93,8 @@ describe('GAP-3 — every key is its writer\'s key (no literal drifts from the c
   it('PRECONDITION — the seed writes every class: main + keyed slot, canvas-storage, a snapshot (+ name), versions, a list graph', () => {
     seedModelCopies(A, 'Alpha')
     const keys = modelKeys()
-    expect(keys).toEqual(expect.arrayContaining(['olumi-canvas-autosave', keyedAutosaveKey(A), 'canvas-storage', VERSIONS_STORAGE_KEY]))
+    expect(keys).toEqual(expect.arrayContaining(['olumi-canvas-autosave', keyedAutosaveKey(A), VERSIONS_STORAGE_KEY]))
+    expect(localStorage.getItem('canvas-storage')).toContain('Alpha') // written too: the kept-row below needs it
     expect(keys.filter((k) => k.startsWith('canvas-snapshot-')).length).toBeGreaterThanOrEqual(1)
     expect(listGraphNodeCounts()).toEqual([2])
   })
@@ -126,6 +128,16 @@ describe('GAP-3 — a signed-in page purges; a guest page does not', () => {
     expect(modelKeys()).toEqual([])
   })
 
+  it('canvas-storage survives: the signed-in draft-import offer reads it, and no deployed guest boot does (Codex, #2525 r1)', () => {
+    seedModelCopies(A, 'Alpha')
+    const draft = localStorage.getItem('canvas-storage')
+    signIn()
+    expect(isThinClientSession()).toBe(true)
+    expect(localStorage.getItem('canvas-storage')).toBe(draft)
+    expect(loadState()?.nodes).toHaveLength(2) // the offer's own reader (`lib/loginDraftImport.ts`) still finds the draft
+    expect(PRE_THIN_MODEL_KEYS).not.toContain('canvas-storage')
+  })
+
   it('what a signed-in user still needs survives: run history (Compare), the pointer, the guest-copy key, the layout', () => {
     seedModelCopies(A, 'Alpha')
     const kept = seedKeptKeys()
@@ -145,7 +157,7 @@ describe('GAP-3 — once per identity epoch', () => {
     seedModelCopies(A, 'Alpha')
     signIn()
     expect(purgePreThinModelCopies().ran).toBe(true)
-    localStorage.setItem('canvas-storage', '{"marker":"written after the purge"}')
+    localStorage.setItem('olumi-canvas-autosave', '{"marker":"written after the purge"}')
     const before = snapshotOf()
     expect(purgePreThinModelCopies()).toEqual({ ran: false, removed: [], strippedEntries: 0 })
     expect(isThinClientSession()).toBe(true)
@@ -169,6 +181,25 @@ describe('GAP-3 — once per identity epoch', () => {
     expect(modelKeys()).toEqual([])
     expect(listGraphNodeCounts()).toEqual([0])
     expect(localStorage.getItem(PRE_THIN_PURGE_MARKER_KEY)).toBe(epoch)
+  })
+
+  it('a refused removal leaves the marker unwritten, so the next signed-in page finishes the job', () => {
+    seedModelCopies(A, 'Alpha')
+    signIn()
+    const realRemove = Storage.prototype.removeItem
+    const spy = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (this: Storage, key: string) {
+      if (key === 'olumi-canvas-autosave') throw new DOMException('denied', 'SecurityError')
+      return realRemove.call(this, key)
+    })
+    const first = purgePreThinModelCopies()
+    expect(first.ran).toBe(true)
+    expect(first.removed).not.toContain('olumi-canvas-autosave')
+    expect(localStorage.getItem('olumi-canvas-autosave')).toContain('Alpha') // PRECONDITION: the refusal held
+    expect(localStorage.getItem(PRE_THIN_PURGE_MARKER_KEY)).toBeNull()
+    spy.mockRestore()
+    expect(purgePreThinModelCopies().removed).toEqual(['olumi-canvas-autosave'])
+    expect(modelKeys()).toEqual([])
+    expect(localStorage.getItem(PRE_THIN_PURGE_MARKER_KEY)).toBe('before-first-boundary')
   })
 
   it('an unreadable epoch touches nothing (whose copies these are cannot be known)', () => {

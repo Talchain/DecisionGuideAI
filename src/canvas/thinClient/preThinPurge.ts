@@ -20,6 +20,11 @@
  *     and the inputs `GuestCopyOnSignIn` reads to copy a guest's decision into the new account (CEE #2493).
  *   · the layout (`olumi-thin-layout:*`): positions by node id, the one thing a signed-in browser keeps.
  *     Sign-out removes it (`userScopedState.USER_SCOPED_STORAGE_PREFIXES`).
+ *   · `canvas-storage` (`persist.saveState`): written by DEV builds only (`ReactFlowGraph`'s persistence subscriber
+ *     returns under `import.meta.env.PROD`), and a production canvas boot returns before `loadState`, so no deployed
+ *     guest page reads it. Its one deployed reader is the SIGNED-IN draft-import offer (`lib/loginDraftImport.ts`,
+ *     behind `requireLogin`), whose draft exists only in this browser: removing it could lose work, and protects no one
+ *     (Codex, #2525 r1).
  *   · a scenario-list entry's id, name and other metadata: only its graph is emptied, exactly as a thin write
  *     (`scenarios.saveScenarios`) already stores it.
  *
@@ -36,10 +41,10 @@ export const PRE_THIN_PURGE_EPOCH_KEY = 'olumi-canvas-identity-epoch'
 const NO_EPOCH_YET = 'before-first-boundary'
 
 /**
- * Whole-model copies a thin page never reads: the main autosave slot (`scenarios.saveAutosave`), the dev graph slot
- * (`persist.saveState`) and the local version list (`versionStorage.VERSIONS_STORAGE_KEY`).
+ * Whole-model copies a thin page never reads and a later guest page restores: the main autosave slot
+ * (`scenarios.saveAutosave`) and the local version list (`versionStorage.VERSIONS_STORAGE_KEY`).
  */
-export const PRE_THIN_MODEL_KEYS = ['olumi-canvas-autosave', 'canvas-storage', 'olumi-canvas-model-versions-v1'] as const
+export const PRE_THIN_MODEL_KEYS = ['olumi-canvas-autosave', 'olumi-canvas-model-versions-v1'] as const
 /** One key per scenario or snapshot: a cold-load deep link's preserved slots (`scenarios.keyedAutosaveKey`), and
  * manual snapshots with their `-name` keys (`persist.saveSnapshot`). */
 export const PRE_THIN_MODEL_PREFIXES = ['olumi-canvas-autosave:', 'canvas-snapshot-'] as const
@@ -64,22 +69,25 @@ function hasGraphContent(graph: unknown): boolean {
     || (Array.isArray(constraints) && constraints.length > 0)
 }
 
-/** Empties every list entry's graph in place; an unreadable list is left exactly as it is. */
-function stripScenarioListGraphs(): number {
+/**
+ * Empties every list entry's graph in place. `complete` is false only when the list could not be read or rewritten (the
+ * next signed-in page retries); a list no reader can parse is left exactly as it is, and counts as done.
+ */
+function stripScenarioListGraphs(): { stripped: number; complete: boolean } {
   let raw: string | null
   try {
     raw = localStorage.getItem(PRE_THIN_SCENARIO_LIST_KEY)
   } catch {
-    return 0
+    return { stripped: 0, complete: false }
   }
-  if (!raw) return 0
+  if (!raw) return { stripped: 0, complete: true }
   let entries: unknown
   try {
     entries = JSON.parse(raw)
   } catch {
-    return 0
+    return { stripped: 0, complete: true }
   }
-  if (!Array.isArray(entries)) return 0
+  if (!Array.isArray(entries)) return { stripped: 0, complete: true }
   let stripped = 0
   const next = entries.map((entry) => {
     if (!entry || typeof entry !== 'object') return entry
@@ -88,19 +96,21 @@ function stripScenarioListGraphs(): number {
     stripped += 1
     return { ...record, graph: buildPersistedGraph([], [], null) }
   })
-  if (stripped === 0) return 0
+  if (stripped === 0) return { stripped: 0, complete: true }
   try {
     localStorage.setItem(PRE_THIN_SCENARIO_LIST_KEY, JSON.stringify(next))
   } catch {
-    return 0
+    return { stripped: 0, complete: false }
   }
-  return stripped
+  return { stripped, complete: true }
 }
 
 /**
  * Removes this browser's pre-thin model copies, once per identity epoch. The caller has already established that the
- * page is signed in. Never throws: each removal stands alone, so one refused removal leaves the others done, and the
- * marker is written last, so a run interrupted before it is simply repeated by the next signed-in page.
+ * page is signed in. Never throws: each removal stands alone, so one refused removal leaves the others done. The marker
+ * is written only after a COMPLETE run: a refused removal, a refused list rewrite or an interrupted run leaves it
+ * unwritten, so the next signed-in page tries again (Codex, #2525 r1: a marker over a surviving copy would keep it for
+ * that whole epoch).
  */
 export function purgePreThinModelCopies(): PreThinPurgeResult {
   let epochMark: string
@@ -115,6 +125,7 @@ export function purgePreThinModelCopies(): PreThinPurgeResult {
   }
 
   // Enumerate first, then remove: a removal neither shifts the index nor stops the sweep.
+  let complete = true
   const targets: string[] = []
   try {
     for (let i = 0; i < localStorage.length; i += 1) {
@@ -123,19 +134,26 @@ export function purgePreThinModelCopies(): PreThinPurgeResult {
       if ((PRE_THIN_MODEL_KEYS as readonly string[]).includes(key)
         || PRE_THIN_MODEL_PREFIXES.some((prefix) => key.startsWith(prefix))) targets.push(key)
     }
-  } catch { /* storage can be unavailable */ }
+  } catch {
+    complete = false // storage can be unavailable
+  }
 
   const removed: string[] = []
   for (const key of targets) {
     try {
       localStorage.removeItem(key)
       removed.push(key)
-    } catch { /* the sweep goes on */ }
+    } catch {
+      complete = false // the sweep goes on; the marker waits
+    }
   }
-  const strippedEntries = stripScenarioListGraphs()
+  const list = stripScenarioListGraphs()
+  if (!list.complete) complete = false
 
-  try {
-    localStorage.setItem(PRE_THIN_PURGE_MARKER_KEY, epochMark)
-  } catch { /* the next signed-in page repeats the purge */ }
-  return { ran: true, removed, strippedEntries }
+  if (complete) {
+    try {
+      localStorage.setItem(PRE_THIN_PURGE_MARKER_KEY, epochMark)
+    } catch { /* the next signed-in page repeats the purge */ }
+  }
+  return { ran: true, removed, strippedEntries: list.stripped }
 }
