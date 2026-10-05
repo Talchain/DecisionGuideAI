@@ -279,6 +279,9 @@ export const EdgeDataSchema = z.object({
    */
   naturalEffect: NaturalEffectSchema.optional(),
 
+  /** RT-12: the signed admitted example strength; shares the natural-effect staleness rule, never defaulted. */
+  strengthExampleFigure: z.number().finite().optional(),
+
   /**
    * POM-8 (27 Sep 2026): the canvas `weight` CEE set as a PLACEHOLDER — the wire
    * labelled its magnitude `olumi_placeholder`, a number Olumi does not stand

@@ -8,7 +8,7 @@
 
 import { useCanvasStore } from '../../store'
 import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../../domain/edges'
-import { readWireNaturalEffect } from '../../domain/naturalEffect'
+import { readWireNaturalEffect, strengthExampleFigurePatch } from '../../domain/naturalEffect'
 import { strengthPlaceholderPatch } from '../../domain/strengthPlaceholder'
 import { strengthDefinitionalPatch } from '../../domain/strengthDefinitional'
 import { strengthAcceptedPatch } from '../../domain/strengthAccepted'
@@ -197,6 +197,7 @@ function buildEdge(op: PatchOperation) {
       ...(serverStrength !== undefined ? { serverStrength } : {}),
       // The edge's size in the target's units — the ONE reader, every hop (domain/naturalEffect).
       ...(naturalEffect !== undefined ? { naturalEffect } : {}),
+      ...strengthExampleFigurePatch(d as Record<string, unknown>, rawWeight as number, wireSuppliedStrength),
       // POM-8: a placeholder strength — HOP 2 OF 3, the same one reader (domain/strengthPlaceholder).
       ...strengthPlaceholderPatch(d as Record<string, unknown>, weight, wireSuppliedStrength),
       // A definitional link — HOP 2 OF 3, the same one reader (domain/strengthDefinitional).
