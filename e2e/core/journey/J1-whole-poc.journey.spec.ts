@@ -36,7 +36,7 @@ import {
   submitBrief, waitForDraftTurnComplete, type MintedSession,
 } from '../lib/harness'
 import {
-  analysisResultOf, assertBoundaryClean, browserStorage, captureTurns, CEE_URL, duplicateAs, edgeKey,
+  analysisResultOf, assertBoundaryClean, browserStorage, captureTurns, CEE_URL, duplicateAs, edgeKey, evidenceDir,
   frozenRecordings, handlerFactsVisibleTo, injectSession, ledger, nextTurn, scenarioIdFromUrl, scenarioRowVisibleTo, scenariosVisibleTo,
   storedRead, tuple, writeEvidence, type CapturedTurn,
 } from './lib/journey'
@@ -591,9 +591,17 @@ test.describe.serial('J1 · whole PoC', () => {
         await page.goto(`${ORIGIN}/#/scenario/${J.S}`, { waitUntil: 'load' })
         const res = await readS
         if (!res || res.status() !== 200) throw new Error(`COULD NOT MEASURE: the fresh read of S answered ${res?.status() ?? 'nothing'}`)
-        const kind = (await res.json().catch(() => null))?.analysis_state?.run_state?.kind
+        const served = await res.json().catch(() => null)
+        const kind = served?.analysis_state?.run_state?.kind
         if (kind !== 'complete_stale') throw new Error(`COULD NOT MEASURE: the fresh read calls R1 ${kind}, not complete_stale`)
         await openDockTab(page, 'Analysis')
+        await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => undefined)
+        // Evidence first, whatever the verdict: what the server sent and what the page shows.
+        await page.screenshot({ path: path.join(evidenceDir(), 'J5r-fresh.png'), fullPage: true })
+        writeEvidence('J5r-CL3-served.json', {
+          live, run_state: served?.analysis_state?.run_state ?? null, analysis_result_present: served?.analysis_result != null,
+          current_read_keys: Object.keys(served?.current_read ?? {}), surfaces: await surfacesOf(page),
+        })
         await expect(page.getByTestId('analysis-freshness-notice'), 'the fresh browser shows no stale notice')
           .toHaveAttribute('data-freshness', 'stale', { timeout: 60_000 })
         const fresh = await panelSnapshot(page)
@@ -725,7 +733,7 @@ test.describe.serial('J1 · whole PoC', () => {
       await openDockTab(pageA, 'Analysis')
       await expect(pageA.getByTestId('results-body-stale-wrapper'), 'COULD NOT MEASURE: A\'s tab has no complete result before the reload')
         .toHaveAttribute('data-run-status', 'complete', { timeout: 60_000 })
-      const before = await panelSnapshot(pageA)
+      const before = await panelSnapshot(pageA, 'J8c-before.png')
 
       const readS = graphRead(pageA, J.S!)
       await pageA.reload({ waitUntil: 'load' })
@@ -733,7 +741,7 @@ test.describe.serial('J1 · whole PoC', () => {
       if (!res || res.status() !== 200) throw new Error(`COULD NOT MEASURE: the reload read S as ${res?.status() ?? 'nothing'}`)
       await expect(pageA.getByTestId('results-body-stale-wrapper'), 'the reloaded tab never restored a complete result')
         .toHaveAttribute('data-run-status', 'complete', { timeout: 120_000 })
-      const reloaded = await panelSnapshot(pageA)
+      const reloaded = await panelSnapshot(pageA, 'J8c-reloaded.png')
 
       const fresh: PanelSnapshot = await (async () => {
         const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
@@ -744,12 +752,22 @@ test.describe.serial('J1 · whole PoC', () => {
           await openDockTab(page, 'Analysis')
           await expect(page.getByTestId('results-body-stale-wrapper'), 'the fresh browser never restored a complete result')
             .toHaveAttribute('data-run-status', 'complete', { timeout: 120_000 })
-          return await panelSnapshot(page)
+          return await panelSnapshot(page, 'J8c-fresh.png')
         } finally {
           await ctx.close()
         }
       })()
       writeEvidence('J8c-CL1-CL2.json', { before, reloaded, fresh })
+      // The two sources: R2's live turn block (what the tab rendered before the reload) and the
+      // stored read's block (what a cold load renders). Both run ids are recorded: a diff
+      // between two different Runs would say nothing about the reload.
+      const storedBody = await read('J8c')
+      const stored = storedBody.analysis_result
+      writeEvidence('J8c-sources.json', {
+        live_run_id: J.R2, stored_run_id: storedBody.current_read?.run_delta?.endpoints?.current?.run_id ?? null,
+        stored_keys: Object.keys(stored ?? {}), live_keys: Object.keys(J.AR2 ?? {}),
+        diff: blockDiff(J.AR2, stored),
+      })
       const differ = ([['reloaded', reloaded], ['fresh', fresh]] as const)
         .filter(([, p]) => panelKey(p) !== panelKey(before)).map(([name]) => name)
       if (differ.length) throw new Error(`the panel differs from before the reload in: ${differ.join(', ')} (texts in J8c-CL1-CL2.json)`)
@@ -839,11 +857,12 @@ test.describe.serial('J1 · whole PoC', () => {
   }
 
   /** What the Analysis panel says, read once its own state has settled. */
-  async function panelSnapshot(page: Page) {
+  async function panelSnapshot(page: Page, shot?: string) {
     await openDockTab(page, 'Analysis')
     const body = page.getByTestId('results-body-stale-wrapper')
     await expect(body, '[CL] the Analysis panel never rendered a result').toBeVisible({ timeout: 120_000 })
     await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => undefined)
+    if (shot) await page.screenshot({ path: path.join(evidenceDir(), shot), fullPage: true })
     const notice = page.getByTestId('analysis-freshness-notice')
     const text = (await body.innerText()).trim()
     return {
@@ -857,6 +876,32 @@ test.describe.serial('J1 · whole PoC', () => {
     }
   }
   type PanelSnapshot = Awaited<ReturnType<typeof panelSnapshot>>
+
+  /** Which panel surfaces a page is showing, by test id count. */
+  const CL_SURFACES = ['results-body-stale-wrapper', 'analysis-freshness-notice', 'stale-results-banner', 'outputs-analysis-empty', 'outputs-pre-run-v3', 'outputs-pre-run']
+  const surfacesOf = async (page: Page) =>
+    Object.fromEntries(await Promise.all(CL_SURFACES.map(async (id) => [id, await page.getByTestId(id).count()] as const)))
+
+  /**
+   * Where two analysis_result blocks differ, by path (values reduced to a type and a short
+   * prefix). The live tab renders the turn's block; a cold load renders the stored read's.
+   */
+  function blockDiff(live: unknown, stored: unknown, depth = 5) {
+    const leaves = (v: unknown, at: string, out: Map<string, string>, d: number) => {
+      if (v !== null && typeof v === 'object' && d > 0) {
+        for (const [k, x] of Object.entries(v as Record<string, unknown>)) leaves(x, at ? `${at}.${k}` : k, out, d - 1)
+      } else {
+        out.set(at, `${Array.isArray(v) ? 'array' : v === null ? 'null' : typeof v}:${JSON.stringify(v)?.slice(0, 80)}`)
+      }
+      return out
+    }
+    const a = leaves(live, '', new Map(), depth), b = leaves(stored, '', new Map(), depth)
+    return {
+      only_live: [...a.keys()].filter((k) => !b.has(k)),
+      only_stored: [...b.keys()].filter((k) => !a.has(k)),
+      differ: [...a.keys()].filter((k) => b.has(k) && a.get(k) !== b.get(k)).map((k) => ({ path: k, live: a.get(k), stored: b.get(k) })),
+    }
+  }
   const panelKey = (p: PanelSnapshot) =>
     JSON.stringify({ run_status: p.run_status, freshness_confirmed: p.freshness_confirmed, notice: p.notice, text: p.normalised })
 
