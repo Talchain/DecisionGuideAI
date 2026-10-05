@@ -14,6 +14,7 @@ import { markEdgeEditInFlight, resolveEdgeEditSettlement } from '../../conversat
 import type { SystemEventSendSettlement, SystemEventSendSettlementDetail } from '../../conversation/settleSystemEventSend'
 import {
   buildEdgeStrengthEditEvent,
+  edgeStrengthEditChangesNothing,
   buildEdgeDirectionEditEvent,
   buildEdgeStrengthConfirmEvent,
 } from '../../conversation/edgeStrengthEdit'
@@ -1039,8 +1040,9 @@ export function useNodeMutations(nodeId: string) {
  *                          truthfully described to the server, so it was not
  *                          sent. The user's edit is real on this canvas and the
  *                          server does not have it.
- * - `not_encodable`      — nothing happened anywhere. No such edge, or a
- *                          non-finite number.
+ * - `not_encodable`      — nothing happened anywhere. No such edge, a
+ *                          non-finite number, or an UNCHANGED `set` with no
+ *                          carrier (`edgeStrengthEditChangesNothing`).
  *
  * ⚠ NO CALLER READS THIS TOKEN YET, and that is recorded rather than hidden.
  * Four call sites drive `setStrength`. ⚠ CORRECTED: `EdgePanel` now READS the return — an outcome other than `dispatched` means no settlement is coming and the panel must not wait for one. The token
@@ -1159,6 +1161,16 @@ export function useEdgeMutations(edgeId: string) {
       preserveDirection: opts?.preserveDirection,
     })
     const absWeight = Math.abs(mean)
+    // ⛔ AN UNCHANGED `set` IS NOT AN EDIT, so it is neither written nor stamped here (Acceptance #87 5986653143). CEE
+    // refuses it by contract (`edgeStrengthEditChangesNothing`), and the optimistic `weightSource: 'user'` below,
+    // confirmed only by "the model shows the sent magnitude" — which an unchanged value always does — kept "User
+    // edited" on a write the server refused. It is still SENT, without the optimistic write, so CEE's own sentence
+    // ("Confirm the current strength explicitly…") answers the user; nothing local is claimed. No carrier: nothing.
+    if (event !== null && edgeStrengthEditChangesNothing(event)) {
+      if (!sendSystemEvent) return 'not_encodable'
+      settleSystemEventSend(sendSystemEvent(event), opts?.onSendSettled)
+      return 'dispatched'
+    }
     updateEdge(edgeId, {
       data: {
         ...edge.data,

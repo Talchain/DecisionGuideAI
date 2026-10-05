@@ -124,7 +124,7 @@ import { ModelQuestionLine } from './ModelQuestionLine'
 import type { EdgeData } from '../domain/edges'
 import { focusEdgeById, focusNodeById } from '../utils/focusHelpers'
 import { resolveValueInputSeed } from '../conversation/factorValueEdit'
-import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
+import { buildEdgeStrengthEditEvent, edgeStrengthEditChangesNothing, edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { resolveGoalTarget, declaredGoalUnit } from '../domain/goalTarget'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
@@ -1181,6 +1181,18 @@ export function ModelTabV2Panel({
         const seeded = resolveEdgeStrengthEditSeed(edge?.data as Record<string, unknown> | undefined)
         if (seeded === null) {
           setEdit(null)
+          return
+        }
+        // ⭐ REVIEWING THE VALUE THE MODEL ALREADY HOLDS IS AGREEMENT, NOT AN EDIT (Acceptance #87 5986653143; DL 0df0e1,
+        // 5 Oct). "0.25 → 0.25 · Confirm" sent a `set` CEE refuses by contract, and the row still said "User edited".
+        // It now sends `confirm_current` through the row's own Confirm path (the "Accept starting strength" carrier):
+        // nothing is written locally, CEE records the review, and a refusal arrives as that path's notice.
+        if (edge !== undefined && edgeStrengthEditChangesNothing(
+          buildEdgeStrengthEditEvent({ edge, requestedMean: num, preserveDirection: !seeded.directionStated }),
+        )) {
+          setEdit(null)
+          setConfirmNotice(null)
+          setPendingConfirm({ id: rowId, kind: 'edge' })
           return
         }
         // Fail CLOSED on anything the wire cannot carry: `proposeEdgeStrength`
