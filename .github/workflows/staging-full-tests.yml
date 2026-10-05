@@ -1115,7 +1115,12 @@ jobs:
   vitest-summary:
     name: Full Test Suite Summary
     needs: vitest
-    if: ${{ always() }}
+    # `!cancelled()`, NOT `always()` (5 Oct 2026, CI OPTIMISER): a job-level always() still
+    # wants a runner after its run is CANCELLED, and that queued job holds the run's
+    # concurrency group. Measured: cancelled run 37304960320's Summary sat queued 12:34-13:0xZ
+    # and the next PR run on the same branch stayed `pending` behind it until a force-cancel.
+    # !cancelled() still runs after a FAILED shard (the case this job exists for).
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - name: Download all shard outputs
@@ -1348,7 +1353,8 @@ jobs:
   gate:
     name: Staging Gate
     needs: [tsc, typecheck-selftest, vitest, vitest-summary, build]
-    if: ${{ github.event_name != 'pull_request' && always() }}
+    # !cancelled(), not always(): see vitest-summary.
+    if: ${{ github.event_name != 'pull_request' && !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - name: Check all jobs passed
