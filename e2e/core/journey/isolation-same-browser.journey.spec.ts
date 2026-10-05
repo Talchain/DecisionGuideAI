@@ -153,15 +153,20 @@ const nodeIds = (page: Page, label: string): Promise<string[]> => bounded(render
 
 // CORE PLATFORM transcript measurement (v2). The conversation is mounted only while the dock shows it, so every check
 // opens it first: the rail tab when the dock is collapsed, the dock tab when it is open. Null = no panel (UNMEASURED).
+// An EMPTY conversation mounts no log: OlumiTabBody renders `olumi-tab-empty` instead, exactly when
+// conversationIsEmpty(messages). That surface is open and measured; its text (the invitation) is what B sees.
 const conversationText = async (page: Page): Promise<string | null> => {
   const log = page.getByRole('log', { name: 'Conversation' }).first()
-  if (!(await log.isVisible().catch(() => false))) {
+  const empty = page.getByTestId('olumi-tab-empty')
+  const shown = log.or(empty).first()
+  if (!(await shown.isVisible().catch(() => false))) {
     for (const id of ['outputs-dock-rail-tab-olumi', 'outputs-dock-tab-olumi']) {
       const tab = page.getByTestId(id)
       if (await tab.isVisible().catch(() => false)) { await tab.click(); break }
     }
   }
-  return (await log.waitFor({ state: 'visible', timeout: 15_000 }).then(() => true).catch(() => false)) ? log.innerText() : null
+  if (!(await shown.waitFor({ state: 'visible', timeout: 15_000 }).then(() => true).catch(() => false))) return null
+  return (await log.isVisible().catch(() => false)) ? log.innerText() : empty.innerText()
 }
 // The first moment the probe entered this document's DOM, however briefly. Installed before navigation.
 const WATCH = (probe: string): void => {
@@ -347,6 +352,10 @@ test.describe('ISO · same browser, two accounts', () => {
       expect.soft(t1, '[ISO-1/T] COULD NOT MEASURE: no conversation panel in tab 1 after reload').not.toBeNull()
       expect.soft(t1?.includes(tProbe) ?? false, '[ISO-1/T] tab 1 reloaded under B shows A\'s brief in its conversation').toBe(false)
       expect.soft((ev.iso1_T_tab1_B_reload as { dom_ever_carried_A_brief_at: number | null }).dom_ever_carried_A_brief_at, '[ISO-1/T] A\'s brief entered tab 1\'s DOM after the reload under B').toBeNull()
+      // An empty panel now counts as measured, so a restore that lands after tab 2's 8 s settle must still go red:
+      // tab 2's watcher, re-read after tab 1's whole reload block, saw nothing either.
+      ev.iso1_T_tab2_B_watcher_late = await bounded(probeSeenAt(tab2), 'T tab 2 late watcher read')
+      expect.soft(ev.iso1_T_tab2_B_watcher_late, '[ISO-1/T] A\'s brief entered B\'s tab 2 DOM after the first T read').toBeNull()
       mark('coaching + register checks')
       if (coachingBefore !== null) {
         expect(await bounded(tab1.evaluate(() => sessionStorage.getItem('guidance.items.v1')), 'tab 1 coaching after'), '[ISO-1] A\'s coaching survived in tab 1').toBeNull()
