@@ -21,8 +21,8 @@ import {
   submitBrief, waitForDraftTurnComplete, type MintedSession,
 } from '../lib/harness'
 import {
-  assertNoReplayMiss, CEE_URL, frozenRecordings, ledger, scenarioIdFromUrl, storedRead, tuple,
-  writeEvidence,
+  assertNoReplayMiss, browserStorage, CEE_URL, frozenRecordings, ledger, scenarioIdFromUrl,
+  scenariosVisibleTo, storedRead, tuple, writeEvidence,
 } from './lib/journey'
 
 // The brief states every figure the model needs, so construction has no unsized
@@ -86,7 +86,7 @@ test.describe.serial('J1 · whole PoC', () => {
     }).not.toBeNull()
     J.S = scenarioIdFromUrl(page.url())!
 
-    const read = await storedRead(request, J.S, J.accountA.user.accessToken)
+    const read = await storedRead(request, J.S, J.accountA.user)
     expect(read.status, `[J1] CEE's stored read for S=${J.S} failed`).toBe(200)
     const g = read.body!.graph as { nodes: { id: string }[]; edges: { from: string; to: string; id?: string }[] }
     J.H1 = read.body!.graph_identity_hash?.value
@@ -103,5 +103,52 @@ test.describe.serial('J1 · whole PoC', () => {
     }).toEqual(J.G1.nodes)
 
     writeEvidence('J1-model.json', { S: J.S, H1: J.H1, G1: J.G1, user: J.accountA.user.userId })
+  })
+
+  test('J9 · account B, in a fresh browser, sees nothing of S', async ({ browser, request }) => {
+    expect(J.S && J.accountA && J.G1, '[J9] needs S, account A and G1 from J1').toBeTruthy()
+    const S = J.S!
+    const latestNodes = J.G1!.nodes // J8 replaces this with G2 once the edit steps land
+
+    // Positive controls, same run: account A CAN see S on both stores.
+    const aRest = await scenariosVisibleTo(request, J.accountA!.user.accessToken)
+    expect(aRest.ids, '[J9 control] account A cannot list its own scenario S via PostgREST').toContain(S)
+    const aRead = await storedRead(request, S, J.accountA!.user)
+    expect(aRead.status, '[J9 control] account A cannot read S from CEE').toBe(200)
+
+    const ctx = await browser.newContext()
+    const page = await ctx.newPage()
+    try {
+      const B = await mintAndInject(page, 'j1-b')
+      expect(B.user.userId, '[J9] account B is account A').not.toBe(J.accountA!.user.userId)
+
+      // 1. RLS: B's token lists no S.
+      const bRest = await scenariosVisibleTo(request, B.user.accessToken)
+      expect(bRest.status, '[J9] PostgREST refused B outright (a probe that sees nothing proves nothing)').toBe(200)
+      expect(bRest.ids, '[J9] account B can list account A\'s scenario S').not.toContain(S)
+
+      // 2. CEE: B's verified token cannot read S.
+      const bRead = await storedRead(request, S, B.user)
+      expect([403, 404], `[J9] CEE served S to account B (status ${bRead.status})`).toContain(bRead.status)
+      expect(JSON.stringify(bRead.body ?? {}), '[J9] CEE\'s refusal to B carries A\'s graph').not.toContain(latestNodes[0])
+
+      // 3. The browser: B deep-links to S and no node of A's model mounts.
+      await page.goto(`${ORIGIN}/#/scenario/${S}`, { waitUntil: 'load' })
+      await page.waitForTimeout(15_000)
+      const mounted = await renderedNodeIds(page)
+      expect(mounted.filter((id) => latestNodes.includes(id)), '[J9] A\'s model rendered in B\'s browser').toEqual([])
+
+      // 4. Nothing in B's storage names S.
+      const store = await browserStorage(page)
+      const leaks = Object.entries(store).filter(([k, v]) => k.includes(S) || v.includes(S)).map(([k]) => k)
+      expect(leaks, '[J9] B\'s browser storage names A\'s scenario').toEqual([])
+
+      writeEvidence('J9-account-b.json', {
+        S, a_rest_ids: aRest.ids.length, a_read: aRead.status, b_rest_status: bRest.status,
+        b_rest_ids: bRest.ids.length, b_read: bRead.status, b_mounted: mounted.length, b_storage_keys: Object.keys(store).length,
+      })
+    } finally {
+      await ctx.close()
+    }
   })
 })
