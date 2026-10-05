@@ -86,7 +86,7 @@ describe('SURFACE 1 — T1FlipRiskCallout consults the flip authority', () => {
     const el = screen.getByTestId('t1-flip-risk-callout')
     // RT-13 (Science #87 5993266380): the measured figure is said WITH its condition, in this model.
     expect(el.textContent ?? '').toContain('In this model, in the quarter of simulated futures where')
-    expect(el.textContent ?? '').toContain('comes out best in 55% of them')
+    expect(el.textContent ?? '').toContain(`55% of them support ${ALT}`)
   })
 
   it('ATTESTED NO-FLIP: the presupposing verb goes', () => {
@@ -95,6 +95,9 @@ describe('SURFACE 1 — T1FlipRiskCallout consults the flip authority', () => {
     // Union, never replace: the retired verb AND the conditional sentence that replaced it.
     expect(el.textContent ?? '').not.toContain('could overtake')
     expect(el.textContent ?? '').not.toContain('comes out best in')
+    // …and the direction-neutral form of that conditional sentence (Paul, 5 Oct).
+    expect(el.textContent ?? '').not.toContain('of them support')
+    expect(el.textContent ?? '').not.toContain('the most runs')
   })
 
   it('ATTESTED NO-FLIP: the PERCENTAGE goes with the verb — it is a claim, not data', () => {
@@ -118,14 +121,14 @@ describe('SURFACE 1 — T1FlipRiskCallout consults the flip authority', () => {
     const t = screen.getByTestId('t1-flip-risk-callout').textContent ?? ''
     expect(t).toContain(ALT)
     expect(t).toContain('Self-Serve Product Tier')
-    expect(t).toContain('could gain ground')
+    expect(t).toContain(`more runs could support ${ALT}`)
   })
 
   it('OPPOSITE DIRECTION: a genuinely flip-bearing run keeps the percentage WITH its strong verb', () => {
     render(<TriageActionCardsBody data={triageData(FLIPPING_ROWS)} />)
     const t = screen.getByTestId('t1-flip-risk-callout').textContent ?? ''
     expect(t).toContain('In this model, in the quarter of simulated futures where')
-    expect(t).toContain('comes out best in 55% of them')
+    expect(t).toContain(`55% of them support ${ALT}`)
   })
 })
 

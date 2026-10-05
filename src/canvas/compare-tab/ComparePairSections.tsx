@@ -30,14 +30,14 @@ function headline(delta: RunDelta, label: (id: string) => string | null, nearTie
   const current = delta.leader.current_leading_option_id
   if (!current) return 'The latest run names no option'
   const currentName = label(current)
-  if (!prior) return `In this model, ${currentName ?? 'an option'} came out best on the latest run; the previous run named no option`
+  if (!prior) return `In this model, the most runs supported ${currentName ?? 'an option'} on the latest run; the previous run named no option`
   const priorName = label(prior)
   if (delta.leader.changed) {
     return currentName && priorName
-      ? `In this model, the option that came out best changed from ${priorName} to ${currentName}`
-      : 'Which option came out best in this model changed'
+      ? `In this model, the option the most runs supported changed from ${priorName} to ${currentName}`
+      : 'Which option the most runs supported in this model changed'
   }
-  return currentName ? `In this model, ${currentName} still came out best` : 'The option that came out best in this model is unchanged'
+  return currentName ? `In this model, the most runs still supported ${currentName}` : 'The option the most runs supported in this model is unchanged'
 }
 
 function RunTime({ name, endpoint }: { name: string; endpoint?: RunDeltaEndpoint }): JSX.Element {

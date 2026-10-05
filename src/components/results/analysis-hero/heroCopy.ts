@@ -155,7 +155,7 @@ export const HERO_COPY = {
      * Banding state B: ahead on win probability without a strong majority. "Slightly more often" is said only because
      * this arm is bound to the producer's named separation class (`separation === 'slight'` / `slightly_ahead`).
      */
-    slightlyAhead: (label: string) => `In this model, ${label} came out best slightly more often.`,
+    slightlyAhead: (label: string) => `In this model, slightly more runs supported ${label}.`,
     /** Banding state C: the win probabilities identify no clear leader. */
     noClearLeader: 'In this model, no option is clearly most likely.',
     /** Fallback when no recommended option exists among the rows: headline the outcome fact itself. */

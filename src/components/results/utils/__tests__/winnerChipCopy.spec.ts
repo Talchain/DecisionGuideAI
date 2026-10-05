@@ -30,30 +30,30 @@ import { winnerChipLabel, winnerChipPrompt } from '../winnerChipCopy'
 
 describe('winnerChipLabel — winner copy (definitive paths)', () => {
   it('returns the definitive copy for strong tier regardless of stability', () => {
-    expect(winnerChipLabel(true, 'strong')).toBe('Why does this come out best in this model?')
-    expect(winnerChipLabel(true, 'strong', 0.50)).toBe('Why does this come out best in this model?')
-    expect(winnerChipLabel(true, 'strong', 0.95)).toBe('Why does this come out best in this model?')
+    expect(winnerChipLabel(true, 'strong')).toBe('Why did the most runs in this model support this?')
+    expect(winnerChipLabel(true, 'strong', 0.50)).toBe('Why did the most runs in this model support this?')
+    expect(winnerChipLabel(true, 'strong', 0.95)).toBe('Why did the most runs in this model support this?')
   })
 
   it('returns the definitive copy for unknown tier regardless of stability', () => {
-    expect(winnerChipLabel(true, 'unknown')).toBe('Why does this come out best in this model?')
-    expect(winnerChipLabel(true, 'unknown', 0.50)).toBe('Why does this come out best in this model?')
+    expect(winnerChipLabel(true, 'unknown')).toBe('Why did the most runs in this model support this?')
+    expect(winnerChipLabel(true, 'unknown', 0.50)).toBe('Why did the most runs in this model support this?')
   })
 
   it('returns the definitive copy when tier is undefined (defensive default)', () => {
-    expect(winnerChipLabel(true, undefined)).toBe('Why does this come out best in this model?')
-    expect(winnerChipLabel(true, undefined, 0.50)).toBe('Why does this come out best in this model?')
+    expect(winnerChipLabel(true, undefined)).toBe('Why did the most runs in this model support this?')
+    expect(winnerChipLabel(true, undefined, 0.50)).toBe('Why did the most runs in this model support this?')
   })
 
   it('returns the definitive copy for fair tier when stability ≥ 0.85 (stability override)', () => {
-    expect(winnerChipLabel(true, 'fair', 0.85)).toBe('Why does this come out best in this model?')
-    expect(winnerChipLabel(true, 'fair', 0.95)).toBe('Why does this come out best in this model?')
+    expect(winnerChipLabel(true, 'fair', 0.85)).toBe('Why did the most runs in this model support this?')
+    expect(winnerChipLabel(true, 'fair', 0.95)).toBe('Why did the most runs in this model support this?')
   })
 
   it('returns the definitive copy for needs_work when stability ≥ 0.85 (stability override)', () => {
-    expect(winnerChipLabel(true, 'needs_work', 0.85)).toBe('Why does this come out best in this model?')
-    expect(winnerChipLabel(true, 'needs_work', 0.90)).toBe('Why does this come out best in this model?')
-    expect(winnerChipLabel(true, 'needs_work', 1.00)).toBe('Why does this come out best in this model?')
+    expect(winnerChipLabel(true, 'needs_work', 0.85)).toBe('Why did the most runs in this model support this?')
+    expect(winnerChipLabel(true, 'needs_work', 0.90)).toBe('Why did the most runs in this model support this?')
+    expect(winnerChipLabel(true, 'needs_work', 1.00)).toBe('Why did the most runs in this model support this?')
   })
 })
 
@@ -105,7 +105,7 @@ describe('winnerChipLabel — non-winner (always forward-looking)', () => {
 describe('winnerChipPrompt', () => {
   it('builds a winner prompt that quotes the option label', () => {
     expect(winnerChipPrompt(true, 'Option A')).toBe(
-      'Why does "Option A" come out best in this model? Which assumptions does that rest on, and what would have to be true for it not to?',
+      'Why did the most runs in this model support "Option A"? Which assumptions does that rest on, and what would have to be true for it not to?',
     )
   })
 
@@ -160,8 +160,8 @@ describe('winnerChipCopy — structural guards', () => {
    * "better supported". A future edit to either function alone REDs here.
    */
   it('the winner label and the winner prompt share their noun phrase', () => {
-    expect(winnerChipLabel(true, 'strong', 0.95)).toContain('come out best in this model')
-    expect(winnerChipPrompt(true, 'Option A')).toContain('come out best in this model')
+    expect(winnerChipLabel(true, 'strong', 0.95)).toContain('the most runs in this model support')
+    expect(winnerChipPrompt(true, 'Option A')).toContain('the most runs in this model support')
   })
 
   it('the non-winner label and the non-winner prompt share their wording', () => {

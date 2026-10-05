@@ -44,7 +44,9 @@ const WINNER_ID = 'opt_mac'
 const OTHER_ID = 'opt_dell'
 
 /** The exact sentence, spelled out — a regex would survive a truncation. */
-const TIE_SENTENCE = 'Effectively tied, in this model, with the option that came out best'
+const TIE_SENTENCE = 'Effectively tied, in this model, with the option the most runs supported'
+/** The retired spelling (5 Oct, direction-neutral copy) — kept in the absence rows: union, never replace. */
+const RETIRED_TIE_SENTENCE = 'Effectively tied, in this model, with the option that came out best'
 
 /**
  * THE BOUNDARY PAIR. Both have a strictly POSITIVE raw difference; they differ
@@ -143,11 +145,13 @@ describe('the near-tie sentence fires at the ROUNDED boundary, on both arms', ()
   it('RUNNER-UP arm: a lead that rounds to 1pp is WITHHELD, not called a tie', () => {
     const { container } = renderCards(AHEAD, OTHER_ID)
     expect(paragraphsOf(container, OTHER_ID)).not.toContain(TIE_SENTENCE)
+    expect(paragraphsOf(container, OTHER_ID)).not.toContain(RETIRED_TIE_SENTENCE)
   })
 
   it('OTHER-NON-WINNER arm: a lead that rounds to 1pp is WITHHELD too', () => {
     const { container } = renderCards(AHEAD, undefined)
     expect(paragraphsOf(container, OTHER_ID)).not.toContain(TIE_SENTENCE)
+    expect(paragraphsOf(container, OTHER_ID)).not.toContain(RETIRED_TIE_SENTENCE)
   })
 })
 

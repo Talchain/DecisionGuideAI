@@ -65,7 +65,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     const delta = runChangeDelta({ leader: { changed: true, prior_leading_option_id: 'opt_49', current_leading_option_id: 'opt_60', noise_verdict: 'signal' } })
     const { container } = mount(delta)
     // Both leaders are named from the producer's own ids, once, in the headline.
-    expect(screen.getByRole('heading', { name: 'In this model, the option that came out best changed from Keep £49 to Raise to £60' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'In this model, the option the most runs supported changed from Keep £49 to Raise to £60' })).toBeInTheDocument()
     // Plain words: a run's raw identity is bound by data-run-id, never shown as text.
     expect(runTimes()).not.toHaveTextContent('run-a')
     expect(runTimes()).not.toHaveTextContent('run-b')
@@ -82,7 +82,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
   it('states withheld-before to caveated-leader-after from independent producer IDs without claiming a switch', () => {
     mount(runChangeDelta({ leader: { changed: false, current_leading_option_id: 'opt_60', noise_verdict: 'not_noise_qualified' }, win_probabilities: [], win_probabilities_unavailable: 'prior_withheld' }))
     const hero = section('What changed between runs')
-    expect(hero).toHaveTextContent('In this model, Raise to £60 came out best on the latest run; the previous run named no option')
+    expect(hero).toHaveTextContent('In this model, the most runs supported Raise to £60 on the latest run; the previous run named no option')
     expect(hero).toHaveTextContent('This pair gives no basis for saying whether that is a real difference.')
     expect(hero).not.toHaveTextContent('changed')
     // No pair of figures: the producer's reason stands in the figures' place, and no details row promises figures.
@@ -102,6 +102,9 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     // Union, never replace: the model-relative words that replaced them (principle audit, 5 Oct).
     expect(section('What changed between runs')).not.toHaveTextContent('Keep £49 still came out best')
     expect(section('What changed between runs')).not.toHaveTextContent('came out best')
+    // Union again: the direction-neutral words that replaced "came out best" (Paul, 5 Oct).
+    expect(section('What changed between runs')).not.toHaveTextContent('the most runs still supported Keep £49')
+    expect(section('What changed between runs')).not.toHaveTextContent(/runs supported|runs (?:would|could|still) support|most runs (?:still )?supported|the most runs|be supported by the most runs/)
   })
 
 
@@ -124,7 +127,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     render(<CompareRunPairBody responseHash={hash} />)
     expect(screen.getByRole('heading', { name: 'Result comparison not shown' })).toBeInTheDocument()
     // No option is named and no share is reachable: there is no details row to open.
-    expect(screen.queryByText(/Keep £49|Raise to £60 is|put forward|came out best/)).toBeNull()
+    expect(screen.queryByText(/Keep £49|Raise to £60 is|put forward|came out best|runs supported|runs (?:would|could|still) support|most runs (?:still )?supported|the most runs|be supported by the most runs/)).toBeNull()
     expect(screen.queryByTestId('compare-result-details')).toBeNull()
     expect(screen.queryByText(/%/)).toBeNull()
     expect(section('What you changed')).toHaveTextContent('£59 → £60')
@@ -132,7 +135,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
 
   it('never upgrades within-noise movement into an option tie', () => {
     mount(runChangeDelta({ leader: { changed: true, prior_leading_option_id: 'opt_49', current_leading_option_id: 'opt_60', noise_verdict: 'within_noise' } }))
-    expect(section('What changed between runs')).toHaveTextContent('In this model, the option that came out best changed from Keep £49 to Raise to £60')
+    expect(section('What changed between runs')).toHaveTextContent('In this model, the option the most runs supported changed from Keep £49 to Raise to £60')
     expect(section('What changed between runs')).toHaveTextContent('Too small to tell apart from ordinary run-to-run movement.')
     // Union, never replace: a regex, so neither the old nor the model-relative near-tie words slip through.
     expect(screen.queryByText(/too close to call/i)).toBeNull()
@@ -140,7 +143,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
 
   it('says an unchanged option as what came out best in this model, never as one a run puts forward', () => {
     mount(runChangeDelta({ leader: { changed: false, prior_leading_option_id: 'opt_49', current_leading_option_id: 'opt_49', noise_verdict: 'signal' } }))
-    expect(screen.getByRole('heading', { name: 'In this model, Keep £49 still came out best' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'In this model, the most runs still supported Keep £49' })).toBeInTheDocument()
     expect(section('What changed between runs')).not.toHaveTextContent('put forward')
   })
 

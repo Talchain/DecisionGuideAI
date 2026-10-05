@@ -395,7 +395,7 @@ function AnalysisSection({ analysis }: { analysis: ReadAnalysis }) {
             ))}
           </ul>
           <p className="mt-2 text-xs text-text-light">
-            How often each option came out best across the runs of this model.
+            How often the runs of this model supported each option.
           </p>
         </section>
       )}
