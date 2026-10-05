@@ -33,6 +33,8 @@ export interface HumanisableInferenceWarning {
    *  forwards this for the codes that name a single node; see
    *  `nodeIdFromField`. */
   field?: string
+  /** UI-derived on `GOAL_DIRECTION_UNATTESTED` only (see `InferenceWarning`): the goal's target can correct the direction. */
+  goal_direction_correctable?: boolean
 }
 
 /**
@@ -274,6 +276,7 @@ export function humaniseInferenceWarning(
         : fromField
           ? [fromField]
           : undefined,
+    ...(w.goal_direction_correctable === true ? { goalDirectionCorrectable: true } : {}),
   }
   return humaniseCritique(item, buildInferenceWarningLabelMap(w) ?? nodeLabels)
 }

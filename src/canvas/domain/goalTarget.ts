@@ -445,3 +445,17 @@ export function goalDirectionWarningIsMoot(goal: GoalTargetSource | null | undef
   return true
 }
 export const GOAL_DIRECTION_UNATTESTED_CODE = 'GOAL_DIRECTION_UNATTESTED'
+
+/**
+ * ⭐ B′ (RT-10; Science 5999608477): the goal's own target now records its objective sense. Set to 'at most', CEE runs
+ * the comparison lowest-first, so `GOAL_DIRECTION_UNATTESTED` finally has a correction a user can make. The correction is
+ * TRUE only where the target line can make it: a goal with no target, or a LEVEL target in a frame this UI reads. A
+ * change from today ("down 15%") is not edited by the target line (`SuccessTargetLine`; CEE refuses `goal_is_a_change`)
+ * and CEE offers no correction for it (`goalDirectionCorrectableByTarget`, run-analysis.ts). So a change, an unread frame
+ * and a missing goal all fail closed: no correction is offered.
+ */
+export function goalDirectionCorrectableByTarget(goal: GoalTargetSource | null | undefined): boolean {
+  if (goal == null) return false
+  if (goalTargetFrameIsUnread(goal.goal_threshold_frame)) return false
+  return goalTargetChangeFrameOf(goal.goal_threshold_frame) === null
+}
