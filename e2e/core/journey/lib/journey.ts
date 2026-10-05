@@ -152,6 +152,33 @@ export async function scenariosVisibleTo(accessToken: string): Promise<{ status:
 }
 
 /**
+ * One `scenarios` row as a user token sees it (RLS decides). Anything but a 200 with
+ * exactly one row THROWS: a row the probe cannot see is not a row that does not exist.
+ */
+export async function scenarioRowVisibleTo(scenarioId: string, accessToken: string): Promise<Record<string, unknown>> {
+  const r = await credentialedFetch('PostgREST scenario row probe',
+    `${process.env.CORE_SUPABASE_URL!}/rest/v1/scenarios?id=eq.${encodeURIComponent(scenarioId)}&select=id,user_id,title,source_scenario_id`,
+    { headers: { apikey: process.env.CORE_SUPABASE_KEY!, Authorization: `Bearer ${accessToken}` } })
+  const rows = Array.isArray(r.body) ? (r.body as Record<string, unknown>[]) : null
+  if (r.status !== 200 || !rows || rows.length !== 1) {
+    throw new Error(`[j1] PostgREST scenario row probe could not measure: http ${r.status}, ${rows ? rows.length : 'no'} row(s)`)
+  }
+  return rows[0]
+}
+
+/**
+ * The product's own Duplicate (`scenarioService.duplicateScenario` → RPC
+ * `duplicate_scenario`), called under a user token. The status is the caller's to judge.
+ */
+export async function duplicateAs(scenarioId: string, accessToken: string): Promise<{ status: number; body: unknown }> {
+  return credentialedFetch('PostgREST duplicate_scenario', `${process.env.CORE_SUPABASE_URL!}/rest/v1/rpc/duplicate_scenario`, {
+    method: 'POST',
+    headers: { apikey: process.env.CORE_SUPABASE_KEY!, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_scenario_id: scenarioId }),
+  })
+}
+
+/**
  * One `scenarios` row read with the LOCAL job's service role (this run's own Supabase;
  * the key is minted per run and masked). For rows no user token can read, e.g. a guest's.
  * Node fetch, never Playwright `request`: Playwright appends the request's headers to a
