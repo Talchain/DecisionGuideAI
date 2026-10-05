@@ -59,6 +59,13 @@ const ENRICHMENT_KEEP_LIST = [
 ]
 // analysis-result-headline.ts:297-298 @ a4977d9d
 const ASSUMED_DIRECTION = 'The analysis was not told which way your goal points, so it assumed a higher value is better'
+// Served analysis text describes what the model implies; it never ranks the options (Paul 5 Oct; DL 0df0e1 for record 4,
+// matching WORDING c6's sweep). The option labels are the user's own words, so they are removed before matching.
+const RANKING_WORDS = /\b(?:ahead|best|winners?)\b|\bput forward\b/i
+const rankingWord = (text: string, labels: string[]): string | null => {
+  const own = labels.filter(Boolean).sort((a, b) => b.length - a.length).reduce((t, l) => t.split(l).join(' '), text)
+  return own.match(RANKING_WORDS)?.[0] ?? null
+}
 // StyledEdge paints the fragile cue only above this switch probability (constants.ts:23).
 const FRAGILE_PAINT_THRESHOLD = 0.15
 // Identity shapes: an analysis hash (16 or 64 hex) and a run id. A missing value never matches.
@@ -245,6 +252,10 @@ test.describe.serial('J1 · whole PoC', () => {
     const options = J.G1!.nodes.filter((n) => n.kind === 'option')
     expect(options.length, '[J2] G1 has no option to look for').toBeGreaterThan(0)
     for (const o of options) await expect(results, `[J2] the result does not name option "${o.label}" (${o.id})`).toContainText(o.label!)
+    // J2c: neither R1's served summary nor the Analysis tab the user reads ranks the options.
+    const labels = J.G1!.nodes.map((n) => n.label ?? '')
+    expect(rankingWord(String(J.AR1.summary ?? ''), labels), '[J2c] R1\'s served summary ranks the options').toBeNull()
+    expect(rankingWord(await results.innerText(), labels), '[J2c] the Analysis tab ranks the options').toBeNull()
 
     // J2a: the assumed-direction sentence appears exactly when CEE says the direction was unattested.
     const unattested = (J.AR1.enrichment?.inference_warnings ?? []).some((w: any) => w?.code === 'GOAL_DIRECTION_UNATTESTED')
@@ -362,6 +373,7 @@ test.describe.serial('J1 · whole PoC', () => {
     assertBoundaryClean('J6')
     J.AR2 = analysisResultOf(turn.body)!
     expect(J.AR2, '[J6] the rerun carries no analysis_result').toBeTruthy()
+    expect(rankingWord(String(J.AR2.summary ?? ''), J.G1!.nodes.map((n) => n.label ?? '')), '[J6] R2\'s served summary ranks the options').toBeNull()
 
     const body = await read('J6')
     expect(body.graph_hash, '[J6] the rerun is not on the edited graph').toBe(J.H2)
