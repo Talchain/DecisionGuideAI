@@ -14,7 +14,7 @@ import { act, renderHook } from '@testing-library/react'
 import { useCanvasStore } from '../../store'
 import { useMeasureThenLayout } from '../../hooks/useMeasureThenLayout'
 import { HEIGHT_GROWTH_TOLERANCE_PX } from '../../utils/nodeLayoutConstants'
-import { handleLayoutWithRecovery, type LayoutAttemptResult } from '../../layout/handleLayoutWithRecovery'
+import type { LayoutAttemptResult } from '../../layout/handleLayoutWithRecovery'
 import { __resetThinClientForTests } from '../thinClient'
 import { __resetPersistenceSessionForTests } from '../../../lib/persistenceSession'
 
@@ -84,7 +84,7 @@ beforeEach(() => {
   mockNodesInitialized = false
   mockNodeLookup = new Map()
 })
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => { vi.restoreAllMocks() })
 
 describe('layout corrections do not carry across a scenario switch (thin)', () => {
   it('CATCH TWIN (guest, unchanged) — A’s baseline judges B and starts a layout over B', () => {

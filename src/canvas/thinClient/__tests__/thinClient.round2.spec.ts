@@ -57,7 +57,7 @@ beforeEach(() => {
   __resetPersistenceSessionForTests()
   emptyCanvas()
 })
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => { vi.restoreAllMocks() })
 
 describe('P1-3 — a restored layout still moves the layout generation', () => {
   it('CONTRAST — a guest hydrate asks for a layout and moves the generation', () => {
