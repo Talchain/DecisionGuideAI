@@ -4546,6 +4546,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             affected_nodes: nodeIds,
             ...(Array.isArray(w.node_ids) ? { node_ids: w.node_ids.filter((id: unknown): id is string => typeof id === 'string') } : {}),
             ...(Array.isArray(w.links) ? { links: w.links.filter((l: any) => typeof l?.from === 'string' && typeof l?.to === 'string').map((l: any) => ({ from: l.from as string, to: l.to as string })) } : {}),
+            // ⚠ RT-19 (#87 6009883744): CEE's typed `first_ask` (#2635), VERBATIM. Rebuilding the warning without it left the
+            // deployed Strengthen panel reading "No findings need attention right now" on a served `goal_path_unsized` withhold;
+            // `unsizedPathAskOf` validates it by kind and names it from the canvas.
+            ...(w.first_ask !== null && typeof w.first_ask === 'object' && !Array.isArray(w.first_ask) ? { first_ask: w.first_ask as Record<string, unknown> } : {}),
             affected_labels: nodeIds.map(id => nodeLabelMap.get(id) ?? id),
             message: w.message ? String(w.message) : undefined,
             // Roadmap 1.12: producer severity carried verbatim (never

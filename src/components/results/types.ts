@@ -1251,6 +1251,11 @@ export interface InferenceWarning {
    * nearest the goal first), carried verbatim. Dropping it here named only the first link on the Analysis tab.
    */
   links?: Array<{ from: string; to: string }>
+  /**
+   * `GOAL_FIGURES_PLACEHOLDER_PATH` only: CEE's typed first ask (#2635: `goal_level` | `gauge` | `link`), carried verbatim
+   * and validated by kind where it is read (`unsizedPathAskOf`). Dropping it here emptied the Strengthen panel (RT-19).
+   */
+  first_ask?: Record<string, unknown>
   /** Affected node labels (resolved from canvas) */
   affected_labels?: string[]
   /** Human-readable message */
