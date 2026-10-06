@@ -92,6 +92,11 @@ export interface OptimisticEdgeEdit {
   readonly before: Readonly<Record<string, unknown>>
   /** Set only by a direction edit — see `PendingEdgeEdit.sentDirection`. */
   readonly sentDirection?: 'positive' | 'negative'
+  /**
+   * F1: `lastServerGraphHash` when the edit was sent. A reply at this same analysis hash to a strength MOVE proves
+   * the move did not land (`pendingEdgeEdit.ts` `edgeEditAnsweredUnmoved`). Absent/null = no claim.
+   */
+  readonly baseGraphHash?: string | null
 }
 
 /** What this turn wrote to the canvas ahead of its own receipt. */

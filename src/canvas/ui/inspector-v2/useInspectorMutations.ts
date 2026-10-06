@@ -1287,7 +1287,7 @@ export function useEdgeMutations(edgeId: string) {
       opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, absWeight, settlement), detail)
     settleSystemEventSend(
       sendSystemEvent(event, {
-        optimisticEdgeEdit: { edgeId, sentMagnitude: absWeight, before },
+        optimisticEdgeEdit: { edgeId, sentMagnitude: absWeight, before, baseGraphHash: useCanvasStore.getState().lastServerGraphHash },
         // ⭐ A QUEUED send settles TWICE: `'queued'` at the click (below), then
         // its real outcome when the queue dispatches it (canvas audit
         // edit-values F1). Without this second settlement a refused queued edit
@@ -1441,7 +1441,7 @@ export function useEdgeMutations(edgeId: string) {
       opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, sentMagnitude, settlement, direction), detail)
     settleSystemEventSend(
       sendSystemEvent(event, {
-        optimisticEdgeEdit: { edgeId, sentMagnitude, before, sentDirection: direction },
+        optimisticEdgeEdit: { edgeId, sentMagnitude, before, sentDirection: direction, baseGraphHash: useCanvasStore.getState().lastServerGraphHash },
         // The queued flip's real outcome, at flush — `setStrength`'s twin.
         onDeferredSettled: (dispatch) => settleSystemEventSend(dispatch, settle),
       }),
