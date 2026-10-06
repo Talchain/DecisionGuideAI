@@ -475,6 +475,16 @@ function valueReviewedByUser(obs: Record<string, unknown> | undefined): boolean 
 }
 
 /**
+ * SD-1 (Codex buddy #2543 r2): does CEE's review record say a person confirmed this factor's figure? The ONE reader for
+ * every "reviewed" surface, with the same observed-state precedence as {@link factorNeedsVerification} (camelCase first),
+ * so a surface can never call a figure reviewed that "to verify" still counts, or the reverse.
+ */
+export function factorReviewRecorded(data: unknown): boolean {
+  const d = data as Record<string, unknown> | undefined
+  return valueReviewedByUser((d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined)
+}
+
+/**
  * Is there a number here that a confirmation could actually ratify?
  *
  * ⚠⚠ THIS IS THE AUTHORITY'S OWN REFUSAL CONDITION, INVERTED — NOT A READING OF

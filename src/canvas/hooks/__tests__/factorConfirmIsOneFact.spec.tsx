@@ -25,7 +25,9 @@ vi.mock('../../conversation/ConversationContext', async (importOriginal) => {
 import { useModelEditAuthority } from '../useModelEditAuthority'
 import { useCanvasStore } from '../../store'
 import { buildFactorValueEditEvent } from '../../conversation/factorValueEdit'
-import { factorIsConfirmable } from '../../domain/valueProvenance'
+import { factorIsConfirmable, factorNeedsVerification } from '../../domain/valueProvenance'
+import { isTransitionBridgeReviewed } from '../../components/pre-analysis-v3/selectors/computeInfluenceCoverage'
+import { buildContributionBreakdown } from '../../components/pre-analysis/utils/buildContributionBreakdown'
 import { stripNodeValueSignature } from '../../../components/results/analysisNew/buildModelStrip'
 import { isReviewedByUser } from '../../components/pre-analysis/utils/isReviewedByUser'
 import { setPersistenceSessionActive, __resetPersistenceSessionForTests } from '../../../lib/persistenceSession'
@@ -157,5 +159,25 @@ describe('consumer, buddy r1: every reader of "reviewed" sees the record, and a 
   it('isReviewedByUser reads the record; CONTRAST: Olumi\'s unreviewed figure is not reviewed', () => {
     expect(isReviewedByUser(node({ ...CHURN, reviewed_by_user: { intent: 'confirm', at: AT } }) as never)).toBe(true)
     expect(isReviewedByUser(node({ ...CHURN }) as never)).toBe(false)
+  })
+})
+
+describe('buddy r2: ONE reader of the review record, with the "to verify" predicate\'s precedence', () => {
+  const AT = '2026-10-06T00:00:00.000Z'
+  const REVIEWED = { ...CHURN, reviewed_by_user: { intent: 'confirm', at: AT } }
+  const factorNode = (data: Record<string, unknown>) => ({ id: FACTOR, type: 'factor', position: { x: 0, y: 0 }, data: { kind: 'factor', ...data } })
+  it.each([
+    ['snake unreviewed + camel confirmed (a receipt merged beside a stale wire copy)', { observed_state: { ...CHURN }, observedState: REVIEWED }],
+    ['snake confirmed + camel unreviewed', { observed_state: REVIEWED, observedState: { ...CHURN } }],
+  ])('%s: isReviewedByUser says what "to verify" says', (_name, data) => {
+    expect(isReviewedByUser(factorNode(data) as never)).toBe(!factorNeedsVerification(data))
+  })
+  it('influence coverage counts a CEE-reviewed figure; CONTRAST: the unreviewed one is not', () => {
+    expect(isTransitionBridgeReviewed(factorNode({ observedState: REVIEWED }) as never)).toBe(true)
+    expect(isTransitionBridgeReviewed(factorNode({ observedState: { ...CHURN } }) as never)).toBe(false)
+  })
+  it('the contribution breakdown counts it verified; CONTRAST: the unreviewed one is estimated', () => {
+    expect(buildContributionBreakdown([{ data: { observedState: REVIEWED } }])).toMatchObject({ verified: 1, estimated: 0 })
+    expect(buildContributionBreakdown([{ data: { observedState: { ...CHURN } } }])).toMatchObject({ verified: 0, estimated: 1 })
   })
 })
