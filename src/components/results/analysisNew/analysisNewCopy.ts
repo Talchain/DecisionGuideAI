@@ -2904,6 +2904,8 @@ export const ANALYSIS_NEW_COPY = {
    */
   checks: {
     leader_present: { label: 'In this model, one option was supported by more runs than any other' },
+    /** J4: a permitted leader within 10 pts of the next run share (`runSharesSimilar`). No ranking word. */
+    leader_similar_shares: { label: 'In this model, the options were supported by similar shares of runs' },
     /**
      * The one licensed DENIAL, and it is licensed by `separation === 'tied'`
      * alone (`decisionVerdict.ts:166-168`).

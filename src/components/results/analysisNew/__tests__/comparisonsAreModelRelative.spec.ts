@@ -425,6 +425,8 @@ import { DECISION_RECORD_COPY } from '../../modals/DecisionRecordModal'
 describe('check labels and the decision record carry no answer framing', () => {
   it('leader check labels are model-relative', () => {
     expect(ANALYSIS_NEW_COPY.checks.leader_present.label).toBe('In this model, one option was supported by more runs than any other')
+    // J4: within 10 pts of the next run share, no ranking word at all.
+    expect(ANALYSIS_NEW_COPY.checks.leader_similar_shares.label).toBe('In this model, the options were supported by similar shares of runs')
     expect(ANALYSIS_NEW_COPY.checks.leader_tied.label).toBe('In this model, no option is clearly most likely')
   })
   it('the decision-record placeholder asks for the person\'s own reason, not why it is "the best"', () => {

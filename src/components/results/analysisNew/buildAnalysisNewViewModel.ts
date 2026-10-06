@@ -45,7 +45,7 @@ import { formatThresholdFigure } from './thresholdFigure'
 import { conditionalInputBasis } from './conditionalInputBasis'
 import { classifyUnit } from '../../../utils/unitClassifier'
 import { truncateAtWordBoundary } from '../../../utils/text'
-import { leaderDesignationPermitted, rankingWasWithheld } from '../leaderDesignation'
+import { leaderDesignationPermitted, rankingWasWithheld, runSharesSimilar } from '../leaderDesignation'
 import { isSuppressedUnit } from '../../../canvas/utils/labelUtils'
 import { analysisClaimPolicy } from '../analysisClaimPolicy'
 import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysisReady'
@@ -3711,7 +3711,10 @@ function buildChecks(
   const verdict = rec.verdict
   const leaderCode: ChecksCode =
     leaderDesignationPermitted(rec) === true
-      ? 'leader_present'
+      ? // J4: a permitted leader within 10 pts of the next run share is stated as similar shares, never "more runs".
+        runSharesSimilar(verdict)
+        ? 'leader_similar_shares'
+        : 'leader_present'
       : // ⚠ THE DENIAL IS LICENSED BY `'tied'` ALONE. `decisionVerdict.ts:166-168`
         // is explicit that `'unknown'` licenses SILENCE, never a denial — so an
         // unknown separation lands in the third state with the two other
@@ -3913,6 +3916,7 @@ function buildChecks(
  */
 const CHECK_STATE: Record<ChecksCode, ChecksState> = {
   leader_present: 'pass',
+  leader_similar_shares: 'pass',
   leader_tied: 'finding',
   leader_not_assessed: 'not_assessed',
   robustness_robust: 'pass',
