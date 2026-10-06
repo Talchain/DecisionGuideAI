@@ -274,6 +274,16 @@ export interface StrengthenPhase3Item {
   priorityRank?: number
 }
 
+/**
+ * What a `goal_path_unsized` withhold asks FIRST (CEE `first_ask`, by kind): the goal's level, one end-to-end gauge
+ * question, or one link — ids for the focus target, display labels for the words.
+ */
+export type UnsizedPathAsk =
+  | { readonly kind: 'goal_level'; readonly nodeId: string; readonly goal: string }
+  | { readonly kind: 'gauge'; readonly fromId: string; readonly throughId: string; readonly toId: string
+      readonly from: string; readonly through: string; readonly to: string }
+  | { readonly kind: 'link'; readonly fromId: string; readonly toId: string; readonly from: string; readonly to: string }
+
 export interface StrengthenInputs {
   /** Effective user success target (null = no measurable success definition). */
   goalThreshold: number | null
@@ -306,6 +316,14 @@ export interface StrengthenInputs {
    * existing copy standing.
    */
   materialParametersAwaitingUserIds?: readonly string[]
+  /**
+   * ⭐ D3 (DL 0df0e1, 6 Oct; Acceptance G1 draft 6): the Run withheld its leader because a link on a compared option's
+   * path to the goal is unsized (`goal_path_unsized`), and THIS is what the withhold asks first, read by identity off the
+   * Run's own `GOAL_FIGURES_PLACEHOLDER_PATH` warning (`first_ask`, `unsizedPathAskOf`). `undefined` = no such withhold
+   * (today's next input); `null` = the withhold holds but asks nothing this panel can name, so the panel names no
+   * other input in its place (it would not reach the finding); otherwise it IS the panel's next step.
+   */
+  unsizedPathAsk?: UnsizedPathAsk | null
   /**
    * Whether the admission, the run and the current graph are ONE identity —
    * `useAnalysisResultsAreCurrent()`, the same authority that licenses the

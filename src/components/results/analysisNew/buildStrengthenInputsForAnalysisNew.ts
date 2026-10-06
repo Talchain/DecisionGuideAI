@@ -38,7 +38,7 @@ import { analysisClaimPolicy } from '../analysisClaimPolicy'
 import { adaptivePriorityFromStage } from '../strengthen/StrengthenContainer'
 import { toStrengthenPhase3Item } from '../strengthen/buildRecommendations'
 import { mergeBiasFindingTypes } from '../strengthen/biasTypesFromGuidance'
-import type { StrengthenInputs } from '../strengthen/strengthenTypes'
+import type { StrengthenInputs, UnsizedPathAsk } from '../strengthen/strengthenTypes'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { GuidanceItem } from '../../../canvas/stores/guidanceStore'
 import type { ScenarioStage } from '../../../types/scenario'
@@ -62,6 +62,8 @@ export interface StrengthenInputSources {
    * checked.
    */
   analysisIdentityIsCurrent?: boolean
+  /** ⭐ D3 (DL 0df0e1, 6 Oct): the `goal_path_unsized` withhold's own ask (`unsizedPathAskOf`); see `StrengthenInputs`. */
+  unsizedPathAsk?: UnsizedPathAsk | null
 }
 
 export function buildStrengthenInputsForAnalysisNew({
@@ -70,6 +72,7 @@ export function buildStrengthenInputsForAnalysisNew({
   biasSignals,
   currentStage,
   analysisIdentityIsCurrent,
+  unsizedPathAsk,
 }: StrengthenInputSources): StrengthenInputs {
   const fragile = (data.confidence.challengeFragileEdges ?? []) as Array<Record<string, unknown>>
   const phase3Items = guidanceItems.map(toStrengthenPhase3Item)
@@ -81,6 +84,8 @@ export function buildStrengthenInputsForAnalysisNew({
     // untyped wire field. Mirrored verbatim in `StrengthenContainer.tsx`.
     materialParametersAwaitingUserIds: materialParametersAwaitingUserIds(data.recommendation.analysisAdmission),
     analysisIdentityIsCurrent: analysisIdentityIsCurrent === true,
+    // `undefined` (no withhold) and `null` (a withhold whose ask cannot be named) mean different things: pass it as is.
+    ...(unsizedPathAsk !== undefined ? { unsizedPathAsk } : {}),
     // The OWNED leader entitlement, quoted from the single verdict and never
     // re-derived. A completed analysis is not an entitlement to name a leader.
     // ⚠ THE COMPOSED ANSWER, matching `StrengthenContainer` exactly. Passing raw

@@ -14,6 +14,7 @@
  */
 
 import { formatThresholdFigure } from './thresholdFigure'
+import type { UnsizedPathAsk } from '../strengthen/strengthenTypes'
 
 import { isSuppressedUnit } from '../../../canvas/utils/labelUtils'
 import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
@@ -430,6 +431,46 @@ export function olumiSuppliedFiguresDisclosure(
     return `Olumi supplied the figures for the link from ‘${only.from}’ to ‘${only.to}’. Set your own to see how much it matters.`
   }
   return `Olumi supplied the figures for the links ${linksListed(naming.shown, naming.total)}. Set your own to see how much they matter.`
+}
+
+/**
+ * ⭐ D3 (DL 0df0e1, 6 Oct; Acceptance G1 draft 6; Integrator 37): the withhold's own ASK, for the panel's next step.
+ * Same gate as `unsizedAwareCause` (`goal_path_unsized`, or `separation_unavailable` echoing that upstream withhold).
+ * Read by identity off the Run's `GOAL_FIGURES_PLACEHOLDER_PATH` warning: its typed `first_ask` (CEE #2635), the first
+ * thing its words ask — the goal's level, one gauge question, or one link. The UI never picks a link of its own.
+ * `undefined` when the withhold does not hold; `null` when it holds but its ask cannot be named (no `first_ask`, or an
+ * end with no display label).
+ */
+export function unsizedPathAskOf(
+  producerReason: string | null | undefined,
+  inferenceWarnings: unknown,
+  labelOf: (nodeId: string) => string | null | undefined,
+): UnsizedPathAsk | null | undefined {
+  const token = typeof producerReason === 'string' ? producerReason.trim() : ''
+  const warning = warningWithCode(inferenceWarnings, 'GOAL_FIGURES_PLACEHOLDER_PATH')
+  const upstream = unsizedLinksOf(inferenceWarnings).length > 0
+  if (token !== GOAL_PATH_UNSIZED_CAUSE && !(token === 'separation_unavailable' && upstream)) return undefined
+  const ask = warning?.first_ask
+  if (ask === null || typeof ask !== 'object') return null
+  const a = ask as Record<string, unknown>
+  const name = (id: unknown): string | null => (typeof id === 'string' && id !== '' ? labelOf(id)?.trim() || null : null)
+  if (a.kind === 'goal_level') {
+    const goal = name(a.node_id)
+    return goal === null ? null : { kind: 'goal_level', nodeId: a.node_id as string, goal }
+  }
+  if (a.kind === 'gauge') {
+    const from = name(a.from)
+    const through = name(a.through)
+    const to = name(a.to)
+    return from === null || through === null || to === null ? null
+      : { kind: 'gauge', fromId: a.from as string, throughId: a.through as string, toId: a.to as string, from, through, to }
+  }
+  if (a.kind === 'link') {
+    const from = name(a.from)
+    const to = name(a.to)
+    return from === null || to === null ? null : { kind: 'link', fromId: a.from as string, toId: a.to as string, from, to }
+  }
+  return null
 }
 
 /**
