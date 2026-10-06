@@ -94,8 +94,9 @@ const DECIMAL = /-?\b\d+\.\d+(?:[eE][-+]?\d+)?/g
 const RUN_ID_VALUE = /(\\*"run_id\\*"\s*:\s*\\*")([0-9a-f]{16,64})/g
 const RUN_KEY = /(agent-explain-run:)([0-9a-f]{16})/g
 // KEY-anchored like RUN_ID_VALUE (Codex r5 HIGH: an unanchored rule also erased `graph_prop_<hex>` in prompt text, so a
-// changed request replayed 200). Only the measured position is normalised; a prop id anywhere else stays exact (drift = red).
-const PROPOSAL_ID = /(\\*"proposal_id\\*"\s*:\s*\\*")(prop_[0-9a-f]{32})(?![0-9a-f])/g
+// changed request replayed 200). Only the measured position is normalised, and only a WHOLE value (Codex r6: the closing
+// quote is required, so `prop_<hex>_content` stays exact); a prop id anywhere else stays exact (drift = red).
+const PROPOSAL_ID = /(\\*"proposal_id\\*"\s*:\s*\\*")(prop_[0-9a-f]{32})(?=\\*")/g
 // Per-run values are replaced by ORDINALS in order of first appearance (<run_id#1>,
 // <run_id#2>…), never by one constant: which references are EQUAL and which DIFFER is part of
 // the request (prior ≠ current; tipping_point_run_key = selected_run_reference). Codex r3, #2513.

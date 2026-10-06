@@ -145,6 +145,8 @@ async function quiet(ms = 5_000, maxMs = 120_000): Promise<void> {
     const now = mark()
     if (now !== last) { last = now; since = Date.now() } else if (pendingTurns.size === 0 && Date.now() - since >= ms) return
   }
+  // Codex r6: never proceed while a turn is still in flight; a late narration would be bound as the next step's turn.
+  throw new Error(`[j1] the journey never went quiet within ${Math.round(maxMs / 1000)}s (${pendingTurns.size} turn request(s) still in flight)`)
 }
 
 /** Clear the canvas selection: a selected link puts the canvas in focus mode, which hides every unrelated link. */
