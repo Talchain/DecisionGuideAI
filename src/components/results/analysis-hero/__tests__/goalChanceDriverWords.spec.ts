@@ -35,7 +35,7 @@ const OPTION_LABELS: Readonly<Record<string, string>> = { raise: 'Raise to £59'
 const optionLabelOf = (id: string) => OPTION_LABELS[id] ?? null
 
 // CEE's claim shapes, one per kind.
-const FACTOR = { quantity_id: 'churn', kind: 'factor_value', factor_id: 'churn', side: 'high', cut_value: 4.1, pct_if_side: 40, pct_if_side_rounding: 'whole', authored_by: 'user' }
+const FACTOR = { quantity_id: 'churn', kind: 'factor_value', factor_id: 'churn', side: 'high', cut_value: 4.1, cut_unit: '%', pct_if_side: 40, pct_if_side_rounding: 'whole', authored_by: 'user' }
 const STRENGTH = { quantity_id: 'price->churn', kind: 'link_strength', from: 'price', to: 'churn', side: 'low', strength: 'weaker', authored_by: 'olumi', user_stated_link: false }
 const EXISTENCE = { quantity_id: 'price->churn', kind: 'link_existence', from: 'price', to: 'churn', side: 'absent', pct_if_side: 30, pct_if_side_rounding: 'nearest_5', authored_by: 'olumi', user_stated_link: false }
 
@@ -48,8 +48,18 @@ describe('the driver sentence: one exact sentence per ruled case', () => {
   })
 
   it('A. the side is CEE’s: a chance that falls on the low side says "below", in the factor’s own unit', () => {
-    expect(lineFor({ ...FACTOR, quantity_id: 'price', factor_id: 'price', side: 'low', cut_value: 48, pct_if_side: 35 }))
+    expect(lineFor({ ...FACTOR, quantity_id: 'price', factor_id: 'price', side: 'low', cut_value: 48, cut_unit: '£', pct_if_side: 35 }))
       .toBe('It rests most on ‘Price’: if it is below £48, the chance falls to about 35%.')
+  })
+
+  it('A. the cut’s unit is the one CEE carried with it; the canvas unit is only the fallback', () => {
+    const price = { ...FACTOR, quantity_id: 'price', factor_id: 'price', side: 'low', cut_value: 48, cut_unit: '£', pct_if_side: 35 }
+    // The canvas says the price is a percentage here; the claim's own unit wins.
+    const canvasDisagrees = { ...NAMES, unitOf: () => '%' }
+    expect(lineFor(price, canvasDisagrees)).toBe('It rests most on ‘Price’: if it is below £48, the chance falls to about 35%.')
+    // A claim with no unit of its own takes the canvas node's.
+    expect(lineFor({ ...price, cut_unit: undefined }, canvasDisagrees))
+      .toBe('It rests most on ‘Price’: if it is below 48%, the chance falls to about 35%.')
   })
 
   it('A. a factor CEE could not attribute claims no author', () => {
@@ -122,7 +132,7 @@ describe('the reader: a claim is read whole or not at all', () => {
   it('CONTROL: each kind in CEE’s shape is read', () => {
     const drivers = read({ driver_by_option: { raise: FACTOR, hold: STRENGTH, trial: EXISTENCE } }).driverByOption
     expect(drivers).toEqual({
-      raise: { kind: 'factor_value', factorId: 'churn', side: 'high', cutValue: 4.1, pctIfSide: 40, authoredBy: 'user' },
+      raise: { kind: 'factor_value', factorId: 'churn', side: 'high', cutValue: 4.1, cutUnit: '%', pctIfSide: 40, authoredBy: 'user' },
       hold: { kind: 'link_strength', from: 'price', to: 'churn', strength: 'weaker', authoredBy: 'olumi', userStatedLink: false },
       trial: { kind: 'link_existence', from: 'price', to: 'churn', side: 'absent', pctIfSide: 30, authoredBy: 'olumi', userStatedLink: false },
     })
@@ -135,6 +145,8 @@ describe('the reader: a claim is read whole or not at all', () => {
     ['a factor side that is a link’s', { ...FACTOR, side: 'absent' }],
     ['a factor with no cut', { ...FACTOR, cut_value: undefined }],
     ['a cut that is not a number', { ...FACTOR, cut_value: '4.1' }],
+    ['a cut unit that is not text', { ...FACTOR, cut_unit: 4 }],
+    ['a blank cut unit', { ...FACTOR, cut_unit: '  ' }],
     ['a chance that is not a whole percentage', { ...FACTOR, pct_if_side: 40.5 }],
     ['a chance above 100', { ...FACTOR, pct_if_side: 140 }],
     ['a link with one end missing', { ...EXISTENCE, to: undefined }],

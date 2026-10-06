@@ -39,6 +39,8 @@ export type GoalChanceDriver =
     readonly side: 'low' | 'high'
     /** The cut on the falling side, in the user's units. */
     readonly cutValue: number
+    /** The cut's unit as CEE carried it (`cut_unit`, PLoT's `display_unit`); `null` when the claim has none. */
+    readonly cutUnit: string | null
     /** The displayed chance on the falling side (a whole percentage, CEE's own step). */
     readonly pctIfSide: number
     readonly authoredBy: GoalChanceDriverAuthor
@@ -175,7 +177,13 @@ function driverOf(v: unknown): GoalChanceDriver | null {
   if (v.kind === 'factor_value') {
     if (!nonEmpty(v.factor_id) || (v.side !== 'low' && v.side !== 'high')) return null
     if (typeof v.cut_value !== 'number' || !Number.isFinite(v.cut_value) || !wholePct(v.pct_if_side)) return null
-    return { kind: 'factor_value', factorId: v.factor_id, side: v.side, cutValue: v.cut_value, pctIfSide: v.pct_if_side, authoredBy }
+    // A unit that is present must be sayable; an absent one falls back to the canvas node's.
+    const cutUnit = v.cut_unit === undefined ? null : nonEmpty(v.cut_unit) && v.cut_unit.trim() !== '' ? v.cut_unit : undefined
+    if (cutUnit === undefined) return null
+    return {
+      kind: 'factor_value', factorId: v.factor_id, side: v.side, cutValue: v.cut_value, cutUnit,
+      pctIfSide: v.pct_if_side, authoredBy,
+    }
   }
   if (!nonEmpty(v.from) || !nonEmpty(v.to) || typeof v.user_stated_link !== 'boolean') return null
   if (v.kind === 'link_strength') {

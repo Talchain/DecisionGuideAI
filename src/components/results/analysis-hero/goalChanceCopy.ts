@@ -113,7 +113,8 @@ export function goalChanceDriverLine(driver: GoalChanceDriver, names: GoalChance
   if (driver.kind === 'factor_value') {
     const label = names.labelOf(driver.factorId)
     if (label === null) return null
-    const cut = formatGoalTarget(driver.cutValue, names.unitOf(driver.factorId) ?? '', 'level')
+    // The unit CEE carried with the cut (PLoT's own) is preferred; the canvas node's is the fallback.
+    const cut = formatGoalTarget(driver.cutValue, driver.cutUnit ?? names.unitOf(driver.factorId) ?? '', 'level')
     if (cut === null) return null
     const falls = `if it is ${FALLING_SIDE_WORDS[driver.side]} ${cut}, the chance falls to ${about(driver.pctIfSide)}.`
     // Olumi's own range says so and asks; the user's, or one CEE could not attribute, claims no author.
