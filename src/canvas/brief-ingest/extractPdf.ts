@@ -57,7 +57,7 @@ export async function readPdfPages(reader: PdfReader): Promise<Extraction> {
   return {
     segments,
     notes,
-    noun: 'pages',
+    noun: ['page', 'pages'],
     total: reader.numPages,
     extra: blank.length > 0 ? `${blank.length} had no selectable text` : undefined,
     unitCapped: true,
