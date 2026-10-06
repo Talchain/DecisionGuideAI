@@ -24,8 +24,8 @@
  * reader renders. Every positive row has a same-block control without the
  * field, and the control must show the reader's absent branch.
  */
-import { beforeEach, describe, expect, it } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render, renderHook, screen } from '@testing-library/react'
 
 import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
 
@@ -33,7 +33,14 @@ import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { useCanvasStore } from '../../../canvas/store'
 import { useResultsSectionData } from '../useResultsSectionData'
 import { useAnalysisNewViewModel } from '../analysisNew/useAnalysisNewViewModel'
-import { flipThresholdStatusNote } from '../utils/flipThresholdStatusNote'
+import { ResultsBody } from '../ResultsBody'
+import { leaderDesignationPermitted } from '../leaderDesignation'
+import type { TornadoRow } from '../TornadoChart'
+
+vi.mock('../../../canvas/utils/focusHelpers', () => ({
+  focusNodeById: vi.fn(),
+  focusByTarget: vi.fn(),
+}))
 
 type WidenedReport = ReturnType<typeof mapV5AnalysisToReport> & Record<string, unknown>
 type StoreState = ReturnType<typeof useCanvasStore.getState>
@@ -42,34 +49,42 @@ const FACTOR_ID = 'fac_customer_demand'
 const FACTOR_LABEL = 'Customer demand'
 const DOMINANT_INSIGHT_ID = 'insight:dominant-factor'
 
-function block(extra: Record<string, unknown>): AnalysisResultBlock {
+/** PLoT order: Customer demand first by influence AND by sensitivity, so the card's Driver 1 agrees. */
+const AGREEING_ROWS = [
+  { factor_id: FACTOR_ID, factor_label: FACTOR_LABEL, sensitivity: 0.8, influence_score: 0.8 },
+  { factor_id: 'fac_price', factor_label: 'Price', sensitivity: 0.2, influence_score: 0.2 },
+]
+/** PLoT's structural order still puts Customer demand first, but the card's sensitivity basis ranks Price first. */
+const DISAGREEING_ROWS = [
+  { factor_id: FACTOR_ID, factor_label: FACTOR_LABEL, sensitivity: 0.1, influence_score: 0.8 },
+  { factor_id: 'fac_price', factor_label: 'Price', sensitivity: 0.9, influence_score: 0.2 },
+]
+
+function block(extra: Record<string, unknown>, leadingOptionId: string | null = 'opt_a'): AnalysisResultBlock {
   return {
     type: 'analysis_result',
     summary: 'Analysis complete',
-    leading_option_id: 'opt_a',
+    leading_option_id: leadingOptionId,
     win_probabilities: { opt_a: 0.62, opt_b: 0.38 },
     enrichment: {
       option_comparison: [
         { option_id: 'opt_a', option_label: 'Expand online', win_probability: 0.62 },
         { option_id: 'opt_b', option_label: 'Open a shop', win_probability: 0.38 },
       ],
-      factor_sensitivity: [
-        { factor_id: FACTOR_ID, factor_label: FACTOR_LABEL, sensitivity: 0.8, influence_score: 0.8 },
-        { factor_id: 'fac_price', factor_label: 'Price', sensitivity: 0.2, influence_score: 0.2 },
-      ],
+      factor_sensitivity: AGREEING_ROWS,
       flip_thresholds: [],
       ...extra,
     },
   } as unknown as AnalysisResultBlock
 }
 
-function mapped(extra: Record<string, unknown>): WidenedReport {
-  return mapV5AnalysisToReport(block(extra)) as WidenedReport
+function mapped(extra: Record<string, unknown>, leadingOptionId: string | null = 'opt_a'): WidenedReport {
+  return mapV5AnalysisToReport(block(extra, leadingOptionId)) as WidenedReport
 }
 
 /** The Results hook and the Reasoning view model over the mapped report, through the real store. */
-function readersOver(extra: Record<string, unknown>) {
-  const report = mapped(extra)
+function readersOver(extra: Record<string, unknown>, leadingOptionId: string | null = 'opt_a') {
+  const report = mapped(extra, leadingOptionId)
   useCanvasStore.setState({
     results: { status: 'complete', progress: 100, report, hash: 'h-keep-carry' } as unknown as StoreState['results'],
     hasCompletedFirstRun: true,
@@ -87,6 +102,8 @@ function readersOver(extra: Record<string, unknown>) {
   })
   return result.current
 }
+
+afterEach(() => cleanup())
 
 beforeEach(() => {
   useCanvasStore.setState({
@@ -114,10 +131,23 @@ describe('mapV5AnalysisToReport carries the three fields its readers already rea
   it('flip_thresholds_status and its reason reach the report verbatim', () => {
     const report = mapped({
       flip_thresholds_status: 'partial_no_effect',
-      flip_thresholds_status_reason: 'one factor could not be resolved',
+      flip_thresholds_status_reason: 'timeout',
     })
     expect(report.flip_thresholds_status).toBe('partial_no_effect')
-    expect(report.flip_thresholds_status_reason).toBe('one factor could not be resolved')
+    expect(report.flip_thresholds_status_reason).toBe('timeout')
+  })
+
+  it('dominant_factor naming a factor that is NOT the first row this mapper kept is left absent', () => {
+    // PLoT's dominant factor is rank 1 of its order; the mapper keeps that order. Disagreement = two readings.
+    expect('dominant_factor' in mapped({ dominant_factor: { factor_id: 'fac_price', factor_label: 'Price' } })).toBe(false)
+  })
+
+  it('dominant_factor with NO factor rows kept (e.g. a goal-identity withhold) is left absent', () => {
+    const report = mapped({
+      factor_sensitivity: [],
+      dominant_factor: { factor_id: FACTOR_ID, factor_label: FACTOR_LABEL },
+    })
+    expect('dominant_factor' in report).toBe(false)
   })
 
   it('CONTROL — absent on the wire, absent on the report (never a default)', () => {
@@ -154,9 +184,39 @@ describe('mapV5AnalysisToReport carries the three fields its readers already rea
   )
 })
 
+/**
+ * The producer's own separation signal for opt_a (PLoT's `decision_brief.headline_banded`) — what licenses naming a
+ * leading option in `deriveDecisionVerdict`. Without it the same run withholds the leader.
+ */
+const SEPARATED = { decision_brief: { headline_banded: { band: 'clearly_ahead', leader_option_id: 'opt_a' } } }
+
+const TORNADO = {
+  rows: [
+    {
+      factorKey: FACTOR_ID,
+      label: FACTOR_LABEL,
+      lowOutcome: 0.4,
+      highOutcome: 0.9,
+      canFocus: true,
+      matchedNodeId: FACTOR_ID,
+      direction: 'positive' as const,
+    } satisfies TornadoRow,
+  ],
+  expectedOutcome: 0.7,
+}
+
+/** Mount the real Analysis-tab body over the hook's own data for this wire block. */
+function mountPanelOver(extra: Record<string, unknown>) {
+  const { data } = readersOver(extra)
+  render(<ResultsBody resultsSectionData={data} tornadoData={TORNADO} onSendMessage={() => {}} />)
+  return data
+}
+
 describe('the carried fields reach the words the readers render', () => {
   it('⭐ dominant_factor → Reasoning tab insight "Customer demand dominates the model", targeting that factor', () => {
     const { data, vm } = readersOver({ dominant_factor: { factor_id: FACTOR_ID, factor_label: FACTOR_LABEL } })
+    // PRECONDITION: the card's own Driver 1 is the same factor, with a clear lead.
+    expect(data.drivers.driverLeader).toEqual({ key: FACTOR_ID, leadIsClear: true })
     expect(data.recommendation.dominantFactorId).toBe(FACTOR_ID)
     expect(data.recommendation.dominantFactorLabel).toBe(FACTOR_LABEL)
     const insight = vm.keyInsights.insights.find((i) => i.id === DOMINANT_INSIGHT_ID)
@@ -170,42 +230,53 @@ describe('the carried fields reach the words the readers render', () => {
     expect(vm.keyInsights.insights.find((i) => i.id === DOMINANT_INSIGHT_ID)).toBeUndefined()
   })
 
-  it('⭐ flip_thresholds_status "all_no_effect" → the tornado note the panel renders', () => {
-    const { data } = readersOver({ flip_thresholds_status: 'all_no_effect' })
-    expect(data.recommendation.flipThresholdsStatus).toBe('all_no_effect')
-    expect(
-      flipThresholdStatusNote({
-        status: data.recommendation.flipThresholdsStatus,
-        hasUnresolved: data.recommendation.flipThresholdsHasUnresolved === true,
-        designationsWithheld: false,
-      }),
-    ).toBe('No single tested factor changed the leading option within the current range.')
-  })
-
-  it('⭐ the reason is what turns "partial" into "… and others could not be resolved"', () => {
-    const { data } = readersOver({
-      flip_thresholds_status: 'partial_no_effect',
-      flip_thresholds_status_reason: 'one factor could not be resolved',
+  it('⛔ ONE DRIVER AUTHORITY — PLoT names Customer demand but the card ranks Price first: no dominance insight', () => {
+    const { data, vm } = readersOver({
+      factor_sensitivity: DISAGREEING_ROWS,
+      dominant_factor: { factor_id: FACTOR_ID, factor_label: FACTOR_LABEL },
     })
-    expect(data.recommendation.flipThresholdsHasUnresolved).toBe(true)
-    expect(
-      flipThresholdStatusNote({
-        status: data.recommendation.flipThresholdsStatus,
-        hasUnresolved: data.recommendation.flipThresholdsHasUnresolved === true,
-        designationsWithheld: true,
-      }),
-    ).toBe('Some factors did not change the comparison within the current range, and others could not be resolved.')
+    // PRECONDITION: the producer claim arrived, and the card's Driver 1 is a DIFFERENT factor.
+    expect(data.recommendation.dominantFactorId).toBe(FACTOR_ID)
+    expect(data.drivers.driverLeader?.key).toBe('fac_price')
+    expect(vm.keyInsights.insights.find((i) => i.id === DOMINANT_INSIGHT_ID)).toBeUndefined()
   })
 
-  it('CONTROL — without the status the panel renders no note', () => {
-    const { data } = readersOver({})
+  it('⭐ flip_thresholds_status "all_no_effect" → the mounted Analysis panel renders the note (leader permitted)', () => {
+    const data = mountPanelOver({ ...SEPARATED, flip_thresholds_status: 'all_no_effect' })
+    expect(data.recommendation.flipThresholdsStatus).toBe('all_no_effect')
+    // PRECONDITION: this run's own verdict permits naming a leader — derived from the producer's near_tie.
+    expect(leaderDesignationPermitted(data.recommendation)).toBe(true)
+    expect(screen.getByTestId('flip-thresholds-status-note').textContent).toBe(
+      'No single tested factor changed the leading option within the current range.',
+    )
+  })
+
+  it('⭐ on a WITHHELD run the same status says "the comparison", never "the leading option"', () => {
+    // The same run WITHOUT the producer's separation signal: nothing licenses a leader.
+    const data = mountPanelOver({ flip_thresholds_status: 'all_no_effect' })
+    // PRECONDITION: this run's own verdict withholds the leader — derived, not supplied.
+    expect(leaderDesignationPermitted(data.recommendation)).toBe(false)
+    expect(screen.getByTestId('flip-thresholds-status-note').textContent).toBe(
+      'No single tested factor changed the comparison within the current range.',
+    )
+  })
+
+  it('⭐ the reason is what turns "partial" into "… and others could not be resolved" on the mounted panel', () => {
+    const data = mountPanelOver({
+      ...SEPARATED,
+      flip_thresholds_status: 'partial_no_effect',
+      flip_thresholds_status_reason: 'timeout',
+    })
+    expect(leaderDesignationPermitted(data.recommendation)).toBe(true)
+    expect(data.recommendation.flipThresholdsHasUnresolved).toBe(true)
+    expect(screen.getByTestId('flip-thresholds-status-note').textContent).toBe(
+      'Some factors did not change the leading option within the current range, and others could not be resolved.',
+    )
+  })
+
+  it('CONTROL — without the status the mounted panel renders no note', () => {
+    const data = mountPanelOver({ ...SEPARATED })
     expect(data.recommendation.flipThresholdsStatus).toBeUndefined()
-    expect(
-      flipThresholdStatusNote({
-        status: data.recommendation.flipThresholdsStatus,
-        hasUnresolved: data.recommendation.flipThresholdsHasUnresolved === true,
-        designationsWithheld: false,
-      }),
-    ).toBeNull()
+    expect(screen.queryByTestId('flip-thresholds-status-note')).toBeNull()
   })
 })

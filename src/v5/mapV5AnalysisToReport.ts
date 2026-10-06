@@ -1595,7 +1595,19 @@ export function mapV5AnalysisToReport(
   // READER FIRST, like `constraints_status` above: a no-op until schemas
   // 0.80.0 keep-lists the three keys and CEE transports them. Narrowed, never
   // defaulted: absent or malformed in ⇒ absent out.
-  const dominantFactor = narrowDominantFactor(enrichment?.dominant_factor)
+  //
+  // ⛔ `dominant_factor` ALSO HAS TO NAME THE FIRST FACTOR ROW THIS MAPPER KEPT.
+  // PLoT computes it as rank 1 of its canonical order, and `factors` preserves
+  // that order — so a dominant factor that is not `factors[0]` means the claim
+  // and the rows came from different readings. The measured case (Codex, #2563
+  // r1): under an unevaluated goal identity PLoT keeps STRUCTURAL influence and
+  // still emits the key, while the rows this mapper keeps can be empty — and a
+  // "dominates the model" line beside a panel that ranks nothing is the
+  // contradiction the 26 Sep one-driver-authority rule exists to stop.
+  const dominantFactor = ((df) =>
+    df !== undefined && factors[0]?.factor_id === df.factor_id ? df : undefined)(
+    narrowDominantFactor(enrichment?.dominant_factor),
+  )
   const flipThresholdsStatus = narrowFlipThresholdsStatus(enrichment?.flip_thresholds_status)
   const flipThresholdsStatusReason = safeString(enrichment?.flip_thresholds_status_reason)
 

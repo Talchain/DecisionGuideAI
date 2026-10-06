@@ -591,7 +591,20 @@ function buildKeyInsights(
 
   // 4. Concentration: one factor carries most of the influence. A structural
   //    finding about the MODEL, not about a decision.
-  if (rec.dominantFactorLabel) {
+  //
+  // ⛔ ONE DRIVER AUTHORITY (26 Sep 2026, served 853feeb7), the same gate the
+  // post-run nudge applies (`TriageActionCardsBody`). "Dominates" is a
+  // main-driver claim, so it may name only the card's clear Driver 1
+  // (`drivers.driverLeader`, `rankFactor.sensitivityLeader`). PLoT's
+  // `dominant_factor` ranks by STRUCTURAL influence and the card by
+  // sensitivity, so the two can disagree, and on that run this line says
+  // nothing rather than crown a factor the card does not rank first.
+  // `undefined` = no driver feed at all (legacy callers/fixtures): unchanged.
+  const driverLeader = data.drivers?.driverLeader
+  const dominanceAgreesWithCard =
+    driverLeader === undefined
+    || (driverLeader !== null && driverLeader.leadIsClear && driverLeader.key === rec.dominantFactorId)
+  if (rec.dominantFactorLabel && dominanceAgreesWithCard) {
     out.push({
       id: 'insight:dominant-factor',
       headline: `${rec.dominantFactorLabel} dominates the model`,
