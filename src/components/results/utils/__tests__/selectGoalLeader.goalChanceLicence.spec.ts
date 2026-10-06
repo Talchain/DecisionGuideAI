@@ -13,7 +13,7 @@ const R12: Row[] = [{ id: 'starter', p: 0.477 }, { id: 'raise', p: 0.4328 }, { i
 const GATES = { designationsWithheld: false, hasUserTarget: true }
 const lic = (form: GoalChanceLicence['form'], leader: string | null = null): GoalChanceLicence => ({
   form, optionIds: R12.map((r) => r.id), pctByOption: { starter: 48, raise: 43, keep: 0 }, withheldOptionIds: [],
-  similarOptionIds: form === 'similar' ? ['starter', 'raise'] : [],
+  similarOptionIds: form === 'similar' ? ['starter', 'raise'] : [], userLinkExistence: null,
   leaderOptionId: leader, nextOptionId: leader === null ? null : 'raise', target: { comparator: 'at_least', value: 1, unit: '£' },
 })
 const pick = (licence: GoalChanceLicence | null | undefined, idOf = (r: Row) => r.id) =>
