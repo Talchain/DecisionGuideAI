@@ -122,6 +122,7 @@ import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisPa
 import { goalLabelOf } from './analysisNew/analysisNewCopy'
 import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
 import { readGoalChanceLicence, type GoalChanceLicence } from './utils/goalChanceLicence'
+import { goalChanceDriverLines } from './analysis-hero/goalChanceCopy'
 import { readGoalChanceInvite, type GoalChanceInvite } from './goal-chance-invite/readGoalChanceInvite'
 
 // =============================================================================
@@ -1353,6 +1354,12 @@ export interface ResultsSectionDataReturn {
    */
   goalChanceLicence?: GoalChanceLicence | null
   /**
+   * ⭐ G4/G5 phase 2, P3: what each option's goal chance rests on most, by option id, already worded from CEE's claim on
+   * the licence (`goalChanceDriverLine`) with the canvas labels and units. Only options with a claim that can be said
+   * have an entry. OPTIONAL: absent or empty = nothing is said.
+   */
+  goalChanceDriverLines?: Readonly<Record<string, string>>
+  /**
    * ⭐ D3 step 2: the invitation CEE wrote on its own goal-chance withhold (`invite`, read by identity in
    * `goal-chance-invite/readGoalChanceInvite`). OPTIONAL: absent or `null` = no invitation.
    */
@@ -1793,6 +1800,18 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     })
     return map
   }, [nodes])
+
+  // ⭐ P3: worded once, here, where the canvas labels and units are.
+  const goalChanceDriverLinesById = useMemo(
+    () => goalChanceDriverLines(goalChanceLicence, {
+      labelOf: (nodeId) => nodeLabelMap.get(nodeId) ?? null,
+      unitOf: (nodeId) => {
+        const nodeData = nodeById.get(nodeId)?.data as ResultsCanvasNodeData | undefined
+        return nodeData?.observedState?.unit ?? nodeData?.observed_state?.unit ?? null
+      },
+    }),
+    [goalChanceLicence, nodeLabelMap, nodeById],
+  )
 
   // The reason line beside every withheld share. `goal_path_unsized` names its link from this Run's typed warning and
   // the canvas labels (`winShareGate`); every other cause reads the copy map.
@@ -4834,6 +4853,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       winSharesWithheld: winSharesAreWithheld,
       winShareWithheldReason: winShareReasonLine,
       goalChanceLicence,
+      goalChanceDriverLines: goalChanceDriverLinesById,
       goalChanceInvite,
     }),
     [
@@ -4856,6 +4876,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       winSharesAreWithheld,
       winShareReasonLine,
       goalChanceLicence,
+      goalChanceDriverLinesById,
       goalChanceInvite,
     ],
   )

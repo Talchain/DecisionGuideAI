@@ -24,6 +24,43 @@ export const GOAL_CHANCE_LICENSED = 'GOAL_CHANCE_LICENSED'
 export type GoalChanceForm = 'highest' | 'highest_all_likely_to_miss' | 'all_likely_to_miss' | 'similar' | 'each'
 export type GoalChanceComparator = 'at_least' | 'above' | 'at_most' | 'below'
 
+/** Whose assumption a driver varies, as CEE read it off the Run's own model. */
+export type GoalChanceDriverAuthor = 'user' | 'olumi' | 'unattributed'
+
+/**
+ * ⭐ G4/G5 phase 2, P3 (DL 6 Oct): what one option's chance rests on MOST, as CEE decided it (`driver_by_option`, CEE
+ * `goal-chance-driver.ts`). CEE picks the row, the side where the chance FALLS and whose assumption it is; the UI only
+ * words it. A link's strength carries no figure (DL ruling: never a model coefficient, never its cut).
+ */
+export type GoalChanceDriver =
+  | {
+    readonly kind: 'factor_value'
+    readonly factorId: string
+    readonly side: 'low' | 'high'
+    /** The cut on the falling side, in the user's units. */
+    readonly cutValue: number
+    /** The displayed chance on the falling side (a whole percentage, CEE's own step). */
+    readonly pctIfSide: number
+    readonly authoredBy: GoalChanceDriverAuthor
+  }
+  | {
+    readonly kind: 'link_strength'
+    readonly from: string
+    readonly to: string
+    readonly strength: 'weaker' | 'stronger'
+    readonly authoredBy: GoalChanceDriverAuthor
+    readonly userStatedLink: boolean
+  }
+  | {
+    readonly kind: 'link_existence'
+    readonly from: string
+    readonly to: string
+    readonly side: 'absent' | 'present'
+    readonly pctIfSide: number
+    readonly authoredBy: GoalChanceDriverAuthor
+    readonly userStatedLink: boolean
+  }
+
 export interface GoalChanceLicence {
   readonly form: GoalChanceForm
   readonly optionIds: readonly string[]
@@ -47,6 +84,12 @@ export interface GoalChanceLicence {
    * hero says c6's sentence for THIS form. `null` when CEE wrote none (or a malformed one: the `each` lines still stand).
    */
   readonly summaryWithheld?: { readonly cause: 'olumi_existence_assumption'; readonly form: Exclude<GoalChanceForm, 'each'> } | null
+  /**
+   * ⭐ P3: CEE's main-driver claim for each QUOTED option that has one (`driver_by_option`). An option CEE gave no driver
+   * (`no_driver_by_option`), a claim on a withheld or unknown id, and a claim that is not the ruled shape are all simply
+   * absent here: nothing is said for them. Absent or empty when CEE wrote none.
+   */
+  readonly driverByOption?: Readonly<Record<string, GoalChanceDriver>>
 }
 
 const FORMS: ReadonlySet<string> = new Set(['highest', 'highest_all_likely_to_miss', 'all_likely_to_miss', 'similar', 'each'])
@@ -108,7 +151,44 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
     target: { comparator: target.comparator as GoalChanceComparator, value: target.value, unit: target.unit },
     userLinkExistence: existenceOf(r.user_link_existence),
     summaryWithheld: summaryWithheldOf(r.summary_withheld),
+    driverByOption: driversOf(r.driver_by_option, (ids as string[]).filter((id) => !withheld.has(id))),
   }
+}
+
+const AUTHORS: ReadonlySet<string> = new Set(['user', 'olumi', 'unattributed'])
+const nonEmpty = (v: unknown): v is string => typeof v === 'string' && v.length > 0
+const wholePct = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100
+
+/** One CEE driver claim, shape-checked; anything else is not read (no sentence for that option). */
+function driverOf(v: unknown): GoalChanceDriver | null {
+  if (!isRec(v) || typeof v.authored_by !== 'string' || !AUTHORS.has(v.authored_by)) return null
+  const authoredBy = v.authored_by as GoalChanceDriverAuthor
+  if (v.kind === 'factor_value') {
+    if (!nonEmpty(v.factor_id) || (v.side !== 'low' && v.side !== 'high')) return null
+    if (typeof v.cut_value !== 'number' || !Number.isFinite(v.cut_value) || !wholePct(v.pct_if_side)) return null
+    return { kind: 'factor_value', factorId: v.factor_id, side: v.side, cutValue: v.cut_value, pctIfSide: v.pct_if_side, authoredBy }
+  }
+  if (!nonEmpty(v.from) || !nonEmpty(v.to) || typeof v.user_stated_link !== 'boolean') return null
+  if (v.kind === 'link_strength') {
+    if (v.strength !== 'weaker' && v.strength !== 'stronger') return null
+    return { kind: 'link_strength', from: v.from, to: v.to, strength: v.strength, authoredBy, userStatedLink: v.user_stated_link }
+  }
+  if (v.kind === 'link_existence') {
+    if ((v.side !== 'absent' && v.side !== 'present') || !wholePct(v.pct_if_side)) return null
+    return { kind: 'link_existence', from: v.from, to: v.to, side: v.side, pctIfSide: v.pct_if_side, authoredBy, userStatedLink: v.user_stated_link }
+  }
+  return null
+}
+
+/** CEE's `driver_by_option`, kept only for the options this record QUOTES (never a withheld or unknown id). */
+function driversOf(v: unknown, quotedIds: readonly string[]): Record<string, GoalChanceDriver> {
+  const drivers: Record<string, GoalChanceDriver> = {}
+  if (!isRec(v)) return drivers
+  for (const id of quotedIds) {
+    const driver = driverOf(v[id])
+    if (driver !== null) drivers[id] = driver
+  }
+  return drivers
 }
 
 /** CEE's `summary_withheld`, shape-checked; a malformed one is not read (no sentence; the `each` lines still stand). */

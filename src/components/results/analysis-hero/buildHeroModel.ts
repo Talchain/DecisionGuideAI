@@ -1162,9 +1162,9 @@ export function buildHeroModel(
   if (goalChanceHeadlineText !== null && goalChanceLicence !== null) {
     // H2 names the options it quotes; the subline then quotes the rest (model order), never a ranking.
     const lines = goalChanceLicence.form === 'each'
-      ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf)
+      ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, [], data.goalChanceDriverLines ?? {})
       : goalChanceLicence.form === 'similar'
-        ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, goalChanceLicence.similarOptionIds)
+        ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, goalChanceLicence.similarOptionIds, data.goalChanceDriverLines ?? {})
         : null
     subline = lines !== null && lines.length > 0 ? lines.join(' ') : HERO_COPY.subline.compareTop
     // ⭐ D3 cut 5 + cut 6: once, beside the chance lines — why no summary is stated (Olumi's own existence assumption), then
