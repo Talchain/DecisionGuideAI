@@ -1158,8 +1158,8 @@ export function buildHeroModel(
     // H2 names the options it quotes; the subline then quotes the rest (model order), never a ranking.
     const lines = goalChanceLicence.form === 'each'
       ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf)
-      : goalChanceLicence.form === 'about_the_same'
-        ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, goalChanceLicence.sameOptionIds)
+      : goalChanceLicence.form === 'similar'
+        ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, goalChanceLicence.similarOptionIds)
         : null
     subline = lines !== null && lines.length > 0 ? lines.join(' ') : HERO_COPY.subline.compareTop
   }

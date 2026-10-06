@@ -57,13 +57,13 @@ export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionI
     }
     case 'all_likely_to_miss':
       return `${lead} every option is more likely to miss your goal (${target}) than meet it.`
-    case 'about_the_same': {
+    case 'similar': {
       // H2 (DL 0df0e1 6 Oct, below 10 points; c6 6 Oct: "similar", never "about the same" — 43 vs 48 is not the same): the
       // options in CEE's order, the figures in the same order, never one singled out.
-      const labels = licence.sameOptionIds.map((id) => labelOf(id))
+      const labels = licence.similarOptionIds.map((id) => labelOf(id))
       if (labels.some((l) => l === null)) return null
       const named = listOf(labels.map((l) => `‘${l}’`))
-      const figures = listOf(licence.sameOptionIds.map((id) => about(licence.pctByOption[id])))
+      const figures = listOf(licence.similarOptionIds.map((id) => about(licence.pctByOption[id])))
       return `${lead} ${named} have similar chances of meeting your goal (${target}): ${figures}.`
     }
     case 'each':

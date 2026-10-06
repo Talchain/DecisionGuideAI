@@ -19,7 +19,7 @@
 
 export const GOAL_CHANCE_LICENSED = 'GOAL_CHANCE_LICENSED'
 
-export type GoalChanceForm = 'highest' | 'highest_all_likely_to_miss' | 'all_likely_to_miss' | 'about_the_same' | 'each'
+export type GoalChanceForm = 'highest' | 'highest_all_likely_to_miss' | 'all_likely_to_miss' | 'similar' | 'each'
 export type GoalChanceComparator = 'at_least' | 'above' | 'at_most' | 'below'
 
 export interface GoalChanceLicence {
@@ -28,14 +28,14 @@ export interface GoalChanceLicence {
   readonly pctByOption: Readonly<Record<string, number>>
   /** Options whose chance was withheld for their own path (subset of `optionIds`, no figure); empty when none. */
   readonly withheldOptionIds: readonly string[]
-  /** `about_the_same` (H2) only: the options within 10 points of the top, in the model's order (≥ 2); else empty. */
-  readonly sameOptionIds: readonly string[]
+  /** `similar` (H2) only: the options within 10 points of the top, in the model's order (≥ 2); else empty. */
+  readonly similarOptionIds: readonly string[]
   readonly leaderOptionId: string | null
   readonly nextOptionId: string | null
   readonly target: { readonly comparator: GoalChanceComparator; readonly value: number; readonly unit: string }
 }
 
-const FORMS: ReadonlySet<string> = new Set(['highest', 'highest_all_likely_to_miss', 'all_likely_to_miss', 'about_the_same', 'each'])
+const FORMS: ReadonlySet<string> = new Set(['highest', 'highest_all_likely_to_miss', 'all_likely_to_miss', 'similar', 'each'])
 const COMPARATORS: ReadonlySet<string> = new Set(['at_least', 'above', 'at_most', 'below'])
 const isRec = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v)
 
@@ -71,15 +71,15 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
   if ((form === 'highest' || form === 'highest_all_likely_to_miss') !== (leaderOptionId !== null && nextOptionId !== null)) return null
   if (withheld.size > 0 && form !== 'each') return null
   // H2 names ≥ 2 quoted options (CEE's model order); no other form names any.
-  const sameRaw = r.same_option_ids ?? []
+  const sameRaw = r.similar_option_ids ?? []
   if (!Array.isArray(sameRaw) || !sameRaw.every((id) => typeof id === 'string' && (ids as string[]).includes(id) && !withheld.has(id))) return null
-  if ((form === 'about_the_same') !== (sameRaw.length >= 2)) return null
+  if ((form === 'similar') !== (sameRaw.length >= 2)) return null
   return {
     form,
     optionIds: ids as string[],
     pctByOption: pct as Record<string, number>,
     withheldOptionIds: (ids as string[]).filter((id) => withheld.has(id)),
-    sameOptionIds: sameRaw as string[],
+    similarOptionIds: sameRaw as string[],
     leaderOptionId,
     nextOptionId,
     target: { comparator: target.comparator as GoalChanceComparator, value: target.value, unit: target.unit },

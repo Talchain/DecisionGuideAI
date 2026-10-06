@@ -7,7 +7,7 @@ import { goalChanceOptionLines } from '../goalChanceCopy'
 import type { GoalChanceLicence } from '../../utils/goalChanceLicence'
 
 const licence = (pct: Record<string, number>): GoalChanceLicence => ({
-  form: 'each', optionIds: Object.keys(pct), pctByOption: pct, withheldOptionIds: [], sameOptionIds: [],
+  form: 'each', optionIds: Object.keys(pct), pctByOption: pct, withheldOptionIds: [], similarOptionIds: [],
   leaderOptionId: null, nextOptionId: null, target: { comparator: 'at_least', value: 100, unit: 'customers' },
 })
 
