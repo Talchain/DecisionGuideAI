@@ -142,7 +142,7 @@ export function ConditionalWinnerCards({
   // remain distinct so the v17 hero can use the more pointed "which
   // option leads" phrasing.
   const headerHelpText = useV17Copy
-    ? 'Factors that change which option leads when they shift'
+    ? 'Factors that change the most-supported option when they shift'
     : 'Factors that change the result when they shift'
 
   return (

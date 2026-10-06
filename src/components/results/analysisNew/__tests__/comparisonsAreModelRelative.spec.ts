@@ -252,10 +252,11 @@ describe('the fragile-edge fallback sentence', () => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Inspect rows: "Chance the answer changes"
+// Inspect rows: the share of runs that changes the most-supported option (Science d5, #87 6007954023)
 // ─────────────────────────────────────────────────────────────────────────────
 describe('inspect rows', () => {
-  const CHANCE = 'Chance another option leads in this model'
+  // Was "Chance another option leads in this model": a run share said as a chance, with a contest verb.
+  const CHANCE = 'Changes the most-supported option in this model'
 
   it('the hinge insight', () => {
     const vm = build(
@@ -280,6 +281,9 @@ describe('inspect rows', () => {
       for (const phrase of RETIRED) expect(label).not.toMatch(phrase)
     }
     expectModelRelative(labels.find((l) => l === CHANCE)!, CHANCE)
+    // A share of runs, said as one: never a bare percentage, never a chance, no contest verb.
+    expect(hinge!.inspect.find((r) => r.label === CHANCE)?.value).toBe('31% of runs')
+    for (const label of labels) expect(label).not.toMatch(/\bchance\b|\bleads\b/i)
   })
 
   it('a driver row carrying fragile-edge data', () => {
@@ -332,7 +336,7 @@ describe('inspect rows', () => {
 
     const permitted = build(withFragileDriver(genuineDecision())).drivers.findings[0]
     expect(permitted, 'the permitted driver row did not build').toBeDefined()
-    expect(permitted!.inspect.find((r) => r.label === CHANCE)?.value).toBe('31%')
+    expect(permitted!.inspect.find((r) => r.label === CHANCE)?.value).toBe('31% of runs')
 
     const withheld = build(withFragileDriver(decisionWithLeaderWithheld())).drivers.findings[0]
     expect(withheld, 'the withheld driver row did not build — the absence below would be vacuous').toBeDefined()
@@ -403,8 +407,8 @@ import { humaniseCritique } from '../../utils/humaniseCritique'
 
 describe('compute-degradation notices never speak of "the recommendation"', () => {
   it.each([
-    ['E_VALUES_UNAVAILABLE', 'The check on how wrong your assumptions could be before a different option leads in this model didn\'t run.'],
-    ['FACTOR_FLIPS_UNAVAILABLE', 'How far each factor would have to move before a different option leads in this model wasn\'t computed.'],
+    ['E_VALUES_UNAVAILABLE', 'The check on how wrong your assumptions could be before a different option is the most supported in this model didn\'t run.'],
+    ['FACTOR_FLIPS_UNAVAILABLE', 'How far each factor would have to move before a different option is the most supported in this model wasn\'t computed.'],
   ])('%s is stated against the model', (code, lead) => {
     const { title, description } = humaniseCritique({ code, message: '' } as never)
     expect(title.startsWith(lead), title).toBe(true)
@@ -412,7 +416,8 @@ describe('compute-degradation notices never speak of "the recommendation"', () =
   })
   it('E_VALUES_UNAVAILABLE description says what it does not affect, in model-relative terms', () => {
     const { description } = humaniseCritique({ code: 'E_VALUES_UNAVAILABLE', message: '' } as never)
-    expect(description).toContain('It does not affect which option leads in this model, the probabilities')
+    expect(description).toContain('It does not affect which option is the most supported in this model, the probabilities')
+    expect(description).not.toMatch(/\bleads\b/i)
   })
 })
 

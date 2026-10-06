@@ -370,6 +370,21 @@ const pct = (v: number): string => `${Math.round(v * 100)}%`
 const pctOrNull = (v: number | null | undefined): string | null =>
   typeof v === 'number' && Number.isFinite(v) ? pct(v) : null
 
+/**
+ * A SHARE OF RUNS, said as one (Science d5, #87 6007954023): PLoT's `switch_probability` is the share of runs in which
+ * varying a link changes the most-supported option. It is never a chance, so it never renders as a bare percentage.
+ */
+const runsPctOrNull = (v: number | null | undefined): string | null => {
+  const p = pctOrNull(v)
+  return p === null ? null : `${p} of runs`
+}
+
+/**
+ * Science d5's row label for `switch_probability` (#87 6007954023), with the model named as every Inspect label here does
+ * (d5's own sentence opens "In this model, …"). Was "Chance another option leads in this model".
+ */
+const SWITCH_SHARE_LABEL = 'Changes the most-supported option in this model'
+
 /** A 0-100 confidence, absence-safe. Rule 4: absence suppresses, never zeroes. */
 const conf100OrNull = (v: number | null | undefined): string | null =>
   typeof v === 'number' && Number.isFinite(v) ? `${Math.round(v)}%` : null
@@ -606,7 +621,7 @@ function buildKeyInsights(
       groundedIn: 'the fragile-relationship analysis',
       marker: staleMarker,
       targetId: hinge.fromId,
-      inspect: rows(row('Chance another option leads in this model', pctOrNull(hinge.switchProbability))),
+      inspect: rows(row(SWITCH_SHARE_LABEL, runsPctOrNull(hinge.switchProbability))),
       intervention: interventionFor(recommendations, hinge.fromId),
     })
   }
@@ -798,8 +813,8 @@ function driverFinding(
       // challenge with no arms never had a ranking to withhold. The `detail`
       // line above stays — "sensitive to this relationship" names no leader.
       row(
-        'Chance another option leads in this model',
-        rankingWithheld ? null : pctOrNull(d.fragileEdgeInfo?.switchProbability),
+        SWITCH_SHARE_LABEL,
+        rankingWithheld ? null : runsPctOrNull(d.fragileEdgeInfo?.switchProbability),
       ),
     ),
     intervention: interventionFor(recommendations, target),
