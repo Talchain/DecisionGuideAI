@@ -40,7 +40,8 @@ const ROOT = path.resolve(__dirname, '../../..')
 /** The five repaired sites, each with the cause it is evidence for. */
 const SITES = [
   { file: 'src/canvas/ui/inspector-v2/panels/OutcomePanel.tsx', cause: 'fragment + ban list' },
-  { file: 'src/canvas/compare-tab/RunPairCompare.tsx', cause: 'ban list' },
+  // `compare-tab/RunPairCompare.tsx` (cause: ban list) left this list on 2026-10-07: the pre-v3 Compare
+  // body was deleted with zero production importers, so there is no live copy left to regress.
   { file: 'src/v5/blocks/V5AnalysisResultBlock.tsx', cause: 'out of scope' },
   { file: 'src/v5/blocks/V5ComparisonBlock.tsx', cause: 'out of scope' },
 ] as const
@@ -90,10 +91,9 @@ describe('the repaired sites carry no contest framing in live copy', () => {
     // job" by renaming the field — the plausible wrong next step, and the one
     // no absence assertion above could see.
     //
-    // ⚠ NOT EVERY SITE READS IT, and asserting it on all four would have been
-    // a guard that fails on correct code: `RunPairCompare` renders a heading
-    // over rows built elsewhere and never touches the field. So the SET is
-    // pinned instead — a site dropping the field moves the count and reds,
+    // ⚠ NOT EVERY SITE HAD TO READ IT (the deleted `RunPairCompare` rendered a
+    // heading over rows built elsewhere and never touched the field), so the
+    // SET is pinned instead — a site dropping the field moves the count and reds,
     // and the count cannot pass vacuously at zero.
     const reading = SITES.filter((s) => /win_probabilit/.test(read(s.file))).map((s) => s.file)
     expect(reading).toEqual([
