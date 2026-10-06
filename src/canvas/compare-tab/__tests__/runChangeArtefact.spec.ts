@@ -30,8 +30,8 @@ describe('the compact Compare artefact renders the licensed wire facts', () => {
     expect(artefact.currentRunId).toBe('run-b')
     expect(artefact.edits.map(line => line.text)).toEqual(['Pro price, Raise to £60: £59 → £60'])
     expect(artefact.results.map(line => line.text)).toEqual([
-      'Raise to £60: 41% → 44% chance of leading.',
-      'Keep £49: 59% → 56% chance of leading.',
+      'Raise to £60: support across simulated runs 41% → 44%.',
+      'Keep £49: support across simulated runs 59% → 56%.',
     ])
     expect(artefact.results[1].qualifier).toBe(noiseQualifier('within_noise'))
     expect(artefact.results[0].wireFields).toEqual([
