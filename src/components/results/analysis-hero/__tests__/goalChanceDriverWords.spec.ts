@@ -185,10 +185,59 @@ describe('U: "How sure are you of that size?" is asked once per link the user si
     expect(asks(lines.hold)).toBe(true)
   })
 
-  it('the other questions are untouched: two options on one Olumi-sized link each keep theirs', () => {
-    const lines = goalChanceDriverLines(read({ driver_by_option: { raise: STRENGTH, hold: STRENGTH } }), NAMES)
-    expect(lines.raise).toBe(lines.hold)
-    expect(lines.hold?.endsWith('Is that estimate right?')).toBe(true)
+})
+
+describe('B, C, D: each closing question is asked once per driver, by the first option shown (DL ruling 6 Oct)', () => {
+  const OLUMI_FACTOR = { ...FACTOR, authored_by: 'olumi' }
+  const B = 'It rests most on ‘Monthly churn’, using a range Olumi assumed: if it is above 4.1%, the chance falls to about 40%.'
+  const C = 'It rests most on Olumi’s own estimate of how strongly ‘Price’ affects ‘Monthly churn’: if that effect is weaker than Olumi assumed, the chance falls.'
+  const D = 'It rests most on Olumi’s own assumption that ‘Price’ affects ‘Monthly churn’: in the model runs without that link, the chance is about 30%.'
+
+  it.each([
+    ['B. a factor on a range Olumi assumed', OLUMI_FACTOR, B, 'Do you know it more precisely?'],
+    ['C. the strength of a link Olumi sized', STRENGTH, C, 'Is that estimate right?'],
+    ['D. whether a link Olumi assumed holds', EXISTENCE, D, 'Is that right?'],
+  ])('%s: two options on the same driver, the first shown asks and the second does not', (_name, claim, sentence, question) => {
+    // `hold` is written first; `raise` is first in the model's order, so `raise` asks.
+    const lines = goalChanceDriverLines(read({ driver_by_option: { hold: claim, raise: claim } }), NAMES)
+    expect(lines.raise).toBe(`${sentence} ${question}`)
+    expect(lines.hold).toBe(sentence)
+  })
+
+  it('B. the same factor falling on OPPOSITE sides is still one driver: asked once', () => {
+    const lines = goalChanceDriverLines(read({ driver_by_option: { raise: OLUMI_FACTOR, trial: { ...OLUMI_FACTOR, side: 'low', cut_value: 2.5, pct_if_side: 15 } } }), NAMES)
+    expect(lines.raise).toBe(`${B} Do you know it more precisely?`)
+    expect(lines.trial).toBe('It rests most on ‘Monthly churn’, using a range Olumi assumed: if it is below 2.5%, the chance falls to about 15%.')
+  })
+
+  it('CONTROL: different drivers each keep their question', () => {
+    const otherFactor = { ...OLUMI_FACTOR, quantity_id: 'price', factor_id: 'price', side: 'low', cut_value: 48, cut_unit: '£', pct_if_side: 35 }
+    const lines = goalChanceDriverLines(read({ driver_by_option: { raise: OLUMI_FACTOR, hold: otherFactor, trial: STRENGTH } }), NAMES)
+    expect(lines.raise?.endsWith('Do you know it more precisely?')).toBe(true)
+    expect(lines.hold?.endsWith('Do you know it more precisely?')).toBe(true)
+    expect(lines.trial?.endsWith('Is that estimate right?')).toBe(true)
+  })
+
+  it('CONTROL: a link’s strength and whether it holds are two drivers, each asked', () => {
+    const lines = goalChanceDriverLines(read({ driver_by_option: { raise: STRENGTH, hold: EXISTENCE } }), NAMES)
+    expect(lines.raise).toBe(`${C} Is that estimate right?`)
+    expect(lines.hold).toBe(`${D} Is that right?`)
+  })
+
+  it('a sentence with no question is the same for every option that shares it (A, E, N)', () => {
+    for (const claim of [FACTOR, { ...EXISTENCE, user_stated_link: true }, { ...STRENGTH, authored_by: 'unattributed' }]) {
+      const lines = goalChanceDriverLines(read({ driver_by_option: { raise: claim, hold: claim } }), NAMES)
+      expect(lines.raise).toBeDefined()
+      expect(lines.hold).toBe(lines.raise)
+    }
+  })
+
+  it('an option quoted above, or one whose sentence cannot be said, does not use up the question', () => {
+    const licence = read({ driver_by_option: { raise: EXISTENCE, hold: EXISTENCE } })
+    expect(goalChanceDriverLines(licence, NAMES, ['raise']).hold).toBe(`${D} Is that right?`)
+    // The falling side is the runs WITH the link: no sentence, so nothing was asked.
+    const silentFirst = read({ driver_by_option: { raise: { ...EXISTENCE, side: 'present' }, hold: EXISTENCE } })
+    expect(goalChanceDriverLines(silentFirst, NAMES)).toEqual({ hold: `${D} Is that right?` })
   })
 })
 

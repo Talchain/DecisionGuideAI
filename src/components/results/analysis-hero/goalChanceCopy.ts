@@ -98,7 +98,6 @@ export function goalChanceOptionLines(
 }
 
 const FALLING_SIDE_WORDS: Readonly<Record<'low' | 'high', string>> = { low: 'below', high: 'above' }
-const SIZE_QUESTION = 'How sure are you of that size?'
 
 /**
  * ⭐ G4/G5 phase 2, P3 — WHAT AN OPTION'S CHANCE RESTS ON MOST (design-g4g6 Q6 cases A–E; DL rulings 6 Oct). Said after the
@@ -108,11 +107,11 @@ const SIZE_QUESTION = 'How sure are you of that size?'
  *
  * `null` (nothing is said, the chance line stands) when a label or the cut cannot be said, and for the claims the
  * rulings give no words: an existence driver whose falling side is the runs WITH the link, and an existence claim
- * that is not Olumi's. A link's strength never carries a figure. `askSize` is false when an option shown earlier
- * already asked about the same link the user sized.
+ * that is not Olumi's. A link's strength never carries a figure. `ask` is false when an option shown earlier already
+ * asked the same question about the same driver (DL ruling 6 Oct): the sentence is then said without its question.
  */
 export function goalChanceDriverLine(
-  driver: GoalChanceDriver, names: GoalChanceDriverNames, askSize = true,
+  driver: GoalChanceDriver, names: GoalChanceDriverNames, ask = true,
 ): string | null {
   if (driver.kind === 'factor_value') {
     const label = names.labelOf(driver.factorId)
@@ -123,7 +122,7 @@ export function goalChanceDriverLine(
     const falls = `if it is ${FALLING_SIDE_WORDS[driver.side]} ${cut}, the chance falls to ${about(driver.pctIfSide)}.`
     // Olumi's own range says so and asks; the user's, or one CEE could not attribute, claims no author.
     return driver.authoredBy === 'olumi'
-      ? `It rests most on ‘${label}’, using a range Olumi assumed: ${falls} Do you know it more precisely?`
+      ? `It rests most on ‘${label}’, using a range Olumi assumed: ${falls}${ask ? ' Do you know it more precisely?' : ''}`
       : `It rests most on ‘${label}’: ${falls}`
   }
   const from = names.labelOf(driver.from)
@@ -132,12 +131,12 @@ export function goalChanceDriverLine(
   if (driver.kind === 'link_strength') {
     if (driver.authoredBy === 'olumi') {
       return `It rests most on Olumi’s own estimate of how strongly ‘${from}’ affects ‘${to}’: `
-        + `if that effect is ${driver.strength} than Olumi assumed, the chance falls. Is that estimate right?`
+        + `if that effect is ${driver.strength} than Olumi assumed, the chance falls.${ask ? ' Is that estimate right?' : ''}`
     }
     // U / N (DL ruling 6 Oct): the size is the user's, or nobody's CEE could name. Neither says whose spread it is.
     return driver.authoredBy === 'user'
       ? `It rests most on how strongly ‘${from}’ affects ‘${to}’, at the size you set: `
-        + `if that effect is ${driver.strength} than that, the chance falls.${askSize ? ` ${SIZE_QUESTION}` : ''}`
+        + `if that effect is ${driver.strength} than that, the chance falls.${ask ? ' How sure are you of that size?' : ''}`
       : `It rests most on how strongly ‘${from}’ affects ‘${to}’: `
         + `if that effect is ${driver.strength} than this model assumes, the chance falls.`
   }
@@ -146,14 +145,25 @@ export function goalChanceDriverLine(
     ? `It rests most on your link from ‘${from}’ to ‘${to}’: Olumi’s model also allows that it does not hold, `
       + `and in those runs the chance is ${about(driver.pctIfSide)}.`
     : `It rests most on Olumi’s own assumption that ‘${from}’ affects ‘${to}’: `
-      + `in the model runs without that link, the chance is ${about(driver.pctIfSide)}. Is that right?`
+      + `in the model runs without that link, the chance is ${about(driver.pctIfSide)}.${ask ? ' Is that right?' : ''}`
+}
+
+/**
+ * The driver a sentence's closing question is about, or `null` for a sentence that asks nothing (A, E and N). Two
+ * options resting on the same driver share one question, whichever side each falls on.
+ */
+function questionDriver(driver: GoalChanceDriver): string | null {
+  if (driver.kind === 'factor_value') return driver.authoredBy === 'olumi' ? `factor:${driver.factorId}` : null
+  const link = `${driver.from}->${driver.to}`
+  if (driver.kind === 'link_strength') return driver.authoredBy === 'unattributed' ? null : `strength:${link}`
+  return driver.userStatedLink ? null : `existence:${link}`
 }
 
 /**
  * The driver sentence for each option that has one that can be worded, by option id.
  *
- * `except` are the options that get no line of their own (the `similar` form quotes them in the headline). The question
- * about a link the user sized is asked ONCE per link, by the first option SHOWN (the model's order) that rests on it.
+ * `except` are the options that get no line of their own (the `similar` form quotes them in the headline). A sentence's
+ * closing question is asked ONCE per driver, by the first option SHOWN (the model's order) that rests on it.
  */
 export function goalChanceDriverLines(
   licence: GoalChanceLicence | null, names: GoalChanceDriverNames | null | undefined, except: readonly string[] = [],
@@ -164,11 +174,11 @@ export function goalChanceDriverLines(
   for (const id of licence.optionIds) {
     const driver = licence.driverByOption?.[id]
     if (driver === undefined || except.includes(id)) continue
-    const sizedLink = driver.kind === 'link_strength' && driver.authoredBy === 'user' ? `${driver.from}->${driver.to}` : null
-    const line = goalChanceDriverLine(driver, names, sizedLink === null || !asked.has(sizedLink))
+    const question = questionDriver(driver)
+    const line = goalChanceDriverLine(driver, names, question === null || !asked.has(question))
     if (line === null) continue
     lines[id] = line
-    if (sizedLink !== null) asked.add(sizedLink)
+    if (question !== null) asked.add(question)
   }
   return lines
 }
