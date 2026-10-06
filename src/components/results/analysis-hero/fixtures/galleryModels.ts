@@ -256,7 +256,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
       'What staging renders now for a goal-bearing run: Goal fit + Likely outcome carry data; Stability and What changed show their honest unavailable states; no trust/status/named-action producer fields exist, so those slots are empty.',
     model: fixtureChart({
       headline: 'Hire One Tech Lead is most likely to meet every target this run scored.',
-      subline: 'Hire One Tech Lead also has the strongest expected outcome.',
+      subline: 'Hire One Tech Lead’s expected outcome points the same way, in this model.',
       lenses: ['goal', 'outcome'],
       defaultLens: 'goal',
       rows: RICH_ROWS.map((r) => ({
@@ -393,7 +393,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
       'Model edited since the last run: per the ratified v6 guide the hero content stays readable and interactive and the hero authors NO stale surface or rerun of its own — the adjacent freshness strip (not part of this panel) owns the warning and the one Rerun.',
     model: fixtureChart({
       headline: 'Hire One Tech Lead is most likely to meet every target this run scored.',
-      subline: 'Hire One Tech Lead also has the strongest expected outcome.',
+      subline: 'Hire One Tech Lead’s expected outcome points the same way, in this model.',
       lenses: ['goal', 'outcome'],
       defaultLens: 'goal',
       rows: RICH_ROWS.map((r) => ({
@@ -422,7 +422,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
     rerunDisabled: true,
     model: fixtureChart({
       headline: 'Hire One Tech Lead is most likely to meet every target this run scored.',
-      subline: 'Hire One Tech Lead also has the strongest expected outcome.',
+      subline: 'Hire One Tech Lead’s expected outcome points the same way, in this model.',
       lenses: ['goal', 'outcome'],
       defaultLens: 'goal',
       rows: RICH_ROWS.map((r) => ({

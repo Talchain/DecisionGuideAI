@@ -279,7 +279,7 @@ function readPanel(): { denies: boolean; footerTicksWinner: boolean; text: strin
     // renders now. The GUARD is unchanged: footer and headline must still
     // agree inside one panel.
     footerTicksWinner:
-      /one option is most likely/.test(text) && !/no option is clearly most likely/i.test(text),
+      /one option was supported by more runs than any other/.test(text) && !/no option is clearly most likely/i.test(text),
     text,
   }
 }

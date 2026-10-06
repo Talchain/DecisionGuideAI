@@ -221,7 +221,7 @@ export const HERO_COPY = {
       // one as a subline. Two copies of one claim is how the four goal
       // surfaces drifted apart in the first place.
       HERO_COPY.headline.outcomeLeader(label, readout),
-    aligned: (label: string) => `${label} also has the strongest expected outcome.`,
+    aligned: (label: string) => `${label}’s expected outcome points the same way, in this model.`,
     /**
      * Banding state B subline (producer band or UI-SEM-060 fallback): the
      * runner-up is named from the SAME rendered outcome ranking the chart

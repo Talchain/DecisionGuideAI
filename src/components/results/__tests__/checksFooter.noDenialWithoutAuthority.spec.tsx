@@ -203,7 +203,9 @@ describe('checks-winner: no denial without authority', () => {
     setStore({ isTie: false })
     const { label, separation } = readWinnerCheck()
     expect(separation).toBe('clear')
-    expect(label).toBe('In this model, one option is most likely')
+    expect(label).toBe('In this model, one option was supported by more runs than any other')
+    // J4 (Acceptance cut-4 prod; DL #87): a win-share leader is a share of runs, never a chance — no "most likely".
+    expect(label).not.toMatch(/most likely|chance/i)
   })
 
   it('producer says IS a tie → the check DENIES a leading option', () => {
@@ -223,7 +225,7 @@ describe('checks-winner: no denial without authority', () => {
       label,
       `"No clear leader" is a DENIAL. decisionVerdict.ts: "'unknown' licenses silence, never a denial." Read: ${label}`,
     ).not.toMatch(/no option is clearly most likely/i)
-    expect(label).not.toMatch(/one option is most likely/i)
+    expect(label).not.toMatch(/one option was supported by more runs than any other/i)
   })
 
   it('the three separations produce three DIFFERENT labels — the probe discriminates', () => {

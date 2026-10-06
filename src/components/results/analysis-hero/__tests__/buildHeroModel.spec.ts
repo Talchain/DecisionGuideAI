@@ -362,7 +362,7 @@ describe('buildHeroModel — leaders and headline', () => {
     // Make the recommended option also the outcome leader.
     const b = makeOption({ ...OPTION_B, expected: 90, outcome: { ...OPTION_B.outcome, mean: 90 } })
     const m = chart(buildHeroModel(makeHeroData({ options: [OPTION_A, b] })))
-    expect(m.subline).toBe('Upskill the team also has the strongest expected outcome.')
+    expect(m.subline).toBe('Upskill the team’s expected outcome points the same way, in this model.')
   })
 
   it('recommended id missing from analysed rows still crowns the goal argmax (recovered-session guard)', () => {

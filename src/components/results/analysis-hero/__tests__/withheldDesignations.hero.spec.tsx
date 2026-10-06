@@ -327,7 +327,7 @@ describe('analysis hero — PERMITTED prose (over-suppression controls)', () => 
     expect(model.headline).toBe(
       'In this model, Hire two developers meets every target this run scored in the most model runs (80%).',
     )
-    expect(model.subline).toBe('Hire two developers also has the strongest expected outcome.')
+    expect(model.subline).toBe('Hire two developers’s expected outcome points the same way, in this model.')
   })
 
   it('no option on track: headline and subline unchanged, byte-for-byte', () => {

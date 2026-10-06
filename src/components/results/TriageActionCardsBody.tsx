@@ -900,7 +900,7 @@ function T1ChecksFooter({
   // these two labels.
   // Principle audit (5 Oct): the leader check is a FINDING about this model, never a pass or a fail, so it reads in the
   // Reasoning tab's own model-relative words (`analysisNewCopy.ts`) beside a neutral marker (`neutral` below).
-  const winnerOkLabel = 'In this model, one option is most likely'
+  const winnerOkLabel = 'In this model, one option was supported by more runs than any other'
   const winnerNotOkLabel = 'In this model, no option is clearly most likely'
   // States the check could not be determined. It is NOT a third verdict about
   // the options — it is the absence of one, which is why it must not read like

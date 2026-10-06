@@ -2903,7 +2903,7 @@ export const ANALYSIS_NEW_COPY = {
    * `__tests__/firstViewportCensus.spec.tsx` exists to forbid.
    */
   checks: {
-    leader_present: { label: 'In this model, one option is most likely' },
+    leader_present: { label: 'In this model, one option was supported by more runs than any other' },
     /**
      * The one licensed DENIAL, and it is licensed by `separation === 'tied'`
      * alone (`decisionVerdict.ts:166-168`).
