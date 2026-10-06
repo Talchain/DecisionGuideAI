@@ -349,9 +349,17 @@ function foldSizingAndStrength(rows: RunDeltaInputRow[]): RunDeltaInputRow[] {
   return out.filter((r) => !folded.has(r))
 }
 
-function formatInputValue(v: { raw: number | string | boolean; unit?: string } | null, field?: string): string | null {
+function formatInputValue(
+  v: { raw: number | string | boolean; unit?: string; per?: { amount: number; unit: string } } | null,
+  field?: string,
+): string | null {
   if (v === null) return null
   if (field === 'strength' && typeof v.raw === 'number') return scienceBand('strength', v.raw)
+  // 0.78.0 `effect` (SD-1 cut 6): a link's size in the user's terms is a figure PER a source change; the per is part of
+  // the figure ("2 customers per 1 percentage point"), so it is never dropped. Both ends carry the same per (contract).
+  if (field === 'effect' && typeof v.raw === 'number' && v.per !== undefined) {
+    return `${formatRawValueWithUnit(v.raw, v.unit ?? null)} per ${formatRawValueWithUnit(v.per.amount, v.per.unit)}`
+  }
   if (typeof v.raw === 'number') return formatRawValueWithUnit(v.raw, v.unit ?? null)
   if (typeof v.raw === 'boolean') return v.raw ? 'on' : 'off'
   return v.unit ? `${v.raw} ${v.unit}` : v.raw

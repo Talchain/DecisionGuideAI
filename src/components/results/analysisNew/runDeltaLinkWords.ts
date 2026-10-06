@@ -69,6 +69,9 @@ export function linkRowText(row: RunDeltaInputRow, frame: RunDeltaFrame = 'rerun
     const a = sizingWords(row.after)
     return `How much ${from} changes ${to}: ${b} → ${a}`
   }
+  // 0.78.0 `effect` (SD-1 cut 6): the link's size moved, in the user's terms. No author is claimed (the row does not say
+  // who wrote it), so the served generic link sentence, verbatim: "How much {from} changes {to}: {before} → {after}".
+  if (row.field === 'effect') return `How much ${from} changes ${to}: ${row.before} → ${row.after}`
   if (row.field === 'strength') return historical
     ? `The estimate for how much ${from} changes ${to} changed: ${strengthBandWords(row.before)} → ${strengthBandWords(row.after)}.`
     : `You changed how much ${from} changes ${to}: ${strengthBandWords(row.before)} → ${strengthBandWords(row.after)}.`

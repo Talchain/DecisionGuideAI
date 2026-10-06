@@ -7,7 +7,19 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.77.0.tgz` ← **THE CURRENT PIN** (5 Oct 2026, SPINE X8: DGAI first, then PLoT, then CEE emits; DL 0df0e1, Integrator github-26)
+### `talchain-schemas-0.78.0.tgz` ← **THE CURRENT PIN — DRAFT, PRE-PUBLISH** (SD-1 cut 6, reader first; DL 0df0e1 6 Oct)
+
+⚠ Packed locally from olumi-schemas PR #89 @ `9ac4a9b70c6ee03c91f7359c42f365c20e5b273c`, NOT the registry artefact.
+Before this PR leaves draft it is replaced by the PUBLISHED `@talchain/schemas@0.78.0` (the DL cuts the release), with
+its registry sha1 / sha512 / sha256 recorded here, exactly as 0.77.0 below.
+
+**What 0.78.0 adds (all optional / appended):** `RunInputLinkSchema.natural_effect`, `RunInputField` `'effect'` +
+`RunInputValueSchema.per`, and `RunAnalysisResultSchema.delivered_record` (SD-1 Slice R). READER-FIRST: a consumer on
+<= 0.77.0 refuses an `effect` row (closed enum, strict value), and the responseParser quarantines the whole delta, so
+DGAI serves 0.78.0 before any CEE emits one. Here: an `effect` row's figure keeps its "per …" and its sentence claims no
+author (the served generic link sentence).
+
+### `talchain-schemas-0.77.0.tgz` (historical — no longer vendored as of 0.78.0) (5 Oct 2026, SPINE X8: DGAI first, then PLoT, then CEE emits; DL 0df0e1, Integrator github-26)
 
 **Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF, not a local re-pack.** Downloaded by CANVAS 0df0e1 from
 `https://npm.pkg.github.com/download/@talchain/schemas/0.77.0/57f6764c02225a80cd4a8d992acb872724ea1a9f`
