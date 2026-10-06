@@ -9,6 +9,7 @@ import {
   useState,
   type ClipboardEvent,
   type KeyboardEvent,
+  type ReactNode,
 } from 'react'
 import { ArrowUp, ChevronUp, RefreshCw, Square } from 'lucide-react'
 import { typo } from '../../styles/typography'
@@ -96,6 +97,12 @@ export interface AIInputBarProps {
    * offers exactly one run affordance in every state rather than two stacked
    * 40px apart. Omit the prop ⇒ no control is rendered at all.
    */
+  /**
+   * One extra control drawn INSIDE the box, above send (overlay layout only —
+   * the hero surfaces). The first-use composer puts its "Upload a document"
+   * paperclip here. Omitted ⇒ nothing is drawn. Hidden while generating.
+   */
+  inBoxAction?: ReactNode
   analysisAction?: {
     /** The host's canonical runner. */
     onRun: () => void
@@ -235,6 +242,7 @@ export const AIInputBar = memo(
       ariaLabel,
       onAfterSend,
       analysisAction,
+      inBoxAction,
     },
     ref,
   ) {
@@ -817,6 +825,7 @@ export const AIInputBar = memo(
               {textarea}
               {generatingOverlay}
               <div className={`absolute ${stackInset} flex flex-col items-center gap-0.5`}>
+                {inBoxAction && !isGenerating ? inBoxAction : null}
                 {sendControl}
               </div>
             </div>
