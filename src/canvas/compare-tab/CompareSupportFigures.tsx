@@ -18,7 +18,7 @@ import { useState } from 'react'
 import { typography } from '../../styles/typography'
 import { action, icon } from '../../components/results/analysisNew/panelSurfaces'
 import { NodeMark } from '../../components/results/analysisNew/nodeMarks'
-import { FIGURE_RADIUS, FIGURE_TRACK_HEIGHT, FIGURE_TRACK_TONE, markerLeft } from '../../components/results/analysisNew/PanelFigure'
+import { FIGURE_MARKER_W, FIGURE_RADIUS, FIGURE_TRACK_HEIGHT, FIGURE_TRACK_TONE, markerLeft } from '../../components/results/analysisNew/PanelFigure'
 import { movementVerdictText, WHATS_CHANGED_TESTID } from '../../components/results/analysisNew/sections/WhatsChanged'
 import type { RunDeltaMovement } from '../../components/results/analysisNew/runDeltaView'
 import { sortOptionsForDisplay } from '../../components/results/utils/optionDisplayOrder'
@@ -38,18 +38,27 @@ export function orderMovements(movements: readonly RunDeltaMovement[], designati
 
 const MARKER = 'absolute top-1/2 -translate-y-1/2 w-[11px] h-[11px] rounded-full'
 
+/**
+ * The connector runs centre to centre of the two CLAMPED markers, so near 0% or 100% it still meets both dots. Both
+ * ends come from `markerLeft()` (the marker's left edge) plus half a marker, never from the raw share.
+ */
+export function connectorSpan(prior: number, current: number): { left: string; width: string } {
+  const from = markerLeft(Math.min(prior, current))
+  const to = markerLeft(Math.max(prior, current))
+  return { left: `calc(${from} + ${FIGURE_MARKER_W / 2}px)`, width: `calc(${to} - ${from})` }
+}
+
 /** Two positions on one track. Only ever mounted for a movement whose magnitude the producer licenses. */
 function SupportPairFigure({ m }: { m: RunDeltaMovement }): JSX.Element {
-  const left = Math.min(m.prior, m.current)
-  const width = Math.abs(m.current - m.prior)
+  const moved = m.current !== m.prior
   const dashed = m.noiseVerdict !== 'signal'
   return (
     <div className="relative h-[15px] mt-1.5" aria-hidden="true" data-testid={`${COMPARE_SUPPORT_TESTID}-figure`}
       data-connector={dashed ? 'dashed' : 'solid'}>
       <div className={`absolute inset-x-0 top-1/2 -translate-y-1/2 ${FIGURE_TRACK_HEIGHT} ${FIGURE_RADIUS} ${FIGURE_TRACK_TONE}`} />
-      {width > 0 ? (
+      {moved ? (
         <div className={`absolute top-1/2 -translate-y-1/2 border-t-2 ${dashed ? 'border-dashed border-text-light' : 'border-solid border-info/60'}`}
-          style={{ left: `${left * 100}%`, width: `${width * 100}%` }} />
+          style={connectorSpan(m.prior, m.current)} data-testid={`${COMPARE_SUPPORT_TESTID}-connector`} />
       ) : null}
       <span className={`${MARKER} bg-panel border-2 border-text-light`} style={{ left: markerLeft(m.prior) }} data-marker="previous" />
       <span className={`${MARKER} bg-info border-2 border-panel ring-1 ring-info/50`} style={{ left: markerLeft(m.current) }} data-marker="latest" />
@@ -60,8 +69,8 @@ function SupportPairFigure({ m }: { m: RunDeltaMovement }): JSX.Element {
 function Legend(): JSX.Element {
   return (
     <div className={`${typography.panelMeta} text-text-light flex items-center gap-3 mt-1`} aria-hidden="true">
-      <span className="inline-flex items-center gap-1"><span className="inline-block w-[9px] h-[9px] rounded-full bg-panel border-2 border-text-light" />Previous run</span>
-      <span className="inline-flex items-center gap-1"><span className="inline-block w-[9px] h-[9px] rounded-full bg-info" />Latest run</span>
+      <span className="inline-flex items-center gap-1"><span className="inline-block w-[9px] h-[9px] rounded-full bg-panel border-2 border-text-light" />Earlier</span>
+      <span className="inline-flex items-center gap-1"><span className="inline-block w-[9px] h-[9px] rounded-full bg-info" />Latest</span>
     </div>
   )
 }
