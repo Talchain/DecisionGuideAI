@@ -7,13 +7,13 @@
  * the leading option changes" — now they say what the model measured: the most-supported option, and shares of runs.
  *
  * Exact-string rows pin each new line; the scan rows pin the class (no contest verb, no "chance" on a run share). The
- * contest half is also swept by `noContestFraming.canvas.spec.ts`, whose SCOPE_FILES now name these files.
+ * contest half is also swept by `noContestFraming.canvas.spec.ts`, whose SCOPE_FILES now name these files. The hero
+ * caption rows live in `analysis-hero/__tests__/wordingBatch.mostSupportedOption.hero.spec.ts` (hero inertness guard).
  */
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
 
 import { getStabilityClassification } from '../../../lib/stability'
-import { HERO_COPY } from '../analysis-hero/heroCopy'
 import { ConditionalWinnerCards } from '../ConditionalWinnerCards'
 import { ASSUMED_STRENGTH_REFUSAL_COPY } from '../strengthElicitation/assumedStrengthCopy'
 import type { ConditionalWinner } from '../types'
@@ -54,38 +54,6 @@ describe('stability classification: the most-supported option, never who leads',
       'The leading option was the same in most of the scenarios we sampled. A few edge cases could change it.',
       'Which option leads changed across the scenarios we sampled. Review key inputs.',
     ]) expect(before).toMatch(CONTEST)
-  })
-})
-
-describe('hero evidence: a run share is a share of runs, never a chance (Science d5)', () => {
-  it('flip-risk caption, permitted and target-only withheld — exact', () => {
-    expect(HERO_COPY.evidence.flipRisksNote(false)).toBe(
-      'Share of runs in which varying a relationship within its plausible range changes the most-supported option, in this model.')
-    expect(HERO_COPY.evidence.flipRisksNote(true)).toBe(
-      'Share of runs in which varying a relationship within its plausible range changes how the options compare, in this model.')
-  })
-
-  it('attribution-suppressed note — exact opening, rest unchanged', () => {
-    expect(HERO_COPY.evidence.attributionSuppressed.startsWith(
-      "How much each factor moves the share of runs supporting each option wasn't produced for this run — ")).toBe(true)
-    expect(HERO_COPY.evidence.attributionSuppressed.endsWith('The ranking above is unaffected.')).toBe(true)
-  })
-
-  it('SCAN: none of the three says "chance" or names a contest', () => {
-    for (const line of [
-      HERO_COPY.evidence.flipRisksNote(false),
-      HERO_COPY.evidence.flipRisksNote(true),
-      HERO_COPY.evidence.attributionSuppressed,
-    ]) {
-      expect(line, line).not.toMatch(/\bchance\b/i)
-      expect(line, line).not.toMatch(CONTEST)
-    }
-  })
-
-  it('POSITIVE CONTROL: the captions served before are caught', () => {
-    expect('Chance the leading option changes when a relationship is varied within its plausible range.').toMatch(/\bchance\b/i)
-    expect('Chance the comparison between options changes when a relationship is varied within its plausible range.').toMatch(/\bchance\b/i)
-    expect("How much each factor moves an option's chance of coming out ahead wasn't produced for").toMatch(/\bchance\b/i)
   })
 })
 
