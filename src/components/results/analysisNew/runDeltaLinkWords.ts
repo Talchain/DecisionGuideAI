@@ -44,7 +44,7 @@ export function sizingWords(raw: string | null): string | null {
  * 0.70.0 link rows, in RC's contract words (`RERUN-EXPLANATION.change_label_templates`), by FIELD IDENTITY:
  *   sizing → olumi_accepted   "You accepted Olumi's estimate for how much {from} changes {to}."
  *   sizing → user (+ strength) "You gave your own estimate for how much {from} changes {to}[: {before} → {after}]."
- *   strength alone            "You changed how much {from} changes {to}: {before} → {after}."
+ *   strength alone            "How much {from} changes {to}: {before} → {after}" — NO author (below).
  * `null` = not one of these (the generic row wording applies).
  */
 export function linkRowText(row: RunDeltaInputRow, frame: RunDeltaFrame = 'rerun'): string | null {
@@ -72,8 +72,12 @@ export function linkRowText(row: RunDeltaInputRow, frame: RunDeltaFrame = 'rerun
   // 0.78.0 `effect` (SD-1 cut 6): the link's size moved, in the user's terms. No author is claimed (the row does not say
   // who wrote it), so the served generic link sentence, verbatim: "How much {from} changes {to}: {before} → {after}".
   if (row.field === 'effect') return `How much ${from} changes ${to}: ${row.before} → ${row.after}`
+  // ⛔ A BAND MOVE CLAIMS NO AUTHOR (cut 6; DL 0df0e1 + Science d5 6009444385 / 6009456901, 6 Oct): a band also moves
+  // when Olumi refits a frame or a level card re-frames the goal, with no user write at all, and the row does not record
+  // who moved it. So it says the served no-author link sentence, verbatim (as the `effect` row above), never "You changed".
+  // CEE's own line says "You changed" only with the user's recorded write in the pair (S7 truth floor, CEE #2647).
   if (row.field === 'strength') return historical
     ? `The estimate for how much ${from} changes ${to} changed: ${strengthBandWords(row.before)} → ${strengthBandWords(row.after)}.`
-    : `You changed how much ${from} changes ${to}: ${strengthBandWords(row.before)} → ${strengthBandWords(row.after)}.`
+    : `How much ${from} changes ${to}: ${strengthBandWords(row.before)} → ${strengthBandWords(row.after)}`
   return null
 }

@@ -5,7 +5,8 @@
  *   W1  a `sizing` row → olumi_accepted says RC's Accept sentence, naming the link's two ends.
  *   W2  RC's one-sentence-per-link: `sizing` → user + `strength` on the SAME link = ONE row, one sentence with the band
  *       before → after. CONTRAST: a strength row on ANOTHER link stays its own sentence.
- *   W3  a `strength` row alone says "You changed how much … : before → after."
+ *   W3  a `strength` row alone says the no-author link sentence "How much … : before → after" (cut 6, DL 0df0e1: a band
+ *       also moves when Olumi re-frames, and the row records no author; `strengthRowClaimsNoAuthor.spec.tsx`).
  *   W4  `win_probabilities_unavailable: 'prior_withheld'` (the package fixture) → "The options can be compared for the
  *       first time." on the Compare section AND the canvas card. CONTRAST: `no_matched_option` and absent → the
  *       cause-neutral no-pairs line. The first-comparison line is never inferred from an empty array.
@@ -75,19 +76,19 @@ describe('W2 · one sentence per link ("Edit the strength" writes sizing AND str
     const view = buildRunDeltaView(withChanges([...edit, other]), () => null, nodeLabel)
     expect(view.inputs!.rows.map(inputRowText)).toEqual([
       'You gave your own estimate for how much Sales team size changes New revenue: moderate → strong.',
-      'You changed how much Monthly churn changes New revenue: slight → moderate.',
+      'How much Monthly churn changes New revenue: slight → moderate',
     ])
   })
 })
 
 describe('W3 · a strength change alone', () => {
-  it('says "You changed how much … : before → after."', () => {
+  it('says the no-author link sentence "How much … : before → after" (cut 6)', () => {
     const view = buildRunDeltaView(
       withChanges([{ ...link('fixture_factor_1', 'fixture_factor_2'), field: 'strength', before: { raw: 'moderate' }, after: { raw: 'strong' }, change: 'changed' }]),
       () => null,
       nodeLabel,
     )
-    expect(inputRowText(view.inputs!.rows[0])).toBe('You changed how much Monthly churn changes Sales team size: moderate → strong.')
+    expect(inputRowText(view.inputs!.rows[0])).toBe('How much Monthly churn changes Sales team size: moderate → strong')
   })
 })
 
@@ -142,7 +143,7 @@ describe('W6 · every strength band literal reads as words (52f8cd 5937970750)',
         () => null,
         nodeLabel,
       )
-      expect(inputRowText(alone.inputs!.rows[0])).toBe(`You changed how much Monthly churn changes Sales team size: ${WORDS[other]} → ${WORDS[band]}.`)
+      expect(inputRowText(alone.inputs!.rows[0])).toBe(`How much Monthly churn changes Sales team size: ${WORDS[other]} → ${WORDS[band]}`)
       const folded = buildRunDeltaView(
         withChanges([
           { ...link('fixture_factor_2', 'fixture_factor_3'), field: 'sizing', before: { raw: 'placeholder' }, after: { raw: 'user' }, change: 'changed' },
