@@ -275,7 +275,7 @@ describe('goal and success authority', () => {
     expect(screen.getByTestId('pre-analysis-v3-next-step')).toHaveTextContent(
       'Define what success means here',
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Act on best next step' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Act on this next step' }))
     // Re-pinned 26 Sep 2026 to #2105's contract: Olumi-authored prompt text
     // travels as a CHIP, carrying the spark's identity (never the user's words).
     expect(sendChip).toHaveBeenCalledWith(
@@ -1090,7 +1090,7 @@ describe('assessment-pass regressions', () => {
       'Run your first analysis',
     )
     const before = screen.getAllByText('One option needs a target value').length // footer subline
-    fireEvent.click(screen.getByRole('button', { name: 'Act on best next step' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Act on this next step' }))
     expect(onAnalyse).not.toHaveBeenCalled()
     // The click adds a toast carrying the same explanation.
     expect(screen.getAllByText('One option needs a target value').length).toBe(before + 1)

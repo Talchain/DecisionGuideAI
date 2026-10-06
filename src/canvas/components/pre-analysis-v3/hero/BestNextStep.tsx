@@ -33,7 +33,7 @@ export const BestNextStep = memo(function BestNextStep({ ladder, onAct }: BestNe
         <PanelIconButton
           variant="go"
           className="ml-auto"
-          aria-label="Act on best next step"
+          aria-label="Act on this next step"
           onClick={() => onAct(ladder)}
         >
           <ArrowRight className="h-3.5 w-3.5" aria-hidden />

@@ -562,7 +562,7 @@ function buildKeyInsights(
     const splitUnit = cw.split_unit && !isSuppressedUnit(cw.split_unit) ? ` ${cw.split_unit}` : ''
     out.push({
       id: `insight:conditional-winner:${cw.factor_id}`,
-      headline: `In this model, which option leads depends on ${cw.factor_label}`,
+      headline: `In this model, how the options compare depends on ${cw.factor_label}`,
       implication: namesBoth
         ? `Above ${splitValue}${splitUnit}, ${high} scores higher; below it, ${low} does.`
         : `The preferred direction changes around ${splitValue}${splitUnit}.`,
@@ -1454,7 +1454,7 @@ function buildUncertainty(
     const headlineText = u.threshold
       ? rankingWasWithheld(data.recommendation)
         ? `${u.threshold.variable} could change the answer in this model`
-        : `${u.threshold.variable} could change which option leads in this model`
+        : `${u.threshold.variable} could change how the options compare in this model`
       : labelLength === text
         ? text
         : rowTitle(u)
