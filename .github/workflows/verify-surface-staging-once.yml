@@ -1,0 +1,142 @@
+name: Verify neutral surfaces on staging (read-only)
+
+on:
+  push:
+    branches: [maintenance/prepare-surface-rollback-20261006]
+    paths: [.github/workflows/verify-surface-staging-once.yml]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Verify the protected merge and its served staging stylesheet
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import datetime
+          import html.parser
+          import json
+          import os
+          import pathlib
+          import re
+          import time
+          import urllib.request
+          import urllib.parse
+
+          API = 'https://api.github.com/repos/Talchain/DecisionGuideAI'
+          STAGING = 'https://staging--olumi.netlify.app'
+          EXPECTED_HEAD = 'c592de0335f7c76c80900f4f08be1060bcf81bcd'
+
+          def fetch(url, github=False):
+              headers = {'User-Agent': 'Olumi-neutral-surface-verification', 'Cache-Control': 'no-cache'}
+              if github:
+                  assert url.startswith(API + '/')
+                  headers['Authorization'] = 'Bearer ' + os.environ['GH_READ_TOKEN']
+                  headers['Accept'] = 'application/vnd.github+json'
+              with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30) as response:
+                  return response.read().decode('utf-8')
+
+          deadline = time.monotonic() + 900
+          merge_sha = None
+          while time.monotonic() < deadline:
+              pr = json.loads(fetch(API + '/pulls/2565', github=True))
+              assert pr['base']['ref'] == 'staging', 'PR no longer targets staging'
+              assert pr['head']['sha'] == EXPECTED_HEAD, 'Candidate changed: inspect before verifying'
+              if pr['merged']:
+                  merge_sha = pr['merge_commit_sha']
+                  break
+              assert pr['state'] == 'open', 'PR closed without merging'
+              print('Waiting for the existing protected merge checks.', flush=True)
+              time.sleep(20)
+          assert merge_sha, 'Protected staging merge did not complete within the observation window'
+          print('MERGED_STAGING_COMMIT=' + merge_sha, flush=True)
+
+          version = None
+          while time.monotonic() < deadline:
+              try:
+                  current = json.loads(fetch(STAGING + '/version.json?surface-verify=' + str(time.time_ns())))
+                  if current.get('commit') == merge_sha:
+                      version = current
+                      break
+              except (OSError, ValueError):
+                  pass
+              print('Waiting for staging to serve the merged commit.', flush=True)
+              time.sleep(20)
+          assert version, 'Staging did not serve the exact merged commit within the observation window'
+
+          deploy_url = version.get('deploy_url', '').rstrip('/')
+          assert re.fullmatch(r'https://[a-f0-9]{24}--olumi\.netlify\.app', deploy_url), 'Unexpected immutable deployment URL'
+          pinned_version = json.loads(fetch(deploy_url + '/version.json'))
+          assert pinned_version.get('commit') == merge_sha
+
+          class Stylesheets(html.parser.HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.hrefs = []
+              def handle_starttag(self, tag, attrs):
+                  attrs = dict(attrs)
+                  if tag == 'link' and 'stylesheet' in attrs.get('rel', '').split() and attrs.get('href'):
+                      self.hrefs.append(attrs['href'])
+
+          parser = Stylesheets()
+          parser.feed(fetch(deploy_url + '/'))
+          assert parser.hrefs, 'No linked stylesheet found in the served entry page'
+          css_parts = []
+          stylesheet_urls = []
+          for href in parser.hrefs:
+              url = urllib.parse.urljoin(deploy_url + '/', href)
+              if urllib.parse.urlparse(url).netloc != urllib.parse.urlparse(deploy_url).netloc:
+                  continue
+              stylesheet_urls.append(url)
+              css_parts.append(fetch(url))
+          assert css_parts, 'No same-deployment stylesheets available'
+          css = '\n'.join(css_parts)
+          css = re.sub(r'/\*[\s\S]*?\*/', '', css)
+          expected = {
+              '--bg-panel-rgb': '254 254 254',
+              '--bg-panel-hover-rgb': '254 249 243',
+              '--bg-canvas': '#f4f0ea',
+          }
+          observed = {}
+          for token, value in expected.items():
+              values = re.findall(re.escape(token) + r'\s*:\s*([^;}]+)', css)
+              normalised = sorted(set(' '.join(item.lower().split()) for item in values))
+              assert normalised == [value], (token, normalised, value)
+              observed[token] = normalised[0]
+          assert re.search(r'--bg-panel\s*:\s*rgb\(var\(--bg-panel-rgb\)\)', css)
+          assert re.search(r'--bg-panel-hover\s*:\s*rgb\(var\(--bg-panel-hover-rgb\)\)', css)
+          after = json.loads(fetch(STAGING + '/version.json?surface-verify=' + str(time.time_ns())))
+          assert after.get('commit') == merge_sha, 'Staging changed during verification'
+          result = {
+              'status': 'passed',
+              'checked_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'pr': 2565,
+              'candidate_head': EXPECTED_HEAD,
+              'merge_commit': merge_sha,
+              'staging_url': STAGING,
+              'deploy_id': version.get('deploy_id'),
+              'deploy_url': deploy_url,
+              'stylesheet_urls': stylesheet_urls,
+              'served_tokens': observed,
+              'scope': 'HTTP entry page, immutable deployment identity and served CSS; not a browser interaction or appearance witness',
+              'writes': 'none',
+          }
+          pathlib.Path('verification').mkdir(exist_ok=True)
+          pathlib.Path('verification/neutral-surfaces-staging.json').write_text(json.dumps(result, indent=2) + '\n')
+          print(json.dumps(result, indent=2))
+          PY
+      - name: Preserve the verification receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: neutral-surfaces-staging-verification
+          path: verification/neutral-surfaces-staging.json
+          if-no-files-found: error
+          retention-days: 7
