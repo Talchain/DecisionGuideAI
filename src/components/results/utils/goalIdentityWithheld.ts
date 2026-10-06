@@ -74,8 +74,12 @@ export function readGoalIdentityWithheld(holder: unknown): GoalIdentityWithheld 
   const nodeIds = [...new Set(matched.flatMap((w) => (Array.isArray(w.node_ids)
     ? w.node_ids.filter((id): id is string => typeof id === 'string' && id.length > 0)
     : [])))]
-  const words = matched.map((w) => (typeof w.message === 'string' ? w.message.trim() : ''))
-  // Every reason that applies is said, in its own words. If ANY of them is missing or unsafe, the cause-neutral
+  // Item-3: the target warning states the complete sizing requirement; the placeholder names only a subset.
+  // Select words independently of the node/claim scopes, which still retain every matched warning.
+  const hasTargetRequirement = matched.some((w) => w.code === 'GOAL_FIGURES_TARGET_NOT_TESTABLE')
+  const reasons = hasTargetRequirement ? matched.filter((w) => w.code !== 'GOAL_FIGURES_PLACEHOLDER_PATH') : matched
+  const words = reasons.map((w) => (typeof w.message === 'string' ? w.message.trim() : ''))
+  // Every independent reason is said, in its own words. If ANY selected reason is missing or unsafe, the cause-neutral
   // fallback stands alone: a partial list would say one cause as if it were the only one.
   const allSafe = words.every((raw) => raw.startsWith('Not shown.') && raw.length <= 400 && !NOT_DISPLAY_SAFE.test(raw))
   return { nodeIds, message: allSafe ? [...new Set(words)].join(' ') : GOAL_IDENTITY_WITHHELD_FALLBACK }
