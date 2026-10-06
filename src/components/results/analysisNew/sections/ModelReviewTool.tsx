@@ -328,7 +328,7 @@ export function ModelReviewTool({
     selectRef.current?.focus({ preventScroll: true })
   }, [isOpen, current?.key, revealTick])
 
-  // ── Confirm as my estimate: the write authority's own gesture ─────────────
+  // ── Confirm this figure: the write authority's own gesture ─────────────
   /**
    * Keyed to the item on screen, and only when the strip's predicate says there
    * is an estimate to ratify — `factorIsConfirmable`, the same function the
