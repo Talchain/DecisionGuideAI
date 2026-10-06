@@ -20,6 +20,7 @@ import { BriefReadingCard } from './BriefReadingCard'
 import { takeQueuedBriefCoachingPrefill } from './briefCoaching'
 import { requestAsk } from '../ui/inspector-v2/askSemantic'
 import { StructuredBriefFields } from './StructuredBriefFields'
+import { BriefDocumentUpload } from './BriefDocumentUpload'
 import {
   EMPTY_BRIEF_FIELDS,
   composeStructuredBrief,
@@ -207,6 +208,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
 
   const prefersReducedMotion = usePrefersReducedMotion()
   const inputBarRef = useRef<AIInputBarHandle | null>(null)
+  const focusInputBar = useCallback(() => inputBarRef.current?.focus(), [])
 
   // Two separate previous-node-count cursors: the reset effect watches
   // N → 0 transitions, the reposition effect watches 0 → N+ transitions.
@@ -707,7 +709,13 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
       {/* The single box is the default ("just tell us"); "Structure it" swaps in the four labelled fields and the
           text carries over both ways. Hidden while generating: the brief is already committed. */}
       {!isGenerating ? (
-        <div className="w-full max-w-2xl flex justify-end" style={{ marginTop: -16 }}>
+        <div className="w-full max-w-2xl flex justify-between items-start gap-3" style={{ marginTop: -16 }}>
+          {/* ROADMAP 3.8: one document read on this device into the box, appended, for the user to check. */}
+          {briefMode === 'single' ? (
+            <BriefDocumentUpload draft={draft} setDraft={setDraft} onAdded={focusInputBar} />
+          ) : (
+            <span />
+          )}
           <Button
             variant="ghost"
             size="sm"
