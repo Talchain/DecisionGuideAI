@@ -432,7 +432,7 @@ describe('check labels and the decision record carry no answer framing', () => {
     expect(ANALYSIS_NEW_COPY.checks.leader_present.label).toBe('In this model, one option was supported by more runs than any other')
     // J4: within 10 pts of the next run share, no ranking word at all.
     expect(ANALYSIS_NEW_COPY.checks.leader_similar_shares.label).toBe('In this model, the options were supported by similar shares of runs')
-    expect(ANALYSIS_NEW_COPY.checks.leader_tied.label).toBe('In this model, no option is clearly most likely')
+    expect(ANALYSIS_NEW_COPY.checks.leader_tied.label).toBe('In this model, no option was supported by clearly more runs than the others')
   })
   it('the decision-record placeholder asks for the person\'s own reason, not why it is "the best"', () => {
     expect(DECISION_RECORD_COPY.rationalePlaceholder).toBe('Why you chose this option')

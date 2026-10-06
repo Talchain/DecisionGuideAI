@@ -90,7 +90,7 @@ describe('a provisional admission outranks the producer headline', () => {
     )
     const commitment = screen.getByTestId('analysis-new-commitment')
     expect(commitment).not.toHaveTextContent(`${OPT_HEDGE_LABEL} has the highest expected outcome`)
-    expect(commitment).toHaveTextContent('Olumi could not confirm which option is most likely on this run')
+    expect(commitment).toHaveTextContent('Olumi could not confirm which option most runs supported on this run')
     expect(document.body.textContent ?? '').not.toMatch(/slightly ahead|scored highest/i)
     // The comparison itself stays: both options are still on the first screen.
     expect(commitment).toHaveTextContent(OPT_HEDGE_LABEL)

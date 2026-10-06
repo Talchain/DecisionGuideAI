@@ -240,7 +240,7 @@ describe('checks-winner: no denial without authority', () => {
     setStore({ isTie: true })
     const { label, separation } = readWinnerCheck()
     expect(separation).toBe('tied')
-    expect(label).toBe('In this model, no option is clearly most likely')
+    expect(label).toBe('In this model, no option was supported by clearly more runs than the others')
   })
 
   it('producer sent NO signal → the check makes NO claim in either direction', () => {
@@ -252,7 +252,7 @@ describe('checks-winner: no denial without authority', () => {
     expect(
       label,
       `"No clear leader" is a DENIAL. decisionVerdict.ts: "'unknown' licenses silence, never a denial." Read: ${label}`,
-    ).not.toMatch(/no option is clearly most likely/i)
+    ).not.toMatch(/no option was supported by clearly more runs|no option is clearly most likely/i)
     expect(label).not.toMatch(/one option was supported by more runs than any other/i)
   })
 

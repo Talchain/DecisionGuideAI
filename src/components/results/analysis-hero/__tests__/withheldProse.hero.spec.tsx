@@ -166,10 +166,10 @@ describe('heroCopy.evidence — the three flip-risk strings', () => {
     )
     expect(
       HERO_COPY.evidence.flipRiskWithAlternative('Team capacity', 'falls below', '30%', 'Upskill', false),
-    ).toBe('If Team capacity falls below 30%, Upskill becomes the likely leader.')
+    ).toBe('If ‘Team capacity’ falls below about 30%, ‘Upskill’ becomes the most-supported option, in this model.')
     expect(
       HERO_COPY.evidence.flipRiskNoAlternative('Salary cost', 'rises above', '$60,000', false),
-    ).toBe('If Salary cost rises above $60,000, the leading option is likely to change.')
+    ).toBe('If ‘Salary cost’ rises above about $60,000, the most-supported option changes, in this model.')
   })
 })
 
@@ -219,8 +219,8 @@ describe('buildHeroModel — flip-risk rows quote the verdict', () => {
 
   it('PERMITTED: the built sentences are byte-identical to today', () => {
     expect(flipTexts(PERMITTED_VERDICT)).toEqual([
-      'If Team capacity falls below 30%, Upskill the current team becomes the likely leader.',
-      'If Salary cost rises above $60,000, the leading option is likely to change.',
+      'If ‘Team capacity’ falls below about 30%, ‘Upskill the current team’ becomes the most-supported option, in this model.',
+      'If ‘Salary cost’ rises above about $60,000, the most-supported option changes, in this model.',
     ])
   })
 })

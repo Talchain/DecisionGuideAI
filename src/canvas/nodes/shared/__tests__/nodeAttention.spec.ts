@@ -153,8 +153,10 @@ describe('how it reads — a question, model-scoped, one rank wording', () => {
       nodes: [node('tp', 'Trial conversion')],
       run: run({ turningPoints: new Map([['tp', { currentValue: 8, flipValue: 6.5, unit: '%', displayScale: true }]]) }),
     })).reasonsByNode.get('tp')![0].label
-    expect(display).toContain('If Trial conversion falls below 6.5%')
-    expect(display).toContain('the comparison is likely to change')
+    expect(display).toContain('If ‘Trial conversion’ falls below about 6.5%')
+    expect(display).toContain('the comparison changes, in this model')
+    // Science d5 (#87 6008165771): a crossing point, not a probability.
+    expect(display).not.toMatch(/\blikely\b/i)
     expect(display).not.toMatch(/\bdecision\b/i)
 
     const internal = deriveAttentionPlan(base({

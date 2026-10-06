@@ -2910,7 +2910,8 @@ export const ANALYSIS_NEW_COPY = {
      * The one licensed DENIAL, and it is licensed by `separation === 'tied'`
      * alone (`decisionVerdict.ts:166-168`).
      */
-    leader_tied: { label: 'In this model, no option is clearly most likely' },
+    // RT-17 (Science d5 #87 6008176400): a run-share check never speaks of a goal chance ("most likely").
+    leader_tied: { label: 'In this model, no option was supported by clearly more runs than the others' },
     leader_not_assessed: {
       /**
        * ⚠⚠ "NOT ASSESSED" WAS FALSE ON A RUN THAT ASSESSED IT — WITNESSED, NOT
@@ -2953,7 +2954,8 @@ export const ANALYSIS_NEW_COPY = {
        * ⚠ "not confirmed" IS THE LOAD-BEARING HALF and may not be dropped to
        * shorten this. Without it the row reads as an all-clear.
        */
-      label: 'Most likely option not confirmed',
+      // RT-17: the run-share vocabulary d5 ruled for this check; "not confirmed" stays (load-bearing, above).
+      label: 'Most-supported option not confirmed',
       /**
        * ⭐⭐ SPLIT BY QUESTION, because ONE SENTENCE WAS ANSWERING TWO — and the
        * two sections that rendered it answer two.
@@ -3006,7 +3008,7 @@ export const ANALYSIS_NEW_COPY = {
        * saying it twice, not to record an exemption for saying it twice.
        */
       meaning:
-        'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed.',
+        'Olumi could not confirm which option most runs supported on this run, so any ordering you see is unconfirmed.',
       /**
        * The comparison's half: how to read THIS list, not what was checked.
        * Rendered ONLY by `OptionsComparison`, and only where no row carries a

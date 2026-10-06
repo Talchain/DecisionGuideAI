@@ -46,9 +46,12 @@ export const FLIP_THRESHOLD_COPY = {
     alternative: string,
     designationsWithheld: boolean,
   ) =>
+    // Science d5 (#87 6008165771): PLoT binary-searches where the argmax of the win shares changes — a CROSSING POINT,
+    // not a probability, so no "likely"; "about" because the search is Monte Carlo (precision 0.01). Named labels are
+    // quoted and the model is named.
     designationsWithheld
-      ? `If ${factor} ${direction} ${value}, the comparison shifts towards ${alternative}.`
-      : `If ${factor} ${direction} ${value}, ${alternative} becomes the likely leader.`,
+      ? `If ‘${factor}’ ${direction} about ${value}, the comparison shifts towards ‘${alternative}’, in this model.`
+      : `If ‘${factor}’ ${direction} about ${value}, ‘${alternative}’ becomes the most-supported option, in this model.`,
   flipRiskNoAlternative: (
     factor: string,
     direction: string,
@@ -56,8 +59,8 @@ export const FLIP_THRESHOLD_COPY = {
     designationsWithheld: boolean,
   ) =>
     designationsWithheld
-      ? `If ${factor} ${direction} ${value}, the comparison is likely to change.`
-      : `If ${factor} ${direction} ${value}, the leading option is likely to change.`,
+      ? `If ‘${factor}’ ${direction} about ${value}, the comparison changes, in this model.`
+      : `If ‘${factor}’ ${direction} about ${value}, the most-supported option changes, in this model.`,
 } as const
 
 /**
