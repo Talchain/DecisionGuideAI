@@ -48,6 +48,8 @@ export function isHeldUserLink(wireEdge: unknown): boolean {
   if (!finite(low) || !finite(high) || !finite(ne.amount) || ne.amount === 0 || !finite(ne.strength_mean)) return false
   if (!carriesStatedSize(wireEdge, ne.strength_mean)) return false
   if (!((low > 0 && high > 0) || (low < 0 && high < 0))) return false
-  // CEE holds only with a positive spread: |high − low| · |strength_mean / amount| > 0.
-  return high !== low && ne.strength_mean !== 0
+  // CEE holds only when its spread is finite and positive — the SAME arithmetic (Codex r2 #2643: an underflowing β or an
+  // overflowing range is refused there, so it is here); the value itself is never used.
+  const spread = Math.abs((high - low) * (ne.strength_mean / ne.amount)) / 3.29
+  return Number.isFinite(spread) && spread > 0
 }

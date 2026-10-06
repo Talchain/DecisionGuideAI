@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { isHeldUserLink } from '../heldUserLink'
 
-const FIXTURE_SHA256 = '8cbd230b58a9e1d356e84e1383c1bac277e223649b96756927db27e40e5f4e0d'
+const FIXTURE_SHA256 = 'f4ee9da4bf7eba64eedbf8f16cdde5b8cccc89cb0f8b2efb02970c8a3c1c1cfc'
 const PATH = resolve(process.cwd(), 'src/canvas/domain/__tests__/fixtures/held-link-parity.json')
 const bytes = readFileSync(PATH)
 const rows = (JSON.parse(readFileSync(PATH, 'utf8')) as { rows: Array<{ name: string; edge: unknown; held: boolean }> }).rows
