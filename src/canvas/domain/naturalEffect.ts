@@ -52,6 +52,9 @@ import { BY_DEFINITION } from './strengthDefinitional'
 /** Whose figure the size is. `user` outranks the producer's own label. */
 export type NaturalEffectAuthor = 'user' | 'olumi_estimate' | 'olumi_placeholder' | 'example_figure'
 
+/** The `stated_range.end` literals this reader says words for; any other drops the range words, never the size. */
+export const STATED_RANGE_ENDS = ['low', 'high', 'centre'] as const
+
 export const NaturalEffectSchema = z.object({
   /** Signed change in the TARGET's own unit, as admitted. */
   amount: z.number().finite(),
@@ -84,7 +87,7 @@ export const NaturalEffectSchema = z.object({
      * `centre` (CEE #2644; Science d5 #87 6009282279; a8's shape): the amount is the user's POINT inside the range they
      * wrote ("about 150, between 80 and 250"), so it is said "about", with the range, and never as a bound.
      */
-    end: z.enum(['low', 'high', 'centre']),
+    end: z.enum(STATED_RANGE_ENDS),
   }).optional(),
 })
 export type NaturalEffect = z.infer<typeof NaturalEffectSchema>
@@ -165,10 +168,13 @@ export function readWireNaturalEffect(
   // amount as the user's single figure. Olumi's own size never carries one.
   const range = author === 'user' ? readRecord(ne.stated_range) : null
   if (author === 'user' && ne.stated_range !== undefined && range === null) return undefined
+  // ⛔ An `end` this reader does not know (a literal a later CEE adds) drops the RANGE WORDS, never the user's figure
+  // (DL #2644/#2557): before this, a new literal failed the whole parse and the user's own size vanished from the canvas.
+  const knownEnd = range !== null && (STATED_RANGE_ENDS as readonly unknown[]).includes(range.end)
   const userOrigin = author !== 'user' ? undefined : provenance.source === 'brief_extraction' ? 'brief' : 'entered'
   const parsed = NaturalEffectSchema.safeParse({
     ...(userOrigin !== undefined ? { userOrigin } : {}),
-    ...(range !== null
+    ...(range !== null && knownEnd
       ? { statedRange: { low: range.low, high: range.high, text: nonEmpty(range.text), end: range.end } }
       : {}),
     amount: ne.amount,
