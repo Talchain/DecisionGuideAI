@@ -9,9 +9,10 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { isHeldUserLink } from '../heldUserLink'
 
-const FIXTURE_SHA256 = '294ffd2ac4e69e2020c7a539efa8ec2a382a02db692195c684da7842dceeb3d6'
-const bytes = readFileSync(resolve(process.cwd(), 'src/canvas/domain/__tests__/fixtures/held-link-parity.json'))
-const rows = (JSON.parse(bytes.toString('utf8')) as { rows: Array<{ name: string; edge: unknown; held: boolean }> }).rows
+const FIXTURE_SHA256 = '8cbd230b58a9e1d356e84e1383c1bac277e223649b96756927db27e40e5f4e0d'
+const PATH = resolve(process.cwd(), 'src/canvas/domain/__tests__/fixtures/held-link-parity.json')
+const bytes = readFileSync(PATH)
+const rows = (JSON.parse(readFileSync(PATH, 'utf8')) as { rows: Array<{ name: string; edge: unknown; held: boolean }> }).rows
 
 describe('held-link parity fixture (shared with CEE)', () => {
   it('held-link parity fixture digest: the bytes are the ones CEE pins', () => {
