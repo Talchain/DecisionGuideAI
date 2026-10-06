@@ -32,6 +32,9 @@
 //     f349e115… and d4e74b76… (runs 37312998590, 37315190922);
 //   - the Run-explanation chip key `agent-explain-run:<16 hex>`, as ordinals: a digest of scenario_id +
 //     computed_at (CEE run-explanation.ts:47 @b43bb79e), drift #5 of run 37318530007.
+//   - proposal ids `prop_<32 hex>`, as ordinals: minted per run (record 4b fills 1 and 2 on CEE a8e69b48:
+//     ISO-1's hop call differed ONLY in prop_71c9e225… vs prop_219a9516…, same proposal content; 3 of
+//     19 recordings carry one, each as a `proposal_id` value).
 // Ordinals keep which references are equal and which differ (prior ≠ current). Graph and
 // analysis hashes are NOT normalised: they are content-derived (H1 2771ec91…,
 // H2 9ad1f20a… identical on the Mac record and on both CI replays).
@@ -90,6 +93,7 @@ const DECIMAL = /-?\b\d+\.\d+(?:[eE][-+]?\d+)?/g
 // escaped or not, since the run id often sits inside a JSON string the request carries.
 const RUN_ID_VALUE = /(\\*"run_id\\*"\s*:\s*\\*")([0-9a-f]{16,64})/g
 const RUN_KEY = /(agent-explain-run:)([0-9a-f]{16})/g
+const PROPOSAL_ID = /(prop_)([0-9a-f]{32})\b/g
 // Per-run values are replaced by ORDINALS in order of first appearance (<run_id#1>,
 // <run_id#2>…), never by one constant: which references are EQUAL and which DIFFER is part of
 // the request (prior ≠ current; tipping_point_run_key = selected_run_reference). Codex r3, #2513.
@@ -107,6 +111,7 @@ const normalise = (s) => {
   t = t.replace(ISO_TS, '<ts>')
   t = ordinals(t, RUN_ID_VALUE, 'run_id', 2)
   t = ordinals(t, RUN_KEY, 'run_key', 2)
+  t = ordinals(t, PROPOSAL_ID, 'proposal_id', 2)
   return t.replace(DECIMAL, (m) => String(Number(Number(m).toPrecision(6))))
 }
 

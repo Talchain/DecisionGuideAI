@@ -147,7 +147,11 @@ async function clearCanvasSelection(page: Page): Promise<void> {
 async function openEdgeInspector(page: Page, fromLabel: string, toLabel: string, label: string): Promise<Locator> {
   await clearCanvasSelection(page)
   const edge = page.locator(`[data-testid^="rf__edge-"][aria-label^="Connection from ${fromLabel} to ${toLabel}."]`).first()
-  await expect(edge, `[${label}] the canvas has no edge "${fromLabel} → ${toLabel}"`).toBeVisible()
+  // Attached with a drawn path, NOT toBeVisible: a horizontal link's <g> has a zero-height box, which Playwright calls
+  // hidden although it is on screen and in the accessibility tree (record 4b fill 2: "Starter subscribers → Starter-tier MRR").
+  await expect(edge, `[${label}] the canvas has no edge "${fromLabel} → ${toLabel}"`).toBeAttached({ timeout: 30_000 })
+  const drawn = await edge.evaluate((el) => (el.querySelector('path') as SVGPathElement | null)?.getTotalLength?.() ?? 0)
+  expect(drawn, `[${label}] the edge "${fromLabel} → ${toLabel}" has no drawn path`).toBeGreaterThan(0)
   const pt = await edge.evaluate((el) => {
     const p = el.querySelector('path') as SVGPathElement | null
     if (p?.getTotalLength) {
