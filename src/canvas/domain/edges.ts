@@ -279,6 +279,13 @@ export const EdgeDataSchema = z.object({
    */
   naturalEffect: NaturalEffectSchema.optional(),
 
+  /**
+   * ⭐ D3 cut 6 HOLD-AT-1.0: CEE holds this user-stated link at existence 1.0 on every Run's input (its own range excludes
+   * zero). Written by the ONE reader `existenceHeldPatch` (`./heldUserLink`) at every ingestion hop, from the RAW wire
+   * edge; displays show the existence the Run USES. ⚠ ABSENT ⇒ NOT HELD. Never defaulted; never sent anywhere.
+   */
+  existenceHeld: z.literal(true).optional(),
+
   /** RT-12: the signed admitted example strength; shares the natural-effect staleness rule, never defaulted. */
   strengthExampleFigure: z.number().finite().optional(),
 

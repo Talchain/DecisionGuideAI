@@ -8,6 +8,7 @@
 
 import { useCanvasStore } from '../../store'
 import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../../domain/edges'
+import { existenceHeldPatch } from '../../domain/heldUserLink'
 import { readWireNaturalEffect, strengthExampleFigurePatch } from '../../domain/naturalEffect'
 import { strengthPlaceholderPatch } from '../../domain/strengthPlaceholder'
 import { strengthDefinitionalPatch } from '../../domain/strengthDefinitional'
@@ -197,6 +198,8 @@ function buildEdge(op: PatchOperation) {
       ...(serverStrength !== undefined ? { serverStrength } : {}),
       // The edge's size in the target's units — the ONE reader, every hop (domain/naturalEffect).
       ...(naturalEffect !== undefined ? { naturalEffect } : {}),
+      // D3 cut 6: CEE holds this user link at existence 1.0 — the ONE reader, every hop (domain/heldUserLink).
+      ...existenceHeldPatch(d),
       ...strengthExampleFigurePatch(d as Record<string, unknown>, rawWeight as number, wireSuppliedStrength),
       // POM-8: a placeholder strength — HOP 2 OF 3, the same one reader (domain/strengthPlaceholder).
       ...strengthPlaceholderPatch(d as Record<string, unknown>, weight, wireSuppliedStrength),

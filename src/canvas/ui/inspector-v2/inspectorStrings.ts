@@ -566,6 +566,11 @@ export function resolveEdgeLinkTemplate(
 
 // ─── Edge panel copy (v6.2) ───────────────────────────────────────
 export const EDGE_COPY = {
+  /**
+   * ⭐ D3 cut 6 HOLD-AT-1.0 (words c6): under the existence readout of a link CEE holds at 1.0. The hold is the USER's
+   * range, so the note says what the analysis does and on whose input — never that Olumi believes something.
+   */
+  existenceHeldNote: 'Held at 100%: your own range for this link’s effect doesn’t include zero, so the analysis treats the link as existing.',
   sensitiveContext: 'Small changes here could shift which option the data supports.',
   /**
    * The SAME sentence the canvas cue, the edge hover and the key carry
