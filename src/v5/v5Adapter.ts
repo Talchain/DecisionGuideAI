@@ -100,6 +100,11 @@ export async function callV5Turn(
   const url = resolveEndpoint();
   const fetchFn = opts.fetchImpl ?? fetch;
 
+  // This is pre-dispatch evidence, not an interpretation of a rejected fetch.
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return { kind: 'parse_error', reason: 'offline before dispatch', requestNotStarted: true };
+  }
+
   const requestId = crypto.randomUUID();
   const requestedAt = Date.now();
 
@@ -116,7 +121,10 @@ export async function callV5Turn(
   });
 
   let res: Response;
+  let requestStarted = false;
   try {
+    const body = JSON.stringify(payload);
+    requestStarted = true;
     res = await fetchFn(url, {
       method: 'POST',
       headers: {
@@ -124,7 +132,7 @@ export async function callV5Turn(
         Accept: 'application/json',
         ...(opts.headers ?? {}),
       },
-      body: JSON.stringify(payload),
+      body,
       signal: opts.signal,
     });
   } catch (e) {
@@ -193,6 +201,7 @@ export async function callV5Turn(
     return {
       kind: 'parse_error',
       reason: `network error: ${err.message}`,
+      ...(!requestStarted ? { requestNotStarted: true as const } : {}),
     };
   }
 

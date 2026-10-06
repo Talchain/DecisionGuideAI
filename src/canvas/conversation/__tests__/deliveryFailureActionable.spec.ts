@@ -106,11 +106,10 @@ describe('the new clauses did not cost the old honesty', () => {
     expect(copy).toMatch(/reloading will not bring the reply back/i)
   })
 
-  it('a network throw still claims non-delivery — the pair', () => {
-    // The one shape where non-delivery is verified. If actionability had been
-    // bought by softening this, the fix would have removed a TRUE statement.
+  it('a network throw leaves delivery unverified', () => {
+    // DL Round 3: only positive pre-dispatch proof licenses non-delivery.
     const copy = buildTransportFailureCopy({ network: true }, true)
-    expect(assertsNonDelivery(copy)).toBe(true)
+    expect(assertsNonDelivery(copy)).toBe(false)
   })
 })
 
