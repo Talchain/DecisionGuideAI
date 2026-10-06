@@ -55,7 +55,7 @@ export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionI
 }
 
 /**
- * c6's per-option line, in the MODEL'S option order (`licence.optionIds`) — never sorted by chance: below the 10-point
+ * c6's per-option line (or, for an option CEE withheld for its own path, c6's withheld line), in the MODEL'S option order (`licence.optionIds`) — never sorted by chance: below the 10-point
  * licence a sort is a ranking the Run does not grant. `null` when any label cannot be said.
  */
 export function goalChanceOptionLines(licence: GoalChanceLicence, labelOf: (optionId: string) => string | null): string[] | null {
@@ -63,7 +63,10 @@ export function goalChanceOptionLines(licence: GoalChanceLicence, labelOf: (opti
   for (const id of licence.optionIds) {
     const label = labelOf(id)
     if (label === null) return null
-    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} chance of meeting your goal, in this model.`)
+    // c6 (6 Oct): an option withheld for its own path keeps its place, and says so — never "unknown", never "0%".
+    lines.push(licence.withheldOptionIds.includes(id)
+      ? `‘${label}’: Olumi can’t yet say its chance of meeting your goal, in this model.`
+      : `‘${label}’: ${about(licence.pctByOption[id])} chance of meeting your goal, in this model.`)
   }
   return lines
 }

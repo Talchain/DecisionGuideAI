@@ -39,6 +39,7 @@ import { InferenceWarningStrip } from './InferenceWarningStrip'
 import { CritiqueWarningStrip } from './CritiqueWarningStrip'
 import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
 import { AnalysisHeroContainer, KeyQuestionCard } from './analysis-hero'
+import { GoalChanceInvite } from './goal-chance-invite/GoalChanceInvite'
 import { WhatIWasGivenSection } from './contextIntegrity/WhatIWasGivenSection'
 import { openDefineSuccess, HowComputedTrigger } from './modals'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '@/canvas/mutations/mutationAuthority'
@@ -516,6 +517,19 @@ export const ResultsBody = memo(function ResultsBody({
                   aiAffordance={aiAffordance}
                 />
               }
+            />
+          </SectionErrorBoundary>
+          {/* ⭐ D3 step 2 (DL 0df0e1 #87 6006078553; c6): where CEE withheld each option's chance of meeting the goal for want
+              of a target or its direction, the invitation CEE wrote on that withhold — by identity, nothing decided here. The
+              goal's label only when the invitation names THIS goal (by id); otherwise c6's "your goal". */}
+          <SectionErrorBoundary section="Goal chance invitation">
+            <GoalChanceInvite
+              invite={resultsSectionData.goalChanceInvite ?? null}
+              goalLabel={resultsSectionData.goalChanceInvite != null
+                && resultsSectionData.goalNodeId === resultsSectionData.goalChanceInvite.goalNodeId
+                && resultsSectionData.goalLabel.trim() !== ''
+                ? resultsSectionData.goalLabel
+                : null}
             />
           </SectionErrorBoundary>
           {/* ── 2.466 (P1): decision-quality KEY QUESTION + DSK grounding ──

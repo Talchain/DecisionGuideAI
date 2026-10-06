@@ -11,6 +11,10 @@
  * `form` selects the words (by identity); `option_ids` is the model's option order; `pct_by_option` is the figure each
  * sentence quotes; `target` is the target as the user stated it. ORDER COUNTS AS A SUPERLATIVE (d5): only the two
  * `highest` forms license ordering options by goal chance.
+ *
+ * PER OPTION (Science d5 #87 6007421281): `withheld_option_ids` names the options whose chance was withheld for their own
+ * path. Each is in `option_ids` and has no figure; with any of them the form is `each` (CEE decides; a record that says
+ * otherwise disagrees with itself and is not read).
  */
 
 export const GOAL_CHANCE_LICENSED = 'GOAL_CHANCE_LICENSED'
@@ -22,6 +26,8 @@ export interface GoalChanceLicence {
   readonly form: GoalChanceForm
   readonly optionIds: readonly string[]
   readonly pctByOption: Readonly<Record<string, number>>
+  /** Options whose chance was withheld for their own path (subset of `optionIds`, no figure); empty when none. */
+  readonly withheldOptionIds: readonly string[]
   readonly leaderOptionId: string | null
   readonly nextOptionId: string | null
   readonly target: { readonly comparator: GoalChanceComparator; readonly value: number; readonly unit: string }
@@ -47,7 +53,12 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
   const target = r.target
   if (typeof r.form !== 'string' || !FORMS.has(r.form)) return null
   if (!Array.isArray(ids) || ids.length < 2 || !ids.every((id) => typeof id === 'string')) return null
-  if (!isRec(pct) || !ids.every((id) => typeof pct[id as string] === 'number' && Number.isInteger(pct[id as string]))) return null
+  const withheldRaw = r.withheld_option_ids ?? []
+  if (!Array.isArray(withheldRaw) || !withheldRaw.every((id) => typeof id === 'string' && (ids as string[]).includes(id))) return null
+  const withheld = new Set(withheldRaw as string[])
+  // Every option is EITHER quoted (a whole percentage) OR withheld — never both, never neither — and at least one is quoted.
+  const quoted = (id: string): boolean => isRec(pct) && typeof pct[id] === 'number' && Number.isInteger(pct[id])
+  if (!isRec(pct) || !(ids as string[]).every((id) => quoted(id) !== withheld.has(id)) || withheld.size === ids.length) return null
   if (!isRec(target) || typeof target.comparator !== 'string' || !COMPARATORS.has(target.comparator)
     || typeof target.value !== 'number' || !Number.isFinite(target.value) || typeof target.unit !== 'string') return null
   const named = (v: unknown): string | null => (typeof v === 'string' && (ids as string[]).includes(v) ? v : null)
@@ -56,10 +67,12 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
   const form = r.form as GoalChanceForm
   // A `highest` form names its two options; any other form names none. A record that disagrees with itself is not read.
   if ((form === 'highest' || form === 'highest_all_likely_to_miss') !== (leaderOptionId !== null && nextOptionId !== null)) return null
+  if (withheld.size > 0 && form !== 'each') return null
   return {
     form,
     optionIds: ids as string[],
     pctByOption: pct as Record<string, number>,
+    withheldOptionIds: (ids as string[]).filter((id) => withheld.has(id)),
     leaderOptionId,
     nextOptionId,
     target: { comparator: target.comparator as GoalChanceComparator, value: target.value, unit: target.unit },

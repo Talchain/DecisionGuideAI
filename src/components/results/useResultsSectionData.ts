@@ -122,6 +122,7 @@ import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisPa
 import { goalLabelOf } from './analysisNew/analysisNewCopy'
 import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
 import { readGoalChanceLicence, type GoalChanceLicence } from './utils/goalChanceLicence'
+import { readGoalChanceInvite, type GoalChanceInvite } from './goal-chance-invite/readGoalChanceInvite'
 
 // =============================================================================
 // Winner Selection Helper
@@ -1351,6 +1352,11 @@ export interface ResultsSectionDataReturn {
    * `null` = no licence, and every surface renders exactly as before.
    */
   goalChanceLicence?: GoalChanceLicence | null
+  /**
+   * ⭐ D3 step 2: the invitation CEE wrote on its own goal-chance withhold (`invite`, read by identity in
+   * `goal-chance-invite/readGoalChanceInvite`). OPTIONAL: absent or `null` = no invitation.
+   */
+  goalChanceInvite?: GoalChanceInvite | null
 }
 
 /** What the option card prints for each target this option sets (its own map; the card's formatter). */
@@ -1482,6 +1488,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // ⭐ D3 step 2: read verbatim off the Run's own record — the same report every other figure here comes from.
   const goalChanceLicence = useMemo(
     () => readGoalChanceLicence((report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings),
+    [report],
+  )
+  const goalChanceInvite = useMemo(
+    () => readGoalChanceInvite((report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings),
     [report],
   )
   const resultsStatus = results?.status
@@ -4820,6 +4830,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       winSharesWithheld: winSharesAreWithheld,
       winShareWithheldReason: winShareReasonLine,
       goalChanceLicence,
+      goalChanceInvite,
     }),
     [
       recommendation,
@@ -4841,6 +4852,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       winSharesAreWithheld,
       winShareReasonLine,
       goalChanceLicence,
+      goalChanceInvite,
     ],
   )
 }

@@ -81,6 +81,25 @@ describe('D3 step 2 — the goal chance heads the hero on its OWN licence (CEE d
     expect(model.subline).not.toMatch(CONTEST)
   })
 
+  it('PER OPTION (d5 #87 6007421281; c6 6 Oct): one option withheld for its own path keeps its place with c6\'s withheld line', () => {
+    const { [ANGEL]: _withheld, ...rest } = GOAL
+    seed(rest, licenceRecord('each', { [OUTREACH]: 20, [CONVERTIBLE]: 62 }, { withheld_option_ids: [ANGEL] }))
+    const model = heroModel()
+    expect(model.headline).toBe('In this model, on current information, each option’s chance of meeting your goal (at least £1,200,000):')
+    expect(model.subline).toBe([
+      `‘${labelOf(OUTREACH)}’: about 20% chance of meeting your goal, in this model.`,
+      `‘${labelOf(ANGEL)}’: Olumi can’t yet say its chance of meeting your goal, in this model.`,
+      `‘${labelOf(CONVERTIBLE)}’: about 62% chance of meeting your goal, in this model.`,
+    ].join(' '))
+    expect(model.subline).not.toMatch(/unknown|\b0%/)
+  })
+
+  it('a record naming a withheld option under a SUPERLATIVE disagrees with itself: not read', () => {
+    seed(GOAL, licenceRecord('highest', { [OUTREACH]: 20, [CONVERTIBLE]: 62 },
+      { withheld_option_ids: [ANGEL], leader_option_id: CONVERTIBLE, next_option_id: OUTREACH }))
+    expect(heroModel().headline).not.toMatch(/chance of meeting your goal/)
+  })
+
   it('a record that disagrees with itself ("highest" naming no option) is not read: no goal-chance sentence', () => {
     seed(GOAL, licenceRecord('highest', { [OUTREACH]: 20, [ANGEL]: 41, [CONVERTIBLE]: 62 }))
     expect(heroModel().headline).not.toMatch(/chance of meeting your goal/)
