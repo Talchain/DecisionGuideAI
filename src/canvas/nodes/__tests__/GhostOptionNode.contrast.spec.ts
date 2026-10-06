@@ -154,9 +154,9 @@ describe('row-end prompt icon outline — WCAG 1.4.11 non-text contrast', () => 
     expect(classes.length).toBeGreaterThan(5)
     expect(outlineUtility()).toMatch(/^[a-z-]+$/)
     expect(utilityHex(outlineUtility())).toMatch(/^#[0-9A-Fa-f]{6}$/)
-    expect(declared('--bg-panel')).toBe('#FEF9F3') // re-measured on the 1 Oct 2026 cream panel (#FEF9F3, Paul)
+    expect(declared('--bg-panel')).toBe('#FEFEFE')
     expect(declared('--bg-canvas')).toBe('#F4F0EA')
-    expect(declared('--bg-panel-hover')).toBe('#FCF7F1')
+    expect(declared('--bg-panel-hover')).toBe('#FEF9F3')
   })
 
   it('the icon\'s own fill IS the panel ground this file measures against (`bg-panel`, hovering to `bg-panel-hover`)', () => {

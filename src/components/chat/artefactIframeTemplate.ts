@@ -15,8 +15,8 @@ const TEMPLATE_PREFIX = `<!DOCTYPE html>
   <style>
     :root {
       --bg-canvas: #F4F0EA;
-      --bg-panel: #FEF9F3;
-      --bg-panel-hover: #FCF7F1;
+      --bg-panel: #FEFEFE;
+      --bg-panel-hover: #FEF9F3;
       --border-default: #EEE6D8;
       --text-header: #262626;
       --text-body: #3F3F3E;
