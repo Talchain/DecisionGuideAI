@@ -811,10 +811,12 @@ export function buildHeroModel(
   // made the identical claim with NO rule at all and crowned the COMPARATIVE
   // leader on the goal metric — the second copy of a rule is where the defect
   // lives, so there is now one copy and both surfaces select through it.
+  // ⭐ D3 step 2: where the Run carries CEE's goal-chance licence, it governs the crown (≥ 10 points, by id).
   const goalLeaderRow: HeroRowVM | null = selectGoalLeader(
     rows,
     (r) => r.goal.value,
-    { designationsWithheld, hasUserTarget },
+    { designationsWithheld, hasUserTarget, goalChanceLicence: data.goalChanceLicence ?? null },
+    (r) => r.id,
   )
 
   const safeLabel = (row: HeroRowVM) =>
