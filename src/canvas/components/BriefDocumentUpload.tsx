@@ -13,10 +13,10 @@
  * Scope: the empty-canvas composer only. Adding a document to an existing
  * model is a later slice.
  */
-import { useCallback, useId, useState, type ChangeEvent, type ReactNode } from 'react'
+import { useCallback, useId, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { Loader2, Paperclip } from 'lucide-react'
 import { typo } from '../../styles/typography'
-import { ACCEPT_ATTRIBUTE, readBriefDocument } from '../brief-ingest'
+import { ACCEPT_ATTRIBUTE, assembleBrief, extractBriefDocument } from '../brief-ingest'
 
 export const BRIEF_UPLOAD_COPY = {
   label: 'Upload a document',
@@ -44,6 +44,11 @@ export function useBriefDocumentUpload({ draft, setDraft, onAdded }: UseBriefDoc
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [added, setAdded] = useState<{ block: string; summary: string } | null>(null)
+  // The box can change while a file is read (the user keeps typing), so the
+  // file is appended to the text as it is when the read FINISHES, never to the
+  // copy captured when it started — that would silently drop what was typed.
+  const draftRef = useRef(draft)
+  draftRef.current = draft
 
   const handleChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -54,7 +59,8 @@ export function useBriefDocumentUpload({ draft, setDraft, onAdded }: UseBriefDoc
       setBusy(true)
       setError(null)
       try {
-        const result = await readBriefDocument(file, draft)
+        const extraction = await extractBriefDocument(file)
+        const result = assembleBrief(draftRef.current, file.name, extraction)
         setDraft(result.text)
         setAdded({ block: result.added, summary: result.summary })
         onAdded?.()
@@ -64,7 +70,7 @@ export function useBriefDocumentUpload({ draft, setDraft, onAdded }: UseBriefDoc
         setBusy(false)
       }
     },
-    [draft, setDraft, onAdded],
+    [setDraft, onAdded],
   )
 
   const removeAdded = useCallback(() => {

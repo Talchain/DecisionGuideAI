@@ -51,6 +51,19 @@ describe('BriefDocumentUpload', () => {
     expect(brief().value).toBe('Should we raise prices?')
   })
 
+  it('keeps what the user types while the file is being read', async () => {
+    render(<Harness initial="Draft" />)
+    let finish: (b: ArrayBuffer) => void = () => {}
+    const file = new File(['Starter price,£49\n'], 'slow.csv')
+    const real = new TextEncoder().encode('Starter price,£49\n').buffer as ArrayBuffer
+    Object.defineProperty(file, 'arrayBuffer', { value: () => new Promise<ArrayBuffer>((r) => (finish = r)) })
+    choose(file)
+    fireEvent.change(brief(), { target: { value: 'Draft, then more typed during the read' } })
+    finish(real)
+    await waitFor(() => expect(brief().value).toContain('From slow.csv:'))
+    expect(brief().value.startsWith('Draft, then more typed during the read\n\nFrom slow.csv:')).toBe(true)
+  })
+
   it('announces an error', async () => {
     render(<Harness initial="" />)
     choose(new File(['x'], 'notes.txt'))

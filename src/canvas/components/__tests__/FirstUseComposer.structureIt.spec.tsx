@@ -119,6 +119,18 @@ describe('FirstUseComposer — "Structure it"', () => {
     expect(screen.getByLabelText('Upload a document')).toBeTruthy()
   })
 
+  it('a view-only user sees neither the upload icon nor its feedback', async () => {
+    const { setViewerScenario } = await import('../../../lib/viewerMode')
+    setViewerScenario('scn-viewed')
+    try {
+      render(<FirstUseComposer />, { wrapper: Wrapper })
+      expect(screen.queryByTestId('brief-document-trigger')).toBeNull()
+      expect(screen.queryByTestId('brief-document-upload')).toBeNull()
+    } finally {
+      setViewerScenario(null)
+    }
+  })
+
   it('the single box is the default; "Structure it" swaps in the four labelled fields', () => {
     render(<FirstUseComposer />, { wrapper: Wrapper })
     expect(box()).toBeTruthy()

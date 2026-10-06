@@ -21,6 +21,7 @@ import { takeQueuedBriefCoachingPrefill } from './briefCoaching'
 import { requestAsk } from '../ui/inspector-v2/askSemantic'
 import { StructuredBriefFields } from './StructuredBriefFields'
 import { useBriefDocumentUpload } from './BriefDocumentUpload'
+import { useIsViewer } from '../../lib/viewerMode'
 import {
   EMPTY_BRIEF_FIELDS,
   composeStructuredBrief,
@@ -211,6 +212,8 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
   const focusInputBar = useCallback(() => inputBarRef.current?.focus(), [])
   // ROADMAP 3.8: one document read on this device into the box, appended, for the user to check.
   const briefUpload = useBriefDocumentUpload({ draft, setDraft, onAdded: focusInputBar })
+  // A view-only user gets the viewer notice instead of the box (and its paperclip), so no upload feedback either.
+  const isViewer = useIsViewer()
 
   // Two separate previous-node-count cursors: the reset effect watches
   // N → 0 transitions, the reposition effect watches 0 → N+ transitions.
@@ -714,7 +717,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
       {!isGenerating ? (
         <div className="w-full max-w-2xl flex justify-between items-start gap-3" style={{ marginTop: -16 }}>
           {/* The upload's count line, errors and privacy line; its paperclip sits inside the box. */}
-          {briefMode === 'single' ? briefUpload.feedback : <span />}
+          {briefMode === 'single' && !isViewer ? briefUpload.feedback : <span />}
           <Button
             variant="ghost"
             size="sm"

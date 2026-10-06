@@ -6,6 +6,7 @@ import { BriefIngestError, type Extraction } from './types'
 export { BriefIngestError } from './types'
 export { ACCEPT_ATTRIBUTE } from './limits'
 export type { AssembledBrief } from './assemble'
+export { assembleBrief } from './assemble'
 
 async function readBytes(file: File): Promise<ArrayBuffer> {
   if (typeof file.arrayBuffer === 'function') return file.arrayBuffer()
@@ -18,11 +19,11 @@ async function readBytes(file: File): Promise<ArrayBuffer> {
 }
 
 /**
- * Reads ONE file entirely in the browser and returns the brief with the file's
- * text appended. Nothing is uploaded: the parsers load on demand (dynamic
- * import) and run on this device. Every thrown message is written for the user.
+ * Reads ONE file entirely in the browser into located segments. Nothing is
+ * uploaded: the parsers load on demand (dynamic import) and run on this
+ * device. Every thrown message is written for the user.
  */
-export async function readBriefDocument(file: File, existing: string): Promise<AssembledBrief> {
+export async function extractBriefDocument(file: File): Promise<Extraction> {
   if (file.size > MAX_FILE_BYTES) {
     throw new BriefIngestError('This file is over 10 MB, so Olumi can’t read it.')
   }
@@ -54,9 +55,14 @@ export async function readBriefDocument(file: File, existing: string): Promise<A
       default:
         throw new BriefIngestError('Olumi can read .xlsx, .csv, .pptx and .docx files.')
     }
-    return assembleBrief(existing, file.name, extraction)
+    return extraction
   } catch (err) {
     if (err instanceof BriefIngestError) throw err
     throw new BriefIngestError("Olumi couldn't open this file. It may be damaged, or not the type its name says.")
   }
+}
+
+/** Reads a file and appends it to `existing` (extract + assemble in one step). */
+export async function readBriefDocument(file: File, existing: string): Promise<AssembledBrief> {
+  return assembleBrief(existing, file.name, await extractBriefDocument(file))
 }
