@@ -5,7 +5,8 @@
  * Olumi's stored doubt for it. Read on the RAW wire edge at ingestion (`existenceHeld`); the displays read that flag.
  *
  * Fields read (and only these): strength.mean, provenance.source, provenance.magnitude, provenance.source_quote,
- * provenance.clamped_from, provenance.definitional, provenance.natural_effect.{amount, strength_mean, stated_range.{low, high}}.
+ * provenance.clamped_from, provenance.definitional, provenance.natural_effect.{amount, amount_unit, per_source_change,
+ * per_source_change_unit, strength_mean, stated_range.{low, high}}.
  *
  * ⛔ A MIRROR, NOT AN AUTHORITY: `__tests__/fixtures/held-link-parity.json` is byte-identical to CEE's copy and both repos
  * pin its sha256 ("held-link parity fixture digest"). Register row (cut 7): move this into @talchain/schemas.
@@ -26,6 +27,19 @@ function carriesStatedSize(e: Rec, beta: number): boolean {
   return finite(clampedFrom) && near(clampedFrom, beta) && near(Math.abs(mean), 1) && Math.sign(mean) === Math.sign(beta)
 }
 
+/**
+ * CEE `currentDefinitionalCarrier`: a definitional link whose stored size is still the definition, ±1 per 1 in ONE unit
+ * string at both ends, its β still carried. A band edit keeps the flag but moves the size (Codex r1 CEE #2653).
+ */
+function isCurrentDefinition(e: Rec, p: Rec): boolean {
+  if (p.definitional !== true) return false
+  const ne = p.natural_effect
+  if (!isRec(ne) || !finite(ne.amount) || Math.abs(ne.amount) !== 1 || ne.per_source_change !== 1 || !finite(ne.strength_mean)) return false
+  const u = ne.amount_unit
+  if (typeof u !== 'string' || u.trim() === '' || ne.per_source_change_unit !== u) return false
+  return carriesStatedSize(e, ne.strength_mean)
+}
+
 /** CEE `isUserStatedLink`: the user sized it (`linkSizing` 'user'), or their brief stated it WITH its quote. */
 function isUserStatedLink(p: Rec): boolean {
   if (p.source === 'user_specified' || p.magnitude === 'user_stated') return true
@@ -42,8 +56,8 @@ export function isHeldUserLink(wireEdge: unknown): boolean {
   if (!isRec(wireEdge) || !isRec(wireEdge.provenance)) return false
   const p = wireEdge.provenance
   if (!isUserStatedLink(p)) return false
-  // CEE: the user's own definitional link holds with no range (Science d5, 6 Oct).
-  if (p.definitional === true) return true
+  // CEE: the user's own CURRENT definitional link holds with no range (Science d5, 6 Oct).
+  if (isCurrentDefinition(wireEdge, p)) return true
   const ne = p.natural_effect
   if (!isRec(ne) || !isRec(ne.stated_range)) return false
   const { low, high } = ne.stated_range

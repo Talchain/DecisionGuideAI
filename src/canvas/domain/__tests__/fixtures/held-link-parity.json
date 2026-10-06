@@ -1133,7 +1133,15 @@
      "definitional": true,
      "source": "brief_extraction",
      "magnitude": "olumi_estimate",
-     "source_quote": "<quote>"
+     "source_quote": "<quote>",
+     "natural_effect": {
+      "amount": 1,
+      "amount_unit": "£/month",
+      "per_source_change": 1,
+      "per_source_change_unit": "£/month",
+      "strength_mean": 1,
+      "strength_mean_frame": "edge_strength"
+     }
     }
    },
    "held": true
@@ -1151,7 +1159,15 @@
     "provenance": {
      "definitional": true,
      "source": "user_specified",
-     "magnitude": "user_stated"
+     "magnitude": "user_stated",
+     "natural_effect": {
+      "amount": 1,
+      "amount_unit": "£/month",
+      "per_source_change": 1,
+      "per_source_change_unit": "£/month",
+      "strength_mean": 1,
+      "strength_mean_frame": "edge_strength"
+     }
     }
    },
    "held": true
@@ -1169,7 +1185,15 @@
     "provenance": {
      "definitional": true,
      "source": "cee_hypothesis",
-     "magnitude": "olumi_estimate"
+     "magnitude": "olumi_estimate",
+     "natural_effect": {
+      "amount": 1,
+      "amount_unit": "£/month",
+      "per_source_change": 1,
+      "per_source_change_unit": "£/month",
+      "strength_mean": 1,
+      "strength_mean_frame": "edge_strength"
+     }
     }
    },
    "held": false
@@ -1188,7 +1212,67 @@
      "definitional": true,
      "source": "brief_extraction",
      "magnitude": "olumi_estimate",
-     "source_quote": " "
+     "source_quote": " ",
+     "natural_effect": {
+      "amount": 1,
+      "amount_unit": "£/month",
+      "per_source_change": 1,
+      "per_source_change_unit": "£/month",
+      "strength_mean": 1,
+      "strength_mean_frame": "edge_strength"
+     }
+    }
+   },
+   "held": false
+  },
+  {
+   "name": "not: USER BAND EDIT kept the definitional flag but moved the size (Codex r1 #2653)",
+   "edge": {
+    "from": "part",
+    "to": "total",
+    "strength": {
+     "mean": -0.3,
+     "std": 0.075
+    },
+    "exists_probability": 0.8,
+    "provenance": {
+     "definitional": true,
+     "natural_effect": {
+      "amount": 1,
+      "amount_unit": "£/month",
+      "per_source_change": 1,
+      "per_source_change_unit": "£/month",
+      "strength_mean": 1,
+      "strength_mean_frame": "edge_strength"
+     },
+     "source": "user_specified",
+     "magnitude": "user_stated"
+    }
+   },
+   "held": false
+  },
+  {
+   "name": "not: definitional flag on a link that is not ±1 per 1",
+   "edge": {
+    "from": "part",
+    "to": "total",
+    "strength": {
+     "mean": 1,
+     "std": 0.5
+    },
+    "exists_probability": 0.8,
+    "provenance": {
+     "definitional": true,
+     "natural_effect": {
+      "amount": 2,
+      "amount_unit": "£/month",
+      "per_source_change": 1,
+      "per_source_change_unit": "£/month",
+      "strength_mean": 1,
+      "strength_mean_frame": "edge_strength"
+     },
+     "source": "user_specified",
+     "magnitude": "user_stated"
     }
    },
    "held": false
