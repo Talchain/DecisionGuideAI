@@ -336,7 +336,7 @@ async function readAndMergeServerGraph(
     const computedAt = runState != null && 'computed_at' in runState ? runState.computed_at : null
     useServerConversationTurnsStore.getState().offerServerConversationTurns({
       scenarioId,
-      turns: serverTurns ?? [],
+      turns: result.scenarioId === scenarioId ? serverTurns ?? [] : (serverTurns ?? []).map(({ suggestedActions: _foreign, ...turn }) => turn),
       // Held actions belong to the response envelope, never merely to the request.
       heldProposalOffers: result.scenarioId === scenarioId ? result.heldProposalOffers : [],
       run: {
