@@ -1,0 +1,20 @@
+{
+ "_source": "record 4b + fills 1-3, local, 6 Oct 2026 (DL 0df0e1 GO; e8 #87 6006709102); tuple cee a8e69b48 plot c755127c isl d74b5f6a ui 2fc2128d; 21 calls total; green J0-J13 + ISO 2/2",
+ "goal_direction_assumed": false,
+ "enrichment_keys": [
+  "confidence_tier",
+  "critiques",
+  "decision_brief",
+  "edge_e_values",
+  "factor_sensitivity",
+  "inference_warnings",
+  "option_comparison",
+  "option_comparison_status",
+  "robustness"
+ ],
+ "placeholder_links": [
+  "price_rise_churn_mrr_loss::monthly_recurring_revenue",
+  "starter_monthly_price::starter_tier_mrr",
+  "starter_subscribers::starter_tier_mrr"
+ ]
+}
