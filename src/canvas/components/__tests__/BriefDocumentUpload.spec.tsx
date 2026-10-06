@@ -1,14 +1,18 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { useState } from 'react'
-import { BriefDocumentUpload, BRIEF_UPLOAD_COPY } from '../BriefDocumentUpload'
+import { useBriefDocumentUpload, BRIEF_UPLOAD_COPY } from '../BriefDocumentUpload'
 
 function Harness({ initial }: { initial: string }) {
   const [draft, setDraft] = useState(initial)
+  const { trigger, feedback } = useBriefDocumentUpload({ draft, setDraft })
   return (
     <>
-      <textarea aria-label="brief" value={draft} onChange={(e) => setDraft(e.target.value)} />
-      <BriefDocumentUpload draft={draft} setDraft={setDraft} />
+      <div data-testid="box">
+        <textarea aria-label="brief" value={draft} onChange={(e) => setDraft(e.target.value)} />
+        {trigger}
+      </div>
+      {feedback}
     </>
   )
 }
@@ -25,6 +29,14 @@ describe('BriefDocumentUpload', () => {
     expect(input.multiple).toBe(false)
     expect(input.accept).toBe('.xlsx,.csv,.pptx,.docx,.pdf')
     expect(screen.getByText(BRIEF_UPLOAD_COPY.privacy)).toBeTruthy()
+  })
+
+  it('is an icon inside the box, with its name for screen readers and a hover hint', () => {
+    render(<Harness initial="" />)
+    const trigger = screen.getByTestId('brief-document-trigger')
+    expect(screen.getByTestId('box').contains(trigger)).toBe(true)
+    expect(trigger.getAttribute('title')).toBe(BRIEF_UPLOAD_COPY.hint)
+    expect(trigger.querySelector('svg')).not.toBeNull()
   })
 
   it('appends the file’s text to what the user wrote, and can remove exactly that', async () => {
