@@ -17,7 +17,7 @@ import { formatThresholdFigure } from './thresholdFigure'
 import type { UnsizedPathAsk } from '../strengthen/strengthenTypes'
 
 import { isSuppressedUnit } from '../../../canvas/utils/labelUtils'
-import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
+import { GOAL_ANCHOR_COPY, GOAL_CHANCE_LABEL } from '../utils/goalAnchorCopy'
 
 /**
  * Stands in for a label that cannot be safely interpolated into a generated
@@ -1922,8 +1922,8 @@ export const ANALYSIS_NEW_COPY = {
    * question either answers, which is worse than one. So the goal figure is
    * NAMED and the comparative one is named beside it, and neither ships alone.
    *
-   * ⚠ SUPERSEDED 29 Sep (AIQ #72 5885033487): the label is now the register's
-   * "Share of model runs that reach the target". The note below is kept for provenance.
+   * ⚠ SUPERSEDED 6 Oct (#87): the label now shares the Analysis hero's earned
+   * goal-chance wording. The note below is kept for provenance.
    * ⚠ "Reaches your target" IS POSSESSIVE ON PURPOSE. It names the target the
    * USER set, which is the only case this surface renders (a substituted joint
    * figure is suppressed upstream rather than relabelled — see the view model).
@@ -1940,8 +1940,8 @@ export const ANALYSIS_NEW_COPY = {
     /** Model-scale axis ends: direction only, no numbers (#2133 omits the ticks). */
     axisLower: 'Lower',
     axisHigher: 'Higher',
-    // AIQ #72 5885033487 / 5885116642: a goal figure is a share of model runs; the register's label.
-    goalLabel: GOAL_ANCHOR_COPY.label(false),
+    // #87, 6 Oct: the earned figure shares the Analysis hero's per-option goal-chance wording.
+    goalLabel: GOAL_CHANCE_LABEL,
     winLabel: 'Highest in this model',
     /**
      * ⭐ SAYS WHAT THE PICTURE IS, AND NOTHING ELSE. It states that the segments

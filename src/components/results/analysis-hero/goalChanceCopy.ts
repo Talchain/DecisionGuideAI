@@ -9,6 +9,7 @@
  */
 import type { GoalChanceComparator, GoalChanceDriver, GoalChanceDriverNames, GoalChanceLicence } from '../utils/goalChanceLicence'
 import { formatGoalTarget } from '../utils/formatGoalTarget'
+import { GOAL_CHANCE_LABEL } from '../utils/goalAnchorCopy'
 
 const COMPARATOR_WORDS: Readonly<Record<GoalChanceComparator, string>> = {
   at_least: 'at least',
@@ -91,7 +92,7 @@ export function goalChanceOptionLines(
     }
     // P3: what this option's chance rests on most follows its own line, when CEE named one that can be worded.
     const driver = driverLines[id]
-    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} chance of meeting your goal, in this model.`
+    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} ${GOAL_CHANCE_LABEL}.`
       + (driver === undefined ? '' : ` ${driver}`))
   }
   return lines

@@ -182,6 +182,9 @@ export const GOAL_ANCHOR_COPY = {
     'Goal fit unlocks when the engine returns per-option goal probabilities for this run.',
 } as const
 
+/** #87, 6 Oct: the Analysis hero's earned per-option wording, shared with the Reasoning Goal fit lens. */
+export const GOAL_CHANCE_LABEL = 'chance of meeting your goal, in this model'
+
 /**
  * The C-register — the comparative quantity, described by what it measures.
  *
