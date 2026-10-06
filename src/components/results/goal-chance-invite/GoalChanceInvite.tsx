@@ -16,6 +16,7 @@ import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { goalTargetSettlementNotice } from '../../../canvas/conversation/goalTargetEdit'
 import { SuccessTargetLine } from '../analysisNew/sections/SuccessTargetLine'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNew/analysisNewCopy'
+import { typography } from '@/styles/typography'
 import { formatGoalTarget } from '../utils/formatGoalTarget'
 import { GOAL_CHANCE_INVITE, type GoalChanceInvite as Invite } from './readGoalChanceInvite'
 
@@ -47,7 +48,7 @@ export function GoalChanceInvite({ invite, goalLabel }: GoalChanceInviteProps) {
       showToast(outcome === 'dispatched' ? COPY.successTarget.dispatched : COPY.successTarget.notEncodable)
     }
     return (
-      <div data-testid="goal-chance-invite" data-invite-kind={invite.kind} className="flex flex-col gap-2 py-2 text-sm">
+      <div data-testid="goal-chance-invite" data-invite-kind={invite.kind} className={`flex flex-col gap-2 py-2 ${typography.panelBody}`}>
         <p data-testid="goal-chance-invite-text">{GOAL_CHANCE_INVITE.direction(target)}</p>
         <div className="flex flex-wrap gap-2">
           <button type="button" data-testid="goal-chance-invite-at-least" className={BUTTON} onClick={() => choose('at_least')}>
@@ -62,7 +63,7 @@ export function GoalChanceInvite({ invite, goalLabel }: GoalChanceInviteProps) {
   }
 
   return (
-    <div data-testid="goal-chance-invite" data-invite-kind={invite.kind} className="flex flex-col gap-1 py-2 text-sm">
+    <div data-testid="goal-chance-invite" data-invite-kind={invite.kind} className={`flex flex-col gap-1 py-2 ${typography.panelBody}`}>
       <p data-testid="goal-chance-invite-text">{GOAL_CHANCE_INVITE.target(goalLabel)}</p>
       <SuccessTargetLine
         goalNodeId={invite.goalNodeId}
