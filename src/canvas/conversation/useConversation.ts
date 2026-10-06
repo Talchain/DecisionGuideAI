@@ -608,10 +608,11 @@ async function runStreamedDraftTurn(args: {
   scenarioIdAtDispatch: string | null
   headers: Record<string, string>
   signal: AbortSignal
+  onRequestStarted?: () => void
   /** The reload's read (`recoverDraftFromServer`), ONCE; true only when it applied this turn's committed model. */
   readBackCommittedDraft?: () => Promise<boolean>
 }): Promise<StreamedDraftTurnResult> {
-  const { payload, turnClientId, scenarioIdAtDispatch, headers, signal, readBackCommittedDraft } = args
+  const { payload, turnClientId, scenarioIdAtDispatch, headers, signal, onRequestStarted, readBackCommittedDraft } = args
   useDraftStore.getState().setDraftStreamPhase('drafting', turnClientId, scenarioIdAtDispatch)
 
   // ⚠ THERE IS DELIBERATELY NO LOCAL `previewRendered` FLAG.
@@ -693,7 +694,7 @@ async function runStreamedDraftTurn(args: {
     // to close. Fail-closed toward honesty.
     let result: V5CallResult
     try {
-      result = await callV5Turn(payload, { signal, headers })
+      result = await callV5Turn(payload, { signal, headers, onRequestStarted })
     } catch (e) {
       if (previewOnCanvas) {
         useDraftStore
@@ -763,7 +764,7 @@ async function runStreamedDraftTurn(args: {
   // it measures the turn the user waited for, not the frame parse.
   const streamStartedAt = Date.now()
   try {
-    res = await openV5TurnStream(payload, { headers, signal })
+    res = await openV5TurnStream(payload, { headers, signal, onRequestStarted })
   } catch (e) {
     // The stream never opened, so nothing ran server-side and nothing committed.
     if ((e as Error)?.name === 'AbortError' || signal.aborted) {
@@ -4715,7 +4716,8 @@ export function useConversation(): UseConversationReturn {
       let streamedPreviewOwnsCanvas = false
       let streamedUnsettledCause: 'stream_loss' | 'terminal_error_model_kept' | undefined
       let deliveryRequestId: string | undefined
-      let transportInvoked = false
+      let requestNotStarted = true
+      const onRequestStarted = () => { requestNotStarted = false }
 
       try {
         // Resolve session identity once — X-User-Id + Authorization Bearer
@@ -4883,7 +4885,6 @@ export function useConversation(): UseConversationReturn {
         let v5Result: V5CallResult
         let missingGraphAfterFallback = false
         let recoveredBeforeResend = false
-        transportInvoked = true
         if (useStreamedDraft) {
           const streamed = await runStreamedDraftTurn({
             payload: build.payload,
@@ -4891,6 +4892,7 @@ export function useConversation(): UseConversationReturn {
             scenarioIdAtDispatch,
             headers: v5Headers,
             signal: controller.signal,
+            onRequestStarted,
             // Stream closed without a final turn: the reload's read, under the same guards as the recovery below.
             readBackCommittedDraft: async () =>
               (await recoverDraftFromServer({
@@ -4915,7 +4917,7 @@ export function useConversation(): UseConversationReturn {
           streamedUnsettledCause = streamed.unsettledCause
           missingGraphAfterFallback = streamed.missingGraphAfterFallback === true
         } else {
-          v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers })
+          v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers, onRequestStarted })
         }
         clearLifecycleTimers()
 
@@ -5398,8 +5400,8 @@ export function useConversation(): UseConversationReturn {
                 : unverified
                   ? 'unconfirmed'
                   : 'failed',
-            ...(unverified && !deliveryProvenByFrame
-              ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}),
+            deliveryRequestId: unverified && !deliveryProvenByFrame ? deliveryRequestId : undefined,
+            deliveryScenarioId: unverified && !deliveryProvenByFrame ? scenarioIdAtDispatch : undefined,
           })
         }
 
@@ -6442,23 +6444,27 @@ export function useConversation(): UseConversationReturn {
         // Timeout-triggered aborts render their own bubble (above). User
         // stops and concurrent cancellations are silent by design.
         if (!isAbort && mode === 'user' && !hidden) {
-          // Only a throw before invoking transport proves that no send began.
+          // A call is not a send: only the transport's fetch boundary clears
+          // requestNotStarted. Error names and elapsed time prove nothing.
           if (userBubbleIdForTurn) {
-            updateMessage(userBubbleIdForTurn, { deliveryState: transportInvoked ? 'unconfirmed' : 'failed',
-              ...(transportInvoked ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}) })
+            updateMessage(userBubbleIdForTurn, {
+              deliveryState: requestNotStarted ? 'failed' : 'unconfirmed',
+              deliveryRequestId: requestNotStarted ? undefined : deliveryRequestId,
+              deliveryScenarioId: requestNotStarted ? undefined : scenarioIdAtDispatch,
+            })
           }
           addMessage({
             id: crypto.randomUUID(),
             role: 'assistant',
             synthetic: true,
             content: buildTransportFailureCopy({ network: true,
-              ...(!transportInvoked ? { requestNotStarted: true as const } : {}) }, !transportInvoked),
-            actionChips: transportInvoked ? [] : [{ id: 'retry', label: 'Try again', intent: 'primary' }],
-            ...(transportInvoked ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}),
+              ...(requestNotStarted ? { requestNotStarted: true as const } : {}) }, requestNotStarted),
+            actionChips: requestNotStarted ? [{ id: 'retry', label: 'Try again', intent: 'primary' }] : [],
+            ...(!requestNotStarted ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}),
             timestamp: new Date(),
           })
           if (inputForRestore) {
-            setLastSendFailure({ kind: 'transport', retryable: !transportInvoked, inputText: inputForRestore })
+            setLastSendFailure({ kind: 'transport', retryable: requestNotStarted, inputText: inputForRestore })
           }
         }
         if (!isAbort && mode === 'system') {

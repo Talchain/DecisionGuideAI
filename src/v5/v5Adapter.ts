@@ -89,6 +89,8 @@ function resolveEndpoint(): string {
 export interface V5CallOptions {
   signal?: AbortSignal;
   headers?: Record<string, string>;
+  /** Called only at the fetch boundary, after request construction succeeds. */
+  onRequestStarted?: () => void;
   /** Injected for tests; defaults to global fetch. */
   fetchImpl?: typeof fetch;
 }
@@ -124,8 +126,7 @@ export async function callV5Turn(
   let requestStarted = false;
   try {
     const body = JSON.stringify(payload);
-    requestStarted = true;
-    res = await fetchFn(url, {
+    const init: RequestInit = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -134,7 +135,10 @@ export async function callV5Turn(
       },
       body,
       signal: opts.signal,
-    });
+    };
+    opts.onRequestStarted?.();
+    requestStarted = true;
+    res = await fetchFn(url, init);
   } catch (e) {
     const err = e as Error;
     // Preserve AbortError so callers can distinguish user-initiated cancel
