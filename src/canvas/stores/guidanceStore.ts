@@ -335,10 +335,12 @@ export interface GuidanceState {
   _registrationToken: object | null
   /**
    * SD-1 Slice R (CEE #2654): the Run whose DELIVERED record the items on screen were adopted from, or null when they
-   * came from a live turn, this browser's session, or nothing. Set only by `adoptDeliveredGuidance`; every authoring
-   * writer (`setGuidanceItems`, a successful `rehydrateGuidance`, `clearGuidanceItems`) resets it.
+   * came from a live turn, this browser's session, or nothing. Persisted and restored with the items; live authoring
+   * and clearing reset it.
    */
   deliveredFrom?: { readonly scenarioId: string; readonly runId: string } | null
+  /** Page-local live authorship, including a turn that delivered NO cards. Never restored from storage. */
+  liveGuidanceAuthored: boolean
 }
 
 export interface GuidanceActions {
@@ -406,8 +408,8 @@ export interface GuidanceActions {
   /**
    * SD-1 Slice R (CEE #2654): adopt the guidance a Run's turn DELIVERED, served on a reload or a second device under
    * the read's own proof (the boot leg: canvas proven equal to the Run's graph, `complete_current`, the record bound to
-   * the served Run). Adopts ONLY into an empty store, or over items adopted from ANOTHER Run's record: a live turn in
-   * this page, or this browser's own session items, always win. Idempotent for the same Run. Mints the persisted
+   * the served Run). A live turn authored in this page always wins, including an empty result. Restored session
+   * guidance can be replaced by the current Run's record. Idempotent for the same Run. Mints the persisted
    * blob, like a turn (the canvas IS the Run's graph here). Returns the number of items now held from this Run (0 =
    * refused).
    */
@@ -426,6 +428,7 @@ const initialGuidanceState: GuidanceState = {
   _prefillChat: null,
   _registrationToken: null,
   deliveredFrom: null,
+  liveGuidanceAuthored: false,
 }
 
 // ---------------------------------------------------------------------------
@@ -476,6 +479,8 @@ interface PersistedGuidance {
   /** UI-side graph hash AT WRITE TIME — compared only against another UI-side hash. */
   graphHashAtWrite: string | null
   items: GuidanceItem[]
+  /** Missing in older blobs; null means session guidance rather than a delivered Run record. */
+  deliveredFrom?: GuidanceState['deliveredFrom']
 }
 
 function readPersistedGuidance(): PersistedGuidance | null {
@@ -491,6 +496,10 @@ function readPersistedGuidance(): PersistedGuidance | null {
       scenarioId: parsed.scenarioId,
       graphHashAtWrite: typeof parsed.graphHashAtWrite === 'string' ? parsed.graphHashAtWrite : null,
       items: parsed.items as GuidanceItem[],
+      deliveredFrom: parsed.deliveredFrom?.scenarioId === parsed.scenarioId &&
+        typeof parsed.deliveredFrom.runId === 'string' && parsed.deliveredFrom.runId.length > 0
+        ? { scenarioId: parsed.deliveredFrom.scenarioId, runId: parsed.deliveredFrom.runId }
+        : null,
     }
   } catch {
     return null
@@ -535,6 +544,8 @@ let guidanceContextProvider: (() => GuidancePersistenceContext) | null = null
 /** Install the context provider (called once, from the canvas boot path). */
 export function setGuidancePersistenceContext(provider: (() => GuidancePersistenceContext) | null): void {
   guidanceContextProvider = provider
+  // The canvas removes this provider on page unmount. Live precedence belongs only to that page.
+  if (!provider) useGuidanceStore.setState({ liveGuidanceAuthored: false })
 }
 
 /**
@@ -567,7 +578,7 @@ export function setGuidancePersistenceContext(provider: (() => GuidancePersisten
  * its first half. Do not re-derive this from the window alone — derive it from
  * the writers.
  *
- * Only `setGuidanceItems` — a turn delivering guidance — is authorship. Every
+ * `setGuidanceItems` and bound delivered-record adoption mint authorship. Every
  * other path INHERITS the stamp from the blob already on disk, and where it
  * cannot (no blob, or a blob for another decision) it writes `null`, which the
  * adoption gate treats as unverifiable and therefore stale. Fail closed.
@@ -592,7 +603,8 @@ function persistCurrent(items: GuidanceItem[], opts: { minting: boolean }): void
     clearPersistedGuidance()
     return
   }
-  if (items.length === 0) {
+  const deliveredFrom = useGuidanceStore.getState().deliveredFrom ?? null
+  if (items.length === 0 && !deliveredFrom) {
     // An empty store is a REAL state (a structural edit cleared guidance), and
     // it must survive a reload as emptiness. Writing nothing would leave the
     // previous blob on disk for the next boot to adopt — the resurrection this
@@ -615,6 +627,7 @@ function persistCurrent(items: GuidanceItem[], opts: { minting: boolean }): void
     scenarioId: ctx.scenarioId,
     graphHashAtWrite,
     items,
+    deliveredFrom,
   })
 }
 
@@ -631,9 +644,10 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
         ? activeGuidanceItemId
         : null,
       deliveredFrom: null,
+      liveGuidanceAuthored: true,
     })
     // AUTHORSHIP — a turn delivered these items against the graph as it is
-    // now, so this is the one call site that mints a new `graphHashAtWrite`.
+    // now, so mint a new `graphHashAtWrite`, as bound delivery adoption does.
     persistCurrent(items, { minting: true })
   },
 
@@ -642,7 +656,7 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
     // confident lie about the user's model; the cost of adopting nothing is the
     // behaviour that shipped before this existed.
     if (!scenarioId) return 0
-    if (get().guidanceItems.length > 0) return 0 // a live turn already won; never overwrite it
+    if (get().liveGuidanceAuthored || get().guidanceItems.length > 0) return 0 // this page already holds guidance
     const stored = readPersistedGuidance()
     if (!stored) return 0
     if (stored.scenarioId !== scenarioId) {
@@ -674,11 +688,11 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
       return true
     })
 
-    if (fresh.length === 0) {
+    if (fresh.length === 0 && !(stored.items.length === 0 && stored.deliveredFrom)) {
       clearPersistedGuidance()
       return 0
     }
-    set({ guidanceItems: fresh, activeGuidanceItemId: null, deliveredFrom: null })
+    set({ guidanceItems: fresh, activeGuidanceItemId: null, deliveredFrom: stored.deliveredFrom ?? null, liveGuidanceAuthored: false })
     // Re-persist the SURVIVORS, so a second reload cannot resurrect an item this
     // one just evicted (the stored blob must always match the store).
     // NOT authorship: these items were authored by an earlier turn and have
@@ -700,19 +714,18 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
       }
       if (onScreen !== scenarioId) return 0
     }
-    const { guidanceItems, deliveredFrom } = get()
+    const { guidanceItems, deliveredFrom, liveGuidanceAuthored } = get()
+    if (liveGuidanceAuthored) return 0
     if (deliveredFrom && deliveredFrom.scenarioId === scenarioId && deliveredFrom.runId === runId) return guidanceItems.length
-    // A live turn (or this browser's own session items) already shows guidance: never overwrite it.
-    if (guidanceItems.length > 0 && !deliveredFrom) return 0
-    set({ guidanceItems: items, activeGuidanceItemId: null, deliveredFrom: { scenarioId, runId } })
+    set({ guidanceItems: items, activeGuidanceItemId: null, deliveredFrom: { scenarioId, runId }, liveGuidanceAuthored: false })
     // AUTHORSHIP, like a turn: these items were delivered over the graph now on screen (the boot proof), so this mints
-    // `graphHashAtWrite`. An empty record clears the blob: "this Run delivered none" is a positive state.
+    // `graphHashAtWrite`. Persist even an empty record: "this Run delivered none" has a delivery identity too.
     persistCurrent(items, { minting: true })
     return items.length
   },
 
   clearGuidanceItems: () => {
-    set({ guidanceItems: [], activeGuidanceItemId: null, deliveredFrom: null })
+    set({ guidanceItems: [], activeGuidanceItemId: null, deliveredFrom: null, liveGuidanceAuthored: false })
     // Structural edits reach here. Clearing on screen but leaving the blob on
     // disk would let the next reload re-adopt advice about the PRE-edit model —
     // the single most damaging thing this store could do.

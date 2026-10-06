@@ -135,10 +135,63 @@ describe('Slice R · the guidance store adopts a delivered record without overwr
 
   beforeEach(() => {
     sessionStorage.clear()
-    useGuidanceStore.setState({ guidanceItems: [], activeGuidanceItemId: null, deliveredFrom: null })
+    useGuidanceStore.setState({ guidanceItems: [], activeGuidanceItemId: null, deliveredFrom: null, liveGuidanceAuthored: false })
     setGuidancePersistenceContext(() => ({ scenarioId: SCENARIO, graphHash: 'ui-hash-1' }))
   })
   afterEach(() => setGuidancePersistenceContext(null))
+
+  const reload = () => {
+    // Page memory disappears; the sessionStorage blob written by the real store survives.
+    useGuidanceStore.setState({ guidanceItems: [], activeGuidanceItemId: null, deliveredFrom: null, liveGuidanceAuthored: false })
+    return useGuidanceStore.getState().rehydrateGuidance({ scenarioId: SCENARIO, currentAnalysisHash: null, currentGraphHash: 'ui-hash-1' })
+  }
+
+  it.each([
+    ['non-empty', [turnItem]],
+    ['empty', []],
+  ] as const)('reload restores delivery origin and a different Run replaces it with a %s record', (_label, incoming) => {
+    useGuidanceStore.getState().adoptDeliveredGuidance({ scenarioId: SCENARIO, runId: RUN, items: items() })
+    expect(JSON.parse(sessionStorage.getItem('guidance.items.v1')!)).toMatchObject({
+      scenarioId: SCENARIO, deliveredFrom: { scenarioId: SCENARIO, runId: RUN }, items: items(),
+    })
+    expect(reload()).toBe(items().length)
+    expect(useGuidanceStore.getState().deliveredFrom).toStrictEqual({ scenarioId: SCENARIO, runId: RUN })
+    expect(useGuidanceStore.getState().liveGuidanceAuthored).toBe(false)
+
+    expect(useGuidanceStore.getState().adoptDeliveredGuidance({ scenarioId: SCENARIO, runId: 'run_newer', items: [...incoming] })).toBe(incoming.length)
+    expect(useGuidanceStore.getState().guidanceItems).toStrictEqual(incoming)
+    expect(useGuidanceStore.getState().deliveredFrom).toStrictEqual({ scenarioId: SCENARIO, runId: 'run_newer' })
+    // The replacement (including zero cards) also survives a second reload with its identity.
+    expect(reload()).toBe(incoming.length)
+    expect(useGuidanceStore.getState().guidanceItems).toStrictEqual(incoming)
+    expect(useGuidanceStore.getState().deliveredFrom).toStrictEqual({ scenarioId: SCENARIO, runId: 'run_newer' })
+  })
+
+  it('a live turn delivering zero cards prevents an older delivered record from resurrecting cards', () => {
+    useGuidanceStore.getState().adoptDeliveredGuidance({ scenarioId: SCENARIO, runId: RUN, items: items() })
+    useGuidanceStore.getState().setGuidanceItems([])
+    expect(useGuidanceStore.getState().liveGuidanceAuthored).toBe(true)
+    expect(useGuidanceStore.getState().adoptDeliveredGuidance({ scenarioId: SCENARIO, runId: RUN, items: items() })).toBe(0)
+    expect(useGuidanceStore.getState().guidanceItems).toStrictEqual([])
+    expect(useGuidanceStore.getState().deliveredFrom).toBeNull()
+  })
+
+  it('rehydrated session guidance is not a live turn authored in this page (including older blobs without origin)', () => {
+    sessionStorage.setItem('guidance.items.v1', JSON.stringify({ version: 1, scenarioId: SCENARIO, graphHashAtWrite: 'ui-hash-1', items: [turnItem] }))
+    expect(reload()).toBe(1)
+    expect(useGuidanceStore.getState().liveGuidanceAuthored).toBe(false)
+    expect(useGuidanceStore.getState().adoptDeliveredGuidance({ scenarioId: SCENARIO, runId: RUN, items: items() })).toBe(items().length)
+    expect(useGuidanceStore.getState().guidanceItems).toStrictEqual(items())
+  })
+
+  it('page unmount resets empty live-turn precedence', () => {
+    useGuidanceStore.getState().setGuidanceItems([])
+    setGuidancePersistenceContext(null)
+    setGuidancePersistenceContext(() => ({ scenarioId: SCENARIO, graphHash: 'ui-hash-1' }))
+    expect(useGuidanceStore.getState().liveGuidanceAuthored).toBe(false)
+    expect(useGuidanceStore.getState().adoptDeliveredGuidance({ scenarioId: SCENARIO, runId: RUN, items: items() })).toBe(items().length)
+    expect(useGuidanceStore.getState().guidanceItems).toStrictEqual(items())
+  })
 
   it('⭐ RED: an EMPTY store (a second device) adopts the Run\'s cards and persists them', () => {
     const n = useGuidanceStore.getState().adoptDeliveredGuidance({ scenarioId: SCENARIO, runId: RUN, items: items() })
