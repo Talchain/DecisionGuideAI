@@ -76,9 +76,9 @@ describe('the artefact mounted in the existing Compare body', () => {
     expect(row).toHaveTextContent('£59 → £60')
     // Reasoning's shared row; the wire fields it renders are named once, on its section.
     expect(row.closest('[data-wire-fields]')).toHaveAttribute('data-wire-fields', expect.stringContaining('run_delta.input_changes[].before'))
-    expect(screen.queryByText('Raise to £60: support across simulated runs 41% → 44%.')).toBeNull()
+    expect(screen.queryByText('Raise to £60: supported by 41% → 44% of runs.')).toBeNull()
     fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.getByText('Raise to £60: support across simulated runs 41% → 44%.')).toHaveAttribute(
+    expect(screen.getByText('Raise to £60: supported by 41% → 44% of runs.')).toHaveAttribute(
       'data-wire-fields', expect.stringContaining('run_delta.win_probabilities[].current'),
     )
     expect(screen.getByTestId('compare-comparability')).toHaveTextContent('Whether a change to the model explains anything below cannot be established from this pair.')

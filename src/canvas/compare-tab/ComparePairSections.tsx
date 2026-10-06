@@ -13,7 +13,7 @@ import {
 } from '../../components/results/analysisNew/sections/WhatsChanged'
 import type { RunChangeArtefact } from './runChangeArtefact'
 import { RUN_CHANGE_ARTEFACT_TESTID } from './RunChangeArtefactCard'
-import { CompareSupportFigures, orderMovements, SUPPORT_LABEL, type OptionCanvasLink } from './CompareSupportFigures'
+import { CompareSupportFigures, orderMovements, type OptionCanvasLink } from './CompareSupportFigures'
 
 const INPUT_FIELDS = 'run_delta.input_changes[].entity_id run_delta.input_changes[].option_id run_delta.input_changes[].link run_delta.input_changes[].before run_delta.input_changes[].after run_delta.input_coverage'
 const LEADER_FIELDS = 'run_delta.leader.changed run_delta.leader.prior_leading_option_id run_delta.leader.current_leading_option_id run_delta.leader.noise_verdict'
@@ -141,7 +141,7 @@ export function ComparePairSections({
             <ul className={`${typography.panelBody} text-text-body list-none p-0 m-0 space-y-2`}>
               {orderMovements(view.movements, designationsWithheld).map((m) => (
                 <li key={m.optionId} data-option-id={m.optionId} data-wire-fields="run_delta.win_probabilities[].option_id run_delta.win_probabilities[].prior run_delta.win_probabilities[].current run_delta.win_probabilities[].noise_verdict">
-                  {m.label ?? 'An option this run does not name'}: {m.mayShowMagnitude ? `${SUPPORT_LABEL.toLowerCase()} ${scienceQuantityText('probability', m.prior, exact, false)} → ${scienceQuantityText('probability', m.current, exact, false)}.` : noiseQualifier(m.noiseVerdict)}
+                  {m.label ?? 'An option this run does not name'}: {m.mayShowMagnitude ? `supported by ${scienceQuantityText('probability', m.prior, exact, false)} → ${scienceQuantityText('probability', m.current, exact, false)} of runs.` : noiseQualifier(m.noiseVerdict)}
                   {m.mayShowMagnitude && noiseQualifier(m.noiseVerdict) ? <span className={`${typography.panelMeta} text-text-light block`}>{noiseQualifier(m.noiseVerdict)}</span> : null}
                 </li>
               ))}

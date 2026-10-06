@@ -26,8 +26,6 @@ import { sortOptionsForDisplay } from '../../components/results/utils/optionDisp
 /** Options shown before "Show N more" — enough for most decisions, short enough to keep the changes in view. */
 export const OPTIONS_SHOWN_FIRST = 3
 export const COMPARE_SUPPORT_TESTID = 'compare-support'
-/** What each figure is: a share of simulated runs, never a chance and never a placing (6 Oct rule, Science d5). */
-export const SUPPORT_LABEL = 'Support across simulated runs'
 
 /** An option's link to its node on the canvas, or `null` when the canvas has no node for it now. */
 export type OptionCanvasLink = (optionId: string) => { focus: () => void; on: () => void; off: () => void } | null
@@ -104,7 +102,7 @@ export function CompareSupportFigures({ movements, designationsWithheld, optionL
   const anyFigure = shown.some((m) => m.mayShowMagnitude)
   return (
     <div className="mt-3" data-testid={COMPARE_SUPPORT_TESTID}>
-      <p className={`${typography.panelMeta} text-text-light m-0`}>{SUPPORT_LABEL}</p>
+      <p className={`${typography.panelMeta} text-text-light m-0`}>Support across simulated runs</p>
       {anyFigure ? <Legend /> : null}
       <ul className="list-none p-0 mt-1 mb-0" data-testid={`${WHATS_CHANGED_TESTID}-movements`}>
         {shown.map((m) => <OptionRow key={m.optionId} m={m} link={optionLink(m.optionId)} />)}
