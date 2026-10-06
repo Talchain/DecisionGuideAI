@@ -106,3 +106,28 @@ function existenceOf(v: unknown): GoalChanceLicence['userLinkExistence'] {
   if (v.one_in === undefined) return { links: v.links, oneIn: null }
   return typeof v.one_in === 'number' && Number.isInteger(v.one_in) && v.one_in >= 2 ? { links: v.links, oneIn: v.one_in } : null
 }
+
+/**
+ * ⭐ D3 cut 5 (Codex r1 #2551 finding 4): whether the hero's goal-chance arm may speak — a user target, and the goal figures
+ * are not each a joint with limits (`buildHeroModel`'s own gate, held here once so the existence line has ONE home: under
+ * the hero's chance lines when this is true, under the WinGauge goal rows otherwise — never both, never neither).
+ */
+export function goalChanceHeroArmOpen(
+  goalThreshold: number | null | undefined,
+  options: ReadonlyArray<{ goalProbability?: number | null; constraintAnalysis?: { constraints?: readonly unknown[] } | null }>,
+): boolean {
+  const bearing = options.filter((o) => o.goalProbability != null)
+  const hasConstraints = bearing.length > 0 && bearing.every((o) => (o.constraintAnalysis?.constraints?.length ?? 0) > 0)
+  return goalThreshold != null && !hasConstraints
+}
+
+/**
+ * c6/d5's words (cut 5), said ONCE beside the chance lines: the chances also count Olumi's existence prior on the user's
+ * own links. CEE's fraction (`oneIn`), never computed; mixed values say it is Olumi's estimate for each. `null` otherwise.
+ */
+export function goalChanceExistenceLine(licence: GoalChanceLicence | null): string | null {
+  const e = licence?.userLinkExistence ?? null
+  if (e === null) return null
+  const which = e.oneIn !== null ? `a 1-in-${e.oneIn} chance each` : 'Olumi’s estimate for each'
+  return `These chances also count Olumi’s own assumption that each of your links might not hold (${which}).`
+}
