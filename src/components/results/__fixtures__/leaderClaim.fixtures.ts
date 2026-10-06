@@ -40,8 +40,9 @@ export const ALT_LABEL = 'Two Mid-Level Developers at £70k Each'
  * footer — see `renderPanel` in the results-side spec for why sweeping both
  * would make the assertion satisfiable only by deleting the honest half.
  */
+// Cut 6: "the most-supported option" presupposes a leader exactly as "the leading option" did.
 export const LEADER_CLAIM_RE =
-  /leading option|likely leader|could gain ground|could overtake|leads instead|your recommendation|the recommendation|came out best|comes? out best|runs supported|runs (?:would|could|still) support|most runs (?:still )?supported|was supported by .{0,12} of runs|more runs than any other option|of them support|runs in this model support|the most runs|be supported by the most runs/i
+  /leading option|likely leader|could gain ground|could overtake|leads instead|your recommendation|the recommendation|came out best|comes? out best|runs supported|runs (?:would|could|still) support|most runs (?:still )?supported|was supported by .{0,12} of runs|more runs than any other option|of them support|runs in this model support|the most runs|be supported by the most runs|most-supported option/i
 
 /**
  * ⚠ WHY `leads instead` AND NOT `\bleads\b`, AND WHY THE BOUND IS WRITTEN DOWN.

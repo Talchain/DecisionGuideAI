@@ -422,7 +422,7 @@ describe('one signal, one primary surface', () => {
     expect(vm.keyInsights.insights.map((i) => i.id)).toContain('insight:hinge')
   })
 
-  it('⛔ WITHHELD RANKING: no hinge insight — "Chance another option leads" presupposes a leader', () => {
+  it('⛔ WITHHELD RANKING: no hinge insight — "Changes the most-supported option" presupposes one', () => {
     const base = decisionWithLeaderWithheld()
     const withheld = {
       ...base,

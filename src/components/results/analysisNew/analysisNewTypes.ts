@@ -1170,6 +1170,11 @@ export type ChecksCode =
   /** `verdict.hasLeadingOption === true`. */
   | 'leader_present'
   /**
+   * Permitted, but the top two run shares are within 10 pts (`runSharesSimilar`, J4): the row says the options were
+   * supported by similar shares of runs, never that one had more. Same glyph state as `leader_present`.
+   */
+  | 'leader_similar_shares'
+  /**
    * `separation === 'tied'` — the ONLY state that licenses an affirmative
    * denial. `decisionVerdict.ts:166-168`: "`false` — surfaces must NOT badge,
    * and MAY say 'no clear leading option' (only when `separation === 'tied'`;

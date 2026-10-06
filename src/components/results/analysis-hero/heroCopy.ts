@@ -221,7 +221,7 @@ export const HERO_COPY = {
       // one as a subline. Two copies of one claim is how the four goal
       // surfaces drifted apart in the first place.
       HERO_COPY.headline.outcomeLeader(label, readout),
-    aligned: (label: string) => `${label} also has the strongest expected outcome.`,
+    aligned: (label: string) => `${label}’s expected outcome points the same way, in this model.`,
     /**
      * Banding state B subline (producer band or UI-SEM-060 fallback): the
      * runner-up is named from the SAME rendered outcome ranking the chart
@@ -564,7 +564,8 @@ export const HERO_COPY = {
      * and must be re-derived before it ships again.
      */
     attributionSuppressed:
-      "How much each factor moves an option's chance of coming out ahead wasn't produced for " +
+      // Science d5 ruling (#87 6007954023): a run share, never a chance, and no contest verb.
+      "How much each factor moves the share of runs supporting each option wasn't produced for " +
       'this run — this analysis models these factors as moving together, so their separate ' +
       "contributions can't be told apart. The ranking above is unaffected.",
     /**
@@ -579,10 +580,12 @@ export const HERO_COPY = {
      * One function of the verdict, not two sibling constants: a `…Withheld`
      * twin beside it would be a hand-maintained mirror (trap 12).
      */
+    // Science d5 (#87 6007969474): a share of runs, never a chance. The withheld caption is for a target-only withhold
+    // (the comparison is kept); where the ordering is withheld the probabilities are stripped, so no caption renders.
     flipRisksNote: (designationsWithheld: boolean) =>
       designationsWithheld
-        ? 'Chance the comparison between options changes when a relationship is varied within its plausible range.'
-        : 'Chance the leading option changes when a relationship is varied within its plausible range.',
+        ? 'Share of runs in which varying a relationship within its plausible range changes how the options compare, in this model.'
+        : 'Share of runs in which varying a relationship within its plausible range changes the most-supported option, in this model.',
     /**
      * ROADMAP 2.291 — the flip-threshold sentences and tokens DELEGATE to
      * `utils/flipThresholdDisplay`'s register (one-copy guarantee, same

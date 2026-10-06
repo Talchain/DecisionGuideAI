@@ -55,7 +55,8 @@ import {
  * matcher targets the unconditional leader NOUN and the verb phrases that
  * only make sense when a current leader exists.
  */
-const LEADER_PRESUPPOSITION_RE = /leading option|likely leader|the leader\b/i
+// Cut 6: "the most-supported option" presupposes one exists exactly as "the leading option" did, so it is hunted too.
+const LEADER_PRESUPPOSITION_RE = /leading option|likely leader|the leader\b|most-supported option/i
 
 /** Two producer flip thresholds: one WITH an alternative winner, one without. */
 const FLIP_THRESHOLDS = [
@@ -161,14 +162,14 @@ describe('heroCopy.evidence — the three flip-risk strings', () => {
    */
   it('PERMITTED: every string is byte-identical to today', () => {
     expect(HERO_COPY.evidence.flipRisksNote(false)).toBe(
-      'Chance the leading option changes when a relationship is varied within its plausible range.',
+      'Share of runs in which varying a relationship within its plausible range changes the most-supported option, in this model.',
     )
     expect(
       HERO_COPY.evidence.flipRiskWithAlternative('Team capacity', 'falls below', '30%', 'Upskill', false),
-    ).toBe('If Team capacity falls below 30%, Upskill becomes the likely leader.')
+    ).toBe('If ‘Team capacity’ falls below about 30%, ‘Upskill’ becomes the most-supported option, in this model.')
     expect(
       HERO_COPY.evidence.flipRiskNoAlternative('Salary cost', 'rises above', '$60,000', false),
-    ).toBe('If Salary cost rises above $60,000, the leading option is likely to change.')
+    ).toBe('If ‘Salary cost’ rises above about $60,000, the most-supported option changes, in this model.')
   })
 })
 
@@ -218,8 +219,8 @@ describe('buildHeroModel — flip-risk rows quote the verdict', () => {
 
   it('PERMITTED: the built sentences are byte-identical to today', () => {
     expect(flipTexts(PERMITTED_VERDICT)).toEqual([
-      'If Team capacity falls below 30%, Upskill the current team becomes the likely leader.',
-      'If Salary cost rises above $60,000, the leading option is likely to change.',
+      'If ‘Team capacity’ falls below about 30%, ‘Upskill the current team’ becomes the most-supported option, in this model.',
+      'If ‘Salary cost’ rises above about $60,000, the most-supported option changes, in this model.',
     ])
   })
 })

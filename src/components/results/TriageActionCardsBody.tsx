@@ -17,7 +17,7 @@
  */
 
 import { useMemo, memo, useState, type ReactNode } from 'react'
-import { leaderDesignationPermitted } from './leaderDesignation'
+import { leaderDesignationPermitted, runSharesSimilar } from './leaderDesignation'
 // MAY THIS PANEL NAME A LEADER? The shared three-answer claim policy. The
 // footer below reads `leaderDesignationPermitted` directly because it needs
 // the tri-state for its own `unknown` glyph; the PROSE sites read
@@ -634,7 +634,7 @@ function T1DominantNudge({
   // not see it. A tooltip and a screen-reader announcement are the product
   // speaking.
   const trailingClause = useV17Copy && !leaderClaimWithheld(data.recommendation)
-    ? 'If your assumptions about this factor are wrong, the leading option could change.'
+    ? 'If your assumptions about this factor are wrong, the most-supported option could change.'
     : 'If your assumptions about this factor are wrong, the result could change.'
   // (Round-5 P1.1) v17 mode: the dominant factor's label is user data and
   // still appears VERBATIM in the visible identity span. But when the same
@@ -778,6 +778,14 @@ function T1ChecksFooter({
   const winnerUndetermined =
     verdict != null
     && (verdict.separation === 'unknown' || (!hasWinner && verdict.separation !== 'tied'))
+  // ⭐ RT-17 (red team #87 6008162592; Science d5 #87 6008176400): a WITHHELD near tie said "not assessed" beside a
+  // hero saying the results overlap. The shares still ride the wire, so where the figures may be shown and the top two
+  // are within 10 pts the row states that data fact (not a leader claim, not the 'tied' denial). Same gate as
+  // `buildAnalysisNewViewModel`'s leader code. A withheld gap of 10 or more stays not assessed.
+  const withheldSimilarShares =
+    winnerUndetermined
+    && analysisClaimPolicy(data.recommendation).mayShowComparativeFigures === true
+    && runSharesSimilar(verdict)
   // Robustness glyph: driven ONLY by the display-safe robustness verdict
   // (`robustnessVerdict`) — never PLoT `report.robustness.level`, never the
   // UI-SEM-005 stability fallback, never a recommendationStability threshold.
@@ -900,12 +908,17 @@ function T1ChecksFooter({
   // these two labels.
   // Principle audit (5 Oct): the leader check is a FINDING about this model, never a pass or a fail, so it reads in the
   // Reasoning tab's own model-relative words (`analysisNewCopy.ts`) beside a neutral marker (`neutral` below).
-  const winnerOkLabel = 'In this model, one option is most likely'
-  const winnerNotOkLabel = 'In this model, no option is clearly most likely'
+  // J4 (DL, 6 Oct): "more runs than any other" is true at a 0.1-pt gap, so within 10 pts of the next run share the
+  // row says the shares were similar instead (`runSharesSimilar`, the same rule as `ANALYSIS_NEW_COPY.checks`).
+  const winnerOkLabel = runSharesSimilar(verdict)
+    ? 'In this model, the options were supported by similar shares of runs'
+    : 'In this model, one option was supported by more runs than any other'
+  // RT-17 (red team #87 6008162592; Science d5 #87 6008176400): the run-share check never speaks of a goal chance.
+  const winnerNotOkLabel = 'In this model, no option was supported by clearly more runs than the others'
   // States the check could not be determined. It is NOT a third verdict about
   // the options — it is the absence of one, which is why it must not read like
   // "No clear leader" (a finding) nor like "Has leading option".
-  const winnerUndeterminedLabel = 'Which option is most likely in this model: not assessed'
+  const winnerUndeterminedLabel = 'Which option most runs supported, in this model: not assessed'
 
   return (
     <div className="border-t border-panel-border pt-3" data-testid="t1-checks-footer">
@@ -922,12 +935,12 @@ function T1ChecksFooter({
       </p>
       <div className={`flex items-center flex-wrap gap-x-3 gap-y-1 ${typography.panelMeta} text-text-light`}>
         <ChecksGlyph
-          ok={hasWinner}
-          unknown={winnerUndetermined}
-          okLabel={winnerOkLabel}
+          ok={hasWinner || withheldSimilarShares}
+          unknown={winnerUndetermined && !withheldSimilarShares}
+          okLabel={withheldSimilarShares ? 'In this model, the options were supported by similar shares of runs' : winnerOkLabel}
           notOkLabel={winnerUndetermined ? winnerUndeterminedLabel : winnerNotOkLabel}
           title={
-            winnerUndetermined
+            winnerUndetermined && !withheldSimilarShares
               ? 'This run did not carry a leader verdict, so the analysis makes no claim either way.'
               : undefined
           }

@@ -504,7 +504,7 @@ describe('rankActOnItRows — the risk row does not name a leader the run withhe
       'risk-n_f',
     ).reason
 
-  const NAMES = 'If the estimate changes for Hiring rate, the leading option could change.'
+  const NAMES = 'If the estimate changes for Hiring rate, the most-supported option could change.'
   const WITHHOLDS = 'If the estimate changes for Hiring rate, the result could change.'
 
   it('WITHHELD — says "the result", not "the leading option"', () => {
@@ -517,6 +517,7 @@ describe('rankActOnItRows — the risk row does not name a leader the run withhe
     // Bind by the CLAIM, not just the whole string: a future rewording must
     // not reintroduce the definite description by another route.
     expect(reason).not.toContain('leading option')
+    expect(reason).not.toContain('most-supported option')
     expect(reason).not.toContain('recommended option')
   })
 
@@ -541,6 +542,7 @@ describe('rankActOnItRows — the risk row does not name a leader the run withhe
     const reason = rowByKey(rankActOnItRows(data, NOT_READY), 'risk-n_f').reason
     expect(reason).toBe(WITHHOLDS)
     expect(reason).not.toContain('leading option')
+    expect(reason).not.toContain('most-supported option')
   })
 
   it('the three arms are genuinely discriminating', () => {
@@ -561,7 +563,7 @@ describe('rankActOnItRows — §3 fragile/risk row copy', () => {
     )
     const risk = rowByKey(rows, 'risk-n_f')
     expect(risk.reason).toBe(
-      'If the estimate changes for Hiring rate, the leading option could change.',
+      'If the estimate changes for Hiring rate, the most-supported option could change.',
     )
     // Anti-drift on every prior copy + glossary regression.
     expect(risk.reason).not.toContain('Check this first')
@@ -586,7 +588,7 @@ describe('rankActOnItRows — §3 fragile/risk row copy', () => {
       )
       const risk = rowByKey(rows, 'risk-n_f')
       expect(risk.reason).toBe(
-        'If the estimate changes for this factor, the leading option could change.',
+        'If the estimate changes for this factor, the most-supported option could change.',
       )
       // Verb prefix never composes with an empty label ("Verify " + nothing).
       expect(risk.title).toBe('Verify this factor')
@@ -601,7 +603,7 @@ describe('rankActOnItRows — §3 fragile/risk row copy', () => {
     )
     const risk = rowByKey(rows, 'risk-n_f')
     expect(risk.reason).toBe(
-      'If the estimate changes for this factor, the leading option could change.',
+      'If the estimate changes for this factor, the most-supported option could change.',
     )
     expect(risk.chatPrompt).toBe(
       'Help me with this factor. Ask one focused question first, then suggest the smallest useful update.',
@@ -618,7 +620,7 @@ describe('rankActOnItRows — §3 fragile/risk row copy', () => {
       )
       const risk = rowByKey(rows, 'risk-n_x')
       expect(risk.reason).toBe(
-        `If the estimate changes for ${label}, the leading option could change.`,
+        `If the estimate changes for ${label}, the most-supported option could change.`,
       )
       // The label appears verbatim — no silent truncation.
       expect(risk.reason).toContain(label)

@@ -57,7 +57,7 @@ import { resolveElementLabel } from '../../../domain/elementLabel'
 // for the question this module's own sibling export answers. The duplicate owner
 // was not hidden; it was on the next line of an existing import.
 import { canCaptureGoalTarget, resolveGoalTarget, type GoalTargetSource } from '../../../domain/goalTarget'
-import { constraintRestatesGoalTarget } from '../../../domain/goalOwnTargetRow'
+import { constraintRestatesGoalTarget, heldTargetBoundWords } from '../../../domain/goalOwnTargetRow'
 import { GoalConstraintProvenance } from '../shared/GoalConstraintProvenance'
 import {
   SuccessTargetLine,
@@ -544,7 +544,8 @@ export const GoalPanel = memo(function GoalPanel({
   const panelStatesTarget = targetDisplay != null && (readOnly || showsTargetReadout)
   const listedConstraints = (Array.isArray(goalConstraints) ? goalConstraints : [])
     .map((c, index) => ({ c, index }))
-    .filter(({ c }) => !(panelStatesTarget && constraintRestatesGoalTarget(c, nodeId, resolvedTarget)))
+    .filter(({ c }) => !(panelStatesTarget && constraintRestatesGoalTarget(c, nodeId,
+      resolvedTarget && { ...resolvedTarget, comparator: (node?.data as GoalTargetSource | undefined)?.goal_direction })))
   const hasConstraints = listedConstraints.length > 0
 
   /**
@@ -756,7 +757,9 @@ export const GoalPanel = memo(function GoalPanel({
                   ? (changeBound !== null
                     ? `Success means going ${changeBound}`
                     : 'Success is a change from today \u2014 its bound was not captured')
-                  : <>Success means reaching {'\u2265'} {targetDisplay}</>}
+                  : heldTargetBoundWords(node?.data as GoalTargetSource | undefined) !== null
+                    ? <>Success means {heldTargetBoundWords(node?.data as GoalTargetSource | undefined)} {targetDisplay}</>
+                    : <>Success means reaching {'\u2265'} {targetDisplay}</>}
               </p>
               {/* Contextual probability when analysis exists */}
               {targetProbabilityLine}

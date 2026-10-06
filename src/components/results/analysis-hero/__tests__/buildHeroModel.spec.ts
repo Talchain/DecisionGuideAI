@@ -362,7 +362,7 @@ describe('buildHeroModel — leaders and headline', () => {
     // Make the recommended option also the outcome leader.
     const b = makeOption({ ...OPTION_B, expected: 90, outcome: { ...OPTION_B.outcome, mean: 90 } })
     const m = chart(buildHeroModel(makeHeroData({ options: [OPTION_A, b] })))
-    expect(m.subline).toBe('Upskill the team also has the strongest expected outcome.')
+    expect(m.subline).toBe('Upskill the team’s expected outcome points the same way, in this model.')
   })
 
   it('recommended id missing from analysed rows still crowns the goal argmax (recovered-session guard)', () => {
@@ -1485,7 +1485,7 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
     const m = chart(buildHeroModel(makeHeroData()))
     expect(m.evidence.flipRisks).toEqual([
       {
-        text: 'If Team capacity falls below 30%, Two developers becomes the likely leader.',
+        text: 'If ‘Team capacity’ falls below about 30%, ‘Two developers’ becomes the most-supported option, in this model.',
         targetId: 'fac_capacity',
         switchMeta: null,
         magnitude: null,
@@ -1501,7 +1501,7 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
     } })))
     expect(m.evidence.flipRisks).toEqual([
       {
-        text: 'If Salary cost rises above $60,000, the leading option is likely to change.',
+        text: 'If ‘Salary cost’ rises above about $60,000, the most-supported option changes, in this model.',
         targetId: 'fac_salary',
         switchMeta: null,
         magnitude: null,
@@ -1516,7 +1516,7 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
       ],
     } })))
     expect(m.evidence.flipRisks[0].text).toBe(
-      'If Team capacity crosses 40%, the leading option is likely to change.',
+      'If ‘Team capacity’ crosses about 40%, the most-supported option changes, in this model.',
     )
   })
 

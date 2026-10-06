@@ -110,7 +110,7 @@ export const PANEL_COPY = {
   advancedTitle: 'Advanced',
   advancedMeta: 'analysis set-up',
   advancedRelationshipNote: 'More technical relationship detail will appear here when available.',
-  bestNextStep: 'Best next step',
+  bestNextStep: 'Suggested next step',
 } as const
 
 /**

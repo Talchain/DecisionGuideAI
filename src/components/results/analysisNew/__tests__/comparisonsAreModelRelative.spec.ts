@@ -185,8 +185,10 @@ describe('What would change your mind', () => {
     expect(rows).toHaveLength(1)
     expectModelRelative(
       rows[0]!.headline,
-      'Peak Fulfilment Capacity could change which option leads in this model',
+      'Peak Fulfilment Capacity could change how the options compare in this model',
     )
+    // Contest-word class (c6, cut 5; CEE twin #2630): the row names no leader.
+    expect(rows[0]!.headline).not.toMatch(/\b(leads?|leader|ahead|best|wins?|winner)\b/i)
   })
 })
 
@@ -250,10 +252,11 @@ describe('the fragile-edge fallback sentence', () => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Inspect rows: "Chance the answer changes"
+// Inspect rows: the share of runs that changes the most-supported option (Science d5, #87 6007954023)
 // ─────────────────────────────────────────────────────────────────────────────
 describe('inspect rows', () => {
-  const CHANCE = 'Chance another option leads in this model'
+  // Was "Chance another option leads in this model": a run share said as a chance, with a contest verb.
+  const CHANCE = 'Changes the most-supported option in this model'
 
   it('the hinge insight', () => {
     const vm = build(
@@ -278,6 +281,9 @@ describe('inspect rows', () => {
       for (const phrase of RETIRED) expect(label).not.toMatch(phrase)
     }
     expectModelRelative(labels.find((l) => l === CHANCE)!, CHANCE)
+    // A share of runs, said as one: never a bare percentage, never a chance, no contest verb.
+    expect(hinge!.inspect.find((r) => r.label === CHANCE)?.value).toBe('31% of runs')
+    for (const label of labels) expect(label).not.toMatch(/\bchance\b|\bleads\b/i)
   })
 
   it('a driver row carrying fragile-edge data', () => {
@@ -330,7 +336,7 @@ describe('inspect rows', () => {
 
     const permitted = build(withFragileDriver(genuineDecision())).drivers.findings[0]
     expect(permitted, 'the permitted driver row did not build').toBeDefined()
-    expect(permitted!.inspect.find((r) => r.label === CHANCE)?.value).toBe('31%')
+    expect(permitted!.inspect.find((r) => r.label === CHANCE)?.value).toBe('31% of runs')
 
     const withheld = build(withFragileDriver(decisionWithLeaderWithheld())).drivers.findings[0]
     expect(withheld, 'the withheld driver row did not build — the absence below would be vacuous').toBeDefined()
@@ -356,7 +362,8 @@ describe('key insights', () => {
     const vm = build(makeData({ confidence: { conditionalWinners: [cw] } }))
     const insight = vm.keyInsights.insights.find((i) => i.id === 'insight:conditional-winner:fac_demand')
     expect(insight, 'the conditional-split insight did not build').toBeDefined()
-    expectModelRelative(insight!.headline, 'In this model, which option leads depends on Demand growth')
+    expectModelRelative(insight!.headline, 'In this model, how the options compare depends on Demand growth')
+    expect(insight!.headline).not.toMatch(/\b(leads?|leader|ahead|best|wins?|winner)\b/i)
   })
 })
 
@@ -400,8 +407,8 @@ import { humaniseCritique } from '../../utils/humaniseCritique'
 
 describe('compute-degradation notices never speak of "the recommendation"', () => {
   it.each([
-    ['E_VALUES_UNAVAILABLE', 'The check on how wrong your assumptions could be before a different option leads in this model didn\'t run.'],
-    ['FACTOR_FLIPS_UNAVAILABLE', 'How far each factor would have to move before a different option leads in this model wasn\'t computed.'],
+    ['E_VALUES_UNAVAILABLE', 'The check on how wrong your assumptions could be before a different option is the most supported in this model didn\'t run.'],
+    ['FACTOR_FLIPS_UNAVAILABLE', 'How far each factor would have to move before a different option is the most supported in this model wasn\'t computed.'],
   ])('%s is stated against the model', (code, lead) => {
     const { title, description } = humaniseCritique({ code, message: '' } as never)
     expect(title.startsWith(lead), title).toBe(true)
@@ -409,7 +416,8 @@ describe('compute-degradation notices never speak of "the recommendation"', () =
   })
   it('E_VALUES_UNAVAILABLE description says what it does not affect, in model-relative terms', () => {
     const { description } = humaniseCritique({ code: 'E_VALUES_UNAVAILABLE', message: '' } as never)
-    expect(description).toContain('It does not affect which option leads in this model, the probabilities')
+    expect(description).toContain('It does not affect which option is the most supported in this model, the probabilities')
+    expect(description).not.toMatch(/\bleads\b/i)
   })
 })
 
@@ -421,8 +429,10 @@ import { DECISION_RECORD_COPY } from '../../modals/DecisionRecordModal'
 
 describe('check labels and the decision record carry no answer framing', () => {
   it('leader check labels are model-relative', () => {
-    expect(ANALYSIS_NEW_COPY.checks.leader_present.label).toBe('In this model, one option is most likely')
-    expect(ANALYSIS_NEW_COPY.checks.leader_tied.label).toBe('In this model, no option is clearly most likely')
+    expect(ANALYSIS_NEW_COPY.checks.leader_present.label).toBe('In this model, one option was supported by more runs than any other')
+    // J4: within 10 pts of the next run share, no ranking word at all.
+    expect(ANALYSIS_NEW_COPY.checks.leader_similar_shares.label).toBe('In this model, the options were supported by similar shares of runs')
+    expect(ANALYSIS_NEW_COPY.checks.leader_tied.label).toBe('In this model, no option was supported by clearly more runs than the others')
   })
   it('the decision-record placeholder asks for the person\'s own reason, not why it is "the best"', () => {
     expect(DECISION_RECORD_COPY.rationalePlaceholder).toBe('Why you chose this option')

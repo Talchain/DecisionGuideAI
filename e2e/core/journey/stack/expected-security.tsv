@@ -1,0 +1,6 @@
+# X7 known SECURITY defects (Integrator, 5 Oct). Applies to schema-assert.sql class SECURITY only;
+# a REQUIRED row can never be listed. Key = exact "<signature, types only> · <role> · <privilege>",
+# so a new definer, or another role or privilege on the same function, stays RED.
+# A listed row that FAILS prints "KNOWN SECURITY DEFECT n · key · owner" in every run summary.
+# A listed row that no longer fails is STALE and RED: the fix landed, so DELETE the line.
+# key	owner	evidence

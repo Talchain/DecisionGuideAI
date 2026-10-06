@@ -50,7 +50,7 @@ export interface ExamineLinkView {
 export const EXAMINE_LINK_HEADING = 'Examine this link'
 export const EXAMINE_LINK_ACTION = 'Examine with Olumi'
 export const EXAMINE_LINK_LIMIT =
-  'Olumi will ask what you know. Say how strong you think it is, for example “strong” or “weak”. Nothing changes until you approve it.'
+  'Olumi will ask what you know. Say how strong you think it is, for example “strong” or “slight”. Nothing changes until you approve it.'
 
 export const EXAMINE_LINK_WHY: Readonly<Record<ExamineLinkBasis, string>> = Object.freeze({
   example: 'This is an example figure, not a figure about your situation. Change it to see how much it matters.',

@@ -32,6 +32,7 @@ import { readLimitVerdicts } from '../state/storedLimitVerdicts'
 import { producerMarksAnalysisUnusable } from '../../lib/coherence/crossSurfaceCoherence'
 import { heldRunIsNotCurrentPerRead } from '../hydrate/serverGraphHydration'
 import { resolveGoalTarget, type GoalTargetSource } from '../domain/goalTarget'
+import { heldTargetBoundWords } from '../domain/goalOwnTargetRow'
 import { goalTargetSourceMark, factorValueSourceMark, type ValueSourceMarkKind } from '../nodes/shared/valueSourceMark'
 import { goalConstraintText } from '../utils/goalConstraintText'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
@@ -365,8 +366,10 @@ export function buildDecisionBrief(read: SavedScenarioRead, decisionRecord: Deci
     const targetText = (() => {
       if (target == null) return null
       const n = typeof target.raw === 'number' ? target.raw : Number(target.raw)
-      if (Number.isNaN(n)) return String(target.raw)
-      return formatGoalTarget(n, target.unit, target.frame) ?? String(target.raw)
+      const figure = Number.isNaN(n) ? String(target.raw) : formatGoalTarget(n, target.unit, target.frame) ?? String(target.raw)
+      // SD-1: a goal that holds a ceiling says so, from its own `goal_direction` (the one source).
+      const bound = heldTargetBoundWords(data)
+      return bound === null ? figure : `${bound} ${figure}`
     })()
     goal = {
       nodeId: goalNode.id,

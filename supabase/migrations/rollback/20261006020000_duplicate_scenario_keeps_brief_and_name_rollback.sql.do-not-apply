@@ -1,0 +1,51 @@
+-- ============================================================
+-- duplicate_scenario keeps brief + name — rollback companion
+-- Matches: 20261006020000_duplicate_scenario_keeps_brief_and_name_20261006.sql
+-- Status: DO NOT APPLY automatically (the `.do-not-apply` suffix keeps migration tooling off it).
+-- ============================================================
+--
+-- Restores the one-argument function exactly as 20260306000000_auth_hub_profiles.sql §1.4 defined it (no
+-- search_path, unqualified `scenarios`), with its grants. Copies already made keep their brief and name: rows are
+-- never rewritten, in either direction.
+--
+-- ⚠ ORDER: a UI that sends `p_title` fails against the restored one-argument function (PostgREST finds no match), so
+-- revert the UI caller (scenarioService.duplicateScenario) BEFORE applying this.
+--
+-- ⚠ GRANTS: if the forward pre-check found a `proacl` other than the one this file restores, restore THAT one instead.
+
+DROP FUNCTION IF EXISTS public.duplicate_scenario(uuid, text);
+
+CREATE OR REPLACE FUNCTION duplicate_scenario(p_scenario_id UUID)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY INVOKER
+AS $$
+DECLARE
+  v_new_id UUID;
+BEGIN
+  INSERT INTO scenarios (
+    user_id, title, scenario_schema_version, stage,
+    graph, framing, source_scenario_id
+  )
+  SELECT
+    auth.uid(),
+    COALESCE(title, 'Untitled decision') || ' (copy)',
+    scenario_schema_version,
+    'frame',
+    graph,
+    framing,
+    p_scenario_id
+  FROM scenarios
+  WHERE id = p_scenario_id AND user_id = auth.uid()
+  RETURNING id INTO v_new_id;
+
+  IF v_new_id IS NULL THEN
+    RAISE EXCEPTION 'Scenario not found or not owned by user';
+  END IF;
+
+  RETURN v_new_id;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION duplicate_scenario FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION duplicate_scenario TO authenticated;

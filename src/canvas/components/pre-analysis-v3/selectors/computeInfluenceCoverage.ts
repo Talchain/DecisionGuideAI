@@ -11,6 +11,7 @@
  */
 
 import type { Node } from '@xyflow/react'
+import { factorReviewRecorded } from '../../../domain/valueProvenance'
 
 /**
  * The transition bridge's historical reviewed-source set. Narrower than
@@ -33,7 +34,8 @@ export function isTransitionBridgeReviewed(node: Node): boolean {
     | Record<string, unknown>
     | undefined
   const source = os?.source as string | undefined
-  return source !== undefined && TRANSITION_BRIDGE_REVIEWED_SOURCES.has(source)
+  // SD-1 (Codex buddy #2543 r2): CEE's review record counts as reviewed, as it does for "to verify".
+  return (source !== undefined && TRANSITION_BRIDGE_REVIEWED_SOURCES.has(source)) || factorReviewRecorded(nd)
 }
 
 export interface InfluenceCoverageResult {

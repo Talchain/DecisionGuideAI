@@ -68,6 +68,7 @@ import { INSPECTOR_RULE, inspectorButton, inspectorSectionHighlight } from '../i
 import { resolveElementLabel } from '../../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable, edgeDirectionEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
 import { serverStatedStrengthOf } from '../../../conversation/edgeServerStatedStrength'
+import { takeEdgeEditRefusalText } from '../../../conversation/pendingEdgeEdit'
 import { formatNumber } from '../../../utils/formatValueWithUnit'
 import { isQuestionAssumptionEnabled } from '../../../../flags'
 import { ScienceQuantity } from '../../../../components/science/ScienceQuantity'
@@ -617,8 +618,15 @@ export const EdgePanel = memo(function EdgePanel({
    */
   const handleStrengthSendSettled = useCallback(
     (settlement: SystemEventSendSettlement, detail?: SystemEventSendSettlementDetail) =>
-      setStrengthEditSend({ ts: Date.now(), settlement, fenceCopy: fenceCopyOf(settlement, detail) }),
-    [],
+      setStrengthEditSend({
+        ts: Date.now(),
+        settlement,
+        // ⭐ F1: a move CEE refused (proven by the reply, `pendingEdgeEdit.ts`) has already been reverted on the pill;
+        // the line says CEE's own words ("This link holds your figure: …"), never only "Not recorded".
+        fenceCopy: fenceCopyOf(settlement, detail)
+          ?? (settlement === 'refused' && edgeId ? takeEdgeEditRefusalText(edgeId) : null),
+      }),
+    [edgeId],
   )
 
   /**

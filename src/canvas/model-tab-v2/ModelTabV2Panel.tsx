@@ -127,7 +127,8 @@ import { focusEdgeById, focusNodeById } from '../utils/focusHelpers'
 import { resolveValueInputSeed } from '../conversation/factorValueEdit'
 import { buildEdgeStrengthEditEvent, edgeStrengthEditChangesNothing, edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
-import { resolveGoalTarget, declaredGoalUnit } from '../domain/goalTarget'
+import { declaredGoalUnit } from '../domain/goalTarget'
+import { goalTargetBound, goalTargetComparator, goalTargetEditDirection, resolveGoalTargetWithOwnRow } from '../domain/goalOwnTargetRow'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
 import {
   CANONICAL_EDIT_AUTHORITY,
@@ -980,7 +981,8 @@ export function ModelTabV2Panel({
       const node = nodes.find(n => n.id === rowId)
       if (!node) return
       if (row.kind === 'goal') {
-        const target = resolveGoalTarget(node.data)
+        // SD-1 (a8 census DGAI row 2): the target CEE resolves (the node's, else its own limit row) and the side it holds.
+        const target = resolveGoalTargetWithOwnRow(node.data as Parameters<typeof resolveGoalTargetWithOwnRow>[0], goalConstraints, node.id)
         setEdit({ rowId, phase: 'editing', draft: target ? String(target.raw) : '',
           /**
            * ⛔⛔ THE UNIT IS THE GOAL'S, NOT THE TARGET'S — and this line read
@@ -1006,13 +1008,13 @@ export function ModelTabV2Panel({
            * better where one does not.
            */
           unit: declaredGoalUnit(node.data as Parameters<typeof declaredGoalUnit>[0]),
-          // Seeded, not defaulted. `at_least` is the bound this surface has
-          // always recorded, so opening the editor changes nothing until the
-          // reader says otherwise; what changes is that they can now SEE which
-          // one it is, and pick the other.
-          direction: 'at_least',
+          // Seeded, not defaulted: the side the goal HOLDS (`goal_direction`, else its own row's comparator), so
+          // opening and saving a ceiling never restates it as a floor (SD-1; it was a hard `at_least`). A goal that
+          // holds no side opens on `at_least`, the bound this surface has always recorded.
+          direction: goalTargetEditDirection(goalTargetComparator(
+            node.data as Parameters<typeof goalTargetComparator>[0], goalConstraints, node.id)),
           scenarioId: authority.captureScenarioId(),
-          from: target ? `${target.raw}${target.unit ? ` ${target.unit}` : ''}` : 'Not set' })
+          from: target ? `${goalTargetBound(target) ? `${goalTargetBound(target)} ` : ''}${target.raw}${target.unit ? ` ${target.unit}` : ''}` : 'Not set' })
         return
       }
       // THE one seed rule (`resolveValueInputSeed`, default `raw_or_value`
@@ -1027,7 +1029,7 @@ export function ModelTabV2Panel({
         from: row.primaryValue ?? 'Not set',
       })
     },
-    [rows, nodes, edges, authority, selectRow],
+    [rows, nodes, edges, authority, selectRow, goalConstraints],
   )
 
   const changeDraft = useCallback((rowId: string, draft: string, unit?: string, direction?: ConstraintType) => {

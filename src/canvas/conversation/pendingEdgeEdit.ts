@@ -111,6 +111,61 @@ const entryKey = (edgeId: string, kind: EdgeEditKind) => `${kind}\u0000${edgeId}
 type Listener = () => void
 const listeners = new Set<Listener>()
 
+/**
+ * ⭐ F1 (red team #87 6006627551; DL ruling, cut 5) — A STRENGTH MOVE ANSWERED AT THE SAME ANALYSIS HASH DID NOT LAND.
+ *
+ * CEE refuses a move on a link that holds the user's own figure with a 200 and its own words ("This link holds your
+ * figure: …") and writes nothing. A 200 alone proves nothing (audit 31880193: keep the number, say we cannot
+ * confirm). What DOES prove it: the reply's `graph_hash` — CEE's analysis-affecting projection, which reads every
+ * link strength — equals the hash the canvas held when it sent (`lastServerGraphHash`, captured on the send), while
+ * the send MOVED the server-stated strength. The model provably does not hold the move, so the pill must not keep
+ * showing it: the settlement reverts it and the panel shows CEE's own words. A stale or absent base never matches, so
+ * every other reply fails closed to today's `'unverified'`.
+ */
+const producerRefusals = new Map<string, { readonly sentMagnitude: number; readonly sentDirection?: 'positive' | 'negative'; readonly text: string }>()
+/** The producer's words for the latest refused strength edit on each link, read once by the panel. */
+const refusalTextByEdge = new Map<string, string>()
+
+export interface AnsweredEdgeEdit {
+  readonly edgeId: string
+  readonly sentMagnitude: number
+  readonly sentDirection?: 'positive' | 'negative'
+  /** `lastServerGraphHash` when the edit was sent; absent/null = no claim possible. */
+  readonly baseGraphHash?: string | null
+}
+
+/** Whether this reply PROVES the in-flight strength move did not land (see the block above). */
+export function edgeEditAnsweredUnmoved(edit: AnsweredEdgeEdit, responseGraphHash: unknown): boolean {
+  const base = edit.baseGraphHash
+  if (typeof base !== 'string' || base.length === 0 || responseGraphHash !== base) return false
+  const entry = inFlight.get(entryKey(edit.edgeId, kindOf(edit.sentDirection)))
+  if (!entry || entry.sentMagnitude !== edit.sentMagnitude || entry.sentDirection !== edit.sentDirection) return false
+  // The ORIGINAL pre-edit data — what the server held when the first unanswered edit left.
+  const stated = serverStatedStrengthOf(entry.before as Record<string, unknown>)
+  if (!stated) return false
+  return Math.abs(stated.mean) !== edit.sentMagnitude
+    || (edit.sentDirection !== undefined && stated.effect_direction !== edit.sentDirection)
+}
+
+/** Record the producer's refusal of this exact in-flight edit; its settlement then reverts it. */
+export function noteEdgeEditNotApplied(edit: AnsweredEdgeEdit, text: string): void {
+  const key = entryKey(edit.edgeId, kindOf(edit.sentDirection))
+  const entry = inFlight.get(key)
+  if (!entry || entry.sentMagnitude !== edit.sentMagnitude || entry.sentDirection !== edit.sentDirection) return
+  producerRefusals.set(key, {
+    sentMagnitude: edit.sentMagnitude,
+    ...(edit.sentDirection !== undefined ? { sentDirection: edit.sentDirection } : {}),
+    text: text.trim(),
+  })
+}
+
+/** The producer's words for the latest refused strength edit on `edgeId`, once; `null` if none. */
+export function takeEdgeEditRefusalText(edgeId: string): string | null {
+  const text = refusalTextByEdge.get(edgeId) ?? null
+  refusalTextByEdge.delete(edgeId)
+  return text
+}
+
 function emit(): void {
   for (const l of [...listeners]) l()
 }
@@ -153,6 +208,7 @@ export function markEdgeEditInFlight(
   if (!edgeId || !Number.isFinite(sentMagnitude)) return
   const key = entryKey(edgeId, kindOf(sentDirection))
   const prior = inFlight.get(key)
+  producerRefusals.delete(key)
   // A newer edit of the SAME KIND keeps the ORIGINAL pre-edit data of the edit
   // it replaces: that is what the server still holds while both are
   // unanswered. The rule is the same for both kinds, because with per-kind
@@ -394,6 +450,17 @@ export function resolveEdgeEditSettlement(
     settleEdgeEdit(edgeId, sentMagnitude, sentDirection)
     return 'refused'
   }
+  // ⭐ F1: the reply proved the move did not land (`edgeEditAnsweredUnmoved`) — a proven no-write, so the same
+  // revert as a refusal, and the panel says the producer's own words.
+  const key = entryKey(edgeId, kindOf(sentDirection))
+  const refusedByProducer = producerRefusals.get(key)
+  if (refusedByProducer && refusedByProducer.sentMagnitude === sentMagnitude && refusedByProducer.sentDirection === sentDirection) {
+    producerRefusals.delete(key)
+    revertEdgeEdit(entry)
+    settleEdgeEdit(edgeId, sentMagnitude, sentDirection)
+    if (refusedByProducer.text !== '') refusalTextByEdge.set(edgeId, refusedByProducer.text)
+    return 'refused'
+  }
   // 'sent' — for a direction edit the SIGN must be the model's too: a flip
   // keeps `|mean|`, so the magnitude alone is already true before it lands.
   const edge = useCanvasStore.getState().edges.find((e) => e.id === edgeId)
@@ -419,5 +486,7 @@ export function subscribePendingEdgeEdits(listener: Listener): () => void {
 /** Test-only: forget every pending edge edit. */
 export function __resetPendingEdgeEditsForTest(): void {
   inFlight.clear()
+  producerRefusals.clear()
+  refusalTextByEdge.clear()
   emit()
 }

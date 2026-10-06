@@ -45,7 +45,7 @@ import { formatThresholdFigure } from './thresholdFigure'
 import { conditionalInputBasis } from './conditionalInputBasis'
 import { classifyUnit } from '../../../utils/unitClassifier'
 import { truncateAtWordBoundary } from '../../../utils/text'
-import { leaderDesignationPermitted, rankingWasWithheld } from '../leaderDesignation'
+import { leaderDesignationPermitted, rankingWasWithheld, runSharesSimilar } from '../leaderDesignation'
 import { isSuppressedUnit } from '../../../canvas/utils/labelUtils'
 import { analysisClaimPolicy } from '../analysisClaimPolicy'
 import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysisReady'
@@ -370,6 +370,21 @@ const pct = (v: number): string => `${Math.round(v * 100)}%`
 const pctOrNull = (v: number | null | undefined): string | null =>
   typeof v === 'number' && Number.isFinite(v) ? pct(v) : null
 
+/**
+ * A SHARE OF RUNS, said as one (Science d5, #87 6007954023): PLoT's `switch_probability` is the share of runs in which
+ * varying a link changes the most-supported option. It is never a chance, so it never renders as a bare percentage.
+ */
+const runsPctOrNull = (v: number | null | undefined): string | null => {
+  const p = pctOrNull(v)
+  return p === null ? null : `${p} of runs`
+}
+
+/**
+ * Science d5's row label for `switch_probability` (#87 6007954023), with the model named as every Inspect label here does
+ * (d5's own sentence opens "In this model, …"). Was "Chance another option leads in this model".
+ */
+const SWITCH_SHARE_LABEL = 'Changes the most-supported option in this model'
+
 /** A 0-100 confidence, absence-safe. Rule 4: absence suppresses, never zeroes. */
 const conf100OrNull = (v: number | null | undefined): string | null =>
   typeof v === 'number' && Number.isFinite(v) ? `${Math.round(v)}%` : null
@@ -562,7 +577,7 @@ function buildKeyInsights(
     const splitUnit = cw.split_unit && !isSuppressedUnit(cw.split_unit) ? ` ${cw.split_unit}` : ''
     out.push({
       id: `insight:conditional-winner:${cw.factor_id}`,
-      headline: `In this model, which option leads depends on ${cw.factor_label}`,
+      headline: `In this model, how the options compare depends on ${cw.factor_label}`,
       implication: namesBoth
         ? `Above ${splitValue}${splitUnit}, ${high} scores higher; below it, ${low} does.`
         : `The preferred direction changes around ${splitValue}${splitUnit}.`,
@@ -606,7 +621,7 @@ function buildKeyInsights(
       groundedIn: 'the fragile-relationship analysis',
       marker: staleMarker,
       targetId: hinge.fromId,
-      inspect: rows(row('Chance another option leads in this model', pctOrNull(hinge.switchProbability))),
+      inspect: rows(row(SWITCH_SHARE_LABEL, runsPctOrNull(hinge.switchProbability))),
       intervention: interventionFor(recommendations, hinge.fromId),
     })
   }
@@ -798,8 +813,8 @@ function driverFinding(
       // challenge with no arms never had a ranking to withhold. The `detail`
       // line above stays — "sensitive to this relationship" names no leader.
       row(
-        'Chance another option leads in this model',
-        rankingWithheld ? null : pctOrNull(d.fragileEdgeInfo?.switchProbability),
+        SWITCH_SHARE_LABEL,
+        rankingWithheld ? null : runsPctOrNull(d.fragileEdgeInfo?.switchProbability),
       ),
     ),
     intervention: interventionFor(recommendations, target),
@@ -1454,7 +1469,7 @@ function buildUncertainty(
     const headlineText = u.threshold
       ? rankingWasWithheld(data.recommendation)
         ? `${u.threshold.variable} could change the answer in this model`
-        : `${u.threshold.variable} could change which option leads in this model`
+        : `${u.threshold.variable} could change how the options compare in this model`
       : labelLength === text
         ? text
         : rowTitle(u)
@@ -3142,7 +3157,10 @@ function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication
 
   // ── READING TWO: the highest chance of meeting the user's target ──────────
   // THE shared crown. Every gate is this selector's, none is restated here.
-  const goalRow = selectGoalLeader(options, goalValue, { designationsWithheld, hasUserTarget })
+  // ⭐ D3 step 2: where the Run carries CEE's goal-chance licence, it governs the crown (≥ 10 points, by id).
+  const goalRow = selectGoalLeader(
+    options, goalValue, { designationsWithheld, hasUserTarget, goalChanceLicence: data.goalChanceLicence ?? null }, (o) => o.id,
+  )
 
   if (!goalRow) {
     /**
@@ -3709,16 +3727,32 @@ function buildChecks(
    * gate was not reaching this section at all.
    */
   const verdict = rec.verdict
+  /**
+   * The leader was neither put forward nor licensed as tied: the WITHHELD state every withhold field below reads.
+   * ⚠ Its own predicate, not the row's code: RT-17 gives a withheld near tie a different ROW (similar shares), and the
+   * withhold cause, detail and commitment bullet must still fire for it.
+   */
+  const leaderNotPutForward =
+    leaderDesignationPermitted(rec) !== true && !(verdict != null && verdict.separation === 'tied')
   const leaderCode: ChecksCode =
     leaderDesignationPermitted(rec) === true
-      ? 'leader_present'
+      ? // J4: a permitted leader within 10 pts of the next run share is stated as similar shares, never "more runs".
+        runSharesSimilar(verdict)
+        ? 'leader_similar_shares'
+        : 'leader_present'
       : // ⚠ THE DENIAL IS LICENSED BY `'tied'` ALONE. `decisionVerdict.ts:166-168`
         // is explicit that `'unknown'` licenses SILENCE, never a denial — so an
         // unknown separation lands in the third state with the two other
         // unassessed checks, and never renders "No clear leader".
         verdict != null && verdict.separation === 'tied'
         ? 'leader_tied'
-        : 'leader_not_assessed'
+        : // ⭐ RT-17 (red team #87 6008162592; Science d5 #87 6008176400): a WITHHELD near tie said "not assessed"
+          // beside a hero saying the results overlap. The shares still ride the wire, so where the figures may be
+          // shown and the top two are within 10 pts the row states that DATA fact. It is not a leader claim and not
+          // the 'tied' denial. A withheld gap of 10 or more stays not assessed.
+          analysisClaimPolicy(rec).mayShowComparativeFigures === true && runSharesSimilar(verdict)
+          ? 'leader_similar_shares'
+          : 'leader_not_assessed'
 
   // ── 2. ROBUSTNESS ─────────────────────────────────────────────────────────
   /**
@@ -3790,7 +3824,7 @@ function buildChecks(
   const token = typeof producerWithholdReason === 'string' ? producerWithholdReason.trim() : ''
   const refusalAsksForAnEstimate = admissionRefusalAsksForAnEstimate(data.recommendation.analysisAdmission)
   const withheldCause =
-    leaderCode !== 'leader_not_assessed'
+    !leaderNotPutForward
       ? null
       : // One rule for every surface; see `withheldLeaderCause`. It is handed the
         // narrow refusal (one that asks for an estimate), never any refusal.
@@ -3837,19 +3871,19 @@ function buildChecks(
      *
      * So the fact gets its own field, from the same gate.
      */
-    leaderWithheld: leaderCode === 'leader_not_assessed',
+    leaderWithheld: leaderNotPutForward,
     leaderWithholdDetail:
-      leaderCode === 'leader_not_assessed'
+      leaderNotPutForward
         ? (selectWithheldLeaderDisclosureFromWarnings(data.confidence?.inferenceWarnings)?.title ?? null) || null
         : null,
     sharesExcludeLimits:
-      leaderCode === 'leader_not_assessed' &&
+      leaderNotPutForward &&
       typeof producerWithholdReason === 'string' &&
       producerWithholdReason.trim() === 'constraint_verdict_withheld',
     /* CEE's first-pass token, exact match, and only where this surface's own
        leader code says the leader was withheld (the stale-reason rule above). */
     firstPassWithheld:
-      leaderCode === 'leader_not_assessed' &&
+      leaderNotPutForward &&
       typeof producerWithholdReason === 'string' &&
       producerWithholdReason.trim() === 'unrequested_analysis_withheld',
     /**
@@ -3885,7 +3919,7 @@ function buildChecks(
      * (#709/#737, CLAUDE.md trap 21).
      */
     rerunWouldNotHelp:
-      leaderCode === 'leader_not_assessed' &&
+      leaderNotPutForward &&
       // The cause as DISPLAYED, and only where it is durable (see above): an
       // admission refusal is nameable even behind a token the copy map does not
       // know (`unrequested_analysis_withheld`).
@@ -3913,6 +3947,7 @@ function buildChecks(
  */
 const CHECK_STATE: Record<ChecksCode, ChecksState> = {
   leader_present: 'pass',
+  leader_similar_shares: 'pass',
   leader_tied: 'finding',
   leader_not_assessed: 'not_assessed',
   robustness_robust: 'pass',

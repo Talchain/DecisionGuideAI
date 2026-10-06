@@ -128,6 +128,30 @@ describe('leader check — the denial is licensed by `tied` alone', () => {
     expect(codeFor(data, 'leader')).toBe('leader_present')
   })
 
+  /**
+   * ⭐ J4 — THE NEAR TIE (Acceptance cut-4 prod: a permitted leader 4.4 pts ahead; DL ruling 6 Oct). "Supported by
+   * more runs than any other" is true at any gap, so within 10 pts of the next run share the row says the shares were
+   * similar. Same glyph state as `leader_present`; only the sentence changes.
+   */
+  it('J4: a PERMITTED leader only 4 pts ahead in run share → leader_similar_shares, no comparative', () => {
+    const data = makeData({
+      recommendation: { verdict: verdict({ separation: 'slight', gapPp: 4 }), leaderDesignationPermitted: true },
+    })
+    expect(data.recommendation?.leaderDesignationPermitted, 'PRECONDITION: a permitted leader').toBe(true)
+    expect(codeFor(data, 'leader')).toBe('leader_similar_shares')
+    render(<WhatWeChecked checks={vmChecks(data)} />)
+    const row = screen.getByTestId('analysis-new-checks-leader')
+    expect(row).toHaveTextContent('In this model, the options were supported by similar shares of runs')
+    expect(row.textContent).not.toMatch(/more runs than any other|most likely|chance|\b(best|lead\w*|ahead|winner)\b/i)
+  })
+
+  it('J4 boundary: a permitted leader exactly 10 pts ahead → leader_present (the producer\u2019s near-tie line)', () => {
+    const data = makeData({
+      recommendation: { verdict: verdict({ separation: 'slight', gapPp: 10 }), leaderDesignationPermitted: true },
+    })
+    expect(codeFor(data, 'leader')).toBe('leader_present')
+  })
+
   it("separation 'tied' → leader_tied (the ONE licensed denial)", () => {
     const data = makeData({
       recommendation: { verdict: verdict({ separation: 'tied', hasLeadingOption: false }) },
@@ -312,6 +336,12 @@ describe('every code maps to the right glyph state (the survivor that closed thi
       'pass',
       makeData({ recommendation: { verdict: verdict({}), leaderDesignationPermitted: true } }),
     ],
+    // J4: a permitted leader within 10 pts of the next run share keeps the permitted state; only its sentence changes.
+    [
+      'leader_similar_shares',
+      'pass',
+      makeData({ recommendation: { verdict: verdict({ separation: 'slight', gapPp: 4 }), leaderDesignationPermitted: true } }),
+    ],
     [
       'leader_tied',
       'finding',
@@ -375,10 +405,10 @@ describe('every code maps to the right glyph state (the survivor that closed thi
    * once, so the table is provably exhaustive over the union rather than
    * exhaustive-looking.
    */
-  it('the table covers all 11 codes exactly once', () => {
+  it('the table covers all 12 codes exactly once', () => {
     const codes = CASES.map(([c]) => c)
     expect(new Set(codes).size).toBe(codes.length)
-    expect(codes.length).toBe(11)
+    expect(codes.length).toBe(12)
   })
 })
 
@@ -405,6 +435,7 @@ describe('the section always carries all three checks, and none pre-run', () => 
 describe('the copy deck is total, and explains exactly the states that need it', () => {
   const ALL_CODES: readonly ChecksCode[] = [
     'leader_present',
+    'leader_similar_shares',
     'leader_tied',
     'leader_not_assessed',
     'robustness_robust',

@@ -77,10 +77,18 @@ export const REVIEW_TOOL_COPY = {
   disagree: 'I disagree',
   disagreeTip: 'Tell Olumi why, in the conversation',
   disagreeDraft: (name: string) => `I disagree with this about ${name}. My reason: `,
-  confirm: 'Confirm as my estimate',
-  confirmTip: 'Confirming makes this your estimate. It does not verify the evidence behind it.',
-  confirmed: 'Recorded as your estimate. The evidence behind it is still not verified.',
+  // SD-1 (DL 0df0e1, 6 Oct): a signed-in Confirm records a review and keeps whose the figure is, so the words claim
+  // the check and never authorship ("reviewed, never 'yours'"). True for a guest's local confirm too.
+  confirm: 'Confirm this figure',
+  confirmTip: 'Confirming records that you checked this figure. It does not verify the evidence behind it.',
+  confirmed: 'Recorded as checked. The evidence behind it is still not verified.',
   confirmRefused: 'Nothing changed. There is no number here to confirm.',
+  // SD-1: a signed-in confirm is CEE's write, so its only words are for a send that did not land. Success is the
+  // receipt itself (the item leaves "to review"); `'sent'` means a POST left, never that anything was recorded.
+  confirmNotSent: 'Not sent: another change is still in flight. Try again in a moment.',
+  confirmNotRecorded: 'Not recorded. Nothing in the model changed.',
+  confirmUnverified: 'Olumi may not have recorded this. Check the conversation before confirming again.',
+  confirmNoCarrier: 'Not sent: Olumi is not connected here, so nothing was confirmed.',
   yourValue: 'Your value',
   olumiEstimate: 'Olumi estimate',
   unnamedFactor: 'A factor with no name',

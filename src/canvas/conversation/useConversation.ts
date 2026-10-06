@@ -184,7 +184,7 @@ import {
   type OptimisticFactorEditNoticeKey,
 } from './optimisticFactorEdit'
 import { markFactorEditInFlight } from './pendingFactorEdit'
-import { settleEdgeEdit } from './pendingEdgeEdit'
+import { edgeEditAnsweredUnmoved, noteEdgeEditNotApplied, settleEdgeEdit } from './pendingEdgeEdit'
 import { rebaseDeferredEdgeStrengthEdit } from './edgeStrengthEdit'
 import {
   settleStructuralDeleteAttempt,
@@ -5237,6 +5237,23 @@ export function useConversation(): UseConversationReturn {
                 }
               : { kind: 'response', response: target.response },
           )
+        }
+
+        // ⭐ F1 (red team #87 6006627551; DL ruling, cut 5) — the LINK twin of the factor resolution below. CEE refuses
+        // a strength move on a link holding the user's own figure with a 200 and its own words, writing nothing. The
+        // reply is proof only when it answers at the SAME analysis hash the canvas sent from and the send MOVED the
+        // server-stated strength (`edgeEditAnsweredUnmoved`); then the carrier's settlement reverts the pill and the
+        // panel says CEE's words. Any other reply leaves today's rule untouched ('unverified', keep the number).
+        const ownEdgeEdit = opts.optimisticEdgeEdit
+        if (
+          ownEdgeEdit &&
+          systemEvent?.type === 'edge_strength_edit' &&
+          target.kind !== 'typed_error' &&
+          activeV5TurnIdRef.current === turnClientId &&
+          edgeEditAnsweredUnmoved(ownEdgeEdit, target.response.graph_hash)
+        ) {
+          const said = (target.response as { assistant_text?: unknown }).assistant_text
+          noteEdgeEditNotApplied(ownEdgeEdit, typeof said === 'string' ? said : '')
         }
 
         const optimisticEdit = opts.optimisticFactorEdit

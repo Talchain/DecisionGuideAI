@@ -704,7 +704,7 @@ describe("'none' — nothing comparative is drawn, and the withholding survives"
     // so a future merge back into one string REDs rather than quietly
     // reinstating the repetition.
     expect(COPY.checks.leader_not_assessed.meaning).toBe(
-      'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed.',
+      'Olumi could not confirm which option most runs supported on this run, so any ordering you see is unconfirmed.',
     )
     // ⚠ THE ORDERING CLAUSE BELONGS TO `meaning`, NOT HERE, AND THE REASON IS A
     // POPULATION. `orderingCaveat` renders only where `noneNumbered` holds;

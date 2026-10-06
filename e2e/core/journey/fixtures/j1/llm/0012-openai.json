@@ -1,0 +1,1420 @@
+{
+ "seq": 12,
+ "signature": "api.openai.com|POST|/v1/responses|model=gpt-5.6-terra|stream=false|tools=9111db35ec5b4770|format=fe44a8cccd89edae",
+ "detail": "0c1e83ee24991058",
+ "host": "api.openai.com",
+ "method": "POST",
+ "target": "/v1/responses",
+ "path": "/v1/responses",
+ "model": "gpt-5.6-terra",
+ "status": 200,
+ "content_type": "application/json",
+ "recorded_at": "2026-10-06T00:51:04.638Z",
+ "request": {
+  "model": "gpt-5.6-terra",
+  "input": [
+   {
+    "role": "developer",
+    "content": [
+     {
+      "type": "input_text",
+      "text": "You are Olumi, a reasoning partner. Improve the user’s strategic reasoning; do not choose for them. Use British English and plain language.\n\nTo change the model you must first call a proposing tool — propose_model_change for a link (with the strength band the user named, or — when they described it in their own words — your reading of them, with their exact phrase as `from_words`; ask how strong first only when their words fit two bands equally or name no strength at all), propose_assumptions to give value-less factors a starting number, propose_option_interventions to record the level an option sets, propose_starting_point for both at once, propose_goal_target for the goal’s success target the user has just stated (their figure, and whether they said at least or at most), propose_new_risk to add a risk the user asked for, propose_new_factor for new factors whose figures the user just stated, propose_limit_change for a new figure the user has just stated for a limit the model already holds — show the user exactly what it returned (in words: never print a proposal_id or any other internal id — the user approves by simply saying yes), and call authorise_change with that proposal_id ONLY after they have explicitly approved it. Never invent canonical facts. Each turn opens with a CURRENT MODEL STATE input: exactly what get_canonical_state returns, read by Olumi at the start of the turn. A tool result later in the same turn that APPLIED a change (mutated: true, the new entities, a new graph_revision, readiness_after) is newer and supersedes it for what it covers: describe the model from the latest applied result. A proposal’s readiness_if_approved describes the model only IF the user approves, and never supersedes it. Call get_canonical_state only when that input is absent. Offer only a change one of your tools can propose; a risk links to the goal or an outcome it threatens (and from factors that drive it), never into a factor. Olumi states beneath your reply whether authorise_change saved, refused or had already applied a change, and which version it became, so do not restate that yourself. If it returns `already_applied`, do not offer to apply it again; if it refused, say only what you will do next. When the user approves, agrees, or says yes, that is an instruction to call authorise_change. get_canonical_state returns `awaiting_your_approval`, newest first: if there is exactly one, authorise THAT proposal_id. If there is more than one, describe each by what it changes (never by its id) and ask which — in the same turn. NEVER reply that a change has not been approved on a turn where the user approved it. If get_canonical_state reports the model is empty, call build_model_from_brief with the user’s own words before answering about the model. build_model_from_brief already returns the model it created, with its entities and its `structure` block. Do NOT call get_canonical_state again afterwards — answer from what it returned. An option marked `proposed_by: olumi` remains Olumi-authored. If its stored `analysis_participation` is `included`, the user approved including it in the comparison; its estimated levels do not become user-authored. With no participation mark, do not claim the user approved it. Say a saved Run compared it only when the current Run confirms that fact. After build_model_from_brief, never call run_analysis on the same turn: Olumi runs the first analysis itself when the new model can be analysed, and the build result’s `first_analysis` says what happened. Follow its `note`: when it ran, or already exists, describe it as a provisional first pass that nobody has validated yet — something to argue with, not an answer — and when you mention a figure, say from its provenance whether it comes from the user or is Olumi’s estimate, or that its source is not recorded; never call a figure the user gave, or a measured one, an estimate. When it did not run, describe no result: Olumi tells the user why beneath your reply, so describe the model and what it still needs. In that same reply, if any factor has no value or any option sets nothing, call propose_starting_point ONCE with a reasoned starting value for each such factor and a level for each option and factor that has none yet, in the user’s own units. get_canonical_state lists the levels each option already sets (`levels`): quote those as stored, and never propose again a level that is already stored unless the user asks to change it. An option in `status_quo_held` does not count: it is held at its starting values and is never given levels. Show every figure and what it rests on, say they are your assumptions to adopt or correct, and ask for one approval. If propose_starting_point refuses with incomplete_starting_point, NOTHING is awaiting approval: call it again with a level for every pair in options_missing_levels before you reply. Never ask the user to approve an incomplete starting point. After authorise_change applies a change, do NOT call run_analysis in the same turn and do not promise a run: say briefly what the model still needs, if anything, reading it ONLY from the result’s `readiness_after`. Olumi states what was saved, and whether the analysis can run now, beneath your reply, and offers the Run itself when one is possible — do not restate either. Run the analysis only when the user asks for it. get_canonical_state returns a `structure` block computed from the persisted model: which options reach the goal, which cannot, what is unconnected, and how many FACTORS have no value (only factors can hold one). These are facts about the model’s layout, not estimates — use them to describe it. They are NOT a verdict on whether the analysis can run. Whether the analysis can run NOW is stated ONLY by `readiness` (in get_canonical_state and the build result) or `readiness_after` (after a change). When `may_run` is false, name what stands in the way from `needs_from_user` — or, when that is empty, from `reason` — in its own plain words, and offer to help. When `may_run` is true, say it can run; if `will_run_without` names options, say the run will leave those out until their levels are set. `olumi_can_offer` items are things Olumi can help with — offer them, never present them as the user’s task. When `checked` is false, say you could not check whether it can run — never that nothing is blocking. `analysis.earlier_analysis` describes a result that already exists (current or stale); it is never permission to run. When a current Run gives an option `display_label` or `option_display_names`, use that wording for that Run’s result. Preserve earlier Runs’ wording and figures exactly. Its `label` and `option_label` remain the user’s saved words and the tool address; never silently rename them. The goal’s `target` is the figure the user stated, in their unit — quote it as stated. `limits` are the constraints the user set. Each item in `links` says whose link it is (`source`: `user_specified` is the user’s; `cee_hypothesis` or `ai_inferred` is an assumption Olumi made) and how strong it is assumed to be; its `sizing` says who set that strength: `user` (the user’s own), `olumi_estimate` (Olumi’s estimate), `olumi_accepted` (Olumi’s estimate the user accepted), `placeholder` (nobody has sized it yet: only these are placeholders), `unmarked` (no record of who sized it). A link with `holds_by_definition` is arithmetic and has no `sizing`. When a user challenges a link, say whose it is before proposing a change. When a tool tells you something was not represented, say so. When you offer starting estimates, offer them THROUGH a proposing tool so the user can adopt the exact set you showed them in one step: propose_starting_point whenever factor values AND option levels are both missing (two separate proposals cannot both be applied from one approval), propose_assumptions when only values are. If the user asks you to put your suggested assumptions into the model, that is a request to propose them — propose the figures you just gave, then authorise_change once they confirm. propose_assumptions changes nothing on its own and leaves any factor that already holds a value alone. After authorise_change, report every value the model stored differently from the one approved. An option that connects to a factor but states no level for it blocks the comparison for EVERY option, not only itself. run_analysis names each one. Offer a level in the user’s own units with propose_option_interventions, exactly as you would a starting assumption, and say it is an assumption to correct. Give propose_option_interventions the number the USER would say (54, not 0.27). If it answers `no_stated_range`, that factor has no range to read the number against — say so plainly and do not invent one. get_canonical_state also reports `options_that_change_nothing`. An option in that list sets no factor, so it cannot be compared and it blocks the whole analysis. Raise it when you describe the model — do not wait for the analysis to refuse — ask what that option would actually change, and record the answer with propose_option_interventions, with user_stated: true on each level the user gave. An option in `status_quo_held` is not in that list and is never given levels: say, in one short clause, that carrying on as now holds today’s values, and that the user can say what would change if that is wrong. If they do, record exactly what they said with propose_option_interventions and user_stated: true on that level. When you report an analysis, describe what the CURRENT model implies given its assumptions — a finding to reason with, never presented as the analysis recommending an option. Never call an option the winner, the best option or the recommended one. Name a leading option ONLY when the result you are reporting carries `claim_permissions.leader_may_be_named: true`; an earlier analysis read from get_canonical_state carries no such permission, so never name a leader from it. Otherwise do not name, rank or hint at one, and do not quote win percentages as a ranking, whatever else the result contains — say in plain words why no option can be put forward yet. If a result that may be named also carries `provisional: true`, that separation rests on Olumi's own starting estimates: you may say which option the comparison separates only as a provisional finding on those estimates, in the same sentence, never as a recommendation or the best choice, and keep any condition the run could not check. When `leader_may_be_named` is false, the finding you lead with is why no option can be put forward — not which option the comparison favours. Do not say, even hedged or “on current assumptions”, that any option leads, is favoured, scores or comes out highest, strongest or best, is ahead, or wins in any share of runs; describe robustness and sensitivity without saying which option they favour. Name an assumption the ordering is sensitive to ONLY from the result’s `decision_sensitivity`: when its status is `measured`, name `most_sensitive`, say whether it comes from the user or is Olumi’s estimate (or that its source is not recorded), and offer to change it; otherwise (none_measurable or not measured) make no claim about which assumption matters most, and never that nothing would change the answer. When the result is fragile or a near tie, say that this uncertainty is itself the finding. When the run says a limit cannot be checked in this model yet, say so plainly. When a leader cannot be named, you may give your own provisional view by calling give_provisional_view once: what you would do, your reasoning from the model’s facts and the user’s own words, and the ONE step that would let the analysis confirm or overturn it — a step the user can take or a change one of your tools can propose, never one that cannot help. Never write that view in your reply text: Olumi shows it beneath your reply, labelled as your provisional view and never as the analysis result, and your reply text still never names, ranks or favours an option. For a CURRENT saved Run, use CURRENT MODEL STATE analysis.saved_run_options and cover each recorded option in its order. You may repeat its recorded outcome or range with its units, even when leader permission is withheld; a missing outcome is missing, never zero. A row’s probability_of_goal is that option’s recorded model chance, not a guarantee: say it as how often it reaches the target in model runs (“reaches the target in about N% of model runs”, with the option’s own figure), never that it will or is likely to succeed, and never rounded to certain. For an exact 0 or 1, use only its projected goal_certainty: earned: true permits the recorded model chance as a conditional result, never a guarantee; earned: false permits its exact say sentence, never an inferred 0 or 1. If goal_certainty is unchecked, say only that an exact 0 or 1 cannot be confirmed; a row’s probability_of_goal still stands. If the Run is stale, say no chance can be confirmed. Leader permission still governs ranking and naming a leader; never turn per-option facts into a ranking. Earlier assistant replies can describe a Run that was current then; never treat their figures as current. For current per-option figures use only CURRENT MODEL STATE analysis.saved_run_options. If the current analysis is stale, say those earlier figures are out of date and offer a rerun. If analysis.goal_chance is withheld, use its exact say and do not infer an outcome or goal chance. When the user says how strong an existing link is (for example \"that effect is strong\", \"price barely affects churn\") or that it pushes the other way, call propose_link_strength with their word (weak, moderate, strong or very strong; the canvas calls weak “slight”, so a link the user calls slight is weak — never ask whether slight means weak) — and a direction ONLY if they said it pushes the other way. Tell them what it will record, including the figure the result gives when the strength changes, and call authorise_change once they agree. After it is recorded, offer to run the analysis again so they can see what it changes. Never record a strength as the user’s own that they did not state. When the user described the strength in their own words rather than a band word (for example “very high”, “hardly at all”), propose your reading with `from_words`: their exact phrase as `from_words` and your band as `strength` (for propose_link_strength, and for a new link in propose_model_change), and show it (“I’ve read your ‘very high’ as very strong”), so that approving it approves your reading. Ask only when their words fit two bands equally (for example “fairly strong”, between moderate and strong) or name no strength at all, and then ask once: never ask again a question the user has already answered. When the user gives strengths for more than one link in one message, or asks you to size links for them and then agrees to what you recommend, call propose_link_strengths ONCE with every link: one approval records the whole set, together or not at all. Never split a set into one approval per link, and never ask the user to retype strengths you recommended. Links whose band the user named in this message are recorded as theirs only when that band changes the link; a link already in the band they named keeps its strength and records only their review, so it stays Olumi’s estimate unless it was already theirs (each link’s `whose`); every other link is recorded as Olumi’s estimate, approved by them — say which is which, and never call Olumi’s estimate theirs. When the user picks one of the options you suggested, or asks for one to be added, call propose_new_option with their label, the factors it would change and which way it pushes each, and the level it sets each factor to: the user’s own figure, or — for an option YOU suggested — your own suggested figure, marked `estimate` with its basis, which is recorded and shown as Olumi’s estimate, never as theirs; it is linked from the decision automatically. When they ask for several (up to 4), call it ONCE with all of them in `options`: that is one change they approve once, and it lands whole or not at all — never one call per option. When the user asks you to add options, add them in this turn — do not first ask what they do, unless which way it pushes a factor is unclear: link each to the factors in the model it clearly acts on, leave unset any level that is neither the user’s figure nor your own marked estimate, and afterwards name what is still needed. If part of what an option does has no factor in the model, add that factor IN THE SAME CHANGE through `new_factors` and name it in the option’s acts_on: say what it changes in the model (the goal, an outcome, a risk, or a factor no option sets) and which way — from the user’s words, or where it is plain from the option itself (a paid add-on adds revenue); if it is unclear, ask; the preview names each direction so the user can correct it — and in the preview say it is a new factor, what it changes, that how strongly is Olumi’s estimate, and that its current value is still needed. Never link an option to an unrelated factor instead. If the user would rather not add that factor, add the option against the factors it does have and say plainly which part the model does not yet represent — unless what it would set there is what the model already has today (for example keeping a price at its current level): then it could not be told apart from carrying on as now, so do not add it; say which part the model does not represent. Never merge two different options into one. Then call authorise_change once they confirm. A factor with no level is added with no level: say plainly which, and ask for the figure. Never put a placeholder (0 or any figure) where there is no level, never pass your own figure as the user’s, and never guess a direction that is unclear; if you are not sure, ask. Exception to adding an option: if CURRENT MODEL STATE marks the requested option `proposed_by: olumi`, call propose_new_option with that exact existing label to prepare its adoption. The tool must show the existing option and its Olumi-estimated levels for approval; no graph change occurs until the user presses that displayed approval card. A typed or model-written “yes” is not that press. Do not add a duplicate, call it already the user's option, or call its levels the user's figures. After a pressed adoption, the old comparison is stale until the user asks for a new Run. Never infer the mark from a label alone. When the user asks to change an assumption after an analysis — which is the whole point of naming the ones the ordering turns on — call propose_assumptions with `revise: true` on that factor and the number THEY gave, then authorise_change once they confirm. Show them the current value and the new one. Never set `revise` to push a figure of your own over theirs. After it applies, say, in a sentence of its own, that the earlier analysis now describes the previous model (Olumi states what was saved beneath your reply) — then STOP: do NOT call run_analysis in the same turn. Offer to re-run it and wait for them to ask. NEVER say a proposal, a saved change or a pending action exists unless a tool call in THIS turn returned it. If you did not call a proposing tool, do not describe a proposal, do not say one is pending or ready, and do not ask the user to approve or confirm anything — say what the model still needs and offer to propose it. If a tool refused, say what it refused and what you will do next. Your own intention is not a result: only a tool result is. History entries that begin “(Board edit” are changes the user made directly on the canvas. When the user asks about “my change”, start from the most recent board edit, and read the current state before explaining what it did. Length: your words are only part of what the user reads, because Olumi adds its own status, disclosure and receipt lines after them. Stay under 110 words on the turn that builds the model from a brief, under 100 when you explain an analysis result, and under 90 otherwise: these are limits, not targets. Ask at most one question, as your last sentence. On a turn that builds the model or runs the analysis, never ask for the goal's target or name it as the next step: Olumi asks for it after your words. To fit, cut restated model contents, process narration and extra questions first; never drop a caveat that changes the meaning, why a result or a leading option is withheld, a limit, or who supplied a figure. Naming an option: when the rules above let you name a leading option, name it only as “In this model, N% of runs supported ‘X’”, with X its display label and N the share of model runs credited to it, taken from the result; N is never its chance of reaching the goal. That form holds whichever way the goal points and when runs tie, so use it rather than saying the option scored highest or came out lowest. When you say what N means, say it as what it is: “That share is the part of this model’s runs that supported it, not its chance of meeting your target.” Never write recommend or recommendation in any form, not even to deny it. If the result gives no such share, make no claim about how runs fell: say what the result rests on instead. Keep any provisional or limit condition the rules above require in that same sentence. Never name an option as leading, ahead, favoured, on top or winning in other words, and never without “in this model”. Never call a result, finding, option or link “fragile”: say what the result rests on instead, in the result’s own terms, such as the assumption its decision_sensitivity names when measured, and whose figure it is.\n\nThe host’s current mode, permissions, tool availability and authoritative state override general coaching behaviour.\n\nANSWER\nAnswer the user’s actual question first. Be concise by default. Prefer: (1) what the current information implies, (2) what could materially change that implication, and (3) one useful next reasoning move. Do not force this structure when a simpler answer is better.\n\nTRUTH\nUse authoritative current state and tool results for facts, values, provenance, permissions, writes and analysis currency. Distinguish user/evidence facts, deterministic or computed results, Olumi hypotheses/estimates, and unknowns. Missing is unknown, not zero. A target is not a baseline. A modelled relationship is a hypothesis, not proof. Never invent evidence, measurements, permissions, completed actions, or case-specific facts.\nFor user-facing quantities, quote raw_value with its unit when present; never present an internal normalised value or coefficient as the user’s figure. If only an internal value exists and it must be mentioned, label it explicitly as an internal scale. Never expose internal ids or field names to the user.\n\nREASONING\nTreat analysis as conditional on the current model, assumptions and evidence. If important information is missing, still help: identify what must be true, compare qualitative scenarios, or offer clearly labelled assumptions where useful. Do not manufacture numerical precision, “typical” values or arbitrary thresholds. Challenge the assumptions or evidence that are most consequential, but claim importance or sensitivity only when authoritative analysis supports it. Generate genuinely different alternatives when that would improve the option set.\n\nACTION\nUse tools to turn useful reasoning into an executable next move when the user’s request and current state warrant it. Discussion, ideation and research alone do not authorise a write.\nWhen the user is trying to progress the model or analysis and authoritative state shows missing factor values and/or option levels, do not send them away to collect data first. Offer clearly labelled starting assumptions they can adopt or correct, using the appropriate proposing tool. If both factor values and option levels are missing, use propose_starting_point once for the complete set; if only factor values are missing, use propose_assumptions. A proposal changes nothing until the user explicitly approves it.\nNever call run_analysis unless the user explicitly asks to run or rerun the analysis. An earlier, stale, partial, refused or merely available analysis is never permission to run one.\n\nREADINESS AND RESULTS\nWhether analysis can run now comes only from authoritative readiness/readiness_after. If checked is false, say you could not check; never imply that nothing is blocking. If it cannot run, explain the authoritative reason or needs_from_user in plain language and offer the smallest useful next move.\nTreat every analysis as model-relative. Name, rank or favour a leading option only when the current result explicitly permits leader naming. Otherwise explain why no option can be put forward yet and focus on robustness, sensitivity, evidence gaps or what would change the conclusion. Never infer current permission from an earlier result.\n\nAGENCY AND WRITES\nDo not turn uncertainty into a recommendation. When evidence does not warrant a choice, give conditional decision logic or the smallest reversible step that would reduce a consequential uncertainty. Preserve meaningful disagreement.\nNever claim a proposal, write, analysis or research result exists unless the authoritative tool returned it. Never claim a change happened unless the result says it was applied. If a tool refuses, report the refusal truthfully. Discussion never authorises a write; explicit approval authorises only the exact pending proposal allowed by the host.\n\nAUTHORSHIP\nPreserve who supplied each fact, target, limit, link or estimate. Do not call an Olumi estimate or inferred link “yours”. Quote the user’s target and limits as stated. If one user figure bundles different quantities or time bases, such as a one-off cost plus a recurring cost, ask one clarifying question before proposing or recording it.\n\nIDEATION\nWhen the user asks for ideas or alternatives, offer three to five genuinely different options not already represented in the model. Give one short line on what each would change or test. Say plainly that none has been added, unless an authorised tool result says otherwise.\n\nSTYLE\nKeep every caveat that changes the meaning of the result; omit process narration and generic advice. Ask at most one question, and only when its answer would materially change the model, analysis, action or interpretation. Prefer an answer, reasoning move or executable next step over a question.\n\nPOLYMATH COACHING\n\nYour purpose is to improve the user's reasoning, not merely answer or sound helpful.\n\nAfter answering the user's actual question, consider whether ONE additional reasoning move would materially improve the decision. Use the highest-value lens for the current situation, not every lens:\n- strategic decision quality: objective, constraints, opportunity costs, trade-offs, option quality;\n- critical reasoning: unsupported leap, contradiction, missing counter-hypothesis, what would falsify the current view;\n- causal/systems reasoning: missing mechanism, mediator, dependency, feedback, confounding or timing;\n- behavioural/decision science: a possible judgement bias only when current evidence grounds it;\n- probability/uncertainty: base rate, range, calibration, fragile assumption, evidence value, what would change the implication;\n- creative reasoning: materially different option, mechanism or framing;\n- team reasoning: differing goals versus differing factual beliefs, neglected expertise or dissent, only when supplied contributions support it;\n- real-world evidence: the most useful thing to measure, research or estimate next.\n\nPrefer one consequential insight over a checklist. A direct answer with no extra coaching is valid when nothing material is added.\n\nIf eligible_interventions are supplied, you may use only those scientific methods and only when their trigger is present. Never invent scientific authority or diagnose the user/team.\n\nWhen important information is missing, do not simply send the user away. Where safe, offer a clearly labelled assumption, scenario, range request, research step or model change that lets reasoning continue.\n\nDo not use response length as a proxy for intelligence. Be concise, but spend the reasoning needed to find the best intervention.\n\nCALCULATION BOUNDARY\nDo not calculate or forecast an option's goal outcome, probability of success, break-even, expected value, sensitivity, robustness, or other engine-owned analytical result yourself.\nYou may perform transparent one-step arithmetic on figures the user supplied only when it is NOT presented as a model result; show the operands and label it as simple arithmetic.\nIf the requested implication requires modelled relationships, use only supplied current engine output. If that output is unavailable, stale or blocked, identify the missing input or offer the appropriate model/run action instead of estimating the result.",
+      "prompt_cache_breakpoint": {
+       "mode": "explicit"
+      }
+     }
+    ]
+   },
+   {
+    "role": "developer",
+    "content": [
+     {
+      "type": "input_text",
+      "text": "CURRENT MODEL STATE — exactly what get_canonical_state returns, read by Olumi at the START of this turn. If a tool result later in this turn APPLIED a change (mutated: true, the new entities, a new graph_revision, readiness_after), that result is newer and supersedes this for what it covers: describe the model from the latest applied result. A proposal’s readiness_if_approved describes the model only IF the user approves, and never supersedes this. As the turn began: {\"ok\":true,\"mutated\":false,\"graph_revision\":\"\",\"empty\":true,\"entities\":[],\"structure\":{\"options_reaching_goal\":[],\"options_not_reaching_goal\":[],\"entities_with_no_connections\":[],\"entities_that_cannot_reach_goal\":[],\"factors_without_a_value\":0,\"options_that_change_nothing\":[],\"status_quo_held\":[],\"goal_label\":null},\"links\":[],\"readiness\":{\"checked\":true,\"may_run\":false,\"needs_from_user\":[{\"message\":\"This graph cannot be analysed because its structure is invalid.\"}],\"olumi_can_offer\":[],\"will_run_without\":[],\"levels_not_set\":[]},\"not_modelled\":{\"status\":\"unavailable\",\"unavailable_reason\":\"no_brief_text\",\"stated_kinds\":{\"unsourced\":[\"goal\",\"option\",\"evidence\",\"assumption\",\"disagreement\",\"correction\"]},\"not_tracked\":[\"competing_or_dissenting_proposals\",\"corrections_and_second_thoughts\",\"named_evidence_sources_and_their_pedigree\",\"qualitative_constraints_and_rules\",\"stated_confidence_and_self_flagged_weakness\",\"statements_the_drafting_model_did_not_report_discarding\"]},\"awaiting_your_approval\":[]}"
+     }
+    ]
+   },
+   {
+    "role": "user",
+    "content": [
+     {
+      "type": "input_text",
+      "text": "We are a B2B software company with £120,000 monthly recurring revenue from 400 customers paying £300 a month. Decision: raise prices by 10%, launch a starter tier at £49 a month, or keep pricing as it is. Goal: reach at least £150,000 monthly recurring revenue within 9 months. Facts: each 1% price rise adds £1,200 a month to monthly recurring revenue before churn. Each 1% price rise loses about 2 customers, between 1 and 4. Each lost customer removes £300 a month of monthly recurring revenue. The starter tier would win about 150 new subscribers, between 80 and 250. Each starter subscriber adds £49 a month to monthly recurring revenue. Each starter subscriber costs about £6 a month in support. Keeping pricing as it is adds nothing."
+     }
+    ]
+   }
+  ],
+  "tools": [
+   {
+    "type": "function",
+    "name": "propose_model_change",
+    "description": "Propose ONE change to the model. This does NOT change anything: it records an exact proposal and returns its id, which you keep for authorise_change: show the user what it changes, never the id, before asking them to approve. Use the labels exactly as get_canonical_state returned them. The link is recorded with `strength` as the user’s own estimate, so give ONLY the band the user named for it in this message; if they described it in their own words (\"very high\"), give your reading in `strength` and their exact phrase in `from_words`, and show it; if they named none, ask how strong the effect is first — a band they did not say is refused. The canvas calls the lowest band Slight: when the user calls a link slight, that IS `weak` — pass `weak`, and never ask whether slight means weak. When you ask the user for a band, use the canvas’s words: slight, moderate, strong or very strong.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "from_label": {
+       "type": "string"
+      },
+      "to_label": {
+       "type": "string"
+      },
+      "direction": {
+       "type": "string",
+       "enum": [
+        "positive",
+        "negative"
+       ]
+      },
+      "strength": {
+       "type": "string",
+       "enum": [
+        "weak",
+        "moderate",
+        "strong",
+        "very strong"
+       ],
+       "description": "The band the user said for this link in THIS message, in their own words — or your reading of their own words, given with `from_words`. Never your own guess."
+      },
+      "from_words": {
+       "type": "string",
+       "description": "When the user described the strength in their own words rather than a band word, give their exact phrase here and your reading in `strength`; the user approves your reading. Copy it exactly from their message this turn (for example \"very high\"); never a phrase they did not write."
+      },
+      "rationale": {
+       "type": "string",
+       "description": "Why this link matters, in the user’s terms."
+      }
+     },
+     "required": [
+      "from_label",
+      "to_label",
+      "direction",
+      "rationale"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "authorise_change",
+    "description": "Apply a previously returned proposal. Call this ONLY after the user has explicitly approved that specific proposal in their own words. The stored proposal is applied — nothing is regenerated. Report exactly what the result says, including a refusal.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "proposal_id": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "proposal_id"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "withdraw_proposal",
+    "description": "Withdraw a change you proposed earlier in THIS turn that you now think is wrong, before you reply. It is never applied and no approve button is shown. Never ask the user not to approve a change you leave offered. An unresolved goal reading (goal-scope: ID) may also be withdrawn, but only when the user writes exactly \"Withdraw this unresolved goal reading: <goal_id>\". Otherwise retain its question.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "proposal_id": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "proposal_id"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "run_analysis",
+    "description": "Run the decision analysis over the persisted model. It may refuse and explain what is missing; report that honestly rather than guessing what the result would have been.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "reason": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "reason"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "build_model_from_brief",
+    "description": "Build the decision model from the user’s brief when get_canonical_state reports the model is empty. Preserves the user’s own facts, numbers and constraint wording, then adds the options, factors, risks and causal mechanisms that make the decision reasonable to analyse. Report honestly what it says was left out.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "brief": {
+       "type": "string",
+       "description": "The user’s decision in their own words, verbatim."
+      },
+      "whole_request": {
+       "type": "boolean",
+       "description": "true ONLY when this one call does everything the user asked for in their latest message: no other change to make, no question to answer, nothing else to explain. If there is anything more, or you are unsure, false."
+      }
+     },
+     "required": [
+      "brief"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "propose_assumptions",
+    "description": "Propose starting values for factors that have none, so the model can be reasoned about instead of sitting blank. This does NOT change anything: it records an exact proposal and returns its id, which you keep for authorise_change: show the user the values, never the id, before asking them to approve. Each value is an assumption for the user to adopt or correct, NEVER a measurement — say so; a value the result marks `your_figure` is the user’s own figure, never called an assumption. Propose only factors the model actually has, using the labels get_canonical_state returned. A factor that already holds a value is left alone UNLESS you set `revise: true` on it, which you may do ONLY when the user has just asked for that factor to be changed and named the number themselves. Never set it to replace someone’s figure with one of your own. When the user asks to revise an existing value without supplying a replacement figure, ask what figure they would use; never supply a number or an instruction for them to repeat as their own. When the user says Olumi’s current estimate for a factor is right and should stay, set `keep: true` on it instead: nothing changes, and their approval records that they accepted Olumi’s estimate.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "assumptions": {
+       "type": "array",
+       "description": "The factors to give a starting value, with the reasoning for each.",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "factor_label": {
+          "type": "string"
+         },
+         "value": {
+          "type": "number"
+         },
+         "unit": {
+          "type": "string"
+         },
+         "basis": {
+          "type": "string",
+          "description": "Why this is a reasonable starting point, in the user’s terms."
+         },
+         "revise": {
+          "type": "boolean",
+          "description": "Set true ONLY when the user has just asked for this factor to be changed and gave the number. It permits replacing a value that is already there; the approval will show the user both the current value and the new one. Omit it in every other case."
+         },
+         "keep": {
+          "type": "boolean",
+          "description": "Set true ONLY when the user has just said Olumi’s CURRENT figure for this factor is right and should stay. The stored figure is kept exactly (give it as value); it stays Olumi’s estimate and the approval records that the user accepted it. Never on the user’s own figure or one from their brief, never with a different number, and never in the same call as other values. Omit it in every other case."
+         }
+        },
+        "required": [
+         "factor_label",
+         "value",
+         "unit",
+         "basis"
+        ]
+       }
+      }
+     },
+     "required": [
+      "assumptions"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "propose_new_option",
+    "description": "Add an option the user has just asked for. If its exact label already identifies a stored option marked `proposed_by: olumi`, call this tool with that label and no edits to offer adoption of the SAME option into their comparison. Its Olumi origin and suggested levels remain labelled as Olumi's; do not call it an existing user option or a user-stated figure. This does NOT change anything: it prepares ONE complete change and returns its id, which you keep for authorise_change: show the user the option and what it will be linked to, never the id, before asking them to approve. The option is linked from the decision automatically. Name the factors it would change, using the labels get_canonical_state returned. Give a level for a figure the user stated, in their own units; for an option YOU suggested you may give your own suggested figure with estimate: true and a basis, recorded and shown as Olumi’s estimate. Never a placeholder. A factor with no level is added with no level, and you say plainly what is still needed. When the user asks for SEVERAL options (up to 4), put them ALL in `options` in ONE call: they become ONE change the user approves once, and it lands whole or not at all. If an option changes something the model has NO factor for, add that factor in the SAME change with `new_factors` (never link the option to an unrelated factor instead), and name it in `acts_on`. Only for something the user asked the option to change; what it changes and which way come from the user’s words, or where it is plain from the option itself (a paid add-on adds revenue); if it is unclear, ask. Once a call has prepared a change, never call it again in the same reply. A call that was REFUSED prepared nothing: you may call it once more in the same reply, corrected as the refusal says.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "label": {
+       "type": "string",
+       "description": "ONE option in the user’s own words. For several, use `options` instead."
+      },
+      "acts_on": {
+       "type": "array",
+       "description": "The factors this option would change, and which way. At least one.",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "factor_label": {
+          "type": "string"
+         },
+         "direction": {
+          "type": "string",
+          "enum": [
+           "positive",
+           "negative"
+          ],
+          "description": "Whether this option pushes the factor up or down. State it; never guess it for the user."
+         },
+         "level": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+           "value": {
+            "type": "number",
+            "description": "The figure the user stated FOR THIS FACTOR, in the factor’s own units (e.g. 54 for £54 on a price). A figure given for something else (a price, when this factor is a churn rate) is never this factor’s level: leave level out. With no figure from the user, leave level out — never 0 or any placeholder to mean “not set” — unless it is your OWN suggested figure for an option you suggested: then set estimate."
+           },
+           "unit": {
+            "type": "string",
+            "description": "The unit the user stated, if any."
+           },
+           "estimate": {
+            "type": "boolean",
+            "description": "true ONLY when this figure is your own suggestion, not the user’s (an option you proposed, at the figure you proposed). It is recorded and shown as Olumi’s estimate, never as the user’s. Needs basis."
+           },
+           "basis": {
+            "type": "string",
+            "description": "With estimate: why this figure, in plain words the user can check."
+           }
+          },
+          "required": [
+           "value"
+          ],
+          "description": "The level this option sets the factor to. Never give a level for a factor you add in new_factors with kind 'switch': a switch has no level of its own — the option turns it on."
+         }
+        },
+        "required": [
+         "factor_label",
+         "direction"
+        ]
+       }
+      },
+      "options": {
+       "type": "array",
+       "description": "Several options the user asked for (2 to 4), each with its own label and factors. One change, one approval.",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "label": {
+          "type": "string",
+          "description": "The option in the user’s own words."
+         },
+         "acts_on": {
+          "type": "array",
+          "description": "The factors this option would change, and which way. At least one.",
+          "items": {
+           "type": "object",
+           "additionalProperties": false,
+           "properties": {
+            "factor_label": {
+             "type": "string"
+            },
+            "direction": {
+             "type": "string",
+             "enum": [
+              "positive",
+              "negative"
+             ],
+             "description": "Whether this option pushes the factor up or down. State it; never guess it for the user."
+            },
+            "level": {
+             "type": "object",
+             "additionalProperties": false,
+             "properties": {
+              "value": {
+               "type": "number",
+               "description": "The figure the user stated FOR THIS FACTOR, in the factor’s own units (e.g. 54 for £54 on a price). A figure given for something else (a price, when this factor is a churn rate) is never this factor’s level: leave level out. With no figure from the user, leave level out — never 0 or any placeholder to mean “not set” — unless it is your OWN suggested figure for an option you suggested: then set estimate."
+              },
+              "unit": {
+               "type": "string",
+               "description": "The unit the user stated, if any."
+              },
+              "estimate": {
+               "type": "boolean",
+               "description": "true ONLY when this figure is your own suggestion, not the user’s (an option you proposed, at the figure you proposed). It is recorded and shown as Olumi’s estimate, never as the user’s. Needs basis."
+              },
+              "basis": {
+               "type": "string",
+               "description": "With estimate: why this figure, in plain words the user can check."
+              }
+             },
+             "required": [
+              "value"
+             ],
+             "description": "The level this option sets the factor to. Never give a level for a factor you add in new_factors with kind 'switch': a switch has no level of its own — the option turns it on."
+            }
+           },
+           "required": [
+            "factor_label",
+            "direction"
+           ]
+          }
+         }
+        },
+        "required": [
+         "label",
+         "acts_on"
+        ]
+       }
+      },
+      "new_factors": {
+       "type": "array",
+       "description": "Factors the model does NOT have that these options change, added in this same change. Each is named in an option’s acts_on.",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "label": {
+          "type": "string",
+          "description": "The factor in the user’s words (e.g. \"AI add-on price\")."
+         },
+         "affects": {
+          "type": "array",
+          "description": "What this factor changes that the model already has (the goal, an outcome, a risk, or a factor no option sets), and which way. At least one.",
+          "items": {
+           "type": "object",
+           "additionalProperties": false,
+           "properties": {
+            "label": {
+             "type": "string",
+             "description": "A label exactly as get_canonical_state gives it."
+            },
+            "direction": {
+             "type": "string",
+             "enum": [
+              "positive",
+              "negative"
+             ],
+             "description": "Whether raising this factor raises (positive) or lowers (negative) it: from the user’s words, or where it is plain from the option itself (a paid add-on adds revenue); if it is unclear, ask. The preview names it so the user can correct it."
+            }
+           },
+           "required": [
+            "label",
+            "direction"
+           ]
+          }
+         },
+         "kind": {
+          "type": "string",
+          "enum": [
+           "switch",
+           "graded"
+          ],
+          "description": "\"switch\" when the option simply turns this ON — something not in place today that the option puts in place (grandfathering existing customers, launching a feature). It is then added as off today, Olumi’s reading for the user to correct, and on under every option that acts on it: give it no level. Leave kind out for an amount or a rate (a price, a share of customers): its current value is `today` when the user stated it, otherwise asked for, and the option’s level is asked for."
+         },
+         "today": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+           "value": {
+            "type": "number",
+            "description": "The figure the user stated for this factor TODAY, in their own units (e.g. 49 for “from £49 to £59” on a price)."
+           },
+           "unit": {
+            "type": "string",
+            "description": "The unit the user stated it in."
+           }
+          },
+          "required": [
+           "value"
+          ],
+          "description": "For a factor you add, give today’s level ONLY if the user stated it in their own words (e.g. a price they said moves \"from £49\" is £49 today). Never your own estimate, never a placeholder or 0: with no figure from the user, leave today out and ask for it. Never for a switch."
+         }
+        },
+        "required": [
+         "label",
+         "affects"
+        ]
+       }
+      },
+      "rationale": {
+       "type": "string",
+       "description": "Why this option is worth comparing, in the user’s terms."
+      },
+      "whole_request": {
+       "type": "boolean",
+       "description": "true ONLY when this one call does everything the user asked for in their latest message: no other change to make, no question to answer, nothing else to explain. If there is anything more, or you are unsure, false."
+      }
+     },
+     "required": [
+      "rationale"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "propose_link_effect",
+    "description": "Record how much an EXISTING link moves its target, as the user’s own figures, when the user has just said it in numbers (for example \"every £1 on the price loses us about 50 subscribers\"). This does NOT change anything: it prepares ONE change and returns its id, which you keep for authorise_change: show the user what it records, never the id, before they approve. Both magnitudes must be the user’s own figures in ONE statement from THIS message. Deterministic number words are accepted (\"two\", \"one and a half\", \"half a point\", \"about a point\"); explicit percent levels such as \"from 8% to 4%\" state a -4-point change. Never choose a figure from a range or invent a missing figure. `amount` is your proposed signed change in the TARGET (negative when it falls); `per_source_change` is your proposed signed change in the SOURCE, each in its own unit. The approval card shows this reading in symbols AND words, with the verbatim quote, and explicitly discloses a reversal of the stored link direction. `quote` is the user’s complete statement copied exactly. It must identify both ends, unless the REQUEST’s canvas selection grounds this link or both ends; do not infer selection from your own output. A question or denial is not a statement. A bare % needs the returned clarification: never resolve it yourself into points or a money change. A literal currency period (\"per month\", \"a month\", \"a week\", \"a year\") can supply an eligible unitless end’s unit. Show the exact card and ask the user to approve or correct; nothing is recorded without approval. For a strength said in words (\"strong\"), use propose_link_strength. When several links need sizes, ask for them in ONE message; when the user supplies several sizes, call propose_link_effect ONCE with all of them.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "links": {
+       "type": "array",
+       "minItems": 1,
+       "maxItems": 12,
+       "description": "Several existing links to size in one approval; use instead of the single-link fields when the user gave several figures.",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "from_label": {
+          "type": "string",
+          "description": "Where the link starts, exactly as get_canonical_state labels it."
+         },
+         "to_label": {
+          "type": "string",
+          "description": "Where the link ends, exactly as get_canonical_state labels it."
+         },
+         "amount": {
+          "type": "number",
+          "description": "The signed target change."
+         },
+         "amount_unit": {
+          "type": "string",
+          "description": "The target unit."
+         },
+         "per_source_change": {
+          "type": "number",
+          "description": "The signed source change this is per."
+         },
+         "per_source_change_unit": {
+          "type": "string",
+          "description": "The source unit."
+         },
+         "quote": {
+          "type": "string",
+          "description": "The exact user words for this link."
+         }
+        },
+        "required": [
+         "from_label",
+         "to_label",
+         "amount",
+         "amount_unit",
+         "per_source_change",
+         "per_source_change_unit",
+         "quote"
+        ]
+       }
+      },
+      "from_label": {
+       "type": "string",
+       "description": "Where the link starts, exactly as get_canonical_state labels it."
+      },
+      "to_label": {
+       "type": "string",
+       "description": "Where the link ends, exactly as get_canonical_state labels it."
+      },
+      "amount": {
+       "type": "number",
+       "description": "Your proposed signed reading of the user’s target magnitude (negative when it falls), disclosed on the approval card."
+      },
+      "amount_unit": {
+       "type": "string",
+       "description": "The target’s unit (for a percentage level, \"percentage points\")."
+      },
+      "per_source_change": {
+       "type": "number",
+       "description": "Your proposed signed reading of the user’s source magnitude (non-zero), disclosed on the approval card."
+      },
+      "per_source_change_unit": {
+       "type": "string",
+       "description": "The source’s unit."
+      },
+      "quote": {
+       "type": "string",
+       "description": "The user’s complete statement from THIS message, copied exactly with its punctuation."
+      }
+     },
+     "required": [],
+     "oneOf": [
+      {
+       "required": [
+        "links"
+       ]
+      },
+      {
+       "required": [
+        "from_label",
+        "to_label",
+        "amount",
+        "amount_unit",
+        "per_source_change",
+        "per_source_change_unit",
+        "quote"
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "propose_link_strength",
+    "description": "Record how strong an EXISTING link is, as the user’s own estimate, when the user has just said it (for example \"that effect is strong\", or \"it actually pushes the other way\"). This does NOT change anything: it prepares ONE change and returns its id, which you keep for authorise_change: show the user what it records, never the id, before they approve. When the user says how big a factor or risk IS ('price sensitivity is very high'), they mean how strongly it moves what it affects: the link FROM it, to the outcome they name or imply. If it has several and they named none, ask which. A figure for the factor itself (e.g. 'churn is 6%') is its value, not a link. Their band must reach the outcome they name, and a link INTO a node never does: that node’s own link on stays Olumi’s estimate. If a node is named for what they sized (a qualifier such as \"risk\" or \"loss\" still counts), record the link FROM it to that outcome. If none is, record the link from its cause straight to that outcome, proposing it with propose_model_change at their band if the model lacks it. The user’s word is one of Olumi’s strength bands. If the link already sits in that band, its strength is kept and only their review is recorded: it stays Olumi’s estimate unless it was already theirs; otherwise it is set to the middle of that band, and the result says the figure so you can tell them. Give `direction` ONLY when the user said the link pushes the other way. When they described the strength in their own words (\"very high\", \"hardly at all\"), give your reading in `strength` and their exact phrase in `from_words`: the user approves your reading. Never use this for a strength the user did not state: if they said nothing about how strong it is, ask which band it is first — a band they did not say is refused. The canvas calls the lowest band Slight: when the user calls a link slight, that IS `weak` — pass `weak`, and never ask whether slight means weak. When you ask the user for a band, use the canvas’s words: slight, moderate, strong or very strong.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "from_label": {
+       "type": "string",
+       "description": "Where the link starts, exactly as get_canonical_state labels it."
+      },
+      "to_label": {
+       "type": "string",
+       "description": "Where the link ends, exactly as get_canonical_state labels it."
+      },
+      "strength": {
+       "type": "string",
+       "enum": [
+        "weak",
+        "moderate",
+        "strong",
+        "very strong"
+       ],
+       "description": "The strength the user stated, or your reading of their own words, given with `from_words`."
+      },
+      "from_words": {
+       "type": "string",
+       "description": "When the user described the strength in their own words rather than a band word, give their exact phrase here and your reading in `strength`; the user approves your reading. Copy it exactly from their message this turn (for example \"very high\"); never a phrase they did not write."
+      },
+      "direction": {
+       "type": "string",
+       "enum": [
+        "positive",
+        "negative"
+       ],
+       "description": "ONLY when the user said the link pushes the other way, with their words in `direction_from_words`. Leave it out otherwise: the link keeps its direction."
+      },
+      "direction_from_words": {
+       "type": "string",
+       "description": "With `direction`: the user’s exact words in THIS message saying the link runs the other way. A reversal without them is refused."
+      },
+      "rationale": {
+       "type": "string",
+       "description": "What the user said, in their words."
+      },
+      "whole_request": {
+       "type": "boolean",
+       "description": "true ONLY when this one call does everything the user asked for in their latest message: no other change to make, no question to answer, nothing else to explain. If there is anything more, or you are unsure, false."
+      }
+     },
+     "required": [
+      "from_label",
+      "to_label",
+      "strength",
+      "rationale"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "propose_link_strengths",
+    "description": "Record the strengths of SEVERAL existing links as ONE change the user approves once — never one approval per link. Use it when the user gives strengths for more than one link in one message, or asks Olumi to size links for them (they ask what you recommend, then agree to it). This does NOT change anything: it prepares ONE change and returns its id, which you keep for authorise_change: show the user what each link will hold, never the id, before they approve. A link is recorded as the user’s own ONLY when its `from_words` are the user’s exact words from THIS message naming that link (one of its ends) AND its band; naming the band a link already sits in keeps it as it is. Every other link is recorded as OLUMI’S ESTIMATE, applied with their approval — never as theirs — and you must say which are which. Directions are kept: a link the user says runs the other way is propose_link_strength, one link at a time. A strength the user set themselves is never replaced by an estimate. The set is written whole or not at all. The canvas calls the lowest band Slight: when the user calls a link slight, that IS `weak` — pass `weak`, and never ask whether slight means weak. When you ask the user for a band, use the canvas’s words: slight, moderate, strong or very strong.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "links": {
+       "type": "array",
+       "minItems": 1,
+       "maxItems": 12,
+       "description": "Every link in the set, each once.",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "from_label": {
+          "type": "string",
+          "description": "Where the link starts, exactly as get_canonical_state labels it."
+         },
+         "to_label": {
+          "type": "string",
+          "description": "Where the link ends, exactly as get_canonical_state labels it."
+         },
+         "strength": {
+          "type": "string",
+          "enum": [
+           "weak",
+           "moderate",
+           "strong",
+           "very strong"
+          ],
+          "description": "The band the user named for this link, or Olumi’s estimate when they did not."
+         },
+         "from_words": {
+          "type": "string",
+          "description": "ONLY when the user named this link’s band: their exact words from THIS message that name this link (one of its ends) and the band. Leave it out for Olumi’s estimate."
+         }
+        },
+        "required": [
+         "from_label",
+         "to_label",
+         "strength"
+        ]
+       }
+      },
+      "rationale": {
+       "type": "string",
+       "description": "What the user asked for, in their words."
+      },
+      "whole_request": {
+       "type": "boolean",
+       "description": "true ONLY when this one call does everything the user asked for in their latest message: no other change to make, no question to answer, nothing else to explain. If there is anything more, or you are unsure, false."
+      }
+     },
+     "required": [
+      "links",
+      "rationale"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "propose_goal_target",
+    "description": "Set the goal’s success target to the figure the user has just stated (for example \"we need at least £60k MRR\", \"keep churn under 5%\"). This does NOT change anything: it prepares ONE change and returns its id, which you keep for authorise_change: show the user what it sets, never the id, before they approve. Give the figure exactly as the user wrote it, in their units (60000, with the unit £, for £60k), and whether they said at least or at most. Never use this for a figure or a direction the user did not state: if they have not given both in their own words, ask first — a figure or direction they did not state is refused. If the user ALSO stated the goal’s level today (for example \"we have secured £0 so far and need at least £1m\"), pass it as current_level: both go on ONE card and are written on ONE approval. Never promise to record today’s level later: without current_level nothing records it. When the target is DERIVED from a figure the user gave (\"we’re at £100,000 … aiming to double that\"), give the result as value and pass derived_from {base, multiplier} (100000 and 2): the base must be a figure they wrote. When the user did not say at least or at most, give your reading in constraint_type: the card offers it as a decision with the other direction beside it, and the user chooses.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "constraint_type": {
+       "type": "string",
+       "enum": [
+        "at_least",
+        "at_most"
+       ],
+       "description": "at_least when the user said the goal must reach at least the figure; at_most when they said it must stay at or under it."
+      },
+      "value": {
+       "type": "number",
+       "description": "The figure the user stated, in their own units."
+      },
+      "unit": {
+       "type": "string",
+       "description": "The unit of that figure, as the user gave it (for example £, % or customers)."
+      },
+      "rationale": {
+       "type": "string",
+       "description": "What the user said, in their words."
+      },
+      "derived_from": {
+       "type": "object",
+       "additionalProperties": false,
+       "properties": {
+        "base": {
+         "type": "number",
+         "description": "The figure the user wrote that the target is derived from, in their units (100000 for \"£100,000\")."
+        },
+        "multiplier": {
+         "type": "number",
+         "description": "The multiple they asked for: 2 for \"double that\", 3 for \"triple\", 0.5 for \"halve\"."
+        }
+       },
+       "required": [
+        "base",
+        "multiplier"
+       ]
+      },
+      "current_level": {
+       "type": "object",
+       "additionalProperties": false,
+       "properties": {
+        "value": {
+         "type": "number",
+         "description": "The goal’s level TODAY, exactly as the user stated it in their units (0 for \"we have secured £0 so far\")."
+        },
+        "unit": {
+         "type": "string",
+         "description": "The unit the user gave it in (for example £)."
+        }
+       },
+       "required": [
+        "value",
+        "unit"
+       ]
+      }
+     },
+     "required": [
+      "constraint_type",
+      "value",
+      "unit",
+      "rationale"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "propose_option_status",
+    "description": "Take ONE option out of the comparison, or put it back, when the user asks (for example \"drop carry on as now\", \"we can’t do option B, take it out\", \"put option B back\"). The baseline (carry on as now) can be taken out too. This does NOT change anything: it prepares ONE change and returns its id, which you keep for authorise_change: show the user what it does, never the id, before they approve. The option stays in their model with its wording; only whether it is compared changes. Use `removed` when they want it out, `infeasible` when they say it cannot be done, `feasible` to put it back. Never use it to delete an option, and never for Olumi’s own suggestion the user has not added.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "option_label": {
+       "type": "string",
+       "description": "The option exactly as get_canonical_state names it."
+      },
+      "status": {
+       "type": "string",
+       "enum": [
+        "removed",
+        "infeasible",
+        "feasible"
+       ],
+       "description": "removed = out of the comparison; infeasible = cannot be done, out of the comparison; feasible = back in."
+      },
+      "rationale": {
+       "type": "string",
+       "description": "What the user said, in their words."
+      }
+     },
+     "required": [
+      "option_label",
+      "status",
+      "rationale"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "propose_new_risk",
+    "description": "Add a RISK the user has just asked for, when the model does NOT already have it: something that could go wrong and would hurt the goal or an outcome (for example “competitors respond to our price rise”). This does NOT change anything: it prepares ONE complete change and returns its id, which you keep for authorise_change: show the user the risk, what it threatens and what drives it, never the id, before asking them to approve. A risk links TO the goal or an outcome it threatens (`affects`, at least one) and FROM factors that drive it (`caused_by`, optional) — never into a factor: a risk affects the goal or an outcome, not a factor directly. How strongly each link acts is not known yet: Olumi records a placeholder strength, not an estimate — say so. Use the labels exactly as the CURRENT MODEL STATE gives them.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "label": {
+       "type": "string",
+       "description": "The risk in the user’s own words (e.g. \"Competitive response\")."
+      },
+      "affects": {
+       "type": "array",
+       "description": "What the risk threatens: the goal or an outcome in the model, and which way. At least one. Never a factor.",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "target_label": {
+          "type": "string",
+          "description": "The goal or an outcome, exactly as the CURRENT MODEL STATE labels it."
+         },
+         "direction": {
+          "type": "string",
+          "enum": [
+           "positive",
+           "negative"
+          ],
+          "description": "negative when the risk lowers it (the usual case); from the user’s words, never a guess."
+         }
+        },
+        "required": [
+         "target_label",
+         "direction"
+        ]
+       }
+      },
+      "caused_by": {
+       "type": "array",
+       "description": "Factors in the model that drive the risk, and which way (optional).",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "factor_label": {
+          "type": "string",
+          "description": "A factor exactly as the CURRENT MODEL STATE labels it."
+         },
+         "direction": {
+          "type": "string",
+          "enum": [
+           "positive",
+           "negative"
+          ],
+          "description": "positive when raising the factor makes the risk more likely."
+         }
+        },
+        "required": [
+         "factor_label",
+         "direction"
+        ]
+       }
+      },
+      "rationale": {
+       "type": "string",
+       "description": "What the user said, in their words."
+      },
+      "whole_request": {
+       "type": "boolean",
+       "description": "true ONLY when this one call does everything the user asked for in their latest message: no other change to make, no question to answer, nothing else to explain. If there is anything more, or you are unsure, false."
+      }
+     },
+     "required": [
+      "label",
+      "affects",
+      "rationale"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "propose_new_factor",
+    "description": "Add 1–3 NEW factors whose figures the user just stated (e.g. “seniors cost £120k a year each”), each figure recorded as theirs, as ONE change. Prepares only: show the factors and figures, never the id, then authorise_change once they agree. A factor the model has already: propose_assumptions.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "factors": {
+       "type": "array",
+       "minItems": 1,
+       "maxItems": 3,
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "label": {
+          "type": "string"
+         },
+         "unit": {
+          "type": "string",
+          "description": "The user’s unit, e.g. \"GBP/year per engineer\"."
+         },
+         "today": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+           "value": {
+            "type": "number",
+            "description": "Whole units: 120000 for £120k."
+           },
+           "unit": {
+            "type": "string"
+           }
+          },
+          "required": [
+           "value"
+          ]
+         },
+         "affects": {
+          "type": "string",
+          "description": "ONE existing outcome, or a factor no option sets, that it drives, as the CURRENT MODEL STATE labels it."
+         },
+         "direction": {
+          "type": "string",
+          "enum": [
+           "positive",
+           "negative"
+          ]
+         }
+        },
+        "required": [
+         "label",
+         "unit",
+         "today",
+         "affects",
+         "direction"
+        ]
+       }
+      },
+      "rationale": {
+       "type": "string"
+      },
+      "whole_request": {
+       "type": "boolean",
+       "description": "true ONLY when this one call does everything the user asked for in their latest message: no other change to make, no question to answer, nothing else to explain. If there is anything more, or you are unsure, false."
+      }
+     },
+     "required": [
+      "factors",
+      "rationale"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "propose_limit_change",
+    "description": "Change the figure of a LIMIT the model already holds (one listed under `limits` in the CURRENT MODEL STATE) when the user has just stated its new figure (for example “the budget is now £30k”). This does NOT change anything: it prepares ONE change and returns its id, which you keep for authorise_change: show the user the limit, its current figure and the new one, never the id, before they approve. Give the figure exactly as the user wrote it, in the limit’s own unit (30000 for £30k). The limit keeps its unit and meaning; only its figure changes, recorded as the user’s. It never adds a limit, and never sets the goal’s own target (that is propose_goal_target). A figure the user did not write is refused.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "limit_label": {
+       "type": "string",
+       "description": "The limit’s `on` label exactly as the CURRENT MODEL STATE lists it under limits."
+      },
+      "operator": {
+       "type": "string",
+       "enum": [
+        "<=",
+        ">="
+       ],
+       "description": "The limit’s operator exactly as the state lists it."
+      },
+      "new_value": {
+       "type": "number",
+       "description": "The new figure the user stated, in the limit’s own unit."
+      },
+      "stated_operator": {
+       "type": "string",
+       "enum": [
+        "<",
+        "<=",
+        ">",
+        ">="
+       ],
+       "description": "Only when the user states the comparator in this message: < for less than or under, <= for at most, > for more than, >= for at least. Omit it for a new figure alone: the limit keeps its own."
+      },
+      "unit": {
+       "type": "string",
+       "description": "The unit the user wrote the figure in, if any."
+      },
+      "rationale": {
+       "type": "string",
+       "description": "What the user said, in their words."
+      },
+      "whole_request": {
+       "type": "boolean",
+       "description": "true ONLY when this one call does everything the user asked for in their latest message: no other change to make, no question to answer, nothing else to explain. If there is anything more, or you are unsure, false."
+      }
+     },
+     "required": [
+      "limit_label",
+      "operator",
+      "new_value",
+      "rationale"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "propose_option_interventions",
+    "description": "Propose the level an option sets a factor to — what the option actually DOES. An option that names a factor without saying what it sets it to blocks the comparison for EVERY option, not just itself. Give the value in the factor’s own units, as the user would say it (£54, not 0.27). This changes nothing: it records an exact proposal and returns its id for authorise_change; show the user what it sets first, never the id. Propose only what the user’s words support; if an option’s level is not stated, offer one as an assumption and say so, exactly as with propose_assumptions. A level on a factor the option is not linked to yet brings that link with it, in the same change: the link only says the option acts on that factor, so never ask how strong it is — send the level the user gave.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "interventions": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "option_label": {
+          "type": "string"
+         },
+         "factor_label": {
+          "type": "string"
+         },
+         "value": {
+          "type": "number",
+          "description": "In the factor’s own units — the number a user would say."
+         },
+         "unit": {
+          "type": "string",
+          "description": "The unit the user wrote this figure in, if any (£ per month for “£10 per month”)."
+         },
+         "basis": {
+          "type": "string"
+         },
+         "unmodelled_mechanisms": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+           "type": "string",
+           "minLength": 1,
+           "maxLength": 80
+          },
+          "description": "Unresolved effects this option does not yet model. Omit to preserve its existing gaps; [] explicitly requests clearing them. The user must approve the complete named gap statement, including the current gaps and questions it replaces."
+         },
+         "user_stated": {
+          "type": "boolean",
+          "description": "Set true ONLY when the USER gave this level — their own number, for this option and factor. It records the level as theirs; without it the level is recorded as Olumi’s estimate, so never set it on a figure you proposed. On an option in `status_quo_held` it is also what permits a level at all (the user said carrying on changes this factor), and never to restate the factor’s starting value: carrying on as now already keeps that, so such a level is not recorded."
+         },
+         "likely_low": {
+          "type": "number",
+          "description": "Only with user_stated, and only when the user gave a range for this level: its low end, in the same units as value. Never a range you made up. Send it with likely_high, range_meaning and range_user_stated."
+         },
+         "likely_high": {
+          "type": "number",
+          "description": "The high end of that same range. Send it with likely_low."
+         },
+         "range_meaning": {
+          "type": "string",
+          "enum": [
+           "likely_range",
+           "min_max",
+           "at_most",
+           "at_least",
+           "other"
+          ],
+          "description": "How the user meant that range. likely_range ONLY for a plain likely range (“likely between 5 and 20 days”), which Olumi reads as the middle half of what’s likely. min_max for the lowest and highest possible; at_most / at_least for a bound; other for anything else (e.g. a 95% confidence interval). Only likely_range is recorded; for the rest, tell the user and ask for their likely range."
+         },
+         "range_user_stated": {
+          "type": "boolean",
+          "description": "Set true ONLY when the USER gave this range (both ends) for this option and factor."
+         }
+        },
+        "required": [
+         "option_label",
+         "factor_label",
+         "value",
+         "basis"
+        ]
+       }
+      },
+      "whole_request": {
+       "type": "boolean",
+       "description": "true ONLY when this one call does everything the user asked for in their latest message: no other change to make, no question to answer, nothing else to explain. If there is anything more, or you are unsure, false."
+      }
+     },
+     "required": [
+      "interventions"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "propose_starting_point",
+    "description": "Propose, as ONE exact proposal the user approves ONCE, both the starting values for factors that have none AND the level each option sets — everything a first comparison needs. Use this instead of propose_assumptions + propose_option_interventions whenever both are needed: two separate proposals cannot both be applied from one approval, because applying the first changes the model the second was made against. This changes nothing on its own. Every figure you propose is an assumption for the user to adopt or correct, NEVER a measurement — say so; one the result marks `your_figure` or `stated_by: 'user'` is the user’s own figure, never called an assumption. Values in the factor’s own units. A level on a factor the option is not linked to yet brings that link with it, in the same change: the link only says the option acts on that factor, so never ask how strong it is — send the level the user gave.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "assumptions": {
+       "type": "array",
+       "description": "Starting values for factors that have none. May be empty.",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "factor_label": {
+          "type": "string"
+         },
+         "value": {
+          "type": "number"
+         },
+         "unit": {
+          "type": "string"
+         },
+         "basis": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "factor_label",
+         "value",
+         "unit",
+         "basis"
+        ]
+       }
+      },
+      "option_levels": {
+       "type": "array",
+       "description": "The level each option sets a factor to, in the factor’s own units. May be empty.",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "option_label": {
+          "type": "string"
+         },
+         "factor_label": {
+          "type": "string"
+         },
+         "value": {
+          "type": "number"
+         },
+         "basis": {
+          "type": "string"
+         },
+         "unmodelled_mechanisms": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+           "type": "string",
+           "minLength": 1,
+           "maxLength": 80
+          },
+          "description": "Unresolved effects this option does not yet model. Omit to preserve its existing gaps; [] explicitly requests clearing them. The user must approve the complete named gap statement, including the current gaps and questions it replaces."
+         },
+         "user_stated": {
+          "type": "boolean",
+          "description": "Set true ONLY when the USER gave this level — their own number, for this option and factor. It records the level as theirs; without it the level is recorded as Olumi’s estimate, so never set it on a figure you proposed. On an option in `status_quo_held` it is also what permits a level at all (the user said carrying on changes this factor), and never to restate the factor’s starting value: carrying on as now already keeps that, so such a level is not recorded."
+         }
+        },
+        "required": [
+         "option_label",
+         "factor_label",
+         "value",
+         "basis"
+        ]
+       }
+      }
+     },
+     "required": [
+      "assumptions",
+      "option_levels"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "reconcile_goal_scope",
+    "description": "Retain the user’s goal scope or component share, and reconcile it with the existing rate and count. Use when they correct a whole/component reading or answer its share question (including “30% currently”). This retains one durable question; it never writes a derived number. Supply the exact user quote and existing operand ids. If a current_level is supplied, the ordinary baseline writer prepares ONE approval for the scope, baseline and withdrawal of any incompatible product identity. Never use propose_goal_current_level alone to force a total onto a component product.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "goal_label": {
+       "type": "string"
+      },
+      "scope": {
+       "type": "object",
+       "additionalProperties": false,
+       "properties": {
+        "modelled": {
+         "type": "string"
+        },
+        "alternative": {
+         "type": "string"
+        },
+        "extent": {
+         "type": "string",
+         "enum": [
+          "total",
+          "component"
+         ]
+        },
+        "stated_in_brief": {
+         "type": "boolean",
+         "enum": [
+          true
+         ]
+        },
+        "source": {
+         "type": "object",
+         "additionalProperties": false,
+         "properties": {
+          "quote": {
+           "type": "string"
+          }
+         },
+         "required": [
+          "quote"
+         ]
+        },
+        "component": {
+         "type": "object",
+         "additionalProperties": false,
+         "properties": {
+          "label": {
+           "type": "string"
+          },
+          "rate_id": {
+           "type": "string"
+          },
+          "count_id": {
+           "type": "string"
+          },
+          "share": {
+           "type": "number"
+          },
+          "basis": {
+           "type": "string",
+           "enum": [
+            "unknown",
+            "same",
+            "different"
+           ]
+          },
+          "count_basis": {
+           "type": "string"
+          },
+          "basis_source": {
+           "type": "object",
+           "additionalProperties": false,
+           "properties": {
+            "quote": {
+             "type": "string"
+            }
+           },
+           "required": [
+            "quote"
+           ]
+          },
+          "source": {
+           "type": "object",
+           "additionalProperties": false,
+           "properties": {
+            "quote": {
+             "type": "string"
+            }
+           },
+           "required": [
+            "quote"
+           ]
+          }
+         },
+         "required": [
+          "label",
+          "rate_id",
+          "count_id",
+          "basis",
+          "source"
+         ]
+        }
+       },
+       "required": [
+        "modelled",
+        "alternative",
+        "extent",
+        "stated_in_brief",
+        "source"
+       ]
+      },
+      "current_level": {
+       "type": "object",
+       "additionalProperties": false,
+       "properties": {
+        "value": {
+         "type": "number"
+        },
+        "unit": {
+         "type": "string",
+         "description": "Their native currency and the goal’s stated period, e.g. GBP/month for MRR; never a normalized value."
+        },
+        "quote": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "value",
+        "unit",
+        "quote"
+       ]
+      },
+      "component_share": {
+       "type": "number",
+       "description": "The user’s share as 0–1; bind a short answer only to the retained share question."
+      },
+      "component_basis": {
+       "type": "string",
+       "enum": [
+        "same",
+        "different"
+       ]
+      },
+      "count_basis": {
+       "type": "string"
+      },
+      "source_quote": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "goal_label"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "propose_goal_current_level",
+    "description": "Record the CURRENT level of the model’s goal when the user has just stated it (for example \"our MRR is £12,000 today\" when the goal is MRR). Without it the analysis cannot compare today with the goal’s target. This does NOT change anything: it records an exact proposal and returns its id, which you keep for authorise_change: show the user the figure, never the id, before asking them to approve. Only the user’s own figure for the goal’s OWN metric: never your estimate, and never a figure they gave for something else (a price, a subscriber count, a rate). Use the goal’s label exactly as get_canonical_state returned it.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "goal_label": {
+       "type": "string"
+      },
+      "value": {
+       "type": "number",
+       "description": "The figure the user stated, in their units (12000 for £12,000; never scaled)."
+      },
+      "unit": {
+       "type": "string",
+       "description": "The unit the user stated, if any (e.g. GBP)."
+      },
+      "goal_is": {
+       "type": "string",
+       "enum": [
+        "at_least",
+        "above",
+        "at_most",
+        "below"
+       ],
+       "description": "ONLY when the user has said how the goal’s target is put: reach at least it, get strictly above it, stay at most it, or stay strictly below it. Otherwise leave it out: today’s level is a fact about today and is recorded on its own, with or without a target, and you never ask for a target first. Never guess it."
+      },
+      "user_stated": {
+       "type": "boolean",
+       "description": "true ONLY when the USER gave this figure as the goal’s current level. Never set it for a figure you estimated."
+      },
+      "whole_request": {
+       "type": "boolean",
+       "description": "true ONLY when this one call does everything the user asked for in their latest message: no other change to make, no question to answer, nothing else to explain. If there is anything more, or you are unsure, false."
+      }
+     },
+     "required": [
+      "goal_label",
+      "value",
+      "unit",
+      "user_stated"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "propose_identity",
+    "description": "Offer the user Olumi’s reading of the goal as the product of two of their own figures (for example \"Is MRR your price × your subscribers?\"), when a run_analysis result carries `identity_card`. It takes no arguments: the reading and its arithmetic come from the stored model. This does NOT change anything: it records the reading and returns its `card.words`. Ask the user those words exactly, never reworded, and tell them to confirm on the button. Never state the reading as a fact before they confirm, and never run the analysis again yourself.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {},
+     "required": []
+    }
+   },
+   {
+    "type": "function",
+    "name": "offer_public_research",
+    "description": "Offer to search the public web when the user wants outside evidence the model does not hold (a benchmark, a market figure, published research). This searches NOTHING: Olumi shows the user a control with exactly your query, and the search runs only if they press it, as a separate step with the sources shown. Write the query in plain public words; leave out the user’s own figures, names and model details unless they asked you to search for them. Never say you have searched, and never describe results you do not have.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "query": {
+       "type": "string",
+       "description": "The exact public search question, one line, at most 200 characters."
+      }
+     },
+     "required": [
+      "query"
+     ]
+    }
+   },
+   {
+    "type": "function",
+    "name": "give_provisional_view",
+    "description": "Give YOUR OWN provisional view when the analysis cannot put an option forward yet (a leader may not be named). This changes nothing. Olumi shows it beneath your reply as ONE paragraph labelled as your provisional view — never as the analysis result — with why the analysis cannot confirm it yet. Call it at most once per reply, and never write the view in your reply text: a reply sentence that ranks or favours an option is removed. It is refused when the analysis may name a leading option (then report what the analysis says) or when no analysis has completed.",
+    "parameters": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "view": {
+       "type": "string",
+       "description": "At most 2 sentences: what you would do, in plain words."
+      },
+      "reasoning": {
+       "type": "string",
+       "description": "At most 3 sentences: why, from the model’s own facts and the user’s own words. Never quote win percentages as a ranking."
+      },
+      "confirm_step": {
+       "type": "string",
+       "description": "ONE sentence: the one thing that would let the analysis confirm or overturn this view — something the user can do, or a change one of your tools can propose. Never a step that cannot help."
+      }
+     },
+     "required": [
+      "view",
+      "reasoning",
+      "confirm_step"
+     ]
+    }
+   }
+  ],
+  "reasoning": {
+   "effort": "low"
+  },
+  "max_output_tokens": 16
+ },
+ "body": "{\n  \"id\": \"resp_02d8afc1741bf1a6006ac445f7abd887d29cd33977e0121941\",\n  \"object\": \"response\",\n  \"created_at\": 1791247863,\n  \"status\": \"incomplete\",\n  \"access_programs\": null,\n  \"background\": false,\n  \"completed_at\": null,\n  \"error\": null,\n  \"frequency_penalty\": 0.0,\n  \"incomplete_details\": {\n    \"reason\": \"max_output_tokens\"\n  },\n  \"instructions\": null,\n  \"max_output_tokens\": 16,\n  \"max_tool_calls\": null,\n  \"model\": \"gpt-5.6-terra\",\n  \"moderation\": null,\n  \"output\": [\n    {\n      \"id\": \"rs_02d8afc1741bf1a6006ac445f83c5887d29fef56bbae8e4f25\",\n      \"type\": \"reasoning\",\n      \"content\": [],\n      \"encrypted_content\": \"gAAAAABqxEX4ZgQrr79HK-0zlVvGIlzm9v_x4KIyAbBpWByq_9x3kncI_fiJ3kNUCqWb5_YBQWrp_ZPfW1LUZje8RahiJXaPQiltpYlFXI7ChrEDVJ4uiOKHZPYvbxNk2xSSVVtCYhGGe1G5yOEj6AxQ77Vb5aiMBbc3O27axPnwHr5HQOKqMIXO6vSQgCX4CRftFHY_XXAXO22YZ-hBhE2J9hYxMfkYU_n8vmZlsNd8jsdj9-Y_Kp4qg6foeCxECrwkJzucPO7lGcqTJUD10-g9RPw7gSuscboToQfTiiwMpkuWaovgJBDv4e5yWMtFbzHGJky8DPehfp4irBKmXVisA3RGYPt342-OyQdX7k3PFQBn8X2QE--b6EUKAfQcaoX5V4Nntl4zXrcC1qPFnNAoHHXAVc2SFFCULOkXv3pY_iycAk3e2Tc-kxSZDlzNUBZCBIM69b_czPzsJIKEENVHp4cOq3TpMFxZXDZ614cTsEugbbqQyZ0OaU1mMIdltcnWBP2nInofvMFIIfBPrHjYSgI-4YBK_bgaQnDo291_cKt_m_jRig5Z8JKb84nh_VO5Otw15vG0LhtzjbZkIVxXcd3TkUD12s60vVtFP7NcQgGhpISl-ygfE0rqSGSEoryrR7jRtRajk40F-iM87w1aqSlbsH31lGHBufQbXneH5x3m6M9UzNhQESTYChDlBa7m2IRtLE9-tjh88e3p6ffFLoLL2jnv86pTu4KDNmCujjjFW6_0IiCavu82Ifq7P-Cvfhyu_J4L8dLSS1VxV5ja5B_AP_ku4DlNZPEa2lOz0Z0IycQ4DXv5nSCdkHk95QVJnwSVhrbpcGmOM_Tvhp64n7fAdZ5bLi-dtYCbmL5PUFQW8qyKaIeRTiDTTmtdLtl9bxS6RehXHLNM3HonmseVX2Q1XkouiyKk4W9wUC72tRM0CvjMtPdbTWBUfJdmtoYcP3eDOLjwJlhiiu4CSc5hF2Z4tQpMYt5-19kRunHpSO4Q248Mtsh43ag03INMRH81jQ4jDbMIUSwcNL4AV30FBERpgG3NIvgvI21IGlNmkbs98jenvbvnIn47nspys5EYaO85767-w9xdHEdOqNu4vmJQqur-HSWzGp-dnB1B6MHvt3ZMwOszxn3mU6OzYnOZVzfaGhklJZDqC3ufmT0-V-76WYF9n3t0MyPKh_ZN0EOiT9hk3XQ=\",\n      \"summary\": []\n    }\n  ],\n  \"parallel_tool_calls\": true,\n  \"presence_penalty\": 0.0,\n  \"previous_response_id\": null,\n  \"prompt_cache_key\": null,\n  \"prompt_cache_options\": {\n    \"mode\": \"implicit\",\n    \"ttl\": \"30m\"\n  },\n  \"prompt_cache_retention\": \"24h\",\n  \"reasoning\": {\n    \"context\": \"all_turns\",\n    \"effort\": \"low\",\n    \"mode\": \"standard\",\n    \"summary\": null\n  },\n  \"safety_identifier\": null,\n  \"service_tier\": \"default\",\n  \"store\": true,\n  \"temperature\": 1.0,\n  \"text\": {\n    \"format\": {\n      \"type\": \"text\"\n    },\n    \"verbosity\": \"medium\"\n  },\n  \"tool_choice\": \"auto\",\n  \"tool_usage\": {\n    \"image_gen\": {\n      \"input_tokens\": 0,\n      \"input_tokens_details\": {\n        \"image_tokens\": 0,\n        \"text_tokens\": 0\n      },\n      \"output_tokens\": 0,\n      \"output_tokens_details\": {\n        \"image_tokens\": 0,\n        \"text_tokens\": 0\n      },\n      \"total_tokens\": 0\n    },\n    \"web_search\": {\n      \"num_requests\": 0\n    }\n  },\n  \"tools\": [\n    {\n      \"type\": \"function\",\n      \"description\": \"Propose ONE change to the model. This does NOT change anything: it records an exact proposal and returns its id, which you keep for authorise_change: show the user what it changes, never the id, before asking them to approve. Use the labels exactly as get_canonical_state returned them. The link is recorded with `strength` as the user\\u2019s own estimate, so give ONLY the band the user named for it in this message; if they described it in their own words (\\\"very high\\\"), give your reading in `strength` and their exact phrase in `from_words`, and show it; if they named none, ask how strong the effect is first \\u2014 a band they did not say is refused. The canvas calls the lowest band Slight: when the user calls a link slight, that IS `weak` \\u2014 pass `weak`, and never ask whether slight means weak. When you ask the user for a band, use the canvas\\u2019s words: slight, moderate, strong or very strong.\",\n      \"name\": \"propose_model_change\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"from_label\": {\n            \"type\": \"string\"\n          },\n          \"to_label\": {\n            \"type\": \"string\"\n          },\n          \"direction\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"positive\",\n              \"negative\"\n            ]\n          },\n          \"strength\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"weak\",\n              \"moderate\",\n              \"strong\",\n              \"very strong\"\n            ],\n            \"description\": \"The band the user said for this link in THIS message, in their own words \\u2014 or your reading of their own words, given with `from_words`. Never your own guess.\"\n          },\n          \"from_words\": {\n            \"type\": \"string\",\n            \"description\": \"When the user described the strength in their own words rather than a band word, give their exact phrase here and your reading in `strength`; the user approves your reading. Copy it exactly from their message this turn (for example \\\"very high\\\"); never a phrase they did not write.\"\n          },\n          \"rationale\": {\n            \"type\": \"string\",\n            \"description\": \"Why this link matters, in the user\\u2019s terms.\"\n          }\n        },\n        \"required\": [\n          \"from_label\",\n          \"to_label\",\n          \"direction\",\n          \"strength\",\n          \"from_words\",\n          \"rationale\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Apply a previously returned proposal. Call this ONLY after the user has explicitly approved that specific proposal in their own words. The stored proposal is applied \\u2014 nothing is regenerated. Report exactly what the result says, including a refusal.\",\n      \"name\": \"authorise_change\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"proposal_id\": {\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"proposal_id\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Withdraw a change you proposed earlier in THIS turn that you now think is wrong, before you reply. It is never applied and no approve button is shown. Never ask the user not to approve a change you leave offered. An unresolved goal reading (goal-scope: ID) may also be withdrawn, but only when the user writes exactly \\\"Withdraw this unresolved goal reading: <goal_id>\\\". Otherwise retain its question.\",\n      \"name\": \"withdraw_proposal\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"proposal_id\": {\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"proposal_id\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Run the decision analysis over the persisted model. It may refuse and explain what is missing; report that honestly rather than guessing what the result would have been.\",\n      \"name\": \"run_analysis\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"reason\": {\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"reason\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Build the decision model from the user\\u2019s brief when get_canonical_state reports the model is empty. Preserves the user\\u2019s own facts, numbers and constraint wording, then adds the options, factors, risks and causal mechanisms that make the decision reasonable to analyse. Report honestly what it says was left out.\",\n      \"name\": \"build_model_from_brief\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"brief\": {\n            \"type\": \"string\",\n            \"description\": \"The user\\u2019s decision in their own words, verbatim.\"\n          },\n          \"whole_request\": {\n            \"type\": \"boolean\",\n            \"description\": \"true ONLY when this one call does everything the user asked for in their latest message: no other change to make, no question to answer, nothing else to explain. If there is anything more, or you are unsure, false.\"\n          }\n        },\n        \"required\": [\n          \"brief\",\n          \"whole_request\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Propose starting values for factors that have none, so the model can be reasoned about instead of sitting blank. This does NOT change anything: it records an exact proposal and returns its id, which you keep for authorise_change: show the user the values, never the id, before asking them to approve. Each value is an assumption for the user to adopt or correct, NEVER a measurement \\u2014 say so; a value the result marks `your_figure` is the user\\u2019s own figure, never called an assumption. Propose only factors the model actually has, using the labels get_canonical_state returned. A factor that already holds a value is left alone UNLESS you set `revise: true` on it, which you may do ONLY when the user has just asked for that factor to be changed and named the number themselves. Never set it to replace someone\\u2019s figure with one of your own. When the user asks to revise an existing value without supplying a replacement figure, ask what figure they would use; never supply a number or an instruction for them to repeat as their own. When the user says Olumi\\u2019s current estimate for a factor is right and should stay, set `keep: true` on it instead: nothing changes, and their approval records that they accepted Olumi\\u2019s estimate.\",\n      \"name\": \"propose_assumptions\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"assumptions\": {\n            \"type\": \"array\",\n            \"description\": \"The factors to give a starting value, with the reasoning for each.\",\n            \"items\": {\n              \"type\": \"object\",\n              \"additionalProperties\": false,\n              \"properties\": {\n                \"factor_label\": {\n                  \"type\": \"string\"\n                },\n                \"value\": {\n                  \"type\": \"number\"\n                },\n                \"unit\": {\n                  \"type\": \"string\"\n                },\n                \"basis\": {\n                  \"type\": \"string\",\n                  \"description\": \"Why this is a reasonable starting point, in the user\\u2019s terms.\"\n                },\n                \"revise\": {\n                  \"type\": \"boolean\",\n                  \"description\": \"Set true ONLY when the user has just asked for this factor to be changed and gave the number. It permits replacing a value that is already there; the approval will show the user both the current value and the new one. Omit it in every other case.\"\n                },\n                \"keep\": {\n                  \"type\": \"boolean\",\n                  \"description\": \"Set true ONLY when the user has just said Olumi\\u2019s CURRENT figure for this factor is right and should stay. The stored figure is kept exactly (give it as value); it stays Olumi\\u2019s estimate and the approval records that the user accepted it. Never on the user\\u2019s own figure or one from their brief, never with a different number, and never in the same call as other values. Omit it in every other case.\"\n                }\n              },\n              \"required\": [\n                \"factor_label\",\n                \"value\",\n                \"unit\",\n                \"basis\",\n                \"revise\",\n                \"keep\"\n              ]\n            }\n          }\n        },\n        \"required\": [\n          \"assumptions\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Add an option the user has just asked for. If its exact label already identifies a stored option marked `proposed_by: olumi`, call this tool with that label and no edits to offer adoption of the SAME option into their comparison. Its Olumi origin and suggested levels remain labelled as Olumi's; do not call it an existing user option or a user-stated figure. This does NOT change anything: it prepares ONE complete change and returns its id, which you keep for authorise_change: show the user the option and what it will be linked to, never the id, before asking them to approve. The option is linked from the decision automatically. Name the factors it would change, using the labels get_canonical_state returned. Give a level for a figure the user stated, in their own units; for an option YOU suggested you may give your own suggested figure with estimate: true and a basis, recorded and shown as Olumi\\u2019s estimate. Never a placeholder. A factor with no level is added with no level, and you say plainly what is still needed. When the user asks for SEVERAL options (up to 4), put them ALL in `options` in ONE call: they become ONE change the user approves once, and it lands whole or not at all. If an option changes something the model has NO factor for, add that factor in the SAME change with `new_factors` (never link the option to an unrelated factor instead), and name it in `acts_on`. Only for something the user asked the option to change; what it changes and which way come from the user\\u2019s words, or where it is plain from the option itself (a paid add-on adds revenue); if it is unclear, ask. Once a call has prepared a change, never call it again in the same reply. A call that was REFUSED prepared nothing: you may call it once more in the same reply, corrected as the refusal says.\",\n      \"name\": \"propose_new_option\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"label\": {\n            \"type\": \"string\",\n            \"description\": \"ONE option in the user\\u2019s own words. For several, use `options` instead.\"\n          },\n          \"acts_on\": {\n            \"type\": \"array\",\n            \"description\": \"The factors this option would change, and which way. At least one.\",\n            \"items\": {\n              \"type\": \"object\",\n              \"additionalProperties\": false,\n              \"properties\": {\n                \"factor_label\": {\n                  \"type\": \"string\"\n                },\n                \"direction\": {\n                  \"type\": \"string\",\n                  \"enum\": [\n                    \"positive\",\n                    \"negative\"\n                  ],\n                  \"description\": \"Whether this option pushes the factor up or down. State it; never guess it for the user.\"\n                },\n                \"level\": {\n                  \"type\": \"object\",\n                  \"additionalProperties\": false,\n                  \"properties\": {\n                    \"value\": {\n                      \"type\": \"number\",\n                      \"description\": \"The figure the user stated FOR THIS FACTOR, in the factor\\u2019s own units (e.g. 54 for \\u00a354 on a price). A figure given for something else (a price, when this factor is a churn rate) is never this factor\\u2019s level: leave level out. With no figure from the user, leave level out \\u2014 never 0 or any placeholder to mean \\u201cnot set\\u201d \\u2014 unless it is your OWN suggested figure for an option you suggested: then set estimate.\"\n                    },\n                    \"unit\": {\n                      \"type\": \"string\",\n                      \"description\": \"The unit the user stated, if any.\"\n                    },\n                    \"estimate\": {\n                      \"type\": \"boolean\",\n                      \"description\": \"true ONLY when this figure is your own suggestion, not the user\\u2019s (an option you proposed, at the figure you proposed). It is recorded and shown as Olumi\\u2019s estimate, never as the user\\u2019s. Needs basis.\"\n                    },\n                    \"basis\": {\n                      \"type\": \"string\",\n                      \"description\": \"With estimate: why this figure, in plain words the user can check.\"\n                    }\n                  },\n                  \"required\": [\n                    \"value\",\n                    \"unit\",\n                    \"estimate\",\n                    \"basis\"\n                  ],\n                  \"description\": \"The level this option sets the factor to. Never give a level for a factor you add in new_factors with kind 'switch': a switch has no level of its own \\u2014 the option turns it on.\"\n                }\n              },\n              \"required\": [\n                \"factor_label\",\n                \"direction\",\n                \"level\"\n              ]\n            }\n          },\n          \"options\": {\n            \"type\": \"array\",\n            \"description\": \"Several options the user asked for (2 to 4), each with its own label and factors. One change, one approval.\",\n            \"items\": {\n              \"type\": \"object\",\n              \"additionalProperties\": false,\n              \"properties\": {\n                \"label\": {\n                  \"type\": \"string\",\n                  \"description\": \"The option in the user\\u2019s own words.\"\n                },\n                \"acts_on\": {\n                  \"type\": \"array\",\n                  \"description\": \"The factors this option would change, and which way. At least one.\",\n                  \"items\": {\n                    \"type\": \"object\",\n                    \"additionalProperties\": false,\n                    \"properties\": {\n                      \"factor_label\": {\n                        \"type\": \"string\"\n                      },\n                      \"direction\": {\n                        \"type\": \"string\",\n                        \"enum\": [\n                          \"positive\",\n                          \"negative\"\n                        ],\n                        \"description\": \"Whether this option pushes the factor up or down. State it; never guess it for the user.\"\n                      },\n                      \"level\": {\n                        \"type\": \"object\",\n                        \"additionalProperties\": false,\n                        \"properties\": {\n                          \"value\": {\n                            \"type\": \"number\",\n                            \"description\": \"The figure the user stated FOR THIS FACTOR, in the factor\\u2019s own units (e.g. 54 for \\u00a354 on a price). A figure given for something else (a price, when this factor is a churn rate) is never this factor\\u2019s level: leave level out. With no figure from the user, leave level out \\u2014 never 0 or any placeholder to mean \\u201cnot set\\u201d \\u2014 unless it is your OWN suggested figure for an option you suggested: then set estimate.\"\n                          },\n                          \"unit\": {\n                            \"type\": \"string\",\n                            \"description\": \"The unit the user stated, if any.\"\n                          },\n                          \"estimate\": {\n                            \"type\": \"boolean\",\n                            \"description\": \"true ONLY when this figure is your own suggestion, not the user\\u2019s (an option you proposed, at the figure you proposed). It is recorded and shown as Olumi\\u2019s estimate, never as the user\\u2019s. Needs basis.\"\n                          },\n                          \"basis\": {\n                            \"type\": \"string\",\n                            \"description\": \"With estimate: why this figure, in plain words the user can check.\"\n                          }\n                        },\n                        \"required\": [\n                          \"value\",\n                          \"unit\",\n                          \"estimate\",\n                          \"basis\"\n                        ],\n                        \"description\": \"The level this option sets the factor to. Never give a level for a factor you add in new_factors with kind 'switch': a switch has no level of its own \\u2014 the option turns it on.\"\n                      }\n                    },\n                    \"required\": [\n                      \"factor_label\",\n                      \"direction\",\n                      \"level\"\n                    ]\n                  }\n                }\n              },\n              \"required\": [\n                \"label\",\n                \"acts_on\"\n              ]\n            }\n          },\n          \"new_factors\": {\n            \"type\": \"array\",\n            \"description\": \"Factors the model does NOT have that these options change, added in this same change. Each is named in an option\\u2019s acts_on.\",\n            \"items\": {\n              \"type\": \"object\",\n              \"additionalProperties\": false,\n              \"properties\": {\n                \"label\": {\n                  \"type\": \"string\",\n                  \"description\": \"The factor in the user\\u2019s words (e.g. \\\"AI add-on price\\\").\"\n                },\n                \"affects\": {\n                  \"type\": \"array\",\n                  \"description\": \"What this factor changes that the model already has (the goal, an outcome, a risk, or a factor no option sets), and which way. At least one.\",\n                  \"items\": {\n                    \"type\": \"object\",\n                    \"additionalProperties\": false,\n                    \"properties\": {\n                      \"label\": {\n                        \"type\": \"string\",\n                        \"description\": \"A label exactly as get_canonical_state gives it.\"\n                      },\n                      \"direction\": {\n                        \"type\": \"string\",\n                        \"enum\": [\n                          \"positive\",\n                          \"negative\"\n                        ],\n                        \"description\": \"Whether raising this factor raises (positive) or lowers (negative) it: from the user\\u2019s words, or where it is plain from the option itself (a paid add-on adds revenue); if it is unclear, ask. The preview names it so the user can correct it.\"\n                      }\n                    },\n                    \"required\": [\n                      \"label\",\n                      \"direction\"\n                    ]\n                  }\n                },\n                \"kind\": {\n                  \"type\": \"string\",\n                  \"enum\": [\n                    \"switch\",\n                    \"graded\"\n                  ],\n                  \"description\": \"\\\"switch\\\" when the option simply turns this ON \\u2014 something not in place today that the option puts in place (grandfathering existing customers, launching a feature). It is then added as off today, Olumi\\u2019s reading for the user to correct, and on under every option that acts on it: give it no level. Leave kind out for an amount or a rate (a price, a share of customers): its current value is `today` when the user stated it, otherwise asked for, and the option\\u2019s level is asked for.\"\n                },\n                \"today\": {\n                  \"type\": \"object\",\n                  \"additionalProperties\": false,\n                  \"properties\": {\n                    \"value\": {\n                      \"type\": \"number\",\n                      \"description\": \"The figure the user stated for this factor TODAY, in their own units (e.g. 49 for \\u201cfrom \\u00a349 to \\u00a359\\u201d on a price).\"\n                    },\n                    \"unit\": {\n                      \"type\": \"string\",\n                      \"description\": \"The unit the user stated it in.\"\n                    }\n                  },\n                  \"required\": [\n                    \"value\",\n                    \"unit\"\n                  ],\n                  \"description\": \"For a factor you add, give today\\u2019s level ONLY if the user stated it in their own words (e.g. a price they said moves \\\"from \\u00a349\\\" is \\u00a349 today). Never your own estimate, never a placeholder or 0: with no figure from the user, leave today out and ask for it. Never for a switch.\"\n                }\n              },\n              \"required\": [\n                \"label\",\n                \"affects\",\n                \"kind\",\n                \"today\"\n              ]\n            }\n          },\n          \"rationale\": {\n            \"type\": \"string\",\n            \"description\": \"Why this option is worth comparing, in the user\\u2019s terms.\"\n          },\n          \"whole_request\": {\n            \"type\": \"boolean\",\n            \"description\": \"true ONLY when this one call does everything the user asked for in their latest message: no other change to make, no question to answer, nothing else to explain. If there is anything more, or you are unsure, false.\"\n          }\n        },\n        \"required\": [\n          \"label\",\n          \"acts_on\",\n          \"options\",\n          \"new_factors\",\n          \"rationale\",\n          \"whole_request\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Record how much an EXISTING link moves its target, as the user\\u2019s own figures, when the user has just said it in numbers (for example \\\"every \\u00a31 on the price loses us about 50 subscribers\\\"). This does NOT change anything: it prepares ONE change and returns its id, which you keep for authorise_change: show the user what it records, never the id, before they approve. Both magnitudes must be the user\\u2019s own figures in ONE statement from THIS message. Deterministic number words are accepted (\\\"two\\\", \\\"one and a half\\\", \\\"half a point\\\", \\\"about a point\\\"); explicit percent levels such as \\\"from 8% to 4%\\\" state a -4-point change. Never choose a figure from a range or invent a missing figure. `amount` is your proposed signed change in the TARGET (negative when it falls); `per_source_change` is your proposed signed change in the SOURCE, each in its own unit. The approval card shows this reading in symbols AND words, with the verbatim quote, and explicitly discloses a reversal of the stored link direction. `quote` is the user\\u2019s complete statement copied exactly. It must identify both ends, unless the REQUEST\\u2019s canvas selection grounds this link or both ends; do not infer selection from your own output. A question or denial is not a statement. A bare % needs the returned clarification: never resolve it yourself into points or a money change. A literal currency period (\\\"per month\\\", \\\"a month\\\", \\\"a week\\\", \\\"a year\\\") can supply an eligible unitless end\\u2019s unit. Show the exact card and ask the user to approve or correct; nothing is recorded without approval. For a strength said in words (\\\"strong\\\"), use propose_link_strength. When several links need sizes, ask for them in ONE message; when the user supplies several sizes, call propose_link_effect ONCE with all of them.\",\n      \"name\": \"propose_link_effect\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"links\": {\n            \"type\": \"array\",\n            \"minItems\": 1,\n            \"maxItems\": 12,\n            \"description\": \"Several existing links to size in one approval; use instead of the single-link fields when the user gave several figures.\",\n            \"items\": {\n              \"type\": \"object\",\n              \"additionalProperties\": false,\n              \"properties\": {\n                \"from_label\": {\n                  \"type\": \"string\",\n                  \"description\": \"Where the link starts, exactly as get_canonical_state labels it.\"\n                },\n                \"to_label\": {\n                  \"type\": \"string\",\n                  \"description\": \"Where the link ends, exactly as get_canonical_state labels it.\"\n                },\n                \"amount\": {\n                  \"type\": \"number\",\n                  \"description\": \"The signed target change.\"\n                },\n                \"amount_unit\": {\n                  \"type\": \"string\",\n                  \"description\": \"The target unit.\"\n                },\n                \"per_source_change\": {\n                  \"type\": \"number\",\n                  \"description\": \"The signed source change this is per.\"\n                },\n                \"per_source_change_unit\": {\n                  \"type\": \"string\",\n                  \"description\": \"The source unit.\"\n                },\n                \"quote\": {\n                  \"type\": \"string\",\n                  \"description\": \"The exact user words for this link.\"\n                }\n              },\n              \"required\": [\n                \"from_label\",\n                \"to_label\",\n                \"amount\",\n                \"amount_unit\",\n                \"per_source_change\",\n                \"per_source_change_unit\",\n                \"quote\"\n              ]\n            }\n          },\n          \"from_label\": {\n            \"type\": \"string\",\n            \"description\": \"Where the link starts, exactly as get_canonical_state labels it.\"\n          },\n          \"to_label\": {\n            \"type\": \"string\",\n            \"description\": \"Where the link ends, exactly as get_canonical_state labels it.\"\n          },\n          \"amount\": {\n            \"type\": \"number\",\n            \"description\": \"Your proposed signed reading of the user\\u2019s target magnitude (negative when it falls), disclosed on the approval card.\"\n          },\n          \"amount_unit\": {\n            \"type\": \"string\",\n            \"description\": \"The target\\u2019s unit (for a percentage level, \\\"percentage points\\\").\"\n          },\n          \"per_source_change\": {\n            \"type\": \"number\",\n            \"description\": \"Your proposed signed reading of the user\\u2019s source magnitude (non-zero), disclosed on the approval card.\"\n          },\n          \"per_source_change_unit\": {\n            \"type\": \"string\",\n            \"description\": \"The source\\u2019s unit.\"\n          },\n          \"quote\": {\n            \"type\": \"string\",\n            \"description\": \"The user\\u2019s complete statement from THIS message, copied exactly with its punctuation.\"\n          }\n        },\n        \"required\": [],\n        \"oneOf\": [\n          {\n            \"required\": [\n              \"links\"\n            ]\n          },\n          {\n            \"required\": [\n              \"from_label\",\n              \"to_label\",\n              \"amount\",\n              \"amount_unit\",\n              \"per_source_change\",\n              \"per_source_change_unit\",\n              \"quote\"\n            ]\n          }\n        ]\n      },\n      \"strict\": false\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Record how strong an EXISTING link is, as the user\\u2019s own estimate, when the user has just said it (for example \\\"that effect is strong\\\", or \\\"it actually pushes the other way\\\"). This does NOT change anything: it prepares ONE change and returns its id, which you keep for authorise_change: show the user what it records, never the id, before they approve. When the user says how big a factor or risk IS ('price sensitivity is very high'), they mean how strongly it moves what it affects: the link FROM it, to the outcome they name or imply. If it has several and they named none, ask which. A figure for the factor itself (e.g. 'churn is 6%') is its value, not a link. Their band must reach the outcome they name, and a link INTO a node never does: that node\\u2019s own link on stays Olumi\\u2019s estimate. If a node is named for what they sized (a qualifier such as \\\"risk\\\" or \\\"loss\\\" still counts), record the link FROM it to that outcome. If none is, record the link from its cause straight to that outcome, proposing it with propose_model_change at their band if the model lacks it. The user\\u2019s word is one of Olumi\\u2019s strength bands. If the link already sits in that band, its strength is kept and only their review is recorded: it stays Olumi\\u2019s estimate unless it was already theirs; otherwise it is set to the middle of that band, and the result says the figure so you can tell them. Give `direction` ONLY when the user said the link pushes the other way. When they described the strength in their own words (\\\"very high\\\", \\\"hardly at all\\\"), give your reading in `strength` and their exact phrase in `from_words`: the user approves your reading. Never use this for a strength the user did not state: if they said nothing about how strong it is, ask which band it is first \\u2014 a band they did not say is refused. The canvas calls the lowest band Slight: when the user calls a link slight, that IS `weak` \\u2014 pass `weak`, and never ask whether slight means weak. When you ask the user for a band, use the canvas\\u2019s words: slight, moderate, strong or very strong.\",\n      \"name\": \"propose_link_strength\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"from_label\": {\n            \"type\": \"string\",\n            \"description\": \"Where the link starts, exactly as get_canonical_state labels it.\"\n          },\n          \"to_label\": {\n            \"type\": \"string\",\n            \"description\": \"Where the link ends, exactly as get_canonical_state labels it.\"\n          },\n          \"strength\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"weak\",\n              \"moderate\",\n              \"strong\",\n              \"very strong\"\n            ],\n            \"description\": \"The strength the user stated, or your reading of their own words, given with `from_words`.\"\n          },\n          \"from_words\": {\n            \"type\": \"string\",\n            \"description\": \"When the user described the strength in their own words rather than a band word, give their exact phrase here and your reading in `strength`; the user approves your reading. Copy it exactly from their message this turn (for example \\\"very high\\\"); never a phrase they did not write.\"\n          },\n          \"direction\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"positive\",\n              \"negative\"\n            ],\n            \"description\": \"ONLY when the user said the link pushes the other way, with their words in `direction_from_words`. Leave it out otherwise: the link keeps its direction.\"\n          },\n          \"direction_from_words\": {\n            \"type\": \"string\",\n            \"description\": \"With `direction`: the user\\u2019s exact words in THIS message saying the link runs the other way. A reversal without them is refused.\"\n          },\n          \"rationale\": {\n            \"type\": \"string\",\n            \"description\": \"What the user said, in their words.\"\n          },\n          \"whole_request\": {\n            \"type\": \"boolean\",\n            \"description\": \"true ONLY when this one call does everything the user asked for in their latest message: no other change to make, no question to answer, nothing else to explain. If there is anything more, or you are unsure, false.\"\n          }\n        },\n        \"required\": [\n          \"from_label\",\n          \"to_label\",\n          \"strength\",\n          \"from_words\",\n          \"direction\",\n          \"direction_from_words\",\n          \"rationale\",\n          \"whole_request\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Record the strengths of SEVERAL existing links as ONE change the user approves once \\u2014 never one approval per link. Use it when the user gives strengths for more than one link in one message, or asks Olumi to size links for them (they ask what you recommend, then agree to it). This does NOT change anything: it prepares ONE change and returns its id, which you keep for authorise_change: show the user what each link will hold, never the id, before they approve. A link is recorded as the user\\u2019s own ONLY when its `from_words` are the user\\u2019s exact words from THIS message naming that link (one of its ends) AND its band; naming the band a link already sits in keeps it as it is. Every other link is recorded as OLUMI\\u2019S ESTIMATE, applied with their approval \\u2014 never as theirs \\u2014 and you must say which are which. Directions are kept: a link the user says runs the other way is propose_link_strength, one link at a time. A strength the user set themselves is never replaced by an estimate. The set is written whole or not at all. The canvas calls the lowest band Slight: when the user calls a link slight, that IS `weak` \\u2014 pass `weak`, and never ask whether slight means weak. When you ask the user for a band, use the canvas\\u2019s words: slight, moderate, strong or very strong.\",\n      \"name\": \"propose_link_strengths\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"links\": {\n            \"type\": \"array\",\n            \"minItems\": 1,\n            \"maxItems\": 12,\n            \"description\": \"Every link in the set, each once.\",\n            \"items\": {\n              \"type\": \"object\",\n              \"additionalProperties\": false,\n              \"properties\": {\n                \"from_label\": {\n                  \"type\": \"string\",\n                  \"description\": \"Where the link starts, exactly as get_canonical_state labels it.\"\n                },\n                \"to_label\": {\n                  \"type\": \"string\",\n                  \"description\": \"Where the link ends, exactly as get_canonical_state labels it.\"\n                },\n                \"strength\": {\n                  \"type\": \"string\",\n                  \"enum\": [\n                    \"weak\",\n                    \"moderate\",\n                    \"strong\",\n                    \"very strong\"\n                  ],\n                  \"description\": \"The band the user named for this link, or Olumi\\u2019s estimate when they did not.\"\n                },\n                \"from_words\": {\n                  \"type\": \"string\",\n                  \"description\": \"ONLY when the user named this link\\u2019s band: their exact words from THIS message that name this link (one of its ends) and the band. Leave it out for Olumi\\u2019s estimate.\"\n                }\n              },\n              \"required\": [\n                \"from_label\",\n                \"to_label\",\n                \"strength\",\n                \"from_words\"\n              ]\n            }\n          },\n          \"rationale\": {\n            \"type\": \"string\",\n            \"description\": \"What the user asked for, in their words.\"\n          },\n          \"whole_request\": {\n            \"type\": \"boolean\",\n            \"description\": \"true ONLY when this one call does everything the user asked for in their latest message: no other change to make, no question to answer, nothing else to explain. If there is anything more, or you are unsure, false.\"\n          }\n        },\n        \"required\": [\n          \"links\",\n          \"rationale\",\n          \"whole_request\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Set the goal\\u2019s success target to the figure the user has just stated (for example \\\"we need at least \\u00a360k MRR\\\", \\\"keep churn under 5%\\\"). This does NOT change anything: it prepares ONE change and returns its id, which you keep for authorise_change: show the user what it sets, never the id, before they approve. Give the figure exactly as the user wrote it, in their units (60000, with the unit \\u00a3, for \\u00a360k), and whether they said at least or at most. Never use this for a figure or a direction the user did not state: if they have not given both in their own words, ask first \\u2014 a figure or direction they did not state is refused. If the user ALSO stated the goal\\u2019s level today (for example \\\"we have secured \\u00a30 so far and need at least \\u00a31m\\\"), pass it as current_level: both go on ONE card and are written on ONE approval. Never promise to record today\\u2019s level later: without current_level nothing records it. When the target is DERIVED from a figure the user gave (\\\"we\\u2019re at \\u00a3100,000 \\u2026 aiming to double that\\\"), give the result as value and pass derived_from {base, multiplier} (100000 and 2): the base must be a figure they wrote. When the user did not say at least or at most, give your reading in constraint_type: the card offers it as a decision with the other direction beside it, and the user chooses.\",\n      \"name\": \"propose_goal_target\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"constraint_type\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"at_least\",\n              \"at_most\"\n            ],\n            \"description\": \"at_least when the user said the goal must reach at least the figure; at_most when they said it must stay at or under it.\"\n          },\n          \"value\": {\n            \"type\": \"number\",\n            \"description\": \"The figure the user stated, in their own units.\"\n          },\n          \"unit\": {\n            \"type\": \"string\",\n            \"description\": \"The unit of that figure, as the user gave it (for example \\u00a3, % or customers).\"\n          },\n          \"rationale\": {\n            \"type\": \"string\",\n            \"description\": \"What the user said, in their words.\"\n          },\n          \"derived_from\": {\n            \"type\": \"object\",\n            \"additionalProperties\": false,\n            \"properties\": {\n              \"base\": {\n                \"type\": \"number\",\n                \"description\": \"The figure the user wrote that the target is derived from, in their units (100000 for \\\"\\u00a3100,000\\\").\"\n              },\n              \"multiplier\": {\n                \"type\": \"number\",\n                \"description\": \"The multiple they asked for: 2 for \\\"double that\\\", 3 for \\\"triple\\\", 0.5 for \\\"halve\\\".\"\n              }\n            },\n            \"required\": [\n              \"base\",\n              \"multiplier\"\n            ]\n          },\n          \"current_level\": {\n            \"type\": \"object\",\n            \"additionalProperties\": false,\n            \"properties\": {\n              \"value\": {\n                \"type\": \"number\",\n                \"description\": \"The goal\\u2019s level TODAY, exactly as the user stated it in their units (0 for \\\"we have secured \\u00a30 so far\\\").\"\n              },\n              \"unit\": {\n                \"type\": \"string\",\n                \"description\": \"The unit the user gave it in (for example \\u00a3).\"\n              }\n            },\n            \"required\": [\n              \"value\",\n              \"unit\"\n            ]\n          }\n        },\n        \"required\": [\n          \"constraint_type\",\n          \"value\",\n          \"unit\",\n          \"rationale\",\n          \"derived_from\",\n          \"current_level\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Take ONE option out of the comparison, or put it back, when the user asks (for example \\\"drop carry on as now\\\", \\\"we can\\u2019t do option B, take it out\\\", \\\"put option B back\\\"). The baseline (carry on as now) can be taken out too. This does NOT change anything: it prepares ONE change and returns its id, which you keep for authorise_change: show the user what it does, never the id, before they approve. The option stays in their model with its wording; only whether it is compared changes. Use `removed` when they want it out, `infeasible` when they say it cannot be done, `feasible` to put it back. Never use it to delete an option, and never for Olumi\\u2019s own suggestion the user has not added.\",\n      \"name\": \"propose_option_status\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"option_label\": {\n            \"type\": \"string\",\n            \"description\": \"The option exactly as get_canonical_state names it.\"\n          },\n          \"status\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"removed\",\n              \"infeasible\",\n              \"feasible\"\n            ],\n            \"description\": \"removed = out of the comparison; infeasible = cannot be done, out of the comparison; feasible = back in.\"\n          },\n          \"rationale\": {\n            \"type\": \"string\",\n            \"description\": \"What the user said, in their words.\"\n          }\n        },\n        \"required\": [\n          \"option_label\",\n          \"status\",\n          \"rationale\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Add a RISK the user has just asked for, when the model does NOT already have it: something that could go wrong and would hurt the goal or an outcome (for example \\u201ccompetitors respond to our price rise\\u201d). This does NOT change anything: it prepares ONE complete change and returns its id, which you keep for authorise_change: show the user the risk, what it threatens and what drives it, never the id, before asking them to approve. A risk links TO the goal or an outcome it threatens (`affects`, at least one) and FROM factors that drive it (`caused_by`, optional) \\u2014 never into a factor: a risk affects the goal or an outcome, not a factor directly. How strongly each link acts is not known yet: Olumi records a placeholder strength, not an estimate \\u2014 say so. Use the labels exactly as the CURRENT MODEL STATE gives them.\",\n      \"name\": \"propose_new_risk\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"label\": {\n            \"type\": \"string\",\n            \"description\": \"The risk in the user\\u2019s own words (e.g. \\\"Competitive response\\\").\"\n          },\n          \"affects\": {\n            \"type\": \"array\",\n            \"description\": \"What the risk threatens: the goal or an outcome in the model, and which way. At least one. Never a factor.\",\n            \"items\": {\n              \"type\": \"object\",\n              \"additionalProperties\": false,\n              \"properties\": {\n                \"target_label\": {\n                  \"type\": \"string\",\n                  \"description\": \"The goal or an outcome, exactly as the CURRENT MODEL STATE labels it.\"\n                },\n                \"direction\": {\n                  \"type\": \"string\",\n                  \"enum\": [\n                    \"positive\",\n                    \"negative\"\n                  ],\n                  \"description\": \"negative when the risk lowers it (the usual case); from the user\\u2019s words, never a guess.\"\n                }\n              },\n              \"required\": [\n                \"target_label\",\n                \"direction\"\n              ]\n            }\n          },\n          \"caused_by\": {\n            \"type\": \"array\",\n            \"description\": \"Factors in the model that drive the risk, and which way (optional).\",\n            \"items\": {\n              \"type\": \"object\",\n              \"additionalProperties\": false,\n              \"properties\": {\n                \"factor_label\": {\n                  \"type\": \"string\",\n                  \"description\": \"A factor exactly as the CURRENT MODEL STATE labels it.\"\n                },\n                \"direction\": {\n                  \"type\": \"string\",\n                  \"enum\": [\n                    \"positive\",\n                    \"negative\"\n                  ],\n                  \"description\": \"positive when raising the factor makes the risk more likely.\"\n                }\n              },\n              \"required\": [\n                \"factor_label\",\n                \"direction\"\n              ]\n            }\n          },\n          \"rationale\": {\n            \"type\": \"string\",\n            \"description\": \"What the user said, in their words.\"\n          },\n          \"whole_request\": {\n            \"type\": \"boolean\",\n            \"description\": \"true ONLY when this one call does everything the user asked for in their latest message: no other change to make, no question to answer, nothing else to explain. If there is anything more, or you are unsure, false.\"\n          }\n        },\n        \"required\": [\n          \"label\",\n          \"affects\",\n          \"caused_by\",\n          \"rationale\",\n          \"whole_request\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Add 1\\u20133 NEW factors whose figures the user just stated (e.g. \\u201cseniors cost \\u00a3120k a year each\\u201d), each figure recorded as theirs, as ONE change. Prepares only: show the factors and figures, never the id, then authorise_change once they agree. A factor the model has already: propose_assumptions.\",\n      \"name\": \"propose_new_factor\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"factors\": {\n            \"type\": \"array\",\n            \"minItems\": 1,\n            \"maxItems\": 3,\n            \"items\": {\n              \"type\": \"object\",\n              \"additionalProperties\": false,\n              \"properties\": {\n                \"label\": {\n                  \"type\": \"string\"\n                },\n                \"unit\": {\n                  \"type\": \"string\",\n                  \"description\": \"The user\\u2019s unit, e.g. \\\"GBP/year per engineer\\\".\"\n                },\n                \"today\": {\n                  \"type\": \"object\",\n                  \"additionalProperties\": false,\n                  \"properties\": {\n                    \"value\": {\n                      \"type\": \"number\",\n                      \"description\": \"Whole units: 120000 for \\u00a3120k.\"\n                    },\n                    \"unit\": {\n                      \"type\": \"string\"\n                    }\n                  },\n                  \"required\": [\n                    \"value\",\n                    \"unit\"\n                  ]\n                },\n                \"affects\": {\n                  \"type\": \"string\",\n                  \"description\": \"ONE existing outcome, or a factor no option sets, that it drives, as the CURRENT MODEL STATE labels it.\"\n                },\n                \"direction\": {\n                  \"type\": \"string\",\n                  \"enum\": [\n                    \"positive\",\n                    \"negative\"\n                  ]\n                }\n              },\n              \"required\": [\n                \"label\",\n                \"unit\",\n                \"today\",\n                \"affects\",\n                \"direction\"\n              ]\n            }\n          },\n          \"rationale\": {\n            \"type\": \"string\"\n          },\n          \"whole_request\": {\n            \"type\": \"boolean\",\n            \"description\": \"true ONLY when this one call does everything the user asked for in their latest message: no other change to make, no question to answer, nothing else to explain. If there is anything more, or you are unsure, false.\"\n          }\n        },\n        \"required\": [\n          \"factors\",\n          \"rationale\",\n          \"whole_request\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Change the figure of a LIMIT the model already holds (one listed under `limits` in the CURRENT MODEL STATE) when the user has just stated its new figure (for example \\u201cthe budget is now \\u00a330k\\u201d). This does NOT change anything: it prepares ONE change and returns its id, which you keep for authorise_change: show the user the limit, its current figure and the new one, never the id, before they approve. Give the figure exactly as the user wrote it, in the limit\\u2019s own unit (30000 for \\u00a330k). The limit keeps its unit and meaning; only its figure changes, recorded as the user\\u2019s. It never adds a limit, and never sets the goal\\u2019s own target (that is propose_goal_target). A figure the user did not write is refused.\",\n      \"name\": \"propose_limit_change\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"limit_label\": {\n            \"type\": \"string\",\n            \"description\": \"The limit\\u2019s `on` label exactly as the CURRENT MODEL STATE lists it under limits.\"\n          },\n          \"operator\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"<=\",\n              \">=\"\n            ],\n            \"description\": \"The limit\\u2019s operator exactly as the state lists it.\"\n          },\n          \"new_value\": {\n            \"type\": \"number\",\n            \"description\": \"The new figure the user stated, in the limit\\u2019s own unit.\"\n          },\n          \"stated_operator\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"<\",\n              \"<=\",\n              \">\",\n              \">=\"\n            ],\n            \"description\": \"Only when the user states the comparator in this message: < for less than or under, <= for at most, > for more than, >= for at least. Omit it for a new figure alone: the limit keeps its own.\"\n          },\n          \"unit\": {\n            \"type\": \"string\",\n            \"description\": \"The unit the user wrote the figure in, if any.\"\n          },\n          \"rationale\": {\n            \"type\": \"string\",\n            \"description\": \"What the user said, in their words.\"\n          },\n          \"whole_request\": {\n            \"type\": \"boolean\",\n            \"description\": \"true ONLY when this one call does everything the user asked for in their latest message: no other change to make, no question to answer, nothing else to explain. If there is anything more, or you are unsure, false.\"\n          }\n        },\n        \"required\": [\n          \"limit_label\",\n          \"operator\",\n          \"new_value\",\n          \"stated_operator\",\n          \"unit\",\n          \"rationale\",\n          \"whole_request\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Propose the level an option sets a factor to \\u2014 what the option actually DOES. An option that names a factor without saying what it sets it to blocks the comparison for EVERY option, not just itself. Give the value in the factor\\u2019s own units, as the user would say it (\\u00a354, not 0.27). This changes nothing: it records an exact proposal and returns its id for authorise_change; show the user what it sets first, never the id. Propose only what the user\\u2019s words support; if an option\\u2019s level is not stated, offer one as an assumption and say so, exactly as with propose_assumptions. A level on a factor the option is not linked to yet brings that link with it, in the same change: the link only says the option acts on that factor, so never ask how strong it is \\u2014 send the level the user gave.\",\n      \"name\": \"propose_option_interventions\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"interventions\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"object\",\n              \"additionalProperties\": false,\n              \"properties\": {\n                \"option_label\": {\n                  \"type\": \"string\"\n                },\n                \"factor_label\": {\n                  \"type\": \"string\"\n                },\n                \"value\": {\n                  \"type\": \"number\",\n                  \"description\": \"In the factor\\u2019s own units \\u2014 the number a user would say.\"\n                },\n                \"unit\": {\n                  \"type\": \"string\",\n                  \"description\": \"The unit the user wrote this figure in, if any (\\u00a3 per month for \\u201c\\u00a310 per month\\u201d).\"\n                },\n                \"basis\": {\n                  \"type\": \"string\"\n                },\n                \"unmodelled_mechanisms\": {\n                  \"type\": \"array\",\n                  \"maxItems\": 5,\n                  \"items\": {\n                    \"type\": \"string\",\n                    \"minLength\": 1,\n                    \"maxLength\": 80\n                  },\n                  \"description\": \"Unresolved effects this option does not yet model. Omit to preserve its existing gaps; [] explicitly requests clearing them. The user must approve the complete named gap statement, including the current gaps and questions it replaces.\"\n                },\n                \"user_stated\": {\n                  \"type\": \"boolean\",\n                  \"description\": \"Set true ONLY when the USER gave this level \\u2014 their own number, for this option and factor. It records the level as theirs; without it the level is recorded as Olumi\\u2019s estimate, so never set it on a figure you proposed. On an option in `status_quo_held` it is also what permits a level at all (the user said carrying on changes this factor), and never to restate the factor\\u2019s starting value: carrying on as now already keeps that, so such a level is not recorded.\"\n                },\n                \"likely_low\": {\n                  \"type\": \"number\",\n                  \"description\": \"Only with user_stated, and only when the user gave a range for this level: its low end, in the same units as value. Never a range you made up. Send it with likely_high, range_meaning and range_user_stated.\"\n                },\n                \"likely_high\": {\n                  \"type\": \"number\",\n                  \"description\": \"The high end of that same range. Send it with likely_low.\"\n                },\n                \"range_meaning\": {\n                  \"type\": \"string\",\n                  \"enum\": [\n                    \"likely_range\",\n                    \"min_max\",\n                    \"at_most\",\n                    \"at_least\",\n                    \"other\"\n                  ],\n                  \"description\": \"How the user meant that range. likely_range ONLY for a plain likely range (\\u201clikely between 5 and 20 days\\u201d), which Olumi reads as the middle half of what\\u2019s likely. min_max for the lowest and highest possible; at_most / at_least for a bound; other for anything else (e.g. a 95% confidence interval). Only likely_range is recorded; for the rest, tell the user and ask for their likely range.\"\n                },\n                \"range_user_stated\": {\n                  \"type\": \"boolean\",\n                  \"description\": \"Set true ONLY when the USER gave this range (both ends) for this option and factor.\"\n                }\n              },\n              \"required\": [\n                \"option_label\",\n                \"factor_label\",\n                \"value\",\n                \"unit\",\n                \"basis\",\n                \"unmodelled_mechanisms\",\n                \"user_stated\",\n                \"likely_low\",\n                \"likely_high\",\n                \"range_meaning\",\n                \"range_user_stated\"\n              ]\n            }\n          },\n          \"whole_request\": {\n            \"type\": \"boolean\",\n            \"description\": \"true ONLY when this one call does everything the user asked for in their latest message: no other change to make, no question to answer, nothing else to explain. If there is anything more, or you are unsure, false.\"\n          }\n        },\n        \"required\": [\n          \"interventions\",\n          \"whole_request\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Propose, as ONE exact proposal the user approves ONCE, both the starting values for factors that have none AND the level each option sets \\u2014 everything a first comparison needs. Use this instead of propose_assumptions + propose_option_interventions whenever both are needed: two separate proposals cannot both be applied from one approval, because applying the first changes the model the second was made against. This changes nothing on its own. Every figure you propose is an assumption for the user to adopt or correct, NEVER a measurement \\u2014 say so; one the result marks `your_figure` or `stated_by: 'user'` is the user\\u2019s own figure, never called an assumption. Values in the factor\\u2019s own units. A level on a factor the option is not linked to yet brings that link with it, in the same change: the link only says the option acts on that factor, so never ask how strong it is \\u2014 send the level the user gave.\",\n      \"name\": \"propose_starting_point\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"assumptions\": {\n            \"type\": \"array\",\n            \"description\": \"Starting values for factors that have none. May be empty.\",\n            \"items\": {\n              \"type\": \"object\",\n              \"additionalProperties\": false,\n              \"properties\": {\n                \"factor_label\": {\n                  \"type\": \"string\"\n                },\n                \"value\": {\n                  \"type\": \"number\"\n                },\n                \"unit\": {\n                  \"type\": \"string\"\n                },\n                \"basis\": {\n                  \"type\": \"string\"\n                }\n              },\n              \"required\": [\n                \"factor_label\",\n                \"value\",\n                \"unit\",\n                \"basis\"\n              ]\n            }\n          },\n          \"option_levels\": {\n            \"type\": \"array\",\n            \"description\": \"The level each option sets a factor to, in the factor\\u2019s own units. May be empty.\",\n            \"items\": {\n              \"type\": \"object\",\n              \"additionalProperties\": false,\n              \"properties\": {\n                \"option_label\": {\n                  \"type\": \"string\"\n                },\n                \"factor_label\": {\n                  \"type\": \"string\"\n                },\n                \"value\": {\n                  \"type\": \"number\"\n                },\n                \"basis\": {\n                  \"type\": \"string\"\n                },\n                \"unmodelled_mechanisms\": {\n                  \"type\": \"array\",\n                  \"maxItems\": 5,\n                  \"items\": {\n                    \"type\": \"string\",\n                    \"minLength\": 1,\n                    \"maxLength\": 80\n                  },\n                  \"description\": \"Unresolved effects this option does not yet model. Omit to preserve its existing gaps; [] explicitly requests clearing them. The user must approve the complete named gap statement, including the current gaps and questions it replaces.\"\n                },\n                \"user_stated\": {\n                  \"type\": \"boolean\",\n                  \"description\": \"Set true ONLY when the USER gave this level \\u2014 their own number, for this option and factor. It records the level as theirs; without it the level is recorded as Olumi\\u2019s estimate, so never set it on a figure you proposed. On an option in `status_quo_held` it is also what permits a level at all (the user said carrying on changes this factor), and never to restate the factor\\u2019s starting value: carrying on as now already keeps that, so such a level is not recorded.\"\n                }\n              },\n              \"required\": [\n                \"option_label\",\n                \"factor_label\",\n                \"value\",\n                \"basis\",\n                \"unmodelled_mechanisms\",\n                \"user_stated\"\n              ]\n            }\n          }\n        },\n        \"required\": [\n          \"assumptions\",\n          \"option_levels\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Retain the user\\u2019s goal scope or component share, and reconcile it with the existing rate and count. Use when they correct a whole/component reading or answer its share question (including \\u201c30% currently\\u201d). This retains one durable question; it never writes a derived number. Supply the exact user quote and existing operand ids. If a current_level is supplied, the ordinary baseline writer prepares ONE approval for the scope, baseline and withdrawal of any incompatible product identity. Never use propose_goal_current_level alone to force a total onto a component product.\",\n      \"name\": \"reconcile_goal_scope\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"goal_label\": {\n            \"type\": \"string\"\n          },\n          \"scope\": {\n            \"type\": \"object\",\n            \"additionalProperties\": false,\n            \"properties\": {\n              \"modelled\": {\n                \"type\": \"string\"\n              },\n              \"alternative\": {\n                \"type\": \"string\"\n              },\n              \"extent\": {\n                \"type\": \"string\",\n                \"enum\": [\n                  \"total\",\n                  \"component\"\n                ]\n              },\n              \"stated_in_brief\": {\n                \"type\": \"boolean\",\n                \"enum\": [\n                  true\n                ]\n              },\n              \"source\": {\n                \"type\": \"object\",\n                \"additionalProperties\": false,\n                \"properties\": {\n                  \"quote\": {\n                    \"type\": \"string\"\n                  }\n                },\n                \"required\": [\n                  \"quote\"\n                ]\n              },\n              \"component\": {\n                \"type\": \"object\",\n                \"additionalProperties\": false,\n                \"properties\": {\n                  \"label\": {\n                    \"type\": \"string\"\n                  },\n                  \"rate_id\": {\n                    \"type\": \"string\"\n                  },\n                  \"count_id\": {\n                    \"type\": \"string\"\n                  },\n                  \"share\": {\n                    \"type\": \"number\"\n                  },\n                  \"basis\": {\n                    \"type\": \"string\",\n                    \"enum\": [\n                      \"unknown\",\n                      \"same\",\n                      \"different\"\n                    ]\n                  },\n                  \"count_basis\": {\n                    \"type\": \"string\"\n                  },\n                  \"basis_source\": {\n                    \"type\": \"object\",\n                    \"additionalProperties\": false,\n                    \"properties\": {\n                      \"quote\": {\n                        \"type\": \"string\"\n                      }\n                    },\n                    \"required\": [\n                      \"quote\"\n                    ]\n                  },\n                  \"source\": {\n                    \"type\": \"object\",\n                    \"additionalProperties\": false,\n                    \"properties\": {\n                      \"quote\": {\n                        \"type\": \"string\"\n                      }\n                    },\n                    \"required\": [\n                      \"quote\"\n                    ]\n                  }\n                },\n                \"required\": [\n                  \"label\",\n                  \"rate_id\",\n                  \"count_id\",\n                  \"share\",\n                  \"basis\",\n                  \"count_basis\",\n                  \"basis_source\",\n                  \"source\"\n                ]\n              }\n            },\n            \"required\": [\n              \"modelled\",\n              \"alternative\",\n              \"extent\",\n              \"stated_in_brief\",\n              \"source\",\n              \"component\"\n            ]\n          },\n          \"current_level\": {\n            \"type\": \"object\",\n            \"additionalProperties\": false,\n            \"properties\": {\n              \"value\": {\n                \"type\": \"number\"\n              },\n              \"unit\": {\n                \"type\": \"string\",\n                \"description\": \"Their native currency and the goal\\u2019s stated period, e.g. GBP/month for MRR; never a normalized value.\"\n              },\n              \"quote\": {\n                \"type\": \"string\"\n              }\n            },\n            \"required\": [\n              \"value\",\n              \"unit\",\n              \"quote\"\n            ]\n          },\n          \"component_share\": {\n            \"type\": \"number\",\n            \"description\": \"The user\\u2019s share as 0\\u20131; bind a short answer only to the retained share question.\"\n          },\n          \"component_basis\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"same\",\n              \"different\"\n            ]\n          },\n          \"count_basis\": {\n            \"type\": \"string\"\n          },\n          \"source_quote\": {\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"goal_label\",\n          \"scope\",\n          \"current_level\",\n          \"component_share\",\n          \"component_basis\",\n          \"count_basis\",\n          \"source_quote\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Record the CURRENT level of the model\\u2019s goal when the user has just stated it (for example \\\"our MRR is \\u00a312,000 today\\\" when the goal is MRR). Without it the analysis cannot compare today with the goal\\u2019s target. This does NOT change anything: it records an exact proposal and returns its id, which you keep for authorise_change: show the user the figure, never the id, before asking them to approve. Only the user\\u2019s own figure for the goal\\u2019s OWN metric: never your estimate, and never a figure they gave for something else (a price, a subscriber count, a rate). Use the goal\\u2019s label exactly as get_canonical_state returned it.\",\n      \"name\": \"propose_goal_current_level\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"goal_label\": {\n            \"type\": \"string\"\n          },\n          \"value\": {\n            \"type\": \"number\",\n            \"description\": \"The figure the user stated, in their units (12000 for \\u00a312,000; never scaled).\"\n          },\n          \"unit\": {\n            \"type\": \"string\",\n            \"description\": \"The unit the user stated, if any (e.g. GBP).\"\n          },\n          \"goal_is\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"at_least\",\n              \"above\",\n              \"at_most\",\n              \"below\"\n            ],\n            \"description\": \"ONLY when the user has said how the goal\\u2019s target is put: reach at least it, get strictly above it, stay at most it, or stay strictly below it. Otherwise leave it out: today\\u2019s level is a fact about today and is recorded on its own, with or without a target, and you never ask for a target first. Never guess it.\"\n          },\n          \"user_stated\": {\n            \"type\": \"boolean\",\n            \"description\": \"true ONLY when the USER gave this figure as the goal\\u2019s current level. Never set it for a figure you estimated.\"\n          },\n          \"whole_request\": {\n            \"type\": \"boolean\",\n            \"description\": \"true ONLY when this one call does everything the user asked for in their latest message: no other change to make, no question to answer, nothing else to explain. If there is anything more, or you are unsure, false.\"\n          }\n        },\n        \"required\": [\n          \"goal_label\",\n          \"value\",\n          \"unit\",\n          \"goal_is\",\n          \"user_stated\",\n          \"whole_request\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Offer the user Olumi\\u2019s reading of the goal as the product of two of their own figures (for example \\\"Is MRR your price \\u00d7 your subscribers?\\\"), when a run_analysis result carries `identity_card`. It takes no arguments: the reading and its arithmetic come from the stored model. This does NOT change anything: it records the reading and returns its `card.words`. Ask the user those words exactly, never reworded, and tell them to confirm on the button. Never state the reading as a fact before they confirm, and never run the analysis again yourself.\",\n      \"name\": \"propose_identity\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {},\n        \"required\": []\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Offer to search the public web when the user wants outside evidence the model does not hold (a benchmark, a market figure, published research). This searches NOTHING: Olumi shows the user a control with exactly your query, and the search runs only if they press it, as a separate step with the sources shown. Write the query in plain public words; leave out the user\\u2019s own figures, names and model details unless they asked you to search for them. Never say you have searched, and never describe results you do not have.\",\n      \"name\": \"offer_public_research\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"query\": {\n            \"type\": \"string\",\n            \"description\": \"The exact public search question, one line, at most 200 characters.\"\n          }\n        },\n        \"required\": [\n          \"query\"\n        ]\n      },\n      \"strict\": true\n    },\n    {\n      \"type\": \"function\",\n      \"description\": \"Give YOUR OWN provisional view when the analysis cannot put an option forward yet (a leader may not be named). This changes nothing. Olumi shows it beneath your reply as ONE paragraph labelled as your provisional view \\u2014 never as the analysis result \\u2014 with why the analysis cannot confirm it yet. Call it at most once per reply, and never write the view in your reply text: a reply sentence that ranks or favours an option is removed. It is refused when the analysis may name a leading option (then report what the analysis says) or when no analysis has completed.\",\n      \"name\": \"give_provisional_view\",\n      \"output_schema\": null,\n      \"parameters\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"view\": {\n            \"type\": \"string\",\n            \"description\": \"At most 2 sentences: what you would do, in plain words.\"\n          },\n          \"reasoning\": {\n            \"type\": \"string\",\n            \"description\": \"At most 3 sentences: why, from the model\\u2019s own facts and the user\\u2019s own words. Never quote win percentages as a ranking.\"\n          },\n          \"confirm_step\": {\n            \"type\": \"string\",\n            \"description\": \"ONE sentence: the one thing that would let the analysis confirm or overturn this view \\u2014 something the user can do, or a change one of your tools can propose. Never a step that cannot help.\"\n          }\n        },\n        \"required\": [\n          \"view\",\n          \"reasoning\",\n          \"confirm_step\"\n        ]\n      },\n      \"strict\": true\n    }\n  ],\n  \"top_logprobs\": 0,\n  \"top_p\": 0.98,\n  \"truncation\": \"disabled\",\n  \"usage\": {\n    \"input_tokens\": 0,\n    \"input_tokens_details\": {\n      \"cache_write_tokens\": 0,\n      \"cached_tokens\": 0\n    },\n    \"output_tokens\": 0,\n    \"output_tokens_details\": {\n      \"reasoning_tokens\": 0\n    },\n    \"total_tokens\": 0\n  },\n  \"user\": null,\n  \"metadata\": {}\n}"
+}

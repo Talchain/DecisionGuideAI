@@ -43,7 +43,7 @@ describe('ConditionalWinnerCards — direction derivation (ID-bound)', () => {
     expect(body.textContent).toMatch(/exceeds/i)
     expect(body.textContent).not.toMatch(/falls below/i)
     // The "leads instead" target should be the high-bucket winner (the alternative)
-    expect(body.textContent).toMatch(/Expand into Europe leads instead/)
+    expect(body.textContent).toMatch(/Expand into Europe becomes the most-supported option instead/)
   })
 
   it('renders "falls below" + low-bucket winner when the recommended id sits in high_bucket', () => {
@@ -57,16 +57,16 @@ describe('ConditionalWinnerCards — direction derivation (ID-bound)', () => {
     expect(body.textContent).toMatch(/falls below/i)
     expect(body.textContent).not.toMatch(/exceeds/i)
     // The "leads instead" target should be the low-bucket winner (the alternative)
-    expect(body.textContent).toMatch(/Consolidate current market leads instead/)
+    expect(body.textContent).toMatch(/Consolidate current market becomes the most-supported option instead/)
   })
 
   it('renders the neutral two-sided arm when recommendedOptionId is omitted — never a guessed direction', () => {
     render(<ConditionalWinnerCards winners={[makeWinner()]} />)
     const body = screen.getByTestId('conditional-winner-cards')
-    expect(body.textContent).toMatch(/Which option leads depends on/)
+    expect(body.textContent).toMatch(/How the options compare depends on/)
     expect(body.textContent).not.toMatch(/exceeds/i)
     expect(body.textContent).not.toMatch(/falls below/i)
-    expect(body.textContent).not.toMatch(/leads instead/i)
+    expect(body.textContent).not.toMatch(/leads instead|becomes the most-supported option/i)
   })
 
   it('filters out rows the producer did not attest as flips (winner_flips false)', () => {
