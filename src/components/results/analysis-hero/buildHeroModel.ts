@@ -58,7 +58,7 @@ import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 // keeps reading the constant even though the readouts now resolve finer.
 import { SUB_ONE_PERCENT_FLOOR, formatGoalProbability } from '../utils/displayFloors'
 import { hasAnyGoalValue, selectGoalLeader } from '../utils/selectGoalLeader'
-import { goalChanceDisclosureLines, goalChanceHeadline, goalChanceOptionLines } from './goalChanceCopy'
+import { goalChanceDisclosureLines, goalChanceDriverLines, goalChanceHeadline, goalChanceOptionLines } from './goalChanceCopy'
 import { goalChanceHeroSays } from '../utils/goalChanceLicence'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
 import type { FlipRiskRef } from '../../../canvas/highlighting/resolveAnalysisTargets'
@@ -1160,11 +1160,14 @@ export function buildHeroModel(
   // superlative ('each') the subline IS the per-option lines, in the model's option order (c6: never sorted by chance);
   // otherwise the neutral pointer.
   if (goalChanceHeadlineText !== null && goalChanceLicence !== null) {
+    // ⭐ P3: what each option's chance rests on most (CEE's claim), worded with the canvas labels; it follows that
+    // option's own line.
+    const driverLines = goalChanceDriverLines(goalChanceLicence, data.goalChanceDriverNames)
     // H2 names the options it quotes; the subline then quotes the rest (model order), never a ranking.
     const lines = goalChanceLicence.form === 'each'
-      ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, [], data.goalChanceDriverLines ?? {})
+      ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, [], driverLines)
       : goalChanceLicence.form === 'similar'
-        ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, goalChanceLicence.similarOptionIds, data.goalChanceDriverLines ?? {})
+        ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, goalChanceLicence.similarOptionIds, driverLines)
         : null
     subline = lines !== null && lines.length > 0 ? lines.join(' ') : HERO_COPY.subline.compareTop
     // ⭐ D3 cut 5 + cut 6: once, beside the chance lines — why no summary is stated (Olumi's own existence assumption), then

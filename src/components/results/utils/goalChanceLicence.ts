@@ -61,6 +61,15 @@ export type GoalChanceDriver =
     readonly userStatedLink: boolean
   }
 
+/**
+ * How the driver sentence names things: a model node's display label, and a factor's unit as the user stated it. The
+ * results hook supplies these from the canvas; the hero words the sentence (`goalChanceDriverLine`).
+ */
+export interface GoalChanceDriverNames {
+  readonly labelOf: (nodeId: string) => string | null
+  readonly unitOf: (nodeId: string) => string | null
+}
+
 export interface GoalChanceLicence {
   readonly form: GoalChanceForm
   readonly optionIds: readonly string[]

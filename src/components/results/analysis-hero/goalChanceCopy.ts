@@ -7,7 +7,7 @@
  * Every line is model-relative ("In this model, on current information") and says "chance of MEETING your goal" —
  * never "reaching" (`goalFigureSaysModelRuns` bans it, DL 6005048156 + c6 6005196947), never a contest word.
  */
-import type { GoalChanceComparator, GoalChanceDriver, GoalChanceLicence } from '../utils/goalChanceLicence'
+import type { GoalChanceComparator, GoalChanceDriver, GoalChanceDriverNames, GoalChanceLicence } from '../utils/goalChanceLicence'
 import { formatGoalTarget } from '../utils/formatGoalTarget'
 
 const COMPARATOR_WORDS: Readonly<Record<GoalChanceComparator, string>> = {
@@ -97,12 +97,6 @@ export function goalChanceOptionLines(
   return lines
 }
 
-/** How the driver sentence names things: a model node's label, and a factor's unit as the user stated it. */
-export interface GoalChanceDriverNames {
-  readonly labelOf: (nodeId: string) => string | null
-  readonly unitOf: (nodeId: string) => string | null
-}
-
 const FALLING_SIDE_WORDS: Readonly<Record<'low' | 'high', string>> = { low: 'below', high: 'above' }
 
 /**
@@ -144,8 +138,11 @@ export function goalChanceDriverLine(driver: GoalChanceDriver, names: GoalChance
 }
 
 /** The driver sentence for each option that has one that can be worded, by option id. */
-export function goalChanceDriverLines(licence: GoalChanceLicence | null, names: GoalChanceDriverNames): Readonly<Record<string, string>> {
+export function goalChanceDriverLines(
+  licence: GoalChanceLicence | null, names: GoalChanceDriverNames | null | undefined,
+): Readonly<Record<string, string>> {
   const lines: Record<string, string> = {}
+  if (names == null) return lines
   for (const [id, driver] of Object.entries(licence?.driverByOption ?? {})) {
     const line = goalChanceDriverLine(driver, names)
     if (line !== null) lines[id] = line
