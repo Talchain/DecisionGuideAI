@@ -20,7 +20,7 @@ import { ACCEPT_ATTRIBUTE, readBriefDocument } from '../brief-ingest'
 
 export const BRIEF_UPLOAD_COPY = {
   label: 'Upload a document',
-  hint: 'Upload a document (.xlsx, .csv, .pptx, .docx)',
+  hint: 'Upload a document (.xlsx, .csv, .pptx, .docx, .pdf)',
   reading: 'Reading your file…',
   check: 'Olumi read this from your file. Check the figures before you draft.',
   privacy: 'Olumi reads your file in this browser; the file is not uploaded. Only the text you send is kept.',
