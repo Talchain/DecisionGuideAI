@@ -69,8 +69,8 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     // Plain words: a run's raw identity is bound by data-run-id, never shown as text.
     expect(runTimes()).not.toHaveTextContent('run-a')
     expect(runTimes()).not.toHaveTextContent('run-b')
-    expect(runTimes().querySelector('[data-run-id="run-a"]')).toHaveTextContent('Previous run')
-    expect(runTimes().querySelector('[data-run-id="run-b"]')).toHaveTextContent('Latest run')
+    expect(runTimes().querySelector('[data-run-id="run-a"]')).toHaveTextContent('Earlier')
+    expect(runTimes().querySelector('[data-run-id="run-b"]')).toHaveTextContent('Latest')
     expect([...runTimes().querySelectorAll('time')].map(t => t.getAttribute('datetime'))).toEqual([delta.endpoints!.prior.computed_at, delta.endpoints!.current.computed_at])
     expect(section('What you changed')).toHaveTextContent('Pro price, Raise to £60')
     expect(section('What you changed')).toHaveTextContent('£59 → £60')
@@ -149,7 +149,9 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
 
   it('renders missing endpoints, inputs and leader claims as absence, never a probability-based substitute', () => {
     mount(runChangeDelta({ endpoints: undefined, input_changes: undefined, input_coverage: undefined }))
-    expect(runTimes()).toHaveTextContent('Previous run time not recorded · Latest run time not recorded')
+    expect(runTimes()).toHaveTextContent('Earlier time not recorded')
+    expect(runTimes()).toHaveTextContent('Latest time not recorded')
+    expect(runTimes().querySelector('time')).toBeNull()
     expect(section('What you changed')).toHaveTextContent('Input changes were not recorded for this pair.')
     expect(section('Result comparison')).toHaveTextContent('The latest run names no option')
     expect(screen.getByRole('heading', { name: 'The latest run names no option' })).toBeInTheDocument()

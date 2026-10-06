@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { ArrowRight } from 'lucide-react'
 import type { RunDelta, RunDeltaEndpoint } from '@talchain/schemas/boundary'
 import { typography } from '../../styles/typography'
-import { PANEL_RULE } from '../../components/results/analysisNew/panelSurfaces'
+import { icon, PANEL_RULE } from '../../components/results/analysisNew/panelSurfaces'
 import { PanelIconButton } from '../../components/results/analysisNew/PanelIconButton'
 import { SectionShell } from '../../components/results/analysisNew/sections/SectionShell'
 import { useScienceExact, scienceQuantityText } from '../../components/science/ScienceQuantity'
@@ -48,7 +49,7 @@ function RunTime({ name, endpoint }: { name: string; endpoint?: RunDeltaEndpoint
     <span data-run-id={endpoint?.run_id}>
       {name}{' '}
       {endpoint?.computed_at
-        ? <time dateTime={endpoint.computed_at}>{new Date(endpoint.computed_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</time>
+        ? <time className={`${typography.panelTabular} text-text-header`} dateTime={endpoint.computed_at}>{new Date(endpoint.computed_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</time>
         : 'time not recorded'}
     </span>
   )
@@ -100,10 +101,16 @@ export function ComparePairSections({
   return (
     <div data-testid={WHATS_CHANGED_TESTID} data-attributable={view.attributable ? 'true' : 'false'}>
       {analysing ? (
-        <p role="status" className={`${typography.panelBody} text-text-body m-0`} data-testid="compare-run-in-progress">{COMPARE_RUN_IN_PROGRESS_TEXT}</p>
+        <p role="status" className={`${typography.panelBody} text-text-body mt-0 mb-3`} data-testid="compare-run-in-progress">{COMPARE_RUN_IN_PROGRESS_TEXT}</p>
       ) : null}
       <section data-compare-section="headline" aria-label={artefact ? 'What changed between runs' : resultsAllowed ? 'Result comparison' : 'Result comparison not shown'}
         data-testid={artefact ? RUN_CHANGE_ARTEFACT_TESTID : undefined} data-prior-run-id={artefact?.priorRunId} data-current-run-id={artefact?.currentRunId}>
+        {/* The two saved endpoints first (v3 artefact): what is being compared, before what it shows. */}
+        <p className={`${typography.panelMeta} text-text-light flex items-center justify-between gap-3 mt-0 mb-2`} data-testid="compare-run-times" data-wire-fields="run_delta.endpoints.*.computed_at">
+          <RunTime name="Earlier" endpoint={delta.endpoints?.prior} />
+          <ArrowRight className={`${icon('inline')} flex-shrink-0`} aria-hidden="true" />
+          <RunTime name="Latest" endpoint={delta.endpoints?.current} />
+        </p>
         <div className="flex items-center gap-1">
           <h3 className={`${typography.panelHeader} text-text-header m-0 min-w-0 flex-1`}
             data-wire-fields={nearTie ? 'analysis_result.enrichment.robustness.near_tie analysis_result.enrichment.decision_brief.headline_banded' : LEADER_FIELDS}>
@@ -112,8 +119,9 @@ export function ComparePairSections({
           {askAvailable ? <PanelIconButton ai label={COMPARE_ASK_LABEL} onClick={ask} testId="compare-ask" /> : null}
         </div>
         {qualification ? <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-wire-fields="run_delta.leader.noise_verdict">{qualification}</p> : null}
-        <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-testid="compare-run-times" data-wire-fields="run_delta.endpoints.*.computed_at">
-          <RunTime name="Previous run" endpoint={delta.endpoints?.prior} /> · <RunTime name="Latest run" endpoint={delta.endpoints?.current} />
+        {/* The reading note sits ABOVE the figures it qualifies: its words ("anything below", "nothing below") point at them. */}
+        <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-testid="compare-comparability" data-wire-fields="run_delta.attribution_case run_delta.input_coverage">
+          {view.comparability}{view.attributionLimit ? ` ${view.attributionLimit}` : ''}
         </p>
         {!resultsAllowed ? <p className={`${typography.panelBody} text-text-body mt-2 mb-0`}>{withheldReason ?? 'Re-run to compare results for the model as it stands.'}</p> : null}
         {resultsAllowed && view.movementsUnavailable ? <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-wire-fields="run_delta.win_probabilities_unavailable">{noPairsText(view)}</p> : null}
@@ -126,9 +134,6 @@ export function ComparePairSections({
         {/* Inputs are half of what Compare is for, so a pair without an input record says so rather than going quiet. */}
         {view.inputs ? <InputChanges inputs={view.inputs} rowFocus={rowFocus} rowLight={rowLight} frame={view.frame} flush />
           : <p className={`${typography.panelMeta} text-text-light m-0`} data-wire-fields="run_delta.input_coverage">Input changes were not recorded for this pair.</p>}
-        <p className={`${typography.panelMeta} text-text-light mt-2 mb-0`} data-testid="compare-comparability" data-wire-fields="run_delta.attribution_case run_delta.input_coverage">
-          {view.comparability}{view.attributionLimit ? ` ${view.attributionLimit}` : ''}
-        </p>
         {askAvailable ? null : (
           <p className={`${typography.panelMeta} text-text-light mt-2 mb-0`} data-testid="compare-ask-unavailable">
             {analysing ? 'You can ask Olumi about this comparison when the run finishes.' : 'You can ask Olumi about this comparison after the next run.'}
