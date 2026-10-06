@@ -176,7 +176,7 @@ describe('§0 PRECONDITION PINS — the fixtures reproduce the witnessed states'
 
   it('the matcher is not vacuous — it matches the two witnessed sentences verbatim', () => {
     expect(
-      `If the estimate changes for ${FACTOR_LABEL}, the leading option could change.`,
+      `If the estimate changes for ${FACTOR_LABEL}, the most-supported option could change.`,
     ).toMatch(LEADER_CLAIM_RE)
     expect(`If ${FACTOR_LABEL} shifts, ${ALT_LABEL} could gain ground.`)
       .toMatch(LEADER_CLAIM_RE)
@@ -343,8 +343,8 @@ describe('§4 SURFACE C — the T1 dominant-factor nudge', () => {
     return `${el.textContent ?? ''} ${el.getAttribute('title') ?? ''} ${el.getAttribute('aria-label') ?? ''}`
   }
 
-  it('ANTI-VACUITY: the PERMITTED run says "the leading option could change"', () => {
-    expect(nudgeText(PERMITTED())).toContain('the leading option could change')
+  it('ANTI-VACUITY: the PERMITTED run says "the most-supported option could change"', () => {
+    expect(nudgeText(PERMITTED())).toContain('the most-supported option could change')
   })
 
   it('WITHHELD: the nudge claims no leader', () => {
@@ -379,7 +379,7 @@ describe('§5 COMPOSED — the withholding and the claim cannot share a panel', 
     const { footer, prose } = renderPanel(PERMITTED())
     expect(prose).toContain('In this model, in the quarter of simulated futures where')
     expect(prose).toContain(`57% of them support ${ALT_LABEL}`)
-    expect(prose).toContain('the leading option could change')
+    expect(prose).toContain('the most-supported option could change')
     expect(footer).toContain('In this model, one option was supported by more runs than any other')
   })
 
@@ -464,7 +464,7 @@ describe('§6 SURFACE D — ConditionalWinnerCards honours the leader claim', ()
     const { card, text } = cardOf(PERMITTED())
     // The exact sentence the withheld arm must NOT produce. If this ever stops
     // rendering, the arm below is passing because the product went quiet.
-    expect(text).toContain(`${ALT_LABEL} leads instead`)
+    expect(text).toContain(`${ALT_LABEL} becomes the most-supported option instead`)
     expect(text).toContain(`Above: ${ALT_LABEL} (61%)`)
     expect(text).toContain(`Below: ${LOW_BUCKET_LABEL} (55%)`)
     expect(card.querySelector('[data-cw-arm]')?.getAttribute('data-cw-arm')).toBe('high-alt')
@@ -478,6 +478,7 @@ describe('§6 SURFACE D — ConditionalWinnerCards honours the leader claim', ()
     expect(text).not.toContain(LOW_BUCKET_LABEL)
     // The verb phrase, and the matcher, as a second and independent net.
     expect(text).not.toContain('leads instead')
+    expect(text).not.toContain('becomes the most-supported option')
     expect(text).not.toMatch(LEADER_CLAIM_RE)
     // The DIRECTION is a designation too — "exceeds" vs "falls below" says
     // which side the recommended option is on, which presupposes one.

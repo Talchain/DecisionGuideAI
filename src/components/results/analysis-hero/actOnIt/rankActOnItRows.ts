@@ -422,7 +422,8 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): ActOnItRow | null {
     ? 'this relationship is stronger or weaker than assumed'
     : `the estimate changes for ${safeFromLabel}`
   const reason = mayNameLeader
-    ? `If ${subject}, the leading option could change.`
+    // Cut 6 (red team RT-16 re-witness; Science d5 #87 6008249324): run-share vocabulary, never "the leading option".
+    ? `If ${subject}, the most-supported option could change.`
     : `If ${subject}, the result could change.`
   return {
     key: `risk-${fragile.fromId}`,
