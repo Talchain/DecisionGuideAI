@@ -810,13 +810,22 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
             whyNow: 'A best guess and a range is fine.',
             targetId: `${unsizedAsk.fromId}->${unsizedAsk.throughId}`,
           }
-        : {
-            key: `link:${unsizedAsk.fromId}->${unsizedAsk.toId}`,
-            title: `Set the strength of the link from ‘${unsizedAsk.from}’ to ‘${unsizedAsk.to}’`,
-            signal: 'This comparison turns on this link, and nobody has set how strong it is yet.',
-            whyNow: 'Set it to see how much it matters.',
-            targetId: `${unsizedAsk.fromId}->${unsizedAsk.toId}`,
-          }
+        : unsizedAsk.kind === 'target_link'
+          // Near tie (DL #87, 6 Oct): the target test's own ask, the same link the chat asks for in the target's unit.
+          ? {
+              key: `target-link:${unsizedAsk.fromId}->${unsizedAsk.toId}`,
+              title: `Give the link from ‘${unsizedAsk.from}’ to ‘${unsizedAsk.to}’ a size`,
+              signal: 'Olumi can’t test your target until this link has a size in the target’s unit.',
+              whyNow: 'A best guess is fine.',
+              targetId: `${unsizedAsk.fromId}->${unsizedAsk.toId}`,
+            }
+          : {
+              key: `link:${unsizedAsk.fromId}->${unsizedAsk.toId}`,
+              title: `Set the strength of the link from ‘${unsizedAsk.from}’ to ‘${unsizedAsk.to}’`,
+              signal: 'This comparison turns on this link, and nobody has set how strong it is yet.',
+              whyNow: 'Set it to see how much it matters.',
+              targetId: `${unsizedAsk.fromId}->${unsizedAsk.toId}`,
+            }
     // Literal `id` and `label`-after-`kind`, so `everyActIsOneTheRouteCanPerform` reads every route this card can take.
     recs.push({
       id: `strengthen:unsized-path:${step.key}`,
@@ -825,7 +834,8 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       signal: step.signal,
       whyNow: step.whyNow,
       tryThis: null,
-      sourceLine: 'Source: what this run asks first when it holds back its comparison.',
+      sourceLine: unsizedAsk.kind === 'target_link' ? 'Source: what this run asks before it can test your target.'
+        : 'Source: what this run asks first when it holds back its comparison.',
       action: unsizedAsk.kind === 'goal_level'
         ? { kind: 'canvas-focus', label: 'Show me the goal' }
         : { kind: 'canvas-focus', label: 'Show me this link' },

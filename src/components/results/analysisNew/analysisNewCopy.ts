@@ -449,7 +449,8 @@ export function unsizedPathAskOf(
   const token = typeof producerReason === 'string' ? producerReason.trim() : ''
   const warning = warningWithCode(inferenceWarnings, 'GOAL_FIGURES_PLACEHOLDER_PATH')
   const upstream = unsizedLinksOf(inferenceWarnings).length > 0
-  if (token !== GOAL_PATH_UNSIZED_CAUSE && !(token === 'separation_unavailable' && upstream)) return undefined
+  // Near tie (DL #87, 6 Oct): with no unsized-path withhold, the target warning's own typed ask, whatever the leader cause.
+  if (token !== GOAL_PATH_UNSIZED_CAUSE && !(token === 'separation_unavailable' && upstream)) return targetLinkAskOf(inferenceWarnings, labelOf)
   const ask = warning?.first_ask
   if (ask === null || typeof ask !== 'object') return null
   const a = ask as Record<string, unknown>
@@ -471,6 +472,21 @@ export function unsizedPathAskOf(
     return from === null || to === null ? null : { kind: 'link', fromId: a.from as string, toId: a.to as string, from, to }
   }
   return null
+}
+
+/**
+ * ⭐ Near tie (red team 19; DL #87, 6 Oct): CEE's `GOAL_FIGURES_TARGET_NOT_TESTABLE` types the link its words ask for
+ * (`first_ask`, kind `link`, only when the words ask exactly that link). `undefined` when it carries none, so the panel
+ * keeps its own next input; `null` when it does but an end can't be named from the canvas.
+ */
+function targetLinkAskOf(inferenceWarnings: unknown, labelOf: (nodeId: string) => string | null | undefined): UnsizedPathAsk | null | undefined {
+  const ask = warningWithCode(inferenceWarnings, 'GOAL_FIGURES_TARGET_NOT_TESTABLE')?.first_ask
+  if (ask === null || typeof ask !== 'object' || (ask as Record<string, unknown>).kind !== 'link') return undefined
+  const a = ask as Record<string, unknown>
+  const name = (id: unknown): string | null => (typeof id === 'string' && id !== '' ? labelOf(id)?.trim() || null : null)
+  const from = name(a.from)
+  const to = name(a.to)
+  return from === null || to === null ? null : { kind: 'target_link', fromId: a.from as string, toId: a.to as string, from, to }
 }
 
 /**

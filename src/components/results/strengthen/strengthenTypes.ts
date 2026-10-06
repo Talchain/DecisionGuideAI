@@ -283,6 +283,11 @@ export type UnsizedPathAsk =
   | { readonly kind: 'gauge'; readonly fromId: string; readonly throughId: string; readonly toId: string
       readonly from: string; readonly through: string; readonly to: string }
   | { readonly kind: 'link'; readonly fromId: string; readonly toId: string; readonly from: string; readonly to: string }
+  /**
+   * ⭐ Near tie (red team 19; DL #87, 6 Oct): the link CEE's `GOAL_FIGURES_TARGET_NOT_TESTABLE` asks for (its typed
+   * `first_ask`), whatever the leader cause: the Run can't test the target until it has a size in the target's unit.
+   */
+  | { readonly kind: 'target_link'; readonly fromId: string; readonly toId: string; readonly from: string; readonly to: string }
 
 export interface StrengthenInputs {
   /** Effective user success target (null = no measurable success definition). */
