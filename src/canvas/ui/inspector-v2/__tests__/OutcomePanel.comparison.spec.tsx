@@ -65,8 +65,8 @@ describe('OutcomePanel — option comparison section', () => {
     // reads the register; the literal beside it is the corpus that notices the
     // register itself changing its words (trap 12d).
     expect(section?.textContent).toContain(`${OPTION_RESULT_COPY.current} · ${OPTION_RESULT_COPY.share('65%')}`)
-    // R3 5903852225 / AIQ 5903874730: the share says "favoured in" (it is not a chance).
-    expect(section?.textContent).toContain('Current model · favoured in 65% of runs')
+    // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
+    expect(section?.textContent).toContain('Current model · supported by 65% of runs')
     expect(OPTION_RESULT_COPY.current).toBe(CURRENT_MODEL_NOUN)
     // The retired caption is gone from this section — asserted against the
     // same `textContent` the two option labels above were read from. No

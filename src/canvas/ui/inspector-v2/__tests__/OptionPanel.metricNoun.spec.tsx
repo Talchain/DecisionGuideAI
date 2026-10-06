@@ -193,8 +193,9 @@ describe("the option inspector captions the win probability with the canvas's no
     // ED decision 2's second half: the explanation says the figure is
     // conditional on the model — the register's own sentence, for THIS figure.
     expect(caption.getAttribute('title')).toBe(OPTION_RESULT_COPY.sentence('62%'))
-    expect(caption.getAttribute('title')).toMatch(/the model favoured this option/)
-    expect(caption.getAttribute('title')).toMatch(/not a recommendation/)
+    expect(caption.getAttribute('title')).toBe('In this model, 62% of runs supported this option.')
+    // The recommend stem is banned even negated (J1 ruling).
+    expect(caption.getAttribute('title')).not.toMatch(/recommend/i)
     // The retired caption is not what captions the figure any more — read from
     // the SAME element whose presence and adjacency were just proven.
     expect(caption.textContent).not.toMatch(new RegExp(`${METRIC_NOUN.support}(?![a-z])`))
