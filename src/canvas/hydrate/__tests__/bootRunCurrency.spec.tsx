@@ -33,6 +33,8 @@ import { useCoachingCurrency } from '../../../v5/blocks/useCoachingCurrency'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { mergeServerGraphOnHydrate } from '../../utils/mergeServerGraph'
 import servedPricing from './fixtures/pricing-provisional-poll.json'
+import { maximalReviewCardBlock } from '@talchain/schemas/fixtures'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 import realStagingFixture from '../../../v5/__tests__/fixtures/v5-analysis-result.staging-real-shape.json'
 
 const SCENARIO_ID = '11111111-2222-4333-8444-555555555555'
@@ -448,5 +450,36 @@ describe('applyBootRunCurrency — each decline reason is reachable, and names i
     expect(outcome).toEqual({ outcome: 'restored' })
     expect(writes).toEqual([CURRENT])
     expect((writes[0] as AnalysisStateV1).run_state).toHaveProperty('computed_at', COMPUTED_AT)
+  })
+})
+
+// ⭐ SD-1 Slice R (CEE #2654): the SAME boot proof that restores the Run now restores what the Run's turn DELIVERED —
+// a second device (no session storage) shows the Run's "Olumi model review" cards. J1 record 4b lost them on reload.
+describe('⭐ Slice R — the boot read adopts the Run\'s delivered cards', () => {
+  const RUN = 'run_slice_r_boot'
+  const card = { ...(maximalReviewCardBlock as Record<string, unknown>), block_id: '33333333-3333-4333-8333-333333333333', body: 'Most of this result rests on a single factor.' }
+  const currentRead = (delivered: boolean) => ({
+    current_read: {
+      run_state: { kind: 'complete_current', computed_at: COMPUTED_AT },
+      computed_against_hash: READ_HASH,
+      current_analysis_hash: READ_HASH,
+      figures: [],
+      run_id: RUN,
+      ...(delivered ? { delivered_record: { record_version: 1, run_id: RUN, graph_hash: READ_HASH, phase3_blocks: [card] } } : {}),
+    },
+  })
+  beforeEach(() => { useGuidanceStore.setState({ guidanceItems: [], activeGuidanceItemId: null, deliveredFrom: null }) })
+
+  it('RED: a fresh browser\'s cold open shows the Run\'s delivered card', async () => {
+    respond(body(currentRead(true)))
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('merged')
+    expect(useGuidanceStore.getState().guidanceItems.map((i) => i.item_id)).toStrictEqual(['33333333-3333-4333-8333-333333333333'])
+    expect(useGuidanceStore.getState().deliveredFrom).toStrictEqual({ scenarioId: SCENARIO_ID, runId: RUN })
+  })
+
+  it('CONTROL: the same read without a record adopts nothing', async () => {
+    respond(body(currentRead(false)))
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('merged')
+    expect(useGuidanceStore.getState().guidanceItems).toHaveLength(0)
   })
 })

@@ -14,6 +14,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { revealOlumiSurface } from '../conversation/revealOlumi'
+import { registerDeliveredRecordAdopter } from '../hydrate/deliveredGuidanceSink'
+import { guidanceItemsFromDeliveredBlocks, toStoreGuidanceItem } from '../../v5/extractPhase3FromV5Response'
 
 // ---------------------------------------------------------------------------
 // § 1 — CEE contract types
@@ -331,6 +333,12 @@ export interface GuidanceState {
    * function objects, so callback identity cannot discriminate hosts.
    */
   _registrationToken: object | null
+  /**
+   * SD-1 Slice R (CEE #2654): the Run whose DELIVERED record the items on screen were adopted from, or null when they
+   * came from a live turn, this browser's session, or nothing. Set only by `adoptDeliveredGuidance`; every authoring
+   * writer (`setGuidanceItems`, a successful `rehydrateGuidance`, `clearGuidanceItems`) resets it.
+   */
+  deliveredFrom?: { readonly scenarioId: string; readonly runId: string } | null
 }
 
 export interface GuidanceActions {
@@ -395,6 +403,15 @@ export interface GuidanceActions {
     currentAnalysisHash: string | null | undefined
     currentGraphHash: string | null | undefined
   }) => number
+  /**
+   * SD-1 Slice R (CEE #2654): adopt the guidance a Run's turn DELIVERED, served on a reload or a second device under
+   * the read's own proof (the boot leg: canvas proven equal to the Run's graph, `complete_current`, the record bound to
+   * the served Run). Adopts ONLY into an empty store, or over items adopted from ANOTHER Run's record: a live turn in
+   * this page, or this browser's own session items, always win. Idempotent for the same Run. Mints the persisted
+   * blob, like a turn (the canvas IS the Run's graph here). Returns the number of items now held from this Run (0 =
+   * refused).
+   */
+  adoptDeliveredGuidance: (opts: { scenarioId: string; runId: string; items: GuidanceItem[] }) => number
 }
 
 const initialGuidanceState: GuidanceState = {
@@ -408,6 +425,7 @@ const initialGuidanceState: GuidanceState = {
   _dispatchAction: null,
   _prefillChat: null,
   _registrationToken: null,
+  deliveredFrom: null,
 }
 
 // ---------------------------------------------------------------------------
@@ -612,6 +630,7 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
       activeGuidanceItemId: activeGuidanceItemId && newIds.has(activeGuidanceItemId)
         ? activeGuidanceItemId
         : null,
+      deliveredFrom: null,
     })
     // AUTHORSHIP — a turn delivered these items against the graph as it is
     // now, so this is the one call site that mints a new `graphHashAtWrite`.
@@ -659,7 +678,7 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
       clearPersistedGuidance()
       return 0
     }
-    set({ guidanceItems: fresh, activeGuidanceItemId: null })
+    set({ guidanceItems: fresh, activeGuidanceItemId: null, deliveredFrom: null })
     // Re-persist the SURVIVORS, so a second reload cannot resurrect an item this
     // one just evicted (the stored blob must always match the store).
     // NOT authorship: these items were authored by an earlier turn and have
@@ -669,8 +688,31 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
     return fresh.length
   },
 
+  adoptDeliveredGuidance: ({ scenarioId, runId, items }) => {
+    if (!scenarioId || !runId) return 0
+    // Another decision's record must never land on this one: the persistence provider names the scenario on screen.
+    if (guidanceContextProvider) {
+      let onScreen: string | null
+      try {
+        onScreen = guidanceContextProvider().scenarioId
+      } catch {
+        return 0
+      }
+      if (onScreen !== scenarioId) return 0
+    }
+    const { guidanceItems, deliveredFrom } = get()
+    if (deliveredFrom && deliveredFrom.scenarioId === scenarioId && deliveredFrom.runId === runId) return guidanceItems.length
+    // A live turn (or this browser's own session items) already shows guidance: never overwrite it.
+    if (guidanceItems.length > 0 && !deliveredFrom) return 0
+    set({ guidanceItems: items, activeGuidanceItemId: null, deliveredFrom: { scenarioId, runId } })
+    // AUTHORSHIP, like a turn: these items were delivered over the graph now on screen (the boot proof), so this mints
+    // `graphHashAtWrite`. An empty record clears the blob: "this Run delivered none" is a positive state.
+    persistCurrent(items, { minting: true })
+    return items.length
+  },
+
   clearGuidanceItems: () => {
-    set({ guidanceItems: [], activeGuidanceItemId: null })
+    set({ guidanceItems: [], activeGuidanceItemId: null, deliveredFrom: null })
     // Structural edits reach here. Clearing on screen but leaving the blob on
     // disk would let the next reload re-adopt advice about the PRE-edit model —
     // the single most damaging thing this store could do.
@@ -981,3 +1023,14 @@ export function selectTopItem(state: GuidanceState): GuidanceItem | null {
     compareGuidanceDisplayOrder(item, best) < 0 ? item : best,
   )
 }
+
+// SD-1 Slice R (CEE #2654): the read leg hands a bound delivered record to this store through the leaf sink (the read
+// leg must not import this module's chain, #2308). Mapped by the SAME extractor and mapper the live turn uses.
+registerDeliveredRecordAdopter(({ scenarioId, runId, record }) => {
+  if (scenarioId === null) return
+  useGuidanceStore.getState().adoptDeliveredGuidance({
+    scenarioId,
+    runId,
+    items: guidanceItemsFromDeliveredBlocks(record.phase3_blocks).map(toStoreGuidanceItem),
+  })
+})

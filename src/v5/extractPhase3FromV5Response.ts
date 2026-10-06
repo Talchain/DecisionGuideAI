@@ -38,6 +38,7 @@
  *   readiness alone, and never the freshness verdict.
  */
 import type { OlumiResponse } from '@talchain/schemas/boundary'
+import type { GuidanceItem } from '../canvas/stores/guidanceStore'
 import { DskClaimProvenanceSchema } from '@talchain/schemas/boundary'
 
 import {
@@ -581,6 +582,98 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
 
 // ─── Public extractor ───────────────────────────────────────────────────
 
+/**
+ * The Phase 3 entries of a turn's `blocks[]`, in order: the ONE rule for their ids and slot (`sidecar_blocks_array`),
+ * shared by the live turn (above) and a Run's delivered record (below), so the same block becomes the same item.
+ */
+function collectFromBlocksArray(entries: readonly unknown[], rawBlocks: Phase3RawBlock[], seenIds: Set<string>): void {
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i]
+    if (!isPlainObject(entry)) continue
+    const type = entry.type
+    if (!isPhase3BlockType(type)) continue
+    const id =
+      safeString(entry.block_id) ??
+      safeString(entry.id) ??
+      `sidecar_blocks_array:${type}[${i}]`
+    if (seenIds.has(id)) continue
+    seenIds.add(id)
+    rawBlocks.push({ type, raw: entry, id, source: 'sidecar_blocks_array' })
+  }
+}
+
+/**
+ * SD-1 Slice R (CEE #2654): the guidance items a Run's DELIVERED record carries — its Phase 3 blocks, exactly as the
+ * Run's turn delivered them in `blocks[]`, through the SAME collector and the SAME `deriveGuidance` the live turn uses,
+ * so a reload or a second device shows the items the Run's turn showed.
+ */
+export function guidanceItemsFromDeliveredBlocks(blocks: readonly unknown[]): DerivedGuidanceItem[] {
+  const raw: Phase3RawBlock[] = []
+  collectFromBlocksArray(blocks, raw, new Set())
+  return raw.map(deriveGuidance).filter((item): item is DerivedGuidanceItem => item !== null)
+}
+
+/**
+ * Map a derived Phase 3 guidance item onto the GuidanceStore's `GuidanceItem`.
+ *
+ * EXPORTED SO THE PASSTHROUGH IS TESTABLE. This was an anonymous inline
+ * `.map()` inside the turn handler, which is why the defect below survived:
+ * nothing could assert on it without driving the whole hook.
+ *
+ * ⚠ `actionLabel` AND `signal` WERE DOCUMENTED AND SILENTLY DROPPED
+ * (ROADMAP 2.225). The store's own contract says of each: "Producer
+ * `action_label` VERBATIM when supplied" / "Producer `signal` display line
+ * VERBATIM when supplied" — and the V5 derivation dutifully produced both,
+ * and this mapper listed neither, so every V5-derived guidance item reached
+ * the store with the producer's CTA label and signal line missing. The store
+ * doc was describing a field the V5 path could never deliver. This is the
+ * boundary-field silent-drop hazard in miniature, inside one file.
+ *
+ * Every field here is producer-owned passthrough: carried only when supplied,
+ * never invented, never defaulted, never recomputed.
+ */
+export function toStoreGuidanceItem(g: DerivedGuidanceItem): GuidanceItem {
+  return {
+    item_id: g.item_id,
+    // signal_code / category are producer-owned passthrough: carry
+    // them only when the producer supplied them, never invented.
+    ...(g.signal_code ? { signal_code: g.signal_code } : {}),
+    ...(g.coaching_kind ? { coaching_kind: g.coaching_kind } : {}),
+    ...(g.category ? { category: g.category } : {}),
+    source: g.source,
+    title: g.title,
+    ...(g.detail ? { detail: g.detail } : {}),
+    // The two restored fields. Same passthrough discipline as the rest.
+    ...(g.actionLabel ? { actionLabel: g.actionLabel } : {}),
+    ...(g.signal ? { signal: g.signal } : {}),
+    primary_action: g.primary_action,
+    ...(g.target_object ? { target_object: g.target_object } : {}),
+    ...(g.related_elements ? { related_elements: g.related_elements } : {}),
+    ...(g.valid_while ? { valid_while: g.valid_while } : {}),
+    priority: g.priority,
+    // UI-SEM-085 (narrowed): carry the producer's verbatim rank
+    // and the priority-provenance fact through unchanged — never
+    // recomputed, never inverted here.
+    ...(typeof g.priorityRank === 'number' ? { priorityRank: g.priorityRank } : {}),
+    priorityIsProducerSupplied: g.priorityIsProducerSupplied,
+    // DSK claim provenance (ROADMAP 2.962) — the SECOND of the two hops that
+    // silently dropped this family, and the same defect class the header
+    // above records for `actionLabel`/`signal`: the store's `GuidanceItem`
+    // has declared these fields since #633 and this mapper listed none, so
+    // every V5-derived item reached the store ungrounded no matter what the
+    // producer attested.
+    //
+    // Straight passthrough by design. The gate lives at the single site in
+    // `deriveGuidance` (contract `DskClaimProvenanceSchema`, applied to the
+    // atomic wire object as a unit); re-deriving it here would be a second
+    // rule home for one fact — and `deriveGuidanceDskProvenance` in the store
+    // is already the independent re-gate the render reads through.
+    ...(g.dsk_claim_id ? { dsk_claim_id: g.dsk_claim_id } : {}),
+    ...(g.dsk_protocol_id ? { dsk_protocol_id: g.dsk_protocol_id } : {}),
+    ...(g.evidence_strength ? { evidence_strength: g.evidence_strength } : {}),
+  }
+}
+
 export function extractPhase3FromV5Response(
   response: OlumiResponse | OlumiResponseWithExtensions,
 ): Phase3Extraction {
@@ -598,21 +691,7 @@ export function extractPhase3FromV5Response(
     // against the Phase 3 whitelist. Preserve the original ordering so
     // downstream consumers can rebuild the block sequence.
     const fromBlocksArray = sidecar[PHASE3_SIDECAR_BLOCKS_KEY]
-    if (Array.isArray(fromBlocksArray)) {
-      for (let i = 0; i < fromBlocksArray.length; i++) {
-        const entry = fromBlocksArray[i]
-        if (!isPlainObject(entry)) continue
-        const type = entry.type
-        if (!isPhase3BlockType(type)) continue
-        const id =
-          safeString(entry.block_id) ??
-          safeString(entry.id) ??
-          `sidecar_blocks_array:${type}[${i}]`
-        if (seenIds.has(id)) continue
-        seenIds.add(id)
-        rawBlocks.push({ type, raw: entry, id, source: 'sidecar_blocks_array' })
-      }
-    }
+    if (Array.isArray(fromBlocksArray)) collectFromBlocksArray(fromBlocksArray, rawBlocks, seenIds)
   }
 
   // 2. analysis_ready passthrough.

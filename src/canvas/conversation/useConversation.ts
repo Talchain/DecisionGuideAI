@@ -86,9 +86,12 @@ import { applyV5State } from '../../v5/applyV5State'
 import {
   extractPhase3FromV5Response,
   deriveV5AnalysisFactUpdate,
+  toStoreGuidanceItem,
   type Phase3RawBlock,
-  type DerivedGuidanceItem,
 } from '../../v5/extractPhase3FromV5Response'
+// Moved to the leaf extractor (SD-1 Slice R) so the guidance store can map a Run's delivered record without importing
+// this hook's chain (#2308). Re-exported: every existing importer keeps this path.
+export { toStoreGuidanceItem }
 import {
   adaptTypedReviewCardBlock,
   adaptTypedCoachingBlock,
@@ -127,7 +130,7 @@ import { buildRestoredThread, reconcileRestoredHeldControls } from './serverConv
 import { heldProposalMountKey, heldProposalRetirementKeys } from './selectors'
 import { appendThreadEntries } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
-import { useGuidanceStore, type GuidanceItem } from '../stores/guidanceStore'
+import { useGuidanceStore } from '../stores/guidanceStore'
 import { serializeSystemEvent } from './systemEvents'
 import { captureTurnForUndo } from '../undo/captureUndoReceipt'
 import { redactStatedReason } from './findingDissent'
@@ -1625,67 +1628,6 @@ function normaliseProposalReviewItems(raw: unknown): ProposalReviewItem[] {
  * Returns null when title or body would be empty — the bridge refuses to
  * render an empty card. No fallback copy, no semantic rewriting.
  */
-/**
- * Map a derived Phase 3 guidance item onto the GuidanceStore's `GuidanceItem`.
- *
- * EXPORTED SO THE PASSTHROUGH IS TESTABLE. This was an anonymous inline
- * `.map()` inside the turn handler, which is why the defect below survived:
- * nothing could assert on it without driving the whole hook.
- *
- * ⚠ `actionLabel` AND `signal` WERE DOCUMENTED AND SILENTLY DROPPED
- * (ROADMAP 2.225). The store's own contract says of each: "Producer
- * `action_label` VERBATIM when supplied" / "Producer `signal` display line
- * VERBATIM when supplied" — and the V5 derivation dutifully produced both,
- * and this mapper listed neither, so every V5-derived guidance item reached
- * the store with the producer's CTA label and signal line missing. The store
- * doc was describing a field the V5 path could never deliver. This is the
- * boundary-field silent-drop hazard in miniature, inside one file.
- *
- * Every field here is producer-owned passthrough: carried only when supplied,
- * never invented, never defaulted, never recomputed.
- */
-export function toStoreGuidanceItem(g: DerivedGuidanceItem): GuidanceItem {
-  return {
-    item_id: g.item_id,
-    // signal_code / category are producer-owned passthrough: carry
-    // them only when the producer supplied them, never invented.
-    ...(g.signal_code ? { signal_code: g.signal_code } : {}),
-    ...(g.coaching_kind ? { coaching_kind: g.coaching_kind } : {}),
-    ...(g.category ? { category: g.category } : {}),
-    source: g.source,
-    title: g.title,
-    ...(g.detail ? { detail: g.detail } : {}),
-    // The two restored fields. Same passthrough discipline as the rest.
-    ...(g.actionLabel ? { actionLabel: g.actionLabel } : {}),
-    ...(g.signal ? { signal: g.signal } : {}),
-    primary_action: g.primary_action,
-    ...(g.target_object ? { target_object: g.target_object } : {}),
-    ...(g.related_elements ? { related_elements: g.related_elements } : {}),
-    ...(g.valid_while ? { valid_while: g.valid_while } : {}),
-    priority: g.priority,
-    // UI-SEM-085 (narrowed): carry the producer's verbatim rank
-    // and the priority-provenance fact through unchanged — never
-    // recomputed, never inverted here.
-    ...(typeof g.priorityRank === 'number' ? { priorityRank: g.priorityRank } : {}),
-    priorityIsProducerSupplied: g.priorityIsProducerSupplied,
-    // DSK claim provenance (ROADMAP 2.962) — the SECOND of the two hops that
-    // silently dropped this family, and the same defect class the header
-    // above records for `actionLabel`/`signal`: the store's `GuidanceItem`
-    // has declared these fields since #633 and this mapper listed none, so
-    // every V5-derived item reached the store ungrounded no matter what the
-    // producer attested.
-    //
-    // Straight passthrough by design. The gate lives at the single site in
-    // `deriveGuidance` (contract `DskClaimProvenanceSchema`, applied to the
-    // atomic wire object as a unit); re-deriving it here would be a second
-    // rule home for one fact — and `deriveGuidanceDskProvenance` in the store
-    // is already the independent re-gate the render reads through.
-    ...(g.dsk_claim_id ? { dsk_claim_id: g.dsk_claim_id } : {}),
-    ...(g.dsk_protocol_id ? { dsk_protocol_id: g.dsk_protocol_id } : {}),
-    ...(g.evidence_strength ? { evidence_strength: g.evidence_strength } : {}),
-  }
-}
-
 export function adaptPhase3ReviewCard(
   raw: Record<string, unknown>,
 ): ReviewCardBlock | null {
