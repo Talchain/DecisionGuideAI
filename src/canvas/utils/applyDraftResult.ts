@@ -14,6 +14,7 @@
 import { useCanvasStore } from '../store'
 import { captureBeforeIngest } from '../versions/autoCapture'
 import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../domain/edges'
+import { existenceHeldPatch } from '../domain/heldUserLink'
 import { readWireNaturalEffect, strengthExampleFigurePatch } from '../domain/naturalEffect'
 import { strengthPlaceholderPatch } from '../domain/strengthPlaceholder'
 import { strengthDefinitionalPatch } from '../domain/strengthDefinitional'
@@ -176,6 +177,8 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
       ...(serverStrength !== undefined ? { serverStrength } : {}),
       // The edge's size in the target's units — the ONE reader, every hop (domain/naturalEffect).
       ...(naturalEffect !== undefined ? { naturalEffect } : {}),
+      // D3 cut 6: CEE holds this user link at existence 1.0 — the ONE reader, every hop (domain/heldUserLink).
+      ...existenceHeldPatch(e),
       ...strengthExampleFigurePatch(e as Record<string, unknown>, rawWeight, wireSuppliedStrength),
       // POM-8: a PLACEHOLDER strength, labelled on the wire, is not an estimate —
       // the ONE reader, every hop (domain/strengthPlaceholder).
