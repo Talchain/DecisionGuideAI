@@ -12,8 +12,8 @@ export interface Extraction {
   segments: Segment[]
   /** What was NOT read, as plain sentences in brackets. */
   notes: string[]
-  /** Plural noun for the count line, e.g. "slides", "rows". */
-  noun: string
+  /** Noun for the count line as [one, many], e.g. ['slide', 'slides']. */
+  noun: readonly [string, string]
   /** Total countable things in the file, read or not. */
   total: number
   /** Extra clause for the count line, e.g. "2 were images". */

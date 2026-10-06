@@ -143,7 +143,7 @@ export async function extractPptx(bytes: ArrayBuffer): Promise<Extraction> {
   return {
     segments,
     notes,
-    noun: 'slides',
+    noun: ['slide', 'slides'],
     total: order.length,
     extra: imageOnly > 0 ? `${imageOnly} ${plural(imageOnly, 'was an image', 'were images')}` : undefined,
     unitCapped: true,

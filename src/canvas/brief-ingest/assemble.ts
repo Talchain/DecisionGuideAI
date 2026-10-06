@@ -32,7 +32,7 @@ export function assembleBrief(existing: string, filename: string, extraction: Ex
     const lastUnit = units.length ? Math.max(...units) : 0
     if (lastUnit > MAX_UNITS || extraction.total > MAX_UNITS) {
       segments = segments.filter((s) => s.unit === undefined || s.unit <= MAX_UNITS)
-      const noun = extraction.noun
+      const noun = extraction.noun[1]
       notes.unshift(`(Olumi read ${noun} 1–${MAX_UNITS} of ${extraction.total}; the rest were not read)`)
     }
   }
@@ -72,6 +72,7 @@ export function assembleBrief(existing: string, filename: string, extraction: Ex
 
   const read = kept.filter((s) => s.countable).length
   const extra = extraction.extra ? ` (${extraction.extra})` : ''
-  const summary = `Olumi read ${read} of ${extraction.total} ${extraction.noun}${extra}.`
+  const noun = extraction.total === 1 ? extraction.noun[0] : extraction.noun[1]
+  const summary = `Olumi read ${read} of ${extraction.total} ${noun}${extra}.`
   return { text: existing + prefix + added, added: prefix + added, summary }
 }

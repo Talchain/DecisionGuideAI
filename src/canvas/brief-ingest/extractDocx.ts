@@ -81,5 +81,5 @@ export async function extractDocx(bytes: ArrayBuffer): Promise<Extraction> {
     notes.push(`(${tally.drawings} ${plural(tally.drawings, 'picture or chart was', 'pictures or charts were')} not read)`)
   }
   if (tally.hiddenText) notes.push('(hidden text was not read)')
-  return { segments, notes, noun: 'paragraphs and table rows', total: segments.length }
+  return { segments, notes, noun: ['paragraph or table row', 'paragraphs and table rows'], total: segments.length }
 }
