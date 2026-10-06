@@ -19,6 +19,7 @@
  * identifiable (UNBOUND). Advisory rows write a verdict to evidence/advisory.json and
  * never fail the run. Not built yet: J3b J4 J5b J5c.
  * SD-1 (domain 2, github-07): J14 ONE-FACT, factor Confirm, advisory until its fix lands (ONE_FACT_REQUIRED).
+ * SD-1: J15 ONE-FACT, the goal's side ("at most" on every surface and in a fresh browser), advisory.
  *
  * Every step also asserts the LLM boundary answered every call EXACTLY as frozen
  * (assertBoundaryClean): a drifted, missing, exhausted or reused recording is red.
@@ -1023,5 +1024,85 @@ test.describe.serial('J1 · whole PoC', () => {
     }
     if (ONE_FACT_REQUIRED) await oneFact()
     else await runAdvisory('J14_one_fact_confirm', oneFact)
+  })
+
+  // ── SD-1 ONE-FACT, the goal's side (DL 0df0e1 6 Oct; DGAI #2544) ─────────────────────────────────────────────────
+  // The journey's goal ("at least £150,000") is set to "at most" through the Model tab's own editor. CEE then makes the
+  // goal HOLD '<=' beside the same figure (add-constraint.ts, an approved ceiling at the held figure) — the stamped
+  // shape a8's census found every display reader blind to. Every surface must say "at most", on A and in a fresh
+  // browser, and the editor must reopen on it. Advisory: last in the run, so it moves no earlier recording.
+  test('J15 · ONE-FACT (SD-1): a goal set to "at most" says so on every surface, and in a fresh browser', async ({ browser }) => {
+    const goalSide = async () => {
+      const S = J.S!
+      const g0 = (await read('J15 before')).graph as any
+      const goal = (g0.nodes as any[]).find((n) => n.id === g0.goal_node_id) ?? (g0.nodes as any[]).find((n) => n.kind === 'goal')
+      expect(goal, '[J15] COULD NOT MEASURE: the stored graph has no goal').toBeTruthy()
+      const raw = goal.goal_threshold_raw
+      expect(typeof raw, `[J15] COULD NOT MEASURE: the goal holds no figure (${raw})`).toBe('number')
+      expect(String(goal.goal_direction ?? ''), '[J15] COULD NOT MEASURE: the goal already holds a ceiling').not.toMatch(/^</)
+      const latest = (g0.nodes as any[]).map((n) => n.id).sort()
+      await pageA.goto('about:blank')
+      await pageA.goto(`${ORIGIN}/#/scenario/${S}`, { waitUntil: 'load' })
+      await expect.poll(async () => (await renderedNodeIds(pageA)).sort(), { message: '[J15] A does not render S', timeout: 120_000 }).toEqual(latest)
+
+      const openGoalRow = async (page: Page) => {
+        await openDockTab(page, 'Model')
+        const toggle = page.getByTestId('model-group-v2-goal-toggle')
+        if ((await toggle.count()) > 0 && (await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click()
+        const value = page.getByTestId(`model-row-v2-${goal.id}-value`)
+        await expect(value, '[J15] COULD NOT MEASURE: no goal row in the Model tab').toBeVisible({ timeout: 30_000 })
+        return value
+      }
+      // A user's act: open the goal's editor, choose "at most", keep the figure, propose, confirm.
+      await (await openGoalRow(pageA)).click()
+      await pageA.getByTestId(`model-row-v2-${goal.id}-goal-bound`).selectOption('at_most')
+      const input = pageA.getByTestId(`model-row-v2-${goal.id}-value-input`)
+      await input.fill(String(raw))
+      await input.press('Enter')
+      const since = Date.now()
+      await pageA.getByTestId(`model-row-v2-${goal.id}-confirm`).click()
+      const turn = await nextTurn(turns, since, 'J15 at most')
+      expect(turn.status, '[J15] the goal edit turn failed').toBe(200)
+      const g1 = (await read('J15 after')).graph as any
+      const held = (g1.nodes as any[]).find((n) => n.id === goal.id)
+      const stored = { goal_direction: held?.goal_direction ?? null, goal_threshold_raw: held?.goal_threshold_raw ?? null }
+
+      /** What a reader sees of the goal's target: the card, the Model tab row, the Reasoning target line, and the editor's reopen seed. */
+      const surfaces = async (page: Page) => {
+        const card = await page.getByTestId('goal-node-resting-state').first().textContent({ timeout: 30_000 }).catch(() => null)
+        const value = await openGoalRow(page)
+        const row = await value.textContent().catch(() => null)
+        await value.click()
+        const seed = await page.getByTestId(`model-row-v2-${goal.id}-goal-bound`).inputValue({ timeout: 10_000 }).catch(() => null)
+        await page.keyboard.press('Escape')
+        await openDockTab(page, 'Reasoning')
+        const line = await page.getByTestId('analysis-new-model-strip-target-value').textContent({ timeout: 30_000 }).catch(() => null)
+        return { card: card?.trim() ?? null, row: row?.trim() ?? null, seed, line: line?.trim() ?? null }
+      }
+      const onA = await surfaces(pageA)
+      const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+      let fresh: Awaited<ReturnType<typeof surfaces>>
+      try {
+        const page = await ctx.newPage()
+        await injectSession(page, J.A!.storageKey, J.A!.raw)
+        await page.goto(`${ORIGIN}/#/scenario/${S}`, { waitUntil: 'load' })
+        await expect.poll(async () => (await renderedNodeIds(page)).sort(), { message: '[J15] the fresh browser does not render S', timeout: 120_000 }).toEqual(latest)
+        fresh = await surfaces(page)
+      } finally {
+        await ctx.close()
+      }
+      const facts = { goal: goal.id, raw, stored, onA, fresh }
+      writeEvidence('J15-goal-side.json', facts)
+      const broken: string[] = []
+      if (stored.goal_direction !== '<=' && stored.goal_direction !== '<') broken.push(`CEE holds ${stored.goal_direction} (expected a ceiling)`)
+      for (const [where, v] of [['A', onA], ['fresh', fresh]] as const) {
+        for (const k of ['card', 'row', 'line'] as const) if (!/at most/i.test(v[k] ?? '')) broken.push(`${where}.${k} = ${JSON.stringify(v[k])}`)
+        if (v.seed !== 'at_most') broken.push(`${where}.editor opens on ${JSON.stringify(v.seed)}`)
+      }
+      if (broken.length) throw new Error(`[J15] the goal's side is not one fact: ${broken.join('; ')}`)
+      assertBoundaryClean('J15')
+      return facts
+    }
+    await runAdvisory('J15_goal_side_one_fact', goalSide)
   })
 })
