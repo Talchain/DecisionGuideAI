@@ -41,6 +41,12 @@ export interface GoalChanceLicence {
    * value, else null (Olumi's estimate for each). `null` when CEE wrote none.
    */
   readonly userLinkExistence: { readonly links: number; readonly oneIn: number | null } | null
+  /**
+   * ⭐ D3 cut 6 INTERIM (Science d5 #87 6009272273 + 6009276913; DL adopted): CEE withheld the summary `form` would have been,
+   * because a compared option's goal path carries Olumi's own existence assumption. The record's form is then `each`; the
+   * hero says c6's sentence for THIS form. `null` when CEE wrote none (or a malformed one: the `each` lines still stand).
+   */
+  readonly summaryWithheld?: { readonly cause: 'olumi_existence_assumption'; readonly form: Exclude<GoalChanceForm, 'each'> } | null
 }
 
 const FORMS: ReadonlySet<string> = new Set(['highest', 'highest_all_likely_to_miss', 'all_likely_to_miss', 'similar', 'each'])
@@ -89,6 +95,8 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
   if (!Array.isArray(sameRaw) || !sameRaw.every((id) => typeof id === 'string' && (ids as string[]).includes(id) && !withheld.has(id))) return null
   if (new Set(sameRaw).size !== sameRaw.length) return null
   if (form === 'similar' ? sameRaw.length < 2 : sameRaw.length > 0) return null
+  // A withheld summary leaves only the `each` lines; a record that says both is at odds with itself.
+  if (r.summary_withheld !== undefined && form !== 'each') return null
   return {
     form,
     optionIds: ids as string[],
@@ -99,7 +107,14 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
     nextOptionId,
     target: { comparator: target.comparator as GoalChanceComparator, value: target.value, unit: target.unit },
     userLinkExistence: existenceOf(r.user_link_existence),
+    summaryWithheld: summaryWithheldOf(r.summary_withheld),
   }
+}
+
+/** CEE's `summary_withheld`, shape-checked; a malformed one is not read (no sentence; the `each` lines still stand). */
+function summaryWithheldOf(v: unknown): NonNullable<GoalChanceLicence['summaryWithheld']> | null {
+  if (!isRec(v) || v.cause !== 'olumi_existence_assumption' || typeof v.form !== 'string' || v.form === 'each' || !FORMS.has(v.form)) return null
+  return { cause: 'olumi_existence_assumption', form: v.form as Exclude<GoalChanceForm, 'each'> }
 }
 
 /** CEE's `user_link_existence`, shape-checked; a malformed one is not read (no line, never a guessed fraction). */
@@ -143,6 +158,28 @@ export function goalChanceHeroSays(
  * c6/d5's words (cut 5), said ONCE beside the chance lines: the chances also count Olumi's existence prior on the user's
  * own links. CEE's fraction (`oneIn`), never computed; mixed values say it is Olumi's estimate for each. `null` otherwise.
  */
+const SUMMARY_WITHHELD_WORDS: Readonly<Record<Exclude<GoalChanceForm, 'each'>, string>> = {
+  highest: 'Olumi isn’t naming the option with the highest chance, because that could depend on its own assumption that some links might not hold.',
+  highest_all_likely_to_miss: 'Olumi isn’t saying whether every option is more likely to miss your goal than meet it, or naming the option with the highest chance, because both could depend on its own assumption that some links might not hold.',
+  all_likely_to_miss: 'Olumi isn’t saying whether every option is more likely to miss your goal than meet it, because that could depend on its own assumption that some links might not hold.',
+  similar: 'Olumi isn’t saying whether the options have similar chances of meeting your goal, because that could depend on its own assumption that some links might not hold.',
+}
+
+/** c6's words (cut 6 interim), chosen by the withheld FORM (never "highest" for a withheld `similar`). `null` otherwise. */
+export function goalChanceSummaryWithheldLine(licence: GoalChanceLicence | null): string | null {
+  const w = licence?.summaryWithheld ?? null
+  return w === null ? null : SUMMARY_WITHHELD_WORDS[w.form]
+}
+
+/**
+ * Everything said once beside the chance lines, in order: why no summary is stated (cut 6), then the existence line
+ * (cut 5). ONE home: the hero when it speaks, else the WinGauge goal rows. `null` when there is nothing to say.
+ */
+export function goalChanceDisclosureLines(licence: GoalChanceLicence | null): string | null {
+  const lines = [goalChanceSummaryWithheldLine(licence), goalChanceExistenceLine(licence)].filter((l): l is string => l !== null)
+  return lines.length > 0 ? lines.join(' ') : null
+}
+
 export function goalChanceExistenceLine(licence: GoalChanceLicence | null): string | null {
   const e = licence?.userLinkExistence ?? null
   if (e === null) return null

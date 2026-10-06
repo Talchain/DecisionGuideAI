@@ -40,7 +40,7 @@ import { CritiqueWarningStrip } from './CritiqueWarningStrip'
 import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
 import { AnalysisHeroContainer, KeyQuestionCard } from './analysis-hero'
 import { GoalChanceInvite } from './goal-chance-invite/GoalChanceInvite'
-import { goalChanceExistenceLine, goalChanceHeroSays } from './utils/goalChanceLicence'
+import { goalChanceDisclosureLines, goalChanceHeroSays } from './utils/goalChanceLicence'
 import { WhatIWasGivenSection } from './contextIntegrity/WhatIWasGivenSection'
 import { openDefineSuccess, HowComputedTrigger } from './modals'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '@/canvas/mutations/mutationAuthority'
@@ -717,11 +717,11 @@ export const ResultsBody = memo(function ResultsBody({
                 goalFitWithheld: o.goalFitWithheld,
               }))}
               goalChanceLicence={resultsSectionData.goalChanceLicence ?? null}
-              // ⭐ D3 cut 5: the existence line's ONE home — here only when the hero will not say the goal-chance sentence.
+              // ⭐ D3 cut 5 + 6: the disclosure's ONE home — here only when the hero will not say the goal-chance sentence.
               goalChanceDisclosure={goalChanceHeroSays(resultsSectionData.recommendation.goalThreshold,
                 resultsSectionData.recommendation.allOptions, resultsSectionData.goalChanceLicence ?? null)
                 ? null
-                : goalChanceExistenceLine(resultsSectionData.goalChanceLicence ?? null)}
+                : goalChanceDisclosureLines(resultsSectionData.goalChanceLicence ?? null)}
             />
             {/* Codex B1: winnerId is ALWAYS the canonical leader — every leader
                 predicate (downside sentence, leader CTA/prompt) keys to it. The

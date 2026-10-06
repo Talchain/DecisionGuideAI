@@ -58,7 +58,7 @@ import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 // keeps reading the constant even though the readouts now resolve finer.
 import { SUB_ONE_PERCENT_FLOOR, formatGoalProbability } from '../utils/displayFloors'
 import { hasAnyGoalValue, selectGoalLeader } from '../utils/selectGoalLeader'
-import { goalChanceExistenceLine, goalChanceHeadline, goalChanceOptionLines } from './goalChanceCopy'
+import { goalChanceDisclosureLines, goalChanceHeadline, goalChanceOptionLines } from './goalChanceCopy'
 import { goalChanceHeroSays } from '../utils/goalChanceLicence'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
 import type { FlipRiskRef } from '../../../canvas/highlighting/resolveAnalysisTargets'
@@ -1167,9 +1167,10 @@ export function buildHeroModel(
         ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, goalChanceLicence.similarOptionIds)
         : null
     subline = lines !== null && lines.length > 0 ? lines.join(' ') : HERO_COPY.subline.compareTop
-    // ⭐ D3 cut 5: once, beside the chance lines — the part of these figures that is Olumi's assumption, not the user's.
-    const existence = goalChanceExistenceLine(goalChanceLicence)
-    if (existence !== null) subline = `${subline} ${existence}`
+    // ⭐ D3 cut 5 + cut 6: once, beside the chance lines — why no summary is stated (Olumi's own existence assumption), then
+    // the part of these figures that is Olumi's assumption about the user's own links.
+    const disclosure = goalChanceDisclosureLines(goalChanceLicence)
+    if (disclosure !== null) subline = `${subline} ${disclosure}`
   }
 
   // UI-SEM-054: outcome-axis layout domain derivation. Min/max over the

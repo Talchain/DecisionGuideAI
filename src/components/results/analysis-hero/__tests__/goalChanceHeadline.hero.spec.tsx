@@ -117,6 +117,19 @@ describe('D3 step 2 — the goal chance heads the hero on its OWN licence (CEE d
     expect(heroModel().subline ?? '').not.toContain('might not hold')
   })
 
+  it('INTERIM (d5 6009272273; DL; c6): a withheld summary → the `each` lines, then c6\'s sentence, then the existence line — once', () => {
+    const pct = { [OUTREACH]: 0, [ANGEL]: 35, [CONVERTIBLE]: 50 }
+    seed({ [OUTREACH]: 0.004, [ANGEL]: 0.35, [CONVERTIBLE]: 0.5 }, licenceRecord('each', pct,
+      { summary_withheld: { cause: 'olumi_existence_assumption', form: 'highest' }, user_link_existence: { links: 2, one_in: 5 } }))
+    const why = 'Olumi isn’t naming the option with the highest chance, because that could depend on its own assumption that some links might not hold.'
+    const existence = 'These chances also count Olumi’s own assumption that each of your links might not hold (a 1-in-5 chance each).'
+    const model = heroModel()
+    expect(model.headline).toMatch(/^In this model, on current information, each option’s chance of meeting your goal/)
+    expect(model.subline?.endsWith(`${why} ${existence}`)).toBe(true)
+    expect(model.subline?.split(why)).toHaveLength(2) // once
+    expect(`${model.headline} ${model.subline}`).not.toMatch(CONTEST)
+  })
+
   it('PER OPTION (d5 #87 6007421281; c6 6 Oct): one option withheld for its own path keeps its place with c6\'s withheld line', () => {
     const { [ANGEL]: _withheld, ...rest } = GOAL
     seed(rest, licenceRecord('each', { [OUTREACH]: 20, [CONVERTIBLE]: 62 }, { withheld_option_ids: [ANGEL] }))
