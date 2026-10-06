@@ -790,7 +790,9 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   // even when the ask cannot be named (`null`): sizing a different input does not reach the finding (draft 6 asked for
   // "Price-driven customer losses" while the Run turned on "starter support burden → revenue"). It designates no option.
   const unsizedWithhold = inputs.analysisComplete && inputs.unsizedPathAsk !== undefined
-  const unsizedAsk = unsizedWithhold ? (inputs.unsizedPathAsk ?? null) : null
+  // ⛔ Codex r1 #2550: the ask belongs to the Run that withheld. Once the graph has changed since (`analysisIdentityIsCurrent`
+  // not true), it may already be answered, so it is not shown, and no other factor is named in its place: the re-run decides.
+  const unsizedAsk = unsizedWithhold && inputs.analysisIdentityIsCurrent === true ? (inputs.unsizedPathAsk ?? null) : null
   if (unsizedAsk !== null) {
     const step = unsizedAsk.kind === 'goal_level'
       ? {

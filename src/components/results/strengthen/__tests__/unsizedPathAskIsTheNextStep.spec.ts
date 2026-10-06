@@ -53,4 +53,18 @@ describe('the unsized-path withhold\'s own ask is the panel\'s next step', () =>
   it('a withhold whose ask cannot be named (null): NO other input is offered in its place', () => {
     expect(ids(draft6(null))).toEqual([])
   })
+
+  it('Codex r1: the graph changed since the Run (identity not current) → the ask is not shown, and no other factor either', () => {
+    expect(ids({ ...draft6(LINK), analysisIdentityIsCurrent: false } as StrengthenInputs)).toEqual([])
+    // CONTRAST: the same withhold on a current identity names its ask.
+    expect(ids(draft6(LINK))).toEqual(['strengthen:unsized-path:link:starter_burden->revenue'])
+  })
+
+  it('Codex r1: a producer review card stays (the UI renders it, never decides it), and the ask sorts ABOVE it', () => {
+    const card = { id: 'blk_1', title: 'Check the assumption behind price-driven losses', targetIds: ['price_losses'],
+      category: 'should_fix', priorityRank: 1 }
+    const out = ids({ ...draft6(LINK), phase3Items: [card] } as unknown as StrengthenInputs)
+    expect(out[0]).toBe('strengthen:unsized-path:link:starter_burden->revenue')
+    expect(out).toHaveLength(2)
+  })
 })
