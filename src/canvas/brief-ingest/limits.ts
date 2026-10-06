@@ -18,5 +18,5 @@ export const MAX_UNZIPPED_BYTES = 50 * 1024 * 1024
 export const MAX_SHEET_ROWS = 500
 export const MAX_WORKBOOK_ROWS = 2_000
 
-export const ACCEPTED_EXTENSIONS = ['.xlsx', '.csv', '.pptx', '.docx'] as const
+export const ACCEPTED_EXTENSIONS = ['.xlsx', '.csv', '.pptx', '.docx', '.pdf'] as const
 export const ACCEPT_ATTRIBUTE = ACCEPTED_EXTENSIONS.join(',')

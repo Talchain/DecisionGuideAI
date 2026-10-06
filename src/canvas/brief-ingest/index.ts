@@ -51,8 +51,13 @@ export async function readBriefDocument(file: File, existing: string): Promise<A
         extraction = await extractDocx(bytes)
         break
       }
+      case '.pdf': {
+        const { extractPdf } = await import('./extractPdf')
+        extraction = await extractPdf(bytes)
+        break
+      }
       default:
-        throw new BriefIngestError('Olumi can read .xlsx, .csv, .pptx and .docx files.')
+        throw new BriefIngestError('Olumi can read .xlsx, .csv, .pptx, .docx and .pdf files.')
     }
     return assembleBrief(existing, file.name, extraction)
   } catch (err) {

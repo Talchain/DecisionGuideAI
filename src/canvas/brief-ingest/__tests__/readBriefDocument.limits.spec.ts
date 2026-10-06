@@ -65,6 +65,6 @@ describe('brief upload — limits and authorship', () => {
 
   it('errors gracefully on a file that is not what its name says', async () => {
     await expect(readBriefDocument(asFile('plain text', 'fake.pptx'), '')).rejects.toThrow("Olumi couldn't open this file.")
-    await expect(readBriefDocument(asFile('x', 'notes.txt'), '')).rejects.toThrow('Olumi can read .xlsx, .csv, .pptx and .docx files.')
+    await expect(readBriefDocument(asFile('x', 'notes.txt'), '')).rejects.toThrow('Olumi can read .xlsx, .csv, .pptx, .docx and .pdf files.')
   })
 })

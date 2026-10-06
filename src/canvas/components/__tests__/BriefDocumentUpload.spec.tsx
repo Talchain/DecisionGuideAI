@@ -23,7 +23,7 @@ describe('BriefDocumentUpload', () => {
     const input = screen.getByLabelText<HTMLInputElement>(BRIEF_UPLOAD_COPY.label)
     expect(input.type).toBe('file')
     expect(input.multiple).toBe(false)
-    expect(input.accept).toBe('.xlsx,.csv,.pptx,.docx')
+    expect(input.accept).toBe('.xlsx,.csv,.pptx,.docx,.pdf')
     expect(screen.getByText(BRIEF_UPLOAD_COPY.privacy)).toBeTruthy()
   })
 
@@ -43,7 +43,7 @@ describe('BriefDocumentUpload', () => {
     render(<Harness initial="" />)
     choose(new File(['x'], 'notes.txt'))
     await waitFor(() =>
-      expect(screen.getByRole('alert').textContent).toBe('Olumi can read .xlsx, .csv, .pptx and .docx files.'),
+      expect(screen.getByRole('alert').textContent).toBe('Olumi can read .xlsx, .csv, .pptx, .docx and .pdf files.'),
     )
     expect(brief().value).toBe('')
   })
