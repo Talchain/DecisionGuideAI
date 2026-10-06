@@ -81,6 +81,17 @@ describe('D3 step 2 — the goal chance heads the hero on its OWN licence (CEE d
     expect(model.subline).not.toMatch(CONTEST)
   })
 
+  it('H2 (DL 0df0e1 6 Oct; Rehearsal12 48 / 43 / <1): "about the same chance", in the MODEL\'s order; the rest as lines', () => {
+    seed({ [OUTREACH]: 0.004, [ANGEL]: 0.43, [CONVERTIBLE]: 0.48 },
+      licenceRecord('about_the_same', { [OUTREACH]: 0, [ANGEL]: 43, [CONVERTIBLE]: 48 }, { same_option_ids: [ANGEL, CONVERTIBLE] }))
+    const model = heroModel()
+    expect(model.headline).toBe(`In this model, on current information, ‘${labelOf(ANGEL)}’ and ‘${CONVERTIBLE_LABEL}’ have about the same `
+      + 'chance of meeting your goal (at least £1,200,000): about 43% and about 48%.')
+    expect(model.headline).not.toMatch(CONTEST)
+    expect(model.headline).not.toMatch(/highest|most likely|strongest/i)
+    expect(model.subline).toBe(`‘${labelOf(OUTREACH)}’: about 0% chance of meeting your goal, in this model.`)
+  })
+
   it('PER OPTION (d5 #87 6007421281; c6 6 Oct): one option withheld for its own path keeps its place with c6\'s withheld line', () => {
     const { [ANGEL]: _withheld, ...rest } = GOAL
     seed(rest, licenceRecord('each', { [OUTREACH]: 20, [CONVERTIBLE]: 62 }, { withheld_option_ids: [ANGEL] }))

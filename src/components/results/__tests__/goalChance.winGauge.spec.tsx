@@ -18,7 +18,7 @@ const GOAL: GoalShare[] = [
   { id: 'c', label: 'Two tiers', goalProbability: 0.2 },
 ]
 const licence = (form: GoalChanceLicence['form']): GoalChanceLicence => ({
-  form, optionIds: ['a', 'b', 'c'], pctByOption: { a: 41, b: 62, c: 20 },
+  form, optionIds: ['a', 'b', 'c'], pctByOption: { a: 41, b: 62, c: 20 }, withheldOptionIds: [], sameOptionIds: [],
   leaderOptionId: form === 'highest' ? 'b' : null, nextOptionId: form === 'highest' ? 'a' : null,
   target: { comparator: 'at_least', value: 20000, unit: '£' },
 })

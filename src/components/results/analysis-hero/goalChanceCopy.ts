@@ -24,6 +24,9 @@ export function goalChanceTargetWords(licence: GoalChanceLicence): string | null
 }
 
 const about = (pct: number | undefined): string => `about ${pct}%`
+/** "a and b" / "a, b and c" — British, no serial comma. */
+const listOf = (items: readonly string[]): string =>
+  items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
 
 /**
  * The headline for a licensed Run, or `null` when a label or the target cannot be said (the surface then keeps the
@@ -49,6 +52,14 @@ export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionI
     }
     case 'all_likely_to_miss':
       return `${lead} every option is more likely to miss your goal (${target}) than meet it.`
+    case 'about_the_same': {
+      // H2 (c6 #87 6005196947 row H2; DL 0df0e1 6 Oct below 10 points): the options in CEE's order, never ranked.
+      const labels = licence.sameOptionIds.map((id) => labelOf(id))
+      if (labels.some((l) => l === null)) return null
+      const named = listOf(labels.map((l) => `‘${l}’`))
+      const figures = listOf(licence.sameOptionIds.map((id) => about(licence.pctByOption[id])))
+      return `${lead} ${named} have about the same chance of meeting your goal (${target}): ${figures}.`
+    }
     case 'each':
       return `${lead} each option’s chance of meeting your goal (${target}):`
   }
@@ -58,9 +69,12 @@ export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionI
  * c6's per-option line (or, for an option CEE withheld for its own path, c6's withheld line), in the MODEL'S option order (`licence.optionIds`) — never sorted by chance: below the 10-point
  * licence a sort is a ranking the Run does not grant. `null` when any label cannot be said.
  */
-export function goalChanceOptionLines(licence: GoalChanceLicence, labelOf: (optionId: string) => string | null): string[] | null {
+export function goalChanceOptionLines(
+  licence: GoalChanceLicence, labelOf: (optionId: string) => string | null, except: readonly string[] = [],
+): string[] | null {
   const lines: string[] = []
   for (const id of licence.optionIds) {
+    if (except.includes(id)) continue
     const label = labelOf(id)
     if (label === null) return null
     // c6 (6 Oct): an option withheld for its own path keeps its place, and says so — never "unknown", never "0%".

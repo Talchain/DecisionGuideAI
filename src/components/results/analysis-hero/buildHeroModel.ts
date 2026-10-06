@@ -1155,8 +1155,13 @@ export function buildHeroModel(
   // superlative ('each') the subline IS the per-option lines, in the model's option order (c6: never sorted by chance);
   // otherwise the neutral pointer.
   if (goalChanceHeadlineText !== null && goalChanceLicence !== null) {
-    const lines = goalChanceLicence.form === 'each' ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf) : null
-    subline = lines !== null ? lines.join(' ') : HERO_COPY.subline.compareTop
+    // H2 names the options it quotes; the subline then quotes the rest (model order), never a ranking.
+    const lines = goalChanceLicence.form === 'each'
+      ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf)
+      : goalChanceLicence.form === 'about_the_same'
+        ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, goalChanceLicence.sameOptionIds)
+        : null
+    subline = lines !== null && lines.length > 0 ? lines.join(' ') : HERO_COPY.subline.compareTop
   }
 
   // UI-SEM-054: outcome-axis layout domain derivation. Min/max over the
