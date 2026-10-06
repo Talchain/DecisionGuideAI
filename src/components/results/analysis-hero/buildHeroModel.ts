@@ -58,6 +58,7 @@ import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 // keeps reading the constant even though the readouts now resolve finer.
 import { SUB_ONE_PERCENT_FLOOR, formatGoalProbability } from '../utils/displayFloors'
 import { hasAnyGoalValue, selectGoalLeader } from '../utils/selectGoalLeader'
+import { goalChanceHeadline, goalChanceOptionLines } from './goalChanceCopy'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
 import type { FlipRiskRef } from '../../../canvas/highlighting/resolveAnalysisTargets'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../utils/goalFitBasisCaveatCopy'
@@ -819,9 +820,23 @@ export function buildHeroModel(
   const safeLabel = (row: HeroRowVM) =>
     safeInterpolatedLabel(row.label, HERO_COPY.labelFallback)
 
+  // ⭐ D3 MILESTONE 1, STEP 2 — EACH OPTION'S CHANCE OF MEETING THE GOAL IS THE HEADLINE WHEN CEE LICENSED IT (DL 0df0e1
+  // #87 6005048156 / 6006078553; Science d5; Wording c6). Its OWN licence (`data.goalChanceLicence`, read by identity off
+  // the Run's record), so a withheld win-share leader no longer silences it — the arm is NOT gated on
+  // `designationsWithheld`. Only where the user stated a target (UI-SEM-071) and the goal figure is the goal's own chance
+  // (with limits the hero's goal value can be the joint, which these words do not describe). Every licensed option must
+  // be a row here, by id, or the arm stands aside and the chain below speaks as before.
+  const goalChanceLicence = hasUserTarget && !hasConstraints ? (data.goalChanceLicence ?? null) : null
+  const rowLabelById = new Map(rows.map((r) => [r.id, safeLabel(r)] as const))
+  const goalChanceLabelOf = (id: string): string | null => rowLabelById.get(id) ?? null
+  const goalChanceHeadlineText =
+    goalChanceLicence === null || rows.length < 2 ? null : goalChanceHeadline(goalChanceLicence, goalChanceLabelOf)
+
   let headline: string
   if (rows.length === 1) {
     headline = HERO_COPY.headline.singleOption(safeLabel(rows[0]))
+  } else if (goalChanceHeadlineText !== null) {
+    headline = goalChanceHeadlineText
   } else if (allGoalBelowFloor) {
     // Constraint-aware like every goal claim: under constraints the floored
     // figure is the JOINT probability and the axis/caption say "goal and
@@ -1135,6 +1150,13 @@ export function buildHeroModel(
         subline = `${subline} ${HERO_COPY.subline.overlapAdvisory}`
       }
     }
+  }
+  // ⭐ D3 step 2: a goal-chance headline never carries a win-share or outcome subline about another option. Below the
+  // superlative ('each') the subline IS the per-option lines, in the model's option order (c6: never sorted by chance);
+  // otherwise the neutral pointer.
+  if (goalChanceHeadlineText !== null && goalChanceLicence !== null) {
+    const lines = goalChanceLicence.form === 'each' ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf) : null
+    subline = lines !== null ? lines.join(' ') : HERO_COPY.subline.compareTop
   }
 
   // UI-SEM-054: outcome-axis layout domain derivation. Min/max over the

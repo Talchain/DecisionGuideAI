@@ -691,6 +691,17 @@ export const ResultsBody = memo(function ResultsBody({
               comparisonScope={deriveComparisonScope(
                 resultsSectionData.recommendation.allOptions,
               )}
+              // ⭐ D3 step 2: the goal block reads EVERY option's goal figure, share or not (a withheld share empties
+              // `shares` above), and orders it by CEE's goal-chance licence when there is one.
+              goalShares={resultsSectionData.recommendation.allOptions.map((o) => ({
+                id: o.id,
+                label: o.label,
+                goalProbability: o.goalProbability,
+                nValidSamples: o.nValidSamples,
+                goalFitIsSubstitutedJoint: o.goalFitIsSubstitutedJoint,
+                goalFitWithheld: o.goalFitWithheld,
+              }))}
+              goalChanceLicence={resultsSectionData.goalChanceLicence ?? null}
             />
             {/* Codex B1: winnerId is ALWAYS the canonical leader — every leader
                 predicate (downside sentence, leader CTA/prompt) keys to it. The

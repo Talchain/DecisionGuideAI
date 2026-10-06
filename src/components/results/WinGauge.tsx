@@ -48,6 +48,7 @@ import { formatGoalProbability } from './utils/displayFloors'
 import { formatProbabilityWithResolution } from '../../utils/formatPercent'
 import { deriveOddsRoundingNote, ODDS_ROUNDING_NOTE_TESTID } from './utils/oddsRoundingNote'
 import Tooltip from '../Tooltip'
+import { goalChanceLicensesOrder, type GoalChanceLicence } from './utils/goalChanceLicence'
 import type { DecisionState } from './types'
 import { useCanvasStore } from '../../canvas/store'
 import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../canvas/state/winShareGate'
@@ -60,6 +61,9 @@ export const WIN_GAUGE_SHARES_WITHHELD_TESTID = 'win-gauge-win-shares-withheld'
 // =============================================================================
 
 /** Per-option input to the comparison figure. */
+/** The goal block's own reading of one option (D3 step 2): no win share needed. */
+export type GoalShare = Pick<OptionWinShare, 'id' | 'label' | 'goalProbability' | 'nValidSamples' | 'goalFitIsSubstitutedJoint' | 'goalFitWithheld'>
+
 export interface OptionWinShare {
   id: string
   label: string
@@ -223,8 +227,22 @@ export function WinGauge({
   designationsWithheld = false,
   goalThreshold = null,
   comparisonScope = null,
+  goalShares,
+  goalChanceLicence = null,
 }: {
   shares: OptionWinShare[]
+  /**
+   * ⭐ D3 step 2 (DL 0df0e1 #87 6006078553): EVERY analysed option's goal figure, whether or not it carries a win share.
+   * The goal block reads this when given, so a withheld win share (the mapper empties every share) no longer takes the
+   * goal block down with the comparative one. Absent: the goal block reads `shares`, exactly as before.
+   */
+  goalShares?: readonly GoalShare[]
+  /**
+   * ⭐ D3 step 2: the goal chance's OWN licence, as CEE decided it (`readGoalChanceLicence`). ORDER COUNTS AS A
+   * SUPERLATIVE (Science d5 6005640764): with a licence, the goal rows are ranked by chance ONLY under its two `highest`
+   * forms, and otherwise follow the model's option order (c6). No licence: the order rule below, unchanged.
+   */
+  goalChanceLicence?: GoalChanceLicence | null
   decisionState?: DecisionState
   /**
    * ROADMAP 1.267. The LABEL of this chart was already fixed once (see the
@@ -275,7 +293,9 @@ export function WinGauge({
   const winSharesAreWithheld = useCanvasStore(selectWinSharesWithheld)
   const winShareReasonLine = useCanvasStore(selectWinShareWithheldReason)
 
-  if (shares.length === 0) return null
+  // The goal block's source (D3 step 2): every option's goal figure when the caller gives it, else the shares.
+  const goalSource: readonly GoalShare[] = goalShares ?? shares
+  if (shares.length === 0 && !goalSource.some((s) => isFiniteProbability(s.goalProbability))) return null
 
   const colors = decisionState === 'indeterminate' ? WIN_GAUGE_COLORS_INDETERMINATE : WIN_GAUGE_COLORS
 
@@ -364,11 +384,17 @@ export function WinGauge({
   // Withheld ⇒ the goal rows follow `sorted`, i.e. the same display order the
   // rest of the gauge uses. The PROBABILITIES are untouched: the claim is
   // withheld, the data is not.
-  const goalRows = designationsWithheld
-    ? sorted.filter((s) => isFiniteProbability(s.goalProbability))
-    : shares
-        .filter((s) => isFiniteProbability(s.goalProbability))
-        .sort((a, b) => (b.goalProbability as number) - (a.goalProbability as number))
+  // ⭐ D3 step 2: with CEE's goal-chance licence, ITS form decides (by identity): ranked only under a `highest` form, else
+  // the model's option order — never ranked below the 10-point licence (c6). Without one, the rule above, unchanged.
+  const goalCandidates = goalSource.filter((s) => isFiniteProbability(s.goalProbability))
+  const byGoalDesc = (a: GoalShare, b: GoalShare) => (b.goalProbability as number) - (a.goalProbability as number)
+  const goalRows: readonly GoalShare[] = goalChanceLicence != null
+    ? goalChanceLicensesOrder(goalChanceLicence)
+      ? [...goalCandidates].sort(byGoalDesc)
+      : goalChanceLicence.optionIds.flatMap((id) => goalCandidates.filter((s) => s.id === id))
+    : designationsWithheld
+      ? (goalShares !== undefined ? goalCandidates : sorted.filter((s) => isFiniteProbability(s.goalProbability)))
+      : [...goalCandidates].sort(byGoalDesc)
   const hasGoalNumbers = goalRows.length > 0
   // The possessive gate is a property of the RUN, not of a row: every row is
   // scored on the same basis. Any substituted row withholds the possessive
@@ -381,7 +407,7 @@ export function WinGauge({
   // permanently false. Any option whose goal figure was withheld puts the whole
   // block in the withheld state, which is the safe direction: it can never
   // invite a target the user already set.
-  const goalFitWithheld = shares.some((s) => s.goalFitWithheld === true)
+  const goalFitWithheld = goalSource.some((s) => s.goalFitWithheld === true)
 
   return (
     <div
@@ -508,7 +534,8 @@ export function WinGauge({
         )
       )}
 
-      {winSharesAreWithheld ? (
+      {/* D3 step 2: a gauge drawn for its goal block alone (no share arrived and none was withheld) has no comparative block. */}
+      {shares.length === 0 && !winSharesAreWithheld ? null : winSharesAreWithheld ? (
         // Row 9: no bar, no legend, no percentage — the reason line in their place.
         <p
           className={`${typography.panelMeta} text-text-light`}

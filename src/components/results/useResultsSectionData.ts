@@ -121,6 +121,7 @@ import { isStrengthPlaceholder } from '../../canvas/domain/strengthPlaceholder'
 import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisParticipation'
 import { goalLabelOf } from './analysisNew/analysisNewCopy'
 import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
+import { readGoalChanceLicence, type GoalChanceLicence } from './utils/goalChanceLicence'
 
 // =============================================================================
 // Winner Selection Helper
@@ -1344,6 +1345,12 @@ export interface ResultsSectionDataReturn {
   winSharesWithheld?: boolean
   /** The reason line each withheld surface shows instead (`winShareWithheldReason`), or `null` when permitted. */
   winShareWithheldReason?: string | null
+  /**
+   * ⭐ D3 step 2: the goal chance's OWN licence, as CEE decided it and stored it with the Run (`GOAL_CHANCE_LICENSED`,
+   * read by identity in `utils/goalChanceLicence`). Separate from the win-share gate above. OPTIONAL like it: absent or
+   * `null` = no licence, and every surface renders exactly as before.
+   */
+  goalChanceLicence?: GoalChanceLicence | null
 }
 
 /** What the option card prints for each target this option sets (its own map; the card's formatter). */
@@ -1472,6 +1479,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // `results: null` (the `?.` above) — `admissionGatesHarness.resetStore()` is that state, and the selector threw on it.
   const leaderPermission = report?.producer_leader_permission ?? null
   const winSharesAreWithheld = winSharesWithheld(leaderPermission)
+  // ⭐ D3 step 2: read verbatim off the Run's own record — the same report every other figure here comes from.
+  const goalChanceLicence = useMemo(
+    () => readGoalChanceLicence((report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings),
+    [report],
+  )
   const resultsStatus = results?.status
 
   const isLoading = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
@@ -4807,6 +4819,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       sensitivityReviewTargets,
       winSharesWithheld: winSharesAreWithheld,
       winShareWithheldReason: winShareReasonLine,
+      goalChanceLicence,
     }),
     [
       recommendation,
@@ -4827,6 +4840,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       sensitivityReviewTargets,
       winSharesAreWithheld,
       winShareReasonLine,
+      goalChanceLicence,
     ],
   )
 }
