@@ -1,7 +1,7 @@
 /**
  * "Upload a document" for the first-use brief (ROADMAP 3.8, slice 1).
  *
- * ONE file is read entirely in this browser (`brief-ingest/`); nothing is
+ * ONE file is read entirely in this browser (`brief-ingest/`); the file is not
  * uploaded. Its text, with a locator marker on every segment and a note for
  * everything not read, is APPENDED to the brief box for the user to check and
  * edit. Nothing is sent: the user still drafts through the box's own send.
@@ -12,13 +12,13 @@
 import { useCallback, useId, useState, type ChangeEvent } from 'react'
 import { Paperclip } from 'lucide-react'
 import { typo } from '../../styles/typography'
-import { ACCEPT_ATTRIBUTE } from '../brief-ingest/limits'
+import { ACCEPT_ATTRIBUTE, readBriefDocument } from '../brief-ingest'
 
 export const BRIEF_UPLOAD_COPY = {
   label: 'Upload a document',
   reading: 'Reading your file…',
   check: 'Olumi read this from your file. Check the figures before you draft.',
-  privacy: 'Your file stays on this device; only the text you send is kept.',
+  privacy: 'Olumi reads your file in this browser; the file is not uploaded. Only the text you send is kept.',
   remove: 'Remove what was added',
   removeMissing: 'Olumi couldn’t find the added text unchanged, so it was left as it is.',
   unexpected: "Olumi couldn't open this file. It may be damaged, or not the type its name says.",
@@ -46,7 +46,6 @@ export function BriefDocumentUpload({ draft, setDraft, onAdded }: BriefDocumentU
       setBusy(true)
       setError(null)
       try {
-        const { readBriefDocument } = await import('../brief-ingest')
         const result = await readBriefDocument(file, draft)
         setDraft(result.text)
         setAdded({ block: result.added, summary: result.summary })
