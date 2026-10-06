@@ -176,6 +176,39 @@ describe('Slice R · the guidance store adopts a delivered record without overwr
     expect(useGuidanceStore.getState().deliveredFrom).toBeNull()
   })
 
+  it('boot restoration restores live-minted coaching when only the item memory was torn down', () => {
+    useGuidanceStore.getState().setGuidanceItems([turnItem])
+    // Match the unchanged acceptance spec's reload teardown: the module stays
+    // loaded in jsdom, although a real reload destroys its page-local marker.
+    useGuidanceStore.setState({ guidanceItems: [], activeGuidanceItemId: null })
+    expect(useGuidanceStore.getState().liveGuidanceAuthored).toBe(true)
+    expect(useGuidanceStore.getState().rehydrateGuidance({ scenarioId: SCENARIO, currentAnalysisHash: null, currentGraphHash: 'ui-hash-1' })).toBe(1)
+    expect(useGuidanceStore.getState().guidanceItems).toStrictEqual([turnItem])
+    expect(useGuidanceStore.getState().liveGuidanceAuthored).toBe(false)
+  })
+
+  it('a late boot restore after an empty live turn keeps emptiness and live precedence', () => {
+    useGuidanceStore.getState().adoptDeliveredGuidance({ scenarioId: SCENARIO, runId: RUN, items: items() })
+    useGuidanceStore.getState().setGuidanceItems([])
+    expect(sessionStorage.getItem('guidance.items.v1')).toBeNull()
+    expect(useGuidanceStore.getState().rehydrateGuidance({ scenarioId: SCENARIO, currentAnalysisHash: null, currentGraphHash: 'ui-hash-1' })).toBe(0)
+    expect(useGuidanceStore.getState().liveGuidanceAuthored).toBe(true)
+    expect(useGuidanceStore.getState().adoptDeliveredGuidance({ scenarioId: SCENARIO, runId: RUN, items: items() })).toBe(0)
+    expect(useGuidanceStore.getState().guidanceItems).toStrictEqual([])
+  })
+
+  it('a same-Run re-read after reload keeps restored coaching without resurrecting a dismissed card', () => {
+    const delivered = items()
+    expect(delivered.length).toBeGreaterThan(1)
+    useGuidanceStore.getState().adoptDeliveredGuidance({ scenarioId: SCENARIO, runId: RUN, items: delivered })
+    useGuidanceStore.getState().dismissItem(delivered[0].item_id)
+    const survivors = delivered.slice(1)
+    expect(reload()).toBe(survivors.length)
+    expect(useGuidanceStore.getState().deliveredFrom).toStrictEqual({ scenarioId: SCENARIO, runId: RUN })
+    expect(useGuidanceStore.getState().adoptDeliveredGuidance({ scenarioId: SCENARIO, runId: RUN, items: delivered })).toBe(survivors.length)
+    expect(useGuidanceStore.getState().guidanceItems).toStrictEqual(survivors)
+  })
+
   it('rehydrated session guidance is not a live turn authored in this page (including older blobs without origin)', () => {
     sessionStorage.setItem('guidance.items.v1', JSON.stringify({ version: 1, scenarioId: SCENARIO, graphHashAtWrite: 'ui-hash-1', items: [turnItem] }))
     expect(reload()).toBe(1)

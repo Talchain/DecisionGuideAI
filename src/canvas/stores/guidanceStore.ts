@@ -656,7 +656,10 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
     // confident lie about the user's model; the cost of adopting nothing is the
     // behaviour that shipped before this existed.
     if (!scenarioId) return 0
-    if (get().liveGuidanceAuthored || get().guidanceItems.length > 0) return 0 // this page already holds guidance
+    if (get().guidanceItems.length > 0) return 0 // this page already holds guidance
+    // Live precedence guards delivered-record adoption, not boot restoration.
+    // A live empty turn removes its blob, so a late rehydrate cannot resurrect
+    // older cards; successful boot restoration below resets live authorship.
     const stored = readPersistedGuidance()
     if (!stored) return 0
     if (stored.scenarioId !== scenarioId) {
