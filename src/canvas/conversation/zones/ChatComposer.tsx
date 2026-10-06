@@ -388,7 +388,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
                 borderRadius: '50%',
                 marginBottom: 2,
                 transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
-                background: 'var(--bg-panel, #FEF9F3)',
+                background: 'var(--bg-panel, #FEFEFE)',
                 border: '1px solid var(--border-default, #EEE6D8)',
                 boxShadow: 'none',
                 cursor: 'pointer',
