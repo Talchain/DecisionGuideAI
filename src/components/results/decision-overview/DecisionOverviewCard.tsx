@@ -25,13 +25,14 @@ import { ChevronDown } from 'lucide-react'
 
 import { useCanvasStore } from '../../../canvas/store'
 import { useSuccessMeasureForScenario } from '../modals'
+import type { SuccessDirection } from '../modals/successMeasureStore'
 import { useGuidanceStore, compareGuidanceDisplayOrder, type GuidanceItem } from '../../../canvas/stores/guidanceStore'
 import { isDecisionOverviewEnabled } from '../../../flags'
 import { typography } from '../../../styles/typography'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { computeSuccessState } from '../../../canvas/components/pre-analysis-v3/selectors/computeSuccessState'
 import { computeGraphFacts } from '../../../canvas/components/pre-analysis-v3/selectors/graphFacts'
-import { goalTargetChangeFrameOf } from '../../../canvas/domain/goalTarget'
+import { goalHeldComparatorOf, goalTargetChangeFrameOf } from '../../../canvas/domain/goalTarget'
 import { ActionsMenu } from './ActionsMenu'
 import { REVIEW_BRIEF_ASK } from './actionsCatalogue'
 import { formatStatedLimitsNote, parseStatedLimitsKey, selectStatedLimitsKey } from './statedLimits'
@@ -257,6 +258,29 @@ export function selectSuccessMeasureIsChange(s: Pick<CanvasStoreState, 'nodes'>)
   return goalTargetChangeFrameOf((goal?.data as { goal_threshold_frame?: unknown } | undefined)?.goal_threshold_frame) !== null
 }
 
+/** The comparator glyph a LEVEL success target is said with: ≤ / < / > from the goal's held `goal_direction`, ≥ otherwise. */
+const TARGET_GLYPH: Readonly<Record<string, string>> = { '<=': '≤', '<': '<', '>': '>' }
+
+/**
+ * SD-1 (DL 0df0e1, 6 Oct; a8 census DGAI row 1): "Success target ≥ 400" was printed for a goal that HOLDS "at most
+ * 400" (CEE stamps a brief-stated ceiling, RT-10 #2585). The glyph is the canonical goal node's held comparator — the
+ * one source every target surface reads — and `≥` only where it holds `>=` or nothing. A primitive, like its siblings.
+ */
+export function selectSuccessTargetGlyph(s: Pick<CanvasStoreState, 'nodes'>): string {
+  const goal = computeGraphFacts(s.nodes as never).goalNode
+  const held = goalHeldComparatorOf((goal?.data as { goal_direction?: unknown } | undefined)?.goal_direction)
+  return (held !== null && TARGET_GLYPH[held]) || '≥'
+}
+
+/**
+ * The glyph a SAVED success measure is said with. `keep_below` is the modal's only ceiling member; this compared
+ * against `'decrease_below'`, a literal `SuccessDirection` never holds (the baselined TS2367), so a saved "keep below"
+ * printed "≥" (SD-1, found beside a8 census row 4).
+ */
+export function savedMeasureGlyph(direction: SuccessDirection): string {
+  return direction === 'keep_below' ? '≤' : '≥'
+}
+
 export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewCardProps) {
   const analysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
   // All selectors below return primitives (Zustand inline-selector rule).
@@ -305,6 +329,7 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
   const successDisplayText = useCanvasStore(selectSuccessMeasureDisplayText)
   const successIsSet = successDisplayText !== null
   const successIsChange = useCanvasStore(selectSuccessMeasureIsChange)
+  const successGlyph = useCanvasStore(selectSuccessTargetGlyph)
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
   const optionCount = useCanvasStore((s) => s.nodes.filter((n) => n.type === 'option').length)
   const constraintCount = useCanvasStore((s) => s.goalConstraints?.length ?? 0)
@@ -575,10 +600,10 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
   const savedMeasure = useSuccessMeasureForScenario(currentScenarioId)
   const goalNote =
     savedMeasure != null
-      ? `${savedMeasure.metric}: ${savedMeasure.direction === 'decrease_below' ? '≤' : '≥'} ${savedMeasure.threshold}${savedMeasure.unit === 'none' ? '' : savedMeasure.unit}, ${savedMeasure.timeframe}`
+      ? `${savedMeasure.metric}: ${savedMeasureGlyph(savedMeasure.direction)} ${savedMeasure.threshold}${savedMeasure.unit === 'none' ? '' : savedMeasure.unit}, ${savedMeasure.timeframe}`
       : !successIsSet
         ? OVERVIEW_COPY.goalNoteMissing
-        : successIsChange ? `Success target: ${successDisplayText}` : `Success target ≥ ${successDisplayText}`
+        : successIsChange ? `Success target: ${successDisplayText}` : `Success target ${successGlyph} ${successDisplayText}`
   // CONTEXT — no claim, rather than a false denial.
   //
   // `currentBriefText` has exactly ONE non-null writer in the whole of src/:

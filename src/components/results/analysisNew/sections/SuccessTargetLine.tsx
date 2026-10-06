@@ -85,7 +85,9 @@ import {
   statedTargetNumber,
   type GoalTargetSource,
 } from '../../../../canvas/domain/goalTarget'
-import { goalTargetBound, resolveGoalTargetWithOwnRow } from '../../../../canvas/domain/goalOwnTargetRow'
+import {
+  goalTargetBound, goalTargetComparator, goalTargetEditDirection, resolveGoalTargetWithOwnRow,
+} from '../../../../canvas/domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
 import { formatGoalTarget } from '../../utils/formatGoalTarget'
 import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuthority'
@@ -651,7 +653,9 @@ export function SuccessTargetLine({
      * so the paths cannot disagree (CLAUDE.md trap 12: one
      * derivation, not two that agree today).
      */
-    setDirection(DEFAULT_TARGET_DIRECTION)
+    // SD-1 (a8 census DGAI row 3): a TYPED read of the side the goal holds (`goal_direction`, else its own row), never a
+    // reading of its words — so saving an unchanged ceiling cannot restate it as a floor. No held side → the default.
+    setDirection(goalTargetEditDirection(goalTargetComparator(goalData as GoalTargetSource | null, goalConstraintRows, goalNodeId)))
     setWordsDraft('')
     // Captured at OPEN, checked at COMMIT — see `editScenarioId`.
     setEditScenarioId(authority.captureScenarioId())

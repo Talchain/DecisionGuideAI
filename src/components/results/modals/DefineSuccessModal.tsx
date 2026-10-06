@@ -26,6 +26,8 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { executeCanonicalRun } from '../../../canvas/analysis/canonicalRunRegistry'
 import { capForUnit, resolveChipGoalThreshold, resolveActiveGoalNodeId } from '../../../canvas/hooks/goalThresholdResolvers'
 import { useCanvasStore } from '../../../canvas/store'
+import { goalTargetComparator, goalTargetEditDirection } from '../../../canvas/domain/goalOwnTargetRow'
+import type { GoalTargetSource } from '../../../canvas/domain/goalTarget'
 import { typography } from '../../../styles/typography'
 import {
   FIELD_INPUT_CLASS,
@@ -144,7 +146,9 @@ export function DefineSuccessModal() {
       )
       const label = (goalNode?.data as Record<string, unknown> | undefined)?.label
       setMetric(typeof label === 'string' ? label : '')
-      setDirection('increase_by_at_least')
+      // SD-1 (a8 census DGAI row 4): a goal that HOLDS a ceiling opens on "keep below", never a floor.
+      const held = goalTargetComparator(goalNode?.data as GoalTargetSource | undefined, canvas.goalConstraints, goalNode?.id)
+      setDirection(goalTargetEditDirection(held) === 'at_most' ? 'keep_below' : 'increase_by_at_least')
       setThreshold(canvas.goalThreshold != null ? String(canvas.goalThreshold) : '')
       setUnit(UNIT_OPTIONS[0])
       setTimeframe('')

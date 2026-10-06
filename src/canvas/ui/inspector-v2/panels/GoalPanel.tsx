@@ -544,7 +544,8 @@ export const GoalPanel = memo(function GoalPanel({
   const panelStatesTarget = targetDisplay != null && (readOnly || showsTargetReadout)
   const listedConstraints = (Array.isArray(goalConstraints) ? goalConstraints : [])
     .map((c, index) => ({ c, index }))
-    .filter(({ c }) => !(panelStatesTarget && constraintRestatesGoalTarget(c, nodeId, resolvedTarget)))
+    .filter(({ c }) => !(panelStatesTarget && constraintRestatesGoalTarget(c, nodeId,
+      resolvedTarget && { ...resolvedTarget, comparator: (node?.data as GoalTargetSource | undefined)?.goal_direction })))
   const hasConstraints = listedConstraints.length > 0
 
   /**

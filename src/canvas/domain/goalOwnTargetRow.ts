@@ -22,7 +22,9 @@
  * So the row is identified, not located: it restates the target only when ALL
  * of these hold —
  *   · it sits on the goal's own node;
- *   · its operator is `>=` — the only operator CEE stamps a target from;
+ *   · its operator is the comparator the goal HOLDS (`goal_direction`), `>=` when it holds none — SD-1 (DL 0df0e1,
+ *     6 Oct): CEE now stamps a brief-stated CEILING too (`stated-by-user.ts`, RT-10 #2585: `goal_threshold_raw` +
+ *     `goal_direction '<='`), so its `<=` row restates that target exactly as a floor's `>=` row restates a floor;
  *   · its figure EQUALS the stated target (float noise aside), read as the row's
  *     `value`, or as its audited reader's figure when CEE rewrote the scale;
  *   · its unit is the target's unit (`%`/`percent`/`percentage` are one unit;
@@ -36,14 +38,16 @@
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { classifyUnit, ISO_CURRENCY_GLYPHS } from '../../utils/unitClassifier'
 import {
-  canCaptureGoalTarget, goalTargetChangeFrameOf, goalTargetFrameIsUnread, resolveGoalTarget, statedGoalTargetRaw, statedTargetNumber,
-  type GoalTargetSource, type ResolvedGoalTarget,
+  canCaptureGoalTarget, goalHeldComparatorOf, goalTargetChangeFrameOf, goalTargetFrameIsUnread, resolveGoalTarget,
+  statedGoalTargetRaw, statedTargetNumber, type GoalHeldComparator, type GoalTargetSource, type ResolvedGoalTarget,
 } from './goalTarget'
 
-/** The target a surface STATES — its figure (number or numeric string) and its unit. */
+/** The target a surface STATES — its figure (number or numeric string), its unit, and the comparator the goal holds. */
 export interface StatedGoalTargetFigure {
   readonly raw: unknown
   readonly unit: unknown
+  /** The goal node's `goal_direction`, read raw (`goalHeldComparatorOf`). Absent or unheld = `>=`, the floor default. */
+  readonly comparator?: unknown
 }
 
 /** One comparison key per unit: a currency by its glyph, a percent by `%`, anything else as written. */
@@ -65,7 +69,10 @@ export function constraintRestatesGoalTarget(
   statedTarget: StatedGoalTargetFigure | null | undefined,
 ): boolean {
   if (statedTarget == null) return false
-  if (constraint.node_id !== goalId || constraint.operator !== '>=') return false
+  if (constraint.node_id !== goalId) return false
+  const held = goalHeldComparatorOf(statedTarget.comparator) ?? '>='
+  const rowSense = statedOperatorOf(constraint as { operator?: unknown; operator_as_stated?: unknown })
+  if (constraint.operator !== held && rowSense !== held) return false
   const figure = statedTargetNumber(statedTarget.raw)
   if (figure === null) return false
   const key = unitKey(statedTarget.unit)
@@ -118,7 +125,9 @@ export function goalCardShownLimits<C extends CEEGoalConstraint>(
   // CEE's rule (`goalOwnLimitRow`): with no target on the node, the goal's own non-deadline limit row IS its target
   // ("at most 400"). The card then states it as that row's pill instead of "Target not captured" (DL 0df0e1).
   if (!hasTarget && !isDetailed && goalOwnLimitRow(constraints, goalId) === null) return []
-  const statedTarget = hasTarget ? { raw: statedGoalTargetRaw(goalData), unit: goalData?.goal_threshold_unit } : null
+  const statedTarget = hasTarget
+    ? { raw: statedGoalTargetRaw(goalData), unit: goalData?.goal_threshold_unit, comparator: goalData?.goal_direction }
+    : null
   return goalStatedLimits(constraints, goalId, statedTarget) ?? []
 }
 
@@ -196,7 +205,12 @@ export function resolveGoalTargetWithOwnRow(
   goalId: string | null | undefined,
 ): ResolvedGoalTarget | GoalOwnRowTarget | null {
   const fromNode = resolveGoalTarget(data)
-  if (fromNode !== null) return fromNode
+  if (fromNode !== null) {
+    // SD-1: a node that HOLDS a ceiling says so. A bare figure reads as a level to reach (`>=`), so every other held
+    // comparator is said before it, in CEE's words — the same bound its own row gives below.
+    const bound = heldTargetBoundWords(data)
+    return bound === null ? fromNode : { ...fromNode, bound }
+  }
   if (goalTargetFrameIsUnread(data?.goal_threshold_frame)) return null
   const row = goalOwnLimitRow(constraints, goalId)
   if (row === null) return null
@@ -217,4 +231,38 @@ export function resolveGoalTargetWithOwnRow(
 /** The bound a resolved target carries, when it was read from the goal's own limit row. */
 export function goalTargetBound(target: ResolvedGoalTarget | GoalOwnRowTarget | null | undefined): string | null {
   return target != null && 'bound' in target && typeof target.bound === 'string' ? target.bound : null
+}
+
+/**
+ * ⭐⭐ SD-1 (domain 2; DL 0df0e1 6 Oct, a8 census `output/domain3-a8/reader-census.md`): ONE SOURCE FOR WHICH SIDE OF
+ * ITS TARGET THE GOAL IS ON — the canonical goal node's `goal_direction` in CEE's current read, and nothing else.
+ *
+ * The words a goal's LEVEL target needs before its figure: CEE's limit words for a held `<=` / `<` / `>`. `null` for
+ * a held `>=` (a bare figure already reads as a level to reach), for no held comparator, and for a change frame (its
+ * own words, `formatGoalChangeBound`). Every display reader of a node-held target says its bound through this.
+ */
+export function heldTargetBoundWords(data: GoalTargetSource | null | undefined): string | null {
+  if (data == null || goalTargetChangeFrameOf(data.goal_threshold_frame) !== null) return null
+  const held = goalHeldComparatorOf(data.goal_direction)
+  return held === null || held === '>=' ? null : LIMIT_OPERATOR_WORDS[held]
+}
+
+/**
+ * The comparator the goal's stated target holds, for an EDITOR to open on: the node's `goal_direction` when the node
+ * holds the target, else its own limit row's (`goalOwnLimitRow`, CEE's one target rule). An editor that opened on
+ * `at_least` regardless restated a ceiling as a floor on save (a8 census, DGAI rows 2-4).
+ */
+export function goalTargetComparator(
+  data: GoalTargetSource | null | undefined,
+  constraints: readonly CEEGoalConstraint[] | null | undefined,
+  goalId: string | null | undefined,
+): GoalHeldComparator | null {
+  if (resolveGoalTarget(data) !== null) return goalHeldComparatorOf(data?.goal_direction)
+  const row = goalOwnLimitRow(constraints, goalId)
+  return row === null ? null : goalHeldComparatorOf(statedOperatorOf(row as { operator?: unknown; operator_as_stated?: unknown }))
+}
+
+/** The editors' two-way direction for a held comparator: a ceiling opens on `at_most`, everything else on `at_least`. */
+export function goalTargetEditDirection(comparator: GoalHeldComparator | null): 'at_least' | 'at_most' {
+  return comparator === '<=' || comparator === '<' ? 'at_most' : 'at_least'
 }
