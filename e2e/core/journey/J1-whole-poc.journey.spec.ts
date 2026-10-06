@@ -121,8 +121,31 @@ async function read(label: string) {
   return r.body!
 }
 
+/**
+ * Wait until the journey is QUIET: no new turn response and no new LLM-boundary row for `ms`. A Run's auto-sent
+ * "Explain this result" turn lands after the Run's own turn; an edit made before it settles changes that narration's
+ * request (and `nextTurn` would bind the narration instead of the edit). Never a pass/fail: it only orders the steps.
+ */
+async function quiet(ms = 5_000, maxMs = 120_000): Promise<void> {
+  const mark = () => `${turns.length}:${turns.filter((x) => x.body).length}:${ledger().length}`
+  const deadline = Date.now() + maxMs
+  let last = mark(), since = Date.now()
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 500))
+    const now = mark()
+    if (now !== last) { last = now; since = Date.now() } else if (Date.now() - since >= ms) return
+  }
+}
+
+/** Clear the canvas selection: a selected link puts the canvas in focus mode, which hides every unrelated link. */
+async function clearCanvasSelection(page: Page): Promise<void> {
+  await page.keyboard.press('Escape')
+  await page.locator('.react-flow__pane').first().dispatchEvent('click')
+}
+
 /** Open the edge inspector on the canvas link "from → to" by a double-click at its path midpoint (journey4 s6). */
 async function openEdgeInspector(page: Page, fromLabel: string, toLabel: string, label: string): Promise<Locator> {
+  await clearCanvasSelection(page)
   const edge = page.locator(`[data-testid^="rf__edge-"][aria-label^="Connection from ${fromLabel} to ${toLabel}."]`).first()
   await expect(edge, `[${label}] the canvas has no edge "${fromLabel} → ${toLabel}"`).toBeVisible()
   const pt = await edge.evaluate((el) => {
@@ -352,12 +375,12 @@ test.describe.serial('J1 · whole PoC', () => {
     expect(links.length, '[J2d] the withhold names no link').toBeGreaterThan(0)
     const byId = new Map(J.G1!.nodes.map((n) => [n.id, n]))
     const sized: { from: string; to: string; target: number }[] = []
+    await quiet()
     for (const l of links) {
       const stored = J.G1!.edges.find((e) => e.from === l.from && e.to === l.to)
       expect(stored, `[J2d] the withhold names ${l.from}→${l.to}, which is not a link in G1`).toBeTruthy()
       const fromLabel = byId.get(l.from)?.label, toLabel = byId.get(l.to)?.label
       expect(fromLabel && toLabel, `[J2d] G1 has no labels for ${l.from}→${l.to}`).toBeTruthy()
-      await pageA.keyboard.press('Escape')
       const dialog = await openEdgeInspector(pageA, fromLabel!, toLabel!, 'J2d')
       const since = Date.now()
       const target = await typedFigureEdit(pageA, dialog, stored!.strength?.mean, 'J2d')
@@ -365,8 +388,9 @@ test.describe.serial('J1 · whole PoC', () => {
       expect(turn.status, `[J2d] the edit turn for ${l.from}→${l.to} failed`).toBe(200)
       assertBoundaryClean('J2d')
       sized.push({ ...l, target })
+      await quiet()
     }
-    await pageA.keyboard.press('Escape')
+    await clearCanvasSelection(pageA)
     // By identity in the stored model: each named link is the user's at the typed figure, and nothing else became the user's.
     const body = await read('J2d')
     const G = body.graph as Graph
@@ -386,6 +410,7 @@ test.describe.serial('J1 · whole PoC', () => {
   })
 
   test('J2e · rerun on the sized model: the same withhold is gone and robustness is back', async () => {
+    await quiet()
     const footer = pageA.getByTestId('results-analysis-footer-action')
     await expect(footer, '[J2e] the footer does not offer the rerun').toBeVisible({ timeout: 60_000 })
     const since = Date.now()
@@ -461,7 +486,7 @@ test.describe.serial('J1 · whole PoC', () => {
     const top = [...J.fragile1!].sort((a, b) => b.switch_probability - a.switch_probability)[0]
     J.edited = top
     // A typed figure on the fragile link (never a band preset: DL 0df0e1, 6 Oct, F1), via the same inspector path.
-    await pageA.keyboard.press('Escape')
+    await quiet()
     const dialog = await openEdgeInspector(pageA, top.from_label, top.to_label, 'J5')
     const before = J.G1!.edges.find((e) => e.from === top.from_id && e.to === top.to_id)!
     const since = Date.now()
