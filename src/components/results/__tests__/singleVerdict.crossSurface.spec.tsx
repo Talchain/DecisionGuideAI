@@ -269,7 +269,7 @@ function readPanel(): { denies: boolean; footerTicksWinner: boolean; text: strin
   )
   const text = container.textContent ?? ''
   return {
-    denies: /no option is clearly most likely/i.test(text),
+    denies: /no option is clearly most likely|no option was supported by clearly more runs/i.test(text),
     // Legacy copy: the tick read "Has leading option"; the failing state read
     // "No clear leader".
     // SUPERSEDED 2026-07-31 (§6.2g): the footer's legacy "Winner" / "No
@@ -279,7 +279,7 @@ function readPanel(): { denies: boolean; footerTicksWinner: boolean; text: strin
     // renders now. The GUARD is unchanged: footer and headline must still
     // agree inside one panel.
     footerTicksWinner:
-      /one option was supported by more runs than any other/.test(text) && !/no option is clearly most likely/i.test(text),
+      /one option was supported by more runs than any other/.test(text) && !/no option is clearly most likely|no option was supported by clearly more runs/i.test(text),
     text,
   }
 }

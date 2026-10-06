@@ -422,7 +422,7 @@ describe('the cross-section census discriminates', () => {
     return [...where.entries()].filter(([, s]) => s.size > 1).map(([t]) => t)
   }
 
-  const CLAIM = 'Olumi could not confirm which option is most likely on this run.'
+  const CLAIM = 'Olumi could not confirm which option most runs supported on this run.'
 
   it('FIRES when two sections state the same sentence', () => {
     expect(across(twoSections(CLAIM, CLAIM))).toEqual([CLAIM.toLowerCase()])
@@ -592,7 +592,7 @@ describe('no section states another section\'s SENTENCE, once every section is o
    * this arm exists.
    */
   const BASE =
-    'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed.'
+    'Olumi could not confirm which option most runs supported on this run, so any ordering you see is unconfirmed.'
   const CAUSE = 'This run could not work out how far apart the options are, so it cannot put one forward.'
 
   it("FIRES on a sentence that one section states alone and another states inside a longer paragraph", () => {
@@ -616,7 +616,7 @@ describe('no section states another section\'s SENTENCE, once every section is o
     const el = document.createElement('div')
     el.innerHTML =
       `<div data-testid="a-region"><p>${BASE}</p></div>` +
-      '<div data-testid="b-region"><p>Olumi could not confirm which option is most likely on this run.</p></div>'
+      '<div data-testid="b-region"><p>Olumi could not confirm which option most runs supported on this run.</p></div>'
     expect(sentencesStatedInTwoSections(el)).toEqual([])
   })
 })

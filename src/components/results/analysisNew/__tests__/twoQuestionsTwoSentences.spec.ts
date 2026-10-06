@@ -31,7 +31,7 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
  * never edit this one. A historic capture is evidence (CLAUDE.md trap 14b).
  */
 const AS_SHIPPED_20260920 =
-  'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed. It is not a finding that the options are level.'
+  'Olumi could not confirm which option most runs supported on this run, so any ordering you see is unconfirmed. It is not a finding that the options are level.'
 
 describe('the checklist and the comparison answer different questions', () => {
   const { meaning, orderingCaveat } = COPY.checks.leader_not_assessed

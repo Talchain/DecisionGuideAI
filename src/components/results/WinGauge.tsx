@@ -229,6 +229,7 @@ export function WinGauge({
   comparisonScope = null,
   goalShares,
   goalChanceLicence = null,
+  goalChanceDisclosure = null,
 }: {
   shares: OptionWinShare[]
   /**
@@ -243,6 +244,11 @@ export function WinGauge({
    * forms, and otherwise follow the model's option order (c6). No licence: the order rule below, unchanged.
    */
   goalChanceLicence?: GoalChanceLicence | null
+  /**
+   * ⭐ D3 cut 5 (Codex r1 #2551): the existence line, when the hero's goal-chance arm is closed (limits on every goal
+   * figure) so these goal rows are where the chances are read. Rendered once, under the goal block. `null` = none.
+   */
+  goalChanceDisclosure?: string | null
   decisionState?: DecisionState
   /**
    * ROADMAP 1.267. The LABEL of this chart was already fixed once (see the
@@ -487,6 +493,11 @@ export function WinGauge({
               )
             })}
           </div>
+          {goalChanceDisclosure ? (
+            <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid="win-gauge-goal-existence">
+              {goalChanceDisclosure}
+            </p>
+          ) : null}
         </div>
       ) : (
         // A5 — an invitation with its route, not a wall. The comparative

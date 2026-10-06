@@ -153,8 +153,11 @@ describe('how it reads — a question, model-scoped, one rank wording', () => {
       nodes: [node('tp', 'Trial conversion')],
       run: run({ turningPoints: new Map([['tp', { currentValue: 8, flipValue: 6.5, unit: '%', displayScale: true }]]) }),
     })).reasonsByNode.get('tp')![0].label
-    expect(display).toContain('If Trial conversion falls below 6.5%')
-    expect(display).toContain('the comparison is likely to change')
+    expect(display).toContain('If ‘Trial conversion’ falls below about 6.5%')
+    expect(display).toContain('the comparison changes, in this model')
+    // Science d5 (#87 6008165771): the flip clause is a crossing point, not a probability. (The turning-point
+    // QUESTION after it, "How likely is that?", is the user's own question and is not this clause.)
+    expect(display).not.toMatch(/comparison is likely|likely to change/i)
     expect(display).not.toMatch(/\bdecision\b/i)
 
     const internal = deriveAttentionPlan(base({

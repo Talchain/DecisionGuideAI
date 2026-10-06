@@ -90,3 +90,7 @@ export function goalChanceOptionLines(
   }
   return lines
 }
+
+
+/** The existence line lives with the licence reader (`utils/goalChanceLicence`), so the hero and the WinGauge share it. */
+export { goalChanceExistenceLine } from '../utils/goalChanceLicence'
