@@ -281,7 +281,11 @@ export function EdgeAdvancedEditor({ edgeId, linkKind, onSendSettled }: EdgeAdva
         <AdvancedField
           label="Epistemic uncertainty (σ)"
           value={stdDisplay.show ? Number(stdDisplay.value.toFixed(4)) : undefined}
-          onChange={v => mutations.setStd(v as number)}
+          // ⛔ FENCED (SD-1, DL triage 6 Oct, a8's finding): this setter performs ONE local `updateEdge` and sends no
+          // event (no typed edit kind exists for it), so an edit here is lost on the next server read and never reaches a
+          // Run — a false affordance. Disabled, as the panel's own note says ("Other edits here are not sent yet."),
+          // until a typed writer exists. Same rule as the panel's existence slider (EdgePanel `data-authority="disabled"`).
+          disabled
           type="number"
           min={0.01}
           max={0.5}
@@ -306,7 +310,11 @@ export function EdgeAdvancedEditor({ edgeId, linkKind, onSendSettled }: EdgeAdva
         <AdvancedField
           label="Existence probability"
           value={existenceDisplay.show ? Number(existenceDisplay.value.toFixed(4)) : undefined}
-          onChange={v => mutations.setExistsProbability(v as number)}
+          // ⛔ FENCED (SD-1, DL triage 6 Oct, a8's finding): this setter performs ONE local `updateEdge` and sends no
+          // event (no typed edit kind exists for it), so an edit here is lost on the next server read and never reaches a
+          // Run — a false affordance. Disabled, as the panel's own note says ("Other edits here are not sent yet."),
+          // until a typed writer exists. Same rule as the panel's existence slider (EdgePanel `data-authority="disabled"`).
+          disabled
           type="number"
           min={0.01}
           max={1}
@@ -327,7 +335,11 @@ export function EdgeAdvancedEditor({ edgeId, linkKind, onSendSettled }: EdgeAdva
         <AdvancedField
           label="Relationship description"
           value={edgeLabel ?? ''}
-          onChange={v => mutations.setLabel(v as string)}
+          // ⛔ FENCED (SD-1, DL triage 6 Oct, a8's finding): this setter performs ONE local `updateEdge` and sends no
+          // event (no typed edit kind exists for it), so an edit here is lost on the next server read and never reaches a
+          // Run — a false affordance. Disabled, as the panel's own note says ("Other edits here are not sent yet."),
+          // until a typed writer exists. Same rule as the panel's existence slider (EdgePanel `data-authority="disabled"`).
+          disabled
           type="text"
           placeholder="Describe the causal mechanism"
         />

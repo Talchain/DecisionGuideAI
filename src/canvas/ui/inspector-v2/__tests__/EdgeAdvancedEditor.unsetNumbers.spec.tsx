@@ -283,18 +283,21 @@ describe('EdgeAdvancedEditor — the three numbers are provenance-gated', () => 
       expect(field(EXISTENCE).value).toBe('0.9')
     })
 
-    it('typing a number into an UNSET field still commits it, and stamps it', () => {
-      // The empty-blur guard must refuse only the EMPTY entry. If it swallowed
-      // real entries too, the field would be silently dead and every block
-      // above would still be green.
+    // ⛔ RE-PINNED (SD-1 fence, DL triage 6 Oct, a8's finding). This row used to pin "typing commits it, and stamps
+    // it". That commit was ONE local `updateEdge` that sent no event: lost on the next server read, never in a Run —
+    // the false affordance the fence removes. The field is now disabled, so a typed entry commits NOTHING. The
+    // still-editable control is β/direction (fence block below), which DO send.
+    it('typing a number into the (fenced) existence field commits nothing, and stamps nothing', () => {
       drawEdgeThroughProduct()
       renderEditor()
+      const before = edgeData()
       const input = field(EXISTENCE)
+      expect(input).toBeDisabled()
       fireEvent.change(input, { target: { value: '0.55' } })
       fireEvent.blur(input)
       const after = edgeData()
-      expect(after.beliefExists).toBe(0.55)
-      expect(after.beliefExistsSource).toBe('user')
+      expect(after.beliefExists).toBe(before.beliefExists)
+      expect(after.beliefExistsSource).toBe(before.beliefExistsSource)
     })
 
     it('a stated value that is CLEARED is not committed as anything', () => {
@@ -308,5 +311,37 @@ describe('EdgeAdvancedEditor — the three numbers are provenance-gated', () => 
       expect(edgeData().beliefExists).toBe(0.82)
       expect(screen.queryByText(NUMERIC_FIELD_REFUSAL.NOT_FINITE)).toBeNull()
     })
+  })
+})
+
+describe('SD-1 fence — the three local-only fields are disabled; the fields that SEND stay editable', () => {
+  // `setStd`, `setExistsProbability` and the edge `setLabel` each perform ONE local `updateEdge` and emit no event (no
+  // typed edit kind exists). The panel's own note already says "Other edits here are not sent yet."
+  it.each([
+    ['Epistemic uncertainty (σ)'],
+    ['Existence probability'],
+    ['Relationship description'],
+  ])('%s is disabled', (label) => {
+    drawEdgeThroughProduct()
+    renderEditor()
+    expect(screen.getByLabelText(label)).toBeDisabled()
+  })
+
+  it('CONTROL: β and the effect direction (which send edge_strength_edit / the direction edit) are NOT disabled', () => {
+    drawEdgeThroughProduct()
+    renderEditor()
+    expect(screen.getByLabelText('Effect coefficient (β)')).not.toBeDisabled()
+    expect(screen.getByLabelText('Effect direction')).not.toBeDisabled()
+  })
+
+  it('a typed σ or relationship description commits nothing', () => {
+    seedEdge({ strengthStd: 0.2, strengthStdSource: 'user', label: 'via churn' })
+    renderEditor()
+    fireEvent.change(screen.getByLabelText('Epistemic uncertainty (σ)'), { target: { value: '0.4' } })
+    fireEvent.blur(screen.getByLabelText('Epistemic uncertainty (σ)'))
+    fireEvent.change(screen.getByLabelText('Relationship description'), { target: { value: 'something else' } })
+    fireEvent.blur(screen.getByLabelText('Relationship description'))
+    expect(edgeData().strengthStd).toBe(0.2)
+    expect(edgeData().label).toBe('via churn')
   })
 })
