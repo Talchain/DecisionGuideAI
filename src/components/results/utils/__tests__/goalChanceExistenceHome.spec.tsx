@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { goalChanceExistenceLine, goalChanceHeroArmOpen, type GoalChanceLicence } from '../goalChanceLicence'
+import { goalChanceExistenceLine, goalChanceHeroArmOpen, goalChanceHeroSays, type GoalChanceLicence } from '../goalChanceLicence'
 import { WinGauge } from '../../WinGauge'
 
 const limits = { constraints: [{ id: 'c1' }] }
@@ -19,6 +19,14 @@ describe('the existence line\'s one home', () => {
     expect(goalChanceHeroArmOpen(20000, [{ goalProbability: 0.5 }, { goalProbability: 0.35 }])).toBe(true)
     expect(goalChanceHeroArmOpen(20000, [{ goalProbability: 0.5, constraintAnalysis: limits }, { goalProbability: 0.35, constraintAnalysis: limits }])).toBe(false)
     expect(goalChanceHeroArmOpen(null, [{ goalProbability: 0.5 }])).toBe(false)
+  })
+
+  it('Codex r2: the hero says it only when it CAN — a licence naming a deleted option, or one option left → the WinGauge carries it', () => {
+    const both = [{ id: 'a', goalProbability: 0.5 }, { id: 'b', goalProbability: 0.35 }]
+    expect(goalChanceHeroSays(20000, both, LIC)).toBe(true)
+    expect(goalChanceHeroSays(20000, [{ id: 'a', goalProbability: 0.5 }], LIC)).toBe(false) // b deleted before the rerun
+    expect(goalChanceHeroSays(20000, [{ id: 'a', goalProbability: 0.5 }, { id: 'c', goalProbability: 0.2 }], LIC)).toBe(false)
+    expect(goalChanceHeroSays(20000, both, null)).toBe(false)
   })
 
   it('the words are CEE\'s fraction; no record → none', () => {

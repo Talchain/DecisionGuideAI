@@ -59,7 +59,7 @@ import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 import { SUB_ONE_PERCENT_FLOOR, formatGoalProbability } from '../utils/displayFloors'
 import { hasAnyGoalValue, selectGoalLeader } from '../utils/selectGoalLeader'
 import { goalChanceExistenceLine, goalChanceHeadline, goalChanceOptionLines } from './goalChanceCopy'
-import { goalChanceHeroArmOpen } from '../utils/goalChanceLicence'
+import { goalChanceHeroSays } from '../utils/goalChanceLicence'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
 import type { FlipRiskRef } from '../../../canvas/highlighting/resolveAnalysisTargets'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../utils/goalFitBasisCaveatCopy'
@@ -829,8 +829,9 @@ export function buildHeroModel(
   // `designationsWithheld`. Only where the user stated a target (UI-SEM-071) and the goal figure is the goal's own chance
   // (with limits the hero's goal value can be the joint, which these words do not describe). Every licensed option must
   // be a row here, by id, or the arm stands aside and the chain below speaks as before.
-  // One gate, shared with the WinGauge's existence line (`goalChanceHeroArmOpen` = hasUserTarget && !hasConstraints).
-  const goalChanceLicence = goalChanceHeroArmOpen(goalThreshold, options) ? (data.goalChanceLicence ?? null) : null
+  // One gate, shared with the WinGauge's existence line (`goalChanceHeroSays`: arm open, ≥ 2 options, every licensed one a row,
+  // the target sayable), so the line under these chance lines is never also, or never instead, under the WinGauge's.
+  const goalChanceLicence = goalChanceHeroSays(goalThreshold, options, data.goalChanceLicence ?? null) ? (data.goalChanceLicence ?? null) : null
   const rowLabelById = new Map(rows.map((r) => [r.id, safeLabel(r)] as const))
   const goalChanceLabelOf = (id: string): string | null => rowLabelById.get(id) ?? null
   const goalChanceHeadlineText =

@@ -17,6 +17,8 @@
  * otherwise disagrees with itself and is not read).
  */
 
+import { formatGoalTarget } from './formatGoalTarget'
+
 export const GOAL_CHANCE_LICENSED = 'GOAL_CHANCE_LICENSED'
 
 export type GoalChanceForm = 'highest' | 'highest_all_likely_to_miss' | 'all_likely_to_miss' | 'similar' | 'each'
@@ -119,6 +121,22 @@ export function goalChanceHeroArmOpen(
   const bearing = options.filter((o) => o.goalProbability != null)
   const hasConstraints = bearing.length > 0 && bearing.every((o) => (o.constraintAnalysis?.constraints?.length ?? 0) > 0)
   return goalThreshold != null && !hasConstraints
+}
+
+/**
+ * ⭐ Codex r2 #2551: whether the hero WILL say the goal-chance sentence (and so the existence line under it): its arm is
+ * open, there are at least two options, every option the licence names is one of them (a Run retained after an option was
+ * deleted names one that is gone), and the target can be said. The hero gates its arm on this, and ResultsBody hands the
+ * line to the WinGauge exactly when this is false — so the line is said once, never nowhere.
+ */
+export function goalChanceHeroSays(
+  goalThreshold: number | null | undefined,
+  options: ReadonlyArray<{ id: string; goalProbability?: number | null; constraintAnalysis?: { constraints?: readonly unknown[] } | null }>,
+  licence: GoalChanceLicence | null,
+): boolean {
+  if (licence === null || options.length < 2 || !goalChanceHeroArmOpen(goalThreshold, options)) return false
+  if (!licence.optionIds.every((id) => options.some((o) => o.id === id))) return false
+  return formatGoalTarget(licence.target.value, licence.target.unit, 'level') !== null
 }
 
 /**

@@ -40,7 +40,7 @@ import { CritiqueWarningStrip } from './CritiqueWarningStrip'
 import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
 import { AnalysisHeroContainer, KeyQuestionCard } from './analysis-hero'
 import { GoalChanceInvite } from './goal-chance-invite/GoalChanceInvite'
-import { goalChanceExistenceLine, goalChanceHeroArmOpen } from './utils/goalChanceLicence'
+import { goalChanceExistenceLine, goalChanceHeroSays } from './utils/goalChanceLicence'
 import { WhatIWasGivenSection } from './contextIntegrity/WhatIWasGivenSection'
 import { openDefineSuccess, HowComputedTrigger } from './modals'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '@/canvas/mutations/mutationAuthority'
@@ -717,9 +717,9 @@ export const ResultsBody = memo(function ResultsBody({
                 goalFitWithheld: o.goalFitWithheld,
               }))}
               goalChanceLicence={resultsSectionData.goalChanceLicence ?? null}
-              // ⭐ D3 cut 5: the existence line's ONE home — here only when the hero's goal-chance arm is closed.
-              goalChanceDisclosure={goalChanceHeroArmOpen(resultsSectionData.recommendation.goalThreshold,
-                resultsSectionData.recommendation.allOptions)
+              // ⭐ D3 cut 5: the existence line's ONE home — here only when the hero will not say the goal-chance sentence.
+              goalChanceDisclosure={goalChanceHeroSays(resultsSectionData.recommendation.goalThreshold,
+                resultsSectionData.recommendation.allOptions, resultsSectionData.goalChanceLicence ?? null)
                 ? null
                 : goalChanceExistenceLine(resultsSectionData.goalChanceLicence ?? null)}
             />
