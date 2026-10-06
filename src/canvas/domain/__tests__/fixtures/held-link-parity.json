@@ -1118,6 +1118,80 @@
     }
    },
    "held": false
+  },
+  {
+   "name": "held: QUOTED definitional, no range (d5)",
+   "edge": {
+    "from": "part",
+    "to": "total",
+    "strength": {
+     "mean": 1,
+     "std": 0.5
+    },
+    "exists_probability": 0.8,
+    "provenance": {
+     "definitional": true,
+     "source": "brief_extraction",
+     "magnitude": "olumi_estimate",
+     "source_quote": "<quote>"
+    }
+   },
+   "held": true
+  },
+  {
+   "name": "held: USER-STATED definitional, no range (d5)",
+   "edge": {
+    "from": "part",
+    "to": "total",
+    "strength": {
+     "mean": 1,
+     "std": 0.5
+    },
+    "exists_probability": 0.8,
+    "provenance": {
+     "definitional": true,
+     "source": "user_specified",
+     "magnitude": "user_stated"
+    }
+   },
+   "held": true
+  },
+  {
+   "name": "not: DRAFTER-ONLY definitional flag (Olumi)",
+   "edge": {
+    "from": "part",
+    "to": "total",
+    "strength": {
+     "mean": 1,
+     "std": 0.5
+    },
+    "exists_probability": 0.8,
+    "provenance": {
+     "definitional": true,
+     "source": "cee_hypothesis",
+     "magnitude": "olumi_estimate"
+    }
+   },
+   "held": false
+  },
+  {
+   "name": "not: definitional brief with an EMPTY quote",
+   "edge": {
+    "from": "part",
+    "to": "total",
+    "strength": {
+     "mean": 1,
+     "std": 0.5
+    },
+    "exists_probability": 0.8,
+    "provenance": {
+     "definitional": true,
+     "source": "brief_extraction",
+     "magnitude": "olumi_estimate",
+     "source_quote": " "
+    }
+   },
+   "held": false
   }
  ]
 }

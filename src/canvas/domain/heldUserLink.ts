@@ -5,7 +5,7 @@
  * Olumi's stored doubt for it. Read on the RAW wire edge at ingestion (`existenceHeld`); the displays read that flag.
  *
  * Fields read (and only these): strength.mean, provenance.source, provenance.magnitude, provenance.source_quote,
- * provenance.clamped_from, provenance.natural_effect.{amount, strength_mean, stated_range.{low, high}}.
+ * provenance.clamped_from, provenance.definitional, provenance.natural_effect.{amount, strength_mean, stated_range.{low, high}}.
  *
  * ⛔ A MIRROR, NOT AN AUTHORITY: `__tests__/fixtures/held-link-parity.json` is byte-identical to CEE's copy and both repos
  * pin its sha256 ("held-link parity fixture digest"). Register row (cut 7): move this into @talchain/schemas.
@@ -42,6 +42,8 @@ export function isHeldUserLink(wireEdge: unknown): boolean {
   if (!isRec(wireEdge) || !isRec(wireEdge.provenance)) return false
   const p = wireEdge.provenance
   if (!isUserStatedLink(p)) return false
+  // CEE: the user's own definitional link holds with no range (Science d5, 6 Oct).
+  if (p.definitional === true) return true
   const ne = p.natural_effect
   if (!isRec(ne) || !isRec(ne.stated_range)) return false
   const { low, high } = ne.stated_range
