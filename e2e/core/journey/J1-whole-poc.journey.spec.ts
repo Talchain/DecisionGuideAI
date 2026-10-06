@@ -87,7 +87,7 @@ const VERDICT_WORDS = [/clearly ahead/i, /with high confidence/i, /\brecommend/i
 
 // Pinned per frozen set, once a recording exists (written after the record run is reviewed).
 const EXPECT_FILE = path.join(process.cwd(), 'e2e', 'core', 'journey', 'fixtures', 'j1', 'expect.json')
-const EXPECT: { goal_direction_assumed?: boolean; enrichment_keys?: string[] } =
+const EXPECT: { goal_direction_assumed?: boolean; enrichment_keys?: string[]; placeholder_links?: string[] } =
   fs.existsSync(EXPECT_FILE) ? JSON.parse(fs.readFileSync(EXPECT_FILE, 'utf8')) : {}
 
 type Edge = { from: string; to: string; provenance?: Record<string, any>; strength?: { mean?: number } }
@@ -377,6 +377,7 @@ test.describe.serial('J1 · whole PoC', () => {
     expect(w, `[J2d] COULD NOT MEASURE: R1 carries no ${PLACEHOLDER_CODE}, so there is no Olumi-supplied link to size`).not.toBeNull()
     const links = ((w!.links ?? []) as { from: string; to: string }[])
     expect(links.length, '[J2d] the withhold names no link').toBeGreaterThan(0)
+    if (EXPECT.placeholder_links) expect(links.map((l) => edgeKey(l)).sort(), '[J2d] the withhold names different links from the frozen journey').toEqual([...EXPECT.placeholder_links].sort())
     const byId = new Map(J.G1!.nodes.map((n) => [n.id, n]))
     const sized: { from: string; to: string; target: number }[] = []
     await quiet()
