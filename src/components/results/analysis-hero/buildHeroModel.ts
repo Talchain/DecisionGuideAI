@@ -1162,13 +1162,12 @@ export function buildHeroModel(
   if (goalChanceHeadlineText !== null && goalChanceLicence !== null) {
     // ⭐ P3: what each option's chance rests on most (CEE's claim), worded with the canvas labels; it follows that
     // option's own line.
-    const driverLines = goalChanceDriverLines(goalChanceLicence, data.goalChanceDriverNames)
     // H2 names the options it quotes; the subline then quotes the rest (model order), never a ranking.
-    const lines = goalChanceLicence.form === 'each'
-      ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, [], driverLines)
-      : goalChanceLicence.form === 'similar'
-        ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, goalChanceLicence.similarOptionIds, driverLines)
-        : null
+    const quotedAbove = goalChanceLicence.form === 'similar' ? goalChanceLicence.similarOptionIds : []
+    const driverLines = goalChanceDriverLines(goalChanceLicence, data.goalChanceDriverNames, quotedAbove)
+    const lines = goalChanceLicence.form === 'each' || goalChanceLicence.form === 'similar'
+      ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, quotedAbove, driverLines)
+      : null
     subline = lines !== null && lines.length > 0 ? lines.join(' ') : HERO_COPY.subline.compareTop
     // ⭐ D3 cut 5 + cut 6: once, beside the chance lines — why no summary is stated (Olumi's own existence assumption), then
     // the part of these figures that is Olumi's assumption about the user's own links.

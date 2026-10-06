@@ -94,6 +94,21 @@ describe('P3 — the hero says what an option’s chance rests on most, under th
     expect(subline()).not.toContain('It rests most on')
   })
 
+  it('`similar`: an option quoted in the headline has no line, so the first option SHOWN asks about a link the user sized, not the first in the model', () => {
+    const sized = {
+      quantity_id: `${LINK.from}->${LINK.to}`, kind: 'link_strength', from: LINK.from, to: LINK.to,
+      side: 'low', strength: 'weaker', authored_by: 'user', user_stated_link: true,
+    }
+    seed(licenceRecord('similar', { similar_option_ids: [OUTREACH, ANGEL], driver_by_option: { [OUTREACH]: sized, [CONVERTIBLE]: sized } }))
+    const text = subline()
+
+    expect(text).toContain(`‘${optionLabel(CONVERTIBLE)}’: about 62% chance of meeting your goal, in this model. `
+      + `It rests most on how strongly ‘${nodeLabel(LINK.from)}’ affects ‘${nodeLabel(LINK.to)}’, at the size you set: `
+      + 'if that effect is weaker than that, the chance falls. How sure are you of that size?')
+    expect(text.split('It rests most on')).toHaveLength(2) // once: the quoted option has no line to carry one
+    expect(text.split('How sure are you of that size?')).toHaveLength(2)
+  })
+
   it('under a `highest` form there is no per-option line, so no sentence', () => {
     seed(licenceRecord('highest', { leader_option_id: CONVERTIBLE, next_option_id: ANGEL, driver_by_option: { [ANGEL]: EXISTENCE_CLAIM, [CONVERTIBLE]: EXISTENCE_CLAIM } }))
     expect(subline()).not.toContain('It rests most on')
