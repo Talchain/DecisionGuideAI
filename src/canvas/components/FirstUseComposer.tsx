@@ -20,7 +20,7 @@ import { BriefReadingCard } from './BriefReadingCard'
 import { takeQueuedBriefCoachingPrefill } from './briefCoaching'
 import { requestAsk } from '../ui/inspector-v2/askSemantic'
 import { StructuredBriefFields } from './StructuredBriefFields'
-import { BriefDocumentUpload } from './BriefDocumentUpload'
+import { useBriefDocumentUpload } from './BriefDocumentUpload'
 import {
   EMPTY_BRIEF_FIELDS,
   composeStructuredBrief,
@@ -209,6 +209,8 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
   const prefersReducedMotion = usePrefersReducedMotion()
   const inputBarRef = useRef<AIInputBarHandle | null>(null)
   const focusInputBar = useCallback(() => inputBarRef.current?.focus(), [])
+  // ROADMAP 3.8: one document read on this device into the box, appended, for the user to check.
+  const briefUpload = useBriefDocumentUpload({ draft, setDraft, onAdded: focusInputBar })
 
   // Two separate previous-node-count cursors: the reset effect watches
   // N → 0 transitions, the reposition effect watches 0 → N+ transitions.
@@ -685,6 +687,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
             ariaLabel="Describe your decision or challenge"
             testId="first-use-input-bar"
             onAfterSend={handleAfterSend}
+            inBoxAction={briefUpload.trigger}
           />
           {isGenerating ? (
             // Overlay positioned to mirror the welcome variant's known
@@ -710,12 +713,8 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
           text carries over both ways. Hidden while generating: the brief is already committed. */}
       {!isGenerating ? (
         <div className="w-full max-w-2xl flex justify-between items-start gap-3" style={{ marginTop: -16 }}>
-          {/* ROADMAP 3.8: one document read on this device into the box, appended, for the user to check. */}
-          {briefMode === 'single' ? (
-            <BriefDocumentUpload draft={draft} setDraft={setDraft} onAdded={focusInputBar} />
-          ) : (
-            <span />
-          )}
+          {/* The upload's count line, errors and privacy line; its paperclip sits inside the box. */}
+          {briefMode === 'single' ? briefUpload.feedback : <span />}
           <Button
             variant="ghost"
             size="sm"
