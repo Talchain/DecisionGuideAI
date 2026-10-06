@@ -134,7 +134,7 @@ function allText(root: Element): string {
  *    convenience. "Leading option not assessed" is the WITHHOLDING — the
  *    correct sentence, the one whose presence proves the panel is in the state
  *    under test — and it contains the substring the matcher hunts. Sweeping it
- *    would make `toContain('Which option is most likely in this model: not assessed')` and
+ *    would make `toContain('Which option most runs supported, in this model: not assessed')` and
  *    `not.toMatch(LEADER_CLAIM_RE)` mutually unsatisfiable, so the arm could
  *    only ever be passed by DELETING the withholding: a guard that can only be
  *    satisfied by removing the honest half of the panel.
@@ -165,7 +165,7 @@ describe('§0 PRECONDITION PINS — the fixtures reproduce the witnessed states'
     // user saw and the prose under test must come from one render.
     render(<TriageActionCardsBody data={WITHHELD()} useV17Copy onFocusNode={() => {}} />)
     expect(screen.getByTestId('checks-winner').textContent ?? '')
-      .toContain('Which option is most likely in this model: not assessed')
+      .toContain('Which option most runs supported, in this model: not assessed')
   })
 
   it('the permitted fixture renders the AFFIRMATIVE footer — the two arms really differ', () => {
@@ -371,7 +371,7 @@ describe('§5 COMPOSED — the withholding and the claim cannot share a panel', 
   it('WITHHELD: the panel states the withholding and makes NO leader claim anywhere', () => {
     const { footer, prose } = renderPanel(WITHHELD())
     expect(footer, 'the withholding must be on screen, or this arm proves nothing')
-      .toContain('Which option is most likely in this model: not assessed')
+      .toContain('Which option most runs supported, in this model: not assessed')
     expect(prose).not.toMatch(LEADER_CLAIM_RE)
   })
 
@@ -547,7 +547,7 @@ describe('§6 SURFACE D — ConditionalWinnerCards honours the leader claim', ()
     // §5's arm, re-asserted now that the card actually mounts on it. This is
     // the arm that was green for two wrong reasons before.
     const { footer, prose } = renderPanel(WITHHELD())
-    expect(footer).toContain('Which option is most likely in this model: not assessed')
+    expect(footer).toContain('Which option most runs supported, in this model: not assessed')
     expect(prose).toContain('Conditional scenarios')
     expect(prose).not.toMatch(LEADER_CLAIM_RE)
     expect(prose).not.toContain(ALT_LABEL)
@@ -599,8 +599,8 @@ describe('§7 the checks footer denies a leader only when licensed to', () => {
   it('MODE-WITHHELD: the footer states silence, never the denial', () => {
     render(<TriageActionCardsBody data={modeWithheld()} useV17Copy onFocusNode={() => {}} />)
     const t = screen.getByTestId('checks-winner').textContent ?? ''
-    expect(t).toContain('Which option is most likely in this model: not assessed')
-    expect(t).not.toContain('In this model, no option is clearly most likely')
+    expect(t).toContain('Which option most runs supported, in this model: not assessed')
+    expect(t).not.toContain('In this model, no option was supported by clearly more runs than the others')
     expect(t).not.toContain('In this model, one option was supported by more runs than any other')
   })
 
@@ -616,15 +616,15 @@ describe('§7 the checks footer denies a leader only when licensed to', () => {
     }
     render(<TriageActionCardsBody data={tied as unknown as ResultsSectionDataReturn} useV17Copy onFocusNode={() => {}} />)
     const t = screen.getByTestId('checks-winner').textContent ?? ''
-    expect(t).toContain('In this model, no option is clearly most likely')
-    expect(t).not.toContain('Which option is most likely in this model: not assessed')
+    expect(t).toContain('In this model, no option was supported by clearly more runs than the others')
+    expect(t).not.toContain('Which option most runs supported, in this model: not assessed')
   })
 
   it('ANTI-VACUITY: a fully licensed run still reads "Has leading option"', () => {
     render(<TriageActionCardsBody data={PERMITTED()} useV17Copy onFocusNode={() => {}} />)
     const t = screen.getByTestId('checks-winner').textContent ?? ''
     expect(t).toContain('In this model, one option was supported by more runs than any other')
-    expect(t).not.toContain('Which option is most likely in this model: not assessed')
+    expect(t).not.toContain('Which option most runs supported, in this model: not assessed')
   })
 
   it('UNCHANGED: the witnessed unknown-separation run reads exactly as before', () => {
@@ -632,7 +632,7 @@ describe('§7 the checks footer denies a leader only when licensed to', () => {
     // did not move the state it was already right about.
     render(<TriageActionCardsBody data={WITHHELD()} useV17Copy onFocusNode={() => {}} />)
     expect(screen.getByTestId('checks-winner').textContent ?? '')
-      .toContain('Which option is most likely in this model: not assessed')
+      .toContain('Which option most runs supported, in this model: not assessed')
   })
 
   /**
@@ -661,8 +661,8 @@ describe('§7 the checks footer denies a leader only when licensed to', () => {
   it('DEPLOYED POSTURE: the footer withholds with useV17Copy absent', () => {
     render(<TriageActionCardsBody data={modeWithheld()} onFocusNode={() => {}} />)
     const t = screen.getByTestId('checks-winner').textContent ?? ''
-    expect(t).toContain('Which option is most likely in this model: not assessed')
-    expect(t).not.toContain('In this model, no option is clearly most likely')
+    expect(t).toContain('Which option most runs supported, in this model: not assessed')
+    expect(t).not.toContain('In this model, no option was supported by clearly more runs than the others')
   })
 
   it('DEPLOYED POSTURE: SURFACE D still names no option with useV17Copy absent', () => {

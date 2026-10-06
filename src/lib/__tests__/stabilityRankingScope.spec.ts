@@ -60,7 +60,9 @@ const TIERS = [
  * Vocabulary that scopes a claim to the ranking rather than to "the result".
  * Any ONE of these is enough — this is a property check, not a copy pin.
  */
-const RANKING_SCOPED = /\branking\b|which option leads|the same option led|the leading option/i
+// Cut 6 (WORDING BATCH; Science d5 #87 6007954023): the ranking is now named as "the most-supported option" — the
+// contest phrasings this used to accept ("which option leads", "the same option led", "the leading option") are retired.
+const RANKING_SCOPED = /\branking\b|\bthe most-supported option\b/i
 
 /**
  * Unbounded guarantees. Each asserts something about estimate error IN

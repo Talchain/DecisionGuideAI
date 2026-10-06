@@ -121,6 +121,14 @@ const SCOPE_FILES = [
   'src/components/results/utils/goalAnchorCopy.ts',
   'src/canvas/nodes/shared/metricVocabulary.ts',
   'src/components/results/utils/winnerChipCopy.ts',
+  // ⭐ ADDED 6 Oct 2026 (WORDING BATCH cut 6, DL lease): the leader-framing class. "Which option leads changed…",
+  // "before a different option leads…", "Chance another option leads" and "chance of coming out ahead" were live here
+  // because nothing opened these files. The hits were enumerated before adding (see the PR).
+  'src/lib/stability.ts',
+  'src/components/results/utils/humaniseCritique.ts',
+  'src/components/results/ConditionalWinnerCards.tsx',
+  'src/components/results/analysis-hero/heroCopy.ts',
+  'src/components/results/analysisNew/buildAnalysisNewViewModel.ts',
   /*
    * ⚠⚠ WHAT THIS LIST DOES **NOT** COVER — stated because "both holes closed"
    * will otherwise read as closing the CLASS, and it closes the INSTANCES.
