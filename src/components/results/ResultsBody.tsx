@@ -39,6 +39,7 @@ import { InferenceWarningStrip } from './InferenceWarningStrip'
 import { CritiqueWarningStrip } from './CritiqueWarningStrip'
 import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
 import { AnalysisHeroContainer, KeyQuestionCard } from './analysis-hero'
+import { GoalChanceInvite } from './goal-chance-invite/GoalChanceInvite'
 import { WhatIWasGivenSection } from './contextIntegrity/WhatIWasGivenSection'
 import { openDefineSuccess, HowComputedTrigger } from './modals'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '@/canvas/mutations/mutationAuthority'
@@ -518,6 +519,19 @@ export const ResultsBody = memo(function ResultsBody({
               }
             />
           </SectionErrorBoundary>
+          {/* ⭐ D3 step 2 (DL 0df0e1 #87 6006078553; c6): where CEE withheld each option's chance of meeting the goal for want
+              of a target or its direction, the invitation CEE wrote on that withhold — by identity, nothing decided here. The
+              goal's label only when the invitation names THIS goal (by id); otherwise c6's "your goal". */}
+          <SectionErrorBoundary section="Goal chance invitation">
+            <GoalChanceInvite
+              invite={resultsSectionData.goalChanceInvite ?? null}
+              goalLabel={resultsSectionData.goalChanceInvite != null
+                && resultsSectionData.goalNodeId === resultsSectionData.goalChanceInvite.goalNodeId
+                && resultsSectionData.goalLabel.trim() !== ''
+                ? resultsSectionData.goalLabel
+                : null}
+            />
+          </SectionErrorBoundary>
           {/* ── 2.466 (P1): decision-quality KEY QUESTION + DSK grounding ──
               Fed from the LIVE turn state (runMeta.decisionReview030's
               verbatim DQP carry), presence-gated — never from the legacy
@@ -691,6 +705,17 @@ export const ResultsBody = memo(function ResultsBody({
               comparisonScope={deriveComparisonScope(
                 resultsSectionData.recommendation.allOptions,
               )}
+              // ⭐ D3 step 2: the goal block reads EVERY option's goal figure, share or not (a withheld share empties
+              // `shares` above), and orders it by CEE's goal-chance licence when there is one.
+              goalShares={resultsSectionData.recommendation.allOptions.map((o) => ({
+                id: o.id,
+                label: o.label,
+                goalProbability: o.goalProbability,
+                nValidSamples: o.nValidSamples,
+                goalFitIsSubstitutedJoint: o.goalFitIsSubstitutedJoint,
+                goalFitWithheld: o.goalFitWithheld,
+              }))}
+              goalChanceLicence={resultsSectionData.goalChanceLicence ?? null}
             />
             {/* Codex B1: winnerId is ALWAYS the canonical leader — every leader
                 predicate (downside sentence, leader CTA/prompt) keys to it. The

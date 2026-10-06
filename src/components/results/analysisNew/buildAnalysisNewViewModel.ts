@@ -3142,7 +3142,10 @@ function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication
 
   // ── READING TWO: the highest chance of meeting the user's target ──────────
   // THE shared crown. Every gate is this selector's, none is restated here.
-  const goalRow = selectGoalLeader(options, goalValue, { designationsWithheld, hasUserTarget })
+  // ⭐ D3 step 2: where the Run carries CEE's goal-chance licence, it governs the crown (≥ 10 points, by id).
+  const goalRow = selectGoalLeader(
+    options, goalValue, { designationsWithheld, hasUserTarget, goalChanceLicence: data.goalChanceLicence ?? null }, (o) => o.id,
+  )
 
   if (!goalRow) {
     /**

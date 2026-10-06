@@ -55,6 +55,7 @@
  */
 import { isFiniteProbability } from './goalAnchorCopy'
 import { SUB_ONE_PERCENT_FLOOR } from './displayFloors'
+import { goalChanceLicensesOrder, type GoalChanceLicence } from './goalChanceLicence'
 
 export interface GoalLeaderGates {
   /**
@@ -65,6 +66,14 @@ export interface GoalLeaderGates {
   designationsWithheld: boolean
   /** True when the USER set a success target (`goalThreshold != null`). */
   hasUserTarget: boolean
+  /**
+   * ⭐ D3 step 2 (DL 0df0e1 6 Oct, Rehearsal12: "…reaches the target in the most model runs (48%)" served at a 4.4-point
+   * gap). CEE's goal-chance licence for this Run (`GOAL_CHANCE_LICENSED`, `readGoalChanceLicence`). When the Run CARRIES
+   * one, it governs every goal crown: only the option it names under a superlative form (`goalChanceLicensesOrder`, CEE's
+   * ≥ 10-point rule) may be crowned, by id (`idOf`); below it, none. Absent/`null` (a Run CEE did not license) → the gates
+   * below decide exactly as before. The UI compares no number for this (`theUiRendersItDoesNotDecide`).
+   */
+  goalChanceLicence?: GoalChanceLicence | null
 }
 
 /**
@@ -158,9 +167,13 @@ export function selectGoalLeader<T>(
   candidates: readonly T[],
   getGoalValue: (candidate: T) => number | null | undefined,
   gates: GoalLeaderGates,
+  idOf?: (candidate: T) => string,
 ): T | null {
   // Gate 1 — entitlement, before any value is read.
   if (gates.designationsWithheld) return null
+  // Gate 1b — CEE's goal-chance licence, when the Run carries one: no superlative licensed → no crown.
+  const licence = gates.goalChanceLicence ?? null
+  if (licence !== null && (!goalChanceLicensesOrder(licence) || idOf === undefined)) return null
 
   // Gates 2 and 3 — a user target and a COMPLETE goal field. This is the SAME
   // function the goal-lens availability check calls, so a surface cannot decide
@@ -187,6 +200,8 @@ export function selectGoalLeader<T>(
 
   if (best == null || tiedAtMax) return null
   if (bestValue < SUB_ONE_PERCENT_FLOOR) return null
+  // …and the crown is the option CEE named, by id, or none.
+  if (licence !== null && idOf!(best) !== licence.leaderOptionId) return null
   return best
 }
 
