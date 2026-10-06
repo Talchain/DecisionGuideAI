@@ -58,22 +58,29 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
   const withheldRaw = r.withheld_option_ids ?? []
   if (!Array.isArray(withheldRaw) || !withheldRaw.every((id) => typeof id === 'string' && (ids as string[]).includes(id))) return null
   const withheld = new Set(withheldRaw as string[])
-  // Every option is EITHER quoted (a whole percentage) OR withheld — never both, never neither — and at least one is quoted.
+  // Every option is EITHER quoted (a whole percentage in 0–100) OR withheld with NO figure — never both, never neither — and
+  // at least one is quoted (Codex r1 #2545: a withheld id carrying a figure, or "about 162%", is a record at odds with itself).
   const quoted = (id: string): boolean => isRec(pct) && typeof pct[id] === 'number' && Number.isInteger(pct[id])
-  if (!isRec(pct) || !(ids as string[]).every((id) => quoted(id) !== withheld.has(id)) || withheld.size === ids.length) return null
+    && (pct[id] as number) >= 0 && (pct[id] as number) <= 100
+  if (!isRec(pct) || !(ids as string[]).every((id) => (withheld.has(id) ? !(id in pct) : quoted(id))) || withheld.size === ids.length) return null
+  if (Object.keys(pct).some((id) => !(ids as string[]).includes(id))) return null
   if (!isRec(target) || typeof target.comparator !== 'string' || !COMPARATORS.has(target.comparator)
     || typeof target.value !== 'number' || !Number.isFinite(target.value) || typeof target.unit !== 'string') return null
   const named = (v: unknown): string | null => (typeof v === 'string' && (ids as string[]).includes(v) ? v : null)
   const leaderOptionId = named(r.leader_option_id)
   const nextOptionId = named(r.next_option_id)
   const form = r.form as GoalChanceForm
-  // A `highest` form names its two options; any other form names none. A record that disagrees with itself is not read.
-  if ((form === 'highest' || form === 'highest_all_likely_to_miss') !== (leaderOptionId !== null && nextOptionId !== null)) return null
+  // A `highest` form names its two DIFFERENT options; any other form names none, not even one it cannot resolve. A record
+  // that disagrees with itself is not read (Codex r1 #2545).
+  if (form === 'highest' || form === 'highest_all_likely_to_miss') {
+    if (leaderOptionId === null || nextOptionId === null || leaderOptionId === nextOptionId) return null
+  } else if (r.leader_option_id !== undefined || r.next_option_id !== undefined) return null
   if (withheld.size > 0 && form !== 'each') return null
-  // H2 names ≥ 2 quoted options (CEE's model order); no other form names any.
+  // H2 names ≥ 2 DISTINCT quoted options (CEE's model order); no other form names any.
   const sameRaw = r.similar_option_ids ?? []
   if (!Array.isArray(sameRaw) || !sameRaw.every((id) => typeof id === 'string' && (ids as string[]).includes(id) && !withheld.has(id))) return null
-  if ((form === 'similar') !== (sameRaw.length >= 2)) return null
+  if (new Set(sameRaw).size !== sameRaw.length) return null
+  if (form === 'similar' ? sameRaw.length < 2 : sameRaw.length > 0) return null
   return {
     form,
     optionIds: ids as string[],

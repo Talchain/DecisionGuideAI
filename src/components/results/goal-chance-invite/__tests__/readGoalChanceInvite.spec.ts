@@ -29,6 +29,10 @@ describe('readGoalChanceInvite', () => {
     expect(readGoalChanceInvite([DIRECTION, TARGET])).toBeNull()
   })
 
+  it('a target of 0 offers no direction invite: "at least 0" cannot be written (goalTargetEdit refuses a zero floor; Codex r1 #1)', () => {
+    expect(readGoalChanceInvite([{ ...DIRECTION, invite: { ...DIRECTION.invite, target: { value: 0, unit: 'defects' } } }])).toBeNull()
+  })
+
   it('c6\'s words (6 Oct): "chance of meeting", no contest word; no goal label → "your goal", unquoted', () => {
     expect(GOAL_CHANCE_INVITE.target('Monthly cancellations')).toBe('Give ‘Monthly cancellations’ a target to see each option’s chance of meeting it.')
     expect(GOAL_CHANCE_INVITE.target(null)).toBe('Give your goal a target to see each option’s chance of meeting it.')

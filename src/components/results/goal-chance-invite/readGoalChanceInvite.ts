@@ -33,7 +33,8 @@ export function readGoalChanceInvite(inferenceWarnings: unknown): GoalChanceInvi
   if (typeof goalNodeId !== 'string' || goalNodeId.length === 0) return null
   if (w.code === GOAL_FIGURES_PROBABILITY_UNUSABLE && invite.kind === 'state_goal_direction') {
     const target = invite.target
-    if (!isRec(target) || typeof target.value !== 'number' || !Number.isFinite(target.value) || target.value < 0
+    // A target of 0 offers no choice: "at least 0" states nothing and the door refuses it (`goalTargetEdit`; Codex r1 #2545).
+    if (!isRec(target) || typeof target.value !== 'number' || !Number.isFinite(target.value) || target.value <= 0
       || typeof target.unit !== 'string' || target.unit.trim() === '') return null
     return { kind: 'state_goal_direction', goalNodeId, value: target.value, unit: target.unit }
   }
