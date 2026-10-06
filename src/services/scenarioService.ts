@@ -754,11 +754,18 @@ export async function archiveScenario(
   }
 }
 
+/**
+ * `copyTitle` is the name the list shows for the source plus " (copy)" (SD-1 J11b): the UI's `scenarioDisplayTitle` is
+ * the one naming rule, so the copy is called what the user saw, never "Untitled decision (copy)" for a row whose name
+ * comes from its model. The RPC copies the brief with the model (J11a). Absent, the RPC keeps its old title rule.
+ */
 export async function duplicateScenario(
   scenarioId: string,
+  copyTitle?: string,
 ): Promise<string> {
   const { data, error } = await supabase.rpc('duplicate_scenario', {
     p_scenario_id: scenarioId,
+    ...(copyTitle !== undefined && copyTitle.trim() !== '' ? { p_title: copyTitle } : {}),
   })
 
   if (error) {
