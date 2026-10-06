@@ -23,7 +23,12 @@ export function goalChanceTargetWords(licence: GoalChanceLicence): string | null
   return figure === null ? null : `${COMPARATOR_WORDS[licence.target.comparator]} ${figure}`
 }
 
-const about = (pct: number | undefined): string => `about ${pct}%`
+/**
+ * The displayed figure in words (c6 6 Oct): a chance that DISPLAYS as 0 (under 0.5%) is "less than 1%" and one that
+ * displays as 100 (99.5% or more) is "more than 99%" — never "about 0%" (it reads as impossible) or "about 100%".
+ */
+const about = (pct: number | undefined): string =>
+  pct === 0 ? 'less than 1%' : pct === 100 ? 'more than 99%' : `about ${pct}%`
 /** "a and b" / "a, b and c" — British, no serial comma. */
 const listOf = (items: readonly string[]): string =>
   items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
@@ -53,12 +58,13 @@ export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionI
     case 'all_likely_to_miss':
       return `${lead} every option is more likely to miss your goal (${target}) than meet it.`
     case 'about_the_same': {
-      // H2 (c6 #87 6005196947 row H2; DL 0df0e1 6 Oct below 10 points): the options in CEE's order, never ranked.
+      // H2 (DL 0df0e1 6 Oct, below 10 points; c6 6 Oct: "similar", never "about the same" — 43 vs 48 is not the same): the
+      // options in CEE's order, the figures in the same order, never one singled out.
       const labels = licence.sameOptionIds.map((id) => labelOf(id))
       if (labels.some((l) => l === null)) return null
       const named = listOf(labels.map((l) => `‘${l}’`))
       const figures = listOf(licence.sameOptionIds.map((id) => about(licence.pctByOption[id])))
-      return `${lead} ${named} have about the same chance of meeting your goal (${target}): ${figures}.`
+      return `${lead} ${named} have similar chances of meeting your goal (${target}): ${figures}.`
     }
     case 'each':
       return `${lead} each option’s chance of meeting your goal (${target}):`
