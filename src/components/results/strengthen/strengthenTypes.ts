@@ -283,6 +283,12 @@ export type UnsizedPathAsk =
   | { readonly kind: 'gauge'; readonly fromId: string; readonly throughId: string; readonly toId: string
       readonly from: string; readonly through: string; readonly to: string }
   | { readonly kind: 'link'; readonly fromId: string; readonly toId: string; readonly from: string; readonly to: string }
+  /**
+   * ⭐ RT-19 fx1 (DL #87, 6 Oct): the withhold typed NO first ask (none it can answer in units), so the panel NAMES the
+   * first of the withhold's own goal-ordered `links` (CEE's list, never a pick of its own) and how many more, as the chat
+   * does, instead of "No findings need attention".
+   */
+  | { readonly kind: 'withheld_link'; readonly fromId: string; readonly toId: string; readonly from: string; readonly to: string; readonly more: number }
 
 export interface StrengthenInputs {
   /** Effective user success target (null = no measurable success definition). */
