@@ -155,8 +155,9 @@ describe('how it reads — a question, model-scoped, one rank wording', () => {
     })).reasonsByNode.get('tp')![0].label
     expect(display).toContain('If ‘Trial conversion’ falls below about 6.5%')
     expect(display).toContain('the comparison changes, in this model')
-    // Science d5 (#87 6008165771): a crossing point, not a probability.
-    expect(display).not.toMatch(/\blikely\b/i)
+    // Science d5 (#87 6008165771): the flip clause is a crossing point, not a probability. (The turning-point
+    // QUESTION after it, "How likely is that?", is the user's own question and is not this clause.)
+    expect(display).not.toMatch(/comparison is likely|likely to change/i)
     expect(display).not.toMatch(/\bdecision\b/i)
 
     const internal = deriveAttentionPlan(base({

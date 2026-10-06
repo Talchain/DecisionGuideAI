@@ -39,7 +39,7 @@ const footer = (data: ReturnType<typeof withheld>): string => {
   return (screen.getByTestId('checks-winner').textContent ?? '').replace(/\s+/g, ' ').trim()
 }
 const checks = (data: ReturnType<typeof withheld>) =>
-  buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isStale: false }).checks
+  buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false }).checks
 
 describe('RT-17: a withheld near tie, figures licensed, 1 pt apart', () => {
   it('the footer states the shares were similar', () => {
