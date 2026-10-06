@@ -457,7 +457,8 @@ export default function ScenarioListPage() {
 
   const handleDuplicate = async (scenario: ScenarioListItem) => {
     try {
-      await scenarioService.duplicateScenario(scenario.id)
+      // The copy is named for what this card says, so the two read as a pair (SD-1 J11b).
+      await scenarioService.duplicateScenario(scenario.id, `${listTitle(scenario)} (copy)`)
       trackEvent('scenario_created', { source: 'duplicate' })
       await fetchScenarios()
     } catch (err) {

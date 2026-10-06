@@ -428,13 +428,15 @@ describe('CanvasLegendPopover — the numbers (Paul, 31 Aug 2026)', () => {
     // …and the literal, so the register changing its own word is noticed (trap 12d).
     expect(text).toContain('Current model')
     // ED decision 2's second half: the explanation ON SCREEN says it is
-    // conditional on the model and its assumptions, and is not a
-    // recommendation — the property, read from the row the key renders.
+    // conditional on the model and its assumptions, in the run-share verb (DL
+    // #87 6004906342) — the property, read from the row the key renders.
+    // ⛔ No recommend stem, not even negated (J1 ruling).
     const currentModelRow = METRIC_LEGEND_ROWS.find(r => r.noun === CURRENT_MODEL_NOUN)!
     expect(text).toContain(currentModelRow.gloss)
     expect(currentModelRow.gloss).toMatch(/\bmodel\b/)
     expect(currentModelRow.gloss).toMatch(/\bassumptions?\b/)
-    expect(currentModelRow.gloss).toMatch(/not a recommendation/)
+    expect(currentModelRow.gloss).toMatch(/the share of runs that supported this option/)
+    expect(currentModelRow.gloss).not.toMatch(/recommend/i)
   })
 
   it('⭐ CONTRAST: the RETIRED synonyms appear nowhere in the key', () => {
