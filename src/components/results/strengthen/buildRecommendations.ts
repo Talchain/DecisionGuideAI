@@ -794,39 +794,39 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   if (unsizedAsk !== null) {
     const step = unsizedAsk.kind === 'goal_level'
       ? {
-          id: `strengthen:unsized-path:goal-level:${unsizedAsk.nodeId}`,
+          key: `goal-level:${unsizedAsk.nodeId}`,
           title: `Give ‘${unsizedAsk.goal}’ today’s level`,
           signal: 'Olumi needs it before it can size the links this comparison turns on.',
           whyNow: 'Then re-run, and Olumi can ask about those links.',
           targetId: unsizedAsk.nodeId,
-          label: 'Show me the goal',
         }
       : unsizedAsk.kind === 'gauge'
         ? {
-            id: `strengthen:unsized-path:gauge:${unsizedAsk.fromId}->${unsizedAsk.throughId}->${unsizedAsk.toId}`,
+            key: `gauge:${unsizedAsk.fromId}->${unsizedAsk.throughId}->${unsizedAsk.toId}`,
             title: `Set how much ‘${unsizedAsk.from}’ changes ‘${unsizedAsk.to}’ through ‘${unsizedAsk.through}’`,
             signal: 'This comparison turns on it, and nobody has set it yet.',
             whyNow: 'A best guess and a range is fine.',
             targetId: `${unsizedAsk.fromId}->${unsizedAsk.throughId}`,
-            label: 'Show me this link',
           }
         : {
-            id: `strengthen:unsized-path:link:${unsizedAsk.fromId}->${unsizedAsk.toId}`,
+            key: `link:${unsizedAsk.fromId}->${unsizedAsk.toId}`,
             title: `Set the strength of the link from ‘${unsizedAsk.from}’ to ‘${unsizedAsk.to}’`,
             signal: 'This comparison turns on this link, and nobody has set how strong it is yet.',
             whyNow: 'Set it to see how much it matters.',
             targetId: `${unsizedAsk.fromId}->${unsizedAsk.toId}`,
-            label: 'Show me this link',
           }
+    // Literal `id` and `label`-after-`kind`, so `everyActIsOneTheRouteCanPerform` reads every route this card can take.
     recs.push({
-      id: step.id,
+      id: `strengthen:unsized-path:${step.key}`,
       helpType: 'clarify',
       title: step.title,
       signal: step.signal,
       whyNow: step.whyNow,
       tryThis: null,
       sourceLine: 'Source: what this run asks first when it holds back its comparison.',
-      action: { kind: 'canvas-focus', label: step.label },
+      action: unsizedAsk.kind === 'goal_level'
+        ? { kind: 'canvas-focus', label: 'Show me the goal' }
+        : { kind: 'canvas-focus', label: 'Show me this link' },
       targetId: step.targetId,
       priority: PRIORITY.nextInput,
     })
