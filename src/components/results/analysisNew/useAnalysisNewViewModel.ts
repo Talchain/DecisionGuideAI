@@ -31,6 +31,7 @@ import { buildStrengthenInputsForAnalysisNew } from './buildStrengthenInputsForA
 import { useAnalysisResultsAreCurrent } from '../../../canvas/hooks/useAnalysisResultsAreCurrent'
 import { buildAnalysisNewViewModel } from './buildAnalysisNewViewModel'
 import { displayedRunDeltaView, nodeLabelMap } from './displayedRunDeltaView'
+import { unsizedPathAskOf } from './analysisNewCopy'
 import { limitVerdictsDescribeDisplayedAnalysis } from '../../../canvas/state/storedLimitVerdicts'
 import { parseStatedLimitsKey, selectStatedLimits, selectStatedLimitsKey } from '../decision-overview/statedLimits'
 import { buildLimitVerdictView } from './limitVerdictView'
@@ -74,7 +75,7 @@ const RETIRED_STATUSES = new Set(['dismissed', 'addressed'])
  * the canvas option card does (`OptionNode.tsx`, `shareIsGoalOnly`), so the two
  * surfaces cannot disagree about the same result.
  */
-function resultBoundLeaderWithholdCause(stamp: unknown): string | null {
+export function resultBoundLeaderWithholdCause(stamp: unknown): string | null {
   if (readProducerLeaderPermission(stamp) !== false) return null
   const cause = (stamp as { producer_cause?: unknown }).producer_cause
   if (typeof cause !== 'string') return null
@@ -229,6 +230,8 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
       // the influence order can arrive from two different graphs and look like
       // one answer.
       analysisIdentityIsCurrent,
+      // ⭐ D3 (DL 0df0e1, 6 Oct): a `goal_path_unsized` withhold's own link is the next step, by identity.
+      unsizedPathAsk: unsizedPathAskOf(producerLeaderWithholdReason, data.confidence.inferenceWarnings, (id) => nodeLabels.get(id)),
     })
     // The engine is the authority on what a grounded intervention is. This
     // surface runs it and renders it; it never adds one of its own, and it
@@ -237,7 +240,8 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
       const record = strengthenRecords[recordKey(currentScenarioId, rec.id)]
       return !record || !RETIRED_STATUSES.has(record.status)
     })
-  }, [data, guidanceItems, biasSignals, currentStage, strengthenRecords, currentScenarioId, analysisIdentityIsCurrent])
+  }, [data, guidanceItems, biasSignals, currentStage, strengthenRecords, currentScenarioId, analysisIdentityIsCurrent,
+    producerLeaderWithholdReason, nodeLabels])
 
   /**
    * Re-join the producer's DSK attestation onto the engine's phase-3

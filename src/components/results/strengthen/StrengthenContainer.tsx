@@ -50,6 +50,9 @@ import { openDefineSuccess, openDecisionRecord, useDecisionRecordForScenario } f
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { useAnalysisResultsAreCurrent } from '../../../canvas/hooks/useAnalysisResultsAreCurrent'
 import { materialParametersAwaitingUserIds } from '../analysisNew/materialParametersAwaitingUser'
+import { unsizedPathAskOf } from '../analysisNew/analysisNewCopy'
+import { resultBoundLeaderWithholdCause } from '../analysisNew/useAnalysisNewViewModel'
+import { nodeLabelMap } from '../analysisNew/displayedRunDeltaView'
 import { buildRecommendations, toStrengthenPhase3Item } from './buildRecommendations'
 import { mergeBiasFindingTypes } from './biasTypesFromGuidance'
 import { STRENGTHEN_COPY as COPY } from './strengthenCopy'
@@ -127,10 +130,17 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
    * and this hook's header records the measurement.
    */
   const analysisIdentityIsCurrent = useAnalysisResultsAreCurrent()
+  // ⭐ D3 (DL 0df0e1, 6 Oct): a `goal_path_unsized` withhold's own first ask is the next step — the same reason and labels
+  // the Analysis (New) surface reads (`useAnalysisNewViewModel`), so both surfaces name one step.
+  const producerLeaderWithholdReason = useCanvasStore((s) =>
+    resultBoundLeaderWithholdCause(s.results?.report?.producer_leader_permission))
+  const canvasNodes = useCanvasStore((s) => s.nodes)
+  const nodeLabels = useMemo(() => nodeLabelMap(canvasNodes), [canvasNodes])
 
   const inputs: StrengthenInputs = useMemo(() => {
     const fragile = (data.confidence.challengeFragileEdges ?? []) as Array<Record<string, unknown>>
     const phase3Items = guidanceItems.map(toStrengthenPhase3Item)
+    const unsizedPathAsk = unsizedPathAskOf(producerLeaderWithholdReason, data.confidence.inferenceWarnings, (id) => nodeLabels.get(id))
     return {
       goalThreshold: data.recommendation.goalThreshold ?? null,
       hasStatedGoalTarget: data.recommendation.hasGoalTarget,
@@ -140,6 +150,7 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
       // SAME single structural reader of the untyped `semantic_signals` field.
       materialParametersAwaitingUserIds: materialParametersAwaitingUserIds(data.recommendation.analysisAdmission),
       analysisIdentityIsCurrent: analysisIdentityIsCurrent === true,
+      ...(unsizedPathAsk !== undefined ? { unsizedPathAsk } : {}),
       // ROADMAP 1.243: the OWNED leader entitlement, quoted from the single
       // verdict (`deriveDecisionVerdict`, the same instance the canvas and the
       // option cards read) and never re-derived. `analysisComplete` above is a
@@ -227,7 +238,7 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
       // is what collapsed the coaching band. Never reintroduce a local map.
       phase3Items,
     }
-  }, [data, guidanceItems, biasSignals, currentStage, analysisIdentityIsCurrent])
+  }, [data, guidanceItems, biasSignals, currentStage, analysisIdentityIsCurrent, producerLeaderWithholdReason, nodeLabels])
 
   // Reconcile on each COMPLETED analysis (identified by the results hash).
   useEffect(() => {
