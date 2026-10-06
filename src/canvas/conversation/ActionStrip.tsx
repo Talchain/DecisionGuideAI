@@ -80,6 +80,7 @@ export function ActionStrip({ messages, patchBlockStates, onNavigate }: ActionSt
   const trustSemantic = useAnalysisTrust().semantic
   const guidanceItems = useGuidanceStore((s) => s.guidanceItems)
   const activeGuidanceItemId = useGuidanceStore((s) => s.activeGuidanceItemId)
+  const liveGuidanceAuthored = useGuidanceStore((s) => s.liveGuidanceAuthored)
 
   // Build input bag for the pure selector
   const input: ConversationStatusInput = useMemo(() => ({
@@ -87,10 +88,10 @@ export function ActionStrip({ messages, patchBlockStates, onNavigate }: ActionSt
     resultsStatus,
     hasCompletedFirstRun,
     trustSemantic,
-    guidance: { guidanceItems, activeGuidanceItemId, inspectorDeepLinkField: null, _sendMessage: null, _scrollToPatch: null, _runAnalysis: null, _sendChip: null, _prefillChat: null, _dispatchAction: null, _registrationToken: null },
+    guidance: { guidanceItems, activeGuidanceItemId, liveGuidanceAuthored, inspectorDeepLinkField: null, _sendMessage: null, _scrollToPatch: null, _runAnalysis: null, _sendChip: null, _prefillChat: null, _dispatchAction: null, _registrationToken: null },
     messages,
     patchBlockStates,
-  }), [nodeCount, resultsStatus, hasCompletedFirstRun, trustSemantic, guidanceItems, activeGuidanceItemId, messages, patchBlockStates])
+  }), [nodeCount, resultsStatus, hasCompletedFirstRun, trustSemantic, guidanceItems, activeGuidanceItemId, liveGuidanceAuthored, messages, patchBlockStates])
 
   const { status, topGuidanceItem, guidanceCount, ctaKind } = useMemo(
     () => selectConversationStatus(input),
