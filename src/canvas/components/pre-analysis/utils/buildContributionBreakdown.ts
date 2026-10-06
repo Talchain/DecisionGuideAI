@@ -18,6 +18,8 @@
  */
 
 const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred', 'engine', 'ai_estimate'])
+import { factorReviewRecorded } from '../../../domain/valueProvenance'
+
 const VERIFIED_SOURCES = new Set(['user', 'user_confirmed', 'user_assumption'])
 const BRIEF_SOURCES = new Set(['brief_extraction'])
 
@@ -61,7 +63,8 @@ export function buildContributionBreakdown(factors: readonly FactorNodeLike[]): 
   for (const factor of factors) {
     if (!hasValue(factor)) continue
     const source = getSource(factor)
-    if (source && VERIFIED_SOURCES.has(source)) {
+    // SD-1 (Codex buddy #2543 r2): a figure CEE records as reviewed is verified, whoever's it is.
+    if ((source && VERIFIED_SOURCES.has(source)) || factorReviewRecorded(factor.data)) {
       verified++
     } else if (source && BRIEF_SOURCES.has(source)) {
       brief++
