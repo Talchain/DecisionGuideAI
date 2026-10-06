@@ -33,6 +33,12 @@ export interface GoalChanceLicence {
   readonly leaderOptionId: string | null
   readonly nextOptionId: string | null
   readonly target: { readonly comparator: GoalChanceComparator; readonly value: number; readonly unit: string }
+  /**
+   * ⭐ D3 cut 5 (DL 0df0e1; Science d5 #87 6008252938): CEE's `user_link_existence` — the chances also count Olumi's
+   * own existence prior on links the USER stated. `oneIn` is N ("a 1-in-N chance each") when every such link shares one
+   * value, else null (Olumi's estimate for each). `null` when CEE wrote none.
+   */
+  readonly userLinkExistence: { readonly links: number; readonly oneIn: number | null } | null
 }
 
 const FORMS: ReadonlySet<string> = new Set(['highest', 'highest_all_likely_to_miss', 'all_likely_to_miss', 'similar', 'each'])
@@ -90,5 +96,13 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
     leaderOptionId,
     nextOptionId,
     target: { comparator: target.comparator as GoalChanceComparator, value: target.value, unit: target.unit },
+    userLinkExistence: existenceOf(r.user_link_existence),
   }
+}
+
+/** CEE's `user_link_existence`, shape-checked; a malformed one is not read (no line, never a guessed fraction). */
+function existenceOf(v: unknown): GoalChanceLicence['userLinkExistence'] {
+  if (!isRec(v) || typeof v.links !== 'number' || !Number.isInteger(v.links) || v.links < 1) return null
+  if (v.one_in === undefined) return { links: v.links, oneIn: null }
+  return typeof v.one_in === 'number' && Number.isInteger(v.one_in) && v.one_in >= 2 ? { links: v.links, oneIn: v.one_in } : null
 }

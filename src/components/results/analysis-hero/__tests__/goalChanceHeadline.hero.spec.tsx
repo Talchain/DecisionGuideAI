@@ -93,6 +93,30 @@ describe('D3 step 2 — the goal chance heads the hero on its OWN licence (CEE d
     expect(`${model.headline} ${model.subline}`).not.toMatch(/about the same|about 0%|about 100%/)
   })
 
+  it('EXISTENCE (DL 0df0e1 cut 5; d5 #87 6008252938; J4 R17): once, beside the chance lines — CEE\'s fraction, never computed', () => {
+    const pct = { [OUTREACH]: 0, [ANGEL]: 35, [CONVERTIBLE]: 50 }
+    seed({ [OUTREACH]: 0.004, [ANGEL]: 0.35, [CONVERTIBLE]: 0.5 },
+      licenceRecord('highest', pct, { leader_option_id: CONVERTIBLE, next_option_id: ANGEL, user_link_existence: { links: 2, one_in: 5 } }))
+    const line = 'These chances also count Olumi’s own assumption that each of your links might not hold (a 1-in-5 chance each).'
+    const model = heroModel()
+    expect(model.subline?.endsWith(line)).toBe(true)
+    expect(model.subline?.split(line)).toHaveLength(2) // once
+  })
+
+  it('EXISTENCE: 0.9 is "1-in-10" as CEE says (never 1-in-5); mixed → Olumi\'s estimate for each; TWIN with none → no line', () => {
+    const pct = { [OUTREACH]: 0, [ANGEL]: 35, [CONVERTIBLE]: 50 }
+    const extra = { leader_option_id: CONVERTIBLE, next_option_id: ANGEL }
+    const goal = { [OUTREACH]: 0.004, [ANGEL]: 0.35, [CONVERTIBLE]: 0.5 }
+    seed(goal, licenceRecord('highest', pct, { ...extra, user_link_existence: { links: 2, one_in: 10 } }))
+    expect(heroModel().subline).toContain('(a 1-in-10 chance each).')
+    resetPaulRun()
+    seed(goal, licenceRecord('highest', pct, { ...extra, user_link_existence: { links: 2 } }))
+    expect(heroModel().subline).toContain('might not hold (Olumi’s estimate for each).')
+    resetPaulRun()
+    seed(goal, licenceRecord('highest', pct, extra))
+    expect(heroModel().subline ?? '').not.toContain('might not hold')
+  })
+
   it('PER OPTION (d5 #87 6007421281; c6 6 Oct): one option withheld for its own path keeps its place with c6\'s withheld line', () => {
     const { [ANGEL]: _withheld, ...rest } = GOAL
     seed(rest, licenceRecord('each', { [OUTREACH]: 20, [CONVERTIBLE]: 62 }, { withheld_option_ids: [ANGEL] }))

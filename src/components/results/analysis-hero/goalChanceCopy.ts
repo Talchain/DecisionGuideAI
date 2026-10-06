@@ -90,3 +90,15 @@ export function goalChanceOptionLines(
   }
   return lines
 }
+
+/**
+ * ⭐ D3 cut 5 (DL 0df0e1; Science d5 #87 6008242694 / 6008252938; words d5 via c6): said ONCE, beside the chance lines,
+ * when CEE says the chances also count Olumi's existence prior on the user's own links (`userLinkExistence`). The
+ * fraction is CEE's (`oneIn`), never computed here; mixed values say it is Olumi's estimate for each. `null` otherwise.
+ */
+export function goalChanceExistenceLine(licence: GoalChanceLicence): string | null {
+  const e = licence.userLinkExistence
+  if (e === null) return null
+  const which = e.oneIn !== null ? `a 1-in-${e.oneIn} chance each` : 'Olumi’s estimate for each'
+  return `These chances also count Olumi’s own assumption that each of your links might not hold (${which}).`
+}

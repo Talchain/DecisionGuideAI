@@ -58,7 +58,7 @@ import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 // keeps reading the constant even though the readouts now resolve finer.
 import { SUB_ONE_PERCENT_FLOOR, formatGoalProbability } from '../utils/displayFloors'
 import { hasAnyGoalValue, selectGoalLeader } from '../utils/selectGoalLeader'
-import { goalChanceHeadline, goalChanceOptionLines } from './goalChanceCopy'
+import { goalChanceExistenceLine, goalChanceHeadline, goalChanceOptionLines } from './goalChanceCopy'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
 import type { FlipRiskRef } from '../../../canvas/highlighting/resolveAnalysisTargets'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../utils/goalFitBasisCaveatCopy'
@@ -1164,6 +1164,9 @@ export function buildHeroModel(
         ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, goalChanceLicence.similarOptionIds)
         : null
     subline = lines !== null && lines.length > 0 ? lines.join(' ') : HERO_COPY.subline.compareTop
+    // ⭐ D3 cut 5: once, beside the chance lines — the part of these figures that is Olumi's assumption, not the user's.
+    const existence = goalChanceExistenceLine(goalChanceLicence)
+    if (existence !== null) subline = `${subline} ${existence}`
   }
 
   // UI-SEM-054: outcome-axis layout domain derivation. Min/max over the
