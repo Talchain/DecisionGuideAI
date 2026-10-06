@@ -74,8 +74,10 @@ const RUNNER_UP_ID = 'opt_retail'
  * its win-probability fallback in the first place.
  */
 type Signal = { isTie: boolean } | null
+/** The two options' shares of runs (`win_probability`). Default: a 52-pt gap. */
+type Shares = readonly [winner: number, runnerUp: number]
 
-function makeV2Response(nearTie: Signal): V2RunResponse {
+function makeV2Response(nearTie: Signal, shares: Shares = [0.72, 0.2]): V2RunResponse {
   const outcome = (mean: number) => ({
     mean,
     std: 12,
@@ -96,14 +98,14 @@ function makeV2Response(nearTie: Signal): V2RunResponse {
         option_id: WINNER_ID,
         option_label: 'Double Down on Wholesale',
         confidence_interval: [40, 80],
-        win_probability: 0.72,
+        win_probability: shares[0],
         outcome: outcome(60),
       },
       {
         option_id: RUNNER_UP_ID,
         option_label: 'Open Retail Shop',
         confidence_interval: [20, 60],
-        win_probability: 0.2,
+        win_probability: shares[1],
         outcome: outcome(40),
       },
     ],
@@ -124,7 +126,7 @@ function makeV2Response(nearTie: Signal): V2RunResponse {
               is_tie: nearTie.isTie,
               top_option_id: WINNER_ID,
               second_option_id: RUNNER_UP_ID,
-              gap: 0.52,
+              gap: shares[0] - shares[1],
               threshold: 0.1,
             },
           }
@@ -150,8 +152,8 @@ const OPTION_NODES = [
   },
 ]
 
-function setStore(nearTie: Signal): void {
-  const v2 = makeV2Response(nearTie)
+function setStore(nearTie: Signal, shares?: Shares): void {
+  const v2 = makeV2Response(nearTie, shares)
   useCanvasStore.setState({
     results: { status: 'complete', progress: 100, report: mapV2ResponseToReportV1(v2, { seed: 42 }) },
     runMeta: {},
@@ -173,9 +175,11 @@ function setStore(nearTie: Signal): void {
  * `T1ChecksFooter` consumes, so a green result cannot come from a fixture that
  * quietly stopped reproducing the state under test.
  */
-function readWinnerCheck(): { label: string; separation: string } {
+function readWinnerCheck(): { label: string; separation: string; gapPp: number | null; permitted: boolean | undefined } {
   const { result } = renderHook(() => useResultsSectionData())
   const separation = result.current.recommendation.verdict?.separation ?? '<no verdict>'
+  const gapPp = result.current.recommendation.verdict?.gapPp ?? null
+  const permitted = result.current.recommendation.leaderDesignationPermitted
   const { container } = render(
     <ResultsBody
       resultsSectionData={result.current}
@@ -184,7 +188,7 @@ function readWinnerCheck(): { label: string; separation: string } {
   )
   const el = container.querySelector('[data-testid="checks-winner"]')
   if (!el) throw new Error('checks-winner did not render — the probe is blind, not the product silent')
-  return { label: (el.textContent ?? '').replace(/\s+/g, ' ').trim(), separation }
+  return { label: (el.textContent ?? '').replace(/\s+/g, ' ').trim(), separation, gapPp, permitted }
 }
 
 describe('checks-winner: no denial without authority', () => {
@@ -203,7 +207,33 @@ describe('checks-winner: no denial without authority', () => {
     setStore({ isTie: false })
     const { label, separation } = readWinnerCheck()
     expect(separation).toBe('clear')
-    expect(label).toBe('In this model, one option is most likely')
+    expect(label).toBe('In this model, one option was supported by more runs than any other')
+    // J4 (Acceptance cut-4 prod; DL #87): a win-share leader is a share of runs, never a chance — no "most likely".
+    expect(label).not.toMatch(/most likely|chance/i)
+  })
+
+  /**
+   * ⭐ J4 — THE NEAR TIE (Acceptance cut-4 prod: a permitted leader 4.4 pts ahead; DL ruling 6 Oct). "Supported by
+   * more runs than any other" is true at any gap, so it is a crown on a near tie. Within 10 pts of the next run share
+   * the row says the shares were similar, and names no ranking.
+   */
+  it('J4: a PERMITTED leader only 4 pts ahead in run share → similar shares, no comparative', () => {
+    setStore({ isTie: false }, [0.47, 0.43])
+    const { label, separation, gapPp, permitted } = readWinnerCheck()
+    // PRECONDITION: a permitted leader (the producer said not a tie) at a 4-pt gap — the state J4 witnessed.
+    expect(permitted).toBe(true)
+    expect(separation).toBe('slight')
+    expect(gapPp).toBe(4)
+    expect(label).toBe('In this model, the options were supported by similar shares of runs')
+    expect(label).not.toMatch(/more runs than any other|most likely|chance|\b(best|lead\w*|ahead|winner)\b/i)
+  })
+
+  it('J4 boundary: exactly 10 pts apart → the comparative stands (the producer\u2019s own near-tie line)', () => {
+    setStore({ isTie: false }, [0.55, 0.45])
+    const { label, gapPp, permitted } = readWinnerCheck()
+    expect(permitted).toBe(true)
+    expect(gapPp).toBe(10)
+    expect(label).toBe('In this model, one option was supported by more runs than any other')
   })
 
   it('producer says IS a tie → the check DENIES a leading option', () => {
@@ -223,7 +253,7 @@ describe('checks-winner: no denial without authority', () => {
       label,
       `"No clear leader" is a DENIAL. decisionVerdict.ts: "'unknown' licenses silence, never a denial." Read: ${label}`,
     ).not.toMatch(/no option is clearly most likely/i)
-    expect(label).not.toMatch(/one option is most likely/i)
+    expect(label).not.toMatch(/one option was supported by more runs than any other/i)
   })
 
   it('the three separations produce three DIFFERENT labels — the probe discriminates', () => {

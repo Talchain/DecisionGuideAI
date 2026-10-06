@@ -169,3 +169,24 @@ export function rankingWasWithheld(
   if (!aRankingExisted) return false
   return leaderDesignationPermitted(rec) !== true
 }
+
+/**
+ * ⭐ J4 — A RUN-SHARE COMPARATIVE NEEDS A GAP, NOT ONLY A PERMISSION (Acceptance cut-4 prod; DL ruling, 6 Oct).
+ *
+ * "In this model, one option was supported by more runs than any other" is literally true at a 0.1-pt gap in run
+ * shares: a crown on a near tie, which is what the witness caught (a permitted leader 4.4 pts ahead). A permitted
+ * leader is stated as a comparative only when its share of runs is at least `RUN_SHARE_COMPARATIVE_MIN_GAP_PP` points
+ * above the next option's, the producer's own near-tie line (PLoT `computeNearTie`, 0.10). Below it the true sentence
+ * is that the options were supported by similar shares of runs.
+ *
+ * Reads `verdict.gapPp` (top two run shares, rounded to the points the cards print). `true` = similar shares;
+ * `false` = separated by at least the line, or no measured gap. A permitted leader always carries a measured gap on
+ * the live path (`useResultsSectionData`: `resultSeparatesArms = verdict.hasLeadingOption`, which needs two comparable
+ * options, and those give a number), so the no-gap arm is reachable only by a hand-built fixture.
+ */
+export const RUN_SHARE_COMPARATIVE_MIN_GAP_PP = 10
+
+export function runSharesSimilar(verdict: { gapPp?: number | null } | null | undefined): boolean {
+  const gap = verdict?.gapPp
+  return typeof gap === 'number' && Number.isFinite(gap) && gap < RUN_SHARE_COMPARATIVE_MIN_GAP_PP
+}

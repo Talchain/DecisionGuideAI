@@ -17,7 +17,7 @@
  */
 
 import { useMemo, memo, useState, type ReactNode } from 'react'
-import { leaderDesignationPermitted } from './leaderDesignation'
+import { leaderDesignationPermitted, runSharesSimilar } from './leaderDesignation'
 // MAY THIS PANEL NAME A LEADER? The shared three-answer claim policy. The
 // footer below reads `leaderDesignationPermitted` directly because it needs
 // the tri-state for its own `unknown` glyph; the PROSE sites read
@@ -900,7 +900,11 @@ function T1ChecksFooter({
   // these two labels.
   // Principle audit (5 Oct): the leader check is a FINDING about this model, never a pass or a fail, so it reads in the
   // Reasoning tab's own model-relative words (`analysisNewCopy.ts`) beside a neutral marker (`neutral` below).
-  const winnerOkLabel = 'In this model, one option is most likely'
+  // J4 (DL, 6 Oct): "more runs than any other" is true at a 0.1-pt gap, so within 10 pts of the next run share the
+  // row says the shares were similar instead (`runSharesSimilar`, the same rule as `ANALYSIS_NEW_COPY.checks`).
+  const winnerOkLabel = runSharesSimilar(verdict)
+    ? 'In this model, the options were supported by similar shares of runs'
+    : 'In this model, one option was supported by more runs than any other'
   const winnerNotOkLabel = 'In this model, no option is clearly most likely'
   // States the check could not be determined. It is NOT a third verdict about
   // the options — it is the absence of one, which is why it must not read like

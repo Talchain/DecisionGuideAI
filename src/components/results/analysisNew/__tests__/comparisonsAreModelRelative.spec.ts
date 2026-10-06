@@ -185,8 +185,10 @@ describe('What would change your mind', () => {
     expect(rows).toHaveLength(1)
     expectModelRelative(
       rows[0]!.headline,
-      'Peak Fulfilment Capacity could change which option leads in this model',
+      'Peak Fulfilment Capacity could change how the options compare in this model',
     )
+    // Contest-word class (c6, cut 5; CEE twin #2630): the row names no leader.
+    expect(rows[0]!.headline).not.toMatch(/\b(leads?|leader|ahead|best|wins?|winner)\b/i)
   })
 })
 
@@ -356,7 +358,8 @@ describe('key insights', () => {
     const vm = build(makeData({ confidence: { conditionalWinners: [cw] } }))
     const insight = vm.keyInsights.insights.find((i) => i.id === 'insight:conditional-winner:fac_demand')
     expect(insight, 'the conditional-split insight did not build').toBeDefined()
-    expectModelRelative(insight!.headline, 'In this model, which option leads depends on Demand growth')
+    expectModelRelative(insight!.headline, 'In this model, how the options compare depends on Demand growth')
+    expect(insight!.headline).not.toMatch(/\b(leads?|leader|ahead|best|wins?|winner)\b/i)
   })
 })
 
@@ -421,7 +424,9 @@ import { DECISION_RECORD_COPY } from '../../modals/DecisionRecordModal'
 
 describe('check labels and the decision record carry no answer framing', () => {
   it('leader check labels are model-relative', () => {
-    expect(ANALYSIS_NEW_COPY.checks.leader_present.label).toBe('In this model, one option is most likely')
+    expect(ANALYSIS_NEW_COPY.checks.leader_present.label).toBe('In this model, one option was supported by more runs than any other')
+    // J4: within 10 pts of the next run share, no ranking word at all.
+    expect(ANALYSIS_NEW_COPY.checks.leader_similar_shares.label).toBe('In this model, the options were supported by similar shares of runs')
     expect(ANALYSIS_NEW_COPY.checks.leader_tied.label).toBe('In this model, no option is clearly most likely')
   })
   it('the decision-record placeholder asks for the person\'s own reason, not why it is "the best"', () => {

@@ -45,7 +45,7 @@ import { formatThresholdFigure } from './thresholdFigure'
 import { conditionalInputBasis } from './conditionalInputBasis'
 import { classifyUnit } from '../../../utils/unitClassifier'
 import { truncateAtWordBoundary } from '../../../utils/text'
-import { leaderDesignationPermitted, rankingWasWithheld } from '../leaderDesignation'
+import { leaderDesignationPermitted, rankingWasWithheld, runSharesSimilar } from '../leaderDesignation'
 import { isSuppressedUnit } from '../../../canvas/utils/labelUtils'
 import { analysisClaimPolicy } from '../analysisClaimPolicy'
 import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysisReady'
@@ -562,7 +562,7 @@ function buildKeyInsights(
     const splitUnit = cw.split_unit && !isSuppressedUnit(cw.split_unit) ? ` ${cw.split_unit}` : ''
     out.push({
       id: `insight:conditional-winner:${cw.factor_id}`,
-      headline: `In this model, which option leads depends on ${cw.factor_label}`,
+      headline: `In this model, how the options compare depends on ${cw.factor_label}`,
       implication: namesBoth
         ? `Above ${splitValue}${splitUnit}, ${high} scores higher; below it, ${low} does.`
         : `The preferred direction changes around ${splitValue}${splitUnit}.`,
@@ -1454,7 +1454,7 @@ function buildUncertainty(
     const headlineText = u.threshold
       ? rankingWasWithheld(data.recommendation)
         ? `${u.threshold.variable} could change the answer in this model`
-        : `${u.threshold.variable} could change which option leads in this model`
+        : `${u.threshold.variable} could change how the options compare in this model`
       : labelLength === text
         ? text
         : rowTitle(u)
@@ -3711,7 +3711,10 @@ function buildChecks(
   const verdict = rec.verdict
   const leaderCode: ChecksCode =
     leaderDesignationPermitted(rec) === true
-      ? 'leader_present'
+      ? // J4: a permitted leader within 10 pts of the next run share is stated as similar shares, never "more runs".
+        runSharesSimilar(verdict)
+        ? 'leader_similar_shares'
+        : 'leader_present'
       : // ⚠ THE DENIAL IS LICENSED BY `'tied'` ALONE. `decisionVerdict.ts:166-168`
         // is explicit that `'unknown'` licenses SILENCE, never a denial — so an
         // unknown separation lands in the third state with the two other
@@ -3913,6 +3916,7 @@ function buildChecks(
  */
 const CHECK_STATE: Record<ChecksCode, ChecksState> = {
   leader_present: 'pass',
+  leader_similar_shares: 'pass',
   leader_tied: 'finding',
   leader_not_assessed: 'not_assessed',
   robustness_robust: 'pass',

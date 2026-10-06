@@ -57,7 +57,7 @@ describe('a withheld ranking presupposes no leader (beat 2)', () => {
       )
       return rows.find((r) => r.headline.startsWith('Price elasticity could change'))?.headline
     }
-    expect(headline(genuineDecision())).toBe('Price elasticity could change which option leads in this model')
+    expect(headline(genuineDecision())).toBe('Price elasticity could change how the options compare in this model')
     expect(headline(decisionWithLeaderWithheld())).toBe('Price elasticity could change the answer in this model')
   })
 })

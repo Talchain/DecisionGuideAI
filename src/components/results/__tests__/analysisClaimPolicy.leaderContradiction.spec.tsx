@@ -171,7 +171,7 @@ describe('§0 PRECONDITION PINS — the fixtures reproduce the witnessed states'
   it('the permitted fixture renders the AFFIRMATIVE footer — the two arms really differ', () => {
     render(<TriageActionCardsBody data={PERMITTED()} useV17Copy onFocusNode={() => {}} />)
     expect(screen.getByTestId('checks-winner').textContent ?? '')
-      .toContain('In this model, one option is most likely')
+      .toContain('In this model, one option was supported by more runs than any other')
   })
 
   it('the matcher is not vacuous — it matches the two witnessed sentences verbatim', () => {
@@ -380,7 +380,7 @@ describe('§5 COMPOSED — the withholding and the claim cannot share a panel', 
     expect(prose).toContain('In this model, in the quarter of simulated futures where')
     expect(prose).toContain(`57% of them support ${ALT_LABEL}`)
     expect(prose).toContain('the leading option could change')
-    expect(footer).toContain('In this model, one option is most likely')
+    expect(footer).toContain('In this model, one option was supported by more runs than any other')
   })
 
   it('WITHHELD: the panel is not silent — every finding still reaches the user', () => {
@@ -601,7 +601,7 @@ describe('§7 the checks footer denies a leader only when licensed to', () => {
     const t = screen.getByTestId('checks-winner').textContent ?? ''
     expect(t).toContain('Which option is most likely in this model: not assessed')
     expect(t).not.toContain('In this model, no option is clearly most likely')
-    expect(t).not.toContain('In this model, one option is most likely')
+    expect(t).not.toContain('In this model, one option was supported by more runs than any other')
   })
 
   it('THE TIE DENIAL SURVIVES — this widening withdraws no licensed claim', () => {
@@ -623,7 +623,7 @@ describe('§7 the checks footer denies a leader only when licensed to', () => {
   it('ANTI-VACUITY: a fully licensed run still reads "Has leading option"', () => {
     render(<TriageActionCardsBody data={PERMITTED()} useV17Copy onFocusNode={() => {}} />)
     const t = screen.getByTestId('checks-winner').textContent ?? ''
-    expect(t).toContain('In this model, one option is most likely')
+    expect(t).toContain('In this model, one option was supported by more runs than any other')
     expect(t).not.toContain('Which option is most likely in this model: not assessed')
   })
 

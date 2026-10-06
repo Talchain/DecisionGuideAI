@@ -241,8 +241,8 @@ describe('a fragile-edge row names the relationship it is about', () => {
     )
 
     expect(rows).toHaveLength(2)
-    const threshold = rows.find((r) => r.headline.endsWith('could change which option leads in this model'))
-    expect(threshold?.headline).toBe('Peak Fulfilment Capacity could change which option leads in this model')
+    const threshold = rows.find((r) => r.headline.endsWith('could change how the options compare in this model'))
+    expect(threshold?.headline).toBe('Peak Fulfilment Capacity could change how the options compare in this model')
     expect(threshold?.implication).toBe(long)
     const shortRow = rows.find((r) => r.headline === short)
     expect(shortRow?.implication).toBe('')
@@ -276,7 +276,7 @@ describe('a fragile-edge row names the relationship it is about', () => {
         }),
       ]),
     )
-    expect(rows[0].headline).toBe('fac_capacity could change which option leads in this model')
+    expect(rows[0].headline).toBe('fac_capacity could change how the options compare in this model')
     expect(rows[0].implication).toBe(long)
   })
 
