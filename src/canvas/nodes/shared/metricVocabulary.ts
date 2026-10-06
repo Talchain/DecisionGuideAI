@@ -617,8 +617,10 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
     // ⭐ Locked design (ED 11:52Z point 4; ED 5799353114 decision 2): the canvas
     // never captions this "Support" — cards read "Current model · N% of runs".
     // The row names the quantity in the card's words and says it is
-    // conditional on the model and its assumptions, not a recommendation.
-    gloss: 'on option cards “N% of runs”: runs favouring this option under this model’s assumptions; not a recommendation',
+    // conditional on the model and its assumptions. ⛔ No "not a
+    // recommendation": the stem is banned even negated (J1 ruling). The
+    // run-share verb is "supported" (DL #87 6004906342).
+    gloss: 'on option cards “N% of runs”: the share of runs that supported this option under this model’s assumptions',
   },
   {
     noun: METRIC_NOUN.chance,
@@ -627,7 +629,7 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
     // highest comparative figure — NOT any option. Dropping the qualifier to
     // shed the race word would have widened the claim to something false.
     // "the most-supported option" is the same referent in the new vocabulary.
-    gloss: 'how often the option most runs favoured reached the goal target across the runs',
+    gloss: 'how often the option supported by the most runs reached the goal target across the runs',
   },
   {
     noun: METRIC_NOUN.influence,
@@ -1043,18 +1045,19 @@ export const OPTION_RESULT_COPY = {
   compact: 'Model',
   /**
    * ⛔ R3 5903852225 / AIQ 5903874730: "Current model 100% of runs" beside the goal card's "Chance 84%" read as a
-   * chance. The share is how often the model favoured this option across the runs, so it says so. On the card the prefix
-   * never gives way without a qualifier; with one it narrows away exactly where the caption does (the row's name keeps
-   * it). ⛔ NEVER "best in" (Acceptance investor matrix, 5 Oct, d3130958): there is never a winner (Paul, 7 Sep). Not
-   * "supported" either: ED 11:52Z retired Support on this result ("it reads as endorsement"). "favoured" is the
-   * register's own verb (`sentence` below: "the model favoured this option"), true under a maximise or minimise goal.
+   * chance. The share is the part of this model's runs that supported this option, so it says so. On the card the
+   * prefix never gives way without a qualifier; with one it narrows away exactly where the caption does (the row's
+   * name keeps it). ⛔ NEVER "best in" (Acceptance investor matrix, 5 Oct, d3130958): there is never a winner (Paul,
+   * 7 Sep). ⭐ ONE VERB for the run share, "supported" (DL ruling #87 6004906342, 5 Oct 22:57Z): it is the results
+   * cards' verb, CEE's (#2614: "In this model, N% of runs supported ‘X’") and the noContestFraming template, and it
+   * holds under a maximise or minimise goal. "favoured" (cut 3) is retired: `goalAnchorCopy.ts` rejects it as an
+   * endorsement word that brings back "favourite". That ruling supersedes the ED 11:52Z note that retired Support.
+   * ⛔ `sentence` carries no "not a recommendation": the stem is banned even negated (J1 ruling).
    */
-  sharePrefix: 'favoured in',
+  sharePrefix: 'supported by',
   shareUnit: OPTION_SHARE_UNIT,
-  share: (formatted: string): string => `favoured in ${formatted} ${OPTION_SHARE_UNIT}`,
-  sentence: (formatted: string): string =>
-    `In ${formatted} of the simulated runs, the model favoured this option over the others. ` +
-    'A finding about the model as it stands, not a recommendation.',
+  share: (formatted: string): string => `supported by ${formatted} ${OPTION_SHARE_UNIT}`,
+  sentence: (formatted: string): string => `In this model, ${formatted} of runs supported this option.`,
   unconfirmedNote: 'Olumi can’t confirm this run reflects the current model.',
   /**
    * ⭐ GOAL-ONLY, WHEN THE LIMIT VERDICT WITHHOLDS THE LEADER CLAIM (RC #63
