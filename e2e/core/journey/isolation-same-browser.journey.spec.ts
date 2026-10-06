@@ -225,7 +225,7 @@ test.describe('ISO · same browser, two accounts', () => {
       if (thin) {
         // Thin client: a signed-in page offers no local snapshot save, and writes no snapshot key.
         mark('tab 1: thin client offers no local snapshot save')
-        await tab1.getByRole('button', { name: 'More options' }).click()
+        await tab1.getByRole('button', { name: 'More options', exact: true }).click()
         const entry = tab1.getByTestId('kebab-snapshots')
         if (await entry.isVisible().catch(() => false)) {
           await entry.click()
@@ -241,7 +241,7 @@ test.describe('ISO · same browser, two accounts', () => {
         expect(snapKeys, '[ISO-1/thin] a signed-in thin page wrote a local snapshot').toEqual([])
       } else {
         mark('tab 1: save + rename a snapshot')
-        await tab1.getByRole('button', { name: 'More options' }).click()
+        await tab1.getByRole('button', { name: 'More options', exact: true }).click()
         await tab1.getByTestId('kebab-snapshots').click()
         await manager.getByRole('button', { name: /Save Current Canvas/ }).click()
         await manager.getByRole('button', { name: 'Rename' }).first().click()
