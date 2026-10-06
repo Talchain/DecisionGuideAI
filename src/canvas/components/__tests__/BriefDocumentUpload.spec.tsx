@@ -33,7 +33,7 @@ describe('BriefDocumentUpload', () => {
     await waitFor(() =>
       expect(brief().value).toBe('Should we raise prices?\n\nFrom prices.csv:\n[Sheet "prices"]\n[Sheet "prices" A1:B1] Starter price: £49'),
     )
-    expect(screen.getByRole('status').textContent).toBe(`Olumi read 1 of 1 rows. ${BRIEF_UPLOAD_COPY.check}`)
+    expect(screen.getByRole('status').textContent).toBe(`Olumi read 1 of 1 row. ${BRIEF_UPLOAD_COPY.check}`)
 
     fireEvent.click(screen.getByText(BRIEF_UPLOAD_COPY.remove))
     expect(brief().value).toBe('Should we raise prices?')

@@ -156,5 +156,5 @@ function workbookToExtraction(XLSX: XLSXModule, wb: WorkBook, csvName: string | 
 
   if (hiddenRows > 0) notes.push(`(${hiddenRows} hidden ${plural(hiddenRows, 'row was', 'rows were')} not read)`)
   if (hiddenCols > 0) notes.push(`(${hiddenCols} hidden ${plural(hiddenCols, 'column was', 'columns were')} not read)`)
-  return { segments, notes, noun: 'rows', total }
+  return { segments, notes, noun: ['row', 'rows'], total }
 }

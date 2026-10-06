@@ -14,7 +14,7 @@ const rows = (n: number, width = 60): Extraction => ({
     countable: true,
   })),
   notes: [],
-  noun: 'paragraphs',
+  noun: ['paragraph', 'paragraphs'],
   total: n,
 })
 
@@ -32,6 +32,25 @@ describe('brief upload — limits and authorship', () => {
     const bytes = await zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' })
     expect(bytes.byteLength).toBeLessThan(10 * 1024 * 1024)
     await expect(readBriefDocument(asFile(bytes, 'bomb.docx'), '')).rejects.toThrow('expands to more than 50 MB')
+  })
+
+  it('refuses a zip that under-declares its size, by counting the bytes it actually inflates', async () => {
+    const zip = new JSZip()
+    zip.file('word/document.xml', `<w:document xmlns:w="w"><w:body><w:p><w:r><w:t>${'a'.repeat(21 * 1024 * 1024)}</w:t></w:r></w:p></w:body></w:document>`)
+    const bytes = new Uint8Array(await zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' }))
+    // Rewrite the declared uncompressed size (local header +22, central directory +24) to 1 KB.
+    const view = new DataView(bytes.buffer)
+    for (let i = 0; i + 4 <= bytes.length; i++) {
+      const sig = view.getUint32(i, true)
+      if (sig === 0x04034b50) view.setUint32(i + 22, 1024, true)
+      if (sig === 0x02014b50) view.setUint32(i + 24, 1024, true)
+    }
+    await expect(readBriefDocument(asFile(bytes, 'liar.docx'), '')).rejects.toThrow('expands to more than 50 MB')
+  })
+
+  it('says "1 of 1 row", not "1 of 1 rows"', () => {
+    const one = { ...rows(1), noun: ['row', 'rows'] as const }
+    expect(assembleBrief('', 'a.csv', one).summary).toBe('Olumi read 1 of 1 row.')
   })
 
   it('caps the whole brief at 7,500 characters, cutting only at a segment boundary, and says so', () => {
