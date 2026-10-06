@@ -147,7 +147,7 @@ describe('ConditionalWinnerCards — withheld/neutral arm (CEE projection shape)
     render(<ConditionalWinnerCards winners={[projected]} recommendedOptionId="opt_expand" />)
     const body = screen.getByTestId('conditional-winner-cards')
     // Neutral claim: names the factor and the threshold…
-    expect(body.textContent).toMatch(/Which option leads depends on/)
+    expect(body.textContent).toMatch(/How the options compare depends on/)
     expect(body.textContent).toMatch(/Market growth/)
     expect(body.textContent).toMatch(/42\.5%/)
     // …and licensed anonymous probabilities…
@@ -158,22 +158,22 @@ describe('ConditionalWinnerCards — withheld/neutral arm (CEE projection shape)
     expect(body.textContent).not.toMatch(/Expand into Europe/)
     expect(body.textContent).not.toMatch(/Hold position/)
     // And no directional claim — direction is a claim about the withheld leader.
-    expect(body.textContent).not.toMatch(/leads instead/)
+    expect(body.textContent).not.toMatch(/leads instead|becomes the most-supported option/)
   })
 
   it('uses the neutral arm, never a guess, when recommendedOptionId matches neither bucket', () => {
     render(<ConditionalWinnerCards winners={[fullRow()]} recommendedOptionId="opt_unrelated" />)
     const body = screen.getByTestId('conditional-winner-cards')
-    expect(body.textContent).toMatch(/Which option leads depends on/)
+    expect(body.textContent).toMatch(/How the options compare depends on/)
     expect(body.textContent).not.toMatch(/exceeds/)
     expect(body.textContent).not.toMatch(/falls below/)
-    expect(body.textContent).not.toMatch(/leads instead/)
+    expect(body.textContent).not.toMatch(/leads instead|becomes the most-supported option/)
   })
 
   it('uses the neutral arm, never a guess, when recommendedOptionId is absent', () => {
     render(<ConditionalWinnerCards winners={[fullRow()]} />)
     const body = screen.getByTestId('conditional-winner-cards')
-    expect(body.textContent).toMatch(/Which option leads depends on/)
+    expect(body.textContent).toMatch(/How the options compare depends on/)
     expect(body.textContent).not.toMatch(/exceeds/)
     expect(body.textContent).not.toMatch(/falls below/)
   })

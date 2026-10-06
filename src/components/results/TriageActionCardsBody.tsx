@@ -634,7 +634,7 @@ function T1DominantNudge({
   // not see it. A tooltip and a screen-reader announcement are the product
   // speaking.
   const trailingClause = useV17Copy && !leaderClaimWithheld(data.recommendation)
-    ? 'If your assumptions about this factor are wrong, the leading option could change.'
+    ? 'If your assumptions about this factor are wrong, the most-supported option could change.'
     : 'If your assumptions about this factor are wrong, the result could change.'
   // (Round-5 P1.1) v17 mode: the dominant factor's label is user data and
   // still appears VERBATIM in the visible identity span. But when the same

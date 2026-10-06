@@ -59,7 +59,7 @@ describe('ConditionalWinnerCards — a factor-type descriptor is never a unit', 
     expect(text).not.toMatch(BINARY)
     // By identity: exactly the sentence an absent unit yields.
     expect(sentence).toBe(
-      'Which option leads depends on Enterprise tier availability — the analysis flips at 0.5.',
+      'How the options compare depends on Enterprise tier availability; the analysis flips at 0.5.',
     )
   })
 
@@ -68,7 +68,7 @@ describe('ConditionalWinnerCards — a factor-type descriptor is never a unit', 
     const { arm, sentence, text } = renderCard('binary', 'opt_hold')
     expect(arm).toBe('high-alt')
     expect(text).not.toMatch(BINARY)
-    expect(sentence).toBe('When Enterprise tier availability exceeds 0.5, Raise price leads instead.')
+    expect(sentence).toBe('When Enterprise tier availability exceeds 0.5, Raise price becomes the most-supported option instead, in this model.')
   })
 
   it('⛔ the descriptor is suppressed whatever its case', () => {
@@ -83,6 +83,6 @@ describe('ConditionalWinnerCards — a factor-type descriptor is never a unit', 
     const directional = renderCard('£', 'opt_hold')
     expect(directional.arm).toBe('high-alt')
     expect(directional.sentence).toContain('£')
-    expect(directional.sentence).toContain('Raise price leads instead')
+    expect(directional.sentence).toContain('Raise price becomes the most-supported option instead')
   })
 })

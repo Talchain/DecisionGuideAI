@@ -64,7 +64,7 @@ function fragileRowReason(data: ResultsSectionDataReturn): string {
 describe('SURFACE A — the act-on-it fragile row honours the leader claim policy', () => {
   it('ANTI-VACUITY: the PERMITTED run emits the witnessed sentence verbatim', () => {
     expect(fragileRowReason(PERMITTED())).toBe(
-      `If the estimate changes for ${FACTOR_LABEL}, the leading option could change.`,
+      `If the estimate changes for ${FACTOR_LABEL}, the most-supported option could change.`,
     )
   })
 

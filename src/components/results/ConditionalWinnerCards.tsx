@@ -141,7 +141,8 @@ export function ConditionalWinnerCards({
   // cleanup retired the "the recommendation" legacy string. The branches
   // remain distinct so the v17 hero can use the more pointed "which
   // option leads" phrasing.
-  const headerHelpText = useV17Copy
+  // Cut 6: "the most-supported option" presupposes one, so a run that may not name a leader gets the neutral header.
+  const headerHelpText = useV17Copy && mayNameLeader
     ? 'Factors that change the most-supported option when they shift'
     : 'Factors that change the result when they shift'
 
@@ -282,11 +283,11 @@ export function ConditionalWinnerCards({
           >
             {arm === 'neutral' ? (
               <p className={`${typography.panelBody} text-text-body`}>
-                Which option leads depends on <span className="text-text-header">{factorLabelDisplay}</span> — the analysis flips at {splitDisplay}.
+                How the options compare depends on <span className="text-text-header">{factorLabelDisplay}</span>; the analysis flips at {splitDisplay}.
               </p>
             ) : (
               <p className={`${typography.panelBody} text-text-body`}>
-                When <span className="text-text-header">{factorLabelDisplay}</span> {arm === 'high-alt' ? 'exceeds' : 'falls below'} {splitDisplay}, <span className="text-text-header">{altDisplay}</span> leads instead.
+                When <span className="text-text-header">{factorLabelDisplay}</span> {arm === 'high-alt' ? 'exceeds' : 'falls below'} {splitDisplay}, <span className="text-text-header">{altDisplay}</span> becomes the most-supported option instead, in this model.
               </p>
             )}
             {(aboveText !== undefined || belowText !== undefined) && (
