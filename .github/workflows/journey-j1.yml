@@ -21,14 +21,18 @@
 # Nothing here touches the shared staging/production Supabase. Accounts A and B
 # are local sign-ups.
 #
-# ADVISORY. This check is not required. It may be promoted after 3 consecutive
-# greens, on the DL's decision; that is a shared-CI change, so it is HIGH.
+# The PINNED leg is the proposed REQUIRED check (3 greens on 3 UI heads, 5 Oct; DL 0df0e1:
+# REQUIRED once a recording on the published tuple is green). The DL adds the context to
+# staging protection; that is a shared-CI change, so it is HIGH. The tips leg stays advisory.
 # ─────────────────────────────────────────────────────────────────────────────
 name: Journey J1 · whole PoC
 
 on:
   push:
     branches: [ staging, 'journey/**' ]
+  # PRs into staging run the PINNED leg only (the proposed REQUIRED check, DL 0df0e1); tips stays on pushes.
+  pull_request:
+    branches: [ staging ]
   workflow_dispatch:
     inputs:
       cee_ref:
@@ -64,7 +68,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        backend: [pinned, tips]
+        backend: ${{ github.event_name == 'pull_request' && fromJSON('["pinned"]') || fromJSON('["pinned","tips"]') }}
     continue-on-error: ${{ matrix.backend == 'tips' }}
     env:
       J1_MODE: replay
