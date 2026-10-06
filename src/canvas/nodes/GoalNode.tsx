@@ -75,7 +75,7 @@ import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { goalConstraintShortText, goalConstraintText } from '../utils/goalConstraintText'
-import { goalCardShownLimits, goalOwnLimitRow, goalStatedLimits } from '../domain/goalOwnTargetRow'
+import { goalCardShownLimits, goalOwnLimitRow, goalStatedLimits, heldTargetBoundWords } from '../domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatGoalProbability } from '../../components/results/utils/displayFloors'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
@@ -720,12 +720,15 @@ export const GoalNode = memo((props: NodeProps) => {
   // behavioural difference is that a unit is now TRIMMED before classification,
   // the same direction the U2 fix took when it retired this site's local
   // `'%' | 'percent' | 'percentage'` copy.
+  // SD-1 (DL 0df0e1, 6 Oct): a goal that HOLDS a ceiling says "at most" before its figure, from the node's own
+  // `goal_direction` (`heldTargetBoundWords`, the one source) — at every zoom and in the in-place readout alike.
+  const heldBound = heldTargetBoundWords(props.data as GoalTargetSource)
   const thresholdDisplay = useMemo(() => {
     if (!hasThreshold) return null
     const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
-    if (Number.isNaN(raw)) return String(thresholdRaw)
-    return formatGoalTarget(raw, thresholdUnit, thresholdFrame) ?? String(thresholdRaw)
-  }, [hasThreshold, thresholdRaw, thresholdUnit, thresholdFrame])
+    const figure = Number.isNaN(raw) ? String(thresholdRaw) : formatGoalTarget(raw, thresholdUnit, thresholdFrame) ?? String(thresholdRaw)
+    return heldBound === null ? figure : `${heldBound} ${figure}`
+  }, [hasThreshold, thresholdRaw, thresholdUnit, thresholdFrame, heldBound])
 
   /**
    * ⭐⭐ ONE OWNER FOR WHAT THIS CARD SAYS ABOUT ITS TARGET — AT EVERY ZOOM.
@@ -792,7 +795,7 @@ export const GoalNode = memo((props: NodeProps) => {
   const statedLimits = goalStatedLimits(
     activeConstraints,
     props.id,
-    targetLine !== null ? { raw: thresholdRaw, unit: thresholdUnit } : null,
+    targetLine !== null ? { raw: thresholdRaw, unit: thresholdUnit, comparator: props.data?.goal_direction } : null,
   )
 
 

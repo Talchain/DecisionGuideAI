@@ -57,10 +57,17 @@ describe('CONTROLS — what does NOT count (a8)', () => {
     expect(resolveGoalTargetWithOwnRow(GOAL_DATA, null, GOAL_ID)).toBeNull()
     expect(resolveGoalTargetWithOwnRow(GOAL_DATA, [SERVED_ROW], null)).toBeNull()
   })
-  it('the node\'s own target wins, and carries no bound (unchanged)', () => {
+  // SD-1 #2544 (DL 0df0e1, 6 Oct: every reader says the side the goal node HOLDS): moved from "carries no bound". The
+  // node's own target still wins over the row; it now says the node's own `goal_direction`, and a node holding no
+  // side still says none.
+  it('the node\'s own target wins, and says the side the node holds, never the row\'s', () => {
     const target = resolveGoalTargetWithOwnRow({ ...GOAL_DATA, goal_threshold_raw: 500 }, [SERVED_ROW], GOAL_ID)
     expect(target).toMatchObject({ raw: 500 })
-    expect(goalTargetBound(target)).toBeNull()
+    expect(goalTargetBound(target)).toBe('at most')
+    const { goal_direction: _held, ...unheld } = GOAL_DATA
+    const unheldTarget = resolveGoalTargetWithOwnRow({ ...unheld, goal_threshold_raw: 500 }, [SERVED_ROW], GOAL_ID)
+    expect(unheldTarget).toMatchObject({ raw: 500 })
+    expect(goalTargetBound(unheldTarget)).toBeNull()
   })
   it('a node frame this UI cannot read: no target, even with a row (fail-closed, unchanged)', () => {
     expect(resolveGoalTargetWithOwnRow({ ...GOAL_DATA, goal_threshold_frame: 'ratio_of_something' }, [SERVED_ROW], GOAL_ID)).toBeNull()
