@@ -39,6 +39,7 @@ export interface ServerConversationTurn {
   readonly createdAt: string
   readonly userMessage: string | null
   readonly assistantMessage: string | null
+  readonly suggestedActions?: readonly ServerSuggestedAction[]
 }
 
 const text = (v: unknown): string | null => (typeof v === 'string' && v.trim().length > 0 ? v : null)
@@ -56,7 +57,8 @@ export function readServerConversationTurns(raw: unknown): readonly ServerConver
     const userMessage = text(r.user_message)
     const assistantMessage = text(r.assistant_message)
     if (userMessage === null && assistantMessage === null) continue
-    out.push({ turnId, createdAt, userMessage, assistantMessage })
+    const suggestedActions = readRestoredSuggestedActions(r.suggested_actions)
+    out.push({ turnId, createdAt, userMessage, assistantMessage, ...(suggestedActions ? { suggestedActions } : {}) })
   }
   return out.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
 }
@@ -110,7 +112,7 @@ export function buildRestoredThread(
     const last = out[lastEarlierReply]
     out[lastEarlierReply] = { ...last, content: `${last.content}\n\n${RESTORED_STALE_FIGURES_NOTE}` }
   }
-  return reconcileRestoredHeldControls(out, heldProposalOffers, true)
+  return reconcileRestoredSuggestedActions(reconcileRestoredHeldControls(out, heldProposalOffers, true), turns)
 }
 
 
@@ -228,4 +230,45 @@ export function reconcileRestoredHeldControls(
     return { ...rest, heldProposalId: offer.proposalId, heldTurnId: offer.turnId,
       actionChips: buildSuggestedActionChips([], offer.actions) }
   }).reverse()
+}
+
+interface ServerSuggestedAction {
+  readonly id: string
+  readonly label: string
+  readonly message: string
+}
+
+/** CEE's exact next-step shape. A malformed action array withholds actions, never the turn's text. */
+function readRestoredSuggestedActions(raw: unknown): readonly ServerSuggestedAction[] | undefined {
+  if (!Array.isArray(raw) || raw.length < 1 || raw.length > 8) return undefined
+  const actions: ServerSuggestedAction[] = []
+  for (const action of raw) {
+    if (action === null || typeof action !== 'object' || Array.isArray(action)) return undefined
+    const row = action as Record<string, unknown>
+    const keys = Object.keys(row)
+    if (keys.length !== 3 || keys.some(key => key !== 'id' && key !== 'label' && key !== 'message')
+      || text(row.id) === null || text(row.label) === null || text(row.message) === null) return undefined
+    actions.push({ id: row.id as string, label: row.label as string, message: row.message as string })
+  }
+  return actions
+}
+
+/** Only the read's last turn can arm its exact last answer; a later user message or armed held controls take priority. */
+export function reconcileRestoredSuggestedActions(
+  messages: readonly ConversationMessage[],
+  turns: readonly ServerConversationTurn[],
+): ConversationMessage[] {
+  const turn = turns[turns.length - 1]
+  if (!turn?.suggestedActions || turn.assistantMessage === null) return [...messages]
+  let lastAnswer = -1
+  for (let i = 0; i < messages.length; i++) {
+    const message = messages[i]
+    if (message.role === 'assistant' && !message.sessionDivider && !message.synthetic) lastAnswer = i
+  }
+  if (lastAnswer < 0 || messages.slice(lastAnswer + 1).some(message => message.role === 'user')) return [...messages]
+  const answer = messages[lastAnswer]
+  if (answer.id !== `restored-assistant-${turn.turnId}` && answer.clientTurnId !== turn.turnId) return [...messages]
+  if (answer.heldProposalId && answer.actionChips?.length) return [...messages]
+  return messages.map((message, i) => i === lastAnswer
+    ? { ...message, actionChips: buildSuggestedActionChips([], turn.suggestedActions) } : message)
 }

@@ -126,7 +126,7 @@ import {
   settledSourceBlockKeys as settledSourceBlockKeysOf,
 } from './utils/transcriptStore'
 import { useServerConversationTurnsStore } from '../stores/serverConversationTurnsStore'
-import { buildRestoredThread, reconcileRestoredHeldControls, reconcileUnconfirmedServerTurns } from './serverConversationTurns'
+import { buildRestoredThread, reconcileRestoredHeldControls, reconcileRestoredSuggestedActions, reconcileUnconfirmedServerTurns } from './serverConversationTurns'
 import { heldProposalMountKey, heldProposalRetirementKeys } from './selectors'
 import { appendThreadEntries } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
@@ -2960,7 +2960,7 @@ export function useConversation(): UseConversationReturn {
       const reconciled = reconcileUnconfirmedServerTurns(
         messagesRef.current, scenarioId, serverTurnsOffer.turns, serverTurnsOffer.run,
       )
-      const next = reconcileRestoredHeldControls(reconciled, serverTurnsOffer.heldProposalOffers)
+      const next = reconcileRestoredSuggestedActions(reconcileRestoredHeldControls(reconciled, serverTurnsOffer.heldProposalOffers), serverTurnsOffer.turns)
       if (messagesRef.current.some(m => m.id === lastVisibleUserBubbleIdRef.current && m.deliveryState === 'unconfirmed')
         && next.some(m => m.id === lastVisibleUserBubbleIdRef.current && m.deliveryState === 'sent')) {
         setLastSendFailure(null)
