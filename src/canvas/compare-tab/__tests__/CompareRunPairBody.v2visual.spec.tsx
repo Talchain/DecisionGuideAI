@@ -180,6 +180,20 @@ describe('Ask Olumi: offered only for the pair Olumi reads, with a capped editab
     expect(screen.getByTestId('compare-ask-unavailable')).toHaveTextContent('You can ask Olumi about this comparison when the run finishes.')
   })
 
+  it('says a Run is in progress above the pair it keeps showing, and only while the run is in flight', () => {
+    mount(runChangeDelta(), { status: 'streaming' })
+    const notice = screen.getByRole('status')
+    expect(notice).toHaveAttribute('data-testid', 'compare-run-in-progress')
+    expect(notice).toHaveTextContent('A Run is in progress. The comparison below is between the two runs before it.')
+    // The notice leads: it sits above the headline section, and the previous pair stays on screen.
+    const headline = document.querySelector('[data-compare-section="headline"]')!
+    expect(notice.compareDocumentPosition(headline) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getAllByTestId('analysis-new-whats-changed-input-row').length).toBeGreaterThan(0)
+    cleanup()
+    mount(runChangeDelta())
+    expect(screen.queryByTestId('compare-run-in-progress')).toBeNull()
+  })
+
   it('quotes only the rows the panel shows, then counts the rest', () => {
     const row = (subject: string) => ({ key: subject, kind: 'factor_value', subject, before: '1', after: '2', change: 'changed', field: 'value', linkLabels: null, strength: null } as unknown as RunDeltaInputRow)
     expect(compareAskDraft([row('A'), row('B')], 3)).toBe(

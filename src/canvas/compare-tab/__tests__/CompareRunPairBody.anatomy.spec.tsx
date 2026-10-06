@@ -162,10 +162,18 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     expect(section('What you changed')).toHaveTextContent('£59 → £60')
     expect(screen.queryByText(/41%.*44%/)).toBeNull()
     fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.getByText('Raise to £60: 41% → 44% chance of leading.')).toBeInTheDocument()
-    expect(screen.getByText('Keep £49: 59% → 56% chance of leading.')).toBeInTheDocument()
+    expect(screen.getByText('Raise to £60: supported by 41% → 44% of runs.')).toBeInTheDocument()
+    expect(screen.getByText('Keep £49: supported by 59% → 56% of runs.')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
     expect(screen.queryByText(/41%.*44%/)).toBeNull()
+  })
+
+  it('says each exact figure as a share of runs, never a chance and never who leads (6 Oct rule; #2549 missed this line)', () => {
+    mount()
+    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
+    const region = screen.getByTestId('compare-result-details-region')
+    expect(region).toHaveTextContent('Raise to £60: supported by 41% → 44% of runs.')
+    expect(region.textContent).not.toMatch(/chance|lead/i)
   })
 
   it('keeps the not-noise-qualified magnitude withheld even on disclosure', () => {
@@ -266,6 +274,6 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     const hash = seed()
     render(<DetailToggleContext.Provider value={{ showDetail: true }}><CompareRunPairBody responseHash={hash} /></DetailToggleContext.Provider>)
     fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.getByText('Raise to £60: 41% → 44% chance of leading.')).toBeInTheDocument()
+    expect(screen.getByText('Raise to £60: supported by 41% → 44% of runs.')).toBeInTheDocument()
   })
 })

@@ -18,6 +18,8 @@ import { CompareSupportFigures, orderMovements, type OptionCanvasLink } from './
 const INPUT_FIELDS = 'run_delta.input_changes[].entity_id run_delta.input_changes[].option_id run_delta.input_changes[].link run_delta.input_changes[].before run_delta.input_changes[].after run_delta.input_coverage'
 const LEADER_FIELDS = 'run_delta.leader.changed run_delta.leader.prior_leading_option_id run_delta.leader.current_leading_option_id run_delta.leader.noise_verdict'
 export const COMPARE_ASK_LABEL = 'Ask Olumi about this comparison'
+/** While a Run is in flight the previous pair stays on screen; this says so, and promises nothing about the next pair. */
+export const COMPARE_RUN_IN_PROGRESS_TEXT = 'A Run is in progress. The comparison below is between the two runs before it.'
 
 /**
  * The one headline. Words selected from entitled producer claims, never from a score or a client comparison: an
@@ -97,6 +99,9 @@ export function ComparePairSections({
   })
   return (
     <div data-testid={WHATS_CHANGED_TESTID} data-attributable={view.attributable ? 'true' : 'false'}>
+      {analysing ? (
+        <p role="status" className={`${typography.panelBody} text-text-body m-0`} data-testid="compare-run-in-progress">{COMPARE_RUN_IN_PROGRESS_TEXT}</p>
+      ) : null}
       <section data-compare-section="headline" aria-label={artefact ? 'What changed between runs' : resultsAllowed ? 'Result comparison' : 'Result comparison not shown'}
         data-testid={artefact ? RUN_CHANGE_ARTEFACT_TESTID : undefined} data-prior-run-id={artefact?.priorRunId} data-current-run-id={artefact?.currentRunId}>
         <div className="flex items-center gap-1">
@@ -136,7 +141,7 @@ export function ComparePairSections({
             <ul className={`${typography.panelBody} text-text-body list-none p-0 m-0 space-y-2`}>
               {orderMovements(view.movements, designationsWithheld).map((m) => (
                 <li key={m.optionId} data-option-id={m.optionId} data-wire-fields="run_delta.win_probabilities[].option_id run_delta.win_probabilities[].prior run_delta.win_probabilities[].current run_delta.win_probabilities[].noise_verdict">
-                  {m.label ?? 'An option this run does not name'}: {m.mayShowMagnitude ? `${scienceQuantityText('probability', m.prior, exact, false)} → ${scienceQuantityText('probability', m.current, exact, false)} chance of leading.` : noiseQualifier(m.noiseVerdict)}
+                  {m.label ?? 'An option this run does not name'}: {m.mayShowMagnitude ? `supported by ${scienceQuantityText('probability', m.prior, exact, false)} → ${scienceQuantityText('probability', m.current, exact, false)} of runs.` : noiseQualifier(m.noiseVerdict)}
                   {m.mayShowMagnitude && noiseQualifier(m.noiseVerdict) ? <span className={`${typography.panelMeta} text-text-light block`}>{noiseQualifier(m.noiseVerdict)}</span> : null}
                 </li>
               ))}
