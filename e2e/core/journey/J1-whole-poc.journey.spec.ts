@@ -68,8 +68,12 @@ const ASSUMED_DIRECTION = 'The analysis was not told which way your goal points,
 const RANKING_WORDS = /\b(?:ahead|best|winners?|recommend\w*)\b/i
 const PUT_FORWARD = /\bput forward\b/i
 const PUT_FORWARD_REQUIRED = false
+// Codex r5 MED: only whole occurrences of an OPTION label are removed (bounded by non-letters/digits), never a substring:
+// label "B" must not turn "B is Best" into " is est". Callers pass `optionLabels()`, the user's own option names.
+const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const ownWordsRemoved = (text: string, labels: string[]): string =>
-  labels.filter(Boolean).sort((a, b) => b.length - a.length).reduce((t, l) => t.split(l).join(' '), text)
+  labels.filter(Boolean).sort((a, b) => b.length - a.length)
+    .reduce((t, l) => t.replace(new RegExp(`(?<![\\p{L}\\p{N}])${escapeRe(l)}(?![\\p{L}\\p{N}])`, 'gu'), ' '), text)
 const rankingWord = (text: string, labels: string[]): string | null => ownWordsRemoved(text, labels).match(RANKING_WORDS)?.[0] ?? null
 // StyledEdge paints the fragile cue only above this switch probability (constants.ts:23).
 const FRAGILE_PAINT_THRESHOLD = 0.15
@@ -110,10 +114,16 @@ const advisory: Record<string, unknown> = {}
 let ctxA: BrowserContext
 let pageA: Page
 let turns: CapturedTurn[]
+// Turn requests sent and not yet finished (Codex r5 MED: quiet() must not return while a narration is still in flight).
+const pendingTurns = new Set<Request>()
+const TURN_URL = /\/proxy\/v\d+\/turn(\/stream)?(\?|$)/
 
 const nodesOf = (g: Graph) => g.nodes.map((n) => n.id).sort()
 const edgesOf = (g: Graph) => g.edges.map(edgeKey).sort()
 const labelOf = (g: Graph, id: string) => g.nodes.find((n) => n.id === id)?.label ?? id
+
+/** The model's OPTION labels: the only words J2c/J6 exempt from the ranking-word check. */
+const optionLabels = (): string[] => J.G1!.nodes.filter((n) => n.kind === 'option').map((n) => n.label ?? '')
 
 async function read(label: string) {
   const r = await storedRead(J.S!, J.A!.user)
@@ -127,13 +137,13 @@ async function read(label: string) {
  * request (and `nextTurn` would bind the narration instead of the edit). Never a pass/fail: it only orders the steps.
  */
 async function quiet(ms = 5_000, maxMs = 120_000): Promise<void> {
-  const mark = () => `${turns.length}:${turns.filter((x) => x.body).length}:${ledger().length}`
+  const mark = () => `${turns.length}:${turns.filter((x) => x.body).length}:${ledger().length}:${pendingTurns.size}`
   const deadline = Date.now() + maxMs
   let last = mark(), since = Date.now()
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 500))
     const now = mark()
-    if (now !== last) { last = now; since = Date.now() } else if (Date.now() - since >= ms) return
+    if (now !== last) { last = now; since = Date.now() } else if (pendingTurns.size === 0 && Date.now() - since >= ms) return
   }
 }
 
@@ -236,6 +246,9 @@ test.describe.serial('J1 · whole PoC', () => {
     ctxA = await browser.newContext({ viewport: { width: 1440, height: 900 } })
     pageA = await ctxA.newPage()
     turns = captureTurns(pageA)
+    pageA.on('request', (r) => { if (TURN_URL.test(r.url())) pendingTurns.add(r) })
+    pageA.on('requestfinished', (r) => { pendingTurns.delete(r) })
+    pageA.on('requestfailed', (r) => { pendingTurns.delete(r) })
     await installWireInterceptor(pageA)
   })
   test.afterAll(async () => {
@@ -341,7 +354,7 @@ test.describe.serial('J1 · whole PoC', () => {
     expect(options.length, '[J2] G1 has no option to look for').toBeGreaterThan(0)
     for (const o of options) await expect(results, `[J2] the result does not name option "${o.label}" (${o.id})`).toContainText(o.label!)
     // J2c: neither R1's served summary nor the Analysis tab the user reads ranks the options.
-    const labels = J.G1!.nodes.map((n) => n.label ?? '')
+    const labels = optionLabels()
     const tabText = await results.innerText()
     expect(rankingWord(String(J.AR1.summary ?? ''), labels), '[J2c] R1\'s served summary ranks the options').toBeNull()
     expect(rankingWord(tabText, labels), '[J2c] the Analysis tab ranks the options').toBeNull()
@@ -436,7 +449,7 @@ test.describe.serial('J1 · whole PoC', () => {
     const rob = ar.enrichment?.robustness
     const robEdges = [...(rob?.fragile_edges ?? []), ...(rob?.robust_edges ?? [])]
     expect(robEdges.length, '[J2e] the sized run\'s robustness is still the empty withheld shape').toBeGreaterThan(0)
-    const labels = J.G1!.nodes.map((n) => n.label ?? '')
+    const labels = optionLabels()
     expect(rankingWord(String(ar.summary ?? ''), labels), '[J2e] the sized run\'s summary ranks the options').toBeNull()
     putForwardRow('J2e sized summary', String(ar.summary ?? ''), labels)
     J.AR1 = ar; J.A1 = A; J.R1 = body.current_read?.run_delta?.endpoints?.current?.run_id ?? null
@@ -511,7 +524,9 @@ test.describe.serial('J1 · whole PoC', () => {
     // Only that edge changed provenance to user_specified.
     const newlyUser = J.G2.edges.filter((e) => e.provenance?.source === 'user_specified' &&
       J.G1!.edges.find((o) => edgeKey(o) === edgeKey(e))?.provenance?.source !== 'user_specified').map(edgeKey)
-    expect(newlyUser, '[J5] the edit stamped other edges as the user\'s').toEqual([edgeKey({ from: top.from_id, to: top.to_id })])
+    // Codex r5 MED: the edited link may already be the user's (J2d sized it), so bind the CLAIM, not a fresh stamp:
+    // it is the user's (asserted above) and no OTHER link newly became the user's.
+    expect(newlyUser.filter((k) => k !== edgeKey({ from: top.from_id, to: top.to_id })), '[J5] the edit stamped other edges as the user\'s').toEqual([])
 
     // J5a: staleness is derived at read: R1 is now out of date for H2, and the UI says so.
     expect(body.analysis_state?.run_state?.kind, '[J5a] the stored read does not call R1 stale').toBe('complete_stale')
@@ -532,8 +547,8 @@ test.describe.serial('J1 · whole PoC', () => {
     assertBoundaryClean('J6')
     J.AR2 = analysisResultOf(turn.body)!
     expect(J.AR2, '[J6] the rerun carries no analysis_result').toBeTruthy()
-    expect(rankingWord(String(J.AR2.summary ?? ''), J.G1!.nodes.map((n) => n.label ?? '')), '[J6] R2\'s served summary ranks the options').toBeNull()
-    putForwardRow('J6 R2 summary', String(J.AR2.summary ?? ''), J.G1!.nodes.map((n) => n.label ?? ''))
+    expect(rankingWord(String(J.AR2.summary ?? ''), optionLabels()), '[J6] R2\'s served summary ranks the options').toBeNull()
+    putForwardRow('J6 R2 summary', String(J.AR2.summary ?? ''), optionLabels())
 
     const body = await read('J6')
     expect(body.graph_hash, '[J6] the rerun is not on the edited graph').toBe(J.H2)
