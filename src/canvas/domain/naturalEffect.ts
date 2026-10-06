@@ -168,13 +168,14 @@ export function readWireNaturalEffect(
   // amount as the user's single figure. Olumi's own size never carries one.
   const range = author === 'user' ? readRecord(ne.stated_range) : null
   if (author === 'user' && ne.stated_range !== undefined && range === null) return undefined
-  // ⛔ An `end` this reader does not know (a literal a later CEE adds) drops the RANGE WORDS, never the user's figure
-  // (DL #2644/#2557): before this, a new literal failed the whole parse and the user's own size vanished from the canvas.
-  const knownEnd = range !== null && (STATED_RANGE_ENDS as readonly unknown[]).includes(range.end)
+  // ⛔ An `end` LITERAL this reader does not know (a string a later CEE adds) drops the RANGE WORDS, never the user's
+  // figure (DL #2644/#2557): before this, a new literal failed the whole parse and the user's own size vanished. A range
+  // that is unreadable in any other way (no `end` at all, bad ends) still fails closed above and below (A4, R3 C1).
+  const unknownEnd = range !== null && typeof range.end === 'string' && !(STATED_RANGE_ENDS as readonly string[]).includes(range.end)
   const userOrigin = author !== 'user' ? undefined : provenance.source === 'brief_extraction' ? 'brief' : 'entered'
   const parsed = NaturalEffectSchema.safeParse({
     ...(userOrigin !== undefined ? { userOrigin } : {}),
-    ...(range !== null && knownEnd
+    ...(range !== null && !unknownEnd
       ? { statedRange: { low: range.low, high: range.high, text: nonEmpty(range.text), end: range.end } }
       : {}),
     amount: ne.amount,
