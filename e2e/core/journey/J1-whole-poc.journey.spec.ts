@@ -13,7 +13,7 @@
  *   on the canvas, by their exact "Connection from <A> to <B>" labels (canvas ids are local).
  * A value another object could satisfy ("a result appeared") is never enough.
  *
- * Required (deterministic under frozen replay): J0 J1 J2(+a,b) J3 J3r J5(+a) J6 J8 J9,
+ * Required (deterministic under frozen replay): J0 J1 J2(+a,b,c) J2d J2e J3 J3r J5(+a) J6 J8 J9,
  * and gate 3's J10 J11 J12 J13 (no LLM call; advisory J11a brief, J11b name).
  * Advisory until 3 greens: J3p J7, and J6's prior = R1 binding where R1 is not
  * identifiable (UNBOUND). Advisory rows write a verdict to evidence/advisory.json and
@@ -102,6 +102,7 @@ const J: {
   fragile1?: Fragile[]; edited?: Fragile
   G2?: Graph; H2?: string; H2id?: string
   AR2?: Record<string, any>; R2?: string; fragile2?: Fragile[]
+  G0?: Graph; H0?: string; R0?: string | null; sized?: { from: string; to: string; target: number }[]
   cardS?: string; C?: string
 } = {}
 const advisory: Record<string, unknown> = {}
@@ -118,6 +119,48 @@ async function read(label: string) {
   const r = await storedRead(J.S!, J.A!.user)
   expect(r.status, `[${label}] CEE's stored read for S=${J.S} returned ${r.status}`).toBe(200)
   return r.body!
+}
+
+/** Open the edge inspector on the canvas link "from → to" by a double-click at its path midpoint (journey4 s6). */
+async function openEdgeInspector(page: Page, fromLabel: string, toLabel: string, label: string): Promise<Locator> {
+  const edge = page.locator(`[data-testid^="rf__edge-"][aria-label^="Connection from ${fromLabel} to ${toLabel}."]`).first()
+  await expect(edge, `[${label}] the canvas has no edge "${fromLabel} → ${toLabel}"`).toBeVisible()
+  const pt = await edge.evaluate((el) => {
+    const p = el.querySelector('path') as SVGPathElement | null
+    if (p?.getTotalLength) {
+      const m = p.getPointAtLength(p.getTotalLength() / 2); const c = p.getScreenCTM()!
+      return { x: c.a * m.x + c.c * m.y + c.e, y: c.b * m.x + c.d * m.y + c.f }
+    }
+    const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
+  })
+  await page.mouse.dblclick(pt.x, pt.y)
+  const dialog = page.getByRole('dialog', { name: 'Edge inspector' })
+  await expect(dialog, `[${label}] the edge inspector did not open`).toBeVisible({ timeout: 15_000 })
+  return dialog
+}
+
+/**
+ * A TYPED FIGURE edit: the inspector's fine-tune slider ("Effect on target", -1…1, step 0.01), never a band preset
+ * (DL 0df0e1, 6 Oct: band edits drop the figure until WORDING c6's F1 fix). The value is set in ONE input event, as one
+ * drag release would, so the 120 ms onChange debounce sends exactly one edit; blur commits it. The sign is the stored
+ * link's own; the magnitude is 0.6, or 0.4 when the link already sits at 0.6 (an unchanged value is refused).
+ */
+async function typedFigureEdit(page: Page, dialog: Locator, storedMean: number | undefined, label: string): Promise<number> {
+  const sign = (storedMean ?? 0) < 0 ? -1 : 1
+  const target = sign * (Math.abs(Math.abs(storedMean ?? 0) - 0.6) < 0.005 ? 0.4 : 0.6)
+  const fineTune = dialog.locator('summary', { hasText: 'Fine-tune' })
+  await expect(fineTune, `[${label}] the inspector has no Fine-tune control`).toBeVisible()
+  await fineTune.click()
+  const slider = dialog.getByRole('slider', { name: 'Effect on target' })
+  await expect(slider, `[${label}] the Fine-tune slider did not open`).toBeVisible()
+  await slider.evaluate((el, v) => {
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+    set.call(el, String(v))
+    el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true }))
+  }, target)
+  await page.waitForTimeout(400)
+  await slider.blur()
+  return target
 }
 
 /** The canvas edges carrying the fragile cue, as exact (from label, to label) pairs. */
@@ -294,6 +337,84 @@ test.describe.serial('J1 · whole PoC', () => {
     writeEvidence('J2-run.json', { run_control: runLabel, A1: J.A1, R1: J.R1, keys, unattested, summary: J.AR1.summary })
   })
 
+  // ── J2d/J2e (Journey Builder; DL 0df0e1, 6 Oct): THE CORE LOOP. At cut 4 the draft leaves Olumi-supplied links unsized
+  // on option paths, so the Run withholds those options' goal figures and, with them, the comparison science and
+  // robustness (by design: CEE constraint-feasibility.ts withholdOptionGoalFigures, DL #75 5902570568). The user sizes
+  // EXACTLY the links the withhold names, bound by their ENDS (never label text), with typed figures, and reruns.
+  const PLACEHOLDER_CODE = 'GOAL_FIGURES_PLACEHOLDER_PATH'
+  const placeholderWarning = (ar: Record<string, any> | undefined): Record<string, any> | null =>
+    ((ar?.enrichment?.inference_warnings ?? []) as Record<string, any>[]).find((w) => w?.code === PLACEHOLDER_CODE) ?? null
+
+  test('J2d · size what Olumi supplied: a typed figure on exactly each link the withhold names, by its ends', async () => {
+    const w = placeholderWarning(J.AR1)
+    expect(w, `[J2d] COULD NOT MEASURE: R1 carries no ${PLACEHOLDER_CODE}, so there is no Olumi-supplied link to size`).not.toBeNull()
+    const links = ((w!.links ?? []) as { from: string; to: string }[])
+    expect(links.length, '[J2d] the withhold names no link').toBeGreaterThan(0)
+    const byId = new Map(J.G1!.nodes.map((n) => [n.id, n]))
+    const sized: { from: string; to: string; target: number }[] = []
+    for (const l of links) {
+      const stored = J.G1!.edges.find((e) => e.from === l.from && e.to === l.to)
+      expect(stored, `[J2d] the withhold names ${l.from}→${l.to}, which is not a link in G1`).toBeTruthy()
+      const fromLabel = byId.get(l.from)?.label, toLabel = byId.get(l.to)?.label
+      expect(fromLabel && toLabel, `[J2d] G1 has no labels for ${l.from}→${l.to}`).toBeTruthy()
+      await pageA.keyboard.press('Escape')
+      const dialog = await openEdgeInspector(pageA, fromLabel!, toLabel!, 'J2d')
+      const since = Date.now()
+      const target = await typedFigureEdit(pageA, dialog, stored!.strength?.mean, 'J2d')
+      const turn = await nextTurn(turns, since, `J2d edit ${l.from}→${l.to}`)
+      expect(turn.status, `[J2d] the edit turn for ${l.from}→${l.to} failed`).toBe(200)
+      assertBoundaryClean('J2d')
+      sized.push({ ...l, target })
+    }
+    await pageA.keyboard.press('Escape')
+    // By identity in the stored model: each named link is the user's at the typed figure, and nothing else became the user's.
+    const body = await read('J2d')
+    const G = body.graph as Graph
+    for (const s of sized) {
+      const e = G.edges.find((x) => x.from === s.from && x.to === s.to)
+      expect(e?.provenance?.source, `[J2d] ${s.from}→${s.to} is not stamped as the user's`).toBe('user_specified')
+      expect(Math.abs((e?.strength?.mean ?? Number.NaN) - s.target), `[J2d] ${s.from}→${s.to} does not carry the typed figure ${s.target} (stored ${e?.strength?.mean})`).toBeLessThan(0.011)
+    }
+    const newlyUser = G.edges.filter((e) => e.provenance?.source === 'user_specified' &&
+      J.G1!.edges.find((o) => edgeKey(o) === edgeKey(e))?.provenance?.source !== 'user_specified').map(edgeKey).sort()
+    expect(newlyUser, '[J2d] the typed figures stamped links the withhold did not name').toEqual(sized.map((s) => edgeKey(s)).sort())
+    expect(body.graph_hash, '[J2d] sizing did not change the model').not.toBe(J.H1)
+    expect(body.analysis_state?.run_state?.kind, '[J2d] R1 is not stale after sizing').toBe('complete_stale')
+    J.G0 = J.G1; J.H0 = J.H1; J.R0 = J.R1; J.sized = sized
+    J.G1 = G; J.H1 = body.graph_hash; J.H1id = body.graph_identity_hash?.value
+    writeEvidence('J2d-size.json', { warning: { code: w!.code, option_ids: w!.option_ids, links }, sized, H0: J.H0, H1: J.H1 })
+  })
+
+  test('J2e · rerun on the sized model: the same withhold is gone and robustness is back', async () => {
+    const footer = pageA.getByTestId('results-analysis-footer-action')
+    await expect(footer, '[J2e] the footer does not offer the rerun').toBeVisible({ timeout: 60_000 })
+    const since = Date.now()
+    await footer.click()
+    const turn = await nextTurn(turns, since, 'J2e rerun')
+    assertBoundaryClean('J2e')
+    const ar = analysisResultOf(turn.body)!
+    expect(ar, '[J2e] the rerun carries no analysis_result').toBeTruthy()
+    const body = await read('J2e')
+    expect(body.graph_hash, '[J2e] the rerun is not on the sized model').toBe(J.H1)
+    expect(body.analysis_state?.run_state?.kind, '[J2e] the rerun is not current').toBe('complete_current')
+    const A = body.current_read?.computed_against_hash
+    expect(A, '[J2e] the stored read names no analysis hash').toMatch(HASH)
+    expect(ar.computed_against_hash, '[J2e] the turn and the stored read disagree on what the rerun was computed on').toBe(A)
+    // Identity: THIS run, computed on the sized model, carries no placeholder withhold, and its robustness is not
+    // the empty shape the withhold writes ({ fragile_edges: [], robust_edges: [] }).
+    expect(placeholderWarning(ar), `[J2e] the sized run still withholds for Olumi-supplied links: ${JSON.stringify(placeholderWarning(ar)?.links ?? null)}`).toBeNull()
+    const rob = ar.enrichment?.robustness
+    const robEdges = [...(rob?.fragile_edges ?? []), ...(rob?.robust_edges ?? [])]
+    expect(robEdges.length, '[J2e] the sized run\'s robustness is still the empty withheld shape').toBeGreaterThan(0)
+    const labels = J.G1!.nodes.map((n) => n.label ?? '')
+    expect(rankingWord(String(ar.summary ?? ''), labels), '[J2e] the sized run\'s summary ranks the options').toBeNull()
+    putForwardRow('J2e sized summary', String(ar.summary ?? ''), labels)
+    J.AR1 = ar; J.A1 = A; J.R1 = body.current_read?.run_delta?.endpoints?.current?.run_id ?? null
+    J.R1at = body.analysis_state?.run_state?.computed_at ?? null
+    expect(J.R1at, '[J2e] the sized run has no computed_at').toBeTruthy()
+    writeEvidence('J2e-rerun.json', { R0: J.R0, R1: J.R1, A1: J.A1, H1: J.H1, robustness_edges: robEdges.length, summary: ar.summary })
+  })
+
   test('J3 · science finding: fragile edges are G1 edges, and the canvas marks exactly the ones it should', async () => {
     J.fragile1 = (J.AR1!.enrichment?.robustness?.fragile_edges ?? []) as Fragile[]
     expect(J.fragile1.length, '[J3] the run produced no fragile edge: J3 would be vacuous for this journey').toBeGreaterThan(0)
@@ -339,26 +460,12 @@ test.describe.serial('J1 · whole PoC', () => {
   test('J5 · approved typed edit on the fragile link: H2 ≠ H1, provenance user_specified (+J5a staleness)', async () => {
     const top = [...J.fragile1!].sort((a, b) => b.switch_probability - a.switch_probability)[0]
     J.edited = top
-    const edge = pageA.locator(`[data-testid^="rf__edge-"][aria-label^="Connection from ${top.from_label} to ${top.to_label}."]`).first()
-    await expect(edge, `[J5] the canvas has no edge "${top.from_label} → ${top.to_label}"`).toBeVisible()
-
-    // A double-click at the path midpoint opens the inspector (journey4 s6, 11b-edge-dbl).
-    const pt = await edge.evaluate((el) => {
-      const p = el.querySelector('path') as SVGPathElement | null
-      if (p?.getTotalLength) {
-        const m = p.getPointAtLength(p.getTotalLength() / 2); const c = p.getScreenCTM()!
-        return { x: c.a * m.x + c.c * m.y + c.e, y: c.b * m.x + c.d * m.y + c.f }
-      }
-      const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
-    })
-    await pageA.mouse.dblclick(pt.x, pt.y)
-    await expect(pageA.getByRole('dialog', { name: 'Edge inspector' }), '[J5] the edge inspector did not open').toBeVisible({ timeout: 15_000 })
-
+    // A typed figure on the fragile link (never a band preset: DL 0df0e1, 6 Oct, F1), via the same inspector path.
+    await pageA.keyboard.press('Escape')
+    const dialog = await openEdgeInspector(pageA, top.from_label, top.to_label, 'J5')
     const before = J.G1!.edges.find((e) => e.from === top.from_id && e.to === top.to_id)!
-    const band = (await pageA.getByTestId('strength-band-very-strong').getAttribute('aria-pressed')) === 'true'
-      ? 'strength-band-slight' : 'strength-band-very-strong'
     const since = Date.now()
-    await pageA.getByTestId(band).click()
+    const target = await typedFigureEdit(pageA, dialog, before.strength?.mean, 'J5')
     const turn = await nextTurn(turns, since, 'J5 edit')
     expect(turn.status, '[J5] the edit turn failed').toBe(200)
     assertBoundaryClean('J5')
@@ -370,6 +477,7 @@ test.describe.serial('J1 · whole PoC', () => {
     expect(after, `[J5] edge ${top.from_id}→${top.to_id} vanished after its edit`).toBeTruthy()
     expect(after!.provenance?.source, '[J5] the edited edge is not stamped as the user\'s').toBe('user_specified')
     expect(after!.strength?.mean, '[J5] the edited edge kept its old strength').not.toBe(before.strength?.mean)
+    expect(Math.abs((after!.strength?.mean ?? Number.NaN) - target), `[J5] the edited edge does not carry the typed figure ${target}`).toBeLessThan(0.011)
     // Only that edge changed provenance to user_specified.
     const newlyUser = J.G2.edges.filter((e) => e.provenance?.source === 'user_specified' &&
       J.G1!.edges.find((o) => edgeKey(o) === edgeKey(e))?.provenance?.source !== 'user_specified').map(edgeKey)
@@ -381,7 +489,7 @@ test.describe.serial('J1 · whole PoC', () => {
     const notice = pageA.getByTestId('analysis-freshness-notice')
     await expect(notice, '[J5a] the UI shows no stale notice').toHaveAttribute('data-freshness', 'stale', { timeout: 30_000 })
     await expect(notice, '[J5a] the stale notice has the wrong words').toContainText('Model changed since this analysis. Re-run to update.')
-    writeEvidence('J5-edit.json', { edited: edgeKey({ from: top.from_id, to: top.to_id }), band, H2: J.H2, H2id: J.H2id, mean_before: before.strength?.mean, mean_after: after!.strength?.mean })
+    writeEvidence('J5-edit.json', { edited: edgeKey({ from: top.from_id, to: top.to_id }), target, H2: J.H2, H2id: J.H2id, mean_before: before.strength?.mean, mean_after: after!.strength?.mean })
   })
 
   test('J6 · rerun: R2 is computed on H2, its delta has a distinct prior, and the prior is R1 wherever R1 is identifiable (+J7 Compare, advisory)', async () => {
