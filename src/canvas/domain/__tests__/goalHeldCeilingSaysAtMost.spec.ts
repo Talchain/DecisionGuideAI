@@ -12,7 +12,7 @@ import {
   constraintRestatesGoalTarget, goalCardShownLimits, goalTargetBound, goalTargetComparator, goalTargetEditDirection,
   heldTargetBoundWords, resolveGoalTargetWithOwnRow,
 } from '../goalOwnTargetRow'
-import { savedMeasureGlyph, selectSuccessTargetGlyph } from '../../../components/results/decision-overview/DecisionOverviewCard'
+import { savedMeasureGlyph, selectSuccessTargetGlyph, successLineGlyph } from '../../../components/results/decision-overview/DecisionOverviewCard'
 
 const GOAL = 'monthly_cancellations'
 const UNIT = 'cancellations/month'
@@ -44,10 +44,16 @@ describe('display: a goal that HOLDS a ceiling says "at most" wherever its targe
     expect(heldTargetBoundWords(data as never)).toBeNull()
     expect(goalTargetBound(resolveGoalTargetWithOwnRow(data as never, [], GOAL))).toBeNull()
   })
-  it('the overview glyph is the held side: ≤ for a ceiling; ≥ for a floor or nothing held', () => {
+  it('the overview glyph is the held side: ≤ for a ceiling, ≥ for a floor, nothing when nothing is held', () => {
     expect(selectSuccessTargetGlyph({ nodes: [goalNode(STAMPED_CEILING)] } as never)).toBe('≤')
     expect(selectSuccessTargetGlyph({ nodes: [goalNode(FLOOR)] } as never)).toBe('≥')
-    expect(selectSuccessTargetGlyph({ nodes: [goalNode(UNHELD)] } as never)).toBe('≥')
+    expect(selectSuccessTargetGlyph({ nodes: [goalNode(UNHELD)] } as never)).toBeNull()
+    expect(successLineGlyph(null, null)).toBe('≥')
+  })
+  it('r1 item 1: the canonical goal WINS over a browser-saved measure; the saved one speaks only when nothing is held', () => {
+    expect(successLineGlyph('≥', 'keep_below')).toBe('≥')
+    expect(successLineGlyph('≤', 'increase_by_at_least')).toBe('≤')
+    expect(successLineGlyph(null, 'keep_below')).toBe('≤')
   })
   it('a SAVED "keep below" measure says ≤ (it compared against a literal no measure holds); CONTRAST: floors say ≥', () => {
     expect(savedMeasureGlyph('keep_below')).toBe('≤')
@@ -68,6 +74,15 @@ describe('limits: the ceiling row that restates the held target is not a second 
   it('UNCHANGED: a ">= 400" row restates an unheld target, as before', () => {
     expect(constraintRestatesGoalTarget({ ...OWN_ROW, operator: '>=' } as never, GOAL, { raw: 400, unit: UNIT })).toBe(true)
   })
+  it('r1 item 2: a DEADLINE row at the target\'s own figure and unit is a time limit, never the target restated', () => {
+    const deadlineAtTarget = { ...OWN_ROW, deadline_metadata: { as_stated: 'within 9 months' } }
+    expect(constraintRestatesGoalTarget(deadlineAtTarget as never, GOAL, { raw: 400, unit: UNIT, comparator: '<=' })).toBe(false)
+  })
+  it('r1 item 2: a stricter "< 400" row beside an inclusive held "at most 400" is a different limit and stays', () => {
+    const strict = { ...OWN_ROW, operator_as_stated: '<' }
+    expect(constraintRestatesGoalTarget(strict as never, GOAL, { raw: 400, unit: UNIT, comparator: '<=' })).toBe(false)
+    expect(constraintRestatesGoalTarget(strict as never, GOAL, { raw: 400, unit: UNIT, comparator: '<' })).toBe(true)
+  })
   it('CONTRAST: a deadline row on the ceiling goal is a limit, not the target', () => {
     const deadline = { ...OWN_ROW, constraint_id: 'gc-deadline', value: 9, unit: 'months', deadline_metadata: { as_stated: 'within 9 months' } }
     expect(goalCardShownLimits([OWN_ROW, deadline] as never, GOAL, STAMPED_CEILING as never, false)).toEqual([deadline])
@@ -79,6 +94,7 @@ describe('editors: open on the side the goal holds, so saving never flips a ceil
     ['stamped ceiling', STAMPED_CEILING, [OWN_ROW], '<=', 'at_most'],
     ['card ceiling (no node target, its own "≤" row)', { kind: 'goal', label: 'x', goal_threshold_unit: UNIT, goal_direction: '<=' }, [OWN_ROW], '<=', 'at_most'],
     ['strict ceiling', { ...STAMPED_CEILING, goal_direction: '<' }, [], '<', 'at_most'],
+    ['r1 item 3: held "<=" with no node figure beside a first own ">=" row', { kind: 'goal', label: 'x', goal_threshold_unit: UNIT, goal_direction: '<=' }, [{ ...OWN_ROW, operator: '>=' }], '<=', 'at_most'],
     ['CONTRAST: floor', FLOOR, [], '>=', 'at_least'],
     ['CONTRAST: nothing held', UNHELD, [], null, 'at_least'],
   ])('%s', (_n, data, rows, comparator, direction) => {

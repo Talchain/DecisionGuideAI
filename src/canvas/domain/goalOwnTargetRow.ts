@@ -70,9 +70,14 @@ export function constraintRestatesGoalTarget(
 ): boolean {
   if (statedTarget == null) return false
   if (constraint.node_id !== goalId) return false
+  // A DEADLINE row is a time limit, never the target restated (Codex #2544 r1 item 2).
+  const deadline = (constraint as { deadline_metadata?: unknown }).deadline_metadata
+  if (deadline !== null && typeof deadline === 'object' && !Array.isArray(deadline)) return false
+  // The row's STATED sense must be exactly the held one: a stricter "< 400" beside an inclusive "at most 400" is a
+  // different limit and stays listed (Codex #2544 r1 item 2).
   const held = goalHeldComparatorOf(statedTarget.comparator) ?? '>='
-  const rowSense = statedOperatorOf(constraint as { operator?: unknown; operator_as_stated?: unknown })
-  if (constraint.operator !== held && rowSense !== held) return false
+  const rowSense = statedOperatorOf(constraint as { operator?: unknown; operator_as_stated?: unknown }) ?? constraint.operator
+  if (rowSense !== held) return false
   const figure = statedTargetNumber(statedTarget.raw)
   if (figure === null) return false
   const key = unitKey(statedTarget.unit)
@@ -257,7 +262,10 @@ export function goalTargetComparator(
   constraints: readonly CEEGoalConstraint[] | null | undefined,
   goalId: string | null | undefined,
 ): GoalHeldComparator | null {
-  if (resolveGoalTarget(data) !== null) return goalHeldComparatorOf(data?.goal_direction)
+  // The node's own held side WINS, figure or not: one source (Codex #2544 r1 item 3: a held '<=' beside a first own
+  // row '>=' must not open on "at least").
+  const held = goalHeldComparatorOf(data?.goal_direction)
+  if (held !== null || resolveGoalTarget(data) !== null) return held
   const row = goalOwnLimitRow(constraints, goalId)
   return row === null ? null : goalHeldComparatorOf(statedOperatorOf(row as { operator?: unknown; operator_as_stated?: unknown }))
 }

@@ -258,18 +258,27 @@ export function selectSuccessMeasureIsChange(s: Pick<CanvasStoreState, 'nodes'>)
   return goalTargetChangeFrameOf((goal?.data as { goal_threshold_frame?: unknown } | undefined)?.goal_threshold_frame) !== null
 }
 
-/** The comparator glyph a LEVEL success target is said with: ≤ / < / > from the goal's held `goal_direction`, ≥ otherwise. */
-const TARGET_GLYPH: Readonly<Record<string, string>> = { '<=': '≤', '<': '<', '>': '>' }
+/** The comparator glyph a LEVEL success target is said with, from the goal's held `goal_direction`. */
+const TARGET_GLYPH: Readonly<Record<string, string>> = { '>=': '≥', '<=': '≤', '<': '<', '>': '>' }
 
 /**
  * SD-1 (DL 0df0e1, 6 Oct; a8 census DGAI row 1): "Success target ≥ 400" was printed for a goal that HOLDS "at most
  * 400" (CEE stamps a brief-stated ceiling, RT-10 #2585). The glyph is the canonical goal node's held comparator — the
  * one source every target surface reads — and `≥` only where it holds `>=` or nothing. A primitive, like its siblings.
  */
-export function selectSuccessTargetGlyph(s: Pick<CanvasStoreState, 'nodes'>): string {
+export function selectSuccessTargetGlyph(s: Pick<CanvasStoreState, 'nodes'>): string | null {
   const goal = computeGraphFacts(s.nodes as never).goalNode
   const held = goalHeldComparatorOf((goal?.data as { goal_direction?: unknown } | undefined)?.goal_direction)
-  return (held !== null && TARGET_GLYPH[held]) || '≥'
+  return held === null ? null : TARGET_GLYPH[held]
+}
+
+/**
+ * The glyph the success line says: the canonical goal node's held side WINS (one source); a browser-saved measure's
+ * direction speaks only where the goal holds none, and `≥` where neither does (Codex #2544 r1 item 1: a saved "keep
+ * below" printed "≤" over a goal that holds a floor).
+ */
+export function successLineGlyph(held: string | null, saved: SuccessDirection | null | undefined): string {
+  return held ?? (saved != null ? savedMeasureGlyph(saved) : '≥')
 }
 
 /**
@@ -600,10 +609,10 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
   const savedMeasure = useSuccessMeasureForScenario(currentScenarioId)
   const goalNote =
     savedMeasure != null
-      ? `${savedMeasure.metric}: ${savedMeasureGlyph(savedMeasure.direction)} ${savedMeasure.threshold}${savedMeasure.unit === 'none' ? '' : savedMeasure.unit}, ${savedMeasure.timeframe}`
+      ? `${savedMeasure.metric}: ${successLineGlyph(successGlyph, savedMeasure.direction)} ${savedMeasure.threshold}${savedMeasure.unit === 'none' ? '' : savedMeasure.unit}, ${savedMeasure.timeframe}`
       : !successIsSet
         ? OVERVIEW_COPY.goalNoteMissing
-        : successIsChange ? `Success target: ${successDisplayText}` : `Success target ${successGlyph} ${successDisplayText}`
+        : successIsChange ? `Success target: ${successDisplayText}` : `Success target ${successLineGlyph(successGlyph, null)} ${successDisplayText}`
   // CONTEXT — no claim, rather than a false denial.
   //
   // `currentBriefText` has exactly ONE non-null writer in the whole of src/:
