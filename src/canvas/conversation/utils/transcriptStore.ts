@@ -207,6 +207,8 @@ interface StoredMessage {
    * absent.
    */
   deliveryState?: 'unconfirmed'
+  deliveryRequestId?: string
+  deliveryScenarioId?: string
   /** The turn asked for consent (`turnOfferedConsent`). The chips themselves
    *  are never stored. Absent on older saves and on every other turn. */
   consentOffered?: true
@@ -332,6 +334,10 @@ function toStored(m: SourceKeyedMessage): StoredMessage {
   if (m.chipInitiated) out.chipInitiated = true
   if (m.sourceBlockKey) out.sourceBlockKey = m.sourceBlockKey
   if (m.deliveryState === 'unconfirmed') out.deliveryState = 'unconfirmed'
+  if (m.role === 'user' && m.deliveryRequestId && m.deliveryScenarioId) {
+    out.deliveryRequestId = m.deliveryRequestId
+    out.deliveryScenarioId = m.deliveryScenarioId
+  }
   if (turnOfferedConsent(m)) out.consentOffered = true
   const heldId = m.heldProposalId ?? m.actionChips?.find(c => /^agent-approve-proposal:prop_[0-9a-f]{32}$/.test(c.id))?.id.slice('agent-approve-proposal:'.length)
   if (m.role === 'assistant' && typeof heldId === 'string' && /^prop_[0-9a-f]{32}$/.test(heldId)) {
@@ -377,6 +383,9 @@ function fromStored(s: StoredMessage): SourceKeyedMessage {
       ? { sourceBlockKey: s.sourceBlockKey }
       : {}),
     ...(s.deliveryState === 'unconfirmed' ? { deliveryState: 'unconfirmed' as const } : {}),
+    ...(s.role === 'user' && typeof s.deliveryRequestId === 'string' && s.deliveryRequestId.length > 0
+      && typeof s.deliveryScenarioId === 'string' && s.deliveryScenarioId.length > 0
+      ? { deliveryRequestId: s.deliveryRequestId, deliveryScenarioId: s.deliveryScenarioId } : {}),
     ...(s.consentOffered === true ? { consentOffered: true as const } : {}),
     ...(s.role === 'assistant' && typeof s.heldProposalId === 'string' && /^prop_[0-9a-f]{32}$/.test(s.heldProposalId)
       ? { heldProposalId: s.heldProposalId,

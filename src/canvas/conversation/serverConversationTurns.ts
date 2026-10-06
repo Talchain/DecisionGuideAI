@@ -114,6 +114,52 @@ export function buildRestoredThread(
 }
 
 
+/**
+ * Reconcile only retained uncertain requests, under the read's scenario. Text is
+ * never an identity. Receipt clears the marker; a user-only turn keeps the exact
+ * association for a later reply. Existing history and held authority stay intact.
+ */
+export function reconcileUnconfirmedServerTurns(
+  messages: readonly ConversationMessage[],
+  scenarioId: string,
+  turns: readonly ServerConversationTurn[],
+  run: RestoreRunContext,
+): ConversationMessage[] {
+  const requestCounts = new Map<string, number>()
+  const turnCounts = new Map<string, number>()
+  for (const m of messages) {
+    if (m.role === 'user' && m.deliveryScenarioId === scenarioId && m.deliveryRequestId) {
+      requestCounts.set(m.deliveryRequestId, (requestCounts.get(m.deliveryRequestId) ?? 0) + 1)
+    }
+  }
+  for (const t of turns) turnCounts.set(t.turnId, (turnCounts.get(t.turnId) ?? 0) + 1)
+  const received = new Set<string>()
+  const out: ConversationMessage[] = []
+  for (const m of messages) {
+    const id = m.deliveryRequestId
+    const turn = m.role === 'user' && m.deliveryScenarioId === scenarioId && id
+      && requestCounts.get(id) === 1 && turnCounts.get(id) === 1
+      ? turns.find(t => t.turnId === id && t.userMessage !== null) : undefined
+    if (!turn || !id) { out.push(m); continue }
+    received.add(id)
+    const replyId = `restored-assistant-${id}`
+    const hasReply = messages.some(reply => reply.role === 'assistant' && reply.id === replyId)
+    if (turn.assistantMessage === null && !hasReply) {
+      out.push({ ...m, deliveryState: 'sent' })
+      continue
+    }
+    const { deliveryRequestId: _request, deliveryScenarioId: _scenario, ...settled } = m
+    out.push({ ...settled, deliveryState: 'sent' })
+    if (!hasReply) {
+      // Use the same history builder, including earlier-figure disclosure. No
+      // saved chip can authorise a reply; the caller reconciles the fresh sidecar.
+      out.push(...buildRestoredThread([turn], run).filter(reply => reply.role === 'assistant' && !reply.sessionDivider))
+    }
+  }
+  return out.filter(m => !(m.synthetic && m.deliveryScenarioId === scenarioId
+    && m.deliveryRequestId && received.has(m.deliveryRequestId)))
+}
+
 export interface ServerHeldProposalOffer {
   readonly turnId: string
   readonly proposalId: string
