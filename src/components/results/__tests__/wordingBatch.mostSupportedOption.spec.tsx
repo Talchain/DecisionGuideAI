@@ -15,6 +15,7 @@ import { render } from '@testing-library/react'
 import { getStabilityClassification } from '../../../lib/stability'
 import { HERO_COPY } from '../analysis-hero/heroCopy'
 import { ConditionalWinnerCards } from '../ConditionalWinnerCards'
+import { ASSUMED_STRENGTH_REFUSAL_COPY } from '../strengthElicitation/assumedStrengthCopy'
 import type { ConditionalWinner } from '../types'
 
 const CONTEST = /\b(lead|leads|leading|led|leader|ahead|winner|wins?|best|beats?|overtake)\b/i
@@ -105,5 +106,13 @@ describe('conditional-winner cards: the header help names no contest', () => {
     expect(cards, 'PRECONDITION: the cards render').not.toBeNull()
     expect(cards!.textContent).toContain('Factors that change the most-supported option when they shift')
     expect(cards!.textContent).not.toContain('which option leads')
+  })
+})
+
+describe('no fragile relationship: plain words, not "measured weak-link rate" (red team, #2548 witness)', () => {
+  it('exact', () => {
+    expect(ASSUMED_STRENGTH_REFUSAL_COPY.no_fragile_edges).toBe(
+      'This run found no relationship that changed the most-supported option often enough to show here.')
+    expect(ASSUMED_STRENGTH_REFUSAL_COPY.no_fragile_edges).not.toMatch(/weak-link|surface here/i)
   })
 })
