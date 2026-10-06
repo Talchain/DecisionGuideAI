@@ -267,3 +267,27 @@ describe('buildDecisionBrief — the decision on record', () => {
     expect(buildDecisionBrief(await readOf(currentRead)).record).toBeNull()
   })
 })
+
+/**
+ * SD-1 (domain 2, github-07; DL 0df0e1 6 Oct): the brief says the side the goal holds, from its own `goal_direction`
+ * (the one source, `heldTargetBoundWords`) — Codex #2544 r1 found it printed a ceiling as a bare figure.
+ */
+describe('buildDecisionBrief: a goal that holds a ceiling says "at most"', () => {
+  function withGoalDirection(direction: string | undefined) {
+    const body = JSON.parse(JSON.stringify(currentRead)) as { graph: { goal_node_id?: string; nodes: Array<Record<string, unknown>> } }
+    const goal = body.graph.nodes.find((n) => n.id === body.graph.goal_node_id || n.kind === 'goal')!
+    if (direction === undefined) delete goal.goal_direction
+    else goal.goal_direction = direction
+    return body
+  }
+  it('held "<=" → "at most …"; CONTRAST: unheld and a held floor say the bare figure', async () => {
+    const ceiling = buildDecisionBrief(await readOf(withGoalDirection('<=')))
+    expect(ceiling.goal?.targetText).toMatch(/^at most /)
+    for (const d of [undefined, '>=']) {
+      const other = buildDecisionBrief(await readOf(withGoalDirection(d)))
+      expect(other.goal?.targetText).toBeTruthy()
+      expect(other.goal?.targetText).not.toMatch(/at most|at least/)
+    }
+  })
+})
+
