@@ -98,6 +98,7 @@ export function goalChanceOptionLines(
 }
 
 const FALLING_SIDE_WORDS: Readonly<Record<'low' | 'high', string>> = { low: 'below', high: 'above' }
+const SIZE_QUESTION = 'How sure are you of that size?'
 
 /**
  * ⭐ G4/G5 phase 2, P3 — WHAT AN OPTION'S CHANCE RESTS ON MOST (design-g4g6 Q6 cases A–E; DL rulings 6 Oct). Said after the
@@ -106,10 +107,13 @@ const FALLING_SIDE_WORDS: Readonly<Record<'low' | 'high', string>> = { low: 'bel
  * stored. Nothing here compares a number.
  *
  * `null` (nothing is said, the chance line stands) when a label or the cut cannot be said, and for the claims the
- * rulings give no words: a strength driver on a link the user sized, an existence driver whose falling side is the
- * runs WITH the link, and a link claim with no author. A link's strength never carries a figure.
+ * rulings give no words: an existence driver whose falling side is the runs WITH the link, and an existence claim
+ * that is not Olumi's. A link's strength never carries a figure. `askSize` is false when an option shown earlier
+ * already asked about the same link the user sized.
  */
-export function goalChanceDriverLine(driver: GoalChanceDriver, names: GoalChanceDriverNames): string | null {
+export function goalChanceDriverLine(
+  driver: GoalChanceDriver, names: GoalChanceDriverNames, askSize = true,
+): string | null {
   if (driver.kind === 'factor_value') {
     const label = names.labelOf(driver.factorId)
     if (label === null) return null
@@ -122,15 +126,22 @@ export function goalChanceDriverLine(driver: GoalChanceDriver, names: GoalChance
       ? `It rests most on ‘${label}’, using a range Olumi assumed: ${falls} Do you know it more precisely?`
       : `It rests most on ‘${label}’: ${falls}`
   }
-  if (driver.authoredBy !== 'olumi') return null
   const from = names.labelOf(driver.from)
   const to = names.labelOf(driver.to)
   if (from === null || to === null) return null
   if (driver.kind === 'link_strength') {
-    return `It rests most on Olumi’s own estimate of how strongly ‘${from}’ affects ‘${to}’: `
-      + `if that effect is ${driver.strength} than Olumi assumed, the chance falls. Is that estimate right?`
+    if (driver.authoredBy === 'olumi') {
+      return `It rests most on Olumi’s own estimate of how strongly ‘${from}’ affects ‘${to}’: `
+        + `if that effect is ${driver.strength} than Olumi assumed, the chance falls. Is that estimate right?`
+    }
+    // U / N (DL ruling 6 Oct): the size is the user's, or nobody's CEE could name. Neither says whose spread it is.
+    return driver.authoredBy === 'user'
+      ? `It rests most on how strongly ‘${from}’ affects ‘${to}’, at the size you set: `
+        + `if that effect is ${driver.strength} than that, the chance falls.${askSize ? ` ${SIZE_QUESTION}` : ''}`
+      : `It rests most on how strongly ‘${from}’ affects ‘${to}’: `
+        + `if that effect is ${driver.strength} than this model assumes, the chance falls.`
   }
-  if (driver.side !== 'absent') return null
+  if (driver.authoredBy !== 'olumi' || driver.side !== 'absent') return null
   return driver.userStatedLink
     ? `It rests most on your link from ‘${from}’ to ‘${to}’: Olumi’s model also allows that it does not hold, `
       + `and in those runs the chance is ${about(driver.pctIfSide)}.`
@@ -138,15 +149,26 @@ export function goalChanceDriverLine(driver: GoalChanceDriver, names: GoalChance
       + `in the model runs without that link, the chance is ${about(driver.pctIfSide)}. Is that right?`
 }
 
-/** The driver sentence for each option that has one that can be worded, by option id. */
+/**
+ * The driver sentence for each option that has one that can be worded, by option id.
+ *
+ * `except` are the options that get no line of their own (the `similar` form quotes them in the headline). The question
+ * about a link the user sized is asked ONCE per link, by the first option SHOWN (the model's order) that rests on it.
+ */
 export function goalChanceDriverLines(
-  licence: GoalChanceLicence | null, names: GoalChanceDriverNames | null | undefined,
+  licence: GoalChanceLicence | null, names: GoalChanceDriverNames | null | undefined, except: readonly string[] = [],
 ): Readonly<Record<string, string>> {
   const lines: Record<string, string> = {}
-  if (names == null) return lines
-  for (const [id, driver] of Object.entries(licence?.driverByOption ?? {})) {
-    const line = goalChanceDriverLine(driver, names)
-    if (line !== null) lines[id] = line
+  if (licence === null || names == null) return lines
+  const asked = new Set<string>()
+  for (const id of licence.optionIds) {
+    const driver = licence.driverByOption?.[id]
+    if (driver === undefined || except.includes(id)) continue
+    const sizedLink = driver.kind === 'link_strength' && driver.authoredBy === 'user' ? `${driver.from}->${driver.to}` : null
+    const line = goalChanceDriverLine(driver, names, sizedLink === null || !asked.has(sizedLink))
+    if (line === null) continue
+    lines[id] = line
+    if (sizedLink !== null) asked.add(sizedLink)
   }
   return lines
 }

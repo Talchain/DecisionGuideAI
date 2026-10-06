@@ -79,6 +79,23 @@ describe('the driver sentence: one exact sentence per ruled case', () => {
       .toBe('It rests most on Olumi’s own estimate of how strongly ‘Price’ affects ‘Monthly churn’: if that effect is stronger than Olumi assumed, the chance falls. Is that estimate right?')
   })
 
+  // U and N (DL ruling 6 Oct): the direction word is the record's own `strength`, on either side.
+  it.each(['weaker', 'stronger'] as const)('U. the strength of a link the user sized, %s: the size is theirs, and Olumi asks how sure', (strength) => {
+    expect(lineFor({ ...STRENGTH, strength, authored_by: 'user', user_stated_link: true }))
+      .toBe(`It rests most on how strongly ‘Price’ affects ‘Monthly churn’, at the size you set: if that effect is ${strength} than that, the chance falls. How sure are you of that size?`)
+  })
+
+  it.each(['weaker', 'stronger'] as const)('N. the strength of a link CEE could not attribute, %s: no author, no question', (strength) => {
+    expect(lineFor({ ...STRENGTH, strength, authored_by: 'unattributed' }))
+      .toBe(`It rests most on how strongly ‘Price’ affects ‘Monthly churn’: if that effect is ${strength} than this model assumes, the chance falls.`)
+  })
+
+  it('U / N. the direction word follows `strength`, never `side`', () => {
+    // A negative link: the chance falls on the HIGH draws, which CEE words as "weaker".
+    expect(lineFor({ ...STRENGTH, side: 'high', strength: 'weaker', authored_by: 'user', user_stated_link: true })).toContain('is weaker than that')
+    expect(lineFor({ ...STRENGTH, side: 'low', strength: 'stronger', authored_by: 'unattributed' })).toContain('is stronger than this model assumes')
+  })
+
   it('D. whether a link Olumi assumed holds at all', () => {
     expect(lineFor(EXISTENCE))
       .toBe('It rests most on Olumi’s own assumption that ‘Price’ affects ‘Monthly churn’: in the model runs without that link, the chance is about 30%. Is that right?')
@@ -96,8 +113,6 @@ describe('the driver sentence: one exact sentence per ruled case', () => {
 
 describe('the driver sentence: nothing is said where there are no ruled words', () => {
   it.each([
-    ['a strength driver on a link the user sized', { ...STRENGTH, authored_by: 'user', user_stated_link: true }],
-    ['a strength driver with no author', { ...STRENGTH, authored_by: 'unattributed' }],
     ['an existence driver whose falling side is the runs WITH the link', { ...EXISTENCE, side: 'present' }],
     ['an existence driver with no author', { ...EXISTENCE, authored_by: 'unattributed' }],
     ['an existence driver on a link the user holds', { ...EXISTENCE, authored_by: 'user', user_stated_link: true }],
@@ -125,6 +140,79 @@ describe('the driver sentence: nothing is said where there are no ruled words', 
   it('no licence, or a licence with no claims, gives no sentences', () => {
     expect(goalChanceDriverLines(null, NAMES)).toEqual({})
     expect(goalChanceDriverLines(read({}), NAMES)).toEqual({})
+  })
+})
+
+describe('U: "How sure are you of that size?" is asked once per link the user sized', () => {
+  const QUESTION = 'How sure are you of that size?'
+  const USER_STRENGTH = { ...STRENGTH, authored_by: 'user', user_stated_link: true }
+  const asks = (line: string | undefined) => line?.endsWith(QUESTION) === true
+  const count = (lines: Readonly<Record<string, string>>) => Object.values(lines).join(' ').split(QUESTION).length - 1
+
+  it('two options resting on the SAME link: the first shown asks, the second says the sentence without asking', () => {
+    const lines = goalChanceDriverLines(read({ driver_by_option: { hold: USER_STRENGTH, raise: USER_STRENGTH } }), NAMES)
+    expect(lines.raise).toBe('It rests most on how strongly ‘Price’ affects ‘Monthly churn’, at the size you set: if that effect is weaker than that, the chance falls. How sure are you of that size?')
+    expect(lines.hold).toBe('It rests most on how strongly ‘Price’ affects ‘Monthly churn’, at the size you set: if that effect is weaker than that, the chance falls.')
+    expect(count(lines)).toBe(1)
+  })
+
+  it('the same link in OPPOSITE directions is still one link: asked once', () => {
+    const lines = goalChanceDriverLines(read({ driver_by_option: { raise: USER_STRENGTH, trial: { ...USER_STRENGTH, side: 'high', strength: 'stronger' } } }), NAMES)
+    expect(asks(lines.raise)).toBe(true)
+    expect(lines.trial).toBe('It rests most on how strongly ‘Price’ affects ‘Monthly churn’, at the size you set: if that effect is stronger than that, the chance falls.')
+    expect(count(lines)).toBe(1)
+  })
+
+  it('CONTROL: two options resting on DIFFERENT links each ask about their own', () => {
+    const other = { ...USER_STRENGTH, quantity_id: 'support->churn', from: 'support' }
+    const lines = goalChanceDriverLines(read({ driver_by_option: { raise: USER_STRENGTH, hold: other } }), NAMES)
+    expect(asks(lines.raise)).toBe(true)
+    expect(asks(lines.hold)).toBe(true)
+    expect(count(lines)).toBe(2)
+  })
+
+  it('an option with no line of its own does not use up the question: the first option SHOWN asks', () => {
+    const licence = read({ driver_by_option: { raise: USER_STRENGTH, hold: USER_STRENGTH } })
+    const lines = goalChanceDriverLines(licence, NAMES, ['raise'])
+    expect(Object.keys(lines)).toEqual(['hold'])
+    expect(asks(lines.hold)).toBe(true)
+  })
+
+  it('an option whose sentence cannot be said does not use up the question either', () => {
+    const unlabelled = { ...USER_STRENGTH, to: 'gone' }
+    const lines = goalChanceDriverLines(read({ driver_by_option: { raise: unlabelled, hold: USER_STRENGTH } }), NAMES)
+    expect(Object.keys(lines)).toEqual(['hold'])
+    expect(asks(lines.hold)).toBe(true)
+  })
+
+  it('the other questions are untouched: two options on one Olumi-sized link each keep theirs', () => {
+    const lines = goalChanceDriverLines(read({ driver_by_option: { raise: STRENGTH, hold: STRENGTH } }), NAMES)
+    expect(lines.raise).toBe(lines.hold)
+    expect(lines.hold?.endsWith('Is that estimate right?')).toBe(true)
+  })
+})
+
+describe('U / N: a label is the user’s own words, verbatim and inside quotes; Olumi’s words frame no contest', () => {
+  // The DL's three (best / winner / ahead) and the canvas guard's own (`noContestFraming`: leader, beats).
+  const CONTEST = /\b(best|winners?|ahead|leader|beats?)\b/i
+  const LOADED_LABELS: Readonly<Record<string, string>> = { price: 'Best price ahead', churn: 'Winner beats the leader' }
+  const LOADED = { ...NAMES, labelOf: (id: string) => LOADED_LABELS[id] ?? null }
+  /** Everything Olumi wrote: the sentence with each quoted label removed. */
+  const olumisWords = (line: string) => line.replace(/‘[^’]*’/g, '‘’')
+
+  it.each([
+    ['U, weaker', { ...STRENGTH, authored_by: 'user', user_stated_link: true }],
+    ['U, stronger', { ...STRENGTH, side: 'high', strength: 'stronger', authored_by: 'user', user_stated_link: true }],
+    ['N, weaker', { ...STRENGTH, authored_by: 'unattributed' }],
+    ['N, stronger', { ...STRENGTH, side: 'high', strength: 'stronger', authored_by: 'unattributed' }],
+  ])('%s', (_name, claim) => {
+    const line = lineFor(claim, LOADED) as string
+    // Verbatim, and fenced.
+    expect(line).toContain('how strongly ‘Best price ahead’ affects ‘Winner beats the leader’')
+    // Outside the quotes there is no contest word …
+    expect(olumisWords(line)).not.toMatch(CONTEST)
+    // … MUST FIRE: the same check on the same sentence with its labels unfenced, so it can fail.
+    expect(olumisWords(line.replace(/[‘’]/g, ''))).toMatch(CONTEST)
   })
 })
 
