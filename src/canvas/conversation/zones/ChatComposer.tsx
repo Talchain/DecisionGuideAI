@@ -416,7 +416,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
                 borderRadius: '50%',
                 marginBottom: 2,
                 transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
-                background: composer.canSend ? 'var(--primary, #277A9D)' : 'var(--bg-panel-hover, #FCF7F1)',
+                background: composer.canSend ? 'var(--primary, #277A9D)' : 'var(--bg-panel-hover, #FEF9F3)',
                 border: composer.canSend ? 'none' : '1px solid var(--border-default, #EEE6D8)',
                 boxShadow: composer.canSend ? '0 1px 2px rgba(38,38,38,0.06)' : 'none',
                 cursor: composer.canSend ? 'pointer' : 'default',
@@ -448,11 +448,11 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             transform: scale(0.92);
           }
           .composer-icon-btn:not(:disabled):hover {
-            background: var(--bg-panel-hover, #FCF7F1);
+            background: var(--bg-panel-hover, #FEF9F3);
             color: var(--text-body, #3F3F3E);
           }
           .composer-run-chip:not(:disabled):hover {
-            background: var(--bg-panel-hover, #FCF7F1);
+            background: var(--bg-panel-hover, #FEF9F3);
           }
         `}</style>
       </div>
