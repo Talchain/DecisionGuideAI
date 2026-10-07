@@ -57,6 +57,7 @@ import { useCanvasStore } from '../store'
 import { ATTENTION_MARKER_GLYPH } from '../nodes/shared/NodeAttentionMarker'
 import { EVIDENCE_RAIL_GLYPH, BEHAVIOUR_RAIL_GLYPH, NODE_RAIL_TONE_CLASS } from '../nodes/shared/NodeRailIcons'
 import { RENDERED_CARD_MARKS } from '../nodes/shared/cardMarks'
+import { CardMarkShape } from '../nodes/shared/CardMark'
 import { COACHING_ICON_GLYPH } from '../nodes/shared/NodeCoachingIcon'
 import { NODE_RAIL_GLYPH_PX } from '../nodes/shared/nodeCardRailStyles'
 import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH, EXISTENCE_UNCERTAIN_DASH, uncertaintyBandHalfWidth, UNCERTAINTY_BAND_STROKE, UNCERTAINTY_BAND_OPACITY } from '../utils/graphDisplayCalculations'
@@ -644,9 +645,18 @@ const COACHING_ROWS: LegendRow[] = [
   },
 ]
 
+/**
+ * Marks a card draws only AFTER a Run (a ranked driver). The key describes only what a reader in
+ * this phase can meet (Defect B, `CanvasLegendPopover.spec` "phase-gated nouns"), so pre-run they are not listed.
+ */
+export const POST_RUN_CARD_MARKS: ReadonlySet<string> = new Set(['driver', 'driver-last-run'])
+
 /** The card-icon rows a reader in this phase can meet on a card. */
 function cardIconRows(isPostAnalysis: boolean): LegendRow[] {
-  const marks: LegendRow[] = RENDERED_CARD_MARKS.map(m => ({ label: m.keyText, swatch: <m.Icon aria-hidden="true" className="h-3 w-3 shrink-0 text-text-light" />, testId: `legend-card-mark-${m.id}` }))
+  // The SAME shape the card draws (glyph, level meter, risk matrix) beside the registry's key words.
+  const marks: LegendRow[] = RENDERED_CARD_MARKS
+    .filter(m => isPostAnalysis || !POST_RUN_CARD_MARKS.has(m.id))
+    .map(m => ({ label: m.keyText, swatch: <CardMarkShape mark={m} />, testId: `legend-card-mark-${m.id}` }))
   return [...(isPostAnalysis ? [ATTENTION_ROW, EVIDENCE_ROW, BEHAVIOUR_ROW] : [ATTENTION_ROW, BEHAVIOUR_ROW]), ...marks]
 }
 

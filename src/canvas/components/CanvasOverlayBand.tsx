@@ -239,11 +239,11 @@ export const OVERLAY_PRIORITY: Record<OverlayCell, readonly string[]> = {
    * foot on 27 Sep 2026 (see `bottom-left`), so the two no longer contend.
    */
   /**
-   * `canvas-provenance-key` (`CanvasProvenanceKey.tsx`, DL #85 5939855664 / PTL 5941434564 §6): what the provenance and
-   * uncertainty marks on this board mean. AFTER `degraded-banner`: a warning that the run may be unreliable outranks a
-   * key to the marks.
+   * `canvas-provenance-key` LEFT this cell on 7 Oct 2026 (Paul: "There's already a key inside the bottom-left-hand menu,
+   * so just remove that key"). Every mark it explained is a derived row of `CanvasLegendPopover` (`RENDERED_CARD_MARKS`,
+   * the provenance rows), drawn with the same `CardMarkShape`.
    */
-  'bottom-right': ['degraded-banner', 'canvas-provenance-key'],
+  'bottom-right': ['degraded-banner'],
 }
 
 /** The band, spelled ONCE, for `computeFitPadding` and for the geometry harness. */

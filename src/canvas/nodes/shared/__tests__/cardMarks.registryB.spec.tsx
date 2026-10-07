@@ -1,4 +1,4 @@
-import { CanvasProvenanceKey } from '../../../components/CanvasProvenanceKey'
+import { CanvasLegendPopover } from '../../../components/CanvasLegendPopover'
 import { useCanvasStore } from '../../../store'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { FactorDriverLine } from '../FactorDriverLine'
@@ -45,13 +45,17 @@ it('last-run driver uses the same numeral and bar, muted, with History; no figur
   expect(screen.queryByTestId('factor-driver-line-bar')).toBeNull()
 })
 
-it('the mounted Key draws every registered visual and glyph beside its existing words', () => {
-  useCanvasStore.setState({ nodes: ['factor', 'option', 'outcome', 'risk', 'goal', 'decision'].map(type => ({ id: type, type, data: { type, label: type }, position: { x: 0, y: 0 } })), edges: [], results: { status: 'idle', report: null } } as never)
-  render(<CanvasProvenanceKey />)
-  fireEvent.click(screen.getByTestId('canvas-provenance-key-toggle'))
+// Re-pointed 7 Oct 2026 from the removed bottom-right pill to the ONE Key (bottom-left, Paul): same rows, same words,
+// same drawn shapes. POSITIVE CONTROL: the loop below iterates a non-empty registry.
+it('the Key draws every registered visual and glyph beside its existing words', () => {
+  expect(RENDERED_CARD_MARKS.length).toBeGreaterThan(10)
+  // After a Run, so the run-only marks (driver, share status) are listed too.
+  useCanvasStore.setState({ nodes: ['factor', 'option', 'outcome', 'risk', 'goal', 'decision'].map(type => ({ id: type, type, data: { type, label: type }, position: { x: 0, y: 0 } })), edges: [], results: { status: 'complete', report: null } } as never)
+  render(<CanvasLegendPopover />)
+  fireEvent.click(screen.getByTestId('btn-canvas-legend'))
   for (const mark of RENDERED_CARD_MARKS) {
-    const row = screen.getByTestId(`canvas-key-card-mark-${mark.id}`)
-    for (const words of mark.keyWords ?? [mark.keyText]) expect(row).toHaveTextContent(words.trim())
+    const row = screen.getByTestId(`legend-card-mark-${mark.id}`)
+    expect(row).toHaveTextContent(mark.keyText.trim())
     expect(row.querySelector('svg, [data-risk-cell], [data-level-step], [aria-hidden]')).not.toBeNull()
   }
 })

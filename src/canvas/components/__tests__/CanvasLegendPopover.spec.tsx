@@ -18,6 +18,7 @@ import {
   CanvasLegendPopover,
   CLASSIFIED_METRIC_NOUNS,
   visibleMetricRows,
+  POST_RUN_CARD_MARKS,
 } from '../CanvasLegendPopover'
 import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../../domain/vocabulary'
 import { CURRENT_MODEL_NOUN, METRIC_NOUN, METRIC_LEGEND_ROWS, METRIC_UNSET, OPTION_RESULT_COPY, SENSITIVITY_RANK_LEGEND_NOUN } from '../../nodes/shared/metricVocabulary'
@@ -142,7 +143,9 @@ const APPROVED = [
   // ⚠ The three thickness literals are replaced by the derivation above —
   // keeping them would make this allowlist a mirror of a mirror.
   ...THICKNESS_LABELS,
-  ...RENDERED_CARD_MARKS.map(m => m.keyText),
+  // Pre-run (this spec's phase): the run-only marks are not listed (Defect B); their post-run rows are bound in
+  // `cardMarks.registryB.spec.tsx`. Derived from the legend's own set, never a second list.
+  ...RENDERED_CARD_MARKS.filter(m => !POST_RUN_CARD_MARKS.has(m.id)).map(m => m.keyText),
 ]
 
 /**
