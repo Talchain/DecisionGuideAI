@@ -478,6 +478,7 @@ describe('4 · a run_exercise action is labelled for what it does', () => {
       guidanceItems: [exerciseItem()],
       _sendMessage: vi.fn(),
       _prefillChat: vi.fn(),
+      _dispatchAction: vi.fn(), _isConversationBusy: () => false,
     } as never)
     render(<InspectorCoaching {...coachingProps} />)
     expect(screen.getByText('Try it')).toBeTruthy()
@@ -486,18 +487,22 @@ describe('4 · a run_exercise action is labelled for what it does', () => {
     expect(screen.queryByText('Ask about this')).toBeNull()
   })
 
-  it('still sends the command when that label is clicked — as a chip, never through _sendMessage (UI N2)', () => {
+  it('sends the question-table pre-mortem as one chip, never through the composer', () => {
     const send = vi.fn()
     const dispatch = vi.fn()
     useGuidanceStore.setState({
       guidanceItems: [exerciseItem()],
       _sendMessage: send,
       _dispatchAction: dispatch,
-      _prefillChat: vi.fn(),
+      _prefillChat: vi.fn(), _isConversationBusy: () => false,
     } as never)
     render(<InspectorCoaching {...coachingProps} />)
     fireEvent.click(screen.getByText('Try it'))
-    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ message: '/exercise pre_mortem', source: 'chip' }))
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch.mock.calls[0][0].source).toBe('chip')
+    expect(dispatch.mock.calls[0][0].message).not.toContain('/exercise')
+    expect(dispatch.mock.calls[0][0].message).toMatch(/go badly|went badly/)
+    expect(dispatch.mock.calls[0][0]).not.toHaveProperty('action_type')
     expect(send).not.toHaveBeenCalled()
   })
 
@@ -507,6 +512,7 @@ describe('4 · a run_exercise action is labelled for what it does', () => {
     useGuidanceStore.setState({
       guidanceItems: [{ ...exerciseItem(), primary_action: { type: 'navigate', target: 'x' } } as GuidanceItem],
       _prefillChat: vi.fn(),
+      _dispatchAction: vi.fn(), _isConversationBusy: () => false,
     } as never)
     render(<InspectorCoaching {...coachingProps} />)
     expect(screen.getByText('Ask about this')).toBeTruthy()

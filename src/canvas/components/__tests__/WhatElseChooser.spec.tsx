@@ -5,12 +5,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 
-const requestAsk = vi.fn((..._args: unknown[]) => 'composer')
+const requestAsk = vi.fn((..._args: unknown[]) => 'sent')
 vi.mock('../../ui/inspector-v2/askSemantic', () => ({ requestAsk: (...a: unknown[]) => requestAsk(...a) }))
 
+vi.mock('../../conversation/askAi', () => ({ askAi: vi.fn(() => 'sent') }))
+import { askAi } from '../../conversation/askAi'
 import { WhatElseChooserHost, WHAT_ELSE_CHOICES, openWhatElseFromDoor, useWhatElseStore } from '../WhatElseChooser'
 
-beforeEach(() => { requestAsk.mockClear(); useWhatElseStore.getState().close() })
+beforeEach(() => { requestAsk.mockClear(); vi.mocked(askAi).mockClear(); useWhatElseStore.getState().close() })
 
 const DOOR_PROMPT = 'What else drives Churn, beside Price and Support quality?'
 function openFromFactorDoor() {
@@ -45,7 +47,7 @@ describe('the "What else…?" chooser', () => {
     expect(requestAsk).not.toHaveBeenCalled()
     fireEvent.change(input, { target: { value: '  supplier delays ' } })
     fireEvent.submit(input.closest('form')!)
-    expect(requestAsk).toHaveBeenCalledWith(expect.objectContaining({ text: 'supplier delays' }))
+    expect(askAi).toHaveBeenCalledWith({ userWords: '  supplier delays ' })
   })
 
   it('Escape closes it without asking', () => {
@@ -54,4 +56,14 @@ describe('the "What else…?" chooser', () => {
     expect(screen.queryByTestId('what-else-chooser')).toBeNull()
     expect(requestAsk).not.toHaveBeenCalled()
   })
+})
+
+it('a refused free-text send keeps the chooser and its exact input', () => {
+  openFromFactorDoor()
+  const input = screen.getByTestId('what-else-free')
+  fireEvent.change(input, { target: { value: '  More context  ' } })
+  vi.mocked(askAi).mockReturnValueOnce('busy')
+  fireEvent.submit(input.closest('form')!)
+  expect(input).toHaveValue('  More context  ')
+  expect(screen.getByTestId('what-else-chooser')).toBeInTheDocument()
 })

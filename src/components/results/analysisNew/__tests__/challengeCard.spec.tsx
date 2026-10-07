@@ -27,7 +27,8 @@ import { genuineDecision } from './analysisNewFixtures'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 import { openAskOlumi } from '../../coaching/askOlumiStore'
-import { attentionNoteForRecommendation } from '../../strengthen/recommendationAttention'
+vi.mock('../../../../canvas/conversation/askAi', () => ({ askAi: vi.fn(() => 'sent') }))
+import { askAi } from '../../../../canvas/conversation/askAi'
 
 const SPEC_DECISION = 'challenge-card-decision'
 
@@ -90,7 +91,7 @@ const renderCard = (props: Partial<Parameters<typeof ChallengeCard>[0]> = {}) =>
 beforeEach(() => {
   useStrengthenStore.getState()._reset()
   useCanvasStore.setState({ currentScenarioId: SPEC_DECISION })
-  ;(openAskOlumi as unknown as ReturnType<typeof vi.fn>).mockClear()
+  ;(openAskOlumi as unknown as ReturnType<typeof vi.fn>).mockClear(); vi.mocked(askAi).mockReset().mockReturnValue('sent')
 })
 afterEach(cleanup)
 
@@ -292,8 +293,8 @@ describe('"I disagree" on the promoted finding', () => {
  * SECOND act beside that icon, never a replacement for it (ruling
  * `c5806258826.md` §3: "primary AI act = Olumi AI icon / existing ask
  * route"), and it must not compose a question the producer never sent — the
- * draft is the heading VERBATIM plus the reader's own words, exactly the
- * shape `challengeResponse.ts` builds and this spec pins from the outside.
+ * message contains only the reader's words. Target identity rides separately
+ * through typed binding, and busy sends leave the response available for retry.
  */
 describe('Respond — the reader\'s own thinking, through the existing ask route', () => {
   it('is offered beside the AI icon, closed at rest, for a grounded intervention', () => {
@@ -323,6 +324,17 @@ describe('Respond — the reader\'s own thinking, through the existing ask route
     expect(screen.getByTestId('analysis-new-challenge-respond-note')).toHaveValue('')
   })
 
+  it('busy sends retain the exact response for retry', () => {
+    renderCard({ intervention: viaVm(FLIP), testId: 'cc' })
+    fireEvent.click(screen.getByTestId('cc-respond'))
+    const text = '  My words stay here.  '
+    fireEvent.change(screen.getByTestId('cc-respond-note'), { target: { value: text } })
+    vi.mocked(askAi).mockReturnValue('busy')
+    fireEvent.click(screen.getByTestId('cc-respond-send'))
+    expect(askAi).toHaveBeenCalledWith(expect.objectContaining({ userWords: `On ‘${FLIP.title}’:\n${text}` }))
+    expect(screen.getByTestId('cc-respond-note')).toHaveValue(text)
+  })
+
   it('Send is unavailable on empty or whitespace-only text', () => {
     renderCard({ intervention: viaVm(FLIP) })
     fireEvent.click(screen.getByTestId('analysis-new-challenge-respond'))
@@ -333,7 +345,7 @@ describe('Respond — the reader\'s own thinking, through the existing ask route
     expect(openAskOlumi).not.toHaveBeenCalled()
   })
 
-  it('Send carries the heading VERBATIM plus the reader\'s words, and the rec\'s own routing — never inventing a question', () => {
+  it('Send carries the reader\'s exact words and the bound target', () => {
     const r = viaVm(rec({
       id: 'strengthen:flip:edge_resp',
       action: { kind: 'ai-dialogue', label: 'Work through with Olumi', prompt: 'Test it', parameters: { block_id: 'blk_resp' } },
@@ -346,15 +358,8 @@ describe('Respond — the reader\'s own thinking, through the existing ask route
     })
     fireEvent.click(screen.getByTestId('analysis-new-challenge-respond-send'))
 
-    expect(openAskOlumi).toHaveBeenCalledTimes(1)
-    expect(openAskOlumi).toHaveBeenCalledWith({
-      context: r.whyNow || r.signal,
-      draft: `${r.title}\n\nMy thinking: I think the price elasticity is overstated`,
-      label: r.action.label,
-      targetId: r.targetId,
-      parameters: r.action.parameters,
-      attentionNote: attentionNoteForRecommendation(r),
-    })
+    expect(askAi).toHaveBeenCalledTimes(1)
+    expect(askAi).toHaveBeenCalledWith({ userWords: 'On ‘Test the assumption about Price elasticity’:\nblock_id: blk_resp\nI think the price elasticity is overstated', nodeIds: ['opt_a'], edgeIds: [] })
     // The AI icon's own route is untouched — Respond is an ADDITIONAL door.
     expect(onRunIntervention).not.toHaveBeenCalled()
     expect(onRunMethod).not.toHaveBeenCalled()
@@ -362,8 +367,7 @@ describe('Respond — the reader\'s own thinking, through the existing ask route
     expect(screen.queryByTestId('analysis-new-challenge-respond-note')).toBeNull()
   })
 
-  it('Send on a picked method sends the method\'s own routing, heading verbatim', () => {
-    const method = METHOD_CATALOGUE.find((m) => m.id === 'pre_mortem')!
+  it('Send on a picked method sends the reader\'s own words', () => {
     renderCard({ intervention: viaVm(FLIP), methodId: 'pre_mortem' })
     fireEvent.click(screen.getByTestId('analysis-new-challenge-respond'))
     fireEvent.change(screen.getByTestId('analysis-new-challenge-respond-note'), {
@@ -371,16 +375,9 @@ describe('Respond — the reader\'s own thinking, through the existing ask route
     })
     fireEvent.click(screen.getByTestId('analysis-new-challenge-respond-send'))
 
-    expect(openAskOlumi).toHaveBeenCalledTimes(1)
-    const payload = (openAskOlumi as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0]
-    expect(payload).toEqual(
-      expect.objectContaining({
-        context: method.description,
-        draft: `${method.title}\n\nMy thinking: Worth checking the downside case`,
-        label: method.title,
-        parameters: { method_id: method.id },
-      }),
-    )
+    expect(askAi).toHaveBeenCalledTimes(1)
+    const payload = (askAi as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(payload).toEqual({ userWords: 'On ‘Run a pre-mortem’:\nWorth checking the downside case' })
   })
 
   /**
@@ -414,9 +411,9 @@ describe('Respond — the reader\'s own thinking, through the existing ask route
 
     fireEvent.change(screen.getByTestId('analysis-new-challenge-respond-note'), { target: { value: 'About B' } })
     fireEvent.click(screen.getByTestId('analysis-new-challenge-respond-send'))
-    const payload = (openAskOlumi as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0]
-    expect(payload.draft).toBe(`${b.title}\n\nMy thinking: About B`)
-    expect(payload.draft).not.toContain('METHOD A')
+    const payload = (askAi as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(payload.userWords).toBe(`On ‘${b.title}’:\nAbout B`)
+    expect(payload.userWords).not.toContain('METHOD A')
   })
 
   it('opening focuses the note; Escape closes it, writes nothing, and returns focus to Respond', () => {
@@ -442,7 +439,7 @@ describe('Respond — the reader\'s own thinking, through the existing ask route
     fireEvent.click(screen.getByTestId('analysis-new-challenge-respond'))
     fireEvent.change(screen.getByTestId('analysis-new-challenge-respond-note'), { target: { value: 'A note' } })
     fireEvent.click(screen.getByTestId('analysis-new-challenge-respond-send'))
-    const payload = (openAskOlumi as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    const payload = (askAi as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(payload).not.toHaveProperty('parameters')
   })
 })

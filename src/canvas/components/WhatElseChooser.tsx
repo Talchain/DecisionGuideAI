@@ -5,13 +5,15 @@
  * pointer: four chips and a free-text line. The door's own kind keeps the door's own contextual question; the
  * other chips ask the plain question for their kind.
  *
- * ⚠ IT NEVER SENDS AND NEVER WRITES THE GRAPH. Every choice goes through `requestAsk`, which prefills the composer
- * (or the Ask drawer) — the same seam the doors used directly before — and the person presses Send. Anything
- * added arrives through Olumi's validated patch route, never from here.
+ * Choices send chip questions; free text sends the person’s own words.
+ * The chooser closes only after a send. Proposed additions return through
+ * Olumi’s approval route.
  */
 import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { requestAsk } from '../ui/inspector-v2/askSemantic'
+import { askAi } from '../conversation/askAi'
+import type { AskIntent } from '../conversation/askAiQuestions'
 import { typography } from '../../styles/typography'
 
 export type WhatElseKind = 'factor' | 'risk' | 'option' | 'outcome'
@@ -59,9 +61,10 @@ export function WhatElseChooser({ open, onClose }: { open: WhatElseOpen; onClose
     return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('pointerdown', onDown, true) }
   }, [onClose])
 
-  const ask = (prompt: string, label: string) => {
-    requestAsk({ text: prompt, label, source: 'ghost-door' })
-    onClose()
+  const ask = (kind: WhatElseKind, prompt: string, label: string) => {
+    const intent: AskIntent = kind === 'option' ? 'widen' : kind === 'risk' ? 'risks' : kind === 'factor' ? 'missing-factor' : 'missing-outcome'
+    const result = requestAsk({ text: prompt, label, source: 'ghost-door', intent, includeOptions: kind === 'option', nodeIds: [], edgeIds: [] })
+    if (result === 'sent') onClose()
   }
 
   const left = Math.min(open.x + 8, (typeof window !== 'undefined' ? window.innerWidth : 1440) - 260)
@@ -86,7 +89,7 @@ export function WhatElseChooser({ open, onClose }: { open: WhatElseOpen; onClose
             className={`${typography.panelMeta} rounded-full border px-2.5 py-1 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
               open.doorKind === c.kind ? 'border-text-body text-text-body' : 'border-panel-border text-text-body'
             }`}
-            onClick={() => ask(whatElsePrompt(c.kind, open), `What else: ${c.label}`)}
+            onClick={() => ask(c.kind, whatElsePrompt(c.kind, open), `What else: ${c.label}`)}
           >
             {c.label}
           </button>
@@ -97,7 +100,7 @@ export function WhatElseChooser({ open, onClose }: { open: WhatElseOpen; onClose
         onSubmit={(e) => {
           e.preventDefault()
           const t = text.trim()
-          if (t) ask(t, 'What else')
+          if (t && askAi({ userWords: text }) === 'sent') onClose()
         }}
       >
         <input

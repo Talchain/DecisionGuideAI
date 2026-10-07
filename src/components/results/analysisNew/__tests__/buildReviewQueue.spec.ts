@@ -379,12 +379,9 @@ describe('ask payloads', () => {
     expect(reviewItemEditPayload(item, {})).toBeNull()
     expect(reviewItemEditPayload(item, { belief: '  ', evidence: '\n', source: ' ' })).toBeNull()
     // CONTRAST: a source alone is something to discuss.
-    expect(reviewItemEditPayload(item, { source: 'Board minutes' })?.draft).toBe(
-      [
-        REVIEW_TOOL_COPY.editReviewing(phase3.title),
-        REVIEW_TOOL_COPY.editSource('Board minutes'),
-        REVIEW_TOOL_COPY.editClosing,
-      ].join('\n'),
-    )
+    const sent = reviewItemEditPayload(item, { source: 'Board minutes' })!
+    expect(sent.draft).toContain('Source: Board minutes')
+    expect(sent.draft).toContain('block_id: blk_assume')
+    expect(sent.draft).toContain('Help me examine this; do not treat it as verified evidence.')
   })
 })

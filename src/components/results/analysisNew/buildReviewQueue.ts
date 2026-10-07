@@ -106,9 +106,9 @@ export const REVIEW_TOOL_COPY = {
   editCancel: 'Cancel',
   editSubmit: 'Continue with Olumi',
   editNote:
-    'This goes to Olumi in the chat, where you check it before sending. Nothing you add is stored as verified evidence.',
+    'This sends your words to Olumi. Nothing you add is stored as verified evidence.',
   editReviewing: (name: string) => `Reviewing: ${name}`,
-  editCurrentValue: (value: string) => `Current value: ${value}`,
+  editCurrentValue: (_value: string) => '',
   editProposedBelief: (text: string) => `Proposed belief: ${text}`,
   editEvidence: (text: string) => `Evidence or context: ${text}`,
   editSource: (text: string) => `Source: ${text}`,
@@ -412,30 +412,27 @@ export interface ReviewItemEdit {
  * as the item's own ask, so Olumi knows WHICH finding it is about. `null` when
  * every field is blank.
  *
- * ⚠ IT PROPOSES, NEVER APPLIES. No writer exists for a finding's wording or for
- * model-level evidence, so the message ends by asking Olumi not to treat any of
- * it as verified evidence, and nothing is stored.
- *
- * ⚠ A FACTOR STATES ITS CURRENT VALUE AS THE PANEL SHOWS IT, and carries no
- * `parameters`: a verify-list factor has no producer record, and an invented
- * identifier is a claim nothing upstream authored.
+ * Typed fields retain their wording and are separated by a blank line.
+ * The target is bound separately; no model value is inserted in their words.
  */
 export function reviewItemEditPayload(item: ReviewQueueItem, edit: ReviewItemEdit): AskOlumiPayload | null {
-  const belief = edit.belief?.trim() ?? ''
-  const evidence = edit.evidence?.trim() ?? ''
-  const source = edit.source?.trim() ?? ''
-  if (!belief && !evidence && !source) return null
+  const belief = edit.belief ?? ''
+  const evidence = edit.evidence ?? ''
+  const source = edit.source ?? ''
+  if (![belief, evidence, source].some(text => text.trim())) return null
   const rec = item.recommendation
-  const value = item.factor ? reviewValueText(item.factor) : null
-  const lines = [REVIEW_TOOL_COPY.editReviewing(item.name)]
-  if (value) lines.push(REVIEW_TOOL_COPY.editCurrentValue(value))
-  if (belief) lines.push(REVIEW_TOOL_COPY.editProposedBelief(belief))
-  if (evidence) lines.push(REVIEW_TOOL_COPY.editEvidence(evidence))
-  if (source) lines.push(REVIEW_TOOL_COPY.editSource(source))
-  lines.push(REVIEW_TOOL_COPY.editClosing)
+  const blockId = rec?.action.parameters?.block_id
+  const lines = [
+    REVIEW_TOOL_COPY.editReviewing(item.name),
+    ...(typeof blockId === 'string' ? [`block_id: ${blockId}`] : []),
+    ...(belief.trim() ? [REVIEW_TOOL_COPY.editProposedBelief(belief)] : []),
+    ...(evidence.trim() ? [REVIEW_TOOL_COPY.editEvidence(evidence)] : []),
+    ...(source.trim() ? [REVIEW_TOOL_COPY.editSource(source)] : []),
+    REVIEW_TOOL_COPY.editClosing,
+  ]
   return {
     context: rec ? rec.whyNow || rec.signal : factorContext(item),
-    draft: lines.join('\n'),
+    draft: lines.join('\n\n'),
     label: belief ? REVIEW_TOOL_COPY.editBelief : REVIEW_TOOL_COPY.addContext,
     ...(item.targetId ? { targetId: item.targetId } : {}),
     ...(rec?.action.parameters ? { parameters: rec.action.parameters } : {}),

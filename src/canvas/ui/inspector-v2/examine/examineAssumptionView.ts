@@ -71,8 +71,7 @@ export function buildExamineAssumptionView(input: {
       label: `Examine ${input.label}`,
       text:
         // "the", never "my": the user would be typing that Olumi's estimate is theirs, and the Agent reads it (AIQ 5924524123).
-        `Help me examine the assumption for "${input.label}" (currently ${value}). ` +
-        'What is it based on, and what would make a different figure more defensible?',
+        `What is the figure for ‘${input.label}’ based on, and what would make a different figure more defensible?`,
     },
   }
 }

@@ -1,15 +1,4 @@
-/**
- * ⭐ EXAMINE THIS LINK — the edge inspector section (slice 1, 52f8cd). The view is `examineLinkView.ts`.
- *
- * ⛔ READ-ONLY AND PREFILL-ONLY, exactly as `ExamineAssumption`: its one action goes through `requestAsk`, which never
- * dispatches. No `targetId`: the ask binds to the selection, which holds this edge while its inspector is open.
- * Fragility is read the way `EdgePanel` reads it (`isEdgeFragile` with the parallel-edge context), so the section and
- * the panel's own fragile cue cannot disagree. Hidden, not disabled, when nothing can receive an ask.
- *
- * ⭐ ONE OLUMI ACTION PER LINK (gate 5 item 3c, DL 0df0e1, 5 Oct 2026). `after` receives whether this section is shown,
- * so the inspector's generic "Explore with Olumi" is left out where the specific "Examine with Olumi" already stands.
- * The answer is this component's own render condition, never a re-derived copy of it.
- */
+/** Examine sends a chip about its typed target. Any proposed change returns for approval. */
 import { useCallback, useMemo, type ReactNode } from 'react'
 
 import { useCanvasStore } from '../../../store'
@@ -56,8 +45,8 @@ export function ExamineLink({
   )
   const prepare = useCallback(() => {
     if (!view) return
-    requestAsk({ text: view.prepare.text, label: view.prepare.label })
-  }, [view])
+    requestAsk({ text: view.prepare.text, label: view.prepare.label, targetId: edgeId, edgeIds: [edgeId], nodeIds: [], intent: 'question-link' })
+  }, [view, edgeId])
 
   const shown = view !== null && canAsk
   if (!shown) return after ? <>{after(false)}</> : null

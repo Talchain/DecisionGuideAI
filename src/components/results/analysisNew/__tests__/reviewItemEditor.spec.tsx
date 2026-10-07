@@ -25,6 +25,8 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 
 const nodes: Array<{ id: string; type?: string; data?: unknown }> = []
 const edges: Array<{ id: string }> = []
+vi.mock('../../../../canvas/conversation/askAi', () => ({ askAi: vi.fn(() => 'sent') }))
+import { askAi } from '../../../../canvas/conversation/askAi'
 const showToast = vi.fn()
 
 type MockState = { nodes: unknown; edges: unknown; currentScenarioId: string | null }
@@ -101,7 +103,7 @@ beforeEach(() => {
   nodes.length = 0
   nodes.push(...CANVAS)
   edges.length = 0
-  showToast.mockReset()
+  showToast.mockReset(); vi.mocked(askAi).mockClear()
   useStrengthenStore.setState({ records: {} })
 })
 afterEach(cleanup)
@@ -145,24 +147,15 @@ describe('"Edit this belief": an at-rest pencil on every finding', () => {
     type(COPY.evidenceLabel, 'Hiring plan approved in March')
     type(COPY.sourceLabel, 'Board minutes')
     fireEvent.click(screen.getByTestId(`${TID}-editor-send`))
-    expect(onAsk).toHaveBeenCalledTimes(1)
-    const payload = onAsk.mock.calls[0][0]
+    expect(askAi).toHaveBeenCalledTimes(1)
+    const payload = vi.mocked(askAi).mock.calls[0][0]
     // The finding is about a factor, so its value rides along exactly as the
     // item's value line shows it.
     const valueText = screen.getByTestId(`${TID}-value-text`).textContent as string
     expect(valueText).toBe(stripValue('f_mine'))
-    expect(payload.draft).toBe(
-      [
-        'Reviewing: A load-bearing assumption',
-        `Current value: ${valueText}`,
-        'Proposed belief: Team size will grow by two',
-        'Evidence or context: Hiring plan approved in March',
-        'Source: Board minutes',
-        'Help me examine this; do not treat it as verified evidence.',
-      ].join('\n'),
-    )
-    expect(payload.parameters).toEqual({ block_id: 'blk_mine' })
-    expect(payload.targetId).toBe('f_mine')
+    expect(payload.userWords).toBe('Reviewing: A load-bearing assumption\n\nblock_id: blk_mine\n\nProposed belief:  Team size will grow by two \n\nEvidence or context: Hiring plan approved in March\n\nSource: Board minutes\n\nHelp me examine this; do not treat it as verified evidence.')
+    expect(payload.nodeIds).toEqual(['f_mine'])
+    expect(payload.userWords).not.toContain('Current value:')
     expect(editor()).toBeNull()
   })
 
@@ -239,19 +232,12 @@ describe('"Add evidence or context": at rest, not behind More', () => {
     expect(within(form).queryByLabelText(COPY.beliefLabel)).toBeNull()
     type(COPY.evidenceLabel, 'The vendor quoted £52 last week')
     fireEvent.click(screen.getByTestId(`${TID}-editor-send`))
-    const payload = onAsk.mock.calls[0][0]
+    const payload = vi.mocked(askAi).mock.calls[0][0]
     const valueText = stripValue('f_ai')
     expect(valueText).toBeTruthy()
-    expect(payload.draft).toBe(
-      [
-        'Reviewing: Vendor cost',
-        `Current value: ${valueText}`,
-        'Evidence or context: The vendor quoted £52 last week',
-        'Help me examine this; do not treat it as verified evidence.',
-      ].join('\n'),
-    )
-    expect(payload.targetId).toBe('f_ai')
-    expect(payload).not.toHaveProperty('parameters')
+    expect(payload.userWords).toBe('Reviewing: Vendor cost\n\nEvidence or context: The vendor quoted £52 last week\n\nHelp me examine this; do not treat it as verified evidence.')
+    expect(payload.nodeIds).toEqual(['f_ai'])
+    expect(payload.userWords).not.toContain('Current value:')
   })
 })
 
@@ -277,4 +263,15 @@ describe('the acts row keeps at most three icons, and nothing dead', () => {
     expect(within(screen.getByTestId(`${TID}-menu`)).queryByText('Edit this item')).toBeNull()
     expect(within(screen.getByTestId(`${TID}-menu`)).queryByTestId(`${TID}-edit`)).toBeNull()
   })
+})
+
+it('a refused review submission keeps all three typed fields available', () => {
+  render(<ModelReviewTool interventions={[ABOUT_MINE]} onAsk={vi.fn()} />)
+  openTool(); fireEvent.click(screen.getByTestId(`${TID}-edit`))
+  type(COPY.beliefLabel, ' My belief '); type(COPY.evidenceLabel, ' My evidence '); type(COPY.sourceLabel, ' My source ')
+  vi.mocked(askAi).mockReturnValueOnce('busy')
+  fireEvent.click(screen.getByTestId(`${TID}-editor-send`))
+  expect(field(COPY.beliefLabel)).toHaveValue(' My belief ')
+  expect(field(COPY.evidenceLabel)).toHaveValue(' My evidence ')
+  expect(field(COPY.sourceLabel)).toHaveValue(' My source ')
 })

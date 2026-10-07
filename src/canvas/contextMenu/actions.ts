@@ -5,12 +5,14 @@
  * except Set value, which proposes through the card's typed factor-value writer
  * (`FactorValueWriter` → `factor_value_edit`) and writes nothing itself.
  * UI-only state (flagged_as_assumption) bypasses PLoT (Hard rule 3).
- * Ask AI lands an editable draft via `requestAsk` (askSemantic.ts) — it never sends.
+ * Ask AI sends one bound chip question via `requestAsk` and reveals the conversation.
  */
 
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
-import { requestAsk, canReceiveAsk } from '../ui/inspector-v2/askSemantic'
+import { requestAsk } from '../ui/inspector-v2/askSemantic'
+import { buildAskAiQuestion } from '../conversation/askAi'
+import type { AskIntent } from '../conversation/askAiQuestions'
 import { useConfirmDialogStore } from '../stores/confirmDialogStore'
 import { commitValidatedMutation } from '../mutations/commitValidatedMutation'
 import { USER_EDGE_DEFAULTS } from '../domain/edges'
@@ -949,7 +951,7 @@ export const CHALLENGE_KINDS: ReadonlySet<NodeType> = new Set<NodeType>([
  * four are journey-witnessed on staging with this exact string, and rewording
  * witnessed copy is a separate change with a separate justification.
  */
-const genericChallengePrompt = (label: string) =>
+export const genericChallengePrompt = (label: string) =>
   `Challenge the current setup of "${label}". What could be wrong or missing?`
 
 /** The menu tooltip those four kinds get, likewise unchanged. */
@@ -1021,55 +1023,19 @@ export function buildChallengeTooltip(nodeType: NodeType): string {
 /**
  * The one producer of ask-prompt copy for canvas elements.
  *
- * ⭐ EXPORTED so a surface can offer one of these prompts WITHOUT inheriting
- * `askAI`'s auto-send. `NodeQuickActions`' challenge button reads its text from
- * here and routes it through `requestAsk` instead — same sentence, different
- * confirmation. Pasting the string into that component would have been the
- * smaller diff and the worse change: one idea with two spellings, drifting the
- * first time either is reworded.
- *
- * ⚠ "`askAI`'s auto-send" NO LONGER EXISTS (24 Sep 2026): `askAI` now routes
- * through `requestAsk` too, so every door that reads this producer confirms the
- * same way. The export is still the right shape — a surface that does not want
- * `askAI`'s selection step can still take the sentence alone.
- *
- * The two questions this file answers are deliberately separate (trap 21):
- * WHAT is asked lives here; HOW an ask is confirmed lives at the call site.
+ * Shared question producer for the menu, hover actions and coaching icon.
+ * Dispatch uses the builder again at click time so stage and labels stay current.
+ * Targets ride through typed binding; product-authored text never echoes figures.
  */
+export function askTargetRequest(target: ContextTarget, intent: string) {
+  const nodeIds = target.kind === 'node' ? [target.nodeId] : target.kind === 'multi' ? target.nodeIds : []
+  const edgeIds = target.kind === 'edge' ? [target.edgeId] : target.kind === 'multi' ? target.edgeIds : []
+  return { intent: (target.kind === 'edge' ? intent === 'challenge_element' ? 'question-link' : 'link' : intent === 'challenge_element' ? 'challenge'
+    : intent === 'review_model_gaps' ? 'gaps' : 'explain') as AskIntent, nodeIds, edgeIds,
+    node: target.kind === 'node' ? { ...target.node, type: target.nodeType } : undefined }
+}
 export function buildAskAIPrompt(target: ContextTarget, intent: string): string {
-  if (target.kind === 'node') {
-    const label = (target.node.data as any)?.label ?? 'this element'
-    if (intent === 'explain_element') {
-      return `Explain the role of "${label}" in this decision model.`
-    }
-    if (intent === 'challenge_element') {
-      return (CHALLENGE_COPY[target.nodeType]?.prompt ?? genericChallengePrompt)(label)
-    }
-  }
-
-  if (target.kind === 'edge') {
-    const store = useCanvasStore.getState()
-    const sourceNode = store.nodes.find((n) => n.id === target.edge.source)
-    const targetNode = store.nodes.find((n) => n.id === target.edge.target)
-    const sourceLabel = (sourceNode?.data as any)?.label ?? target.edge.source
-    const targetLabel = (targetNode?.data as any)?.label ?? target.edge.target
-    if (intent === 'explain_element') {
-      return `Explain the relationship between "${sourceLabel}" and "${targetLabel}".`
-    }
-    if (intent === 'challenge_element') {
-      return `Challenge the link between "${sourceLabel}" and "${targetLabel}". Is it overweighted or wrong?`
-    }
-  }
-
-  if (target.kind === 'multi') {
-    return 'Explain the relationship between these selected elements.'
-  }
-
-  if (target.kind === 'pane' && intent === 'review_model_gaps') {
-    return "What's missing from this decision model? Review the graph for structural gaps."
-  }
-
-  return 'Tell me about this.'
+  return buildAskAiQuestion(askTargetRequest(target, intent)).question
 }
 
 export function askAI(
@@ -1108,16 +1074,9 @@ export function askAI(
   // 2. Open conversation panel
   store.setShowDraftChat(true)
 
-  // 3. Land the prompt as an editable DRAFT once a conversation surface has
-  //    registered — never send it. The panel needs multiple frames to render +
-  //    run effects, so poll with a timeout.
-  //
-  //    ⚠ THIS USED TO SEND (`_sendMessage(prompt)`), in the user's name, from
-  //    the card's hover Ask and every context-menu ask — against the house rule
-  //    `ASK_SEMANTIC = 'prefill-and-confirm'` that the challenge button, the
-  //    ghost doors and the coaching icon already followed. Only the CONFIRMATION
-  //    moved: selection (step 1) and the prompt copy are unchanged, and
-  //    `requestAsk` picks the surface (composer, else the Ask drawer).
+  // 3. Send one chip after the conversation registers its dispatcher.
+  //    Registration needs multiple frames, so poll with a bounded timeout.
+  //    The common builder owns stage, typed target, busy/refire gates and reveal.
   const prompt = buildAskAIPrompt(target, intent)
   const label = target.kind === 'node'
     ? `Ask Olumi about ${(target.node.data as any)?.label ?? 'this element'}`
@@ -1125,22 +1084,63 @@ export function askAI(
   let attempts = 0
   const MAX_ATTEMPTS = 20 // ~1s max wait (50ms × 20)
   const tryToAsk = () => {
-    if (canReceiveAsk(useGuidanceStore.getState())) {
+    if (useGuidanceStore.getState()._dispatchAction) {
       const landed = requestAsk({
-        text: prompt,
+        text: prompt, ...askTargetRequest(target, intent),
         label,
         targetId: target.kind === 'node' ? target.nodeId : undefined,
         source: 'context-menu',
       })
-      if (landed === 'none') showToast?.('Could not open a draft — try typing your question directly.', 'warning')
+      if (landed === 'none') showToast?.('Your question was not sent. Try again in the conversation.', 'warning')
       return
     }
     attempts++
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     if (attempts < MAX_ATTEMPTS) {
       setTimeout(tryToAsk, 50)
     } else {
       // Same words as the sibling doors (the challenge button, the coaching icon).
-      showToast?.('Could not open a draft — try typing your question directly.', 'warning')
+      showToast?.('Your question was not sent. Try again in the conversation.', 'warning')
     }
   }
   // Start after first frame to give React a chance to commit

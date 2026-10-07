@@ -6,7 +6,7 @@
  * ⚠⚠ IT PROPOSES, NEVER APPLIES, AND ITS NOTE SAYS SO. There is no writer for a
  * finding's wording and no model-level evidence store (editability map E8 and
  * E15b), so submit hands one composed message to the caller's ask route
- * (`reviewItemEditPayload`), where the person reads it before sending. Nothing
+ * (`reviewItemEditPayload`), sent directly as the person’s own words. Nothing
  * here writes a store.
  *
  * ⚠ NO VALUE FIELD. A factor's number keeps its own editor, `FactorValueControl`
@@ -21,6 +21,8 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 
 import { typography } from '../../../../styles/typography'
+import { askAi } from '../../../../canvas/conversation/askAi'
+import { useCanvasStore } from '../../../../canvas/store'
 import type { AskOlumiPayload } from '../../coaching/askOlumiStore'
 import { REVIEW_TOOL_COPY as COPY, reviewItemEditPayload, type ReviewQueueItem } from '../buildReviewQueue'
 import { OlumiAiIcon } from '../OlumiAiIcon'
@@ -41,7 +43,7 @@ export interface ReviewItemEditorProps {
 const fieldClass = `${typography.panelBody} w-full min-h-[64px] rounded-sm border border-field bg-panel px-2 py-2 text-text-header ${ACTION_FOCUS}`
 const fieldGroupClass = `${typography.panelMeta} flex flex-col gap-0.5 text-text-light`
 
-export function ReviewItemEditor({ item, focusField, onAsk, onClose, testIdPrefix }: ReviewItemEditorProps) {
+export function ReviewItemEditor({ item, focusField, onAsk: _onAsk, onClose, testIdPrefix }: ReviewItemEditorProps) {
   const hasBelief = item.recommendation !== null
   const [belief, setBelief] = useState('')
   const [evidence, setEvidence] = useState('')
@@ -78,9 +80,10 @@ export function ReviewItemEditor({ item, focusField, onAsk, onClose, testIdPrefi
       focusFirst()
       return
     }
-    onAsk(payload)
-    // Focus stays with the ask surface that just opened.
-    onClose(false)
+    const isEdge = useCanvasStore.getState().edges.some(e => e.id === item.targetId)
+    const sent = askAi({ userWords: payload.draft, nodeIds: item.targetId && !isEdge ? [item.targetId] : [],
+      edgeIds: item.targetId && isEdge ? [item.targetId] : [] })
+    if (sent === 'sent') onClose(false)
   }
 
   return (

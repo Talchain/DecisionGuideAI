@@ -26,6 +26,8 @@ import type { NodeProps } from '@xyflow/react'
 import { GhostTierNode, GHOST_TIER_TESTID } from '../GhostTierNode'
 import { GhostOptionNode } from '../GhostOptionNode'
 import { GHOST_OPTION_DOOR_LABEL } from '../../utils/ghostTiers'
+import { useCanvasStore } from '../../store'
+import { useWhatElseStore } from '../../components/WhatElseChooser'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { AskOlumiDrawer } from '../../../components/results/coaching/AskOlumiDrawer'
 import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiStore'
@@ -78,69 +80,42 @@ function channels(channel: Channel) {
 }
 
 const drawer = () => screen.queryByTestId('ask-olumi-drawer')
-const draftBox = () => screen.getByTestId('ask-olumi-draft') as HTMLTextAreaElement
-const sendButton = () => screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement
-
 beforeEach(() => {
+  useWhatElseStore.getState().close()
+  useCanvasStore.setState({ nodes: [], edges: [], hasCompletedFirstRun: false, results: { status: 'idle' }, v5AnalysisFact: null } as never)
   useAskOlumiStore.setState({ isOpen: false, context: '', draft: '', label: '', targetId: null, parameters: undefined, source: 'chip' })
-  useGuidanceStore.setState({ _sendMessage: null, _prefillChat: null, _dispatchAction: null })
+  useGuidanceStore.setState({ _sendMessage: null, _prefillChat: null, _dispatchAction: null, _isConversationBusy: () => false })
 })
 
-describe('frontier doors with no composer registered: the Ask drawer is the confirm surface', () => {
+describe('frontier doors require the chip carrier and keep refused input available', () => {
   it.each([
-    ['option ghost', 'send channel only'],
-    ['option ghost', 'dispatch + send channels'],
-    ['row-end tier', 'send channel only'],
-    ['row-end tier', 'dispatch + send channels'],
-  ] as Array<[Door, Channel]>)(
-    '%s door, %s: the click opens the drawer holding EXACTLY the prompt and sends nothing; one Send sends it once; a second ask works',
-    (doorName, channel) => {
-      const door = DOORS[doorName]
-      const c = channels(channel)
-      render(
-        <ReactFlowProvider>
-          {door.mount()}
-          <AskOlumiDrawer />
-        </ReactFlowProvider>,
-      )
-      expect(drawer(), 'PRECONDITION: the drawer is closed').toBeNull()
-
-      // ── Activation: the question is in front of the person; nothing is sent.
+    ['option ghost', 'send channel only'], ['option ghost', 'dispatch + send channels'],
+    ['row-end tier', 'send channel only'], ['row-end tier', 'dispatch + send channels'],
+  ] as Array<[Door, Channel]>)('%s / %s keeps the carrier, single-send and second-ask invariants', (doorName, channel) => {
+    const door = DOORS[doorName], c = channels(channel)
+    render(<ReactFlowProvider>{door.mount()}<AskOlumiDrawer /></ReactFlowProvider>)
+    expect(drawer()).toBeNull()
+    act(() => { door.activate() })
+    chooseWhatElse(doorName === 'option ghost' ? 'option' : 'factor')
+    expect(c.sent).toEqual([])
+    expect(drawer()).toBeNull()
+    const expected = doorName === 'option ghost' ? 'What other ways could we reach the goal that aren’t on the board yet?'
+      : 'What else could change how this turns out that the model doesn’t have yet?'
+    if (channel === 'send channel only') {
+      expect(c.allSends()).toEqual([])
+      expect(screen.getByTestId('what-else-chooser')).toBeInTheDocument()
+    } else {
+      expect(c.dispatched).toHaveLength(1)
+      expect(c.dispatched[0]).toMatchObject({ id: doorName === 'option ghost' ? 'ask:widen' : 'ask:missing-factor', source: 'chip', message: expected })
+      expect(screen.queryByTestId('what-else-chooser')).toBeNull()
       act(() => { door.activate() })
-      chooseWhatElse(doorName === 'option ghost' ? 'option' : 'factor')
-      expect(c.allSends(), 'zero sends on activation').toEqual([])
-      expect(drawer()).not.toBeNull()
-      expect(useAskOlumiStore.getState().draft).toBe(door.prompt)
-      expect(draftBox().value).toBe(door.prompt)
-      expect(draftBox().readOnly).toBe(false)
-      expect(draftBox().disabled).toBe(false)
-      expect(document.activeElement, 'the drawer puts the person in the question').toBe(draftBox())
-      expect(sendButton().disabled).toBe(false)
-
-      // ── The person's own Send: exactly one send, carrying exactly the prompt.
-      act(() => { fireEvent.click(sendButton()) })
-      expect(c.allSends()).toEqual([door.prompt])
-      if (channel === 'dispatch + send channels') {
-        // The drawer prefers the typed turn; the bare channel stays silent.
-        expect(c.sent).toEqual([])
-        expect(c.dispatched).toHaveLength(1)
-        expect(c.dispatched[0]).toMatchObject({ action_type: 'discuss', label: door.prompt, message: door.prompt, source: 'ghost-door' })
-      } else {
-        expect(c.sent).toEqual([door.prompt])
-      }
-      expect(drawer(), 'Send closes the drawer').toBeNull()
-
-      // ── A second ask: the drawer comes back with the prompt, still unsent,
-      // and the person's EDIT is what goes out.
-      act(() => { door.activate() })
-      chooseWhatElse(doorName === 'option ghost' ? 'option' : 'factor')
-      expect(drawer()).not.toBeNull()
-      expect(draftBox().value).toBe(door.prompt)
-      expect(c.allSends(), 'the second activation sends nothing either').toEqual([door.prompt])
-      act(() => { fireEvent.change(draftBox(), { target: { value: EDITED } }) })
-      expect(useAskOlumiStore.getState().draft).toBe(EDITED)
-      act(() => { fireEvent.click(sendButton()) })
-      expect(c.allSends()).toEqual([door.prompt, EDITED])
-    },
-  )
+    }
+    // The second ask is the user's edit, sent once on the composer carrier.
+    const input = screen.getByTestId('what-else-free')
+    fireEvent.change(input, { target: { value: EDITED } })
+    fireEvent.submit(input.closest('form')!)
+    expect(c.sent).toEqual([EDITED])
+    expect(c.dispatched).toHaveLength(channel === 'send channel only' ? 0 : 1)
+    expect(screen.queryByTestId('what-else-chooser')).toBeNull()
+  })
 })

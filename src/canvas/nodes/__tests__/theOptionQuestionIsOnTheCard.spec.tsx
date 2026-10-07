@@ -101,9 +101,9 @@ function renderOption(data: Record<string, unknown> = {}, resultsStatus = 'idle'
   cleanup()
   vi.mocked(useCanvasStore).mockImplementation((sel) => (sel as (s: unknown) => unknown)(state(resultsStatus) as never))
   // The icon selects the node before asking (`useCanvasStore.getState()`).
-  ;(useCanvasStore as unknown as { getState: () => unknown }).getState = () => ({ selectNodeWithoutHistory: vi.fn() })
+  ;(useCanvasStore as unknown as { getState: () => unknown }).getState = () => ({ ...state(resultsStatus), nodes: [{ id: ID, type: 'option', data: { label: 'Move upmarket to enterprise', ...data } }], edges: [], selectNodeWithoutHistory: vi.fn() })
   // An ask surface — without one the icon renders nothing (`canReceiveAsk`).
-  useGuidanceStore.setState({ _prefillChat: vi.fn(), _sendMessage: vi.fn(), _dispatchAction: vi.fn(), guidanceItems: [] } as never)
+  useGuidanceStore.setState({ _prefillChat: vi.fn(), _sendMessage: vi.fn(), _dispatchAction: vi.fn(), _isConversationBusy: () => false, guidanceItems: [] } as never)
   useAskOlumiStore.setState({ isOpen: false, draft: '', label: '', context: '' } as never)
   render(
     <ReactFlowProvider>
@@ -145,10 +145,9 @@ describe('the option card asks its own question, like every other kind', () => {
     // `requestAsk` (untyped chip → an editable draft the user sends), bound to
     // THIS node by `targetId` and carrying the option's own label.
     fireEvent.click(screen.getByTestId(ICON))
-    const ask = useAskOlumiStore.getState() as unknown as { isOpen: boolean; draft: string; targetId?: string }
-    expect(ask.isOpen).toBe(true)
-    expect(ask.draft).toBe('What could go wrong if we choose Double down on self-serve?')
-    expect(ask.targetId).toBe('opt_upmarket')
+    expect(useGuidanceStore.getState()._dispatchAction).toHaveBeenCalledTimes(1)
+    expect(useGuidanceStore.getState()._dispatchAction).toHaveBeenCalledWith(expect.objectContaining({ id: 'ask:pre-mortem', source: 'chip', message: 'What could make ‘Double down on self-serve’ go badly that isn’t in the model yet?' }))
+    expect(useAskOlumiStore.getState().isOpen).toBe(false)
   })
 
   /**

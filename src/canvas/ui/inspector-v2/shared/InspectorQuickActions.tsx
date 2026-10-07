@@ -11,8 +11,8 @@
  * contract's `.button.small.primary` / `.button.small`. What left:
  *
  *  · "Ask Olumi" is RENAMED, not removed — same `requestAsk` semantic, same
- *    test id (`inspector-quick-ask`): it never dispatches, it lands an editable
- *    draft about THIS element that the user sends.
+ *    test id (`inspector-quick-ask`): it sends one bound chip question
+ *    and reveals the conversation.
  *  · "Change this" is REMOVED. It was a second edit route beside the title's
  *    rename, the value editors and the conversation — the served header showed
  *    a dashed title, a pencil, "Change this" and "Change" at once (the pile-up
@@ -79,7 +79,7 @@ export function InspectorQuickActions({
   omitExplore = false,
 }: InspectorQuickActionsProps) {
   const canAsk = useGuidanceStore(
-    (s) => s._prefillChat !== null || s._sendMessage !== null || s._dispatchAction !== null,
+    (s) => s._dispatchAction !== null,
   )
 
   const question = useMemo(() => {
@@ -96,8 +96,10 @@ export function InspectorQuickActions({
       label: `Ask about ${elementLabel}`,
       context: askContext,
       targetId: elementId,
+      intent: panelType === 'edge' ? 'link' : 'explain',
+      ...(panelType === 'edge' ? { edgeIds: [elementId], nodeIds: [] } : { nodeIds: [elementId], edgeIds: [] }),
     })
-  }, [question, elementLabel, elementId, askContext])
+  }, [question, elementLabel, elementId, askContext, panelType])
 
   if (!canAsk && !extra) return null
 

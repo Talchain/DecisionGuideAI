@@ -719,6 +719,9 @@ export const ConversationPanel = memo(function ConversationPanel({
     [sendChip, retryLast, startNewDraft, messages, onChipTaken, runAnalysisGated],
   )
 
+  const askBusyRef = useRef(isThinking)
+  askBusyRef.current = isThinking
+
   useEffect(() => {
     // L-59: forward the producer's own typed intent when the caller has one.
     // `sendChip` → `dispatchAction` is the path that turns an `action_type` into
@@ -769,6 +772,7 @@ export const ConversationPanel = memo(function ConversationPanel({
         handleRunAnalysis,
         prefillChat,
         dispatchAction,
+        () => askBusyRef.current,
       )
     let unregister = register()
     // Survivor takeover: when ANOTHER host unmounts and legitimately clears

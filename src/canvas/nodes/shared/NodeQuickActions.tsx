@@ -225,38 +225,11 @@ export const NodeQuickActions = memo(function NodeQuickActions({
    * ask, not overflow: it is the half that suggests what is MISSING rather
    * than scoring what is there.
    *
-   * ## Why `requestAsk` and NOT `askAI`
-   *
-   * `askAI` — which the sibling ask button uses — polls for `_sendMessage` and
-   * DISPATCHES. That is tolerable for "explain this", which asks the model to
-   * describe something the user already has. It is wrong here: a challenge
-   * produces ideas the user has not agreed to, and the house rule
-   * (`askSemantic.ts`, `ASK_SEMANTIC = 'prefill-and-confirm'`) is that an ask
-   * lands an EDITABLE DRAFT in a visible surface and the user presses Send.
-   * Humans stay the authors of what enters their own model.
-   *
-   * ⚠ AND THE SEAM THIS LEFT OPEN, stated rather than hidden: the button
-   * beside this one still auto-sends, so two adjacent controls in one layer now
-   * confirm differently. That is trap 21 in miniature and I am NOT closing it
-   * here — `askAI` has seven call sites and every context-menu ask rides it, so
-   * migrating it changes the whole menu's behaviour and needs its own review.
-   * The smallest enabling change is to route `askAI`'s step 3 through
-   * `requestAsk`; it is reported, not smuggled into this PR.
-   *
-   * ⭐ CLOSED 24 Sep 2026, by exactly that change: `askAI`'s step 3 now calls
-   * `requestAsk`, so the ask button, this one and every context-menu ask all
-   * land a draft (`askAIPrefillNeverSends.spec.tsx`). This button keeps its own
-   * `requestAsk` call because it carries a label and source of its own.
-   *
-   * ## Why it selects first
-   *
-   * `askAI` selects the element before sending so the turn carries
-   * `selected_elements` — the context the prompt's text alone does not supply.
-   * Dropping that would make this button's answer worse than the menu's for the
-   * same question, so the selection step is reproduced deliberately. It is the
-   * one line of `askAI` worth having without the send.
+   * Both Ask and Challenge now send one chip through the shared builder.
+   * The selected element is bound immediately before dispatch, and any
+   * proposed model change returns through the existing approval route.
    */
-  const canChallenge = useGuidanceStore(canReceiveAsk) && hasChallengePrompt(nodeType)
+  const canChallenge = useGuidanceStore(s => !!s._dispatchAction) && hasChallengePrompt(nodeType)
 
   const handleChallenge = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -275,14 +248,14 @@ export const NodeQuickActions = memo(function NodeQuickActions({
       text,
       label: `Challenge ${label}`,
       targetId: nodeId,
-      source: 'node-quick-actions',
+      source: 'node-quick-actions', intent: 'challenge', node: { ...node, type: nodeType },
     })
     // The gate is checked at render; a channel can still die between render and
     // click. `requestAsk` returning 'none' is that case, and it must surface as
     // a message rather than as a button that did nothing — the same discipline
     // the ask button's toast enforces.
     if (landed === 'none') {
-      showToast?.('Could not open a draft — try typing your question directly.', 'warning')
+      showToast?.('Your question was not sent. Try again in the conversation.', 'warning')
     }
   }, [nodeId, nodeType, label, showToast])
 
