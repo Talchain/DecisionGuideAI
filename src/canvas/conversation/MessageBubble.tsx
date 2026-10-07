@@ -42,6 +42,7 @@ import { SYSTEM_MESSAGE_SENTINEL, isNonConversationalContent } from './useConver
 import type { ConversationMessage, ActionChip, GraphPatchBlock, Insight } from './types'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import styles from './Conversation.module.css'
+import { AiChangeUndoButton } from '../undo/AiChangeUndoButton'
 
 /** Safety net: extract text from raw JSON blobs that CEE's fallback parser may produce. */
 function extractFromRawJson(content: string): string {
@@ -672,6 +673,8 @@ export const MessageBubble = memo(function MessageBubble({
         omits both follow-up items when that handler is absent — so the
         affordance still cannot appear where nothing can send it.
       */}
+      {/* P48 (audit #23): Undo for the change Olumi made in this reply — only while it is the next ⌘Z. */}
+      {!isUser && !message.synthetic && <AiChangeUndoButton turnId={message.clientTurnId} />}
       {!isUser && !message.synthetic && displayContent !== FALLBACK_TEXT && onFeedback && (
         <FeedbackRow turnId={message.clientTurnId} onFeedback={onFeedback} />
       )}

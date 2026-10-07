@@ -11,8 +11,11 @@
  *    the journal, and the next restore's identity check refuses it.
  *  - A judgement the journal cannot undo (a prior range, an edge verdict) →
  *    a barrier, so ⌘Z says so instead of reverting an OLDER graph edit.
- *  - Any other turn carrying a receipt (chat, the Agent, a Run) → a foreign
+ *  - Any other turn carrying a receipt (chat, a Run) → a foreign
  *    write: nothing before it can be undone from the canvas.
+ *  - An Agent turn whose `_agent.receipts` name the versions it minted (an
+ *    approved proposal, an adopted option) → ONE undo step for Olumi's change
+ *    (P48, `captureAgentTurnForUndo.ts`).
  */
 
 import { create } from 'zustand'
@@ -25,6 +28,7 @@ import {
   type UndoReceipt,
 } from './undoJournal'
 import { isModelChangingSystemEvent } from '../conversation/types'
+import { captureAgentTurnForUndo, readAgentTurnReceipts } from './captureAgentTurnForUndo'
 
 export const useUndoJournalStore = create<{ journal: UndoJournalState }>(() => ({
   journal: EMPTY_UNDO_JOURNAL,
@@ -102,6 +106,10 @@ export function captureTurnForUndo(input: {
       scenarioId: input.scenarioId,
       head: { versionId: receipt.versionId, fullHash: receipt.fullHash },
     })
+  } else if (event === undefined && readAgentTurnReceipts(input.response).length > 0) {
+    // P48: an AI-applied change (the Agent's own versions, `_agent.receipts`) becomes ONE undo step, resolved
+    // against the versions list (`captureAgentTurnForUndo.ts`). Async; it fails closed by clearing the journal.
+    void captureAgentTurnForUndo({ scenarioId: input.scenarioId, turnId: input.turnId, response: input.response })
   }
   if (next !== journal) useUndoJournalStore.setState({ journal: next })
 }
