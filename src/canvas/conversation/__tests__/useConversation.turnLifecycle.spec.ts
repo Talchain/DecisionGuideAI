@@ -3,7 +3,7 @@
  *
  * Rows, each RED on base (79a058e5 → e438a05e) and GREEN here:
  *   (1) a PREEMPTED turn finishing late must not end the NEWER turn: its indicator stays until the newer reply;
- *   (2) a failed turn is REPORTED (Sentry `captureError`, kind + turn type, no user text) — base: 0 capture calls;
+ *   (2) a failed turn is REPORTED (Sentry `captureTurnFailure`, kind + turn type as tags, no user text) — base: 0 capture calls;
  *   (3) a session read that never returns no longer holds the spinner with nothing sent: the turn fails as not sent,
  *       is reported as `session_timeout`, and the user can retry.
  * Controls: a user Stop and a preempt abort are NOT reported (they are not failures); a clean turn reports nothing.
@@ -50,10 +50,12 @@ vi.mock('../../../lib/supabase', () => ({
   getSessionIdentity: () => sessionRead.impl(),
 }))
 
-const captured: Array<{ message: string; context: Record<string, unknown> | undefined }> = []
+const captured: Array<{ message: string; tags: Record<string, string>; scenarioId: string | null }> = []
 vi.mock('../../../lib/monitoring', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../lib/monitoring')>()),
-  captureError: (error: Error, context?: Record<string, unknown>) => { captured.push({ message: error.message, context }) },
+  captureTurnFailure: (error: Error, report: { tags: Record<string, string>; scenarioId: string | null }) => {
+    captured.push({ message: error.message, tags: report.tags, scenarioId: report.scenarioId })
+  },
   addBreadcrumb: () => {},
 }))
 
@@ -159,8 +161,9 @@ describe('the turn lifecycle', () => {
     expect(captured).toHaveLength(1)
     expect(captured[0].message).toMatch(/^Chat turn failed: (not_sent|transport)$/)
     expect(captured[0].message).not.toMatch(/NetworkError/)
-    expect(captured[0].context).toMatchObject({ component: 'chat-turn', turn_mode: 'user', scenarioId: SCENARIO.slice(0, 8) })
-    expect(JSON.stringify(captured[0].context)).not.toContain('salaries')
+    expect(captured[0].tags).toMatchObject({ turn_mode: 'user' })
+    expect(captured[0].scenarioId).toBe(SCENARIO.slice(0, 8))
+    expect(JSON.stringify(captured[0])).not.toContain('salaries')
   })
 
   it('control: a clean turn reports nothing', async () => {

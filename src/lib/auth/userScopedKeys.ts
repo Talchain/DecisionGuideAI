@@ -34,6 +34,11 @@ export const USER_SCOPED_STORAGE_KEYS = [
   'olumi-canvas-run-history',
   // "This browser was signed in" (`lapseBoundary.ts`): the boundary has now run, so the next guest boot is not a lapse.
   SIGNED_IN_HERE_KEY,
+  // S-G: a guest id captured for the account that just ended (`lib/pendingGuestCopy.ts` v1; its v2 set and the guest-work
+  // ledger are prefixes below). A lapse fires no SIGNED_OUT, so without these the NEXT person's sign-in would copy or be
+  // offered the previous person's guest decisions (ACCOUNTS owner ruling, 2 Oct). A first sign-in (guest → A) is not a
+  // boundary: the guest's own work reaches A's sign-in untouched. Literal: this leaf imports nothing; pinned to the owner.
+  'olumi.pendingGuestCopy.v1',
 ] as const
 
 // `olumi-canvas-autosave:` — a cold-load deep link's preserved copies (`scenarios.keyedAutosaveKey`): one per scenario,
@@ -44,9 +49,12 @@ export const USER_SCOPED_STORAGE_KEYS = [
 // one per scenario (`collab/panelApplyHandoff.ts`, `collab/openRoundRecord.ts`).
 // `olumi-thin-layout:` — a signed-in browser's layout, one per scenario (`thinClient.LAYOUT_KEY_PREFIX`): positions only,
 // but keyed by node ids, and CEE derives node ids from labels (Acceptance, #2511 witness W2), so it names the model.
+// `olumi.pendingGuestCopy.v2:` / `olumi.guestWork.v1:` / `olumi.guestWorkSeen.v1:` — S-G: guest decisions pending a copy,
+// and offered, for the account that just ended (one key per decision; `lib/pendingGuestCopy.ts`, `lib/guestWork.ts`).
 export const USER_SCOPED_STORAGE_PREFIXES = [
   'olumi.dissent.v2.', 'olumi.dissent.', 'olumi-canvas-autosave:', 'canvas-snapshot-',
   'olumi.collab.pending-apply.', 'olumi.collab.open-round.', 'olumi-thin-layout:',
+  'olumi.pendingGuestCopy.v2:', 'olumi.guestWork.v1:', 'olumi.guestWorkSeen.v1:',
 ] as const
 
 /**

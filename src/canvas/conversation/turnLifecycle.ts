@@ -19,7 +19,7 @@
  * A settle to `failed` is reported through `reportTurnFailure` by the hook's one settle path, so every failure path
  * reports by construction.
  */
-import { captureError } from '../../lib/monitoring'
+import { captureTurnFailure } from '../../lib/monitoring'
 
 /** Why a turn failed. `not_sent`: the request never left the browser; `session_timeout`: the session read hung. */
 export type TurnFailureKind = 'not_sent' | 'session_timeout' | 'transport' | 'server' | 'timeout' | 'empty'
@@ -75,22 +75,18 @@ export interface TurnFailureReport {
 }
 
 /**
- * The ONE place a failed or stuck chat turn is reported. The message is deliberately free of the substrings the
- * Sentry init filters (`ignoreErrors` includes 'NetworkError' as a substring), so a transport failure is never
- * discarded on arrival.
+ * The ONE place a failed or stuck chat turn is reported (through `captureTurnFailure`, so the identifiers survive the
+ * S-H context allowlist). The message carries only the failure kind: no user text, and no 'NetworkError' substring.
  */
 export function reportTurnFailure(report: TurnFailureReport): void {
   const error = new Error(`Chat turn failed: ${report.kind}`)
   error.name = 'ChatTurnFailure'
-  captureError(error, {
-    component: 'chat-turn',
-    turn_failure: report.kind,
-    turn_type: report.turnType,
-    turn_mode: report.mode,
-    request_id: report.requestId,
-    // `scenarioId` (an 8-character prefix): the key the Sentry context allowlist keeps (S-H, DGAI #2606).
+  const tags: Record<string, string> = { turn_failure: report.kind, turn_type: report.turnType, turn_mode: report.mode }
+  if (report.requestId) tags.request_id = report.requestId
+  captureTurnFailure(error, {
+    tags,
     scenarioId: report.scenarioId ? report.scenarioId.slice(0, 8) : null,
-    elapsed_ms: report.elapsedMs,
+    elapsedMs: report.elapsedMs,
   })
 }
 

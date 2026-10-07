@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { GuestDraftImportBanner } from '../components/auth/GuestDraftImportBanner'
+import { GuestWorkOfferBanner } from '../components/auth/GuestWorkOfferBanner'
 import { useScenario } from '../hooks/useScenario'
 import * as scenarioService from '../services/scenarioService'
 import { ShareDecisionDialog } from '../components/sharing/ShareDecisionDialog'
@@ -618,6 +619,9 @@ export default function ScenarioListPage() {
             no offer is due, so flag-off renders zero extra DOM (review S1 —
             an unconditional wrapper shifted the first-run state 16px). */}
         <GuestDraftImportBanner />
+        {/* S-G: guest work from before this sign-in that was NOT copied automatically (older than a day, or never
+            seen by the guest-work ledger). Same no-wrapper rule as above: null when there is nothing to offer. */}
+        <GuestWorkOfferBanner />
         {isFirstRun ? (
           /* ---- First-run welcome ---- */
           <div className="text-center py-20" data-testid="first-run">

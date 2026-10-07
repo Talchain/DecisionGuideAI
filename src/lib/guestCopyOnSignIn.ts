@@ -1,6 +1,10 @@
 /**
- * ACCOUNTS B3 — when a guest signs in, copy the decision they were building into
- * their account (CEE #2493), then point the canvas at the COPY.
+ * ACCOUNTS B3 — when a guest signs in, copy the decisions they were building into
+ * their account (CEE #2493), then point the canvas at the COPY of the one on screen.
+ *
+ * S-G (7 Oct 2026): every id in the pending SET is copied (`pendingGuestCopy.ts`),
+ * one request each, in capture order. Only the decision the canvas still shows can
+ * be adopted, so at most one copy opens; the others are listed in "My decisions".
  *
  * The copy is a NEW owned scenario: title + graph, no Run, no conversation. The
  * guest row is never written. So after a copy the canvas must not keep showing
@@ -16,7 +20,7 @@
  * sign-in (nothing here is awaited by the sign-in path, and nothing throws).
  */
 
-import { capturePendingGuestCopy, clearPendingGuestCopy, readCurrentScenarioPointer, readPendingGuestCopy } from './pendingGuestCopy'
+import { capturePendingGuestCopies, clearPendingGuestCopy, readCurrentScenarioPointer, readPendingGuestCopies } from './pendingGuestCopy'
 import { requestGuestCopy } from '../services/guestCopyService'
 
 /** Window event fired after a copy lands, so "My decisions" can refetch. */
@@ -28,8 +32,8 @@ export interface GuestCopiedDetail {
   created: boolean
 }
 
+/** One pending id's outcome. A run over the set returns one per id attempted (`[]` when nothing was pending). */
 export type GuestCopyRun =
-  | { kind: 'nothing_pending' }
   | { kind: 'copied'; sourceScenarioId: string; scenarioId: string; created: boolean; adopted: boolean }
   | { kind: 'not_copyable'; sourceScenarioId: string }
   | { kind: 'retry_later'; sourceScenarioId: string; reason: string }
@@ -71,14 +75,14 @@ async function adoptInCanvasStore(sourceScenarioId: string, copyScenarioId: stri
   return true
 }
 
-let inFlight: { token: string; run: Promise<GuestCopyRun> } | null = null
+let inFlight: { token: string; run: Promise<GuestCopyRun[]> } | null = null
 
 /**
- * Copy whatever guest id is pending. Concurrent calls WITH THE SAME TOKEN share
- * one request (two auth events in a tick, StrictMode's double mount). A
- * different token is a different sign-in and never joins another's run.
+ * Copy every pending guest id. Concurrent calls WITH THE SAME TOKEN share one
+ * run (two auth events in a tick, StrictMode's double mount). A different token
+ * is a different sign-in and never joins another's run.
  */
-export function runPendingGuestCopy(accessToken: string, deps: GuestCopyDeps = {}): Promise<GuestCopyRun> {
+export function runPendingGuestCopy(accessToken: string, deps: GuestCopyDeps = {}): Promise<GuestCopyRun[]> {
   if (inFlight && inFlight.token === accessToken) return inFlight.run
   const entry = { token: accessToken, run: copyPending(accessToken, deps) }
   inFlight = entry
@@ -88,9 +92,19 @@ export function runPendingGuestCopy(accessToken: string, deps: GuestCopyDeps = {
   return entry.run
 }
 
-async function copyPending(accessToken: string, deps: GuestCopyDeps): Promise<GuestCopyRun> {
-  const source = readPendingGuestCopy()
-  if (source === null) return { kind: 'nothing_pending' }
+async function copyPending(accessToken: string, deps: GuestCopyDeps): Promise<GuestCopyRun[]> {
+  const runs: GuestCopyRun[] = []
+  // Sequential, never parallel: each copy may adopt, and adoption must see the pointer the previous one left.
+  for (const source of readPendingGuestCopies()) {
+    const run = await copyOne(source, accessToken, deps)
+    runs.push(run)
+    // The account changed: nothing more is sent under the ended sign-in.
+    if (run.kind === 'stale') break
+  }
+  return runs
+}
+
+async function copyOne(source: string, accessToken: string, deps: GuestCopyDeps): Promise<GuestCopyRun> {
   const isCurrent = deps.isCurrent ?? (() => true)
 
   const outcome = await (deps.request ?? requestGuestCopy)(source, accessToken)
@@ -144,7 +158,7 @@ export type AuthObservation = 'transition' | 'restored' | 'none'
  * from a synchronous read of storage at mount: no stored session then means the
  * page started signed out.
  *
- * - `transition`: capture the guest pointer, then copy.
+ * - `transition`: capture the guest's recent work (`capturePendingGuestCopies`), then copy.
  * - `restored`: the first session of a page that started signed in. Copy only
  *   what an earlier attempt left pending; capture nothing.
  * - `none`: do nothing.
@@ -185,11 +199,11 @@ export function handleAuthObservation(
   accessToken: string | null | undefined,
   deps: GuestCopyDeps = {},
   schedule: (run: () => void) => void = (run) => { setTimeout(run, 0) },
-): Promise<GuestCopyRun> | null {
+): Promise<GuestCopyRun[]> | null {
   if (verdict === 'none' || !accessToken) return null
-  if (verdict === 'transition') capturePendingGuestCopy()
-  if (readPendingGuestCopy() === null) return null
-  return new Promise<GuestCopyRun>((resolve) => {
+  if (verdict === 'transition') capturePendingGuestCopies()
+  if (readPendingGuestCopies().length === 0) return null
+  return new Promise<GuestCopyRun[]>((resolve) => {
     schedule(() => { void runPendingGuestCopy(accessToken, deps).then(resolve) })
   })
 }

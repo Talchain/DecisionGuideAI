@@ -329,7 +329,7 @@ describe('DecisionNode — honest resting state', () => {
     fireEvent.click(screen.getByTestId(RESTING_CTA))
 
     expect(dispatch).toHaveBeenCalledTimes(1)
-    expect(dispatch).toHaveBeenCalledWith({ id: 'ask:widen', source: 'chip',
+    expect(dispatch).toHaveBeenCalledWith({ id: 'agent-next-widen', source: 'chip',
       label: 'What other ways could we reach the goal that aren’t on the board yet?',
       message: 'What other ways could we reach the goal that aren’t on the board yet?' })
     expect(takeAskTargetBinding(dispatch.mock.calls[0][0].message)?.nodeIds).toEqual(new Set([DECISION_ID]))

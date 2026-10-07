@@ -332,6 +332,13 @@ export const RESEARCH_CHIP_PREFIX = 'agent-public-research:'
  */
 export const PLAN_PICK_CHIP_PREFIX = 'agent-premortem-plan:'
 
+/**
+ * CEE's per-item Add on a widening turn — `agent-widen-add:<16 hex>`, one per suggested item, then "Something else"
+ * (CEE #2744 `src/orchestrator-v5/agent-lane/method-turn/widen-turn.ts`, `WIDEN_ADD_PREFIX`). Like a plan pick, the set is
+ * the method's own question (which, if any, to add), so its whole set is shown.
+ */
+export const WIDEN_ADD_CHIP_PREFIX = 'agent-widen-add:'
+
 /** Whether a turn's own chips ask the user to consent to a proposal. */
 export function offersPendingConsent(chips: readonly { id?: unknown }[] | undefined): boolean {
   return (chips ?? []).some((c) => typeof c.id === 'string' && c.id.startsWith(CONSENT_CHIP_PREFIX))
