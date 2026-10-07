@@ -1,3 +1,4 @@
+import { readPremortemWorksheet, premortemWorksheetValue, samePremortemRun, mergePremortemWorksheets, type PremortemRunMeta, type PremortemRunStamp } from './readPremortemWorksheet'
 /**
  * applyV5State — translate V5 OlumiResponse side-effects into canvas store
  * mutations.
@@ -120,8 +121,9 @@ export interface V5ApplicatorStore {
   edges: Edge[]
   /** Optional session identity used to stop a focus crossing scenario boundaries. */
   currentScenarioId?: string | null
+  readonly runMeta?: PremortemRunMeta
   /** Partial merge into runMeta — only provided fields are updated. */
-  setRunMeta: (meta: {
+  setRunMeta: (meta: PremortemRunMeta & {
     ceeReviewV1?: CeeDecisionReviewPayloadV1 | null
     /** ROADMAP 2.154 — the 0.30 review view-model, or null to evict. */
     decisionReview030?: DecisionReview030 | null
@@ -2662,6 +2664,42 @@ export function applyV5State(
       applied: false,
       skip_reason: 'no_analysis_result_block',
     })
+  }
+
+  // Worksheet ingestion follows the same containment/stale-turn gates as the held analysis.
+  if (turnContainmentRefusal === null) {
+    const heldRun = store.runMeta?.premortemRun ?? null
+    const runAt = runComputedAtOf(response)
+    const readyHash = (rawAnalysisReady as { graph_hash_at_run?: unknown } | null)?.graph_hash_at_run
+    const graphHash = analysisBlock?.computed_against_hash ?? readyHash
+    const scenarioId = store.currentScenarioId ?? null
+    const incomingRun: PremortemRunStamp | null = scenarioId && runAt && typeof graphHash === 'string'
+      ? { scenarioId, graphHashAtRun: graphHash, computedAt: runAt }
+      : null
+    // A changed time identifies a new Run even when its graph/content hash did not move.
+    const runChanged = !!heldRun && (heldRun.scenarioId !== scenarioId ||
+      (runAt !== null && runAt !== heldRun.computedAt) ||
+      (typeof graphHash === 'string' && graphHash !== heldRun.graphHashAtRun))
+    const identityMissing = !!analysisBlock && (runAt === null || typeof graphHash !== 'string')
+    const run = incomingRun ?? (runChanged || identityMissing ? null : heldRun)
+    const present = premortemWorksheetValue(response) !== undefined
+    const meta: PremortemRunMeta = {}
+    if (incomingRun || runChanged || identityMissing) meta.premortemRun = run
+    if (runChanged || identityMissing) meta.premortemWorksheet = null
+    if (present) {
+      const read = readPremortemWorksheet(response)
+      if (read.status === 'available' && samePremortemRun(run, {
+        scenarioId: read.worksheet.scenario_id,
+        graphHashAtRun: read.worksheet.run.graph_hash_at_run,
+        computedAt: read.worksheet.run.computed_at,
+      })) {
+        const held = store.runMeta?.premortemWorksheet
+        meta.premortemWorksheet = !runChanged && held?.status === 'available'
+          ? { status: 'available', worksheet: mergePremortemWorksheets(held.worksheet, read.worksheet) }
+          : read
+      } else meta.premortemWorksheet = { status: 'unavailable' }
+    }
+    if (Object.keys(meta).length > 0) store.setRunMeta(meta)
   }
 
   // ── ⚠⚠ STEP 5b — THE PRODUCER'S REFUSAL REACHES THE REPORT ────────────────

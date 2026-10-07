@@ -569,7 +569,7 @@ export type RunMetaState = {
   errorDetails?: ErrorDetail[]
   /** CEE diagnostic trace from envelope._diagnostic_trace. Passthrough — UI must not transform. */
   ceeDiagnosticTrace?: Record<string, unknown> | null
-}
+} & PremortemRunMeta
 
 const initialNodes: Node[] = []
 
@@ -8974,3 +8974,8 @@ export const ANALYSIS_CURRENCY_KEYS = [
   'retainedDraftCoachingOptionCount',
   'analysisFreshnessDirty',
 ] as const
+
+// A2 additions stay at the end to preserve the line-keyed UI claim baseline.
+import type { PremortemRunMeta } from '../v5/readPremortemWorksheet'
+export type { PremortemRunMeta } from '../v5/readPremortemWorksheet'
+export const selectPremortemWorksheet = (state: CanvasState) => state.runMeta.premortemWorksheet ?? null
