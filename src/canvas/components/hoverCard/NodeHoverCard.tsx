@@ -175,7 +175,7 @@ function Row({ label, testId, children }: { label: string; testId: string; child
 function OpenNodeHoverCard({ nodeId, nodeType, data, anchorRef }: NodeHoverCardProps) {
   const nodes = useCanvasStore(s => (s.nodes as GraphNode[] | undefined) ?? EMPTY)
   const edges = useCanvasStore(s => (s.edges as GraphEdge[] | undefined) ?? EMPTY)
-  const displayNodes = useSwitchFactorNodes(nodes)
+  const displayNodes = useSwitchFactorNodes<GraphNode>(nodes)
   const displayData = displayNodes.find(n => n.id === nodeId)?.data ?? data
   const facts = useMemo(() => nodeHoverFacts(nodeId, nodeType, displayData, displayNodes, edges), [nodeId, nodeType, displayData, displayNodes, edges])
   const cardRef = useRef<HTMLDivElement>(null)
