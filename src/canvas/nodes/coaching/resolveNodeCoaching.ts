@@ -723,7 +723,13 @@ export function resolveNodeCoaching(request: NodeCoachingRequest): ResolvedCoach
     stage: 'isPostAnalysis' in request.state && request.state.isPostAnalysis ? 'ran-current' : 'drafted',
     kind: request.kind,
     label: 'label' in request.context ? request.context.label : undefined,
+    authoredContext: 'riskContext' in request.context ? request.context.riskContext
+      : 'outcomeContext' in request.context ? request.context.outcomeContext : undefined,
+    validateQuestion: 'validateQuestion' in request.context ? request.context.validateQuestion : undefined,
     baseline: 'isBaselineOption' in request.state && request.state.isBaselineOption,
   }
-  return chips.map(chip => ({ ...chip, message: QUESTIONS[COACHING_ASK_INTENTS[chip.id] ?? 'explain'](context) }))
+  return chips.map(chip => {
+    const intent = COACHING_ASK_INTENTS[chip.id]
+    return intent ? { ...chip, message: QUESTIONS[intent](context) } : chip
+  })
 }

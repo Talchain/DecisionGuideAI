@@ -10,6 +10,8 @@ export interface QuestionContext {
   decisionLabel?: string
   baseline?: boolean
   optionLabels?: string[]
+  authoredContext?: string
+  validateQuestion?: string
 }
 const named = (label: string | undefined, generic: string) => label ? `‘${label}’` : generic
 const element = (c: QuestionContext) => named(c.label, 'this element')
@@ -88,12 +90,14 @@ export const QUESTIONS = {
   estimate: (c: QuestionContext) => `Help me estimate ${element(c)}: what range is sensible, and what would narrow it?`,
   evidence: (c: QuestionContext) => `What evidence supports ${element(c)}, and what would count against it?`,
   'goal-low': (c: QuestionContext) => c.stage === 'stale'
-    ? `The model has changed since the last Run. What could explain the low chance of reaching ${goal(c)}, and what needs checking again?`
-    : c.stage === 'withheld' ? `What is missing before we can understand the chance of reaching ${goal(c)}?`
-      : `What explains the low chance of reaching ${goal(c)}, and which assumptions should we examine?`,
+    ? `The model has changed since the last Run. What could explain the low chance of meeting ${goal(c)}, and what needs checking again?`
+    : c.stage === 'withheld' ? `What is missing before we can understand the chance of meeting ${goal(c)}?`
+      : `What explains the low chance of meeting ${goal(c)}, and which assumptions should we examine?`,
   'goal-realistic': (c: QuestionContext) => `Is the target for ${goal(c)} realistic, and what evidence would help me judge it?`,
   'reduce-risk': (c: QuestionContext) => `What could reduce ${element(c)}, and what would need to change in this model?`,
-  'other-options': (c: QuestionContext) => `What would make another option better supported than ${element(c)}, and what evidence would we need?`,
+  'other-options': (c: QuestionContext) => `What would need to change for another option to be better supported than ${c.label || 'this option'}?`,
+  'close-call': (c: QuestionContext) => `What would need to be true for ${c.label || 'this option'} to be the better choice?`,
+  'counter-case': (c: QuestionContext) => `Set aside the numbers for a moment. What would have to be true for ${c.label || 'this option'} to be the wrong choice here? What could this model be missing?`,
   'support-option': (c: QuestionContext) => `What would need to change for ${element(c)} to be better supported, and what evidence would we need?`,
   'compare-options': (_c: QuestionContext) => 'How do the options compare in what they gain, give up and depend on?',
   'inaction-risks': (c: QuestionContext) => `What risks does keeping ${element(c)} as it is carry, and what could make them worse?`,
@@ -103,9 +107,12 @@ export const QUESTIONS = {
   confirm: (c: QuestionContext) => `What would it take to confirm ${element(c)}?`,
   'risk-indicators': (c: QuestionContext) => `What early signs would tell us ${element(c)} is starting to happen, and what should trigger a response?`,
   'risk-size': (c: QuestionContext) => `How likely is ${element(c)}, and how serious would it be if it happened?`,
-  mitigation: (c: QuestionContext) => `What factors or actions could reduce ${element(c)}?`,
+  mitigation: (c: QuestionContext) => c.authoredContext
+    ? `Suggest a mitigation strategy for ${c.label || 'this risk'}, and explain what it would change.${c.authoredContext}`
+    : `What factors or actions could reduce ${element(c)}?`,
   falsify: (c: QuestionContext) => `What evidence or result would show that ${element(c)} will not happen? What would have to be true for it to fail?`,
-  consequences: (c: QuestionContext) => `What would ${element(c)} mean for this model, including possible benefits and downsides?`,
+  consequences: (c: QuestionContext) => `What would ${c.label || 'this outcome'} mean for this model, including possible benefits and downsides?${c.authoredContext ?? ''}`,
+  'validate-outcome': (c: QuestionContext) => c.validateQuestion ?? `How can I validate my assumption about ${c.label || 'this outcome'}?${c.authoredContext ?? ''}`,
   'missing-factor': (_c: QuestionContext) => 'What else could change how this turns out that the model doesn’t have yet?',
   name: (_c: QuestionContext) => 'Help me find a clear name for this part of the model so I can choose the wording.',
 } satisfies Record<string, (c: QuestionContext) => string>
@@ -120,9 +127,9 @@ export const COACHING_ASK_INTENTS: Readonly<Record<string, AskIntent>> = {
   factor_confirm_top_influence: 'confirm', factor_evidence_supports: 'evidence',
   option_what_could_go_wrong: 'pre-mortem', option_why_win_lose: 'option',
   option_risks_of_inaction: 'inaction-risks', option_what_would_change: 'other-options', option_why_lead: 'option',
-  option_counter_case: 'challenge', option_what_would_change_close_call: 'support-option', option_what_would_make_lead: 'support-option',
+  option_counter_case: 'counter-case', option_what_would_change_close_call: 'close-call', option_what_would_make_lead: 'support-option',
   risk_leading_indicator: 'risk-indicators', risk_size_exposure: 'risk-size',
   risk_what_reduces: 'reduce-risk', risk_add_mitigation: 'mitigation',
   outcome_what_would_falsify: 'falsify', outcome_explore_consequences: 'consequences',
-  outcome_what_strengthens: 'explain', outcome_validate_assumption: 'evidence', action_what_must_be_true: 'option',
+  outcome_what_strengthens: 'explain', outcome_validate_assumption: 'validate-outcome', action_what_must_be_true: 'option',
 }

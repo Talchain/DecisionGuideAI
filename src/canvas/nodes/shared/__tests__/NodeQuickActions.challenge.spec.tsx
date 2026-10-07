@@ -8,6 +8,8 @@ import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { takeAskTargetBinding, clearAskTargetBinding } from '../../../ui/inspector-v2/askTargetBinding'
 import { revealOlumiSurface } from '../../../conversation/revealOlumi'
+const showToast = vi.hoisted(() => vi.fn())
+vi.mock('../../../ToastContext', () => ({ useShowToastSafe: () => showToast }))
 vi.mock('../../../conversation/revealOlumi', () => ({ revealOlumiSurface: vi.fn(() => true) }))
 const a = { id: 'a', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Hiring spend', value: 42 } }
 const b = { ...a, id: 'b', data: { label: 'Team productivity', value: 42 } }
@@ -64,9 +66,14 @@ describe('Challenge submits typed context', () => {
     expect(message()).not.toBe('What is the figure for ‘Hiring spend’ based on, and what would make a different figure more defensible?')
     expect(useGuidanceStore.getState()._sendMessage).not.toHaveBeenCalled()
   })
-  it('hides Challenge without a chip dispatcher, while More remains', () => {
+  it('keeps Challenge reachable on a legacy host and refuses without a chip dispatcher, while More remains', () => {
     useGuidanceStore.setState({ _dispatchAction: null }); mount()
-    expect(screen.queryByTestId('node-action-challenge-a')).toBeNull()
+    expect(screen.getByTestId('node-action-challenge-a')).toBeInTheDocument()
+    click()
+    expect(dispatch).not.toHaveBeenCalled()
+    expect(useGuidanceStore.getState()._sendMessage).not.toHaveBeenCalled()
+    expect(useGuidanceStore.getState()._prefillChat).not.toHaveBeenCalled()
+    expect(showToast).toHaveBeenCalledWith('Your question was not sent. Try again in the conversation.', 'warning')
     expect(screen.getByTestId('node-action-menu-a')).toBeInTheDocument()
   })
   it('withholds Challenge for action nodes', () => {

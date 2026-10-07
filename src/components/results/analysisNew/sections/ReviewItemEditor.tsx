@@ -6,7 +6,7 @@
  * ⚠⚠ IT PROPOSES, NEVER APPLIES, AND ITS NOTE SAYS SO. There is no writer for a
  * finding's wording and no model-level evidence store (editability map E8 and
  * E15b), so submit hands one composed message to the caller's ask route
- * (`reviewItemEditPayload`), sent directly as the person’s own words. Nothing
+ * (`reviewItemEditPayload`), handed to the existing editable drawer. Nothing
  * here writes a store.
  *
  * ⚠ NO VALUE FIELD. A factor's number keeps its own editor, `FactorValueControl`
@@ -21,8 +21,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 
 import { typography } from '../../../../styles/typography'
-import { askAi } from '../../../../canvas/conversation/askAi'
-import { useCanvasStore } from '../../../../canvas/store'
+import type { AskAiResult } from '../../../../canvas/conversation/askAi'
 import type { AskOlumiPayload } from '../../coaching/askOlumiStore'
 import { REVIEW_TOOL_COPY as COPY, reviewItemEditPayload, type ReviewQueueItem } from '../buildReviewQueue'
 import { OlumiAiIcon } from '../OlumiAiIcon'
@@ -34,7 +33,7 @@ export interface ReviewItemEditorProps {
   item: ReviewQueueItem
   /** Which field takes focus on open. `belief` falls back to evidence when absent. */
   focusField: ReviewEditorField
-  onAsk: (payload: AskOlumiPayload) => void
+  onAsk: (payload: AskOlumiPayload) => void | AskAiResult
   /** `true` when focus should return to the opener (Cancel, Escape); `false` after a send. */
   onClose: (restoreFocus: boolean) => void
   testIdPrefix: string
@@ -43,7 +42,7 @@ export interface ReviewItemEditorProps {
 const fieldClass = `${typography.panelBody} w-full min-h-[64px] rounded-sm border border-field bg-panel px-2 py-2 text-text-header ${ACTION_FOCUS}`
 const fieldGroupClass = `${typography.panelMeta} flex flex-col gap-0.5 text-text-light`
 
-export function ReviewItemEditor({ item, focusField, onAsk: _onAsk, onClose, testIdPrefix }: ReviewItemEditorProps) {
+export function ReviewItemEditor({ item, focusField, onAsk, onClose, testIdPrefix }: ReviewItemEditorProps) {
   const hasBelief = item.recommendation !== null
   const [belief, setBelief] = useState('')
   const [evidence, setEvidence] = useState('')
@@ -80,10 +79,10 @@ export function ReviewItemEditor({ item, focusField, onAsk: _onAsk, onClose, tes
       focusFirst()
       return
     }
-    const isEdge = useCanvasStore.getState().edges.some(e => e.id === item.targetId)
-    const sent = askAi({ userWords: payload.draft, nodeIds: item.targetId && !isEdge ? [item.targetId] : [],
-      edgeIds: item.targetId && isEdge ? [item.targetId] : [] })
-    if (sent === 'sent') onClose(false)
+    // The Analysis tab owns this FB3 route. Its drawer receives the completed
+    // review, including the finding's target/block_id, for confirmation.
+    const landed = onAsk(payload)
+    if (landed === undefined || landed === 'sent') onClose(false)
   }
 
   return (

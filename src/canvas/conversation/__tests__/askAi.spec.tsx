@@ -168,11 +168,11 @@ it('a different ask is sent within 500 ms when idle; a busy ask reports a litera
 })
 
 it.each([
-  ['goal_why_so_low', 'goal', 'What explains the low chance of reaching ‘Capacity’, and which assumptions should we examine?'],
+  ['goal_why_so_low', 'goal', 'What explains the low chance of meeting ‘Capacity’, and which assumptions should we examine?'],
   ['goal_target_realistic', 'goal', 'Is the target for ‘Capacity’ realistic, and what evidence would help me judge it?'],
   ['risk_what_reduces', 'risk', 'What could reduce ‘Capacity’, and what would need to change in this model?'],
   ['risk_add_mitigation', 'risk', 'What factors or actions could reduce ‘Capacity’?'],
-  ['option_what_would_change', 'option', 'What would make another option better supported than ‘Capacity’, and what evidence would we need?'],
+  ['option_what_would_change', 'option', 'What would need to change for another option to be better supported than Capacity?'],
   ['decision_compare_options', 'decision', 'How do the options compare in what they gain, give up and depend on?'],
   ['option_risks_of_inaction', 'option', 'What risks does keeping ‘Capacity’ as it is carry, and what could make them worse?'],
 ] as const)('%s sends the question promised by its own label', (chipId, kind, expected) => {

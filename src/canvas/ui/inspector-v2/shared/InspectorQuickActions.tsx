@@ -79,7 +79,7 @@ export function InspectorQuickActions({
   omitExplore = false,
 }: InspectorQuickActionsProps) {
   const canAsk = useGuidanceStore(
-    (s) => s._dispatchAction !== null,
+    (s) => !!(s._dispatchAction || s._sendMessage || s._prefillChat),
   )
 
   const question = useMemo(() => {
@@ -91,7 +91,7 @@ export function InspectorQuickActions({
   }, [panelType, elementLabel, labelContext])
 
   const handleExplore = useCallback(() => {
-    requestAsk({
+    const landed = requestAsk({
       text: question,
       label: `Ask about ${elementLabel}`,
       context: askContext,
@@ -99,6 +99,9 @@ export function InspectorQuickActions({
       intent: panelType === 'edge' ? 'link' : 'explain',
       ...(panelType === 'edge' ? { edgeIds: [elementId], nodeIds: [] } : { nodeIds: [elementId], edgeIds: [] }),
     })
+    if (landed === 'none') window.dispatchEvent(new CustomEvent('topbar:show-toast', {
+      detail: { message: 'Your question was not sent. Try again in the conversation.', level: 'warning' },
+    }))
   }, [question, elementLabel, elementId, askContext, panelType])
 
   if (!canAsk && !extra) return null

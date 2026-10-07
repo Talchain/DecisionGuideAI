@@ -43,7 +43,10 @@ vi.mock('../../store', () => {
 })
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({ useNodeDisplayMetadata: vi.fn() }))
 vi.mock('../../hooks/useAnalysisTrust', () => ({ useAnalysisTrust: vi.fn() }))
-vi.mock('../../hooks/useAnalysisResultsAreCurrent', () => ({ useAnalysisResultsAreCurrent: vi.fn() }))
+vi.mock('../../hooks/useAnalysisResultsAreCurrent', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../hooks/useAnalysisResultsAreCurrent')>()),
+  useAnalysisResultsAreCurrent: vi.fn(),
+}))
 vi.mock('../shared/NodePopover', () => ({
   NodePopover: ({ children }: { children: React.ReactNode }) => <div data-testid="node-popover">{children}</div>,
 }))

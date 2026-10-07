@@ -4,7 +4,7 @@ import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useShowToastSafe } from '../../ToastContext'
 import { askAI, buildAskAIPrompt, CHALLENGE_KINDS } from '../../contextMenu/actions'
-import { requestAsk, canReceiveAsk } from '../../ui/inspector-v2/askSemantic'
+import { requestAsk } from '../../ui/inspector-v2/askSemantic'
 import type { NodeType } from '../../domain/nodes'
 import Tooltip from '../../../components/Tooltip'
 import {
@@ -178,15 +178,10 @@ export const NodeQuickActions = memo(function NodeQuickActions({
   placement = 'inset',
 }: NodeQuickActionsProps) {
   const coachingChip = useCoachingIconChip(nodeId, coaching)
-  // The gate must ask the question `askAI` actually asks. It polls for
-  // `canReceiveAsk` and hands the prompt to `requestAsk` (composer, else the
-  // Ask drawer), giving up with a toast if no surface ever registers.
-  //
-  // ⚠ THIS USED TO READ `_sendMessage !== null`, and was right to while
-  // `askAI` SENT: a prefill-only surface would have shown a dead button. Now
-  // that `askAI` drafts, that gate would HIDE a working one on a prefill-only
-  // host — the same trap-21 mismatch pointing the other way.
-  const canAsk = useGuidanceStore(canReceiveAsk)
+  // Keep the rail reachable on legacy send hosts while the dispatcher
+  // registers. askAI polls for that chip carrier; it never uses the composer
+  // for product-authored text. A prefill-only host cannot send the Ask turn.
+  const canAsk = useGuidanceStore(s => !!(s._dispatchAction || s._sendMessage))
   // …and if the channel dies between the render and the click, the user is told
   // rather than left with a button that did nothing. `Safe` because nodes also
   // render in headless hosts, where a missing ToastProvider must not throw.
@@ -229,7 +224,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
    * The selected element is bound immediately before dispatch, and any
    * proposed model change returns through the existing approval route.
    */
-  const canChallenge = useGuidanceStore(s => !!s._dispatchAction) && hasChallengePrompt(nodeType)
+  const canChallenge = useGuidanceStore(s => !!(s._dispatchAction || s._sendMessage || s._prefillChat)) && hasChallengePrompt(nodeType)
 
   const handleChallenge = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()

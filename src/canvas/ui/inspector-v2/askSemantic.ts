@@ -34,7 +34,7 @@ export function requestAsk(req: AskRequest): AskAiResult | 'drawer' | 'composer'
   // Only registered batch doors use the new contract. Other callers retain
   // their own text and carrier, including incomplete templates.
   if (!req.editable && (intent || req.pressId)) {
-    return askAi({ includeOptions: req.includeOptions, intent, nodeIds, edgeIds, node: req.node, pressId: req.pressId })
+    return askAi({ context: req.context, includeOptions: req.includeOptions, intent, nodeIds, edgeIds, node: req.node, pressId: req.pressId })
   }
   const state = useGuidanceStore.getState()
   if (!state._prefillChat && !state._sendMessage && !state._dispatchAction) return 'none'

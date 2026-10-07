@@ -27,11 +27,10 @@ import { GhostTierNode, GHOST_TIER_TESTID } from '../GhostTierNode'
 import { GhostOptionNode } from '../GhostOptionNode'
 import { GHOST_OPTION_DOOR_LABEL } from '../../utils/ghostTiers'
 import { useCanvasStore } from '../../store'
-import { useWhatElseStore } from '../../components/WhatElseChooser'
+import { useWhatElseStore, WhatElseChooserHost } from '../../components/WhatElseChooser'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { AskOlumiDrawer } from '../../../components/results/coaching/AskOlumiDrawer'
 import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiStore'
-import { chooseWhatElse } from './chooseWhatElse'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -93,10 +92,10 @@ describe('frontier doors require the chip carrier and keep refused input availab
     ['row-end tier', 'send channel only'], ['row-end tier', 'dispatch + send channels'],
   ] as Array<[Door, Channel]>)('%s / %s keeps the carrier, single-send and second-ask invariants', (doorName, channel) => {
     const door = DOORS[doorName], c = channels(channel)
-    render(<ReactFlowProvider>{door.mount()}<AskOlumiDrawer /></ReactFlowProvider>)
+    render(<ReactFlowProvider>{door.mount()}<AskOlumiDrawer /><WhatElseChooserHost /></ReactFlowProvider>)
     expect(drawer()).toBeNull()
     act(() => { door.activate() })
-    chooseWhatElse(doorName === 'option ghost' ? 'option' : 'factor')
+    fireEvent.click(screen.getByTestId(doorName === 'option ghost' ? 'what-else-option' : 'what-else-factor'))
     expect(c.sent).toEqual([])
     expect(drawer()).toBeNull()
     const expected = doorName === 'option ghost' ? 'What other ways could we reach the goal that aren’t on the board yet?'

@@ -6,6 +6,8 @@ import { buildV5Payload } from '../buildPayload'
 import { useCanvasStore } from '../../canvas/store'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { requestAsk } from '../../canvas/ui/inspector-v2/askSemantic'
+vi.mock('../../canvas/conversation/revealOlumi', () => ({ revealOlumiSurface: vi.fn() }))
+import { revealOlumiSurface } from '../../canvas/conversation/revealOlumi'
 import { clearAskTargetBinding } from '../../canvas/ui/inspector-v2/askTargetBinding'
 import type { NodeData } from '../../canvas/domain/nodes'
 
@@ -39,7 +41,11 @@ beforeEach(() => {
 describe('an Ask carries its own target to Send', () => {
   it('⭐ Ask about A, select B, Send the question → grounds in A, not B', () => {
     select('factor_a')
-    expect(requestAsk({ text: ASK_A, label: 'Ask Olumi about Adoption friction', targetId: 'factor_a', source: 'context-menu' })).toBe('sent')
+    expect(requestAsk({ text: ASK_A, label: 'Ask Olumi about Adoption friction', targetId: 'factor_a', source: 'context-menu', intent: 'explain' })).toBe('sent')
+    const dispatch = useGuidanceStore.getState()._dispatchAction as ReturnType<typeof vi.fn>
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith({ id: 'ask:explain', label: ASK_A, message: ASK_A, source: 'chip' })
+    expect(revealOlumiSurface).toHaveBeenCalled()
     select('factor_b')
     expect(selectedIds(ASK_A)).toEqual(['factor_a'])
   })

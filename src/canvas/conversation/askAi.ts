@@ -17,6 +17,7 @@ import { QUESTIONS, type AskIntent, type AskStage, type QuestionContext } from '
 
 export interface AskAiRequest {
   includeOptions?: boolean
+  context?: string
   intent?: AskIntent
   nodeIds?: Iterable<string>
   edgeIds?: Iterable<string>
@@ -51,8 +52,16 @@ export function buildAskAiQuestion(req: AskAiRequest) {
   const edge = edges.find(e => e.id === edgeIds[0])
   const stage = state ? askAiStage(state) : 'drafted'
   let intent = req.intent ?? (edgeIds.length ? 'link' : 'explain')
+  const data = node?.data as { description?: unknown; body?: unknown } | undefined
+  const description = typeof data?.description === 'string' && data.description.trim() ? data.description : undefined
+  const body = typeof data?.body === 'string' && data.body.trim() ? data.body : undefined
+  const authored = description && body && body.trim() !== description.trim() ? `${description}\n\n${body}` : description ?? body
+  const authoredContext = authored && (node?.type === 'risk' || node?.type === 'outcome')
+    ? `\n${node.type === 'risk' ? 'Risk' : 'Outcome'} context: ${authored}` : undefined
+  const upstream = nodes.find(n => n.id === edges.find(e => e.target === nodeIds[0] && nodes.some(n => n.id === e.source && n.type === 'factor'))?.source)
   const context: QuestionContext = {
-    stage, label: labelOf(node), kind: node?.type,
+    stage, label: labelOf(node), kind: node?.type, authoredContext,
+    validateQuestion: labelOf(upstream) ? `How can I validate my assumption about ${labelOf(upstream)} and its effect on ${labelOf(node) || 'this outcome'}?${authoredContext ?? ''}` : undefined,
     optionLabels: req.includeOptions ? nodes.filter(n => n.type === 'option').map(labelOf).filter((label): label is string => !!label) : undefined,
     sourceLabel: labelOf(nodes.find(n => n.id === edge?.source)),
     targetLabel: labelOf(nodes.find(n => n.id === edge?.target)),
@@ -91,7 +100,7 @@ export function buildAskAiQuestion(req: AskAiRequest) {
   }
   if (pressId?.startsWith('agent-question-assumption:')) intent = 'question-link'
   if (pressId?.startsWith('agent-test-without-link:')) intent = 'test-link'
-  const question = QUESTIONS[intent](context)
+  const question = QUESTIONS[intent](context) + (req.context ? `\n${req.context}` : '')
   return { question, id: pressId ?? `ask:${intent}`, nodeIds, edgeIds }
 }
 
