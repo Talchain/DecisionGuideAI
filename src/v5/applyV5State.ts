@@ -1,4 +1,4 @@
-import { readPremortemWorksheet, premortemWorksheetValue, samePremortemRun, mergePremortemWorksheets, type PremortemRunMeta, type PremortemRunStamp } from './readPremortemWorksheet'
+import { readPremortemWorksheet, premortemWorksheetValue, samePremortemRun, mergePremortemWorksheets, storePremortemWorksheet, type PremortemRunMeta, type PremortemRunStamp } from './readPremortemWorksheet'
 /**
  * applyV5State — translate V5 OlumiResponse side-effects into canvas store
  * mutations.
@@ -2700,6 +2700,8 @@ export function applyV5State(
       } else meta.premortemWorksheet = { status: 'unavailable' }
     }
     if (Object.keys(meta).length > 0) store.setRunMeta(meta)
+    // P02: the worksheet this Run now holds is kept for a reload of the same Run (`hydratePremortemWorksheet`).
+    if (meta.premortemWorksheet?.status === 'available') storePremortemWorksheet(meta.premortemWorksheet.worksheet)
   }
 
   // ── ⚠⚠ STEP 5b — THE PRODUCER'S REFUSAL REACHES THE REPORT ────────────────

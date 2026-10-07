@@ -1,4 +1,4 @@
-/** Local copy of the CEE v1 envelope. No shared-schema or CEE runtime import. */
+/** Local copy of the CEE v2 envelope (CEE #2773). No shared-schema or CEE runtime import. */
 import { z } from 'zod'
 import { ADDITIVE_EXTENSIONS_KEY } from './responseParser'
 
@@ -7,6 +7,9 @@ export const PREMORTEM_COPY = {
   warning: 'Early warning',
   outside: 'not in the model yet',
   provenance: 'Olumi hypothesis: for you to challenge',
+  serverBuilt: 'Olumi’s starting point: for you to challenge',
+  mitigate: 'Mitigate',
+  onMap: 'Already on your map',
 } as const;
 const text = z.string().min(1).max(1600).refine(s => s.trim().length > 0);
 const id = z.string().min(1).max(160);
@@ -37,13 +40,20 @@ const riskRequestSchema = z.object({
   direction,
   grounding_ids: z.array(id),
 }).strict();
+/**
+ * v2 (CEE #2773): a story about a risk already in the model names it (`on_map`: Inspect, never Add); only a new risk
+ * carries `risk_request` (Add); `source` says who wrote the story; numbered rows always carry Mitigate.
+ */
 export const PremortemWorksheetV1Schema = z.object({
-  kind: z.literal('premortem'), version: z.literal(1), scenario_id: id, turn_id: id,
+  kind: z.literal('premortem'), version: z.literal(2), scenario_id: id, turn_id: id,
   run: runSchema, binding: bindingSchema,
   rows: z.array(z.object({
     row_id: id, option_id: id, option_label: text,
     failure_way: text, early_warning: text, mitigation: text.optional(),
-    grounding: groundingSchema, provenance: z.literal('olumi_hypothesis'), risk_request: riskRequestSchema,
+    grounding: groundingSchema, provenance: z.literal('olumi_hypothesis'),
+    source: z.enum(['olumi_drafted', 'server_built']),
+    risk_request: riskRequestSchema.optional(),
+    on_map: z.object({ node_id: id, label: text }).strict().optional(),
   }).strict()).min(1).max(4),
   coverage: z.array(z.object({ option_id: id, option_label: text, status: z.enum(['stress_tested', 'not_stress_tested']) }).strict()),
   blindspot_question: text.refine(s => s.endsWith('?')),
@@ -61,7 +71,7 @@ export const PremortemWorksheetV1Schema = z.object({
       { value: row.failure_way, path: ['failure_way'] },
       { value: row.early_warning, path: ['early_warning'] },
       { value: row.mitigation, path: ['mitigation'] },
-      { value: row.risk_request.message, path: ['risk_request', 'message'] },
+      { value: row.risk_request?.message, path: ['risk_request', 'message'] },
     ];
     for (const field of fields) {
       if (field.value !== undefined && authoredBan.test(field.value.replace(labelPattern, ' '))) {
@@ -78,7 +88,9 @@ export const PremortemWorksheetV1Schema = z.object({
   if (new Set(w.rows.map(r => r.row_id)).size !== w.rows.length || new Set(w.coverage.map(c => c.option_id)).size !== w.coverage.length) issue();
   for (const r of w.rows) {
     const ids = r.grounding.kind === 'not_in_model' ? [] : r.grounding.ids;
-    if (new Set(ids).size !== ids.length || JSON.stringify(ids) !== JSON.stringify(r.risk_request.grounding_ids)) issue();
+    if (new Set(ids).size !== ids.length || (r.risk_request !== undefined && JSON.stringify(ids) !== JSON.stringify(r.risk_request.grounding_ids))) issue();
+    if (r.risk_request !== undefined && (r.on_map !== undefined || r.source === 'server_built')) issue();
+    if (r.mitigation === undefined && r.grounding.kind !== 'not_in_model') issue();
     if (!w.coverage.some(c => c.option_id === r.option_id && c.option_label === r.option_label && c.status === 'stress_tested')) issue();
   }
   for (const c of w.coverage) if ((c.status === 'stress_tested') !== w.rows.some(r => r.option_id === c.option_id)) issue();
@@ -123,4 +135,26 @@ export function mergePremortemWorksheets(held: PremortemWorksheetV1, incoming: P
     status: rows.some(row => row.option_id === option.option_id) ? 'stress_tested' as const : 'not_stress_tested' as const,
   }))
   return { ...incoming, rows, coverage }
+}
+
+/**
+ * ⭐ P02: THE WORKSHEET SURVIVES A RELOAD. CEE stores no worksheet with its turn row, so this browser keeps the last
+ * available worksheet per scenario. It is restored only for the SAME Run (scenario, graph hash at run, computed_at),
+ * re-parsed by the schema above, and never sent anywhere. A fresh browser has none (UNVERIFIED there by design).
+ */
+const STORAGE_PREFIX = 'olumi-premortem-worksheet:v2:'
+export function storePremortemWorksheet(worksheet: PremortemWorksheetV1): void {
+  try { globalThis.localStorage?.setItem(STORAGE_PREFIX + worksheet.scenario_id, JSON.stringify(worksheet)) } catch { /* storage unavailable */ }
+}
+export function loadPremortemWorksheet(run: PremortemRunStamp): PremortemWorksheetV1 | null {
+  try {
+    const raw = globalThis.localStorage?.getItem(STORAGE_PREFIX + run.scenarioId)
+    if (!raw) return null
+    const parsed = PremortemWorksheetV1Schema.safeParse(JSON.parse(raw))
+    if (!parsed.success) return null
+    const w = parsed.data
+    return samePremortemRun(run, { scenarioId: w.scenario_id, graphHashAtRun: w.run.graph_hash_at_run, computedAt: w.run.computed_at }) ? w : null
+  } catch {
+    return null
+  }
 }
