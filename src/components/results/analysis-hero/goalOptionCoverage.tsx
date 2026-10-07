@@ -43,10 +43,18 @@ export function withGoalOptionCoverage(model: HeroChartModel, data: ResultsSecti
     ...model,
     goalOptionCoverage: {
       hasFigures: true,
-      withheldLines: model.rows.filter((row) => !figureIds.has(row.id)).map((row) => ({
-        id: row.id,
-        line: reason ? `‘${row.label}’: not shown yet. ${reason}` : `‘${row.label}’: not shown yet in this model.`,
-      })),
+      withheldLines: model.rows.filter((row) => !figureIds.has(row.id)).map((row) => {
+        const ownMessage = data.confidence?.inferenceWarnings?.find((warning) =>
+          warning.code === 'GOAL_FIGURES_TARGET_NOT_TESTABLE' && warning.per_option
+          && Object.prototype.hasOwnProperty.call(warning.per_option, row.id)
+          && typeof warning.per_option[row.id]?.message === 'string'
+          && warning.per_option[row.id].message.startsWith('Not shown.'))?.per_option?.[row.id].message
+        return {
+          id: row.id,
+          line: ownMessage ? `‘${row.label}’: not shown yet. ${ownMessage.slice('Not shown.'.length).trim()}`
+            : reason ? `‘${row.label}’: not shown yet. ${reason}` : `‘${row.label}’: not shown yet in this model.`,
+        }
+      }),
     },
   }
 }
