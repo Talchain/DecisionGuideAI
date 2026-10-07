@@ -115,6 +115,7 @@ import { AboutThisAnalysis } from './sections/AboutThisAnalysis'
 import { ModelReviewTool } from './sections/ModelReviewTool'
 import { disagreeWithRecommendationPayload } from './buildReviewQueue'
 import { runMethod } from './runMethod'
+import { ACTION_REGISTRY } from '../../../canvas/conversation/actionRegistry'
 import { METHOD_CATALOGUE } from '../decision-overview/actionsCatalogue'
 import { methodIdsRaisedBy } from './recommendationMethod'
 import { buildBiasGrounding } from './biasGrounding'
@@ -2269,7 +2270,7 @@ export function AnalysisNewTabBody({
               onClick={() => sendScienceChip(
                 'Review this decision',
                 'Review this decision',
-                { id: 'agent-next-review-decision' },
+                { id: ACTION_REGISTRY.review.handler.press_id },
               )}
             >
               Review this decision
@@ -2281,7 +2282,7 @@ export function AnalysisNewTabBody({
               onClick={() => sendScienceChip(
                 'What would change this?',
                 'What would most likely change this result?',
-                { id: 'agent-next-what-would-change' },
+                { id: ACTION_REGISTRY.what_changes.handler.press_id },
               )}
             >
               What would change this?
@@ -2295,7 +2296,7 @@ export function AnalysisNewTabBody({
               onClick={() => sendScienceChip(
                 'Strengthen the model',
                 'What would most strengthen this model?',
-                { id: 'agent-next-strengthen' },
+                { id: ACTION_REGISTRY.strengthen.handler.press_id },
               )}
             >
               Strengthen the model
@@ -2311,7 +2312,7 @@ export function AnalysisNewTabBody({
               onClick={() => sendScienceChip(
                 'Run a pre-mortem',
                 'Run a pre-mortem with me: imagine this decision went badly. What most plausibly went wrong?',
-                { id: 'agent-next-pre-mortem' },
+                { id: ACTION_REGISTRY.pre_mortem.handler.press_id },
               )}
             >
               Run a pre-mortem

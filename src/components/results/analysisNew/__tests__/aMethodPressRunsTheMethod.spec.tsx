@@ -11,9 +11,10 @@
  * presses (the card's ✦, then the drawer's Send).
  *
  * Bound by IDENTITY: catalogue ids read from `METHOD_CATALOGUE`, the strip's
- * own test ids, and the exact chip id each method sends. The two methods CEE
- * has a typed route for send that route's press id on a current Run; every
- * other method sends `ask:method:<catalogue id>`.
+ * own test ids, and the exact chip id each method sends. A method is an action
+ * in `ACTION_REGISTRY` (S-B slice 0), which owns that id: the two methods CEE
+ * has a typed handler for send its press id on a current Run; the other five
+ * are PROSE rows (interim) and send `ask:<intent>`.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -22,7 +23,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { genuineDecision } from './analysisNewFixtures'
 import { METHOD_CATALOGUE } from '../../decision-overview/actionsCatalogue'
-import { METHOD_ASK_INTENT, methodAskId } from '../runMethod'
+import { ACTION_REGISTRY, actionOfMethod } from '../../../../canvas/conversation/actionRegistry'
 import { QUESTIONS } from '../../../../canvas/conversation/askAiQuestions'
 import { useAskOlumiStore } from '../../coaching/askOlumiStore'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -50,16 +51,16 @@ const DECISION = 'Pricing for next year'
 
 /** The chip id each method sends on a CURRENT Run (the spec, by catalogue id). */
 const SENT_ID_ON_A_CURRENT_RUN: Readonly<Record<string, string>> = {
-  reframe_problem: 'ask:method:reframe_problem',
+  reframe_problem: 'ask:method-reframe',
   different_option: 'agent-next-widen',
-  consider_opposite: 'ask:method:consider_opposite',
-  outside_view: 'ask:method:outside_view',
+  consider_opposite: 'ask:method-opposite',
+  outside_view: 'ask:method-outside-view',
   pre_mortem: 'agent-next-pre-mortem',
-  explore_tradeoffs: 'ask:method:explore_tradeoffs',
-  review_bias: 'ask:method:review_bias',
+  explore_tradeoffs: 'ask:compare-options',
+  review_bias: 'ask:method-bias',
 }
 
-/** The question each method without a typed CEE route asks (DL-approved register, Q15). */
+/** The question each PROSE method asks (DL-approved register, Q15). */
 const METHOD_QUESTION: Readonly<Record<string, string>> = {
   reframe_problem: `Is ‘${DECISION}’ the right question, or too narrow? What other framings should we consider?`,
   consider_opposite: 'What is the strongest honest case against how this model reads now, and what would change my mind?',
@@ -196,7 +197,7 @@ describe('a method press on the Reasoning tab runs the method', () => {
     fireEvent.click(screen.getByTestId('analysis-new-challenge-more'))
     fireEvent.click(screen.getByTestId('analysis-new-challenge-menu-method-review_bias'))
     expect(dispatch).toHaveBeenCalledTimes(2)
-    expect((dispatch.mock.calls[1][0] as { id: string }).id).toBe('ask:method:review_bias')
+    expect((dispatch.mock.calls[1][0] as { id: string }).id).toBe('ask:method-bias')
   })
 })
 
@@ -232,20 +233,20 @@ describe('a method press is never dead and never doubles', () => {
   })
 })
 
-describe('every catalogue method has a question', () => {
-  it('no catalogue method is left without an ask (DERIVED from the catalogue)', () => {
+describe('every catalogue method is one registry action', () => {
+  it('no catalogue method is left without an action (DERIVED from the catalogue)', () => {
     for (const id of METHOD_IDS) {
-      expect(METHOD_ASK_INTENT[id], `${id} has no ask: its press would fall back to the drawer`).toBeDefined()
-      expect(typeof QUESTIONS[METHOD_ASK_INTENT[id]]).toBe('function')
+      const action = actionOfMethod(id)
+      expect(action, `${id} is no action: its press would fall back to the drawer`).toBeDefined()
+      expect(typeof QUESTIONS[ACTION_REGISTRY[action!].ask]).toBe('function')
     }
-    expect(methodAskId('outside_view')).toBe('ask:method:outside_view')
   })
 
   it('the questions carry no figure and no contest word, with or without a decision label', () => {
     const banned = /\b(best|winner|winning|recommend\w*|leader|leading|leads|ahead|beats?)\b/i
     for (const id of Object.keys(METHOD_QUESTION)) {
       for (const decisionLabel of [DECISION, undefined]) {
-        const text = QUESTIONS[METHOD_ASK_INTENT[id]]({ stage: 'ran-current', decisionLabel })
+        const text = QUESTIONS[ACTION_REGISTRY[actionOfMethod(id)!].ask]({ stage: 'ran-current', decisionLabel })
         expect(text, id).not.toMatch(/\d/)
         expect(text, id).not.toMatch(banned)
         expect(text, id).not.toContain('this decision usually')
