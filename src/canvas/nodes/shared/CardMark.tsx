@@ -23,10 +23,15 @@ export function BottomMarksBand({ nodeId, nodeType = 'option', style, hidden = f
   }, [ref, setTarget])
   useEffect(() => {
     const band = ref.current
-    // Portal events follow their original React ancestry. Arm the destination
-    // in native capture so every mark has the armed scope in its DOM ancestry.
-    band?.addEventListener('keydown', onKeyDownCapture, true)
-    return () => band?.removeEventListener('keydown', onKeyDownCapture, true)
+    if (!band) return
+    // ⚠ React dispatches a PORTALLED event's capture phase from the portal container (this band), which sits
+    // BELOW `.react-flow__node`, so the node's own keydown capture ran before any React or band-level arm and saw
+    // no `.nokey` (Canvas Browser Gate, nodeKeyboardBleed 1b, #2633). Arm from the node's capture instead,
+    // registered at mount (before any later listener on the node), for targets inside this band only.
+    const host = band.closest('.react-flow__node') ?? band
+    const arm = (event: Event) => { if (event.target instanceof Node && band.contains(event.target)) onKeyDownCapture() }
+    host.addEventListener('keydown', arm, true)
+    return () => host.removeEventListener('keydown', arm, true)
   }, [ref, onKeyDownCapture])
   return <div ref={bandRef} style={hidden ? { ...style, visibility: 'hidden' } : style} {...{ [NODE_KEYBOARD_SCOPE_ATTR]: '' }} data-card-band-hidden={hidden ? 'true' : undefined} data-testid={`${nodeType}-bottom-marks-${nodeId}`} data-card-bottom-band="true" className="absolute bottom-1.5 left-3 flex items-center gap-1 overflow-x-auto overflow-y-hidden" />
 }

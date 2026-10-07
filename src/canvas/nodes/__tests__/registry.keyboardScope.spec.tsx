@@ -51,14 +51,18 @@ describe('node registry: keyboard scope coverage', () => {
     const Wrapped = nodeTypes.goal as ComponentType<NodeProps>
     const props = { id: 'goal-scope', type: 'goal', data: { label: 'Grow', type: 'goal' }, selected: false, isConnectable: true, positionAbsoluteX: 0, positionAbsoluteY: 0, dragging: false, zIndex: 0 }
     useCanvasStore.setState({ nodes: [{ ...props, position: { x: 0, y: 0 } }], edges: [], lodRung: 'full', goalThreshold: null, goalConstraints: [], results: { status: 'idle', report: null } } as never)
-    const { container } = render(createElement(ReactFlowProvider, null, createElement(Wrapped, props as unknown as NodeProps)))
+    // Inside a React Flow node wrapper, as the canvas mounts it: React Flow reads the key at the NODE, and a portalled
+    // event's React capture runs from the band (below the node), so the arm must already be up when the node sees it.
+    const { container } = render(createElement(ReactFlowProvider, null, createElement('div', { className: 'react-flow__node' }, createElement(Wrapped, props as unknown as NodeProps))))
     const chip = container.querySelector<HTMLElement>('[data-testid="goal-node-no-target-chip"]')!
     expect(chip).not.toBeNull()
     const scope = chip.closest(SCOPE_SELECTOR)!
     expect(scope).not.toBeNull()
     expect(scope).toBe(chip.closest('[data-card-bottom-band]'))
+    const rfNode = container.querySelector<HTMLElement>('.react-flow__node')!
     let armed: Element | null = null
-    chip.addEventListener('keydown', () => { armed = chip.closest(`.${NODE_KEYBOARD_SCOPE_CLASS}`) })
+    // The gate's probe (nodeKeyboardBleed 1b): a native capture listener on the node, added after mount.
+    rfNode.addEventListener('keydown', (ev) => { armed = (ev.target as Element).closest(`.${NODE_KEYBOARD_SCOPE_CLASS}`) }, true)
     fireEvent.keyDown(chip, { key: 'Enter' })
     expect(armed).toBe(scope)
     fireEvent.pointerDown(chip)

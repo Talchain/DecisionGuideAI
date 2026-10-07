@@ -1144,7 +1144,11 @@ test.describe('board states geometry', () => {
       })
       results.push(S.result)
       expect(S.reading.lastRunCues, `${board.name} STALE: no card carries "Last run" — the model was not marked changed`).toBeGreaterThan(0)
-      expect(S.result.longCaption?.stressed ?? 0, `${board.name} STALE: no in-slot driver caption to stress — the long-caption reading is about nothing`).toBeGreaterThan(0)
+      // ⭐ #2633 (slice B, Paul 7 Oct "repeated text → icons"): the driver is a MARK in the bottom band (rank numeral +
+      // bar), so no in-slot caption exists to lengthen and clip. The stress is RETIRED only when the driver marks are
+      // present at STALE — never because nothing rendered. A board that still has in-slot captions must stress them.
+      const driverAsMark = S.reading.driverCaptions.length === 0 && S.reading.driverLines > 0
+      if (!driverAsMark) expect(S.result.longCaption?.stressed ?? 0, `${board.name} STALE: no in-slot driver caption to stress — the long-caption reading is about nothing`).toBeGreaterThan(0)
       lap('stale')
 
       // ── RELOAD
