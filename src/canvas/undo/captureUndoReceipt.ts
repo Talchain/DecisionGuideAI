@@ -90,6 +90,18 @@ export function captureTurnForUndo(input: {
   const { journal } = useUndoJournalStore.getState()
   const event = input.systemEvent
 
+  // P48: the Agent's own versions (`_agent.receipts`) and no `model_version_receipt` → ONE undo step for the change,
+  // whatever system event rode with the turn (buddy r1 P1: an exclusive chain skipped them). Async; fail-closed.
+  if (receipt === null && readAgentTurnReceipts(input.response).length > 0) {
+    void captureAgentTurnForUndo({
+      scenarioId: input.scenarioId,
+      turnId: input.undoGestureId ?? input.turnId,
+      response: input.response,
+      ...(event !== undefined && isModelChangingSystemEvent(event.type) ? { label: undoLabelFor(event) } : {}),
+    })
+    return
+  }
+
   let next: UndoJournalState = journal
   if (event !== undefined && isModelChangingSystemEvent(event.type)) {
     if (receipt === null) return
@@ -106,10 +118,6 @@ export function captureTurnForUndo(input: {
       scenarioId: input.scenarioId,
       head: { versionId: receipt.versionId, fullHash: receipt.fullHash },
     })
-  } else if (event === undefined && readAgentTurnReceipts(input.response).length > 0) {
-    // P48: an AI-applied change (the Agent's own versions, `_agent.receipts`) becomes ONE undo step, resolved
-    // against the versions list (`captureAgentTurnForUndo.ts`). Async; it fails closed by clearing the journal.
-    void captureAgentTurnForUndo({ scenarioId: input.scenarioId, turnId: input.turnId, response: input.response })
   }
   if (next !== journal) useUndoJournalStore.setState({ journal: next })
 }

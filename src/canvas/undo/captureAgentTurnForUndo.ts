@@ -12,9 +12,11 @@
  *
  * Fail-closed, and says nothing it cannot stand behind:
  *  - a guest has no versions (owned-only): nothing is recorded;
- *  - the list cannot be read, a receipt is not on it, or the head is no longer the turn's last version (someone wrote
- *    since): the journal is CLEARED as a foreign write — nothing before an unknown write is safe to undo;
- *  - the journal moved while the list was on the wire (another turn settled): cleared the same way;
+ *  - the list cannot be read, a receipt is not on it, its hash is malformed, the receipts repeat a mutation or a
+ *    version, they are not one chain, or the head is no longer the turn's last version (someone wrote since): the
+ *    journal is CLEARED as a foreign write — nothing before an unknown write is safe to undo;
+ *  - the journal moved while the list was on the wire (a newer write settled with its own receipt): NOTHING is written
+ *    (compare-and-set) — the newer write's step stands;
  *  - the first version has no known parent: recorded as a barrier by `recordEditReceipt` (nothing to step back to).
  */
 import { ADDITIVE_EXTENSIONS_KEY } from '../../v5/responseParser'
@@ -50,21 +52,33 @@ export function readAgentTurnReceipts(response: unknown): readonly AgentTurnRece
   return out.sort((a, b) => a.version - b.version)
 }
 
-export type AgentUndoCapture = 'none' | 'recorded' | 'cleared'
+export type AgentUndoCapture = 'none' | 'recorded' | 'cleared' | 'superseded'
 
 export interface CaptureAgentTurnDeps {
   readonly listVersions?: typeof listModelVersions
   readonly identity?: typeof getSessionIdentity
 }
 
-function clear(scenarioId: string): AgentUndoCapture {
-  const { journal } = useUndoJournalStore.getState()
-  useUndoJournalStore.setState({ journal: recordForeignWrite(journal, { scenarioId, head: null }) })
-  return 'cleared'
+const SHA256_HEX = /^[0-9a-f]{64}$/
+
+/**
+ * Compare-and-set: write `next` only while the journal is still the one this capture started from. A journal that
+ * moved meanwhile holds a NEWER write's own receipt (a canvas edit that settled during the list read), and an older
+ * capture must never overwrite it — not with a step, not with a clear (buddy r1 P1).
+ */
+function commit(start: UndoJournalState, next: UndoJournalState, outcome: AgentUndoCapture): AgentUndoCapture {
+  if (useUndoJournalStore.getState().journal !== start) return 'superseded'
+  useUndoJournalStore.setState({ journal: next })
+  return outcome
+}
+
+/** The Agent wrote, but its versions cannot be placed: nothing before that write is safe to undo. */
+function clear(start: UndoJournalState, scenarioId: string): AgentUndoCapture {
+  return commit(start, recordForeignWrite(start, { scenarioId, head: null }), 'cleared')
 }
 
 export async function captureAgentTurnForUndo(
-  input: { readonly scenarioId: string; readonly turnId: string; readonly response: unknown },
+  input: { readonly scenarioId: string; readonly turnId: string; readonly response: unknown; readonly label?: string },
   deps: CaptureAgentTurnDeps = {},
 ): Promise<AgentUndoCapture> {
   const receipts = readAgentTurnReceipts(input.response)
@@ -84,19 +98,29 @@ export async function captureAgentTurnForUndo(
     accessToken: identity.accessToken,
     limit: 50,
   })
-  if (useUndoJournalStore.getState().journal !== journalAtStart) return clear(input.scenarioId)
-  if (list.status !== 'list') return clear(input.scenarioId)
+  // Every write below goes through `commit`, the ONE compare-and-set against `journalAtStart`.
+  if (list.status !== 'list') return clear(journalAtStart, input.scenarioId)
 
+  // One mutation per version and one version per mutation, or the set is malformed/replayed (buddy r1 P1).
+  if (new Set(receipts.map((r) => r.mutationId)).size !== receipts.length
+    || new Set(receipts.map((r) => r.versionId)).size !== receipts.length) {
+    return clear(journalAtStart, input.scenarioId)
+  }
   const byId = new Map(list.versions.map((v) => [v.id, v]))
   const rows = receipts.map((r) => ({ receipt: r, row: byId.get(r.versionId) }))
   const last = rows[rows.length - 1]
-  if (rows.some((r) => r.row === undefined) || last.row === undefined || list.currentVersionId !== last.row.id) {
-    return clear(input.scenarioId)
+  if (rows.some((r) => r.row === undefined || !SHA256_HEX.test(r.row.graphIdentityHash))
+    || last.row === undefined || list.currentVersionId !== last.row.id) {
+    return clear(journalAtStart, input.scenarioId)
+  }
+  // The turn's versions must be ONE chain (each written over the one before), or they are not one gesture.
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i].row?.parentVersionId !== rows[i - 1].row?.id) return clear(journalAtStart, input.scenarioId)
   }
 
   let journal = journalAtStart
   for (const { receipt, row } of rows) {
-    if (row === undefined) return clear(input.scenarioId)
+    if (row === undefined) return clear(journalAtStart, input.scenarioId)
     const undoReceipt: UndoReceipt = {
       mutationId: receipt.mutationId,
       versionId: row.id,
@@ -107,11 +131,10 @@ export async function captureAgentTurnForUndo(
       scenarioId: input.scenarioId,
       receipt: undoReceipt,
       gestureId: input.turnId,
-      label: AI_CHANGE_UNDO_LABEL,
+      label: input.label ?? AI_CHANGE_UNDO_LABEL,
     })
   }
-  useUndoJournalStore.setState({ journal })
-  return 'recorded'
+  return commit(journalAtStart, journal, 'recorded')
 }
 
 /** For the reply's control: is the next ⌘Z exactly this turn's AI change? */
