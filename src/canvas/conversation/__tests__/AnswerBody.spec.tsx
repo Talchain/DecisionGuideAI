@@ -28,6 +28,15 @@ describe('AnswerBody', () => {
     expect(screen.queryByTestId('answer-detail')).toBeNull()
   })
 
+  it('the toggle says "More detail" / "Less detail" (S-A, Paul 7 Oct: the rest sits under More detail), never "Show more"', () => {
+    render(<AnswerBody answer={make()} />)
+    expect(screen.getByTestId('answer-show-more').textContent?.trim()).toBe('More detail')
+    expect(screen.getByTestId('answer-show-more').getAttribute('aria-label')).toBe('More detail of this answer')
+    fireEvent.click(screen.getByTestId('answer-show-more'))
+    expect(screen.getByTestId('answer-show-more').textContent?.trim()).toBe('Less detail')
+    expect(screen.getByTestId('answer-show-more').getAttribute('aria-label')).toBe('Less detail of this answer')
+  })
+
   it('reveals and re-hides the detail on Show-more toggle', () => {
     render(<AnswerBody answer={make({ detail: 'Across 10,000 runs...' })} />)
     const toggle = screen.getByTestId('answer-show-more')
@@ -79,9 +88,9 @@ describe('AnswerBody', () => {
   })
 
   // Paul's test, 27 Sep (UI e8ba18e6): an options reply split its list around the toggle — three bullets, then
-  // "Show less", then the rest ("None has been added… · £59 with an annual-plan discount… · Segmented pricing…").
+  // "Less detail", then the rest ("None has been added… · £59 with an annual-plan discount… · Segmented pricing…").
   // Expanded, the answer reads straight on and the toggle closes it from the end.
-  it('expanded, the detail follows the bullets directly and "Show less" comes after it', () => {
+  it('expanded, the detail follows the bullets directly and "Less detail" comes after it', () => {
     const answer: AnswerShape = {
       headline: 'Five options are worth considering.',
       bullets: ['£59 for new Pro customers only.', 'Keep Pro at £49; sell AI as a paid add-on.'],
@@ -95,8 +104,8 @@ describe('AnswerBody', () => {
     const bullets = screen.getByTestId('answer-bullets')
     const after = screen.getByTestId('answer-show-more')
     expect(bullets.compareDocumentPosition(detail) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(detail.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING, 'Show less closes it from the end').toBeTruthy()
-    expect(after.textContent).toContain('Show less')
+    expect(detail.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING, 'Less detail closes it from the end').toBeTruthy()
+    expect(after.textContent).toContain('Less detail')
     // The SAME button moved nothing but its label: a keyboard user keeps their place.
     expect(after).toBe(toggle)
     expect(document.activeElement).toBe(toggle)
