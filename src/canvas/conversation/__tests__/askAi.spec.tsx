@@ -181,6 +181,37 @@ it.each([
   expect(takeAskTargetBinding(sent.message)?.nodeIds).toEqual(new Set(['a']))
   expect(revealOlumiSurface).toHaveBeenCalled()
 })
+describe('the draft’s UNREQUESTED automatic Run asks the drafted question (DL ruling 7 Oct, Canvas askAi witness)', () => {
+  // Served: staging d47c8d13, askai-2 — the draft's automatic first pass came back `complete_current` with the leader
+  // withheld as `unrequested_analysis_withheld`, and node Explain asked "What does Olumi still need…" although nobody had
+  // asked for a Run. The cause is read off the result it qualifies (`producer_leader_permission.producer_cause`).
+  const DRAFTED = 'What does ‘Capacity’ do in this decision, and what is it assumed to depend on?'
+  const WITHHELD = 'What does Olumi still need about ‘Capacity’ before it can say how likely each option is to meet the goal?'
+  const ranWithheld = (permission: Record<string, unknown>) => {
+    useCanvasStore.setState({ hasCompletedFirstRun: true, results: { status: 'complete', report: { producer_leader_permission: permission } } } as never)
+    vi.mocked(selectRunAffirmedCurrent).mockReturnValue(true)
+    vi.mocked(selectRunWithholdsFigures).mockReturnValue(true)
+  }
+  it('RED: the automatic first pass (unrequested_analysis_withheld) asks the drafted question', () => {
+    ranWithheld({ permitted: false, producer_cause: 'unrequested_analysis_withheld' })
+    askAi({ intent: 'explain', nodeIds: ['a'] })
+    expect(dispatch.mock.calls[0][0].message).toBe(DRAFTED)
+  })
+  it.each(['constraint_verdict_withheld', 'options_do_not_separate', 'goal_scope_unresolved'])(
+    'a Run the person asked for, withheld for %s, keeps the withheld question',
+    (producer_cause) => {
+      ranWithheld({ permitted: false, producer_cause })
+      askAi({ intent: 'explain', nodeIds: ['a'] })
+      expect(dispatch.mock.calls[0][0].message).toBe(WITHHELD)
+    },
+  )
+  it('CONTROL: the token counts only on a withheld leader — a permitted leader carrying it is not the unrequested pass', () => {
+    ranWithheld({ permitted: true, producer_cause: 'unrequested_analysis_withheld' })
+    askAi({ intent: 'explain', nodeIds: ['a'] })
+    expect(dispatch.mock.calls[0][0].message).toBe(WITHHELD)
+  })
+})
+
 it('range-only chances use the withheld wording, without reading a model figure into the question', () => {
   vi.mocked(selectRunAffirmedCurrent).mockReturnValue(true)
   useCanvasStore.setState({ hasCompletedFirstRun: true, results: { status: 'complete', report: { option_probabilities: { x: { goal_probability: null } } } } } as never)

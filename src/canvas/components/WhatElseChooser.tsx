@@ -15,6 +15,7 @@ import { requestAsk } from '../ui/inspector-v2/askSemantic'
 import { askAi } from '../conversation/askAi'
 import type { AskIntent } from '../conversation/askAiQuestions'
 import { typography } from '../../styles/typography'
+import { measureDockInset } from './FloatingOlumiPanel'
 
 export type WhatElseKind = 'factor' | 'risk' | 'option' | 'outcome'
 
@@ -49,6 +50,25 @@ export function whatElsePrompt(kind: WhatElseKind, open: Pick<WhatElseOpen, 'doo
   return WHAT_ELSE_CHOICES.find((c) => c.kind === kind)!.prompt
 }
 
+export const WHAT_ELSE_CHOOSER_WIDTH = 248
+
+/**
+ * Where the chooser opens: beside the pointer, but always inside the canvas the person can see, never under the Outputs
+ * dock. Served askAi witness, 7 Oct (staging d47c8d13): at a right-edge door the chooser opened beside the dock and its
+ * Factor chip could not be clicked in 2 of 3 layouts. With no dock (`dockInset` 0) this is the previous window clamp.
+ */
+export function placeWhatElseChooser(
+  anchor: { x: number; y: number },
+  viewport: { width: number; height: number },
+  dockInset: number,
+): { left: number; top: number } {
+  const rightEdge = viewport.width - Math.max(0, dockInset)
+  return {
+    left: Math.max(12, Math.min(anchor.x + 8, rightEdge - WHAT_ELSE_CHOOSER_WIDTH - 12)),
+    top: Math.min(anchor.y + 8, viewport.height - 160),
+  }
+}
+
 export function WhatElseChooser({ open, onClose }: { open: WhatElseOpen; onClose: () => void }) {
   const ref = useRef<HTMLDivElement | null>(null)
   const [text, setText] = useState('')
@@ -67,8 +87,11 @@ export function WhatElseChooser({ open, onClose }: { open: WhatElseOpen; onClose
     if (result === 'sent') onClose()
   }
 
-  const left = Math.min(open.x + 8, (typeof window !== 'undefined' ? window.innerWidth : 1440) - 260)
-  const top = Math.min(open.y + 8, (typeof window !== 'undefined' ? window.innerHeight : 900) - 160)
+  const { left, top } = placeWhatElseChooser(
+    open,
+    { width: typeof window !== 'undefined' ? window.innerWidth : 1440, height: typeof window !== 'undefined' ? window.innerHeight : 900 },
+    measureDockInset(),
+  )
 
   return (
     <div
