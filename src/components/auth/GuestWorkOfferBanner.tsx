@@ -9,9 +9,14 @@
  * Add uses the same copy route as sign-in (`services/guestCopyService`). The guest row is never written, so declining
  * loses nothing that was the user's account's.
  *
+ * ⚠ BOUND TO THE ACCOUNT THAT SAW THE OFFER (Codex r1 P1-1). An identity boundary (A → B, sign-out) sweeps the ledger,
+ * but a mounted banner still holds A's rows; and A's click can resolve its token after B has arrived. So the list is
+ * re-read whenever the account changes, and a click sends only if the session is STILL the account that clicked and
+ * the decision is STILL offered in storage; its answer is applied only if that account is still here.
+ *
  * DS: the hub's banner card (`GuestDraftImportBanner`), the existing type tokens, Lucide only.
  */
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { History, Loader2 } from 'lucide-react'
 
 import { useAuth } from '../../contexts/AuthContext'
@@ -44,9 +49,23 @@ function lastWorkedOn(at: number | null): string | null {
 
 export function GuestWorkOfferBanner() {
   const { user, authenticated } = useAuth()
+  const accountId = user?.id ?? null
   const [offers, setOffers] = useState<GuestWorkEntry[]>(() => readGuestWork())
   const [busy, setBusy] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
+  const [listedFor, setListedFor] = useState<string | null>(accountId)
+  const accountRef = useRef(accountId)
+  accountRef.current = accountId
+
+  // A different account (or none) sees what storage holds NOW, never the previous account's list: until the re-read
+  // lands, nothing listed for another account is rendered, not even for one frame.
+  useEffect(() => {
+    setOffers(readGuestWork())
+    setNotes({})
+    setBusy(null)
+    setListedFor(accountId)
+  }, [accountId])
+  const visible = listedFor === accountId ? offers : []
 
   const settle = useCallback((id: string, note?: string) => {
     if (note === undefined) forgetGuestWork(id)
@@ -59,14 +78,22 @@ export function GuestWorkOfferBanner() {
     })
   }, [])
 
-  if (!isPersistenceActive(authenticated, user) || (offers.length === 0 && Object.keys(notes).length === 0)) return null
+  if (!isPersistenceActive(authenticated, user) || (visible.length === 0 && Object.keys(notes).length === 0)) return null
 
   const handleAdd = async (id: string) => {
-    if (busy) return
+    if (busy || accountId === null) return
+    const clickedBy = accountId
+    const stillOffered = () => readGuestWork().some((entry) => entry.id === id)
     setBusy(id)
     try {
-      const { accessToken } = await getSessionIdentity()
+      const { userId, accessToken } = await getSessionIdentity()
+      // The session must still be the account that clicked, and the decision still offered (a boundary sweeps it).
+      if (userId !== clickedBy || accountRef.current !== clickedBy || !stillOffered()) {
+        if (accountRef.current === clickedBy) setOffers(readGuestWork())
+        return
+      }
       const outcome = accessToken ? await requestGuestCopy(id, accessToken) : { kind: 'retry_later' as const, reason: 'no_session' }
+      if (accountRef.current !== clickedBy) return
       if (outcome.kind === 'copied') {
         settle(id)
         const detail: GuestCopiedDetail = { sourceScenarioId: id, scenarioId: outcome.scenarioId, created: outcome.created }
@@ -79,7 +106,7 @@ export function GuestWorkOfferBanner() {
         settle(id, GUEST_WORK_OFFER_COPY.retry)
       }
     } finally {
-      setBusy(null)
+      if (accountRef.current === clickedBy) setBusy(null)
     }
   }
 
@@ -93,7 +120,7 @@ export function GuestWorkOfferBanner() {
         <p className={`${typography.label} text-text-header`}>{GUEST_WORK_OFFER_COPY.heading}</p>
         <p className={`${typography.bodySmall} mt-1 text-text-body`}>{GUEST_WORK_OFFER_COPY.body}</p>
         <ul className="mt-3 space-y-3">
-          {offers.map((offer) => {
+          {visible.map((offer) => {
             const when = lastWorkedOn(offer.lastActiveAt)
             return (
               <li key={offer.id} data-testid="guest-work-offer" data-scenario-id={offer.id}>
@@ -128,7 +155,7 @@ export function GuestWorkOfferBanner() {
           })}
         </ul>
         {Object.entries(notes)
-          .filter(([id]) => !offers.some((o) => o.id === id))
+          .filter(([id]) => !visible.some((o) => o.id === id))
           .map(([id, note]) => (
             <p key={id} className={`${typography.bodySmall} mt-2 text-text-light`} role="status">{note}</p>
           ))}

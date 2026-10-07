@@ -6,18 +6,24 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 
-const auth = vi.hoisted(() => ({ user: { id: 'user-1' } as { id: string } | null, authenticated: true }))
+const auth = vi.hoisted(() => ({ user: { id: 'user-1' } as { id: string } | null, authenticated: true, sessionUser: 'user-1' as string | null, gate: null as null | Promise<void> }))
 vi.mock('../../../contexts/AuthContext', () => ({ useAuth: () => ({ user: auth.user, authenticated: auth.authenticated }) }))
 vi.mock('../../../lib/persistenceActive', () => ({
   isPersistenceActive: (authenticated: boolean, user: { id: string } | null) => authenticated && user !== null,
 }))
 vi.mock('../../../lib/storedSupabaseSession', () => ({ hasStoredSupabaseSession: () => false }))
-vi.mock('../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: 'user-1', accessToken: 'eyJ.tok.sig' }) }))
+vi.mock('../../../lib/supabase', () => ({
+  getSessionIdentity: async () => {
+    if (auth.gate) await auth.gate
+    return { userId: auth.sessionUser, accessToken: auth.sessionUser ? `eyJ.${auth.sessionUser}.sig` : null }
+  },
+}))
 const mockRequest = vi.fn()
 vi.mock('../../../services/guestCopyService', () => ({ requestGuestCopy: (...args: unknown[]) => mockRequest(...args) }))
 
 import { GuestWorkOfferBanner, GUEST_WORK_OFFER_COPY } from '../GuestWorkOfferBanner'
-import { GUEST_WORK_KEY, readGuestWork } from '../../../lib/guestWork'
+import { GUEST_WORK_PREFIX, readGuestWork } from '../../../lib/guestWork'
+import { sweepUserScopedStorage } from '../../../lib/auth/userScopedKeys'
 import { GUEST_COPIED_EVENT, type GuestCopiedDetail } from '../../../lib/guestCopyOnSignIn'
 import { GUEST_STORAGE_CLAIM_PATTERNS } from '../../../test/guestStorageClaims'
 
@@ -26,10 +32,8 @@ const OLDER = '9f8b7a6c-1234-4def-8abc-0123456789ab'
 const COPY = '3b241101-e2bb-4255-8caf-4136c566a962'
 
 function seed() {
-  localStorage.setItem(GUEST_WORK_KEY, JSON.stringify([
-    { id: SEP28, lastActiveAt: Date.parse('2026-09-28T13:06:28Z'), label: 'Personal assistant or an AI assistant?' },
-    { id: OLDER, lastActiveAt: null, label: null },
-  ]))
+  localStorage.setItem(GUEST_WORK_PREFIX + SEP28, JSON.stringify({ lastActiveAt: Date.parse('2026-09-28T13:06:28Z'), label: 'Personal assistant or an AI assistant?' }))
+  localStorage.setItem(GUEST_WORK_PREFIX + OLDER, JSON.stringify({ lastActiveAt: null, label: null }))
 }
 
 const row = (id: string) => screen.getAllByTestId('guest-work-offer').find((el) => el.getAttribute('data-scenario-id') === id)
@@ -41,6 +45,8 @@ beforeEach(() => {
   localStorage.clear()
   auth.user = { id: 'user-1' }
   auth.authenticated = true
+  auth.sessionUser = 'user-1'
+  auth.gate = null
   mockRequest.mockReset()
   events = []
   window.addEventListener(GUEST_COPIED_EVENT, onCopied)
@@ -69,7 +75,7 @@ describe('GuestWorkOfferBanner', () => {
     fireEvent.click(within(row(SEP28) as HTMLElement).getByText(GUEST_WORK_OFFER_COPY.add))
 
     await waitFor(() => expect(events).toEqual([{ sourceScenarioId: SEP28, scenarioId: COPY, created: true }]))
-    expect(mockRequest).toHaveBeenCalledWith(SEP28, 'eyJ.tok.sig')
+    expect(mockRequest).toHaveBeenCalledWith(SEP28, 'eyJ.user-1.sig')
     expect(readGuestWork().map((e) => e.id)).toEqual([OLDER])
     expect(row(SEP28)).toBeUndefined()
   })
@@ -107,6 +113,50 @@ describe('GuestWorkOfferBanner', () => {
     await waitFor(() => expect(screen.getByText(GUEST_WORK_OFFER_COPY.gone)).toBeTruthy())
     expect(row(SEP28)).toBeUndefined()
     expect(readGuestWork().map((e) => e.id)).toEqual([OLDER])
+  })
+
+  it('A→B on a mounted hub (Codex r1 P1-1): after the boundary sweep, B sees none of A\'s offers and nothing can be sent', () => {
+    seed()
+    const { rerender } = render(<GuestWorkOfferBanner />)
+    expect(row(SEP28)).toBeTruthy()
+
+    sweepUserScopedStorage() // the identity boundary
+    auth.user = { id: 'user-2' }
+    auth.sessionUser = 'user-2'
+    rerender(<GuestWorkOfferBanner />)
+
+    expect(screen.queryByTestId('guest-work-offer-banner')).toBeNull()
+    expect(mockRequest).not.toHaveBeenCalled()
+  })
+
+  it('A clicks Add, then B arrives before A\'s token resolves → NO copy is sent with B\'s token', async () => {
+    seed()
+    let release: () => void = () => {}
+    auth.gate = new Promise<void>((r) => { release = r })
+    const { rerender } = render(<GuestWorkOfferBanner />)
+    fireEvent.click(within(row(SEP28) as HTMLElement).getByText(GUEST_WORK_OFFER_COPY.add))
+
+    sweepUserScopedStorage()
+    auth.user = { id: 'user-2' }
+    auth.sessionUser = 'user-2'
+    rerender(<GuestWorkOfferBanner />)
+    release()
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(mockRequest).not.toHaveBeenCalled()
+    expect(events).toEqual([])
+  })
+
+  it('CONTRAST: the same click with A still signed in sends A\'s copy', async () => {
+    seed()
+    let release: () => void = () => {}
+    auth.gate = new Promise<void>((r) => { release = r })
+    mockRequest.mockResolvedValue({ kind: 'copied', scenarioId: COPY, created: true })
+    render(<GuestWorkOfferBanner />)
+    fireEvent.click(within(row(SEP28) as HTMLElement).getByText(GUEST_WORK_OFFER_COPY.add))
+    release()
+
+    await waitFor(() => expect(mockRequest).toHaveBeenCalledWith(SEP28, 'eyJ.user-1.sig'))
   })
 
   it('renders nothing when there is nothing to offer, or for a guest', () => {

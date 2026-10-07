@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 vi.mock('../storedSupabaseSession', () => ({ hasStoredSupabaseSession: () => false }))
 
 import {
-  PENDING_GUEST_COPIES_KEY,
+  PENDING_GUEST_COPIES_PREFIX,
   PENDING_GUEST_COPY_KEY,
   capturePendingGuestCopies,
   readPendingGuestCopies,
@@ -101,7 +101,7 @@ describe('capturePendingGuestCopies', () => {
   it('records nothing when the visitor built no model', () => {
     expect(capturePendingGuestCopies()).toEqual([])
     expect(readPendingGuestCopies()).toEqual([])
-    expect(localStorage.getItem(PENDING_GUEST_COPIES_KEY)).toBeNull()
+    expect(Object.keys(localStorage).filter((k) => k.startsWith(PENDING_GUEST_COPIES_PREFIX))).toEqual([])
     expect(readGuestWork()).toEqual([])
   })
 
@@ -130,7 +130,7 @@ describe('capturePendingGuestCopies', () => {
 
   it('uses keys distinct from the live pointer', () => {
     expect(PENDING_GUEST_COPY_KEY).not.toBe(CURRENT_SCENARIO_KEY)
-    expect(PENDING_GUEST_COPIES_KEY).not.toBe(CURRENT_SCENARIO_KEY)
+    expect(CURRENT_SCENARIO_KEY.startsWith(PENDING_GUEST_COPIES_PREFIX)).toBe(false)
   })
 })
 

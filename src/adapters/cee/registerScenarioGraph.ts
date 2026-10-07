@@ -23,6 +23,7 @@
 import { logger } from '../../lib/logger'
 import { sanitiseUserId } from '../../lib/guestIdentity'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
+import { noteGuestRegistration } from '../../lib/guestWork'
 
 /**
  * The same-origin Netlify edge path. NOT `VITE_CEE_BFF_BASE` — see the header.
@@ -244,6 +245,8 @@ export async function registerScenarioGraph(
       return { status: 'unavailable' }
     }
 
+    // S-G: a guest's model now exists on the server without a turn; sign-in offers it (`lib/guestWork.ts`).
+    noteGuestRegistration(scenarioId)
     return {
       status: 'registered',
       identity: readIdentityEnvelope(parsed.graph_identity_hash),

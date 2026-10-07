@@ -12,7 +12,7 @@ vi.mock('../payload-trace-store', () => ({ recordRequestPayload: () => {}, recor
 
 import {
   GUEST_WORK_CAP,
-  GUEST_WORK_KEY,
+  GUEST_WORK_PREFIX,
   RECENT_GUEST_WORK_MS,
   forgetGuestWork,
   isRecentGuestWork,
@@ -21,7 +21,7 @@ import {
   readGuestWork,
 } from '../guestWork'
 import {
-  PENDING_GUEST_COPIES_KEY,
+  PENDING_GUEST_COPIES_PREFIX,
   PENDING_GUEST_COPY_KEY,
   SPENT_GUEST_POINTER_KEY,
   capturePendingGuestCopies,
@@ -30,7 +30,8 @@ import {
   readPendingGuestCopies,
 } from '../pendingGuestCopy'
 import { setPersistenceSessionActive } from '../persistenceSession'
-import { USER_SCOPED_STORAGE_KEYS, sweepUserScopedStorage } from '../auth/userScopedKeys'
+import { USER_SCOPED_STORAGE_KEYS, USER_SCOPED_STORAGE_PREFIXES, sweepUserScopedStorage } from '../auth/userScopedKeys'
+import { registerScenarioGraph } from '../../adapters/cee/registerScenarioGraph'
 import { openV5TurnStream } from '../../v5/streamedTurnTransport'
 
 const POINTER = 'olumi-canvas-current-scenario-id'
@@ -70,7 +71,7 @@ describe('the ledger', () => {
     noteGuestWork(B, 'y', T)
 
     expect(readGuestWork()).toEqual([])
-    expect(localStorage.getItem(GUEST_WORK_KEY)).toBeNull()
+    expect(Object.keys(localStorage).filter((k) => k.startsWith(GUEST_WORK_PREFIX))).toEqual([])
   })
 
   it('CONTRAST: the same calls on a guest page record both', () => {
@@ -98,19 +99,33 @@ describe('the ledger', () => {
     expect(words.charAt(label.length - 1)).toBe(' ')
   })
 
-  it('ignores non-UUID ids and malformed storage; keeps at most the cap, newest', () => {
+  it('ignores non-UUID ids and malformed entries', () => {
     noteGuestWork('scenario-1712345678901-ab12cd', null, T)
     expect(readGuestWork()).toEqual([])
 
-    localStorage.setItem(GUEST_WORK_KEY, '{not json')
+    localStorage.setItem(GUEST_WORK_PREFIX + A, '{not json')
+    localStorage.setItem(`${GUEST_WORK_PREFIX}not-a-uuid`, JSON.stringify({ lastActiveAt: T, label: null }))
     expect(readGuestWork()).toEqual([])
+  })
 
-    for (let i = 0; i < GUEST_WORK_CAP + 5; i += 1) {
-      noteGuestWork(`00000000-0000-4000-8000-${String(i).padStart(12, '0')}`, null, T + i)
-    }
-    const kept = readGuestWork()
+  const id = (i: number) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`
+
+  it('NOTHING LOST in one sitting (Codex r1 P2): more decisions than the cap, all within the day → every one is kept', () => {
+    for (let i = 0; i < GUEST_WORK_CAP + 5; i += 1) noteGuestWork(id(i), null, T - HOUR + i)
+
+    expect(readGuestWork()).toHaveLength(GUEST_WORK_CAP + 5)
+  })
+
+  it('CONTRAST: past the cap, only the oldest OLDER offers are trimmed', () => {
+    for (let i = 0; i < GUEST_WORK_CAP + 5; i += 1) noteGuestWork(id(i), null, T - 9 * 24 * HOUR + i)
+    noteGuestWork(A, null, T) // today's turn: the ledger now holds cap + 6
+
+    const kept = readGuestWork().map((e) => e.id)
     expect(kept).toHaveLength(GUEST_WORK_CAP)
-    expect(kept[0].id).toBe(`00000000-0000-4000-8000-${String(GUEST_WORK_CAP + 4).padStart(12, '0')}`)
+    expect(kept).toContain(A)
+    expect(kept).not.toContain(id(0))
+    expect(kept).not.toContain(id(5))
+    expect(kept).toContain(id(6))
   })
 
   it('recent = within a day, either side of the clock', () => {
@@ -177,10 +192,10 @@ describe('capturePendingGuestCopies — at the guest → signed-in transition', 
 
     expect(capturePendingGuestCopies(T)).toEqual([B, A])
     expect(localStorage.getItem(PENDING_GUEST_COPY_KEY)).toBeNull()
-    expect(JSON.parse(localStorage.getItem(PENDING_GUEST_COPIES_KEY) as string)).toEqual([B, A])
+    expect(localStorage.getItem(PENDING_GUEST_COPIES_PREFIX + B)).not.toBeNull()
 
-    noteGuestWork(C, null, T)
-    expect(capturePendingGuestCopies(T)).toEqual([B, A, C])
+    noteGuestWork(C, null, T + HOUR)
+    expect(capturePendingGuestCopies(T + HOUR)).toEqual([B, A, C])
   })
 
   it('storage refusing the write leaves the recent work in the ledger (offered), never lost', () => {
@@ -203,6 +218,67 @@ describe('capturePendingGuestCopies — at the guest → signed-in transition', 
   })
 })
 
+describe('two tabs (Codex r1 P1-2): one tab clearing its copied id never deletes an id another tab captured meanwhile', () => {
+  it('tab 2 captures H in the middle of tab 1 clearing G → H is still pending', () => {
+    localStorage.setItem(PENDING_GUEST_COPIES_PREFIX + A, String(T)) // G, being copied by tab 1
+    noteGuestWork(B, null, T - HOUR) // H, the work tab 2 is signing in with
+    localStorage.setItem(POINTER, B)
+    // Tab 2's capture runs at tab 1's FIRST storage access inside the clear: after any read tab 1 makes, before its write.
+    const proto = Storage.prototype
+    const real = { getItem: proto.getItem, setItem: proto.setItem, removeItem: proto.removeItem, key: proto.key }
+    let injected = false
+    const inject = () => {
+      if (injected) return
+      injected = true
+      Object.assign(proto, real)
+      capturePendingGuestCopies(T)
+    }
+    vi.spyOn(proto, 'getItem').mockImplementation(function (this: Storage, k: string) { inject(); return real.getItem.call(this, k) })
+    vi.spyOn(proto, 'removeItem').mockImplementation(function (this: Storage, k: string) { inject(); return real.removeItem.call(this, k) })
+    vi.spyOn(proto, 'key').mockImplementation(function (this: Storage, i: number) { inject(); return real.key.call(this, i) })
+
+    clearPendingGuestCopy(A)
+    vi.restoreAllMocks()
+
+    expect(injected).toBe(true)
+    expect(readPendingGuestCopies()).toEqual([B])
+  })
+})
+
+describe('an import or an opened example (Codex r1 P1-3): registered without a turn → OFFERED at sign-in, never copied silently', () => {
+  const ACK = { schema: 'scenario_graph_registration.v1', scenario_id: A, registered: true, graph_identity_hash: { value: 'a'.repeat(64), projection_version: 'identity.v1' }, node_count: 1, edge_count: 0, request_id: 'req-1' }
+  const respond = (status: number, body: unknown) => vi.stubGlobal('fetch', vi.fn(async () => ({ ok: status === 200, status, json: async () => body, text: async () => JSON.stringify(body) })))
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it('a guest registers G, then works on H → at sign-in H is captured AND G is offered', async () => {
+    respond(200, ACK)
+    await registerScenarioGraph(A, { nodes: [{ id: 'a', kind: 'goal', label: 'A' }], edges: [] }, { userId: null, accessToken: null })
+    noteGuestWork(B, null, T - HOUR)
+    localStorage.setItem(POINTER, B)
+
+    expect(capturePendingGuestCopies(T)).toEqual([B])
+    expect(readGuestWork()).toEqual([{ id: A, lastActiveAt: null, label: null }])
+  })
+
+  it('CONTRAST: a refused registration records nothing; a signed-in registration records nothing', async () => {
+    respond(409, {})
+    await registerScenarioGraph(A, { nodes: [], edges: [] }, { userId: null, accessToken: null })
+    auth.stored = true
+    respond(200, ACK)
+    await registerScenarioGraph(A, { nodes: [], edges: [] }, { userId: null, accessToken: null })
+
+    expect(readGuestWork()).toEqual([])
+  })
+
+  it('a later turn on the imported decision makes it recent work, captured at sign-in', async () => {
+    respond(200, ACK)
+    await registerScenarioGraph(A, { nodes: [], edges: [] }, { userId: null, accessToken: null })
+    noteGuestWork(A, null, T - HOUR)
+
+    expect(capturePendingGuestCopies(T)).toEqual([A])
+  })
+})
+
 describe('boundaries — never the next account’s', () => {
   it('sign-out drops everything pending AND offered, and marks the pointer spent', () => {
     noteGuestWork(A, null, T - HOUR)
@@ -217,17 +293,18 @@ describe('boundaries — never the next account’s', () => {
     expect(localStorage.getItem(SPENT_GUEST_POINTER_KEY)).toBe(C)
   })
 
-  it('the lapse/A→B sweep names the owners’ OWN keys and removes them', () => {
-    expect(USER_SCOPED_STORAGE_KEYS).toEqual(expect.arrayContaining([GUEST_WORK_KEY, PENDING_GUEST_COPY_KEY, PENDING_GUEST_COPIES_KEY]))
+  it('the lapse/A→B sweep names the owners’ OWN keys and prefixes, and removes them', () => {
+    expect(USER_SCOPED_STORAGE_KEYS).toContain(PENDING_GUEST_COPY_KEY)
+    expect(USER_SCOPED_STORAGE_PREFIXES).toEqual(expect.arrayContaining([GUEST_WORK_PREFIX, PENDING_GUEST_COPIES_PREFIX]))
     noteGuestWork(A, null, T)
-    localStorage.setItem(PENDING_GUEST_COPIES_KEY, JSON.stringify([B]))
+    localStorage.setItem(PENDING_GUEST_COPIES_PREFIX + B, String(T))
     localStorage.setItem(PENDING_GUEST_COPY_KEY, C)
 
     sweepUserScopedStorage()
 
-    expect(localStorage.getItem(GUEST_WORK_KEY)).toBeNull()
-    expect(localStorage.getItem(PENDING_GUEST_COPIES_KEY)).toBeNull()
-    expect(localStorage.getItem(PENDING_GUEST_COPY_KEY)).toBeNull()
+    expect(readGuestWork()).toEqual([])
+    expect(readPendingGuestCopies()).toEqual([])
+    expect(Object.keys(localStorage)).toEqual([])
   })
 
   it('"Not mine" forgets one offer only', () => {

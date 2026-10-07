@@ -28,7 +28,12 @@
 import { isPersistenceSessionActive } from './persistenceSession'
 import { hasStoredSupabaseSession } from './storedSupabaseSession'
 
-export const GUEST_WORK_KEY = 'olumi.guestWork.v1'
+/**
+ * ONE KEY PER DECISION: `olumi.guestWork.v1:<scenario id>` → `{ lastActiveAt, label }`. Never one shared array: two tabs
+ * that read-modify-write one key lose each other's writes (Codex r1 P1-2), while a per-decision key is only ever written
+ * for its own decision. The boundary sweep removes the prefix (`userScopedKeys.USER_SCOPED_STORAGE_PREFIXES`).
+ */
+export const GUEST_WORK_PREFIX = 'olumi.guestWork.v1:'
 
 /**
  * Work this recent is what the user was doing when they signed in. A day covers "worked as a guest, then signed in"
@@ -36,15 +41,19 @@ export const GUEST_WORK_KEY = 'olumi.guestWork.v1'
  */
 export const RECENT_GUEST_WORK_MS = 24 * 60 * 60 * 1000
 
-/** Newest kept. A guest with more decisions than this in one browser loses only the OFFER for the oldest. */
-export const GUEST_WORK_CAP = 20
+/**
+ * Housekeeping bound. Only OLDER work (offers) is ever trimmed past it, oldest first; work inside the recent window is
+ * never trimmed, so everything a guest did in one sitting reaches the account however many decisions it was (Codex r1
+ * P2). A browser holding more than this many older guest decisions loses the offer for the oldest.
+ */
+export const GUEST_WORK_CAP = 100
 
 /** The first thing the user typed, kept so an offer can be recognised. Cut at a word, never mid-word. */
 const LABEL_MAX = 160
 
 export interface GuestWorkEntry {
   readonly id: string
-  /** When this browser last sent a turn for it. `null`: seen only as the pointer at a sign-in, so its age is unknown. */
+  /** When this browser last sent a turn for it. `null`: its age is unknown (a pointer or an import), so it is offered. */
   readonly lastActiveAt: number | null
   /** The first message the user typed in it, or `null`. */
   readonly label: string | null
@@ -70,42 +79,74 @@ function byRecency(a: GuestWorkEntry, b: GuestWorkEntry): number {
   return (b.lastActiveAt ?? -Infinity) - (a.lastActiveAt ?? -Infinity)
 }
 
-/** The ledger, newest first; malformed rows are dropped. */
+function parseEntry(id: string, raw: string | null): GuestWorkEntry | null {
+  if (raw === null || !isUuid(id)) return null
+  try {
+    const value = JSON.parse(raw) as Record<string, unknown> | null
+    if (!value || typeof value !== 'object') return null
+    const at = typeof value.lastActiveAt === 'number' && Number.isFinite(value.lastActiveAt) ? value.lastActiveAt : null
+    return { id, lastActiveAt: at, label: cleanLabel(value.label) }
+  } catch {
+    return null
+  }
+}
+
+function readEntry(id: string): GuestWorkEntry | null {
+  try {
+    return parseEntry(id, localStorage.getItem(GUEST_WORK_PREFIX + id))
+  } catch {
+    return null
+  }
+}
+
+function writeEntry(entry: GuestWorkEntry): boolean {
+  try {
+    localStorage.setItem(GUEST_WORK_PREFIX + entry.id, JSON.stringify({ lastActiveAt: entry.lastActiveAt, label: entry.label }))
+    return true
+  } catch {
+    return false
+  }
+}
+
+function ledgerKeys(): string[] {
+  const keys: string[] = []
+  try {
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i)
+      if (key !== null && key.startsWith(GUEST_WORK_PREFIX)) keys.push(key)
+    }
+  } catch {
+    // Storage unavailable: no ledger.
+  }
+  return keys
+}
+
+/** The ledger, newest first; malformed entries are skipped. */
 export function readGuestWork(): GuestWorkEntry[] {
-  let raw: string | null
-  try {
-    raw = localStorage.getItem(GUEST_WORK_KEY)
-  } catch {
-    return []
-  }
-  if (raw === null) return []
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(raw)
-  } catch {
-    return []
-  }
-  if (!Array.isArray(parsed)) return []
-  const seen = new Set<string>()
   const entries: GuestWorkEntry[] = []
-  for (const row of parsed) {
-    if (!row || typeof row !== 'object') continue
-    const { id, lastActiveAt, label } = row as Record<string, unknown>
-    if (!isUuid(id) || seen.has(id.toLowerCase())) continue
-    const at = typeof lastActiveAt === 'number' && Number.isFinite(lastActiveAt) ? lastActiveAt : null
-    seen.add(id.toLowerCase())
-    entries.push({ id, lastActiveAt: at, label: cleanLabel(label) })
+  for (const key of ledgerKeys()) {
+    let raw: string | null = null
+    try {
+      raw = localStorage.getItem(key)
+    } catch {
+      continue
+    }
+    const entry = parseEntry(key.slice(GUEST_WORK_PREFIX.length), raw)
+    if (entry) entries.push(entry)
   }
   return entries.sort(byRecency)
 }
 
-function writeGuestWork(entries: readonly GuestWorkEntry[]): boolean {
-  try {
-    if (entries.length === 0) localStorage.removeItem(GUEST_WORK_KEY)
-    else localStorage.setItem(GUEST_WORK_KEY, JSON.stringify([...entries].sort(byRecency).slice(0, GUEST_WORK_CAP)))
-    return true
-  } catch {
-    return false
+/** Trim the oldest OLDER entries past the cap. Recent work is never trimmed. */
+function trim(now: number): void {
+  const entries = readGuestWork()
+  let excess = entries.length - GUEST_WORK_CAP
+  if (excess <= 0) return
+  for (const entry of [...entries].reverse()) {
+    if (excess <= 0) break
+    if (isRecentGuestWork(entry, now)) continue
+    forgetGuestWork(entry.id)
+    excess -= 1
   }
 }
 
@@ -119,10 +160,8 @@ function isSignedInPage(): boolean {
  */
 export function noteGuestWork(scenarioId: unknown, label: unknown = null, now: number = Date.now()): void {
   if (!isUuid(scenarioId) || isSignedInPage()) return
-  const entries = readGuestWork()
-  const existing = entries.find((e) => e.id.toLowerCase() === scenarioId.toLowerCase())
-  const rest = entries.filter((e) => e !== existing)
-  writeGuestWork([{ id: scenarioId, lastActiveAt: now, label: existing?.label ?? cleanLabel(label) }, ...rest])
+  const existing = readEntry(scenarioId)
+  if (writeEntry({ id: scenarioId, lastActiveAt: now, label: existing?.label ?? cleanLabel(label) })) trim(now)
 }
 
 /**
@@ -140,26 +179,43 @@ export function noteGuestTurn(payload: unknown, now: number = Date.now()): void 
   }
 }
 
-/** Record a decision whose age is unknown (the pointer at a sign-in, never seen by the ledger) as an offer. */
+/** Record a decision whose age is unknown as an OFFER (never overwrites an entry that has one). */
 export function recordGuestWorkOffer(scenarioId: string): void {
-  if (!isUuid(scenarioId)) return
-  const entries = readGuestWork()
-  if (entries.some((e) => e.id.toLowerCase() === scenarioId.toLowerCase())) return
-  writeGuestWork([...entries, { id: scenarioId, lastActiveAt: null, label: null }])
+  if (!isUuid(scenarioId) || readEntry(scenarioId) !== null) return
+  writeEntry({ id: scenarioId, lastActiveAt: null, label: null })
+}
+
+/**
+ * A guest's model registered on the server without a turn (an imported model or an opened example; the registration
+ * adapter's one call). It is offered at sign-in, never copied silently: opening something is not working on it. A
+ * later turn on it makes it recent work (Codex r1 P1-3: an import followed by another decision was neither carried nor
+ * offered).
+ */
+export function noteGuestRegistration(scenarioId: unknown): void {
+  try {
+    if (!isUuid(scenarioId) || isSignedInPage()) return
+    recordGuestWorkOffer(scenarioId)
+  } catch {
+    // As `noteGuestTurn`.
+  }
 }
 
 /** Remove one decision: it was copied, refused for good, or the user said it is not theirs. */
 export function forgetGuestWork(scenarioId: string): void {
-  const entries = readGuestWork()
-  const next = entries.filter((e) => e.id.toLowerCase() !== scenarioId.toLowerCase())
-  if (next.length !== entries.length) writeGuestWork(next)
+  try {
+    localStorage.removeItem(GUEST_WORK_PREFIX + scenarioId)
+  } catch {
+    // It stays offered, which fails safe.
+  }
 }
 
 export function clearGuestWork(): void {
-  try {
-    localStorage.removeItem(GUEST_WORK_KEY)
-  } catch {
-    // The boundary's sweep removes the key as well.
+  for (const key of ledgerKeys()) {
+    try {
+      localStorage.removeItem(key)
+    } catch {
+      // The boundary's sweep removes the prefix as well.
+    }
   }
 }
 

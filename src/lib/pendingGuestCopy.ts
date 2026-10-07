@@ -36,8 +36,12 @@ import {
 /** v1: ONE id, written once. Read as a member of the set and migrated into it; never written any more. */
 export const PENDING_GUEST_COPY_KEY = 'olumi.pendingGuestCopy.v1'
 
-/** v2: the pending SET, a JSON array of ids. Distinct from the live pointer by construction. */
-export const PENDING_GUEST_COPIES_KEY = 'olumi.pendingGuestCopy.v2'
+/**
+ * v2: the pending SET, one key per id (`olumi.pendingGuestCopy.v2:<id>` → capture time). Never one shared array: a tab
+ * clearing its copied id must not be able to delete an id another tab captured meanwhile (Codex r1 P1-2). Distinct
+ * from the live pointer by construction.
+ */
+export const PENDING_GUEST_COPIES_PREFIX = 'olumi.pendingGuestCopy.v2:'
 
 /** The live pointer, owned by `canvas/store/scenarios.ts`. Read here, never written. */
 const CURRENT_SCENARIO_KEY = 'olumi-canvas-current-scenario-id'
@@ -77,15 +81,21 @@ export function readCurrentScenarioPointer(): string | null {
   return readKey(CURRENT_SCENARIO_KEY)
 }
 
-function readPendingSet(): string[] {
-  const raw = readKey(PENDING_GUEST_COPIES_KEY)
-  if (raw === null) return []
+function readPendingSet(): Array<{ id: string; at: number }> {
+  const out: Array<{ id: string; at: number }> = []
   try {
-    const parsed: unknown = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed.filter(isScenarioUuid) : []
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i)
+      if (key === null || !key.startsWith(PENDING_GUEST_COPIES_PREFIX)) continue
+      const id = key.slice(PENDING_GUEST_COPIES_PREFIX.length)
+      if (!isScenarioUuid(id)) continue
+      const at = Number(localStorage.getItem(key))
+      out.push({ id, at: Number.isFinite(at) ? at : 0 })
+    }
   } catch {
-    return []
+    // Storage unavailable: nothing pending can be read.
   }
+  return out.sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : 1))
 }
 
 function union(...lists: ReadonlyArray<readonly string[]>): string[] {
@@ -102,26 +112,22 @@ function union(...lists: ReadonlyArray<readonly string[]>): string[] {
   return out
 }
 
-/** Every scenario id awaiting a copy, oldest capture first. Includes a v1 single id not yet migrated. */
+/** Every scenario id awaiting a copy, oldest capture first. A v1 single id not yet migrated comes first. */
 export function readPendingGuestCopies(): string[] {
   const legacy = readKey(PENDING_GUEST_COPY_KEY)
-  return union(readPendingSet(), isScenarioUuid(legacy) ? [legacy] : [])
+  return union(isScenarioUuid(legacy) ? [legacy] : [], readPendingSet().map((entry) => entry.id))
 }
 
-/** Write the set; on success the v1 slot is migrated (removed). False when storage refused: nothing was migrated. */
-function writePendingSet(ids: readonly string[]): boolean {
+/** Add one id to the set (its own key; an id already pending keeps its capture time). False when storage refused. */
+function addPending(id: string, at: number): boolean {
   try {
-    if (ids.length === 0) localStorage.removeItem(PENDING_GUEST_COPIES_KEY)
-    else localStorage.setItem(PENDING_GUEST_COPIES_KEY, JSON.stringify(ids))
+    if (localStorage.getItem(PENDING_GUEST_COPIES_PREFIX + id) === null) {
+      localStorage.setItem(PENDING_GUEST_COPIES_PREFIX + id, String(at))
+    }
+    return true
   } catch {
     return false
   }
-  try {
-    localStorage.removeItem(PENDING_GUEST_COPY_KEY)
-  } catch {
-    // The v1 id is also in the set now, so reading both still yields it once.
-  }
-  return true
 }
 
 /**
@@ -136,24 +142,34 @@ function writePendingSet(ids: readonly string[]): boolean {
  * answers `scenario_not_copyable` otherwise.
  */
 export function capturePendingGuestCopies(now: number = Date.now()): string[] {
+  // The v1 id is migrated into its own key first (ordered before anything captured now), then its slot is freed.
+  const legacy = readKey(PENDING_GUEST_COPY_KEY)
+  if (isScenarioUuid(legacy) && addPending(legacy, now - 1)) {
+    try {
+      localStorage.removeItem(PENDING_GUEST_COPY_KEY)
+    } catch {
+      // Read as a member either way; `union` reads it once.
+    }
+  }
+  // Each recent decision moves ledger → pending one key at a time: written to the set first, and forgotten as an offer
+  // only once that write held. A refused write leaves it OFFERED rather than lost.
+  readGuestWork()
+    .filter((entry) => isRecentGuestWork(entry, now))
+    .forEach((entry, index) => {
+      if (addPending(entry.id, now + index / 1000)) forgetGuestWork(entry.id)
+    })
   const pending = readPendingGuestCopies()
-  const ledger = readGuestWork()
-  const recent = ledger.filter((entry) => isRecentGuestWork(entry, now)).map((entry) => entry.id)
-  const next = union(pending, recent)
-  // Storage refused the set: nothing leaves the ledger, so the recent work is still OFFERED rather than lost.
-  if ((next.length > 0 || readKey(PENDING_GUEST_COPY_KEY) !== null) && !writePendingSet(next)) return pending
-  for (const id of recent) forgetGuestWork(id)
 
   const current = readCurrentScenarioPointer()
   if (
     isScenarioUuid(current) &&
     current !== readKey(SPENT_GUEST_POINTER_KEY) &&
-    !next.some((id) => id.toLowerCase() === current.toLowerCase()) &&
-    !ledger.some((entry) => entry.id.toLowerCase() === current.toLowerCase())
+    !pending.some((id) => id.toLowerCase() === current.toLowerCase())
   ) {
+    // Never seen by the ledger, or seen long ago: its age is unknown or old, so it is offered, not copied.
     recordGuestWorkOffer(current)
   }
-  return next
+  return pending
 }
 
 /**
@@ -162,31 +178,24 @@ export function capturePendingGuestCopies(now: number = Date.now()): string[] {
  * late answer for one id cannot delete another captured since.
  */
 export function clearPendingGuestCopy(id: string): void {
-  const key = id.toLowerCase()
-  const remaining = readPendingSet().filter((pendingId) => pendingId.toLowerCase() !== key)
   try {
-    if (remaining.length === 0) localStorage.removeItem(PENDING_GUEST_COPIES_KEY)
-    else localStorage.setItem(PENDING_GUEST_COPIES_KEY, JSON.stringify(remaining))
+    localStorage.removeItem(PENDING_GUEST_COPIES_PREFIX + id)
   } catch {
     // The id stays pending, which fails safe: the next attempt copies it again (idempotent per source and user).
   }
   try {
-    if ((localStorage.getItem(PENDING_GUEST_COPY_KEY) ?? '').toLowerCase() === key) localStorage.removeItem(PENDING_GUEST_COPY_KEY)
+    if ((localStorage.getItem(PENDING_GUEST_COPY_KEY) ?? '').toLowerCase() === id.toLowerCase()) localStorage.removeItem(PENDING_GUEST_COPY_KEY)
   } catch {
     // As above.
   }
 }
 
 function clearAllPending(): void {
-  try {
-    localStorage.removeItem(PENDING_GUEST_COPIES_KEY)
-  } catch {
-    // The boundary's sweep removes it as well.
-  }
+  for (const { id } of readPendingSet()) clearPendingGuestCopy(id)
   try {
     localStorage.removeItem(PENDING_GUEST_COPY_KEY)
   } catch {
-    // As above.
+    // The boundary's sweep removes it as well.
   }
 }
 
