@@ -16,7 +16,7 @@
  */
 import { useState } from 'react'
 import { typography } from '../../styles/typography'
-import { action, icon } from '../../components/results/analysisNew/panelSurfaces'
+import { ACTION_FOCUS, action, icon } from '../../components/results/analysisNew/panelSurfaces'
 import { NodeMark } from '../../components/results/analysisNew/nodeMarks'
 import { FIGURE_MARKER_W, FIGURE_RADIUS, FIGURE_TRACK_HEIGHT, FIGURE_TRACK_TONE, markerLeft } from '../../components/results/analysisNew/PanelFigure'
 import { movementVerdictText, WHATS_CHANGED_TESTID } from '../../components/results/analysisNew/sections/WhatsChanged'
@@ -85,7 +85,7 @@ function OptionRow({ m, link }: { m: RunDeltaMovement; link: ReturnType<OptionCa
     <li className="py-1.5" data-testid={`${COMPARE_SUPPORT_TESTID}-option`} data-option-id={m.optionId} data-verdict={m.noiseVerdict}
       data-wire-fields="run_delta.win_probabilities[].option_id run_delta.win_probabilities[].prior run_delta.win_probabilities[].current run_delta.win_probabilities[].noise_verdict">
       {link ? (
-        <button type="button" className={`${OPTION_NAME} rounded-md -ml-1 px-1 py-0.5 cursor-pointer transition-colors hover:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+        <button type="button" className={`${OPTION_NAME} inline-flex items-center min-h-[24px] rounded-md -ml-1 px-1 py-0.5 cursor-pointer transition-colors hover:text-info ${ACTION_FOCUS}`}
           aria-label={`Show on the canvas: ${name}`} onClick={link.focus} onMouseEnter={link.on} onMouseLeave={link.off} onFocus={link.on} onBlur={link.off}>
           {label}
         </button>
