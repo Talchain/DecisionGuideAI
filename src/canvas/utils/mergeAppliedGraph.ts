@@ -188,6 +188,8 @@ const EDGE_METADATA_ONLY_KEYS: ReadonlySet<string> = new Set([
   'strengthStated',
   // D3 cut 6: CEE's hold (domain/heldUserLink) is the server's record of the existence the Run uses, never an edit.
   'existenceHeld',
+  // S-DEF: and why (a validated definition), from the same reader.
+  'existenceHeldByDefinition',
 ])
 
 /**
@@ -203,7 +205,7 @@ const EDGE_METADATA_ONLY_KEYS: ReadonlySet<string> = new Set([
  * carries, and a canvas saved before it was carried holds none. A genuine β change
  * still counts through the strength itself.
  */
-const EDGE_ACQUIRED_METADATA_KEYS = ['serverStrength', 'origin', 'naturalEffect', 'strengthPlaceholder', 'strengthDefinitional', 'strengthAccepted', 'strengthStated', 'strengthExampleFigure', 'existenceHeld'] as const
+const EDGE_ACQUIRED_METADATA_KEYS = ['serverStrength', 'origin', 'naturalEffect', 'strengthPlaceholder', 'strengthDefinitional', 'strengthAccepted', 'strengthStated', 'strengthExampleFigure', 'existenceHeld', 'existenceHeldByDefinition'] as const
 
 /**
  * The acquired keys whose ABSENCE on a server-authoritative edge removes the
@@ -212,12 +214,13 @@ const EDGE_ACQUIRED_METADATA_KEYS = ['serverStrength', 'origin', 'naturalEffect'
  * and `origin` keep the presence rule.
  */
 // Gate 5: `strengthAccepted` too — a server edge that no longer records the approval drops the canvas label.
-const SERVER_ABSENCE_REMOVES_KEYS: ReadonlyArray<string> = ['naturalEffect', 'strengthPlaceholder', 'strengthDefinitional', 'strengthAccepted', 'strengthStated', 'strengthExampleFigure', 'existenceHeld']
+const SERVER_ABSENCE_REMOVES_KEYS: ReadonlyArray<string> = ['naturalEffect', 'strengthPlaceholder', 'strengthDefinitional', 'strengthAccepted', 'strengthStated', 'strengthExampleFigure', 'existenceHeld', 'existenceHeldByDefinition']
 import {
   backfillInterventionsOntoOptionNodes,
   mapDraftEdgeToCanvas,
   mapDraftNodeToCanvas,
 } from './applyDraftResult'
+import { linkEndsOf, type LinkEnds } from '../domain/heldUserLink'
 import type { CEEDraftResponse, CEEGoalConstraint, CEEv2Response, CEEv3Response } from '../../adapters/cee/types'
 
 /**
@@ -426,14 +429,19 @@ export function replaceNodeFromWire(existing: any, wireNode: any): any {
  * data is what a fresh browser maps from the restored wire edge; its canvas id,
  * endpoints and React Flow fields are kept.
  */
-export function replaceEdgeFromWire(existing: any, wireEdge: any): any {
-  const mapped = mapDraftEdgeToCanvas(wireEdge, 0)
+export function replaceEdgeFromWire(existing: any, wireEdge: any, ends?: LinkEnds): any {
+  const mapped = mapDraftEdgeToCanvas(wireEdge, 0, ends)
   const nextData = mapped.data ?? {}
   if (sameValue(existing.data, nextData)) return existing
   return { ...existing, data: nextData }
 }
 
 export interface OverlayEdgeOptions {
+  /**
+   * S-DEF: the wire edge's two ends from the SAME wire graph (`linkEndsOf`). The hold is server-absence-removed
+   * (`existenceHeld`), so an overlay without them would drop a validated definition's hold. Both production callers pass it.
+   */
+  ends?: LinkEnds
   /**
    * On an otherwise-no-op overlay, still record the server's validated strength
    * tuple (`serverStrength`) when the canvas lacks it or holds a different one —
@@ -541,7 +549,7 @@ export function overlayEdge(
   wireEdge: any,
   opts?: OverlayEdgeOptions,
 ): any {
-  const mapped = mapDraftEdgeToCanvas(wireEdge, 0)
+  const mapped = mapDraftEdgeToCanvas(wireEdge, 0, opts?.ends)
   const mappedData = (mapped.data ?? {}) as Record<string, unknown>
 
   const supplied = wireSuppliedEdgeData(mappedData)
@@ -771,6 +779,8 @@ export function reconcileAppliedGraph(
   }
 
   // --- Wire indexes ---
+  // S-DEF: the receipt graph's own ends, so the hold reads exactly what CEE validates (`linkEndsOf`).
+  const endsOf = linkEndsOf(rawNodes)
   const wireNodeById = new Map<string, any>()
   for (const n of rawNodes) {
     if (n != null && typeof n.id === 'string' && n.id.length > 0) {
@@ -834,8 +844,8 @@ export function reconcileAppliedGraph(
     const wireEdge = key ? wireEdgeByPair.get(key) : undefined
     if (!wireEdge) return e
     const next = opts?.restoreReplace
-      ? replaceEdgeFromWire(e, wireEdge)
-      : overlayEdge(e, wireEdge, { acquireServerStrengthOnNoop: true })
+      ? replaceEdgeFromWire(e, wireEdge, endsOf(wireEdge))
+      : overlayEdge(e, wireEdge, { acquireServerStrengthOnNoop: true, ends: endsOf(wireEdge) })
     if (next === e) return e
     if (isServerStrengthAcquisitionOnly(e, next)) tupleOnlyEdgeIds.add(e.id)
     else updatedEdgeCount += 1
@@ -897,7 +907,7 @@ export function reconcileAppliedGraph(
   })
   const usedEdgeIds = new Set<string>([...existingEdgeIds, ...survivingEdgeIds])
   const addedEdges = missingRawEdges.map((e: any, i: number) => {
-    const mapped = mapDraftEdgeToCanvas(e, i)
+    const mapped = mapDraftEdgeToCanvas(e, i, endsOf(e))
     // The mapper's fallback id (`e-${i}`) indexes the wire array — make it
     // collision-proof against edges already on the canvas.
     let id: string = mapped.id

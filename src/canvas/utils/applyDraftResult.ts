@@ -14,7 +14,7 @@
 import { useCanvasStore } from '../store'
 import { captureBeforeIngest } from '../versions/autoCapture'
 import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../domain/edges'
-import { existenceHeldPatch } from '../domain/heldUserLink'
+import { existenceHeldPatch, linkEndsOf, NO_LINK_ENDS, type LinkEnds } from '../domain/heldUserLink'
 import { readWireNaturalEffect, strengthExampleFigurePatch } from '../domain/naturalEffect'
 import { strengthPlaceholderPatch } from '../domain/strengthPlaceholder'
 import { strengthDefinitionalPatch } from '../domain/strengthDefinitional'
@@ -71,7 +71,13 @@ export function mapDraftNodeToCanvas(n: any): any {
  * edges without one — merge callers must dedupe that fallback against
  * existing canvas ids.
  */
-export function mapDraftEdgeToCanvas(e: any, i: number): any {
+export function mapDraftEdgeToCanvas(
+  e: any,
+  i: number,
+  // S-DEF: the link's two ends (labels, units) from the SAME graph, so a validated definition holds as CEE holds it
+  // (`linkEndsOf`). Every production hop passes them; omitted, only the user's own range can hold the link.
+  ends: LinkEnds = NO_LINK_ENDS,
+): any {
   const id =
     typeof e.id === 'string' && e.id.trim().length > 0 ? e.id : `e-${i}`
 
@@ -178,7 +184,7 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
       // The edge's size in the target's units — the ONE reader, every hop (domain/naturalEffect).
       ...(naturalEffect !== undefined ? { naturalEffect } : {}),
       // D3 cut 6: CEE holds this user link at existence 1.0 — the ONE reader, every hop (domain/heldUserLink).
-      ...existenceHeldPatch(e),
+      ...existenceHeldPatch(e, ends),
       ...strengthExampleFigurePatch(e as Record<string, unknown>, rawWeight, wireSuppliedStrength),
       // POM-8: a PLACEHOLDER strength, labelled on the wire, is not an estimate —
       // the ONE reader, every hop (domain/strengthPlaceholder).
@@ -288,7 +294,8 @@ export function applyDraftResult(
   const nodes = rawNodes.map((n: any) => mapDraftNodeToCanvas(n))
 
   // --- Map edges ---
-  const edges = rawEdges.map((e: any, i: number) => mapDraftEdgeToCanvas(e, i))
+  const endsOf = linkEndsOf(rawNodes)
+  const edges = rawEdges.map((e: any, i: number) => mapDraftEdgeToCanvas(e, i, endsOf(e)))
 
   // --- Apply to store ---
   const store = useCanvasStore.getState()
