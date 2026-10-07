@@ -416,6 +416,9 @@ function binaryChangeEnds({
   target: OptionTargetLike
   baselineOptionTarget: OptionTargetLike | null
 }): { from: string; to: string } | null {
+  // Buddy r2 P1: a switch is at 0 or 1 ITSELF (CEE's rule, and `binaryTargetReading`'s guard above). A factor
+  // whose own value is known and off 0/1 is never worded as a switch, by the served signal OR a producer word.
+  if (factor.observedValue !== undefined && binaryEnd(factor.observedValue) === null) return null
   if (servedSwitchReading(factor.factorData, target.value) === null && !isBinaryFactor(factor, [target.displayValue, baselineOptionTarget?.displayValue])) return null
   const to = binaryEnd(target.value)
   const from = binaryEnd(baselineOptionTarget ? baselineOptionTarget.value : factor.observedValue)

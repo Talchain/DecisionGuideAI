@@ -254,6 +254,10 @@ it('BUDDY P1: a served id whose OWN value is off 0/1 is not a switch on its card
   expect(isServedSwitch(ID, useCanvasStore.getState())).toBe(true)
   const text = formatInterventionTargetText({ label: String(factor.data.label), value: 1, factorData: factor.data })
   expect(text).not.toBe('In use')
+  // Buddy r2: the option row's producer-word fallback is guarded too (baseline option 0 → this option 1, CEE "on").
+  const row = buildOptionTargetRow({ factorId: ID, factorNode: factor, target: { value: 1, source: 'user_specified', displayValue: 'on' } as never,
+    baselineReference: { label: 'Keep pricing as it is', values: { [ID]: { value: 0, displayValue: 'off', source: null } } } as never })
+  expect(row.change).not.toBe('Not in use → In use')
   // The card reads through the shared formatter (#8); with its own value at 0.1 it must not word a switch.
   expect(String(factorDisplayText(factor.data as never) ?? '')).not.toMatch(/Not in use|In use/)
 })
@@ -275,7 +279,10 @@ it('BUDDY P2: an UNSET option target on a served switch reads as unset in the Mo
   useCanvasStore.setState({ nodes } as never)
   const detail = toRowDetail(projection().input, 'launch_starter_tier') as any
   const row = detail?.interventions?.find((r: any) => r.factorId === ID)
-  expect(row?.value ?? null).not.toBe('Not in use')
+  // Buddy r2 P2: bind the row's existence and its exact unset state, never a "not X" that a missing row satisfies.
+  expect(row).toBeDefined()
+  expect(row.value).toBeNull()
+  expect(row.numericValue).toBeNull()
 })
 
 it('encoding_map supplies the factor’s own state words', () => {
