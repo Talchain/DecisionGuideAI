@@ -356,6 +356,25 @@ export interface AtAGlanceProps {
  * colour, and slightly tracked. The hierarchy comes from the scale and the
  * spacing, which is what the scale is for.
  */
+/** The ribbon's own visibility and action conditions, shared with the MethodStrip run owner. */
+export function ribbonOffersRerun({
+  part = 'all',
+  runNote = null,
+  isStale = false,
+  isProvisional = false,
+  onReanalyse,
+  rerunOwnedByFooter = false,
+  rerunWouldNotHelp = false,
+  reanalyseBlocked,
+  reanalyseBlockedReason,
+}: Pick<AtAGlanceProps, 'part' | 'runNote' | 'isStale' | 'isProvisional' | 'onReanalyse' |
+  'rerunOwnedByFooter' | 'rerunWouldNotHelp' | 'reanalyseBlocked' | 'reanalyseBlockedReason'>): boolean {
+  // Each of these facts adds a ribbon row. A reading-only mount offers no ribbon action.
+  const hasRibbon = Boolean(runNote) || isStale || isProvisional
+  return part !== 'reading' && hasRibbon && Boolean(onReanalyse) && !rerunOwnedByFooter &&
+    !rerunWouldNotHelp && (!reanalyseBlocked || reanalyseBlockedReason !== null)
+}
+
 export function AtAGlance({
   glance,
   onFocusTarget,
@@ -840,7 +859,8 @@ export function AtAGlance({
             >
               {COPY.glance.reviewEstimates}
             </button>
-          ) : onReanalyse && !rerunOwnedByFooter && !rerunWouldNotHelp && (!reanalyseBlocked || reanalyseBlockedReason !== null) ? (
+          ) : ribbonOffersRerun({ part, runNote, isStale, isProvisional, onReanalyse, rerunOwnedByFooter,
+            rerunWouldNotHelp, reanalyseBlocked, reanalyseBlockedReason }) ? (
             <button
               type="button"
               onClick={onReanalyse}

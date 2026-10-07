@@ -8,7 +8,8 @@
  *     every post-first-Run state;
  *   · CEE's "Run analysis" chip under the approve reply, relabelled "Rerun" by `SuggestedChips`.
  *
- * The rule (per host, after the first Run — before it, a run control is a RUN, not a rerun, and is untouched):
+ * The rule (per host):
+ *   · before the first Run, the dock readiness Analyse owns the run when it renders; otherwise the chat chip stays;
  *   · the model changed (the bar shows) → the bar's Re-analyse is the ONLY rerun control;
  *   · otherwise → the composer icon is (the bar is null when nothing changed);
  *   · the chat's run chip is never a rerun control while its host shows (or defers to) one: the docked Olumi tab
@@ -29,6 +30,13 @@ export interface ReanalyseBarInputs {
   importHold: boolean
   /** Whether a Run has EVER completed for this model (read from the store, never inferred from `semantic`). */
   hasCompletedFirstRun: boolean
+  /** The readiness bar's pre-run window; absent means this caller offers no readiness button. */
+  preRunWithModel?: boolean
+}
+
+/** AnalysisReadinessBar renders its Analyse button throughout this window, even when disabled. */
+export function readinessBarShowsAnalyse(preRunWithModel: boolean): boolean {
+  return preRunWithModel
 }
 
 /**
@@ -43,19 +51,21 @@ export function reanalyseBarShows({ semantic, importHold, hasCompletedFirstRun }
 }
 
 /** The live inputs, read the way `ReanalyseBar` reads them. */
-export function useReanalyseBarInputs(): ReanalyseBarInputs {
+export function useReanalyseBarInputs(): ReanalyseBarInputs & { preRunWithModel: boolean } {
   const { semantic } = useAnalysisTrust()
   const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
   // `?? true`: the same defensive default `composeAnalysisState` applies to this field (`analysisStateSelector.ts`).
   const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun) ?? true
-  return { semantic, importHold, hasCompletedFirstRun }
+  // `?.`: partial store mocks (the ReanalyseBar specs) carry no `nodes`; the real store always does.
+  const nodeCount = useCanvasStore((s) => s.nodes?.length ?? 0)
+  return { semantic, importHold, hasCompletedFirstRun, preRunWithModel: !hasCompletedFirstRun && nodeCount > 0 }
 }
 
-/** Which control on a shell host (footer bar + composer) reruns the analysis. 'none' = no Run yet (not a rerun). */
-export type ShellRerunControl = 'bar' | 'composer' | 'none'
+/** Which shell control owns the run. Before the first Run, 'none' leaves the chat chip available. */
+export type ShellRerunControl = 'readiness' | 'bar' | 'composer' | 'none'
 
 export function shellRerunControl(inputs: ReanalyseBarInputs): ShellRerunControl {
-  if (!inputs.hasCompletedFirstRun) return 'none'
+  if (!inputs.hasCompletedFirstRun) return readinessBarShowsAnalyse(inputs.preRunWithModel ?? false) ? 'readiness' : 'none'
   return reanalyseBarShows(inputs) ? 'bar' : 'composer'
 }
 
@@ -68,12 +78,14 @@ export function shellRerunControl(inputs: ReanalyseBarInputs): ShellRerunControl
  */
 export type RerunHost = 'docked' | 'floating' | 'floating-beside-dock'
 
-/** 'elsewhere' = another visible surface owns the rerun; 'none' = no rerun control (no Run yet, or nothing changed). */
+/** 'elsewhere' = another visible surface owns the run; 'none' = this host offers no run control, so the chip stays. */
 export type HostRerunControl = ShellRerunControl | 'elsewhere'
 
 export function hostRerunControl(host: RerunHost, inputs: ReanalyseBarInputs): HostRerunControl {
   const shell = shellRerunControl(inputs)
   if (host === 'docked') return shell
+  // The floating host mounts no pre-run Analyse. 'beside-dock' is selected only when the dock shows a control.
+  if (!inputs.hasCompletedFirstRun) return host === 'floating-beside-dock' ? 'elsewhere' : 'none'
   if (host === 'floating-beside-dock') return shell === 'none' ? 'none' : 'elsewhere'
   // The floating panel has no composer icon: it shows its own bar while the bar would show, and nothing otherwise
   // (a current analysis needs no rerun).
@@ -82,7 +94,7 @@ export function hostRerunControl(host: RerunHost, inputs: ReanalyseBarInputs): H
 
 /**
  * Whether the chat's run chip stands aside: whenever the host shows (or defers to) a rerun control. Before the
- * first Run every host answers 'none' and the chip — a RUN control then, not a rerun — is left as it was.
+ * first Run the chip yields only when a host control is actually shown.
  */
 export function chatRunChipStandsAside(control: HostRerunControl): boolean {
   return control !== 'none'
@@ -96,5 +108,11 @@ export function chatRunChipStandsAside(control: HostRerunControl): boolean {
  */
 export function dockSurfaceShowsRerun(tab: OutputTab, inputs: ReanalyseBarInputs): boolean {
   if (tab === 'results') return inputs.hasCompletedFirstRun
-  return WORKSPACE_SURFACES[tab].footerBar !== 'none' && shellRerunControl(inputs) === 'bar'
+  const footerBar = WORKSPACE_SURFACES[tab].footerBar
+  if (!inputs.hasCompletedFirstRun) {
+    if (footerBar === 'readiness') return readinessBarShowsAnalyse(inputs.preRunWithModel ?? false)
+    // Model mounts the never-run ReanalyseBar; Reasoning's after-first-run arm does not.
+    return footerBar === 'reanalyse' && reanalyseBarShows(inputs)
+  }
+  return footerBar !== 'none' && shellRerunControl(inputs) === 'bar'
 }
