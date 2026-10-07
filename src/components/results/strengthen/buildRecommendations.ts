@@ -810,22 +810,32 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
             whyNow: 'A best guess and a range is fine.',
             targetId: `${unsizedAsk.fromId}->${unsizedAsk.throughId}`,
           }
-        : unsizedAsk.kind === 'target_link'
-          // Near tie (DL #87, 6 Oct): the target test's own ask, the same link the chat asks for in the target's unit.
+        : unsizedAsk.kind === 'withheld_link'
+          // RT-19 fx1 (DL #87, 6 Oct): the withhold typed no first ask, so its own links are NAMED, in the chat's words.
           ? {
-              key: `target-link:${unsizedAsk.fromId}->${unsizedAsk.toId}`,
-              title: `Give the link from ‘${unsizedAsk.from}’ to ‘${unsizedAsk.to}’ a size`,
-              signal: 'Olumi can’t test your target until this link has a size in the target’s unit.',
-              whyNow: 'A best guess is fine.',
+              key: `withheld-link:${unsizedAsk.fromId}->${unsizedAsk.toId}`,
+              title: `This comparison turns on the link from ‘${unsizedAsk.from}’ to ‘${unsizedAsk.to}’`
+                + (unsizedAsk.more > 0 ? ` and ${unsizedAsk.more} more` : ''),
+              signal: unsizedAsk.more > 0 ? 'Nobody has set how strong these links are yet.' : 'Nobody has set how strong this link is yet.',
+              whyNow: unsizedAsk.more > 0 ? 'Set them to see how much they matter.' : 'Set it to see how much it matters.',
               targetId: `${unsizedAsk.fromId}->${unsizedAsk.toId}`,
             }
-          : {
-              key: `link:${unsizedAsk.fromId}->${unsizedAsk.toId}`,
-              title: `Set the strength of the link from ‘${unsizedAsk.from}’ to ‘${unsizedAsk.to}’`,
-              signal: 'This comparison turns on this link, and nobody has set how strong it is yet.',
-              whyNow: 'Set it to see how much it matters.',
-              targetId: `${unsizedAsk.fromId}->${unsizedAsk.toId}`,
-            }
+          : unsizedAsk.kind === 'target_link'
+            // Near tie (DL #87, 6 Oct): the target test's own ask, the same link the chat asks for in the target's unit.
+            ? {
+                key: `target-link:${unsizedAsk.fromId}->${unsizedAsk.toId}`,
+                title: `Give the link from ‘${unsizedAsk.from}’ to ‘${unsizedAsk.to}’ a size`,
+                signal: 'Olumi can’t test your target until this link has a size in the target’s unit.',
+                whyNow: 'A best guess is fine.',
+                targetId: `${unsizedAsk.fromId}->${unsizedAsk.toId}`,
+              }
+            : {
+                key: `link:${unsizedAsk.fromId}->${unsizedAsk.toId}`,
+                title: `Set the strength of the link from ‘${unsizedAsk.from}’ to ‘${unsizedAsk.to}’`,
+                signal: 'This comparison turns on this link, and nobody has set how strong it is yet.',
+                whyNow: 'Set it to see how much it matters.',
+                targetId: `${unsizedAsk.fromId}->${unsizedAsk.toId}`,
+              }
     // Literal `id` and `label`-after-`kind`, so `everyActIsOneTheRouteCanPerform` reads every route this card can take.
     recs.push({
       id: `strengthen:unsized-path:${step.key}`,
@@ -834,7 +844,8 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       signal: step.signal,
       whyNow: step.whyNow,
       tryThis: null,
-      sourceLine: unsizedAsk.kind === 'target_link' ? 'Source: what this run asks before it can test your target.'
+      sourceLine: unsizedAsk.kind === 'withheld_link' ? 'Source: the links this run names when it holds back its comparison.'
+        : unsizedAsk.kind === 'target_link' ? 'Source: what this run asks before it can test your target.'
         : 'Source: what this run asks first when it holds back its comparison.',
       action: unsizedAsk.kind === 'goal_level'
         ? { kind: 'canvas-focus', label: 'Show me the goal' }

@@ -452,7 +452,9 @@ export function unsizedPathAskOf(
   // Near tie (DL #87, 6 Oct): with no unsized-path withhold, the target warning's own typed ask, whatever the leader cause.
   if (token !== GOAL_PATH_UNSIZED_CAUSE && !(token === 'separation_unavailable' && upstream)) return targetLinkAskOf(inferenceWarnings, labelOf)
   const ask = warning?.first_ask
-  if (ask === null || typeof ask !== 'object') return null
+  // RT-19 fx1 (DL #87, 6 Oct): no typed ask → name the withhold's own first link; a typed ask is still read by identity.
+  if (ask === null || ask === undefined) return withheldLinkOf(warning, labelOf)
+  if (typeof ask !== 'object') return null
   const a = ask as Record<string, unknown>
   const name = (id: unknown): string | null => (typeof id === 'string' && id !== '' ? labelOf(id)?.trim() || null : null)
   if (a.kind === 'goal_level') {
@@ -472,6 +474,19 @@ export function unsizedPathAskOf(
     return from === null || to === null ? null : { kind: 'link', fromId: a.from as string, toId: a.to as string, from, to }
   }
   return null
+}
+
+/**
+ * ⭐ RT-19 fx1 (DL #87, 6 Oct): the withhold's own first link (its goal-ordered `links`, CEE's list) and how many more,
+ * named when it typed no first ask. `null` when it names none, or an end can't be named from the canvas.
+ */
+function withheldLinkOf(warning: Record<string, unknown> | null, labelOf: (nodeId: string) => string | null | undefined): UnsizedPathAsk | null {
+  const links = warningLinksOf(warning)
+  const first = links[0]
+  if (first === undefined) return null
+  const from = labelOf(first.from)?.trim() || null
+  const to = labelOf(first.to)?.trim() || null
+  return from === null || to === null ? null : { kind: 'withheld_link', fromId: first.from, toId: first.to, from, to, more: links.length - 1 }
 }
 
 /**
