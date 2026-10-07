@@ -93,7 +93,8 @@ function seed(delta: RunDelta, permission: { permitted: boolean; producer_cause?
   } as never)
   return hash
 }
-const heading = () => screen.getByRole('heading', { level: 3 })
+// The RESULT heading, by its section: the inputs section has its own level-3 heading (Compare v3 rows).
+const heading = () => within(document.querySelector('[data-compare-section="headline"]') as HTMLElement).getByRole('heading', { level: 3 })
 const goalRows = () => within(screen.getByTestId('compare-goal-chances')).getAllByRole('listitem')
 
 beforeEach(() => {

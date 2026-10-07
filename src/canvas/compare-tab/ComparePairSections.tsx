@@ -9,9 +9,10 @@ import { useScienceExact, scienceQuantityText } from '../../components/science/S
 import { openAskOlumi } from '../../components/results/coaching/askOlumiStore'
 import { INPUT_ROWS_SHOWN_FIRST, type RunDeltaInputRow, type RunDeltaView } from '../../components/results/analysisNew/runDeltaView'
 import {
-  InputChanges, inputRowText, MOVEMENT_SCOPE_TEXT, noiseQualifier, noPairsText, WHATS_CHANGED_TESTID,
+  inputRowText, MOVEMENT_SCOPE_TEXT, noiseQualifier, noPairsText, WHATS_CHANGED_TESTID,
   type InputRowFocus, type InputRowLight,
 } from '../../components/results/analysisNew/sections/WhatsChanged'
+import { InputChangeRows } from '../../components/results/analysisNew/sections/InputChangeRows'
 import type { RunChangeArtefact } from './runChangeArtefact'
 import { RUN_CHANGE_ARTEFACT_TESTID } from './RunChangeArtefactCard'
 import { CompareSupportFigures, orderMovements, type OptionCanvasLink } from './CompareSupportFigures'
@@ -72,7 +73,7 @@ export function compareAskDraft(shown: readonly RunDeltaInputRow[], total: numbe
 
 /**
  * Compare's presentation of the shared reader, in Reasoning's own parts: one headline with its ✦ (CommitmentSummary's
- * heading row), the two-marker figures, Reasoning's input list (`InputChanges`), the reading note, and the exact
+ * heading row), the two-marker figures, the input rows (`InputChangeRows`, Reasoning's facts in the v3 row layout), the reading note, and the exact
  * shares behind a `disclose` row. Every semantic verdict remains producer-owned.
  */
 export function ComparePairSections({
@@ -173,10 +174,9 @@ export function ComparePairSections({
         ) : null}
         {goalRows ? null : shareResults}
       </section>
-      <section className={PANEL_RULE} data-compare-section="inputs" aria-label="What you changed" data-wire-fields={INPUT_FIELDS}>
-        {/* Inputs are half of what Compare is for, so a pair without an input record says so rather than going quiet. */}
-        {view.inputs ? <InputChanges inputs={view.inputs} rowFocus={rowFocus} rowLight={rowLight} frame={view.frame} flush />
-          : <p className={`${typography.panelMeta} text-text-light m-0`} data-wire-fields="run_delta.input_coverage">Input changes were not recorded for this pair.</p>}
+      <section className={PANEL_RULE} data-compare-section="inputs" aria-labelledby="compare-input-changes-heading" data-wire-fields={INPUT_FIELDS}>
+        {/* v3 rows: kind icon, name + context, crosshair to the canvas, the recorded before → after (or band / origin). */}
+        <InputChangeRows inputs={view.inputs} rowFocus={rowFocus} rowLight={rowLight} frame={view.frame} />
         {askAvailable ? null : (
           <p className={`${typography.panelMeta} text-text-light mt-2 mb-0`} data-testid="compare-ask-unavailable">
             {analysing ? 'You can ask Olumi about this comparison when the run finishes.' : 'You can ask Olumi about this comparison after the next run.'}
