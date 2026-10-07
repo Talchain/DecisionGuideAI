@@ -9,6 +9,7 @@ import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
  * British English throughout. Sentence case.
  */
 
+import { routeOnceHeldIds } from '../domain/routeOnceHeld'
 import {
   useState,
   useMemo,
@@ -674,6 +675,7 @@ export const ModelTabBody = memo(function ModelTabBody({
   // ── Edge sort: fragile by switchProbability desc, then low likelihood, then high |effect| ─
 
   const sortedEdges = useMemo(() => {
+    const heldIds = routeOnceHeldIds(nodes, edges)
     return [...causalEdges].sort((a, b) => {
       const aId = getDisplayEdgeId(a)
       const bId = getDisplayEdgeId(b)
@@ -694,8 +696,8 @@ export const ModelTabBody = memo(function ModelTabBody({
       // last in BOTH directions without a sentinel, so the order cannot drift
       // from the intent. The export payload below this list was already gated;
       // this brings the on-screen order into line with the copied JSON.
-      const aConf = resolveEdgeValueDisplay(aData, 'beliefExists')
-      const bConf = resolveEdgeValueDisplay(bData, 'beliefExists')
+      const aConf = resolveEdgeValueDisplay(aData, 'beliefExists', { routeOnceHeld: heldIds.has(a.id) })
+      const bConf = resolveEdgeValueDisplay(bData, 'beliefExists', { routeOnceHeld: heldIds.has(b.id) })
       const confOrder = compareEdgeValueDisplays(aConf, bConf, 'asc')
       const bothConfShown = aConf.show && bConf.show
       if (!bothConfShown ? confOrder !== 0 : Math.abs(aConf.value - bConf.value) > 0.001) {
@@ -708,7 +710,7 @@ export const ModelTabBody = memo(function ModelTabBody({
         'desc',
       )
     })
-  }, [causalEdges, fragileEdgeSwitchProbMap])
+  }, [causalEdges, fragileEdgeSwitchProbMap, nodes, edges])
 
   // ── Goal headline ─────────────────────────────────────────────────────────
 

@@ -1,3 +1,4 @@
+import { routeOnceHeldIds } from './domain/routeOnceHeld'
 import { CanvasEditNote } from './nodes/EditNoteAnchor'
 import { EDIT_NOTE_LINK_EVENT } from './editNotes/EditNote'
 import { WhatElseChooserHost } from './components/WhatElseChooser'
@@ -1066,8 +1067,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       nodeLabelById,
       useEdgeLabelMode.getState().mode,
       (id) => nodeKindById.get(id),
+      routeOnceHeldIds(nodes, edges),
     )
-  }, [edges, memoizedNodes])
+  }, [edges, memoizedNodes, nodes])
 
   // Actions are stable references - don't need shallow comparison
   const createNodeId = useCanvasStore(s => s.createNodeId)

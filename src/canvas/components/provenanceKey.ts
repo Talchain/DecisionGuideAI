@@ -16,6 +16,7 @@
  * A cue the board does not draw has no entry. The board's default kind (cards carrying ONLY it show no mark at rest,
  * `provenanceDefaultKind`) is named, so an unmarked card is not read as "unknown".
  */
+import { routeOnceHeldEdges } from '../domain/routeOnceHeld'
 import type { NodeProvenanceClaim } from '../domain/nodeProvenanceClaim'
 import { provenanceClaimLabel } from '../domain/nodeProvenanceClaim'
 import type { ValueProvenanceKind } from '../domain/valueProvenance'
@@ -103,12 +104,13 @@ export function provenanceKey(
   const VALUE_ORDER: readonly ValueSourceMarkKind[] = ['olumi', 'brief', 'you', 'panel', 'unknown']
   const values = VALUE_ORDER.filter((k) => valueKinds.has(k)).map((k) => ({ kind: k, token: VALUE_SOURCE_MARK_TOKEN[k], label: VALUE_SOURCE_MARK_LABEL[k] }))
 
+  const heldEdges = routeOnceHeldEdges(nodes, edges)
   const links: LinkCueEntry[] = []
   if (edges.some((e) => isStrengthPlaceholder(e.data as Record<string, unknown> | undefined))) {
     links.push({ cue: 'placeholder', label: EDGE_STRENGTH_PLACEHOLDER_SENTENCE })
   }
   for (const e of edges) {
-    const existence = resolveExistenceDash(resolveEdgeValueDisplay(e.data as Record<string, unknown> | undefined, 'beliefExists'))
+    const existence = resolveExistenceDash(resolveEdgeValueDisplay(e.data as Record<string, unknown> | undefined, 'beliefExists', { routeOnceHeld: heldEdges.has(e) }))
     if (existence.kind === 'stated' && existence.dash !== undefined) {
       links.push({ cue: 'doubt', label: EDGE_EXISTENCE_DOUBT_SENTENCE, dash: existence.dash })
       break
