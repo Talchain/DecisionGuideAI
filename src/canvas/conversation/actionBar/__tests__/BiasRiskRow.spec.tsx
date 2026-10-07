@@ -2,14 +2,15 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BiasRiskRow } from '../BiasRiskRow'
+import type { ActionOffer } from '../actionBarContract'
 import { parseBiasRisk } from '../biasRiskContract'
 import { pressOffer } from '../pressOffer'
 import { MORE_OPTIONS, REVIEW, REVISION } from './actionBarContractExample'
 
 vi.mock('../pressOffer', () => ({ pressOffer: vi.fn() }))
 
-const WIDEN = { ...MORE_OPTIONS, offer_key: '238eb45e85c31ecf' }
-const ANCHOR = { ...REVIEW, label: 'Check estimate', press_id: 'act:bias_anchoring', offer_key: 'be2a321235e1a126' }
+const WIDEN: ActionOffer = { ...MORE_OPTIONS, group: 'gap', offer_key: '238eb45e85c31ecf' }
+const ANCHOR: ActionOffer = { ...REVIEW, group: 'review', label: 'Check estimate', press_id: 'act:bias_anchoring', offer_key: 'be2a321235e1a126' }
 const NARROW_WHY = 'These options all work through the same lever, which can hide better routes.'
 const ANCHOR_WHY = 'Olumi’s starting figure for ‘Migration preparation effort’ could pull later estimates towards it.'
 const view = parseBiasRisk({
@@ -22,7 +23,9 @@ const view = parseBiasRisk({
 }, [WIDEN, ANCHOR])!
 
 describe('BiasRiskRow', () => {
-  beforeEach(() => vi.mocked(pressOffer).mockReset())
+  beforeEach(() => {
+    vi.mocked(pressOffer).mockReset()
+  })
 
   it('shows one exact collapsed line, then both explanations and only the supplied science claim', () => {
     render(<BiasRiskRow view={view} revision={REVISION} type={{ body: 'body-token', meta: 'meta-token' }} />)

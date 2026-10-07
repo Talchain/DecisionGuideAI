@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseActionBar } from '../actionBarContract'
+import { parseActionBar, type ActionOffer } from '../actionBarContract'
 import { parseBiasRisk } from '../biasRiskContract'
 import { EXAMPLE_BAR, MORE_OPTIONS, REVIEW } from './actionBarContractExample'
 
-const WIDEN = { ...MORE_OPTIONS, offer_key: '238eb45e85c31ecf' }
-const ANCHOR = {
+const WIDEN: ActionOffer = { ...MORE_OPTIONS, group: 'gap', offer_key: '238eb45e85c31ecf' }
+const ANCHOR: ActionOffer = {
   ...REVIEW,
+  group: 'review',
   action_id: 'bias_anchoring',
   label: 'Check estimate',
   press_id: 'act:bias_anchoring',
@@ -51,7 +52,7 @@ describe('parseBiasRisk', () => {
     ['offer key', { offer_key: '0000000000000000' }, WIDEN],
     ['press id', { press_id: 'not-this-press' }, WIDEN],
     ['enabled state', {}, { ...WIDEN, enabled: false, why_now: undefined, disabled_reason: 'Unavailable.' }],
-  ])('drops an item when its %s does not bind', (_name, itemChange, offer) => {
+  ] as [string, object, ActionOffer][])('drops an item when its %s does not bind', (_name, itemChange, offer) => {
     expect(parseBiasRisk({ v: 1, items: [{ ...CAPTURED.items[0], ...itemChange }] }, [offer])).toBeUndefined()
   })
 
