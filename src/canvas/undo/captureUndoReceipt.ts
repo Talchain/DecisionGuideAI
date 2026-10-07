@@ -91,11 +91,14 @@ export function captureTurnForUndo(input: {
   const event = input.systemEvent
 
   // P48: the Agent's own versions (`_agent.receipts`) and no `model_version_receipt` → ONE undo step for the change,
-  // whatever system event rode with the turn (buddy r1 P1: an exclusive chain skipped them). Async; fail-closed.
-  if (receipt === null && readAgentTurnReceipts(input.response).length > 0) {
+  // whatever model-changing event rode with the turn (buddy r1 P1). A judgement the journal cannot undo keeps its
+  // barrier first (buddy r2 P1). The step is keyed by the CHAT TURN, so the reply's "Undo this change" binds to it
+  // (buddy r2 P1). Async; fail-closed.
+  const neverUndoable = event !== undefined && UNDOABLE_NEVER_KINDS.has(event.type)
+  if (!neverUndoable && receipt === null && readAgentTurnReceipts(input.response).length > 0) {
     void captureAgentTurnForUndo({
       scenarioId: input.scenarioId,
-      turnId: input.undoGestureId ?? input.turnId,
+      turnId: input.turnId,
       response: input.response,
       ...(event !== undefined && isModelChangingSystemEvent(event.type) ? { label: undoLabelFor(event) } : {}),
     })

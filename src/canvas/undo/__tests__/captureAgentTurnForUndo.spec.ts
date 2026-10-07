@@ -124,9 +124,37 @@ describe('an AI-applied change becomes ONE undo step', () => {
     expect(isNextUndoThisTurn(journal(), S, 't')).toBe(false)
   })
 
+  it('r2 P1: two captures in flight are applied in turn order — the newer turn is the step, whichever list answers first', async () => {
+    const V8 = '88888888-8888-4888-8888-888888888888'
+    let releaseA!: () => void
+    const aGate = new Promise<void>((r) => { releaseA = r })
+    listModelVersions
+      .mockImplementationOnce(async () => { await aGate; return listed(V6) })
+      .mockImplementationOnce(async () => listed(V8, [row(V5, 5, h('5'), V4), row(V6, 6, h('6'), V5), row(V7, 7, h('7'), V6), row(V8, 8, h('8'), V7)]))
+    const a = captureAgentTurnForUndo({ scenarioId: S, turnId: 'turn-a', response: agentResponse([receipt(5, V5), receipt(6, V6)]) })
+    const b = captureAgentTurnForUndo({ scenarioId: S, turnId: 'turn-b', response: agentResponse([receipt(7, V7), receipt(8, V8)]) })
+    releaseA()
+    expect(await a).toBe('recorded')
+    expect(await b).toBe('recorded')
+    expect(isNextUndoThisTurn(journal(), S, 'turn-b')).toBe(true)
+    expect(nextUndo(journal())).toMatchObject({ targetVersionId: V6, expectedFullHash: h('8') })
+  })
+
+  it('r2 P1: a judgement the journal cannot undo stays a barrier even when agent receipts ride with it', async () => {
+    listModelVersions.mockResolvedValue(listed(V6))
+    captureTurnForUndo({ scenarioId: S, turnId: 't', systemEvent: { type: 'prior_range_edit', payload: {} }, response: agentResponse([receipt(6, V6)]) })
+    expect(nextUndo(journal())).toEqual({ kind: 'barrier', reason: 'not_undoable' })
+    expect(listModelVersions).not.toHaveBeenCalled()
+  })
+
+  it('r1 P1: a repeated version id fails closed', async () => {
+    listModelVersions.mockResolvedValue(listed(V6))
+    expect(await captureAgentTurnForUndo({ scenarioId: S, turnId: 't', response: agentResponse([receipt(5, V6), receipt(6, V6)]) })).toBe('cleared')
+  })
+
   it('r1 P1: a turn with a model-changing system event AND agent receipts (no model_version_receipt) is captured, named by the event', async () => {
     listModelVersions.mockResolvedValue(listed(V6))
-    captureTurnForUndo({ scenarioId: S, turnId: 'turn-both', systemEvent: { type: 'structural_add', payload: { label: 'Oven breaks down' } },
+    captureTurnForUndo({ scenarioId: S, turnId: 'turn-both', undoGestureId: 'add-intent-1', systemEvent: { type: 'structural_add', payload: { label: 'Oven breaks down' } },
       response: agentResponse([receipt(5, V5), receipt(6, V6)]) })
     await vi.waitFor(() => expect(isNextUndoThisTurn(journal(), S, 'turn-both')).toBe(true))
     expect(nextUndo(journal())).toMatchObject({ label: 'Undo: Add "Oven breaks down"' })

@@ -77,9 +77,26 @@ function clear(start: UndoJournalState, scenarioId: string): AgentUndoCapture {
   return commit(start, recordForeignWrite(start, { scenarioId, head: null }), 'cleared')
 }
 
-export async function captureAgentTurnForUndo(
+/**
+ * Captures run ONE AT A TIME, in the order their turns settled (buddy r2 P1). Two in flight would share one starting
+ * journal, and whichever list answered first would win the compare-and-set, so an older turn could discard a newer
+ * one. Queued, each starts from the journal the previous one left, and the server's head decides (a turn whose head
+ * has already moved on clears; the newer turn then records over that).
+ */
+let captureQueue: Promise<unknown> = Promise.resolve()
+
+export function captureAgentTurnForUndo(
   input: { readonly scenarioId: string; readonly turnId: string; readonly response: unknown; readonly label?: string },
   deps: CaptureAgentTurnDeps = {},
+): Promise<AgentUndoCapture> {
+  const run = captureQueue.then(() => captureOne(input, deps))
+  captureQueue = run.catch(() => undefined)
+  return run
+}
+
+async function captureOne(
+  input: { readonly scenarioId: string; readonly turnId: string; readonly response: unknown; readonly label?: string },
+  deps: CaptureAgentTurnDeps,
 ): Promise<AgentUndoCapture> {
   const receipts = readAgentTurnReceipts(input.response)
   if (receipts.length === 0) return 'none'
