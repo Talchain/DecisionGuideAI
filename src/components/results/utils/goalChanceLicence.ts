@@ -18,6 +18,7 @@
  */
 
 import { formatGoalTarget } from './formatGoalTarget'
+import { readGoalChanceHorizonLine } from './goalChanceRange'
 
 export const GOAL_CHANCE_LICENSED = 'GOAL_CHANCE_LICENSED'
 
@@ -101,6 +102,8 @@ export interface GoalChanceLicence {
    * absent here: nothing is said for them. Absent or empty when CEE wrote none.
    */
   readonly driverByOption?: Readonly<Record<string, GoalChanceDriver>>
+  /** CEE's deadline clause, present only with a well-formed horizon claim. */
+  readonly horizonLine?: string | null
 }
 
 const FORMS: ReadonlySet<string> = new Set(['highest', 'highest_all_likely_to_miss', 'all_likely_to_miss', 'similar', 'each'])
@@ -163,6 +166,7 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
     userLinkExistence: existenceOf(r.user_link_existence),
     summaryWithheld: summaryWithheldOf(r.summary_withheld),
     driverByOption: driversOf(r.driver_by_option, (ids as string[]).filter((id) => !withheld.has(id))),
+    horizonLine: readGoalChanceHorizonLine(r),
   }
 }
 

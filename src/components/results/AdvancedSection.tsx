@@ -221,8 +221,9 @@ export function AdvancedSection({
   // ⭐ EXCEPT A FACT THE HERO ALREADY SAYS (DL 0df0e1, beat 2). `GOAL_HORIZON_NOT_TESTED` rides on every Run whose
   // goal holds a deadline, and the Analysis hero shows its sentence above the fold. Letting it open this panel would
   // pop "Advanced and receipts" on every such Run, for a reason already on screen. It is still LISTED below.
+  // The same holds for CEE's GOAL_CHANCE_RANGE (Science S3, DL #87 7 Oct): the hero's range lines say it.
   const hasInferenceWarnings = selectHumanisedInferenceWarningsOutsideStrip(inferenceWarnings)
-    .some((w) => w.code !== GOAL_HORIZON_NOT_TESTED_CODE)
+    .some((w) => w.code !== GOAL_HORIZON_NOT_TESTED_CODE && w.code !== 'GOAL_CHANCE_RANGE')
 
   return (
     <Accordion

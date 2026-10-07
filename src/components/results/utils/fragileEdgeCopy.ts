@@ -283,8 +283,8 @@ export function fragileEValueNote({
 }: FragileEdgeVerdictInput & { eValue: number }): string {
   const v = eValue.toFixed(1)
   return flipVerbPermitted(verdict)
-    ? `E-value ${v}: assumptions would only need to be ${v}x wrong to change which option is most likely to hit your goal.`
-    : `E-value ${v}: assumptions would only need to be ${v}x wrong to change ${FRAGILE_NEUTRAL_OBJECT}.`
+    ? `Change margin ${v}: assumptions would only need to be ${v}x wrong to change which option is most likely to hit your goal.`
+    : `Change margin ${v}: assumptions would only need to be ${v}x wrong to change ${FRAGILE_NEUTRAL_OBJECT}.`
 }
 
 /**

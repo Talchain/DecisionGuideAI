@@ -104,6 +104,8 @@ describe('StyledEdge — goal-chance driver tag bound to e_ab', () => {
     expect(button).not.toBeNull()
     expect(button!.getAttribute('type')).toBe('button')
     expect(button!.textContent).toBe('Chance rests most on this')
+    // Served witness 7 Oct: cut off under a card on a routed link. It paints above resting cards (z 0).
+    expect(button!.style.zIndex).toBe('1')
     expect(button!.getAttribute('aria-label')).toBe('In this model, the chance of meeting your goal for ‘Expand’ rests most on this link. Open the link.')
     expect(marker(container)).not.toBeNull()
     expect(filter(container)).toBe(EDGE_GLOW.selected)

@@ -106,7 +106,7 @@ import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 import { useCanvasNodeHoverStore } from '../stores/canvasNodeHoverStore'
 import { openEdgeStrengthEditor } from '../utils/openEdgeStrengthEditor'
-import { GOAL_CHANCE_DRIVER_TAG, goalChanceDriverLinks, goalChanceDriverLinkKey, goalChanceDriverTagAria } from '../utils/goalChanceDriverLinks'
+import { GOAL_CHANCE_DRIVER_TAG, GOAL_CHANCE_DRIVER_TAG_Z, goalChanceDriverLinks, goalChanceDriverLinkKey, goalChanceDriverTagAria } from '../utils/goalChanceDriverLinks'
 import {
   resolveArrivalSlotOnBoard,
   resolvePolarityGlyphOnPath,
@@ -3371,6 +3371,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 transform: `translate(${fragileCueOnly && fragileCuePoint ? fragileCuePoint.x : labelX + labelOffsetX}px,${fragileCueOnly && fragileCuePoint ? fragileCuePoint.y : labelY + labelOffsetY}px) translate(-50%, calc(${showLabel ? labelHalfHeightForRows(paintFragileCue ? 2 : 1) : 0}px + ${(fragileCueOnly ? FRAGILE_CUE_DISC_PX / 2 : 0) + 4}px * var(--canvas-label-scale, 1)))`,
                 pointerEvents: 'all',
                 opacity: isSelectionDimmed ? EDGE_SELECTION_DIM_OPACITY : undefined,
+                // Above a resting card (node wrappers carry inline zIndex 0, and neither `.react-flow__edgelabel-renderer`
+                // nor `.react-flow__nodes` is a stacking context), below a selected one (1000). D1 served witness, 7 Oct:
+                // on a link routed beside a card the tag was cut to "Chance rests mo" under it.
+                zIndex: GOAL_CHANCE_DRIVER_TAG_Z,
               }}
               onPointerDown={event => event.stopPropagation()}
               onClick={event => {

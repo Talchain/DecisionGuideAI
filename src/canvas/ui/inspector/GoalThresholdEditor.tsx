@@ -98,7 +98,7 @@ export function GoalThresholdEditor({ unit, nodeId, thresholdRaw }: GoalThreshol
       </div>
 
       <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
-        Analysis shows the share of model runs that reach or exceed this target
+        Analysis shows each option’s chance of meeting your goal, in this model
       </p>
     </div>
   )

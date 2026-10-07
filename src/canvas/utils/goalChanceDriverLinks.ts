@@ -2,6 +2,9 @@ import { readGoalChanceLicence } from '../../components/results/utils/goalChance
 
 export const GOAL_CHANCE_DRIVER_TAG = 'Chance rests most on this'
 
+/** The tag paints above resting cards (z 0) and below a selected card (1000). */
+export const GOAL_CHANCE_DRIVER_TAG_Z = 1
+
 const EMPTY_LINKS: ReadonlyMap<string, readonly string[]> = new Map()
 const reportCache = new WeakMap<object, ReadonlyMap<string, readonly string[]>>()
 

@@ -157,7 +157,7 @@ export const COMPARISON_LENS_COPY = {
    */
   locked: {
     outcome: 'This run did not return a range for these options.',
-    goal: "Goal fit shows the share of model runs in which each option reaches the target. This run did not return one.",
+    goal: "Goal fit shows each option’s chance of meeting your goal, in this model. This run did not return one.",
   } satisfies Record<ComparisonLens, string>,
   rowActions: (label: string): string => `Show actions for ${label}`,
   inspectInModel: (label: string): string => `Inspect ${label} in Model`,

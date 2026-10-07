@@ -398,6 +398,8 @@ export interface HeroChartModel {
    * applicable (single option, aligned-without-claim, outcome lens hidden).
    */
   subline: string | null
+  /** The licence's clause actually appended to the subline; prevents a second range clause. */
+  goalChanceHorizonLine?: string | null
   /**
    * WHY no leader was named — CEE's own sentence.
    *

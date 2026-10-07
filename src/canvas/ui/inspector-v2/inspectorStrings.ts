@@ -992,10 +992,10 @@ export const GOAL_CONSTRAINT_COPY = {
   // v3.1 (DESIGN-GAP-v31 row 33): no "simulation" wording. This is the
   // COMPLETE-results arm only — `GoalPanel` shows `EMPTY_STATES.noAnalysis`
   // before any results exist, so neither sentence claims something false.
-  runForProbability:   'This run did not return the share of model runs that reach this target.',
+  runForProbability:   'This run did not return the chance of meeting your goal, in this model.',
   // Served f5d503b0 (29 Sep): no option put forward, yet the run carried every option's goal
   // figure and Analysis showed them. The arm above would deny them; this one says where they are.
-  perOptionOnly:       'No single option is put forward on this run. Each option\u2019s share of model runs that reach this target is in Analysis.',
+  perOptionOnly:       'No single option is put forward on this run. Each option\u2019s chance of meeting your goal, in this model, is in Analysis.',
   perOptionOnlyLink:   'Open Analysis',
   targetUnlocks:       'Adding a specific target unlocks probability calculations.',
   // Canonical State Copy (see DESIGN_SYSTEM.md): honest status for GUEST

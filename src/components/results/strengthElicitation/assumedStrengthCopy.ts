@@ -322,5 +322,5 @@ export const ASSUMED_STRENGTH_REFUSAL_COPY: Record<AssumedStrengthRefusal, strin
   // Red team (#2548 witness): "measured weak-link rate" was jargon for PLoT's switch_probability under the 0.15 floor,
   // said in Science d5's words for that measure (#87 6007954023).
   no_fragile_edges:
-    'This run found no relationship that changed the most-supported option often enough to show here.',
+    'In this run, no link’s assumed strength changed the most-supported option often enough to show here.',
 }

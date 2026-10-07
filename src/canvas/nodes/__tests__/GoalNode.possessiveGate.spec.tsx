@@ -145,7 +145,7 @@ function renderGoalWith(option: Record<string, unknown>) {
   )
 }
 
-const POSSESSIVE = 'of model runs'
+const POSSESSIVE = 'chance of meeting your goal'
 const ACHIEVEMENT_ROW = 'goal-achievement-metric-row'
 const ACHIEVEMENT_UNSET = 'goal-achievement-unset'
 /** Locked Canvas design (23 Sep 2026): the row's sentence lives in its accessible name. */
