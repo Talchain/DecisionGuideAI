@@ -56,7 +56,8 @@ export function useReanalyseBarInputs(): ReanalyseBarInputs & { preRunWithModel:
   const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
   // `?? true`: the same defensive default `composeAnalysisState` applies to this field (`analysisStateSelector.ts`).
   const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun) ?? true
-  const nodeCount = useCanvasStore((s) => s.nodes.length)
+  // `?.`: partial store mocks (the ReanalyseBar specs) carry no `nodes`; the real store always does.
+  const nodeCount = useCanvasStore((s) => s.nodes?.length ?? 0)
   return { semantic, importHold, hasCompletedFirstRun, preRunWithModel: !hasCompletedFirstRun && nodeCount > 0 }
 }
 
