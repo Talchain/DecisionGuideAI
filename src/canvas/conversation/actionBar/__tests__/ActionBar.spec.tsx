@@ -98,6 +98,18 @@ describe('what is drawn', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
+  it('renders the bound check row only when the bar carries one', () => {
+    const withRow = bar({
+      ...EXAMPLE_BAR,
+      bias_risk: { v: 1, items: [{ claim_id: 'DSK-B-007', name: 'Narrow framing', why: 'These options can hide better routes.', action_id: MORE_OPTIONS.action_id, press_id: MORE_OPTIONS.press_id, offer_key: MORE_OPTIONS.offer_key }] },
+    })
+    const { unmount } = render(<ActionBar bar={withRow} surface="chat" />)
+    expect(screen.getByTestId('bias-risk-row')).toBeInTheDocument()
+    unmount()
+    render(<ActionBar bar={bar()} surface="reasoning" />)
+    expect(screen.queryByTestId('bias-risk-row')).toBeNull()
+  })
+
   it('the host chooses the type tokens and nothing else: body-size labels on both (the Reasoning tab passes its own)', () => {
     const { unmount } = render(<ActionBar bar={bar()} surface="chat" />)
     expect(screen.getByTestId('action-bar-pill-set_target-press').className).toContain('text-[13px]')
