@@ -5,6 +5,7 @@
  * the generic glyph and a warning: the offer still shows, with its label.
  */
 import {
+  Anchor,
   ArrowDownUp,
   BadgeCheck,
   CalendarClock,
@@ -27,6 +28,7 @@ import type { ComponentType } from 'react'
 export type ActionGlyph = ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
 
 export const ACTION_BAR_ICONS: Readonly<Record<string, ActionGlyph>> = {
+  Anchor,
   ArrowDownUp,
   BadgeCheck,
   CalendarClock,

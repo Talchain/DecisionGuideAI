@@ -20,6 +20,7 @@ import { ThinkingDots, waitingPhaseOf } from './ThinkingDots'
 /** The real stage name while request 2 runs: `inferLoadingHint`'s own words for an explanation. */
 const PREPARING_EXPLANATION = 'Preparing explanation\u2026'
 import { GuidanceRows } from './GuidanceRows'
+import { DskClaimBadge } from '../../../v5/blocks/DskClaimBadge'
 import { ActionBar } from '../actionBar/ActionBar'
 import { pressIdsOnBar } from '../actionBar/actionBarContract'
 import { useScenarioActionBar } from '../actionBar/useScenarioActionBar'
@@ -412,6 +413,7 @@ export const ChatThread = memo(function ChatThread({
           >
             {chatMsg}
             {guidanceRows}
+            {msg.actionScience && <DskClaimBadge claim={msg.actionScience} testId="chat-action-science" />}
             {chipGroup && (
               <SuggestedChips
                 chips={suggestedChips}
