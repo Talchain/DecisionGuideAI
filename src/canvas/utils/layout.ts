@@ -913,7 +913,6 @@ export async function layoutGraph(
     publishNodeFitPrototypeWidths(prototypeWidths)
   }
   const cardWForNode = (node: Node): number => prototypeWidths.get(node.id) ?? cardWOf(tierOf(node))
-  const tierBoxW = (tier: number): number => cardWOf(tier) + LAYOUT_PADDING_X
   /** The box a width-less stray falls back to — the repeated card's. */
   const fallbackBoxW = REPEATED_CARD_W + LAYOUT_PADDING_X
 

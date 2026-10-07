@@ -16,15 +16,26 @@ type Json = Record<string, unknown>
 
 async function seed(page: Page, board: typeof BOARDS[number]): Promise<void> {
   if (!board.startsWith('mrr-')) {
-    await seedStarterDraft(page, board as StarterId)
+    const r = await seedStarterDraft(page, board as StarterId)
+    expect(r.nodeCount, `${board}: the draft seeded no nodes`).toBeGreaterThan(0)
     return
   }
   const fixture = JSON.parse(readFileSync(join(process.cwd(), 'e2e', 'geometry', 'fixtures', `${board}.fixture.json`), 'utf8')) as { draft: Json }
-  await page.evaluate(async (draft) => {
+  const r = await page.evaluate(async (draft) => {
     const path = '/src/canvas/utils/applyDraftResult.ts'
-    const mod = (await import(/* @vite-ignore */ path)) as { applyDraftResult: (value: unknown) => unknown }
-    mod.applyDraftResult(draft)
+    const mod = (await import(/* @vite-ignore */ path)) as { applyDraftResult: (value: unknown) => { nodeCount: number } }
+    const applied = mod.applyDraftResult(draft)
+    const w = window as unknown as { useCanvasStore: { getState: () => { pendingLayout: boolean; layoutInProgress: boolean; layoutVersion: number } } }
+    const deadline = Date.now() + 15_000
+    while (Date.now() < deadline) {
+      const st = w.useCanvasStore.getState()
+      if (!st.pendingLayout && !st.layoutInProgress && st.layoutVersion > 0) break
+      await new Promise((res) => setTimeout(res, 25))
+    }
+    return { nodeCount: applied.nodeCount, layoutVersion: w.useCanvasStore.getState().layoutVersion }
   }, fixture.draft)
+  expect(r.nodeCount, `${board}: the draft seeded no nodes`).toBeGreaterThan(0)
+  expect(r.layoutVersion, `${board}: layout never committed`).toBeGreaterThan(0)
 }
 
 async function readGeometry(page: Page) {
@@ -52,7 +63,9 @@ async function readGeometry(page: Page) {
       if (Math.min(a.right, b.right) > Math.max(a.left, b.left) + 1 && Math.min(a.bottom, b.bottom) > Math.max(a.top, b.top) + 1) overlaps++
     }
     const left = Math.min(...cards.map((c) => c.rect.left)); const right = Math.max(...cards.map((c) => c.rect.right))
-    const transform = getComputedStyle(document.querySelector<HTMLElement>('.react-flow__viewport')!).transform
+    const viewport = document.querySelector<HTMLElement>('.react-flow__viewport')
+    if (!viewport) throw new Error('no .react-flow__viewport: the canvas did not render')
+    const transform = getComputedStyle(viewport).transform
     const zoom = transform === 'none' ? 1 : Number(transform.split(',')[0].replace('matrix(', ''))
     return { cards: cards.map(({ rect: _rect, ...card }) => card), rowOverlaps: overlaps, clippedTitles: cards.filter((c) => c.clippedTitle).length, boardBoundingWidth: right - left, fitZoom: zoom }
   })
@@ -67,7 +80,9 @@ test.describe('node width prototype', () => {
       for (const mode of ['fixed', 'content'] as const) {
         await preparePage(page, VIEWPORT)
         await openCanvas(page)
-        if (mode === 'content') await page.goto('/?nodeFit=content#/canvas')
+        // The switch is sampled from location.search AT LAYOUT TIME, so set it in place after the canvas is ready and
+        // before seeding (a fresh navigation here seeded before the store existed: CI run 37676539668).
+        if (mode === 'content') await page.evaluate(() => history.replaceState(null, '', '/?nodeFit=content#/canvas'))
         await seed(page, board)
         await waitForVisualQuiescence(page)
         const reading = await readGeometry(page)
