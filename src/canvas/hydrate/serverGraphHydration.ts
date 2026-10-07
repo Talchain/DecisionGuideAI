@@ -340,6 +340,7 @@ async function readAndMergeServerGraph(
       turns: result.scenarioId === scenarioId ? serverTurns ?? [] : (serverTurns ?? []).map(({ suggestedActions: _foreign, ...turn }) => turn),
       // Held actions belong to the response envelope, never merely to the request.
       heldProposalOffers: result.scenarioId === scenarioId ? result.heldProposalOffers : [],
+      proposalFields: result.scenarioId === scenarioId ? result.proposalFields : undefined,
       run: {
         runNotCurrent: heldRunIsNotCurrentPerRead(result.analysisState, result.analysisResult),
         currentRunComputedAt: typeof computedAt === 'string' ? computedAt : null,

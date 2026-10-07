@@ -33,6 +33,7 @@ import type {
 } from '@talchain/schemas/boundary'
 import { ActionType, Intent } from '@talchain/schemas/boundary'
 
+import type { ProposalEdits } from '../canvas/conversation/HeldProposalPanel'
 import type { SystemEvent } from '../canvas/conversation/types'
 import {
   isSendableAnalysisId,
@@ -90,6 +91,8 @@ export interface BuildV5PayloadInput {
   message?: string
   /** sendTurn source string. Maps to TurnSource. */
   source?: string | undefined
+  /** §15 held-proposal edits; sent only beside that proposal's own approve chip. */
+  proposalEdits?: ProposalEdits
   /** Chip metadata forwarded by chip click handlers. */
   chipMeta?:
     | { id?: string; action_type?: string; intent?: string; parameters?: Record<string, unknown> }
@@ -197,7 +200,7 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
           : rawSource
   const source = normaliseMessageSource(effectiveSource)
 
-  const base: MessageTurnPayload = {
+  const base: MessageTurnPayload & { proposal_edits?: ProposalEdits } = {
     kind: 'message',
     turn_id: turnId,
     scenario_id: scenarioId,
@@ -220,6 +223,11 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
       ...(wireIntent ? { intent: wireIntent } : {}),
       ...(parameters ? { parameters } : {}),
     }
+  }
+
+  if (source === 'chip' && input.chipMeta?.id === `agent-approve-proposal:${input.proposalEdits?.proposal_id}`
+    && input.proposalEdits && input.proposalEdits.fields.length > 0) {
+    base.proposal_edits = input.proposalEdits
   }
 
   // retry_of — only on retry source and only when an explicit prior id is

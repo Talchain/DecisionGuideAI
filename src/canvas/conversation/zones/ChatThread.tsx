@@ -6,7 +6,7 @@
  * Custom scrollbar: 4px, themed. Smart scroll via useSmartScroll.
  */
 
-import { memo } from 'react'
+import { memo, useState, useEffect } from 'react'
 import { ArrowDown } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useSmartScroll } from '../hooks/useSmartScroll'
@@ -211,6 +211,10 @@ export const ChatThread = memo(function ChatThread({
   runGate,
   rerunOwnedByHost,
 }: ChatThreadProps) {
+  // Keep disclosure open when the latest reply remounts its chip row, but never across scenarios.
+  const scenarioId = useCanvasStore(s => s.currentScenarioId)
+  const [openedProposal, setOpenedProposal] = useState<{ scenarioId: string | null; id: string } | null>(null)
+  useEffect(() => { setOpenedProposal(null) }, [scenarioId])
   // Has the conversation produced any finalized (non-streaming) assistant messages?
   const hasFinalizedAssistant = messages.some(m => m.role === 'assistant' && !m.isStreaming)
 
@@ -397,6 +401,10 @@ export const ChatThread = memo(function ChatThread({
             {chipGroup && (
               <SuggestedChips
                 chips={suggestedChips}
+                proposalFields={msg.proposalFields}
+                replyId={msg.id}
+                openedProposalId={openedProposal !== null && openedProposal.scenarioId === scenarioId ? openedProposal.id : null}
+                onOpenProposal={id => setOpenedProposal({ scenarioId, id })}
                 onChipClick={(chip) => onChipClick(chip, msg.id)}
                 isThinking={isThinking}
                 runGate={runGate}
