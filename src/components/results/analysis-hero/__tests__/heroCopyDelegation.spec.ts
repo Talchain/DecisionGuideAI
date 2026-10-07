@@ -31,10 +31,10 @@ describe('HERO_COPY.detail — the A register exists once', () => {
   })
 
   it('keeps the possessive discipline the selector publishes', () => {
-    // AIQ #72 5885116642: the permitted basis claims THE TARGET; the joint basis never does. No form says "your goal".
-    expect(HERO_COPY.detail.goalFit(N).toLowerCase()).toContain('reaches the target')
-    expect(HERO_COPY.detail.goalFitJointBasis(N).toLowerCase()).not.toContain('reaches the target')
-    expect(`${HERO_COPY.detail.goalFit(N)} ${HERO_COPY.detail.goalFitJointBasis(N)}`.toLowerCase()).not.toContain('your goal')
+    // Ruling 4: the permitted basis names your goal; the joint basis names every target this run scored.
+    expect(HERO_COPY.detail.goalFit(N).toLowerCase()).toContain('chance of meeting your goal')
+    expect(HERO_COPY.detail.goalFitJointBasis(N).toLowerCase()).not.toContain('chance of meeting your goal')
+    expect(HERO_COPY.detail.goalFitJointBasis(N).toLowerCase()).not.toContain('your goal')
   })
 })
 

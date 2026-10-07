@@ -165,12 +165,12 @@ describe('GoalPanel — the unearned 100% is said as the producer’s sentence, 
     const { getByTestId, container } = renderWith(turnReport({ goal_certainty: [UNEARNED_59] }))
     expect(getByTestId('goal-probability-certainty-unearned').textContent).toBe(SAY)
     expect(getByTestId('goal-impact-certainty-unearned').textContent).toBe(SAY)
-    expect(container.textContent ?? '').not.toMatch(/100% of model runs/)
+    expect(container.textContent ?? '').not.toMatch(/More than 99% chance of meeting your goal/)
   })
   it('no sentence from the producer → the fallback, still no percentage', () => {
     const { getByTestId, container } = renderWith(turnReport({ goal_certainty: [{ ...UNEARNED_59, say: undefined }] }))
     expect(getByTestId('goal-probability-certainty-unearned').textContent).toBe(GOAL_CERTAINTY_UNEARNED_FALLBACK)
-    expect(container.textContent ?? '').not.toMatch(/100% of model runs/)
+    expect(container.textContent ?? '').not.toMatch(/More than 99% chance of meeting your goal/)
   })
   it('AIQ 5888121329: an identity-mismatch certainty with no sentence names no cause (never "sized")', () => {
     const mismatch = { option_id: 'raise_to_59', probability_of_goal: 1, earned: false, identity_mismatch: { node_id: 'mrr', reason: 'operand_not_parent' }, no_break_even: 'operand_not_parent' }
@@ -183,7 +183,7 @@ describe('GoalPanel — the unearned 100% is said as the producer’s sentence, 
   it('CONTROL: an EARNED 100% keeps the figure', () => {
     const { queryByTestId, container } = renderWith(turnReport({ goal_certainty: [{ option_id: 'raise_to_59', probability_of_goal: 1, earned: true }] }))
     expect(queryByTestId('goal-probability-certainty-unearned')).toBeNull()
-    expect(container.textContent ?? '').toContain('Reaches the target in 100% of model runs')
+    expect(container.textContent ?? '').toContain('More than 99% chance of meeting your goal')
   })
 })
 
@@ -223,7 +223,7 @@ describe('CEE #2369 — the producer STRIPS the unearned figure; the stored deci
     useCanvasStore.setState({ ...useCanvasStore.getState(), nodes: [GOAL_NODE], edges: [], goalThreshold: 0.8, goalConstraints: null, results: { status: 'complete', report: strippedTurnReport([UNEARNED_59, EARNED_49]) } } as never)
     const { getByTestId, container } = render(<GoalPanel nodeId="goal1" techMode={false} onClose={() => {}} onNavigate={() => {}} />)
     expect(getByTestId('goal-probability-certainty-unearned').textContent).toBe(SAY)
-    expect(container.textContent ?? '').not.toMatch(/100% of model runs/)
+    expect(container.textContent ?? '').not.toMatch(/More than 99% chance of meeting your goal/)
   })
   it('CONTROL: an interior figure beside a decision is untouched (£54 at 0.8311)', () => {
     const o = optionsOf(strippedTurnReport([UNEARNED_59, EARNED_49])).raise_to_54

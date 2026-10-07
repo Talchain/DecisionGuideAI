@@ -222,6 +222,21 @@ describe('AdvancedSection', () => {
       expect(screen.getByTestId('trust-inference-warnings').textContent).toContain('Your deadline isn\'t tested')
     })
 
+    // Science S3 (DL #87 7 Oct): CEE's range record (its message verbatim, PR-S1 #2702) is said by the hero's range lines.
+    const RANGE = { code: 'GOAL_CHANCE_RANGE', severity: 'info',
+      message: 'Some options\' chances are shown as a range: a link on the way to your goal isn\'t sized in the model yet.' }
+    it('RED: a range record (alone or with the horizon) keeps the panel closed, and is listed once opened', () => {
+      render(<AdvancedSection inferenceWarnings={[HORIZON, RANGE]} />)
+      expect(header()).toHaveAttribute('aria-expanded', 'false')
+      fireEvent.click(header())
+      // Listed under the humaniser's title for an uncurated code (never the raw producer message).
+      expect(screen.getByTestId('trust-inference-warnings').textContent).toBe('Your deadline isn\'t testedPart of this analysis was limited')
+    })
+    it('CONTROL: a limiting warning beside the range record still opens it', () => {
+      render(<AdvancedSection inferenceWarnings={[RANGE, LIMITING]} />)
+      expect(header()).toHaveAttribute('aria-expanded', 'true')
+    })
+
     it('CONTROL: an existing limiting warning still opens it, with the horizon beside it', () => {
       render(<AdvancedSection inferenceWarnings={[HORIZON, LIMITING]} />)
       expect(header()).toHaveAttribute('aria-expanded', 'true')

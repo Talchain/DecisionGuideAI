@@ -41,6 +41,7 @@
 
 import { readGuidanceSlots } from '../guidanceRows'
 import type { ConversationMessage } from '../types'
+import { isUUID } from '../../../services/turn-request-builder'
 import { heldProposalMountKey } from '../selectors'
 import { offersPendingConsent } from '../messageComposition'
 import { parseAnswerShape, type AnswerShape } from '../answerShape'
@@ -193,6 +194,7 @@ interface StoredMessage {
   blocks?: unknown[]
   insights?: unknown[]
   clientTurnId?: string
+  serverTurnId?: string
   chipInitiated?: boolean
   /** G1 — the card action that created this user message. Optional: saves
    *  written before it existed load exactly as they always did. */
@@ -331,6 +333,9 @@ function toStored(m: SourceKeyedMessage): StoredMessage {
   if (m.blocks && m.blocks.length > 0) out.blocks = m.blocks as unknown[]
   if (m.insights && m.insights.length > 0) out.insights = m.insights as unknown[]
   if (m.clientTurnId) out.clientTurnId = m.clientTurnId
+  // A live echo becomes a restoration association only in storage. Re-saves retain an already restored id.
+  const serverTurnId = m.serverTurnId ?? m.pendingServerTurnId
+  if (m.role === 'assistant' && isUUID(serverTurnId)) out.serverTurnId = serverTurnId
   if (m.chipInitiated) out.chipInitiated = true
   if (m.sourceBlockKey) out.sourceBlockKey = m.sourceBlockKey
   if (m.deliveryState === 'unconfirmed') out.deliveryState = 'unconfirmed'
@@ -378,6 +383,7 @@ function fromStored(s: StoredMessage): SourceKeyedMessage {
       ? { insights: s.insights as ConversationMessage['insights'] }
       : {}),
     ...(s.clientTurnId ? { clientTurnId: s.clientTurnId } : {}),
+    ...(s.role === 'assistant' && isUUID(s.serverTurnId) ? { serverTurnId: s.serverTurnId } : {}),
     ...(s.chipInitiated ? { chipInitiated: true } : {}),
     ...(typeof s.sourceBlockKey === 'string' && s.sourceBlockKey
       ? { sourceBlockKey: s.sourceBlockKey }

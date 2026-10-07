@@ -47,7 +47,7 @@ export function TargetProbabilityBars({
         const pct = Math.round(c.prob_satisfied * 100)
         const readout = formatProbabilityWithResolution(c.prob_satisfied, null)
         return (
-          <Tooltip key={c.node_id} content="Share of model runs that meet this target">
+          <Tooltip key={c.node_id} content="Chance of meeting this target, in this model">
             <div className={`flex items-center gap-2 ${typography.panelMeta}`}>
               <span className={`${typography.panelMeta} text-text-body flex-1 min-w-0 truncate`} title={c.label}>
                 {c.label}
@@ -74,7 +74,7 @@ export function TargetProbabilityBars({
 
       {/* Joint probability row — only when 2+ constraints */}
       {hasMultiple && typeof jointProbability === 'number' && (
-        <Tooltip content="Share of model runs that hit every target at once">
+        <Tooltip content="Chance of meeting every target this run scored, in this model">
           <div
             className="flex items-center gap-2 pt-1.5 border-t border-panel-border"
             data-testid="target-joint-row"

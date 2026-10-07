@@ -10,6 +10,7 @@ import { render, within, fireEvent } from '@testing-library/react'
 
 import { InspectorModal } from '../../../../components/InspectorModal'
 import { useCanvasStore } from '../../../../store'
+import { buildV5Payload } from '../../../../../v5/buildPayload'
 import { useGuidanceStore } from '../../../../stores/guidanceStore'
 import { factorDisplayText } from '../../../../../utils/formatFactorDisplayValue'
 import { VALUE_PROVENANCE_LABEL } from '../../../../domain/valueProvenance'
@@ -65,13 +66,16 @@ describe('the view: an explicit basis, or nothing', () => {
     expect(view(OLUMIS, [TOP_DRIVER], '  ')).toBeNull()
   })
 
-  it('the prepared message names the factor and its figure, and asks what it rests on — never for Olumi to choose a figure', () => {
-    const t = view(OLUMIS)!.prepare.text
-    expect(t).toContain('"Warm introductions"')
-    expect(t).toContain('30%')
-    expect(t).toMatch(/What is it based on/)
-    expect(t).not.toMatch(/suggest|propose/i)
-    expect(t, 'never types an authorship claim into the user\u2019s message').not.toMatch(/\bmy assumption\b/i)
+  it('the question on the wire names its target, asks about its basis, and carries no model figure', () => {
+    seed(OLUMIS)
+    const sent = captureWire()
+    const dialog = open()
+    fireEvent.click(within(dialog).getByTestId('inspector-examine-prepare'))
+    const payload = sent()[0]
+    expect(payload.message).toBe('What is the figure for ‘Warm introductions’ based on, and what would make a different figure more defensible?')
+    expect(payload.message).not.toMatch(/currently|30%|0\.\d|suggest|propose|\bmy assumption\b/i)
+    expect(payload.selected_elements).toEqual([expect.objectContaining({ id: 'fac_warm', kind: 'factor' })])
+    expect(payload.source).toBe('chip')
   })
 })
 
@@ -84,6 +88,7 @@ function seed(observedState: Record<string, unknown>) {
       { id: FACTOR_ID, type: 'factor', position: { x: 0, y: 0 }, data: { kind: 'factor', label: LABEL, category: 'controllable', observedState } },
     ] as never[],
     edges: [] as never[],
+    hasCompletedFirstRun: false, v5AnalysisFact: null,
     results: { status: 'idle', report: null },
     selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: { x: 0, y: 0 } },
     goalThreshold: null,
@@ -99,13 +104,23 @@ function open(): HTMLElement {
   return dialog as HTMLElement
 }
 
+function captureWire() {
+  const payloads: Array<{ message: string; source?: string; selected_elements?: unknown }> = []
+  useGuidanceStore.setState({ _isConversationBusy: () => false, _dispatchAction: opts => {
+    const built = buildV5Payload({ turnId: '11111111-1111-4111-8111-111111111111', scenarioId: '22222222-2222-4222-8222-222222222222', stage: 'analyse', turnClass: 'clarify', mode: 'user', message: opts.message, source: 'chip', chipMeta: { id: opts.id! } })
+    expect(built.ok).toBe(true)
+    if (built.ok && built.payload.kind === 'message') payloads.push(built.payload)
+  } })
+  return () => payloads
+}
+
 describe('the mounted section (InspectorModal → InspectorRouter)', () => {
   const prefill = vi.fn()
   const send = vi.fn()
   const dispatch = vi.fn()
   beforeEach(() => {
     vi.clearAllMocks()
-    useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send, _dispatchAction: dispatch } as never)
+    useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send, _dispatchAction: dispatch, _isConversationBusy: () => false } as never)
   })
 
   it('RED: Olumi’s figure shows the section with the card’s own reading of the figure and its origin', () => {
@@ -118,14 +133,16 @@ describe('the mounted section (InspectorModal → InspectorRouter)', () => {
     expect(within(s).getByTestId('inspector-examine-origin').textContent).toBe(VALUE_PROVENANCE_LABEL.ai)
   })
 
-  it('RED: the action PREFILLS the composer with the prepared message and sends nothing', () => {
+  it('RED: the action sends one bound chip with the label and no model figure', () => {
     seed(ACCEPTED)
     const s = within(open()).getByTestId('inspector-examine')
     fireEvent.click(within(s).getByTestId('inspector-examine-prepare'))
-    expect(prefill).toHaveBeenCalledTimes(1)
-    expect(String(prefill.mock.calls[0]![0])).toContain(`"${LABEL}"`)
+    expect(prefill).not.toHaveBeenCalled()
+    expect(String(dispatch.mock.calls[0]![0].message)).toBe('What is the figure for ‘Warm introductions’ based on, and what would make a different figure more defensible?')
+    expect(dispatch.mock.calls[0][0].message).not.toContain('30%')
     expect(send).not.toHaveBeenCalled()
-    expect(dispatch).not.toHaveBeenCalled()
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch.mock.calls[0][0]).toMatchObject({ source: 'chip' })
   })
 
   it('⛔ SOUND CONTROL on the mount: the user’s own figure → no section, no warning chrome', () => {

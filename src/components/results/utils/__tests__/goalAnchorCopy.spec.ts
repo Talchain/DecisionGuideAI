@@ -42,23 +42,26 @@ describe('GOAL_ANCHOR_COPY — the possessive gate', () => {
     expect(text).toContain('every target this run scored')
   })
 
-  // AIQ #72 5885116642 (29 Sep 2026): the permitted basis names THE TARGET as a share of model runs; neither basis
-  // says "your goal" or any "chance". The two bases still say different things, so the gate still discriminates.
+  // Science ruling 4 (#87 6027792767): the permitted basis names the chance of meeting your goal.
+  // The fallback superlative is retained separately because its licensed wording differs.
   it.each([
     ['label', () => GOAL_ANCHOR_COPY.label(false)],
     ['phrase', () => GOAL_ANCHOR_COPY.phrase(N, false)],
     ['sentence', () => GOAL_ANCHOR_COPY.sentence(N, false)],
     ['headline', () => GOAL_ANCHOR_COPY.headline('Option A', N, false)],
     ['byOptionAria', () => GOAL_ANCHOR_COPY.byOptionAria(false)],
-  ])('%s names the target as a share of model runs when the basis permits it', (_name, build) => {
+  ])('%s names the chance of meeting your goal when the basis permits it', (_name, build) => {
     const text = build().toLowerCase()
-    expect(text).toContain('reach')
-    expect(text).toContain('the target')
-    expect(text).toContain('model runs')
+    if (_name === 'headline') {
+      expect(text).toContain('reaches the target in the most model runs')
+    } else {
+      expect(text).toContain('chance of meeting your goal')
+      expect(text).not.toContain('model runs')
+    }
     expect(text).not.toContain('every target this run scored')
   })
 
-  it.each([true, false])('no form says "chance" or "your goal" (substituted=%s) — AIQ 5885116642', (substituted) => {
+  it.each([true, false])('chance forms preserve the possessive gate (substituted=%s) — ruling 4', (substituted) => {
     const all = [
       GOAL_ANCHOR_COPY.label(substituted),
       GOAL_ANCHOR_COPY.phrase(N, substituted),
@@ -67,7 +70,9 @@ describe('GOAL_ANCHOR_COPY — the possessive gate', () => {
       GOAL_ANCHOR_COPY.headline('Option A', N, substituted),
       GOAL_ANCHOR_COPY.byOptionAria(substituted),
     ].join(' | ').toLowerCase()
-    expect(all).not.toMatch(/chance|probability of success|your goal/)
+    expect(all).toContain('chance of meeting')
+    expect(all).not.toContain('probability of success')
+    expect(all.includes('your goal')).toBe(!substituted)
   })
 })
 
@@ -85,10 +90,10 @@ describe('GOAL_ANCHOR_COPY — forms cannot drift apart', () => {
     'label() names the same quantity as phrase(), with no number (substituted=%s)',
     (substituted) => {
       const label = GOAL_ANCHOR_COPY.label(substituted)
-      expect(label).toMatch(/^Share of model runs /)
+      expect(label).toMatch(/^Chance of meeting /)
       expect(label).not.toContain(N)
       // The same object of the claim as the phrase: the target, or every target this run scored.
-      const object = substituted ? 'every target this run scored' : 'the target'
+      const object = substituted ? 'every target this run scored' : 'your goal'
       expect(label).toContain(object)
       expect(GOAL_ANCHOR_COPY.phrase(N, substituted)).toContain(object)
     },

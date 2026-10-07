@@ -569,7 +569,7 @@ export type RunMetaState = {
   errorDetails?: ErrorDetail[]
   /** CEE diagnostic trace from envelope._diagnostic_trace. Passthrough — UI must not transform. */
   ceeDiagnosticTrace?: Record<string, unknown> | null
-}
+} & PremortemRunMeta
 
 const initialNodes: Node[] = []
 
@@ -8961,3 +8961,21 @@ export const selectLensOptionId = (state: CanvasState): string | null => state.l
  */
 export type ViewMode = 'standard' | 'expert'
 export const selectViewMode = (state: CanvasState): ViewMode => state.viewMode
+
+/**
+ * Every field invalidated by an analytical edit (`readinessClearFields` + the dirty overlay), shared with the no-write
+ * rollback (`store/analysisCurrencySnapshot.ts`). At the END of the file on purpose: `scripts/ci/ui-decides-baseline.txt`
+ * is keyed by store.ts LINE, and lines added above a baselined site move it.
+ */
+export const ANALYSIS_CURRENCY_KEYS = [
+  ...(Object.keys(READINESS_CLEAR_FIELDS) as Array<keyof typeof READINESS_CLEAR_FIELDS>),
+  'retainedAnalysisAdmission',
+  'retainedDraftCoaching',
+  'retainedDraftCoachingOptionCount',
+  'analysisFreshnessDirty',
+] as const
+
+// A2 additions stay at the end to preserve the line-keyed UI claim baseline.
+import type { PremortemRunMeta } from '../v5/readPremortemWorksheet'
+export type { PremortemRunMeta } from '../v5/readPremortemWorksheet'
+export const selectPremortemWorksheet = (state: CanvasState) => state.runMeta.premortemWorksheet ?? null

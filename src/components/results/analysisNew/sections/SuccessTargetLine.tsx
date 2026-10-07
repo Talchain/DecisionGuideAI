@@ -102,6 +102,7 @@ import {
 } from '../../../../canvas/mutations/mutationAuthority'
 import { action, icon } from '../panelSurfaces'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
+import { askAi } from '../../../../canvas/conversation/askAi'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
 import { PanelIconButton } from '../PanelIconButton'
 import { PanelActRow } from '../PanelActRow'
@@ -167,7 +168,7 @@ const SEND_WORDS_LABEL = 'Discuss with Olumi'
  * header records.
  */
 const SUCCESS_WORDS_SENT_NOTICE =
-  'Sent to Olumi as a message. There is no words field on the model yet, so this is not stored. See it in the conversation.'
+  'Sent to Olumi. See it in the conversation.'
 
 export interface SuccessTargetLineProps {
   /** The goal node to write to. Null = no goal, so nothing to target. */
@@ -610,13 +611,8 @@ export function SuccessTargetLine({
   const sendWordsToOlumi = () => {
     const typed = wordsDraft.trim()
     if (typed === '') return
-    openAskOlumi({
-      context: COPY.successTarget.label,
-      draft: `This is what success would look like:\n${typed}`,
-      label: ASK_DEFINE_SUCCESS_LABEL,
-      targetId: goalNodeId,
-      source: 'chip',
-    })
+    if (askAi({ userWords: `Success in words (this is not stored):\n${wordsDraft}`, nodeIds: goalNodeId ? [goalNodeId] : [] }) !== 'sent') return
+
     closeEditor()
     showToast(SUCCESS_WORDS_SENT_NOTICE)
   }

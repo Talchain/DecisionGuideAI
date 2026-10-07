@@ -57,8 +57,8 @@ describe('DecisionBriefView', () => {
     expect(screen.getByTestId('decision-brief').getAttribute('data-run-status')).toBe('not_current')
     expect(screen.queryByTestId('brief-chances')).toBeNull()
     expect(screen.queryByTestId('brief-drivers')).toBeNull()
-    expect(screen.getByTestId('decision-brief').textContent).not.toMatch(/of model runs/)
-    expect(decisionBriefToHtml(brief)).not.toMatch(/of model runs/)
+    expect(screen.getByTestId('decision-brief').textContent).not.toMatch(/chance of meeting your goal/)
+    expect(decisionBriefToHtml(brief)).not.toMatch(/chance of meeting your goal/)
   })
 
   it('a current Run where no option has a figure says so ONCE (panel and print), not a "no figure" row per option', async () => {

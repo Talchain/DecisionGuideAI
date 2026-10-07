@@ -7,6 +7,7 @@
 
 import { useCallback } from 'react'
 import { useCanvasStore } from '../../store'
+import { captureAnalysisCurrency } from '../../store/analysisCurrencySnapshot'
 import type { RiskImpact } from '../../domain/nodes'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
 import { settleSystemEventSend } from '../../conversation/settleSystemEventSend'
@@ -1195,6 +1196,7 @@ export function useEdgeMutations(edgeId: string) {
         { ...identity, data: edge.data as Record<string, unknown> | undefined },
         { includeDirection: !opts?.preserveDirection },
       )
+    const currency = captureAnalysisCurrency()
     updateEdge(edgeId, {
       data: {
         ...edge.data,
@@ -1280,7 +1282,7 @@ export function useEdgeMutations(edgeId: string) {
     // CEE just recorded. A proven no-write reverts; anything unconfirmed keeps
     // the number and stays held. `edge.data` is the PRE-write read above.
     const before = (edge.data ?? {}) as Record<string, unknown>
-    markEdgeEditInFlight(edgeId, absWeight, before, undefined, identity)
+    markEdgeEditInFlight(edgeId, absWeight, before, undefined, identity, currency)
     // The detail rides beside the resolved settlement: WHICH no-write it was (a stopped
     // turn is not a moved model) is the envelope's fact, not the resolver's.
     const settle = (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) =>
@@ -1423,6 +1425,7 @@ export function useEdgeMutations(edgeId: string) {
     const before = (edge.data ?? {}) as Record<string, unknown>
     // The user picking +/− is the ONLY thing that turns the defaulted
     // `direction: 'positive'` into a stated one (ROADMAP 2.263).
+    const currency = captureAnalysisCurrency()
     updateEdge(edgeId, { data: { ...edge.data, direction, directionSource: 'user' } })
     if (!event) return 'not_wire_encodable'
     if (!sendSystemEvent) return 'local_only'
@@ -1436,7 +1439,7 @@ export function useEdgeMutations(edgeId: string) {
     const sentMagnitude = Math.abs(serverStatedStrengthOf(before)?.mean ?? Number.NaN)
     markEdgeEditInFlight(edgeId, sentMagnitude, before, direction, {
       scenarioId: useCanvasStore.getState().currentScenarioId ?? null, from: edge.source, to: edge.target,
-    })
+    }, currency)
     const settle = (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) =>
       opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, sentMagnitude, settlement, direction), detail)
     settleSystemEventSend(

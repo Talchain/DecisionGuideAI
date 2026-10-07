@@ -32,9 +32,10 @@ export const departedTabBodyCallbacks = new WeakSet<object>()
 /** Null every slot still holding a departed tab body's callback. */
 export function releaseTabBodyFallback(): void {
   const s = useGuidanceStore.getState()
-  const patch: { _sendMessage?: null; _prefillChat?: null; _dispatchAction?: null } = {}
+  const patch: { _sendMessage?: null; _prefillChat?: null; _dispatchAction?: null; _isConversationBusy?: null } = {}
   if (s._sendMessage && departedTabBodyCallbacks.has(s._sendMessage)) patch._sendMessage = null
   if (s._prefillChat && departedTabBodyCallbacks.has(s._prefillChat)) patch._prefillChat = null
   if (s._dispatchAction && departedTabBodyCallbacks.has(s._dispatchAction)) patch._dispatchAction = null
+  if (s._isConversationBusy && departedTabBodyCallbacks.has(s._isConversationBusy)) patch._isConversationBusy = null
   if (Object.keys(patch).length > 0) useGuidanceStore.setState(patch)
 }

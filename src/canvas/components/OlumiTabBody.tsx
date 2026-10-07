@@ -23,9 +23,9 @@ import type { DispatchActionOpts } from '../conversation/useConversation'
 import { aiComparisonBadge } from '../../v5/aiComparisonMode'
 import { typo } from '../../styles/typography'
 
-/** The three ask slots this component may fill. Nothing else is ever written. */
-type FallbackSlots = Pick<GuidanceState, '_sendMessage' | '_prefillChat' | '_dispatchAction'>
-const NO_SLOTS: FallbackSlots = { _sendMessage: null, _prefillChat: null, _dispatchAction: null }
+/** Fallback ask callbacks follow the same ownership rule as the full host. */
+type FallbackSlots = Pick<GuidanceState, '_sendMessage' | '_prefillChat' | '_dispatchAction' | '_isConversationBusy'>
+const NO_SLOTS: FallbackSlots = { _sendMessage: null, _prefillChat: null, _dispatchAction: null, _isConversationBusy: null }
 
 
 /** A slot is this fallback's to write only if it is empty, its own, or a departed tab body's. */
@@ -88,6 +88,9 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
   // callbacks, which silently dropped the reveal from every later send and
   // prefill. See OWNERSHIP BY IDENTITY at the effect.
   const { sendMessage, setDraft, dispatchAction } = conversation
+  const busyRef = useRef(conversation.isThinking)
+  busyRef.current = conversation.isThinking
+  const isConversationBusy = useCallback(() => busyRef.current, [])
 
   /**
    * ⭐⭐ `_dispatchAction` IS REGISTERED HERE TOO, BECAUSE IT IS THE ONE THAT
@@ -152,6 +155,7 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
       _sendMessage: sendMessage,
       _prefillChat: prefillChat,
       _dispatchAction: dispatchActionForStore,
+      _isConversationBusy: isConversationBusy,
     }
 
     /*
@@ -186,6 +190,9 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
       if (fallbackMayWrite(now._dispatchAction, previous._dispatchAction) && now._dispatchAction !== mine._dispatchAction) {
         patch._dispatchAction = mine._dispatchAction
       }
+      if (fallbackMayWrite(now._isConversationBusy ?? null, previous._isConversationBusy ?? null) && now._isConversationBusy !== mine._isConversationBusy) {
+        patch._isConversationBusy = mine._isConversationBusy
+      }
       if (Object.keys(patch).length > 0) useGuidanceStore.setState(patch)
     }
     claim()
@@ -215,7 +222,7 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
     // The cleanup removes the SUBSCRIPTION only: a dependency change is not a
     // departure. What an unmount does is the separate effect below.
     return unsubscribe
-  }, [sendMessage, setDraft, dispatchActionForStore, realMessageCount])
+  }, [sendMessage, setDraft, dispatchActionForStore, isConversationBusy, realMessageCount])
 
   /*
    * ⚠ UNMOUNT HANDS THE CALLBACKS ON; IT DOES NOT CLEAR THEM. This component
@@ -242,6 +249,7 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
     if (owned._sendMessage && now._sendMessage === owned._sendMessage) departedTabBodyCallbacks.add(owned._sendMessage)
     if (owned._prefillChat && now._prefillChat === owned._prefillChat) departedTabBodyCallbacks.add(owned._prefillChat)
     if (owned._dispatchAction && now._dispatchAction === owned._dispatchAction) departedTabBodyCallbacks.add(owned._dispatchAction)
+    if (owned._isConversationBusy && now._isConversationBusy === owned._isConversationBusy) departedTabBodyCallbacks.add(owned._isConversationBusy)
     ownedRef.current = NO_SLOTS
   }, [])
 

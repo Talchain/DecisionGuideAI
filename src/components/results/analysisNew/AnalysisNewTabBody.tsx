@@ -103,6 +103,8 @@ import { RobustnessCaveat } from './sections/RobustnessCaveat'
 import { BiasGrounding } from './sections/BiasGrounding'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { SectionShell } from './sections/SectionShell'
+import { DecisionMatrix } from './sections/DecisionMatrix'
+import { PreMortemWorksheet } from './sections/PreMortemWorksheet'
 import { MethodStrip } from './sections/MethodStrip'
 import { ReasoningAskBox } from './sections/ReasoningAskBox'
 import { CommitmentSummary, PreRunCommitment } from './sections/CommitmentSummary'
@@ -690,6 +692,9 @@ export function AnalysisNewTabBody({
 }: AnalysisNewTabBodyProps) {
   const runAffirmedCurrent = useCanvasStore(selectRunAffirmedCurrent)
   const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
+  const matrixFinishedAt = useCanvasStore((s) => s.results?.finishedAt)
+  const matrixRunId = useCanvasStore((s) => s.results?.runId)
+  const matrixFreshness = useCanvasStore((s) => s.analysisFreshness)
   const sendScienceChip = useGuidanceStore((s) => s._sendChip)
   /**
    * ⭐ THE PRESENTATION PREDICATE, IN THE SHAPE THE OTHER READERS OF THIS
@@ -2923,6 +2928,20 @@ export function AnalysisNewTabBody({
             reading, the scope, the condition) moves here, so the chart and its
             qualifier reach the first screen (fidelity gap 1; #63 5825359499). */}
         {renderGlance('reading')}
+        <DecisionMatrix
+          data={resultsSectionData}
+          comparison={vm.optionsComparison}
+          optionOrder={nodes.map((node) => node.id)}
+          run={{
+            hash: responseHash,
+            runId: matrixRunId,
+            completedAt: matrixFinishedAt,
+            computedAt: matrixFreshness?.computedAt ?? (matrixFinishedAt === undefined ? undefined : new Date(matrixFinishedAt).toISOString()),
+            graphHash: matrixFreshness?.graphHashAtRun,
+          }}
+          isStale={vm.status.isStale}
+        />
+        <PreMortemWorksheet isBusy={isBusyNow} isStale={vm.status.isStale} />
 
         {/* ── HOW FAR THIS HOLDS ────────────────────────────────────────────
             One line where seven sections answered one question. It states the

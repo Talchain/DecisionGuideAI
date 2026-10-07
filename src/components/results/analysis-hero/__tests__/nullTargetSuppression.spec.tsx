@@ -121,7 +121,7 @@ describe('buildHeroModel — null-target suppression (model truth)', () => {
     expect(m.leaders.goal).toBe('opt_b')
     expect(m.rows[0].goal.value).toBe(OPTION_A.goalProbability)
     expect(m.rows[0].goal.readout).toBe('34%')
-    expect(m.rows[0].detail.goalFit).toBe('Reaches the target in 34% of model runs.')
+    expect(m.rows[0].detail.goalFit).toBe('About 34% chance of meeting your goal.')
     expect(m.showGoalHint).toBe(false)
   })
 

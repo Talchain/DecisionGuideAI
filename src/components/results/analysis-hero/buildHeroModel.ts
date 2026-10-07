@@ -429,6 +429,7 @@ export function buildHeroModel(
     (ft) => ft.flip_value != null,
   )
 
+  const rangeOptionIds = new Set(data.goalChanceRange?.optionIds ?? [])
   // One row per option, preserving the display order established above.
   const rows: HeroRowVM[] = options.map((o, i) => {
     // UI-SEM-071: without a USER target the goal slot is suppressed at
@@ -436,7 +437,8 @@ export function buildHeroModel(
     // goal claim (allGoalBelowFloor, goalLeaderRow, goal lens availability)
     // all key off this value, so a synthesized goalProbability cannot
     // bypass the gate anywhere.
-    const goalValue = hasUserTarget ? (o.goalProbability ?? null) : null
+    // ⛔ Science S3 (DL #87 7 Oct): an option CEE shows as a RANGE never gets a point anywhere on screen.
+    const goalValue = hasUserTarget && !rangeOptionIds.has(o.id) ? (o.goalProbability ?? null) : null
     const centre = outcomeIsUnitless ? null : outcomeCentre(o)
     const p10 = outcomeIsUnitless ? null : outcomeP10(o)
     const p90 = outcomeIsUnitless ? null : outcomeP90(o)
@@ -1062,7 +1064,8 @@ export function buildHeroModel(
   const designationWithheldReason =
     admissionWithheldReason ??
     (winSharesAreWithheld ? data.winShareWithheldReason?.trim() || null : null)
-  const goalHorizonUntested = readGoalHorizonUntested(data.confidence?.inferenceWarnings)
+  let goalHorizonUntested = data.goalChanceRange?.horizonLine != null
+    ? null : readGoalHorizonUntested(data.confidence?.inferenceWarnings)
 
   // Tension subline: the headlined leader vs the strongest expected outcome.
   // PERSISTENT across goal and no-goal headline branches (review-locked):
@@ -1156,23 +1159,30 @@ export function buildHeroModel(
       }
     }
   }
-  // ⭐ D3 step 2: a goal-chance headline never carries a win-share or outcome subline about another option. Below the
-  // superlative ('each') the subline IS the per-option lines, in the model's option order (c6: never sorted by chance);
-  // otherwise the neutral pointer.
+  // ⭐ D3 step 2: a goal-chance headline never carries a win-share or outcome subline about another option. Its
+  // subline carries the options not quoted above and their drivers, in model order, plus the quoted options' drivers.
+  let goalChanceHorizonLine: string | null = null
   if (goalChanceHeadlineText !== null && goalChanceLicence !== null) {
     // ⭐ P3: what each option's chance rests on most (CEE's claim), worded with the canvas labels; it follows that
     // option's own line.
-    // H2 names the options it quotes; the subline then quotes the rest (model order), never a ranking.
-    const quotedAbove = goalChanceLicence.form === 'similar' ? goalChanceLicence.similarOptionIds : []
-    const driverLines = goalChanceDriverLines(goalChanceLicence, data.goalChanceDriverNames, quotedAbove)
-    const lines = goalChanceLicence.form === 'each' || goalChanceLicence.form === 'similar'
-      ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, quotedAbove, driverLines)
+    const highest = goalChanceLicence.form === 'highest' || goalChanceLicence.form === 'highest_all_likely_to_miss'
+    const quotedAbove = highest
+      ? [goalChanceLicence.leaderOptionId as string, goalChanceLicence.nextOptionId as string]
+      : goalChanceLicence.form === 'similar' ? goalChanceLicence.similarOptionIds : []
+    const driverLines = goalChanceDriverLines(goalChanceLicence, data.goalChanceDriverNames, highest ? [] : quotedAbove)
+    const lines = goalChanceLicence.form === 'each' || goalChanceLicence.form === 'similar' || highest
+      ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, quotedAbove, driverLines, highest)
       : null
     subline = lines !== null && lines.length > 0 ? lines.join(' ') : HERO_COPY.subline.compareTop
     // ⭐ D3 cut 5 + cut 6: once, beside the chance lines — why no summary is stated (Olumi's own existence assumption), then
     // the part of these figures that is Olumi's assumption about the user's own links.
     const disclosure = goalChanceDisclosureLines(goalChanceLicence)
     if (disclosure !== null) subline = `${subline} ${disclosure}`
+    goalChanceHorizonLine = goalChanceLicence.horizonLine ?? null
+    if (goalChanceHorizonLine !== null) {
+      subline = `${subline} ${goalChanceHorizonLine}`
+      goalHorizonUntested = null
+    }
   }
 
   // UI-SEM-054: outcome-axis layout domain derivation. Min/max over the
@@ -1490,6 +1500,7 @@ export function buildHeroModel(
     provenance: 'live',
     headline,
     subline,
+    goalChanceHorizonLine,
     designationWithheldReason,
     goalHorizonUntested,
     lenses,
@@ -1623,5 +1634,7 @@ export function buildHeroModel(
     targetUnit:
       outcomeUnit === 'percent' ? '%' : (outcomeUnitSymbol ?? null),
   }
-  return model
+  return withGoalOptionCoverage(model, data)
 }
+
+import { withGoalOptionCoverage } from './goalOptionCoverage'

@@ -151,18 +151,10 @@ describe('"Edit this belief": an at-rest pencil on every finding', () => {
     // item's value line shows it.
     const valueText = screen.getByTestId(`${TID}-value-text`).textContent as string
     expect(valueText).toBe(stripValue('f_mine'))
-    expect(payload.draft).toBe(
-      [
-        'Reviewing: A load-bearing assumption',
-        `Current value: ${valueText}`,
-        'Proposed belief: Team size will grow by two',
-        'Evidence or context: Hiring plan approved in March',
-        'Source: Board minutes',
-        'Help me examine this; do not treat it as verified evidence.',
-      ].join('\n'),
-    )
-    expect(payload.parameters).toEqual({ block_id: 'blk_mine' })
+    expect(payload.draft).toBe('Reviewing: A load-bearing assumption\n\nblock_id: blk_mine\n\nProposed belief:  Team size will grow by two \n\nEvidence or context: Hiring plan approved in March\n\nSource: Board minutes\n\nHelp me examine this; do not treat it as verified evidence.')
     expect(payload.targetId).toBe('f_mine')
+    expect(payload.parameters).toEqual({ block_id: 'blk_mine' })
+    expect(payload.draft).not.toContain('Current value:')
     expect(editor()).toBeNull()
   })
 
@@ -204,7 +196,7 @@ describe('"Edit this belief": an at-rest pencil on every finding', () => {
     render(<ModelReviewTool interventions={[ABOUT_MINE]} onAsk={vi.fn()} />)
     openTool()
     fireEvent.click(screen.getByTestId(`${TID}-edit`))
-    expect(screen.getByTestId(`${TID}-editor-note`)).toHaveTextContent(COPY.editNote)
+    expect(screen.getByTestId(`${TID}-editor-note`)).toHaveTextContent('This goes to Olumi in the chat, where you check it before sending. Nothing you add is stored as verified evidence.')
     expect(within(screen.getByTestId(`${TID}-editor`)).getByText(COPY.sourceMeta)).toBeInTheDocument()
   })
 })
@@ -242,16 +234,10 @@ describe('"Add evidence or context": at rest, not behind More', () => {
     const payload = onAsk.mock.calls[0][0]
     const valueText = stripValue('f_ai')
     expect(valueText).toBeTruthy()
-    expect(payload.draft).toBe(
-      [
-        'Reviewing: Vendor cost',
-        `Current value: ${valueText}`,
-        'Evidence or context: The vendor quoted £52 last week',
-        'Help me examine this; do not treat it as verified evidence.',
-      ].join('\n'),
-    )
+    expect(payload.draft).toBe('Reviewing: Vendor cost\n\nEvidence or context: The vendor quoted £52 last week\n\nHelp me examine this; do not treat it as verified evidence.')
     expect(payload.targetId).toBe('f_ai')
-    expect(payload).not.toHaveProperty('parameters')
+    expect(payload.parameters).toBeUndefined()
+    expect(payload.draft).not.toContain('Current value:')
   })
 })
 
@@ -277,4 +263,15 @@ describe('the acts row keeps at most three icons, and nothing dead', () => {
     expect(within(screen.getByTestId(`${TID}-menu`)).queryByText('Edit this item')).toBeNull()
     expect(within(screen.getByTestId(`${TID}-menu`)).queryByTestId(`${TID}-edit`)).toBeNull()
   })
+})
+
+it('a refused review submission keeps all three typed fields available', () => {
+  const onAsk = vi.fn(() => 'busy' as const)
+  render(<ModelReviewTool interventions={[ABOUT_MINE]} onAsk={onAsk} />)
+  openTool(); fireEvent.click(screen.getByTestId(`${TID}-edit`))
+  type(COPY.beliefLabel, ' My belief '); type(COPY.evidenceLabel, ' My evidence '); type(COPY.sourceLabel, ' My source ')
+  fireEvent.click(screen.getByTestId(`${TID}-editor-send`))
+  expect(field(COPY.beliefLabel)).toHaveValue(' My belief ')
+  expect(field(COPY.evidenceLabel)).toHaveValue(' My evidence ')
+  expect(field(COPY.sourceLabel)).toHaveValue(' My source ')
 })

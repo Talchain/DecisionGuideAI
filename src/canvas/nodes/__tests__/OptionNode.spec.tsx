@@ -1432,7 +1432,7 @@ describe('OptionNode', () => {
       selector(makeConstrainedJointOnlyStore() as any)
     )
     renderOption()
-    expect(screen.queryByText(/of model runs\./)).toBeNull()
+    expect(screen.queryByText(/chance of meeting your goal\./)).toBeNull()
   })
 
   // 29 Sep 2026 (AIQ 5882498938): was "shows the badge from probability_of_joint_goal when goal_probability is absent".
@@ -1445,8 +1445,8 @@ describe('OptionNode', () => {
     const first = renderOption()
     // 3% < 10% threshold → the warning line renders with the GOAL value, never the joint 5%. The bound is TRUE: the
     // smallest whole percent strictly above the figure ("< 3%" would claim 3% is below itself; 7.4% read "< 7%").
-    expect(screen.getByText(/Reaches the target in < 4% of model runs\./)).toBeDefined()
-    expect(screen.queryByText(/Reaches the target in (< )?[56]% of model runs\./)).toBeNull()
+    expect(screen.getByText(/Less than 4% chance of meeting your goal\./)).toBeDefined()
+    expect(screen.queryByText(/(About|Less than) [56]% chance of meeting your goal\./)).toBeNull()
     first.unmount()
 
     // The constrained joint-only fixture: no goal figure → no badge, constraints or not.
@@ -1454,7 +1454,7 @@ describe('OptionNode', () => {
       selector(makeConstrainedJointOnlyStore() as any)
     )
     renderOption()
-    expect(screen.queryByText(/of model runs\./)).toBeNull()
+    expect(screen.queryByText(/chance of meeting your goal\./)).toBeNull()
   })
 
   // ISL #207 (AIQ #72 5877139338): the goal badge is never bare when the goal's
@@ -1481,7 +1481,7 @@ describe('OptionNode', () => {
     mockResultsModeMetadata()
     vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeBaseCaveatStore(author) as any))
     renderOption()
-    expect(screen.getByText(/Reaches the target in < 6% of model runs\./)).toBeDefined()
+    expect(screen.getByText(/Less than 6% chance of meeting your goal\./)).toBeDefined()
     expect(screen.getByTestId('goal-fit-base-caveat-option-node-option-1').textContent).toBe(copy)
   })
 
@@ -1490,7 +1490,7 @@ describe('OptionNode', () => {
     mockResultsModeMetadata()
     vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeBaseCaveatStore() as any))
     renderOption()
-    expect(screen.getByText(/Reaches the target in < 6% of model runs\./)).toBeDefined()
+    expect(screen.getByText(/Less than 6% chance of meeting your goal\./)).toBeDefined()
     expect(screen.queryByTestId('goal-fit-base-caveat-option-node-option-1')).toBeNull()
   })
 
@@ -1582,7 +1582,7 @@ describe('OptionNode', () => {
       selector(makeSubstitutedJointStore() as any)
     )
     const { container } = renderOption()
-    expect(screen.queryByText(/of model runs\./)).toBeNull()
+    expect(screen.queryByText(/chance of meeting your goal\./)).toBeNull()
     // Neither voice, and no number — the withheld wording is gone too, because
     // there is nothing left for it to caption.
     expect(container.textContent ?? '').not.toContain(GOAL_ANCHOR_COPY.label(true))
@@ -1597,8 +1597,8 @@ describe('OptionNode', () => {
       selector(makeConstrainedGoalAndJointStore() as any)
     )
     renderOption()
-    expect(screen.getByText(/Reaches the target in < 4% of model runs\./)).toBeDefined()
-    expect(screen.queryByText(/Reaches the target in (< )?[56]% of model runs\./)).toBeNull()
+    expect(screen.getByText(/Less than 4% chance of meeting your goal\./)).toBeDefined()
+    expect(screen.queryByText(/(About|Less than) [56]% chance of meeting your goal\./)).toBeNull()
     expect(screen.queryByText(new RegExp(GOAL_ANCHOR_COPY.label(true).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))))
       .toBeNull()
   })
@@ -1647,7 +1647,7 @@ describe('OptionNode', () => {
     )
     renderOption()
     // No target → the goal-fit badge must not render (matches GoalNode + OptionCards).
-    expect(screen.queryByText(/of model runs\./)).toBeNull()
+    expect(screen.queryByText(/chance of meeting your goal\./)).toBeNull()
   })
 })
 

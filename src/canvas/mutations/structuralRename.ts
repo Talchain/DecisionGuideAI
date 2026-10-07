@@ -302,6 +302,16 @@ export const STRUCTURAL_RENAME_UNCONFIRMED_TOAST =
   STRUCTURAL_RENAME_UNCONFIRMED_REMEDY
 
 /**
+ * The same notice when no canvas was mounted to show it: the user LEFT the model before the turn answered (S5 witness,
+ * 7 Oct), so it is held and shown on whichever model opens next (`utils/heldCanvasNotices`). "It's on the canvas" is not
+ * true there, so it names the rename instead. Same remedy, so the state still has one exit.
+ */
+export function structuralRenameUnconfirmedHeldNotice(intent: Pick<StructuralRenameIntent, 'label' | 'expectedLabel'>): string {
+  return `Your rename of \u2018${intent.expectedLabel}\u2019 to \u2018${intent.label}\u2019 was interrupted when you left that model, so I can't tell you whether it saved. ` +
+    STRUCTURAL_RENAME_UNCONFIRMED_REMEDY
+}
+
+/**
  * Where one rename gesture has got to. THREE outcomes, never two, and
  * `unconfirmed` is a terminal state rather than a polite word for success.
  *

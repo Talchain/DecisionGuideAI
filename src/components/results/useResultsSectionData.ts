@@ -123,6 +123,7 @@ import { goalLabelOf } from './analysisNew/analysisNewCopy'
 import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
 import { readGoalChanceLicence, type GoalChanceDriverNames, type GoalChanceLicence } from './utils/goalChanceLicence'
 import { readGoalChanceInvite, type GoalChanceInvite } from './goal-chance-invite/readGoalChanceInvite'
+import { readGoalChanceRange, type GoalChanceRange } from './utils/goalChanceRange'
 
 // =============================================================================
 // Winner Selection Helper
@@ -1362,6 +1363,8 @@ export interface ResultsSectionDataReturn {
    * `goal-chance-invite/readGoalChanceInvite`). OPTIONAL: absent or `null` = no invitation.
    */
   goalChanceInvite?: GoalChanceInvite | null
+  /** CEE's per-option range records, in model order; absent means no range lines. */
+  goalChanceRange?: GoalChanceRange | null
 }
 
 /** What the option card prints for each target this option sets (its own map; the card's formatter). */
@@ -1497,6 +1500,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   )
   const goalChanceInvite = useMemo(
     () => readGoalChanceInvite((report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings),
+    [report],
+  )
+  const goalChanceRange = useMemo(
+    () => readGoalChanceRange((report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings),
     [report],
   )
   const resultsStatus = results?.status
@@ -4853,6 +4860,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       goalChanceLicence,
       goalChanceDriverNames,
       goalChanceInvite,
+      goalChanceRange,
     }),
     [
       recommendation,
@@ -4876,6 +4884,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       goalChanceLicence,
       goalChanceDriverNames,
       goalChanceInvite,
+      goalChanceRange,
     ],
   )
 }

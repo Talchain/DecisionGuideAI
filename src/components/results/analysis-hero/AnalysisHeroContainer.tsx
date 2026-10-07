@@ -21,6 +21,7 @@ import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import { revealOlumiSurface } from '../../../canvas/conversation/revealOlumi'
 import { AnalysisHeroPanel } from './AnalysisHeroPanel'
+import { GoalChanceRangeLines } from './GoalChanceRangeLines'
 import { useAnalysisHero } from './useAnalysisHero'
 import { HERO_COPY } from './heroCopy'
 import { deriveComparisonScope } from '../utils/goalAnchorCopy'
@@ -170,49 +171,66 @@ export function AnalysisHeroContainer({
     [data.recommendation?.allOptions],
   )
 
+  // Beside the existing invitation below the hero. The model records whether it actually said the licence's clause.
+  const rangeLines = (
+    <><GoalChanceRangeLines
+      range={data.goalChanceRange ?? null}
+      labelOf={data.goalChanceDriverNames?.labelOf ?? (() => null)}
+      heroHorizonShown={model.kind === 'chart' && model.goalChanceHorizonLine != null}
+    /><GoalOptionWithheldLines coverage={model.kind === 'chart' ? model.goalOptionCoverage : undefined} /></>
+  )
+
   // Fail closed on the hero MODEL only — never on the act-on-it section. A
   // model that cannot be built (pre-run default, malformed retained state)
   // says nothing about whether there are factors to confirm, and the queue is
   // the only host of the confirm/set-value affordance.
   if (model.kind === 'empty') {
     if (actOnItRows.length === 0 && actOnItHiddenRows.length === 0 && actOnItQueueSlot == null) {
-      return null
+      return rangeLines
     }
     return (
-      <section
-        aria-label={HERO_COPY.actOnIt.aria}
-        data-testid="analysis-act-on-it-standalone"
-        className="space-y-2 rounded-lg border border-panel-border bg-panel p-3"
-      >
-        <ActOnItSection
-          rows={actOnItRows}
-          hiddenRows={actOnItHiddenRows}
-          dispatchRowAction={dispatchRowAction}
-          chatAvailable={chatAvailable}
-          queueSlot={actOnItQueueSlot}
-        />
-      </section>
+      <>
+        <section
+          aria-label={HERO_COPY.actOnIt.aria}
+          data-testid="analysis-act-on-it-standalone"
+          className="space-y-2 rounded-lg border border-panel-border bg-panel p-3"
+        >
+          <ActOnItSection
+            rows={actOnItRows}
+            hiddenRows={actOnItHiddenRows}
+            dispatchRowAction={dispatchRowAction}
+            chatAvailable={chatAvailable}
+            queueSlot={actOnItQueueSlot}
+          />
+        </section>
+        {rangeLines}
+      </>
     )
   }
 
   return (
-    <AnalysisHeroPanel
-      model={model}
-      comparisonScope={comparisonScope}
-      rerunDisabled={rerunDisabled}
-      focusPanelSelector={focusPanelSelector}
-      nextRecommendation={nextRecommendation}
-      onApplyTarget={onApplyTarget}
-      onDefineSuccess={onDefineSuccess}
-      onFocusTarget={onFocusTarget}
-      onReviewValue={onReviewValue}
-      actOnItRows={actOnItRows}
-      actOnItHiddenRows={actOnItHiddenRows}
-      dispatchRowAction={dispatchRowAction}
-      chatAvailable={chatAvailable}
-      actOnItQueueSlot={actOnItQueueSlot}
-    />
+    <>
+      <AnalysisHeroPanel
+        model={model}
+        comparisonScope={comparisonScope}
+        rerunDisabled={rerunDisabled}
+        focusPanelSelector={focusPanelSelector}
+        nextRecommendation={nextRecommendation}
+        onApplyTarget={onApplyTarget}
+        onDefineSuccess={onDefineSuccess}
+        onFocusTarget={onFocusTarget}
+        onReviewValue={onReviewValue}
+        actOnItRows={actOnItRows}
+        actOnItHiddenRows={actOnItHiddenRows}
+        dispatchRowAction={dispatchRowAction}
+        chatAvailable={chatAvailable}
+        actOnItQueueSlot={actOnItQueueSlot}
+      />
+      {rangeLines}
+    </>
   )
 }
 
 export default AnalysisHeroContainer
+
+import { GoalOptionWithheldLines } from './goalOptionCoverage'
