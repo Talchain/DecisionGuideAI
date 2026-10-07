@@ -371,31 +371,38 @@ export const ChatThread = memo(function ChatThread({
         )
         // T4: the latest turn's coaching rows sit between the reply and its chips (guidanceRows.ts).
         const guidanceRows = msg === lastReplyMsg && msg.guidance ? <GuidanceRows guidance={msg.guidance} /> : null
+        // ⭐ ONE WRAPPER TYPE PER REPLY, WHATEVER IT CARRIES (Paul, 7 Oct: "the
+        // text doesn't move … it shouldn't go blank or do anything weird").
+        // A reply used to render as a `div` while it was the latest (chips or
+        // coaching rows attached) and as a bare `ChatMessage` once a newer reply
+        // landed. Same key, different element type: React REMOUNTED the previous
+        // reply at the moment the new one arrived, rebuilding its DOM and
+        // dropping its local state (an opened disclosure snapped shut). Every
+        // assistant reply now keeps the same `div` for its whole life; only what
+        // it holds changes. User messages never carry chips, so they stay bare.
+        // Pinned by `ChatThread.pendingTurnStable.spec.tsx`.
+        if (msg.role !== 'assistant') return chatMsg
         // Attach suggested chips directly below their owning reply
         // so they read as one visual unit rather than floating orphans.
-        if (isLastAssistant && suggestedChips.length > 0) {
-          return (
-            <div key={msg.id} className="response-chip-group" data-testid="response-chip-group">
-              {chatMsg}
-              {guidanceRows}
+        const chipGroup = isLastAssistant && suggestedChips.length > 0
+        return (
+          <div
+            key={msg.id}
+            className={chipGroup ? 'response-chip-group' : undefined}
+            data-testid={chipGroup ? 'response-chip-group' : undefined}
+          >
+            {chatMsg}
+            {guidanceRows}
+            {chipGroup && (
               <SuggestedChips
                 chips={suggestedChips}
                 onChipClick={(chip) => onChipClick(chip, msg.id)}
                 isThinking={isThinking}
                 runGate={runGate}
               />
-            </div>
-          )
-        }
-        if (guidanceRows) {
-          return (
-            <div key={msg.id}>
-              {chatMsg}
-              {guidanceRows}
-            </div>
-          )
-        }
-        return chatMsg
+            )}
+          </div>
+        )
       })}
 
       {/* ThinkingDots (DS v5 §21.3): only when EmptyState is NOT handling the loading display */}
