@@ -67,7 +67,7 @@ export const NODE_RAIL_TONE_CLASS = {
 
 /**
  * The evidence and behaviour marks as drawn, owned HERE and read by the canvas
- * key (`CanvasLegendPopover`, contract v3.1 §03 "Evidence worth seeking" /
+ * key (`CanvasLegendPopover`, contract v3.1 §03 "Worth checking" (SCI-05 B21) /
  * "Behavioural check"), so the key imports these marks rather than redrawing them.
  */
 export const EVIDENCE_RAIL_GLYPH = { Icon: SearchCheck, tone: 'muted' } as const
@@ -123,7 +123,8 @@ export function NodeRailIcon({
 }
 
 export const EVIDENCE_ICON_LABEL =
-  'Evidence here would most reduce uncertainty in the comparison (top 3 by value of information). Open its details.'
+  // SCI-05 B21 (Science 393023 rulings.md:50-51, 7 Oct): keep the label, no value-of-information claim.
+  'Worth checking. A quick check based on how the model is drawn, not a calculation of what new information is worth. Open its details.'
 
 /** The evidence and behaviour icons for one element, from its grounded reasons. */
 export function NodeSignalRailIcons({
