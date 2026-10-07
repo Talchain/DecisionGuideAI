@@ -854,14 +854,14 @@ describe('buildHeroModel — grounded detail lines and goal hint', () => {
     const m = chart(buildHeroModel(makeHeroData()))
     // OPTION_A: p10 54, p90 82, count unit; goal 0.34 without constraints.
     expect(m.rows[0].detail.range).toBe('Realistic range: 54 to 82.')
-    expect(m.rows[0].detail.goalFit).toBe('Reaches the target in 34% of model runs.')
+    expect(m.rows[0].detail.goalFit).toBe('About 34% chance of meeting your goal.')
   })
 
   it('uses the goal-and-limits wording when every goal-bearing option is constrained', () => {
     const a = makeOption({ ...OPTION_A, constraintAnalysis: CONSTRAINT })
     const b = makeOption({ ...OPTION_B, constraintAnalysis: CONSTRAINT })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    expect(m.rows[0].detail.goalFit).toBe('Meets your goal and limits in 34% of model runs.')
+    expect(m.rows[0].detail.goalFit).toBe('About 34% chance of meeting your goal and limits, in this model.')
   })
 
   it('goal-fit detail wording is PER ROW under mixed constraint coverage', () => {
@@ -874,10 +874,10 @@ describe('buildHeroModel — grounded detail lines and goal hint', () => {
     const m = chart(buildHeroModel(makeHeroData({ options: [OPTION_A, b] })))
     expect(m.hasConstraints).toBe(false)
     expect(m.rows.find((r) => r.id === 'opt_a')!.detail.goalFit).toBe(
-      'Reaches the target in 34% of model runs.',
+      'About 34% chance of meeting your goal.',
     )
     expect(m.rows.find((r) => r.id === 'opt_b')!.detail.goalFit).toBe(
-      'Meets your goal and limits in 49% of model runs.',
+      'About 49% chance of meeting your goal and limits, in this model.',
     )
   })
 

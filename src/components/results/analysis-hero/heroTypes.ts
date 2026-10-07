@@ -398,6 +398,8 @@ export interface HeroChartModel {
    * applicable (single option, aligned-without-claim, outcome lens hidden).
    */
   subline: string | null
+  /** The licence's clause actually appended to the subline; prevents a second range clause. */
+  goalChanceHorizonLine?: string | null
   /**
    * WHY no leader was named — CEE's own sentence.
    *
@@ -550,6 +552,8 @@ export interface HeroChartModel {
    * input so the user knows what they are typing BEFORE committing.
    */
   targetUnit: string | null
+  /** Present only when at least one option has a renderable goal figure. */
+  goalOptionCoverage?: import('./goalOptionCoverage').GoalOptionCoverage
 }
 
 /** Curated non-chart state for partial / failed / blocked analyses, plus

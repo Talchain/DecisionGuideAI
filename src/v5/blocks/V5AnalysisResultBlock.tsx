@@ -578,52 +578,6 @@ function V5AnalysisResultBlockImpl({
         </p>
       )}
 
-      {/* ⚠⚠ A CONTEST-FRAME SURVIVOR THAT REACHES ONLY ASSISTIVE-TECHNOLOGY
-          USERS. This is an accessible NAME on a `role="list"` container with no
-          matching text node, so it is invisible to a body-text sweep and to a
-          visual review alike — which is why #1281's replacement set, which
-          targeted the visible strings ("Ahead", "Leading option", "Leads via",
-          "leads at N%"), never reached it.
-
-          The ruling was applied to what the product SHOWS and left in what it
-          SAYS. `byOptionAria` is the register's own answer for exactly this
-          shape, taken by reference so it cannot drift back. */}
-      {showWinShares && (
-        <div
-          className="flex flex-wrap gap-2"
-          role="list"
-          aria-label={COMPARATIVE_COPY.byOptionAria}
-          data-testid="v5-analysis-result-probabilities"
-        >
-          {/*
-            `optionKey` is the win_probabilities KEY — an option LABEL on real
-            staging payloads, an option_id on some paths. It is the human string
-            we render, so it is NOT renamed to optionId: the previous name is
-            what disguised the identity-space mismatch fixed here.
-          */}
-          {sortedProbs.map(([optionKey, prob]) => {
-            const isLeader = leaderKeys.has(optionKey)
-            return (
-              <span
-                key={optionKey}
-                role="listitem"
-                className={[
-                  'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5',
-                  'bg-transparent text-text-body',
-                  isLeader ? 'border border-option/50' : 'border border-option/30',
-                  typography.chatMeta,
-                ].join(' ')}
-                data-leader={isLeader ? 'true' : 'false'}
-              >
-                <span className="font-medium">{optionKey}</span>
-                {/* Design bundle 1 (re-audit #8): the separator and the figure are one
-                    unbreakable unit, so a long option name never strands "·" or splits "23 / %". */}
-                <span className="whitespace-nowrap"><span className="text-text-light">·</span> {formatProbability(prob)}</span>
-              </span>
-            )
-          })}
-        </div>
-      )}
 
       {/*
         ROADMAP 2.154 — the five orphaned prose fields. Rendered in the
@@ -762,6 +716,55 @@ function V5AnalysisResultBlockImpl({
           )}
         </div>
       )}
+
+      {/* Per-option goal stories lead; run shares stay secondary in chatMeta. */}
+      {/* ⚠⚠ A CONTEST-FRAME SURVIVOR THAT REACHES ONLY ASSISTIVE-TECHNOLOGY
+          USERS. This is an accessible NAME on a `role="list"` container with no
+          matching text node, so it is invisible to a body-text sweep and to a
+          visual review alike — which is why #1281's replacement set, which
+          targeted the visible strings ("Ahead", "Leading option", "Leads via",
+          "leads at N%"), never reached it.
+
+          The ruling was applied to what the product SHOWS and left in what it
+          SAYS. `byOptionAria` is the register's own answer for exactly this
+          shape, taken by reference so it cannot drift back. */}
+      {showWinShares && (
+        <div
+          className="flex flex-wrap gap-2"
+          role="list"
+          aria-label={COMPARATIVE_COPY.byOptionAria}
+          data-testid="v5-analysis-result-probabilities"
+        >
+          {/*
+            `optionKey` is the win_probabilities KEY — an option LABEL on real
+            staging payloads, an option_id on some paths. It is the human string
+            we render, so it is NOT renamed to optionId: the previous name is
+            what disguised the identity-space mismatch fixed here.
+          */}
+          {sortedProbs.map(([optionKey, prob]) => {
+            const isLeader = leaderKeys.has(optionKey)
+            return (
+              <span
+                key={optionKey}
+                role="listitem"
+                className={[
+                  'inline-flex flex-wrap items-center gap-1 rounded-full px-2.5 py-0.5',
+                  'bg-transparent text-text-body',
+                  isLeader ? 'border border-option/50' : 'border border-option/30',
+                  typography.chatMeta,
+                ].join(' ')}
+                data-leader={isLeader ? 'true' : 'false'}
+              >
+                <span className="font-medium">{optionKey}</span>
+                {/* Design bundle 1 (re-audit #8): the separator and the share caption are one
+                    unit. This is supporting detail, never the chance of meeting the goal. */}
+                <span className="whitespace-nowrap"><span className="text-text-light">·</span> {COMPARATIVE_COPY.runShare(formatProbability(prob))}</span>
+              </span>
+            )
+          })}
+        </div>
+      )}
+
 
       {summaryBehindDisclosure && summaryFold}
 

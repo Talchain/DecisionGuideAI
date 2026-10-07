@@ -31,14 +31,14 @@ describe('buildHeroModel — goal-fit detail line identity', () => {
     // pass by the line being absent rather than being re-voiced. The plain arm
     // says "Reaches the target in N% of model runs" (AIQ #72 5885033487).
     const m = chart(buildHeroModel(makeHeroData()))
-    expect(m.rows[0].detail.goalFit).toContain('Reaches the target')
+    expect(m.rows[0].detail.goalFit).toContain('chance of meeting your goal')
   })
 
   it('drops the possessive framing when the number is a substituted joint figure', () => {
     const a = makeOption({ ...OPTION_A, goalFitIsSubstitutedJoint: true })
     const b = makeOption({ ...OPTION_B, goalFitIsSubstitutedJoint: true })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    expect(m.rows[0].detail.goalFit).not.toContain('Reaches the target')
+    expect(m.rows[0].detail.goalFit).not.toContain('chance of meeting your goal')
     expect(m.rows[0].detail.goalFit).toBe(
       HERO_COPY.detail.goalFitJointBasis(m.rows[0].goal.readout),
     )
@@ -58,7 +58,7 @@ describe('buildHeroModel — goal-fit detail line identity', () => {
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     const rowA = m.rows.find((r) => r.id === OPTION_A.id)
     const rowB = m.rows.find((r) => r.id === OPTION_B.id)
-    expect(rowA?.detail.goalFit).not.toContain('Reaches the target')
-    expect(rowB?.detail.goalFit).toContain('Reaches the target')
+    expect(rowA?.detail.goalFit).not.toContain('chance of meeting your goal')
+    expect(rowB?.detail.goalFit).toContain('chance of meeting your goal')
   })
 })
