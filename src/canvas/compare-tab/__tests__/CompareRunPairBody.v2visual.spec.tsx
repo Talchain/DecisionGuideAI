@@ -79,7 +79,7 @@ describe('the glance: a two-marker figure per option, plain words, no figures by
     mount(runChangeDelta())
     expect(within(optionRow('opt_60')).getByTestId(`${COMPARE_SUPPORT_TESTID}-figure`)).toHaveAttribute('data-connector', 'solid')
     expect(within(optionRow('opt_49')).getByTestId(`${COMPARE_SUPPORT_TESTID}-figure`)).toHaveAttribute('data-connector', 'dashed')
-    expect(optionRow('opt_49')).toHaveTextContent('Scored lower than last time. Too small to tell apart from ordinary run-to-run movement.')
+    expect(optionRow('opt_49')).toHaveTextContent('Scored lower than last time. Too small to tell apart from ordinary run-to-run variation.')
   })
 
   it('⛔ draws NO figure when the size is not qualified — the picture may not show what the words withhold (control: a qualified row in the same render keeps its figure)', () => {
