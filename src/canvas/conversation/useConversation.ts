@@ -130,7 +130,7 @@ import {
   settledSourceBlockKeys as settledSourceBlockKeysOf,
 } from './utils/transcriptStore'
 import { useServerConversationTurnsStore } from '../stores/serverConversationTurnsStore'
-import { buildRestoredThread, reconcileRestoredHeldControls, reconcileRestoredSuggestedActions, reconcileUnconfirmedServerTurns } from './serverConversationTurns'
+import { buildRestoredThread, reconcileRestoredHeldControls, reconcileRestoredProposalFields, reconcileRestoredSuggestedActions, reconcileUnconfirmedServerTurns } from './serverConversationTurns'
 import { heldProposalMountKey, heldProposalRetirementKeys } from './selectors'
 import { appendThreadEntries } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
@@ -2969,7 +2969,8 @@ export function useConversation(): UseConversationReturn {
       const reconciled = reconcileUnconfirmedServerTurns(
         messagesRef.current, scenarioId, serverTurnsOffer.turns, serverTurnsOffer.run,
       )
-      const next = reconcileRestoredSuggestedActions(reconcileRestoredHeldControls(reconciled, serverTurnsOffer.heldProposalOffers), serverTurnsOffer.turns)
+      const next = reconcileRestoredProposalFields(reconcileRestoredSuggestedActions(
+        reconcileRestoredHeldControls(reconciled, serverTurnsOffer.heldProposalOffers), serverTurnsOffer.turns), serverTurnsOffer.proposalFields)
       if (messagesRef.current.some(m => m.id === lastVisibleUserBubbleIdRef.current && m.deliveryState === 'unconfirmed')
         && next.some(m => m.id === lastVisibleUserBubbleIdRef.current && m.deliveryState === 'sent')) {
         setLastSendFailure(null)
@@ -2983,7 +2984,7 @@ export function useConversation(): UseConversationReturn {
     } catch {
       return
     }
-    const next = buildRestoredThread(serverTurnsOffer.turns, serverTurnsOffer.run, serverTurnsOffer.heldProposalOffers)
+    const next = buildRestoredThread(serverTurnsOffer.turns, serverTurnsOffer.run, serverTurnsOffer.heldProposalOffers, serverTurnsOffer.proposalFields)
     if (next.length === 0) return
     messagesOwnerRef.current = scenarioId
     messagesRef.current = next

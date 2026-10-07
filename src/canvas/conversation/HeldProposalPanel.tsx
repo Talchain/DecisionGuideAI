@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { z } from 'zod'
 import { typography } from '../../styles/typography'
 import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../v5/blocks/chipClass'
@@ -8,57 +7,10 @@ import { getSessionIdentity } from '../../lib/supabase'
 import { useCanvasStore } from '../store'
 import { CANVAS_STRENGTH_BANDS, getCanvasStrengthBand } from '../domain/vocabulary'
 import { StrengthBandButtons } from '../ui/inspector-v2/shared/StrengthBandButtons'
+import { readProposalFields, type Band, type Proposal, type ProposalPanelAction } from './proposalFields'
 import type { ActionChip } from './types'
 
-// Slice 1 §15 projection only. The stored, type-specific operations never come back from this panel.
-const bandSchema = z.enum(['slight', 'moderate', 'strong', 'very_strong'])
-const actionSchema = z.object({ id: z.string().min(1), label: z.string().min(1), message: z.string().min(1), detail: z.string().optional() })
-const proposalSchema = z.object({
-  proposal_id: z.string().regex(/^(?:gmh_[0-9a-f]{12}|prop_[0-9a-f]{32})$/),
-  revision: z.string().min(1),
-  digest: z.string().regex(/^[0-9a-f]{32}$/),
-  approve_action: actionSchema,
-  decline_action: actionSchema.extend({ label: z.literal('Not now'), message: z.literal('Not now.') }),
-  fields: z.array(z.object({
-    field_id: z.string().min(1), kind: z.literal('link_strength'),
-    from_id: z.string().min(1), to_id: z.string().min(1), from_label: z.string().min(1), to_label: z.string().min(1),
-    direction: z.enum(['positive', 'negative']),
-    current: z.object({ band: bandSchema, source: z.enum(['placeholder', 'estimate', 'yours']) }),
-    allowed_bands: z.tuple([z.literal('slight'), z.literal('moderate'), z.literal('strong'), z.literal('very_strong')]),
-    editable: z.boolean(),
-  })),
-  missing: z.array(z.object({ node_id: z.string().min(1), label: z.string().min(1), kind: z.enum(['risk', 'factor']), what: z.literal('level_today') })),
-}).refine(p => p.approve_action.id === `agent-approve-proposal:${p.proposal_id}`
-  && p.decline_action.id === `agent-decline-proposal:${p.proposal_id}`
-  && new Set(p.fields.map(f => f.field_id)).size === p.fields.length)
-const wireSchema = z.object({ version: z.literal(1), graph_hash: z.string().regex(/^[0-9a-f]{64}$/), proposals: z.array(z.unknown()) })
-type Proposal = z.infer<typeof proposalSchema>
-type Band = z.infer<typeof bandSchema>
-export interface ProposalEdits {
-  proposal_id: string
-  revision: string
-  digest: string
-  graph_hash: string
-  fields: Array<{ field_id: string; band: Band }>
-}
-export type ProposalPanelAction = ActionChip & { proposalEdits?: ProposalEdits }
-
-export function readTurnProposalFields(response: unknown): unknown {
-  if (!response || typeof response !== 'object') return undefined
-  const additive = (response as { __additive__?: { _proposal_fields?: unknown } }).__additive__
-  return additive?._proposal_fields
-}
-
-export function readProposalFields(raw: unknown) {
-  const parsed = wireSchema.safeParse(raw)
-  if (!parsed.success) return null
-  const proposals = parsed.data.proposals.flatMap(entry => {
-    const p = proposalSchema.safeParse(entry)
-    return p.success ? [p.data] : []
-  })
-  // An ambiguous identity must never authorise either reading.
-  return { graph_hash: parsed.data.graph_hash, proposals: proposals.filter(p => proposals.filter(other => other.proposal_id === p.proposal_id).length === 1) }
-}
+export { readProposalFields, readTurnProposalFields, type ProposalEdits, type ProposalPanelAction } from './proposalFields'
 
 /** Cold restore and §15 replay gap use the existing graph read, with its explicit conversation opt-in. */
 export function useHeldProposalFields(raw: unknown, replyId: string | undefined, chips: readonly ActionChip[]) {
