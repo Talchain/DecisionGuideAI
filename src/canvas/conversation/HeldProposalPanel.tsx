@@ -44,7 +44,8 @@ function preset(band: Band) {
 }
 
 function enteredFactorValue(field: Extract<Proposal['fields'][number], { kind: 'factor_value' }>, input: string | undefined) {
-  if (input === undefined || input.trim() === '') return null
+  // Plain decimal figures only: Number() would also read '0x10' as 16.
+  if (input === undefined || !/^[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$/.test(input.trim())) return null
   const value = Number(input)
   return factorValueAllowed(field, value) ? value : null
 }
@@ -77,16 +78,18 @@ export function HeldProposalPanel({ proposal, graphHash, disabled, onAction }: {
           const input = figures[field.field_id]
           const value = enteredFactorValue(field, input)
           const invalid = input !== undefined && input.trim() !== '' && value === null
-          const hint = input === undefined || input.trim() === '' || !Number.isFinite(Number(input))
-            ? 'Type a number.' : 'That figure is outside what this factor allows.'
+          const hint = /^[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$/.test((input ?? '').trim()) && Number.isFinite(Number(input))
+            ? 'That figure is outside what this factor allows.' : 'Type a number.'
           const inputId = `proposal-field-input-${proposal.proposal_id}-${field.field_id}`
-          const figure = formatMoneyFigure(field.current.value, field.unit)
-            ?? (field.unit === '%' ? `${field.current.value}%` : `${field.current.value} ${field.unit}`.trim())
+          const say = (n: number) => formatMoneyFigure(n, field.unit) ?? (field.unit === '%' ? `${n}%` : `${n} ${field.unit}`.trim())
+          const figure = say(field.current.value)
+          const yours = value !== null && value !== field.current.value ? value : null
           return (
             <div key={field.field_id} data-testid={`proposal-field-${proposal.proposal_id}-${field.field_id}`}>
               <label htmlFor={field.editable && input !== undefined ? inputId : undefined} className={typography.chatBody}>{field.label}</label>
               <p className={typography.chatBody}>{figure}</p>
-              <p className={`${typography.chatMeta} text-text-light`}>{value !== null && value !== field.current.value ? sourceWords.yours : sourceWords[field.current.source]}</p>
+              <p className={`${typography.chatMeta} text-text-light`}>{sourceWords[field.current.source]}</p>
+              {yours !== null && <p className={typography.chatBody}>{`${sourceWords.yours}: ${say(yours)}`}</p>}
               {field.editable && <fieldset disabled={disabled}>
                 <button type="button" className={CHIP_CLASS} onClick={() => setFigures(s => ({ ...s, [field.field_id]: '' }))}>Enter my own</button>
                 {input !== undefined && <input id={inputId} type="text" inputMode="decimal" className={typography.chatBody}

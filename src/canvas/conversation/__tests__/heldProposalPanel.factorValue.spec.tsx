@@ -127,7 +127,10 @@ describe('S-D slice 2 held factor values (captured CEE route wire)', () => {
     const proposal = rawProposal(turn, A1_PID)
     const request = capture<{ chip: { id: string }; message: string; proposal_edits: unknown }>('sd-s2-a1-submit-request.json')
     const { send } = mount(turn); open(turn); editHours('12')
-    expect(within(row(A1_PID, HOURS, 'Hours')).getByText('Yours', { exact: true })).toBeTruthy()
+    // Buddy r1 P2: Olumi's own figure keeps its own label; the user's figure is a separate line.
+    expect(within(row(A1_PID, HOURS, 'Hours')).getByText('Yours: 12 hours', { exact: true })).toBeTruthy()
+    expect(within(row(A1_PID, HOURS, 'Hours')).getByText('10 hours', { exact: true })).toBeTruthy()
+    expect(within(row(A1_PID, HOURS, 'Hours')).getByText("Olumi's estimate", { exact: true })).toBeTruthy()
     expect(within(row(A1_PID, COST, 'Cost')).getByText("Olumi's estimate", { exact: true })).toBeTruthy()
     fireEvent.click(submit())
     expect(send).toHaveBeenCalledTimes(1)
@@ -241,7 +244,7 @@ describe('S-D slice 2 held factor values (captured CEE route wire)', () => {
     fireEvent.click(submit()); expect(send).not.toHaveBeenCalled()
   })
 
-  it.each(['not a number', 'NaN', 'Infinity'])('a revealed Hours input with %j disables Submit and asks for a number', value => {
+  it.each(['not a number', 'NaN', 'Infinity', '0x10', '12,5'])('a revealed Hours input with %j disables Submit and asks for a number', value => {
     const turn = a1(); const { send } = mount(turn); open(turn); editHours(value)
     expect(submit().disabled).toBe(true)
     expect(within(row(A1_PID, HOURS, 'Hours')).getByText('Type a number.', { exact: true })).toBeTruthy()
