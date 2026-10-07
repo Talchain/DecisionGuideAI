@@ -37,7 +37,7 @@ type Cfg = {
   release?: string
   ignoreErrors?: Array<string | RegExp>
   initialScope?: { tags?: Record<string, string> }
-  integrations?: Array<{ name: string; opts?: { disableErrorDefaults?: boolean } }>
+  integrations?: (defaults: Array<{ name: string }>) => Array<{ name: string; opts?: { disableErrorDefaults?: boolean } }>
   beforeSend?: (e: Record<string, unknown>) => Record<string, unknown> | null
   beforeBreadcrumb?: (b: Record<string, unknown>, hint?: unknown) => Record<string, unknown> | null
 }
@@ -180,15 +180,59 @@ describe('UI Sentry contract (S-H)', () => {
       expect(cfg.beforeSend!(event)).not.toBeNull()
     })
 
+    it('an extension cause does not drop a real outer error with no frames', () => {
+      const cfg = initConfig()
+      const event = {
+        exception: {
+          values: [
+            { type: 'Error', value: 'Extension internal failure', stacktrace: { frames: [{ filename: 'chrome-extension://abcdef/background.js' }] } },
+            { type: 'TypeError', value: 'Saving scenario failed' },
+          ],
+        },
+      }
+      expect(cfg.beforeSend!(event)).not.toBeNull()
+    })
+
+    it('control: an error wholly inside an extension is still dropped', () => {
+      const cfg = initConfig()
+      const event = {
+        exception: {
+          values: [{ type: 'Error', value: 'x', stacktrace: { frames: [{ filename: 'chrome-extension://abcdef/background.js' }] } }],
+        },
+      }
+      expect(cfg.beforeSend!(event)).toBeNull()
+    })
+
+    it('canvas context: a label that is not a component identity is redacted; identities and counts kept', () => {
+      const cfg = initConfig()
+      const out = cfg.beforeSend!({
+        contexts: {
+          canvas: { label: SENTINEL, component: 'Canvas', nodeCount: 7, freeText: SENTINEL },
+          business: { title: SENTINEL },
+        },
+      })
+      const json = JSON.stringify(out)
+      expect(json).not.toContain(SENTINEL)
+      expect(json).toContain('"nodeCount":7')
+      expect(json).not.toContain('business')
+      const ok = JSON.stringify(cfg.beforeSend!({ contexts: { canvas: { label: 'PanelErrorBoundary:inspector' } } }))
+      expect(ok).toContain('PanelErrorBoundary:inspector')
+    })
+
     it('a message that merely CONTAINS the noise text is kept', () => {
       expect(discards(initConfig(), 'Wrapped: ResizeObserver loop completed with undelivered notifications. in Canvas')).toBe(false)
     })
 
     it("switches off the SDK's default message filters so nothing else is dropped unseen", () => {
       const cfg = initConfig()
-      // must carry the DEFAULT's name, or it runs alongside the default
-      const filters = (cfg.integrations ?? []).find((i) => i.name === 'InboundFilters')
-      expect(filters?.opts?.disableErrorDefaults).toBe(true)
+      const out = cfg.integrations!([{ name: 'InboundFilters' }, { name: 'Dedupe' }, { name: 'Breadcrumbs' }])
+      // must carry the DEFAULT's name and replace it (exactly one), defaults off
+      const filters = out.filter((i) => i.name === 'InboundFilters')
+      expect(filters).toHaveLength(1)
+      expect(filters[0].opts?.disableErrorDefaults).toBe(true)
+      // Dedupe removed (it runs before beforeSend); other defaults kept
+      expect(out.some((i) => i.name === 'Dedupe')).toBe(false)
+      expect(out.some((i) => i.name === 'Breadcrumbs')).toBe(true)
     })
 
     it('a click breadcrumb carries no label text (aria-label / title / id)', () => {
@@ -281,12 +325,18 @@ describe('real SDK: known noise reaches beforeSend (so its drop is counted as be
     const real = await vi.importActual<typeof import('@sentry/react')>('@sentry/react')
     const reached: string[] = []
     const sent: unknown[] = []
-    // Rebuild the integrations with the REAL SDK factories, same options.
-    const integrations = cfg.integrations.map((i) =>
-      i.name === 'InboundFilters'
-        ? real.inboundFiltersIntegration(i.opts as Parameters<typeof real.inboundFiltersIntegration>[0])
-        : real.eventFiltersIntegration(i.opts as Parameters<typeof real.eventFiltersIntegration>[0]),
-    )
+    // The produced integrations function over the REAL defaults; any mocked
+    // factory output is swapped for the REAL factory with the same options.
+    type RealIntegration = ReturnType<typeof real.dedupeIntegration>
+    const produce = cfg.integrations as unknown as (d: RealIntegration[]) => Array<RealIntegration & { opts?: unknown }>
+    const integrations = (defaults: RealIntegration[]): RealIntegration[] =>
+      produce(defaults).map((i) =>
+        'opts' in i && i.name === 'InboundFilters'
+          ? real.inboundFiltersIntegration(i.opts as Parameters<typeof real.inboundFiltersIntegration>[0])
+          : 'opts' in i && i.name === 'EventFilters'
+            ? real.eventFiltersIntegration(i.opts as Parameters<typeof real.eventFiltersIntegration>[0])
+            : i,
+      )
     real.init({
       dsn: DSN,
       integrations,
@@ -299,12 +349,22 @@ describe('real SDK: known noise reaches beforeSend (so its drop is counted as be
     })
     real.captureException(new Error('ResizeObserver loop completed with undelivered notifications.'))
     real.captureException(new TypeError('NetworkError when attempting to fetch resource.'))
+    // Dedupe reproducer: noise, then a real error whose CAUSE is that noise
+    const cause = new Error('ResizeObserver loop completed with undelivered notifications.')
+    cause.stack = undefined
+    real.captureException(cause)
+    const outer: Error & { cause?: unknown } = new Error('Saving scenario failed')
+    outer.cause = cause
+    real.captureException(outer)
     await real.flush(2000)
     await real.close()
     expect(reached).toContain('ResizeObserver loop completed with undelivered notifications.')
     expect(reached).toContain('NetworkError when attempting to fetch resource.')
+    // 4 captures: noise, Firefox fetch error, noise (as a lone cause), and a
+    // real error whose cause is that noise. Exactly the two real ones are sent.
+    expect(sent).toHaveLength(2)
     expect(JSON.stringify(sent)).toContain('NetworkError when attempting to fetch resource.')
-    expect(JSON.stringify(sent)).not.toContain('ResizeObserver loop')
+    expect(JSON.stringify(sent)).toContain('Saving scenario failed')
     vi.unstubAllEnvs()
   })
 })

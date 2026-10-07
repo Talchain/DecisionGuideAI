@@ -128,8 +128,43 @@ export function isKnownNoise(event: NoiseCandidate): boolean {
   // Noise only when EVERY message is noise: a chain whose cause is a
   // ResizeObserver loop but whose outer error is real must be kept.
   if (messages.length > 0 && messages.every((m) => KNOWN_NOISE_MESSAGES.some((re) => re.test(m)))) return true
-  const frames = values.flatMap((v) => v.stacktrace?.frames ?? [])
-  return frames.length > 0 && frames.every((f) => typeof f.filename === 'string' && EXTENSION_FRAME.test(f.filename))
+  // Extension origin must be PROVEN for every exception in the chain: each
+  // value needs frames, all from an extension. A value with no frames (or an
+  // app frame) keeps the whole event.
+  return (
+    values.length > 0 &&
+    values.every((v) => {
+      const frames = v.stacktrace?.frames ?? []
+      return frames.length > 0 && frames.every((f) => typeof f.filename === 'string' && EXTENSION_FRAME.test(f.filename))
+    })
+  )
+}
+
+/**
+ * Context fields captureError may send (`canvas` context). `label` is a
+ * component IDENTITY ('PanelErrorBoundary:inspector', 'canvas.layout.failed')
+ * and is sent only in that namespaced, space-free shape; anything else is
+ * treated as possible user text and replaced.
+ */
+const CANVAS_CONTEXT_FIELDS: ReadonlySet<string> = new Set([
+  'component', 'label', 'componentStack', 'errorInfo', 'nodeCount', 'scenarioId',
+  'migration', 'validation', 'isRecurring', 'errorCount',
+])
+const IDENTITY_LABEL = /^[A-Za-z][\w-]{0,60}(?:[.:][\w-]{1,60}){1,4}$/
+
+/** Contexts the SDK (or @sentry/react) fills, plus DGAI's own `canvas`. */
+const ALLOWED_CONTEXTS: ReadonlySet<string> = new Set([
+  'trace', 'react', 'canvas', 'culture', 'os', 'browser', 'device', 'runtime', 'app', 'cloud_resource',
+])
+
+export function sanitizeCanvasContext(ctx: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(ctx)) {
+    if (!CANVAS_CONTEXT_FIELDS.has(k)) continue
+    if (k === 'label') out.label = typeof v === 'string' && IDENTITY_LABEL.test(v) ? v : '[redacted]'
+    else out[k] = typeof v === 'string' ? sanitizeForMonitoring(v) : v
+  }
+  return out
 }
 
 type CrumbLike = {
@@ -216,19 +251,27 @@ export function initSentry(): void {
       // Known noise is dropped in beforeSend by exact message (see
       // KNOWN_NOISE_MESSAGES); the SDK's own default message filters are
       // switched off so nothing else is discarded unseen.
-      // Same NAME as the SDK default ('InboundFilters'), so it REPLACES it.
-      // (eventFiltersIntegration is named 'EventFilters' and would run
-      // alongside the default, which still drops noise as event_processor.)
-      integrations: [Sentry.inboundFiltersIntegration({ disableErrorDefaults: true })],
+      // - InboundFilters: same NAME as the SDK default, so it REPLACES it
+      //   (eventFiltersIntegration is named 'EventFilters' and would run
+      //   alongside the default, which still drops noise as event_processor).
+      // - Dedupe removed: it runs BEFORE beforeSend, so a real error whose
+      //   cause matches a just-dropped noise event was swallowed unseen. A
+      //   repeated real error now arrives twice and Sentry groups it.
+      integrations: (defaults) => [
+        ...defaults.filter((i) => i.name !== 'Dedupe' && i.name !== 'InboundFilters'),
+        Sentry.inboundFiltersIntegration({ disableErrorDefaults: true }),
+      ],
       beforeBreadcrumb(breadcrumb, hint) {
         return scrubBreadcrumb(breadcrumb, hint as DomHint)
       },
       beforeSend(event) {
         if (isKnownNoise(event)) return null
-        if (event.contexts?.canvas) {
-          const canvas = event.contexts.canvas as Record<string, unknown>
-          if (typeof canvas.label === 'string') {
-            canvas.label = sanitizeForMonitoring(canvas.label)
+        if (event.contexts) {
+          for (const key of Object.keys(event.contexts)) {
+            if (!ALLOWED_CONTEXTS.has(key)) delete event.contexts[key]
+          }
+          if (event.contexts.canvas) {
+            event.contexts.canvas = sanitizeCanvasContext(event.contexts.canvas as Record<string, unknown>)
           }
         }
         if (event.breadcrumbs) {
@@ -257,11 +300,7 @@ export function captureError(error: Error, context?: SentryContext): void {
 
   Sentry.withScope(scope => {
     if (context) {
-      const sanitized = { ...context }
-      if (typeof sanitized.label === 'string') {
-        sanitized.label = sanitizeForMonitoring(sanitized.label)
-      }
-      scope.setContext('canvas', sanitized)
+      scope.setContext('canvas', sanitizeCanvasContext({ ...context }))
     }
     Sentry.captureException(error)
   })
