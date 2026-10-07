@@ -78,11 +78,15 @@ describe('pre-mortem section', () => {
     const button = view.getByRole('button', { name: 'Add this as a risk' }) as HTMLButtonElement
     assert.equal(button.disabled, true); fireEvent.click(button)
   })
-  it('empty state dispatches the existing generic press once', () => {
-    seed(); useCanvasStore.setState({ runMeta: {} }); const calls: unknown[][] = []
-    useGuidanceStore.setState({ _sendChip: (...args) => { calls.push(args) } })
-    const view = render(<PreMortemWorksheet />); open(view); fireEvent.click(view.getByRole('button', { name: 'Generate worksheet' }))
-    assert.equal(calls.length, 1); assert.deepEqual(calls[0][2], { id: 'agent-next-pre-mortem' })
+  // CODEX-BRIEF-R2 supersedes the original empty-state generation contract.
+  for (const carrier of ['missing', 'unavailable', 'other-scenario']) it(`renders nothing with a ${carrier} worksheet carrier`, () => {
+    seed()
+    if (carrier === 'missing') useCanvasStore.setState({ runMeta: {} })
+    if (carrier === 'unavailable') useCanvasStore.setState({ runMeta: { premortemWorksheet: { status: 'unavailable' } } })
+    if (carrier === 'other-scenario') useCanvasStore.setState({ currentScenarioId: 'other-scenario' })
+    const view = render(<PreMortemWorksheet />)
+    assert.equal(view.container.childElementCount, 0)
+    assert.equal(view.queryByTestId('premortem-worksheet'), null)
   })
   it('one risk click dispatches the authored request and row selection once without graph mutation', () => {
     const w = seed(); const state = useCanvasStore.getState(); const graph = JSON.stringify([state.nodes, state.edges]); const calls: unknown[] = []
@@ -97,8 +101,12 @@ describe('pre-mortem section', () => {
     assert.deepEqual(wire, [{ id: 'factor', kind: 'factor', label: 'Capacity' }, { id: 'goal', kind: 'goal', label: 'Growth' }])
     assert.equal(JSON.stringify([useCanvasStore.getState().nodes, useCanvasStore.getState().edges]), graph)
   })
-  it('every section button declares a touch target of at least 24px', () => {
+  it('every section button inherits a touch target of at least 24px in both dimensions', () => {
     seed(); const view = render(<PreMortemWorksheet />); open(view)
-    for (const button of view.container.querySelectorAll('button')) assert.match(button.className, /min-h-\[(?:24|28|32)px\]/)
+    for (const button of view.container.querySelectorAll('button')) {
+      assert.match(button.className, /min-h-\[(?:24|28|32)px\]/)
+      // SectionShell owns its full-width disclosure header; row acts use a tier.
+      assert.match(button.className, /min-w-\[(?:24|28|32)px\]|\bw-full\b/)
+    }
   })
 })

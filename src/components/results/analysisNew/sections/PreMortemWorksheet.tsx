@@ -9,6 +9,7 @@ import { bindAskTarget } from '../../../../canvas/ui/inspector-v2/askTargetBindi
 import { PREMORTEM_COPY, samePremortemRun } from '../../../../v5/readPremortemWorksheet'
 import type { PremortemWorksheetV1 } from '../../../../v5/readPremortemWorksheet'
 import { typography } from '../../../../styles/typography'
+import { action } from '../panelSurfaces'
 import { SectionShell } from './SectionShell'
 
 type Row = PremortemWorksheetV1['rows'][number]
@@ -16,7 +17,7 @@ export interface PreMortemWorksheetProps {
   isBusy?: boolean
   isStale?: boolean
 }
-const buttonClass = `${typography.panelBody} min-h-[24px] min-w-[24px] px-2 rounded text-info hover:underline disabled:opacity-50 disabled:no-underline focus-visible:ring-2 focus-visible:ring-info`
+const buttonClass = `${typography.panelBody} ${action('inline')} disabled:opacity-50 disabled:no-underline`
 
 /** Read only worksheet projection. Risk buttons prepare a chip turn for the existing consent card. */
 export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMortemWorksheetProps) {
@@ -28,7 +29,6 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const dispatch = useGuidanceStore(s => s._dispatchAction)
-  const sendChip = useGuidanceStore(s => s._sendChip)
   const conversation = useOptionalConversationContext()
   const busy = isBusy || conversation?.isThinking === true
   const worksheet = read?.status === 'available' && read.worksheet.scenario_id === scenarioId ? read.worksheet : null
@@ -51,6 +51,8 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
   }
   const addRisk = (row: Row) => {
     if (stale || busy || !dispatch) return
+    // This typed message is outbound request text, never a worksheet readout.
+    const { message } = row.risk_request
     const ids = [...new Set([row.risk_request.affected_node_id, ...row.risk_request.grounding_ids])]
     const resolved = ids.map(target)
     if (resolved.some(element => element === null)) return
@@ -65,13 +67,15 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
       return node ? [{ id: node.id, kind: node.type ?? 'node', label: String(node.data.label ?? '') }] : []
     })
     // Reuse the existing send-time target binding; no change to the graph or the live selection.
-    bindAskTarget(row.risk_request.message, nodeIds, edgeIds)
-    const request = { id: 'agent-next-suggest-risks', label: 'Add this as a risk', message: row.risk_request.message, source: 'chip', selected_elements }
+    bindAskTarget(message, nodeIds, edgeIds)
+    const request = { id: 'agent-next-suggest-risks', label: 'Add this as a risk', message, source: 'chip', selected_elements }
     dispatch(request)
   }
+  // CODEX-BRIEF-R2: ordinary Runs carry no worksheet and gain no empty section.
+  if (!worksheet) return null
   const options = nodes.filter(node => node.type === 'option')
-  return <SectionShell title={PREMORTEM_COPY.title} icon={AlertTriangle} count={worksheet?.rows.length ?? null} testId="premortem-worksheet">
-    {worksheet ? <div className={`space-y-3 ${stale ? 'opacity-60' : ''}`}>
+  return <SectionShell title={PREMORTEM_COPY.title} icon={AlertTriangle} count={worksheet.rows.length} testId="premortem-worksheet">
+    <div className={`space-y-3 ${stale ? 'opacity-60' : ''}`}>
       {stale ? <p role="status" className={`${typography.panelBody} text-text-body`}>This Run is stale. Run the analysis again to use this worksheet.</p> : null}
       {options.map(option => {
         const rows = worksheet.rows.filter(row => row.option_id === option.id)
@@ -95,13 +99,6 @@ export function PreMortemWorksheet({ isBusy = false, isStale = false }: PreMorte
         <p>Run: <time dateTime={worksheet.run.computed_at}>{new Date(worksheet.run.computed_at).toLocaleString('en-GB')}</time></p>
         <p>{worksheet.blindspot_question}</p>
       </footer>
-    </div> : <div className="space-y-2">
-      {read?.status === 'unavailable' ? <p className={`${typography.panelBody} text-text-light`} role="status">Worksheet unavailable</p> : null}
-      <button type="button" className={buttonClass} disabled={busy || isStale || !sendChip} onClick={() => sendChip?.(
-        'Generate worksheet',
-        'Run a pre-mortem with me: imagine this decision went badly. What most plausibly went wrong?',
-        { id: 'agent-next-pre-mortem' },
-      )}>Generate worksheet</button>
-    </div>}
+    </div>
   </SectionShell>
 }
