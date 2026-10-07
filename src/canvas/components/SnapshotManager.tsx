@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { listSnapshots, loadSnapshot, deleteSnapshot, saveSnapshot } from '../persist'
-import { readIdentityEpoch } from '../store/scenarios'
+import { epochThisTabMayWriteUnder, readIdentityEpoch } from '../store/scenarios'
 import { isThinClientSession } from '../thinClient/thinClient'
 import { useCanvasStore } from '../store'
 import { useToast } from '../ToastContext'
@@ -73,6 +73,10 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
     const success = saveSnapshot({ nodes, edges })
     if (success) {
       refreshSnapshots()
+    } else if (epochThisTabMayWriteUnder() === null) {
+      // Not a quota problem: another tab changed who is signed in, so this tab's model may be the previous account's
+      // (CAN-F2g). Say so, and say what fixes it (Review Desk, #2516).
+      showToast('Another tab changed who is signed in. Reload this tab to keep saving.', 'error')
     } else {
       showToast('Failed to save snapshot. Storage quota may be exceeded.', 'error')
     }

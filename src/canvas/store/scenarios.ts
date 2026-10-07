@@ -713,7 +713,7 @@ let lastAutosavePayload: string | null = null
  * restored A's graph. An epoch, not the account id: a cold boot cannot know the id synchronously (the session restores
  * async), and fencing on it would block a signed-in user's own restore. Before the first boundary there is no epoch,
  * and every slot behaves exactly as before. An unreadable epoch fails closed: no slot is restored and nothing is
- * written that tick. A boundary in ANOTHER TAB is follow-up F2c ("a boundary in any tab is a boundary in every tab").
+ * written that tick. A boundary in ANOTHER TAB is fenced per tab: `epochThisTabMayWriteUnder` below (CAN-F2g).
  */
 export const IDENTITY_EPOCH_KEY = 'olumi-canvas-identity-epoch'
 /** The shared epoch: a string, `null` before the first boundary, `undefined` when storage refused the read. */
@@ -735,25 +735,103 @@ export function belongsToThisIdentity(stamp: unknown): boolean {
   return epoch === null || stamp === epoch
 }
 
-export function saveAutosave(data: AutosaveData): void {
-  if (!isLocalStorageAvailable()) {
+/**
+ * ⭐ THIS TAB's epoch (CAN-F2g, the F2c follow-up above: "a boundary in any tab is a boundary in every tab"). Captured
+ * when this module loads (the tab's boot) and moved only by THIS tab's own boundary (`crossIdentityBoundaryInThisTab`,
+ * called by `clearUserScopedState`: `crossIdentityBoundaryInThisTab`). Measured 5 Oct (J1 TC3-F2g / TC4-F2w, run
+ * 37314393647; also prod UI 42f3c1ba and pre-#2503 400a71f1): the writers stamped the SHARED epoch read at write time,
+ * so after tab 1's sign-out rotated it, a drag in tab 2, still showing account A, saved A's model stamped as B's, and
+ * B's routeless boot restored it. A tab whose epoch no longer matches the shared one is showing a previous identity's
+ * model: its writes are skipped, never stamped. A reload re-captures, and that tab then boots as the new identity.
+ */
+let tabIdentityEpoch: string | null | undefined = readIdentityEpoch()
+/**
+ * An epoch names the identity whose ERA it opens: `<random>|owner:<user id | none | ?>`, in the one value, so the tag
+ * can never tear from the epoch. Readers compare whole strings, so they are unaffected. `?` = the boundary did not say
+ * who comes next: such an era is never joined.
+ */
+const EPOCH_OWNER_TAG = '|owner:'
+function ownerTag(nextOwner: string | null | undefined): string {
+  return nextOwner === undefined ? '?' : nextOwner === null ? 'none' : nextOwner
+}
+function eraOwnerOf(epoch: string): string | undefined {
+  const at = epoch.lastIndexOf(EPOCH_OWNER_TAG)
+  if (at < 0) return undefined
+  const tag = epoch.slice(at + EPOCH_OWNER_TAG.length)
+  return tag === '?' ? undefined : tag
+}
+/**
+ * THIS tab crosses an identity boundary (`clearUserScopedState`), leading to `nextOwner` (a user id; `null` = signed
+ * out; `undefined` = not said). It JOINS the shared epoch only with evidence that this is the same transition arriving
+ * here second (gotrue relays SIGNED_OUT across tabs): another tab has rotated since this tab last held the epoch, AND
+ * that era belongs to the identity this boundary leads to. Minting again stranded the tab that crossed first, unable
+ * to save until a reload (Review Desk + Codex #2516 r1). Joining WITHOUT the owner match let a tab that missed A→B and
+ * then crossed A→C join B's era, so B's records that survived a refused removal were C's to restore (Codex #2516 r2).
+ * Otherwise rotate, then adopt whatever the shared key actually HOLDS, so a refused or silently dropped epoch write is
+ * never adopted (coldLoadDeepLink.spec, "an epoch write … at sign-out").
+ */
+export function crossIdentityBoundaryInThisTab(freshEpoch: string, nextOwner?: string | null): void {
+  const shared = readIdentityEpoch()
+  const next = nextOwner === undefined ? undefined : ownerTag(nextOwner)
+  if (typeof shared === 'string' && shared !== tabIdentityEpoch && next !== undefined && eraOwnerOf(shared) === next) {
+    tabIdentityEpoch = shared
     return
+  }
+  try {
+    localStorage.setItem(IDENTITY_EPOCH_KEY, `${freshEpoch}${EPOCH_OWNER_TAG}${ownerTag(nextOwner)}`)
+  } catch {
+    /* adopt whatever is held */
+  }
+  tabIdentityEpoch = readIdentityEpoch()
+}
+/**
+ * A sign-in that is NOT an identity boundary in this tab (the same account again, or this tab's first). That tab
+ * already swept its own previous identity, or never had one, so it holds no other account's model, and it takes
+ * whatever era the browser is now in. Without this, a tab whose epoch another tab rotated (a null-session boot sweep)
+ * stayed unable to save after signing back in, until a reload (Codex #2516 r2, real-auth).
+ */
+export function adoptIdentityEpochAtSignIn(): void {
+  tabIdentityEpoch = readIdentityEpoch()
+}
+/**
+ * Whether this tab may write identity-stamped state now, and under which epoch. `null` = skip: the shared epoch is
+ * unreadable (CAN-F2w), or ANOTHER tab set an epoch this tab does not hold (CAN-F2g: rotated, or the browser's first
+ * boundary). A shared `null` means no boundary has happened in this browser (the sweep never removes the key), so a
+ * write proceeds unstamped exactly as before CAN-F2w; only a wholesale storage wipe reaches that state after a
+ * boundary, and it takes the session with it.
+ */
+export function epochThisTabMayWriteUnder(): { epoch: string | null } | null {
+  const shared = readIdentityEpoch()
+  if (shared === undefined) return null
+  if (shared !== null && shared !== tabIdentityEpoch) return null
+  return { epoch: shared }
+}
+
+/** Returns whether the slot now holds this write (an identical payload already does). `false` = nothing was written. */
+export function saveAutosave(data: AutosaveData): boolean {
+  if (!isLocalStorageAvailable()) {
+    return false
   }
 
   // THIN CLIENT: a signed-in browser writes the LAYOUT only, never the model. Every writer that reaches the
-  // main slot (`useAutosave`, `crashFlush`, `applyDraftResult`) comes through here.
+  // main slot (`useAutosave`, `crashFlush`, `applyDraftResult`) comes through here. Reported as written, exactly as
+  // before CAN-F2g: the model's copy is CEE's, and this port changes no thin-page behaviour.
   if (isThinClientSession()) {
     saveThinLayout(data.scenarioId, data.nodes)
-    return
+    return true
   }
 
-  // CAN-F2w: every write is stamped with the current identity epoch.
-  const epoch = readIdentityEpoch()
-  if (epoch === undefined) {
-    // An unreadable epoch cannot say whose this write is: skip it (the next autosave retries), never stamp a guess.
-    console.warn('[scenarios] Autosave skipped: the identity epoch could not be read (CAN-F2w)')
-    return
+  // CAN-F2w: every write is stamped with the current identity epoch. CAN-F2g: and only by a tab that holds it.
+  // On staging the thin latch already covers a page that was ever signed in; this fences the GUEST page that never
+  // was (another tab signed in and out under it), which would otherwise save the previous person's model for the next.
+  const may = epochThisTabMayWriteUnder()
+  if (may === null) {
+    // Unreadable, or another tab changed the identity under this one: whose model this is cannot be vouched for, so
+    // skip it (never stamp a guess). A reload boots this tab as the new identity.
+    console.warn('[scenarios] Autosave skipped: the identity epoch is unreadable or was changed by another tab (CAN-F2w/F2g)')
+    return false
   }
+  const epoch = may.epoch
   const stamped: AutosaveData = epoch === null ? data : { ...data, identityEpoch: epoch }
   try {
     const payload = JSON.stringify(stamped)
@@ -763,7 +841,7 @@ export function saveAutosave(data: AutosaveData): void {
       if (import.meta.env.DEV) {
         console.log('[scenarios] Skipping identical autosave write')
       }
-      return
+      return true
     }
 
     localStorage.setItem(AUTOSAVE_KEY, payload)
@@ -772,6 +850,7 @@ export function saveAutosave(data: AutosaveData): void {
     if (import.meta.env.DEV) {
       console.log('[scenarios] Autosave written')
     }
+    return true
   } catch (error) {
     // DECLARED DEGRADATION, in this order deliberately.
     //
@@ -795,13 +874,14 @@ export function saveAutosave(data: AutosaveData): void {
             'The results panel will not restore this run on return.',
           error,
         )
-        return
+        return true
       } catch (retryError) {
         console.error('[scenarios] Failed to save autosave (graph-only retry):', retryError)
       }
     }
     console.error('[scenarios] Failed to save autosave:', error)
   }
+  return false
 }
 
 export function loadAutosave(): AutosaveData | null {
