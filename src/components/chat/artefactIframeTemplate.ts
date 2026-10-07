@@ -86,7 +86,7 @@ const TEMPLATE_PREFIX = `<!DOCTYPE html>
        adding a new token to the mirror. color-mix is a CSS function, not a
        fetched resource, so the default-src 'none' policy does not affect it.
        (No backticks in this comment: it lives inside a JS template literal.) */
-    input:focus, select:focus {
+    input:focus-visible, select:focus-visible {
       border-color: var(--primary);
       box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent);
     }
