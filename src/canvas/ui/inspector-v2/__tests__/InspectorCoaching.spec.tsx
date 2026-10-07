@@ -7,15 +7,15 @@
  * - v3.1 (DESIGN-GAP-v31 row 32): NO static fallback — with no grounded
  *   guidance item for the element, nothing renders (the generic lightbulb
  *   card is retired)
- * - "Ask about this" PREFILLS an editable draft and waits (never auto-sends)
- * - Button hidden when _prefillChat and _sendMessage are both null
+ * - Discuss sends one bound chip question and reveals the conversation
+ * - Questions require a chip dispatcher
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useGuidanceStore, type GuidanceItem } from '../../../stores/guidanceStore'
-import { resolveAskTemplate } from '../inspectorStrings'
+import { useCanvasStore } from '../../../store'
 
 function makeGuidanceItem(overrides: Partial<GuidanceItem> = {}): GuidanceItem {
   return {
@@ -39,20 +39,6 @@ const defaultProps = {
   labelContext: { label: 'Marketing Budget' },
 }
 
-/**
- * ⚠ DERIVED FROM THE REGISTER, NOT COPIED FROM IT (trap 12). This used to be the
- * literal 'How important is Marketing Budget to the outcome?' in two places — a
- * hand-maintained mirror of `ASK_TEMPLATES['factor-controllable']` that went
- * stale the moment that copy changed. What these two tests are actually about is
- * the CARRIER (prefill, never send), so the question text is resolved from the
- * same register the component reads. The COPY itself is pinned as a property in
- * `askTemplatesHandJudgementBack.spec.ts`.
- */
-const EXPECTED_QUESTION = resolveAskTemplate(
-  defaultProps.panelType,
-  defaultProps.labelContext,
-) as string
-
 beforeEach(() => {
   useGuidanceStore.setState({
     guidanceItems: [],
@@ -63,6 +49,7 @@ beforeEach(() => {
     _sendChip: null,
     _scrollToPatch: null,
     _prefillChat: null,
+    _dispatchAction: null, _isConversationBusy: () => false,
   })
 })
 
@@ -111,59 +98,28 @@ describe('InspectorCoaching', () => {
     expect(screen.queryByText(/Low priority/)).toBeNull()
   })
 
-  /**
-   * ⚠ THIS TEST'S EXPECTATION WAS INVERTED, DELIBERATELY (ledger L-18).
-   *
-   * It previously read: '"Ask about this" SENDS the question via _sendMessage
-   * (not _prefillChat)' — and it was a correct pin on the behaviour that
-   * shipped. That behaviour is the defect. This component auto-sent while the
-   * inspector's OTHER ask affordance (DiscussWithAiButton) prefilled and
-   * waited: same intent, opposite semantics, one panel (a trap-21 pair). The
-   * auto-send half is the one that lies, because the question lands in a
-   * surface the user may not be looking at.
-   *
-   * The ruling is prefill-and-confirm everywhere (`askSemantic.ts`). This is
-   * not a fixture being tidied to match new code — it is a semantic that was
-   * ruled against, and the old expectation is recorded above rather than
-   * deleted so the reversal is legible.
-   */
-  // v3.1: the card renders only for a GROUNDED item. An item whose action is
-  // not `discuss`/`run_exercise` takes the default arm — the element's own
-  // question, under the caller's ask label — which is what these pins cover.
-  const ASK_ARM_ITEM = makeGuidanceItem({ primary_action: { type: 'navigate', target: 'x' } })
-
-  it('"Ask about this" PREFILLS the question and does NOT auto-send', () => {
-    const prefill = vi.fn()
-    const send = vi.fn()
-    useGuidanceStore.setState({ guidanceItems: [ASK_ARM_ITEM], _prefillChat: prefill, _sendMessage: send })
+  it('Discuss sends a chip about the bound target without a prefill', () => {
+    const dispatch = vi.fn(); const prefill = vi.fn()
+    useCanvasStore.setState({ nodes: [{ id: 'node-1', type: 'factor', data: { label: 'Marketing Budget' }, position: { x: 0, y: 0 } }], edges: [] } as never)
+    useGuidanceStore.setState({ guidanceItems: [makeGuidanceItem()], _dispatchAction: dispatch, _prefillChat: prefill })
     render(<InspectorCoaching {...defaultProps} />)
-
-    const button = screen.getByText('Ask about this')
-    fireEvent.click(button)
-
-    expect(send).not.toHaveBeenCalled()
-    expect(prefill).toHaveBeenCalledTimes(1)
-    expect(prefill).toHaveBeenCalledWith(EXPECTED_QUESTION)
+    fireEvent.click(screen.getByText('Discuss'))
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch.mock.calls[0][0]).toMatchObject({ id: 'ask:evidence', source: 'chip' })
+    expect(dispatch.mock.calls[0][0].message).toContain('Marketing Budget')
+    expect(prefill).not.toHaveBeenCalled()
   })
-
-  it('still lands the draft when only _prefillChat is registered', () => {
-    const prefill = vi.fn()
-    useGuidanceStore.setState({ guidanceItems: [ASK_ARM_ITEM], _prefillChat: prefill, _sendMessage: null })
+  it('the default button performs the card’s own navigate action', () => {
+    useGuidanceStore.setState({ guidanceItems: [makeGuidanceItem({ primary_action: { type: 'navigate', target: '#model' } })], _dispatchAction: vi.fn() })
     render(<InspectorCoaching {...defaultProps} />)
-
-    const button = screen.getByText('Ask about this')
-    fireEvent.click(button)
-
-    expect(prefill).toHaveBeenCalledTimes(1)
-    expect(prefill).toHaveBeenCalledWith(EXPECTED_QUESTION)
+    fireEvent.click(screen.getByText('Ask about this'))
+    expect(window.location.hash).toBe('#model')
+    expect(useGuidanceStore.getState()._dispatchAction).not.toHaveBeenCalled()
   })
-
-  it('hides action button when both _prefillChat and _sendMessage are null', () => {
-    useGuidanceStore.setState({ guidanceItems: [ASK_ARM_ITEM], _prefillChat: null, _sendMessage: null })
+  it('without a dispatcher the grounded card remains readable but the Ask action is hidden', () => {
+    useGuidanceStore.setState({ guidanceItems: [makeGuidanceItem()], _dispatchAction: null })
     render(<InspectorCoaching {...defaultProps} />)
-
-    expect(screen.queryByText('Ask about this')).toBeNull()
-    // But the grounded guidance text itself should still render
+    expect(screen.queryByText('Discuss')).toBeNull()
     expect(screen.getByText(/Orchestrator guidance title/)).toBeTruthy()
   })
 

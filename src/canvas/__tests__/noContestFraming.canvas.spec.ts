@@ -110,6 +110,7 @@ const SCOPE_DIRS = [
 ]
 const SCOPE_FILES = [
   'src/components/results/analysisNew/sections/PreMortemWorksheet.tsx',
+  'src/components/results/analysis-hero/goalOptionCoverage.tsx',
   // ⭐ ADDED 9 Sep 2026, and the reason is the INVERSE of #1310's. There the
   // vocabulary was short; here it was RIGHT and the SCOPE was short: `came out
   // ahead` is entry 6 below, and three live strings sat in these two files
@@ -592,4 +593,8 @@ describe('the canvas never frames a decision as a contest', () => {
     const report = offences.map((o) => `${o.file}:${o.line} [${o.frames.join(',')}] ${o.text}`)
     expect(report).toEqual([])
   })
+})
+
+it('S4-UI: the contest sweep includes per-option withholding copy', () => {
+  expect(scopeFiles()).toContain(path.join(ROOT, 'src/components/results/analysis-hero/goalOptionCoverage.tsx'))
 })

@@ -306,6 +306,7 @@ describe('DecisionNode — invitations in Standard view', () => {
     // message is the draft, and nothing may have been dispatched.
     const messageFor = (label: string): string => {
       dispatched.length = 0
+      useGuidanceStore.setState({ _dispatchAction: (a) => { dispatched.push(a) } })
       useAskOlumiStore.setState({ isOpen: false, draft: '' })
       const { container } = renderDecision()
       const btn = coachingIconIn(container)
@@ -313,10 +314,9 @@ describe('DecisionNode — invitations in Standard view', () => {
         throw new Error(`refusing to assert: no "${label}" coaching icon rendered`)
       }
       fireEvent.click(btn)
-      const ask = useAskOlumiStore.getState()
-      if (!ask.isOpen || ask.draft.length === 0) throw new Error('refusing to assert: click opened no draft')
-      if (dispatched.length !== 0) throw new Error('an untyped chip was dispatched on the user’s behalf')
-      return ask.draft
+      expect(dispatched).toHaveLength(1)
+      expect(dispatched[0]).toMatchObject({ id: 'ask:widen', source: 'chip' })
+      return (dispatched[0] as { message: string }).message
     }
 
     it('does not claim the model has exactly two options', () => {
@@ -327,7 +327,7 @@ describe('DecisionNode — invitations in Standard view', () => {
       expect(messageFor('Explore more options')).not.toMatch(/\ba third option\b/i)
     })
 
-    it('DISCRIMINATION: the message differs between two models of different size', () => {
+    it('does not echo option counts from models of different size', () => {
       // Without this, any fixed replacement string passes the test above. This
       // is the assertion that makes the message model-aware rather than merely
       // differently-generic — the same property #1060 pins for the frontier
@@ -338,12 +338,12 @@ describe('DecisionNode — invitations in Standard view', () => {
         edges: [...optionEdges, { id: 'e3', source: DECISION_ID, target: 'option-3', data: {} }],
       })
       const three = messageFor('Explore more options')
-      expect(two).not.toBe(three)
-      expect(two).toContain('2 options')
-      expect(three).toContain('3 options')
+      expect(two).toBe(three)
+      expect(two).not.toContain('2 options')
+      expect(three).not.toContain('3 options')
     })
 
-    it('counts, and does not assess', () => {
+    it('asks without assessing', () => {
       // The line this whole surface stays on: how many options exist is
       // observable from the graph. "Too few" or "too similar" would be a claim
       // about the user's reasoning and belongs to the producer.
@@ -352,23 +352,14 @@ describe('DecisionNode — invitations in Standard view', () => {
     })
   })
 
-  /**
-   * ⭐ A DUPLICATE EDGE IS NOT A SECOND OPTION.
-   *
-   * `optionCount` counted outgoing edges, which was harmless while its only
-   * readers were `> 0` / `=== 0` tests. The message above is the first thing in
-   * the product to say the number OUT LOUD, so the change that removes the
-   * generic copy is the change that makes this reachable.
-   *
-   * Reachable, not theoretical: `store.addEdge` blocks duplicates, but the CEE
-   * patch path (`applyPatch.ts:350`) appends edges with no duplicate check, and
-   * `useModelHealth.ts:180` already warns on the resulting state.
-   */
-  describe('counting the model honestly', () => {
-    // Locked Canvas design (23 Sep 2026): read from the rail icon's draft — see
-    // `messageFor` above for why the draft, not a dispatch.
+  /** Q5 names the goal and carries no option count. Duplicate edges and an
+   * extra option must not change that sentence; changing the goal must.
+   * Count-bearing widening questions are pinned on the chooser's actual send. */
+  describe('Q5 asks about the goal without inventing an option count', () => {
+    // Read the shared Q5 from the rail icon's actual dispatch.
     const messageWithEdges = (edges: unknown[], nodes: unknown[]): string => {
       dispatched.length = 0
+      useGuidanceStore.setState({ _dispatchAction: (a) => { dispatched.push(a) } })
       useAskOlumiStore.setState({ isOpen: false, draft: '' })
       setStore({ edges, nodes })
       const { container } = renderDecision()
@@ -377,33 +368,38 @@ describe('DecisionNode — invitations in Standard view', () => {
         throw new Error('refusing to assert: no "Explore more options" coaching icon rendered')
       }
       fireEvent.click(btn)
-      const ask = useAskOlumiStore.getState()
-      if (!ask.isOpen || ask.draft.length === 0) throw new Error('refusing to assert: click opened no draft')
-      if (dispatched.length !== 0) throw new Error('an untyped chip was dispatched on the user’s behalf')
-      return ask.draft
+      expect(dispatched).toHaveLength(1)
+      expect(dispatched[0]).toMatchObject({ id: 'ask:widen', source: 'chip' })
+      return (dispatched[0] as { message: string }).message
     }
 
-    it('one option linked twice is one option', () => {
+    it('Q5 remains literal when an option edge is duplicated', () => {
       const msg = messageWithEdges(
         [...optionEdges, { id: 'e1-dup', source: DECISION_ID, target: 'option-1', data: {} }],
         [decisionNode, ...optionNodes],
       )
-      expect(msg).toContain('2 options')
-      expect(msg).not.toContain('3 options')
+      expect(msg).toBe('What other ways could we reach the goal that aren’t on the board yet?')
     })
 
-    it('CONTRAST CONTROL: a genuine third option still counts as three', () => {
-      // Without this, the assertion above passes for a count stuck at 2 — or for
-      // any implementation that under-counts. The pair is what proves the change
-      // removed duplicates rather than removed counting.
+    it('Q5 does not invent an option count when a third option is added', () => {
+      // The card Q5 carries no count. Counted chooser asks have their own rows.
       const msg = messageWithEdges(
         [...optionEdges, { id: 'e3', source: DECISION_ID, target: 'option-3', data: {} }],
         [decisionNode, ...optionNodes, { id: 'option-3', type: 'option', data: { type: 'option', label: 'Hire one' } }],
       )
-      expect(msg).toContain('3 options')
+      expect(msg).toBe('What other ways could we reach the goal that aren’t on the board yet?')
     })
 
-    it('singular stays singular when the one option is linked twice', () => {
+    it('discriminating pair: the same decision asks about its actual goal label', () => {
+      const ask = (label: string) => messageWithEdges(optionEdges, [decisionNode, ...optionNodes, { id: 'g', type: 'goal', data: { label } }])
+      const delivery = ask('Delivery')
+      const retention = ask('Retention')
+      expect(delivery).toBe('What other ways could we reach ‘Delivery’ that aren’t on the board yet?')
+      expect(retention).toBe('What other ways could we reach ‘Retention’ that aren’t on the board yet?')
+      expect(delivery).not.toBe(retention)
+    })
+
+    it('Q5 remains literal when the one option is linked twice', () => {
       const msg = messageWithEdges(
         [
           { id: 'e1', source: DECISION_ID, target: 'option-1', data: {} },
@@ -411,8 +407,7 @@ describe('DecisionNode — invitations in Standard view', () => {
         ],
         [decisionNode, optionNodes[0]],
       )
-      expect(msg).toContain('1 option ')
-      expect(msg).not.toContain('1 options')
+      expect(msg).toBe('What other ways could we reach the goal that aren’t on the board yet?')
     })
   })
 })

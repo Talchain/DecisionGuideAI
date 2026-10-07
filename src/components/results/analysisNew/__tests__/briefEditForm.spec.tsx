@@ -22,6 +22,8 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: () =
 
 import { ModelReviewTool } from '../sections/ModelReviewTool'
 import { MethodStrip } from '../sections/MethodStrip'
+vi.mock('../../../../canvas/conversation/askAi', () => ({ askAi: vi.fn(() => 'sent') }))
+import { askAi } from '../../../../canvas/conversation/askAi'
 import { BRIEF_EDIT_COPY } from '../sections/BriefEditForm'
 import { useBriefEditStore } from '../briefEditStore'
 import { WHOLE_FRAMING_ASK } from '../buildReviewQueue'
@@ -51,6 +53,7 @@ const input = () => screen.getByTestId(`${TID}-brief-input`) as HTMLTextAreaElem
 beforeEach(() => {
   useCanvasStore.setState({ currentScenarioId: SCENARIO, nodes: [], edges: [] } as never)
   recordBrief(SCENARIO, BRIEF)
+  vi.mocked(askAi).mockClear()
   useBriefEditStore.setState({ isOpen: false })
   useAskOlumiStore.setState({ isOpen: false, draft: '', context: '', label: '' })
   useStrengthenStore.setState({ records: {}, priorityOrder: [] } as never)
@@ -96,12 +99,10 @@ describe('the form', () => {
     fireEvent.click(pencil())
     fireEvent.change(input(), { target: { value: '  Should we build the capability in-house at all?  ' } })
     fireEvent.click(screen.getByTestId(`${TID}-brief-send`))
-    expect(onAsk).toHaveBeenCalledTimes(1)
-    const payload = onAsk.mock.calls[0][0]
-    expect(payload.draft).toBe(BRIEF_EDIT_COPY.draft('Should we build the capability in-house at all?'))
-    expect(payload.draft).toBe('I propose reframing the question as:\nShould we build the capability in-house at all?')
-    expect(payload.label).toBe(BRIEF_EDIT_COPY.askLabel)
-    expect(payload.source).toBe('chip')
+    expect(onAsk).not.toHaveBeenCalled()
+    expect(askAi).toHaveBeenCalledTimes(1)
+    const payload = vi.mocked(askAi).mock.calls[0][0]
+    expect(payload).toEqual({ userWords: 'I propose reframing the question as:\n  Should we build the capability in-house at all?  ' })
     // CONTRAST: not the generic framing ask the row already offered.
     expect(payload).not.toEqual(WHOLE_FRAMING_ASK)
     expect(screen.queryByTestId(`${TID}-brief-form`)).toBeNull()
@@ -113,6 +114,7 @@ describe('the form', () => {
     fireEvent.change(input(), { target: { value: '   ' } })
     fireEvent.click(screen.getByTestId(`${TID}-brief-send`))
     expect(onAsk).not.toHaveBeenCalled()
+    expect(askAi).not.toHaveBeenCalled()
     expect(screen.getByTestId(`${TID}-brief-form`)).toBeInTheDocument()
   })
 
@@ -125,12 +127,13 @@ describe('the form', () => {
     fireEvent.keyDown(input(), { key: 'Escape' })
     expect(screen.queryByTestId(`${TID}-brief-form`)).toBeNull()
     expect(onAsk).not.toHaveBeenCalled()
+    expect(askAi).not.toHaveBeenCalled()
   })
 
   it('says what happens: a proposal in the chat, and the question is not changed by it', () => {
     drawTool()
     fireEvent.click(pencil())
-    expect(screen.getByTestId(`${TID}-brief-note`)).toHaveTextContent(BRIEF_EDIT_COPY.note)
+    expect(screen.getByTestId(`${TID}-brief-note`)).toHaveTextContent('This sends your wording to Olumi for discussion. It does not change your question by itself.')
     // The copy never claims a save it does not make.
     for (const text of Object.values(BRIEF_EDIT_COPY)) {
       if (typeof text !== 'string') continue
@@ -222,4 +225,14 @@ describe('the draft belongs to the decision on screen', () => {
     })
     expect(input().value).toBe('Should we open a second office?')
   })
+})
+
+it('a busy reframe retains the exact typed wording and stays open', () => {
+  drawTool(); fireEvent.click(pencil())
+  const text = '  Keep my unfinished question  '
+  fireEvent.change(input(), { target: { value: text } })
+  vi.mocked(askAi).mockReturnValueOnce('busy')
+  fireEvent.click(screen.getByTestId(`${TID}-brief-send`))
+  expect(input()).toHaveValue(text)
+  expect(askAi).toHaveBeenCalledWith({ userWords: 'I propose reframing the question as:\n  Keep my unfinished question  ' })
 })

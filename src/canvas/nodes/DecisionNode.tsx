@@ -964,9 +964,9 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       text: restingAsk,
       label: restingAskLabel,
       targetId: restingNodeId,
-      source: 'decision-node-resting',
+      source: 'decision-node-resting', intent: isUnnamed ? 'name' : 'widen',
     })
-  }, [restingAsk, restingAskLabel, restingNodeId])
+  }, [restingAsk, restingAskLabel, restingNodeId, isUnnamed])
 
   /**
    * How many alternatives are in play — the card-face line and the reduced line

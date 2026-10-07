@@ -1634,5 +1634,7 @@ export function buildHeroModel(
     targetUnit:
       outcomeUnit === 'percent' ? '%' : (outcomeUnitSymbol ?? null),
   }
-  return model
+  return withGoalOptionCoverage(model, data)
 }
+
+import { withGoalOptionCoverage } from './goalOptionCoverage'

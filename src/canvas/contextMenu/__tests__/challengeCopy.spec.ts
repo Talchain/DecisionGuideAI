@@ -41,14 +41,17 @@
  * 4. THE SET IS PINNED IN BOTH DIRECTIONS. `action` is excluded, so an
  *    "everything is challengeable" mutant cannot pass.
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import {
   buildAskAIPrompt,
   buildChallengeTooltip,
   CHALLENGE_KINDS,
 } from '../actions'
+import { useCanvasStore } from '../../store'
 import type { NodeTarget } from '../types'
 import type { NodeType } from '../../domain/nodes'
+
+beforeEach(() => useCanvasStore.setState({ nodes: [], edges: [], hasCompletedFirstRun: false, results: { status: 'idle' }, v5AnalysisFact: null } as never))
 
 function nodeTarget(nodeType: NodeType, label: string): NodeTarget {
   return {
@@ -117,7 +120,7 @@ describe('challenge copy — true for the kind it is shown on', () => {
 
     expect(prompt).toContain('Should we expand into Germany?')
     expect(prompt).toContain('framed')
-    expect(prompt).toContain('right thing to be working out')
+    expect(prompt).toContain('right question')
     // Not the generic fallback, which is what a kind-blind producer returns.
     expect(prompt).not.toContain('the current setup of')
   })
@@ -159,21 +162,21 @@ describe('challenge copy — true for the kind it is shown on', () => {
    * lane has no mandate to touch — so the string is pinned literally, which is
    * the one place a literal is correct: it IS the thing being protected.
    */
-  it.each(['factor', 'risk', 'outcome', 'goal'] as const)(
-    'leaves the shipped %s sentence exactly as staging serves it',
-    (kind) => {
-      expect(challengeFor(kind, 'Hiring spend')).toBe(
-        'Challenge the current setup of "Hiring spend". What could be wrong or missing?',
-      )
-    },
-  )
+  it.each([
+    ['factor', 'What is the figure for ‘Hiring spend’ based on, and what would make a different figure more defensible?'],
+    ['risk', 'What could make ‘Hiring spend’ happen, and what evidence would change how we see that risk?'],
+    ['outcome', 'What would have to be true for ‘Hiring spend’ to happen, and what evidence would challenge that?'],
+    ['goal', 'Is ‘Hiring spend’ the outcome we actually want, or a stand-in for it?'],
+  ] as const)('%s keeps its own challenge invariant in the new registry', (kind, expected) => {
+    expect(challengeFor(kind, 'Hiring spend')).toBe(expected)
+  })
 
   it('still falls back to the generic sentence for a node with no label', () => {
     const target = nodeTarget('factor', '')
     ;(target.node.data as { label?: unknown }).label = undefined
 
     expect(buildAskAIPrompt(target, 'challenge_element')).toBe(
-      'Challenge the current setup of "this element". What could be wrong or missing?',
+      'What is the figure for this element based on, and what would make a different figure more defensible?',
     )
   })
 })

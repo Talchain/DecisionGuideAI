@@ -452,6 +452,14 @@ describe('D3 · an inbound option → decision edge is not invisible', () => {
 // ─────────────────────────────────────────────────────────────────────
 
 describe('4 · a run_exercise action is labelled for what it does', () => {
+  beforeEach(() => {
+    // Each exercise starts with its own graph and stage, independent of the
+    // decision connection rows above (including their named "Untouched" node).
+    setStore({
+      nodes: [{ id: 'node-1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Marketing Budget' } }],
+      edges: [], hasCompletedFirstRun: false, v5AnalysisFact: null,
+    })
+  })
   const coachingProps = {
     elementId: 'node-1',
     panelType: 'factor-controllable',
@@ -478,6 +486,7 @@ describe('4 · a run_exercise action is labelled for what it does', () => {
       guidanceItems: [exerciseItem()],
       _sendMessage: vi.fn(),
       _prefillChat: vi.fn(),
+      _dispatchAction: vi.fn(), _isConversationBusy: () => false,
     } as never)
     render(<InspectorCoaching {...coachingProps} />)
     expect(screen.getByText('Try it')).toBeTruthy()
@@ -486,18 +495,37 @@ describe('4 · a run_exercise action is labelled for what it does', () => {
     expect(screen.queryByText('Ask about this')).toBeNull()
   })
 
-  it('still sends the command when that label is clicked — as a chip, never through _sendMessage (UI N2)', () => {
+  it('sends the question-table pre-mortem as one chip, never through the composer', () => {
     const send = vi.fn()
     const dispatch = vi.fn()
     useGuidanceStore.setState({
       guidanceItems: [exerciseItem()],
       _sendMessage: send,
       _dispatchAction: dispatch,
-      _prefillChat: vi.fn(),
+      _prefillChat: vi.fn(), _isConversationBusy: () => false,
     } as never)
     render(<InspectorCoaching {...coachingProps} />)
     fireEvent.click(screen.getByText('Try it'))
-    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ message: '/exercise pre_mortem', source: 'chip' }))
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith({ id: 'ask:pre-mortem', label: 'What could make this decision go badly that isn’t in the model yet?', message: 'What could make this decision go badly that isn’t in the model yet?', source: 'chip' })
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('names the current decision in the exact pre-mortem chip', () => {
+    setStore({ nodes: [
+      { id: 'node-1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Marketing Budget' } },
+      { id: 'dec1', type: 'decision', position: { x: 1, y: 0 }, data: { label: 'Budget strategy' } },
+    ] })
+    const dispatch = vi.fn()
+    const send = vi.fn()
+    useGuidanceStore.setState({ guidanceItems: [exerciseItem()], _dispatchAction: dispatch,
+      _sendMessage: send, _isConversationBusy: () => false })
+    render(<InspectorCoaching {...coachingProps} />)
+    fireEvent.click(screen.getByText('Try it'))
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith({ id: 'ask:pre-mortem',
+      label: 'What could make ‘Budget strategy’ go badly that isn’t in the model yet?',
+      message: 'What could make ‘Budget strategy’ go badly that isn’t in the model yet?', source: 'chip' })
     expect(send).not.toHaveBeenCalled()
   })
 
@@ -507,6 +535,7 @@ describe('4 · a run_exercise action is labelled for what it does', () => {
     useGuidanceStore.setState({
       guidanceItems: [{ ...exerciseItem(), primary_action: { type: 'navigate', target: 'x' } } as GuidanceItem],
       _prefillChat: vi.fn(),
+      _dispatchAction: vi.fn(), _isConversationBusy: () => false,
     } as never)
     render(<InspectorCoaching {...coachingProps} />)
     expect(screen.getByText('Ask about this')).toBeTruthy()

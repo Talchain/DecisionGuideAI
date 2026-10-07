@@ -569,7 +569,7 @@ const resolveOption = (r: Extract<NodeCoachingRequest, { kind: 'option' }>): Res
       },
       {
         id: 'option_why_lead',
-        label: 'Why is this best supported?',
+        label: 'What does this rest on?',
         message: `Why is ${label} better supported than the other options?`,
         actionType: 'explain_results',
       },
