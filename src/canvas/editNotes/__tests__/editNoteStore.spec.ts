@@ -40,3 +40,12 @@ it('refused edits and proposals never show a note', () => {
   report({ ...edit, accepted: false }); expect(useEditNoteStore.getState().note).toBeNull()
   report({ ...edit, origin: 'proposal' }); expect(useEditNoteStore.getState().note).toBeNull()
 })
+it('T3 appears once per element and Run, then re-arms on a new Run', () => {
+  const before: EditGraph = { nodes: [{ id: 'a', data: { label: 'A' } }, { id: 'b', data: { label: 'B' } }, { id: 'o', type: 'option', data: { label: 'Option' } }], edges: [{ id: 'e', source: 'a', target: 'b', data: { strength_mean: 0.3, direction: 'positive' } }] }
+  const after = structuredClone(before); after.edges[0].data!.strength_mean = 0.55
+  const lastRun = (runId: string) => ({ visible: true, runId, drivers: { o: { kind: 'link_strength' as const, from: 'a', to: 'b', strength: 'stronger' as const, authoredBy: 'user' as const, userStatedLink: true } } })
+  const input = (runId: string) => ({ edit: { kind: 'edge_strength_edit' as const, elementId: 'e', accepted: true }, before, after, lastRun: lastRun(runId) })
+  reportManualEdit(input('one')); expect(useEditNoteStore.getState().note?.check).toBe('S1')
+  reportManualEdit(input('one')); expect(useEditNoteStore.getState().note).toBeNull()
+  reportManualEdit(input('two')); expect(useEditNoteStore.getState().note?.check).toBe('S1')
+})
