@@ -6,7 +6,9 @@
  * ⛔ HEADINGS ARE SCIENCE-RULED (393023, 7 Oct; AIQ rules the final strings): the comparison card names the
  * COMPARISON, never a goal chance, because its rows are run-share orderings.
  */
+import { useMemo } from 'react'
 import type { MethodItemRef, MethodResultV1 } from '../../v5/readMethodResult'
+import { useCanvasStore } from '../store'
 import styles from './Conversation.module.css'
 
 export const METHOD_RESULT_CARD_TESTID = 'message-method-result'
@@ -67,4 +69,15 @@ export function MethodResultCard({ methodResult, labelOf }: {
       </ul>
     </div>
   )
+}
+
+/** The card as the conversation mounts it: link ends named from the canvas as it is now (InsightsStrip's pattern). */
+export function ConversationMethodResultCard({ methodResult }: { methodResult: MethodResultV1 }): JSX.Element | null {
+  const nodes = useCanvasStore(s => s.nodes)
+  const labels = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const n of nodes) if (typeof n.data?.label === 'string' && n.data.label.trim()) m.set(n.id, n.data.label)
+    return m
+  }, [nodes])
+  return <MethodResultCard methodResult={methodResult} labelOf={(id) => labels.get(id) ?? null} />
 }
