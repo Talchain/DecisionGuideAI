@@ -8,7 +8,7 @@
 
 import { useCanvasStore } from '../../store'
 import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../../domain/edges'
-import { existenceHeldPatch } from '../../domain/heldUserLink'
+import { existenceHeldPatch, linkEndsOf, type LinkEnds } from '../../domain/heldUserLink'
 import { readWireNaturalEffect, strengthExampleFigurePatch } from '../../domain/naturalEffect'
 import { strengthPlaceholderPatch } from '../../domain/strengthPlaceholder'
 import { strengthDefinitionalPatch } from '../../domain/strengthDefinitional'
@@ -98,7 +98,7 @@ function buildNode(op: PatchOperation) {
 // Edge builder — mirrors applyDraftResult.ts:52-105
 // ---------------------------------------------------------------------------
 
-function buildEdge(op: PatchOperation) {
+function buildEdge(op: PatchOperation, ends: LinkEnds) {
   const d = op.data ?? {}
   const source = (d.source as string) ?? (d.from as string) ?? ''
   const target = (d.target as string) ?? (d.to as string) ?? ''
@@ -199,7 +199,7 @@ function buildEdge(op: PatchOperation) {
       // The edge's size in the target's units — the ONE reader, every hop (domain/naturalEffect).
       ...(naturalEffect !== undefined ? { naturalEffect } : {}),
       // D3 cut 6: CEE holds this user link at existence 1.0 — the ONE reader, every hop (domain/heldUserLink).
-      ...existenceHeldPatch(d),
+      ...existenceHeldPatch(d, ends),
       ...strengthExampleFigurePatch(d as Record<string, unknown>, rawWeight as number, wireSuppliedStrength),
       // POM-8: a placeholder strength — HOP 2 OF 3, the same one reader (domain/strengthPlaceholder).
       ...strengthPlaceholderPatch(d as Record<string, unknown>, weight, wireSuppliedStrength),
@@ -290,7 +290,8 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
 
       case 'add_edge': {
         if (!op.data) break
-        const edge = buildEdge(op)
+        // S-DEF: the ends as the graph will hold them: this patch's own new nodes over the canvas's (`linkEndsOf`).
+        const edge = buildEdge(op, linkEndsOf([...useCanvasStore.getState().nodes, ...newNodes])(op.data))
         // Guard: skip edges with missing endpoints
         if (!edge.source || !edge.target) {
           if (import.meta.env.DEV) {

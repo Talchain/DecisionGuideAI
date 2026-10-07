@@ -119,6 +119,7 @@ import { recordsStrengthStandDown } from './canvasOnlyLink'
 import { editDeliveryHold, type EditDeliveryState } from '../registration/editDeliveryHold'
 import { pulseAppliedTargets } from './appliedEditPulse'
 import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from './applyDraftResult'
+import { linkEndsOf } from '../domain/heldUserLink'
 import { overlayEdge, overlayNode } from './mergeAppliedGraph'
 import { placeAddedNodes } from './newNodePlacement'
 import { isThinClientSession, loadThinLayout } from '../thinClient/thinClient'
@@ -359,6 +360,8 @@ export function mergeServerGraphOnHydrate(
   const g = serverGraph as Record<string, unknown>
   const rawNodes: any[] = Array.isArray(g.nodes) ? g.nodes : []
   const rawEdges: any[] = Array.isArray(g.edges) ? g.edges : []
+  // S-DEF: the server graph's own ends, so the hold reads exactly what CEE validates (`linkEndsOf`).
+  const endsOf = linkEndsOf(rawNodes)
 
   // Honest absence: nothing to merge, so nothing is written and no identity is
   // recorded. A server graph with no elements must not authorise later
@@ -547,7 +550,7 @@ export function mergeServerGraphOnHydrate(
     // (unconditional since 23 Sep — the receipt path had kept equality and
     // dropped a user-confirmed 0.5). The only boot-specific behaviour left is
     // recording the server's strength tuple on an otherwise-no-op overlay.
-    const overlaid = overlayEdge(e, serverEdge, { acquireServerStrengthOnNoop: true })
+    const overlaid = overlayEdge(e, serverEdge, { acquireServerStrengthOnNoop: true, ends: endsOf(serverEdge) })
     if (overlaid === e) return e
 
     // `userReviewedStrength` is UI-only and never on the wire, so the overlay
@@ -716,7 +719,7 @@ export function mergeServerGraphOnHydrate(
   })
   const usedEdgeIds = new Set<string>(existingEdgeIds)
   const addedEdges = missingRawEdges.map((e: any, i: number) => {
-    const mapped = mapDraftEdgeToCanvas(e, i)
+    const mapped = mapDraftEdgeToCanvas(e, i, endsOf(e))
     let id: string = mapped.id
     while (usedEdgeIds.has(id)) id = `${id}-a`
     usedEdgeIds.add(id)
