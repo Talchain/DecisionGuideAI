@@ -97,7 +97,7 @@ import type { WhatIWasGivenSectionHandle } from '../contextIntegrity/WhatIWasGiv
 import { useWhatIWasGivenWillRender } from '../contextIntegrity/WhatIWasGivenSection'
 import { ModelStrip } from './sections/ModelStrip'
 import { WhatsChangedReceipt } from './sections/WhatsChangedReceipt'
-import { AtAGlance } from './sections/AtAGlance'
+import { AtAGlance, ribbonOffersRerun } from './sections/AtAGlance'
 import { ModelHeldUp } from './sections/ModelHeldUp'
 import { RobustnessCaveat } from './sections/RobustnessCaveat'
 import { BiasGrounding } from './sections/BiasGrounding'
@@ -1426,6 +1426,35 @@ export function AnalysisNewTabBody({
     vm.leaderClaimPermitted &&
     (buildReasoningSignals(vm, resultsSectionData.recommendation.flipThresholds)?.tipping ?? null) !== null
 
+  // The ribbon and the menu read the same props and the same offered-control predicate.
+  const glanceRunControl = {
+    isStale: vm.status.isStale && !vm.status.isPreRun,
+    runNote:
+      latestRunNote === null
+        ? null
+        : latestRunNote.kind === 'did_not_run'
+          ? {
+              testId: 'analysis-new-status-did-not-run',
+              text: `${COPY.status.latestDidNotRun} ${latestRunNote.reason} ${COPY.status.showingPrevious} ${ANALYSIS_REFUSAL_POINTER}`,
+            }
+          : latestRunNote.kind === 'blocked'
+            ? {
+                testId: 'analysis-new-status-blocked',
+                text: `${COPY.status.latestBlocked} ${COPY.status.showingPrevious}`,
+              }
+            : {
+                testId: 'analysis-new-status-run-failed',
+                text: `${COPY.status.latestRunFailed} ${COPY.status.showingPrevious}`,
+              },
+    isProvisional: vm.status.isProvisional,
+    onReanalyse,
+    rerunOwnedByFooter: footerOwnsRerun,
+    rerunWouldNotHelp: vm.checks.rerunWouldNotHelp,
+    reanalyseBlocked: runRefusedByGate,
+    reanalyseBlockedReason: runRefusedByGate ? runBlockedReason : null,
+  }
+  const ribbonOwnsRerun = ribbonOffersRerun({ ...glanceRunControl, part: 'status' })
+
   const renderGlance = (part: 'status' | 'reading') => (
     <AtAGlance
       glance={vm.atAGlance}
@@ -1445,33 +1474,11 @@ export function AnalysisNewTabBody({
          and `reviewEstimates` is `undefined` when there is neither an
          in-page act nor a route. */
       onReviewEstimates={reviewEstimates}
-      isStale={vm.status.isStale && !vm.status.isPreRun}
+      {...glanceRunControl}
       staleKind={vm.status.staleKind}
-      runNote={
-        latestRunNote === null
-          ? null
-          : latestRunNote.kind === 'did_not_run'
-            ? {
-                testId: 'analysis-new-status-did-not-run',
-                text: `${COPY.status.latestDidNotRun} ${latestRunNote.reason} ${COPY.status.showingPrevious} ${ANALYSIS_REFUSAL_POINTER}`,
-              }
-            : latestRunNote.kind === 'blocked'
-              ? {
-                  testId: 'analysis-new-status-blocked',
-                  text: `${COPY.status.latestBlocked} ${COPY.status.showingPrevious}`,
-                }
-              : {
-                  testId: 'analysis-new-status-run-failed',
-                  text: `${COPY.status.latestRunFailed} ${COPY.status.showingPrevious}`,
-                }
-      }
-      isProvisional={vm.status.isProvisional}
       /* ⚠ THE ACT BINDS TO RECOVERABILITY, NOT TO PERMISSION. Both are
          passed because they answer different questions and the section uses
          each for its own. */
-      rerunWouldNotHelp={vm.checks.rerunWouldNotHelp}
-      onReanalyse={onReanalyse}
-      rerunOwnedByFooter={footerOwnsRerun}
       /* ⭐ DERIVED FROM THE GATE'S VERDICT, NOT A SECOND EXPRESSION OF
          IT — and not the verdict itself. `runRefusedByGate` is
          `!canRunAnalysis && !isRunning` (see above for why `isRunning` is
@@ -1480,8 +1487,6 @@ export function AnalysisNewTabBody({
          is therefore a PRESENTATION predicate over the one admission, in
          the shape `AnalysisReadinessBar` and `PanelFooter` already use —
          not either of the two values the dock handed this component. */
-      reanalyseBlocked={runRefusedByGate}
-      reanalyseBlockedReason={runRefusedByGate ? runBlockedReason : null}
       /* ⭐⭐ THE RUNNING STATE, THREADED UNCHANGED — the second of the two
          questions the ribbon control has to answer. `reanalyseBlocked`
          above says whether the gate REFUSED; this says whether a run is
@@ -1899,7 +1904,7 @@ export function AnalysisNewTabBody({
           activeMethodId={effectivePick ?? restingMethodId}
           onSelectMethod={selectMethod}
           raisedMethodIds={raisedMethodIds}
-          canRerun={canRunAnalysis === true && !vm.status.isPreRun && !footerOwnsRerun}
+          canRerun={canRunAnalysis === true && !vm.status.isPreRun && !footerOwnsRerun && !ribbonOwnsRerun}
         />
         {/* ⚠ THE INTRO ASSERTS A RUN, SO IT IS GATED ON THERE BEING ONE.
             "A second reading of the same analysis run" is true of this tab and

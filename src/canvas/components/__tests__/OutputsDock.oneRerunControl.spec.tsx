@@ -76,6 +76,7 @@ vi.mock('../../conversation/useConversation', async (importOriginal) => {
 
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { OutputsDock, OUTPUTS_DOCK_STORAGE_KEY } from '../OutputsDock'
+import { FloatingOlumiPanel } from '../FloatingOlumiPanel'
 import { ToastProvider } from '../../ToastContext'
 import { useCanvasStore } from '../../store'
 import { useReadinessStore } from '../../stores/readinessStore'
@@ -202,14 +203,61 @@ describe('one rerun control on the Olumi surface', () => {
     expect(c.chip).toBeNull()
   }, 30_000)
 
-  it('CONTRAST: before the first Run, CEE\'s "Run analysis" chip is a RUN (not a rerun) control and is left as it was', async () => {
+  it('PRE-RUN docked: exactly one visible control, readiness Analyse, with no chat run chip', async () => {
     seedModelAfterRun('stale', false)
     render(<Wrapper><OutputsDock /></Wrapper>)
     await screen.findByTestId('outputs-dock-tab-olumi', {}, { timeout: 20_000 })
     frontOlumi()
-    const c = rerunControls()
-    expect(c.bar).toBeNull()
-    expect(c.composer).toBeNull()
-    expect(c.chip, 'pre-run behaviour must not change in this slice').not.toBeNull()
+    expect(screen.getByTestId('chat-thread')).toHaveTextContent('Saved as version 2')
+    const analyse = screen.getByTestId('analysis-readiness-bar-analyse')
+    expect(analyse).toBeVisible()
+    expect(analyse).toHaveTextContent('Analyse first pass')
+    expect(screen.queryByTestId('suggested-chip-agent-run-analysis') === null, 'chat run chip must yield').toBe(true)
+    expect(visibleRunControls().length).toBe(1)
+  }, 30_000)
+
+  it('PRE-RUN docked CONTROL: no model, no readiness bar, so the chat run chip stays', async () => {
+    seedModelAfterRun('stale', false)
+    useCanvasStore.setState({ nodes: [], edges: [] })
+    render(<Wrapper><OutputsDock /></Wrapper>)
+    // An empty canvas starts on the first-use rail; expand its actual Olumi control.
+    fireEvent.click(screen.getByTestId('outputs-dock-rail-tab-olumi'))
+    await screen.findByTestId('outputs-dock-tab-olumi', {}, { timeout: 20_000 })
+    frontOlumi()
+    expect(screen.queryByTestId('analysis-readiness-bar-analyse')).toBeNull()
+    expect(screen.getByTestId('suggested-chip-agent-run-analysis')).toHaveTextContent('Run analysis')
+    expect(visibleRunControls().length).toBe(1)
+  }, 30_000)
+
+  it('PRE-RUN floating: the real host has no Analyse bar, so its chip is the only control', () => {
+    seedModelAfterRun('stale', false)
+    useUIStore.setState({ activeOutputTab: 'compare' })
+    useFloatingPanelState.getState().open('user')
+    render(<Wrapper><FloatingOlumiPanel onDock={vi.fn()} /></Wrapper>)
+    expect(screen.getByTestId('chat-thread-floating')).toHaveTextContent('Saved as version 2')
+    expect(screen.queryByTestId('analysis-readiness-bar-analyse')).toBeNull()
+    expect(screen.queryByTestId('reanalyse-button')).toBeNull()
+    expect(screen.getByTestId('suggested-chip-agent-run-analysis')).toHaveTextContent('Run analysis')
+    expect(visibleRunControls().length).toBe(1)
+  })
+
+  it('PRE-RUN floating beside Model: the visible dock Analyse owns the run and the chip yields', async () => {
+    seedModelAfterRun('stale', false)
+    render(<Wrapper><OutputsDock /></Wrapper>)
+    await screen.findByTestId('outputs-dock-tab-diagnostics', {}, { timeout: 20_000 })
+    fireEvent.click(screen.getByTestId('outputs-dock-tab-diagnostics'))
+    act(() => { useFloatingPanelState.getState().open('user') })
+    render(<Wrapper><FloatingOlumiPanel onDock={vi.fn()} /></Wrapper>)
+    expect(screen.getByTestId('chat-thread-floating')).toHaveTextContent('Saved as version 2')
+    expect(screen.getByTestId('reanalyse-button')).toBeVisible()
+    expect(screen.queryByTestId('suggested-chip-agent-run-analysis') === null, 'chat run chip must yield').toBe(true)
+    expect(visibleRunControls().length).toBe(1)
   }, 30_000)
 })
+
+/** Count only the named run controls that are actually visible on these hosts. */
+function visibleRunControls() {
+  return ['analysis-readiness-bar-analyse', 'reanalyse-button', 'ai-input-bar-strip-analyse', 'suggested-chip-agent-run-analysis']
+    .flatMap((id) => screen.queryAllByTestId(id))
+    .filter((element) => !element.closest('.hidden, [hidden], [style*="display: none"]'))
+}

@@ -36,6 +36,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vite
 import { render, cleanup, act } from '@testing-library/react'
 import { Position } from '@xyflow/react'
 import { StyledEdge } from '../StyledEdge'
+import { STRENGTH_NOT_SET_DASH } from '../edgePresentation'
 import { flattenSvgPath } from '../fragileCuePlacement'
 import { layOutBoard, isStructuralPair, LANDING_ENDS, distanceToPolyline, type LaidBoard } from './__helpers__/paulTestBoards'
 import { useCanvasNodeHoverStore } from '../../stores/canvasNodeHoverStore'
@@ -55,7 +56,7 @@ vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
   return {
     ...actual,
-    BaseEdge: ({ id, path }: { id: string; path: string }) => <path data-testid="base-edge" data-edge={id} d={path} />,
+    BaseEdge: ({ id, path, style }: { id: string; path: string; style: import('react').CSSProperties }) => <path data-testid="base-edge" data-edge={id} d={path} style={style} />,
     EdgeLabelRenderer: ({ children }: any) => <div>{children}</div>,
     useReactFlow: () => ({
       getNode: (nodeId: string) => mockNodes.find((n) => n.id === nodeId) ?? null,
@@ -374,5 +375,30 @@ describe('C — Paul 7 Oct: option → factor links share structural resting ink
     mockSelectedNodeIds = new Set(['annual_assistant_tool_cost'])
     for (const id of ['e-6', 'e-9', 'e-12', 'e-15']) expect(restState(id).rest, id).toBeNull()
     expect(restState('e-5').rest).toBe('true')
+  })
+})
+
+
+describe('connector strength state on Paul routed board', () => {
+  it('pa_vs_ai e-17 keeps its path and polarity when its strength becomes a placeholder', () => {
+    const b = BOARDS.pa_vs_ai
+    seedBoard(b)
+    const e = mockEdges.find(edge => edge.id === 'e-17')!
+    const set = renderEdge(b, e)
+    const path = set.container.querySelector<SVGElement>('path[data-edge="e-17"]')!
+    expect(path).not.toBeNull()
+    const d = path.getAttribute('d')
+    const stroke = path.style.stroke
+    expect(stroke).toBe('var(--edge-positive)')
+    expect(path.style.strokeDasharray).toBe('')
+    set.unmount()
+    const weight = Math.abs(Number(e.data!.strength_mean))
+    const ph = renderEdge(b, { ...e, data: { ...e.data, weight, weightSource: 'cee', strengthPlaceholder: weight } })
+    const dotted = ph.container.querySelector<SVGElement>('path[data-edge="e-17"]')!
+    expect(dotted.getAttribute('d')).toBe(d)
+    expect(dotted.style.stroke).toBe(stroke)
+    expect(dotted.style.strokeWidth).toBe('1')
+    expect(dotted.style.strokeDasharray).toBe(STRENGTH_NOT_SET_DASH)
+    expect(dotted.style.strokeLinecap).toBe('round')
   })
 })

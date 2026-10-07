@@ -5,7 +5,7 @@
  * Reasoning tab showed THREE rerun controls — the ribbon's "Re-run" (`analysis-new-glance-ribbon-reanalyse`), the
  * shell footer's Re-analyse bar, and "Rerun analysis" in the ⋯ menu. While the footer shows the bar (the owner,
  * `workspaceShell/rerunControl.ts`, says 'bar'), that button is the rerun: the ribbon keeps its sentence and the menu
- * drops its entry. When the bar is not showing, both behave exactly as before (contrast rows).
+ * drops its entry. When the bar is not showing, the ribbon owns rerun if it offers one; otherwise the menu entry stays.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -38,18 +38,18 @@ function modelChangedSinceRun(changed: boolean) {
   )
 }
 
-const draw = () =>
+const draw = (isStale = true, onReanalyse: (() => void) | null = vi.fn()) =>
   render(
     <AnalysisNewTabBody
       resultsSectionData={genuineDecision()}
       isPreRun={false}
       isRunning={false}
-      isStale
+      isStale={isStale}
       staleReason="changed"
       responseHash="run_abc123"
       canRunAnalysis
       runBlockedReason={null}
-      onReanalyse={vi.fn()}
+      onReanalyse={onReanalyse ?? undefined}
     />,
   )
 
@@ -76,10 +76,28 @@ describe('Reasoning: one rerun control while the footer bar shows', () => {
     expect(menuActionIds(), 'a third rerun control: the ⋯ menu').not.toContain('rerun_analysis')
   })
 
-  it('CONTRAST: no footer bar (the store says current) → the ribbon Re-run and the ⋯ entry behave as before', () => {
+  it('unchanged model: the ribbon Re-run is the only control and the menu entry yields', () => {
     modelChangedSinceRun(false)
     draw()
-    expect(screen.getByTestId(RIBBON_RERUN)).toBeInTheDocument()
+    expect(screen.getByTestId(RIBBON_RERUN)).toBeVisible()
+    expect(menuActionIds()).not.toContain('rerun_analysis')
+    expect(screen.queryAllByTestId(RIBBON_RERUN).length +
+      screen.queryAllByTestId(`${STRIP}-menu-action-rerun_analysis`).length).toBe(1)
+  })
+
+  it('CONTROL: no footer and no ribbon offers a rerun, so the menu entry stays', () => {
+    modelChangedSinceRun(false)
+    draw(false)
+    expect(screen.queryByTestId(RIBBON_RERUN)).toBeNull()
+    expect(menuActionIds()).toContain('rerun_analysis')
+    expect(screen.getByRole('menuitem', { name: 'Rerun analysis' })).toBeVisible()
+  })
+
+  it('CONTROL: a ribbon without a run handler offers none, so the menu entry stays', () => {
+    modelChangedSinceRun(false)
+    draw(true, null)
+    expect(screen.getByTestId('analysis-new-glance-ribbon')).toBeVisible()
+    expect(screen.queryByTestId(RIBBON_RERUN)).toBeNull()
     expect(menuActionIds()).toContain('rerun_analysis')
   })
 })
