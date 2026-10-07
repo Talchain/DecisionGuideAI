@@ -9,6 +9,7 @@ import { CANVAS_STRENGTH_BANDS, getCanvasStrengthBand } from '../domain/vocabula
 import { StrengthBandButtons } from '../ui/inspector-v2/shared/StrengthBandButtons'
 import { factorValueAllowed, readProposalFields, type Band, type Proposal, type ProposalEdits, type ProposalPanelAction } from './proposalFields'
 import type { ActionChip } from './types'
+import { formatMoneyFigure } from '../../utils/unitClassifier'
 
 export { readProposalFields, readTurnProposalFields, type ProposalEdits, type ProposalPanelAction } from './proposalFields'
 
@@ -79,8 +80,8 @@ export function HeldProposalPanel({ proposal, graphHash, disabled, onAction }: {
           const hint = input === undefined || input.trim() === '' || !Number.isFinite(Number(input))
             ? 'Type a number.' : 'That figure is outside what this factor allows.'
           const inputId = `proposal-field-input-${proposal.proposal_id}-${field.field_id}`
-          const figure = field.unit === 'GBP' ? `£${field.current.value}`
-            : field.unit === '%' ? `${field.current.value}%` : `${field.current.value} ${field.unit}`
+          const figure = formatMoneyFigure(field.current.value, field.unit)
+            ?? (field.unit === '%' ? `${field.current.value}%` : `${field.current.value} ${field.unit}`.trim())
           return (
             <div key={field.field_id} data-testid={`proposal-field-${proposal.proposal_id}-${field.field_id}`}>
               <label htmlFor={field.editable && input !== undefined ? inputId : undefined} className={typography.chatBody}>{field.label}</label>
