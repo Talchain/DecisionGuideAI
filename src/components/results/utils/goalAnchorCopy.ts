@@ -307,12 +307,14 @@ export const COMPARATIVE_COPY = {
     const phrase = COMPARATIVE_COPY.phrase(formatted)
     return `${phrase.charAt(0).toLowerCase()}${phrase.slice(1)}`
   },
+  /** Supporting detail: a share of runs, separate from the chance of meeting the goal. */
+  runShare: (formatted: string): string => `supported by ${formatted} of runs`,
   /**
    * The model-relative leader clause (principle audit, 5 Oct; Science's ruling): a win share is said as "came out best in
    * N of simulated futures" after "In this model, {label}". "Came out best" holds whatever the goal's direction (a churn
    * goal is minimised, so "highest" would read as the most churn).
    */
-  modelLeaderClause: (formatted: string): string => `was supported by ${formatted} of runs`,
+  modelLeaderClause: (formatted: string): string => `was ${COMPARATIVE_COPY.runShare(formatted)}`,
   /** The magnitude-free form of `modelLeaderClause` (no placeholder ever stands in for the share). */
   modelLeaderNoMagnitude: 'was supported by more runs than any other option',
   /** Mid-sentence honest-absence form, parallel to `clause`. */
