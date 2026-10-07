@@ -850,7 +850,7 @@ export const ACTIONS_MENU = [
   {
     id: 'pre_mortem',
     label: 'Run a pre-mortem',
-    prompt: 'Run a pre-mortem with me: imagine this choice failed a year from now. What went wrong?',
+    prompt: 'Run a pre-mortem with me: imagine this choice failed. What went wrong?',
     // Failure-imagination coaching — no ACTION vocabulary entry.
     action_type: null,
     // ⭐ ROUTED (CEE #1321 + the accepted-list widening). Both halves of the
