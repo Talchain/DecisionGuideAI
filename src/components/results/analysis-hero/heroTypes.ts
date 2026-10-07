@@ -552,6 +552,8 @@ export interface HeroChartModel {
    * input so the user knows what they are typing BEFORE committing.
    */
   targetUnit: string | null
+  /** Present only when at least one option has a renderable goal figure. */
+  goalOptionCoverage?: import('./goalOptionCoverage').GoalOptionCoverage
 }
 
 /** Curated non-chart state for partial / failed / blocked analyses, plus

@@ -28,6 +28,7 @@ const CEE_SAID = 'This link holds your figure: ‘Each lost customer removes £3
 let replyHash: string | undefined
 let acceptReply = false
 let beforeReply: (() => void) | undefined
+let afterReply: (() => void) | undefined
 const sendSystemEvent = vi.fn(async (_event: WireSystemEvent, opts?: { optimisticEdgeEdit?: OptimisticEdgeEdit }) => {
   // What `useConversation` does with a non-error reply to its own edge edit, before the send settles.
   const own = opts?.optimisticEdgeEdit
@@ -40,6 +41,8 @@ const sendSystemEvent = vi.fn(async (_event: WireSystemEvent, opts?: { optimisti
     })
   }
   if (own && edgeEditAnsweredUnmoved(own, replyHash)) noteEdgeEditNotApplied(own, CEE_SAID)
+  // Then the reply's envelope (`applyV5State`, useConversation `:5399`), still before the send settles.
+  afterReply?.()
   return undefined
 })
 
@@ -61,6 +64,10 @@ import { useAnalysisState } from '../../../state/analysisStateSelector'
 import { deriveRerunActionLabel, RERUN_LABEL_CHANGED } from '../../../components/utils/postAnalysisFooter'
 import { useStageAwarePlaceholder, PLACEHOLDER_CHANGED_RUNNABLE } from '../../../hooks/useStageAwarePlaceholder'
 import { __resetStalenessVoicesForTest } from '../../../conversation/stalenessVoice'
+import { ANALYSIS_CURRENCY_KEYS } from '../../../store'
+import { applyV5State } from '../../../../v5/applyV5State'
+import { backfillGoalThresholdOntoGoalNode } from '../../../utils/applyDraftResult'
+import servedCapture from './fixtures/served-refused-band-d16ccc87.json'
 
 const BASE = 'h-base-31f5adf8'
 function seed(lastServerGraphHash: string | null = BASE) {
@@ -104,6 +111,7 @@ beforeEach(() => {
   replyHash = undefined
   acceptReply = false
   beforeReply = undefined
+  afterReply = undefined
 })
 
 function seedCompletedRun(): CEEAnalysisReady {
@@ -194,6 +202,123 @@ describe('analysis currency after the inspector settles', () => {
     expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
     expect(useCanvasStore.getState().ceeAnalysisReady).not.toBe(ready)
     expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
+  })
+})
+
+/**
+ * ⭐ THE SERVED REFUSAL REPLY RE-STATES THE USER'S RUN (Canvas served witness draws 4a/4a-2, UI d16ccc87, CEE a5d3b0e).
+ * CEE refuses the band and answers with the Run the user already had (`complete_current`, the same `graph_hash_at_run` +
+ * `computed_at`) as a NEW `analysis_ready` object. Bound by object identity, the revert read that as "a newer analysis",
+ * skipped the restore, and the screen said "Rerun — model changed". Served graph + both replies verbatim; both
+ * replies go through the real `applyV5State`, in the turn handler's order.
+ */
+type Json = Record<string, any>
+const SERVED = servedCapture as unknown as { graph: Json; graph_hash: string; run_reply: Json; refusal_reply: Json }
+const REFUSED_FROM = 'price_rise_from_current_price'
+const REFUSED_TO = 'monthly_recurring_revenue'
+const RUN = { graph_hash_at_run: '735226cfd8d740c9', computed_at: '2026-10-07T02:18:38.125Z' }
+
+function replayEnvelope(response: Json) {
+  const s = useCanvasStore.getState()
+  s.beginExternalGraphMutation?.('envelope_apply')
+  try {
+    applyV5State(response as never, {
+      ...s,
+      currentResultsHash: s.results?.hash ?? null,
+      backfillGoalThreshold: backfillGoalThresholdOntoGoalNode,
+    } as never)
+  } finally {
+    useCanvasStore.getState().endExternalGraphMutation?.()
+  }
+}
+
+function seedServedRun() {
+  const edges = (SERVED.graph.edges as Json[]).map((e) => {
+    const mean = e.strength?.mean as number
+    const sign = e.effect_direction === 'negative' ? 'negative' : 'positive'
+    const refused = e.from === REFUSED_FROM && e.to === REFUSED_TO
+    return {
+      id: refused ? 'e1' : `${e.from}->${e.to}`, source: e.from, target: e.to,
+      data: { ...DEFAULT_EDGE_DATA, weight: mean, direction: sign, weightSource: 'cee', serverStrength: { mean, effect_direction: sign } },
+    }
+  })
+  useCanvasStore.setState({
+    nodes: (SERVED.graph.nodes as Json[]).map((n) => ({ id: n.id, type: n.kind, data: { label: n.label }, position: { x: 0, y: 0 } })) as never[],
+    edges: edges as never[],
+    selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+    goalThreshold: null,
+    confirmedNodeIds: new Set(),
+    lastServerGraphHash: SERVED.graph_hash,
+    _internal: {},
+    ceeAnalysisReady: null,
+    analysisStateV1: null,
+    analysisFreshness: null,
+    analysisFreshnessDirty: false,
+  } as never)
+  replayEnvelope(SERVED.run_reply)
+  useCanvasStore.setState({
+    results: { status: 'complete', report: { probability_of_goal: 0.45 } } as never,
+    hasCompletedFirstRun: true,
+    analysisFreshnessDirty: false,
+    v5AnalysisFact: null,
+    importPendingServerRegistration: false,
+    currentScenarioFraming: null,
+  } as never)
+  const ready = useCanvasStore.getState().ceeAnalysisReady as Json | null
+  expect(ready, 'PRECONDITION: the served Run reply wrote readiness').not.toBeNull()
+  expect({ graph_hash_at_run: ready!.graph_hash_at_run, computed_at: ready!.computed_at }).toEqual(RUN)
+  expect(rerunLabel(), 'PRECONDITION: the Run is current before the press').not.toBe(RERUN_LABEL_CHANGED)
+  return Object.fromEntries(ANALYSIS_CURRENCY_KEYS.map((k) => [k, useCanvasStore.getState()[k]]))
+}
+
+/** The served refusal reply, optionally describing a different Run. */
+function refusalReply(run?: { graph_hash_at_run?: string; computed_at?: string | null }): Json {
+  const r = JSON.parse(JSON.stringify(SERVED.refusal_reply)) as Json
+  if (run?.graph_hash_at_run !== undefined) r.analysis_ready.graph_hash_at_run = run.graph_hash_at_run
+  if (run?.computed_at === null) delete r.analysis_ready.computed_at
+  else if (run?.computed_at !== undefined) {
+    r.analysis_ready.computed_at = run.computed_at
+    r.analysis_state.run_state.computed_at = run.computed_at
+  }
+  return r
+}
+
+async function pressRefusedBand(reply: Json) {
+  replyHash = reply.graph_hash
+  afterReply = () => {
+    replayEnvelope(reply)
+    // PRECONDITION: the reply really did put a NEW readiness object in the store before the send settled.
+    expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+  }
+  await clickModerate()
+  await waitFor(() => expect(feedback()).toHaveAttribute('data-settlement', 'refused'))
+  expect(weight()).toBe(SERVED_MEAN)
+}
+const SERVED_MEAN = 0.7619047619047619
+
+describe('⭐ the served refusal reply re-states the Run the user already had (draws 4a/4a-2)', () => {
+  it('RED: the same Run re-stated → every currency field is what it was before the press; never "model changed"', async () => {
+    const before = seedServedRun()
+    const priorObject = before.ceeAnalysisReady
+    await pressRefusedBand(refusalReply())
+    const after = useCanvasStore.getState()
+    for (const k of ANALYSIS_CURRENCY_KEYS) expect(after[k], k).toBe(before[k])
+    expect(after.ceeAnalysisReady).toBe(priorObject)
+    expect(after.analysisFreshnessDirty).toBe(false)
+    expect(rerunLabel()).not.toBe(RERUN_LABEL_CHANGED)
+    expect(renderHook(() => useStageAwarePlaceholder()).result.current).not.toBe(PLACEHOLDER_CHANGED_RUNNABLE)
+  })
+
+  it.each([
+    ['a NEW Run in the reply (later computed_at, same graph)', { computed_at: '2026-10-07T02:19:30.000Z' }],
+    ['a Run on a different graph (same computed_at)', { graph_hash_at_run: 'a0b1c2d3e4f5a6b7' }],
+    ['a reply whose Run cannot be identified (no computed_at)', { computed_at: null }],
+  ] as const)('PRECONDITION ROW: %s still replaces — the older Run is not restored', async (_n, run) => {
+    const before = seedServedRun()
+    await pressRefusedBand(refusalReply(run))
+    const after = useCanvasStore.getState()
+    expect(after.ceeAnalysisReady).not.toBe(before.ceeAnalysisReady)
+    expect(after.analysisFreshnessDirty).toBe(true)
   })
 })
 

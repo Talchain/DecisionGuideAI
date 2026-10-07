@@ -1,0 +1,56 @@
+{
+ "point": [],
+ "range": [
+  {
+   "label": "Open Clifton shop",
+   "fig": "between about 1% and 38%",
+   "line": "'Open Clifton shop': between about 1% and 38% chance of meeting your goal, in this model. Of the links not sized yet, it depends most on how strongly 'Fourth shop active' affects 'Fourth-shop monthly operating contribution', which isn't sized in the model yet. Size it to see where it lands",
+   "tail": "Of the links not sized yet, it depends most on how strongly 'Fourth shop active' affects 'Fourth-shop monthly operating contribution', which isn't sized in the model yet. Size it to see where it lands"
+  },
+  {
+   "label": "Start office wholesale",
+   "fig": "between less than 1% and 13%",
+   "line": "'Start office wholesale': between less than 1% and 13% chance of meeting your goal, in this model. Of the links not sized yet, it depends most on how strongly 'Wholesale sales effort' affects 'Wholesale monthly operating contribution', which isn't sized in the model yet. Size it to see where it lands",
+   "tail": "Of the links not sized yet, it depends most on how strongly 'Wholesale sales effort' affects 'Wholesale monthly operating contribution', which isn't sized in the model yet. Size it to see where it lands"
+  }
+ ],
+ "withheld": [],
+ "deadline": [],
+ "rests": [],
+ "dom": {
+  "hero_panel": [
+   "Here is how your options compare.\n\nThe values you have set sit outside what this comparison turns on, so none of the figures that decide it are yours yet. Figures, and which option they favour, can be shown only as provisional until you have set a value on a factor one of the options changes, or on another factor on the chain from there to your goal.\n\nGoal fit\n(not available for this run)\nLikely outcome\n(not available for this run)\n\nNot shown. Olumi can compare your options, but can't yet test them against your target (at least £24,000 / month), because it needs a size for the links from Loyalty app active to Incremental monthly profit from loyalty app and 4 more. Roughly how much does Incremental monthly profit from loyalty app change, in GBP/month, with Loyalty app active?\n\nWhy and what could change it\nDrivers, flip risks, trade-offs and what to resolve next\n\nWhat we checked\n\nWhich option most runs supported, in this model: not assessed\nRobustness not established\nEvidence not assessed\n\nSomething missing from the results?\n\nNext step\nGive the link from ‘Loyalty app active’ to ‘Incremental monthly profit from loyalty app’ a size\nOpen"
+  ],
+  "hero_headline": [
+   "Here is how your options compare."
+  ],
+  "range_lines": [
+   {
+    "option_id": "open_clifton_shop",
+    "text": "‘Open Clifton shop’: between about 1% and 38% chance of meeting your goal, in this model. Of the links not sized yet, it depends most on how strongly ‘Fourth shop active’ affects ‘Fourth-shop monthly operating contribution’, which isn’t sized in the model yet. Size it to see where it lands",
+    "buttons": [
+     {
+      "text": "Size it to see where it lands",
+      "aria": "Focus on Size it to see where it lands in model",
+      "title": "Size it to see where it lands"
+     }
+    ]
+   },
+   {
+    "option_id": "start_office_wholesale",
+    "text": "‘Start office wholesale’: between less than 1% and 13% chance of meeting your goal, in this model. Of the links not sized yet, it depends most on how strongly ‘Wholesale sales effort’ affects ‘Wholesale monthly operating contribution’, which isn’t sized in the model yet. Size it to see where it lands",
+    "buttons": [
+     {
+      "text": "Size it to see where it lands",
+      "aria": "Focus on Size it to see where it lands in model",
+      "title": "Size it to see where it lands"
+     }
+    ]
+   }
+  ],
+  "range_horizon": [],
+  "horizon_untested": [],
+  "driver_tags": [],
+  "invites": []
+ }
+}
