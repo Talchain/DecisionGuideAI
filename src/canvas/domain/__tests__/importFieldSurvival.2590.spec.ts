@@ -197,6 +197,12 @@ const READER_CORPUS: readonly CorpusEntry[] = [
     value: 'high',
     reader: 'canvas/nodes/RiskNode.tsx (props.data?.impact) · RiskPanel setImpact',
   },
+  {
+    nodeId: 'risk_logistics',
+    field: 'event_risk',
+    value: { version: 1, occurrence: { p_low: 0.1, p_high: 0.3, basis: 'user' }, horizon: { months: 6 } },
+    reader: 'canvas/domain/eventRisk.ts readEventRisk → canvas/nodes/RiskNode.tsx "May happen · about 10–30% within 6 months"',
+  },
   // --- goal cap-fallback spellings. useV2Run reads three in priority order;
   //     stripping the fallbacks silently swallows %-unit targets (see the
   //     comment at useV2Run.ts:243-244).
