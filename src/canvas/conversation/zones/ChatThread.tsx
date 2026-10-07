@@ -6,7 +6,7 @@
  * Custom scrollbar: 4px, themed. Smart scroll via useSmartScroll.
  */
 
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { ArrowDown } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useSmartScroll } from '../hooks/useSmartScroll'
@@ -19,6 +19,9 @@ import { ThinkingDots, waitingPhaseOf } from './ThinkingDots'
 /** The real stage name while request 2 runs: `inferLoadingHint`'s own words for an explanation. */
 const PREPARING_EXPLANATION = 'Preparing explanation\u2026'
 import { GuidanceRows } from './GuidanceRows'
+import { ActionBar } from '../actionBar/ActionBar'
+import { pressIdsOnBar } from '../actionBar/actionBarContract'
+import { useScenarioActionBar } from '../actionBar/useScenarioActionBar'
 import { useProposalGhostBridge } from '../useProposalGhostBridge'
 import { SuggestedChips, type RunChipGate } from './SuggestedChips'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
@@ -307,7 +310,16 @@ export const ChatThread = memo(function ChatThread({
   // 2.668's second defect came to be diagnosed against this file at all.
   // Dividers are assistant-role transcript markers, never the owner of a reply's controls.
   // The latest real reply still supersedes every earlier reply's chips.
-  const suggestedChips = lastReplyMsg?.actionChips ?? []
+  // ⭐ S-B slice 1: CEE's action bar sits under the latest reply (the Reasoning tab shows the same bar). A suggested
+  // action whose id is a press on the bar is already there, so it is not drawn twice; approval, amend and answer
+  // controls are never bar offers and stay chips.
+  const actionBar = useScenarioActionBar()
+  const lastReplyChips = lastReplyMsg?.actionChips
+  const suggestedChips = useMemo(() => {
+    const onBar = pressIdsOnBar(actionBar)
+    const chips = lastReplyChips ?? []
+    return onBar.size === 0 ? chips : chips.filter((chip) => !onBar.has(chip.id))
+  }, [actionBar, lastReplyChips])
 
   // PX-B: the settling phase, read the SAME way AIInputBar reads it —
   // `draftStreamPhaseFor` is the one place that decides scenario ownership, so
@@ -371,6 +383,8 @@ export const ChatThread = memo(function ChatThread({
         )
         // T4: the latest turn's coaching rows sit between the reply and its chips (guidanceRows.ts).
         const guidanceRows = msg === lastReplyMsg && msg.guidance ? <GuidanceRows guidance={msg.guidance} /> : null
+        const bar = msg === lastReplyMsg && actionBar
+          ? <div className="mt-2"><ActionBar bar={actionBar} surface="chat" testId="chat-action-bar" /></div> : null
         // Attach suggested chips directly below their owning reply
         // so they read as one visual unit rather than floating orphans.
         if (isLastAssistant && suggestedChips.length > 0) {
@@ -384,14 +398,16 @@ export const ChatThread = memo(function ChatThread({
                 isThinking={isThinking}
                 runGate={runGate}
               />
+              {bar}
             </div>
           )
         }
-        if (guidanceRows) {
+        if (guidanceRows || bar) {
           return (
             <div key={msg.id}>
               {chatMsg}
               {guidanceRows}
+              {bar}
             </div>
           )
         }

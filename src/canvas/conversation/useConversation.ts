@@ -214,6 +214,8 @@ import {
   readNarration,
 } from './narrationTurn'
 import { readGuidance } from './guidanceRows'
+import { readActionBar } from './actionBar/actionBarContract'
+import { reportActionBarIssue, useActionBarStore } from './actionBar/actionBarStore'
 import { readProposalPreview } from './proposalPreview'
 import { readRecordedServerTurnId } from './serverTurnId'
 import {
@@ -6100,6 +6102,9 @@ export function useConversation(): UseConversationReturn {
           // Result-first (narrationTurn.ts). LIVE path only: a transcript restore never reaches this branch.
           const narration = readNarration(target.response)
           const guidance = readGuidance(target.response)
+          // S-B slice 1: the latest answer's action bar, for chat and the Reasoning tab alike. No bar on the answer → none
+          // is drawn (the surfaces keep the controls they had).
+          useActionBarStore.getState().setBar(scenarioIdAtDispatch ?? null, readActionBar(target.response, reportActionBarIssue))
           const proposalPreview = readProposalPreview(target.response)
           if (namesALatestRun(narration)) {
             latestRunKeyRef.current = narration.runKey

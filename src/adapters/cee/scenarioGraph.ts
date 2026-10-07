@@ -239,6 +239,8 @@ export type ScenarioGraphResult =
       conversationTurns?: unknown
       /** Opt-in, currently executable original approve/amend offers; absent means no authority. */
       heldProposalOffers?: unknown
+      /** The read's `action_bar` (S-B), raw: CEE re-derives it for this read's state; undefined when absent. */
+      actionBar?: unknown
       requestId: string | null
     }
   /** 200, `graph_present:false` — the scenario exists and has no graph yet. Normal. */
@@ -478,6 +480,8 @@ function parseOk(body: unknown): ScenarioGraphResult {
     // Carried raw; the ONE reader is `readServerConversationTurns` (canvas/conversation/serverConversationTurns.ts).
     conversationTurns: b.conversation_turns,
     heldProposalOffers: b.held_proposal_offers,
+    // Carried raw; the ONE reader is `parseActionBar` (canvas/conversation/actionBar/actionBarContract.ts).
+    actionBar: b.action_bar,
     requestId,
   }
 }
