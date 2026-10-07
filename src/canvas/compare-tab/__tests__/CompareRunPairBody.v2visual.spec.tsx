@@ -198,13 +198,16 @@ describe('Ask Olumi: offered only for the pair Olumi reads, with a capped editab
   it('leads with the two endpoints, then the headline, then the reading note ABOVE the figures it says "below" about (v3 artefact)', () => {
     mount(runChangeDelta())
     const times = screen.getByTestId('compare-run-times')
-    const heading = screen.getByRole('heading')
+    // The RESULT heading (the inputs section has its own heading, Compare v3 rows).
+    const heading = within(document.querySelector('[data-compare-section="headline"]') as HTMLElement).getByRole('heading')
     const note = screen.getByTestId('compare-comparability')
     const figures = screen.getByTestId(COMPARE_SUPPORT_TESTID)
     const follows = (a: Element, b: Element) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
     expect(follows(times, heading)).toBe(true)
     expect(follows(heading, note)).toBe(true)
     expect(follows(note, figures)).toBe(true)
+    // The panel's one note style: the reading note carries its ⓘ, like the inputs section's coverage note.
+    expect(note.querySelector('svg[class*="lucide-info"]')).not.toBeNull()
     expect(times.querySelectorAll('[data-run-id]')[0]).toHaveTextContent(/^Earlier/)
     expect(times.querySelectorAll('[data-run-id]')[1]).toHaveTextContent(/^Latest/)
     // The static legend names the same two endpoints, in the same words.
