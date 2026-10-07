@@ -7,6 +7,7 @@ interface EditNoteState {
   consecutiveKeeps: number
   fatigued: boolean
   fingerprint: string
+  /** `EditNote.onceKey`s already shown; cleared with the notes (a Run, a proposal approval). Session only. */
   seenByRun: Record<string, true>
   clear: () => void
   keep: () => void
@@ -41,7 +42,7 @@ export function reportManualEdit(input: EditNoteInput): void {
     if (key.startsWith(`${input.edit.elementId}\u0000`) && silences[key] !== fingerprint) delete silences[key]
   }
   const candidate = deriveEditNote(input)
-  const seenKey = candidate?.tier === 'T3' && candidate.runId ? `${candidate.runId}\u0000${candidate.elementId}` : null
+  const seenKey = candidate?.onceKey ?? null
   const note = candidate && (!seenKey || !state.seenByRun[seenKey]) && (!state.fatigued || candidate.tier === 'T1') && silences[keyOf(candidate)] !== fingerprint
     ? candidate : null
   const seenByRun = note && seenKey ? { ...state.seenByRun, [seenKey]: true as const } : state.seenByRun

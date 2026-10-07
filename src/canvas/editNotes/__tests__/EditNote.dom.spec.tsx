@@ -49,8 +49,8 @@ it('one canvas note pinned outside cards, with unchanged geometry', () => {
   expect(useCanvasStore.getState().nodes).toEqual(before)
 })
 it('S1 renders exact words with Run again as its primary button', () => {
-  const before: EditGraph = { nodes: [...nodes], edges: [{ id: 'edge', source: 'f', target: 'g', data: { strength: 0.2 } }] }
-  const after = structuredClone(before); after.edges[0].data!.strength = 0.7
+  const before: EditGraph = { nodes: [...nodes], edges: [{ id: 'edge', source: 'f', target: 'g', data: { strength_mean: 0.3, direction: 'positive' } }] }
+  const after = structuredClone(before); after.edges[0].data!.strength_mean = 0.55
   reportManualEdit({ edit: { kind: 'edge_strength_edit', elementId: 'edge', accepted: true }, before, after,
     lastRun: { visible: true, runId: 'run', drivers: { o: { kind: 'link_strength', from: 'f', to: 'g', strength: 'stronger', authoredBy: 'user', userStatedLink: true } } } })
   const { container } = render(<EditNote elementId="edge" />)

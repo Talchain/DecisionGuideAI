@@ -82,7 +82,14 @@ export function reportManualEditReceipt(input: {
     const receiptEdges = draft?.edges
     const receiptEdge = Array.isArray(receiptEdges) ? receiptEdges.find(e => e?.id === elementId || ((e?.from ?? e?.source) === p.from && (e?.to ?? e?.target) === p.to)) as Record<string, unknown> | undefined : undefined
     const currentEdge = after.edges.find(e => e.id === elementId)
-    accepted = !!receiptEdge && !!currentEdge
+    // Accepted only when the COMMITTED link carries what was asked: the size, and the direction unless it was kept.
+    // A refusal (a held user figure, a definitional link) returns the old link, so it never earns a note.
+    const strength = receiptEdge?.strength as { mean?: unknown } | undefined
+    const mean = typeof strength?.mean === 'number' ? strength.mean : receiptEdge?.strength_mean
+    const intent = p.direction_intent
+    accepted = !!receiptEdge && !!currentEdge && typeof mean === 'number' && typeof p.magnitude === 'number'
+      && Math.abs(Math.abs(mean) - p.magnitude) <= 1e-6
+      && (intent === 'preserve' || intent === undefined || receiptEdge.effect_direction === intent)
   } else if (event.type === 'structural_delete') {
     accepted = !!draft && !after.nodes.some(n => n.id === elementId) && !after.edges.some(e => e.id === elementId)
       && !(Array.isArray(draft.nodes) && draft.nodes.some(n => n?.id === elementId))

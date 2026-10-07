@@ -8,6 +8,8 @@ import { openOptionValueInput } from '../utils/openOptionValueInput'
 import { OPEN_FULL_INSPECTOR_EVENT } from '../utils/openEdgeStrengthEditor'
 import { requestNodeRename } from '../ui/inspector-v2/renameIntent'
 import { useEditNoteStore } from './editNoteStore'
+import { peekCanvasUndo, runCanvasUndo } from '../undo/undoCommand'
+import { useUndoJournalStore } from '../undo/captureUndoReceipt'
 import { clearPendingEditNotes, clickAwayFromAddedCards, watchAddedCard, recordManualEditChange, watchRenameEdit } from './reportManualEditReceipt'
 import type { EditNoteAction } from './deriveEditNote'
 
@@ -17,12 +19,14 @@ export const EDIT_NOTE_LINK_EVENT = 'olumi:edit-note-link'
 export function EditNote({ elementId }: { elementId: string }) {
   const note = useEditNoteStore(s => s.note?.elementId === elementId ? s.note : null)
   const showToast = useShowToastSafe()
+  // Undo is offered only when the journal holds a saved step to restore (guests and unsaved models have none).
+  const canUndo = useUndoJournalStore(() => peekCanvasUndo('undo').kind === 'restore')
   if (!note) return null
   const act = async (action: EditNoteAction) => {
     const id = action.nodeIds?.[0] ?? elementId
     if (action.kind === 'keep') { useEditNoteStore.getState().keep(); return }
     if (action.kind === 'discuss') {
-      const outcome = askAi({ intent: action.intent, nodeIds: action.nodeIds })
+      const outcome = askAi({ intent: action.intent, nodeIds: action.nodeIds, edgeIds: action.edgeIds })
       if (outcome === 'sent') useEditNoteStore.getState().acted()
       return
     }
@@ -33,8 +37,9 @@ export function EditNote({ elementId }: { elementId: string }) {
       return
     }
     if (action.kind === 'undo') {
+      // A SAVED undo (restores the version before this edit), never a screen-only revert of a committed edit.
       useEditNoteStore.getState().acted()
-      useCanvasStore.getState().undo()
+      void runCanvasUndo('undo')
       return
     }
     useEditNoteStore.getState().acted()
@@ -55,7 +60,7 @@ export function EditNote({ elementId }: { elementId: string }) {
       style={{ maxWidth: 280 }} onPointerDown={event => event.stopPropagation()}>
       <p className={typography.panelBody}>{note.words}</p>
       <div className="flex flex-wrap gap-2 mt-2">
-        {note.actions.map(action => <button key={action.kind} type="button" onClick={() => void act(action)}
+        {note.actions.filter(action => action.kind !== 'undo' || canUndo).map(action => <button key={action.kind} type="button" onClick={() => void act(action)}
           className={`${typography.panelMeta} rounded border border-panel-border px-2 py-1 text-primary hover:bg-panel-hover`}>
           {action.label}
         </button>)}

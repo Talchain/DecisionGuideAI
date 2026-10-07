@@ -19,7 +19,6 @@ export interface EditGraph {
   goal_constraints?: readonly GoalConstraint[] | null
 }
 export interface GoalConstraint { constraint_id?: string; node_id?: string; operator?: string; value?: number; unit?: string }
-export interface PriorRange { low: number; high: number; unit?: string; authoredBy: 'user' | 'olumi' | 'unattributed' }
 export interface LastRunSnapshot {
   visible: boolean
   runId: string
@@ -30,7 +29,6 @@ export interface LastRunSnapshot {
   turningPoints?: Readonly<Record<string, FactorTurningPoint>> | ReadonlyMap<string, FactorTurningPoint>
   goalConstraints?: readonly GoalConstraint[] | null
   limitVerdicts?: { perLimit?: readonly { constraintId: string; state: string }[] } | null
-  priorRanges?: Readonly<Record<string, PriorRange>>
 }
 export interface ManualEdit {
   kind: 'factor_value_edit' | 'option_intervention_edit' | 'goal_target_edit' | 'edge_strength_edit' | 'structural_delete' | 'structural_add' | 'structural_add_edge' | 'structural_rename'
@@ -40,10 +38,14 @@ export interface ManualEdit {
   origin?: 'manual' | 'proposal'
   userFigure?: boolean
 }
-export type EditNoteCheck = 'F1' | 'A1' | 'A2' | 'O1' | 'O2' | 'R1' | 'G1' | 'S1' | 'D1' | 'S2' | 'F4' | 'F3' | 'X1' | 'G2' | 'F2' | 'O3' | 'O4'
+// F2 (outside the user's own range) is NOT here: the canvas holds no user-owned range to compare against (a user value
+// replaces the prior, `factorPriorRange.userValueReplacesPrior`). It waits for that carrier rather than shipping inert.
+export type EditNoteCheck = 'F1' | 'A1' | 'A2' | 'O1' | 'O2' | 'R1' | 'G1' | 'S1' | 'D1' | 'S2' | 'F4' | 'F3' | 'X1' | 'G2' | 'O3' | 'O4'
 export type DiscussIntent = 'lever-today' | 'connect' | 'differentiate' | 'edit-driver' | 'edit-removed' | 'limit-connect' | 'link' | 'explain' | 'estimate' | 'challenge'
-export type EditNoteAction = { kind: 'option' | 'link' | 'rename' | 'keep' | 'discuss' | 'run' | 'undo'; label: string; nodeIds?: string[]; intent?: DiscussIntent }
-export interface EditNote { check: EditNoteCheck; tier: 'T1' | 'T2' | 'T3' | 'T4'; elementId: string; words: string; actions: EditNoteAction[]; runId?: string }
+export type EditNoteAction = { kind: 'option' | 'link' | 'rename' | 'keep' | 'discuss' | 'run' | 'undo'; label: string; nodeIds?: string[]; edgeIds?: string[]; intent?: DiscussIntent }
+/** `onceKey`: a note with one shows at most once until the notes are cleared (a Run, a proposal approval). T3 keys on
+ * the Run and the element (first edit since that Run); O4 keys on the limit's node (one limit, not every option edit). */
+export interface EditNote { check: EditNoteCheck; tier: 'T1' | 'T2' | 'T3' | 'T4'; elementId: string; words: string; actions: EditNoteAction[]; onceKey?: string }
 export interface EditNoteInput { edit: ManualEdit; before: EditGraph; after: EditGraph; readinessBefore?: unknown; readinessAfter?: unknown; lastRun?: LastRunSnapshot }
 const kindOf = (node: EditNode) => node.type ?? node.data.kind ?? node.data.type
 const labelOf = (node: EditNode | undefined) => typeof node?.data.label === 'string' ? node.data.label.trim() : ''
@@ -58,12 +60,20 @@ const unitOf = (node: EditNode | undefined): string | undefined => {
   const unit = state && typeof state === 'object' ? (state as { unit?: unknown }).unit : node?.data.unit
   return typeof unit === 'string' ? unit : undefined
 }
-const edgeStrength = (edge: EditEdge | undefined): number | null => {
-  const raw = edge?.data?.strength ?? edge?.data?.weight ?? edge?.data?.magnitude
-  return typeof raw === 'number' ? raw : null
+/** The link's SIZE: canvas edges carry a signed `strength_mean` (CEE) or an unsigned `weight` (`edgeValueProvenance`). */
+const magnitudeOf = (edge: EditEdge | undefined): number | null => {
+  const d = edge?.data
+  const raw = typeof d?.strength_mean === 'number' ? d.strength_mean : typeof d?.weight === 'number' ? d.weight : null
+  return raw !== null && Number.isFinite(raw) ? Math.abs(raw) : null
+}
+/** The link's DIRECTION as stored (`direction ?? effect_direction`). A reversal is a change of this, never of a sign. */
+const directionOf = (edge: EditEdge | undefined): 'positive' | 'negative' | null => {
+  const raw = edge?.data?.direction ?? edge?.data?.effect_direction
+  return raw === 'positive' || raw === 'negative' ? raw : null
 }
 const profile = (node: EditNode, graph: EditGraph) => {
   const entries = Object.entries(settingMap(node, graph) ?? {}).map(([id, raw]) => [id, unwrapInterventionValue(raw).value ?? (typeof raw === 'string' ? raw : null)] as const).sort(([a], [b]) => a.localeCompare(b))
+  // Unknown settings cannot prove two complete profiles are identical.
   return entries.length && entries.every(([, value]) => value !== null) ? JSON.stringify(entries) : null
 }
 const driversOf = (run: LastRunSnapshot | undefined) => run?.drivers ?? readGoalChanceLicence((run?.report as { inference_warnings?: unknown } | undefined)?.inference_warnings)?.driverByOption ?? {}
@@ -79,15 +89,24 @@ export function deriveEditNote({ edit, before, after, lastRun }: EditNoteInput):
   const subject = node ?? oldNode
   if (!subject && !edge && !oldEdge) return null
   const label = labelOf(subject)
+  if (subject && !edge && !oldEdge && !label) return null
   const goal = after.nodes.find(n => kindOf(n) === 'goal')
   const options = after.nodes.filter(n => kindOf(n) === 'option')
   const reaches = (id: string, target: string) => id === target || findPathsToGoal(id, target, [...after.edges], { maxDepth: after.nodes.length }).length > 0
   const reachesGoal = (id: string) => !!goal && reaches(id, goal.id)
   const keep: EditNoteAction = { kind: 'keep', label: copy.actions.keep }
-  const discuss = (intent: DiscussIntent, nodeIds: string[]): EditNoteAction => ({ kind: 'discuss', label: copy.actions.discuss, intent, nodeIds })
+  const discuss = (intent: DiscussIntent, nodeIds: string[], edgeIds?: string[]): EditNoteAction => ({ kind: 'discuss', label: copy.actions.discuss, intent, nodeIds, ...(edgeIds ? { edgeIds } : {}) })
   const run: EditNoteAction = { kind: 'run', label: copy.actions.runAgain }
   const undo: EditNoteAction = { kind: 'undo', label: copy.actions.undo }
-  const result = (check: EditNoteCheck, tier: EditNote['tier'], words: string, actions: EditNoteAction[]): EditNote => ({ check, tier, elementId: edit.elementId, words, actions, ...(tier === 'T3' && lastRun ? { runId: lastRun.runId } : {}) })
+  const result = (check: EditNoteCheck, tier: EditNote['tier'], words: string, actions: EditNoteAction[], onceKey?: string): EditNote => ({
+    check, tier, elementId: edit.elementId, words, actions,
+    ...(onceKey ? { onceKey } : tier === 'T3' && lastRun ? { onceKey: `${lastRun.runId}\u0000${edit.elementId}` } : {}),
+  })
+  // An option's changes are the factors it SETS (its settings, or an option→factor link), never the option card itself.
+  const optionReaches = (option: EditNode, target: string) => [
+    ...Object.keys(settingMap(option, after) ?? {}),
+    ...after.edges.filter(e => e.source === option.id).map(e => e.target),
+  ].some(factorId => reaches(factorId, target))
 
   // T1 remains first: lower numbered tiers outrank later tiers.
   if (edit.kind === 'structural_add' && node && goal && node.id !== goal.id) {
@@ -97,10 +116,11 @@ export function deriveEditNote({ edit, before, after, lastRun }: EditNoteInput):
   }
   if (edit.kind === 'option_intervention_edit' && node && kindOf(node) === 'option') {
     const constraints = lastRun?.goalConstraints ?? after.goal_constraints ?? []
-    const unreachable = constraints.find(c => c.node_id && !options.some(o => reaches(o.id, c.node_id!)))
-    if (unreachable) {
-      const limited = after.nodes.find(n => n.id === unreachable.node_id)
-      return result('O4', 'T1', copy.O4(labelOf(limited), String(unreachable.value ?? '')), [discuss('limit-connect', [unreachable.node_id!]), keep])
+    const unreachable = constraints.find(c => c.node_id && typeof c.value === 'number' && !options.some(o => optionReaches(o, c.node_id!)))
+    const limited = unreachable && after.nodes.find(n => n.id === unreachable.node_id)
+    if (unreachable && limited) {
+      return result('O4', 'T1', copy.O4(labelOf(limited), formatValueWithUnit(unreachable.value!, unreachable.unit)),
+        [discuss('limit-connect', [limited.id]), keep], `limit\u0000${limited.id}`)
     }
     const own = profile(node, after); const other = own && options.find(o => o.id !== node.id && profile(o, after) === own)
     if (other) return result('O1', 'T1', copy.O1(label, labelOf(other)), [{ kind: 'option', label: copy.actions.editOption, nodeIds: [node.id] }, discuss('differentiate', [node.id, other.id])])
@@ -110,11 +130,6 @@ export function deriveEditNote({ edit, before, after, lastRun }: EditNoteInput):
 
   // T2 checks.
   if (edit.kind === 'factor_value_edit' && node && kindOf(node) === 'factor') {
-    const next = valueOf(node); const range = lastRun?.priorRanges?.[node.id]
-    if (next !== null && range?.authoredBy === 'user' && (next < range.low || next > range.high)) {
-      const unit = range.unit ?? unitOf(node)
-      return result('F2', 'T2', copy.F2(formatValueWithUnit(next, unit), label, formatValueWithUnit(range.low, unit), formatValueWithUnit(range.high, unit)), [undo, keep, discuss('estimate', [node.id])])
-    }
     const setters = options.filter(o => settingMap(o, after)?.[node.id] != null || after.edges.some(e => e.source === o.id && e.target === node.id))
     if (setters.length) {
       const keepers = options.filter(o => !setters.includes(o)); const words = keepers.length === 0 ? copy.F1All(label) : copy.F1Some(label, setters.map(labelOf), keepers.map(labelOf))
@@ -136,13 +151,21 @@ export function deriveEditNote({ edit, before, after, lastRun }: EditNoteInput):
     const drivers = driversOf(lastRun)
     const optionLabels = (predicate: (d: GoalChanceDriver) => boolean) => Object.entries(drivers).filter(([, d]) => predicate(d)).map(([id]) => labelOf(after.nodes.find(n => n.id === id) ?? before.nodes.find(n => n.id === id))).filter(Boolean)
     const linkDriver = (d: GoalChanceDriver) => (d.kind === 'link_strength' || d.kind === 'link_existence') && d.from === (edge ?? oldEdge)?.source && d.to === (edge ?? oldEdge)?.target
-    if (edit.kind === 'edge_strength_edit' && edge && oldEdge && edgeStrength(edge) !== edgeStrength(oldEdge)) {
+    if (edit.kind === 'edge_strength_edit' && edge && oldEdge) {
+      const reversed = directionOf(edge) !== null && directionOf(oldEdge) !== null && directionOf(edge) !== directionOf(oldEdge)
+      const before = magnitudeOf(oldEdge), now = magnitudeOf(edge)
+      const resized = before !== null && now !== null && Math.abs(before - now) > 1e-9
       const names = optionLabels(linkDriver)
-      if (names.length) {
-        const reversed = edgeStrength(edge) !== null && edgeStrength(oldEdge) !== null && Math.sign(edgeStrength(edge)!) !== Math.sign(edgeStrength(oldEdge)!)
-        if (reversed) return result('D1', 'T3', copy.D1(names), [run, undo, discuss('edit-driver', [edge.source, edge.target])])
+      const driverTalk = discuss('edit-driver', [edge.source, edge.target], [edge.id])
+      if (names.length && reversed) return result('D1', 'T3', copy.D1(names), [run, undo, driverTalk])
+      if (names.length && resized) {
         const own = Object.values(drivers).some(d => linkDriver(d) && d.authoredBy === 'olumi') && edit.userFigure !== false
-        return result('S1', 'T3', own ? copy.S1Own(names) : copy.S1(names), [run, undo, discuss('edit-driver', [edge.source, edge.target])])
+        return result('S1', 'T3', own ? copy.S1Own(names) : copy.S1(names), [run, undo, driverTalk])
+      }
+      // "Any other direction change: no note" (EDIT-AI §3.4): S2 speaks of a strength change only.
+      if (!names.length && resized && !reversed) {
+        const fragile = isEdgeFragile(edge.id, edge.source, edge.target, [...(lastRun.fragileEdges ?? [])], { parallelEdgeIds: parallelEdgeIdsFor(after.edges, edge.source, edge.target) })
+        if (fragile) return result('S2', 'T3', copy.S2, [run, discuss('link', [edge.source, edge.target], [edge.id])])
       }
     }
     if (edit.kind === 'factor_value_edit' && node) {
@@ -159,15 +182,15 @@ export function deriveEditNote({ edit, before, after, lastRun }: EditNoteInput):
         const names = optionLabels(linkDriver)
         if (names.length) return result('X1', 'T3', copy.X1Link(names), [undo, run, discuss('edit-removed', [oldEdge.source, oldEdge.target])])
       } else if (oldNode) {
-        const names = optionLabels(d => d.kind === 'factor_value' && d.factorId === oldNode.id)
-        if (names.length || turningPointOf(lastRun, oldNode.id)) return result('X1', 'T3', copy.X1Card(names, labelOf(oldNode)), [undo, run, discuss('edit-removed', [oldNode.id])])
+        // A removed card takes its links with it: a driver ON the card, or a link driver touching it, both count.
+        // A turning point alone has no sentence here, so it gets no note (never a sentence with an empty option list).
+        const names = optionLabels(d => (d.kind === 'factor_value' && d.factorId === oldNode.id)
+          || ((d.kind === 'link_strength' || d.kind === 'link_existence') && (d.from === oldNode.id || d.to === oldNode.id)))
+        if (names.length) return result('X1', 'T3', copy.X1Card(names, labelOf(oldNode)), [undo, run, discuss('edit-removed', [oldNode.id])])
       }
     }
-    if (edit.kind === 'edge_strength_edit' && edge && oldEdge && edgeStrength(edge) !== edgeStrength(oldEdge)) {
-      const fragile = isEdgeFragile(edge.id, edge.source, edge.target, [...(lastRun.fragileEdges ?? [])], { parallelEdgeIds: parallelEdgeIdsFor(after.edges, edge.source, edge.target) })
-      if (fragile) return result('S2', 'T3', copy.S2, [run, discuss('link', [edge.source, edge.target])])
-    }
-    if (edit.kind === 'goal_target_edit' && node && resolveGoalTarget(oldNode?.data)) return result('G2', 'T3', copy.G2, [run])
+    const oldTarget = resolveGoalTarget(oldNode?.data), newTarget = node ? resolveGoalTarget(node.data) : null
+    if (edit.kind === 'goal_target_edit' && node && oldTarget && newTarget && String(oldTarget.raw) !== String(newTarget.raw)) return result('G2', 'T3', copy.G2, [run])
   }
   if (edit.kind === 'goal_target_edit' && node && !resolveGoalTarget(oldNode?.data) && resolveGoalTarget(node.data)) return result('G1', 'T4', copy.G1(label), [{ kind: 'run', label: copy.actions.run }])
   return null
