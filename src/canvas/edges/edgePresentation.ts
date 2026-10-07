@@ -88,17 +88,16 @@ import { glyphCounterScale } from '../utils/zoomLegibility'
  * ("quiet and grey"), replacing the cool mid-grey that sat beside warm stone
  * factor borders on every graph. Built from an EXISTING token (DS v5; Paul pt 9
  * "no new colours"; `check-ds-compliance` refuses a new production hex): the
- * muted-ink token at 50%, which composites on the canvas ground to within a
+ * muted-ink token at the shared resting alpha, which composites on the canvas ground to within a
  * few units of the contract's grey. Width 1 and no arrowhead are unchanged
  * (rule `structural` below and `EDGE_DIRECTION_MARKER_RULES`).
  *
- * ⭐ 0.5 → 0.75 (Paul, 30 Sep: "the graph is nearly invisible"). The contract's
- * 1px grey is drawn at 100%; ours is a 1px `non-scaling-stroke` BEZIER, and its
- * anti-aliasing halves the ink. Measured on served `61f5b909` (1440×900, MRR):
- * the darkest pixel of a question→option link was ~40 below the ground, the
- * contract's ~64. At 0.75 the curve reaches the contract's contrast.
+ * Paul, 7 Oct 2026: lighten decision→option and darken option→factor
+ * to one shared 0.55 resting alpha, with no group dim at rest.
  */
-export const STRUCTURAL_EDGE_COLOUR = 'rgb(var(--text-light-rgb) / 0.75)'
+// Paul, 7 Oct 2026: both structural tiers use the same resting ink.
+export const STRUCTURAL_EDGE_RESTING_ALPHA = 0.55
+export const STRUCTURAL_EDGE_COLOUR = `rgb(var(--text-light-rgb) / ${STRUCTURAL_EDGE_RESTING_ALPHA})`
 
 /**
  * The exception hue, reserved — see `resolveEdgeStroke` — for the ONE state that

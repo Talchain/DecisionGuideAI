@@ -35,7 +35,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest'
 import { render, cleanup, act } from '@testing-library/react'
 import { Position } from '@xyflow/react'
-import { StyledEdge, EDGE_SELECTION_DIM_OPACITY } from '../StyledEdge'
+import { StyledEdge } from '../StyledEdge'
 import { flattenSvgPath } from '../fragileCuePlacement'
 import { layOutBoard, isStructuralPair, LANDING_ENDS, distanceToPolyline, type LaidBoard } from './__helpers__/paulTestBoards'
 import { useCanvasNodeHoverStore } from '../../stores/canvasNodeHoverStore'
@@ -321,7 +321,7 @@ describe('A — links arriving at one card spread along its top, in their source
   })
 })
 
-describe('C — option → factor links rest at low emphasis; an endpoint hovered or selected restores them', () => {
+describe('C — Paul 7 Oct: option → factor links share structural resting ink; endpoint focus stays identifiable', () => {
   const OPTION_FACTOR = ['e-4', 'e-5', 'e-6', 'e-7', 'e-8', 'e-9', 'e-10', 'e-11', 'e-12', 'e-13', 'e-14', 'e-15']
   const QUESTION_OPTION = ['e-0', 'e-1', 'e-2', 'e-3']
   function restState(id: string) {
@@ -337,11 +337,12 @@ describe('C — option → factor links rest at low emphasis; an endpoint hovere
     return out
   }
 
-  it('pa_vs_ai — each of the 12 option → factor links rests at the canvas dim, still hit-testable', () => {
+  it('pa_vs_ai — each of the same 12 option → factor links rests at full group opacity, still hit-testable', () => {
     for (const id of OPTION_FACTOR) {
       const s = restState(id)
       expect(s.rest, id).toBe('true')
-      expect(Number(s.opacity), id).toBe(EDGE_SELECTION_DIM_OPACITY)
+      // Paul 7 Oct: both tiers must match; #2268's 0.18 rest dim made these links too light.
+      expect(Number(s.opacity), id).toBe(1)
       expect(s.pointer, id).toBe('stroke')
     }
   })

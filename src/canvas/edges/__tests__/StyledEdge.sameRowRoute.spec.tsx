@@ -54,7 +54,7 @@ vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
   return {
     ...actual,
-    BaseEdge: () => <path data-testid="base-edge" />,
+    BaseEdge: ({ markerEnd }: any) => <path data-testid="base-edge" markerEnd={markerEnd} />,
     EdgeLabelRenderer: ({ children }: any) => <div>{children}</div>,
     getBezierPath: () => ['M0 0 L100 100', 50, 50, 50, 50],
     getSmoothStepPath: () => ['M0 0 L100 100', 50, 50],
@@ -222,9 +222,11 @@ describe('same-row link with a card BETWEEN — a shallow run under the row', ()
   // (680.12, 459.28), where the arc is already turning towards its source.
   // ⚠ RE-PINNED 1 Oct 2026 (#2409, Paul: "The arrows … are too big"): the head is 2.5× the stroke, not 4×, so
   // "one head back" is shorter and the sign sits nearer the tip, still ON the arc — measured (685.67, 457.04).
-  it('the glyph sits ON the arc, just behind the arrowhead rising into the target', () => {
+  it('the same-row glyph retains its exact position with no arrowhead (Paul 7 Oct)', () => {
     const { container } = renderLink(PRICE, CHURN)
     expect(glyphOf(container)!.style.transform).toMatch(/translate\(685\.67px,\s*457\.04px\)/)
+    expect(container.querySelector('marker')).toBeNull()
+    expect(container.querySelector('[data-testid="base-edge"]')!.getAttribute('marker-end')).toBeNull()
   })
 })
 
