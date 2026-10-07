@@ -97,6 +97,13 @@ describe('Rule R read-time display mirror', () => {
     expect(resolveCausalLensEdgeParams(graph.edges[1].data, { routeOnceHeld: true }).existsProb).toBe(1)
   })
 
+  it('a store that is not yet two arrays holds nothing (never throws: a WeakMap key must be an object)', () => {
+    for (const [n, e] of [[undefined, undefined], [[], undefined], [undefined, []], [null, null]] as const) {
+      expect(routeOnceHeldIds(n as never, e as never).size).toBe(0)
+      expect(routeOnceHeldEdges(n as never, e as never).size).toBe(0)
+    }
+  })
+
   it('scaling: 500 -> 2000 nodes, min-of-5 ratio < 8', () => {
     const small = chain(500)
     const large = chain(2000)

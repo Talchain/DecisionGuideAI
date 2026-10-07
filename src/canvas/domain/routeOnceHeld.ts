@@ -10,7 +10,12 @@ type StructuralLink = { edge: Rec; from: string; to: string; isDefault: boolean 
 type Held = { edges: ReadonlySet<object>; ids: ReadonlySet<string> }
 const cache = new WeakMap<readonly unknown[], WeakMap<readonly unknown[], Held>>()
 
+/** Nothing held: a graph that is not yet two arrays (a store not loaded, a partial test store) holds nothing. */
+const NOTHING_HELD: Held = Object.freeze({ edges: new Set<object>(), ids: new Set<string>() })
+
 function heldOf(nodes: readonly unknown[], edges: readonly unknown[]): Held {
+  // Fail closed BEFORE the WeakMap: only an object may key it, and only arrays carry a graph.
+  if (!Array.isArray(nodes) || !Array.isArray(edges)) return NOTHING_HELD
   let byEdges = cache.get(nodes)
   const cached = byEdges?.get(edges)
   if (cached) return cached
