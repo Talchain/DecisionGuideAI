@@ -29,6 +29,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useCanvasStore } from '../../store'
 import { provenanceKey } from '../provenanceKey'
+import { STRENGTH_NOT_SET_DASH } from '../../edges/edgePresentation'
 import { CanvasProvenanceKey, CANVAS_PROVENANCE_KEY_COPY, CANVAS_PROVENANCE_KEY_TESTID } from '../CanvasProvenanceKey'
 import { OVERLAY_PRIORITY } from '../CanvasOverlayBand'
 import { NodeProvenanceMark, provenanceDefaultKind, resolveProvenanceMarks } from '../../nodes/shared/NodeProvenanceMark'
@@ -37,7 +38,7 @@ import { resolveNodeTypeLiteral } from '../../domain/nodes'
 import { isStrengthPlaceholder } from '../../domain/strengthPlaceholder'
 import { resolveEdgeValueDisplay } from '../../domain/edgeValueProvenance'
 import { resolveExistenceDash } from '../../utils/graphDisplayCalculations'
-import { EDGE_EXISTENCE_DOUBT_SENTENCE, EDGE_STRENGTH_PLACEHOLDER_SENTENCE } from '../../edges/connectorCopy'
+import { EDGE_EXISTENCE_DOUBT_SENTENCE } from '../../edges/connectorCopy'
 import { NOT_RANKED_MARKER } from '../../state/winShareGate'
 import { factorValueSourceMark, VALUE_SOURCE_MARK_LABEL, VALUE_SOURCE_MARK_TOKEN } from '../../nodes/shared/valueSourceMark'
 
@@ -103,9 +104,39 @@ describe('P2 · link cues, in the cue\'s own sentence and stroke', () => {
   it('placeholder → its sentence; doubt → its sentence with the SAME dash the link is drawn with', () => {
     const key = provenanceKey(NODES, [PLACEHOLDER_EDGE, DOUBT_EDGE, PLAIN_EDGE])
     expect(key.links).toEqual([
-      { cue: 'placeholder', label: EDGE_STRENGTH_PLACEHOLDER_SENTENCE },
+      { cue: 'placeholder', label: 'No strength estimate: dotted', dash: '0.1 4' },
       { cue: 'doubt', label: EDGE_EXISTENCE_DOUBT_SENTENCE, dash: doubtDash(DOUBT_EDGE) },
     ])
+  })
+})
+
+describe('Strength not set swatch', () => {
+  it('structural links have no strength cue; an explicit causal override does', () => {
+    const nodes = [
+      { id: 'd', type: 'decision', data: { label: 'Question' } },
+      { id: 'o', type: 'option', data: { label: 'Idea' } },
+      { id: 'f', type: 'factor', data: { label: 'Factor' } },
+    ]
+    const links = [{ source: 'd', target: 'o', data: {} }, { source: 'o', target: 'f', data: {} }]
+    expect(provenanceKey(nodes, links).links).toEqual([])
+    expect(provenanceKey(nodes, [{ ...links[1], data: { edge_type: 'causal' } }]).links)
+      .toEqual([{ cue: 'placeholder', label: 'No strength estimate: dotted', dash: '0.1 4' }])
+  })
+  it('a doubted placeholder shows dots, so the key does not claim an existence dash is drawn', () => {
+    expect(provenanceKey(NODES, [{ ...PLACEHOLDER_EDGE, data: { ...PLACEHOLDER_EDGE.data, beliefExists: 0.5, beliefExistsSource: 'user' } }]).links)
+      .toEqual([{ cue: 'placeholder', label: 'No strength estimate: dotted', dash: '0.1 4' }])
+  })
+
+  it.each([PLACEHOLDER_EDGE, { ...PLAIN_EDGE, data: { weight: 0.35 } }])('keys both placeholder and provenance-unset strengths', edge => {
+    useCanvasStore.setState({ nodes: NODES, edges: [edge] } as never)
+    render(<CanvasProvenanceKey />)
+    fireEvent.click(screen.getByTestId(`${T}-toggle`))
+    const row = screen.getByTestId(`${T}-panel`).querySelector('li[data-cue="placeholder"]')
+    expect(row?.textContent).toBe('No strength estimate: dotted')
+    const line = row?.querySelector('line')
+    expect(line?.getAttribute('stroke-dasharray')).toBe(STRENGTH_NOT_SET_DASH)
+    expect(line?.getAttribute('stroke-width')).toBe('1')
+    expect(line?.getAttribute('stroke-linecap')).toBe('round')
   })
 })
 
