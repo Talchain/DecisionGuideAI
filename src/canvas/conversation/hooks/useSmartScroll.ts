@@ -44,6 +44,43 @@ const REPLY_START_GAP_PX = 12
  */
 export const MESSAGE_ID_ATTRIBUTE = 'data-message-id'
 
+/**
+ * The attribute the waiting indicator (`ThinkingDots`) puts on its root.
+ *
+ * ⭐ THE WAITING LINE IS NOT NEW CONTENT (Paul, 7 Oct: "the text doesn't move.
+ * You can still look at your dialogue while it's loading"). While a turn is in
+ * flight the indicator is the ONE thing on the thread allowed to change: its
+ * coaching line rotates every 5 s and the elapsed hint is rewritten every 5 s
+ * after 15 s. The content sensor below used to treat each of those rewrites as
+ * a reply arriving — it snapped a near-bottom reader back down, and raised the
+ * "New messages" pill over the text of a reader scrolled up into history, every
+ * 5 s, with nothing new to read. A change confined to the indicator now only
+ * keeps a FOLLOWING reader following; it never raises the pill and never moves
+ * someone reading history.
+ */
+export const WAITING_INDICATOR_ATTRIBUTE = 'data-waiting-indicator'
+
+/** True when this DOM node is, or sits inside, the waiting indicator. */
+function inWaitingIndicator(node: Node | null): boolean {
+  const el = node instanceof Element ? node : node?.parentElement ?? null
+  return el?.closest(`[${WAITING_INDICATOR_ATTRIBUTE}]`) != null
+}
+
+/**
+ * True when every change in this batch is the waiting indicator's own: text or
+ * children inside it, or the indicator itself being added or removed. Any other
+ * change (a reply's text, blocks or chips) is content.
+ */
+export function onlyWaitingIndicatorChanged(records: ReadonlyArray<MutationRecord>): boolean {
+  if (records.length === 0) return false
+  return records.every((r) => {
+    if (inWaitingIndicator(r.target)) return true
+    if (r.type !== 'childList') return false
+    const touched = [...Array.from(r.addedNodes), ...Array.from(r.removedNodes)]
+    return touched.length > 0 && touched.every((n) => n instanceof Element && n.hasAttribute(WAITING_INDICATOR_ATTRIBUTE))
+  })
+}
+
 /** What the hold reads from each message: its identity and its role. */
 type TranscriptEntry = Pick<ConversationMessage, 'id' | 'role'>
 
@@ -199,6 +236,17 @@ export function useSmartScroll({ messageCount, isThinking, messages }: UseSmartS
   }, [holdAtReplyStart])
 
   /**
+   * Keep a FOLLOWING reader following; leave everyone else exactly where they
+   * are, with no pill. For changes that are not new content: the waiting
+   * indicator's own rewrites, and the thinking state settling with nothing
+   * appended (see `WAITING_INDICATOR_ATTRIBUTE`).
+   */
+  const pinIfFollowing = useCallback((behavior: ScrollBehavior) => {
+    if (userScrolledUpRef.current) return
+    pinOrNotify(behavior)
+  }, [pinOrNotify])
+
+  /**
    * The pill's own action: the user ASKED to go to the bottom, so it always
    * goes — and the hold is released, so later content keeps following them there.
    */
@@ -209,11 +257,18 @@ export function useSmartScroll({ messageCount, isThinking, messages }: UseSmartS
     setShowNewMessageIndicator(false)
   }, [])
 
-  // Sensor 1 — a message arrived (or the thinking state settled).
+  // Sensor 1 — a message arrived (or the thinking state settled). Only a
+  // change in the rendered COUNT is new content; the thinking state flipping on
+  // its own (a turn going pending, or settling with nothing appended) keeps a
+  // following reader following and never raises the pill.
+  const prevMessageCountRef = useRef(messageCount)
   useEffect(() => {
+    const countChanged = prevMessageCountRef.current !== messageCount
+    prevMessageCountRef.current = messageCount
     if (messageCount === 0) return
-    pinOrNotify('smooth')
-  }, [messageCount, isThinking, pinOrNotify])
+    if (countChanged) pinOrNotify('smooth')
+    else pinIfFollowing('smooth')
+  }, [messageCount, isThinking, pinOrNotify, pinIfFollowing])
 
   // ── L-83: re-pin to bottom when the thread is REVEALED ────────────────────
   //
@@ -289,10 +344,13 @@ export function useSmartScroll({ messageCount, isThinking, messages }: UseSmartS
   useEffect(() => {
     const el = listRef.current
     if (!el || typeof MutationObserver === 'undefined') return
-    const observer = new MutationObserver(() => pinOrNotify('auto'))
+    const observer = new MutationObserver((records) => {
+      if (onlyWaitingIndicatorChanged(records)) pinIfFollowing('auto')
+      else pinOrNotify('auto')
+    })
     observer.observe(el, { childList: true, subtree: true, characterData: true })
     return () => observer.disconnect()
-  }, [pinOrNotify])
+  }, [pinOrNotify, pinIfFollowing])
 
   const handleScroll = useCallback(() => {
     const el = listRef.current

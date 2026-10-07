@@ -17,8 +17,9 @@
  * given remount is VISIBLE is a real-browser question, recorded in the PR.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { ChatThread, THREAD_TESTID_DOCKED } from '../zones/ChatThread'
+import { render, screen, act } from '@testing-library/react'
+import { ChatThread, THREAD_TESTID_DOCKED, THREAD_SCROLL_SENTINEL_TESTID } from '../zones/ChatThread'
+import { WAITING_LINE_MS } from '../zones/ThinkingDots'
 import { MESSAGE_ID_ATTRIBUTE } from '../hooks/useSmartScroll'
 import type { ConversationMessage, ActionChip } from '../types'
 
@@ -51,9 +52,40 @@ vi.mock('../../stores/guidanceStore', () => ({
   ),
 }))
 
+// Each scroll is recorded with its target, so a row can say WHICH element was
+// scrolled to (the thread's end sentinel), never just "something scrolled".
+const scrollTargets: unknown[] = []
 beforeEach(() => {
-  Element.prototype.scrollIntoView = vi.fn()
+  scrollTargets.length = 0
+  Element.prototype.scrollIntoView = vi.fn(function (this: unknown) {
+    scrollTargets.push(this)
+  })
 })
+
+/** Let the thread's MutationObserver callbacks and effects run. */
+async function flush() {
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 0))
+    await new Promise((r) => setTimeout(r, 0))
+  })
+}
+
+/** Make the thread a reader has scrolled well up from the bottom of (reading history). */
+async function scrollReaderUp(thread: HTMLElement) {
+  Object.defineProperties(thread, {
+    scrollTop: { value: 100, writable: true, configurable: true },
+    clientHeight: { value: 400, configurable: true },
+    scrollHeight: { value: 4000, configurable: true },
+  })
+  await act(async () => {
+    thread.dispatchEvent(new Event('scroll'))
+  })
+}
+
+function scrollsToEnd(): number {
+  const sentinel = screen.getByTestId(THREAD_SCROLL_SENTINEL_TESTID)
+  return scrollTargets.filter((t) => t === sentinel).length
+}
 
 const t0 = new Date('2026-10-07T09:00:00Z')
 const chip: ActionChip = { id: 'agent-next-pre-mortem', label: 'Run a pre-mortem', intent: 'secondary', message: 'Run a pre-mortem' }
@@ -154,5 +186,57 @@ describe('ChatThread: the dialogue is stable while a turn is in flight', () => {
     expect(groups).toHaveLength(1)
     expect(groups[0].contains(messageNode('a2'))).toBe(true)
     expect(groups[0].contains(messageNode('a1'))).toBe(false)
+  })
+
+  it('a reader scrolled up to read is not moved, and is not told "New messages", while only the waiting line changes', async () => {
+    // The waiting line is the one thing allowed to change during a pending
+    // turn. On base it counted as new content: the thread's content sensor
+    // raised the "New messages" pill over the text the reader was reading
+    // (or snapped a near-bottom reader down) every 5 s.
+    const { rerender } = render(<ChatThread {...props([reply1, ask1], true)} />)
+    await flush()
+    const thread = screen.getByTestId(THREAD_TESTID_DOCKED)
+    await scrollReaderUp(thread)
+    const scrollsBefore = scrollsToEnd()
+
+    // (1) the elapsed-time hint is rewritten ("…20s"), as useConversation does every 5 s after 15 s
+    rerender(<ChatThread {...{ ...props([reply1, ask1], true), longRunningHint: 'Thinking... 20s' }} />)
+    await flush()
+    expect(screen.getByTestId('thinking-indicator').textContent).toContain('20s')
+    expect(screen.queryByTestId('new-messages-pill'), 'the waiting line raised a false "New messages" pill').toBeNull()
+    expect(scrollsToEnd(), 'the waiting line moved the reader').toBe(scrollsBefore)
+    expect(thread.scrollTop).toBe(100)
+  })
+
+  it('a reader scrolled up is not moved while the run\'s coaching line rotates', async () => {
+    vi.useFakeTimers()
+    try {
+      render(<ChatThread {...{ ...props([reply1, ask1], true), analysisRunning: true }} />)
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      const thread = screen.getByTestId(THREAD_TESTID_DOCKED)
+      await scrollReaderUp(thread)
+      const line = screen.getByTestId('thinking-coaching-line').textContent
+      const scrollsBefore = scrollsToEnd()
+      await act(async () => { await vi.advanceTimersByTimeAsync(WAITING_LINE_MS) })
+      expect(screen.getByTestId('thinking-coaching-line').textContent, 'precondition: the line rotated').not.toBe(line)
+      expect(screen.queryByTestId('new-messages-pill'), 'the rotating line raised a false "New messages" pill').toBeNull()
+      expect(scrollsToEnd()).toBe(scrollsBefore)
+      expect(thread.scrollTop).toBe(100)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('control: when the REPLY lands, a scrolled-up reader still gets the "New messages" pill and is not moved', async () => {
+    const { rerender } = render(<ChatThread {...props([reply1, ask1], true)} />)
+    await flush()
+    const thread = screen.getByTestId(THREAD_TESTID_DOCKED)
+    await scrollReaderUp(thread)
+    const scrollsBefore = scrollsToEnd()
+    rerender(<ChatThread {...props([reply1, ask1, reply2], false)} />)
+    await flush()
+    expect(screen.queryByTestId('new-messages-pill'), 'new content arrived and the reader was not told').not.toBeNull()
+    expect(scrollsToEnd()).toBe(scrollsBefore)
+    expect(thread.scrollTop).toBe(100)
   })
 })
