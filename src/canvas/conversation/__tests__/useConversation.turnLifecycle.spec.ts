@@ -159,7 +159,7 @@ describe('the turn lifecycle', () => {
     expect(captured).toHaveLength(1)
     expect(captured[0].message).toMatch(/^Chat turn failed: (not_sent|transport)$/)
     expect(captured[0].message).not.toMatch(/NetworkError/)
-    expect(captured[0].context).toMatchObject({ component: 'chat-turn', turn_mode: 'user', scenario: SCENARIO.slice(0, 8) })
+    expect(captured[0].context).toMatchObject({ component: 'chat-turn', turn_mode: 'user', scenarioId: SCENARIO.slice(0, 8) })
     expect(JSON.stringify(captured[0].context)).not.toContain('salaries')
   })
 

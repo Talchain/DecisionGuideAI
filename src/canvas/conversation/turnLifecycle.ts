@@ -88,7 +88,8 @@ export function reportTurnFailure(report: TurnFailureReport): void {
     turn_type: report.turnType,
     turn_mode: report.mode,
     request_id: report.requestId,
-    scenario: report.scenarioId ? report.scenarioId.slice(0, 8) : null,
+    // `scenarioId` (an 8-character prefix): the key the Sentry context allowlist keeps (S-H, DGAI #2606).
+    scenarioId: report.scenarioId ? report.scenarioId.slice(0, 8) : null,
     elapsed_ms: report.elapsedMs,
   })
 }

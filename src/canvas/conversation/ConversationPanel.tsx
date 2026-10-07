@@ -702,8 +702,8 @@ export const ConversationPanel = memo(function ConversationPanel({
         [RETRY_CHIP_ID]: retryLast,
         [START_NEW_DRAFT_CHIP_ID]: startNewDraft,
       }
-      // A trail for a later failure report (S-F): which control started the turn. Ids and labels only, never text.
-      addBreadcrumb('chat.chip', chip.id, { label: chip.label, action_type: chip.action_type ?? null })
+      // A trail for a later failure report (S-F): which control started the turn. Ids only, never text.
+      addBreadcrumb('chat.chip', chip.id, { action_type: chip.action_type ?? null }) // no label: chip text can carry node labels (S-H crumb rule)
       const localRoute = (localRoutes as Record<string, (() => void | Promise<void>) | undefined>)[chip.id]
       if (localRoute) { await localRoute(); return }
 
