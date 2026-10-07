@@ -94,7 +94,7 @@ describe('option ghost door ("What else could you do?"): send once as a chip', (
     fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
     chooseWhatElse('option')
     expect(c.prefilled).toEqual([])
-    expect(c.dispatched).toEqual([{ id: 'ask:widen', source: 'chip', label: 'What other ways could we reach the goal that aren’t on the board yet?', message: 'What other ways could we reach the goal that aren’t on the board yet?' }])
+    expect(c.dispatched).toEqual([{ id: 'agent-next-widen', source: 'chip', label: 'What other ways could we reach the goal that aren’t on the board yet?', message: 'What other ways could we reach the goal that aren’t on the board yet?' }])
     const bound = takeAskTargetBinding(c.dispatched[0].message)
     expect(bound?.nodeIds).toEqual(new Set())
     expect(bound?.edgeIds).toEqual(new Set())

@@ -269,6 +269,34 @@ describe('MUST NOT FIRE — an outcome the server DID give is never downgraded',
     expect(statusOf('sr-1')).toBe('committed')
   })
 
+  it('DL #2595 follow-up — a scenario switch DURING the reply (the readback window) leaves no pending marker and no stray notice', async () => {
+    // #2595's resolver returns WITHOUT settling when the scenario changed while its readback was in flight
+    // (useConversation.refusedRenameReadback row 5). This pins what happens next: the switch hydrates the other
+    // decision, which drops the record, so the drain's every-exit settle finds nothing `in_flight` to settle.
+    // CONTROL: the same unsettled reply WITHOUT the switch settles `unconfirmed` and tells the user (MUST FIRE above).
+    seedQueued([intent()])
+    const sender = vi.fn(async () => {
+      useCanvasStore.getState().hydrateGraphSlice({
+        nodes: [
+          { id: 'other', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Other' } },
+        ] as unknown as Node[],
+        edges: [],
+        currentScenarioId: 'another-scenario',
+      } as never)
+      return { /* graphless reply; the resolver saw the switch and returned unsettled */ }
+    })
+
+    renderHook(() => useStructuralRenameEvents(sender))
+
+    await waitFor(() => expect(sender).toHaveBeenCalledTimes(1))
+    await act(async () => { await Promise.resolve() })
+    expect(useCanvasStore.getState().currentScenarioId).toBe('another-scenario')
+    expect(lifecycle()).toEqual([])
+    expect(lifecycle().some((r) => r.status === 'in_flight')).toBe(false)
+    expect(useCanvasStore.getState().pendingStructuralRenames).toEqual([])
+    expect(toasts).toEqual([])
+  })
+
   it('TWIN — a DECISION-CONTEXT change drops the record; a verdict about another decision is not ours to keep', async () => {
     seedQueued([intent()])
     const sender = vi.fn(async () => {

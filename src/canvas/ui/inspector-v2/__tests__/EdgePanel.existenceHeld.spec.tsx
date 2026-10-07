@@ -8,6 +8,9 @@ import { render, screen } from '@testing-library/react'
 import { EdgePanel } from '../panels/EdgePanel'
 import { useCanvasStore } from '../../../store'
 import { EDGE_COPY } from '../inspectorStrings'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { normalisePersistedGraph } from '../../../utils/normalisePersistedGraph'
 
 const panelProps = { edgeId: 'e1', techMode: false, onClose: vi.fn(), onNavigate: vi.fn() }
 function seedEdge(data: Record<string, unknown>) {
@@ -39,5 +42,50 @@ describe('the inspector shows the existence the Run uses', () => {
     expect(readout).toContain('Likely to exist')
     expect(readout).not.toContain('Very likely')
     expect(screen.queryByTestId('edge-existence-held-note')).toBeNull()
+  })
+})
+
+/**
+ * S-DEF (Science 393023, 7 Oct): the SERVED Wave B9 T1b graph (CEE df15c8c1 + UI 19e4dd53). Its Olumi-drawn identity
+ * "Starter-tier monthly recurring revenue" → "monthly recurring revenue" showed "By definition, this connection always
+ * exists" beside a "Likely to exist" slider. A held definition has no likelihood to show.
+ */
+describe('S-DEF: a link held by definition says so, with no likelihood', () => {
+  const served = JSON.parse(readFileSync(resolve(process.cwd(), 'src/canvas/domain/__tests__/fixtures/waveB9-t1b-df15c8c-graph.json'), 'utf8')) as { graph: unknown }
+  const seedServed = (from: string, to: string): string => {
+    const { nodes, edges } = normalisePersistedGraph(served.graph)
+    useCanvasStore.setState({ ...useCanvasStore.getState(), nodes, edges, results: { status: 'none', report: null } } as never)
+    const e = edges.find((x) => x.source === from && x.target === to)
+    if (!e) throw new Error(`no served edge ${from}->${to}`)
+    return e.id
+  }
+  it('RED at base: the identity shows one sentence: no slider, no readout, no "likely to exist"', () => {
+    const id = seedServed('starter_tier_monthly_recurring_revenue', 'monthly_recurring_revenue')
+    const { container } = render(<EdgePanel {...panelProps} edgeId={id} />)
+    expect(screen.getByTestId('edge-existence-held-by-definition').textContent).toBe(EDGE_COPY.existenceHeldByDefinitionNote)
+    expect(screen.queryByTestId('edge-existence-readout')).toBeNull()
+    expect(screen.queryByLabelText('Connection existence probability')).toBeNull()
+    expect(screen.queryByTestId('edge-existence-held-note')).toBeNull()
+    expect(container.textContent ?? '').not.toMatch(/likely to exist/i)
+  })
+  it('Codex r1 #2602 P1: a flagged link held only by the USER\'s range shows the range note, never the definition sentence', () => {
+    const g = structuredClone(served.graph) as { nodes: Array<Record<string, any>>; edges: Array<Record<string, any>> }
+    g.nodes.find((n) => n.id === 'starter_tier_monthly_recurring_revenue')!.label = 'Pipeline value'
+    const e = g.edges.find((x) => x.from === 'starter_tier_monthly_recurring_revenue' && x.to === 'monthly_recurring_revenue')!
+    e.provenance = { ...e.provenance, source: 'brief_extraction', source_quote: 'between 0.5 and 1.5 per pound',
+      natural_effect: { ...e.provenance.natural_effect, stated_range: { low: 0.5, high: 1.5, text: 'between 0.5 and 1.5', end: 'low' } } }
+    const { nodes, edges } = normalisePersistedGraph(g)
+    useCanvasStore.setState({ ...useCanvasStore.getState(), nodes, edges, results: { status: 'none', report: null } } as never)
+    const id = edges.find((x) => x.source === 'starter_tier_monthly_recurring_revenue' && x.target === 'monthly_recurring_revenue')!.id
+    render(<EdgePanel {...panelProps} edgeId={id} />)
+    expect(screen.getByTestId('edge-existence-held-note').textContent).toBe(EDGE_COPY.existenceHeldNote)
+    expect(screen.queryByTestId('edge-existence-held-by-definition')).toBeNull()
+  })
+  it('CONTROL (same graph): the causal link into the part keeps its slider and Olumi\'s 80%', () => {
+    const id = seedServed('starter_subscribers', 'starter_tier_monthly_recurring_revenue')
+    render(<EdgePanel {...panelProps} edgeId={id} />)
+    const readout = screen.getByTestId('edge-existence-readout').textContent ?? ''
+    expect(readout).toContain('Likely to exist')
+    expect(screen.queryByTestId('edge-existence-held-by-definition')).toBeNull()
   })
 })

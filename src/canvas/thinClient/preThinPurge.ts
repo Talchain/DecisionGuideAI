@@ -16,8 +16,9 @@
  * WHAT IS NOT REMOVED, and why each one stays:
  *   · run history (`olumi-canvas-run-history`): the signed-in Results/Compare archive, read and written on thin pages
  *     (`handleOpenCompare` needs two local runs). Removing it would delete signed-in work. Sign-out sweeps it.
- *   · the pointer (`olumi-canvas-current-scenario-id`) and the guest-copy keys (`lib/pendingGuestCopy.ts`): ids only,
- *     and the inputs `GuestCopyOnSignIn` reads to copy a guest's decision into the new account (CEE #2493).
+ *   · the pointer (`olumi-canvas-current-scenario-id`), the guest-copy keys (`lib/pendingGuestCopy.ts`) and the
+ *     guest-work ledger (`lib/guestWork.ts`): ids (and a typed first line) only, and the inputs `GuestCopyOnSignIn` and
+ *     the "Decisions from before you signed in" offer read to bring a guest's decisions into the new account (CEE #2493).
  *   · the layout (`olumi-thin-layout:*`): positions by node id, the one thing a signed-in browser keeps.
  *     Sign-out removes it (`userScopedState.USER_SCOPED_STORAGE_PREFIXES`).
  *   · `canvas-storage` (`persist.saveState`): written by DEV builds only (`ReactFlowGraph`'s persistence subscriber

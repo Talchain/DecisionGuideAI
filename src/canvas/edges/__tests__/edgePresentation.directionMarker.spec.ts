@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 /**
  * THE DIRECTION OF CAUSATION HAD NO MARK — measured on deployed staging, 7 Sep
  * 2026: 39 edges on the board, `marker-end` and `marker-start` empty on all 39.
@@ -324,5 +326,16 @@ describe('edgeArrowheadMarkerId', () => {
     // per-mount salt. A `useId()`-namespaced implementation fails this line.
     const twoMounts = new Set([1, 2].map(() => edgeArrowheadMarkerId(sharedEdgeId)))
     expect(twoMounts.size).toBe(1)
+  })
+})
+
+// Paul 7 Oct: the shared rule still gates inspector sign editing. Canvas paint
+// is removed at its only render site, so causal eligibility cannot re-add arrows.
+describe('no arrowhead on any canvas link', () => {
+  it('StyledEdge has neither a marker definition nor a markerEnd, while the causal rule stays available to the inspector', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/canvas/edges/StyledEdge.tsx'), 'utf8')
+    expect(source).not.toMatch(/<marker\b/)
+    expect(source).not.toMatch(/markerEnd\s*=/)
+    expect(resolveEdgeDirectionMarker({ isStructural: false, edgeType: undefined })).toEqual({ show: true, rule: 'causal' })
   })
 })

@@ -115,7 +115,7 @@ function setState() {
   const nodes = draft.nodes.map(mapDraftNodeToCanvas)
   state = {
     hoveredOptionId: null, setHoveredOption: vi.fn(),
-    nodes, edges: draft.edges.map(mapDraftEdgeToCanvas),
+    nodes, edges: draft.edges.map((e, i) => mapDraftEdgeToCanvas(e, i)),
     ceeAnalysisReady: draft.analysis_ready,
     results: { status: 'idle', report: null },
     highlightedNodes: new Set(), dimmedNodeIds: new Set(),

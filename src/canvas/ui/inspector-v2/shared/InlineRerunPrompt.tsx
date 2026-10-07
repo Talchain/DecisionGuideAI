@@ -30,6 +30,8 @@
  * A run already in flight disables the button instead of racing it.
  */
 
+import { EditNote } from '../../../editNotes/EditNote'
+import { useEditNoteStore } from '../../../editNotes/editNoteStore'
 import { useCallback } from 'react'
 import { typography } from '../../../../styles/typography'
 import { useShowToastSafe } from '../../../ToastContext'
@@ -38,9 +40,11 @@ import { executeCanonicalRun } from '../../../analysis/canonicalRunRegistry'
 
 interface InlineRerunPromptProps {
   visible: boolean
+  elementId?: string
 }
 
-export function InlineRerunPrompt({ visible }: InlineRerunPromptProps) {
+export function InlineRerunPrompt({ visible, elementId }: InlineRerunPromptProps) {
+  const note = useEditNoteStore(s => elementId && s.note?.elementId === elementId ? s.note : null)
   const showToast = useShowToastSafe()
   // Same composed trust surface the Model tab's ReanalyseBar reads, so the two
   // rerun affordances can never disagree about whether a run is in flight.
@@ -58,6 +62,7 @@ export function InlineRerunPrompt({ visible }: InlineRerunPromptProps) {
     }
   }, [showToast])
 
+  if (note && elementId) return <EditNote elementId={elementId} />
   if (!visible) return null
 
   return (

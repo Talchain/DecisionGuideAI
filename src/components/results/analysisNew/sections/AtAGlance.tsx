@@ -174,6 +174,13 @@ export interface AtAGlanceProps {
    */
   onReanalyse?: () => void
   /**
+   * ⭐ ONE RERUN CONTROL (Paul, 7 Oct: "just have the re-analyse button"; `workspaceShell/rerunControl.ts`). True
+   * while this surface's footer shows the Re-analyse bar ("Model changed…"): that button is the rerun, so the
+   * ribbon keeps its sentence and offers no second Re-run beside it. The review-estimates act is not a rerun and is
+   * untouched.
+   */
+  rerunOwnedByFooter?: boolean
+  /**
    * ⭐⭐ THE ACT THAT ANSWERS THE REFUSAL. Takes the reader to where an estimate
    * this comparison rests on can be reviewed or replaced with their own.
    *
@@ -357,6 +364,7 @@ export function AtAGlance({
   runNote = null,
   isProvisional = false,
   onReanalyse,
+  rerunOwnedByFooter = false,
   onReviewEstimates,
   reanalyseBlocked,
   reanalyseBlockedReason,
@@ -832,7 +840,7 @@ export function AtAGlance({
             >
               {COPY.glance.reviewEstimates}
             </button>
-          ) : onReanalyse && !rerunWouldNotHelp && (!reanalyseBlocked || reanalyseBlockedReason !== null) ? (
+          ) : onReanalyse && !rerunOwnedByFooter && !rerunWouldNotHelp && (!reanalyseBlocked || reanalyseBlockedReason !== null) ? (
             <button
               type="button"
               onClick={onReanalyse}

@@ -175,7 +175,9 @@ it.each([
   fireEvent.click(screen.getByTestId('node-coaching-icon-a'))
   expect(dispatch).toHaveBeenCalledTimes(1)
   const sent = dispatch.mock.calls[0][0]
-  expect(sent).toMatchObject({ id: `ask:${COACHING_ASK_INTENTS[chipId]}`, source: 'chip' })
+  // The decision's "more options" chip is the `more_options` action: typed at every stage (DL ruling, 7 Oct 2026).
+  const id = chipId === 'decision_explore_more_options' ? 'agent-next-widen' : `ask:${COACHING_ASK_INTENTS[chipId]}`
+  expect(sent).toMatchObject({ id, source: 'chip' })
   expect(sent.message).toContain(kind === 'decision' ? 'Delivery' : 'Capacity')
   expect(sent.message).not.toContain('42')
   expect(takeAskTargetBinding(sent.message)?.nodeIds).toEqual(new Set(['a']))

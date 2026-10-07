@@ -310,6 +310,9 @@ export const EdgePanel = memo(function EdgePanel({
     () => isStrengthDefinitional(edge?.data as Record<string, unknown> | undefined),
     [edge?.data],
   )
+  // S-DEF: CEE holds this link at 1.0 because it is a validated definition (stamped with the hold at ingestion,
+  // `existenceHeldPatch`). A flagged link held only by the user's range keeps the range note (Codex r1 #2602 P1).
+  const existenceHeldByDefinition = edge?.data?.existenceHeld === true && edge?.data?.existenceHeldByDefinition === true
   // Gate 5: Olumi's strength the user ACCEPTED — the one predicate the canvas line and hover read (`domain/strengthAccepted`).
   const strengthIsAccepted = useMemo(
     () => isStrengthAccepted(edge?.data as Record<string, unknown> | undefined),
@@ -1343,7 +1346,7 @@ export const EdgePanel = memo(function EdgePanel({
                       and offering the re-run is the honest thing. Staleness is
                       a fact about the graph on screen; it does not wait on the
                       server's answer. */}
-                  <InlineRerunPrompt
+                  <InlineRerunPrompt elementId={edgeId}
                     visible={isStaleAfterEdit && !strengthEditDidNotLand}
                   />
                 </div>
@@ -1447,6 +1450,13 @@ export const EdgePanel = memo(function EdgePanel({
               <p className={`${typography.panelBody} text-text-body mb-1`} title={EDGE_COPY.existenceTooltip}>
                 {INLINE_LABELS.existenceQuestion}
               </p>
+              {/* S-DEF (Science 393023): a link CEE holds BY DEFINITION has no likelihood to show. No slider, no
+                  "Very likely to exist" readout: one sentence, the same fact the coaching line states. */}
+              {existenceHeldByDefinition ? (
+                <p data-testid="edge-existence-held-by-definition" className={`${typography.panelMeta} text-text-light`}>
+                  {EDGE_COPY.existenceHeldByDefinitionNote}
+                </p>
+              ) : (<>
               <div className="flex justify-between mb-1">
                 <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderMinUnlikely}</span>
                 <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderMaxVeryLikely}</span>
@@ -1478,6 +1488,7 @@ export const EdgePanel = memo(function EdgePanel({
               {existenceDisplay.show && (
                 <ExpertAnnotation techMode={techMode} editable value={beliefExists} onChange={handleBeliefChange} suffix="P(exists) =" step={0.01} min={0} max={1} />
               )}
+              </>)}
             </div>
 
             {/* ⛔ THE LABEL-MODE TOGGLE USED TO SIT HERE AND WAS INERT.

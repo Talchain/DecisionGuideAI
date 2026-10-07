@@ -2,6 +2,7 @@
 export type AskStage = 'drafted' | 'ran-current' | 'stale' | 'withheld'
 export interface QuestionContext {
   stage: AskStage
+  otherLabel?: string
   label?: string
   kind?: string
   sourceLabel?: string
@@ -25,6 +26,9 @@ const linkQuestion = (c: QuestionContext) => c.stage === 'ran-current'
     : 'Why would this link change the outcome, and how sure are we?'
 
 export const QUESTIONS = {
+  'lever-today': (c: QuestionContext) => `Should ${element(c)} be today’s value, or something the options change?`,
+  connect: (c: QuestionContext) => `How does ${element(c)} affect this decision, and what should it link to?`,
+  differentiate: (c: QuestionContext) => `How does ${element(c)} differ from ${named(c.otherLabel, 'the other option')} in practice, and what should each change in the model?`,
   explain: (c: QuestionContext) => ({
     drafted: `What does ${element(c)} do in this decision, and what is it assumed to depend on?`,
     'ran-current': `How much does ${element(c)} matter to the options’ chances of meeting the goal, and why?`,
@@ -118,6 +122,11 @@ export const QUESTIONS = {
   'validate-outcome': (c: QuestionContext) => c.validateQuestion ?? `How can I validate my assumption about ${c.label || 'this outcome'}?${c.authoredContext ?? ''}`,
   'missing-factor': (_c: QuestionContext) => 'What else could change how this turns out that the model doesn’t have yet?',
   name: (_c: QuestionContext) => 'Help me find a clear name for this part of the model so I can choose the wording.',
+  // Q15, the Reasoning methods with no typed CEE route (a pre-mortem is Q6 and a different option is Q5; trade-offs reuse `compare-options`).
+  'method-reframe': (c: QuestionContext) => `Is ${decision(c)} the right question, or too narrow? What other framings should we consider?`,
+  'method-opposite': (_c: QuestionContext) => 'What is the strongest honest case against how this model reads now, and what would change my mind?',
+  'method-outside-view': (c: QuestionContext) => `How do decisions like ${c.decisionLabel ? `‘${c.decisionLabel}’` : 'this one'} usually turn out, and how is ours different?`,
+  'method-bias': (_c: QuestionContext) => 'Which reasoning biases could be shaping this model, and how would we test for them?',
 } satisfies Record<string, (c: QuestionContext) => string>
 export type AskIntent = keyof typeof QUESTIONS
 
