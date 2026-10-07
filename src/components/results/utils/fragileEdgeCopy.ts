@@ -273,18 +273,18 @@ export function fragileEdgeConsequence(input: FragileEdgeVerdictInput): string {
     : `${FRAGILE_NEUTRAL_OBJECT} could change`
 }
 
-/**
- * The expert-mode E-value sentence. The NUMBER is producer data and is
- * unchanged in both states; only the object of "flip" moves.
- */
+export const LINK_MARGIN_LABEL = 'Link margin'
+
+/** The sole owner of the user-facing explanation for an edge E-value. */
+export function linkMarginSentence(eValue: number): string {
+  return `How far this link's strength could be off before the comparison between options changes: about ×${eValue.toFixed(1)}.`
+}
+
+/** The expert-mode link-margin note. The number is producer data. */
 export function fragileEValueNote({
   eValue,
-  ...verdict
 }: FragileEdgeVerdictInput & { eValue: number }): string {
-  const v = eValue.toFixed(1)
-  return flipVerbPermitted(verdict)
-    ? `Change margin ${v}: assumptions would only need to be ${v}x wrong to change which option is most likely to hit your goal.`
-    : `Change margin ${v}: assumptions would only need to be ${v}x wrong to change ${FRAGILE_NEUTRAL_OBJECT}.`
+  return `${LINK_MARGIN_LABEL}. ${linkMarginSentence(eValue)}`
 }
 
 /**
