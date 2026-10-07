@@ -46,6 +46,7 @@ export function OpenQuestionList({ questions, onDiscuss }: {
           className={styles.inlineDisclosureToggle}
           onClick={() => setShown(shown === FIRST && rest > MORE ? FIRST + MORE : questions.length)}
           data-testid="message-open-questions-more"
+          aria-expanded={false}
         >
           {shown === FIRST && rest > MORE ? `Show ${MORE} more` : 'View all'}
         </button>

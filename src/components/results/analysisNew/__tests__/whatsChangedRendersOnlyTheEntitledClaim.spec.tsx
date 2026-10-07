@@ -69,7 +69,8 @@ describe('only C1 reads as caused by the person', () => {
       pair_provenance: { seed_equal: true, hash_equal: true, builds_equal: 'equal', n_equal: true },
     })} />)
     const limit = screen.getByTestId(`${WHATS_CHANGED_TESTID}-attribution-limit`).textContent ?? ''
-    expect(limit).toMatch(/did not change/i)
+    // COPY-SHAPE 7 Oct: part A carries "nothing the analysis uses differed"; the rider states only the consequence.
+    expect(limit).toMatch(/no difference below comes from an edit to anything the analysis uses/i)
     // C0 is the one arm entitled to rule an edit out. It must NOT be worded as
     // a gap in what we can establish.
     expect(limit).not.toMatch(/cannot be established/i)
