@@ -52,6 +52,7 @@ import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../domain/vocabulary
 import { classifyNodeProvenance } from '../domain/valueProvenance'
 import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
+import { EDGE_STRENGTH_SOURCE_MARKS } from '../domain/edgeStrengthSourceIcon'
 import { CURRENT_MODEL_NOUN, METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, TYPE_NUMBER_LEGEND_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
 import { ATTENTION_MARKER_GLYPH } from '../nodes/shared/NodeAttentionMarker'
@@ -598,6 +599,12 @@ const PROVENANCE_ROWS: LegendRow[] = (['user_set', 'from_brief', 'ai_inferred'] 
       swatch: <Icon className="w-3.5 h-3.5 text-text-light shrink-0" aria-hidden="true" />,
     }
   })
+
+const LINK_SOURCE_ROWS: LegendRow[] = EDGE_STRENGTH_SOURCE_MARKS.map(({ source, label, Icon }) => ({
+  label,
+  swatch: <Icon className="w-3.5 h-3.5 text-text-light shrink-0" aria-hidden="true" />,
+  testId: `legend-edge-source-${source}`,
+}))
 
 /**
  * ⭐ THE CARD ICONS — contract v3.1 §03 "Icons make the next reasoning move
@@ -1336,6 +1343,7 @@ export function CanvasLegendPopover({ variant = 'icon', open: openProp, onOpenCh
               Source exception
             </div>
             <LegendGroup rows={PROVENANCE_ROWS} />
+            <LegendGroup rows={LINK_SOURCE_ROWS} />
             <div className="mt-1.5">
               <LegendGroup rows={COACHING_ROWS} />
             </div>
