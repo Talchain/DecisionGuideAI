@@ -134,28 +134,28 @@ describe('ResultsBody — display-honesty (B) flip_thresholds_status', () => {
   it('renders W1 for all_no_effect', () => {
     render(
       <ResultsBody
-        resultsSectionData={makeData({ flipThresholdsStatus: 'all_no_effect' })}
+        resultsSectionData={makeData({ flipThresholdsStatus: 'all_no_effect', leaderDesignationPermitted: true })}
         tornadoData={tornadoData}
         onSendMessage={() => {}}
       />,
     )
     const note = screen.getByTestId('flip-thresholds-status-note')
     expect(note).toBeInTheDocument()
-    expect(note.textContent).toBe('No turning point in this run: within its current range, no single factor Olumi checked changes which option has the highest average result in this model.')
+    expect(note.textContent).toBe('No turning point found in this run: across the ranges Olumi checked, no single factor changed which option had the highest average result.')
     expect(note.getAttribute('role')).toBe('note')
   })
 
   it('renders W2 for partial_no_effect with no unresolved entries', () => {
     render(
       <ResultsBody
-        resultsSectionData={makeData({ flipThresholdsStatus: 'partial_no_effect' })}
+        resultsSectionData={makeData({ flipThresholdsStatus: 'partial_no_effect', leaderDesignationPermitted: true })}
         tornadoData={tornadoData}
         onSendMessage={() => {}}
       />,
     )
     const note = screen.getByTestId('flip-thresholds-status-note')
     expect(note).toBeInTheDocument()
-    expect(note.textContent).toBe('Some factors Olumi checked do not change which option has the highest average result within their current range, in this model.')
+    expect(note.textContent).toBe('Some factors Olumi checked did not change which option had the highest average result within their current ranges, in this model.')
   })
 
   it("renders the mixed-with-unresolved variant when partial_no_effect also has unresolved entries (avoids implying all non-computed were harmless)", () => {
@@ -164,6 +164,7 @@ describe('ResultsBody — display-honesty (B) flip_thresholds_status', () => {
         resultsSectionData={makeData({
           flipThresholdsStatus: 'partial_no_effect',
           flipThresholdsHasUnresolved: true,
+          leaderDesignationPermitted: true,
         })}
         tornadoData={tornadoData}
         onSendMessage={() => {}}
@@ -172,8 +173,19 @@ describe('ResultsBody — display-honesty (B) flip_thresholds_status', () => {
     const note = screen.getByTestId('flip-thresholds-status-note')
     expect(note).toBeInTheDocument()
     expect(note.textContent).toBe(
-      'Some factors Olumi checked do not change which option has the highest average result within their current range, in this model. Others could not be checked.',
+      'Some factors Olumi checked did not change which option had the highest average result within their current ranges, in this model. Others could not be checked.',
     )
+  })
+
+  it('FAIL CLOSED: an unanswered designation permission gets the withheld W1 (no winner claim)', () => {
+    render(
+      <ResultsBody
+        resultsSectionData={makeData({ flipThresholdsStatus: 'all_no_effect' })}
+        tornadoData={tornadoData}
+        onSendMessage={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('flip-thresholds-status-note').textContent).toBe('No turning point found in this run across the factor ranges Olumi could check.')
   })
 
   it('renders no note for computed classification', () => {

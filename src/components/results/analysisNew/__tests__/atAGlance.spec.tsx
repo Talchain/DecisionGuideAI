@@ -222,14 +222,14 @@ describe('could change if — a tipping point, gated on the honesty field', () =
     } }))
 
     expect(permitted.condition).toBeNull()
-    expect(permitted.conditionAbsence).toContain('No turning point in this run')
+    expect(permitted.conditionAbsence).toContain('No turning point found in this run: across the ranges Olumi checked, no single factor changed which option had the highest average result.')
     expect(permitted.comparativeClaim).toBe('condition')
     expect(withheld.conditionAbsence).toBeNull()
 
     render(<AtAGlance isRunning={false} reanalyseBlocked={false}
       reanalyseBlockedReason={null} glance={permitted} part="reading" />)
     expect(screen.getByTestId('analysis-new-glance-condition-absence')).toHaveTextContent(
-      'No turning point in this run',
+      'No turning point found in this run: across the ranges Olumi checked, no single factor changed which option had the highest average result.',
     )
   })
 

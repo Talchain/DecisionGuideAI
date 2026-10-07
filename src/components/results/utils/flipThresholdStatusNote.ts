@@ -48,10 +48,13 @@ export interface FlipThresholdStatusNoteInput {
   reason?: string | null
 }
 
+/** The only reasons that still support a substantive no-flip finding (AIQ/Science, #2630 6046857688 item 2). */
+const SUBSTANTIVE_NO_FLIP_REASONS: ReadonlySet<string> = new Set(['no_effect_within_bounds', 'structurally_invariant'])
+
 const REASON_CLAUSES: Record<(typeof KNOWN_PROBE_FAILURE_REASONS)[number], string> = {
   timeout: ' (at least one check ran out of time)',
-  insufficient_precision: ' (at least one result was not precise enough to place)',
-  non_monotonic_grid: ' (at least one result was not precise enough to place)',
+  insufficient_precision: ' (at least one turning point could not be located precisely enough)',
+  non_monotonic_grid: ' (at least one factor did not change consistently enough to locate a turning point)',
   candidate_cap_exceeded: ' (not every factor was checked)',
   error: '', heuristic: '', zero_elasticity_fallback: '', single_option: '',
   found_without_value: '', value_without_direction: '', unattested: '',
@@ -71,15 +74,24 @@ export function flipThresholdStatusNote({
   designationsWithheld,
   reason,
 }: FlipThresholdStatusNoteInput): string | null {
-  void designationsWithheld
+  // AIQ/Science ruling on #2630 (6046857688): "which option had the highest average result" is a stable-winner
+  // designation, so W1/W2 keep a withheld variant; and a no-flip finding is substantive only when no check failed.
+  const caveat = hasUnresolved || (typeof reason === 'string' && reason !== '' && !SUBSTANTIVE_NO_FLIP_REASONS.has(reason))
 
   if (status === 'all_no_effect') {
-    return 'No turning point in this run: within its current range, no single factor Olumi checked changes which option has the highest average result in this model.'
+    if (caveat) {
+      return 'No turning point was found among the checks that completed. Some factors could not be checked, so this model may have other turning points.'
+    }
+    return designationsWithheld
+      ? 'No turning point found in this run across the factor ranges Olumi could check.'
+      : 'No turning point found in this run: across the ranges Olumi checked, no single factor changed which option had the highest average result.'
   }
 
   if (status === 'partial_no_effect') {
-    const base = 'Some factors Olumi checked do not change which option has the highest average result within their current range, in this model.'
-    return hasUnresolved || reason ? `${base} Others could not be checked.` : base
+    const base = designationsWithheld
+      ? 'Some checked factors had no turning point within their current ranges, in this model.'
+      : 'Some factors Olumi checked did not change which option had the highest average result within their current ranges, in this model.'
+    return caveat ? `${base} Others could not be checked.` : base
   }
 
   if (status === 'computed' && reason) {

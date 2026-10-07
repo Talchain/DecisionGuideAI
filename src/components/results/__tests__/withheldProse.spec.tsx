@@ -110,13 +110,14 @@ describe('flipThresholdStatusNote', () => {
     ]) expect(s).not.toMatch(LEADER_PRESUPPOSITION_RE)
   })
 
-  it('renders the ruled W1 and W2 text in either verdict state', () => {
-    const w1 = 'No turning point in this run: within its current range, no single factor Olumi checked changes which option has the highest average result in this model.'
-    const w2 = 'Some factors Olumi checked do not change which option has the highest average result within their current range, in this model.'
-    expect(permitted('all_no_effect')).toBe(w1)
-    expect(withheld('all_no_effect')).toBe(w1)
-    expect(permitted('partial_no_effect')).toBe(w2)
-    expect(withheld('partial_no_effect', true)).toBe(`${w2} Others could not be checked.`)
+  it('renders the ruled W1 and W2 text per verdict state (AIQ/Science #2630 6046857688)', () => {
+    expect(permitted('all_no_effect')).toBe('No turning point found in this run: across the ranges Olumi checked, no single factor changed which option had the highest average result.')
+    expect(withheld('all_no_effect')).toBe('No turning point found in this run across the factor ranges Olumi could check.')
+    expect(permitted('partial_no_effect')).toBe('Some factors Olumi checked did not change which option had the highest average result within their current ranges, in this model.')
+    expect(withheld('partial_no_effect', true)).toBe('Some checked factors had no turning point within their current ranges, in this model. Others could not be checked.')
+    for (const s of [withheld('all_no_effect'), withheld('partial_no_effect'), withheld('partial_no_effect', true)]) {
+      expect(s).not.toMatch(/highest|top|best|winner|leader|ahead/i)
+    }
   })
 
   it('an unclassified status renders NO line, in either verdict state', () => {
