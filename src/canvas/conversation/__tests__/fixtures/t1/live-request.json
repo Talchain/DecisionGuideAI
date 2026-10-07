@@ -1,0 +1,24 @@
+{
+  "step": "Y1-challenge",
+  "status": 200,
+  "cee_build": "bdf5716",
+  "ui": "ed8889ae",
+  "request_body": {
+    "kind": "message",
+    "turn_id": "643bac71-1a71-4df7-b817-1f48d686b912",
+    "scenario_id": "847e7fcb-cb08-4465-aa4a-a69e05155293",
+    "stage": "analyse",
+    "turn_class": "frame",
+    "message": "Test without this link",
+    "source": "chip",
+    "chip": {
+      "id": "agent-test-without-link:[\"price_rise\",\"monthly_recurring_revenue\"]"
+    },
+    "selected_elements": [
+      {
+        "id": "price_rise→monthly_recurring_revenue",
+        "kind": "edge"
+      }
+    ]
+  }
+}
