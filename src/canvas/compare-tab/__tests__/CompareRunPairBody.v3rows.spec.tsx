@@ -22,6 +22,7 @@ import {
 } from '../../../components/results/analysisNew/sections/inputChangeRowParts'
 import { INPUT_CHANGE_ROWS_HEADING, inputChangeCount } from '../../../components/results/analysisNew/sections/InputChangeRows'
 import { CompareRunPairBody } from '../CompareRunPairBody'
+import { COMPARE_SUPPORT_AXIS, COMPARE_SUPPORT_HELP, COMPARE_SUPPORT_TESTID } from '../CompareSupportFigures'
 import { RUN_CHANGE_LABELS, runChangeDelta } from './__fixtures__/runChangeArtefact'
 
 vi.mock('../../graphChanges/rowCanvasLink', () => ({ canvasLinkOfTarget: vi.fn(), useCanvasLight: vi.fn() }))
@@ -236,6 +237,54 @@ describe('Compare draws the rows (v3 anatomy)', () => {
     cleanup()
     render(<CompareRunPairBody responseHash={seed(runChangeDelta({ input_coverage: undefined, input_changes: undefined }))} />)
     expect(inputsSection()).toHaveTextContent('Input changes were not recorded for this pair.')
+  })
+})
+
+describe('Compare draws the figures (v3 figure block)', () => {
+  const S = COMPARE_SUPPORT_TESTID
+  const unqualified = () => runChangeDelta({ win_probabilities: [
+    { option_id: 'opt_60', prior: 0.41, current: 0.44, noise_verdict: 'not_noise_qualified' },
+    { option_id: 'opt_49', prior: 0.59, current: 0.56, noise_verdict: 'not_noise_qualified' },
+  ] })
+
+  it('"How to read this" opens the share-not-chance note in place (closed by default)', () => {
+    render(<CompareRunPairBody responseHash={seed(runChangeDelta())} />)
+    const toggle = screen.getByRole('button', { name: 'How to read this comparison' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId(`${S}-help`)).toBeNull()
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId(`${S}-help`)).toHaveTextContent(COMPARE_SUPPORT_HELP)
+    expect(COMPARE_SUPPORT_HELP).toMatch(/supported/)
+    expect(COMPARE_SUPPORT_HELP).not.toMatch(/recommend|best|winner|lead/i)
+  })
+
+  it('the legend emphasises one run and dims the other marker, never hides it; pressing again clears', () => {
+    render(<CompareRunPairBody responseHash={seed(runChangeDelta())} />)
+    const latest = screen.getByTestId(`${S}-legend-latest`)
+    fireEvent.click(latest)
+    expect(latest).toHaveAttribute('aria-pressed', 'true')
+    const fig = screen.getAllByTestId(`${S}-figure`)[0]
+    expect(fig).toHaveAttribute('data-emphasis', 'latest')
+    expect(fig.querySelector('[data-marker="previous"]')!.className).toContain('opacity-40')
+    expect(fig.querySelector('[data-marker="latest"]')!.className).not.toContain('opacity-40')
+    fireEvent.click(latest)
+    expect(latest).toHaveAttribute('aria-pressed', 'false')
+    expect(fig.querySelector('[data-marker="previous"]')!.className).not.toContain('opacity-40')
+  })
+
+  it('the axis and legend appear only where a figure is drawn; an unqualified row has a direction arrow and no track (controls both ways)', () => {
+    render(<CompareRunPairBody responseHash={seed(runChangeDelta())} />)
+    expect(screen.getByTestId(`${S}-axis`)).toHaveTextContent(COMPARE_SUPPORT_AXIS.join(''))
+    expect(screen.queryAllByTestId(`${S}-direction`)).toHaveLength(0)
+    cleanup()
+    render(<CompareRunPairBody responseHash={seed(unqualified())} />)
+    expect(screen.queryByTestId(`${S}-axis`)).toBeNull()
+    expect(screen.queryByTestId(`${S}-legend-latest`)).toBeNull()
+    expect(screen.queryAllByTestId(`${S}-figure`)).toHaveLength(0)
+    const arrows = screen.getAllByTestId(`${S}-direction`)
+    expect(arrows).toHaveLength(2)
+    expect(arrows.map((a) => a.closest('[data-direction]')?.getAttribute('data-direction')).sort()).toEqual(['down', 'up'])
   })
 })
 
