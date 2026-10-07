@@ -1,0 +1,56 @@
+{
+ "point": [],
+ "range": [
+  {
+   "label": "Fourth shop in Clifton",
+   "fig": "between about 11% and 55%",
+   "line": "'Fourth shop in Clifton': between about 11% and 55% chance of meeting your goal, in this model. It depends most on how strongly 'Fourth-shop net-profit contribution' affects 'monthly profit', which isn't sized in the model yet. Size it to see where it lands",
+   "tail": "It depends most on how strongly 'Fourth-shop net-profit contribution' affects 'monthly profit', which isn't sized in the model yet. Size it to see where it lands"
+  },
+  {
+   "label": "Office bean wholesale",
+   "fig": "between about 5% and 50%",
+   "line": "'Office bean wholesale': between about 5% and 50% chance of meeting your goal, in this model. It depends most on how strongly 'Wholesale monthly contribution' affects 'Wholesale net-profit contribution', which isn't sized in the model yet. Size it to see where it lands",
+   "tail": "It depends most on how strongly 'Wholesale monthly contribution' affects 'Wholesale net-profit contribution', which isn't sized in the model yet. Size it to see where it lands"
+  }
+ ],
+ "withheld": [],
+ "deadline": [],
+ "rests": [],
+ "dom": {
+  "hero_panel": [
+   "Here is how your options compare.\n\nThe values you have set sit outside what this comparison turns on, so none of the figures that decide it are yours yet. Figures, and which option they favour, can be shown only as provisional until you have set a value on a factor one of the options changes, or on another factor on the chain from there to your goal.\n\nGoal fit\n(not available for this run)\nLikely outcome\n(not available for this run)\n\nNot shown. Olumi can compare your options, but can't yet test them against your target (at least £24,000 / month), because it needs a size for the links from Loyalty-app gross-profit uplift to monthly profit and from Loyalty-app operating cost to monthly profit and 9 more. Roughly how much monthly profit in GBP/month does a change in Loyalty-app gross-profit uplift bring?\n\nWhy and what could change it\nDrivers, flip risks, trade-offs and what to resolve next\n\nWhat we checked\n\nWhich option most runs supported, in this model: not assessed\nRobustness not established\nEvidence not assessed\n\nSomething missing from the results?\n\nNext step\nSet the strength of the link from ‘Fourth-shop fit-out spend’ to ‘monthly profit’\nOpen"
+  ],
+  "hero_headline": [
+   "Here is how your options compare."
+  ],
+  "range_lines": [
+   {
+    "option_id": "fourth_shop_in_clifton",
+    "text": "‘Fourth shop in Clifton’: between about 11% and 55% chance of meeting your goal, in this model. It depends most on how strongly ‘Fourth-shop net-profit contribution’ affects ‘monthly profit’, which isn’t sized in the model yet. Size it to see where it lands",
+    "buttons": [
+     {
+      "text": "Size it to see where it lands",
+      "aria": "Focus on Size it to see where it lands in model",
+      "title": "Size it to see where it lands"
+     }
+    ]
+   },
+   {
+    "option_id": "office_bean_wholesale",
+    "text": "‘Office bean wholesale’: between about 5% and 50% chance of meeting your goal, in this model. It depends most on how strongly ‘Wholesale monthly contribution’ affects ‘Wholesale net-profit contribution’, which isn’t sized in the model yet. Size it to see where it lands",
+    "buttons": [
+     {
+      "text": "Size it to see where it lands",
+      "aria": "Focus on Size it to see where it lands in model",
+      "title": "Size it to see where it lands"
+     }
+    ]
+   }
+  ],
+  "range_horizon": [],
+  "horizon_untested": [],
+  "driver_tags": [],
+  "invites": []
+ }
+}

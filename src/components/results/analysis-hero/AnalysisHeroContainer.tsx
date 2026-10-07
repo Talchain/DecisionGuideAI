@@ -173,11 +173,11 @@ export function AnalysisHeroContainer({
 
   // Beside the existing invitation below the hero. The model records whether it actually said the licence's clause.
   const rangeLines = (
-    <GoalChanceRangeLines
+    <><GoalChanceRangeLines
       range={data.goalChanceRange ?? null}
       labelOf={data.goalChanceDriverNames?.labelOf ?? (() => null)}
       heroHorizonShown={model.kind === 'chart' && model.goalChanceHorizonLine != null}
-    />
+    /><GoalOptionWithheldLines coverage={model.kind === 'chart' ? model.goalOptionCoverage : undefined} /></>
   )
 
   // Fail closed on the hero MODEL only — never on the act-on-it section. A
@@ -232,3 +232,5 @@ export function AnalysisHeroContainer({
 }
 
 export default AnalysisHeroContainer
+
+import { GoalOptionWithheldLines } from './goalOptionCoverage'
