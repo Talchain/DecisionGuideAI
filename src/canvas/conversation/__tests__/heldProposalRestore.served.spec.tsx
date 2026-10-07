@@ -82,6 +82,19 @@ describe('S-D reload restores the held change from proposal_fields (SERVED sd-wi
     expect(reconcileRestoredProposalFields(prop, read.proposal_fields)[last].actionChips?.map(c => c.id)).toEqual([`agent-approve-proposal:prop_${'a'.repeat(32)}`])
   })
 
+  it('LOCAL restore: a trailing "Session resumed" divider does not hide the card (served E1c, 7 Oct)', () => {
+    const divider = { id: 'resumed', role: 'assistant' as const, content: '', synthetic: true, sessionDivider: 'Session resumed · 7 Oct, 17:24', timestamp: new Date() }
+    const local = [...restore(null), divider]
+    const out = reconcileRestoredProposalFields(local, read.proposal_fields)
+    expect(out[out.length - 1]).toBe(divider)
+    expect(out[out.length - 2].id).toBe(`restored-assistant-${T1}`)
+    expect(out[out.length - 2].actionChips?.map(c => c.id)).toEqual([`agent-approve-proposal:${PID}`, 'agent-amend-proposal', `agent-decline-proposal:${PID}`])
+    render(<ChatThread messages={out} isThinking={false} longRunningHint={null} nodeCount={1} patchBlockStates={new Map()}
+      patchRejections={new Map()} onChipClick={vi.fn()} onPatchAccept={vi.fn()} onPatchDismiss={vi.fn()} onFeedback={vi.fn()} onRetry={vi.fn()} compact />)
+    fireEvent.click(screen.getByRole('button', { name: 'Change something first' }))
+    expect(screen.getByRole('region', { name: 'What this change assumes' })).toBeTruthy()
+  })
+
   it('on the restored reply, "Change something first" opens the panel from the read, with 0 requests', () => {
     const send = vi.fn().mockResolvedValue(undefined)
     render(<ChatThread messages={restore()} isThinking={false} longRunningHint={null} nodeCount={1} patchBlockStates={new Map()}

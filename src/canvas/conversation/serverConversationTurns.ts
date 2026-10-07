@@ -130,14 +130,18 @@ export function reconcileRestoredProposalFields(
   rawProposalFields: unknown,
 ): ConversationMessage[] {
   const held = readProposalFields(rawProposalFields)?.proposals[0]
-  const last = messages.length - 1
+  // A restore's "Session resumed" divider is not a reply: the card goes on the reply before it, as ChatThread
+  // hosts chips there (served E1c, 7 Oct: the divider was last, so the card never came back).
+  let last = messages.length - 1
+  while (last >= 0 && typeof messages[last].sessionDivider === 'string') last--
   const reply = messages[last]
-  if (held === undefined || reply === undefined || reply.role !== 'assistant' || reply.sessionDivider || reply.synthetic
+  if (held === undefined || reply === undefined || reply.role !== 'assistant' || reply.synthetic
     || (reply.actionChips ?? []).some(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:'))) return [...messages]
   const card = buildSuggestedActionChips([], [held.approve_action, AMEND_PROPOSAL_ACTION, held.decline_action])
   const others = (reply.actionChips ?? []).filter(c => !card.some(k => k.id === c.id))
   return [...messages.slice(0, last),
-    { ...reply, heldProposalId: held.proposal_id, actionChips: [...card, ...others], proposalFields: rawProposalFields }]
+    { ...reply, heldProposalId: held.proposal_id, actionChips: [...card, ...others], proposalFields: rawProposalFields },
+    ...messages.slice(last + 1)]
 }
 
 
