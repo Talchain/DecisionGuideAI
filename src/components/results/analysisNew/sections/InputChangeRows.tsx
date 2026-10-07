@@ -57,7 +57,8 @@ export function inputChangeCount(n: number, partial: boolean): string {
   return `${n}${partial ? ' recorded' : ''} ${n === 1 ? 'change' : 'changes'}`
 }
 
-function CoverageNote({ text, testId, wireFields }: { text: string; testId?: string; wireFields?: string }): JSX.Element {
+/** A short reading note with its ⓘ (v3 artefact): the panel's one note style, here and under Compare's headline. */
+export function CoverageNote({ text, testId, wireFields }: { text: string; testId?: string; wireFields?: string }): JSX.Element {
   return (
     <p className={`${typography.panelMeta} text-text-light flex items-start gap-2 m-0`} data-testid={testId} data-wire-fields={wireFields}>
       <Info className={`${icon('inline')} flex-shrink-0 mt-0.5`} aria-hidden="true" />

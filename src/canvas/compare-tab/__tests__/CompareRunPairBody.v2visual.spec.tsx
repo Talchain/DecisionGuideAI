@@ -206,6 +206,8 @@ describe('Ask Olumi: offered only for the pair Olumi reads, with a capped editab
     expect(follows(times, heading)).toBe(true)
     expect(follows(heading, note)).toBe(true)
     expect(follows(note, figures)).toBe(true)
+    // The panel's one note style: the reading note carries its ⓘ, like the inputs section's coverage note.
+    expect(note.querySelector('svg[class*="lucide-info"]')).not.toBeNull()
     expect(times.querySelectorAll('[data-run-id]')[0]).toHaveTextContent(/^Earlier/)
     expect(times.querySelectorAll('[data-run-id]')[1]).toHaveTextContent(/^Latest/)
     // The static legend names the same two endpoints, in the same words.

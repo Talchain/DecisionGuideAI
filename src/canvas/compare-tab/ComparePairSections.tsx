@@ -12,7 +12,7 @@ import {
   inputRowText, MOVEMENT_SCOPE_TEXT, noiseQualifier, noPairsText, WHATS_CHANGED_TESTID,
   type InputRowFocus, type InputRowLight,
 } from '../../components/results/analysisNew/sections/WhatsChanged'
-import { InputChangeRows } from '../../components/results/analysisNew/sections/InputChangeRows'
+import { CoverageNote, InputChangeRows } from '../../components/results/analysisNew/sections/InputChangeRows'
 import type { RunChangeArtefact } from './runChangeArtefact'
 import { RUN_CHANGE_ARTEFACT_TESTID } from './RunChangeArtefactCard'
 import { CompareSupportFigures, OptionNameLink, orderMovements, type OptionCanvasLink } from './CompareSupportFigures'
@@ -156,9 +156,9 @@ export function ComparePairSections({
         </div>
         {qualification && !goalRows ? <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-wire-fields="run_delta.leader.noise_verdict">{qualification}</p> : null}
         {/* The reading note sits ABOVE the figures it qualifies: its words ("anything below", "nothing below") point at them. */}
-        <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-testid="compare-comparability" data-wire-fields="run_delta.attribution_case run_delta.input_coverage">
-          {view.comparability}{view.attributionLimit ? ` ${view.attributionLimit}` : ''}
-        </p>
+        <div className="mt-2">
+          <CoverageNote text={`${view.comparability}${view.attributionLimit ? ` ${view.attributionLimit}` : ''}`} testId="compare-comparability" wireFields="run_delta.attribution_case run_delta.input_coverage" />
+        </div>
         {goalRows ? (
           // Figures only (DL ruling 2): each side as its own Run showed it, in the producer's (model) order, never a direction.
           <ul className={`${typography.panelBody} text-text-body list-none p-0 mt-2 mb-0 space-y-2`} data-testid="compare-goal-chances" data-wire-fields={GOAL_CHANCE_FIELDS}>
