@@ -553,6 +553,8 @@ export interface DecisionResultData {
    * non-computed factor was a harmless no-effect case.
    */
   flipThresholdsHasUnresolved?: boolean
+  /** First producer reason token; consumers must map it to ruled copy. */
+  flipThresholdsStatusReason?: string
   /**
    * Display-honesty: leading option has meaningful downside in the lower
    * range of simulated outcomes (deterministic: leading option's

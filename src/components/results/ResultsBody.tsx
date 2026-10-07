@@ -890,6 +890,7 @@ export const ResultsBody = memo(function ResultsBody({
                 hasUnresolved:
                   resultsSectionData.recommendation.flipThresholdsHasUnresolved === true,
                 designationsWithheld,
+                reason: resultsSectionData.recommendation.flipThresholdsStatusReason,
               })
               return note == null ? null : (
                 <p

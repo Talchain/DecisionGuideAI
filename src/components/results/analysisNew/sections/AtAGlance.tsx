@@ -396,6 +396,7 @@ export function AtAGlance({
   conditionSaidInChallenge = false,
 }: AtAGlanceProps) {
   const condition = conditionSaidInChallenge ? null : glance.condition
+  const conditionAbsence = conditionSaidInChallenge ? null : glance.conditionAbsence
   const [showAllExcluded, setShowAllExcluded] = useState(false)
   const [withheldOpen, setWithheldOpen] = useState(false)
   const excludedKey =
@@ -745,7 +746,8 @@ export function AtAGlance({
     verdictCarriesItsOwnReading ||
     showInputProvenance ||
     scopeDisclosureOnScreen ||
-    Boolean(condition)
+    Boolean(condition) ||
+    Boolean(conditionAbsence)
   const hasAnything = (showStatus && ribbon.length > 0) || (showReading && hasReading)
   if (!hasAnything) return null
 
@@ -1506,6 +1508,15 @@ export function AtAGlance({
             </div>
           )
         })()
+      ) : null}
+      {showReading && conditionAbsence ? (
+        <p
+          className={`${typography.panelBody} text-text-body m-0`}
+          data-testid={`${testId}-condition-absence`}
+          role="note"
+        >
+          {conditionAbsence}
+        </p>
       ) : null}
 
       {/* ⚠⚠ THE PRIMARY INTERVENTION MOVED OUT, 18 Sep 2026 — it is now

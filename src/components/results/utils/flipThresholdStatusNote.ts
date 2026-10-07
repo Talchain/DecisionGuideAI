@@ -26,6 +26,8 @@
  * are untouched: the data is not withheld, only the claim.
  */
 
+import { KNOWN_PROBE_FAILURE_REASONS } from './flipReasonVocabulary'
+
 /** PLoT's post-denormalisation classification of `flip_thresholds[]`. */
 export type FlipThresholdsStatus =
   | 'all_no_effect'
@@ -42,6 +44,18 @@ export interface FlipThresholdStatusNoteInput {
    * never re-derives one; it quotes the caller's.
    */
   designationsWithheld: boolean
+  /** Producer token used only to select ruled copy; never displayed verbatim. */
+  reason?: string | null
+}
+
+const REASON_CLAUSES: Record<(typeof KNOWN_PROBE_FAILURE_REASONS)[number], string> = {
+  timeout: ' (at least one check ran out of time)',
+  insufficient_precision: ' (at least one result was not precise enough to place)',
+  non_monotonic_grid: ' (at least one result was not precise enough to place)',
+  candidate_cap_exceeded: ' (not every factor was checked)',
+  error: '', heuristic: '', zero_elasticity_fallback: '', single_option: '',
+  found_without_value: '', value_without_direction: '', unattested: '',
+  non_finite_denormalisation: '',
 }
 
 /**
@@ -55,20 +69,31 @@ export function flipThresholdStatusNote({
   status,
   hasUnresolved,
   designationsWithheld,
+  reason,
 }: FlipThresholdStatusNoteInput): string | null {
-  // The object of the sentence. Both branches name the same fact; only the
-  // withheld one avoids presupposing a leader. Resolved ONCE so the three
-  // sentences below cannot drift apart the way three JSX literals did.
-  const object = designationsWithheld ? 'the comparison' : 'the leading option'
+  void designationsWithheld
 
   if (status === 'all_no_effect') {
-    return `No single tested factor changed ${object} within the current range.`
+    return 'No turning point in this run: within its current range, no single factor Olumi checked changes which option has the highest average result in this model.'
   }
 
   if (status === 'partial_no_effect') {
-    return hasUnresolved
-      ? `Some factors did not change ${object} within the current range, and others could not be resolved.`
-      : `Some factors did not change ${object} within the current range.`
+    const base = 'Some factors Olumi checked do not change which option has the highest average result within their current range, in this model.'
+    return hasUnresolved || reason ? `${base} Others could not be checked.` : base
+  }
+
+  if (status === 'computed' && reason) {
+    return 'Some factors could not be checked, so this model may have other turning points.'
+  }
+
+  if (status === 'unresolved') {
+    if (reason === 'single_option') {
+      return 'Turning points not shown for this run: there is only one option, so there is nothing to compare.'
+    }
+    const clause = typeof reason === 'string' && (KNOWN_PROBE_FAILURE_REASONS as readonly string[]).includes(reason)
+      ? REASON_CLAUSES[reason as (typeof KNOWN_PROBE_FAILURE_REASONS)[number]]
+      : ''
+    return `Turning points not shown for this run: Olumi could not finish checking the factors${clause}.`
   }
 
   return null

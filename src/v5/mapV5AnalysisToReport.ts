@@ -111,6 +111,22 @@ function safeString(v: unknown): string | undefined {
   return typeof v === 'string' && v.length > 0 ? v : undefined
 }
 
+const FLIP_THRESHOLD_STATUSES = [
+  'computed',
+  'all_no_effect',
+  'partial_no_effect',
+  'unresolved',
+  'unavailable',
+] as const
+
+function narrowFlipThresholdsStatus(
+  value: unknown,
+): (typeof FLIP_THRESHOLD_STATUSES)[number] | undefined {
+  return typeof value === 'string' && (FLIP_THRESHOLD_STATUSES as readonly string[]).includes(value)
+    ? value as (typeof FLIP_THRESHOLD_STATUSES)[number]
+    : undefined
+}
+
 function safeFiniteNumber(v: unknown): number | undefined {
   return typeof v === 'number' && Number.isFinite(v) ? v : undefined
 }
@@ -1546,6 +1562,14 @@ export function mapV5AnalysisToReport(
   // residual (UI-BOUNDARY-DATA-INVENTORY.md §4 item 5). Kept here so no
   // further UI change is needed once that lands.
   const constraintsStatus = safeString(enrichment?.constraints_status)
+  // SCI-04: status describes the rows, so CEE's goal-figure withhold (which
+  // removes the array but can retain these scalars) must suppress both fields.
+  const flipThresholdsStatus = topLevelFlipThresholds
+    ? narrowFlipThresholdsStatus(enrichment?.flip_thresholds_status)
+    : undefined
+  const flipThresholdsStatusReason = topLevelFlipThresholds
+    ? safeString(enrichment?.flip_thresholds_status_reason)
+    : undefined
 
   // Deterministic response_hash when caller has none. Stable across identical
   // blocks so the store's hash-dedupe in resultsComplete works.
@@ -1689,6 +1713,8 @@ export function mapV5AnalysisToReport(
   if (topLevelConditionalWinners) widened.conditional_winners = topLevelConditionalWinners
   if (confidenceTier !== undefined) widened.confidence_tier = confidenceTier
   if (constraintsStatus !== undefined) widened.constraints_status = constraintsStatus
+  if (flipThresholdsStatus !== undefined) widened.flip_thresholds_status = flipThresholdsStatus
+  if (flipThresholdsStatusReason !== undefined) widened.flip_thresholds_status_reason = flipThresholdsStatusReason
   if (inferenceWarnings) widened.inference_warnings = inferenceWarnings
   // ⭐ CEE's typed run provenance (RC 5818628860; Runtime 5818605567):
   // `enrichment.run_provenance = { initiated_by, provisional: true,

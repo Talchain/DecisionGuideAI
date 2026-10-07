@@ -102,37 +102,21 @@ describe('flipThresholdStatusNote', () => {
   const permitted = (status: string, hasUnresolved = false) =>
     flipThresholdStatusNote({ status, hasUnresolved, designationsWithheld: false })
 
-  it('ANTI-VACUITY: all three PERMITTED sentences carry the presupposition', () => {
-    expect(permitted('all_no_effect')).toMatch(LEADER_PRESUPPOSITION_RE)
-    expect(permitted('partial_no_effect')).toMatch(LEADER_PRESUPPOSITION_RE)
-    expect(permitted('partial_no_effect', true)).toMatch(LEADER_PRESUPPOSITION_RE)
+  it('W1 and W2 do not presuppose a designation in either verdict state', () => {
+    for (const s of [
+      permitted('all_no_effect'), permitted('partial_no_effect'),
+      permitted('partial_no_effect', true), withheld('all_no_effect'),
+      withheld('partial_no_effect'), withheld('partial_no_effect', true),
+    ]) expect(s).not.toMatch(LEADER_PRESUPPOSITION_RE)
   })
 
-  it('WITHHELD: none of the three sentences presupposes a leader', () => {
-    for (const s of [withheld('all_no_effect'), withheld('partial_no_effect'), withheld('partial_no_effect', true)]) {
-      expect(s, `status note leaked a presupposition: "${s}"`).not.toMatch(LEADER_PRESUPPOSITION_RE)
-    }
-  })
-
-  it('WITHHELD DATA PRESERVED: each status still says what the producer found', () => {
-    expect(withheld('all_no_effect')).toContain('No single tested factor changed')
-    expect(withheld('partial_no_effect')).toContain('Some factors did not change')
-    expect(withheld('partial_no_effect', true)).toContain('others could not be resolved')
-    // The unresolved variant is still DISTINCT from the plain one — the two
-    // branches did not collapse into one sentence.
-    expect(withheld('partial_no_effect', true)).not.toBe(withheld('partial_no_effect'))
-  })
-
-  it('PERMITTED: all three sentences are byte-identical to today', () => {
-    expect(permitted('all_no_effect')).toBe(
-      'No single tested factor changed the leading option within the current range.',
-    )
-    expect(permitted('partial_no_effect')).toBe(
-      'Some factors did not change the leading option within the current range.',
-    )
-    expect(permitted('partial_no_effect', true)).toBe(
-      'Some factors did not change the leading option within the current range, and others could not be resolved.',
-    )
+  it('renders the ruled W1 and W2 text in either verdict state', () => {
+    const w1 = 'No turning point in this run: within its current range, no single factor Olumi checked changes which option has the highest average result in this model.'
+    const w2 = 'Some factors Olumi checked do not change which option has the highest average result within their current range, in this model.'
+    expect(permitted('all_no_effect')).toBe(w1)
+    expect(withheld('all_no_effect')).toBe(w1)
+    expect(permitted('partial_no_effect')).toBe(w2)
+    expect(withheld('partial_no_effect', true)).toBe(`${w2} Others could not be checked.`)
   })
 
   it('an unclassified status renders NO line, in either verdict state', () => {
