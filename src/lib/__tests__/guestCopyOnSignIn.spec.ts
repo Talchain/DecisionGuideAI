@@ -15,7 +15,8 @@ import {
   runPendingGuestCopy,
   type GuestCopiedDetail,
 } from '../guestCopyOnSignIn'
-import { PENDING_GUEST_COPY_KEY } from '../pendingGuestCopy'
+import { PENDING_GUEST_COPY_KEY, readPendingGuestCopies } from '../pendingGuestCopy'
+import { noteGuestWork } from '../guestWork'
 import type { GuestCopyOutcome } from '../../services/guestCopyService'
 
 const CURRENT_SCENARIO_KEY = 'olumi-canvas-current-scenario-id'
@@ -26,6 +27,12 @@ const OTHER = '9f8b7a6c-1234-4def-8abc-0123456789ab'
 const TOKEN = 'eyJ.header.sig'
 
 const now = (run: () => void) => run()
+
+/** S-G: the guest sent a turn on `id` a minute ago (the ledger), with the pointer on it. */
+function workedOn(id: string) {
+  localStorage.setItem(CURRENT_SCENARIO_KEY, id)
+  noteGuestWork(id, null, Date.now() - 60_000)
+}
 
 function requestReturning(outcome: GuestCopyOutcome) {
   return vi.fn(async () => outcome)
@@ -74,13 +81,13 @@ describe('createSignInTransitionTracker', () => {
 })
 
 describe('handleAuthObservation', () => {
-  it('transition: captures the guest pointer and copies it ONCE, with the session token', async () => {
-    localStorage.setItem(CURRENT_SCENARIO_KEY, GUEST)
+  it('transition: captures the decision the guest just worked on and copies it ONCE, with the session token', async () => {
+    workedOn(GUEST)
     const request = requestReturning({ kind: 'retry_later', reason: 'copy_unavailable' })
 
     const run = handleAuthObservation('transition', TOKEN, { request }, now)
 
-    expect(localStorage.getItem(PENDING_GUEST_COPY_KEY)).toBe(GUEST) // synchronous, before any navigation
+    expect(readPendingGuestCopies()).toEqual([GUEST]) // synchronous, before any navigation
     await run
     expect(request).toHaveBeenCalledTimes(1)
     expect(request).toHaveBeenCalledWith(GUEST, TOKEN)
@@ -117,7 +124,7 @@ describe('handleAuthObservation', () => {
   })
 
   it('the request is SCHEDULED out of the auth callback, not sent inside it', () => {
-    localStorage.setItem(CURRENT_SCENARIO_KEY, GUEST)
+    workedOn(GUEST)
     const request = requestReturning({ kind: 'retry_later', reason: 'x' })
     const queued: Array<() => void> = []
 
@@ -137,7 +144,7 @@ describe('runPendingGuestCopy — outcomes', () => {
 
     const run = await runPendingGuestCopy(TOKEN, { request: requestReturning({ kind: 'copied', scenarioId: COPY, created: true }), adopt })
 
-    expect(run).toEqual({ kind: 'copied', sourceScenarioId: GUEST, scenarioId: COPY, created: true, adopted: true })
+    expect(run).toEqual([{ kind: 'copied', sourceScenarioId: GUEST, scenarioId: COPY, created: true, adopted: true }])
     expect(localStorage.getItem(PENDING_GUEST_COPY_KEY)).toBeNull()
     expect(adopt).toHaveBeenCalledWith(GUEST, COPY, expect.any(Function))
     expect(events).toEqual([{ sourceScenarioId: GUEST, scenarioId: COPY, created: true }])
@@ -150,7 +157,7 @@ describe('runPendingGuestCopy — outcomes', () => {
 
     const run = await runPendingGuestCopy(TOKEN, { request: requestReturning({ kind: 'copied', scenarioId: COPY, created: false }), adopt })
 
-    expect(run).toMatchObject({ kind: 'copied', adopted: false })
+    expect(run).toMatchObject([{ kind: 'copied', adopted: false }])
     expect(adopt).not.toHaveBeenCalled()
     expect(events).toEqual([{ sourceScenarioId: GUEST, scenarioId: COPY, created: false }])
   })
@@ -162,7 +169,7 @@ describe('runPendingGuestCopy — outcomes', () => {
 
     const run = await runPendingGuestCopy(TOKEN, { request: requestReturning({ kind: 'not_copyable' }), adopt })
 
-    expect(run).toEqual({ kind: 'not_copyable', sourceScenarioId: GUEST })
+    expect(run).toEqual([{ kind: 'not_copyable', sourceScenarioId: GUEST }])
     expect(localStorage.getItem(PENDING_GUEST_COPY_KEY)).toBeNull()
     expect(adopt).not.toHaveBeenCalled()
     expect(events).toEqual([])
@@ -175,7 +182,7 @@ describe('runPendingGuestCopy — outcomes', () => {
 
     const run = await runPendingGuestCopy(TOKEN, { request: requestReturning({ kind: 'retry_later', reason: 'copy_unavailable' }), adopt })
 
-    expect(run).toEqual({ kind: 'retry_later', sourceScenarioId: GUEST, reason: 'copy_unavailable' })
+    expect(run).toEqual([{ kind: 'retry_later', sourceScenarioId: GUEST, reason: 'copy_unavailable' }])
     expect(localStorage.getItem(PENDING_GUEST_COPY_KEY)).toBe(GUEST)
     expect(adopt).not.toHaveBeenCalled()
     expect(events).toEqual([])
@@ -217,10 +224,40 @@ describe('runPendingGuestCopy — outcomes', () => {
 
     const run = await runPendingGuestCopy(TOKEN, { request, adopt, isCurrent: () => current })
 
-    expect(run).toEqual({ kind: 'stale', sourceScenarioId: GUEST })
+    expect(run).toEqual([{ kind: 'stale', sourceScenarioId: GUEST }])
     expect(localStorage.getItem(PENDING_GUEST_COPY_KEY)).toBe(GUEST)
     expect(adopt).not.toHaveBeenCalled()
     expect(events).toEqual([])
+  })
+
+  it('S-G: SEVERAL pending ids → one request each, in capture order; only the one on screen is adopted', async () => {
+    localStorage.setItem(PENDING_GUEST_COPY_KEY, OTHER) // an earlier capture (v1)
+    workedOn(GUEST)
+    handleAuthObservation('transition', 'token-multi', { request: requestReturning({ kind: 'retry_later', reason: 'x' }) }, () => {})
+    const request = vi.fn(async (source: string): Promise<GuestCopyOutcome> => ({ kind: 'copied', scenarioId: source === GUEST ? COPY : '5d6e7f80-1111-4222-8333-444455556666', created: true }))
+    const adopt = vi.fn(async () => true)
+
+    const run = await runPendingGuestCopy('token-multi-2', { request, adopt })
+
+    expect(request.mock.calls.map((c) => c[0])).toEqual([OTHER, GUEST])
+    expect(run.map((r) => r.kind)).toEqual(['copied', 'copied'])
+    expect(adopt).toHaveBeenCalledTimes(1)
+    expect(adopt).toHaveBeenCalledWith(GUEST, COPY, expect.any(Function))
+    expect(readPendingGuestCopies()).toEqual([])
+  })
+
+  it('S-G: the account changes during the FIRST of two copies → the second is never sent', async () => {
+    localStorage.setItem(PENDING_GUEST_COPY_KEY, OTHER)
+    workedOn(GUEST)
+    handleAuthObservation('transition', 'token-stale-a', { request: requestReturning({ kind: 'retry_later', reason: 'x' }) }, () => {})
+    let current = true
+    const request = vi.fn(async () => { current = false; return { kind: 'copied', scenarioId: COPY, created: true } as GuestCopyOutcome })
+
+    const run = await runPendingGuestCopy('token-stale-b', { request, adopt: async () => true, isCurrent: () => current })
+
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(run).toEqual([{ kind: 'stale', sourceScenarioId: OTHER }])
+    expect(readPendingGuestCopies()).toEqual([OTHER, GUEST])
   })
 
   it('a late answer never deletes a DIFFERENT id captured while it ran', async () => {
@@ -253,7 +290,7 @@ describe('runPendingGuestCopy — the REAL canvas store adopts the copy, and the
     // Default adopt: no `adopt` dep, so the real `adoptScenario` runs.
     const run = await runPendingGuestCopy(TOKEN, { request: requestReturning({ kind: 'copied', scenarioId: COPY, created: true }) })
 
-    expect(run).toMatchObject({ kind: 'copied', adopted: true })
+    expect(run).toMatchObject([{ kind: 'copied', adopted: true }])
     expect(localStorage.getItem(CURRENT_SCENARIO_KEY)).toBe(COPY)
     expect(localStorage.getItem(AUTOSAVE_KEY)).toBeNull()
     expect(useCanvasStore.getState().currentScenarioId).toBe(COPY)
@@ -269,7 +306,7 @@ describe('runPendingGuestCopy — the REAL canvas store adopts the copy, and the
 
     const run = await runPendingGuestCopy(TOKEN, { request: requestReturning({ kind: 'copied', scenarioId: COPY, created: true }) })
 
-    expect(run).toMatchObject({ kind: 'copied', adopted: false })
+    expect(run).toMatchObject([{ kind: 'copied', adopted: false }])
     expect(useCanvasStore.getState().currentScenarioId).toBe(OTHER)
     expect(useCanvasStore.getState().nodes).toEqual(opened)
     expect(localStorage.getItem(CURRENT_SCENARIO_KEY)).toBe(GUEST)

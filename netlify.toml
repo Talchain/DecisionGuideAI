@@ -67,6 +67,10 @@
 # is absent (scripts/supabase-stub-decision.mjs).
 # =============================================================================
 [context.manual-test.environment]
+  # Sentry environment label for the PRODUCTION UI (this branch deploy is what
+  # gets published to olumi.netlify.app). Every deployed build is Vite
+  # MODE=production, so the label must come from the deploy context.
+  VITE_SENTRY_ENVIRONMENT = "production"
   # Publishable (anon-class) key — PUBLIC BY DESIGN; same as the staging block.
   VITE_SUPABASE_ANON_KEY = "sb_publishable_Bhx6ZBWU7aLGmTfEedg60g_O5P1SQ-T"
   VITE_STUB_SUPABASE = "0"
@@ -88,6 +92,8 @@
 # promoted.
 # =============================================================================
 [context.staging.environment]
+  # Sentry environment label (see the manual-test block): staging--olumi.netlify.app.
+  VITE_SENTRY_ENVIRONMENT = "staging"
   # Supabase publishable (anon-class) key — PUBLIC BY DESIGN (Supabase: "can be
   # safely shared publicly"). Set here 4 Aug 2026 after the project's key family
   # was revoked (Supabase secret-scanning enforcement; ROADMAP 2.471): the

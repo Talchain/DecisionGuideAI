@@ -13,7 +13,7 @@ import { DraftGuidancePanel } from './DraftGuidancePanel'
 import { RateLimitNotice } from './RateLimitNotice'
 import { ThinkingModePopover } from './ThinkingModePopover'
 import { DEFAULT_EDGE_DATA, trimProvenance, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../domain/edges'
-import { existenceHeldPatch } from '../domain/heldUserLink'
+import { existenceHeldPatch, linkEndsOf } from '../domain/heldUserLink'
 import { readWireNaturalEffect, strengthExampleFigurePatch } from '../domain/naturalEffect'
 import { strengthPlaceholderPatch } from '../domain/strengthPlaceholder'
 import { strengthDefinitionalPatch } from '../domain/strengthDefinitional'
@@ -540,6 +540,8 @@ export function DraftChat() {
 
     // Check both locations: draftData.edges (v2/v3 root) or draftData.graph.edges (nested)
     const rawEdges = draftData?.edges ?? (draftData as any)?.graph?.edges ?? []
+    // S-DEF: the draft's own ends, so the hold reads exactly what CEE validates (`linkEndsOf`).
+    const endsOf = linkEndsOf(rawNodes)
     const edges = rawEdges.map((e: any, i: number) => {
       const id = typeof e.id === 'string' && e.id.trim().length > 0 ? e.id : `e-${i}`
 
@@ -741,7 +743,7 @@ export function DraftChat() {
           // The edge's size in the target's units — the ONE reader, every hop (domain/naturalEffect).
           ...(naturalEffect !== undefined ? { naturalEffect } : {}),
           // D3 cut 6: CEE holds this user link at existence 1.0 — HOP 3 OF 3, the same one reader (domain/heldUserLink).
-          ...existenceHeldPatch(e),
+          ...existenceHeldPatch(e, endsOf(e)),
           ...strengthExampleFigurePatch(e as Record<string, unknown>, rawWeight, weightSource !== 'default'),
           // POM-8: a placeholder strength — HOP 3 OF 3, the same one reader
           // (domain/strengthPlaceholder). The key is destructured OUT of

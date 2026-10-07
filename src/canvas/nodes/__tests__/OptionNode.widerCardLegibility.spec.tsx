@@ -83,7 +83,7 @@ describe('2b — the card reads its width from the layout (the shipped pricing s
   const OPTION = 'opt_hybrid'
   beforeEach(() => {
     useCanvasStore.setState({
-      nodes: draft.nodes.map(mapDraftNodeToCanvas), edges: draft.edges.map(mapDraftEdgeToCanvas),
+      nodes: draft.nodes.map(mapDraftNodeToCanvas), edges: draft.edges.map((e, i) => mapDraftEdgeToCanvas(e, i)),
       ceeAnalysisReady: draft.analysis_ready, results: { status: 'idle', report: null }, viewMode: 'standard',
     } as never)
   })
@@ -128,7 +128,8 @@ describe('3 — `Not analysed` is the contract\'s state chip, not muted text', (
 })
 
 describe('4 — structural links carry the contract\'s contrast', () => {
-  it('the muted-ink token at 0.75, not 0.5', () => {
-    expect(STRUCTURAL_EDGE_COLOUR).toBe('rgb(var(--text-light-rgb) / 0.75)')
+  it('the shared muted-ink token at 0.55 (Paul 7 Oct)', () => {
+    // Paul 7 Oct: both structural tiers share the lighter 0.55 resting ink.
+    expect(STRUCTURAL_EDGE_COLOUR).toBe('rgb(var(--text-light-rgb) / 0.55)')
   })
 })

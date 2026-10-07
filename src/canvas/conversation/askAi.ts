@@ -14,6 +14,8 @@ import { selectBootReadPermittedMode, useBootReadAdmissionStore } from '../hydra
 import { testWithoutLinkEligibility } from '../../components/results/analysisNew/testWithoutLinkEligibility'
 import { graphDeclaresBaseline, resolveOptionIsBaseline } from '../utils/baselineDetection'
 import { QUESTIONS, type AskIntent, type AskStage, type QuestionContext } from './askAiQuestions'
+import { actionOfAsk, typedPressIdOf } from './actionRegistry'
+import { readProducerLeaderPermission } from '../../lib/decisionVerdict'
 
 export interface AskAiRequest {
   includeOptions?: boolean
@@ -30,9 +32,27 @@ export interface AskAiRequest {
 }
 export type AskAiResult = 'sent' | 'busy' | 'refire' | 'none'
 
+/**
+ * CEE's cause for withholding the leading option, read off the result it qualifies: the same rule as
+ * `resultBoundLeaderWithholdCause` (useAnalysisNewViewModel), restated over the import-free `readProducerLeaderPermission`
+ * so this module does not pull the results view-model into every canvas import graph (#2592 CI: four suites whose
+ * `flags` mocks lacked `isRequireLoginEnabled` failed at import).
+ */
+function resultLeaderWithholdCause(stamp: unknown): string | null {
+  if (readProducerLeaderPermission(stamp) !== false) return null
+  const cause = (stamp as { producer_cause?: unknown }).producer_cause
+  if (typeof cause !== 'string') return null
+  const token = cause.trim()
+  return token === '' ? null : token
+}
+
 export function askAiStage(state = useCanvasStore.getState()): AskStage {
   const ran = state.hasCompletedFirstRun || !!state.results?.report || !!state.v5AnalysisFact?.hasRunAnalysisFact
   if (!ran) return 'drafted'
+  // The draft's own automatic first pass, withheld only because nobody asked for a Run (CEE `unrequested_analysis_withheld`,
+  // exact token, read off the result it qualifies), is not a Run the person made: ask the drafted question, because the
+  // honest next step is to Run (DL ruling 7 Oct, Canvas askAi witness). A requested Run that withheld keeps 'withheld'.
+  if (resultLeaderWithholdCause(state.results?.report?.producer_leader_permission) === 'unrequested_analysis_withheld') return 'drafted'
   if (!selectRunAffirmedCurrent(state)) return 'stale'
   if (selectRunWithholdsFigures(state)) return 'withheld'
   const probabilities = (state.results?.report as { option_probabilities?: Record<string, Parameters<typeof selectGoalProbability>[0]> } | undefined)?.option_probabilities
@@ -62,7 +82,7 @@ export function buildAskAiQuestion(req: AskAiRequest) {
     ? `\n${node.type === 'risk' ? 'Risk' : 'Outcome'} context: ${authored}` : undefined
   const upstream = nodes.find(n => n.id === edges.find(e => e.target === nodeIds[0] && nodes.some(n => n.id === e.source && n.type === 'factor'))?.source)
   const context: QuestionContext = {
-    stage, label: labelOf(node), kind: node?.type, authoredContext,
+    stage, otherLabel: labelOf(nodes.find(n => n.id === nodeIds[1])), label: labelOf(node), kind: node?.type, authoredContext,
     validateQuestion: labelOf(upstream) ? `How can I validate my assumption about ${labelOf(upstream)} and its effect on ${labelOf(node) || 'this outcome'}?${authoredContext ?? ''}` : undefined,
     optionLabels: req.includeOptions ? nodes.filter(n => n.type === 'option').map(labelOf).filter((label): label is string => !!label) : undefined,
     sourceLabel: labelOf(nodes.find(n => n.id === edge?.source)),
@@ -73,11 +93,9 @@ export function buildAskAiQuestion(req: AskAiRequest) {
       state?.ceeAnalysisReady?.options?.find(o => o.id === nodeIds[0]),
       graphDeclaresBaseline(nodes, state?.ceeAnalysisReady?.options)),
   }
-  let pressId = req.pressId ?? (intent === 'widen' && stage === 'ran-current' ? 'agent-next-widen'
-    : intent === 'pre-mortem' && (stage === 'ran-current' || stage === 'withheld') ? 'agent-next-pre-mortem'
-      : intent === 'what-would-change' && stage === 'ran-current' ? 'agent-next-what-would-change'
-        : intent === 'strengthen' && stage === 'ran-current' ? 'agent-next-strengthen'
-          : intent === 'review' && stage === 'ran-current' ? 'agent-next-review-decision' : undefined)
+  // The action registry is the one mapper from an action to CEE's typed press id (S-B slice 0).
+  const action = actionOfAsk(intent)
+  let pressId = req.pressId ?? (action ? typedPressIdOf(action, stage) : undefined)
   if (!pressId && edge && (intent === 'question-link' || intent === 'examine-link')) {
     const goalNode = nodes.find(n => n.type === 'goal')
     const data = edge.data as Record<string, unknown> | undefined

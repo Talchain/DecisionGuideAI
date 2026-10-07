@@ -137,13 +137,15 @@ describe('the seven sites all go through the ONE predicate — derived, not mirr
    * proves no raw re-derivation survives and that the predicate is called at
    * the five original sites plus canonical-recovery ownership plus the
    * stream-close read-back's `canApply` (#2156: a draft stream that closed with no
-   * final turn reads the saved model back only while the SAME scenario is live). It does NOT
+   * final turn reads the saved model back only while the SAME scenario is live), plus the
+   * guard after the awaited structural-rename resolver (the refused-rename readback awaits one
+   * persisted-graph read; the rest of the turn is applied only while the SAME scenario is live). It does NOT
    * prove each call passes the live store value — that is
    * what the equivalence table plus the real-drive specs are for.
    */
-  it('calls the predicate at the five original sites plus canonical recovery plus the stream-close read-back', () => {
+  it('calls the predicate at the five original sites plus canonical recovery plus the stream-close read-back plus the post-rename-readback guard', () => {
     const calls = SOURCE.match(/responseBelongsToDispatchingScenario\s*\(/g) ?? []
-    expect(calls).toHaveLength(7)
+    expect(calls).toHaveLength(8)
   })
 
   function rawComparisonCount(source: string): number {

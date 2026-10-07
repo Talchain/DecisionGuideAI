@@ -285,6 +285,8 @@ export const EdgeDataSchema = z.object({
    * edge; displays show the existence the Run USES. ⚠ ABSENT ⇒ NOT HELD. Never defaulted; never sent anywhere.
    */
   existenceHeld: z.literal(true).optional(),
+  /** S-DEF: the hold above is a VALIDATED DEFINITION's (`existenceHeldPatch`); absent on a user-range hold. Never defaulted. */
+  existenceHeldByDefinition: z.literal(true).optional(),
 
   /** RT-12: the signed admitted example strength; shares the natural-effect staleness rule, never defaulted. */
   strengthExampleFigure: z.number().finite().optional(),

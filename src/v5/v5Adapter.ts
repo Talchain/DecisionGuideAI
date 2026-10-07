@@ -47,6 +47,7 @@
  * is the second line of defence, not the first.
  */
 import type { OrchestratorTurnPayload } from '@talchain/schemas/boundary';
+import { noteGuestTurn } from '../lib/guestWork';
 
 import { recordRequestPayload, recordResponsePayload } from '../lib/payload-trace-store';
 import {
@@ -106,6 +107,9 @@ export async function callV5Turn(
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return { kind: 'parse_error', reason: 'offline before dispatch', requestNotStarted: true };
   }
+
+  // S-G: a guest turn is the work sign-in must carry into the account (`lib/guestWork.ts`). No-op when signed in.
+  noteGuestTurn(payload);
 
   const requestId = crypto.randomUUID();
   const requestedAt = Date.now();

@@ -271,6 +271,8 @@ export interface FetchScenarioGraphOptions {
   signal?: AbortSignal
   /** Backoff between 503 retries. Tests pass 0. */
   retryDelayMs?: number
+  /** A settlement read gets one attempt; hydration retains its default 503 retries. */
+  retry503?: boolean
   /** Per-attempt deadline. See `DEFAULT_TIMEOUT_MS`. */
   timeoutMs?: number
   /**
@@ -521,6 +523,7 @@ export async function fetchScenarioGraph(
   opts: FetchScenarioGraphOptions = {},
 ): Promise<ScenarioGraphResult> {
   const retryDelayMs = opts.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS
+  const maxAttempts = opts.retry503 === false ? 1 : MAX_ATTEMPTS
 
   // ── IDENTITY: the TOKEN is the authority; the body is the legacy fallback ──
   //
@@ -559,7 +562,7 @@ export async function fetchScenarioGraph(
 
   const url = scenarioGraphUrl(scenarioId)
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     // One deadline per attempt, chained to any caller signal so an unmount
     // still cancels immediately.
     const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
@@ -602,7 +605,7 @@ export async function fetchScenarioGraph(
     }
 
     if (response.status === 503) {
-      if (attempt < MAX_ATTEMPTS) {
+      if (attempt < maxAttempts) {
         await sleep(retryDelayMs)
         continue
       }

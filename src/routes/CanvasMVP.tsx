@@ -374,6 +374,7 @@ function CanvasMVPBody() {
         onShare={handleShare}
         isDirty={isDirty}
         saveStatus={isPersistenceActive ? supabaseSaveStatus : undefined}
+        serverLastSavedAt={isPersistenceActive ? supabaseLastSaved : null}
         saveError={isPersistenceActive ? supabaseSaveError : undefined}
         isPersisted={isPersistenceActive}
         // COLLAB: the blind-panel entry needs a PERSISTED scenario — CEE's
