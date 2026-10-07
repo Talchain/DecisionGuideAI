@@ -19,6 +19,7 @@ import {
 import { TESTED_LINK_MARK_LABEL, testedLinkKey, testedLinkMarks } from '../testedLinkMark'
 import { __resetTranscriptTombstonesForTests, loadTranscript, saveTranscript } from '../utils/transcriptStore'
 import type { ConversationMessage } from '../types'
+import { findBannedTerm } from '../../../test/glossaryBannedTerms'
 
 type Fixture = typeof testLink | typeof whatChanges
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x)) as T
@@ -167,5 +168,19 @@ describe('reload', () => {
     const restored = loadTranscript(SID)?.messages[0]
     expect(restored?.content).toBe(testLink.assistant_text)
     expect(restored?.methodResult).toBeUndefined()
+  })
+})
+
+describe('copy guard: the three card headings (ruled by the DL in AIQ\'s absence, 7 Oct)', () => {
+  // One row per approved string: model-relative, no glossary-banned term, no contest frame.
+  it.each([
+    ['test_link, named', testedLinkHeading('Price rise', 'Customers lost from price rise')],
+    ['test_link, unnamed fallback', TESTED_LINK_HEADING_UNNAMED],
+    ['what_changes', WHAT_CHANGES_HEADING],
+  ])('%s', (_name, heading) => {
+    expect(heading).toMatch(/\bin this model\b/)
+    expect(findBannedTerm(heading)).toBeNull()
+    expect(heading).not.toMatch(CONTEST)
+    expect(heading).not.toMatch(/chance|probabilit|likel/i)
   })
 })
