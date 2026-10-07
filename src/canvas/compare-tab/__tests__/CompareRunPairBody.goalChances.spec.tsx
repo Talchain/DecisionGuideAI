@@ -93,8 +93,12 @@ function seed(delta: RunDelta, permission: { permitted: boolean; producer_cause?
   } as never)
   return hash
 }
-const heading = () => screen.getByRole('heading', { level: 3 })
+// The RESULT heading, by its section: the inputs section has its own level-3 heading (Compare v3 rows).
+const heading = () => within(document.querySelector('[data-compare-section="headline"]') as HTMLElement).getByRole('heading', { level: 3 })
 const goalRows = () => within(screen.getByTestId('compare-goal-chances')).getAllByRole('listitem')
+// Each row's words (read out) and its drawn pair (for the eye), by their own elements.
+const goalWords = () => goalRows().map((li) => within(li).getByTestId('compare-goal-chance-words').textContent)
+const goalPairs = () => goalRows().map((li) => within(li).getByTestId('compare-goal-chance-pair').textContent)
 
 beforeEach(() => {
   useCanvasStore.setState(original, true)
@@ -108,10 +112,15 @@ describe('Compare leads with each option\'s chance of meeting the goal', () => {
     render(<CompareRunPairBody responseHash={seed(withGoal())} />)
     expect(heading()).toHaveTextContent(COMPARE_GOAL_CHANCE_HEADING)
     expect(goalRows().map((li) => li.getAttribute('data-option-id'))).toEqual(['opt_49', 'opt_60'])
-    expect(goalRows().map((li) => li.textContent)).toEqual([
-      'Keep £49Earlier about 47% → Latest about 15%',
-      'Raise to £60Earlier not recorded → Latest between about 20% and 40%',
+    expect(goalWords()).toEqual([
+      'Keep £49: Earlier about 47% → Latest about 15%',
+      'Raise to £60: Earlier not recorded → Latest between about 20% and 40%',
     ])
+    expect(goalPairs()).toEqual(['about 47%about 15%', 'not recordedbetween about 20% and 40%'])
+    // The latest side with a figure reads a step stronger; a side without a figure stays muted.
+    const [first, second] = goalRows().map((li) => [...within(li).getByTestId('compare-goal-chance-pair').querySelectorAll('span')].map((x) => x.className))
+    expect(first).toEqual(['text-text-body', 'text-text-header'])
+    expect(second).toEqual(['text-text-light', 'text-text-header'])
     const section = screen.getByTestId('compare-goal-chances')
     expect(section.textContent).not.toMatch(NO_DIRECTION)
     expect(screen.getByTestId('compare-run-pair').textContent).not.toMatch(NO_CONTEST)
@@ -156,7 +165,7 @@ describe('Compare leads with each option\'s chance of meeting the goal', () => {
     const one = [none[0], { ...none[1], current: { kind: 'point', pct: 30, rounding: 'whole' } }] as RunDeltaGoalChanceDelta[]
     render(<CompareRunPairBody responseHash={seed(runChangeDelta({ goal_chances: one }))} />)
     expect(heading()).toHaveTextContent(COMPARE_GOAL_CHANCE_HEADING)
-    expect(goalRows().map((li) => li.textContent)).toEqual(['Keep £49Earlier not shown → Latest not shown', 'Raise to £60Earlier not recorded → Latest about 30%'])
+    expect(goalWords()).toEqual(['Keep £49: Earlier not shown → Latest not shown', 'Raise to £60: Earlier not recorded → Latest about 30%'])
   })
 
   it('a pair that is not the current model\'s shows no goal chances (control: the current pair does)', () => {

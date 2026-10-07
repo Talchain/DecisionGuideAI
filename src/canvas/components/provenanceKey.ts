@@ -5,7 +5,7 @@
  * ⛔ EXISTING CUES ONLY: no new semantic state, no confidence score, no new words for a cue. Every entry is derived by
  * the SAME function that draws the cue, and its words are that cue's own exported words:
  *   - a card's provenance mark → `resolveProvenanceMarks` + `provenanceClaimLabel` (NodeProvenanceMark);
- *   - a thin link              → `isStrengthPlaceholder` (StyledEdge's not-set width) + `EDGE_STRENGTH_PLACEHOLDER_SENTENCE`;
+ *   - a dotted link            → `isEdgeStrengthNotSet` + `STRENGTH_NOT_SET_LABEL` / `STRENGTH_NOT_SET_DASH`;
  *   - a dashed link            → `resolveExistenceDash` over `resolveEdgeValueDisplay(…, 'beliefExists')`, stated with a
  *                                dash (StyledEdge's doubt condition) + `EDGE_EXISTENCE_DOUBT_SENTENCE`.
  *   - a value's source word    → `factorValueSourceMark` (the card's own function) + `VALUE_SOURCE_MARK_TOKEN` /
@@ -22,10 +22,10 @@ import type { NodeProvenanceClaim } from '../domain/nodeProvenanceClaim'
 import { provenanceClaimLabel } from '../domain/nodeProvenanceClaim'
 import type { ValueProvenanceKind } from '../domain/valueProvenance'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
-import { isStrengthPlaceholder } from '../domain/strengthPlaceholder'
+import { isEdgeStrengthNotSet, linkIsStructural, STRENGTH_NOT_SET_DASH, STRENGTH_NOT_SET_LABEL } from '../edges/edgePresentation'
 import { resolveEdgeValueDisplay } from '../domain/edgeValueProvenance'
 import { provenanceDefaultKind, resolveProvenanceMarks } from '../nodes/shared/NodeProvenanceMark'
-import { EDGE_EXISTENCE_DOUBT_SENTENCE, EDGE_STRENGTH_PLACEHOLDER_SENTENCE } from '../edges/connectorCopy'
+import { EDGE_EXISTENCE_DOUBT_SENTENCE } from '../edges/connectorCopy'
 import { resolveExistenceDash } from '../utils/graphDisplayCalculations'
 import { NOT_RANKED_MARKER } from '../state/winShareGate'
 import { factorValueSourceMark, VALUE_SOURCE_MARK_LABEL, VALUE_SOURCE_MARK_TOKEN, type ValueSourceMarkKind } from '../nodes/shared/valueSourceMark'
@@ -41,9 +41,9 @@ export interface ProvenanceMarkEntry {
 
 export interface LinkCueEntry {
   readonly cue: 'placeholder' | 'doubt'
-  /** The cue's own sentence (connectorCopy). */
+  /** The cue's own words from the connector presentation/copy. */
   readonly label: string
-  /** The dash the doubted link is drawn with (the same `resolveExistenceDash` value), for the swatch. */
+  /** The same dotted or dashed pattern the link is drawn with. */
   readonly dash?: string
 }
 
@@ -71,8 +71,8 @@ export interface ProvenanceKey {
   readonly empty: boolean
 }
 
-type NodeLike = { type?: string; data?: unknown }
-type EdgeLike = { data?: unknown }
+type NodeLike = { id?: string; type?: string; data?: unknown }
+type EdgeLike = { source?: string; target?: string; data?: unknown }
 
 /** `withheldReason`: `selectWinShareWithheldReason(state)`, non-null exactly while the Run withheld the win shares. */
 export function provenanceKey(
@@ -108,11 +108,14 @@ export function provenanceKey(
   const values = VALUE_ORDER.filter((k) => valueKinds.has(k)).map((k) => ({ kind: k, token: VALUE_SOURCE_MARK_TOKEN[k], label: VALUE_SOURCE_MARK_LABEL[k] }))
 
   const heldEdges = routeOnceHeldEdges(nodes, edges)
+  const kinds = new Map(nodes.map(n => [n.id, resolveNodeTypeLiteral(n as never)]))
+  const causalEdges = edges.filter(e => !linkIsStructural(kinds.get(e.source), kinds.get(e.target), e.data))
   const links: LinkCueEntry[] = []
-  if (edges.some((e) => isStrengthPlaceholder(e.data as Record<string, unknown> | undefined))) {
-    links.push({ cue: 'placeholder', label: EDGE_STRENGTH_PLACEHOLDER_SENTENCE })
+  if (causalEdges.some((e) => isEdgeStrengthNotSet(e.data as Record<string, unknown> | undefined))) {
+    links.push({ cue: 'placeholder', label: STRENGTH_NOT_SET_LABEL, dash: STRENGTH_NOT_SET_DASH })
   }
-  for (const e of edges) {
+  for (const e of causalEdges) {
+    if (isEdgeStrengthNotSet(e.data as Record<string, unknown> | undefined)) continue
     const existence = resolveExistenceDash(resolveEdgeValueDisplay(e.data as Record<string, unknown> | undefined, 'beliefExists', { routeOnceHeld: heldEdges.has(e) }))
     if (existence.kind === 'stated' && existence.dash !== undefined) {
       links.push({ cue: 'doubt', label: EDGE_EXISTENCE_DOUBT_SENTENCE, dash: existence.dash })

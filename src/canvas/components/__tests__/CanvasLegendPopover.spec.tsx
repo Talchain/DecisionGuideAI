@@ -20,6 +20,7 @@ import {
   visibleMetricRows,
   POST_RUN_CARD_MARKS,
 } from '../CanvasLegendPopover'
+import { STRENGTH_NOT_SET_DASH } from '../../edges/edgePresentation'
 import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../../domain/vocabulary'
 import { CURRENT_MODEL_NOUN, METRIC_NOUN, METRIC_LEGEND_ROWS, METRIC_UNSET, OPTION_RESULT_COPY, SENSITIVITY_RANK_LEGEND_NOUN } from '../../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../../store'
@@ -267,7 +268,7 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
   it('explains grey as "not stated yet", the signal with no other channel', () => {
     open()
     expect(screen.getByText('Grey: direction not set yet')).toBeInTheDocument()
-    expect(screen.getByText('No strength suggested: thin and grey')).toBeInTheDocument()
+    expect(screen.getByText('No strength estimate: dotted')).toBeInTheDocument()
   })
 
   /**
@@ -293,7 +294,7 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
     const swatch = screen.getByTestId('legend-thickness-unset')
     const rowText = swatch.closest('div')?.textContent ?? ''
     // Discrimination first: we are reading the right row, and it is not empty.
-    expect(rowText, 'the unset thickness row read empty — this guard is blind').toContain('thin and grey')
+    expect(rowText, 'the unset thickness row read empty — this guard is blind').toContain('No strength estimate: dotted')
     expect(rowText, `the thickness row opens with "${METRIC_UNSET.standalone}", the cards' settlement wording — two conditions, one label`)
       .not.toMatch(new RegExp(`^\\s*${METRIC_UNSET.standalone}`))
     // …and the card's own row IS still present under that wording, so the
@@ -334,6 +335,8 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
 
     // GREY — the row says "thin and grey"; this is the "grey".
     expect(unset.getAttribute('stroke')).toBe('var(--edge-neutral)')
+    expect(unset.getAttribute('stroke-dasharray')).toBe(STRENGTH_NOT_SET_DASH)
+    expect(unset.getAttribute('stroke-linecap')).toBe('round')
     expect(unset.getAttribute('stroke')).not.toBe(thinnest.getAttribute('stroke'))
 
     // THIN — bound to the constants, and asserted as an ORDERING so it cannot
