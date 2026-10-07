@@ -33,6 +33,9 @@ const AUTHORIZED_IMPORTERS = new Set([
 const COPY_MODULE = join(MODULE_DIR, 'goalChanceCopy')
 const COPY_ONLY_IMPORTERS = new Set([
   join(SRC, 'components', 'results', 'analysisNew', 'sections', 'DecisionMatrix.tsx'),
+  // Compare-chance (#87 6035414740): Compare says each Run's goal chance in the hero's own words; it mounts nothing.
+  join(SRC, 'canvas', 'compare-tab', 'ComparePairSections.tsx'),
+  join(SRC, 'canvas', 'compare-tab', '__tests__', 'CompareRunPairBody.goalChances.spec.tsx'),
 ])
 
 function heroImportOffenders(content: string, file: string): string[] {
