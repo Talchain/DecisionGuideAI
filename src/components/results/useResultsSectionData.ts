@@ -1,3 +1,4 @@
+import { useSwitchFactorNodes } from '../../canvas/hooks/useSwitchFactorNodes'
 /**
  * useResultsSectionData Hook
  *
@@ -1368,7 +1369,7 @@ export interface ResultsSectionDataReturn {
 }
 
 /** What the option card prints for each target this option sets (its own map; the card's formatter). */
-function optionSetReadings(
+export function optionSetReadings(
   optionData: Record<string, unknown> | undefined,
   nodes: ReadonlyArray<{ id: string; type?: string; data?: unknown }>,
 ): string[] {
@@ -1481,6 +1482,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     }))
   )
 
+  const displayNodes = useSwitchFactorNodes(nodes)
   const autoNoiseProvenance = useMemo(
     () => normalizeAutoNoiseProvenance(rawAutoNoiseProvenance),
     [rawAutoNoiseProvenance],
@@ -2327,7 +2329,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       return {
         id: nodeId,
         label: runIsCurrent
-          ? optionLabelWithSetLevel(labelAsWritten, optionSetReadings(node.data as Record<string, unknown> | undefined, nodes))
+          ? optionLabelWithSetLevel(labelAsWritten, optionSetReadings(node.data as Record<string, unknown> | undefined, displayNodes))
           : labelAsWritten,
         labelAsWritten,
         // Explicit expected value (mean) — primary value for "Expected" display
@@ -3013,7 +3015,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // (Measured: at pristine this memo's exhaustive-deps warning named only
     // `reviewStatus`; without this entry the lane would have added `edges` to
     // it.)
-  }, [runIsCurrent, hasCompletedFirstRun, report, nodes, edges, goalNode, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, evidenceAssessment, nodeLabelMap, goalThreshold, goalThresholdCap, capIsTargetDerivedHeadroom, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
+  }, [displayNodes, runIsCurrent, hasCompletedFirstRun, report, nodes, edges, goalNode, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, evidenceAssessment, nodeLabelMap, goalThreshold, goalThresholdCap, capIsTargetDerivedHeadroom, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)

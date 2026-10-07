@@ -1,3 +1,4 @@
+import { switchFactorIdsOf } from '../domain/switchFactors'
 /**
  * serverGraphHydration — the boot orchestration for ROADMAP 2.312 piece 3.
  *
@@ -620,6 +621,7 @@ async function readAndMergeServerGraph(
     // apply. Skipping is not merely an optimisation: re-merging would roll a
     // local edit made since that hydration back to the same server value the
     // user has already been shown once.
+    if (result.scenarioId === scenarioId) useCanvasStore.setState({ servedSwitchFactorIds: switchFactorIdsOf(result.switchAnalysisReady) })
     restoreVerdict()
     // ⭐ THE UNCHANGED CASE ADOPTS TOO, and it is the one a reload actually
     // takes. "The server has not moved" means the canvas already holds exactly
@@ -679,6 +681,8 @@ async function readAndMergeServerGraph(
     answerOpen(false)
     return 'mergeRefused'
   }
+
+  if (result.scenarioId === scenarioId) useCanvasStore.setState({ servedSwitchFactorIds: switchFactorIdsOf(result.switchAnalysisReady) })
 
   // ⭐ RELOAD SHOWS THE SAVED MODEL — the accepted merge took elements off the
   // canvas because the saved model lacks them (`mergeServerGraph.ts` header).

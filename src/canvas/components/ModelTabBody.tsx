@@ -1,3 +1,4 @@
+import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
 /**
  * ModelTabBody — "Model" tab for the outputs dock.
  *
@@ -246,6 +247,7 @@ export const ModelTabBody = memo(function ModelTabBody({
   // on 2026-09-11. The live tree has exactly ONE member of this group — the
   // Model card — and it was the one member the initial state never named, i.e.
   // the group could only ever render fully closed.
+  const displayNodes = useSwitchFactorNodes(nodes)
   const [openSection, setOpenSection] = useState<string | null>('modelcard')
 
   // ── The v1 stack: REMOVED 2026-09-11 (Paul's ruling) ───────────────────────
@@ -856,7 +858,7 @@ export const ModelTabBody = memo(function ModelTabBody({
           unchanged — §7's removals await Paul's KEEP/CUT verdict. */}
       <ModelTabV2Panel
         openGroupRequest={openGroupRequest}
-        nodes={nodes}
+        nodes={displayNodes}
         edges={edges}
         goalThreshold={goalThreshold}
         goalConstraints={goalConstraintRows}

@@ -1,3 +1,4 @@
+import { servedSwitchReading } from '../domain/switchFactors'
 /**
  * interventionDisplay — the SINGLE formatter for option-intervention change
  * statements (graph coaching audit §8 P0-4).
@@ -48,6 +49,7 @@ export const INTERVENTION_NO_CHANGE_EPSILON = 1e-9
 
 /** Factor/value context needed to format one side of an intervention. */
 export interface InterventionValueInput {
+  factorData?: unknown
   /** Cleaned factor label (used by contextual binary formatting only). */
   label: string
   /** Normalised (0–1 or raw) intervention value. */
@@ -71,6 +73,7 @@ export interface InterventionValueInput {
 }
 
 export interface InterventionChangeInput {
+  factorData?: unknown
   /** Baseline (pre-intervention) normalised value; null/undefined when unknown. */
   baselineValue?: number | null
   /** Target (intervention) normalised value; null when only a displayValue exists. */
@@ -218,6 +221,8 @@ export function carriedInterventionDisplay(chip: InterventionValueInput): string
 }
 
 export function formatInterventionTargetText(chip: InterventionValueInput): string {
+  const switchText = servedSwitchReading(chip.factorData, chip.value)
+  if (switchText !== null) return switchText
   // A13 (AUDIT-SYNTH 20260925) — a declared encoding_map is the producer's own
   // words for THIS value, and it outranks display_value here exactly as it
   // does on the factor card. Before this, an intervention chip never carried
@@ -358,6 +363,7 @@ export function formatInterventionChange(input: InterventionChangeInput): Interv
   const { baselineValue, targetValue, label } = input
 
   const valueContext = {
+    factorData: input.factorData,
     label,
     unit: input.unit ?? undefined,
     factorType: input.factorType ?? undefined,

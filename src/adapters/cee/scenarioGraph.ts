@@ -118,6 +118,7 @@ export type ScenarioGraphResult =
       graph: unknown
       /** The response's own `scenario_id`: the read's identity binding (`canonicalOpenOutcome.ts`). */
       scenarioId?: string | null
+      switchAnalysisReady?: unknown
       briefText: string | null
       /**
        * ROADMAP 2.973 — what of the brief did NOT reach the model.
@@ -469,6 +470,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     limitVerdicts: b.analysis_limit_verdicts ?? null,
     goalCertainty: b.analysis_goal_certainty ?? null,
     optionParticipation: b.analysis_option_participation ?? null,
+    switchAnalysisReady: b.current_read && typeof b.current_read === 'object' ? (b.current_read as Record<string, unknown>).analysis_ready : null,
     runDelta: readCurrentReadRunDelta(b.current_read),
     delivered: readCurrentReadDelivered(b.current_read),
     staleReasonWords: readHashEqualStaleReasonWords(b.current_read),

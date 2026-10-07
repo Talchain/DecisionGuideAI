@@ -1,3 +1,4 @@
+import { isServedSwitch, servedSwitchReading, switchReading } from '../../domain/switchFactors'
 /**
  * ⭐ WHAT THIS OPTION CHANGES, AT REST — the option card's compact anatomy
  * (locked spec §4 "Always lead with what this option changes"; ED 11:52Z
@@ -150,6 +151,8 @@ export function carriedFactorCardReading(
   data: Record<string, unknown> | null | undefined,
 ): string | null {
   if (!data || typeof data !== 'object') return null
+  const switchText = servedSwitchReading(data)
+  if (switchText !== null) return switchText
   const input = factorCardInput(data)
   const reading = factorDisplayText(input)
   if (reading === null) return null
@@ -357,7 +360,7 @@ export function binaryTargetReading(factorData: unknown, reading: string): strin
   const word = reading.trim()
   if (!BARE_SWITCH_WORD.test(word)) return null
   const v: 0 | 1 = /^(?:on|yes|true|1)$/i.test(word) ? 1 : 0
-  return encodingMapPhrase(d.encoding_map, v) ?? BINARY_STATE_WORDS[v]
+  return switchReading(d, v)
 }
 
 /**
@@ -383,7 +386,7 @@ export const BINARY_STATE_WORDS: Readonly<Record<0 | 1, string>> = Object.freeze
 const BARE_SWITCH_WORD = /^(?:on|off|yes|no|true|false|0|1)$/i
 
 /** CEE's word for a switched state; a bare digit is not one here. */
-const SWITCH_STATE_WORD = /^(?:on|off|yes|no|true|false)$/i
+export const SWITCH_STATE_WORD = /^(?:on|off|yes|no|true|false)$/i
 
 /**
  * ⭐ A FACTOR IS BINARY WHEN THE PRODUCER SAYS SO: its unit or type names it
@@ -399,7 +402,7 @@ function isBinaryFactor(
   producerWords: ReadonlyArray<string | null | undefined> = [],
 ): boolean {
   if (factor.factorType?.toLowerCase().trim() === 'binary' || /\bbinary\b/i.test(factor.unit ?? '')) return true
-  return producerWords.some((w) => typeof w === 'string' && SWITCH_STATE_WORD.test(w.trim()))
+  return isServedSwitch('target', { ceeAnalysisReady: { options: producerWords.map(w => ({ intervention_details: { target: { display_value: w } } })) } })
 }
 
 const binaryEnd = (v: number | null | undefined): 0 | 1 | null => (v === 0 ? 0 : v === 1 ? 1 : null)
@@ -413,10 +416,15 @@ function binaryChangeEnds({
   target: OptionTargetLike
   baselineOptionTarget: OptionTargetLike | null
 }): { from: string; to: string } | null {
-  if (!isBinaryFactor(factor, [target.displayValue, baselineOptionTarget?.displayValue])) return null
+  // Buddy r2 P1: a switch is at 0 or 1 ITSELF (CEE's rule, and `binaryTargetReading`'s guard above). A factor
+  // whose own value is known and off 0/1 is never worded as a switch, by the served signal OR a producer word.
+  if (factor.observedValue !== undefined && binaryEnd(factor.observedValue) === null) return null
+  if (servedSwitchReading(factor.factorData, target.value) === null && !isBinaryFactor(factor, [target.displayValue, baselineOptionTarget?.displayValue])) return null
   const to = binaryEnd(target.value)
   const from = binaryEnd(baselineOptionTarget ? baselineOptionTarget.value : factor.observedValue)
   if (to === null || from === null || from === to) return null
+  const servedTo = servedSwitchReading(factor.factorData, to)
+  if (servedTo !== null) return { from: switchReading(factor.factorData, from), to: servedTo }
   const encoding = (factor.factorData as Record<string, unknown> | null | undefined)?.encoding_map
   const own0 = encodingMapPhrase(encoding, 0)
   const own1 = encodingMapPhrase(encoding, 1)
@@ -427,7 +435,7 @@ function binaryChangeEnds({
   const producerWords = [target.displayValue, baselineOptionTarget?.displayValue]
     .filter((d): d is string => typeof d === 'string' && d.trim() !== '')
   if (producerWords.some(d => !BARE_SWITCH_WORD.test(d.trim()))) return null
-  return { from: BINARY_STATE_WORDS[from], to: BINARY_STATE_WORDS[to] }
+  return { from: switchReading(factor.factorData, from), to: switchReading(factor.factorData, to) }
 }
 
 export function buildOptionChangeRow({
@@ -450,6 +458,7 @@ export function buildOptionChangeRow({
   const estimated = targetSource.kind === 'olumi'
   const context = {
     label: fullLabel,
+    factorData: factor.factorData,
     unit: factor.unit,
     factorType: factor.factorType,
     cap: factor.cap,

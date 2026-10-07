@@ -1,3 +1,4 @@
+import { servedSwitchReading } from '../domain/switchFactors'
 import type { ObservedState } from '../domain/nodes'
 import { formatInterventionValue, unwrapInterventionValue, joinInterventionDetails } from './labelUtils'
 import { resolveElementLabel } from '../domain/elementLabel'
@@ -56,6 +57,7 @@ export function getFactorOptionRows(
   options: readonly SettingOption[] | null | undefined,
   observedState?: ObservedState,
 ) {
+  const factorData = nodes.find(n => n.id === factorId)?.data
   return nodes.filter(n => (n.type ?? n.data?.kind ?? n.data?.type) === 'option').map(option => {
     const ceeOption = options?.find(o => o.id === option.id)
     const interventions = resolveOptionInterventionsForDisplay(option, ceeOption)
@@ -63,15 +65,17 @@ export function getFactorOptionRows(
     return {
       id: option.id,
       label: resolveElementLabel(option.data),
-      displayValue: factorOptionSetting(raw, observedState)
+      displayValue: factorOptionSetting(raw, observedState, factorData)
         ?? (raw === undefined ? 'No setting recorded' : 'Value not specified'),
     }
   })
 }
 
 /** The same option setting in the factor preview and its inspector. */
-export function factorOptionSetting(raw: unknown, observedState?: ObservedState): string | null {
+export function factorOptionSetting(raw: unknown, observedState?: ObservedState, factorData?: unknown): string | null {
   const { value, displayValue } = unwrapInterventionValue(raw)
+  const switchText = servedSwitchReading(factorData, value)
+  if (switchText !== null) return switchText
   if (displayValue) return displayValue
   if (value != null) {
     return formatInterventionValue(

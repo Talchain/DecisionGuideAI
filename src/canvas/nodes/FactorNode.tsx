@@ -1,3 +1,4 @@
+import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
 import { memo, useMemo, useCallback, useState } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
@@ -85,7 +86,7 @@ export const FactorNode = memo((props: NodeProps) => {
   const markedOptionId = useCanvasStore(state =>
     state.lens?.active === 'option' ? state.lens.selectedOptionId ?? null : null,
   )
-  const nodes = useCanvasStore(state => state.nodes)
+  const nodes = useSwitchFactorNodes()
   const edges = useCanvasStore(state => state.edges)
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   const resultsStatus = useCanvasStore(state => state.results.status)
@@ -202,7 +203,7 @@ export const FactorNode = memo((props: NodeProps) => {
      * had written "Low (0.2)". See `resolveOptionInterventionsForDisplay`.
      */
     const interventions = resolveOptionInterventionsForDisplay(option, ceeOption)
-    return factorOptionSetting(interventions?.[props.id], observedState)
+    return factorOptionSetting(interventions?.[props.id], observedState, nodes.find(n => n.id === props.id)?.data)
   }, [markedOptionId, nodes, ceeAnalysisReady, props.id, observedState])
   const isAffectedByHover = interventionDisplayValue !== null
 
@@ -232,7 +233,7 @@ export const FactorNode = memo((props: NodeProps) => {
   // against internal descriptors such as "other" being shown as units.
   const valueDisplayData = useMemo(
     () => ({
-      ...props.data,
+      ...(nodes.find(n => n.id === props.id)?.data ?? props.data),
       label: cleanedLabel,
       // Top level, never inside observedState: the observed state is the
       // persisted model and an unacknowledged keystroke must not reach it.
@@ -242,7 +243,7 @@ export const FactorNode = memo((props: NodeProps) => {
         unit: isSuppressedUnit(observedState.unit ?? undefined) ? undefined : observedState.unit,
       },
     }),
-    [props.data, cleanedLabel, observedState, pendingEditValue],
+    [props.data, props.id, nodes, cleanedLabel, observedState, pendingEditValue],
   )
   const valueDisplay = useMemo(() => factorDisplayText(valueDisplayData), [valueDisplayData])
   // Contract §02: the SAME value split into figure + unit word, from the same

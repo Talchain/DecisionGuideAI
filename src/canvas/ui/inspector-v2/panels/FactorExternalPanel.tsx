@@ -1,3 +1,4 @@
+import { useSwitchFactorNodes } from '../../../hooks/useSwitchFactorNodes'
 /**
  * FactorExternalPanel — Inspector for external factors (spec §9)
  * v6.2 three-group layout: Context → Your input → Influences
@@ -91,7 +92,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
    */
   readOnly = false,
 }: InspectorPanelProps) {
-  const nodes = useCanvasStore(s => s.nodes)
+  const nodes = useSwitchFactorNodes()
   const edges = useCanvasStore(s => s.edges)
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'

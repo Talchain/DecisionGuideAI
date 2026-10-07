@@ -1,3 +1,5 @@
+import { servedSwitchReading } from '../domain/switchFactors'
+import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
 import { Fragment, memo, useMemo, useCallback, useState, type ReactNode } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { Pencil } from 'lucide-react'
@@ -495,9 +497,9 @@ export function differentiatorAddsBeyondRows(
  * read the same on screen are indistinguishable to a user however their
  * hover text differs.
  */
-function computeAllDifferentiators(
+export function computeAllDifferentiators(
   nodes: readonly { id: string; type?: string; data?: any }[],
-  ceeAnalysisReady: { options?: { id: string; interventions?: Record<string, unknown>; is_baseline?: boolean | null }[] } | null,
+  ceeAnalysisReady: { options?: { id: string; interventions?: Record<string, unknown>; is_baseline?: boolean | null; intervention_details?: Record<string, unknown> }[] } | null,
 ): Map<string, OptionDifferentiator | null> {
   const result = new Map<string, OptionDifferentiator | null>()
   // POM-3: the keyword guess may not mint a second baseline on a board that declares one.
@@ -521,7 +523,7 @@ function computeAllDifferentiators(
     const interventions = ceeOpt?.interventions ?? (optNode.data as any)?.interventions
     if (!interventions || typeof interventions !== 'object') continue
     const map = new Map<string, InterventionEntry>()
-    for (const [fid, raw] of Object.entries(interventions)) {
+    for (const [fid, raw] of joinInterventionDetails(interventions, ceeOpt?.intervention_details)) {
       const { value, displayValue } = unwrapInterventionValue(raw)
       if (value != null) map.set(fid, { value, displayValue: displayValue ?? undefined })
     }
@@ -612,6 +614,8 @@ function computeAllDifferentiators(
         // Unique factor — simple sentence
         return `${leading} is the key difference`
       }
+      const switchText = servedSwitchReading(factorNode?.data, myValue)
+      if (switchText !== null) return `${leading} → ${switchText}`
       if (myDisplayValue) {
         // Shared factor with CEE display_value — the producer's reading, no
         // unit/tier inference. At rest it sheds its parenthesised internal-scale
@@ -705,6 +709,7 @@ function stripEcho(label: string, displayValue: string): string {
 // so every option-intervention surface renders identical statements.
 
 interface InterventionChip {
+  factorData?: unknown
   factorId: string
   label: string
   value: number
@@ -748,7 +753,7 @@ export const OptionNode = memo((props: NodeProps) => {
   const absentFromRunReason = useOptionAbsentFromRunShown(props.id)
   const scienceIcons = useScienceIcons(props.id, 'option')
 
-  const nodes = useCanvasStore(state => state.nodes)
+  const nodes = useSwitchFactorNodes()
   // ⭐ E1b: the option's values are edited ON the card, through the inspector's own writer (`option_intervention_edit`).
   const optionEditAuthority = useModelEditAuthority(props.id)
   const resultsReport = useCanvasStore(state => state.results.report)
@@ -979,7 +984,7 @@ export const OptionNode = memo((props: NodeProps) => {
         } | undefined
         const unit = (factorNode?.data?.unit as string | undefined) ?? observedState?.unit
         return [{
-          factorId, label: cleanedLabel, value, displayValue: displayValue ?? undefined, unit,
+          factorId, factorData: factorNode?.data, label: cleanedLabel, value, displayValue: servedSwitchReading(factorNode?.data, value) ?? displayValue ?? undefined, unit,
           factorType: observedState?.factor_type, cap: optionEntryScaleOf(observedState?.cap, factorNode?.data?.scale_frame),
           observedValue: observedState?.value, observedRawValue: observedState?.raw_value,
         }]
@@ -1064,6 +1069,7 @@ export const OptionNode = memo((props: NodeProps) => {
           baselineValue: baseline,
           targetValue: c.value,
           label: shortLabel,
+          factorData: c.factorData,
           unit: c.unit,
           factorType: c.factorType,
           cap: c.cap,
@@ -1076,7 +1082,7 @@ export const OptionNode = memo((props: NodeProps) => {
 
         // A supplied label belongs to the reference option's own value,
         // never the factor's observed display string or this option's target.
-        const baselineLabel = reference?.displayValue
+        const baselineLabel = servedSwitchReading(c.factorData, baseline) ?? reference?.displayValue
         // A labelled target and an unlabelled reference may use different
         // frames. Preserve the supplied target in details without a pair.
         if (Boolean(c.displayValue) !== Boolean(baselineLabel)) return null
