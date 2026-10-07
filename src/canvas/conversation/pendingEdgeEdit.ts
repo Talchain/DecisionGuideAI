@@ -43,7 +43,11 @@
  * takes the cannot-confirm line, and stays off the side channel.
  */
 import { useCanvasStore } from '../store'
-import { restoreAnalysisCurrencyAfterRevert, type AnalysisCurrencySnapshot } from '../store/analysisCurrencySnapshot'
+import {
+  analysisReplacedSince,
+  restoreAnalysisCurrencyAfterRevert,
+  type AnalysisCurrencySnapshot,
+} from '../store/analysisCurrencySnapshot'
 import { saveAutosave } from '../store/scenarios'
 import { autosaveSourceFromStore, projectAutosaveData } from '../store/autosaveProjection'
 import { serverStatedStrengthOf } from './edgeServerStatedStrength'
@@ -396,8 +400,7 @@ function revertEdgeEdit(entry: PendingEdgeEdit): void {
   // moved on keeps what they see.
   if (!edge || !edgeShowsPendingWrite(edge, entry)) return
   // updateEdge itself clears readiness, so remember a newer arrival BEFORE it.
-  const analysisReplaced = store.ceeAnalysisReady !== null
-    && store.ceeAnalysisReady !== entry.currency?.fields.ceeAnalysisReady
+  const analysisReplaced = entry.currency ? analysisReplacedSince(entry.currency) : true
   // ⚠ A ROLLBACK, NOT A USER EDIT — the same framing the factor revert uses.
   store.beginExternalGraphMutation?.('envelope_apply')
   try {

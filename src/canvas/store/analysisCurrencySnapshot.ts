@@ -34,15 +34,38 @@ export function captureAnalysisCurrency(): AnalysisCurrencySnapshot {
   }
 }
 
+/**
+ * The Run a readiness describes: CEE's `graph_hash_at_run` + `computed_at`, both carried on `analysis_ready`.
+ * Null when either is absent — never a guess.
+ */
+function runIdentityOf(ready: unknown): string | null {
+  const r = ready as { graph_hash_at_run?: unknown; computed_at?: unknown } | null
+  const hash = r?.graph_hash_at_run
+  const at = r?.computed_at
+  return typeof hash === 'string' && hash !== '' && typeof at === 'string' && at !== '' ? `${hash}\u0000${at}` : null
+}
+
+/**
+ * A readiness that arrived after the snapshot describes a DIFFERENT Run. Bound to the Run's identity, never to the
+ * object: CEE's refusal reply carries the user's current Run back as a new object (served witness draws 4a/4a-2,
+ * UI d16ccc87, CEE a5d3b0e), and reading that as a replacement left a refused edit saying "Rerun — model changed".
+ * An arrival without a readable identity counts as a replacement.
+ */
+export function analysisReplacedSince(snapshot: AnalysisCurrencySnapshot): boolean {
+  const now = useCanvasStore.getState().ceeAnalysisReady
+  const then = snapshot.fields.ceeAnalysisReady
+  if (now === null || now === then) return false
+  const nowRun = runIdentityOf(now)
+  return nowRun === null || nowRun !== runIdentityOf(then)
+}
+
 /** Only a proven revert to the original analytical graph can regain its currency. */
 export function restoreAnalysisCurrencyAfterRevert(
   snapshot: AnalysisCurrencySnapshot,
 ): 'restored' | 'graph_differs' | 'analysis_replaced' {
   const state = useCanvasStore.getState()
   if (hasAnalyticalGraphChange(snapshot.graph, state)) return 'graph_differs'
-  if (state.ceeAnalysisReady !== null && state.ceeAnalysisReady !== snapshot.fields.ceeAnalysisReady) {
-    return 'analysis_replaced'
-  }
+  if (analysisReplacedSince(snapshot)) return 'analysis_replaced'
   useCanvasStore.setState(snapshot.fields)
   return 'restored'
 }
