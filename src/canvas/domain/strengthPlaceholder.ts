@@ -30,10 +30,11 @@
  * magnitude. Either way the edge stops reading as a placeholder with nothing
  * written. This is the same rule `naturalEffectPhrase` uses for its own key.
  *
- * ⚠ ABSENT ⇒ NOT KNOWN TO BE A PLACEHOLDER. An edge that arrives without the
- * label keeps today's behaviour. Failure is under-disclosure, never a false
- * "placeholder" on a real estimate.
+ * ⚠ ABSENT ⇒ NOT KNOWN, unless it is an untagged producer default: CEE's
+ * `mean_projected`, or the door constant with `defaulted`, is a placeholder too
+ * (Science 393023 LICENCE (a), 7 Oct).
  */
+import { STRENGTH_DEFAULT_SIGNATURE } from '@talchain/schemas'
 import { edgeValueSource, resolveEdgeSignedStrengthDisplay } from './edgeValueProvenance'
 
 /** The magnitude-contract label for a placeholder strength (`provenance.magnitude`). */
@@ -43,18 +44,29 @@ export const OLUMI_PLACEHOLDER_MAGNITUDE = 'olumi_placeholder'
 const SAME_WEIGHT_EPSILON = 1e-9
 
 /**
- * Does the wire edge say its strength is a PLACEHOLDER? True only when the
- * producer labelled the magnitude `olumi_placeholder` and the person did not
- * specify it (`user_specified` outranks any magnitude label, as it does in
- * `readWireEdgeStrengthAuthor` / `readWireNaturalEffect`).
+ * Mirror CEE's `linkSizing(edge) === 'placeholder'`: user authorship comes
+ * first, then the magnitude label, then an untagged producer default with no
+ * natural effect (Science 393023 LICENCE (b), 7 Oct).
  */
 export function readWireStrengthIsPlaceholder(
   wireEdge: Record<string, unknown> | undefined | null,
 ): boolean {
   const provenance = wireEdge?.provenance
-  if (typeof provenance !== 'object' || provenance === null || Array.isArray(provenance)) return false
-  const p = provenance as Record<string, unknown>
-  return p.source !== 'user_specified' && p.magnitude === OLUMI_PLACEHOLDER_MAGNITUDE
+  const p = typeof provenance === 'object' && provenance !== null && !Array.isArray(provenance)
+    ? provenance as Record<string, unknown>
+    : {}
+  if (p.source === 'user_specified' || p.magnitude === 'user_stated') return false
+  if (p.magnitude === OLUMI_PLACEHOLDER_MAGNITUDE) return true
+  if (p.magnitude !== undefined || p.natural_effect !== undefined) return false
+  if (p.mean_projected === true) return true
+
+  const strength = wireEdge?.strength as Record<string, unknown> | undefined | null
+  const mean = strength?.mean ?? wireEdge?.strength_mean
+  const std = strength?.std ?? wireEdge?.strength_std
+  return wireEdge?.defaulted === true
+    && typeof mean === 'number'
+    && Math.abs(mean) === STRENGTH_DEFAULT_SIGNATURE.mean
+    && std === STRENGTH_DEFAULT_SIGNATURE.std
 }
 
 /**
