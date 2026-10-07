@@ -48,7 +48,9 @@ const setStage = (stage: AskStage) => {
   vi.mocked(selectRunWithholdsFigures).mockReturnValue(stage === 'withheld')
 }
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+})
 
 describe('the table is well formed', () => {
   it('holds exactly the declared action ids', () => {
