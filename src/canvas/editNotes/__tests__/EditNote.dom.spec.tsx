@@ -48,6 +48,16 @@ it('one canvas note pinned outside cards, with unchanged geometry', () => {
   expect(overlay.style.width).toBe('280px')
   expect(useCanvasStore.getState().nodes).toEqual(before)
 })
+it('S1 renders exact words with Run again as its primary button', () => {
+  const before: EditGraph = { nodes: [...nodes], edges: [{ id: 'edge', source: 'f', target: 'g', data: { strength: 0.2 } }] }
+  const after = structuredClone(before); after.edges[0].data!.strength = 0.7
+  reportManualEdit({ edit: { kind: 'edge_strength_edit', elementId: 'edge', accepted: true }, before, after,
+    lastRun: { visible: true, runId: 'run', drivers: { o: { kind: 'link_strength', from: 'f', to: 'g', strength: 'stronger', authoredBy: 'user', userStatedLink: true } } } })
+  const { container } = render(<EditNote elementId="edge" />)
+  const note = container.querySelector('[data-edit-note="S1"][data-edit-note-element="edge"]')!
+  expect(note).toHaveTextContent('The chance for ‘Hire two developers’ rests most on this link, so this change could move it a lot. Run again to see.')
+  expect(note.querySelector('button')?.textContent).toBe('Run again')
+})
 it('open inspector replaces rerun slot, even when the edit happened on the card', () => {
   fireF1()
   const { container } = render(<><CanvasEditNote inspectorOpen /><FactorControllablePanel nodeId="f" techMode={false} onClose={() => {}} onNavigate={() => {}} readOnly /></>)

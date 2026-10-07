@@ -32,6 +32,11 @@ export function EditNote({ elementId }: { elementId: string }) {
       if (outcome.status === 'blocked' || outcome.status === 'unavailable') showToast(outcome.reason, 'warning')
       return
     }
+    if (action.kind === 'undo') {
+      useEditNoteStore.getState().acted()
+      useCanvasStore.getState().undo()
+      return
+    }
     useEditNoteStore.getState().acted()
     if (action.kind === 'option') openOptionValueInput(id)
     if (action.kind === 'link') {

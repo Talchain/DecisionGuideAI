@@ -1,4 +1,6 @@
 import { reportManualEditReceipt, currentManualEditRevision, clearPendingEditNotes, takeRenameEditRevision } from '../editNotes/reportManualEditReceipt'
+import { askAiStage } from './askAi'
+import { selectTurningPoints } from '../nodes/shared/factorTurningPoint'
 /**
  * useConversation — Conversation state and orchestrator integration
  *
@@ -6078,9 +6080,17 @@ export function useConversation(): UseConversationReturn {
           // The note owner excludes proposal attribution (applied_from) and confirmations.
           if (systemEvent && activeV5TurnIdRef.current === turnClientId) {
             const landed = useCanvasStore.getState()
+            const stage = askAiStage(landed)
             reportManualEditReceipt({ revision: editNoteRevision, event: systemEvent, response: target.response,
               before: { nodes: editNoteBefore.nodes, edges: editNoteBefore.edges, options: editNoteBefore.ceeAnalysisReady?.options },
-              after: { nodes: landed.nodes, edges: landed.edges, options: landed.ceeAnalysisReady?.options } })
+              after: { nodes: landed.nodes, edges: landed.edges, options: landed.ceeAnalysisReady?.options, goal_constraints: landed.goalConstraints },
+              lastRun: { visible: stage === 'ran-current' || stage === 'stale', runId: landed.analysisHash ?? 'visible-run',
+                report: landed.results?.report,
+                fragileEdges: (landed.results?.report as { robustness?: { fragile_edges?: [] } } | undefined)?.robustness?.fragile_edges,
+                turningPoints: Object.fromEntries(selectTurningPoints(landed.results?.report)),
+                goalConstraints: landed.goalConstraints,
+                limitVerdicts: landed.limitVerdicts,
+              } })
           }
 
           const mappedBlocks =

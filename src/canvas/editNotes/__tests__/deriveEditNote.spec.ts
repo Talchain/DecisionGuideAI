@@ -21,6 +21,36 @@ const assertNote = (result: ReturnType<typeof note>, check: string, id: string, 
 }
 
 describe('after-edit checks, bound by identity and exact words', () => {
+  const runGraph = () => ({ nodes: [
+    { id: 'a', type: 'factor', data: { label: 'Demand', observed_state: { value: 4, unit: '%' } } },
+    { id: 'b', type: 'goal', data: { label: 'Growth', goal_threshold_raw: 10 } },
+    { id: 'o', type: 'option', data: { label: 'Launch', interventions: {} } },
+  ], edges: [{ id: 'ab', source: 'a', target: 'b', data: { strength: 0.2 } }] }) satisfies EditGraph
+  const visibleRun = { visible: true, runId: 'run-1', drivers: { o: { kind: 'link_strength' as const, from: 'a', to: 'b', strength: 'stronger' as const, authoredBy: 'user' as const, userStatedLink: true } } }
+  it('S1 driver wins over fragile, with exact copy and actions', () => {
+    const before = runGraph(), after = structuredClone(before); after.edges[0].data!.strength = 0.8
+    const result = deriveEditNote({ edit: edit('edge_strength_edit', 'ab'), before, after,
+      lastRun: { ...visibleRun, fragileEdges: [{ edge_id: 'ab', switch_probability: 0.8 }] } })
+    assertNote(result, 'S1', 'ab', 'The chance for ‘Launch’ rests most on this link, so this change could move it a lot. Run again to see.')
+    expect(result?.actions.map(a => a.label)).toEqual(['Run again', 'Undo', 'Discuss with Olumi'])
+  })
+  it('S1 own replaces Olumi wording; invisible Run is silent', () => {
+    const before = runGraph(), after = structuredClone(before); after.edges[0].data!.strength = 0.8
+    const own = { ...visibleRun, drivers: { o: { ...visibleRun.drivers.o, authoredBy: 'olumi' as const } } }
+    expect(deriveEditNote({ edit: edit('edge_strength_edit', 'ab'), before, after, lastRun: own })?.words)
+      .toBe('You’ve replaced Olumi’s estimate on the link the chance for ‘Launch’ rested most on. Run again to see.')
+    expect(deriveEditNote({ edit: edit('edge_strength_edit', 'ab'), before, after, lastRun: { ...own, visible: false } })).toBeNull()
+  })
+  it('F3 needs a crossing and F2 needs user provenance', () => {
+    const before = runGraph(), after = structuredClone(before); after.nodes[0].data.observed_state = { value: 7, unit: '%' }
+    const base = { visible: true, runId: 'r', turningPoints: { a: { currentValue: 4, flipValue: 5, unit: '%', displayScale: true } } }
+    expect(deriveEditNote({ edit: edit('factor_value_edit', 'a'), before, after, lastRun: base })?.check).toBe('F3')
+    after.nodes[0].data.observed_state = { value: 4.5, unit: '%' }
+    expect(deriveEditNote({ edit: edit('factor_value_edit', 'a'), before, after, lastRun: base })).toBeNull()
+    after.nodes[0].data.observed_state = { value: 12, unit: '%' }
+    expect(deriveEditNote({ edit: edit('factor_value_edit', 'a'), before, after, lastRun: { ...base, priorRanges: { a: { low: 1, high: 10, unit: '%', authoredBy: 'olumi' } } } })?.check).toBe('F3')
+    expect(deriveEditNote({ edit: edit('factor_value_edit', 'a'), before, after, lastRun: { ...base, priorRanges: { a: { low: 1, high: 10, unit: '%', authoredBy: 'user' } } } })?.check).toBe('F2')
+  })
   it('F1: card 0 → 2, some options set the factor', () => {
     const before = hiring(), after = hiring()
     after.nodes[0].data.observed_state = { value: 2 }
