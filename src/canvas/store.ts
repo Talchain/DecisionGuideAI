@@ -8961,3 +8961,16 @@ export const selectLensOptionId = (state: CanvasState): string | null => state.l
  */
 export type ViewMode = 'standard' | 'expert'
 export const selectViewMode = (state: CanvasState): ViewMode => state.viewMode
+
+/**
+ * Every field invalidated by an analytical edit (`readinessClearFields` + the dirty overlay), shared with the no-write
+ * rollback (`store/analysisCurrencySnapshot.ts`). At the END of the file on purpose: `scripts/ci/ui-decides-baseline.txt`
+ * is keyed by store.ts LINE, and lines added above a baselined site move it.
+ */
+export const ANALYSIS_CURRENCY_KEYS = [
+  ...(Object.keys(READINESS_CLEAR_FIELDS) as Array<keyof typeof READINESS_CLEAR_FIELDS>),
+  'retainedAnalysisAdmission',
+  'retainedDraftCoaching',
+  'retainedDraftCoachingOptionCount',
+  'analysisFreshnessDirty',
+] as const
