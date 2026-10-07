@@ -41,6 +41,9 @@ function displayedModelNumber(text: string): number | null {
 }
 
 /** No subscriptions, actions, or persistence: only the held Run and local input state. */
+/**
+ * @panel-act-opt-out the only controls are optional number inputs for local column weights (form fields, not panel acts); each is 24px in both dimensions
+ */
 export function DecisionMatrix(props: DecisionMatrixProps) {
   const { run } = props
   const identity = JSON.stringify([run.hash, run.runId, run.computedAt, run.graphHash, run.completedAt])
@@ -121,7 +124,7 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
       {(['chance', ...(hasCentre ? ['outcome'] : [])] as WeightedColumn[]).map((id) => <label key={id} className={`${typography.panelMeta} text-text-body block py-2`}>
         {id === 'chance' ? 'Chance weight (optional)' : 'Modelled outcome weight (optional)'}
         <input type="number" min="0" step="any" value={weights[id]} onChange={(e) => setWeights((prev) => ({ ...prev, [id]: e.target.value }))}
-          className="ml-2 w-20 rounded border border-panel-border bg-panel px-2 py-1 text-text-body" />
+          className="ml-2 w-20 min-h-[24px] min-w-[24px] rounded border border-panel-border bg-panel px-2 py-1 text-text-body" />
       </label>)}
       {weightedColumns.length > 0 && !showScore && <p className={`${typography.panelMeta} text-text-light`}>A score needs valid weights and a displayed number for every option in each weighted column.</p>}
       {showScore && <p className={`${typography.panelMeta} text-text-light`}>Score = sum of displayed numbers × your column weights. Chance uses percentage points; the modelled outcome has no unit.</p>}
@@ -144,10 +147,10 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
               {row.caveat && <p className="text-text-light">{row.caveat}</p>}
               {row.baseCaveat && <p className="text-text-light">{row.baseCaveat}</p>}
             </td>
-            {hasDriver && <td className={cell} data-testid={`decision-matrix-driver-${row.id}`}>{row.driver ?? '—'}</td>}
+            {hasDriver && <td className={cell} data-testid={`decision-matrix-driver-${row.id}`}>{row.driver ?? 'None shown'}</td>}
             {hasCentre && <td className={cell} data-testid={`decision-matrix-outcome-${row.id}`}>{row.centreReadout ?? 'Not shown.'}</td>}
             {hasOutcome && <td className={cell}>{row.outcome ?? 'Not shown.'}</td>}
-            {hasStory && <td className={cell}>{row.story ?? '—'}</td>}
+            {hasStory && <td className={cell}>{row.story ?? 'None shown'}</td>}
             {showScore && <td className={cell} data-testid={`decision-matrix-score-${row.id}`}>{Number(scoreOf(row).toFixed(2))}</td>}
           </tr>)}</tbody>
         </table>
