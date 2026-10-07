@@ -1,3 +1,4 @@
+import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
 /**
  * Base node component
  * Shared structure and styling for all node types
@@ -461,7 +462,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // React #185 FIX: Return primitive boolean from selector to prevent re-renders
   // on every store update. Selecting the entire Set causes infinite loops since
   // Set references change on each store update.
-  const allNodes = useCanvasStore(s => s.nodes)
+  const allNodes = useSwitchFactorNodes()
   const isHighlighted = useCanvasStore(s => s.highlightedNodes.has(id))
   // CURRENT-READ row 9: a withheld leader withholds the option's share at every zoom (`winShareGate.ts`).
   const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
@@ -761,7 +762,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       ...resolveLodMetricFacts({
         nodeType,
         nodeId: id,
-        data: data as Record<string, unknown> | undefined,
+        data: (allNodes.find(n => n.id === id)?.data ?? data) as Record<string, unknown> | undefined,
         ceeOptions: ceeAnalysisReady?.options,
         graphHasDeclaredBaseline,
       }),
@@ -769,7 +770,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       winSharesWithheld: winSharesWithheld && optionComparedInRun,
       optionTakenOutLine: optionTakenOutLine(data),
     }
-  }, [bodyReduced, nodeType, id, ceeAnalysisReady, graphHasDeclaredBaseline, data, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, displayMetadata.unvaluedInRun, resultCaption, resultsFromLastRun, winSharesWithheld, optionComparedInRun])
+  }, [bodyReduced, nodeType, id, ceeAnalysisReady, graphHasDeclaredBaseline, data, allNodes, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, displayMetadata.unvaluedInRun, resultCaption, resultsFromLastRun, winSharesWithheld, optionComparedInRun])
 
   const lodBody = useMemo<{ text: string | null; unconfirmedEstimate: boolean }>(() => {
     if (!bodyReduced) return { text: null, unconfirmedEstimate: false }
@@ -803,12 +804,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     }
     return resolveLodMetricLineDetail({
       nodeType,
-      data: data as Record<string, unknown> | undefined,
+      data: (allNodes.find(n => n.id === id)?.data ?? data) as Record<string, unknown> | undefined,
       label,
       displayMetadata,
       facts: lodFacts,
     })
-  }, [bodyReduced, lodMetric, nodeType, data, label, displayMetadata, lodFacts])
+  }, [bodyReduced, lodMetric, nodeType, data, id, allNodes, label, displayMetadata, lodFacts])
   const lodBodyLine = lodBody.text
 
   /**

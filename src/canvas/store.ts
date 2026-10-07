@@ -686,7 +686,7 @@ interface CanvasState {
   v5AnalysisFact: V5AnalysisFactState | null
   // CEE V3: analysis_ready payload from last draft
   // Used by useV2Run to build requests with resolved interventions
-  ceeAnalysisReady: CEEAnalysisReady | null
+  ceeAnalysisReady: CEEAnalysisReady | null; servedSwitchFactorIds: ReadonlySet<string>
   /**
    * The run-over-run consequence for the analysis currently displayed, or null.
    *
@@ -2366,7 +2366,7 @@ function readinessClearFields(get: () => CanvasState) {
 const DECISION_CONTEXT_CLEAR = {
   goalThreshold: null,
   goalThresholdRepresentation: null,
-  ceeAnalysisReady: null,
+  ceeAnalysisReady: null, servedSwitchFactorIds: new Set<string>(),
   // ⭐ A DIFFERENT DECISION CANNOT INHERIT THE LAST ONE'S COMPARISON. The read
   // predicate already refuses a delta whose scenario does not match, so this is
   // the second of two independent guards rather than the only one — deliberately,
@@ -3471,7 +3471,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     ...loadUIPreferences(), // Override with persisted preferences
   },
   // CEE V3: analysis_ready payload
-  ceeAnalysisReady: null,
+  ceeAnalysisReady: null, servedSwitchFactorIds: new Set<string>(),
   // No run has completed, so there is no run-over-run consequence to describe.
   runDelta: null,
   runDeltaAbsence: null,
@@ -7178,7 +7178,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Store current node IDs for staleness detection
       const { nodes } = get()
       const nodeIds = nodes.map((n) => n.id)
-      set({ ceeAnalysisReady: analysisReady, ceeAnalysisReadyNodeIds: nodeIds })
+      set({ ceeAnalysisReady: analysisReady, ceeAnalysisReadyNodeIds: nodeIds, servedSwitchFactorIds: analysisReady === null ? get().servedSwitchFactorIds : switchFactorIdsOf(analysisReady) })
       // Sync goal threshold from CEE to store (fixes "?" badge on goals with thresholds).
       // goal_threshold_raw FIRST: the store field's contract is user units (see
       // the goalThreshold field comment). goal_threshold is normalised 0-1 — syncing
@@ -8979,3 +8979,5 @@ export const ANALYSIS_CURRENCY_KEYS = [
 import type { PremortemRunMeta } from '../v5/readPremortemWorksheet'
 export type { PremortemRunMeta } from '../v5/readPremortemWorksheet'
 export const selectPremortemWorksheet = (state: CanvasState) => state.runMeta.premortemWorksheet ?? null
+
+import { switchFactorIdsOf } from './domain/switchFactors'

@@ -1,3 +1,4 @@
+import { useSwitchFactorNodes } from '../../../hooks/useSwitchFactorNodes'
 /**
  * FactorControllablePanel — Inspector for controllable factors (spec §7)
  * v6.2 Pattern B three-group layout: Context → Your input → Connections.
@@ -92,7 +93,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
    */
   readOnly = false,
 }: InspectorPanelProps) {
-  const nodes = useCanvasStore(s => s.nodes)
+  const nodes = useSwitchFactorNodes()
   const edges = useCanvasStore(s => s.edges)
   const ceeOptions = useCanvasStore(s => s.ceeAnalysisReady?.options)
   const resultsStatus = useCanvasStore(s => s.results?.status)

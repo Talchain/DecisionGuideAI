@@ -1,3 +1,4 @@
+import { useSwitchFactorNodes } from '../../../hooks/useSwitchFactorNodes'
 /**
  * FactorObservablePanel — Inspector for observable factors (spec §8)
  * v6.2 three-group layout: Context → Your input → Influences
@@ -85,7 +86,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
    */
   readOnly = false,
 }: InspectorPanelProps) {
-  const nodes = useCanvasStore(s => s.nodes)
+  const nodes = useSwitchFactorNodes()
   const edges = useCanvasStore(s => s.edges)
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
