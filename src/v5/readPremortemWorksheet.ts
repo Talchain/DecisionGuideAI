@@ -12,7 +12,6 @@ const text = z.string().min(1).max(1600).refine(s => s.trim().length > 0);
 const id = z.string().min(1).max(160);
 const direction = z.enum(['positive', 'negative']);
 const authoredBan = /%|\b(?:most likely|likely|likelihood|chance|probability|probable|odds|best|winners?|winning|recommend\w*|leads?|ahead|beats?)\b/iu;
-const safeText = text.refine(s => !authoredBan.test(s), 'unlicensed wording');
 const runSchema = z.object({
   graph_hash_at_run: z.string().regex(/^[0-9a-f]{16}$/u),
   computed_at: z.string().refine(s => Number.isFinite(Date.parse(s)) && new Date(s).toISOString() === s),
@@ -31,7 +30,7 @@ const groundingSchema = z.discriminatedUnion('kind', [
 ]);
 const riskRequestSchema = z.object({
   chip_id: z.literal('agent-next-suggest-risks'),
-  message: safeText,
+  message: text,
   affected_node_id: id,
   direction,
   grounding_ids: z.array(id),
@@ -41,12 +40,33 @@ export const PremortemWorksheetV1Schema = z.object({
   run: runSchema, binding: bindingSchema,
   rows: z.array(z.object({
     row_id: id, option_id: id, option_label: text,
-    failure_way: safeText, early_warning: safeText, mitigation: safeText.optional(),
+    failure_way: text, early_warning: text, mitigation: text.optional(),
     grounding: groundingSchema, provenance: z.literal('olumi_hypothesis'), risk_request: riskRequestSchema,
   }).strict()).min(1).max(4),
   coverage: z.array(z.object({ option_id: id, option_label: text, status: z.enum(['stress_tested', 'not_stress_tested']) }).strict()),
   blindspot_question: text.refine(s => s.endsWith('?')),
 }).strict().superRefine((w, ctx) => {
+  // User labels may contain otherwise banned words or percentages. Mask only
+  // their literal occurrences for validation, preserving the carrier verbatim.
+  const labels = [...new Set([
+    ...w.coverage.map(c => c.option_label),
+    ...w.rows.flatMap(r => [r.option_label, ...(r.grounding.kind === 'not_in_model' ? [] : r.grounding.labels)]),
+  ])].sort((a, b) => b.length - a.length);
+  // Whole-label only (DL r3): a one-word label 'Lead' must not mask Olumi's own "leads".
+  const labelPattern = new RegExp(`(?<![\\p{L}\\p{N}])(?:${labels.map(label => label.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')).join('|')})(?![\\p{L}\\p{N}])`, 'giu');
+  for (const [index, row] of w.rows.entries()) {
+    const fields = [
+      { value: row.failure_way, path: ['failure_way'] },
+      { value: row.early_warning, path: ['early_warning'] },
+      { value: row.mitigation, path: ['mitigation'] },
+      { value: row.risk_request.message, path: ['risk_request', 'message'] },
+    ];
+    for (const field of fields) {
+      if (field.value !== undefined && authoredBan.test(field.value.replace(labelPattern, ' '))) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'unlicensed wording', path: ['rows', index, ...field.path] });
+      }
+    }
+  }
   const issue = () => ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'invalid worksheet binding' });
   if (w.binding.scenario_id !== w.scenario_id || w.binding.graph_revision !== w.run.graph_hash_at_run) issue();
   if (new Set(w.rows.map(r => r.row_id)).size !== w.rows.length || new Set(w.coverage.map(c => c.option_id)).size !== w.coverage.length) issue();
