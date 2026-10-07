@@ -55,7 +55,7 @@ it('S1 renders exact words with Run again as its primary button', () => {
     lastRun: { visible: true, runId: 'run', drivers: { o: { kind: 'link_strength', from: 'f', to: 'g', strength: 'stronger', authoredBy: 'user', userStatedLink: true } } } })
   const { container } = render(<EditNote elementId="edge" />)
   const note = container.querySelector('[data-edit-note="S1"][data-edit-note-element="edge"]')!
-  expect(note).toHaveTextContent('The chance for ‘Hire two developers’ rests most on this link, so this change could move it a lot. Run again to see.')
+  expect(note).toHaveTextContent('The chance for ‘Hire two developers’ rests most on this link, so this change could move it. Run again to see.')
   expect(note.querySelector('button')?.textContent).toBe('Run again')
 })
 it('open inspector replaces rerun slot, even when the edit happened on the card', () => {

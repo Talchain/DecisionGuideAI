@@ -38,7 +38,7 @@ describe('after-edit checks, bound by identity and exact words', () => {
   it('S1: a resized driver link beats fragility, with exact words and actions', () => {
     const { before, after } = resized()
     const result = deriveEditNote({ edit: strengthEdit, before, after, lastRun: { ...visibleRun, fragileEdges: fragileAB } })
-    assertNote(result, 'S1', 'ab', 'The chance for ‘Launch’ rests most on this link, so this change could move it a lot. Run again to see.')
+    assertNote(result, 'S1', 'ab', 'The chance for ‘Launch’ rests most on this link, so this change could move it. Run again to see.')
     expect(result?.actions.map(a => a.label)).toEqual(['Run again', 'Undo', 'Discuss with Olumi'])
     expect(result?.actions[2]).toMatchObject({ intent: 'edit-driver', nodeIds: ['a', 'b'], edgeIds: ['ab'] })
   })
@@ -52,7 +52,7 @@ describe('after-edit checks, bound by identity and exact words', () => {
   it('D1: reversing a driver link; a reversed NON-driver link gets no note, not S2 (control)', () => {
     const { before, after } = reversed()
     assertNote(deriveEditNote({ edit: strengthEdit, before, after, lastRun: visibleRun }), 'D1', 'ab',
-      'You’ve reversed the link the chance for ‘Launch’ rested most on. The options may now compare very differently. Run again to see.')
+      'You’ve reversed the link the chance for ‘Launch’ rested most on. The options may now compare differently. Run again to see.')
     expect(deriveEditNote({ edit: strengthEdit, before, after, lastRun: { visible: true, runId: 'r', drivers: {}, fragileEdges: fragileAB } })).toBeNull()
   })
   it('S2: a resized fragile non-driver link; an untagged non-fragile link gets no note (control)', () => {

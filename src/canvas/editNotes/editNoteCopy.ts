@@ -12,10 +12,12 @@ export const editNoteCopy = {
   // links can still hold it), so the note claims only what the edit did.
   G1: (goal: string) => `Your target for ‘${goal}’ is set. Run to include it in the analysis.`,
   // Slice 2 (EDIT-AI §3.4/§3.6): what the LAST Run rested on. Never a link figure; always "the last Run" where the
-  // sentence speaks of the past, so it stays true after the model has moved on.
-  S1: (options: readonly string[]) => `The chance for ${quoted(options)} rests most on this link, so this change could move it a lot. Run again to see.`,
+  // sentence speaks of the past, so it stays true after the model has moved on. Science 393023 (7 Oct 20:47Z): S1 says
+  // "could move it", not "a lot" (driver_by_option is a RANK, not a size); D1 says "differently", not "very" (no draw
+  // samples a reversal).
+  S1: (options: readonly string[]) => `The chance for ${quoted(options)} rests most on this link, so this change could move it. Run again to see.`,
   S1Own: (options: readonly string[]) => `You’ve replaced Olumi’s estimate on the link the chance for ${quoted(options)} rested most on. Run again to see.`,
-  D1: (options: readonly string[]) => `You’ve reversed the link the chance for ${quoted(options)} rested most on. The options may now compare very differently. Run again to see.`,
+  D1: (options: readonly string[]) => `You’ve reversed the link the chance for ${quoted(options)} rested most on. The options may now compare differently. Run again to see.`,
   S2: 'The last Run’s comparison could change if this link’s strength changes. Run again to see whether it still holds.',
   F4: (options: readonly string[], factor: string) => `The chance for ${quoted(options)} rested most on ‘${factor}’. Run again to see what your figure does to it.`,
   F3: (factor: string, figure: string | null) => figure
