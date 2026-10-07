@@ -68,6 +68,7 @@
     "VITE_POSTHOG_KEY",
     "VITE_RELEASE_VERSION",
     "VITE_SENTRY_DSN",
+    "VITE_SENTRY_ENVIRONMENT",
     "VITE_SESSION_ID",
     "VITE_SHOW_DEBUG",
     "VITE_SHOW_VERDICT_CARD",
@@ -83,6 +84,7 @@
     "VITE_SUPABASE_ANON_KEY": "Public by design \u2014 Supabase anon keys are meant to reach the browser; user data is protected by RLS, not by hiding this.",
     "VITE_SUPABASE_URL": "Public endpoint.",
     "VITE_SENTRY_DSN": "Public by design \u2014 a Sentry DSN is an ingest endpoint, not a secret.",
+    "VITE_SENTRY_ENVIRONMENT": "Non-secret deploy label (staging / production), set per Netlify context in netlify.toml.",
     "VITE_ORG": "Non-secret tenant label.",
     "VITE_SESSION_ID": "Non-secret build/session label."
   },
