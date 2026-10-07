@@ -85,7 +85,6 @@
  * forgotten. The parity spec asserts this over the whole generated request
  * corpus, not over the cases anyone remembered to write.
  */
-import { QUESTIONS, COACHING_ASK_INTENTS, type QuestionContext } from '../../conversation/askAiQuestions'
 import type { ActionTypeLiteral } from '@talchain/schemas/boundary'
 import type { PendingWireActionType } from '../../conversation/chipMeta'
 
@@ -208,28 +207,28 @@ const orNull = (chips: readonly CoachingChip[]): ResolvedCoaching => (chips.leng
 // ─── Risk ───────────────────────────────────────────────────────────────────
 
 const riskChip = {
-  leadingIndicator: (label: string, _ctx: string): CoachingChip => ({
+  leadingIndicator: (label: string, ctx: string): CoachingChip => ({
     id: 'risk_leading_indicator',
     label: 'What would we see first?',
-    message: `What early signs or leading indicators would tell us ${label} is starting to happen, and what should trigger a response?`,
+    message: `What early signs or leading indicators would tell us ${label} is starting to happen, and what should trigger a response?${ctx}`,
     actionType: null,
   }),
-  sizeExposure: (label: string, _ctx: string): CoachingChip => ({
+  sizeExposure: (label: string, ctx: string): CoachingChip => ({
     id: 'risk_size_exposure',
     label: 'How likely is this?',
-    message: `How likely is ${label}, and how serious would it be if it happened? Help me put a first estimate on both, and tell me what I would need to know to sharpen them.`,
+    message: `How likely is ${label}, and how serious would it be if it happened? Help me put a first estimate on both, and tell me what I would need to know to sharpen them.${ctx}`,
     actionType: null,
   }),
-  whatReduces: (label: string, _ctx: string): CoachingChip => ({
+  whatReduces: (label: string, ctx: string): CoachingChip => ({
     id: 'risk_what_reduces',
     label: 'What reduces this?',
-    message: `What factors or actions could reduce ${label}?`,
+    message: `What factors or actions could reduce ${label}?${ctx}`,
     actionType: null,
   }),
-  addMitigation: (label: string, _ctx: string): CoachingChip => ({
+  addMitigation: (label: string, ctx: string): CoachingChip => ({
     id: 'risk_add_mitigation',
     label: 'Explore mitigation',
-    message: `Suggest a mitigation strategy for ${label}, and explain what it would change.`,
+    message: `Suggest a mitigation strategy for ${label}, and explain what it would change.${ctx}`,
     actionType: null,
   }),
 }
@@ -269,22 +268,22 @@ const resolveRisk = (r: Extract<NodeCoachingRequest, { kind: 'risk' }>): Resolve
 // ─── Outcome ────────────────────────────────────────────────────────────────
 
 const outcomeChip = {
-  falsify: (label: string, _ctx: string): CoachingChip => ({
+  falsify: (label: string, ctx: string): CoachingChip => ({
     id: 'outcome_what_would_falsify',
     label: 'What would falsify this?',
-    message: `What evidence or result would show that ${label} will NOT happen? What would have to be true for it to fail?`,
+    message: `What evidence or result would show that ${label} will NOT happen? What would have to be true for it to fail?${ctx}`,
     actionType: null,
   }),
-  consequences: (label: string, _ctx: string): CoachingChip => ({
+  consequences: (label: string, ctx: string): CoachingChip => ({
     id: 'outcome_explore_consequences',
     label: 'Explore consequences',
-    message: `What would ${label} mean for this model, including possible benefits and downsides?`,
+    message: `What would ${label} mean for this model, including possible benefits and downsides?${ctx}`,
     actionType: null,
   }),
-  strengthens: (label: string, _ctx: string): CoachingChip => ({
+  strengthens: (label: string, ctx: string): CoachingChip => ({
     id: 'outcome_what_strengthens',
     label: 'What affects this?',
-    message: `Which upstream factors affect ${label}, and how could we strengthen its beneficial effects or limit its downsides?`,
+    message: `Which upstream factors affect ${label}, and how could we strengthen its beneficial effects or limit its downsides?${ctx}`,
     actionType: null,
   }),
   validateAssumption: (question: string): CoachingChip => ({
@@ -477,7 +476,8 @@ const resolveFactor = (r: Extract<NodeCoachingRequest, { kind: 'factor' }>): Res
         // the ask; the chip is only the affordance.
         label: 'Confirm this first?',
         message:
-          `What would it take to confirm ‘${label}’?`,
+          (r.context.influencePhrase ? `${r.context.influencePhrase} — and ` : '') +
+          `${label}'s value is still an unconfirmed estimate. What would it take to confirm it?`,
         actionType: null,
       },
     ]
@@ -570,7 +570,7 @@ const resolveOption = (r: Extract<NodeCoachingRequest, { kind: 'option' }>): Res
       {
         id: 'option_why_lead',
         label: 'What does this rest on?',
-        message: `What does ‘${label}’ need to meet the goal?`,
+        message: `Why is ${label} better supported than the other options?`,
         actionType: 'explain_results',
       },
       {
@@ -579,7 +579,7 @@ const resolveOption = (r: Extract<NodeCoachingRequest, { kind: 'option' }>): Res
         // interrogate the model's arithmetic; this one asks what the model
         // might be MISSING. It asserts nothing, so it needs no producer.
         label: 'What would make this wrong?',
-        message: `Set aside the numbers for a moment. What would have to be true for ${label} to be the wrong choice here? What could this model be missing?`,
+        message: `Set aside the numbers for a moment. What would have to be true for ${label} to be the wrong choice here — what could this model be missing?`,
         actionType: null,
       },
     ]
@@ -615,7 +615,7 @@ const resolveOption = (r: Extract<NodeCoachingRequest, { kind: 'option' }>): Res
  * Returns the chips in RENDER ORDER, or `null` when this kind deliberately asks
  * nothing here. Never returns an empty array.
  */
-function resolveCoachingDoors(request: NodeCoachingRequest): ResolvedCoaching {
+export function resolveNodeCoaching(request: NodeCoachingRequest): ResolvedCoaching {
   switch (request.kind) {
     case 'risk':
       return resolveRisk(request)
@@ -714,22 +714,3 @@ export const ALL_COACHING_REQUESTS_FOR_TEST: readonly NodeCoachingRequest[] = ((
 
   return out
 })()
-
-/** Question words come from the same table as the immediate Ask turn. */
-export function resolveNodeCoaching(request: NodeCoachingRequest): ResolvedCoaching {
-  const chips = resolveCoachingDoors(request)
-  if (!chips) return null
-  const context: QuestionContext = {
-    stage: 'isPostAnalysis' in request.state && request.state.isPostAnalysis ? 'ran-current' : 'drafted',
-    kind: request.kind,
-    label: 'label' in request.context ? request.context.label : undefined,
-    authoredContext: 'riskContext' in request.context ? request.context.riskContext
-      : 'outcomeContext' in request.context ? request.context.outcomeContext : undefined,
-    validateQuestion: 'validateQuestion' in request.context ? request.context.validateQuestion : undefined,
-    baseline: 'isBaselineOption' in request.state && request.state.isBaselineOption,
-  }
-  return chips.map(chip => {
-    const intent = COACHING_ASK_INTENTS[chip.id]
-    return intent ? { ...chip, message: QUESTIONS[intent](context) } : chip
-  })
-}

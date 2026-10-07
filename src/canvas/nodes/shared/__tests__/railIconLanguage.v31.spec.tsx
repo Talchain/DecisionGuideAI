@@ -83,7 +83,7 @@ describe('ICON-01 / OPT-13 / F12 / FRAME-11 / OPT-11 — one hover language for 
   })
 
   it('the hover quick actions ARE rail buttons: shared class + muted, no private hover copy', () => {
-    useGuidanceStore.setState({ _sendMessage: () => {} } as never)
+    useGuidanceStore.setState({ _sendMessage: () => {}, _dispatchAction: () => {} } as never)
     useCanvasStore.setState({ nodes: [{ id: 'node-a', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Hiring spend' } }] } as never, false)
     // Contrast control: the Ask button renders only when the coaching icon does
     // not; `lodRung: 'quiet'` withholds the icon so all three quick actions mount.
@@ -107,7 +107,7 @@ describe('ICON-02 / OPT-14 / F12 / FRAME-11 — one glyph size across the rail r
   })
 
   it('quick-action glyphs and resting glyphs are the SAME size (no 11px member left)', () => {
-    useGuidanceStore.setState({ _sendMessage: () => {} } as never)
+    useGuidanceStore.setState({ _sendMessage: () => {}, _dispatchAction: () => {} } as never)
     useCanvasStore.setState({ nodes: [{ id: 'node-a', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Hiring spend' } }] } as never, false)
     setRung('full')
     const { container } = render(

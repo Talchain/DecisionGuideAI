@@ -224,7 +224,9 @@ export const NodeQuickActions = memo(function NodeQuickActions({
    * The selected element is bound immediately before dispatch, and any
    * proposed model change returns through the existing approval route.
    */
-  const canChallenge = useGuidanceStore(s => !!(s._dispatchAction || s._sendMessage || s._prefillChat)) && hasChallengePrompt(nodeType)
+  // Challenge sends immediately and has no legacy text-only fallback.
+  const canSendChip = useGuidanceStore(s => !!s._dispatchAction)
+  const canChallenge = canSendChip && hasChallengePrompt(nodeType)
 
   const handleChallenge = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()

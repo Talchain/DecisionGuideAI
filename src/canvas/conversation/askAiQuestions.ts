@@ -108,7 +108,7 @@ export const QUESTIONS = {
   'risk-indicators': (c: QuestionContext) => `What early signs would tell us ${element(c)} is starting to happen, and what should trigger a response?`,
   'risk-size': (c: QuestionContext) => `How likely is ${element(c)}, and how serious would it be if it happened?`,
   mitigation: (c: QuestionContext) => c.authoredContext
-    ? `Suggest a mitigation strategy for ${c.label || 'this risk'}, and explain what it would change.${c.authoredContext}`
+    ? `What factors or actions could reduce ${element(c)}, and what would that change?${c.authoredContext}`
     : `What factors or actions could reduce ${element(c)}?`,
   falsify: (c: QuestionContext) => `What evidence or result would show that ${element(c)} will not happen? What would have to be true for it to fail?`,
   consequences: (c: QuestionContext) => `What would ${c.label || 'this outcome'} mean for this model, including possible benefits and downsides?${c.authoredContext ?? ''}`,

@@ -77,20 +77,23 @@ import {
   type NodeCoachingRequest,
 } from '../resolveNodeCoaching'
 
-// The 7 Oct ruling intentionally replaces the old prose. Base fixture keeps every
-// population, order and action-type case independently of the new question builder.
+// Restore the whole historical resolver shape from 8441619e. Immediate sends
+// use the Q registry at requestAsk; parity still pins the resolver itself.
 const DOOR_ROWS = JSON.parse(readFileSync(resolve(__dirname, 'resolveNodeCoaching.doors.json'), 'utf8')) as Array<{
-  request: NodeCoachingRequest; doors: Array<Omit<CoachingChip, 'message'>>
+  request: NodeCoachingRequest; doors: CoachingChip[]
 }>
-describe('resolveNodeCoaching — populations unchanged, Q-table words updated', () => {
+describe('resolveNodeCoaching — full historical door parity', () => {
   it.each(DOOR_ROWS)('$request.kind / $request.surface keeps its doors in order', ({ request, doors }) => {
-    expect((resolveNodeCoaching(request) ?? []).map(({ id, label, actionType }) => ({ id, label, actionType }))).toEqual(doors)
+    expect(resolveNodeCoaching(request) ?? []).toEqual(doors)
   })
-  it('factor estimate uses Q19 and never echoes the licensed rank phrase', () => {
+  it('factor confirmation retains the exact resolver context independently of the sent Q19 question', () => {
     const request: NodeCoachingRequest = { kind: 'factor', surface: 'card',
       state: { needsInput: true, isExternalCategory: false, isInferred: true, leadsInfluence: true },
       context: { label: 'Capacity', influencePhrase: '42% of influence' } }
-    expect(resolveNodeCoaching(request)?.[0].message).toBe('Help me estimate ‘Capacity’: what range is sensible, and what would narrow it?')
+    expect(resolveNodeCoaching(request)?.[0]).toEqual({
+      id: 'factor_confirm_top_influence', label: 'Confirm this first?', actionType: null,
+      message: "42% of influence — and Capacity's value is still an unconfirmed estimate. What would it take to confirm it?",
+    })
   })
 })
 

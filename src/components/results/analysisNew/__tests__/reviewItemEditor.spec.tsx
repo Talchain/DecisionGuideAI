@@ -196,7 +196,7 @@ describe('"Edit this belief": an at-rest pencil on every finding', () => {
     render(<ModelReviewTool interventions={[ABOUT_MINE]} onAsk={vi.fn()} />)
     openTool()
     fireEvent.click(screen.getByTestId(`${TID}-edit`))
-    expect(screen.getByTestId(`${TID}-editor-note`)).toHaveTextContent(COPY.editNote)
+    expect(screen.getByTestId(`${TID}-editor-note`)).toHaveTextContent('This goes to Olumi in the chat, where you check it before sending. Nothing you add is stored as verified evidence.')
     expect(within(screen.getByTestId(`${TID}-editor`)).getByText(COPY.sourceMeta)).toBeInTheDocument()
   })
 })

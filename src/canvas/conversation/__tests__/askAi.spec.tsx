@@ -1,12 +1,14 @@
 // Batch 1 regression rows authored before implementation; Vitest execution prohibited by brief.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { askAi, buildAskAiQuestion } from '../askAi'
+import { buildChipMeta } from '../chipMeta'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { clearAskTargetBinding, takeAskTargetBinding } from '../../ui/inspector-v2/askTargetBinding'
 import { requestAsk } from '../../ui/inspector-v2/askSemantic'
 import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiStore'
 import { buildV5Payload } from '../../../v5/buildPayload'
+import { OrchestratorTurnPayloadSchema } from '@talchain/schemas/boundary'
 import { revealOlumiSurface } from '../revealOlumi'
 vi.mock('../revealOlumi', () => ({ revealOlumiSurface: vi.fn(() => true) }))
 vi.mock('../../state/analysisStateSelector', () => ({
@@ -198,4 +200,33 @@ it('baseline status uses the shared resolver, including CEE flags and explicit f
   expect(buildAskAiQuestion({ intent: 'option', nodeIds: ['a'] }).question).toBe('What happens to the goal if we keep things as they are?')
   useCanvasStore.setState({ nodes: [{ ...nodes[0], type: 'option', data: { label: 'Keep things as they are', is_baseline: false } }] } as never)
   expect(buildAskAiQuestion({ intent: 'option', nodeIds: ['a'] }).question).toBe('What does ‘Keep things as they are’’s chance of meeting the goal rest on, and what would change it?')
+})
+
+it('user responses carry block and method parameters through the schema-supported typed chip wire', () => {
+  const message = 'On ‘A finding’:\n  My own words  '
+  const parameters = { block_id: 'blk_finding', method_id: 'pre_mortem' }
+  expect(askAi({ userWords: message, parameters, nodeIds: ['a'], edgeIds: [] })).toBe('sent')
+  expect(dispatch).toHaveBeenCalledTimes(1)
+  expect(dispatch).toHaveBeenCalledWith({ label: message, message, parameters, source: 'chip' })
+  const sent = dispatch.mock.calls[0][0]
+  const wire = buildV5Payload({ turnId: '11111111-1111-4111-8111-111111111111', scenarioId: '22222222-2222-4222-8222-222222222222', stage: 'analyse', turnClass: 'clarify', mode: 'user', source: sent.source, message: sent.message, chipMeta: buildChipMeta(sent) })
+  expect(wire.ok).toBe(true)
+  if (wire.ok) {
+    expect(wire.payload).toMatchObject({ source: 'chip', message, chip: { parameters }, selected_elements: [{ id: 'a', kind: 'factor', label: 'Capacity' }] })
+    expect(() => OrchestratorTurnPayloadSchema.parse(wire.payload)).not.toThrow()
+  }
+  expect(dispatch.mock.calls[0][0].message).not.toContain('blk_finding')
+  expect(dispatch.mock.calls[0][0].message).not.toContain('method_id')
+  expect(useGuidanceStore.getState()._sendMessage).not.toHaveBeenCalled()
+})
+it('a parameterised response requires its typed carrier and does not fall back to a text-only send', () => {
+  useGuidanceStore.setState({ _dispatchAction: null })
+  expect(askAi({ userWords: 'My response', parameters: { block_id: 'blk_finding' } })).toBe('none')
+  expect(useGuidanceStore.getState()._sendMessage).not.toHaveBeenCalled()
+})
+it('response refire identity includes its typed parameters', () => {
+  expect(askAi({ userWords: 'Same words', parameters: { block_id: 'a' } })).toBe('sent')
+  expect(askAi({ userWords: 'Same words', parameters: { block_id: 'b' } })).toBe('sent')
+  expect(askAi({ userWords: 'Same words', parameters: { block_id: 'b' } })).toBe('refire')
+  expect(dispatch).toHaveBeenCalledTimes(2)
 })

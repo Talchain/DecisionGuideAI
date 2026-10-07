@@ -8,7 +8,7 @@ import { GhostOptionNode } from '../GhostOptionNode'
 import { GHOST_OPTION_DOOR_LABEL } from '../../utils/ghostTiers'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { chooseWhatElse } from './chooseWhatElse'
-import { buildAskAiQuestion } from '../../conversation/askAi'
+import { clearAskTargetBinding, takeAskTargetBinding } from '../../ui/inspector-v2/askTargetBinding'
 import { useCanvasStore } from '../../store'
 import { revealOlumiSurface } from '../../conversation/revealOlumi'
 vi.mock('../../conversation/revealOlumi', () => ({ revealOlumiSurface: vi.fn(() => true) }))
@@ -44,6 +44,7 @@ function mountOption(data: Record<string, unknown>) {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks(); clearAskTargetBinding()
   useCanvasStore.setState({ nodes: [], edges: [], hasCompletedFirstRun: false, results: { status: 'idle' }, v5AnalysisFact: null } as never)
   useGuidanceStore.setState({ _sendMessage: null, _prefillChat: null, _dispatchAction: null })
 })
@@ -55,9 +56,12 @@ describe('row-end tier door (Factor / Outcome / Risk): send once as a chip', () 
     fireEvent.click(screen.getByTestId(GHOST_TIER_TESTID))
     chooseWhatElse('factor')
     expect(c.prefilled).toEqual([])
-    expect(c.dispatched).toEqual([expect.objectContaining({ id: 'ask:missing-factor', source: 'chip', message: buildAskAiQuestion({ intent: 'missing-factor' }).question })])
+    expect(c.dispatched).toEqual([expect.objectContaining({ id: 'ask:missing-factor', source: 'chip', message: 'What else could change how this turns out that the model doesn’t have yet?' })])
     expect(revealOlumiSurface).toHaveBeenCalled()
     expect(c.sent).toEqual([])
+    const bound = takeAskTargetBinding(c.dispatched[0].message)
+    expect(bound?.nodeIds).toEqual(new Set())
+    expect(bound?.edgeIds).toEqual(new Set())
   })
 
   it('Enter does the same — the keyboard path is the same door', () => {
@@ -66,8 +70,11 @@ describe('row-end tier door (Factor / Outcome / Risk): send once as a chip', () 
     fireEvent.keyDown(screen.getByTestId(GHOST_TIER_TESTID), { key: 'Enter' })
     chooseWhatElse('risk')
     expect(c.prefilled).toEqual([])
-    expect(c.dispatched).toEqual([expect.objectContaining({ id: 'ask:risks', source: 'chip' })])
+    expect(c.dispatched).toEqual([{ id: 'ask:risks', source: 'chip', label: 'What could go wrong, or unexpectedly well, that this model doesn’t have yet?', message: 'What could go wrong, or unexpectedly well, that this model doesn’t have yet?' }])
     expect(c.sent).toEqual([])
+    const bound = takeAskTargetBinding(c.dispatched[0].message)
+    expect(bound?.nodeIds).toEqual(new Set())
+    expect(bound?.edgeIds).toEqual(new Set())
   })
 
   it('no prompt → nothing in either channel (the door invents no sentence)', () => {
@@ -76,6 +83,7 @@ describe('row-end tier door (Factor / Outcome / Risk): send once as a chip', () 
     fireEvent.click(screen.getByTestId(GHOST_TIER_TESTID))
     expect(c.prefilled).toEqual([])
     expect(c.sent).toEqual([])
+    expect(c.dispatched).toEqual([])
   })
 })
 
@@ -86,7 +94,10 @@ describe('option ghost door ("What else could you do?"): send once as a chip', (
     fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
     chooseWhatElse('option')
     expect(c.prefilled).toEqual([])
-    expect(c.dispatched).toEqual([expect.objectContaining({ id: 'ask:widen', source: 'chip' })])
+    expect(c.dispatched).toEqual([{ id: 'ask:widen', source: 'chip', label: 'What other ways could we reach the goal that aren’t on the board yet?', message: 'What other ways could we reach the goal that aren’t on the board yet?' }])
+    const bound = takeAskTargetBinding(c.dispatched[0].message)
+    expect(bound?.nodeIds).toEqual(new Set())
+    expect(bound?.edgeIds).toEqual(new Set())
     expect(c.sent).toEqual([])
   })
 

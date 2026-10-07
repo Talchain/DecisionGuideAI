@@ -37,6 +37,7 @@ import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiStore'
 import { ASK_OLUMI_CHIP_ID } from '../shared/NodeCoachingIcon'
+import { clearAskTargetBinding, takeAskTargetBinding } from '../../ui/inspector-v2/askTargetBinding'
 
 /**
  * Locked Canvas design (23 Sep 2026; ED 02:31Z D4, ED 11:52Z point 5): the
@@ -98,7 +99,7 @@ const props = {
 }
 
 function renderOption(data: Record<string, unknown> = {}, resultsStatus = 'idle') {
-  cleanup()
+  cleanup(); clearAskTargetBinding()
   vi.mocked(useCanvasStore).mockImplementation((sel) => (sel as (s: unknown) => unknown)(state(resultsStatus) as never))
   // The icon selects the node before asking (`useCanvasStore.getState()`).
   ;(useCanvasStore as unknown as { getState: () => unknown }).getState = () => ({ ...state(resultsStatus), nodes: [{ id: ID, type: 'option', data: { label: 'Move upmarket to enterprise', ...data } }], edges: [], selectNodeWithoutHistory: vi.fn() })
@@ -142,11 +143,13 @@ describe('the option card asks its own question, like every other kind', () => {
   it('the message names the option, so the turn it opens is about this card', () => {
     renderOption({ label: 'Double down on self-serve' })
     // Locked Canvas design (23 Sep 2026): the rail icon asks through
-    // `requestAsk` (untyped chip → an editable draft the user sends), bound to
-    // THIS node by `targetId` and carrying the option's own label.
+    // `requestAsk` sends the registered chip question immediately, with THIS
+    // node carried through the binding and the option's own label in the text.
     fireEvent.click(screen.getByTestId(ICON))
     expect(useGuidanceStore.getState()._dispatchAction).toHaveBeenCalledTimes(1)
     expect(useGuidanceStore.getState()._dispatchAction).toHaveBeenCalledWith(expect.objectContaining({ id: 'ask:pre-mortem', source: 'chip', message: 'What could make ‘Double down on self-serve’ go badly that isn’t in the model yet?' }))
+    const sent = vi.mocked(useGuidanceStore.getState()._dispatchAction!).mock.calls[0][0]
+    expect(takeAskTargetBinding(sent.message)?.nodeIds).toEqual(new Set(['opt_upmarket']))
     expect(useAskOlumiStore.getState().isOpen).toBe(false)
   })
 

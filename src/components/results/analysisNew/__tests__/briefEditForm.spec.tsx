@@ -102,7 +102,7 @@ describe('the form', () => {
     expect(onAsk).not.toHaveBeenCalled()
     expect(askAi).toHaveBeenCalledTimes(1)
     const payload = vi.mocked(askAi).mock.calls[0][0]
-    expect(payload.userWords).toBe('I propose reframing the question as:\n  Should we build the capability in-house at all?  ')
+    expect(payload).toEqual({ userWords: 'I propose reframing the question as:\n  Should we build the capability in-house at all?  ' })
     // CONTRAST: not the generic framing ask the row already offered.
     expect(payload).not.toEqual(WHOLE_FRAMING_ASK)
     expect(screen.queryByTestId(`${TID}-brief-form`)).toBeNull()
@@ -114,6 +114,7 @@ describe('the form', () => {
     fireEvent.change(input(), { target: { value: '   ' } })
     fireEvent.click(screen.getByTestId(`${TID}-brief-send`))
     expect(onAsk).not.toHaveBeenCalled()
+    expect(askAi).not.toHaveBeenCalled()
     expect(screen.getByTestId(`${TID}-brief-form`)).toBeInTheDocument()
   })
 
@@ -126,12 +127,13 @@ describe('the form', () => {
     fireEvent.keyDown(input(), { key: 'Escape' })
     expect(screen.queryByTestId(`${TID}-brief-form`)).toBeNull()
     expect(onAsk).not.toHaveBeenCalled()
+    expect(askAi).not.toHaveBeenCalled()
   })
 
   it('says what happens: a proposal in the chat, and the question is not changed by it', () => {
     drawTool()
     fireEvent.click(pencil())
-    expect(screen.getByTestId(`${TID}-brief-note`)).toHaveTextContent(BRIEF_EDIT_COPY.note)
+    expect(screen.getByTestId(`${TID}-brief-note`)).toHaveTextContent('This sends your wording to Olumi for discussion. It does not change your question by itself.')
     // The copy never claims a save it does not make.
     for (const text of Object.values(BRIEF_EDIT_COPY)) {
       if (typeof text !== 'string') continue

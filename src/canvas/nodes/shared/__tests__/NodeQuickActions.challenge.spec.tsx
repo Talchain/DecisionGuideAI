@@ -66,14 +66,14 @@ describe('Challenge submits typed context', () => {
     expect(message()).not.toBe('What is the figure for ‘Hiring spend’ based on, and what would make a different figure more defensible?')
     expect(useGuidanceStore.getState()._sendMessage).not.toHaveBeenCalled()
   })
-  it('keeps Challenge reachable on a legacy host and refuses without a chip dispatcher, while More remains', () => {
-    useGuidanceStore.setState({ _dispatchAction: null }); mount()
-    expect(screen.getByTestId('node-action-challenge-a')).toBeInTheDocument()
-    click()
+  it.each([
+    { _dispatchAction: null, _sendMessage: null, _prefillChat: null },
+    { _dispatchAction: null, _sendMessage: vi.fn(), _prefillChat: vi.fn() },
+  ])('no chip send surface → no Challenge button; More remains', channels => {
+    useGuidanceStore.setState(channels); mount()
+    expect(screen.queryByTestId('node-action-challenge-a')).toBeNull()
     expect(dispatch).not.toHaveBeenCalled()
-    expect(useGuidanceStore.getState()._sendMessage).not.toHaveBeenCalled()
-    expect(useGuidanceStore.getState()._prefillChat).not.toHaveBeenCalled()
-    expect(showToast).toHaveBeenCalledWith('Your question was not sent. Try again in the conversation.', 'warning')
+    expect(showToast).not.toHaveBeenCalled()
     expect(screen.getByTestId('node-action-menu-a')).toBeInTheDocument()
   })
   it('withholds Challenge for action nodes', () => {

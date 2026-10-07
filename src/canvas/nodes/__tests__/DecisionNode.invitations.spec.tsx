@@ -352,21 +352,11 @@ describe('DecisionNode — invitations in Standard view', () => {
     })
   })
 
-  /**
-   * ⭐ A DUPLICATE EDGE IS NOT A SECOND OPTION.
-   *
-   * `optionCount` counted outgoing edges, which was harmless while its only
-   * readers were `> 0` / `=== 0` tests. The message above is the first thing in
-   * the product to say the number OUT LOUD, so the change that removes the
-   * generic copy is the change that makes this reachable.
-   *
-   * Reachable, not theoretical: `store.addEdge` blocks duplicates, but the CEE
-   * patch path (`applyPatch.ts:350`) appends edges with no duplicate check, and
-   * `useModelHealth.ts:180` already warns on the resulting state.
-   */
-  describe('counting the model honestly', () => {
-    // Locked Canvas design (23 Sep 2026): read from the rail icon's draft — see
-    // `messageFor` above for why the draft, not a dispatch.
+  /** Q5 names the goal and carries no option count. Duplicate edges and an
+   * extra option must not change that sentence; changing the goal must.
+   * Count-bearing widening questions are pinned on the chooser's actual send. */
+  describe('Q5 asks about the goal without inventing an option count', () => {
+    // Read the shared Q5 from the rail icon's actual dispatch.
     const messageWithEdges = (edges: unknown[], nodes: unknown[]): string => {
       dispatched.length = 0
       useGuidanceStore.setState({ _dispatchAction: (a) => { dispatched.push(a) } })
@@ -383,27 +373,33 @@ describe('DecisionNode — invitations in Standard view', () => {
       return (dispatched[0] as { message: string }).message
     }
 
-    it('one option linked twice is one option', () => {
+    it('Q5 remains literal when an option edge is duplicated', () => {
       const msg = messageWithEdges(
         [...optionEdges, { id: 'e1-dup', source: DECISION_ID, target: 'option-1', data: {} }],
         [decisionNode, ...optionNodes],
       )
-      expect(msg).not.toContain('2 options')
-      expect(msg).not.not.toContain('3 options')
+      expect(msg).toBe('What other ways could we reach the goal that aren’t on the board yet?')
     })
 
-    it('CONTRAST CONTROL: a genuine third option still counts as three', () => {
-      // Without this, the assertion above passes for a count stuck at 2 — or for
-      // any implementation that under-counts. The pair is what proves the change
-      // removed duplicates rather than removed counting.
+    it('Q5 does not invent an option count when a third option is added', () => {
+      // The card Q5 carries no count. Counted chooser asks have their own rows.
       const msg = messageWithEdges(
         [...optionEdges, { id: 'e3', source: DECISION_ID, target: 'option-3', data: {} }],
         [decisionNode, ...optionNodes, { id: 'option-3', type: 'option', data: { type: 'option', label: 'Hire one' } }],
       )
-      expect(msg).not.toContain('3 options')
+      expect(msg).toBe('What other ways could we reach the goal that aren’t on the board yet?')
     })
 
-    it('singular stays singular when the one option is linked twice', () => {
+    it('discriminating pair: the same decision asks about its actual goal label', () => {
+      const ask = (label: string) => messageWithEdges(optionEdges, [decisionNode, ...optionNodes, { id: 'g', type: 'goal', data: { label } }])
+      const delivery = ask('Delivery')
+      const retention = ask('Retention')
+      expect(delivery).toBe('What other ways could we reach ‘Delivery’ that aren’t on the board yet?')
+      expect(retention).toBe('What other ways could we reach ‘Retention’ that aren’t on the board yet?')
+      expect(delivery).not.toBe(retention)
+    })
+
+    it('Q5 remains literal when the one option is linked twice', () => {
       const msg = messageWithEdges(
         [
           { id: 'e1', source: DECISION_ID, target: 'option-1', data: {} },
@@ -411,8 +407,7 @@ describe('DecisionNode — invitations in Standard view', () => {
         ],
         [decisionNode, optionNodes[0]],
       )
-      expect(msg).not.toContain('1 option ')
-      expect(msg).not.not.toContain('1 options')
+      expect(msg).toBe('What other ways could we reach the goal that aren’t on the board yet?')
     })
   })
 })

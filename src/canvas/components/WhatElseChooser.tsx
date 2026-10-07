@@ -2,8 +2,8 @@
  * ⭐ E4 — "WHAT ELSE…?" IS A CHOICE (Paul 29 Sep: "'What else…?' chips: Factor / Risk / Option / Outcome").
  *
  * A click on a ghost door ("What else drives this?", "What else could you do?", …) opens this small chooser at the
- * pointer: four chips and a free-text line. The door's own kind keeps the door's own contextual question; the
- * other chips ask the plain question for their kind.
+ * pointer: four chips and a free-text line. Each chip sends its kind’s registered question,
+ * built from the current model and stage; the option chip includes the authored option labels.
  *
  * Choices send chip questions; free text sends the person’s own words.
  * The chooser closes only after a send. Proposed additions return through
@@ -28,7 +28,7 @@ export const WHAT_ELSE_CHOICES: ReadonlyArray<{ kind: WhatElseKind; label: strin
 interface WhatElseOpen {
   x: number
   y: number
-  /** The door's kind and its own contextual question, used for that kind's chip. */
+  /** The door's kind highlights its chip; doorPrompt supplies legacy request text. */
   doorKind?: string
   doorPrompt?: string
 }
@@ -43,7 +43,7 @@ export const useWhatElseStore = create<{
   close: () => set({ open: null }),
 }))
 
-/** The ask a chip makes: the door's own question for the door's kind, else the plain question for that kind. */
+/** Legacy request text. An explicit intent makes requestAsk build the sent question from the registry. */
 export function whatElsePrompt(kind: WhatElseKind, open: Pick<WhatElseOpen, 'doorKind' | 'doorPrompt'>): string {
   if (open.doorKind === kind && open.doorPrompt) return open.doorPrompt
   return WHAT_ELSE_CHOICES.find((c) => c.kind === kind)!.prompt

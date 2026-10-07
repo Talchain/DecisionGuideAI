@@ -106,7 +106,7 @@ export const REVIEW_TOOL_COPY = {
   editCancel: 'Cancel',
   editSubmit: 'Continue with Olumi',
   editNote:
-    'This sends your words to Olumi. Nothing you add is stored as verified evidence.',
+    'This goes to Olumi in the chat, where you check it before sending. Nothing you add is stored as verified evidence.',
   editReviewing: (name: string) => `Reviewing: ${name}`,
   editCurrentValue: (_value: string) => '',
   editProposedBelief: (text: string) => `Proposed belief: ${text}`,

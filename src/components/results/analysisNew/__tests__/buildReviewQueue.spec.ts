@@ -380,8 +380,6 @@ describe('ask payloads', () => {
     expect(reviewItemEditPayload(item, { belief: '  ', evidence: '\n', source: ' ' })).toBeNull()
     // CONTRAST: a source alone is something to discuss.
     const sent = reviewItemEditPayload(item, { source: 'Board minutes' })!
-    expect(sent.draft).toContain('Source: Board minutes')
-    expect(sent.draft).toContain('block_id: blk_assume')
-    expect(sent.draft).toContain('Help me examine this; do not treat it as verified evidence.')
+    expect(sent.draft).toBe('Reviewing: A load-bearing assumption\n\nblock_id: blk_assume\n\nSource: Board minutes\n\nHelp me examine this; do not treat it as verified evidence.')
   })
 })

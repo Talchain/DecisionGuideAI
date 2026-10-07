@@ -499,10 +499,7 @@ describe('4 · a run_exercise action is labelled for what it does', () => {
     render(<InspectorCoaching {...coachingProps} />)
     fireEvent.click(screen.getByText('Try it'))
     expect(dispatch).toHaveBeenCalledTimes(1)
-    expect(dispatch.mock.calls[0][0].source).toBe('chip')
-    expect(dispatch.mock.calls[0][0].message).not.toContain('/exercise')
-    expect(dispatch.mock.calls[0][0].message).toMatch(/go badly|went badly/)
-    expect(dispatch.mock.calls[0][0]).not.toHaveProperty('action_type')
+    expect(dispatch).toHaveBeenCalledWith({ id: 'ask:pre-mortem', label: 'What could make this decision go badly that isn’t in the model yet?', message: 'What could make this decision go badly that isn’t in the model yet?', source: 'chip' })
     expect(send).not.toHaveBeenCalled()
   })
 

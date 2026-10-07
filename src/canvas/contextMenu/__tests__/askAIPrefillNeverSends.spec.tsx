@@ -32,7 +32,7 @@ describe('canvas Ask doors: one click, one bound chip, panel fronted', () => {
     [0, 'ask-ai', 'ask-ai-explain', 'explain_element', 'What does ‘Hiring spend’ do in this decision, and what is it assumed to depend on?'],
     [0, 'ask-ai', 'ask-ai-challenge', 'challenge_element', 'What is the figure for ‘Hiring spend’ based on, and what would make a different figure more defensible?'],
     [1, 'ask-ai', 'ask-ai-explain', 'explain_element', 'Why would ‘Hiring spend’ change ‘Productivity’, and how sure are we?'],
-    [1, 'ask-ai', 'ask-ai-challenge', 'challenge_element', 'Why would ‘Hiring spend’ change ‘Productivity’, and how sure are we?'],
+    [1, 'ask-ai', 'ask-ai-challenge', 'challenge_element', 'Is the link from ‘Hiring spend’ to ‘Productivity’ right, and what other route could reach the goal?'],
     [2, 'ask-ai-pane', 'ask-ai-missing', 'review_model_gaps', 'What is missing from this model that could change how the options compare?'],
     [3, 'ask-ai', 'ask-ai-explain', 'explain_subgraph', 'What does ‘Hiring spend’ do in this decision, and what is it assumed to depend on?'],
   ] as const)('menu target %s / %s / %s sends once', (index, parent, child, _intent, expected) => {
@@ -46,7 +46,7 @@ describe('canvas Ask doors: one click, one bound chip, panel fronted', () => {
     expect(dispatch).toHaveBeenCalledTimes(1)
     const sent = dispatch.mock.calls[0][0]
     expect(sent).toMatchObject({ source: 'chip', message: expected })
-    expect(sent.id).toMatch(/^ask:/)
+    expect(sent.id).toBe(target.kind === 'edge' ? child === 'ask-ai-challenge' ? 'ask:question-link' : 'ask:link' : target.kind === 'pane' ? 'ask:gaps' : child === 'ask-ai-challenge' ? 'ask:challenge' : 'ask:explain')
     expect(sent.message).not.toContain('42')
     const bound = takeAskTargetBinding(sent.message)
     if (target.kind === 'node') expect(bound?.nodeIds).toEqual(new Set(['a']))
@@ -56,14 +56,39 @@ describe('canvas Ask doors: one click, one bound chip, panel fronted', () => {
     expect(useGuidanceStore.getState()._sendMessage).not.toHaveBeenCalled()
     expect(revealOlumiSurface).toHaveBeenCalled()
   })
-  it('hover explain and Challenge each send one chip', () => {
+  it('hover explain and Challenge each send one chip with their own target across two nodes', () => {
+    const bindings: Array<ReturnType<typeof takeAskTargetBinding>> = []
+    dispatch.mockImplementation(o => bindings.push(takeAskTargetBinding(o.message)))
     render(<NodeQuickActions nodeId="a" nodeType="factor" label="Hiring spend" />)
     vi.useFakeTimers()
     act(() => { fireEvent.click(screen.getByTestId('node-action-ask-a')); vi.advanceTimersByTime(501) })
-    fireEvent.click(screen.getByTestId('node-action-challenge-a'))
+    render(<NodeQuickActions nodeId="b" nodeType="factor" label="Productivity" />)
+    fireEvent.click(screen.getByTestId('node-action-challenge-b'))
     vi.useRealTimers()
     expect(dispatch).toHaveBeenCalledTimes(2)
     expect(dispatch.mock.calls.map(([o]) => o.id)).toEqual(['ask:explain', 'ask:challenge'])
+    const [explain, challenge] = dispatch.mock.calls.map(([o]) => o.message)
+    expect(explain).toBe('What does ‘Hiring spend’ do in this decision, and what is it assumed to depend on?')
+    expect(challenge).toBe('What is the figure for ‘Productivity’ based on, and what would make a different figure more defensible?')
+    expect(bindings[0]?.nodeIds).toEqual(new Set(['a']))
+    expect(bindings[1]?.nodeIds).toEqual(new Set(['b']))
+  })
+  it('the second node’s hover Ask sends its own literal question, never the first node’s', () => {
+    render(<>
+      <NodeQuickActions nodeId="a" nodeType="factor" label="Hiring spend" />
+      <NodeQuickActions nodeId="b" nodeType="factor" label="Productivity" />
+    </>)
+    vi.useFakeTimers()
+    act(() => { fireEvent.click(screen.getByTestId('node-action-ask-b')); vi.advanceTimersByTime(1500) })
+    vi.useRealTimers()
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith({ id: 'ask:explain', source: 'chip',
+      label: 'What does ‘Productivity’ do in this decision, and what is it assumed to depend on?',
+      message: 'What does ‘Productivity’ do in this decision, and what is it assumed to depend on?' })
+    const message = dispatch.mock.calls[0][0].message
+    expect(message).not.toContain('Hiring spend')
+    expect(takeAskTargetBinding(message)?.nodeIds).toEqual(new Set(['b']))
+    expect(useCanvasStore.getState().selection.nodeIds.has('b')).toBe(true)
   })
   it('without a chip dispatcher, never substitutes a composer send', () => {
     useGuidanceStore.setState({ _dispatchAction: null })
