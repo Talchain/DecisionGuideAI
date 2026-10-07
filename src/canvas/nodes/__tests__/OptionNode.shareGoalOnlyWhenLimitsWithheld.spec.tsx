@@ -102,9 +102,9 @@ const expectNotRanked = (reason: string) => {
   expect(screen.queryByTestId('option-analysis-currency-candidate'), 'no share row on a withheld run').toBeNull()
   const marker = notRanked()
   expect(marker, 'the `Not ranked` marker renders').not.toBeNull()
-  expect(marker!.textContent).toBe(NOT_RANKED_MARKER)
-  expect(marker!.getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${reason}`)
-  expect(slot().contains(marker)).toBe(true)
+  expect(marker!.getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
+  expect(marker!.getAttribute('aria-description')).toBe(reason)
+  expect(screen.getByTestId("option-bottom-marks-candidate").contains(marker)).toBe(true)
   expect(tokens(slot()).has('h-[1lh]')).toBe(true)
   expect(slot().getAttribute('aria-hidden')).toBeNull()
 }
@@ -136,7 +136,7 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     seed(null, WITHHELD_FOR_LIMITS)
     renderCard()
     const marker = notRanked()!
-    expect(marker.parentElement).toBe(slot())
+    expect(screen.getByTestId("option-bottom-marks-candidate").contains(marker)).toBe(true)
     expect(tokens(marker).has('whitespace-nowrap')).toBe(true)
     expect(marker.tagName).not.toBe('P')
     // #1921's own paragraph is gone, and the qualifier cannot come back on a withheld run.
@@ -148,10 +148,12 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     seed(null, WITHHELD_FOR_LIMITS)
     renderCard()
     const marker = notRanked()!
-    const visible = marker.textContent!
+    const visible = marker.getAttribute('aria-label')!
     expect(visible).toBe(NOT_RANKED_MARKER)
-    expect(marker.getAttribute('aria-label')!.startsWith(`${visible}. `)).toBe(true)
-    expect(marker.getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${EXPLORATORY_REASON_LINE}`)
+    expect(marker.getAttribute('aria-label')).toBe(visible)
+    expect(marker.textContent).not.toContain(visible)
+    expect(marker.getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
+    expect(marker.getAttribute('aria-description')).toBe(EXPLORATORY_REASON_LINE)
   })
 
   // CURRENT-READ row 9 (AIQ 5912710392): WAS the share row's focus tooltip carrying "Goal only. …".
@@ -185,8 +187,8 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     seed(null, WITHHELD_FOR_LIMITS)
     renderCard()
     const marker = notRanked()!
-    const words = marker.querySelector('span')!
-    expect(words.textContent).toBe(NOT_RANKED_MARKER)
+    const words = marker
+    expect(words.getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
     expect(tokens(words).has('text-text-light')).toBe(true)
     for (const el of [marker, words]) {
       const t = tokens(el)

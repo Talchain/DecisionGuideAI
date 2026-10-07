@@ -56,6 +56,7 @@ import { CURRENT_MODEL_NOUN, METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENS
 import { useCanvasStore } from '../store'
 import { ATTENTION_MARKER_GLYPH } from '../nodes/shared/NodeAttentionMarker'
 import { EVIDENCE_RAIL_GLYPH, BEHAVIOUR_RAIL_GLYPH, NODE_RAIL_TONE_CLASS } from '../nodes/shared/NodeRailIcons'
+import { RENDERED_CARD_MARKS } from '../nodes/shared/cardMarks'
 import { COACHING_ICON_GLYPH } from '../nodes/shared/NodeCoachingIcon'
 import { NODE_RAIL_GLYPH_PX } from '../nodes/shared/nodeCardRailStyles'
 import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH, EXISTENCE_UNCERTAIN_DASH, uncertaintyBandHalfWidth, UNCERTAINTY_BAND_STROKE, UNCERTAINTY_BAND_OPACITY } from '../utils/graphDisplayCalculations'
@@ -645,7 +646,8 @@ const COACHING_ROWS: LegendRow[] = [
 
 /** The card-icon rows a reader in this phase can meet on a card. */
 function cardIconRows(isPostAnalysis: boolean): LegendRow[] {
-  return isPostAnalysis ? [ATTENTION_ROW, EVIDENCE_ROW, BEHAVIOUR_ROW] : [ATTENTION_ROW, BEHAVIOUR_ROW]
+  const marks: LegendRow[] = RENDERED_CARD_MARKS.map(m => ({ label: m.keyText, swatch: <m.Icon aria-hidden="true" className="h-3 w-3 shrink-0 text-text-light" />, testId: `legend-card-mark-${m.id}` }))
+  return [...(isPostAnalysis ? [ATTENTION_ROW, EVIDENCE_ROW, BEHAVIOUR_ROW] : [ATTENTION_ROW, BEHAVIOUR_ROW]), ...marks]
 }
 
 /**
@@ -942,7 +944,7 @@ function MetricGroup({ board }: { board: LegendBoardState }) {
   return (
     <div className="space-y-1.5">
       {visibleMetricRows(board).map(r => (
-        <div key={r.noun} className={`${typography.panelMeta} text-text-light`}>
+        <div key={r.noun} data-testid={`legend-metric-${r.noun}`} className={`${typography.panelMeta} text-text-light`}>
           <span className="text-text-body font-medium">{r.noun}</span>: {r.gloss}
         </div>
       ))}

@@ -238,7 +238,7 @@ describe('#20 — no bare internal model scale on the card (omit, never invent)'
     const c = card()
     const line = within(c).getByTestId(`factor-prior-range-${ID}`)
     expect(visibleText(line)).toMatch(/^Range: 0\.2 to 0\.6/)
-    expect(visibleText(within(line).getByTestId(`factor-range-source-${ID}`))).toBe('no source')
+    expect(within(line).getByTestId(`factor-range-source-${ID}`).getAttribute('aria-label')).toContain('Source not recorded')
   })
 
   // ⭐ THE STAMP F2 FOUND MISSING EXISTS FOR ONE ARM (26 Sep, design audit #3).

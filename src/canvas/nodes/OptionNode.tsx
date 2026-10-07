@@ -4,6 +4,7 @@ import { Fragment, memo, useMemo, useCallback, useState, type ReactNode } from '
 import type { NodeProps } from '@xyflow/react'
 import { Pencil } from 'lucide-react'
 import Tooltip from '../../components/Tooltip'
+import { BottomMarksProvider, CardMark } from './shared/CardMark'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
@@ -148,7 +149,6 @@ import {
 } from '../../components/results/utils/selectGoalProbability'
 import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
 import {
-  NOT_ANALYSED_BADGE,
   NOT_ANALYSED_IN_LAST_ANALYSIS,
   NOT_COMPUTED_BADGE,
   notAnalysedReasonCopy,
@@ -164,7 +164,6 @@ import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/u
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import {
-  NOT_RANKED_MARKER,
   selectOptionComparedInRun,
   selectWinShareWithheldReason,
   selectWinSharesWithheld,
@@ -194,7 +193,7 @@ import {
   type TargetNodeLike,
 } from './shared/optionTargetDisplay'
 import { NodeRailIcon } from './shared/NodeRailIcons'
-import { LAST_RUN_PREFIX, OPTION_RESULT_COPY } from './shared/metricVocabulary'
+import { OPTION_RESULT_COPY } from './shared/metricVocabulary'
 import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
 import { optionTakenOutLine } from '../domain/optionStatus'
 import { useRunCurrency, optionResultCaption, optionResultCompactCaption, optionResultCurrencyNote } from './shared/runCurrency'
@@ -2465,10 +2464,10 @@ export const OptionNode = memo((props: NodeProps) => {
    */
   const baselineMeta = (
     <div
-      className={`${typography.edgeLabel} mt-1 text-text-light`}
-      data-testid={`option-baseline-meta-${props.id}`}
+      className={`${typography.edgeLabel} mt-1 h-[1lh] text-text-light`}
+      data-testid={`option-baseline-slot-${props.id}`}
     >
-      {concreteChangeRows.length === 0 ? 'Baseline · no changes' : 'Baseline option'}
+      <CardMark id={concreteChangeRows.length === 0 ? 'baseline-no-changes' : 'baseline-option'} testId={`option-baseline-meta-${props.id}`} />
     </div>
   )
   const baselineMetaOnCard = isBaselineOption
@@ -2479,17 +2478,16 @@ export const OptionNode = memo((props: NodeProps) => {
    * `useRunCurrency` the share caption reads) — never on cannot-confirm, where
    * no "last run" may be manufactured (ED 02:31Z). The last run's result is NOT
    * replaced: the card keeps `Last run` + share (ED 11:52Z point 8); this line
-   * adds that no comparison of the current model exists yet. Inline in
-   * Detailed; in the popover in Standard, and in the share line's accessible
-   * name and tooltip. (The prototype ruling of 25 Sep moved the change rows and
-   * the baseline lines onto the card; it did not rule on this line, so its
-   * placement is unchanged.)
+   * adds that no comparison of the current model exists yet. Slice A puts its
+   * glyph in the bottom band in both views. Detailed keeps its reserved line;
+   * Standard keeps the full sentence in the preview. The share line's accessible
+   * name and tooltip retain the existing explanation.
    */
   const staleStateShown = isPostAnalysis && runCurrency === 'changed'
   const staleStateLine = staleStateShown ? (
     <p
       className={`${typography.edgeLabel} text-text-light mt-1 m-0`}
-      data-testid={`option-stale-state-${props.id}`}
+      data-testid={`option-stale-preview-${props.id}`}
     >
       {OPTION_RESULT_COPY.lastRunNoNewComparison}
     </p>
@@ -2537,7 +2535,7 @@ export const OptionNode = memo((props: NodeProps) => {
       onClick={nodeHandlers.onClick}
       style={{ height: '100%', width: '100%', position: 'relative' }}
     >
-      <BaseNode
+      <BottomMarksProvider><BaseNode
         {...props}
         nodeType="option"
         icon={metadata.icon}
@@ -2817,18 +2815,7 @@ export const OptionNode = memo((props: NodeProps) => {
             <span className={`${typography.edgeLabel} text-text-light`}>{takenOutLine}</span>
           </div>
         )}
-        {notRankedRenders && (
-          <Tooltip asChild content={winShareWithheldReasonLine ?? ''} delay={NODE_TOOLTIP_DELAY_MS}>
-            <div
-              className="flex h-full min-w-0 items-center whitespace-nowrap"
-              data-testid={`option-not-ranked-${props.id}`}
-              aria-label={`${NOT_RANKED_MARKER}. ${winShareWithheldReasonLine ?? ''}`}
-              tabIndex={0}
-            >
-              <span className={`${typography.edgeLabel} text-text-light`} aria-hidden="true">{NOT_RANKED_MARKER}</span>
-            </div>
-          </Tooltip>
-        )}
+        {notRankedRenders && <CardMark id="share-withheld" testId={`option-not-ranked-${props.id}`} description={winShareWithheldReasonLine ?? ''} />}
         {winReadout !== null && takenOutLine === null && (
           <Tooltip asChild content={winReadoutDescription} delay={NODE_TOOLTIP_DELAY_MS}>
           <div
@@ -2893,6 +2880,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 `Current model`; `Last run` only when the model is KNOWN to have
                 changed (ED 02:31Z Q2); `Model result` when currency cannot be
                 confirmed — it claims neither. */}
+            {resultCaption === OPTION_RESULT_COPY.lastRun ? <CardMark id="last-run" testId={`option-win-anchor-${props.id}`} /> : (
             <span
               data-testid={`option-win-anchor-${props.id}`}
               className={`${typography.edgeLabel} text-text-light shrink-0 ${compactCaption !== null ? SHARE_CAPTION_WIDE_ONLY : ''}`}
@@ -2900,6 +2888,7 @@ export const OptionNode = memo((props: NodeProps) => {
             >
               {resultCaption}
             </span>
+            )}
             {compactCaption !== null && (
               <span
                 data-testid={`option-win-anchor-compact-${props.id}`}
@@ -2968,17 +2957,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 </span>
               </span>
             )}
-            {shareIsProvisional && (
-              <span className={`${typography.edgeLabel} text-text-light ml-1.5 shrink-0`} aria-hidden="true">
-                {'· '}
-                <span
-                  data-testid={`option-share-provisional-${props.id}`}
-                  className={`${typography.edgeLabel} text-text-light`}
-                >
-                  {OPTION_RESULT_COPY.provisional}
-                </span>
-              </span>
-            )}
+            {shareIsProvisional && <CardMark id="provisional" testId={`option-share-provisional-${props.id}`} />}
             {/* The bar, under the line (header above): out of the text flow, in
                 the 3px strip the row's `pb-[3px]` keeps. The text is centred in
                 the space above the strip, which lifts it 1.5px; nothing under
@@ -3022,15 +3001,9 @@ export const OptionNode = memo((props: NodeProps) => {
                 subtly invisible"). `Last run ·` and the reason stay muted. */}
             <span className={`${typography.edgeLabel} inline-flex items-center gap-[0.3em] text-text-light shrink-0`} aria-hidden="true">
               {runCurrency === 'changed' && (
-                <span data-testid={`option-not-analysed-last-run-${props.id}`}>{LAST_RUN_PREFIX}</span>
+                <CardMark id="last-run" testId={`option-not-analysed-last-run-${props.id}`} />
               )}
-              <span
-                className={STATE_WORD_CLASSES}
-                style={{ ...STATE_WORD_STYLE, paddingTop: 0, paddingBottom: 0 }}
-                data-testid={`option-not-analysed-chip-${props.id}`}
-              >
-                {NOT_ANALYSED_BADGE}
-              </span>
+              <CardMark id="not-analysed" testId={`option-not-analysed-chip-${props.id}`} />
             </span>
             {missingValueBlocker && (
               <span className="flex h-[1lh] min-w-0 shrink-[1000000] flex-wrap content-start overflow-hidden" aria-hidden="true">
@@ -3066,8 +3039,9 @@ export const OptionNode = memo((props: NodeProps) => {
             {olumiSuppliedFigures}
           </p>
         )}
-        {/* Row 22: Detailed carries the stale state inline (Standard: popover). */}
-        {isDetailed && staleStateLine}
+        {/* Row 22: the status mark is in the bottom band; Detailed keeps its old line box. */}
+        {staleStateShown && <CardMark id="no-new-comparison" testId={`option-stale-state-${props.id}`} />}
+        {isDetailed && staleStateShown && <p className={`${typography.edgeLabel} text-text-light mt-1 m-0 h-[1lh]`} data-testid={`option-stale-slot-${props.id}`} aria-hidden="true" />}
         {/* The Run kept Olumi's proposal in a provisional comparison (typed fact; never an authorship guess). */}
         {displayMetadata.isResultsMode && keptProvisionalSentence !== null && (
           <div
@@ -3491,7 +3465,7 @@ export const OptionNode = memo((props: NodeProps) => {
 
         {/* Action icons: edit (bottom-right) */}
         
-      </BaseNode>
+      </BaseNode></BottomMarksProvider>
 
       {/* ===== LAYER 2: Popover (Standard view — hover, tap or keyboard focus) =====
           ⚠ THE PARENTHETICAL USED TO READ "(Standard view, hover)" AND THAT WAS

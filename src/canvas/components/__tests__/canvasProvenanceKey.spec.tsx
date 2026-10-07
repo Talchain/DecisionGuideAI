@@ -28,6 +28,8 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useCanvasStore } from '../../store'
+import { CardMark } from '../../nodes/shared/CardMark'
+import { RENDERED_CARD_MARKS } from '../../nodes/shared/cardMarks'
 import { provenanceKey } from '../provenanceKey'
 import { CanvasProvenanceKey, CANVAS_PROVENANCE_KEY_COPY, CANVAS_PROVENANCE_KEY_TESTID } from '../CanvasProvenanceKey'
 import { OVERLAY_PRIORITY } from '../CanvasOverlayBand'
@@ -189,4 +191,23 @@ describe('P8 · Olumi\'s additions are always marked, including at rest', () => 
     expect(markAtRest(USER_NODES, 'risk-1')).toEqual([])
     expect(markAtRest(USER_NODES, 'opt-a')).toEqual(['ai'])
   })
+})
+
+it('every rendered registry mark has a Key row with the same words and distinct glyph', () => {
+  useCanvasStore.setState({ nodes: NODES, edges: [] } as never)
+  render(<><CanvasProvenanceKey />{RENDERED_CARD_MARKS.map(m => <CardMark key={m.id} id={m.id} testId={`card-${m.id}`} />)}</>)
+  fireEvent.click(screen.getByTestId(`${T}-toggle`))
+  const names = new Set<string>()
+  for (const m of RENDERED_CARD_MARKS) {
+    const card = screen.getByTestId(`card-${m.id}`)
+    const row = screen.getByTestId(`canvas-key-card-mark-${m.id}`)
+    expect(card).toHaveAttribute('aria-label', m.words)
+    expect(card).toHaveAttribute('title', m.words)
+    expect(card.textContent).not.toContain(m.words)
+    expect(row.textContent).toBe(m.keyText)
+    const glyph = [...card.querySelector('svg')!.classList].find(c => c.startsWith('lucide-'))!
+    expect(row.querySelector(`.${glyph}`)).not.toBeNull()
+    names.add(glyph)
+  }
+  expect(names.size).toBe(RENDERED_CARD_MARKS.length)
 })

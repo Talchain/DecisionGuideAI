@@ -22,6 +22,7 @@ import { ChevronDown, ChevronUp, Flag as FlagIcon, ArrowUp, ArrowDown, Minus, ty
 import { useEditPreviewStore } from '../stores/editPreviewStore'
 import { sanitizeMarkdown } from '../../lib/renderSafeRichText'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
+import { BottomCardMark, BottomMarksBand } from './shared/CardMark'
 import { NodeCoachingMarker, useNodeCoachingMarkerShown } from './shared/NodeCoachingMarker'
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
@@ -675,7 +676,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * coaching glyph gives its width back.
    */
   const coachingMarkShown = useNodeCoachingMarkerShown(id)
-  const cornerMarkCount = (attentionText !== null ? 1 : 0) + (coachingMarkShown ? 1 : 0)
+  const cornerMarkCount = nodeType === 'option' ? 0 : (attentionText !== null ? 1 : 0) + (coachingMarkShown ? 1 : 0)
 
   /**
    * The ONE line a node still says when it is too small to say anything else.
@@ -2123,6 +2124,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >
+      {nodeType === 'option' && <BottomMarksBand nodeId={id} style={{ right: `calc(${anchorRailReservePx(anchorRailButtonsKey(anchorRailButtons))}px * var(--canvas-glyph-scale, 1) + ${CANVAS_QUICK_ACTION_INSET_PX}px)` }} />}
       {runChangeMark !== null ? <RunChangeBadge mark={runChangeMark} nodeId={id} /> : null}
       {/* R5 contextual efficiency layer — quiet at rest, revealed on hover, on
           keyboard focus within the card, and while the node is selected. One
@@ -2437,7 +2439,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             ⭐ ITS SLOT NOW HOLDS THE ONE "WORTH REVIEWING" CUE (spec §2), an
             info-tinted ring — never the warning family (ED 02:31Z D1b) — with
             its reasons in a focusable tooltip and as its accessible name. */}
-        {attentionText !== null && <NodeAttentionMarker nodeId={id} sentence={attentionText} />}
+        {attentionText !== null && <BottomCardMark><NodeAttentionMarker nodeId={id} sentence={attentionText} /></BottomCardMark>}
 
         {/* ⛔ GAP-11 (DESIGN-GAP-AUDIT-20260924.md row 11; Paul v3.1 pt14):
             the per-card amber "edited since run" dot is REMOVED. It duplicated
@@ -2456,7 +2458,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             names this node (target_object.id). Replaces the permanently-empty
             CEE/ISL NodeBadge (23-Jul audit G3). Click opens the same guidance
             surface the inspector uses. */}
-        <NodeCoachingMarker nodeId={id} />
+        <BottomCardMark><NodeCoachingMarker nodeId={id} /></BottomCardMark>
       </div>
 
       {/* ⭐ THE TYPE GLYPH SITS ON THE TOP CONNECTOR, NOT IN THE TITLE ROW.
@@ -2789,12 +2791,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             apart on spacing. The testid exists so the guard binds to THIS group
             by identity rather than by walking up from a mark (trap 19). */}
         {!isCausalLens && !isEvidenceLens && (
-          <span
+          <BottomCardMark><span
             data-testid="node-provenance-mark-group"
-            className={CANVAS_HEADER_GLYPH_GROUP_CLASSES}
+            className={nodeType === 'option' ? 'inline-flex items-center gap-1 shrink-0' : CANVAS_HEADER_GLYPH_GROUP_CLASSES}
           >
             <NodeProvenanceMark nodeType={nodeType} data={data} hideKind={isDetailedView ? null : provenanceDefault} />
-          </span>
+          </span></BottomCardMark>
         )}
 
         {/*

@@ -577,7 +577,7 @@ describe('Option — the result is model-relative, never "Support" (ED 11:52Z po
     post()
     setCurrency('changed')
     renderCard(OptionNode as never, 'opt-raise')
-    expect(within(face('Raise the plan price')).getByTestId('option-win-anchor-opt-raise').textContent).toBe('Last run')
+    expect(within(face('Raise the plan price')).getByTestId('option-win-anchor-opt-raise').getAttribute('aria-label')).toBe('Last run')
     cleanup()
     setCurrency('cannot_confirm')
     renderCard(OptionNode as never, 'opt-raise')

@@ -149,8 +149,8 @@ afterEach(() => cleanup())
 
 describe('served 64c5eccc — the factor name gets its own line when the amount cannot share it', () => {
   it.each([
-    ['personal_assistant', 'human_assistant_capacity', 'Human assistant capacity', '0 → 20 hours/week est.'],
-    ['personal_assistant', 'annual_assistant_tool_cost', 'Annual assistant-tool cost', '$0 / year → $45k/year est.'],
+    ['personal_assistant', 'human_assistant_capacity', 'Human assistant capacity', '0 → 20 hours/week'],
+    ['personal_assistant', 'annual_assistant_tool_cost', 'Annual assistant-tool cost', '$0 / year → $45k/year'],
   ])('%s · %s: TWO lines — "%s" whole, then "%s"', (optionId, factorId, name, amount) => {
     const { container } = renderOption(optionId)
     const line = rowLine(container, optionId, factorId)
@@ -162,9 +162,13 @@ describe('served 64c5eccc — the factor name gets its own line when the amount 
     expect([dt.tagName, dd.tagName]).toEqual(['DT', 'DD'])
     expect(visibleText(dt)).toBe(name)
     expect(visibleText(dd)).toBe(amount)
-    // The mark rides the amount's line, glued: never alone, never on the name's line.
+    // The value retains its line box; its source glyph is in the bottom band.
     const mark = dd.querySelector(`[data-testid="option-change-row-mark-${optionId}-${factorId}"]`)
-    expect(mark, 'the source mark is in the amount cell').not.toBeNull()
+    expect(mark, 'the reserved mark slot is in the amount cell').not.toBeNull()
+    const source = onCard(container, `[data-testid="option-change-row-estimate-${optionId}-${factorId}"]`)[0]
+    expect(source.getAttribute('aria-label')).toContain('Olumi estimate')
+    expect(source.querySelector('.lucide-sparkles')).not.toBeNull()
+    expect(source.closest(`[data-testid="option-bottom-marks-${optionId}"]`)).not.toBeNull()
     expect((mark!.previousSibling as Text | null)?.data).toBe('\u00a0')
     expect(dt.querySelector('[data-testid^="option-change-row-mark-"]')).toBeNull()
   })
@@ -207,7 +211,7 @@ describe('served 64c5eccc — a yes/no factor states both ends', () => {
     const { container } = renderOption('ai_assistant')
     const line = rowLine(container, 'ai_assistant', 'ai_assistant_use')
     const dd = line.querySelector<HTMLElement>('[data-testid="option-change-row-ai_assistant-ai_assistant_use"]')!
-    expect(visibleText(dd)).toBe('Not in use → In use est.')
+    expect(visibleText(dd)).toBe('Not in use → In use')
     const before = onCard(container, '[data-testid="option-change-row-before-ai_assistant-ai_assistant_use"]')[0]
     expect(before?.textContent).toBe('Not in use')
     expect(visibleText(line)).not.toContain('→ on')

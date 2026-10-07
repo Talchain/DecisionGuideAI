@@ -17,6 +17,7 @@ import { createPortal } from 'react-dom'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useOverlayCell } from './CanvasOverlayBand'
 import { useCanvasStore } from '../store'
+import { cardMark, type CardMarkId } from '../nodes/shared/cardMarks'
 import { provenanceKey } from './provenanceKey'
 import { VALUE_PROVENANCE_ICON, PROVENANCE_ICON_SIZE_CLASSES } from '../domain/valueProvenanceIcon'
 import { UNSET_EDGE_STROKE_WIDTH } from '../utils/graphDisplayCalculations'
@@ -51,7 +52,8 @@ export function CanvasProvenanceKey(): JSX.Element | null {
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
   const withheldReason = useCanvasStore(selectWinShareWithheldReason)
-  const key = useMemo(() => provenanceKey(nodes as never, edges as never, withheldReason), [nodes, edges, withheldReason])
+  const hasRun = useCanvasStore(s => s.results.status === 'complete')
+  const key = useMemo(() => provenanceKey(nodes as never, edges as never, withheldReason, hasRun), [nodes, edges, withheldReason, hasRun])
   const [open, setOpen] = useState(false)
   const panelId = useId()
 
@@ -72,6 +74,16 @@ export function CanvasProvenanceKey(): JSX.Element | null {
           data-testid={`${T}-panel`}
           className="absolute right-0 bottom-full mb-2 w-[300px] max-h-[min(60vh,420px)] overflow-y-auto rounded-xl border border-panel-border bg-panel px-4 py-3 shadow-2"
         >
+          {key.cardMarks.length > 0 && (
+            <section aria-label={C.values}>
+              <ul className="m-0 mt-1 list-none space-y-1 p-0">
+                {key.cardMarks.map(m => <li key={m.id} data-testid={`canvas-key-card-mark-${m.id}`} className={`${typography.panelBody} flex items-center gap-2 text-text-body`}>
+                  <m.Icon aria-hidden="true" className={`${PROVENANCE_ICON_SIZE_CLASSES} flex-none text-text-light`} />
+                  <span>{m.keyText}</span>
+                </li>)}
+              </ul>
+            </section>
+          )}
           {key.marks.length > 0 && (
             <section aria-label={C.marks}>
               <p className={`${typography.panelMeta} m-0 text-text-light`}>{C.marks}</p>
@@ -101,12 +113,12 @@ export function CanvasProvenanceKey(): JSX.Element | null {
             <section aria-label={C.values} className={key.marks.length > 0 ? 'mt-3' : undefined}>
               <p className={`${typography.panelMeta} m-0 text-text-light`}>{C.values}</p>
               <ul className="m-0 mt-1 list-none space-y-1 p-0">
-                {key.values.map((v) => (
+                {key.values.map((v) => { const Icon = cardMark(`source-${v.kind}` as CardMarkId).Icon; return (
                   <li key={v.kind} data-testid={`${T}-value`} data-value-kind={v.kind} className={`${typography.panelBody} flex items-baseline gap-2 text-text-body`}>
-                    <span className={`${typography.panelMeta} w-[64px] flex-none text-text-light`}>{v.token}</span>
+                    <Icon aria-hidden="true" className={`${PROVENANCE_ICON_SIZE_CLASSES} flex-none text-text-light`} />
                     <span>{v.label}</span>
                   </li>
-                ))}
+                )})}
               </ul>
             </section>
           )}

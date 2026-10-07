@@ -16,6 +16,7 @@
  * A cue the board does not draw has no entry. The board's default kind (cards carrying ONLY it show no mark at rest,
  * `provenanceDefaultKind`) is named, so an unmarked card is not read as "unknown".
  */
+import { RENDERED_CARD_MARKS, type CardMarkDefinition } from '../nodes/shared/cardMarks'
 import { routeOnceHeldEdges } from '../domain/routeOnceHeld'
 import type { NodeProvenanceClaim } from '../domain/nodeProvenanceClaim'
 import { provenanceClaimLabel } from '../domain/nodeProvenanceClaim'
@@ -62,6 +63,7 @@ export interface OptionCueEntry {
 }
 
 export interface ProvenanceKey {
+  readonly cardMarks: readonly CardMarkDefinition[]
   readonly marks: readonly ProvenanceMarkEntry[]
   readonly values: readonly ValueMarkEntry[]
   readonly links: readonly LinkCueEntry[]
@@ -77,6 +79,7 @@ export function provenanceKey(
   nodes: ReadonlyArray<NodeLike>,
   edges: ReadonlyArray<EdgeLike>,
   withheldReason: string | null = null,
+  hasRun = false,
 ): ProvenanceKey {
   const defaultKind = provenanceDefaultKind(nodes as never)
   const seen = new Map<string, ProvenanceMarkEntry>()
@@ -117,5 +120,7 @@ export function provenanceKey(
     }
   }
   const options = withheldReason !== null ? { label: NOT_RANKED_MARKER, reason: withheldReason } : null
-  return { marks, values, links, options, empty: marks.length === 0 && values.length === 0 && links.length === 0 && options === null }
+  const types = new Set(nodes.map(n => resolveNodeTypeLiteral(n as never)))
+  const cardMarks = RENDERED_CARD_MARKS.filter(m => m.nodeTypes.some(t => types.has(t as never)))
+  return { cardMarks, marks, values, links, options, empty: !(hasRun && types.has('option')) && !nodes.some(n => (n.data as { is_baseline?: boolean } | undefined)?.is_baseline === true) && marks.length === 0 && values.length === 0 && links.length === 0 && options === null }
 }

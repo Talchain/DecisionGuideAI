@@ -214,7 +214,7 @@ describe('OR-06 — the risk’s own recorded size carries a visible source mark
     const mark = screen.getByTestId('risk-value-source-risk-1')
     expect(row.contains(mark)).toBe(true)
     expect(mark.getAttribute('data-value-source')).toBe('brief')
-    expect(mark.querySelector('[aria-hidden="true"]')?.textContent).toBe('brief')
+    expect(mark.querySelector('.lucide-file-text')).not.toBeNull()
     expect(classes(row)).toEqual(expect.arrayContaining(['flex', 'items-baseline']))
     for (const c of typography.nodeValue.split(' ')) expect(classes(row)).toContain(c)
   })
@@ -223,7 +223,7 @@ describe('OR-06 — the risk’s own recorded size carries a visible source mark
     renderRisk({ observedState: TWELVE_MONTHS_OLUMI })
     const mark = screen.getByTestId('risk-value-source-risk-1')
     expect(mark.getAttribute('data-value-source')).toBe('olumi')
-    expect(mark.querySelector('[aria-hidden="true"]')?.textContent).toBe('est.')
+    expect(mark.querySelector('.lucide-sparkles')).not.toBeNull()
     expect(mark.getAttribute('title') ?? '').not.toMatch(/Open the details/)
   })
 

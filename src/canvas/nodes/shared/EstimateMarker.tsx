@@ -271,6 +271,7 @@ export function SourceMark({
   tip,
   onOpen,
   dataValueSource,
+  cardMarkId,
   children,
 }: {
   testId?: string
@@ -279,12 +280,13 @@ export function SourceMark({
   /** The route to the source detail. Absent → a static, non-focusable mark. */
   onOpen?: () => void
   dataValueSource?: string
+  cardMarkId?: string
   children: ReactNode
 }) {
   const classes = `${SOURCE_MARK_TYPE_CLASSES} inline-flex items-baseline gap-0.5 px-px align-baseline`
   if (!onOpen) {
     return (
-      <span className={classes} title={tip} data-testid={testId} data-value-source={dataValueSource}>
+      <span className={classes} title={tip} aria-label={tip} data-card-mark={cardMarkId} data-testid={testId} data-value-source={dataValueSource}>
         {children}
       </span>
     )
@@ -295,6 +297,7 @@ export function SourceMark({
         type="button"
         data-testid={testId}
         data-value-source={dataValueSource}
+        data-card-mark={cardMarkId}
         data-source-mark="true"
         data-node-tooltip="true"
         // v3.1 `prov()`: the button's name IS the full label ("Monthly price:

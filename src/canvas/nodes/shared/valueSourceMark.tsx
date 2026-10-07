@@ -1,4 +1,5 @@
-import { User } from 'lucide-react'
+import { cardMark, type CardMarkId } from './cardMarks'
+import { BottomCardMark } from './CardMark'
 import { typography } from '../../../styles/typography'
 import { SOURCE_MARK_GLYPH_CLASSES, SourceMark } from './EstimateMarker'
 import {
@@ -8,7 +9,6 @@ import {
   VALUE_PROVENANCE_LABEL,
   type ValueProvenanceKind,
 } from '../../domain/valueProvenance'
-import { UNCONFIRMED_ESTIMATE_LABEL, UNCONFIRMED_ESTIMATE_TOKEN } from '../../domain/vocabulary'
 import { isStatedTargetValue, resolveGoalTarget, type GoalTargetSource } from '../../domain/goalTarget'
 
 /**
@@ -20,9 +20,8 @@ import { isStatedTargetValue, resolveGoalTarget, type GoalTargetSource } from '.
  * Point 7: an option's `8% → 7%` *"must make clear whether 7% came from you /
  * Olumi / brief / evidence."*
  *
- * So every value a factor card or an option change row prints carries ONE short
- * visible word saying whose it is. Words, not colour: the mark is legible in a
- * screenshot, needs no hover, and reads the same in greyscale (point 12).
+ * Every value carries one source glyph, explained in the Key, with the existing
+ * precise source words on hover and in its accessible name (Paul, 7 Oct).
  *
  *   · `est.`  — Olumi's estimate (the existing served token, unchanged)
  *   · `you`   — a person set or confirmed it
@@ -45,25 +44,20 @@ export type ValueSourceMarkKind = 'olumi' | 'you' | 'brief' | 'panel' | 'unknown
 
 /** The visible word per mark. `est.` is the existing token, not a new spelling. */
 export const VALUE_SOURCE_MARK_TOKEN: Readonly<Record<ValueSourceMarkKind, string>> = Object.freeze({
-  olumi: UNCONFIRMED_ESTIMATE_TOKEN,
-  you: 'you',
-  brief: 'brief',
-  panel: 'panel',
-  unknown: 'no source',
+  olumi: cardMark('source-olumi').words,
+  you: cardMark('source-you').words,
+  brief: cardMark('source-brief').words,
+  panel: cardMark('source-panel').words,
+  unknown: cardMark('source-unknown').words,
 })
 
 /** The accessible name per mark (screen readers, and the hover title). */
 export const VALUE_SOURCE_MARK_LABEL: Readonly<Record<ValueSourceMarkKind, string>> = Object.freeze({
-  olumi: `Olumi estimate — ${UNCONFIRMED_ESTIMATE_LABEL.toLowerCase()}`,
-  you: 'Set by you',
-  brief: 'From your brief',
-  panel: VALUE_PROVENANCE_LABEL.panel,
-  /**
-   * ⭐ UNKNOWN STAYS UNKNOWN (Codex #63 5801529767). A missing or unrecognised
-   * source is not relabelled as Olumi's estimate or as the user's: it says,
-   * in words, that nobody recorded where the number came from.
-   */
-  unknown: 'Source not recorded',
+  olumi: cardMark('source-olumi').ariaWords,
+  you: cardMark('source-you').ariaWords,
+  brief: cardMark('source-brief').ariaWords,
+  panel: cardMark('source-panel').ariaWords,
+  unknown: cardMark('source-unknown').ariaWords,
 })
 
 function markForKind(kind: ValueProvenanceKind): ValueSourceMarkKind {
@@ -293,24 +287,7 @@ export function goalTargetSourceMark(data: GoalTargetSource | null | undefined):
   return { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }
 }
 
-/**
- * ⭐ THE VISIBLE MARK — contract v3.1 `.prov` (point 1; DESIGN-GAP-v31 #21).
- *
- *   · Olumi → `est.`, the brief → `brief`, a panel → `panel`, unknown →
- *     `no source`: words, so the mark survives screenshots and greyscale.
- *   · a PERSON → the person glyph (v3.1 `prov('user')` renders `icon('user')`,
- *     no word): "you" was a word where the contract draws a glyph.
- *   · evidence → the evidence glyph, WHEN a producer stamps it. No value
- *     vocabulary carries an evidence literal today (see the header of this
- *     file), so `ValueSourceMarkKind` has no `evidence` member and none is
- *     invented here.
- *
- * The token is hidden from assistive technology and the full label is given
- * instead, so a screen reader hears "Set by you", not "you". Where the card
- * hands the mark its route (`onOpenSource`), the mark is a focusable button
- * labelled on hover AND focus that opens the source detail (`SourceMark`);
- * otherwise it is the static mark it always was.
- */
+/** Source glyphs use the product registry; names and inspector routes are unchanged. */
 export function ValueSourceMark({
   mark,
   testId,
@@ -328,14 +305,12 @@ export function ValueSourceMark({
   onOpenSource?: () => void
 }) {
   const tip = title ?? (subject ? `${subject}: ${mark.label}` : mark.label)
+  const definition = cardMark(`source-${mark.kind}` as CardMarkId)
+  const Icon = definition.Icon
   return (
-    <SourceMark testId={testId} tip={tip} onOpen={onOpenSource} dataValueSource={mark.kind}>
-      {mark.kind === 'you' ? (
-        <User aria-hidden="true" strokeWidth={1.8} className={SOURCE_MARK_GLYPH_CLASSES} data-source-glyph="person" />
-      ) : (
-        <span aria-hidden="true">{VALUE_SOURCE_MARK_TOKEN[mark.kind]}</span>
-      )}
+    <BottomCardMark><SourceMark cardMarkId={definition.id} testId={testId} tip={tip} onOpen={onOpenSource} dataValueSource={mark.kind}>
+      <Icon aria-hidden="true" strokeWidth={1.8} className={SOURCE_MARK_GLYPH_CLASSES} data-source-glyph={mark.kind === 'you' ? 'person' : undefined} />
       <span className={typography.screenReaderOnly}>{mark.label}</span>
-    </SourceMark>
+    </SourceMark></BottomCardMark>
   )
 }
