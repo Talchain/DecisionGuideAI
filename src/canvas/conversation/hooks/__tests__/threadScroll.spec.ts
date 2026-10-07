@@ -60,6 +60,18 @@ describe('threadScroll: only the thread moves', () => {
     expect(scrollTo).toHaveBeenCalledWith({ top: 200 - 60, behavior: 'auto' })
   })
 
+  it('block nearest (buddy r1 P2): a target taller than the thread that already spans both edges does not move', () => {
+    const { target, scrollTo } = threadWith(50, 700) // [50,750] spans the thread's [100,700]
+    scrollWithinThread(target, { behavior: 'auto', block: 'nearest' })
+    expect(scrollTo).not.toHaveBeenCalled()
+  })
+
+  it('block nearest: a target taller than the thread, starting below the fold, aligns its TOP (CSSOM)', () => {
+    const { target, scrollTo } = threadWith(650, 900) // top 650 (inside), bottom 1550 (below), taller than 600
+    scrollWithinThread(target, { behavior: 'auto', block: 'nearest' })
+    expect(scrollTo).toHaveBeenCalledWith({ top: 200 + 550, behavior: 'auto' })
+  })
+
   it('a target outside any thread: nothing is scrolled and the caller is told', () => {
     const loose = document.createElement('div')
     loose.scrollIntoView = vi.fn()

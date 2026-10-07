@@ -10,7 +10,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { reanalyseBarShows, shellRerunControl, chatRunChipStandsAside } from '../rerunControl'
+import { reanalyseBarShows, shellRerunControl, hostRerunControl, chatRunChipStandsAside, dockSurfaceOwnsRerun } from '../rerunControl'
 import { SuggestedChips } from '../../../conversation/zones/SuggestedChips'
 import { useCanvasStore } from '../../../store'
 import type { FreshnessDisplaySemantic } from '../../../store/analysisFreshness'
@@ -55,10 +55,37 @@ describe('shellRerunControl: exactly one control after the first Run', () => {
   it('no Run yet → none (a run control is not a rerun; pre-run controls are untouched)', () => {
     expect(shellRerunControl({ semantic: 'changed', importHold: false, hasCompletedFirstRun: false })).toBe('none')
   })
-  it('the chip stands aside only on a shell host after the first Run', () => {
-    expect(chatRunChipStandsAside(true, true)).toBe(true)
-    expect(chatRunChipStandsAside(true, false)).toBe(false)
-    expect(chatRunChipStandsAside(false, true)).toBe(false)
+})
+
+describe('hostRerunControl: one control per chat host', () => {
+  const changed = { semantic: 'changed' as const, importHold: false, hasCompletedFirstRun: true }
+  const current = { semantic: 'current' as const, importHold: false, hasCompletedFirstRun: true }
+  const preRun = { semantic: 'changed' as const, importHold: false, hasCompletedFirstRun: false }
+  it('docked: the shell decides (bar / composer / none)', () => {
+    expect(hostRerunControl('docked', changed)).toBe('bar')
+    expect(hostRerunControl('docked', current)).toBe('composer')
+    expect(hostRerunControl('docked', preRun)).toBe('none')
+  })
+  it('floating alone (buddy r1 P1): its own bar while the model changed; nothing when current; never the pill', () => {
+    expect(hostRerunControl('floating', changed)).toBe('bar')
+    expect(hostRerunControl('floating', current)).toBe('none')
+    expect(chatRunChipStandsAside(hostRerunControl('floating', changed))).toBe(true)
+  })
+  it('floating beside a dock surface that owns rerun: that surface\'s control is the one; the chip stands aside', () => {
+    expect(hostRerunControl('floating-beside-dock', changed)).toBe('elsewhere')
+    expect(chatRunChipStandsAside(hostRerunControl('floating-beside-dock', current))).toBe(true)
+  })
+  it('before the first Run every host answers none and the chip (a run control then) stays', () => {
+    for (const host of ['docked', 'floating', 'floating-beside-dock'] as const) {
+      expect(chatRunChipStandsAside(hostRerunControl(host, preRun))).toBe(false)
+    }
+  })
+  it('which dock surfaces own rerun: Olumi, Reasoning, Model, Analysis — never Compare', () => {
+    expect(dockSurfaceOwnsRerun('olumi')).toBe(true)
+    expect(dockSurfaceOwnsRerun('analysisNew')).toBe(true)
+    expect(dockSurfaceOwnsRerun('diagnostics')).toBe(true)
+    expect(dockSurfaceOwnsRerun('results')).toBe(true)
+    expect(dockSurfaceOwnsRerun('compare')).toBe(false)
   })
 })
 
@@ -77,7 +104,7 @@ function seed(hasCompletedFirstRun: boolean) {
   }
 }
 
-describe('SuggestedChips: the run chip on a host whose shell owns rerun', () => {
+describe('SuggestedChips: the run chip when the host owns the rerun control', () => {
   beforeEach(() => {
     try { localStorage.setItem('feature.aiPanelV2', 'true') } catch {}
     vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', '')
@@ -88,22 +115,22 @@ describe('SuggestedChips: the run chip on a host whose shell owns rerun', () => 
     useCanvasStore.setState({ results: { status: 'idle' } as any, analysisFreshness: null, analysisFreshnessDirty: false })
   })
 
-  it('shell host, after the first Run, model changed: the run chip is gone, the pre-mortem chip stays', () => {
+  it('host owns rerun, model changed: the run chip is gone, the pre-mortem chip stays', () => {
     seed(true)
-    render(<SuggestedChips chips={[premortem, runChip]} onChipClick={vi.fn().mockResolvedValue(undefined)} shellOwnsRerun />)
+    render(<SuggestedChips chips={[premortem, runChip]} onChipClick={vi.fn().mockResolvedValue(undefined)} rerunOwnedByHost />)
     expect(screen.queryByTestId('suggested-chip-agent-run-analysis')).toBeNull()
     expect(screen.getByTestId('suggested-chip-agent-next-pre-mortem')).toBeInTheDocument()
   })
 
-  it('CONTRAST: a host without shell controls (floating) keeps it, as "Rerun" — its only rerun control', () => {
+  it('CONTRAST: a host that owns no rerun control (headless) keeps it, as "Rerun"', () => {
     seed(true)
     render(<SuggestedChips chips={[premortem, runChip]} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
     expect(screen.getByTestId('suggested-chip-agent-run-analysis')).toHaveTextContent(/^\s*Rerun\s*$/)
   })
 
-  it('CONTRAST: before the first Run the shell host keeps CEE\'s "Run analysis" chip (a run, not a rerun)', () => {
+  it('CONTRAST: before the first Run the host owns no rerun, so CEE\'s "Run analysis" chip stays (a run, not a rerun)', () => {
     seed(false)
-    render(<SuggestedChips chips={[premortem, runChip]} onChipClick={vi.fn().mockResolvedValue(undefined)} shellOwnsRerun />)
+    render(<SuggestedChips chips={[premortem, runChip]} onChipClick={vi.fn().mockResolvedValue(undefined)} rerunOwnedByHost={chatRunChipStandsAside(hostRerunControl('docked', { semantic: 'changed', importHold: false, hasCompletedFirstRun: false }))} />)
     expect(screen.getByTestId('suggested-chip-agent-run-analysis')).toHaveTextContent('Run analysis')
   })
 })

@@ -53,7 +53,14 @@ export function scrollWithinThread(
     return true
   }
   const offsetBottom = box.bottom - threadBox.bottom
-  if (offsetTop < 0) scrollThreadTo(thread, thread.scrollTop + offsetTop, behavior)
-  else if (offsetBottom > 0) scrollThreadTo(thread, thread.scrollTop + Math.min(offsetBottom, offsetTop), behavior)
+  // CSSOM "nearest": a target in view, or one spanning both edges, does not move; otherwise align the edge that is
+  // out of view, unless the target is taller than the thread, in which case align the other edge.
+  const tallerThanThread = box.bottom - box.top > threadBox.bottom - threadBox.top
+  if ((offsetTop >= 0 && offsetBottom <= 0) || (offsetTop < 0 && offsetBottom > 0)) return true
+  if (offsetTop < 0) {
+    scrollThreadTo(thread, thread.scrollTop + (tallerThanThread ? offsetBottom : offsetTop), behavior)
+  } else {
+    scrollThreadTo(thread, thread.scrollTop + (tallerThanThread ? offsetTop : offsetBottom), behavior)
+  }
   return true
 }

@@ -27,6 +27,8 @@ import { logger } from '../../lib/logger'
 import { ChevronsRight } from 'lucide-react'
 import { ChatThread } from './zones/ChatThread'
 import { scrollWithinThread } from './hooks/threadScroll'
+import { ReanalyseBar } from '../components/model-tab/ReanalyseBar'
+import { chatRunChipStandsAside, hostRerunControl, useReanalyseBarInputs, type RerunHost } from '../components/workspaceShell/rerunControl'
 import { isRunAnalysisAffordance, type RunChipGate } from './zones/SuggestedChips'
 import { heldProposalRetirementKeys } from './selectors'
 import { ChatComposer, type ChatComposerHandle } from './zones/ChatComposer'
@@ -86,11 +88,13 @@ interface ConversationPanelProps {
    */
   threadTestId?: string
   /**
-   * The host's shell carries the rerun controls (the docked Olumi tab: the footer's Re-analyse and the composer
-   * icon), so after the first Run the thread's run chip stands aside (`workspaceShell/rerunControl.ts`). The
-   * floating panel mounts neither, so it leaves this unset and keeps the chip as its only rerun control.
+   * ⭐ ONE RERUN CONTROL (`workspaceShell/rerunControl.ts`). Which host this panel is, for the rerun rule: the docked
+   * Olumi tab (its shell shows the bar or the composer icon), the floating panel alone (this panel then shows the
+   * SAME `ReanalyseBar` itself, under the thread, while the bar would show), or the floating panel beside an open
+   * dock surface that owns rerun. Whenever the host shows or defers to a rerun control, the thread's run chip stands
+   * aside. Absent (headless mounts) ⇒ unchanged.
    */
-  shellOwnsRerun?: boolean
+  rerunHost?: RerunHost
 }
 
 function createPanelInteractionSnapshot(messagesCount: number): InteractionStateSnapshot {
@@ -147,7 +151,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   compact = false,
   scrollListRef,
   threadTestId,
-  shellOwnsRerun,
+  rerunHost,
 }: ConversationPanelProps) {
   const {
     messages, isThinking, explainingRun, longRunningHint,
@@ -585,6 +589,10 @@ export const ConversationPanel = memo(function ConversationPanel({
   // below) — the same expressions over the same `runGateResult`, not a second
   // gate — so a closed gate renders them disabled with that sentence rather
   // than live-and-refusing-on-click. Memoised: `ChatThread` is `memo`.
+  // The host's one rerun control, from the owner. Read unconditionally (rules of hooks); a headless mount has none.
+  const rerunInputs = useReanalyseBarInputs()
+  const hostRerun = rerunHost ? hostRerunControl(rerunHost, rerunInputs) : 'none'
+
   const runGate = useMemo<RunChipGate>(
     () => ({ allowed: runGateResult.allowed && !isAnalysisRunning, reason: runBlockedReason }),
     [runGateResult.allowed, isAnalysisRunning, runBlockedReason],
@@ -916,8 +924,21 @@ export const ConversationPanel = memo(function ConversationPanel({
         scrollListRef={scrollListRef}
         testId={threadTestId}
         runGate={runGate}
-        shellOwnsRerun={shellOwnsRerun}
+        rerunOwnedByHost={chatRunChipStandsAside(hostRerun)}
       />
+
+      {/* The floating panel alone has no shell footer, so the one rerun control is drawn here: the SAME bar, runner and
+          gate trio the docked shell uses (`OutputsDock` 'readiness' arm), never a second runner. */}
+      {rerunHost === 'floating' && hostRerun === 'bar' && (
+        <div className="flex-shrink-0" data-testid="conversation-rerun-bar">
+          <ReanalyseBar
+            onReanalyse={handleRunAnalysis}
+            canRun={runGateResult.allowed && !isAnalysisRunning}
+            blockedReason={runBlockedReason}
+            isAnalysing={isAnalysisRunning}
+          />
+        </div>
+      )}
 
       {!hideComposer && (
         <ChatComposer

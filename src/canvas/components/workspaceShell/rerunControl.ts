@@ -11,12 +11,14 @@
  * The rule (per host, after the first Run — before it, a run control is a RUN, not a rerun, and is untouched):
  *   · the model changed (the bar shows) → the bar's Re-analyse is the ONLY rerun control;
  *   · otherwise → the composer icon is (the bar is null when nothing changed);
- *   · on a host whose shell carries those two (the docked Olumi tab), the chat's run chip is never a rerun control.
- *     A host with no shell controls (the floating panel mounts neither) keeps the chip: there it is the only one.
+ *   · the chat's run chip is never a rerun control while its host shows (or defers to) one: the docked Olumi tab
+ *     (its shell), the floating panel (its own bar, or the open dock surface beside it) — `hostRerunControl`.
  *
  * Every consumer reads this module; none re-derives the bar's condition (CLAUDE.md trap 12).
  */
 import type { FreshnessDisplaySemantic } from '../../store/analysisFreshness'
+import type { OutputTab } from '../../../stores/uiStore'
+import { WORKSPACE_SURFACES } from './shellContract'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useCanvasStore } from '../../store'
 
@@ -58,10 +60,38 @@ export function shellRerunControl(inputs: ReanalyseBarInputs): ShellRerunControl
 }
 
 /**
- * Whether the chat's run chip may stand as a rerun control on this host. `shellOwnsRerun` is the HOST's declaration
- * that its shell carries the bar and the composer icon (the docked Olumi tab); after the first Run the shell then owns
- * every rerun and the chip stands aside. Before the first Run the chip is a run control and is left as it was.
+ * Which surface can host the chat, for the rerun rule.
+ *   · 'docked'   — the dock's Olumi tab: its shell carries the footer bar and the composer icon.
+ *   · 'floating' — the floating panel with no dock surface beside it that owns rerun: it shows its OWN bar.
+ *   · 'floating-beside-dock' — the floating panel while the open dock shows a surface that owns rerun
+ *     (`dockSurfaceOwnsRerun`): that surface's control is the one on screen.
  */
-export function chatRunChipStandsAside(shellOwnsRerun: boolean, hasCompletedFirstRun: boolean): boolean {
-  return shellOwnsRerun && hasCompletedFirstRun
+export type RerunHost = 'docked' | 'floating' | 'floating-beside-dock'
+
+/** 'elsewhere' = another visible surface owns the rerun; 'none' = no rerun control (no Run yet, or nothing changed). */
+export type HostRerunControl = ShellRerunControl | 'elsewhere'
+
+export function hostRerunControl(host: RerunHost, inputs: ReanalyseBarInputs): HostRerunControl {
+  const shell = shellRerunControl(inputs)
+  if (host === 'docked') return shell
+  if (host === 'floating-beside-dock') return shell === 'none' ? 'none' : 'elsewhere'
+  // The floating panel has no composer icon: it shows its own bar while the bar would show, and nothing otherwise
+  // (a current analysis needs no rerun).
+  return shell === 'bar' ? 'bar' : 'none'
+}
+
+/**
+ * Whether the chat's run chip stands aside: whenever the host shows (or defers to) a rerun control. Before the
+ * first Run every host answers 'none' and the chip — a RUN control then, not a rerun — is left as it was.
+ */
+export function chatRunChipStandsAside(control: HostRerunControl): boolean {
+  return control !== 'none'
+}
+
+/**
+ * Whether an open dock surface owns the rerun once a Run exists: every surface whose shell footer is not 'none'
+ * (Olumi, Reasoning, Model) plus the Analysis tab, whose body footer carries its own Rerun.
+ */
+export function dockSurfaceOwnsRerun(tab: OutputTab): boolean {
+  return WORKSPACE_SURFACES[tab].footerBar !== 'none' || tab === 'results'
 }

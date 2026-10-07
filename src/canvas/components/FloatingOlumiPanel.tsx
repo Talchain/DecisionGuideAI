@@ -33,6 +33,7 @@ import { useUIStore } from '../../stores/uiStore'
 import { isAiPanelV2Enabled } from '../../flags'
 import { readPersistedActiveDockTab, readPersistedDockOpen } from './OutputsDock'
 import { dockHostsOlumi, type OlumiDockTab } from './olumiSurface'
+import { dockSurfaceOwnsRerun } from './workspaceShell/rerunControl'
 import {
   FLOATING_OLUMI_SIDE_TAB_WIDTH,
   requestFloatingOlumiSurface,
@@ -1431,6 +1432,9 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock }: F
                The rationale and the canonical assignment live in one place —
                the note beside these constants in `zones/ChatThread.tsx`. */
             threadTestId={THREAD_TESTID_FLOATING}
+            /* ⭐ ONE RERUN CONTROL (`workspaceShell/rerunControl.ts`): beside an open dock surface that owns rerun,
+               that surface's control is the one on screen; alone, this panel draws the same Re-analyse bar itself. */
+            rerunHost={dockEffectiveOpen && dockSurfaceOwnsRerun(effectiveDockTab as OlumiDockTab) ? 'floating-beside-dock' : 'floating'}
           />
           {isEmptyConversation && (
             <div

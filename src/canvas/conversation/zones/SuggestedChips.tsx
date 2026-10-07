@@ -33,7 +33,6 @@ import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { type FreshnessDisplaySemantic } from '../../store/analysisFreshness'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
-import { chatRunChipStandsAside } from '../../components/workspaceShell/rerunControl'
 import { isChipRenderable } from '../chipDispatch'
 import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
 import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
@@ -194,11 +193,11 @@ interface SuggestedChipsProps {
    */
   runGate?: RunChipGate
   /**
-   * The host's declaration that its SHELL carries the rerun controls (the docked Olumi tab: the footer's Re-analyse
-   * and the composer icon). After the first Run a run chip then stands aside: the shell owns the one rerun control
-   * (`workspaceShell/rerunControl.ts`). Absent (the floating panel, headless mounts) ⇒ unchanged.
+   * The host's verdict (`workspaceShell/rerunControl.ts` `hostRerunControl` → `chatRunChipStandsAside`): a rerun
+   * control is shown, or deferred to, elsewhere on screen, so a run chip stands aside — one rerun control. Absent
+   * (headless mounts) ⇒ unchanged.
    */
-  shellOwnsRerun?: boolean
+  rerunOwnedByHost?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -211,7 +210,7 @@ export function SuggestedChips({
   isThinking = false,
   isHistorical = false,
   runGate,
-  shellOwnsRerun = false,
+  rerunOwnedByHost = false,
 }: SuggestedChipsProps) {
   // All hooks are declared before any conditional return so that the hook
   // count is stable across renders. Downstream conditions (isHistorical,
@@ -235,8 +234,6 @@ export function SuggestedChips({
   // here too, so the chip relabels to "Rerun" in step with the strip.
   const freshnessSemantic = useAnalysisTrust().semantic
   const resultsComplete = useCanvasStore((s) => s.results?.status === 'complete')
-  // `?? true`: the defensive default `composeAnalysisState` and `ReanalyseBar` apply to this field.
-  const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun) ?? true
   // ⭐ PoC DOMAIN 5 — the chip reads the SAME held-model authority the Analyse
   // control reads (`canRunAnalysis` rung 2.5), so the two cannot disagree ABOUT
   // THE HOLD. Non-null ⇒ the canvas holds a client-injected graph that CEE never
@@ -422,10 +419,9 @@ export function SuggestedChips({
   // through". That set is the method's own question, not a suggestion: D1's four options made it five, and the cap
   // dropped the last plan and "Talk it through". A turn carrying a plan pick keeps its whole set.
   // ⭐ ONE RERUN CONTROL (Paul, 7 Oct: "get rid of the pill inside the chat and just have the re-analyse button").
-  // On a host whose shell owns rerun, a run chip is never a second rerun control after the first Run. Applied before
-  // the cap, so it never costs another chip its slot.
-  const runChipStandsAside = chatRunChipStandsAside(shellOwnsRerun, hasCompletedFirstRun)
-  const renderable = polished.filter((c) => isChipRenderable(c) && !(runChipStandsAside && isRunAnalysisAffordance(c)))
+  // While the host shows (or defers to) a rerun control, a run chip is never a second one. Applied before the cap, so
+  // it never costs another chip its slot.
+  const renderable = polished.filter((c) => isChipRenderable(c) && !(rerunOwnedByHost && isRunAnalysisAffordance(c)))
   const visibleNow = renderable.some(isPlanPickChip) ? renderable : renderable.slice(0, 3)
 
   // The host's gate, read verbatim. Closed ⇒ every Run chip in the row is

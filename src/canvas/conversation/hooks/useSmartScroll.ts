@@ -55,9 +55,9 @@ export const MESSAGE_ID_ATTRIBUTE = 'data-message-id'
  * after 15 s. The content sensor below used to treat each of those rewrites as
  * a reply arriving — it snapped a near-bottom reader back down, and raised the
  * "New messages" pill over the text of a reader scrolled up into history, every
- * 5 s, with nothing new to read. A change confined to the indicator now only
- * keeps a FOLLOWING reader following; it never raises the pill and never moves
- * someone reading history.
+ * 5 s, with nothing new to read. A change confined to the indicator now moves
+ * no one and raises nothing; only a turn STARTING reveals the indicator, once,
+ * to a reader who was following.
  */
 export const WAITING_INDICATOR_ATTRIBUTE = 'data-waiting-indicator'
 
@@ -238,9 +238,8 @@ export function useSmartScroll({ messageCount, isThinking, messages }: UseSmartS
 
   /**
    * Keep a FOLLOWING reader following; leave everyone else exactly where they
-   * are, with no pill. For changes that are not new content: the waiting
-   * indicator's own rewrites, and the thinking state settling with nothing
-   * appended (see `WAITING_INDICATOR_ATTRIBUTE`).
+   * are, with no pill. Used once per turn, when it starts, to reveal the
+   * waiting indicator (see `WAITING_INDICATOR_ATTRIBUTE`).
    */
   const pinIfFollowing = useCallback((behavior: ScrollBehavior) => {
     if (userScrolledUpRef.current) return
@@ -258,17 +257,22 @@ export function useSmartScroll({ messageCount, isThinking, messages }: UseSmartS
     setShowNewMessageIndicator(false)
   }, [])
 
-  // Sensor 1 — a message arrived (or the thinking state settled). Only a
-  // change in the rendered COUNT is new content; the thinking state flipping on
-  // its own (a turn going pending, or settling with nothing appended) keeps a
-  // following reader following and never raises the pill.
-  const prevMessageCountRef = useRef(messageCount)
+  // Sensor 1 — a message arrived, or a turn STARTED. Only a change in the
+  // rendered COUNT is new content (pin, or the pill). A turn going pending with
+  // nothing appended reveals the waiting indicator ONCE, to a following reader
+  // only — that is the thinking animation appearing. A turn settling with
+  // nothing appended moves nobody: nothing new arrived (buddy r1 P1, 7 Oct).
+  // `null` on mount, so the mount itself counts as content arriving and pins (as it always has).
+  const prevMessageCountRef = useRef<number | null>(null)
+  const prevThinkingRef = useRef(isThinking)
   useEffect(() => {
     const countChanged = prevMessageCountRef.current !== messageCount
+    const turnStarted = !prevThinkingRef.current && isThinking
     prevMessageCountRef.current = messageCount
+    prevThinkingRef.current = isThinking
     if (messageCount === 0) return
     if (countChanged) pinOrNotify('smooth')
-    else pinIfFollowing('smooth')
+    else if (turnStarted) pinIfFollowing('smooth')
   }, [messageCount, isThinking, pinOrNotify, pinIfFollowing])
 
   // ── L-83: re-pin to bottom when the thread is REVEALED ────────────────────
@@ -346,12 +350,15 @@ export function useSmartScroll({ messageCount, isThinking, messages }: UseSmartS
     const el = listRef.current
     if (!el || typeof MutationObserver === 'undefined') return
     const observer = new MutationObserver((records) => {
-      if (onlyWaitingIndicatorChanged(records)) pinIfFollowing('auto')
-      else pinOrNotify('auto')
+      // The waiting indicator's own rewrites (the rotating line, "…20s", a
+      // height change as it wraps) move NOBODY — not even a following reader
+      // (buddy r1 P1, 7 Oct: a following reader was nudged by each rewrite).
+      if (onlyWaitingIndicatorChanged(records)) return
+      pinOrNotify('auto')
     })
     observer.observe(el, { childList: true, subtree: true, characterData: true })
     return () => observer.disconnect()
-  }, [pinOrNotify, pinIfFollowing])
+  }, [pinOrNotify])
 
   const handleScroll = useCallback(() => {
     const el = listRef.current

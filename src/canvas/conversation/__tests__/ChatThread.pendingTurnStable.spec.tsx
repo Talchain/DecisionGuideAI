@@ -273,4 +273,35 @@ describe('ChatThread: the dialogue is stable while a turn is in flight', () => {
     expect(scrollToTargets.length, 'precondition: the thread did follow the turn').toBeGreaterThan(0)
     expect(scrollToTargets.every((c) => c.target === thread), 'something other than the thread was scrolled').toBe(true)
   })
+
+  it('a FOLLOWING reader (at the bottom) is not moved by the waiting line either (buddy r1 P1)', async () => {
+    const { rerender } = render(<ChatThread {...props([reply1, ask1], true)} />)
+    await flush()
+    const thread = screen.getByTestId(THREAD_TESTID_DOCKED)
+    Object.defineProperties(thread, {
+      scrollTop: { value: 3600, writable: true, configurable: true },
+      clientHeight: { value: 400, configurable: true },
+      scrollHeight: { value: 4000, configurable: true },
+    })
+    await act(async () => { thread.dispatchEvent(new Event('scroll')) })
+    const before = scrollsToEnd()
+    rerender(<ChatThread {...{ ...props([reply1, ask1], true), longRunningHint: 'Thinking... 20s' }} />)
+    await flush()
+    rerender(<ChatThread {...{ ...props([reply1, ask1], true), longRunningHint: 'Thinking... 25s' }} />)
+    await flush()
+    expect(scrollsToEnd(), 'a waiting-line rewrite moved a reader who was following').toBe(before)
+    expect(thread.scrollTop).toBe(3600)
+    expect(screen.queryByTestId('new-messages-pill')).toBeNull()
+  })
+
+  it('control: the turn STARTING reveals the waiting indicator once to a following reader', async () => {
+    const { rerender } = render(<ChatThread {...props([reply1, ask1], false)} />)
+    await flush()
+    const thread = screen.getByTestId(THREAD_TESTID_DOCKED)
+    const before = scrollsToEnd()
+    rerender(<ChatThread {...props([reply1, ask1], true)} />)
+    await flush()
+    expect(scrollsToEnd()).toBeGreaterThan(before)
+    expect(scrollToTargets.every((c) => c.target === thread)).toBe(true)
+  })
 })
