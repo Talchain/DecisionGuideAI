@@ -4032,7 +4032,7 @@ export function buildAnalysisNewViewModel(
      */
     leaderClaimPermitted: preRun ? false : leaderDesignationPermitted(data.recommendation) === true,
     atAGlance: preRun
-      ? { headline: null, designationWithheldReason: null, designationWithheldRemedy: null, designationWithheldParameters: [], leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null, optionOrigin: null }
+      ? { headline: null, designationWithheldReason: null, designationWithheldRemedy: null, designationWithheldParameters: [], leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, conditionAbsence: null, inputProvenance: null, optionOrigin: null }
       : glance,
     // ⚠ GATED PRE-RUN LIKE EVERY OTHER RUN-DERIVED SECTION. The option NODES
     // exist before any analysis, but "how the options compare" is a reading OF
