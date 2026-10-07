@@ -403,7 +403,7 @@ export const ChatThread = memo(function ChatThread({
                 chips={suggestedChips}
                 proposalFields={msg.proposalFields}
                 replyId={msg.id}
-                openedProposalId={openedProposal?.scenarioId === scenarioId ? openedProposal.id : null}
+                openedProposalId={openedProposal !== null && openedProposal.scenarioId === scenarioId ? openedProposal.id : null}
                 onOpenProposal={id => setOpenedProposal({ scenarioId, id })}
                 onChipClick={(chip) => onChipClick(chip, msg.id)}
                 isThinking={isThinking}

@@ -133,7 +133,7 @@ export function reconcileRestoredProposalFields(
   const last = messages.length - 1
   const reply = messages[last]
   if (held === undefined || reply === undefined || reply.role !== 'assistant' || reply.sessionDivider || reply.synthetic
-    || (reply.actionChips ?? []).some(c => c.id.startsWith('agent-approve-proposal:'))) return [...messages]
+    || (reply.actionChips ?? []).some(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:'))) return [...messages]
   const card = buildSuggestedActionChips([], [held.approve_action, AMEND_PROPOSAL_ACTION, held.decline_action])
   const others = (reply.actionChips ?? []).filter(c => !card.some(k => k.id === c.id))
   return [...messages.slice(0, last),

@@ -15,7 +15,7 @@ export { readProposalFields, readTurnProposalFields, type ProposalEdits, type Pr
 /** Cold restore and §15 replay gap use the existing graph read, with its explicit conversation opt-in. */
 export function useHeldProposalFields(raw: unknown, replyId: string | undefined, chips: readonly ActionChip[]) {
   const scenarioId = useCanvasStore(s => s.currentScenarioId)
-  const cardId = chips.find(c => c.id.startsWith('agent-approve-proposal:'))?.id
+  const cardId = chips.find(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:'))?.id
   const [reload, setReload] = useState<{ scenarioId: string; replyId: string | undefined; cardId: string; raw: unknown } | null>(null)
   useEffect(() => {
     if (raw !== undefined || !cardId || !scenarioId) return
@@ -33,7 +33,7 @@ export function useHeldProposalFields(raw: unknown, replyId: string | undefined,
     return () => controller.abort()
   }, [raw, replyId, cardId, scenarioId])
   const candidate = raw !== undefined ? raw
-    : reload?.scenarioId === scenarioId && reload.replyId === replyId && reload.cardId === cardId ? reload.raw : undefined
+    : reload !== null && reload.scenarioId === scenarioId && reload.replyId === replyId && reload.cardId === cardId ? reload.raw : undefined
   return useMemo(() => readProposalFields(candidate), [candidate])
 }
 
