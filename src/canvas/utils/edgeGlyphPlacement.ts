@@ -459,6 +459,16 @@ export interface GlyphOnPath {
 }
 
 /**
+ * A source mark sits on the first quarter of its own path.  The polarity mark
+ * owns the arrival quarter and midpoint cues (fragility and the driver disc)
+ * own the centre, so this shared path placement keeps the three seats apart.
+ */
+export function resolveSourceGlyphOnPath(poly: GlyphPath): { x: number; y: number } {
+  const fromEnd = poly.length * 0.75
+  return pointBackFromEnd(poly, fromEnd)
+}
+
+/**
  * ⭐ WHERE THE SIGN SITS — on its own drawn path, `metrics` read at the zoom it
  * is painted at. `cardTop` is the target card's top (the rise bound's floor);
  * `keepOuts` are every card box and the target row's band title.

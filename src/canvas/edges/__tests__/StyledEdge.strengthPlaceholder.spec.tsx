@@ -17,6 +17,7 @@
  * jsdom limit: this reads the declared style and marker attributes; it cannot
  * paint. The served witness is the browser probe.
  */
+import { resolveEdgeSignedStrengthDisplay } from '../../domain/edgeValueProvenance'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, fireEvent, act } from '@testing-library/react'
 import { Position } from '@xyflow/react'
@@ -26,6 +27,8 @@ import { STRENGTH_NOT_SET_DASH } from '../edgePresentation'
 import { mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
 import { EDGE_STRENGTH_PLACEHOLDER_SENTENCE } from '../connectorCopy'
 import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH } from '../../utils/graphDisplayCalculations'
+
+const { lod } = vi.hoisted(() => ({ lod: { rung: 'full' } }))
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -50,6 +53,7 @@ vi.mock('../../store', () => ({
       hoveredOptionId: null,
       highlightedEdges: new Set<string>(),
       dimmedEdgeIds: new Set<string>(),
+      lodRung: lod.rung,
       lens: {
         active: 'full',
         _dimmedEdgeIds: new Set<string>(),
@@ -118,6 +122,7 @@ describe('POM-8 — the line: a placeholder draws at the not-set width', () => {
     expect(styleOf(container).vectorEffect).toBe('non-scaling-stroke')
     // Paul, 7 Oct: the same placeholder link has no arrowhead; its not-set width remains.
     expect(headOf(container)).toBeNull()
+    expect(container.querySelector('[data-edge-source-icon]')).toBeNull()
   })
 
   it('CONTRAST: the −0.4 estimate on the same board keeps the Strong width', () => {
@@ -128,6 +133,50 @@ describe('POM-8 — the line: a placeholder draws at the not-set width', () => {
   it('the same number set by a person is drawn at its band again (the flag retires itself)', () => {
     const { container } = render(<StyledEdge {...(props as any)} data={{ ...PLACEHOLDER(), weightSource: 'user' }} />)
     expect(strokeWidthOf(container)).toBe(EDGE_STROKE_WIDTH_BANDS.strong)
+  })
+})
+
+describe('a set causal link carries its strength source icon', () => {
+  beforeEach(() => { lod.rung = 'full' })
+
+  it.each([
+    ['template', 'From brief', 'lucide-file-text'],
+    ['cee', 'Olumi estimate', 'lucide-sparkles'],
+    ['user', 'Set by you', 'lucide-user-check'],
+  ] as const)('%s provenance uses the shared glyph and exact words', (source, words, glyph) => {
+    const { container } = render(<StyledEdge {...(props as any)} data={{ ...ESTIMATE(), weightSource: source }} />)
+    const mark = container.querySelector(`[data-edge-source-icon="${source}"][data-edge-id="e1"]`)
+    expect(mark).not.toBeNull()
+    expect(mark).toHaveAttribute('aria-label', words)
+    expect(mark).toHaveAttribute('title', words)
+    expect(mark!.querySelector(`.${glyph}`)).not.toBeNull()
+  })
+
+  // Same authorship rule as the Model tab (gate 5): the user's own stated figure is NOT Olumi's estimate, and an
+  // accepted Olumi strength says so. Bound to the exact words and glyph; each has the plain-cee row above as contrast.
+  const sized = () => {
+    const d = { ...ESTIMATE(), weightSource: 'cee' } as Record<string, unknown>
+    return { d, w: Math.abs(resolveEdgeSignedStrengthDisplay(d).value) }
+  }
+  it('a strength sized from the user\'s stated figure reads as their brief, never "Olumi estimate"', () => {
+    const { d, w } = sized()
+    const { container } = render(<StyledEdge {...(props as any)} data={{ ...d, strengthStated: w }} />)
+    const mark = container.querySelector('[data-edge-source-icon][data-edge-id="e1"]')
+    expect(mark).toHaveAttribute('aria-label', 'From brief')
+    expect(mark!.querySelector('.lucide-file-text')).not.toBeNull()
+  })
+  it('an accepted Olumi strength reads as accepted', () => {
+    const { d, w } = sized()
+    const { container } = render(<StyledEdge {...(props as any)} data={{ ...d, strengthAccepted: w }} />)
+    const mark = container.querySelector('[data-edge-source-icon][data-edge-id="e1"]')
+    expect(mark).toHaveAttribute('aria-label', 'Olumi\u2019s estimate \u00b7 you accepted it')
+    expect(mark!.querySelector('.lucide-sparkles')).not.toBeNull()
+  })
+
+  it('far zoom hides the source mark', () => {
+    lod.rung = 'line'
+    const { container } = render(<StyledEdge {...(props as any)} data={{ ...ESTIMATE(), weightSource: 'cee' }} />)
+    expect(container.querySelector('[data-edge-source-icon]')).toBeNull()
   })
 })
 

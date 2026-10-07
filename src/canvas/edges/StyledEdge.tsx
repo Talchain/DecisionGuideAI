@@ -98,6 +98,7 @@ import {
 import { isStrengthPlaceholder } from '../domain/strengthPlaceholder'
 import { isStrengthStated } from '../domain/strengthStated'
 import { isStrengthDefinitional } from '../domain/strengthDefinitional'
+import { edgeStrengthSourceMark } from '../domain/edgeStrengthSourceIcon'
 import { registerEdgeHover, routeEdgeHover, routeEdgeHoverOnMove, endEdgeHover, claimEdgeHover, type EdgeHoverBehaviour, type EdgeHoverSeat } from './edgeHoverArbiter'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
@@ -108,6 +109,7 @@ import { GOAL_CHANCE_DRIVER_TAG, GOAL_CHANCE_DRIVER_TAG_Z, goalChanceDriverLinks
 import {
   resolveArrivalSlotOnBoard,
   resolvePolarityGlyphOnPath,
+  resolveSourceGlyphOnPath,
   glyphMetricsAt,
   arrivalHeadKeepOut,
   polarityGlyphTransform,
@@ -2314,6 +2316,15 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     return goalChanceDriverTagAria(labels)
   }, [isGoalChanceDriverEdge, report, goalChanceDriverNodes, source, target])
   const showGoalChanceDriverTag = isGoalChanceDriverEdge && !isStructuralEdge && !isLodBodyHidden
+  const strengthSourceMark = useMemo(
+    () => edgeStrengthSourceMark(edgeData as Record<string, unknown> | undefined),
+    [edgeData],
+  )
+  const sourceGlyphPlacement = useMemo(() => {
+    if (!strengthSourceMark || isStructuralEdge || isLodBodyHidden || isEdgeStrengthNotSet(edgeData as Record<string, unknown> | undefined)) return null
+    const poly = flattenSvgPath(edgePath)
+    return poly ? resolveSourceGlyphOnPath(poly) : null
+  }, [strengthSourceMark, isStructuralEdge, isLodBodyHidden, edgeData, edgePath])
 
   // Causal lens: hide structural edges entirely
   if (isLensHidden) return null
@@ -2825,6 +2836,35 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           >
             {isSignDisputed ? '±' : statedDirection === 'positive' ? '+' : '−'}
           </div>
+        </EdgeLabelRenderer>
+      )}
+
+      {strengthSourceMark && sourceGlyphPlacement && (
+        <EdgeLabelRenderer>
+          <button
+            type="button"
+            data-edge-source-icon={strengthSourceMark.source}
+            data-edge-id={edgeIdKey}
+            aria-label={strengthSourceMark.label}
+            title={strengthSourceMark.label}
+            className="nodrag nopan inline-flex items-center justify-center rounded-full border border-panel-border bg-panel text-text-light hover:text-text-body focus-visible:outline focus-visible:outline-2 focus-visible:outline-info"
+            style={{
+              position: 'absolute',
+              width: FRAGILE_CUE_DISC_SIZE,
+              height: FRAGILE_CUE_DISC_SIZE,
+              padding: 0,
+              transform: `translate(-50%, -50%) translate(${sourceGlyphPlacement.x}px,${sourceGlyphPlacement.y}px)`,
+              pointerEvents: 'all',
+              opacity: isSelectionDimmed ? EDGE_SELECTION_DIM_OPACITY : undefined,
+            }}
+            onPointerDown={event => event.stopPropagation()}
+            onClick={event => {
+              event.stopPropagation()
+              openEdgeStrengthEditor(edgeIdKey, { centre: false })
+            }}
+          >
+            <strengthSourceMark.Icon size={10} className={CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES[10]} aria-hidden="true" />
+          </button>
         </EdgeLabelRenderer>
       )}
 
