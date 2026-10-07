@@ -136,7 +136,7 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
   it('never upgrades within-noise movement into an option tie', () => {
     mount(runChangeDelta({ leader: { changed: true, prior_leading_option_id: 'opt_49', current_leading_option_id: 'opt_60', noise_verdict: 'within_noise' } }))
     expect(section('What changed between runs')).toHaveTextContent('In this model, the option the most runs supported changed from Keep £49 to Raise to £60')
-    expect(section('What changed between runs')).toHaveTextContent('Too small to tell apart from ordinary run-to-run movement.')
+    expect(section('What changed between runs')).toHaveTextContent('Too small to tell apart from ordinary run-to-run variation.')
     // Union, never replace: a regex, so neither the old nor the model-relative near-tie words slip through.
     expect(screen.queryByText(/too close to call/i)).toBeNull()
   })

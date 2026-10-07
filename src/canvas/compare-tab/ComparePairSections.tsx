@@ -171,12 +171,15 @@ export function ComparePairSections({
                 <li key={g.optionId} data-option-id={g.optionId}>
                   {/* The whole pair in its words, for assistive technology; the drawn line below repeats it for the eye. */}
                   <span className="sr-only" data-testid="compare-goal-chance-words">{`${name}: ${goalChanceCompareWords(g.prior, g.current)}`}</span>
-                  <OptionNameLink name={name} link={optionLink(g.optionId)} />
-                  <p className={`${typography.panelTabular} flex flex-wrap items-baseline gap-x-2 m-0`} aria-hidden="true" data-testid="compare-goal-chance-pair">
-                    <span className={tone(g.prior, false)}>{goalChanceSideWords(g.prior)}</span>
-                    <ArrowRight className={`${icon('inline')} self-center flex-shrink-0 text-text-light`} aria-hidden="true" />
-                    <span className={tone(g.current, true)}>{goalChanceSideWords(g.current)}</span>
-                  </p>
+                  {/* v3 artefact row: the option, then its pair on the same line at the right; a long name pushes the pair below. */}
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3" data-testid="compare-goal-chance-row">
+                    <OptionNameLink name={name} link={optionLink(g.optionId)} />
+                    <p className={`${typography.panelTabular} flex items-baseline gap-x-2 m-0 ml-auto`} aria-hidden="true" data-testid="compare-goal-chance-pair">
+                      <span className={tone(g.prior, false)}>{goalChanceSideWords(g.prior)}</span>
+                      <ArrowRight className={`${icon('inline')} self-center flex-shrink-0 text-text-light`} aria-hidden="true" />
+                      <span className={tone(g.current, true)}>{goalChanceSideWords(g.current)}</span>
+                    </p>
+                  </div>
                 </li>
               )
             })}
