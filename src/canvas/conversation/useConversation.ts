@@ -227,6 +227,9 @@ import {
   readNarration,
 } from './narrationTurn'
 import { readGuidance } from './guidanceRows'
+import { DskClaimProvenanceSchema } from '@talchain/schemas/boundary'
+import { readActionBar } from './actionBar/actionBarContract'
+import { reportActionBarIssue, useActionBarStore } from './actionBar/actionBarStore'
 import { readProposalPreview } from './proposalPreview'
 import { readRecordedServerTurnId } from './serverTurnId'
 import {
@@ -6237,6 +6240,15 @@ export function useConversation(): UseConversationReturn {
           // Result-first (narrationTurn.ts). LIVE path only: a transcript restore never reaches this branch.
           const narration = readNarration(target.response)
           const guidance = readGuidance(target.response)
+          // Additive wire fields may live in the parser sidecar until the turn schema declares them.
+          const scienceResponse = target.response as OlumiResponseWithExtensions & { _action?: unknown }
+          const action = scienceResponse._action ?? scienceResponse[ADDITIVE_EXTENSIONS_KEY]?._action
+          const actionScience = DskClaimProvenanceSchema.safeParse(
+            action !== null && typeof action === 'object' ? (action as Record<string, unknown>).science : undefined,
+          )
+          // S-B slice 1: the latest answer's action bar, for chat and the Reasoning tab alike. No bar on the answer → none
+          // is drawn (the surfaces keep the controls they had).
+          useActionBarStore.getState().setBar(scenarioIdAtDispatch ?? null, readActionBar(target.response, reportActionBarIssue))
           const proposalPreview = readProposalPreview(target.response)
           if (namesALatestRun(narration)) {
             latestRunKeyRef.current = narration.runKey
@@ -6257,6 +6269,7 @@ export function useConversation(): UseConversationReturn {
             ...(offersHeldApproval ? { heldTurnId: turnClientId } : {}),
             ...(narration ? { narration } : {}),
             ...(guidance ? { guidance } : {}),
+            ...(actionScience.success ? { actionScience: actionScience.data } : {}),
             ...(proposalPreview ? { proposalPreview } : {}),
             ...(transcriptBlocks.length > 0 ? { blocks: transcriptBlocks } : {}),
             ...(actionChips.length > 0 ? { actionChips } : {}),
