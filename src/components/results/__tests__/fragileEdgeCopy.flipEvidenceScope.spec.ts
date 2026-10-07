@@ -311,7 +311,7 @@ describe('ANTI-RECURRENCE — a NAME TRIPWIRE over the module\'s exports', () =>
     for (const s of strings) expect(s).not.toMatch(FLIP_CLAIM_RE)
     // …and the alternative is still named in the two sentences that carry it.
     expect(strings[0]).toContain(ALT)
-    expect(strings[3]).toContain(ALT)
+    expect(strings[4]).toContain(ALT)
   })
 
   it('the lens copy (edge hover label, lens row) names the alternative with no flip claim and no winner arrow', () => {

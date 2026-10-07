@@ -441,7 +441,8 @@ describe('StressTestSection fragile factors — STRING 4: the expert E-value not
   it('ANTI-VACUITY: the PERMITTED note carries the ruled explanation', () => {
     const { container } = renderCard(false)
     expect(container.textContent ?? '').toContain("How far this link's strength could be off before the comparison between options changes: about ×2.0.")
-    expect(container.textContent ?? '').not.toMatch(FRAGILE_CLAIM_RE)
+    // The PERMITTED card's other lines may carry the flip claim; the note itself no longer does.
+    expect(fragileEValueNote({ eValue: 2.0, designationsWithheld: false, flipEvidenceAttestsNoFlip: false })).not.toMatch(FRAGILE_CLAIM_RE)
   })
 
   it('WITHHELD: the note says what would change without naming a recommendation', () => {
