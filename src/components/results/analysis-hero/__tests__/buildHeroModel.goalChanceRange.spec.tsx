@@ -158,3 +158,45 @@ describe('PR-S3: goal-chance lines under a leader and the deadline’s one home'
     expect(chart(d).headline).not.toContain('has the highest chance of meeting your goal')
   })
 })
+
+describe('Science S3 (DL #87 7 Oct, A1 r3 review): a range is never beside a withhold that bars it, nor a point', () => {
+  const PLACEHOLDER_LAST = { code: 'GOAL_FIGURES_PLACEHOLDER_PATH', severity: 'warning', message: 'Not shown.', option_ids: ['last'] }
+
+  it('RED: a run-wide withhold reaches the hero through the real hook, and the range lines say nothing', () => {
+    seedPaulRun(SERVED_STAMP)
+    const link = fx.draft.edges[0]
+    const record = { ...RANGE, option_ids: [CONVERTIBLE], range_by_option: {
+      [CONVERTIBLE]: { ...RANGE.range_by_option.last, from: link.from, to: link.to } } }
+    const runWide = { code: 'GOAL_PROBABILITY_IDENTITY_NOT_EVALUATED', severity: 'warning', message: 'Not shown.' }
+    const state = useCanvasStore.getState()
+    useCanvasStore.setState({ results: {
+      ...state.results, report: { ...state.results?.report, inference_warnings: [record, runWide] },
+    } } as never)
+    const live = renderHook(() => useResultsSectionData()).result.current
+    expect(live.goalChanceRange).toBeNull()
+    const { container } = render(<GoalChanceRangeLines range={live.goalChanceRange ?? null} labelOf={live.goalChanceDriverNames!.labelOf} />)
+    expect(container.innerHTML).toBe('')
+  })
+
+  it.each([
+    ['PLoT run-wide, scoped elsewhere', { code: 'GOAL_FIGURES_USER_EFFECT_CLAMPED', option_ids: ['other'] }, null],
+    ['options identical on this option', { code: 'GOAL_FIGURES_OPTIONS_IDENTICAL', option_ids: ['last'] }, null],
+    ['product not read, unscoped', { code: 'GOAL_FIGURES_PRODUCT_NOT_READ' }, null],
+    ['probability unusable, unscoped', { code: 'GOAL_FIGURES_PROBABILITY_UNUSABLE' }, null],
+    ['CONTROL options identical on another option', { code: 'GOAL_FIGURES_OPTIONS_IDENTICAL', option_ids: ['other'] }, ['last']],
+    ['CONTROL target not testable, unscoped (its own cause)', { code: 'GOAL_FIGURES_TARGET_NOT_TESTABLE' }, ['last']],
+  ])('%s', (_name, withhold, kept) => {
+    const range = readGoalChanceRange([RANGE, PLACEHOLDER_LAST, { severity: 'warning', message: 'Not shown.', ...withhold }])
+    expect(range?.optionIds ?? null).toEqual(kept)
+  })
+
+  it('RED: a range option shows no point in the chart; CONTROL without the range it does', () => {
+    const d = data('each', { withheld_option_ids: ['last'], pct_by_option: { other: 20, leader: 62, next: 41 } })
+    d.goalChanceRange = readGoalChanceRange([RANGE, PLACEHOLDER_LAST])
+    const last = chart(d).rows.find((r) => r.id === 'last')!
+    expect(last.goal).toEqual({ value: null, readout: '—' })
+    expect(chart(d).rows.find((r) => r.id === 'leader')!.goal.readout).not.toBe('—')
+    d.goalChanceRange = null
+    expect(chart(d).rows.find((r) => r.id === 'last')!.goal.value).toBe(0.05)
+  })
+})

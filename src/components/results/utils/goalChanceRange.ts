@@ -1,3 +1,5 @@
+import { GOAL_FIGURES_USER_EFFECT_CLAMPED_CODE, GOAL_FIGURES_WITHHELD_CODES, GOAL_IDENTITY_NOT_EVALUATED_CODE } from './goalIdentityWithheld'
+
 /**
  * CEE's GOAL_CHANCE_RANGE record, read by identity. The UI checks shape only:
  * it never derives bounds, chooses a link, or orders options by chance.
@@ -40,7 +42,23 @@ function readEntry(v: unknown): GoalChanceRangeEntry | null {
   }
 }
 
-/** Exactly one record; invalid option entries are dropped, without rejecting valid siblings. */
+/**
+ * ⛔ Science S3 (DL #87 7 Oct; the same rule as CEE PR-S2's `goalChanceRangeBarredForAgent`): a range exists BECAUSE its
+ * option's point figure was withheld for an unsized path — the placeholder-path or target-not-testable withhold. Every
+ * other withhold bars it: PLoT's run-wide pair on every option; the rest when unscoped or scoped to that option. The
+ * Run-wide "withheld" sentence is NOT the test: it also fires on the two withholds a range sits beside.
+ */
+const RANGE_COMPATIBLE_WITHHOLDS: ReadonlySet<string> = new Set(['GOAL_FIGURES_PLACEHOLDER_PATH', 'GOAL_FIGURES_TARGET_NOT_TESTABLE'])
+const RUN_WIDE_WITHHOLDS: ReadonlySet<string> = new Set([GOAL_IDENTITY_NOT_EVALUATED_CODE, GOAL_FIGURES_USER_EFFECT_CLAMPED_CODE])
+const RANGE_BARRING_WITHHOLDS: ReadonlySet<string> = new Set(
+  [...GOAL_FIGURES_WITHHELD_CODES, 'GOAL_FIGURES_PROBABILITY_UNUSABLE'].filter((c) => !RANGE_COMPATIBLE_WITHHOLDS.has(c)),
+)
+function rangeBarred(warnings: readonly unknown[], optionId: string): boolean {
+  return warnings.some((w) => isRec(w) && typeof w.code === 'string' && RANGE_BARRING_WITHHOLDS.has(w.code)
+    && (RUN_WIDE_WITHHOLDS.has(w.code) || !Array.isArray(w.option_ids) || w.option_ids.length === 0 || w.option_ids.includes(optionId)))
+}
+
+/** Exactly one record; invalid or barred option entries are dropped, without rejecting valid siblings. */
 export function readGoalChanceRange(inferenceWarnings: unknown): GoalChanceRange | null {
   if (!Array.isArray(inferenceWarnings)) return null
   const records = inferenceWarnings.filter((w) => isRec(w) && w.code === 'GOAL_CHANCE_RANGE')
@@ -53,7 +71,7 @@ export function readGoalChanceRange(inferenceWarnings: unknown): GoalChanceRange
   for (const id of ids) {
     if (!Object.prototype.hasOwnProperty.call(r.range_by_option, id)) continue
     const entry = readEntry(r.range_by_option[id])
-    if (entry !== null) rangeByOption[id] = entry
+    if (entry !== null && !rangeBarred(inferenceWarnings, id)) rangeByOption[id] = entry
   }
   const optionIds = ids.filter((id) => Object.prototype.hasOwnProperty.call(rangeByOption, id))
   return optionIds.length === 0 ? null : { optionIds, rangeByOption, horizonLine: readGoalChanceHorizonLine(r) }

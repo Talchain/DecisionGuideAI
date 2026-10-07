@@ -429,6 +429,7 @@ export function buildHeroModel(
     (ft) => ft.flip_value != null,
   )
 
+  const rangeOptionIds = new Set(data.goalChanceRange?.optionIds ?? [])
   // One row per option, preserving the display order established above.
   const rows: HeroRowVM[] = options.map((o, i) => {
     // UI-SEM-071: without a USER target the goal slot is suppressed at
@@ -436,7 +437,8 @@ export function buildHeroModel(
     // goal claim (allGoalBelowFloor, goalLeaderRow, goal lens availability)
     // all key off this value, so a synthesized goalProbability cannot
     // bypass the gate anywhere.
-    const goalValue = hasUserTarget ? (o.goalProbability ?? null) : null
+    // ⛔ Science S3 (DL #87 7 Oct): an option CEE shows as a RANGE never gets a point anywhere on screen.
+    const goalValue = hasUserTarget && !rangeOptionIds.has(o.id) ? (o.goalProbability ?? null) : null
     const centre = outcomeIsUnitless ? null : outcomeCentre(o)
     const p10 = outcomeIsUnitless ? null : outcomeP10(o)
     const p90 = outcomeIsUnitless ? null : outcomeP90(o)
