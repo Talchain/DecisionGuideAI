@@ -38,11 +38,19 @@ vi.mock('../../../services/guestCopyService', () => ({
 }))
 
 import GuestCopyOnSignIn from '../GuestCopyOnSignIn'
+import { noteGuestWork, readGuestWork } from '../../../lib/guestWork'
+import { readPendingGuestCopies } from '../../../lib/pendingGuestCopy'
 
 const GUEST = '7c9e6679-7425-40de-944b-e07fc1f90ae7'
 const COPY = '3b241101-e2bb-4255-8caf-4136c566a962'
 const TOKEN = 'eyJ.header.sig'
 const OTHER = '9f8b7a6c-1234-4def-8abc-0123456789ab'
+
+/** S-G: the guest sent a turn on `id` a minute ago (the guest-work ledger), with the pointer on it. */
+function workedOn(id: string) {
+  localStorage.setItem('olumi-canvas-current-scenario-id', id)
+  noteGuestWork(id, null, Date.now() - 60_000)
+}
 
 function Where() {
   return <div data-testid="where">{useLocation().pathname}</div>
@@ -75,7 +83,7 @@ beforeEach(() => {
 
 describe('GuestCopyOnSignIn', () => {
   it('guest on the canvas signs in → ONE copy of the guest id → the COPY opens', async () => {
-    localStorage.setItem('olumi-canvas-current-scenario-id', GUEST)
+    workedOn(GUEST)
     mockRequest.mockResolvedValue({ kind: 'copied', scenarioId: COPY, created: true })
     renderAt('/canvas')
 
@@ -88,8 +96,21 @@ describe('GuestCopyOnSignIn', () => {
     expect(mockAdopt).toHaveBeenCalledWith(COPY)
   })
 
+  it('S-G (7 Oct prod): the canvas pointer names a decision this browser never sent a turn for → NO copy, it is OFFERED', async () => {
+    localStorage.setItem('olumi-canvas-current-scenario-id', GUEST) // a pointer kept from an earlier visit
+    mockRequest.mockResolvedValue({ kind: 'copied', scenarioId: COPY, created: true })
+    renderAt('/')
+
+    emit('INITIAL_SESSION', null)
+    emit('SIGNED_IN', { access_token: TOKEN })
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+
+    expect(mockRequest).not.toHaveBeenCalled()
+    expect(readGuestWork().map((e) => e.id)).toEqual([GUEST])
+  })
+
   it('CONTRAST: signed in on the hub → copied, but no navigation (the refreshed list shows it)', async () => {
-    localStorage.setItem('olumi-canvas-current-scenario-id', GUEST)
+    workedOn(GUEST)
     mockRequest.mockResolvedValue({ kind: 'copied', scenarioId: COPY, created: true })
     renderAt('/')
 
@@ -127,7 +148,7 @@ describe('GuestCopyOnSignIn', () => {
     await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
 
     expect(mockRequest).toHaveBeenCalledTimes(1)
-    expect(localStorage.getItem('olumi.pendingGuestCopy.v1')).toBe(GUEST)
+    expect(readPendingGuestCopies()).toEqual([GUEST])
   })
 
   it('auth unavailable (stubbed or failing client): the shell still renders, nothing is sent', () => {
@@ -140,14 +161,14 @@ describe('GuestCopyOnSignIn', () => {
   })
 
   it('owner ruling: a 503 keeps the id → SIGNED_OUT → user B signs in → NO copy call for B', async () => {
-    localStorage.setItem('olumi-canvas-current-scenario-id', GUEST)
+    workedOn(GUEST)
     mockRequest.mockResolvedValue({ kind: 'retry_later', reason: 'copy_unavailable' })
     renderAt('/')
 
     emit('INITIAL_SESSION', null)
     emit('SIGNED_IN', { access_token: 'token-a' })
     await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(1))
-    expect(localStorage.getItem('olumi.pendingGuestCopy.v1')).toBe(GUEST)
+    expect(readPendingGuestCopies()).toEqual([GUEST])
 
     emit('SIGNED_OUT', null)
     emit('SIGNED_IN', { access_token: 'token-b' })
@@ -155,11 +176,11 @@ describe('GuestCopyOnSignIn', () => {
 
     expect(mockRequest).toHaveBeenCalledTimes(1)
     expect(mockRequest).not.toHaveBeenCalledWith(GUEST, 'token-b')
-    expect(localStorage.getItem('olumi.pendingGuestCopy.v1')).toBeNull()
+    expect(readPendingGuestCopies()).toEqual([])
   })
 
   it('CONTRAST: after the sign-out a guest starts a NEW decision → the next sign-in copies THAT one', async () => {
-    localStorage.setItem('olumi-canvas-current-scenario-id', GUEST)
+    workedOn(GUEST)
     mockRequest.mockResolvedValue({ kind: 'retry_later', reason: 'copy_unavailable' })
     renderAt('/')
 
@@ -167,7 +188,7 @@ describe('GuestCopyOnSignIn', () => {
     emit('SIGNED_IN', { access_token: 'token-a' })
     await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(1))
     emit('SIGNED_OUT', null)
-    localStorage.setItem('olumi-canvas-current-scenario-id', OTHER)
+    workedOn(OTHER)
     emit('SIGNED_IN', { access_token: 'token-b' })
 
     await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(2))
@@ -175,7 +196,7 @@ describe('GuestCopyOnSignIn', () => {
   })
 
   it('on an UNRELATED scenario route: copied, but no adoption and no navigation away from what the user opened', async () => {
-    localStorage.setItem('olumi-canvas-current-scenario-id', GUEST)
+    workedOn(GUEST)
     store.current = OTHER
     mockRequest.mockResolvedValue({ kind: 'copied', scenarioId: COPY, created: true })
     renderAt(`/scenario/${OTHER}`)
@@ -190,7 +211,7 @@ describe('GuestCopyOnSignIn', () => {
   })
 
   it('on /canvas but adoption DECLINED (another decision is live): no navigation', async () => {
-    localStorage.setItem('olumi-canvas-current-scenario-id', GUEST)
+    workedOn(GUEST)
     store.current = OTHER
     mockRequest.mockResolvedValue({ kind: 'copied', scenarioId: COPY, created: true })
     renderAt('/canvas')
@@ -205,7 +226,7 @@ describe('GuestCopyOnSignIn', () => {
   })
 
   it('account changes while the copy runs: the first account\'s late success adopts, navigates and clears NOTHING', async () => {
-    localStorage.setItem('olumi-canvas-current-scenario-id', GUEST)
+    workedOn(GUEST)
     let finish: (o: unknown) => void = () => {}
     mockRequest.mockImplementation(() => new Promise((resolve) => { finish = resolve }))
     renderAt('/canvas')
@@ -218,11 +239,11 @@ describe('GuestCopyOnSignIn', () => {
 
     expect(mockAdopt).not.toHaveBeenCalled()
     expect(screen.getByTestId('where').textContent).toBe('/canvas')
-    expect(localStorage.getItem('olumi.pendingGuestCopy.v1')).toBe(GUEST)
+    expect(readPendingGuestCopies()).toEqual([GUEST])
   })
 
   it('route already names ANOTHER scenario while the store still shows the guest (its load in flight): NO adoption, no navigation', async () => {
-    localStorage.setItem('olumi-canvas-current-scenario-id', GUEST)
+    workedOn(GUEST)
     store.current = GUEST
     mockRequest.mockResolvedValue({ kind: 'copied', scenarioId: COPY, created: true })
     renderAt(`/scenario/${OTHER}`)

@@ -34,6 +34,11 @@ export const USER_SCOPED_STORAGE_KEYS = [
   'olumi-canvas-run-history',
   // "This browser was signed in" (`lapseBoundary.ts`): the boundary has now run, so the next guest boot is not a lapse.
   SIGNED_IN_HERE_KEY,
+  // S-G: guest work captured or offered for the account that just ended (`lib/pendingGuestCopy.ts`, `lib/guestWork.ts`).
+  // A lapse fires no SIGNED_OUT, so without these the NEXT person's sign-in would copy or be offered the previous
+  // person's guest decisions (ACCOUNTS owner ruling, 2 Oct). A first sign-in (guest → A) is not a boundary: the guest's
+  // own work reaches A's sign-in untouched. Literals: this leaf imports nothing; pinned to the owners' constants.
+  'olumi.pendingGuestCopy.v1', 'olumi.pendingGuestCopy.v2', 'olumi.guestWork.v1',
 ] as const
 
 // `olumi-canvas-autosave:` — a cold-load deep link's preserved copies (`scenarios.keyedAutosaveKey`): one per scenario,
