@@ -71,7 +71,7 @@ describe('the artefact mounted in the existing Compare body', () => {
     expect(artefact).toHaveAttribute('data-testid', RUN_CHANGE_ARTEFACT_TESTID)
     expect(artefact).toHaveAttribute('data-prior-run-id', 'run-a')
     expect(artefact).toHaveAttribute('data-current-run-id', 'run-b')
-    const row = within(screen.getByRole('region', { name: 'What you changed' })).getByTestId(`${WHATS_CHANGED_TESTID}-input-row`)
+    const row = within(screen.getByRole('region', { name: 'What changed in the model' })).getByTestId(`${WHATS_CHANGED_TESTID}-input-row`)
     expect(row).toHaveTextContent('Pro price, Raise to £60')
     expect(row).toHaveTextContent('£59 → £60')
     // Reasoning's shared row; the wire fields it renders are named once, on its section.

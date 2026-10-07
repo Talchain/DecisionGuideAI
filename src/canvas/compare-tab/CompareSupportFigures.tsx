@@ -15,9 +15,11 @@
  *     designations, in which case the producer's own order stands. Compare adds no ranking rule of its own.
  */
 import { useState } from 'react'
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Info } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS, action, icon } from '../../components/results/analysisNew/panelSurfaces'
 import { NodeMark } from '../../components/results/analysisNew/nodeMarks'
+import { PanelIconButton } from '../../components/results/analysisNew/PanelIconButton'
 import { FIGURE_MARKER_W, FIGURE_RADIUS, FIGURE_TRACK_HEIGHT, FIGURE_TRACK_TONE, markerLeft } from '../../components/results/analysisNew/PanelFigure'
 import { movementVerdictText, WHATS_CHANGED_TESTID } from '../../components/results/analysisNew/sections/WhatsChanged'
 import type { RunDeltaMovement } from '../../components/results/analysisNew/runDeltaView'
@@ -26,6 +28,19 @@ import { sortOptionsForDisplay } from '../../components/results/utils/optionDisp
 /** Options shown before "Show N more" — enough for most decisions, short enough to keep the changes in view. */
 export const OPTIONS_SHOWN_FIRST = 3
 export const COMPARE_SUPPORT_TESTID = 'compare-support'
+
+/**
+ * How to read the figures (v3 handoff §3): what a marker is, in the glossary's own words for a run share
+ * (`METRIC_LEGEND_ROWS`, verb "supported", DL #87 6004906342), and what it is not. Both runs share one scale.
+ */
+export const COMPARE_SUPPORT_HELP =
+  'Each marker is the share of runs that supported the option under this model’s assumptions, on one 0 to 100% scale for both runs. It is not the option’s chance of meeting your goal.'
+
+/** The two ends of the shared track (v3 artefact axis). Positions only: never a value, never better or worse. */
+export const COMPARE_SUPPORT_AXIS = ['Less often', 'More often'] as const
+
+/** Which run's markers the legend emphasises; both stay drawn (v3 handoff §3, optional emphasis). */
+type Series = 'earlier' | 'latest' | null
 
 /** An option's link to its node on the canvas, or `null` when the canvas has no node for it now. */
 export type OptionCanvasLink = (optionId: string) => { focus: () => void; on: () => void; off: () => void } | null
@@ -49,49 +64,79 @@ export function connectorSpan(prior: number, current: number): { left: string; w
 }
 
 /** Two positions on one track. Only ever mounted for a movement whose magnitude the producer licenses. */
-function SupportPairFigure({ m }: { m: RunDeltaMovement }): JSX.Element {
+function SupportPairFigure({ m, series = null }: { m: RunDeltaMovement; series?: Series }): JSX.Element {
   const moved = m.current !== m.prior
   const dashed = m.noiseVerdict !== 'signal'
+  // Emphasis dims the OTHER run's marker; it never hides it, so the pair always stays a pair.
+  const dim = (which: 'earlier' | 'latest') => (series !== null && series !== which ? ' opacity-40' : '')
   return (
     <div className="relative h-[15px] mt-1.5" aria-hidden="true" data-testid={`${COMPARE_SUPPORT_TESTID}-figure`}
-      data-connector={dashed ? 'dashed' : 'solid'}>
+      data-connector={dashed ? 'dashed' : 'solid'} data-emphasis={series ?? undefined}>
       <div className={`absolute inset-x-0 top-1/2 -translate-y-1/2 ${FIGURE_TRACK_HEIGHT} ${FIGURE_RADIUS} ${FIGURE_TRACK_TONE}`} />
       {moved ? (
         <div className={`absolute top-1/2 -translate-y-1/2 border-t-2 ${dashed ? 'border-dashed border-text-light' : 'border-solid border-info/60'}`}
           style={connectorSpan(m.prior, m.current)} data-testid={`${COMPARE_SUPPORT_TESTID}-connector`} />
       ) : null}
-      <span className={`${MARKER} bg-panel border-2 border-text-light`} style={{ left: markerLeft(m.prior) }} data-marker="previous" />
-      <span className={`${MARKER} bg-info border-2 border-panel ring-1 ring-info/50`} style={{ left: markerLeft(m.current) }} data-marker="latest" />
+      <span className={`${MARKER} bg-panel border-2 border-text-light${dim('earlier')}`} style={{ left: markerLeft(m.prior) }} data-marker="previous" />
+      <span className={`${MARKER} bg-info border-2 border-panel ring-1 ring-info/50${dim('latest')}`} style={{ left: markerLeft(m.current) }} data-marker="latest" />
     </div>
   )
 }
 
-function Legend(): JSX.Element {
+/** The legend names both runs; pressing one emphasises its markers (press again to clear). Both always stay drawn. */
+function Legend({ series, onSeries }: { series: Series; onSeries: (s: Series) => void }): JSX.Element {
+  const item = (which: 'earlier' | 'latest', name: string, dot: string) => (
+    <button
+      type="button"
+      className={`${typography.panelMeta} ${action('inline')} inline-flex items-center gap-1 ${series === which ? 'text-text-header' : 'text-text-light'}`}
+      aria-pressed={series === which}
+      title={`Emphasise the ${which} positions; both stay shown`}
+      onClick={() => onSeries(series === which ? null : which)}
+      data-testid={`${COMPARE_SUPPORT_TESTID}-legend-${which}`}
+    >
+      <span className={`inline-block w-[9px] h-[9px] rounded-full ${dot}`} aria-hidden="true" />{name}
+    </button>
+  )
   return (
-    <div className={`${typography.panelMeta} text-text-light flex items-center gap-3 mt-1`} aria-hidden="true">
-      <span className="inline-flex items-center gap-1"><span className="inline-block w-[9px] h-[9px] rounded-full bg-panel border-2 border-text-light" />Earlier</span>
-      <span className="inline-flex items-center gap-1"><span className="inline-block w-[9px] h-[9px] rounded-full bg-info" />Latest</span>
+    <div className="flex items-center gap-3 mt-1">
+      {item('earlier', 'Earlier', 'bg-panel border-2 border-text-light')}
+      {item('latest', 'Latest', 'bg-info')}
     </div>
   )
 }
+
+/** A movement drawn without a figure (`not_noise_qualified`): its direction as an arrow beside the words, no track. */
+const DIRECTION_ICON = { up: ArrowUpRight, down: ArrowDownRight, level: ArrowRight } as const
 
 /** Reasoning's option name (OptionsComparison): the option's own mark, then its name; the name is the canvas link. */
 const OPTION_NAME = `${typography.panelBody} text-text-body break-words text-left`
 
-function OptionRow({ m, link }: { m: RunDeltaMovement; link: ReturnType<OptionCanvasLink> }): JSX.Element {
-  const name = m.label ?? 'An option this run does not name'
+/** An option's mark and name; the name is its canvas link when the canvas has the option now. Shared by both option lists. */
+export function OptionNameLink({ name, link }: { name: string; link: ReturnType<OptionCanvasLink> }): JSX.Element {
   const label = <><NodeMark kind="option" className={`${icon('inline')} mr-1 inline-block align-[-1px]`} />{name}</>
+  return link ? (
+    <button type="button" className={`${OPTION_NAME} inline-flex items-center min-h-[24px] rounded-md -ml-1 px-1 py-0.5 cursor-pointer transition-colors hover:text-info ${ACTION_FOCUS}`}
+      aria-label={`Show on the canvas: ${name}`} onClick={link.focus} onMouseEnter={link.on} onMouseLeave={link.off} onFocus={link.on} onBlur={link.off}>
+      {label}
+    </button>
+  ) : <span className={`${OPTION_NAME} block`}>{label}</span>
+}
+
+function OptionRow({ m, link, series }: { m: RunDeltaMovement; link: ReturnType<OptionCanvasLink>; series: Series }): JSX.Element {
+  const name = m.label ?? 'An option this run does not name'
   return (
     <li className="py-1.5" data-testid={`${COMPARE_SUPPORT_TESTID}-option`} data-option-id={m.optionId} data-verdict={m.noiseVerdict}
       data-wire-fields="run_delta.win_probabilities[].option_id run_delta.win_probabilities[].prior run_delta.win_probabilities[].current run_delta.win_probabilities[].noise_verdict">
-      {link ? (
-        <button type="button" className={`${OPTION_NAME} inline-flex items-center min-h-[24px] rounded-md -ml-1 px-1 py-0.5 cursor-pointer transition-colors hover:text-info ${ACTION_FOCUS}`}
-          aria-label={`Show on the canvas: ${name}`} onClick={link.focus} onMouseEnter={link.on} onMouseLeave={link.off} onFocus={link.on} onBlur={link.off}>
-          {label}
-        </button>
-      ) : <span className={`${OPTION_NAME} block`}>{label}</span>}
-      {m.mayShowMagnitude ? <SupportPairFigure m={m} /> : null}
-      <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`}>{movementVerdictText(m)}</p>
+      <OptionNameLink name={name} link={link} />
+      {m.mayShowMagnitude ? <SupportPairFigure m={m} series={series} /> : null}
+      {m.mayShowMagnitude ? (
+        <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`}>{movementVerdictText(m)}</p>
+      ) : (
+        <p className={`${typography.panelMeta} text-text-light mt-1 mb-0 flex items-start gap-1.5`} data-direction={m.direction}>
+          {(() => { const Arrow = DIRECTION_ICON[m.direction]; return <Arrow className={`${icon('inline')} flex-shrink-0 mt-0.5`} aria-hidden="true" data-testid={`${COMPARE_SUPPORT_TESTID}-direction`} /> })()}
+          <span>{movementVerdictText(m)}</span>
+        </p>
+      )}
     </li>
   )
 }
@@ -103,6 +148,8 @@ export function CompareSupportFigures({ movements, designationsWithheld, optionL
   optionLink: OptionCanvasLink
 }): JSX.Element | null {
   const [all, setAll] = useState(false)
+  const [help, setHelp] = useState(false)
+  const [series, setSeries] = useState<Series>(null)
   if (movements.length === 0) return null
   const ordered = orderMovements(movements, designationsWithheld)
   const shown = all ? ordered : ordered.slice(0, OPTIONS_SHOWN_FIRST)
@@ -111,11 +158,20 @@ export function CompareSupportFigures({ movements, designationsWithheld, optionL
   const anyFigure = shown.some((m) => m.mayShowMagnitude)
   return (
     <div className="mt-3" data-testid={COMPARE_SUPPORT_TESTID}>
-      <p className={`${typography.panelMeta} text-text-light m-0`}>Support across simulated runs</p>
-      {anyFigure ? <Legend /> : null}
+      <div className="flex items-center gap-1">
+        <p className={`${typography.panelMeta} text-text-light m-0`}>Support across simulated runs</p>
+        <PanelIconButton Icon={Info} inline label="How to read this comparison" expanded={help} onClick={() => setHelp((v) => !v)} testId={`${COMPARE_SUPPORT_TESTID}-help-toggle`} />
+      </div>
+      {help ? <p className={`${typography.panelMeta} text-text-body mt-1 mb-0`} data-testid={`${COMPARE_SUPPORT_TESTID}-help`}>{COMPARE_SUPPORT_HELP}</p> : null}
+      {anyFigure ? <Legend series={series} onSeries={setSeries} /> : null}
       <ul className="list-none p-0 mt-1 mb-0" data-testid={`${WHATS_CHANGED_TESTID}-movements`}>
-        {shown.map((m) => <OptionRow key={m.optionId} m={m} link={optionLink(m.optionId)} />)}
+        {shown.map((m) => <OptionRow key={m.optionId} m={m} link={optionLink(m.optionId)} series={series} />)}
       </ul>
+      {anyFigure ? (
+        <div className={`${typography.panelMeta} text-text-light flex justify-between mt-0.5`} aria-hidden="true" data-testid={`${COMPARE_SUPPORT_TESTID}-axis`}>
+          <span>{COMPARE_SUPPORT_AXIS[0]}</span><span>{COMPARE_SUPPORT_AXIS[1]}</span>
+        </div>
+      ) : null}
       {hidden.length > 0 ? (
         <button type="button" className={`${typography.panelMeta} ${action('inline')} mt-1 text-left justify-start`} aria-expanded={all} onClick={() => setAll((v) => !v)}
           data-testid={`${COMPARE_SUPPORT_TESTID}-more`}>

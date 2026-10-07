@@ -195,6 +195,13 @@ export interface RunDeltaInputRow {
   readonly linkEnds: { readonly from: string; readonly to: string } | null
   /** What the input is, in this surface's words ("Pro price, Raise to £60"). */
   readonly subject: string
+  /**
+   * The same input split for a row layout (Compare v3): the input's own name ("Pro price"; a link as "A → B") and, for an
+   * option setting, the option it belongs to ("Raise to £60"). Display only, from the same labels as `subject`; optional so
+   * a row built elsewhere without them still reads by `subject`.
+   */
+  readonly name?: string
+  readonly optionLabel?: string | null
   /** The producer's before → after, formatted; `null` on the side where the input did not exist. */
   readonly before: string | null
   readonly after: string | null
@@ -414,6 +421,24 @@ function inputSubject(
   }
 }
 
+/** `subject`'s two halves for a row layout: the input's own name and, for an option setting, its option. Same labels. */
+function inputName(
+  row: RunDeltaInputChange,
+  labelFor: (optionId: string) => string | null,
+  nodeLabelFor: (nodeId: string) => string | null,
+): { name: string; optionLabel: string | null } {
+  const own = row.label_after ?? row.label_before ?? nodeLabelFor(row.entity_id)
+  if (row.entity_kind === 'option_setting') {
+    return { name: own ?? 'A factor', optionLabel: (row.option_id !== undefined ? labelFor(row.option_id) : null) ?? 'an option' }
+  }
+  if (row.entity_kind === 'link') {
+    const from = row.link ? nodeLabelFor(row.link.from) : null
+    const to = row.link ? nodeLabelFor(row.link.to) : null
+    return { name: from && to ? `${from} → ${to}` : 'A link', optionLabel: null }
+  }
+  return { name: inputSubject(row, labelFor, nodeLabelFor), optionLabel: null }
+}
+
 /** "14:02" in the viewer's clock, or null when the producer sent no time. */
 function clockOf(iso: string | undefined): string | null {
   if (iso === undefined) return null
@@ -508,6 +533,7 @@ export function buildRunDeltaView(
               optionId: row.option_id ?? null,
               linkEnds: row.link ? { from: row.link.from, to: row.link.to } : null,
               subject: inputSubject(row, labelFor, nodeLabelFor),
+              ...inputName(row, labelFor, nodeLabelFor),
               before: formatInputValue(row.before, row.field),
               after: formatInputValue(row.after, row.field),
               change: row.change,
