@@ -15,7 +15,7 @@ import { resolveParticipantTag } from '../telemetry/measurementConfig'
  * default parameter was `env = import.meta.env`). Vite cannot statically narrow a
  * bare reference, so it inlined the ENTIRE env object — every `VITE_*` the deploy
  * defines, with its value — into this module's chunk. Named reads are narrowed to
- * exactly the five values below. Pinned by
+ * exactly the six values below. Pinned by
  * `scripts/ci/assert-bundle-env-allowlist.mjs`.
  *
  * The injectable `env` parameter is preserved verbatim: it is the unit-test seam
@@ -29,17 +29,26 @@ function monitoringEnvDefaults(): Record<string, unknown> {
     VITE_HOTJAR_ID: import.meta.env?.VITE_HOTJAR_ID,
     VITE_ENABLE_WEB_VITALS: import.meta.env?.VITE_ENABLE_WEB_VITALS,
     VITE_RELEASE_VERSION: import.meta.env?.VITE_RELEASE_VERSION,
+    VITE_SENTRY_ENVIRONMENT: import.meta.env?.VITE_SENTRY_ENVIRONMENT,
   }
 }
 
 export function resolveMonitoringConfig(
   env: Record<string, unknown> = monitoringEnvDefaults(),
 ): MonitoringConfig {
-  // Cast, not a behaviour change: the parameter type widened from Vite's
-  // `ImportMetaEnv` to `Record<string, unknown>` when the bare-`import.meta.env`
-  // default was replaced with named reads. `|| 'production'` is preserved verbatim.
-  const environment = (env.MODE as string | undefined) || 'production'
-  const isProdLike = environment !== 'development' && environment !== 'test'
+  // Cast: the parameter type widened from Vite's `ImportMetaEnv` to
+  // `Record<string, unknown>` when the bare-`import.meta.env` default was
+  // replaced with named reads. `mode` (with its `|| 'production'` default)
+  // only GATES monitoring; it no longer labels events (S-H, see below).
+  const mode = (env.MODE as string | undefined) || 'production'
+  const isProdLike = mode !== 'development' && mode !== 'test'
+  // The Sentry LABEL is not the Vite mode: every deployed build (staging AND
+  // production) is MODE=production, so labelling by mode tagged staging events
+  // "production". The label comes from the Netlify deploy context
+  // (netlify.toml sets VITE_SENTRY_ENVIRONMENT per branch context). A
+  // prod-like build with no label says so rather than claiming "production".
+  const label = (env.VITE_SENTRY_ENVIRONMENT as string | undefined)?.trim()
+  const environment = isProdLike ? label || UNLABELLED_ENVIRONMENT : mode
   const dsn = env.VITE_SENTRY_DSN as string | undefined
   const hotjarId = env.VITE_HOTJAR_ID as string | undefined
   const hotjarIdValid = hotjarId ? /^[0-9]{6,9}$/.test(hotjarId) : false
@@ -53,8 +62,124 @@ export function resolveMonitoringConfig(
     dsn,
     hotjarId: hotjarIdValid ? hotjarId : undefined,
     environment,
-    release: env.VITE_RELEASE_VERSION as string | undefined,
+    release: resolveRelease(env),
   }
+}
+
+/** Sentry environment for a deployed build whose deploy context set no label. */
+export const UNLABELLED_ENVIRONMENT = 'unlabelled'
+
+const FULL_SHA = /^[0-9a-f]{40}$/
+
+/**
+ * Release = the full build SHA. The ONE owner is scripts/build-id.mjs, which
+ * stamps it into `<meta name="x-build-id">` of the document this tab loaded
+ * (COMMIT_REF → GITHUB_SHA → git HEAD). An explicit VITE_RELEASE_VERSION
+ * still wins. Anything that is not a full SHA is not a release.
+ */
+function resolveRelease(env: Record<string, unknown>): string | undefined {
+  const explicit = (env.VITE_RELEASE_VERSION as string | undefined)?.trim()
+  if (explicit) return explicit
+  if (typeof document === 'undefined') return undefined
+  const stamped = document.querySelector<HTMLMetaElement>('meta[name="x-build-id"]')?.content?.trim().toLowerCase()
+  return stamped && FULL_SHA.test(stamped) ? stamped : undefined
+}
+
+/**
+ * KNOWN NOISE, matched by EXACT message (anchored), never by substring.
+ *
+ * The previous `ignoreErrors: ['top.GLOBALS', 'chrome-extension://',
+ * 'NetworkError']` was a SUBSTRING list: 'NetworkError' discarded Firefox's
+ * "NetworkError when attempting to fetch resource." — a real failed request —
+ * and 1,972 error events were dropped client-side from 4–7 Oct with no way to
+ * see what they were. Dropping here (beforeSend) instead of in the SDK's event
+ * filters also makes every drop ATTRIBUTABLE: Sentry's client reports count
+ * these as reason `before_send`, separate from any SDK processor drop.
+ */
+export const KNOWN_NOISE_MESSAGES: readonly RegExp[] = [
+  /^ResizeObserver loop completed with undelivered notifications\.?$/,
+  /^ResizeObserver loop limit exceeded$/,
+  /^Script error\.?$/,
+]
+
+/** Errors thrown from a browser extension's own code (frame URL, not message). */
+const EXTENSION_FRAME = /^(?:chrome|moz|safari|safari-web)-extension:\/\//
+
+type NoiseCandidate = {
+  message?: string
+  exception?: { values?: Array<{ type?: string; value?: string; stacktrace?: { frames?: Array<{ filename?: string }> } }> }
+}
+
+export function isKnownNoise(event: NoiseCandidate): boolean {
+  const values = event.exception?.values ?? []
+  const messages: string[] = []
+  if (typeof event.message === 'string') messages.push(event.message)
+  for (const v of values) if (typeof v.value === 'string') messages.push(v.value)
+  if (messages.some((m) => KNOWN_NOISE_MESSAGES.some((re) => re.test(m)))) return true
+  const frames = values.flatMap((v) => v.stacktrace?.frames ?? [])
+  return frames.length > 0 && frames.every((f) => typeof f.filename === 'string' && EXTENSION_FRAME.test(f.filename))
+}
+
+type CrumbLike = {
+  type?: string
+  category?: string
+  level?: string
+  timestamp?: number
+  message?: string
+  data?: Record<string, unknown>
+}
+type DomHint = { event?: { target?: unknown } } | undefined
+
+/** A URL with its query string and fragment removed (queries can carry content). */
+function stripQuery(url: unknown): unknown {
+  if (typeof url !== 'string') return url
+  const cut = url.search(/[?#]/)
+  return cut === -1 ? url : url.slice(0, cut)
+}
+
+/**
+ * A DOM element described WITHOUT user text: tag + classes for the target and
+ * up to four ancestors. No ids (node ids are label-derived slugs) and no
+ * attributes (Sentry's default selector includes aria-label / title / alt,
+ * which carry node and option labels on the canvas).
+ */
+function describeElementSafely(target: unknown): string | undefined {
+  if (typeof Element === 'undefined' || !(target instanceof Element)) return undefined
+  const parts: string[] = []
+  let el: Element | null = target
+  for (let depth = 0; el && depth < 5; depth += 1, el = el.parentElement) {
+    const classes = Array.from(el.classList).slice(0, 3).filter((c) => /^[A-Za-z_-][\w-]{0,40}$/.test(c))
+    parts.unshift([el.tagName.toLowerCase(), ...classes].join('.'))
+  }
+  return parts.join(' > ')
+}
+
+/**
+ * Breadcrumb privacy rule (same contract as CEE / PLoT / ISL): a crumb keeps
+ * only its SHAPE, never free text.
+ *  - console crumbs are dropped;
+ *  - ui.* crumbs get a text-free element description as their message;
+ *  - every other crumb loses its message, and its data is cut to
+ *    { method, url, status_code, from, to } with query strings stripped.
+ */
+export function scrubBreadcrumb<T extends CrumbLike>(crumb: T, hint?: DomHint): T | null {
+  if (crumb.category === 'console') return null
+  const out = { type: crumb.type, category: crumb.category, level: crumb.level, timestamp: crumb.timestamp } as T
+  if (typeof crumb.category === 'string' && crumb.category.startsWith('ui.')) {
+    out.message = describeElementSafely(hint?.event?.target) ?? '[element]'
+    return out
+  }
+  const data = crumb.data
+  if (data && typeof data === 'object') {
+    const kept: Record<string, unknown> = {}
+    if (typeof data.method === 'string') kept.method = data.method
+    if (typeof data.status_code === 'number') kept.status_code = data.status_code
+    for (const key of ['url', 'from', 'to'] as const) {
+      if (data[key] !== undefined) kept[key] = stripQuery(data[key])
+    }
+    out.data = kept
+  }
+  return out
 }
 
 function sanitizeForMonitoring(text: string): string {
@@ -74,8 +199,17 @@ export function initSentry(): void {
       environment: config.environment,
       release: config.release,
       tracesSampleRate: 0.1,
-      ignoreErrors: ['top.GLOBALS', 'chrome-extension://', 'NetworkError'],
+      sendDefaultPii: false,
+      initialScope: { tags: { service: 'ui' } },
+      // Known noise is dropped in beforeSend by exact message (see
+      // KNOWN_NOISE_MESSAGES); the SDK's own default message filters are
+      // switched off so nothing else is discarded unseen.
+      integrations: [Sentry.eventFiltersIntegration({ disableErrorDefaults: true })],
+      beforeBreadcrumb(breadcrumb, hint) {
+        return scrubBreadcrumb(breadcrumb, hint as DomHint)
+      },
       beforeSend(event) {
+        if (isKnownNoise(event)) return null
         if (event.contexts?.canvas) {
           const canvas = event.contexts.canvas as Record<string, unknown>
           if (typeof canvas.label === 'string') {
@@ -163,8 +297,13 @@ export function initHotjar(): void {
   logger.info('[Monitoring] Hotjar initialized', { id: config.hotjarId })
 }
 
-export function setSentryUser(userId: string, email: string): void {
-  Sentry.setUser({ id: userId, email })
+/**
+ * Pseudonymous id only. The email is accepted for call-site compatibility and
+ * deliberately NOT sent: Sentry is a third-party ingest, and the id is enough
+ * to group one person's errors.
+ */
+export function setSentryUser(userId: string, _email?: string): void {
+  Sentry.setUser({ id: userId })
 }
 
 export function clearSentryUser(): void {
