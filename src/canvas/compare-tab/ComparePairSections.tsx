@@ -15,10 +15,10 @@ import {
 import { InputChangeRows } from '../../components/results/analysisNew/sections/InputChangeRows'
 import type { RunChangeArtefact } from './runChangeArtefact'
 import { RUN_CHANGE_ARTEFACT_TESTID } from './RunChangeArtefactCard'
-import { CompareSupportFigures, orderMovements, type OptionCanvasLink } from './CompareSupportFigures'
+import { CompareSupportFigures, OptionNameLink, orderMovements, type OptionCanvasLink } from './CompareSupportFigures'
 import type { ReasonSegment } from './withheldReasonSegments'
 import { GraphLink } from '../../components/results/GraphLink'
-import { COMPARE_GOAL_CHANCE_HEADING, goalChanceCompareWords } from '../../components/results/analysis-hero/goalChanceCopy'
+import { COMPARE_GOAL_CHANCE_HEADING, goalChanceCompareWords, goalChanceSideWords } from '../../components/results/analysis-hero/goalChanceCopy'
 
 const INPUT_FIELDS = 'run_delta.input_changes[].entity_id run_delta.input_changes[].option_id run_delta.input_changes[].link run_delta.input_changes[].before run_delta.input_changes[].after run_delta.input_coverage'
 const LEADER_FIELDS = 'run_delta.leader.changed run_delta.leader.prior_leading_option_id run_delta.leader.current_leading_option_id run_delta.leader.noise_verdict'
@@ -153,12 +153,24 @@ export function ComparePairSections({
         {goalRows ? (
           // Figures only (DL ruling 2): each side as its own Run showed it, in the producer's (model) order, never a direction.
           <ul className={`${typography.panelBody} text-text-body list-none p-0 mt-2 mb-0 space-y-2`} data-testid="compare-goal-chances" data-wire-fields={GOAL_CHANCE_FIELDS}>
-            {goalRows.map((g) => (
-              <li key={g.optionId} data-option-id={g.optionId}>
-                <span className="block break-words">{g.label ?? 'An option this run does not name'}</span>
-                <span className={`${typography.panelTabular} text-text-light block`}>{goalChanceCompareWords(g.prior, g.current)}</span>
-              </li>
-            ))}
+            {goalRows.map((g) => {
+              const name = g.label ?? 'An option this run does not name'
+              // A side with a figure reads in the panel's ink; the latest one a step stronger. No figure stays muted.
+              const tone = (side: typeof g.prior, latest: boolean) => side.kind === 'point' || side.kind === 'range'
+                ? (latest ? 'text-text-header' : 'text-text-body') : 'text-text-light'
+              return (
+                <li key={g.optionId} data-option-id={g.optionId}>
+                  {/* The whole pair in its words, for assistive technology; the drawn line below repeats it for the eye. */}
+                  <span className="sr-only" data-testid="compare-goal-chance-words">{`${name}: ${goalChanceCompareWords(g.prior, g.current)}`}</span>
+                  <OptionNameLink name={name} link={optionLink(g.optionId)} />
+                  <p className={`${typography.panelTabular} flex flex-wrap items-baseline gap-x-2 m-0`} aria-hidden="true" data-testid="compare-goal-chance-pair">
+                    <span className={tone(g.prior, false)}>{goalChanceSideWords(g.prior)}</span>
+                    <ArrowRight className={`${icon('inline')} self-center flex-shrink-0 text-text-light`} aria-hidden="true" />
+                    <span className={tone(g.current, true)}>{goalChanceSideWords(g.current)}</span>
+                  </p>
+                </li>
+              )
+            })}
           </ul>
         ) : null}
         {!resultsAllowed ? (

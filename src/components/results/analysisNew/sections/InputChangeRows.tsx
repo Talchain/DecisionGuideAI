@@ -87,7 +87,7 @@ function ValuePair({ before, after, beforeMuted = true }: { before: string | nul
     <span className={`${typography.panelTabular} text-text-body flex flex-wrap items-baseline gap-x-2 min-w-0`}>
       <span className={beforeMuted ? 'text-text-light' : undefined}>{before ?? 'Not recorded'}</span>
       <ArrowRight className={`${icon('inline')} self-center flex-shrink-0 text-text-light`} aria-hidden="true" />
-      <span>{after ?? 'Not recorded'}</span>
+      <span className="text-text-header">{after ?? 'Not recorded'}</span>
     </span>
   )
 }

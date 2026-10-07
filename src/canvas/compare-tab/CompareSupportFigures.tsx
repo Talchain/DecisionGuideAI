@@ -111,18 +111,23 @@ const DIRECTION_ICON = { up: ArrowUpRight, down: ArrowDownRight, level: ArrowRig
 /** Reasoning's option name (OptionsComparison): the option's own mark, then its name; the name is the canvas link. */
 const OPTION_NAME = `${typography.panelBody} text-text-body break-words text-left`
 
+/** An option's mark and name; the name is its canvas link when the canvas has the option now. Shared by both option lists. */
+export function OptionNameLink({ name, link }: { name: string; link: ReturnType<OptionCanvasLink> }): JSX.Element {
+  const label = <><NodeMark kind="option" className={`${icon('inline')} mr-1 inline-block align-[-1px]`} />{name}</>
+  return link ? (
+    <button type="button" className={`${OPTION_NAME} inline-flex items-center min-h-[24px] rounded-md -ml-1 px-1 py-0.5 cursor-pointer transition-colors hover:text-info ${ACTION_FOCUS}`}
+      aria-label={`Show on the canvas: ${name}`} onClick={link.focus} onMouseEnter={link.on} onMouseLeave={link.off} onFocus={link.on} onBlur={link.off}>
+      {label}
+    </button>
+  ) : <span className={`${OPTION_NAME} block`}>{label}</span>
+}
+
 function OptionRow({ m, link, series }: { m: RunDeltaMovement; link: ReturnType<OptionCanvasLink>; series: Series }): JSX.Element {
   const name = m.label ?? 'An option this run does not name'
-  const label = <><NodeMark kind="option" className={`${icon('inline')} mr-1 inline-block align-[-1px]`} />{name}</>
   return (
     <li className="py-1.5" data-testid={`${COMPARE_SUPPORT_TESTID}-option`} data-option-id={m.optionId} data-verdict={m.noiseVerdict}
       data-wire-fields="run_delta.win_probabilities[].option_id run_delta.win_probabilities[].prior run_delta.win_probabilities[].current run_delta.win_probabilities[].noise_verdict">
-      {link ? (
-        <button type="button" className={`${OPTION_NAME} inline-flex items-center min-h-[24px] rounded-md -ml-1 px-1 py-0.5 cursor-pointer transition-colors hover:text-info ${ACTION_FOCUS}`}
-          aria-label={`Show on the canvas: ${name}`} onClick={link.focus} onMouseEnter={link.on} onMouseLeave={link.off} onFocus={link.on} onBlur={link.off}>
-          {label}
-        </button>
-      ) : <span className={`${OPTION_NAME} block`}>{label}</span>}
+      <OptionNameLink name={name} link={link} />
       {m.mayShowMagnitude ? <SupportPairFigure m={m} series={series} /> : null}
       {m.mayShowMagnitude ? (
         <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`}>{movementVerdictText(m)}</p>
