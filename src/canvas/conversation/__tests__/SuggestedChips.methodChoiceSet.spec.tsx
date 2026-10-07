@@ -81,6 +81,39 @@ describe('SuggestedChips: a choose_plan turn keeps every plan and "Talk it throu
   })
 })
 
+// CEE #2744 (S-C WIDEN): "Suggest risks" answers with ONE Add per risk (`agent-widen-add:<16 hex>`, bound to its exact
+// message) and then "Something else" (`SOMETHING_ELSE_CHIP`). Shapes verbatim from Paul's served model 6582edbc rows.
+const add = (hex: string, risk: string, option: string, factor: string, outcome: string): ActionChip => ({
+  id: `agent-widen-add:${hex}`, label: `Add ‘${risk}’`, intent: 'primary',
+  message: `Add the risk ‘${risk}’ to ‘${option}’: driven by more ‘${factor}’, it would lower ‘${outcome}’.`,
+})
+const RISK_ADDS = [
+  add('0123456789abcdef', 'Recruitment delay', 'Hire Two Developers', 'Developer Hires', 'Feature Delivery Capacity'),
+  add('1123456789abcdef', 'Wrong bottleneck', 'Hire a Tech Lead', 'Tech Lead Hires', 'meet our next feature-launch deadline'),
+  add('2123456789abcdef', 'Coordination drag', 'Hire Two Developers', 'Developer Hires', 'Feature Delivery Capacity'),
+]
+const SOMETHING_ELSE: ActionChip = { id: 'agent-widen-something-else', label: 'Something else', intent: 'primary', message: 'None of those. Let’s think of something else.' }
+
+describe('SuggestedChips: a widening turn keeps every Add and "Something else" (CEE #2744)', () => {
+  it('RED: three risk Adds + Something else = all four, in the producer’s order; "Something else" is not the one cut', () => {
+    const chips = [...RISK_ADDS, SOMETHING_ELSE]
+    expect(shownIds(chips)).toEqual(chips.map((c) => c.id))
+    expect(screen.getByTestId('suggested-chip-agent-widen-something-else').textContent).toBe('Something else')
+  })
+
+  it('control: one Add + Something else is under the cap and unchanged', () => {
+    expect(shownIds([RISK_ADDS[0]!, SOMETHING_ELSE])).toEqual([RISK_ADDS[0]!.id, SOMETHING_ELSE.id])
+  })
+
+  it('⛔ identity, not words: an Add-worded label or a mid-id prefix does not lift the cap', () => {
+    const wordedOnly = ORDINARY.map((c, i) => ({ ...c, label: `Add ‘Risk ${i}’`, message: `Add the risk ‘Risk ${i}’.` }))
+    expect(shownIds(wordedOnly)).toHaveLength(3)
+    cleanup()
+    const midId = ORDINARY.map((c, i) => ({ ...c, id: `x-agent-widen-add:${i}` }))
+    expect(shownIds(midId)).toHaveLength(3)
+  })
+})
+
 describe('ChatThread: the method set rides the latest reply only', () => {
   const savedScroll = Element.prototype.scrollIntoView
   beforeAll(() => { Element.prototype.scrollIntoView = function () {} })
