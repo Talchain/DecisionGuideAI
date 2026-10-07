@@ -11,7 +11,8 @@
  *     for this factor (the producer's own word for "I determined a flip").
  *   · `fragile_link`  — a `robustness.fragile_edges` entry whose source is this node.
  *   · `evidence_gap`  — this factor is in the top 3 by value of information, by
- *     the existing VoI ordering (`rankFactor`), no new threshold.
+ *     the existing VoI ordering (`rankFactor`), no new threshold. The WORDS make no
+ *     value-of-information claim (SCI-05 B21, 7 Oct): a drawn-model heuristic.
  *   · `top_driver`    — this factor holds a determined rank 1..3 (`rankFactor`).
  *   · `behavioural`   — a GROUNDED bias finding maps to this element: CEE's
  *     `analysis_ready.bias_findings[].target_factor_id` (resolvable, the rule the
@@ -182,7 +183,8 @@ export function deriveAttentionPlan(inputs: AttentionInputs, budget: number = AT
         push(reasons, id, {
           kind: 'evidence_gap',
           order: 2,
-          label: 'Evidence here would most reduce uncertainty in the comparison. What would you check first?',
+          // SCI-05 B21: a drawn-model heuristic, never a value-of-information figure.
+          label: 'Worth checking. A quick check based on how the model is drawn, not a calculation of what new information is worth. What would you check first?',
         })
       }
       // ⭐ THE RANK LICENCE IS THE OWNER'S (`influenceRankReadout`: an integer

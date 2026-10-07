@@ -197,7 +197,7 @@ describe('Paul 23 Sep point 11 — attention → inspector has a route back to t
   const REASON: AttentionReason = {
     kind: 'evidence_gap',
     order: 2,
-    label: 'Evidence here would most reduce uncertainty in the comparison. What would you check first?',
+    label: 'Worth checking. A quick check based on how the model is drawn, not a calculation of what new information is worth. What would you check first?',
   }
 
   it('a flagged node shows why at the top, above Explore with Olumi and above the notice', () => {

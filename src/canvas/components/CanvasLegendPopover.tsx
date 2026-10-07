@@ -643,7 +643,7 @@ const ATTENTION_ROW: LegendRow = {
   testId: 'legend-icon-attention',
 }
 const EVIDENCE_ROW: LegendRow = {
-  label: 'Evidence worth seeking',
+  label: 'Worth checking',
   swatch: <CardIconSwatch Icon={EVIDENCE_RAIL_GLYPH.Icon} inkClass={NODE_RAIL_TONE_CLASS[EVIDENCE_RAIL_GLYPH.tone]} />,
   testId: 'legend-icon-evidence',
 }
