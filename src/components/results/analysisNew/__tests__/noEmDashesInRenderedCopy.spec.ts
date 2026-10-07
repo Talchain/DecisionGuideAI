@@ -222,7 +222,9 @@ const EM_DASH = '—'
  * `import.meta.url` is not a file: URL under this vitest config, and a spec
  * that cannot read its subject reports a clean sweep of nothing.
  */
-const { files: COVERED_FILES, unresolved: UNRESOLVED_SPECS } = reasoningTabCopyScope()
+const { files: DERIVED_COVERED_FILES, unresolved: UNRESOLVED_SPECS } = reasoningTabCopyScope()
+// S4-UI: the hero container is outside the Reasoning-tab import walk. Sweep its new rendered copy explicitly.
+const COVERED_FILES = [...DERIVED_COVERED_FILES, 'src/components/results/analysis-hero/goalOptionCoverage.tsx']
 
 /**
  * The four paths the older hand-lists carried, kept as a POSITIVE CONTROL
@@ -660,4 +662,8 @@ describe('rendered product copy carries no em dashes', () => {
       ).toBe(false)
     })
   })
+})
+
+it('S4-UI: the rendered-copy sweep includes per-option withholding copy', () => {
+  expect(COVERED_FILES).toContain('src/components/results/analysis-hero/goalOptionCoverage.tsx')
 })
