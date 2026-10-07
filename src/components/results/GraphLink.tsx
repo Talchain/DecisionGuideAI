@@ -9,6 +9,7 @@
 
 import { useCallback, type ReactNode, type RefObject } from 'react'
 import { focusByTarget, focusEdgeByEndpoints, type FocusTargetType } from '../../canvas/utils/focusHelpers'
+import { openLinkInspector } from '../../canvas/utils/openEdgeStrengthEditor'
 
 /** V14: Edge reference by endpoints — looks up real ReactFlow edge ID at click time */
 export interface EdgeRef {
@@ -23,6 +24,8 @@ export interface GraphLinkProps {
   edgeId?: string
   /** V14: Edge reference by endpoints — looks up real edge ID from canvas store */
   edgeRef?: EdgeRef
+  /** Open the live endpoint-matched link's full inspector instead of only focusing. */
+  opensInspector?: boolean
   /** V14: Fallback node ID when edge focus fails (used with edgeRef) */
   fallbackNodeId?: string
   /** Display text when children not provided */
@@ -41,6 +44,7 @@ export function GraphLink({
   nodeId,
   edgeId,
   edgeRef,
+  opensInspector,
   fallbackNodeId,
   label,
   children,
@@ -58,7 +62,9 @@ export function GraphLink({
       onFocus(targetId!)
     } else if (edgeRef) {
       // V14: Look up real edge by source+target endpoints, fallback to node
-      focusEdgeByEndpoints(edgeRef.fromId, edgeRef.toId, fallbackNodeId ?? edgeRef.fromId)
+      if (!opensInspector || !openLinkInspector(edgeRef.fromId, edgeRef.toId)) {
+        focusEdgeByEndpoints(edgeRef.fromId, edgeRef.toId, fallbackNodeId ?? edgeRef.fromId)
+      }
     } else {
       focusByTarget(targetId!, targetType)
     }
@@ -70,7 +76,7 @@ export function GraphLink({
       void el.offsetWidth
       el.classList.add('cflash')
     }
-  }, [targetId, targetType, onFocus, edgeRef, fallbackNodeId, flashTargetRef])
+  }, [targetId, targetType, onFocus, edgeRef, opensInspector, fallbackNodeId, flashTargetRef])
 
   const displayContent = children ?? label
 
