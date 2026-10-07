@@ -6084,12 +6084,14 @@ export function useConversation(): UseConversationReturn {
             reportManualEditReceipt({ revision: editNoteRevision, event: systemEvent, response: target.response,
               before: { nodes: editNoteBefore.nodes, edges: editNoteBefore.edges, options: editNoteBefore.ceeAnalysisReady?.options },
               after: { nodes: landed.nodes, edges: landed.edges, options: landed.ceeAnalysisReady?.options, goal_constraints: landed.goalConstraints },
-              lastRun: { visible: stage === 'ran-current' || stage === 'stale', runId: landed.analysisHash ?? 'visible-run',
+              // The Run the user can see. Its key is the run's own response hash (`results.hash`), else the v5 fact's;
+              // notes also clear on every Run (`clearPendingEditNotes`), so "first edit since that Run" re-arms.
+              lastRun: { visible: stage === 'ran-current' || stage === 'stale',
+                runId: landed.results?.hash ?? landed.v5AnalysisFact?.analysisHash ?? 'visible-run',
                 report: landed.results?.report,
                 fragileEdges: (landed.results?.report as { robustness?: { fragile_edges?: [] } } | undefined)?.robustness?.fragile_edges,
-                turningPoints: Object.fromEntries(selectTurningPoints(landed.results?.report)),
+                turningPoints: selectTurningPoints(landed.results?.report),
                 goalConstraints: landed.goalConstraints,
-                limitVerdicts: landed.limitVerdicts,
               } })
           }
 

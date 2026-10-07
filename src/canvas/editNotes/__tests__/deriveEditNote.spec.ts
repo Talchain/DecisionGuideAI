@@ -23,11 +23,11 @@ const assertNote = (result: ReturnType<typeof note>, check: string, id: string, 
 describe('after-edit checks, bound by identity and exact words', () => {
   // SELF-AUTHORED slice-2 rows. Edges use the canvas shape (`strength_mean` signed, `direction`), as
   // `edgeValueProvenance.resolveEdgeSignedStrengthDisplay` reads it.
-  const runGraph = () => ({ nodes: [
+  const runGraph = (): EditGraph => ({ nodes: [
     { id: 'a', type: 'factor', data: { label: 'Demand', observed_state: { value: 4, unit: '%' } } },
     { id: 'b', type: 'goal', data: { label: 'Growth', goal_threshold_raw: 10 } },
     { id: 'o', type: 'option', data: { label: 'Launch', interventions: { a: { value: 6 } } } },
-  ], edges: [{ id: 'ab', source: 'a', target: 'b', data: { strength_mean: 0.3, direction: 'positive' } as Record<string, unknown> }] }) satisfies EditGraph
+  ], edges: [{ id: 'ab', source: 'a', target: 'b', data: { strength_mean: 0.3, direction: 'positive' } as Record<string, unknown> }] })
   const linkDriver = { kind: 'link_strength' as const, from: 'a', to: 'b', strength: 'stronger' as const, authoredBy: 'user' as const, userStatedLink: true }
   const visibleRun = { visible: true, runId: 'run-1', drivers: { o: linkDriver } }
   const fragileAB = [{ edge_id: 'ab', from: 'a', to: 'b', switch_probability: 0.8 }]
@@ -66,7 +66,7 @@ describe('after-edit checks, bound by identity and exact words', () => {
   const unset = () => { const g = runGraph(); g.nodes[2].data.interventions = {}; return g }
   it('F3 needs a crossing of the last Run\'s turning point (control: same side)', () => {
     const before = unset(), after = structuredClone(before); after.nodes[0].data.observed_state = { value: 7, unit: '%' }
-    const base = { visible: true, runId: 'r', drivers: {}, turningPoints: { a: { currentValue: 4, flipValue: 5, unit: '%', displayScale: true } } }
+    const base = { visible: true, runId: 'r', drivers: {}, turningPoints: new Map([['a', { currentValue: 4, flipValue: 5, unit: '%', displayScale: true }]]) }
     expect(deriveEditNote({ edit: edit('factor_value_edit', 'a'), before, after, lastRun: base })?.check).toBe('F3')
     after.nodes[0].data.observed_state = { value: 4.5, unit: '%' }
     expect(deriveEditNote({ edit: edit('factor_value_edit', 'a'), before, after, lastRun: base })).toBeNull()
@@ -86,7 +86,7 @@ describe('after-edit checks, bound by identity and exact words', () => {
     const noCard = { nodes: before.nodes.filter(n => n.id !== 'a'), edges: [] }
     assertNote(deriveEditNote({ edit: edit('structural_delete', 'a'), before, after: noCard, lastRun: visibleRun }), 'X1', 'a',
       'The last Run’s chance for ‘Launch’ rested most on ‘Demand’. Run again to see the options without it.')
-    const tpOnly = { visible: true, runId: 'r', drivers: {}, turningPoints: { a: { currentValue: 4, flipValue: 5, unit: '%', displayScale: true } } }
+    const tpOnly = { visible: true, runId: 'r', drivers: {}, turningPoints: new Map([['a', { currentValue: 4, flipValue: 5, unit: '%', displayScale: true }]]) }
     expect(deriveEditNote({ edit: edit('structural_delete', 'a'), before, after: noCard, lastRun: tpOnly })).toBeNull()
   })
   it('G2: the target changed after a visible Run (control: no previous target is G1, not G2)', () => {

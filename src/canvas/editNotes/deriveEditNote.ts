@@ -26,9 +26,8 @@ export interface LastRunSnapshot {
   report?: unknown
   drivers?: Readonly<Record<string, GoalChanceDriver>>
   fragileEdges?: readonly FragileEdgeCandidate[]
-  turningPoints?: Readonly<Record<string, FactorTurningPoint>> | ReadonlyMap<string, FactorTurningPoint>
+  turningPoints?: ReadonlyMap<string, FactorTurningPoint>
   goalConstraints?: readonly GoalConstraint[] | null
-  limitVerdicts?: { perLimit?: readonly { constraintId: string; state: string }[] } | null
 }
 export interface ManualEdit {
   kind: 'factor_value_edit' | 'option_intervention_edit' | 'goal_target_edit' | 'edge_strength_edit' | 'structural_delete' | 'structural_add' | 'structural_add_edge' | 'structural_rename'
@@ -77,7 +76,7 @@ const profile = (node: EditNode, graph: EditGraph) => {
   return entries.length && entries.every(([, value]) => value !== null) ? JSON.stringify(entries) : null
 }
 const driversOf = (run: LastRunSnapshot | undefined) => run?.drivers ?? readGoalChanceLicence((run?.report as { inference_warnings?: unknown } | undefined)?.inference_warnings)?.driverByOption ?? {}
-const turningPointOf = (run: LastRunSnapshot, id: string): FactorTurningPoint | undefined => run.turningPoints instanceof Map ? run.turningPoints.get(id) : run.turningPoints?.[id]
+const turningPointOf = (run: LastRunSnapshot, id: string): FactorTurningPoint | undefined => run.turningPoints?.get(id)
 
 /** Pure deterministic checks over the committed edit, in tier order. No store reads. */
 export function deriveEditNote({ edit, before, after, lastRun }: EditNoteInput): EditNote | null {
