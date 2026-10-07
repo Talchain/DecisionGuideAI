@@ -248,7 +248,7 @@ const popoverLine = () => {
   return within(face).getByTestId('factor-driver-line')
 }
 const detailLine = () => screen.getByTestId('factor-driver-line-detail')
-const captionOf = (line: HTMLElement) => within(line).getByTestId(/-caption$/).textContent
+const captionOf = (line: HTMLElement) => within(line).getByTestId(/-caption$/).getAttribute('aria-label')
 /** The bar's FILL — the measurement, independent of the words. */
 const fillOf = (line: HTMLElement) =>
   (within(line).getByTestId(/-bar$/).firstElementChild as HTMLElement).style.width

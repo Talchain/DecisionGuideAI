@@ -4,6 +4,8 @@ import Tooltip from '../../../components/Tooltip'
 import { UNCONFIRMED_ESTIMATE_LABEL, UNCONFIRMED_ESTIMATE_TOKEN } from '../../domain/vocabulary'
 import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
+import { BottomCardMark } from './CardMark'
+import { VALUE_PROVENANCE_ICON } from '../../domain/valueProvenanceIcon'
 
 /**
  * EstimateMarker — R6 (Paul, 16 Aug 2026): "placeholder wall collapses to one
@@ -269,22 +271,28 @@ export const SOURCE_MARK_GLYPH_CLASSES =
 export function SourceMark({
   testId,
   tip,
+  ariaLabel,
+  ariaDescription,
   onOpen,
   dataValueSource,
+  cardMarkId,
   children,
 }: {
   testId?: string
   /** The hover/focus label — the mark's full meaning. */
   tip: string
+  ariaLabel?: string
+  ariaDescription?: string
   /** The route to the source detail. Absent → a static, non-focusable mark. */
   onOpen?: () => void
   dataValueSource?: string
+  cardMarkId?: string
   children: ReactNode
 }) {
   const classes = `${SOURCE_MARK_TYPE_CLASSES} inline-flex items-baseline gap-0.5 px-px align-baseline`
   if (!onOpen) {
     return (
-      <span className={classes} title={tip} data-testid={testId} data-value-source={dataValueSource}>
+      <span className={classes} title={tip} aria-label={ariaLabel ?? tip} aria-description={ariaDescription} data-card-mark={cardMarkId} data-testid={testId} data-value-source={dataValueSource}>
         {children}
       </span>
     )
@@ -295,11 +303,13 @@ export function SourceMark({
         type="button"
         data-testid={testId}
         data-value-source={dataValueSource}
+        data-card-mark={cardMarkId}
         data-source-mark="true"
         data-node-tooltip="true"
         // v3.1 `prov()`: the button's name IS the full label ("Monthly price:
         // Set by you — …"). The visible token stays the glyph or word.
-        aria-label={tip}
+        aria-label={ariaLabel ?? tip}
+        aria-description={ariaDescription}
         className={`nodrag nopan ${classes} rounded-sm border-0 bg-transparent underline-offset-2 hover:text-info hover:underline focus:outline-none focus-visible:text-info focus-visible:underline focus-visible:ring-2 focus-visible:ring-info`}
         onClick={(e) => {
           e.stopPropagation()
@@ -327,12 +337,15 @@ export function EstimateMarker({
   onOpenSource?: () => void
 }) {
   const tip = title ?? ESTIMATE_SUBJECT_TITLE[subject]
+  if (!onOpenSource) return <SourceMark testId="estimate-marker" tip={tip}>{UNCONFIRMED_ESTIMATE_TOKEN}</SourceMark>
+  const Icon = VALUE_PROVENANCE_ICON.ai
   return (
-    <SourceMark testId="estimate-marker" tip={tip} onOpen={onOpenSource}>
+    <BottomCardMark><SourceMark cardMarkId="source-olumi" testId="estimate-marker" tip={`${UNCONFIRMED_ESTIMATE_TOKEN} · ${tip}`} ariaLabel={tip} onOpen={onOpenSource}>
       {/* Upright, regular weight (contract v3.1 `.prov`): one visual for every
           mark kind. As a button its accessible name is the full `tip`
           (`aria-label`, as v3.1 `prov()` does); as a static mark, its title. */}
-      {UNCONFIRMED_ESTIMATE_TOKEN}
-    </SourceMark>
+      <Icon aria-hidden="true" className={SOURCE_MARK_GLYPH_CLASSES} />
+      <span aria-label={UNCONFIRMED_ESTIMATE_TOKEN} title={UNCONFIRMED_ESTIMATE_TOKEN} className={typography.screenReaderOnly}>{UNCONFIRMED_ESTIMATE_TOKEN}</span>
+    </SourceMark></BottomCardMark>
   )
 }

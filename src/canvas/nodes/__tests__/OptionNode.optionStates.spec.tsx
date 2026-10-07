@@ -147,7 +147,7 @@ describe('row 22a (dropped) — the declared baseline no longer says "Reference 
   ] as const)('%s: "Baseline · no changes" is on the card; the sentence is nowhere', (_n, opts) => {
     seed(opts as never)
     renderOption(BASELINE)
-    expect(onCard('option-baseline-meta-option-b')?.textContent).toBe('Baseline · no changes')
+    expect(onCard('option-baseline-meta-option-b')?.getAttribute('aria-label')).toBe('Baseline · no changes')
     expect(onCard('option-baseline-reference-option-b')).toBeNull()
     expect(inPopover('option-baseline-reference-option-b')).toBeNull()
     expect(document.body.textContent ?? '').not.toContain(REFERENCE)
@@ -258,10 +258,10 @@ describe('row 22c — stale: "Last run · no new comparison yet", and the last r
   it('changed (Standard): the state line is in the popover; the share stays on the card as `Last run`', () => {
     seed({ phase: 'changed' })
     renderOption(OPTION_1)
-    expect(onCard('option-win-anchor-option-1')?.textContent).toBe('Last run')
+    expect(onCard('option-win-anchor-option-1')?.getAttribute('aria-label')).toBe('Last run')
     expect(onCard('option-win-readout-option-1')?.textContent).toBe('72% of runs')
-    expect(inPopover('option-stale-state-option-1')?.textContent).toBe(STALE_STATE)
-    expect(onCard('option-stale-state-option-1')).toBeNull()
+    expect(inPopover('option-stale-preview-option-1')?.textContent).toBe(STALE_STATE)
+    expect(onCard('option-stale-state-option-1')?.getAttribute('aria-label')).toBe(STALE_STATE)
     // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
     expect(shareName()).toMatch(/^Last run · supported by 72% of runs\. /)
     expect(shareName()).toContain('No new comparison yet.')
@@ -270,7 +270,7 @@ describe('row 22c — stale: "Last run · no new comparison yet", and the last r
   it('changed (Detailed): the state line is inline on the card', () => {
     seed({ phase: 'changed', viewMode: 'expert' })
     renderOption(OPTION_1)
-    expect(onCard('option-stale-state-option-1')?.textContent).toBe(STALE_STATE)
+    expect(onCard('option-stale-state-option-1')?.getAttribute('aria-label')).toBe(STALE_STATE)
   })
 
   it('CONTRAST — current: no stale line anywhere, and the share is "Current model"', () => {
@@ -295,6 +295,6 @@ describe('row 22c — stale: "Last run · no new comparison yet", and the last r
     expect(screen.queryByTestId('option-stale-state-option-1')).toBeNull()
     act(() => useCanvasStore.setState({ analysisFreshnessDirty: true } as never))
     expect(onCard('option-win-readout-option-1')?.textContent).toBe('72% of runs')
-    expect(inPopover('option-stale-state-option-1')?.textContent).toBe(STALE_STATE)
+    expect(inPopover('option-stale-preview-option-1')?.textContent).toBe(STALE_STATE)
   })
 })

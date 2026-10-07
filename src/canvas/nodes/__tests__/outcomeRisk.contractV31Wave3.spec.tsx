@@ -103,10 +103,9 @@ const TWELVE_MONTHS_FROM_BRIEF = {
 const TWELVE_MONTHS_OLUMI = { ...TWELVE_MONTHS_FROM_BRIEF, source: 'cee_inference', extractionType: 'inferred' }
 
 const classes = (el: Element | null) => (el ? Array.from(el.classList) : [])
-const precedes = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
 /** A Standard primary line's two carriers: what a sighted reader sees, and the sentence announced. */
 const shown = (el: Element) => el.querySelector('[aria-hidden="true"]')?.textContent ?? null
-const announced = (el: Element) => el.querySelector('.sr-only')?.textContent ?? null
+const announced = (el: Element) => el.getAttribute('aria-description') ?? el.getAttribute('aria-label') ?? el.querySelector('.sr-only')?.textContent ?? null
 
 beforeEach(() => {
   cleanup()
@@ -119,23 +118,25 @@ describe('OR-02 / RHY-09 — the outcome card states its own state', () => {
   it('an outcome with no number says so, in the fixture’s exact words', () => {
     renderOutcome()
     const line = screen.getByTestId('outcome-unquantified')
-    expect(shown(line)).toBe('Outcome not quantified')
+    expect(line).toHaveAttribute('aria-label', 'Outcome not quantified')
+    expect(shown(line)).toBe('—')
     expect(announced(line)).toBe('Outcome not quantified')
     // Design audit #13 (26 Sep): no native title repeating the visible line.
-    expect(line.hasAttribute('title')).toBe(false)
+    expect(line.getAttribute('title')).toBe(line.getAttribute('aria-label'))
     expect(OUTCOME_UNQUANTIFIED_LINE).toBe('Outcome not quantified')
     expect(screen.queryByTestId('outcome-recorded-value')).toBeNull()
     cleanup()
     applyStore({ viewMode: 'expert' })
     renderOutcome()
-    expect(screen.getByTestId('outcome-unquantified').textContent).toBe('Outcome not quantified')
+    expect(screen.getByTestId('outcome-unquantified')).toHaveAttribute('aria-label', 'Outcome not quantified')
   })
 
   it('…in BOTH phases: an analysis does not quantify an outcome the record holds no number for', () => {
     applyStore({ results: { status: 'complete', report: null } })
     renderOutcome()
     const line = screen.getByTestId('outcome-unquantified')
-    expect(shown(line)).toBe('Outcome not quantified')
+    expect(line).toHaveAttribute('aria-label', 'Outcome not quantified')
+    expect(shown(line)).toBe('—')
     expect(announced(line)).toBe(OUTCOME_UNQUANTIFIED_LINE)
   })
 
@@ -173,7 +174,8 @@ describe('OR-02 / RHY-09 — the outcome card states its own state', () => {
     const row = screen.getByTestId('outcome-recorded-value')
     expect(screen.getByTestId('outcome-recorded-readout').textContent).toBe('Today: 12 months')
     const mark = screen.getByTestId('outcome-value-source-outcome-1')
-    expect(row.contains(mark)).toBe(true)
+    expect(row.contains(mark)).toBe(false)
+    expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
     expect(mark.getAttribute('data-value-source')).toBe('brief')
   })
 
@@ -197,12 +199,13 @@ describe('OR-02 — the risk state line is a label, not a sentence', () => {
     const line = screen.getByTestId('risk-exposure-unset')
     expect(announced(line)).toBe('Likelihood and impact not set yet')
     // Design audit #13 (26 Sep): no native title repeating the visible line.
-    expect(line.hasAttribute('title')).toBe(false)
-    expect(shown(line)).toBe('Likelihood and impact not set yet')
+    expect(line.getAttribute('title')).toBe(line.getAttribute('aria-label'))
+    expect(line).toHaveAttribute('aria-label', 'Likelihood and impact not set yet')
+    expect(shown(line)).toBe('')
     cleanup()
     applyStore({ viewMode: 'expert' })
     renderRisk()
-    expect(screen.getByTestId('risk-exposure-unset').textContent).toBe('Likelihood and impact not set yet')
+    expect(screen.getByTestId('risk-exposure-unset')).toHaveAttribute('aria-label', 'Likelihood and impact not set yet')
   })
 })
 
@@ -212,9 +215,10 @@ describe('OR-06 — the risk’s own recorded size carries a visible source mark
     const row = screen.getByTestId('risk-recorded-value')
     expect(screen.getByTestId('risk-recorded-readout').textContent).toBe('12 months')
     const mark = screen.getByTestId('risk-value-source-risk-1')
-    expect(row.contains(mark)).toBe(true)
+    expect(row.contains(mark)).toBe(false)
+    expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
     expect(mark.getAttribute('data-value-source')).toBe('brief')
-    expect(mark.querySelector('[aria-hidden="true"]')?.textContent).toBe('brief')
+    expect(mark.querySelector('.lucide-file-text')).not.toBeNull()
     expect(classes(row)).toEqual(expect.arrayContaining(['flex', 'items-baseline']))
     for (const c of typography.nodeValue.split(' ')) expect(classes(row)).toContain(c)
   })
@@ -223,7 +227,7 @@ describe('OR-06 — the risk’s own recorded size carries a visible source mark
     renderRisk({ observedState: TWELVE_MONTHS_OLUMI })
     const mark = screen.getByTestId('risk-value-source-risk-1')
     expect(mark.getAttribute('data-value-source')).toBe('olumi')
-    expect(mark.querySelector('[aria-hidden="true"]')?.textContent).toBe('est.')
+    expect(mark.querySelector('.lucide-sparkles')).not.toBeNull()
     expect(mark.getAttribute('title') ?? '').not.toMatch(/Open the details/)
   })
 
@@ -255,7 +259,8 @@ describe('OR-08 — authored context follows the card’s own state, at 11px (De
     renderOutcome({ description: 'Share of accounts renewing at twelve months' })
     const state = screen.getByTestId('outcome-unquantified')
     const summary = screen.getByTestId('outcome-context-preview')
-    expect(precedes(state, summary)).toBe(true)
+    expect(state.closest('[data-card-bottom-band]')).not.toBeNull()
+    expect(summary.closest('[data-card-bottom-band]')).toBeNull()
     expect(classes(summary)).toContain(EDGE_LABEL_SIZE)
     // Still compact and still yields to the chevron's full description.
     expect(classes(summary)).toEqual(expect.arrayContaining(['line-clamp-2', 'group-aria-expanded:hidden']))
@@ -266,8 +271,9 @@ describe('OR-08 — authored context follows the card’s own state, at 11px (De
     const value = screen.getByTestId('risk-recorded-value')
     const exposure = screen.getByTestId('risk-exposure-unset')
     const summary = screen.getByTestId('risk-context-preview')
-    expect(precedes(value, exposure)).toBe(true)
-    expect(precedes(exposure, summary)).toBe(true)
+    expect(value.closest('[data-card-bottom-band]')).toBeNull()
+    expect(exposure.closest('[data-card-bottom-band]')).not.toBeNull()
+    expect(summary.closest('[data-card-bottom-band]')).toBeNull()
     expect(classes(summary)).toContain(EDGE_LABEL_SIZE)
   })
 })
@@ -300,7 +306,7 @@ describe('RHY-06 — one row rhythm: first row flush, later rows `mt-1`, nothing
     renderRisk({ observedState: TWELVE_MONTHS_FROM_BRIEF, probability: 0.3, impact: 'high' })
     expect(classes(screen.getByTestId('risk-recorded-value'))).not.toContain('mt-1')
     const line = screen.getByTestId('risk-exposure-line')
-    expect(classes(line)).toContain('mt-1')
+    expect(classes(line)).not.toContain('mt-1')
     expect(classes(line)).not.toContain('mb-1')
   })
 
@@ -331,11 +337,11 @@ describe('FRAME-15 / OR-12 / T13 — the Detailed severity badge is a sentence-c
     expect(classes(badge)).not.toContain('rounded')
     expect(classes(badge)).not.toContain('mb-1')
     // No `mt-1` wrapper: the badge's next sibling is the exposure line itself.
-    expect(badge.nextElementSibling).toBe(screen.getByTestId('risk-exposure-line'))
+    expect(screen.getByTestId('risk-exposure-line').closest('[data-card-bottom-band]')).not.toBeNull()
     expect(classes(badge.parentElement)).not.toContain('mt-1')
     // The badge is the first body row, so it is flush; the exposure line takes the gap.
     expect(classes(badge)).not.toContain('mt-1')
-    expect(classes(screen.getByTestId('risk-exposure-line'))).toContain('mt-1')
+    expect(classes(screen.getByTestId('risk-exposure-line'))).not.toContain('mt-1')
   })
 
   it('after a recorded size, the badge takes the row gap', () => {
@@ -349,7 +355,8 @@ describe('FRAME-15 / OR-12 / T13 — the Detailed severity badge is a sentence-c
     expect(screen.queryByTestId('risk-severity-badge')).toBeNull()
     // ED 5809278282: the figures are the line; the qualifier rides sr-only + title (+ popover).
     const line = screen.getByTestId('risk-exposure-line')
-    expect(shown(line)).toBe('90% likely · High impact')
+    expect(line).toHaveAttribute('aria-label', '90% likely · High impact')
+    expect(shown(line)).toBe('')
     expect(announced(line)).toBe('Entered estimate · 90% likely · High impact')
   })
 })

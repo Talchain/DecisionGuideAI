@@ -129,9 +129,9 @@ describe('served pricing options — the share line is ONE line in a slot reserv
       expect(withheld!.textContent).not.toMatch(/\d\s*%/)
       expect(screen.queryByTestId(`option-analysis-currency-${id}`)).toBeNull()
       const marker = screen.getByTestId(`option-not-ranked-${id}`)
-      expect(marker.parentElement).toBe(withheld)
-      expect(marker.textContent).toBe(NOT_RANKED_MARKER)
-      expect(marker.getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${EXPLORATORY_REASON_LINE}`)
+      expect(screen.getByTestId(`option-bottom-marks-${id}`).contains(marker)).toBe(true)
+      expect(marker.getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
+      expect(marker.getAttribute('aria-description')).toBe(EXPLORATORY_REASON_LINE)
       expect(tokens(marker)).toContain('whitespace-nowrap')
       cleanup()
 
@@ -196,7 +196,7 @@ describe('served pricing options — the share line is ONE line in a slot reserv
     const line = screen.getByTestId('option-not-analysed-opt_hybrid')
     expect(post!.contains(line)).toBe(true)
     expect(post!.getAttribute('aria-hidden')).toBeNull()
-    expect(line.textContent!.startsWith('Not analysed')).toBe(true)
+    expect(screen.getByTestId('option-not-analysed-chip-opt_hybrid')).toHaveAttribute('aria-label', 'Not analysed')
   })
 
   it('CONTRAST — no Goal-only stamp: the same slot and the same one-line row, without the qualifier', () => {

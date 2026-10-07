@@ -241,13 +241,13 @@ describe('factor card, Standard view — the driver line', () => {
     // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
     // one-line slot prints the LONGEST form that fits at the landing bound
     // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
-    expect(inPopover('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
+    expect(inPopover('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 3 ranked')
 
     editTheModel()
     expect(semantic()).toBe('changed')
     // Contract v3.1 pt 5 stale form: "Last run · Driver N of M ranked" — in the
     // name; the slot prints "Last run · Driver N of M" at the 1.64 bound.
-    expect(inPopover('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3')
+    expect(inPopover('factor-driver-line-caption').getAttribute('aria-label')).toBe('Last run · Driver 1 of 3')
     // Label in Name (WCAG 2.5.3): the visible string opens the spoken one.
     expect(inPopover('factor-driver-line').getAttribute('aria-label')).toMatch(/^Last run · Driver 1 of 3 ranked\. /)
     // The badge stays retired on the stale arm too.
@@ -259,7 +259,7 @@ describe('factor card, Standard view — the driver line', () => {
     seedCompletedRun(UNVALUED)
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(inPopover('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
+    expect(inPopover('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 3 ranked')
   })
 
   it('cannot-confirm is NOT "changed" — no Last-run label, and no analysis cue (ED 02:31Z Q2)', () => {
@@ -271,7 +271,7 @@ describe('factor card, Standard view — the driver line', () => {
     // Positive control: the card mounted.
     expect(screen.getByTestId('node-title')).toBeTruthy()
     expect(screen.queryByTestId('factor-driver-line')).toBeNull()
-    expect(document.body.textContent).not.toContain('Last run')
+    expect(document.querySelector('[data-card-mark][aria-label^="Last run"]')).toBeNull()
   })
 })
 
@@ -299,11 +299,11 @@ describe('factor card, Detailed view — the Detailed driver line', () => {
     seedCompletedRun(UNVALUED, { viewMode: 'expert' })
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('factor-driver-line-detail-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
+    expect(screen.getByTestId('factor-driver-line-detail-caption').getAttribute('aria-label')).toBe('Driver 1 of 3 ranked in this run')
 
     editTheModel()
     expect(semantic()).toBe('changed')
-    expect(screen.getByTestId('factor-driver-line-detail-caption').textContent).toBe('Last run · Driver 1 of 3 ranked')
+    expect(screen.getByTestId('factor-driver-line-detail-caption').getAttribute('aria-label')).toBe('Last run · Driver 1 of 3 ranked')
     expect(screen.getByTestId('factor-driver-line-detail').getAttribute('aria-label')).toMatch(/^Last run · /)
   })
 })
@@ -380,7 +380,7 @@ describe('wording parity with the option card', () => {
     expect(LAST_RUN_PREFIX).toBe('Last run · ')
     // The row's visible caption is the prefix's word, and its accessible name
     // opens with the prefix byte for byte — the same string the factor card uses.
-    expect(`${screen.getByTestId('option-win-anchor-opt_a').textContent} · `).toBe(LAST_RUN_PREFIX)
+    expect(`${screen.getByTestId('option-win-anchor-opt_a').getAttribute('aria-label')} · `).toBe(LAST_RUN_PREFIX)
     // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
     expect(screen.getByTestId('option-analysis-currency-opt_a').getAttribute('aria-label'))
       .toMatch(new RegExp(`^${LAST_RUN_PREFIX}supported by 72% of runs\\. `))

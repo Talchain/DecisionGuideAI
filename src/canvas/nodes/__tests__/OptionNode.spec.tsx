@@ -1691,7 +1691,7 @@ describe('OptionNode — QA Brief C-series', () => {
     // reads "Baseline · no changes" (was "Baseline option", keyed on the target
     // total). A baseline with a real change keeps "Baseline option"
     // (`OptionNode.contractV31Polish` OPT-12, `OptionNode.contractRowLine`).
-    expect(screen.getByText('Baseline · no changes')).toBeDefined()
+    expect(screen.getByLabelText('Baseline · no changes')).toBeDefined()
     // No delta arrow
     expect(screen.queryByText(/→/)).toBeNull()
   })

@@ -262,11 +262,13 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       expect(t.has('line-clamp-1')).toBe(false)
     })
 
-    it('`from → to` is never inside a truncating element, and the source mark TRAILS the value', () => {
+    it('`from → to` is never inside a truncating element, and the source mark is in the bottom band', () => {
       renderCard()
       const dd = onCard('option-change-row-option-1-f-conv')!
       const mark = onCard('option-change-row-estimate-option-1-f-conv')!
-      expect(dd.contains(mark)).toBe(true)
+      expect(dd.contains(mark)).toBe(false)
+      expect(onCard('option-bottom-marks-option-1')!.contains(mark)).toBe(true)
+      expect(mark.querySelector('.lucide-sparkles')).not.toBeNull()
       expect(dd.textContent!.startsWith('→ 7%')).toBe(true)
       let el: HTMLElement | null = dd
       while (el && el !== document.body) {
@@ -454,7 +456,7 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
     // ⛔ RE-PINNED 5 Oct 2026 (gate 5 item 4, DL 0df0e1): "Reference for the other alternatives." is dropped.
     it('a DECLARED baseline with no changes reads "Baseline · no changes", and no reference sentence', () => {
       renderCard({ id: 'option-b' })
-      expect(onCard('option-baseline-meta-option-b')?.textContent).toBe('Baseline · no changes')
+      expect(onCard('option-baseline-meta-option-b')?.getAttribute('aria-label')).toBe('Baseline · no changes')
       expect(onCard('option-baseline-reference-option-b')).toBeNull()
       expect(document.body.textContent ?? '').not.toContain('Reference for the other alternatives.')
     })
@@ -465,7 +467,7 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       const meta = onCard('option-baseline-meta-option-b')
       const share = onCard('option-analysis-currency-option-b')
       expect(share).not.toBeNull()
-      expect(meta?.textContent).toBe('Baseline · no changes')
+      expect(meta?.getAttribute('aria-label')).toBe('Baseline · no changes')
       expect(follows(meta!, share!)).toBe(true)
     })
 
@@ -484,7 +486,7 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
 
     it('contrast: a declared baseline with no OTHER option has nothing to be the reference for', () => {
       renderCard({ id: 'option-b', store: { nodes: [FACTOR_PRICE, BASELINE] } })
-      expect(onCard('option-baseline-meta-option-b')?.textContent).toBe('Baseline · no changes')
+      expect(onCard('option-baseline-meta-option-b')?.getAttribute('aria-label')).toBe('Baseline · no changes')
       expect(onCard('option-baseline-reference-option-b')).toBeNull()
     })
   })

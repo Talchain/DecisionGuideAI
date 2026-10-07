@@ -175,8 +175,13 @@ const unsetLine = () => screen.queryByTestId('risk-exposure-unset')
  * same sentence rides `title` and the popover. These read each carrier by
  * identity, so the claims below stay about the WHOLE line, never a fragment.
  */
-const shownOn = (el: Element | null) => el?.querySelector('[aria-hidden="true"]')?.textContent ?? null
-const announcedLine = () => screen.queryByTestId('risk-primary-line-full')?.textContent ?? null
+const shownOn = (el: Element | null) => {
+  expect(el).not.toBeNull()
+  const words = el!.getAttribute('aria-label')
+  expect(el!.textContent).not.toContain(words)
+  return words
+}
+const announcedLine = () => (unsetLine() ?? screen.queryByTestId('risk-exposure-line'))?.getAttribute('aria-description') ?? null
 
 describe('a thin risk card says the MODEL is thin', () => {
   beforeEach(() => {
@@ -196,7 +201,8 @@ describe('a thin risk card says the MODEL is thin', () => {
     // in full AND shown in full (was ED 5809278282's short form); the element
     // is the unset line.
     expect(announcedLine()).toBe(RISK_EXPOSURE_UNSET_LINE)
-    expect(unsetLine()?.contains(screen.getByTestId('risk-primary-line-full'))).toBe(true)
+    expect(unsetLine()).toHaveAttribute('title', RISK_EXPOSURE_UNSET_LINE)
+    expect(unsetLine()?.querySelectorAll('[data-filled="true"]')).toHaveLength(0)
     expect(shownOn(unsetLine())).toBe(RISK_EXPOSURE_UNSET_LINE)
   })
 
@@ -261,7 +267,7 @@ describe('a thin risk card says the MODEL is thin', () => {
     // beside a value the card holds.
     const row = screen.getByTestId('risk-recorded-value')
     expect(screen.getByTestId('risk-recorded-readout').textContent).toBe('12 months')
-    expect(announcedLine()).toBe(RISK_EXPOSURE_UNSET_LINE)
+    expect(screen.getByTestId('risk-primary-line-full').textContent).toBe(RISK_EXPOSURE_UNSET_LINE)
     expect(row.contains(screen.getByTestId('risk-primary-line-full'))).toBe(true)
     expect(row.getAttribute('title')).toBe(`12 months · ${RISK_EXPOSURE_UNSET_LINE}`)
     expect(unsetLine()).toBeNull()

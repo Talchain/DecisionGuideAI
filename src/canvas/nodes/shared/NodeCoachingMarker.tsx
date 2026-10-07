@@ -1,3 +1,4 @@
+import { cardMark, coachingCardMarkId } from './cardMarks'
 /**
  * NodeCoachingMarker — on-canvas coaching marker bound to a graph node.
  *
@@ -101,7 +102,6 @@ import { useCallback, useMemo } from 'react'
 import {
   useGuidanceStore,
   compareGuidanceDisplayOrder,
-  guidanceCategoryIcon,
   type GuidanceItem,
 } from '../../stores/guidanceStore'
 import { typography } from '../../../styles/typography'
@@ -194,7 +194,8 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
   // uses), so the marker's glyph matches the card it opens. Its tint is NOT
   // taken on the canvas: the marker is muted at rest and Info on hover/focus
   // (see the header — contract v3.1, Paul 23 Sep pts 6 and 9).
-  const { Icon } = guidanceCategoryIcon(top.category)
+  const markId = coachingCardMarkId(top.category)
+  const Icon = cardMark(markId).Icon
   const count = items.length
 
   const label =
@@ -211,6 +212,7 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
       <button
         type="button"
         data-testid={`node-coaching-marker-${nodeId}`}
+        data-card-mark={markId}
         data-guidance-category={top.category ?? 'uncategorised'}
         data-guidance-count={count}
         data-node-tooltip="true"
