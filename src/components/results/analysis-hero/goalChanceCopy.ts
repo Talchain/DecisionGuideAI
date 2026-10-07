@@ -9,7 +9,8 @@
  */
 import type { GoalChanceComparator, GoalChanceDriver, GoalChanceDriverNames, GoalChanceLicence } from '../utils/goalChanceLicence'
 import { formatGoalTarget } from '../utils/formatGoalTarget'
-import { GOAL_CHANCE_LABEL } from '../utils/goalAnchorCopy'
+import { GOAL_CHANCE_LABEL, goalProbabilityWords } from '../utils/goalAnchorCopy'
+import type { GoalChanceRangeEntry } from '../utils/goalChanceRange'
 
 const COMPARATOR_WORDS: Readonly<Record<GoalChanceComparator, string>> = {
   at_least: 'at least',
@@ -29,7 +30,7 @@ export function goalChanceTargetWords(licence: GoalChanceLicence): string | null
  * displays as 100 (99.5% or more) is "more than 99%" — never "about 0%" (it reads as impossible) or "about 100%".
  */
 const about = (pct: number | undefined): string =>
-  pct === 0 ? 'less than 1%' : pct === 100 ? 'more than 99%' : `about ${pct}%`
+  goalProbabilityWords(`${pct}%`)
 /** "a and b" / "a, b and c" — British, no serial comma. */
 const listOf = (items: readonly string[]): string =>
   items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
@@ -75,14 +76,24 @@ export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionI
 /**
  * c6's per-option line (or, for an option CEE withheld for its own path, c6's withheld line), in the MODEL'S option order (`licence.optionIds`) — never sorted by chance: below the 10-point
  * licence a sort is a ranking the Run does not grant. `null` when any label cannot be said.
+ * `includeQuotedDrivers` keeps a named driver's line for a quoted option, without repeating its headline percentage.
  */
 export function goalChanceOptionLines(
   licence: GoalChanceLicence, labelOf: (optionId: string) => string | null, except: readonly string[] = [],
   driverLines: Readonly<Record<string, string>> = {},
+  includeQuotedDrivers = false,
 ): string[] | null {
   const lines: string[] = []
   for (const id of licence.optionIds) {
-    if (except.includes(id)) continue
+    if (except.includes(id)) {
+      const driver = driverLines[id]
+      if (includeQuotedDrivers && driver !== undefined) {
+        const label = labelOf(id)
+        if (label === null) return null
+        lines.push(`‘${label}’: ${driver}`)
+      }
+      continue
+    }
     const label = labelOf(id)
     if (label === null) return null
     // c6 (6 Oct): an option withheld for its own path keeps its place, and says so — never "unknown", never "0%".
@@ -96,6 +107,25 @@ export function goalChanceOptionLines(
       + (driver === undefined ? '' : ` ${driver}`))
   }
   return lines
+}
+
+/** CEE's range and link, with canvas labels; unresolved labels never expose ids. */
+export function goalChanceRangeLine(
+  range: GoalChanceRangeEntry, option: string | null, labelOf: (id: string) => string | null,
+): string | null {
+  const from = labelOf(range.from)
+  const to = labelOf(range.to)
+  if (option === null || option.trim() === '' || from === null || from.trim() === '' || to === null || to.trim() === '') return null
+  const depends = range.among === 'unsized_links' ? 'Of the links not sized yet, it depends most on' : 'It depends most on'
+  const link = range.kind === 'link_strength'
+    ? `how strongly ‘${from}’ affects ‘${to}’, which isn’t sized in the model yet.`
+    : `whether ‘${from}’ affects ‘${to}’ at all, which Olumi assumed.`
+  return `‘${option}’: between ${about(range.lowPct)} and ${about(range.highPct).replace(/^about /, '')} chance of meeting your goal, in this model. ${depends} ${link}`
+}
+
+export const GOAL_CHANCE_RANGE_ACTION: Readonly<Record<GoalChanceRangeEntry['kind'], string>> = {
+  link_strength: 'Size it to see where it lands',
+  link_existence: 'Confirm or remove it to see where it lands',
 }
 
 const FALLING_SIDE_WORDS: Readonly<Record<'low' | 'high', string>> = { low: 'below', high: 'above' }
