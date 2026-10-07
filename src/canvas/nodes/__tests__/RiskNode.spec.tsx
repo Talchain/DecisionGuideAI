@@ -96,6 +96,50 @@ describe('RiskNode', () => {
     expect(screen.getByText('Key person dependency')).toBeDefined()
   })
 
+  it.each([
+    [{ p_low: 0.1, p_high: 0.3, basis: 'user' }, 6, 'May happen · about 10–30% within 6 months', 'you said'],
+    [{ p_low: 0.2, p_high: 0.2, basis: 'user' }, 6, 'May happen · about 20% within 6 months', 'you said'],
+    [{ p_low: 0.1, p_high: 0.3, basis: 'user' }, 1, 'May happen · about 10–30% within a month', 'you said'],
+    [{ p_low: 0.1, p_high: 0.3, basis: 'olumi' }, 6, 'May happen · about 10–30% within 6 months', 'Olumi estimate'],
+  ])('renders an event risk before the legacy exposure row', (occurrence, months, line, basis) => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
+    renderRisk({ event_risk: { version: 1, occurrence, horizon: { months } } })
+    expect(screen.getByTestId('risk-event-line').textContent).toBe(line)
+    expect(screen.getByTestId('risk-event-basis').textContent).toBe(` · ${basis}`)
+    expect(screen.getByTestId('risk-primary-line-full').textContent).toBe(`${line} · ${basis}`)
+    // Slice B (#2633): the pair is a mark whose words are its aria-label, so the absence binds by identity.
+    expect(screen.queryByTestId('risk-exposure-unset')).toBeNull()
+  })
+
+  it('ignores malformed event risk and keeps the unset sentence byte-identical', () => {
+    renderRisk({ event_risk: { version: 1, occurrence: { p_low: 0.4, p_high: 0.3, basis: 'user' }, horizon: { months: 6 } } })
+    expect(screen.getByTestId('risk-exposure-unset')).toHaveAttribute('aria-label', 'Likelihood and impact not set yet')
+    expect(screen.queryByTestId('risk-event-line')).toBeNull()
+  })
+
+  it('keeps the probability and impact readout after the event line', () => {
+    renderRisk({
+      event_risk: { version: 1, occurrence: { p_low: 0.1, p_high: 0.3, basis: 'user' }, horizon: { months: 6 } },
+      probability: 0.9,
+      impact: 'high',
+    })
+    const eventLine = screen.getByTestId('risk-event-line')
+    const exposureLine = screen.getByTestId('risk-exposure-line')
+    // Slice B (#2633): the event line is the body's words; the pair is the matrix mark in the card's bottom band.
+    expect(eventLine.closest('[data-card-bottom-band]')).toBeNull()
+    expect(exposureLine.closest('[data-card-bottom-band]')).not.toBeNull()
+    expect(exposureLine.getAttribute('aria-description')).toBe('Entered estimate · 90% likely · High impact')
+  })
+
+  it('keeps the legacy unset and probability/impact controls unchanged without event risk', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
+    const unset = renderRisk()
+    expect(screen.getByTestId('risk-exposure-unset')).toHaveAttribute('aria-label', 'Likelihood and impact not set yet')
+    unset.unmount()
+    renderRisk({ probability: 0.9, impact: 'high' })
+    expect(screen.getByTestId('risk-exposure-line').getAttribute('aria-description')).toBe('Entered estimate · 90% likely · High impact')
+  })
+
   it('renders shape indicator (type line removed in v1.1)', () => {
     renderRisk()
     expect(screen.getByLabelText(/^Risk:/i)).toBeDefined()

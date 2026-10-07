@@ -7,16 +7,18 @@ interface EditNoteState {
   consecutiveKeeps: number
   fatigued: boolean
   fingerprint: string
+  /** `EditNote.onceKey`s already shown; cleared with the notes (a Run, a proposal approval). Session only. */
+  seenByRun: Record<string, true>
   clear: () => void
   keep: () => void
   acted: () => void
   reset: () => void
 }
-const initial = { note: null, silences: {}, consecutiveKeeps: 0, fatigued: false, fingerprint: '' }
+const initial = { note: null, silences: {}, consecutiveKeeps: 0, fatigued: false, fingerprint: '', seenByRun: {} }
 const keyOf = (note: EditNote) => `${note.elementId}\u0000${note.check}`
 export const useEditNoteStore = create<EditNoteState>((set, get) => ({
   ...initial,
-  clear: () => set({ note: null }),
+  clear: () => set({ note: null, seenByRun: {} }),
   keep: () => {
     const state = get()
     if (!state.note) return
@@ -40,7 +42,9 @@ export function reportManualEdit(input: EditNoteInput): void {
     if (key.startsWith(`${input.edit.elementId}\u0000`) && silences[key] !== fingerprint) delete silences[key]
   }
   const candidate = deriveEditNote(input)
-  const note = candidate && (!state.fatigued || candidate.tier === 'T1') && silences[keyOf(candidate)] !== fingerprint
+  const seenKey = candidate?.onceKey ?? null
+  const note = candidate && (!seenKey || !state.seenByRun[seenKey]) && (!state.fatigued || candidate.tier === 'T1') && silences[keyOf(candidate)] !== fingerprint
     ? candidate : null
-  useEditNoteStore.setState({ note, silences, fingerprint })
+  const seenByRun = note && seenKey ? { ...state.seenByRun, [seenKey]: true as const } : state.seenByRun
+  useEditNoteStore.setState({ note, silences, fingerprint, seenByRun })
 }

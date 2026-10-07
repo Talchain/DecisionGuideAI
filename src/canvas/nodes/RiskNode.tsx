@@ -20,6 +20,7 @@ import { useGuidanceStore } from '../stores/guidanceStore'
 import { nodeRecordedValue } from '../domain/nodeRecordedValue'
 import { factorValueSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { openNodeInspector } from './shared/openNodeInspector'
+import { readEventRisk } from '../domain/eventRisk'
 
 /**
  * ⭐⭐⭐ A THIN CARD MUST SAY THAT THE MODEL IS THIN, NOT LOOK LIKE A THIN TOOL.
@@ -178,6 +179,16 @@ export const RiskNode = memo((props: NodeProps) => {
   const probability = probabilityInput.success ? probabilityInput.data : undefined
   const impact = impactInput.success ? impactInput.data : undefined
   const severity = calculateRiskSeverity(probability, impact)
+  const eventRisk = readEventRisk(props.data)
+  const eventPercent = eventRisk
+    ? eventRisk.pLow === eventRisk.pHigh
+      ? `${Math.round(eventRisk.pLow * 100)}%`
+      : `${Math.round(eventRisk.pLow * 100)}–${Math.round(eventRisk.pHigh * 100)}%`
+    : null
+  const eventHorizon = eventRisk ? (eventRisk.months === 1 ? 'a month' : `${eventRisk.months} months`) : null
+  const eventLine = eventRisk ? `May happen · about ${eventPercent} within ${eventHorizon}` : null
+  const eventBasis = eventRisk?.basis === 'user' ? 'you said' : 'Olumi estimate'
+  const eventFull = eventLine ? `${eventLine} · ${eventBasis}` : null
 
   // The defining probability × impact pair (P1.7). Honest absence: each half only
   // renders when its value exists — never a fabricated 0% or default impact. The
@@ -452,6 +463,16 @@ export const RiskNode = memo((props: NodeProps) => {
   const riskMatrix = <CardMark id="risk-unset" testId={exposureReadout ? 'risk-exposure-line' : 'risk-exposure-unset'} words={isDetailed ? exposureFull : exposureReadout || RISK_EXPOSURE_UNSET_LINE} description={exposureFull} cell={typeof probability === 'number' && impact ? (probability >= .5 ? 2 : 0) + (impact === 'low' ? 0 : 1) : null} />
   const riskExposureLineDetailed = <div className={`${typography.edgeLabel} h-[1lh]`}>{riskMatrix}{exposureReadout && <CardMark id="source-you" words=" · entered" testId="risk-exposure-provenance" />}</div>
 
+  // event_risk.v1 slice 4 (#2626): a risk that may happen states its likelihood and horizon. A line only this card has, so it
+  // stays words in the body; the probability x impact pair above is the repeated one that moved to the band.
+  const riskEventLine = eventLine ? (
+    <div className={`${typography.edgeLabel} text-text-light break-words`} data-card-primary-line="risk">
+      <span aria-hidden="true" data-testid="risk-event-line">{eventLine}</span>
+      <span aria-hidden="true" className="italic" data-testid="risk-event-basis"> · {eventBasis}</span>
+      <span className={typography.screenReaderOnly} data-testid="risk-primary-line-full">{eventFull}</span>
+    </div>
+  ) : null
+
   /**
    * ⭐⭐ THE STANDARD CARD'S ONE PRIMARY LINE — Experience Design #63
    * 5809278282 (24 Sep 2026): *"repeated cards may reduce to title + one
@@ -495,7 +516,7 @@ export const RiskNode = memo((props: NodeProps) => {
       {recordedValueMark && (
         <ValueSourceMark mark={recordedValueMark} testId={`risk-value-source-${props.id}`} onOpenSource={() => { openNodeInspector(props.id) }} />
       )}
-      {!isDetailed && (
+      {!isDetailed && !eventRisk && (
         <span className={typography.screenReaderOnly} data-testid="risk-primary-line-full">{exposureFull}</span>
       )}
     </div>
@@ -521,7 +542,7 @@ export const RiskNode = memo((props: NodeProps) => {
    * second line, and a cut would eat the state word, the one cut this line may
    * never make (`RISK_EXPOSURE_UNSET_SHORT`'s own reasoning).
    */
-  const riskExposureLine = !isDetailed && !recordedValue ? riskExposureLineDetailed : null
+  const riskExposureLine = !isDetailed && !recordedValue && (!eventRisk || exposureReadout) ? riskExposureLineDetailed : null
 
   /**
    * ⭐ WHAT LEFT THE STANDARD BODY, IN THE POPOVER IT MOVED TO (ED 5809278282:
@@ -533,7 +554,7 @@ export const RiskNode = memo((props: NodeProps) => {
    */
   const riskPopoverOwnState = (
     <>
-      <p className={`${typography.edgeLabel} text-text-body m-0`} data-testid="risk-popover-state">{exposureFull}</p>
+      <p className={`${typography.edgeLabel} text-text-body m-0`} data-testid="risk-popover-state">{eventFull ?? exposureFull}</p>
       {summary && (
         <p className={`${typography.edgeLabel} text-text-light m-0 mt-1 line-clamp-3 break-words whitespace-pre-wrap`} data-testid="risk-popover-context">
           {summary}
@@ -662,6 +683,7 @@ export const RiskNode = memo((props: NodeProps) => {
             state; the full sentence, the `Entered estimate` qualifier and the
             authored context moved to the popover below (both phases), and stay
             in the inspector and behind the description chevron. */}
+        {riskEventLine}
         {riskRecordedRow}
         {riskExposureLine}
 
@@ -679,7 +701,7 @@ export const RiskNode = memo((props: NodeProps) => {
             (#1900, credited by the purpose audit): its cut-offs are UI-chosen, so
             it is not a resting claim. */}
         {showSeverityBadge && detailedMetrics}
-        {isDetailed && riskExposureLineDetailed}
+        {isDetailed && (!eventRisk || exposureReadout) && riskExposureLineDetailed}
 
         {/* ⭐ Authored context comes AFTER the card's own state, one step
             smaller — contract v3.1 (OR-08): the title is followed directly by
