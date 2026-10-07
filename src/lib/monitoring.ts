@@ -35,6 +35,7 @@ function monitoringEnvDefaults(): Record<string, unknown> {
 
 export function resolveMonitoringConfig(
   env: Record<string, unknown> = monitoringEnvDefaults(),
+  hostname: string | undefined = typeof location === 'undefined' ? undefined : location.hostname,
 ): MonitoringConfig {
   // Cast: the parameter type widened from Vite's `ImportMetaEnv` to
   // `Record<string, unknown>` when the bare-`import.meta.env` default was
@@ -47,8 +48,12 @@ export function resolveMonitoringConfig(
   // "production". The label comes from the Netlify deploy context
   // (netlify.toml sets VITE_SENTRY_ENVIRONMENT per branch context). A
   // prod-like build with no label says so rather than claiming "production".
+  // A Netlify Deploy Preview is a preview whatever its branch: branch
+  // contexts in netlify.toml outrank the deploy-preview context, so a preview
+  // built from manual-test would otherwise claim "production".
+  const isDeployPreview = typeof hostname === 'string' && /^deploy-preview-\d{1,6}--/.test(hostname)
   const label = (env.VITE_SENTRY_ENVIRONMENT as string | undefined)?.trim()
-  const environment = isProdLike ? label || UNLABELLED_ENVIRONMENT : mode
+  const environment = !isProdLike ? mode : isDeployPreview ? PREVIEW_ENVIRONMENT : label || UNLABELLED_ENVIRONMENT
   const dsn = env.VITE_SENTRY_DSN as string | undefined
   const hotjarId = env.VITE_HOTJAR_ID as string | undefined
   const hotjarIdValid = hotjarId ? /^[0-9]{6,9}$/.test(hotjarId) : false
@@ -69,20 +74,25 @@ export function resolveMonitoringConfig(
 /** Sentry environment for a deployed build whose deploy context set no label. */
 export const UNLABELLED_ENVIRONMENT = 'unlabelled'
 
+/** Sentry environment for a Netlify Deploy Preview (deploy-preview-N--site). */
+export const PREVIEW_ENVIRONMENT = 'preview'
+
 const FULL_SHA = /^[0-9a-f]{40}$/
 
 /**
  * Release = the full build SHA. The ONE owner is scripts/build-id.mjs, which
  * stamps it into `<meta name="x-build-id">` of the document this tab loaded
- * (COMMIT_REF → GITHUB_SHA → git HEAD). An explicit VITE_RELEASE_VERSION
- * still wins. Anything that is not a full SHA is not a release.
+ * (COMMIT_REF → GITHUB_SHA → git HEAD), and it WINS: nothing else names the
+ * build this tab loaded. VITE_RELEASE_VERSION is used only with no stamp.
  */
 function resolveRelease(env: Record<string, unknown>): string | undefined {
-  const explicit = (env.VITE_RELEASE_VERSION as string | undefined)?.trim()
-  if (explicit) return explicit
-  if (typeof document === 'undefined') return undefined
-  const stamped = document.querySelector<HTMLMetaElement>('meta[name="x-build-id"]')?.content?.trim().toLowerCase()
-  return stamped && FULL_SHA.test(stamped) ? stamped : undefined
+  const stamped =
+    typeof document === 'undefined'
+      ? undefined
+      : document.querySelector<HTMLMetaElement>('meta[name="x-build-id"]')?.content?.trim().toLowerCase()
+  if (stamped && FULL_SHA.test(stamped)) return stamped
+  // No stamped SHA (dev server, tests): an explicit label is the only identity.
+  return (env.VITE_RELEASE_VERSION as string | undefined)?.trim() || undefined
 }
 
 /**
@@ -115,7 +125,9 @@ export function isKnownNoise(event: NoiseCandidate): boolean {
   const messages: string[] = []
   if (typeof event.message === 'string') messages.push(event.message)
   for (const v of values) if (typeof v.value === 'string') messages.push(v.value)
-  if (messages.some((m) => KNOWN_NOISE_MESSAGES.some((re) => re.test(m)))) return true
+  // Noise only when EVERY message is noise: a chain whose cause is a
+  // ResizeObserver loop but whose outer error is real must be kept.
+  if (messages.length > 0 && messages.every((m) => KNOWN_NOISE_MESSAGES.some((re) => re.test(m)))) return true
   const frames = values.flatMap((v) => v.stacktrace?.frames ?? [])
   return frames.length > 0 && frames.every((f) => typeof f.filename === 'string' && EXTENSION_FRAME.test(f.filename))
 }
@@ -204,7 +216,10 @@ export function initSentry(): void {
       // Known noise is dropped in beforeSend by exact message (see
       // KNOWN_NOISE_MESSAGES); the SDK's own default message filters are
       // switched off so nothing else is discarded unseen.
-      integrations: [Sentry.eventFiltersIntegration({ disableErrorDefaults: true })],
+      // Same NAME as the SDK default ('InboundFilters'), so it REPLACES it.
+      // (eventFiltersIntegration is named 'EventFilters' and would run
+      // alongside the default, which still drops noise as event_processor.)
+      integrations: [Sentry.inboundFiltersIntegration({ disableErrorDefaults: true })],
       beforeBreadcrumb(breadcrumb, hint) {
         return scrubBreadcrumb(breadcrumb, hint as DomHint)
       },

@@ -18,6 +18,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 const sentry = vi.hoisted(() => ({
   init: vi.fn(),
   setUser: vi.fn(),
+  inboundFiltersIntegration: vi.fn((opts: unknown) => ({ name: 'InboundFilters', opts })),
   eventFiltersIntegration: vi.fn((opts: unknown) => ({ name: 'EventFilters', opts })),
   withScope: vi.fn(),
   captureException: vi.fn(),
@@ -75,6 +76,22 @@ describe('UI Sentry contract (S-H)', () => {
       expect(cfg.environment).toBe('staging')
     })
 
+    it('a Netlify Deploy Preview is "preview" even when its branch context says production', () => {
+      const cfg = resolveMonitoringConfig(
+        { MODE: 'production', VITE_SENTRY_DSN: DSN, VITE_SENTRY_ENVIRONMENT: 'production' },
+        'deploy-preview-2541--olumi.netlify.app',
+      )
+      expect(cfg.environment).toBe('preview')
+    })
+
+    it('control: the published production host keeps its production label', () => {
+      const cfg = resolveMonitoringConfig(
+        { MODE: 'production', VITE_SENTRY_DSN: DSN, VITE_SENTRY_ENVIRONMENT: 'production' },
+        'olumi.netlify.app',
+      )
+      expect(cfg.environment).toBe('production')
+    })
+
     it('a deployed build with no label says so instead of claiming production', () => {
       const cfg = resolveMonitoringConfig({ MODE: 'production', VITE_SENTRY_DSN: DSN })
       expect(cfg.environment).toBe(UNLABELLED_ENVIRONMENT)
@@ -114,6 +131,14 @@ describe('UI Sentry contract (S-H)', () => {
       expect(resolveMonitoringConfig({ MODE: 'production', VITE_SENTRY_DSN: DSN }).release).toBe(SHA40)
     })
 
+    it('the stamped SHA wins over an explicit VITE_RELEASE_VERSION', () => {
+      const meta = document.createElement('meta')
+      meta.name = 'x-build-id'
+      meta.content = SHA40
+      document.head.appendChild(meta)
+      expect(resolveMonitoringConfig({ MODE: 'production', VITE_SENTRY_DSN: DSN, VITE_RELEASE_VERSION: '2.0.0' }).release).toBe(SHA40)
+    })
+
     it('control: an unstamped placeholder is not a release', () => {
       const meta = document.createElement('meta')
       meta.name = 'x-build-id'
@@ -142,13 +167,27 @@ describe('UI Sentry contract (S-H)', () => {
       expect(cfg.beforeSend!(event)).toBeNull()
     })
 
+    it('a real error whose CAUSE is ResizeObserver noise is kept', () => {
+      const cfg = initConfig()
+      const event = {
+        exception: {
+          values: [
+            { type: 'Error', value: 'ResizeObserver loop completed with undelivered notifications.' },
+            { type: 'TypeError', value: 'NetworkError when attempting to fetch resource.' },
+          ],
+        },
+      }
+      expect(cfg.beforeSend!(event)).not.toBeNull()
+    })
+
     it('a message that merely CONTAINS the noise text is kept', () => {
       expect(discards(initConfig(), 'Wrapped: ResizeObserver loop completed with undelivered notifications. in Canvas')).toBe(false)
     })
 
     it("switches off the SDK's default message filters so nothing else is dropped unseen", () => {
       const cfg = initConfig()
-      const filters = (cfg.integrations ?? []).find((i) => i.name === 'EventFilters')
+      // must carry the DEFAULT's name, or it runs alongside the default
+      const filters = (cfg.integrations ?? []).find((i) => i.name === 'InboundFilters')
       expect(filters?.opts?.disableErrorDefaults).toBe(true)
     })
 
@@ -226,5 +265,46 @@ describe('noise matcher scales linearly (regex budget)', () => {
       return Math.max(best, 0.05)
     }
     expect(time(20_000) / time(5_000)).toBeLessThan(8)
+  })
+})
+
+describe('real SDK: known noise reaches beforeSend (so its drop is counted as before_send)', () => {
+  it('ResizeObserver noise is dropped by OUR hook, not by an SDK event processor', async () => {
+    vi.stubEnv('MODE', 'production')
+    vi.stubEnv('VITE_SENTRY_DSN', DSN)
+    sentry.init.mockClear()
+    initSentry()
+    const cfg = sentry.init.mock.calls[0][0] as Record<string, unknown> & {
+      beforeSend: (e: unknown, h: unknown) => unknown
+      integrations: Array<{ name: string; opts?: unknown }>
+    }
+    const real = await vi.importActual<typeof import('@sentry/react')>('@sentry/react')
+    const reached: string[] = []
+    const sent: unknown[] = []
+    // Rebuild the integrations with the REAL SDK factories, same options.
+    const integrations = cfg.integrations.map((i) =>
+      i.name === 'InboundFilters'
+        ? real.inboundFiltersIntegration(i.opts as Parameters<typeof real.inboundFiltersIntegration>[0])
+        : real.eventFiltersIntegration(i.opts as Parameters<typeof real.eventFiltersIntegration>[0]),
+    )
+    real.init({
+      dsn: DSN,
+      integrations,
+      beforeSend: (event, hint) => {
+        const value = event.exception?.values?.[0]?.value ?? ''
+        reached.push(value)
+        return cfg.beforeSend(event, hint) as typeof event | null
+      },
+      transport: () => ({ send: async (e: unknown) => { sent.push(e); return {} }, flush: async () => true }),
+    })
+    real.captureException(new Error('ResizeObserver loop completed with undelivered notifications.'))
+    real.captureException(new TypeError('NetworkError when attempting to fetch resource.'))
+    await real.flush(2000)
+    await real.close()
+    expect(reached).toContain('ResizeObserver loop completed with undelivered notifications.')
+    expect(reached).toContain('NetworkError when attempting to fetch resource.')
+    expect(JSON.stringify(sent)).toContain('NetworkError when attempting to fetch resource.')
+    expect(JSON.stringify(sent)).not.toContain('ResizeObserver loop')
+    vi.unstubAllEnvs()
   })
 })
