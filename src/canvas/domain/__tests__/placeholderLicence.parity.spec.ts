@@ -79,16 +79,16 @@ describe('placeholder licence parity (shared with CEE)', () => {
     })
   }
 
-  it.each([0.5, -0.5])('reads flattened strength_mean/strength_std (%s)', mean => {
-    const edge = { from: 'x', to: 'y', strength_mean: mean, strength_std: 0.125, defaulted: true }
-    expect(readWireStrengthIsPlaceholder(edge)).toBe(true)
-    expect(isStrengthPlaceholder(ingest(edge))).toBe(true)
+  // Codex buddy r1 #4: CEE reads only the nested `strength`, so a flat `strength_mean` never completes the door constant.
+  it.each([0.5, -0.5])('PARITY: a flat strength_mean/strength_std door constant is NOT a placeholder (%s)', mean => {
+    expect(readWireStrengthIsPlaceholder({ from: 'x', to: 'y', strength_mean: mean, strength_std: 0.125, defaulted: true })).toBe(false)
   })
-  it('nested strength takes precedence, with nullish fallback to flattened fields', () => {
+  it('PARITY: a nested pair missing a member is not completed by the flat field', () => {
     const flat = { from: 'x', to: 'y', strength_mean: 0.5, strength_std: 0.125, defaulted: true }
-    expect(readWireStrengthIsPlaceholder({ ...flat, strength: { mean: 0.4, std: 0.125 } })).toBe(false)
-    expect(readWireStrengthIsPlaceholder({ ...flat, strength: { mean: 0.5, std: 0.1 } })).toBe(false)
-    expect(readWireStrengthIsPlaceholder({ ...flat, strength: { mean: null, std: null } })).toBe(true)
+    expect(readWireStrengthIsPlaceholder({ ...flat, strength: { mean: null, std: null } })).toBe(false)
+    expect(readWireStrengthIsPlaceholder({ ...flat, strength: { mean: 0.5 } })).toBe(false)
+    // CONTROL: the nested door constant itself is a placeholder.
+    expect(readWireStrengthIsPlaceholder({ ...flat, strength: { mean: 0.5, std: 0.125 } })).toBe(true)
   })
 })
 

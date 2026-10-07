@@ -60,9 +60,10 @@ export function readWireStrengthIsPlaceholder(
   if (p.magnitude !== undefined || p.natural_effect !== undefined) return false
   if (p.mean_projected === true) return true
 
-  const strength = wireEdge?.strength as Record<string, unknown> | undefined | null
-  const mean = strength?.mean ?? wireEdge?.strength_mean
-  const std = strength?.std ?? wireEdge?.strength_std
+  // Exactly the field CEE reads (nested `strength`, link-sizing.ts): a flat `strength_mean` never completes it (parity).
+  const strength = wireEdge?.strength
+  if (typeof strength !== 'object' || strength === null || Array.isArray(strength)) return false
+  const { mean, std } = strength as Record<string, unknown>
   return wireEdge?.defaulted === true
     && typeof mean === 'number'
     && Math.abs(mean) === STRENGTH_DEFAULT_SIGNATURE.mean
