@@ -323,6 +323,9 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
           onAttach={handleAttach}
           hideComposer
           compact
+          /* The docked Olumi tab's shell carries the footer Re-analyse and the composer icon: one rerun control,
+             owned there (`workspaceShell/rerunControl.ts`), so the chat's run chip stands aside after the first Run. */
+          rerunHost="docked"
         />
       </div>
     </div>

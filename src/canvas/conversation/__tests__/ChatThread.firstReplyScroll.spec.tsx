@@ -20,12 +20,14 @@
  * append — an append-shaped test would have passed at pristine and proved
  * nothing.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render } from '@testing-library/react'
 import { ChatThread } from '../zones/ChatThread'
 import type { ConversationMessage } from '../types'
 
-const scrollIntoView = vi.fn()
+// The thread pins itself with its OWN `scrollTo` (`threadScroll.ts`), never `scrollIntoView` (which also scrolled
+// the dock's overflow-hidden aside, 7 Oct). jsdom has no `Element.prototype.scrollTo`, so this spy is the only one.
+const scrollTo = vi.fn()
 
 function props(messages: ConversationMessage[], nodeCount = 0) {
   return {
@@ -52,8 +54,11 @@ const assistantMsg = (id: string, streaming: boolean): ConversationMessage =>
 
 describe('ChatThread — the first assistant reply is scrolled to', () => {
   beforeEach(() => {
-    scrollIntoView.mockClear()
-    Element.prototype.scrollIntoView = scrollIntoView
+    scrollTo.mockClear()
+    ;(Element.prototype as unknown as { scrollTo: unknown }).scrollTo = scrollTo
+  })
+  afterEach(() => {
+    delete (Element.prototype as unknown as { scrollTo?: unknown }).scrollTo
   })
 
   it('scrolls on the commit that FINALISES the first reply — the commit where messages.length does not change', () => {
@@ -64,7 +69,7 @@ describe('ChatThread — the first assistant reply is scrolled to', () => {
     // scrolled to. Pin that precondition IN-TEST rather than assuming it: if the
     // suppression ever stops happening, this case must stop claiming to cover it
     // (CLAUDE.md trap 13b — a discriminator must pin its own precondition).
-    const scrollsBeforeFinalise = scrollIntoView.mock.calls.length
+    const scrollsBeforeFinalise = scrollTo.mock.calls.length
 
     // THE COMMIT THAT MATTERS: the SAME message id, isStreaming true → false.
     // `messages.length` is 2 both before and after.
@@ -73,7 +78,7 @@ describe('ChatThread — the first assistant reply is scrolled to', () => {
     rerender(<ChatThread {...props(finalised)} />)
 
     expect(
-      scrollIntoView.mock.calls.length,
+      scrollTo.mock.calls.length,
       'the first assistant reply became visible on this commit and nothing scrolled to it — ' +
         'the user is left looking at the top of a reply that has already finished',
     ).toBeGreaterThan(scrollsBeforeFinalise)
@@ -84,12 +89,12 @@ describe('ChatThread — the first assistant reply is scrolled to', () => {
     // byte-identical across the commit, so only a rendered-count trigger sees it.
     const messages = [userMsg('u1'), assistantMsg('a1', true)]
     const { rerender } = render(<ChatThread {...props(messages, 0)} />)
-    const before = scrollIntoView.mock.calls.length
+    const before = scrollTo.mock.calls.length
 
     rerender(<ChatThread {...props(messages, 12)} />)
 
     expect(
-      scrollIntoView.mock.calls.length,
+      scrollTo.mock.calls.length,
       'the graph landed and unhid the transcript, but the thread did not scroll to it',
     ).toBeGreaterThan(before)
   })
@@ -98,14 +103,14 @@ describe('ChatThread — the first assistant reply is scrolled to', () => {
     // The discriminating twin. Without this, a trigger that simply fired on
     // every render would satisfy the two cases above while measuring nothing.
     const { rerender } = render(<ChatThread {...props([userMsg('u1')], 0)} />)
-    const afterUserOnly = scrollIntoView.mock.calls.length
+    const afterUserOnly = scrollTo.mock.calls.length
 
     // A second suppressed message arrives: messages.length changes 1 → 2, but
     // NOTHING new reaches the DOM, so nothing should be scrolled to.
     rerender(<ChatThread {...props([userMsg('u1'), assistantMsg('a1', true)], 0)} />)
 
     expect(
-      scrollIntoView.mock.calls.length,
+      scrollTo.mock.calls.length,
       'the thread scrolled for a message the empty state is suppressing — the trigger is counting traffic, not content',
     ).toBe(afterUserOnly)
   })
