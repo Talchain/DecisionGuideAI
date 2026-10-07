@@ -122,6 +122,7 @@
  *      its unit. The legacy scalar is only a fallback when the node has none.
  */
 
+import { routeOnceHeldIds } from '../domain/routeOnceHeld'
 import type { Edge, Node } from '@xyflow/react'
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { goalLabelIsUnconfirmedBriefExtract } from '../domain/goalLabelProvenance'
@@ -1236,7 +1237,7 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
     interventions: [],
     // A relationship is not an option, so there is nothing it could change.
     interventionCandidates: [],
-    advancedParameters: buildAdvancedForEdge(edge.id, data),
+    advancedParameters: buildAdvancedForEdge(edge.id, data, routeOnceHeldIds(input.nodes, input.edges).has(edge.id)),
   }
 }
 
@@ -1436,9 +1437,9 @@ function buildAdvancedForNode(id: string, obs: ObservedState | undefined) {
  *     read empty. `resolveEdgeValueDisplay(data, 'beliefExists')` owns that
  *     spelling — including the legacy `belief` leg — in one place.
  */
-function buildAdvancedForEdge(id: string, data: Record<string, unknown> | undefined) {
+function buildAdvancedForEdge(id: string, data: Record<string, unknown> | undefined, routeOnceHeld: boolean) {
   const std = resolveEdgeValueDisplay(data, 'strengthStd')
-  const ep = resolveEdgeValueDisplay(data, 'beliefExists')
+  const ep = resolveEdgeValueDisplay(data, 'beliefExists', { routeOnceHeld })
   return [
     { label: 'Edge ID', value: id },
     { label: 'Std', value: std.show ? String(std.value) : null },

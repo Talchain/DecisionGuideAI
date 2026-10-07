@@ -15,6 +15,7 @@
  * - negative: Red stroke (increase → decrease)
  */
 
+import { useRouteOnceHeld } from '../hooks/useRouteOnceHeld'
 import { memo, useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react'
 import {
   edgeClickAffordance,
@@ -862,9 +863,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    * cannot disagree again. Do not reintroduce a second likelihood channel here
    * (CLAUDE.md trap 21).
    */
+  const routeOnceHeld = useRouteOnceHeld(String(id))
   const edgeLikelihood = useMemo(
-    () => resolveEdgeValueDisplay(edgeData as Record<string, unknown> | undefined, 'beliefExists'),
-    [edgeData]
+    () => resolveEdgeValueDisplay(edgeData as Record<string, unknown> | undefined, 'beliefExists', { routeOnceHeld }),
+    [edgeData, routeOnceHeld]
   )
   /**
    * ⭐ POM-8 (27 Sep 2026): CEE's PLACEHOLDER strength is not an estimate, so it
