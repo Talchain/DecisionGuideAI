@@ -68,16 +68,28 @@ export const NO_LINK_ENDS: LinkEnds = Object.freeze({})
 
 const text = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() !== '' ? v : undefined)
 
+/** A CEE wire node carries `kind` and `label` at the top level (NodeV3Schema; `isCanvasShapedNode`'s positive marker). */
+const isWireNode = (n: Rec): boolean => typeof n.kind === 'string' && typeof n.label === 'string'
+
 /**
- * CEE `nodeUnitOf`, over a WIRE node or a CANVAS node (whose data the mappers keep: `unit`, `goal_threshold_unit`,
- * `unit_reading`, and `observed_state` as `observedState`). The first own unit, else the user's own stated reading.
+ * The fields CEE reads for a node's ends. A WIRE node is read exactly as CEE reads it: its own fields, never a nested
+ * `data` (Codex r1 #2602 P0). A CANVAS node is read as registration SENDS it (`projectNodeFieldsForWire`): `data`'s
+ * fields, the observed bundle `observedState ?? observed_state` (camel-case first, Codex r1 P0), the kind its data names.
  */
+function nodeFields(n: Rec): { label: unknown; unit: unknown; observed: unknown; kind: unknown; goalUnit: unknown; reading: unknown } {
+  if (!isWireNode(n) && isRec(n.data)) {
+    const d = n.data
+    return { label: d.label, unit: d.unit, observed: d.observedState ?? d.observed_state, kind: d.kind ?? d.type ?? n.type,
+      goalUnit: d.goal_threshold_unit, reading: d.unit_reading }
+  }
+  return { label: n.label, unit: n.unit, observed: n.observed_state, kind: n.kind, goalUnit: n.goal_threshold_unit, reading: n.unit_reading }
+}
+
+/** CEE `nodeUnitOf`: the first own unit (unit, observed, a goal's threshold unit), else the user's own stated reading. */
 function nodeUnit(n: Rec): string | undefined {
-  const d = isRec(n.data) ? n.data : n
-  const observed = isRec(d.observed_state) ? d.observed_state : isRec(d.observedState) ? d.observedState : undefined
-  const kind = d.kind ?? n.kind ?? n.type
-  const reading = isRec(d.unit_reading) && d.unit_reading.source === 'user_stated' ? d.unit_reading.unit : undefined
-  return [d.unit, observed?.unit, kind === 'goal' ? d.goal_threshold_unit : undefined, reading]
+  const f = nodeFields(n)
+  const reading = isRec(f.reading) && f.reading.source === 'user_stated' ? f.reading.unit : undefined
+  return [f.unit, isRec(f.observed) ? f.observed.unit : undefined, f.kind === 'goal' ? f.goalUnit : undefined, reading]
     .find((x): x is string => typeof x === 'string' && x.trim() !== '')
 }
 
@@ -85,7 +97,7 @@ function nodeUnit(n: Rec): string | undefined {
 export function linkEndsOf(nodes: readonly unknown[] | undefined | null): (edge: unknown) => LinkEnds {
   const byId = new Map<unknown, Rec>()
   for (const n of nodes ?? []) if (isRec(n)) byId.set(n.id, n)
-  const labelOf = (n: Rec | undefined): string | undefined => (n === undefined ? undefined : text(isRec(n.data) ? n.data.label : n.label))
+  const labelOf = (n: Rec | undefined): string | undefined => (n === undefined ? undefined : text(nodeFields(n).label))
   return (edge) => {
     if (!isRec(edge)) return NO_LINK_ENDS
     const from = byId.get(edge.from ?? edge.source)
@@ -144,10 +156,13 @@ export function isValidatedDefinition(wireEdge: unknown, ends: LinkEnds): boolea
 }
 
 /**
- * The ONE ingestion reader, every hop (like `strengthPlaceholderPatch`): `{ existenceHeld: true }` iff CEE holds the link.
+ * The ONE ingestion reader, every hop (like `strengthPlaceholderPatch`): `{ existenceHeld: true }` iff CEE holds the link,
+ * plus WHY when it is a validated definition (`existenceHeldByDefinition`), so a display never guesses the reason (Codex r1
+ * #2602 P1: a flagged link held only by the user's range is not "by definition").
  * `ends` is REQUIRED: a hop with no graph passes `NO_LINK_ENDS` on purpose, and then only the user's own range holds.
  */
-export function existenceHeldPatch(wireEdge: unknown, ends: LinkEnds): { existenceHeld?: true } {
+export function existenceHeldPatch(wireEdge: unknown, ends: LinkEnds): { existenceHeld?: true; existenceHeldByDefinition?: true } {
+  if (isValidatedDefinition(wireEdge, ends)) return { existenceHeld: true, existenceHeldByDefinition: true }
   return isHeldUserLink(wireEdge, ends) ? { existenceHeld: true } : {}
 }
 

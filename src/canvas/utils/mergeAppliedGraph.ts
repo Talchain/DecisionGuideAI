@@ -188,6 +188,8 @@ const EDGE_METADATA_ONLY_KEYS: ReadonlySet<string> = new Set([
   'strengthStated',
   // D3 cut 6: CEE's hold (domain/heldUserLink) is the server's record of the existence the Run uses, never an edit.
   'existenceHeld',
+  // S-DEF: and why (a validated definition), from the same reader.
+  'existenceHeldByDefinition',
 ])
 
 /**
@@ -203,7 +205,7 @@ const EDGE_METADATA_ONLY_KEYS: ReadonlySet<string> = new Set([
  * carries, and a canvas saved before it was carried holds none. A genuine β change
  * still counts through the strength itself.
  */
-const EDGE_ACQUIRED_METADATA_KEYS = ['serverStrength', 'origin', 'naturalEffect', 'strengthPlaceholder', 'strengthDefinitional', 'strengthAccepted', 'strengthStated', 'strengthExampleFigure', 'existenceHeld'] as const
+const EDGE_ACQUIRED_METADATA_KEYS = ['serverStrength', 'origin', 'naturalEffect', 'strengthPlaceholder', 'strengthDefinitional', 'strengthAccepted', 'strengthStated', 'strengthExampleFigure', 'existenceHeld', 'existenceHeldByDefinition'] as const
 
 /**
  * The acquired keys whose ABSENCE on a server-authoritative edge removes the
@@ -212,7 +214,7 @@ const EDGE_ACQUIRED_METADATA_KEYS = ['serverStrength', 'origin', 'naturalEffect'
  * and `origin` keep the presence rule.
  */
 // Gate 5: `strengthAccepted` too — a server edge that no longer records the approval drops the canvas label.
-const SERVER_ABSENCE_REMOVES_KEYS: ReadonlyArray<string> = ['naturalEffect', 'strengthPlaceholder', 'strengthDefinitional', 'strengthAccepted', 'strengthStated', 'strengthExampleFigure', 'existenceHeld']
+const SERVER_ABSENCE_REMOVES_KEYS: ReadonlyArray<string> = ['naturalEffect', 'strengthPlaceholder', 'strengthDefinitional', 'strengthAccepted', 'strengthStated', 'strengthExampleFigure', 'existenceHeld', 'existenceHeldByDefinition']
 import {
   backfillInterventionsOntoOptionNodes,
   mapDraftEdgeToCanvas,

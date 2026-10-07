@@ -310,9 +310,9 @@ export const EdgePanel = memo(function EdgePanel({
     () => isStrengthDefinitional(edge?.data as Record<string, unknown> | undefined),
     [edge?.data],
   )
-  // S-DEF: CEE holds this link at 1.0 because it is a validated definition (the hold, read at ingestion, on a link whose
-  // strength is still the definition). The user's-range hold keeps its own note.
-  const existenceHeldByDefinition = edge?.data?.existenceHeld === true && strengthIsDefinitional
+  // S-DEF: CEE holds this link at 1.0 because it is a validated definition (stamped with the hold at ingestion,
+  // `existenceHeldPatch`). A flagged link held only by the user's range keeps the range note (Codex r1 #2602 P1).
+  const existenceHeldByDefinition = edge?.data?.existenceHeld === true && edge?.data?.existenceHeldByDefinition === true
   // Gate 5: Olumi's strength the user ACCEPTED — the one predicate the canvas line and hover read (`domain/strengthAccepted`).
   const strengthIsAccepted = useMemo(
     () => isStrengthAccepted(edge?.data as Record<string, unknown> | undefined),

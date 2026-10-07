@@ -8,7 +8,7 @@
 
 import { useCanvasStore } from '../../store'
 import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../../domain/edges'
-import { existenceHeldPatch, linkEndsOf, type LinkEnds } from '../../domain/heldUserLink'
+import { existenceHeldPatch, linkEndsOf } from '../../domain/heldUserLink'
 import { readWireNaturalEffect, strengthExampleFigurePatch } from '../../domain/naturalEffect'
 import { strengthPlaceholderPatch } from '../../domain/strengthPlaceholder'
 import { strengthDefinitionalPatch } from '../../domain/strengthDefinitional'
@@ -98,7 +98,7 @@ function buildNode(op: PatchOperation) {
 // Edge builder — mirrors applyDraftResult.ts:52-105
 // ---------------------------------------------------------------------------
 
-function buildEdge(op: PatchOperation, ends: LinkEnds) {
+function buildEdge(op: PatchOperation) {
   const d = op.data ?? {}
   const source = (d.source as string) ?? (d.from as string) ?? ''
   const target = (d.target as string) ?? (d.to as string) ?? ''
@@ -199,7 +199,8 @@ function buildEdge(op: PatchOperation, ends: LinkEnds) {
       // The edge's size in the target's units — the ONE reader, every hop (domain/naturalEffect).
       ...(naturalEffect !== undefined ? { naturalEffect } : {}),
       // D3 cut 6: CEE holds this user link at existence 1.0 — the ONE reader, every hop (domain/heldUserLink).
-      ...existenceHeldPatch(d, ends),
+      // D3 cut 6 / S-DEF: the hold is stamped in step 3b, against the graph AS IT WILL BE (this patch's own node
+      // updates and new nodes applied), so a same-patch relabel validates exactly as CEE will (Codex r1 #2602 P0).
       ...strengthExampleFigurePatch(d as Record<string, unknown>, rawWeight as number, wireSuppliedStrength),
       // POM-8: a placeholder strength — HOP 2 OF 3, the same one reader (domain/strengthPlaceholder).
       ...strengthPlaceholderPatch(d as Record<string, unknown>, weight, wireSuppliedStrength),
@@ -272,6 +273,8 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
   // Partition operations
   const newNodes: ReturnType<typeof buildNode>[] = []
   const newEdges: ReturnType<typeof buildEdge>[] = []
+  // The RAW wire edge each new edge came from, for the hold (step 3b).
+  const heldWireOf = new Map<ReturnType<typeof buildEdge>, Record<string, unknown>>()
   const nodeUpdates = new Map<string, Record<string, unknown>>()
   const edgeUpdates = new Map<string, Record<string, unknown>[]>()
   const removeNodeIds = new Set<string>()
@@ -290,8 +293,8 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
 
       case 'add_edge': {
         if (!op.data) break
-        // S-DEF: the ends as the graph will hold them: this patch's own new nodes over the canvas's (`linkEndsOf`).
-        const edge = buildEdge(op, linkEndsOf([...useCanvasStore.getState().nodes, ...newNodes])(op.data))
+        const edge = buildEdge(op)
+        heldWireOf.set(edge, op.data)
         // Guard: skip edges with missing endpoints
         if (!edge.source || !edge.target) {
           if (import.meta.env.DEV) {
@@ -392,6 +395,14 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
   // 3. Append new nodes and edges
   mergedNodes = [...mergedNodes, ...newNodes]
   mergedEdges = [...mergedEdges, ...newEdges]
+
+  // 3b. D3 cut 6 / S-DEF: the ONE hold reader, against the graph AS IT WILL BE (node updates and new nodes applied).
+  const endsOf = linkEndsOf(mergedNodes)
+  for (const e of newEdges) {
+    const wire = heldWireOf.get(e)
+    if (wire === undefined) continue
+    Object.assign(e.data as Record<string, unknown>, existenceHeldPatch(wire, endsOf(wire)))
+  }
 
   // 4. Remove marked nodes and edges (cascade: also remove edges referencing removed nodes)
   if (removeNodeIds.size > 0) {

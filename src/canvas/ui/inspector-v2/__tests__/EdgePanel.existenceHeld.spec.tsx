@@ -68,6 +68,19 @@ describe('S-DEF: a link held by definition says so, with no likelihood', () => {
     expect(screen.queryByTestId('edge-existence-held-note')).toBeNull()
     expect(container.textContent ?? '').not.toMatch(/likely to exist/i)
   })
+  it('Codex r1 #2602 P1: a flagged link held only by the USER\'s range shows the range note, never the definition sentence', () => {
+    const g = structuredClone(served.graph) as { nodes: Array<Record<string, any>>; edges: Array<Record<string, any>> }
+    g.nodes.find((n) => n.id === 'starter_tier_monthly_recurring_revenue')!.label = 'Pipeline value'
+    const e = g.edges.find((x) => x.from === 'starter_tier_monthly_recurring_revenue' && x.to === 'monthly_recurring_revenue')!
+    e.provenance = { ...e.provenance, source: 'brief_extraction', source_quote: 'between 0.5 and 1.5 per pound',
+      natural_effect: { ...e.provenance.natural_effect, stated_range: { low: 0.5, high: 1.5, text: 'between 0.5 and 1.5', end: 'low' } } }
+    const { nodes, edges } = normalisePersistedGraph(g)
+    useCanvasStore.setState({ ...useCanvasStore.getState(), nodes, edges, results: { status: 'none', report: null } } as never)
+    const id = edges.find((x) => x.source === 'starter_tier_monthly_recurring_revenue' && x.target === 'monthly_recurring_revenue')!.id
+    render(<EdgePanel {...panelProps} edgeId={id} />)
+    expect(screen.getByTestId('edge-existence-held-note').textContent).toBe(EDGE_COPY.existenceHeldNote)
+    expect(screen.queryByTestId('edge-existence-held-by-definition')).toBeNull()
+  })
   it('CONTROL (same graph): the causal link into the part keeps its slider and Olumi\'s 80%', () => {
     const id = seedServed('starter_subscribers', 'starter_tier_monthly_recurring_revenue')
     render(<EdgePanel {...panelProps} edgeId={id} />)
