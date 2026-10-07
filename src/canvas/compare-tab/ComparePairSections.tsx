@@ -15,6 +15,8 @@ import {
 import type { RunChangeArtefact } from './runChangeArtefact'
 import { RUN_CHANGE_ARTEFACT_TESTID } from './RunChangeArtefactCard'
 import { CompareSupportFigures, orderMovements, type OptionCanvasLink } from './CompareSupportFigures'
+import type { ReasonSegment } from './withheldReasonSegments'
+import { GraphLink } from '../../components/results/GraphLink'
 
 const INPUT_FIELDS = 'run_delta.input_changes[].entity_id run_delta.input_changes[].option_id run_delta.input_changes[].link run_delta.input_changes[].before run_delta.input_changes[].after run_delta.input_coverage'
 const LEADER_FIELDS = 'run_delta.leader.changed run_delta.leader.prior_leading_option_id run_delta.leader.current_leading_option_id run_delta.leader.noise_verdict'
@@ -71,11 +73,13 @@ export function compareAskDraft(shown: readonly RunDeltaInputRow[], total: numbe
  * shares behind a `disclose` row. Every semantic verdict remains producer-owned.
  */
 export function ComparePairSections({
-  view, delta, artefact, label, nearTie, resultsAllowed, withheldReason, rowFocus, rowLight,
+  view, delta, artefact, label, nearTie, resultsAllowed, withheldReason, withheldSegments = null, rowFocus, rowLight,
   runIsCurrent = true, analysing = false, designationsWithheld = false, optionLink = () => null,
 }: {
   view: RunDeltaView; delta: RunDelta; artefact: RunChangeArtefact | null; label: (id: string) => string | null
   nearTie: boolean; resultsAllowed: boolean; withheldReason: string | null; rowFocus: InputRowFocus; rowLight: InputRowLight
+  /** `withheldReason` cut at each link it names (`withheldReasonSegments`); a named link opens its own inspector. */
+  withheldSegments?: ReadonlyArray<ReasonSegment> | null
   /** `selectRunAffirmedCurrent`: Ask is offered only while the pair on screen is the pair Olumi's tools read. */
   runIsCurrent?: boolean
   /** A run is in flight: the pair below is the previous one and stays visible. */
@@ -123,7 +127,17 @@ export function ComparePairSections({
         <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-testid="compare-comparability" data-wire-fields="run_delta.attribution_case run_delta.input_coverage">
           {view.comparability}{view.attributionLimit ? ` ${view.attributionLimit}` : ''}
         </p>
-        {!resultsAllowed ? <p className={`${typography.panelBody} text-text-body mt-2 mb-0`}>{withheldReason ?? 'Re-run to compare results for the model as it stands.'}</p> : null}
+        {!resultsAllowed ? (
+          <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-testid="compare-withheld-reason">
+            {withheldSegments?.some((s) => s.link)
+              // "Set them" with a way to: each named link is one click to its own inspector (`GraphLink` → `openLinkInspector`;
+              // a link no longer on the canvas falls back to focusing its source).
+              ? withheldSegments.map((s, i) => s.link
+                ? <GraphLink key={i} edgeRef={s.link} label={s.text} opensInspector className="underline" />
+                : <span key={i}>{s.text}</span>)
+              : (withheldReason ?? 'Re-run to compare results for the model as it stands.')}
+          </p>
+        ) : null}
         {resultsAllowed && view.movementsUnavailable ? <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-wire-fields="run_delta.win_probabilities_unavailable">{noPairsText(view)}</p> : null}
         {showFigures ? <CompareSupportFigures movements={view.movements} designationsWithheld={designationsWithheld} optionLink={optionLink} /> : null}
         {showFigures && cohortChanged ? (

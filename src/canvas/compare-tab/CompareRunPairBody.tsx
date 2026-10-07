@@ -32,6 +32,7 @@ import { selectRunAffirmedCurrent } from '../state/analysisStateSelector'
 import { selectWinSharesWithheld, selectWinShareWithheldReason } from '../state/winShareGate'
 import { buildRunChangeArtefact } from './runChangeArtefact'
 import { ComparePairSections } from './ComparePairSections'
+import { withheldReasonSegments } from './withheldReasonSegments'
 import type { OptionCanvasLink } from './CompareSupportFigures'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
 
@@ -89,6 +90,13 @@ export function CompareRunPairBody({
   // Current-run tie words come from the existing producer-verdict reader, not the delta noise tag.
   const nearTie = useCanvasStore(s => s.results?.hash === responseHash && deriveDecisionVerdict(s.results?.report).separation === 'tied')
   const withheldReason = useCanvasStore(selectWinShareWithheldReason)
+  // The links that reason names, each pressable to its own inspector (DL 7 Oct): the same warning and node labels the
+  // selector read, so the phrases match its sentence exactly.
+  const inferenceWarnings = useCanvasStore(s => (s.results?.report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings)
+  const withheldSegments = useMemo(() => withheldReason === null ? null : withheldReasonSegments(withheldReason, inferenceWarnings, (id) => {
+    const data = nodes.find(n => n.id === id)?.data as { label?: unknown } | undefined
+    return typeof data?.label === 'string' ? data.label : null
+  }), [withheldReason, inferenceWarnings, nodes])
   const runIsCurrent = useCanvasStore(selectRunAffirmedCurrent)
   // A run in flight keeps the previous pair on screen; Ask waits for the new pair (the one Olumi's tools will read).
   const analysing = useCanvasStore(s => s.results?.status === 'preparing' || s.results?.status === 'connecting' || s.results?.status === 'streaming')
@@ -146,7 +154,7 @@ export function CompareRunPairBody({
   return (
     <div className={COMPARE_MEASURE} data-testid={COMPARE_RUN_PAIR_TESTID} aria-busy={analysing || undefined}>
       <ComparePairSections view={view} delta={delta!} artefact={artefact} label={id => labels.get(id) ?? null}
-        nearTie={nearTie} resultsAllowed={runIsCurrent && !winSharesWithheld} withheldReason={withheldReason} rowFocus={rowFocus} rowLight={rowLight}
+        nearTie={nearTie} resultsAllowed={runIsCurrent && !winSharesWithheld} withheldReason={withheldReason} withheldSegments={withheldSegments} rowFocus={rowFocus} rowLight={rowLight}
         runIsCurrent={runIsCurrent} analysing={analysing} designationsWithheld={designationsWithheld} optionLink={optionLink} />
     </div>
   )
