@@ -28,7 +28,8 @@ describe('useSmartScroll', () => {
       useSmartScroll({ messageCount: 0, isThinking: false }),
     )
     expect(result.current.listRef).toBeDefined()
-    expect(result.current.listEndRef).toBeDefined()
+    // No end sentinel any more: the thread pins itself (`threadScroll.ts`), so the hook hands out no second ref.
+    expect('listEndRef' in result.current).toBe(false)
     expect(typeof result.current.handleScroll).toBe('function')
     expect(typeof result.current.scrollToBottom).toBe('function')
     expect(result.current.showNewMessageIndicator).toBe(false)

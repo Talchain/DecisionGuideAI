@@ -12,7 +12,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import type { ConversationMessage } from '../../conversation/types'
 
@@ -81,8 +81,6 @@ import { useCanvasStore } from '../../store'
 import { useReadinessStore } from '../../stores/readinessStore'
 import { useUIStore } from '../../../stores/uiStore'
 import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
-import { WORKSPACE_SURFACES } from '../workspaceShell/shellContract'
-import { isAiPanelV2Enabled } from '../../../flags'
 
 function Wrapper({ children }: { children: ReactNode }) {
   return (
