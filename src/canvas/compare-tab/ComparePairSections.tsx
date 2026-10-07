@@ -17,9 +17,12 @@ import { RUN_CHANGE_ARTEFACT_TESTID } from './RunChangeArtefactCard'
 import { CompareSupportFigures, orderMovements, type OptionCanvasLink } from './CompareSupportFigures'
 import type { ReasonSegment } from './withheldReasonSegments'
 import { GraphLink } from '../../components/results/GraphLink'
+import { COMPARE_GOAL_CHANCE_HEADING, goalChanceCompareWords } from '../../components/results/analysis-hero/goalChanceCopy'
 
 const INPUT_FIELDS = 'run_delta.input_changes[].entity_id run_delta.input_changes[].option_id run_delta.input_changes[].link run_delta.input_changes[].before run_delta.input_changes[].after run_delta.input_coverage'
 const LEADER_FIELDS = 'run_delta.leader.changed run_delta.leader.prior_leading_option_id run_delta.leader.current_leading_option_id run_delta.leader.noise_verdict'
+const NEAR_TIE_FIELDS = 'analysis_result.enrichment.robustness.near_tie analysis_result.enrichment.decision_brief.headline_banded'
+const GOAL_CHANCE_FIELDS = 'run_delta.goal_chances[].option_id run_delta.goal_chances[].prior run_delta.goal_chances[].current'
 export const COMPARE_ASK_LABEL = 'Ask Olumi about this comparison'
 /** While a Run is in flight the previous pair stays on screen; this says so, and promises nothing about the next pair. */
 export const COMPARE_RUN_IN_PROGRESS_TEXT = 'A Run is in progress. The comparison below is between the two runs before it.'
@@ -91,7 +94,12 @@ export function ComparePairSections({
   const [detailsOpen, setDetailsOpen] = useState(false)
   const exact = useScienceExact(detailsOpen)
   const rows = view.inputs?.rows ?? []
-  const resultHeadline = resultsAllowed ? headline(delta, label, nearTie) : 'Result comparison not shown'
+  // Compare-chance (schemas 0.81.0, DL #87 6035414740): when the pair carries each option's chance of meeting the goal,
+  // that is what Compare leads with, under each Run's OWN licence (so also when run shares are withheld); the run-share
+  // sentence and figures move behind Result details. Only for the pair Olumi's tools read (`runIsCurrent`).
+  const goalRows = runIsCurrent && view.goalChances !== undefined && view.goalChances.length > 0 ? view.goalChances : null
+  const shareHeadline = resultsAllowed ? headline(delta, label, nearTie) : null
+  const resultHeadline = goalRows ? COMPARE_GOAL_CHANCE_HEADING : shareHeadline ?? 'Result comparison not shown'
   const qualification = resultsAllowed ? noiseQualifier(delta.leader.noise_verdict) : null
   const showFigures = resultsAllowed && !view.movementsUnavailable
   const cohortChanged = rows.some((row) => row.kind === 'option' && row.change !== 'changed')
@@ -102,12 +110,22 @@ export function ComparePairSections({
     // The draft quotes the rows the list shows before "See all", then counts the rest.
     draft: compareAskDraft(rows.slice(0, INPUT_ROWS_SHOWN_FIRST), rows.length),
   })
+  // The run-share half: inline when it leads, behind Result details when goal chances lead.
+  const shareResults = (
+    <>
+      {resultsAllowed && view.movementsUnavailable ? <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-wire-fields="run_delta.win_probabilities_unavailable">{noPairsText(view)}</p> : null}
+      {showFigures ? <CompareSupportFigures movements={view.movements} designationsWithheld={designationsWithheld} optionLink={optionLink} /> : null}
+      {showFigures && cohortChanged ? (
+        <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-movement-scope`}>{MOVEMENT_SCOPE_TEXT}</p>
+      ) : null}
+    </>
+  )
   return (
     <div data-testid={WHATS_CHANGED_TESTID} data-attributable={view.attributable ? 'true' : 'false'}>
       {analysing ? (
         <p role="status" className={`${typography.panelBody} text-text-body mt-0 mb-3`} data-testid="compare-run-in-progress">{COMPARE_RUN_IN_PROGRESS_TEXT}</p>
       ) : null}
-      <section data-compare-section="headline" aria-label={artefact ? 'What changed between runs' : resultsAllowed ? 'Result comparison' : 'Result comparison not shown'}
+      <section data-compare-section="headline" aria-label={artefact ? 'What changed between runs' : resultsAllowed || goalRows ? 'Result comparison' : 'Result comparison not shown'}
         data-testid={artefact ? RUN_CHANGE_ARTEFACT_TESTID : undefined} data-prior-run-id={artefact?.priorRunId} data-current-run-id={artefact?.currentRunId}>
         {/* The two saved endpoints first (v3 artefact): what is being compared, before what it shows. */}
         <p className={`${typography.panelMeta} text-text-light flex items-center justify-between gap-3 mt-0 mb-2`} data-testid="compare-run-times" data-wire-fields="run_delta.endpoints.*.computed_at">
@@ -117,16 +135,27 @@ export function ComparePairSections({
         </p>
         <div className="flex items-center gap-1">
           <h3 className={`${typography.panelHeader} text-text-header m-0 min-w-0 flex-1`}
-            data-wire-fields={nearTie ? 'analysis_result.enrichment.robustness.near_tie analysis_result.enrichment.decision_brief.headline_banded' : LEADER_FIELDS}>
+            data-wire-fields={goalRows ? GOAL_CHANCE_FIELDS : nearTie ? NEAR_TIE_FIELDS : LEADER_FIELDS}>
             {resultHeadline}
           </h3>
           {askAvailable ? <PanelIconButton ai label={COMPARE_ASK_LABEL} onClick={ask} testId="compare-ask" /> : null}
         </div>
-        {qualification ? <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-wire-fields="run_delta.leader.noise_verdict">{qualification}</p> : null}
+        {qualification && !goalRows ? <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-wire-fields="run_delta.leader.noise_verdict">{qualification}</p> : null}
         {/* The reading note sits ABOVE the figures it qualifies: its words ("anything below", "nothing below") point at them. */}
         <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-testid="compare-comparability" data-wire-fields="run_delta.attribution_case run_delta.input_coverage">
           {view.comparability}{view.attributionLimit ? ` ${view.attributionLimit}` : ''}
         </p>
+        {goalRows ? (
+          // Figures only (DL ruling 2): each side as its own Run showed it, in the producer's (model) order, never a direction.
+          <ul className={`${typography.panelBody} text-text-body list-none p-0 mt-2 mb-0 space-y-2`} data-testid="compare-goal-chances" data-wire-fields={GOAL_CHANCE_FIELDS}>
+            {goalRows.map((g) => (
+              <li key={g.optionId} data-option-id={g.optionId}>
+                <span className="block break-words">{g.label ?? 'An option this run does not name'}</span>
+                <span className={`${typography.panelTabular} text-text-light block`}>{goalChanceCompareWords(g.prior, g.current)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {!resultsAllowed ? (
           <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-testid="compare-withheld-reason">
             {withheldSegments?.some((s) => s.link)
@@ -138,11 +167,7 @@ export function ComparePairSections({
               : (withheldReason ?? 'Re-run to compare results for the model as it stands.')}
           </p>
         ) : null}
-        {resultsAllowed && view.movementsUnavailable ? <p className={`${typography.panelBody} text-text-body mt-2 mb-0`} data-wire-fields="run_delta.win_probabilities_unavailable">{noPairsText(view)}</p> : null}
-        {showFigures ? <CompareSupportFigures movements={view.movements} designationsWithheld={designationsWithheld} optionLink={optionLink} /> : null}
-        {showFigures && cohortChanged ? (
-          <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-movement-scope`}>{MOVEMENT_SCOPE_TEXT}</p>
-        ) : null}
+        {goalRows ? null : shareResults}
       </section>
       <section className={PANEL_RULE} data-compare-section="inputs" aria-label="What you changed" data-wire-fields={INPUT_FIELDS}>
         {/* Inputs are half of what Compare is for, so a pair without an input record says so rather than going quiet. */}
@@ -154,17 +179,24 @@ export function ComparePairSections({
           </p>
         )}
       </section>
-      {showFigures ? (
+      {showFigures || (goalRows && resultsAllowed) ? (
         <div className={PANEL_RULE}>
           <SectionShell variant="disclose" title="Result details" count={null} testId="compare-result-details" open={detailsOpen} onOpenChange={setDetailsOpen}>
-            <ul className={`${typography.panelBody} text-text-body list-none p-0 m-0 space-y-2`}>
+            {goalRows ? (
+              <div className="mb-3" data-testid="compare-share-results">
+                <p className={`${typography.panelBody} text-text-body mt-0 mb-0`} data-wire-fields={nearTie ? NEAR_TIE_FIELDS : LEADER_FIELDS}>{shareHeadline}</p>
+                {qualification ? <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-wire-fields="run_delta.leader.noise_verdict">{qualification}</p> : null}
+                {shareResults}
+              </div>
+            ) : null}
+            {showFigures ? <ul className={`${typography.panelBody} text-text-body list-none p-0 m-0 space-y-2`}>
               {orderMovements(view.movements, designationsWithheld).map((m) => (
                 <li key={m.optionId} data-option-id={m.optionId} data-wire-fields="run_delta.win_probabilities[].option_id run_delta.win_probabilities[].prior run_delta.win_probabilities[].current run_delta.win_probabilities[].noise_verdict">
                   {m.label ?? 'An option this run does not name'}: {m.mayShowMagnitude ? `supported by ${scienceQuantityText('probability', m.prior, exact, false)} → ${scienceQuantityText('probability', m.current, exact, false)} of runs.` : noiseQualifier(m.noiseVerdict)}
                   {m.mayShowMagnitude && noiseQualifier(m.noiseVerdict) ? <span className={`${typography.panelMeta} text-text-light block`}>{noiseQualifier(m.noiseVerdict)}</span> : null}
                 </li>
               ))}
-            </ul>
+            </ul> : null}
           </SectionShell>
         </div>
       ) : null}

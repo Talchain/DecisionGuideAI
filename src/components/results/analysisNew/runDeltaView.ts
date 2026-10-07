@@ -66,7 +66,7 @@
  * change", which the contract explicitly sanctions.
  */
 
-import type { RunDelta, RunDeltaInputChange } from '@talchain/schemas/boundary'
+import type { RunDelta, RunDeltaGoalChanceSide, RunDeltaInputChange } from '@talchain/schemas/boundary'
 import { formatRawValueWithUnit } from '../../../canvas/utils/labelUtils'
 import { scienceBand } from '../../../components/science/ScienceQuantity'
 
@@ -106,6 +106,14 @@ export interface RunDeltaLeaderLine {
   readonly currentLabel: string | null
 }
 
+/** One option's chance of meeting the goal on each side of the pair, as THAT Run's own licence showed it (schemas 0.81.0). */
+export interface RunDeltaGoalChanceRow {
+  readonly optionId: string
+  readonly label: string | null
+  readonly prior: RunDeltaGoalChanceSide
+  readonly current: RunDeltaGoalChanceSide
+}
+
 export interface RunDeltaView {
   /** PART A. */
   readonly comparability: string
@@ -131,6 +139,13 @@ export interface RunDeltaView {
    * artefact, so `movements` is withheld and `noPairsText` says why. Absent = no such row (including no input record).
    */
   readonly goalFramingChanged?: true
+  /**
+   * Compare-chance (schemas 0.81.0, DL #87 6035414740): each option's chance of meeting the goal, in the producer's
+   * (model) order, each side under ITS Run's own licence, never the leader gate. Figures only: no direction travels.
+   * Absent = the producer sent none (a pre-0.81 CEE), or the goal's direction or comparison changed between the Runs
+   * (`goalFramingChanged`: the two chances answer different questions). Empty = no option was compared in both Runs.
+   */
+  readonly goalChances?: readonly RunDeltaGoalChanceRow[]
   /**
    * 0.70.0: the producer's TYPED reason for an empty `win_probabilities`, or `null` when it sent none. `prior_withheld`
    * = the earlier Run withheld its figures, so this is the first comparison (RC's UNWITHHELD). Never inferred from an
@@ -470,6 +485,9 @@ export function buildRunDeltaView(
     // `flip_thresholds` is withheld to avoid, one field over.
     movementsUnavailable: movements.length === 0,
     ...(framingChanged ? { goalFramingChanged: true as const } : {}),
+    ...(!framingChanged && delta.goal_chances !== undefined
+      ? { goalChances: delta.goal_chances.map((g) => ({ optionId: g.option_id, label: labelFor(g.option_id), prior: g.prior, current: g.current })) }
+      : {}),
     winProbabilitiesUnavailable: delta.win_probabilities_unavailable ?? null,
     leader: {
       changed: delta.leader.changed,
