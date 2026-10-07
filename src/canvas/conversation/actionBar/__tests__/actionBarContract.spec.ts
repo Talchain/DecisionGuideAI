@@ -2,13 +2,17 @@
  * S-B slice 1 — DGAI's one reader of CEE's `action_bar` v1.
  *
  * The rows state the reader's RULES (what it keeps, trims, skips and reports).
- * `EXAMPLE_BAR` is the contract's own example, not a capture; the wire-bound row
- * is the `todo` at the foot, which waits for CEE's captured bars.
+ * `EXAMPLE_BAR` is the contract's own example, not a capture; the wire-bound rows
+ * are the last block, on the bars CEE captured from its own routes.
  */
+import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { ADDITIVE_EXTENSIONS_KEY } from '../../../../v5/responseParser'
 import { offerIdentity, parseActionBar, pressIdsOnBar, readActionBar, type ActionBarIssue } from '../actionBarContract'
+import { ACTION_BAR_ICONS } from '../actionBarIcons'
 import { EXAMPLE_BAR, MORE_OPTIONS, PRE_MORTEM, REVIEW, REVISION, SET_TARGET, TEST_LINK, WHAT_CHANGES } from './actionBarContractExample'
 
 const read = (raw: unknown) => {
@@ -45,8 +49,9 @@ describe('the bar as sent', () => {
     expect(ids(bar!.more)).toEqual(['test_link'])
   })
 
-  it('a Run-independent bar has a null run key', () => {
+  it('a bar made before a Run has a null run key; before a model exists, a null graph hash too', () => {
     expect(read({ ...EXAMPLE_BAR, revision: { graph_hash: 'abc', run_key: null } }).bar!.revision).toEqual({ graph_hash: 'abc', run_key: null })
+    expect(read({ ...EXAMPLE_BAR, revision: { graph_hash: null, run_key: null } }).bar!.revision).toEqual({ graph_hash: null, run_key: null })
   })
 })
 
@@ -130,6 +135,51 @@ describe('where the bar is read from', () => {
   })
 })
 
-// ⛔ MERGE GATE for this consumer: bind the reader to the wire. A fixture written from the contract proves the reader's
-// rules; only bars CEE captured from its own route test prove it reads what CEE sends.
-it.todo('reads the bars CEE captured from its route test: before a Run, on a withheld Run, on a licensed Run')
+/**
+ * ⭐ BOUND TO THE WIRE. The three bars below were CAPTURED by CEE from its real routes (lane ACTION-BAR-CEE, CEE #2751,
+ * `src/orchestrator-v5/agent-lane/actions/__tests__/fixtures/`, copied byte for byte from its worktree at
+ * 8ce3b297f5002758c4e2db2f2e13128b3b4055e3). They are evidence about what CEE sends; `EXAMPLE_BAR` above is not.
+ * ⛔ Never edit or re-record them here: the digests pin the captured bytes, and a new capture comes from CEE.
+ */
+describe('the bars CEE captured from its routes', () => {
+  const CAPTURED = [
+    ['pre-run', '0dd6db62587f83e01b53d8db9bb8ba1a3dd573e77e191df102f252cc1d8a846e'],
+    ['withheld-run', '80f311dad3e6d0d8c8c45edab82a7c4e099875ac182878f8d75c6c9981ed3289'],
+    ['licensed-run', '3f1d4dd79ce735083184d4ba20afe8a6bd6b8d1627e9deae9bffde63761de99d'],
+  ] as const
+  const file = (name: string) => join(__dirname, 'fixtures', `action-bar-v1-${name}.json`)
+  const bytes = (name: string) => readFileSync(file(name))
+  const captured = (name: string) => JSON.parse(readFileSync(file(name), 'utf8')) as Record<'priority' | 'standard' | 'more', Record<string, unknown>[]> & Record<string, unknown>
+
+  it.each(CAPTURED)('%s: the captured bytes are the ones CEE recorded', (name, digest) => {
+    expect(createHash('sha256').update(bytes(name)).digest('hex')).toBe(digest)
+  })
+
+  it.each(CAPTURED)('%s: every offer CEE sent is read, in CEE’s order, with nothing reported', (name) => {
+    const raw = captured(name)
+    const { bar, issues } = read(raw)
+    expect(issues).toEqual([])
+    expect(bar).not.toBeNull()
+    expect({ v: bar!.v, state_key: bar!.state_key, revision: bar!.revision }).toEqual({ v: raw.v, state_key: raw.state_key, revision: raw.revision })
+    // Field for field: the reader keeps every member CEE sent on every offer (it drops only keys it does not know).
+    expect(bar!.priority).toEqual(raw.priority)
+    expect(bar!.standard).toEqual(raw.standard)
+    expect(bar!.more).toEqual(raw.more)
+    expect(raw.priority.length + raw.standard.length + raw.more.length, 'POSITIVE CONTROL: the capture holds offers').toBeGreaterThanOrEqual(5)
+  })
+
+  it('the three states differ where they should: no Run has no run key; a licensed Run has pills, one aimed at a link', () => {
+    expect(read(captured('pre-run')).bar!.revision.run_key).toBeNull()
+    expect(read(captured('withheld-run')).bar!.revision.run_key).toMatch(/^[0-9a-f]{16}$/)
+    const licensed = read(captured('licensed-run')).bar!
+    expect(ids(licensed.priority)).toEqual(['more_options', 'test_link'])
+    expect(licensed.priority[1]!.target).toMatchObject({ kind: 'link' })
+    expect(ids(read(captured('pre-run')).bar!.standard.filter((o) => !o.enabled))).toEqual(['review', 'what_changes', 'strengthen'])
+  })
+
+  it('every icon CEE names for these actions is one this build can draw (no generic glyph in slice 1)', () => {
+    const names = CAPTURED.flatMap(([name]) => { const raw = captured(name); return [...raw.priority, ...raw.standard, ...raw.more].map((o) => String(o.icon)) })
+    expect(names.length).toBeGreaterThanOrEqual(15)
+    for (const name of new Set(names)) expect(Object.keys(ACTION_BAR_ICONS), name).toContain(name)
+  })
+})

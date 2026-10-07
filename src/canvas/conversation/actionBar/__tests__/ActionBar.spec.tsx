@@ -2,6 +2,8 @@
  * S-B slice 1 — the ONE action bar. Rows are bound by identity: the action id in
  * each control's test id, the exact chip a press sends, the exact words shown.
  */
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { Pencil } from 'lucide-react'
@@ -12,7 +14,7 @@ import { ACTION_BAR_COPY, ActionBar } from '../ActionBar'
 import { parseActionBar, type ActionBarV1 } from '../actionBarContract'
 import { useActionBarStore } from '../actionBarStore'
 import { resetPressOfferClocks } from '../pressOffer'
-import { EXAMPLE_BAR, MORE_OPTIONS, PRE_MORTEM, REVIEW, REVISION, SET_TARGET, TEST_LINK, WHAT_CHANGES } from './actionBarContractExample'
+import { EXAMPLE_BAR, MORE_OPTIONS, PRE_MORTEM, REVIEW, REVISION, SET_TARGET, TEST_LINK } from './actionBarContractExample'
 
 vi.mock('../../revealOlumi', () => ({ revealOlumiSurface: vi.fn() }))
 
@@ -20,8 +22,8 @@ const bar = (raw: unknown = EXAMPLE_BAR): ActionBarV1 => parseActionBar(raw)!
 let dispatch: ReturnType<typeof vi.fn>
 
 /** The chip a press of this offer must send: nothing more, nothing less. */
-const chipOf = (offer: { press_id: string; label: string; user_line: string; offer_key: string }) => ({
-  id: offer.press_id, label: offer.label, message: offer.user_line, parameters: { offer_key: offer.offer_key, revision: REVISION }, source: 'chip',
+const chipOf = (offer: { press_id: string; label: string; user_line: string; offer_key: string }, revision: unknown = REVISION) => ({
+  id: offer.press_id, label: offer.label, message: offer.user_line, parameters: { offer_key: offer.offer_key, revision }, source: 'chip',
 })
 
 beforeEach(() => {
@@ -226,5 +228,63 @@ describe('keyboard and the host’s own controls', () => {
     render(<ActionBar bar={bar({ ...EXAMPLE_BAR, priority: [], more: [] })} surface="reasoning" compact={false} hostMenu={{ label: 'Model and workflow', items: [{ id: 'edit_brief', label: 'Edit brief', Icon: Pencil, onSelect: () => {} }] }} />)
     fireEvent.click(screen.getByTestId('action-bar-more'))
     expect(screen.getAllByRole('menuitem').map((el) => el.getAttribute('data-testid'))).toEqual(['action-bar-menu-host-edit_brief'])
+  })
+})
+
+/**
+ * ⭐ BOUND TO THE WIRE: the bars CEE captured from its routes (see `actionBarContract.spec.ts` for their provenance and
+ * digests). Every offer CEE sent has exactly ONE control, named as CEE named it, and a press sends CEE's own press id.
+ */
+describe('the bars CEE captured, drawn and pressed', () => {
+  const captured = (name: string): ActionBarV1 =>
+    parseActionBar(JSON.parse(readFileSync(join(__dirname, 'fixtures', `action-bar-v1-${name}.json`), 'utf8')))!
+
+  it.each(['pre-run', 'withheld-run', 'licensed-run'])('%s', (name) => {
+    const b = captured(name)
+    render(<ActionBar bar={b} surface="chat" compact={false} />)
+    const reason = (o: ActionBarV1['standard'][number]) => `${o.label} — ${o.enabled ? o.why_now : o.disabled_reason}`
+    let sent = 0
+    const pressed = (el: HTMLElement, o: ActionBarV1['standard'][number]) => {
+      fireEvent.click(el)
+      if (o.enabled) {
+        sent += 1
+        expect(dispatch).toHaveBeenLastCalledWith(chipOf(o, b.revision))
+      } else {
+        expect(el).toHaveAttribute('aria-disabled', 'true')
+        expect(screen.getByTestId('action-bar-notice')).toHaveTextContent(`${o.label}: ${o.disabled_reason}`)
+      }
+      expect(dispatch).toHaveBeenCalledTimes(sent)
+    }
+    expect(screen.queryAllByTestId(/^action-bar-pill-[a-z_]+$/)).toHaveLength(b.priority.length)
+    for (const o of b.priority) {
+      const el = screen.getByTestId(`action-bar-pill-${o.action_id}-press`)
+      expect(el).toHaveAccessibleName(reason(o))
+      pressed(el, o)
+    }
+    expect(screen.queryAllByTestId(/^action-bar-icon-/).map((el) => el.getAttribute('data-testid'))).toEqual(b.standard.map((o) => `action-bar-icon-${o.action_id}`))
+    for (const o of b.standard) {
+      const el = screen.getByTestId(`action-bar-icon-${o.action_id}`)
+      expect(el).toHaveAccessibleName(reason(o))
+      pressed(el, o)
+    }
+    for (const o of b.more) {
+      fireEvent.click(screen.getByTestId('action-bar-more'))
+      const row = screen.getByTestId(`action-bar-menu-${o.action_id}`)
+      expect(row).toHaveTextContent(`${o.label}${o.enabled ? o.why_now : o.disabled_reason}`)
+      pressed(row, o)
+    }
+    expect(b.priority.length + b.standard.length + b.more.length, 'POSITIVE CONTROL: the capture holds offers').toBeGreaterThanOrEqual(5)
+    expect(sent, 'POSITIVE CONTROL: at least one press was sent').toBeGreaterThanOrEqual(2)
+  })
+
+  it('before a Run, the three Run-dependent icons say what they need and the pre-mortem still runs', () => {
+    const b = captured('pre-run')
+    render(<ActionBar bar={b} surface="reasoning" compact={false} />)
+    for (const id of ['review', 'what_changes', 'strengthen']) expect(screen.getByTestId(`action-bar-icon-${id}`)).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.click(screen.getByTestId('action-bar-icon-review'))
+    expect(dispatch).not.toHaveBeenCalled()
+    expect(screen.getByTestId('action-bar-notice')).toHaveTextContent('Review: Needs a current analysis.')
+    fireEvent.click(screen.getByTestId('action-bar-icon-pre_mortem'))
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ id: 'agent-next-pre-mortem', parameters: { offer_key: b.standard[3]!.offer_key, revision: b.revision } }))
   })
 })

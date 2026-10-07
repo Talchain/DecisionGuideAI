@@ -7,7 +7,8 @@
  */
 export const REVISION = { graph_hash: '5fd5cde8737f85c9', run_key: 'run_0001' } as const
 
-const offer = (o: Record<string, unknown>) => ({ enabled: true, why_now: 'Why this is worth doing now.', ...o })
+const offer = <T extends { action_id: string; label: string; press_id: string; user_line: string; offer_key: string }>(o: T) =>
+  ({ enabled: true as boolean, why_now: 'Why this is worth doing now.' as string | undefined, ...o })
 
 export const SET_TARGET = offer({
   action_id: 'set_target', label: 'Set target', icon: 'Target', group: 'gap', press_id: 'act:set_target',

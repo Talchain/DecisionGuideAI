@@ -37,7 +37,8 @@ const ItemRefSchema = z.union([
 ])
 export type ItemRef = z.infer<typeof ItemRefSchema>
 
-const RevisionSchema = z.object({ graph_hash: z.string().min(1), run_key: z.string().min(1).nullable() })
+/** What the bar was made for. No graph yet → no graph hash; no Run (or a Run-independent bar) → no run key. */
+const RevisionSchema = z.object({ graph_hash: z.string().min(1).nullable(), run_key: z.string().min(1).nullable() })
 export type ActionBarRevision = z.infer<typeof RevisionSchema>
 
 const OfferSchema = z
