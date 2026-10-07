@@ -601,6 +601,8 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
       // The boundary FIRST, then B is observed: the cleanup resets the decision-record store to no owner, so observing
       // B before it left B's records owned by nobody (Codex #2484 final round).
       if (ownerRef.current !== null && nextOwner !== ownerRef.current) clearUserScopedState(nextOwner);
+      // A first sign-in or same-owner refresh is not a boundary: take the browser's current era (CAN-F2g; Codex #2646 r1).
+      else if (s) adoptIdentityEpochAtSignIn();
       ownerRef.current = nextOwner;
       observeDecisionRecordOwner(nextOwner);
       if (!s) {
