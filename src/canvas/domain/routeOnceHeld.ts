@@ -28,7 +28,7 @@ function heldOf(nodes: readonly unknown[], edges: readonly unknown[]): Held {
 /** The walk itself, uncached: O(V + E). Exported for the scaling row only; readers use the memoised exports below. */
 export function computeRouteOnceHeld(nodes: readonly unknown[], edges: readonly unknown[]): Held {
 
-  // Participating node ids, and the identity operands of the (few) identity nodes: no per-node allocation.
+  // Participating node ids, and the ISL-fixed sources of the (few) identity / event-risk nodes: no per-node allocation.
   const participating = new Set<string>()
   const operands = new Map<string, readonly unknown[]>()
   for (const node of nodes) {
@@ -39,8 +39,16 @@ export function computeRouteOnceHeld(nodes: readonly unknown[], edges: readonly 
     // calculation is withheld with its links before the hold, so it is not in the structure at all.
     if ((fields.analysis_participation ?? node.analysis_participation) === 'retained_excluded') continue
     participating.add(node.id)
+    // CEE `fixedByIsl`: the sources ISL FIXES rather than draws — identity operands, and an event risk's mitigations
+    // (event_risk.v1; ISL applies −p̄·m at existence 1). Never default, never cover. An event risk's OCCURRENCE never
+    // covers either: only drawn link existence does.
     const identity = fields.nonlinear_identity ?? node.nonlinear_identity
-    if (isRec(identity) && Array.isArray(identity.factor_ids)) operands.set(node.id, identity.factor_ids)
+    const eventRisk = fields.event_risk ?? node.event_risk
+    const fixed = [
+      ...(isRec(identity) && Array.isArray(identity.factor_ids) ? identity.factor_ids : []),
+      ...(isRec(eventRisk) && Array.isArray(eventRisk.mitigations) ? eventRisk.mitigations.filter(isRec).map((m) => m.factor_id) : []),
+    ]
+    if (fixed.length > 0) operands.set(node.id, fixed)
   }
   const endsOf = linkEndsOf(nodes)
   const incoming = new Map<string, number>()

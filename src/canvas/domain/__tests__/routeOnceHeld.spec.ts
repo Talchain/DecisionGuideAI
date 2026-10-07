@@ -143,7 +143,7 @@ describe('Rule R read-time display mirror', () => {
     const props = { edgeId: 'e1', techMode: false, onClose: vi.fn(), onNavigate: vi.fn() }
     const panel = render(createElement(EdgePanel, props))
     expect(screen.getByTestId('edge-existence-held-note').textContent).toBe(EDGE_COPY.existenceCountedOnceNote)
-    expect(EDGE_COPY.existenceCountedOnceNote).toBe('Counted once: Olumi’s doubt about this route already sits on an earlier link, so the analysis always includes this one.')
+    expect(EDGE_COPY.existenceCountedOnceNote).toBe('Counted once: Olumi’s doubt about each route through this link already sits on an earlier link, so the analysis always includes this one.')
     expect((screen.getByLabelText('Connection existence probability') as HTMLInputElement).value).toBe('1')
     expect(screen.getByTestId('edge-existence-readout').textContent).toContain('Very likely to exist')
     act(() => useCanvasStore.setState({ edges: graph.edges.map((e, i) => i === 0

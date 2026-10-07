@@ -6,9 +6,9 @@ import { routeOnceHeldEdges } from '../routeOnceHeld'
 import { isHeldUserLink, linkEndsOf } from '../heldUserLink'
 import { mapDraftNodeToCanvas, mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
 
-// CEE #2755 (7a70be303053168cf3e785e64397440605573543) pins the same bytes. `held` is CEE's `heldLinkOf(e) !== null`:
+// CEE #2755 (a81c70e22d573fb006241528b6a9d69c77ad576a) pins the same bytes. `held` is CEE's `heldLinkOf(e) !== null`:
 // the base holds (user range, validated definition) AND route-once, so each row checks the whole held set the Run uses.
-const FIXTURE_SHA256 = '7c050df497ef7ead9d145d8d38b14c92eb216d67a7b186fb57322b73d2d1ec51'
+const FIXTURE_SHA256 = '2af884c37d767cdd68a53aa6cf9b1e5ee7cf78f003204afdc57428f61ef51331'
 const bytes = readFileSync(resolve(process.cwd(), 'src/canvas/domain/__tests__/fixtures/route-once-parity.json'))
 type WireEdge = { from: string; to: string }
 const rows = JSON.parse(String(bytes)) as Array<{
