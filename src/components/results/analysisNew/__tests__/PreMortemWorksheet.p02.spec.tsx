@@ -1,10 +1,10 @@
 /**
  * P02 (7 Oct): the pre-mortem worksheet is complete. Fixtures are CEE #2773's own v2 worksheets, built from the
- * captured A2-ELIG draw 2 (elig-3, staging d738949, req 3be98169): see `fixtures/premortem-elig3-v2.json`.
+ * captured A2-ELIG draw 2 (elig-3, staging d738949, req 3be98169): see `src/v5/__tests__/premortem-fixtures/premortem-elig3-v2.json` (kept out of `fixtures/`: optionComputeStatusDivergence counts that corpus).
  */
 import { describe, it, afterEach, beforeEach } from 'vitest'
 import assert from 'node:assert/strict'
-import elig3 from '../../../../v5/__tests__/fixtures/premortem-elig3-v2.json'
+import elig3 from '../../../../v5/__tests__/premortem-fixtures/premortem-elig3-v2.json'
 import { render, fireEvent, cleanup } from '@testing-library/react'
 import { PreMortemWorksheet } from '../sections/PreMortemWorksheet'
 import { useCanvasStore } from '../../../../canvas/store'
