@@ -25,7 +25,7 @@ const range = (entry = ENTRY, warnings: Record<string, unknown>[] = []) => readG
   target: TARGET, range_by_option: { a: entry },
 }, ...warnings])
 const line = (estimate: string, bounds = '23% and 90%') =>
-  `‘Team A’: between ${bounds} chance of finishing the feature launch by 7 April 2027, in this model, from the slow end of your ${estimate} to the fast end.`
+  `‘Team A’: between ${bounds} chance of launching by 7 April 2027, in this model, from the slow end of your ${estimate} to the fast end.`
 
 function matrix(goalChanceRange: ReturnType<typeof range>, goalChanceLicence: ReturnType<typeof licence> | null = null) {
   const props = {
@@ -43,8 +43,8 @@ describe('share-by-date chance: the same words as CEE chat', () => {
   it('point line and matrix bind the deliverable verbatim, British date and model-relative chance', () => {
     const read = licence()
     expect(goalChanceOptionLines(read, labels)).toEqual([
-      '‘Team A’: about 62% chance of finishing the feature launch by 7 April 2027, in this model.',
-      '‘Team B’: about 41% chance of finishing the feature launch by 7 April 2027, in this model.',
+      '‘Team A’: about 62% chance of launching by 7 April 2027, in this model.',
+      '‘Team B’: about 41% chance of launching by 7 April 2027, in this model.',
     ])
     matrix(null, read)
     expect(screen.getByTestId('decision-matrix-chance-a').textContent).toBe(goalChanceOptionLines(read, labels)![0])
@@ -55,13 +55,17 @@ describe('share-by-date chance: the same words as CEE chat', () => {
     const read = licence({ ...TARGET, unit: '% of Feature Launch (v2)' })
     expect(goalChanceTargetWords(read)).toBe('Feature Launch (v2) done by 7 April 2027')
     expect(goalChanceOptionLines(read, labels)![0])
-      .toBe('‘Team A’: about 62% chance of finishing Feature Launch (v2) by 7 April 2027, in this model.')
+      .toBe('‘Team A’: about 62% chance of launching by 7 April 2027, in this model.')
+    // CONTROL (ruled words, CEE shareGoalChanceWords twin): a deliverable that is not a launch keeps "finishing <it> by", verbatim.
+    const other = licence({ ...TARGET, unit: '% of Data Migration (v2)' })
+    expect(goalChanceOptionLines(other, labels)![0])
+      .toBe('‘Team A’: about 62% chance of finishing Data Migration (v2) by 7 April 2027, in this model.')
   })
 
   it('point extremes retain less than 1% / more than 99%, never certainty', () => {
     expect(goalChanceOptionLines(licence(TARGET, { a: 0, b: 100 }), labels)).toEqual([
-      '‘Team A’: less than 1% chance of finishing the feature launch by 7 April 2027, in this model.',
-      '‘Team B’: more than 99% chance of finishing the feature launch by 7 April 2027, in this model.',
+      '‘Team A’: less than 1% chance of launching by 7 April 2027, in this model.',
+      '‘Team B’: more than 99% chance of launching by 7 April 2027, in this model.',
     ])
   })
 

@@ -120,11 +120,21 @@ export function goalChanceOptionLines(
     // P3: what this option's chance rests on most follows its own line, when CEE named one that can be worded.
     const driver = driverLines[id]
     const share = shareByDateWords(licence.target)
-    const chance = share === null ? GOAL_CHANCE_LABEL : `chance of finishing ${share.deliverable} by ${share.date}, in this model`
+    const chance = share === null ? GOAL_CHANCE_LABEL : `${shareChanceWords(share)}, in this model`
     lines.push(`‘${label}’: ${about(licence.pctByOption[id])} ${chance}.`
       + (driver === undefined ? '' : ` ${driver}`))
   }
   return lines
+}
+
+/**
+ * The ruled share-by-date words (DL #2762 r3, CEE `shareGoalChanceWords` twin): a deliverable that names a launch reads
+ * "chance of launching by <date>"; any other reads "chance of finishing <deliverable> by <date>".
+ */
+function shareChanceWords(share: { readonly deliverable: string; readonly date: string }): string {
+  return /\blaunch(?:ing)?\b/i.test(share.deliverable)
+    ? `chance of launching by ${share.date}`
+    : `chance of finishing ${share.deliverable} by ${share.date}`
 }
 
 /** CEE's range, with its stated estimate or canvas link labels; unresolved labels never expose ids. */
@@ -139,7 +149,7 @@ export function goalChanceRangeLine(
     const estimate = range.statedEstimate
     const bounds = estimate.low === estimate.high ? `${estimate.low}` : `${estimate.low}–${estimate.high}`
     const stated = range.quantity === 'months_to_finish' ? `${bounds} months` : `${bounds}% a month`
-    return `‘${option}’: between ${about(range.lowPct).replace(/^about /, '')} and ${about(range.highPct).replace(/^about /, '')} chance of finishing ${share.deliverable} by ${share.date}, in this model, from the slow end of your ${stated} to the fast end.`
+    return `‘${option}’: between ${about(range.lowPct).replace(/^about /, '')} and ${about(range.highPct).replace(/^about /, '')} ${shareChanceWords(share)}, in this model, from the slow end of your ${stated} to the fast end.`
   }
   const from = labelOf(range.from)
   const to = labelOf(range.to)
