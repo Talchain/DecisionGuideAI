@@ -1,3 +1,4 @@
+import { clearPendingEditNotes } from '../editNotes/reportManualEditReceipt'
 /**
  * THE CANVAS UNDO / REDO COMMAND — ⌘Z, ⌘⇧Z / ⌘Y, the rail's Undo and the
  * context menu all end here.
@@ -86,6 +87,7 @@ type RestoreResult = Awaited<ReturnType<typeof restoreModelVersion>>
 const RETRYABLE: ReadonlySet<RestoreResult['status']> = new Set(['unavailable', 'unusable'])
 
 export async function runCanvasUndo(direction: UndoDirection): Promise<UndoCommandOutcome> {
+  clearPendingEditNotes()
   const scenarioId = useCanvasStore.getState().currentScenarioId
   // ⭐ THE READER CLASS FIRST, before the journal (Undo S5). A guest's journal is always empty — versions are
   // owned-only (MV001), so no receipt is ever captured — and "Nothing to undo." after a guest's own edit would be

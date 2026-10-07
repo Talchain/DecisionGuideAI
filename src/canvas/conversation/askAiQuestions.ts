@@ -2,6 +2,7 @@
 export type AskStage = 'drafted' | 'ran-current' | 'stale' | 'withheld'
 export interface QuestionContext {
   stage: AskStage
+  otherLabel?: string
   label?: string
   kind?: string
   sourceLabel?: string
@@ -25,6 +26,9 @@ const linkQuestion = (c: QuestionContext) => c.stage === 'ran-current'
     : 'Why would this link change the outcome, and how sure are we?'
 
 export const QUESTIONS = {
+  'lever-today': (c: QuestionContext) => `Should ${element(c)} be today’s value, or something the options change?`,
+  connect: (c: QuestionContext) => `How does ${element(c)} affect this decision, and what should it link to?`,
+  differentiate: (c: QuestionContext) => `How does ${element(c)} differ from ${named(c.otherLabel, 'the other option')} in practice, and what should each change in the model?`,
   explain: (c: QuestionContext) => ({
     drafted: `What does ${element(c)} do in this decision, and what is it assumed to depend on?`,
     'ran-current': `How much does ${element(c)} matter to the options’ chances of meeting the goal, and why?`,

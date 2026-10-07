@@ -272,11 +272,11 @@ export const RiskPanel = memo(function RiskPanel({
           {showEditFeedback && (
             <div className="flex items-center gap-2 mt-2">
               <EditConfirmation trigger={lastConfirmed?.ts ?? null} />
-              <InlineRerunPrompt visible={isStaleAfterEdit} />
             </div>
           )}
         </PrimaryControlCard>
         </fieldset>
+        <InlineRerunPrompt elementId={nodeId} visible={isStaleAfterEdit} />
 
         {/* Only once something is entered — never said over nothing. */}
         {(probability != null || impact != null) && (

@@ -1,3 +1,4 @@
+import { reportManualEditReceipt, currentManualEditRevision, clearPendingEditNotes, takeRenameEditRevision } from '../editNotes/reportManualEditReceipt'
 /**
  * useConversation — Conversation state and orchestrator integration
  *
@@ -2373,6 +2374,8 @@ export interface SendFailureNotice {
  * Extracted from the inline signature it used to carry — no members changed.
  */
 export interface SendTurnOpts {
+  /** Session delivery epoch captured at the original gesture, retained through the deferred queue. Never on the wire. */
+  editNoteRevision?: number
   message: string
   /** Text shown in conversation bubble (defaults to message) */
   displayText?: string
@@ -4547,6 +4550,20 @@ export function useConversation(): UseConversationReturn {
       // Capture it once after lazy UUID allocation; never re-derive it from
       // the live store when this request eventually settles.
       const scenarioIdAtDispatch = currentScenarioId
+      const editNoteBeforeState = useCanvasStore.getState()
+      const editNoteRevision = opts.editNoteRevision ?? currentManualEditRevision()
+      // Factor/rename gestures are already optimistic; their existing intents carry the actual preimage.
+      const editNoteBefore = {
+        ...editNoteBeforeState,
+        nodes: editNoteBeforeState.nodes.map(node => {
+          if (node.id === opts.optimisticFactorEdit?.nodeId) return { ...node, data: { ...node.data,
+            observedState: opts.optimisticFactorEdit.prevObservedState,
+            observed_state: opts.optimisticFactorEdit.prevObservedState,
+            display_value: opts.optimisticFactorEdit.prevDisplayValue } }
+          if (node.id === opts.structuralRename?.nodeId) return { ...node, data: { ...node.data, label: opts.structuralRename.expectedLabel } }
+          return node
+        }),
+      }
 
       const resolvedTurnType: TurnType = isSystemEvent
         ? 'system_event'
@@ -4558,6 +4575,7 @@ export function useConversation(): UseConversationReturn {
       // Settled in this turn's finally; a landed analysis_result flips
       // 'complete' via applyV5State before the settle no-ops.
       const isRunAnalysisTurn = resolvedTurnType === 'run_analysis'
+      if (isRunAnalysisTurn) clearPendingEditNotes()
       if (isRunAnalysisTurn) {
         useCanvasStore.getState().resultsAnalysing()
         activeRunTurnIdRef.current = turnClientId
@@ -5958,6 +5976,15 @@ export function useConversation(): UseConversationReturn {
             })()
           }
 
+          // Manual typed events alone enter the note owner, after CEE's graph has landed.
+          // The note owner excludes proposal attribution (applied_from) and confirmations.
+          if (systemEvent && activeV5TurnIdRef.current === turnClientId) {
+            const landed = useCanvasStore.getState()
+            reportManualEditReceipt({ revision: editNoteRevision, event: systemEvent, response: target.response,
+              before: { nodes: editNoteBefore.nodes, edges: editNoteBefore.edges, options: editNoteBefore.ceeAnalysisReady?.options },
+              after: { nodes: landed.nodes, edges: landed.edges, options: landed.ceeAnalysisReady?.options } })
+          }
+
           const mappedBlocks =
             target.kind === 'blocks'
               // Pass suggested_actions so the held-proposal mapper (R8) can
@@ -7047,6 +7074,7 @@ export function useConversation(): UseConversationReturn {
       const releaseEditDelivery = beginModelEditDelivery(event.type)
       return await sendTurn({
         message: SYSTEM_MESSAGE_SENTINEL,
+        editNoteRevision: (opts?.structuralRename ? takeRenameEditRevision(opts.structuralRename.id) : undefined) ?? currentManualEditRevision(),
         systemEvent: event,
         mode: 'system',
         source: opts?.debugSource ?? 'system_event',
