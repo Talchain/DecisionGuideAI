@@ -28,6 +28,7 @@
 
 import { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react'
 import type { ConversationMessage } from '../types'
+import { scrollThreadToEnd } from './threadScroll'
 
 const SCROLL_THRESHOLD_PX = 60
 
@@ -125,7 +126,6 @@ interface UseSmartScrollDeps {
 
 interface UseSmartScrollReturn {
   listRef: React.RefObject<HTMLDivElement>
-  listEndRef: React.RefObject<HTMLDivElement>
   showNewMessageIndicator: boolean
   handleScroll: () => void
   scrollToBottom: () => void
@@ -133,7 +133,6 @@ interface UseSmartScrollReturn {
 
 export function useSmartScroll({ messageCount, isThinking, messages }: UseSmartScrollDeps): UseSmartScrollReturn {
   const listRef = useRef<HTMLDivElement>(null)
-  const listEndRef = useRef<HTMLDivElement>(null)
   const [showNewMessageIndicator, setShowNewMessageIndicator] = useState(false)
   const userScrolledUpRef = useRef(false)
 
@@ -231,7 +230,9 @@ export function useSmartScroll({ messageCount, isThinking, messages }: UseSmartS
     // The pin, capped at the newest reply's start (header note). The hold sets
     // `scrollTop` directly, so it is instant whatever `behavior` the sensor
     // asked for — no animation, with or without prefers-reduced-motion.
-    if (!holdAtReplyStart()) listEndRef.current?.scrollIntoView({ behavior })
+    // ⚠ THE THREAD'S OWN SCROLL POSITION, NEVER `scrollIntoView` (`threadScroll.ts`): that call also scrolled the
+    // dock's overflow-hidden `aside` 906 px and blanked the whole tab for every pending turn (witnessed 15/15).
+    if (!holdAtReplyStart() && listRef.current) scrollThreadToEnd(listRef.current, behavior)
     setShowNewMessageIndicator(false)
   }, [holdAtReplyStart])
 
@@ -253,7 +254,7 @@ export function useSmartScroll({ messageCount, isThinking, messages }: UseSmartS
   const scrollToBottom = useCallback(() => {
     userScrolledUpRef.current = false
     replyStartIdRef.current = null
-    listEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (listRef.current) scrollThreadToEnd(listRef.current, 'smooth')
     setShowNewMessageIndicator(false)
   }, [])
 
@@ -274,7 +275,7 @@ export function useSmartScroll({ messageCount, isThinking, messages }: UseSmartS
   //
   // A message that arrives while the thread is HIDDEN — the floating panel
   // minimised (`display:none`), or the collapsed dock's Olumi tab — cannot be
-  // scrolled to: `scrollIntoView` on a container with no boxes is a silent
+  // scrolled to: scrolling a container with no boxes is a silent
   // no-op, and nothing here re-ran when the surface came back. So the newest
   // message (on the witnessed journey, a failure notice whose Retry affordance
   // is the recovery path) laid out BELOW the visible band, and every
@@ -330,7 +331,7 @@ export function useSmartScroll({ messageCount, isThinking, messages }: UseSmartS
   //
   // So this sensor observes the content ITSELF rather than a proxy for it. A
   // MutationObserver fires on exactly the commits above (text, blocks, chips)
-  // and on nothing the user did — `scrollIntoView` mutates no DOM, so there is
+  // and on nothing the user did — a scroll write mutates no DOM, so there is
   // no feedback loop, and `setShowNewMessageIndicator` bails out on an
   // unchanged value rather than re-rendering. Records are already batched at
   // the microtask checkpoint, and the producer itself commits on rAF, so this
@@ -377,5 +378,5 @@ export function useSmartScroll({ messageCount, isThinking, messages }: UseSmartS
     }
   }, [replyStartScrollTop])
 
-  return { listRef, listEndRef, showNewMessageIndicator, handleScroll, scrollToBottom }
+  return { listRef, showNewMessageIndicator, handleScroll, scrollToBottom }
 }

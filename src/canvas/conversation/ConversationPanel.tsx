@@ -26,6 +26,7 @@ import { plot } from '../../adapters/plot'
 import { logger } from '../../lib/logger'
 import { ChevronsRight } from 'lucide-react'
 import { ChatThread } from './zones/ChatThread'
+import { scrollWithinThread } from './hooks/threadScroll'
 import { isRunAnalysisAffordance, type RunChipGate } from './zones/SuggestedChips'
 import { heldProposalRetirementKeys } from './selectors'
 import { ChatComposer, type ChatComposerHandle } from './zones/ChatComposer'
@@ -490,9 +491,8 @@ export const ConversationPanel = memo(function ConversationPanel({
   const handleScrollToPatch = useCallback((patchId: string) => {
     // ChatThread manages its own scroll ref; fall back to document query
     const el = document.querySelector(`[data-patch-id="${patchId}"]`)
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    }
+    // Within the thread only (`threadScroll.ts`): `scrollIntoView` also moves the dock's overflow-hidden `aside`.
+    if (el) scrollWithinThread(el, { behavior: 'smooth', block: 'nearest' })
   }, [])
 
   const handleOpenInspector = useCallback((nodeId: string) => {

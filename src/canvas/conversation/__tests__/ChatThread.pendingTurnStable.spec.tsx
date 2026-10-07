@@ -16,9 +16,9 @@
  * flash, a lost "show more" state and a re-run of entry animations; whether a
  * given remount is VISIBLE is a real-browser question, recorded in the PR.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
-import { ChatThread, THREAD_TESTID_DOCKED, THREAD_SCROLL_SENTINEL_TESTID } from '../zones/ChatThread'
+import { ChatThread, THREAD_TESTID_DOCKED } from '../zones/ChatThread'
 import { WAITING_LINE_MS } from '../zones/ThinkingDots'
 import { MESSAGE_ID_ATTRIBUTE } from '../hooks/useSmartScroll'
 import type { ConversationMessage, ActionChip } from '../types'
@@ -52,14 +52,22 @@ vi.mock('../../stores/guidanceStore', () => ({
   ),
 }))
 
-// Each scroll is recorded with its target, so a row can say WHICH element was
-// scrolled to (the thread's end sentinel), never just "something scrolled".
-const scrollTargets: unknown[] = []
+// Every scroll write is recorded with its target. `scrollIntoView` is recorded separately because in a browser it
+// moves EVERY scrollable ancestor — the dock's overflow-hidden aside included (the 7 Oct blank-chat witness).
+const scrollToTargets: Array<{ target: unknown; top: number | undefined }> = []
+const scrollIntoViewTargets: unknown[] = []
 beforeEach(() => {
-  scrollTargets.length = 0
+  scrollToTargets.length = 0
+  scrollIntoViewTargets.length = 0
   Element.prototype.scrollIntoView = vi.fn(function (this: unknown) {
-    scrollTargets.push(this)
+    scrollIntoViewTargets.push(this)
   })
+  ;(Element.prototype as unknown as { scrollTo: unknown }).scrollTo = vi.fn(function (this: unknown, opts?: ScrollToOptions) {
+    scrollToTargets.push({ target: this, top: opts?.top })
+  })
+})
+afterEach(() => {
+  delete (Element.prototype as unknown as { scrollTo?: unknown }).scrollTo
 })
 
 /** Let the thread's MutationObserver callbacks and effects run. */
@@ -82,9 +90,10 @@ async function scrollReaderUp(thread: HTMLElement) {
   })
 }
 
+/** How many times the THREAD itself was moved (by identity). */
 function scrollsToEnd(): number {
-  const sentinel = screen.getByTestId(THREAD_SCROLL_SENTINEL_TESTID)
-  return scrollTargets.filter((t) => t === sentinel).length
+  const thread = screen.getByTestId(THREAD_TESTID_DOCKED)
+  return scrollToTargets.filter((c) => c.target === thread).length
 }
 
 const t0 = new Date('2026-10-07T09:00:00Z')
@@ -238,5 +247,30 @@ describe('ChatThread: the dialogue is stable while a turn is in flight', () => {
     expect(screen.queryByTestId('new-messages-pill'), 'new content arrived and the reader was not told').not.toBeNull()
     expect(scrollsToEnd()).toBe(scrollsBefore)
     expect(thread.scrollTop).toBe(100)
+  })
+
+  it('⛔ BLANK CHAT: going pending and settling move ONLY the thread — nothing calls scrollIntoView, which scrolled the dock\'s overflow-hidden aside 906 px', async () => {
+    // Stand-in for `aside[data-testid=outputs-dock]` (overflow hidden) around the thread.
+    const { rerender } = render(
+      <aside data-testid="outputs-dock" style={{ overflow: 'hidden' }}>
+        <ChatThread {...props([reply1], false)} />
+      </aside>,
+    )
+    await flush()
+    const thread = screen.getByTestId(THREAD_TESTID_DOCKED)
+    scrollIntoViewTargets.length = 0
+    scrollToTargets.length = 0
+
+    // Send → pending (the moment the witness saw the tab go white) → the hint rewrite → the reply lands.
+    rerender(<aside data-testid="outputs-dock" style={{ overflow: 'hidden' }}><ChatThread {...props([reply1, ask1], true)} /></aside>)
+    await flush()
+    rerender(<aside data-testid="outputs-dock" style={{ overflow: 'hidden' }}><ChatThread {...{ ...props([reply1, ask1], true), longRunningHint: 'Thinking... 20s' }} /></aside>)
+    await flush()
+    rerender(<aside data-testid="outputs-dock" style={{ overflow: 'hidden' }}><ChatThread {...props([reply1, ask1, reply2], false)} /></aside>)
+    await flush()
+
+    expect(scrollIntoViewTargets, 'scrollIntoView moves every scrollable ancestor, the dock included').toEqual([])
+    expect(scrollToTargets.length, 'precondition: the thread did follow the turn').toBeGreaterThan(0)
+    expect(scrollToTargets.every((c) => c.target === thread), 'something other than the thread was scrolled').toBe(true)
   })
 })

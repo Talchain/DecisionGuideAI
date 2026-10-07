@@ -10,6 +10,7 @@ import { memo } from 'react'
 import { ArrowDown } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useSmartScroll } from '../hooks/useSmartScroll'
+import { THREAD_SCROLLER_ATTRIBUTE } from '../hooks/threadScroll'
 import { EmptyState } from './EmptyState'
 import { ChatMessage } from './ChatMessage'
 import type { HeldProposalSettlement } from '../../../v5/blocks/V5HeldProposalBlock'
@@ -75,16 +76,11 @@ export const THREAD_TESTID_DOCKED = 'chat-thread'
 export const THREAD_TESTID_FLOATING = 'chat-thread-floating'
 
 /**
- * The element `useSmartScroll` aims `scrollIntoView` at (`pinOrNotify` and
- * `scrollToBottom` — the only two call sites; the reply-start hold sets the
- * thread's `scrollTop` instead). Exported so no spec has to identify it
- * by a property other elements share: `OutputsDock.runReturnsToOlumi.spec.tsx`
- * used to find it as "the scrolled element that has NO `data-testid`", which
- * any untagged element satisfied and which this constant's very existence
- * would have broken (it did — that spec is updated in the same commit).
- * One literal, one place (CLAUDE.md trap 12).
+ * ⚠ THERE IS NO END SENTINEL ANY MORE. `useSmartScroll` used to pin the thread by calling `scrollIntoView` on an
+ * empty element at its end; that call also scrolled the dock's overflow-hidden `aside` and blanked the tab for every
+ * pending turn (witnessed 15/15, 7 Oct). The thread now moves only by writing its own scroll position
+ * (`hooks/threadScroll.ts`), and specs bind to THAT write on the thread element by identity.
  */
-export const THREAD_SCROLL_SENTINEL_TESTID = 'thread-scroll-sentinel'
 
 interface ChatThreadProps {
   messages: ConversationMessage[]
@@ -250,7 +246,7 @@ export const ChatThread = memo(function ChatThread({
 
   // `messages` lets the hook see a reply ARRIVE (appended, not restored), so a
   // reply taller than the thread lands at its first line, not its last.
-  const { listRef, listEndRef, showNewMessageIndicator, handleScroll, scrollToBottom } =
+  const { listRef, showNewMessageIndicator, handleScroll, scrollToBottom } =
     useSmartScroll({ messageCount: renderedMessageCount, isThinking, messages })
 
   // Mirror the internal listRef into an externally-provided ref so the
@@ -333,6 +329,8 @@ export const ChatThread = memo(function ChatThread({
       aria-label="Conversation"
       aria-live="polite"
       data-testid={testId}
+      /* `threadScroll.ts` finds the thread a target sits in by this mark, so it scrolls the thread and nothing above. */
+      {...{ [THREAD_SCROLLER_ATTRIBUTE]: '' }}
     >
       {showEmptyState && (
         <EmptyState
@@ -437,12 +435,6 @@ export const ChatThread = memo(function ChatThread({
         </button>
       )}
 
-      {/* The scroll sentinel `useSmartScroll` calls `scrollIntoView` on. It
-          carries a testid so a spec can assert the scroll was aimed at THIS
-          element by identity, rather than counting calls on a globally stubbed
-          `Element.prototype.scrollIntoView` that any element would satisfy
-          (CLAUDE.md trap 19). */}
-      <div ref={listEndRef} data-testid={THREAD_SCROLL_SENTINEL_TESTID} />
     </div>
   )
 })

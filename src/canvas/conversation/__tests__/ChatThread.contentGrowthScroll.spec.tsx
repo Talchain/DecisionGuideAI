@@ -29,7 +29,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
-import { ChatThread, THREAD_SCROLL_SENTINEL_TESTID } from '../zones/ChatThread'
+import { ChatThread, THREAD_TESTID_DOCKED } from '../zones/ChatThread'
 import type { ConversationMessage } from '../types'
 
 /**
@@ -56,35 +56,32 @@ vi.mock('../../../lib/supabase', () => ({
 
 /**
  * The stub is installed on `Element.prototype`, so EVERY element satisfies a
- * bare call-count assertion. Bind to the sentinel BY IDENTITY via the recorded
- * `this` of each call (CLAUDE.md trap 19) — counting calls proves a scroll
- * happened somewhere, never that it was aimed at the thread's end.
+ * bare call-count assertion. Bind to the THREAD BY IDENTITY via the recorded
+ * `this` of each call (CLAUDE.md trap 19), and to the END by the `top` it was
+ * asked for (`threadScroll.ts` pins with `top: scrollHeight`, which the browser
+ * clamps to the end) — counting calls proves a scroll happened somewhere, never
+ * that it was the thread pinned to its end.
  *
- * ⚠ Captured HERE rather than read from `scrollIntoView.mock.contexts`: that
- * field is declared in @vitest/spy's TYPINGS but does not exist in the 1.6.1
- * RUNTIME this repo pins (`node_modules/.pnpm/@vitest+spy@1.6.1`, zero
- * occurrences in `dist/index.js`; the 3.2.4 copy that also sits in the store
- * does have it). Reading the wrong installed copy's `.d.ts` typechecks and
- * then throws at run time — so the context is recorded explicitly and the
- * assertion cannot depend on which copy resolves.
+ * ⚠ The thread pins itself by writing its OWN scroll position (`scrollTo`),
+ * never by `scrollIntoView` on an end sentinel: that call also scrolled the
+ * dock's overflow-hidden aside and blanked the tab (7 Oct witness, 15/15).
+ * jsdom implements no `Element.prototype.scrollTo`, so the spy below is the
+ * only implementation in this file and every call is recorded.
  */
-const scrollTargets: unknown[] = []
-const scrollIntoView = vi.fn(function (this: unknown) {
-  scrollTargets.push(this)
+const scrollCalls: Array<{ target: unknown; top: number | undefined; endAtCall: number }> = []
+const scrollTo = vi.fn(function (this: Element, opts?: ScrollToOptions) {
+  scrollCalls.push({ target: this, top: opts?.top, endAtCall: this.scrollHeight })
 })
 
-function sentinelIn(root: ParentNode): Element {
-  const el = root.querySelector(`[data-testid="${THREAD_SCROLL_SENTINEL_TESTID}"]`)
-  expect(
-    el,
-    'precondition: the scroll sentinel is not in the DOM, so every assertion below would be vacuous',
-  ).not.toBeNull()
+function threadIn(root: ParentNode): Element {
+  const el = root.querySelector(`[data-testid="${THREAD_TESTID_DOCKED}"]`)
+  expect(el, 'precondition: the thread is not in the DOM, so every assertion below would be vacuous').not.toBeNull()
   return el as Element
 }
 
-/** How many times the scroll was aimed at THIS element, not at any element. */
+/** How many times THIS element was pinned to its end, not "some element scrolled". */
 function scrollsTo(el: Element): number {
-  return scrollTargets.filter((c) => c === el).length
+  return scrollCalls.filter((c) => c.target === el && c.top === c.endAtCall).length
 }
 
 /** Flush the rAF the content sensor coalesces on. */
@@ -134,12 +131,13 @@ const assistantMsg = (
 
 describe('ChatThread — content growing on an existing message is scrolled to', () => {
   beforeEach(() => {
-    scrollIntoView.mockClear()
-    scrollTargets.length = 0
-    Element.prototype.scrollIntoView = scrollIntoView
+    scrollTo.mockClear()
+    scrollCalls.length = 0
+    ;(Element.prototype as unknown as { scrollTo: unknown }).scrollTo = scrollTo
   })
   afterEach(() => {
     vi.useRealTimers()
+    delete (Element.prototype as unknown as { scrollTo?: unknown }).scrollTo
   })
 
   /**
@@ -174,8 +172,8 @@ describe('ChatThread — content growing on an existing message is scrolled to',
     const before = [userMsg('u1'), assistantMsg('a1', 'Here is a first read.')]
     const { rerender, container } = render(<ChatThread {...props(before)} />)
     await flushFrames()
-    const sentinel = sentinelIn(container)
-    const scrollsBeforeGrowth = scrollsTo(sentinel)
+    const thread = threadIn(container)
+    const scrollsBeforeGrowth = scrollsTo(thread)
 
     // THE COMMIT THAT MATTERS: same id 'a1', body grows the way `text_delta`
     // grows it. Pin the defect's whole mechanism in-test rather than assuming
@@ -187,11 +185,11 @@ describe('ChatThread — content growing on an existing message is scrolled to',
     rerender(<ChatThread {...props(after)} />)
     await flushFrames()
 
-    // The sentinel is the SAME DOM node across the rerender (React reuses it),
+    // The thread is the SAME DOM node across the rerender (React reuses it),
     // so this is a before/after count on one identified element.
-    expect(sentinelIn(container)).toBe(sentinel)
+    expect(threadIn(container)).toBe(thread)
     expect(
-      scrollsTo(sentinel),
+      scrollsTo(thread),
       'the reply body grew below the fold and nothing scrolled to the thread end — the user is left ' +
         'looking at the top of a reply whose remainder, and whose chips, are off screen',
     ).toBeGreaterThan(scrollsBeforeGrowth)
@@ -201,8 +199,8 @@ describe('ChatThread — content growing on an existing message is scrolled to',
     const before = [userMsg('u1'), assistantMsg('a1', 'Here is a first read.')]
     const { rerender, container } = render(<ChatThread {...props(before)} />)
     await flushFrames()
-    const sentinel = sentinelIn(container)
-    const scrollsBeforeChips = scrollsTo(sentinel)
+    const thread = threadIn(container)
+    const scrollsBeforeChips = scrollsTo(thread)
 
     const after = [
       userMsg('u1'),
@@ -227,9 +225,9 @@ describe('ChatThread — content growing on an existing message is scrolled to',
       'precondition: the chip must actually be in the DOM, or this case proves nothing',
     ).not.toBeNull()
 
-    expect(sentinelIn(container)).toBe(sentinel)
+    expect(threadIn(container)).toBe(thread)
     expect(
-      scrollsTo(sentinel),
+      scrollsTo(thread),
       'the suggested chips landed and nothing scrolled to the thread end — this is the "dead affordance": ' +
         'the chip works, the user simply cannot see it',
     ).toBeGreaterThan(scrollsBeforeChips)
@@ -242,9 +240,8 @@ describe('ChatThread — content growing on an existing message is scrolled to',
     const before = [userMsg('u1'), assistantMsg('a1', 'Here is a first read.')]
     const { rerender, getByTestId, queryByTestId, container } = render(<ChatThread {...props(before)} />)
     await flushFrames()
-    const sentinel = sentinelIn(container)
-
-    const thread = getByTestId('chat-thread')
+    const thread = threadIn(container)
+    expect(getByTestId('chat-thread')).toBe(thread)
     // A container the user has scrolled well away from the bottom.
     Object.defineProperties(thread, {
       scrollTop: { value: 0, writable: true, configurable: true },
@@ -255,7 +252,7 @@ describe('ChatThread — content growing on an existing message is scrolled to',
       thread.dispatchEvent(new Event('scroll'))
     })
 
-    const scrollsAfterUserScrolledUp = scrollsTo(sentinel)
+    const scrollsAfterUserScrolledUp = scrollsTo(thread)
 
     rerender(
       <ChatThread
@@ -264,9 +261,9 @@ describe('ChatThread — content growing on an existing message is scrolled to',
     )
     await flushFrames()
 
-    expect(sentinelIn(container)).toBe(sentinel)
+    expect(threadIn(container)).toBe(thread)
     expect(
-      scrollsTo(sentinel),
+      scrollsTo(thread),
       'the thread yanked a reader who had deliberately scrolled up back to the bottom',
     ).toBe(scrollsAfterUserScrolledUp)
     expect(
