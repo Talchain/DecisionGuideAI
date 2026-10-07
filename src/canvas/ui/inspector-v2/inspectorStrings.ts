@@ -573,7 +573,7 @@ export const EDGE_COPY = {
    */
   existenceHeldNote: 'Held at 100%: your own range for this link’s effect doesn’t include zero, so the analysis treats the link as existing.',
   // S-DEF (Science 393023, 7 Oct): a validated definition is held whoever drew it; no likelihood is said of it.
-  existenceHeldByDefinitionNote: 'Always exists: this link holds by definition, so the analysis never treats it as uncertain.',
+  existenceHeldByDefinitionNote: 'Always exists: this link holds by definition, so the analysis always includes it.',
   sensitiveContext: 'Small changes here could shift which option the data supports.',
   /**
    * The SAME sentence the canvas cue, the edge hover and the key carry
