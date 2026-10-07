@@ -1767,7 +1767,7 @@ function buildUncertainty(
       ...(reviewTarget ? { reviewTargetId: reviewTarget } : {}),
       inspect: rows(
         row('Severity', u.severity),
-        row('E-value', u.eValue != null ? String(u.eValue) : null),
+        row('Change margin', u.eValue != null ? String(u.eValue) : null),
         row('Factor confidence', pctOrNull(u.factorConfidence)),
       ),
       intervention: interventionFor(recommendations, u.affectedNodes?.[0]),

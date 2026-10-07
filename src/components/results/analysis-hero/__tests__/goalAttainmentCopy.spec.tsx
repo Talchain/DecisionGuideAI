@@ -75,7 +75,7 @@ import type { OptionResult } from '../../types'
  */
 const POSSESSIVE = /your goal/i
 /** AIQ #72 5885116642: the PERMITTED goal claim, as a share of model runs. The substituted basis never makes it. */
-const TARGET_CLAIM = /reaches the target/i
+const TARGET_CLAIM = /chance of meeting your goal/i
 const PLURALITY = /\ball targets\b|\bthe targets\b/i
 
 /**
@@ -283,7 +283,7 @@ describe('hero goal-attainment copy — no over-suppression, no value change', (
     expect(s.rowDetails).toHaveLength(2)
     for (const detail of s.rowDetails) {
       expect(detail.length).toBeGreaterThan(0)
-      expect(detail).toMatch(/of model runs/i)
+      expect(detail).toMatch(/chance of meeting every target this run scored/i)
     }
   })
 

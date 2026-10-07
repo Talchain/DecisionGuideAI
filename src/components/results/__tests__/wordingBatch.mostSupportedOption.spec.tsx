@@ -80,7 +80,7 @@ describe('conditional-winner cards: the header help names no contest', () => {
 describe('no fragile relationship: plain words, not "measured weak-link rate" (red team, #2548 witness)', () => {
   it('exact', () => {
     expect(ASSUMED_STRENGTH_REFUSAL_COPY.no_fragile_edges).toBe(
-      'This run found no relationship that changed the most-supported option often enough to show here.')
+      'In this run, no link’s assumed strength changed the most-supported option often enough to show here.')
     expect(ASSUMED_STRENGTH_REFUSAL_COPY.no_fragile_edges).not.toMatch(/weak-link|surface here/i)
   })
 })

@@ -115,7 +115,7 @@ describe('GoalPanel — the withheld words, and no goal percentage', () => {
     expect(getByTestId('goal-probability-withheld-identity').textContent).toBe(AIQ_WORDS)
     expect(getByTestId('goal-impact-withheld-identity').textContent).toBe(AIQ_WORDS)
     const text = container.textContent ?? ''
-    expect(text).not.toMatch(/Reaches the target in/)
+    expect(text).not.toMatch(/chance of meeting your goal/)
     expect(text).not.toContain(GOAL_CONSTRAINT_COPY.runForProbability)
     expect(text).not.toContain(GOAL_CONSTRAINT_COPY.perOptionOnly)
   })
@@ -123,6 +123,6 @@ describe('GoalPanel — the withheld words, and no goal percentage', () => {
   it('CONTROL: Paul’s evaluated identity shows the figure, and no withheld words', () => {
     const { queryByTestId, container } = renderWith(EVALUATED)
     expect(queryByTestId('goal-probability-withheld-identity')).toBeNull()
-    expect(container.textContent ?? '').toContain('Reaches the target in 99% of model runs')
+    expect(container.textContent ?? '').toContain('About 99% chance of meeting your goal')
   })
 })

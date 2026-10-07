@@ -273,7 +273,7 @@ export function TransitionCard({
           {/* E-value insight (standard mode: <2.0 only; expert: always) */}
           {tr.eValue != null && (showExpert || tr.eValue < 2.0) && (
             <div className={`${typography.panelBody} mt-1`}>
-              The {tr.eValueEdge} assumption would only need to be {tr.eValue}x wrong to change the result.
+              Change margin: the {tr.eValueEdge} assumption would only need to be {tr.eValue}x wrong to change the result.
             </div>
           )}
 
@@ -294,7 +294,7 @@ export function TransitionCard({
           {/* Expert: full deterministic facts */}
           {showExpert && (
             <div className={`${typography.panelMeta} mt-1.5`}>
-              {tr.eValue != null && `E-value: ${tr.eValue} (${tr.eValueEdge})`}
+              {tr.eValue != null && `Change margin: ${tr.eValue} (${tr.eValueEdge})`}
               {tr.conditionalWinner ? ' · Conditional flip: yes' : ''}
             </div>
           )}

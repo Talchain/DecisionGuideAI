@@ -155,7 +155,7 @@ describe('GoalNode — the exact-zero goal readout', () => {
     // Locked Canvas design (23 Sep 2026): read off the Chance row (ED 11:52Z point 2).
     const { visible, name } = achievementRow()
     expect(visible).toContain('55%')
-    expect(name).toMatch(/Reaches the target in 55% of model runs/)
+    expect(name).toMatch(/About 55% chance of meeting your goal/)
   })
 
   it('renders an EXACT ZERO as the goal register floor, NOT "0%"', () => {
@@ -166,7 +166,7 @@ describe('GoalNode — the exact-zero goal readout', () => {
     // sentence is the row's accessible name (ED 11:52Z point 2).
     const { visible, name } = achievementRow()
     expect(visible).toContain('< 1%')
-    expect(name).toContain('Reaches the target in < 1% of model runs.')
+    expect(name).toContain('Less than 1% chance of meeting your goal.')
     expect(everythingReadable()).not.toMatch(BARE_ZERO_PERCENT)
   })
 
@@ -177,7 +177,7 @@ describe('GoalNode — the exact-zero goal readout', () => {
     // Locked Canvas design (23 Sep 2026): read off the Chance row.
     const { visible, name } = achievementRow()
     expect(visible).toContain('< 1%')
-    expect(name).toContain('Reaches the target in < 1% of model runs.')
+    expect(name).toContain('Less than 1% chance of meeting your goal.')
   })
 })
 

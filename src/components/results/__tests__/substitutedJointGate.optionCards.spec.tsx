@@ -97,7 +97,7 @@ import {
 
 /** The two possessive forms this card shipped, quoted for the assertions. */
 const POSSESSIVE_BAR_LABEL = 'Hits target'
-const POSSESSIVE_BADGE_TAIL = 'of model runs'
+const POSSESSIVE_BADGE_TAIL = 'chance of meeting your goal'
 
 /**
  * The five options exactly as the producer sent them on the witnessed run.
@@ -227,7 +227,7 @@ describe('OptionCards — possessive gate on a substituted joint goal figure (RO
     const text = container.textContent ?? ''
 
     // The 2.282 assertions, unchanged: the possessive must not appear.
-    expect(text).not.toContain('Reaches the target in < 1% of model runs')
+    expect(text).not.toContain('Less than 1% chance of meeting your goal')
     expect(text).not.toContain(POSSESSIVE_BADGE_TAIL)
 
     // ⭐ INVERTED. 2.282 required the badge to SURVIVE, carrying the register's

@@ -3,7 +3,7 @@
  *
  * `goalChanceDriverWords.spec.ts` pins the words. This file pins the wiring on Paul's served Run 4276f3f9: CEE's
  * `driver_by_option` claim on the licence record, the canvas labels the results hook supplies, and the hero's subline.
- * Placement is the ruled one: after the option's own line under the `each` form; no sentence under a `highest` form.
+ * Placement: after the option's own line under `each`; quoted options keep their drivers under `highest` (PR-S3).
  *
  * Lives in the hero's own directory: `inertness.spec.ts` forbids importing the hero from anywhere else.
  */
@@ -109,8 +109,13 @@ describe('P3 — the hero says what an option’s chance rests on most, under th
     expect(text.split('How sure are you of that size?')).toHaveLength(2)
   })
 
-  it('under a `highest` form there is no per-option line, so no sentence', () => {
+  it('under a `highest` form the other option keeps its chance line and the quoted options keep their drivers', () => {
     seed(licenceRecord('highest', { leader_option_id: CONVERTIBLE, next_option_id: ANGEL, driver_by_option: { [ANGEL]: EXISTENCE_CLAIM, [CONVERTIBLE]: EXISTENCE_CLAIM } }))
-    expect(subline()).not.toContain('It rests most on')
+    const text = subline()
+    expect(text).toContain(`‘${optionLabel(OUTREACH)}’: about 20% chance of meeting your goal, in this model.`)
+    expect(text).toContain(`‘${optionLabel(ANGEL)}’: ${SENTENCE}`)
+    expect(text).toContain(`‘${optionLabel(CONVERTIBLE)}’: ${SENTENCE.replace(' Is that right?', '')}`)
+    expect(text).not.toContain(`‘${optionLabel(ANGEL)}’: about 41%`)
+    expect(text).not.toContain(`‘${optionLabel(CONVERTIBLE)}’: about 62%`)
   })
 })

@@ -119,7 +119,7 @@ describe('AnalysisHeroPanel — content', () => {
     expect(screen.getByTestId('hero-detail-label')).toHaveTextContent('Two developers')
     expect(screen.getByTestId('hero-detail-range')).toHaveTextContent('Realistic range: 54 to 82.')
     expect(screen.getByTestId('hero-detail-goal-fit')).toHaveTextContent(
-      'Reaches the target in 34% of model runs.',
+      'About 34% chance of meeting your goal.',
     )
   })
 
@@ -683,7 +683,7 @@ describe('Wave 2 (§6.5): quick evidence pills in the summary row', () => {
     const driver = screen.getByTestId('hero-quicklink-driver')
     const flip = screen.getByTestId('hero-quicklink-flip')
     expect(driver).toHaveTextContent('Main driver: Developer capacity')
-    expect(flip).toHaveTextContent('Top flip risk: Salary cost')
+    expect(flip).toHaveTextContent('Tipping point: Salary cost')
     // Outlined pill shape (DS rule: outlined, never filled).
     for (const pill of [driver, flip]) {
       expect(pill.className).toMatch(/rounded-full/)
