@@ -244,6 +244,40 @@ it('a late read after switching scenarios never populates the set', async () => 
   expect(await pending).toBe('skipped')
   expect(useCanvasStore.getState().servedSwitchFactorIds.size).toBe(0)
 })
+// ── Buddy r1 (Codex, #2608 @34c8d7a5) findings, one row each ─────────────────────────────────────────────
+it('BUDDY P1: a served id whose OWN value is off 0/1 is not a switch on its card or its option rows', () => {
+  useCanvasStore.getState().setCeeAnalysisReady(ready as never)
+  const nodes = useCanvasStore.getState().nodes.map(n => n.id !== ID ? n
+    : { ...n, data: { ...n.data, observedState: { ...(n.data as any).observedState, value: 0.1 } } })
+  useCanvasStore.setState({ nodes } as never)
+  const { factor } = projection()
+  expect(isServedSwitch(ID, useCanvasStore.getState())).toBe(true)
+  const text = formatInterventionTargetText({ label: String(factor.data.label), value: 1, factorData: factor.data })
+  expect(text).not.toBe('In use')
+  // The card reads through the shared formatter (#8); with its own value at 0.1 it must not word a switch.
+  expect(String(factorDisplayText(factor.data as never) ?? '')).not.toMatch(/Not in use|In use/)
+})
+it('BUDDY P1: a local scenario switch (loadScenario) clears the served set', () => {
+  useCanvasStore.getState().setCeeAnalysisReady(ready as never)
+  expect(useCanvasStore.getState().servedSwitchFactorIds.has(ID)).toBe(true)
+  const other = { id: 'scenario-b', name: 'B', createdAt: 1, updatedAt: 1,
+    graph: { nodes: [{ id: ID, type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Same id, not a switch', observedState: { value: 0 } } }], edges: [] } }
+  localStorage.setItem('olumi-canvas-scenarios', JSON.stringify([other]))
+  expect(useCanvasStore.getState().loadScenario('scenario-b')).toBe(true)
+  expect(useCanvasStore.getState().currentScenarioId).toBe('scenario-b')
+  expect(useCanvasStore.getState().servedSwitchFactorIds.size).toBe(0)
+  expect(isServedSwitch(ID, useCanvasStore.getState())).toBe(false)
+})
+it('BUDDY P2: an UNSET option target on a served switch reads as unset in the Model tab, never "Not in use"', () => {
+  useCanvasStore.getState().setCeeAnalysisReady(ready as never)
+  const nodes = useCanvasStore.getState().nodes.map(n => n.id !== 'launch_starter_tier' ? n
+    : { ...n, data: { ...n.data, interventions: { ...((n.data as any).interventions ?? {}), [ID]: null } } })
+  useCanvasStore.setState({ nodes } as never)
+  const detail = toRowDetail(projection().input, 'launch_starter_tier') as any
+  const row = detail?.interventions?.find((r: any) => r.factorId === ID)
+  expect(row?.value ?? null).not.toBe('Not in use')
+})
+
 it('encoding_map supplies the factor’s own state words', () => {
   expect(switchReading({ encoding_map: { 0: 'Not adopted', 1: 'Adopted' } }, 0)).toBe('Not adopted')
   expect(switchReading({ encoding_map: { 0: 'Not adopted', 1: 'Adopted' } }, 1)).toBe('Adopted')

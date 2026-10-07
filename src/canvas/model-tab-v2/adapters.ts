@@ -1391,7 +1391,7 @@ function buildOptionInterventions(
     const { displayValue, source } = unwrapInterventionValue(rawValue)
     // A CEE-authored `display_value` wins the DISPLAY (the F.6 passthrough the
     // v1 rows already honoured); the numeric half is independent of it.
-    const value = servedSwitchReading(nodes.find(n => n.id === factorId)?.data, numeric) ?? displayValue ?? (numeric === undefined ? null : formatSmartNumber(numeric))
+    const value = servedSwitchReading(nodes.find(n => n.id === factorId)?.data, numeric ?? null) ?? displayValue ?? (numeric === undefined ? null : formatSmartNumber(numeric))
     return [
       {
         factorId,

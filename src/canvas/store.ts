@@ -6642,7 +6642,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // on the canvas (`ReactFlowGraph.tsx:2062` does exactly this on boot)
       // cannot mis-attribute anything, and clearing there would discard live
       // data for no reader's benefit.
-      ...(id !== get().currentScenarioId ? { runMeta: {} } : {}),
+      ...(id !== get().currentScenarioId ? { runMeta: {}, servedSwitchFactorIds: new Set<string>() } : {}),
       previousReport: null, // A1: Clear stale deltas on scenario switch
       // The previous scenario's REPORT goes with its deltas. Without this, a
       // switch to a scenario that has never been analysed — or whose run this
