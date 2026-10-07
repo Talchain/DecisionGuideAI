@@ -4561,6 +4561,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         if (relevant.length === 0) return undefined
         return relevant.map((w: any) => {
           const nodeIds: string[] = safeArray(w.affected_nodes ?? w.affectedNodes)
+          const perOption: Record<string, { message: string }> = Object.create(null)
+          const hasPerOptionMap = w.per_option !== null && typeof w.per_option === 'object'
+            && (Object.getPrototypeOf(w.per_option) === Object.prototype || Object.getPrototypeOf(w.per_option) === null)
+          if (hasPerOptionMap) {
+            for (const [id, entry] of Object.entries(w.per_option)) {
+              if (id === '__proto__' || id === 'constructor' || id === 'prototype') continue
+              if (entry !== null && typeof entry === 'object' && typeof (entry as { message?: unknown }).message === 'string') {
+                perOption[id] = { message: (entry as { message: string }).message }
+              }
+            }
+          }
           return {
             code: String(w.code ?? ''),
             // ⚠ CARRIED, BECAUSE FOR THE DEFAULTING FAMILY IT IS THE ONLY IDENTITY
@@ -4576,6 +4587,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             // deployed Strengthen panel reading "No findings need attention right now" on a served `goal_path_unsized` withhold;
             // `unsizedPathAskOf` validates it by kind and names it from the canvas.
             ...(w.first_ask !== null && typeof w.first_ask === 'object' && !Array.isArray(w.first_ask) ? { first_ask: w.first_ask as Record<string, unknown> } : {}),
+            ...(hasPerOptionMap ? { per_option: perOption } : {}),
             affected_labels: nodeIds.map(id => nodeLabelMap.get(id) ?? id),
             message: w.message ? String(w.message) : undefined,
             // Roadmap 1.12: producer severity carried verbatim (never
