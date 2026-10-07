@@ -37,6 +37,17 @@ describe('P02 DGAI rows', () => {
     assert.equal(readPremortemWorksheet({ _premortem_worksheet: FIX.existing_risk }).status, 'available')
     assert.equal(readPremortemWorksheet({ _premortem_worksheet: FIX.server_built }).status, 'available')
   })
+  it('DL 7 Oct: a served v1 worksheet (CEE before #2773) still renders, each row with its Add', () => {
+    const v1 = structuredClone(FIX.existing_risk) as unknown as Record<string, unknown> & { rows: Record<string, unknown>[] }
+    v1.version = 1
+    v1.rows = [FIX.existing_risk.rows[1]].map(({ source: _s, ...row }) => row)
+    v1.coverage = FIX.existing_risk.coverage.map(c => ({ ...c, status: c.option_id === FIX.existing_risk.rows[1].option_id ? 'stress_tested' : 'not_stress_tested' }))
+    const read = readPremortemWorksheet({ _premortem_worksheet: v1 })
+    assert.equal(read.status, 'available')
+    if (read.status === 'available') assert.equal(read.worksheet.rows[0].source, 'olumi_drafted')
+    const bad = { ...v1, rows: [{ ...v1.rows[0], on_map: { node_id: 'x', label: 'X' } }] }
+    assert.equal(readPremortemWorksheet({ _premortem_worksheet: bad }).status, 'unavailable')
+  })
   it('ROW 1: a story on an existing risk shows "Already on your map" with Inspect, and no Add; a new risk keeps Add', () => {
     seed(FIX.existing_risk); const view = render(<PreMortemWorksheet />); open(view)
     const [row1, row2] = FIX.existing_risk.rows

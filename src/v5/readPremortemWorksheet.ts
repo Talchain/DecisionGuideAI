@@ -44,14 +44,15 @@ const riskRequestSchema = z.object({
  * v2 (CEE #2773): a story about a risk already in the model names it (`on_map`: Inspect, never Add); only a new risk
  * carries `risk_request` (Add); `source` says who wrote the story; numbered rows always carry Mitigate.
  */
-export const PremortemWorksheetV1Schema = z.object({
-  kind: z.literal('premortem'), version: z.literal(2), scenario_id: id, turn_id: id,
+const PremortemWorksheetWireSchema = z.object({
+  kind: z.literal('premortem'), version: z.union([z.literal(1), z.literal(2)]), scenario_id: id, turn_id: id,
   run: runSchema, binding: bindingSchema,
   rows: z.array(z.object({
     row_id: id, option_id: id, option_label: text,
     failure_way: text, early_warning: text, mitigation: text.optional(),
     grounding: groundingSchema, provenance: z.literal('olumi_hypothesis'),
-    source: z.enum(['olumi_drafted', 'server_built']),
+    // v2 only; a v1 row (served CEE before #2773) is read as Olumi-drafted below.
+    source: z.enum(['olumi_drafted', 'server_built']).optional(),
     risk_request: riskRequestSchema.optional(),
     on_map: z.object({ node_id: id, label: text }).strict().optional(),
   }).strict()).min(1).max(4),
@@ -90,12 +91,17 @@ export const PremortemWorksheetV1Schema = z.object({
     const ids = r.grounding.kind === 'not_in_model' ? [] : r.grounding.ids;
     if (new Set(ids).size !== ids.length || (r.risk_request !== undefined && JSON.stringify(ids) !== JSON.stringify(r.risk_request.grounding_ids))) issue();
     if (r.risk_request !== undefined && (r.on_map !== undefined || r.source === 'server_built')) issue();
-    if (r.mitigation === undefined && r.grounding.kind !== 'not_in_model') issue();
+    if (w.version === 1 && (r.risk_request === undefined || r.on_map !== undefined || r.source === 'server_built')) issue();
+    if (w.version === 2 && (r.source === undefined || (r.mitigation === undefined && r.grounding.kind !== 'not_in_model'))) issue();
     if (!w.coverage.some(c => c.option_id === r.option_id && c.option_label === r.option_label && c.status === 'stress_tested')) issue();
   }
   for (const c of w.coverage) if ((c.status === 'stress_tested') !== w.rows.some(r => r.option_id === c.option_id)) issue();
 });
-export type PremortemWorksheetV1 = z.infer<typeof PremortemWorksheetV1Schema>;
+/** Both served versions, read as ONE shape: a v1 row is an Olumi-drafted row with its Add (DL 7 Oct: accept v1 AND v2). */
+export const PremortemWorksheetV1Schema = PremortemWorksheetWireSchema.transform(w => ({
+  ...w, rows: w.rows.map(r => ({ ...r, source: r.source ?? 'olumi_drafted' as const })),
+}))
+export type PremortemWorksheetV1 = z.output<typeof PremortemWorksheetV1Schema>;
 
 export type PremortemWorksheetRead =
   | { status: 'available'; worksheet: PremortemWorksheetV1 }

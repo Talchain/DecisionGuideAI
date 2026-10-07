@@ -123,7 +123,7 @@ describe('pre-mortem v1 reader', () => {
   })
   for (const name of ['version', 'stamp', 'malformed', 'binding', 'copy']) it(`refuses ${name} without throwing`, () => {
     const raw = worksheetFixture()
-    if (name === 'version') raw.version = 1
+    if (name === 'version') raw.version = 3
     if (name === 'stamp') Reflect.deleteProperty(raw.run, 'computed_at')
     if (name === 'malformed') Reflect.deleteProperty(raw.rows[0], 'early_warning')
     if (name === 'binding') raw.binding.graph_revision = 'fedcba9876543210'
