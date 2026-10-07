@@ -333,7 +333,9 @@ function toStored(m: SourceKeyedMessage): StoredMessage {
   if (m.blocks && m.blocks.length > 0) out.blocks = m.blocks as unknown[]
   if (m.insights && m.insights.length > 0) out.insights = m.insights as unknown[]
   if (m.clientTurnId) out.clientTurnId = m.clientTurnId
-  if (m.role === 'assistant' && isUUID(m.serverTurnId)) out.serverTurnId = m.serverTurnId
+  // A live echo becomes a restoration association only in storage. Re-saves retain an already restored id.
+  const serverTurnId = m.serverTurnId ?? m.pendingServerTurnId
+  if (m.role === 'assistant' && isUUID(serverTurnId)) out.serverTurnId = serverTurnId
   if (m.chipInitiated) out.chipInitiated = true
   if (m.sourceBlockKey) out.sourceBlockKey = m.sourceBlockKey
   if (m.deliveryState === 'unconfirmed') out.deliveryState = 'unconfirmed'

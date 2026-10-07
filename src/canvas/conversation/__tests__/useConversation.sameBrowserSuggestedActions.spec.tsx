@@ -44,6 +44,11 @@ const ENDPOINT = 'https://cee.test/proxy/v5/turn'
 const ACTIONS = COLD.conversation_turns.at(-1).suggested_actions
 const EXPECTED = buildSuggestedActionChips([], ACTIONS)
 const LIVE_CHIPS = buildSuggestedActionChips([], LIVE.suggested_actions)
+// Reviewer R3's contract-derived regression payload; identities still come only from the captured live echo.
+const R3_ACTIONS = [
+  { id: 'confirm_1', label: 'Apply it', message: 'Apply it' },
+  { id: 's2', label: 'Discuss it', message: 'Discuss it' },
+]
 const AT = new Date(1791324423509).toISOString()
 const fetchSpy = vi.fn()
 const withChips = (messages: readonly ConversationMessage[]) => messages.filter(m => m.actionChips?.length)
@@ -87,13 +92,15 @@ async function sendAndReload(body = cloneLive(), expectedTurn: string | null = T
   const answer = answers[0]
   expect(answer.content).toBe(LIVE.assistant_text)
   expect(answer.id).not.toBe(`restored-assistant-${TURN}`)
-  expect(answer.serverTurnId).toBe(expectedTurn ?? undefined)
+  expect(answer.pendingServerTurnId).toBe(expectedTurn ?? undefined)
+  expect(answer.serverTurnId).toBeUndefined()
   expect(answer.clientTurnId).toBeUndefined()
   expect(answer.actionChips).toEqual(LIVE_CHIPS)
   const user = first.result.current.messages.find(m => m.role === 'user')!
   // This send path keeps retry correlation in lastUserInputRef, not on the user bubble.
   expect(user.clientTurnId).toBeUndefined()
   expect(user.serverTurnId).toBeUndefined()
+  expect(user.pendingServerTurnId).toBeUndefined()
   // The real hook originates a new request id; only the captured response may supply the historical association.
   const post = fetchSpy.mock.calls.find(call => String(call[0]) === ENDPOINT && call[1]?.method === 'POST')!
   const outgoing = JSON.parse(post[1].body)
@@ -102,6 +109,7 @@ async function sendAndReload(body = cloneLive(), expectedTurn: string | null = T
   await waitFor(() => {
     const saved = JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY)!)[SCENARIO].messages.find((m: { id: string }) => m.id === answer.id)
     expect(saved.serverTurnId).toBe(expectedTurn ?? undefined) // serializer mutant
+    expect(saved.pendingServerTurnId).toBeUndefined()
     expect(saved.clientTurnId).toBeUndefined()
     expect(saved.actionChips).toBeUndefined()
     const savedUser = JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY)!)[SCENARIO].messages.find((m: { id: string }) => m.id === user.id)
@@ -111,6 +119,7 @@ async function sendAndReload(body = cloneLive(), expectedTurn: string | null = T
   first.unmount()
   previousPage()
   expect(loadTranscript(SCENARIO)?.messages.find(m => m.id === answer.id)?.serverTurnId).toBe(expectedTurn ?? undefined) // deserializer mutant
+  expect(loadTranscript(SCENARIO)?.messages.find(m => m.id === answer.id)?.pendingServerTurnId).toBeUndefined()
   const reload = renderHook(() => useConversation())
   expect(reload.result.current.messages.find(m => m.id === answer.id)).toMatchObject({ content: answer.content })
   const restoredUser = reload.result.current.messages.find(m => m.id === user.id)
@@ -230,7 +239,8 @@ describe('T1 — recorded live answer survives same-browser reload', () => {
     const first = renderHook(() => useConversation())
     await act(async () => { await first.result.current.sendMessage(REQUEST.request_body.message) })
     const answer = first.result.current.messages.find(m => m.role === 'assistant' && !m.synthetic)!
-    expect(answer.serverTurnId).toBe(TURN)
+    expect(answer.pendingServerTurnId).toBe(TURN)
+    expect(answer.serverTurnId).toBeUndefined()
     // Held authority uses the actual outgoing request correlation; serverTurnId must not replace it.
     const outgoing = JSON.parse(fetchSpy.mock.calls.find(call => call[1]?.method === 'POST')![1].body)
     expect(answer.heldTurnId).toBe(outgoing.turn_id)
@@ -241,6 +251,66 @@ describe('T1 — recorded live answer survives same-browser reload', () => {
     await coldRead(cold)
     expect(withChips(reload.result.current.messages)).toHaveLength(1)
     expect(withChips(reload.result.current.messages)[0]?.actionChips).toEqual(buildSuggestedActionChips([], held[0].suggested_actions))
+  })
+
+  it('R3: a late read keeps a live answer\'s Approve, with restoration after reload as the control', async () => {
+    const body = cloneLive()
+    const held = coldBody({ held: true }).held_proposal_offers![0]
+    body.suggested_actions = held.suggested_actions
+    fetchSpy.mockImplementation(async () => wireResponse(body))
+    const live = renderHook(() => useConversation())
+    await act(async () => { await live.result.current.sendMessage(REQUEST.request_body.message) })
+    const answer = live.result.current.messages.find(m => m.role === 'assistant' && !m.synthetic)!
+    const outgoing = JSON.parse(fetchSpy.mock.calls.find(call => call[1]?.method === 'POST')![1].body)
+    const approve = buildSuggestedActionChips([], held.suggested_actions)
+    expect(answer).toMatchObject({ pendingServerTurnId: TURN, heldTurnId: outgoing.turn_id, actionChips: approve })
+    expect(answer.serverTurnId).toBeUndefined()
+    expect(answer.heldProposalId).toBeUndefined()
+    const read = coldBody()
+    read.conversation_turns[0].suggested_actions = R3_ACTIONS
+    await coldRead(read)
+    expect(withChips(live.result.current.messages)).toHaveLength(1)
+    expect(live.result.current.messages.find(m => m.id === answer.id)?.actionChips).toEqual(approve)
+    expect(live.result.current.messages.find(m => m.id === answer.id)?.heldProposalId).toBeUndefined()
+
+    // Same answer and exact read, now through real save/load: historical association can accept next steps.
+    await waitFor(() => {
+      expect(loadTranscript(SCENARIO)?.messages.find(m => m.id === answer.id)).toMatchObject({ serverTurnId: TURN, heldProposalId: held.proposal_id })
+    })
+    live.unmount(); previousPage()
+    const restored = renderHook(() => useConversation())
+    expect(withChips(restored.result.current.messages)).toEqual([])
+    await coldRead(read)
+    expect(withChips(restored.result.current.messages)).toHaveLength(1)
+    expect(withChips(restored.result.current.messages)[0]).toMatchObject({ id: answer.id, serverTurnId: TURN,
+      actionChips: buildSuggestedActionChips([], R3_ACTIONS) })
+  })
+
+  it('R3: a saved held card owns Confirm, with the blockless answer as the control', async () => {
+    const { result, answer, unmount } = await sendAndReload()
+    const block: NonNullable<ConversationMessage['blocks']>[number] = {
+      type: 'v5_held_proposal', proposal_id: 'gmh_r3', summary: 'Apply this change',
+      mutation_class: 'structural', reason_code: 'STRUCTURAL_APPLY_HELD',
+      confirm: { label: 'Apply it', message: 'Apply it' },
+    }
+    const saved = result.current.messages.map(m => m.id === answer.id ? { ...m, blocks: [block] } : m)
+    unmount(); saveTranscript(SCENARIO, saved); previousPage()
+    expect(loadTranscript(SCENARIO)?.messages.find(m => m.id === answer.id)).toMatchObject({ serverTurnId: TURN, blocks: [block] })
+    const card = renderHook(() => useConversation())
+    const read = coldBody()
+    read.conversation_turns[0].suggested_actions = R3_ACTIONS
+    await coldRead(read)
+    expect(card.result.current.messages.find(m => m.id === answer.id)?.blocks).toEqual([block])
+    expect(withChips(card.result.current.messages)).toEqual([])
+
+    // Removing only the retained card admits exactly the same Confirm + s2 read, ruling out an inert harness.
+    card.unmount()
+    saveTranscript(SCENARIO, saved.map(m => m.id === answer.id ? { ...m, blocks: undefined } : m)); previousPage()
+    const plain = renderHook(() => useConversation())
+    await coldRead(read)
+    expect(withChips(plain.result.current.messages)).toHaveLength(1)
+    expect(withChips(plain.result.current.messages)[0]).toMatchObject({ id: answer.id, serverTurnId: TURN,
+      actionChips: buildSuggestedActionChips([], R3_ACTIONS) })
   })
 
   it('feedback stays hidden; retry reuses the user correlation; distinct replies keep normalised dedupe unset', async () => {
@@ -260,7 +330,8 @@ describe('T1 — recorded live answer survives same-browser reload', () => {
     expect(answers).toHaveLength(2)
     expect(new Set(answers.map(m => m.id)).size).toBe(2)
     for (const answer of answers) {
-      expect(answer.serverTurnId).toBe(TURN); expect(answer.clientTurnId).toBeUndefined()
+      expect(answer.pendingServerTurnId).toBe(TURN); expect(answer.serverTurnId).toBeUndefined()
+      expect(answer.clientTurnId).toBeUndefined()
       render(<FeedbackRow turnId={answer.clientTurnId} onFeedback={vi.fn()} />)
     }
     expect(screen.queryByRole('button')).toBeNull()
@@ -284,18 +355,23 @@ describe('T1 — defensive identity admission at local and live boundaries', () 
     expect(readRecordedServerTurnId({ clientTurnId: TURN })).toBeUndefined()
   })
   it.each([undefined, null, '', 'not-a-uuid', 42, {}, []])('invalid stored id %s is rejected on save and read', value => {
-    const assistant = { id: 'old-answer', role: 'assistant', content: LIVE.assistant_text, timestamp: new Date(), serverTurnId: value } as ConversationMessage
-    saveTranscript(SCENARIO, [assistant])
+    for (const field of ['serverTurnId', 'pendingServerTurnId'] as const) {
+      const assistant = { id: 'old-answer', role: 'assistant', content: LIVE.assistant_text, timestamp: new Date(), [field]: value } as ConversationMessage
+      saveTranscript(SCENARIO, [assistant])
+      const saved = JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY)!)
+      expect(saved[SCENARIO].messages[0].serverTurnId).toBeUndefined()
+      expect(saved[SCENARIO].messages[0].pendingServerTurnId).toBeUndefined()
+    }
     const stored = JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY)!)
-    expect(stored[SCENARIO].messages[0].serverTurnId).toBeUndefined()
     stored[SCENARIO].messages[0].serverTurnId = value
     localStorage.setItem(TRANSCRIPT_STORAGE_KEY, JSON.stringify(stored))
     expect(loadTranscript(SCENARIO)?.messages[0].serverTurnId).toBeUndefined()
   })
   it('user messages never acquire the assistant-only association on save or read', () => {
-    saveTranscript(SCENARIO, [{ id: 'user', role: 'user', content: 'Question', timestamp: new Date(), serverTurnId: TURN, clientTurnId: OTHER_TURN }])
+    saveTranscript(SCENARIO, [{ id: 'user', role: 'user', content: 'Question', timestamp: new Date(), serverTurnId: TURN, pendingServerTurnId: TURN, clientTurnId: OTHER_TURN }])
     const stored = JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY)!)
     expect(stored[SCENARIO].messages[0].serverTurnId).toBeUndefined()
+    expect(stored[SCENARIO].messages[0].pendingServerTurnId).toBeUndefined()
     stored[SCENARIO].messages[0].serverTurnId = TURN
     localStorage.setItem(TRANSCRIPT_STORAGE_KEY, JSON.stringify(stored))
     expect(loadTranscript(SCENARIO)?.messages[0]).toMatchObject({ clientTurnId: OTHER_TURN })

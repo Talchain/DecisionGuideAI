@@ -270,6 +270,8 @@ export function reconcileRestoredSuggestedActions(
   if (answer.id !== `restored-assistant-${turn.turnId}` && answer.clientTurnId !== turn.turnId
     && answer.serverTurnId !== turn.turnId) return [...messages]
   if (answer.heldProposalId && answer.actionChips?.length) return [...messages]
+  // The retained card owns its Confirm/Decline; rebuilding with no wire blocks would duplicate those controls (F4).
+  if (answer.blocks?.some(block => block.type === 'v5_held_proposal')) return [...messages]
   return messages.map((message, i) => i === lastAnswer
     ? { ...message, actionChips: buildSuggestedActionChips([], turn.suggestedActions) } : message)
 }
