@@ -104,6 +104,7 @@ import { BiasGrounding } from './sections/BiasGrounding'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { SectionShell } from './sections/SectionShell'
 import { DecisionMatrix } from './sections/DecisionMatrix'
+import { PreMortemWorksheet } from './sections/PreMortemWorksheet'
 import { MethodStrip } from './sections/MethodStrip'
 import { ReasoningAskBox } from './sections/ReasoningAskBox'
 import { CommitmentSummary, PreRunCommitment } from './sections/CommitmentSummary'
@@ -2940,6 +2941,7 @@ export function AnalysisNewTabBody({
           }}
           isStale={vm.status.isStale}
         />
+        <PreMortemWorksheet isBusy={isBusyNow} isStale={vm.status.isStale} />
 
         {/* ── HOW FAR THIS HOLDS ────────────────────────────────────────────
             One line where seven sections answered one question. It states the

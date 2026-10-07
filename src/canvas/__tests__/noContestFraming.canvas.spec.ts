@@ -109,6 +109,7 @@ const SCOPE_DIRS = [
   'src/v5/blocks',
 ]
 const SCOPE_FILES = [
+  'src/components/results/analysisNew/sections/PreMortemWorksheet.tsx',
   'src/components/results/analysis-hero/goalOptionCoverage.tsx',
   // ⭐ ADDED 9 Sep 2026, and the reason is the INVERSE of #1310's. There the
   // vocabulary was short; here it was RIGHT and the SCOPE was short: `came out
@@ -564,6 +565,7 @@ describe('the canvas never frames a decision as a contest', () => {
 
   it('the sweep can see the scope it claims to sweep', () => {
     const files = scopeFiles()
+    expect(files.some(f => f.endsWith('src/components/results/analysisNew/sections/PreMortemWorksheet.tsx'))).toBe(true)
     expect(files.some((f) => f.endsWith('src/components/results/utils/goalChanceRange.ts'))).toBe(true)
     expect(files.some((f) => f.endsWith('src/components/results/analysis-hero/GoalChanceRangeLines.tsx'))).toBe(true)
     // Contrast control on the INSTRUMENT, not the claim: a sweep that walked
