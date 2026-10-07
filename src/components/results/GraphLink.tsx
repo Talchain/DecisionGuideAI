@@ -38,6 +38,14 @@ export interface GraphLinkProps {
   className?: string
   /** Ref to an element that should flash when this link is clicked (Phase 2.3 cross-highlight) */
   flashTargetRef?: RefObject<HTMLElement | null>
+  /**
+   * `'box'` (default, every existing caller) is a `<button>`, which HTML's button layout always makes an atomic
+   * inline-block: a long label fills its line and the words after it drop below. `'inline'` is for a link INSIDE a
+   * sentence (Compare's "not shown" line, 7 Oct staging witness: its commas stood alone on their own lines). It is the
+   * `NodeValueEditor` 'inline' resting flow: a `<span role="button" tabIndex={0}>` with the same classes, name, title and
+   * click, and Enter / Space acting as a native button would, so its words wrap with the sentence.
+   */
+  flow?: 'box' | 'inline'
 }
 
 export function GraphLink({
@@ -51,6 +59,7 @@ export function GraphLink({
   onFocus,
   className = '',
   flashTargetRef,
+  flow = 'box',
 }: GraphLinkProps) {
   const targetId = nodeId ?? edgeId ?? edgeRef?.fromId
   const targetType: FocusTargetType = (edgeId || edgeRef) ? 'edge' : 'node'
@@ -87,17 +96,40 @@ export function GraphLink({
     return <span className={className}>{displayContent}</span>
   }
 
+  const classes = `text-info hover:text-info-hover hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2 rounded ${className}`
+  // ⚠ `??` GUARDS NULLISH, NOT EMPTY. Callers pass `label={x ?? ''}` (e.g.
+  // `compare-tab/DotProgression.tsx` for a runner-up with no label), and an
+  // empty string sails past `??` — producing the announced text
+  // "Focus on  in model", with a doubled space and no subject. Screen
+  // readers get a control that names nothing. Trimmed-empty falls back too.
+  const ariaLabel = `Focus on ${label?.trim() ? label : 'element'} in model`
+
+  if (flow === 'inline') {
+    return (
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={handleClick}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter' && e.key !== ' ') return
+          e.preventDefault()
+          handleClick()
+        }}
+        className={`whitespace-normal ${classes}`}
+        aria-label={ariaLabel}
+        title={label}
+      >
+        {displayContent}
+      </span>
+    )
+  }
+
   return (
     <button
       type="button"
       onClick={handleClick}
-      className={`text-info hover:text-info-hover hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2 rounded ${className}`}
-      // ⚠ `??` GUARDS NULLISH, NOT EMPTY. Callers pass `label={x ?? ''}` (e.g.
-      // `compare-tab/DotProgression.tsx` for a runner-up with no label), and an
-      // empty string sails past `??` — producing the announced text
-      // "Focus on  in model", with a doubled space and no subject. Screen
-      // readers get a control that names nothing. Trimmed-empty falls back too.
-      aria-label={`Focus on ${label?.trim() ? label : 'element'} in model`}
+      className={classes}
+      aria-label={ariaLabel}
       title={label}
     >
       {displayContent}

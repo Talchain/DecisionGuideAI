@@ -14,6 +14,7 @@ import { selectBootReadPermittedMode, useBootReadAdmissionStore } from '../hydra
 import { testWithoutLinkEligibility } from '../../components/results/analysisNew/testWithoutLinkEligibility'
 import { graphDeclaresBaseline, resolveOptionIsBaseline } from '../utils/baselineDetection'
 import { QUESTIONS, type AskIntent, type AskStage, type QuestionContext } from './askAiQuestions'
+import { actionOfAsk, typedPressIdOf } from './actionRegistry'
 import { readProducerLeaderPermission } from '../../lib/decisionVerdict'
 
 export interface AskAiRequest {
@@ -92,11 +93,9 @@ export function buildAskAiQuestion(req: AskAiRequest) {
       state?.ceeAnalysisReady?.options?.find(o => o.id === nodeIds[0]),
       graphDeclaresBaseline(nodes, state?.ceeAnalysisReady?.options)),
   }
-  let pressId = req.pressId ?? (intent === 'widen' && stage === 'ran-current' ? 'agent-next-widen'
-    : intent === 'pre-mortem' && (stage === 'ran-current' || stage === 'withheld') ? 'agent-next-pre-mortem'
-      : intent === 'what-would-change' && stage === 'ran-current' ? 'agent-next-what-would-change'
-        : intent === 'strengthen' && stage === 'ran-current' ? 'agent-next-strengthen'
-          : intent === 'review' && stage === 'ran-current' ? 'agent-next-review-decision' : undefined)
+  // The action registry is the one mapper from an action to CEE's typed press id (S-B slice 0).
+  const action = actionOfAsk(intent)
+  let pressId = req.pressId ?? (action ? typedPressIdOf(action, stage) : undefined)
   if (!pressId && edge && (intent === 'question-link' || intent === 'examine-link')) {
     const goalNode = nodes.find(n => n.type === 'goal')
     const data = edge.data as Record<string, unknown> | undefined

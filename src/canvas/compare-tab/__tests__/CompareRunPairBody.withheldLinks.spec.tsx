@@ -15,6 +15,7 @@ import { EXPLORATORY_REASON_LINE } from '../../state/winShareGate'
 import { openLinkInspector } from '../../utils/openEdgeStrengthEditor'
 import { CompareRunPairBody } from '../CompareRunPairBody'
 import { withheldReasonSegments } from '../withheldReasonSegments'
+import { GraphLink } from '../../../components/results/GraphLink'
 import { RUN_CHANGE_LABELS, runChangeDelta } from './__fixtures__/runChangeArtefact'
 
 vi.mock('../../utils/openEdgeStrengthEditor', async (importOriginal) => ({
@@ -115,6 +116,21 @@ describe('Compare: "Set them" comes with a way to', () => {
     cleanup()
     render(<CompareRunPairBody responseHash={seed({ permitted: false, producer_cause: 'goal_path_unsized' })} />)
     expect(within(screen.getByTestId('compare-withheld-reason')).getAllByRole('button')).toHaveLength(2)
+  })
+
+  it('each named link is INLINE text that wraps with the sentence and still works by keyboard (control: GraphLink\'s default is a box <button>)', () => {
+    render(<CompareRunPairBody responseHash={seed({ permitted: false, producer_cause: 'goal_path_unsized' })} />)
+    const links = within(screen.getByTestId('compare-withheld-reason')).getAllByRole('button')
+    // A <button> is always an atomic inline-block (staging witness 7 Oct: the commas between links stood alone on their lines).
+    expect(links.map((l) => l.tagName)).toEqual(['SPAN', 'SPAN'])
+    expect(links.every((l) => l.getAttribute('tabindex') === '0')).toBe(true)
+    fireEvent.keyDown(links[0], { key: 'Enter' })
+    fireEvent.keyDown(links[1], { key: ' ' })
+    fireEvent.keyDown(links[1], { key: 'a' })
+    expect(vi.mocked(openLinkInspector).mock.calls).toEqual([['f_cap', 'g_launch'], ['f_onb', 'f_cap']])
+    cleanup()
+    render(<GraphLink edgeRef={{ fromId: 'f_cap', toId: 'g_launch' }} label="Size it" opensInspector />)
+    expect(screen.getByRole('button').tagName).toBe('BUTTON')
   })
 
   it('a permitted pair shows no not-shown line at all (control: withheld shows it)', () => {
