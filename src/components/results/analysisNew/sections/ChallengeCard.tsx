@@ -224,11 +224,11 @@ export function ChallengeCard({
     menuRef.current?.querySelector<HTMLButtonElement>('[aria-haspopup="menu"]')?.focus()
 
   const sendRespond = () => {
-    const text = respondText.trim()
-    if (!shown || !text) return
-    if (shown.kind === 'method') respondToMethod(shown.method, text)
-    else respondToIntervention(shown.rec, text)
-    closeRespond()
+    const text = respondText
+    if (!shown || !text.trim()) return
+    const result = shown.kind === 'method' ? respondToMethod(shown.method, text) : respondToIntervention(shown.rec, text)
+    if (result === 'sent') closeRespond()
+
   }
 
   /* The keyboard model the method strip's menu ships: first item focused on

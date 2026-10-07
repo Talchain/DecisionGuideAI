@@ -9,7 +9,7 @@ import { useCanvasStore } from '../../../store'
 import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../../state/winShareGate'
 import type { NodeType } from '../../../domain/nodes'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
-import { InspectorCoaching } from '../shared/InspectorCoaching'
+// Grounded guidance now lives outside the write fence in InspectorRouter.
 import { typography } from '../../../../styles/typography'
 import { controls } from '../../../../styles/controls'
 import { inspectorButton, inspectorDetailRow, INSPECTOR_RULE } from '../inspectorStyle'
@@ -28,7 +28,7 @@ import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import type { InspectorPanelProps } from '../types'
-import { COACHING } from '../coachingConfig'
+// Decision coaching is rendered by InspectorRouter.
 import { DecisionAdvancedEditor } from '../editors/DecisionAdvancedEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
@@ -101,7 +101,7 @@ export function DecisionAddOption({ decisionId }: { decisionId: string }) {
 export const DecisionPanel = memo(function DecisionPanel({
   nodeId,
   techMode,
-  onClose,
+  onClose: _onClose,
   onNavigate,
 }: InspectorPanelProps) {
   const nodes = useCanvasStore(s => s.nodes)
@@ -302,12 +302,8 @@ export const DecisionPanel = memo(function DecisionPanel({
         </PrimaryControlCard>
         )}
 
-        <InspectorCoaching
-          elementId={nodeId}
-          panelType="decision"
-          fallbackText={COACHING.decisionOptions}
-          labelContext={{ label: String(node.data?.label ?? '') }}
-        />
+        {/* Grounded guidance is mounted outside this write fence by InspectorRouter. */}
+
       </PanelGroup>
 
       {/* ── Connections group (non-option edges) ──────────────── */}

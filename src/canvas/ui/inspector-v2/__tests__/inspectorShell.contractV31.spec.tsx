@@ -15,6 +15,7 @@
  * Every assertion binds by identity (test id, exact label, exact constant),
  * never by a value predicate another element could satisfy.
  */
+import { takeAskTargetBinding } from '../askTargetBinding'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 
@@ -147,14 +148,18 @@ describe('v3.1 inspector shell — every pane', () => {
     expect([...useCanvasStore.getState().selection.nodeIds]).toEqual(['fc'])
   })
 
-  it('"Explore with Olumi" lands an editable draft about this element and sends nothing', () => {
+  it('"Explore with Olumi" sends one bound chip and fronts Olumi', () => {
     const send = vi.fn()
-    useGuidanceStore.setState({ _sendMessage: send } as never)
+    const dispatch = vi.fn()
+    useGuidanceStore.setState({ _sendMessage: send, _dispatchAction: dispatch, _isConversationBusy: () => false } as never)
     render(<InspectorRouter nodeId="fc" edgeId={null} onClose={vi.fn()} />)
     fireEvent.click(screen.getByTestId('inspector-quick-ask'))
-    const drawer = useAskOlumiStore.getState()
-    expect(drawer.isOpen).toBe(true)
-    expect(drawer.targetId).toBe('fc')
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch.mock.calls[0][0]).toMatchObject({ id: 'ask:explain', source: 'chip',
+      message: 'What does ‘Bottom-Up Adoption Friction For Self-Serve Trials’ do in this decision, and what is it assumed to depend on?' })
+    expect(takeAskTargetBinding(dispatch.mock.calls[0][0].message)?.nodeIds).toEqual(new Set(['fc']))
+    expect(reveal).toHaveBeenCalledTimes(1)
+    expect(useAskOlumiStore.getState().isOpen).toBe(false)
     expect(send).not.toHaveBeenCalled()
   })
 

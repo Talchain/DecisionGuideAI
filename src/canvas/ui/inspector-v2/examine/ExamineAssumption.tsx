@@ -1,10 +1,4 @@
-/**
- * ⭐ EXAMINE THIS ASSUMPTION — the inspector section (slice 1, 52f8cd). The view is `examineAssumptionView.ts`.
- *
- * ⛔ READ-ONLY AND PREFILL-ONLY. Its one action goes through `requestAsk`, which never dispatches: it prefills the
- * composer (or opens the drawer) and the USER sends. The proposal Olumi returns carries its own approval card; no
- * figure changes here. Hidden, not disabled, when nothing can receive an ask (`InspectorQuickActions` precedent).
- */
+/** Examine sends a chip about its typed target. Any proposed change returns for approval. */
 import { useCallback, useMemo } from 'react'
 
 import { useGuidanceStore } from '../../../stores/guidanceStore'
@@ -34,7 +28,7 @@ export function ExamineAssumption({
   )
   const prepare = useCallback(() => {
     if (!view) return
-    requestAsk({ text: view.prepare.text, label: view.prepare.label, targetId: nodeId })
+    requestAsk({ text: view.prepare.text, label: view.prepare.label, targetId: nodeId, intent: 'challenge' })
   }, [view, nodeId])
 
   if (!view || !canAsk) return null
