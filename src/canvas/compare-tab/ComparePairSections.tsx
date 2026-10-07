@@ -97,7 +97,11 @@ export function ComparePairSections({
   // Compare-chance (schemas 0.81.0, DL #87 6035414740): when the pair carries each option's chance of meeting the goal,
   // that is what Compare leads with, under each Run's OWN licence (so also when run shares are withheld); the run-share
   // sentence and figures move behind Result details. Only for the pair Olumi's tools read (`runIsCurrent`).
-  const goalRows = runIsCurrent && view.goalChances !== undefined && view.goalChances.length > 0 ? view.goalChances : null
+  // ...and only when at least one side of one option carries a figure (served witness cgc-1, 7 Oct: a pair whose Runs showed
+  // no chance at all led with the heading over rows of "not shown → not shown"; that pair keeps the run-share layout).
+  const goalRows = runIsCurrent && view.goalChances !== undefined
+    && view.goalChances.some((g) => [g.prior, g.current].some((side) => side.kind === 'point' || side.kind === 'range'))
+    ? view.goalChances : null
   const shareHeadline = resultsAllowed ? headline(delta, label, nearTie) : null
   const resultHeadline = goalRows ? COMPARE_GOAL_CHANCE_HEADING : shareHeadline ?? 'Result comparison not shown'
   const qualification = resultsAllowed ? noiseQualifier(delta.leader.noise_verdict) : null

@@ -144,6 +144,21 @@ describe('Compare leads with each option\'s chance of meeting the goal', () => {
     expect(heading()).toHaveTextContent('Result comparison not shown')
   })
 
+  it('a pair whose Runs show no chance at all keeps the run-share layout (control: one figure on one side leads with goal chances)', () => {
+    const none = [
+      { option_id: 'opt_49', prior: { kind: 'withheld' }, current: { kind: 'withheld' } },
+      { option_id: 'opt_60', prior: { kind: 'not_recorded' }, current: { kind: 'withheld' } },
+    ] as RunDeltaGoalChanceDelta[]
+    render(<CompareRunPairBody responseHash={seed(runChangeDelta({ goal_chances: none }))} />)
+    expect(screen.queryByTestId('compare-goal-chances')).toBeNull()
+    expect(heading()).toHaveTextContent('The latest run names no option')
+    cleanup()
+    const one = [none[0], { ...none[1], current: { kind: 'point', pct: 30, rounding: 'whole' } }] as RunDeltaGoalChanceDelta[]
+    render(<CompareRunPairBody responseHash={seed(runChangeDelta({ goal_chances: one }))} />)
+    expect(heading()).toHaveTextContent(COMPARE_GOAL_CHANCE_HEADING)
+    expect(goalRows().map((li) => li.textContent)).toEqual(['Keep £49Earlier not shown → Latest not shown', 'Raise to £60Earlier not recorded → Latest about 30%'])
+  })
+
   it('a pair that is not the current model\'s shows no goal chances (control: the current pair does)', () => {
     render(<CompareRunPairBody responseHash={seed(withGoal(), { permitted: true }, false)} />)
     expect(screen.queryByTestId('compare-goal-chances')).toBeNull()
