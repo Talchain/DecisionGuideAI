@@ -44,6 +44,7 @@ import { consumeStreamedDraftTurn, reconcileTerminalPreview } from '../../v5/con
 import { routeV5Response } from '../../v5/responseRouter'
 import { aiComparisonHeaders } from '../../v5/aiComparisonMode'
 import { getTimeoutMs } from '../../v5/getTimeoutMs'
+import { readTurnProposalFields, type ProposalEdits } from './HeldProposalPanel'
 import { buildV5Payload } from '../../v5/buildPayload'
 import {
   checkRetryableAgreement,
@@ -2291,6 +2292,7 @@ export interface DispatchActionOpts {
   source: ActionSource
   /** G1 — the card action this is; stamped on the user bubble, never on the wire. */
   sourceBlockKey?: string
+  proposalEdits?: ProposalEdits
 }
 
 /**
@@ -2298,7 +2300,7 @@ export interface DispatchActionOpts {
  * naming the card action it stands for (G1). The key is forwarded to the user
  * bubble beside the chip metadata — never into it, so never onto the wire.
  */
-export type SourceKeyedChip = ActionChip & { sourceBlockKey?: string }
+export type SourceKeyedChip = ActionChip & { sourceBlockKey?: string; proposalEdits?: ProposalEdits }
 
 function resolveUserTurnType(
   source: string | undefined,
@@ -2373,6 +2375,7 @@ export interface SendFailureNotice {
  * Extracted from the inline signature it used to carry — no members changed.
  */
 export interface SendTurnOpts {
+  proposalEdits?: ProposalEdits
   message: string
   /** Text shown in conversation bubble (defaults to message) */
   displayText?: string
@@ -2741,6 +2744,7 @@ export function useConversation(): UseConversationReturn {
     clientTurnId?: string
     chipMeta?: ChipMeta
     chipSource?: 'chip' | 'chip_click'
+    proposalEdits?: ProposalEdits
   }>({ message: '' })
   const missingDraftRecoveryRef = useRef<(() => Promise<void>) | null>(null)
   // Transcript honesty (trust item #3): id of the most recent VISIBLE user
@@ -4455,7 +4459,7 @@ export function useConversation(): UseConversationReturn {
           },
         })
         lastUserInputRef.current = { message, clientTurnId: turnClientId,
-          ...(chipMeta && (source === 'chip' || source === 'chip_click') ? { chipMeta, chipSource: source } : {}) }
+          ...(chipMeta && (source === 'chip' || source === 'chip_click') ? { chipMeta, chipSource: source, proposalEdits: opts.proposalEdits } : {}) }
         setLastSendFailure(null)
       } else if (hidden && source === 'right_panel_action') {
         recordUserAction({
@@ -4591,6 +4595,7 @@ export function useConversation(): UseConversationReturn {
         message,
         source,
         chipMeta,
+        proposalEdits: opts.proposalEdits,
         systemEvent,
       })
 
@@ -6109,12 +6114,13 @@ export function useConversation(): UseConversationReturn {
           }
           // Live held authority stays on this answer. Only transcriptStore writes heldProposalId and promotes the
           // pending server echo to serverTurnId, so a late read cannot replace a live card's controls.
-          const offersHeldApproval = actionChips.some(c => /^agent-approve-proposal:prop_[0-9a-f]{32}$/.test(c.id))
+          const offersHeldApproval = actionChips.some(c => /^agent-approve-proposal:(?:prop_[0-9a-f]{32}|gmh_[0-9a-f]{12})$/.test(c.id))
           const pendingServerTurnId = readRecordedServerTurnId(target.response)
           if (!isForeignExplanation(narration, latestRunKeyRef.current)) addMessage({
             id: crypto.randomUUID(),
             role: 'assistant',
             content: target.response.assistant_text,
+            proposalFields: readTurnProposalFields(target.response),
             ...(pendingServerTurnId ? { pendingServerTurnId } : {}),
             ...(offersHeldApproval ? { heldTurnId: turnClientId } : {}),
             ...(narration ? { narration } : {}),
@@ -7144,6 +7150,7 @@ export function useConversation(): UseConversationReturn {
         turnType,
         chipMeta,
         chipInitiated: !opts.hidden,
+        proposalEdits: opts.proposalEdits,
         ...(opts.sourceBlockKey ? { sourceBlockKey: opts.sourceBlockKey } : {}),
       })
     },
@@ -7216,6 +7223,7 @@ export function useConversation(): UseConversationReturn {
           label: chip.label,
           message: messageToSend,
           source: 'chip',
+          proposalEdits: chip.proposalEdits,
           // G1 — rides beside the chip metadata, never inside it.
           ...(chip.sourceBlockKey ? { sourceBlockKey: chip.sourceBlockKey } : {}),
         })
@@ -7265,7 +7273,7 @@ export function useConversation(): UseConversationReturn {
         skipUserBubble: true,
         retryClientTurnId: last.clientTurnId,
         // A typed press retries as itself (its chip source + chip); free text retries as 'retry'.
-        ...(last.chipMeta && last.chipSource ? { chipMeta: last.chipMeta, source: last.chipSource } : { source: 'retry' as const }),
+        ...(last.chipMeta && last.chipSource ? { chipMeta: last.chipMeta, source: last.chipSource, proposalEdits: last.proposalEdits } : { source: 'retry' as const }),
       })
     }
   }, [sendTurn])

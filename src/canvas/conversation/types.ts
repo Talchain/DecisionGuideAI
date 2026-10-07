@@ -83,6 +83,8 @@ export interface ConversationMessage {
    * persist — late chunks arriving after abort MUST NOT clear it.
    */
   stoppedByUser?: boolean
+  /** Ephemeral §15 held projection; reload reads fresh server authority. */
+  proposalFields?: unknown
   /**
    * ROADMAP 1.42 (Show-reasoning progressive disclosure — verbatim, labelled):
    * CEE's `_reasoning` additive-extension sidecar field, verbatim plain text.

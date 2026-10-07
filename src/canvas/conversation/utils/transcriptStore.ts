@@ -344,8 +344,8 @@ function toStored(m: SourceKeyedMessage): StoredMessage {
     out.deliveryScenarioId = m.deliveryScenarioId
   }
   if (turnOfferedConsent(m)) out.consentOffered = true
-  const heldId = m.heldProposalId ?? m.actionChips?.find(c => /^agent-approve-proposal:prop_[0-9a-f]{32}$/.test(c.id))?.id.slice('agent-approve-proposal:'.length)
-  if (m.role === 'assistant' && typeof heldId === 'string' && /^prop_[0-9a-f]{32}$/.test(heldId)) {
+  const heldId = m.heldProposalId ?? m.actionChips?.find(c => /^agent-approve-proposal:(?:prop_[0-9a-f]{32}|gmh_[0-9a-f]{12})$/.test(c.id))?.id.slice('agent-approve-proposal:'.length)
+  if (m.role === 'assistant' && typeof heldId === 'string' && /^(?:prop_[0-9a-f]{32}|gmh_[0-9a-f]{12})$/.test(heldId)) {
     out.heldProposalId = heldId
     if (typeof m.heldTurnId === 'string' && m.heldTurnId.length > 0) out.heldTurnId = m.heldTurnId
   }
@@ -393,7 +393,7 @@ function fromStored(s: StoredMessage): SourceKeyedMessage {
       && typeof s.deliveryScenarioId === 'string' && s.deliveryScenarioId.length > 0
       ? { deliveryRequestId: s.deliveryRequestId, deliveryScenarioId: s.deliveryScenarioId } : {}),
     ...(s.consentOffered === true ? { consentOffered: true as const } : {}),
-    ...(s.role === 'assistant' && typeof s.heldProposalId === 'string' && /^prop_[0-9a-f]{32}$/.test(s.heldProposalId)
+    ...(s.role === 'assistant' && typeof s.heldProposalId === 'string' && /^(?:prop_[0-9a-f]{32}|gmh_[0-9a-f]{12})$/.test(s.heldProposalId)
       ? { heldProposalId: s.heldProposalId,
         ...(typeof s.heldTurnId === 'string' && s.heldTurnId.length > 0 ? { heldTurnId: s.heldTurnId } : {}) } : {}),
     ...restoredAnswerShape(s.answerShape),

@@ -39,6 +39,7 @@ import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 import { CONSENT_CHIP_PREFIX, PLAN_PICK_CHIP_PREFIX, RESEARCH_CHIP_PREFIX, WIDEN_ADD_CHIP_PREFIX } from '../messageComposition'
 import type { ActionChip } from '../types'
+import { HeldProposalPanel, useHeldProposalFields, type ProposalPanelAction } from '../HeldProposalPanel'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
 // not in this set are filtered out when V5 is active. On V4 the set is
@@ -172,7 +173,11 @@ function disclosesDetail(chip: ActionChip): boolean {
 
 interface SuggestedChipsProps {
   chips: ActionChip[]
-  onChipClick: (chip: ActionChip) => Promise<void>
+  onChipClick: (chip: ProposalPanelAction) => Promise<void>
+  proposalFields?: unknown
+  replyId?: string
+  openedProposalId?: string | null
+  onOpenProposal?: (id: string) => void
   /** When true, all chips are disabled while a response is pending */
   isThinking?: boolean
   /**
@@ -201,6 +206,10 @@ export function SuggestedChips({
   isThinking = false,
   isHistorical = false,
   runGate,
+  proposalFields,
+  replyId,
+  openedProposalId: controlledProposalId,
+  onOpenProposal,
 }: SuggestedChipsProps) {
   // All hooks are declared before any conditional return so that the hook
   // count is stable across renders. Downstream conditions (isHistorical,
@@ -208,6 +217,8 @@ export function SuggestedChips({
   // is the rules-of-hooks contract. Readiness transitions
   // (ready → missing, ready → not_ready) flip `visible` emptiness on the
   // fly; hoisting the two subscribers keeps React's dispatcher aligned.
+  const fields = useHeldProposalFields(proposalFields, replyId, chips)
+  const [openedProposalId, setOpenedProposalId] = useState<string | null>(null)
   const [chipError, setChipError] = useState<string | null>(null)
   const analysisStatus = useAnalysisStatus()
   // CEE's own admission verdict for this turn. `undefined` on a pre-`may_run`
@@ -425,7 +436,10 @@ export function SuggestedChips({
       : undefined
   const showRunGateReason = runGateReason !== undefined && visible.some(isRunAnalysisAffordance)
 
-  function handleClick(chip: ActionChip) {
+  const proposal = fields?.proposals.find(p => p.proposal_id === (controlledProposalId === undefined ? openedProposalId : controlledProposalId)
+    && visible.some(c => c.id === p.approve_action.id))
+
+  function handleClick(chip: ProposalPanelAction) {
     if (disabled) return
     const isRunChip = isRunAnalysisAffordance(chip)
     // Belt-and-braces: a gated Run chip is `disabled`, so no pointer or keyboard
@@ -433,6 +447,14 @@ export function SuggestedChips({
     // nothing.
     if (isRunChip && runGateClosed) return
     setChipError(null)
+    if (chip.id === 'agent-amend-proposal') {
+      const entry = fields?.proposals.find(p => visible.some(c => c.id === p.approve_action.id))
+      if (entry) {
+        if (onOpenProposal) onOpenProposal(entry.proposal_id)
+        else setOpenedProposalId(entry.proposal_id)
+        return
+      }
+    }
     /*
      * ⭐ A RUN CHIP ASKS THE RUN GATE, NOT THE CHAT (journey blocker, RC #63
      * 5819467504). This chip used to dispatch `run_analysis` straight through
@@ -590,6 +612,11 @@ export function SuggestedChips({
         >
           {runGateReason}
         </p>
+      )}
+
+      {proposal && fields && (
+        <HeldProposalPanel key={`${replyId}:${proposal.proposal_id}:${proposal.digest}:${proposal.revision}:${fields.graph_hash}`}
+          proposal={proposal} graphHash={fields.graph_hash} disabled={disabled} onAction={handleClick} />
       )}
 
       {chipError && (

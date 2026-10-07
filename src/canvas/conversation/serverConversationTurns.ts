@@ -176,11 +176,13 @@ export function readServerHeldProposalOffers(raw: unknown): readonly ServerHeldP
     if (entry === null || typeof entry !== 'object') continue
     const row = entry as Record<string, unknown>
     if (typeof row.turn_id !== 'string' || row.turn_id.length === 0 || typeof row.proposal_id !== 'string'
-      || !/^prop_[0-9a-f]{32}$/.test(row.proposal_id) || !Array.isArray(row.suggested_actions) || row.suggested_actions.length !== 2) continue
+      || !/^(?:prop_[0-9a-f]{32}|gmh_[0-9a-f]{12})$/.test(row.proposal_id) || !Array.isArray(row.suggested_actions) || ![2, 3].includes(row.suggested_actions.length)) continue
     const parsed = row.suggested_actions.map(action => ActionSchema.safeParse(action))
     if (!parsed.every(p => p.success)) continue
     const actions = parsed.flatMap(p => p.success ? [p.data] : [])
-    if (actions[0].id !== `agent-approve-proposal:${row.proposal_id}` || actions[1].id !== 'agent-amend-proposal') continue
+    if (actions[0].id !== `agent-approve-proposal:${row.proposal_id}` || actions[1].id !== 'agent-amend-proposal'
+      || (actions.length === 3 && (actions[2].id !== `agent-decline-proposal:${row.proposal_id}`
+        || actions[2].label !== 'Not now' || actions[2].message !== 'Not now.'))) continue
     out.push({ turnId: row.turn_id, proposalId: row.proposal_id, actions })
   }
   return out
