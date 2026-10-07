@@ -19,7 +19,7 @@
 # is how many raw reads that attestation SUPPRESSES, and it is ratcheted exactly
 # like a violation count: attestation is per-FILE, so without it an attested mapper
 # would be a free-for-all in which the next raw read is invisible.
-# count=68
+# count=67
 # exemptions=4
 # suppressed=12
 6	elasticity	src/adapters/driversAdapter.ts
@@ -27,7 +27,6 @@
 23	elasticity	src/adapters/plot/v2/responseMapper.ts
 1	elasticity	src/canvas/adapters/ceeSynthesisAdapter.ts
 3	elasticity	src/canvas/analysis/assembleAnalysisInputsSummary.ts
-1	elasticity	src/canvas/compare-tab/deriveTransitions.ts
 1	elasticity	src/canvas/edges/StyledEdge.tsx
 1	elasticity	src/canvas/hooks/useLensFilter.ts
 2	elasticity	src/canvas/stores/analysisSnapshotFactory.ts

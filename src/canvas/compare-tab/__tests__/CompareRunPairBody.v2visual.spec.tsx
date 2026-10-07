@@ -219,6 +219,16 @@ describe('Ask Olumi: offered only for the pair Olumi reads, with a capped editab
     expect(connectorSpan(0.7, 0.2)).toEqual(connectorSpan(0.2, 0.7))
   })
 
+  it('each option row canvas link is a 24px touch target (WCAG 2.2 §2.5.8; served staging measured 23.5px)', () => {
+    mount(runChangeDelta())
+    const links = screen.getAllByRole('button', { name: /^Show on the canvas: / }).filter((b) => b.closest(`[data-testid="${COMPARE_SUPPORT_TESTID}-option"]`))
+    expect(links.length).toBeGreaterThan(0)
+    for (const link of links) {
+      // Same three-class claim as everyActTierIsHittable: min-h alone does nothing to an inline box.
+      for (const cls of ['inline-flex', 'items-center', 'min-h-[24px]']) expect(link.className.split(/\s+/)).toContain(cls)
+    }
+  })
+
   it('quotes only the rows the panel shows, then counts the rest', () => {
     const row = (subject: string) => ({ key: subject, kind: 'factor_value', subject, before: '1', after: '2', change: 'changed', field: 'value', linkLabels: null, strength: null } as unknown as RunDeltaInputRow)
     expect(compareAskDraft([row('A'), row('B')], 3)).toBe(

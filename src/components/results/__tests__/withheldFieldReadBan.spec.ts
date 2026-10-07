@@ -303,7 +303,6 @@ const KNOWN_WITHHELD_FIELD_READS: readonly string[] = [
 const CLEARED_SURFACES: readonly string[] = [
   'src/canvas/components/model-tab/ModelHealthSection.tsx',
   'src/canvas/components/ModelTabBody.tsx',
-  'src/canvas/compare-tab/TrajectorySection.tsx',
   'src/canvas/components/OutputsDock.tsx',
   'src/canvas/components/utils/postAnalysisFooter.ts',
   'src/canvas/components/LensInfoPanel.tsx',
@@ -321,6 +320,10 @@ const DELETED_SURFACES: readonly string[] = [
   // back". A file that returns carrying its old fabrication path REDs either
   // way, which is the property worth preserving.
   'src/canvas/components/model-tab/StatusBar.tsx',
+  // MOVED FROM `CLEARED_SURFACES` ON 2026-10-07, same rule as above: the pre-v3 Compare body
+  // (`CompareTabBody` and everything only it reached) was deleted with zero production importers,
+  // re-derived at the deletion head. It must not come back carrying its old Stability % column.
+  'src/canvas/compare-tab/TrajectorySection.tsx',
 ]
 
 function deriveFoundReads(): string[] {
