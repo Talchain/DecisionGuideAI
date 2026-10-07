@@ -170,14 +170,14 @@ describe('a method press on the Reasoning tab runs the method', () => {
     expect(screen.getByTestId(`${STRIP}-method-reframe_problem`)).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('⛔ CONTRAST — before a Run the two routed methods send their plain ask, never a CEE press id', () => {
+  it('⛔ CONTRAST — before a Run the pre-mortem sends its plain ask; a different option reaches CEE’s own handler at every stage', () => {
     seedModel(false)
     vi.mocked(selectRunAffirmedCurrent).mockReturnValue(false)
     mount({ isPreRun: true })
     pressMethod('pre_mortem')
     vi.setSystemTime(new Date('2026-10-07T10:00:05Z'))
     pressMethod('different_option')
-    expect(dispatch.mock.calls.map((c) => (c[0] as { id: string }).id)).toEqual(['ask:pre-mortem', 'ask:widen'])
+    expect(dispatch.mock.calls.map((c) => (c[0] as { id: string }).id)).toEqual(['ask:pre-mortem', 'agent-next-widen'])
   })
 
   it('the Challenge card’s ✦ on the picked method sends the same turn again, in one press', () => {

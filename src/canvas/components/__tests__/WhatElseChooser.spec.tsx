@@ -38,7 +38,7 @@ describe('the "What else…?" chooser', () => {
   it.each([
     ['factor', 'ask:missing-factor', 'What else could change how this turns out that the model doesn’t have yet?'],
     ['risk', 'ask:risks', 'What could go wrong, or unexpectedly well, that this model doesn’t have yet?'],
-    ['option', 'ask:widen', 'What other ways could we reach the goal that aren’t on the board yet?'],
+    ['option', 'agent-next-widen', 'What other ways could we reach the goal that aren’t on the board yet?'],
     ['outcome', 'ask:missing-outcome', 'Where else could this lead that the model doesn’t have yet?'],
   ])('%s sends its registered question on the actual dispatch wire, then closes', (kind, id, message) => {
     openFromFactorDoor()

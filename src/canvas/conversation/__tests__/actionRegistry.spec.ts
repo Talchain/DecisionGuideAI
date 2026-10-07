@@ -28,7 +28,7 @@ const SENDS: Readonly<Record<ActionId, Readonly<Record<AskStage, string>>>> = {
   what_changes: { drafted: 'ask:what-would-change', 'ran-current': 'agent-next-what-would-change', stale: 'ask:what-would-change', withheld: 'ask:what-would-change' },
   strengthen: { drafted: 'ask:strengthen', 'ran-current': 'agent-next-strengthen', stale: 'ask:strengthen', withheld: 'ask:strengthen' },
   pre_mortem: { drafted: 'ask:pre-mortem', 'ran-current': 'agent-next-pre-mortem', stale: 'ask:pre-mortem', withheld: 'agent-next-pre-mortem' },
-  more_options: { drafted: 'ask:widen', 'ran-current': 'agent-next-widen', stale: 'ask:widen', withheld: 'ask:widen' },
+  more_options: { drafted: 'agent-next-widen', 'ran-current': 'agent-next-widen', stale: 'agent-next-widen', withheld: 'agent-next-widen' },
   reframe: { drafted: 'ask:method-reframe', 'ran-current': 'ask:method-reframe', stale: 'ask:method-reframe', withheld: 'ask:method-reframe' },
   opposite_case: { drafted: 'ask:method-opposite', 'ran-current': 'ask:method-opposite', stale: 'ask:method-opposite', withheld: 'ask:method-opposite' },
   outside_view: { drafted: 'ask:method-outside-view', 'ran-current': 'ask:method-outside-view', stale: 'ask:method-outside-view', withheld: 'ask:method-outside-view' },

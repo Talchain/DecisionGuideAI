@@ -68,7 +68,9 @@ export const ACTION_REGISTRY = {
   what_changes: { ask: 'what-would-change', handler: { kind: 'typed', press_id: 'agent-next-what-would-change', stages: ['ran-current'] } },
   strengthen: { ask: 'strengthen', handler: { kind: 'typed', press_id: 'agent-next-strengthen', stages: ['ran-current'] } },
   pre_mortem: { ask: 'pre-mortem', method_id: 'pre_mortem', handler: { kind: 'typed', press_id: 'agent-next-pre-mortem', stages: ['ran-current', 'withheld'] } },
-  more_options: { ask: 'widen', method_id: 'different_option', handler: { kind: 'typed', press_id: 'agent-next-widen', stages: ['ran-current'] } },
+  // CEE's widen handler is total: it runs whenever the model has a goal and answers a typed "can't yet" when it has
+  // none, so the press goes to it at every stage and from every door (DL ruling, 7 Oct 2026).
+  more_options: { ask: 'widen', method_id: 'different_option', handler: { kind: 'typed', press_id: 'agent-next-widen', stages: ['drafted', 'ran-current', 'stale', 'withheld'] } },
   reframe: { ask: 'method-reframe', method_id: 'reframe_problem', handler: { kind: 'prose' } },
   opposite_case: { ask: 'method-opposite', method_id: 'consider_opposite', handler: { kind: 'prose' } },
   outside_view: { ask: 'method-outside-view', method_id: 'outside_view', handler: { kind: 'prose' } },
