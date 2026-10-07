@@ -13,7 +13,7 @@ import { mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
 import { resolveEdgeValuesProvenance } from '../../ui/inspector-v2/coachingConfig'
 
 // CEE branch dl/placeholder-licence pins the same bytes.
-const FIXTURE_SHA256 = 'a72374b1ff1e60ca3749cab42fa487257b966e013820149d99cb5c4332f69641'
+const FIXTURE_SHA256 = '67fd0050970378c46acd843f7b00424b954d547fabbd8a17b5ee9e3ba08f2ec9'
 const bytes = readFileSync(resolve(process.cwd(), 'src/canvas/domain/__tests__/fixtures/placeholder-licence-parity.json'))
 type WireEdge = Record<string, unknown> & {
   from: string

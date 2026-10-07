@@ -44,9 +44,19 @@ export const OLUMI_PLACEHOLDER_MAGNITUDE = 'olumi_placeholder'
 const SAME_WEIGHT_EPSILON = 1e-9
 
 /**
- * Mirror CEE's `linkSizing(edge) === 'placeholder'`: user authorship comes
- * first, then the magnitude label, then an untagged producer default with no
- * natural effect (Science 393023 LICENCE (b), 7 Oct).
+ * CEE's door-constant table (`link-sizing.ts` DOOR_DEFAULT_CONSTANTS), one row per default door: the links a door wrote
+ * before it tagged. Matched only with `defaulted: true`: a user's bare 0.5 never reads as a placeholder.
+ */
+export const DOOR_DEFAULT_CONSTANTS: ReadonlyArray<{ readonly mean: number; readonly std: number }> = [
+  { mean: STRENGTH_DEFAULT_SIGNATURE.mean, std: STRENGTH_DEFAULT_SIGNATURE.std }, // hypothesisEdgeValue (+ Option / + Risk / add-factor)
+  { mean: 0.5, std: 0.2 }, // factor enricher
+]
+
+/**
+ * Mirror CEE's `linkSizing(edge) === 'placeholder'`, clause by clause (Science 393023 LICENCE rulings 1-2, 7 Oct
+ * 20:48Z): `user_stated` → not; `mean_projected` → placeholder whatever its magnitude, natural effect or source (fails
+ * closed); `user_specified` → not; the tag → placeholder; any other magnitude or a natural effect → not; else the
+ * untagged door constants with `defaulted`.
  */
 export function readWireStrengthIsPlaceholder(
   wireEdge: Record<string, unknown> | undefined | null,
@@ -55,10 +65,11 @@ export function readWireStrengthIsPlaceholder(
   const p = typeof provenance === 'object' && provenance !== null && !Array.isArray(provenance)
     ? provenance as Record<string, unknown>
     : {}
-  if (p.source === 'user_specified' || p.magnitude === 'user_stated') return false
+  if (p.magnitude === 'user_stated') return false
+  if (p.mean_projected === true) return true
+  if (p.source === 'user_specified') return false
   if (p.magnitude === OLUMI_PLACEHOLDER_MAGNITUDE) return true
   if (p.magnitude !== undefined || p.natural_effect !== undefined) return false
-  if (p.mean_projected === true) return true
 
   // Exactly the field CEE reads (nested `strength`, link-sizing.ts): a flat `strength_mean` never completes it (parity).
   const strength = wireEdge?.strength
@@ -66,8 +77,7 @@ export function readWireStrengthIsPlaceholder(
   const { mean, std } = strength as Record<string, unknown>
   return wireEdge?.defaulted === true
     && typeof mean === 'number'
-    && Math.abs(mean) === STRENGTH_DEFAULT_SIGNATURE.mean
-    && std === STRENGTH_DEFAULT_SIGNATURE.std
+    && DOOR_DEFAULT_CONSTANTS.some(d => Math.abs(mean) === d.mean && std === d.std)
 }
 
 /**
