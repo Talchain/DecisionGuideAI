@@ -145,6 +145,8 @@ interface ChatThreadProps {
    * as before. See `RunChipGate`.
    */
   runGate?: RunChipGate
+  /** Forwarded to `SuggestedChips`: this host's shell owns the rerun control (`workspaceShell/rerunControl.ts`). */
+  shellOwnsRerun?: boolean
 }
 
 /**
@@ -211,6 +213,7 @@ export const ChatThread = memo(function ChatThread({
   scrollListRef,
   testId = THREAD_TESTID_DOCKED,
   runGate,
+  shellOwnsRerun,
 }: ChatThreadProps) {
   // Has the conversation produced any finalized (non-streaming) assistant messages?
   const hasFinalizedAssistant = messages.some(m => m.role === 'assistant' && !m.isStreaming)
@@ -399,6 +402,7 @@ export const ChatThread = memo(function ChatThread({
                 onChipClick={(chip) => onChipClick(chip, msg.id)}
                 isThinking={isThinking}
                 runGate={runGate}
+                shellOwnsRerun={shellOwnsRerun}
               />
             )}
           </div>

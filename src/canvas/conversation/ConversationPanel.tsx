@@ -84,6 +84,12 @@ interface ConversationPanelProps {
    * `zones/ChatThread.tsx`. Defaults to the canonical docked identity.
    */
   threadTestId?: string
+  /**
+   * The host's shell carries the rerun controls (the docked Olumi tab: the footer's Re-analyse and the composer
+   * icon), so after the first Run the thread's run chip stands aside (`workspaceShell/rerunControl.ts`). The
+   * floating panel mounts neither, so it leaves this unset and keeps the chip as its only rerun control.
+   */
+  shellOwnsRerun?: boolean
 }
 
 function createPanelInteractionSnapshot(messagesCount: number): InteractionStateSnapshot {
@@ -140,6 +146,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   compact = false,
   scrollListRef,
   threadTestId,
+  shellOwnsRerun,
 }: ConversationPanelProps) {
   const {
     messages, isThinking, explainingRun, longRunningHint,
@@ -909,6 +916,7 @@ export const ConversationPanel = memo(function ConversationPanel({
         scrollListRef={scrollListRef}
         testId={threadTestId}
         runGate={runGate}
+        shellOwnsRerun={shellOwnsRerun}
       />
 
       {!hideComposer && (

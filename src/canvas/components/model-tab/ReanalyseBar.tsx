@@ -74,8 +74,7 @@ import { RefreshCw } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { gateBlockedSubline } from '../pre-analysis-v3/footer/readinessDisplay'
 import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
-import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
-import { useCanvasStore } from '../../store'
+import { reanalyseBarShows, useReanalyseBarInputs } from '../workspaceShell/rerunControl'
 
 /**
  * ⚠⚠ TWO GUARDS, TWO DIFFERENT CLASSES — AND NEITHER COVERS THE OTHER'S.
@@ -145,13 +144,11 @@ export function ReanalyseBar({
   blockedReason,
   isAnalysing = false,
 }: ReanalyseBarProps) {
-  const { semantic } = useAnalysisTrust()
-  const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
-  // `?? true`: the same defensive default `composeAnalysisState` already
-  // applies to this exact field (`analysisStateSelector.ts`), so a mount that
-  // has not threaded the real store value reads as "a run happened" rather
-  // than silently reinstating a never-run bar everywhere.
-  const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun) ?? true
+  // The inputs and the show predicate live in `workspaceShell/rerunControl.ts`, the one owner of "which control
+  // reruns the analysis", so every control that stands aside for this bar reads the same condition. The store reads
+  // are unchanged (including `hasCompletedFirstRun ?? true`, the defensive default `composeAnalysisState` applies).
+  const barInputs = useReanalyseBarInputs()
+  const { semantic, importHold, hasCompletedFirstRun } = barInputs
 
   // AFFORDANCE ≠ ASSERTION (interim 2.467). This bar is BOTH the "Model
   // changed" claim and the Model tab's ONLY re-analyse control — and conflating
@@ -189,7 +186,7 @@ export function ReanalyseBar({
    */
   const neverRun = !hasCompletedFirstRun
   const heldUnsure = !neverRun && importHold && semantic === 'cannot_confirm'
-  if (semantic !== 'changed' && !heldUnsure && !neverRun) return null
+  if (!reanalyseBarShows(barInputs)) return null
 
   // The gate's verdict, and the gate's own sentence. Both arrive from the shell;
   // neither is recomputed. `blockedSentence` goes through the shared
