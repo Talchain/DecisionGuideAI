@@ -6,10 +6,19 @@
  * (not persisted). Clears on scenario switch.
  */
 
-import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
+import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo, useReducer } from 'react'
 import { useCanvasStore } from '../store'
 import { revealRunReply, runTurnEndedUnanswered } from './runTurnEndedUnanswered'
 import { setCurrentScenarioId } from '../store/scenarios'
+import {
+  turnReducer,
+  TURN_IDLE,
+  isTurnInFlight,
+  reportTurnFailure,
+  withSessionReadTimeout,
+  type TurnFailureKind,
+} from './turnLifecycle'
+import { addBreadcrumb } from '../../lib/monitoring'
 // Session identity without React context — see that module's header for why it
 // is neither `useAuth()` nor a canvas-store field.
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
@@ -2687,7 +2696,12 @@ export interface UseConversationReturn {
 
 export function useConversation(): UseConversationReturn {
   const [messages, setMessages] = useState<ConversationMessage[]>([])
-  const [isThinking, setIsThinking] = useState(false)
+  // ⭐ ONE STATE MACHINE (`turnLifecycle.ts`). `isThinking` is DERIVED from the turn's phase and is never set on its
+  // own; every writer below dispatches a named, owned event. `turnOwnerRef` is the synchronous twin of the owned
+  // turn id: a turn's late exit (a preempted or timed-out request's `finally`) settles only while it still owns it.
+  const [turn, dispatchTurn] = useReducer(turnReducer, TURN_IDLE)
+  const isThinking = isTurnInFlight(turn)
+  const turnOwnerRef = useRef<string | null>(null)
   // Result-first (narrationTurn.ts): the latest Run's key, the keys already explained (once per run_key), the key
   // waiting for the current turn to settle, and whether request 2 is in flight.
   const latestRunKeyRef = useRef<string | null>(null)
@@ -3096,7 +3110,8 @@ export function useConversation(): UseConversationReturn {
             messagesRef.current = hydrated
             setMessages(hydrated)
             setPatchBlockStates(result.blockStates)
-            setIsThinking(false)
+            turnOwnerRef.current = null
+            dispatchTurn({ type: 'reset' })
             useDraftStore.getState().setIsGenerating(false)
             setLongRunningHint(null)
             setLastSendFailure(null)
@@ -3120,7 +3135,8 @@ export function useConversation(): UseConversationReturn {
             // stale messages from the previous scenario.
             messagesRef.current = []
             setMessages([])
-            setIsThinking(false)
+            turnOwnerRef.current = null
+            dispatchTurn({ type: 'reset' })
             useDraftStore.getState().setIsGenerating(false)
             setLongRunningHint(null)
             setLastSendFailure(null)
@@ -3147,7 +3163,8 @@ export function useConversation(): UseConversationReturn {
       // switching TO gets restored when one is stored, so returning to a
       // decision shows what was left there rather than a blank slate.
       sessionStateRef.current = null
-      setIsThinking(false)
+      turnOwnerRef.current = null
+      dispatchTurn({ type: 'reset' })
       useDraftStore.getState().setIsGenerating(false)
       setLongRunningHint(null)
       setLastSendFailure(null)
@@ -4199,6 +4216,25 @@ export function useConversation(): UseConversationReturn {
    */
   const flushDeferredSystemSendsRef = useRef<() => void>(() => {})
 
+  /**
+   * ⭐ THE ONE SETTLE PATH (`turnLifecycle.ts`). Ends the turn ONLY while `turnId` still owns it — a preempted or
+   * already-settled turn's late exit is a no-op — and is the one place a failed turn is reported. Every exit of a
+   * turn goes through here: the request's `finally`, and the wait-expiry timer.
+   */
+  const settleTurn = useCallback(
+    (turnId: string, failure: TurnFailureKind | null, report: Omit<Parameters<typeof reportTurnFailure>[0], 'kind'>) => {
+      if (turnOwnerRef.current !== turnId) return
+      turnOwnerRef.current = null
+      // Synchronously, not only via the effect mirror: the deferred-send queue drains on the next microtask and
+      // `sendTurn`'s early `isThinkingRef` guard would otherwise drop a queued edit (see the finally's history).
+      isThinkingRef.current = false
+      useDraftStore.getState().setIsGenerating(false)
+      dispatchTurn({ type: 'settle', turnId, failure })
+      if (failure !== null) reportTurnFailure({ kind: failure, ...report })
+    },
+    [],
+  )
+
   const sendTurn = useCallback(
     async (opts: SendTurnOpts): Promise<SendTurnOutcome> => {
       const {
@@ -4661,16 +4697,25 @@ export function useConversation(): UseConversationReturn {
       // Lifecycle: abort any previous request, set up AbortController,
       // timeout timer, and long-running hint. Mirrors V4 block structure
       // so behaviour is consistent across both paths.
+      // Read BEFORE the turn starts: it throws when no endpoint is configured, and a throw after the start but before
+      // the request's try used to strand the spinner and the lock (S-F audit A3.1).
+      const v5Endpoint = getV5Endpoint()
+
       abortRef.current?.abort()
       const controller = new AbortController()
       abortRef.current = controller
       missingDraftRecoveryRef.current = null
 
-      setIsThinking(true)
+      // The turn starts: owned by this client turn id until it settles (`settleTurn`).
+      turnOwnerRef.current = turnClientId
+      dispatchTurn({ type: 'start', turnId: turnClientId })
       useDraftStore.getState().setIsGenerating(true)
+      addBreadcrumb('chat.turn', 'start', { turn_type: resolvedTurnType, mode })
 
       const hint = inferLoadingHint(message, useCanvasStore.getState().nodes.length, turnType)
       const sendStartTime = Date.now()
+      // Why this turn failed, if it did — set at each failure site, read once by the settle in `finally`.
+      let turnFailure: TurnFailureKind | null = null
       setLongRunningHint(hint)
       longRunningTimerRef.current = setTimeout(() => {
         elapsedIntervalRef.current = setInterval(() => {
@@ -4697,7 +4742,7 @@ export function useConversation(): UseConversationReturn {
 
       bindRequestToInteraction(turnClientId, {
         chainId: interactionChainId,
-        endpoint: getV5Endpoint(),
+        endpoint: v5Endpoint,
         triggerSurface,
         sourceSurface: resolvedSourceSurface,
         initiatedBy: initiatedBy ?? (mode === 'system' ? 'automatic' : 'user'),
@@ -4744,12 +4789,22 @@ export function useConversation(): UseConversationReturn {
       let deliveryRequestId: string | undefined
       let requestNotStarted = true
       const onRequestStarted = () => { requestNotStarted = false }
+      /** What a failure report says about this turn (no user text; `turnLifecycle.reportTurnFailure`). */
+      const turnReportBase = () => ({
+        turnType: resolvedTurnType,
+        mode,
+        requestId: deliveryRequestId,
+        scenarioId: scenarioIdAtDispatch,
+        elapsedMs: Date.now() - sendStartTime,
+      })
 
       try {
         // Resolve session identity once — X-User-Id + Authorization Bearer
         // (login 3.4 UI half) and the post-response graph re-fetch auth
         // guard. A single call avoids two getSession() round-trips per turn.
-        const v5Identity = await getSessionIdentity()
+        // Bounded (S-F audit A3.2): a session read that never returns used to hold the spinner with nothing sent.
+        // On expiry it throws `SessionReadTimeoutError`, which the catch below reports as NOT sent, with Retry.
+        const v5Identity = await withSessionReadTimeout(getSessionIdentity())
         const v5UserId = v5Identity.userId
         // ═══════════════════════════════════════════════════════════════════
         // HOP ZERO — the browser ORIGINATES this send's correlation id
@@ -4849,8 +4904,8 @@ export function useConversation(): UseConversationReturn {
           controller.abort()
           clearTimeout(longRunningTimerRef.current)
           clearInterval(elapsedIntervalRef.current)
-          setIsThinking(false)
-          useDraftStore.getState().setIsGenerating(false)
+          turnFailure = 'timeout'
+          settleTurn(turnClientId, 'timeout', turnReportBase())
           setLongRunningHint(null)
           // ROADMAP 2.122 round 2 (review F1, adjacent) — a streamed draft that
           // already put a graph on the canvas must NOT be told "your message has
@@ -4918,7 +4973,8 @@ export function useConversation(): UseConversationReturn {
             scenarioIdAtDispatch,
             headers: v5Headers,
             signal: controller.signal,
-            onRequestStarted,
+            // The streamed response is open: the lifecycle moves pending → streaming (owned by this turn).
+            onRequestStarted: () => { onRequestStarted(); dispatchTurn({ type: 'stream', turnId: turnClientId }) },
             // Stream closed without a final turn: the reload's read, under the same guards as the recovery below.
             readBackCommittedDraft: async () =>
               (await recoverDraftFromServer({
@@ -5433,6 +5489,10 @@ export function useConversation(): UseConversationReturn {
             deliveryScenarioId: unverified && !deliveryProvenByFrame ? scenarioIdAtDispatch : undefined,
           })
         }
+
+        // The lifecycle's verdict on this response (reported once, by the settle in `finally`).
+        if (target.kind === 'typed_error' && streamedUnsettledCause !== 'terminal_error_model_kept') turnFailure = 'server'
+        else if (target.kind === 'empty') turnFailure = 'empty'
 
         if (target.kind === 'text_only' || target.kind === 'blocks') {
           // Apply side-effects (stage, graph_patch mutations) BEFORE the
@@ -6422,6 +6482,12 @@ export function useConversation(): UseConversationReturn {
       } catch (err) {
         clearLifecycleTimers()
         const isAbort = (err as Error).name === 'AbortError'
+        // An abort is a Stop, a preempt or the wait timer (which classified itself); it is not a new failure.
+        if (!isAbort && turnFailure === null) {
+          turnFailure = (err as Error)?.name === 'SessionReadTimeoutError'
+            ? 'session_timeout'
+            : requestNotStarted ? 'not_sent' : 'transport'
+        }
 
         // ═══ ADVERSARIAL REVIEW F1 ════════════════════════════════════════
         // An abort that left a GRAPH_READY preview standing is the ONE abort
@@ -6576,15 +6642,11 @@ export function useConversation(): UseConversationReturn {
           console.warn('[sendTurn V5] Dispatch error:', err)
         }
       } finally {
-        setIsThinking(false)
-        // Mirror it into the ref SYNCHRONOUSLY — see the identical line in
-        // the V4 finally below for the full reasoning. Short version:
-        // `isThinkingRef` is effect-synced, so it still reads `true` on the
-        // microtask that drains the deferred-send queue, and `sendTurn`'s
-        // early `isThinkingRef` guard would drop the queued edit. This is not
-        // a new source of truth — the line above sets the same value and the
-        // effect will set it again; this only removes the one-render lag.
-        isThinkingRef.current = false
+        // ⭐ THE TURN SETTLES HERE, OWNED (`settleTurn`): only while this turn still owns the lifecycle, so a
+        // preempted turn's late finally can no longer end the newer turn (S-F audit A3.3). `settleTurn` also mirrors
+        // `isThinkingRef` SYNCHRONOUSLY (the deferred-send queue drains on the next microtask and `sendTurn`'s early
+        // `isThinkingRef` guard would drop a queued edit) and clears the draft store's `isGenerating`.
+        settleTurn(turnClientId, turnFailure, turnReportBase())
         // Clear BY REFERENCE IDENTITY, never unconditionally: a preempted
         // turn's late finally must not wipe the newer turn's edit out from
         // under `cancelTurn`. Same ownership rule as the run slot below.
@@ -6605,7 +6667,7 @@ export function useConversation(): UseConversationReturn {
         // `confirmOptimisticFactorEdit` and `revertOptimisticFactorEdit`, the
         // two functions that own that transition. By construction rather than
         // by guessing at attempt boundaries.
-        useDraftStore.getState().setIsGenerating(false)
+        // (`isGenerating` is cleared by `settleTurn` above, owned: a preempted turn no longer clears the newer one's.)
         // ROADMAP 2.122 — every-exit settle for the streamed draft phase
         // (abort, timeout, thrown dispatch, a `return` from the abort guard).
         // OWNERSHIP GUARD, same rule as the run slot below: only clear while
@@ -6648,7 +6710,7 @@ export function useConversation(): UseConversationReturn {
       }
       return
     },
-    [addMessage, updateMessage, cleanupStreamRefs],
+    [addMessage, updateMessage, cleanupStreamRefs, settleTurn],
   )
 
   /**
@@ -7328,7 +7390,8 @@ export function useConversation(): UseConversationReturn {
     messagesRef.current = []
     sessionStateRef.current = null
     setMessages([])
-    setIsThinking(false)
+    turnOwnerRef.current = null
+    dispatchTurn({ type: 'reset' })
     useDraftStore.getState().setIsGenerating(false)
     setLongRunningHint(null)
     setLastSendFailure(null)
@@ -7450,7 +7513,8 @@ export function useConversation(): UseConversationReturn {
     clearTimeout(longRunningTimerRef.current)
     clearTimeout(timeoutTimerRef.current)
     clearInterval(elapsedIntervalRef.current)
-    setIsThinking(false)
+    turnOwnerRef.current = null
+    dispatchTurn({ type: 'stop' })
     useDraftStore.getState().setIsGenerating(false)
     setLongRunningHint(null)
 

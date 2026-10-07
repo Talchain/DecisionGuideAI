@@ -27,6 +27,7 @@ import { logger } from '../../lib/logger'
 import { ChevronsRight } from 'lucide-react'
 import { ChatThread } from './zones/ChatThread'
 import { scrollWithinThread } from './hooks/threadScroll'
+import { addBreadcrumb } from '../../lib/monitoring'
 import { ReanalyseBar } from '../components/model-tab/ReanalyseBar'
 import { chatRunChipStandsAside, hostRerunControl, useReanalyseBarInputs, type RerunHost } from '../components/workspaceShell/rerunControl'
 import { isRunAnalysisAffordance, type RunChipGate } from './zones/SuggestedChips'
@@ -701,6 +702,8 @@ export const ConversationPanel = memo(function ConversationPanel({
         [RETRY_CHIP_ID]: retryLast,
         [START_NEW_DRAFT_CHIP_ID]: startNewDraft,
       }
+      // A trail for a later failure report (S-F): which control started the turn. Ids and labels only, never text.
+      addBreadcrumb('chat.chip', chip.id, { label: chip.label, action_type: chip.action_type ?? null })
       const localRoute = (localRoutes as Record<string, (() => void | Promise<void>) | undefined>)[chip.id]
       if (localRoute) { await localRoute(); return }
 

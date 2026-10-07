@@ -118,6 +118,15 @@ export function captureError(error: Error, context?: SentryContext): void {
   })
 }
 
+/**
+ * A breadcrumb on the trail a later captured error carries (S-F: a chip press, a turn starting), so a failed or stuck
+ * turn can be tied to the control that started it. No-op when Sentry is disabled. Never pass user text in `data`.
+ */
+export function addBreadcrumb(category: string, message: string, data?: Record<string, unknown>): void {
+  if (!resolveMonitoringConfig().enabled.sentry) return
+  Sentry.addBreadcrumb({ category, message, data, level: 'info' })
+}
+
 export function initWebVitals(): void {
   const config = resolveMonitoringConfig()
   if (!config.enabled.webVitals) {
