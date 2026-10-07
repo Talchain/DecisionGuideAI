@@ -152,7 +152,11 @@ describe('Compare draws the rows (v3 anatomy)', () => {
     const [setting, factor] = rowEls()
     expect(setting.querySelector('svg.lucide-lightbulb')).not.toBeNull()
     expect(factor.querySelector('svg.lucide-settings')).not.toBeNull()
-    expect(setting).toHaveTextContent('Raise to £60')
+    // The DRAWN parts, each on its own element (Codex r1 P2: the hidden sentence must not satisfy these).
+    const drawn = (li: HTMLElement) => ['name', 'context', 'values'].map((k) => li.querySelector(`[data-testid="compare-input-row-${k}"]`)?.textContent ?? null)
+    expect(drawn(setting)).toEqual(['Pro price', 'Raise to £60', '£59£60'])
+    expect(drawn(factor)).toEqual(['Demand', 'Shared assumption', '120150'])
+    expect(setting.querySelector('[data-testid="compare-input-row-values"] svg[class*="lucide-arrow-right"]')).not.toBeNull()
     expect(setting.querySelector('.sr-only')?.textContent).toBe('Pro price, Raise to £60: £59 → £60')
     expect(factor.querySelector('.sr-only')?.textContent).toBe('Demand: 120 → 150')
   })
@@ -192,6 +196,15 @@ describe('Compare draws the rows (v3 anatomy)', () => {
     // (The contract refuses a "changed" strength with equal bands, so no real row reaches the "both" step.)
     const folded = within(sizing).getByTestId('compare-input-strength-steps').querySelectorAll('i[data-at]')
     expect([...folded].map((s) => [s.getAttribute('data-band'), s.getAttribute('data-at')])).toEqual([['slight', 'before'], ['moderate', 'after']])
+  })
+
+  it('a strength change folded into an ACCEPTED estimate is read out too (Codex r1 P1; control: the user\'s own estimate already says the bands)', () => {
+    render(<CompareRunPairBody responseHash={seed(delta([ROWS.sizing, ROWS.sizingStrength]))} />)
+    expect(rowEls()[0].querySelector('.sr-only')?.textContent).toBe("You accepted Olumi's estimate for how much Churn changes Revenue. Strength: slight → moderate.")
+    expect(rowEls()[0].querySelector('[data-testid="compare-input-row-values"]')).toHaveTextContent('SlightModerate')
+    cleanup()
+    render(<CompareRunPairBody responseHash={seed(delta([{ ...ROWS.sizing, after: { raw: 'user' } }, ROWS.sizingStrength]))} />)
+    expect(rowEls()[0].querySelector('.sr-only')?.textContent).toBe('You gave your own estimate for how much Churn changes Revenue: slight → moderate.')
   })
 
   it('an accepted estimate shows its origin pills and keeps Olumi as the origin (control: the user\'s own estimate has no note)', () => {

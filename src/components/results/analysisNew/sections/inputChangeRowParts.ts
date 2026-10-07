@@ -21,10 +21,16 @@ export function strengthBandIndex(raw: string | null): number | null {
   return i >= 0 ? i : null
 }
 
+const sentenceCase = (words: string | null): string | null => (words === null ? null : words.charAt(0).toUpperCase() + words.slice(1))
+
 /** A sizing literal as a short label ("Olumi's estimate, accepted"), sentence case. The words are `sizingWords`'. */
 export function sizingLabel(raw: string | null): string | null {
-  const words = sizingWords(raw)
-  return words === null ? null : words.charAt(0).toUpperCase() + words.slice(1)
+  return sentenceCase(sizingWords(raw))
+}
+
+/** A band id as a label standing on its own ("Moderate"): `strengthBandWords`' words, sentence case. */
+export function strengthLabel(raw: string | null): string | null {
+  return sentenceCase(strengthBandWords(raw))
 }
 
 /** The accepted-estimate note (handoff §3: acceptance keeps Olumi as the origin; it is not better evidence). */
@@ -49,7 +55,20 @@ export type InputRowValues =
 const NOT_SET = 'Not set'
 
 function strengthValues(before: string | null, after: string | null): Extract<InputRowValues, { kind: 'strength' }> {
-  return { kind: 'strength', before: strengthBandWords(before), after: strengthBandWords(after), beforeBand: strengthBandIndex(before), afterBand: strengthBandIndex(after) }
+  return { kind: 'strength', before: strengthLabel(before), after: strengthLabel(after), beforeBand: strengthBandIndex(before), afterBand: strengthBandIndex(after) }
+}
+
+/**
+ * What the row's sentence leaves out that the row draws (Codex r1 P1 on #2620): RC's sentence for an ACCEPTED estimate
+ * names the acceptance only, so a strength change folded into that row would be drawn but never read out. Returns the
+ * missing words for assistive technology ("Strength: slight → moderate."), or `null` when the sentence already says them.
+ */
+export function inputRowSentenceSupplement(row: RunDeltaInputRow, sentence: string): string | null {
+  if (row.kind !== 'link' || row.field !== 'sizing' || row.strength === null) return null
+  const before = strengthBandWords(row.strength.before)
+  const after = strengthBandWords(row.strength.after)
+  if (before === null || after === null || sentence.includes(`${before} → ${after}`)) return null
+  return `Strength: ${before} → ${after}.`
 }
 
 /** What the row's value line shows. Branches on the producer's `kind`, `change` and `field` by identity, never on text. */

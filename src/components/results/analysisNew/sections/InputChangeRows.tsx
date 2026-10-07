@@ -21,6 +21,7 @@ import {
   STRENGTH_BAND_ORDER,
   inputRowContext,
   inputRowName,
+  inputRowSentenceSupplement,
   inputRowValues,
   type InputRowValues,
 } from './inputChangeRowParts'
@@ -138,6 +139,7 @@ function InputChangeRow({ row, frame, rowFocus, rowLight, selected, onSelect }: 
   const focus = rowFocus?.(row)
   const light = focus ? rowLight?.(row) ?? null : null
   const sentence = inputRowSentence(row, frame)
+  const supplement = inputRowSentenceSupplement(row, sentence)
   const name = inputRowName(row)
   const context = inputRowContext(row)
   const Icon = KIND_ICON[row.kind] ?? Settings
@@ -155,12 +157,12 @@ function InputChangeRow({ row, frame, rowFocus, rowLight, selected, onSelect }: 
       onBlur={light?.off}
     >
       {/* The row's sentence is what it MEANS, word for word as everywhere else; the drawn parts below repeat it for the eye. */}
-      <span className="sr-only">{sentence}</span>
+      <span className="sr-only">{sentence}{supplement ? ` ${supplement}` : ''}</span>
       <div className="flex items-start gap-2">
         <Icon className={`${icon('row')} text-text-light flex-shrink-0 mt-[3px]`} aria-hidden="true" />
         <div className="flex-1 min-w-0" aria-hidden="true">
-          <p className={`${typography.panelBody} text-text-header m-0 break-words`}>{name}</p>
-          {context ? <p className={`${typography.panelMeta} text-text-light m-0 break-words`}>{context}</p> : null}
+          <p className={`${typography.panelBody} text-text-header m-0 break-words`} data-testid="compare-input-row-name">{name}</p>
+          {context ? <p className={`${typography.panelMeta} text-text-light m-0 break-words`} data-testid="compare-input-row-context">{context}</p> : null}
         </div>
         {focus ? (
           <PanelIconButton
@@ -173,7 +175,7 @@ function InputChangeRow({ row, frame, rowFocus, rowLight, selected, onSelect }: 
           />
         ) : null}
       </div>
-      <div className="pl-[22px] mt-1.5" aria-hidden="true">
+      <div className="pl-[22px] mt-1.5" aria-hidden="true" data-testid="compare-input-row-values">
         <RowValues values={inputRowValues(row)} />
       </div>
       {/* A removed input already says it went; a current one with nothing drawn says why there is no crosshair. */}
