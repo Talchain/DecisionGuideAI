@@ -11,6 +11,7 @@ import { Pencil } from 'lucide-react'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { ASK_BUSY_NOTICE } from '../../askAi'
 import { ACTION_BAR_COPY, ActionBar } from '../ActionBar'
+import { REASONING_TYPE } from '../../../../components/results/analysisNew/sections/ReasoningActionBar'
 import { parseActionBar, type ActionBarV1 } from '../actionBarContract'
 import { useActionBarStore } from '../actionBarStore'
 import { resetPressOfferClocks } from '../pressOffer'
@@ -97,11 +98,11 @@ describe('what is drawn', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('the surface chooses the type tokens and nothing else: body-size labels on both', () => {
+  it('the host chooses the type tokens and nothing else: body-size labels on both (the Reasoning tab passes its own)', () => {
     const { unmount } = render(<ActionBar bar={bar()} surface="chat" />)
     expect(screen.getByTestId('action-bar-pill-set_target-press').className).toContain('text-[13px]')
     unmount()
-    render(<ActionBar bar={bar()} surface="reasoning" />)
+    render(<ActionBar bar={bar()} surface="reasoning" typeScale={REASONING_TYPE} />)
     expect(screen.getByTestId('action-bar-pill-set_target-press').className).toContain('text-xs')
   })
 })

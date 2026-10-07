@@ -47,10 +47,11 @@ export const ACTION_BAR_COPY = {
   noConversation: 'Open the Olumi tab to use this.',
 } as const
 
-const SURFACE_TYPE: Readonly<Record<ActionBarSurface, { body: string; meta: string }>> = {
-  chat: { body: typography.chatBody, meta: typography.chatMeta },
-  reasoning: { body: typography.panelBody, meta: typography.panelMeta },
-}
+/**
+ * The chat's text tokens. A host outside the chat column (the Reasoning tab) passes its own `typeScale`, so its 11px
+ * meta never enters this file — the chat column's type census pins 12 / 13 / 14 (Paul, 28 Sep).
+ */
+const CHAT_TYPE = { body: typography.chatBody, meta: typography.chatMeta } as const
 
 const GROUP_ORDER = ['gap', 'method', 'review'] as const
 
@@ -75,6 +76,8 @@ export interface ActionBarHostItem {
 export interface ActionBarProps {
   bar: ActionBarV1
   surface: ActionBarSurface
+  /** Text tokens for a host outside the chat column; absent = the chat's. */
+  typeScale?: { body: string; meta: string }
   /** The surface's own controls, listed last in the ⋯ menu under their own label. */
   hostMenu?: { label: string; items: readonly ActionBarHostItem[] }
   /** Force the narrow layout. Default: measured from the bar's own width. */
@@ -82,7 +85,7 @@ export interface ActionBarProps {
   testId?: string
 }
 
-export function ActionBar({ bar, surface, hostMenu, compact: compactProp, testId = 'action-bar' }: ActionBarProps) {
+export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactProp, testId = 'action-bar' }: ActionBarProps) {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const overflowRef = useRef<HTMLDivElement | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
@@ -93,7 +96,7 @@ export function ActionBar({ bar, surface, hostMenu, compact: compactProp, testId
   const dismiss = useActionBarStore((s) => s.dismiss)
   const [open, setOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
-  const type = SURFACE_TYPE[surface]
+  const type = typeScale ?? CHAT_TYPE
 
   const { pills, icons, menu } = useMemo(() => {
     const live = bar.priority.filter((offer) => !dismissed.includes(offer.offer_key))

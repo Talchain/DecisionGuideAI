@@ -10,6 +10,10 @@
 import { ActionBar } from '../../../../canvas/conversation/actionBar/ActionBar'
 import type { ActionBarV1 } from '../../../../canvas/conversation/actionBar/actionBarContract'
 import { METHOD_STRIP_COPY, modelWorkflowIcon, useModelWorkflowActions } from './MethodStrip'
+import { typography } from '../../../../styles/typography'
+
+/** The Reasoning tab's own text tokens (panel scale), handed to the shared bar. */
+export const REASONING_TYPE = { body: typography.panelBody, meta: typography.panelMeta } as const
 
 export const REASONING_ACTION_BAR_TEST_ID = 'reasoning-action-bar'
 
@@ -20,6 +24,7 @@ export function ReasoningActionBar({ bar, canRerun }: { bar: ActionBarV1; canRer
       <ActionBar
         bar={bar}
         surface="reasoning"
+        typeScale={REASONING_TYPE}
         testId={REASONING_ACTION_BAR_TEST_ID}
         hostMenu={{
           label: METHOD_STRIP_COPY.actionsLabel,

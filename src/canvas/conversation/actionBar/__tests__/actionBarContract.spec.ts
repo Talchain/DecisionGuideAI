@@ -137,15 +137,16 @@ describe('where the bar is read from', () => {
 
 /**
  * ⭐ BOUND TO THE WIRE. The three bars below were CAPTURED by CEE from its real routes (lane ACTION-BAR-CEE, CEE #2751,
- * `src/orchestrator-v5/agent-lane/actions/__tests__/fixtures/`, copied byte for byte from its worktree at
- * 8ce3b297f5002758c4e2db2f2e13128b3b4055e3). They are evidence about what CEE sends; `EXAMPLE_BAR` above is not.
+ * `src/orchestrator-v5/agent-lane/actions/__tests__/fixtures/`, copied byte for byte from the SERVED CEE staging
+ * c70ca365b2f31e435dc48495e4bc7e7131fe6996 — re-captured by CEE #2755 after #2751 8ce3b297's first capture; only
+ * state keys, graph hashes, run keys and offer keys moved). They are evidence about what CEE sends; `EXAMPLE_BAR` above is not.
  * ⛔ Never edit or re-record them here: the digests pin the captured bytes, and a new capture comes from CEE.
  */
 describe('the bars CEE captured from its routes', () => {
   const CAPTURED = [
-    ['pre-run', '0dd6db62587f83e01b53d8db9bb8ba1a3dd573e77e191df102f252cc1d8a846e'],
-    ['withheld-run', '80f311dad3e6d0d8c8c45edab82a7c4e099875ac182878f8d75c6c9981ed3289'],
-    ['licensed-run', '3f1d4dd79ce735083184d4ba20afe8a6bd6b8d1627e9deae9bffde63761de99d'],
+    ['pre-run', '49e7f715e675c49c87101544bdbc3bf2132268f8c87b194f0258070281e7b91c'],
+    ['withheld-run', '6d3b15f24e4e5b4f9ae6d28176ef3567aa241ec56461ca49e7e869e996d3282f'],
+    ['licensed-run', 'db6761daf17eaf7ba32c71a99019d7289fcc62fe01097f74f9327c593c13b3ea'],
   ] as const
   const file = (name: string) => join(__dirname, 'fixtures', `action-bar-v1-${name}.json`)
   const bytes = (name: string) => readFileSync(file(name))
