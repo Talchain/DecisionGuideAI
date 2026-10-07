@@ -102,6 +102,9 @@ describe('R1 — the dash means existence certainty ONLY', () => {
   it('the dash precedence carries no contest rule at all', () => {
     expect([...EDGE_DASH_RULES]).toEqual([
       'structural',
+      // 7 Oct (Paul: "dotted"): no strength estimate draws DOTS, keyed on strength provenance, not on a contest
+      // and not on existence. Still no contest rule anywhere in the list.
+      'strength_not_set',
       'existence_unset',
       'existence_certainty',
       // ⛔ NO `visual_props` — Paul 23 Sep contract feedback point 4: "Dash
