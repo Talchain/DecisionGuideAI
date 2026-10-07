@@ -121,7 +121,7 @@ import { isStrengthPlaceholder } from '../../canvas/domain/strengthPlaceholder'
 import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisParticipation'
 import { goalLabelOf } from './analysisNew/analysisNewCopy'
 import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
-import { readGoalChanceLicence, type GoalChanceLicence } from './utils/goalChanceLicence'
+import { readGoalChanceLicence, type GoalChanceDriverNames, type GoalChanceLicence } from './utils/goalChanceLicence'
 import { readGoalChanceInvite, type GoalChanceInvite } from './goal-chance-invite/readGoalChanceInvite'
 
 // =============================================================================
@@ -1353,6 +1353,11 @@ export interface ResultsSectionDataReturn {
    */
   goalChanceLicence?: GoalChanceLicence | null
   /**
+   * ⭐ G4/G5 phase 2, P3: how the hero names what an option's goal chance rests on most (CEE's `driver_by_option` on the
+   * licence): a node's canvas label and a factor's unit. The hero words the sentence. OPTIONAL: absent = nothing is said.
+   */
+  goalChanceDriverNames?: GoalChanceDriverNames
+  /**
    * ⭐ D3 step 2: the invitation CEE wrote on its own goal-chance withhold (`invite`, read by identity in
    * `goal-chance-invite/readGoalChanceInvite`). OPTIONAL: absent or `null` = no invitation.
    */
@@ -1793,6 +1798,18 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     })
     return map
   }, [nodes])
+
+  // ⭐ P3: the canvas labels and units live here; the hero words the driver sentence with them.
+  const goalChanceDriverNames = useMemo<GoalChanceDriverNames>(
+    () => ({
+      labelOf: (nodeId) => nodeLabelMap.get(nodeId) ?? null,
+      unitOf: (nodeId) => {
+        const nodeData = nodeById.get(nodeId)?.data as ResultsCanvasNodeData | undefined
+        return nodeData?.observedState?.unit ?? nodeData?.observed_state?.unit ?? null
+      },
+    }),
+    [nodeLabelMap, nodeById],
+  )
 
   // The reason line beside every withheld share. `goal_path_unsized` names its link from this Run's typed warning and
   // the canvas labels (`winShareGate`); every other cause reads the copy map.
@@ -4546,6 +4563,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             affected_nodes: nodeIds,
             ...(Array.isArray(w.node_ids) ? { node_ids: w.node_ids.filter((id: unknown): id is string => typeof id === 'string') } : {}),
             ...(Array.isArray(w.links) ? { links: w.links.filter((l: any) => typeof l?.from === 'string' && typeof l?.to === 'string').map((l: any) => ({ from: l.from as string, to: l.to as string })) } : {}),
+            // ⚠ RT-19 (#87 6009883744): CEE's typed `first_ask` (#2635), VERBATIM. Rebuilding the warning without it left the
+            // deployed Strengthen panel reading "No findings need attention right now" on a served `goal_path_unsized` withhold;
+            // `unsizedPathAskOf` validates it by kind and names it from the canvas.
+            ...(w.first_ask !== null && typeof w.first_ask === 'object' && !Array.isArray(w.first_ask) ? { first_ask: w.first_ask as Record<string, unknown> } : {}),
             affected_labels: nodeIds.map(id => nodeLabelMap.get(id) ?? id),
             message: w.message ? String(w.message) : undefined,
             // Roadmap 1.12: producer severity carried verbatim (never
@@ -4830,6 +4851,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       winSharesWithheld: winSharesAreWithheld,
       winShareWithheldReason: winShareReasonLine,
       goalChanceLicence,
+      goalChanceDriverNames,
       goalChanceInvite,
     }),
     [
@@ -4852,6 +4874,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       winSharesAreWithheld,
       winShareReasonLine,
       goalChanceLicence,
+      goalChanceDriverNames,
       goalChanceInvite,
     ],
   )

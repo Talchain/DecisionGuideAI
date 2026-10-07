@@ -1454,7 +1454,7 @@ export const EdgePanel = memo(function EdgePanel({
               <div className="flex items-center gap-2">
                 <div className="flex-1">
                   <InspectorSlider
-                    value={beliefExists}
+                    value={edge?.data?.existenceHeld === true ? 1 : beliefExists}
                     min={0}
                     max={1}
                     step={0.05}
@@ -1468,6 +1468,11 @@ export const EdgePanel = memo(function EdgePanel({
                   {existenceDisplay.show ? <ScienceQuantity kind="probability" value={existenceDisplay.value} /> : METRIC_UNSET.standalone}
                 </span>
               </div>
+              {edge?.data?.existenceHeld === true && (
+                <p data-testid="edge-existence-held-note" className={`${typography.panelMeta} text-text-light mt-1`}>
+                  {EDGE_COPY.existenceHeldNote}
+                </p>
+              )}
               {/* The same fabricated figure in a third channel. Gated on the
                   same union so techMode cannot reveal what the panel withholds. */}
               {existenceDisplay.show && (

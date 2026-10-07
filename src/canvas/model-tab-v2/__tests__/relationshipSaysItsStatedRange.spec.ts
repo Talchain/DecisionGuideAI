@@ -67,6 +67,32 @@ describe('A4: the user\'s size from one end of their range is said with the rang
       .toBe('Increase of at most £2,000,000 per 1 deal · the high end of your £1-2 million range')
   })
 
+  // CEE #2644 (Science d5 #87 6009282279): served T1b "would win about 150 new subscribers, between 80 and 250" carries
+  // the user's POINT inside their range. Before this reader it failed the parse, and the whole size was dropped.
+  it('⭐ RED: a centre is the user\'s point, said "about" WITH the range — never a bound, never dropped', () => {
+    const centre = { low: 1500000, high: 2000000, text: 'between £1.5m and £2m', end: 'centre' }
+    expect(rowValue(users(natural(1750000, centre))))
+      .toBe('Increase of about £1,750,000 per 1 deal · your range, between £1.5m and £2m')
+  })
+
+  it('CONTROL: a centre never reads as a floor or a ceiling', () => {
+    const centre = { low: 1500000, high: 2000000, text: 'between £1.5m and £2m', end: 'centre' }
+    expect(rowValue(users(natural(1750000, centre)))).not.toMatch(/at least|at most|end of your/)
+  })
+
+  // DL #2644/#2557: the next literal CEE adds must never erase the user's figure the way 'centre' did.
+  it('⭐ an UNKNOWN `end` keeps the user\'s size and drops only the range words — never a vanished figure', () => {
+    const unknown = { low: 1500000, high: 2000000, text: 'between £1.5m and £2m', end: 'middle' }
+    expect(rowValue(users(natural(1750000, unknown)))).toBe('Increase of about £1,750,000 per 1 deal · your figure')
+  })
+
+  it('CONTROL: the low and high ends read exactly as before (byte-unchanged)', () => {
+    expect(rowValue(users(natural(1000000, RANGE_LOW))))
+      .toBe('Increase of at least £1,000,000 per 1 deal · the low end of your £1-2 million range')
+    expect(rowValue(users(natural(2000000, { ...RANGE_LOW, end: 'high' }))))
+      .toBe('Increase of at most £2,000,000 per 1 deal · the high end of your £1-2 million range')
+  })
+
   // Beat 1 (Paul, 4 Oct 2026: full provenance words on links): a user's single figure now says whose it is. This wire's
   // source is `cee_hypothesis`, not `brief_extraction`, so "your figure", never "from your brief".
   it('CONTROL: the user\'s single figure (no range on the wire) carries no range clause, only whose it is', () => {

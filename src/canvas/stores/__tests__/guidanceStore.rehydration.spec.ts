@@ -39,13 +39,13 @@ function item(id: string, validWhile?: GuidanceItem['valid_while']): GuidanceIte
 
 /** Simulate a reload: the module keeps running, so clear the in-memory state by hand. */
 function simulateReload(): void {
-  useGuidanceStore.setState({ guidanceItems: [], activeGuidanceItemId: null })
+  useGuidanceStore.setState({ guidanceItems: [], activeGuidanceItemId: null, deliveredFrom: null, liveGuidanceAuthored: false })
 }
 
 describe('guidanceStore — rehydration across a reload', () => {
   beforeEach(() => {
     sessionStorage.clear()
-    useGuidanceStore.setState({ guidanceItems: [], activeGuidanceItemId: null })
+    useGuidanceStore.setState({ guidanceItems: [], activeGuidanceItemId: null, deliveredFrom: null, liveGuidanceAuthored: false })
     setGuidancePersistenceContext(() => ({ scenarioId: SCENARIO, graphHash: GRAPH_HASH }))
   })
   afterEach(() => setGuidancePersistenceContext(null))

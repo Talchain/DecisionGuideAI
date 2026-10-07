@@ -128,6 +128,9 @@ const SCOPE_FILES = [
   'src/components/results/utils/humaniseCritique.ts',
   'src/components/results/ConditionalWinnerCards.tsx',
   'src/components/results/analysis-hero/heroCopy.ts',
+  // ⭐ ADDED 6 Oct 2026 (G4/G5 phase 2, P3; design-g4g6 Q5): the goal-chance sentences and the driver sentence under
+  // them live here and nothing opened this file. Hits were enumerated before adding (see the PR).
+  'src/components/results/analysis-hero/goalChanceCopy.ts',
   'src/components/results/analysisNew/buildAnalysisNewViewModel.ts',
   /*
    * ⚠⚠ WHAT THIS LIST DOES **NOT** COVER — stated because "both holes closed"

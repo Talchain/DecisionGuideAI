@@ -13,6 +13,7 @@ import { DraftGuidancePanel } from './DraftGuidancePanel'
 import { RateLimitNotice } from './RateLimitNotice'
 import { ThinkingModePopover } from './ThinkingModePopover'
 import { DEFAULT_EDGE_DATA, trimProvenance, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../domain/edges'
+import { existenceHeldPatch } from '../domain/heldUserLink'
 import { readWireNaturalEffect, strengthExampleFigurePatch } from '../domain/naturalEffect'
 import { strengthPlaceholderPatch } from '../domain/strengthPlaceholder'
 import { strengthDefinitionalPatch } from '../domain/strengthDefinitional'
@@ -739,6 +740,8 @@ export function DraftChat() {
           ...(serverStrength !== undefined ? { serverStrength } : {}),
           // The edge's size in the target's units — the ONE reader, every hop (domain/naturalEffect).
           ...(naturalEffect !== undefined ? { naturalEffect } : {}),
+          // D3 cut 6: CEE holds this user link at existence 1.0 — HOP 3 OF 3, the same one reader (domain/heldUserLink).
+          ...existenceHeldPatch(e),
           ...strengthExampleFigurePatch(e as Record<string, unknown>, rawWeight, weightSource !== 'default'),
           // POM-8: a placeholder strength — HOP 3 OF 3, the same one reader
           // (domain/strengthPlaceholder). The key is destructured OUT of

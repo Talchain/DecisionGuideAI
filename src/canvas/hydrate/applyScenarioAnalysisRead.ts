@@ -80,7 +80,7 @@
  * This applier reads only the two analysis keys and never the `graph` member.
  */
 
-import { RunDeltaSchema } from '@talchain/schemas/boundary'
+import { RunDeliveredRecordSchema, RunDeltaSchema, type RunDeliveredRecord } from '@talchain/schemas/boundary'
 import type { StoredRunDelta, StoredRunDeltaAbsence } from '../state/storedRunDelta'
 import type { AnalysisResultBlock, AnalysisStateV1 } from '@talchain/schemas/boundary'
 
@@ -288,6 +288,17 @@ export interface ScenarioAnalysisApplyStore {
   readonly setRunDelta?: (stored: StoredRunDelta | null) => void
   /** C10a: a new analysis read supersedes any absence reason bound to the previous analysis. */
   readonly setRunDeltaAbsence?: (stored: StoredRunDeltaAbsence | null) => void
+  /**
+   * SD-1 Slice R (CEE #2654): adopt what the displayed Run's turn DELIVERED — its "Olumi model review" cards and the
+   * options its coverage disclosure read. Called only for a `complete_current` read whose record parses under the
+   * contract and is bound to the Run CEE served (`current_read.run_id`) and to the graph the displayed analysis block
+   * was computed against. Never called with anything weaker; absent = this store view does not adopt.
+   */
+  readonly adoptDeliveredRecord?: (adopted: {
+    readonly runId: string
+    readonly scenarioId: string | null
+    readonly record: RunDeliveredRecord
+  }) => void
   /** The scenario the verdicts belong to, as the turn leg stamps it. */
   readonly currentScenarioId?: string | null
   /**
@@ -383,7 +394,27 @@ export interface ApplyScenarioAnalysisReadInput {
   readonly limitVerdicts?: unknown
   /** The read's `run_delta`, raw (SC-24); parsed by the contract, as the turn leg's parser does. */
   readonly runDelta?: unknown
+  /** SD-1 Slice R: `current_read.delivered_record` with the `run_id` CEE served beside it, raw; null = none. */
+  readonly delivered?: { readonly runId: string; readonly record: unknown } | null
   readonly store: ScenarioAnalysisApplyStore
+}
+
+/**
+ * SD-1 Slice R — the delivered record this read may adopt, or null. ALL must hold: the read is `complete_current` (a
+ * stale read is also read-terminal, and adopts nothing); the record parses under the contract (refused WHOLE, never a
+ * partial record); it names the Run CEE served beside it; and it was delivered over the graph the displayed analysis
+ * block was computed against (`computed_against_hash` = the Run's `graph_hash_at_run`, CEE `compose.ts`). A block with
+ * no hash cannot be bound, so nothing is adopted (fail closed).
+ */
+function boundDeliveredRecord(input: ApplyScenarioAnalysisReadInput, block: unknown): RunDeliveredRecord | null {
+  if (input.analysisState?.run_state.kind !== 'complete_current') return null
+  const delivered = input.delivered
+  if (delivered == null || typeof delivered.runId !== 'string' || delivered.runId.length === 0) return null
+  const parsed = RunDeliveredRecordSchema.safeParse(delivered.record)
+  if (!parsed.success || parsed.data.run_id !== delivered.runId) return null
+  const blockHash = (block as { computed_against_hash?: unknown } | null)?.computed_against_hash
+  if (typeof blockHash !== 'string' || blockHash.length === 0 || parsed.data.graph_hash !== blockHash) return null
+  return parsed.data
 }
 
 /**
@@ -534,6 +565,12 @@ export function applyScenarioAnalysisRead(
       if (heldRunDelta?.success) {
         input.store.setRunDelta?.({ delta: heldRunDelta.data, analysisHash: hash, scenarioId: input.store.currentScenarioId ?? null })
       }
+      // SD-1 Slice R: NOR THE DELIVERED RECORD, for the same reason — a same-browser reload dedupes here, and the
+      // record is exactly what that reload lost (J1 record 4b). The store view decides whether a live turn already won.
+      const heldDelivered = boundDeliveredRecord(input, block)
+      if (heldDelivered !== null) {
+        input.store.adoptDeliveredRecord?.({ runId: heldDelivered.run_id, scenarioId: input.store.currentScenarioId ?? null, record: heldDelivered })
+      }
       return { outcome: 'alreadyHeld', kind }
     }
     input.store.resultsComplete({
@@ -589,6 +626,11 @@ export function applyScenarioAnalysisRead(
     // The read does not carry an absence reason. A new hash clears the prior analysis's reason;
     // an already-held read returned above, so it preserves the turn's reason for that same analysis.
     input.store.setRunDeltaAbsence?.(null)
+    // SD-1 Slice R: what this Run's turn delivered, under the same binding as the held branch above.
+    const readDelivered = boundDeliveredRecord(input, block)
+    if (readDelivered !== null) {
+      input.store.adoptDeliveredRecord?.({ runId: readDelivered.run_id, scenarioId: input.store.currentScenarioId ?? null, record: readDelivered })
+    }
   }
 
   // ⚠ AFTER the results write, and the ORDER IS THE CORRECTNESS. The

@@ -104,7 +104,7 @@ export function buildRunChangeArtefact({
     results.push({
       key: `probability:${movement.optionId}`,
       text: magnitudeIsLicensed
-        ? `${name}: ${probability(movement.prior)} → ${probability(movement.current)} chance of leading.`
+        ? `${name}: supported by ${probability(movement.prior)} → ${probability(movement.current)} of runs.`
         : `${name}: ${qualifier}`,
       qualifier: magnitudeIsLicensed ? qualifier : null,
       wireFields: [

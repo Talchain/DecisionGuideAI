@@ -783,7 +783,67 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   // ⚠ NO GATE ON `leaderClaimPermitted`. This row exists precisely BECAUSE the
   // claim is withheld, and it designates no option — the subject is an input of
   // the reader's own model, not a comparative standing.
-  if (inputs.analysisComplete) {
+  // ⭐ D3 (DL 0df0e1, 6 Oct; Acceptance G1 draft 6; Integrator 37): when the Run withheld its leader for an UNSIZED path
+  // to the goal, the next step IS what that withhold asks first, read by identity off CEE's warning
+  // (`inputs.unsizedPathAsk`, CEE `first_ask`): the goal's level, one end-to-end gauge question, or one link, the same
+  // step the chat asks. It takes the next-input slot, and the factor this panel would otherwise pick does not render,
+  // even when the ask cannot be named (`null`): sizing a different input does not reach the finding (draft 6 asked for
+  // "Price-driven customer losses" while the Run turned on "starter support burden → revenue"). It designates no option.
+  const unsizedWithhold = inputs.analysisComplete && inputs.unsizedPathAsk !== undefined
+  // ⛔ Codex r1 #2550: the ask belongs to the Run that withheld. Once the graph has changed since (`analysisIdentityIsCurrent`
+  // not true), it may already be answered, so it is not shown, and no other factor is named in its place: the re-run decides.
+  const unsizedAsk = unsizedWithhold && inputs.analysisIdentityIsCurrent === true ? (inputs.unsizedPathAsk ?? null) : null
+  if (unsizedAsk !== null) {
+    const step = unsizedAsk.kind === 'goal_level'
+      ? {
+          key: `goal-level:${unsizedAsk.nodeId}`,
+          title: `Give ‘${unsizedAsk.goal}’ today’s level`,
+          signal: 'Olumi needs it before it can size the links this comparison turns on.',
+          whyNow: 'Then re-run, and Olumi can ask about those links.',
+          targetId: unsizedAsk.nodeId,
+        }
+      : unsizedAsk.kind === 'gauge'
+        ? {
+            key: `gauge:${unsizedAsk.fromId}->${unsizedAsk.throughId}->${unsizedAsk.toId}`,
+            title: `Set how much ‘${unsizedAsk.from}’ changes ‘${unsizedAsk.to}’ through ‘${unsizedAsk.through}’`,
+            signal: 'This comparison turns on it, and nobody has set it yet.',
+            whyNow: 'A best guess and a range is fine.',
+            targetId: `${unsizedAsk.fromId}->${unsizedAsk.throughId}`,
+          }
+        : unsizedAsk.kind === 'target_link'
+          // Near tie (DL #87, 6 Oct): the target test's own ask, the same link the chat asks for in the target's unit.
+          ? {
+              key: `target-link:${unsizedAsk.fromId}->${unsizedAsk.toId}`,
+              title: `Give the link from ‘${unsizedAsk.from}’ to ‘${unsizedAsk.to}’ a size`,
+              signal: 'Olumi can’t test your target until this link has a size in the target’s unit.',
+              whyNow: 'A best guess is fine.',
+              targetId: `${unsizedAsk.fromId}->${unsizedAsk.toId}`,
+            }
+          : {
+              key: `link:${unsizedAsk.fromId}->${unsizedAsk.toId}`,
+              title: `Set the strength of the link from ‘${unsizedAsk.from}’ to ‘${unsizedAsk.to}’`,
+              signal: 'This comparison turns on this link, and nobody has set how strong it is yet.',
+              whyNow: 'Set it to see how much it matters.',
+              targetId: `${unsizedAsk.fromId}->${unsizedAsk.toId}`,
+            }
+    // Literal `id` and `label`-after-`kind`, so `everyActIsOneTheRouteCanPerform` reads every route this card can take.
+    recs.push({
+      id: `strengthen:unsized-path:${step.key}`,
+      helpType: 'clarify',
+      title: step.title,
+      signal: step.signal,
+      whyNow: step.whyNow,
+      tryThis: null,
+      sourceLine: unsizedAsk.kind === 'target_link' ? 'Source: what this run asks before it can test your target.'
+        : 'Source: what this run asks first when it holds back its comparison.',
+      action: unsizedAsk.kind === 'goal_level'
+        ? { kind: 'canvas-focus', label: 'Show me the goal' }
+        : { kind: 'canvas-focus', label: 'Show me this link' },
+      targetId: step.targetId,
+      priority: PRIORITY.nextInput,
+    })
+  }
+  if (inputs.analysisComplete && !unsizedWithhold) {
     const next = selectNextInputToSet(
       inputs.factors,
       inputs.materialParametersAwaitingUserIds,

@@ -58,7 +58,7 @@ import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 // keeps reading the constant even though the readouts now resolve finer.
 import { SUB_ONE_PERCENT_FLOOR, formatGoalProbability } from '../utils/displayFloors'
 import { hasAnyGoalValue, selectGoalLeader } from '../utils/selectGoalLeader'
-import { goalChanceExistenceLine, goalChanceHeadline, goalChanceOptionLines } from './goalChanceCopy'
+import { goalChanceDisclosureLines, goalChanceDriverLines, goalChanceHeadline, goalChanceOptionLines } from './goalChanceCopy'
 import { goalChanceHeroSays } from '../utils/goalChanceLicence'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
 import type { FlipRiskRef } from '../../../canvas/highlighting/resolveAnalysisTargets'
@@ -1160,16 +1160,19 @@ export function buildHeroModel(
   // superlative ('each') the subline IS the per-option lines, in the model's option order (c6: never sorted by chance);
   // otherwise the neutral pointer.
   if (goalChanceHeadlineText !== null && goalChanceLicence !== null) {
+    // ⭐ P3: what each option's chance rests on most (CEE's claim), worded with the canvas labels; it follows that
+    // option's own line.
     // H2 names the options it quotes; the subline then quotes the rest (model order), never a ranking.
-    const lines = goalChanceLicence.form === 'each'
-      ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf)
-      : goalChanceLicence.form === 'similar'
-        ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, goalChanceLicence.similarOptionIds)
-        : null
+    const quotedAbove = goalChanceLicence.form === 'similar' ? goalChanceLicence.similarOptionIds : []
+    const driverLines = goalChanceDriverLines(goalChanceLicence, data.goalChanceDriverNames, quotedAbove)
+    const lines = goalChanceLicence.form === 'each' || goalChanceLicence.form === 'similar'
+      ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, quotedAbove, driverLines)
+      : null
     subline = lines !== null && lines.length > 0 ? lines.join(' ') : HERO_COPY.subline.compareTop
-    // ⭐ D3 cut 5: once, beside the chance lines — the part of these figures that is Olumi's assumption, not the user's.
-    const existence = goalChanceExistenceLine(goalChanceLicence)
-    if (existence !== null) subline = `${subline} ${existence}`
+    // ⭐ D3 cut 5 + cut 6: once, beside the chance lines — why no summary is stated (Olumi's own existence assumption), then
+    // the part of these figures that is Olumi's assumption about the user's own links.
+    const disclosure = goalChanceDisclosureLines(goalChanceLicence)
+    if (disclosure !== null) subline = `${subline} ${disclosure}`
   }
 
   // UI-SEM-054: outcome-axis layout domain derivation. Min/max over the

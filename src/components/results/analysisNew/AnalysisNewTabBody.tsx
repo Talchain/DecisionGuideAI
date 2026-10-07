@@ -2285,6 +2285,22 @@ export function AnalysisNewTabBody({
             >
               Strengthen the model
             </button>
+            {/* "Run a pre-mortem": CEE's own next-step press (`agent-next-pre-mortem`, NEXT_STEP_CHIPS in CEE
+                routes/agent-v1-turn.ts; the message mirrors it). The agent lane answers with one held change card
+                (method-turn.ts, RC-PREMORTEM). The Methods menu's free-text draft carries `method_id`, which CEE never
+                reads, so this press is the reachable door; the tab decides nothing. */}
+            <button
+              type="button"
+              className={`${typography.panelBody} ${action('secondary')}`}
+              data-testid="analysis-run-pre-mortem"
+              onClick={() => sendScienceChip(
+                'Run a pre-mortem',
+                'Run a pre-mortem with me: imagine this decision went badly. What most plausibly went wrong?',
+                { id: 'agent-next-pre-mortem' },
+              )}
+            >
+              Run a pre-mortem
+            </button>
           </div>
         ) : null}
         <ChallengeCard

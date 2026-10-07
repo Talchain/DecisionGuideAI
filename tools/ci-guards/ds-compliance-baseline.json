@@ -3906,13 +3906,13 @@
           "count": 1,
           "file": "src/components/chat/artefactIframeTemplate.ts",
           "token": "#FEF9F3",
-          "sample": "--bg-panel: #FEF9F3;"
+          "sample": "--bg-panel-hover: #FEF9F3;"
         },
-        "production-hex :: src/components/chat/artefactIframeTemplate.ts :: #FCF7F1": {
+        "production-hex :: src/components/chat/artefactIframeTemplate.ts :: #FEFEFE": {
           "count": 1,
           "file": "src/components/chat/artefactIframeTemplate.ts",
-          "token": "#FCF7F1",
-          "sample": "--bg-panel-hover: #FCF7F1;"
+          "token": "#FEFEFE",
+          "sample": "--bg-panel: #FEFEFE;"
         },
         "production-hex :: src/components/chat/artefactIframeTemplate.ts :: #EEE6D8": {
           "count": 1,

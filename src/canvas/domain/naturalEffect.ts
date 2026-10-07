@@ -52,6 +52,9 @@ import { BY_DEFINITION } from './strengthDefinitional'
 /** Whose figure the size is. `user` outranks the producer's own label. */
 export type NaturalEffectAuthor = 'user' | 'olumi_estimate' | 'olumi_placeholder' | 'example_figure'
 
+/** The `stated_range.end` literals this reader says words for; any other drops the range words, never the size. */
+export const STATED_RANGE_ENDS = ['low', 'high', 'centre'] as const
+
 export const NaturalEffectSchema = z.object({
   /** Signed change in the TARGET's own unit, as admitted. */
   amount: z.number().finite(),
@@ -80,7 +83,11 @@ export const NaturalEffectSchema = z.object({
     low: z.number().finite(),
     high: z.number().finite(),
     text: z.string().min(1),
-    end: z.enum(['low', 'high']),
+    /**
+     * `centre` (CEE #2644; Science d5 #87 6009282279; a8's shape): the amount is the user's POINT inside the range they
+     * wrote ("about 150, between 80 and 250"), so it is said "about", with the range, and never as a bound.
+     */
+    end: z.enum(STATED_RANGE_ENDS),
   }).optional(),
 })
 export type NaturalEffect = z.infer<typeof NaturalEffectSchema>
@@ -161,10 +168,14 @@ export function readWireNaturalEffect(
   // amount as the user's single figure. Olumi's own size never carries one.
   const range = author === 'user' ? readRecord(ne.stated_range) : null
   if (author === 'user' && ne.stated_range !== undefined && range === null) return undefined
+  // ⛔ An `end` LITERAL this reader does not know (a string a later CEE adds) drops the RANGE WORDS, never the user's
+  // figure (DL #2644/#2557): before this, a new literal failed the whole parse and the user's own size vanished. A range
+  // that is unreadable in any other way (no `end` at all, bad ends) still fails closed above and below (A4, R3 C1).
+  const unknownEnd = range !== null && typeof range.end === 'string' && !(STATED_RANGE_ENDS as readonly string[]).includes(range.end)
   const userOrigin = author !== 'user' ? undefined : provenance.source === 'brief_extraction' ? 'brief' : 'entered'
   const parsed = NaturalEffectSchema.safeParse({
     ...(userOrigin !== undefined ? { userOrigin } : {}),
-    ...(range !== null
+    ...(range !== null && !unknownEnd
       ? { statedRange: { low: range.low, high: range.high, text: nonEmpty(range.text), end: range.end } }
       : {}),
     amount: ne.amount,
@@ -279,14 +290,16 @@ export function naturalEffectPhraseParts(
   if ((effect.amount < 0 ? 'negative' : 'positive') !== direction.direction) return null
 
   const size = Math.abs(effect.amount)
-  // A4: one end of the user's written range bounds the size — the low end "at least", the high end "at most".
+  // A4: one end of the user's written range bounds the size — the low end "at least", the high end "at most". A centre
+  // is the user's point inside their range: "about", never a bound (CEE #2644).
   const holdsByDefinition = definitional && effect.author !== 'example_figure'
   const range = effect.author === 'user' && !holdsByDefinition ? effect.statedRange : undefined
-  const bound = holdsByDefinition ? '' : range === undefined ? 'about ' : range.end === 'low' ? 'at least ' : 'at most '
+  const bound = holdsByDefinition ? '' : range === undefined || range.end === 'centre' ? 'about ' : range.end === 'low' ? 'at least ' : 'at most '
   const change = `${direction.direction === 'negative' ? 'Decrease' : 'Increase'} of ${bound}${amountWithUnit(size, effect.unit)}`
   const per = effect.sourceUnit === SWITCH_SOURCE_UNIT
     ? ''
     : ` per ${amountWithUnit(effect.perSourceChange, effect.sourceUnit)}`
-  const ofRange = range === undefined ? '' : ` · the ${range.end} end of your ${range.text} range`
+  const ofRange = range === undefined ? ''
+    : range.end === 'centre' ? ` · your range, ${range.text}` : ` · the ${range.end} end of your ${range.text} range`
   return { size: `${change}${per}`, whose: holdsByDefinition ? BY_DEFINITION.toLowerCase() : naturalEffectAuthorWords(effect), ofRange }
 }

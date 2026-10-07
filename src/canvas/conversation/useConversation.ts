@@ -86,9 +86,12 @@ import { applyV5State } from '../../v5/applyV5State'
 import {
   extractPhase3FromV5Response,
   deriveV5AnalysisFactUpdate,
+  toStoreGuidanceItem,
   type Phase3RawBlock,
-  type DerivedGuidanceItem,
 } from '../../v5/extractPhase3FromV5Response'
+// Moved to the leaf extractor (SD-1 Slice R) so the guidance store can map a Run's delivered record without importing
+// this hook's chain (#2308). Re-exported: every existing importer keeps this path.
+export { toStoreGuidanceItem }
 import {
   adaptTypedReviewCardBlock,
   adaptTypedCoachingBlock,
@@ -123,11 +126,11 @@ import {
   settledSourceBlockKeys as settledSourceBlockKeysOf,
 } from './utils/transcriptStore'
 import { useServerConversationTurnsStore } from '../stores/serverConversationTurnsStore'
-import { buildRestoredThread, reconcileRestoredHeldControls } from './serverConversationTurns'
+import { buildRestoredThread, reconcileRestoredHeldControls, reconcileRestoredSuggestedActions, reconcileUnconfirmedServerTurns } from './serverConversationTurns'
 import { heldProposalMountKey, heldProposalRetirementKeys } from './selectors'
 import { appendThreadEntries } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
-import { useGuidanceStore, type GuidanceItem } from '../stores/guidanceStore'
+import { useGuidanceStore } from '../stores/guidanceStore'
 import { serializeSystemEvent } from './systemEvents'
 import { captureTurnForUndo } from '../undo/captureUndoReceipt'
 import { redactStatedReason } from './findingDissent'
@@ -608,10 +611,11 @@ async function runStreamedDraftTurn(args: {
   scenarioIdAtDispatch: string | null
   headers: Record<string, string>
   signal: AbortSignal
+  onRequestStarted?: () => void
   /** The reload's read (`recoverDraftFromServer`), ONCE; true only when it applied this turn's committed model. */
   readBackCommittedDraft?: () => Promise<boolean>
 }): Promise<StreamedDraftTurnResult> {
-  const { payload, turnClientId, scenarioIdAtDispatch, headers, signal, readBackCommittedDraft } = args
+  const { payload, turnClientId, scenarioIdAtDispatch, headers, signal, onRequestStarted, readBackCommittedDraft } = args
   useDraftStore.getState().setDraftStreamPhase('drafting', turnClientId, scenarioIdAtDispatch)
 
   // ⚠ THERE IS DELIBERATELY NO LOCAL `previewRendered` FLAG.
@@ -693,7 +697,7 @@ async function runStreamedDraftTurn(args: {
     // to close. Fail-closed toward honesty.
     let result: V5CallResult
     try {
-      result = await callV5Turn(payload, { signal, headers })
+      result = await callV5Turn(payload, { signal, headers, onRequestStarted })
     } catch (e) {
       if (previewOnCanvas) {
         useDraftStore
@@ -763,7 +767,7 @@ async function runStreamedDraftTurn(args: {
   // it measures the turn the user waited for, not the frame parse.
   const streamStartedAt = Date.now()
   try {
-    res = await openV5TurnStream(payload, { headers, signal })
+    res = await openV5TurnStream(payload, { headers, signal, onRequestStarted })
   } catch (e) {
     // The stream never opened, so nothing ran server-side and nothing committed.
     if ((e as Error)?.name === 'AbortError' || signal.aborted) {
@@ -1625,67 +1629,6 @@ function normaliseProposalReviewItems(raw: unknown): ProposalReviewItem[] {
  * Returns null when title or body would be empty — the bridge refuses to
  * render an empty card. No fallback copy, no semantic rewriting.
  */
-/**
- * Map a derived Phase 3 guidance item onto the GuidanceStore's `GuidanceItem`.
- *
- * EXPORTED SO THE PASSTHROUGH IS TESTABLE. This was an anonymous inline
- * `.map()` inside the turn handler, which is why the defect below survived:
- * nothing could assert on it without driving the whole hook.
- *
- * ⚠ `actionLabel` AND `signal` WERE DOCUMENTED AND SILENTLY DROPPED
- * (ROADMAP 2.225). The store's own contract says of each: "Producer
- * `action_label` VERBATIM when supplied" / "Producer `signal` display line
- * VERBATIM when supplied" — and the V5 derivation dutifully produced both,
- * and this mapper listed neither, so every V5-derived guidance item reached
- * the store with the producer's CTA label and signal line missing. The store
- * doc was describing a field the V5 path could never deliver. This is the
- * boundary-field silent-drop hazard in miniature, inside one file.
- *
- * Every field here is producer-owned passthrough: carried only when supplied,
- * never invented, never defaulted, never recomputed.
- */
-export function toStoreGuidanceItem(g: DerivedGuidanceItem): GuidanceItem {
-  return {
-    item_id: g.item_id,
-    // signal_code / category are producer-owned passthrough: carry
-    // them only when the producer supplied them, never invented.
-    ...(g.signal_code ? { signal_code: g.signal_code } : {}),
-    ...(g.coaching_kind ? { coaching_kind: g.coaching_kind } : {}),
-    ...(g.category ? { category: g.category } : {}),
-    source: g.source,
-    title: g.title,
-    ...(g.detail ? { detail: g.detail } : {}),
-    // The two restored fields. Same passthrough discipline as the rest.
-    ...(g.actionLabel ? { actionLabel: g.actionLabel } : {}),
-    ...(g.signal ? { signal: g.signal } : {}),
-    primary_action: g.primary_action,
-    ...(g.target_object ? { target_object: g.target_object } : {}),
-    ...(g.related_elements ? { related_elements: g.related_elements } : {}),
-    ...(g.valid_while ? { valid_while: g.valid_while } : {}),
-    priority: g.priority,
-    // UI-SEM-085 (narrowed): carry the producer's verbatim rank
-    // and the priority-provenance fact through unchanged — never
-    // recomputed, never inverted here.
-    ...(typeof g.priorityRank === 'number' ? { priorityRank: g.priorityRank } : {}),
-    priorityIsProducerSupplied: g.priorityIsProducerSupplied,
-    // DSK claim provenance (ROADMAP 2.962) — the SECOND of the two hops that
-    // silently dropped this family, and the same defect class the header
-    // above records for `actionLabel`/`signal`: the store's `GuidanceItem`
-    // has declared these fields since #633 and this mapper listed none, so
-    // every V5-derived item reached the store ungrounded no matter what the
-    // producer attested.
-    //
-    // Straight passthrough by design. The gate lives at the single site in
-    // `deriveGuidance` (contract `DskClaimProvenanceSchema`, applied to the
-    // atomic wire object as a unit); re-deriving it here would be a second
-    // rule home for one fact — and `deriveGuidanceDskProvenance` in the store
-    // is already the independent re-gate the render reads through.
-    ...(g.dsk_claim_id ? { dsk_claim_id: g.dsk_claim_id } : {}),
-    ...(g.dsk_protocol_id ? { dsk_protocol_id: g.dsk_protocol_id } : {}),
-    ...(g.evidence_strength ? { evidence_strength: g.evidence_strength } : {}),
-  }
-}
-
 export function adaptPhase3ReviewCard(
   raw: Record<string, unknown>,
 ): ReviewCardBlock | null {
@@ -3005,7 +2948,8 @@ export function useConversation(): UseConversationReturn {
   // ⭐ THE CHAT SURVIVES A RELOAD, IN A BROWSER THAT NEVER SAW IT (AIQ rows 5907300125). The cold read offers CEE's
   // stored turns and held authority (`serverConversationTurnsStore`). Local history keeps its words; its restored
   // held controls are reconciled ONLY with the current server sidecar. Server text fills an empty panel with no local
-  // transcript. The offer is scenario-bound and spent once.
+  // transcript; retained uncertain requests admit exact missing replies too.
+  // The offer is scenario-bound and spent once.
   const serverTurnsOffer = useServerConversationTurnsStore((s) => s.offer)
   useEffect(() => {
     if (!serverTurnsOffer || !scenarioId || serverTurnsOffer.scenarioId !== scenarioId) return
@@ -3013,7 +2957,14 @@ export function useConversation(): UseConversationReturn {
     if (messagesOwnerRef.current !== scenarioId) return
     useServerConversationTurnsStore.getState().takeServerConversationTurns(scenarioId)
     if (messagesRef.current.length > 0) {
-      const next = reconcileRestoredHeldControls(messagesRef.current, serverTurnsOffer.heldProposalOffers)
+      const reconciled = reconcileUnconfirmedServerTurns(
+        messagesRef.current, scenarioId, serverTurnsOffer.turns, serverTurnsOffer.run,
+      )
+      const next = reconcileRestoredSuggestedActions(reconcileRestoredHeldControls(reconciled, serverTurnsOffer.heldProposalOffers), serverTurnsOffer.turns)
+      if (messagesRef.current.some(m => m.id === lastVisibleUserBubbleIdRef.current && m.deliveryState === 'unconfirmed')
+        && next.some(m => m.id === lastVisibleUserBubbleIdRef.current && m.deliveryState === 'sent')) {
+        setLastSendFailure(null)
+      }
       messagesRef.current = next
       setMessages(next)
       return
@@ -4706,6 +4657,9 @@ export function useConversation(): UseConversationReturn {
       // unsettled answer (there is no separate boolean that can disagree).
       let streamedPreviewOwnsCanvas = false
       let streamedUnsettledCause: 'stream_loss' | 'terminal_error_model_kept' | undefined
+      let deliveryRequestId: string | undefined
+      let requestNotStarted = true
+      const onRequestStarted = () => { requestNotStarted = false }
 
       try {
         // Resolve session identity once — X-User-Id + Authorization Bearer
@@ -4766,9 +4720,10 @@ export function useConversation(): UseConversationReturn {
         // `access-control-allow-headers` list containing `X-Request-Id`
         // (contrast control: a fabricated header name returned the IDENTICAL
         // list, proving a fixed server allowlist rather than a reflection).
+        deliveryRequestId = generateRequestId()
         const v5Headers: Record<string, string> = {
           ...buildTurnAuthHeaders(v5Identity),
-          ...buildRequestIdHeaders(generateRequestId()),
+          ...buildRequestIdHeaders(deliveryRequestId),
           ...aiComparisonHeaders(),
         }
 
@@ -4848,7 +4803,8 @@ export function useConversation(): UseConversationReturn {
             // per-HTTP-request id, not on `payload.turn_id`, and this client
             // sends no request-id header for it to reuse.
             if (userBubbleIdForTurn) {
-              updateMessage(userBubbleIdForTurn, { deliveryState: 'unconfirmed' })
+              updateMessage(userBubbleIdForTurn, { deliveryState: 'unconfirmed',
+                deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch })
             }
             if (inputForRestore) {
               // `retryable: false` — the copy-agrees-with-affordance rule. No
@@ -4861,6 +4817,8 @@ export function useConversation(): UseConversationReturn {
               role: 'assistant',
               content: WAIT_EXPIRY_UNKNOWN_COPY,
               synthetic: true,
+              deliveryRequestId,
+              deliveryScenarioId: scenarioIdAtDispatch,
               timestamp: new Date(),
             })
           }
@@ -4876,6 +4834,7 @@ export function useConversation(): UseConversationReturn {
             scenarioIdAtDispatch,
             headers: v5Headers,
             signal: controller.signal,
+            onRequestStarted,
             // Stream closed without a final turn: the reload's read, under the same guards as the recovery below.
             readBackCommittedDraft: async () =>
               (await recoverDraftFromServer({
@@ -4900,7 +4859,7 @@ export function useConversation(): UseConversationReturn {
           streamedUnsettledCause = streamed.unsettledCause
           missingGraphAfterFallback = streamed.missingGraphAfterFallback === true
         } else {
-          v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers })
+          v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers, onRequestStarted })
         }
         clearLifecycleTimers()
 
@@ -5359,8 +5318,9 @@ export function useConversation(): UseConversationReturn {
         // `network === false`) means the request DID reach CEE and something
         // downstream stopped waiting — CEE commits that turn anyway. Marking
         // it "Not delivered" asserts something this client cannot check, so
-        // it resolves to 'unconfirmed' instead. Network throws and CEE-class
-        // errors are unchanged: both are verified.
+        // it resolves to 'unconfirmed' instead. DL Round 3: a fetch rejection
+        // is equally uncertain unless dispatch is proven not to have started.
+        // CEE-class error recovery is unchanged.
         if (userBubbleIdForTurn) {
           const unverified =
             target.kind === 'typed_error' &&
@@ -5382,6 +5342,8 @@ export function useConversation(): UseConversationReturn {
                 : unverified
                   ? 'unconfirmed'
                   : 'failed',
+            deliveryRequestId: unverified && !deliveryProvenByFrame ? deliveryRequestId : undefined,
+            deliveryScenarioId: unverified && !deliveryProvenByFrame ? scenarioIdAtDispatch : undefined,
           })
         }
 
@@ -6243,6 +6205,7 @@ export function useConversation(): UseConversationReturn {
               synthetic: true,
               content,
               actionChips: retryChips,
+              ...(deliveryUnverified ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}),
               timestamp: new Date(),
             })
           }
@@ -6423,21 +6386,27 @@ export function useConversation(): UseConversationReturn {
         // Timeout-triggered aborts render their own bubble (above). User
         // stops and concurrent cancellations are silent by design.
         if (!isAbort && mode === 'user' && !hidden) {
-          // Transcript honesty: the dispatch itself threw — nothing
-          // reached the server, so the bubble must not read as sent.
+          // A call is not a send: only the transport's fetch boundary clears
+          // requestNotStarted. Error names and elapsed time prove nothing.
           if (userBubbleIdForTurn) {
-            updateMessage(userBubbleIdForTurn, { deliveryState: 'failed' })
+            updateMessage(userBubbleIdForTurn, {
+              deliveryState: requestNotStarted ? 'failed' : 'unconfirmed',
+              deliveryRequestId: requestNotStarted ? undefined : deliveryRequestId,
+              deliveryScenarioId: requestNotStarted ? undefined : scenarioIdAtDispatch,
+            })
           }
           addMessage({
             id: crypto.randomUUID(),
             role: 'assistant',
             synthetic: true,
-            content: "Your message didn't reach the server, so it has not been added to the conversation. Nothing you typed was lost. Try again.",
-            actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' }],
+            content: buildTransportFailureCopy({ network: true,
+              ...(requestNotStarted ? { requestNotStarted: true as const } : {}) }, requestNotStarted),
+            actionChips: requestNotStarted ? [{ id: 'retry', label: 'Try again', intent: 'primary' }] : [],
+            ...(!requestNotStarted ? { deliveryRequestId, deliveryScenarioId: scenarioIdAtDispatch } : {}),
             timestamp: new Date(),
           })
           if (inputForRestore) {
-            setLastSendFailure({ kind: 'transport', retryable: true, inputText: inputForRestore })
+            setLastSendFailure({ kind: 'transport', retryable: requestNotStarted, inputText: inputForRestore })
           }
         }
         if (!isAbort && mode === 'system') {

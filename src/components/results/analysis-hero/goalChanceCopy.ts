@@ -7,8 +7,9 @@
  * Every line is model-relative ("In this model, on current information") and says "chance of MEETING your goal" —
  * never "reaching" (`goalFigureSaysModelRuns` bans it, DL 6005048156 + c6 6005196947), never a contest word.
  */
-import type { GoalChanceComparator, GoalChanceLicence } from '../utils/goalChanceLicence'
+import type { GoalChanceComparator, GoalChanceDriver, GoalChanceDriverNames, GoalChanceLicence } from '../utils/goalChanceLicence'
 import { formatGoalTarget } from '../utils/formatGoalTarget'
+import { GOAL_CHANCE_LABEL } from '../utils/goalAnchorCopy'
 
 const COMPARATOR_WORDS: Readonly<Record<GoalChanceComparator, string>> = {
   at_least: 'at least',
@@ -77,6 +78,7 @@ export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionI
  */
 export function goalChanceOptionLines(
   licence: GoalChanceLicence, labelOf: (optionId: string) => string | null, except: readonly string[] = [],
+  driverLines: Readonly<Record<string, string>> = {},
 ): string[] | null {
   const lines: string[] = []
   for (const id of licence.optionIds) {
@@ -84,13 +86,104 @@ export function goalChanceOptionLines(
     const label = labelOf(id)
     if (label === null) return null
     // c6 (6 Oct): an option withheld for its own path keeps its place, and says so — never "unknown", never "0%".
-    lines.push(licence.withheldOptionIds.includes(id)
-      ? `‘${label}’: Olumi can’t yet say its chance of meeting your goal, in this model.`
-      : `‘${label}’: ${about(licence.pctByOption[id])} chance of meeting your goal, in this model.`)
+    if (licence.withheldOptionIds.includes(id)) {
+      lines.push(`‘${label}’: Olumi can’t yet say its chance of meeting your goal, in this model.`)
+      continue
+    }
+    // P3: what this option's chance rests on most follows its own line, when CEE named one that can be worded.
+    const driver = driverLines[id]
+    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} ${GOAL_CHANCE_LABEL}.`
+      + (driver === undefined ? '' : ` ${driver}`))
+  }
+  return lines
+}
+
+const FALLING_SIDE_WORDS: Readonly<Record<'low' | 'high', string>> = { low: 'below', high: 'above' }
+
+/**
+ * ⭐ G4/G5 phase 2, P3 — WHAT AN OPTION'S CHANCE RESTS ON MOST (design-g4g6 Q6 cases A–E; DL rulings 6 Oct). Said after the
+ * option's own chance line. Each sentence is SELECTED by what CEE decided (the driver's kind, the side where the chance
+ * falls, whose assumption it is) and FILLED with the model's labels, the cut in the user's units and the figure CEE
+ * stored. Nothing here compares a number.
+ *
+ * `null` (nothing is said, the chance line stands) when a label or the cut cannot be said, and for the claims the
+ * rulings give no words: an existence driver whose falling side is the runs WITH the link, and an existence claim
+ * that is not Olumi's. A link's strength never carries a figure. `ask` is false when an option shown earlier already
+ * asked the same question about the same driver (DL ruling 6 Oct): the sentence is then said without its question.
+ */
+export function goalChanceDriverLine(
+  driver: GoalChanceDriver, names: GoalChanceDriverNames, ask = true,
+): string | null {
+  if (driver.kind === 'factor_value') {
+    const label = names.labelOf(driver.factorId)
+    if (label === null) return null
+    // The unit CEE carried with the cut (PLoT's own) is preferred; the canvas node's is the fallback.
+    const cut = formatGoalTarget(driver.cutValue, driver.cutUnit ?? names.unitOf(driver.factorId) ?? '', 'level')
+    if (cut === null) return null
+    const falls = `if it is ${FALLING_SIDE_WORDS[driver.side]} ${cut}, the chance falls to ${about(driver.pctIfSide)}.`
+    // Olumi's own range says so and asks; the user's, or one CEE could not attribute, claims no author.
+    return driver.authoredBy === 'olumi'
+      ? `It rests most on ‘${label}’, using a range Olumi assumed: ${falls}${ask ? ' Do you know it more precisely?' : ''}`
+      : `It rests most on ‘${label}’: ${falls}`
+  }
+  const from = names.labelOf(driver.from)
+  const to = names.labelOf(driver.to)
+  if (from === null || to === null) return null
+  if (driver.kind === 'link_strength') {
+    if (driver.authoredBy === 'olumi') {
+      return `It rests most on Olumi’s own estimate of how strongly ‘${from}’ affects ‘${to}’: `
+        + `if that effect is ${driver.strength} than Olumi assumed, the chance falls.${ask ? ' Is that estimate right?' : ''}`
+    }
+    // U / N (DL ruling 6 Oct): the size is the user's, or nobody's CEE could name. Neither says whose spread it is.
+    return driver.authoredBy === 'user'
+      ? `It rests most on how strongly ‘${from}’ affects ‘${to}’, at the size you set: `
+        + `if that effect is ${driver.strength} than that, the chance falls.${ask ? ' How sure are you of that size?' : ''}`
+      : `It rests most on how strongly ‘${from}’ affects ‘${to}’: `
+        + `if that effect is ${driver.strength} than this model assumes, the chance falls.`
+  }
+  if (driver.authoredBy !== 'olumi' || driver.side !== 'absent') return null
+  return driver.userStatedLink
+    ? `It rests most on your link from ‘${from}’ to ‘${to}’: Olumi’s model also allows that it does not hold, `
+      + `and in those runs the chance is ${about(driver.pctIfSide)}.`
+    : `It rests most on Olumi’s own assumption that ‘${from}’ affects ‘${to}’: `
+      + `in the model runs without that link, the chance is ${about(driver.pctIfSide)}.${ask ? ' Is that right?' : ''}`
+}
+
+/**
+ * The driver a sentence's closing question is about, or `null` for a sentence that asks nothing (A, E and N). Two
+ * options resting on the same driver share one question, whichever side each falls on.
+ */
+function questionDriver(driver: GoalChanceDriver): string | null {
+  if (driver.kind === 'factor_value') return driver.authoredBy === 'olumi' ? `factor:${driver.factorId}` : null
+  const link = `${driver.from}->${driver.to}`
+  if (driver.kind === 'link_strength') return driver.authoredBy === 'unattributed' ? null : `strength:${link}`
+  return driver.userStatedLink ? null : `existence:${link}`
+}
+
+/**
+ * The driver sentence for each option that has one that can be worded, by option id.
+ *
+ * `except` are the options that get no line of their own (the `similar` form quotes them in the headline). A sentence's
+ * closing question is asked ONCE per driver, by the first option SHOWN (the model's order) that rests on it.
+ */
+export function goalChanceDriverLines(
+  licence: GoalChanceLicence | null, names: GoalChanceDriverNames | null | undefined, except: readonly string[] = [],
+): Readonly<Record<string, string>> {
+  const lines: Record<string, string> = {}
+  if (licence === null || names == null) return lines
+  const asked = new Set<string>()
+  for (const id of licence.optionIds) {
+    const driver = licence.driverByOption?.[id]
+    if (driver === undefined || except.includes(id)) continue
+    const question = questionDriver(driver)
+    const line = goalChanceDriverLine(driver, names, question === null || !asked.has(question))
+    if (line === null) continue
+    lines[id] = line
+    if (question !== null) asked.add(question)
   }
   return lines
 }
 
 
 /** The existence line lives with the licence reader (`utils/goalChanceLicence`), so the hero and the WinGauge share it. */
-export { goalChanceExistenceLine } from '../utils/goalChanceLicence'
+export { goalChanceExistenceLine, goalChanceDisclosureLines, goalChanceSummaryWithheldLine } from '../utils/goalChanceLicence'

@@ -14,7 +14,8 @@ import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiStore'
 import { canvasLinkOfTarget, useCanvasLight } from '../../graphChanges/rowCanvasLink'
 import { CompareRunPairBody } from '../CompareRunPairBody'
-import { COMPARE_SUPPORT_TESTID, orderMovements } from '../CompareSupportFigures'
+import { COMPARE_SUPPORT_TESTID, connectorSpan, orderMovements } from '../CompareSupportFigures'
+import { markerLeft } from '../../../components/results/analysisNew/PanelFigure'
 import { compareAskDraft } from '../ComparePairSections'
 import { RUN_CHANGE_LABELS, runChangeDelta } from './__fixtures__/runChangeArtefact'
 import type { RunDeltaInputRow, RunDeltaMovement } from '../../../components/results/analysisNew/runDeltaView'
@@ -178,6 +179,44 @@ describe('Ask Olumi: offered only for the pair Olumi reads, with a capped editab
   it('says to wait while a run is in flight, never "after the next run"', () => {
     mount(runChangeDelta(), { status: 'streaming' })
     expect(screen.getByTestId('compare-ask-unavailable')).toHaveTextContent('You can ask Olumi about this comparison when the run finishes.')
+  })
+
+  it('says a Run is in progress above the pair it keeps showing, and only while the run is in flight', () => {
+    mount(runChangeDelta(), { status: 'streaming' })
+    const notice = screen.getByRole('status')
+    expect(notice).toHaveAttribute('data-testid', 'compare-run-in-progress')
+    expect(notice).toHaveTextContent('A Run is in progress. The comparison below is between the two runs before it.')
+    // The notice leads: it sits above the headline section, and the previous pair stays on screen.
+    const headline = document.querySelector('[data-compare-section="headline"]')!
+    expect(notice.compareDocumentPosition(headline) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getAllByTestId('analysis-new-whats-changed-input-row').length).toBeGreaterThan(0)
+    cleanup()
+    mount(runChangeDelta())
+    expect(screen.queryByTestId('compare-run-in-progress')).toBeNull()
+  })
+
+  it('leads with the two endpoints, then the headline, then the reading note ABOVE the figures it says "below" about (v3 artefact)', () => {
+    mount(runChangeDelta())
+    const times = screen.getByTestId('compare-run-times')
+    const heading = screen.getByRole('heading')
+    const note = screen.getByTestId('compare-comparability')
+    const figures = screen.getByTestId(COMPARE_SUPPORT_TESTID)
+    const follows = (a: Element, b: Element) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+    expect(follows(times, heading)).toBe(true)
+    expect(follows(heading, note)).toBe(true)
+    expect(follows(note, figures)).toBe(true)
+    expect(times.querySelectorAll('[data-run-id]')[0]).toHaveTextContent(/^Earlier/)
+    expect(times.querySelectorAll('[data-run-id]')[1]).toHaveTextContent(/^Latest/)
+    // The static legend names the same two endpoints, in the same words.
+    expect(within(figures).getByText('Earlier')).toBeInTheDocument()
+    expect(within(figures).getByText('Latest')).toBeInTheDocument()
+    expect(within(figures).queryByText(/Previous run|Latest run/)).toBeNull()
+  })
+
+  it('runs the connector centre to centre of the CLAMPED markers, so it meets both dots at 0% and 100%', () => {
+    expect(connectorSpan(0, 1)).toEqual({ left: `calc(${markerLeft(0)} + 5.5px)`, width: `calc(${markerLeft(1)} - ${markerLeft(0)})` })
+    // Direction never changes the span: earlier and latest are positions, not a "from" and a "to" with a colour.
+    expect(connectorSpan(0.7, 0.2)).toEqual(connectorSpan(0.2, 0.7))
   })
 
   it('quotes only the rows the panel shows, then counts the rest', () => {

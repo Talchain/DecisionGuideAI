@@ -25,6 +25,9 @@ export interface ConversationMessage {
   timestamp: Date
   /** Echoed from request for deduplication. Live replies leave it unset; thread-hydrated replies carry it (FeedbackRow). */
   clientTurnId?: string
+  /** Exact X-Request-Id and owning scenario, retained only while server receipt/reply needs readback. */
+  deliveryRequestId?: string
+  deliveryScenarioId?: string
   /** Historical held association; only a fresh server offer authorises restored actions. */
   heldProposalId?: string
   /** Request correlation for the held card, separate from durable message deduplication. */

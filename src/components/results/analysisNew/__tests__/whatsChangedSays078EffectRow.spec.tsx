@@ -8,7 +8,7 @@
  *       sentence — never a bare "300 → 350" that drops what the figure is per.
  *   E2  no author is claimed: the row does not record who wrote the size, so the sentence never says "You".
  *   E3  the Panel's one sentence claims no author either (it narrates only a link sentence that starts "You").
- *   CONTROL  a `strength` row still says its served "You changed how much … : before → after." sentence.
+ *   CONTROL  a `strength` row says its no-author link sentence (cut 6: it records no author either).
  */
 import '@testing-library/jest-dom/vitest'
 import { describe, expect, it } from 'vitest'
@@ -63,9 +63,9 @@ describe('E3 · the Panel sentence claims no author either', () => {
 })
 
 describe('CONTROL · a strength row is unchanged', () => {
-  it('still says "You changed how much … : before → after."', () => {
+  it('says the no-author link sentence (cut 6, DL 0df0e1)', () => {
     const strength = { ...maximalRunDeltaInputChangeEffect, field: 'strength', before: { raw: 'moderate' }, after: { raw: 'strong' } }
     const view = buildRunDeltaView(withChanges([strength]), () => null, nodeLabel)
-    expect(inputRowText(view.inputs!.rows[0])).toBe('You changed how much Customers lost changes Monthly recurring revenue: moderate → strong.')
+    expect(inputRowText(view.inputs!.rows[0])).toBe('How much Customers lost changes Monthly recurring revenue: moderate → strong')
   })
 })

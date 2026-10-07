@@ -96,13 +96,13 @@ describe('--text-light is a legal text colour (WCAG SC 1.4.3)', () => {
 
     // 1. The KNOWN-BAD historical value must FAIL on both real grounds.
     //    These are the figures committed in GhostOptionNode.tsx's own comment.
-    expect(contrast('#908D8D', declared('--bg-panel'))).toBeCloseTo(3.14, 2) // re-measured on the 1 Oct 2026 cream panel (#FEF9F3, Paul)
+    expect(contrast('#908D8D', declared('--bg-panel'))).toBeCloseTo(3.26, 2)
     expect(contrast('#908D8D', declared('--bg-canvas'))).toBeCloseTo(2.9, 2)
     expect(contrast('#908D8D', declared('--bg-panel'))).toBeLessThan(WCAG_TEXT_MIN)
 
     // 2. A known-good pairing must PASS — proves the function is not simply
     //    returning something small for everything.
-    expect(contrast(declared('--text-body'), declared('--bg-panel'))).toBeCloseTo(10.07, 2)
+    expect(contrast(declared('--text-body'), declared('--bg-panel'))).toBeCloseTo(10.45, 2)
 
     // 3. The parser must actually be reading brand.css, not silently
     //    defaulting: an undeclared token throws rather than returning a value.

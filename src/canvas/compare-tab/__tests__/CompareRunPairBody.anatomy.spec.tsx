@@ -69,8 +69,8 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     // Plain words: a run's raw identity is bound by data-run-id, never shown as text.
     expect(runTimes()).not.toHaveTextContent('run-a')
     expect(runTimes()).not.toHaveTextContent('run-b')
-    expect(runTimes().querySelector('[data-run-id="run-a"]')).toHaveTextContent('Previous run')
-    expect(runTimes().querySelector('[data-run-id="run-b"]')).toHaveTextContent('Latest run')
+    expect(runTimes().querySelector('[data-run-id="run-a"]')).toHaveTextContent('Earlier')
+    expect(runTimes().querySelector('[data-run-id="run-b"]')).toHaveTextContent('Latest')
     expect([...runTimes().querySelectorAll('time')].map(t => t.getAttribute('datetime'))).toEqual([delta.endpoints!.prior.computed_at, delta.endpoints!.current.computed_at])
     expect(section('What you changed')).toHaveTextContent('Pro price, Raise to £60')
     expect(section('What you changed')).toHaveTextContent('£59 → £60')
@@ -149,7 +149,9 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
 
   it('renders missing endpoints, inputs and leader claims as absence, never a probability-based substitute', () => {
     mount(runChangeDelta({ endpoints: undefined, input_changes: undefined, input_coverage: undefined }))
-    expect(runTimes()).toHaveTextContent('Previous run time not recorded · Latest run time not recorded')
+    expect(runTimes()).toHaveTextContent('Earlier time not recorded')
+    expect(runTimes()).toHaveTextContent('Latest time not recorded')
+    expect(runTimes().querySelector('time')).toBeNull()
     expect(section('What you changed')).toHaveTextContent('Input changes were not recorded for this pair.')
     expect(section('Result comparison')).toHaveTextContent('The latest run names no option')
     expect(screen.getByRole('heading', { name: 'The latest run names no option' })).toBeInTheDocument()
@@ -162,10 +164,18 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     expect(section('What you changed')).toHaveTextContent('£59 → £60')
     expect(screen.queryByText(/41%.*44%/)).toBeNull()
     fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.getByText('Raise to £60: 41% → 44% chance of leading.')).toBeInTheDocument()
-    expect(screen.getByText('Keep £49: 59% → 56% chance of leading.')).toBeInTheDocument()
+    expect(screen.getByText('Raise to £60: supported by 41% → 44% of runs.')).toBeInTheDocument()
+    expect(screen.getByText('Keep £49: supported by 59% → 56% of runs.')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
     expect(screen.queryByText(/41%.*44%/)).toBeNull()
+  })
+
+  it('says each exact figure as a share of runs, never a chance and never who leads (6 Oct rule; #2549 missed this line)', () => {
+    mount()
+    fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
+    const region = screen.getByTestId('compare-result-details-region')
+    expect(region).toHaveTextContent('Raise to £60: supported by 41% → 44% of runs.')
+    expect(region.textContent).not.toMatch(/chance|lead/i)
   })
 
   it('keeps the not-noise-qualified magnitude withheld even on disclosure', () => {
@@ -266,6 +276,6 @@ describe('Compare v1 anatomy and producer-only rendering', () => {
     const hash = seed()
     render(<DetailToggleContext.Provider value={{ showDetail: true }}><CompareRunPairBody responseHash={hash} /></DetailToggleContext.Provider>)
     fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.getByText('Raise to £60: 41% → 44% chance of leading.')).toBeInTheDocument()
+    expect(screen.getByText('Raise to £60: supported by 41% → 44% of runs.')).toBeInTheDocument()
   })
 })

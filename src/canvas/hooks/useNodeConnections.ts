@@ -59,7 +59,8 @@ export function useNodeConnections(
       // `confidencePct` stays null and ConnRow renders no figure at all.
       const existsProb = typeof data?.exists_probability === 'number' ? data.exists_probability : null
       const beliefExists = typeof data?.beliefExists === 'number' ? data.beliefExists : null
-      const raw = isEdgeValueSet(data, 'beliefExists') ? (existsProb ?? beliefExists) : null
+      // D3 cut 6: a link CEE holds at 1.0 shows the existence the Run uses (domain/heldUserLink).
+      const raw = data?.existenceHeld === true ? 1 : isEdgeValueSet(data, 'beliefExists') ? (existsProb ?? beliefExists) : null
 
       rows.push({
         edgeId: edge.id,

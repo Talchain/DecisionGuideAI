@@ -191,7 +191,11 @@ src/types/constraints.ts:78
 #    106 copy lines (the cause map's new codes + the unsized-link readers) were added above it. Scanner added/gone = exactly this pair.
 # 5 Oct 2026 (Thin-client, Olumi-supplied disclosure + R6 codes + Science's plural rule): re-lined 2630 → 2730, the same
 #    `topFigurePercent === 100` line; 100 copy lines were added above it. Scanner added/gone = exactly this pair.
-src/components/results/analysisNew/analysisNewCopy.ts:2730
+# 6 Oct 2026 (D3 #2550, the unsized-path withhold's first ask): re-lined 2730 → 2771, the same `topFigurePercent === 100`
+#    line; 41 lines (`unsizedPathAskOf` + its docblock, and one type import) were added above it. Scanner added/gone = exactly this pair.
+# 6 Oct 2026 (D3 near tie, the target warning's typed ask): re-lined 2771 → 2787, the same `topFigurePercent === 100`
+#    line; 16 lines (`targetLinkAskOf` + its docblock, and the one-line reroute in `unsizedPathAskOf`) were added above it.
+src/components/results/analysisNew/analysisNewCopy.ts:2787
 # 30 Sep 2026 (Canvas, row 9 PR): re-lined store.ts 8049 → 8065, the same `currentTotal + displayBytes > MAX_TOTAL_CHARS` line;
 #    a pure +16 shift from #2350 (`forgetDurableDeletion`), which left staging red on this check. Scanner added/gone = exactly this pair.
 # 1 Oct 2026 (Canvas, #2370 Changes view): re-lined store.ts 8065 → 8087, a pure +22 line shift from the `run_changes`

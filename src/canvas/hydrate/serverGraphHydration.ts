@@ -31,6 +31,7 @@ import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
 import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding, applyScenarioAnalysisRead, isBootRestorableRunState } from './applyScenarioAnalysisRead'
 import { readProvisionalApplyStore } from './provisionalApplyStore'
+import { adoptDeliveredRecord } from './deliveredGuidanceSink'
 import { applyBootRunCurrency, applyBootBlockedVerdict, bootReadLimitVerdicts, bootReadRunFact } from './applyBootRunCurrency'
 import {
   beginBootGraphRead,
@@ -335,7 +336,7 @@ async function readAndMergeServerGraph(
     const computedAt = runState != null && 'computed_at' in runState ? runState.computed_at : null
     useServerConversationTurnsStore.getState().offerServerConversationTurns({
       scenarioId,
-      turns: serverTurns ?? [],
+      turns: result.scenarioId === scenarioId ? serverTurns ?? [] : (serverTurns ?? []).map(({ suggestedActions: _foreign, ...turn }) => turn),
       // Held actions belong to the response envelope, never merely to the request.
       heldProposalOffers: result.scenarioId === scenarioId ? result.heldProposalOffers : [],
       run: {
@@ -508,6 +509,7 @@ async function readAndMergeServerGraph(
         limitVerdicts: result.limitVerdicts,
         goalCertainty: result.goalCertainty,
         runDelta: result.runDelta,
+        delivered: result.delivered,
         // ⭐ The Run's record of which options it left out (CEE #2432). Without it a fresh browser said "This run has no
         // result for this option" over an option the Run left out on purpose (Panel P2x, #75 5925282823).
         optionParticipation: result.optionParticipation,
@@ -519,6 +521,9 @@ async function readAndMergeServerGraph(
         // cue) vanished — while a same-browser reload, whose report dedupes, kept them.
         store: {
           ...readProvisionalApplyStore(), setAnalysisStateV1: () => {}, noteRunCompletedWithoutVerdict: () => {},
+          // SD-1 Slice R (CEE #2654): ONLY this leg adopts what the Run's turn delivered — the canvas is proven equal to the
+          // Run's graph both ways here, so the adopted items are minted over the right graph. The polling leg does not.
+          adoptDeliveredRecord,
           setCurrentReadInputBasis: (basis, hash) => useCanvasStore.setState((state) => {
             if (state.currentScenarioId !== scenarioId || state.results.hash !== hash || !state.results.report) return state
             return { results: { ...state.results, report: { ...state.results.report, current_read_input_basis: basis } } }

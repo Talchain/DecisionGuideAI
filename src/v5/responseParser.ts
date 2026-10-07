@@ -726,6 +726,8 @@ export type V5ParseResult =
       kind: 'parse_error'
       reason: string
       http_status?: number
+      /** Client proof that dispatch never started; never inferred from a fetch rejection. */
+      requestNotStarted?: true
       raw?: unknown
       source?: ErrorSource
       diagnosticHeaders?: DiagnosticHeaders
