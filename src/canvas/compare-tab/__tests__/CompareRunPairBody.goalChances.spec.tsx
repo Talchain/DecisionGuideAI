@@ -121,6 +121,13 @@ describe('Compare leads with each option\'s chance of meeting the goal', () => {
     const [first, second] = goalRows().map((li) => [...within(li).getByTestId('compare-goal-chance-pair').querySelectorAll('span')].map((x) => x.className))
     expect(first).toEqual(['text-text-body', 'text-text-header'])
     expect(second).toEqual(['text-text-light', 'text-text-header'])
+    // v3 artefact row: the option's name and its pair share one line (the pair pushed right), never a stacked pair.
+    for (const li of goalRows()) {
+      const row = within(li).getByTestId('compare-goal-chance-row')
+      expect(row).toContainElement(within(li).getByTestId('compare-goal-chance-pair'))
+      expect(row.firstElementChild).toHaveTextContent(/^(Keep £49|Raise to £60)$/)
+      expect(row.className.split(/\s+/)).toEqual(expect.arrayContaining(['flex', 'justify-between']))
+    }
     const section = screen.getByTestId('compare-goal-chances')
     expect(section.textContent).not.toMatch(NO_DIRECTION)
     expect(screen.getByTestId('compare-run-pair').textContent).not.toMatch(NO_CONTEST)
