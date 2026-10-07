@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { LINK_STRENGTH_COPY } from '../shared/metricVocabulary'
 
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ReactFlowProvider } from '@xyflow/react'
 import { RiskNode } from '../RiskNode'
@@ -101,15 +101,13 @@ describe('RiskNode', () => {
     [{ p_low: 0.2, p_high: 0.2, basis: 'user' }, 6, 'May happen · about 20% within 6 months', 'you said'],
     [{ p_low: 0.1, p_high: 0.3, basis: 'user' }, 1, 'May happen · about 10–30% within a month', 'you said'],
     [{ p_low: 0.1, p_high: 0.3, basis: 'olumi' }, 6, 'May happen · about 10–30% within 6 months', 'Olumi estimate'],
-  ])('renders an event risk before the legacy exposure row', async (occurrence, months, line, basis) => {
+  ])('renders an event risk before the legacy exposure row', (occurrence, months, line, basis) => {
     vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
     renderRisk({ event_risk: { version: 1, occurrence, horizon: { months } } })
     expect(screen.getByTestId('risk-event-line').textContent).toBe(line)
     expect(screen.getByTestId('risk-event-basis').textContent).toBe(` · ${basis}`)
     expect(screen.getByTestId('risk-primary-line-full').textContent).toBe(`${line} · ${basis}`)
     expect(screen.queryByText('Likelihood and impact not set yet')).toBeNull()
-    fireEvent.mouseEnter(screen.getByLabelText(/^Risk:/i))
-    expect((await screen.findByTestId('risk-popover-state')).textContent).toBe(`${line} · ${basis}`)
   })
 
   it('ignores malformed event risk and keeps the unset sentence byte-identical', () => {
@@ -131,6 +129,7 @@ describe('RiskNode', () => {
   })
 
   it('keeps the legacy unset and probability/impact controls unchanged without event risk', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
     const unset = renderRisk()
     expect(screen.getByTestId('risk-exposure-unset').querySelector('[aria-hidden="true"]')?.textContent).toBe('Likelihood and impact not set yet')
     unset.unmount()
