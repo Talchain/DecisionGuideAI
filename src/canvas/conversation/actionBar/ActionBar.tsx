@@ -73,13 +73,20 @@ export interface ActionBarHostItem {
   onSelect: () => void
 }
 
+/** One labelled group of host controls in the ⋯ menu. */
+export interface ActionBarHostGroup {
+  id: string
+  label: string
+  items: readonly ActionBarHostItem[]
+}
+
 export interface ActionBarProps {
   bar: ActionBarV1
   surface: ActionBarSurface
   /** Text tokens for a host outside the chat column; absent = the chat's. */
   typeScale?: { body: string; meta: string }
-  /** The surface's own controls, listed last in the ⋯ menu under their own label. */
-  hostMenu?: { label: string; items: readonly ActionBarHostItem[] }
+  /** The surface's own controls, listed last in the ⋯ menu, each group under its own label, in this order. */
+  hostMenu?: readonly ActionBarHostGroup[]
   /** Force the narrow layout. Default: measured from the bar's own width. */
   compact?: boolean
   testId?: string
@@ -163,8 +170,8 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
     else setNotice(null)
   }
 
-  const hostItems = hostMenu?.items ?? []
-  if (pills.length === 0 && icons.length === 0 && menu.length === 0 && hostItems.length === 0) return null
+  const hostGroups = (hostMenu ?? []).filter((group) => group.items.length > 0)
+  if (pills.length === 0 && icons.length === 0 && menu.length === 0 && hostGroups.length === 0) return null
 
   return (
     <div
@@ -232,7 +239,7 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
             </Tooltip>
           )
         })}
-        {menu.length > 0 || hostItems.length > 0 ? (
+        {menu.length > 0 || hostGroups.length > 0 ? (
           <div ref={overflowRef} className="relative ml-auto shrink-0">
             <Tooltip asChild content={ACTION_BAR_COPY.more}>
               <button
@@ -288,11 +295,11 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
                     </div>
                   )
                 })}
-                {hostMenu && hostItems.length > 0 ? (
-                  <div role="none" data-testid={`${testId}-menu-group-host`}>
-                    {menu.length > 0 ? <div role="separator" className="-mx-2 my-1 border-b border-panel-border" /> : null}
-                    <span className={`${type.meta} block px-2 py-1 text-text-light`}>{hostMenu.label}</span>
-                    {hostItems.map((item) => (
+                {hostGroups.map((group, index) => (
+                  <div key={group.id} role="none" data-testid={`${testId}-menu-group-host-${group.id}`}>
+                    {menu.length > 0 || index > 0 ? <div role="separator" className="-mx-2 my-1 border-b border-panel-border" /> : null}
+                    <span className={`${type.meta} block px-2 py-1 text-text-light`}>{group.label}</span>
+                    {group.items.map((item) => (
                       <button
                         key={item.id}
                         type="button"
@@ -309,7 +316,7 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
                       </button>
                     ))}
                   </div>
-                ) : null}
+                ))}
               </div>
             ) : null}
           </div>

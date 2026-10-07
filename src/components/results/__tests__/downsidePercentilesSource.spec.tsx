@@ -82,7 +82,10 @@
  * shape against those rules rather than letting it drift into whatever the
  * tests below happen to need.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+// B19-0: these rows pin the IN-UNITS rendering, which ships once the goal band is anchored to the user's units.
+// The live switch is false today; `OptionCards.downsideNotInUserUnits.spec.tsx` pins what ships now.
+vi.mock('../analysisNew/goalBandUnits', () => ({ goalBandIsInUserUnits: () => true }))
 import { render, screen, cleanup, within, fireEvent } from '@testing-library/react'
 import { renderHook } from '@testing-library/react'
 import { ResultsBody } from '../ResultsBody'
