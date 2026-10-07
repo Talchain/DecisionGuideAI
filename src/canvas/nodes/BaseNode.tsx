@@ -46,6 +46,7 @@ import {
   NODE_TITLE_MIN_MEASURE_PX,
   restingCardWidthForKind,
 } from '../utils/nodeLayoutConstants'
+import { nodeFitPrototypeEnabled, nodeFitPrototypeWidth } from '../utils/nodeFitPrototype'
 import { nodeColors } from './colors'
 import { typography } from '../../styles/typography'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
@@ -1257,9 +1258,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // card heights at whatever width the card is drawn at, so a card drawn at 336
   // and laid out at 260 would be measured too short, grow past the stride, and
   // force a second layout — the stale-height path, on every fresh draft.
+  const prototypeCardW = nodeFitPrototypeWidth(id)
   const renderedCardW = isExpanded
     ? Math.max(NODE_CARD_MAX_W, layoutCardWidth ?? 0)
-    : (maxWidth ?? layoutCardWidth ?? layoutNodeWidth ?? restingCardWidthForKind(nodeType))
+    : (prototypeCardW ?? maxWidth ?? layoutCardWidth ?? layoutNodeWidth ?? restingCardWidthForKind(nodeType))
   const titleMinMeasurePx = Math.max(
     0,
     Math.min(NODE_TITLE_MIN_MEASURE_PX, renderedCardW - NODE_CARD_PADDING_X - NODE_HEADER_RESERVE_PX),
@@ -1543,7 +1545,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     // ⭐ WS1 #16: an anchor never reserves the band or a whole-card right strip —
     // its rail's footprint is on the BODY (`anchorBodyRailStyle`), identical at
     // both rungs, so the layout measurer reads one box for it.
-    const bandReservedAtRung = actionsAtRung && normal && !isAnchorCard
+    const bandReservedAtRung = actionsAtRung && normal && !isAnchorCard && !nodeFitPrototypeEnabled()
     if (bandReservedAtRung) {
       const band = padAdj === 0
         ? NODE_QUICK_ACTION_BAND_CSS

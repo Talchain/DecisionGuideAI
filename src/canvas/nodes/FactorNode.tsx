@@ -48,6 +48,7 @@ import { openNodeInspector } from './shared/openNodeInspector'
 import { resolveFactorPriorRangeEndsOnCard, resolveFactorPriorRangeOnCard } from './shared/factorPriorRange'
 import { FactorRangeBand } from './shared/FactorRangeBand'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { nodeFitPrototypeEnabled } from '../utils/nodeFitPrototype'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
 import { classifyObservedValueProvenance, VALUE_PROVENANCE_LABEL, factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { VALUE_PROVENANCE_ICON, PROVENANCE_ICON_SIZE_CLASSES } from '../domain/valueProvenanceIcon'
@@ -1558,7 +1559,7 @@ export const FactorNode = memo((props: NodeProps) => {
         {!isDetailed && (
           <div
             data-testid={`factor-driver-slot-${props.id}`}
-            className={`${typography.edgeLabel} mt-1 h-[1lh] min-w-0 overflow-hidden`}
+            className={`${typography.edgeLabel} ${nodeFitPrototypeEnabled() && driverLine === null && !noAnalysisYet ? '' : 'mt-1 h-[1lh]'} min-w-0 overflow-hidden`}
             aria-hidden={driverLine === null && !noAnalysisYet ? true : undefined}
           >
             {driverLine ? (

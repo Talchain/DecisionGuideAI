@@ -144,6 +144,12 @@ export const BOARD_STATES_MEASURE_ONLY_BOARDS = [
  * it came from.
  */
 export const GATED_TESTS: readonly GatedTest[] = [
+  ...(['mrr-90b8f080', 'pricing-model', 'vendor-selection'] as const).map((board) => ({
+    file: 'nodeWidthPrototype.measure.ts',
+    suite: 'node width prototype',
+    title: `NODE WIDTH PROTOTYPE @${board} 1440x900`,
+    catches: 'The exploratory content-width mode must not overlap cards or clip titles; all aesthetic and fit changes are metrics only.',
+  })),
   {
     file: 'nodeControlOcclusion.measure.ts',
     suite: 'in-node control occlusion',

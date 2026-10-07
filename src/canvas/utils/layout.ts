@@ -84,7 +84,11 @@ import {
   ROW_PROMPT_W,
   rowPromptKindsFor,
   rowPromptColumnHeight,
+  ANCHOR_CARD_MAX_W,
+  REPEATED_CARD_TARGET_W,
+  NODE_CARD_PADDING_X,
 } from './nodeLayoutConstants'
+import { publishNodeFitPrototypeWidths, readNodeFitPrototypeAtLayout } from './nodeFitPrototype'
 
 interface LayoutOptions {
   direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'
@@ -809,6 +813,10 @@ export async function layoutGraph(
     heightAtLabelBound,
   } = options
 
+  // EXPLORATION ONLY: sample the URL once for this layout. With the parameter
+  // absent every expression below continues through the existing authorities.
+  const contentFit = readNodeFitPrototypeAtLayout()
+
   /**
    * ⭐⭐ FLOORS RAISED WITH THE DEFAULTS (12 Sep 2026): 20 → 32 and 30 → 72.
    *
@@ -862,6 +870,49 @@ export async function layoutGraph(
    */
   const plans = planTiers(unlocked, isDownLayout)
   const cardWOf = (tier: number): number => cardWidthFromPlan(plans, tier)
+  const prototypeWidths = new Map<string, number>()
+  if (contentFit) {
+    const byTier = new Map<number, Node[]>()
+    for (const node of unlocked) {
+      const tier = tierOf(node)
+      const group = byTier.get(tier)
+      if (group) group.push(node)
+      else byTier.set(tier, [node])
+    }
+    const titleWidth = (node: Node): number => {
+      const label = String((node.data as Record<string, unknown> | undefined)?.label ?? '')
+      // Inter 600 at the maximum 2x counter-scale. Browser measurement is used
+      // when available; the fallback keeps unit/SSR layouts deterministic.
+      if (typeof document !== 'undefined') {
+        const ctx = document.createElement('canvas').getContext('2d')
+        if (ctx) {
+          ctx.font = '600 28px Inter, system-ui, sans-serif'
+          return ctx.measureText(label).width
+        }
+      }
+      return label.length * 15
+    }
+    for (const [tier, group] of byTier) {
+      if (tier === 0 || tier === 5) {
+        for (const node of group) {
+          prototypeWidths.set(node.id, Math.min(ANCHOR_CARD_MAX_W, Math.max(400, Math.ceil(titleWidth(node) + NODE_CARD_PADDING_X))))
+        }
+        continue
+      }
+      const sizes = isDownLayout ? balancedRowSizes(group.length) : [group.length]
+      let cursor = 0
+      for (const size of sizes) {
+        const row = group.slice(cursor, cursor + size)
+        cursor += size
+        const cap = cardWOf(tier)
+        const width = Math.min(cap, Math.max(REPEATED_CARD_TARGET_W,
+          ...row.map(node => Math.ceil(titleWidth(node) / 2 + NODE_CARD_PADDING_X))))
+        for (const node of row) prototypeWidths.set(node.id, width)
+      }
+    }
+    publishNodeFitPrototypeWidths(prototypeWidths)
+  }
+  const cardWForNode = (node: Node): number => prototypeWidths.get(node.id) ?? cardWOf(tierOf(node))
   const tierBoxW = (tier: number): number => cardWOf(tier) + LAYOUT_PADDING_X
   /** The box a width-less stray falls back to — the repeated card's. */
   const fallbackBoxW = REPEATED_CARD_W + LAYOUT_PADDING_X
@@ -899,7 +950,7 @@ export async function layoutGraph(
       ?? measured?.height ?? node.height ?? defaultSize.height
     const height = Math.max(40, Math.round(rawHeight) + LAYOUT_PADDING_Y)
 
-    const width = tierBoxW(tierOf(node))
+    const width = cardWForNode(node) + LAYOUT_PADDING_X
     return { width, height }
   }
 

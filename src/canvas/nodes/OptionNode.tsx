@@ -42,6 +42,7 @@ import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
 } from '../mutations/mutationAuthority'
+import { nodeFitPrototypeEnabled } from '../utils/nodeFitPrototype'
 
 /**
  * ⭐⭐⭐ THE ONE OPTION FIELD WITH A REAL WIRE CARRIER, AND THE CARD NAMED THE
@@ -2809,7 +2810,7 @@ export const OptionNode = memo((props: NodeProps) => {
             or it would shrink after the Run and re-lay the board. */}
         <div
           data-testid={`option-share-slot-${props.id}`}
-          className={`${typography.edgeLabel} mt-1 h-[1lh] min-w-0 overflow-hidden [container-type:inline-size]`}
+          className={`${typography.edgeLabel} ${nodeFitPrototypeEnabled() && winReadout === null && !notAnalysedRenders && !notRankedRenders && takenOutLine === null ? '' : 'mt-1 h-[1lh]'} min-w-0 overflow-hidden [container-type:inline-size]`}
           aria-hidden={winReadout === null && !notAnalysedRenders && !notRankedRenders && takenOutLine === null ? true : undefined}
         >
         {takenOutLine !== null && (
