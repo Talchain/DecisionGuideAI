@@ -37,9 +37,7 @@
  *
  * L-49: the canvas spoke four vocabularies with no key — solid vs dashed, +/-
  * markers, thickness, and colour. The legend explained the first and the third.
- * Worse, it taught up/down ARROWS for direction, which the canvas has never
- * drawn: direction is a line colour plus a + or - marker. Every row here is now
- * derived from what StyledEdge actually paints.
+ * Paul, 7 Oct 2026: arrowheads are hidden; polarity remains a line colour plus a + or - glyph.
  */
 import { topLeftChromeBottomPx } from '../utils/topBarClearance'
 import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'

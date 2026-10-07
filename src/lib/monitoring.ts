@@ -306,6 +306,38 @@ export function captureError(error: Error, context?: SentryContext): void {
   })
 }
 
+/**
+ * The chat turn transport's failure report (S-F). The turn's identifiers travel as TAGS: the `canvas` context is cut to
+ * `CANVAS_CONTEXT_FIELDS` by `sanitizeCanvasContext` (S-H, #2606), which would drop them, and tags are searchable.
+ * Identifiers only — never user text.
+ */
+export function captureTurnFailure(
+  error: Error,
+  report: { tags: Record<string, string>; scenarioId: string | null; elapsedMs: number },
+): void {
+  const config = resolveMonitoringConfig()
+  if (!config.enabled.sentry) {
+    logger.error('[Monitoring] Chat turn failure (Sentry disabled):', error, report.tags)
+    return
+  }
+  Sentry.withScope(scope => {
+    scope.setContext('canvas', sanitizeCanvasContext({ component: 'chat-turn', scenarioId: report.scenarioId }))
+    scope.setTags(report.tags)
+    scope.setExtra('elapsed_ms', report.elapsedMs)
+    Sentry.captureException(error)
+  })
+}
+
+/**
+ * A breadcrumb on the trail a later captured error carries (S-F: a chip press, a turn starting). `scrubBreadcrumb`
+ * (S-H) keeps only its category, so it records THAT a chip was pressed / a turn started, never what. No-op when Sentry
+ * is disabled.
+ */
+export function addBreadcrumb(category: string, message: string, data?: Record<string, unknown>): void {
+  if (!resolveMonitoringConfig().enabled.sentry) return
+  Sentry.addBreadcrumb({ category, message, data, level: 'info' })
+}
+
 export function initWebVitals(): void {
   const config = resolveMonitoringConfig()
   if (!config.enabled.webVitals) {

@@ -29,6 +29,8 @@
  * five 2.154 prose fields below the fold, which is the residual being closed.
  */
 
+import { scrollWithinThread } from '../conversation/hooks/threadScroll'
+
 /** The card element `V5AnalysisResultBlock.tsx:303` renders. */
 export const ANALYSIS_RESULT_CARD_SELECTOR = '[data-testid="v5-analysis-result"]'
 
@@ -37,13 +39,14 @@ export const ANALYSIS_RESULT_CARD_SELECTOR = '[data-testid="v5-analysis-result"]
  *
  * Returns whether a card was found, so a caller can tell "nothing to scroll to"
  * apart from "scrolled" rather than failing silently. Fail-closed: absent card,
- * or an environment without `scrollIntoView`, is a no-op.
+ * or a card outside a chat thread, is a no-op.
  */
 export function scrollAnalysisResultIntoView(root: ParentNode = document): boolean {
   const cards = root.querySelectorAll(ANALYSIS_RESULT_CARD_SELECTOR)
   const card = cards[cards.length - 1]
   if (!card) return false
-  if (typeof (card as HTMLElement).scrollIntoView !== 'function') return false
-  ;(card as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'start' })
-  return true
+  // ⚠ WITHIN THE THREAD ONLY (`threadScroll.ts`). `scrollIntoView({ block: 'start' })` also scrolled the dock's
+  // overflow-hidden `aside`, carrying the whole tab out of view (the 7 Oct blank-chat witness). A card outside any
+  // thread is not this function's to move: it reports "not scrolled" rather than scrolling the page.
+  return scrollWithinThread(card, { behavior: 'smooth', block: 'start' })
 }

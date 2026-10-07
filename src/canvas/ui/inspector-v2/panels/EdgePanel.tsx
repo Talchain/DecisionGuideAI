@@ -1346,7 +1346,7 @@ export const EdgePanel = memo(function EdgePanel({
                       and offering the re-run is the honest thing. Staleness is
                       a fact about the graph on screen; it does not wait on the
                       server's answer. */}
-                  <InlineRerunPrompt
+                  <InlineRerunPrompt elementId={edgeId}
                     visible={isStaleAfterEdit && !strengthEditDidNotLand}
                   />
                 </div>

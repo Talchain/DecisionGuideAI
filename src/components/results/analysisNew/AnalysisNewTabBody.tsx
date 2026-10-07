@@ -117,6 +117,7 @@ import { disagreeWithRecommendationPayload } from './buildReviewQueue'
 import { runMethod } from './runMethod'
 import { ACTION_REGISTRY } from '../../../canvas/conversation/actionRegistry'
 import { METHOD_CATALOGUE } from '../decision-overview/actionsCatalogue'
+import { shellRerunControl, useReanalyseBarInputs } from '../../../canvas/components/workspaceShell/rerunControl'
 import { methodIdsRaisedBy } from './recommendationMethod'
 import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
@@ -696,6 +697,9 @@ export function AnalysisNewTabBody({
   const matrixFinishedAt = useCanvasStore((s) => s.results?.finishedAt)
   const matrixRunId = useCanvasStore((s) => s.results?.runId)
   const matrixFreshness = useCanvasStore((s) => s.analysisFreshness)
+  // ⭐ ONE RERUN CONTROL (`workspaceShell/rerunControl.ts`): while this surface's footer shows the Re-analyse bar,
+  // that is the rerun; the ribbon's Re-run and the ⋯ menu's "Rerun analysis" stand aside (witness 7 Oct: three here).
+  const footerOwnsRerun = shellRerunControl(useReanalyseBarInputs()) === 'bar'
   const sendScienceChip = useGuidanceStore((s) => s._sendChip)
   /**
    * ⭐ THE PRESENTATION PREDICATE, IN THE SHAPE THE OTHER READERS OF THIS
@@ -1467,6 +1471,7 @@ export function AnalysisNewTabBody({
          each for its own. */
       rerunWouldNotHelp={vm.checks.rerunWouldNotHelp}
       onReanalyse={onReanalyse}
+      rerunOwnedByFooter={footerOwnsRerun}
       /* ⭐ DERIVED FROM THE GATE'S VERDICT, NOT A SECOND EXPRESSION OF
          IT — and not the verdict itself. `runRefusedByGate` is
          `!canRunAnalysis && !isRunning` (see above for why `isRunning` is
@@ -1894,7 +1899,7 @@ export function AnalysisNewTabBody({
           activeMethodId={effectivePick ?? restingMethodId}
           onSelectMethod={selectMethod}
           raisedMethodIds={raisedMethodIds}
-          canRerun={canRunAnalysis === true && !vm.status.isPreRun}
+          canRerun={canRunAnalysis === true && !vm.status.isPreRun && !footerOwnsRerun}
         />
         {/* ⚠ THE INTRO ASSERTS A RUN, SO IT IS GATED ON THERE BEING ONE.
             "A second reading of the same analysis run" is true of this tab and

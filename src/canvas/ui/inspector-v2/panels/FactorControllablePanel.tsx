@@ -1088,9 +1088,10 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             ) : (
               <EditConfirmation trigger={lastConfirmed.ts} label="Sent to Olumi" tone="pending" />
             )}
-            <InlineRerunPrompt visible={isStaleAfterEdit} />
           </div>
         )}
+
+        <InlineRerunPrompt elementId={nodeId} visible={isStaleAfterEdit} />
 
         {/* Coaching — within Your input group, below the card */}
         <InspectorCoaching

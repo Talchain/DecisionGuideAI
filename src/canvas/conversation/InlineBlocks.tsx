@@ -62,6 +62,7 @@ import type {
   ProposalBlock as ProposalBlockType,
   ExerciseBlock as ExerciseBlockType,
 } from './types'
+import { scrollWithinThread } from './hooks/threadScroll'
 import { ModelReceiptBlock } from './ModelReceiptBlock'
 import { ArtefactBlock as ArtefactBlockComponent } from '../../components/chat/ArtefactBlock'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
@@ -889,7 +890,10 @@ function BlockRenderer({
 
 /** Scroll to and pulse-highlight a citation target element. */
 function scrollToCitationTarget(target: Element): void {
-  if ('scrollIntoView' in target && typeof target.scrollIntoView === 'function') {
+  // Within the thread only (`threadScroll.ts`): `scrollIntoView` also moves the dock's overflow-hidden `aside`.
+  // A target outside any thread keeps the old call.
+  if (!scrollWithinThread(target, { behavior: 'smooth', block: 'nearest' })
+    && 'scrollIntoView' in target && typeof target.scrollIntoView === 'function') {
     target.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
   target.classList.add(styles.citationHighlightPulse)
