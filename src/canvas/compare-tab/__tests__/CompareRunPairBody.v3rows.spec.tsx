@@ -21,7 +21,8 @@ import {
   ACCEPTED_ESTIMATE_NOTE, inputRowContext, inputRowName, inputRowValues, sizingLabel, strengthBandIndex,
 } from '../../../components/results/analysisNew/sections/inputChangeRowParts'
 import { INPUT_CHANGE_ROWS_HEADING, inputChangeCount } from '../../../components/results/analysisNew/sections/InputChangeRows'
-import { CompareRunPairBody } from '../CompareRunPairBody'
+import { COMPARE_RUN_PAIR_TESTID, CompareRunPairBody } from '../CompareRunPairBody'
+import { COMPARE_RUN_IN_PROGRESS_HEADING, COMPARE_RUN_IN_PROGRESS_TEXT } from '../ComparePairSections'
 import { COMPARE_SUPPORT_AXIS, COMPARE_SUPPORT_HELP, COMPARE_SUPPORT_TESTID } from '../CompareSupportFigures'
 import { RUN_CHANGE_LABELS, runChangeDelta } from './__fixtures__/runChangeArtefact'
 
@@ -69,7 +70,7 @@ const delta = (rows: readonly object[], coverage: 'complete' | 'partial' = 'comp
   runChangeDelta({ input_changes: rows as RunDelta['input_changes'], input_coverage: coverage })
 const viewRows = (rows: readonly object[]): readonly RunDeltaInputRow[] => buildRunDeltaView(delta(rows), labelFor, labelFor).inputs!.rows
 
-function seed(d: RunDelta, { onCanvas = true }: { onCanvas?: boolean } = {}): string {
+function seed(d: RunDelta, { onCanvas = true, status = 'complete' }: { onCanvas?: boolean; status?: string } = {}): string {
   const report = mapV5AnalysisToReport({ type: 'analysis_result', summary: 'Options compared',
     leading_option_id: 'opt_49', win_probabilities: { opt_60: 0.44, opt_49: 0.56 } })
   report.producer_leader_permission = { permitted: true }
@@ -77,7 +78,7 @@ function seed(d: RunDelta, { onCanvas = true }: { onCanvas?: boolean } = {}): st
   const nodes = onCanvas ? [...LABELS.keys()].map((id) => ({ id, type: id.startsWith('opt') ? 'option' : 'factor', position: { x: 0, y: 0 }, data: { label: LABELS.get(id) } })) : []
   const edges = onCanvas ? [{ id: 'edge-dr', source: 'fac_demand', target: 'out_rev' }, { id: 'edge-cr', source: 'fac_churn', target: 'out_rev' }, { id: 'edge-pc', source: 'fac_price', target: 'fac_churn' }] : []
   useCanvasStore.setState({ currentScenarioId: 'scn-1', nodes, edges,
-    results: { status: 'complete', progress: 100, report, hash },
+    results: { status, progress: 100, report, hash },
     runDelta: { delta: d, analysisHash: hash, scenarioId: 'scn-1' },
     analysisStateV1: AnalysisStateV1Schema.parse({
       run_state: { kind: 'complete_current', computed_at: '2026-09-30T13:09:00.000Z' }, readiness: { status: 'ready', blockers: [] },
@@ -298,6 +299,29 @@ describe('Compare draws the figures (v3 figure block)', () => {
     const arrows = screen.getAllByTestId(`${S}-direction`)
     expect(arrows).toHaveLength(2)
     expect(arrows.map((a) => a.closest('[data-direction]')?.getAttribute('data-direction')).sort()).toEqual(['down', 'up'])
+  })
+})
+
+describe('the v3 state notices', () => {
+  it('nothing to compare: the centred empty state with the tab\'s two-way glyph (same words)', () => {
+    seed(delta([ROWS.setting]))
+    useCanvasStore.setState({ currentScenarioId: 'scn-2' } as never)
+    render(<CompareRunPairBody responseHash="hash-of-another-scenario" />)
+    const empty = screen.getByTestId(`${COMPARE_RUN_PAIR_TESTID}-empty`)
+    expect(empty).toHaveAttribute('data-variant', 'empty')
+    expect(empty.querySelector('svg[class*="lucide-arrow-left-right"]')).not.toBeNull()
+    expect(empty).toHaveTextContent('No comparison yet')
+  })
+
+  it('a Run in flight: the info-rule notice with its heading, above the pair it keeps (control: not while complete)', () => {
+    render(<CompareRunPairBody responseHash={seed(delta([ROWS.setting]), { status: 'streaming' })} />)
+    const notice = screen.getByRole('status')
+    expect(notice.className).toContain('border-info')
+    expect(notice).toHaveTextContent(`${COMPARE_RUN_IN_PROGRESS_HEADING}${COMPARE_RUN_IN_PROGRESS_TEXT}`)
+    expect(rowEls()).toHaveLength(1)
+    cleanup()
+    render(<CompareRunPairBody responseHash={seed(delta([ROWS.setting]))} />)
+    expect(screen.queryByTestId('compare-run-in-progress')).toBeNull()
   })
 })
 

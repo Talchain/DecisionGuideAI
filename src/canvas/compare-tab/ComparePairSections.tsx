@@ -27,6 +27,8 @@ const GOAL_CHANCE_FIELDS = 'run_delta.goal_chances[].option_id run_delta.goal_ch
 export const COMPARE_ASK_LABEL = 'Ask Olumi about this comparison'
 /** While a Run is in flight the previous pair stays on screen; this says so, and promises nothing about the next pair. */
 export const COMPARE_RUN_IN_PROGRESS_TEXT = 'A Run is in progress. The comparison below is between the two runs before it.'
+/** The state notice's heading while a Run is in progress (v3 artefact "Rerun in progress"). */
+export const COMPARE_RUN_IN_PROGRESS_HEADING = 'Rerun in progress'
 
 /**
  * The one headline. Words selected from entitled producer claims, never from a score or a client comparison: an
@@ -128,7 +130,14 @@ export function ComparePairSections({
   return (
     <div data-testid={WHATS_CHANGED_TESTID} data-attributable={view.attributable ? 'true' : 'false'}>
       {analysing ? (
-        <p role="status" className={`${typography.panelBody} text-text-body mt-0 mb-3`} data-testid="compare-run-in-progress">{COMPARE_RUN_IN_PROGRESS_TEXT}</p>
+        // v3 state notice: the info rule while a Run is in progress; the saved pair stays below it.
+        <div role="status" className="border-l-2 border-info pl-3 mb-4" data-testid="compare-run-in-progress">
+          <p className={`${typography.panelHeader} text-text-header m-0 flex items-center gap-2`}>
+            <span className="inline-block w-2 h-2 rounded-full bg-info animate-pulse motion-reduce:animate-none" aria-hidden="true" />
+            {COMPARE_RUN_IN_PROGRESS_HEADING}
+          </p>
+          <p className={`${typography.panelBody} text-text-light mt-1 mb-0`}>{COMPARE_RUN_IN_PROGRESS_TEXT}</p>
+        </div>
       ) : null}
       <section data-compare-section="headline" aria-label={artefact ? 'What changed between runs' : resultsAllowed || goalRows ? 'Result comparison' : 'Result comparison not shown'}
         data-testid={artefact ? RUN_CHANGE_ARTEFACT_TESTID : undefined} data-prior-run-id={artefact?.priorRunId} data-current-run-id={artefact?.currentRunId}>
