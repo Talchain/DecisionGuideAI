@@ -96,6 +96,8 @@ export function buildAskAiQuestion(req: AskAiRequest) {
   // The action registry is the one mapper from an action to CEE's typed press id (S-B slice 0).
   const action = actionOfAsk(intent)
   let pressId = req.pressId ?? (action ? typedPressIdOf(action, stage) : undefined)
+  // Item 3: the drawn link's own press, host-bound to its pair by CEE (`drawn-link-press.ts`, #2776).
+  if (!pressId && edge && intent === 'drawn-link') pressId = `agent-drawn-link:${edge.source}>${edge.target}`
   if (!pressId && edge && (intent === 'question-link' || intent === 'examine-link')) {
     const goalNode = nodes.find(n => n.type === 'goal')
     const data = edge.data as Record<string, unknown> | undefined
