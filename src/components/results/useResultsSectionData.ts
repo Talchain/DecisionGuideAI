@@ -4588,6 +4588,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             // `unsizedPathAskOf` validates it by kind and names it from the canvas.
             ...(w.first_ask !== null && typeof w.first_ask === 'object' && !Array.isArray(w.first_ask) ? { first_ask: w.first_ask as Record<string, unknown> } : {}),
             ...(hasPerOptionMap ? { per_option: perOption } : {}),
+            ...(Object.prototype.hasOwnProperty.call(w, 'option_ids') ? { option_ids: w.option_ids } : {}),
             affected_labels: nodeIds.map(id => nodeLabelMap.get(id) ?? id),
             message: w.message ? String(w.message) : undefined,
             // Roadmap 1.12: producer severity carried verbatim (never

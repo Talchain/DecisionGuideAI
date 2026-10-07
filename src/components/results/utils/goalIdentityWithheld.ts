@@ -85,6 +85,32 @@ export function readGoalIdentityWithheld(holder: unknown): GoalIdentityWithheld 
   return { nodeIds, message: allSafe ? [...new Set(words)].join(' ') : GOAL_IDENTITY_WITHHELD_FALLBACK }
 }
 
+/** Producer reasons for ONE option, using B3's fail-closed option scope. null means no safe reason. */
+export function readGoalWithheldReasonFor(holder: unknown, optionId: string): string | null {
+  if (!isPlainObject(holder)) return null
+  const warnings = Array.isArray(holder.inference_warnings) ? holder.inference_warnings : []
+  const matched = warnings.filter((w): w is Record<string, unknown> => {
+    if (!isPlainObject(w) || typeof w.code !== 'string' || !GOAL_FIGURES_WITHHELD_CODES.includes(w.code)) return false
+    const optionIds = nonEmptyStrings(w.option_ids)
+    return optionIds === null || optionIds.includes(optionId)
+  })
+  const ownMessage = matched.flatMap((w) => {
+    if (w.code !== 'GOAL_FIGURES_TARGET_NOT_TESTABLE' || !isPlainObject(w.per_option)
+      || !Object.prototype.hasOwnProperty.call(w.per_option, optionId)) return []
+    const entry = w.per_option[optionId]
+    return isPlainObject(entry) && typeof entry.message === 'string' && entry.message.startsWith('Not shown.')
+      ? [entry.message] : []
+  })[0]
+  // Item-3 applies only among warnings covering this option; another option's target cannot replace its placeholder.
+  const hasTargetRequirement = matched.some((w) => w.code === 'GOAL_FIGURES_TARGET_NOT_TESTABLE')
+  const reasons = hasTargetRequirement ? matched.filter((w) => w.code !== 'GOAL_FIGURES_PLACEHOLDER_PATH') : matched
+  const words = ownMessage !== undefined ? [ownMessage.trim()]
+    : reasons.map((w) => typeof w.message === 'string' ? w.message.trim() : '')
+  if (words.length === 0 || words.some((raw) => !raw || raw.length > 400 || NOT_DISPLAY_SAFE.test(raw))) return null
+  const stripped = words.map((raw) => raw.startsWith('Not shown.') ? raw.slice('Not shown.'.length).trim() : raw)
+  return stripped.every(Boolean) ? [...new Set(stripped)].join(' ') : null
+}
+
 /**
  * ⭐ B3 (52f8cd #85 5931020890; CEE B2 per-claim contract): a goal-figure withhold applies PER OPTION × CLAIM, never
  * per run. Each `GOAL_FIGURES_*` warning may carry `option_ids` (absent = every option) and `withheld_claims` (absent =

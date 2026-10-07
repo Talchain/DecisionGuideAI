@@ -6,6 +6,7 @@ import { useCanvasStore } from '../../../../canvas/store'
 import { useResultsSectionData } from '../../useResultsSectionData'
 import { AnalysisHeroContainer } from '../AnalysisHeroContainer'
 import fixture from './fixtures/s6/b9-df15c8c.s6-cee.turn.json'
+import served from './fixtures/s6/served-666dad1e-unseen1-run1.turn.json'
 
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 vi.mock('../../../../canvas/analysis/canonicalRunRegistry', () => ({ executeCanonicalRun: vi.fn() }))
@@ -19,15 +20,15 @@ const BASELINE = '‘Carry on as now’: not shown yet. It needs nothing more of
 const producerWarning = fixture.blocks[0].enrichment.inference_warnings.find(w => w.code === TNT)!
 
 /** Whole-store applicator call, as in firstAskReachesThePanel.wire.spec.tsx; no adapter or reader mock. */
-function hydrate(perOption: unknown) {
+function hydrate(perOption: unknown, turn: typeof fixture | typeof served = fixture) {
   useCanvasStore.getState().resetCanvas?.()
   useCanvasStore.setState({
-    nodes: fixture.draft_graph.nodes.map(n => ({
+    nodes: turn.draft_graph.nodes.map(n => ({
       id: n.id, type: n.kind, position: { x: 0, y: 0 }, data: { ...n },
     })),
     edges: [],
   } as never)
-  const envelope = structuredClone(fixture)
+  const envelope = structuredClone(turn)
   const warning = envelope.blocks[0].enrichment.inference_warnings.find(w => w.code === TNT)!
   // Controls vary only the raw producer field before the real hydration chain.
   ;(warning as Record<string, unknown>).per_option = perOption
@@ -40,6 +41,20 @@ function hydrate(perOption: unknown) {
 }
 
 describe('S-E S6: raw per-option reason reaches the rendered panel through the real adapter', () => {
+  it('S6b SERVED: option scopes and each row\'s words survive the real adapter', () => {
+    const target = served.blocks[0].enrichment.inference_warnings.find(w => w.code === TNT)!
+    const placeholder = served.blocks[0].enrichment.inference_warnings.find(w => w.code === 'GOAL_FIGURES_PLACEHOLDER_PATH')!
+    const data = hydrate(target.per_option, served)
+    expect(data.confidence.inferenceWarnings!.find(w => w.code === TNT)!.option_ids).toEqual(target.option_ids)
+    expect(data.confidence.inferenceWarnings!.find(w => w.code === placeholder.code)!.option_ids).toEqual(placeholder.option_ids)
+    render(<AnalysisHeroContainer data={data} fragileEdgeCount={0} />)
+    const lines = screen.getAllByTestId('goal-option-withheld-line')
+    expect(lines.find(n => n.getAttribute('data-option-id') === 'open_fourth_clifton_shop')!.textContent)
+      .toBe(`‘Open fourth Clifton shop’: not shown yet. ${placeholder.message}`)
+    expect(lines.find(n => n.getAttribute('data-option-id') === 'launch_loyalty_app')!.textContent)
+      .toBe(`‘Launch loyalty app’: not shown yet. ${target.per_option!.launch_loyalty_app.message.slice('Not shown.'.length).trim()}`)
+  })
+
   it('R6 WIRE: B9 baseline ID and literal words survive report hydration and adaptation', () => {
     expect(producerWarning.message).toContain('Loyalty app deployment')
     const data = hydrate(producerWarning.per_option)

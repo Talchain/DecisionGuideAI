@@ -1256,6 +1256,8 @@ export interface InferenceWarning {
    * and validated by kind where it is read (`unsizedPathAskOf`). Dropping it here emptied the Strengthen panel (RT-19).
    */
   first_ask?: Record<string, unknown>
+  /** B3 option scope, carried verbatim; malformed or absent means every option to the fail-closed reader. */
+  option_ids?: unknown
   /** CEE S-E S6: each option's own reason, read by option id. */
   per_option?: Record<string, { message: string }>
   /** Affected node labels (resolved from canvas) */

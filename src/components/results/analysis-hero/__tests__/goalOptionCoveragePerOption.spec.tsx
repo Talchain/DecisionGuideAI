@@ -9,6 +9,7 @@ import { readGoalChanceLicence } from '../../utils/goalChanceLicence'
 import b9 from './fixtures/s6/b9-df15c8c.s6-cee.turn.json'
 import unseen1 from './fixtures/s6/unseen-1.s6-cee.turn.json'
 import unseen2 from './fixtures/s6/unseen-2.s6-cee.turn.json'
+import served from './fixtures/s6/served-666dad1e-unseen1-run1.turn.json'
 
 const ids = vi.hoisted(() => ({ next: 0 }))
 vi.mock('react', async importOriginal => {
@@ -20,7 +21,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 vi.mock('../../../../canvas/analysis/canonicalRunRegistry', () => ({ executeCanonicalRun: vi.fn() }))
 afterEach(cleanup)
 
-type Turn = typeof b9 | typeof unseen1 | typeof unseen2
+type Turn = typeof b9 | typeof unseen1 | typeof unseen2 | typeof served
 const TNT = 'GOAL_FIGURES_TARGET_NOT_TESTABLE'
 const BASELINE = '‘Carry on as now’: not shown yet. It needs nothing more of its own; it waits until the other options can be tested against your target, so all are shown on the same footing.'
 
@@ -39,6 +40,7 @@ function fromTurn(turn: Turn) {
   // Adapter shape: confidence.inferenceWarnings, with affected_nodes and only the carried message entries.
   data.confidence.inferenceWarnings = enrichment.inference_warnings.map(w => ({
     code: w.code, affected_nodes: [], message: w.message, severity: w.severity,
+    ...('option_ids' in w ? { option_ids: structuredClone(w.option_ids) } : {}),
     ...('per_option' in w ? { per_option: structuredClone(w.per_option) } : {}),
   })) as InferenceWarning[]
   return data
@@ -119,4 +121,48 @@ describe('S-E S6: each withheld option reads its own producer reason', () => {
         text: expectedLine(data, 'carry_on_as_now', warning.message!) })
     },
   )
+})
+
+describe('S6b: served 666dad1e reasons bind only to the withheld option', () => {
+  const clifton = 'open_fourth_clifton_shop'
+  const launch = 'launch_loyalty_app'
+  const placeholder = (data: ReturnType<typeof fromTurn>) =>
+    data.confidence.inferenceWarnings!.find(w => w.code === 'GOAL_FIGURES_PLACEHOLDER_PATH')!
+  const fallback = '‘Open fourth Clifton shop’: not shown yet in this model.'
+
+  it('R1 PRECONDITION: the base Run-wide message names the loyalty app link', () => {
+    expect(fromTurn(served).recommendation.goalFiguresWithheldMessage).toContain('Loyalty app active')
+  })
+
+  it('R1 SERVED: Clifton uses its exact placeholder words; launch keeps its own per-option reason', () => {
+    const data = fromTurn(served)
+    mount(data)
+    expect(row(clifton).text).toBe(`‘Open fourth Clifton shop’: not shown yet. ${placeholder(data).message}`)
+    expect(row(clifton).text).not.toContain('Loyalty app')
+    expect(row(launch).text).toBe(expectedLine(data, launch, targetWarning(data).per_option![launch].message))
+  })
+
+  it('R2 CONTROL: a placeholder excluding Clifton never supplies its words', () => {
+    const data = fromTurn(served)
+    placeholder(data).option_ids = [launch]
+    mount(data)
+    expect(row(clifton).text).toBe(fallback)
+    expect(row(clifton).text).not.toContain(placeholder(data).message!)
+    expect(row(clifton).text).not.toContain('Loyalty app')
+  })
+
+  it('R3 CONTROL: absent option ids cover every row', () => {
+    const data = fromTurn(served)
+    delete placeholder(data).option_ids
+    mount(data)
+    expect(row(clifton).text).toBe(`‘Open fourth Clifton shop’: not shown yet. ${placeholder(data).message}`)
+    expect(row(launch).text).toBe(expectedLine(data, launch, targetWarning(data).per_option![launch].message))
+  })
+
+  it('R4 CONTROL: an unsafe row-bound message uses the fallback', () => {
+    const data = fromTurn(served)
+    placeholder(data).message = 'Not shown. number_of_coffee_shops needs a size.'
+    mount(data)
+    expect(row(clifton).text).toBe(fallback)
+  })
 })

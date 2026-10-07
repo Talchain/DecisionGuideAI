@@ -1,6 +1,6 @@
 import { typography } from '@/styles/typography'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
-import { GOAL_IDENTITY_WITHHELD_FALLBACK, readGoalIdentityWithheld } from '../utils/goalIdentityWithheld'
+import { GOAL_IDENTITY_WITHHELD_FALLBACK, readGoalIdentityWithheld, readGoalWithheldReasonFor } from '../utils/goalIdentityWithheld'
 import { goalChanceHeroSays } from '../utils/goalChanceLicence'
 import { goalChanceHeadline, goalChanceRangeLine } from './goalChanceCopy'
 import type { HeroChartModel, HeroLens } from './heroTypes'
@@ -44,15 +44,12 @@ export function withGoalOptionCoverage(model: HeroChartModel, data: ResultsSecti
     goalOptionCoverage: {
       hasFigures: true,
       withheldLines: model.rows.filter((row) => !figureIds.has(row.id)).map((row) => {
-        const ownMessage = data.confidence?.inferenceWarnings?.find((warning) =>
-          warning.code === 'GOAL_FIGURES_TARGET_NOT_TESTABLE' && warning.per_option
-          && Object.prototype.hasOwnProperty.call(warning.per_option, row.id)
-          && typeof warning.per_option[row.id]?.message === 'string'
-          && warning.per_option[row.id].message.startsWith('Not shown.'))?.per_option?.[row.id].message
+        // Legacy callers carry only the Run-wide message. Once warnings are present, no Run-wide fallback is allowed.
+        const rowReason = readGoalWithheldReasonFor({ inference_warnings: data.confidence?.inferenceWarnings }, row.id)
+          ?? (data.confidence?.inferenceWarnings === undefined ? reason : null)
         return {
           id: row.id,
-          line: ownMessage ? `‘${row.label}’: not shown yet. ${ownMessage.slice('Not shown.'.length).trim()}`
-            : reason ? `‘${row.label}’: not shown yet. ${reason}` : `‘${row.label}’: not shown yet in this model.`,
+          line: rowReason ? `‘${row.label}’: not shown yet. ${rowReason}` : `‘${row.label}’: not shown yet in this model.`,
         }
       }),
     },
