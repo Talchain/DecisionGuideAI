@@ -595,6 +595,11 @@ export function mergeServerGraphOnHydrate(
       strengthStated: e.data?.strengthStated,
       // RT-12: the example-figure label is acquired metadata too: a reload that learns it is not an edit.
       strengthExampleFigure: e.data?.strengthExampleFigure,
+      // D3 cut 6 / S-DEF: CEE's hold and its reason are the server's record of the existence the Run uses. A reload that
+      // learns them (every saved model with a validated definition, the first boot after S-DEF) is not an edit and must
+      // not stale a current analysis (Codex r2 #2602).
+      existenceHeld: e.data?.existenceHeld,
+      existenceHeldByDefinition: e.data?.existenceHeldByDefinition,
     }
     if (!deepEqual(comparableReadback, e.data)) {
       valueChangedEdgeIds.push(e.id)
