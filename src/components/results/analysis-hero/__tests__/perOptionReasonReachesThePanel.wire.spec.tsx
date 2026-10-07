@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, renderHook, screen } from '@testing-library/react'
 import type { OlumiResponse } from '@talchain/schemas/boundary'
-import { applyV5State, type V5ApplicatorStore } from '../../../v5/applyV5State'
-import { useCanvasStore } from '../../../canvas/store'
-import { useResultsSectionData } from '../useResultsSectionData'
-import { AnalysisHeroContainer } from '../analysis-hero/AnalysisHeroContainer'
-import fixture from '../analysis-hero/__tests__/fixtures/s6/b9-df15c8c.s6-cee.turn.json'
+import { applyV5State, type V5ApplicatorStore } from '../../../../v5/applyV5State'
+import { useCanvasStore } from '../../../../canvas/store'
+import { useResultsSectionData } from '../../useResultsSectionData'
+import { AnalysisHeroContainer } from '../AnalysisHeroContainer'
+import fixture from './fixtures/s6/b9-df15c8c.s6-cee.turn.json'
 
-vi.mock('../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
-vi.mock('../../../canvas/analysis/canonicalRunRegistry', () => ({ executeCanonicalRun: vi.fn() }))
+vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
+vi.mock('../../../../canvas/analysis/canonicalRunRegistry', () => ({ executeCanonicalRun: vi.fn() }))
 afterEach(() => {
   cleanup()
   useCanvasStore.getState().resetCanvas?.()
