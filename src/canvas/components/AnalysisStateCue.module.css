@@ -35,3 +35,28 @@
   font-weight: 400;
   color: var(--text-light);
 }
+
+/* P48: a second line (the unattributed count) stacks UNDER the sentence; one child lays out exactly as before. */
+.slot {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+}
+
+/* The sentence as a toggle (keyboard; the pointer is read off the pane). Same type, no surface: a dotted underline
+   says it does something, and turns solid while the changed set is lit. */
+.light {
+  all: unset;
+  text-align: left;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.light:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 2px;
+}
+
+.lit {
+  text-decoration-style: solid;
+}

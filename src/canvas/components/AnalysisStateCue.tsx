@@ -66,8 +66,17 @@
  * for muted contrast to be checked, not avoided) — no surface, no border, no
  * shadow and no icon. It is a statement of state, not a warning and not an
  * attention cue (Paul point 9: info blue is the attention channel).
+ *
+ * ⭐ P48 (audit #27, GAP-11 ruling: ONE graph-level cue, no per-card mark) — THE SENTENCE LIGHTS WHAT CHANGED.
+ * Pointing at the sentence lights the cards and links CEE says changed since the last Run (`changed_since_run`, held
+ * by `canvas/changes/changedSinceRun.ts`); a click keeps them lit, a second click or Esc clears. It stays BENEATH the
+ * graph and `pointer-events: none`: the pointer is read off the `.react-flow` root and acts only when the PANE is what
+ * was hit over the sentence's box, so a card that runs under the line still wins every pointer. Keyboard users reach
+ * the same toggle as a real button (focus works at any z-order). The lighting is a scoped rule on xyflow's own
+ * `rf__node-` / `rf__edge-` ids, painted only while lit, so no card or edge component carries a mark. Changes CEE
+ * cannot place are said once, as a count, while lit. With no answer from CEE the sentence is the plain line it was.
  */
-import { useLayoutEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   OVERLAY_BAND_BOTTOM,
   OVERLAY_BAND_HEIGHT,
@@ -77,6 +86,7 @@ import {
 import { useModelChangedSinceRun } from '../hooks/useModelChangedSinceRun'
 import { useCanvasStore } from '../store'
 import { LAST_RUN_PREFIX } from '../nodes/shared/metricVocabulary'
+import { CHANGED_SINCE_RUN_WORDS, isLinkChangedSinceRun, useChangedSinceRunStore } from '../changes/changedSinceRun'
 import styles from './AnalysisStateCue.module.css'
 
 export const ANALYSIS_STATE_CUE_TESTID = 'analysis-state-cue'
@@ -102,6 +112,39 @@ export const ANALYSIS_STATE_CUE_COPY = `${ANALYSIS_STATE_CUE_HEAD} · ${ANALYSIS
  * the cards keep their own `Last run ·` labels.
  */
 export const ANALYSIS_STATE_CUE_MIN_WIDTH_PX = 200
+
+export const ANALYSIS_STATE_CUE_LIGHT_WORDS = { aria: 'Show what changed since the last run' } as const
+
+/** An attribute-selector string literal: only `\\`, `"` and line breaks can end or corrupt it. */
+const attr = (v: string): string => `"${v.replace(/[\\"]/g, '\\$&').replace(/[\n\r\f]/g, ' ')}"`
+
+/** The rule that lights the changed set — on xyflow's own ids, so no card or edge component carries a mark. */
+export function changedSetLightingCss(nodeIds: readonly string[], edgeIds: readonly string[]): string {
+  const nodes = nodeIds.map((id) => `.react-flow [data-testid=${attr(`rf__node-${id}`)}]`)
+  const edges = edgeIds.map((id) => `.react-flow [data-testid=${attr(`rf__edge-${id}`)}] .react-flow__edge-path`)
+  return [
+    nodes.length ? `${nodes.join(',')}{outline:2px dashed var(--info);outline-offset:3px;border-radius:var(--radius-sm)}` : '',
+    edges.length ? `${edges.join(',')}{stroke:var(--info);stroke-width:3px}` : '',
+  ].join('')
+}
+
+/**
+ * What the sentence can light, for the scenario on screen: `null` when CEE gave no answer (or answered for another
+ * scenario) or named nothing — then the sentence is the plain line it always was.
+ */
+function useChangedSet() {
+  const scenarioId = useCanvasStore((st) => st.currentScenarioId)
+  const edges = useCanvasStore((st) => st.edges)
+  const held = useChangedSinceRunStore()
+  return useMemo(() => {
+    if (scenarioId == null || held.scenarioId !== scenarioId || held.value == null) return null
+    const nodeIds = [...held.value.nodeIds]
+    const edgeIds = edges.filter((e) => isLinkChangedSinceRun(held, scenarioId, e.source, e.target)).map((e) => e.id)
+    const unattributed = held.value.unattributedChanges
+    if (nodeIds.length === 0 && edgeIds.length === 0 && unattributed === 0) return null
+    return { nodeIds, edgeIds, unattributed }
+  }, [scenarioId, edges, held])
+}
 
 /**
  * The live width of the band cell this line mirrors. `undefined` when there is
@@ -136,6 +179,54 @@ export function AnalysisStateCue() {
   // a cue with nothing to say never holds the slot.
   const { granted, target } = useOverlayCell('bottom-left', 'analysis-state-cue', modelChangedSinceRun)
   const cellWidth = useCellWidth(modelChangedSinceRun && granted ? target : null)
+  const changed = useChangedSet()
+  const shown = modelChangedSinceRun && granted && (cellWidth === undefined || cellWidth >= ANALYSIS_STATE_CUE_MIN_WIDTH_PX)
+  const lightable = shown && changed !== null
+  const [pinned, setPinned] = useState(false)
+  const [hovered, setHovered] = useState(false)
+  const [focused, setFocused] = useState(false)
+  const sentenceRef = useRef<HTMLParagraphElement>(null)
+  const lit = lightable && (pinned || hovered || focused)
+
+  // The pointer, read off the `.react-flow` root: only a PANE hit inside the sentence's box counts.
+  useEffect(() => {
+    const sentence = sentenceRef.current
+    const root = sentence?.closest('.react-flow') as HTMLElement | null
+    if (!lightable || !sentence || !root) return
+    const over = (e: MouseEvent): boolean => {
+      const t = e.target as Element | null
+      if (!t?.classList?.contains('react-flow__pane')) return false
+      const r = sentence.getBoundingClientRect()
+      return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom
+    }
+    const onMove = (e: MouseEvent) => {
+      const on = over(e)
+      setHovered(on)
+      if (on) root.setAttribute('data-analysis-cue-hover', '')
+      else root.removeAttribute('data-analysis-cue-hover')
+    }
+    const onClick = (e: MouseEvent) => { if (over(e)) setPinned((p) => !p) }
+    const onLeave = () => { setHovered(false); root.removeAttribute('data-analysis-cue-hover') }
+    root.addEventListener('pointermove', onMove)
+    root.addEventListener('click', onClick)
+    root.addEventListener('pointerleave', onLeave)
+    return () => {
+      root.removeEventListener('pointermove', onMove)
+      root.removeEventListener('click', onClick)
+      root.removeEventListener('pointerleave', onLeave)
+      root.removeAttribute('data-analysis-cue-hover')
+    }
+  }, [lightable])
+
+  useEffect(() => {
+    if (!pinned) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPinned(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [pinned])
+
+  // A pin never outlives what it lit: the sentence leaving (a Run, the slot taken) clears it.
+  useEffect(() => { if (!lightable) { setPinned(false); setHovered(false) } }, [lightable])
 
   if (!modelChangedSinceRun || !granted) return null
   if (cellWidth !== undefined && cellWidth < ANALYSIS_STATE_CUE_MIN_WIDTH_PX) return null
@@ -153,9 +244,37 @@ export function AnalysisStateCue() {
         ...(cellWidth !== undefined ? { width: cellWidth } : {}),
       }}
     >
-      <p data-testid={ANALYSIS_STATE_CUE_TESTID} role="status" aria-live="polite" className={styles.cue}>
-        {ANALYSIS_STATE_CUE_COPY}
+      <p ref={sentenceRef} data-testid={ANALYSIS_STATE_CUE_TESTID} role="status" aria-live="polite" className={styles.cue}>
+        {lightable ? (
+          <button
+            type="button"
+            data-testid={`${ANALYSIS_STATE_CUE_TESTID}-light`}
+            aria-label={ANALYSIS_STATE_CUE_LIGHT_WORDS.aria}
+            aria-pressed={pinned}
+            className={`${styles.light} ${lit ? styles.lit : ''}`}
+            onClick={() => setPinned((p) => !p)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+          >
+            {ANALYSIS_STATE_CUE_COPY}
+          </button>
+        ) : (
+          ANALYSIS_STATE_CUE_COPY
+        )}
       </p>
+      {lit && changed && changed.unattributed > 0 ? (
+        <p data-testid={`${ANALYSIS_STATE_CUE_TESTID}-unattributed`} className={styles.cue}>
+          {CHANGED_SINCE_RUN_WORDS.unattributed(changed.unattributed)}
+        </p>
+      ) : null}
+      {lit && changed ? (
+        <style data-testid={`${ANALYSIS_STATE_CUE_TESTID}-lighting`}>
+          {changedSetLightingCss(changed.nodeIds, changed.edgeIds)}
+        </style>
+      ) : null}
+      {lightable ? (
+        <style>{'.react-flow[data-analysis-cue-hover] .react-flow__pane{cursor:pointer}'}</style>
+      ) : null}
     </div>
   )
 }
