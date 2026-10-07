@@ -88,7 +88,7 @@ function Legend({ series, onSeries }: { series: Series; onSeries: (s: Series) =>
   const item = (which: 'earlier' | 'latest', name: string, dot: string) => (
     <button
       type="button"
-      className={`${typography.panelMeta} ${action('inline')} inline-flex items-center gap-1 ${series === which ? 'text-text-header' : 'text-text-light'}`}
+      className={`${typography.panelMeta} ${action('inline')} no-underline hover:underline inline-flex items-center gap-1 ${series === which ? 'text-text-header' : 'text-text-light'}`}
       aria-pressed={series === which}
       title={`Emphasise the ${which} positions; both stay shown`}
       onClick={() => onSeries(series === which ? null : which)}

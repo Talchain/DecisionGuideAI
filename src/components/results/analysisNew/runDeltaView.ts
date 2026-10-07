@@ -68,6 +68,7 @@
 
 import type { RunDelta, RunDeltaGoalChanceSide, RunDeltaInputChange } from '@talchain/schemas/boundary'
 import { formatRawValueWithUnit } from '../../../canvas/utils/labelUtils'
+import { compactCarriedReading, formatMoneyFigure } from '../../../utils/unitClassifier'
 import { scienceBand } from '../../../components/science/ScienceQuantity'
 
 export type NoiseVerdict = 'signal' | 'within_noise' | 'not_noise_qualified'
@@ -382,7 +383,13 @@ function formatInputValue(
   if (field === 'effect' && typeof v.raw === 'number' && v.per !== undefined) {
     return `${formatRawValueWithUnit(v.raw, v.unit ?? null)} per ${formatRawValueWithUnit(v.per.amount, v.per.unit)}`
   }
-  if (typeof v.raw === 'number') return formatRawValueWithUnit(v.raw, v.unit ?? null)
+  if (typeof v.raw === 'number') {
+    // The canvas card's own reading of the carried unit (Compare v3 served witness, 7 Oct: a row read "39 £ per paying
+    // customer per month"): money through the one money rule, a compound unit through the one compact owner. A unit
+    // neither recognises prints exactly as before. Same figure, same unit; only the notation.
+    const plain = formatRawValueWithUnit(v.raw, v.unit ?? null)
+    return formatMoneyFigure(v.raw, v.unit ?? null) ?? compactCarriedReading(plain, v.unit ?? null) ?? plain
+  }
   if (typeof v.raw === 'boolean') return v.raw ? 'on' : 'off'
   return v.unit ? `${v.raw} ${v.unit}` : v.raw
 }
