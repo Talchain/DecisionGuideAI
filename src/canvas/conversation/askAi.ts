@@ -81,7 +81,7 @@ export function buildAskAiQuestion(req: AskAiRequest) {
     ? `\n${node.type === 'risk' ? 'Risk' : 'Outcome'} context: ${authored}` : undefined
   const upstream = nodes.find(n => n.id === edges.find(e => e.target === nodeIds[0] && nodes.some(n => n.id === e.source && n.type === 'factor'))?.source)
   const context: QuestionContext = {
-    stage, label: labelOf(node), kind: node?.type, authoredContext,
+    stage, otherLabel: labelOf(nodes.find(n => n.id === nodeIds[1])), label: labelOf(node), kind: node?.type, authoredContext,
     validateQuestion: labelOf(upstream) ? `How can I validate my assumption about ${labelOf(upstream)} and its effect on ${labelOf(node) || 'this outcome'}?${authoredContext ?? ''}` : undefined,
     optionLabels: req.includeOptions ? nodes.filter(n => n.type === 'option').map(labelOf).filter((label): label is string => !!label) : undefined,
     sourceLabel: labelOf(nodes.find(n => n.id === edge?.source)),

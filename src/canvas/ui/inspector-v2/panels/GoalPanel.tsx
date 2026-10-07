@@ -1,3 +1,4 @@
+import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 /**
  * GoalPanel — Inspector panel for goal nodes (spec §4)
  * v6.2 three-group layout: Context → Your input → Impact → What drives this
@@ -726,6 +727,7 @@ export const GoalPanel = memo(function GoalPanel({
                 onSendSettled={(settlement, detail) => setTargetSettlement({ settlement, detail })}
                 testId="goal-panel-target"
               />
+              <InlineRerunPrompt visible={false} elementId={nodeId} />
               {targetSettlement !== null ? (
                 <p
                   className={`${typography.panelMeta} text-text-light mt-1`}

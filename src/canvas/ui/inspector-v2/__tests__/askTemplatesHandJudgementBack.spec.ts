@@ -7,13 +7,15 @@ const RANKING_LEXICON = /\bthe most\b|\bmost important\b|\branks?\b|\branking\b|
 const ORACLE_REQUEST_ANYWHERE = /\b(?:tell|show|give)\s+me\b/i
 // The Q-table hands judgement back through open assumptions, evidence, alternatives,
 // limits and hypothetical changes as well as first-person agency. No verdict qualifies.
-const HAND_JUDGEMENT_BACK = /\b(?:mine|my|me|I)\b|assum|depend|evidence|what would|what could|what happens|what explains|what is missing|what is still open|what else|what other|what most|what should|what does|what can|what early|what factors|what risks|still need|missing before|how sure|how likely|how much|how might|is .* (?:right|real|current|starting)|which reasoning biases|which matter|how do the options|where else|how do decisions|outcome we actually want|could change/i
+const HAND_JUDGEMENT_BACK = /\b(?:mine|my|me|I)\b|assum|depend|evidence|what would|what could|what happens|what explains|what is missing|what is still open|what else|what other|what most|what should|what does|what can|what early|what factors|what risks|still need|missing before|how sure|how likely|how much|how might|is .* (?:right|real|current|starting)|which reasoning biases|which matter|how do the options|where else|how do decisions|outcome we actually want|could change|^Should .+ be today’s value, or something the options change\?$/i
 const STAGES = ['drafted', 'ran-current', 'stale', 'withheld'] as const
 const KINDS = ['decision', 'option', 'factor', 'goal', 'risk', 'outcome', 'constraint', 'action', undefined]
 // Every optional context branch is crossed with every stage, kind and intent.
 const CONTEXTS: Array<Partial<QuestionContext>> = [
   {}, // all fallbacks
   { label: 'Capacity' },
+  { otherLabel: 'Partner' }, // incomplete option pair
+  { label: 'Pilot', otherLabel: 'Partner' },
   { sourceLabel: 'Capacity' }, // incomplete link: source only
   { targetLabel: 'Delivery' }, // incomplete link: target only
   { sourceLabel: 'Capacity', targetLabel: 'Delivery' },
@@ -52,6 +54,12 @@ describe('the instruments have positive and negative controls', () => {
   it('sees real hand-backs and evidence questions, but not a closed assertion', () => {
     for (const text of ['Say which assumptions are mine to judge.', 'what has it left to me to weigh?', 'where would my knowledge change the picture?', 'If I moved this, what changes?', 'What evidence would challenge it?']) expect(HAND_JUDGEMENT_BACK.test(text)).toBe(true)
     for (const text of ['This option wins.', 'The model has decided.', 'We agree.', 'Our answer is final.']) expect(HAND_JUDGEMENT_BACK.test(text)).toBe(false)
+  })
+  it('recognises a bounded value question, without accepting a closed directive', () => {
+    expect(HAND_JUDGEMENT_BACK.test('Should ‘Capacity’ be today’s value, or something the options change?')).toBe(true)
+    for (const text of ['Should ‘Capacity’ be today’s value?', 'Should Olumi choose the option?', 'Should ‘Capacity’ be today’s value, or something the options change.']) {
+      expect(HAND_JUDGEMENT_BACK.test(text), text).toBe(false)
+    }
   })
   it('keeps former oracle questions as negative hand-back controls', () => {
     for (const text of ['What drives this the most?', 'How can we reduce this?', 'How sensitive are the results to this?']) {

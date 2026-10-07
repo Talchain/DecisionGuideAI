@@ -1,3 +1,4 @@
+import { clearPendingEditNotes } from '../editNotes/reportManualEditReceipt'
 /**
  * Canonical analysis-run registry.
  *
@@ -91,6 +92,7 @@ export type CanonicalRunResult = CanonicalRunOutcome | { status: 'unavailable'; 
 export async function executeCanonicalRun(
   opts?: CanonicalRunOptions,
 ): Promise<CanonicalRunResult> {
+  clearPendingEditNotes()
   const runner = currentRunner
   if (!runner) {
     return { status: 'unavailable', reason: RUNNER_UNAVAILABLE_MESSAGE }
