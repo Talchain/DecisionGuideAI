@@ -76,6 +76,7 @@ import { gateBlockedSubline } from '../pre-analysis-v3/footer/readinessDisplay'
 import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useCanvasStore } from '../../store'
+import { GUEST_COPY_RUN_AGAIN, selectGuestCopyRunAgain, useGuestCopyOriginStore } from '../../stores/guestCopyOriginStore'
 
 /**
  * ⚠⚠ TWO GUARDS, TWO DIFFERENT CLASSES — AND NEITHER COVERS THE OTHER'S.
@@ -152,6 +153,9 @@ export function ReanalyseBar({
   // has not threaded the real store value reads as "a run happened" rather
   // than silently reinstating a never-run bar everywhere.
   const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun) ?? true
+  // S-G slice 2: a decision copied from a guest at sign-in whose copied replies may quote an analysis it does not have.
+  const guestCopyScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  const guestCopyRunAgain = useGuestCopyOriginStore((s) => selectGuestCopyRunAgain(s, guestCopyScenarioId))
 
   // AFFORDANCE ≠ ASSERTION (interim 2.467). This bar is BOTH the "Model
   // changed" claim and the Model tab's ONLY re-analyse control — and conflating
@@ -259,7 +263,7 @@ export function ReanalyseBar({
           (`groupHeadingCountsAreTwoNumbers.spec.tsx`'s own header). */}
       <span className={`${typography.panelBody} text-[color:var(--warning-ink)] flex-1 min-w-0`}>
         {neverRun
-          ? 'This model has not been analysed yet.'
+          ? guestCopyRunAgain ? GUEST_COPY_RUN_AGAIN : 'This model has not been analysed yet.'
           : heldUnsure
             ? "Can't confirm this analysis matches the current model."
             : 'Model changed. Results may be out of date.'}

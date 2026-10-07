@@ -15,9 +15,11 @@ import { TRANSCRIPT_STORAGE_KEY, __resetTranscriptTombstonesForTests } from '../
 import { useServerConversationTurnsStore } from '../../stores/serverConversationTurnsStore'
 import {
   readServerConversationTurns,
+  RESTORED_GUEST_COPY_DIVIDER,
   RESTORED_HISTORY_DIVIDER,
   RESTORED_STALE_FIGURES_NOTE,
 } from '../serverConversationTurns'
+import { useGuestCopyOriginStore } from '../../stores/guestCopyOriginStore'
 
 // This spec never sends a turn — it drives mount-restore and `resetCanvas` only.
 // The mocks below exist solely to stop the hook reaching a network path at mount;
@@ -191,6 +193,23 @@ describe('the chat survives a reload in a browser that never saw it', () => {
     ])
     expect(m.every((x) => x.actionChips === undefined && x.blocks === undefined)).toBe(true)
     expect(useServerConversationTurnsStore.getState().offer).toBeNull()
+  })
+
+  it('S-G slice 2: the open decision is a guest copy (owner load recorded it; the offer carries no copy time) → the copied turns sit under "From before you signed in" and the figure reply is marked earlier', async () => {
+    useGuestCopyOriginStore.getState().recordScenarioRow({ id: SCENARIO, source_scenario_id: OTHER, created_at: '2026-10-07T08:40:58Z' })
+    try {
+      const { result } = renderHook(() => useConversation())
+      await act(async () => {
+        useServerConversationTurnsStore.getState().offerServerConversationTurns({ scenarioId: SCENARIO, turns: TURNS, run: { runNotCurrent: false, currentRunComputedAt: null } })
+        await Promise.resolve()
+      })
+      const m = result.current.messages
+      expect(m[0].sessionDivider).toBe(RESTORED_GUEST_COPY_DIVIDER)
+      expect(m.find((x) => x.id === 'restored-assistant-t2')?.restoredTag).toBe('Earlier analysis')
+      expect(m.every((x) => x.actionChips === undefined && x.blocks === undefined)).toBe(true)
+    } finally {
+      useGuestCopyOriginStore.getState().reset()
+    }
   })
 
   it('the read says the Run is not current → the figure reply carries AIQ’s stale line', async () => {

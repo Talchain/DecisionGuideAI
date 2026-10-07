@@ -71,6 +71,7 @@ import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
 import { buildNodeInsights, mentionSectionsFrom } from './nodeInsights'
 import { buildModelStrip, stripRendersTargetAffordance } from './buildModelStrip'
 import { useCanvasStore } from '../../../canvas/store'
+import { GUEST_COPY_RUN_AGAIN, selectGuestCopyRunAgain, useGuestCopyOriginStore } from '../../../canvas/stores/guestCopyOriginStore'
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import { selectRunAffirmedCurrent } from '../../../canvas/state/analysisStateSelector'
 import { selectWinSharesWithheld } from '../../../canvas/state/winShareGate'
@@ -694,6 +695,8 @@ export function AnalysisNewTabBody({
   const runAffirmedCurrent = useCanvasStore(selectRunAffirmedCurrent)
   const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
   const matrixFinishedAt = useCanvasStore((s) => s.results?.finishedAt)
+  const guestCopyScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  const guestCopyRunAgain = useGuestCopyOriginStore((s) => selectGuestCopyRunAgain(s, guestCopyScenarioId))
   const matrixRunId = useCanvasStore((s) => s.results?.runId)
   const matrixFreshness = useCanvasStore((s) => s.analysisFreshness)
   const sendScienceChip = useGuidanceStore((s) => s._sendChip)
@@ -1497,6 +1500,9 @@ export function AnalysisNewTabBody({
   )
 
   /** ⭐ V2 "Draft": the pre-run status block, mounted inside `PreRunCommitment`. */
+  // S-G slice 2: a decision copied from a guest at sign-in whose copied replies may quote the guest's analysis, which
+  // was not copied (`guestCopyOriginStore`). Identity, not a number: the producer is the copy's own row.
+  const preRunCopy = guestCopyRunAgain ? GUEST_COPY_RUN_AGAIN : COPY.status.preRun
   const preRunStatus = vm.status.isPreRun ? (
       <div className="space-y-1" data-testid="analysis-new-status-pre-run">
         {!isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'did_not_run' ? (
@@ -1530,7 +1536,7 @@ export function AnalysisNewTabBody({
                   ? FOOTER_COPY.savedRunUnconfirmedSub
                   : runOnRecordWithoutResult === 'stale'
                     ? COPY.status.savedRunStale
-                    : COPY.status.preRun}
+                    : preRunCopy}
           </p>
         )}
         {/* ⭐⭐⭐ WHY, AND IT IS THE HALF THAT MAKES THE SENTENCE USABLE.

@@ -1,0 +1,84 @@
+-- ============================================================
+-- copy_guest_scenario v2 (carries the conversation) — rollback companion
+-- Matches: 20261007120145_copy_guest_scenario_v2_carries_the_conversation_20261007.sql
+-- Status: DO NOT APPLY automatically (the `.do-not-apply` suffix keeps migration tooling off it).
+-- ============================================================
+--
+-- Restores v1 exactly as 20261001222932_copy_guest_scenario_20261001.sql defined it (graph + title only), with its
+-- grants. Same signature, so CREATE OR REPLACE swaps the body in place.
+--
+-- Copies already made are NOT rewritten in either direction: a copy made under v2 keeps its brief, name and
+-- conversation rows. To remove the copied conversation of one copy as well (DL decision; it deletes user-visible
+-- history): DELETE FROM public.v5_conversation_turns WHERE scenario_id = '<copy id>' AND created_at < (SELECT created_at
+-- FROM public.scenarios WHERE id = '<copy id>');
+--
+-- ⚠ GRANTS: if the forward pre-check found a `proacl` other than {postgres, service_role}, restore THAT one instead.
+
+CREATE OR REPLACE FUNCTION public.copy_guest_scenario(p_source_scenario_id uuid, p_user_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_existing   uuid;
+  v_owner      uuid;
+  v_title      text;
+  v_graph      jsonb;
+  v_new        uuid;
+BEGIN
+  IF p_source_scenario_id IS NULL THEN
+    RAISE EXCEPTION 'copy_guest_scenario: p_source_scenario_id is required' USING ERRCODE = '22023';
+  END IF;
+  IF p_user_id IS NULL THEN
+    RAISE EXCEPTION 'copy_guest_scenario: p_user_id is required' USING ERRCODE = '22023';
+  END IF;
+  -- scenarios.user_id has no FK to auth.users (guest relaxation), so this is the
+  -- only thing stopping a copy owned by an id that can never sign in.
+  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = p_user_id) THEN
+    RAISE EXCEPTION 'copy_guest_scenario: p_user_id is not a known auth user' USING ERRCODE = '22023';
+  END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('copy_guest_scenario:' || p_source_scenario_id::text || ':' || p_user_id::text, 0)
+  );
+
+  SELECT s.id INTO v_existing
+    FROM public.scenarios s
+    WHERE s.source_scenario_id = p_source_scenario_id AND s.user_id = p_user_id
+    ORDER BY s.created_at, s.id
+    LIMIT 1;
+  IF FOUND THEN
+    RETURN pg_catalog.jsonb_build_object('scenario_id', v_existing, 'created', false);
+  END IF;
+
+  -- FOR SHARE: the graph copied is one committed state of the source, never a
+  -- write in flight.
+  SELECT s.user_id, s.title, s.graph
+    INTO v_owner, v_title, v_graph
+    FROM public.scenarios s
+    WHERE s.id = p_source_scenario_id
+    FOR SHARE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'copy_guest_scenario: source not found' USING ERRCODE = 'CG404';
+  END IF;
+  IF v_owner IS NOT NULL THEN
+    RAISE EXCEPTION 'copy_guest_scenario: source is not a guest scenario' USING ERRCODE = 'CG409';
+  END IF;
+  IF v_graph IS NULL OR pg_catalog.jsonb_typeof(v_graph) <> 'object' THEN
+    RAISE EXCEPTION 'copy_guest_scenario: source has no model to copy' USING ERRCODE = 'CG422';
+  END IF;
+  IF pg_catalog.octet_length(v_graph::text) > 1048576 THEN
+    RAISE EXCEPTION 'copy_guest_scenario: source model is too large to copy' USING ERRCODE = 'CG413';
+  END IF;
+
+  INSERT INTO public.scenarios (user_id, title, graph, source_scenario_id)
+  VALUES (p_user_id, v_title, v_graph, p_source_scenario_id)
+  RETURNING id INTO v_new;
+
+  RETURN pg_catalog.jsonb_build_object('scenario_id', v_new, 'created', true);
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.copy_guest_scenario(uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.copy_guest_scenario(uuid, uuid) TO service_role;

@@ -23,6 +23,8 @@ import { recordBootReadAdmission } from './bootReadAdmission'
 import { useCanvasStore } from '../store'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { useServerConversationTurnsStore } from '../stores/serverConversationTurnsStore'
+import { readGuestCopiedAt, useGuestCopyOriginStore } from '../stores/guestCopyOriginStore'
+import { copiedTurnsQuoteFigures } from '../conversation/serverConversationTurns'
 import { readServerConversationTurns } from '../conversation/serverConversationTurns'
 import { useReloadDifferenceStore } from '../stores/reloadDifferenceStore'
 import { declinedSavedRunKindOf, useDeclinedSavedRunStore } from '../stores/declinedSavedRunStore'
@@ -334,6 +336,12 @@ async function readAndMergeServerGraph(
   if (opts.includeConversationTurns === true || serverTurns !== null) {
     const runState = result.analysisState?.run_state
     const computedAt = runState != null && 'computed_at' in runState ? runState.computed_at : null
+    // S-G slice 2: a decision copied from a guest at sign-in. Its turns from before the copy may quote the guest's
+    // analysis, which was not copied; the Analysis and Model surfaces then say "Run again to see results here".
+    const copiedBefore = readGuestCopiedAt(scenarioId)
+    if (copiedBefore !== null && copiedTurnsQuoteFigures(serverTurns ?? [], copiedBefore)) {
+      useGuestCopyOriginStore.getState().noteEarlierAnalysisCopied(scenarioId)
+    }
     useServerConversationTurnsStore.getState().offerServerConversationTurns({
       scenarioId,
       turns: result.scenarioId === scenarioId ? serverTurns ?? [] : (serverTurns ?? []).map(({ suggestedActions: _foreign, ...turn }) => turn),
@@ -342,6 +350,8 @@ async function readAndMergeServerGraph(
       run: {
         runNotCurrent: heldRunIsNotCurrentPerRead(result.analysisState, result.analysisResult),
         currentRunComputedAt: typeof computedAt === 'string' ? computedAt : null,
+        // Present only for a guest copy: every other offer keeps its exact shape.
+        ...(copiedBefore !== null ? { copiedBefore } : {}),
       },
     })
   }

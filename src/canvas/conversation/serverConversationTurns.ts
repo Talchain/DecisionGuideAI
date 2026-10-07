@@ -12,6 +12,10 @@
  *     not current, every restored figure-bearing reply carries the line; otherwise only replies written before the
  *     current Run was computed.
  *   · A refused or absent field restores nothing (the local transcript, when present, is the caller's first choice).
+ *   · S-G slice 2 (DL ruling (a), 7 Oct): a decision COPIED from a guest at sign-in carries the guest's turns but never
+ *     the guest's Run. Turns from before the copy sit under their own divider, "From before you signed in"; every
+ *     figure-bearing one is tagged as an earlier analysis and the last says to Run again; none arms a next-step chip.
+ *     Nothing copied can read as a result for this decision (`RestoreRunContext.copiedBefore`).
  */
 import { ActionSchema } from '@talchain/schemas/boundary'
 import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
@@ -26,13 +30,24 @@ export const RESTORED_HISTORY_DIVIDER = 'Earlier in this conversation'
 // rewritten to "Session resumed" on the next page load, and the saved transcript keeps `content` + `restoredTag`.
 export const RESTORED_STALE_FIGURES_NOTE = 'The replies above came before the current analysis, so their figures may not match it.'
 export const RESTORED_EARLIER_TAG = 'Earlier analysis'
+/** A reply that may state a figure: it contains any digit (deliberately broad — an extra note on a figure-free digit is an under-claim, never a false one). */
+const FIGURE = /\d/
+/** S-G slice 2: the divider over turns copied from the guest decision at sign-in. */
+export const RESTORED_GUEST_COPY_DIVIDER = 'From before you signed in'
+/**
+ * Closes the last copied reply when any copied reply has a figure. "May": a figure can be the user's own (a budget, a
+ * headcount) rather than a result, and the read does not say which (the same broad test as the stale tag above).
+ */
+export const RESTORED_GUEST_COPY_NOTE = 'Figures in the replies above may come from an analysis made before you signed in, which was not copied. Run again to see results here.'
 /**
  * CEE's cap (CEE #2352 `CONVERSATION_TURNS_CAP`, 50 TURNS = up to 100 messages). A read AT the cap may have left older
  * turns out (AIQ 5907906662: say so). The words hold whether or not anything was — at exactly 50 CEE cannot tell us which.
  * ⚠ CEE filters empty rows AFTER its limit, so a capped read can return < 50 (AIQ repair-train ask: a `truncated` flag).
  */
 export const CONVERSATION_TURNS_CAP = 50
-export const RESTORED_AT_CAP_DIVIDER = `${RESTORED_HISTORY_DIVIDER} · only the latest ${CONVERSATION_TURNS_CAP} exchanges are shown; any earlier ones are not`
+const AT_CAP_SUFFIX = ` · only the latest ${CONVERSATION_TURNS_CAP} exchanges are shown; any earlier ones are not`
+export const RESTORED_AT_CAP_DIVIDER = `${RESTORED_HISTORY_DIVIDER}${AT_CAP_SUFFIX}`
+export const RESTORED_GUEST_COPY_AT_CAP_DIVIDER = `${RESTORED_GUEST_COPY_DIVIDER}${AT_CAP_SUFFIX}`
 
 export interface ServerConversationTurn {
   readonly turnId: string
@@ -63,14 +78,35 @@ export function readServerConversationTurns(raw: unknown): readonly ServerConver
   return out.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
 }
 
-/** A reply that may state a figure: it contains any digit (deliberately broad — an extra note on a figure-free digit is an under-claim, never a false one). */
-const FIGURE = /\d/
 
 export interface RestoreRunContext {
   /** The read says the held Run is not current (the `heldRunIsNotCurrentPerRead` family). */
   readonly runNotCurrent: boolean
   /** The current Run's `run_state.computed_at`, when the read has one. */
   readonly currentRunComputedAt: string | null
+  /**
+   * S-G: the copy's `created_at` when this decision was copied from a guest at sign-in (`guestCopyOriginStore`), else
+   * absent/null. Every turn before it came from the guest decision, whose Run was not copied.
+   */
+  readonly copiedBefore?: string | null
+}
+
+/** The turns copied from the guest decision (before `copiedBefore`), and the decision's own. */
+export function splitCopiedTurns(
+  turns: readonly ServerConversationTurn[],
+  copiedBefore: string | null | undefined,
+): { copied: ServerConversationTurn[]; own: ServerConversationTurn[] } {
+  const at = typeof copiedBefore === 'string' ? Date.parse(copiedBefore) : Number.NaN
+  if (!Number.isFinite(at)) return { copied: [], own: [...turns] }
+  return {
+    copied: turns.filter(t => Date.parse(t.createdAt) < at),
+    own: turns.filter(t => Date.parse(t.createdAt) >= at),
+  }
+}
+
+/** Any copied reply quotes a figure: the guest had an analysis this copy does not (`selectGuestCopyRunAgain`). */
+export function copiedTurnsQuoteFigures(turns: readonly ServerConversationTurn[], copiedBefore: string | null | undefined): boolean {
+  return splitCopiedTurns(turns, copiedBefore).copied.some(t => t.assistantMessage !== null && FIGURE.test(t.assistantMessage))
 }
 
 /** Build the restored thread: one divider, the turns as plain text (oldest first), and AIQ's stale line where due. */
@@ -80,18 +116,55 @@ export function buildRestoredThread(
   heldProposalOffers?: unknown,
 ): ConversationMessage[] {
   if (turns.length === 0) return []
+  const atCap = turns.length >= CONVERSATION_TURNS_CAP
+  const { copied, own } = splitCopiedTurns(turns, run.copiedBefore)
+  const out: ConversationMessage[] = []
+  if (copied.length > 0) {
+    out.push({
+      id: 'restored-guest-copy-divider',
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(copied[0].createdAt),
+      synthetic: true,
+      sessionDivider: atCap ? RESTORED_GUEST_COPY_AT_CAP_DIVIDER : RESTORED_GUEST_COPY_DIVIDER,
+    })
+    // The guest's Run did not travel with the copy, so EVERY figure here describes an analysis this decision lacks.
+    let anyFigure = false
+    let lastCopiedReply = -1
+    for (const t of copied) {
+      const at = new Date(t.createdAt)
+      if (t.userMessage !== null) out.push({ id: `restored-user-${t.turnId}`, role: 'user', content: t.userMessage, timestamp: at })
+      if (t.assistantMessage !== null) {
+        const figure = FIGURE.test(t.assistantMessage)
+        anyFigure ||= figure
+        out.push({
+          id: `restored-assistant-${t.turnId}`,
+          role: 'assistant',
+          content: t.assistantMessage,
+          timestamp: at,
+          ...(figure ? { restoredTag: RESTORED_EARLIER_TAG } : {}),
+        })
+        lastCopiedReply = out.length - 1
+      }
+    }
+    if (anyFigure && lastCopiedReply >= 0) {
+      const last = out[lastCopiedReply]
+      out[lastCopiedReply] = { ...last, content: `${last.content}\n\n${RESTORED_GUEST_COPY_NOTE}` }
+    }
+  }
+  if (own.length === 0) return reconcileRestoredHeldControls(out, heldProposalOffers, true)
   const runAt = run.currentRunComputedAt !== null ? Date.parse(run.currentRunComputedAt) : Number.NaN
-  const out: ConversationMessage[] = [{
+  out.push({
     id: 'restored-divider',
     role: 'assistant',
     content: '',
-    timestamp: new Date(turns[0].createdAt),
+    timestamp: new Date(own[0].createdAt),
     synthetic: true,
-    sessionDivider: turns.length >= CONVERSATION_TURNS_CAP ? RESTORED_AT_CAP_DIVIDER : RESTORED_HISTORY_DIVIDER,
-  }]
+    sessionDivider: atCap && copied.length === 0 ? RESTORED_AT_CAP_DIVIDER : RESTORED_HISTORY_DIVIDER,
+  })
   let anyStale = false
   let lastEarlierReply = -1
-  for (const t of turns) {
+  for (const t of own) {
     const at = new Date(t.createdAt)
     if (t.userMessage !== null) out.push({ id: `restored-user-${t.turnId}`, role: 'user', content: t.userMessage, timestamp: at })
     if (t.assistantMessage !== null) {
@@ -112,7 +185,8 @@ export function buildRestoredThread(
     const last = out[lastEarlierReply]
     out[lastEarlierReply] = { ...last, content: `${last.content}\n\n${RESTORED_STALE_FIGURES_NOTE}` }
   }
-  return reconcileRestoredSuggestedActions(reconcileRestoredHeldControls(out, heldProposalOffers, true), turns)
+  // Only the decision's OWN last turn can arm its next steps: a copied turn's were offered to the guest session.
+  return reconcileRestoredSuggestedActions(reconcileRestoredHeldControls(out, heldProposalOffers, true), own)
 }
 
 

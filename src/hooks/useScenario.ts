@@ -15,6 +15,7 @@
  * canvas Zustand store via selectors and `setState()`.
  */
 
+import { useGuestCopyOriginStore } from '../canvas/stores/guestCopyOriginStore'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
@@ -951,6 +952,9 @@ export function useScenario(): UseScenarioReturn {
         edges: graphEdges,
         goalConstraints: loadedGoalConstraints,
       })
+      // S-G slice 2: which turns of this decision were copied from a guest at sign-in (`guestCopyOriginStore`). Recorded
+      // BEFORE the hydration below installs the id, so the cold read's chat offer already knows.
+      useGuestCopyOriginStore.getState().recordScenarioRow(row)
       lastSavedFramingRef.current = JSON.stringify(row.framing ?? null)
       // Seed from the COLUMN, not from framing.title. If they already disagree
       // (every scenario renamed before this fix), the next framing save

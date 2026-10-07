@@ -129,7 +129,8 @@ import {
   settledSourceBlockKeys as settledSourceBlockKeysOf,
 } from './utils/transcriptStore'
 import { useServerConversationTurnsStore } from '../stores/serverConversationTurnsStore'
-import { buildRestoredThread, reconcileRestoredHeldControls, reconcileRestoredSuggestedActions, reconcileUnconfirmedServerTurns } from './serverConversationTurns'
+import { buildRestoredThread, reconcileRestoredHeldControls, reconcileRestoredSuggestedActions, reconcileUnconfirmedServerTurns, splitCopiedTurns } from './serverConversationTurns'
+import { readGuestCopiedAt } from '../stores/guestCopyOriginStore'
 import { heldProposalMountKey, heldProposalRetirementKeys } from './selectors'
 import { appendThreadEntries } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
@@ -2961,11 +2962,14 @@ export function useConversation(): UseConversationReturn {
     // Restoration must finish even when the outgoing scenario has no messages.
     if (messagesOwnerRef.current !== scenarioId) return
     useServerConversationTurnsStore.getState().takeServerConversationTurns(scenarioId)
+    // S-G slice 2: a decision copied from a guest at sign-in — its copied turns sit under their own divider and never
+    // arm a next step (`serverConversationTurns.splitCopiedTurns`). The owner load records the copy time.
+    const run = { ...serverTurnsOffer.run, copiedBefore: serverTurnsOffer.run.copiedBefore ?? readGuestCopiedAt(scenarioId) }
     if (messagesRef.current.length > 0) {
       const reconciled = reconcileUnconfirmedServerTurns(
-        messagesRef.current, scenarioId, serverTurnsOffer.turns, serverTurnsOffer.run,
+        messagesRef.current, scenarioId, serverTurnsOffer.turns, run,
       )
-      const next = reconcileRestoredSuggestedActions(reconcileRestoredHeldControls(reconciled, serverTurnsOffer.heldProposalOffers), serverTurnsOffer.turns)
+      const next = reconcileRestoredSuggestedActions(reconcileRestoredHeldControls(reconciled, serverTurnsOffer.heldProposalOffers), splitCopiedTurns(serverTurnsOffer.turns, run.copiedBefore).own)
       if (messagesRef.current.some(m => m.id === lastVisibleUserBubbleIdRef.current && m.deliveryState === 'unconfirmed')
         && next.some(m => m.id === lastVisibleUserBubbleIdRef.current && m.deliveryState === 'sent')) {
         setLastSendFailure(null)
@@ -2979,7 +2983,7 @@ export function useConversation(): UseConversationReturn {
     } catch {
       return
     }
-    const next = buildRestoredThread(serverTurnsOffer.turns, serverTurnsOffer.run, serverTurnsOffer.heldProposalOffers)
+    const next = buildRestoredThread(serverTurnsOffer.turns, run, serverTurnsOffer.heldProposalOffers)
     if (next.length === 0) return
     messagesOwnerRef.current = scenarioId
     messagesRef.current = next
