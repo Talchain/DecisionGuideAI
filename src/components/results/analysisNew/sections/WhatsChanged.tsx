@@ -98,7 +98,7 @@ const pct = (v: number): string => `${Math.round(v * 100)}%`
  * site being added later without it.
  */
 export function noiseQualifier(v: NoiseVerdict): string | null {
-  if (v === 'within_noise') return 'Too small to tell apart from ordinary run-to-run movement.'
+  if (v === 'within_noise') return 'Too small to tell apart from ordinary run-to-run variation.'
   if (v === 'not_noise_qualified') return 'This pair gives no basis for saying whether that is a real difference.'
   return null
 }
