@@ -144,6 +144,7 @@ import { focusExistingTarget, focusModelTarget } from '../utils/focusHelpers'
 import { ModelTabBody } from './ModelTabBody'
 import { ReanalyseBar } from './model-tab/ReanalyseBar'
 import { shellRerunControl, useReanalyseBarInputs } from './workspaceShell/rerunControl'
+import { useHeldHeightWhile } from '../conversation/hooks/useHeldHeightWhile'
 import { AnalysisReadinessBar } from './workspaceShell/AnalysisReadinessBar'
 import {
   deriveReadinessCheck,
@@ -965,6 +966,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // isThinking=false without a preceding true, so a page load never trips it,
   // and a background/system failure (which adds no user bubble) surfaces nothing.
   const conversationIsThinking = conversationCtxForFirstUse?.isThinking ?? false
+  // ⭐ THE FOOTER KEEPS ITS SPACE WHILE A TURN IS IN FLIGHT (S-F): a bar collapsing mid-turn moved a bottom reader's
+  // dialogue. Its wording is never held — only the space, released when the turn settles (`useHeldHeightWhile`).
+  const heldFooter = useHeldHeightWhile(conversationIsThinking)
   const prevConversationThinkingRef = useRef(conversationIsThinking)
   const conversationMessagesRef = useRef(conversationCtxForFirstUse?.messages)
   conversationMessagesRef.current = conversationCtxForFirstUse?.messages
@@ -4292,7 +4296,12 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             would make it vanish entirely on rollback. The bar renders its own
             null when the analysis is not stale. */}
         {effectiveIsOpen && surfaceFor(effectiveActiveTab).footerBar !== 'none' && !isViewer ? (
-          <div className="flex-shrink-0" data-testid="shell-surface-footer-bar">
+          <div
+            ref={heldFooter.ref}
+            style={heldFooter.style}
+            className="flex-shrink-0"
+            data-testid="shell-surface-footer-bar"
+          >
             {/* ⭐ ONE OWNER, TWO BARS. The gate reads the SURFACE DESCRIPTOR's
                 `footerBar` and switches on its value; it does not test a tab id
                 and it does not grow a second, parallel condition beside the

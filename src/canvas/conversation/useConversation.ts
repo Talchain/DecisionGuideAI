@@ -2702,6 +2702,9 @@ export function useConversation(): UseConversationReturn {
   const [turn, dispatchTurn] = useReducer(turnReducer, TURN_IDLE)
   const isThinking = isTurnInFlight(turn)
   const turnOwnerRef = useRef<string | null>(null)
+  // Ownership is per ATTEMPT, never per wire id: `retryLast` reuses the client turn id, so an old attempt's late
+  // exit would otherwise settle the live retry (buddy r2 P1-3). Each `sendTurn` start takes the next sequence number.
+  const turnAttemptSeqRef = useRef(0)
   // Result-first (narrationTurn.ts): the latest Run's key, the keys already explained (once per run_key), the key
   // waiting for the current turn to settle, and whether request 2 is in flight.
   const latestRunKeyRef = useRef<string | null>(null)
@@ -4706,9 +4709,21 @@ export function useConversation(): UseConversationReturn {
       abortRef.current = controller
       missingDraftRecoveryRef.current = null
 
-      // The turn starts: owned by this client turn id until it settles (`settleTurn`).
-      turnOwnerRef.current = turnClientId
-      dispatchTurn({ type: 'start', turnId: turnClientId })
+      // The turn starts: owned by THIS ATTEMPT until it settles (`settleTurn`).
+      const turnAttempt = `${turnClientId}#${++turnAttemptSeqRef.current}`
+      // A superseded attempt's timers die with it: they live in shared refs that this attempt is about to arm, and a
+      // late cleanup or expiry of theirs must never reach this attempt's (buddy r2 P1-2).
+      clearTimeout(timeoutTimerRef.current)
+      clearTimeout(longRunningTimerRef.current)
+      clearInterval(elapsedIntervalRef.current)
+      timeoutTimerRef.current = undefined
+      longRunningTimerRef.current = undefined
+      elapsedIntervalRef.current = undefined
+      turnOwnerRef.current = turnAttempt
+      dispatchTurn({ type: 'start', turnId: turnAttempt })
+      // Synchronously: a preempt cleared the mirror, and pending → pending does not re-run its effect, so without this
+      // Stop would read "not thinking" and do nothing under a live spinner (buddy r2 P1-1).
+      isThinkingRef.current = true
       useDraftStore.getState().setIsGenerating(true)
       addBreadcrumb('chat.turn', 'start', { turn_type: resolvedTurnType, mode })
 
@@ -4754,6 +4769,9 @@ export function useConversation(): UseConversationReturn {
       })
 
       const clearLifecycleTimers = () => {
+        // Only this attempt's timers, or orphans (no owner after a Stop / reset / expiry) — never a NEWER attempt's,
+        // which sit in the same refs (buddy r2 P1-2: a superseded attempt's late catch cancelled the live 175 s timer).
+        if (turnOwnerRef.current !== null && turnOwnerRef.current !== turnAttempt) return
         if (timeoutTimerRef.current !== undefined) {
           clearTimeout(timeoutTimerRef.current)
           timeoutTimerRef.current = undefined
@@ -4905,7 +4923,7 @@ export function useConversation(): UseConversationReturn {
           clearTimeout(longRunningTimerRef.current)
           clearInterval(elapsedIntervalRef.current)
           turnFailure = 'timeout'
-          settleTurn(turnClientId, 'timeout', turnReportBase())
+          settleTurn(turnAttempt, 'timeout', turnReportBase())
           setLongRunningHint(null)
           // ROADMAP 2.122 round 2 (review F1, adjacent) — a streamed draft that
           // already put a graph on the canvas must NOT be told "your message has
@@ -4974,7 +4992,7 @@ export function useConversation(): UseConversationReturn {
             headers: v5Headers,
             signal: controller.signal,
             // The streamed response is open: the lifecycle moves pending → streaming (owned by this turn).
-            onRequestStarted: () => { onRequestStarted(); dispatchTurn({ type: 'stream', turnId: turnClientId }) },
+            onRequestStarted: () => { onRequestStarted(); dispatchTurn({ type: 'stream', turnId: turnAttempt }) },
             // Stream closed without a final turn: the reload's read, under the same guards as the recovery below.
             readBackCommittedDraft: async () =>
               (await recoverDraftFromServer({
@@ -5491,7 +5509,8 @@ export function useConversation(): UseConversationReturn {
         }
 
         // The lifecycle's verdict on this response (reported once, by the settle in `finally`).
-        if (target.kind === 'typed_error' && streamedUnsettledCause !== 'terminal_error_model_kept') turnFailure = 'server'
+        // (Reported even when the streamed model was kept: the delivery copy stays honest, the failure is still one.)
+        if (target.kind === 'typed_error') turnFailure = 'server'
         else if (target.kind === 'empty') turnFailure = 'empty'
 
         if (target.kind === 'text_only' || target.kind === 'blocks') {
@@ -6646,7 +6665,7 @@ export function useConversation(): UseConversationReturn {
         // preempted turn's late finally can no longer end the newer turn (S-F audit A3.3). `settleTurn` also mirrors
         // `isThinkingRef` SYNCHRONOUSLY (the deferred-send queue drains on the next microtask and `sendTurn`'s early
         // `isThinkingRef` guard would drop a queued edit) and clears the draft store's `isGenerating`.
-        settleTurn(turnClientId, turnFailure, turnReportBase())
+        settleTurn(turnAttempt, turnFailure, turnReportBase())
         // Clear BY REFERENCE IDENTITY, never unconditionally: a preempted
         // turn's late finally must not wipe the newer turn's edit out from
         // under `cancelTurn`. Same ownership rule as the run slot below.

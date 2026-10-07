@@ -10,7 +10,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { reanalyseBarShows, shellRerunControl, hostRerunControl, chatRunChipStandsAside, dockSurfaceOwnsRerun } from '../rerunControl'
+import { reanalyseBarShows, shellRerunControl, hostRerunControl, chatRunChipStandsAside, dockSurfaceShowsRerun } from '../rerunControl'
 import { SuggestedChips } from '../../../conversation/zones/SuggestedChips'
 import { useCanvasStore } from '../../../store'
 import type { FreshnessDisplaySemantic } from '../../../store/analysisFreshness'
@@ -80,12 +80,15 @@ describe('hostRerunControl: one control per chat host', () => {
       expect(chatRunChipStandsAside(hostRerunControl(host, preRun))).toBe(false)
     }
   })
-  it('which dock surfaces own rerun: Olumi, Reasoning, Model, Analysis — never Compare', () => {
-    expect(dockSurfaceOwnsRerun('olumi')).toBe(true)
-    expect(dockSurfaceOwnsRerun('analysisNew')).toBe(true)
-    expect(dockSurfaceOwnsRerun('diagnostics')).toBe(true)
-    expect(dockSurfaceOwnsRerun('results')).toBe(true)
-    expect(dockSurfaceOwnsRerun('compare')).toBe(false)
+  it('a dock surface defers only to the control it is SHOWING (buddy r2 P2)', () => {
+    expect(dockSurfaceShowsRerun('diagnostics', changed)).toBe(true)
+    expect(dockSurfaceShowsRerun('analysisNew', changed)).toBe(true)
+    expect(dockSurfaceShowsRerun('results', changed)).toBe(true)
+    expect(dockSurfaceShowsRerun('compare', changed)).toBe(false)
+    // Model with a plain cannot-confirm: its bar is null, so the floating chat must not defer to it (never zero).
+    const unsure = { semantic: 'cannot_confirm' as const, importHold: false, hasCompletedFirstRun: true }
+    expect(dockSurfaceShowsRerun('diagnostics', unsure)).toBe(false)
+    expect(chatRunChipStandsAside(hostRerunControl('floating', unsure)), 'the chip stays as the one control').toBe(false)
   })
 })
 

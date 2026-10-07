@@ -63,8 +63,8 @@ export function shellRerunControl(inputs: ReanalyseBarInputs): ShellRerunControl
  * Which surface can host the chat, for the rerun rule.
  *   · 'docked'   — the dock's Olumi tab: its shell carries the footer bar and the composer icon.
  *   · 'floating' — the floating panel with no dock surface beside it that owns rerun: it shows its OWN bar.
- *   · 'floating-beside-dock' — the floating panel while the open dock shows a surface that owns rerun
- *     (`dockSurfaceOwnsRerun`): that surface's control is the one on screen.
+ *   · 'floating-beside-dock' — the floating panel while the open dock surface is SHOWING a rerun control
+ *     (`dockSurfaceShowsRerun`): that surface's control is the one on screen.
  */
 export type RerunHost = 'docked' | 'floating' | 'floating-beside-dock'
 
@@ -89,9 +89,12 @@ export function chatRunChipStandsAside(control: HostRerunControl): boolean {
 }
 
 /**
- * Whether an open dock surface owns the rerun once a Run exists: every surface whose shell footer is not 'none'
- * (Olumi, Reasoning, Model) plus the Analysis tab, whose body footer carries its own Rerun.
+ * Whether an open dock surface is SHOWING a rerun control right now — derived from the control it actually renders,
+ * never from the tab alone (buddy r2 P2: on Model with a plain cannot-confirm the bar is null, and deferring to it
+ * left zero controls). Surfaces whose shell footer hosts `ReanalyseBar` (Olumi, Reasoning, Model) show it exactly
+ * when the bar shows; the Analysis tab's body footer carries its Rerun once a Run exists.
  */
-export function dockSurfaceOwnsRerun(tab: OutputTab): boolean {
-  return WORKSPACE_SURFACES[tab].footerBar !== 'none' || tab === 'results'
+export function dockSurfaceShowsRerun(tab: OutputTab, inputs: ReanalyseBarInputs): boolean {
+  if (tab === 'results') return inputs.hasCompletedFirstRun
+  return WORKSPACE_SURFACES[tab].footerBar !== 'none' && shellRerunControl(inputs) === 'bar'
 }

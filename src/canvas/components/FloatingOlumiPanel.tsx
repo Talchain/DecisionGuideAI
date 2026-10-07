@@ -33,7 +33,7 @@ import { useUIStore } from '../../stores/uiStore'
 import { isAiPanelV2Enabled } from '../../flags'
 import { readPersistedActiveDockTab, readPersistedDockOpen } from './OutputsDock'
 import { dockHostsOlumi, type OlumiDockTab } from './olumiSurface'
-import { dockSurfaceOwnsRerun } from './workspaceShell/rerunControl'
+import { dockSurfaceShowsRerun, useReanalyseBarInputs } from './workspaceShell/rerunControl'
 import {
   FLOATING_OLUMI_SIDE_TAB_WIDTH,
   requestFloatingOlumiSurface,
@@ -683,6 +683,8 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock }: F
   const activeOutputTab = useUIStore((s) => s.activeOutputTab)
   const persistedDockTab = readPersistedActiveDockTab()
   const effectiveDockTab = persistedDockTab ?? activeOutputTab
+  // The one rerun control (`workspaceShell/rerunControl.ts`): read the same inputs the dock's bar reads.
+  const rerunInputs = useReanalyseBarInputs()
   // Yield to the docked Olumi composer ONLY when it can actually be on screen
   // (dockHostsOlumi) — otherwise suppressing this surface would strand the user.
   // On an empty canvas the dock is always the collapsed first-use rail, so it
@@ -1434,7 +1436,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock }: F
             threadTestId={THREAD_TESTID_FLOATING}
             /* ⭐ ONE RERUN CONTROL (`workspaceShell/rerunControl.ts`): beside an open dock surface that owns rerun,
                that surface's control is the one on screen; alone, this panel draws the same Re-analyse bar itself. */
-            rerunHost={dockEffectiveOpen && dockSurfaceOwnsRerun(effectiveDockTab as OlumiDockTab) ? 'floating-beside-dock' : 'floating'}
+            rerunHost={dockEffectiveOpen && dockSurfaceShowsRerun(effectiveDockTab as OlumiDockTab, rerunInputs) ? 'floating-beside-dock' : 'floating'}
           />
           {isEmptyConversation && (
             <div

@@ -36,7 +36,8 @@ vi.mock('../../../v5/v5Adapter', () => ({
 }))
 
 vi.mock('../../../v5/stopTurn', () => ({
-  stopV5Turn: vi.fn(),
+  // A Stop's server acknowledgement is out of scope here: it resolves as "unconfirmed".
+  stopV5Turn: vi.fn(async () => ({ kind: 'unconfirmed' })),
   getV5StopEndpoint: () => 'https://cee.test/proxy/v5/turn/stop',
   STOP_ACK_BUDGET_MS: 5000,
 }))
@@ -184,5 +185,63 @@ describe('the turn lifecycle', () => {
     expect(captured.map((c) => c.message)).toEqual(['Chat turn failed: session_timeout'])
     const userBubble = result.current.messages.find((m) => m.role === 'user' && m.content === 'suggest risks')
     expect(userBubble?.deliveryState, 'the user is told it did not go through, and may retry').toBe('failed')
+  })
+
+  it('(4) buddy r2 P1-1: after a preempt, Stop still stops the live turn', async () => {
+    const first = controllable()
+    const second = controllable()
+    mockCallV5Turn
+      .mockImplementationOnce((_p: unknown, o: { signal?: AbortSignal }) => { first.bind(o?.signal); return first.promise })
+      .mockImplementationOnce((_p: unknown, o: { signal?: AbortSignal }) => { second.bind(o?.signal); return second.promise })
+    const { result } = renderHook(() => useConversation())
+    let a: Promise<unknown> = Promise.resolve()
+    await act(async () => { a = result.current.sendMessage('first'); await new Promise((r) => setTimeout(r, 0)) })
+    await act(async () => { void result.current.sendMessage('second'); await new Promise((r) => setTimeout(r, 0)) })
+    await act(async () => { await a.catch(() => {}); await new Promise((r) => setTimeout(r, 0)) })
+    expect(result.current.isThinking, 'precondition: the second turn is live').toBe(true)
+    const secondSignal = mockCallV5Turn.mock.calls[1][1]?.signal as AbortSignal
+    await act(async () => { result.current.cancelTurn(); await new Promise((r) => setTimeout(r, 0)) })
+    expect(result.current.isThinking, 'Stop did nothing under a live spinner').toBe(false)
+    expect(secondSignal.aborted, 'the live request was not aborted').toBe(true)
+  })
+
+  it('(5) buddy r2 P1-2: a superseded attempt\'s late session timeout does not cancel the live turn\'s wait timer', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    let reads = 0
+    sessionRead.impl = () => (++reads === 1 ? new Promise(() => {}) : Promise.resolve({ userId: null, accessToken: null }))
+    mockCallV5Turn.mockImplementation(() => new Promise(() => {})) // the live request never answers
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { void result.current.sendMessage('first'); await vi.advanceTimersByTimeAsync(1_000) })
+    await act(async () => { void result.current.sendMessage('second'); await vi.advanceTimersByTimeAsync(0) })
+    expect(mockCallV5Turn, 'precondition: the second request went out').toHaveBeenCalledTimes(1)
+    // +15 s: the FIRST attempt's session read expires; its late catch must leave the live turn's timers alone.
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000) })
+    expect(result.current.isThinking).toBe(true)
+    // The live turn's own 175 s wait still fires.
+    await act(async () => { await vi.advanceTimersByTimeAsync(180_000) })
+    expect(result.current.isThinking, 'the live turn lost its wait timer and spins forever').toBe(false)
+    expect(captured.map((c) => c.message)).toContain('Chat turn failed: timeout')
+  })
+
+  it('(6) buddy r2 P1-3: a retry reusing the client turn id is not ended by the old attempt\'s late exit', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    let reads = 0
+    sessionRead.impl = () => (++reads === 1 ? new Promise(() => {}) : Promise.resolve({ userId: null, accessToken: null }))
+    mockCallV5Turn.mockImplementation(() => new Promise(() => {}))
+    const { result } = renderHook(() => useConversation())
+    // The buddy's sequence: A's session read hangs → a hidden turn B preempts A and completes → the user retries
+    // (which reuses A's client turn id, kept by the hidden turn) → A's original read then expires.
+    mockCallV5Turn.mockImplementationOnce(async () => ok('b done'))
+    await act(async () => { void result.current.sendMessage('suggest risks'); await vi.advanceTimersByTimeAsync(1_000) })
+    await act(async () => { await result.current.sendMessage('hidden follow-up', { hidden: true }); await vi.advanceTimersByTimeAsync(0) })
+    expect(result.current.isThinking, 'precondition: B completed').toBe(false)
+    mockCallV5Turn.mockClear()
+    await act(async () => { void result.current.retryLast(); await vi.advanceTimersByTimeAsync(0) })
+    expect(mockCallV5Turn, 'precondition: the retry went out').toHaveBeenCalledTimes(1)
+    expect(result.current.isThinking).toBe(true)
+    // +15 s: the ORIGINAL attempt's session read expires (same client turn id as the retry).
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000) })
+    expect(result.current.isThinking, 'the old attempt ended the live retry').toBe(true)
+    expect(captured.map((c) => c.message), 'a superseded attempt is not this turn\'s failure').not.toContain('Chat turn failed: session_timeout')
   })
 })
