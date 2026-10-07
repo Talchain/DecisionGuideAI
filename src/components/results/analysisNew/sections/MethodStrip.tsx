@@ -192,6 +192,49 @@ export interface MethodStripProps {
 
 const byId = (id: string): MethodEntry | undefined => METHOD_CATALOGUE.find((m) => m.id === id)
 
+/** The glyph for a model-and-workflow action (edit brief, review inputs, re-run). */
+export function modelWorkflowIcon(actionId: string): MethodGlyph {
+  return ACTION_ICON[actionId] ?? Circle
+}
+
+/**
+ * ⭐ THE MODEL-AND-WORKFLOW ACTIONS, BUILT ONCE (edit brief, review inputs,
+ * re-run). They are not reasoning actions and no CEE action bar carries them
+ * yet, so whichever control row heads the Reasoning tab (this strip, or the
+ * action bar that replaces it) lists them from HERE, with the same calls
+ * `ActionsMenu.runGlobal` makes and the catalogue's own payloads. Only the
+ * telemetry `source` differs, because the surface does.
+ */
+export function useModelWorkflowActions(canRerun: boolean): {
+  actions: readonly GlobalActionEntry[]
+  run: (action: GlobalActionEntry) => void
+  toastElement: ReturnType<typeof useSelfToast>['toastElement']
+} {
+  const { showToast, toastElement } = useSelfToast()
+  const actions = GLOBAL_ACTIONS.filter((a) => a.id !== 'rerun_analysis' || canRerun)
+  const run = (action: GlobalActionEntry) => {
+    if (action.id === 'rerun_analysis') {
+      void executeCanonicalRun({ source: METHOD_STRIP_RUN_SOURCE }).then((outcome) => {
+        if (outcome.status === 'blocked' || outcome.status === 'unavailable') showToast(outcome.reason)
+        else if (outcome.status === 'already-running') showToast(RERUN_TOASTS.alreadyRunning)
+        else showToast(RERUN_TOASTS.started)
+      })
+      return
+    }
+    if (action.id === 'edit_brief') {
+      if (!openBriefEdit()) openAskOlumi({ ...REVIEW_BRIEF_ASK, source: 'chip' })
+      return
+    }
+    openAskOlumi({
+      context: action.description,
+      draft: action.prompt ?? '',
+      label: action.title,
+      source: 'chip',
+    })
+  }
+  return { actions, run, toastElement }
+}
+
 export function MethodStrip({
   activeMethodId,
   onSelectMethod,
@@ -213,13 +256,12 @@ export function MethodStrip({
      only about the methods the strip does NOT show, because those are the
      ones a reader cannot see marked. */
   const menuMethods = methodsInMenuOrder()
-  const globalActions = GLOBAL_ACTIONS.filter((a) => a.id !== 'rerun_analysis' || canRerun)
+  const { actions: globalActions, run: runWorkflowAction, toastElement } = useModelWorkflowActions(canRerun)
   const raisedInOverflow = METHOD_CATALOGUE.filter((m) => !shownIds.has(m.id) && raised.has(m.id))
 
   const [open, setOpen] = useState(false)
   const overflowRef = useRef<HTMLDivElement | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
-  const { showToast, toastElement } = useSelfToast()
 
   /* `StripButton` forwards no ref, so the trigger is found inside its own
      wrapper: the only `aria-haspopup="menu"` button there. */
@@ -275,31 +317,9 @@ export function MethodStrip({
     onSelectMethod(id)
   }
 
-  /* The same calls `ActionsMenu.runGlobal` makes, with the catalogue's own
-     payloads. Only the telemetry `source` differs, because the surface does. */
   const runGlobal = (action: GlobalActionEntry) => {
     close(true)
-    if (action.id === 'rerun_analysis') {
-      void executeCanonicalRun({ source: METHOD_STRIP_RUN_SOURCE }).then((outcome) => {
-        if (outcome.status === 'blocked' || outcome.status === 'unavailable') showToast(outcome.reason)
-        else if (outcome.status === 'already-running') showToast(RERUN_TOASTS.alreadyRunning)
-        else showToast(RERUN_TOASTS.started)
-      })
-      return
-    }
-    if (action.id === 'edit_brief') {
-      // The tab's inline "Your question" form, the same one the review row's
-      // pencil opens. Only when nothing is mounted to show it does this keep
-      // the shared review-brief ask, so the item is never dead.
-      if (!openBriefEdit()) openAskOlumi({ ...REVIEW_BRIEF_ASK, source: 'chip' })
-      return
-    }
-    openAskOlumi({
-      context: action.description,
-      draft: action.prompt ?? '',
-      label: action.title,
-      source: 'chip',
-    })
+    runWorkflowAction(action)
   }
 
   const itemClass = methodMenuRowClass

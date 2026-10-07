@@ -64,6 +64,8 @@ export interface ConversationMessage {
   narration?: { status: 'pending' | 'ready' | 'stale' | 'unavailable'; runKey: string }
   /** T4: the turn's coaching rows (`guidance`, guidanceRows.ts), kept so load 2 shows the same challenge. */
   guidance?: import('./guidanceRows').TurnGuidance
+  /** Validated decision-science claim receipt on this live action reply. */
+  actionScience?: V5DskClaimProvenance
   /**
    * Suggestion preview (`proposal_preview`, proposalPreview.ts): the proposal this turn offers on its consent chip,
    * as a display projection the canvas draws as a ghost. NOT persisted (transcriptStore keeps no chips and no preview),
