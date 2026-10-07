@@ -41,6 +41,7 @@
 
 import { useCanvasStore } from '../store'
 import {
+  analysisReplacedSince,
   captureAnalysisCurrency,
   restoreAnalysisCurrencyAfterRevert,
   type AnalysisCurrencySnapshot,
@@ -982,8 +983,7 @@ export function revertOptimisticFactorEdit(edit: OptimisticFactorEdit): RevertOu
   const currentValue = obs.value
   if (currentValue !== edit.sentValue) return 'value_moved_on'
   // updateNode clears readiness during rollback; do not lose the newer-analysis guard.
-  const analysisReplaced = store.ceeAnalysisReady !== null
-    && store.ceeAnalysisReady !== edit.currency?.fields.ceeAnalysisReady
+  const analysisReplaced = edit.currency ? analysisReplacedSince(edit.currency) : true
 
   // ⚠ NOT A USER EDIT — a ROLLBACK to the value that was there before. The graph
   // ends up back where the coaching was authored, so treating it as an edit
