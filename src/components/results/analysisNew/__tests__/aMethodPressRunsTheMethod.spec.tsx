@@ -332,3 +332,54 @@ describe('CEE’s action bar heads the Reasoning tab when the latest answer carr
     expect(screen.getByTestId(STRIP)).toBeInTheDocument()
   })
 })
+
+/**
+ * ⛔ REGRESSION (served on staging 87d58524, 7 Oct 2026): once CEE's bar arrived it replaced the method strip, and CEE
+ * offers only actions with a typed contract, so reframe, opposite case, outside view, trade-offs and bias check had NO
+ * door in the Reasoning tab. DL: "do not drop the 5 prose methods until P12/P25 give them typed handlers". They are in
+ * the bar's ⋯ under "Reasoning methods", and a press runs the method exactly as the strip did: one chip turn.
+ */
+describe('every reasoning method the bar does not carry is in the bar’s ⋯, and one press runs it', () => {
+  const SCENARIO = 'scn-reasoning-methods'
+  const BAR = 'reasoning-action-bar'
+  const PROSE_METHODS = ['reframe_problem', 'consider_opposite', 'outside_view', 'explore_tradeoffs', 'review_bias']
+  const withheldRun = (): ActionBarV1 => parseActionBar(JSON.parse(readFileSync(
+    join(__dirname, '../../../../canvas/conversation/actionBar/__tests__/fixtures/action-bar-v1-withheld-run.json'), 'utf8')))!
+  const menuRows = () => {
+    fireEvent.click(screen.getByTestId(`${BAR}-more`))
+    return screen.getAllByRole('menuitem').map((el) => el.getAttribute('data-testid'))
+  }
+
+  beforeEach(() => {
+    resetPressOfferClocks()
+    useCanvasStore.setState({ currentScenarioId: SCENARIO } as never)
+    useActionBarStore.getState().setBar(SCENARIO, withheldRun())
+  })
+  afterEach(() => useActionBarStore.setState({ bar: null, scenarioId: null, dismissed: [] }))
+
+  it('PRECONDITION: the five are exactly the catalogue methods whose action has no typed handler', () => {
+    const prose = METHOD_CATALOGUE.filter((m) => ACTION_REGISTRY[actionOfMethod(m.id)!].handler.kind === 'prose').map((m) => m.id)
+    expect(prose).toEqual(PROSE_METHODS)
+  })
+
+  it('RED (served): with a bar, the five are listed under "Reasoning methods"; the typed ones are not listed twice', () => {
+    mount()
+    expect(screen.queryByTestId(STRIP), 'the strip is gone').toBeNull()
+    const rows = menuRows()
+    for (const id of PROSE_METHODS) expect(rows, id).toContain(`${BAR}-menu-host-${id}`)
+    expect(rows).not.toContain(`${BAR}-menu-host-pre_mortem`)
+    expect(rows).not.toContain(`${BAR}-menu-host-different_option`)
+    expect(screen.getByTestId(`${BAR}-menu-group-host-methods`)).toHaveTextContent('Reasoning methods')
+    // Methods before the tab's own workflow controls.
+    expect(rows.indexOf(`${BAR}-menu-host-review_bias`)).toBeLessThan(rows.indexOf(`${BAR}-menu-host-edit_brief`))
+  })
+
+  it.each(PROSE_METHODS)('%s: one press from the bar’s ⋯ sends ONE chip turn with the method’s own id, and opens no drawer', (id) => {
+    mount()
+    menuRows()
+    fireEvent.click(screen.getByTestId(`${BAR}-menu-host-${id}`))
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ id: SENT_ID_ON_A_CURRENT_RUN[id], source: 'chip' }))
+    expect(useAskOlumiStore.getState().isOpen).toBe(false)
+  })
+})
