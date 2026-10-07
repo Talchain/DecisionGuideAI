@@ -1,12 +1,13 @@
-import { useState } from 'react'
 import { typography } from '../../../../styles/typography'
 import { stripEncodingNotation } from '../../utils/cleanFactorLabel'
 import { formatGoalProbability } from '../../utils/displayFloors'
 import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../utils/goalFitBasisCaveatCopy'
 import { formatThreshold } from '../../RangeVisualization'
 import { goalBandIsInUserUnits } from '../goalBandUnits'
-import { formatModelScore, MODEL_SCORE_COPY } from '../modelScore'
-import { goalChanceDriverLines, about as goalChanceFigure, goalChanceOptionLines, goalChanceTargetWords } from '../../analysis-hero/goalChanceCopy'
+import { MODEL_SCORE_COPY } from '../modelScore'
+import { goalChanceDriverLines, goalChanceOptionLines, goalChanceRangeLine, goalChanceTargetWords } from '../../analysis-hero/goalChanceCopy'
+import { goalProbabilityWords } from '../../utils/goalAnchorCopy'
+import { goalChanceHeroSays } from '../../utils/goalChanceLicence'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
@@ -19,31 +20,18 @@ export interface DecisionMatrixProps {
   isStale: boolean
 }
 
-const SCORE_LABEL = "Your weighting (not Olumi's view)"
 const STALE_LINE = 'This Run is stale. Run the analysis again to view the decision matrix.'
 
-/** Only an ordinary displayed percentage is a scalar. Bounds such as <1% stay unscored. */
-function displayedNumber(text: string): number | null {
-  const match = /^(?:about )?(\d+(?:\.\d+)?)%$/.exec(text.trim())
-  return match === null ? null : Number(match[1])
+function splitRangeLine(line: string | null) {
+  // S3's goalChanceRangeLine ends its chance sentence here; slice both clauses verbatim.
+  const boundary = ' chance of meeting your goal, in this model. '
+  const index = line?.indexOf(boundary) ?? -1
+  if (line === null || index === -1) return { chance: line, driver: null }
+  const end = index + boundary.length
+  return { chance: line.slice(0, end - 1), driver: line.slice(end) }
 }
 
-type WeightedColumn = 'chance' | 'outcome'
-
-// Locale separators must be understood before a displayed model score can be weighted.
-function displayedModelNumber(text: string): number | null {
-  const parts = new Intl.NumberFormat().formatToParts(12345.6)
-  const group = parts.find((p) => p.type === 'group')?.value
-  const decimal = parts.find((p) => p.type === 'decimal')?.value
-  const ungrouped = group === undefined ? text : text.split(group).join('')
-  const normalised = decimal === undefined ? ungrouped : ungrouped.replace(decimal, '.')
-  return /^-?\d+(?:\.\d+)?$/.test(normalised) ? Number(normalised) : null
-}
-
-/** No subscriptions, actions, or persistence: only the held Run and local input state. */
-/**
- * @panel-act-opt-out the only controls are optional number inputs for local column weights (form fields, not panel acts); each is 24px in both dimensions
- */
+/** Read-only projection of the held Run; disclosure state belongs to SectionShell. */
 export function DecisionMatrix(props: DecisionMatrixProps) {
   const { run } = props
   const identity = JSON.stringify([run.hash, run.runId, run.computedAt, run.graphHash, run.completedAt])
@@ -51,110 +39,110 @@ export function DecisionMatrix(props: DecisionMatrixProps) {
 }
 
 function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: DecisionMatrixProps) {
-  const [weights, setWeights] = useState<Record<WeightedColumn, string>>({ chance: '', outcome: '' })
   if (isStale) {
     return <p className={`${typography.panelBody} text-text-body`} data-testid="decision-matrix" role="status">Decision matrix: {STALE_LINE}</p>
   }
 
   const rec = data.recommendation
-  const licence = data.goalChanceLicence ?? null
+  const runLicence = data.goalChanceLicence ?? null
+  const licence = goalChanceHeroSays(rec.goalThreshold, rec.allOptions, runLicence) ? runLicence : null
   const labelOf = (id: string) => {
     const option = rec.allOptions.find((o) => o.id === id)
     return option ? stripEncodingNotation(option.label) : null
   }
   const chanceLines = licence === null ? null : goalChanceOptionLines(licence, labelOf)
-  const driverLines = goalChanceDriverLines(licence, data.goalChanceDriverNames)
-  const ids = [...new Set([...(licence?.optionIds ?? optionOrder), ...rec.allOptions.map((o) => o.id)])]
-  const rows = ids.flatMap((id) => {
-    const option = rec.allOptions.find((o) => o.id === id)
-    if (!option) return []
+  const driverLines: Readonly<Record<string, string>> = licence?.form === 'all_likely_to_miss' ? {} : goalChanceDriverLines(
+    licence, data.goalChanceDriverNames, licence?.form === 'similar' ? licence.similarOptionIds : [],
+  )
+  // Follow the caller's model option order, never the results hook's win-share ranking.
+  const order = new Map(optionOrder.map((id, index) => [id, index]))
+  const options = [...rec.allOptions].sort((a, b) =>
+    (order.get(a.id) ?? optionOrder.length) - (order.get(b.id) ?? optionOrder.length))
+  const range = data.goalChanceRange ?? null // readGoalChanceRange, already read from this Run by the hook
+  const rangeLabelOf = data.goalChanceDriverNames?.labelOf ?? labelOf
+  // Both clauses were read verbatim by readGoalChanceHorizonLine; the licence has the hero's precedence.
+  const horizonLine = licence?.horizonLine ?? range?.horizonLine ?? null
+  const rows = options.map((option) => {
+    const id = option.id
     const existingRow = comparison.rows.find((r) => r.id === id)
     const chanceIndex = licence?.optionIds.indexOf(id) ?? -1
     const licensed = licence !== null && chanceLines !== null && licence.optionIds.includes(id)
-    const withheld = rec.goalFiguresWithheldMessage ?? option.goalCertaintyUnearned?.say ?? null
-    const readout = licensed
-      ? licence.withheldOptionIds.includes(id) ? null : goalChanceFigure(licence.pctByOption[id])
+    const withheld = rec.goalFiguresWithheldMessage ?? null
+    const rangeEntry = range?.rangeByOption[id]
+    const rangeLine = rangeEntry === undefined ? null : goalChanceRangeLine(rangeEntry, rangeLabelOf(id), rangeLabelOf)
+    const rangeClauses = splitRangeLine(rangeLine)
+    const readout = rangeEntry !== undefined ? null : licensed
+      ? licence.withheldOptionIds.includes(id) ? null : goalProbabilityWords(`${licence.pctByOption[id]}%`)
       : rec.goalThreshold != null && option.goalProbability != null && option.notAnalysed !== true
-        ? formatGoalProbability(option.goalProbability, option.nValidSamples)
+        ? goalProbabilityWords(formatGoalProbability(option.goalProbability, option.nValidSamples))
         : null
-    const chance = withheld ?? (licensed ? chanceLines[chanceIndex] : readout) ?? 'Not shown.'
-    // A run-level withhold always outranks a figure, including an inconsistent licence.
-    const numeric = withheld === null && readout !== null ? displayedNumber(readout) : null
-    const range = existingRow?.kind === 'analysed' ? existingRow.outcomeRange : null
+    // A range first: S3's reader (readGoalChanceRange) already bars it on a Run-wide withhold by CODE, and the
+    // withheld SENTENCE also fires on the range's own causes (PLACEHOLDER_PATH, TARGET_NOT_TESTABLE), so keying on it
+    // would hide every real range (Science, 7 Oct). Then the Run-level withhold, then the option's point or line.
+    // Unresolved range labels never fall back to a raw point estimate.
+    const chance = (rangeEntry !== undefined ? rangeClauses.chance : withheld ?? option.goalCertaintyUnearned?.say ?? (licensed ? chanceLines[chanceIndex] : readout)) ?? 'Not shown.'
+    const outcomeRange = existingRow?.kind === 'analysed' ? existingRow.outcomeRange : null
     const format = (value: number) => formatThreshold(value, rec.outcomeUnit, rec.outcomeUnitSymbol, rec.isNormalised)
     // The audit's formatter: samples without an anchored level stay explicitly model scores.
     const rangeFigure = rec.isNormalised === true || !goalBandIsInUserUnits() ? MODEL_SCORE_COPY.readout : format
-    const outcome = range !== null
-      ? `${rangeFigure(range.p10)} to ${rangeFigure(range.p90)}`
+    const outcome = outcomeRange !== null
+      ? `${rangeFigure(outcomeRange.p10)} to ${rangeFigure(outcomeRange.p90)}`
       : null
-    const centre = range?.p50 ?? null
+    const centre = outcomeRange?.p50 ?? null
     const centreReadout = centre === null ? null : rangeFigure(centre)
-    const centreNumber = centre === null || goalBandIsInUserUnits()
-      ? null : displayedModelNumber(formatModelScore(centre))
-    return [{
-      id, label: existingRow?.label ?? stripEncodingNotation(option.label), chance, numeric,
-      driver: withheld === null ? driverLines[id] ?? null : null,
+    return {
+      id, label: stripEncodingNotation(option.label), chance,
+      driver: rangeEntry !== undefined
+        ? rangeClauses.driver
+        : withheld !== null ? null : option.goalCertaintyUnearned == null ? driverLines[id] ?? null : null,
       outcome,
       centreReadout,
-      numbers: { chance: numeric, outcome: centreNumber },
-      story: existingRow?.kind === 'analysed' ? existingRow.why : null,
-      caveat: withheld !== null || readout === null ? null : option.goalFitIsModelledBasis === true ? GOAL_FIT_BASIS_CAVEAT_COPY : null,
-      baseCaveat: withheld !== null || readout === null ? null : goalFitBaseCaveatCopy(option.goalFitBaseCaveat),
-    }]
+      caveat: withheld !== null || rangeEntry !== undefined || readout === null ? null : option.goalFitIsModelledBasis === true ? GOAL_FIT_BASIS_CAVEAT_COPY : null,
+      baseCaveat: withheld !== null || rangeEntry !== undefined || readout === null ? null : goalFitBaseCaveatCopy(option.goalFitBaseCaveat),
+    }
   })
-  const weightedColumns = (Object.keys(weights) as WeightedColumn[]).filter((id) => weights[id].trim() !== '')
-  const validWeights = weightedColumns.every((id) => Number.isFinite(Number(weights[id])) && Number(weights[id]) >= 0)
-  const scoreOf = (row: typeof rows[number]) => weightedColumns.reduce((sum, id) => sum + row.numbers[id]! * Number(weights[id]), 0)
-  const showScore = weightedColumns.length > 0 && validWeights && rows.length > 0
-    && rows.every((r) => weightedColumns.every((id) => r.numbers[id] !== null) && Number.isFinite(scoreOf(r)))
-  const hasDriver = rows.some((r) => r.driver !== null)
-  const hasOutcome = rows.some((r) => r.outcome !== null)
-  const hasCentre = rows.some((r) => r.centreReadout !== null)
-  const hasStory = rows.some((r) => r.story)
+  const hasOutcome = rows.some((r) => r.outcome !== null || r.centreReadout !== null)
+  // Same human-readable time format as ComparePairSections' RunTime; no new stamp format.
+  const runTime = run.computedAt && Number.isFinite(Date.parse(run.computedAt))
+    ? new Date(run.computedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : null
   const target = licence === null ? null : goalChanceTargetWords(licence)
-  const header = `${typography.panelMeta} text-text-light [font-weight:inherit] text-left px-1 py-2 first:pl-0 last:pr-0`
-  const cell = 'align-top border-t border-panel-border px-1 py-2 first:pl-0 last:pr-0'
+  const header = `${typography.panelBody} text-text-light [font-weight:inherit] text-left px-1 py-2 first:pl-0 last:pr-0`
+  const cell = `${typography.panelBody} align-top border-t border-panel-border px-1 py-2 first:pl-0 last:pr-0`
 
   return (
     <SectionShell title="Decision matrix" count={null} variant="disclose" testId="decision-matrix">
-      <p className={`${typography.panelMeta} text-text-light`} data-testid="decision-matrix-stamp">
-        From the Run{run.computedAt ? ` at ${run.computedAt}` : ' (time not recorded)'} · this model's version{run.graphHash ? ` (${run.graphHash})` : ' (version not recorded)'}
+      <p className={`${typography.panelMeta} text-text-light`} data-testid="decision-matrix-stamp"
+        data-graph-hash={run.graphHash} data-computed-at={run.computedAt} data-run-id={run.runId}>
+        From the Run{runTime ? ` at ${runTime}` : ' (time not recorded)'}
       </p>
       {target !== null && <p className={`${typography.panelMeta} text-text-light`}>Goal: {target}</p>}
-      {(['chance', ...(hasCentre ? ['outcome'] : [])] as WeightedColumn[]).map((id) => <label key={id} className={`${typography.panelMeta} text-text-body block py-2`}>
-        {id === 'chance' ? 'Chance weight (optional)' : 'Modelled outcome weight (optional)'}
-        <input type="number" min="0" step="any" value={weights[id]} onChange={(e) => setWeights((prev) => ({ ...prev, [id]: e.target.value }))}
-          className="ml-2 w-20 min-h-[24px] min-w-[24px] rounded border border-panel-border bg-panel px-2 py-1 text-text-body" />
-      </label>)}
-      {weightedColumns.length > 0 && !showScore && <p className={`${typography.panelMeta} text-text-light`}>A score needs valid weights and a displayed number for every option in each weighted column.</p>}
-      {showScore && <p className={`${typography.panelMeta} text-text-light`}>Score = sum of displayed numbers × your column weights. Chance uses percentage points; the modelled outcome has no unit.</p>}
       <div className="max-w-full overflow-auto">
-        <table className={`${typography.panelMeta} text-text-body my-2 w-full border-collapse tabular-nums`}>
+        <table className={`${typography.panelBody} text-text-body my-2 w-full border-collapse tabular-nums`}>
           <caption className="sr-only">Decision matrix</caption>
           <thead><tr>
             <th scope="col" className={header}>Option</th>
-            <th scope="col" className={header}>Chance of meeting the goal</th>
-            {hasDriver && <th scope="col" className={header}>It rests most on</th>}
-            {hasCentre && <th scope="col" className={header}>Modelled outcome</th>}
-            {hasOutcome && <th scope="col" className={header}>Modelled outcome range</th>}
-            {hasStory && <th scope="col" className={header}>From the Run</th>}
-            {showScore && <th scope="col" className={header}>{SCORE_LABEL}</th>}
+            <th scope="col" className={header}>Chance of meeting your goal, in this model</th>
+            <th scope="col" className={header}>Rests most on</th>
           </tr></thead>
           <tbody>{rows.map((row) => <tr key={row.id} data-testid={`decision-matrix-row-${row.id}`}>
             <th scope="row" className={`${cell} [font-weight:inherit] text-left`}>{row.label}</th>
             <td className={cell} data-testid={`decision-matrix-chance-${row.id}`}>
               <span>{row.chance}</span>
-              {row.caveat && <p className="text-text-light">{row.caveat}</p>}
-              {row.baseCaveat && <p className="text-text-light">{row.baseCaveat}</p>}
+              {row.caveat && <p className={`${typography.panelMeta} text-text-light`}>{row.caveat}</p>}
+              {row.baseCaveat && <p className={`${typography.panelMeta} text-text-light`}>{row.baseCaveat}</p>}
             </td>
-            {hasDriver && <td className={cell} data-testid={`decision-matrix-driver-${row.id}`}>{row.driver ?? 'None shown'}</td>}
-            {hasCentre && <td className={cell} data-testid={`decision-matrix-outcome-${row.id}`}>{row.centreReadout ?? 'Not shown.'}</td>}
-            {hasOutcome && <td className={cell}>{row.outcome ?? 'Not shown.'}</td>}
-            {hasStory && <td className={cell}>{row.story ?? 'None shown'}</td>}
-            {showScore && <td className={cell} data-testid={`decision-matrix-score-${row.id}`}>{Number(scoreOf(row).toFixed(2))}</td>}
+            <td className={cell} data-testid={`decision-matrix-driver-${row.id}`}>{row.driver ?? 'None shown'}</td>
           </tr>)}</tbody>
         </table>
       </div>
+      {horizonLine !== null && <p className={`${typography.panelMeta} text-text-light`} data-testid="decision-matrix-horizon">{horizonLine}</p>}
+      {hasOutcome && <SectionShell title="Modelled outcomes" count={null} variant="disclose" testId="decision-matrix-outcomes">
+        {rows.map((row) => <div key={row.id} className={`${typography.panelBody} text-text-body py-2`}>
+          <p data-testid={`decision-matrix-outcome-${row.id}`}>{row.label}: {row.centreReadout ?? 'Not shown.'}</p>
+          {row.outcome !== null && <p>Modelled outcome range: {row.outcome}</p>}
+        </div>)}
+      </SectionShell>}
     </SectionShell>
   )
 }
