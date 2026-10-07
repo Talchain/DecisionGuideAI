@@ -15,7 +15,7 @@ import { requestAsk } from '../ui/inspector-v2/askSemantic'
 import { askAi } from '../conversation/askAi'
 import type { AskIntent } from '../conversation/askAiQuestions'
 import { typography } from '../../styles/typography'
-import { measureDockInset } from './FloatingOlumiPanel'
+import { DOCK_SELECTOR } from '../utils/computeFitPadding'
 
 export type WhatElseKind = 'factor' | 'risk' | 'option' | 'outcome'
 
@@ -48,6 +48,21 @@ export const useWhatElseStore = create<{
 export function whatElsePrompt(kind: WhatElseKind, open: Pick<WhatElseOpen, 'doorKind' | 'doorPrompt'>): string {
   if (open.doorKind === kind && open.doorPrompt) return open.doorPrompt
   return WHAT_ELSE_CHOICES.find((c) => c.kind === kind)!.prompt
+}
+
+/**
+ * The width the Outputs dock covers at the right: `FloatingOlumiPanel.measureDockInset`'s measurement, restated over the
+ * import-free `DOCK_SELECTOR` (the reason `computeFitPadding` restates it) so the chooser does not pull the floating panel
+ * and its conversation tree into every node's import graph. `WhatElseChooser.spec` pins the two selectors equal.
+ */
+function dockInsetPx(): number {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return 0
+  const dock = document.querySelector(DOCK_SELECTOR) as HTMLElement | null
+  if (!dock) return 0
+  const rect = dock.getBoundingClientRect()
+  if (rect.width === 0 || rect.height === 0) return 0
+  const inset = window.innerWidth - rect.left
+  return inset > 0 ? inset : 0
 }
 
 export const WHAT_ELSE_CHOOSER_WIDTH = 248
@@ -90,7 +105,7 @@ export function WhatElseChooser({ open, onClose }: { open: WhatElseOpen; onClose
   const { left, top } = placeWhatElseChooser(
     open,
     { width: typeof window !== 'undefined' ? window.innerWidth : 1440, height: typeof window !== 'undefined' ? window.innerHeight : 900 },
-    measureDockInset(),
+    dockInsetPx(),
   )
 
   return (

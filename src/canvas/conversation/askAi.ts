@@ -14,7 +14,7 @@ import { selectBootReadPermittedMode, useBootReadAdmissionStore } from '../hydra
 import { testWithoutLinkEligibility } from '../../components/results/analysisNew/testWithoutLinkEligibility'
 import { graphDeclaresBaseline, resolveOptionIsBaseline } from '../utils/baselineDetection'
 import { QUESTIONS, type AskIntent, type AskStage, type QuestionContext } from './askAiQuestions'
-import { resultBoundLeaderWithholdCause } from '../../components/results/analysisNew/useAnalysisNewViewModel'
+import { readProducerLeaderPermission } from '../../lib/decisionVerdict'
 
 export interface AskAiRequest {
   includeOptions?: boolean
@@ -31,13 +31,27 @@ export interface AskAiRequest {
 }
 export type AskAiResult = 'sent' | 'busy' | 'refire' | 'none'
 
+/**
+ * CEE's cause for withholding the leading option, read off the result it qualifies: the same rule as
+ * `resultBoundLeaderWithholdCause` (useAnalysisNewViewModel), restated over the import-free `readProducerLeaderPermission`
+ * so this module does not pull the results view-model into every canvas import graph (#2592 CI: four suites whose
+ * `flags` mocks lacked `isRequireLoginEnabled` failed at import).
+ */
+function resultLeaderWithholdCause(stamp: unknown): string | null {
+  if (readProducerLeaderPermission(stamp) !== false) return null
+  const cause = (stamp as { producer_cause?: unknown }).producer_cause
+  if (typeof cause !== 'string') return null
+  const token = cause.trim()
+  return token === '' ? null : token
+}
+
 export function askAiStage(state = useCanvasStore.getState()): AskStage {
   const ran = state.hasCompletedFirstRun || !!state.results?.report || !!state.v5AnalysisFact?.hasRunAnalysisFact
   if (!ran) return 'drafted'
   // The draft's own automatic first pass, withheld only because nobody asked for a Run (CEE `unrequested_analysis_withheld`,
   // exact token, read off the result it qualifies), is not a Run the person made: ask the drafted question, because the
   // honest next step is to Run (DL ruling 7 Oct, Canvas askAi witness). A requested Run that withheld keeps 'withheld'.
-  if (resultBoundLeaderWithholdCause(state.results?.report?.producer_leader_permission) === 'unrequested_analysis_withheld') return 'drafted'
+  if (resultLeaderWithholdCause(state.results?.report?.producer_leader_permission) === 'unrequested_analysis_withheld') return 'drafted'
   if (!selectRunAffirmedCurrent(state)) return 'stale'
   if (selectRunWithholdsFigures(state)) return 'withheld'
   const probabilities = (state.results?.report as { option_probabilities?: Record<string, Parameters<typeof selectGoalProbability>[0]> } | undefined)?.option_probabilities

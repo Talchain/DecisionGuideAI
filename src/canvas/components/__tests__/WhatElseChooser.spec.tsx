@@ -1,5 +1,7 @@
 /** The chooser sends registered chip questions; free text sends the person's exact words. */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { DOCK_SELECTOR } from '../../utils/computeFitPadding'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -148,6 +150,11 @@ describe('the chooser opens inside the visible canvas, never under the Outputs d
   it('CONTROL: no dock → the previous window clamp, unchanged', () => {
     expect(placeWhatElseChooser({ x: 40, y: 50 }, { width: 1600, height: 900 }, 0)).toEqual({ left: 48, top: 58 })
     expect(placeWhatElseChooser({ x: 1500, y: 880 }, { width: 1600, height: 900 }, 0)).toEqual({ left: 1600 - 260, top: 900 - 160 })
+  })
+
+  it('the dock is found by the SAME selector measureDockInset uses (source pin, so the two cannot drift)', () => {
+    const panel = readFileSync('src/canvas/components/FloatingOlumiPanel.tsx', 'utf8')
+    expect(panel).toContain(`document.querySelector('${DOCK_SELECTOR}')`)
   })
 
   it('a door well left of the dock keeps its place beside the pointer', () => {
