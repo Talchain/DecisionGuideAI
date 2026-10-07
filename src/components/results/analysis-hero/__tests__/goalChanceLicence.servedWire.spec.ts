@@ -1,6 +1,7 @@
 /**
  * ⭐ SERVED-WIRE ROW (Science 393023 correction, 7 Oct: every science PR carries one row built from a SERVED capture,
- * keys untouched — a self-authored record let CEE #2702 pass CI while inert on the wire).
+ * keys untouched — a self-authored record let CEE #2702 pass CI while inert on the wire). Lives in the hero's own
+ * directory: `inertness.spec.ts` forbids importing the hero from anywhere else.
  *
  * `fixtures/served-t1b-f440be4a-goal-chance-records.json` is the T1b Run's `GOAL_CHANCE_LICENSED` and
  * `GOAL_HORIZON_NOT_TESTED` records copied VERBATIM (jq) from CEE's served capture `served-w3-f440be4a-t1b-7ab6c1af`.
@@ -9,11 +10,11 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { readGoalChanceLicence } from '../goalChanceLicence'
-import { goalChanceDriverLines, goalChanceOptionLines } from '../../analysis-hero/goalChanceCopy'
+import { readGoalChanceLicence } from '../../utils/goalChanceLicence'
+import { goalChanceDriverLines, goalChanceOptionLines } from '../goalChanceCopy'
 
 type Json = Record<string, any>
-const SERVED = JSON.parse(readFileSync(join(process.cwd(), 'src/components/results/utils/__tests__/fixtures/served-t1b-f440be4a-goal-chance-records.json'), 'utf8')) as Json
+const SERVED = JSON.parse(readFileSync(join(process.cwd(), 'src/components/results/analysis-hero/__tests__/fixtures/served-t1b-f440be4a-goal-chance-records.json'), 'utf8')) as Json
 const OPTION_LABEL = Object.fromEntries((SERVED.option_comparison as Json[]).map((o) => [o.option_id, o.option_label]))
 const NODE_LABEL: Record<string, string> = {
   price_increase_from_current: 'Price increase from current',
