@@ -13,9 +13,12 @@
  * (`draftStore.draftStreamBriefReading`); the model supersedes it.
  */
 import { memo, useState } from 'react'
+import { GitFork, Globe, History, Ruler, Target, type LucideIcon } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { BRIEF_SLOTS, type BriefFields, type BriefSlotKey } from './structuredBrief'
 import { briefCoachingFor, queueBriefCoachingPrefill, type BriefCoachingId } from './briefCoaching'
+import { NodeShape } from '../conversation/primitives/NodeShape'
+import type { NodeType } from '../domain/nodes'
 
 export interface BriefReadingCardProps {
   /** CEE's `BRIEF_READ` spans (single-box sends). */
@@ -45,6 +48,27 @@ function slotItems(reading: BriefReadingCardProps['reading'], userFields: BriefF
   }
 }
 
+/** Each brief row is keyed by the canvas shape it becomes, so the brief and the model share one vocabulary. */
+const SLOT_SHAPE: Record<BriefSlotKey, NodeType> = {
+  context: 'decision',
+  goal: 'goal',
+  options: 'option',
+  considerations: 'factor',
+}
+
+/** One icon per habit, from the product's icon library (lucide), never drawn by hand. */
+const COACHING_ICON: Record<BriefCoachingId, LucideIcon> = {
+  goal: Target,
+  limits: Ruler,
+  options: GitFork,
+  pre_mortem: History,
+  outside_view: Globe,
+}
+
+/** Columns the habits fill exactly: two habits never leave an empty third column. */
+const HABIT_COLUMNS: Record<number, string> = { 1: 'sm:grid-cols-1', 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-3' }
+
+
 export const BriefReadingCard = memo(function BriefReadingCard({ reading, userFields = null }: BriefReadingCardProps) {
   const items = slotItems(reading, userFields)
   const slots = BRIEF_SLOTS.filter((slot) => items[slot.key] !== undefined)
@@ -58,86 +82,97 @@ export const BriefReadingCard = memo(function BriefReadingCard({ reading, userFi
     optionCount: userFields ? ((items.options ?? []).length === 0 ? 0 : null) : (items.options ?? []).length,
   })
   return (
-    <section
-      data-testid="brief-reading"
-      aria-label="Your brief"
-      className="w-full max-w-2xl rounded-xl border border-panel-border bg-panel shadow-1 px-5 py-4 flex flex-col gap-4"
-    >
-      {/* ⭐ PAUL, 1 OCT 2026: "The formatting of the panel that outlines the brief while the model is being generated
-          still isn't correct. It looks bad, and there are no science-grounded coaching opportunities."
-          - Before: four stacked label/value blocks, each re-tagged "your words".
-          - Now: one quiet two-column reading (label | the user's own words, quoted, with options numbered as the
-            canvas numbers them), then up to three research-backed habits to act on while the draft is built.
-          - The honesty rules are unchanged: only the user's words, an empty slot said plainly, nothing inferred. */}
-      <header className="flex items-baseline justify-between gap-3">
-        <h2 className={typo('label', 'text-text-header m-0')}>Your brief</h2>
-        <span data-testid="brief-reading-your-words" className={typo('bodySmall', 'text-text-light')}>
-          Quoted in your words
-        </span>
-      </header>
-      <dl className="m-0 grid grid-cols-[minmax(96px,auto)_1fr] gap-x-4 gap-y-2.5">
-        {slots.map((slot) => {
-          const values = items[slot.key] ?? []
-          return (
-            <div key={slot.key} data-testid={`brief-reading-${slot.key}`} className="contents">
-              <dt className={typo('bodySmall', 'text-text-light m-0')}>{slot.label}</dt>
-              {values.length === 0 ? (
-                <dd data-testid="brief-reading-not-mentioned" className={typo('bodySmall', 'text-text-light m-0')}>
-                  Not stated yet
-                </dd>
-              ) : slot.key === 'options' && !userFields ? (
-                <dd className="m-0">
-                  <ol className="m-0 p-0 list-none flex flex-col gap-1">
-                    {values.map((v, i) => (
-                      <li key={v} className={typo('bodySmall', 'text-text-body flex gap-2')}>
-                        <span aria-hidden="true" className="tabular-nums text-text-light">{i + 1}</span>
-                        <span>{quoted(v)}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </dd>
-              ) : values.length === 1 ? (
-                <dd className={typo('bodySmall', 'text-text-body m-0 whitespace-pre-line')}>{quoted(values[0])}</dd>
-              ) : (
-                <dd className="m-0">
-                  <ul className="m-0 p-0 list-none flex flex-col gap-1">
-                    {values.map((v) => (
-                      <li key={v} className={typo('bodySmall', 'text-text-body')}>{quoted(v)}</li>
-                    ))}
-                  </ul>
-                </dd>
-              )}
-            </div>
-          )
-        })}
-      </dl>
-      <div data-testid="brief-coaching" className="border-t border-panel-border pt-3.5 flex flex-col gap-2.5">
+    <section data-testid="brief-reading" aria-label="Your brief" className="border-t border-panel-border">
+      {/* ⭐ PAUL, 7 OCT 2026, of this screen: "The layout looks terrible… How can you really enhance it so it looks
+          premium?" This card is now the lower half of ONE drafting sheet (`FirstUseDraftingSheet`), not a second card
+          of its own.
+          - Each row is keyed by the canvas shape it becomes.
+          - Options sit as numbered chips, numbered as the canvas numbers them.
+          - The habits are equal cards: icon, title, one line of why, the source, and the action at the same height.
+          Paul's 1 Oct rules still hold: one 14px type size, only the user's words, an empty slot said plainly,
+          nothing inferred. */}
+      <div className="flex flex-col gap-4 px-5 py-5 sm:px-8 sm:py-6">
+        <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <h2 className={typo('label', 'text-text-header m-0')}>Your brief</h2>
+          <span data-testid="brief-reading-your-words" className={typo('bodySmall', 'text-text-light')}>
+            Quoted in your words
+          </span>
+        </header>
+        <dl className="m-0 grid grid-cols-1 gap-y-1.5 sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-x-5 sm:gap-y-3.5">
+          {slots.map((slot) => {
+            const values = items[slot.key] ?? []
+            return (
+              <div key={slot.key} data-testid={`brief-reading-${slot.key}`} className="contents">
+                <dt className={typo('bodySmall', 'text-text-light m-0 flex items-center gap-2.5 sm:min-h-[28px]')}>
+                  <NodeShape kind={SLOT_SHAPE[slot.key]} size={12} />
+                  {slot.label}
+                </dt>
+                {values.length === 0 ? (
+                  <dd data-testid="brief-reading-not-mentioned" className={typo('bodySmall', 'text-text-light m-0 mb-2 sm:mb-0 sm:py-1')}>
+                    Not stated yet
+                  </dd>
+                ) : slot.key === 'options' && !userFields ? (
+                  <dd className="m-0 mb-2 min-w-0 sm:mb-0">
+                    <ol className="m-0 p-0 list-none flex flex-wrap gap-2">
+                      {values.map((v, i) => (
+                        <li
+                          key={v}
+                          className={typo(
+                            'bodySmall',
+                            'text-text-header inline-flex max-w-full items-center gap-2 rounded-lg border border-option/40 bg-option-light/50 py-1 pl-1 pr-2.5',
+                          )}
+                        >
+                          <span aria-hidden="true" className="tabular-nums font-medium text-text-body rounded-md bg-option/30 px-1.5">
+                            {i + 1}
+                          </span>
+                          <span className="min-w-0">{quoted(v)}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </dd>
+                ) : values.length === 1 ? (
+                  <dd className={typo('bodySmall', 'text-text-header m-0 mb-2 min-w-0 whitespace-pre-line sm:mb-0 sm:py-1')}>{quoted(values[0])}</dd>
+                ) : (
+                  <dd className="m-0 mb-2 min-w-0 sm:mb-0 sm:py-1">
+                    <ul className="m-0 p-0 list-none flex flex-col gap-1">
+                      {values.map((v) => (
+                        <li key={v} className={typo('bodySmall', 'text-text-header')}>{quoted(v)}</li>
+                      ))}
+                    </ul>
+                  </dd>
+                )}
+              </div>
+            )
+          })}
+        </dl>
+      </div>
+      <div data-testid="brief-coaching" className="flex flex-col gap-4 border-t border-panel-border bg-panel-hover/60 px-5 py-5 sm:px-8 sm:py-6">
         <div className="flex flex-col gap-0.5">
           <h3 className={typo('label', 'text-text-header m-0')}>While Olumi builds: sharpen the decision</h3>
           <p className={typo('bodySmall', 'text-text-light m-0')}>
             Research-backed habits. Pick one and Olumi starts there when your draft is ready.
           </p>
         </div>
-        {/* One quiet list, not a stack of boxes (Paul 1 Oct: "easy to digest"): a hairline between habits, each one
-            title, one line of why with its source muted after it, and one action. */}
-        <ul className="m-0 p-0 list-none flex flex-col divide-y divide-panel-border">
+        <ul className={`m-0 p-0 list-none grid grid-cols-1 gap-3 ${HABIT_COLUMNS[coaching.length] ?? 'sm:grid-cols-3'}`}>
           {coaching.map((card) => {
             const queued = queuedId === card.id
+            const Icon = COACHING_ICON[card.id]
             return (
               <li
                 key={card.id}
                 data-testid={`brief-coaching-${card.id}`}
-                className="flex items-center gap-3 py-2.5 first:pt-1"
+                className={`flex flex-col gap-2 rounded-xl border bg-panel p-4 transition-colors ${
+                  queued ? 'border-info/50' : 'border-panel-border hover:border-border-emphasis'
+                }`}
               >
-                <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                  <p className={typo('label', 'text-text-header m-0')}>{card.title}</p>
-                  <p className={typo('bodySmall', 'text-text-body m-0')}>
-                    {card.why}{' '}
-                    <span data-testid={`brief-coaching-source-${card.id}`} className="text-text-light">
-                      {card.source}
-                    </span>
-                  </p>
-                </div>
+                <span aria-hidden="true" className="grid h-8 w-8 place-items-center rounded-lg bg-info-light/60 text-info-ink">
+                  <Icon className="h-4 w-4" strokeWidth={1.75} />
+                </span>
+                <p className={typo('label', 'text-text-header m-0 mt-1')}>{card.title}</p>
+                <p className={typo('bodySmall', 'text-text-body m-0 flex-1')}>{card.why}</p>
+                <p data-testid={`brief-coaching-source-${card.id}`} className={typo('bodySmall', 'text-text-light m-0')}>
+                  {card.source}
+                </p>
                 <button
                   type="button"
                   aria-pressed={queued}
@@ -146,8 +181,8 @@ export const BriefReadingCard = memo(function BriefReadingCard({ reading, userFi
                     queueBriefCoachingPrefill(card.prefill)
                     setQueuedId(card.id)
                   }}
-                  className={`${typo('bodySmall')} shrink-0 rounded-full border px-3 py-1 transition-colors ${
-                    queued ? 'border-text-body bg-panel-hover text-text-body' : 'border-text-light text-text-body hover:bg-panel-hover'
+                  className={`${typo('bodySmall')} mt-1 w-full rounded-lg border px-3 py-1.5 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+                    queued ? 'border-info bg-info text-text-on-color' : 'border-border-emphasis bg-panel text-text-body hover:bg-panel-hover'
                   }`}
                 >
                   {queued ? 'Ready when the draft lands' : card.actionLabel}

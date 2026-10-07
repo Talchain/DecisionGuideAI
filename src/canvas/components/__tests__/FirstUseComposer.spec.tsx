@@ -21,7 +21,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { FIRST_USE_PLACEHOLDER } from '../firstUsePlaceholder'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 
 // Stub the heavy supabase / threadService import chain that
@@ -520,19 +520,33 @@ describe('FirstUseComposer — generating animation (round-12)', () => {
   it('does NOT render the indicator at rest (no submit, isThinking=false)', () => {
     render(<FirstUseComposer />, { wrapper: Wrapper })
     expect(screen.queryByTestId('first-use-thinking')).toBeNull()
-    expect(screen.queryByTestId('thinking-indicator')).toBeNull()
+    expect(screen.queryByTestId('first-use-drafting-mark')).toBeNull()
   })
 
   it('renders the indicator while isThinking is true and the canvas is still empty', () => {
     thinkingMockState.isThinking = true
     render(<FirstUseComposer />, { wrapper: Wrapper })
-    // The wrapper carries an aria-live region so AT users hear the
-    // status; the inner indicator (from src/canvas/conversation/zones/
-    // ThinkingIndicator.tsx) carries the 6 pulsing shapes.
+    // The status line carries an aria-live region so AT users hear the
+    // status. Re-pinned 7 Oct (Paul: "make it premium"): the six pulsing
+    // shapes inside a greyed-out input became ONE drafting sheet with a model
+    // mark that draws itself from the node shapes.
     const wrapper = screen.getByTestId('first-use-thinking')
     expect(wrapper).toBeInTheDocument()
     expect(wrapper.getAttribute('aria-live')).toBe('polite')
-    expect(screen.getByTestId('thinking-indicator')).toBeInTheDocument()
+    expect(wrapper.textContent).toBe('Drafting your decision model…')
+    const sheet = screen.getByTestId('first-use-drafting-sheet')
+    expect(within(sheet).getByTestId('first-use-drafting-mark')).toBeInTheDocument()
+    // The elapsed clock sits OUTSIDE the live region: a number read aloud every second is noise.
+    expect(within(wrapper).queryByTestId('first-use-drafting-elapsed')).toBeNull()
+    expect(within(sheet).getByTestId('first-use-drafting-elapsed').textContent).toBe('0:00')
+    // The greyed-out input is hidden while the sheet is up, and kept mounted for a failed send.
+    expect(screen.getByTestId('first-use-input-bar').closest('[hidden]')).not.toBeNull()
+  })
+
+  it('CONTROL: at rest the input is visible and no drafting sheet renders', () => {
+    render(<FirstUseComposer />, { wrapper: Wrapper })
+    expect(screen.queryByTestId('first-use-drafting-sheet')).toBeNull()
+    expect(screen.getByTestId('first-use-input-bar').closest('[hidden]')).toBeNull()
   })
 
   it('hides the indicator once the first graph appears (nodeCount > 0 → hero unmounts entirely)', () => {
