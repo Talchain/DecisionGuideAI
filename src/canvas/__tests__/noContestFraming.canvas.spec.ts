@@ -132,6 +132,8 @@ const SCOPE_FILES = [
   // them live here and nothing opened this file. Hits were enumerated before adding (see the PR).
   'src/components/results/analysis-hero/goalChanceCopy.ts',
   'src/components/results/analysisNew/buildAnalysisNewViewModel.ts',
+  // The results directory is not swept; include the matrix's new rendered copy explicitly.
+  'src/components/results/analysisNew/sections/DecisionMatrix.tsx',
   /*
    * ⚠⚠ WHAT THIS LIST DOES **NOT** COVER — stated because "both holes closed"
    * will otherwise read as closing the CLASS, and it closes the INSTANCES.

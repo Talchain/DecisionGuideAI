@@ -28,7 +28,7 @@ export function goalChanceTargetWords(licence: GoalChanceLicence): string | null
  * The displayed figure in words (c6 6 Oct): a chance that DISPLAYS as 0 (under 0.5%) is "less than 1%" and one that
  * displays as 100 (99.5% or more) is "more than 99%" — never "about 0%" (it reads as impossible) or "about 100%".
  */
-const about = (pct: number | undefined): string =>
+export const about = (pct: number | undefined): string =>
   pct === 0 ? 'less than 1%' : pct === 100 ? 'more than 99%' : `about ${pct}%`
 /** "a and b" / "a, b and c" — British, no serial comma. */
 const listOf = (items: readonly string[]): string =>
