@@ -1,3 +1,4 @@
+import { CardMarkShape } from '../nodes/shared/CardMark'
 /**
  * ⭐ THE CANVAS KEY: what the provenance and uncertainty marks already on THIS board mean (DL #85 5939855664 queue;
  * PTL 5941434564 §6). Entries come from `provenanceKey` (the cue's own function + the cue's own words); a cue the board
@@ -78,8 +79,8 @@ export function CanvasProvenanceKey(): JSX.Element | null {
             <section aria-label={C.values}>
               <ul className="m-0 mt-1 list-none space-y-1 p-0">
                 {key.cardMarks.map(m => <li key={m.id} data-testid={`canvas-key-card-mark-${m.id}`} className={`${typography.panelBody} flex items-center gap-2 text-text-body`}>
-                  <m.Icon aria-hidden="true" className={`${PROVENANCE_ICON_SIZE_CLASSES} flex-none text-text-light`} />
-                  <span>{m.keyText}</span>
+                  <CardMarkShape mark={m} />
+                  <span>{(m.keyWords ?? [m.keyText]).map(words => <span key={words} className="block">{words}</span>)}</span>
                 </li>)}
               </ul>
             </section>

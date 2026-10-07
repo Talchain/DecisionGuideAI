@@ -34,6 +34,7 @@ const RENDERABLE_REPORT = { option_comparison: [{ option_id: 'a', outcome: { mea
 
 beforeEach(() => {
   trust.semantic = 'changed'
+  useCanvasStore.setState({ nodes: [], hasCompletedFirstRun: true } as never)
   useCanvasStore.setState({ results: { status: 'complete', report: RENDERABLE_REPORT } } as never)
 })
 
@@ -137,4 +138,14 @@ describe('AnalysisStateCue — Paul 23 Sep point 14', () => {
     expect(cueRule).toMatch(/color\s*:\s*var\(--text-light\)/)
     expect(css).not.toMatch(/background|border|box-shadow/)
   })
+})
+
+it('before any Run: says Working assumption once for a board of factors, then removes it after a Run', () => {
+  trust.semantic = 'none'
+  useCanvasStore.setState({ nodes: [{ id: 'a', type: 'factor', data: { type: 'factor' } }, { id: 'b', type: 'factor', data: { type: 'factor' } }], results: { status: 'idle', report: null }, hasCompletedFirstRun: false } as never)
+  const view = render(<AnalysisStateCue />)
+  expect(screen.getAllByText('Working assumption')).toHaveLength(1)
+  useCanvasStore.setState({ hasCompletedFirstRun: true } as never)
+  view.rerender(<AnalysisStateCue />)
+  expect(screen.queryByTestId('working-assumption-board-line')).toBeNull()
 })

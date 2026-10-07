@@ -157,8 +157,8 @@ describe('a risk card states the size it records', () => {
     // (sr-only; also title + popover) AND, since DESIGN-GAP-v31 #34, SHOWN
     // whole (was the register's short form "Not set yet").
     const unset = screen.getByTestId('risk-exposure-unset')
-    expect(unset.querySelector('.sr-only')?.textContent).toBe(`Likelihood and impact ${METRIC_UNSET.inline}`)
-    expect(unset.querySelector('[aria-hidden="true"]')?.textContent).toBe(`Likelihood and impact ${METRIC_UNSET.inline}`)
+    expect(unset.getAttribute('aria-label')).toBe(`Likelihood and impact ${METRIC_UNSET.inline}`)
+    expect(unset.getAttribute('title')).toBe(`Likelihood and impact ${METRIC_UNSET.inline}`)
     expect(screen.queryByTestId('risk-recorded-value')).toBeNull()
   })
 

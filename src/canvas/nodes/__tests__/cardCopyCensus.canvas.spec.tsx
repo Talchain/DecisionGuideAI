@@ -372,7 +372,7 @@ const COMPONENTS: Record<string, React.ComponentType<any>> = {
 }
 
 /**
- * Every run of VISIBLE text on the resting card.
+ * Visible runs, with slice B state/provenance words deliberately read from aria.
  *
  * Three exclusions, each with a reason rather than a convenience:
  *  · the popover subtree — already the hover treatment;
@@ -388,8 +388,19 @@ function visibleRuns(root: HTMLElement): string[] {
     el.replaceWith(...(reducedLine ? [reducedLine] : []))
   })
   const out: string[] = []
+  // Preserve the adjudicated words without editing the census fixtures. These
+  // marks now explain the state in aria/hover; their visible copy must be gone.
+  const converted = '[data-testid="outcome-unquantified"], [data-testid="risk-exposure-provenance"]'
+  const detailedRisk = root.querySelector('[data-card-mark="risk-unset"][aria-label^="Entered estimate"]') !== null
+  root.querySelectorAll(converted).forEach(el => {
+    const words = el.getAttribute('aria-label')
+    expect(words).not.toBeNull()
+    expect(el.textContent).not.toContain(words)
+    expect(el).toHaveAttribute('title', words)
+    if (el.getAttribute('data-testid') !== 'risk-exposure-provenance' || !detailedRisk) out.push(words!.trim())
+  })
   root.querySelectorAll('*').forEach((el) => {
-    if (el.children.length > 0) return
+    if (el.children.length > 0 || el.closest(converted)) return
     if (el.closest('.sr-only') != null) return
     const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim()
     if (text) out.push(text)

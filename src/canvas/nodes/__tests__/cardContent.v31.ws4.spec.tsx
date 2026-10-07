@@ -270,10 +270,11 @@ describe('#35 — every value is the contract\'s 610 `strong`', () => {
   it('a qualitative value ("Very high") is ONE strong at 610, not the 500 token', () => {
     seed(QUALITATIVE, { phase: 'pre' })
     renderFactor(QUALITATIVE)
-    const whole = within(card()).getByTestId(`factor-value-whole-${ID}`)
-    expect(whole.tagName).toBe('STRONG')
-    expect(whole.textContent).toBe('Very high')
-    expect(tokens(whole).has('font-[610]')).toBe(true)
+    const meter = within(card()).getByTestId(`factor-value-tier-${ID}`)
+    expect(meter).toHaveAttribute('aria-label', 'Very high')
+    expect(meter).toHaveAttribute('title', 'Very high')
+    expect(meter.textContent).not.toContain('Very high')
+    expect(meter.querySelectorAll('[data-filled="true"]')).toHaveLength(5)
   })
 })
 

@@ -241,13 +241,13 @@ describe('factor card, Standard view — the driver line', () => {
     // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
     // one-line slot prints the LONGEST form that fits at the landing bound
     // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
-    expect(inPopover('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
+    expect(inPopover('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 3 ranked')
 
     editTheModel()
     expect(semantic()).toBe('changed')
     // Contract v3.1 pt 5 stale form: "Last run · Driver N of M ranked" — in the
     // name; the slot prints "Last run · Driver N of M" at the 1.64 bound.
-    expect(inPopover('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3')
+    expect(inPopover('factor-driver-line-caption').getAttribute('aria-label')).toBe('Last run · Driver 1 of 3')
     // Label in Name (WCAG 2.5.3): the visible string opens the spoken one.
     expect(inPopover('factor-driver-line').getAttribute('aria-label')).toMatch(/^Last run · Driver 1 of 3 ranked\. /)
     // The badge stays retired on the stale arm too.
@@ -259,7 +259,7 @@ describe('factor card, Standard view — the driver line', () => {
     seedCompletedRun(UNVALUED)
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(inPopover('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
+    expect(inPopover('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 3 ranked')
   })
 
   it('cannot-confirm is NOT "changed" — no Last-run label, and no analysis cue (ED 02:31Z Q2)', () => {
@@ -299,11 +299,11 @@ describe('factor card, Detailed view — the Detailed driver line', () => {
     seedCompletedRun(UNVALUED, { viewMode: 'expert' })
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('factor-driver-line-detail-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
+    expect(screen.getByTestId('factor-driver-line-detail-caption').getAttribute('aria-label')).toBe('Driver 1 of 3 ranked in this run')
 
     editTheModel()
     expect(semantic()).toBe('changed')
-    expect(screen.getByTestId('factor-driver-line-detail-caption').textContent).toBe('Last run · Driver 1 of 3 ranked')
+    expect(screen.getByTestId('factor-driver-line-detail-caption').getAttribute('aria-label')).toBe('Last run · Driver 1 of 3 ranked')
     expect(screen.getByTestId('factor-driver-line-detail').getAttribute('aria-label')).toMatch(/^Last run · /)
   })
 })

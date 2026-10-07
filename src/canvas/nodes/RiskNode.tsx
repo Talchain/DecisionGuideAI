@@ -1,3 +1,4 @@
+import { CardMark } from './shared/CardMark'
 import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
@@ -409,7 +410,6 @@ export const RiskNode = memo((props: NodeProps) => {
    */
   const showSeverityBadge = isDetailed && severity != null
   const severityBadgeMargin = recordedValue ? ' mt-1' : ''
-  const exposureLineMargin = recordedValue || showSeverityBadge ? ' mt-1' : ''
 
   // Severity badge — derived from node probability × impact via calculateRiskSeverity
   // (the existing probability×impact derivation, reused not re-added). P1.7 put it
@@ -448,14 +448,9 @@ export const RiskNode = memo((props: NodeProps) => {
   /** The exposure state as a whole sentence — Detailed's line, the popover's, and the sr-only copy. */
   const exposureFull = exposureReadout ? `${RISK_ENTERED_QUALIFIER} · ${exposureReadout}` : RISK_EXPOSURE_UNSET_LINE
 
-  // Detailed (expert) view keeps the full inline anatomy, unchanged.
-  const riskExposureLineDetailed = exposureReadout ? (
-    <div className={`${typography.edgeLabel} text-text-light${exposureLineMargin}`} data-testid="risk-exposure-line">{RISK_ENTERED_QUALIFIER} · {exposureReadout}</div>
-  ) : (
-    <div className={`${typography.edgeLabel} text-text-light${exposureLineMargin}`} data-testid="risk-exposure-unset">
-      {RISK_EXPOSURE_UNSET_LINE}
-    </div>
-  )
+  // Preserve each view's existing words while the pair moves to the bottom band.
+  const riskMatrix = <CardMark id="risk-unset" testId={exposureReadout ? 'risk-exposure-line' : 'risk-exposure-unset'} words={isDetailed ? exposureFull : exposureReadout || RISK_EXPOSURE_UNSET_LINE} description={exposureFull} cell={typeof probability === 'number' && impact ? (probability >= .5 ? 2 : 0) + (impact === 'low' ? 0 : 1) : null} />
+  const riskExposureLineDetailed = <div className={`${typography.edgeLabel} h-[1lh]`}>{riskMatrix}{exposureReadout && <CardMark id="source-you" words=" · entered" testId="risk-exposure-provenance" />}</div>
 
   /**
    * ⭐⭐ THE STANDARD CARD'S ONE PRIMARY LINE — Experience Design #63
@@ -526,19 +521,7 @@ export const RiskNode = memo((props: NodeProps) => {
    * second line, and a cut would eat the state word, the one cut this line may
    * never make (`RISK_EXPOSURE_UNSET_SHORT`'s own reasoning).
    */
-  const riskExposureLine = !isDetailed && !recordedValue ? (
-    <div
-      className={`${typography.edgeLabel} !leading-[1.4] text-text-light break-words`}
-      data-testid={exposureReadout ? 'risk-exposure-line' : 'risk-exposure-unset'}
-      data-card-primary-line="risk"
-    >
-      <span aria-hidden="true">{exposureReadout || RISK_EXPOSURE_UNSET_LINE}</span>
-      {exposureReadout && (
-        <span aria-hidden="true" className="italic" data-testid="risk-exposure-provenance"> · entered</span>
-      )}
-      <span className={typography.screenReaderOnly} data-testid="risk-primary-line-full">{exposureFull}</span>
-    </div>
-  ) : null
+  const riskExposureLine = !isDetailed && !recordedValue ? riskExposureLineDetailed : null
 
   /**
    * ⭐ WHAT LEFT THE STANDARD BODY, IN THE POPOVER IT MOVED TO (ED 5809278282:

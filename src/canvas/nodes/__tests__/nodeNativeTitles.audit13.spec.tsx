@@ -151,8 +151,9 @@ describe('audit #13: no native title on the card internals the served boards sho
       </ReactFlowProvider>,
     )
     const line = screen.getByTestId('outcome-unquantified')
-    expect(line.querySelector('[aria-hidden="true"]')?.textContent).toBe('Outcome not quantified')
-    expect(line.hasAttribute('title')).toBe(false)
+    expect(line).toHaveAttribute('aria-label', 'Outcome not quantified')
+    expect(line.textContent).not.toContain('Outcome not quantified')
+    expect(line.getAttribute('title')).toBe(line.getAttribute('aria-label'))
   })
 
   it('an unset risk: the visible line, with no native title repeating it', () => {
@@ -162,7 +163,8 @@ describe('audit #13: no native title on the card internals the served boards sho
       </ReactFlowProvider>,
     )
     const line = screen.getByTestId('risk-exposure-unset')
-    expect(line.querySelector('[aria-hidden="true"]')?.textContent).toBe('Likelihood and impact not set yet')
-    expect(line.hasAttribute('title')).toBe(false)
+    expect(line).toHaveAttribute('aria-label', 'Likelihood and impact not set yet')
+    expect(line.textContent).not.toContain('Likelihood and impact not set yet')
+    expect(line.getAttribute('title')).toBe(line.getAttribute('aria-label'))
   })
 })

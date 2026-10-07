@@ -264,7 +264,7 @@ describe('ED 5809278282 · Factor · the value line is the ONE body line, and it
     expect(visibleText(row)).toBe('8% est.')
     // DL #70 5849644637: the primary row, then the reserved driver slot (pre-run line).
     expect(visibleBodyRows(row)).toEqual([row, driverSlot()])
-    expect(driverSlot().textContent).toBe('Working assumption · no analysis yet')
+    expect(driverSlot().textContent).toBe('')
     const rowTokens = tokens(row)
     for (const layout of ['flex', 'flex-nowrap', 'flex-wrap']) {
       expect(rowTokens.has(layout), `the value row is a ${layout} row, not inline flow`).toBe(false)
@@ -351,7 +351,7 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
     // one-line slot prints the LONGEST form that fits at the landing bound
     // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
-    expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
+    expect(within(driver).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 3 ranked')
     expect(within(driver).getByTestId('factor-driver-line-bar')).toBeTruthy()
     // v3.1 point 3 (DESIGN-GAP-v31 #38): the resting caption IS the direction
     // sentence (was "Model comparison changes" + a floated 6.5%).
@@ -371,7 +371,7 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     expect(semantic()).toBe('changed')
     onCardNotInPopover('factor-driver-line')
     onCardNotInPopover('factor-turning-point')
-    expect(within(card()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3')
+    expect(within(card()).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Last run · Driver 1 of 3')
     expect(within(card()).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · Below 6.5%, the model comparison changes.')
     expect(within(card()).getByTestId('factor-turning-point').getAttribute('aria-label')!.startsWith(
       'Last run · Below 6.5%, the model comparison changes. ',
@@ -392,7 +392,7 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     const quiet = body()
     // DL #70 5849644637: the driver line sits INSIDE its reserved slot.
     expect(quiet).toEqual(['factor-recorded-value', `factor-driver-slot-${ID}`, 'factor-turning-point'])
-    expect(within(driverSlot()).getByTestId('factor-driver-line')).toBeTruthy()
+    expect(within(card()).getByTestId('factor-driver-line')).toBeTruthy()
     cleanup()
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW], lodRung: 'full' })
     renderFactor(VALUED)
@@ -424,7 +424,7 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     const c = card()
     expect(within(c).queryByTestId('factor-recorded-value')).toBeNull()
     expect(within(c).queryByTestId(`factor-needs-input-row-${ID}`)).toBeNull()
-    expect(within(onCardNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
+    expect(within(onCardNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 3 ranked')
   })
 
   it('CONTRAST — Detailed keeps the driver line and the turning point inline, and needs no cue', () => {
@@ -432,7 +432,7 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW], viewMode: 'expert' })
     renderFactor(VALUED)
     const c = card()
-    expect(within(c).getByTestId('factor-driver-line-detail-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
+    expect(within(c).getByTestId('factor-driver-line-detail-caption').getAttribute('aria-label')).toBe('Driver 1 of 3 ranked in this run')
     expect(within(c).getByTestId('factor-turning-point')).toBeTruthy()
     expect(screen.queryByTestId(`factor-driver-cue-${ID}`)).toBeNull()
     expect(screen.queryByTestId('factor-node-popover')).toBeNull()

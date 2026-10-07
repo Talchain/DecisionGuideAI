@@ -107,9 +107,9 @@ function renderBoard(block: Block, extra: Record<string, unknown> = {}) {
   )
 }
 
-const slot = (id: string) => screen.getByTestId(`factor-driver-slot-${id}`)
-const caption = (id: string) => within(slot(id)).queryByTestId('factor-driver-line-caption')?.textContent ?? null
-const lineOf = (id: string) => within(slot(id)).getByTestId('factor-driver-line')
+const band = (id: string) => screen.getByTestId(`factor-bottom-marks-${id}`)
+const caption = (id: string) => within(band(id)).queryByTestId('factor-driver-line-caption')?.getAttribute('aria-label') ?? null
+const lineOf = (id: string) => within(band(id)).getByTestId('factor-driver-line')
 const nameOf = (id: string) => lineOf(id).getAttribute('aria-label') ?? ''
 
 const FULL_SENTENCE = 'Driver 2 of 2 ranked in this run — ranked by how the model is built; this factor has no value yet'
@@ -190,9 +190,9 @@ describe('C01: Monthly churn keeps its rank and says "no value yet"; the valued 
 
   it('no new colour or badge: the caption keeps the valued line’s exact classes', () => {
     renderBoard(c01Shaped())
-    const cls = (id: string) => within(slot(id)).getByTestId('factor-driver-line-caption').className
+    const cls = (id: string) => within(band(id)).getByTestId('factor-driver-line-caption').className
     expect(cls('monthly_churn')).toBe(cls('pro_paying_subscribers'))
-    expect(within(slot('monthly_churn')).queryByTestId(/badge/)).toBeNull()
+    expect(within(band('monthly_churn')).queryByTestId(/badge/)).toBeNull()
   })
 
   it('stale: "Last run · no value yet"; the name keeps the rank under the same label', () => {
@@ -208,7 +208,7 @@ describe('C01: Monthly churn keeps its rank and says "no value yet"; the valued 
 
   it('Detailed (free-flowing, wraps): the whole rank sentence plus "no value yet"', () => {
     renderBoard(c01Shaped(), { viewMode: 'expert' })
-    const detail = screen.getAllByTestId('factor-driver-line-detail-caption').map((el) => el.textContent)
+    const detail = screen.getAllByTestId('factor-driver-line-detail-caption').map((el) => el.getAttribute('aria-label'))
     expect(detail).toContain('Driver 2 of 2 ranked in this run · no value yet')
     expect(detail).toContain('Driver 1 of 2 ranked in this run')
   })

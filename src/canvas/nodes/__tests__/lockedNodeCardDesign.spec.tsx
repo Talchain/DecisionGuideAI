@@ -265,7 +265,7 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
     // one-line slot prints the LONGEST form that fits at the landing bound
     // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
-    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
+    expect(within(line).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 3 ranked')
     expect(within(line).getByTestId('factor-driver-line-bar')).toBeTruthy()
     expect(line.textContent).not.toContain('%')
     expect(card.textContent).not.toContain('#')
@@ -316,7 +316,7 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     setCurrency('current')
     renderCard(FactorNode as never, 'fac-conv')
     const freshLine = popoverFinding('Trial conversion', 'factor-driver-line')
-    expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
+    expect(within(freshLine).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 3 ranked')
     // At rest, contract v3.1 point 3 (DESIGN-GAP-v31 #38): the caption IS the
     // direction sentence (was the prototype's caption + number, 25 Sep).
     const freshTp = popoverFinding('Trial conversion', 'factor-turning-point')
@@ -329,7 +329,7 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     // NODE-ANATOMY v3.2 stale form: "Last run · Driver N of M ranked" — in the
     // name; the one-line slot prints the longest form that fits at the landing
     // bound, "Last run · Driver N of M" at 1.64 (Canvas owner, 27 Sep 2026).
-    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3')
+    expect(within(line).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Last run · Driver 1 of 3')
     // Label in Name (WCAG 2.5.3): the visible caption opens the spoken name.
     expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 3')).toBe(true)
     expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 3 ranked. ')).toBe(true)
@@ -663,8 +663,8 @@ describe('Outcome/Risk — coaching behind the one icon; link strength off the c
     // Contract v3.1 (OR-02): the risk state line carries no full stop, and
     // (DESIGN-GAP-v31 #34) shows AND announces the whole sentence.
     const unset = within(card).getByTestId('risk-exposure-unset')
-    expect(unset.querySelector('.sr-only')?.textContent).toBe('Likelihood and impact not set yet')
-    expect(unset.querySelector('[aria-hidden="true"]')?.textContent).toBe('Likelihood and impact not set yet')
+    expect(unset.getAttribute('aria-label')).toBe('Likelihood and impact not set yet')
+    expect(unset.getAttribute('title')).toBe('Likelihood and impact not set yet')
     expect(within(card).queryByTestId('risk-strength-row')).toBeNull()
     expect(card.textContent).not.toMatch(/Link strength|50%/)
   })

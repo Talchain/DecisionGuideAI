@@ -55,7 +55,6 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn((id: string) => metaById[id]),
 }))
 
-const PRE_LINE = 'Working assumption · no analysis yet'
 const RANK_1 = 'fac_top_account_concentration'
 
 // Served pricing starter factors (`pricing-model.draft.json`), in the store's shape.
@@ -103,7 +102,6 @@ const SERVED_FACTORS = [
   },
 ] as const
 // The served pre-run value line shows a value on exactly these three.
-const VALUED = new Set(['fac_adoption_friction', 'fac_enterprise_revenue_risk', 'fac_usage_exposure'])
 const nodes = SERVED_FACTORS.map(f => ({ id: f.id, type: 'factor', position: { x: 0, y: 0 }, data: f.data }))
 
 // Served post-run: only the top factor is ranked — "Driver 1 of 1 ranked in this
@@ -193,15 +191,9 @@ describe('served pricing factors — the driver line has ONE slot, reserved befo
       const preClass = pre!.getAttribute('class')
       expect(tokens(pre!)).toContain('h-[1lh]')
       expect(tokens(pre!)).toContain('overflow-hidden')
-      if (VALUED.has(id)) {
-        // (a) the contract's pre-run line, visible, IN the slot.
-        expect(pre!.textContent).toBe(PRE_LINE)
-        expect(pre!.getAttribute('aria-hidden')).toBeNull()
-      } else {
-        // A range-only factor shows no value, so the contract says nothing: the slot is empty.
-        expect(pre!.textContent).toBe('')
-        expect(pre!.getAttribute('aria-hidden')).toBe('true')
-      }
+      // The board says the pre-run state once; every card still reserves its slot.
+      expect(pre!.textContent).toBe('')
+      expect(pre!.getAttribute('aria-hidden')).toBe('true')
       cleanup()
 
       seed('post')
@@ -224,7 +216,7 @@ describe('served pricing factors — the driver line has ONE slot, reserved befo
     // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
     // one-line slot prints the LONGEST form that fits at the landing bound
     // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 1 ranked')
+    expect(screen.getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 1 ranked')
     expect(within(s).getByTestId('factor-driver-line-bar')).toBeInTheDocument()
     // One line: the SLOT is one line and clips. Inside it the caption never wraps
     // (it fits whole at the landing bound — `FactorDriverLine.landingFit.spec`),
@@ -266,7 +258,7 @@ describe('(b) "No turning point in this run" is NOT on the card', () => {
     seed('post')
     renderCard(RANK_1)
     const c = card('Top Account Revenue Concentration')
-    expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 1 ranked')
+    expect(within(c).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 1 ranked')
     expect(within(c).queryByTestId('factor-turning-point-none')).toBeNull()
     expect(c.textContent).not.toContain('No turning point')
   })
@@ -338,7 +330,7 @@ describe('FOUND turning point on the rank-1 factor — the ONE card that may gro
       'Above 0.7, the current model comparison changes.',
     )
     expect(plot.getAttribute('aria-label')).toContain('It shifts towards Full Switch to Usage-Based at Renewal.')
-    expect(within(s).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 1 ranked')
+    expect(within(s).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 1 ranked')
     // "None found" is not the arm here, and never on the card.
     expect(within(c).queryByTestId('factor-turning-point-none')).toBeNull()
   })
@@ -382,7 +374,7 @@ describe('FOUND turning point on the rank-1 factor — the ONE card that may gro
     seed('post', twoFound, 2)
     const { container } = renderCard(RANK_2)
     const c = card('Enterprise Revenue Cannibalization Risk')
-    expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 2 ranked')
+    expect(within(c).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 2 of 2 ranked')
     expect(allIds(container).filter(t => FLIP_PLOT_IDS.includes(t))).toEqual([])
     // What DOES arrive is the run's attention mark (`nodeAttention`: a found row
     // qualifies) — a corner mark, not the plot. Chromium, this title, found row on

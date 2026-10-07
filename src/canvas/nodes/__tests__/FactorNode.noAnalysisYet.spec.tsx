@@ -1,3 +1,4 @@
+import { AnalysisStateCue } from '../../components/AnalysisStateCue'
 /**
  * ⭐ DESIGN-GAP ROW 10 — A FACTOR BEFORE ANY ANALYSIS SAYS SO (visual contract v3
  * §02 draft: "Working assumption · no analysis yet"; the fixture shows no
@@ -56,7 +57,6 @@ vi.mock('../shared/NodePopover', () => ({
 }))
 
 const ID = 'fac_conversion'
-const LINE = 'Working assumption · no analysis yet'
 
 const VALUED = {
   label: 'Trial conversion', type: 'factor', category: 'controllable',
@@ -122,6 +122,7 @@ const renderFactor = (data: Record<string, unknown>) =>
   render(
     <ReactFlowProvider>
       <TrustProbe />
+      <AnalysisStateCue />
       <FactorNode
         id={ID} type="factor" data={data as never} selected={false}
         isConnectable positionAbsoluteX={0} positionAbsoluteY={0}
@@ -136,7 +137,6 @@ const card = () => {
   expect(title.textContent).toContain('Trial conversion')
   return title.closest('[role="group"]') as HTMLElement
 }
-const allText = () => document.body.textContent ?? ''
 
 afterEach(() => {
   cleanup()
@@ -147,35 +147,23 @@ afterEach(() => {
   } as never)
 })
 
-describe('row 10 — a factor before any analysis reads "Working assumption · no analysis yet"', () => {
-  it('pre-run, Standard: the line is VISIBLE in the reserved driver slot, after the value line, and whole in the popover (DL #70 5849644637)', () => {
-    seed(VALUED, 'pre')
+describe('slice B — pre-run state is said once per board', () => {
+  it.each(['standard', 'expert'] as const)('pre-run %s: no card repetition, one board line, reserved slot', viewMode => {
+    seed(VALUED, 'pre', viewMode)
     renderFactor(VALUED)
     expect(semantic()).toBe('none')
-    const popoverLine = within(screen.getByTestId('factor-node-popover')).getByTestId(`factor-popover-no-analysis-${ID}`)
-    expect(popoverLine.textContent).toBe(LINE)
-    const slot = within(card()).getByTestId(`factor-driver-slot-${ID}`)
-    expect(within(slot).getByTestId(`factor-driver-slot-no-analysis-${ID}`).textContent).toBe(LINE)
-    // Design bundle 3 (served caa64d0f: "Working assumption · no anal…"): the VISIBLE slot text is the
-    // short state; the rest is sr-only, so the text content above (and the popover) stay whole.
-    const slotLine = within(slot).getByTestId(`factor-driver-slot-no-analysis-${ID}`)
-    const visible = [...slotLine.childNodes].filter((n) => !(n instanceof HTMLElement && n.classList.contains('sr-only'))).map((n) => n.textContent).join('')
-    expect(visible).toBe('Working assumption')
-    expect(slot.getAttribute('aria-hidden')).toBeNull()
-    const valueLine = within(card()).getByTestId('factor-recorded-value')
-    expect(Boolean(valueLine.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
-    // Said once on the card: no longer repeated in the value line's accessible text.
-    expect(valueLine.textContent).not.toContain('no analysis yet')
+    expect(card().textContent).not.toContain('Working assumption')
+    expect(screen.getAllByText('Working assumption')).toHaveLength(1)
+    expect(screen.getByTestId('working-assumption-board-line')).toHaveTextContent('Working assumption')
     expect(within(card()).queryByTestId(`factor-no-analysis-${ID}`)).toBeNull()
-  })
-
-  it('pre-run, Detailed: the line is inline on the card, as its own row after the value', () => {
-    seed(VALUED, 'pre', 'expert')
-    renderFactor(VALUED)
-    const row = within(card()).getByTestId(`factor-no-analysis-${ID}`)
-    expect(row.textContent).toBe(LINE)
-    const valueLine = within(card()).getByTestId('factor-recorded-value')
-    expect(Boolean(valueLine.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+    expect(screen.queryByTestId(`factor-popover-no-analysis-${ID}`)).toBeNull()
+    if (viewMode === 'standard') {
+      const slot = within(card()).getByTestId(`factor-driver-slot-${ID}`)
+      expect(slot).toHaveClass('h-[1lh]')
+      expect(slot.textContent).toBe('')
+      expect(slot).toHaveAttribute('aria-hidden', 'true')
+    }
+    expect(within(card()).getByTestId('factor-recorded-value')).toBeInTheDocument()
   })
 
   it('pre-run: NO run-derived attention cue on the card', () => {
@@ -191,7 +179,8 @@ describe('row 10 — a factor before any analysis reads "Working assumption · n
       renderFactor(VALUED)
       expect(semantic()).toBe('current')
       expect(card()).toBeInTheDocument()
-      expect(allText()).not.toContain('no analysis yet')
+      expect(screen.queryByTestId('working-assumption-board-line')).toBeNull()
+      expect(card().textContent).not.toContain('Working assumption')
       expect(screen.queryByTestId(`factor-no-analysis-${ID}`)).toBeNull()
       expect(screen.queryByTestId(`factor-popover-no-analysis-${ID}`)).toBeNull()
     })
@@ -201,7 +190,8 @@ describe('row 10 — a factor before any analysis reads "Working assumption · n
       renderFactor(VALUED)
       expect(semantic()).toBe('changed')
       expect(card()).toBeInTheDocument()
-      expect(allText()).not.toContain('no analysis yet')
+      expect(screen.queryByTestId('working-assumption-board-line')).toBeNull()
+      expect(card().textContent).not.toContain('Working assumption')
     })
   }
 
@@ -210,7 +200,8 @@ describe('row 10 — a factor before any analysis reads "Working assumption · n
     renderFactor(VALUED)
     expect(semantic()).not.toBe('none')
     expect(card()).toBeInTheDocument()
-    expect(allText()).not.toContain('no analysis yet')
+    expect(screen.queryByTestId('working-assumption-board-line')).toBeNull()
+    expect(card().textContent).not.toContain('Working assumption')
   })
 
   it('a RERUN in progress after an earlier run (no result on screen, a run has completed before) → NOT claimed', () => {
@@ -219,13 +210,15 @@ describe('row 10 — a factor before any analysis reads "Working assumption · n
     useCanvasStore.setState({ hasCompletedFirstRun: true, results: { status: 'preparing', report: null } } as never)
     renderFactor(VALUED)
     expect(card()).toBeInTheDocument()
-    expect(allText()).not.toContain('no analysis yet')
+    expect(screen.queryByTestId('working-assumption-board-line')).toBeNull()
+    expect(card().textContent).not.toContain('Working assumption')
   })
 
   it('a factor that needs input states its gap, not "no analysis yet"', () => {
     seed(MISSING, 'pre')
     renderFactor(MISSING)
     expect(within(card()).getByTestId(`factor-needs-input-row-${ID}`)).toBeInTheDocument()
-    expect(allText()).not.toContain('no analysis yet')
+    expect(screen.getByTestId('working-assumption-board-line')).toHaveTextContent('Working assumption')
+    expect(card().textContent).not.toContain('Working assumption')
   })
 })

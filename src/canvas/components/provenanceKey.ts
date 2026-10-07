@@ -122,5 +122,5 @@ export function provenanceKey(
   const options = withheldReason !== null ? { label: NOT_RANKED_MARKER, reason: withheldReason } : null
   const types = new Set(nodes.map(n => resolveNodeTypeLiteral(n as never)))
   const cardMarks = RENDERED_CARD_MARKS.filter(m => m.nodeTypes.some(t => types.has(t as never)))
-  return { cardMarks, marks, values, links, options, empty: !(hasRun && types.has('option')) && !nodes.some(n => (n.data as { is_baseline?: boolean } | undefined)?.is_baseline === true) && marks.length === 0 && values.length === 0 && links.length === 0 && options === null }
+  return { cardMarks, marks, values, links, options, empty: cardMarks.length === 0 && !(hasRun && types.has('option')) && !nodes.some(n => (n.data as { is_baseline?: boolean } | undefined)?.is_baseline === true) && marks.length === 0 && values.length === 0 && links.length === 0 && options === null }
 }

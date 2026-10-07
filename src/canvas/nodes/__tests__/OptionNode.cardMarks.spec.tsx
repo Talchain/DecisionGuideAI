@@ -66,6 +66,7 @@ it('all information marks are bottom-left, title has full width, Olumi stays in 
   seed({ withheld: true })
   const band = screen.getByTestId(`option-bottom-marks-${node.id}`)
   expect(band).toHaveClass('absolute', 'bottom-1.5', 'left-3')
+  expect(band).toHaveAttribute('data-card-bottom-band', 'true')
   expect(band.contains(screen.getByTestId('node-provenance-mark'))).toBe(true)
   for (const el of document.querySelectorAll('[data-card-mark]')) expect(band.contains(el)).toBe(true)
   const title = screen.getByTestId('node-title')

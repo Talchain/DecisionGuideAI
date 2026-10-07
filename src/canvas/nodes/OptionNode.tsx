@@ -4,7 +4,7 @@ import { Fragment, memo, useMemo, useCallback, useState, type ReactNode } from '
 import type { NodeProps } from '@xyflow/react'
 import { Pencil } from 'lucide-react'
 import Tooltip from '../../components/Tooltip'
-import { BottomMarksProvider, CardMark } from './shared/CardMark'
+import { CardMark } from './shared/CardMark'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
@@ -2535,7 +2535,7 @@ export const OptionNode = memo((props: NodeProps) => {
       onClick={nodeHandlers.onClick}
       style={{ height: '100%', width: '100%', position: 'relative' }}
     >
-      <BottomMarksProvider><BaseNode
+      <BaseNode
         {...props}
         nodeType="option"
         icon={metadata.icon}
@@ -3465,7 +3465,7 @@ export const OptionNode = memo((props: NodeProps) => {
 
         {/* Action icons: edit (bottom-right) */}
         
-      </BaseNode></BottomMarksProvider>
+      </BaseNode>
 
       {/* ===== LAYER 2: Popover (Standard view — hover, tap or keyboard focus) =====
           ⚠ THE PARENTHETICAL USED TO READ "(Standard view, hover)" AND THAT WAS

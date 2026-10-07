@@ -76,7 +76,10 @@ import {
 } from './CanvasOverlayBand'
 import { useModelChangedSinceRun } from '../hooks/useModelChangedSinceRun'
 import { useCanvasStore } from '../store'
-import { LAST_RUN_PREFIX } from '../nodes/shared/metricVocabulary'
+import { useHasCompletedFirstRun } from '../selectors/results'
+import { useRunCurrency } from '../nodes/shared/runCurrency'
+import { resolveNodeTypeLiteral } from '../domain/nodes'
+import { LAST_RUN_PREFIX, FACTOR_NO_ANALYSIS_YET_SHORT } from '../nodes/shared/metricVocabulary'
 import styles from './AnalysisStateCue.module.css'
 
 export const ANALYSIS_STATE_CUE_TESTID = 'analysis-state-cue'
@@ -130,14 +133,18 @@ export function AnalysisStateCue() {
   // browser whose read says `complete_stale` with no result holds no Run, yet the verdict alone made the state
   // `changed` and the cue claimed findings nobody could see beside "Not ready for analysis yet". The same browser,
   // which drops the unvouched Run, was right to say nothing.
+  const nodes = useCanvasStore(st => st.nodes)
+  const completedFirstRun = useHasCompletedFirstRun()
+  const runCurrency = useRunCurrency()
+  const workingAssumption = !completedFirstRun && runCurrency === 'none' && nodes.some(n => resolveNodeTypeLiteral(n) === 'factor')
   const findingsShown = useCanvasStore((st) => st.results?.report != null)
   const modelChangedSinceRun = useModelChangedSinceRun() && findingsShown
   // Hooks stay unconditional: the cue's own condition is passed as `wants`, so
   // a cue with nothing to say never holds the slot.
-  const { granted, target } = useOverlayCell('bottom-left', 'analysis-state-cue', modelChangedSinceRun)
-  const cellWidth = useCellWidth(modelChangedSinceRun && granted ? target : null)
+  const { granted, target } = useOverlayCell('bottom-left', 'analysis-state-cue', modelChangedSinceRun || workingAssumption)
+  const cellWidth = useCellWidth((modelChangedSinceRun || workingAssumption) && granted ? target : null)
 
-  if (!modelChangedSinceRun || !granted) return null
+  if ((!modelChangedSinceRun && !workingAssumption) || (!granted && !workingAssumption)) return null
   if (cellWidth !== undefined && cellWidth < ANALYSIS_STATE_CUE_MIN_WIDTH_PX) return null
 
   // Rendered IN PLACE — the mount site is inside `<ReactFlow>` — never
@@ -153,8 +160,8 @@ export function AnalysisStateCue() {
         ...(cellWidth !== undefined ? { width: cellWidth } : {}),
       }}
     >
-      <p data-testid={ANALYSIS_STATE_CUE_TESTID} role="status" aria-live="polite" className={styles.cue}>
-        {ANALYSIS_STATE_CUE_COPY}
+      <p data-testid={workingAssumption ? 'working-assumption-board-line' : ANALYSIS_STATE_CUE_TESTID} role="status" aria-live="polite" className={styles.cue}>
+        {workingAssumption ? FACTOR_NO_ANALYSIS_YET_SHORT : ANALYSIS_STATE_CUE_COPY}
       </p>
     </div>
   )
