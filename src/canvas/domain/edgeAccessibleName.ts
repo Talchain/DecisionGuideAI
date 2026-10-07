@@ -52,6 +52,7 @@ import {
   resolveEdgeDirectionDisplay,
 } from './edgeValueProvenance'
 import { getEdgeLabel, type EdgeLabelMode } from './edgeLabels'
+import { strengthForWords } from './strengthPlaceholder'
 import { edgeClickAffordance } from '../edges/edgeAffordance'
 import { isStructuralEdge } from './edgeUtils'
 import type { EdgeData } from './edges'
@@ -165,7 +166,7 @@ export const EDGE_ARIA_ROLE = 'button'
  */
 export function describeEdgeForSpeech(data: unknown, mode: EdgeLabelMode, ctx?: { routeOnceHeld?: boolean }): string {
   const d = (data ?? undefined) as Record<string, unknown> | undefined
-  const strength = resolveEdgeSignedStrengthDisplay(d)
+  const strength = strengthForWords(d, resolveEdgeSignedStrengthDisplay(d))
   const likelihood = resolveEdgeValueDisplay(d, 'beliefExists', ctx)
   const direction = resolveEdgeDirectionDisplay(d)
   return getEdgeLabel(strength, likelihood, direction, mode).label

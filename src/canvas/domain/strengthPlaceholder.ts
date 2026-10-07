@@ -35,7 +35,7 @@
  * (Science 393023 LICENCE (a), 7 Oct).
  */
 import { STRENGTH_DEFAULT_SIGNATURE } from '@talchain/schemas'
-import { edgeValueSource, resolveEdgeSignedStrengthDisplay } from './edgeValueProvenance'
+import { edgeValueSource, resolveEdgeSignedStrengthDisplay, type EdgeValueDisplay } from './edgeValueProvenance'
 
 /** The magnitude-contract label for a placeholder strength (`provenance.magnitude`). */
 export const OLUMI_PLACEHOLDER_MAGNITUDE = 'olumi_placeholder'
@@ -107,4 +107,14 @@ export function isStrengthPlaceholder(data: Record<string, unknown> | undefined 
   const display = resolveEdgeSignedStrengthDisplay(data)
   if (!display.show) return false
   return Math.abs(Math.abs(display.value) - stored) <= SAME_WEIGHT_EPSILON
+}
+
+/**
+ * The strength an edge's WORDS describe. A placeholder is drawn thin and grey (the not-set width), so its name says
+ * "strength not set" too — never "Slight boost" for a size nobody chose (Science 393023 LICENCE ruling 3: one meaning
+ * of unsized across canvas, chat and approval). Both naming seams read this: StyledEdge's chip and
+ * `describeEdgeForSpeech`.
+ */
+export function strengthForWords(data: Record<string, unknown> | undefined | null, strength: EdgeValueDisplay): EdgeValueDisplay {
+  return isStrengthPlaceholder(data) ? { show: false, reason: 'not_set' } : strength
 }

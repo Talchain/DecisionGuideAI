@@ -93,7 +93,7 @@ import {
   EDGE_EXISTENCE_DOUBT_SENTENCE,
   EDGE_STRENGTH_PLACEHOLDER_SENTENCE,
 } from './connectorCopy'
-import { isStrengthPlaceholder } from '../domain/strengthPlaceholder'
+import { isStrengthPlaceholder, strengthForWords } from '../domain/strengthPlaceholder'
 import { isStrengthStated } from '../domain/strengthStated'
 import { isStrengthDefinitional } from '../domain/strengthDefinitional'
 import { registerEdgeHover, routeEdgeHover, routeEdgeHoverOnMove, endEdgeHover, claimEdgeHover, type EdgeHoverBehaviour, type EdgeHoverSeat } from './edgeHoverArbiter'
@@ -1210,8 +1210,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [edgeData],
   )
   const edgeDescription = useMemo(
-    () => getEdgeLabel(edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode, edgeUncertainty),
-    [edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode, edgeUncertainty],
+    () => getEdgeLabel(strengthForWords(edgeData as Record<string, unknown> | undefined, edgeSignedStrength), edgeLikelihood, directionDisplay, labelMode, edgeUncertainty),
+    [edgeData, edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode, edgeUncertainty],
   )
   /**
    * ⛔⛔ AND THE DISCLOSURE TOO — `aria-label` REPLACES DESCENDANT TEXT, SO THE
