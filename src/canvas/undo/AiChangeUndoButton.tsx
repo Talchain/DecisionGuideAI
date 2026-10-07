@@ -10,8 +10,16 @@ import { memo, useState } from 'react'
 import { useCanvasStore } from '../store'
 import { useUndoJournalStore } from './captureUndoReceipt'
 import { isNextUndoThisTurn } from './captureAgentTurnForUndo'
+import { typography } from '../../styles/typography'
 
 export const AI_CHANGE_UNDO_WORDS = { button: 'Undo this change', aria: "Undo Olumi's change to the model" } as const
+
+// Loaded on press: the command imports the session client, which throws at import where no Supabase env exists (every
+// spec that renders a message bubble). A declaration outside the component, so the route-lazy census does not read the
+// component as a lazy page.
+function pressUndo(): Promise<unknown> {
+  return import('./undoCommand').then((m) => m.runCanvasUndo('undo'))
+}
 
 export const AiChangeUndoButton = memo(function AiChangeUndoButton({ turnId }: { turnId: string | undefined }) {
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
@@ -27,11 +35,9 @@ export const AiChangeUndoButton = memo(function AiChangeUndoButton({ turnId }: {
         disabled={pending}
         onClick={() => {
           setPending(true)
-          // Loaded on press: the command imports the session client, which throws at import where no Supabase env
-          // exists (every spec that renders a message bubble).
-          void import('./undoCommand').then((m) => m.runCanvasUndo('undo')).finally(() => setPending(false))
+          void pressUndo().finally(() => setPending(false))
         }}
-        className="text-sm text-text-body underline underline-offset-2 disabled:opacity-60 focus-visible:outline focus-visible:outline-2"
+        className={`${typography.chatMeta} text-text-body underline underline-offset-2 disabled:opacity-60 focus-visible:outline focus-visible:outline-2`}
         style={{ minHeight: '44px', background: 'none', border: 'none', padding: '0 4px', cursor: pending ? 'default' : 'pointer' }}
       >
         {AI_CHANGE_UNDO_WORDS.button}
