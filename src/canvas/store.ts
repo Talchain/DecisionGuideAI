@@ -2319,6 +2319,15 @@ const READINESS_CLEAR_FIELDS = {
   draftCoaching: null,
 } as const
 
+/** Every field invalidated by an analytical edit, shared with no-write rollback. */
+export const ANALYSIS_CURRENCY_KEYS = [
+  ...(Object.keys(READINESS_CLEAR_FIELDS) as Array<keyof typeof READINESS_CLEAR_FIELDS>),
+  'retainedAnalysisAdmission',
+  'retainedDraftCoaching',
+  'retainedDraftCoachingOptionCount',
+  'analysisFreshnessDirty',
+] as const
+
 /**
  * THE READINESS CLEAR, PLUS THE PRODUCER'S ADMISSION RETAINED AS UNCONFIRMED.
  *

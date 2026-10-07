@@ -12,7 +12,7 @@
  * carrier double does exactly what `useConversation` does with the reply (source-pinned below).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { render, renderHook, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 
 import type { WireSystemEvent } from '../../../conversation/types'
@@ -26,9 +26,19 @@ import {
 
 const CEE_SAID = 'This link holds your figure: ‘Each lost customer removes £300 a month’. Change the figure, or say ‘replace my figure with moderate’.'
 let replyHash: string | undefined
+let acceptReply = false
+let beforeReply: (() => void) | undefined
 const sendSystemEvent = vi.fn(async (_event: WireSystemEvent, opts?: { optimisticEdgeEdit?: OptimisticEdgeEdit }) => {
   // What `useConversation` does with a non-error reply to its own edge edit, before the send settles.
   const own = opts?.optimisticEdgeEdit
+  beforeReply?.()
+  if (own && acceptReply) {
+    // An accepted reply shows the sent magnitude in its committed graph.
+    const edge = useCanvasStore.getState().edges.find((e) => e.id === own.edgeId)!
+    useCanvasStore.getState().updateEdge(own.edgeId, {
+      data: { ...DEFAULT_EDGE_DATA, ...edge.data, serverStrength: { mean: own.sentMagnitude, effect_direction: 'positive' } },
+    })
+  }
   if (own && edgeEditAnsweredUnmoved(own, replyHash)) noteEdgeEditNotApplied(own, CEE_SAID)
   return undefined
 })
@@ -38,9 +48,19 @@ vi.mock('../../../conversation/ConversationContext', async (importOriginal) => {
   return { ...actual, useOptionalConversationContext: () => ({ sendSystemEvent }) }
 })
 vi.mock('@xyflow/react', () => ({ useViewport: () => ({ x: 0, y: 0, zoom: 1 }) }))
+vi.mock('../../../../flags', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  isV5CanonicalAnalysisEnabled: () => false,
+}))
 
 import { InspectorRouter } from '../InspectorRouter'
 import { useCanvasStore } from '../../../store'
+import type { CEEAnalysisReady } from '../../../../adapters/cee/types'
+import { DEFAULT_EDGE_DATA } from '../../../domain/edges'
+import { useAnalysisState } from '../../../state/analysisStateSelector'
+import { deriveRerunActionLabel, RERUN_LABEL_CHANGED } from '../../../components/utils/postAnalysisFooter'
+import { useStageAwarePlaceholder, PLACEHOLDER_CHANGED_RUNNABLE } from '../../../hooks/useStageAwarePlaceholder'
+import { __resetStalenessVoicesForTest } from '../../../conversation/stalenessVoice'
 
 const BASE = 'h-base-31f5adf8'
 function seed(lastServerGraphHash: string | null = BASE) {
@@ -80,7 +100,101 @@ beforeEach(() => {
   cleanup()
   sendSystemEvent.mockClear()
   __resetPendingEdgeEditsForTest()
+  __resetStalenessVoicesForTest()
   replyHash = undefined
+  acceptReply = false
+  beforeReply = undefined
+})
+
+function seedCompletedRun(): CEEAnalysisReady {
+  seed()
+  // Minimal valid readiness, matching analysisReady.invalidation.spec.ts.
+  const ready: CEEAnalysisReady = { goal_node_id: 'n_mrr', options: [] }
+  useCanvasStore.setState({
+    ceeAnalysisReady: ready,
+    ceeAnalysisReadyNodeIds: ['n_churn', 'n_mrr'],
+    results: { status: 'complete', report: { probability_of_goal: 0.62 } } as never,
+    hasCompletedFirstRun: true,
+    analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match', computedAt: '2026-10-07T00:00:00Z' },
+    analysisFreshnessDirty: false,
+    analysisStateV1: null,
+    v5AnalysisFact: null,
+    importPendingServerRegistration: false,
+    currentScenarioFraming: null,
+  })
+  const state = renderHook(() => useAnalysisState()).result.current
+  expect(state.semantic).toBe('current')
+  expect(deriveRerunActionLabel({ isRunning: false, ...state })).not.toBe(RERUN_LABEL_CHANGED)
+  return ready
+}
+
+const rerunLabel = () => {
+  const state = renderHook(() => useAnalysisState()).result.current
+  return deriveRerunActionLabel({ isRunning: false, ...state })
+}
+
+describe('analysis currency after the inspector settles', () => {
+  it('ROW 1: a refused band restores clean currency and the exact readiness object', async () => {
+    const ready = seedCompletedRun()
+    replyHash = BASE
+    await clickModerate()
+    await waitFor(() => expect(feedback()).toHaveAttribute('data-settlement', 'refused'))
+    expect(weight()).toBe(0.62)
+    expect(feedback().textContent).toContain(CEE_SAID)
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
+    expect(useCanvasStore.getState().ceeAnalysisReady).toBe(ready)
+    expect(rerunLabel()).not.toBe(RERUN_LABEL_CHANGED)
+    expect(renderHook(() => useStageAwarePlaceholder()).result.current).not.toBe(PLACEHOLDER_CHANGED_RUNNABLE)
+  })
+
+  it('ROW 2: an accepted band remains dirty and the real footer names the change', async () => {
+    seedCompletedRun()
+    acceptReply = true
+    replyHash = 'h-accepted'
+    await clickModerate()
+    await waitFor(() => expect(feedback()).toHaveAttribute('data-settlement', 'sent'))
+    const edge = useCanvasStore.getState().edges.find((e) => e.id === 'e1')!
+    const own = sendSystemEvent.mock.calls[0][1]!.optimisticEdgeEdit!
+    expect(weight()).toBe(own.sentMagnitude)
+    expect(edge.data?.serverStrength).toEqual({ mean: own.sentMagnitude, effect_direction: 'positive' })
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
+    expect(rerunLabel()).toBe(RERUN_LABEL_CHANGED)
+  })
+
+  it('ROW 3: refusal cannot clean a different edge’s analytical edit', async () => {
+    seedCompletedRun()
+    useCanvasStore.setState({ edges: [...useCanvasStore.getState().edges, {
+      id: 'e2', source: 'n_mrr', target: 'n_churn', data: { ...DEFAULT_EDGE_DATA, weight: 0.2 },
+    }] })
+    beforeReply = () => useCanvasStore.getState().updateEdge('e2', { data: { ...DEFAULT_EDGE_DATA, weight: 0.8 } })
+    replyHash = BASE
+    await clickModerate()
+    await waitFor(() => expect(feedback()).toHaveAttribute('data-settlement', 'refused'))
+    expect(weight()).toBe(0.62)
+    expect(useCanvasStore.getState().edges.find((e) => e.id === 'e2')?.data?.weight).toBe(0.8)
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
+    expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    expect(rerunLabel()).toBe(RERUN_LABEL_CHANGED)
+  })
+
+  it('ROW 4: a newer readiness object prevents restoration of the old analysis', async () => {
+    const ready = seedCompletedRun()
+    const newer = { ...ready }
+    beforeReply = () => {
+      useCanvasStore.setState({ ceeAnalysisReady: newer, analysisFreshnessDirty: false })
+      expect(useCanvasStore.getState().ceeAnalysisReady).toBe(newer)
+      expect(newer).not.toBe(ready)
+    }
+    replyHash = BASE
+    await clickModerate()
+    await waitFor(() => expect(feedback()).toHaveAttribute('data-settlement', 'refused'))
+    expect(weight()).toBe(0.62)
+    // Existing updateEdge invalidation clears the newer readiness on the revert.
+    // It must not be replaced with the older run's readiness or clean overlay.
+    expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    expect(useCanvasStore.getState().ceeAnalysisReady).not.toBe(ready)
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
+  })
 })
 
 describe('F1 — the pill shows only what the model holds', () => {
