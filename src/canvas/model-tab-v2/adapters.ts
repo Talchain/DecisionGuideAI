@@ -1,3 +1,4 @@
+import { servedSwitchReading } from '../domain/switchFactors'
 /**
  * Model tab v2 — THE READ-ONLY STORE → PROJECTION ADAPTER.
  *
@@ -122,6 +123,7 @@
  *      its unit. The legacy scalar is only a fallback when the node has none.
  */
 
+import { routeOnceHeldIds } from '../domain/routeOnceHeld'
 import type { Edge, Node } from '@xyflow/react'
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { goalLabelIsUnconfirmedBriefExtract } from '../domain/goalLabelProvenance'
@@ -468,6 +470,8 @@ function narrowObservedState(obs: ObservedState): ModelTabObservedState {
  * nothing is stated — a fact to render, never a zero to invent.
  */
 function factorValue(data: unknown): string | null {
+  const switchText = servedSwitchReading(data)
+  if (switchText !== null) return switchText
   const obs = observedStateOf(data)
   if (!obs) return null
   const primary = getPrimaryValue(narrowObservedState(obs))
@@ -1205,7 +1209,7 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
       affects: input.edges
         .filter(e => e.source === rowId)
         .map(e => ({ id: e.id, label: endpointLabel(e.target, nodeLabels) })),
-      interventions: buildOptionInterventions(node, nodeLabels),
+      interventions: buildOptionInterventions(node, nodeLabels, input.nodes),
       interventionCandidates: buildOptionInterventionCandidates(
         node,
         input.edges,
@@ -1236,7 +1240,7 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
     interventions: [],
     // A relationship is not an option, so there is nothing it could change.
     interventionCandidates: [],
-    advancedParameters: buildAdvancedForEdge(edge.id, data),
+    advancedParameters: buildAdvancedForEdge(edge.id, data, routeOnceHeldIds(input.nodes, input.edges).has(edge.id)),
   }
 }
 
@@ -1374,6 +1378,7 @@ export function optionIdsWithValueInputs(input: ModelProjectionInput): ReadonlyS
 function buildOptionInterventions(
   node: Node,
   labels: ReadonlyMap<string, string>,
+  nodes: readonly Node[],
 ): OptionInterventionField[] {
   if (nodeKind(node) !== 'option') return []
   const raw = (node.data as Record<string, unknown> | undefined)?.interventions as
@@ -1387,7 +1392,7 @@ function buildOptionInterventions(
     const { displayValue, source } = unwrapInterventionValue(rawValue)
     // A CEE-authored `display_value` wins the DISPLAY (the F.6 passthrough the
     // v1 rows already honoured); the numeric half is independent of it.
-    const value = displayValue ?? (numeric === undefined ? null : formatSmartNumber(numeric))
+    const value = servedSwitchReading(nodes.find(n => n.id === factorId)?.data, numeric ?? null) ?? displayValue ?? (numeric === undefined ? null : formatSmartNumber(numeric))
     return [
       {
         factorId,
@@ -1436,9 +1441,9 @@ function buildAdvancedForNode(id: string, obs: ObservedState | undefined) {
  *     read empty. `resolveEdgeValueDisplay(data, 'beliefExists')` owns that
  *     spelling — including the legacy `belief` leg — in one place.
  */
-function buildAdvancedForEdge(id: string, data: Record<string, unknown> | undefined) {
+function buildAdvancedForEdge(id: string, data: Record<string, unknown> | undefined, routeOnceHeld: boolean) {
   const std = resolveEdgeValueDisplay(data, 'strengthStd')
-  const ep = resolveEdgeValueDisplay(data, 'beliefExists')
+  const ep = resolveEdgeValueDisplay(data, 'beliefExists', { routeOnceHeld })
   return [
     { label: 'Edge ID', value: id },
     { label: 'Std', value: std.show ? String(std.value) : null },

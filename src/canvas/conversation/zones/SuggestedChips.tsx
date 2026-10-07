@@ -18,7 +18,7 @@
  * Click failures show a brief inline error that auto-dismisses after 5s.
  */
 
-import { useState, useEffect, useId } from 'react'
+import { useState, useEffect, useId, useRef } from 'react'
 import { typography } from '../../../styles/typography'
 import styles from '../Conversation.module.css'
 import { isV5Eligible } from '../../../v5/eligibility'
@@ -37,8 +37,9 @@ import { isChipRenderable } from '../chipDispatch'
 import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
 import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
-import { CONSENT_CHIP_PREFIX, PLAN_PICK_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition'
+import { CONSENT_CHIP_PREFIX, PLAN_PICK_CHIP_PREFIX, RESEARCH_CHIP_PREFIX, WIDEN_ADD_CHIP_PREFIX } from '../messageComposition'
 import type { ActionChip } from '../types'
+import { HeldProposalPanel, useHeldProposalFields, type ProposalPanelAction } from '../HeldProposalPanel'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
 // not in this set are filtered out when V5 is active. On V4 the set is
@@ -155,6 +156,11 @@ function isPlanPickChip(chip: ActionChip): boolean {
   return typeof chip.id === 'string' && chip.id.startsWith(PLAN_PICK_CHIP_PREFIX)
 }
 
+/** CEE's per-item widening Add (#2744 S-C), by identity (its id prefix), never by label or message. */
+function isWidenAddChip(chip: ActionChip): boolean {
+  return typeof chip.id === 'string' && chip.id.startsWith(WIDEN_ADD_CHIP_PREFIX)
+}
+
 /**
  * ⭐ A CHIP WHOSE CLICK IS THE DECISION SHOWS ITS `detail` BEFORE THE CLICK: the research control (what leaves
  * Olumi, CEE #2042) and the consent chip (what the click writes: the whole option name and every factor it also
@@ -165,9 +171,21 @@ function disclosesDetail(chip: ActionChip): boolean {
   return isResearchChip(chip) || isConsentChip(chip)
 }
 
+/** What the row shows, held while a turn is in flight. */
+interface HeldChipRow {
+  chips: ActionChip[]
+  visible: ActionChip[]
+  runGateClosed: boolean
+  runGateReason: string | undefined
+}
+
 interface SuggestedChipsProps {
   chips: ActionChip[]
-  onChipClick: (chip: ActionChip) => Promise<void>
+  onChipClick: (chip: ProposalPanelAction) => Promise<void>
+  proposalFields?: unknown
+  replyId?: string
+  openedProposalId?: string | null
+  onOpenProposal?: (id: string) => void
   /** When true, all chips are disabled while a response is pending */
   isThinking?: boolean
   /**
@@ -184,6 +202,12 @@ interface SuggestedChipsProps {
    * it through the same gate.
    */
   runGate?: RunChipGate
+  /**
+   * The host's verdict (`workspaceShell/rerunControl.ts` `hostRerunControl` → `chatRunChipStandsAside`): a rerun
+   * control is shown, or deferred to, elsewhere on screen, so a run chip stands aside — one rerun control. Absent
+   * (headless mounts) ⇒ unchanged.
+   */
+  rerunOwnedByHost?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -196,6 +220,11 @@ export function SuggestedChips({
   isThinking = false,
   isHistorical = false,
   runGate,
+  proposalFields,
+  replyId,
+  openedProposalId: controlledProposalId,
+  onOpenProposal,
+  rerunOwnedByHost = false,
 }: SuggestedChipsProps) {
   // All hooks are declared before any conditional return so that the hook
   // count is stable across renders. Downstream conditions (isHistorical,
@@ -203,6 +232,8 @@ export function SuggestedChips({
   // is the rules-of-hooks contract. Readiness transitions
   // (ready → missing, ready → not_ready) flip `visible` emptiness on the
   // fly; hoisting the two subscribers keeps React's dispatcher aligned.
+  const fields = useHeldProposalFields(proposalFields, replyId, chips)
+  const [openedProposalId, setOpenedProposalId] = useState<string | null>(null)
   const [chipError, setChipError] = useState<string | null>(null)
   const analysisStatus = useAnalysisStatus()
   // CEE's own admission verdict for this turn. `undefined` on a pre-`may_run`
@@ -250,6 +281,8 @@ export function SuggestedChips({
   const runGateReasonId = useId()
   // One visible disclosure per research chip: `${disclosureIdBase}-${index}`.
   const disclosureIdBase = useId()
+  // The row as shown when the current turn went pending (see "holds still" below).
+  const heldRowRef = useRef<HeldChipRow | null>(null)
   const aiPanelV2On = isAiPanelV2Enabled()
   useEffect(() => {
     if (!chipError) return
@@ -401,24 +434,53 @@ export function SuggestedChips({
   // M3 (CEE #2480 choose_plan): an asked pre-mortem with no plan offers one button per own option, then "Talk it
   // through". That set is the method's own question, not a suggestion: D1's four options made it five, and the cap
   // dropped the last plan and "Talk it through". A turn carrying a plan pick keeps its whole set.
-  const renderable = polished.filter(isChipRenderable)
-  const visible = renderable.some(isPlanPickChip) ? renderable : renderable.slice(0, 3)
-  if (visible.length === 0) return null
-
-  const disabled = isThinking || isHistorical
+  // S-C (CEE #2744): a widening turn's per-item Adds + "Something else" are the same kind of set (3 risks made it four, and
+  // the cap cut "Something else").
+  // ⭐ ONE RERUN CONTROL (Paul, 7 Oct: "get rid of the pill inside the chat and just have the re-analyse button").
+  // While the host shows (or defers to) a rerun control, a run chip is never a second one. Applied before the cap, so
+  // it never costs another chip its slot.
+  const renderable = polished.filter((c) => isChipRenderable(c) && !(rerunOwnedByHost && isRunAnalysisAffordance(c)))
+  const visibleNow = renderable.some((c) => isPlanPickChip(c) || isWidenAddChip(c)) ? renderable : renderable.slice(0, 3)
 
   // The host's gate, read verbatim. Closed ⇒ every Run chip in the row is
   // disabled. The sentence is the host's own (`runBlockedReason`); a blank or
   // absent one leaves the chip disabled with NO description rather than a
   // sentence this component made up.
-  const runGateClosed = runGate !== undefined && !runGate.allowed
-  const runGateReason =
-    runGateClosed && typeof runGate.reason === 'string' && runGate.reason.trim().length > 0
+  const runGateClosedNow = runGate !== undefined && !runGate.allowed
+  const runGateReasonNow =
+    runGateClosedNow && typeof runGate.reason === 'string' && runGate.reason.trim().length > 0
       ? runGate.reason
       : undefined
+
+  // ⭐ WHILE A TURN IS IN FLIGHT THE ROW HOLDS STILL (Paul, 7 Oct: "the text
+  // doesn't move … it shouldn't go blank or do anything weird"). The filters
+  // above read store state that the turn itself changes before its reply lands:
+  // a "Run analysis" turn starts and finishes the Run mid-turn, so freshness
+  // goes changed → current and the run gate closes then opens. Read live, that
+  // deleted or relabelled a chip and added or removed the gate's sentence under
+  // the reader, moving the thinking indicator below it. While pending the row
+  // keeps what it showed when the turn started (all disabled, as before), and
+  // re-reads the store once the turn settles. New chips (a different `chips`
+  // array) are never held back.
+  const liveRow: HeldChipRow = {
+    chips,
+    visible: visibleNow,
+    runGateClosed: runGateClosedNow,
+    runGateReason: runGateReasonNow,
+  }
+  if (!isThinking || heldRowRef.current === null || heldRowRef.current.chips !== chips) {
+    heldRowRef.current = liveRow
+  }
+  const { visible, runGateClosed, runGateReason } = heldRowRef.current
+  if (visible.length === 0) return null
+
+  const disabled = isThinking || isHistorical
   const showRunGateReason = runGateReason !== undefined && visible.some(isRunAnalysisAffordance)
 
-  function handleClick(chip: ActionChip) {
+  const proposal = fields?.proposals.find(p => p.proposal_id === (controlledProposalId === undefined ? openedProposalId : controlledProposalId)
+    && visible.some(c => c.id === p.approve_action.id))
+
+  function handleClick(chip: ProposalPanelAction) {
     if (disabled) return
     const isRunChip = isRunAnalysisAffordance(chip)
     // Belt-and-braces: a gated Run chip is `disabled`, so no pointer or keyboard
@@ -426,6 +488,14 @@ export function SuggestedChips({
     // nothing.
     if (isRunChip && runGateClosed) return
     setChipError(null)
+    if (chip.id === 'agent-amend-proposal') {
+      const entry = fields?.proposals.find(p => visible.some(c => c.id === p.approve_action.id))
+      if (entry) {
+        if (onOpenProposal) onOpenProposal(entry.proposal_id)
+        else setOpenedProposalId(entry.proposal_id)
+        return
+      }
+    }
     /*
      * ⭐ A RUN CHIP ASKS THE RUN GATE, NOT THE CHAT (journey blocker, RC #63
      * 5819467504). This chip used to dispatch `run_analysis` straight through
@@ -583,6 +653,11 @@ export function SuggestedChips({
         >
           {runGateReason}
         </p>
+      )}
+
+      {proposal && fields && (
+        <HeldProposalPanel key={`${replyId}:${proposal.proposal_id}:${proposal.digest}:${proposal.revision}:${fields.graph_hash}`}
+          proposal={proposal} graphHash={fields.graph_hash} disabled={disabled} onAction={handleClick} />
       )}
 
       {chipError && (

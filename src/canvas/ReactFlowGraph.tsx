@@ -1,3 +1,6 @@
+import { routeOnceHeldIds } from './domain/routeOnceHeld'
+import { CanvasEditNote } from './nodes/EditNoteAnchor'
+import { EDIT_NOTE_LINK_EVENT } from './editNotes/EditNote'
 import { WhatElseChooserHost } from './components/WhatElseChooser'
 import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo } from 'react'
 import { resolveRestoredFreshnessUpdate } from './store/analysisFreshness'
@@ -1064,8 +1067,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       nodeLabelById,
       useEdgeLabelMode.getState().mode,
       (id) => nodeKindById.get(id),
+      routeOnceHeldIds(nodes, edges),
     )
-  }, [edges, memoizedNodes])
+  }, [edges, memoizedNodes, nodes])
 
   // Actions are stable references - don't need shallow comparison
   const createNodeId = useCanvasStore(s => s.createNodeId)
@@ -1087,9 +1091,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     const handleDockOpened = () => setShowFullInspector(false)
     const handleOpenInspector = () => setShowFullInspector(true)
     window.addEventListener('outputs-dock-opened', handleDockOpened)
+    const handleEditNoteLink = () => setShowFullInspector(false)
+    window.addEventListener(EDIT_NOTE_LINK_EVENT, handleEditNoteLink)
     window.addEventListener(OPEN_FULL_INSPECTOR_EVENT, handleOpenInspector)
     return () => {
       window.removeEventListener('outputs-dock-opened', handleDockOpened)
+      window.removeEventListener(EDIT_NOTE_LINK_EVENT, handleEditNoteLink)
       window.removeEventListener(OPEN_FULL_INSPECTOR_EVENT, handleOpenInspector)
     }
   }, [])
@@ -2898,6 +2905,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
                 renderer, so every card and edge paints over it. It still takes
                 the band's bottom-left slot; see `AnalysisStateCue.tsx`. */}
             <AnalysisStateCue />
+            <CanvasEditNote inspectorOpen={showFullInspector} />
           </ReactFlow>
         )}
       </div>

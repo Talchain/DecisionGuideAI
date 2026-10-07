@@ -16,6 +16,7 @@ import {
   GOAL_IDENTITY_NOT_EVALUATED_CODE,
   GOAL_IDENTITY_WITHHELD_FALLBACK,
   readGoalIdentityWithheld,
+  readGoalWithheldReasonFor,
 } from '../goalIdentityWithheld'
 import { mapV5AnalysisToReport } from '../../../../v5/mapV5AnalysisToReport'
 import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
@@ -73,6 +74,73 @@ describe('the one reader matches every typed reason for withholding the goal fig
   it('W1: the fallback names no cause (not evaluated · not confirmed · a size cut), and asks for nothing', () => {
     expect(GOAL_IDENTITY_WITHHELD_FALLBACK).toBe("Not shown. Olumi can't give each option's figures for this goal from this run.")
     expect(GOAL_IDENTITY_WITHHELD_FALLBACK).not.toMatch(/formula|calculat|confirm|size|scale|cut|depends/i)
+  })
+})
+
+describe('readGoalWithheldReasonFor: option-bound reasons', () => {
+  const placeholder = { code: 'GOAL_FIGURES_PLACEHOLDER_PATH', option_ids: ['shop'], message: '  The shop link needs a size.  ' }
+  const target = { code: 'GOAL_FIGURES_TARGET_NOT_TESTABLE', option_ids: ['app'], message: 'Not shown. The app link needs a size.' }
+  const read = (warnings: unknown[], id = 'shop') => readGoalWithheldReasonFor({ inference_warnings: warnings }, id)
+
+  it('binds different scopes before applying the target-over-placeholder rule', () => {
+    expect(read([placeholder, target])).toBe('The shop link needs a size.')
+    expect(read([placeholder, target], 'app')).toBe('The app link needs a size.')
+  })
+
+  it('never uses an excluded warning, even with an own per-option entry', () => {
+    expect(read([{ ...target, per_option: { shop: { message: 'Not shown. Wrong option.' } } }])).toBeNull()
+  })
+
+  it('uses an own target per-option message before the general reasons', () => {
+    expect(read([placeholder, { ...target, option_ids: ['shop'], per_option: {
+      shop: { message: 'Not shown. Its own link needs a size.' },
+    } }])).toBe('Its own link needs a size.')
+  })
+
+  it.each(['inherited', 'wrong prefix', 'wrong code'] as const)('ignores a %s per-option entry', kind => {
+    const entry = { message: 'Not shown. Wrong words.' }
+    const per_option = kind === 'inherited' ? Object.create({ shop: entry })
+      : { shop: kind === 'wrong prefix' ? { message: 'Not shown yet.' } : entry }
+    expect(read([{ ...target, option_ids: ['shop'], per_option,
+      ...(kind === 'wrong code' ? { code: 'GOAL_FIGURES_PLACEHOLDER_PATH' } : {}),
+    }])).toBe('The app link needs a size.')
+  })
+
+  it('supersedes only the same option\'s placeholder and retains distinct independent reasons', () => {
+    const ownTarget = { ...target, option_ids: ['shop'] }
+    const independent = { ...IDENTITY, option_ids: ['shop'] }
+    expect(read([{ ...placeholder, message: 'unsafe_id' }, ownTarget, independent, ownTarget, independent]))
+      .toBe(`The app link needs a size. ${IDENTITY_WORDS.slice('Not shown.'.length).trim()}`)
+  })
+
+  it.each([undefined, null, [], ['shop', 7], 'app'])('uses B3 fail-closed scope for %j', option_ids => {
+    expect(read([{ ...target, option_ids }])).toBe('The app link needs a size.')
+  })
+
+  it.each([undefined, null, {}, { inference_warnings: [] }])('returns null without a covering warning in %j', holder => {
+    expect(readGoalWithheldReasonFor(holder, 'shop')).toBeNull()
+  })
+
+  it('ignores unknown codes and another option\'s unsafe reason', () => {
+    expect(read([{ ...placeholder, code: 'GOAL_FIGURES_UNKNOWN' }, target])).toBeNull()
+    expect(read([placeholder, { ...target, message: 'unsafe_id' }])).toBe('The shop link needs a size.')
+  })
+
+  it.each([undefined, '', 'Not shown.', 'Not shown. unsafe_id', '<link>', '{link}', '[link]', 'x'.repeat(401)])(
+    'returns null for an unsafe/missing chosen message %j', message => {
+      expect(read([{ ...placeholder, message }])).toBeNull()
+      expect(read([placeholder, { ...IDENTITY, option_ids: ['shop'], message }])).toBeNull()
+    },
+  )
+
+  it('rejects an unsafe own per-option reason', () => {
+    expect(read([{ ...target, option_ids: ['shop'], per_option: { shop: { message: 'Not shown. unsafe_id' } } }])).toBeNull()
+  })
+
+  it('accepts the 400-character boundary after trimming and strips each leading prefix', () => {
+    expect(read([{ ...placeholder, message: ` ${'x'.repeat(400)} ` }])).toBe('x'.repeat(400))
+    expect(read([{ ...placeholder, message: ' Not shown. Shop reason. ' }, { ...IDENTITY, message: ' Not shown. Formula reason. ' }]))
+      .toBe('Shop reason. Formula reason.')
   })
 })
 

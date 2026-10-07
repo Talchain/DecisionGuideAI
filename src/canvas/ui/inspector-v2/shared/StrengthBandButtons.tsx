@@ -128,6 +128,8 @@ interface StrengthBandButtonsProps {
   unset?: boolean
   /** Preserve legacy callers; Inspector uses words until technical detail is requested. */
   technicalDetails?: boolean
+  /** Chat uses the existing 12px label token. */
+  size?: 'panel' | 'chat'
 }
 
 export const StrengthBandButtons = memo(function StrengthBandButtons({
@@ -135,6 +137,7 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
   onChange,
   unset = false,
   technicalDetails = true,
+  size = 'panel',
 }: StrengthBandButtonsProps) {
   const absMagnitude = Math.abs(value)
   const isNegative = value < 0
@@ -277,7 +280,7 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
               onMouseLeave={() => setHoveredIndex(prev => (prev === i ? null : prev))}
               aria-label={disclosure}
               title={disclosure}
-              className={`${typography.panelMeta} px-2 py-1 rounded-full bg-transparent border transition-colors cursor-pointer inline-flex flex-col items-center leading-tight
+              className={`${size === 'chat' ? typography.chatMeta : typography.panelMeta} px-2 py-1 rounded-full bg-transparent border transition-colors cursor-pointer inline-flex flex-col items-center leading-tight
                 ${isActive
                   ? 'border-text-body text-text-body bg-panel-hover'
                   : 'border-panel-border text-text-light hover:border-text-light hover:bg-panel-hover'
@@ -304,7 +307,7 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
         for anyone browsing the panel by structure.
       */}
       <div
-        className={`${typography.panelMeta} text-text-light min-h-[1rem] mt-1`}
+        className={`${size === 'chat' ? typography.chatMeta : typography.panelMeta} text-text-light min-h-[1rem] mt-1`}
         data-testid="strength-preset-consequence"
       >
         {revealed}

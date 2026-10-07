@@ -9,6 +9,7 @@
  * missing OR when nothing set it — a UI default is not a measurement, so it is
  * reported as unknown rather than rendered (see the gate below).
  */
+import { routeOnceHeldIds } from '../domain/routeOnceHeld'
 import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import type { NodeType } from '../domain/nodes'
@@ -33,6 +34,7 @@ export function useNodeConnections(
 
   return useMemo(() => {
     if (resultsStatus !== 'complete') return []
+    const heldIds = routeOnceHeldIds(nodes, edges)
 
     const matched = direction === 'outbound'
       ? edges.filter(e => e.source === nodeId)
@@ -59,8 +61,10 @@ export function useNodeConnections(
       // `confidencePct` stays null and ConnRow renders no figure at all.
       const existsProb = typeof data?.exists_probability === 'number' ? data.exists_probability : null
       const beliefExists = typeof data?.beliefExists === 'number' ? data.beliefExists : null
-      // D3 cut 6: a link CEE holds at 1.0 shows the existence the Run uses (domain/heldUserLink).
-      const raw = data?.existenceHeld === true ? 1 : isEdgeValueSet(data, 'beliefExists') ? (existsProb ?? beliefExists) : null
+      // D3 cut 6: a link CEE holds at 1.0 shows the existence the Run uses (domain/heldUserLink), and so does a link CEE
+      // counts once on its route (rule R, domain/routeOnceHeld: read-time, relational).
+      const held = data?.existenceHeld === true || heldIds.has(edge.id)
+      const raw = held ? 1 : isEdgeValueSet(data, 'beliefExists') ? (existsProb ?? beliefExists) : null
 
       rows.push({
         edgeId: edge.id,

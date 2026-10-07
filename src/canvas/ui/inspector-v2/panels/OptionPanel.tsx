@@ -1,3 +1,5 @@
+import { useSwitchFactorNodes } from '../../../hooks/useSwitchFactorNodes'
+import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 /**
  * OptionPanel — Inspector panel for option nodes (spec §6, v6.2 three-group layout)
  * Groups: Context → Input (what this option changes) → Impact (post-analysis) → Connections
@@ -116,7 +118,7 @@ export const OptionPanel = memo(function OptionPanel({
    */
   readOnly = false,
 }: InspectorPanelProps) {
-  const nodes = useCanvasStore(s => s.nodes)
+  const nodes = useSwitchFactorNodes()
   const edges = useCanvasStore(s => s.edges)
   /** The card's first source for an option's targets — read here for the SAME reason (DEFECT 5). */
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
@@ -905,6 +907,7 @@ export const OptionPanel = memo(function OptionPanel({
           </div>
         </PrimaryControlCard>
 
+        <InlineRerunPrompt visible={false} elementId={nodeId} />
         {interventions.length > 0 && (
           <InspectorCoaching
             elementId={nodeId}

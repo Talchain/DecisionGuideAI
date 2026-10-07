@@ -32,9 +32,9 @@ describe('ScenarioSwitcher (A3)', () => {
   const mockRenameCurrentScenario = vi.fn()
   const mockDeleteScenario = vi.fn()
 
-  const renderWithToast = () => render(
+  const renderWithToast = (props: React.ComponentProps<typeof ScenarioSwitcher> = {}) => render(
     <ToastProvider>
-      <ScenarioSwitcher />
+      <ScenarioSwitcher {...props} />
     </ToastProvider>
   )
 
@@ -66,6 +66,46 @@ describe('ScenarioSwitcher (A3)', () => {
         graph: { nodes: [], edges: [] }
       }
     ])
+  })
+
+  it.each([[60000, 5000, 'just now'], [5000, 60000, 'just now'], [null, 30000, '30s ago'], [30000, null, '30s ago']] as const)(
+    'uses the newer timestamp: local age %s, server age %s', (localAge, serverAge, label) => {
+      const original = vi.mocked(useCanvasStore).getMockImplementation()!
+      vi.mocked(useCanvasStore).mockImplementation((selector: any) => original((state: any) => selector({ ...state, lastSavedAt: localAge === null ? null : Date.now() - localAge })))
+      renderWithToast({ isPersisted: true, serverSaveStatus: 'saved', serverLastSavedAt: serverAge === null ? null : Date.now() - serverAge })
+      expect(screen.getByText(`Saved ${label}`)).toBeInTheDocument()
+    },
+  )
+
+  it('passes dirty state into the pill after an earlier save', () => {
+    const original = vi.mocked(useCanvasStore).getMockImplementation()!
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) => original((state: any) => selector({ ...state, isDirty: true, lastSavedAt: Date.now() })))
+    renderWithToast()
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
+    expect(screen.queryByTestId('save-status-saved')).not.toBeInTheDocument()
+  })
+
+  // ⭐ ONE SAVE INDICATOR (Paul 7 Oct: "Saved 49m ago" while editing; no repeated copy). A persisted model's live
+  // states belong to the TopBar's right-hand indicator, so the pill steps aside rather than saying them a second time.
+  it.each([
+    ['server saving', { serverSaveStatus: 'saving' as const }, false],
+    ['server save failed', { serverSaveStatus: 'error' as const }, false],
+    ['unsaved edits', { serverSaveStatus: 'saved' as const }, true],
+  ])('persisted + %s: the pill steps aside (the TopBar indicator owns it)', (_name, props, dirty) => {
+    const original = vi.mocked(useCanvasStore).getMockImplementation()!
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) => original((state: any) => selector({ ...state, isDirty: dirty, lastSavedAt: Date.now() - 49 * 60_000 })))
+    renderWithToast({ isPersisted: true, serverLastSavedAt: Date.now() - 49 * 60_000, ...props })
+    expect(screen.queryByTestId('save-status-saved')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('save-status-saving')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('save-status-unsaved')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Saved 49m ago/)).not.toBeInTheDocument()
+  })
+
+  it('CONTROL: persisted + clean shows the last save', () => {
+    const original = vi.mocked(useCanvasStore).getMockImplementation()!
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) => original((state: any) => selector({ ...state, isDirty: false, lastSavedAt: null })))
+    renderWithToast({ isPersisted: true, serverSaveStatus: 'saved', serverLastSavedAt: Date.now() - 49 * 60_000 })
+    expect(screen.getByText(/Saved 49m ago/)).toBeInTheDocument()
   })
 
   it('shows "Saving..." pill when isSaving is true', () => {

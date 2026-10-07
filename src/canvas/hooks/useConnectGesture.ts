@@ -1,3 +1,4 @@
+import { reportManualEdit } from '../editNotes/editNoteStore'
 /**
  * ⭐ THE DRAW-A-LINK GESTURE — React Flow's four connect callbacks, extracted
  * from `ReactFlowGraph` so the gesture can be driven end-to-end in a spec
@@ -104,6 +105,10 @@ export function useConnectGesture({
         if (msg) showToast(msg, 'warning')
         return
       }
+      const landed = useCanvasStore.getState()
+      const edge = landed.edges.find(e => e.source === connection.source && e.target === connection.target)
+      if (edge) reportManualEdit({ edit: { kind: 'structural_add_edge', elementId: edge.id, accepted: true },
+        before: { nodes: landed.nodes, edges: landed.edges.filter(e => e.id !== edge.id) }, after: landed })
       openStrengthForNewCanvasOnlyLink(connection.source, connection.target)
     },
     [showToast],

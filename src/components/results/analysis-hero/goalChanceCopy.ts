@@ -11,6 +11,7 @@ import type { GoalChanceComparator, GoalChanceDriver, GoalChanceDriverNames, Goa
 import { formatGoalTarget } from '../utils/formatGoalTarget'
 import { GOAL_CHANCE_LABEL, goalProbabilityWords } from '../utils/goalAnchorCopy'
 import type { GoalChanceRangeEntry } from '../utils/goalChanceRange'
+import type { RunDeltaGoalChanceSide } from '@talchain/schemas/boundary'
 
 const COMPARATOR_WORDS: Readonly<Record<GoalChanceComparator, string>> = {
   at_least: 'at least',
@@ -217,3 +218,28 @@ export function goalChanceDriverLines(
 
 /** The existence line lives with the licence reader (`utils/goalChanceLicence`), so the hero and the WinGauge share it. */
 export { goalChanceExistenceLine, goalChanceDisclosureLines, goalChanceSummaryWithheldLine } from '../utils/goalChanceLicence'
+
+/**
+ * Compare's section heading for `run_delta.goal_chances` (schemas 0.81.0; DL #87 6035414740). It names the quantity,
+ * never a contest: each option's chance, never which option leads.
+ */
+export const COMPARE_GOAL_CHANCE_HEADING = 'Chance of meeting your goal, in this model'
+
+/**
+ * One Run's side of an option's chance, as THAT Run's Analysis showed it: the displayed figure in the hero's own words
+ * (`about`, so 0 and 100 never read as certain), a range as the range line says it, and the two sides with no figure in
+ * plain words. Figures only (DL ruling 2): nothing here says higher, lower or moved.
+ */
+export function goalChanceSideWords(side: RunDeltaGoalChanceSide): string {
+  switch (side.kind) {
+    case 'point': return about(side.pct)
+    case 'range': return `between ${about(side.low_pct)} and ${about(side.high_pct).replace(/^about /, '')}`
+    case 'withheld': return 'not shown'
+    case 'not_recorded': return 'not recorded'
+  }
+}
+
+/** "Earlier about 47% → Latest about 15%": each side in its own Run's words, earlier first. */
+export function goalChanceCompareWords(prior: RunDeltaGoalChanceSide, current: RunDeltaGoalChanceSide): string {
+  return `Earlier ${goalChanceSideWords(prior)} → Latest ${goalChanceSideWords(current)}`
+}

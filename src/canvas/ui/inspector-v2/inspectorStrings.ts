@@ -572,6 +572,7 @@ export const EDGE_COPY = {
    * range, so the note says what the analysis does and on whose input — never that Olumi believes something.
    */
   existenceHeldNote: 'Held at 100%: your own range for this link’s effect doesn’t include zero, so the analysis treats the link as existing.',
+  existenceCountedOnceNote: 'Counted once: Olumi’s doubt about each route through this link already sits on an earlier link, so the analysis always includes this one.',
   // S-DEF (Science 393023, 7 Oct): a validated definition is held whoever drew it; no likelihood is said of it.
   existenceHeldByDefinitionNote: 'Always exists: this link holds by definition, so the analysis always includes it.',
   sensitiveContext: 'Small changes here could shift which option the data supports.',

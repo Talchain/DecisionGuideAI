@@ -46,6 +46,7 @@
  */
 
 import { RefreshCw } from 'lucide-react'
+import { readinessBarShowsAnalyse } from './rerunControl'
 // ⚠ THE MODULE, NOT THE `components/ui` BARREL. Measured: the barrel re-exports
 // the whole brick set, which pulls six unrelated files into the DOCK'S
 // TRANSITIVE IMPORT CLOSURE — the scope of the raw-typography rule — and REDs
@@ -137,7 +138,7 @@ export function AnalysisReadinessBar({
   // Outside the pre-run window the Analysis surface itself shows no readiness
   // panel, so there is nothing to carry and a bar here would be a claim no
   // other surface is making.
-  if (!preRunWithModel) return null
+  if (!readinessBarShowsAnalyse(preRunWithModel)) return null
 
   const blocked = !canRun && !isAnalysing
   // ⚠ `resting` is the ONLY arm this surface supplies itself, and it says LESS

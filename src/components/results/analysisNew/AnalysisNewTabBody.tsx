@@ -97,7 +97,7 @@ import type { WhatIWasGivenSectionHandle } from '../contextIntegrity/WhatIWasGiv
 import { useWhatIWasGivenWillRender } from '../contextIntegrity/WhatIWasGivenSection'
 import { ModelStrip } from './sections/ModelStrip'
 import { WhatsChangedReceipt } from './sections/WhatsChangedReceipt'
-import { AtAGlance } from './sections/AtAGlance'
+import { AtAGlance, ribbonOffersRerun } from './sections/AtAGlance'
 import { ModelHeldUp } from './sections/ModelHeldUp'
 import { RobustnessCaveat } from './sections/RobustnessCaveat'
 import { BiasGrounding } from './sections/BiasGrounding'
@@ -119,6 +119,7 @@ import { runMethod } from './runMethod'
 import { ACTION_REGISTRY } from '../../../canvas/conversation/actionRegistry'
 import { useScenarioActionBar } from '../../../canvas/conversation/actionBar/useScenarioActionBar'
 import { METHOD_CATALOGUE } from '../decision-overview/actionsCatalogue'
+import { shellRerunControl, useReanalyseBarInputs } from '../../../canvas/components/workspaceShell/rerunControl'
 import { methodIdsRaisedBy } from './recommendationMethod'
 import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
@@ -698,6 +699,9 @@ export function AnalysisNewTabBody({
   const matrixFinishedAt = useCanvasStore((s) => s.results?.finishedAt)
   const matrixRunId = useCanvasStore((s) => s.results?.runId)
   const matrixFreshness = useCanvasStore((s) => s.analysisFreshness)
+  // ⭐ ONE RERUN CONTROL (`workspaceShell/rerunControl.ts`): while this surface's footer shows the Re-analyse bar,
+  // that is the rerun; the ribbon's Re-run and the ⋯ menu's "Rerun analysis" stand aside (witness 7 Oct: three here).
+  const footerOwnsRerun = shellRerunControl(useReanalyseBarInputs()) === 'bar'
   const sendScienceChip = useGuidanceStore((s) => s._sendChip)
   /**
    * ⭐ THE PRESENTATION PREDICATE, IN THE SHAPE THE OTHER READERS OF THIS
@@ -1426,6 +1430,38 @@ export function AnalysisNewTabBody({
     vm.leaderClaimPermitted &&
     (buildReasoningSignals(vm, resultsSectionData.recommendation.flipThresholds)?.tipping ?? null) !== null
 
+  // The ribbon and the menu read the same props and the same offered-control predicate.
+  const glanceRunControl = {
+    isStale: vm.status.isStale && !vm.status.isPreRun,
+    runNote:
+      latestRunNote === null
+        ? null
+        : latestRunNote.kind === 'did_not_run'
+          ? {
+              testId: 'analysis-new-status-did-not-run',
+              text: `${COPY.status.latestDidNotRun} ${latestRunNote.reason} ${COPY.status.showingPrevious} ${ANALYSIS_REFUSAL_POINTER}`,
+            }
+          : latestRunNote.kind === 'blocked'
+            ? {
+                testId: 'analysis-new-status-blocked',
+                text: `${COPY.status.latestBlocked} ${COPY.status.showingPrevious}`,
+              }
+            : {
+                testId: 'analysis-new-status-run-failed',
+                text: `${COPY.status.latestRunFailed} ${COPY.status.showingPrevious}`,
+              },
+    isProvisional: vm.status.isProvisional,
+    onReanalyse,
+    rerunOwnedByFooter: footerOwnsRerun,
+    rerunWouldNotHelp: vm.checks.rerunWouldNotHelp,
+    reanalyseBlocked: runRefusedByGate,
+    reanalyseBlockedReason: runRefusedByGate ? runBlockedReason : null,
+  }
+  const ribbonOwnsRerun = ribbonOffersRerun({ ...glanceRunControl, part: 'status' })
+  // ⭐ ONE RULE for the tab's ⋯ "Re-run" (S-F + S-B): whichever ⋯ heads the tab — CEE's action bar's or the method
+  // strip's — offers Re-run only when neither the footer bar nor the ribbon is already showing it.
+  const menuMayRerun = canRunAnalysis === true && !vm.status.isPreRun && !footerOwnsRerun && !ribbonOwnsRerun
+
   const renderGlance = (part: 'status' | 'reading') => (
     <AtAGlance
       glance={vm.atAGlance}
@@ -1445,32 +1481,11 @@ export function AnalysisNewTabBody({
          and `reviewEstimates` is `undefined` when there is neither an
          in-page act nor a route. */
       onReviewEstimates={reviewEstimates}
-      isStale={vm.status.isStale && !vm.status.isPreRun}
+      {...glanceRunControl}
       staleKind={vm.status.staleKind}
-      runNote={
-        latestRunNote === null
-          ? null
-          : latestRunNote.kind === 'did_not_run'
-            ? {
-                testId: 'analysis-new-status-did-not-run',
-                text: `${COPY.status.latestDidNotRun} ${latestRunNote.reason} ${COPY.status.showingPrevious} ${ANALYSIS_REFUSAL_POINTER}`,
-              }
-            : latestRunNote.kind === 'blocked'
-              ? {
-                  testId: 'analysis-new-status-blocked',
-                  text: `${COPY.status.latestBlocked} ${COPY.status.showingPrevious}`,
-                }
-              : {
-                  testId: 'analysis-new-status-run-failed',
-                  text: `${COPY.status.latestRunFailed} ${COPY.status.showingPrevious}`,
-                }
-      }
-      isProvisional={vm.status.isProvisional}
       /* ⚠ THE ACT BINDS TO RECOVERABILITY, NOT TO PERMISSION. Both are
          passed because they answer different questions and the section uses
          each for its own. */
-      rerunWouldNotHelp={vm.checks.rerunWouldNotHelp}
-      onReanalyse={onReanalyse}
       /* ⭐ DERIVED FROM THE GATE'S VERDICT, NOT A SECOND EXPRESSION OF
          IT — and not the verdict itself. `runRefusedByGate` is
          `!canRunAnalysis && !isRunning` (see above for why `isRunning` is
@@ -1479,8 +1494,6 @@ export function AnalysisNewTabBody({
          is therefore a PRESENTATION predicate over the one admission, in
          the shape `AnalysisReadinessBar` and `PanelFooter` already use —
          not either of the two values the dock handed this component. */
-      reanalyseBlocked={runRefusedByGate}
-      reanalyseBlockedReason={runRefusedByGate ? runBlockedReason : null}
       /* ⭐⭐ THE RUNNING STATE, THREADED UNCHANGED — the second of the two
          questions the ribbon control has to answer. `reanalyseBlocked`
          above says whether the gate REFUSED; this says whether a run is
@@ -1898,13 +1911,13 @@ export function AnalysisNewTabBody({
             bar, it heads this tab INSTEAD of the method strip and the four presses below, and chat shows the same bar.
             While CEE sends none, the strip and presses stay exactly as they were (the consumer ships first). */}
         {actionBar ? (
-          <ReasoningActionBar bar={actionBar} canRerun={canRunAnalysis === true && !vm.status.isPreRun} />
+          <ReasoningActionBar bar={actionBar} canRerun={menuMayRerun} />
         ) : (
           <MethodStrip
             activeMethodId={effectivePick ?? restingMethodId}
             onSelectMethod={selectMethod}
             raisedMethodIds={raisedMethodIds}
-            canRerun={canRunAnalysis === true && !vm.status.isPreRun}
+            canRerun={menuMayRerun}
           />
         )}
         {/* ⚠ THE INTRO ASSERTS A RUN, SO IT IS GATED ON THERE BEING ONE.

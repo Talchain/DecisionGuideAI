@@ -118,6 +118,7 @@ export type ScenarioGraphResult =
       graph: unknown
       /** The response's own `scenario_id`: the read's identity binding (`canonicalOpenOutcome.ts`). */
       scenarioId?: string | null
+      switchAnalysisReady?: unknown
       briefText: string | null
       /**
        * ROADMAP 2.973 — what of the brief did NOT reach the model.
@@ -241,6 +242,8 @@ export type ScenarioGraphResult =
       heldProposalOffers?: unknown
       /** The read's `action_bar` (S-B), raw: CEE re-derives it for this read's state; undefined when absent. */
       actionBar?: unknown
+      /** §15 projection, present only on the conversation opt-in. */
+      proposalFields?: unknown
       requestId: string | null
     }
   /** 200, `graph_present:false` — the scenario exists and has no graph yet. Normal. */
@@ -471,6 +474,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     limitVerdicts: b.analysis_limit_verdicts ?? null,
     goalCertainty: b.analysis_goal_certainty ?? null,
     optionParticipation: b.analysis_option_participation ?? null,
+    switchAnalysisReady: b.current_read && typeof b.current_read === 'object' ? (b.current_read as Record<string, unknown>).analysis_ready : null,
     runDelta: readCurrentReadRunDelta(b.current_read),
     delivered: readCurrentReadDelivered(b.current_read),
     staleReasonWords: readHashEqualStaleReasonWords(b.current_read),
@@ -482,6 +486,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     heldProposalOffers: b.held_proposal_offers,
     // Carried raw; the ONE reader is `parseActionBar` (canvas/conversation/actionBar/actionBarContract.ts).
     actionBar: b.action_bar,
+    proposalFields: b.proposal_fields,
     requestId,
   }
 }

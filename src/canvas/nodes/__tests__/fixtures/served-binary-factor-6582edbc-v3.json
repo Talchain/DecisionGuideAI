@@ -1,0 +1,11 @@
+{
+  "_source": "PROD Supabase model_versions, scenario 6582edbc-9572-4f97-8fdb-d225072efa8a, version_number 3 (Paul's prod test, 7 Oct 2026, CEE 7e3f8fb2). Verbatim nodes/edges for O4 and F5; read-only SELECT by Canvas 6b94d6. On screen: F5 card read 'Very low est.' while O4's row read 'Not in use → In use'.",
+  "nodes": [
+    {"id":"c3d38027","ref":"O4","kind":"option","label":"Bring in a freelance resource if, within 2 months, we don't have our candidates identified","interventions":{"fac_freelance_resource_brought_in":{"value":1,"source":"user_specified","target_match":{"node_id":"fac_freelance_resource_brought_in","confidence":"high","match_type":"exact_id"}}}},
+    {"id":"fac_freelance_resource_brought_in","ref":"F5","kind":"factor","label":"Freelance resource brought in","category":"controllable","provenance":"ai_inferred","observed_state":{"value":0,"source":"cee_inference","raw_value":0,"extractionType":"inferred"}}
+  ],
+  "edges": [
+    {"to":"feature_delivery_capacity","from":"fac_freelance_resource_brought_in","strength":{"std":0.125,"mean":0.5},"defaulted":true,"provenance":{"source":"cee_hypothesis"},"effect_direction":"positive","exists_probability":0.8},
+    {"to":"fac_freelance_resource_brought_in","from":"c3d38027","strength":{"std":0.01,"mean":1},"provenance":{"source":"user_specified"},"effect_direction":"positive","exists_probability":1}
+  ]
+}

@@ -1,3 +1,4 @@
+import { useSwitchFactorNodes } from '../../../hooks/useSwitchFactorNodes'
 /**
  * usePreAnalysisModel — the single derivation for every v3 panel section.
  *
@@ -163,7 +164,7 @@ export interface PreAnalysisModel {
 }
 
 export function usePreAnalysisModel(): PreAnalysisModel {
-  const nodes = useCanvasStore(s => s.nodes)
+  const nodes = useSwitchFactorNodes()
   const edges = useCanvasStore(s => s.edges)
   const draftCoaching = useCanvasStore(s => s.draftCoaching)
   // Retained across readiness invalidation — see `retainedDraftCoaching` in the

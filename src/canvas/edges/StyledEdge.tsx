@@ -15,6 +15,7 @@
  * - negative: Red stroke (increase → decrease)
  */
 
+import { useRouteOnceHeld } from '../hooks/useRouteOnceHeld'
 import { memo, useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react'
 import {
   edgeClickAffordance,
@@ -45,12 +46,7 @@ import {
   readContestedState,
   resolveEdgeStroke,
   resolveEdgeDash,
-  resolveEdgeDirectionMarker,
   edgeArrowheadMarkerId,
-  edgeArrowheadSize,
-  edgeArrowheadViewBox,
-  edgeArrowheadPolygonPoints,
-  EDGE_ARROWHEAD_COUNTER_SCALE_STYLE,
   type EdgePresentationState,
 } from './edgePresentation'
 import {
@@ -867,9 +863,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    * cannot disagree again. Do not reintroduce a second likelihood channel here
    * (CLAUDE.md trap 21).
    */
+  const routeOnceHeld = useRouteOnceHeld(String(id))
   const edgeLikelihood = useMemo(
-    () => resolveEdgeValueDisplay(edgeData as Record<string, unknown> | undefined, 'beliefExists'),
-    [edgeData]
+    () => resolveEdgeValueDisplay(edgeData as Record<string, unknown> | undefined, 'beliefExists', { routeOnceHeld }),
+    [edgeData, routeOnceHeld]
   )
   /**
    * ⭐ POM-8 (27 Sep 2026): CEE's PLACEHOLDER strength is not an estimate, so it
@@ -1392,20 +1389,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }, [data, sourceNode, targetNode])
 
   /**
-   * ⭐⭐ AN OPTION → FACTOR LINK RESTS AT LOW EMPHASIS (Canvas lead's ruling,
-   * Paul's staging test 28 Sep 2026). On `pa_vs_ai` four options × three
-   * factors drew twelve thin grey links that crossed into a web between the
-   * ALTERNATIVES and FACTORS rows — and each option card already lists the
-   * changes it makes. At rest the link draws at the canvas's existing DIM
-   * (`EDGE_SELECTION_DIM_OPACITY`, the contract's `.edge-group.dimmed`), on the
-   * wrapping group, so its hit area is untouched and it stays hoverable and
-   * clickable. It returns to full emphasis while its option or its factor is
-   * hovered (`canvasNodeHoverStore`) or selected, or while the link itself is.
-   *
-   * ⚠ THIS DEPARTS FROM CONTRACT v3.1, which draws option links always on.
-   * Why: a 4 × 3 web of always-on links hides the causal links below it, and
-   * the option cards' rows already carry the changes those links stand for.
-   * Question → option links are unchanged.
+   * Paul, 7 Oct 2026: option→factor rests at the same structural ink as
+   * decision→option. Keep the rest identity for interaction diagnostics;
+   * only selection or run-change dimming reduces group opacity.
    */
   const optionLinkEndpointHovered = useCanvasNodeHoverStore((s) =>
     isOptionFactorLink && s.hoveredNodeId !== null && (s.hoveredNodeId === source || s.hoveredNodeId === target),
@@ -2256,22 +2242,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }, [edgeData])
   const edgeDash = useMemo(() => resolveEdgeDash(presentationState), [presentationState])
 
-  // ⭐ DIRECTION OF CAUSATION. Measured on deployed staging 7 Sep 2026: 39 edges,
-  // zero arrowheads — the most basic thing a causal graph must state had no
-  // channel. The rule (structural / non-directional type / causal) and the
-  // arrowhead geometry live in `edgePresentation`, beside the stroke and dash
-  // precedences, so all three of an edge's presentation decisions are reviewable
-  // in one place and none of them is an early-return chain pasted in here.
-  const directionMarker = useMemo(
-    () => resolveEdgeDirectionMarker({
-      isStructural: isStructuralEdge,
-      edgeType: (data as Record<string, unknown> | undefined)?.edge_type,
-    }),
-    [isStructuralEdge, data],
-  )
-  const arrowheadId = useMemo(() => edgeArrowheadMarkerId(edgeIdKey), [edgeIdKey])
-  const arrowheadSize = edgeArrowheadSize(edgeStrokeWidth)
-
   // THE LINE'S DRAWN WIDTH, in every lens and interaction state — ONE value,
   // read by `BaseEdge` below and by the keyboard focus ring (SI-4), which must
   // stand clear of it. Hoisted out of `BaseEdge`'s style unchanged, so the ring
@@ -2337,8 +2307,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     lineStrokeWidth,
     showUncertaintyRibbon && uncertaintyBand !== null ? uncertaintyBand * 2 : 0,
   )
-  // Built on the arrowhead's id, which is already escaped for `url(#…)`.
-  const focusRingMaskId = `${arrowheadId}-focus-ring-cut`
+  // Retain the existing escaped mask identity after removing arrowhead paint.
+  const focusRingMaskId = `${edgeArrowheadMarkerId(edgeIdKey)}-focus-ring-cut`
 
   // Return the store's stable nodes reference; no label arrays are made in a selector.
   const goalChanceDriverNodes = useCanvasStore(s => isGoalChanceDriverEdge ? s.nodes : undefined)
@@ -2472,9 +2442,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         data-option-link-rest={isOptionLinkAtRest ? 'true' : undefined}
         data-same-row-route={sameRowRoute?.kind}
         style={{
-          // An option → factor link at rest takes the same dim (see
-          // `isOptionLinkAtRest`); one value, never compounded.
-          opacity: isSelectionDimmed || isOptionLinkAtRest || isRunChangeSubduedEdge ? EDGE_SELECTION_DIM_OPACITY : undefined,
+          // Structural links share their resting colour; dim only for selection or run changes.
+          opacity: isSelectionDimmed || isRunChangeSubduedEdge ? EDGE_SELECTION_DIM_OPACITY : isOptionLinkAtRest ? 1 : undefined,
           transition: prefersReducedMotion ? 'none' : 'opacity 300ms ease',
         }}
       >
@@ -2579,65 +2548,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           data-testid={`assistant-focus-edge-halo-${edgeIdKey}`}
         />
       )}
-      {/* ⭐ THE DIRECTION MARK. One `<marker>` per marked edge, and the reason is
-          COLOUR: stroke colour is decided by an ordered rule precedence
-          (`EDGE_STROKE_RULES`) whose outputs include a `color-mix(…)`, two
-          `var(…)` tokens and the polarity stroke. A single shared `<defs>` entry
-          cannot know which rule won, so it would be a second copy of a decision
-          that already has an authority — the hand-maintained mirror this estate
-          keeps paying for. This reads `edgeStroke.value`: the SAME resolved
-          decision that sets `stroke` two elements below. One quantity, two
-          readers, so a new or reordered rule carries the arrow with it and no
-          edit is needed here at all.
-
-          SVG 2's `fill="context-stroke"` would do this in one shared marker.
-          Deliberately not used: this lane has no browser witness, and a feature
-          whose failure mode is a black arrowhead on every edge cannot be
-          verified with the instruments in hand. An explicit fill can be.
-
-          `markerUnits="userSpaceOnUse"` decouples the mark from stroke width.
-          Under the default (`strokeWidth`) a selected edge — width 4 rather
-          than 2 — would get a double-sized arrowhead, leaking the interaction
-          channel into the direction channel.
-
-          ⭐ contract v3.1 (DIFF item 13, 27 Sep 2026): the head is 4× the
-          line's STRENGTH width (`edgeArrowheadSize`) — the contract's
-          `markerWidth="4"` in stroke-width units — read from `edgeStrokeWidth`,
-          the resting width, so hover and selection (which widen the line) never
-          grow the head. The tip is the viewBox origin and `refX/refY` point at
-          it, so the point lands ON the path's end; the polygon is counter-scaled
-          about that tip by `--canvas-glyph-scale`, because the line is
-          `non-scaling-stroke` and the head must keep its 4:1 against it at every
-          zoom. `overflow="visible"` lets the scaled head paint past the marker
-          box. Derivation and witness: `edgeArrowheadSize` in
-          `edges/edgePresentation.ts`. */}
-      {directionMarker.show && (
-        <marker
-          id={arrowheadId}
-          viewBox={edgeArrowheadViewBox(arrowheadSize)}
-          markerWidth={arrowheadSize}
-          markerHeight={arrowheadSize}
-          refX={0}
-          refY={0}
-          orient="auto"
-          markerUnits="userSpaceOnUse"
-          overflow="visible"
-        >
-          <polygon
-            points={edgeArrowheadPolygonPoints(arrowheadSize)}
-            fill={edgeStroke.value}
-            style={EDGE_ARROWHEAD_COUNTER_SCALE_STYLE}
-          />
-        </marker>
-      )}
+      {/* Paul, 7 Oct 2026: no arrowheads on any link; polarity glyph clearance stays frozen. */}
       <BaseEdge
         id={id}
         path={edgePath}
         interactionWidth={EDGE_HIT_AREA_WIDTH}
-        // Target end only. The mark states ONE direction of causation; a
-        // marker-start as well would read as bidirectional, which is the claim
-        // the `non_directional_type` rule exists to refuse.
-        markerEnd={directionMarker.show ? `url(#${arrowheadId})` : undefined}
         style={{
           // `lineStrokeWidth` (above the `return`): the ladder, hoisted so the
           // keyboard focus ring reads the same width.

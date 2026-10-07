@@ -14,6 +14,7 @@
 import { useEffect, useState } from 'react'
 import { typography } from '../../../styles/typography'
 import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
+import { WAITING_INDICATOR_ATTRIBUTE } from '../hooks/useSmartScroll'
 
 export type WaitingPhase = 'reading_brief' | 'structuring' | 'running_analysis' | 'preparing_explanation'
 
@@ -92,6 +93,9 @@ export function ThinkingDots({ label, phase = null }: ThinkingDotsProps) {
       style={{ gap: 8, marginBottom: 20 }}
       data-testid="thinking-indicator"
       data-variant="olumi-mark"
+      /* The scroll authority's mark for "this is the waiting line, not content":
+         its rewrites never move the reader or raise "New messages". */
+      {...{ [WAITING_INDICATOR_ATTRIBUTE]: '' }}
       role="status"
     >
       <span className="olumi-waiting-mark flex-shrink-0" style={{ marginTop: 1 }} aria-hidden="true">

@@ -1,3 +1,4 @@
+import { EditNote } from '../../editNotes/EditNote'
 /**
  * InspectorRouter — resolves selected node/edge type and renders the correct panel
  * inside an InspectorShell.
@@ -632,6 +633,7 @@ export const InspectorRouter = memo(function InspectorRouter({
           was typing. That is the same split #1343 made one level down, where an
           intervention row is keyed `${optionId}:${factorId}` and a focus-guarded
           effect covers same-option writes the key cannot see. */}
+      {!['factor-controllable', 'factor-observable', 'risk', 'option', 'goal'].includes(panelType) && <EditNote elementId={nodeId} />}
       {panelOwnsAuthority ? (
         <PanelComponent key={nodeId} {...panelProps} readOnly />
       ) : (

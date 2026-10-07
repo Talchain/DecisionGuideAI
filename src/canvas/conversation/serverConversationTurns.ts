@@ -15,6 +15,7 @@
  */
 import { ActionSchema } from '@talchain/schemas/boundary'
 import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
+import { AMEND_PROPOSAL_ACTION, readProposalFields } from './proposalFields'
 import type { ConversationMessage } from './types'
 
 export const CONVERSATION_TURNS_READ_KEY = 'conversation_turns' as const
@@ -78,6 +79,7 @@ export function buildRestoredThread(
   turns: readonly ServerConversationTurn[],
   run: RestoreRunContext,
   heldProposalOffers?: unknown,
+  proposalFields?: unknown,
 ): ConversationMessage[] {
   if (turns.length === 0) return []
   const runAt = run.currentRunComputedAt !== null ? Date.parse(run.currentRunComputedAt) : Number.NaN
@@ -112,7 +114,34 @@ export function buildRestoredThread(
     const last = out[lastEarlierReply]
     out[lastEarlierReply] = { ...last, content: `${last.content}\n\n${RESTORED_STALE_FIGURES_NOTE}` }
   }
-  return reconcileRestoredSuggestedActions(reconcileRestoredHeldControls(out, heldProposalOffers, true), turns)
+  return reconcileRestoredProposalFields(
+    reconcileRestoredSuggestedActions(reconcileRestoredHeldControls(out, heldProposalOffers, true), turns), proposalFields)
+}
+
+/**
+ * ⭐ S-D (§15): a held Agent-lane change (`gmh_…`) comes back on a reload ONLY through the read's `proposal_fields`,
+ * which CEE documents as "the proposals still held, with what each assumes and its exact card". `held_proposal_offers`
+ * never carries one: CEE builds it from the conventional pending store alone (witnessed on CEE 4f9f9e5, sd-wire-4).
+ * As live, where CEE re-offers the oldest hold beside every later reply, the oldest entry arms the LATEST reply.
+ * A later user message, or a held card that reply already carries, takes priority. No valid entry → unchanged.
+ */
+export function reconcileRestoredProposalFields(
+  messages: readonly ConversationMessage[],
+  rawProposalFields: unknown,
+): ConversationMessage[] {
+  const held = readProposalFields(rawProposalFields)?.proposals[0]
+  // A restore's "Session resumed" divider is not a reply: the card goes on the reply before it, as ChatThread
+  // hosts chips there (served E1c, 7 Oct: the divider was last, so the card never came back).
+  let last = messages.length - 1
+  while (last >= 0 && typeof messages[last].sessionDivider === 'string') last--
+  const reply = messages[last]
+  if (held === undefined || reply === undefined || reply.role !== 'assistant' || reply.synthetic
+    || (reply.actionChips ?? []).some(c => typeof c.id === 'string' && c.id.startsWith('agent-approve-proposal:'))) return [...messages]
+  const card = buildSuggestedActionChips([], [held.approve_action, AMEND_PROPOSAL_ACTION, held.decline_action])
+  const others = (reply.actionChips ?? []).filter(c => !card.some(k => k.id === c.id))
+  return [...messages.slice(0, last),
+    { ...reply, heldProposalId: held.proposal_id, actionChips: [...card, ...others], proposalFields: rawProposalFields },
+    ...messages.slice(last + 1)]
 }
 
 
@@ -176,11 +205,13 @@ export function readServerHeldProposalOffers(raw: unknown): readonly ServerHeldP
     if (entry === null || typeof entry !== 'object') continue
     const row = entry as Record<string, unknown>
     if (typeof row.turn_id !== 'string' || row.turn_id.length === 0 || typeof row.proposal_id !== 'string'
-      || !/^prop_[0-9a-f]{32}$/.test(row.proposal_id) || !Array.isArray(row.suggested_actions) || row.suggested_actions.length !== 2) continue
+      || !/^(?:prop_[0-9a-f]{32}|gmh_[0-9a-f]{12})$/.test(row.proposal_id) || !Array.isArray(row.suggested_actions) || ![2, 3].includes(row.suggested_actions.length)) continue
     const parsed = row.suggested_actions.map(action => ActionSchema.safeParse(action))
     if (!parsed.every(p => p.success)) continue
     const actions = parsed.flatMap(p => p.success ? [p.data] : [])
-    if (actions[0].id !== `agent-approve-proposal:${row.proposal_id}` || actions[1].id !== 'agent-amend-proposal') continue
+    if (actions[0].id !== `agent-approve-proposal:${row.proposal_id}` || actions[1].id !== 'agent-amend-proposal'
+      || (actions.length === 3 && (actions[2].id !== `agent-decline-proposal:${row.proposal_id}`
+        || actions[2].label !== 'Not now' || actions[2].message !== 'Not now.'))) continue
     out.push({ turnId: row.turn_id, proposalId: row.proposal_id, actions })
   }
   return out

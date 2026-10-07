@@ -7,6 +7,7 @@
  * Called once from ReactFlowGraph — not from individual node/edge components.
  */
 
+import { routeOnceHeldIds } from '../domain/routeOnceHeld'
 import { useMemo, useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { computeOptionPaths } from '../utils/computeOptionPaths'
@@ -210,6 +211,7 @@ export function useLensFilter(): void {
 
     // ── Causal Graph ──
     if (lensActive === 'causal') {
+      const heldIds = routeOnceHeldIds(nodes, edges)
       const hiddenNodeIds = new Set<string>()
       const hiddenEdgeIds = new Set<string>()
       const causalEdgeParams = new Map<string, CausalLensEdgeParams>()
@@ -239,7 +241,7 @@ export function useLensFilter(): void {
         // std/existsProb on THIS ingestion path and false of the mean on
         // every path — the fabrication lived in the fallback itself.)
         const edgeData = edge.data as Record<string, unknown> | undefined
-        causalEdgeParams.set(edge.id, resolveCausalLensEdgeParams(edgeData))
+        causalEdgeParams.set(edge.id, resolveCausalLensEdgeParams(edgeData, { routeOnceHeld: heldIds.has(edge.id) }))
       }
 
       return {

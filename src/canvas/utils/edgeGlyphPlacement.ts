@@ -72,7 +72,6 @@
  */
 import { MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE } from './zoomLegibility'
 import { LAYOUT_LAYER_GAP, LAYOUT_PADDING_Y, kindGlyphOverhangAt, kindGlyphSizeAt } from './nodeLayoutConstants'
-import { EDGE_STROKE_WIDTH_BANDS } from './graphDisplayCalculations'
 import { edgeArrowheadSize } from '../edges/edgePresentation'
 
 /**
@@ -121,10 +120,10 @@ export const GLYPH_ROW_RISE_MAX_FLOW =
 /**
  * The widest arrowhead the width channel draws, in flow units at the bound:
  * `edgeArrowheadSize` of the widest band (very strong, 5) × the glyph
- * counter-scale bound — 40. Its length and its base are the same figure.
+ * counter-scale bound — 25. Its length and its base are the same figure.
  */
-export const ARRIVAL_HEAD_MAX_FLOW =
-  edgeArrowheadSize(Math.max(...Object.values(EDGE_STROKE_WIDTH_BANDS))) * MAX_GLYPH_COUNTER_SCALE
+// Frozen at the pre-removal clearance (Paul, 7 Oct); signs and arrival slots must not move.
+export const ARRIVAL_HEAD_MAX_FLOW = 25
 
 /** Half the kind shape's width at the label bound — it stands on the card's top centre. */
 const KIND_SHAPE_HALF_FLOW = kindGlyphSizeAt(MAX_LABEL_COUNTER_SCALE) / 2

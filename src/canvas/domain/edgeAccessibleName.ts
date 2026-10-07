@@ -163,10 +163,10 @@ export const EDGE_ARIA_ROLE = 'button'
  * uses. Exported so a test can prove the two channels agree rather than
  * assuming it.
  */
-export function describeEdgeForSpeech(data: unknown, mode: EdgeLabelMode): string {
+export function describeEdgeForSpeech(data: unknown, mode: EdgeLabelMode, ctx?: { routeOnceHeld?: boolean }): string {
   const d = (data ?? undefined) as Record<string, unknown> | undefined
   const strength = resolveEdgeSignedStrengthDisplay(d)
-  const likelihood = resolveEdgeValueDisplay(d, 'beliefExists')
+  const likelihood = resolveEdgeValueDisplay(d, 'beliefExists', ctx)
   const direction = resolveEdgeDirectionDisplay(d)
   return getEdgeLabel(strength, likelihood, direction, mode).label
 }
@@ -200,6 +200,7 @@ export function withEdgeAccessibleNames<E extends NameableEdge>(
    * updated keep their prior behaviour rather than silently changing it.
    */
   getNodeKind: (nodeId: string) => string | undefined = () => undefined,
+  routeOnceHeldIds: ReadonlySet<string> = new Set(),
 ): E[] {
   return edges.map(edge => {
     const hasOwnAriaLabel = typeof edge.ariaLabel === 'string' && edge.ariaLabel.trim().length > 0
@@ -217,7 +218,7 @@ export function withEdgeAccessibleNames<E extends NameableEdge>(
           // strength word it does not carry.
           description: structural
             ? STRUCTURAL_EDGE_ACCESSIBLE_DESCRIPTION
-            : describeEdgeForSpeech(edge.data, mode),
+            : describeEdgeForSpeech(edge.data, mode, { routeOnceHeld: routeOnceHeldIds.has(edge.id) }),
           // ⭐ THE OUTER GROUP IS WHERE THIS HAS TO LAND. `StyledEdge` carries the
           // same sentence, but on an INNER element that exists only while the
           // edge's label renders — the exact asymmetry this module's header was
