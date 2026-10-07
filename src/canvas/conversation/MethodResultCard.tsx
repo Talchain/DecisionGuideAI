@@ -10,6 +10,7 @@ import { useMemo } from 'react'
 import type { MethodItemRef, MethodResultV1 } from '../../v5/readMethodResult'
 import { useCanvasStore } from '../store'
 import styles from './Conversation.module.css'
+import { PANEL_LIST_STACK } from './panelLists'
 
 export const METHOD_RESULT_CARD_TESTID = 'message-method-result'
 
@@ -55,7 +56,7 @@ export function MethodResultCard({ methodResult, labelOf }: {
       data-outcome={methodResult.outcome}
     >
       <p className={styles.reasoningPanelHeading} data-testid={`${METHOD_RESULT_CARD_TESTID}-heading`}>{heading}</p>
-      <ul className="list-none p-0 m-0" data-testid={`${METHOD_RESULT_CARD_TESTID}-rows`}>
+      <ul className={PANEL_LIST_STACK} data-testid={`${METHOD_RESULT_CARD_TESTID}-rows`}>
         {methodResult.rows.map((row) => (
           <li
             key={row.row_id}
