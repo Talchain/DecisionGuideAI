@@ -438,26 +438,26 @@ describe('StressTestSection fragile factors — STRING 4: the expert E-value not
     )
   }
 
-  it('ANTI-VACUITY: the PERMITTED note says "change which option is most likely to hit your goal"', () => {
+  it('ANTI-VACUITY: the PERMITTED note carries the ruled explanation', () => {
     const { container } = renderCard(false)
-    expect(container.textContent ?? '').toContain('2.0x wrong to change which option is most likely to hit your goal.')
-    expect(container.textContent ?? '').toMatch(FRAGILE_CLAIM_RE)
+    expect(container.textContent ?? '').toContain("How far this link's strength could be off before the comparison between options changes: about ×2.0.")
+    expect(container.textContent ?? '').not.toMatch(FRAGILE_CLAIM_RE)
   })
 
   it('WITHHELD: the note says what would change without naming a recommendation', () => {
     const { container } = renderCard(true)
-    expect(container.textContent ?? '').toContain('2.0x wrong to change the comparison.')
+    expect(container.textContent ?? '').toContain("How far this link's strength could be off before the comparison between options changes: about ×2.0.")
     expect(container.textContent ?? '').not.toMatch(FRAGILE_CLAIM_RE)
   })
 
   it('WITHHELD DATA PRESERVED: the E-value number itself still renders', () => {
     const { container } = renderCard(true)
-    expect(container.textContent ?? '').toContain('Change margin 2.0')
+    expect(container.textContent ?? '').toContain('Link margin')
   })
 
   it('PERMITTED: the note is byte-identical to today', () => {
     expect(fragileEValueNote({ eValue: 2.0, designationsWithheld: false, flipEvidenceAttestsNoFlip: false }))
-      .toBe('Change margin 2.0: assumptions would only need to be 2.0x wrong to change which option is most likely to hit your goal.')
+      .toBe("Link margin. How far this link's strength could be off before the comparison between options changes: about ×2.0.")
   })
 })
 
