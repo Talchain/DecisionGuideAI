@@ -1,10 +1,12 @@
 /** The chooser sends registered chip questions; free text sends the person's exact words. */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { DOCK_SELECTOR } from '../../utils/computeFitPadding'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { clearAskTargetBinding, takeAskTargetBinding } from '../../ui/inspector-v2/askTargetBinding'
-import { WhatElseChooserHost, WHAT_ELSE_CHOICES, openWhatElseFromDoor, useWhatElseStore } from '../WhatElseChooser'
+import { WhatElseChooserHost, WHAT_ELSE_CHOICES, WHAT_ELSE_CHOOSER_WIDTH, openWhatElseFromDoor, placeWhatElseChooser, useWhatElseStore } from '../WhatElseChooser'
 
 vi.mock('../../conversation/revealOlumi', () => ({ revealOlumiSurface: vi.fn(() => true) }))
 let dispatch: ReturnType<typeof vi.fn>
@@ -113,5 +115,49 @@ describe('the "What else…?" chooser', () => {
     fireEvent.click(screen.getByTestId('what-else-risk'))
     expect(dispatch).not.toHaveBeenCalled()
     expect(screen.getByTestId('what-else-chooser')).toBeInTheDocument()
+  })
+})
+
+describe('the chooser opens inside the visible canvas, never under the Outputs dock (served askAi witness, 7 Oct)', () => {
+  // Served (staging d47c8d13, askai-2/-3): the factors-row door sat at x≈1210 with the dock from x=1240; the chooser
+  // opened at x+8 and its Factor chip could not be clicked. Dock measured by the estate's authority, measureDockInset().
+  const W0 = window.innerWidth, H0 = window.innerHeight
+  let dock: HTMLElement | null = null
+  const setViewport = (width: number, height: number) => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: height })
+  }
+  const mountDock = (left: number) => {
+    dock = document.createElement('aside')
+    dock.setAttribute('aria-label', 'Outputs dock')
+    dock.getBoundingClientRect = () => ({ left, top: 0, right: window.innerWidth, bottom: window.innerHeight, width: window.innerWidth - left, height: window.innerHeight, x: left, y: 0, toJSON: () => ({}) }) as DOMRect
+    document.body.appendChild(dock)
+  }
+  afterEach(() => { dock?.remove(); dock = null; setViewport(W0, H0) })
+
+  it('RED: a right-edge door with the dock open → the chooser is wholly left of the dock, and Factor sends', () => {
+    setViewport(1600, 900); mountDock(1240)
+    openWhatElseFromDoor({ clientX: 1210, clientY: 478, currentTarget: null }, 'factor', DOOR_PROMPT)
+    render(<WhatElseChooserHost />)
+    const left = parseFloat(screen.getByTestId('what-else-chooser').style.left)
+    expect(left).toBeGreaterThanOrEqual(0)
+    expect(left + WHAT_ELSE_CHOOSER_WIDTH).toBeLessThanOrEqual(1240)
+    fireEvent.click(screen.getByTestId('what-else-factor'))
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch.mock.calls[0][0].id).toBe('ask:missing-factor')
+  })
+
+  it('CONTROL: no dock → the previous window clamp, unchanged', () => {
+    expect(placeWhatElseChooser({ x: 40, y: 50 }, { width: 1600, height: 900 }, 0)).toEqual({ left: 48, top: 58 })
+    expect(placeWhatElseChooser({ x: 1500, y: 880 }, { width: 1600, height: 900 }, 0)).toEqual({ left: 1600 - 260, top: 900 - 160 })
+  })
+
+  it('the dock is found by the SAME selector measureDockInset uses (source pin, so the two cannot drift)', () => {
+    const panel = readFileSync('src/canvas/components/FloatingOlumiPanel.tsx', 'utf8')
+    expect(panel).toContain(`document.querySelector('${DOCK_SELECTOR}')`)
+  })
+
+  it('a door well left of the dock keeps its place beside the pointer', () => {
+    expect(placeWhatElseChooser({ x: 600, y: 300 }, { width: 1600, height: 900 }, 360)).toEqual({ left: 608, top: 308 })
   })
 })
