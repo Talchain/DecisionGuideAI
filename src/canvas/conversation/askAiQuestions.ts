@@ -97,7 +97,7 @@ export const QUESTIONS = {
   estimate: (c: QuestionContext) => `Help me estimate ${element(c)}: what range is sensible, and what would narrow it?`,
   'edit-driver': (c: QuestionContext) => `I’ve changed the link from ‘${c.sourceLabel ?? 'A'}’ to ‘${c.targetLabel ?? 'B'}’, which the last Run rested on most. What could that change, and what should I check before relying on it?`,
   'edit-removed': (c: QuestionContext) => `I removed the link from ‘${c.sourceLabel ?? 'A'}’ to ‘${c.targetLabel ?? 'B'}’. What does that change about how the options compare, and what should I check?`,
-  'limit-connect': (c: QuestionContext) => `Which options spend from ‘${c.label ?? 'this node'}’, and how should the model show that?`,
+  'limit-connect': (c: QuestionContext) => `Which of my options spend from ${element(c)}, and how should the model show that?`,
   evidence: (c: QuestionContext) => `What evidence supports ${element(c)}, and what would count against it?`,
   'goal-low': (c: QuestionContext) => c.stage === 'stale'
     ? `The model has changed since the last Run. What could explain the low chance of meeting ${goal(c)}, and what needs checking again?`
