@@ -11,7 +11,7 @@
  *   E9       a layered (bottom → top, downward) edge is near-straight
  *   E10      a cue-only chip is the contract's focusable 16px disc
  *   E11/E12  structural warm grey; the dispute hue is the solid Warning token
- *   E13      round caps on solid lines, butt caps on dashed ones
+ *   E13      round caps on solid and dotted lines, butt caps on existence dashes
  *   E8/T07   the unset/undirected stroke token is the contract's warm neutral
  *   ICON-07  edge glyphs are counter-scaled; the fragility cue is muted ink
  *   T16      DS tokens instead of legacy / default-palette utilities
@@ -38,6 +38,7 @@ import {
   POLARITY_GLYPH_HALO,
 } from '../StyledEdge'
 import { STRUCTURAL_EDGE_COLOUR, DIRECTION_DISPUTED_STROKE } from '../edgePresentation'
+import { STRENGTH_NOT_SET_DASH } from '../edgePresentation'
 import { fragileEdgeSentence } from '../connectorCopy'
 import { weightMagnitudeToStrokeWidth } from '../../utils/graphDisplayCalculations'
 import { CANVAS_GLYPH_SIZE_CLASSES, CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES } from '../../nodes/shared/canvasGlyphScale'
@@ -304,6 +305,13 @@ describe('E13 — line caps', () => {
     renderEdge(edge(0.5))
     expect(capturedStyle?.strokeDasharray).toBeUndefined()
     expect(capturedStyle?.strokeLinecap).toBe('round')
+  })
+
+  it('a strength placeholder has round-capped dots at the unset width', () => {
+    renderEdge({ ...edge(0.5), strengthPlaceholder: 0.5, weightSource: 'cee' })
+    expect(capturedStyle?.strokeDasharray).toBe(STRENGTH_NOT_SET_DASH)
+    expect(capturedStyle?.strokeLinecap).toBe('round')
+    expect(capturedStyle?.strokeWidth).toBe(1)
   })
 
   it('a dashed (existence-doubt) line keeps butt caps so the dash stays a dash', () => {

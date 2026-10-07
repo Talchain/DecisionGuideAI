@@ -59,7 +59,7 @@ import { EVIDENCE_RAIL_GLYPH, BEHAVIOUR_RAIL_GLYPH, NODE_RAIL_TONE_CLASS } from 
 import { COACHING_ICON_GLYPH } from '../nodes/shared/NodeCoachingIcon'
 import { NODE_RAIL_GLYPH_PX } from '../nodes/shared/nodeCardRailStyles'
 import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH, EXISTENCE_UNCERTAIN_DASH, uncertaintyBandHalfWidth, UNCERTAINTY_BAND_STROKE, UNCERTAINTY_BAND_OPACITY } from '../utils/graphDisplayCalculations'
-import { DIRECTION_DISPUTED_STROKE } from '../edges/edgePresentation'
+import { DIRECTION_DISPUTED_STROKE, STRENGTH_NOT_SET_DASH, STRENGTH_NOT_SET_LABEL } from '../edges/edgePresentation'
 import {
   LEGEND_SOLID_CAPTION,
   LEGEND_DASHED_CAPTION,
@@ -378,7 +378,7 @@ const FRAGILITY_ROWS: LegendRow[] = [
   },
 ]
 
-function ThicknessSwatch({ width, stroke = 'var(--text-body)', testId }: {
+function ThicknessSwatch({ width, stroke = 'var(--text-body)', testId, dash }: {
   width: number
   /** Stroke colour. The "no strength suggested" row still NEEDS this even now
    *  that its width differs (`UNSET_EDGE_STROKE_WIDTH` is strictly below every
@@ -390,6 +390,8 @@ function ThicknessSwatch({ width, stroke = 'var(--text-body)', testId }: {
    *  now differ on BOTH channels, which is the point. */
   stroke?: string
   testId?: string
+  /** The dotted strength-not-set pattern (7 Oct), the SAME constant StyledEdge draws. */
+  dash?: string
 }) {
   // Height grows with the stroke so the thickest sample isn't clipped; the line
   // is inset by the max half-width so its round caps stay inside the 24px swatch.
@@ -403,6 +405,7 @@ function ThicknessSwatch({ width, stroke = 'var(--text-body)', testId }: {
         y2={h / 2}
         stroke={stroke}
         strokeWidth={width}
+        strokeDasharray={dash}
         strokeLinecap="round"
       />
     </svg>
@@ -477,9 +480,14 @@ const THICKNESS_ROWS: LegendRow[] = [
   // drafted board shows them thick coloured ones. The label now names the
   // condition this row ACTUALLY describes; the card's row carries its own
   // disclosure (`metricVocabulary.ts`, `METRIC_UNSET.standalone`).
+  //
+  // ⭐ UPDATED 7 Oct 2026 (Paul: "we lost … dotted"; DL ruling). The row now also covers a PLACEHOLDER strength
+  // (`isStrengthPlaceholder`), and both draw round-capped DOTS at the floor width (`STRENGTH_NOT_SET_DASH`), the
+  // same constant StyledEdge draws. The label names that exact condition, "No strength estimate", and so keeps
+  // clear of the card's "Not set yet" (the collision above): a placeholder is "a placeholder, not an estimate".
   {
-    label: 'No strength suggested: thin and grey',
-    swatch: <ThicknessSwatch width={UNSET_EDGE_STROKE_WIDTH} stroke="var(--edge-neutral)" testId="legend-thickness-unset" />,
+    label: STRENGTH_NOT_SET_LABEL,
+    swatch: <ThicknessSwatch width={UNSET_EDGE_STROKE_WIDTH} stroke="var(--edge-neutral)" dash={STRENGTH_NOT_SET_DASH} testId="legend-thickness-unset" />,
   },
 ]
 
