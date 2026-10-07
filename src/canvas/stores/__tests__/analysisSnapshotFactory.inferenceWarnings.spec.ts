@@ -30,12 +30,17 @@
  * has `nodes: null`, so byte-equality on `edgeLabel` is only honest on ids
  * both paths degrade identically (the designed divergence is pinned in
  * analysisSnapshotFactory.rootSiblings.spec.ts).
+ *
+ * ⚠ NARROWED 2026-10-07 — THE COMPARE CONSUMER WAS DELETED, NOT EXCUSED. The `deriveRunPairComparison`
+ * warnings-diff case is gone with it.
+ * The pre-v3 Compare body (`CompareTabBody` and everything only it reached) was
+ * deleted with zero production importers; the live tab (`CompareRunPairBody`)
+ * reads CEE's `run_delta`, not these snapshots. The factory assertions stand.
  */
 import { describe, it, expect } from 'vitest'
 import type { Node, Edge } from '@xyflow/react'
 import { buildAnalysisSnapshot } from '../analysisSnapshotFactory'
 import { buildSnapshotFromPersistedRun } from '../persistedRunSnapshotFactory'
-import { deriveRunPairComparison } from '../../compare-tab/deriveRunPairComparison'
 import { makePersistedRunFactRow } from '../../compare-tab/__tests__/__fixtures__/persistedRunFact'
 import type { V2RunResponse } from '../../../adapters/plot/v2/types'
 import type { ReportV1 } from '../../../adapters/plot/types'
@@ -106,14 +111,6 @@ describe('buildAnalysisSnapshot — inference_warnings root-wins dual read (ROAD
   it('ABSENCE control: neither slot → [] (no fabrication, current empty state kept)', () => {
     const snap = build({})
     expect(snap.inferenceWarnings).toEqual([])
-  })
-
-  it('Compare diff sees live-captured root warnings (was [] vs [] before adoption)', () => {
-    const from = build({ inference_warnings: [{ message: 'resolved later' }] })
-    const to = build({ inference_warnings: [{ message: 'introduced now' }] })
-    const cmp = deriveRunPairComparison(from, to)
-    expect(cmp.warningsResolved).toEqual(['resolved later'])
-    expect(cmp.warningsIntroduced).toEqual(['introduced now'])
   })
 
   it('COHERENCE: live capture and persisted rebuild produce the same warnings, conditional winners and edge E-values for the same enrichment', () => {
