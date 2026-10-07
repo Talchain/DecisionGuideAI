@@ -104,7 +104,7 @@ describe('Rule R read-time display mirror', () => {
     }
   })
 
-  it('scaling: 1000 -> 4000 nodes grows no faster than a plain Map/Set walk (normalised ratio < 2)', () => {
+  it('scaling: 1000 -> 4000 nodes grows no faster than a plain Map/Set walk (normalised ratio < 1.6)', () => {
     const small = chain(1000)
     const large = chain(4000)
     type Graph = ReturnType<typeof chain>
@@ -118,28 +118,38 @@ describe('Rule R read-time display mirror', () => {
       for (const edge of graph.edges) if (ids.has(edge.source) && ids.has(edge.target)) incoming.set(edge.target, (incoming.get(edge.target) ?? 0) + 1)
       return incoming.size
     }
-    const time = (f: (graph: Graph) => unknown, graph: Graph) => {
+    const time = (f: (graph: Graph) => unknown, graph: Graph, calls: number) => {
       const start = performance.now()
-      for (let i = 0; i < 10; i++) f(graph)
-      return performance.now() - start
+      for (let i = 0; i < calls; i++) f(graph)
+      return Math.max(performance.now() - start, 0.05)
     }
-    for (let i = 0; i < 3; i++) for (const f of [walk, reference]) { time(f, small); time(f, large) }
-    // ⛔ Not a raw wall-clock ratio. Measured 7 Oct: the old raw 500 → 2000 ratio ran 7.3–10.1 on a loaded Mac against its bar
-    // of 8 (8.47 in CI). The walk is linear, but a larger Map/Set walk costs more per entry (cache, GC). Dividing by a plain
-    // walk over the same structures cancels that, and cancels a runner slowing mid-test (the rounds are interleaved).
-    // Sizes are 1000 → 4000 because at 500 → 2000 the real walk crosses a cache step the plain walk does not (normalised
-    // 1.35–2.10). Measured at 1000 → 4000: this walk 0.88–1.19 (6 runs); with one O(n) membership scan per edge (a
-    // quadratic regression) 2.58–2.73. The bar sits between them.
+    for (const f of [walk, reference]) { time(f, small, 10); time(f, large, 10) }
+    const calibrate = (f: (graph: Graph) => unknown) => {
+      const samples = Array.from({ length: 3 }, () => time(f, large, 1)).sort((a, b) => a - b)
+      const oneCallLargeMs = samples[1]
+      return Math.max(1, Math.ceil(60 / oneCallLargeMs))
+    }
+    // Calibrate each function independently to ~60 ms at LARGE, then use its same call count at both sizes.
+    const walkCalls = calibrate(walk)
+    const referenceCalls = calibrate(reference)
+    // ⛔ Gate on the NORMALISED ratio (walk growth ÷ a plain Map/Set walk's growth); both ratios stay in the message.
+    // Calibrated 1000 → 4000, measured 7 Oct 23:5xZ (20 real / 5 quadratic-mutant runs, one file, load < 25):
+    //   real: raw 4.98–5.58×, normalised 0.97–1.13×; quadratic (one O(n) target scan per edge): raw 11.36–12.23×, normalised 2.22–2.48×.
+    // Raw < 8 was not taken: the mutant's raw dipped to 10.7× in calibration runs (P51's switch rule needs ≥ 12).
+    // The bar 1.6 is the geometric midpoint of real max 1.13 and mutant min 2.22: ~1.4× margin on each side (2 left the RED side 1.1×).
     const min = { walkSmall: Infinity, walkLarge: Infinity, refSmall: Infinity, refLarge: Infinity }
     for (let round = 0; round < 7; round++) {
-      min.walkSmall = Math.min(min.walkSmall, time(walk, small))
-      min.walkLarge = Math.min(min.walkLarge, time(walk, large))
-      min.refSmall = Math.min(min.refSmall, time(reference, small))
-      min.refLarge = Math.min(min.refLarge, time(reference, large))
+      min.walkSmall = Math.min(min.walkSmall, time(walk, small, walkCalls))
+      min.walkLarge = Math.min(min.walkLarge, time(walk, large, walkCalls))
+      min.refSmall = Math.min(min.refSmall, time(reference, small, referenceCalls))
+      min.refLarge = Math.min(min.refLarge, time(reference, large, referenceCalls))
     }
     const walkRatio = min.walkLarge / min.walkSmall
     const referenceRatio = min.refLarge / min.refSmall
-    expect(walkRatio / referenceRatio, `walk ${walkRatio.toFixed(2)}× vs plain walk ${referenceRatio.toFixed(2)}× (interleaved min-of-7)`).toBeLessThan(2)
+    const normalisedRatio = walkRatio / referenceRatio
+    const message = `scaling: walkSmall=${min.walkSmall.toFixed(3)}ms walkLarge=${min.walkLarge.toFixed(3)}ms refSmall=${min.refSmall.toFixed(3)}ms refLarge=${min.refLarge.toFixed(3)}ms walkCalls=${walkCalls} refCalls=${referenceCalls} raw=${walkRatio.toFixed(6)}× normalised=${normalisedRatio.toFixed(6)}× reference=${referenceRatio.toFixed(6)}× (interleaved min-of-7)`
+    console.log(message)
+    expect(normalisedRatio, message).toBeLessThan(1.6)
   })
 
   it('hook: changing an earlier link flips the boolean with the held edge object unchanged', () => {
