@@ -118,6 +118,11 @@ export const QUESTIONS = {
   'validate-outcome': (c: QuestionContext) => c.validateQuestion ?? `How can I validate my assumption about ${c.label || 'this outcome'}?${c.authoredContext ?? ''}`,
   'missing-factor': (_c: QuestionContext) => 'What else could change how this turns out that the model doesn’t have yet?',
   name: (_c: QuestionContext) => 'Help me find a clear name for this part of the model so I can choose the wording.',
+  // Q15, the Reasoning methods with no typed CEE route (a pre-mortem is Q6 and a different option is Q5; trade-offs reuse `compare-options`).
+  'method-reframe': (c: QuestionContext) => `Is ${decision(c)} the right question, or too narrow? What other framings should we consider?`,
+  'method-opposite': (_c: QuestionContext) => 'What is the strongest honest case against how this model reads now, and what would change my mind?',
+  'method-outside-view': (c: QuestionContext) => `How do decisions like ${c.decisionLabel ? `‘${c.decisionLabel}’` : 'this one'} usually turn out, and how is ours different?`,
+  'method-bias': (_c: QuestionContext) => 'Which reasoning biases could be shaping this model, and how would we test for them?',
 } satisfies Record<string, (c: QuestionContext) => string>
 export type AskIntent = keyof typeof QUESTIONS
 

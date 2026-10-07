@@ -115,6 +115,7 @@ import { AboutThisAnalysis } from './sections/AboutThisAnalysis'
 import { ModelReviewTool } from './sections/ModelReviewTool'
 import { disagreeWithRecommendationPayload } from './buildReviewQueue'
 import { runMethod } from './runMethod'
+import { ACTION_REGISTRY } from '../../../canvas/conversation/actionRegistry'
 import { METHOD_CATALOGUE } from '../decision-overview/actionsCatalogue'
 import { methodIdsRaisedBy } from './recommendationMethod'
 import { buildBiasGrounding } from './biasGrounding'
@@ -1294,9 +1295,18 @@ export function AnalysisNewTabBody({
    * latched pick re-presented the same method as a catalogue card, so the
    * set-aside appeared not to work. Stored as `null`, it cannot outlive the
    * finding it was equal to. Both pick routes (strip and card menu) use this.
+   *
+   * ⭐ AND THE PRESS RUNS THE METHOD (Paul, 7 Oct 2026: make the methods
+   * "genuinely work"). Picking only swapped the Challenge card's heading, further
+   * down the panel, and sent nothing. `runMethod` sends the method's one chip
+   * turn; the pick still marks the method active on the strip and the card.
    */
   const selectMethod = useCallback(
-    (id: string) => setPickedMethodId(id === restingMethodId ? null : id),
+    (id: string) => {
+      setPickedMethodId(id === restingMethodId ? null : id)
+      const method = METHOD_CATALOGUE.find((m) => m.id === id)
+      if (method) runMethod(method)
+    },
     [restingMethodId],
   )
   /**
@@ -1875,7 +1885,8 @@ export function AnalysisNewTabBody({
             icons + one overflow; the overflow lists every method (V2's "one
             complete menu") and the global actions (edit brief, review inputs,
             re-run). Choosing a
-            method shows it in the Challenge card, and it STAYS chosen (V2
+            method RUNS it (one chip turn to Olumi, `selectMethod` → `runMethod`;
+            Paul 7 Oct 2026) and shows it in the Challenge card, and it STAYS chosen (V2
             prototype: one method is always active; the card's "Not useful right
             now" is what sets a pick aside). At rest the active method is the one
             the run's own top finding names (`restingMethodId`), never a default. */}
@@ -2259,7 +2270,7 @@ export function AnalysisNewTabBody({
               onClick={() => sendScienceChip(
                 'Review this decision',
                 'Review this decision',
-                { id: 'agent-next-review-decision' },
+                { id: ACTION_REGISTRY.review.handler.press_id },
               )}
             >
               Review this decision
@@ -2271,7 +2282,7 @@ export function AnalysisNewTabBody({
               onClick={() => sendScienceChip(
                 'What would change this?',
                 'What would most likely change this result?',
-                { id: 'agent-next-what-would-change' },
+                { id: ACTION_REGISTRY.what_changes.handler.press_id },
               )}
             >
               What would change this?
@@ -2285,15 +2296,15 @@ export function AnalysisNewTabBody({
               onClick={() => sendScienceChip(
                 'Strengthen the model',
                 'What would most strengthen this model?',
-                { id: 'agent-next-strengthen' },
+                { id: ACTION_REGISTRY.strengthen.handler.press_id },
               )}
             >
               Strengthen the model
             </button>
             {/* "Run a pre-mortem": CEE's own next-step press (`agent-next-pre-mortem`, NEXT_STEP_CHIPS in CEE
                 routes/agent-v1-turn.ts; the message mirrors it). The agent lane answers with one held change card
-                (method-turn.ts, RC-PREMORTEM). The Methods menu's free-text draft carries `method_id`, which CEE never
-                reads, so this press is the reachable door; the tab decides nothing. */}
+                (method-turn.ts, RC-PREMORTEM). The method strip's pre-mortem sends the same press id on a current Run
+                (`runMethod`); the tab decides nothing. */}
             <button
               type="button"
               className={`${typography.panelBody} ${action('secondary')}`}
@@ -2301,7 +2312,7 @@ export function AnalysisNewTabBody({
               onClick={() => sendScienceChip(
                 'Run a pre-mortem',
                 'Run a pre-mortem with me: imagine this decision went badly. What most plausibly went wrong?',
-                { id: 'agent-next-pre-mortem' },
+                { id: ACTION_REGISTRY.pre_mortem.handler.press_id },
               )}
             >
               Run a pre-mortem
