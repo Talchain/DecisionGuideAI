@@ -173,18 +173,24 @@ describe('a set causal link carries its strength source icon', () => {
   // opens the line's inspector the way a line click does (select + inspector) and never takes the strength editor's
   // stand-down of the results panel, which hid the freshness notice. Contrast: the panel is up before the click.
   it('a click on the source mark opens its line\'s inspector like a line click, and the results panel stays up', () => {
-    useCanvasStore.setState({ edges: [{ id: 'e1', source: 's', target: 't' }], nodes: [], showResultsPanel: true } as never)
+    // The store is mocked as a selector fn here, so give it the getState the click handler (and the old
+    // strength-editor path) reads. Bound by identity: THIS edge selected, ONE inspector event, NO stand-down.
+    const select = vi.fn(), hideResults = vi.fn()
+    const store = useCanvasStore as unknown as { getState?: () => unknown }
+    const prior = store.getState
+    store.getState = () => ({ edges: [{ id: 'e1', source: 's', target: 't' }], selectEdgeWithoutHistory: select, setShowResultsPanel: hideResults })
     const opened = vi.fn()
     window.addEventListener(OPEN_FULL_INSPECTOR_EVENT, opened)
     try {
       const { container } = render(<StyledEdge {...(props as any)} data={{ ...ESTIMATE(), weightSource: 'user' }} />)
-      expect(useCanvasStore.getState().showResultsPanel).toBe(true)
       fireEvent.click(container.querySelector('[data-edge-source-icon][data-edge-id="e1"]')!)
+      expect(select).toHaveBeenCalledTimes(1)
+      expect(select).toHaveBeenCalledWith('e1')
       expect(opened).toHaveBeenCalledTimes(1)
-      expect([...useCanvasStore.getState().selection.edgeIds]).toEqual(['e1'])
-      expect(useCanvasStore.getState().showResultsPanel).toBe(true)
+      expect(hideResults).not.toHaveBeenCalled()
     } finally {
       window.removeEventListener(OPEN_FULL_INSPECTOR_EVENT, opened)
+      store.getState = prior
     }
   })
   it('an accepted Olumi strength reads as accepted', () => {
