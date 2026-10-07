@@ -3005,10 +3005,20 @@ export function useConversation(): UseConversationReturn {
 
   // Clear conversation when scenario changes (with Track 3 thread hydration)
   const prevScenarioRef = useRef(scenarioId)
+  /** The scenario id `sendTurn` last minted for its own in-flight turn (see "adoption" below). */
+  const lazyMintedScenarioIdRef = useRef<string | null>(null)
   useEffect(() => {
     if (scenarioId !== prevScenarioRef.current) {
       const leavingScenarioId = prevScenarioRef.current ?? null
-      const wasNull = leavingScenarioId === null
+      // ⭐ AN ID THIS HOOK MINTED FOR AN IN-FLIGHT TURN IS ADOPTION, NOT A SWITCH
+      // (S-F, Paul 7 Oct: "it shouldn't go blank"). `sendTurn` replaces a null OR
+      // a legacy non-UUID id with a fresh UUID after the user's bubble is on
+      // screen. The null case was already adopted below; the legacy case fell
+      // through to the reset and blanked the dialogue mid-turn. Bound to the
+      // exact id minted, one-shot, so a real switch later still resets.
+      const adoptedMint = scenarioId !== null && scenarioId === lazyMintedScenarioIdRef.current
+      lazyMintedScenarioIdRef.current = null
+      const adoptsTurnId = leavingScenarioId === null || adoptedMint
       prevScenarioRef.current = scenarioId
       missingDraftRecoveryRef.current = null
 
@@ -3027,7 +3037,7 @@ export function useConversation(): UseConversationReturn {
       // When the previous ID was null/undefined, this is the initial lazy UUID
       // assignment from buildRequest — not a real scenario switch. Clearing
       // messages here would wipe the in-flight conversation and kill isThinking.
-      if (wasNull && scenarioId) {
+      if (adoptsTurnId && scenarioId) {
         if (import.meta.env.DEV) {
           console.debug('[useConversation] Skipping reset — initial scenario_id assignment:', scenarioId)
         }
@@ -4540,6 +4550,9 @@ export function useConversation(): UseConversationReturn {
           console.warn('[sendTurn V5] Allocated fresh scenario_id:', newId)
         }
         currentScenarioId = newId
+        // Recorded BEFORE the store write: the switch effect reads it to tell
+        // this turn's own mint from the user opening another decision.
+        lazyMintedScenarioIdRef.current = newId
         useCanvasStore.setState({ currentScenarioId: newId })
         setCurrentScenarioId(newId)
       }
