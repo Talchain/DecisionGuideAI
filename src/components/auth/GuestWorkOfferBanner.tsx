@@ -9,20 +9,20 @@
  * Add uses the same copy route as sign-in (`services/guestCopyService`). The guest row is never written, so declining
  * loses nothing that was the user's account's.
  *
- * ⚠ BOUND TO THE ACCOUNT THAT SAW THE OFFER (Codex r1 P1-1). An identity boundary (A → B, sign-out) sweeps the ledger,
- * but a mounted banner still holds A's rows; and A's click can resolve its token after B has arrived. So the list is
- * re-read whenever the account changes, and a click sends only if the session is STILL the account that clicked and
- * the decision is STILL offered in storage; its answer is applied only if that account is still here.
+ * ⚠ BOUND TO THE ACCOUNT THAT SAW THE OFFER (Codex r1 P1-1, r2 P2). An identity boundary (A → B, sign-out) sweeps the
+ * ledger, but a mounted banner could still hold A's rows, and A's click can resolve its token after B has arrived. So
+ * the list is read from storage on every render (never held), and a click sends only if the session is STILL the
+ * account that clicked, in the same identity epoch, and the decision is STILL offered; its answer is applied only then.
  *
  * DS: the hub's banner card (`GuestDraftImportBanner`), the existing type tokens, Lucide only.
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useReducer, useRef, useState } from 'react'
 import { History, Loader2 } from 'lucide-react'
 
 import { useAuth } from '../../contexts/AuthContext'
 import { typography } from '../../styles/typography'
 import { isPersistenceActive } from '../../lib/persistenceActive'
-import { forgetGuestWork, readGuestWork, type GuestWorkEntry } from '../../lib/guestWork'
+import { forgetGuestWork, readGuestWork, readIdentityEpoch } from '../../lib/guestWork'
 import { GUEST_COPIED_EVENT, type GuestCopiedDetail } from '../../lib/guestCopyOnSignIn'
 import { requestGuestCopy } from '../../services/guestCopyService'
 import { getSessionIdentity } from '../../lib/supabase'
@@ -47,67 +47,72 @@ function lastWorkedOn(at: number | null): string | null {
   return `Last worked on ${date.getDate()} ${MONTHS[date.getMonth()]}`
 }
 
+function withoutNote(notes: Record<string, string>, id: string): Record<string, string> {
+  const next = { ...notes }
+  delete next[id]
+  return next
+}
+
 export function GuestWorkOfferBanner() {
   const { user, authenticated } = useAuth()
   const accountId = user?.id ?? null
-  const [offers, setOffers] = useState<GuestWorkEntry[]>(() => readGuestWork())
-  const [busy, setBusy] = useState<string | null>(null)
-  const [notes, setNotes] = useState<Record<string, string>>({})
-  const [listedFor, setListedFor] = useState<string | null>(accountId)
-  const accountRef = useRef(accountId)
-  accountRef.current = accountId
+  // Read from storage on EVERY render, never held in state: after an identity boundary (which sweeps the ledger) the
+  // next render cannot show the previous account's rows, not even for one frame (Codex r1 P1-1).
+  const offers = readGuestWork()
+  const [, refresh] = useReducer((n: number) => n + 1, 0)
+  // Notes and the busy row belong to the account (and identity epoch) that produced them.
+  const [ui, setUi] = useState<{ owner: string; busy: string | null; notes: Record<string, string> }>({ owner: '', busy: null, notes: {} })
+  const owner = `${accountId ?? ''}|${readIdentityEpoch() ?? ''}`
+  const busy = ui.owner === owner ? ui.busy : null
+  const notes = ui.owner === owner ? ui.notes : {}
+  const ownerRef = useRef(owner)
+  ownerRef.current = owner
 
-  // A different account (or none) sees what storage holds NOW, never the previous account's list: until the re-read
-  // lands, nothing listed for another account is rendered, not even for one frame.
-  useEffect(() => {
-    setOffers(readGuestWork())
-    setNotes({})
-    setBusy(null)
-    setListedFor(accountId)
-  }, [accountId])
-  const visible = listedFor === accountId ? offers : []
-
-  const settle = useCallback((id: string, note?: string) => {
-    if (note === undefined) forgetGuestWork(id)
-    setOffers(readGuestWork())
-    setNotes((prev) => {
-      const next = { ...prev }
-      if (note === undefined) delete next[id]
-      else next[id] = note
-      return next
+  const update = useCallback((forOwner: string, change: (prev: { busy: string | null; notes: Record<string, string> }) => { busy: string | null; notes: Record<string, string> }) => {
+    setUi((prev) => {
+      const base = prev.owner === forOwner ? prev : { owner: forOwner, busy: null, notes: {} }
+      return { owner: forOwner, ...change(base) }
     })
   }, [])
 
-  if (!isPersistenceActive(authenticated, user) || (visible.length === 0 && Object.keys(notes).length === 0)) return null
+  if (!isPersistenceActive(authenticated, user) || (offers.length === 0 && Object.keys(notes).length === 0)) return null
 
   const handleAdd = async (id: string) => {
     if (busy || accountId === null) return
     const clickedBy = accountId
+    const clickedAs = owner
+    // The account that clicked, in the SAME identity epoch: A→B→A rotates the epoch twice, so an old A request's answer
+    // is never applied to the new A session (Codex r2 P2).
+    const sameSession = () => ownerRef.current === clickedAs && `${clickedBy}|${readIdentityEpoch() ?? ''}` === clickedAs
     const stillOffered = () => readGuestWork().some((entry) => entry.id === id)
-    setBusy(id)
+    update(clickedAs, (prev) => ({ ...prev, busy: id }))
     try {
       const { userId, accessToken } = await getSessionIdentity()
       // The session must still be the account that clicked, and the decision still offered (a boundary sweeps it).
-      if (userId !== clickedBy || accountRef.current !== clickedBy || !stillOffered()) {
-        if (accountRef.current === clickedBy) setOffers(readGuestWork())
-        return
-      }
+      if (userId !== clickedBy || !sameSession() || !stillOffered()) return
       const outcome = accessToken ? await requestGuestCopy(id, accessToken) : { kind: 'retry_later' as const, reason: 'no_session' }
-      if (accountRef.current !== clickedBy) return
+      if (!sameSession()) return
       if (outcome.kind === 'copied') {
-        settle(id)
+        forgetGuestWork(id)
+        update(clickedAs, (prev) => ({ ...prev, notes: withoutNote(prev.notes, id) }))
         const detail: GuestCopiedDetail = { sourceScenarioId: id, scenarioId: outcome.scenarioId, created: outcome.created }
         window.dispatchEvent(new CustomEvent<GuestCopiedDetail>(GUEST_COPIED_EVENT, { detail }))
       } else if (outcome.kind === 'not_copyable') {
         forgetGuestWork(id)
-        setNotes((prev) => ({ ...prev, [id]: GUEST_WORK_OFFER_COPY.gone }))
-        setOffers((prev) => prev.filter((o) => o.id !== id))
+        update(clickedAs, (prev) => ({ ...prev, notes: { ...prev.notes, [id]: GUEST_WORK_OFFER_COPY.gone } }))
       } else {
-        settle(id, GUEST_WORK_OFFER_COPY.retry)
+        update(clickedAs, (prev) => ({ ...prev, notes: { ...prev.notes, [id]: GUEST_WORK_OFFER_COPY.retry } }))
       }
     } finally {
-      if (accountRef.current === clickedBy) setBusy(null)
+      update(clickedAs, (prev) => ({ ...prev, busy: null }))
+      refresh()
     }
+  }
+
+  const handleDecline = (id: string) => {
+    forgetGuestWork(id)
+    update(owner, (prev) => ({ ...prev, notes: withoutNote(prev.notes, id) }))
+    refresh()
   }
 
   return (
@@ -120,7 +125,7 @@ export function GuestWorkOfferBanner() {
         <p className={`${typography.label} text-text-header`}>{GUEST_WORK_OFFER_COPY.heading}</p>
         <p className={`${typography.bodySmall} mt-1 text-text-body`}>{GUEST_WORK_OFFER_COPY.body}</p>
         <ul className="mt-3 space-y-3">
-          {visible.map((offer) => {
+          {offers.map((offer) => {
             const when = lastWorkedOn(offer.lastActiveAt)
             return (
               <li key={offer.id} data-testid="guest-work-offer" data-scenario-id={offer.id}>
@@ -143,7 +148,7 @@ export function GuestWorkOfferBanner() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => settle(offer.id)}
+                    onClick={() => handleDecline(offer.id)}
                     disabled={busy !== null}
                     className={`${typography.button} px-4 py-1.5 rounded-pill text-text-body hover:text-text-header disabled:cursor-not-allowed transition-colors duration-fast`}
                   >
@@ -155,7 +160,7 @@ export function GuestWorkOfferBanner() {
           })}
         </ul>
         {Object.entries(notes)
-          .filter(([id]) => !visible.some((o) => o.id === id))
+          .filter(([id]) => !offers.some((o) => o.id === id))
           .map(([id, note]) => (
             <p key={id} className={`${typography.bodySmall} mt-2 text-text-light`} role="status">{note}</p>
           ))}

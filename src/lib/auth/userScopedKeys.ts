@@ -49,12 +49,12 @@ export const USER_SCOPED_STORAGE_KEYS = [
 // one per scenario (`collab/panelApplyHandoff.ts`, `collab/openRoundRecord.ts`).
 // `olumi-thin-layout:` — a signed-in browser's layout, one per scenario (`thinClient.LAYOUT_KEY_PREFIX`): positions only,
 // but keyed by node ids, and CEE derives node ids from labels (Acceptance, #2511 witness W2), so it names the model.
-// `olumi.pendingGuestCopy.v2:` / `olumi.guestWork.v1:` — S-G: guest decisions pending a copy, and offered, for the
-// account that just ended (one key per decision; `lib/pendingGuestCopy.ts`, `lib/guestWork.ts`).
+// `olumi.pendingGuestCopy.v2:` / `olumi.guestWork.v1:` / `olumi.guestWorkSeen.v1:` — S-G: guest decisions pending a copy,
+// and offered, for the account that just ended (one key per decision; `lib/pendingGuestCopy.ts`, `lib/guestWork.ts`).
 export const USER_SCOPED_STORAGE_PREFIXES = [
   'olumi.dissent.v2.', 'olumi.dissent.', 'olumi-canvas-autosave:', 'canvas-snapshot-',
   'olumi.collab.pending-apply.', 'olumi.collab.open-round.', 'olumi-thin-layout:',
-  'olumi.pendingGuestCopy.v2:', 'olumi.guestWork.v1:',
+  'olumi.pendingGuestCopy.v2:', 'olumi.guestWork.v1:', 'olumi.guestWorkSeen.v1:',
 ] as const
 
 /**

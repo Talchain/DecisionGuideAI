@@ -23,7 +23,7 @@
 import { logger } from '../../lib/logger'
 import { sanitiseUserId } from '../../lib/guestIdentity'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
-import { noteGuestRegistration } from '../../lib/guestWork'
+import { beginGuestRegistration, completeGuestRegistration } from '../../lib/guestWork'
 
 /**
  * The same-origin Netlify edge path. NOT `VITE_CEE_BFF_BASE` — see the header.
@@ -124,6 +124,8 @@ export async function registerScenarioGraph(
   opts: RegisterScenarioGraphOptions = {},
 ): Promise<RegisterScenarioGraphResult> {
   const retryDelayMs = opts.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS
+  // S-G: who started this registration, fixed NOW: a guest's model is guest work even if the ack lands after sign-in.
+  const guestTicket = beginGuestRegistration(opts.accessToken)
 
   // ── IDENTITY: the TOKEN is the authority; the body is the legacy fallback ──
   //
@@ -246,7 +248,7 @@ export async function registerScenarioGraph(
     }
 
     // S-G: a guest's model now exists on the server without a turn; sign-in offers it (`lib/guestWork.ts`).
-    noteGuestRegistration(scenarioId)
+    completeGuestRegistration(guestTicket, scenarioId)
     return {
       status: 'registered',
       identity: readIdentityEnvelope(parsed.graph_identity_hash),

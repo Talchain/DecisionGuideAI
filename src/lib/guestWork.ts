@@ -11,8 +11,9 @@
  * 5 Oct, then the copy at 08:40:58Z). It was nine days old and not what he came to do.
  *
  * ── THE RULE ────────────────────────────────────────────────────────────────
- * - ONE producer seam: every guest TURN (the two turn transports call `noteGuestTurn`). A turn is the user doing work
- *   with Olumi: a message, a chip, an edit sent as an event. Opening or viewing a decision is not.
+ * - Producers: every guest TURN (the two turn transports call `noteGuestTurn`) is work: a message, a chip, an edit sent
+ *   as an event. A model registered without a turn (an import, an opened example; `registerScenarioGraph`) is recorded
+ *   as SEEN, of unknown age. Opening or viewing a decision is neither.
  * - At sign-in (`pendingGuestCopy.capturePendingGuestCopies`): work from the last `RECENT_GUEST_WORK_MS` is CARRIED
  *   into the account automatically. Anything older, and a pointer this ledger never saw, is OFFERED on "My decisions"
  *   (`GuestWorkOfferBanner`): the user chooses. Nothing is copied silently that the user was not doing.
@@ -27,26 +28,28 @@
  */
 import { isPersistenceSessionActive } from './persistenceSession'
 import { hasStoredSupabaseSession } from './storedSupabaseSession'
+import { IDENTITY_EPOCH_STORAGE_KEY } from './auth/userScopedKeys'
 
 /**
- * ONE KEY PER DECISION: `olumi.guestWork.v1:<scenario id>` → `{ lastActiveAt, label }`. Never one shared array: two tabs
- * that read-modify-write one key lose each other's writes (Codex r1 P1-2), while a per-decision key is only ever written
- * for its own decision. The boundary sweep removes the prefix (`userScopedKeys.USER_SCOPED_STORAGE_PREFIXES`).
+ * TWO KEY FAMILIES, ONE KEY PER DECISION IN EACH. Never one shared array: two tabs that read-modify-write one key lose
+ * each other's writes (Codex r1 P1-2).
+ * - `olumi.guestWork.v1:<id>` → `{ lastActiveAt, label }`: written ONLY by a guest turn.
+ * - `olumi.guestWorkSeen.v1:<id>` → `1`: a decision of unknown age (the pointer at a sign-in, an imported or opened
+ *   model). Written ONLY by those, so it can never overwrite a turn's entry (Codex r2 P1-2: a registration racing a
+ *   turn in another tab demoted recent work to an unnamed offer). A turn entry, when present, wins on read.
+ * The boundary sweep removes both prefixes (`userScopedKeys.USER_SCOPED_STORAGE_PREFIXES`).
+ *
+ * NO CAP, so nothing is ever trimmed (Codex r2 P1-2 trim race, P2 aged overflow). An entry is ~100 bytes; a sign-out, a
+ * lapse, a copy or "Not mine" removes it.
  */
 export const GUEST_WORK_PREFIX = 'olumi.guestWork.v1:'
+export const GUEST_WORK_SEEN_PREFIX = 'olumi.guestWorkSeen.v1:'
 
 /**
  * Work this recent is what the user was doing when they signed in. A day covers "worked as a guest, then signed in"
  * in one sitting or across a lunch break; a decision last touched days ago is offered instead of copied.
  */
 export const RECENT_GUEST_WORK_MS = 24 * 60 * 60 * 1000
-
-/**
- * Housekeeping bound. Only OLDER work (offers) is ever trimmed past it, oldest first; work inside the recent window is
- * never trimmed, so everything a guest did in one sitting reaches the account however many decisions it was (Codex r1
- * P2). A browser holding more than this many older guest decisions loses the offer for the oldest.
- */
-export const GUEST_WORK_CAP = 100
 
 /** The first thing the user typed, kept so an offer can be recognised. Cut at a word, never mid-word. */
 const LABEL_MAX = 160
@@ -79,7 +82,7 @@ function byRecency(a: GuestWorkEntry, b: GuestWorkEntry): number {
   return (b.lastActiveAt ?? -Infinity) - (a.lastActiveAt ?? -Infinity)
 }
 
-function parseEntry(id: string, raw: string | null): GuestWorkEntry | null {
+function parseTurnEntry(id: string, raw: string | null): GuestWorkEntry | null {
   if (raw === null || !isUuid(id)) return null
   try {
     const value = JSON.parse(raw) as Record<string, unknown> | null
@@ -91,29 +94,20 @@ function parseEntry(id: string, raw: string | null): GuestWorkEntry | null {
   }
 }
 
-function readEntry(id: string): GuestWorkEntry | null {
+function read(key: string): string | null {
   try {
-    return parseEntry(id, localStorage.getItem(GUEST_WORK_PREFIX + id))
+    return localStorage.getItem(key)
   } catch {
     return null
   }
 }
 
-function writeEntry(entry: GuestWorkEntry): boolean {
-  try {
-    localStorage.setItem(GUEST_WORK_PREFIX + entry.id, JSON.stringify({ lastActiveAt: entry.lastActiveAt, label: entry.label }))
-    return true
-  } catch {
-    return false
-  }
-}
-
-function ledgerKeys(): string[] {
+function keysWith(prefix: string): string[] {
   const keys: string[] = []
   try {
     for (let i = 0; i < localStorage.length; i += 1) {
       const key = localStorage.key(i)
-      if (key !== null && key.startsWith(GUEST_WORK_PREFIX)) keys.push(key)
+      if (key !== null && key.startsWith(prefix)) keys.push(key)
     }
   } catch {
     // Storage unavailable: no ledger.
@@ -121,33 +115,18 @@ function ledgerKeys(): string[] {
   return keys
 }
 
-/** The ledger, newest first; malformed entries are skipped. */
+/** The ledger, newest first: every decision with a turn entry, then every decision only seen. Malformed keys skipped. */
 export function readGuestWork(): GuestWorkEntry[] {
-  const entries: GuestWorkEntry[] = []
-  for (const key of ledgerKeys()) {
-    let raw: string | null = null
-    try {
-      raw = localStorage.getItem(key)
-    } catch {
-      continue
-    }
-    const entry = parseEntry(key.slice(GUEST_WORK_PREFIX.length), raw)
-    if (entry) entries.push(entry)
+  const byId = new Map<string, GuestWorkEntry>()
+  for (const key of keysWith(GUEST_WORK_PREFIX)) {
+    const entry = parseTurnEntry(key.slice(GUEST_WORK_PREFIX.length), read(key))
+    if (entry) byId.set(entry.id, entry)
   }
-  return entries.sort(byRecency)
-}
-
-/** Trim the oldest OLDER entries past the cap. Recent work is never trimmed. */
-function trim(now: number): void {
-  const entries = readGuestWork()
-  let excess = entries.length - GUEST_WORK_CAP
-  if (excess <= 0) return
-  for (const entry of [...entries].reverse()) {
-    if (excess <= 0) break
-    if (isRecentGuestWork(entry, now)) continue
-    forgetGuestWork(entry.id)
-    excess -= 1
+  for (const key of keysWith(GUEST_WORK_SEEN_PREFIX)) {
+    const id = key.slice(GUEST_WORK_SEEN_PREFIX.length)
+    if (isUuid(id) && !byId.has(id)) byId.set(id, { id, lastActiveAt: null, label: null })
   }
+  return [...byId.values()].sort(byRecency)
 }
 
 function isSignedInPage(): boolean {
@@ -160,8 +139,15 @@ function isSignedInPage(): boolean {
  */
 export function noteGuestWork(scenarioId: unknown, label: unknown = null, now: number = Date.now()): void {
   if (!isUuid(scenarioId) || isSignedInPage()) return
-  const existing = readEntry(scenarioId)
-  if (writeEntry({ id: scenarioId, lastActiveAt: now, label: existing?.label ?? cleanLabel(label) })) trim(now)
+  const existing = parseTurnEntry(scenarioId, read(GUEST_WORK_PREFIX + scenarioId))
+  try {
+    localStorage.setItem(
+      GUEST_WORK_PREFIX + scenarioId,
+      JSON.stringify({ lastActiveAt: now, label: existing?.label ?? cleanLabel(label) }),
+    )
+  } catch {
+    // Not recorded: at sign-in this decision is at worst offered (the pointer), never copied silently.
+  }
 }
 
 /**
@@ -179,21 +165,47 @@ export function noteGuestTurn(payload: unknown, now: number = Date.now()): void 
   }
 }
 
-/** Record a decision whose age is unknown as an OFFER (never overwrites an entry that has one). */
+/** Record a decision of unknown age as an OFFER. Its own key family, so it never touches a turn's entry. */
 export function recordGuestWorkOffer(scenarioId: string): void {
-  if (!isUuid(scenarioId) || readEntry(scenarioId) !== null) return
-  writeEntry({ id: scenarioId, lastActiveAt: null, label: null })
+  if (!isUuid(scenarioId)) return
+  try {
+    localStorage.setItem(GUEST_WORK_SEEN_PREFIX + scenarioId, '1')
+  } catch {
+    // Not offered; the guest row is unchanged on the server.
+  }
+}
+
+/** The identity epoch (`scenarios.IDENTITY_EPOCH_KEY`): rotated by every identity boundary, never by a first sign-in. */
+export function readIdentityEpoch(): string | null {
+  return read(IDENTITY_EPOCH_STORAGE_KEY)
+}
+
+/** Taken when a guest's model registration STARTS; settled when it is acknowledged. */
+export interface GuestRegistrationTicket {
+  readonly epoch: string | null
 }
 
 /**
- * A guest's model registered on the server without a turn (an imported model or an opened example; the registration
- * adapter's one call). It is offered at sign-in, never copied silently: opening something is not working on it. A
- * later turn on it makes it recent work (Codex r1 P1-3: an import followed by another decision was neither carried nor
- * offered).
+ * A model registration is starting. A ticket only for a guest (no token, no signed-in page): the decision it creates is
+ * guest work even if the acknowledgement lands after this guest signs in (Codex r2 P1-1, lost-work case).
  */
-export function noteGuestRegistration(scenarioId: unknown): void {
+export function beginGuestRegistration(accessToken: string | null | undefined): GuestRegistrationTicket | null {
   try {
-    if (!isUuid(scenarioId) || isSignedInPage()) return
+    if (accessToken || isSignedInPage()) return null
+    return { epoch: readIdentityEpoch() }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The registration was acknowledged: the guest's model exists on the server without a turn (an imported model, an
+ * opened example), so it is OFFERED at sign-in, never copied silently. Recorded only if no identity boundary ran since
+ * it started (Codex r2 P1-1, boundary case: a late ack after A signed out must not become an offer for B).
+ */
+export function completeGuestRegistration(ticket: GuestRegistrationTicket | null, scenarioId: unknown): void {
+  try {
+    if (ticket === null || !isUuid(scenarioId) || readIdentityEpoch() !== ticket.epoch) return
     recordGuestWorkOffer(scenarioId)
   } catch {
     // As `noteGuestTurn`.
@@ -202,19 +214,21 @@ export function noteGuestRegistration(scenarioId: unknown): void {
 
 /** Remove one decision: it was copied, refused for good, or the user said it is not theirs. */
 export function forgetGuestWork(scenarioId: string): void {
-  try {
-    localStorage.removeItem(GUEST_WORK_PREFIX + scenarioId)
-  } catch {
-    // It stays offered, which fails safe.
+  for (const prefix of [GUEST_WORK_PREFIX, GUEST_WORK_SEEN_PREFIX]) {
+    try {
+      localStorage.removeItem(prefix + scenarioId)
+    } catch {
+      // It stays offered, which fails safe.
+    }
   }
 }
 
 export function clearGuestWork(): void {
-  for (const key of ledgerKeys()) {
+  for (const key of [...keysWith(GUEST_WORK_PREFIX), ...keysWith(GUEST_WORK_SEEN_PREFIX)]) {
     try {
       localStorage.removeItem(key)
     } catch {
-      // The boundary's sweep removes the prefix as well.
+      // The boundary's sweep removes the prefixes as well.
     }
   }
 }

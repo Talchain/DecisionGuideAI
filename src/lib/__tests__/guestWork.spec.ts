@@ -11,8 +11,8 @@ vi.mock('../storedSupabaseSession', () => ({ hasStoredSupabaseSession: () => aut
 vi.mock('../payload-trace-store', () => ({ recordRequestPayload: () => {}, recordResponsePayload: () => {} }))
 
 import {
-  GUEST_WORK_CAP,
   GUEST_WORK_PREFIX,
+  GUEST_WORK_SEEN_PREFIX,
   RECENT_GUEST_WORK_MS,
   forgetGuestWork,
   isRecentGuestWork,
@@ -110,22 +110,17 @@ describe('the ledger', () => {
 
   const id = (i: number) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`
 
-  it('NOTHING LOST in one sitting (Codex r1 P2): more decisions than the cap, all within the day → every one is kept', () => {
-    for (let i = 0; i < GUEST_WORK_CAP + 5; i += 1) noteGuestWork(id(i), null, T - HOUR + i)
+  it('NOTHING LOST in one sitting (Codex r1 P2): 105 decisions within the day → every one is kept', () => {
+    for (let i = 0; i < 105; i += 1) noteGuestWork(id(i), null, T - HOUR + i)
 
-    expect(readGuestWork()).toHaveLength(GUEST_WORK_CAP + 5)
+    expect(readGuestWork()).toHaveLength(105)
   })
 
-  it('CONTRAST: past the cap, only the oldest OLDER offers are trimmed', () => {
-    for (let i = 0; i < GUEST_WORK_CAP + 5; i += 1) noteGuestWork(id(i), null, T - 9 * 24 * HOUR + i)
-    noteGuestWork(A, null, T) // today's turn: the ledger now holds cap + 6
+  it('NOTHING TRIMMED after it ages (Codex r2 P2): 105 decisions from last week + one today → all 106 stay', () => {
+    for (let i = 0; i < 105; i += 1) noteGuestWork(id(i), null, T - 9 * 24 * HOUR + i)
+    noteGuestWork(A, null, T)
 
-    const kept = readGuestWork().map((e) => e.id)
-    expect(kept).toHaveLength(GUEST_WORK_CAP)
-    expect(kept).toContain(A)
-    expect(kept).not.toContain(id(0))
-    expect(kept).not.toContain(id(5))
-    expect(kept).toContain(id(6))
+    expect(readGuestWork()).toHaveLength(106)
   })
 
   it('recent = within a day, either side of the clock', () => {
@@ -270,6 +265,50 @@ describe('an import or an opened example (Codex r1 P1-3): registered without a t
     expect(readGuestWork()).toEqual([])
   })
 
+  it('CONTRAST (Codex r2 P1-2): a turn, then a registration of the SAME decision → still recent work, never demoted', async () => {
+    noteGuestWork(A, 'Expand to Leeds?', T - HOUR)
+    respond(200, ACK)
+    await registerScenarioGraph(A, { nodes: [], edges: [] }, { userId: null, accessToken: null })
+
+    expect(readGuestWork()).toEqual([{ id: A, lastActiveAt: T - HOUR, label: 'Expand to Leeds?' }])
+    expect(capturePendingGuestCopies(T)).toEqual([A])
+  })
+
+  function heldAck() {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => { release = r })
+    vi.stubGlobal('fetch', vi.fn(async () => { await gate; return { ok: true, status: 200, json: async () => ACK, text: async () => JSON.stringify(ACK) } }))
+    return () => release()
+  }
+
+  it('Codex r2 P1-1 (lost work): a guest registration whose ack lands AFTER this guest signs in is still offered', async () => {
+    localStorage.setItem('olumi-canvas-identity-epoch', 'epoch-1')
+    const release = heldAck()
+    const registering = registerScenarioGraph(A, { nodes: [], edges: [] }, { userId: null, accessToken: null })
+    noteGuestWork(B, null, T - HOUR)
+    localStorage.setItem(POINTER, B)
+    capturePendingGuestCopies(T) // the sign-in (guest → A is not a boundary: the epoch stays)
+    auth.stored = true
+    release()
+    await registering
+
+    expect(readPendingGuestCopies()).toEqual([B])
+    expect(readGuestWork()).toEqual([{ id: A, lastActiveAt: null, label: null }])
+  })
+
+  it('Codex r2 P1-1 (boundary): an ack that lands after A signed out (epoch rotated) offers NOTHING to the next account', async () => {
+    localStorage.setItem('olumi-canvas-identity-epoch', 'epoch-1')
+    const release = heldAck()
+    const registering = registerScenarioGraph(A, { nodes: [], edges: [] }, { userId: null, accessToken: null })
+    forgetPendingGuestCopyOnSignOut()
+    sweepUserScopedStorage()
+    localStorage.setItem('olumi-canvas-identity-epoch', 'epoch-2') // the boundary's fresh epoch
+    release()
+    await registering
+
+    expect(readGuestWork()).toEqual([])
+  })
+
   it('a later turn on the imported decision makes it recent work, captured at sign-in', async () => {
     respond(200, ACK)
     await registerScenarioGraph(A, { nodes: [], edges: [] }, { userId: null, accessToken: null })
@@ -295,7 +334,7 @@ describe('boundaries — never the next account’s', () => {
 
   it('the lapse/A→B sweep names the owners’ OWN keys and prefixes, and removes them', () => {
     expect(USER_SCOPED_STORAGE_KEYS).toContain(PENDING_GUEST_COPY_KEY)
-    expect(USER_SCOPED_STORAGE_PREFIXES).toEqual(expect.arrayContaining([GUEST_WORK_PREFIX, PENDING_GUEST_COPIES_PREFIX]))
+    expect(USER_SCOPED_STORAGE_PREFIXES).toEqual(expect.arrayContaining([GUEST_WORK_PREFIX, GUEST_WORK_SEEN_PREFIX, PENDING_GUEST_COPIES_PREFIX]))
     noteGuestWork(A, null, T)
     localStorage.setItem(PENDING_GUEST_COPIES_PREFIX + B, String(T))
     localStorage.setItem(PENDING_GUEST_COPY_KEY, C)

@@ -159,6 +159,28 @@ describe('GuestWorkOfferBanner', () => {
     await waitFor(() => expect(mockRequest).toHaveBeenCalledWith(SEP28, 'eyJ.user-1.sig'))
   })
 
+  it('Codex r2 P2: A clicks Add, A→B→A while the copy is in flight → the OLD answer is not applied to the new A session', async () => {
+    localStorage.setItem('olumi-canvas-identity-epoch', 'epoch-1')
+    seed()
+    let finish: (o: unknown) => void = () => {}
+    mockRequest.mockImplementation(() => new Promise((resolve) => { finish = resolve }))
+    const { rerender } = render(<GuestWorkOfferBanner />)
+    fireEvent.click(within(row(SEP28) as HTMLElement).getByText(GUEST_WORK_OFFER_COPY.add))
+    await waitFor(() => expect(mockRequest).toHaveBeenCalledWith(SEP28, 'eyJ.user-1.sig'))
+
+    sweepUserScopedStorage(); localStorage.setItem('olumi-canvas-identity-epoch', 'epoch-2') // A → B
+    auth.user = { id: 'user-2' }; auth.sessionUser = 'user-2'; rerender(<GuestWorkOfferBanner />)
+    localStorage.setItem('olumi-canvas-identity-epoch', 'epoch-3') // B → A
+    auth.user = { id: 'user-1' }; auth.sessionUser = 'user-1'
+    seed() // A's new session is offered SEP28 again
+    rerender(<GuestWorkOfferBanner />)
+    finish({ kind: 'copied', scenarioId: COPY, created: true })
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(events).toEqual([])
+    expect(readGuestWork().map((e) => e.id)).toContain(SEP28)
+  })
+
   it('renders nothing when there is nothing to offer, or for a guest', () => {
     const { container, rerender } = render(<GuestWorkOfferBanner />)
     expect(container.innerHTML).toBe('')
