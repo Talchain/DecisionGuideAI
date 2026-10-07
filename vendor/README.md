@@ -7,16 +7,21 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.81.0.tgz` ← **THE CURRENT PIN ON THIS DRAFT BRANCH ONLY** (7 Oct 2026, Compare-chance chain; DL #87 6035414740)
+### `talchain-schemas-0.81.0.tgz` ← **THE CURRENT PIN** (7 Oct 2026, Compare-chance chain: READER first; DL #87 6035414740)
 
-**Provenance: a LOCAL `npm pack`, NOT a published artefact.** Packed from olumi-schemas branch `compare/goal-chances-0.81.0`
-@ `1f3d3c6bb4b7023ce1c2b0066671a7f1d172a2f3` (draft PR #92, stacked on #91's 0.80.0). The schemas-`main` release path is with
-Paul, so this branch stays DRAFT and unmerged until 0.81.0 is published; the file is then replaced by the registry artefact.
-**848,326 bytes.** sha256 `042830d0bb3a69fb65492e89051ca56029bd299715e57dea51dba4392c5a3681` (the .sha256 sidecar).
+**Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF, not a local re-pack.** Downloaded from
+`https://npm.pkg.github.com/download/@talchain/schemas/0.81.0/6ca5c614caa32c47f249717f373e5ca75e5616ff`; registry gitHead
+`581a825b9fa8b01a5c77558823e8a041c9ca7683` = tag `v0.81.0` (olumi-schemas `main` after #92, DL merge). **847,240 bytes.** Verified, all exact:
 
-Carries 0.79.0 (`run_delivery` handler fact), 0.80.0 (`dominant_factor` + `flip_thresholds_status(_reason)` keep-list) and
-0.81.0 (optional strict `run_delta.goal_chances[]`). ⛔ ORDER: this READER pin lands BEFORE CEE emits `goal_chances`:
-DGAI parses `run_delta` strictly, so an old pin would drop the whole block.
+```
+npm shasum (sha1)  6ca5c614caa32c47f249717f373e5ca75e5616ff   (the registry download id)
+integrity (sha512) sha512-uPDNZyTsfhjhpTo+ertGa7Hg693e2unCY7NNpNV+Hno8QR+61oyZwpmE2ZuGkdyHRWGcljv65kJSAu5mHpVU6w==
+sha256             4e80994aa1b4356b24cba6d17ea11fb7637ac7a7516e051f44c4e197dd074945   (the .sha256 sidecar)
+```
+
+Carries 0.79.0 (`run_delivery` handler fact), 0.80.0 (`dominant_factor` + `flip_thresholds_status(_reason)` keep-list, an
+enrichment `.passthrough()` carry) and 0.81.0 (optional strict `run_delta.goal_chances[]`). ⛔ ORDER: this READER pin is
+SERVED before CEE emits `goal_chances` (CEE #2741): DGAI parses `run_delta` strictly, so an old pin drops the whole block.
 
 ### `talchain-schemas-0.78.0.tgz` (historical — no longer vendored on this branch) (6 Oct 2026, SD-1 cut 6: READER first; DL 0df0e1)
 
