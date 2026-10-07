@@ -1,3 +1,4 @@
+import { servedSwitchReading } from '../canvas/domain/switchFactors'
 /**
  * formatFactorDisplayValue — contextual display text for factor values.
  *
@@ -154,6 +155,7 @@ export function isDisplayValueContradicted(
 }
 
 export interface FactorDisplayInput {
+  switch_reading?: string | null
   label: string
   value?: number | null
   raw_value?: number | string | null
@@ -303,6 +305,7 @@ function factorDisplayInputFromData(
   const displayValue = readFactorDisplayValue(data) ?? null
   return {
     label,
+    switch_reading: servedSwitchReading(data, typeof data.pending_user_value === 'number' ? data.pending_user_value : valueUnwrapped),
     value: valueUnwrapped,
     raw_value: rawValueForFormatter,
     unit: unit ?? null,
@@ -694,6 +697,7 @@ export function placeholderMagnitudeNumber(displayValue: string): string | null 
 
 export function formatFactorDisplayValue(input: FactorDisplayInput): string | null {
   const { label, value, raw_value, unit, factor_type, category, display_value } = input
+  if (input.switch_reading != null) return input.switch_reading
 
   // External factors with no data: no body text (dashed border is the signal)
   if (category === 'external' && (value == null && raw_value == null)) {

@@ -1,3 +1,4 @@
+import { servedSwitchReading } from '../domain/switchFactors'
 /**
  * Model tab v2 — THE READ-ONLY STORE → PROJECTION ADAPTER.
  *
@@ -468,6 +469,8 @@ function narrowObservedState(obs: ObservedState): ModelTabObservedState {
  * nothing is stated — a fact to render, never a zero to invent.
  */
 function factorValue(data: unknown): string | null {
+  const switchText = servedSwitchReading(data)
+  if (switchText !== null) return switchText
   const obs = observedStateOf(data)
   if (!obs) return null
   const primary = getPrimaryValue(narrowObservedState(obs))
@@ -1205,7 +1208,7 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
       affects: input.edges
         .filter(e => e.source === rowId)
         .map(e => ({ id: e.id, label: endpointLabel(e.target, nodeLabels) })),
-      interventions: buildOptionInterventions(node, nodeLabels),
+      interventions: buildOptionInterventions(node, nodeLabels, input.nodes),
       interventionCandidates: buildOptionInterventionCandidates(
         node,
         input.edges,
@@ -1374,6 +1377,7 @@ export function optionIdsWithValueInputs(input: ModelProjectionInput): ReadonlyS
 function buildOptionInterventions(
   node: Node,
   labels: ReadonlyMap<string, string>,
+  nodes: readonly Node[],
 ): OptionInterventionField[] {
   if (nodeKind(node) !== 'option') return []
   const raw = (node.data as Record<string, unknown> | undefined)?.interventions as
@@ -1387,7 +1391,7 @@ function buildOptionInterventions(
     const { displayValue, source } = unwrapInterventionValue(rawValue)
     // A CEE-authored `display_value` wins the DISPLAY (the F.6 passthrough the
     // v1 rows already honoured); the numeric half is independent of it.
-    const value = displayValue ?? (numeric === undefined ? null : formatSmartNumber(numeric))
+    const value = servedSwitchReading(nodes.find(n => n.id === factorId)?.data, numeric ?? null) ?? displayValue ?? (numeric === undefined ? null : formatSmartNumber(numeric))
     return [
       {
         factorId,
