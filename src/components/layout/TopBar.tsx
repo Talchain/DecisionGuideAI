@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Share2, Users, UserPlus, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
+import { Share2, Users, UserPlus, AlertTriangle, XCircle } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import styles from './TopBar.module.css'
 import { UserAvatarMenu } from './UserAvatarMenu'
