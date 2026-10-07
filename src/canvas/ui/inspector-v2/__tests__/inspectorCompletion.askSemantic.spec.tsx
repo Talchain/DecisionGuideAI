@@ -1,256 +1,62 @@
-/**
- * Inspector completion — ONE ASK SEMANTIC (the ledger's trap-21 pair) + R5
- * quick actions.
- *
- * THE PAIR, and the two questions it conflated:
- *
- *   `InspectorCoaching`  — "Ask about this" AUTO-SENT via `_sendMessage`.
- *   `DiscussWithAiButton` — PREFILLED an editable draft and waited.
- *
- * Same user intent ("ask Olumi about this element"), opposite semantics, one
- * inspector. Auto-send is the one that lies: the message vanishes into a
- * surface the user may not be looking at, so the button reads as dead.
- *
- * RULING APPLIED: prefill-and-confirm, everywhere. An ask affordance NEVER
- * dispatches. It lands the question as an EDITABLE DRAFT in a visible surface
- * with a single obvious Send, which the user presses.
- *
- * The two questions are now named apart (trap 21):
- *   Q1 "how does an ask get CONFIRMED?"  → one answer: the user sends it.
- *   Q2 "which CARRIER does it travel on?" → per call site, unchanged.
- * Q2 is deliberately NOT unified: the analysis-tab asks ride a typed dispatch
- * that carries chip_metadata, and a bare composer prefill would drop it.
- *
- * `run_exercise` stays a direct command: its button IS the confirmation, and a
- * prefilled '/exercise …' would sit in the composer as literal text.
- */
-
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+// 7 Oct: explicit auto-send ruling supersedes the old prefill-and-confirm specs.
+import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-
-import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { InspectorRouter } from '../InspectorRouter'
 import { DiscussWithAiButton } from '../../../components/pre-analysis/DiscussWithAiButton'
+import { InspectorQuickActions } from '../shared/InspectorQuickActions'
 import { requestAsk, ASK_SEMANTIC } from '../askSemantic'
-import { resolveAskTemplate } from '../inspectorStrings'
 import { useCanvasStore } from '../../../store'
-import { useGuidanceStore, type GuidanceItem } from '../../../stores/guidanceStore'
+import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useAskOlumiStore } from '../../../../components/results/coaching/askOlumiStore'
-
-vi.mock('@xyflow/react', () => ({
-  useViewport: () => ({ x: 0, y: 0, zoom: 1 }),
-}))
-
-vi.mock('../../../conversation/revealOlumi', () => ({
-  revealOlumiSurface: vi.fn(),
-}))
-
+import { takeAskTargetBinding, clearAskTargetBinding } from '../askTargetBinding'
 import { revealOlumiSurface } from '../../../conversation/revealOlumi'
-const mockReveal = revealOlumiSurface as ReturnType<typeof vi.fn>
-
-const coachingProps = {
-  elementId: 'node-1',
-  panelType: 'factor-controllable',
-  fallbackText: 'Static coaching fallback text',
-  labelContext: { label: 'Marketing Budget' },
-}
-
-/**
- * ⚠ DERIVED FROM THE REGISTER, NOT COPIED FROM IT (trap 12). This was the literal
- * 'How important is Marketing Budget to the outcome?' — a hand-maintained mirror
- * of `ASK_TEMPLATES['factor-controllable']`, which went stale the moment that copy
- * changed. This test is about the CARRIER (prefill, never send), so the question
- * is resolved from the same register the component reads. The COPY is pinned as a
- * property in `askTemplatesHandJudgementBack.spec.ts`.
- */
-const EXPECTED_QUESTION = resolveAskTemplate(
-  coachingProps.panelType,
-  coachingProps.labelContext,
-) as string
-
-function makeGuidanceItem(overrides: Partial<GuidanceItem> = {}): GuidanceItem {
-  return {
-    item_id: 'g1',
-    signal_code: 'evidence_gap',
-    category: 'should_fix',
-    source: 'analysis',
-    title: 'Orchestrator guidance title',
-    detail: 'with detail',
-    primary_action: { type: 'discuss', prompt: 'Tell me more about this' },
-    target_object: { type: 'node', id: 'node-1', label: 'Test Factor' },
-    priority: 80,
-    ...overrides,
-  } as GuidanceItem
-}
-
+vi.mock('@xyflow/react', () => ({ useViewport: () => ({ x: 0, y: 0, zoom: 1 }) }))
+vi.mock('../../../conversation/revealOlumi', () => ({ revealOlumiSurface: vi.fn(() => true) }))
+let dispatch: ReturnType<typeof vi.fn>
 beforeEach(() => {
-  vi.clearAllMocks()
+  clearAskTargetBinding(); vi.clearAllMocks()
+  useCanvasStore.setState({ nodes: [
+    { id: 'a', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Budget' } },
+    { id: 'b', type: 'goal', position: { x: 0, y: 1 }, data: { label: 'Delivery' } },
+  ], edges: [{ id: 'ab', source: 'a', target: 'b', data: {} }], hasCompletedFirstRun: false, results: { status: 'idle' }, v5AnalysisFact: null } as never)
+  dispatch = vi.fn()
+  useGuidanceStore.setState({ _dispatchAction: dispatch, _sendMessage: vi.fn(), _prefillChat: vi.fn(), _isConversationBusy: () => false })
   useAskOlumiStore.getState().close()
-  useAskOlumiStore.setState({ draft: '', context: '', label: '' } as never)
-  useGuidanceStore.setState({
-    guidanceItems: [],
-    activeGuidanceItemId: null,
-    inspectorDeepLinkField: null,
-    _sendMessage: null,
-    _runAnalysis: null,
-    _sendChip: null,
-    _scrollToPatch: null,
-    _prefillChat: null,
-    _dispatchAction: null,
-  } as never)
 })
-
-// ─────────────────────────────────────────────────────────────────────
-// The semantic itself
-// ─────────────────────────────────────────────────────────────────────
-
-describe('one ask semantic · the module declares it and never dispatches', () => {
-  it('declares prefill-and-confirm as the semantic', () => {
-    expect(ASK_SEMANTIC).toBe('prefill-and-confirm')
-  })
-
-  it('prefills the composer and reveals it — it does NOT send', () => {
-    const prefill = vi.fn()
-    const send = vi.fn()
-    useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send } as never)
-
-    requestAsk({ text: 'Why does this matter?', label: 'Ask', context: 'ctx' })
-
-    expect(prefill).toHaveBeenCalledWith('Why does this matter?')
-    expect(send).not.toHaveBeenCalled()
-    expect(mockReveal).toHaveBeenCalled()
-    // No third floating surface when a simple prefill suffices.
-    expect(useAskOlumiStore.getState().isOpen).toBe(false)
-  })
-
-  it('falls back to the drawer — still unsent — when no composer is registered', () => {
-    const send = vi.fn()
-    useGuidanceStore.setState({ _prefillChat: null, _sendMessage: send } as never)
-
-    requestAsk({ text: 'Why does this matter?', label: 'Ask', context: 'ctx' })
-
-    expect(send).not.toHaveBeenCalled()
-    const drawer = useAskOlumiStore.getState()
-    expect(drawer.isOpen).toBe(true)
-    expect(drawer.draft).toBe('Why does this matter?')
-  })
-
-  it('uses the drawer when the ask carries a typed-dispatch payload', () => {
-    // Q2: chip_metadata survives ONLY on the typed turn, so an ask carrying
-    // parameters must not be flattened into a bare composer prefill.
-    const prefill = vi.fn()
-    useGuidanceStore.setState({ _prefillChat: prefill } as never)
-
-    requestAsk({
-      text: 'Run the outside view on this',
-      label: 'Outside view',
-      context: 'ctx',
-      parameters: { method_id: 'outside_view' },
-    })
-
-    expect(prefill).not.toHaveBeenCalled()
-    expect(useAskOlumiStore.getState().isOpen).toBe(true)
-  })
-
-  it('does nothing at all when there is no surface to receive the draft', () => {
-    requestAsk({ text: 'Why does this matter?', label: 'Ask', context: 'ctx' })
-    expect(useAskOlumiStore.getState().isOpen).toBe(false)
-    expect(mockReveal).not.toHaveBeenCalled()
-  })
-})
-
-// ─────────────────────────────────────────────────────────────────────
-// Half one of the pair — InspectorCoaching stops auto-sending
-// ─────────────────────────────────────────────────────────────────────
-
-describe('one ask semantic · InspectorCoaching no longer auto-sends', () => {
-  it('"Ask about this" prefills and does NOT call _sendMessage', () => {
-    const prefill = vi.fn()
-    const send = vi.fn()
-    // v3.1 (DESIGN-GAP-v31 row 32): the card renders only for a GROUNDED item;
-    // a non-discuss action takes the ask arm under the "Ask about this" label.
-    useGuidanceStore.setState({
-      guidanceItems: [makeGuidanceItem({ primary_action: { type: 'navigate', target: 'x' } })],
-      _prefillChat: prefill,
-      _sendMessage: send,
-    } as never)
-
-    render(<InspectorCoaching {...coachingProps} />)
-    fireEvent.click(screen.getByText('Ask about this'))
-
-    expect(send).not.toHaveBeenCalled()
-    expect(prefill).toHaveBeenCalledWith(EXPECTED_QUESTION)
-  })
-
-  it('a "discuss" guidance action also prefills rather than sending', () => {
-    const prefill = vi.fn()
-    const send = vi.fn()
-    useGuidanceStore.setState({
-      guidanceItems: [makeGuidanceItem()],
-      _prefillChat: prefill,
-      _sendMessage: send,
-    } as never)
-
-    render(<InspectorCoaching {...coachingProps} />)
-    fireEvent.click(screen.getByText('Discuss'))
-
-    expect(send).not.toHaveBeenCalled()
-    expect(prefill).toHaveBeenCalledWith('Tell me more about this')
-  })
-
-  it('still routes a slash-command exercise as a direct command — as a CHIP, never as the user\'s typed words (UI N2)', () => {
-    // Discriminating twin: proves the change is scoped to ASKS. A prefilled
-    // '/exercise …' would sit in the composer as literal text, so its button
-    // remains the confirmation. If this ever goes green-by-accident the
-    // distinction has been flattened.
-    const prefill = vi.fn()
-    const send = vi.fn()
-    const dispatch = vi.fn()
-    useGuidanceStore.setState({
-      guidanceItems: [
-        makeGuidanceItem({
-          // The producer's own enum — 'pre_mortem', not 'premortem'. Derived
-          // from GuidanceAction in guidanceStore.ts rather than guessed, and
-          // asserted without a cast so the compiler keeps checking it.
-          primary_action: { type: 'run_exercise', exercise: 'pre_mortem' },
-        }),
-      ],
-      _prefillChat: prefill,
-      _sendMessage: send,
-      _dispatchAction: dispatch,
-    } as never)
-
-    render(<InspectorCoaching {...coachingProps} />)
-    // Labelled 'Try it', not 'Ask about this' — an auto-sending control must
-    // not wear an ask's label (review item 4). Clicking it still sends.
-    expect(screen.queryByText('Ask about this')).toBeNull()
-    fireEvent.click(screen.getByText('Try it'))
-
-    // UI N2: the command is OLUMI's text. It goes out as a chip carrying its
-    // identity; `_sendMessage` (a `composer` turn — the user's typed words) is
-    // registered here and must NOT be the route.
+describe('one ask semantic', () => {
+  it('declares immediate chip submission', () => expect(ASK_SEMANTIC).toBe('send-chip-immediately'))
+  it('sends once and reveals the panel, without prefilling or sending Olumi words as composer text', () => {
+    expect(requestAsk({ text: 'Old wording', label: 'Explore', targetId: 'a', intent: 'explain' })).toBe('sent')
     expect(dispatch).toHaveBeenCalledTimes(1)
-    expect(dispatch.mock.calls[0][0]).toEqual({
-      parameters: { chip_id: 'inspector_exercise:pre_mortem' },
-      label: '/exercise pre_mortem',
-      message: '/exercise pre_mortem',
-      source: 'chip',
-    })
-    expect(send).not.toHaveBeenCalled()
-    expect(prefill).not.toHaveBeenCalled()
+    expect(dispatch.mock.calls[0][0]).toMatchObject({ id: 'ask:explain', source: 'chip' })
+    expect(useGuidanceStore.getState()._prefillChat).not.toHaveBeenCalled()
+    expect(useGuidanceStore.getState()._sendMessage).not.toHaveBeenCalled()
+    expect(revealOlumiSurface).toHaveBeenCalled()
   })
-
-  it('hides the action when no surface can receive it', () => {
-    useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null } as never)
-    render(<InspectorCoaching {...coachingProps} />)
-    expect(screen.queryByText('Ask about this')).toBeNull()
+  it('keeps an explicitly editable template in the drawer with its trailing space', () => {
+    expect(requestAsk({ text: 'My answer: ', label: 'Answer', editable: true })).toBe('drawer')
+    expect(useAskOlumiStore.getState().draft).toBe('My answer: ')
+    expect(dispatch).not.toHaveBeenCalled()
+  })
+  it('without dispatch refuses, never invents a composer turn', () => {
+    useGuidanceStore.setState({ _dispatchAction: null })
+    expect(requestAsk({ text: 'Ask', label: 'Ask', targetId: 'a', intent: 'explain' })).toBe('none')
+    expect(useGuidanceStore.getState()._sendMessage).not.toHaveBeenCalled()
+  })
+  it.each([['a', 'factor-controllable', 'Budget'], ['ab', 'edge', 'Budget to Delivery']])('Explore %s sends once with the correct target set', (elementId, panelType, elementLabel) => {
+    render(<InspectorQuickActions elementId={elementId} panelType={panelType} elementLabel={elementLabel} labelContext={{ sourceLabel: 'Budget', targetLabel: 'Delivery' }} />)
+    fireEvent.click(screen.getByTestId('inspector-quick-ask'))
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    const sent = dispatch.mock.calls[0][0]
+    expect(sent).toMatchObject({ id: panelType === 'edge' ? 'ask:link' : 'ask:explain', source: 'chip' })
+    const bound = takeAskTargetBinding(sent.message)
+    expect(panelType === 'edge' ? bound?.edgeIds : bound?.nodeIds).toEqual(new Set([elementId]))
+    expect(sent.message).toContain('Budget')
+    expect(revealOlumiSurface).toHaveBeenCalled()
   })
 })
 
-// ─────────────────────────────────────────────────────────────────────
-// Half two of the pair — DiscussWithAiButton runs the same semantic
-// ─────────────────────────────────────────────────────────────────────
-
+const dispatchMessage = () => (useGuidanceStore.getState()._dispatchAction as ReturnType<typeof vi.fn>).mock.calls[0][0].message
 describe('one ask semantic · DiscussWithAiButton runs the same routing', () => {
   it('prefills the composer instead of floating a drawer when one is registered', () => {
     const prefill = vi.fn()
@@ -303,7 +109,7 @@ describe('R5 · quick actions sit at the top of the inspector', () => {
   it('renders the two contract buttons — "Explore with Olumi" and "Back to the conversation"', () => {
     // v3.1 (DESIGN-GAP-v31 row 7; point 11). "Its analysis" (a switch to the
     // generic Analysis tab) is retired with the rest of the pre-contract chips.
-    useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
+    useGuidanceStore.setState({ _prefillChat: vi.fn(), _dispatchAction: vi.fn() } as never)
     setNodeStore()
     render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
     expect(screen.getByTestId('inspector-quick-ask').textContent).toBe('Explore with Olumi')
@@ -317,14 +123,14 @@ describe('R5 · quick actions sit at the top of the inspector', () => {
     // end. v3.1 asks for ONE edit route instead of the served pile-up (dashed
     // title + pencil + "Change this" + "Change"), so the conversational route
     // is "Explore with Olumi" — the notices' own remedy, "ask Olumi to …".
-    useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
+    useGuidanceStore.setState({ _prefillChat: vi.fn(), _dispatchAction: vi.fn() } as never)
     setNodeStore()
     render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
     expect(screen.queryByTestId('inspector-quick-change')).toBeNull()
     expect(screen.getByTestId('inspector-quick-ask')).toBeTruthy()
   })
 
-  it('that route PREFILLS and never dispatches, and names the element', () => {
+  it('that route sends one chip and never sends as composer text, and names the element', () => {
     const prefill = vi.fn()
     const send = vi.fn()
     const dispatch = vi.fn()
@@ -338,12 +144,12 @@ describe('R5 · quick actions sit at the top of the inspector', () => {
     // read-only notice beneath it a lie — the panel would be telling the user
     // their change cannot be saved while the click had already committed one.
     expect(send).not.toHaveBeenCalled()
-    expect(dispatch).not.toHaveBeenCalled()
-    expect(prefill).toHaveBeenCalled()
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(prefill).not.toHaveBeenCalled()
 
     // Bound to the element by its LABEL, not by matching the copy — a draft
     // naming the wrong node is the failure that matters.
-    const drafted = String(prefill.mock.calls[0]?.[0] ?? prefill.mock.calls[0])
+    const drafted = String(dispatch.mock.calls[0][0].message)
     expect(drafted).toContain('Marketing Budget')
   })
 
@@ -357,14 +163,14 @@ describe('R5 · quick actions sit at the top of the inspector', () => {
     unmount()
     // Positive control: the SAME probe sees both once a surface is registered,
     // so the absence above is a real absence rather than a blind query.
-    useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
+    useGuidanceStore.setState({ _prefillChat: vi.fn(), _dispatchAction: vi.fn() } as never)
     render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
     expect(screen.getByTestId('inspector-quick-ask')).toBeTruthy()
     expect(screen.getByTestId('inspector-back-to-conversation')).toBeTruthy()
   })
 
   it('places them ABOVE the panel body — nothing buried', () => {
-    useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
+    useGuidanceStore.setState({ _prefillChat: vi.fn(), _dispatchAction: vi.fn() } as never)
     setNodeStore()
     const { container } = render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
     const quick = screen.getByTestId('inspector-quick-actions')
@@ -375,20 +181,21 @@ describe('R5 · quick actions sit at the top of the inspector', () => {
     expect(quick.compareDocumentPosition(firstGroup as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('the quick ask runs the ONE semantic — prefill, never send', () => {
+  it('the quick ask runs the batch semantic — one chip, never composer text', () => {
     const prefill = vi.fn()
     const send = vi.fn()
-    useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send } as never)
+    useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send, _dispatchAction: vi.fn() } as never)
     setNodeStore()
     render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
     fireEvent.click(screen.getByTestId('inspector-quick-ask'))
     expect(send).not.toHaveBeenCalled()
-    expect(prefill).toHaveBeenCalledTimes(1)
-    expect(String(prefill.mock.calls[0][0])).toContain('Marketing Budget')
+    expect(useGuidanceStore.getState()._dispatchAction).toHaveBeenCalledTimes(1)
+    expect(prefill).not.toHaveBeenCalled()
+    expect(dispatchMessage()).toBe('What does ‘Marketing Budget’ do in this decision, and what is it assumed to depend on?')
   })
 
   it('hides the quick ask when no conversation surface exists — no dead button', () => {
-    useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null } as never)
+    useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null } as never)
     setNodeStore()
     render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
     expect(screen.queryByTestId('inspector-quick-ask')).toBeNull()

@@ -41,10 +41,17 @@ vi.mock('../../store', () => {
 })
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({ useNodeDisplayMetadata: vi.fn() }))
 vi.mock('../../hooks/useAnalysisTrust', () => ({ useAnalysisTrust: vi.fn() }))
-vi.mock('../../hooks/useAnalysisResultsAreCurrent', () => ({ useAnalysisResultsAreCurrent: vi.fn() }))
+vi.mock('../../hooks/useAnalysisResultsAreCurrent', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../hooks/useAnalysisResultsAreCurrent')>()),
+  useAnalysisResultsAreCurrent: vi.fn(),
+}))
 vi.mock('../shared/NodePopover', () => ({
   NodePopover: ({ children }: { children: React.ReactNode }) => <div data-testid="node-popover">{children}</div>,
 }))
+
+vi.mock('../../conversation/revealOlumi', () => ({ revealOlumiSurface: vi.fn() }))
+import { revealOlumiSurface } from '../../conversation/revealOlumi'
+import { takeAskTargetBinding } from '../../ui/inspector-v2/askTargetBinding'
 
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
@@ -581,7 +588,7 @@ describe('Option — the result is model-relative, never "Support" (ED 11:52Z po
 })
 
 describe('Option — the coaching icon keeps a TYPED action typed (ED 02:31Z)', () => {
-  it('after a run, the icon dispatches what_would_flip with its chip id — never a generic discuss', () => {
+  it('after a run, the icon sends its option-support intent as one bound chip', () => {
     setState({ phase: 'post' })
     setCurrency('current')
     setMeta({ 'opt-bundle': { winRate: 0.25, isResultsMode: true } })
@@ -590,7 +597,12 @@ describe('Option — the coaching icon keeps a TYPED action typed (ED 02:31Z)', 
     expect(icon.getAttribute('data-coaching-typed')).toBe('true')
     fireEvent.click(icon)
     const dispatch = useGuidanceStore.getState()._dispatchAction as unknown as ReturnType<typeof vi.fn>
-    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ action_type: 'what_would_flip' }))
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ id: 'ask:support-option', source: 'chip',
+      message: 'What would need to change for ‘Bundle seats’ to be better supported, and what evidence would we need?' }))
+    expect(dispatch.mock.calls[0][0]).not.toHaveProperty('action_type')
+    expect(takeAskTargetBinding(dispatch.mock.calls[0][0].message)?.nodeIds).toEqual(new Set(['opt-bundle']))
+    expect(revealOlumiSurface).toHaveBeenCalled()
     expect(useAskOlumiStore.getState().isOpen).toBe(false)
   })
 })

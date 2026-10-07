@@ -3044,7 +3044,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           <InfluenceExplainer forceShow={isInfluenceExplainerForced} onDismiss={hideInfluenceExplainer} compact />
         </div>
       )}
-      {/* ⭐ E4: a ghost door's "What else…?" chooser (it only prefills the ask). */}
+      {/* ⭐ E4: a ghost door's "What else…?" chooser (chips send questions; free text sends the person’s words). */}
       <WhatElseChooserHost />
       {/* S.1: Compact popover removed — single-click now opens full inspector directly */}
       {showFullInspector && (

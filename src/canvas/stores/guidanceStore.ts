@@ -325,13 +325,14 @@ export interface GuidanceState {
   /** Registered by ConversationPanel so inspector "Ask about this" can pre-fill chat input */
   _prefillChat: ((text: string) => void) | null
   /** Registered by ConversationPanel — unified action dispatch with chip_metadata */
-  _dispatchAction: ((opts: { action_type?: string; intent?: string; parameters?: Record<string, unknown>; label: string; message: string; hidden?: boolean; source: string }) => void) | null
+  _dispatchAction: ((opts: { id?: string; action_type?: string; intent?: string; parameters?: Record<string, unknown>; label: string; message: string; hidden?: boolean; source: string }) => void) | null
   /**
    * Identity token for the ACTIVE registration. Ownership checks must use
    * this, never a callback identity: with the singleton conversation
    * context, two panel hosts register the SAME sendMessage/dispatchAction
    * function objects, so callback identity cannot discriminate hosts.
    */
+  _isConversationBusy?: (() => boolean) | null
   _registrationToken: object | null
   /**
    * SD-1 Slice R (CEE #2654): the Run whose DELIVERED record the items on screen were adopted from, or null when they
@@ -365,7 +366,8 @@ export interface GuidanceActions {
     sendChip?: (label: string, message: string) => void,
     runAnalysis?: () => void,
     prefillChat?: (text: string) => void,
-    dispatchAction?: (opts: { action_type?: string; parameters?: Record<string, unknown>; label: string; message: string; hidden?: boolean; source: string }) => void,
+    dispatchAction?: (opts: { id?: string; action_type?: string; parameters?: Record<string, unknown>; label: string; message: string; hidden?: boolean; source: string }) => void,
+    isConversationBusy?: () => boolean,
   ) => () => void
   /**
    * Evict items whose valid_while hashes no longer match the current state.
@@ -425,6 +427,7 @@ const initialGuidanceState: GuidanceState = {
   _sendChip: null,
   _scrollToPatch: null,
   _dispatchAction: null,
+  _isConversationBusy: null,
   _prefillChat: null,
   _registrationToken: null,
   deliveredFrom: null,
@@ -739,7 +742,7 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
     set({ activeGuidanceItemId: itemId })
   },
 
-  registerConversationCallbacks: (sendMessage, scrollToPatch, sendChip, runAnalysis, prefillChat, dispatchAction) => {
+  registerConversationCallbacks: (sendMessage, scrollToPatch, sendChip, runAnalysis, prefillChat, dispatchAction, isConversationBusy) => {
     const token = {}
     set({
       _sendMessage: withOlumiReveal(sendMessage),
@@ -754,6 +757,7 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
       _sendChip: withOlumiReveal(sendChip ?? null),
       _prefillChat: withOlumiReveal(prefillChat ?? null),
       _dispatchAction: withOlumiReveal(dispatchAction ?? null),
+      _isConversationBusy: isConversationBusy ?? null,
       _registrationToken: token,
     })
     return () => {
@@ -770,6 +774,7 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
           _sendChip: null,
           _prefillChat: null,
           _dispatchAction: null,
+          _isConversationBusy: null,
           _registrationToken: null,
         })
       }
