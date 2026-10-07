@@ -211,6 +211,7 @@ import {
 } from './narrationTurn'
 import { readGuidance } from './guidanceRows'
 import { readProposalPreview } from './proposalPreview'
+import { readRecordedServerTurnId } from './serverTurnId'
 import {
   beginInteractionChain,
   bindRequestToInteraction,
@@ -6036,10 +6037,12 @@ export function useConversation(): UseConversationReturn {
           // A LIVE held reply carries only its request correlation. heldProposalId is written solely by transcriptStore at
           // save, so reconcile (which acts on restored history) can never strip a live card's controls on a late read.
           const offersHeldApproval = actionChips.some(c => /^agent-approve-proposal:prop_[0-9a-f]{32}$/.test(c.id))
+          const serverTurnId = readRecordedServerTurnId(target.response)
           if (!isForeignExplanation(narration, latestRunKeyRef.current)) addMessage({
             id: crypto.randomUUID(),
             role: 'assistant',
             content: target.response.assistant_text,
+            ...(serverTurnId ? { serverTurnId } : {}),
             ...(offersHeldApproval ? { heldTurnId: turnClientId } : {}),
             ...(narration ? { narration } : {}),
             ...(guidance ? { guidance } : {}),

@@ -25,6 +25,8 @@ export interface ConversationMessage {
   timestamp: Date
   /** Echoed from request for deduplication. Live replies leave it unset; thread-hydrated replies carry it (FeedbackRow). */
   clientTurnId?: string
+  /** Recorded server answer association; only a fresh server read authorises restored next steps. */
+  serverTurnId?: string
   /** Exact X-Request-Id and owning scenario, retained only while server receipt/reply needs readback. */
   deliveryRequestId?: string
   deliveryScenarioId?: string
