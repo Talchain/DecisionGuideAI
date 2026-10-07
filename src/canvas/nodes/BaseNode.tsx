@@ -1543,7 +1543,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
     const actionsAtRung = normal ? !isCausalLens && !isEvidenceLens : showQuickActions
     // Each full card reserves the existing bottom band for information marks.
     // The action rail retains its own footprint and position.
-    const bandReservedAtRung = actionsAtRung && normal
+    const bandReservedAtRung = actionsAtRung && normal && !isAnchorCard
     if (bandReservedAtRung) {
       const band = padAdj === 0
         ? NODE_QUICK_ACTION_BAND_CSS

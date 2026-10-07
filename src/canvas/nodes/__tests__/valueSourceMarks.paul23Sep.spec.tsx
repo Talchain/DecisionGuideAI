@@ -166,12 +166,13 @@ const renderNode = (Comp: unknown, id: string) => {
   )
 }
 
-/** The mark on the factor's value line, by identity: kind from `data-value-source`, or `est.` from the served marker. */
+/** The factor's value-source mark in the card's single bottom band. */
 function factorValueMark(container: HTMLElement): string | null {
   const line = container.querySelector('[data-testid="factor-recorded-value"]')
   if (!line) return 'NO-VALUE-LINE'
-  if (line.querySelector('[data-testid="estimate-marker"]')) return 'olumi'
-  const m = line.querySelector('[data-value-source]')
+  const band = container.querySelector('[data-card-bottom-band="true"]')
+  if (band?.querySelector('[data-testid="estimate-marker"]')) return 'olumi'
+  const m = band?.querySelector('[data-value-source]')
   return m ? m.getAttribute('data-value-source') : null
 }
 
@@ -212,7 +213,7 @@ describe('Paul 23 Sep point 1 — every factor value names its source on the fac
   it('the mark is a visible token with an accessible name, not colour alone', () => {
     setState()
     const { container } = renderNode(FactorNode, 'fac-confirmed')
-    const m = container.querySelector('[data-testid="factor-recorded-value"] [data-value-source="you"]')!
+    const m = container.querySelector('[data-card-bottom-band="true"] [data-value-source="you"]')!
     // Contract v3.1 `prov('user')` (DESIGN-GAP-v31 #21): a person's value is the
     // PERSON GLYPH (was the word "you") — still a shape, never colour alone.
     expect(m.querySelector('[aria-hidden="true"][data-source-glyph="person"]')).not.toBeNull()
@@ -237,7 +238,7 @@ describe('Paul 23 Sep point 1 — every factor value names its source on the fac
     expect(range).toBeTruthy()
     expect(range!.querySelector('[data-testid="estimate-marker"]')).toBeNull()
     expect(range!.textContent ?? '').not.toMatch(/filled in for you|est\./)
-    const m = range!.querySelector('[data-testid="factor-range-source-fac-range"]')
+    const m = face.querySelector('[data-card-bottom-band="true"] [data-testid="factor-range-source-fac-range"]')
     expect(m?.getAttribute('data-value-source')).toBe('unknown')
     expect(m?.querySelector('.sr-only')?.textContent).toBe('Source not recorded')
   })
@@ -249,7 +250,7 @@ describe('Paul 23 Sep point 1 — every factor value names its source on the fac
     const line = face.querySelector('[data-testid="factor-prior-range-fac-range-bare"]')
     expect(line).not.toBeNull()
     expect(line!.textContent ?? '').toContain('Range: 0.25 to 0.75')
-    expect(line!.querySelector('[data-testid="factor-range-source-fac-range-bare"]')).not.toBeNull()
+    expect(face.querySelector('[data-card-bottom-band="true"] [data-testid="factor-range-source-fac-range-bare"]')).not.toBeNull()
   })
 })
 
