@@ -324,9 +324,11 @@ export const FactorNode = memo((props: NodeProps) => {
    * the inspector and Model tab still state the figure.
    */
   const bareModelValue = readoutIsBareModelScale(valueDisplay, valueDisplayData)
-  const tierWords = bareModelValue ? qualitativeTierLabel(Number(valueDisplay))
-    : recordedValueReadout?.match(/^(Very low|Low|Medium|High|Very high)(?: \([^)]*\))?$/)?.[0] ?? null
-  const tierLevel = tierWords ? ['Very low', 'Low', 'Medium', 'High', 'Very high'].indexOf(tierWords.replace(/ \([^)]*\)$/, '')) + 1 : 0
+  // Only the bare 0–1 figure becomes the tier meter. A value that already reads in words ("Very high") keeps its value
+  // line, because that line IS the on-graph editor (#2633 r2: matching worded values here hid the editor on every
+  // tier-worded factor).
+  const tierWords = bareModelValue ? qualitativeTierLabel(Number(valueDisplay)) : null
+  const tierLevel = tierWords ? ['Very low', 'Low', 'Medium', 'High', 'Very high'].indexOf(tierWords) + 1 : 0
 
   // ⭐ WHOSE NUMBER THIS IS, ON THE FACE — Paul 23 Sep contract feedback point 1:
   // "Mark Olumi estimates explicitly … User-set/evidence-backed values get their
