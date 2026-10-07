@@ -104,19 +104,42 @@ describe('Rule R read-time display mirror', () => {
     }
   })
 
-  it('scaling: 500 -> 2000 nodes, min-of-5 ratio < 8', () => {
-    const small = chain(500)
-    const large = chain(2000)
+  it('scaling: 1000 -> 4000 nodes grows no faster than a plain Map/Set walk (normalised ratio < 2)', () => {
+    const small = chain(1000)
+    const large = chain(4000)
+    type Graph = ReturnType<typeof chain>
     // The walk itself (uncached), so the row measures its growth, not the memo's retention of 30 results.
-    const minimum = (graph: ReturnType<typeof chain>) => Math.min(...Array.from({ length: 5 }, () => {
+    const walk = (graph: Graph) => computeRouteOnceHeld(graph.nodes, graph.edges)
+    // A known-linear walk over the same kind of structures: a Set of node ids, a Map of counts, one pass over the edges.
+    const reference = (graph: Graph) => {
+      const ids = new Set<string>()
+      for (const node of graph.nodes) ids.add(node.id)
+      const incoming = new Map<string, number>()
+      for (const edge of graph.edges) if (ids.has(edge.source) && ids.has(edge.target)) incoming.set(edge.target, (incoming.get(edge.target) ?? 0) + 1)
+      return incoming.size
+    }
+    const time = (f: (graph: Graph) => unknown, graph: Graph) => {
       const start = performance.now()
-      for (let i = 0; i < 10; i++) computeRouteOnceHeld(graph.nodes, graph.edges)
+      for (let i = 0; i < 10; i++) f(graph)
       return performance.now() - start
-    }))
-    for (let i = 0; i < 5; i++) { computeRouteOnceHeld(small.nodes, small.edges); computeRouteOnceHeld(large.nodes, large.edges) }
-    const smallMs = minimum(small)
-    const largeMs = minimum(large)
-    expect(largeMs / smallMs, `min-of-5: ${smallMs.toFixed(2)}ms -> ${largeMs.toFixed(2)}ms`).toBeLessThan(8)
+    }
+    for (let i = 0; i < 3; i++) for (const f of [walk, reference]) { time(f, small); time(f, large) }
+    // ⛔ Not a raw wall-clock ratio. Measured 7 Oct: the old raw 500 → 2000 ratio ran 7.3–10.1 on a loaded Mac against its bar
+    // of 8 (8.47 in CI). The walk is linear, but a larger Map/Set walk costs more per entry (cache, GC). Dividing by a plain
+    // walk over the same structures cancels that, and cancels a runner slowing mid-test (the rounds are interleaved).
+    // Sizes are 1000 → 4000 because at 500 → 2000 the real walk crosses a cache step the plain walk does not (normalised
+    // 1.35–2.10). Measured at 1000 → 4000: this walk 0.88–1.19 (6 runs); with one O(n) membership scan per edge (a
+    // quadratic regression) 2.58–2.73. The bar sits between them.
+    const min = { walkSmall: Infinity, walkLarge: Infinity, refSmall: Infinity, refLarge: Infinity }
+    for (let round = 0; round < 7; round++) {
+      min.walkSmall = Math.min(min.walkSmall, time(walk, small))
+      min.walkLarge = Math.min(min.walkLarge, time(walk, large))
+      min.refSmall = Math.min(min.refSmall, time(reference, small))
+      min.refLarge = Math.min(min.refLarge, time(reference, large))
+    }
+    const walkRatio = min.walkLarge / min.walkSmall
+    const referenceRatio = min.refLarge / min.refSmall
+    expect(walkRatio / referenceRatio, `walk ${walkRatio.toFixed(2)}× vs plain walk ${referenceRatio.toFixed(2)}× (interleaved min-of-7)`).toBeLessThan(2)
   })
 
   it('hook: changing an earlier link flips the boolean with the held edge object unchanged', () => {
