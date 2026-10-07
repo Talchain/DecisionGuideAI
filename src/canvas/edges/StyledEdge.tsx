@@ -104,7 +104,7 @@ import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 import { useCanvasNodeHoverStore } from '../stores/canvasNodeHoverStore'
-import { openEdgeStrengthEditor } from '../utils/openEdgeStrengthEditor'
+import { openEdgeStrengthEditor, OPEN_FULL_INSPECTOR_EVENT } from '../utils/openEdgeStrengthEditor'
 import { GOAL_CHANCE_DRIVER_TAG, GOAL_CHANCE_DRIVER_TAG_Z, goalChanceDriverLinks, goalChanceDriverLinkKey, goalChanceDriverTagAria } from '../utils/goalChanceDriverLinks'
 import {
   resolveArrivalSlotOnBoard,
@@ -2860,7 +2860,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             onPointerDown={event => event.stopPropagation()}
             onClick={event => {
               event.stopPropagation()
-              openEdgeStrengthEditor(edgeIdKey, { centre: false })
+              // The mark sits ON its line, so a click on it is a click on the line: select + the line's inspector, as
+              // `handleEdgeClick` does. Never the strength editor's results-panel stand-down (J1 J5a, #2624).
+              useCanvasStore.getState().selectEdgeWithoutHistory(edgeIdKey)
+              window.dispatchEvent(new Event(OPEN_FULL_INSPECTOR_EVENT))
             }}
           >
             <strengthSourceMark.Icon size={10} className={CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES[10]} aria-hidden="true" />

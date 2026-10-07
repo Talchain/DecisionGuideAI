@@ -23,6 +23,8 @@ import { render, fireEvent, act } from '@testing-library/react'
 import { Position } from '@xyflow/react'
 import fixture from '../../../../e2e/geometry/fixtures/mrr-17d1cd3a.fixture.json'
 import { StyledEdge } from '../StyledEdge'
+import { useCanvasStore } from '../../store'
+import { OPEN_FULL_INSPECTOR_EVENT } from '../../utils/openEdgeStrengthEditor'
 import { STRENGTH_NOT_SET_DASH } from '../edgePresentation'
 import { mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
 import { EDGE_STRENGTH_PLACEHOLDER_SENTENCE } from '../connectorCopy'
@@ -166,6 +168,24 @@ describe('a set causal link carries its strength source icon', () => {
     const mark = container.querySelector('[data-edge-source-icon][data-edge-id="e1"]')
     expect(mark).toHaveAttribute('aria-label', 'From brief')
     expect(mark!.querySelector('.lucide-file-text')).not.toBeNull()
+  })
+  // J1 J5a (#2624, CI 37676485884 + 37678752189): the mark sits ON its line, so a click on it is a click on the line. It
+  // opens the line's inspector the way a line click does (select + inspector) and never takes the strength editor's
+  // stand-down of the results panel, which hid the freshness notice. Contrast: the panel is up before the click.
+  it('a click on the source mark opens its line\'s inspector like a line click, and the results panel stays up', () => {
+    useCanvasStore.setState({ edges: [{ id: 'e1', source: 's', target: 't' }], nodes: [], showResultsPanel: true } as never)
+    const opened = vi.fn()
+    window.addEventListener(OPEN_FULL_INSPECTOR_EVENT, opened)
+    try {
+      const { container } = render(<StyledEdge {...(props as any)} data={{ ...ESTIMATE(), weightSource: 'user' }} />)
+      expect(useCanvasStore.getState().showResultsPanel).toBe(true)
+      fireEvent.click(container.querySelector('[data-edge-source-icon][data-edge-id="e1"]')!)
+      expect(opened).toHaveBeenCalledTimes(1)
+      expect([...useCanvasStore.getState().selection.edgeIds]).toEqual(['e1'])
+      expect(useCanvasStore.getState().showResultsPanel).toBe(true)
+    } finally {
+      window.removeEventListener(OPEN_FULL_INSPECTOR_EVENT, opened)
+    }
   })
   it('an accepted Olumi strength reads as accepted', () => {
     const { d, w } = sized()
