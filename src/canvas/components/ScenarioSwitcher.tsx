@@ -90,6 +90,10 @@ interface ScenarioSwitcherProps {
    * are actually for, where localStorage IS the store of record — are unchanged.
    */
   isPersisted?: boolean
+  /** Latest server save supplied by CanvasMVP, independently of local saves. */
+  serverLastSavedAt?: number | null
+  /** The server save state the TopBar's right-hand indicator shows for a persisted model. */
+  serverSaveStatus?: 'saved' | 'saving' | 'error'
 }
 
 export function ScenarioSwitcher({
@@ -97,6 +101,8 @@ export function ScenarioSwitcher({
   displayName,
   onRename,
   isPersisted = false,
+  serverLastSavedAt = null,
+  serverSaveStatus,
 }: ScenarioSwitcherProps = {}) {
   const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
   const isDirty = useCanvasStore(s => s.isDirty)
@@ -426,10 +432,21 @@ export function ScenarioSwitcher({
           )}
 
           {/* P0-2: Replace dot with reactive save status */}
-          <SaveStatusPill
-            isSaving={isSaving}
-            lastSavedAt={lastSavedAt}
-          />
+          {/* ⭐ ONE SAVE INDICATOR (Paul 7 Oct). A persisted model's live states (saving / failed / unsaved) are the
+              TopBar's right-hand indicator; this pill then shows only the last save, newest of local and server,
+              and hides while a live state shows there. A local-only model has no such indicator, so the pill
+              carries all three states itself. */}
+          {isPersisted ? (
+            isDirty || serverSaveStatus === 'saving' || serverSaveStatus === 'error' ? null : (
+              <SaveStatusPill
+                isSaving={false}
+                isDirty={false}
+                lastSavedAt={lastSavedAt === null ? serverLastSavedAt : serverLastSavedAt === null ? lastSavedAt : Math.max(lastSavedAt, serverLastSavedAt)}
+              />
+            )
+          ) : (
+            <SaveStatusPill isSaving={isSaving} isDirty={isDirty} lastSavedAt={lastSavedAt} />
+          )}
 
           <button
             onClick={() => setIsOpen(!isOpen)}

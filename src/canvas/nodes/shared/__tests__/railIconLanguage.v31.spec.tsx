@@ -382,14 +382,14 @@ describe('ICON-08 / T14(a) — science/bias glyphs are neutral, and label on foc
 // ─────────────────────────────────────────────────────────────────────────────
 describe('PILL-14 — SaveStatusPill is a DS v5 §8.5 outlined pill', () => {
   it('Saving…: text-body on the panel with a border; no legacy greys, no fill', () => {
-    render(<SaveStatusPill isSaving lastSavedAt={null} />)
+    render(<SaveStatusPill isDirty={false} isSaving lastSavedAt={null} />)
     const p = screen.getByTestId('save-status-saving')
     for (const t of ['text-text-body', 'bg-panel', 'border', 'border-panel-border']) expect(has(p, t), t).toBe(true)
     for (const t of tokens(p)) expect(t).not.toMatch(/gray/)
   })
 
   it('Saved: text-body text; the success hue only on the border and the glyph', () => {
-    render(<SaveStatusPill isSaving={false} lastSavedAt={Date.now()} />)
+    render(<SaveStatusPill isDirty={false} isSaving={false} lastSavedAt={Date.now()} />)
     const p = screen.getByTestId('save-status-saved')
     expect(has(p, 'text-text-body')).toBe(true)
     expect(has(p, 'text-success-700')).toBe(false)

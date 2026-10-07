@@ -93,14 +93,14 @@ const props = {
 
 const strokeWidthOf = (c: HTMLElement) =>
   Number.parseFloat((c.querySelector('[data-testid="base-edge"]') as unknown as HTMLElement).style.strokeWidth)
-const headOf = (c: HTMLElement) => Number(c.querySelector('marker')?.getAttribute('markerWidth'))
+const headOf = (c: HTMLElement) => c.querySelector('marker')
 
 describe('POM-8 — the line: a placeholder draws at the not-set width', () => {
   it('Pro plan price → MRR (0.5 placeholder) draws at the NOT-SET width, not Strong', () => {
     const { container } = render(<StyledEdge {...(props as any)} data={PLACEHOLDER()} />)
     expect(strokeWidthOf(container)).toBe(UNSET_EDGE_STROKE_WIDTH)
-    // …and carries the smallest head (the 6px floor, Paul 1 Oct #2409), not a 4px line's.
-    expect(headOf(container)).toBe(6)
+    // Paul, 7 Oct: the same placeholder link has no arrowhead; its not-set width remains.
+    expect(headOf(container)).toBeNull()
   })
 
   it('CONTRAST: the −0.4 estimate on the same board keeps the Strong width', () => {
