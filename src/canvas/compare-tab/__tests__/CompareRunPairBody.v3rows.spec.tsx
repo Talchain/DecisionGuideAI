@@ -113,6 +113,16 @@ describe('the row parts are read from the producer\'s row by identity', () => {
     expect(inputRowText(row)).toBe('Pro price, Raise to £60: £59 → £60')
   })
 
+  it('a compound or money unit reads as the canvas card reads it (served witness 7 Oct: "39 £ per paying customer per month")', () => {
+    const at = (before: number, after: number, unit: string) => viewRows([{ ...ROWS.setting, before: { raw: before, unit }, after: { raw: after, unit } }])[0]
+    expect(inputRowValues(at(39, 49, '£ per paying customer per month'))).toMatchObject({ before: '£39 per paying customer / month', after: '£49 per paying customer / month' })
+    expect(inputRowValues(at(49, 59, 'GBP per month'))).toMatchObject({ before: '£49 / month', after: '£59 / month' })
+    expect(inputRowValues(at(1200, 1500, 'GBP'))).toMatchObject({ before: '£1,200', after: '£1,500' })
+    // Controls: a unit neither owner recognises prints exactly as before, and the sentence carries the same reading.
+    expect(inputRowValues(at(12, 14, 'hours/week'))).toMatchObject({ before: '12 hours/week', after: '14 hours/week' })
+    expect(inputRowText(at(39, 49, '£ per paying customer per month'))).toBe('Pro price, Raise to £60: £39 per paying customer / month → £49 per paying customer / month')
+  })
+
   it('a strength change: band words and each side\'s band position (control: an unknown band has no position)', () => {
     const [row] = viewRows([ROWS.strength])
     expect(inputRowName(row)).toBe('Demand → Revenue')
@@ -276,6 +286,8 @@ describe('Compare draws the figures (v3 figure block)', () => {
   it('the legend emphasises one run and dims the other marker, never hides it; pressing again clears', () => {
     render(<CompareRunPairBody responseHash={seed(runChangeDelta())} />)
     const latest = screen.getByTestId(`${S}-legend-latest`)
+    // A key, not a link (v3 artefact): no underline at rest; the underline is the hover affordance only.
+    expect(latest.className.split(/\s+/)).toEqual(expect.arrayContaining(['no-underline', 'hover:underline']))
     fireEvent.click(latest)
     expect(latest).toHaveAttribute('aria-pressed', 'true')
     const fig = screen.getAllByTestId(`${S}-figure`)[0]
