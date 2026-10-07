@@ -133,7 +133,7 @@ export function ComparePairSections({
               // "Set them" with a way to: each named link is one click to its own inspector (`GraphLink` → `openLinkInspector`;
               // a link no longer on the canvas falls back to focusing its source).
               ? withheldSegments.map((s, i) => s.link
-                ? <GraphLink key={i} edgeRef={s.link} label={s.text} opensInspector className="underline" />
+                ? <GraphLink key={i} edgeRef={s.link} label={s.text} opensInspector flow="inline" className="underline" />
                 : <span key={i}>{s.text}</span>)
               : (withheldReason ?? 'Re-run to compare results for the model as it stands.')}
           </p>
