@@ -156,7 +156,9 @@ describe('a set causal link carries its strength source icon', () => {
   // accepted Olumi strength says so. Bound to the exact words and glyph; each has the plain-cee row above as contrast.
   const sized = () => {
     const d = { ...ESTIMATE(), weightSource: 'cee' } as Record<string, unknown>
-    return { d, w: Math.abs(resolveEdgeSignedStrengthDisplay(d).value) }
+    const shown = resolveEdgeSignedStrengthDisplay(d)
+    if (!shown.show) throw new Error('fixture must show a strength')
+    return { d, w: Math.abs(shown.value) }
   }
   it('a strength sized from the user\'s stated figure reads as their brief, never "Olumi estimate"', () => {
     const { d, w } = sized()
