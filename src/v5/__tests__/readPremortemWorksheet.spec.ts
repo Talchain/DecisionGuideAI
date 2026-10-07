@@ -173,6 +173,17 @@ describe('pre-mortem v1 reader', () => {
     if (name === 'risk message') raw.rows[1].risk_request.message += ' This is about 40% likely.'
     assert.deepEqual(readPremortemWorksheet({ _premortem_worksheet: raw }), { status: 'unavailable' })
   })
+  // DL r5 review: the blindspot question is user-visible, so Olumi's own probability words there are refused too.
+  it('refuses an authored probability in the blindspot question', () => {
+    const raw = priceRiseWorksheetFixture()
+    raw.blindspot_question = 'Which option is most likely to fail (60%)?'
+    assert.deepEqual(readPremortemWorksheet({ _premortem_worksheet: raw }), { status: 'unavailable' })
+  })
+  it('keeps a user label in the blindspot question', () => {
+    const raw = priceRiseWorksheetFixture()
+    raw.blindspot_question = 'Could existing customers downgrade from ‘Raise prices 10%’ to the starter tier?'
+    assert.deepEqual(readPremortemWorksheet({ _premortem_worksheet: raw }), { status: 'available', worksheet: raw })
+  })
   // DL r4: a story grounded on a risk node (the served T1b story 1 rests on 'Customers lost to price-rise churn').
   it('reads a row grounded on a risk node', () => {
     const raw = priceRiseWorksheetFixture()

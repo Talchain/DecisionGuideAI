@@ -69,6 +69,10 @@ export const PremortemWorksheetV1Schema = z.object({
       }
     }
   }
+  // DL r5 review: the blindspot question is shown too, so it gets the same masked ban.
+  if (authoredBan.test(w.blindspot_question.replace(labelPattern, ' '))) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'unlicensed wording', path: ['blindspot_question'] });
+  }
   const issue = () => ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'invalid worksheet binding' });
   if (w.binding.scenario_id !== w.scenario_id || w.binding.graph_revision !== w.run.graph_hash_at_run) issue();
   if (new Set(w.rows.map(r => r.row_id)).size !== w.rows.length || new Set(w.coverage.map(c => c.option_id)).size !== w.coverage.length) issue();
