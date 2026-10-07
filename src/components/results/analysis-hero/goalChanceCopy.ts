@@ -79,6 +79,10 @@ export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionI
  * licence a sort is a ranking the Run does not grant. `null` when any label cannot be said.
  * `includeQuotedDrivers` keeps a named driver's line for a quoted option, without repeating its headline percentage.
  */
+/** The spread note as the card says it (CEE decides where it applies; `spreadNoteOptionIds`). */
+export const GOAL_CHANCE_SPREAD_NOTE =
+  'Its typical result falls short of your target: this chance comes from its wider spread, which also means it could fall further short.'
+
 export function goalChanceOptionLines(
   licence: GoalChanceLicence, labelOf: (optionId: string) => string | null, except: readonly string[] = [],
   driverLines: Readonly<Record<string, string>> = {},
@@ -104,7 +108,10 @@ export function goalChanceOptionLines(
     }
     // P3: what this option's chance rests on most follows its own line, when CEE named one that can be worded.
     const driver = driverLines[id]
-    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} ${GOAL_CHANCE_LABEL}.`
+    // Science 393023 (1): CEE's spread note follows the chance it qualifies, before the driver. Worded by identity; the
+    // card never says "see its downside", because a downside is not always beside this line.
+    const spread = licence.spreadNoteOptionIds?.includes(id) === true ? ` ${GOAL_CHANCE_SPREAD_NOTE}` : ''
+    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} ${GOAL_CHANCE_LABEL}.${spread}`
       + (driver === undefined ? '' : ` ${driver}`))
   }
   return lines

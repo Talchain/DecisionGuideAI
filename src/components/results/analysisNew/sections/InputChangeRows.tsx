@@ -149,7 +149,7 @@ function InputChangeRow({ row, frame, rowFocus, rowLight, selected, onSelect }: 
   const Icon = KIND_ICON[row.kind] ?? Settings
   return (
     <li
-      className={`-mx-2 px-2 py-3 rounded-md border-t border-panel-border first:border-t-0 ${light ? 'hover:bg-panel-hover focus-within:bg-panel-hover' : ''} ${selected ? 'ring-1 ring-inset ring-info bg-panel-hover' : ''}`}
+      className={`-mx-2 px-2 py-3 rounded-md border-t border-panel-border first:border-t-0 ${light ? 'hover:bg-panel-hover focus-within:bg-panel-hover' : ''} ${selected ? 'ring-1 ring-inset ring-gray-400' : ''}`}
       data-testid={`${WHATS_CHANGED_TESTID}-input-row`}
       data-kind={row.kind}
       data-change={row.change}
