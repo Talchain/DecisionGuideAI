@@ -28,6 +28,19 @@ const AUTHORIZED_IMPORTERS = new Set([
   join(SRC, 'routes', 'HeroGallery.tsx'),
 ])
 
+// Pure-copy readers (7 Oct, A1 decision matrix): they say the hero's goal-chance WORDS so the Run tells one
+// story (R4), and they mount nothing. Each may import ONLY goalChanceCopy; any other hero import still fails.
+const COPY_MODULE = join(MODULE_DIR, 'goalChanceCopy')
+const COPY_ONLY_IMPORTERS = new Set([
+  join(SRC, 'components', 'results', 'analysisNew', 'sections', 'DecisionMatrix.tsx'),
+])
+
+function heroImportOffenders(content: string, file: string): string[] {
+  return findAnalysisHeroImports(content, file).filter(
+    (spec) => !(COPY_ONLY_IMPORTERS.has(file) && resolveSpec(spec, file) === COPY_MODULE),
+  )
+}
+
 // Capture the specifier of any import / re-export / dynamic import() /
 // require() — including glued zero-whitespace forms (`import{X}from'x'`)
 // and template-literal specifiers (`import(\`./x\`)` with no interpolation).
@@ -82,13 +95,23 @@ describe('Analysis hero inertness', () => {
     for (const file of walk(SRC)) {
       if (file === MODULE_DIR || file.startsWith(MODULE_DIR + sep)) continue
       if (AUTHORIZED_IMPORTERS.has(file)) continue
-      const hits = findAnalysisHeroImports(readFileSync(file, 'utf8'), file)
+      const hits = heroImportOffenders(readFileSync(file, 'utf8'), file)
       if (hits.length) offenders.push(`${file.slice(SRC.length - 3)} -> ${hits.join(', ')}`)
     }
     expect(
       offenders,
       `Only ResultsBody may import the analysis hero; remove these other imports:\n${offenders.join('\n')}`,
     ).toEqual([])
+  })
+
+  const MATRIX = join(SRC, 'components', 'results', 'analysisNew', 'sections', 'DecisionMatrix.tsx')
+  it.each([
+    ['copy-only reader importing goalChanceCopy', MATRIX, "import { about } from '../../analysis-hero/goalChanceCopy'", 0],
+    ['copy-only reader importing the hero container', MATRIX, "import { AnalysisHeroContainer } from '../../analysis-hero'", 1],
+    ['copy-only reader importing a hero component', MATRIX, "import { HeroOptionRow } from '../../analysis-hero/HeroOptionRow'", 1],
+    ['an unlisted file importing goalChanceCopy', join(SRC, 'components', 'results', 'index.ts'), "import { about } from './analysis-hero/goalChanceCopy'", 1],
+  ])('copy-only exemption is exact: %s', (_label, importer, code, expected) => {
+    expect(heroImportOffenders(code, importer).length).toBe(expected)
   })
 
   it('the authorised mount (ResultsBody) actually imports the module', () => {
