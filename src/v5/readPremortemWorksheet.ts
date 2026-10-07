@@ -26,6 +26,8 @@ const bindingSchema = z.object({ scenario_id: id, graph_revision: id, dependenci
 const groundingSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('factor'), ids: z.array(id).min(1), labels: z.array(text).min(1) }).strict(),
   z.object({ kind: z.literal('link'), ids: z.array(id).min(1), labels: z.array(text).min(2) }).strict(),
+  // DL r4 (7 Oct): the method supplies risk items too (CEE SuppliedItem 'risk'); the served T1b story 1 rests on one.
+  z.object({ kind: z.literal('risk'), ids: z.array(id).min(1), labels: z.array(text).min(1) }).strict(),
   z.object({ kind: z.literal('not_in_model'), label: z.literal(PREMORTEM_COPY.outside) }).strict(),
 ]);
 const riskRequestSchema = z.object({

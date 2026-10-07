@@ -173,6 +173,19 @@ describe('pre-mortem v1 reader', () => {
     if (name === 'risk message') raw.rows[1].risk_request.message += ' This is about 40% likely.'
     assert.deepEqual(readPremortemWorksheet({ _premortem_worksheet: raw }), { status: 'unavailable' })
   })
+  // DL r4: a story grounded on a risk node (the served T1b story 1 rests on 'Customers lost to price-rise churn').
+  it('reads a row grounded on a risk node', () => {
+    const raw = priceRiseWorksheetFixture()
+    raw.rows[1].grounding = { kind: 'risk', ids: ['customers_lost_to_price_rise_churn'], labels: ['Customers lost to price-rise churn'] }
+    raw.rows[1].risk_request.grounding_ids = ['customers_lost_to_price_rise_churn']
+    assert.deepEqual(readPremortemWorksheet({ _premortem_worksheet: raw }), { status: 'available', worksheet: raw })
+  })
+  it('refuses a risk grounding with no labels', () => {
+    const raw = priceRiseWorksheetFixture()
+    raw.rows[1].grounding = { kind: 'risk', ids: ['customers_lost_to_price_rise_churn'], labels: [] }
+    raw.rows[1].risk_request.grounding_ids = ['customers_lost_to_price_rise_churn']
+    assert.deepEqual(readPremortemWorksheet({ _premortem_worksheet: raw }), { status: 'unavailable' })
+  })
   it('still refuses tampered coverage', () => {
     const raw = servedWorksheetFixture()
     raw.coverage[0].status = 'stress_tested'
