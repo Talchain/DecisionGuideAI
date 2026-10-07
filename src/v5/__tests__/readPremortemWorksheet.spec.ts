@@ -6,7 +6,7 @@ import { worksheetFixture } from './premortemFixture'
 // Served T1b carrier, turn-004-PM-1791354985240 (7 October 2026).
 const servedWorksheetFixture = () => ({
   "kind": "premortem",
-  "version": 1,
+  "version": 2,
   "scenario_id": "2e7cd627-09f8-4e1d-b81f-b4c79685efbc",
   "turn_id": "353e2d80-c190-4eb9-bcb6-2ebbf14957f1",
   "run": {
@@ -47,6 +47,7 @@ const servedWorksheetFixture = () => ({
         ]
       },
       "provenance": "olumi_hypothesis",
+      "source": "olumi_drafted",
       "risk_request": {
         "chip_id": "agent-next-suggest-risks",
         "message": "Prepare one risk called \"Subscriber growth arrived too slowly\": It is a year later and this decision went badly because ‘Launch starter tier’ attracted too few ‘Starter subscribers’ before the deadline. Subscriber growth arrived too slowly to support the revenue goal. It would lower \"monthly recurring revenue\". Early warning: Starter sign-ups falling behind the planned acquisition pace. Olumi hypothesis — for you to challenge. Show the proposed change for approval.",
@@ -100,6 +101,7 @@ const priceRiseWorksheetFixture = () => {
       ]
     },
     "provenance": "olumi_hypothesis",
+      "source": "olumi_drafted",
     "risk_request": {
       "chip_id": "agent-next-suggest-risks",
       "message": "Prepare one risk called \"Customer losses erased the added revenue\": It is a year later and this decision went badly because ‘Raise prices 10%’ increased ‘Price rise’, but customer losses erased the added revenue. ‘Customers lost to price-rise churn’ had outweighed the gain. It would lower \"monthly recurring revenue\". Early warning: Renewal cancellations citing price. Olumi hypothesis — for you to challenge. Show the proposed change for approval.",
@@ -121,7 +123,7 @@ describe('pre-mortem v1 reader', () => {
   })
   for (const name of ['version', 'stamp', 'malformed', 'binding', 'copy']) it(`refuses ${name} without throwing`, () => {
     const raw = worksheetFixture()
-    if (name === 'version') raw.version = 2
+    if (name === 'version') raw.version = 1
     if (name === 'stamp') Reflect.deleteProperty(raw.run, 'computed_at')
     if (name === 'malformed') Reflect.deleteProperty(raw.rows[0], 'early_warning')
     if (name === 'binding') raw.binding.graph_revision = 'fedcba9876543210'
