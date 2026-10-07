@@ -286,6 +286,8 @@ describe('Compare draws the figures (v3 figure block)', () => {
   it('the legend emphasises one run and dims the other marker, never hides it; pressing again clears', () => {
     render(<CompareRunPairBody responseHash={seed(runChangeDelta())} />)
     const latest = screen.getByTestId(`${S}-legend-latest`)
+    // A key, not a link (v3 artefact): no underline at rest; the underline is the hover affordance only.
+    expect(latest.className.split(/\s+/)).toEqual(expect.arrayContaining(['no-underline', 'hover:underline']))
     fireEvent.click(latest)
     expect(latest).toHaveAttribute('aria-pressed', 'true')
     const fig = screen.getAllByTestId(`${S}-figure`)[0]
