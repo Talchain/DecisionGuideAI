@@ -100,7 +100,7 @@
  *     is identical on both forks, which is the whole point of the fold.
  */
 import { useId, type ReactElement } from 'react'
-import { BookOpenCheck } from 'lucide-react'
+import { DskClaimBadge } from './DskClaimBadge'
 import { typography } from '../../styles/typography'
 import { TargetRefPill } from '../../canvas/conversation/components/TargetRefPill'
 import { ActionChip } from './ActionChip'
@@ -437,20 +437,7 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
         of its own, and never render a partial triple — the adapter admits all
         three members or none.
       */}
-      {claim && (
-        <p
-          data-testid={`${testIdPrefix}-dsk-provenance`}
-          data-dsk-claim-id={claim.claim_id}
-          data-dsk-evidence-strength={claim.evidence_strength}
-          {...(claim.protocol_id ? { 'data-dsk-protocol-id': claim.protocol_id } : {})}
-          className={`${typography.chatMeta} flex items-center gap-x-1.5 text-text-light`}
-        >
-          <BookOpenCheck size={12} className="flex-none text-info" aria-hidden="true" />
-          <span>
-            Grounded in decision science · {claim.evidence_strength} evidence
-          </span>
-        </p>
-      )}
+      {claim && <DskClaimBadge claim={claim} testId={`${testIdPrefix}-dsk-provenance`} />}
 
       {block.target_refs.length > 0 && (
         <div

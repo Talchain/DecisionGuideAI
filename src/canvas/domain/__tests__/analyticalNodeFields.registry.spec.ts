@@ -58,7 +58,7 @@ const EXPECTED_EPHEMERAL_EDGE: string[] = []
 const EXPECTED_STALE_NODE = [
   'observedState', 'interventions', 'is_baseline', 'success_threshold',
   'goal_threshold_raw', 'goal_threshold_cap', 'prior', 'kind', 'goalThreshold',
-  'goal_threshold', 'probability', 'impact',
+  'goal_threshold', 'probability', 'impact', 'event_risk',
 ]
 const EXPECTED_STALE_EDGE = [
   'weight', 'direction', 'strengthStd', 'confidence', 'beliefExists',
