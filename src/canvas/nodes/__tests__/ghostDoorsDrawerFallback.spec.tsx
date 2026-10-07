@@ -105,7 +105,7 @@ describe('frontier doors require the chip carrier and keep refused input availab
       expect(screen.getByTestId('what-else-chooser')).toBeInTheDocument()
     } else {
       expect(c.dispatched).toHaveLength(1)
-      expect(c.dispatched[0]).toMatchObject({ id: doorName === 'option ghost' ? 'ask:widen' : 'ask:missing-factor', source: 'chip', message: expected })
+      expect(c.dispatched[0]).toMatchObject({ id: doorName === 'option ghost' ? 'agent-next-widen' : 'ask:missing-factor', source: 'chip', message: expected })
       expect(screen.queryByTestId('what-else-chooser')).toBeNull()
       act(() => { door.activate() })
     }

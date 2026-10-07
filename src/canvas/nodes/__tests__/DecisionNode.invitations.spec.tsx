@@ -315,7 +315,7 @@ describe('DecisionNode — invitations in Standard view', () => {
       }
       fireEvent.click(btn)
       expect(dispatched).toHaveLength(1)
-      expect(dispatched[0]).toMatchObject({ id: 'ask:widen', source: 'chip' })
+      expect(dispatched[0]).toMatchObject({ id: 'agent-next-widen', source: 'chip' })
       return (dispatched[0] as { message: string }).message
     }
 
@@ -369,7 +369,7 @@ describe('DecisionNode — invitations in Standard view', () => {
       }
       fireEvent.click(btn)
       expect(dispatched).toHaveLength(1)
-      expect(dispatched[0]).toMatchObject({ id: 'ask:widen', source: 'chip' })
+      expect(dispatched[0]).toMatchObject({ id: 'agent-next-widen', source: 'chip' })
       return (dispatched[0] as { message: string }).message
     }
 
