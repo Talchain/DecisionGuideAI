@@ -370,7 +370,7 @@ function linksListed(shown: ReadonlyArray<LinkEnds>, total: number): string {
  * Every unsized deciding link the Run's typed warning carries, in its order: `links` when MC P0 carries the full list,
  * else the first named link (`node_ids[0]` → `node_ids[1]`). Deduplicated; empty when there is none.
  */
-function unsizedLinksOf(inferenceWarnings: unknown): Array<{ from: string; to: string }> {
+export function unsizedLinksOf(inferenceWarnings: unknown): Array<{ from: string; to: string }> {
   return warningLinksOf(warningWithCode(inferenceWarnings, 'GOAL_FIGURES_PLACEHOLDER_PATH'))
 }
 
