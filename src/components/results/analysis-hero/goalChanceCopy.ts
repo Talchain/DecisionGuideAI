@@ -10,6 +10,7 @@
 import type { GoalChanceComparator, GoalChanceDriver, GoalChanceDriverNames, GoalChanceLicence } from '../utils/goalChanceLicence'
 import { formatGoalTarget } from '../utils/formatGoalTarget'
 import { GOAL_CHANCE_LABEL, goalProbabilityWords } from '../utils/goalAnchorCopy'
+import { readGoalChanceByDate, type GoalChanceTarget } from '../utils/goalChanceTarget'
 import type { GoalChanceRangeEntry } from '../utils/goalChanceRange'
 import type { RunDeltaGoalChanceSide } from '@talchain/schemas/boundary'
 
@@ -20,8 +21,22 @@ const COMPARATOR_WORDS: Readonly<Record<GoalChanceComparator, string>> = {
   below: 'below',
 }
 
+/** Date words use UTC so the producer's calendar day cannot shift with the viewer's timezone. */
+function shareByDateWords(target: GoalChanceTarget | undefined): { deliverable: string; date: string } | null {
+  if (target === undefined || !target.unit.startsWith('% of ') || target.unit.slice(5).trim() === ''
+    || readGoalChanceByDate(target.by_date) === undefined) return null
+  return {
+    deliverable: target.unit.slice(5),
+    date: new Date(`${target.by_date}T00:00:00Z`).toLocaleDateString('en-GB', {
+      day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
+    }),
+  }
+}
+
 /** The target as the user stated it, in their unit: "at most 400 cancellations/month". */
 export function goalChanceTargetWords(licence: GoalChanceLicence): string | null {
+  const share = shareByDateWords(licence.target)
+  if (share !== null) return `${share.deliverable} done by ${share.date}`
   const figure = formatGoalTarget(licence.target.value, licence.target.unit, 'level')
   return figure === null ? null : `${COMPARATOR_WORDS[licence.target.comparator]} ${figure}`
 }
@@ -104,19 +119,31 @@ export function goalChanceOptionLines(
     }
     // P3: what this option's chance rests on most follows its own line, when CEE named one that can be worded.
     const driver = driverLines[id]
-    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} ${GOAL_CHANCE_LABEL}.`
+    const share = shareByDateWords(licence.target)
+    const chance = share === null ? GOAL_CHANCE_LABEL : `chance of finishing ${share.deliverable} by ${share.date}, in this model`
+    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} ${chance}.`
       + (driver === undefined ? '' : ` ${driver}`))
   }
   return lines
 }
 
-/** CEE's range and link, with canvas labels; unresolved labels never expose ids. */
+/** CEE's range, with its stated estimate or canvas link labels; unresolved labels never expose ids. */
 export function goalChanceRangeLine(
   range: GoalChanceRangeEntry, option: string | null, labelOf: (id: string) => string | null,
+  target?: GoalChanceTarget,
 ): string | null {
+  if (option === null || option.trim() === '') return null
+  const share = shareByDateWords(target)
+  if (range.kind === 'stated_time') {
+    if (share === null) return null
+    const estimate = range.statedEstimate
+    const bounds = estimate.low === estimate.high ? `${estimate.low}` : `${estimate.low}–${estimate.high}`
+    const stated = range.quantity === 'months_to_finish' ? `${bounds} months` : `${bounds}% a month`
+    return `‘${option}’: between ${about(range.lowPct).replace(/^about /, '')} and ${about(range.highPct).replace(/^about /, '')} chance of finishing ${share.deliverable} by ${share.date}, in this model, from the slow end of your ${stated} to the fast end.`
+  }
   const from = labelOf(range.from)
   const to = labelOf(range.to)
-  if (option === null || option.trim() === '' || from === null || from.trim() === '' || to === null || to.trim() === '') return null
+  if (from === null || from.trim() === '' || to === null || to.trim() === '') return null
   const depends = range.among === 'unsized_links' ? 'Of the links not sized yet, it depends most on' : 'It depends most on'
   const link = range.kind === 'link_strength'
     ? `how strongly ‘${from}’ affects ‘${to}’, which isn’t sized in the model yet.`
@@ -124,7 +151,7 @@ export function goalChanceRangeLine(
   return `‘${option}’: between ${about(range.lowPct)} and ${about(range.highPct).replace(/^about /, '')} chance of meeting your goal, in this model. ${depends} ${link}`
 }
 
-export const GOAL_CHANCE_RANGE_ACTION: Readonly<Record<GoalChanceRangeEntry['kind'], string>> = {
+export const GOAL_CHANCE_RANGE_ACTION: Readonly<Record<Exclude<GoalChanceRangeEntry['kind'], 'stated_time'>, string>> = {
   link_strength: 'Size it to see where it lands',
   link_existence: 'Confirm or remove it to see where it lands',
 }
