@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
 import { Position } from '@xyflow/react'
 import { StyledEdge, EDGE_GLOW } from '../StyledEdge'
+import { GOAL_CHANCE_DRIVER_TAG } from '../../utils/goalChanceDriverLinks'
 import { useCanvasStore } from '../../store'
 import { OPEN_FULL_INSPECTOR_EVENT } from '../../utils/openEdgeStrengthEditor'
 import { focusEdgeById } from '../../utils/focusHelpers'
@@ -98,12 +99,18 @@ beforeEach(() => {
 })
 
 describe('StyledEdge — goal-chance driver tag bound to e_ab', () => {
-  it('complete results mark the exact link with the exact text, aria and existing glow', () => {
+  it('complete results mark the exact link with an icon disc, exact tooltip, aria and existing glow', () => {
     const { container } = render(<StyledEdge {...PROPS} />)
     const button = tag(container)
     expect(button).not.toBeNull()
     expect(button!.getAttribute('type')).toBe('button')
-    expect(button!.textContent).toBe('Chance rests most on this')
+    expect(button!.textContent).toBe('')
+    expect(button!.getAttribute('title')).toBe(GOAL_CHANCE_DRIVER_TAG)
+    expect(button!.querySelector('svg.lucide-crosshair')).not.toBeNull()
+    expect(button!.style.borderRadius).toBe('9999px')
+    expect(button!.style.width).toBe('calc(16px * var(--canvas-label-scale, 1))')
+    expect(button!.style.height).toBe(button!.style.width)
+    expect(button!.style.transform).toBe('translate(-50%, -50%) translate(50px,50px)')
     // Served witness 7 Oct: cut off under a card on a routed link. It paints above resting cards (z 0).
     expect(button!.style.zIndex).toBe('1')
     expect(button!.getAttribute('aria-label')).toBe('In this model, the chance of meeting your goal for ‘Expand’ rests most on this link. Open the link.')

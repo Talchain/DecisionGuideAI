@@ -16,6 +16,7 @@
  * down by the dock; it decides nothing of its own.
  */
 import { useMemo } from 'react'
+import { ArrowLeftRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import type { InputRowFocus, InputRowLight } from '../../components/results/analysisNew/sections/WhatsChanged'
 import { nodeLabelMap, useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
@@ -44,11 +45,27 @@ export const COMPARE_RUN_PAIR_TESTID = 'compare-run-pair'
 const COMPARE_MEASURE = 'px-4 pt-2 pb-4 space-y-4 max-w-[440px] mx-auto'
 
 /** An empty Compare body: a plain left-aligned title and sentence, as Reasoning words its own empty and pre-run states. */
-function CompareNotice({ title, body, ...data }: { title: string; body: string } & Record<`data-${string}`, string | undefined>): JSX.Element {
+/**
+ * The Compare body when there is no pair to draw (v3 artefact): `empty` (nothing compared yet) is the centred empty
+ * state, its glyph the tab's own two-way arrow; `notice` (a Run is on record but its result is not held here) is the
+ * artefact's state notice, a warning rule beside its heading. Same words as before; only the presentation is v3's.
+ */
+function CompareNotice({ title, body, variant = 'empty', ...data }: { title: string; body: string; variant?: 'empty' | 'notice' } & Record<`data-${string}`, string | undefined>): JSX.Element {
+  if (variant === 'notice') {
+    return (
+      <div className={COMPARE_MEASURE} {...data} data-variant="notice">
+        <div className="border-l-2 border-warning pl-3">
+          <p className={`${typography.panelHeader} text-text-header m-0`}>{title}</p>
+          <p className={`${typography.panelBody} text-text-light mt-1 mb-0`}>{body}</p>
+        </div>
+      </div>
+    )
+  }
   return (
-    <div className={COMPARE_MEASURE} {...data}>
+    <div className={`${COMPARE_MEASURE} flex flex-col items-center text-center !pt-16`} {...data} data-variant="empty">
+      <ArrowLeftRight className="w-8 h-8 text-text-light mb-4" aria-hidden="true" />
       <p className={`${typography.panelHeader} text-text-header m-0`}>{title}</p>
-      <p className={`${typography.panelBody} text-text-body mt-1 mb-0`}>{body}</p>
+      <p className={`${typography.panelBody} text-text-light mt-2 mb-0 max-w-[272px]`}>{body}</p>
     </div>
   )
 }
@@ -122,7 +139,7 @@ export function CompareRunPairBody({
     const copy = runOnRecordWithoutResult === 'stale' && staleWords !== null
       ? compareOutOfDateCopy(staleWords) : COMPARE_RUN_ON_RECORD_COPY[runOnRecordWithoutResult]
     return (
-      <CompareNotice title={copy.title} body={copy.body}
+      <CompareNotice variant="notice" title={copy.title} body={copy.body}
         data-testid={`${COMPARE_RUN_PAIR_TESTID}-run-on-record`} data-run-on-record={runOnRecordWithoutResult} />
     )
   }
