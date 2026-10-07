@@ -78,7 +78,7 @@ export function buildAskAiQuestion(req: AskAiRequest) {
       : intent === 'what-would-change' && stage === 'ran-current' ? 'agent-next-what-would-change'
         : intent === 'strengthen' && stage === 'ran-current' ? 'agent-next-strengthen'
           : intent === 'review' && stage === 'ran-current' ? 'agent-next-review-decision' : undefined)
-  if (!pressId && edge && intent === 'question-link') {
+  if (!pressId && edge && (intent === 'question-link' || intent === 'examine-link')) {
     const goalNode = nodes.find(n => n.type === 'goal')
     const data = edge.data as Record<string, unknown> | undefined
     const naturalEffect = data?.naturalEffect as { author?: string } | undefined
@@ -89,6 +89,9 @@ export function buildAskAiQuestion(req: AskAiRequest) {
       pressId = `agent-question-assumption:${edge.source}>${edge.target}`
     }
   }
+  // Ordinary Challenge keeps its own question. Examine falls back to Q3,
+  // retaining the existing link chip and stage/eligibility rules.
+  if (intent === 'examine-link') intent = 'link'
   if (!pressId && edge && intent === 'link' && stage === 'ran-current' && isTestWithoutLinkEnabled()) {
     const eligible = testWithoutLinkEligibility({
       permittedAnalysisMode: resolveEffectiveAdmission(state?.ceeAnalysisReady?.analysis_admission, state?.retainedAnalysisAdmission)?.permitted_analysis_mode

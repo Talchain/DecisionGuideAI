@@ -19,6 +19,10 @@ const goal = (c: QuestionContext) => named(c.goalLabel ?? (c.kind === 'goal' ? c
 const decision = (c: QuestionContext) => named(c.decisionLabel ?? (c.kind === 'decision' ? c.label : undefined), 'this decision')
 const link = (c: QuestionContext) => c.sourceLabel && c.targetLabel
   ? `the link from ‘${c.sourceLabel}’ to ‘${c.targetLabel}’` : 'this link'
+const linkQuestion = (c: QuestionContext) => c.stage === 'ran-current'
+  ? `How much does the comparison depend on ${link(c)}?`
+  : c.sourceLabel && c.targetLabel ? `Why would ‘${c.sourceLabel}’ change ‘${c.targetLabel}’, and how sure are we?`
+    : 'Why would this link change the outcome, and how sure are we?'
 
 export const QUESTIONS = {
   explain: (c: QuestionContext) => ({
@@ -41,10 +45,9 @@ export const QUESTIONS = {
       : `What is the figure for ${element(c)} based on, and what would make a different figure more defensible?`
     return question
   },
-  link: (c: QuestionContext) => c.stage === 'ran-current'
-    ? `How much does the comparison depend on ${link(c)}?`
-    : c.sourceLabel && c.targetLabel ? `Why would ‘${c.sourceLabel}’ change ‘${c.targetLabel}’, and how sure are we?`
-      : 'Why would this link change the outcome, and how sure are we?',
+  link: linkQuestion,
+  // Examine uses Q3 unless its open assumption qualifies for the routed press.
+  'examine-link': linkQuestion,
   'question-link': (c: QuestionContext) => `Is ${link(c)} right, and what other route could reach the goal?`,
   'test-link': (c: QuestionContext) => `What happens to the comparison without ${link(c)}?`,
   goal: (c: QuestionContext) => c.stage === 'ran-current'

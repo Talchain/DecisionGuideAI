@@ -54,12 +54,12 @@ describe('the factor chip reads the analysis', () => {
     expect(chips![0].label).toBe('Confirm this first?')
   })
 
-  it('the top-influence identity keeps a confirm question without injecting rank or figures into the wire', () => {
+  it('⭐ and the message QUOTES the licensed phrase verbatim, rather than re-wording the rank', () => {
     // Trap 12 in prose: a second vocabulary for one fact. The rank sentence has
     // exactly one owner (`influenceRankReadout`), and this asserts containment
     // rather than re-typing a wording that a later copy edit could break.
-    expect(factor()![0].message).toBe('What would it take to confirm ‘Engineering Capacity’?')
-    expect(factor()![0].message).not.toContain(PHRASE)
+    expect(factor()![0].message).toContain(PHRASE)
+    expect(factor()![0].message).toContain('unconfirmed estimate')
   })
 
   /**
@@ -92,7 +92,7 @@ describe('the factor chip reads the analysis', () => {
     const chips = factor({ influencePhrase: undefined })
     expect(chips![0].id).toBe('factor_confirm_top_influence')
     expect(chips![0].message).toBe(
-      'What would it take to confirm ‘Engineering Capacity’?',
+      "Engineering Capacity's value is still an unconfirmed estimate. What would it take to confirm it?",
     )
     expect(chips![0].message).not.toContain('—')
   })

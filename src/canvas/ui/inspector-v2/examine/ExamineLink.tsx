@@ -45,7 +45,7 @@ export function ExamineLink({
   )
   const prepare = useCallback(() => {
     if (!view) return
-    requestAsk({ text: view.prepare.text, label: view.prepare.label, targetId: edgeId, edgeIds: [edgeId], nodeIds: [], intent: 'question-link' })
+    requestAsk({ text: view.prepare.text, label: view.prepare.label, targetId: edgeId, edgeIds: [edgeId], nodeIds: [], intent: 'examine-link' })
   }, [view, edgeId])
 
   const shown = view !== null && canAsk

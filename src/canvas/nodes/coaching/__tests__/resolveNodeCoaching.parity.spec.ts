@@ -88,7 +88,7 @@ describe('resolveNodeCoaching — full historical door parity', () => {
   })
   it('factor confirmation retains the exact resolver context independently of the sent Q19 question', () => {
     const request: NodeCoachingRequest = { kind: 'factor', surface: 'card',
-      state: { needsInput: true, isExternalCategory: false, isInferred: true, leadsInfluence: true },
+      state: { needsInput: false, isExternalCategory: false, isInferred: true, leadsInfluence: true },
       context: { label: 'Capacity', influencePhrase: '42% of influence' } }
     expect(resolveNodeCoaching(request)?.[0]).toEqual({
       id: 'factor_confirm_top_influence', label: 'Confirm this first?', actionType: null,

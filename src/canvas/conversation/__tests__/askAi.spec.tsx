@@ -10,6 +10,12 @@ import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiS
 import { buildV5Payload } from '../../../v5/buildPayload'
 import { OrchestratorTurnPayloadSchema } from '@talchain/schemas/boundary'
 import { revealOlumiSurface } from '../revealOlumi'
+import { isQuestionAssumptionEnabled, isTestWithoutLinkEnabled } from '../../../flags'
+vi.mock('../../../flags', async importOriginal => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  isQuestionAssumptionEnabled: vi.fn(() => false),
+  isTestWithoutLinkEnabled: vi.fn(() => false),
+}))
 vi.mock('../revealOlumi', () => ({ revealOlumiSurface: vi.fn(() => true) }))
 vi.mock('../../state/analysisStateSelector', () => ({
   selectRunAffirmedCurrent: vi.fn(() => false),
@@ -28,6 +34,8 @@ beforeEach(() => {
   vi.clearAllMocks(); clearAskTargetBinding()
   vi.mocked(selectRunAffirmedCurrent).mockReturnValue(false)
   vi.mocked(selectRunWithholdsFigures).mockReturnValue(false)
+  vi.mocked(isQuestionAssumptionEnabled).mockReturnValue(false)
+  vi.mocked(isTestWithoutLinkEnabled).mockReturnValue(false)
   useCanvasStore.setState({ nodes, edges: [edge], hasCompletedFirstRun: false, results: { status: 'idle' }, v5AnalysisFact: null } as never)
   dispatch = vi.fn()
   useGuidanceStore.setState({ _dispatchAction: dispatch, _sendMessage: vi.fn(), _prefillChat: vi.fn(), _isConversationBusy: () => false })
@@ -76,6 +84,29 @@ describe('one immediate Ask builder', () => {
     expect(dispatch.mock.calls[0][0].message).not.toContain('raw-private-id')
     expect(dispatch.mock.calls[0][0].message).toBe('What does this element do in this decision, and what is it assumed to depend on?')
   })
+  it('Examine keeps the Q3 basis question while ordinary Challenge keeps its distinct question', () => {
+    askAi({ intent: 'examine-link', nodeIds: [], edgeIds: ['ab'] })
+    expect(dispatch).toHaveBeenCalledWith({ id: 'ask:link',
+      label: 'Why would ‘Capacity’ change ‘Delivery’, and how sure are we?',
+      message: 'Why would ‘Capacity’ change ‘Delivery’, and how sure are we?', source: 'chip' })
+    expect(takeAskTargetBinding(dispatch.mock.calls[0][0].message)?.edgeIds).toEqual(new Set(['ab']))
+    askAi({ intent: 'question-link', nodeIds: [], edgeIds: ['ab'] })
+    expect(dispatch).toHaveBeenCalledTimes(2)
+    expect(dispatch.mock.calls[1][0]).toEqual({ id: 'ask:question-link',
+      label: 'Is the link from ‘Capacity’ to ‘Delivery’ right, and what other route could reach the goal?',
+      message: 'Is the link from ‘Capacity’ to ‘Delivery’ right, and what other route could reach the goal?', source: 'chip' })
+    expect(takeAskTargetBinding(dispatch.mock.calls[1][0].message)?.edgeIds).toEqual(new Set(['ab']))
+  })
+  it.each(['examine-link', 'question-link'] as const)('%s retains the eligible open-assumption press', intent => {
+    vi.mocked(isQuestionAssumptionEnabled).mockReturnValue(true)
+    useCanvasStore.setState({ edges: [{ ...edge, data: { weight: 0.2, weightSource: 'cee', strengthPlaceholder: 0.2 } }] } as never)
+    askAi({ intent, nodeIds: [], edgeIds: ['ab'] })
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith({ id: 'agent-question-assumption:a>b',
+      label: 'Is the link from ‘Capacity’ to ‘Delivery’ right, and what other route could reach the goal?',
+      message: 'Is the link from ‘Capacity’ to ‘Delivery’ right, and what other route could reach the goal?', source: 'chip' })
+    expect(takeAskTargetBinding(dispatch.mock.calls[0][0].message)?.edgeIds).toEqual(new Set(['ab']))
+  })
   it('an editable template stays in the drawer byte-verbatim and is not sent', () => {
     requestAsk({ text: 'My reason: ', label: 'Disagree', targetId: 'a', editable: true })
     expect(dispatch).not.toHaveBeenCalled()
@@ -105,6 +136,30 @@ describe('one immediate Ask builder', () => {
 import { render, screen, fireEvent } from '@testing-library/react'
 import { NodeCoachingIcon } from '../../nodes/shared/NodeCoachingIcon'
 import { COACHING_ASK_INTENTS } from '../askAiQuestions'
+import { resolveNodeCoaching } from '../../nodes/coaching/resolveNodeCoaching'
+
+it.each(['42% of influence', undefined])('confirmation rail keeps resolver context %s out of the actual send', influencePhrase => {
+  useCanvasStore.setState({ nodes: [{ ...nodes[0], data: { label: 'Engineering Capacity', value: 42 } }], lodRung: 'full' } as never)
+  useGuidanceStore.setState({ guidanceItems: [] })
+  const chips = resolveNodeCoaching({ kind: 'factor', surface: 'card',
+    state: { needsInput: false, isExternalCategory: false, isInferred: true, leadsInfluence: true },
+    context: { label: 'Engineering Capacity', influencePhrase } })
+  expect(chips).not.toBeNull()
+  expect(chips![0].id).toBe('factor_confirm_top_influence')
+  expect(chips![0].message).toBe((influencePhrase ? `${influencePhrase} — and ` : '')
+    + "Engineering Capacity's value is still an unconfirmed estimate. What would it take to confirm it?")
+  render(<NodeCoachingIcon nodeId="a" chips={chips!} />)
+  fireEvent.click(screen.getByTestId('node-coaching-icon-a'))
+  expect(dispatch).toHaveBeenCalledTimes(1)
+  expect(dispatch).toHaveBeenCalledWith({ id: 'ask:confirm',
+    label: 'What would it take to confirm ‘Engineering Capacity’?',
+    message: 'What would it take to confirm ‘Engineering Capacity’?', source: 'chip' })
+  const sent = dispatch.mock.calls[0][0].message
+  expect(sent).not.toContain('42')
+  expect(sent).not.toContain('—')
+  expect(takeAskTargetBinding(sent)?.nodeIds).toEqual(new Set(['a']))
+  expect(revealOlumiSurface).toHaveBeenCalled()
+})
 
 // Actual FB1 rail buttons, including all four factor-door precedences.
 it.each([
