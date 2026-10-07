@@ -106,6 +106,7 @@ import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 import { useCanvasNodeHoverStore } from '../stores/canvasNodeHoverStore'
 import { openEdgeStrengthEditor } from '../utils/openEdgeStrengthEditor'
+import { GOAL_CHANCE_DRIVER_TAG, GOAL_CHANCE_DRIVER_TAG_Z, goalChanceDriverLinks, goalChanceDriverLinkKey, goalChanceDriverTagAria } from '../utils/goalChanceDriverLinks'
 import {
   resolveArrivalSlotOnBoard,
   resolvePolarityGlyphOnPath,
@@ -419,11 +420,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   // ── Consolidated store selectors (2 subscriptions instead of 13) ──
   // Group 1: Core store data (results, review, actions)
-  const { ceeReview, resultsStatus, report, isHighlightedEdge, isAnalysisFragileEdge, isRunChangedEdge, isRunChangeSubduedEdge, isSelectionDimmed, viewMode, isLodBodyHidden, canvasOnlyLink } = useCanvasStore(
+  const { ceeReview, resultsStatus, report, isHighlightedEdge, isAnalysisFragileEdge, isRunChangedEdge, isRunChangeSubduedEdge, isSelectionDimmed, viewMode, isLodBodyHidden, canvasOnlyLink, isGoalChanceDriverEdge } = useCanvasStore(
     useShallow(s => ({
       ceeReview: s.runMeta.ceeReview,
-      resultsStatus: s.results.status,
-      report: s.results.report,
+      resultsStatus: s.results?.status,
+      report: s.results?.report,
       isHighlightedEdge: s.highlightedEdges.has(id),
       // Analysis-graph projection: this edge is a flip risk being viewed in the
       // V7 evidence disclosure. Optional-chained so store doubles without the
@@ -454,6 +455,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       // A primitive boolean; a store double without the field reads as "no
       // pair held", i.e. the receipt alone.
       canvasOnlyLink: isCanvasOnlyLink({ source, target, data }, s.lastAuthoritativeGraph),
+      isGoalChanceDriverEdge: s.results?.status === 'complete' && goalChanceDriverLinks(s.results?.report).has(goalChanceDriverLinkKey(String(source), String(target))),
     })),
   )
   const isResultsMode = resultsStatus === 'complete'
@@ -2338,6 +2340,19 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // Built on the arrowhead's id, which is already escaped for `url(#…)`.
   const focusRingMaskId = `${arrowheadId}-focus-ring-cut`
 
+  // Return the store's stable nodes reference; no label arrays are made in a selector.
+  const goalChanceDriverNodes = useCanvasStore(s => isGoalChanceDriverEdge ? s.nodes : undefined)
+  const goalChanceDriverAria = useMemo(() => {
+    if (!isGoalChanceDriverEdge) return ''
+    const ids = goalChanceDriverLinks(report).get(goalChanceDriverLinkKey(String(source), String(target))) ?? []
+    const labels = ids.flatMap(optionId => {
+      const label = goalChanceDriverNodes?.find(node => node.id === optionId)?.data?.label
+      return typeof label === 'string' && label.trim() ? [label] : []
+    })
+    return goalChanceDriverTagAria(labels)
+  }, [isGoalChanceDriverEdge, report, goalChanceDriverNodes, source, target])
+  const showGoalChanceDriverTag = isGoalChanceDriverEdge && !isStructuralEdge && !isLodBodyHidden
+
   // Causal lens: hide structural edges entirely
   if (isLensHidden) return null
 
@@ -2447,6 +2462,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         data-analysis-fragile={isAnalysisFragileEdge && !isStructuralEdge ? 'true' : undefined}
+        data-goal-chance-driver={isGoalChanceDriverEdge && !isStructuralEdge ? 'true' : undefined}
+        // Its own name: a `[data-edge-id]` query means the polarity glyph (tests + the e2e overlap measure).
+        data-edge-group-id={edgeIdKey}
         data-assistant-focused={isAssistantFocused ? 'true' : undefined}
         data-selection-dimmed={isSelectionDimmed ? 'true' : undefined}
         data-run-change={isRunChangedEdge ? 'changed' : undefined}
@@ -2737,7 +2755,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // selected glow rather than composing two identical shadows.
             // The Changes view: a changed link takes the SAME emphasis glow as a selected one — the canvas's one
             // "look here" recipe, never a new colour on a stroke that already carries direction.
-            if (isRunChangedEdge && !selected && !isHighlightedEdge) shadows.push(EDGE_GLOW.selected)
+            if ((isRunChangedEdge || (isGoalChanceDriverEdge && !isStructuralEdge)) && !selected && !isHighlightedEdge) shadows.push(EDGE_GLOW.selected)
             if (!isSelectionDimmed) {
               if (selected) shadows.push(EDGE_GLOW.selected)
               else if (isHighlightedEdge) shadows.push(isRunChangedEdge ? EDGE_GLOW.lit : EDGE_GLOW.selected)
@@ -2965,9 +2983,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       )}
 
       {/* C1: Edge label - only show when selected, hovered, or has pending suggestions */}
-      {showChip && (
+      {(showChip || showGoalChanceDriverTag) && (
         <EdgeLabelRenderer>
-          <div
+          {showChip && <div
             style={{
               position: 'absolute',
               // A cue-only disc sits ON its connection at the midpoint
@@ -3338,7 +3356,35 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 />
               </div>
             )}
-          </div>
+          </div>}
+          {showGoalChanceDriverTag && (
+            <button
+              type="button"
+              data-testid="goal-chance-driver-tag"
+              data-driver-tag-edge-id={edgeIdKey}
+              aria-label={goalChanceDriverAria}
+              className={`nodrag nopan ${typography.edgeLabel} whitespace-nowrap rounded border border-panel-border bg-panel text-text-body px-[calc(6px*var(--canvas-label-scale,1))] py-[calc(2px*var(--canvas-label-scale,1))] hover:text-info-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-info`}
+              style={{
+                position: 'absolute',
+                // Follow the chip's displaced anchor (or the cue-only disc).
+                // Start below its box, so neither the chip nor disc is covered.
+                transform: `translate(${fragileCueOnly && fragileCuePoint ? fragileCuePoint.x : labelX + labelOffsetX}px,${fragileCueOnly && fragileCuePoint ? fragileCuePoint.y : labelY + labelOffsetY}px) translate(-50%, calc(${showLabel ? labelHalfHeightForRows(paintFragileCue ? 2 : 1) : 0}px + ${(fragileCueOnly ? FRAGILE_CUE_DISC_PX / 2 : 0) + 4}px * var(--canvas-label-scale, 1)))`,
+                pointerEvents: 'all',
+                opacity: isSelectionDimmed ? EDGE_SELECTION_DIM_OPACITY : undefined,
+                // Above a resting card (node wrappers carry inline zIndex 0, and neither `.react-flow__edgelabel-renderer`
+                // nor `.react-flow__nodes` is a stacking context), below a selected one (1000). D1 served witness, 7 Oct:
+                // on a link routed beside a card the tag was cut to "Chance rests mo" under it.
+                zIndex: GOAL_CHANCE_DRIVER_TAG_Z,
+              }}
+              onPointerDown={event => event.stopPropagation()}
+              onClick={event => {
+                event.stopPropagation()
+                openEdgeStrengthEditor(edgeIdKey, { centre: false })
+              }}
+            >
+              {GOAL_CHANCE_DRIVER_TAG}
+            </button>
+          )}
         </EdgeLabelRenderer>
       )}
 

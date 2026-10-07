@@ -40,6 +40,7 @@ import { selectStatedLimits } from '../../components/results/decision-overview/s
 import { buildLimitVerdictView } from '../../components/results/analysisNew/limitVerdictView'
 import { selectGoalProbability, type GoalProbabilityInput } from '../../components/results/utils/selectGoalProbability'
 import { formatGoalProbability } from '../../components/results/utils/displayFloors'
+import { GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
 import { goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { readGoalIdentityWithheld } from '../../components/results/utils/goalIdentityWithheld'
@@ -120,7 +121,7 @@ export interface BriefRun {
 export interface BriefOptionChance {
   readonly optionId: string
   readonly optionLabel: string
-  /** "Reaches your target in about 42% of model runs", or null when no figure may be shown. */
+  /** "About 42% chance of meeting your goal, in this model", or null when no figure may be shown. */
   readonly chanceText: string | null
   /** The caveat the chooser requires beside a shown figure (e.g. measured from Olumi's estimate). */
   readonly caveat: string | null
@@ -186,7 +187,7 @@ export const DECISION_BRIEF_COPY = {
   runUnknown: 'I can’t tell whether a Run is current for this version, so no figures are shown as current.',
   runUnusable: 'The latest Run of this version can’t be relied on, so its figures are not shown.',
   goalTargetNeed: (goal: string) => `I need a target for ‘${goal}’ before I can say how often each option reaches it.`,
-  chanceTail: 'of model runs',
+  chanceTail: 'chance of meeting your goal, in this model',
   noFigure: 'No figure for this option on this Run.',
   noChances: 'No option has a figure for reaching your target on this Run. The reasons are below.',
 } as const
@@ -247,16 +248,6 @@ function figureText(raw: Record<string, unknown>): string | null {
   const unit = typeof obs.unit === 'string' ? obs.unit.trim() : ''
   if (unit === '') return null
   return formatGoalTarget(obs.raw_value, unit)
-}
-
-/**
- * The shared readout (`formatGoalProbability`: "42%", "< 1%", "> 99%") in words. A floored readout is a bound, so it
- * is said as one ("fewer than 1%"), never "about < 1%".
- */
-function shareWords(figure: string): string {
-  const bound = /^([<>])\s*(.+)$/.exec(figure.trim())
-  if (bound) return `${bound[1] === '<' ? 'fewer than' : 'more than'} ${bound[2]}`
-  return `about ${figure}`
 }
 
 /** Which label the source kind reads as in a brief. Olumi's is said in full so it is never mistaken for the user's. */
@@ -435,7 +426,7 @@ export function buildDecisionBrief(read: SavedScenarioRead, decisionRecord: Deci
         chances.push({
           optionId: opt.id,
           optionLabel: opt.label,
-          chanceText: `Reaches your target in ${shareWords(formatGoalProbability(p))} ${DECISION_BRIEF_COPY.chanceTail}`,
+          chanceText: `${GOAL_ANCHOR_COPY.readout(formatGoalProbability(p), !selection.mayUsePossessiveGoalFraming)}, in this model`,
           caveat: goalFitBaseCaveatCopy(selection.goalFitBaseCaveat),
           withheldText: null,
         })

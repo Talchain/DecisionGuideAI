@@ -70,6 +70,7 @@ import { KeyboardLegend, useKeyboardLegend } from './help/KeyboardLegend'
 import { useSettingsStore } from './settingsStore'
 import { CanvasErrorBoundary } from './ErrorBoundary'
 import { ToastProvider, useShowToast } from './ToastContext'
+import { useCanvasNoticeBridge } from './hooks/useCanvasNoticeBridge'
 // DiagnosticsOverlay removed - use ?diag=1 URL param if needed for debugging
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { useConfirmDialogStore } from './stores/confirmDialogStore'
@@ -1318,15 +1319,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // Brief 37 Task 4: Use stable useShowToast to prevent re-renders on toast changes
   const showToast = useShowToast()
 
-  // Listen for toast events from TopBar (outside ToastProvider scope)
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { message, level } = (e as CustomEvent).detail ?? {}
-      if (message) showToast(message, level ?? 'info')
-    }
-    window.addEventListener('topbar:show-toast', handler)
-    return () => window.removeEventListener('topbar:show-toast', handler)
-  }, [showToast])
+  // Listen for toast events from TopBar (outside ToastProvider scope), and show any notice held while no canvas was
+  // mounted (the user had left the model before it was raised).
+  useCanvasNoticeBridge(showToast)
 
   const handleOpenCompare = useCallback(() => {
     // Check if we have runs to compare (need at least 2)

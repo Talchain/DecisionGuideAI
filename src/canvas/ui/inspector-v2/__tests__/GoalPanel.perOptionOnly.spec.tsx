@@ -70,7 +70,7 @@ describe('GoalPanel — no option put forward, per-option goal figures present (
     expect(text).not.toContain(GOAL_CONSTRAINT_COPY.runForProbability)
     expect(text).not.toContain(GOAL_STRINGS.impactUnavailable)
     // It never picks an option: no goal percentage on this panel.
-    expect(text).not.toMatch(/\d+(\.\d+)?% of model runs/)
+    expect(text).not.toMatch(/\d+(\.\d+)?% chance of meeting your goal/)
   })
 
   it('CONTRAST: with no goal figure on any option, the run’s own absence is stated', () => {
@@ -83,6 +83,6 @@ describe('GoalPanel — no option put forward, per-option goal figures present (
   it('CONTROL: a recommended option shows its own figure, not the per-option line', () => {
     const { queryByTestId, container } = renderWith(RECOMMENDED)
     expect(queryByTestId('goal-probability-per-option')).toBeNull()
-    expect(container.textContent ?? '').toContain('Reaches the target in 99% of model runs')
+    expect(container.textContent ?? '').toContain('About 99% chance of meeting your goal')
   })
 })

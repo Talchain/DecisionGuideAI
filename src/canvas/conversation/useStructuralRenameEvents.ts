@@ -39,8 +39,10 @@ import {
   buildStructuralRenameWirePayload,
   resolveStructuralRenameBase,
   STRUCTURAL_RENAME_UNCONFIRMED_TOAST,
+  structuralRenameUnconfirmedHeldNotice,
   type StructuralRenameIntent,
 } from '../mutations/structuralRename'
+import { showCanvasNoticeOrHold } from '../utils/heldCanvasNotices'
 import type { WireSystemEvent } from './types'
 
 /** The dispatcher this hook needs — the real `sendSystemEvent`, or a test double. */
@@ -193,11 +195,11 @@ export function useStructuralRenameEvents(sendSystemEvent: StructuralRenameSende
             // Deliberately the canvas toast bridge, not `addMessage`: this code
             // outlives the React instance that started the send, so the
             // conversation it would write into may already be unmounted.
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('topbar:show-toast', {
-                detail: { message: STRUCTURAL_RENAME_UNCONFIRMED_TOAST, level: 'warning' },
-              }))
-            }
+            // If the user LEFT the model (no canvas mounted to show it), the notice is held for the next canvas.
+            showCanvasNoticeOrHold(
+              { message: STRUCTURAL_RENAME_UNCONFIRMED_TOAST, level: 'warning' },
+              { message: structuralRenameUnconfirmedHeldNotice(intent), level: 'warning' },
+            )
           }
         }
       } finally {

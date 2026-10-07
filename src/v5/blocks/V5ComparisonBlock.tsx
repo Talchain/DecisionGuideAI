@@ -4,6 +4,7 @@
 import { type ReactElement } from 'react'
 import { typography } from '../../styles/typography'
 import type { V5ComparisonBlock as V5ComparisonBlockType } from '../../canvas/conversation/types'
+import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { METRIC_NOUN } from '../../canvas/nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../../canvas/store'
 import { selectWinShareWithheldReason, selectWinSharesWithheld } from '../../canvas/state/winShareGate'
@@ -14,7 +15,7 @@ export interface V5ComparisonBlockProps {
 
 function formatProb(p: number | undefined): string {
   if (p === undefined || !Number.isFinite(p)) return '—'
-  return `${Math.round(p * 100)}%`
+  return COMPARATIVE_COPY.runShare(`${Math.round(p * 100)}%`)
 }
 
 export function V5ComparisonBlock({ block }: V5ComparisonBlockProps): ReactElement {
@@ -53,7 +54,7 @@ export function V5ComparisonBlock({ block }: V5ComparisonBlockProps): ReactEleme
           {block.options.map((opt) => (
             <tr key={opt.option_id} data-testid={`v5-comparison-row-${opt.option_id}`}>
               <td className={`${typography.chatBody} pr-4 py-1`}>{opt.label}</td>
-              {!winSharesWithheld && <td className={`${typography.chatBody} py-1`}>{formatProb(opt.win_probability)}</td>}
+              {!winSharesWithheld && <td className={`${typography.chatMeta} text-text-light py-1`}>{formatProb(opt.win_probability)}</td>}
             </tr>
           ))}
         </tbody>

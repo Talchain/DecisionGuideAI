@@ -59,12 +59,12 @@ describe('buildDecisionBrief — a current Run (served 520aab46)', () => {
     expect(brief.version.shortVersion).toBe('45019418')
   })
 
-  it('gives each option its Run figure as a share of model runs, bound by option id', async () => {
+  it('gives each option its chance of meeting your goal, in this model, bound by option id', async () => {
     const brief = buildDecisionBrief(await readOf(currentRead))
 
     expect(brief.chances.map((c) => c.optionId)).toEqual(['raise_to_59', 'keep_49_price', 'raise_to_54'])
     for (const c of brief.chances) {
-      if (c.chanceText !== null) expect(c.chanceText).toMatch(/^Reaches your target in (about|fewer than|more than) \d+(\.\d+)?% of model runs$/)
+      if (c.chanceText !== null) expect(c.chanceText).toMatch(/^(About|Less than|More than) \d+(\.\d+)?% chance of meeting your goal, in this model$/)
       else expect(c.withheldText).toBeTruthy()
     }
     expect(brief.chances.some((c) => c.chanceText !== null)).toBe(true)
@@ -113,7 +113,7 @@ describe('buildDecisionBrief — a Run that is not current shows no figure as cu
     expect(brief.chances).toEqual([])
     expect(brief.drivers).toEqual([])
     expect(brief.withheld.map((w) => w.text)).toContain(DECISION_BRIEF_COPY.runStaleNeed)
-    expect(decisionBriefToText(brief)).not.toMatch(/% of model runs/)
+    expect(decisionBriefToText(brief)).not.toMatch(/% chance of meeting your goal/)
     // The model itself is still described: options and goal survive a stale Run.
     expect(brief.options.length).toBeGreaterThan(0)
   })
@@ -161,7 +161,7 @@ describe('buildDecisionBrief — a withheld goal figure is a reason, not a numbe
     // and with no option carrying a figure the brief says so ONCE, not a row per option.
     expect(brief.chances).toEqual([])
     expect(brief.chancesNote).toBe(DECISION_BRIEF_COPY.noChances)
-    expect(decisionBriefToText(brief)).not.toMatch(/of model runs/)
+    expect(decisionBriefToText(brief)).not.toMatch(/chance of meeting your goal/)
   })
 
   it('CONTRAST: the same Run with the two withheld options taken out (not in the Run) → the earned figure is shown', async () => {
@@ -173,7 +173,7 @@ describe('buildDecisionBrief — a withheld goal figure is a reason, not a numbe
     body.analysis_goal_certainty = body.analysis_goal_certainty.filter((g: { option_id: string }) => !out.has(g.option_id))
     const brief = buildDecisionBrief(await readOf(body))
     expect(brief.run.status).toBe('current')
-    expect(brief.chances.find((c) => c.optionId === 'keep_current_price')?.chanceText).toMatch(/of model runs$/)
+    expect(brief.chances.find((c) => c.optionId === 'keep_current_price')?.chanceText).toMatch(/chance of meeting your goal, in this model$/)
     for (const id of out) expect(brief.chances.find((c) => c.optionId === id)?.withheldText).toBe(DECISION_BRIEF_COPY.noFigure)
     expect(brief.chancesNote).toBeNull()
   })
@@ -192,7 +192,7 @@ describe('buildDecisionBrief — goal figures withheld for the whole Run (served
     expect(reasons[0].text).toMatch(/^Not shown\./)
     expect(reasons[0].text).not.toMatch(/\d+%/)
     expect(reasons[0].nodeId).toBe(brief.goal?.nodeId)
-    expect(decisionBriefToText(brief)).not.toMatch(/% of model runs/)
+    expect(decisionBriefToText(brief)).not.toMatch(/% chance of meeting your goal/)
   })
 })
 

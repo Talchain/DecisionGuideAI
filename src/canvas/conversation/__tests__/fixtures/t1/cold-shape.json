@@ -1,0 +1,59 @@
+{
+  "cee_build": "bdf5716",
+  "ui": "ed8889ae",
+  "scenario": "847e7fcb-cb08-4465-aa4a-a69e05155293",
+  "graph_hash": "964f3163d2bff788",
+  "run_state": {
+    "kind": "complete_current",
+    "computed_at": "2026-10-06T22:01:21.520Z"
+  },
+  "conversation_turns": [
+    {
+      "keys": [
+        "turn_id",
+        "created_at",
+        "user_message",
+        "assistant_message"
+      ],
+      "suggested_actions": null,
+      "text": ""
+    },
+    {
+      "keys": [
+        "turn_id",
+        "created_at",
+        "user_message",
+        "assistant_message"
+      ],
+      "suggested_actions": null,
+      "text": ""
+    },
+    {
+      "keys": [
+        "turn_id",
+        "created_at",
+        "user_message",
+        "assistant_message",
+        "suggested_actions"
+      ],
+      "suggested_actions": [
+        {
+          "id": "agent-next-pre-mortem",
+          "label": "Run a pre-mortem",
+          "message": "Run a pre-mortem with me: imagine this decision went badly. What most plausibly went wrong?"
+        },
+        {
+          "id": "agent-next-widen",
+          "label": "Suggest options",
+          "message": "Suggest options I haven’t considered."
+        },
+        {
+          "id": "agent-next-strengthen",
+          "label": "Strengthen the model",
+          "message": "What would most strengthen this model?"
+        }
+      ],
+      "text": ""
+    }
+  ]
+}

@@ -246,7 +246,7 @@ describe('staging scenario — rendered surfaces (numeric parity, check A)', () 
     // that resolved one and floored the other would reopen the
     // one-number-two-answers defect between the hero and the cards.
     // ⭐ AMENDED (ROADMAP 2.334): "< 1%" → "<0.03%" at n=4000.
-    expect(within(cards.container).getAllByText(/Reaches the target in <0\.03% of model runs/).length)
+    expect(within(cards.container).getAllByText(/Less than 0\.03% chance of meeting your goal/).length)
       .toBeGreaterThan(0)
   })
 

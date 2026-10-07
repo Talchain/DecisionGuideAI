@@ -32,9 +32,9 @@
  * `useResultsSectionData`, never re-derived at a render site), so every
  * caller here passes it straight through.
  *
- * The two permitted registers ALREADY SHIPPED, as `HERO_COPY.detail.goalFit`
- * and `HERO_COPY.detail.goalFitJointBasis`. Their wording is unchanged and it
- * now lives HERE, with `heroCopy` delegating to `sentence()` — so there is
+ * The two permitted registers ship as `HERO_COPY.detail.goalFit`
+ * and `HERO_COPY.detail.goalFitJointBasis`. Their wording follows ruling 4
+ * and lives HERE, with `heroCopy` delegating to `sentence()` — so there is
  * exactly one copy of each sentence in the repo and every surface reads the
  * same one.
  *
@@ -69,13 +69,13 @@ export const GOAL_ANCHOR_COPY = {
    * Label form — names the quantity, carries no number, no full stop.
    * Used by chart headers, data-bar labels and column captions.
    */
-  // ⭐ AIQ #72 5885033487 / 5885116642 (29 Sep 2026): P(goal) is a SHARE OF MODEL RUNS, always — never "chance of
-  // success / reaching / hitting". The reply in the same view says "model outcomes, not probabilities that the target
-  // will be achieved", and no surface may contradict it. Authorship stays a separate disclosure beside the figure.
+  // Science ruling 4 (#87 6027792767; Paul, 6 Oct 2026; DL #87): probability_of_goal IS the chance of meeting
+  // the goal, in this model. This retires AIQ #72's 29 Sep share-of-model-runs rule for this figure.
+  // The substituted joint quantity still names every target this run scored, never "your goal".
   label: (isSubstitutedJoint: boolean): string =>
     isSubstitutedJoint
-      ? 'Share of model runs meeting every target this run scored'
-      : 'Share of model runs that reach the target',
+      ? 'Chance of meeting every target this run scored, in this model'
+      : 'Chance of meeting your goal, in this model',
 
   /**
    * Compact readout — number first, no full stop. Used inline beside an
@@ -83,10 +83,10 @@ export const GOAL_ANCHOR_COPY = {
    */
   phrase: (formatted: string, isSubstitutedJoint: boolean): string =>
     isSubstitutedJoint
-      ? `meets every target this run scored in ${formatted} of model runs`
-      : `reaches the target in ${formatted} of model runs`,
+      ? `${goalProbabilityWords(formatted)} chance of meeting every target this run scored`
+      : `${goalProbabilityWords(formatted)} chance of meeting your goal`,
 
-  /** Readout form — the phrase as a standalone line: capitalised, no full stop ("Reaches the target in 25% of model runs"). */
+  /** Readout form — the phrase as a standalone line: capitalised, no full stop ("About 25% chance of meeting your goal"). */
   readout: (formatted: string, isSubstitutedJoint: boolean): string => {
     const p = GOAL_ANCHOR_COPY.phrase(formatted, isSubstitutedJoint)
     return p.charAt(0).toUpperCase() + p.slice(1)
@@ -307,12 +307,14 @@ export const COMPARATIVE_COPY = {
     const phrase = COMPARATIVE_COPY.phrase(formatted)
     return `${phrase.charAt(0).toLowerCase()}${phrase.slice(1)}`
   },
+  /** Supporting detail: a share of runs, separate from the chance of meeting the goal. */
+  runShare: (formatted: string): string => `supported by ${formatted} of runs`,
   /**
    * The model-relative leader clause (principle audit, 5 Oct; Science's ruling): a win share is said as "came out best in
    * N of simulated futures" after "In this model, {label}". "Came out best" holds whatever the goal's direction (a churn
    * goal is minimised, so "highest" would read as the most churn).
    */
-  modelLeaderClause: (formatted: string): string => `was supported by ${formatted} of runs`,
+  modelLeaderClause: (formatted: string): string => `was ${COMPARATIVE_COPY.runShare(formatted)}`,
   /** The magnitude-free form of `modelLeaderClause` (no placeholder ever stands in for the share). */
   modelLeaderNoMagnitude: 'was supported by more runs than any other option',
   /** Mid-sentence honest-absence form, parallel to `clause`. */
@@ -674,3 +676,13 @@ export const COMPARISON_SCOPE_COPY = {
   detail: (scope: ComparisonScope): string =>
     `Ranks and comparative percentages describe those ${scope.analysed} only.`,
 } as const
+
+/** Ruling 4: word the existing formatted percentage without changing its precision or bound. */
+export function goalProbabilityWords(formatted: string): string {
+  const figure = formatted.trim()
+  const bound = /^([<>])\s*(.+)$/.exec(figure)
+  if (bound) return `${bound[1] === '<' ? 'less than' : 'more than'} ${bound[2]}`
+  if (figure === '0%') return 'less than 1%'
+  if (figure === '100%') return 'more than 99%'
+  return /^\d+(?:\.\d+)?%$/.test(figure) ? `about ${figure}` : figure
+}

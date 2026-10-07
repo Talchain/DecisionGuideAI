@@ -131,6 +131,8 @@ const SCOPE_FILES = [
   // ⭐ ADDED 6 Oct 2026 (G4/G5 phase 2, P3; design-g4g6 Q5): the goal-chance sentences and the driver sentence under
   // them live here and nothing opened this file. Hits were enumerated before adding (see the PR).
   'src/components/results/analysis-hero/goalChanceCopy.ts',
+  'src/components/results/utils/goalChanceRange.ts',
+  'src/components/results/analysis-hero/GoalChanceRangeLines.tsx',
   'src/components/results/analysisNew/buildAnalysisNewViewModel.ts',
   // The results directory is not swept; include the matrix's new rendered copy explicitly.
   'src/components/results/analysisNew/sections/DecisionMatrix.tsx',
@@ -561,6 +563,8 @@ describe('the canvas never frames a decision as a contest', () => {
 
   it('the sweep can see the scope it claims to sweep', () => {
     const files = scopeFiles()
+    expect(files.some((f) => f.endsWith('src/components/results/utils/goalChanceRange.ts'))).toBe(true)
+    expect(files.some((f) => f.endsWith('src/components/results/analysis-hero/GoalChanceRangeLines.tsx'))).toBe(true)
     // Contrast control on the INSTRUMENT, not the claim: a sweep that walked
     // an empty tree would report zero offences and look identical to a clean
     // one (CLAUDE.md trap 13e).
