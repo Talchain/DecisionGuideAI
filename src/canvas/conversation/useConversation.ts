@@ -62,9 +62,12 @@ import {
   type StructuralDeleteNoticeKey,
 } from '../mutations/structuralDelete'
 import {
+  readRenameReadback,
   readStructuralRenameReceipt,
   revertStructuralRename,
+  settleNotAppliedRename,
   STRUCTURAL_RENAME_NOTICE,
+  type StructuralRenameReadback,
   type StructuralRenameIntent,
   type StructuralRenameNoticeKey,
 } from '../mutations/structuralRename'
@@ -169,6 +172,7 @@ import {
   markGraphServerAcknowledged,
 } from '../store/importRegistrationMarker'
 import { getSessionIdentity } from '../../lib/supabase'
+import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { trackEvent } from '../../lib/posthog'
 import { logger } from '../../lib/logger'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
@@ -3372,6 +3376,46 @@ export function useConversation(): UseConversationReturn {
     [addMessage],
   )
 
+  /** One non-mutating persisted-graph read, bounded across identity, fetch and body parsing. */
+  const readRenameAuthority = useCallback(
+    async (nodeId: string, scenarioId: string | null): Promise<StructuralRenameReadback> => {
+      if (!scenarioId) return { kind: 'unreadable' }
+      const controller = new AbortController()
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const deadline = new Promise<StructuralRenameReadback>(resolve => {
+        timer = setTimeout(() => {
+          controller.abort()
+          resolve({ kind: 'unreadable' })
+        }, 8000)
+      })
+      const read = async (): Promise<StructuralRenameReadback> => {
+        try {
+          const identity = await getSessionIdentity()
+          if (controller.signal.aborted) return { kind: 'unreadable' }
+          const result = await fetchScenarioGraph(scenarioId, {
+            userId: identity.userId,
+            accessToken: identity.accessToken,
+            signal: controller.signal,
+            timeoutMs: 8000,
+            retry503: false,
+          })
+          return result.status === 'graph' && result.scenarioId === scenarioId
+            ? readRenameReadback(nodeId, result.graph)
+            : { kind: 'unreadable' }
+        } catch {
+          return { kind: 'unreadable' }
+        }
+      }
+      try {
+        return await Promise.race([read(), deadline])
+      } finally {
+        clearTimeout(timer)
+        controller.abort()
+      }
+    },
+    [],
+  )
+
   /**
    * schemas 0.50.0 — resolve a `structural_rename` against what the SERVER did.
    *
@@ -3391,21 +3435,22 @@ export function useConversation(): UseConversationReturn {
    * So a UI keyed on `conflict_category` alone reads the concurrent-rename case
    * as SUCCESS and leaves the user's name standing over a model that holds
    * someone else's. The verdict here is therefore taken from the COMMITTED BYTES
-   * — `readStructuralRenameReceipt` reads the node BY ID out of `draft_graph` and
-   * compares its label — because CEE's refusal path passes the PERSISTED graph
-   * through `commitDirectAnswer(..., { contentGraph })`, so that arm carries a
-   * positive, readable refutation rather than a silence.
+   * — `readStructuralRenameReceipt` reads the node BY ID out of `draft_graph`.
+   * CEE's refusal shape carries NO graph (structural-rename.ts:239-257), so that
+   * 200 is settled by one persisted read instead. Neither assistant wording nor
+   * node membership is evidence of the saved label.
    *
    * THE EVIDENCE, AND ITS THREE STATES (never two):
    *   · `proven`   — the committed graph carries this id at this label. Nothing
    *     to do; CEE's own confirmation prose renders through the 200 branch.
    *   · `refuted`  — the committed graph carries this id at a DIFFERENT label.
-   *     REVERT. This is both the concurrent-rename case and every server-side
-   *     refusal that still committed a turn. No notice is added when CEE spoke:
+   *     REVERT. A graphless reply uses the persisted read's exact label.
+   *     No notice is added to a readback refutation; CEE's words stay the reply.
+   *     For inline refutations no notice is added when CEE spoke:
    *     its sentence names the label the model holds, and ours would not.
-   *   · `unproven` — no readable committed graph. KEEP the name and say we could
-   *     not confirm. Reverting on a guess is data loss, which is strictly worse
-   *     than the uncertainty it would be trying to hide.
+   *   · `unproven` — no readable evidence after the optional readback. KEEP the
+   *     name and say we could not confirm. Reverting on a guess is data loss,
+   *     which is strictly worse than the uncertainty it would be trying to hide.
    *
    * ⚠ A 409 IS DECIDED BY THE SHARED PREDICATE, not by an equality: CEE has two
    * 409 sources that both state a no-write guarantee, and `isProvenNoWriteConflict`
@@ -3413,7 +3458,7 @@ export function useConversation(): UseConversationReturn {
    * UNKNOWN and takes the cannot-confirm line, never a promise we cannot keep.
    */
   const resolveStructuralRename = useCallback(
-    (
+    async (
       intent: StructuralRenameIntent,
       capturedScenarioId: string | null,
       outcome:
@@ -3421,7 +3466,8 @@ export function useConversation(): UseConversationReturn {
         | { kind: 'typed_error'; conflictCategory: string | undefined }
         | { kind: 'transport' },
     ) => {
-      const store = useCanvasStore.getState()
+      if ((useCanvasStore.getState().currentScenarioId ?? null) !== capturedScenarioId) return
+      let revertLabel = intent.restore.label
       let notice: StructuralRenameNoticeKey | null = null
       // The fence's own sentence, when the proven no-write was a turn fence.
       let fenceCopy: string | null = null
@@ -3440,11 +3486,32 @@ export function useConversation(): UseConversationReturn {
 
       if (outcome.kind === 'response') {
         const receipt = readStructuralRenameReceipt(intent, outcome.response)
-        if (receipt === 'proven') {
+        if (outcome.response.draft_graph == null) {
+          const settlement = settleNotAppliedRename(
+            intent,
+            await readRenameAuthority(intent.nodeId, capturedScenarioId),
+          )
+          // The canvas may have changed while the read was in flight. No lifecycle,
+          // label or transcript write may cross this dispatch's scenario boundary.
+          if ((useCanvasStore.getState().currentScenarioId ?? null) !== capturedScenarioId) return
+          if (settlement.status === 'committed') {
+            settle('committed')
+            return
+          }
+          if (settlement.status === 'refused') {
+            settle('refused')
+            shouldRevert = true
+            revertLabel = settlement.canvasLabel
+            // CEE's reply is the voice here. The existing unconfirmed sentence
+            // says the name is still on canvas and cannot describe this correction.
+          } else {
+            settle('unconfirmed')
+            notice = 'unconfirmed_server'
+          }
+        } else if (receipt === 'proven') {
           settle('committed')
           return
-        }
-        if (receipt === 'refuted') {
+        } else if (receipt === 'refuted') {
           settle('refused')
           shouldRevert = true
           // WITHHELD WHENEVER CEE ALREADY SPOKE — and on this arm it almost
@@ -3476,8 +3543,11 @@ export function useConversation(): UseConversationReturn {
       }
 
       if (shouldRevert) {
+        const store = useCanvasStore.getState()
         const revertOutcome = revertStructuralRename(
-          intent,
+          revertLabel === intent.restore.label
+            ? intent
+            : { ...intent, restore: { ...intent.restore, label: revertLabel } },
           {
             nodes: store.nodes,
             currentScenarioId: store.currentScenarioId,
@@ -3502,7 +3572,7 @@ export function useConversation(): UseConversationReturn {
         })
       }
     },
-    [addMessage],
+    [addMessage, readRenameAuthority],
   )
 
   /**
@@ -5159,7 +5229,7 @@ export function useConversation(): UseConversationReturn {
           systemEvent?.type === 'structural_rename' &&
           activeV5TurnIdRef.current === turnClientId
         ) {
-          resolveStructuralRename(
+          await resolveStructuralRename(
             structuralRename,
             // Captured at DISPATCH, not read now — a scenario switch mid-turn
             // must stand the revert down rather than write this label into a
@@ -5172,6 +5242,9 @@ export function useConversation(): UseConversationReturn {
                 }
               : { kind: 'response', response: target.response },
           )
+          if (!responseBelongsToDispatchingScenario(
+            useCanvasStore.getState().currentScenarioId, scenarioIdAtDispatch,
+          )) return
         }
 
         // 0.50.0 — the ADD twin, and NOT gated on `target.kind !==
@@ -6433,7 +6506,7 @@ export function useConversation(): UseConversationReturn {
           // unfounded as keeping it) and the user is told it is unconfirmed
           // rather than left to discover it on the next reload.
           if (opts.structuralRename && systemEvent?.type === 'structural_rename') {
-            resolveStructuralRename(opts.structuralRename, scenarioIdAtDispatch, {
+            await resolveStructuralRename(opts.structuralRename, scenarioIdAtDispatch, {
               kind: 'transport',
             })
           }
