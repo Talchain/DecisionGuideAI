@@ -47,6 +47,7 @@ import { offersPendingConsent } from '../messageComposition'
 import { parseAnswerShape, type AnswerShape } from '../answerShape'
 import { readOpenQuestionList } from '../serverOpenQuestions'
 import { readProvisionalView, type ProvisionalView as ProvisionalViewT } from '../provisionalView'
+import { MethodResultV1Schema, type MethodResultV1 } from '../../../v5/readMethodResult'
 
 // ── G1: which CARD ACTION created a user message ─────────────────────────────
 //
@@ -230,6 +231,8 @@ interface StoredMessage {
   openQuestionList?: string[]
   /** `{view, reasoning?, confirm_step?, heading?}` as the wire spells it; re-read on restore. */
   provisionalView?: Record<string, string>
+  /** `_method_result` v:1 as it arrived; re-validated on restore (accel P24 / SCI-10). */
+  methodResult?: unknown
   sessionDivider?: string
   synthetic?: boolean
   /** A restored earlier reply's tag ("Earlier analysis"): kept so the mark survives the next page load (Canvas 5925780066). */
@@ -360,6 +363,7 @@ function toStored(m: SourceKeyedMessage): StoredMessage {
       ...(pv.heading ? { heading: pv.heading } : {}),
     }
   }
+  if (m.methodResult) out.methodResult = m.methodResult
   if (m.sessionDivider) out.sessionDivider = m.sessionDivider
   if (m.synthetic) out.synthetic = true
   if (m.restoredTag) out.restoredTag = m.restoredTag
@@ -399,6 +403,7 @@ function fromStored(s: StoredMessage): SourceKeyedMessage {
     ...restoredAnswerShape(s.answerShape),
     ...restoredOpenQuestionList(s.openQuestionList),
     ...restoredProvisionalView(s.provisionalView),
+    ...restoredMethodResult(s.methodResult),
     ...(s.sessionDivider ? { sessionDivider: s.sessionDivider } : {}),
     ...(s.synthetic ? { synthetic: true } : {}),
     ...(typeof s.restoredTag === 'string' && s.restoredTag ? { restoredTag: s.restoredTag } : {}),
@@ -408,6 +413,13 @@ function fromStored(s: StoredMessage): SourceKeyedMessage {
       : {}),
     ...(readGuidanceSlots(s.guidance) ? { guidance: readGuidanceSlots(s.guidance)! } : {}),
   }
+}
+
+/** A stored method result, re-validated through the live turn's own contract; anything else restores nothing. */
+function restoredMethodResult(raw: unknown): { methodResult?: MethodResultV1 } {
+  if (raw === undefined || raw === null) return {}
+  const parsed = MethodResultV1Schema.safeParse(raw)
+  return parsed.success ? { methodResult: parsed.data } : {}
 }
 
 /** A stored provisional view, re-read through the live turn's own reader. */
