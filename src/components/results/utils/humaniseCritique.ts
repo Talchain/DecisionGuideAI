@@ -502,14 +502,14 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // ══════════════════════════════════════════════════════════════════════════
   GOAL_THRESHOLD_NOT_CONVERTIBLE: () => ({
     title:
-      "Your goal's target was recorded, but Olumi can't yet compare it with where the goal stands today, so the share of model runs that reach it is not shown rather than guessed.",
+      "Your goal's target was recorded, but Olumi can't yet compare it with where the goal stands today, so the chance of meeting your goal, in this model is not shown rather than guessed.",
     description:
-      "Your target was captured. To compare it, Olumi needs where the goal stands today, and usually no current level is recorded for the goal. Until it has one, the share of model runs that reach your target is not shown rather than guessed.",
+      "Your target was captured. To compare it, Olumi needs where the goal stands today, and usually no current level is recorded for the goal. Until it has one, the chance of meeting your goal, in this model is not shown rather than guessed.",
     // No suggestion: there is no action the user can take until ROADMAP 2.281.
   }),
   GOAL_THRESHOLD_FRAME_UNSPECIFIED: () => ({
     title: "Your goal's target could mean a level or a change. Restate the target as a level to reach or a change from your current level.",
-    description: "The target doesn't say whether it's a level to reach or a change from today, so the share of model runs that reach it is not shown rather than guessed. Restate it, then run the analysis again.",
+    description: "The target doesn't say whether it's a level to reach or a change from today, so the chance of meeting your goal, in this model is not shown rather than guessed. Restate it, then run the analysis again.",
     suggestion: 'Restate the target as a level to reach or a change from your current level',
   }),
 
@@ -560,7 +560,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     title:
       'The check on how wrong your assumptions could be before a different option is the most supported in this model didn\'t run. The analysis hit its time limit. Your results stand; re-run to add it.',
     description:
-      'E-value analysis was skipped for time. It does not affect which option is the most supported in this model, the probabilities, or anything else already shown.',
+      'Change margin analysis was skipped for time. It does not affect which option is the most supported in this model, the probabilities, or anything else already shown.',
   }),
 
   // Reasons: e_values_unavailable | request_budget_exhausted |
@@ -571,7 +571,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     title:
       'The confidence bands around the tipping points didn\'t run. The analysis hit its time limit. Your results stand; re-run to add them.',
     description:
-      'Flip-stability bands ride on the E-value sweep, which the request budget could not fund. Nothing else shown is affected.',
+      'Flip-stability bands ride on the Change margin sweep, which the request budget could not fund. Nothing else shown is affected.',
   }),
 
   // Reasons: request_budget_exhausted | factor_flip_budget_exceeded.

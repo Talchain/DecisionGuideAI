@@ -2,7 +2,7 @@
  * AnswerBody — structured render of an answer-shape sidecar (F1, Paul's #1).
  *
  * Renders a concise answer: a headline, up to three bullets, and the long tail
- * behind a "Show more" toggle. Used by MessageBubble ONLY when a well-formed
+ * behind a "More detail" toggle. Used by MessageBubble ONLY when a well-formed
  * answer-shape sidecar is present on the message; otherwise MessageBubble
  * renders message.content as free text exactly as before (see MessageBubble).
  *
@@ -64,7 +64,7 @@ export interface AnswerBodyRenderedText {
   headline: string
   /** The bullets that survive the ≤3 cap and suppression, in producer order. */
   bullets: string[]
-  /** The detail — real, but behind the Show-more toggle (see resolveAnswerBodyText). */
+  /** The detail — real, but behind the More-detail toggle (see resolveAnswerBodyText). */
   detail: string
 }
 
@@ -121,7 +121,7 @@ export const AnswerBody = memo(function AnswerBody({
 
   // Memoise the XSS-safe sanitiser output: `answer` is a stable prop and this
   // component is memo'd, so `expanded` is the only re-render trigger. Without
-  // these memos every Show more/less toggle would re-sanitise the unchanged
+  // these memos every More/Less detail toggle would re-sanitise the unchanged
   // headline, bullets and detail. Pure perf — identical output.
   const headlineHtml = useMemo(() => safeRichText(headline), [headline])
   const bulletHtml = useMemo(() => bullets.map(safeRichText), [bullets])
@@ -151,7 +151,7 @@ export const AnswerBody = memo(function AnswerBody({
       )}
       {detail && (
         <>
-          {/* Expanded, the answer reads straight on from its bullets and "Show less" closes it from the end (Paul's
+          {/* Expanded, the answer reads straight on from its bullets and "Less detail" closes it from the end (Paul's
               test, 27 Sep: an options list split around the toggle). The detail slot is always child 0, so the button
               keeps its place in the tree and a keyboard user keeps focus on it. */}
           {expanded ? (
@@ -168,15 +168,15 @@ export const AnswerBody = memo(function AnswerBody({
             onClick={() => setExpanded((v) => !v)}
             data-testid="answer-show-more"
             aria-expanded={expanded}
-            aria-label={expanded ? 'Show less of this answer' : 'Show more of this answer'}
+            aria-label={expanded ? 'Less detail of this answer' : 'More detail of this answer'}
           >
             {expanded ? (
               <>
-                <ChevronUp size={12} /> Show less
+                <ChevronUp size={12} /> Less detail
               </>
             ) : (
               <>
-                <ChevronDown size={12} /> Show more
+                <ChevronDown size={12} /> More detail
               </>
             )}
           </button>

@@ -1,3 +1,4 @@
+import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 /**
  * GoalPanel — Inspector panel for goal nodes (spec §4)
  * v6.2 three-group layout: Context → Your input → Impact → What drives this
@@ -591,7 +592,7 @@ export const GoalPanel = memo(function GoalPanel({
           the only adaptation is the joining comma, which the
           register's own no-full-stop `phrase()` form is designed
           to accept. Permitted arm byte-identical. */}
-      {/* AIQ #72 5885116642: one register sentence — "Reaches the target in N% of model runs." ("model runs" says "based on the current model"). */}
+      {/* Science ruling 4 (#87 6027792767): the shared register words this option’s chance of meeting the goal. */}
       {GOAL_ANCHOR_COPY.sentence(formatGoalProbability(probGoal), goalFitSubstituted)}
       {/* ISL #207 (AIQ #72 5877139338): never bare when the goal's level today was worked out. */}
       {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
@@ -726,6 +727,7 @@ export const GoalPanel = memo(function GoalPanel({
                 onSendSettled={(settlement, detail) => setTargetSettlement({ settlement, detail })}
                 testId="goal-panel-target"
               />
+              <InlineRerunPrompt visible={false} elementId={nodeId} />
               {targetSettlement !== null ? (
                 <p
                   className={`${typography.panelMeta} text-text-light mt-1`}

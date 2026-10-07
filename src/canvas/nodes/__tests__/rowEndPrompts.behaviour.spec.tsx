@@ -50,11 +50,13 @@ function mountOption(data: Record<string, unknown>) {
 function captureAsks() {
   const prefilled: string[] = []
   const sent: string[] = []
+  const dispatched = vi.fn()
   useGuidanceStore.setState({
+    _dispatchAction: dispatched, _isConversationBusy: () => false,
     _prefillChat: (t: string) => { prefilled.push(t) },
     _sendMessage: (t: string) => { sent.push(t) },
   } as never)
-  return { prefilled, sent }
+  return { prefilled, sent, dispatched }
 }
 
 beforeEach(() => {
@@ -69,7 +71,9 @@ describe('a click PRE-FILLS the question; it never sends and never mutates', () 
     mountTier({ label: RISK.label, prompt: RISK_PROMPT, tier: 'risk' })
     fireEvent.click(screen.getByRole('button', { name: RISK.label }))
     chooseWhatElse('risk') // #2322 E4: the door opens the "What else…?" chooser; its own kind keeps the composed question
-    expect(asks.prefilled).toEqual([RISK_PROMPT])
+    expect(asks.prefilled).toEqual([])
+    expect(asks.dispatched).toHaveBeenCalledTimes(1)
+    expect(asks.dispatched).toHaveBeenCalledWith(expect.objectContaining({ id: 'ask:risks', source: 'chip' }))
     expect(asks.sent, 'the prompt sent a message on the user\'s behalf').toEqual([])
   })
 
@@ -78,7 +82,9 @@ describe('a click PRE-FILLS the question; it never sends and never mutates', () 
     mountTier({ label: RISK.label, prompt: RISK_PROMPT, tier: 'risk' })
     fireEvent.keyDown(screen.getByRole('button', { name: RISK.label }), { key: 'Enter' })
     chooseWhatElse('risk')
-    expect(asks.prefilled).toEqual([RISK_PROMPT])
+    expect(asks.prefilled).toEqual([])
+    expect(asks.dispatched).toHaveBeenCalledTimes(1)
+    expect(asks.dispatched).toHaveBeenCalledWith(expect.objectContaining({ id: 'ask:risks', source: 'chip' }))
     expect(asks.sent).toEqual([])
   })
 

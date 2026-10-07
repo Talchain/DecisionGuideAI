@@ -214,7 +214,7 @@ describe('transcript honesty on 504 — failed sends look failed (LIVE V5 chain)
     )
   })
 
-  it('network failure (fetch throws): user message marked failed, transport-honest copy', async () => {
+  it('network failure (fetch throws): user message marked unconfirmed, transport-honest copy', async () => {
     const fetchStub = vi.fn(async () => {
       throw new TypeError('Failed to fetch')
     })
@@ -226,10 +226,10 @@ describe('transcript honesty on 504 — failed sends look failed (LIVE V5 chain)
     })
 
     const userMsg = result.current.messages.find((m) => m.role === 'user')
-    expect(userMsg?.deliveryState).toBe('failed')
+    expect(userMsg?.deliveryState).toBe('unconfirmed')
     const last = result.current.messages[result.current.messages.length - 1]
     expect(last.role).toBe('assistant')
-    expect(last.content).toMatch(/didn’t reach|didn't reach|didn’t go through|didn't go through/)
+    expect(assertsDeliveryUnknown(last.content)).toBe(true)
     expect(last.content).not.toContain('Something went wrong on our side')
     expect(result.current.lastSendFailure?.kind).toBe('transport')
   })

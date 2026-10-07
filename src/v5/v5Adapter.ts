@@ -47,6 +47,7 @@
  * is the second line of defence, not the first.
  */
 import type { OrchestratorTurnPayload } from '@talchain/schemas/boundary';
+import { noteGuestTurn } from '../lib/guestWork';
 
 import { recordRequestPayload, recordResponsePayload } from '../lib/payload-trace-store';
 import {
@@ -89,6 +90,8 @@ function resolveEndpoint(): string {
 export interface V5CallOptions {
   signal?: AbortSignal;
   headers?: Record<string, string>;
+  /** Called only at the fetch boundary, after request construction succeeds. */
+  onRequestStarted?: () => void;
   /** Injected for tests; defaults to global fetch. */
   fetchImpl?: typeof fetch;
 }
@@ -99,6 +102,14 @@ export async function callV5Turn(
 ): Promise<V5CallResult> {
   const url = resolveEndpoint();
   const fetchFn = opts.fetchImpl ?? fetch;
+
+  // This is pre-dispatch evidence, not an interpretation of a rejected fetch.
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return { kind: 'parse_error', reason: 'offline before dispatch', requestNotStarted: true };
+  }
+
+  // S-G: a guest turn is the work sign-in must carry into the account (`lib/guestWork.ts`). No-op when signed in.
+  noteGuestTurn(payload);
 
   const requestId = crypto.randomUUID();
   const requestedAt = Date.now();
@@ -116,17 +127,22 @@ export async function callV5Turn(
   });
 
   let res: Response;
+  let requestStarted = false;
   try {
-    res = await fetchFn(url, {
+    const body = JSON.stringify(payload);
+    const init: RequestInit = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
         ...(opts.headers ?? {}),
       },
-      body: JSON.stringify(payload),
+      body,
       signal: opts.signal,
-    });
+    };
+    opts.onRequestStarted?.();
+    requestStarted = true;
+    res = await fetchFn(url, init);
   } catch (e) {
     const err = e as Error;
     // Preserve AbortError so callers can distinguish user-initiated cancel
@@ -193,6 +209,7 @@ export async function callV5Turn(
     return {
       kind: 'parse_error',
       reason: `network error: ${err.message}`,
+      ...(!requestStarted ? { requestNotStarted: true as const } : {}),
     };
   }
 

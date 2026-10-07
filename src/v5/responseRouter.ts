@@ -44,26 +44,15 @@ import type { V5CallResult } from './v5Adapter';
  * didn't go through") instead of the false server-fault claim
  * ("Something went wrong on our side").
  */
-/**
- * Reduced 2026-07-20 to the one field anything actually reads. `httpStatus`,
- * `source` and `parseFailureKind` were written here and read NOWHERE — a
- * complete reader sweep across `src` (including co-located `__tests__`) and
- * `tests` found zero consumers, with the `network` read at
- * transportFailure.ts:85 as the positive control proving the sweep could see
- * a reader. The object is never spread, stringified, logged or attached to a
- * message, so there was no whole-object passthrough keeping them alive
- * either; useConversation only forwards it, and transportFailure reads
- * `network` alone. Debug export already reconstructs `parse_failure_kind`
- * independently from the raw CEE envelope
- * (components/debug/utils/exportBundle.ts), so diagnostics lose nothing.
- */
+/** Response absence and positive pre-dispatch proof are separate facts. */
 export interface TypedErrorTransportMeta {
   /**
    * True when the request never produced a response at all (fetch threw:
-   * offline, DNS, CORS preflight). The strongest "didn't reach the server"
-   * signal.
+   * offline, DNS, CORS preflight). This does not prove non-delivery.
    */
   network: boolean;
+  /** Positive client proof that no fetch was started. */
+  requestNotStarted?: true;
 }
 
 export type RenderTarget =
@@ -110,6 +99,7 @@ export function routeV5Response(result: V5CallResult): RenderTarget {
         // The fetch-threw parse_error (v5Adapter catch) is the only one
         // with no http_status — every parseV5Response branch stamps one.
         network: result.http_status === undefined,
+        ...(result.requestNotStarted === true ? { requestNotStarted: true as const } : {}),
       },
     };
   }

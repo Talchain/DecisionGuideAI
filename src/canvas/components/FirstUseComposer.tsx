@@ -14,12 +14,13 @@ import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { AIInputBar, GENERATE_MODEL_SEND, type AIInputBarHandle } from './AIInputBar'
 import { focusFloating, registerFloatingFocus } from '../hooks/useFloatingFocus'
 import { measureDockInset, clampPositionToViewport } from './FloatingOlumiPanel'
-import { ThinkingIndicator } from '../conversation/zones/ThinkingIndicator'
 import { StarterDecisions } from './StarterDecisions'
-import { BriefReadingCard } from './BriefReadingCard'
+import { FirstUseDraftingSheet } from './FirstUseDraftingSheet'
 import { takeQueuedBriefCoachingPrefill } from './briefCoaching'
 import { requestAsk } from '../ui/inspector-v2/askSemantic'
 import { StructuredBriefFields } from './StructuredBriefFields'
+import { useBriefDocumentUpload } from './BriefDocumentUpload'
+import { useIsViewer } from '../../lib/viewerMode'
 import {
   EMPTY_BRIEF_FIELDS,
   composeStructuredBrief,
@@ -28,7 +29,7 @@ import {
   type BriefSlotKey,
 } from './structuredBrief'
 import { Button } from '../../components/ui/Button'
-import { useDraftStore, draftStreamPhaseFor } from '../stores/draftStore'
+import { useDraftStore, draftStreamPhaseFor, draftStreamInFlight } from '../stores/draftStore'
 
 interface FirstUseComposerProps {
   /** Cog popover handler. Receives the cog button element for anchoring. */
@@ -128,17 +129,16 @@ function flushBriefCoachingPrefill(): void {
 
 export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = false }: FirstUseComposerProps) {
   const nodeCount = useCanvasStore((s) => s.nodes.length)
-  const { messages, isThinking, lastSendFailure, draft, setDraft, clearDraft, sendMessage } = useConversationContext()
+  const { messages, isThinking, lastSendFailure, draft, setDraft, clearDraft, sendMessage, cancelTurn } = useConversationContext()
   const realMessageCount = messages.filter((m) => !m.synthetic).length
   // Round-12: during the first-use generating window (user submitted a
-  // brief, no graph yet) the composer freezes, its placeholder swaps to
-  // "Generating your decision model…", and the chromeless hero would
-  // otherwise sit silent. Overlay the existing ThinkingIndicator (six
-  // node shapes pulsing in a horizontal wave — main → light → main, 3s
-  // loop, 0.5s stagger) on top of the composer so the user has visual
-  // evidence Olumi is working on it and doesn't try to type. The
-  // indicator unmounts as soon as the first graph appears (nodeCount > 0
-  // → hero unmounts entirely).
+  // brief, no graph yet) the hero must show Olumi is working, or it sits
+  // silent. Since 7 Oct (Paul: "The layout looks terrible… make it
+  // premium") the composer is hidden for that window and ONE drafting sheet
+  // takes its place (`FirstUseDraftingSheet`): a model that draws itself
+  // from the node shapes, the elapsed-time status line, Stop, and the brief.
+  // It unmounts as soon as the first graph appears (nodeCount > 0 → hero
+  // unmounts entirely).
   const isGenerating = isThinking && nodeCount === 0
   // ⭐ A coaching action picked while the draft was built (`BriefReadingCard`) lands as a PRE-FILL of Olumi's next
   // message once the build ends, never sent. That moment is either when the draft draws (this hero unmounts) or when
@@ -155,6 +155,10 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
   const briefReading = useDraftStore((s) =>
     draftStreamPhaseFor(s, currentScenarioId) === 'drafting' ? s.draftStreamBriefReading : null,
   )
+  // Stop on the drafting sheet: the SAME predicate and handler as the composer's own Stop (`AIInputBar`, ROADMAP
+  // 2.134), which is hidden while the sheet is up.
+  const draftInFlight = useDraftStore((s) => draftStreamInFlight(draftStreamPhaseFor(s, currentScenarioId)))
+  const showStopControl = isThinking && draftInFlight
 
   // Trust item #3 (paired defect): when the send fails while the hero is
   // the active surface, the failure must be visible HERE — not only in the
@@ -207,6 +211,11 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
 
   const prefersReducedMotion = usePrefersReducedMotion()
   const inputBarRef = useRef<AIInputBarHandle | null>(null)
+  const focusInputBar = useCallback(() => inputBarRef.current?.focus(), [])
+  // ROADMAP 3.8: one document read on this device into the box, appended, for the user to check.
+  const briefUpload = useBriefDocumentUpload({ draft, setDraft, onAdded: focusInputBar })
+  // A view-only user gets the viewer notice instead of the box (and its paperclip), so no upload feedback either.
+  const isViewer = useIsViewer()
 
   // Two separate previous-node-count cursors: the reset effect watches
   // N → 0 transitions, the reposition effect watches 0 → N+ transitions.
@@ -666,7 +675,9 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
           />
         </div>
       ) : (
-        <div className="relative w-full max-w-2xl">
+        // ⭐ Hidden, not unmounted, while the draft is built (Paul 7 Oct: the drafting sheet below replaces a greyed-out
+        // input as the thing the user reads). Kept mounted so its draft, ref and focus handling survive a failed send.
+        <div className="relative w-full max-w-2xl" hidden={isGenerating}>
           <AIInputBar
             ref={inputBarRef}
             variant="welcome"
@@ -683,31 +694,16 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
             ariaLabel="Describe your decision or challenge"
             testId="first-use-input-bar"
             onAfterSend={handleAfterSend}
+            inBoxAction={briefUpload.trigger}
           />
-          {isGenerating ? (
-            // Overlay positioned to mirror the welcome variant's known
-            // geometry: pr-24 (96px) matches AIInputBar's icon-stack inset
-            // (cog + send) so the shapes never collide with them; pt-9
-            // (36px = 8 outer pt-2 + 8 textarea py-2 + 18 line-height +
-            // 2 gap) drops the shape row onto line 2 of the textbox,
-            // immediately below the "Generating your decision model…"
-            // placeholder. If the welcome variant's padding or line
-            // height ever changes in AIInputBar, update these classes.
-            <div
-              role="status"
-              aria-live="polite"
-              data-testid="first-use-thinking"
-              className="pointer-events-none absolute inset-0 flex items-start justify-center pt-9 pr-24"
-            >
-              <ThinkingIndicator />
-            </div>
-          ) : null}
         </div>
       )}
       {/* The single box is the default ("just tell us"); "Structure it" swaps in the four labelled fields and the
           text carries over both ways. Hidden while generating: the brief is already committed. */}
       {!isGenerating ? (
-        <div className="w-full max-w-2xl flex justify-end" style={{ marginTop: -16 }}>
+        <div className="w-full max-w-2xl flex justify-between items-start gap-3" style={{ marginTop: -16 }}>
+          {/* The upload's count line, errors and privacy line; its paperclip sits inside the box. */}
+          {briefMode === 'single' && !isViewer ? briefUpload.feedback : <span />}
           <Button
             variant="ghost"
             size="sm"
@@ -718,8 +714,12 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
           </Button>
         </div>
       ) : null}
-      {isGenerating && (sentFields !== null || briefReading !== null) ? (
-        <BriefReadingCard reading={briefReading} userFields={sentFields} />
+      {isGenerating ? (
+        <FirstUseDraftingSheet
+          reading={briefReading}
+          userFields={sentFields}
+          onStop={showStopControl ? cancelTurn : null}
+        />
       ) : null}
       {/* Trust item #3: send-failure notice at the point of failure. Plain
           visible content — deliberately NOT a live region (the

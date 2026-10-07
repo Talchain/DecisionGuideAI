@@ -89,6 +89,15 @@ export function openEdgeStrengthEditor(
 }
 
 /**
+ * THE opener for any surface that names a link by its endpoints: the Analysis
+ * hero's "Size it", this tag's aria, and future chat links.
+ */
+export function openLinkInspector(fromId: string, toId: string, options?: { centre?: boolean }): boolean {
+  const edge = useCanvasStore.getState().edges.find(e => e.source === fromId && e.target === toId)
+  return edge ? openEdgeStrengthEditor(edge.id, options) : false
+}
+
+/**
  * After a gesture drew `source → target`: when that link stood down, select it
  * and raise the inspector on it, so the strength control is in front of the
  * user rather than behind a toast. The camera is left alone (the link is where

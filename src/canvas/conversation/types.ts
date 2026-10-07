@@ -25,6 +25,13 @@ export interface ConversationMessage {
   timestamp: Date
   /** Echoed from request for deduplication. Live replies leave it unset; thread-hydrated replies carry it (FeedbackRow). */
   clientTurnId?: string
+  /** Recorded server echo on a live answer; only the transcript serializer promotes it to a restored association. */
+  pendingServerTurnId?: string
+  /** Deserialised server answer association; only a fresh server read authorises restored next steps. */
+  serverTurnId?: string
+  /** Exact X-Request-Id and owning scenario, retained only while server receipt/reply needs readback. */
+  deliveryRequestId?: string
+  deliveryScenarioId?: string
   /** Historical held association; only a fresh server offer authorises restored actions. */
   heldProposalId?: string
   /** Request correlation for the held card, separate from durable message deduplication. */
@@ -76,6 +83,8 @@ export interface ConversationMessage {
    * persist — late chunks arriving after abort MUST NOT clear it.
    */
   stoppedByUser?: boolean
+  /** Ephemeral §15 held projection; reload reads fresh server authority. */
+  proposalFields?: unknown
   /**
    * ROADMAP 1.42 (Show-reasoning progressive disclosure — verbatim, labelled):
    * CEE's `_reasoning` additive-extension sidecar field, verbatim plain text.

@@ -1,3 +1,4 @@
+import { useSwitchFactorNodes } from '../../../hooks/useSwitchFactorNodes'
 /**
  * FactorObservablePanel — Inspector for observable factors (spec §8)
  * v6.2 three-group layout: Context → Your input → Influences
@@ -85,7 +86,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
    */
   readOnly = false,
 }: InspectorPanelProps) {
-  const nodes = useCanvasStore(s => s.nodes)
+  const nodes = useSwitchFactorNodes()
   const edges = useCanvasStore(s => s.edges)
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
@@ -462,7 +463,6 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
                 label={VALUE_COMMIT_RECEIPT[valueCommitOutcome]}
                 tone="pending"
               />
-              <InlineRerunPrompt visible={isStaleAfterEdit} />
             </div>
           )}
           {valueCommitOutcome === 'not_encodable' && (
@@ -474,6 +474,8 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
               {VALUE_COMMIT_RECEIPT.not_encodable}
             </p>
           )}
+
+          <InlineRerunPrompt elementId={nodeId} visible={isStaleAfterEdit} />
 
           {/* Beat 1 (Canvas lane, 4 Oct 2026): the inline provenance line that sat here said the SAME value's source a
               second time — "Generated from your brief" under the pill's "From your brief". The source pill above is the

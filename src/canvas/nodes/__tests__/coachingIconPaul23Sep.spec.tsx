@@ -43,7 +43,10 @@ vi.mock('../../store', () => {
 })
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({ useNodeDisplayMetadata: vi.fn() }))
 vi.mock('../../hooks/useAnalysisTrust', () => ({ useAnalysisTrust: vi.fn() }))
-vi.mock('../../hooks/useAnalysisResultsAreCurrent', () => ({ useAnalysisResultsAreCurrent: vi.fn() }))
+vi.mock('../../hooks/useAnalysisResultsAreCurrent', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../hooks/useAnalysisResultsAreCurrent')>()),
+  useAnalysisResultsAreCurrent: vi.fn(),
+}))
 vi.mock('../shared/NodePopover', () => ({
   NodePopover: ({ children }: { children: React.ReactNode }) => <div data-testid="node-popover">{children}</div>,
 }))
@@ -172,7 +175,7 @@ beforeEach(() => {
   send.mockReset()
   dispatch.mockReset()
   vi.mocked(revealOlumiSurface).mockClear()
-  useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send, _dispatchAction: dispatch, guidanceItems: [] } as never)
+  useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send, _dispatchAction: dispatch, _isConversationBusy: () => false, guidanceItems: [] } as never)
   useAskOlumiStore.setState({ isOpen: false, draft: '', label: '', context: '' } as never)
   vi.mocked(useNodeDisplayMetadata).mockImplementation(() => BASE_META as never)
   vi.mocked(useAnalysisTrust).mockReturnValue({ semantic: 'none' } as never)
@@ -239,34 +242,26 @@ describe('Paul 23 Sep point 6 — ONE discreet coaching icon on EVERY card at No
   })
 })
 
-describe('Paul 23 Sep point 6 — a click PRE-FILLS a question with the element in context; it never sends silently', () => {
-  it('the generic ask pre-fills the element question and selects the element — nothing is sent', () => {
-    useGuidanceStore.setState({
-      guidanceItems: [{ item_id: 'g1', title: 'Check the price', category: 'structural', target_object: { id: 'fac-price', type: 'node' } }],
-    } as never)
-    setState({ lodRung: 'full' })
-    renderCard('fac-price')
-    fireEvent.click(icon('fac-price')!)
+describe('7 Oct — a batch rail click sends one chip with its element in context', () => {
+  it('the generic ask sends the labelled question and selects its own element', () => {
+    useGuidanceStore.setState({ guidanceItems: [{ item_id: 'g1', title: 'Check the price', category: 'structural', target_object: { id: 'fac-price', type: 'node' } }] } as never)
+    setState({ lodRung: 'full' }); renderCard('fac-price'); fireEvent.click(icon('fac-price')!)
     expect(selectNode).toHaveBeenCalledWith('fac-price')
-    expect(prefill).toHaveBeenCalledWith('Explain the role of "Monthly price" in this decision model.')
-    expect(send).not.toHaveBeenCalled()
-    expect(dispatch).not.toHaveBeenCalled()
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch.mock.calls[0][0]).toMatchObject({ id: 'ask:explain', source: 'chip', message: 'What does ‘Monthly price’ do in this decision, and what is it assumed to depend on?' })
+    expect(prefill).not.toHaveBeenCalled(); expect(send).not.toHaveBeenCalled()
   })
-
-  it('a resolver question pre-fills too (the outcome asks "What would falsify this?") — nothing is sent', () => {
-    setState({ lodRung: 'full' })
-    renderCard('outcome-1')
+  it('the outcome keeps its falsification question and sends once', () => {
+    setState({ lodRung: 'full' }); renderCard('outcome-1')
     const el = icon('outcome-1')!
     expect(el.getAttribute('aria-label')).toBe('What would falsify this?')
     fireEvent.click(el)
-    expect(send).not.toHaveBeenCalled()
-    expect(dispatch).not.toHaveBeenCalled()
-    const landedInComposer = prefill.mock.calls.length > 0
-    const landedInDrawer = useAskOlumiStore.getState().isOpen
-    expect(landedInComposer || landedInDrawer).toBe(true)
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch.mock.calls[0][0]).toMatchObject({ id: 'ask:falsify', source: 'chip', message: 'What evidence or result would show that ‘Revenue’ will not happen? What would have to be true for it to fail?' })
+    expect(send).not.toHaveBeenCalled(); expect(prefill).not.toHaveBeenCalled()
+    expect(useAskOlumiStore.getState().isOpen).toBe(false)
   })
-
-  it('a TYPED question keeps its typed route (ED 02:31Z) but is never SILENT — the Olumi surface is revealed first', () => {
+  it('the current result door uses its intent and reveals Olumi without an action_type', () => {
     setState({ phase: 'post', lodRung: 'full' })
     vi.mocked(useAnalysisTrust).mockReturnValue({ semantic: 'current' } as never)
     vi.mocked(useAnalysisResultsAreCurrent).mockReturnValue(true)
@@ -276,24 +271,17 @@ describe('Paul 23 Sep point 6 — a click PRE-FILLS a question with the element 
     expect(el.getAttribute('data-coaching-typed')).toBe('true')
     fireEvent.click(el)
     expect(revealOlumiSurface).toHaveBeenCalled()
-    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ action_type: 'what_would_flip' }))
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch.mock.calls[0][0]).toMatchObject({ id: 'ask:what-would-change', source: 'chip' })
+    expect(dispatch.mock.calls[0][0]).not.toHaveProperty('action_type')
   })
-
-  it('UI N2 — with no _dispatchAction the typed question degrades to a CHIP send, never to _sendMessage (the user\'s typed words)', () => {
+  it('without a dispatcher refuses rather than downgrading Olumi text to composer or another chip carrier', () => {
     const sendChip = vi.fn()
     useGuidanceStore.setState({ _dispatchAction: null, _sendChip: sendChip } as never)
-    setState({ phase: 'post', lodRung: 'full' })
-    vi.mocked(useAnalysisTrust).mockReturnValue({ semantic: 'current' } as never)
-    vi.mocked(useAnalysisResultsAreCurrent).mockReturnValue(true)
-    renderCard('decision-1')
+    setState({ phase: 'post', lodRung: 'full' }); renderCard('decision-1')
     fireEvent.click(icon('decision-1')!)
-    expect(send).not.toHaveBeenCalled()
-    expect(sendChip).toHaveBeenCalledTimes(1)
-    const [, message, meta] = sendChip.mock.calls[0]
-    expect(typeof message).toBe('string')
-    expect(meta).toEqual(expect.objectContaining({ action_type: 'what_would_flip' }))
-    expect(typeof meta.id).toBe('string')
-    expect(meta.parameters).toEqual({ chip_id: meta.id })
+    expect(send).not.toHaveBeenCalled(); expect(sendChip).not.toHaveBeenCalled()
+    expect(prefill).not.toHaveBeenCalled(); expect(dispatch).not.toHaveBeenCalled()
   })
 })
 

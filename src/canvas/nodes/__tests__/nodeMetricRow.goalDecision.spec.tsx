@@ -339,7 +339,7 @@ describe('GoalNode — the achievement figure gets the shared metric row', () =>
     // the prose readout rather than sitting beside it. The WORDING is unchanged
     // and is bound to the row by identity (its accessible name); the prose line
     // is gone from the visible face.
-    expect(screen.getByTestId(GOAL_ROW).getAttribute('aria-label')).toMatch(/Reaches the target in 73.*% of model runs\./)
-    expect(screen.queryByText(/Reaches the target in 73.*% of model runs/)).toBeNull()
+    expect(screen.getByTestId(GOAL_ROW).getAttribute('aria-label')).toMatch(/About 73.*% chance of meeting your goal\./)
+    expect(screen.queryByText(/About 73.*% chance of meeting your goal/)).toBeNull()
   })
 })

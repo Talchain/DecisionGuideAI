@@ -569,7 +569,7 @@ export type RunMetaState = {
   errorDetails?: ErrorDetail[]
   /** CEE diagnostic trace from envelope._diagnostic_trace. Passthrough — UI must not transform. */
   ceeDiagnosticTrace?: Record<string, unknown> | null
-}
+} & PremortemRunMeta
 
 const initialNodes: Node[] = []
 
@@ -686,7 +686,7 @@ interface CanvasState {
   v5AnalysisFact: V5AnalysisFactState | null
   // CEE V3: analysis_ready payload from last draft
   // Used by useV2Run to build requests with resolved interventions
-  ceeAnalysisReady: CEEAnalysisReady | null
+  ceeAnalysisReady: CEEAnalysisReady | null; servedSwitchFactorIds: ReadonlySet<string>
   /**
    * The run-over-run consequence for the analysis currently displayed, or null.
    *
@@ -2366,7 +2366,7 @@ function readinessClearFields(get: () => CanvasState) {
 const DECISION_CONTEXT_CLEAR = {
   goalThreshold: null,
   goalThresholdRepresentation: null,
-  ceeAnalysisReady: null,
+  ceeAnalysisReady: null, servedSwitchFactorIds: new Set<string>(),
   // ⭐ A DIFFERENT DECISION CANNOT INHERIT THE LAST ONE'S COMPARISON. The read
   // predicate already refuses a delta whose scenario does not match, so this is
   // the second of two independent guards rather than the only one — deliberately,
@@ -3471,7 +3471,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     ...loadUIPreferences(), // Override with persisted preferences
   },
   // CEE V3: analysis_ready payload
-  ceeAnalysisReady: null,
+  ceeAnalysisReady: null, servedSwitchFactorIds: new Set<string>(),
   // No run has completed, so there is no run-over-run consequence to describe.
   runDelta: null,
   runDeltaAbsence: null,
@@ -6642,7 +6642,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // on the canvas (`ReactFlowGraph.tsx:2062` does exactly this on boot)
       // cannot mis-attribute anything, and clearing there would discard live
       // data for no reader's benefit.
-      ...(id !== get().currentScenarioId ? { runMeta: {} } : {}),
+      ...(id !== get().currentScenarioId ? { runMeta: {}, servedSwitchFactorIds: new Set<string>() } : {}),
       previousReport: null, // A1: Clear stale deltas on scenario switch
       // The previous scenario's REPORT goes with its deltas. Without this, a
       // switch to a scenario that has never been analysed — or whose run this
@@ -7178,7 +7178,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Store current node IDs for staleness detection
       const { nodes } = get()
       const nodeIds = nodes.map((n) => n.id)
-      set({ ceeAnalysisReady: analysisReady, ceeAnalysisReadyNodeIds: nodeIds })
+      set({ ceeAnalysisReady: analysisReady, ceeAnalysisReadyNodeIds: nodeIds, servedSwitchFactorIds: analysisReady === null ? get().servedSwitchFactorIds : switchFactorIdsOf(analysisReady) })
       // Sync goal threshold from CEE to store (fixes "?" badge on goals with thresholds).
       // goal_threshold_raw FIRST: the store field's contract is user units (see
       // the goalThreshold field comment). goal_threshold is normalised 0-1 — syncing
@@ -8961,3 +8961,23 @@ export const selectLensOptionId = (state: CanvasState): string | null => state.l
  */
 export type ViewMode = 'standard' | 'expert'
 export const selectViewMode = (state: CanvasState): ViewMode => state.viewMode
+
+/**
+ * Every field invalidated by an analytical edit (`readinessClearFields` + the dirty overlay), shared with the no-write
+ * rollback (`store/analysisCurrencySnapshot.ts`). At the END of the file on purpose: `scripts/ci/ui-decides-baseline.txt`
+ * is keyed by store.ts LINE, and lines added above a baselined site move it.
+ */
+export const ANALYSIS_CURRENCY_KEYS = [
+  ...(Object.keys(READINESS_CLEAR_FIELDS) as Array<keyof typeof READINESS_CLEAR_FIELDS>),
+  'retainedAnalysisAdmission',
+  'retainedDraftCoaching',
+  'retainedDraftCoachingOptionCount',
+  'analysisFreshnessDirty',
+] as const
+
+// A2 additions stay at the end to preserve the line-keyed UI claim baseline.
+import type { PremortemRunMeta } from '../v5/readPremortemWorksheet'
+export type { PremortemRunMeta } from '../v5/readPremortemWorksheet'
+export const selectPremortemWorksheet = (state: CanvasState) => state.runMeta.premortemWorksheet ?? null
+
+import { switchFactorIdsOf } from './domain/switchFactors'

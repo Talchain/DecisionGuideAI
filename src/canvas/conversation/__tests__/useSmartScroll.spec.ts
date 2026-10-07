@@ -28,7 +28,8 @@ describe('useSmartScroll', () => {
       useSmartScroll({ messageCount: 0, isThinking: false }),
     )
     expect(result.current.listRef).toBeDefined()
-    expect(result.current.listEndRef).toBeDefined()
+    // No end sentinel any more: the thread pins itself (`threadScroll.ts`), so the hook hands out no second ref.
+    expect('listEndRef' in result.current).toBe(false)
     expect(typeof result.current.handleScroll).toBe('function')
     expect(typeof result.current.scrollToBottom).toBe('function')
     expect(result.current.showNewMessageIndicator).toBe(false)
@@ -127,12 +128,15 @@ describe('useSmartScroll', () => {
       { initialProps: { messageCount: 1 } },
     )
 
-    // Set up scrolled-up state
+    // Set up scrolled-up state. A real thread's scrollTop is writable and it has scrollTo; jsdom has no scrollTo, so
+    // the fixture carries a spy (the pin writes only the thread — `threadScroll.ts`).
     const container = document.createElement('div')
+    const threadScrollTo = vi.fn()
     Object.defineProperties(container, {
-      scrollTop: { value: 0 },
+      scrollTop: { value: 0, writable: true },
       clientHeight: { value: 400 },
       scrollHeight: { value: 1000 },
+      scrollTo: { value: threadScrollTo },
     })
     // @ts-expect-error -- assigning ref current for test
     result.current.listRef.current = container
@@ -142,7 +146,10 @@ describe('useSmartScroll', () => {
     expect(result.current.showNewMessageIndicator).toBe(true)
 
     // Call scrollToBottom
+    threadScrollTo.mockClear()
     act(() => { result.current.scrollToBottom() })
     expect(result.current.showNewMessageIndicator).toBe(false)
+    // By identity: THIS thread was asked for its end.
+    expect(threadScrollTo).toHaveBeenCalledWith({ top: 1000, behavior: 'smooth' })
   })
 })

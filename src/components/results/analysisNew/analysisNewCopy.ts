@@ -17,7 +17,7 @@ import { formatThresholdFigure } from './thresholdFigure'
 import type { UnsizedPathAsk } from '../strengthen/strengthenTypes'
 
 import { isSuppressedUnit } from '../../../canvas/utils/labelUtils'
-import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
+import { GOAL_ANCHOR_COPY, GOAL_CHANCE_LABEL } from '../utils/goalAnchorCopy'
 
 /**
  * Stands in for a label that cannot be safely interpolated into a generated
@@ -370,7 +370,7 @@ function linksListed(shown: ReadonlyArray<LinkEnds>, total: number): string {
  * Every unsized deciding link the Run's typed warning carries, in its order: `links` when MC P0 carries the full list,
  * else the first named link (`node_ids[0]` → `node_ids[1]`). Deduplicated; empty when there is none.
  */
-function unsizedLinksOf(inferenceWarnings: unknown): Array<{ from: string; to: string }> {
+export function unsizedLinksOf(inferenceWarnings: unknown): Array<{ from: string; to: string }> {
   return warningLinksOf(warningWithCode(inferenceWarnings, 'GOAL_FIGURES_PLACEHOLDER_PATH'))
 }
 
@@ -449,7 +449,8 @@ export function unsizedPathAskOf(
   const token = typeof producerReason === 'string' ? producerReason.trim() : ''
   const warning = warningWithCode(inferenceWarnings, 'GOAL_FIGURES_PLACEHOLDER_PATH')
   const upstream = unsizedLinksOf(inferenceWarnings).length > 0
-  if (token !== GOAL_PATH_UNSIZED_CAUSE && !(token === 'separation_unavailable' && upstream)) return undefined
+  // Near tie (DL #87, 6 Oct): with no unsized-path withhold, the target warning's own typed ask, whatever the leader cause.
+  if (token !== GOAL_PATH_UNSIZED_CAUSE && !(token === 'separation_unavailable' && upstream)) return targetLinkAskOf(inferenceWarnings, labelOf)
   const ask = warning?.first_ask
   // RT-19 fx1 (DL #87, 6 Oct): no typed ask → name the withhold's own first link; a typed ask is still read by identity.
   if (ask === null || ask === undefined) return withheldLinkOf(warning, labelOf)
@@ -486,6 +487,21 @@ function withheldLinkOf(warning: Record<string, unknown> | null, labelOf: (nodeI
   const from = labelOf(first.from)?.trim() || null
   const to = labelOf(first.to)?.trim() || null
   return from === null || to === null ? null : { kind: 'withheld_link', fromId: first.from, toId: first.to, from, to, more: links.length - 1 }
+}
+
+/**
+ * ⭐ Near tie (red team 19; DL #87, 6 Oct): CEE's `GOAL_FIGURES_TARGET_NOT_TESTABLE` types the link its words ask for
+ * (`first_ask`, kind `link`, only when the words ask exactly that link). `undefined` when it carries none, so the panel
+ * keeps its own next input; `null` when it does but an end can't be named from the canvas.
+ */
+function targetLinkAskOf(inferenceWarnings: unknown, labelOf: (nodeId: string) => string | null | undefined): UnsizedPathAsk | null | undefined {
+  const ask = warningWithCode(inferenceWarnings, 'GOAL_FIGURES_TARGET_NOT_TESTABLE')?.first_ask
+  if (ask === null || typeof ask !== 'object' || (ask as Record<string, unknown>).kind !== 'link') return undefined
+  const a = ask as Record<string, unknown>
+  const name = (id: unknown): string | null => (typeof id === 'string' && id !== '' ? labelOf(id)?.trim() || null : null)
+  const from = name(a.from)
+  const to = name(a.to)
+  return from === null || to === null ? null : { kind: 'target_link', fromId: a.from as string, toId: a.to as string, from, to }
 }
 
 /**
@@ -1921,8 +1937,8 @@ export const ANALYSIS_NEW_COPY = {
    * question either answers, which is worse than one. So the goal figure is
    * NAMED and the comparative one is named beside it, and neither ships alone.
    *
-   * ⚠ SUPERSEDED 29 Sep (AIQ #72 5885033487): the label is now the register's
-   * "Share of model runs that reach the target". The note below is kept for provenance.
+   * ⚠ SUPERSEDED 6 Oct (#87): the label now shares the Analysis hero's earned
+   * goal-chance wording. The note below is kept for provenance.
    * ⚠ "Reaches your target" IS POSSESSIVE ON PURPOSE. It names the target the
    * USER set, which is the only case this surface renders (a substituted joint
    * figure is suppressed upstream rather than relabelled — see the view model).
@@ -1939,8 +1955,8 @@ export const ANALYSIS_NEW_COPY = {
     /** Model-scale axis ends: direction only, no numbers (#2133 omits the ticks). */
     axisLower: 'Lower',
     axisHigher: 'Higher',
-    // AIQ #72 5885033487 / 5885116642: a goal figure is a share of model runs; the register's label.
-    goalLabel: GOAL_ANCHOR_COPY.label(false),
+    // #87, 6 Oct: the earned figure shares the Analysis hero's per-option goal-chance wording.
+    goalLabel: GOAL_CHANCE_LABEL,
     winLabel: 'Highest in this model',
     /**
      * ⭐ SAYS WHAT THE PICTURE IS, AND NOTHING ELSE. It states that the segments

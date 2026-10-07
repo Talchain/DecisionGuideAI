@@ -71,14 +71,14 @@ describe('the artefact mounted in the existing Compare body', () => {
     expect(artefact).toHaveAttribute('data-testid', RUN_CHANGE_ARTEFACT_TESTID)
     expect(artefact).toHaveAttribute('data-prior-run-id', 'run-a')
     expect(artefact).toHaveAttribute('data-current-run-id', 'run-b')
-    const row = within(screen.getByRole('region', { name: 'What you changed' })).getByTestId(`${WHATS_CHANGED_TESTID}-input-row`)
+    const row = within(screen.getByRole('region', { name: 'What changed in the model' })).getByTestId(`${WHATS_CHANGED_TESTID}-input-row`)
     expect(row).toHaveTextContent('Pro price, Raise to £60')
     expect(row).toHaveTextContent('£59 → £60')
     // Reasoning's shared row; the wire fields it renders are named once, on its section.
     expect(row.closest('[data-wire-fields]')).toHaveAttribute('data-wire-fields', expect.stringContaining('run_delta.input_changes[].before'))
-    expect(screen.queryByText('Raise to £60: 41% → 44% chance of leading.')).toBeNull()
+    expect(screen.queryByText('Raise to £60: supported by 41% → 44% of runs.')).toBeNull()
     fireEvent.click(screen.getByTestId('compare-result-details-toggle'))
-    expect(screen.getByText('Raise to £60: 41% → 44% chance of leading.')).toHaveAttribute(
+    expect(screen.getByText('Raise to £60: supported by 41% → 44% of runs.')).toHaveAttribute(
       'data-wire-fields', expect.stringContaining('run_delta.win_probabilities[].current'),
     )
     expect(screen.getByTestId('compare-comparability')).toHaveTextContent('Whether a change to the model explains anything below cannot be established from this pair.')

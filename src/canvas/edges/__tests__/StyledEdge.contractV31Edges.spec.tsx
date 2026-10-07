@@ -11,7 +11,7 @@
  *   E9       a layered (bottom → top, downward) edge is near-straight
  *   E10      a cue-only chip is the contract's focusable 16px disc
  *   E11/E12  structural warm grey; the dispute hue is the solid Warning token
- *   E13      round caps on solid lines, butt caps on dashed ones
+ *   E13      round caps on solid and dotted lines, butt caps on existence dashes
  *   E8/T07   the unset/undirected stroke token is the contract's warm neutral
  *   ICON-07  edge glyphs are counter-scaled; the fragility cue is muted ink
  *   T16      DS tokens instead of legacy / default-palette utilities
@@ -38,6 +38,7 @@ import {
   POLARITY_GLYPH_HALO,
 } from '../StyledEdge'
 import { STRUCTURAL_EDGE_COLOUR, DIRECTION_DISPUTED_STROKE } from '../edgePresentation'
+import { STRENGTH_NOT_SET_DASH } from '../edgePresentation'
 import { fragileEdgeSentence } from '../connectorCopy'
 import { weightMagnitudeToStrokeWidth } from '../../utils/graphDisplayCalculations'
 import { CANVAS_GLYPH_SIZE_CLASSES, CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES } from '../../nodes/shared/canvasGlyphScale'
@@ -306,6 +307,13 @@ describe('E13 — line caps', () => {
     expect(capturedStyle?.strokeLinecap).toBe('round')
   })
 
+  it('a strength placeholder has round-capped dots at the unset width', () => {
+    renderEdge({ ...edge(0.5), strengthPlaceholder: 0.5, weightSource: 'cee' })
+    expect(capturedStyle?.strokeDasharray).toBe(STRENGTH_NOT_SET_DASH)
+    expect(capturedStyle?.strokeLinecap).toBe('round')
+    expect(capturedStyle?.strokeWidth).toBe(1)
+  })
+
   it('a dashed (existence-doubt) line keeps butt caps so the dash stays a dash', () => {
     renderEdge({ ...edge(0.5), beliefExists: 0.4 })
     expect(capturedStyle?.strokeDasharray, 'precondition: the doubt dash fired').toBeTruthy()
@@ -450,7 +458,8 @@ describe('T16 — DS tokens, not legacy or default-palette utilities', () => {
 describe('E11/E12/E8 — the three non-polarity stroke colours', () => {
   it('structural links are the contract\'s warm grey', () => {
     // Built from the muted-ink token (no new production hex — DS v5, Paul pt 9).
-    expect(STRUCTURAL_EDGE_COLOUR).toBe('rgb(var(--text-light-rgb) / 0.75)') // RE-PINNED 30 Sep: contract contrast on a 1px bezier
+    // Paul 7 Oct: one 0.55 resting alpha matches both structural tiers.
+    expect(STRUCTURAL_EDGE_COLOUR).toBe('rgb(var(--text-light-rgb) / 0.55)')
   })
 
   it('the sign dispute is the SOLID Warning token, not a translucent mix', () => {

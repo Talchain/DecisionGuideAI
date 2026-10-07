@@ -35,7 +35,8 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest'
 import { render, cleanup, act } from '@testing-library/react'
 import { Position } from '@xyflow/react'
-import { StyledEdge, EDGE_SELECTION_DIM_OPACITY } from '../StyledEdge'
+import { StyledEdge } from '../StyledEdge'
+import { STRENGTH_NOT_SET_DASH } from '../edgePresentation'
 import { flattenSvgPath } from '../fragileCuePlacement'
 import { layOutBoard, isStructuralPair, LANDING_ENDS, distanceToPolyline, type LaidBoard } from './__helpers__/paulTestBoards'
 import { useCanvasNodeHoverStore } from '../../stores/canvasNodeHoverStore'
@@ -55,7 +56,7 @@ vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
   return {
     ...actual,
-    BaseEdge: ({ id, path }: { id: string; path: string }) => <path data-testid="base-edge" data-edge={id} d={path} />,
+    BaseEdge: ({ id, path, style }: { id: string; path: string; style: import('react').CSSProperties }) => <path data-testid="base-edge" data-edge={id} d={path} style={style} />,
     EdgeLabelRenderer: ({ children }: any) => <div>{children}</div>,
     useReactFlow: () => ({
       getNode: (nodeId: string) => mockNodes.find((n) => n.id === nodeId) ?? null,
@@ -321,7 +322,7 @@ describe('A — links arriving at one card spread along its top, in their source
   })
 })
 
-describe('C — option → factor links rest at low emphasis; an endpoint hovered or selected restores them', () => {
+describe('C — Paul 7 Oct: option → factor links share structural resting ink; endpoint focus stays identifiable', () => {
   const OPTION_FACTOR = ['e-4', 'e-5', 'e-6', 'e-7', 'e-8', 'e-9', 'e-10', 'e-11', 'e-12', 'e-13', 'e-14', 'e-15']
   const QUESTION_OPTION = ['e-0', 'e-1', 'e-2', 'e-3']
   function restState(id: string) {
@@ -337,11 +338,12 @@ describe('C — option → factor links rest at low emphasis; an endpoint hovere
     return out
   }
 
-  it('pa_vs_ai — each of the 12 option → factor links rests at the canvas dim, still hit-testable', () => {
+  it('pa_vs_ai — each of the same 12 option → factor links rests at full group opacity, still hit-testable', () => {
     for (const id of OPTION_FACTOR) {
       const s = restState(id)
       expect(s.rest, id).toBe('true')
-      expect(Number(s.opacity), id).toBe(EDGE_SELECTION_DIM_OPACITY)
+      // Paul 7 Oct: both tiers must match; #2268's 0.18 rest dim made these links too light.
+      expect(Number(s.opacity), id).toBe(1)
       expect(s.pointer, id).toBe('stroke')
     }
   })
@@ -373,5 +375,30 @@ describe('C — option → factor links rest at low emphasis; an endpoint hovere
     mockSelectedNodeIds = new Set(['annual_assistant_tool_cost'])
     for (const id of ['e-6', 'e-9', 'e-12', 'e-15']) expect(restState(id).rest, id).toBeNull()
     expect(restState('e-5').rest).toBe('true')
+  })
+})
+
+
+describe('connector strength state on Paul routed board', () => {
+  it('pa_vs_ai e-17 keeps its path and polarity when its strength becomes a placeholder', () => {
+    const b = BOARDS.pa_vs_ai
+    seedBoard(b)
+    const e = mockEdges.find(edge => edge.id === 'e-17')!
+    const set = renderEdge(b, e)
+    const path = set.container.querySelector<SVGElement>('path[data-edge="e-17"]')!
+    expect(path).not.toBeNull()
+    const d = path.getAttribute('d')
+    const stroke = path.style.stroke
+    expect(stroke).toBe('var(--edge-positive)')
+    expect(path.style.strokeDasharray).toBe('')
+    set.unmount()
+    const weight = Math.abs(Number(e.data!.strength_mean))
+    const ph = renderEdge(b, { ...e, data: { ...e.data, weight, weightSource: 'cee', strengthPlaceholder: weight } })
+    const dotted = ph.container.querySelector<SVGElement>('path[data-edge="e-17"]')!
+    expect(dotted.getAttribute('d')).toBe(d)
+    expect(dotted.style.stroke).toBe(stroke)
+    expect(dotted.style.strokeWidth).toBe('1')
+    expect(dotted.style.strokeDasharray).toBe(STRENGTH_NOT_SET_DASH)
+    expect(dotted.style.strokeLinecap).toBe('round')
   })
 })

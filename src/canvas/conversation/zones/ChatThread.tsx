@@ -6,10 +6,11 @@
  * Custom scrollbar: 4px, themed. Smart scroll via useSmartScroll.
  */
 
-import { memo } from 'react'
+import { memo, useState, useEffect } from 'react'
 import { ArrowDown } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useSmartScroll } from '../hooks/useSmartScroll'
+import { THREAD_SCROLLER_ATTRIBUTE } from '../hooks/threadScroll'
 import { EmptyState } from './EmptyState'
 import { ChatMessage } from './ChatMessage'
 import type { HeldProposalSettlement } from '../../../v5/blocks/V5HeldProposalBlock'
@@ -75,16 +76,11 @@ export const THREAD_TESTID_DOCKED = 'chat-thread'
 export const THREAD_TESTID_FLOATING = 'chat-thread-floating'
 
 /**
- * The element `useSmartScroll` aims `scrollIntoView` at (`pinOrNotify` and
- * `scrollToBottom` — the only two call sites; the reply-start hold sets the
- * thread's `scrollTop` instead). Exported so no spec has to identify it
- * by a property other elements share: `OutputsDock.runReturnsToOlumi.spec.tsx`
- * used to find it as "the scrolled element that has NO `data-testid`", which
- * any untagged element satisfied and which this constant's very existence
- * would have broken (it did — that spec is updated in the same commit).
- * One literal, one place (CLAUDE.md trap 12).
+ * ⚠ THERE IS NO END SENTINEL ANY MORE. `useSmartScroll` used to pin the thread by calling `scrollIntoView` on an
+ * empty element at its end; that call also scrolled the dock's overflow-hidden `aside` and blanked the tab for every
+ * pending turn (witnessed 15/15, 7 Oct). The thread now moves only by writing its own scroll position
+ * (`hooks/threadScroll.ts`), and specs bind to THAT write on the thread element by identity.
  */
-export const THREAD_SCROLL_SENTINEL_TESTID = 'thread-scroll-sentinel'
 
 interface ChatThreadProps {
   messages: ConversationMessage[]
@@ -145,6 +141,8 @@ interface ChatThreadProps {
    * as before. See `RunChipGate`.
    */
   runGate?: RunChipGate
+  /** Forwarded to `SuggestedChips`: the host shows, or defers to, the one rerun control (`workspaceShell/rerunControl.ts`). */
+  rerunOwnedByHost?: boolean
 }
 
 /**
@@ -211,7 +209,12 @@ export const ChatThread = memo(function ChatThread({
   scrollListRef,
   testId = THREAD_TESTID_DOCKED,
   runGate,
+  rerunOwnedByHost,
 }: ChatThreadProps) {
+  // Keep disclosure open when the latest reply remounts its chip row, but never across scenarios.
+  const scenarioId = useCanvasStore(s => s.currentScenarioId)
+  const [openedProposal, setOpenedProposal] = useState<{ scenarioId: string | null; id: string } | null>(null)
+  useEffect(() => { setOpenedProposal(null) }, [scenarioId])
   // Has the conversation produced any finalized (non-streaming) assistant messages?
   const hasFinalizedAssistant = messages.some(m => m.role === 'assistant' && !m.isStreaming)
 
@@ -247,7 +250,7 @@ export const ChatThread = memo(function ChatThread({
 
   // `messages` lets the hook see a reply ARRIVE (appended, not restored), so a
   // reply taller than the thread lands at its first line, not its last.
-  const { listRef, listEndRef, showNewMessageIndicator, handleScroll, scrollToBottom } =
+  const { listRef, showNewMessageIndicator, handleScroll, scrollToBottom } =
     useSmartScroll({ messageCount: renderedMessageCount, isThinking, messages })
 
   // Mirror the internal listRef into an externally-provided ref so the
@@ -330,6 +333,8 @@ export const ChatThread = memo(function ChatThread({
       aria-label="Conversation"
       aria-live="polite"
       data-testid={testId}
+      /* `threadScroll.ts` finds the thread a target sits in by this mark, so it scrolls the thread and nothing above. */
+      {...{ [THREAD_SCROLLER_ATTRIBUTE]: '' }}
     >
       {showEmptyState && (
         <EmptyState
@@ -371,31 +376,43 @@ export const ChatThread = memo(function ChatThread({
         )
         // T4: the latest turn's coaching rows sit between the reply and its chips (guidanceRows.ts).
         const guidanceRows = msg === lastReplyMsg && msg.guidance ? <GuidanceRows guidance={msg.guidance} /> : null
+        // ⭐ ONE WRAPPER TYPE PER REPLY, WHATEVER IT CARRIES (Paul, 7 Oct: "the
+        // text doesn't move … it shouldn't go blank or do anything weird").
+        // A reply used to render as a `div` while it was the latest (chips or
+        // coaching rows attached) and as a bare `ChatMessage` once a newer reply
+        // landed. Same key, different element type: React REMOUNTED the previous
+        // reply at the moment the new one arrived, rebuilding its DOM and
+        // dropping its local state (an opened disclosure snapped shut). Every
+        // assistant reply now keeps the same `div` for its whole life; only what
+        // it holds changes. User messages never carry chips, so they stay bare.
+        // Pinned by `ChatThread.pendingTurnStable.spec.tsx`.
+        if (msg.role !== 'assistant') return chatMsg
         // Attach suggested chips directly below their owning reply
         // so they read as one visual unit rather than floating orphans.
-        if (isLastAssistant && suggestedChips.length > 0) {
-          return (
-            <div key={msg.id} className="response-chip-group" data-testid="response-chip-group">
-              {chatMsg}
-              {guidanceRows}
+        const chipGroup = isLastAssistant && suggestedChips.length > 0
+        return (
+          <div
+            key={msg.id}
+            className={chipGroup ? 'response-chip-group' : undefined}
+            data-testid={chipGroup ? 'response-chip-group' : undefined}
+          >
+            {chatMsg}
+            {guidanceRows}
+            {chipGroup && (
               <SuggestedChips
                 chips={suggestedChips}
+                proposalFields={msg.proposalFields}
+                replyId={msg.id}
+                openedProposalId={openedProposal !== null && openedProposal.scenarioId === scenarioId ? openedProposal.id : null}
+                onOpenProposal={id => setOpenedProposal({ scenarioId, id })}
                 onChipClick={(chip) => onChipClick(chip, msg.id)}
                 isThinking={isThinking}
                 runGate={runGate}
+                rerunOwnedByHost={rerunOwnedByHost}
               />
-            </div>
-          )
-        }
-        if (guidanceRows) {
-          return (
-            <div key={msg.id}>
-              {chatMsg}
-              {guidanceRows}
-            </div>
-          )
-        }
-        return chatMsg
+            )}
+          </div>
+        )
       })}
 
       {/* ThinkingDots (DS v5 §21.3): only when EmptyState is NOT handling the loading display */}
@@ -426,12 +443,6 @@ export const ChatThread = memo(function ChatThread({
         </button>
       )}
 
-      {/* The scroll sentinel `useSmartScroll` calls `scrollIntoView` on. It
-          carries a testid so a spec can assert the scroll was aimed at THIS
-          element by identity, rather than counting calls on a globally stubbed
-          `Element.prototype.scrollIntoView` that any element would satisfy
-          (CLAUDE.md trap 19). */}
-      <div ref={listEndRef} data-testid={THREAD_SCROLL_SENTINEL_TESTID} />
     </div>
   )
 })

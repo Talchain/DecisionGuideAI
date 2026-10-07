@@ -199,3 +199,47 @@ describe('Review this decision in Analysis (A4 slice 1)', () => {
     expect(container.textContent).toBe(before)
   })
 })
+
+/**
+ * PRE-MORTEM PRESS: "Run a pre-mortem" sends CEE's own next-step press (`agent-next-pre-mortem`, NEXT_STEP_CHIPS in
+ * CEE routes/agent-v1-turn.ts, verified at CEE staging 6 Oct 2026), which the agent lane answers with one held change
+ * card (method-turn.ts, RC-PREMORTEM). The Methods menu's free-text draft carries `method_id`, which CEE never reads,
+ * so this press is the reachable door. Same gate as its siblings; the tab decides nothing.
+ */
+describe('Run a pre-mortem in Analysis', () => {
+  const PREMORTEM = 'Run a pre-mortem'
+
+  it('shows one entry on a current Run and sends CEE\'s exact pre-mortem press, once', () => {
+    mount()
+    expect(screen.getAllByRole('button', { name: PREMORTEM })).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: PREMORTEM }))
+    expect(sendChip).toHaveBeenCalledTimes(1)
+    expect(sendChip).toHaveBeenCalledWith(
+      PREMORTEM,
+      'Run a pre-mortem with me: imagine this decision went badly. What most plausibly went wrong?',
+      { id: 'agent-next-pre-mortem' },
+    )
+  })
+
+  it('control: the strengthen entry still sends its own id, not the pre-mortem one', () => {
+    mount()
+    fireEvent.click(screen.getByRole('button', { name: 'Strengthen the model' }))
+    expect(sendChip).toHaveBeenCalledTimes(1)
+    expect(sendChip).toHaveBeenCalledWith('Strengthen the model', 'What would most strengthen this model?', { id: 'agent-next-strengthen' })
+  })
+
+  it.each(['pre-run', 'running', 'wire-running', 'stale', 'unconfirmed', 'no sender'])(
+    'hides the entry when %s', (state) => {
+      if (state === 'stale') useCanvasStore.setState({ analysisFreshnessDirty: true })
+      if (state === 'unconfirmed') useCanvasStore.setState({ analysisFreshness: null })
+      if (state === 'no sender') useGuidanceStore.setState({ _sendChip: null })
+      mount({ isPreRun: state === 'pre-run', isRunning: state === 'running', isBusy: state === 'running' || state === 'wire-running' })
+      expect(screen.queryByRole('button', { name: PREMORTEM })).not.toBeInTheDocument()
+    },
+  )
+
+  it('is offered when the leader is withheld (the pre-mortem names only the user\'s own option)', () => {
+    mount({ resultsSectionData: decisionWithLeaderWithheld() })
+    expect(screen.getByRole('button', { name: PREMORTEM })).toBeInTheDocument()
+  })
+})

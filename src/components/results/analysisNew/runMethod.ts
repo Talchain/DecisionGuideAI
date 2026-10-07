@@ -6,28 +6,42 @@
  * surface is exactly where this estate's dominant defect starts: two call sites
  * build the same payload, one gains a field, and they drift with a red nowhere.
  *
- * So the payload is built HERE, once. `ActionsMenu` (the dropdown) and
- * `MethodsYouCanRun` (the visible section) both call this and neither re-types
- * it. Nothing about WHAT a method says lives here — that is the catalogue's.
+ * So the invocation is built HERE, once. The Reasoning tab's method strip, its
+ * Challenge card and `ActionsMenu` all call this and none re-types it.
  *
- * ⚠ `parameters.method_id` IS LOAD-BEARING, not decoration. It is what makes the
- * eventual turn a conversation-typed dispatch carrying `chip_metadata`, which is
- * the only turn shape CEE resolves a DSK protocol on. Drop it and the method
- * still opens a drawer, still sends, and silently stops being decision science —
- * the failure mode that has no red.
+ * ⭐ A PRESS RUNS THE METHOD (Paul, 7 Oct 2026: the methods "don't seem to be
+ * working properly, so we actually need to make them genuinely work"). One press
+ * sends one chip turn. It used to open the Ask-Olumi drawer with an editable
+ * draft, so reaching Olumi took a second press, and the strip's own icons sent
+ * nothing at all.
+ *
+ * ⚠ NOTHING ABOUT THE WIRE LIVES HERE. A catalogue method is an action in
+ * `ACTION_REGISTRY` (S-B slice 0), which owns the chip id it sends and whether
+ * CEE answers that id with a typed handler or, for now, an ordinary Agent turn.
+ * The served CEE lane routes on `chip.id` only: it reads neither `method_id` nor
+ * `chip.intent` (measured at CEE `df15c8c1`: `method_id` in 0 files under
+ * `src/`, against 10 for the contrast `agent-next-pre-mortem`).
  */
+import type { AskAiResult } from '../../../canvas/conversation/askAi'
+import { actionOfMethod } from '../../../canvas/conversation/actionRegistry'
+import { pressAction } from '../../../canvas/conversation/pressAction'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import type { MethodEntry } from '../decision-overview/actionsCatalogue'
 
+export type RunMethodResult = AskAiResult | 'drawer'
+
 /**
- * Opens the Ask-Olumi drawer with the method's prompt as an EDITABLE draft.
+ * Presses the method's action: one chip turn to Olumi.
  *
- * ⛔ IT DOES NOT AUTO-SEND, and that is the product argument rather than a
- * technical one: the person chooses the move, so the person gets to shape the
- * question before it goes. A method that fires on click would be the tool doing
- * the thinking again.
+ * ⚠ NEVER A DEAD PRESS. With no conversation mounted (`none`), or for a method
+ * the registry does not hold, the method keeps its drawer, whose own disabled
+ * state says why nothing can be sent. A busy conversation is `askAi`'s to
+ * report (it toasts and sends nothing).
  */
-export function runMethod(method: MethodEntry): void {
+export function runMethod(method: MethodEntry): RunMethodResult {
+  const action = actionOfMethod(method.id)
+  const result: AskAiResult = action ? pressAction(action) : 'none'
+  if (result !== 'none') return result
   openAskOlumi({
     context: method.description,
     draft: method.prompt,
@@ -37,4 +51,5 @@ export function runMethod(method: MethodEntry): void {
     ...(method.intent ? { intent: method.intent } : {}),
     source: 'chip',
   })
+  return 'drawer'
 }

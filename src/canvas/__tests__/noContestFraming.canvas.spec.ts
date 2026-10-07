@@ -109,6 +109,8 @@ const SCOPE_DIRS = [
   'src/v5/blocks',
 ]
 const SCOPE_FILES = [
+  'src/components/results/analysisNew/sections/PreMortemWorksheet.tsx',
+  'src/components/results/analysis-hero/goalOptionCoverage.tsx',
   // ⭐ ADDED 9 Sep 2026, and the reason is the INVERSE of #1310's. There the
   // vocabulary was short; here it was RIGHT and the SCOPE was short: `came out
   // ahead` is entry 6 below, and three live strings sat in these two files
@@ -128,7 +130,14 @@ const SCOPE_FILES = [
   'src/components/results/utils/humaniseCritique.ts',
   'src/components/results/ConditionalWinnerCards.tsx',
   'src/components/results/analysis-hero/heroCopy.ts',
+  // ⭐ ADDED 6 Oct 2026 (G4/G5 phase 2, P3; design-g4g6 Q5): the goal-chance sentences and the driver sentence under
+  // them live here and nothing opened this file. Hits were enumerated before adding (see the PR).
+  'src/components/results/analysis-hero/goalChanceCopy.ts',
+  'src/components/results/utils/goalChanceRange.ts',
+  'src/components/results/analysis-hero/GoalChanceRangeLines.tsx',
   'src/components/results/analysisNew/buildAnalysisNewViewModel.ts',
+  // The results directory is not swept; include the matrix's new rendered copy explicitly.
+  'src/components/results/analysisNew/sections/DecisionMatrix.tsx',
   /*
    * ⚠⚠ WHAT THIS LIST DOES **NOT** COVER — stated because "both holes closed"
    * will otherwise read as closing the CLASS, and it closes the INSTANCES.
@@ -556,6 +565,9 @@ describe('the canvas never frames a decision as a contest', () => {
 
   it('the sweep can see the scope it claims to sweep', () => {
     const files = scopeFiles()
+    expect(files.some(f => f.endsWith('src/components/results/analysisNew/sections/PreMortemWorksheet.tsx'))).toBe(true)
+    expect(files.some((f) => f.endsWith('src/components/results/utils/goalChanceRange.ts'))).toBe(true)
+    expect(files.some((f) => f.endsWith('src/components/results/analysis-hero/GoalChanceRangeLines.tsx'))).toBe(true)
     // Contrast control on the INSTRUMENT, not the claim: a sweep that walked
     // an empty tree would report zero offences and look identical to a clean
     // one (CLAUDE.md trap 13e).
@@ -581,4 +593,8 @@ describe('the canvas never frames a decision as a contest', () => {
     const report = offences.map((o) => `${o.file}:${o.line} [${o.frames.join(',')}] ${o.text}`)
     expect(report).toEqual([])
   })
+})
+
+it('S4-UI: the contest sweep includes per-option withholding copy', () => {
+  expect(scopeFiles()).toContain(path.join(ROOT, 'src/components/results/analysis-hero/goalOptionCoverage.tsx'))
 })

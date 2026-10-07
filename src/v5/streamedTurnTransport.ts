@@ -37,6 +37,7 @@ import { __internals as adapterInternals } from './v5Adapter'
 import type { OlumiResponseWithExtensions } from './responseParser'
 import type { V5CallResult } from './v5Adapter'
 import type { OrchestratorTurnPayload } from '@talchain/schemas/boundary'
+import { noteGuestTurn } from '../lib/guestWork'
 
 function streamEndpointFor(bufferedEndpoint: string): string {
   return `${bufferedEndpoint.replace(/\/+$/, '')}/stream`
@@ -66,6 +67,8 @@ export const STREAM_OPEN_TRACE_BODY = {
 export interface OpenStreamOptions {
   signal?: AbortSignal
   headers?: Record<string, string>
+  /** Called only at the fetch boundary, after request construction succeeds. */
+  onRequestStarted?: () => void
   /** Injected for tests; defaults to global fetch. */
   fetchImpl?: typeof fetch
 }
@@ -96,6 +99,8 @@ export async function openV5TurnStream(
 ): Promise<Response> {
   const url = getV5StreamEndpoint()
   const fetchFn = opts.fetchImpl ?? fetch
+  // S-G: a guest turn is the work sign-in must carry into the account (`lib/guestWork.ts`). No-op when signed in.
+  noteGuestTurn(payload)
 
   // Mirror the buffered adapter's diagnostic capture so a streamed draft still
   // appears in the debug bundle.
@@ -145,7 +150,7 @@ export async function openV5TurnStream(
   // a success recorded as a failure — reappearing one branch over.
   let res: Response
   try {
-    res = await fetchFn(url, {
+    const init: RequestInit = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -154,7 +159,9 @@ export async function openV5TurnStream(
       },
       body: JSON.stringify(payload),
       signal: opts.signal,
-    })
+    }
+    opts.onRequestStarted?.()
+    res = await fetchFn(url, init)
   } catch (e) {
     const err = e as Error
     // Same three-way classification the buffered adapter writes, for the same

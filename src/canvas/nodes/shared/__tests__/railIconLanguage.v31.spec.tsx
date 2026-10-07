@@ -83,7 +83,7 @@ describe('ICON-01 / OPT-13 / F12 / FRAME-11 / OPT-11 — one hover language for 
   })
 
   it('the hover quick actions ARE rail buttons: shared class + muted, no private hover copy', () => {
-    useGuidanceStore.setState({ _sendMessage: () => {} } as never)
+    useGuidanceStore.setState({ _sendMessage: () => {}, _dispatchAction: () => {} } as never)
     useCanvasStore.setState({ nodes: [{ id: 'node-a', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Hiring spend' } }] } as never, false)
     // Contrast control: the Ask button renders only when the coaching icon does
     // not; `lodRung: 'quiet'` withholds the icon so all three quick actions mount.
@@ -107,7 +107,7 @@ describe('ICON-02 / OPT-14 / F12 / FRAME-11 — one glyph size across the rail r
   })
 
   it('quick-action glyphs and resting glyphs are the SAME size (no 11px member left)', () => {
-    useGuidanceStore.setState({ _sendMessage: () => {} } as never)
+    useGuidanceStore.setState({ _sendMessage: () => {}, _dispatchAction: () => {} } as never)
     useCanvasStore.setState({ nodes: [{ id: 'node-a', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Hiring spend' } }] } as never, false)
     setRung('full')
     const { container } = render(
@@ -382,14 +382,14 @@ describe('ICON-08 / T14(a) — science/bias glyphs are neutral, and label on foc
 // ─────────────────────────────────────────────────────────────────────────────
 describe('PILL-14 — SaveStatusPill is a DS v5 §8.5 outlined pill', () => {
   it('Saving…: text-body on the panel with a border; no legacy greys, no fill', () => {
-    render(<SaveStatusPill isSaving lastSavedAt={null} />)
+    render(<SaveStatusPill isDirty={false} isSaving lastSavedAt={null} />)
     const p = screen.getByTestId('save-status-saving')
     for (const t of ['text-text-body', 'bg-panel', 'border', 'border-panel-border']) expect(has(p, t), t).toBe(true)
     for (const t of tokens(p)) expect(t).not.toMatch(/gray/)
   })
 
   it('Saved: text-body text; the success hue only on the border and the glyph', () => {
-    render(<SaveStatusPill isSaving={false} lastSavedAt={Date.now()} />)
+    render(<SaveStatusPill isDirty={false} isSaving={false} lastSavedAt={Date.now()} />)
     const p = screen.getByTestId('save-status-saved')
     expect(has(p, 'text-text-body')).toBe(true)
     expect(has(p, 'text-success-700')).toBe(false)

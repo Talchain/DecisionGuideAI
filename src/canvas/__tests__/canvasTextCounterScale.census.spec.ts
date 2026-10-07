@@ -300,9 +300,12 @@ const KNOWN_FIXED = [
  */
 // `ProposalGhostLayer` (suggestion preview, DL 5941839936): the ghost of a proposed node/link lives in graph space for
 // the same reason the tier bands do; its text goes through `typography.nodeTitle` / `nodeLabel` / `edgeLabel` only.
-const VIEWPORT_PORTALLED = ['src/canvas/nodes/ProposalGhostLayer.tsx', 'src/canvas/nodes/TierLanes.tsx'] as const
+const VIEWPORT_PORTALLED = ['src/canvas/nodes/EditNoteAnchor.tsx', 'src/canvas/nodes/ProposalGhostLayer.tsx', 'src/canvas/nodes/TierLanes.tsx'] as const
 
 const FOREIGN_RENDERED = [
+  // The shared inspector/canvas note uses panel tokens. EditNoteAnchor counter-scales the entire
+  // overlay by 1/zoom, keeping both its text and 280px width at screen size, outside measured cards.
+  'src/canvas/editNotes/EditNote.tsx',
   'src/canvas/components/CoachingCard.tsx',
   'src/canvas/components/UnknownKindWarning.tsx',
   // 29 Sep 2026 (Paul: bring the hover pop-ups back): the card pop-up portals to

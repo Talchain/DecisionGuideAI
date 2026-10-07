@@ -31,6 +31,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { GhostOptionNode } from '../GhostOptionNode'
 import { GHOST_OPTION_NODE_ID, GHOST_OPTION_DOOR_LABEL, ghostOptionPrompt } from '../../utils/ghostTiers'
+import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { chooseWhatElse } from './chooseWhatElse'
 import { useWhatElseStore } from '../../components/WhatElseChooser'
@@ -90,11 +91,14 @@ function mount(data: Record<string, unknown>) {
  * reveals Olumi; the person reads the sentence and chooses to send it. `calls`
  * is the composer, and `sent` must stay empty.
  */
-function captureSends(): { calls: string[]; sent: string[] } {
+function captureSends(nodes = MODEL): { calls: string[]; sent: string[] } {
   const calls: string[] = []
   const sent: string[] = []
+  useCanvasStore.setState({ nodes, edges: [], hasCompletedFirstRun: false, results: { status: 'idle' }, v5AnalysisFact: null } as never)
   useGuidanceStore.setState({
-    _prefillChat: (text: string) => { calls.push(text) },
+    _isConversationBusy: () => false,
+    _dispatchAction: (opts) => { calls.push(opts.message) },
+    _prefillChat: vi.fn(),
     _sendMessage: (text: string) => { sent.push(text) },
   })
   return { calls, sent }
@@ -102,6 +106,7 @@ function captureSends(): { calls: string[]; sent: string[] } {
 
 beforeEach(() => {
   useGuidanceStore.setState({ _sendMessage: null, _prefillChat: null, _dispatchAction: null })
+  useWhatElseStore.getState().close()
 })
 
 describe('the pre-analysis option door puts the model-aware sentence in the composer', () => {
@@ -118,7 +123,7 @@ describe('the pre-analysis option door puts the model-aware sentence in the comp
     chooseWhatElse('option')
 
     expect(sent.calls).toHaveLength(1)
-    expect(sent.calls[0]).toBe(ghostOptionPrompt(MODEL))
+    expect(sent.calls[0]).toBe('For ‘Replace our customer data platform before the March renewal’, I have 2 options: ‘Segment’, ‘RudderStack’. What other ways could we reach the goal that aren’t on the board yet?')
     // ⛔ and it is NOT sent: the person confirms it in the composer.
     expect(sent.sent).toEqual([])
   })
@@ -166,7 +171,7 @@ describe('the pre-analysis option door puts the model-aware sentence in the comp
     chooseWhatElse('option')
     a.unmount()
 
-    const second = captureSends()
+    const second = captureSends(other)
     mount({ prompt: ghostOptionPrompt(other) })
     fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
     chooseWhatElse('option')

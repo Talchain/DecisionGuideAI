@@ -1,3 +1,4 @@
+import { EditNote } from '../../editNotes/EditNote'
 /**
  * InspectorRouter — resolves selected node/edge type and renders the correct panel
  * inside an InspectorShell.
@@ -26,6 +27,7 @@ import { OutcomePanel, INSPECTOR_OUTCOME_REASON } from './panels/OutcomePanel'
 import { RiskPanel, INSPECTOR_RISK_REASON } from './panels/RiskPanel'
 import { GenericNodePanel } from './panels/GenericNodePanel'
 import { InspectorQuickActions } from './shared/InspectorQuickActions'
+import { InspectorCoaching } from './shared/InspectorCoaching'
 import { InspectorAgencyNote } from './shared/InspectorAgencyNote'
 import { InspectorAttentionContext, attentionAskContext } from './shared/InspectorAttentionContext'
 import { ExamineAssumption } from './examine/ExamineAssumption'
@@ -566,6 +568,8 @@ export const InspectorRouter = memo(function InspectorRouter({
             onBackToConversation={handleBackToConversation}
             extra={panelType === 'decision' ? <DecisionAddOption decisionId={nodeId} /> : undefined}
           />
+          {panelType === 'decision' && <InspectorCoaching elementId={nodeId} panelType="decision"
+            fallbackText="" labelContext={{ label }} />}
           {/* ⭐⭐ THE DECISION'S "+ Add option", OUTSIDE THE FENCE BY THE SAME
               TEST THE RENAME PASSED. Its gesture captures a durable
               `structural_add` for the new option (CEE `'mutating'`), so it may
@@ -629,6 +633,7 @@ export const InspectorRouter = memo(function InspectorRouter({
           was typing. That is the same split #1343 made one level down, where an
           intervention row is keyed `${optionId}:${factorId}` and a focus-guarded
           effect covers same-option writes the key cannot see. */}
+      {!['factor-controllable', 'factor-observable', 'risk', 'option', 'goal'].includes(panelType) && <EditNote elementId={nodeId} />}
       {panelOwnsAuthority ? (
         <PanelComponent key={nodeId} {...panelProps} readOnly />
       ) : (

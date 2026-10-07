@@ -9,6 +9,7 @@ import { factorValueSourceMark, VALUE_SOURCE_MARK_LABEL, type ValueSourceMarkKin
 import type { ParticipantNameResolution } from '../../../collab/participantNames'
 import { DECISION_NODE_LABEL } from '../../domain/vocabulary'
 import { fragileEdgeSentence } from '../../edges/connectorCopy'
+import { QUESTIONS } from '../../conversation/askAiQuestions'
 
 // ─── Section titles (spec §3.1) ────────────────────────────────────
 export const SECTION_TITLES = {
@@ -571,6 +572,9 @@ export const EDGE_COPY = {
    * range, so the note says what the analysis does and on whose input — never that Olumi believes something.
    */
   existenceHeldNote: 'Held at 100%: your own range for this link’s effect doesn’t include zero, so the analysis treats the link as existing.',
+  existenceCountedOnceNote: 'Counted once: Olumi’s doubt about each route through this link already sits on an earlier link, so the analysis always includes this one.',
+  // S-DEF (Science 393023, 7 Oct): a validated definition is held whoever drew it; no likelihood is said of it.
+  existenceHeldByDefinitionNote: 'Always exists: this link holds by definition, so the analysis always includes it.',
   sensitiveContext: 'Small changes here could shift which option the data supports.',
   /**
    * The SAME sentence the canvas cue, the edge hover and the key carry
@@ -815,35 +819,15 @@ export const DESCRIPTION_PLACEHOLDERS = {
  * because a gap closed silently is a gap that reopens.
  */
 export const ASK_TEMPLATES: Record<string, string> = {
-  goal:
-    "What does this model assume has to be true for {label} to be reached, and which of those assumptions are mine rather than the model's?",
-  'factor-controllable':
-    'If I moved {label}, what does this model expect to change, how sure is it, and what would I need to know to act on that?',
-  'factor-observable':
-    'What is {label} standing in for in this model, how well is it evidenced, and where would my own knowledge of it change the picture?',
-  'factor-external':
-    "What has this model assumed about {label}, how much would the results move if that assumption is wrong, and is that assumption mine to overrule?",
-  edge:
-    'What is the claim that {sourceLabel} affects {targetLabel} based on, how strong is the evidence, and is the direction mine to confirm?',
-  /**
-   * ⛔ NOT "how does this compare to the other options?", which is what shipped
-   * until now. That sentence asks the product to rank one option against the
-   * rest — the race framing Paul has ruled out repeatedly, and a conclusion the
-   * product is not entitled to state. The user clicked ONE option; the three
-   * questions we ARE entitled to answer about it are the expected outcome, the
-   * width of the uncertainty, and what would have to change for that to move.
-   *
-   * The closing clause is deliberate: the ask ends by handing judgement back to
-   * the user rather than substituting for it. Humans remain the authors.
-   */
-  option:
-    'For {label}, what outcome does this model currently expect, how wide is the uncertainty, and what would have to change for that expectation to move? Say which of those assumptions are mine to judge.',
-  outcome:
-    "What is this model's expectation for {label} resting on, and which parts of that rest on my judgement rather than on evidence?",
-  risk:
-    'What does this model actually know about {label} as opposed to assume, and what would I have to decide in order to act on it?',
-  decision:
-    'For {label}, what has this model actually weighed, and what has it left to me to weigh?',
+  goal: QUESTIONS.explain({ stage: 'drafted', label: '{label}' }),
+  'factor-controllable': QUESTIONS.explain({ stage: 'drafted', label: '{label}' }),
+  'factor-observable': QUESTIONS.explain({ stage: 'drafted', label: '{label}' }),
+  'factor-external': QUESTIONS.explain({ stage: 'drafted', label: '{label}' }),
+  edge: QUESTIONS.link({ stage: 'drafted', sourceLabel: '{sourceLabel}', targetLabel: '{targetLabel}' }),
+  option: QUESTIONS.explain({ stage: 'drafted', label: '{label}' }),
+  outcome: QUESTIONS.explain({ stage: 'drafted', label: '{label}' }),
+  risk: QUESTIONS.explain({ stage: 'drafted', label: '{label}' }),
+  decision: QUESTIONS.explain({ stage: 'drafted', label: '{label}' }),
 }
 
 /**
@@ -1011,10 +995,10 @@ export const GOAL_CONSTRAINT_COPY = {
   // v3.1 (DESIGN-GAP-v31 row 33): no "simulation" wording. This is the
   // COMPLETE-results arm only — `GoalPanel` shows `EMPTY_STATES.noAnalysis`
   // before any results exist, so neither sentence claims something false.
-  runForProbability:   'This run did not return the share of model runs that reach this target.',
+  runForProbability:   'This run did not return the chance of meeting your goal, in this model.',
   // Served f5d503b0 (29 Sep): no option put forward, yet the run carried every option's goal
   // figure and Analysis showed them. The arm above would deny them; this one says where they are.
-  perOptionOnly:       'No single option is put forward on this run. Each option\u2019s share of model runs that reach this target is in Analysis.',
+  perOptionOnly:       'No single option is put forward on this run. Each option\u2019s chance of meeting your goal, in this model, is in Analysis.',
   perOptionOnlyLink:   'Open Analysis',
   targetUnlocks:       'Adding a specific target unlocks probability calculations.',
   // Canonical State Copy (see DESIGN_SYSTEM.md): honest status for GUEST

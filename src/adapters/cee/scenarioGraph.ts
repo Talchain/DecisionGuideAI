@@ -118,6 +118,7 @@ export type ScenarioGraphResult =
       graph: unknown
       /** The response's own `scenario_id`: the read's identity binding (`canonicalOpenOutcome.ts`). */
       scenarioId?: string | null
+      switchAnalysisReady?: unknown
       briefText: string | null
       /**
        * ROADMAP 2.973 — what of the brief did NOT reach the model.
@@ -201,6 +202,14 @@ export type ScenarioGraphResult =
        */
       runDelta?: unknown
       /**
+       * SD-1 Slice R (CEE #2654, schemas 0.79 `run_delivery`): what the displayed Run's turn DELIVERED — its Phase 3
+       * blocks and `analysis_ready` options — raw, with the Run identity CEE served beside it. CARRIER:
+       * `current_read.delivered_record` + `current_read.run_id` ONLY, and only when `current_read.run_state.kind` is
+       * `complete_current` (CEE gates the same; this is defence in depth). Parsed downstream by the contract
+       * (`RunDeliveredRecordSchema`, `applyScenarioAnalysisRead`); null = no record for this Run.
+       */
+      delivered?: { readonly runId: string; readonly record: unknown } | null
+      /**
        * RT-10 B′: CEE's own words for WHY the saved Run is out of date when the MODEL DID NOT CHANGE — a
        * `complete_stale` read whose `computed_against_hash` equals `current_analysis_hash` (the Run's own goal snapshot
        * disagrees: its goal unit, or the direction it sent, CEE #2596). CEE carries the sentence on
@@ -231,6 +240,8 @@ export type ScenarioGraphResult =
       conversationTurns?: unknown
       /** Opt-in, currently executable original approve/amend offers; absent means no authority. */
       heldProposalOffers?: unknown
+      /** §15 projection, present only on the conversation opt-in. */
+      proposalFields?: unknown
       requestId: string | null
     }
   /** 200, `graph_present:false` — the scenario exists and has no graph yet. Normal. */
@@ -263,6 +274,8 @@ export interface FetchScenarioGraphOptions {
   signal?: AbortSignal
   /** Backoff between 503 retries. Tests pass 0. */
   retryDelayMs?: number
+  /** A settlement read gets one attempt; hydration retains its default 503 retries. */
+  retry503?: boolean
   /** Per-attempt deadline. See `DEFAULT_TIMEOUT_MS`. */
   timeoutMs?: number
   /**
@@ -314,6 +327,20 @@ function readIdentityEnvelope(raw: unknown): ScenarioGraphIdentity | null {
 function readCurrentReadRunDelta(raw: unknown): unknown {
   if (raw === null || typeof raw !== 'object') return null
   return (raw as { run_delta?: unknown }).run_delta ?? null
+}
+
+/**
+ * SD-1 Slice R — the displayed Run's delivered record lives ONLY inside `current_read` (CEE #2654). Null unless the read
+ * is `complete_current` AND it names the Run (`run_id`, a non-empty string) AND carries a record. Carried raw;
+ * `RunDeliveredRecordSchema` parses it downstream (`applyScenarioAnalysisRead`), which also binds it to `runId`.
+ */
+export function readCurrentReadDelivered(raw: unknown): { readonly runId: string; readonly record: unknown } | null {
+  if (raw === null || typeof raw !== 'object') return null
+  const read = raw as { run_state?: { kind?: unknown } | null; run_id?: unknown; delivered_record?: unknown }
+  if (read.run_state?.kind !== 'complete_current') return null
+  if (typeof read.run_id !== 'string' || read.run_id.length === 0) return null
+  if (read.delivered_record === undefined || read.delivered_record === null) return null
+  return { runId: read.run_id, record: read.delivered_record }
 }
 
 /**
@@ -445,7 +472,9 @@ function parseOk(body: unknown): ScenarioGraphResult {
     limitVerdicts: b.analysis_limit_verdicts ?? null,
     goalCertainty: b.analysis_goal_certainty ?? null,
     optionParticipation: b.analysis_option_participation ?? null,
+    switchAnalysisReady: b.current_read && typeof b.current_read === 'object' ? (b.current_read as Record<string, unknown>).analysis_ready : null,
     runDelta: readCurrentReadRunDelta(b.current_read),
+    delivered: readCurrentReadDelivered(b.current_read),
     staleReasonWords: readHashEqualStaleReasonWords(b.current_read),
     admitted: readAdmitted(b.analysis_admission, b.graph_hash),
     permittedAnalysisMode: readPermittedAnalysisMode(b.analysis_admission, b.graph_hash),
@@ -453,6 +482,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     // Carried raw; the ONE reader is `readServerConversationTurns` (canvas/conversation/serverConversationTurns.ts).
     conversationTurns: b.conversation_turns,
     heldProposalOffers: b.held_proposal_offers,
+    proposalFields: b.proposal_fields,
     requestId,
   }
 }
@@ -498,6 +528,7 @@ export async function fetchScenarioGraph(
   opts: FetchScenarioGraphOptions = {},
 ): Promise<ScenarioGraphResult> {
   const retryDelayMs = opts.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS
+  const maxAttempts = opts.retry503 === false ? 1 : MAX_ATTEMPTS
 
   // ── IDENTITY: the TOKEN is the authority; the body is the legacy fallback ──
   //
@@ -536,7 +567,7 @@ export async function fetchScenarioGraph(
 
   const url = scenarioGraphUrl(scenarioId)
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     // One deadline per attempt, chained to any caller signal so an unmount
     // still cancels immediately.
     const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
@@ -579,7 +610,7 @@ export async function fetchScenarioGraph(
     }
 
     if (response.status === 503) {
-      if (attempt < MAX_ATTEMPTS) {
+      if (attempt < maxAttempts) {
         await sleep(retryDelayMs)
         continue
       }

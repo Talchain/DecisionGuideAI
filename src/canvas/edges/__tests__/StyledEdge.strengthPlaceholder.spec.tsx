@@ -22,6 +22,7 @@ import { render, fireEvent, act } from '@testing-library/react'
 import { Position } from '@xyflow/react'
 import fixture from '../../../../e2e/geometry/fixtures/mrr-17d1cd3a.fixture.json'
 import { StyledEdge } from '../StyledEdge'
+import { STRENGTH_NOT_SET_DASH } from '../edgePresentation'
 import { mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
 import { EDGE_STRENGTH_PLACEHOLDER_SENTENCE } from '../connectorCopy'
 import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH } from '../../utils/graphDisplayCalculations'
@@ -30,7 +31,7 @@ vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
   return {
     ...actual,
-    BaseEdge: ({ style }: any) => <path data-testid="base-edge" style={style} />,
+    BaseEdge: ({ id, style }: any) => <path data-testid="base-edge" data-edge-id={id} style={style} />,
     EdgeLabelRenderer: ({ children }: any) => <div>{children}</div>,
     getBezierPath: () => ['M0 0 L100 100', 50, 50],
     getSmoothStepPath: () => ['M0 0 L100 100', 50, 50],
@@ -93,14 +94,30 @@ const props = {
 
 const strokeWidthOf = (c: HTMLElement) =>
   Number.parseFloat((c.querySelector('[data-testid="base-edge"]') as unknown as HTMLElement).style.strokeWidth)
-const headOf = (c: HTMLElement) => Number(c.querySelector('marker')?.getAttribute('markerWidth'))
+const styleOf = (c: HTMLElement) => {
+  const path = c.querySelector<SVGElement>('path[data-testid="base-edge"][data-edge-id="e1"]')
+  expect(path).not.toBeNull()
+  return path!.style
+}
+const strokeAndDash = (data: Record<string, unknown>) => {
+  const { container, unmount } = render(<StyledEdge {...(props as any)} data={data} />)
+  const s = styleOf(container)
+  const result = { stroke: s.stroke, width: s.strokeWidth, dash: s.strokeDasharray, cap: s.strokeLinecap }
+  unmount()
+  return result
+}
+const headOf = (c: HTMLElement) => c.querySelector('marker')
 
 describe('POM-8 — the line: a placeholder draws at the not-set width', () => {
   it('Pro plan price → MRR (0.5 placeholder) draws at the NOT-SET width, not Strong', () => {
     const { container } = render(<StyledEdge {...(props as any)} data={PLACEHOLDER()} />)
     expect(strokeWidthOf(container)).toBe(UNSET_EDGE_STROKE_WIDTH)
-    // …and carries the smallest head (the 6px floor, Paul 1 Oct #2409), not a 4px line's.
-    expect(headOf(container)).toBe(6)
+    expect(styleOf(container).strokeDasharray).toBe(STRENGTH_NOT_SET_DASH)
+    expect(styleOf(container).strokeLinecap).toBe('round')
+    expect(styleOf(container).stroke).toBe('var(--edge-positive)')
+    expect(styleOf(container).vectorEffect).toBe('non-scaling-stroke')
+    // Paul, 7 Oct: the same placeholder link has no arrowhead; its not-set width remains.
+    expect(headOf(container)).toBeNull()
   })
 
   it('CONTRAST: the −0.4 estimate on the same board keeps the Strong width', () => {
@@ -111,6 +128,30 @@ describe('POM-8 — the line: a placeholder draws at the not-set width', () => {
   it('the same number set by a person is drawn at its band again (the flag retires itself)', () => {
     const { container } = render(<StyledEdge {...(props as any)} data={{ ...PLACEHOLDER(), weightSource: 'user' }} />)
     expect(strokeWidthOf(container)).toBe(EDGE_STROKE_WIDTH_BANDS.strong)
+  })
+})
+
+describe('connector strength state and existence invariance, bound to e1', () => {
+  it('CONTROL A: olumi_estimate at the SAME mean is band-width and solid', () => {
+    const w = WIRE.find(e => e.from === 'pro_plan_price' && e.to === 'mrr')!
+    const data = mapDraftEdgeToCanvas({ ...w, provenance: { ...(w.provenance as object), magnitude: 'olumi_estimate' } } as never, 0).data
+    expect(data.weight).toBe(PLACEHOLDER().weight)
+    expect(strokeAndDash(data)).toEqual({ stroke: 'var(--edge-positive)', width: '4', dash: '', cap: 'round' })
+  })
+  it('CONTROL B: a SET link at stated existence 0.5 keeps the 6,4 dash and its band width', () => {
+    expect(strokeAndDash({ ...PLACEHOLDER(), weightSource: 'user', beliefExists: 0.5, beliefExistsSource: 'user' }))
+      .toEqual({ stroke: 'var(--edge-positive)', width: '4', dash: '6,4', cap: 'butt' })
+  })
+  it('unset strength is provenance-gated, never guessed from its raw number', () => {
+    expect(strokeAndDash({ weight: 0.5, direction: 'positive', directionSource: 'cee', beliefExists: 1, beliefExistsSource: 'cee' }))
+      .toEqual({ stroke: 'var(--edge-neutral)', width: '1', dash: '0.1 4', cap: 'round' })
+  })
+  it.each([['placeholder', false], ['set', true]] as const)('%s link is identical at existence 0.8 and 1.0', (_label, set) => {
+    const data = { ...PLACEHOLDER(), ...(set ? { weightSource: 'user' } : {}), beliefExistsSource: 'cee' }
+    const at08 = strokeAndDash({ ...data, beliefExists: 0.8 })
+    const at10 = strokeAndDash({ ...data, beliefExists: 1.0 })
+    expect(at10).toEqual(at08)
+    expect(at08).toEqual({ stroke: 'var(--edge-positive)', width: set ? '4' : '1', dash: set ? '' : '0.1 4', cap: 'round' })
   })
 })
 

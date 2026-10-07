@@ -250,7 +250,7 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
 
     // No FIGURE in model runs. The empty state may name the quantity ("…the share of
     // model runs that reach this target"), so the bind is a number + "% of model runs".
-    expect(text).not.toMatch(/\d+(\.\d+)?% of model runs/)
+    expect(text).not.toMatch(/\d+(\.\d+)?% chance of meeting your goal/)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('1%', true))
     expect(text).not.toContain('1% chance')
   })
@@ -260,7 +260,7 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     const { container } = renderPanel()
     const text = container.textContent ?? ''
 
-    expect(text).not.toContain('Reaches the target in')
+    expect(text).not.toMatch(/\d% chance of meeting your goal/)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('1%', true))
   })
 
@@ -275,7 +275,7 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     expect(impact).not.toBeNull()
     const text = impact?.textContent ?? ''
 
-    expect(text).not.toContain('Reaches the target in')
+    expect(text).not.toMatch(/\d% chance of meeting your goal/)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('1%', true))
     // The panel's own honest-absence string for this block.
     expect(text).toContain(GOAL_STRINGS.impactUnavailable)
@@ -287,8 +287,8 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     const text = container.textContent ?? ''
 
     // AIQ #72 5885116642: both sites say the register sentence/readout — counted, so dropping either REDs.
-    expect(text).toContain('Reaches the target in 55% of model runs.')
-    expect(text.split('Reaches the target in 55% of model runs').length - 1).toBe(2)
+    expect(text).toContain('About 55% chance of meeting your goal.')
+    expect(text.split('About 55% chance of meeting your goal').length - 1).toBe(2)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('55%', true))
     // The joint line is a genuinely DIFFERENT quantity here, so it stays.
     // 29 Sep 2026 (AIQ 5882498938 → 5885033487): "All your limits hold in N% of model runs".
@@ -301,8 +301,8 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     const { container } = renderPanel()
     const text = container.textContent ?? ''
 
-    expect(text).toContain('Reaches the target in 30% of model runs')
-    expect(text).not.toContain('Reaches the target in 42% of model runs')
+    expect(text).toContain('About 30% chance of meeting your goal')
+    expect(text).not.toContain('About 42% chance of meeting your goal')
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('30%', true))
   })
 
@@ -320,7 +320,7 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     expect(impact).not.toBeNull()
     const impactText = impact?.textContent ?? ''
     expect(impactText).toContain(GOAL_STRINGS.impactUnavailable)
-    expect(impactText).not.toContain('Reaches the target in')
+    expect(impactText).not.toMatch(/\d% chance of meeting your goal/)
     expect(impactText).not.toContain('42%')
   })
 
@@ -354,7 +354,7 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     setStore(report)
     const { container } = renderPanel()
     const text = container.textContent ?? ''
-    expect(text).not.toContain('Reaches the target in')
+    expect(text).not.toMatch(/\d% chance of meeting your goal/)
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('1%', true))
   })
 })
@@ -421,7 +421,7 @@ describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283, real
     // …and the goal-fit claim it used to be duplicating is gone, so this is
     // one statement of one measurement, not two.
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('1%', true))
-    expect(text).not.toContain('Reaches the target in')
+    expect(text).not.toMatch(/\d% chance of meeting your goal/)
   })
 
   it('positive control: with constraints defined, a REAL probability_of_goal KEEPS the Constraints line', () => {
@@ -443,7 +443,7 @@ describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283, real
     setStoreWithConstraints(CONSTRAINED_NO_GOAL_REPORT)
     const withheld = renderPanel().container.textContent ?? ''
     expect(withheld.split(JOINT_LINE).length - 1).toBe(1)
-    expect(withheld).not.toContain('Reaches the target in')
+    expect(withheld).not.toMatch(/\d% chance of meeting your goal/)
   })
 
   // AIQ 5883088747 / PR Review #2291: the modelled-basis caveat MOVES WITH the joint number.

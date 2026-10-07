@@ -678,6 +678,7 @@ describe('GAP 34 — rail geometry and colours are the contract .icon-btn', () =
   })
 
   it('the hover quick actions rest in the same icon grey (one rail, one grey)', () => {
+    useGuidanceStore.setState({ _dispatchAction: () => {} } as never)
     useCanvasStore.setState({ nodes: [{ id: 'n1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Hiring spend' } }] } as never)
     render(<NodeQuickActions nodeId="n1" nodeType="factor" label="Hiring spend" coaching={null} />)
     const challenge = screen.getByTestId('node-action-challenge-n1')

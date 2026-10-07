@@ -347,8 +347,10 @@ function files(dir) {
 }
 
 const renderFiles = ROOTS.flatMap(r => files(r))
-// Helpers are scanned only when a render surface imports them — derived, never listed.
-const scanSet = [...renderFiles, ...oneHopHelpers(renderFiles)]
+// Helpers are derived from render-surface imports, with the bounded S4-UI exception below.
+// S4-UI: this rendered helper is outside the Canvas roots and their one-hop imports.
+const scanSet = [...renderFiles, ...oneHopHelpers(renderFiles),
+  'src/components/results/analysis-hero/goalOptionCoverage.tsx']
 const violations = scanSet.flatMap(scanFile)
 
 if (JSON_OUT) {

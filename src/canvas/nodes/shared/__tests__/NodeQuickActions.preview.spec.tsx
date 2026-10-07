@@ -32,7 +32,7 @@ describe('node preview and action tooltip priority', () => {
     useCanvasStore.setState({ nodes: [
       { ...option, id: 'other-option' }, option,
     ] } as never)
-    useGuidanceStore.setState({ _sendMessage: vi.fn(), _prefillChat: vi.fn() } as never)
+    useGuidanceStore.setState({ _sendMessage: vi.fn(), _prefillChat: vi.fn(), _dispatchAction: vi.fn(), _isConversationBusy: () => false } as never)
   })
   afterEach(() => { vi.useRealTimers() })
 

@@ -1,3 +1,6 @@
+import { routeOnceHeldIds } from './domain/routeOnceHeld'
+import { CanvasEditNote } from './nodes/EditNoteAnchor'
+import { EDIT_NOTE_LINK_EVENT } from './editNotes/EditNote'
 import { WhatElseChooserHost } from './components/WhatElseChooser'
 import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo } from 'react'
 import { resolveRestoredFreshnessUpdate } from './store/analysisFreshness'
@@ -70,6 +73,7 @@ import { KeyboardLegend, useKeyboardLegend } from './help/KeyboardLegend'
 import { useSettingsStore } from './settingsStore'
 import { CanvasErrorBoundary } from './ErrorBoundary'
 import { ToastProvider, useShowToast } from './ToastContext'
+import { useCanvasNoticeBridge } from './hooks/useCanvasNoticeBridge'
 // DiagnosticsOverlay removed - use ?diag=1 URL param if needed for debugging
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { useConfirmDialogStore } from './stores/confirmDialogStore'
@@ -1063,8 +1067,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       nodeLabelById,
       useEdgeLabelMode.getState().mode,
       (id) => nodeKindById.get(id),
+      routeOnceHeldIds(nodes, edges),
     )
-  }, [edges, memoizedNodes])
+  }, [edges, memoizedNodes, nodes])
 
   // Actions are stable references - don't need shallow comparison
   const createNodeId = useCanvasStore(s => s.createNodeId)
@@ -1086,9 +1091,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     const handleDockOpened = () => setShowFullInspector(false)
     const handleOpenInspector = () => setShowFullInspector(true)
     window.addEventListener('outputs-dock-opened', handleDockOpened)
+    const handleEditNoteLink = () => setShowFullInspector(false)
+    window.addEventListener(EDIT_NOTE_LINK_EVENT, handleEditNoteLink)
     window.addEventListener(OPEN_FULL_INSPECTOR_EVENT, handleOpenInspector)
     return () => {
       window.removeEventListener('outputs-dock-opened', handleDockOpened)
+      window.removeEventListener(EDIT_NOTE_LINK_EVENT, handleEditNoteLink)
       window.removeEventListener(OPEN_FULL_INSPECTOR_EVENT, handleOpenInspector)
     }
   }, [])
@@ -1318,15 +1326,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // Brief 37 Task 4: Use stable useShowToast to prevent re-renders on toast changes
   const showToast = useShowToast()
 
-  // Listen for toast events from TopBar (outside ToastProvider scope)
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { message, level } = (e as CustomEvent).detail ?? {}
-      if (message) showToast(message, level ?? 'info')
-    }
-    window.addEventListener('topbar:show-toast', handler)
-    return () => window.removeEventListener('topbar:show-toast', handler)
-  }, [showToast])
+  // Listen for toast events from TopBar (outside ToastProvider scope), and show any notice held while no canvas was
+  // mounted (the user had left the model before it was raised).
+  useCanvasNoticeBridge(showToast)
 
   const handleOpenCompare = useCallback(() => {
     // Check if we have runs to compare (need at least 2)
@@ -2903,6 +2905,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
                 renderer, so every card and edge paints over it. It still takes
                 the band's bottom-left slot; see `AnalysisStateCue.tsx`. */}
             <AnalysisStateCue />
+            <CanvasEditNote inspectorOpen={showFullInspector} />
           </ReactFlow>
         )}
       </div>
@@ -3049,7 +3052,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           <InfluenceExplainer forceShow={isInfluenceExplainerForced} onDismiss={hideInfluenceExplainer} compact />
         </div>
       )}
-      {/* ⭐ E4: a ghost door's "What else…?" chooser (it only prefills the ask). */}
+      {/* ⭐ E4: a ghost door's "What else…?" chooser (chips send questions; free text sends the person’s words). */}
       <WhatElseChooserHost />
       {/* S.1: Compact popover removed — single-click now opens full inspector directly */}
       {showFullInspector && (

@@ -184,6 +184,11 @@ function inputRowTextForFrame(row: RunDeltaInputRow, frame: RunDeltaFrame): stri
   return `${row.subject}: ${row.before}, now not set`
 }
 
+/** The row's sentence in a given frame: the words the Compare tab's row layout (`InputChangeRows`) reads out. */
+export function inputRowSentence(row: RunDeltaInputRow, frame: RunDeltaFrame = 'rerun'): string {
+  return inputRowTextForFrame(row, frame)
+}
+
 /**
  * The Compare tab's link from a row to the canvas (CANVAS, lease DL #75 5920620752 / UNDO grant 5920635710).
  * Returns the row's focus action, `null` when nothing on the current canvas stands for it, or `undefined` when the

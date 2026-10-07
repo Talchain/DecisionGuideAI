@@ -91,7 +91,7 @@ function setState(results: Record<string, unknown> = { status: 'idle', report: n
   state = {
     hoveredOptionId: null, setHoveredOption: vi.fn(),
     nodes: DRAFT.nodes.map(mapDraftNodeToCanvas),
-    edges: DRAFT.edges.map(mapDraftEdgeToCanvas),
+    edges: DRAFT.edges.map((e, i) => mapDraftEdgeToCanvas(e, i)),
     ceeAnalysisReady: DRAFT.analysis_ready,
     results,
     highlightedNodes: new Set(), dimmedNodeIds: new Set(),

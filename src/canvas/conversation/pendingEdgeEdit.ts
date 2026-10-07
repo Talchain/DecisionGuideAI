@@ -43,12 +43,18 @@
  * takes the cannot-confirm line, and stays off the side channel.
  */
 import { useCanvasStore } from '../store'
+import {
+  analysisReplacedSince,
+  restoreAnalysisCurrencyAfterRevert,
+  type AnalysisCurrencySnapshot,
+} from '../store/analysisCurrencySnapshot'
 import { saveAutosave } from '../store/scenarios'
 import { autosaveSourceFromStore, projectAutosaveData } from '../store/autosaveProjection'
 import { serverStatedStrengthOf } from './edgeServerStatedStrength'
 import type { SystemEventSendSettlement } from './settleSystemEventSend'
 
 export interface PendingEdgeEdit {
+  readonly currency?: AnalysisCurrencySnapshot
   readonly edgeId: string
   /** The magnitude sent (`|mean|`) — what the canvas shows while it is pending. */
   readonly sentMagnitude: number
@@ -204,6 +210,7 @@ export function markEdgeEditInFlight(
   before: Readonly<Record<string, unknown>> | undefined,
   sentDirection?: 'positive' | 'negative',
   identity?: PendingEdgeEditIdentity,
+  currency?: AnalysisCurrencySnapshot,
 ): void {
   if (!edgeId || !Number.isFinite(sentMagnitude)) return
   const key = entryKey(edgeId, kindOf(sentDirection))
@@ -221,6 +228,7 @@ export function markEdgeEditInFlight(
     edgeId,
     sentMagnitude,
     before: prior?.before ?? { ...(before ?? {}) },
+    currency: prior ? prior.currency : currency,
     ...(sentDirection !== undefined ? { sentDirection } : {}),
     // The identity travels with the `before` it describes: a newer edit keeps the original's.
     ...((prior ? prior.identity : identity) !== undefined ? { identity: prior ? prior.identity : identity } : {}),
@@ -391,6 +399,8 @@ function revertEdgeEdit(entry: PendingEdgeEdit): void {
   // Only while the canvas still shows the sent write — a person who has
   // moved on keeps what they see.
   if (!edge || !edgeShowsPendingWrite(edge, entry)) return
+  // updateEdge itself clears readiness, so remember a newer arrival BEFORE it.
+  const analysisReplaced = entry.currency ? analysisReplacedSince(entry.currency) : true
   // ⚠ A ROLLBACK, NOT A USER EDIT — the same framing the factor revert uses.
   store.beginExternalGraphMutation?.('envelope_apply')
   try {
@@ -404,6 +414,7 @@ function revertEdgeEdit(entry: PendingEdgeEdit): void {
   } finally {
     store.endExternalGraphMutation?.()
   }
+  if (entry.currency && !analysisReplaced) restoreAnalysisCurrencyAfterRevert(entry.currency)
   // The optimistic write is already in the autosave slot; an in-memory-only
   // revert would come back on the next reload (the factor revert's reasoning).
   try {

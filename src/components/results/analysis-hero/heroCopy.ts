@@ -352,7 +352,7 @@ export const HERO_COPY = {
     /** Grounded lines from existing adapted fields — never authored prose. */
     range: (low: string, high: string) => `Realistic range: ${low} to ${high}.`,
     goalFit: (readout: string) => GOAL_ANCHOR_COPY.sentence(readout, false),
-    goalFitWithLimits: (readout: string) => `Meets your goal and limits in ${readout} of model runs.`,
+    goalFitWithLimits: (readout: string) => `${GOAL_ANCHOR_COPY.readout(readout, false)} and limits, in this model.`,
     /**
      * Goal-probability IDENTITY: the voice for a row whose number is
      * `probability_of_joint_goal` STANDING IN for an absent
@@ -389,7 +389,7 @@ export const HERO_COPY = {
    */
   pills: {
     mainDriver: (factor: string) => `Main driver: ${factor}`,
-    topFlipRisk: (factor: string) => `Top flip risk: ${factor}`,
+    topFlipRisk: (factor: string) => `Tipping point: ${factor}`,
     combined: (factor: string) => `Main driver and top flip risk: ${factor}`,
     /**
      * ⛔ THE TIE VARIANTS STILL NAME THE FACTOR. "Main driver: X" is a

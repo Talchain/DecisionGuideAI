@@ -302,6 +302,16 @@ export const STRUCTURAL_RENAME_UNCONFIRMED_TOAST =
   STRUCTURAL_RENAME_UNCONFIRMED_REMEDY
 
 /**
+ * The same notice when no canvas was mounted to show it: the user LEFT the model before the turn answered (S5 witness,
+ * 7 Oct), so it is held and shown on whichever model opens next (`utils/heldCanvasNotices`). "It's on the canvas" is not
+ * true there, so it names the rename instead. Same remedy, so the state still has one exit.
+ */
+export function structuralRenameUnconfirmedHeldNotice(intent: Pick<StructuralRenameIntent, 'label' | 'expectedLabel'>): string {
+  return `Your rename of \u2018${intent.expectedLabel}\u2019 to \u2018${intent.label}\u2019 was interrupted when you left that model, so I can't tell you whether it saved. ` +
+    STRUCTURAL_RENAME_UNCONFIRMED_REMEDY
+}
+
+/**
  * Where one rename gesture has got to. THREE outcomes, never two, and
  * `unconfirmed` is a terminal state rather than a polite word for success.
  *
@@ -681,10 +691,11 @@ export type StructuralRenameReceipt =
  * the concurrent-rename case this whole event exists to catch — arrives as a
  * COMMITTED 200 (see the header). A UI keyed on `conflict_category` alone would
  * read it as a success and leave the user's label standing over a model that
- * holds someone else's. CEE's refusal path passes the PERSISTED graph through
- * `commitDirectAnswer(..., { contentGraph })`, so the graph that comes back on
- * that arm carries the OTHER label — which is a positive, readable refutation
- * rather than a silence.
+ * holds someone else's. CEE's `refuse()` returns no `draft_graph`
+ * (`src/orchestrator-v5/system-events/structural-rename.ts:239-257`). A missing
+ * graph remains unproven HERE; the conversation resolver reads the persisted
+ * graph once before settling that reply. An inline graph at another label is
+ * still a positive refutation through this receipt path.
  *
  * BOUND BY IDENTITY: this intent's exact node id. Another node having taken this
  * label is not evidence about ours, and a label predicate is precisely the shape
@@ -710,6 +721,38 @@ export function readStructuralRenameReceipt(
   if (typeof match.label !== 'string') return 'unproven'
 
   return match.label === intent.label ? 'proven' : 'refuted'
+}
+
+/** A persisted graph read is evidence about this node, never an inline turn receipt. */
+export type StructuralRenameReadback =
+  | { readonly kind: 'label'; readonly label: string }
+  | { readonly kind: 'absent' }
+  | { readonly kind: 'unreadable' }
+
+export function readRenameReadback(nodeId: string, graph: unknown): StructuralRenameReadback {
+  const nodes = (graph as { nodes?: unknown } | null | undefined)?.nodes
+  if (!Array.isArray(nodes)) return { kind: 'unreadable' }
+  const node = nodes.find(n => (n as { id?: unknown } | null)?.id === nodeId) as
+    | { label?: unknown }
+    | undefined
+  if (node === undefined) return { kind: 'absent' }
+  return typeof node.label === 'string'
+    ? { kind: 'label', label: node.label }
+    : { kind: 'unreadable' }
+}
+
+/** No graph in a 200 does not prove refusal: registration may already have saved the new name. */
+export function settleNotAppliedRename(
+  intent: StructuralRenameIntent,
+  readback: StructuralRenameReadback,
+):
+  | { readonly status: 'committed' }
+  | { readonly status: 'refused'; readonly canvasLabel: string }
+  | { readonly status: 'unconfirmed' } {
+  if (readback.kind !== 'label') return { status: 'unconfirmed' }
+  return readback.label === intent.label
+    ? { status: 'committed' }
+    : { status: 'refused', canvasLabel: readback.label }
 }
 
 /**

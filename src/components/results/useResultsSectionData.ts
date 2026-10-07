@@ -1,3 +1,4 @@
+import { useSwitchFactorNodes } from '../../canvas/hooks/useSwitchFactorNodes'
 /**
  * useResultsSectionData Hook
  *
@@ -121,8 +122,9 @@ import { isStrengthPlaceholder } from '../../canvas/domain/strengthPlaceholder'
 import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisParticipation'
 import { goalLabelOf } from './analysisNew/analysisNewCopy'
 import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
-import { readGoalChanceLicence, type GoalChanceLicence } from './utils/goalChanceLicence'
+import { readGoalChanceLicence, type GoalChanceDriverNames, type GoalChanceLicence } from './utils/goalChanceLicence'
 import { readGoalChanceInvite, type GoalChanceInvite } from './goal-chance-invite/readGoalChanceInvite'
+import { readGoalChanceRange, type GoalChanceRange } from './utils/goalChanceRange'
 
 // =============================================================================
 // Winner Selection Helper
@@ -1353,14 +1355,21 @@ export interface ResultsSectionDataReturn {
    */
   goalChanceLicence?: GoalChanceLicence | null
   /**
+   * ⭐ G4/G5 phase 2, P3: how the hero names what an option's goal chance rests on most (CEE's `driver_by_option` on the
+   * licence): a node's canvas label and a factor's unit. The hero words the sentence. OPTIONAL: absent = nothing is said.
+   */
+  goalChanceDriverNames?: GoalChanceDriverNames
+  /**
    * ⭐ D3 step 2: the invitation CEE wrote on its own goal-chance withhold (`invite`, read by identity in
    * `goal-chance-invite/readGoalChanceInvite`). OPTIONAL: absent or `null` = no invitation.
    */
   goalChanceInvite?: GoalChanceInvite | null
+  /** CEE's per-option range records, in model order; absent means no range lines. */
+  goalChanceRange?: GoalChanceRange | null
 }
 
 /** What the option card prints for each target this option sets (its own map; the card's formatter). */
-function optionSetReadings(
+export function optionSetReadings(
   optionData: Record<string, unknown> | undefined,
   nodes: ReadonlyArray<{ id: string; type?: string; data?: unknown }>,
 ): string[] {
@@ -1473,6 +1482,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     }))
   )
 
+  const displayNodes = useSwitchFactorNodes(nodes)
   const autoNoiseProvenance = useMemo(
     () => normalizeAutoNoiseProvenance(rawAutoNoiseProvenance),
     [rawAutoNoiseProvenance],
@@ -1492,6 +1502,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   )
   const goalChanceInvite = useMemo(
     () => readGoalChanceInvite((report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings),
+    [report],
+  )
+  const goalChanceRange = useMemo(
+    () => readGoalChanceRange((report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings),
     [report],
   )
   const resultsStatus = results?.status
@@ -1793,6 +1807,18 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     })
     return map
   }, [nodes])
+
+  // ⭐ P3: the canvas labels and units live here; the hero words the driver sentence with them.
+  const goalChanceDriverNames = useMemo<GoalChanceDriverNames>(
+    () => ({
+      labelOf: (nodeId) => nodeLabelMap.get(nodeId) ?? null,
+      unitOf: (nodeId) => {
+        const nodeData = nodeById.get(nodeId)?.data as ResultsCanvasNodeData | undefined
+        return nodeData?.observedState?.unit ?? nodeData?.observed_state?.unit ?? null
+      },
+    }),
+    [nodeLabelMap, nodeById],
+  )
 
   // The reason line beside every withheld share. `goal_path_unsized` names its link from this Run's typed warning and
   // the canvas labels (`winShareGate`); every other cause reads the copy map.
@@ -2303,7 +2329,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       return {
         id: nodeId,
         label: runIsCurrent
-          ? optionLabelWithSetLevel(labelAsWritten, optionSetReadings(node.data as Record<string, unknown> | undefined, nodes))
+          ? optionLabelWithSetLevel(labelAsWritten, optionSetReadings(node.data as Record<string, unknown> | undefined, displayNodes))
           : labelAsWritten,
         labelAsWritten,
         // Explicit expected value (mean) — primary value for "Expected" display
@@ -2989,7 +3015,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // (Measured: at pristine this memo's exhaustive-deps warning named only
     // `reviewStatus`; without this entry the lane would have added `edges` to
     // it.)
-  }, [runIsCurrent, hasCompletedFirstRun, report, nodes, edges, goalNode, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, evidenceAssessment, nodeLabelMap, goalThreshold, goalThresholdCap, capIsTargetDerivedHeadroom, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
+  }, [displayNodes, runIsCurrent, hasCompletedFirstRun, report, nodes, edges, goalNode, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, evidenceAssessment, nodeLabelMap, goalThreshold, goalThresholdCap, capIsTargetDerivedHeadroom, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
@@ -4535,6 +4561,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         if (relevant.length === 0) return undefined
         return relevant.map((w: any) => {
           const nodeIds: string[] = safeArray(w.affected_nodes ?? w.affectedNodes)
+          const perOption: Record<string, { message: string }> = Object.create(null)
+          const hasPerOptionMap = w.per_option !== null && typeof w.per_option === 'object'
+            && (Object.getPrototypeOf(w.per_option) === Object.prototype || Object.getPrototypeOf(w.per_option) === null)
+          if (hasPerOptionMap) {
+            for (const [id, entry] of Object.entries(w.per_option)) {
+              if (id === '__proto__' || id === 'constructor' || id === 'prototype') continue
+              if (entry !== null && typeof entry === 'object' && typeof (entry as { message?: unknown }).message === 'string') {
+                perOption[id] = { message: (entry as { message: string }).message }
+              }
+            }
+          }
           return {
             code: String(w.code ?? ''),
             // ⚠ CARRIED, BECAUSE FOR THE DEFAULTING FAMILY IT IS THE ONLY IDENTITY
@@ -4550,6 +4587,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             // deployed Strengthen panel reading "No findings need attention right now" on a served `goal_path_unsized` withhold;
             // `unsizedPathAskOf` validates it by kind and names it from the canvas.
             ...(w.first_ask !== null && typeof w.first_ask === 'object' && !Array.isArray(w.first_ask) ? { first_ask: w.first_ask as Record<string, unknown> } : {}),
+            ...(hasPerOptionMap ? { per_option: perOption } : {}),
+            ...(Object.prototype.hasOwnProperty.call(w, 'option_ids') ? { option_ids: w.option_ids } : {}),
             affected_labels: nodeIds.map(id => nodeLabelMap.get(id) ?? id),
             message: w.message ? String(w.message) : undefined,
             // Roadmap 1.12: producer severity carried verbatim (never
@@ -4834,7 +4873,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       winSharesWithheld: winSharesAreWithheld,
       winShareWithheldReason: winShareReasonLine,
       goalChanceLicence,
+      goalChanceDriverNames,
       goalChanceInvite,
+      goalChanceRange,
     }),
     [
       recommendation,
@@ -4856,7 +4897,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       winSharesAreWithheld,
       winShareReasonLine,
       goalChanceLicence,
+      goalChanceDriverNames,
       goalChanceInvite,
+      goalChanceRange,
     ],
   )
 }

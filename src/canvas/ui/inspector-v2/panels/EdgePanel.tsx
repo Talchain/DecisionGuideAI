@@ -5,6 +5,7 @@
  * Master pattern for all other panel redesigns.
  */
 
+import { useRouteOnceHeld } from '../../../hooks/useRouteOnceHeld'
 import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { Activity } from 'lucide-react'
 import { FRAGILE_CUE_SENTENCE } from '../../../edges/connectorCopy'
@@ -310,6 +311,9 @@ export const EdgePanel = memo(function EdgePanel({
     () => isStrengthDefinitional(edge?.data as Record<string, unknown> | undefined),
     [edge?.data],
   )
+  // S-DEF: CEE holds this link at 1.0 because it is a validated definition (stamped with the hold at ingestion,
+  // `existenceHeldPatch`). A flagged link held only by the user's range keeps the range note (Codex r1 #2602 P1).
+  const existenceHeldByDefinition = edge?.data?.existenceHeld === true && edge?.data?.existenceHeldByDefinition === true
   // Gate 5: Olumi's strength the user ACCEPTED — the one predicate the canvas line and hover read (`domain/strengthAccepted`).
   const strengthIsAccepted = useMemo(
     () => isStrengthAccepted(edge?.data as Record<string, unknown> | undefined),
@@ -530,10 +534,11 @@ export const EdgePanel = memo(function EdgePanel({
   // Every display channel resolves the current store edge, including receipt
   // overlays and cold rereads. Slider drafts already enter that store through
   // the existing writer; panel state must not replace its value or provenance.
+  const routeOnceHeld = useRouteOnceHeld(edgeId ?? '')
   const existenceDisplay = useMemo(
     () =>
-      resolveEdgeValueDisplay(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
-    [edge?.data],
+      resolveEdgeValueDisplay(edge?.data as Record<string, unknown> | undefined, 'beliefExists', { routeOnceHeld }),
+    [edge?.data, routeOnceHeld],
   )
   const existenceBand: EdgeValueBand = useMemo(
     () => edgeValueBand(existenceDisplay),
@@ -943,7 +948,7 @@ export const EdgePanel = memo(function EdgePanel({
         <>
           {/* ── v3.1 row 12: what the line says, from the stroke's own
               resolvers — the detail the one-line hover no longer carries. ── */}
-          <EdgeRelationshipSummary data={edge.data as Record<string, unknown> | undefined} />
+          <EdgeRelationshipSummary edgeId={edgeId} data={edge.data as Record<string, unknown> | undefined} />
 
           {/* ── Context group ─────────────────────────────────── */}
           {isFragile && isResultsMode && (
@@ -1343,7 +1348,7 @@ export const EdgePanel = memo(function EdgePanel({
                       and offering the re-run is the honest thing. Staleness is
                       a fact about the graph on screen; it does not wait on the
                       server's answer. */}
-                  <InlineRerunPrompt
+                  <InlineRerunPrompt elementId={edgeId}
                     visible={isStaleAfterEdit && !strengthEditDidNotLand}
                   />
                 </div>
@@ -1447,6 +1452,13 @@ export const EdgePanel = memo(function EdgePanel({
               <p className={`${typography.panelBody} text-text-body mb-1`} title={EDGE_COPY.existenceTooltip}>
                 {INLINE_LABELS.existenceQuestion}
               </p>
+              {/* S-DEF (Science 393023): a link CEE holds BY DEFINITION has no likelihood to show. No slider, no
+                  "Very likely to exist" readout: one sentence, the same fact the coaching line states. */}
+              {existenceHeldByDefinition ? (
+                <p data-testid="edge-existence-held-by-definition" className={`${typography.panelMeta} text-text-light`}>
+                  {EDGE_COPY.existenceHeldByDefinitionNote}
+                </p>
+              ) : (<>
               <div className="flex justify-between mb-1">
                 <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderMinUnlikely}</span>
                 <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderMaxVeryLikely}</span>
@@ -1454,7 +1466,7 @@ export const EdgePanel = memo(function EdgePanel({
               <div className="flex items-center gap-2">
                 <div className="flex-1">
                   <InspectorSlider
-                    value={edge?.data?.existenceHeld === true ? 1 : beliefExists}
+                    value={existenceDisplay.show && (edge?.data?.existenceHeld === true || routeOnceHeld) ? existenceDisplay.value : beliefExists}
                     min={0}
                     max={1}
                     step={0.05}
@@ -1468,16 +1480,17 @@ export const EdgePanel = memo(function EdgePanel({
                   {existenceDisplay.show ? <ScienceQuantity kind="probability" value={existenceDisplay.value} /> : METRIC_UNSET.standalone}
                 </span>
               </div>
-              {edge?.data?.existenceHeld === true && (
+              {(edge?.data?.existenceHeld === true || routeOnceHeld) && (
                 <p data-testid="edge-existence-held-note" className={`${typography.panelMeta} text-text-light mt-1`}>
-                  {EDGE_COPY.existenceHeldNote}
+                  {edge?.data?.existenceHeld === true ? EDGE_COPY.existenceHeldNote : EDGE_COPY.existenceCountedOnceNote}
                 </p>
               )}
               {/* The same fabricated figure in a third channel. Gated on the
                   same union so techMode cannot reveal what the panel withholds. */}
               {existenceDisplay.show && (
-                <ExpertAnnotation techMode={techMode} editable value={beliefExists} onChange={handleBeliefChange} suffix="P(exists) =" step={0.01} min={0} max={1} />
+                <ExpertAnnotation techMode={techMode} editable value={edge?.data?.existenceHeld === true || routeOnceHeld ? existenceDisplay.value : beliefExists} onChange={handleBeliefChange} suffix="P(exists) =" step={0.01} min={0} max={1} />
               )}
+              </>)}
             </div>
 
             {/* ⛔ THE LABEL-MODE TOGGLE USED TO SIT HERE AND WAS INERT.

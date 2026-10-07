@@ -452,12 +452,12 @@ describe('StressTestSection fragile factors — STRING 4: the expert E-value not
 
   it('WITHHELD DATA PRESERVED: the E-value number itself still renders', () => {
     const { container } = renderCard(true)
-    expect(container.textContent ?? '').toContain('E-value 2.0')
+    expect(container.textContent ?? '').toContain('Change margin 2.0')
   })
 
   it('PERMITTED: the note is byte-identical to today', () => {
     expect(fragileEValueNote({ eValue: 2.0, designationsWithheld: false, flipEvidenceAttestsNoFlip: false }))
-      .toBe('E-value 2.0: assumptions would only need to be 2.0x wrong to change which option is most likely to hit your goal.')
+      .toBe('Change margin 2.0: assumptions would only need to be 2.0x wrong to change which option is most likely to hit your goal.')
   })
 })
 

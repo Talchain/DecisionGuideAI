@@ -16,6 +16,7 @@
  * down by the dock; it decides nothing of its own.
  */
 import { useMemo } from 'react'
+import { ArrowLeftRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import type { InputRowFocus, InputRowLight } from '../../components/results/analysisNew/sections/WhatsChanged'
 import { nodeLabelMap, useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
@@ -32,6 +33,7 @@ import { selectRunAffirmedCurrent } from '../state/analysisStateSelector'
 import { selectWinSharesWithheld, selectWinShareWithheldReason } from '../state/winShareGate'
 import { buildRunChangeArtefact } from './runChangeArtefact'
 import { ComparePairSections } from './ComparePairSections'
+import { withheldReasonSegments } from './withheldReasonSegments'
 import type { OptionCanvasLink } from './CompareSupportFigures'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
 
@@ -43,11 +45,27 @@ export const COMPARE_RUN_PAIR_TESTID = 'compare-run-pair'
 const COMPARE_MEASURE = 'px-4 pt-2 pb-4 space-y-4 max-w-[440px] mx-auto'
 
 /** An empty Compare body: a plain left-aligned title and sentence, as Reasoning words its own empty and pre-run states. */
-function CompareNotice({ title, body, ...data }: { title: string; body: string } & Record<`data-${string}`, string | undefined>): JSX.Element {
+/**
+ * The Compare body when there is no pair to draw (v3 artefact): `empty` (nothing compared yet) is the centred empty
+ * state, its glyph the tab's own two-way arrow; `notice` (a Run is on record but its result is not held here) is the
+ * artefact's state notice, a warning rule beside its heading. Same words as before; only the presentation is v3's.
+ */
+function CompareNotice({ title, body, variant = 'empty', ...data }: { title: string; body: string; variant?: 'empty' | 'notice' } & Record<`data-${string}`, string | undefined>): JSX.Element {
+  if (variant === 'notice') {
+    return (
+      <div className={COMPARE_MEASURE} {...data} data-variant="notice">
+        <div className="border-l-2 border-warning pl-3">
+          <p className={`${typography.panelHeader} text-text-header m-0`}>{title}</p>
+          <p className={`${typography.panelBody} text-text-light mt-1 mb-0`}>{body}</p>
+        </div>
+      </div>
+    )
+  }
   return (
-    <div className={COMPARE_MEASURE} {...data}>
+    <div className={`${COMPARE_MEASURE} flex flex-col items-center text-center !pt-16`} {...data} data-variant="empty">
+      <ArrowLeftRight className="w-8 h-8 text-text-light mb-4" aria-hidden="true" />
       <p className={`${typography.panelHeader} text-text-header m-0`}>{title}</p>
-      <p className={`${typography.panelBody} text-text-body mt-1 mb-0`}>{body}</p>
+      <p className={`${typography.panelBody} text-text-light mt-2 mb-0 max-w-[272px]`}>{body}</p>
     </div>
   )
 }
@@ -89,6 +107,13 @@ export function CompareRunPairBody({
   // Current-run tie words come from the existing producer-verdict reader, not the delta noise tag.
   const nearTie = useCanvasStore(s => s.results?.hash === responseHash && deriveDecisionVerdict(s.results?.report).separation === 'tied')
   const withheldReason = useCanvasStore(selectWinShareWithheldReason)
+  // The links that reason names, each pressable to its own inspector (DL 7 Oct): the same warning and node labels the
+  // selector read, so the phrases match its sentence exactly.
+  const inferenceWarnings = useCanvasStore(s => (s.results?.report as { inference_warnings?: unknown } | null | undefined)?.inference_warnings)
+  const withheldSegments = useMemo(() => withheldReason === null ? null : withheldReasonSegments(withheldReason, inferenceWarnings, (id) => {
+    const data = nodes.find(n => n.id === id)?.data as { label?: unknown } | undefined
+    return typeof data?.label === 'string' ? data.label : null
+  }), [withheldReason, inferenceWarnings, nodes])
   const runIsCurrent = useCanvasStore(selectRunAffirmedCurrent)
   // A run in flight keeps the previous pair on screen; Ask waits for the new pair (the one Olumi's tools will read).
   const analysing = useCanvasStore(s => s.results?.status === 'preparing' || s.results?.status === 'connecting' || s.results?.status === 'streaming')
@@ -114,7 +139,7 @@ export function CompareRunPairBody({
     const copy = runOnRecordWithoutResult === 'stale' && staleWords !== null
       ? compareOutOfDateCopy(staleWords) : COMPARE_RUN_ON_RECORD_COPY[runOnRecordWithoutResult]
     return (
-      <CompareNotice title={copy.title} body={copy.body}
+      <CompareNotice variant="notice" title={copy.title} body={copy.body}
         data-testid={`${COMPARE_RUN_PAIR_TESTID}-run-on-record`} data-run-on-record={runOnRecordWithoutResult} />
     )
   }
@@ -146,7 +171,7 @@ export function CompareRunPairBody({
   return (
     <div className={COMPARE_MEASURE} data-testid={COMPARE_RUN_PAIR_TESTID} aria-busy={analysing || undefined}>
       <ComparePairSections view={view} delta={delta!} artefact={artefact} label={id => labels.get(id) ?? null}
-        nearTie={nearTie} resultsAllowed={runIsCurrent && !winSharesWithheld} withheldReason={withheldReason} rowFocus={rowFocus} rowLight={rowLight}
+        nearTie={nearTie} resultsAllowed={runIsCurrent && !winSharesWithheld} withheldReason={withheldReason} withheldSegments={withheldSegments} rowFocus={rowFocus} rowLight={rowLight}
         runIsCurrent={runIsCurrent} analysing={analysing} designationsWithheld={designationsWithheld} optionLink={optionLink} />
     </div>
   )

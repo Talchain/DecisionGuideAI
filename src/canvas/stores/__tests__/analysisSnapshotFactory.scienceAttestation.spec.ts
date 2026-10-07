@@ -61,13 +61,18 @@
  *     won'".
  * Both quotations are from the vendored 0.48.0
  * `dist/boundary/enrichment.js`, read at the bytes, not from a doc page.
+ *
+ * ⚠ NARROWED 2026-10-07 — THE COMPARE CONSUMER WAS DELETED, NOT EXCUSED. The two `deriveTransitions`
+ * sentence cases are gone with it; the withheld-identity row case stays.
+ * The pre-v3 Compare body (`CompareTabBody` and everything only it reached) was
+ * deleted with zero production importers; the live tab (`CompareRunPairBody`)
+ * reads CEE's `run_delta`, not these snapshots. The factory assertions stand.
  */
 
 import { describe, it, expect } from 'vitest'
 import type { Node, Edge } from '@xyflow/react'
 
 import { buildAnalysisSnapshot } from '../analysisSnapshotFactory'
-import { deriveTransitions } from '../../compare-tab/deriveTransitions'
 import type { V2RunResponse } from '../../../adapters/plot/v2/types'
 import type { ReportV1 } from '../../../adapters/plot/types'
 
@@ -370,35 +375,5 @@ describe('D7 — a WITHHELD identity keeps the science and declines to name the 
     expect(s.conditionalWinners[0].winnerId).toBeNull()
     expect(s.conditionalWinners[0].lowWinnerId).toBeNull()
     expect(s.conditionalWinners[0].condition).toContain('Customer demand')
-  })
-
-  it('the transition sentence never interpolates an empty option name', () => {
-    const raw = clone(PROBE_A)
-    for (const b of ['low_bucket', 'high_bucket']) {
-      const bucket = (raw.conditional_winners as Array<Record<string, unknown>>)[0][b] as Record<string, unknown>
-      delete bucket.winner_id
-      delete bucket.winner_label
-    }
-    // Two runs so a transition exists; the factor must be "affected", which a
-    // factor absent from run 1's top list always is.
-    const first = snapshotOf({ ...clone(PROBE_A), factor_sensitivity: [] }, 1)
-    const second = snapshotOf(raw, 2)
-    const transitions = deriveTransitions([first, second])
-    const line = transitions[0]?.conditionalWinner ?? ''
-    // ⚠ RE-BOUND 7 Sep 2026. This pinned the pre-#1173 output `", takes
-    // over"`. The sentence no longer says "takes over" at ALL (Paul's
-    // no-contest ruling), so the old pattern would pass by testing nothing —
-    // it must name the CURRENT handover phrasing to stay a real assertion.
-    expect(line).not.toMatch(/support moves to\s*$/)
-    expect(line).not.toContain('undefined')
-    if (line !== '') expect(line).toContain('this run does not say which') // PTL item 7: never 'withheld'
-  })
-
-  it('a NAMED attested flip still produces the full takeover sentence', () => {
-    // Opposite-direction twin of the test above, on the unmodified capture.
-    const first = snapshotOf({ ...clone(PROBE_A), factor_sensitivity: [] }, 1)
-    const second = snapshotOf(clone(PROBE_A), 2)
-    const line = deriveTransitions([first, second])[0]?.conditionalWinner ?? ''
-    expect(line).toContain('support moves to Build capacity instead')
   })
 })

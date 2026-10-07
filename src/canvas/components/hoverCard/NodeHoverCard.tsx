@@ -1,3 +1,4 @@
+import { useSwitchFactorNodes } from '../../hooks/useSwitchFactorNodes'
 /**
  * NodeHoverCard — the card hover pop-up (Paul, 29 Sep 2026: "bring both pop-ups
  * back … more valuable … more aligned with the new graph design system").
@@ -174,7 +175,9 @@ function Row({ label, testId, children }: { label: string; testId: string; child
 function OpenNodeHoverCard({ nodeId, nodeType, data, anchorRef }: NodeHoverCardProps) {
   const nodes = useCanvasStore(s => (s.nodes as GraphNode[] | undefined) ?? EMPTY)
   const edges = useCanvasStore(s => (s.edges as GraphEdge[] | undefined) ?? EMPTY)
-  const facts = useMemo(() => nodeHoverFacts(nodeId, nodeType, data, nodes, edges), [nodeId, nodeType, data, nodes, edges])
+  const displayNodes = useSwitchFactorNodes<GraphNode>(nodes)
+  const displayData = displayNodes.find(n => n.id === nodeId)?.data ?? data
+  const facts = useMemo(() => nodeHoverFacts(nodeId, nodeType, displayData, displayNodes, edges), [nodeId, nodeType, displayData, displayNodes, edges])
   const cardRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<HoverCardPlacement | null>(null)
 

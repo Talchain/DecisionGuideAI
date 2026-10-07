@@ -328,7 +328,7 @@ export function AnalysisHeroPanel({
   // Honest unavailable-lens body: why it is empty + what unlocks it. The
   // goal lens distinguishes the user-actionable no-target case from a
   // producer gap.
-  const unavailableBody = !lensAvailable
+  const unavailableBody = !lensAvailable && !suppressGoalWithholdingBox(model, lens)
     ? lens === 'goal'
       ? model.showGoalHint
         ? HERO_COPY.lensUnavailable.goalNoTarget
@@ -491,7 +491,7 @@ export function AnalysisHeroPanel({
                 )}
               </span>
             </p>
-          ) : (
+          ) : !lensAvailable ? null : (
             <>
               {/* Axis labels (decorative; values live in the row readouts).
                   Shares the row grid template and the track's column span so
@@ -887,3 +887,5 @@ export function AnalysisHeroPanel({
 }
 
 export default AnalysisHeroPanel
+
+import { suppressGoalWithholdingBox } from './goalOptionCoverage'

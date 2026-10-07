@@ -143,6 +143,8 @@ import { useScenario } from '../../hooks/useScenario'
 import { focusExistingTarget, focusModelTarget } from '../utils/focusHelpers'
 import { ModelTabBody } from './ModelTabBody'
 import { ReanalyseBar } from './model-tab/ReanalyseBar'
+import { shellRerunControl, useReanalyseBarInputs } from './workspaceShell/rerunControl'
+import { useHeldHeightWhile } from '../conversation/hooks/useHeldHeightWhile'
 import { AnalysisReadinessBar } from './workspaceShell/AnalysisReadinessBar'
 import {
   deriveReadinessCheck,
@@ -807,6 +809,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   )
 
   const isPreRun = !hasCompletedFirstRun
+  // ⭐ ONE RERUN CONTROL (`workspaceShell/rerunControl.ts`): after the first Run, the footer's Re-analyse when the
+  // model changed, otherwise the composer icon. Read once here for the composer; the bar reads the same predicate.
+  const rerunInputs = useReanalyseBarInputs()
+  const shellRerun = shellRerunControl(rerunInputs)
   // Reasoning's pre-run status names a Run on record instead of "No analysis has run yet" (DL #75 5922639119).
   const runOnRecordWithoutResult = selectRunOnRecordWithoutResult({ isPreRun, savedRunUnconfirmed, runStateKind: runStateKindForStatus })
   // Empty state: hide panel when canvas has no nodes (FF off).
@@ -961,6 +967,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // isThinking=false without a preceding true, so a page load never trips it,
   // and a background/system failure (which adds no user bubble) surfaces nothing.
   const conversationIsThinking = conversationCtxForFirstUse?.isThinking ?? false
+  // ⭐ THE FOOTER KEEPS ITS SPACE WHILE A TURN IS IN FLIGHT (S-F): a bar collapsing mid-turn moved a bottom reader's
+  // dialogue. Its wording is never held — only the space, released when the turn settles (`useHeldHeightWhile`).
+  const heldFooter = useHeldHeightWhile(conversationIsThinking)
   const prevConversationThinkingRef = useRef(conversationIsThinking)
   const conversationMessagesRef = useRef(conversationCtxForFirstUse?.messages)
   conversationMessagesRef.current = conversationCtxForFirstUse?.messages
@@ -4288,7 +4297,12 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             would make it vanish entirely on rollback. The bar renders its own
             null when the analysis is not stale. */}
         {effectiveIsOpen && surfaceFor(effectiveActiveTab).footerBar !== 'none' && !isViewer ? (
-          <div className="flex-shrink-0" data-testid="shell-surface-footer-bar">
+          <div
+            ref={heldFooter.ref}
+            style={heldFooter.style}
+            className="flex-shrink-0"
+            data-testid="shell-surface-footer-bar"
+          >
             {/* ⭐ ONE OWNER, TWO BARS. The gate reads the SURFACE DESCRIPTOR's
                 `footerBar` and switches on its value; it does not test a tab id
                 and it does not grow a second, parallel condition beside the
@@ -4355,7 +4369,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                   }
                   return (
                     <AnalysisReadinessBar
-                      preRunWithModel={isPreRun && nodes.length > 0}
+                      preRunWithModel={rerunInputs.preRunWithModel}
                       canRun={canRunAnalysis}
                       blockedReason={runBlockedTooltip}
                       /* The SAME pair `PreAnalysisPanelV3` receives above, from
@@ -4423,7 +4437,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                  `StaleAnalysisBadge`, whose rerun bypassed the canonical
                  runner, is the counter-example this avoids. */
               analysisAction={
-                nodes.length > 0 && !isPreRun
+                /* ⚠ AND NOT BESIDE THE BAR (Paul, 7 Oct: one rerun control). While the footer's ReanalyseBar shows
+                   "Model changed… [Re-analyse]", that button is the rerun; this icon returns when the bar leaves. */
+                nodes.length > 0 && !isPreRun && shellRerun === 'composer'
                   ? {
                       onRun: handleRunAnalysis,
                       canRun: canRunAnalysis,

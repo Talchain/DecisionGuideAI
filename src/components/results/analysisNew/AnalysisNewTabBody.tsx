@@ -97,12 +97,14 @@ import type { WhatIWasGivenSectionHandle } from '../contextIntegrity/WhatIWasGiv
 import { useWhatIWasGivenWillRender } from '../contextIntegrity/WhatIWasGivenSection'
 import { ModelStrip } from './sections/ModelStrip'
 import { WhatsChangedReceipt } from './sections/WhatsChangedReceipt'
-import { AtAGlance } from './sections/AtAGlance'
+import { AtAGlance, ribbonOffersRerun } from './sections/AtAGlance'
 import { ModelHeldUp } from './sections/ModelHeldUp'
 import { RobustnessCaveat } from './sections/RobustnessCaveat'
 import { BiasGrounding } from './sections/BiasGrounding'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { SectionShell } from './sections/SectionShell'
+import { DecisionMatrix } from './sections/DecisionMatrix'
+import { PreMortemWorksheet } from './sections/PreMortemWorksheet'
 import { MethodStrip } from './sections/MethodStrip'
 import { ReasoningAskBox } from './sections/ReasoningAskBox'
 import { CommitmentSummary, PreRunCommitment } from './sections/CommitmentSummary'
@@ -113,7 +115,9 @@ import { AboutThisAnalysis } from './sections/AboutThisAnalysis'
 import { ModelReviewTool } from './sections/ModelReviewTool'
 import { disagreeWithRecommendationPayload } from './buildReviewQueue'
 import { runMethod } from './runMethod'
+import { ACTION_REGISTRY } from '../../../canvas/conversation/actionRegistry'
 import { METHOD_CATALOGUE } from '../decision-overview/actionsCatalogue'
+import { shellRerunControl, useReanalyseBarInputs } from '../../../canvas/components/workspaceShell/rerunControl'
 import { methodIdsRaisedBy } from './recommendationMethod'
 import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
@@ -690,6 +694,12 @@ export function AnalysisNewTabBody({
 }: AnalysisNewTabBodyProps) {
   const runAffirmedCurrent = useCanvasStore(selectRunAffirmedCurrent)
   const winSharesWithheld = useCanvasStore(selectWinSharesWithheld)
+  const matrixFinishedAt = useCanvasStore((s) => s.results?.finishedAt)
+  const matrixRunId = useCanvasStore((s) => s.results?.runId)
+  const matrixFreshness = useCanvasStore((s) => s.analysisFreshness)
+  // ⭐ ONE RERUN CONTROL (`workspaceShell/rerunControl.ts`): while this surface's footer shows the Re-analyse bar,
+  // that is the rerun; the ribbon's Re-run and the ⋯ menu's "Rerun analysis" stand aside (witness 7 Oct: three here).
+  const footerOwnsRerun = shellRerunControl(useReanalyseBarInputs()) === 'bar'
   const sendScienceChip = useGuidanceStore((s) => s._sendChip)
   /**
    * ⭐ THE PRESENTATION PREDICATE, IN THE SHAPE THE OTHER READERS OF THIS
@@ -1289,9 +1299,18 @@ export function AnalysisNewTabBody({
    * latched pick re-presented the same method as a catalogue card, so the
    * set-aside appeared not to work. Stored as `null`, it cannot outlive the
    * finding it was equal to. Both pick routes (strip and card menu) use this.
+   *
+   * ⭐ AND THE PRESS RUNS THE METHOD (Paul, 7 Oct 2026: make the methods
+   * "genuinely work"). Picking only swapped the Challenge card's heading, further
+   * down the panel, and sent nothing. `runMethod` sends the method's one chip
+   * turn; the pick still marks the method active on the strip and the card.
    */
   const selectMethod = useCallback(
-    (id: string) => setPickedMethodId(id === restingMethodId ? null : id),
+    (id: string) => {
+      setPickedMethodId(id === restingMethodId ? null : id)
+      const method = METHOD_CATALOGUE.find((m) => m.id === id)
+      if (method) runMethod(method)
+    },
     [restingMethodId],
   )
   /**
@@ -1407,6 +1426,35 @@ export function AnalysisNewTabBody({
     vm.leaderClaimPermitted &&
     (buildReasoningSignals(vm, resultsSectionData.recommendation.flipThresholds)?.tipping ?? null) !== null
 
+  // The ribbon and the menu read the same props and the same offered-control predicate.
+  const glanceRunControl = {
+    isStale: vm.status.isStale && !vm.status.isPreRun,
+    runNote:
+      latestRunNote === null
+        ? null
+        : latestRunNote.kind === 'did_not_run'
+          ? {
+              testId: 'analysis-new-status-did-not-run',
+              text: `${COPY.status.latestDidNotRun} ${latestRunNote.reason} ${COPY.status.showingPrevious} ${ANALYSIS_REFUSAL_POINTER}`,
+            }
+          : latestRunNote.kind === 'blocked'
+            ? {
+                testId: 'analysis-new-status-blocked',
+                text: `${COPY.status.latestBlocked} ${COPY.status.showingPrevious}`,
+              }
+            : {
+                testId: 'analysis-new-status-run-failed',
+                text: `${COPY.status.latestRunFailed} ${COPY.status.showingPrevious}`,
+              },
+    isProvisional: vm.status.isProvisional,
+    onReanalyse,
+    rerunOwnedByFooter: footerOwnsRerun,
+    rerunWouldNotHelp: vm.checks.rerunWouldNotHelp,
+    reanalyseBlocked: runRefusedByGate,
+    reanalyseBlockedReason: runRefusedByGate ? runBlockedReason : null,
+  }
+  const ribbonOwnsRerun = ribbonOffersRerun({ ...glanceRunControl, part: 'status' })
+
   const renderGlance = (part: 'status' | 'reading') => (
     <AtAGlance
       glance={vm.atAGlance}
@@ -1426,32 +1474,11 @@ export function AnalysisNewTabBody({
          and `reviewEstimates` is `undefined` when there is neither an
          in-page act nor a route. */
       onReviewEstimates={reviewEstimates}
-      isStale={vm.status.isStale && !vm.status.isPreRun}
+      {...glanceRunControl}
       staleKind={vm.status.staleKind}
-      runNote={
-        latestRunNote === null
-          ? null
-          : latestRunNote.kind === 'did_not_run'
-            ? {
-                testId: 'analysis-new-status-did-not-run',
-                text: `${COPY.status.latestDidNotRun} ${latestRunNote.reason} ${COPY.status.showingPrevious} ${ANALYSIS_REFUSAL_POINTER}`,
-              }
-            : latestRunNote.kind === 'blocked'
-              ? {
-                  testId: 'analysis-new-status-blocked',
-                  text: `${COPY.status.latestBlocked} ${COPY.status.showingPrevious}`,
-                }
-              : {
-                  testId: 'analysis-new-status-run-failed',
-                  text: `${COPY.status.latestRunFailed} ${COPY.status.showingPrevious}`,
-                }
-      }
-      isProvisional={vm.status.isProvisional}
       /* ⚠ THE ACT BINDS TO RECOVERABILITY, NOT TO PERMISSION. Both are
          passed because they answer different questions and the section uses
          each for its own. */
-      rerunWouldNotHelp={vm.checks.rerunWouldNotHelp}
-      onReanalyse={onReanalyse}
       /* ⭐ DERIVED FROM THE GATE'S VERDICT, NOT A SECOND EXPRESSION OF
          IT — and not the verdict itself. `runRefusedByGate` is
          `!canRunAnalysis && !isRunning` (see above for why `isRunning` is
@@ -1460,8 +1487,6 @@ export function AnalysisNewTabBody({
          is therefore a PRESENTATION predicate over the one admission, in
          the shape `AnalysisReadinessBar` and `PanelFooter` already use —
          not either of the two values the dock handed this component. */
-      reanalyseBlocked={runRefusedByGate}
-      reanalyseBlockedReason={runRefusedByGate ? runBlockedReason : null}
       /* ⭐⭐ THE RUNNING STATE, THREADED UNCHANGED — the second of the two
          questions the ribbon control has to answer. `reanalyseBlocked`
          above says whether the gate REFUSED; this says whether a run is
@@ -1870,7 +1895,8 @@ export function AnalysisNewTabBody({
             icons + one overflow; the overflow lists every method (V2's "one
             complete menu") and the global actions (edit brief, review inputs,
             re-run). Choosing a
-            method shows it in the Challenge card, and it STAYS chosen (V2
+            method RUNS it (one chip turn to Olumi, `selectMethod` → `runMethod`;
+            Paul 7 Oct 2026) and shows it in the Challenge card, and it STAYS chosen (V2
             prototype: one method is always active; the card's "Not useful right
             now" is what sets a pick aside). At rest the active method is the one
             the run's own top finding names (`restingMethodId`), never a default. */}
@@ -1878,7 +1904,7 @@ export function AnalysisNewTabBody({
           activeMethodId={effectivePick ?? restingMethodId}
           onSelectMethod={selectMethod}
           raisedMethodIds={raisedMethodIds}
-          canRerun={canRunAnalysis === true && !vm.status.isPreRun}
+          canRerun={canRunAnalysis === true && !vm.status.isPreRun && !footerOwnsRerun && !ribbonOwnsRerun}
         />
         {/* ⚠ THE INTRO ASSERTS A RUN, SO IT IS GATED ON THERE BEING ONE.
             "A second reading of the same analysis run" is true of this tab and
@@ -2254,7 +2280,7 @@ export function AnalysisNewTabBody({
               onClick={() => sendScienceChip(
                 'Review this decision',
                 'Review this decision',
-                { id: 'agent-next-review-decision' },
+                { id: ACTION_REGISTRY.review.handler.press_id },
               )}
             >
               Review this decision
@@ -2266,7 +2292,7 @@ export function AnalysisNewTabBody({
               onClick={() => sendScienceChip(
                 'What would change this?',
                 'What would most likely change this result?',
-                { id: 'agent-next-what-would-change' },
+                { id: ACTION_REGISTRY.what_changes.handler.press_id },
               )}
             >
               What would change this?
@@ -2280,10 +2306,26 @@ export function AnalysisNewTabBody({
               onClick={() => sendScienceChip(
                 'Strengthen the model',
                 'What would most strengthen this model?',
-                { id: 'agent-next-strengthen' },
+                { id: ACTION_REGISTRY.strengthen.handler.press_id },
               )}
             >
               Strengthen the model
+            </button>
+            {/* "Run a pre-mortem": CEE's own next-step press (`agent-next-pre-mortem`, NEXT_STEP_CHIPS in CEE
+                routes/agent-v1-turn.ts; the message mirrors it). The agent lane answers with one held change card
+                (method-turn.ts, RC-PREMORTEM). The method strip's pre-mortem sends the same press id on a current Run
+                (`runMethod`); the tab decides nothing. */}
+            <button
+              type="button"
+              className={`${typography.panelBody} ${action('secondary')}`}
+              data-testid="analysis-run-pre-mortem"
+              onClick={() => sendScienceChip(
+                'Run a pre-mortem',
+                'Run a pre-mortem with me: imagine this decision went badly. What most plausibly went wrong?',
+                { id: ACTION_REGISTRY.pre_mortem.handler.press_id },
+              )}
+            >
+              Run a pre-mortem
             </button>
           </div>
         ) : null}
@@ -2907,6 +2949,20 @@ export function AnalysisNewTabBody({
             reading, the scope, the condition) moves here, so the chart and its
             qualifier reach the first screen (fidelity gap 1; #63 5825359499). */}
         {renderGlance('reading')}
+        <DecisionMatrix
+          data={resultsSectionData}
+          comparison={vm.optionsComparison}
+          optionOrder={nodes.map((node) => node.id)}
+          run={{
+            hash: responseHash,
+            runId: matrixRunId,
+            completedAt: matrixFinishedAt,
+            computedAt: matrixFreshness?.computedAt ?? (matrixFinishedAt === undefined ? undefined : new Date(matrixFinishedAt).toISOString()),
+            graphHash: matrixFreshness?.graphHashAtRun,
+          }}
+          isStale={vm.status.isStale}
+        />
+        <PreMortemWorksheet isBusy={isBusyNow} isStale={vm.status.isStale} />
 
         {/* ── HOW FAR THIS HOLDS ────────────────────────────────────────────
             One line where seven sections answered one question. It states the

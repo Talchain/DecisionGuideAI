@@ -18,6 +18,7 @@ import { describe, it, expect } from 'vitest'
 import {
   EDGE_STROKE_RULES,
   EDGE_DASH_RULES,
+  STRENGTH_NOT_SET_DASH,
   STRUCTURAL_EDGE_COLOUR,
   NOT_CONTESTED,
   DIRECTION_DISPUTING_REASON,
@@ -105,6 +106,7 @@ describe('edgePresentation — the precedence is data, not paste order', () => {
       // existence certainty only"). A review disagreement never dashes a line.
       // Provenance is asked BEFORE value: an edge nobody assessed reaches a
       // NAMED rule rather than falling through to the legacy visual-props map.
+      'strength_not_set',
       'existence_unset',
       'existence_certainty',
       // ⛔ NO `visual_props` — Paul 23 Sep contract feedback point 4: "Dash
@@ -321,6 +323,18 @@ describe('edgePresentation — the dash is existence certainty ONLY', () => {
     const d = resolveEdgeDash(state({ isStructural: true, contested: contestedSignFlip, existence: { kind: 'stated', dash: '6,4' } }))
     expect(d.rule).toBe('structural')
     expect(d.value).toBeUndefined()
+  })
+})
+
+describe('strength not set dotted rule', () => {
+  it('precedes existence, keeps polarity and names its round cap', () => {
+    expect(STRENGTH_NOT_SET_DASH).toBe('0.1 4')
+    const s = state({ strengthNotSet: true, existence: { kind: 'stated', dash: '6,4' } })
+    const d = resolveEdgeDash(s)
+    expect(d.rule).toBe('strength_not_set')
+    expect(d.value).toBe(STRENGTH_NOT_SET_DASH)
+    expect(d.linecap).toBe('round')
+    expect(resolveEdgeStroke(s).value).toBe(POLARITY_GREEN)
   })
 })
 

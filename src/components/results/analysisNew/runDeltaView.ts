@@ -66,8 +66,9 @@
  * change", which the contract explicitly sanctions.
  */
 
-import type { RunDelta, RunDeltaInputChange } from '@talchain/schemas/boundary'
+import type { RunDelta, RunDeltaGoalChanceSide, RunDeltaInputChange } from '@talchain/schemas/boundary'
 import { formatRawValueWithUnit } from '../../../canvas/utils/labelUtils'
+import { compactCarriedReading, formatMoneyFigure } from '../../../utils/unitClassifier'
 import { scienceBand } from '../../../components/science/ScienceQuantity'
 
 export type NoiseVerdict = 'signal' | 'within_noise' | 'not_noise_qualified'
@@ -106,6 +107,14 @@ export interface RunDeltaLeaderLine {
   readonly currentLabel: string | null
 }
 
+/** One option's chance of meeting the goal on each side of the pair, as THAT Run's own licence showed it (schemas 0.81.0). */
+export interface RunDeltaGoalChanceRow {
+  readonly optionId: string
+  readonly label: string | null
+  readonly prior: RunDeltaGoalChanceSide
+  readonly current: RunDeltaGoalChanceSide
+}
+
 export interface RunDeltaView {
   /** PART A. */
   readonly comparability: string
@@ -131,6 +140,13 @@ export interface RunDeltaView {
    * artefact, so `movements` is withheld and `noPairsText` says why. Absent = no such row (including no input record).
    */
   readonly goalFramingChanged?: true
+  /**
+   * Compare-chance (schemas 0.81.0, DL #87 6035414740): each option's chance of meeting the goal, in the producer's
+   * (model) order, each side under ITS Run's own licence, never the leader gate. Figures only: no direction travels.
+   * Absent = the producer sent none (a pre-0.81 CEE), or the goal's direction or comparison changed between the Runs
+   * (`goalFramingChanged`: the two chances answer different questions). Empty = no option was compared in both Runs.
+   */
+  readonly goalChances?: readonly RunDeltaGoalChanceRow[]
   /**
    * 0.70.0: the producer's TYPED reason for an empty `win_probabilities`, or `null` when it sent none. `prior_withheld`
    * = the earlier Run withheld its figures, so this is the first comparison (RC's UNWITHHELD). Never inferred from an
@@ -180,6 +196,13 @@ export interface RunDeltaInputRow {
   readonly linkEnds: { readonly from: string; readonly to: string } | null
   /** What the input is, in this surface's words ("Pro price, Raise to £60"). */
   readonly subject: string
+  /**
+   * The same input split for a row layout (Compare v3): the input's own name ("Pro price"; a link as "A → B") and, for an
+   * option setting, the option it belongs to ("Raise to £60"). Display only, from the same labels as `subject`; optional so
+   * a row built elsewhere without them still reads by `subject`.
+   */
+  readonly name?: string
+  readonly optionLabel?: string | null
   /** The producer's before → after, formatted; `null` on the side where the input did not exist. */
   readonly before: string | null
   readonly after: string | null
@@ -360,7 +383,13 @@ function formatInputValue(
   if (field === 'effect' && typeof v.raw === 'number' && v.per !== undefined) {
     return `${formatRawValueWithUnit(v.raw, v.unit ?? null)} per ${formatRawValueWithUnit(v.per.amount, v.per.unit)}`
   }
-  if (typeof v.raw === 'number') return formatRawValueWithUnit(v.raw, v.unit ?? null)
+  if (typeof v.raw === 'number') {
+    // The canvas card's own reading of the carried unit (Compare v3 served witness, 7 Oct: a row read "39 £ per paying
+    // customer per month"): money through the one money rule, a compound unit through the one compact owner. A unit
+    // neither recognises prints exactly as before. Same figure, same unit; only the notation.
+    const plain = formatRawValueWithUnit(v.raw, v.unit ?? null)
+    return formatMoneyFigure(v.raw, v.unit ?? null) ?? compactCarriedReading(plain, v.unit ?? null) ?? plain
+  }
   if (typeof v.raw === 'boolean') return v.raw ? 'on' : 'off'
   return v.unit ? `${v.raw} ${v.unit}` : v.raw
 }
@@ -397,6 +426,24 @@ function inputSubject(
     default:
       return own ?? 'An input'
   }
+}
+
+/** `subject`'s two halves for a row layout: the input's own name and, for an option setting, its option. Same labels. */
+function inputName(
+  row: RunDeltaInputChange,
+  labelFor: (optionId: string) => string | null,
+  nodeLabelFor: (nodeId: string) => string | null,
+): { name: string; optionLabel: string | null } {
+  const own = row.label_after ?? row.label_before ?? nodeLabelFor(row.entity_id)
+  if (row.entity_kind === 'option_setting') {
+    return { name: own ?? 'A factor', optionLabel: (row.option_id !== undefined ? labelFor(row.option_id) : null) ?? 'an option' }
+  }
+  if (row.entity_kind === 'link') {
+    const from = row.link ? nodeLabelFor(row.link.from) : null
+    const to = row.link ? nodeLabelFor(row.link.to) : null
+    return { name: from && to ? `${from} → ${to}` : 'A link', optionLabel: null }
+  }
+  return { name: inputSubject(row, labelFor, nodeLabelFor), optionLabel: null }
 }
 
 /** "14:02" in the viewer's clock, or null when the producer sent no time. */
@@ -470,6 +517,9 @@ export function buildRunDeltaView(
     // `flip_thresholds` is withheld to avoid, one field over.
     movementsUnavailable: movements.length === 0,
     ...(framingChanged ? { goalFramingChanged: true as const } : {}),
+    ...(!framingChanged && delta.goal_chances !== undefined
+      ? { goalChances: delta.goal_chances.map((g) => ({ optionId: g.option_id, label: labelFor(g.option_id), prior: g.prior, current: g.current })) }
+      : {}),
     winProbabilitiesUnavailable: delta.win_probabilities_unavailable ?? null,
     leader: {
       changed: delta.leader.changed,
@@ -490,6 +540,7 @@ export function buildRunDeltaView(
               optionId: row.option_id ?? null,
               linkEnds: row.link ? { from: row.link.from, to: row.link.to } : null,
               subject: inputSubject(row, labelFor, nodeLabelFor),
+              ...inputName(row, labelFor, nodeLabelFor),
               before: formatInputValue(row.before, row.field),
               after: formatInputValue(row.after, row.field),
               change: row.change,

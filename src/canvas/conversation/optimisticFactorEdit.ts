@@ -40,6 +40,12 @@
  */
 
 import { useCanvasStore } from '../store'
+import {
+  analysisReplacedSince,
+  captureAnalysisCurrency,
+  restoreAnalysisCurrencyAfterRevert,
+  type AnalysisCurrencySnapshot,
+} from '../store/analysisCurrencySnapshot'
 import { saveAutosave } from '../store/scenarios'
 import { autosaveSourceFromStore, projectAutosaveData } from '../store/autosaveProjection'
 import { withObservedStateUpdate, type ObservedStateData } from '../utils/observedStateHelpers'
@@ -64,6 +70,7 @@ import {
  * (see `mergeOptimisticFactorEdit`), which an opaque `() => void` cannot express.
  */
 export interface OptimisticFactorEdit {
+  currency?: AnalysisCurrencySnapshot
   /** The factor node's id — also the `target_id` the wire event names. */
   nodeId: string
   /**
@@ -161,6 +168,7 @@ export function captureOptimisticFactorEdit(
     sentValue,
     prevObservedState: readObservedState(nodeData),
     prevDisplayValue: d.display_value,
+    currency: captureAnalysisCurrency(),
     ...(reviewedStamp ? { reviewedStamp } : {}),
   }
 }
@@ -954,8 +962,9 @@ export function confirmOptimisticFactorEdit(edit: OptimisticFactorEdit): Confirm
  * the ABSENCE of keys that were absent, which no per-key setter can express.
  *
  * Goes through the store's `updateNode` chokepoint, so the analytical-change
- * recognition (and with it the freshness overlay) sees the revert exactly as it
- * saw the edit. It writes only `observedState` + `display_value` — the two
+ * recognition sees the revert as an edit, then currency is restored only if the
+ * original analytical graph is back and no newer analysis arrived. It writes
+ * only `observedState` + `display_value` — the two
  * fields `setObservedValue` already declares in `NODE_SETTER_FIELDS`, so the
  * editor-written-field registry is unchanged by this path.
  *
@@ -973,6 +982,8 @@ export function revertOptimisticFactorEdit(edit: OptimisticFactorEdit): RevertOu
   const obs = (readObservedState(node.data) ?? {}) as Record<string, unknown>
   const currentValue = obs.value
   if (currentValue !== edit.sentValue) return 'value_moved_on'
+  // updateNode clears readiness during rollback; do not lose the newer-analysis guard.
+  const analysisReplaced = edit.currency ? analysisReplacedSince(edit.currency) : true
 
   // ⚠ NOT A USER EDIT — a ROLLBACK to the value that was there before. The graph
   // ends up back where the coaching was authored, so treating it as an edit
@@ -987,6 +998,8 @@ export function revertOptimisticFactorEdit(edit: OptimisticFactorEdit): RevertOu
   } finally {
     store.endExternalGraphMutation?.()
   }
+
+  if (edit.currency && !analysisReplaced) restoreAnalysisCurrencyAfterRevert(edit.currency)
 
   // PERSIST THE REVERT NOW — the same flush `confirmOptimisticFactorEdit` does
   // on 'stamped', and here it is load-bearing rather than a nicety.

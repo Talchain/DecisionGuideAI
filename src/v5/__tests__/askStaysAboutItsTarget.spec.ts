@@ -1,21 +1,4 @@
-/**
- * ⭐ AN ASK STAYS ABOUT WHAT IT ASKED ABOUT — Codex post-merge finding 5810867282
- * on DGAI #1934 (24 Sep 2026).
- *
- * #1934 made every Ask door PREFILL and wait for the person's Send. Send derives
- * `selected_elements` from the LIVE canvas selection (`buildPayload.ts`
- * `deriveSelectedElements`), so: Ask about A → select B while editing → Send put
- * A's named question beside B's grounding. The person chose a question about A;
- * it must not silently ground in B.
- *
- * The rule: `requestAsk` binds the ask's target (its `targetId`, else the
- * selection the door just set). The FIRST send whose message still OPENS with the
- * prefilled question carries that target and consumes the binding. A message the
- * person replaced — a different opening — follows the live selection, as any
- * typed question does.
- *
- * Real `requestAsk`, real store selection path, real payload builder.
- */
+// Immediate chip asks keep their target; editable-template sends retain the existing binding rules.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Node } from '@xyflow/react'
 
@@ -23,6 +6,8 @@ import { buildV5Payload } from '../buildPayload'
 import { useCanvasStore } from '../../canvas/store'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { requestAsk } from '../../canvas/ui/inspector-v2/askSemantic'
+vi.mock('../../canvas/conversation/revealOlumi', () => ({ revealOlumiSurface: vi.fn() }))
+import { revealOlumiSurface } from '../../canvas/conversation/revealOlumi'
 import { clearAskTargetBinding } from '../../canvas/ui/inspector-v2/askTargetBinding'
 import type { NodeData } from '../../canvas/domain/nodes'
 
@@ -34,7 +19,7 @@ function node(id: string, type: string, label: string): Node<NodeData> {
 }
 const A = node('factor_a', 'factor', 'Adoption friction')
 const B = node('factor_b', 'factor', 'Churn rate')
-const ASK_A = 'Explain the role of "Adoption friction" in this decision model.'
+const ASK_A = 'What does ‘Adoption friction’ do in this decision, and what is it assumed to depend on?'
 
 function select(...ids: string[]) {
   useCanvasStore.setState({ selection: { nodeIds: new Set(ids), edgeIds: new Set<string>(), anchorPosition: null } })
@@ -47,34 +32,38 @@ function selectedIds(message: string): string[] {
 }
 
 beforeEach(() => {
-  useCanvasStore.setState({ nodes: [A, B] as never, edges: [] })
+  useCanvasStore.setState({ nodes: [A, B] as never, edges: [], hasCompletedFirstRun: false, results: { status: 'idle' }, v5AnalysisFact: null } as never)
   select()
-  useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
+  useGuidanceStore.setState({ _prefillChat: vi.fn(), _dispatchAction: vi.fn(), _isConversationBusy: () => false } as never)
   clearAskTargetBinding()
 })
 
 describe('an Ask carries its own target to Send', () => {
   it('⭐ Ask about A, select B, Send the question → grounds in A, not B', () => {
     select('factor_a')
-    expect(requestAsk({ text: ASK_A, label: 'Ask Olumi about Adoption friction', targetId: 'factor_a', source: 'context-menu' })).toBe('composer')
+    expect(requestAsk({ text: ASK_A, label: 'Ask Olumi about Adoption friction', targetId: 'factor_a', source: 'context-menu', intent: 'explain' })).toBe('sent')
+    const dispatch = useGuidanceStore.getState()._dispatchAction as ReturnType<typeof vi.fn>
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith({ id: 'ask:explain', label: ASK_A, message: ASK_A, source: 'chip' })
+    expect(revealOlumiSurface).toHaveBeenCalled()
     select('factor_b')
     expect(selectedIds(ASK_A)).toEqual(['factor_a'])
   })
 
   it('the person EXTENDED the question → still about A', () => {
-    requestAsk({ text: ASK_A, label: 'Ask Olumi about Adoption friction', targetId: 'factor_a', source: 'hover-ask' })
+    requestAsk({ text: ASK_A, label: 'Ask Olumi about Adoption friction', targetId: 'factor_a', source: 'hover-ask', editable: true })
     select('factor_b')
     expect(selectedIds(`${ASK_A} Focus on the enterprise segment.`)).toEqual(['factor_a'])
   })
 
   it('CONTRAST — the person REPLACED the question → the live selection, as for any typed question', () => {
-    requestAsk({ text: ASK_A, label: 'Ask Olumi about Adoption friction', targetId: 'factor_a', source: 'hover-ask' })
+    requestAsk({ text: ASK_A, label: 'Ask Olumi about Adoption friction', targetId: 'factor_a', source: 'hover-ask', editable: true })
     select('factor_b')
     expect(selectedIds('What drives churn here?')).toEqual(['factor_b'])
   })
 
   it('the binding is consumed by the send it applied to — the next send follows the live selection', () => {
-    requestAsk({ text: ASK_A, label: 'Ask Olumi about Adoption friction', targetId: 'factor_a', source: 'hover-ask' })
+    requestAsk({ text: ASK_A, label: 'Ask Olumi about Adoption friction', targetId: 'factor_a', source: 'hover-ask', editable: true })
     select('factor_b')
     expect(selectedIds(ASK_A)).toEqual(['factor_a'])
     expect(selectedIds(ASK_A)).toEqual(['factor_b'])
