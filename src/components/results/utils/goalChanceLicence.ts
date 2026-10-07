@@ -104,6 +104,26 @@ export interface GoalChanceLicence {
   readonly driverByOption?: Readonly<Record<string, GoalChanceDriver>>
   /** CEE's deadline clause, present only with a well-formed horizon claim. */
   readonly horizonLine?: string | null
+  /**
+   * ⭐ Science 393023 (1), CEE #2775: the quoted options whose chance comes from a wider spread while their typical result
+   * falls short (CEE `spread_note_by_option`, decided on the threshold the Run sent, with the reversal half). The UI only
+   * words it, after that option's chance. Read only on `each`, only on a quoted option, only as one of CEE's two exact
+   * sentences; one malformed entry silences the whole Run, as in CEE. Absent or empty when CEE wrote none.
+   */
+  readonly spreadNoteOptionIds?: readonly string[]
+}
+
+/** CEE `goal-chance-licence.ts` SPREAD_NOTE_WITH_DOWNSIDE / _WITHOUT_DOWNSIDE, byte for byte: the only notes read. */
+const CEE_SPREAD_NOTES: ReadonlySet<string> = new Set([
+  'Its typical result falls short of your target: this chance comes from its wider spread, which also widens how far short it could fall (see its downside).',
+  'Its typical result falls short of your target: this chance comes from its wider spread, which also means it could fall further short.',
+])
+
+function spreadNotesOf(v: unknown, form: GoalChanceForm, quotedIds: readonly string[]): string[] {
+  if (form !== 'each' || !isRec(v)) return []
+  const entries = Object.entries(v)
+  if (entries.length === 0 || !entries.every(([id, note]) => quotedIds.includes(id) && typeof note === 'string' && CEE_SPREAD_NOTES.has(note))) return []
+  return quotedIds.filter((id) => id in v)
 }
 
 const FORMS: ReadonlySet<string> = new Set(['highest', 'highest_all_likely_to_miss', 'all_likely_to_miss', 'similar', 'each'])
@@ -167,6 +187,7 @@ export function readGoalChanceLicence(inferenceWarnings: unknown): GoalChanceLic
     summaryWithheld: summaryWithheldOf(r.summary_withheld),
     driverByOption: driversOf(r.driver_by_option, (ids as string[]).filter((id) => !withheld.has(id))),
     horizonLine: readGoalChanceHorizonLine(r),
+    spreadNoteOptionIds: spreadNotesOf(r.spread_note_by_option, form, (ids as string[]).filter((id) => !withheld.has(id))),
   }
 }
 
