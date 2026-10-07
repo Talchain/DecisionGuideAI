@@ -158,7 +158,8 @@ describe('U4 — "Target not captured" once; no second "Needs input" pill on the
     mockStore()
     const { container } = renderGoal({})
     const chip = screen.getByTestId('goal-node-no-target-chip')
-    expect(chip.textContent).toBe(GOAL_NO_TARGET_STATE)
+    expect(chip.getAttribute('aria-label')).toContain(GOAL_NO_TARGET_STATE)
+    expect(chip.closest('[data-card-bottom-band]')).not.toBeNull()
     expect(screen.queryByTestId('needs-input-pill')).toBeNull()
     expect(container.textContent ?? '').not.toContain('Needs input')
     // The node is still incomplete — only the duplicate words went.
@@ -190,7 +191,8 @@ describe('U8 — no rail source icon on the goal (contract v3.1 pt 1)', () => {
     mockStore()
     renderGoal({ provenance: 'from_brief', ...WITH_TARGET })
     const resting = screen.getByTestId('goal-node-resting-state')
-    const mark = within(resting).getByTestId('goal-target-source-goal-1')
+    expect(resting.textContent).toContain('Target:')
+    const mark = within(screen.getByTestId('goal-bottom-marks-goal-1')).getByTestId('goal-target-source-goal-1')
     expect(mark.getAttribute('data-value-source')).toBe('unknown')
   })
 

@@ -1542,7 +1542,7 @@ describe('OptionNode — is_baseline rendering', () => {
     renderOption(data)
     // Rendered in both the body text and the popover; both are the baseline
     // treatment path so we assert presence (length > 0), not uniqueness.
-    expect(screen.getAllByLabelText(/Baseline option/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByLabelText(/Baseline option|Baseline · no changes/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/No changes to factors/i)).toBeNull()
   })
 
@@ -1550,7 +1550,7 @@ describe('OptionNode — is_baseline rendering', () => {
     const data = { label: 'Status Quo', is_baseline: null }
     applyStore(optionOnlyTopology('standard', 'pre', data))
     renderOption(data)
-    expect(screen.getAllByLabelText(/Baseline option/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByLabelText(/Baseline option|Baseline · no changes/i).length).toBeGreaterThan(0)
   })
 
   // Correction #7 — critical: explicit `false` must suppress the regex, even

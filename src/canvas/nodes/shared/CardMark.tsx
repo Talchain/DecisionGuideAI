@@ -1,10 +1,11 @@
 import { typography } from '../../../styles/typography'
-import { createContext, useContext, useState, type ReactNode, type CSSProperties } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { History } from 'lucide-react'
 import Tooltip from '../../../components/Tooltip'
 import { cardMark, type CardMarkDefinition, type CardMarkId } from './cardMarks'
 import { SOURCE_MARK_GLYPH_CLASSES } from './EstimateMarker'
+import { useNodeKeyboardScope, NODE_KEYBOARD_SCOPE_ATTR } from '../nodeKeyboardScope'
 
 const BottomMarksContext = createContext<{ target: HTMLDivElement | null; setTarget: (target: HTMLDivElement | null) => void } | null>(null)
 /** Scoped to each card itself: inspector/popover source marks keep their own slots. */
@@ -12,9 +13,22 @@ export function BottomMarksProvider({ children }: { children: ReactNode }) {
   const [target, setTarget] = useState<HTMLDivElement | null>(null)
   return <BottomMarksContext.Provider value={{ target, setTarget }}>{children}</BottomMarksContext.Provider>
 }
-export function BottomMarksBand({ nodeId, nodeType = 'option', style }: { nodeId: string; nodeType?: string; style?: CSSProperties }) {
+export function BottomMarksBand({ nodeId, nodeType = 'option', style, hidden = false }: { nodeId: string; nodeType?: string; style?: CSSProperties; hidden?: boolean }) {
   const context = useContext(BottomMarksContext)
-  return <div ref={context?.setTarget} style={style} data-testid={`${nodeType}-bottom-marks-${nodeId}`} data-card-bottom-band="true" className="absolute bottom-1.5 left-3 flex items-center gap-1 overflow-x-auto overflow-y-hidden" />
+  const { ref, onKeyDownCapture } = useNodeKeyboardScope<HTMLDivElement>()
+  const setTarget = context?.setTarget
+  const bandRef = useCallback((target: HTMLDivElement | null) => {
+    ;(ref as { current: HTMLDivElement | null }).current = target
+    setTarget?.(target)
+  }, [ref, setTarget])
+  useEffect(() => {
+    const band = ref.current
+    // Portal events follow their original React ancestry. Arm the destination
+    // in native capture so every mark has the armed scope in its DOM ancestry.
+    band?.addEventListener('keydown', onKeyDownCapture, true)
+    return () => band?.removeEventListener('keydown', onKeyDownCapture, true)
+  }, [ref, onKeyDownCapture])
+  return <div ref={bandRef} style={hidden ? { ...style, visibility: 'hidden' } : style} {...{ [NODE_KEYBOARD_SCOPE_ATTR]: '' }} data-card-band-hidden={hidden ? 'true' : undefined} data-testid={`${nodeType}-bottom-marks-${nodeId}`} data-card-bottom-band="true" className="absolute bottom-1.5 left-3 flex items-center gap-1 overflow-x-auto overflow-y-hidden" />
 }
 /** Reuse the original element and route; only its DOM home changes. */
 export function BottomCardMark({ children }: { children: ReactNode }) {

@@ -220,7 +220,7 @@ describe('C01: Monthly churn keeps its rank and says "no value yet"; the valued 
       renderBoard(c01Shaped())
       if (stale) act(() => useCanvasStore.setState({ analysisFreshnessDirty: true }))
       for (const el of screen.getAllByTestId('factor-driver-line-caption')) {
-        const text = el.textContent ?? ''
+        const text = el.getAttribute('aria-label') ?? ''
         seen.push(text)
         expect(captionWidthPx(text, MAX_LABEL_COUNTER_SCALE), text).toBeLessThanOrEqual(FACTOR_SLOT_MEASURE_PX)
       }

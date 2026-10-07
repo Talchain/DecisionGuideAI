@@ -388,9 +388,16 @@ function visibleRuns(root: HTMLElement): string[] {
     el.replaceWith(...(reducedLine ? [reducedLine] : []))
   })
   const out: string[] = []
+  const hiddenOutcome = root.querySelector('[data-card-band-hidden] [data-testid="outcome-unquantified"]')
+  if (hiddenOutcome) {
+    expect(hiddenOutcome).toHaveAttribute('aria-label', 'Outcome not quantified')
+    expect(hiddenOutcome).toHaveAttribute('title', 'Outcome not quantified')
+    out.push(hiddenOutcome.getAttribute('aria-label')!)
+  }
+  root.querySelectorAll('[data-card-band-hidden]').forEach(el => el.remove())
   // Preserve the adjudicated words without editing the census fixtures. These
   // marks now explain the state in aria/hover; their visible copy must be gone.
-  const converted = '[data-testid="outcome-unquantified"], [data-testid="risk-exposure-provenance"]'
+  const converted = '[data-testid="outcome-unquantified"], [data-testid="risk-exposure-provenance"], [data-card-mark="source-unknown"] [role="img"]'
   const detailedRisk = root.querySelector('[data-card-mark="risk-unset"][aria-label^="Entered estimate"]') !== null
   root.querySelectorAll(converted).forEach(el => {
     const words = el.getAttribute('aria-label')
@@ -978,7 +985,7 @@ const ADJUDICATED_POSITIONS: Position[] = [
       + 'beside them, so both are captions; only the separator is invariant. It '
       + 'is also the line the severity badge above it is DERIVED from, so it is '
       + 'the half of that pair that must survive if either does.',
-    present: (_c, r) => r.some((x) => x.includes('likely ·')),
+    present: (c, r) => r.some((x) => x.includes('likely ·')) || c.querySelector('[data-testid="risk-exposure-line"][aria-label*="likely ·"]') != null,
   },
 ]
 

@@ -352,7 +352,7 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
       expect(screen.queryByTestId('factor-driver-cue-fac-conv')).toBeNull()
       // Paul 23 Sep point 3(d): the fallback may not invent a past run either.
       expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
-      expect(document.body.textContent).not.toContain('Last run')
+      expect(document.querySelector('[data-card-mark][aria-label^="Last run"]')).toBeNull()
       cleanup()
     }
   })
@@ -530,14 +530,14 @@ describe('Option — "what this option changes": ≤3 rows in ONE shared order, 
   it('an Olumi-chosen target stays marked est.; a user-set one is not — each row on the face keeps its own mark', () => {
     setState({ phase: 'pre' })
     renderCard(OptionNode as never, 'opt-raise')
-    expect(cardRows('opt-raise').getByTestId('option-change-row-estimate-opt-raise-fac-seats')).toBeTruthy()
+    expect(within(screen.getByTestId('option-bottom-marks-opt-raise')).getByTestId('option-change-row-estimate-opt-raise-fac-seats')).toBeTruthy()
     // Truth stays on the card: the price row carries its own `brief` mark.
-    expect(cardRows('opt-raise').getByTestId('option-change-row-source-opt-raise-fac-price').getAttribute('data-value-source')).toBe('brief')
+    expect(within(screen.getByTestId('option-bottom-marks-opt-raise')).getByTestId('option-change-row-source-opt-raise-fac-price').getAttribute('data-value-source')).toBe('brief')
     cleanup()
     renderCard(OptionNode as never, 'opt-bundle')
     // Positive control: the user-set row IS on the face, marked as the user's.
-    expect(cardRows('opt-bundle').getByTestId('option-change-row-source-opt-bundle-fac-seats').getAttribute('data-value-source')).toBe('you')
-    expect(cardRows('opt-bundle').queryByTestId('option-change-row-estimate-opt-bundle-fac-seats')).toBeNull()
+    expect(within(screen.getByTestId('option-bottom-marks-opt-bundle')).getByTestId('option-change-row-source-opt-bundle-fac-seats').getAttribute('data-value-source')).toBe('you')
+    expect(within(screen.getByTestId('option-bottom-marks-opt-bundle')).queryByTestId('option-change-row-estimate-opt-bundle-fac-seats')).toBeNull()
   })
 
   it('⛔ MT-18 → Paul 1 Oct: no BARE numeral at rest — the number shows prefixed ("O1"), at rest and in Detailed', () => {
@@ -583,7 +583,7 @@ describe('Option — the result is model-relative, never "Support" (ED 11:52Z po
     renderCard(OptionNode as never, 'opt-raise')
     const anchor = within(face('Raise the plan price')).getByTestId('option-win-anchor-opt-raise')
     expect(anchor.textContent).toBe('Model result')
-    expect(face('Raise the plan price').textContent).not.toContain('Last run')
+    expect(face('Raise the plan price').querySelector('[data-card-mark][aria-label^="Last run"]')).toBeNull()
   })
 })
 

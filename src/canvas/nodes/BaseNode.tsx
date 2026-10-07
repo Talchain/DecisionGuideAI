@@ -2123,7 +2123,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >
-      <BottomMarksBand nodeId={id} nodeType={nodeType} style={{ right: `calc(${anchorRailReservePx(anchorRailButtonsKey(anchorRailButtons))}px * var(--canvas-glyph-scale, 1) + ${CANVAS_QUICK_ACTION_INSET_PX}px)` }} />
+      <BottomMarksBand nodeId={id} nodeType={nodeType} hidden={lodBodyHidden} style={{ right: `calc(${anchorRailReservePx(anchorRailButtonsKey(anchorRailButtons))}px * var(--canvas-glyph-scale, 1) + ${CANVAS_QUICK_ACTION_INSET_PX}px)` }} />
       {runChangeMark !== null ? <BottomCardMark><span className="[&>*]:static"><RunChangeBadge mark={runChangeMark} nodeId={id} /></span></BottomCardMark> : null}
       {/* R5 contextual efficiency layer — quiet at rest, revealed on hover, on
           keyboard focus within the card, and while the node is selected. One

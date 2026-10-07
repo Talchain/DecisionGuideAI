@@ -170,11 +170,21 @@ describe('ED 5809278282 — ONE body line in Standard view, at every rung, in bo
     draw(kind, f.data)
     const line = screen.getByTestId(f.lineTestId)
     // Identity: THIS element is the card's primary line, and it is on the face.
-    expect(line.getAttribute('data-card-primary-line')).toBe(kind)
     expect(cardFace(kind).contains(line)).toBe(true)
-    // …and nothing else in the body takes a row.
-    const body = line.parentElement!
-    expect(flowChildren(body).map(c => c.getAttribute('data-testid'))).toEqual([f.lineTestId])
+    if (line.hasAttribute('data-card-mark')) {
+      expect(line.closest('[data-card-bottom-band]')).not.toBeNull()
+      expect(line.getAttribute('aria-label')).toBeTruthy()
+      // The state moved to a mark; a recorded quantity remains the body control.
+      const placeholder = cardFace(kind).querySelector('[data-card-primary-line]')
+      if (placeholder) {
+        expect(placeholder).toHaveClass('h-[1lh]')
+        expect(placeholder.textContent?.trim()).toBe('')
+      }
+    } else {
+      expect(line.getAttribute('data-card-primary-line')).toBe(kind)
+      const body = line.parentElement!
+      expect(flowChildren(body).map(c => c.getAttribute('data-testid'))).toEqual([f.lineTestId])
+    }
     // The authored context left the face (it is in the popover — see below).
     expect(cardFace(kind).textContent).not.toContain(CONTEXT)
   })

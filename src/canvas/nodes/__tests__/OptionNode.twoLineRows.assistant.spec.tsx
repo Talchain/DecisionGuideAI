@@ -166,7 +166,8 @@ describe('served 64c5eccc — the factor name gets its own line when the amount 
     const mark = dd.querySelector(`[data-testid="option-change-row-mark-${optionId}-${factorId}"]`)
     expect(mark, 'the reserved mark slot is in the amount cell').not.toBeNull()
     const source = onCard(container, `[data-testid="option-change-row-estimate-${optionId}-${factorId}"]`)[0]
-    expect(source.getAttribute('aria-label')).toContain('Olumi estimate')
+    expect(source.getAttribute('aria-description')).toContain('Olumi estimate')
+    expect(source.closest('[data-card-bottom-band]')).not.toBeNull()
     expect(source.querySelector('.lucide-sparkles')).not.toBeNull()
     expect(source.closest(`[data-testid="option-bottom-marks-${optionId}"]`)).not.toBeNull()
     expect((mark!.previousSibling as Text | null)?.data).toBe('\u00a0')

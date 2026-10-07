@@ -259,8 +259,8 @@ describe('Paul 23 Sep point 7 — an option change row says where its TARGET cam
     // The rows are ON THE CARD at rest (Paul 25 Sep, the prototype) — read THERE.
     const dd = optionCardRows(opt).querySelector(`[data-testid="option-change-row-${opt}-${fid}"]`)
     if (!dd) return 'NO-ROW'
-    if (dd.querySelector(`[data-testid="option-change-row-estimate-${opt}-${fid}"]`)) return 'olumi'
-    const m = dd.querySelector(`[data-testid="option-change-row-source-${opt}-${fid}"]`)
+    if (_container.querySelector(`[data-card-bottom-band] [data-testid="option-change-row-estimate-${opt}-${fid}"]`)) return 'olumi'
+    const m = _container.querySelector(`[data-card-bottom-band] [data-testid="option-change-row-source-${opt}-${fid}"]`)
     return m ? m.getAttribute('data-value-source') : null
   }
 

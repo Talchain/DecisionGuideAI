@@ -62,7 +62,13 @@ function card(id = ID) {
   const el = screen.queryByTestId('factor-recorded-value') ?? screen.getByTestId(`factor-value-mark-only-${id}`)
   const copy = el.cloneNode(true) as HTMLElement
   copy.querySelectorAll('.sr-only').forEach(n => n.remove())
-  return copy.textContent?.replace(/\s+/g, ' ').trim()
+  const band = screen.getByTestId(`factor-bottom-marks-${id}`)
+  const tier = band.querySelector('[data-card-mark="factor-tier"]')?.getAttribute('aria-label')
+  const source = band.querySelector('[data-card-mark="source-olumi"]')
+  expect(source).not.toBeNull()
+  const sourceWords = source!.querySelector('[aria-label="est."]')?.getAttribute('aria-label')
+  expect(sourceWords).toBe('est.')
+  return `${tier ?? copy.textContent?.replace(/\s+/g, ' ').trim()} ${sourceWords}`.trim()
 }
 describe('served switch reading, bound to starter_tier_availability', () => {
   it('#7 live factor card', () => {
@@ -210,6 +216,8 @@ it('CONTROL: a true 0–1 proportion at 0.1 has no served switch and stays Very 
   const nodes = switchFactorNodes([{ id: 'proportion', type: 'factor', data }], { ceeAnalysisReady: analysis })
   useCanvasStore.setState({ nodes, ceeAnalysisReady: analysis } as never)
   expect(card('proportion')).toBe('Very low est.')
+  expect(screen.getByTestId('factor-value-tier-proportion')).toHaveAttribute('aria-label', 'Very low')
+  expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
 })
 it('PRECONDITION: persisted production graph without analysis_ready mints no switch', () => {
   expect([...switchFactorIdsOf(persisted)]).toEqual([])
@@ -218,6 +226,8 @@ it('PRECONDITION: persisted production graph without analysis_ready mints no swi
   expect(factorCardReading(factor.data)).toBe('0')
   useCanvasStore.setState({ nodes, ceeAnalysisReady: null, servedSwitchFactorIds: new Set<string>() } as never)
   expect(card(factor.id)).toBe('Very low est.')
+  expect(screen.getByTestId(`factor-value-tier-${factor.id}`)).toHaveAttribute('aria-label', 'Very low')
+  expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
   const row = buildOptionTargetRow({ factorId: factor.id, factorNode: factor, target: { value: 1, source: 'user_specified' }, baselineReference: null })
   expect(row.change).toBe('0 → Very high')
   expect(optionTargetReading(row, factor.data)).toBe('Very high (1)')

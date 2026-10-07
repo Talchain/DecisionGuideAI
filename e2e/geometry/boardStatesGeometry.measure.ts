@@ -533,7 +533,7 @@ function READ_BOARD(arg: { clipTol: number; scope: string | null }): BoardReadin
     clipped,
     hiddenLines,
     lastRunCues: texts.filter((t) => t.includes('Last run')).length,
-    driverLines: texts.filter((t) => /Driver \d+ of \d+/.test(t)).length,
+    driverLines: els.filter((el) => el.querySelector('[data-card-mark="driver"], [data-card-mark="driver-last-run"]')).length,
     resultsStatus: ((s.results as { status?: string } | null)?.status) ?? null,
     lodRung: typeof s.lodRung === 'string' ? s.lodRung : null,
     driverCaptions: [...document.querySelectorAll('[data-testid^="factor-driver-slot-"]')].flatMap((slot) => {

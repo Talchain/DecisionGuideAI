@@ -308,8 +308,8 @@ export function ValueSourceMark({
   const definition = cardMark(`source-${mark.kind}` as CardMarkId)
   const Icon = definition.Icon
   return (
-    <BottomCardMark><SourceMark cardMarkId={definition.id} testId={testId} tip={tip} onOpen={onOpenSource} dataValueSource={mark.kind}>
-      <Icon aria-hidden="true" strokeWidth={1.8} className={SOURCE_MARK_GLYPH_CLASSES} data-source-glyph={mark.kind === 'you' ? 'person' : undefined} />
+    <BottomCardMark><SourceMark cardMarkId={definition.id} testId={testId} tip={`${definition.words} · ${title ? `${mark.label} · ${tip}` : tip}`} ariaLabel={tip} ariaDescription={mark.label} onOpen={onOpenSource} dataValueSource={mark.kind}>
+      <span role="img" aria-label={definition.words} title={definition.words}><Icon aria-hidden="true" strokeWidth={1.8} className={SOURCE_MARK_GLYPH_CLASSES} data-source-glyph={mark.kind === 'you' ? 'person' : undefined} /></span>
       <span className={typography.screenReaderOnly}>{mark.label}</span>
     </SourceMark></BottomCardMark>
   )

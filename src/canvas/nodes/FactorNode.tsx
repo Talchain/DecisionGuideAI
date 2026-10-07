@@ -324,6 +324,9 @@ export const FactorNode = memo((props: NodeProps) => {
    * the inspector and Model tab still state the figure.
    */
   const bareModelValue = readoutIsBareModelScale(valueDisplay, valueDisplayData)
+  const tierWords = bareModelValue ? qualitativeTierLabel(Number(valueDisplay))
+    : recordedValueReadout?.match(/^(Very low|Low|Medium|High|Very high)(?: \([^)]*\))?$/)?.[0] ?? null
+  const tierLevel = tierWords ? ['Very low', 'Low', 'Medium', 'High', 'Very high'].indexOf(tierWords.replace(/ \([^)]*\)$/, '')) + 1 : 0
 
   // ⭐ WHOSE NUMBER THIS IS, ON THE FACE — Paul 23 Sep contract feedback point 1:
   // "Mark Olumi estimates explicitly … User-set/evidence-backed values get their
@@ -1342,7 +1345,7 @@ export const FactorNode = memo((props: NodeProps) => {
             (`NodeValueEditor restingFlow="inline"`, the glue and mark passed as
             its `trailing`): the mark can only wrap WITH the value's last word.
             The option rows' N5 rule: the break is governed by the nowrap cell. */}
-        {valueDisplay !== null && !bareModelValue && (
+        {valueDisplay !== null && tierWords === null && (
           <div
             className={isDetailed
               ? `${typography.nodeValue} text-text-body flex max-w-full flex-wrap items-baseline gap-x-1.5`
@@ -1459,7 +1462,7 @@ export const FactorNode = memo((props: NodeProps) => {
             slot, with no figure beside it and no words added: the reader can
             still see WHICH factor holds an assumption Olumi made for them,
             and the mark still opens the inspector, which states the figure. */}
-        {bareModelValue && valueSourceMark !== null && (
+        {tierWords !== null && valueSourceMark !== null && (
           <div
             className={`${typography.nodeValue} text-text-body max-w-full min-w-0 break-words`}
             data-testid={`factor-value-mark-only-${props.id}`}
@@ -1468,7 +1471,7 @@ export const FactorNode = memo((props: NodeProps) => {
                 words (`qualitativeTierLabel`), never a bare 0–1 number and never
                 an orphan mark. The same inline value line as above (DIFF item
                 3): the tier word, one breakable space, the mark. */}
-            <CardMark id="factor-tier" testId={`factor-value-tier-${props.id}`} words={qualitativeTierLabel(Number(valueDisplay))} level={['Very low', 'Low', 'Medium', 'High', 'Very high'].indexOf(qualitativeTierLabel(Number(valueDisplay))) + 1} />
+            <CardMark id="factor-tier" testId={`factor-value-tier-${props.id}`} words={tierWords} level={tierLevel} />
             {' '}
             <span data-testid={`factor-value-mark-slot-${props.id}`} className="whitespace-nowrap ml-[calc(2.5px*var(--canvas-label-scale,1))]">
               {renderValueSourceMark()}

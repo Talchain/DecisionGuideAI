@@ -261,7 +261,8 @@ describe('ED 5809278282 · Factor · the value line is the ONE body line, and it
     seed(VALUED, { phase: 'pre', lodRung })
     renderFactor(VALUED)
     const row = within(card()).getByTestId('factor-recorded-value')
-    expect(visibleText(row)).toBe('8% est.')
+    expect(visibleText(row)).toBe('8%')
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
     // DL #70 5849644637: the primary row, then the reserved driver slot (pre-run line).
     expect(visibleBodyRows(row)).toEqual([row, driverSlot()])
     expect(driverSlot().textContent).toBe('')
@@ -274,7 +275,7 @@ describe('ED 5809278282 · Factor · the value line is the ONE body line, and it
     expect(rowTokens.has('truncate')).toBe(false)
     const markSlot = screen.getByTestId(`factor-value-mark-slot-${ID}`)
     expect(row.contains(markSlot)).toBe(true)
-    expect(markSlot.contains(screen.getByTestId('estimate-marker'))).toBe(true)
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
     expect(markSlot.previousSibling?.textContent, 'one breakable space before the mark').toBe(' ')
     expect(tokens(markSlot).has('whitespace-nowrap')).toBe(true)
   })
@@ -345,7 +346,8 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     expect(semantic()).toBe('current')
     const row = within(card()).getByTestId('factor-recorded-value')
     // RE-PINNED 27 Sep (DIFF item 3): one breakable space between the value and its mark.
-    expect(visibleText(row)).toBe('8% est.')
+    expect(visibleText(row)).toBe('8%')
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
     const driver = onCardNotInPopover('factor-driver-line')
     const tp = onCardNotInPopover('factor-turning-point')
     // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
@@ -358,8 +360,9 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     expect(within(tp).getByTestId('factor-turning-point-caption').textContent).toBe('Below 6.5%, the current model comparison changes.')
     expect(within(tp).queryByTestId('factor-turning-point-caption-value')).toBeNull()
     expect(tp.getAttribute('aria-label')!.startsWith('Below 6.5%, the current model comparison changes. ')).toBe(true)
-    expect(before(row, driver)).toBe(true)
-    expect(before(driver, tp)).toBe(true)
+    expect(driver.closest('[data-card-bottom-band]')).not.toBeNull()
+    expect(before(row, tp)).toBe(true)
+    expect(card().contains(driver)).toBe(true)
     expect(screen.queryByTestId(`factor-driver-cue-${ID}`)).toBeNull()
   })
 
@@ -378,7 +381,8 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     )).toBe(true)
     expect(within(card()).getByTestId('factor-turning-point-run-value').textContent).toBe('8% in last run')
     // RE-PINNED 27 Sep (DIFF item 3): one breakable space between the value and its mark.
-    expect(visibleText(within(card()).getByTestId('factor-recorded-value'))).toBe('8% est.')
+    expect(visibleText(within(card()).getByTestId('factor-recorded-value'))).toBe('8%')
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
   })
 
   it('HEIGHT SAFETY — the body is the same at `quiet` and `full`: no rung-triggered re-layout', () => {
@@ -413,7 +417,7 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     expect(visibleText(row)).toBe('Needs inputValue not set yet')
     const driver = onCardNotInPopover('factor-driver-line')
     expect(row.contains(driver)).toBe(false)
-    expect(before(row, driver)).toBe(true)
+    expect(driver.closest('[data-card-bottom-band]')).not.toBeNull()
   })
 
   it('a ranked factor with NO primary line (external, no value, no range) still states its rank on the card', () => {
@@ -479,7 +483,7 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · the external pri
     renderFactor(RANGE_ONLY_PCT)
     const c = card()
     expect(visibleText(within(c).getByTestId(`factor-prior-range-${ID}`))).toBe('Range: 25% to 45%')
-    expect(within(c).getByTestId(`factor-prior-range-${ID}`).querySelector('[data-card-mark="source-unknown"]')?.getAttribute('aria-label')).toContain('Source not recorded')
+    expect(c.querySelector('[data-card-bottom-band] [data-card-mark="source-unknown"]')?.getAttribute('aria-label')).toContain('Source not recorded')
     expect(within(c).getByTestId(`factor-range-source-${ID}`).getAttribute('data-value-source')).toBe('unknown')
     const pop = screen.queryByTestId('factor-node-popover')
     if (pop) expect(within(pop).queryByTestId(`factor-prior-range-${ID}`)).toBeNull()
@@ -493,7 +497,7 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · the external pri
     renderFactor(RANGE_ONLY)
     const c = card()
     expect(visibleText(within(c).getByTestId(`factor-prior-range-${ID}`))).toBe('Range: 0.3 to 0.8')
-    expect(within(c).getByTestId(`factor-prior-range-${ID}`).querySelector('[data-card-mark="source-unknown"]')?.getAttribute('aria-label')).toContain('Source not recorded')
+    expect(c.querySelector('[data-card-bottom-band] [data-card-mark="source-unknown"]')?.getAttribute('aria-label')).toContain('Source not recorded')
     expect(within(c).getByTestId(`factor-range-source-${ID}`)).toBeTruthy()
   })
 

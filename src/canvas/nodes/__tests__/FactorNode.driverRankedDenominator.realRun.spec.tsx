@@ -290,7 +290,9 @@ describe('item 11 — the slot prints the longest form that fits at the landing 
           const bar = within(line).getByTestId('factor-driver-line-bar').className.split(/\s+/)
           expect(bar).toContain('shrink-0')
           expect(bar.some((t) => t.includes('flex-shrink') || t === 'min-w-0')).toBe(false)
-          expect(line.className.split(/\s+/)).toContain('flex-wrap')
+          expect(line.className.split(/\s+/)).toContain('inline-flex')
+          expect(line.closest('[data-card-bottom-band]')).not.toBeNull()
+          expect(within(line).getByTestId('factor-driver-line-caption').textContent).toMatch(/^\d+$/)
         }
       }
     }

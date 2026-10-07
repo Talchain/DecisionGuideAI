@@ -249,7 +249,8 @@ describe('NODE-ANATOMY v3.2 · Factor · pre-run with a value — title, value, 
     const row = screen.getByTestId('factor-recorded-value')
     // RE-PINNED 27 Sep (side-by-side DIFF item 3): one breakable space is now the gap
     // between the value and its mark (inline flow, so the mark wraps WITH the value).
-    expect(visibleText(row)).toBe('8% est.')
+    expect(visibleText(row)).toBe('8%')
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
     // Principle 4 "no chips around values at rest": the editor rests as text.
     const editor = screen.getByTestId(`node-value-editor-${ID}`)
     const rest = tokens(editor)
@@ -354,10 +355,11 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, turning point found',
     expect(tp.getAttribute('aria-label')!.startsWith('Below 6.5%, the current model comparison changes. ')).toBe(true)
     // The retired inline cue: the line it stood in for is on the face.
     expect(screen.queryByTestId(`factor-driver-cue-${ID}`)).toBeNull()
-    expect(before(value, driver)).toBe(true)
-    expect(before(driver, tp)).toBe(true)
+    expect(driver.closest('[data-card-bottom-band]')).not.toBeNull()
+    expect(before(value, tp)).toBe(true)
+    expect(face().contains(driver)).toBe(true)
     expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
-    expect(document.body.textContent).not.toContain('Last run')
+    expect(document.querySelector('[data-card-mark][aria-label^="Last run"]')).toBeNull()
     expectNothingItMustNeverSay()
   })
 
@@ -535,7 +537,8 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     expect(within(face()).getByTestId('factor-turning-point-run-value').textContent).toBe('8% in last run')
     // The value is the factor's own state, not a finding: never prefixed.
     // RE-PINNED 27 Sep (DIFF item 3): the value and its mark are separated by one breakable space.
-    expect(visibleText(screen.getByTestId('factor-recorded-value'))).toBe('8% est.')
+    expect(visibleText(screen.getByTestId('factor-recorded-value'))).toBe('8%')
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
     expectNothingItMustNeverSay()
   })
 
@@ -547,7 +550,7 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     expect(semantic()).toBe('changed')
     expect(within(onFaceNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Last run · Driver 1 of 3')
     expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
-    expect(document.body.textContent).not.toContain('in this run')
+    expect(document.querySelector('[data-card-mark][aria-label*="in this run"]')).toBeNull()
     expectNothingItMustNeverSay()
   })
 

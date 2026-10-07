@@ -122,7 +122,7 @@ describe('real MRR board (90b8f080): the goal target mark reads only a stamp on 
     const m = container.querySelector('[data-testid="goal-target-source-mrr"]')
     expect(m, 'the target line must carry a source mark').not.toBeNull()
     expect(m!.getAttribute('data-value-source')).toBe('unknown')
-    expect(m!.querySelector('[aria-hidden="true"]')!.textContent).toBe(VALUE_SOURCE_MARK_TOKEN.unknown)
+    expect(m!.querySelector('[role="img"]')!.getAttribute('aria-label')).toBe(VALUE_SOURCE_MARK_TOKEN.unknown)
     expect(m!.querySelector('.sr-only')!.textContent).toBe(VALUE_SOURCE_MARK_LABEL.unknown)
     // One authority: the resolver every surface reads gives the same answer.
     expect(resolveGoalTarget(MAPPED.data as GoalTargetSource)?.source).toBe('unrecorded')

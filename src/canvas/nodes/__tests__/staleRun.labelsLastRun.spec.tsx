@@ -271,7 +271,7 @@ describe('factor card, Standard view — the driver line', () => {
     // Positive control: the card mounted.
     expect(screen.getByTestId('node-title')).toBeTruthy()
     expect(screen.queryByTestId('factor-driver-line')).toBeNull()
-    expect(document.body.textContent).not.toContain('Last run')
+    expect(document.querySelector('[data-card-mark][aria-label^="Last run"]')).toBeNull()
   })
 })
 
@@ -380,7 +380,7 @@ describe('wording parity with the option card', () => {
     expect(LAST_RUN_PREFIX).toBe('Last run · ')
     // The row's visible caption is the prefix's word, and its accessible name
     // opens with the prefix byte for byte — the same string the factor card uses.
-    expect(`${screen.getByTestId('option-win-anchor-opt_a').textContent} · `).toBe(LAST_RUN_PREFIX)
+    expect(`${screen.getByTestId('option-win-anchor-opt_a').getAttribute('aria-label')} · `).toBe(LAST_RUN_PREFIX)
     // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
     expect(screen.getByTestId('option-analysis-currency-opt_a').getAttribute('aria-label'))
       .toMatch(new RegExp(`^${LAST_RUN_PREFIX}supported by 72% of runs\\. `))

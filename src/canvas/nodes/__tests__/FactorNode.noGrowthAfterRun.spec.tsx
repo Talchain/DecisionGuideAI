@@ -212,19 +212,20 @@ describe('served pricing factors — the driver line has ONE slot, reserved befo
     const s = slot(RANK_1)!
     expect(s.getAttribute('aria-hidden')).toBeNull()
     const line = screen.getByTestId('factor-driver-line')
-    expect(line.parentElement).toBe(s)
+    expect(line.closest('[data-card-bottom-band]')).not.toBeNull()
+    expect(s.textContent).toBe('')
     // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
     // one-line slot prints the LONGEST form that fits at the landing bound
     // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
     expect(screen.getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 1 ranked')
-    expect(within(s).getByTestId('factor-driver-line-bar')).toBeInTheDocument()
+    expect(within(line).getByTestId('factor-driver-line-bar')).toBeInTheDocument()
     // One line: the SLOT is one line and clips. Inside it the caption never wraps
     // (it fits whole at the landing bound — `FactorDriverLine.landingFit.spec`),
     // and a bar that does not fit beside it wraps into the clipped second line,
     // drawn whole or not at all (DIFF item 11 review) — never squashed.
     expect(tokens(s)).toContain('h-[1lh]')
     expect(tokens(s)).toContain('overflow-hidden')
-    expect(tokens(line)).toContain('flex-wrap')
+    expect(tokens(line)).toContain('inline-flex')
     expect(tokens(line)).toContain('whitespace-nowrap')
     expect(tokens(line)).not.toContain('mt-1')
     expect(line.getAttribute('aria-label')!.startsWith('Driver 1 of 1 ranked in this run.')).toBe(true)
@@ -282,8 +283,9 @@ const FOUND_ROW = {
 }
 const FOUND_REPORT = { ...SERVED_REPORT, flip_thresholds: [FOUND_ROW] }
 const MG_ADDED = [
-  `node-card-rail-resting-${RANK_1}`, `attention-marker-${RANK_1}`, 'attention-marker-ring', 'node-title-corner-spacer',
+  `attention-marker-${RANK_1}`, 'attention-marker-ring',
   'factor-driver-line', 'factor-driver-line-caption', 'factor-driver-line-bar', 'factor-driver-line-bar-fill',
+  `node-card-rail-resting-${RANK_1}`,
   // Post-run DIFF item 10 (28 Sep 2026, contract v3.1 `flipPlot`): the track
   // and its labels are one plot (`-plot`), the run's value BENEATH the line —
   // so it follows the marks in document order. Same elements, one wrapper.
@@ -298,7 +300,7 @@ const allIds = (root: HTMLElement) => [...root.querySelectorAll('[data-testid]')
 /** …outside the reserved slot: the slot's CONTENT is the slot's business (one fixed line). */
 const faceIds = (root: HTMLElement, id: string) => {
   const s = root.querySelector(`[data-testid="factor-driver-slot-${id}"]`)!
-  return [...root.querySelectorAll('[data-testid]')].filter(e => e === s || !s.contains(e)).map(e => e.getAttribute('data-testid')!)
+  return [...root.querySelectorAll('[data-testid]')].filter(e => (e === s || !s.contains(e)) && !e.closest('[data-card-mark="driver"], [data-card-mark="driver-last-run"]')).map(e => e.getAttribute('data-testid')!)
 }
 
 describe('FOUND turning point on the rank-1 factor — the ONE card that may grow, and only by the flip plot', () => {
@@ -318,7 +320,7 @@ describe('FOUND turning point on the rank-1 factor — the ONE card that may gro
     // words ("Range: Low to Medium"), so — as at 9dc3e7af and spec §3 — the found plot
     // SUPERSEDES that line: exactly the range line and its source mark leave, nothing else.
     expect(pre).toContain(`factor-prior-range-${RANK_1}`)
-    expect(pre.filter(t => !post.includes(t))).toEqual([`factor-prior-range-${RANK_1}`, `factor-range-source-${RANK_1}`])
+    expect(pre.filter(t => !post.includes(t))).toEqual([`factor-range-source-${RANK_1}`, `factor-prior-range-${RANK_1}`])
     const c = card('Top Account Revenue Concentration')
     const s = within(c).getByTestId(`factor-driver-slot-${RANK_1}`)
     const plot = within(c).getByTestId('factor-turning-point')
@@ -330,7 +332,7 @@ describe('FOUND turning point on the rank-1 factor — the ONE card that may gro
       'Above 0.7, the current model comparison changes.',
     )
     expect(plot.getAttribute('aria-label')).toContain('It shifts towards Full Switch to Usage-Based at Renewal.')
-    expect(within(s).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 1 ranked')
+    expect(within(c).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 1 ranked')
     // "None found" is not the arm here, and never on the card.
     expect(within(c).queryByTestId('factor-turning-point-none')).toBeNull()
   })
@@ -380,7 +382,7 @@ describe('FOUND turning point on the rank-1 factor — the ONE card that may gro
     // qualifies) — a corner mark, not the plot. Chromium, this title, found row on
     // this factor: 147.9 → 147.9px ("Enterprise" shares line 1 with the mark).
     const post = faceIds(container, RANK_2)
-    const attentionMark = [`node-card-rail-resting-${RANK_2}`, `attention-marker-${RANK_2}`, 'attention-marker-ring', 'node-title-corner-spacer']
+    const attentionMark = [`attention-marker-${RANK_2}`, 'attention-marker-ring', `node-card-rail-resting-${RANK_2}`]
     expect(post.filter(t => !pre.includes(t))).toEqual(attentionMark)
     expect(post.filter(t => !attentionMark.includes(t))).toEqual(pre)
   })

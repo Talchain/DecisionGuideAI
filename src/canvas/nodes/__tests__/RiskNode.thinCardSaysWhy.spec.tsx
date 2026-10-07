@@ -267,7 +267,7 @@ describe('a thin risk card says the MODEL is thin', () => {
     // beside a value the card holds.
     const row = screen.getByTestId('risk-recorded-value')
     expect(screen.getByTestId('risk-recorded-readout').textContent).toBe('12 months')
-    expect(announcedLine()).toBe(RISK_EXPOSURE_UNSET_LINE)
+    expect(screen.getByTestId('risk-primary-line-full').textContent).toBe(RISK_EXPOSURE_UNSET_LINE)
     expect(row.contains(screen.getByTestId('risk-primary-line-full'))).toBe(true)
     expect(row.getAttribute('title')).toBe(`12 months · ${RISK_EXPOSURE_UNSET_LINE}`)
     expect(unsetLine()).toBeNull()

@@ -200,14 +200,16 @@ describe('#20 — no bare internal model scale on the card (omit, never invent)'
       const mark = within(c).getByTestId('estimate-marker')
       expect(mark.tagName).toBe('BUTTON')
       expect(within(c).getByRole('button', { name: ESTIMATE_SUBJECT_TITLE.value })).toBe(mark)
-      expect(visibleText(mark)).toBe('est.')
-      expect(within(c).getByTestId(`factor-value-mark-slot-${ID}`).contains(mark)).toBe(true)
+      expect(mark.querySelector('[aria-label="est."]')).not.toBeNull()
+      expect(visibleText(mark)).toBe('')
+      expect(mark.closest('[data-card-bottom-band]')).not.toBeNull()
       // the number stays omitted, and nothing is substituted for it
       expect(visibleText(c)).not.toMatch(/\b0\.5\b/)
       expect(within(c).queryByTestId('factor-recorded-value')).toBeNull()
       expect(within(c).queryByTestId(`factor-needs-input-row-${ID}`)).toBeNull()
       // Design bundle 1: the figure in tier words (0.5 → Medium) beside its mark — never an orphan mark.
-      expect(visibleText(within(c).getByTestId(`factor-value-mark-only-${ID}`))).toMatch(/^Medium\s*est\.$/)
+      expect(within(c).getByTestId(`factor-value-tier-${ID}`)).toHaveAttribute('aria-label', 'Medium')
+      expect(within(c).getByTestId(`factor-value-tier-${ID}`).closest('[data-card-bottom-band]')).not.toBeNull()
       const opened = vi.fn()
       window.addEventListener(OPEN_FULL_INSPECTOR_EVENT, opened)
       fireEvent.click(mark)
@@ -221,7 +223,7 @@ describe('#20 — no bare internal model scale on the card (omit, never invent)'
       const c = card()
       const line = within(c).getByTestId('factor-recorded-value')
       expect(visibleText(line)).toMatch(/^0\.3/)
-      expect(within(line).getByTestId(`factor-value-source-${ID}`).textContent).toContain('Set by you')
+      expect(within(screen.getByTestId(`factor-bottom-marks-${ID}`)).getByTestId(`factor-value-source-${ID}`).textContent).toContain('Set by you')
       expect(within(c).queryByTestId(`factor-value-mark-only-${ID}`)).toBeNull()
       expect(within(c).queryByTestId('estimate-marker')).toBeNull()
     })
@@ -238,7 +240,7 @@ describe('#20 — no bare internal model scale on the card (omit, never invent)'
     const c = card()
     const line = within(c).getByTestId(`factor-prior-range-${ID}`)
     expect(visibleText(line)).toMatch(/^Range: 0\.2 to 0\.6/)
-    expect(within(line).getByTestId(`factor-range-source-${ID}`).getAttribute('aria-label')).toContain('Source not recorded')
+    expect(within(screen.getByTestId(`factor-bottom-marks-${ID}`)).getByTestId(`factor-range-source-${ID}`).getAttribute('aria-label')).toContain('Source not recorded')
   })
 
   // ⭐ THE STAMP F2 FOUND MISSING EXISTS FOR ONE ARM (26 Sep, design audit #3).
@@ -270,7 +272,7 @@ describe('#35 — every value is the contract\'s 610 `strong`', () => {
   it('a qualitative value ("Very high") is ONE strong at 610, not the 500 token', () => {
     seed(QUALITATIVE, { phase: 'pre' })
     renderFactor(QUALITATIVE)
-    const meter = within(card()).getByTestId(`factor-value-tier-${ID}`)
+    const meter = within(screen.getByTestId(`factor-bottom-marks-${ID}`)).getByTestId(`factor-value-tier-${ID}`)
     expect(meter).toHaveAttribute('aria-label', 'Very high')
     expect(meter).toHaveAttribute('title', 'Very high')
     expect(meter.textContent).not.toContain('Very high')
