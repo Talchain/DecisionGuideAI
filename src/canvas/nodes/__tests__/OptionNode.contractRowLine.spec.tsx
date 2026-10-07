@@ -99,7 +99,7 @@ function setState(draft: Draft) {
   state = {
     hoveredOptionId: null, setHoveredOption: vi.fn(),
     nodes: draft.nodes.map(mapDraftNodeToCanvas),
-    edges: draft.edges.map(mapDraftEdgeToCanvas),
+    edges: draft.edges.map((e, i) => mapDraftEdgeToCanvas(e, i)),
     ceeAnalysisReady: draft.analysis_ready,
     results: { status: 'idle', report: null },
     highlightedNodes: new Set(), dimmedNodeIds: new Set(),

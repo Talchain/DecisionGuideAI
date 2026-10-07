@@ -83,7 +83,7 @@ describe('2b — the card reads its width from the layout (the shipped pricing s
   const OPTION = 'opt_hybrid'
   beforeEach(() => {
     useCanvasStore.setState({
-      nodes: draft.nodes.map(mapDraftNodeToCanvas), edges: draft.edges.map(mapDraftEdgeToCanvas),
+      nodes: draft.nodes.map(mapDraftNodeToCanvas), edges: draft.edges.map((e, i) => mapDraftEdgeToCanvas(e, i)),
       ceeAnalysisReady: draft.analysis_ready, results: { status: 'idle', report: null }, viewMode: 'standard',
     } as never)
   })

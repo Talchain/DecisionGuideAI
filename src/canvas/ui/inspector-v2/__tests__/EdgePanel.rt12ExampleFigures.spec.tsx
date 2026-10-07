@@ -48,7 +48,7 @@ function seed(edges: Edge[], edgeId: string) {
 }
 
 function seedExample(link: typeof LINKS[number], changedByUser = false) {
-  const edges = example.edges.map(mapDraftEdgeToCanvas) as Edge[]
+  const edges = example.edges.map((e, i) => mapDraftEdgeToCanvas(e, i)) as Edge[]
   const edge = edges.find(e => e.id === link.id)
   expect(edge, `${link.id}: fixture identity`).toBeDefined()
   expect(edge!.source).toBe(link.from)
