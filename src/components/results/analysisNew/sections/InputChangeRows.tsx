@@ -59,7 +59,7 @@ export function inputChangeCount(n: number, partial: boolean): string {
 
 function CoverageNote({ text, testId, wireFields }: { text: string; testId?: string; wireFields?: string }): JSX.Element {
   return (
-    <p className={`${typography.panelMeta} text-text-light flex items-start gap-1.5 m-0`} data-testid={testId} data-wire-fields={wireFields}>
+    <p className={`${typography.panelMeta} text-text-light flex items-start gap-2 m-0`} data-testid={testId} data-wire-fields={wireFields}>
       <Info className={`${icon('inline')} flex-shrink-0 mt-0.5`} aria-hidden="true" />
       <span>{text}</span>
     </p>
@@ -69,7 +69,7 @@ function CoverageNote({ text, testId, wireFields }: { text: string; testId?: str
 /** Four ordered bands; the earlier band hollow, the latest filled. Category order only: no interval, no number. */
 function BandSteps({ beforeBand, afterBand }: { beforeBand: number | null; afterBand: number | null }): JSX.Element {
   return (
-    <span className="inline-flex items-center gap-[5px] flex-shrink-0" aria-hidden="true" title="Ordered strength bands, not a numerical scale" data-testid="compare-input-strength-steps">
+    <span className="inline-flex items-center gap-1 flex-shrink-0" aria-hidden="true" title="Ordered strength bands, not a numerical scale" data-testid="compare-input-strength-steps">
       {STRENGTH_BAND_ORDER.map((band, i) => {
         const at = i === beforeBand && i === afterBand ? 'both' : i === afterBand ? 'after' : i === beforeBand ? 'before' : null
         const look = at === 'both' ? 'h-[9px] bg-info border-2 border-panel ring-1 ring-info'
@@ -100,7 +100,7 @@ function RowValues({ values }: { values: InputRowValues }): JSX.Element {
       return <p className="m-0"><ValuePair before={values.before} after={values.after} /></p>
     case 'strength':
       return (
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-x-4">
           <ValuePair before={values.before} after={values.after} />
           <BandSteps beforeBand={values.beforeBand} afterBand={values.afterBand} />
         </div>
@@ -108,16 +108,16 @@ function RowValues({ values }: { values: InputRowValues }): JSX.Element {
     case 'sizing':
       return (
         <div className="space-y-2">
-          <div className={`${typography.panelMeta} flex flex-wrap items-center gap-1.5`} data-testid="compare-input-origin">
-            <span className="inline-flex items-center min-h-[25px] px-2 rounded-full border border-panel-border text-text-body">{values.before ?? 'Not recorded'}</span>
+          <div className={`${typography.panelMeta} flex flex-wrap items-center gap-2`} data-testid="compare-input-origin">
+            <span className="inline-flex items-center min-h-6 px-2 rounded-full border border-panel-border text-text-body">{values.before ?? 'Not recorded'}</span>
             <ArrowRight className={`${icon('inline')} flex-shrink-0 text-text-light`} aria-hidden="true" />
-            <span className={`inline-flex items-center gap-1.5 min-h-[25px] px-2 rounded-full border text-text-header ${values.accepted ? 'border-factor' : 'border-panel-border'}`} data-accepted={values.accepted ? 'true' : undefined}>
+            <span className={`inline-flex items-center gap-1 min-h-6 px-2 rounded-full border text-text-header ${values.accepted ? 'border-factor' : 'border-panel-border'}`} data-accepted={values.accepted ? 'true' : undefined}>
               {values.accepted ? <Check className={icon('inline')} aria-hidden="true" /> : null}
               {values.after ?? 'Not recorded'}
             </span>
           </div>
           {values.strength ? (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-x-4">
               <ValuePair before={values.strength.before} after={values.strength.after} />
               <BandSteps beforeBand={values.strength.beforeBand} afterBand={values.strength.afterBand} />
             </div>
@@ -145,7 +145,7 @@ function InputChangeRow({ row, frame, rowFocus, rowLight, selected, onSelect }: 
   const Icon = KIND_ICON[row.kind] ?? Settings
   return (
     <li
-      className={`-mx-2 px-2 py-2.5 rounded-md border-t border-panel-border first:border-t-0 ${light ? 'hover:bg-panel-hover focus-within:bg-panel-hover' : ''} ${selected ? 'ring-1 ring-inset ring-info bg-panel-hover' : ''}`}
+      className={`-mx-2 px-2 py-3 rounded-md border-t border-panel-border first:border-t-0 ${light ? 'hover:bg-panel-hover focus-within:bg-panel-hover' : ''} ${selected ? 'ring-1 ring-inset ring-info bg-panel-hover' : ''}`}
       data-testid={`${WHATS_CHANGED_TESTID}-input-row`}
       data-kind={row.kind}
       data-change={row.change}
@@ -159,7 +159,7 @@ function InputChangeRow({ row, frame, rowFocus, rowLight, selected, onSelect }: 
       {/* The row's sentence is what it MEANS, word for word as everywhere else; the drawn parts below repeat it for the eye. */}
       <span className="sr-only">{sentence}{supplement ? ` ${supplement}` : ''}</span>
       <div className="flex items-start gap-2">
-        <Icon className={`${icon('row')} text-text-light flex-shrink-0 mt-[3px]`} aria-hidden="true" />
+        <Icon className={`${icon('row')} text-text-light flex-shrink-0 mt-0.5`} aria-hidden="true" />
         <div className="flex-1 min-w-0" aria-hidden="true">
           <p className={`${typography.panelBody} text-text-header m-0 break-words`} data-testid="compare-input-row-name">{name}</p>
           {context ? <p className={`${typography.panelMeta} text-text-light m-0 break-words`} data-testid="compare-input-row-context">{context}</p> : null}
@@ -175,12 +175,12 @@ function InputChangeRow({ row, frame, rowFocus, rowLight, selected, onSelect }: 
           />
         ) : null}
       </div>
-      <div className="pl-[22px] mt-1.5" aria-hidden="true" data-testid="compare-input-row-values">
+      <div className="pl-6 mt-2" aria-hidden="true" data-testid="compare-input-row-values">
         <RowValues values={inputRowValues(row)} />
       </div>
       {/* A removed input already says it went; a current one with nothing drawn says why there is no crosshair. */}
       {focus === null && row.change !== 'removed' ? (
-        <p className={`${typography.panelMeta} text-text-light pl-[22px] mt-1 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-input-row-off-canvas`}>Not on the canvas now.</p>
+        <p className={`${typography.panelMeta} text-text-light pl-6 mt-1 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-input-row-off-canvas`}>Not on the canvas now.</p>
       ) : null}
     </li>
   )
