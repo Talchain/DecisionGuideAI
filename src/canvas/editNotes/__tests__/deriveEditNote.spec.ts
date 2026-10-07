@@ -67,7 +67,10 @@ describe('after-edit checks, bound by identity and exact words', () => {
   it('F3 needs a crossing of the last Run\'s turning point (control: same side)', () => {
     const before = unset(), after = structuredClone(before); after.nodes[0].data.observed_state = { value: 7, unit: '%' }
     const base = { visible: true, runId: 'r', drivers: {}, turningPoints: new Map([['a', { currentValue: 4, flipValue: 5, unit: '%', displayScale: true }]]) }
-    expect(deriveEditNote({ edit: edit('factor_value_edit', 'a'), before, after, lastRun: base })?.check).toBe('F3')
+    const f3 = deriveEditNote({ edit: edit('factor_value_edit', 'a'), before, after, lastRun: base })
+    expect(f3?.check).toBe('F3')
+    // Names its metric (Science B5): an average-result flip, never a goal-chance claim.
+    expect(f3?.words).toMatch(/^The last Run found a turning point for ‘Demand’ at .+\. Your new figure is past it, so a different option may now have the higher average result in this model\. Run again to see\.$/)
     after.nodes[0].data.observed_state = { value: 4.5, unit: '%' }
     expect(deriveEditNote({ edit: edit('factor_value_edit', 'a'), before, after, lastRun: base })).toBeNull()
   })
