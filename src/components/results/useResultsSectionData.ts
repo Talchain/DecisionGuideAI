@@ -786,8 +786,7 @@ export function selectDriverPolicyFeed(
 function computeFactorRanks(
   factors: Array<{ key: string; rawElasticity: number; displayValue?: number; importanceRank?: number; label?: string }>
 ): Map<string, number> {
-  // Codex B2: sort by the DISPLAYED influence metric (producer
-  // influence_score, else the elasticity-derived fallback the bar shows) so
+  // Sort by the DISPLAYED influence metric (normalised |elasticity|) so
   // the row order and the rank-1 "Top driver" crown always agree with the
   // visible Influence bar. Elasticity remains the first tie-break.
   const sorted = [...factors].sort((a, b) => {
@@ -3082,12 +3081,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     // Step 3: Compute ranks by the DISPLAYED metric (Codex B2 doctrine fix:
     // the surface says "Influence", so the order and the rank-1 crown follow
-    // the same number the bar renders. Codex R3-B1 tightens this to a
-    // complete-metric-set policy: producer influence_score is used only when
-    // EVERY factor carries one — a partial set would rank a mixture of
-    // producer scores and elasticity-normalised fallbacks, which are not
-    // comparable. Under partial coverage every factor displays and ranks by
-    // normalisedInfluence instead, so the whole surface shares one basis.
+    // the same normalised |elasticity| the bar renders and the hero orders by.
     // Codex R3-B1: display value + provenance from the ONE shared policy
     // (driverDisplayModel) — the same function the graph badge consumes.
     // C4 fix 2: read the model off the shared FEED rather than recomputing it
@@ -3278,7 +3272,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           factorLabel: displayLabel,
           rawElasticity: f.rawElasticity,
           normalisedInfluence,
-          // ISL influence_score (0-1) - use directly for Influence column
+          // Preserve ISL influence_score separately from the displayed sensitivity.
           influenceScore: f.raw.influenceScore,
           // Codex R3-B1: single display basis (see DriverItem.displayInfluence)
           displayInfluence: displayModel.get(f.key)?.value ?? 0,
@@ -3375,8 +3369,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const topDrivers = nonZeroImpactDrivers.slice(0, 3)
 
     // ⭐ ONE DRIVER AUTHORITY (26 Sep 2026, served 853feeb7): the card's own
-    // Driver 1, off the SAME feed the canvas cards rank from. `topDrivers` above
-    // is the structural order and is NOT this — see `DriversSectionData.driverLeader`.
+    // Driver 1, off the SAME feed and |elasticity| order as `topDrivers` above,
+    // with the card's rank-1 gate — see `DriversSectionData.driverLeader`.
     const driverLeader = feed.policyRows.length > 0
       ? sensitivityLeader(feed.policyRows, feed.displayModel)
       : undefined

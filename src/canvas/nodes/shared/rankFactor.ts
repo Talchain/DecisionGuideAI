@@ -64,8 +64,8 @@ function orderBySensitivity(rows: DriverFeed['policyRows']) {
       key: r.key,
       elasticity: r.rawElasticity,
       // The badge asks "what is the result most sensitive to". Elasticity is
-      // that question's answer; `displayModel.value` answers "how big is this
-      // factor structurally", which is why it used to disagree with the words.
+      // that question's answer; `displayModel.value` now normalises the same
+      // quantity, so its figure agrees with this order.
       value: Number.isFinite(r.rawElasticity) ? Math.abs(r.rawElasticity) : 0,
     }))
     .sort(compareByDisplayModel)

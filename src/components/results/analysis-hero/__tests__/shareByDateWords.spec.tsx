@@ -101,7 +101,7 @@ describe('share-by-date chance: the same words as CEE chat', () => {
   it('the matrix carries the range target and keeps the stated-time sentence together', () => {
     matrix(range())
     expect(screen.getByTestId('decision-matrix-chance-a').textContent).toBe(line('3–6 months'))
-    expect(screen.getByTestId('decision-matrix-driver-a').textContent).toBe('None shown')
+    expect(screen.getByTestId('decision-matrix-driver-a').textContent).toBe('')
   })
 
   it('hero coverage recognises the stated-time figure without treating its endpoints as links', () => {

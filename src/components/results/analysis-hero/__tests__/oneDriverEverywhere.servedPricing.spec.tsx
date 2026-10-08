@@ -88,6 +88,14 @@ function renderTriage(data: ResultsSectionDataReturn) {
   )
 }
 
+/** Retained producer-basis callers exercise the nudge's separate structural gates. */
+function structuralReadout(data: ResultsSectionDataReturn): ResultsSectionDataReturn {
+  const drivers = data.drivers.drivers.map(d => ({
+    ...d, displayInfluence: d.influenceScore, displayProvenance: 'influence_score' as const,
+  })).sort((a, b) => (b.displayInfluence ?? 0) - (a.displayInfluence ?? 0))
+  return { ...data, drivers: { ...data.drivers, drivers, topDrivers: drivers.filter(d => (d.displayInfluence ?? 0) >= 0.01).slice(0, 3) } }
+}
+
 function renderActOnIt(data: ResultsSectionDataReturn) {
   const rows = rankActOnItRows(data, { readyToBrief: false })
   render(
@@ -157,15 +165,14 @@ describe('1 · "Dominant factor" nudge reads the card\'s ranking', () => {
     expect(screen.queryByText(DOM['t1-dominant-nudge-metric'])).toBeNull()
   })
 
-  it('served: the view-model crowns no dominant factor (the producer sent none)', () => {
+  it('served: with the producer silent, the local heuristic names the card\'s clear sensitivity leader', () => {
     seed(blockWith())
-    expect(sectionData().drivers.dominantFactorId).toBeUndefined()
+    expect(sectionData().drivers.dominantFactorId).toBe(TOP)
   })
 
   it('the local dominance heuristic may not crown a factor the card does not rank', () => {
-    // Served rows, influence scores only: the lever now clears the heuristic's
-    // 2:1 structural ratio (1.0 vs 0.3). Elasticities untouched — the card's
-    // Driver 1 is still Top Account.
+    // Producer scores would put the lever first at a 2:1 structural ratio.
+    // The shared display basis ignores that order and keeps the card's Driver 1.
     seed(blockWith((b) => {
       for (const r of b.enrichment.factor_sensitivity) {
         r.influence_score = r.factor_id === LEVER ? 1 : 0.3
@@ -173,16 +180,17 @@ describe('1 · "Dominant factor" nudge reads the card\'s ranking', () => {
     }))
     const data = sectionData()
     expect(data.drivers.driverLeader).toEqual({ key: TOP, leadIsClear: true })
-    expect(data.drivers.topDrivers[0].factorKey).toBe(LEVER)
-    expect(data.drivers.dominantFactorId).toBeUndefined()
+    expect(data.drivers.topDrivers[0].factorKey).toBe(TOP)
+    expect(data.drivers.dominantFactorId).toBe(TOP)
     renderTriage(data)
     expect(screen.queryByTestId('t1-dominant-nudge')).toBeNull()
   })
 
-  it('AI Conversation B1: the producer names the card\'s Driver 1 as dominant, but the list\'s TOP ROW is still the lever — no nudge (its number would be the lever\'s 100%)', () => {
-    // Served rows and elasticities: the card's Driver 1 is Top Account, the structural top row is the lever.
+  it('AI Conversation B1: a legacy structural readout led by the lever cannot borrow the card\'s Driver 1 name for its 100% nudge', () => {
+    // The current ranking agrees with the card. A legacy structural caller
+    // still gets the same authority guard when its top row is the lever.
     seed(blockWith())
-    const served = sectionData()
+    const served = structuralReadout(sectionData())
     expect(served.drivers.driverLeader).toEqual({ key: TOP, leadIsClear: true })
     expect(served.drivers.topDrivers[0].factorKey).toBe(LEVER)
     // PLoT sends `dominant_factor` naming Top Account (it does on runs where its DOMINANT_FACTOR warning fires).
@@ -192,7 +200,7 @@ describe('1 · "Dominant factor" nudge reads the card\'s ranking', () => {
     expect(screen.queryByTestId('t1-dominant-nudge')).toBeNull()
   })
 
-  it('control: when the structural top IS the card\'s Driver 1, the nudge names exactly that factor', () => {
+  it('control: when a legacy structural readout\'s top IS the card\'s Driver 1, the nudge names exactly that factor', () => {
     // Served rows, influence scores only: Top Account becomes the structural
     // top as well as the sensitivity top. Elasticities are untouched.
     seed(blockWith((b) => {
@@ -200,7 +208,7 @@ describe('1 · "Dominant factor" nudge reads the card\'s ranking', () => {
         r.influence_score = r.factor_id === TOP ? 0.9 : 0.2
       }
     }))
-    const data = sectionData()
+    const data = structuralReadout(sectionData())
     // The heuristic crowns the SAME factor the card ranks first.
     expect(data.drivers.dominantFactorId).toBe(TOP)
     renderTriage(data)

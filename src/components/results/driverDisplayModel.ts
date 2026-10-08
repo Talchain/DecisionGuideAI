@@ -7,10 +7,10 @@
  *
  * Codex R2-B2 / R3-B1 doctrine: the surface says "Influence", so the order,
  * the rank-1 crown, and the bar must all follow the SAME number — and that
- * number must be on ONE comparable basis across the whole factor set. Producer
- * `influence_score` is adopted only when EVERY ranked factor carries a finite
- * one; under partial coverage every factor falls back to per-set normalised
- * |elasticity|. Mixing the two (a producer 0.9 ranked against a fallback 0.2)
+ * number must be on ONE comparable basis across the whole factor set. Every
+ * ranked factor uses per-set normalised |elasticity|, the same quantity
+ * the canvas driver rank and hero leader order by. Mixing the two (a producer
+ * 0.9 ranked against a normalised elasticity of 0.2)
  * is exactly the "#1 with a lower displayed influence" contradiction the
  * review caught — so the policy lives here, once, and both hooks import it
  * rather than keeping their own copy that can drift. A GATED row
@@ -420,14 +420,10 @@ export function selectDriverDisplayModel(
   }>,
 ): Map<string, DriverDisplayEntry> {
   // ⭐ A GATED ROW IS COVERED, NOT MISSING (ISL #213; AIQ #72 5881953818). It
-  // is left out of the completeness check AND the normalisation base, and it
+  // is left out of the normalisation base, and it
   // gets NO entry: it has no figure on either basis, so no surface can print,
-  // bar or rank one. The other rows keep the producer basis among themselves.
-  // A null score with no gate (e.g. a truncated walk) still drops the set.
+  // bar or rank one. The other rows share the normalised-elasticity basis.
   const ranked = factors.filter((f) => f.influenceGated !== true)
-  const coverageComplete =
-    ranked.length > 0 &&
-    ranked.every((f) => typeof f.influenceScore === 'number' && Number.isFinite(f.influenceScore))
 
   const normalisedMap = computeNormalisedInfluences(
     ranked.map((f) => ({ key: f.key, rawElasticity: f.rawElasticity })),
@@ -444,15 +440,11 @@ export function selectDriverDisplayModel(
       typeof f.importanceBasis === 'string' && f.importanceBasis.length > 0
         ? f.importanceBasis
         : null
-    if (coverageComplete && typeof f.influenceScore === 'number') {
-      out.set(f.key, { value: f.influenceScore, provenance: 'influence_score', importanceBasis })
-    } else {
-      out.set(f.key, {
-        value: normalisedMap.get(f.key) ?? 0,
-        provenance: 'normalised_elasticity',
-        importanceBasis,
-      })
-    }
+    out.set(f.key, {
+      value: normalisedMap.get(f.key) ?? 0,
+      provenance: 'normalised_elasticity',
+      importanceBasis,
+    })
   }
   return out
 }

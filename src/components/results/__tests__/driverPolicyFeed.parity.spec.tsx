@@ -103,7 +103,7 @@ describe('C4 fix 2 — panel and canvas resolve the SAME basis and value from on
     expect(canvas.result.current.sensitivityRank).toBe(1)
   })
 
-  it('full producer coverage: both surfaces say absolute with the producer value', () => {
+  it('full producer coverage: both surfaces use normalised elasticity', () => {
     setCompleteReport(baseReport({
       factor_sensitivity: [
         { factor_id: 'A', influence_score: 0.6, elasticity: 0.5 },
@@ -113,12 +113,12 @@ describe('C4 fix 2 — panel and canvas resolve the SAME basis and value from on
 
     const panel = renderHook(() => useResultsSectionData())
     const rowA = panel.result.current.drivers.drivers.find(d => d.factorKey === 'A')
-    expect(rowA?.displayProvenance).toBe('influence_score')
-    expect(rowA?.displayInfluence).toBeCloseTo(0.6)
+    expect(rowA?.displayProvenance).toBe('normalised_elasticity')
+    expect(rowA?.displayInfluence).toBeCloseTo(1)
 
     const canvas = renderHook(() => useNodeDisplayMetadata('A', 'factor'))
-    expect(canvas.result.current.influenceProvenance).toBe('influence_score')
-    expect(canvas.result.current.influence).toBeCloseTo(0.6)
+    expect(canvas.result.current.influenceProvenance).toBe('normalised_elasticity')
+    expect(canvas.result.current.influence).toBeCloseTo(1)
   })
 })
 
@@ -197,7 +197,7 @@ describe('C4 re-review — panel and canvas resolve the SAME ORDER, not just the
     }
   })
 
-  it('producer basis: an exact tie yields no rendered ordinal, and the values still agree across surfaces', () => {
+  it('equal producer scores do not hide distinct elasticity ranks, and the values agree across surfaces', () => {
     setCompleteReport(baseReport({
       factor_sensitivity: [
         { node_id: 'a_pos', label: 'Alpha uplift', influence_score: 0.5, elasticity: 0.3 },
@@ -208,13 +208,16 @@ describe('C4 re-review — panel and canvas resolve the SAME ORDER, not just the
     const panel = renderHook(() => useResultsSectionData())
     const rowsByKey = new Map(panel.result.current.drivers.drivers.map(d => [d.factorKey, d]))
 
-    // Both rows carry a producer score, and the SAME one — so the ORDER is
-    // decided purely by the elasticity tie-break.
-    expect(rowsByKey.get('a_pos')?.displayProvenance).toBe('influence_score')
-    expect(rowsByKey.get('a_pos')?.displayInfluence).toBeCloseTo(0.5)
-    expect(rowsByKey.get('b_neg')?.displayInfluence).toBeCloseTo(0.5)
+    // Both rows carry the SAME producer score, but the display basis and
+    // order now follow their different elasticity magnitudes.
+    expect(rowsByKey.get('a_pos')?.displayProvenance).toBe('normalised_elasticity')
+    expect(rowsByKey.get('a_pos')?.displayInfluence).toBeCloseTo(1 / 3)
+    expect(rowsByKey.get('b_neg')?.displayInfluence).toBeCloseTo(1)
 
-    // ⚠⚠ THIS FIXTURE IS AN EXACT TIE, AND THE ASSERTION BELOW CHANGED ON
+    // Historical producer-basis tie policy, retained for context: D7 uses
+    // normalised elasticity, so this fixture now supports both ordinals.
+    // The equal-magnitude fixture above still pins real tie withholding.
+    // ⚠⚠ THIS FIXTURE WAS AN EXACT DISPLAY TIE, AND THE ASSERTION CHANGED ON
     // 2026-08-30. It used to read
     //     expect(canvas.result.current.sensitivityRank).toBe(rowsByKey.get(key)!.rank)
     // — i.e. it pinned the canvas badge printing "#1" and "#2" for two factors
@@ -232,17 +235,17 @@ describe('C4 re-review — panel and canvas resolve the SAME ORDER, not just the
     // "Key driver #N", `EdgeInspector`'s "ranked #N in influence"), and there
     // the tie-break would be a claim the data cannot support. The panel prints
     // no ordinal at all; its user-visible tie signal is the "These factors have
-    // similar influence" note, which already fires on this fixture.
-    for (const key of ['a_pos', 'b_neg']) {
+    // similar influence" note, which fired on this fixture before D7 changed the basis.
+    for (const [key, rank] of [['a_pos', 2], ['b_neg', 1]] as const) {
       const canvas = renderHook(() => useNodeDisplayMetadata(key, 'factor'))
-      expect(canvas.result.current.sensitivityRank).toBeNull()
+      expect(canvas.result.current.sensitivityRank).toBe(rank)
       // …and the parity this spec exists to protect is UNCHANGED: the two
       // surfaces still resolve the same VALUE on the same BASIS.
       expect(canvas.result.current.influence).toBeCloseTo(rowsByKey.get(key)!.displayInfluence!)
     }
 
-    // The larger MAGNITUDE still wins the tie in the panel's row ORDER,
-    // negative or not — that behaviour is untouched.
+    // The larger MAGNITUDE wins the panel's row ORDER,
+    // negative or not, on the same quantity the canvas ranks.
     expect(rowsByKey.get('b_neg')?.rank).toBe(1)
     expect(rowsByKey.get('a_pos')?.rank).toBe(2)
   })

@@ -352,7 +352,7 @@ describe('Decision matrix — captured Run, shared hero words, read-only interac
     const matrix = screen.getByTestId('decision-matrix')
     const table = screen.getByRole('table')
     expect(within(table).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual([
-      'Option', 'Chance of meeting your goal, in this model', 'Rests most on',
+      'Option', 'Chance of meeting your goal, in this model', 'Its chance rests most on',
     ])
     for (const cell of table.querySelectorAll('th, td')) {
       expect(cell).toHaveClass(...typography.panelBody.split(' '))

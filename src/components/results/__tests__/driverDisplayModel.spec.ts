@@ -46,13 +46,13 @@ describe('selectDriverDisplayModel — the exact Codex R3-B1 partial-coverage sc
     expect(ranked.map((r) => r.key)).toEqual(['revenue_potential', 'investor_confidence'])
   })
 
-  it('complete coverage → producer influence for all, provenance marked', () => {
+  it('complete producer coverage still uses normalised elasticity for all, provenance marked', () => {
     const model = selectDriverDisplayModel([
       { key: 'a', influenceScore: 0.9, rawElasticity: 0.1 },
       { key: 'b', influenceScore: 0.2, rawElasticity: 0.2 },
     ])
-    expect(model.get('a')).toEqual({ value: 0.9, provenance: 'influence_score', importanceBasis: null })
-    expect(model.get('b')).toEqual({ value: 0.2, provenance: 'influence_score', importanceBasis: null })
+    expect(model.get('a')).toEqual({ value: 0.5, provenance: 'normalised_elasticity', importanceBasis: null })
+    expect(model.get('b')).toEqual({ value: 1, provenance: 'normalised_elasticity', importanceBasis: null })
   })
 
   it('a non-finite influence_score does NOT count as coverage (fails closed to normalised)', () => {
