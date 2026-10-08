@@ -36,14 +36,14 @@ import { isStrengthPlaceholder } from '../../../../canvas/domain/strengthPlaceho
  * click away, each link said as a plain relationship. The acts and their writes are unchanged.
  */
 export const UNSIZED_LINK_COPY = {
-  // DL 58e392 (8 Oct 2026): "links Olumi drafted", in Science's "not sized" vocabulary; not "assumptions".
-  heading: (n: number) => (n === 1 ? "1 link Olumi drafted isn't sized yet" : `${n} links Olumi drafted aren't sized yet`),
+  // DL 58e392 (8 Oct 2026): "relationships Olumi drafted" (Science: "relationship", never "link"), "not sized".
+  heading: (n: number) => (n === 1 ? "1 relationship Olumi drafted isn't sized yet" : `${n} relationships Olumi drafted aren't sized yet`),
   relationship: (from: string, to: string) => `‘${from}’ affects ‘${to}’`,
   accept: 'Accept',
   acceptLabel: (from: string, to: string) => `Accept Olumi's starting strength for ‘${from}’ affects ‘${to}’`,
   edit: 'Edit',
   editLabel: (from: string, to: string) => `Edit how strongly ‘${from}’ affects ‘${to}’`,
-  toggle: { show: 'Show the links', hide: 'Hide the links' },
+  toggle: { show: 'Show the relationships', hide: 'Hide the relationships' },
   sending: 'Sending…',
   sent: "Sent. Re-run to see this option's figures.",
   notRecorded: 'Not recorded. Use Edit to set it.',

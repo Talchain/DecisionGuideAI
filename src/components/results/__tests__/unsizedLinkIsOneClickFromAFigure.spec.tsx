@@ -95,12 +95,12 @@ describe('B3c · the hook resolves the producer\'s acceptable links to canvas ed
     expect(byId.keep_49_price.unsizedLinks).toBeUndefined()
   })
 
-  it('the Reasoning tab shows "1 link Olumi drafted isn\'t sized yet" with both actions on that option only', () => {
+  it('the Reasoning tab shows "1 relationship Olumi drafted isn\'t sized yet" with both actions on that option only', () => {
     seed()
     const data = renderHook(() => useResultsSectionData()).result.current
     render(<AnalysisNewTabBody resultsSectionData={data} isPreRun={false} isRunning={false} isStale={false} responseHash="b3c" />)
     const T = `analysis-new-options-unsized-${HELD}`
-    expect(screen.getByTestId(`${T}-heading`)).toHaveTextContent("1 link Olumi drafted isn't sized yet")
+    expect(screen.getByTestId(`${T}-heading`)).toHaveTextContent("1 relationship Olumi drafted isn't sized yet")
     // One line at rest (8 Oct 2026); the list opens under the chevron.
     expect(screen.queryByTestId(`${T}-e_price_mrr-accept`)).toBeNull()
     fireEvent.click(screen.getByTestId(`${T}-toggle`))

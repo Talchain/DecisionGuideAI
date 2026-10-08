@@ -794,14 +794,14 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   // not true), it may already be answered, so it is not shown, and no other factor is named in its place: the re-run decides.
   const unsizedAsk = unsizedWithhold && inputs.analysisIdentityIsCurrent === true ? (inputs.unsizedPathAsk ?? null) : null
   if (unsizedAsk !== null) {
-    // ⭐ DL 58e392 RULING (8 Oct 2026): a question about the user's belief, in Science's vocabulary — a link Olumi drafted
-    // "isn't sized in the model yet". No "the comparison turns on" (the ask is the withhold's FIRST link, nearest the goal,
+    // ⭐ DL 58e392 RULING (8 Oct 2026): a question about the user's belief, in Science's vocabulary — a relationship
+    // (never "link") Olumi drafted "isn't sized in the model yet". No "the comparison turns on" (the ask is the withhold's FIRST link, nearest the goal,
     // not a measured influence) and no "nobody has set" (D-05).
     const step = unsizedAsk.kind === 'goal_level'
       ? {
           key: `goal-level:${unsizedAsk.nodeId}`,
           title: `Give ‘${unsizedAsk.goal}’ today’s level`,
-          signal: 'Olumi needs it before it can size the links on the way to it.',
+          signal: 'Olumi needs it before it can size the relationships on the way to it.',
           whyNow: 'Then re-run, and Olumi can ask about those links.',
           targetId: unsizedAsk.nodeId,
         }
@@ -809,7 +809,7 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
         ? {
             key: `gauge:${unsizedAsk.fromId}->${unsizedAsk.throughId}->${unsizedAsk.toId}`,
             title: `How much does ‘${unsizedAsk.from}’ change ‘${unsizedAsk.to}’ through ‘${unsizedAsk.through}’?`,
-            signal: 'Olumi drafted this path; it isn’t sized in the model yet.',
+            signal: 'Olumi drafted these relationships; they aren’t sized in the model yet.',
             whyNow: 'A best guess and a range is fine.',
             targetId: `${unsizedAsk.fromId}->${unsizedAsk.throughId}`,
           }
@@ -819,8 +819,8 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
               key: `withheld-link:${unsizedAsk.fromId}->${unsizedAsk.toId}`,
               title: `How strongly does ‘${unsizedAsk.from}’ affect ‘${unsizedAsk.to}’?`,
               signal: unsizedAsk.more > 0
-                ? `Olumi drafted this link and ${unsizedAsk.more} more; none is sized in the model yet.`
-                : 'Olumi drafted this link; it isn’t sized in the model yet.',
+                ? `Olumi drafted this relationship and ${unsizedAsk.more} more; none is sized in the model yet.`
+                : 'Olumi drafted this relationship; it isn’t sized in the model yet.',
               whyNow: 'A best guess and a range is fine.',
               targetId: `${unsizedAsk.fromId}->${unsizedAsk.toId}`,
             }
@@ -829,14 +829,14 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
             ? {
                 key: `target-link:${unsizedAsk.fromId}->${unsizedAsk.toId}`,
                 title: `How strongly does ‘${unsizedAsk.from}’ affect ‘${unsizedAsk.to}’?`,
-                signal: 'Olumi can’t test your target until this link has a size in the target’s unit.',
+                signal: 'Olumi can’t test your target until this relationship has a size in the target’s unit.',
                 whyNow: 'A best guess is fine.',
                 targetId: `${unsizedAsk.fromId}->${unsizedAsk.toId}`,
               }
             : {
                 key: `link:${unsizedAsk.fromId}->${unsizedAsk.toId}`,
                 title: `How strongly does ‘${unsizedAsk.from}’ affect ‘${unsizedAsk.to}’?`,
-                signal: 'Olumi drafted this link; it isn’t sized in the model yet.',
+                signal: 'Olumi drafted this relationship; it isn’t sized in the model yet.',
                 whyNow: 'A best guess and a range is fine.',
                 targetId: `${unsizedAsk.fromId}->${unsizedAsk.toId}`,
               }
@@ -848,7 +848,7 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       signal: step.signal,
       whyNow: step.whyNow,
       tryThis: null,
-      sourceLine: unsizedAsk.kind === 'withheld_link' ? 'Source: the links this run names when it holds back its comparison.'
+      sourceLine: unsizedAsk.kind === 'withheld_link' ? 'Source: the relationships this run names when it holds back its comparison.'
         : unsizedAsk.kind === 'target_link' ? 'Source: what this run asks before it can test your target.'
         : 'Source: what this run asks first when it holds back its comparison.',
       action: unsizedAsk.kind === 'goal_level'

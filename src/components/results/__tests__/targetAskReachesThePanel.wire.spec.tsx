@@ -65,6 +65,6 @@ describe('near tie: the target warning\'s typed ask reaches the deployed panel',
     })
     render(<StrengthenContainer data={data} />)
     expect(screen.getByText('How strongly does ‘Support capacity strain’ affect ‘monthly recurring revenue’?')).toBeTruthy()
-    expect(screen.getByText('Olumi can’t test your target until this link has a size in the target’s unit.')).toBeTruthy()
+    expect(screen.getByText('Olumi can’t test your target until this relationship has a size in the target’s unit.')).toBeTruthy()
   })
 })

@@ -135,7 +135,7 @@ export const COMMITMENT_COPY = {
     leaderNotConfirmed: 'Which option leads is not confirmed yet.',
   },
   /**
-   * ⚠ DL 58e392 RULING (8 Oct 2026): a placeholder link is not "an assumption Olumi made" in the sense a reader takes
+   * ⚠ DL 58e392 RULING (8 Oct 2026; Science's word since: "relationship", never "link"): a placeholder link is not "an assumption Olumi made" in the sense a reader takes
    * (a guessed value): Olumi drafted the link and gave it no size. Science's vocabulary (6 Oct): "isn't sized in the
    * model yet"; never "nobody has set yet" (D-05).
    *
@@ -146,9 +146,9 @@ export const COMMITMENT_COPY = {
    */
   assumptions: {
     headline: (n: number): string =>
-      n === 1 ? "1 link Olumi drafted isn't sized in the model yet." : `${n} links Olumi drafted aren't sized in the model yet.`,
+      n === 1 ? "1 relationship Olumi drafted isn't sized in the model yet." : `${n} relationships Olumi drafted aren't sized in the model yet.`,
     lead: (n: number): string =>
-      n === 1 ? 'Olumi drafted this link; it is not sized in the model yet:' : 'Olumi drafted these links; none is sized in the model yet:',
+      n === 1 ? 'Olumi drafted this relationship; it is not sized in the model yet:' : 'Olumi drafted these relationships; none is sized in the model yet:',
     item: (from: string, to: string): string => `‘${from}’ affects ‘${to}’`,
     more: (n: number): string => `and ${n} more`,
     close: (n: number): string =>
