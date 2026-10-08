@@ -1,5 +1,5 @@
 import { typography } from '../../../styles/typography'
-import { createContext, useContext, useState, useEffect, useLayoutEffect, useCallback, type ReactNode, type CSSProperties } from 'react'
+import { createContext, useContext, useState, useEffect, useLayoutEffect, useCallback, useRef, type ReactNode, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { History } from 'lucide-react'
 import Tooltip from '../../../components/Tooltip'
@@ -9,6 +9,7 @@ import { useNodeKeyboardScope, NODE_KEYBOARD_SCOPE_ATTR } from '../nodeKeyboardS
 import '../nodeTextAlign.css'
 
 const BottomMarksContext = createContext<{ target: HTMLDivElement | null; setTarget: (target: HTMLDivElement | null) => void; hasMarks: boolean; register: () => () => void } | null>(null)
+const MORE_MARK_CLASS_NAME = `${typography.edgeLabel} shrink-0 whitespace-nowrap text-text-light`
 /** Scoped to each card itself: inspector/popover source marks keep their own slots. */
 export function BottomMarksProvider({ children }: { children: ReactNode }) {
   const [target, setTarget] = useState<HTMLDivElement | null>(null)
@@ -31,6 +32,7 @@ export function BottomMarksBand({ nodeId, nodeType = 'option', style, hidden = f
   const context = useContext(BottomMarksContext)
   const { ref, onKeyDownCapture } = useNodeKeyboardScope<HTMLDivElement>()
   const [overflowLabels, setOverflowLabels] = useState<string[]>([])
+  const moreMeasureRef = useRef<HTMLSpanElement>(null)
   const setTarget = context?.setTarget
   const bandRef = useCallback((target: HTMLDivElement | null) => {
     ;(ref as { current: HTMLDivElement | null }).current = target
@@ -41,33 +43,47 @@ export function BottomMarksBand({ nodeId, nodeType = 'option', style, hidden = f
     if (!band) return
     const measure = () => {
       const children = Array.from(band.children).filter((child): child is HTMLElement =>
-        child instanceof HTMLElement && child.getAttribute('data-card-mark') !== 'more')
-      // Restore natural layout first: widening the band must bring marks back.
-      for (const child of children) child.removeAttribute('data-band-overflow')
-      const width = band.clientWidth
-      if (width <= 0) return // Unmounted/hidden layout will be measured when the band gains width.
-      const marks = children.map(child => ({ child, right: child.offsetLeft + child.offsetWidth }))
-      const needsMore = marks.some(mark => mark.right > width)
+        child instanceof HTMLElement && child.getAttribute('data-card-mark') !== 'more' && !child.hasAttribute('data-band-more-measure'))
+      // Measure the input marks, never the flex layout produced by the last
+      // overflow result. A mounted +N can compress wrappers at borderline widths.
       const more = band.querySelector<HTMLElement>('[data-card-mark="more"]')
-      const gap = Number.parseFloat(getComputedStyle(band).columnGap) || 4
-      const available = needsMore ? width - (more?.offsetWidth || 24) - gap : width
-      const labels: string[] = []
-      for (const { child, right } of marks) {
-        if (right > available) {
-          child.setAttribute('data-band-overflow', 'true')
-          labels.push(child.getAttribute('aria-label') || child.querySelector('[aria-label]')?.getAttribute('aria-label') || '')
+      const previousDisplay = more?.style.display ?? ''
+      if (more) more.style.display = 'none'
+      try {
+        for (const child of children) child.removeAttribute('data-band-overflow')
+        const width = band.clientWidth
+        if (width <= 0) return // Hidden layout is measured when the band gains width.
+        const marks = children.map(child => ({ child, right: child.offsetLeft + child.offsetWidth }))
+        const needsMore = marks.some(mark => mark.right > width)
+        // Reserve the total mark count's width with the same typography. This
+        // depends only on the inputs, not the overflow count or +N's presence.
+        const probe = moreMeasureRef.current
+        if (probe) probe.textContent = `+${children.length}`
+        const gap = Number.parseFloat(getComputedStyle(band).columnGap) || 4
+        const available = needsMore ? width - (probe?.offsetWidth || 24) - gap : width
+        const labels: string[] = []
+        for (const { child, right } of marks) {
+          if (right > available) {
+            child.setAttribute('data-band-overflow', 'true')
+            labels.push(child.getAttribute('aria-label') || child.querySelector('[aria-label]')?.getAttribute('aria-label') || '')
+          }
         }
+        setOverflowLabels(previous => previous.length === labels.length && previous.every((label, index) => label === labels[index]) ? previous : labels)
+      } finally {
+        if (more) more.style.display = previousDisplay
       }
-      setOverflowLabels(previous => previous.length === labels.length && previous.every((label, index) => label === labels[index]) ? previous : labels)
     }
     measure()
     const resize = new ResizeObserver(measure)
     resize.observe(band)
-    const mutation = new MutationObserver(measure)
+    const mutation = new MutationObserver(records => {
+      // Portal marks are inputs; our own +N mount/unmount is only output.
+      if (records.length === 0 || records.some(record => [...record.addedNodes, ...record.removedNodes].some(node =>
+        !(node instanceof HTMLElement && node.getAttribute('data-card-mark') === 'more')))) measure()
+    })
     mutation.observe(band, { childList: true })
     return () => { resize.disconnect(); mutation.disconnect() }
-    // Remeasure after React mounts/updates +N so its real width replaces the fallback.
-  }, [ref, overflowLabels])
+  }, [ref])
   useEffect(() => {
     const band = ref.current
     if (!band) return
@@ -81,10 +97,12 @@ export function BottomMarksBand({ nodeId, nodeType = 'option', style, hidden = f
     return () => host.removeEventListener('keydown', arm, true)
   }, [ref, onKeyDownCapture])
   return <div ref={bandRef} style={hidden ? { ...style, visibility: 'hidden' } : style} {...{ [NODE_KEYBOARD_SCOPE_ATTR]: '' }} data-card-band-hidden={hidden ? 'true' : undefined} data-testid={`${nodeType}-bottom-marks-${nodeId}`} data-card-bottom-band="true" className="absolute bottom-1.5 left-3 flex items-center gap-1 overflow-hidden">
+    <span ref={moreMeasureRef} data-band-more-measure="true" aria-hidden="true"
+      style={{ position: 'absolute', visibility: 'hidden', pointerEvents: 'none' }} className={MORE_MARK_CLASS_NAME} />
     {overflowLabels.length > 0 && <Tooltip asChild content={overflowLabels.map((label, index) => <div key={index}>{label}</div>)}>
       <span data-testid={`${nodeType}-bottom-marks-more-${nodeId}`} data-card-mark="more" role="img" tabIndex={0}
         aria-label={`${overflowLabels.length} more: ${overflowLabels.join('; ')}`} style={{ order: 9999 }}
-        className={`${typography.edgeLabel} shrink-0 whitespace-nowrap text-text-light`}>+{overflowLabels.length}</span>
+        className={MORE_MARK_CLASS_NAME}>+{overflowLabels.length}</span>
     </Tooltip>}
   </div>
 }
