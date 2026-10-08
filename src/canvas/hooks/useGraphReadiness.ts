@@ -78,7 +78,7 @@ const inflightCache = new Map<string, InflightEntry>()
 
 /**
  * Deduplicated fetch: reuses an in-flight (or recently resolved) request
- * for the same endpoint + payload body. Returns a pre-parsed response so
+ * for the same endpoint + payload body + auth headers. Returns a pre-parsed response so
  * multiple consumers can safely read the result without "body stream already
  * read" errors. Uses refCount to prevent one consumer's unmount from
  * aborting a request shared by other consumers.
@@ -89,7 +89,11 @@ function deduplicatedFetch(
   correlationId: string,
   extraHeaders: Record<string, string> = {},
 ): { promise: Promise<DeduplicatedResponse>; entry: InflightEntry; isReused: boolean } {
-  const cacheKey = `${url}:${payloadJson}`
+  // Ownership is decided from the bearer: equal graphs under different
+  // sessions must never share an in-flight or recently resolved response.
+  // Sort the caller's headers so equivalent header sets still deduplicate.
+  const headersKey = JSON.stringify(Object.entries(extraHeaders).sort(([a], [b]) => a.localeCompare(b)))
+  const cacheKey = JSON.stringify([url, payloadJson, headersKey])
   const existing = inflightCache.get(cacheKey)
   if (existing && (!existing.settled || Date.now() - existing.timestamp < DEDUP_WINDOW_MS)) {
     existing.refCount++

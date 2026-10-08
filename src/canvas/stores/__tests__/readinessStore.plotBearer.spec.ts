@@ -1,27 +1,8 @@
-/**
- * Readiness store seam — ⚠ PREMISE FLIPPED BY ROADMAP 2.710, deliberately.
- *
- * This spec used to pin the OPPOSITE: that `plotAuthHeaders()` rode the
- * graph-readiness request, because the deployed base was PLoT's
- * bearer-authenticated origin (the env-resolved `VITE_CEE_BFF_BASE`). 2.710
- * re-bound the store to the same-origin `/bff/cee` edge seam, which injects
- * `X-Olumi-Assist-Key` SERVER-side — so the browser request is now
- * credential-less BY DESIGN, and the old presence pin became a leak pin:
- *
- *  1. the request targets the literal same-origin seam (URL pin, live path);
- *  2. NO Authorization header rides it — even when VITE_PLOT_BEARER is set.
- *     The bearer is a PLoT credential; attaching it to a CEE-bound
- *     same-origin call would ship it to a service that must never see it.
- *
- * Drives the REAL store path (`__test__.fetchReadiness`) and asserts on what
- * reaches the real `fetch`, exactly as the old spec did — removing the `{}`
- * headers argument in readinessStore.ts and restoring `plotAuthHeaders()`
- * turns pin 2 red.
- *
- * The canvas store is mocked to supply a one-node graph so `fetchReadiness`
- * proceeds to the network (it early-returns without fetching on an empty graph).
- */
+/** Readiness carries the Supabase user's bearer, never the PLoT service credential. */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+const { getSessionIdentity } = vi.hoisted(() => ({ getSessionIdentity: vi.fn() }))
+vi.mock('../../../lib/supabase', () => ({ getSessionIdentity }))
 
 vi.mock('../../store', () => ({
   useCanvasStore: {
@@ -36,7 +17,8 @@ vi.mock('../../store', () => ({
 }))
 
 import { __test__ as storeTest, useReadinessStore } from '../readinessStore'
-import { clearInflightCache } from '../../hooks/useGraphReadiness'
+import { buildTurnAuthHeaders } from '../../../v5/turnAuthHeaders'
+import { __test__ as dedupTest, clearInflightCache } from '../../hooks/useGraphReadiness'
 
 function okReadiness() {
   return new Response(
@@ -56,6 +38,7 @@ let fetchSpy: ReturnType<typeof vi.fn>
 beforeEach(() => {
   storeTest.resetModuleState()
   clearInflightCache()
+  getSessionIdentity.mockResolvedValue({ userId: null, accessToken: null })
   fetchSpy = vi.fn().mockImplementation(() => Promise.resolve(okReadiness()))
   vi.stubGlobal('fetch', fetchSpy)
 })
@@ -73,7 +56,7 @@ function headersOfFirstFetch(): Record<string, string> {
   return (init?.headers ?? {}) as Record<string, string>
 }
 
-describe('readinessStore same-origin seam (2.710)', () => {
+describe('readinessStore session bearer at the same-origin seam', () => {
   it('targets the literal /bff/cee seam (live path, not a dead constant)', async () => {
     await storeTest.fetchReadiness()
 
@@ -81,7 +64,7 @@ describe('readinessStore same-origin seam (2.710)', () => {
     expect(String(fetchSpy.mock.calls[0]?.[0] ?? '')).toBe('/bff/cee/graph-readiness')
   })
 
-  it('LEAK PIN: no Authorization header rides the request even when VITE_PLOT_BEARER is set', async () => {
+  it('guest sends no Authorization even when VITE_PLOT_BEARER is set', async () => {
     vi.stubEnv('VITE_PLOT_BEARER', 'staging-token-abc')
 
     await storeTest.fetchReadiness()
@@ -90,10 +73,76 @@ describe('readinessStore same-origin seam (2.710)', () => {
     expect(headersOfFirstFetch()).not.toHaveProperty('Authorization')
   })
 
-  it('and none when it is unset either (credential-less by design; the edge injects the key)', async () => {
+  it('guest sends exactly the existing request headers', async () => {
     await storeTest.fetchReadiness()
 
     expect(fetchSpy).toHaveBeenCalledTimes(1)
-    expect(headersOfFirstFetch()).not.toHaveProperty('Authorization')
+    expect(headersOfFirstFetch()).toEqual({
+      'Content-Type': 'application/json',
+      'X-Request-ID': expect.any(String),
+    })
+  })
+
+  it('signed-in readiness sends the exact Supabase bearer on the captured fetch', async () => {
+    getSessionIdentity.mockResolvedValue({ userId: 'owner-a', accessToken: 'supabase-token-a' })
+    vi.stubEnv('VITE_PLOT_BEARER', 'plot-service-token')
+
+    await storeTest.fetchReadiness()
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(headersOfFirstFetch()).toEqual({
+      'Content-Type': 'application/json',
+      'X-Request-ID': expect.any(String),
+      'X-User-Id': 'owner-a',
+      Authorization: 'Bearer supabase-token-a',
+    })
+    expect(getSessionIdentity).toHaveBeenCalledTimes(1)
+  })
+
+  it('the store rechecks the identical graph for a different identity', async () => {
+    getSessionIdentity.mockResolvedValue({ userId: 'owner-a', accessToken: 'token-a' })
+    fetchSpy.mockImplementation(async (_url: string, init: RequestInit) => {
+      const auth = new Headers(init.headers).get('Authorization')
+      return new Response(JSON.stringify({
+        readiness_score: 75, readiness_level: 'ready', can_run_analysis: true,
+        confidence_explanation: auth, improvements: [],
+      }), { status: 200 })
+    })
+    await storeTest.fetchReadiness()
+    getSessionIdentity.mockResolvedValue({ userId: 'owner-b', accessToken: 'token-b' })
+    await storeTest.fetchReadiness()
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    expect(useReadinessStore.getState().readiness?.confidence_explanation).toBe('Bearer token-b')
+  })
+
+  it('two identities cannot share an in-flight deduplicated response', async () => {
+    const resolveFetches: Array<() => void> = []
+    fetchSpy.mockImplementation((_url: string, init: RequestInit) => new Promise<Response>(resolve => {
+      const auth = new Headers(init.headers).get('Authorization')
+      resolveFetches.push(() => resolve(new Response(JSON.stringify({ auth }), { status: 200 })))
+    }))
+    const a = dedupTest.deduplicatedFetch('/bff/cee/graph-readiness', '{}', 'a',
+      buildTurnAuthHeaders({ userId: 'owner-a', accessToken: 'token-a' }))
+    const b = dedupTest.deduplicatedFetch('/bff/cee/graph-readiness', '{}', 'b',
+      buildTurnAuthHeaders({ userId: 'owner-b', accessToken: 'token-b' }))
+    resolveFetches.forEach(resolve => resolve())
+    const [first, second] = await Promise.all([a.promise, b.promise])
+
+    expect(second.data).toEqual({ auth: 'Bearer token-b' })
+    expect(first.data).toEqual({ auth: 'Bearer token-a' })
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    expect(b.isReused).toBe(false)
+  })
+
+  it('the same identity still shares a deduplicated response', async () => {
+    const headers = buildTurnAuthHeaders({ userId: 'owner-a', accessToken: 'token-a' })
+    const a = dedupTest.deduplicatedFetch('/bff/cee/graph-readiness', '{}', 'a', headers)
+    const b = dedupTest.deduplicatedFetch('/bff/cee/graph-readiness', '{}', 'b', headers)
+    await Promise.all([a.promise, b.promise])
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(b.isReused).toBe(true)
+    expect(b.promise).toBe(a.promise)
   })
 })

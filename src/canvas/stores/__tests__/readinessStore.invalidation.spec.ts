@@ -51,6 +51,11 @@
  * `pre-analysis-v3/__tests__/readinessOutageVisibility.spec.tsx`.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+// The timer harness supplies the new request-time session dependency.
+vi.mock('../../../lib/supabase', () => ({
+  getSessionIdentity: async () => ({ userId: null, accessToken: null }),
+}))
 import {
   useReadinessStore,
   buildReadinessPayload,

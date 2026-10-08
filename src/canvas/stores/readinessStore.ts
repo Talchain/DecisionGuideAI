@@ -10,6 +10,7 @@
  * thin wrapper useGraphReadiness() for backward compatibility.
  */
 import { create } from 'zustand'
+import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
 import { isBlockedCarrier } from '../domain/usableAnalysisReady'
 import { IMPROVEMENT_ACTION_PLACEHOLDER } from '../utils/improvementActionPlaceholder'
 import { useCanvasStore } from '../store'
@@ -196,6 +197,8 @@ let lastObservedPayload: string | null = null
 let pendingScheduledPayload: string | null = null
 /** The payload of the last SUCCESSFUL request. Never written on failure. */
 let lastPayloadHash: string | null = null
+/** Auth context of the last successful request; never reuse another session's verdict. */
+let lastAuthHeadersKey: string | null = null
 let fetchInFlight = false
 /**
  * ROADMAP 2.332 (adversarial review, amendment 1) — a call that arrived while
@@ -692,9 +695,17 @@ async function fetchReadiness(): Promise<void> {
     //
     // A no-op now touches NO store state at all: it does not clear the error,
     // does not flash loading, and does not disturb the stale mark.
+    // Same session seam as useConversation and the journal-backed undo command.
+    // Load at request time as captureAgentTurnForUndo does: importing the auth
+    // client eagerly requires Supabase configuration even for store-only consumers.
+    const identity = await import('../../lib/supabase')
+      .then(({ getSessionIdentity }) => getSessionIdentity())
+      .catch(() => ({ userId: null, accessToken: null }))
+    const authHeaders = buildTurnAuthHeaders(identity)
+    const authHeadersKey = JSON.stringify(authHeaders)
     const payloadJson = buildReadinessPayload(canvasState)
 
-    if (payloadJson === lastPayloadHash) {
+    if (payloadJson === lastPayloadHash && authHeadersKey === lastAuthHeadersKey) {
       return
     }
 
@@ -735,11 +746,9 @@ async function fetchReadiness(): Promise<void> {
           `${CEE_BASE_URL}/graph-readiness`,
           payloadJson,
           correlationId,
-          // 2.710: no client-side credential. The same-origin `/bff/cee`
-          // edge seam injects `X-Olumi-Assist-Key` server-side; the former
-          // `plotAuthHeaders()` bearer belonged to the PLoT-direct base this
-          // call no longer rides.
-          {},
+          // The user's Supabase bearer identifies the scenario owner. The BFF
+          // still supplies the service key; guests retain the empty header set.
+          authHeaders,
         )
         currentInflightEntry = entry
         response = await promise
@@ -1199,6 +1208,7 @@ async function fetchReadiness(): Promise<void> {
       // Only cache the payload hash after a successful fetch — failed fetches
       // should allow retry on the same payload.
       lastPayloadHash = currentPayloadJson
+      lastAuthHeadersKey = authHeadersKey
       // ── ROADMAP 2.332 amendment 1: an answer clears only its OWN mark ──
       //
       // `stale: false` was unconditional here, and that let an answer launder
@@ -1425,6 +1435,7 @@ function stopListening(): void {
   }
   lastObservedPayload = null
   lastPayloadHash = null
+  lastAuthHeadersKey = null
   fetchInFlight = false
   fetchQueued = false
   backoff = { delay: 0, until: 0 }
