@@ -31,6 +31,7 @@ import {
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
+import { OlumiScaleLine } from '../shared/OlumiScaleLine'
 import { ImportanceBar } from '../shared/ImportanceBar'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { InspectorConnectPicker } from '../shared/InspectorConnectPicker'
@@ -858,6 +859,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             </p>
           )}
         </PrimaryControlCard>
+        <OlumiScaleLine label={String(node.data?.label ?? '')} observedState={obs} />
 
         {/* Edit feedback */}
         {lastConfirmed?.field === 'value' && (
