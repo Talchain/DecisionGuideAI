@@ -7,7 +7,8 @@
 import { z } from 'zod'
 import { ADDITIVE_EXTENSIONS_KEY } from './responseParser'
 
-const text = z.string().trim().min(1)
+// Validated, never transformed: ids, hashes and CEE's words are carried byte for byte.
+const text = z.string().refine((v) => v.trim().length > 0)
 const GuidedLinkSchema = z.object({
   id: text.optional(),
   from: text,

@@ -461,9 +461,12 @@ export function SuggestedChips({
   const renderable = polished.filter((c) => isChipRenderable(c) && !(rerunOwnedByHost && isRunAnalysisAffordance(c)))
   // GOAL-REACH guided path: the presses are matched by IDENTITY (press id === chip id), never by label, and keep CEE's
   // order. They are the method's own list (like a plan pick), so the cap applies only to the chips beside them.
-  const guidedOrder = new Map((guidedSizing?.links ?? []).map((l) => [l.press.id, l.order]))
-  const isGuided = (c: ActionChip) => typeof c.id === 'string' && guidedOrder.has(c.id)
-  const guided = renderable.filter(isGuided).sort((a, b) => (guidedOrder.get(a.id) ?? 0) - (guidedOrder.get(b.id) ?? 0))
+  // The click carries CEE's own press parameters with the chip id (the wire action has no `parameters` slot).
+  const guidedPress = new Map((guidedSizing?.links ?? []).map((l) => [l.press.id, l]))
+  const isGuided = (c: ActionChip) => typeof c.id === 'string' && guidedPress.has(c.id)
+  const guided = renderable.filter(isGuided)
+    .sort((a, b) => (guidedPress.get(a.id)?.order ?? 0) - (guidedPress.get(b.id)?.order ?? 0))
+    .map((c) => ({ ...c, parameters: { ...guidedPress.get(c.id)?.press.parameters } }))
   const others = renderable.filter((c) => !isGuided(c))
   const othersShown = others.some((c) => isPlanPickChip(c) || isWidenAddChip(c)) ? others : others.slice(0, 3)
   const visibleNow = [...guided, ...othersShown]

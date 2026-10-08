@@ -46,4 +46,11 @@ describe('P02 guided_sizing reader', () => {
     expect(guidedSizingForModel(r, 'zzz999')).toBeNull()
     expect(guidedSizingForModel(r, null)).toBeNull()
   })
+
+  it('carries CEE’s words, ids and hash byte for byte (validated, never trimmed)', () => {
+    const r = readGuidedSizing({ guided_sizing: { ...GUIDED, graph_hash: ' abc123', progress_line: '  3 more to go.\n' } })
+    expect(r?.graphHash).toBe(' abc123')
+    expect(r?.progressLine).toBe('  3 more to go.\n')
+    expect(readGuidedSizing({ guided_sizing: { ...GUIDED, progress_line: '   ' } })).toBeNull()
+  })
 })
