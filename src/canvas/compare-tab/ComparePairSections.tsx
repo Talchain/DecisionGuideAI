@@ -94,7 +94,7 @@ export function ComparePairSections({
   /** The run withholds option designations: options keep the producer's order (`sortOptionsForDisplay`). */
   designationsWithheld?: boolean
   optionLink?: OptionCanvasLink
-  /** The current report's unconfirmed goal reading withholds both sides' bare figures for this pair. */
+  /** The current report's unconfirmed goal reading withholds the CURRENT side's bare figure for this pair. */
   goalChancesWithheld?: boolean
 }): JSX.Element {
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -168,8 +168,8 @@ export function ComparePairSections({
             {goalRows.map((g) => {
               const name = g.label ?? 'An option this run does not name'
               // Retain recorded absences, and route each figure through the existing not-shown words for both render paths.
-              const prior = goalChancesWithheld && (g.prior.kind === 'point' || g.prior.kind === 'range')
-                ? { kind: 'withheld' } as const : g.prior
+              // Only the CURRENT side rests on the current reading; the earlier Run keeps its own recorded figure (Codex r2 P1).
+              const prior = g.prior
               const current = goalChancesWithheld && (g.current.kind === 'point' || g.current.kind === 'range')
                 ? { kind: 'withheld' } as const : g.current
               // A side with a figure reads in the panel's ink; the latest one a step stronger. No figure stays muted.

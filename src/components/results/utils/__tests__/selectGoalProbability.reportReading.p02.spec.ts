@@ -59,6 +59,23 @@ describe('P02 r2 B: report-level accessor protects unstamped goal AND joint figu
     expect(selectGoalProbabilityForReport(mapped, 'a').goalProbability).toBeNull()
     expect(selectGoalProbabilityForReport(mapped, 'a').jointGoalProbability).toBeNull()
   })
+  it('CONTROL (Codex r2 P1): with no reading signal, legacy hydration adds no root warnings and no flag — readers see exactly what they did', () => {
+    const legacy = { ...raw([]), robustness: { inference_warnings: [{ code: 'GOAL_CHANCE_LICENSED', option_ids: ['a'], pct_by_option: { a: 45 } }] } } as unknown as V2RunResponse
+    const noRoot = { ...legacy } as Record<string, unknown>
+    delete noRoot.inference_warnings
+    for (const input of [legacy, noRoot as unknown as V2RunResponse]) {
+      const mapped = mapV2ResponseToReportV1(input, { seed: null }) as unknown as Record<string, unknown>
+      expect(mapped.goal_reading_unconfirmed).toBeUndefined()
+      expect('inference_warnings' in mapped).toBe(false)
+      expect(selectGoalProbabilityForReport(mapped, 'a').goalProbability).not.toBeNull()
+    }
+  })
+  it('a reading signal only in the NESTED legacy array still sets the flag (fail closed)', () => {
+    const nested = { ...raw([]), robustness: { inference_warnings: [readingWarning(null)] } } as unknown as V2RunResponse
+    const mapped = mapV2ResponseToReportV1(nested, { seed: null }) as unknown as Record<string, unknown>
+    expect(mapped.goal_reading_unconfirmed).toBe(true)
+    expect(selectGoalProbabilityForReport(mapped, 'a').goalProbability).toBeNull()
+  })
   it.each([[readingWarning(null)], [typed]].map(warnings => [warnings]))('snapshot factory withholds both quantities under reading: %j', (warnings) => {
     const snapshot = buildAnalysisSnapshot({ rawV2Response: raw(warnings), nodes: [], edges: [], runNumber: 1, events: [], previousSnapshotTimestamp: null })
     expect(snapshot.goalProbability).toBeNull()

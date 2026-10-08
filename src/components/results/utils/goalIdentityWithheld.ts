@@ -69,12 +69,18 @@ export interface GoalIdentityWithheld {
 const NOT_DISPLAY_SAFE = /\b[a-z0-9]+_[a-z0-9_]+\b|[{}[\]<>]/
 
 /** Presence, not parseability or producer scope: the whole report is under an unconfirmed reading. */
-export function goalFiguresUnderReading(holder: unknown): boolean {
-  if (!isPlainObject(holder) || !Array.isArray(holder.inference_warnings)) return false
-  return holder.inference_warnings.some((w) => isPlainObject(w) && (
+/** Whether any of these warning arrays carries the unconfirmed-reading signal (a label, or CEE's typed code). */
+export function goalReadingSignalIn(...arrays: unknown[]): boolean {
+  return arrays.some((a) => Array.isArray(a) && a.some((w) => isPlainObject(w) && (
     w.code === 'GOAL_FIGURES_READING_UNCONFIRMED'
     || (w.code === 'GOAL_CHANCE_LICENSED' && Object.prototype.hasOwnProperty.call(w, 'reading_label'))
-  ))
+  )))
+}
+
+export function goalFiguresUnderReading(holder: unknown): boolean {
+  if (!isPlainObject(holder)) return false
+  // Legacy hydration carries the gate as a flag (responseMapper), never by moving warnings.
+  return holder.goal_reading_unconfirmed === true || goalReadingSignalIn(holder.inference_warnings)
 }
 
 /** One warning list for the figure scope and both reason readers, including GR2's fail-closed fallback. */

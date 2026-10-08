@@ -197,17 +197,14 @@ describe('P02-GR2 E · a current unconfirmed reading withholds the pair’s goal
     ['malformed reading_label', [{ code: 'GOAL_CHANCE_LICENSED', reading_label: { ...readingLabel, factors: [] } }]],
     ['present undefined reading_label', [{ code: 'GOAL_CHANCE_LICENSED', reading_label: undefined }]],
     ['typed scoped reading warning without a label', [{ code: 'GOAL_FIGURES_READING_UNCONFIRMED', option_ids: ['opt_49'], withheld_claims: ['joint_probability'] }]],
-  ])('%s: accessible and visual sides say not shown, preserving not recorded', (_name, warnings) => {
+  ])('%s: the LATEST side says not shown; the earlier Run keeps its own recorded figure (Codex r2 P1)', (_name, warnings) => {
     render(<CompareRunPairBody responseHash={seed(withGoal(), { permitted: true }, true, warnings)} />)
     expect(heading()).toHaveTextContent(COMPARE_GOAL_CHANCE_HEADING)
-    expect(goalWords()).toEqual([
-      'Keep £49: Earlier not shown → Latest not shown',
-      'Raise to £60: Earlier not recorded → Latest not shown',
-    ])
-    expect(goalPairs()).toEqual(['not shownnot shown', 'not recordednot shown'])
-    expect(screen.getByTestId('compare-goal-chances')).not.toHaveTextContent('%')
-    expect(goalRows().flatMap((li) => [...within(li).getByTestId('compare-goal-chance-pair').querySelectorAll('span')].map((span) => span.className)))
-      .toEqual(['text-text-light', 'text-text-light', 'text-text-light', 'text-text-light'])
+    expect(goalPairs()).toEqual(['about 47%not shown', 'not recordednot shown'])
+    expect(goalWords()[0]).toMatch(/^Keep £49: Earlier .*47%.* → Latest not shown$/)
+    expect(goalWords()[1]).toBe('Raise to £60: Earlier not recorded → Latest not shown')
+    // No latest-side figure survives: neither the point (15%) nor the range bounds (20%, 40%).
+    expect(screen.getByTestId('compare-goal-chances')).not.toHaveTextContent(/15%|20%|40%/)
   })
 
   it('CONTROL: no reading_label keeps the goal rows byte-identical, including both kinds of figure', () => {
