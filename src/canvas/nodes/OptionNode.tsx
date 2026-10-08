@@ -144,11 +144,7 @@ export function optionTargetsChannels({
   }
 }
 
-import {
-  selectGoalProbability,
-  basisWithholdsPossessive,
-} from '../../components/results/utils/selectGoalProbability'
-import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
+import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
 import {
   NOT_ANALYSED_IN_LAST_ANALYSIS,
   NOT_COMPUTED_BADGE,
@@ -159,7 +155,7 @@ import {
   olumiProposedKeptCopy,
 } from '../../components/results/utils/notAnalysedCopy'
 import { optionParticipationOf } from '../state/storedOptionParticipation'
-import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
+import { runViewOf } from '../runView/runView'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
@@ -194,7 +190,7 @@ import {
   type TargetNodeLike,
 } from './shared/optionTargetDisplay'
 import { NodeRailIcon } from './shared/NodeRailIcons'
-import { OPTION_RESULT_COPY } from './shared/metricVocabulary'
+import { OPTION_CHANCE_COPY, OPTION_RESULT_COPY } from './shared/metricVocabulary'
 import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
 import { optionTakenOutLine } from '../domain/optionStatus'
 import { useRunCurrency, optionResultCaption, optionResultCompactCaption, optionResultCurrencyNote } from './shared/runCurrency'
@@ -835,14 +831,6 @@ export const OptionNode = memo((props: NodeProps) => {
    * read by every `resolveOptionIsBaseline` call on this card.
    */
   const declaredBaseline = useMemo(() => graphDeclaresBaseline(nodes, ceeAnalysisReady?.options), [nodes, ceeAnalysisReady])
-  // UI-SEM-082 (Lane 4): the "chance of target" badge is a goal-fit claim, so it
-  // gates on the USER target (store goalThreshold) — never on producer value
-  // presence. The producer returns a joint/goal probability even with no user
-  // target (auto_goal_threshold, UI-SEM-071 class); the panel twin OptionCards
-  // already suppresses via hasGoalThreshold, and the GoalNode beside this option
-  // suppresses its own "chance of reaching target" when no target is set. This
-  // keeps the canvas node consistent with both.
-  const goalThreshold = useCanvasStore(state => state.goalThreshold)
   const setHoveredOption = useCanvasStore(state => state.setHoveredOption)
   const viewMode = useCanvasStore(state => state.viewMode)
   const isDetailed = viewMode === 'expert'
@@ -1396,100 +1384,12 @@ export const OptionNode = memo((props: NodeProps) => {
     return olumiSuppliedFiguresDisclosure(readInferenceWarnings(resultsReport), labelOf)
   }, [isPostAnalysis, isRecommended, resultsReport, nodes])
 
-  // Goal probability for warning.
-  // ROADMAP 1.49: uses the shared selectGoalProbability fallback chain (same
-  // one useResultsSectionData applies for OptionCards/hero/GoalNode) so this
-  // badge can't show a different number than those surfaces on a
-  // constrained-goal run.
-  //
-  // Goal-probability IDENTITY: the WHOLE decision is kept, not just the
-  // number. This site previously took `.goalProbability` and discarded the
-  // provenance, so the badge rendered a joint-basis figure with no caveat
-  // while OptionCards, the hero and GoalNode rendered the same figure WITH
-  // one. The caveat now travels with the number to every surface showing it.
-  const goalDecision = useMemo(() => {
-    if (!isPostAnalysis || !resultsReport) return null
-    // ⭐ THE THIRD READER OF A NON-MEASUREMENT, and the worst of them.
-    //
-    // A review found the card reading, in one vertical stack:
-    //
-    //     Hold the current plan · Not computed
-    //     …so it has no rank and no probability. This is not a verdict on the
-    //     option.
-    //     < 1% chance of target
-    //
-    // The card denies having a probability and then prints one. That is worse
-    // than the bare `0%` this change set removes, because the denial and the
-    // number are three lines apart and the number wins — a reader takes the
-    // figure and treats the sentence as boilerplate.
-    //
-    // `selectGoalProbability` is correct and is not the problem: it answers
-    // "what goal figure does this option's block carry, and on what basis",
-    // and it has no business knowing about compute status. The defect was that
-    // NOTHING asked the prior question — whether this option has a measurement
-    // at all — before handing it that block. Gated here, at the reader, for the
-    // same reason the other two are.
-    //
-    // ⚠ AND IT RESTORES THE PARITY THAT IS THE WHOLE REASON FOR SHARING THE
-    // PREDICATE: the results panel forks a failed option to
-    // `NotComputedOptionCard`, which prints NO goal figure. Without this gate
-    // the canvas and the panel disagreed about one option in one run, which is
-    // precisely the two-authorities defect the shared predicate exists to
-    // prevent (CLAUDE.md trap 21).
-    //
-    // ⛔⛔ AND THE NUMBER IT SUPPRESSES IS WORSE THAN "SMALL" — established by a
-    // producer derivation, not assumed here. ISL computes
-    // `probability_of_goal` over the RAW unfiltered sample array with no
-    // finiteness gate. On the very shape that produces `status: 'failed'`
-    // (`n_valid === 0`, i.e. every draw non-finite), `inf >= threshold` holds
-    // for every draw, so the option ships **`probability_of_goal: 1.0`**.
-    //
-    // A failed option can therefore arrive carrying a 0.0 chance of winning AND
-    // a 1.0 chance of hitting the goal — both fabricated, both from the
-    // producer. Without this gate the card would print the most confident
-    // possible statement about the one option nothing was measured for.
-    //
-    // ⚠ SO THIS FIX IS NECESSARY AND NOT SUFFICIENT. The producer defect is
-    // real, is outside this repo, and has its own lane. Suppressing the render
-    // stops the UI repeating a fabrication; it does not stop the fabrication.
-    if (displayMetadata.winComputationFailed === true) return null
-    const report = resultsReport as any
-    const optionProbs = report?.option_probabilities?.[props.id]
-    return selectGoalProbability(optionProbs)
-  }, [isPostAnalysis, resultsReport, props.id, displayMetadata.winComputationFailed])
-  const goalProbability = goalDecision?.goalProbability ?? null
-
-  // THE POSSESSIVE GATE (ROADMAP 2.282). `basis === 'joint_goal_substituted'`
-  // means this number is P(all constraints jointly satisfied) STANDING IN for
-  // an absent `probability_of_goal`, so the possessive "chance of target"
-  // names a question it does not answer. Read off the owner's own published
-  // decision — the same expression `useResultsSectionData` uses to set
-  // `OptionResult.goalFitIsSubstitutedJoint` — never re-derived here.
-  //
-  // ⚠ SCOPED TO `joint_goal_substituted`, NOT to "the figure is joint".
-  // `joint_goal_constrained` is the user's own goal AND the user's own
-  // limits, where the possessive is EARNED and stays. `OptionNode.spec.tsx`'s
-  // ROADMAP 1.49 positive control is exactly that constrained case and must
-  // keep rendering "chance of target."
-  //
-  // ⭐ L62 (2026-08-04) — THIS IS NOW ALWAYS FALSE, AND THAT IS THE FIX.
-  // `selectGoalProbability` no longer substitutes: on that basis it returns NO
-  // number (`'joint_goal_withheld'`, `goalProbability: null`), so a badge is
-  // never rendered in the withheld state and there is nothing left to re-voice.
-  // The bases that still carry a number — `'goal_probability'` and
-  // `'joint_goal_constrained'` — both EARN the possessive, which is why this
-  // reads the owner's own published permission rather than re-testing a basis
-  // literal: if the owner ever re-permits a number it forbids the possessive
-  // for, this lights up again without an edit here.
-  const goalFitSubstituted =
-    goalDecision?.goalProbability != null && basisWithholdsPossessive(goalDecision.basis)
-  // The badge readout, built ONCE above both arms so the withheld and
-  // permitted wordings cannot show different numbers for the same option.
-  // `'< '` + the smallest whole percent STRICTLY above the figure (graph audit 29 Sep: `Math.round` put 7.4% under "< 7%").
-  const goalBadgeReadout =
-    goalProbability !== null && goalProbability < 0.10
-      ? `< ${goalProbability < 0.01 ? '1' : Math.floor(goalProbability * 100) + 1}%`
-      : null
+  // ⭐ RunView PR 2 (#87; design RUNVIEW-PHASE1, DL APPROVED 8 Oct): the card's goal chance is the Run's ONE view
+  // (CEE's licence, `runViewOf`), said on the card's result line. The report's own figure (`selectGoalProbability`),
+  // the layer-2 "< N%" badge with its private floor+1 rule, and the two caveats that qualified that badge are gone
+  // (Science §(q)): one figure, one source, one wording on every surface.
+  const optionChance = useMemo(() => runViewOf(resultsReport).chanceOf(props.id), [resultsReport, props.id])
+  const runGoalChance = useMemo(() => runViewOf(resultsReport).goalChance, [resultsReport])
 
   // "Behind:" reason for non-winner options (including status quo).
   // Computed via the pure helper so this option's reason can be compared
@@ -1586,14 +1486,6 @@ export const OptionNode = memo((props: NodeProps) => {
     setTimeout(() => store.setHighlightedNodes([]), 3000)
   }, [winsVia])
 
-  const handleGoalReviewClick = useCallback(() => {
-    const store = useCanvasStore.getState()
-    const goalNode = store.nodes.find(n => n.type === 'goal' || n.data?.type === 'goal')
-    if (goalNode) {
-      openNodeInspector(goalNode.id)
-    }
-  }, [])
-
   // "View parameters" handler (Detailed view)
   const handleViewParams = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -1685,54 +1577,6 @@ export const OptionNode = memo((props: NodeProps) => {
   // ----- Layer 2 content (shared between popover and Detailed inline) -----
   const layer2Content = useMemo(() => (
     <>
-      {/* Goal probability warning (< 10%) -- post-analysis only.
-          UI-SEM-082: gated on a USER target (goalThreshold != null) so it never
-          crowns a target the user never set, matching GoalNode + OptionCards. */}
-      {goalThreshold != null && isPostAnalysis && goalBadgeReadout != null && (
-        <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-          {/* ROADMAP 2.282: the withheld arm is the shared register's SENTENCE
-              form verbatim (phrase + full stop) — the same wording the results
-              panel, the hero and the V7 goal lens render for this basis. The
-              permitted arm is byte-identical to the string it replaced. */}
-          {GOAL_ANCHOR_COPY.sentence(goalBadgeReadout, goalFitSubstituted)}{' '}
-          <button
-            type="button"
-            className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
-            onClick={handleGoalReviewClick}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            Review
-          </button>
-        </p>
-      )}
-      {/* ISL #207 (AIQ #72 5877139338): the goal badge above is never bare when the
-          goal's level today was worked out rather than given. Same gate as the badge. */}
-      {goalThreshold != null && isPostAnalysis && goalBadgeReadout != null &&
-        goalFitBaseCaveatCopy(goalDecision?.goalFitBaseCaveat) !== null && (
-        <p
-          className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
-          data-testid={`goal-fit-base-caveat-option-node-${props.id}`}
-        >
-          {goalFitBaseCaveatCopy(goalDecision?.goalFitBaseCaveat)}
-        </p>
-      )}
-
-      {/* Display-honesty (ROADMAP 1.6b, claim-integrity): the number above is
-          scored from a MODELLED forward-propagated outcome distribution, not
-          a directly-set base. Same gate and same shared wording as
-          OptionCards / GoalNode / OutcomeNode / NodeInspector — the flag is
-          read off the shared selector, never re-derived, so no surface can
-          show this number with the caveat while another shows it bare. */}
-      {goalThreshold != null && isPostAnalysis && goalProbability !== null && goalProbability < 0.10 &&
-        goalDecision?.goalFitIsModelledBasis === true && (
-        <p
-          className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
-          data-testid={`goal-fit-basis-caveat-option-node-${props.id}`}
-        >
-          {GOAL_FIT_BASIS_CAVEAT_COPY}
-        </p>
-      )}
-
       {/* A baseline flag identifies the reference; it does not erase its values. */}
       {allInterventionChips.length > 0 && (() => {
         // Every explicit target remains inspectable, even when it happens to
@@ -1808,7 +1652,7 @@ export const OptionNode = memo((props: NodeProps) => {
           in this inline layer-2 block. Body never renders chips directly. */}
       {optionChips}
     </>
-  ), [isPostAnalysis, goalThreshold, goalProbability, goalBadgeReadout, goalFitSubstituted, goalDecision, props.id, handleGoalReviewClick, allInterventionChips, isBaselineOption, baselineOptionReference, props.data, totalInterventionCount, optionChips])
+  ), [isPostAnalysis, props.id, allInterventionChips, isBaselineOption, baselineOptionReference, props.data, totalInterventionCount, optionChips])
 
   // ----- Pre-analysis popover content -----
   const preAnalysisPopoverContent = useMemo(() => {
@@ -2006,6 +1850,20 @@ export const OptionNode = memo((props: NodeProps) => {
   }, [displayMetadata.isResultsMode, displayMetadata.winRate, winSharesAreWithheld])
   const runCurrency = useRunCurrency()
   const resultCaption = optionResultCaption(runCurrency) ?? OPTION_RESULT_COPY.unconfirmed
+  // ⭐ RunView PR 2 (#87, Science §(q)): the result line LEADS with the goal chance; the share is hover detail only.
+  // No goal chance on this Run (no goal or target) → the share line stays as it was (it is then the only result).
+  const estimateLinkCount = runGoalChance?.olumiEstimateLinkCount
+  const chanceFace = !displayMetadata.isResultsMode ? null
+    : optionChance.kind === 'figure' ? OPTION_CHANCE_COPY.face(optionChance.words, (estimateLinkCount ?? 0) > 0)
+      : optionChance.kind === 'withheld' ? (optionChance.by === 'no_licence' ? OPTION_CHANCE_COPY.runAgain : OPTION_CHANCE_COPY.withheld)
+        : null
+  // §(q): the §(o) horizon line (CEE's licence `horizon_line`, verbatim; never a local copy) is the hover's FIRST line.
+  const chanceDescription = chanceFace === null ? '' : [
+    runGoalChance?.horizonLine ?? null,
+    `${resultCaption} · ${optionChance.kind === 'figure' ? OPTION_CHANCE_COPY.sentence(optionChance.words, estimateLinkCount) : optionChance.kind === 'withheld' ? optionChance.reason : ''}`,
+    winReadout !== null ? OPTION_RESULT_COPY.sentence(winReadout.formatted) : null,
+    optionResultCurrencyNote(runCurrency),
+  ].filter((line): line is string => typeof line === 'string' && line !== '').join(' ')
   /**
    * ⭐ THE SHARE IS GOAL-ONLY — SAID WHEN THE LIMIT VERDICT WITHHELD THE LEADER
    * CLAIM (RC P0 #3(c)). The producer's own `leader_claim.withheld_reason`,
@@ -2489,11 +2347,11 @@ export const OptionNode = memo((props: NodeProps) => {
   // the demoted marks are named in its tooltip. Each candidate keeps the gate and test id it had when it rendered alone.
   const statusMark = pickOptionStatusMark([
     notRankedRenders && { id: 'share-withheld', testId: `option-not-ranked-${props.id}`, description: winShareWithheldReasonLine ?? '' },
-    winReadout !== null && takenOutLine === null && resultCaption === OPTION_RESULT_COPY.lastRun && { id: 'last-run', testId: `option-win-anchor-${props.id}` },
+    (winReadout !== null || (chanceFace !== null && !notAnalysedRenders)) && takenOutLine === null && resultCaption === OPTION_RESULT_COPY.lastRun && { id: 'last-run', testId: `option-win-anchor-${props.id}` },
     notAnalysedRenders && runCurrency === 'changed' && { id: 'last-run', testId: `option-not-analysed-last-run-${props.id}` },
     staleStateShown && { id: 'no-new-comparison', testId: `option-stale-state-${props.id}` },
     notAnalysedRenders && { id: 'not-analysed', testId: `option-not-analysed-chip-${props.id}` },
-    winReadout !== null && takenOutLine === null && shareIsProvisional && { id: 'provisional', testId: `option-share-provisional-${props.id}` },
+    winReadout !== null && chanceFace === null && takenOutLine === null && shareIsProvisional && { id: 'provisional', testId: `option-share-provisional-${props.id}` },
   ])
   const staleStateLine = staleStateShown ? (
     <p
@@ -2819,14 +2677,39 @@ export const OptionNode = memo((props: NodeProps) => {
         <div
           data-testid={`option-share-slot-${props.id}`}
           className={`${typography.edgeLabel} mt-1 h-[1lh] min-w-0 overflow-hidden [container-type:inline-size]`}
-          aria-hidden={winReadout === null && !notAnalysedRenders && !notRankedRenders && takenOutLine === null ? true : undefined}
+          aria-hidden={winReadout === null && chanceFace === null && !notAnalysedRenders && !notRankedRenders && takenOutLine === null ? true : undefined}
         >
         {takenOutLine !== null && (
           <div className="flex h-full min-w-0 items-center whitespace-nowrap" data-testid={`option-taken-out-${props.id}`}>
             <span className={`${typography.edgeLabel} text-text-light`}>{takenOutLine}</span>
           </div>
         )}
-        {winReadout !== null && takenOutLine === null && (
+        {/* ⭐ RunView PR 2 (#87, Science §(q)): the goal chance LEADS the result line; the share of runs is in the hover
+            only. Same caption rule and the same one status mark as the share line it replaces. */}
+        {chanceFace !== null && takenOutLine === null && !notAnalysedRenders && (
+          <Tooltip asChild content={chanceDescription} delay={NODE_TOOLTIP_DELAY_MS}>
+          <div
+            className="flex h-full min-w-0 flex-nowrap items-center whitespace-nowrap cursor-help"
+            role="img"
+            aria-label={chanceDescription}
+            tabIndex={0}
+            data-node-tooltip="true"
+            data-testid={`option-goal-chance-${props.id}`}
+          >
+            {resultCaption === OPTION_RESULT_COPY.lastRun ? null /* the band's ONE status mark (optionStatusMark) carries it */ : (
+              <span className={`${typography.edgeLabel} text-text-light shrink-0 mr-1.5`} aria-hidden="true">{resultCaption}</span>
+            )}
+            <span
+              data-testid={`option-goal-chance-words-${props.id}`}
+              className={`${typography.edgeLabel} text-text-body min-w-0 truncate`}
+              aria-hidden="true"
+            >
+              {chanceFace}
+            </span>
+          </div>
+          </Tooltip>
+        )}
+        {winReadout !== null && takenOutLine === null && chanceFace === null && (
           <Tooltip asChild content={winReadoutDescription} delay={NODE_TOOLTIP_DELAY_MS}>
           <div
             className="relative flex h-full min-w-0 flex-nowrap items-center pb-[3px] whitespace-nowrap cursor-help"

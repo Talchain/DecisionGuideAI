@@ -1027,6 +1027,22 @@ export const LINK_STRENGTH_COPY = {
 /** The share's unit. Its own constant so the card can let it give way on its own. */
 const OPTION_SHARE_UNIT = 'of runs'
 
+/**
+ * ⭐ RunView PR 2 (#87; Science goals §(q), 8 Oct): the option card's result line leads with the goal chance, CEE's
+ * licensed figure in its display words; the share of runs is supporting detail in the hover. "on Olumi’s estimates"
+ * rides the face whenever CEE counted Olumi-estimated links (RC4), and the count is in the hover.
+ */
+export const OPTION_CHANCE_COPY = {
+  face: (words: string, onEstimates: boolean): string =>
+    `${words} chance of meeting your goal${onEstimates ? ' · on Olumi’s estimates' : ''}`,
+  sentence: (words: string, estimateLinks: number | undefined): string =>
+    `${words} chance of meeting your goal, in this model`
+      + (estimateLinks !== undefined && estimateLinks > 0 ? `, on Olumi’s estimates for ${estimateLinks} ${estimateLinks === 1 ? 'link' : 'links'}` : '')
+      + '.',
+  withheld: 'chance not shown yet',
+  runAgain: 'Run the analysis again to see the chance',
+} as const
+
 export const OPTION_RESULT_COPY = {
   current: CURRENT_MODEL_NOUN,
   lastRun: 'Last run',

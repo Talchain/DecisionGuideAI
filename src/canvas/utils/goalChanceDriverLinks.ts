@@ -1,4 +1,4 @@
-import { readGoalChanceLicence } from '../../components/results/utils/goalChanceLicence'
+import { runViewOf } from '../runView/runView'
 
 export const GOAL_CHANCE_DRIVER_TAG = 'Chance rests most on this'
 
@@ -18,7 +18,7 @@ export function goalChanceDriverLinks(report: unknown): ReadonlyMap<string, read
   const cached = reportCache.get(report)
   if (cached) return cached
 
-  const licence = readGoalChanceLicence((report as { inference_warnings?: unknown }).inference_warnings)
+  const licence = runViewOf(report).goalChance
   const links = new Map<string, string[]>()
   for (const optionId of licence?.optionIds ?? []) {
     const driver = licence?.driverByOption?.[optionId]
