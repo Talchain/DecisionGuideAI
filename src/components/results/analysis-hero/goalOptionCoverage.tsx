@@ -29,6 +29,7 @@ export function withGoalOptionCoverage(model: HeroChartModel, data: ResultsSecti
     goalOptionCoverage: {
       hasFigures: true,
       withheldLines: model.rows.filter((row) => {
+        if (model.goalChanceLeadLines?.some(line => line.id === row.id)) return false
         const cell = optionChanceCellFromResults(data, row.id)
         // The row already owns the server face and its Why? disclosure. Do not repeat its explanation here.
         return !figureIds.has(row.id) && !(cell.kind === 'withheld' && cell.why !== undefined)

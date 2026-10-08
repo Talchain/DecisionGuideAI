@@ -400,6 +400,8 @@ export interface HeroChartModel {
    * applicable (single option, aligned-without-claim, outcome lens hidden).
    */
   subline: string | null
+  /** An option's cell and its own driver occupy successive lines; Run-wide messages have no option id. */
+  goalChanceLeadLines?: ReadonlyArray<{ id?: string; kind?: 'cell' | 'driver'; text: string; why?: string }>
   /** The licence's clause actually appended to the subline; prevents a second range clause. */
   goalChanceHorizonLine?: string | null
   /**

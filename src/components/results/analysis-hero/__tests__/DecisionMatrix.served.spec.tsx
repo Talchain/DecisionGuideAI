@@ -172,7 +172,7 @@ describe('Decision matrix — captured Run, shared hero words, read-only interac
     expect(screen.queryByRole('spinbutton')).toBeNull()
   })
 
-  it('the main-driver cell repeats the hero sentence about that option, with no new inference', () => {
+  it('the main-driver cell keeps its own sentence, separate from the hero chance cell', () => {
     const link = fx.draft.edges.find((e) => fx.draft.nodes.some((n) => n.id === e.from) && fx.draft.nodes.some((n) => n.id === e.to))!
     const claim = { quantity_id: `${link.from}->${link.to}`, kind: 'link_existence', from: link.from, to: link.to,
       side: 'absent', pct_if_side: 30, pct_if_side_rounding: 'nearest_5', authored_by: 'olumi', user_stated_link: false }
@@ -182,10 +182,18 @@ describe('Decision matrix — captured Run, shared hero words, read-only interac
     open()
     const words = screen.getByTestId('decision-matrix-driver-angel_bridge').textContent!
     expect(words).toMatch(/^It rests most on/)
-    expect(hero.subline).toContain(words)
+    // C-LOST restored: the same own-driver sentence follows its own chance cell as a separate line.
+    const index = hero.goalChanceLeadLines!.findIndex(line => line.id === 'angel_bridge' && line.kind === 'driver')
+    expect(hero.goalChanceLeadLines![index]).toMatchObject({ id: 'angel_bridge', text: words })
+    expect(hero.goalChanceLeadLines![index - 1]).toMatchObject({ id: 'angel_bridge', kind: 'cell' })
+    expect(hero.goalChanceLeadLines![index - 1].text).not.toContain(words)
+    for (const option of data.recommendation.allOptions.filter(option => QUOTED_ORDER.includes(option.id))) {
+      expect(hero.goalChanceLeadLines!.find(line => line.id === option.id)!.text)
+        .toBe(screen.getByTestId(`decision-matrix-chance-${option.id}`).querySelector('span')!.textContent)
+    }
   })
 
-  it('the shared-driver question lands on the first option in CEE’s order, as in the hero', () => {
+  it('the matrix shared-driver question lands on the first option in CEE’s order', () => {
     const link = fx.draft.edges[0]
     const claim = { quantity_id: `${link.from}->${link.to}`, kind: 'link_strength', from: link.from, to: link.to,
       side: 'low', strength: 'weaker', authored_by: 'olumi', user_stated_link: false }
@@ -201,7 +209,15 @@ describe('Decision matrix — captured Run, shared hero words, read-only interac
     expect(rows[0]).toHaveAttribute('data-testid', `decision-matrix-row-${MODEL_ORDER[0]}`)
     const words = screen.getByTestId(`decision-matrix-driver-${MODEL_ORDER[0]}`).textContent!
     expect(words).toContain('Is that estimate right?')
-    expect(hero.subline).toContain(words)
+    // C-LOST restored: the same own-driver sentence follows its own chance cell as a separate line.
+    const index = hero.goalChanceLeadLines!.findIndex(line => line.id === MODEL_ORDER[0] && line.kind === 'driver')
+    expect(hero.goalChanceLeadLines![index]).toMatchObject({ id: MODEL_ORDER[0], text: words })
+    expect(hero.goalChanceLeadLines![index - 1]).toMatchObject({ id: MODEL_ORDER[0], kind: 'cell' })
+    expect(hero.goalChanceLeadLines![index - 1].text).not.toContain(words)
+    for (const option of data.recommendation.allOptions.filter(option => QUOTED_ORDER.includes(option.id))) {
+      expect(hero.goalChanceLeadLines!.find(line => line.id === option.id)!.text)
+        .toBe(screen.getByTestId(`decision-matrix-chance-${option.id}`).querySelector('span')!.textContent)
+    }
     expect(screen.getByRole('table').textContent!.split('Is that estimate right?')).toHaveLength(2)
     for (const id of QUOTED_ORDER.slice(1)) {
       expect(screen.getByTestId(`decision-matrix-driver-${id}`)).not.toHaveTextContent('Is that estimate right?')

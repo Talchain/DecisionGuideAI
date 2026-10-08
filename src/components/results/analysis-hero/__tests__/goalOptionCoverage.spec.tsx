@@ -105,6 +105,13 @@ function pointsMarkupWithCells(data: ReturnType<typeof fromTurn>) {
   }
   return template.innerHTML
 }
+// C-CELL: the lead now has separate labelled cell lines, tested independently of the retained markup control.
+function withoutLeadMarkup(markup: string) {
+  const template = document.createElement('template')
+  template.innerHTML = markup
+  template.content.querySelector('[data-testid="hero-subline"]')!.replaceWith(document.createComment('lead-lines'))
+  return template.innerHTML
+}
 function expectCellRows(data: ReturnType<typeof fromTurn>) {
   const model = buildHeroModel(data)
   expect(model.kind).toBe('chart')
@@ -143,13 +150,30 @@ describe('S4-UI: every option has a labelled goal figure or its own withholding 
     expect(lines('goal-option-withheld-line')).toEqual([])
   })
 
-  it('all-points control: shared goal cell text and wrapping column change; every other markup byte remains identical', () => {
+  it('all-points control: own cell lead lines and wrapping column change; all other markup stays identical', () => {
     const data = pointControl()
     const { container } = mount(data)
-    expect(container.innerHTML).toBe(pointsMarkupWithCells(data))
+    for (const option of data.recommendation.allOptions) {
+      const cell = chanceCellOf(data, option.id)
+      const prefix = `‘${option.label}’: `
+      const ownText = cell.text!.startsWith(prefix) ? cell.text : prefix + cell.text
+      expect(screen.getByTestId('hero-subline').querySelector(`[data-option-id="${option.id}"] p`)!.textContent).toBe(ownText)
+    }
+    // C-LOST restored: the historical driver words survive, immediately after their own cells.
+    const base = document.createElement('template')
+    base.innerHTML = pointsMarkup
+    const priorLead = base.content.querySelector('[data-testid="hero-subline"]')!.textContent!
+    const driverLines = screen.getByTestId('hero-subline').querySelectorAll('[data-line-kind="driver"]')
+    expect(driverLines).toHaveLength(2)
+    for (const driver of driverLines) {
+      expect(priorLead).toContain(driver.textContent)
+      expect(driver.previousElementSibling!.getAttribute('data-line-kind')).toBe('cell')
+      expect(driver.previousElementSibling!.getAttribute('data-option-id')).toBe(driver.getAttribute('data-option-id'))
+    }
+    expect(withoutLeadMarkup(container.innerHTML)).toBe(withoutLeadMarkup(pointsMarkupWithCells(data)))
     expect(lines('goal-option-withheld-line')).toEqual([])
     fireEvent.click(screen.getByRole('tab', { name: /Goal fit/ }))
-    expect(container.innerHTML).toBe(pointsMarkupWithCells(data))
+    expect(withoutLeadMarkup(container.innerHTML)).toBe(withoutLeadMarkup(pointsMarkupWithCells(data)))
     expect(screen.queryByRole('tab', { name: /Likely outcome/ })).toBeNull()
     expectNoBox()
     for (const option of data.recommendation.allOptions) {

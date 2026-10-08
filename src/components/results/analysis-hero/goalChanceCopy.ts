@@ -125,6 +125,16 @@ export function goalChanceOptionLines(
 ): string[] | null {
   const lines: string[] = []
   for (const id of licence.optionIds) {
+    if (cellOf) {
+      const label = labelOf(id)
+      if (label === null || label.trim() === '') continue
+      const cell = cellOf(id)
+      if (label.trim() !== '' && cell.text !== null) {
+        const prefix = `‘${label}’: `
+        lines.push(cell.text.startsWith(prefix) ? cell.text : prefix + cell.text)
+      }
+      continue
+    }
     if (except.includes(id)) {
       const driver = driverLines[id]
       if (includeQuotedDrivers && driver !== undefined) {
@@ -136,11 +146,6 @@ export function goalChanceOptionLines(
     }
     const label = labelOf(id)
     if (label === null) return null
-    if (cellOf) {
-      const cell = cellOf(id)
-      if (cell.text !== null) lines.push(cell.text + (cell.kind === 'figure' && driverLines[id] !== undefined ? ` ${driverLines[id]}` : ''))
-      continue
-    }
     // c6 (6 Oct): an option withheld for its own path keeps its place, and says so — never "unknown", never "0%".
     if (licence.withheldOptionIds.includes(id)) {
       lines.push(`‘${label}’: Olumi can’t yet say its chance of meeting your goal, in this model.`)

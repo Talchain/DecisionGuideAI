@@ -81,7 +81,7 @@ describe('D3 step 2 — the goal chance heads the hero on its OWN licence (CEE d
     expect(model.subline).not.toMatch(CONTEST)
   })
 
-  it('H2 (DL 0df0e1 6 Oct; Rehearsal12 48 / 43 / <1; c6 "similar"): in the MODEL\'s order; the rest as lines, <1% as c6 says', () => {
+  it('H2 (DL 0df0e1 6 Oct; Rehearsal12 48 / 43 / <1; c6 "similar"): in the MODEL\'s order; every own cell as a line, <1% as c6 says', () => {
     seed({ [OUTREACH]: 0.004, [ANGEL]: 0.43, [CONVERTIBLE]: 0.48 },
       licenceRecord('similar', { [OUTREACH]: 0, [ANGEL]: 43, [CONVERTIBLE]: 48 }, { similar_option_ids: [ANGEL, CONVERTIBLE] }))
     const model = heroModel()
@@ -89,7 +89,12 @@ describe('D3 step 2 — the goal chance heads the hero on its OWN licence (CEE d
       + 'chances of meeting your goal (at least £1,200,000): about 43% and about 48%.')
     expect(model.headline).not.toMatch(CONTEST)
     expect(model.headline).not.toMatch(/highest|most likely|strongest/i)
-    expect(model.subline).toBe(`‘${labelOf(OUTREACH)}’: less than 1% chance of meeting your goal, in this model.`)
+    // C-CELL: headline quotes do not remove these options' own labelled cells.
+    expect(model.subline).toBe([
+      `‘${labelOf(OUTREACH)}’: less than 1% chance of meeting your goal, in this model.`,
+      `‘${labelOf(ANGEL)}’: about 43% chance of meeting your goal, in this model.`,
+      `‘${labelOf(CONVERTIBLE)}’: about 48% chance of meeting your goal, in this model.`,
+    ].join(' '))
     expect(`${model.headline} ${model.subline}`).not.toMatch(/about the same|about 0%|about 100%/)
   })
 
