@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { CANVAS_LAYER_CLASS } from '../../layers'
-import { useNodeKeyboardScope } from '../nodeKeyboardScope'
-import { SuccessTargetLine } from '../../../components/results/analysisNew/sections/SuccessTargetLine'
-import { useGoalTargetFeedback } from '../../../components/results/goal-chance-invite/goalTargetFeedback'
+import { CANVAS_LAYER_CLASS } from '../layers'
+import { useNodeKeyboardScope } from '../nodes/nodeKeyboardScope'
+import { SuccessTargetLine } from '../../components/results/analysisNew/sections/SuccessTargetLine'
+import { useGoalTargetFeedback } from '../../components/results/goal-chance-invite/goalTargetFeedback'
 
 interface GoalTargetPopoverProps {
   goalNodeId: string
@@ -11,7 +11,12 @@ interface GoalTargetPopoverProps {
   onClose: () => void
 }
 
-/** SetValuePopover's fixed, body-portalled, outside-press pattern, with the shared target door inside. */
+/**
+ * SetValuePopover's fixed, body-portalled, outside-press pattern, with the shared target door inside.
+ * A canvas OVERLAY, not card chrome (it portals to `document.body`, outside the zoom transform, at screen size, like
+ * `hoverCard/NodeHoverCard`), so it lives with the other canvas overlays. It renders `SuccessTargetLine` with
+ * `divider={false}`: that component's single-edge hairline belongs to its inspector branch and never draws here.
+ */
 export function GoalTargetPopover({ goalNodeId, anchor, onClose }: GoalTargetPopoverProps) {
   const { ref, onKeyDownCapture } = useNodeKeyboardScope<HTMLDivElement>()
   const popoverRef = useRef<HTMLDivElement>(null)
