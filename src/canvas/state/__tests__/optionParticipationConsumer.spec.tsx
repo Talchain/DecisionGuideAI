@@ -148,10 +148,13 @@ describe('the reason: the Run\'s own word first', () => {
     expect(deriveNotAnalysedReason('olumi_bundle', edges, ['olumi_bundle', 'keep_49_price'], () => 2)).toBe('not_returned')
     expect(deriveNotAnalysedReason('olumi_bundle', edges, ['olumi_bundle', 'keep_49_price'], () => 2, () => false)).toBe('not_returned')
   })
-  it('the copy says it is Olumi\'s and not the user\'s, and offers no configure action', () => {
+  it('the copy says it is Olumi\'s and not the user\'s, and offers no configure action (RunView PR1b: only "Include it")', () => {
     expect(notAnalysedReasonCopy('excluded_olumi_proposed')).toBe(OLUMI_PROPOSED_EXCLUDED_COPY)
     expect(OLUMI_PROPOSED_EXCLUDED_COPY).not.toMatch(/has no result for/)
-    expect(notAnalysedActionLabel('excluded_olumi_proposed')).toBeNull()
+    // RE-PIN (PR1b, DL 8 Oct): the invariant is NO CONFIGURE action on Olumi's option. Its one press now INCLUDES it,
+    // through CEE's own adoption door (an approval card); it never asks the user to configure Olumi's suggestion.
+    expect(notAnalysedActionLabel('excluded_olumi_proposed')).toBe('Include it')
+    expect(notAnalysedActionLabel('excluded_olumi_proposed')).not.toBe(notAnalysedActionLabel('no_interventions'))
   })
   it('the kept sentence names the user\'s unanalysable options', () => {
     expect(olumiProposedKeptCopy({ kind: 'named', labels: ['Keep £49 price'] })).toContain('‘Keep £49 price’')

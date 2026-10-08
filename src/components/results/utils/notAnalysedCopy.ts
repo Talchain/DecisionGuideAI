@@ -185,7 +185,19 @@ export const NOT_ANALYSED_IN_LAST_ANALYSIS =
  * "Fix it" — see the module header.
  */
 export function notAnalysedActionLabel(reason: NotAnalysedReason): string | null {
-  return reason === 'no_interventions' ? 'Tell Olumi what it changes' : null
+  return reason === 'no_interventions' ? 'Tell Olumi what it changes'
+    : reason === 'excluded_olumi_proposed' ? INCLUDE_OLUMI_OPTION_LABEL
+      : null
+}
+
+/**
+ * ⭐ RunView PR 1b (DL 8 Oct; probe 94160333): an unadopted Olumi suggestion the Run left out can be brought in. The
+ * press drafts the turn CEE's own adoption door reads (`proposeNewOption`: the suggestion named by its EXACT label in
+ * the user's words → an "Add Olumi's suggestion … with the levels shown" approval card; nothing changes until Yes).
+ */
+export const INCLUDE_OLUMI_OPTION_LABEL = 'Include it'
+export function includeOlumiOptionPrompt(optionLabel: string): string {
+  return `Add Olumi's suggestion "${optionLabel}" to my comparison.`
 }
 
 /**
