@@ -343,3 +343,15 @@ describe('Connections — the drag validator owns available pairs', () => {
     expect(offeredIds(screen.getByRole('combobox', { name: label }))).toContain(target)
   })
 })
+
+describe('Connect to… offers causal targets only', () => {
+  it('a factor is never offered an option or the decision as a target (the option picker owns option → factor)', () => {
+    mount(SOURCE)
+    const ids = offeredIds(connectionPicker())
+    const kinds = useCanvasStore.getState().nodes.filter(n => ids.includes(n.id))
+      .map(n => String((n.data as Record<string, unknown>)?.kind ?? n.type))
+    expect(ids.length).toBeGreaterThan(0)
+    expect(kinds).not.toContain('option')
+    expect(kinds).not.toContain('decision')
+  })
+})

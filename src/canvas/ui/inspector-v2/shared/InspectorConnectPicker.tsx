@@ -38,9 +38,15 @@ export function InspectorConnectPicker({
     showToast,
   })
   const candidateIdSet = candidateIds ? new Set(candidateIds) : null
+  // An option or the decision is never the TARGET of a causal link drawn from here: an option acts ON factors
+  // (option → factor, its own picker), and the decision links only to its options. The canvas validator admits more
+  // shapes than a user means when they say "this connects to …", so the picker offers only causal targets.
+  const kindOf = (node: (typeof nodes)[number]) =>
+    String(((node.data as Record<string, unknown> | undefined)?.kind as string | undefined) ?? node.type ?? '')
   const targets = nodes.some(node => node.id === nodeId)
     ? nodes.filter(candidate =>
         (!candidateIdSet || candidateIdSet.has(candidate.id)) &&
+        kindOf(candidate) !== 'option' && kindOf(candidate) !== 'decision' &&
         isValidConnection({ source: nodeId, target: candidate.id }),
       )
     : []
