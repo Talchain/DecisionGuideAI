@@ -290,10 +290,10 @@ describe('it refuses to print a number it cannot express', () => {
   })
 })
 
-describe('with NO dispatcher mounted the write is local, and says so', () => {
+describe('with NO dispatcher mounted the target is refused', () => {
   /**
    * ⚠⚠ THE PRECONDITION IS PINNED IN-TEST, NOT ASSUMED. Every case below is
-   * about the `local_only` path, which exists only while
+   * about the `local_only` refusal path, which exists only while
    * `goalTargetDispatchAvailable` is false. Asserting it here means a fixture
    * change that silently arms the dispatcher REDs, instead of turning these
    * cases into tautologies about a path they are no longer on (trap 13b).
@@ -302,21 +302,17 @@ describe('with NO dispatcher mounted the write is local, and says so', () => {
     expect(goalTargetDispatchAvailable).toBe(false)
   })
 
-  it('writes to the GOAL node it was given', async () => {
+  it('leaves the GOAL node unchanged without a dispatcher', async () => {
     const user = userEvent.setup()
     draw(vi.fn(), 'goal-42')
     await user.click(screen.getByTestId(`${TID}-edit`))
     await user.type(screen.getByTestId(`${TID}-input`), '110')
     await user.click(screen.getByTestId(`${TID}-save`))
-    expect(setGoalThresholdAndUpdateNode).toHaveBeenCalledWith('goal-42', 110)
+    expect(setGoalThresholdAndUpdateNode).not.toHaveBeenCalled()
+    expect(screen.getByTestId(`${TID}-editor`)).toBeInTheDocument()
   })
 
-  /**
-   * ⚠⚠ `local_only` IS STILL A REAL OUTCOME, and it is the honest one HERE:
-   * with no dispatcher mounted there is no send to report. What changed is that
-   * it is no longer the ONLY outcome, and it no longer carries a sentence
-   * promising the next analysis will use the value.
-   */
+  /** A missing carrier keeps the local_only caller contract and retains the draft. */
   it('reports local_only when there is no dispatcher to ask', async () => {
     const user = userEvent.setup()
     const onCommitOutcome = draw()

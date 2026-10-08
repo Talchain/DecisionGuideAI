@@ -49,7 +49,7 @@ import type { UncertaintyItem } from '../types'
 // (trap 13 — an absence probe needs a positive control).
 const GOAL_EDITOR_FILES = [
   'src/canvas/ui/inspector-v2/panels/GoalPanel.tsx',
-  'src/canvas/ui/inspector/GoalThresholdEditor.tsx',
+  'src/components/results/analysisNew/sections/SuccessTargetLine.tsx',
 ] as const
 
 function item(code: string): UncertaintyItem {

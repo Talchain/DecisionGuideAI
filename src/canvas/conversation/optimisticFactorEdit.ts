@@ -1025,3 +1025,53 @@ export function revertOptimisticFactorEdit(edit: OptimisticFactorEdit): RevertOu
   }
   return 'reverted'
 }
+
+
+/** A prior judgement uses the same capture/revert discipline, without a value stamp. */
+export interface OptimisticPriorRangeEdit {
+  nodeId: string
+  sentMin: number
+  sentMax: number
+  prevPrior: unknown
+  hadPrior: boolean
+  currency: AnalysisCurrencySnapshot
+}
+
+export function captureOptimisticPriorRangeEdit(
+  nodeId: string, sentMin: number, sentMax: number, nodeData: unknown,
+): OptimisticPriorRangeEdit {
+  const data = (nodeData ?? {}) as Record<string, unknown>
+  return {
+    nodeId, sentMin, sentMax,
+    prevPrior: data.prior && typeof data.prior === 'object' ? { ...data.prior } : data.prior,
+    hadPrior: Object.prototype.hasOwnProperty.call(data, 'prior'),
+    currency: captureAnalysisCurrency(),
+  }
+}
+
+/** Restore only this range, and never overwrite a later edit or server readback. */
+export function revertOptimisticPriorRangeEdit(edit: OptimisticPriorRangeEdit): RevertOutcome {
+  const store = useCanvasStore.getState()
+  const node = store.nodes.find(n => n.id === edit.nodeId)
+  if (!node) return 'node_gone'
+  const data = (node.data ?? {}) as Record<string, unknown>
+  const prior = data.prior as Record<string, unknown> | undefined
+  if (prior?.range_min !== edit.sentMin || prior?.range_max !== edit.sentMax) return 'value_moved_on'
+  const analysisReplaced = analysisReplacedSince(edit.currency)
+  const restored = { ...data }
+  if (edit.hadPrior) restored.prior = edit.prevPrior
+  else delete restored.prior
+  store.beginExternalGraphMutation?.('envelope_apply')
+  try {
+    store.updateNode(edit.nodeId, { data: restored } as never)
+  } finally {
+    store.endExternalGraphMutation?.()
+  }
+  if (!analysisReplaced) restoreAnalysisCurrencyAfterRevert(edit.currency)
+  try {
+    saveAutosave(projectAutosaveData(autosaveSourceFromStore(useCanvasStore.getState())))
+  } catch {
+    // The in-memory revert is applied; periodic autosave is the fallback.
+  }
+  return 'reverted'
+}

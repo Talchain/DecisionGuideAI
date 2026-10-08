@@ -70,8 +70,8 @@
  * application owns the write. An optimistic `threshold_source: 'user'` stamp
  * alongside the dispatch is exactly the fabricated provenance that produced the
  * reversion above - the label would claim authorship the shared model had not
- * accepted. The local write SURVIVES on the `local_only` path only, where there
- * is no dispatcher to own it and the copy says so plainly.
+ * accepted. Without a dispatcher the draft is refused and stays open; the
+ * shared refusal disclosure tells the reader that nothing was saved.
  */
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ArrowUp, Pencil, Target } from 'lucide-react'
@@ -179,9 +179,9 @@ export interface SuccessTargetLineProps {
    * ⚠⚠ THREE TOKENS, NOT TWO, AND THE THIRD IS THE FIX. `proposeGoalTarget`
    * answers `dispatched | not_encodable`; a blank or unparseable draft is
    * `not_encodable` before it is asked; and with no dispatcher mounted the
-   * local write is all there is, which is `local_only`. Collapsing any two of
-   * these is how a control reports an acceptance it never observed - the exact
-   * defect this file's header records.
+   * draft is refused as `local_only`, preserving the caller contract without
+   * writing the store. The draft stays open. A save needs the durable carrier
+   * described above.
    */
   /**
    * ⭐ `no_unit` IS A FOURTH OUTCOME BECAUSE IT IS A DIFFERENT SENTENCE. The
@@ -265,7 +265,6 @@ export function SuccessTargetLine({
   const goalData = useCanvasStore((s) =>
     goalNodeId === null ? null : (s.nodes.find((n) => n.id === goalNodeId)?.data ?? null),
   )
-  const setGoalThresholdAndUpdateNode = useCanvasStore((s) => s.setGoalThresholdAndUpdateNode)
   /**
    * ⚠ THE STORE SURVIVES AS A FALLBACK ONLY, and keeps its guard. A `raw` store
    * value is still a real target when the node carries none; a `normalised` one
@@ -546,25 +545,8 @@ export function SuccessTargetLine({
       return
     }
 
-    /**
-     * ⚠ NO DISPATCHER MOUNTED. The local write is genuinely all there is, and
-     * it is still worth making - the canvas goal card and `computeSuccessState`
-     * read it within the session. What must not happen is the old sentence: the
-     * copy on this path states plainly that Olumi has not been told.
-     */
-    /**
-     * ⚠ AND IT CARRIES THE UNIT. The store action has always accepted
-     * `{ unit }` (`store.ts`: it stamps `goal_threshold_unit` when one is
-     * given and leaves any existing one untouched when none is), and this call
-     * was omitting it — so on the one path where nothing downstream could
-     * recover the reader's unit, it was discarded.
-     */
-    if (unit !== '') setGoalThresholdAndUpdateNode(goalNodeId, parsed, { unit })
-    else setGoalThresholdAndUpdateNode(goalNodeId, parsed)
+    // No durable carrier: keep the draft open and use the existing refusal disclosure.
     onCommitOutcome('local_only')
-    setEditing(false)
-    setDraft('')
-    setUnitDraft('')
   }
 
   /**
