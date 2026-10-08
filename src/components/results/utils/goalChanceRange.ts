@@ -1,4 +1,4 @@
-import { GOAL_FIGURES_USER_EFFECT_CLAMPED_CODE, GOAL_FIGURES_WITHHELD_CODES, GOAL_IDENTITY_NOT_EVALUATED_CODE } from './goalIdentityWithheld'
+import { GOAL_FIGURES_USER_EFFECT_CLAMPED_CODE, GOAL_FIGURES_WITHHELD_CODES, GOAL_IDENTITY_NOT_EVALUATED_CODE, readGoalFigureWithholds } from './goalIdentityWithheld'
 import { readGoalChanceTarget, type GoalChanceTarget } from './goalChanceTarget'
 
 /**
@@ -97,11 +97,16 @@ export function readGoalChanceRange(inferenceWarnings: unknown): GoalChanceRange
   if (r.severity !== 'info' || !nonEmpty(r.message) || !Array.isArray(ids) || ids.length === 0
     || !ids.every(nonEmpty) || new Set(ids).size !== ids.length || !isRec(r.range_by_option)) return null
   const target = readGoalChanceTarget(r.target)
+  // Reading-unconfirmed withholds include the shared reader's fail-closed synthesis when the producer omitted
+  // its typed warning. A range is still a goal figure; the unconfirmed reading must not leave bare bounds visible.
+  const readingWithholds = readGoalFigureWithholds({ inference_warnings: inferenceWarnings })
+    .filter((w) => w.code === 'GOAL_FIGURES_READING_UNCONFIRMED')
   const rangeByOption: Record<string, GoalChanceRangeEntry> = Object.create(null)
   for (const id of ids) {
     if (!Object.prototype.hasOwnProperty.call(r.range_by_option, id)) continue
     const entry = readEntry(r.range_by_option[id], target)
-    if (entry !== null && !rangeBarred(inferenceWarnings, id)) rangeByOption[id] = entry
+    const readingBarred = readingWithholds.some((w) => w.optionIds === null || w.optionIds.includes(id))
+    if (entry !== null && !rangeBarred(inferenceWarnings, id) && !readingBarred) rangeByOption[id] = entry
   }
   const optionIds = ids.filter((id) => Object.prototype.hasOwnProperty.call(rangeByOption, id))
   return optionIds.length === 0 ? null : { optionIds, rangeByOption, horizonLine: readGoalChanceHorizonLine(r), ...(target === null ? {} : { target }) }

@@ -25,7 +25,7 @@ const READING_LABEL = {
 }
 const holder = (licence: W, ...extra: W[]) => ({ inference_warnings: [licence, ...extra] })
 const READING_CODE = 'GOAL_FIGURES_READING_UNCONFIRMED'
-const PRODUCER_WORDS = "Not shown here: it rests on Olumi's reading of MRR."
+const PRODUCER_WORDS = "Not shown. This figure rests on Olumi's reading of MRR."
 
 describe('P02 GR2: a goal figure under an unconfirmed reading is withheld everywhere', () => {
   it('CONTROL: the served licence WITHOUT reading_label withholds nothing (figures show as today)', () => {
@@ -58,6 +58,17 @@ describe('P02 GR2: a goal figure under an unconfirmed reading is withheld everyw
     expect(readGoalIdentityWithheld(h)?.message).toBe(PRODUCER_WORDS)
   })
 
+  it('the typed reading withhold also applies when the licence has no reading_label', () => {
+    const h = holder(LICENSED, { code: READING_CODE, option_ids: OPTION_IDS,
+      withheld_claims: ['goal_probability', 'joint_probability'], message: PRODUCER_WORDS })
+    const withholds = readGoalFigureWithholds(h)
+    expect(withholds).toHaveLength(1)
+    for (const id of OPTION_IDS) {
+      expect([...withheldClaimsFor(withholds, id)]).toEqual(['goal_probability', 'joint_probability'])
+    }
+    expect(readGoalIdentityWithheld(h)?.message).toBe(PRODUCER_WORDS)
+  })
+
   // The licence path (hero, DecisionMatrix, chat card) says the RULED words (DL + Science 8 Oct): the reading in the SAME sentence.
   const LABELS: Record<string, string> = { raise_prices_by_10: 'Raise prices by 10%', launch_starter_tier: 'Launch a starter tier', keep_pricing_as_it_is: 'Keep pricing as it is' }
   const labelOf = (id: string) => LABELS[id] ?? null
@@ -71,7 +82,7 @@ describe('P02 GR2: a goal figure under an unconfirmed reading is withheld everyw
     const figureLines = lines!.filter((l) => /\d+%/.test(l))
     expect(figureLines.length).toBe(OPTION_IDS.length)
     for (const line of figureLines) {
-      expect(line).toMatch(/^‘[^’]+’: about \d+% chance of meeting your goal/)
+      expect(line).toMatch(/^‘[^’]+’: (?:about|less than|more than) \d+% chance of meeting your goal/)
       expect(line.endsWith(CLAUSE)).toBe(true)
     }
   })

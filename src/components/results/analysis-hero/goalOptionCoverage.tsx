@@ -19,7 +19,8 @@ export function withGoalOptionCoverage(model: HeroChartModel, data: ResultsSecti
   ).map((row) => row.id))
   const licence = data.goalChanceLicence ?? null
   const rowLabelOf = (id: string) => model.rows.find((row) => row.id === id)?.label ?? null
-  if (licence && licence.form !== 'all_likely_to_miss'
+  // GR2 renders a labelled sentence for every form, including the normally figure-free all-likely-to-miss headline.
+  if (licence && (licence.form !== 'all_likely_to_miss' || licence.readingLabel !== undefined)
     && goalChanceHeroSays(data.recommendation.goalThreshold, data.recommendation.allOptions, licence)
     && goalChanceHeadline(licence, rowLabelOf) !== null) {
     for (const id of licence.optionIds) {

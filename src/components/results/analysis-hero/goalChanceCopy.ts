@@ -7,7 +7,7 @@
  * Every line is model-relative ("In this model, on current information") and says "chance of MEETING your goal" —
  * never "reaching" (`goalFigureSaysModelRuns` bans it, DL 6005048156 + c6 6005196947), never a contest word.
  */
-import type { GoalChanceComparator, GoalChanceDriver, GoalChanceDriverNames, GoalChanceLicence } from '../utils/goalChanceLicence'
+import type { GoalChanceComparator, GoalChanceDriver, GoalChanceDriverNames, GoalChanceLicence, GoalChanceReadingLabel } from '../utils/goalChanceLicence'
 import { shortfallNoteLabel } from '../utils/goalChanceLicence'
 import { formatGoalTarget } from '../utils/formatGoalTarget'
 import { GOAL_CHANCE_LABEL, goalProbabilityWords } from '../utils/goalAnchorCopy'
@@ -60,6 +60,8 @@ export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionI
   const target = goalChanceTargetWords(licence)
   if (target === null) return null
   const lead = 'In this model, on current information,'
+  // GR2: keep every figure in its own labelled sentence below, including the forms that normally quote figures here.
+  if (licence.readingLabel !== undefined) return `${lead} each option’s chance of meeting your goal (${target}):`
   switch (licence.form) {
     case 'highest': {
       const leader = labelOf(licence.leaderOptionId as string)
@@ -99,6 +101,12 @@ export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionI
 export const GOAL_CHANCE_SPREAD_NOTE =
   'Its typical result falls short of your target: this chance comes from its wider spread, which also means it could fall further short.'
 
+/** The ruled reading clause uses CEE's labels and stored order; the UI never reconstructs the identity from the graph. */
+function goalReadingClause(reading: GoalChanceReadingLabel): string {
+  const addends = reading.addends.map((a) => `, ${a.sign} ‘${a.label}’`).join('')
+  return `, if ‘${reading.goal.label}’ = ‘${reading.factors[0].label}’ × ‘${reading.factors[1].label}’${addends} (Olumi’s reading)`
+}
+
 export function goalChanceOptionLines(
   licence: GoalChanceLicence, labelOf: (optionId: string) => string | null, except: readonly string[] = [],
   driverLines: Readonly<Record<string, string>> = {},
@@ -126,13 +134,15 @@ export function goalChanceOptionLines(
     const driver = driverLines[id]
     const share = shareByDateWords(licence.target)
     const chance = share === null ? GOAL_CHANCE_LABEL : `${shareChanceWords(share)}, in this model`
+    // Replace the plain sentence end: `chance` already includes the one "in this model".
+    const reading = licence.readingLabel === undefined ? '' : goalReadingClause(licence.readingLabel)
     // Science 393023 (1): CEE's spread note follows the chance it qualifies, before the driver. Worded by identity; the
     // card never says "see its downside", because a downside is not always beside this line.
     const spread = licence.spreadNoteOptionIds?.includes(id) === true ? ` ${GOAL_CHANCE_SPREAD_NOTE}` : ''
     // B19 (Science 393023 (3)): CEE's shortfall sentence follows the spread note, verbatim, only when it names THIS label.
     const note = licence.shortfallNoteByOption?.[id]
     const shortfall = note !== undefined && shortfallNoteLabel(note) === label ? ` ${note}` : ''
-    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} ${chance}.${spread}${shortfall}`
+    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} ${chance}${reading}.${spread}${shortfall}`
       + (driver === undefined ? '' : ` ${driver}`))
   }
   return lines
@@ -290,6 +300,8 @@ export function goalChanceDriverLines(
   for (const id of licence.optionIds) {
     const driver = licence.driverByOption?.[id]
     if (driver === undefined || except.includes(id)) continue
+    // GR2's words license the main figure only. Numeric driver sentences have no ruled reading clause yet.
+    if (licence.readingLabel !== undefined && driver.kind !== 'link_strength') continue
     const question = questionDriver(driver)
     const line = goalChanceDriverLine(driver, names, question === null || !asked.has(question))
     if (line === null) continue
