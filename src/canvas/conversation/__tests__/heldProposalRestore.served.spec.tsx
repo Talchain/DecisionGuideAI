@@ -74,7 +74,13 @@ describe('S-D reload restores the held change from proposal_fields (SERVED sd-wi
     const bad = { ...read.proposal_fields, proposals: [{ ...read.proposal_fields.proposals[0], digest: 'bad' }] }
     expect(latest(restore(bad)).actionChips ?? []).toHaveLength(0)
     const withUser = [...restore(null), { id: 'u-later', role: 'user' as const, content: 'later', timestamp: new Date() }]
-    expect(reconcileRestoredProposalFields(withUser, read.proposal_fields)).toEqual(withUser)
+    // No card is placed when a later user message follows. P53 (buddy r2): the latest REAL reply still carries the read's
+    // CURRENT held set (no chips), so an earlier issuing reply's card is not hidden by a user-only tail.
+    const afterUser = reconcileRestoredProposalFields(withUser, read.proposal_fields)
+    expect(afterUser.map(m => m.actionChips)).toEqual(withUser.map(m => m.actionChips))
+    const lastReply = withUser.map(m => m.role === 'assistant' && !m.synthetic && !m.sessionDivider).lastIndexOf(true)
+    expect(afterUser[lastReply]).toEqual({ ...withUser[lastReply], proposalFields: read.proposal_fields })
+    expect(afterUser.filter((_, i) => i !== lastReply)).toEqual(withUser.filter((_, i) => i !== lastReply))
     const armed = restore(); const again = reconcileRestoredProposalFields(armed, { ...read.proposal_fields, proposals: [] })
     expect(again).toEqual(armed)
     const prop = restore(null); const last = prop.length - 1
