@@ -124,6 +124,11 @@ export async function runCanvasUndo(direction: UndoDirection, expectedTurnId?: s
   }
 
   const identity = await getSessionIdentity()
+  // An edit or another restore may have started during the session read.
+  if (isCanvasUndoBusy()) {
+    notify(UNDO_NOTICE.busy)
+    return 'busy'
+  }
   if (!identity.userId) {
     notify(UNDO_NOTICE.signInRequired)
     return 'sign_in_required'

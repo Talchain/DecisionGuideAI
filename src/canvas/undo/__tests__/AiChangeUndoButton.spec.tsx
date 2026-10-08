@@ -80,11 +80,14 @@ describe('AiChangeUndoButton', () => {
     if (journalStep.kind !== 'step') throw new Error('Expected the live Agent turn to record a step')
     const outgoing = JSON.parse(fetchSpy.mock.calls.find(call => String(call[0]) === ENDPOINT && call[1]?.method === 'POST')![1].body)
     expect(journalStep.gestureId).toBe(outgoing.turn_id)
+    expect(journalStep.first).toEqual({ mutationId: 'm-live', versionId: V5, fullHash: '5'.repeat(64), undoVersionId: V4 })
+    expect(journalStep.last).toBe(journalStep.first)
     const reply = first.result.current.messages.find(m => m.role === 'assistant' && !m.synthetic)!
+    expect(reply.content).toBe('I added the risk to the model.')
     expect(reply.clientTurnId).toBeUndefined()
     const bubble = render(<MessageBubble message={reply} onChipClick={async () => {}} />)
     expect.soft(reply.undoTurnId).toBe(journalStep.gestureId)
-    expect(screen.queryByRole('button', { name: AI_CHANGE_UNDO_WORDS.aria })).not.toBeNull()
+    expect(screen.getByRole('button', { name: "Undo Olumi's change to the model" }).textContent).toBe('Undo this change')
 
     await waitFor(() => expect(loadTranscript(S)?.messages.find(m => m.id === reply.id)?.content).toBe(reply.content))
     expect(loadTranscript(S)?.messages.find(m => m.id === reply.id)?.undoTurnId).toBeUndefined()
