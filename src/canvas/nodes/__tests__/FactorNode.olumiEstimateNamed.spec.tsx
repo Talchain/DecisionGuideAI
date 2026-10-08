@@ -8,8 +8,8 @@
  * nodes of scenario 9ea9683a, verbatim (shared DB, SELECT only), including "Starter tier price" (no cap), the card
  * the smoke flagged. Contrasts: values the user set or confirmed, and a brief figure, carry no "Olumi's estimate" name.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { screen, render } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 
@@ -78,23 +78,6 @@ const baseProps = {
   isConnectable: true, positionAbsoluteX: 0, positionAbsoluteY: 0,
   dragging: false, zIndex: 0, deletable: true, selectable: true, draggable: true,
 }
-
-const renderFactor = (data: Record<string, unknown>) =>
-  render(<ReactFlowProvider><FactorNode {...baseProps} data={data} /></ReactFlowProvider>)
-
-const faceText = (c: HTMLElement) => {
-  const copy = c.cloneNode(true) as HTMLElement
-  copy.querySelectorAll('.sr-only').forEach(el => el.remove())
-  return (copy.textContent ?? '').replace(/\s+/g, ' ').trim()
-}
-
-/** The founder's shape: an inferred factor on a placeholder scale. */
-const founderFactor = (value: number, displayValue: string | null) => ({
-  label: 'Team Capability',
-  type: 'factor',
-  ...(displayValue === null ? {} : { display_value: displayValue }),
-  observedState: { value, unit: 'scale', extractionType: 'inferred' as const },
-})
 
 import { OLUMI_ESTIMATE_NAME } from '../shared/EstimateMarker'
 
