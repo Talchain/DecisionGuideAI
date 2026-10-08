@@ -76,7 +76,7 @@ import { useAnalysisResultsAreCurrent } from '../../hooks/useAnalysisResultsAreC
 import { OptionNode, OPTION_ROW_LINE_GRID_CLASSES, OPTION_ROW_TWO_LINE_CLASSES } from '../OptionNode'
 import { OPTION_ROW_NAME_MIN_CHARS } from '../shared/optionChangeRows'
 import { NODE_ROW_AMOUNT_MAX_CHARS } from '../../utils/nodeLayoutConstants'
-import { VALUE_SOURCE_MARK_TOKEN, type ValueSourceMarkKind } from '../shared/valueSourceMark'
+import { VALUE_SOURCE_MARK_LABEL } from '../shared/valueSourceMark'
 import { mapDraftNodeToCanvas, mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
 import pricingStarter from '../../starters/data/pricing-model.draft.json'
 import buildVsBuyStarter from '../../starters/data/build-vs-buy.draft.json'
@@ -243,14 +243,14 @@ for (const [starter, raw] of STARTERS) {
           expect(tokens(dd).has('whitespace-nowrap'), 'the amount cell is nowrap').toBe(true)
           const mark = dd.querySelector<HTMLElement>(`[data-testid="option-change-row-mark-${optionId}-${factorId}"]`)
           const value = dd.querySelector<HTMLElement>(`[data-testid="option-change-row-value-${optionId}-${factorId}"]`)
-          let markToken: string | null = null
           if (mark) {
             expect(mark.parentElement).toBe(dd)
             expect((mark.previousSibling as Text | null)?.data).toBe(NBSP)
             expect(mark.previousSibling?.previousSibling).toBe(value)
-            const kind = mark.querySelector('[data-value-source]')?.getAttribute('data-value-source') as ValueSourceMarkKind | null
-            const estimate = mark.querySelector('[data-testid^="option-change-row-estimate-"]')
-            markToken = ` ${VALUE_SOURCE_MARK_TOKEN[kind ?? (estimate ? 'olumi' : 'unknown')]}`
+            const source = onCard(container, `[data-testid="option-change-row-source-${optionId}-${factorId}"]`)[0] ?? onCard(container, `[data-testid="option-change-row-estimate-${optionId}-${factorId}"]`)[0]
+            expect(source, 'the source retains its row identity').toBeDefined()
+            expect(mark.contains(source)).toBe(false)
+            expect(source.closest(`[data-testid="option-bottom-marks-${optionId}"]`)).not.toBeNull()
           }
           // A value that may break says so explicitly — it must not inherit the cell's nowrap.
           if (value) {
@@ -258,7 +258,7 @@ for (const [starter, raw] of STARTERS) {
             expect(vt.has('whitespace-nowrap') || vt.has('whitespace-normal'), `${factorId} value states its wrapping`).toBe(true)
           }
           // The line-count model at the bound: every unbreakable run fits the row.
-          for (const run of unbreakableRuns(dd, markToken)) {
+          for (const run of unbreakableRuns(dd, null)) {
             expect(run.length, `"${run}" cannot break and must fit one line at the bound`).toBeLessThanOrEqual(NODE_ROW_AMOUNT_MAX_CHARS)
           }
         }
@@ -271,18 +271,22 @@ describe('the mark cannot stand alone — the served N5 rows, by identity', () =
   // Served `b40d5436`: "Very high → Moderate" / "brief" (pricing Hybrid);
   // "Not pursued → Pursued" / "brief" (market-entry); "Not adopted → Adopted" / "brief" (vendor).
   const SERVED: Array<[unknown, string, string, string]> = [
-    [pricingStarter, 'opt_hybrid', 'fac_adoption_friction', 'Moderate brief'],
-    [marketEntryStarter, 'opt_germany', 'fac_germany', 'Pursued brief'],
-    [vendorStarter, 'opt_segment', 'fac_segment', 'Adopted brief'],
+    [pricingStarter, 'opt_hybrid', 'fac_adoption_friction', 'Moderate'],
+    [marketEntryStarter, 'opt_germany', 'fac_germany', 'Pursued'],
+    [vendorStarter, 'opt_segment', 'fac_segment', 'Adopted'],
   ]
   for (const [raw, optionId, factorId, tail] of SERVED) {
     it(`${optionId} · ${factorId}: the last unbreakable run ends "${tail}"`, () => {
       const { container } = renderOption(raw as Draft, optionId)
       const dd = onCard(container, `[data-testid="option-change-row-${optionId}-${factorId}"]`)[0]
       expect(dd, 'the row renders').toBeDefined()
-      const runs = unbreakableRuns(dd, ' brief')
+      const source = onCard(container, `[data-testid="option-change-row-source-${optionId}-${factorId}"]`)[0]
+      expect(source.getAttribute('aria-label')).toContain(VALUE_SOURCE_MARK_LABEL.brief)
+      expect(source.querySelector('.lucide-file-text')).not.toBeNull()
+      expect(source.closest(`[data-testid="option-bottom-marks-${optionId}"]`)).not.toBeNull()
+      const runs = unbreakableRuns(dd, null)
       expect(runs[runs.length - 1].endsWith(tail)).toBe(true)
-      expect(runs[runs.length - 1]).not.toBe('brief')
+      expect(dd.textContent).not.toContain('brief')
     })
   }
 })

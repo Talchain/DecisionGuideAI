@@ -278,7 +278,9 @@ describe('OptionNode — the corner stack after ED #63 5799353114 decision 1 (no
     // Order, bound by IDENTITY (trap 19). The length assertion is what makes
     // this a statement about the WHOLE container: a pill re-inserted anywhere
     // in the stack makes it two.
-    const kids = Array.from(stack.children)
+    const band = screen.getByTestId(`option-bottom-marks-${NODE_ID}`)
+    const kids = Array.from(band.querySelectorAll(`[data-testid="node-coaching-marker-${NODE_ID}"]`))
+    expect(stack.children).toHaveLength(0)
     expect(kids).toHaveLength(1)
     expect(kids[0]).toBe(coaching)
     expectNoLeaderPill(container)

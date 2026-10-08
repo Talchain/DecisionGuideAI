@@ -200,7 +200,8 @@ describe('OptionNode — the run must not delete the model content', () => {
     // Was an ordinary breakable space; every other byte is unchanged.
     // RE-PINNED 27 Sep (side-by-side DIFF item 1): the `·` is retired (contract
     // row `£49 → £59 brief`); the mark's own 10px muted type sets it apart.
-    expect(row.textContent).toBe(`${CHIP}\u00A0no sourceSource not recorded`)
+    expect(row.textContent).toBe(`${CHIP}\u00A0`)
+    expect(screen.getByTestId('option-change-row-source-option-1-f-head').getAttribute('aria-label')).toContain('Source not recorded')
     // The title also restates the full row ("<factor>: <from> → <to>."); the
     // reference clause is the claim this file owns.
     expect(row.getAttribute('title')).toContain(REFERENCE_TITLE)
@@ -241,14 +242,14 @@ describe('OptionNode — the run must not delete the model content', () => {
   // before and after the run.
   it('⭐ POST-ANALYSIS: the baseline card still says it is the baseline', () => {
     renderCard(COMPLETE, { is_baseline: true }, 'option-b')
-    expect(screen.getByTestId('option-baseline-meta-option-b').textContent).toBe('Baseline · no changes')
+    expect(screen.getByTestId('option-baseline-meta-option-b').getAttribute('aria-label')).toBe('Baseline · no changes')
   })
 
   it('THE TWIN: pre-analysis baseline is UNCHANGED', () => {
     // Held constant so the pair isolates `isPostAnalysis` alone: a mutant that
     // restores either gate REDs a POST case and leaves its twin GREEN.
     renderCard(IDLE, { is_baseline: true }, 'option-b')
-    expect(screen.getByTestId('option-baseline-meta-option-b').textContent).toBe('Baseline · no changes')
+    expect(screen.getByTestId('option-baseline-meta-option-b').getAttribute('aria-label')).toBe('Baseline · no changes')
   })
 
   /**

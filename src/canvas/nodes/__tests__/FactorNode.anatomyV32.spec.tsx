@@ -249,7 +249,8 @@ describe('NODE-ANATOMY v3.2 · Factor · pre-run with a value — title, value, 
     const row = screen.getByTestId('factor-recorded-value')
     // RE-PINNED 27 Sep (side-by-side DIFF item 3): one breakable space is now the gap
     // between the value and its mark (inline flow, so the mark wraps WITH the value).
-    expect(visibleText(row)).toBe('8% est.')
+    expect(visibleText(row)).toBe('8%')
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
     // Principle 4 "no chips around values at rest": the editor rests as text.
     const editor = screen.getByTestId(`node-value-editor-${ID}`)
     const rest = tokens(editor)
@@ -294,8 +295,8 @@ describe('NODE-ANATOMY v3.2 · Factor · pre-run with a value — title, value, 
     // Run's `Driver N of M ranked in this run` takes later, so a Run never grows the card
     // (`FactorNode.noGrowthAfterRun.spec.tsx`). The popover keeps the whole
     // sentence for when the one-line slot ends in an ellipsis.
-    expect(within(face()).getByTestId(`factor-driver-slot-${ID}`).textContent).toBe('Working assumption · no analysis yet')
-    expect(within(popover()).getByTestId(`factor-popover-no-analysis-${ID}`).textContent).toBe('Working assumption · no analysis yet')
+    expect(within(face()).getByTestId(`factor-driver-slot-${ID}`).textContent).toBe('')
+    expect(within(popover()).queryByTestId(`factor-popover-no-analysis-${ID}`)).toBeNull()
     expectNothingItMustNeverSay()
   })
 
@@ -344,7 +345,7 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, turning point found',
     // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
     // one-line slot prints the LONGEST form that fits at the landing bound
     // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
-    expect(within(face()).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
+    expect(within(face()).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 3 ranked')
     expect(within(face()).getByTestId('factor-driver-line-bar')).toBeTruthy()
     // At rest, contract v3.1 point 3 (DESIGN-GAP-v31 #38): the caption IS the
     // direction sentence (was "Model comparison changes" + a floated 6.5%,
@@ -354,10 +355,13 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, turning point found',
     expect(tp.getAttribute('aria-label')!.startsWith('Below 6.5%, the current model comparison changes. ')).toBe(true)
     // The retired inline cue: the line it stood in for is on the face.
     expect(screen.queryByTestId(`factor-driver-cue-${ID}`)).toBeNull()
-    expect(before(value, driver)).toBe(true)
-    expect(before(driver, tp)).toBe(true)
+    expect(driver.closest('[data-card-bottom-band]')).not.toBeNull()
+    expect(before(value, tp)).toBe(true)
+    expect(face().contains(driver)).toBe(true)
     expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
+    expect(document.querySelector('[data-card-mark][aria-label^="Last run"]')).toBeNull()
     expect(document.body.textContent).not.toContain('Last run')
+    expect([...document.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label')).join(' ')).not.toContain('Last run')
     expectNothingItMustNeverSay()
   })
 
@@ -384,7 +388,7 @@ describe('NODE-ANATOMY v3.2 · Factor · the driver line’s M is the RANKED cou
     seed(VALUED, { phase: 'post', flipRows: [] })
     renderFactor(VALUED)
     expect(semantic()).toBe('current')
-    const caption = within(face()).getByTestId('factor-driver-line-caption').textContent ?? ''
+    const caption = within(face()).getByTestId('factor-driver-line-caption').getAttribute('aria-label') ?? ''
     expect(caption).toBe('Driver 1 of 3 ranked')
     expect(caption).not.toContain('of 6')
     expect(caption).not.toContain('analysed')
@@ -397,7 +401,7 @@ describe('NODE-ANATOMY v3.2 · Factor · the driver line’s M is the RANKED cou
     displayMetadata = metadata(2, 4, 2, 0.7)
     seed(VALUED, { phase: 'post', flipRows: [] })
     renderFactor(VALUED)
-    expect(within(onFaceNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 2 ranked')
+    expect(within(onFaceNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 2 of 2 ranked')
   })
 })
 
@@ -433,7 +437,7 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, no turning point — 
     // Positive control: the run's finding for this factor IS disclosed — on the
     // face (prototype, Paul 25 Sep).
     const driver = onFaceNotInPopover('factor-driver-line')
-    expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
+    expect(within(driver).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 3 ranked')
     expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
     expect(document.body.textContent).not.toContain(words)
     expect(screen.queryByTestId('factor-turning-point')).toBeNull()
@@ -525,7 +529,7 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     // disclosure keeps `Last run ·`" — now the face's findings (prototype, 25 Sep).
     onFaceNotInPopover('factor-driver-line')
     onFaceNotInPopover('factor-turning-point')
-    expect(within(face()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3')
+    expect(within(face()).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Last run · Driver 1 of 3')
     // v3.1 point 3 (#38): the stale caption is the Last-run direction sentence.
     expect(within(face()).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · Below 6.5%, the model comparison changes.')
     expect(within(face()).getByTestId('factor-turning-point').getAttribute('aria-label')!.startsWith(
@@ -535,7 +539,8 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     expect(within(face()).getByTestId('factor-turning-point-run-value').textContent).toBe('8% in last run')
     // The value is the factor's own state, not a finding: never prefixed.
     // RE-PINNED 27 Sep (DIFF item 3): the value and its mark are separated by one breakable space.
-    expect(visibleText(screen.getByTestId('factor-recorded-value'))).toBe('8% est.')
+    expect(visibleText(screen.getByTestId('factor-recorded-value'))).toBe('8%')
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
     expectNothingItMustNeverSay()
   })
 
@@ -545,9 +550,11 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     renderFactor(VALUED)
     editTheModel()
     expect(semantic()).toBe('changed')
-    expect(within(onFaceNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3')
+    expect(within(onFaceNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Last run · Driver 1 of 3')
     expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
+    expect(document.querySelector('[data-card-mark][aria-label*="in this run"]')).toBeNull()
     expect(document.body.textContent).not.toContain('in this run')
+    expect([...document.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label')).join(' ')).not.toContain('in this run')
     expectNothingItMustNeverSay()
   })
 

@@ -72,7 +72,7 @@ describe('option results follow the composed freshness authority', () => {
     // currency (`option-win-anchor`: 'Current model' | 'Last run' | 'Model
     // result') and the readout reads "N% of runs". The accessible name leads
     // with the same caption, then OPTION_RESULT_COPY's sentence and note.
-    const anchor = () => screen.getByTestId('option-win-anchor-candidate').textContent
+    const anchor = () => screen.getByTestId('option-win-anchor-candidate').getAttribute('aria-label') ?? screen.getByTestId('option-win-anchor-candidate').textContent
     const label = () => screen.getByTestId('option-analysis-currency-candidate').getAttribute('aria-label') ?? ''
     expect(screen.getByTestId('option-win-readout-candidate').textContent).toBe('72% of runs')
     expect(anchor()).toBe('Current model')

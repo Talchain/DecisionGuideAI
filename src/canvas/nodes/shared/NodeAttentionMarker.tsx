@@ -41,7 +41,7 @@
  * a new panel").
  */
 import type { MouseEvent } from 'react'
-import { LocateFixed } from 'lucide-react'
+import { cardMark } from './cardMarks'
 import Tooltip from '../../../components/Tooltip'
 import { openNodeInspector } from './openNodeInspector'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
@@ -55,7 +55,7 @@ export const ATTENTION_MARKER_TESTID_PREFIX = 'attention-marker-'
  * the canvas key (`CanvasLegendPopover`, contract v3.1 §03 "Worth reviewing"),
  * so the key imports this mark rather than redrawing one.
  */
-export const ATTENTION_MARKER_GLYPH = { Icon: LocateFixed, strokeWidth: 1.6, inkClass: 'text-info' } as const
+export const ATTENTION_MARKER_GLYPH = { Icon: cardMark('attention').Icon, strokeWidth: 1.6, inkClass: 'text-info' } as const
 
 export function NodeAttentionMarker({ nodeId, sentence }: { nodeId: string; sentence: string }) {
   return (
@@ -64,6 +64,7 @@ export function NodeAttentionMarker({ nodeId, sentence }: { nodeId: string; sent
         type="button"
         data-testid={`${ATTENTION_MARKER_TESTID_PREFIX}${nodeId}`}
         data-node-tooltip="true"
+        data-card-mark="attention"
         aria-label={sentence}
         onClick={(e: MouseEvent) => {
           e.stopPropagation()

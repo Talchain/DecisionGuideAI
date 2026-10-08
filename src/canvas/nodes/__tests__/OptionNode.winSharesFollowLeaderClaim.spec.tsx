@@ -105,8 +105,8 @@ describe('CURRENT-READ row 9 — a withheld leader withholds every per-option sh
       renderCard(id)
       expect(slotText(id)).not.toMatch(/\d\s*%/)
       const marker = screen.getByTestId(`option-not-ranked-${id}`)
-      expect(marker.textContent).toBe(NOT_RANKED_MARKER)
-      expect(marker.getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${EXPLORATORY_REASON_LINE}`)
+      expect(marker.getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
+      expect(marker.getAttribute('aria-description')).toBe(EXPLORATORY_REASON_LINE)
     },
   )
 
@@ -124,7 +124,8 @@ describe('CURRENT-READ row 9 — a withheld leader withholds every per-option sh
     expect(slotText(CONVERTIBLE)).not.toMatch(/\d\s*%/)
     const words = leaderWithholdCause('separation_unavailable')
     expect(words).not.toBeNull()
-    expect(screen.getByTestId(`option-not-ranked-${CONVERTIBLE}`).getAttribute('aria-label')).toBe(`${NOT_RANKED_MARKER}. ${words}`)
+    expect(screen.getByTestId(`option-not-ranked-${CONVERTIBLE}`).getAttribute('aria-label')).toBe(NOT_RANKED_MARKER)
+    expect(screen.getByTestId(`option-not-ranked-${CONVERTIBLE}`).getAttribute('aria-description')).toBe(words)
   })
 
   it('an option the Run left out (Targeted angel pilot) keeps `Not analysed`, never `Not ranked`', () => {

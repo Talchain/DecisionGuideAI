@@ -192,9 +192,10 @@ describe('prototype · the driver line is ON the resting card after a run', () =
     // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
     // one-line slot prints the LONGEST form that fits at the landing bound
     // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
-    expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 3 ranked')
+    expect(within(driver).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 2 of 3 ranked')
     expect(within(driver).getByTestId('factor-driver-line-bar')).toBeTruthy()
-    expect(before(value, driver)).toBe(true)
+    expect(driver.closest('[data-card-bottom-band]')).not.toBeNull()
+    expect(card().contains(value)).toBe(true)
     // Never both: the popover (if it mounts) does not repeat it.
     const pop = popover()
     if (pop) expect(within(pop).queryByTestId('factor-driver-line')).toBeNull()
@@ -207,7 +208,7 @@ describe('prototype · the driver line is ON the resting card after a run', () =
     seed(VALUED, { phase: 'post' })
     renderFactor(VALUED)
     act(() => useCanvasStore.setState({ analysisFreshnessDirty: true }))
-    expect(within(card()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 2 of 3')
+    expect(within(card()).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Last run · Driver 2 of 3')
   })
 
   it('CONTRAST — before a run there is no driver line anywhere (the value line is present)', () => {
@@ -235,13 +236,14 @@ describe('prototype · the TOP driver carries its turning-point track at rest', 
     const c = card()
     const driver = within(c).getByTestId('factor-driver-line')
     const tp = within(c).getByTestId('factor-turning-point')
-    expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
+    expect(within(c).getByTestId('factor-driver-line-caption').getAttribute('aria-label')).toBe('Driver 1 of 3 ranked')
     // v3.1's `flipPlot` caption (DESIGN-GAP-v31 #38): the direction sentence.
     expect(visibleText(within(tp).getByTestId('factor-turning-point-caption'))).toBe('Below 6.5%, the current model comparison changes.')
     expect(within(tp).queryByTestId('factor-turning-point-caption-value')).toBeNull()
     expect(within(tp).getByTestId('factor-turning-point-track')).toBeTruthy()
-    expect(before(within(c).getByTestId('factor-recorded-value'), driver)).toBe(true)
-    expect(before(driver, tp)).toBe(true)
+    expect(driver.closest('[data-card-bottom-band]')).not.toBeNull()
+    expect(before(within(c).getByTestId('factor-recorded-value'), tp)).toBe(true)
+    expect(card().contains(driver)).toBe(true)
     const pop = popover()
     if (pop) expect(within(pop).queryByTestId('factor-turning-point')).toBeNull()
   })
@@ -347,7 +349,8 @@ describe('prototype · an external factor shows its range with a band, on the ca
     renderFactor(RANGE_PCT)
     const c = card('Feature adoption')
     const line = within(c).getByTestId(`factor-prior-range-${ID}`)
-    expect(visibleText(line)).toBe('Range: 25% to 45% no source')
+    expect(visibleText(line)).toBe('Range: 25% to 45%')
+    expect(c.querySelector('[data-card-bottom-band] [data-card-mark="source-unknown"]')?.getAttribute('aria-label')).toContain('Source not recorded')
     const band = within(c).getByTestId(`factor-range-band-${ID}`)
     expect(band.getAttribute('aria-hidden')).toBe('true')
     expect(within(band).getByTestId(`factor-range-band-low-${ID}`).textContent).toBe('25%')
@@ -374,7 +377,8 @@ describe('prototype · an external factor shows its range with a band, on the ca
     seed(RANGE_ONLY, { phase: 'post' })
     renderFactor(RANGE_ONLY)
     const c = card('Feature adoption')
-    expect(visibleText(within(c).getByTestId(`factor-prior-range-${ID}`))).toBe('Range: 0.3 to 0.8 no source')
+    expect(visibleText(within(c).getByTestId(`factor-prior-range-${ID}`))).toBe('Range: 0.3 to 0.8')
+    expect(c.querySelector('[data-card-bottom-band] [data-card-mark="source-unknown"]')?.getAttribute('aria-label')).toContain('Source not recorded')
     expect(within(c).getByTestId(`factor-range-band-low-${ID}`).textContent).toBe('0.3')
     expect(within(c).getByTestId(`factor-range-band-high-${ID}`).textContent).toBe('0.8')
   })
@@ -425,7 +429,8 @@ describe('prototype · a currency rate reads `£39,000/year` on the card', () =>
     const c = card('Annual PA salary')
     expect(within(c).getByTestId(`factor-value-figure-${ID}`).textContent).toBe('£39,000')
     expect(within(c).getByTestId(`factor-value-unit-${ID}`).textContent).toBe('/ year')
-    expect(visibleText(within(c).getByTestId('factor-recorded-value'))).toBe('£39,000 / year est.')
+    expect(visibleText(within(c).getByTestId('factor-recorded-value'))).toBe('£39,000 / year')
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
   })
 
   it('CONTRAST — a non-currency rate (`hours/week`) is untouched: `40 hours/week`', () => {
@@ -435,13 +440,15 @@ describe('prototype · a currency rate reads `£39,000/year` on the card', () =>
     const c = card('Annual PA salary')
     expect(within(c).getByTestId(`factor-value-figure-${ID}`).textContent).toBe('40')
     expect(within(c).getByTestId(`factor-value-unit-${ID}`).textContent).toBe('hours/week')
-    expect(visibleText(within(c).getByTestId('factor-recorded-value'))).toBe('40 hours/week est.')
+    expect(visibleText(within(c).getByTestId('factor-recorded-value'))).toBe('40 hours/week')
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
   })
 
   it('CONTRAST — a currency code with no glyph mapping (`CHF/year`) is untouched', () => {
     const data = money('CHF/year')
     seed(data, { phase: 'pre' })
     renderFactor(data)
-    expect(visibleText(within(card('Annual PA salary')).getByTestId('factor-recorded-value'))).toBe('39,000 CHF/year est.')
+    expect(visibleText(within(card('Annual PA salary')).getByTestId('factor-recorded-value'))).toBe('39,000 CHF/year')
+    expect(screen.getByTestId('estimate-marker').closest('[data-card-bottom-band]')).not.toBeNull()
   })
 })
