@@ -14,6 +14,7 @@
  * reason: two sites deriving one meaning is how the canvas and the panel
  * came to contradict each other.
  */
+import { chanceCellOf } from './helpers/chanceCellOf'
 import { describe, expect, it } from 'vitest'
 import { buildHeroModel } from '../buildHeroModel'
 import { HERO_COPY } from '../heroCopy'
@@ -30,8 +31,9 @@ describe('buildHeroModel — goal-fit detail line identity', () => {
     // Fixes the un-flagged behaviour first, so the assertions below cannot
     // pass by the line being absent rather than being re-voiced. The plain arm
     // says "Reaches the target in N% of model runs" (AIQ #72 5885033487).
-    const m = chart(buildHeroModel(makeHeroData()))
-    expect(m.rows[0].detail.goalFit).toContain('chance of meeting your goal')
+    const data = makeHeroData()
+    const m = chart(buildHeroModel(data))
+    expect(m.rows[0].detail.goalFit).toBe(chanceCellOf(data, OPTION_A.id).text ?? HERO_COPY.readout.missing)
   })
 
   it('drops the possessive framing when the number is a substituted joint figure', () => {
@@ -55,10 +57,11 @@ describe('buildHeroModel — goal-fit detail line identity', () => {
   it('keeps the target framing for rows that are NOT substituted', () => {
     const a = makeOption({ ...OPTION_A, goalFitIsSubstitutedJoint: true })
     const b = makeOption({ ...OPTION_B, goalFitIsSubstitutedJoint: false })
-    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    const data = makeHeroData({ options: [a, b] })
+    const m = chart(buildHeroModel(data))
     const rowA = m.rows.find((r) => r.id === OPTION_A.id)
     const rowB = m.rows.find((r) => r.id === OPTION_B.id)
     expect(rowA?.detail.goalFit).not.toContain('chance of meeting your goal')
-    expect(rowB?.detail.goalFit).toContain('chance of meeting your goal')
+    expect(rowB?.detail.goalFit).toBe(chanceCellOf(data, OPTION_B.id).text ?? HERO_COPY.readout.missing)
   })
 })

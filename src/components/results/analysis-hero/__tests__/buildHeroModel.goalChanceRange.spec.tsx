@@ -1,3 +1,4 @@
+import { chanceCellOf } from './helpers/chanceCellOf'
 import { afterEach, describe, expect, it } from 'vitest'
 import { render, renderHook, screen } from '@testing-library/react'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -190,13 +191,14 @@ describe('Science S3 (DL #87 7 Oct, A1 r3 review): a range is never beside a wit
     expect(range?.optionIds ?? null).toEqual(kept)
   })
 
-  it('RED: a range option shows no point in the chart; CONTROL without the range it does', () => {
+  it('a range option shows no point; its withhold still hides the point without the range', () => {
     const d = data('each', { withheld_option_ids: ['last'], pct_by_option: { other: 20, leader: 62, next: 41 } })
     d.goalChanceRange = readGoalChanceRange([RANGE, PLACEHOLDER_LAST])
     const last = chart(d).rows.find((r) => r.id === 'last')!
-    expect(last.goal).toEqual({ value: null, readout: '—' })
+    expect(last.goal).toEqual({ value: null, readout: chanceCellOf(d, 'last').text })
     expect(chart(d).rows.find((r) => r.id === 'leader')!.goal.readout).not.toBe('—')
     d.goalChanceRange = null
-    expect(chart(d).rows.find((r) => r.id === 'last')!.goal.value).toBe(0.05)
+    // The licence withholds this option: removing its range must not expose the hidden number.
+    expect(chart(d).rows.find((r) => r.id === 'last')!.goal.value).toBe(null)
   })
 })

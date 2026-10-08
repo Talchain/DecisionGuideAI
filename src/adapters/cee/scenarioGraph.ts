@@ -182,6 +182,7 @@ export type ScenarioGraphResult =
        * declaration here would be a mirror of the block contract.
        */
       analysisResult: unknown
+      canonicalAnalysisView: unknown
       /**
        * CEE's per-limit and joint verdicts for the analysis in `analysisResult` (`analysis_limit_verdicts`), raw —
        * parsed downstream by the SAME reader the turn leg uses (`readLimitVerdicts`). CEE ships it exactly when it
@@ -473,6 +474,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     // being the one block type this leg may carry, so a future CEE key cannot
     // arrive here as an unlabelled object.
     analysisResult: readAnalysisResultBlock(b.analysis_result),
+    canonicalAnalysisView: b.canonical_analysis_view,
     limitVerdicts: b.analysis_limit_verdicts ?? null,
     goalCertainty: b.analysis_goal_certainty ?? null,
     optionParticipation: b.analysis_option_participation ?? null,

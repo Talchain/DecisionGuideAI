@@ -58,6 +58,7 @@ export interface HeroRowDetail {
   range?: string
   /** Goal-fit line from the row's own goalProbability (constraint-aware wording). */
   goalFit?: string
+  goalFitIdentity?: string
   /**
    * Modelled-basis provenance caveat for `goalFit` (ROADMAP 1.6b follow-up,
    * claim-integrity) — set ONLY when the goal-fit number just shown IS the

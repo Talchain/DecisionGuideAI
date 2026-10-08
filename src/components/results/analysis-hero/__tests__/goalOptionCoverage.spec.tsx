@@ -1,3 +1,5 @@
+import { HERO_COPY } from '../heroCopy'
+import { chanceCellOf } from './helpers/chanceCellOf'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { AnalysisHeroContainer } from '../AnalysisHeroContainer'
@@ -85,6 +87,25 @@ function baseMarkup(row: 'no-figures' | 'points' | 'unresolved') {
   return { 'no-figures': noFiguresMarkup, points: pointsMarkup, unresolved: unresolvedMarkup }[row]
 }
 
+// Re-pin only authorised goal cells/availability; preserve every other byte in the points control.
+function pointsMarkupWithCells(data: ReturnType<typeof fromTurn>) {
+  const template = document.createElement('template')
+  template.innerHTML = baseMarkup('points')
+  const model = buildHeroModel(data)
+  if (model.kind !== 'chart') throw new Error('Expected chart')
+  for (const row of model.rows) {
+    template.content.querySelector(`[data-testid="hero-option-row-${row.index}"] .text-right > span`)!.textContent = chanceCellOf(data, row.id).text
+  }
+  return template.innerHTML
+}
+function expectCellRows(data: ReturnType<typeof fromTurn>) {
+  const model = buildHeroModel(data)
+  expect(model.kind).toBe('chart')
+  if (model.kind !== 'chart') throw new Error('Expected chart')
+  expect(model.lenses).toContain('goal')
+  for (const row of model.rows) expect(screen.getByTestId(`hero-option-row-${row.index}`).querySelector('.text-right > span')!.textContent).toBe(chanceCellOf(data, row.id).text ?? HERO_COPY.readout.missing)
+}
+
 // Restore-box mutant (comment only, as requested): remove goalOptionCoverage
 // from the model passed to AnalysisHeroPanel, retaining it for the option lines.
 // The unseen rows' expectNoBox() turns RED while both ranges and both labelled
@@ -106,22 +127,22 @@ describe('S4-UI: every option has a labelled goal figure or its own withholding 
     expectNoBox()
   })
 
-  it('no-figure control: the entire markup and run-wide box remain byte-identical', () => {
+  it('withheld-only control: shared cells make the goal lens available, without extra coverage lines', () => {
     const data = fromTurn(unseen1)
     data.goalChanceRange = null
-    const { container } = mount(data)
-    expect(container.innerHTML).toBe(baseMarkup('no-figures'))
-    expect(screen.getByTestId('hero-lens-unavailable').textContent).toBe(data.recommendation.goalFiguresWithheldMessage)
+    mount(data)
+    expectCellRows(data)
+    expectNoBox()
     expect(lines('goal-option-withheld-line')).toEqual([])
   })
 
-  it('all-points control: the entire markup remains byte-identical, with no added withholding lines', () => {
+  it('all-points control: only shared goal cell text changes; every other markup byte remains identical', () => {
     const data = pointControl()
     const { container } = mount(data)
-    expect(container.innerHTML).toBe(baseMarkup('points'))
+    expect(container.innerHTML).toBe(pointsMarkupWithCells(data))
     expect(lines('goal-option-withheld-line')).toEqual([])
     fireEvent.click(screen.getByRole('tab', { name: /Goal fit/ }))
-    expect(container.innerHTML).toBe(baseMarkup('points'))
+    expect(container.innerHTML).toBe(pointsMarkupWithCells(data))
     expect(screen.queryByRole('tab', { name: /Likely outcome/ })).toBeNull()
     expectNoBox()
     for (const option of data.recommendation.allOptions) {
@@ -180,14 +201,14 @@ describe('S4-UI: every option has a labelled goal figure or its own withholding 
     expectNoBox()
   })
 
-  it('unresolved labels: no phantom figure coverage, with byte-identical no-figure markup', () => {
+  it('unresolved labels: honest gap markers and withheld cells, with no phantom figure coverage', () => {
     const data = fromTurn(unseen1)
     data.goalChanceDriverNames = { labelOf: () => null, unitOf: () => null }
-    const { container } = mount(data)
-    expect(container.innerHTML).toBe(baseMarkup('unresolved'))
+    mount(data)
+    expectCellRows(data)
     expect(lines('goal-chance-range-line')).toEqual([])
     expect(lines('goal-option-withheld-line')).toEqual([])
-    expect(screen.getByTestId('hero-lens-unavailable')).toBeTruthy()
+    expectNoBox()
   })
 
   it('licensed-without-row-values: names the licensed options without duplicate withheld lines', () => {

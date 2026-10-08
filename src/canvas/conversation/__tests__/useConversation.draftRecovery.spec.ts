@@ -156,6 +156,7 @@ function serverGraphResult(scenarioId: string = SCENARIO): ScenarioGraphResult {
     // cannot silently forget the field (the parser always supplies it).
     analysisState: null,
     analysisResult: null,
+    canonicalAnalysisView: null,
     requestId: 'req-recovery-1',
   }
 }

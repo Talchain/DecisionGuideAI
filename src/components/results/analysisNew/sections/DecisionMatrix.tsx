@@ -4,8 +4,9 @@ import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../utils/g
 import { formatThreshold } from '../../RangeVisualization'
 import { goalBandIsInUserUnits } from '../goalBandUnits'
 import { MODEL_SCORE_COPY } from '../modelScore'
-import { goalChanceDriverLines, goalChanceOptionLines, goalChanceRangeLine, goalChanceTargetWords } from '../../analysis-hero/goalChanceCopy'
+import { goalChanceDriverLines, goalChanceRangeLine, goalChanceTargetWords } from '../../analysis-hero/goalChanceCopy'
 import { goalChanceHeroSays } from '../../utils/goalChanceLicence'
+import { optionChanceCellFromResults } from '../../optionChanceCellFromResults'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
@@ -20,13 +21,11 @@ export interface DecisionMatrixProps {
 
 const STALE_LINE = 'This Run is stale. Run the analysis again to view the decision matrix.'
 
-function splitRangeLine(line: string | null) {
-  // S3's goalChanceRangeLine ends its chance sentence here; slice both clauses verbatim.
+function rangeDriverLine(line: string | null) {
+  // Only the separate driver clause belongs here; the chance clause is resolved by RunView.
   const boundary = ' chance of meeting your goal, in this model. '
   const index = line?.indexOf(boundary) ?? -1
-  if (line === null || index === -1) return { chance: line, driver: null }
-  const end = index + boundary.length
-  return { chance: line.slice(0, end - 1), driver: line.slice(end) }
+  return line === null || index === -1 ? null : line.slice(index + boundary.length)
 }
 
 /** Read-only projection of the held Run; disclosure state belongs to SectionShell. */
@@ -43,12 +42,12 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
 
   const rec = data.recommendation
   const runLicence = data.goalChanceLicence ?? null
-  const licence = goalChanceHeroSays(rec.goalThreshold, rec.allOptions, runLicence) ? runLicence : null
+  const heroSays = goalChanceHeroSays(rec.goalThreshold, rec.allOptions, runLicence)
+  const licence = heroSays ? runLicence : null
   const labelOf = (id: string) => {
     const option = rec.allOptions.find((o) => o.id === id)
     return option ? stripEncodingNotation(option.label) : null
   }
-  const chanceLines = licence === null ? null : goalChanceOptionLines(licence, labelOf)
   const driverLines: Readonly<Record<string, string>> = licence?.form === 'all_likely_to_miss' ? {} : goalChanceDriverLines(
     licence, data.goalChanceDriverNames, licence?.form === 'similar' ? licence.similarOptionIds : [],
   )
@@ -58,29 +57,21 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
     (order.get(a.id) ?? optionOrder.length) - (order.get(b.id) ?? optionOrder.length))
   const range = data.goalChanceRange ?? null // readGoalChanceRange, already read from this Run by the hook
   const rangeLabelOf = data.goalChanceDriverNames?.labelOf ?? labelOf
+  // Legacy projections can carry the already-read licence/range without a view. Preserve their old empty fallback.
   // Both clauses were read verbatim by readGoalChanceHorizonLine; the licence has the hero's precedence.
   const horizonLine = licence?.horizonLine ?? range?.horizonLine ?? null
   const rows = options.map((option) => {
     const id = option.id
     const existingRow = comparison.rows.find((r) => r.id === id)
-    const chanceIndex = licence?.optionIds.indexOf(id) ?? -1
-    const licensed = licence !== null && chanceLines !== null && licence.optionIds.includes(id)
     const withheld = rec.goalFiguresWithheldMessage ?? null
     const rangeEntry = range?.rangeByOption[id]
     const rangeLine = rangeEntry === undefined ? null : goalChanceRangeLine(rangeEntry, rangeLabelOf(id), rangeLabelOf, range?.target)
-    const rangeClauses = splitRangeLine(rangeLine)
     // ⭐ RunView PR 1: ONE source for the chance (CEE's licence, via the Run's view). The report's own figure is never
     // shown; a Run with goal figures but no licence says RUN_AGAIN_FOR_CHANCE (DL ruling 1, 8 Oct).
     const viewChance = data.runView?.chanceOf(id)
     const readout = rangeEntry !== undefined || option.notAnalysed === true ? null
       : viewChance?.kind === 'figure' ? viewChance.words : null
-    const unlicensedLine = rangeEntry === undefined && option.notAnalysed !== true && viewChance?.kind === 'withheld'
-      && viewChance.by === 'no_licence' ? viewChance.reason : null
-    // A range first: S3's reader (readGoalChanceRange) already bars it on a Run-wide withhold by CODE, and the
-    // withheld SENTENCE also fires on the range's own causes (PLACEHOLDER_PATH, TARGET_NOT_TESTABLE), so keying on it
-    // would hide every real range (Science, 7 Oct). Then the Run-level withhold, then the option's point or line.
-    // Unresolved range labels never fall back to a raw point estimate.
-    const chance = (rangeEntry !== undefined ? rangeClauses.chance : withheld ?? option.goalCertaintyUnearned?.say ?? (licensed ? chanceLines[chanceIndex] : unlicensedLine ?? readout)) ?? 'Not shown.'
+    const chance = optionChanceCellFromResults(data, id).text ?? 'Not shown.'
     const outcomeRange = existingRow?.kind === 'analysed' ? existingRow.outcomeRange : null
     const format = (value: number) => formatThreshold(value, rec.outcomeUnit, rec.outcomeUnitSymbol, rec.isNormalised)
     // The audit's formatter: samples without an anchored level stay explicitly model scores.
@@ -93,7 +84,7 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
     return {
       id, label: stripEncodingNotation(option.label), chance,
       driver: rangeEntry !== undefined
-        ? rangeClauses.driver
+        ? rangeDriverLine(rangeLine)
         : withheld !== null ? null : option.goalCertaintyUnearned == null ? driverLines[id] ?? null : null,
       outcome,
       centreReadout,

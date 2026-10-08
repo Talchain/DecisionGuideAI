@@ -1647,6 +1647,11 @@ export function mapV5AnalysisToReport(
   // the widened ResultsReport / InspectorReport index signatures. These are
   // NOT on ReportV1 but are written onto the same record by the V4 mapper.
   const widened = report as ReportV1 & Record<string, unknown>
+  // Preserve the producer's Run identity for the READ view. V5 blocks currently use the graph-hash fallback.
+  const identity = block as unknown as Record<string, unknown>
+  for (const key of ['run_id', 'computed_against_hash'] as const) {
+    if (typeof identity[key] === 'string' && identity[key].length > 0) widened[key] = identity[key]
+  }
   if (factors.length > 0) {
     widened.factor_sensitivity = factors.map((f) => ({
       factor_id: f.factor_id,

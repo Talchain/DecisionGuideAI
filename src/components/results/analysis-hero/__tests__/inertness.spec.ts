@@ -37,6 +37,8 @@ const TEST_IMPORTERS = new Set([
 // story (R4), and they mount nothing. Each may import ONLY goalChanceCopy; any other hero import still fails.
 const COPY_MODULE = join(MODULE_DIR, 'goalChanceCopy')
 const COPY_ONLY_IMPORTERS = new Set([
+  // RunView: the one client chance authority; reads hero copy words, mounts nothing (#2704)
+  join(SRC, 'canvas', 'runView', 'runView.ts'),
   join(SRC, 'components', 'results', 'analysisNew', 'sections', 'DecisionMatrix.tsx'),
   // Compare-chance (#87 6035414740): Compare says each Run's goal chance in the hero's own words; it mounts nothing.
   join(SRC, 'canvas', 'compare-tab', 'ComparePairSections.tsx'),

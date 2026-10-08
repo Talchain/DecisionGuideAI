@@ -56,6 +56,9 @@ import { HERO_COPY } from '../heroCopy'
 import type { HeroChartModel } from '../heroTypes'
 import { makeHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
 import type { OptionResult } from '../../types'
+import { chanceCellOf, withChanceReport } from './helpers/chanceCellOf'
+import { report as servedReport } from '../../__tests__/helpers/paulRun4276f3f9'
+import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
 /**
  * The two things a goal-attainment surface must not assert, because neither is
@@ -94,10 +97,33 @@ function liveJointOnly(base: OptionResult): OptionResult {
   })
 }
 
-function chart(data = makeHeroData()): HeroChartModel {
-  const model = buildHeroModel(data)
+const dataOf = new WeakMap<HeroChartModel, ResultsSectionDataReturn>()
+function chart(data = makeHeroData(), scalarTargetControl = false): HeroChartModel {
+  const options = data.recommendation.allOptions
+  const report = {
+    ...servedReport,
+    option_probabilities: Object.fromEntries(options.map(o => [o.id, { goal_probability: o.goalProbability }])),
+    inference_warnings: [{
+      code: 'GOAL_CHANCE_LICENSED', severity: 'info', message: 'licensed', form: 'each',
+      option_ids: options.map(o => o.id),
+      // CEE licenses whole percentages; the sub-1% fixtures retain their raw values and license the rounded bucket.
+      pct_by_option: Object.fromEntries(options.map(o => [o.id, Math.round(o.goalProbability! * 100)])),
+      target: { comparator: 'at_least', value: data.recommendation.goalThreshold, unit: 'count' },
+    }],
+  }
+  const fed = withChanceReport(data, report)
+  // Only this positive control asserts the scalar target identity. Historical joint fixtures keep their original gates.
+  if (scalarTargetControl) fed.goalChanceLicence = fed.runView!.goalChance
+  const model = buildHeroModel(fed)
   expect(model.kind).toBe('chart')
+  dataOf.set(model as HeroChartModel, fed)
   return model as HeroChartModel
+}
+
+function cellText(model: HeroChartModel, id: string): string {
+  const text = chanceCellOf(dataOf.get(model)!, id).text
+  expect(text).not.toBeNull()
+  return text!
 }
 
 interface Surfaces {
@@ -241,7 +267,7 @@ describe('hero goal-attainment copy — POSITIVE CONTROLS (the absence assertion
           makeOption({ ...OPTION_A, goalFitIsSubstitutedJoint: false }),
           makeOption({ ...OPTION_B, goalFitIsSubstitutedJoint: false }),
         ],
-      }),
+      }), true,
     )
     const s = readSurfaces(m)
     expect(s.rowDetails[0]).toMatch(TARGET_CLAIM)
@@ -287,11 +313,11 @@ describe('hero goal-attainment copy — no over-suppression, no value change', (
     }
   })
 
-  it('every row detail still carries its OWN readout verbatim', () => {
+  it('every row detail still carries its OWN licensed chance with the joint identity', () => {
     const m = liveLeaderModel()
     const s = readSurfaces(m)
     m.rows.forEach((row, i) => {
-      expect(s.rowDetails[i]).toContain(row.goal.readout)
+      expect(s.rowDetails[i]).toBe(HERO_COPY.detail.goalFitJointBasis(cellText(m, row.id)))
     })
   })
 
@@ -312,9 +338,11 @@ describe('hero goal-attainment copy — no over-suppression, no value change', (
   })
 
   it('renders the same percentages the response carried (0.34 -> 34%, 0.49 -> 49%)', () => {
-    render(<AnalysisHeroPanel model={liveLeaderModel()} rerunDisabled={false} />)
-    expect(within(screen.getByTestId('hero-option-row-1')).getByText('34%')).toBeInTheDocument()
-    expect(within(screen.getByTestId('hero-option-row-2')).getByText('49%')).toBeInTheDocument()
+    const m = liveLeaderModel()
+    render(<AnalysisHeroPanel model={m} rerunDisabled={false} />)
+    m.rows.forEach(row => {
+      expect(within(screen.getByTestId(`hero-option-row-${row.index}`)).getByText(cellText(m, row.id))).toBeInTheDocument()
+    })
   })
 
   it('the goal lens is still available and still the default lens', () => {
@@ -330,10 +358,10 @@ describe('hero goal-attainment copy — the copy lives in the central module', (
     const s = readSurfaces(m)
     const leader = m.rows.find((r) => r.id === m.leaders.goal)
     expect(leader, 'a goal leader is crowned in this fixture').toBeTruthy()
-    expect(s.headline).toBe(HERO_COPY.headline.goalOnly(leader!.label, leader!.goal.readout))
+    expect(s.headline).toBe(HERO_COPY.headline.goalOnly(leader!.label, cellText(m, leader!.id).match(/\d+%/)![0]))
     expect(s.caption).toBe(HERO_COPY.caption.goalOnly)
     m.rows.forEach((row, i) => {
-      expect(s.rowDetails[i]).toBe(HERO_COPY.detail.goalFitJointBasis(row.goal.readout))
+      expect(s.rowDetails[i]).toBe(HERO_COPY.detail.goalFitJointBasis(cellText(m, row.id)))
     })
   })
 
