@@ -16,7 +16,7 @@ import { EXPLORATORY_REASON_LINE } from '../../state/winShareGate'
 import { openLinkInspector } from '../../utils/openEdgeStrengthEditor'
 import { CompareRunPairBody } from '../CompareRunPairBody'
 import { withheldReasonSegments } from '../withheldReasonSegments'
-import { SIZING_ALL_SET_TEXT, SIZING_NEXT_TEXT, SIZING_NOT_SET_TEXT, SIZING_SET_TEXT } from '../CompareSizingChecklist'
+import { SIZING_ACCEPTED_TEXT, SIZING_ALL_SET_TEXT, SIZING_NEXT_TEXT, SIZING_NOT_SET_TEXT, SIZING_SET_TEXT } from '../CompareSizingChecklist'
 import { RUN_CHANGE_LABELS, runChangeDelta } from './__fixtures__/runChangeArtefact'
 
 vi.mock('../../utils/openEdgeStrengthEditor', async (importOriginal) => ({
@@ -101,6 +101,8 @@ const USER_SET = { weight: 0.6, weightSource: 'user' }
 const CEE_SAME_VALUE = { weight: 0.6, weightSource: 'cee' }
 const PLACEHOLDER = { weight: 0.5, weightSource: 'cee', strengthPlaceholder: 0.5 }
 const STATED = { weight: 0.6, weightSource: 'cee', strengthStated: 0.6 }
+/** Olumi's estimate the user accepted (CEE `olumi_accepted`): sized for the goal licence, still Olumi's. */
+const ACCEPTED = { weight: 0.6, weightSource: 'cee', strengthAccepted: 0.6 }
 const UNSIZED = { permitted: false, producer_cause: 'goal_path_unsized' }
 const rowsOf = () => screen.queryAllByTestId('compare-sizing-row')
 const endsOf = (rows: HTMLElement[]) => rows.map((r) => `${r.dataset.from}->${r.dataset.to}`)
@@ -151,6 +153,16 @@ describe('Compare: "Set them" comes with a way to', () => {
     cleanup()
     render(<CompareRunPairBody responseHash={seed(UNSIZED, [a, b], [{ ...a, data: STATED }, { ...b, data: PLACEHOLDER }])} />)
     expect(rowsOf().map((r) => r.dataset.state)).toEqual(['set', 'not_set'])
+  })
+
+  it('an accepted Olumi estimate ticks as accepted, never "you set" (control: Olumi\'s unaccepted estimate stays unset)', () => {
+    const [a, b] = FOUR
+    render(<CompareRunPairBody responseHash={seed(UNSIZED, [a, b], [{ ...a, data: ACCEPTED }, { ...b, data: CEE_SAME_VALUE }])} />)
+    expect(rowsOf().map((r) => r.dataset.state)).toEqual(['accepted', 'not_set'])
+    expect(within(rowsOf()[0]).getByTestId('compare-sizing-state').textContent).toBe(SIZING_ACCEPTED_TEXT)
+    expect(within(rowsOf()[0]).getByRole('button').textContent).toMatch(/^Change: /)
+    expect(within(rowsOf()[1]).getByRole('button').textContent).toMatch(/^Set strength: /)
+    expect(screen.getByTestId('compare-sizing-count').textContent).toBe('1 of 2 set')
   })
 
   it('a sizing edit after the Run ticks its row; when every listed link is set it says to re-run', () => {

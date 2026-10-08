@@ -8,9 +8,11 @@
  *   same Run's GOAL_FIGURES_PLACEHOLDER_PATH links), bound by their from/to ids. Never derived from the canvas graph, so
  *   chat and Compare cannot list different links. A link the sentence only counts ("and 2 other links") gets no row,
  *   but it is still counted, by its ids in the same warning: "All set" is said only when every link CEE listed is set.
- * ⛔ THE TICK IS STORED PROVENANCE, NEVER A VALUE. "Set" = the canvas weight is the user's own (`weightSource: 'user'`,
- *   which a wire `user_specified` also stamps) or was sized from the user's stated figure (`isStrengthStated`). An Olumi
- *   estimate is not "set": CEE's licence counts it as unsized too. The canvas is read only for that tick, by the row's ids.
+ * ⛔ THE TICK IS STORED PROVENANCE, NEVER A VALUE, AND IT IS CEE'S GOAL RULE (`olumiGuessedGoalLink`: sized only by
+ *   Olumi and not accepted). Ticked: the user's own weight (`weightSource: 'user'`, which a wire `user_specified` also
+ *   stamps), a size from the user's stated figure (`isStrengthStated`), or Olumi's estimate the user accepted
+ *   (`isStrengthAccepted`, CEE `olumi_accepted`; it still reads as Olumi's, never "you set"). Olumi's unaccepted estimate
+ *   and its placeholder stay unset: CEE still counts both as guesses. The canvas is read only for the tick, by the ids.
  */
 import { Check, Link2 } from 'lucide-react'
 import { typography } from '../../styles/typography'
@@ -18,10 +20,13 @@ import { icon } from '../../components/results/analysisNew/panelSurfaces'
 import { GraphLink } from '../../components/results/GraphLink'
 import { edgeValueSource } from '../domain/edgeValueProvenance'
 import { isStrengthStated } from '../domain/strengthStated'
+import { isStrengthAccepted } from '../domain/strengthAccepted'
 import type { ReasonSegment } from './withheldReasonSegments'
 
 export const COMPARE_SIZING_TESTID = 'compare-sizing'
 export const SIZING_SET_TEXT = 'You set this strength'
+/** Compare's own words for the class elsewhere (`runDeltaLinkWords`): accepted, and still Olumi's estimate. */
+export const SIZING_ACCEPTED_TEXT = 'You accepted Olumi’s estimate'
 export const SIZING_NOT_SET_TEXT = 'Strength not set'
 export const SIZING_OFF_CANVAS_TEXT = 'Not on the canvas now.'
 export const SIZING_SET_ACTION = 'Set strength'
@@ -31,7 +36,7 @@ export const SIZING_ALL_SET_TEXT = 'All set. Re-run to see the comparison.'
 export const SIZING_NEXT_TEXT = 'Re-run to see the next links to set.'
 
 export type SizingLink = { readonly text: string; readonly fromId: string; readonly toId: string }
-export type LinkSizingState = 'set' | 'not_set' | 'off_canvas'
+export type LinkSizingState = 'set' | 'accepted' | 'not_set' | 'off_canvas'
 export type LinkSizingStateOf = (fromId: string, toId: string) => LinkSizingState
 
 /** The links the reason names, in its order, once each by identity. Plain segments (counts, connectives) give none. */
@@ -48,7 +53,7 @@ export function sizingLinksOf(segments: ReadonlyArray<ReasonSegment> | null | un
   return links
 }
 
-/** The named link's sizing on the canvas now, by its two ends: the user's own, not set, or no such link. */
+/** The named link's sizing on the canvas now, by its two ends: the user's own, accepted, not set, or no such link. */
 export function linkSizingStateOf(
   edges: ReadonlyArray<{ source: string; target: string; data?: unknown }> | null | undefined,
   fromId: string,
@@ -57,7 +62,13 @@ export function linkSizingStateOf(
   const edge = (edges ?? []).find((e) => e.source === fromId && e.target === toId)
   if (!edge) return 'off_canvas'
   const data = edge.data as Record<string, unknown> | undefined
-  return edgeValueSource(data, 'weight') === 'user' || isStrengthStated(data) ? 'set' : 'not_set'
+  if (edgeValueSource(data, 'weight') === 'user' || isStrengthStated(data)) return 'set'
+  return isStrengthAccepted(data) ? 'accepted' : 'not_set'
+}
+
+/** Sized for CEE's goal licence: the user's own, or Olumi's estimate the user accepted. */
+function isSized(state: LinkSizingState): boolean {
+  return state === 'set' || state === 'accepted'
 }
 
 /** The sentence's own phrase ("from ‘A’ to ‘B’"), as a row name: first letter up, nothing else changed. */
@@ -74,9 +85,9 @@ export function CompareSizingChecklist({ links, listed, stateOf }: {
   const named = new Set(links.map((l) => `${l.fromId}\u0000${l.toId}`))
   const counted = listed.filter((l) => !named.has(`${l.from}\u0000${l.to}`)).map((l) => stateOf(l.from, l.to))
   const states = [...rows.map((r) => r.state), ...counted]
-  const set = states.filter((state) => state === 'set').length
+  const set = states.filter(isSized).length
   const allSet = set === states.length
-  const namedAllSet = rows.every((r) => r.state === 'set')
+  const namedAllSet = rows.every((r) => isSized(r.state))
   return (
     <div className="mt-3" data-testid={COMPARE_SIZING_TESTID} data-set={set} data-total={states.length}>
       <p className={`${typography.panelMeta} text-text-light m-0`} data-testid={`${COMPARE_SIZING_TESTID}-count`}>
@@ -91,14 +102,14 @@ export function CompareSizingChecklist({ links, listed, stateOf }: {
               <div className="flex-1 min-w-0">
                 <p className={`${typography.panelBody} text-text-header m-0 break-words`}>{rowName(link.text)}</p>
                 <p className={`${typography.panelMeta} text-text-light m-0 flex items-center gap-1`} data-testid={`${COMPARE_SIZING_TESTID}-state`}>
-                  {state === 'set' ? <Check className={`${icon('inline')} text-success flex-shrink-0`} aria-hidden="true" /> : null}
-                  {state === 'set' ? SIZING_SET_TEXT : state === 'not_set' ? SIZING_NOT_SET_TEXT : SIZING_OFF_CANVAS_TEXT}
+                  {isSized(state) ? <Check className={`${icon('inline')} text-success flex-shrink-0`} aria-hidden="true" /> : null}
+                  {state === 'set' ? SIZING_SET_TEXT : state === 'accepted' ? SIZING_ACCEPTED_TEXT : state === 'not_set' ? SIZING_NOT_SET_TEXT : SIZING_OFF_CANVAS_TEXT}
                 </p>
               </div>
               {state === 'off_canvas' ? null : (
                 <GraphLink edgeRef={{ fromId: link.fromId, toId: link.toId }} opensInspector
                   className={`${typography.panelMeta} whitespace-nowrap flex-shrink-0 px-1 min-h-[24px]`}>
-                  {state === 'set' ? SIZING_CHANGE_ACTION : SIZING_SET_ACTION}
+                  {isSized(state) ? SIZING_CHANGE_ACTION : SIZING_SET_ACTION}
                   <span className="sr-only">{`: ${link.text}`}</span>
                 </GraphLink>
               )}
