@@ -96,7 +96,7 @@
  * scope the queries to the rendered region instead of to `document`.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 
 import { InspectorRouter } from '../InspectorRouter'
 import { INSPECTOR_READ_ONLY_REASON, INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON } from '../useInspectorMutations'
@@ -273,12 +273,14 @@ describe('Inspector read-only policy — enforced form, edge region', () => {
 
   it('renders the boundary around at least one real control (precondition, not a claim)', () => {
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('inspector-more-toggle'))
     const { controls } = readBoundary()
     expect(controls.length).toBeGreaterThan(0)
   })
 
   it('explains the boundary with the EDGE constant, not a copy and not the node one', () => {
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('inspector-more-toggle'))
     expect(screen.getByTestId('inspector-authority-notice')).toHaveTextContent(
       INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON,
     )
@@ -286,6 +288,7 @@ describe('Inspector read-only policy — enforced form, edge region', () => {
 
   it('BINDS the boundary to that explanation via aria-describedby, by identity', () => {
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('inspector-more-toggle'))
     const { fieldset } = readBoundary()
     const describedBy = fieldset.getAttribute('aria-describedby')
     expect(describedBy).toBeTruthy()
@@ -298,6 +301,7 @@ describe('Inspector read-only policy — enforced form, edge region', () => {
 
   it('makes every control inside the boundary genuinely inert', () => {
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('inspector-more-toggle'))
     const { controls } = readBoundary()
     for (const control of controls) {
       expect(control).toBeDisabled()
@@ -425,6 +429,13 @@ const DELIBERATELY_OUTSIDE: ReadonlyArray<{
   // so the entry below still binds it — and still requires it OUTSIDE the
   // boundary.
   { selector: '[aria-label="Show technical detail"]', why: 'presentation toggle' },
+  {
+    selector: '[data-testid="inspector-more-toggle"]',
+    why: 'edge anatomy presentation disclosure — opens the outer route to technical detail and the authority notice; writes no model value',
+    // Keep a separate identity so losing either disclosure still fails the
+    // entry-must-match guard. Node panels retain their existing direct route.
+    panels: ['edge'],
+  },
   {
     selector: '[data-testid="edge-label-mode-toggle"]',
     why: 'presentation toggle — sets whether the BOARD draws connection labels as phrases or numbers; writes no model value, so it is the same class as "Show technical detail" above',
@@ -590,6 +601,7 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
   it('leaves no editing control outside the boundary in the edge panel', () => {
     setStoreState(EDGE_FIXTURE_NODES, EDGE_FIXTURE_EDGES)
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('inspector-more-toggle'))
     expect(escapedControls('edge')).toEqual([])
   })
 
@@ -608,6 +620,7 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
   it('leaves no effectively-enabled FORM CONTROL inside the edge boundary', () => {
     setStoreState(EDGE_FIXTURE_NODES, EDGE_FIXTURE_EDGES)
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('inspector-more-toggle'))
     const { fieldset } = readBoundary()
     const formControls = Array.from(
       fieldset.querySelectorAll<HTMLElement>(NATIVELY_DISABLEABLE),
@@ -660,6 +673,7 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
   it('pins EXACTLY which controls the fieldset does not inert (edge panel)', () => {
     setStoreState(EDGE_FIXTURE_NODES, EDGE_FIXTURE_EDGES)
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('inspector-more-toggle'))
     expect(notInertedInsideBoundary()).toEqual([])
   })
 
