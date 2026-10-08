@@ -12,8 +12,8 @@
  * with `elasticity: 0` sits at 100%. Two "top" drivers on one screen.
  *
  * Rule pinned here: "Top driver" appears on exactly the factor the hero names,
- * or on no row. The panel keeps its numbers, its rows, its order and its
- * testids; only the superlative yields to the one driver authority.
+ * or on no row. D7 also uses the authority's |elasticity| basis for the
+ * numbers and order; the existing visible filter omits zero-sensitivity levers.
  *
  * Every served string is read from the fixture (captured payload + DOM), never
  * typed here. Assertions bind by identity: factor id on the exact test id, and
@@ -47,6 +47,7 @@ const sensitivityRows = (b: Block) => b.enrichment.factor_sensitivity as unknown
 const TOP = 'fac_top_account_concentration'
 const LEVER = 'fac_enterprise_revenue_risk'
 const USAGE = 'fac_usage_exposure'
+const MARKET = 'fac_market_competition'
 const CROWN = 'Top driver'
 const DOM = served.served_dom as Record<string, string>
 const PILL = (id: string) => `driver-influence-pill-${id}`
@@ -145,7 +146,7 @@ describe('served 7ad369b7 pricing run — the evidence', () => {
     render(<AnalysisHeroPanel model={model} rerunDisabled={false} onFocusTarget={() => {}} />)
     // Re-pinned 28 Sep 2026 (DL 5869404773): the served words plus the card's "no value yet" — this run
     // carries no value_source for Top Account (theMainDriverWithNoValueSaysSo.spec.tsx).
-    expect(screen.getByTestId('hero-quicklink-driver').textContent).toBe(`${DOM['hero-quicklink-driver']} · no value yet`)
+    expect(screen.getByTestId('hero-quicklink-driver').textContent).toBe('Moves the result most: Top Account Revenue Concentration · no value yet')
   })
 })
 
@@ -158,14 +159,19 @@ describe('"Top driver" appears on exactly the factor the hero names, or on no ro
     for (const id of crownedIds()) expect(id).toBe(heroId)
   })
 
-  it('served run: the lever\'s pill reads its tier ("High-impact driver", 100%), not the crown', () => {
+  it('served run: the zero-sensitivity lever is filtered; its legacy structural readout keeps the tier and lever disclosure', () => {
     seed(blockWith())
-    renderDrivers(sectionData().drivers)
-    // The tier label is the one the panel's own thresholds give a 100% row —
-    // the same text the served run printed on the 62% and 60% rows.
+    const data = sectionData().drivers
+    const shown = renderDrivers(data)
+    expect(screen.queryByTestId(PILL(LEVER))).toBeNull()
+    shown.unmount()
+    // Isolate the retained disclosure using a licensed legacy structural row.
+    const lever = data.drivers.find(d => d.factorKey === LEVER)!
+    renderDrivers({ ...data, drivers: [{ ...lever, displayInfluence: lever.influenceScore, displayProvenance: 'influence_score', semanticLabel: 'biggest' }] })
     expect(screen.getByTestId(PILL(LEVER)).textContent).toBe(DOM[PILL(USAGE)])
     expect(screen.getByTestId(PILL(LEVER)).textContent).not.toBe(CROWN)
     expect(within(screen.getByTestId('drivers-list')).queryByText(CROWN)).toBeNull()
+    expect(screen.getByTestId(`driver-lever-badge-${LEVER}`)).toHaveTextContent('Controlled by your options')
   })
 
   it('served run: no sentence in the panel calls the 100% row "the top driver" either (the scale caption names the strongest factor)', () => {
@@ -185,23 +191,27 @@ describe('"Top driver" appears on exactly the factor the hero names, or on no ro
     expect(detailed).toMatch(/The strongest factor always shows 100%/)
   })
 
-  it('nothing removed: the same rows, the same order, the same percentages, the same other pills', () => {
+  it('visible rows follow |elasticity| order and percentages, retaining the scale and filter disclosures', () => {
     seed(blockWith())
-    renderDrivers(sectionData().drivers)
+    const data = sectionData().drivers
+    renderDrivers(data)
     // Plain words first (4 Oct 2026): the percentages are behind "Show details".
     fireEvent.click(screen.getByTestId('influence-details-toggle'))
-    const rows = servedRows()
-    expect(rows.map((r) => r.pct)).toEqual(['100%', '62%', '60%'])
-    expect(renderedPills().map(([id]) => id)).toEqual([LEVER, USAGE, TOP])
+    expect(servedRows().map((r) => r.pct)).toEqual(['100%', '62%', '60%'])
+    const rows = data.topDrivers.map(d => ({ label: d.factorLabel, pct: `${Math.round(d.displayInfluence! * 100)}%` }))
+    expect(rows.map((r) => r.pct)).toEqual(['100%', '2%'])
+    expect(renderedPills().map(([id]) => id)).toEqual([TOP, MARKET])
     for (const r of rows) {
       expect(screen.getByRole('progressbar', { name: `${r.label} influence: ${r.pct}` })).toBeInTheDocument()
     }
-    expect(screen.getByTestId(PILL(USAGE)).textContent).toBe(DOM[PILL(USAGE)])
-    expect(screen.getByTestId(PILL(TOP)).textContent).toBe(DOM[PILL(TOP)])
-    expect(screen.getByTestId(`driver-lever-badge-${LEVER}`)).toHaveTextContent('Controlled by your options')
+    expect(screen.getByTestId(PILL(TOP)).textContent).toBe(CROWN)
+    expect(screen.getByTestId(PILL(MARKET)).textContent).toBe('Lower influence')
+    expect(screen.queryByTestId(PILL(USAGE))).toBeNull()
+    expect(screen.queryByTestId(`driver-lever-badge-${LEVER}`)).toBeNull()
+    expect(screen.getByText('Some factors with minimal impact are not shown')).toBeInTheDocument()
   })
 
-  it('CONTROL — when the authority and the panel agree, the crown stays (served rows, two influence_scores swapped)', () => {
+  it('CONTROL — swapping producer influence_scores does not change the shared sensitivity crown', () => {
     seed(
       blockWith((b) => {
         const rows = sensitivityRows(b)
@@ -228,28 +238,28 @@ describe('every authority verdict, on the served driver rows', () => {
 
   it('CONTROL — no driver feed (`driverLeader` undefined): the panel keeps its own crown, as before', () => {
     renderDrivers({ ...servedDrivers(), driverLeader: undefined })
-    expect(crownedIds()).toEqual([LEVER])
+    expect(crownedIds()).toEqual([TOP])
   })
 
   it('CONTROL — the authority names the panel\'s own top with a clear lead: the crown stays on it', () => {
-    renderDrivers({ ...servedDrivers(), driverLeader: { key: LEVER, leadIsClear: true } })
-    expect(crownedIds()).toEqual([LEVER])
+    renderDrivers({ ...servedDrivers(), driverLeader: { key: TOP, leadIsClear: true } })
+    expect(crownedIds()).toEqual([TOP])
   })
 
   it('the authority names nobody (`null`): no row is crowned', () => {
     renderDrivers({ ...servedDrivers(), driverLeader: null })
     expect(crownedIds()).toEqual([])
-    expect(screen.getByTestId(PILL(LEVER)).textContent).toBe(DOM[PILL(USAGE)])
+    expect(screen.getByTestId(PILL(TOP)).textContent).toBe(DOM[PILL(USAGE)])
   })
 
   it('the authority\'s top is tied (`leadIsClear: false`), even on the panel\'s own top: no row is crowned', () => {
-    renderDrivers({ ...servedDrivers(), driverLeader: { key: LEVER, leadIsClear: false } })
+    renderDrivers({ ...servedDrivers(), driverLeader: { key: TOP, leadIsClear: false } })
     expect(crownedIds()).toEqual([])
   })
 
-  it('the crown never MOVES to the authority\'s factor when that row is not the panel\'s top (60% under 100%)', () => {
-    renderDrivers(servedDrivers())
-    expect(screen.getByTestId(PILL(TOP)).textContent).toBe(DOM[PILL(TOP)])
+  it('the crown never MOVES to a lower row named by a conflicting authority (2% under 100%)', () => {
+    renderDrivers({ ...servedDrivers(), driverLeader: { key: MARKET, leadIsClear: true } })
+    expect(screen.getByTestId(PILL(MARKET)).textContent).toBe('Lower influence')
     expect(crownedIds()).toEqual([])
   })
 })

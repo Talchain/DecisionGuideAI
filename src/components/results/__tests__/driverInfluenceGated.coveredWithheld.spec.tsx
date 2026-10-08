@@ -14,7 +14,7 @@
  * as "minimal impact" on the panel, badged "Driver 3 of 3" on the card).
  *
  * WHAT IS PINNED, through the real hooks, the real panel and the real mapper:
- *   (a) the scored rows keep the producer basis and rank 1..n among themselves;
+ *   (a) the scored rows use normalised elasticity and rank 1..n among themselves;
  *   (b) the gated row reads "Depends on the option chosen": no figure, no bar,
  *       no rank, no tier pill, and it is not counted as "minimal impact";
  *   (c) the canvas driver badge gives it no rank, no figure, and M excludes it;
@@ -90,27 +90,27 @@ beforeEach(() => {
   })
 })
 
-describe('(a) one gated row does not make the set incomplete', () => {
-  it('the scored rows keep the producer basis and rank 1..n among themselves', () => {
+describe('(a) one gated row does not enter the normalisation base', () => {
+  it('the scored rows use normalised elasticity and rank 1..n among themselves', () => {
     setCompleteReport(baseReport([...scored, gatedRow(['fac_launch'])]))
     const data = panelRows()
     expect(
       data.drivers.map((d) => [d.factorKey, d.rank, d.displayProvenance, d.displayInfluence]),
     ).toEqual([
-      ['fac_a', 1, 'influence_score', 1],
-      ['fac_b', 2, 'influence_score', 0.4],
+      ['fac_a', 1, 'normalised_elasticity', 1],
+      ['fac_b', 2, 'normalised_elasticity', 0.6],
     ])
     // Same basis on the canvas, off the same feed.
     const a = canvasFor('fac_a')
-    expect(a.influenceProvenance).toBe('influence_score')
+    expect(a.influenceProvenance).toBe('normalised_elasticity')
     expect(a.influence).toBe(1)
   })
 
   it('the same verdict for the extractPolicyRow feeders (Option card, Model tab)', () => {
     const rows = [...scored, gatedRow(['fac_launch'])].map((r) => extractPolicyRow(r)!)
     const model = selectDriverDisplayModel(rows)
-    expect(model.get('fac_a')).toMatchObject({ value: 1, provenance: 'influence_score' })
-    expect(model.get('fac_b')).toMatchObject({ value: 0.4, provenance: 'influence_score' })
+    expect(model.get('fac_a')).toMatchObject({ value: 1, provenance: 'normalised_elasticity' })
+    expect(model.get('fac_b')).toMatchObject({ value: 0.6, provenance: 'normalised_elasticity' })
     expect(model.has('fac_g')).toBe(false)
   })
 })
@@ -194,15 +194,15 @@ describe('(e) CONTRAST: only a non-empty string array beside a withheld score is
     expect(screen.queryByText(GATED_WORDS)).toBeNull()
   })
 
-  it('a finite score beside gated_by is a SCORED row: it keeps its figure and rank', () => {
+  it('a finite score beside gated_by is not gated: its elasticity figure and rank remain', () => {
     setCompleteReport(baseReport([...scored, { ...gatedRow(['fac_launch']), influence_score: 0.2 }]))
     const data = panelRows()
     expect(
       data.drivers.map((d) => [d.factorKey, d.rank, d.displayProvenance, d.displayInfluence]),
     ).toEqual([
-      ['fac_a', 1, 'influence_score', 1],
-      ['fac_b', 2, 'influence_score', 0.4],
-      ['fac_g', 3, 'influence_score', 0.2],
+      ['fac_a', 1, 'normalised_elasticity', 1],
+      ['fac_b', 2, 'normalised_elasticity', 0.6],
+      ['fac_g', 3, 'normalised_elasticity', 0],
     ])
   })
 })
@@ -227,24 +227,24 @@ describe('(f) the live carrier: enrichment.factor_sensitivity[].gated_by survive
     }
   })
 
-  it('the gated row withholds only itself; the served rows keep the producer basis', () => {
+  it('the gated row withholds only itself; the served rows use normalised elasticity', () => {
     const report = mapV5AnalysisToReport(shaped(['incremental_growth_spend']) as never)
     setCompleteReport(report as unknown as Record<string, unknown>)
     const data = panelRows()
     // Five RANKED rows (the gated one is listed apart), so the >5-rows zero-elasticity filter does not
-    // apply; the point is their BASIS, which was the fallback. Order: displayed influence, then |elasticity|.
+    // apply; the point is their BASIS. Order: |elasticity|, then label for mapped zero ties.
     expect(data.drivers.map((d) => [d.factorKey, d.displayProvenance])).toEqual([
-      ['pro_paying_subscribers', 'influence_score'],
-      ['pro_plan_price', 'influence_score'],
-      ['new_feature_release_intensity', 'influence_score'],
-      ['monthly_churn', 'influence_score'],
-      ['incremental_growth_spend', 'influence_score'],
+      ['pro_paying_subscribers', 'normalised_elasticity'],
+      ['monthly_churn', 'normalised_elasticity'],
+      ['incremental_growth_spend', 'normalised_elasticity'],
+      ['new_feature_release_intensity', 'normalised_elasticity'],
+      ['pro_plan_price', 'normalised_elasticity'],
     ])
-    expect(canvasFor('pro_paying_subscribers').influenceProvenance).toBe('influence_score')
+    expect(canvasFor('pro_paying_subscribers').influenceProvenance).toBe('normalised_elasticity')
     expect(canvasFor('advertising_investment_share').sensitivityRank).toBeNull()
     expect(canvasFor('advertising_investment_share').influence).toBeNull()
     render(<DriversSection data={data} />)
-    fireEvent.click(screen.getByRole('button', { name: 'See all factors (+3 more)' })) // 5 ranked rows; the gated row follows them
+    // Only two rows clear the visible influence filter; the gated row is already in the collapsed list.
     expect(screen.getByTestId('driver-gated-row-advertising_investment_share').textContent).toContain(GATED_WORDS)
   })
 
@@ -280,13 +280,13 @@ describe('(g) PLoT #408 egress rows through mapV5AnalysisToReport → panel and 
     ...(withMagnitude ? { sensitivity_score: 0.2, elasticity: 0.2 } : {}),
   })
 
-  it.each([true, false])('mixed: scored rows keep the producer basis 1..n; the gated row (magnitude %s) reads the words', (withMagnitude) => {
+  it.each([true, false])('mixed: scored rows use normalised elasticity 1..n; the gated row (magnitude %s) reads the words', (withMagnitude) => {
     const report = mapV5AnalysisToReport(block([scoredP('pro_paying_subscribers', 0.9, 1), scoredP('monthly_churn', 0.4, 2), gatedP('advertising_investment_share', withMagnitude)]) as never)
     setCompleteReport(report as unknown as Record<string, unknown>)
     const data = panelRows()
     expect(data.drivers.map((d) => [d.factorKey, d.displayProvenance])).toEqual([
-      ['pro_paying_subscribers', 'influence_score'],
-      ['monthly_churn', 'influence_score'],
+      ['pro_paying_subscribers', 'normalised_elasticity'],
+      ['monthly_churn', 'normalised_elasticity'],
     ])
     expect(canvasFor('advertising_investment_share').sensitivityRank).toBeNull()
     expect(canvasFor('advertising_investment_share').influence).toBeNull()
@@ -346,7 +346,7 @@ describe('(h) the REAL PLoT #408 egress (R3-B, unmodified rows) replayed through
     run()
     const data = panelRows()
     render(<DriversSection data={data} />)
-    fireEvent.click(screen.getByRole('button', { name: 'See all factors (+3 more)' })) // 3 scored fill the collapsed 3
+    fireEvent.click(screen.getByRole('button', { name: 'See all factors (+2 more)' })) // 2 visible scored rows + 3 gated rows
     for (const id of gatedIds) {
       expect(canvasFor(id).inSensitivityAnalysis, id).toBe(true) // precondition: the row IS in the run
       expect(canvasFor(id).sensitivityRank, id).toBeNull()
@@ -358,28 +358,29 @@ describe('(h) the REAL PLoT #408 egress (R3-B, unmodified rows) replayed through
     expect(data.drivers.map((d) => d.factorKey).filter((k) => gatedIds.includes(k))).toEqual([])
   })
 
-  it('the 3 scored rows keep the producer basis in the panel; the badge ranks only what the tie doctrine licenses', () => {
+  it('the 3 scored rows use normalised elasticity in the panel; the badge ranks their distinct magnitudes', () => {
     run()
     const data = panelRows()
     // 3 ranked rows (the 3 gated are listed apart), so the >5-rows zero-elasticity filter no longer hides
     // pro_plan_price (influence_score 1, elasticity 0 at price 0 today).
     expect(data.drivers.map((d) => [d.factorKey, d.displayProvenance])).toEqual([
-      ['pro_plan_price', 'influence_score'],
-      ['fac_existing_customers_grandfathered', 'influence_score'],
-      ['other_mrr_growth', 'influence_score'],
+      ['fac_existing_customers_grandfathered', 'normalised_elasticity'],
+      ['other_mrr_growth', 'normalised_elasticity'],
+      ['pro_plan_price', 'normalised_elasticity'],
     ])
-    // The badge orders by |elasticity| and withholds ranks past a tie on either basis (rankFactor.ts): the two
-    // runners-up tie at influence 0.1667, as PLoT's own driver_order.separability says (basis_value_exact_tie).
-    expect(['fac_existing_customers_grandfathered', 'other_mrr_growth', 'pro_plan_price'].map((id) => canvasFor(id).sensitivityRank)).toEqual([1, null, null])
-    expect(canvasFor('fac_existing_customers_grandfathered').influenceRankedCount).toBe(1)
+    // The badge and display now use |elasticity|: the producer score's 0.1667 tie does not
+    // withhold these distinct magnitudes, though the producer's structural tie stamp remains intact.
+    expect(['fac_existing_customers_grandfathered', 'other_mrr_growth', 'pro_plan_price'].map((id) => canvasFor(id).sensitivityRank)).toEqual([1, 2, 3])
+    expect(canvasFor('fac_existing_customers_grandfathered').influenceRankedCount).toBe(3)
     expect(plot408Zero.driver_order.separability.method).toBe('basis_value_exact_tie')
   })
 
-  // ⚠ WANTED, NOT YET TRUE (it.fails flips when fixed): the V5 mapper does not carry `importance_basis`, so every
+  // Historical structural-basis defect: the V5 mapper does not carry `importance_basis`, so every
   // served driver arrives UNSTAMPED and `influenceQuantityRunDisclosureForRun`'s fail-closed gate never engages. Served
   // PLoT stamps `isl_structural` on every row (29 Sep), so the panel prints "These show structural influence…" on a
-  // basis the code does not handle. Needs AI QUALITY's noun ruling for isl_structural + the mapper carrier (#72).
-  it.fails('WANTED: an isl_structural payload withholds the structural disclosure until that basis is ruled', () => {
+  // basis the code does not handle. D7 selects normalised elasticity, which makes no structural claim;
+  // this assertion is now met without a mapper or noun-ruling change.
+  it('an isl_structural payload makes no structural disclosure on the elasticity display basis', () => {
     run()
     const data = panelRows()
     expect(rows.every((r) => r.importance_basis === 'isl_structural')).toBe(true) // premise, by identity

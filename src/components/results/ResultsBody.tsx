@@ -823,8 +823,8 @@ export const ResultsBody = memo(function ResultsBody({
           `Accordion.badgeCountProp.spec.tsx`, whose second case renders the
           WRONG prop name and asserts nothing appears. */}
       <Accordion
-        title="What's driving this"
-        subtitle="Factors with the strongest current influence on the result"
+        title="What the result moves most with"
+        subtitle="Factors ordered by how much the result moves with them"
         defaultExpanded={false}
         isExpanded={driversExpanded}
         onExpandChange={onDriversExpandChange}

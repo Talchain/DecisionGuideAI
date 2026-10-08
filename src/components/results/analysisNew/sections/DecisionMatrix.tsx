@@ -123,7 +123,7 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
           <thead><tr>
             <th scope="col" className={header}>Option</th>
             <th scope="col" className={header}>Chance of meeting your goal, in this model</th>
-            <th scope="col" className={header}>Rests most on</th>
+            <th scope="col" className={header}>Its chance rests most on</th>
           </tr></thead>
           <tbody>{rows.map((row) => <tr key={row.id} data-testid={`decision-matrix-row-${row.id}`}>
             <th scope="row" className={`${cell} [font-weight:inherit] text-left`}>{row.label}</th>
@@ -132,7 +132,7 @@ function DecisionMatrixRun({ data, comparison, optionOrder, run, isStale }: Deci
               {row.caveat && <p className={`${typography.panelMeta} text-text-light`}>{row.caveat}</p>}
               {row.baseCaveat && <p className={`${typography.panelMeta} text-text-light`}>{row.baseCaveat}</p>}
             </td>
-            <td className={cell} data-testid={`decision-matrix-driver-${row.id}`}>{row.driver ?? 'None shown'}</td>
+            <td className={cell} data-testid={`decision-matrix-driver-${row.id}`}>{row.driver}</td>
           </tr>)}</tbody>
         </table>
       </div>

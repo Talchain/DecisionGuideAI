@@ -239,7 +239,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
       },
       outcomeDomain: { min: -10, max: 47 },
       outcomeRangedRowCount: 4,
-      mainReason: 'Main driver: Current Team Technical Maturity.',
+      mainReason: 'Moves the result most: Current Team Technical Maturity.',
       // Producer-text simulations: em-dash-free (house style; the panel
       // also glyph-guards these slots) and a status consistent with the
       // previous-run marks the What-changed lens draws — a first pass
@@ -274,7 +274,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
       },
       outcomeDomain: { min: -10, max: 47 },
       outcomeRangedRowCount: 4,
-      mainReason: 'Main driver: Current Team Technical Maturity.',
+      mainReason: 'Moves the result most: Current Team Technical Maturity.',
     }),
   },
   {
@@ -301,7 +301,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
       outcomeDomain: { min: -10, max: 47 },
       outcomeRangedRowCount: 4,
       showGoalHint: true,
-      mainReason: 'Main driver: Current Team Technical Maturity.',
+      mainReason: 'Moves the result most: Current Team Technical Maturity.',
       targetUnit: '%',
     }),
   },
@@ -411,7 +411,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
       },
       outcomeDomain: { min: -10, max: 47 },
       outcomeRangedRowCount: 4,
-      mainReason: 'Main driver: Current Team Technical Maturity.',
+      mainReason: 'Moves the result most: Current Team Technical Maturity.',
     }),
   },
   {
@@ -440,7 +440,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
       },
       outcomeDomain: { min: -10, max: 47 },
       outcomeRangedRowCount: 4,
-      mainReason: 'Main driver: Current Team Technical Maturity.',
+      mainReason: 'Moves the result most: Current Team Technical Maturity.',
     }),
   },
   {

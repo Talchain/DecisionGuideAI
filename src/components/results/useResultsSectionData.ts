@@ -95,6 +95,10 @@ import {
   readInfluenceGatedBy,
   resolveDriverSemanticLabels,
   selectDriverDisplayModel,
+  isRankedDriverRow,
+  extractPolicyRow,
+  readDriverLevel,
+  type DriverLevelNode,
   MAX_BADGED_RANK,
 } from './driverDisplayModel'
 import { deriveDeterminedFactorOrder } from '../../canvas/utils/factorRowOrder'
@@ -548,7 +552,7 @@ export interface DriverPolicyRow {
    */
   importanceBasis: string | null
   /**
-   * Resolved magnitude (normaliseFactorSensitivity chain; 0 when absent).
+   * Resolved magnitude (wire chain; NaN when absent, never a measured zero).
    * UNSIGNED — always `Math.abs`'d at construction. Consumers rank on this
    * field with a comparator that sorts it as given, so the sign must not
    * survive into the feed: it would order equal-magnitude drivers by
@@ -556,6 +560,8 @@ export interface DriverPolicyRow {
    * for the signed wire value when disclosing direction.
    */
   rawElasticity: number
+  /** Known factor level, with graph observed_state.value as fallback. */
+  level?: number
   /** Factor confidence (0-1) when the wire carried one. */
   confidence: number | null
   /**
@@ -626,7 +632,8 @@ const EMPTY_NODE_LABEL_MAP = new Map<string, string>()
 
 /** Per-report memo (C4 review: memoise per REPORT, not per node — the canvas
  * hook runs once per node and must not rebuild the merge each time). */
-const driverPolicyFeedCache = new WeakMap<object, DriverPolicyFeed>()
+const driverPolicyFeedCache = new WeakMap<object, WeakMap<ReadonlyArray<DriverLevelNode>, DriverPolicyFeed>>()
+const EMPTY_DRIVER_LEVEL_NODES: ReadonlyArray<DriverLevelNode> = []
 
 /**
  * The panel's five-source row merge, extracted VERBATIM into a pure function
@@ -648,9 +655,10 @@ const driverPolicyFeedCache = new WeakMap<object, DriverPolicyFeed>()
  */
 export function selectDriverPolicyFeed(
   report: ResultsReport | null | undefined,
+  nodes: ReadonlyArray<DriverLevelNode> = EMPTY_DRIVER_LEVEL_NODES,
 ): DriverPolicyFeed {
   if (!report || typeof report !== 'object') return EMPTY_DRIVER_POLICY_FEED
-  const cached = driverPolicyFeedCache.get(report)
+  const cached = driverPolicyFeedCache.get(report)?.get(nodes)
   if (cached) return cached
 
   // Collect raw factors from multiple sources (moved from the drivers memo)
@@ -725,10 +733,13 @@ export function selectDriverPolicyFeed(
     }
   })
 
+  const nodeLevels = new Map(nodes.map((node) => [node.id, readDriverLevel(node.data)]))
   const policyRows: DriverPolicyRow[] = rawFactors.map((f, index) => {
     const norm = normalizeFactorSensitivity(f, EMPTY_NODE_LABEL_MAP)
+    const key = getFactorKey(norm, index)
+    const policy = extractPolicyRow({ ...f, factor_id: key }, nodeLevels.get(key))
     return {
-      key: getFactorKey(norm, index),
+      key,
       influenceScore: norm.influenceScore,
       influenceGated: norm.influenceGatedBy !== undefined,
       importanceBasis: norm.importanceBasis ?? null,
@@ -742,7 +753,8 @@ export function selectDriverPolicyFeed(
       // producer feeding the same comparator) abs's too; this keeps all
       // feeders on one semantics. Direction is NOT lost — surfaces that
       // disclose it read the signed wire row from `rawFactors`.
-      rawElasticity: Math.abs(getRawElasticity(norm)),
+      rawElasticity: policy?.rawElasticity ?? Number.NaN,
+      level: policy?.level ?? readDriverLevel(f) ?? nodeLevels.get(key),
       confidence: norm.confidence,
       // Derived from the SAME normalised row the confidence itself came from,
       // by the SAME function the panel uses — not a second reading of the wire.
@@ -757,7 +769,9 @@ export function selectDriverPolicyFeed(
 
   const displayModel = selectDriverDisplayModel(policyRows)
   const feed: DriverPolicyFeed = { rawFactors, usedEnrichmentFallback, policyRows, displayModel }
-  driverPolicyFeedCache.set(report, feed)
+  const byNodes = driverPolicyFeedCache.get(report) ?? new WeakMap<ReadonlyArray<DriverLevelNode>, DriverPolicyFeed>()
+  byNodes.set(nodes, feed)
+  driverPolicyFeedCache.set(report, byNodes)
   return feed
 }
 
@@ -786,8 +800,7 @@ export function selectDriverPolicyFeed(
 function computeFactorRanks(
   factors: Array<{ key: string; rawElasticity: number; displayValue?: number; importanceRank?: number; label?: string }>
 ): Map<string, number> {
-  // Codex B2: sort by the DISPLAYED influence metric (producer
-  // influence_score, else the elasticity-derived fallback the bar shows) so
+  // Sort by the DISPLAYED influence metric (normalised |elasticity|) so
   // the row order and the rank-1 "Top driver" crown always agree with the
   // visible Influence bar. Elasticity remains the first tie-break.
   const sorted = [...factors].sort((a, b) => {
@@ -3026,7 +3039,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // this panel and the canvas hook (useNodeDisplayMetadata) both read, so
     // the coverage verdict (and therefore the disclosed basis) cannot fork
     // between the two surfaces for the same report.
-    const feed = selectDriverPolicyFeed(report)
+    const feed = selectDriverPolicyFeed(report, nodes)
     const rawFactors = feed.rawFactors
 
     // P0 DIAGNOSTIC: Log the resolved source-1 rows to verify field mapping
@@ -3063,6 +3076,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Step 1: Extract keys and raw elasticities
     const allFactorsWithKeys = normalizedFactors.map((f, index) => ({
       raw: f,
+      policy: feed.policyRows[index],
       key: getFactorKey(f, index),
       rawElasticity: getRawElasticity(f),
       influenceScore: f.influenceScore,
@@ -3073,20 +3087,16 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // no figure, no bar, no rank, no tier, never "minimal impact". They are
     // listed apart (`gatedDrivers`) and every step below ranges over the rest,
     // on the same split `selectDriverDisplayModel` makes.
-    const factorsWithKeys = allFactorsWithKeys.filter((f) => f.raw.influenceGatedBy === undefined)
+    const factorsWithKeys = allFactorsWithKeys.filter((f) => feed.displayModel.has(f.key) && isRankedDriverRow(f.policy))
     const gatedFactors = allFactorsWithKeys.filter((f) => f.raw.influenceGatedBy !== undefined)
+    const unrankedFactors = allFactorsWithKeys.filter((f) => f.raw.influenceGatedBy === undefined && !feed.displayModel.has(f.key))
 
     // Step 2: Compute dynamic normalisation
     const normalisedMap = computeNormalisedInfluences(factorsWithKeys)
 
     // Step 3: Compute ranks by the DISPLAYED metric (Codex B2 doctrine fix:
     // the surface says "Influence", so the order and the rank-1 crown follow
-    // the same number the bar renders. Codex R3-B1 tightens this to a
-    // complete-metric-set policy: producer influence_score is used only when
-    // EVERY factor carries one — a partial set would rank a mixture of
-    // producer scores and elasticity-normalised fallbacks, which are not
-    // comparable. Under partial coverage every factor displays and ranks by
-    // normalisedInfluence instead, so the whole surface shares one basis.
+    // the same normalised |elasticity| the bar renders and the hero orders by.
     // Codex R3-B1: display value + provenance from the ONE shared policy
     // (driverDisplayModel) — the same function the graph badge consumes.
     // C4 fix 2: read the model off the shared FEED rather than recomputing it
@@ -3219,6 +3229,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         matchedNodeId: matchedNodeId !== f.key ? matchedNodeId : undefined,
       }
     })
+    const unrankedDrivers: GatedDriverItem[] = unrankedFactors.map((f) => {
+      const { canFocus, matchedNodeId, displayLabel } = resolveRowTarget(f.key, f.raw.label)
+      return { factorKey: f.key, factorLabel: displayLabel, canFocus, matchedNodeId: matchedNodeId !== f.key ? matchedNodeId : undefined }
+    })
     const driverItems: DriverItem[] = factorsWithKeys
       .filter(f => {
         // Always keep if we have few factors — counted over the RANKED rows: a covered-withheld row is listed
@@ -3277,7 +3291,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           factorLabel: displayLabel,
           rawElasticity: f.rawElasticity,
           normalisedInfluence,
-          // ISL influence_score (0-1) - use directly for Influence column
+          // Preserve ISL influence_score separately from the displayed sensitivity.
           influenceScore: f.raw.influenceScore,
           // Codex R3-B1: single display basis (see DriverItem.displayInfluence)
           displayInfluence: displayModel.get(f.key)?.value ?? 0,
@@ -3374,15 +3388,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const topDrivers = nonZeroImpactDrivers.slice(0, 3)
 
     // ⭐ ONE DRIVER AUTHORITY (26 Sep 2026, served 853feeb7): the card's own
-    // Driver 1, off the SAME feed the canvas cards rank from. `topDrivers` above
-    // is the structural order and is NOT this — see `DriversSectionData.driverLeader`.
+    // Driver 1, off the SAME feed and |elasticity| order as `topDrivers` above,
+    // with the card's rank-1 gate — see `DriversSectionData.driverLeader`.
     const driverLeader = feed.policyRows.length > 0
       ? sensitivityLeader(feed.policyRows, feed.displayModel)
       : undefined
 
     // Fix 1: Only set islError when we have NO driver items to show
     // If we have data, prefer showing it even if drivers_status indicates error
-    const islErrorMessage = driverItems.length === 0 && gatedDrivers.length === 0 && (driversStatus === 'error' || driversStatus === 'unavailable')
+    const islErrorMessage = driverItems.length === 0 && gatedDrivers.length === 0 && unrankedDrivers.length === 0 && (driversStatus === 'error' || driversStatus === 'unavailable')
       ? (report?.drivers_error ??
          report?.sensitivity?.error ??
          report?.isl_error ??
@@ -3391,8 +3405,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     return {
       drivers: driverItems,
-      driversStatus: driverItems.length > 0 || gatedDrivers.length > 0 ? 'computed' : driversStatus,
+      driversStatus: driverItems.length > 0 || gatedDrivers.length > 0 || unrankedDrivers.length > 0 ? 'computed' : driversStatus,
       ...(gatedDrivers.length > 0 ? { gatedDrivers } : {}),
+      ...(unrankedDrivers.length > 0 ? { unrankedDrivers } : {}),
       topDrivers,
       // v7.2: totalCount reflects non-zero-impact drivers only (visible count)
       totalCount: nonZeroImpactDrivers.length,
@@ -4823,10 +4838,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // rows, ruling R1 untouched.
   const determinedFactorOrder = useMemo(
     () => {
-      const feed = selectDriverPolicyFeed(report ?? null)
+      const feed = selectDriverPolicyFeed(report ?? null, nodes)
       return deriveDeterminedFactorOrder(
         // A gated row has no rank, so it takes no position either (ISL #213).
-        feed.policyRows.filter((r) => r.influenceGated !== true).map((r) => ({
+        feed.policyRows.filter((r) => feed.displayModel.has(r.key) && isRankedDriverRow(r)).map((r) => ({
           key: r.key,
           elasticity: r.rawElasticity,
           // The SAME resolved display value the badge ranks from, and the same
@@ -4837,7 +4852,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         MAX_BADGED_RANK,
       )
     },
-    [report],
+    [report, nodes],
   )
   const determinedFactorOrderKey = JSON.stringify(determinedFactorOrder)
   useEffect(() => {

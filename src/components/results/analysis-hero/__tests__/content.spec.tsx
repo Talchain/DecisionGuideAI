@@ -555,7 +555,7 @@ describe('AnalysisHeroPanel — content', () => {
   it('renders the footer main reason from the top driver and neutral focus-next text', () => {
     renderPanel(chartModel())
     expect(screen.getByTestId('hero-main-reason')).toHaveTextContent(
-      'Main driver: Developer capacity.',
+      'Moves the result most: Developer capacity.',
     )
     const focusNext = screen.getByTestId('hero-focus-next')
     expect(focusNext).toHaveTextContent('Focus next: review the top actions below.')
@@ -682,7 +682,7 @@ describe('Wave 2 (§6.5): quick evidence pills in the summary row', () => {
     renderPanel(modelWithLinks(), { onFocusTarget })
     const driver = screen.getByTestId('hero-quicklink-driver')
     const flip = screen.getByTestId('hero-quicklink-flip')
-    expect(driver).toHaveTextContent('Main driver: Developer capacity')
+    expect(driver).toHaveTextContent('Moves the result most: Developer capacity')
     expect(flip).toHaveTextContent('Tipping point: Salary cost')
     // Outlined pill shape (DS rule: outlined, never filled).
     for (const pill of [driver, flip]) {
@@ -721,7 +721,7 @@ describe('Wave 2 (§6.5): quick evidence pills in the summary row', () => {
       { onFocusTarget },
     )
     const combined = screen.getByTestId('hero-quicklink-combined')
-    expect(combined).toHaveTextContent('Main driver and top flip risk: Developer capacity')
+    expect(combined).toHaveTextContent('Moves the result most and top flip risk: Developer capacity')
     expect(screen.queryByTestId('hero-quicklink-driver')).toBeNull()
     expect(screen.queryByTestId('hero-quicklink-flip')).toBeNull()
     fireEvent.click(combined)

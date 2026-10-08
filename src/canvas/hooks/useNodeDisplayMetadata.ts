@@ -13,6 +13,7 @@ import { useCanvasStore } from '../store'
 import type { NodeType } from '../domain/nodes'
 import {
   hasMeaningfulMagnitude,
+  isRankedDriverRow,
   rowCarriesMagnitudeMetric,
 } from '../../components/results/driverDisplayModel'
 import type { DriverDisplayProvenance } from '../../components/results/driverDisplayModel'
@@ -362,6 +363,7 @@ export function useNodeDisplayMetadata(
 ): NodeDisplayMetadata {
   const resultsStatus = useCanvasStore(state => state.results.status)
   const report = useCanvasStore(state => state.results.report)
+  const nodes = useCanvasStore(state => state.nodes)
   // PJ-B3, owner (Canvas, 28 Sep 2026): "no value yet" also needs the factor to
   // hold NO stated value now — CEE #2154's second condition. PLoT does not send
   // `value_source` for every factor (`valueProvenance.ts`), so the row fact alone
@@ -437,7 +439,7 @@ export function useNodeDisplayMetadata(
       // subsumes the certified-array-first / enrichment-fallback precedence
       // this hook used to apply, and is memoised per REPORT (not per node),
       // so running it for every factor node stays O(1) after the first.
-      const feed = selectDriverPolicyFeed(report as unknown as ResultsReport)
+      const feed = selectDriverPolicyFeed(report as unknown as ResultsReport, nodes)
       const rows = feed.policyRows
       const displayModel = feed.displayModel
       // ⭐ The rank rule lives in ONE place (`nodes/shared/rankFactor.ts`),
@@ -508,7 +510,7 @@ export function useNodeDisplayMetadata(
           modelEntry != null &&
           Number.isFinite(modelEntry.value) &&
           (modelEntry.provenance === 'influence_score' ||
-            (hasMeaningfulMagnitude(rows) &&
+            (hasMeaningfulMagnitude(rows.filter((row) => displayModel.has(row.key) && isRankedDriverRow(row))) &&
               rowCarriesMagnitudeMetric(feed.rawFactors[rawRowForNode])))
         if (measured && modelEntry) {
           influence = modelEntry.value
@@ -758,8 +760,7 @@ export function useNodeDisplayMetadata(
     // no longer an input. It was, for one commit, and the note that stood in
     // this position explained why the memo had to re-run when the graph moved —
     // correct reasoning about a read that should not have been in this hook.
-    // The memo is keyed on the REPORT, which is exactly right for a question
-    // about the report; the render site re-reads its own gate on every render
-    // and is not memoised on this.
-  }, [isResultsMode, report, nodeId, nodeType, factorHoldsValue])
+    // Graph levels participate in driver eligibility; currency remains a
+    // separate gate that the render site reads on every render.
+  }, [isResultsMode, report, nodes, nodeId, nodeType, factorHoldsValue])
 }
