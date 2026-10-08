@@ -54,6 +54,9 @@ export const QUESTIONS = {
   'examine-link': linkQuestion,
   'question-link': (c: QuestionContext) => `Is ${link(c)} right, and what other route could reach the goal?`,
   'test-link': (c: QuestionContext) => `What happens to the comparison without ${link(c)}?`,
+  // Item 3 (Paul 7 Oct; CEE #2776): the drawn link's press. CEE answers with a card (direction, band, one reason) the
+  // person accepts, changes or declines; the judgement stays theirs.
+  'drawn-link': (c: QuestionContext) => `I drew ${link(c)}. Does it help or hurt, and how strongly? Suggest a strength for me to accept or change.`,
   goal: (c: QuestionContext) => c.stage === 'ran-current'
     ? `What does reaching ${goal(c)} depend on most in this model, and what would change that?`
     : c.stage === 'withheld' ? `What does Olumi still need before it can say how likely ${goal(c)} is to be reached?`
@@ -66,7 +69,7 @@ export const QUESTIONS = {
       : question
   },
   'pre-mortem': (c: QuestionContext) => c.stage === 'ran-current' || c.stage === 'withheld'
-    ? 'Imagine this decision went badly a year from now. What most plausibly went wrong?'
+    ? 'Imagine this decision went badly. What most plausibly went wrong?'
     : `What could make ${c.kind === 'option' ? element(c) : decision(c)} go badly that isn’t in the model yet?`,
   risks: (_c: QuestionContext) => 'What could go wrong, or unexpectedly well, that this model doesn’t have yet?',
   gaps: (c: QuestionContext) => c.stage === 'ran-current'
@@ -95,6 +98,9 @@ export const QUESTIONS = {
     : c.stage === 'withheld' ? `What’s missing before Olumi can say how likely ${element(c)} is to meet the goal?`
       : `What would have to be true for ${element(c)} to meet the goal?`,
   estimate: (c: QuestionContext) => `Help me estimate ${element(c)}: what range is sensible, and what would narrow it?`,
+  'edit-driver': (c: QuestionContext) => `I’ve changed the link from ‘${c.sourceLabel ?? 'A'}’ to ‘${c.targetLabel ?? 'B'}’, which the last Run rested on most. What could that change, and what should I check before relying on it?`,
+  'edit-removed': (c: QuestionContext) => `I removed the link from ‘${c.sourceLabel ?? 'A'}’ to ‘${c.targetLabel ?? 'B'}’. What does that change about how the options compare, and what should I check?`,
+  'limit-connect': (c: QuestionContext) => `Which of my options spend from ${element(c)}, and how should the model show that?`,
   evidence: (c: QuestionContext) => `What evidence supports ${element(c)}, and what would count against it?`,
   'goal-low': (c: QuestionContext) => c.stage === 'stale'
     ? `The model has changed since the last Run. What could explain the low chance of meeting ${goal(c)}, and what needs checking again?`

@@ -47,7 +47,10 @@
  *     taken by a render site.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+// B19-0: these rows pin the IN-UNITS rendering, which ships once the goal band is anchored to the user's units.
+// The live switch is false today; `OptionCards.downsideNotInUserUnits.spec.tsx` pins what ships now.
+vi.mock('../analysisNew/goalBandUnits', () => ({ goalBandIsInUserUnits: () => true }))
 import { render, screen, within } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
 import type { OptionResult } from '../types'

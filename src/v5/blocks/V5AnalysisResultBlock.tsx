@@ -70,6 +70,9 @@ import { PANEL_LIST_BULLET, PANEL_LIST_STACK } from '../../canvas/conversation/p
 import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { useDisplayedRunDeltaView } from '../../components/results/analysisNew/displayedRunDeltaView'
 import { runDeltaSentence } from '../../components/results/analysisNew/commitmentSynthesis'
+import { readGoalChanceLicence } from '../../components/results/utils/goalChanceLicence'
+import { readGoalChanceRange } from '../../components/results/utils/goalChanceRange'
+import { goalChanceOptionLines, goalChanceRangeLine } from '../../components/results/analysis-hero/goalChanceCopy'
 
 export interface V5AnalysisResultBlockProps {
   block: V5AnalysisResultBlockType
@@ -455,6 +458,27 @@ function V5AnalysisResultBlockImpl({
   // alike. Largest-first there would be a ranking nobody licensed. A key that
   // matches no canvas option keeps its wire position, after the matched ones.
   const canvasLabels = useCanvasNodeLabels()
+  // Paul's 6 Oct rule: the chance of meeting the goal is the per-option
+  // headline; win share below is supporting detail. Read the licence from THIS
+  // persisted block, never the current report in the store, so an older card
+  // cannot acquire a newer Run's figures.
+  const goalChanceLicence = readGoalChanceLicence(block.enrichment?.inference_warnings)
+  const goalChanceRange = readGoalChanceRange(block.enrichment?.inference_warnings)
+  const goalChanceLabelOf = (id: string): string | null => canvasLabels.get(id) ?? null
+  const pointGoalChanceLines = goalChanceLicence === null
+    ? null
+    : goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf)
+  const goalChanceLines = pointGoalChanceLines === null || goalChanceLicence === null
+    ? null
+    : goalChanceLicence.optionIds.map((id, index) => {
+        const range = goalChanceRange?.rangeByOption[id]
+        return range === undefined
+          ? pointGoalChanceLines[index]
+          : goalChanceRangeLine(range, goalChanceLabelOf(id), goalChanceLabelOf)
+      })
+  const shownGoalChanceLines = goalChanceLines?.every((line): line is string => typeof line === 'string')
+    ? goalChanceLines
+    : null
   /** Position of a win-share key (an option id or its label) among canvas nodes. */
   const canvasRank = (key: string): number => {
     let i = 0
@@ -486,7 +510,7 @@ function V5AnalysisResultBlockImpl({
   // one-word reply ("Done.") also sets `summaryBehindDisclosure`, so dropping
   // the summary would lose the only account of the run. The `v5-analysis-result`
   // element stays as the unframed anchor `scrollAnalysisResultIntoView` lands on.
-  const onlyFoldedSummaryOnCard = summaryBehindDisclosure && !showWinShares && !showProse
+  const onlyFoldedSummaryOnCard = summaryBehindDisclosure && !showWinShares && !showProse && shownGoalChanceLines === null
   // ⭐ THE FOLD CLOSES THE RESULT (Paul's test, 27 Sep, AIC B4): it sat ABOVE the result's own content, so under a
   // reply it stacked as a third disclosure below "Show more" and "N questions…", in a caret style of its own. Content
   // first, the fold last, in the chat's own chevron — as "Show less" closes an answer (#2169). The words are unchanged.
@@ -715,6 +739,16 @@ function V5AnalysisResultBlockImpl({
             </ul>
           )}
         </div>
+      )}
+
+      {shownGoalChanceLines !== null && (
+        <ul className={PANEL_LIST_STACK} data-testid="v5-analysis-result-goal-chances">
+          {goalChanceLicence!.optionIds.map((id, index) => (
+            <li key={id} className={`${typography.chatBody} ${PROSE_WRAP}`} data-option-id={id}>
+              {shownGoalChanceLines[index]}
+            </li>
+          ))}
+        </ul>
       )}
 
       {/* Per-option goal stories lead; run shares stay secondary in chatMeta. */}

@@ -244,6 +244,11 @@ export const NODE_FIELD_REGISTRY: readonly AnalyticalFieldSpec[] = [
     note: "A risk's impact enum (low..critical); with probability drives severity. NOT user-editable at the tip: `RiskPanel`'s control (`setImpact` → `updateNode(data.impact)`, shipped #453) is inerted by `InspectorRouter`'s disabled fieldset because `risk` is not authority-owning, and `setImpact` has no wire carrier so it would be local-only even unfenced. #453. Consumers: staleness, RiskPanel. Persisted by hash-by-default.",
   },
   {
+    field: 'event_risk',
+    purposes: ['stale'],
+    note: "CEE's event likelihood and horizon block is an analysis input, so a changed block invalidates results. It arrives through the draft/server graph mapper's node passthrough and is persisted by hash-by-default. Consumers: staleness, RiskNode.",
+  },
+  {
     field: '_baseline_snapshot',
     purposes: ['ephemeral'],
     note: 'LEGACY transient session state — NO WRITER REMAINS (26 Sep 2026). It held the pre-modification observed value the context menu\'s Set value captured so "Reset to observed" could restore it; that row and its writer (`ensureBaselineSnapshot`) were removed when Set value moved onto the card\'s typed writer (`factor_value_edit`), because the snapshot was not a truthful restore target. The entry STAYS because data saved before then can still carry the key: `saveScenario` persists the graph BEFORE its cleansing write strips it, so imported/restored nodes may arrive with it. Keeping it EPHEMERAL keeps such a key out of the save-trigger and the hash, and the wire strip lists (`buildRegistrationGraph`, the PLoT v2 adapter) keep it off the wire. Not analysis-affecting. Excluded from computeGraphHash.',

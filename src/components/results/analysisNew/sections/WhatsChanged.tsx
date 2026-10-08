@@ -98,7 +98,7 @@ const pct = (v: number): string => `${Math.round(v * 100)}%`
  * site being added later without it.
  */
 export function noiseQualifier(v: NoiseVerdict): string | null {
-  if (v === 'within_noise') return 'Too small to tell apart from ordinary run-to-run movement.'
+  if (v === 'within_noise') return 'Too small to tell apart from ordinary run-to-run variation.'
   if (v === 'not_noise_qualified') return 'This pair gives no basis for saying whether that is a real difference.'
   return null
 }
@@ -182,6 +182,11 @@ function inputRowTextForFrame(row: RunDeltaInputRow, frame: RunDeltaFrame): stri
   if (row.kind === 'link') return row.change === 'added' ? `${row.subject} added to the model` : `${row.subject} removed from the model`
   if (row.change === 'added') return `${row.subject}: now ${row.after}`
   return `${row.subject}: ${row.before}, now not set`
+}
+
+/** The row's sentence in a given frame: the words the Compare tab's row layout (`InputChangeRows`) reads out. */
+export function inputRowSentence(row: RunDeltaInputRow, frame: RunDeltaFrame = 'rerun'): string {
+  return inputRowTextForFrame(row, frame)
 }
 
 /**

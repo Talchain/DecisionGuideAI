@@ -65,6 +65,7 @@ import { deriveComparisonScope } from '../utils/goalAnchorCopy'
 import { readGoalIdentityWithheld } from '../utils/goalIdentityWithheld'
 import { GOAL_CERTAINTY_UNEARNED_FALLBACK } from '../../../canvas/state/storedGoalCertainty'
 import { notAnalysedReasonCopy, notComputedReasonCopy } from '../utils/notAnalysedCopy'
+import { LINK_MARGIN_LABEL, linkMarginSentence } from '../utils/fragileEdgeCopy'
 import { optionComputationFailed, type NotAnalysedReason } from '../utils/notAnalysedOptions'
 // The two existing warning surfaces' OWN selectors, imported rather than
 // respelled. A second copy of either predicate is a mirror that drifts silently
@@ -1767,7 +1768,7 @@ function buildUncertainty(
       ...(reviewTarget ? { reviewTargetId: reviewTarget } : {}),
       inspect: rows(
         row('Severity', u.severity),
-        row('Change margin', u.eValue != null ? String(u.eValue) : null),
+        row(LINK_MARGIN_LABEL, u.eValue != null ? linkMarginSentence(u.eValue) : null),
         row('Factor confidence', pctOrNull(u.factorConfidence)),
       ),
       intervention: interventionFor(recommendations, u.affectedNodes?.[0]),

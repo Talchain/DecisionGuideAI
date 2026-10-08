@@ -22,7 +22,7 @@ import {
   EDGE_AFFORDANCE_EDITABLE,
 } from './edgeAffordance'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, Position, type EdgeProps, useReactFlow, useStore } from '@xyflow/react'
-import { Lightbulb, Activity, Flag } from 'lucide-react'
+import { Lightbulb, Activity, Flag, Crosshair } from 'lucide-react'
 import { LinkHoverCard } from '../components/hoverCard/LinkHoverCard'
 import { edgeSizePhrase } from './edgeSizePhrase'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../components/hoverCard/hoverCardPlacement'
@@ -46,6 +46,8 @@ import {
   readContestedState,
   resolveEdgeStroke,
   resolveEdgeDash,
+  isEdgeStrengthNotSet,
+  linkIsStructural,
   edgeArrowheadMarkerId,
   type EdgePresentationState,
 } from './edgePresentation'
@@ -96,16 +98,18 @@ import {
 import { isStrengthPlaceholder, strengthForWords } from '../domain/strengthPlaceholder'
 import { isStrengthStated } from '../domain/strengthStated'
 import { isStrengthDefinitional } from '../domain/strengthDefinitional'
+import { edgeStrengthSourceMark } from '../domain/edgeStrengthSourceIcon'
 import { registerEdgeHover, routeEdgeHover, routeEdgeHoverOnMove, endEdgeHover, claimEdgeHover, type EdgeHoverBehaviour, type EdgeHoverSeat } from './edgeHoverArbiter'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 import { useCanvasNodeHoverStore } from '../stores/canvasNodeHoverStore'
-import { openEdgeStrengthEditor } from '../utils/openEdgeStrengthEditor'
+import { openEdgeStrengthEditor, OPEN_FULL_INSPECTOR_EVENT } from '../utils/openEdgeStrengthEditor'
 import { GOAL_CHANCE_DRIVER_TAG, GOAL_CHANCE_DRIVER_TAG_Z, goalChanceDriverLinks, goalChanceDriverLinkKey, goalChanceDriverTagAria } from '../utils/goalChanceDriverLinks'
 import {
   resolveArrivalSlotOnBoard,
   resolvePolarityGlyphOnPath,
+  resolveSourceGlyphOnPath,
   glyphMetricsAt,
   arrivalHeadKeepOut,
   polarityGlyphTransform,
@@ -269,19 +273,6 @@ function parallelEdgeIdsOf(
   edgeTarget: string,
 ): string[] {
   return (edges ?? []).filter(e => e.source === edgeSource && e.target === edgeTarget).map(e => e.id)
-}
-
-/**
- * Is a link STRUCTURAL (no arrowhead, no sign)? The same resolution order as
- * this component's own `isStructuralEdge` memo: an explicit `edge_type` wins
- * ('structural' → yes; any other value → no), else decision → option and
- * option → factor are. Read by the fragile-cue pass for every OTHER link.
- */
-function linkIsStructural(srcKind: unknown, tgtKind: unknown, data: unknown): boolean {
-  const explicit = (data as Record<string, unknown> | undefined)?.edge_type
-  if (explicit === 'structural') return true
-  if (explicit != null && explicit !== '') return false
-  return (srcKind === 'decision' && tgtKind === 'option') || (srcKind === 'option' && tgtKind === 'factor')
 }
 
 /**
@@ -2216,11 +2207,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     isHighlighted: isHighlightedEdge,
     polarityStroke: directionStroke,
     existence: existenceDash,
-    // `visualPropsDash` is no longer passed: dash is existence certainty ONLY
+    strengthNotSet: isEdgeStrengthNotSet(edgeData as Record<string, unknown> | undefined),
+    // `visualPropsDash` is no longer passed: a stored style cannot assert existence
     // (Paul 23 Sep contract feedback point 4; `EDGE_DASH_RULES`).
   }), [
     isStructuralEdge, lensMode, causalEdgeParams, evidenceEdgeClass, contested,
-    isHighlightedEdge, directionStroke, existenceDash,
+    isHighlightedEdge, directionStroke, existenceDash, edgeData,
   ])
   const edgeStroke = useMemo(() => resolveEdgeStroke(presentationState), [presentationState])
 
@@ -2251,6 +2243,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     const base = (() => {
     // Structural edges: fixed 1px regardless of lens / hover / highlight
     if (isStructuralEdge) return 1
+    // A placeholder/unset strength never earns a measured or lens width.
+    if (presentationState.strengthNotSet) return UNSET_EDGE_STROKE_WIDTH
     // Causal lens: thickness encodes the PROVENANCE-SET strength
     // magnitude (ROADMAP 2.954). An unset strength draws at the floor
     // width — the same refusal the non-lens stroke (:286) makes — so
@@ -2322,6 +2316,15 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     return goalChanceDriverTagAria(labels)
   }, [isGoalChanceDriverEdge, report, goalChanceDriverNodes, source, target])
   const showGoalChanceDriverTag = isGoalChanceDriverEdge && !isStructuralEdge && !isLodBodyHidden
+  const strengthSourceMark = useMemo(
+    () => edgeStrengthSourceMark(edgeData as Record<string, unknown> | undefined),
+    [edgeData],
+  )
+  const sourceGlyphPlacement = useMemo(() => {
+    if (!strengthSourceMark || isStructuralEdge || isLodBodyHidden || isEdgeStrengthNotSet(edgeData as Record<string, unknown> | undefined)) return null
+    const poly = flattenSvgPath(edgePath)
+    return poly ? resolveSourceGlyphOnPath(poly) : null
+  }, [strengthSourceMark, isStructuralEdge, isLodBodyHidden, edgeData, edgePath])
 
   // Causal lens: hide structural edges entirely
   if (isLensHidden) return null
@@ -2602,8 +2605,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // on a SOLID line. A round cap adds half the stroke width to each end
           // of every dash, so on a 3-4px line the contract's own `6 4` pattern
           // closes its gap and the existence-doubt dash stops reading as a dash.
-          // Dashed lines keep butt caps so the one channel dash carries survives.
-          strokeLinecap: edgeDash.value ? 'butt' : 'round',
+          // Existence dashes keep butt caps; strength dots need round caps.
+          // The presentation decision owns both the pattern and its caps.
+          strokeLinecap: edgeDash.linecap,
           stroke: edgeStroke.value,
           // Opacity is a lens-only channel now. exists_probability is a SINGLE
           // encoding — the dash (existenceDash above), which stays
@@ -2832,6 +2836,38 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           >
             {isSignDisputed ? '±' : statedDirection === 'positive' ? '+' : '−'}
           </div>
+        </EdgeLabelRenderer>
+      )}
+
+      {strengthSourceMark && sourceGlyphPlacement && (
+        <EdgeLabelRenderer>
+          <button
+            type="button"
+            data-edge-source-icon={strengthSourceMark.source}
+            data-edge-id={edgeIdKey}
+            aria-label={strengthSourceMark.label}
+            title={strengthSourceMark.label}
+            className="nodrag nopan inline-flex items-center justify-center rounded-full border border-panel-border bg-panel text-text-light hover:text-text-body focus-visible:outline focus-visible:outline-2 focus-visible:outline-info"
+            style={{
+              position: 'absolute',
+              width: FRAGILE_CUE_DISC_SIZE,
+              height: FRAGILE_CUE_DISC_SIZE,
+              padding: 0,
+              transform: `translate(-50%, -50%) translate(${sourceGlyphPlacement.x}px,${sourceGlyphPlacement.y}px)`,
+              pointerEvents: 'all',
+              opacity: isSelectionDimmed ? EDGE_SELECTION_DIM_OPACITY : undefined,
+            }}
+            onPointerDown={event => event.stopPropagation()}
+            onClick={event => {
+              event.stopPropagation()
+              // The mark sits ON its line, so a click on it is a click on the line: select + the line's inspector, as
+              // `handleEdgeClick` does. Never the strength editor's results-panel stand-down (J1 J5a, #2624).
+              useCanvasStore.getState().selectEdgeWithoutHistory(edgeIdKey)
+              window.dispatchEvent(new Event(OPEN_FULL_INSPECTOR_EVENT))
+            }}
+          >
+            <strengthSourceMark.Icon size={10} className={CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES[10]} aria-hidden="true" />
+          </button>
         </EdgeLabelRenderer>
       )}
 
@@ -3278,12 +3314,16 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               data-testid="goal-chance-driver-tag"
               data-driver-tag-edge-id={edgeIdKey}
               aria-label={goalChanceDriverAria}
-              className={`nodrag nopan ${typography.edgeLabel} whitespace-nowrap rounded border border-panel-border bg-panel text-text-body px-[calc(6px*var(--canvas-label-scale,1))] py-[calc(2px*var(--canvas-label-scale,1))] hover:text-info-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-info`}
+              title={GOAL_CHANCE_DRIVER_TAG}
+              className="nodrag nopan inline-flex items-center justify-center border border-panel-border bg-panel text-text-body hover:text-info-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-info"
               style={{
                 position: 'absolute',
-                // Follow the chip's displaced anchor (or the cue-only disc).
-                // Start below its box, so neither the chip nor disc is covered.
-                transform: `translate(${fragileCueOnly && fragileCuePoint ? fragileCuePoint.x : labelX + labelOffsetX}px,${fragileCueOnly && fragileCuePoint ? fragileCuePoint.y : labelY + labelOffsetY}px) translate(-50%, calc(${showLabel ? labelHalfHeightForRows(paintFragileCue ? 2 : 1) : 0}px + ${(fragileCueOnly ? FRAGILE_CUE_DISC_PX / 2 : 0) + 4}px * var(--canvas-label-scale, 1)))`,
+                // Centre the disc on the existing displaced anchor.
+                width: FRAGILE_CUE_DISC_SIZE,
+                height: FRAGILE_CUE_DISC_SIZE,
+                padding: 0,
+                borderRadius: 9999,
+                transform: `translate(-50%, -50%) translate(${fragileCueOnly && fragileCuePoint ? fragileCuePoint.x : labelX + labelOffsetX}px,${fragileCueOnly && fragileCuePoint ? fragileCuePoint.y : labelY + labelOffsetY}px)`,
                 pointerEvents: 'all',
                 opacity: isSelectionDimmed ? EDGE_SELECTION_DIM_OPACITY : undefined,
                 // Above a resting card (node wrappers carry inline zIndex 0, and neither `.react-flow__edgelabel-renderer`
@@ -3297,7 +3337,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 openEdgeStrengthEditor(edgeIdKey, { centre: false })
               }}
             >
-              {GOAL_CHANCE_DRIVER_TAG}
+              <Crosshair size={10} className={CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES[10]} aria-hidden="true" />
             </button>
           )}
         </EdgeLabelRenderer>

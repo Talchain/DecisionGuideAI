@@ -56,6 +56,37 @@ beforeEach(() => {
 })
 
 describe('mergeServerGraphOnHydrate — values from server, layout from local', () => {
+  it('keeps CEE event_risk metadata on the canvas node data bag', () => {
+    const eventRisk = {
+      horizon: { months: 6 },
+      version: 1,
+      occurrence: {
+        basis: 'user',
+        p_low: 0.1,
+        p_high: 0.3,
+        meaning: 'at_least_once_within_horizon',
+      },
+    }
+    seed([{
+      id: 'risk_our_key_developer_might_leave',
+      type: 'risk',
+      position: { ...A_POS },
+      data: { label: 'Our key developer might leave', kind: 'risk' },
+    }])
+
+    mergeServerGraphOnHydrate({
+      nodes: [{
+        id: 'risk_our_key_developer_might_leave',
+        kind: 'risk',
+        label: 'Our key developer might leave',
+        event_risk: eventRisk,
+      }],
+      edges: [],
+    })
+
+    expect(nodeById('risk_our_key_developer_might_leave').data.event_risk).toEqual(eventRisk)
+  })
+
   it('hydrates server VALUES onto the local canvas', () => {
     const res = mergeServerGraphOnHydrate({
       nodes: [

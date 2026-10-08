@@ -90,7 +90,7 @@ describe('Compare across a goal that changed direction or comparison', () => {
     expect(screen.queryByTestId('compare-result-details')).toBeNull()
     expect(hero()).toHaveTextContent(WHATS_CHANGED_GOAL_FRAMING_CHANGED)
     expect(screen.getAllByText(WHATS_CHANGED_GOAL_FRAMING_CHANGED)).toHaveLength(1)
-    expect(screen.getByRole('region', { name: 'What you changed' })).toHaveTextContent(rows.some(r => r.field === 'direction') ? 'Goal direction' : 'Goal comparison')
+    expect(screen.getByRole('region', { name: 'What changed in the model' })).toHaveTextContent(rows.some(r => r.field === 'direction') ? 'Goal direction' : 'Goal comparison')
   })
 
   it.each([
