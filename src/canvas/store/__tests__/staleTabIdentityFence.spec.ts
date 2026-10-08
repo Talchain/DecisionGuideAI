@@ -30,7 +30,8 @@ async function bootTab() {
   const persist = await import('../../persist')
   const crash = await import('../../persist/crashFlush')
   const auth = await import('../../../lib/auth/userScopedState')
-  return { scenarios, persist, crash, auth }
+  const { useCanvasStore: store } = await import('../../store')
+  return { scenarios, persist, crash, auth, store }
 }
 /** Another tab's identity boundary, as it reaches THIS tab: shared storage changes, this tab's memory does not. */
 function anotherTabRotatesEpoch(next: string) {
@@ -199,6 +200,170 @@ describe('CAN-F2g: a stale tab cannot save the previous identity\'s model as the
     expect(guestTab.scenarios.saveAutosave(graph(A_ID, 'before sign-in')), 'the stale guest tab reported a write').toBe(false)
     const nextGuest = await bootTab()
     expect(nextGuest.scenarios.loadAutosave()?.scenarioId ?? null, 'the next guest restored the previous person\'s model').toBeNull()
+  })
+
+  it('⭐ DL Save probe: the stale guest\'s real store Save cannot publish A or clear the CURRENT guest\'s autosave', async () => {
+    const staleGuest = await bootTab()
+    staleGuest.store.setState({
+      currentScenarioId: A_ID,
+      nodes: [{ id: 'a-n', type: 'decision', position: { x: 1, y: 1 }, data: { label: 'A private' } }],
+      edges: [],
+      isDirty: true,
+    })
+
+    const tab1 = await bootTab()
+    tab1.auth.adoptIdentityEpochAtSignIn() // first sign-in, as in S-G row 2
+    tab1.auth.clearUserScopedState(null) // real sign-out boundary in the OTHER registry
+
+    const currentGuest = await bootTab()
+    expect(currentGuest.scenarios.saveAutosave(graph(B_ID, 'b')), 'precondition: the CURRENT owner can autosave').toBe(true)
+    const currentAutosave = localStorage.getItem(SLOT)
+    expect(JSON.parse(currentAutosave!).identityEpoch, 'precondition: this slot belongs to the CURRENT epoch').toBe(localStorage.getItem(EPOCH_KEY))
+
+    const savedId = staleGuest.store.getState().saveCurrentScenario('A private')
+    expect.soft(savedId, 'a fenced Save must return null').toBeNull()
+    expect.soft(staleGuest.store.getState().isDirty, 'fenced Save must not claim the unsaved canvas is saved').toBe(true)
+    expect.soft(localStorage.getItem(SLOT), 'stale Save cleared the CURRENT owner\'s autosave').toBe(currentAutosave)
+
+    const nextGuest = await bootTab()
+    const records = nextGuest.scenarios.loadScenarios()
+    expect.soft(records.some((record) => record.id === A_ID), 'the next guest lists A\'s scenario ID').toBe(false)
+    expect.soft(records.some((record) => record.graph.nodes.some((node) => node.id === 'a-n')), 'the next guest lists A\'s node ID').toBe(false)
+    const pointer = nextGuest.scenarios.getCurrentScenarioId()
+    expect.soft(pointer, 'the next guest\'s current pointer is A').not.toBe(A_ID)
+
+    // Drive the same storage readers as resolveBootLoadSource: pointer record and autosave.
+    // Both possible sources must exclude A by identity; the store's boot seed must exclude A too.
+    const pointerRecord = pointer ? nextGuest.scenarios.getScenario(pointer) : undefined
+    const bootAutosave = nextGuest.scenarios.loadAutosave()
+    expect.soft(pointerRecord?.id ?? null, 'the pointer boot source loads A').not.toBe(A_ID)
+    expect.soft(pointerRecord?.graph.nodes.some((node) => node.id === 'a-n') ?? false, 'the pointer boot source loads A\'s node').toBe(false)
+    expect.soft(bootAutosave?.scenarioId ?? null, 'the autosave boot source loads A').not.toBe(A_ID)
+    expect.soft(bootAutosave?.nodes.some((node) => node.id === 'a-n') ?? false, 'the autosave boot source loads A\'s node').toBe(false)
+    expect.soft(nextGuest.store.getState().currentScenarioId, 'the fresh store boots with A\'s identity').not.toBe(A_ID)
+    expect.soft(bootAutosave?.scenarioId, 'the CURRENT owner\'s autosave must still boot').toBe(B_ID)
+  })
+
+  it('⭐ THIN Save unchanged: the real store Save remains available under another tab\'s rotated epoch', async () => {
+    localStorage.setItem(EPOCH_KEY, 'epoch-A')
+    localStorage.setItem('sb-testproject-auth-token', '{"access_token":"t","user":{"id":"u"}}')
+    const thinTab = await bootTab()
+    thinTab.store.setState({
+      currentScenarioId: A_ID,
+      nodes: [{ id: 'a-n', type: 'decision', position: { x: 1, y: 1 }, data: { label: 'A private' } }],
+      edges: [],
+      isDirty: true,
+    })
+    anotherTabRotatesEpoch('epoch-B')
+
+    expect(thinTab.store.getState().saveCurrentScenario('A thin'), 'the guest fence blocked the signed-in Save').toBe(A_ID)
+    expect(thinTab.store.getState().isDirty).toBe(false)
+    const records = JSON.parse(localStorage.getItem('olumi-canvas-scenarios') ?? '[]')
+    expect(records.find((record: { id: string }) => record.id === A_ID)?.graph.nodes, 'thin Save persisted model nodes').toEqual([])
+    expect(localStorage.getItem(SLOT), 'thin Save persisted an autosave model').toBeNull()
+  })
+
+  it.each(['saveScenarios', 'setCurrentScenarioId', 'clearAutosave', 'clearCurrentScenarioId', 'deleteScenario'] as const)(
+    'shared writer %s: a stale guest cannot replace or remove the CURRENT owner\'s persisted records',
+    async (writer) => {
+      localStorage.setItem(EPOCH_KEY, 'epoch-A')
+      const staleGuest = await bootTab()
+      anotherTabRotatesEpoch('epoch-B')
+      const currentGuest = await bootTab()
+      const currentRecord = currentGuest.scenarios.createScenario({
+        id: B_ID,
+        name: 'CURRENT owner',
+        nodes: [{ id: 'b-n', type: 'decision', position: { x: 1, y: 1 }, data: { label: 'CURRENT owner' } }],
+        edges: [],
+      })
+      expect(currentGuest.scenarios.saveAutosave(graph(B_ID, 'b'))).toBe(true)
+      const currentList = localStorage.getItem('olumi-canvas-scenarios')
+      const currentAutosave = localStorage.getItem(SLOT)
+      const keyedSlot = currentGuest.scenarios.keyedAutosaveKey(B_ID)
+      localStorage.setItem(keyedSlot, currentAutosave!)
+
+      if (writer === 'saveScenarios') {
+        staleGuest.scenarios.saveScenarios([{
+          ...currentRecord,
+          id: A_ID,
+          graph: { nodes: [{ id: 'a-n', type: 'decision', position: { x: 1, y: 1 }, data: { label: 'A private' } }], edges: [] },
+        }])
+      } else if (writer === 'setCurrentScenarioId') {
+        staleGuest.scenarios.setCurrentScenarioId(A_ID)
+      } else if (writer === 'clearAutosave') {
+        staleGuest.scenarios.clearAutosave()
+      } else if (writer === 'clearCurrentScenarioId') {
+        staleGuest.scenarios.clearCurrentScenarioId()
+      } else {
+        staleGuest.scenarios.deleteScenario(B_ID)
+      }
+
+      expect.soft(localStorage.getItem('olumi-canvas-scenarios'), `${writer} changed the CURRENT owner's list`).toBe(currentList)
+      expect.soft(localStorage.getItem('olumi-canvas-current-scenario-id'), `${writer} changed the CURRENT owner's pointer`).toBe(B_ID)
+      expect.soft(localStorage.getItem(SLOT), `${writer} cleared the CURRENT owner's autosave`).toBe(currentAutosave)
+      expect.soft(localStorage.getItem(keyedSlot), `${writer} cleared the CURRENT owner's keyed autosave`).toBe(currentAutosave)
+    },
+  )
+
+  it('existing-record Save: a stale guest cannot update the CURRENT owner\'s saved graph or clear its autosave', async () => {
+    localStorage.setItem(EPOCH_KEY, 'epoch-A')
+    const staleGuest = await bootTab()
+    staleGuest.store.setState({
+      // This ID already has a record when Save runs, exercising updateScenario rather than createScenario.
+      currentScenarioId: B_ID,
+      nodes: [{ id: 'a-n', type: 'decision', position: { x: 1, y: 1 }, data: { label: 'A private' } }],
+      edges: [],
+      isDirty: true,
+    })
+    anotherTabRotatesEpoch('epoch-B')
+    const currentGuest = await bootTab()
+    currentGuest.scenarios.createScenario({
+      id: B_ID,
+      name: 'CURRENT owner',
+      nodes: [{ id: 'b-n', type: 'decision', position: { x: 1, y: 1 }, data: { label: 'CURRENT owner' } }],
+      edges: [],
+    })
+    expect(currentGuest.scenarios.saveAutosave(graph(B_ID, 'b'))).toBe(true)
+    const currentList = localStorage.getItem('olumi-canvas-scenarios')
+    const currentAutosave = localStorage.getItem(SLOT)
+
+    expect.soft(staleGuest.store.getState().saveCurrentScenario('A private')).toBeNull()
+    expect.soft(staleGuest.store.getState().isDirty).toBe(true)
+    expect.soft(staleGuest.store.getState().isSaving).toBe(false)
+    expect.soft(localStorage.getItem('olumi-canvas-scenarios'), 'existing-record Save overwrote the CURRENT owner\'s graph').toBe(currentList)
+    expect.soft(localStorage.getItem(SLOT), 'existing-record Save cleared the CURRENT owner\'s autosave').toBe(currentAutosave)
+  })
+
+  it('unreadable Save: the real store returns null, keeps dirty work, and says storage refused the read', async () => {
+    const tab = await bootTab()
+    tab.store.setState({
+      currentScenarioId: A_ID,
+      nodes: [{ id: 'a-n', type: 'decision', position: { x: 1, y: 1 }, data: { label: 'A private' } }],
+      edges: [],
+      isDirty: true,
+    })
+    const messages: string[] = []
+    const listener = (event: Event) => {
+      messages.push((event as CustomEvent).detail?.message)
+      event.preventDefault()
+    }
+    window.addEventListener('topbar:show-toast', listener)
+    const realGet = Storage.prototype.getItem
+    const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key: string) {
+      if (key === EPOCH_KEY) throw new DOMException('Read refused', 'SecurityError')
+      return realGet.call(this, key)
+    })
+    try {
+      expect.soft(tab.store.getState().saveCurrentScenario('A private')).toBeNull()
+      expect.soft(tab.store.getState().isDirty).toBe(true)
+      expect.soft(tab.store.getState().isSaving).toBe(false)
+      expect.soft(messages).toEqual(['This browser is not letting Olumi save right now, so this change was not saved.'])
+      expect.soft(localStorage.getItem('olumi-canvas-scenarios')).toBeNull()
+      expect.soft(localStorage.getItem('olumi-canvas-current-scenario-id')).toBeNull()
+    } finally {
+      spy.mockRestore()
+      window.removeEventListener('topbar:show-toast', listener)
+    }
   })
 
   it('⭐ THIN UNCHANGED: a signed-in (thin) page under a rotated epoch still writes its layout and reports it, never the model', async () => {

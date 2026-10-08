@@ -219,6 +219,7 @@ export function loadScenarios(): Scenario[] {
  * Save scenarios to localStorage, pruning to MAX_SCENARIOS
  */
 export function saveScenarios(scenarios: Scenario[]): void {
+  if (getIdentityWriteBlockReason() !== null) return
   if (!isLocalStorageAvailable()) {
     return
   }
@@ -282,6 +283,7 @@ export function getCurrentScenarioId(): string | null {
  * Set current scenario ID
  */
 export function setCurrentScenarioId(id: string): void {
+  if (getIdentityWriteBlockReason() !== null) return
   if (!isLocalStorageAvailable()) {
     return
   }
@@ -297,6 +299,7 @@ export function setCurrentScenarioId(id: string): void {
  * Clear current scenario ID (when starting fresh or creating new draft)
  */
 export function clearCurrentScenarioId(): void {
+  if (getIdentityWriteBlockReason() !== null) return
   if (!isLocalStorageAvailable()) {
     return
   }
@@ -477,6 +480,9 @@ export function duplicateScenario(id: string, newName?: string): Scenario | null
  * pointing elsewhere by the time a delete arrives.
  */
 export function deleteScenario(id: string): void {
+  // This operation also removes the pointer and keyed autosave directly. A stale guest cannot delete the current
+  // owner's records or recovery slots. Auth's explicit purge uses clearAllScenarioStorage instead.
+  if (getIdentityWriteBlockReason() !== null) return
   const scenarios = loadScenarios().filter(s => s.id !== id)
   saveScenarios(scenarios)
 
@@ -800,16 +806,56 @@ export function adoptIdentityEpochAtSignIn(): void {
  * write proceeds unstamped exactly as before CAN-F2w; only a wholesale storage wipe reaches that state after a
  * boundary, and it takes the session with it.
  */
-export function epochThisTabMayWriteUnder(): { epoch: string | null } | null {
+export type IdentityWriteBlockReason = 'unreadable' | 'stale'
+
+/** Preserve the reason without changing the null-compatible epoch API used by persistence writers. */
+function identityWritePermission(): { epoch: string | null } | { reason: 'unreadable' } | { reason: 'stale'; epoch: string } {
   const shared = readIdentityEpoch()
-  if (shared === undefined) return null
-  if (shared !== null && shared !== tabIdentityEpoch) return null
+  if (shared === undefined) return { reason: 'unreadable' }
+  if (shared !== null && shared !== tabIdentityEpoch) return { reason: 'stale', epoch: shared }
   return { epoch: shared }
+}
+
+export function epochThisTabMayWriteUnder(): { epoch: string | null } | null {
+  const permission = identityWritePermission()
+  return 'reason' in permission ? null : permission
+}
+
+/** One fence for local scenario writers and their UI actions. Thin pages keep their existing metadata/layout path. */
+export function getIdentityWriteBlockReason(): IdentityWriteBlockReason | null {
+  if (isThinClientSession()) return null
+  const permission = identityWritePermission()
+  return 'reason' in permission ? permission.reason : null
+}
+
+export function identityWriteBlockedMessage(reason: IdentityWriteBlockReason): string {
+  return reason === 'unreadable'
+    ? 'This browser is not letting Olumi save right now, so this change was not saved.'
+    : 'Someone signed in or out in another tab, so this tab can no longer save. Changes made here since then were not saved, and reloading will discard them. Reload this tab to carry on.'
+}
+
+/** The same toast bridge used by store actions; autosave owns a tab-lifetime notice key, not a hook-lifetime ref. */
+export function showIdentityWriteBlockedToast(reason: IdentityWriteBlockReason): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('topbar:show-toast', {
+    detail: { message: identityWriteBlockedMessage(reason), level: 'error' },
+  }))
+}
+
+let autosaveNotifiedFenceEra: string | null = null
+function showAutosaveFenceToast(reason: IdentityWriteBlockReason, epoch?: string): void {
+  // Use the permission decision's epoch. A second read could give an intermittent refusal a new notice key even
+  // though no boundary happened. Unreadable stays one fenced era until a permitted autosave resets the key.
+  const era = JSON.stringify([reason, epoch])
+  if (autosaveNotifiedFenceEra === era) return
+  autosaveNotifiedFenceEra = era
+  showIdentityWriteBlockedToast(reason)
 }
 
 /** Returns whether the slot now holds this write (an identical payload already does). `false` = nothing was written. */
 export function saveAutosave(data: AutosaveData): boolean {
   if (!isLocalStorageAvailable()) {
+    if (!isThinClientSession()) showAutosaveFenceToast('unreadable')
     return false
   }
 
@@ -824,13 +870,14 @@ export function saveAutosave(data: AutosaveData): boolean {
   // CAN-F2w: every write is stamped with the current identity epoch. CAN-F2g: and only by a tab that holds it.
   // On staging the thin latch already covers a page that was ever signed in; this fences the GUEST page that never
   // was (another tab signed in and out under it), which would otherwise save the previous person's model for the next.
-  const may = epochThisTabMayWriteUnder()
-  if (may === null) {
+  const may = identityWritePermission()
+  if ('reason' in may) {
     // Unreadable, or another tab changed the identity under this one: whose model this is cannot be vouched for, so
     // skip it (never stamp a guess). A reload boots this tab as the new identity.
-    console.warn('[scenarios] Autosave skipped: the identity epoch is unreadable or was changed by another tab (CAN-F2w/F2g)')
+    showAutosaveFenceToast(may.reason, may.reason === 'stale' ? may.epoch : undefined)
     return false
   }
+  autosaveNotifiedFenceEra = null
   const epoch = may.epoch
   const stamped: AutosaveData = epoch === null ? data : { ...data, identityEpoch: epoch }
   try {
@@ -913,6 +960,7 @@ export function loadAutosave(): AutosaveData | null {
 }
 
 export function clearAutosave(): void {
+  if (getIdentityWriteBlockReason() !== null) return
   if (!isLocalStorageAvailable()) {
     return
   }

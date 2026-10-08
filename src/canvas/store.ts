@@ -4835,6 +4835,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   saveSnapshot: () => {
+    const blocked = scenarios.getIdentityWriteBlockReason()
+    if (blocked !== null) {
+      scenarios.showIdentityWriteBlockedToast(blocked)
+      return false
+    }
     const { nodes, edges } = get()
     return persistSnapshot({ nodes, edges })
   },
@@ -6789,6 +6794,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   saveCurrentScenario: (name?: string) => {
+    const blocked = scenarios.getIdentityWriteBlockReason()
+    if (blocked !== null) {
+      scenarios.showIdentityWriteBlockedToast(blocked)
+      return null
+    }
     const {
       nodes,
       edges,
