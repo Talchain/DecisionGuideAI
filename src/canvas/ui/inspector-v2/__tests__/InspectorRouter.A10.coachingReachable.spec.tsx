@@ -116,9 +116,13 @@ describe('the risk panel — writers stay fenced, everything else does not', () 
     fireEvent.click(screen.getByTestId('inspector-more-toggle'))
     // No writer, so no writer fence to name…
     expect(document.querySelector('fieldset[data-writer-fence="probability-impact"]')).toBeNull()
-    // …and the pane's own truth still says what does not save.
+    // …and the pane's own truth names the read-only fields, without denying
+    // the separately authorised connection picker.
     expect(screen.getByTestId('inspector-authority-notice')).toHaveTextContent(
-      'not yet saved to the shared model',
+      'Likelihood and impact fields here are read-only',
+    )
+    expect(screen.getByTestId('inspector-authority-notice')).toHaveTextContent(
+      'ask Olumi to record changes in the chat instead',
     )
   })
 

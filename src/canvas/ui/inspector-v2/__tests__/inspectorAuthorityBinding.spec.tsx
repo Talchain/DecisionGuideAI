@@ -199,11 +199,11 @@ const OPTION_SAVING_FIXTURE = [
       interventions: { 'set-factor': { value: 0.4, source: 'user_specified' } },
     },
   },
-  ...['set-factor', 'unset-factor'].map(id => ({
+  ...['set-factor', 'unset-factor', 'spare-factor'].map(id => ({
     id, type: 'factor', position: { x: 0, y: 0 },
     data: {
       kind: 'factor', category: 'controllable',
-      label: id === 'set-factor' ? 'Existing budget' : 'New budget',
+      label: id === 'set-factor' ? 'Existing budget' : id === 'unset-factor' ? 'New budget' : 'Spare budget',
       observedState: { value: 0.2, raw_value: 20, unit: '£', cap: 100 },
     },
   })),
@@ -763,7 +763,8 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
 /**
  * Option target boxes have the existing `option_intervention_edit` carrier,
  * including a linked factor whose target is not set yet. They belong outside
- * disabled fieldsets; the option's other writer fences remain its own duty.
+ * disabled fieldsets. The factor picker uses the canvas structural-add carrier
+ * and also belongs outside; description and advanced-editor fences remain.
  * Keep this separate from the generic escape helpers, whose precondition is a
  * Router blanket boundary that an authority-owning option panel does not have.
  */
@@ -790,7 +791,7 @@ describe('Inspector authority binding — option saving controls', () => {
     }
   })
 
-  it('keeps description, factor inventory and advanced editor fences disabled', () => {
+  it('keeps description and advanced editor disabled while the structural picker is enabled', () => {
     const { container } = render(
       <InspectorRouter nodeId="saving-option" edgeId={null} onClose={vi.fn()} />,
     )
@@ -798,19 +799,19 @@ describe('Inspector authority binding — option saving controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show technical detail' }))
     fireEvent.click(screen.getByRole('button', { name: 'Show model detail' }))
 
-    const explore = screen.getByTestId('option-explore-factors')
-    expect(explore).not.toBeDisabled()
-    fireEvent.click(explore)
+    const picker = screen.getByRole('combobox', { name: 'Choose a factor it changes' })
+    expect(picker).not.toBeDisabled()
+    expect(picker.closest('fieldset[disabled]')).toBeNull()
+    const offered = within(picker).getAllByRole('option')
+      .map(option => (option as HTMLOptionElement).value).filter(Boolean)
+    expect(offered).toEqual(['spare-factor'])
+    expect(offered).not.toContain('set-factor')
+    expect(offered).not.toContain('unset-factor')
 
     const fences = [...container.querySelectorAll<HTMLFieldSetElement>('fieldset[data-writer-fence]')]
     expect(fences.map(fence => fence.getAttribute('data-writer-fence')).sort())
-      .toEqual(['add-factor', 'advanced-editor', 'description'])
+      .toEqual(['advanced-editor', 'description'])
     for (const fence of fences) expect(fence).toBeDisabled()
-
-    const inventory = container.querySelector<HTMLFieldSetElement>('fieldset[data-writer-fence="add-factor"]')!
-    const inventoryButtons = within(inventory).getAllByRole('button')
-    expect(inventoryButtons).toHaveLength(2)
-    for (const button of inventoryButtons) expect(button).toBeDisabled()
 
     const advanced = container.querySelector<HTMLFieldSetElement>('fieldset[data-writer-fence="advanced-editor"]')!
     expect(within(advanced).getByDisplayValue('Expansion within our budget.')).toBeDisabled()

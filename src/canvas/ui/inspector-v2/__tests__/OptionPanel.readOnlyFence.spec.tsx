@@ -7,8 +7,9 @@
  * controls which write nothing at all — the factor-navigation button on each
  * intervention row, each connection row, and the coaching card — so a reader who
  * opened a node to understand it could not follow the model from the panel built
- * to explain it. The "Add a change" trigger was inert too, so the factor list
- * could not even be OPENED: the affordance was dead twice over.
+ * to explain it. The factor inventory was inert too. EDIT-UX 3b-ii replaces
+ * that inventory with a picker using the canvas's existing structural-add
+ * carrier; it adds a link and leaves target values to their existing writer.
  *
  * ── WHY THE PANEL MAY BE LET OUT, AND WHAT IT OWES ───────────────────────────
  * The Router already makes this argument once, for the header rename: a blanket
@@ -21,16 +22,16 @@
  *
  * ── THE PAIR, AND WHY IT MUST BE A PAIR ──────────────────────────────────────
  * Each half alone is satisfiable by doing nothing useful:
- *   · "every writer is disabled"     — passes if the panel disables EVERYTHING,
- *                                      which is the defect it replaced.
- *   · "every non-writer is enabled"  — passes if the panel disables NOTHING,
- *                                      which grants it the authority it must
- *                                      never take.
+ *   · "every local writer is disabled" — passes if the panel disables EVERYTHING,
+ *                                        which is the defect it replaced.
+ *   · "carrier-backed edits and non-writers are enabled" — passes if the panel
+ *                                        disables NOTHING, granting authority
+ *                                        to local-only writers as well.
  * Only both together describe the boundary. Trap 22b: one predicate guarding two
  * opposite harms needs both directions asserted, or the suite applauds a trade.
  *
  * ── THE WRITER SET IS DERIVED FROM THE TREE, NOT FROM ONE FILE ───────────────
- * ⚠ Two of the five writers live in `OptionAdvancedEditor`
+ * ⚠ Two writers live in `OptionAdvancedEditor`
  * (`setIntervention` :66, `setDescription` :90), mounted through
  * `TechnicalDisclosure`. My first audit enumerated the `mutations.*` calls
  * spelled in `OptionPanel.tsx` and reported it as "every control in
@@ -56,12 +57,18 @@ vi.mock('@xyflow/react', async importOriginal => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useViewport: () => ({ x: 0, y: 0, zoom: 1 }),
 }))
+vi.mock('../../../conversation/drawnLinkProposal', async importOriginal => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  proposeForDrawnLink: vi.fn(() => 'sent'),
+}))
 
 const NODE_INSPECTOR = 'div[role="dialog"][aria-label="Node inspector"]'
 const FACTOR_ID = 'fac_price'
 const FACTOR_LABEL = 'Pro plan price'
 const SPARE_FACTOR_ID = 'fac_headcount'
 const SPARE_FACTOR_LABEL = 'Engineering headcount'
+const LINKED_FACTOR_ID = 'fac_training'
+const LINKED_FACTOR_LABEL = 'Training budget'
 const RISK_ID = 'risk_churn'
 const OPTION_ID = 'opt-raise'
 const OPTION_B_ID = 'opt-hold'
@@ -87,6 +94,7 @@ function seed() {
     nodes: [
       factorNode(FACTOR_ID, FACTOR_LABEL),
       factorNode(SPARE_FACTOR_ID, SPARE_FACTOR_LABEL),
+      factorNode(LINKED_FACTOR_ID, LINKED_FACTOR_LABEL),
       // ⚠ THE CONTRAST BELOW USED A CONTROLLABLE FACTOR, THEN A RISK, AND CAN BE
       // NEITHER NOW. `factor-controllable` joined `AUTHORITY_OWNING_PANELS`
       // first (its value has a durable carrier); `risk` joined it later (A10,
@@ -126,7 +134,7 @@ function seed() {
         },
       },
     ] as never[],
-    edges: [],
+    edges: [{ id: 'option-training', source: OPTION_ID, target: LINKED_FACTOR_ID, data: {} }],
     results: { status: 'idle' },
     selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: { x: 0, y: 0 } },
     goalThreshold: null,
@@ -191,18 +199,14 @@ describe('the option panel owns its authority boundary', () => {
   })
 })
 
-describe('every writer is fenced, and every non-writer is not', () => {
+describe('local writers are fenced, and carrier-backed edits and navigation are enabled', () => {
   beforeEach(seed)
 
-  it('disables EVERY writer fence the panel declares', () => {
+  it('disables EVERY remaining local writer fence the panel declares', () => {
     const { container } = openOption()
     showTechnicalDetail() // mounts OptionAdvancedEditor, which holds two writers
-    // ⚠⚠ AND THE FACTOR LIST MUST BE OPENED, WHICH MY FIRST VERSION MISSED.
-    // The `add-factor` fence lives inside `{showDropdown && …}` and the dropdown
-    // is closed at mount, so the sweep saw two fences and my `>= 3` precondition
-    // — written to PREVENT a vacuous sweep — was itself asserting a fence that
-    // could not be in the DOM. Caught in review.
-    fireEvent.click(screen.getByTestId('option-explore-factors'))
+    // The structural picker has the canvas carrier and owns no local writer.
+    // Description and the advanced editor retain their existing fences.
     const fences = [...container.querySelectorAll('fieldset[data-writer-fence]')]
 
     // PRECONDITION PINNED IN-TEST: a sweep over zero fences agrees with every
@@ -210,7 +214,7 @@ describe('every writer is fenced, and every non-writer is not', () => {
     // renamed or unmounted fence fails HERE with its own name rather than
     // shifting a number nobody reads.
     const names = fences.map(f => f.getAttribute('data-writer-fence')).sort()
-    expect(names).toEqual(['add-factor', 'advanced-editor', 'description'])
+    expect(names).toEqual(['advanced-editor', 'description'])
 
     for (const fence of fences) {
       expect(
@@ -241,25 +245,29 @@ describe('every writer is fenced, and every non-writer is not', () => {
     ).toBe(false)
   })
 
-  it('keeps the factor list OPENABLE, and its trigger says what it does', () => {
+  it('keeps the carrier-backed factor picker enabled and outside disabled fieldsets', () => {
     openOption()
-    // ⭐ "Add a change" promised an action this route cannot perform, and it was
-    // inert as well — so the list could not be opened to see what it offered.
-    const trigger = screen.getByTestId('option-explore-factors')
-    expect((trigger as HTMLButtonElement).disabled, 'the trigger is still inert').toBe(false)
-    expect(trigger).toHaveTextContent('Explore other factors')
-    expect(trigger.textContent).not.toContain('Add a change')
-
-    fireEvent.click(trigger)
-    // The inventory is the part worth keeping: a reader who cannot edit still
-    // learns which factors this option could act on.
-    expect(screen.getByText(SPARE_FACTOR_LABEL)).toBeInTheDocument()
+    const picker = screen.getByRole('combobox', { name: 'Choose a factor it changes' })
+    expect(picker).toBeEnabled()
+    expect(picker.closest('fieldset[disabled]')).toBeNull()
+    const offered = within(picker).getAllByRole('option')
+      .map(option => (option as HTMLOptionElement).value).filter(Boolean)
+    expect(offered).toEqual([SPARE_FACTOR_ID])
+    expect(within(picker).getByRole('option', { name: new RegExp(SPARE_FACTOR_LABEL) })).toBeInTheDocument()
+    expect(offered).not.toContain(FACTOR_ID)
+    expect(offered).not.toContain(LINKED_FACTOR_ID)
   })
 
-  it('explains the edit route ONCE, never per row', () => {
+  it('selection creates only the link and does not seed a local intervention value', () => {
     openOption()
-    fireEvent.click(screen.getByTestId('option-explore-factors'))
-    expect(screen.getAllByTestId('option-explore-factors-route')).toHaveLength(1)
+    const before = useCanvasStore.getState().nodes.find(node => node.id === OPTION_ID)?.data.interventions
+    fireEvent.change(screen.getByRole('combobox', { name: 'Choose a factor it changes' }), {
+      target: { value: SPARE_FACTOR_ID },
+    })
+    expect(useCanvasStore.getState().edges.filter(edge => edge.source === OPTION_ID && edge.target === SPARE_FACTOR_ID))
+      .toHaveLength(1)
+    expect(useCanvasStore.getState().nodes.find(node => node.id === OPTION_ID)?.data.interventions).toEqual(before)
+    expect(useCanvasStore.getState().nodes.find(node => node.id === OPTION_ID)?.data.description).toBe(DESC_A)
   })
 })
 

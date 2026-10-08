@@ -24,6 +24,7 @@ import { PanelGroup } from '../shared/PanelGroup'
 import { InspectorSummary } from '../shared/InspectorSummary'
 import { InspectorMoreItems } from '../shared/InspectorMore'
 import { DriversList, type DriverItem } from '../shared/DriversList'
+import { InspectorConnectPicker } from '../shared/InspectorConnectPicker'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { DataBar } from '../../shared/DataBar'
@@ -204,7 +205,7 @@ function OptionComparisonSection({
  * pattern). The notice below stays true only because that fence exists.
  */
 export const INSPECTOR_OUTCOME_REASON =
-  `Renaming ${RENAME_AUTHORITY_CLAUSE}. This pane is read-first — nothing else here is sent to the shared model.`
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. Description and technical fields here are read-only for now.`
 
 export const OutcomePanel = memo(function OutcomePanel({
   nodeId,
@@ -298,6 +299,7 @@ export const OutcomePanel = memo(function OutcomePanel({
         {inboundFactors.length === 0 && (
           <p className={`${typography.panelMeta} text-text-light`}>{EMPTY_STATES.noInboundConnections}</p>
         )}
+        <InspectorConnectPicker nodeId={nodeId} />
         <InspectorCoaching
           elementId={nodeId}
           panelType="outcome"

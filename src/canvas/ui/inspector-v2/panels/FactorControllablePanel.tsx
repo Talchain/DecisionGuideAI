@@ -33,6 +33,7 @@ import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
 import { ImportanceBar } from '../shared/ImportanceBar'
 import { ConnectionRow } from '../shared/ConnectionRow'
+import { InspectorConnectPicker } from '../shared/InspectorConnectPicker'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { FactorTurningPointInspectorLine } from '../shared/FactorTurningPointInspectorLine'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
@@ -975,6 +976,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         {setByOptions.length === 0 && influences.length === 0 && !hasAnyConnection && (
           <p className={`${typography.panelMeta} text-text-light`}>{EMPTY_STATES.noConnectionsFlat}</p>
         )}
+        <InspectorConnectPicker nodeId={nodeId} />
       </PanelGroup>
 
       <InspectorMoreItems>
