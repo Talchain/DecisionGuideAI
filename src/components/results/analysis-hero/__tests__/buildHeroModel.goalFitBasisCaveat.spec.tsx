@@ -76,7 +76,8 @@ describe('AnalysisHeroPanel — goal_fit_basis caveat render', () => {
   it('renders the caveat inside the opened option detail when flagged', () => {
     const a = makeOption({ ...OPTION_A, goalFitIsModelledBasis: true })
     const b = makeOption({ ...OPTION_B, goalFitIsModelledBasis: false })
-    const model = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    // C-AVAIL: this render fixture also needs the licensed report that supplies its displayed figure.
+    const model = chart(buildHeroModel(licensed(makeHeroData({ options: [a, b] }))))
     render(
       <AnalysisHeroPanel
         model={model}

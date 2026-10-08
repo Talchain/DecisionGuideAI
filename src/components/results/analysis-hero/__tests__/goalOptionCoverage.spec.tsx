@@ -87,14 +87,21 @@ function baseMarkup(row: 'no-figures' | 'points' | 'unresolved') {
   return { 'no-figures': noFiguresMarkup, points: pointsMarkup, unresolved: unresolvedMarkup }[row]
 }
 
-// Re-pin only authorised goal cells/availability; preserve every other byte in the points control.
+// C-CELL: authorize the full cell's wrapping readout column (DL r6-4); preserve every other markup byte.
 function pointsMarkupWithCells(data: ReturnType<typeof fromTurn>) {
   const template = document.createElement('template')
   template.innerHTML = baseMarkup('points')
   const model = buildHeroModel(data)
   if (model.kind !== 'chart') throw new Error('Expected chart')
   for (const row of model.rows) {
-    template.content.querySelector(`[data-testid="hero-option-row-${row.index}"] .text-right > span`)!.textContent = chanceCellOf(data, row.id).text
+    const readout = template.content.querySelector(`[data-testid="hero-option-row-${row.index}"] .text-right > span`)!
+    readout.textContent = chanceCellOf(data, row.id).text
+    readout.parentElement!.classList.replace('whitespace-nowrap', 'min-w-0')
+    readout.parentElement!.classList.add('break-words', 'whitespace-normal')
+    // Retain class order for the byte-level control.
+    readout.parentElement!.className = readout.parentElement!.className.replace('min-w-0 text-right text-text-light break-words whitespace-normal', 'min-w-0 break-words whitespace-normal text-right text-text-light')
+    const button = readout.closest('button')!
+    button.className = button.className.replace('grid-cols-[1.5rem_minmax(0,1fr)_auto_0.875rem]', 'grid-cols-[1.5rem_minmax(0,1fr)_minmax(0,1fr)_0.875rem]')
   }
   return template.innerHTML
 }
@@ -136,7 +143,7 @@ describe('S4-UI: every option has a labelled goal figure or its own withholding 
     expect(lines('goal-option-withheld-line')).toEqual([])
   })
 
-  it('all-points control: only shared goal cell text changes; every other markup byte remains identical', () => {
+  it('all-points control: shared goal cell text and wrapping column change; every other markup byte remains identical', () => {
     const data = pointControl()
     const { container } = mount(data)
     expect(container.innerHTML).toBe(pointsMarkupWithCells(data))

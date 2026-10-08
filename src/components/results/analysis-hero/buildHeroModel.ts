@@ -57,10 +57,10 @@ import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 // (`allGoalBelowFloor`). That gate is a semantic threshold about the raw
 // values — "is any option meaningfully on track" — not a display rule, so it
 // keeps reading the constant even though the readouts now resolve finer.
-import { SUB_ONE_PERCENT_FLOOR, formatGoalProbability } from '../utils/displayFloors'
+import { SUB_ONE_PERCENT_FLOOR } from '../utils/displayFloors'
 import { selectGoalLeader } from '../utils/selectGoalLeader'
 import { goalChanceDisclosureLines, goalChanceDriverLines, goalChanceHeadline } from './goalChanceCopy'
-import { licensedOptionChanceLines } from '../../../canvas/runView/runView'
+import { licensedOptionChanceLines, runViewOptionChanceLines } from '../../../canvas/runView/runView'
 import { goalChanceHeroSays } from '../utils/goalChanceLicence'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
 import type { FlipRiskRef } from '../../../canvas/highlighting/resolveAnalysisTargets'
@@ -190,12 +190,6 @@ const OUTCOME_CLOSE_RATIO = 0.15
  * when EVERY goal readout would render "< 1%", claiming any option "best
  * fits your goal" would be false.
  */
-/** Existing numeric headline wording only; per-option goal text is supplied by RunView cells. */
-function leaderGoalReadout(value: number | null, nSamples?: number | null): string {
-  if (value == null) return HERO_COPY.readout.missing
-  return formatGoalProbability(value, nSamples)
-}
-
 // formatFlipValue moved VERBATIM to `../utils/flipThresholdDisplay` (ROADMAP
 // 2.291) so the V7 signal chip renders the same producer rows through the
 // same formatter — "one threshold must never render two ways in one panel"
@@ -422,7 +416,7 @@ export function buildHeroModel(
     // bypass the gate anywhere.
     // ⛔ Science S3 (DL #87 7 Oct): an option CEE shows as a RANGE never gets a point anywhere on screen.
     const cell = optionChanceCellFromResults(data, o.id)
-    const goalValue = hasUserTarget && !data.goalChanceRange?.optionIds.includes(o.id) && cell.kind !== 'range' && cell.kind !== 'withheld' ? (o.goalProbability ?? null) : null
+    const goalValue = hasUserTarget && !data.goalChanceRange?.optionIds.includes(o.id) && cell.kind === 'figure' ? (o.goalProbability ?? null) : null
     const centre = outcomeIsUnitless ? null : outcomeCentre(o)
     const p10 = outcomeIsUnitless ? null : outcomeP10(o)
     const p90 = outcomeIsUnitless ? null : outcomeP90(o)
@@ -780,8 +774,24 @@ export function buildHeroModel(
   const goalChanceLicence = goalChanceHeroSays(goalThreshold, options, data.goalChanceLicence ?? null) ? (data.goalChanceLicence ?? null) : null
   const rowLabelById = new Map(rows.map((r) => [r.id, safeLabel(r)] as const))
   const goalChanceLabelOf = (id: string): string | null => rowLabelById.get(id) ?? null
+  const cellWordsOf = (id: string): string | null => {
+    const cell = optionChanceCellFromResults(data, id)
+    if (cell.kind !== 'figure') return null
+    const label = options.find(o => o.id === id)?.label
+    const prefix = label === undefined ? '' : `‘${stripEncodingNotation(label)}’: `
+    const figure = prefix !== '' && cell.text.startsWith(prefix) ? cell.text.slice(prefix.length) : cell.text
+    return figure.match(/^(?:less than |more than |about |[<>])?\d+(?:\.\d+)?\s*%/)?.[0] ?? null
+  }
+  const copyLicence = goalChanceLicence !== null && data.runView
+    ? { ...goalChanceLicence, driverByOption: Object.fromEntries(goalChanceLicence.optionIds.flatMap(id => {
+      const driver = data.runView!.mainDriverOf(id)
+      return driver === null ? [] : [[id, driver]]
+    })) }
+    : goalChanceLicence
+  const summaryLicence = copyLicence !== null && copyLicence.optionIds.some(id => cellWordsOf(id) === null)
+    ? { ...copyLicence, form: 'each' as const } : copyLicence
   const goalChanceHeadlineText =
-    goalChanceLicence === null || rows.length < 2 ? null : goalChanceHeadline(goalChanceLicence, goalChanceLabelOf)
+    summaryLicence === null || rows.length < 2 ? null : goalChanceHeadline(summaryLicence, goalChanceLabelOf, cellWordsOf)
 
   let headline: string
   if (rows.length === 1) {
@@ -791,8 +801,8 @@ export function buildHeroModel(
   } else if (allGoalBelowFloor) {
     // C-FALSE (DL ruling 8 Oct): goal-only figures never license joint words.
     headline = HERO_COPY.headline.noneOnTrack
-  } else if (goalLeaderRow) {
-    headline = HERO_COPY.headline.goalOnly(safeLabel(goalLeaderRow), leaderGoalReadout(goalLeaderRow.goal.value, options.find(o => o.id === goalLeaderRow.id)?.nValidSamples))
+  } else if (goalLeaderRow && cellWordsOf(goalLeaderRow.id) !== null) {
+    headline = HERO_COPY.headline.goalOnly(safeLabel(goalLeaderRow), cellWordsOf(goalLeaderRow.id)!.replace(/^about /, ''))
   } else if (headlineRow) {
     // No goal basis: the leader claim names the canonical analysis leader
     // (recommendedOption — proven to equal the Results Panel/producer
@@ -1103,13 +1113,15 @@ export function buildHeroModel(
   if (goalChanceHeadlineText !== null && goalChanceLicence !== null) {
     // ⭐ P3: what each option's chance rests on most (CEE's claim), worded with the canvas labels; it follows that
     // option's own line.
-    const highest = goalChanceLicence.form === 'highest' || goalChanceLicence.form === 'highest_all_likely_to_miss'
+    const highest = summaryLicence!.form === 'highest' || summaryLicence!.form === 'highest_all_likely_to_miss'
     const quotedAbove = highest
       ? [goalChanceLicence.leaderOptionId as string, goalChanceLicence.nextOptionId as string]
-      : goalChanceLicence.form === 'similar' ? goalChanceLicence.similarOptionIds : []
-    const driverLines = goalChanceDriverLines(goalChanceLicence, data.goalChanceDriverNames, highest ? [] : quotedAbove)
-    const lines = goalChanceLicence.form === 'each' || goalChanceLicence.form === 'similar' || highest
-      ? licensedOptionChanceLines(goalChanceLicence, goalChanceLabelOf, quotedAbove, driverLines, highest)
+      : summaryLicence!.form === 'similar' ? goalChanceLicence.similarOptionIds : []
+    const driverLines = goalChanceDriverLines(copyLicence, data.goalChanceDriverNames, highest ? [] : quotedAbove)
+    const lines = summaryLicence!.form === 'each' || summaryLicence!.form === 'similar' || highest
+      ? data.runView
+        ? runViewOptionChanceLines(data.runView, goalChanceLabelOf, id => optionChanceCellFromResults(data, id), quotedAbove, driverLines, highest)
+        : licensedOptionChanceLines(goalChanceLicence, goalChanceLabelOf, quotedAbove, driverLines, highest, id => optionChanceCellFromResults(data, id))
       : null
     subline = lines !== null && lines.length > 0 ? lines.join(' ') : HERO_COPY.subline.compareTop
     // ⭐ D3 cut 5 + cut 6: once, beside the chance lines — why no summary is stated (Olumi's own existence assumption), then

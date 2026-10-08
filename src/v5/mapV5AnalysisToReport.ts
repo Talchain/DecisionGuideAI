@@ -938,6 +938,8 @@ export interface MapV5AnalysisOptions {
    * probabilities) still produce a distinct hash and re-hydrate.
    */
   responseHash?: string
+  /** Producer run_state timestamp, carried verbatim for hash+time RunView matching. */
+  computedAt?: string | null
 }
 
 /**
@@ -952,7 +954,7 @@ export interface MapV5AnalysisOptions {
 export function mapV5AnalysisToReport(
   block: AnalysisResultBlock,
   options: MapV5AnalysisOptions = {},
-): ReportV1 {
+): ReportV1 & { meta: ReportV1['meta'] & { computed_at?: string } } {
   // Receipts fail closed: no real seed → null (Seed row hides), never 0.
   // NOTE: meta.seed does NOT feed the deriveBlockHash `v5:` digest — that
   // hashes summary/leading_option_id/win_probabilities/enrichment only —
@@ -1612,6 +1614,7 @@ export function mapV5AnalysisToReport(
       seed,
       response_id: responseHash,
       elapsed_ms: 0,
+      ...(options.computedAt ? { computed_at: options.computedAt } : {}),
     },
     model_card: {
       response_hash: responseHash,

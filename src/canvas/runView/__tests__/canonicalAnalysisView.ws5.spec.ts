@@ -31,15 +31,18 @@ describe('WS5 tolerant canonical READ boundary', () => {
     }
     expect(parse(wire())).toEqual(wire())
   })
-  it('hash fallback uses the report analysis graph hash when its run id is absent', async () => {
+  // C-CELL: hash alone cannot bind a READ cell to a Run (DL r6-3c).
+  it('hash fallback also requires the report producer timestamp when its run id is absent', async () => {
     const view = (await loadParser())(wire())
-    expect(buildRunView({ ...capturedReport, computed_against_hash: bodies.a_current.run.graph_hash_at_run }, view).chanceCellOf('raise_prices_10', ctx).text).toBe('about 47%')
+    expect(buildRunView({ ...capturedReport, meta: { computed_at: bodies.a_current.run.computed_at }, computed_against_hash: bodies.a_current.run.graph_hash_at_run }, view).chanceCellOf('raise_prices_10', ctx).text).toBe('about 47%')
     expect(buildRunView({ ...capturedReport, computed_against_hash: 'another' }, view).chanceCellOf('raise_prices_10', ctx).kind).toBe('none')
     expect(buildRunView(capturedReport, view).chanceCellOf('raise_prices_10', ctx).kind).toBe('none')
   })
+  // C-CELL: feed the producer timestamp through the report, preserving figure and identity assertions.
   it('the existing mapper preserves producer identity for canonical run matching', async () => {
-    const report = mapV5AnalysisToReport({ ...fx.analysis_block as object, computed_against_hash: bodies.a_current.run.graph_hash_at_run } as never)
+    const report = mapV5AnalysisToReport({ ...fx.analysis_block as object, computed_against_hash: bodies.a_current.run.graph_hash_at_run } as never, { computedAt: bodies.a_current.run.computed_at })
     const view = (await loadParser())(wire())
+    expect(report.meta.computed_at).toBe(bodies.a_current.run.computed_at)
     expect(buildRunView(report, view).chanceCellOf('raise_prices_10', ctx).text).toBe('about 47%')
   })
   it('none is authoritative; a missing option and stale:null fall through', async () => {

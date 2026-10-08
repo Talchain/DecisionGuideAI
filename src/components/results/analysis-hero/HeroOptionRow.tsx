@@ -87,7 +87,7 @@ export interface HeroOptionRowProps {
  * columns align.
  */
 export const HERO_ROW_GRID =
-  'grid w-full grid-cols-[1.5rem_minmax(0,1fr)_auto_0.875rem] items-center gap-x-2 gap-y-1 rounded-lg px-2 py-1.5 text-left'
+  'grid w-full grid-cols-[1.5rem_minmax(0,1fr)_minmax(0,1fr)_0.875rem] items-center gap-x-2 gap-y-1 rounded-lg px-2 py-1.5 text-left'
 
 /** The track's placement on the grid's second row (under label + readout). */
 export const HERO_ROW_TRACK_SPAN = 'col-start-2 col-span-3'
@@ -335,7 +335,7 @@ export function HeroOptionRow({
       </span>
 
       <span
-        className={`${typography.panelMeta} whitespace-nowrap text-right text-text-light`}
+        className={`${typography.panelMeta} min-w-0 break-words whitespace-normal text-right text-text-light`}
       >
         <span className={isLeader ? 'text-text-header' : 'text-text-body'}>{readout}</span>
       </span>

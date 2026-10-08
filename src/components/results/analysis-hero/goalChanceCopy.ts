@@ -56,9 +56,14 @@ const listOf = (items: readonly string[]): string =>
  * The headline for a licensed Run, or `null` when a label or the target cannot be said (the surface then keeps the
  * headline it had). `labelOf` returns the option's display label, or null.
  */
-function unlabelledGoalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionId: string) => string | null): string | null {
+function unlabelledGoalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionId: string) => string | null, wordsOf?: (id: string) => string | null): string | null {
   const target = goalChanceTargetWords(licence)
   if (target === null) return null
+  const figure = (id: string): string => wordsOf ? (wordsOf(id) ?? '') : about(licence.pctByOption[id])
+  const quoted = licence.form === 'highest' ? [licence.leaderOptionId!, licence.nextOptionId!]
+    : licence.form === 'highest_all_likely_to_miss' ? [licence.leaderOptionId!]
+    : licence.form === 'similar' ? licence.similarOptionIds : []
+  if (wordsOf && quoted.some(id => wordsOf(id) === null)) return null
   const lead = 'In this model, on current information,'
   switch (licence.form) {
     case 'highest': {
@@ -66,13 +71,13 @@ function unlabelledGoalChanceHeadline(licence: GoalChanceLicence, labelOf: (opti
       const next = labelOf(licence.nextOptionId as string)
       if (leader === null || next === null) return null
       return `${lead} ‘${leader}’ has the highest chance of meeting your goal (${target}): `
-        + `${about(licence.pctByOption[licence.leaderOptionId as string])}, against ${about(licence.pctByOption[licence.nextOptionId as string])} for ‘${next}’.`
+        + `${figure(licence.leaderOptionId as string)}, against ${figure(licence.nextOptionId as string)} for ‘${next}’.`
     }
     case 'highest_all_likely_to_miss': {
       const leader = labelOf(licence.leaderOptionId as string)
       if (leader === null) return null
       return `${lead} every option is more likely to miss your goal (${target}) than meet it: `
-        + `the highest chance is ${about(licence.pctByOption[licence.leaderOptionId as string])}, for ‘${leader}’.`
+        + `the highest chance is ${figure(licence.leaderOptionId as string)}, for ‘${leader}’.`
     }
     case 'all_likely_to_miss':
       return `${lead} every option is more likely to miss your goal (${target}) than meet it.`
@@ -82,7 +87,7 @@ function unlabelledGoalChanceHeadline(licence: GoalChanceLicence, labelOf: (opti
       const labels = licence.similarOptionIds.map((id) => labelOf(id))
       if (labels.some((l) => l === null)) return null
       const named = listOf(labels.map((l) => `‘${l}’`))
-      const figures = listOf(licence.similarOptionIds.map((id) => about(licence.pctByOption[id])))
+      const figures = listOf(licence.similarOptionIds.map((id) => figure(id)))
       return `${lead} ${named} have similar chances of meeting your goal (${target}): ${figures}.`
     }
     case 'each':
@@ -96,8 +101,8 @@ function estimateLinkAttribution(licence: GoalChanceLicence): string {
   return k === undefined ? '' : `, using Olumi's estimates for ${k} ${k === 1 ? 'relationship' : 'relationships'} (see Check estimates)`
 }
 
-export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionId: string) => string | null): string | null {
-  const text = unlabelledGoalChanceHeadline(licence, labelOf)
+export function goalChanceHeadline(licence: GoalChanceLicence, labelOf: (optionId: string) => string | null, wordsOf?: (id: string) => string | null): string | null {
+  const text = unlabelledGoalChanceHeadline(licence, labelOf, wordsOf)
   const attribution = estimateLinkAttribution(licence)
   if (text === null || attribution === '') return text
   return text.endsWith(':') ? `${text.slice(0, -1)}${attribution}:` : `${text.slice(0, -1)}${attribution}.`
@@ -116,6 +121,7 @@ export function goalChanceOptionLines(
   licence: GoalChanceLicence, labelOf: (optionId: string) => string | null, except: readonly string[] = [],
   driverLines: Readonly<Record<string, string>> = {},
   includeQuotedDrivers = false,
+  cellOf?: (id: string) => { readonly kind: 'figure' | 'range' | 'withheld' | 'none'; readonly text: string | null },
 ): string[] | null {
   const lines: string[] = []
   for (const id of licence.optionIds) {
@@ -130,6 +136,11 @@ export function goalChanceOptionLines(
     }
     const label = labelOf(id)
     if (label === null) return null
+    if (cellOf) {
+      const cell = cellOf(id)
+      if (cell.text !== null) lines.push(cell.text + (cell.kind === 'figure' && driverLines[id] !== undefined ? ` ${driverLines[id]}` : ''))
+      continue
+    }
     // c6 (6 Oct): an option withheld for its own path keeps its place, and says so — never "unknown", never "0%".
     if (licence.withheldOptionIds.includes(id)) {
       lines.push(`‘${label}’: Olumi can’t yet say its chance of meeting your goal, in this model.`)

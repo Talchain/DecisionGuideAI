@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { buildRunView } from '../../../../canvas/runView/runView'
 import { makeHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
+import { HERO_COPY } from '../heroCopy'
 import { buildHeroModel } from '../buildHeroModel'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { DecisionMatrix } from '../../analysisNew/sections/DecisionMatrix'
@@ -83,9 +84,11 @@ describe('WS5 constrained goal-fit acceptance', () => {
   it('constrained and unconstrained rows and details equal their Matrix cells without joint words', () => {
     assertRows(false)
   })
-  it('all-constrained rows retain cell parity; the pre-existing lens caption stays unchanged', () => {
+  it('all-constrained goal-only cells carry the goal-only caption', () => {
     const data = assertRows(true)
-    expect(screen.getByTestId('hero-caption').textContent).toBe('Each value is the chance that option meets your goal and limits together.')
+    // C-FALSE: constraint presence cannot license joint words beside goal-only cells (DL r6).
+    expect(screen.getByTestId('hero-caption').textContent).toBe(HERO_COPY.caption.goalOnly)
+    expect(screen.getByTestId('hero-caption').textContent).not.toMatch(JOINT_WORDS)
     expect(goalChanceHeroArmOpen(data.recommendation.goalThreshold, data.recommendation.allOptions)).toBe(false)
   })
   it('keeps the measured selector basis: goal and joint remain distinct quantities', () => {

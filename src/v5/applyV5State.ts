@@ -2379,6 +2379,7 @@ export function applyV5State(
     } else if (typeof store.resultsComplete === 'function') {
       // CEE #2270/#2280: the Run's stored goal-certainty fact rides beside it; unearned 0/1 figures are stamped.
       const report = mapV5AnalysisToReport(analysisBlock, {
+        computedAt: runComputedAtOf(response),
         goalCertainty: readGoalCertainty(goalCertaintyFromResponse(response)),
         optionParticipation: readOptionParticipation(optionParticipationFromResponse(response)),
       })

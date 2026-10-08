@@ -120,19 +120,21 @@ describe('WS5 real served chance cells', () => {
       for (const pct of option.cell.display.match(/\d+%/g)!) expect(text).toContain(pct)
     }
   })
-  it('C1/R2-1 SELF-AUTHORED (shape from CEE unit test canonical-analysis-view.test.ts, not wire): canonical range keeps today’s licensed range sentence', async () => {
+  it('C1/R2-1 SELF-AUTHORED (shape from CEE unit test canonical-analysis-view.test.ts, not wire): matched canonical range overrides today’s legacy range sentence', async () => {
     const data = await from(p02)
     const current = data.runView!.chanceCellOf(X, ctx(data))
     const report = useCanvasStore.getState().results.report as unknown as { computed_against_hash: string }
     expect(report.computed_against_hash).toBe(p02.j.analysis_result.computed_against_hash)
     const canonical = { ...figures.j.canonical_analysis_view,
-      run: { ...figures.j.canonical_analysis_view.run, graph_hash_at_run: report.computed_against_hash },
+      run: { ...figures.j.canonical_analysis_view.run, graph_hash_at_run: report.computed_against_hash, computed_at: (useCanvasStore.getState().results.report as unknown as { meta: { computed_at: string } }).meta.computed_at },
       options: [{ option_id: X, cell: { kind: 'range', display: 'D-RANGE', detail: {} }, main_driver: { kind: 'not_recorded' } }],
     }
     const { useCanonicalAnalysisViewStore: store } = await import(STORE)
     store.getState().adopt(p02.j.scenario_id, canonical as never)
     const d = renderHook(() => useResultsSectionData()).result.current
-    expect(d.runView!.chanceCellOf(X, ctx(d))).toEqual(current)
+    // C-CELL: the matched READ range always wins over the legacy range (DL r6-3a).
+    expect(current.kind).toBe('range')
+    expect(d.runView!.chanceCellOf(X, ctx(d))).toEqual({ kind: 'range', text: 'D-RANGE' })
     heroParity(d)
   })
   it('C2 real b_stale_after_edit with run withholds every cell, including options absent from the view', async () => {
@@ -202,4 +204,72 @@ describe('WS5 real served chance cells', () => {
     const view = buildRunView(report, canonical as never)
     expect(view.chanceCellOf(X, ctx(data))).toEqual({ kind, text: 'D-FRAGMENT' })
   })
+  it.each(['withheld', 'none'] as const)('R6-2 canonical %s suppresses the licence 69 everywhere on the hero', async kind => {
+    const data = variant(await from(figures), kind === 'none' ? { kind } : { kind, reasons: [] })
+    const model = buildHeroModel(data)
+    expect(model.kind).toBe('chart')
+    if (model.kind !== 'chart') throw new Error('Expected chart')
+    render(<AnalysisHeroPanel model={model} rerunDisabled={false} />)
+    expect(model.subline).not.toContain('69%')
+    expect(model.headline).not.toContain('69%')
+    expect(screen.getByTestId('analysis-hero-panel').textContent).not.toContain('69%')
+  })
+  it('R6-2 canonical 71 replaces licence 69 in the subline, summary and row', async () => {
+    const data = variant(await from(figures), { kind: 'figure', display: 'about 71%' })
+    const model = heroParity(data)
+    expect(model.subline).toContain('71%')
+    expect(model.subline).not.toContain('69%')
+    expect(screen.getByTestId('analysis-hero-panel').textContent).toContain('71%')
+    expect(screen.getByTestId('analysis-hero-panel').textContent).not.toContain('69%')
+  })
+  it.each(['available', 'none_licensed', 'not_recorded'] as const)('R6-2 canonical main_driver %s owns the clause', async kind => {
+    const data = await from(figures)
+    const canonical = structuredClone(figures.j.canonical_analysis_view)
+    const entry = canonical.options.find(o => o.option_id === X)!
+    const driver = { ...canonical.options[0].main_driver.driver, strength: 'stronger' }
+    entry.main_driver = (kind === 'available' ? { kind, driver } : kind === 'none_licensed' ? { kind, reason: 'none' } : { kind }) as never
+    const report = useCanvasStore.getState().results.report
+    const d = { ...data, runView: buildRunView({ ...report, run_id: 'same' }, { ...canonical, run: { ...canonical.run, run_id: 'same' } } as never) }
+    const model = buildHeroModel(d)
+    expect(model.kind).toBe('chart')
+    if (model.kind !== 'chart') throw new Error('Expected chart')
+    const line = model.subline!.split('‘Keep pricing as is’')[0].split('‘Launch starter tier’:')[1]
+    if (kind === 'available') {
+      expect(line).toContain('‘Price increase’')
+      expect(line).toContain('stronger')
+    } else expect(line).not.toContain('It rests most')
+    expect(line).not.toContain('‘Starter-tier availability’')
+  })
+  it('R6-4 goal sentence readout wraps inside a bounded grid column', async () => {
+    const model = heroParity(await from(figures))
+    for (const row of model.rows) {
+      const element = screen.getByTestId(`hero-option-row-${row.index}`)
+      const readout = element.querySelector('.text-right > span')!.parentElement!
+      expect(readout).toHaveClass('min-w-0', 'break-words', 'whitespace-normal')
+      expect(readout).not.toHaveClass('whitespace-nowrap')
+      expect(element.querySelector('button')).toHaveClass('grid-cols-[1.5rem_minmax(0,1fr)_minmax(0,1fr)_0.875rem]')
+    }
+  })
+
+  it.each(['figure', 'withheld', 'none'] as const)('R6-2 numeric summary takes the canonical %s cell, including percentage-bearing option labels', async kind => {
+    const data = await from(figures)
+    const report = useCanvasStore.getState().results.report!
+    const warnings = (report as unknown as { inference_warnings: Record<string, unknown>[] }).inference_warnings.map(w =>
+      w.code === 'GOAL_CHANCE_LICENSED' ? { ...w, form: 'highest', summary_withheld: undefined, leader_option_id: X, next_option_id: 'raise_prices_10' } : w)
+    const canonical = structuredClone(figures.j.canonical_analysis_view)
+    canonical.options.find(o => o.option_id === X)!.cell = (kind === 'figure'
+      ? { kind, display: 'about 71%' } : kind === 'withheld' ? { kind, reasons: [] } : { kind }) as never
+    const view = buildRunView({ ...report, run_id: 'same', inference_warnings: warnings },
+      { ...canonical, run: { ...canonical.run, run_id: 'same' } } as never)
+    expect(view.goalChance).not.toBeNull()
+    const model = buildHeroModel({ ...data, runView: view, goalChanceLicence: view.goalChance })
+    expect(model.kind).toBe('chart')
+    if (model.kind !== 'chart') throw new Error('Expected chart')
+    expect(model.headline).not.toContain('69%')
+    if (kind === 'figure') {
+      expect(model.headline).toContain('about 71%, against about 46%')
+      expect(model.headline).not.toContain('against 10%')
+    } else expect(model.headline).not.toMatch(/\d+%/)
+  })
+
 })

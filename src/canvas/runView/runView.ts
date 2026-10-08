@@ -17,7 +17,7 @@
  * Pure: no store reads. Formatters read only this view.
  */
 import type { CanonicalAnalysisView } from './canonicalAnalysisView'
-import { readGoalChanceLicence, type GoalChanceLicence } from '../../components/results/utils/goalChanceLicence'
+import { readGoalChanceLicence, goalChanceDriverOf, type GoalChanceDriver, type GoalChanceLicence } from '../../components/results/utils/goalChanceLicence'
 import { readGoalChanceRange, type GoalChanceRange } from '../../components/results/utils/goalChanceRange'
 import { goalProbabilityWords } from '../../components/results/utils/goalAnchorCopy'
 import { goalChanceOptionLines, goalChanceRangeLine } from '../../components/results/analysis-hero/goalChanceCopy'
@@ -62,6 +62,8 @@ export interface RunView {
   readonly unlicensedGoalFigures: boolean
   /** The chance for one option; `none` for an id the Run does not name. */
   readonly chanceOf: (optionId: string) => OptionChance
+  /** Canonical main_driver for a matching Run, otherwise the existing licence driver. */
+  readonly mainDriverOf: (optionId: string) => GoalChanceDriver | null
   /** Sole per-option display resolution. `none` leaves the matrix's existing empty-cell copy to the matrix. */
   readonly chanceCellOf: (optionId: string, ctx: OptionChanceCellContext) => OptionChanceCell
   /**
@@ -88,7 +90,7 @@ function optionsWithGoalFigures(report: Rec): Set<string> {
 const NONE: OptionChance = { kind: 'none' }
 const NO_CELL: OptionChanceCell = { kind: 'none', text: null }
 const EMPTY: RunView = {
-  goalChance: null, goalChanceRange: null, unlicensedGoalFigures: false, chanceOf: () => NONE,
+  goalChance: null, goalChanceRange: null, unlicensedGoalFigures: false, chanceOf: () => NONE, mainDriverOf: () => null,
   chanceCellOf: (optionId, ctx) => optionChanceCell(EMPTY, optionId, ctx), participationOf: () => null,
 }
 const cache = new WeakMap<object, { canonical: CanonicalAnalysisView | null; view: RunView }>()
@@ -98,9 +100,12 @@ const canonicalByView = new WeakMap<RunView, CanonicalAnalysisView>()
 function matchesCanonicalRun(report: Rec, canonical: CanonicalAnalysisView): boolean {
   const run = canonical.run
   if (run === null) return false
-  if (typeof report.run_id === 'string' && report.run_id.length > 0) return run.run_id === report.run_id
+  if (typeof report.run_id === 'string' && report.run_id.length > 0 && run.run_id) return run.run_id === report.run_id
   const hash = report.computed_against_hash
+  // ReportV1's producer timestamp is meta.computed_at (also used by assembleAnalysisInputsSummary).
+  const computedAt = isRec(report.meta) ? report.meta.computed_at : undefined
   return typeof hash === 'string' && hash.length > 0 && run.graph_hash_at_run === hash
+    && typeof computedAt === 'string' && computedAt.length > 0 && run.computed_at === computedAt
 }
 
 /**
@@ -131,20 +136,27 @@ export function optionChanceCell(view: RunView, optionId: string, ctx: OptionCha
     const cell = canonical.options.find(option => option.option_id === optionId)?.cell
     if (cell?.kind === 'figure' || cell?.kind === 'range') {
       const licensed = licensedChanceCell(view, optionId, ctx)
-      // CEE's display is a fragment. Preserve the existing licensed sentence when its kind agrees.
-      // A figure may never quote a percentage that contradicts the canonical view.
-      const percentages = cell.display.match(/\d+(?:\.\d+)?\s*%/g)
+      // Retain existing sentences ONLY when they carry the canonical figure verbatim.
+      // Bounds (<1%, less than 1%) and ranges are quantities, not interchangeable digits.
       const chance = view.chanceOf(optionId)
-      const licensedPercentages = chance.kind === 'figure' ? chance.words.match(/\d+(?:\.\d+)?\s*%/g) : null
-      const agrees = cell.kind === 'range' || (percentages !== null && percentages.every(pct =>
-        licensedPercentages?.some(value => value.replace(/\s/g, '') === pct.replace(/\s/g, ''))
-        && licensed.text?.match(/\d+(?:\.\d+)?\s*%/g)?.some(value => value.replace(/\s/g, '') === pct.replace(/\s/g, ''))))
-      return { kind: cell.kind, text: licensed.kind === cell.kind && agrees ? licensed.text : cell.display }
+      const agrees = licensed.kind === cell.kind && (cell.kind === 'figure'
+        ? chance.kind === 'figure' && chance.words === cell.display && licensed.text.includes(cell.display)
+        : licensed.text === cell.display)
+      return { kind: cell.kind, text: agrees ? licensed.text : cell.display }
     }
     if (cell?.kind === 'withheld') return { kind: 'withheld', text: cell.reasons[0]?.message ?? OPTION_CHANCE_WITHHELD }
     if (cell?.kind === 'none') return NO_CELL
   }
   return licensedChanceCell(view, optionId, ctx)
+}
+
+/** Whole-Run sentences use the same resolved cells as option rows and the matrix. */
+export function runViewOptionChanceLines(
+  view: RunView, labelOf: (id: string) => string | null, cellOf: (id: string) => OptionChanceCell, except: readonly string[] = [],
+  driverLines: Readonly<Record<string, string>> = {}, includeQuotedDrivers = false,
+): string[] | null {
+  return view.goalChance === null ? null : goalChanceOptionLines(view.goalChance, labelOf, except,
+    driverLines, includeQuotedDrivers, cellOf)
 }
 
 /** Existing resolution, also used to retain licensed sentences under a canonical kind. */
@@ -195,6 +207,15 @@ export function buildRunView(report: unknown, canonical: CanonicalAnalysisView |
     goalChanceRange: range,
     unlicensedGoalFigures: unlicensed.size > 0,
     chanceOf: (optionId) => chances.get(optionId) ?? NONE,
+    mainDriverOf: (optionId) => {
+      const held = canonicalByView.get(view)
+      if (held && held.staleness.stale !== null) {
+        if (held.staleness.stale) return null
+        const driver = held.options.find(o => o.option_id === optionId)?.main_driver
+        return driver?.kind === 'available' ? goalChanceDriverOf(driver.driver) : null
+      }
+      return licence?.driverByOption?.[optionId] ?? null
+    },
     chanceCellOf: (optionId, ctx) => optionChanceCell(view, optionId, ctx),
     participationOf: (optionId) => optionParticipationOf(report as { option_participation?: readonly OptionParticipationEntry[] }, optionId),
   }
