@@ -671,8 +671,14 @@ async function fetchReadiness(): Promise<void> {
     }
     // All publications, including local empty-canvas state, have this owner.
     // Same-owner rate-limit backoff must leave its standing error untouched.
-    if (ownerChanged || (published.readiness !== null && published.verdictAuthKey !== authKey)) {
+    // A verdict is cleared when it belongs to someone else, never because this module's
+    // in-memory owner was merely unset (first check on a page). An error carries no owner,
+    // so any owner change clears it.
+    const foreignVerdict = published.readiness !== null && published.verdictAuthKey !== authKey
+    if (foreignVerdict) {
       useReadinessStore.setState({ readiness: null, error: null, verdictAtMs: null, verdictAuthKey: null })
+    } else if (ownerChanged) {
+      useReadinessStore.setState({ error: null })
     }
     if (!ownsReadiness(check)) return
     const authHeaders = buildTurnAuthHeaders(identity)
