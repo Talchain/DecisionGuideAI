@@ -11,17 +11,19 @@
  * this bundle exists to honour. A plain "Cancel" is offered alongside it for
  * the same reason every other editor on this panel has one.
  *
- * ⚠ EVERY WRITE ASSERTION IS NEGATIVE AND BOUND BY IDENTITY: this file proves
- * the two dismiss routes call NEITHER of the two write functions
- * (`setGoalThresholdAndUpdateNode`, the local carrier; `proposeGoalTarget`,
- * the dispatched one), with a Save-still-writes contrast control in the same
- * run so an always-inert editor cannot pass by accident (CLAUDE.md's own
+ * ⚠ WRITE ASSERTIONS ARE BOUND BY IDENTITY: this file proves the two dismiss
+ * routes call NEITHER the retired store writer (`setGoalThresholdAndUpdateNode`)
+ * nor the dispatched carrier (`proposeGoalTarget`). With no dispatcher Save
+ * refuses and retains the draft; a dispatched Save contrast in the same run
+ * prevents an always-inert editor passing by accident (CLAUDE.md's own
  * "every absence claim needs a contrast control" rule).
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { ToastProvider, useShowToast } from '../../../../canvas/ToastContext'
+import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 
 const setGoalThresholdAndUpdateNode = vi.fn()
 let state: Record<string, unknown> = {}
@@ -64,7 +66,15 @@ afterEach(cleanup)
 
 const draw = (goalNodeId: string | null = 'g1') => {
   const onCommitOutcome = vi.fn()
-  render(<SuccessTargetLine goalNodeId={goalNodeId} onCommitOutcome={onCommitOutcome} testId={TID} />)
+  function Target() {
+    const showToast = useShowToast()
+    return <SuccessTargetLine goalNodeId={goalNodeId} onCommitOutcome={outcome => {
+      onCommitOutcome(outcome)
+      showToast(outcome === 'dispatched' ? COPY.successTarget.dispatched :
+        outcome === 'local_only' ? COPY.successTarget.changedLocally : COPY.successTarget.notEncodable)
+    }} testId={TID} />
+  }
+  render(<ToastProvider><Target /></ToastProvider>)
   return onCommitOutcome
 }
 
@@ -132,17 +142,39 @@ describe('E4: "Not sure yet" closes the editor and writes nothing', () => {
   })
 
   /**
-   * ⭐⭐ THE CONTRAST CONTROL. Without this, the case above could pass on an
-   * editor whose Save is also silently broken — proving "not sure yet never
-   * writes" needs a sibling case in the SAME run proving Save actually does.
+   * ⭐⭐ THE NO-DISPATCH CONTRAST: Save refuses visibly and keeps the draft,
+   * unlike "Not sure yet", which dismisses it. No local-only store write remains.
    */
-  it('CONTROL: Save, from the same editor, still writes', async () => {
+  it('CONTROL: Save without a dispatcher refuses, writes nothing and keeps the draft', async () => {
     const user = userEvent.setup()
-    draw()
+    const onCommitOutcome = draw()
     await user.click(screen.getByTestId(`${TID}-edit`))
     await user.type(screen.getByTestId(`${TID}-input`), '110')
     await user.click(screen.getByTestId(`${TID}-save`))
-    expect(setGoalThresholdAndUpdateNode).toHaveBeenCalledWith('g1', 110)
+    expect(setGoalThresholdAndUpdateNode).not.toHaveBeenCalled()
+    expect(proposeGoalTarget).not.toHaveBeenCalled()
+    expect(onCommitOutcome).toHaveBeenCalledOnce()
+    expect(onCommitOutcome).toHaveBeenCalledWith('local_only')
+    expect(COPY.successTarget.changedLocally).toBe("Not saved: this target can't be sent to Olumi right now.")
+    expect(screen.getByRole('alert')).toHaveTextContent("Not saved: this target can't be sent to Olumi right now.")
+    expect(screen.getByTestId(`${TID}-editor`)).toBeInTheDocument()
+    expect(screen.getByTestId(`${TID}-input`)).toHaveValue('110')
+  })
+
+  it('CONTROL: Save with a dispatcher still sends the target and closes the editor', async () => {
+    const user = userEvent.setup()
+    goalTargetDispatchAvailable = true
+    state.nodes = [{ id: 'g1', type: 'goal', data: { goal_threshold_unit: '%' } }]
+    const onCommitOutcome = draw()
+    await user.click(screen.getByTestId(`${TID}-edit`))
+    await user.type(screen.getByTestId(`${TID}-input`), '110')
+    await user.click(screen.getByTestId(`${TID}-save`))
+
+    expect(proposeGoalTarget).toHaveBeenCalledOnce()
+    expect(proposeGoalTarget).toHaveBeenCalledWith('110', '%', 'scenario-1', 'at_least', { onSendSettled: undefined })
+    expect(onCommitOutcome).toHaveBeenCalledWith('dispatched')
+    expect(setGoalThresholdAndUpdateNode).not.toHaveBeenCalled()
+    expect(screen.queryByTestId(`${TID}-editor`)).toBeNull()
   })
 })
 

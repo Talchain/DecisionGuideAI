@@ -5,9 +5,9 @@
  * Verified defect at staging dae8908f: `setPriorRange` wrote
  * `data.prior.range_min/range_max` locally and emitted NOTHING — user-set
  * prior ranges never reached the server. This spec pins the new wiring at the
- * single seam every caller shares: the setter still writes locally exactly as
- * before, AND emits the `prior_range_edit` system event (best-effort — an
- * absent conversation context must not break the local edit).
+ * single seam every caller shares: a valid send writes optimistically and emits
+ * the `prior_range_edit` system event. Invalid or unsendable drafts refuse
+ * without writing; the rollback and disclosure have their own regression spec.
  *
  * CARRY-ONLY, deliberately: the event persists the judgement as a turn fact.
  * Whether/how confirmed ranges affect the maths is a separate explicit design
@@ -83,18 +83,18 @@ describe('setPriorRange — wire emission', () => {
     expect(event.payload).toEqual({ target_id: 'fac_adoption', range_min: 0.3, range_max: 0.5, distribution: 'uniform' })
   })
 
-  it('an INVERTED range still writes locally but emits nothing (fail-closed, no wire 422)', () => {
+  it('an INVERTED range writes nothing and emits nothing (fail-closed, no wire 422)', () => {
     const { result } = renderHook(() => useNodeMutations('fac_adoption'))
     act(() => result.current.setPriorRange(0.9, 0.1))
-    expect(updateNode).toHaveBeenCalledTimes(1)
+    expect(updateNode).not.toHaveBeenCalled()
     expect(sendSystemEvent).not.toHaveBeenCalled()
   })
 
-  it('a missing conversation context must not break the local edit (best-effort wire)', () => {
+  it('a missing conversation context refuses without writing locally', () => {
     contextValue = null
     const { result } = renderHook(() => useNodeMutations('fac_adoption'))
     act(() => result.current.setPriorRange(0.2, 0.6))
-    expect(updateNode).toHaveBeenCalledTimes(1)
+    expect(updateNode).not.toHaveBeenCalled()
     expect(sendSystemEvent).not.toHaveBeenCalled()
   })
 })

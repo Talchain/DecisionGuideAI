@@ -7,6 +7,8 @@
 
 import { useCallback } from 'react'
 import { useCanvasStore } from '../../store'
+import { useShowToastSafe } from '../../ToastContext'
+import { captureOptimisticPriorRangeEdit, revertOptimisticPriorRangeEdit } from '../../conversation/optimisticFactorEdit'
 import { captureAnalysisCurrency } from '../../store/analysisCurrencySnapshot'
 import type { RiskImpact } from '../../domain/nodes'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
@@ -573,11 +575,11 @@ export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
  * sidesteps that without weakening it — the notice is about what your edits do,
  * which is a different subject from what the field currently holds.
  *
- * ⚠ THE SILENCE IN ARMS 2 AND 3 IS REPORTED, NOT FIXED. Making `setPriorRange`
- * disclose a stand-down is a behaviour change with a return-value contract
- * (the edge setters already model it — they return `'local_only'`), and it is
- * not a copy correction. Rowing it is the honest move; smuggling it into a
- * notice audit is not.
+ * Transaction slice (i) closes the historical silent paths described above.
+ * Invalid/unsendable ranges now write nothing; a proven refusal or blocked send
+ * restores the captured prior and discloses it through the existing toast.
+ * A deferred send settles when it leaves the queue; unverified delivery keeps
+ * its uncertainty rather than claiming that the range was accepted.
  *
  * ⚠ IT CLAIMS NO EFFECT ON RESULTS, DELIBERATELY. PLoT's prior pass is gated
  * four ways and one gate is silent: an `observed_state.value` present skips the
@@ -685,8 +687,9 @@ export function useNodeMutations(nodeId: string) {
     storeUpdateNode(id, updates)
   }, [storeUpdateNode])
   // P4 transport — prior-range edits ride the conversation dispatcher when a
-  // provider is present; optional so isolated renders still edit locally.
+  // provider is present; an isolated render refuses rather than writing locally.
   const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
+  const showToast = useShowToastSafe()
   const getNode = useCallback(() => {
     return useCanvasStore.getState().nodes.find(n => n.id === nodeId)
   }, [nodeId])
@@ -872,43 +875,37 @@ export function useNodeMutations(nodeId: string) {
 
   const setPriorRange = useCallback((min: number, max: number) => {
     const node = getNode()
-    if (!node) return
+    if (!node || isViewerSession()) return
+    if (!sendSystemEvent || !Number.isFinite(min) || !Number.isFinite(max) || min > max) {
+      showToast("Not saved: this range can't be sent to Olumi right now.", 'error')
+      return
+    }
     const existing = (node.data as Record<string, unknown>)?.prior as Record<string, unknown> | undefined
+    const edit = captureOptimisticPriorRangeEdit(nodeId, min, max, node.data)
     updateNode(nodeId, {
-      data: {
-        ...node.data,
-        prior: { ...existing, range_min: min, range_max: max },
-      },
+      data: { ...node.data, prior: { ...existing, range_min: min, range_max: max } },
     })
-    // P4 transport (schemas 0.34.0) — the user-set range REACHES THE SERVER.
-    // This is the single seam every prior-range editor shares, so emitting
-    // here covers all callers. Best-effort AFTER the local write (an absent
-    // conversation context or failed send never breaks the local edit);
-    // fail-closed on shapes the wire's own rule would refuse (inverted or
-    // non-finite bounds build no event — never a production 422). CEE
-    // persists the event as a typed turn fact and writes NO graph: carrying
-    // the judgement is this seam's whole job; whether confirmed ranges feed
-    // the maths is a separate, explicit design decision.
-    if (!sendSystemEvent) return
-    if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) return
     const distribution = typeof existing?.distribution === 'string' && existing.distribution.length > 0
       ? existing.distribution
       : 'uniform'
-    void Promise.resolve(
-      sendSystemEvent({
-        type: 'prior_range_edit',
-        payload: {
-          target_id: nodeId,
-          range_min: min,
-          range_max: max,
-          distribution,
-        },
-      }),
-    ).catch(() => {
-      // Background judgement receipt — the local edit stands; re-editing
-      // re-emits. Mirrors the other best-effort background sends.
-    })
-  }, [nodeId, updateNode, getNode, sendSystemEvent])
+    const settle = (settlement: SystemEventSendSettlement) => {
+      if (settlement === 'refused' || settlement === 'blocked') {
+        const outcome = revertOptimisticPriorRangeEdit(edit)
+        showToast(outcome === 'reverted'
+          ? 'Not saved: this range was not recorded. The previous range is back.'
+          : 'Not saved: this range was not recorded. A newer change was kept.', 'error')
+      } else if (settlement === 'unverified') {
+        showToast('Olumi may not have recorded this range. Check before setting it again.', 'warning')
+      }
+    }
+    // A queued send has its own later settlement; a refusal must also roll back then.
+    settleSystemEventSend(sendSystemEvent({
+      type: 'prior_range_edit',
+      payload: { target_id: nodeId, range_min: min, range_max: max, distribution },
+    }, {
+      onDeferredSettled: dispatch => settleSystemEventSend(dispatch, settle),
+    }), settle)
+  }, [nodeId, updateNode, getNode, sendSystemEvent, showToast])
 
   // ── observedState sub-field mutations ──
 
