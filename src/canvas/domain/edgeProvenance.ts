@@ -47,18 +47,25 @@ interface EdgeProvenanceEntry {
   readonly chip: ProvenanceKind | null
   /** The observed-state literal the Model tab's row classifies (`classifyValueProvenance`); undefined = none. */
   readonly modelTabSource: string | undefined
+  /**
+   * The ONE wording for this kind, in the Science vocabulary ("relationship", never "link"; DL 8 Oct).
+   * ⛔ INACTIVE: no surface reads it yet. Paul froze visible canvas/inspector changes until he approves the proposals;
+   * switching one surface alone would re-split the vocabulary (defect 3), so every surface switches together after.
+   * null = the kind's words are computed (exact: "Exact: ‘<identity>’ = ‘<A>’ × ‘<B>’").
+   */
+  readonly words: string | null
 }
 
 /** THE table. Total over the kinds, so a new kind is a type error here, not a silent gap on a surface. */
 export const EDGE_PROVENANCE: Readonly<Record<EdgeProvenanceKind, EdgeProvenanceEntry>> = Object.freeze({
-  user: { mark: 'human', chip: 'user', modelTabSource: 'user' },
-  brief: { mark: 'brief', chip: 'brief', modelTabSource: 'brief_extraction' },
-  olumi_estimate: { mark: 'ai', chip: 'olumi', modelTabSource: 'cee_inference' },
-  accepted: { mark: 'accepted', chip: 'olumi', modelTabSource: 'cee_inference' },
-  placeholder: { mark: null, chip: 'unsized', modelTabSource: undefined },
-  definitional: { mark: null, chip: null, modelTabSource: undefined },
-  exact: { mark: null, chip: null, modelTabSource: undefined },
-  example: { mark: null, chip: 'example', modelTabSource: undefined },
+  user: { mark: 'human', chip: 'user', modelTabSource: 'user', words: 'Set by you' },
+  brief: { mark: 'brief', chip: 'brief', modelTabSource: 'brief_extraction', words: 'From your brief' },
+  olumi_estimate: { mark: 'ai', chip: 'olumi', modelTabSource: 'cee_inference', words: 'Olumi’s estimate' },
+  accepted: { mark: 'accepted', chip: 'olumi', modelTabSource: 'cee_inference', words: 'Olumi’s estimate · you accepted it' },
+  placeholder: { mark: null, chip: 'unsized', modelTabSource: undefined, words: 'This relationship isn’t sized yet' },
+  definitional: { mark: null, chip: null, modelTabSource: undefined, words: 'Holds by definition' },
+  exact: { mark: null, chip: null, modelTabSource: undefined, words: null },
+  example: { mark: null, chip: 'example', modelTabSource: undefined, words: 'Example figure' },
 })
 
 /** Whose this link's strength is, now. null = no strength set, or an author nothing here can attest. */
@@ -83,6 +90,11 @@ export function edgeProvenance(
   if (source === 'cee' && isStrengthAccepted(data)) return { kind: 'accepted' }
   if (source === 'cee' || natural?.author === 'olumi_estimate') return { kind: 'olumi_estimate' }
   return null
+}
+
+/** Is this relationship still UNSIZED (CEE's placeholder, and nothing that outranks it)? The unsized gates read this. */
+export function isUnsizedRelationship(data: Record<string, unknown> | undefined | null): boolean {
+  return edgeProvenance(data)?.kind === 'placeholder'
 }
 
 /** This link's mark kind, or null. */
