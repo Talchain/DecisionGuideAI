@@ -256,13 +256,15 @@ describe('U8 · v3.1 pts 1/7 — no card-level "From your brief" icon on an opti
     renderCard('opt-raise')
     // The change rows are ON THE CARD at rest (Paul 25 Sep, the prototype) — the
     // row's own mark is read THERE.
-    expect(optionCardRows('opt-raise').querySelector('[data-testid="option-change-row-source-opt-raise-fac-price"]')).toHaveTextContent('brief')
+    expect(optionCardRows('opt-raise')).not.toBeNull()
+    expect(screen.getByTestId('option-bottom-marks-opt-raise').querySelector('[data-testid="option-change-row-source-opt-raise-fac-price"]')).toHaveAttribute('data-value-source', 'brief')
   })
 
   it('REPORTED, NOT CHANGED: any document glyph left on the option at rest is the node-authorship mark', () => {
     setState({ phase: 'post', lodRung: 'full' })
     const { container } = renderCard('opt-raise')
-    const docGlyphs = [...container.querySelectorAll('svg.lucide-file-text')]
+    const docGlyphs = [...container.querySelectorAll('[data-testid="node-provenance-mark"] svg.lucide-file-text')]
+    expect(screen.getByTestId('option-change-row-source-opt-raise-fac-price').closest('[data-card-bottom-band]')).not.toBeNull()
     // Positive control: on this mixed board the header mark IS a document glyph,
     // so the loop below is not vacuous.
     expect(docGlyphs.length).toBeGreaterThan(0)

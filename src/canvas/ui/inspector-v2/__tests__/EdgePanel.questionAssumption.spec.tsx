@@ -4,9 +4,14 @@ import { EdgePanel } from '../panels/EdgePanel'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { mapDraftEdgeToCanvas } from '../../../utils/applyDraftResult'
+import { requestAsk } from '../askSemantic'
 
 vi.mock('../../../../lib/supabase', () => ({ supabase: {}, isSupabaseAvailable: () => false }))
 vi.mock('../../../../adapters/plot', () => ({ plot: { validatePatch: vi.fn() } }))
+vi.mock('../askSemantic', async importOriginal => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  requestAsk: vi.fn(() => 'sent'),
+}))
 
 const initialCanvas = useCanvasStore.getState()
 const initialGuidance = useGuidanceStore.getState()
@@ -37,8 +42,9 @@ function seed(magnitude: string | undefined, onPath = true, naturalEffect = true
 }
 
 beforeEach(() => {
+  vi.clearAllMocks()
   localStorage.setItem('feature.questionAssumption', '1')
-  useGuidanceStore.setState({ guidanceItems: [], _sendChip: sendChip })
+  useGuidanceStore.setState({ guidanceItems: [], _sendChip: sendChip, _dispatchAction: vi.fn() })
 })
 afterEach(() => {
   cleanup()
@@ -53,7 +59,7 @@ describe('Question this assumption in the existing link inspector', () => {
     if (magnitude === 'olumi_estimate') expect(mapped.data.naturalEffect.author).toBe('olumi_estimate')
     else expect(mapped.data.strengthPlaceholder).toBe(0.4)
     render(<EdgePanel {...panelProps} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Question this assumption' }))
+    fireEvent.click(screen.getByTestId('inspector-quick-ask'))
     expect(sendChip).toHaveBeenCalledTimes(1)
     expect(sendChip).toHaveBeenCalledWith(
       'Question this assumption', 'Question this assumption',
@@ -61,68 +67,90 @@ describe('Question this assumption in the existing link inspector', () => {
     )
   })
 
-  it.each(['user_stated', 'unknown', undefined])('hides a link whose magnitude provenance is %s', magnitude => {
+  it.each(['user_stated', 'unknown', undefined])('does not send an assumption press for magnitude provenance %s', magnitude => {
     seed(magnitude)
     render(<EdgePanel {...panelProps} />)
-    expect(screen.queryByRole('button', { name: 'Question this assumption' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('inspector-quick-ask'))
     expect(sendChip).not.toHaveBeenCalled()
+    expect(requestAsk).toHaveBeenCalledTimes(1)
   })
 
-  it('hides an Olumi estimate outside the goal path', () => {
+  it('does not send an assumption press outside the goal path', () => {
     seed('olumi_estimate', false)
     render(<EdgePanel {...panelProps} />)
-    expect(screen.queryByRole('button', { name: 'Question this assumption' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('inspector-quick-ask'))
+    expect(sendChip).not.toHaveBeenCalled()
+    expect(requestAsk).toHaveBeenCalledTimes(1)
   })
 
   it('uses the canonical goal rather than another goal node', () => {
     seed('olumi_estimate')
     useCanvasStore.setState({ ceeAnalysisReady: { goal_node_id: 'other-goal', options: [] } } as never)
     render(<EdgePanel {...panelProps} />)
-    expect(screen.queryByRole('button', { name: 'Question this assumption' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('inspector-quick-ask'))
+    expect(sendChip).not.toHaveBeenCalled()
+    expect(requestAsk).toHaveBeenCalledTimes(1)
   })
 
   it('keeps a known placeholder eligible without a natural effect', () => {
     seed('olumi_placeholder', true, false)
     render(<EdgePanel {...panelProps} />)
-    expect(screen.getByRole('button', { name: 'Question this assumption' })).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('inspector-quick-ask'))
+    expect(sendChip).toHaveBeenCalledWith(
+      'Question this assumption', 'Question this assumption',
+      { id: 'agent-question-assumption:factor-a>factor-b' },
+    )
   })
 
-  it('hides unknown magnitude authorship when ingestion retained no author', () => {
+  it('does not send an assumption press when ingestion retained no author', () => {
     seed('olumi_estimate', true, false)
     render(<EdgePanel {...panelProps} />)
-    expect(screen.queryByRole('button', { name: 'Question this assumption' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('inspector-quick-ask'))
+    expect(sendChip).not.toHaveBeenCalled()
+    expect(requestAsk).toHaveBeenCalledTimes(1)
   })
 
   it('withdraws the action after the person states the strength', () => {
     seed('olumi_estimate')
     render(<EdgePanel {...panelProps} />)
-    expect(screen.getByRole('button', { name: 'Question this assumption' })).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('inspector-quick-ask'))
+    expect(sendChip).toHaveBeenCalledTimes(1)
+    expect(requestAsk).not.toHaveBeenCalled()
+    sendChip.mockClear()
     act(() => useCanvasStore.setState(s => ({
       edges: s.edges.map(e => e.id === 'link-1' ? { ...e, data: { ...e.data, weightSource: 'user' } } : e),
     } as never)))
-    expect(screen.queryByRole('button', { name: 'Question this assumption' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('inspector-quick-ask'))
+    expect(sendChip).not.toHaveBeenCalled()
+    expect(requestAsk).toHaveBeenCalledTimes(1)
   })
 
-  it('hides user-specified strength even with an old estimate magnitude label', () => {
+  it('does not send an assumption press for user-specified strength with an old estimate label', () => {
     seed('olumi_estimate', true, true, 'user_specified')
     render(<EdgePanel {...panelProps} />)
-    expect(screen.queryByRole('button', { name: 'Question this assumption' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('inspector-quick-ask'))
+    expect(sendChip).not.toHaveBeenCalled()
+    expect(requestAsk).toHaveBeenCalledTimes(1)
   })
 
-  it('hides the action when no conversation sender is registered', () => {
+  it('does not send an assumption press when the science sender is unregistered', () => {
     seed('olumi_estimate')
     useGuidanceStore.setState({ _sendChip: null })
     render(<EdgePanel {...panelProps} />)
-    expect(screen.queryByRole('button', { name: 'Question this assumption' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('inspector-quick-ask'))
+    expect(sendChip).not.toHaveBeenCalled()
+    expect(requestAsk).toHaveBeenCalledTimes(1)
   })
 })
 
 
 describe('Question this assumption can be switched off', () => {
-  it('hides the press on an eligible link while the switch is off', () => {
+  it('does not send the assumption press on an eligible link while the switch is off', () => {
     localStorage.setItem('feature.questionAssumption', '0')
     seed('olumi_estimate')
     render(<EdgePanel {...panelProps} />)
-    expect(screen.queryByRole('button', { name: 'Question this assumption' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('inspector-quick-ask'))
+    expect(sendChip).not.toHaveBeenCalled()
+    expect(requestAsk).toHaveBeenCalledTimes(1)
   })
 })

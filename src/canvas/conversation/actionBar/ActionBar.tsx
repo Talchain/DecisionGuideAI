@@ -30,6 +30,7 @@ import { useMeasuredPanelWidth } from '../../components/workspaceShell/usePanelW
 import { actionGlyph, type ActionGlyph } from './actionBarIcons'
 import type { ActionBarV1, ActionOffer } from './actionBarContract'
 import { useActionBarStore } from './actionBarStore'
+import { BiasRiskRow } from './BiasRiskRow'
 import { pressOffer } from './pressOffer'
 
 export type ActionBarSurface = 'chat' | 'reasoning'
@@ -322,6 +323,7 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
           </div>
         ) : null}
       </div>
+      {bar.bias_risk ? <BiasRiskRow view={bar.bias_risk} revision={bar.revision} type={type} /> : null}
       {/* Always mounted, so a screen reader hears the reason the moment it appears. */}
       <p role="status" aria-live="polite" data-testid={`${testId}-notice`} className={notice ? `${type.meta} mt-1 text-text-light` : 'sr-only'}>
         {notice ?? ''}

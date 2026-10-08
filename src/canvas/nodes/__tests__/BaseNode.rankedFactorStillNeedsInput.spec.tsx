@@ -296,7 +296,7 @@ describe('a ranked factor can still need input — the pair the contract called 
 
     // …and the rank is stated by the driver line on the SAME card, so the pair
     // the contract called impossible is still on screen, together.
-    expect(driverCaption().textContent).toBe(DRIVER_LINE_COPY.rank(1, RANKED_COUNT))
+    expect(driverCaption().getAttribute('aria-label')).toBe(DRIVER_LINE_COPY.rank(1, RANKED_COUNT))
   })
 
   /**
@@ -322,7 +322,9 @@ describe('a ranked factor can still need input — the pair the contract called 
     expect(screen.queryByTestId(`sensitivity-rank-${FACTOR_ID}`)).toBeNull()
     expect(screen.queryByTestId(`edited-since-run-${FACTOR_ID}`)).toBeNull()
 
-    const kids = Array.from(stack.children)
+    expect(stack.children).toHaveLength(0)
+    const band = screen.getByTestId(`factor-bottom-marks-${FACTOR_ID}`)
+    const kids = Array.from(band.querySelectorAll(`[data-testid="attention-marker-${FACTOR_ID}"], [data-testid="node-coaching-marker-${FACTOR_ID}"]`))
     // NODE-ANATOMY v3.2: the pill is line 2 of the card, not a corner member
     // (it was FOUR here while it sat on the border).
     expect(screen.getByTestId(`factor-needs-input-row-${FACTOR_ID}`)).toContainElement(pill)
@@ -331,7 +333,7 @@ describe('a ranked factor can still need input — the pair the contract called 
     expect(kids[1]).toBe(coaching)
 
     // The rank itself is on the driver line, rank 2 by identity.
-    expect(driverCaption().textContent).toBe(DRIVER_LINE_COPY.rank(2, RANKED_COUNT))
+    expect(driverCaption().getAttribute('aria-label')).toBe(DRIVER_LINE_COPY.rank(2, RANKED_COUNT))
   })
 
   it('CASE 3 — THE TWIN: a factor that HAS a value, ranked, states the rank and shows NO pill', () => {
@@ -344,7 +346,7 @@ describe('a ranked factor can still need input — the pair the contract called 
     // empty — and the rank is on the driver line.
     expect(screen.queryByTestId(`sensitivity-rank-${FACTOR_ID}`)).toBeNull()
     expect(stack.children).toHaveLength(0)
-    expect(driverCaption().textContent).toBe(DRIVER_LINE_COPY.rank(1, RANKED_COUNT))
+    expect(driverCaption().getAttribute('aria-label')).toBe(DRIVER_LINE_COPY.rank(1, RANKED_COUNT))
   })
 
   it('CASE 4 — THE OTHER TWIN: an unvalued factor the ranking did not determine shows the pill and states NO rank', () => {

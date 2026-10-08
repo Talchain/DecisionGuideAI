@@ -13,7 +13,7 @@
 import { useCanvasStore } from '../../../canvas/store'
 import { useModelEditAuthority } from '../../../canvas/hooks/useModelEditAuthority'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
-import { goalTargetSettlementNotice } from '../../../canvas/conversation/goalTargetEdit'
+import { useGoalTargetFeedback } from './goalTargetFeedback'
 import { SuccessTargetLine } from '../analysisNew/sections/SuccessTargetLine'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNew/analysisNewCopy'
 import { typography } from '@/styles/typography'
@@ -33,12 +33,8 @@ export function GoalChanceInvite({ invite, goalLabel }: GoalChanceInviteProps) {
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
   const authority = useModelEditAuthority(invite?.goalNodeId ?? null)
   const showToast = useShowToastSafe()
+  const { onCommitOutcome, onSendSettled } = useGoalTargetFeedback()
   if (invite === null) return null
-
-  const onSendSettled = (...[settlement, detail]: Parameters<typeof goalTargetSettlementNotice>) => {
-    const notice = goalTargetSettlementNotice(settlement, detail)
-    if (notice !== null) showToast(notice, settlement === 'refused' ? 'error' : 'warning')
-  }
 
   if (invite.kind === 'state_goal_direction') {
     const target = formatGoalTarget(invite.value, invite.unit, 'level')
@@ -69,19 +65,7 @@ export function GoalChanceInvite({ invite, goalLabel }: GoalChanceInviteProps) {
         goalNodeId={invite.goalNodeId}
         divider={false}
         variant="reasoning"
-        onCommitOutcome={(outcome) =>
-          showToast(
-            outcome === 'dispatched'
-              ? COPY.successTarget.dispatched
-              : outcome === 'local_only'
-                ? COPY.successTarget.changedLocally
-                : outcome === 'no_unit'
-                  ? COPY.successTarget.noUnit
-                  : outcome === 'not_a_number'
-                    ? COPY.successTarget.notANumber
-                    : COPY.successTarget.notEncodable,
-          )
-        }
+        onCommitOutcome={onCommitOutcome}
         onSendSettled={onSendSettled}
         testId="goal-chance-invite-target"
       />

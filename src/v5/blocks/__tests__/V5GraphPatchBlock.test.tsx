@@ -128,7 +128,11 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
     render(<V5GraphPatchBlock block={block} />)
     expect(screen.getByTestId('v5-change-action').textContent).toBe('Adjusted connection strength')
     expect(screen.getByTestId('v5-change-entity').textContent).toBe('team morale → overall outcome')
-    expect(screen.getByTestId('v5-change-summary').textContent).toBe('0.3 → 0.6')
+    expect(screen.getByTestId('v5-change-summary').textContent).toBe('Moderate → Strong, increases')
+    // The numbers are under a closed details disclosure, never in the receipt line.
+    const technical = screen.getByTestId('v5-change-technical')
+    expect(technical.closest('details')?.open).toBe(false)
+    expect(technical.textContent).toBe('0.3 → 0.6')
     expectNoLeakInDOM()
   })
 
@@ -339,7 +343,8 @@ describe('V5GraphPatchBlock — code-review regression bar (P1.1 / P1.2 / P1.3)'
     )
     // Renders the `mean` magnitudes — std (the confidence band) is a
     // schema field that does not belong in the receipt.
-    expect(screen.getByTestId('v5-change-summary').textContent).toBe('0.3 → 0.6')
+    expect(screen.getByTestId('v5-change-summary').textContent).toBe('Moderate → Strong, increases')
+    expect(screen.getByTestId('v5-change-technical').textContent).toBe('0.3 → 0.6')
     // Comprehensive leak check covers mean/std + raw ids in outerHTML.
     expectNoLeakInDOM()
   })
@@ -365,9 +370,11 @@ describe('V5GraphPatchBlock — code-review regression bar (P1.1 / P1.2 / P1.3)'
     }
     render(<V5GraphPatchBlock block={block} />)
     const change = screen.getByTestId('v5-change-summary').textContent ?? ''
-    expect(change).toContain('0.4')
-    expect(change).toContain('-0.4')
-    expect(change).toContain('direction now negative')
+    expect(change).toBe('Strong, now decreases')
+    const technical = screen.getByTestId('v5-change-technical').textContent ?? ''
+    expect(technical).toContain('0.4')
+    expect(technical).toContain('-0.4')
+    expect(technical).toContain('direction now negative')
     expectNoLeakInDOM()
   })
 

@@ -466,8 +466,28 @@ describe('buildV5PatchReceipt — adjust_edge_strength', () => {
     const r = buildV5PatchReceipt(block(), deps)
     expect(r.actionLabel).toBe('Adjusted connection strength')
     expect(r.entityLabel).toBe('team morale → outcome')
-    expect(r.changeSummary).toBe('0.3 → 0.6')
+    // EDIT-UX §5.4 (8 Oct): plain words first. The band words the user chose, with direction; numbers only in technicalSummary.
+    expect(r.changeSummary).toBe('Moderate → Strong, increases')
+    expect(r.technicalSummary).toBe('0.3 → 0.6')
     expectNoLeak(`${r.actionLabel} ${r.entityLabel} ${r.changeSummary}`)
+  })
+
+  it('EDIT-UX §5.4: the audit\'s own receipt (-0.15 → -0.85) reads "Slight → Very strong, decreases"; the numbers sit in details only', () => {
+    const r = buildV5PatchReceipt({ type: 'v5_graph_patch', status: 'applied', operation: 'adjust_edge_strength', target_id: 'edge_morale_to_outcome',
+      before: { strength: { mean: -0.15, std: 0.1 }, effect_direction: 'negative' }, after: { strength: { mean: -0.85, std: 0.1 }, effect_direction: 'negative' } } as never, makeDeps([], []))
+    expect(r.changeSummary).toBe('Slight → Very strong, decreases')
+    expect(r.changeSummary).not.toMatch(/\d/)
+    expect(r.technicalSummary).toBe('-0.15 → -0.85')
+  })
+
+  it('EDIT-UX §5.4: a change within one band says the band once; a direction flip says "now"', () => {
+    const same = buildV5PatchReceipt({ type: 'v5_graph_patch', status: 'applied', operation: 'adjust_edge_strength', target_id: 'e',
+      before: { strength: 0.45 }, after: { strength: 0.6 } } as never, makeDeps([], []))
+    expect(same.changeSummary).toBe('Strong, increases')
+    const flip = buildV5PatchReceipt({ type: 'v5_graph_patch', status: 'applied', operation: 'adjust_edge_strength', target_id: 'e',
+      before: { strength: { mean: 0.4 }, effect_direction: 'positive' }, after: { strength: { mean: -0.4 }, effect_direction: 'negative' } } as never, makeDeps([], []))
+    expect(flip.changeSummary).toBe('Strong, now decreases')
+    expect(flip.technicalSummary).toBe('0.4 → -0.4, direction now negative')
   })
 
   it('emits empty entityLabel when endpoints unresolved (no leak)', () => {

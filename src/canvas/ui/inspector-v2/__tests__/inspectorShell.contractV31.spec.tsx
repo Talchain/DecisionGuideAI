@@ -99,13 +99,16 @@ describe('v3.1 inspector shell — every pane', () => {
       expect(screen.queryByTestId('inspector-back-to-results')).toBeNull()
       expect(within(header).getByRole('button', { name: 'Close inspector' })).toBeTruthy()
 
-      // Technical detail stays reachable, at the foot of the body.
+      // Edges opt in to More; node panels keep the existing body foot.
+      if (pane.name === 'edge') fireEvent.click(screen.getByTestId('inspector-more-toggle'))
+      // Technical detail stays reachable, at the foot of its content.
       const tech = screen.getByTestId('inspector-tech-toggle')
       expect(tech.getAttribute('aria-label')).toBe('Show technical detail')
       expect(header.contains(tech)).toBe(false)
 
       // The two contract buttons, and not the old chips.
-      expect(screen.getByTestId('inspector-quick-ask').textContent).toBe('Explore with Olumi')
+      expect(screen.getByTestId('inspector-quick-ask').textContent).toBe(pane.name === 'edge' ? 'Ask Olumi' : 'Explore with Olumi')
+      if (pane.name === 'edge') fireEvent.click(screen.getByTestId('inspector-header-menu'))
       expect(screen.getByTestId('inspector-back-to-conversation').textContent).toBe('Back to the conversation')
       expect(screen.queryByTestId('inspector-quick-change')).toBeNull()
       expect(screen.queryByTestId('inspector-quick-analysis')).toBeNull()
@@ -120,7 +123,7 @@ describe('v3.1 inspector shell — every pane', () => {
       expect(notes).toHaveLength(1)
       const note = notes[0]
       expect(note.className).toContain('text-[10px]')
-      const body = screen.getByTestId('inspector-body')
+      const body = screen.getByTestId(pane.name === 'edge' ? 'inspector-more' : 'inspector-body')
       const lastBlock = body.lastElementChild
       expect(lastBlock === note || lastBlock?.contains(note)).toBe(true)
     })

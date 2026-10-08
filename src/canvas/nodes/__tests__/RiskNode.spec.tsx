@@ -107,12 +107,13 @@ describe('RiskNode', () => {
     expect(screen.getByTestId('risk-event-line').textContent).toBe(line)
     expect(screen.getByTestId('risk-event-basis').textContent).toBe(` · ${basis}`)
     expect(screen.getByTestId('risk-primary-line-full').textContent).toBe(`${line} · ${basis}`)
-    expect(screen.queryByText('Likelihood and impact not set yet')).toBeNull()
+    // Slice B (#2633): the pair is a mark whose words are its aria-label, so the absence binds by identity.
+    expect(screen.queryByTestId('risk-exposure-unset')).toBeNull()
   })
 
   it('ignores malformed event risk and keeps the unset sentence byte-identical', () => {
     renderRisk({ event_risk: { version: 1, occurrence: { p_low: 0.4, p_high: 0.3, basis: 'user' }, horizon: { months: 6 } } })
-    expect(screen.getByTestId('risk-exposure-unset').textContent).toContain('Likelihood and impact not set yet')
+    expect(screen.getByTestId('risk-exposure-unset')).toHaveAttribute('aria-label', 'Likelihood and impact not set yet')
     expect(screen.queryByTestId('risk-event-line')).toBeNull()
   })
 
@@ -124,17 +125,19 @@ describe('RiskNode', () => {
     })
     const eventLine = screen.getByTestId('risk-event-line')
     const exposureLine = screen.getByTestId('risk-exposure-line')
-    expect(eventLine.compareDocumentPosition(exposureLine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(exposureLine.textContent).toBe('Entered estimate · 90% likely · High impact')
+    // Slice B (#2633): the event line is the body's words; the pair is the matrix mark in the card's bottom band.
+    expect(eventLine.closest('[data-card-bottom-band]')).toBeNull()
+    expect(exposureLine.closest('[data-card-bottom-band]')).not.toBeNull()
+    expect(exposureLine.getAttribute('aria-description')).toBe('Entered estimate · 90% likely · High impact')
   })
 
   it('keeps the legacy unset and probability/impact controls unchanged without event risk', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
     const unset = renderRisk()
-    expect(screen.getByTestId('risk-exposure-unset').querySelector('[aria-hidden="true"]')?.textContent).toBe('Likelihood and impact not set yet')
+    expect(screen.getByTestId('risk-exposure-unset')).toHaveAttribute('aria-label', 'Likelihood and impact not set yet')
     unset.unmount()
     renderRisk({ probability: 0.9, impact: 'high' })
-    expect(screen.getByTestId('risk-exposure-line').textContent).toContain('Entered estimate · 90% likely · High impact')
+    expect(screen.getByTestId('risk-exposure-line').getAttribute('aria-description')).toBe('Entered estimate · 90% likely · High impact')
   })
 
   it('renders shape indicator (type line removed in v1.1)', () => {
@@ -171,15 +174,15 @@ describe('RiskNode', () => {
 
   it.each([NaN, Infinity, -0.1, 1.1, '0.8'])('does not turn malformed probability %s into a risk estimate', (probability) => {
     renderRisk({ probability, impact: 'high' })
-    expect(screen.queryByText(/% likely/)).toBeNull()
+    expect(screen.queryByLabelText(/% likely/)).toBeNull()
     expect(screen.queryByText(/^(High|Medium|Low) risk$/i)).toBeNull()
-    expect(screen.getByText('Entered estimate · High impact')).toBeDefined()
+    expect(screen.getByTestId('risk-exposure-line')).toHaveAttribute('aria-label', 'Entered estimate · High impact')
   })
 
   it('preserves a stated zero likelihood and ignores an unknown impact', () => {
     renderRisk({ probability: 0, impact: 'extreme' })
-    expect(screen.getByText('Entered estimate · 0% likely')).toBeDefined()
-    expect(screen.queryByText(/extreme impact/i)).toBeNull()
+    expect(screen.getByTestId('risk-exposure-line')).toHaveAttribute('aria-label', 'Entered estimate · 0% likely')
+    expect(screen.queryByLabelText(/extreme impact/i)).toBeNull()
   })
 
   it('sends the complete authored risk context when exploring mitigation', async () => {
@@ -230,7 +233,7 @@ describe('RiskNode', () => {
     expect(screen.queryByText(/^(High|Medium|Low) risk$/i)).toBeNull()
     // Positive control in the SAME render: the entered exposure line is there
     // (ED 5809278282: figures shown, the qualified sentence announced).
-    expect(screen.getByTestId('risk-exposure-line').querySelector('[aria-hidden="true"]')?.textContent).toBe('90% likely · High impact')
+    expect(screen.getByTestId('risk-exposure-line').getAttribute('aria-label')).toBe('90% likely · High impact')
     standard.unmount()
 
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
@@ -240,25 +243,20 @@ describe('RiskNode', () => {
     expect(screen.getByText('High risk')).toBeDefined()
   })
 
-  // P1.7 — the defining probability × impact pair is shown in the body.
-  // ⚠ RE-POINTED FOR ED #63 5809278282 (bounded anatomy, one primary line): the
-  // pair is the line, figures first; `Entered estimate` left the VISIBLE line
-  // (43 characters cannot be one ~19-character landing line) and rides sr-only,
-  // `title` and the popover. The 9 Sep "no native tooltip" rule was about a
-  // qualifier that was visible; the title is now the sighted-mouse recovery
-  // for one that is not, so it is asserted PRESENT.
-  it('shows the probability/impact pair in STANDARD view', () => {
+  // P1.7 — the probability × impact pair names the band mark. The styled
+  // Tooltip provides its hover words; design audit #13 forbids a native title.
+  it('names the probability/impact pair in STANDARD view, with no native title', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({ viewMode: 'standard' }) as any)
     )
     renderRisk({ probability: 0.9, impact: 'high' })
     const line = screen.getByTestId('risk-exposure-line')
-    expect(line.querySelector('[aria-hidden="true"]')?.textContent).toBe('90% likely · High impact')
-    expect(screen.getByTestId('risk-primary-line-full').textContent).toBe('Entered estimate · 90% likely · High impact')
+    expect(line.getAttribute('aria-label')).toBe('90% likely · High impact')
+    expect(screen.getByTestId('risk-exposure-line').getAttribute('aria-description')).toBe('Entered estimate · 90% likely · High impact')
     // Design audit #13 (26 Sep): no native title. The provenance is on the
     // line itself (" · entered"), in full for a screen reader, and in the popover.
-    expect(line).not.toHaveAttribute('title')
-    expect(screen.getByTestId('risk-exposure-provenance').textContent).toBe(' · entered')
+    expect(line.getAttribute('title') ?? '').toBe('')
+    expect(screen.getByTestId('risk-exposure-provenance').getAttribute('aria-label')).toBe(' · entered')
   })
 
   // P1.7 — honest absence: no fabricated pair when data is missing.
@@ -267,8 +265,9 @@ describe('RiskNode', () => {
       selector(makeStoreState({ viewMode: 'standard' }) as any)
     )
     renderRisk()
-    expect(screen.queryByText(/% likely/)).toBeNull()
-    expect(screen.queryByText(/impact$/)).toBeNull()
+    expect(screen.queryByTestId('risk-exposure-line')).toBeNull()
+    expect(screen.getByTestId('risk-exposure-unset')).toHaveAttribute('aria-label', 'Likelihood and impact not set yet')
+    expect(screen.queryByLabelText(/impact$/)).toBeNull()
   })
 
   // P1.7 — partial data: show only the part that exists (probability only).
@@ -278,9 +277,9 @@ describe('RiskNode', () => {
     )
     renderRisk({ probability: 0.5 })
     // ED 5809278282: figures shown, the qualified sentence announced (sr-only).
-    expect(screen.getByTestId('risk-exposure-line').querySelector('[aria-hidden="true"]')?.textContent).toBe('50% likely')
-    expect(screen.getByTestId('risk-primary-line-full').textContent).toBe('Entered estimate · 50% likely')
-    expect(screen.queryByText(/impact/)).toBeNull()
+    expect(screen.getByTestId('risk-exposure-line').getAttribute('aria-label')).toBe('50% likely')
+    expect(screen.getByTestId('risk-exposure-line').getAttribute('aria-description')).toBe('Entered estimate · 50% likely')
+    expect(screen.queryByLabelText(/impact/)).toBeNull()
   })
 
   // T9: Bridge edge data

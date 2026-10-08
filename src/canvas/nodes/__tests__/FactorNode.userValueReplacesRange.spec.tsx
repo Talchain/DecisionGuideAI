@@ -159,7 +159,11 @@ describe('FactorNode — a user-stated value replaces the drafted range on the c
     // Paul 23 Sep contract feedback point 1: a range that is the card's only
     // figure is never unmarked — but nothing records who set a range, so it
     // says "no source", never `est.` (reviewer blocker, 23 Sep).
-    expect(screen.getByTestId(`factor-prior-range-${FACTOR_ID}`).textContent).toBe(RANGE_WITH_NO_SOURCE)
+    expect(screen.getByTestId(`factor-prior-range-${FACTOR_ID}`).textContent?.trim()).toBe(LIVE)
+    const source = screen.getByTestId(`factor-range-source-${FACTOR_ID}`)
+    expect(`${LIVE} ${source.querySelector('[role="img"]')?.getAttribute('aria-label')}${source.querySelector('.sr-only')?.textContent}`).toBe(RANGE_WITH_NO_SOURCE)
+    expect(screen.getByTestId(`factor-range-source-${FACTOR_ID}`).closest('[data-card-bottom-band]')).not.toBeNull()
+    expect(screen.getByTestId(`factor-range-source-${FACTOR_ID}`).querySelector('[role="img"]')).toHaveAttribute('aria-label', VALUE_SOURCE_MARK_TOKEN.unknown)
   })
 
   it('TWIN — a model-authored value (cee_inference) is not the user\'s: unchanged', () => {
@@ -185,8 +189,9 @@ describe('review F2 (#2085) — the SAME factor with no unit: both range sentenc
 
   it('no observed value on the bare scale: "Range: 0.3 to 0.8" prints with its `no source` mark', () => {
     renderFactor(undefined, null)
-    expect(screen.getByTestId(`factor-prior-range-${FACTOR_ID}`).textContent)
-      .toBe(`Range: 0.3 to 0.8 ${VALUE_SOURCE_MARK_TOKEN.unknown}${VALUE_SOURCE_MARK_LABEL.unknown}`)
+    expect(screen.getByTestId(`factor-prior-range-${FACTOR_ID}`).textContent?.trim()).toBe('Range: 0.3 to 0.8')
+    expect(screen.getByTestId(`factor-range-source-${FACTOR_ID}`).closest('[data-card-bottom-band]')).not.toBeNull()
+    expect(screen.getByTestId(`factor-range-source-${FACTOR_ID}`).querySelector('[role="img"]')).toHaveAttribute('aria-label', VALUE_SOURCE_MARK_TOKEN.unknown)
   })
 })
 
