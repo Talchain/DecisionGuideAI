@@ -37,11 +37,12 @@ import { collectConsentSurfaceText, dedupeRenderedText } from './messageComposit
 import { turnOfferedConsent } from './utils/transcriptStore'
 import { openQuestionsToggleLabel, splitServerOpenQuestions } from './serverOpenQuestions'
 import { PROVISIONAL_VIEW_LABEL, provisionalBecauseLine, provisionalHeading } from './provisionalView'
-import { PANEL_LIST_BULLET } from './panelLists'
+import { OpenQuestionList } from './OpenQuestionList'
 import { SYSTEM_MESSAGE_SENTINEL, isNonConversationalContent } from './useConversation'
 import type { ConversationMessage, ActionChip, GraphPatchBlock, Insight } from './types'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import styles from './Conversation.module.css'
+import { AiChangeUndoButton } from '../undo/AiChangeUndoButton'
 
 /** Safety net: extract text from raw JSON blobs that CEE's fallback parser may produce. */
 function extractFromRawJson(content: string): string {
@@ -569,12 +570,7 @@ export const MessageBubble = memo(function MessageBubble({
               {/* The producer's whole list when it sent one (CEE #2054), every item verbatim; otherwise the
                   questions the reply itself carried, as before. */}
               {message.openQuestionList && message.openQuestionList.length > 0 ? (
-                <ul
-                  className={`${styles.reasoningPanelBody} ${PANEL_LIST_BULLET}`}
-                  data-testid="message-open-questions-list"
-                >
-                  {message.openQuestionList.map((q, i) => <li key={i}>{q}</li>)}
-                </ul>
+                <OpenQuestionList questions={message.openQuestionList} onDiscuss={onArtefactMessage} />
               ) : (
                 <p className={styles.reasoningPanelBody}>{openQuestions.questions}</p>
               )}
@@ -672,6 +668,8 @@ export const MessageBubble = memo(function MessageBubble({
         omits both follow-up items when that handler is absent — so the
         affordance still cannot appear where nothing can send it.
       */}
+      {/* P48 (audit #23): Undo for the change Olumi made in this reply — only while it is the next ⌘Z. */}
+      {!isUser && !message.synthetic && <AiChangeUndoButton turnId={message.undoTurnId} />}
       {!isUser && !message.synthetic && displayContent !== FALLBACK_TEXT && onFeedback && (
         <FeedbackRow turnId={message.clientTurnId} onFeedback={onFeedback} />
       )}

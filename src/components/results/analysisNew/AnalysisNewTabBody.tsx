@@ -106,6 +106,7 @@ import { SectionShell } from './sections/SectionShell'
 import { DecisionMatrix } from './sections/DecisionMatrix'
 import { PreMortemWorksheet } from './sections/PreMortemWorksheet'
 import { MethodStrip } from './sections/MethodStrip'
+import { ReasoningActionBar } from './sections/ReasoningActionBar'
 import { ReasoningAskBox } from './sections/ReasoningAskBox'
 import { CommitmentSummary, PreRunCommitment } from './sections/CommitmentSummary'
 import { buildCommitmentSynthesis, buildPreRunCommitmentBullets } from './commitmentSynthesis'
@@ -116,6 +117,7 @@ import { ModelReviewTool } from './sections/ModelReviewTool'
 import { disagreeWithRecommendationPayload } from './buildReviewQueue'
 import { runMethod } from './runMethod'
 import { ACTION_REGISTRY } from '../../../canvas/conversation/actionRegistry'
+import { useScenarioActionBar } from '../../../canvas/conversation/actionBar/useScenarioActionBar'
 import { METHOD_CATALOGUE } from '../decision-overview/actionsCatalogue'
 import { shellRerunControl, useReanalyseBarInputs } from '../../../canvas/components/workspaceShell/rerunControl'
 import { methodIdsRaisedBy } from './recommendationMethod'
@@ -1305,6 +1307,8 @@ export function AnalysisNewTabBody({
    * down the panel, and sent nothing. `runMethod` sends the method's one chip
    * turn; the pick still marks the method active on the strip and the card.
    */
+  /* CEE's action bar for the open scenario, when the latest answer carried one (S-B slice 1). */
+  const actionBar = useScenarioActionBar()
   const selectMethod = useCallback(
     (id: string) => {
       setPickedMethodId(id === restingMethodId ? null : id)
@@ -1454,6 +1458,9 @@ export function AnalysisNewTabBody({
     reanalyseBlockedReason: runRefusedByGate ? runBlockedReason : null,
   }
   const ribbonOwnsRerun = ribbonOffersRerun({ ...glanceRunControl, part: 'status' })
+  // ⭐ ONE RULE for the tab's ⋯ "Re-run" (S-F + S-B): whichever ⋯ heads the tab — CEE's action bar's or the method
+  // strip's — offers Re-run only when neither the footer bar nor the ribbon is already showing it.
+  const menuMayRerun = canRunAnalysis === true && !vm.status.isPreRun && !footerOwnsRerun && !ribbonOwnsRerun
 
   const renderGlance = (part: 'status' | 'reading') => (
     <AtAGlance
@@ -1900,12 +1907,19 @@ export function AnalysisNewTabBody({
             prototype: one method is always active; the card's "Not useful right
             now" is what sets a pick aside). At rest the active method is the one
             the run's own top finding names (`restingMethodId`), never a default. */}
-        <MethodStrip
-          activeMethodId={effectivePick ?? restingMethodId}
-          onSelectMethod={selectMethod}
-          raisedMethodIds={raisedMethodIds}
-          canRerun={canRunAnalysis === true && !vm.status.isPreRun && !footerOwnsRerun && !ribbonOwnsRerun}
-        />
+        {/* ⭐ S-B slice 1 (Paul approved the action system, 7 Oct 2026): when the latest answer carries CEE's action
+            bar, it heads this tab INSTEAD of the method strip and the four presses below, and chat shows the same bar.
+            While CEE sends none, the strip and presses stay exactly as they were (the consumer ships first). */}
+        {actionBar ? (
+          <ReasoningActionBar bar={actionBar} canRerun={menuMayRerun} />
+        ) : (
+          <MethodStrip
+            activeMethodId={effectivePick ?? restingMethodId}
+            onSelectMethod={selectMethod}
+            raisedMethodIds={raisedMethodIds}
+            canRerun={menuMayRerun}
+          />
+        )}
         {/* ⚠ THE INTRO ASSERTS A RUN, SO IT IS GATED ON THERE BEING ONE.
             "A second reading of the same analysis run" is true of this tab and
             false of this model when nothing has run — mounted pre-run it sat
@@ -2268,7 +2282,7 @@ export function AnalysisNewTabBody({
             leader claim is withheld that is the panel naming an order it may not
             state (the same rule #1881 applies to the panel's own leader words).
             So the thresholds are passed only when the claim is permitted. */}
-        {!isPreRun && !isBusyNow && runAffirmedCurrent && sendScienceChip ? (
+        {!actionBar && !isPreRun && !isBusyNow && runAffirmedCurrent && sendScienceChip ? (
           <div className="flex flex-wrap gap-2">
             {/* A4 slice 1: CEE's "Review this decision" press (`agent-next-review-decision`, decision-review-press.ts).
                 CEE lists what to check before relying on this Run, each item a typed fact with its existing next step,

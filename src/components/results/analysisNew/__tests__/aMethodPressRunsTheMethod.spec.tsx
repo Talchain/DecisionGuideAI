@@ -17,6 +17,8 @@
  * are PROSE rows (interim) and send `ask:<intent>`.
  */
 import '@testing-library/jest-dom/vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
@@ -24,6 +26,9 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { genuineDecision } from './analysisNewFixtures'
 import { METHOD_CATALOGUE } from '../../decision-overview/actionsCatalogue'
 import { ACTION_REGISTRY, actionOfMethod } from '../../../../canvas/conversation/actionRegistry'
+import { parseActionBar, type ActionBarV1 } from '../../../../canvas/conversation/actionBar/actionBarContract'
+import { useActionBarStore } from '../../../../canvas/conversation/actionBar/actionBarStore'
+import { resetPressOfferClocks } from '../../../../canvas/conversation/actionBar/pressOffer'
 import { QUESTIONS } from '../../../../canvas/conversation/askAiQuestions'
 import { useAskOlumiStore } from '../../coaching/askOlumiStore'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -252,5 +257,129 @@ describe('every catalogue method is one registry action', () => {
         expect(text, id).not.toContain('this decision usually')
       }
     }
+  })
+})
+
+/**
+ * ⭐ S-B slice 1 (Paul approved the action system, 7 Oct 2026): when the latest answer carries CEE's action bar, it heads
+ * this tab INSTEAD of the method strip and the four text presses; chat shows the same bar. The bar is one CEE captured
+ * from its routes. While CEE sends none, the tab is exactly as the rows above describe it.
+ */
+describe('CEE’s action bar heads the Reasoning tab when the latest answer carries one', () => {
+  const SCENARIO = 'scn-reasoning-bar'
+  const BAR = 'reasoning-action-bar'
+  const FOUR_PRESSES = ['analysis-review-decision', 'analysis-what-would-change-result', 'analysis-strengthen-model', 'analysis-run-pre-mortem']
+  const captured = (name: string): ActionBarV1 => parseActionBar(JSON.parse(readFileSync(
+    join(__dirname, '../../../../canvas/conversation/actionBar/__tests__/fixtures', `action-bar-v1-${name}.json`), 'utf8')))!
+
+  beforeEach(() => {
+    resetPressOfferClocks()
+    useCanvasStore.setState({ currentScenarioId: SCENARIO } as never)
+    useActionBarStore.setState({ bar: null, scenarioId: null, dismissed: [] })
+  })
+  afterEach(() => useActionBarStore.setState({ bar: null, scenarioId: null, dismissed: [] }))
+
+  it('⛔ CONTRAST (no bar on the answer): the strip and the four presses are drawn, and no bar', () => {
+    mount()
+    expect(screen.getByTestId(STRIP)).toBeInTheDocument()
+    for (const id of FOUR_PRESSES) expect(screen.getByTestId(id), id).toBeInTheDocument()
+    expect(screen.queryByTestId(BAR)).toBeNull()
+  })
+
+  it('with a bar: it is drawn INSTEAD of the strip and the four presses', () => {
+    useActionBarStore.getState().setBar(SCENARIO, captured('withheld-run'))
+    mount()
+    expect(screen.getByTestId(BAR)).toHaveAttribute('data-surface', 'reasoning')
+    expect(screen.queryByTestId(STRIP)).toBeNull()
+    for (const id of FOUR_PRESSES) expect(screen.queryByTestId(id), id).toBeNull()
+  })
+
+  it('a press on the bar sends CEE’s own press id and the identity it was offered for: one press, one turn', () => {
+    const bar = captured('withheld-run')
+    useActionBarStore.getState().setBar(SCENARIO, bar)
+    mount()
+    fireEvent.click(screen.getByTestId(`${BAR}-icon-review`))
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith({
+      id: 'agent-next-review-decision', label: bar.standard[0]!.label, message: bar.standard[0]!.user_line,
+      parameters: { offer_key: bar.standard[0]!.offer_key, revision: bar.revision }, source: 'chip',
+    })
+    expect(useAskOlumiStore.getState().isOpen, 'no drawer').toBe(false)
+  })
+
+  it('before a Run the bar says what each Run-dependent action needs, and sends nothing for it', () => {
+    useActionBarStore.getState().setBar(SCENARIO, captured('pre-run'))
+    mount({ isPreRun: true })
+    fireEvent.click(screen.getByTestId(`${BAR}-icon-review`))
+    expect(dispatch).not.toHaveBeenCalled()
+    expect(screen.getByTestId(`${BAR}-notice`)).toHaveTextContent('Review: Needs a current analysis.')
+  })
+
+  it('the tab’s own model-and-workflow controls stay reachable, last in the bar’s menu', () => {
+    useActionBarStore.getState().setBar(SCENARIO, captured('withheld-run'))
+    mount()
+    fireEvent.click(screen.getByTestId(`${BAR}-more`))
+    const rows = screen.getAllByRole('menuitem').map((el) => el.getAttribute('data-testid'))
+    expect(rows).toContain(`${BAR}-menu-host-edit_brief`)
+    expect(rows).toContain(`${BAR}-menu-host-review_inputs`)
+    expect(rows.indexOf(`${BAR}-menu-more_options`)).toBeLessThan(rows.indexOf(`${BAR}-menu-host-edit_brief`))
+  })
+
+  it('a bar that belongs to another scenario is not drawn: the strip stays', () => {
+    useActionBarStore.getState().setBar('another-scenario', captured('withheld-run'))
+    mount()
+    expect(screen.queryByTestId(BAR)).toBeNull()
+    expect(screen.getByTestId(STRIP)).toBeInTheDocument()
+  })
+})
+
+/**
+ * ⛔ REGRESSION (served on staging 87d58524, 7 Oct 2026): once CEE's bar arrived it replaced the method strip, and CEE
+ * offers only actions with a typed contract, so reframe, opposite case, outside view, trade-offs and bias check had NO
+ * door in the Reasoning tab. DL: "do not drop the 5 prose methods until P12/P25 give them typed handlers". They are in
+ * the bar's ⋯ under "Reasoning methods", and a press runs the method exactly as the strip did: one chip turn.
+ */
+describe('every reasoning method the bar does not carry is in the bar’s ⋯, and one press runs it', () => {
+  const SCENARIO = 'scn-reasoning-methods'
+  const BAR = 'reasoning-action-bar'
+  const PROSE_METHODS = ['reframe_problem', 'consider_opposite', 'outside_view', 'explore_tradeoffs', 'review_bias']
+  const withheldRun = (): ActionBarV1 => parseActionBar(JSON.parse(readFileSync(
+    join(__dirname, '../../../../canvas/conversation/actionBar/__tests__/fixtures/action-bar-v1-withheld-run.json'), 'utf8')))!
+  const menuRows = () => {
+    fireEvent.click(screen.getByTestId(`${BAR}-more`))
+    return screen.getAllByRole('menuitem').map((el) => el.getAttribute('data-testid'))
+  }
+
+  beforeEach(() => {
+    resetPressOfferClocks()
+    useCanvasStore.setState({ currentScenarioId: SCENARIO } as never)
+    useActionBarStore.getState().setBar(SCENARIO, withheldRun())
+  })
+  afterEach(() => useActionBarStore.setState({ bar: null, scenarioId: null, dismissed: [] }))
+
+  it('PRECONDITION: the five are exactly the catalogue methods whose action has no typed handler', () => {
+    const prose = METHOD_CATALOGUE.filter((m) => ACTION_REGISTRY[actionOfMethod(m.id)!].handler.kind === 'prose').map((m) => m.id)
+    expect(prose).toEqual(PROSE_METHODS)
+  })
+
+  it('RED (served): with a bar, the five are listed under "Reasoning methods"; the typed ones are not listed twice', () => {
+    mount()
+    expect(screen.queryByTestId(STRIP), 'the strip is gone').toBeNull()
+    const rows = menuRows()
+    for (const id of PROSE_METHODS) expect(rows, id).toContain(`${BAR}-menu-host-${id}`)
+    expect(rows).not.toContain(`${BAR}-menu-host-pre_mortem`)
+    expect(rows).not.toContain(`${BAR}-menu-host-different_option`)
+    expect(screen.getByTestId(`${BAR}-menu-group-host-methods`)).toHaveTextContent('Reasoning methods')
+    // Methods before the tab's own workflow controls.
+    expect(rows.indexOf(`${BAR}-menu-host-review_bias`)).toBeLessThan(rows.indexOf(`${BAR}-menu-host-edit_brief`))
+  })
+
+  it.each(PROSE_METHODS)('%s: one press from the bar’s ⋯ sends ONE chip turn with the method’s own id, and opens no drawer', (id) => {
+    mount()
+    menuRows()
+    fireEvent.click(screen.getByTestId(`${BAR}-menu-host-${id}`))
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ id: SENT_ID_ON_A_CURRENT_RUN[id], source: 'chip' }))
+    expect(useAskOlumiStore.getState().isOpen).toBe(false)
   })
 })
