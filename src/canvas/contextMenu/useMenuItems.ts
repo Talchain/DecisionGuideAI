@@ -591,9 +591,9 @@ function buildPaneMenu(
     },
     {
       id: 'ask-ai-pane',
-      label: 'Ask AI',
+      label: 'Ask Olumi',
       icon: Sparkles,
-      tooltip: 'Ask AI about the model',
+      tooltip: 'Ask Olumi about the model',
       enabled: true,
       hasSubmenu: true,
       submenuItems: [
@@ -727,9 +727,9 @@ function buildNodeMenu(
   }
   items.push({
     id: 'ask-ai',
-    label: 'Ask AI',
+    label: 'Ask Olumi',
     icon: Sparkles,
-    tooltip: 'AI-powered analysis',
+    tooltip: 'Ask Olumi about this',
     enabled: true,
     hasSubmenu: true,
     submenuItems: askAIItems,
@@ -984,16 +984,16 @@ function buildEdgeMenu(
       id: 'ask-ai-challenge',
       label: 'Challenge this',
       icon: HelpCircle,
-      tooltip: 'Ask AI to argue this link is wrong or overweighted',
+      tooltip: 'Ask Olumi to argue this link is wrong or overweighted',
       enabled: true,
       action: wrap(() => askAI(target, 'challenge_element', showToast)),
     })
   }
   items.push({
     id: 'ask-ai',
-    label: 'Ask AI',
+    label: 'Ask Olumi',
     icon: Sparkles,
-    tooltip: 'AI-powered analysis',
+    tooltip: 'Ask Olumi about this',
     enabled: true,
     hasSubmenu: true,
     submenuItems: askAIItems,
@@ -1091,9 +1091,9 @@ function buildMultiMenu(
   return [
     {
       id: 'ask-ai',
-      label: 'Ask AI',
+      label: 'Ask Olumi',
       icon: Sparkles,
-      tooltip: 'AI-powered analysis',
+      tooltip: 'Ask Olumi about this',
       enabled: true,
       hasSubmenu: true,
       submenuItems: [

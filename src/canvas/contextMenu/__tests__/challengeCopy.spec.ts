@@ -183,7 +183,7 @@ describe('challenge copy — true for the kind it is shown on', () => {
 
 describe('challenge tooltip — the menu label must be true for the kind', () => {
   /**
-   * The shipped menu tooltip is one fixed string: "Ask AI to argue against this
+   * The shipped menu tooltip is one fixed string: "Ask Olumi to argue against this
    * element's current setup". It reads fine for a factor. It is not true of a
    * Question — a question has no "setup" to argue against, it has a framing —
    * and it is limp for an option. The tooltip therefore comes from the same
@@ -192,17 +192,17 @@ describe('challenge tooltip — the menu label must be true for the kind', () =>
   it('tells a decision node the argument is about the question being asked', () => {
     const tooltip = buildChallengeTooltip('decision')
 
-    expect(tooltip).toBe('Ask AI to argue this is the wrong question to be asking')
+    expect(tooltip).toBe('Ask Olumi to argue this is the wrong question to be asking')
     expect(tooltip).not.toContain('current setup')
   })
 
   it('names the option for an option node', () => {
-    expect(buildChallengeTooltip('option')).toBe('Ask AI to argue against this option')
+    expect(buildChallengeTooltip('option')).toBe('Ask Olumi to argue against this option')
   })
 
   it('offers negotiability for a constraint node', () => {
     expect(buildChallengeTooltip('constraint')).toBe(
-      'Ask AI to argue this constraint is wrong or negotiable',
+      'Ask Olumi to argue this constraint is wrong or negotiable',
     )
   })
 
@@ -210,7 +210,7 @@ describe('challenge tooltip — the menu label must be true for the kind', () =>
     'leaves the shipped %s tooltip untouched',
     (kind) => {
       expect(buildChallengeTooltip(kind)).toBe(
-        "Ask AI to argue against this element's current setup",
+        "Ask Olumi to argue against this element's current setup",
       )
     },
   )
