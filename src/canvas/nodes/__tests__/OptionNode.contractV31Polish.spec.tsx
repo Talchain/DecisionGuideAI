@@ -25,6 +25,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { runViewOf } from '../../runView/runView'
 import { typography } from '../../../styles/typography'
 import { changeRow, changeRowValueText } from './__helpers__/optionChangeRowText'
 import { optionCardRows, optionPreviewDetail } from './__helpers__/optionPreview'
@@ -98,6 +99,21 @@ vi.mock('../../layoutStore', () => ({
     selector({ layoutNodeWidth: null })) as unknown as (...args: never[]) => unknown),
 }))
 
+// Layout tests consume a real licensed cell independently of the mocked runs share.
+vi.mock('../shared/useOptionChanceCell', () => ({
+  useOptionChanceCell: (id: string) => {
+    const results = useCanvasStore(state => state.results)
+    const nodes = useCanvasStore(state => state.nodes)
+    return runViewOf(results.report).chanceCellOf(id, {
+      goalChanceHeroSays: true,
+      labelOf: (nodeId) => {
+        const label = nodes.find(node => node.id === nodeId)?.data.label
+        return typeof label === 'string' ? label : null
+      },
+    })
+  },
+}))
+
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => ({
     sensitivityRank: null,
@@ -130,7 +146,11 @@ const baseProps = {
   draggable: true,
 }
 
-const COMPLETE = { status: 'complete', report: {} }
+const COMPLETE = { status: 'complete', report: { inference_warnings: [{
+  code: 'GOAL_CHANCE_LICENSED', form: 'each', option_ids: ['option-1', 'option-2', 'option-b'],
+  pct_by_option: { 'option-1': 41, 'option-2': 32, 'option-b': 12 },
+  target: { comparator: 'at_least', value: 100, unit: 'customers' },
+}] } }
 
 const renderCard = (
   { id = 'option-1', data = {}, store = {} }: { id?: string; data?: Record<string, unknown>; store?: Record<string, unknown> } = {},
@@ -166,27 +186,28 @@ describe('contract v3.1 — option card polish', () => {
 
   // ── OPT-01 / OPT-07 / OPT-08: the run bar is neutral, short and secondary ──
   describe('the run result row (OPT-01, OPT-07, OPT-08, OPT-06/RHY-05)', () => {
-    it('fills the bar with the neutral text-light token, never the option kind colour (OPT-01)', () => {
+    it('the licensed chance replaces the runs-share bar, using the neutral text-body token (WS5-1, OPT-01)', () => {
       winRate = 0.42
       renderCard({ store: { results: COMPLETE } })
       const row = byTestId('option-analysis-currency-option-1')
       expect(row, 'precondition: the result row renders').not.toBeNull()
-      const fill = row!.querySelector('.h-full.rounded-full')
-      expect(fill).not.toBeNull()
-      // Identity: this is the width-carrying fill (its floor is the served `max(4px, N%)`).
-      expect((fill as HTMLElement).style.width).toBe('max(4px, 42%)')
-      expect(tokens(fill).has('bg-text-light')).toBe(true)
-      expect(tokens(fill).has('bg-option')).toBe(false)
+      const readout = byTestId('option-win-readout-option-1')!
+      expect(readout.textContent).toBe('‘Hire two developers’: about 41% chance of meeting your goal, in this model.')
+      expect(tokens(readout).has('text-text-body')).toBe(true)
+      expect(row!.querySelector('.h-full.rounded-full')).toBeNull()
+      expect(row!.getAttribute('aria-label')).not.toContain('of runs')
     })
 
-    it('the track is the factor bar’s fixed 54px, not a flex-1 track across the card (OPT-08)', () => {
+    it('the caption precedes the shared chance text without a runs-share track (WS5-1, OPT-08)', () => {
       winRate = 0.42
       renderCard({ store: { results: COMPLETE } })
-      const fill = byTestId('option-analysis-currency-option-1')!.querySelector('.h-full.rounded-full')
-      const track = fill!.parentElement
-      expect(tokens(track).has('w-[54px]')).toBe(true)
-      expect(tokens(track).has('flex-1')).toBe(false)
-      expect(tokens(track).has('bg-panel-border')).toBe(true)
+      const row = byTestId('option-analysis-currency-option-1')!
+      const anchor = byTestId('option-win-anchor-option-1')!
+      const readout = byTestId('option-win-readout-option-1')!
+      expect(anchor.compareDocumentPosition(readout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(row.querySelector('.w-\\[54px\\]')).toBeNull()
+      expect(byTestId('option-win-figure-option-1')).toBeNull()
+      expect(byTestId('option-win-unit-option-1')).toBeNull()
     })
 
     it('the readout is the 11px label size, the same as its caption (OPT-07)', () => {
@@ -213,7 +234,7 @@ describe('contract v3.1 — option card polish', () => {
       expect([...row].filter(c => /^m[tb]-/.test(c))).toEqual([])
     })
 
-    it('the absence row shares the rhythm (OPT-06, RHY-05)', () => {
+    it('a run without a chance keeps the reserved rhythm and adds no share absence paragraph (WS5-1, RHY-05)', () => {
       winRate = null
       // A partial absence: another option resolved a share, this one did not.
       renderCard({
@@ -224,11 +245,9 @@ describe('contract v3.1 — option card polish', () => {
           },
         },
       })
-      const row = byTestId('option-result-unavailable-option-1') ?? byTestId('option-not-analysed-option-1')
-      expect(row, 'precondition: an absence row renders').not.toBeNull()
-      // ⚠ RE-POINTED 27 Sep (side-by-side DIFF item 5): the not-analysed line now
-      // fills the share line's reserved slot, so the 4px rhythm is the slot's.
-      const box = row!.closest('[data-testid="option-share-slot-option-1"]') ?? row
+      expect(byTestId('option-result-unavailable-option-1')).toBeNull()
+      expect(byTestId('option-analysis-currency-option-1')).toBeNull()
+      const box = byTestId('option-share-slot-option-1')!
       const t = tokens(box)
       expect(t.has('mt-1')).toBe(true)
       expect(t.has('mt-1.5')).toBe(false)
@@ -288,7 +307,7 @@ describe('contract v3.1 — option card polish', () => {
       expect(meta!.compareDocumentPosition(result!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
-    it('STANDARD, after a run: the baseline statement STAYS on the card, before the share line', () => {
+    it('STANDARD, after a run: the baseline statement STAYS on the card, before the chance line', () => {
       winRate = 0.3
       renderCard({ id: 'option-b', data: { label: 'Status quo', is_baseline: true }, store: { results: COMPLETE } })
       const meta = byTestId('option-baseline-meta-option-b')

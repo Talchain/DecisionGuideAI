@@ -205,7 +205,7 @@ describe('a missing support percentage is stated once, not once per option', () 
    * GREEN. Without this arm, deleting the notice outright would pass every
    * assertion in this file.
    */
-  it('KEEPS the per-card notice when a sibling DID resolve a share', () => {
+  it('a sibling runs share adds no share headline or absence paragraph to any card', () => {
     useCanvasStore.setState({
       nodes: THREE,
       results: { status: 'complete', report: { option_probabilities: {
@@ -229,8 +229,8 @@ describe('a missing support percentage is stated once, not once per option', () 
     } as never)
     mountOptions(THREE)
 
-    expect(screen.getByTestId('option-result-unavailable-5364a6e2')).toBeInTheDocument()
-    expect(screen.getByTestId('option-result-unavailable-9c978d4d')).toBeInTheDocument()
+    expect(screen.queryByTestId('option-result-unavailable-5364a6e2')).toBeNull()
+    expect(screen.queryByTestId('option-result-unavailable-9c978d4d')).toBeNull()
     // ⭐ AND NEITHER IS RE-BADGED AS ONE THE RUN LEFT OUT. This is the pair
     // that keeps the two questions apart: the run HAD these options and
     // returned no share, which is not the same fact as never having had them.
@@ -238,7 +238,9 @@ describe('a missing support percentage is stated once, not once per option', () 
     expect(screen.queryByTestId('option-not-analysed-9c978d4d')).toBeNull()
     // The resolver states its figure and never the absence.
     expect(screen.queryByTestId('option-result-unavailable-a596e935')).toBeNull()
-    expect(screen.getByTestId('option-win-readout-a596e935')).toBeInTheDocument()
+    // WS5-1: a runs share alone grants no option chance headline.
+    expect(screen.queryByTestId('option-win-readout-a596e935')).toBeNull()
+    expect(screen.queryByTestId('option-analysis-currency-a596e935')).toBeNull()
   })
 
   it('an option the run never scored says SO, beside a sibling that resolved a share', () => {
@@ -259,7 +261,7 @@ describe('a missing support percentage is stated once, not once per option', () 
     expect(screen.queryByTestId('option-result-unavailable-9c978d4d')).toBeNull()
     // The discriminating sibling: analysed, no share, so the symptom sentence
     // is the true one for it and the not-analysed row must stay off.
-    expect(screen.getByTestId('option-result-unavailable-5364a6e2')).toBeInTheDocument()
+    expect(screen.queryByTestId('option-result-unavailable-5364a6e2')).toBeNull()
     expect(screen.queryByTestId('option-not-analysed-5364a6e2')).toBeNull()
   })
 
@@ -354,7 +356,7 @@ describe('a missing support percentage is stated once, not once per option', () 
     expect(screen.queryByTestId('decision-support-share-absent')).toBeNull()
   })
 
-  it('holds the ratified copy rulings on both surfaces', () => {
+  it('keeps the card free of runs-share absence copy and race framing', () => {
     useCanvasStore.setState({
       nodes: THREE,
       results: { status: 'complete', report: { option_probabilities: {
@@ -394,9 +396,9 @@ describe('a missing support percentage is stated once, not once per option', () 
     // on the state rather than leaving the copy check to fail obscurely.
     expect(screen.queryByTestId('option-not-analysed-5364a6e2')).toBeNull()
 
-    const card = screen.getByTestId('option-result-unavailable-5364a6e2')
-    // Conditions on the data. It is a thinking tool, not an oracle.
-    expect(card.textContent).toContain('On the data so far')
+    expect(screen.queryByTestId('option-result-unavailable-5364a6e2')).toBeNull()
+    expect(container.textContent).not.toContain('of runs')
+    expect(screen.queryByTestId('option-analysis-currency-5364a6e2')).toBeNull()
     // ⚠ Negative copy assertions are CASE-SENSITIVE, so lower-case the subject.
     const text = (container.textContent ?? '').toLowerCase()
     for (const banned of ['winner', 'wins', 'runner-up', 'beats', 'ahead of', 'leader', 'first place', 'second place']) {

@@ -38,11 +38,13 @@
  * permitted rows pin their absence instead.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, renderHook, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { OptionNode } from '../OptionNode'
+import { OptionChanceCellProvider } from '../shared/OptionChanceCellProvider'
+import { useOptionChanceCell } from '../shared/useOptionChanceCell'
 import { useCanvasStore } from '../../store'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { formatWinProbability } from '../../utils/labelUtils'
@@ -72,7 +74,8 @@ const LEFT_OUT = '146aa89d'
 const report = mapV5AnalysisToReport(fx.analysis_block as never) as unknown as {
   option_probabilities: Record<string, { win_probability?: number }>
 }
-const nodes = fx.draft.nodes.map(n => ({ id: n.id, type: n.kind, position: { x: 0, y: 0 }, data: { label: n.label, type: n.kind } }))
+// Results identifies option entries by data.kind, as the production graph mapper supplies it.
+const nodes = fx.draft.nodes.map(n => ({ id: n.id, type: n.kind, position: { x: 0, y: 0 }, data: { label: n.label, type: n.kind, kind: n.kind } }))
 const edges = fx.draft.edges.map((e, i) => ({ id: `e${i}`, source: e.from, target: e.to }))
 const OPTIONS = fx.draft.nodes.filter(n => n.kind === 'option')
 const ANALYSED = OPTIONS.filter(o => typeof report.option_probabilities[o.id]?.win_probability === 'number')
@@ -108,15 +111,16 @@ const seed = (freshness: Freshness, opts: { stamp?: boolean; phase?: 'pre' | 'po
 
 const renderCard = (id: string) => {
   const n = nodes.find(x => x.id === id)!
-  return render(<ReactFlowProvider><OptionNode
+  return render(<ReactFlowProvider><OptionChanceCellProvider><OptionNode
     id={n.id} type="option" data={n.data as never} selected={false}
     isConnectable positionAbsoluteX={0} positionAbsoluteY={0}
     dragging={false} zIndex={0} deletable selectable draggable
-  /></ReactFlowProvider>)
+  /></OptionChanceCellProvider></ReactFlowProvider>)
 }
 
 const tokens = (el: Element | null) => new Set((el?.getAttribute('class') ?? '').split(/\s+/).filter(Boolean))
 const byId = (tid: string) => screen.queryByTestId(tid)
+const chanceText = (id: string) => renderHook(() => useOptionChanceCell(id), { wrapper: OptionChanceCellProvider }).result.current.text
 /** Every element between `el` and `stop` (exclusive), innermost first. */
 const between = (el: Element, stop: Element): Element[] => {
   const out: Element[] = []
@@ -148,51 +152,40 @@ describe('preconditions — the real run, read through the product mapper', () =
   })
 })
 
-describe('DIFF item 1 — the model-relative anchor always paints with the figure; the bar always paints', () => {
+describe('DIFF item 1 — the run caption leads the Results chance; the runs-share bar is removed', () => {
   // MOVED TO A PERMITTED RUN (CURRENT-READ row 9, AIQ 5912710392): WAS this run with its withheld stamp,
   // "the anchor, the figure and `Goal only` never give way". The geometry is kept on the same run with no
   // stamp. The compact `Model` anchor and `· Goal only` only rendered WITH a qualifier, which only a withheld
   // run carried; a withheld run now shows no share, so on the permitted run they are pinned ABSENT.
-  it.each(ANALYSED.map(o => [o.id] as const))('%s (current, PERMITTED run): the anchor and the figure never give way; only the unit does', (id) => {
+  it.each(ANALYSED.map(o => [o.id] as const))('%s (current, PERMITTED run): the caption stays whole and the accessible name retains the exact Results chance', (id) => {
     seed('current', { stamp: false })
     renderCard(id)
     const row = byId(`option-analysis-currency-${id}`)!
     expect(row, 'precondition: the share row renders').not.toBeNull()
-    const formatted = formatWinProbability(report.option_probabilities[id].win_probability!)
+    const expected = chanceText(id)
+    expect(expected, 'the Results chance cell has a sentence').not.toBeNull()
 
-    // The anchor: whole, and no box between it and the row can squeeze it away.
     const anchor = byId(`option-win-anchor-${id}`)!
     expect(anchor.textContent).toBe('Current model')
     expect(tokens(anchor).has('shrink-0')).toBe(true)
     expect(GIVES_WAY(anchor)).toBe(false)
     expect(between(anchor, row).filter(GIVES_WAY), 'a yielding box wraps the anchor').toEqual([])
-
-    // No qualifier on a permitted line, so no narrow-width `Model` anchor: the long anchor is the only
-    // one and is never hidden. The slot still measures its own width in em for the caption query.
     expect(byId(`option-win-anchor-compact-${id}`)).toBeNull()
     expect(byId(`option-share-goal-only-${id}`)).toBeNull()
     expect(byId(`option-share-provisional-${id}`)).toBeNull()
     expect(tokens(anchor).has('hidden')).toBe(false)
     expect(tokens(byId(`option-share-slot-${id}`)).has('[container-type:inline-size]')).toBe(true)
 
-    // The figure never gives way; the unit `of runs` is the ONE part that may.
-    const figure = byId(`option-win-figure-${id}`)!
-    expect(figure.textContent).toBe(formatted)
-    expect(tokens(figure).has('shrink-0')).toBe(true)
-    expect(between(figure, row).filter(GIVES_WAY)).toEqual([])
-    const unit = byId(`option-win-unit-${id}`)!
-    expect(unit.textContent?.trim()).toBe('of runs')
-    const yieldBox = unit.parentElement!
-    expect([...tokens(yieldBox)]).toEqual(expect.arrayContaining(['flex-wrap', 'overflow-hidden', 'h-[1lh]', 'min-w-0', 'shrink-[1000000]']))
-    expect(byId(`option-win-readout-${id}`)!.textContent).toBe(`${formatted} of runs`)
-
-    // The bar: out of the text flow, under the line, in the strip the row reserves.
-    const fill = row.querySelector('.h-full.rounded-full')!
-    const track = fill.parentElement!
-    expect([...tokens(track)]).toEqual(expect.arrayContaining(['absolute', 'bottom-0', 'left-0', 'w-[54px]', 'h-[3px]']))
-    expect(GIVES_WAY(track)).toBe(false)
-    expect(between(track, row).filter(GIVES_WAY)).toEqual([])
-    expect([...tokens(row)]).toEqual(expect.arrayContaining(['relative', 'pb-[3px]', 'flex-nowrap']))
+    const readout = byId(`option-win-readout-${id}`)!
+    expect(readout.textContent).toBe(expected)
+    expect(anchor.compareDocumentPosition(readout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(row.getAttribute('aria-label')).toContain(`Current model · ${expected}`)
+    expect(row.getAttribute('aria-label')).not.toContain('of runs')
+    expect(readout.textContent).not.toContain('of runs')
+    expect(byId(`option-win-figure-${id}`)).toBeNull()
+    expect(byId(`option-win-unit-${id}`)).toBeNull()
+    expect(row.querySelector('.h-full.rounded-full')).toBeNull()
+    expect([...tokens(row)]).toEqual(expect.arrayContaining(['relative', 'flex-nowrap']))
   })
 
   // CURRENT-READ row 9 (AIQ 5912710392): the run AS SERVED (stamp `constraint_verdict_withheld`). WAS
@@ -208,7 +201,7 @@ describe('DIFF item 1 — the model-relative anchor always paints with the figur
     const slot = byId(`option-share-slot-${id}`)!
     expect(slot.getAttribute('class'), 'the Run neither grows nor shrinks the card').toBe(preClass)
     expect(slot.textContent).not.toMatch(/\d\s*%/)
-    expect(byId(`option-analysis-currency-${id}`)).toBeNull()
+    expect(byId(`option-win-readout-${id}`)?.textContent ?? null).toBe(chanceText(id))
     expect(byId(`option-share-goal-only-${id}`)).toBeNull()
     const marker = byId(`option-not-ranked-${id}`)!
     expect(marker, 'the `Not ranked` marker renders').not.toBeNull()
@@ -221,22 +214,23 @@ describe('DIFF item 1 — the model-relative anchor always paints with the figur
   // MOVED TO A PERMITTED RUN (CURRENT-READ row 9, AIQ 5912710392): WAS stale on the withheld stamp, with
   // "`Goal only` is whole". `Last run` and the fixed bar are kept on the same stale run with no stamp; the
   // qualifier cannot render on a share any more, so its absence is pinned instead.
-  it('STALE (the model changed), PERMITTED run: `Last run` stays whole and the bar keeps one fixed width on every card', () => {
+  it('STALE (the model changed), PERMITTED run: `Last run` stays whole before each shared chance cell', () => {
     seed('changed', { stamp: false })
     for (const { id } of ANALYSED) {
       renderCard(id)
       const row = byId(`option-analysis-currency-${id}`)!
       expect(row, `${id}: precondition: the share row renders`).not.toBeNull()
       const anchor = byId(`option-win-anchor-${id}`)!
-      expect(anchor.getAttribute('aria-label')).toBe('Last run')
+      expect(anchor.textContent).toBe('Last run')
       expect(GIVES_WAY(anchor), `${id}: "Last run" may not truncate`).toBe(false)
       expect(between(anchor, row).filter(GIVES_WAY)).toEqual([])
       // `Last run` is already the short form: no second anchor.
       expect(byId(`option-win-anchor-compact-${id}`)).toBeNull()
       expect(tokens(anchor).has('hidden')).toBe(false)
-      const track = row.querySelector('.h-full.rounded-full')!.parentElement!
-      expect(tokens(track).has('w-[54px]')).toBe(true)
-      expect(GIVES_WAY(track), `${id}: the stale bar may not shrink per card`).toBe(false)
+      expect(row.querySelector('.h-full.rounded-full')).toBeNull()
+      expect(byId(`option-win-readout-${id}`)!.textContent).toBe(chanceText(id))
+      expect(row.getAttribute('aria-label')).toContain(`Last run · ${chanceText(id)}`)
+      expect(row.getAttribute('aria-label')).not.toContain('of runs')
       expect(byId(`option-share-goal-only-${id}`)).toBeNull()
       cleanup()
     }
@@ -279,7 +273,8 @@ describe('DIFF item 1 — the model-relative anchor always paints with the figur
     renderCard('increase_price_to_59')
     // R3 5903852225 / AIQ 5903874730: the share says "supported by" (it is not a chance).
     const name = byId('option-analysis-currency-increase_price_to_59')!.getAttribute('aria-label')!
-    expect(name.startsWith('Current model · supported by 68% of runs.')).toBe(true)
+    expect(name.startsWith(`Current model · ${chanceText('increase_price_to_59')}`)).toBe(true)
+    expect(name).not.toContain('of runs')
     expect(name).not.toContain('Goal only')
   })
 })

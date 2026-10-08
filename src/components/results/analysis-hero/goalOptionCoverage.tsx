@@ -3,6 +3,7 @@ import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { GOAL_IDENTITY_WITHHELD_FALLBACK, readGoalIdentityWithheld, readGoalWithheldReasonFor } from '../utils/goalIdentityWithheld'
 import { goalChanceHeroSays } from '../utils/goalChanceLicence'
 import { goalChanceHeadline, goalChanceRangeLine } from './goalChanceCopy'
+import { licensedOptionHasFigure } from '../../../canvas/runView/runView'
 import type { HeroChartModel, HeroLens } from './heroTypes'
 
 export interface GoalOptionCoverage {
@@ -23,7 +24,7 @@ export function withGoalOptionCoverage(model: HeroChartModel, data: ResultsSecti
     && goalChanceHeroSays(data.recommendation.goalThreshold, data.recommendation.allOptions, licence)
     && goalChanceHeadline(licence, rowLabelOf) !== null) {
     for (const id of licence.optionIds) {
-      if (!licence.withheldOptionIds.includes(id)) figureIds.add(id)
+      if (data.runView ? data.runView.chanceOf(id).kind === 'figure' : licensedOptionHasFigure(licence, id)) figureIds.add(id)
     }
   }
   for (const id of range?.optionIds ?? []) {

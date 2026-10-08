@@ -58,7 +58,8 @@ import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 // keeps reading the constant even though the readouts now resolve finer.
 import { SUB_ONE_PERCENT_FLOOR, formatGoalProbability } from '../utils/displayFloors'
 import { hasAnyGoalValue, selectGoalLeader } from '../utils/selectGoalLeader'
-import { goalChanceDisclosureLines, goalChanceDriverLines, goalChanceHeadline, goalChanceOptionLines } from './goalChanceCopy'
+import { goalChanceDisclosureLines, goalChanceDriverLines, goalChanceHeadline } from './goalChanceCopy'
+import { licensedOptionChanceLines } from '../../../canvas/runView/runView'
 import { goalChanceHeroSays } from '../utils/goalChanceLicence'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
 import type { FlipRiskRef } from '../../../canvas/highlighting/resolveAnalysisTargets'
@@ -1171,7 +1172,7 @@ export function buildHeroModel(
       : goalChanceLicence.form === 'similar' ? goalChanceLicence.similarOptionIds : []
     const driverLines = goalChanceDriverLines(goalChanceLicence, data.goalChanceDriverNames, highest ? [] : quotedAbove)
     const lines = goalChanceLicence.form === 'each' || goalChanceLicence.form === 'similar' || highest
-      ? goalChanceOptionLines(goalChanceLicence, goalChanceLabelOf, quotedAbove, driverLines, highest)
+      ? licensedOptionChanceLines(goalChanceLicence, goalChanceLabelOf, quotedAbove, driverLines, highest)
       : null
     subline = lines !== null && lines.length > 0 ? lines.join(' ') : HERO_COPY.subline.compareTop
     // ⭐ D3 cut 5 + cut 6: once, beside the chance lines — why no summary is stated (Olumi's own existence assumption), then
