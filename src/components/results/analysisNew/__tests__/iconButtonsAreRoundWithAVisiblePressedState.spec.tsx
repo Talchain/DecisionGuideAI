@@ -26,12 +26,13 @@ describe('PanelIconButton', () => {
     expect(classesOf(b)).toContain('hover:ring-1')
   })
 
-  it('pressed is an info ring and info colour, never the invisible tint', () => {
+  it('pressed is a NEUTRAL ring and info glyph colour, never the invisible tint or a blue ring (P50, Paul audit #2)', () => {
     render(<PanelIconButton label="Find" Icon={Search} onClick={() => {}} pressed testId="b" />)
     const b = screen.getByTestId('b')
     expect(b).toHaveAttribute('aria-pressed', 'true')
-    expect(classesOf(b)).toEqual(expect.arrayContaining(['text-info', 'ring-1', 'ring-info']))
+    expect(classesOf(b)).toEqual(expect.arrayContaining(['text-info', 'ring-1', 'ring-gray-400']))
     expect(classesOf(b)).not.toContain('bg-panel-hover')
+    expect(classesOf(b)).not.toContain('ring-info')
   })
 
   it('CONTRAST: not pressed ⇒ no ring at rest', () => {

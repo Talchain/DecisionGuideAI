@@ -69,7 +69,7 @@ export const QUESTIONS = {
       : question
   },
   'pre-mortem': (c: QuestionContext) => c.stage === 'ran-current' || c.stage === 'withheld'
-    ? 'Imagine this decision went badly a year from now. What most plausibly went wrong?'
+    ? 'Imagine this decision went badly. What most plausibly went wrong?'
     : `What could make ${c.kind === 'option' ? element(c) : decision(c)} go badly that isn’t in the model yet?`,
   risks: (_c: QuestionContext) => 'What could go wrong, or unexpectedly well, that this model doesn’t have yet?',
   gaps: (c: QuestionContext) => c.stage === 'ran-current'

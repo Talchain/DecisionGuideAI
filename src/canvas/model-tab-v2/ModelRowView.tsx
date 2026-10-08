@@ -577,12 +577,9 @@ export function ModelRowView({
         it — the guard in `rowAtomsAlignToOneGrid.spec.tsx` asserts the two
         agree, derived from the `<ul>`, so drift REDs rather than mis-renders.
       */
-      /* ⭐ MODEL-9: selection is an outline, never a fill (the prototype's
-         `.mark:hover,.mark[aria-pressed="true"]` and `.iconbtn.active` are
-         both border-only — `Olumi_Reasoning_Prototype_V2.html` :81, :96). The
-         former `bg-panel-hover` tint measured 1.03:1 against the panel
-         ground — functionally invisible — so a click had no visible effect
-         on the row it selected. */
+      /* ⭐ MODEL-9 + P50 (Paul audit #2, DL ruling 7 Oct): selection is a NEUTRAL inset ring. It stays visible
+         (the old `bg-panel-hover` tint measured 1.03:1, so a click had no visible effect) and is never blue
+         (a click must not leave a blue highlight). Keyboard focus keeps `focus-visible:ring-info`. */
       /* ⭐⭐ MODEL-1, 25 Sep 2026 — TWO LINES, NOT A TRUNCATED ONE. Names cut
          to "Technical coor…" while a value took 160px, plus a sideways
          scrollbar at the 280px dock, made the tab that lists the model
@@ -598,7 +595,7 @@ export function ModelRowView({
          with no rule between rows). `items-start`, not `items-center`: a
          two-line row has no single centre for its children to share. */
       className={`grid grid-cols-subgrid col-span-4 items-start gap-x-2 gap-y-0.5 px-2 py-[5px] ${
-        selected ? 'ring-1 ring-inset ring-info rounded-sm' : ''
+        selected ? 'ring-1 ring-inset ring-gray-400 rounded-sm' : ''
       }`}
       onClick={() => onSelect?.(row.id)}
     >

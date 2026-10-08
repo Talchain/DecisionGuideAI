@@ -8,6 +8,7 @@
  * never "reaching" (`goalFigureSaysModelRuns` bans it, DL 6005048156 + c6 6005196947), never a contest word.
  */
 import type { GoalChanceComparator, GoalChanceDriver, GoalChanceDriverNames, GoalChanceLicence } from '../utils/goalChanceLicence'
+import { shortfallNoteLabel } from '../utils/goalChanceLicence'
 import { formatGoalTarget } from '../utils/formatGoalTarget'
 import { GOAL_CHANCE_LABEL, goalProbabilityWords } from '../utils/goalAnchorCopy'
 import type { GoalChanceRangeEntry } from '../utils/goalChanceRange'
@@ -111,7 +112,10 @@ export function goalChanceOptionLines(
     // Science 393023 (1): CEE's spread note follows the chance it qualifies, before the driver. Worded by identity; the
     // card never says "see its downside", because a downside is not always beside this line.
     const spread = licence.spreadNoteOptionIds?.includes(id) === true ? ` ${GOAL_CHANCE_SPREAD_NOTE}` : ''
-    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} ${GOAL_CHANCE_LABEL}.${spread}`
+    // B19 (Science 393023 (3)): CEE's shortfall sentence follows the spread note, verbatim, only when it names THIS label.
+    const note = licence.shortfallNoteByOption?.[id]
+    const shortfall = note !== undefined && shortfallNoteLabel(note) === label ? ` ${note}` : ''
+    lines.push(`‘${label}’: ${about(licence.pctByOption[id])} ${GOAL_CHANCE_LABEL}.${spread}${shortfall}`
       + (driver === undefined ? '' : ` ${driver}`))
   }
   return lines
