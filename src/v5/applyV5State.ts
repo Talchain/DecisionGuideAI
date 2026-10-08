@@ -56,6 +56,7 @@ import {
 } from '../canvas/state/storedLimitVerdicts'
 import { goalCertaintyFromResponse, readGoalCertainty } from '../canvas/state/storedGoalCertainty'
 import { optionParticipationFromResponse, readOptionParticipation } from '../canvas/state/storedOptionParticipation'
+import { identityEvaluatedFromResponse, readIdentityEvaluated } from '../canvas/state/storedIdentityEvaluated'
 import type { RunDelta } from '@talchain/schemas/boundary'
 import { readEvidenceAssessment, type EvidenceAssessment } from './evidenceAssessment'
 import { AnalysisStateV1Schema, Stage } from '@talchain/schemas/boundary'
@@ -2381,6 +2382,7 @@ export function applyV5State(
       const report = mapV5AnalysisToReport(analysisBlock, {
         goalCertainty: readGoalCertainty(goalCertaintyFromResponse(response)),
         optionParticipation: readOptionParticipation(optionParticipationFromResponse(response)),
+        identityEvaluated: readIdentityEvaluated(identityEvaluatedFromResponse(response)),
       })
       const hash = report.model_card.response_hash
       const prevHash = store.currentResultsHash ?? null

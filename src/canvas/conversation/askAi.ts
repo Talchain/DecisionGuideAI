@@ -7,6 +7,7 @@ import { bindAskTarget, clearAskTargetBinding } from '../ui/inspector-v2/askTarg
 import { revealOlumiSurface } from './revealOlumi'
 import { isQuestionAssumptionEnabled, isTestWithoutLinkEnabled } from '../../flags'
 import { isStrengthPlaceholder } from '../domain/strengthPlaceholder'
+import { selectIdentityExactLinks } from '../domain/identityExactLinks'
 import { edgeValueSource } from '../domain/edgeValueProvenance'
 import { findPathsToGoal } from '../utils/pathFinding'
 import { resolveEffectiveAdmission } from '../hooks/useAnalysisReady'
@@ -102,7 +103,8 @@ export function buildAskAiQuestion(req: AskAiRequest) {
     const goalNode = nodes.find(n => n.type === 'goal')
     const data = edge.data as Record<string, unknown> | undefined
     const naturalEffect = data?.naturalEffect as { author?: string } | undefined
-    const openAssumption = isStrengthPlaceholder(data)
+    // IDENTITY-EXACT: an operand link of an evaluated identity is exact, so it is no open assumption.
+    const openAssumption = (isStrengthPlaceholder(data) && !(state ? selectIdentityExactLinks(state).has(edge.id) : false))
       || (naturalEffect?.author === 'olumi_estimate' && edgeValueSource(data, 'weight') === 'cee')
     if (isQuestionAssumptionEnabled() && goalNode && openAssumption
       && findPathsToGoal(edge.source, goalNode.id, edges, { maxDepth: nodes.length }).includes(edge.id)) {

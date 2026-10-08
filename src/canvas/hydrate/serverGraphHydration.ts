@@ -540,6 +540,7 @@ async function readAndMergeServerGraph(
         // ⭐ The Run's record of which options it left out (CEE #2432). Without it a fresh browser said "This run has no
         // result for this option" over an option the Run left out on purpose (Panel P2x, #75 5925282823).
         optionParticipation: result.optionParticipation,
+        identityEvaluated: result.identityEvaluated,
         // The currency leg above is this read's ONE verdict writer (see `applyBootBlockedVerdict`: the legs never both
         // write `analysisStateV1` for one read), so the applier here builds the report and writes no verdict.
         // ⛔ NOR THE FRESHNESS (P0 5909616965 / AIQ 5909634999): the currency leg has just PROVEN this Run current and

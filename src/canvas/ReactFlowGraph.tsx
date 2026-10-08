@@ -19,6 +19,7 @@ import { commitGraphMutation } from './mutations/commitGraphMutation'
 import { useComparisonStore } from './stores/comparisonStore'
 import { DEFAULT_EDGE_DATA } from './domain/edges'
 import { edgeValueSourcePatch } from './domain/edgeValueProvenance'
+import { selectIdentityExactLinks } from './domain/identityExactLinks'
 import { withEdgeAccessibleNames } from './domain/edgeAccessibleName'
 import { useEdgeLabelMode } from './store/edgeLabelMode'
 import { parseRunHash } from './utils/shareLink'
@@ -793,6 +794,8 @@ function claimCameraOnUserMoveEnd(event: MouseEvent | TouchEvent | null): void {
 }
 
 const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, showStarters = false }: ReactFlowGraphProps) {
+  // IDENTITY-EXACT (DL 8 Oct): the current Run's exact operand links, for the edges' accessible names (top: rules of hooks).
+  const identityExact = useCanvasStore(selectIdentityExactLinks)
   // ACCOUNTS viewer mode (CANVAS 5947752314): read-only, not inert. A viewer still
   // selects and inspects (click and marquee); nothing connects or opens an edit menu, and a drag moves
   // nothing (the store's onNodesChange keeps only select/dimensions changes for a viewer). React Flow's
@@ -1067,8 +1070,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       useEdgeLabelMode.getState().mode,
       (id) => nodeKindById.get(id),
       routeOnceHeldIds(nodes, edges),
+      identityExact,
     )
-  }, [edges, memoizedNodes, nodes])
+  }, [edges, memoizedNodes, nodes, identityExact])
 
   // Actions are stable references - don't need shallow comparison
   const createNodeId = useCanvasStore(s => s.createNodeId)

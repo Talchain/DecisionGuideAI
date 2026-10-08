@@ -119,6 +119,7 @@ import { reviewableStrengthEdgeIds } from './strengthElicitation/reviewableEdges
 import { deriveRobustnessStatus } from './robustnessStatus'
 import { readGoalFigureWithholds, readGoalIdentityWithheld } from './utils/goalIdentityWithheld'
 import { isStrengthPlaceholder } from '../../canvas/domain/strengthPlaceholder'
+import { selectIdentityExactLinks } from '../../canvas/domain/identityExactLinks'
 import { isUnadoptedOlumiSuggestion } from '../../canvas/nodes/shared/analysisParticipation'
 import { goalLabelOf } from './analysisNew/analysisNewCopy'
 import { winShareWithheldReason, winSharesWithheld } from '../../canvas/state/winShareGate'
@@ -2183,6 +2184,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // B3c (DL R2): the producer's acceptable unsized links per option, resolved to canvas edges by endpoint ids, kept only
     // while the edge is still a placeholder. A link with no edge on the canvas is dropped; labels come from the nodes.
     const figureWithholds = readGoalFigureWithholds(report)
+    const storeNow = useCanvasStore.getState?.()
+    const exactLinks: ReadonlyMap<string, string> = storeNow ? selectIdentityExactLinks(storeNow) : new Map()
     const unsizedLinksFor = (optionId: string): Array<{ edgeId: string; fromLabel: string; toLabel: string }> => {
       const seen = new Set<string>()
       const out: Array<{ edgeId: string; fromLabel: string; toLabel: string }> = []
@@ -2192,7 +2195,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           const edge = edges.find((e) => e.source === l.from && e.target === l.to)
           // ⛔ The retained warning is the Run's word; whether the link is STILL unsized is the edge's. Once Edit or an
           // acceptance sizes it (or the user states it), the typed placeholder predicate clears and the offer goes (#2408 CR).
-          if (!edge || seen.has(edge.id) || !isStrengthPlaceholder(edge.data as Record<string, unknown> | undefined)) continue
+          // IDENTITY-EXACT: an operand link of an identity the current Run evaluated is exact, never offered for sizing.
+          if (!edge || seen.has(edge.id) || exactLinks.has(edge.id) || !isStrengthPlaceholder(edge.data as Record<string, unknown> | undefined)) continue
           seen.add(edge.id)
           const labelOf = (id: string) => String((nodes.find((n) => n.id === id)?.data as { label?: unknown } | undefined)?.label ?? id)
           out.push({ edgeId: edge.id, fromLabel: labelOf(l.from), toLabel: labelOf(l.to) })

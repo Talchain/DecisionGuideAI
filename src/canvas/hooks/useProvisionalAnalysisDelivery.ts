@@ -298,6 +298,7 @@ export async function runProvisionalDeliverySchedule(deps: {
       limitVerdicts: result.limitVerdicts,
       goalCertainty: result.goalCertainty,
       optionParticipation: result.optionParticipation,
+      identityEvaluated: result.identityEvaluated,
       runDelta: result.runDelta,
       // RT-10 B′: this read's reason sentence is recorded WITH the verdict it writes (`analysisStaleReasonWords`).
       store: withStaleReasonWords(getStore(), result.staleReasonWords),

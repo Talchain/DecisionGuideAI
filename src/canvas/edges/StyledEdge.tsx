@@ -96,6 +96,7 @@ import {
   EDGE_STRENGTH_PLACEHOLDER_SENTENCE,
 } from './connectorCopy'
 import { isStrengthPlaceholder, strengthForWords } from '../domain/strengthPlaceholder'
+import { useIdentityExactWords } from '../domain/identityExactLinks'
 import { isStrengthStated } from '../domain/strengthStated'
 import { isStrengthDefinitional } from '../domain/strengthDefinitional'
 import { edgeStrengthSourceMark } from '../domain/edgeStrengthSourceIcon'
@@ -868,15 +869,18 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    * the stated direction — the label covers the magnitude only.
    * `isStrengthPlaceholder` holds the staleness rule (see its module).
    */
+  // IDENTITY-EXACT (DL 8 Oct): an operand link of an identity THIS (current) Run evaluated is exact, never unsized.
+  const identityExactWords = useIdentityExactWords(String(id))
   const strengthIsPlaceholder = useMemo(
-    () => isStrengthPlaceholder(edgeData as Record<string, unknown> | undefined),
-    [edgeData]
+    () => identityExactWords === null && isStrengthPlaceholder(edgeData as Record<string, unknown> | undefined),
+    [edgeData, identityExactWords]
   )
   const edgeStrokeWidth = useMemo(
-    () => edgeSignedStrength.show && !strengthIsPlaceholder
+    // An exact operand link has no magnitude of its own (the identity fixes it): the thin width, never the prior's band.
+    () => edgeSignedStrength.show && !strengthIsPlaceholder && identityExactWords === null
       ? weightMagnitudeToStrokeWidth(edgeSignedStrength.value)
       : UNSET_EDGE_STROKE_WIDTH,
-    [edgeSignedStrength, strengthIsPlaceholder]
+    [edgeSignedStrength, strengthIsPlaceholder, identityExactWords]
   )
 
   // F.2 + E1: direction-based stroke colour (see directionStroke.ts for the
@@ -1201,8 +1205,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [edgeData],
   )
   const edgeDescription = useMemo(
-    () => getEdgeLabel(strengthForWords(edgeData as Record<string, unknown> | undefined, edgeSignedStrength), edgeLikelihood, directionDisplay, labelMode, edgeUncertainty),
-    [edgeData, edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode, edgeUncertainty],
+    () => identityExactWords !== null ? { label: identityExactWords, tooltip: identityExactWords }
+      : getEdgeLabel(strengthForWords(edgeData as Record<string, unknown> | undefined, edgeSignedStrength), edgeLikelihood, directionDisplay, labelMode, edgeUncertainty),
+    [edgeData, edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode, edgeUncertainty, identityExactWords],
   )
   /**
    * ⛔⛔ AND THE DISCLOSURE TOO — `aria-label` REPLACES DESCENDANT TEXT, SO THE
@@ -2207,12 +2212,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     isHighlighted: isHighlightedEdge,
     polarityStroke: directionStroke,
     existence: existenceDash,
-    strengthNotSet: isEdgeStrengthNotSet(edgeData as Record<string, unknown> | undefined),
+    strengthNotSet: identityExactWords === null && isEdgeStrengthNotSet(edgeData as Record<string, unknown> | undefined),
     // `visualPropsDash` is no longer passed: a stored style cannot assert existence
     // (Paul 23 Sep contract feedback point 4; `EDGE_DASH_RULES`).
   }), [
     isStructuralEdge, lensMode, causalEdgeParams, evidenceEdgeClass, contested,
-    isHighlightedEdge, directionStroke, existenceDash, edgeData,
+    isHighlightedEdge, directionStroke, existenceDash, edgeData, identityExactWords,
   ])
   const edgeStroke = useMemo(() => resolveEdgeStroke(presentationState), [presentationState])
 
@@ -2321,10 +2326,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [edgeData],
   )
   const sourceGlyphPlacement = useMemo(() => {
-    if (!strengthSourceMark || isStructuralEdge || isLodBodyHidden || isEdgeStrengthNotSet(edgeData as Record<string, unknown> | undefined)) return null
+    // An exact operand link is nobody's estimate: no source mark ("Olumi estimate" would be false).
+    if (!strengthSourceMark || isStructuralEdge || isLodBodyHidden || identityExactWords !== null || isEdgeStrengthNotSet(edgeData as Record<string, unknown> | undefined)) return null
     const poly = flattenSvgPath(edgePath)
     return poly ? resolveSourceGlyphOnPath(poly) : null
-  }, [strengthSourceMark, isStructuralEdge, isLodBodyHidden, edgeData, edgePath])
+  }, [strengthSourceMark, isStructuralEdge, isLodBodyHidden, edgeData, edgePath, identityExactWords])
 
   // Causal lens: hide structural edges entirely
   if (isLensHidden) return null
