@@ -53,7 +53,7 @@ export function FactorControllableEditor({ nodeId }: FactorControllableEditorPro
   const ssRange = stateSpace?.range as Record<string, unknown> | undefined
   const drivers = (data?.uncertainty_drivers as string[]) ?? []
   const categoryLabel = categoryLabelOf(data?.category)
-  const factorTypeLabel = FACTOR_TYPES.find(t => t.value === data?.factor_type)?.label ?? null
+  const factorTypeLabel = FACTOR_TYPES.find(t => t.value === data?.factor_type)?.label
 
   // Defensive unwrap: observedState.value / raw_value / baseline / std should
   // be plain numbers, but legacy / future CEE shapes may wrap them as
