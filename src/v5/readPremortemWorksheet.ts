@@ -153,9 +153,16 @@ export function mergePremortemWorksheets(held: PremortemWorksheetV1, incoming: P
  * unstamped entry never restores, and the prefix is in the identity boundary's sweep (`USER_SCOPED_STORAGE_PREFIXES`).
  */
 const STORAGE_PREFIX = 'olumi-premortem-worksheet:v2:'
+/**
+ * The identity this tab booted under. A response that lands after an identity boundary (another tab signed in or out)
+ * was requested under the OLD identity, so it is never cached under the new one (Codex r1 P1 on #2652). An in-tab
+ * boundary also stops the copy until the next reload: the worksheet simply does not survive that reload (fails closed).
+ * Replace with `epochThisTabMayWriteUnder()` once CHAT-STABLE's #2646 fence is on staging.
+ */
+const TAB_IDENTITY_EPOCH = readIdentityEpoch()
 export function storePremortemWorksheet(worksheet: PremortemWorksheetV1): void {
   const identityEpoch = readIdentityEpoch()
-  if (identityEpoch === undefined) return
+  if (identityEpoch === undefined || identityEpoch !== TAB_IDENTITY_EPOCH) return
   try { globalThis.localStorage?.setItem(STORAGE_PREFIX + worksheet.scenario_id, JSON.stringify({ identityEpoch, worksheet })) } catch { /* storage unavailable */ }
 }
 export function loadPremortemWorksheet(run: PremortemRunStamp): PremortemWorksheetV1 | null {
