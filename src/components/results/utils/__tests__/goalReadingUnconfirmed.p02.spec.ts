@@ -11,6 +11,8 @@ import served from '../../analysis-hero/__tests__/fixtures/served-t1b-f440be4a-g
 import {
   GOAL_FIGURES_WITHHELD_CODES, GOAL_IDENTITY_WITHHELD_FALLBACK, readGoalFigureWithholds, readGoalIdentityWithheld, withheldClaimsFor,
 } from '../goalIdentityWithheld'
+import { readGoalChanceLicence } from '../goalChanceLicence'
+import { goalChanceOptionLines } from '../../analysis-hero/goalChanceCopy'
 
 type W = Record<string, unknown>
 const LICENSED = (served as { inference_warnings: W[] }).inference_warnings.find((w) => w.code === 'GOAL_CHANCE_LICENSED')!
@@ -54,5 +56,34 @@ describe('P02 GR2: a goal figure under an unconfirmed reading is withheld everyw
     const h = holder({ ...LICENSED, reading_label: READING_LABEL }, code)
     expect(readGoalFigureWithholds(h).map((w) => w.code)).toEqual([READING_CODE])
     expect(readGoalIdentityWithheld(h)?.message).toBe(PRODUCER_WORDS)
+  })
+
+  // The licence path (hero, DecisionMatrix, chat card) says the RULED words (DL + Science 8 Oct): the reading in the SAME sentence.
+  const LABELS: Record<string, string> = { raise_prices_by_10: 'Raise prices by 10%', launch_starter_tier: 'Launch a starter tier', keep_pricing_as_it_is: 'Keep pricing as it is' }
+  const labelOf = (id: string) => LABELS[id] ?? null
+  const CLAUSE = ', in this model, if ‘MRR’ = ‘Pro plan price’ × ‘Pro paying subscribers’, less ‘MRR lost to price-driven churn’ (Olumi’s reading).'
+
+  it('RED: every licensed figure line carries the reading in the same sentence, in the ruled words', () => {
+    const licence = readGoalChanceLicence([{ ...LICENSED, reading_label: READING_LABEL }])
+    expect(licence).not.toBeNull()
+    const lines = goalChanceOptionLines(licence!, labelOf)
+    expect(lines).not.toBeNull()
+    const figureLines = lines!.filter((l) => /\d+%/.test(l))
+    expect(figureLines.length).toBe(OPTION_IDS.length)
+    for (const line of figureLines) {
+      expect(line).toMatch(/^‘[^’]+’: about \d+% chance of meeting your goal/)
+      expect(line.endsWith(CLAUSE)).toBe(true)
+    }
+  })
+
+  it('CONTROL: the same licence without reading_label says no reading clause', () => {
+    const lines = goalChanceOptionLines(readGoalChanceLicence([LICENSED])!, labelOf) ?? []
+    expect(lines.some((l) => l.includes('Olumi’s reading'))).toBe(false)
+  })
+
+  it('RED: a malformed reading_label prints no figure line on the licence path (fail closed)', () => {
+    const licence = readGoalChanceLicence([{ ...LICENSED, reading_label: { ...READING_LABEL, factors: [] } }])
+    const lines = licence === null ? null : goalChanceOptionLines(licence, labelOf)
+    expect((lines ?? []).some((l) => /\d+%/.test(l))).toBe(false)
   })
 })
