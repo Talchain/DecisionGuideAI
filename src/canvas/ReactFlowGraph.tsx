@@ -55,7 +55,7 @@ import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
 import type { CEEAnalysisReady } from '../adapters/cee/types'
 import { CanvasContextMenu } from './contextMenu/CanvasContextMenu'
 import { isStructuralEdge } from './domain/edgeUtils'
-import { useConnectGesture } from './hooks/useConnectGesture'
+import { useConnectGesture, openNewCausalLinkStrengthEditor } from './hooks/useConnectGesture'
 import type { ContextTarget } from './contextMenu/types'
 import type { NodeType } from './domain/nodes'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
@@ -1778,6 +1778,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       return
     }
     if (connectPrompt) {
+      const edgeIdsBefore = new Set(useCanvasStore.getState().edges.map(edge => edge.id))
       const result = addEdge({
         source: connectPrompt.newNodeId,
         target: connectPrompt.targetNodeId,
@@ -1785,6 +1786,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       })
       if (result.created) {
         showToast(`Connected to ${connectPrompt.targetNodeLabel}`, 'success')
+        // EDIT-UX slice 3a parity: a new causal link opens at its strength question, as the drag path does.
+        openNewCausalLinkStrengthEditor(edgeIdsBefore, connectPrompt.newNodeId, connectPrompt.targetNodeId)
       } else if (result.reason === 'cycle') {
         showToast('This would create a circular dependency.', 'warning')
       } else if (result.reason === 'duplicate') {
