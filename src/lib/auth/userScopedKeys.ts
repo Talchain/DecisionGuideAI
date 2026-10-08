@@ -51,10 +51,12 @@ export const USER_SCOPED_STORAGE_KEYS = [
 // but keyed by node ids, and CEE derives node ids from labels (Acceptance, #2511 witness W2), so it names the model.
 // `olumi.pendingGuestCopy.v2:` / `olumi.guestWork.v1:` / `olumi.guestWorkSeen.v1:` — S-G: guest decisions pending a copy,
 // and offered, for the account that just ended (one key per decision; `lib/pendingGuestCopy.ts`, `lib/guestWork.ts`).
+// `olumi-premortem-worksheet:` — P02: the last pre-mortem worksheet per scenario, restored after a reload of the same Run
+// (`v5/readPremortemWorksheet.ts`); the stories and mitigations are the person's reasoning about their decision.
 export const USER_SCOPED_STORAGE_PREFIXES = [
   'olumi.dissent.v2.', 'olumi.dissent.', 'olumi-canvas-autosave:', 'canvas-snapshot-',
   'olumi.collab.pending-apply.', 'olumi.collab.open-round.', 'olumi-thin-layout:',
-  'olumi.pendingGuestCopy.v2:', 'olumi.guestWork.v1:', 'olumi.guestWorkSeen.v1:',
+  'olumi.pendingGuestCopy.v2:', 'olumi.guestWork.v1:', 'olumi.guestWorkSeen.v1:', 'olumi-premortem-worksheet:',
 ] as const
 
 /**
