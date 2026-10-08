@@ -15,7 +15,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, renderHook, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
@@ -82,7 +82,10 @@ describe('⭐ a goal figure the producer withheld is not a result that "did not 
     render(<AnalysisNewTabBody resultsSectionData={data} isPreRun={false} isRunning={false} isStale={false} responseHash="h" />)
     expect(screen.queryByTestId(PROVISIONAL)).toBeNull()
     expect(document.body.textContent ?? '').not.toContain('did not come back')
-    expect(document.body.textContent ?? '').toContain(WITHHELD_WORDS)
+    // 8 Oct 2026: a short visible line, the producer's own words one press away under it.
+    expect(screen.getByTestId('analysis-new-options-goal-withheld-short')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('analysis-new-options-goal-withheld-toggle'))
+    expect(document.body.textContent ?? '').toContain(WITHHELD_WORDS.slice('Not shown. '.length))
   })
 
   it('⭐ READER: no longer "partial" never makes it "held up" — the banner still refuses a run whose goal figures were withheld', () => {

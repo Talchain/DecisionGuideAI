@@ -84,11 +84,14 @@ describe('a withheld run says which check failed', () => {
     const open = buildCommitmentSynthesis(vm).open
     const lead = vm.checks.leaderWithholdCause ?? ''
     expect(lead.length, 'the withheld sentence itself is still there').toBeGreaterThan(0)
-    expect(open?.text).toBe(`${lead} ${disclosure!.title}`)
+    // 8 Oct 2026: the cause at rest, the failed check one click away under the bullet's disclosure — still in that order.
+    expect(open?.text).toBe(lead)
+    expect(open?.detail).toBe(disclosure!.title)
   })
 
   it('⛔ never the producer\'s raw message, and never the remedy that does not work on a calculated node', () => {
-    const open = buildCommitmentSynthesis(vmOf(withWarnings(decisionWithLeaderWithheld(), PAUL_1A298D6D_WARNINGS))).open!.text
+    const bullet = buildCommitmentSynthesis(vmOf(withWarnings(decisionWithLeaderWithheld(), PAUL_1A298D6D_WARNINGS))).open!
+    const open = `${bullet.text} ${bullet.detail ?? ''}`
     expect(open).not.toContain('observed_state')
     expect(open).not.toContain('calculated from the factors')
     // Bound to the remedy's own words: since AI Quality #70 5843266323 the

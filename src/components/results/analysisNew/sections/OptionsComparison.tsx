@@ -161,7 +161,7 @@
 
 import { Fragment, useCallback, useId, useState } from 'react'
 import { outcomeValuesAreModelScale } from '../../outcomeValuesAreModelScale'
-import { ChevronRight, Crosshair, Info, Lock, Scale, Search, Sparkles } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crosshair, Info, Lock, Scale, Search, Sparkles } from 'lucide-react'
 import { NodeMark } from '../nodeMarks'
 import { typography } from '../../../../styles/typography'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
@@ -395,6 +395,41 @@ export interface OptionsComparisonProps {
   onFocusOption?: (optionId: string) => void
   onAskAboutOption?: (optionId: string, label: string) => void
   testId?: string
+}
+
+/**
+ * ⭐ THE PRODUCER'S GOAL WITHHOLD, SHORT AT REST (Paul, 8 Oct 2026: the zone was "hard to consume"). One line says
+ * what is missing; the producer's own sentence — the why and its one question — opens beneath it, verbatim apart from
+ * the "Not shown." it would repeat.
+ */
+export const GOAL_WITHHELD_SHORT = 'Chance of meeting your goal: not shown yet.'
+
+function GoalWithheldLine({ message, testId }: { message: string; testId: string }) {
+  const [open, setOpen] = useState(false)
+  const why = message.startsWith('Not shown.') ? message.slice('Not shown.'.length).trim() : message
+  return (
+    <div className="mt-0 mb-2" data-testid={testId}>
+      <div className="flex items-center justify-between gap-2">
+        <p className={`${typography.panelBody} text-text-body m-0`} data-testid={`${testId}-short`}>
+          {GOAL_WITHHELD_SHORT}
+        </p>
+        <span className="shrink-0 -my-1">
+          <PanelIconButton
+            Icon={open ? ChevronDown : ChevronRight}
+            label={open ? 'Hide why' : 'Why?'}
+            expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            testId={`${testId}-toggle`}
+          />
+        </span>
+      </div>
+      {open && why !== '' ? (
+        <p className={`${typography.panelBody} text-text-light m-0 mt-1`} data-testid={`${testId}-why`}>
+          {why}
+        </p>
+      ) : null}
+    </div>
+  )
 }
 
 export function OptionsComparison({
@@ -708,7 +743,7 @@ export function OptionsComparison({
           /* ⭐ V2 FIDELITY (25 Sep 2026, gap TYPE-10): body ink, not tertiary
              grey — this line states the chart's own uncertainty and reads as
              part of the argument, the same ruling as the qualifier below it. */
-          className={`${typography.panelMeta} text-text-body mb-2 mt-0`}
+          className={`${typography.panelBody} text-text-body mb-2 mt-0`}
           data-testid={`${testId}-no-figures`}
         >
           {COPY.checks.leader_not_assessed.orderingCaveat}
@@ -842,9 +877,7 @@ export function OptionsComparison({
       {/* AIQ #72 5887096626 (served condition on #2300): when the producer withheld every goal figure (PLoT #416),
           its reason is VISIBLE beside the emptied rows, never only in the locked arm's tooltip. */}
       {options.goalWithheldMessage ? (
-        <p className={`${typography.panelMeta} text-text-light mt-0 mb-2`} data-testid={`${testId}-goal-withheld`}>
-          {options.goalWithheldMessage}
-        </p>
+        <GoalWithheldLine message={options.goalWithheldMessage} testId={`${testId}-goal-withheld`} />
       ) : null}
 
       <ul

@@ -3,6 +3,7 @@ import '@testing-library/jest-dom/vitest'
 import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import { OutputsDock, OUTPUTS_DOCK_STORAGE_KEY } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
+import { runChangeDelta } from '../../compare-tab/__tests__/__fixtures__/runChangeArtefact'
 import { STORAGE_KEY as RUN_HISTORY_STORAGE_KEY } from '../../store/runHistory'
 import { __resetTelemetryCounters, __getTelemetryCounters } from '../../../lib/telemetry'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -133,6 +134,15 @@ const STORAGE_KEY = OUTPUTS_DOCK_STORAGE_KEY
 // which is why the slow-run cases could not find their live region.
 const PRISTINE_RESULTS = useCanvasStore.getState().results
 
+/** A real run pair for the displayed analysis (the identity `useDisplayedRunDeltaView` checks), so Compare is a tab. */
+function seedRunPair() {
+  const hash = 'dock-spec-pair'
+  useCanvasStore.setState({
+    results: { ...(useCanvasStore.getState().results ?? {}), hash } as never,
+    runDelta: { delta: runChangeDelta(), analysisHash: hash, scenarioId: useCanvasStore.getState().currentScenarioId ?? null },
+  } as never)
+}
+
 function resetDockEnvironment() {
   ensureMatchMedia()
   try {
@@ -261,8 +271,8 @@ describe('OutputsDock DOM', () => {
       // surface silently appearing OR disappearing, and loosening it to make
       // room for the experiment would retire the guard along with it.
       'Reasoning',
-      // Compare is presented again (30 Sep 2026, SC-24 v3): previous Run vs this Run, after Reasoning.
-      'Compare',
+      // Compare is a tab only once a run PAIR exists (workstream D, 8 Oct 2026: it opened on "No comparison yet"
+      // for a first-time user). This fixture has no pair; the collapsed-rail case seeds one and asserts it appears.
       'Model',
     ])
   })
@@ -405,9 +415,10 @@ describe('OutputsDock DOM', () => {
 
     expect(resultsIcon).toBeInTheDocument()
     expect(modelIcon).toBeInTheDocument()
-    // The collapsed rail maps the SAME `OUTPUT_TABS` the expanded strip does
-    // (`OutputsDock.tsx:2444`), so Compare's contract row opens both (presented again 30 Sep 2026, SC-24 v3).
-    // Bound by the exact accessible name, so the rail cannot drop an affordance the strip keeps.
+    // The collapsed rail maps the SAME `OUTPUT_TABS` the expanded strip does, so Compare follows the same rule
+    // there (workstream D): absent with no run pair, present once one exists. Bound by the exact accessible name.
+    expect(screen.queryByRole('tab', { name: 'Compare' })).toBeNull()
+    act(() => { seedRunPair() })
     expect(screen.getByRole('tab', { name: 'Compare' })).toBeInTheDocument()
 
     fireEvent.click(modelIcon)
@@ -507,6 +518,8 @@ describe('OutputsDock DOM', () => {
       localStorage.setItem('feature.telemetry', '1')
     } catch {}
     __resetTelemetryCounters()
+    // Compare is a tab only once a run pair exists (workstream D).
+    seedRunPair()
 
     renderOutputsDock()
 
@@ -1359,8 +1372,8 @@ describe('I.2a: Secondary action button interaction', () => {
       // surface silently appearing OR disappearing, and loosening it to make
       // room for the experiment would retire the guard along with it.
       'Reasoning',
-      // Compare is presented again (30 Sep 2026, SC-24 v3): previous Run vs this Run, after Reasoning.
-      'Compare',
+      // Compare is a tab only once a run PAIR exists (workstream D, 8 Oct 2026: it opened on "No comparison yet"
+      // for a first-time user). This fixture has no pair; the collapsed-rail case seeds one and asserts it appears.
       'Model',
     ])
     // ⭐ 18 Aug 2026: 'Compare' left this list the same way Journey did, and
@@ -1370,8 +1383,10 @@ describe('I.2a: Secondary action button interaction', () => {
     // above) — so its absence here is proof the CONTRACT is what holds a tab
     // shut. Bound by identity below, and pinned in full by
     // `compareDeTab.contract.spec.tsx`.
-    // 30 Sep 2026 (SC-24 v3): Compare is presented again, with its flag ON — bound by identity.
-    expect(within(tabNav).getByRole('tab', { name: 'Compare' })).toBeInTheDocument()
+    // 30 Sep 2026 (SC-24 v3): Compare is presented again, with its flag ON. 8 Oct (workstream D): it is a tab only
+    // once a run pair exists, and this fresh-module fixture has none — so it is absent here by the PAIR rule (the
+    // collapsed-rail case above seeds a pair and binds its presence).
+    expect(within(tabNav).queryByRole('tab', { name: 'Compare' })).not.toBeInTheDocument()
     // Bound by IDENTITY to Journey, so a rename of some other tab cannot
     // satisfy this line (trap 19).
     expect(within(tabNav).queryByRole('tab', { name: 'Journey' })).not.toBeInTheDocument()

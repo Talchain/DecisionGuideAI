@@ -116,9 +116,8 @@ describe('PersistentInputStrip', () => {
       expect(row.className).not.toMatch(/\babsolute\b/)
       expect(row.className).not.toMatch(/\bright-\d/)
       expect(row.getAttribute('data-testid')).toBe('ai-input-bar-strip-actions')
-      // CONTROL — the float-out chevron joined the same row rather than staying
-      // outside the composer's border as a separate frame.
-      expect(row.contains(screen.getByTestId('ai-input-bar-strip-chevron'))).toBe(true)
+      // Workstream D: no float-out chevron in the composer (the Olumi tab's own icon is the one float-out).
+      expect(screen.queryByTestId('ai-input-bar-strip-chevron')).toBeNull()
     })
 
     it('reserves no right padding on the textarea — the text gets the full width', () => {

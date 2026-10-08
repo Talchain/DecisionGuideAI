@@ -5,6 +5,7 @@ import type { NodeProps } from '@xyflow/react'
 import { Pencil } from 'lucide-react'
 import Tooltip from '../../components/Tooltip'
 import { CardMark } from './shared/CardMark'
+import { pickOptionStatusMark } from './shared/optionStatusMark'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
@@ -2484,6 +2485,16 @@ export const OptionNode = memo((props: NodeProps) => {
    * name and tooltip retain the existing explanation.
    */
   const staleStateShown = isPostAnalysis && runCurrency === 'changed'
+  // ⭐ AT MOST ONE status mark in the band (DL 8 Oct, workstream D): withheld > stale > not analysed > provisional;
+  // the demoted marks are named in its tooltip. Each candidate keeps the gate and test id it had when it rendered alone.
+  const statusMark = pickOptionStatusMark([
+    notRankedRenders && { id: 'share-withheld', testId: `option-not-ranked-${props.id}`, description: winShareWithheldReasonLine ?? '' },
+    winReadout !== null && takenOutLine === null && resultCaption === OPTION_RESULT_COPY.lastRun && { id: 'last-run', testId: `option-win-anchor-${props.id}` },
+    notAnalysedRenders && runCurrency === 'changed' && { id: 'last-run', testId: `option-not-analysed-last-run-${props.id}` },
+    staleStateShown && { id: 'no-new-comparison', testId: `option-stale-state-${props.id}` },
+    notAnalysedRenders && { id: 'not-analysed', testId: `option-not-analysed-chip-${props.id}` },
+    winReadout !== null && takenOutLine === null && shareIsProvisional && { id: 'provisional', testId: `option-share-provisional-${props.id}` },
+  ])
   const staleStateLine = staleStateShown ? (
     <p
       className={`${typography.edgeLabel} text-text-light mt-1 m-0`}
@@ -2815,7 +2826,6 @@ export const OptionNode = memo((props: NodeProps) => {
             <span className={`${typography.edgeLabel} text-text-light`}>{takenOutLine}</span>
           </div>
         )}
-        {notRankedRenders && <CardMark id="share-withheld" testId={`option-not-ranked-${props.id}`} description={winShareWithheldReasonLine ?? ''} />}
         {winReadout !== null && takenOutLine === null && (
           <Tooltip asChild content={winReadoutDescription} delay={NODE_TOOLTIP_DELAY_MS}>
           <div
@@ -2880,7 +2890,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 `Current model`; `Last run` only when the model is KNOWN to have
                 changed (ED 02:31Z Q2); `Model result` when currency cannot be
                 confirmed — it claims neither. */}
-            {resultCaption === OPTION_RESULT_COPY.lastRun ? <CardMark id="last-run" testId={`option-win-anchor-${props.id}`} /> : (
+            {resultCaption === OPTION_RESULT_COPY.lastRun ? null /* the band's ONE status mark (optionStatusMark) carries it */ : (
             <span
               data-testid={`option-win-anchor-${props.id}`}
               className={`${typography.edgeLabel} text-text-light shrink-0 ${compactCaption !== null ? SHARE_CAPTION_WIDE_ONLY : ''}`}
@@ -2957,7 +2967,6 @@ export const OptionNode = memo((props: NodeProps) => {
                 </span>
               </span>
             )}
-            {shareIsProvisional && <CardMark id="provisional" testId={`option-share-provisional-${props.id}`} />}
             {/* The bar, under the line (header above): out of the text flow, in
                 the 3px strip the row's `pb-[3px]` keeps. The text is centred in
                 the space above the strip, which lifts it 1.5px; nothing under
@@ -3000,10 +3009,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 ink, not muted text (Paul, 30 Sep: "'not analysed' really
                 subtly invisible"). `Last run ·` and the reason stay muted. */}
             <span className={`${typography.edgeLabel} inline-flex items-center gap-[0.3em] text-text-light shrink-0`} aria-hidden="true">
-              {runCurrency === 'changed' && (
-                <CardMark id="last-run" testId={`option-not-analysed-last-run-${props.id}`} />
-              )}
-              <CardMark id="not-analysed" testId={`option-not-analysed-chip-${props.id}`} />
+              {/* "Last run" and "Not analysed" are the band's ONE status mark (optionStatusMark). */}
             </span>
             {missingValueBlocker && (
               <span className="flex h-[1lh] min-w-0 shrink-[1000000] flex-wrap content-start overflow-hidden" aria-hidden="true">
@@ -3040,7 +3046,7 @@ export const OptionNode = memo((props: NodeProps) => {
           </p>
         )}
         {/* Row 22: the status mark is in the bottom band; Detailed keeps its old line box. */}
-        {staleStateShown && <CardMark id="no-new-comparison" testId={`option-stale-state-${props.id}`} />}
+        {statusMark !== null && <CardMark id={statusMark.id} testId={statusMark.testId} description={statusMark.description} />}
         {isDetailed && staleStateShown && <p className={`${typography.edgeLabel} text-text-light mt-1 m-0 h-[1lh]`} data-testid={`option-stale-slot-${props.id}`} aria-hidden="true" />}
         {/* The Run kept Olumi's proposal in a provisional comparison (typed fact; never an authorship guess). */}
         {displayMetadata.isResultsMode && keptProvisionalSentence !== null && (
