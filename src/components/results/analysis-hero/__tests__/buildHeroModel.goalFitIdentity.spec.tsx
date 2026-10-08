@@ -14,8 +14,12 @@
  * reason: two sites deriving one meaning is how the canvas and the panel
  * came to contradict each other.
  */
+import '@testing-library/jest-dom/vitest'
 import { chanceCellOf } from './helpers/chanceCellOf'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
+import { buildRunView } from '../../../../canvas/runView/runView'
 import { buildHeroModel } from '../buildHeroModel'
 import { HERO_COPY } from '../heroCopy'
 import type { HeroChartModel } from '../heroTypes'
@@ -26,7 +30,45 @@ function chart(model: ReturnType<typeof buildHeroModel>): HeroChartModel {
   return model as HeroChartModel
 }
 
+afterEach(cleanup)
+
+function constrainedRow() {
+  const data = makeHeroData({ options: [
+    makeOption({ ...OPTION_A, constraintAnalysis: { constraints: [{ node_id: 'limit' }] } as never }),
+    OPTION_B,
+  ] })
+  data.runView = buildRunView({ inference_warnings: [{
+    code: 'GOAL_CHANCE_LICENSED', severity: 'info', message: 'licensed', form: 'each',
+    option_ids: [OPTION_A.id, OPTION_B.id], pct_by_option: { [OPTION_A.id]: 34, [OPTION_B.id]: 49 },
+    target: { comparator: 'at_least', value: 62, unit: 'count' },
+  }] })
+  data.goalChanceLicence = data.runView.goalChance
+  const model = chart(buildHeroModel(data))
+  const row = model.rows.find(r => r.id === OPTION_A.id)!
+  const cellText = chanceCellOf(data, row.id).text
+  expect(cellText).toContain('34%')
+  render(<AnalysisHeroPanel model={model} rerunDisabled={false} />)
+  const element = screen.getByTestId(`hero-option-row-${row.index}`)
+  fireEvent.click(within(element).getByRole('button'))
+  return { row, element, cellText }
+}
+
 describe('buildHeroModel — goal-fit detail line identity', () => {
+  // C-FALSE: joint words beside a goal-only figure removed (DL ruling 8 Oct; staging measurement /private/tmp/ws5-core-constrained.md)
+  it('C-FALSE removed: a constrained goal row shows exactly its cell without joint words', () => {
+    const { row, element, cellText } = constrainedRow()
+    expect(row.goal.readout).toBe(cellText)
+    expect(element.querySelector('.text-right > span')!.textContent).toBe(cellText)
+    expect(element.textContent).not.toMatch(/and limits|limits together/i)
+  })
+
+  it('C-FALSE removed: a constrained goal detail shows exactly its cell without joint words', () => {
+    const { row, element, cellText } = constrainedRow()
+    expect(row.detail.goalFit).toBe(cellText)
+    expect(within(element).getByTestId('hero-detail-goal-fit').textContent).toBe(cellText)
+    expect(within(element).getByTestId('hero-option-detail').textContent).not.toMatch(/and limits|limits together/i)
+  })
+
   it('POSITIVE CONTROL: the target line is what the hero prints by default', () => {
     // Fixes the un-flagged behaviour first, so the assertions below cannot
     // pass by the line being absent rather than being re-voiced. The plain arm

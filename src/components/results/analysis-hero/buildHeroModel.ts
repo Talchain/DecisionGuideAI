@@ -453,7 +453,6 @@ export function buildHeroModel(
           : HERO_COPY.readout.missing)
         : cell.text ?? HERO_COPY.readout.missing
       : undefined
-    const goalFitIdentity = hasUserTarget && optionHasConstraints(o) ? HERO_COPY.caption.goalWithLimits : undefined
     // Retain the row's own modelled-basis caveat beside its cell or honest gap.
     // The canonical figure also licenses that caveat when no separate numeric point is present.
     // The row's own goalFitIsModelledBasis flag is
@@ -491,7 +490,7 @@ export function buildHeroModel(
             : HERO_COPY.readout.missing,
       },
       comparativeReadout: winReadout ?? null,
-      detail: { why, couldChangeIf, winChance, range, goalFit, goalFitIdentity, goalFitCaveat },
+      detail: { why, couldChangeIf, winChance, range, goalFit, goalFitCaveat },
     }
   })
 

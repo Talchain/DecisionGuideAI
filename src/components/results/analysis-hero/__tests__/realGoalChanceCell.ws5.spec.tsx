@@ -160,15 +160,20 @@ describe('WS5 real served chance cells', () => {
     expect(screen.getByTestId('hero-detail-goal-fit')).toHaveTextContent(HERO_COPY.detail.goalFitJointBasis('about 69%'))
     expect(row.goal.readout).toBe(data.runView!.chanceCellOf(X, ctx(data)).text)
   })
-  it('C-LOST restored: a mixed set keeps the constrained row’s limits identity beside its cell', async () => {
+  // C-FALSE: joint words beside a goal-only figure removed (DL ruling 8 Oct; staging measurement /private/tmp/ws5-core-constrained.md)
+  it('C-FALSE removed: a mixed set keeps the constrained row and detail exactly on its goal-only cell', async () => {
     const data = await from(figures)
     const option = data.recommendation.allOptions.find(o => o.id === X)!
     option.constraintAnalysis = { constraints: [{ node_id: 'limit' }] } as never
     const model = heroParity(data)
     const row = model.rows.find(r => r.id === X)!
-    fireEvent.click(screen.getByTestId(`hero-option-row-${row.index}`).querySelector('button')!)
-    expect(screen.getByTestId('hero-detail-goal-fit-identity')).toHaveTextContent(HERO_COPY.caption.goalWithLimits)
-    for (const other of model.rows.filter(r => r.id !== X)) expect(other.detail.goalFitIdentity).toBeUndefined()
+    const element = screen.getByTestId(`hero-option-row-${row.index}`)
+    fireEvent.click(element.querySelector('button')!)
+    const cellText = data.runView!.chanceCellOf(X, ctx(data)).text
+    expect(element.querySelector('.text-right > span')!.textContent).toBe(cellText)
+    expect(screen.getByTestId('hero-detail-goal-fit').textContent).toBe(cellText)
+    expect(element.textContent).not.toMatch(/and limits|limits together/i)
+    expect(screen.queryByTestId('hero-detail-goal-fit-identity')).toBeNull()
   })
   it('R2-1 consistency: canonical figure mismatch uses the server fragment', async () => {
     await from(figures)
