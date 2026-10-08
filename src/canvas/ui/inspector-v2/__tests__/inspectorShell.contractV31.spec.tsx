@@ -24,6 +24,7 @@ const reveal = vi.fn(() => true)
 vi.mock('../../../conversation/revealOlumi', () => ({ revealOlumiSurface: () => reveal() }))
 
 import { InspectorRouter } from '../InspectorRouter'
+import { ToastProvider } from '../../../ToastContext'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useAskOlumiStore } from '../../../../components/results/coaching/askOlumiStore'
@@ -80,6 +81,7 @@ describe('v3.1 inspector shell — every pane', () => {
       const onClose = vi.fn()
       const { container } = render(
         <InspectorRouter nodeId={pane.nodeId} edgeId={pane.edgeId} onClose={onClose} />,
+        { wrapper: ToastProvider },
       )
       const shell = screen.getByRole('region', { name: 'Inspector panel' })
       expect(shell.getAttribute('data-inspector-width')).toBe('330')
@@ -144,7 +146,7 @@ describe('v3.1 inspector shell — every pane', () => {
   it('"Back to the conversation" fronts the conversation, then closes — the element stays selected', () => {
     const onClose = vi.fn()
     useCanvasStore.setState({ selection: { nodeIds: new Set(['fc']), edgeIds: new Set(), anchorPosition: null } } as never)
-    render(<InspectorRouter nodeId="fc" edgeId={null} onClose={onClose} />)
+    render(<InspectorRouter nodeId="fc" edgeId={null} onClose={onClose} />, { wrapper: ToastProvider })
     fireEvent.click(screen.getByTestId('inspector-header-menu'))
     fireEvent.click(screen.getByTestId('inspector-back-to-conversation'))
     expect(reveal).toHaveBeenCalledTimes(1)

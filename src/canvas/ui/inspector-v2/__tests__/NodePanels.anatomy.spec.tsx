@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
 import { InspectorRouter } from '../InspectorRouter'
+import { ToastProvider } from '../../../ToastContext'
 import { requestAsk } from '../askSemantic'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
@@ -57,7 +58,7 @@ function seed(replacements: Node[] = nodes) {
   } as never)
 }
 function open(id: string) {
-  render(<InspectorRouter nodeId={id} edgeId={null} onClose={close} />)
+  render(<InspectorRouter nodeId={id} edgeId={null} onClose={close} />, { wrapper: ToastProvider })
   return screen.getByTestId('inspector-body')
 }
 function more() { return screen.getByTestId('inspector-more') }
