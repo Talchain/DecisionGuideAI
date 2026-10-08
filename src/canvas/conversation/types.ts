@@ -25,6 +25,8 @@ export interface ConversationMessage {
   timestamp: Date
   /** Echoed from request for deduplication. Live replies leave it unset; thread-hydrated replies carry it (FeedbackRow). */
   clientTurnId?: string
+  /** Ephemeral live Agent-turn association with its undo journal gesture; never restored from a thread. */
+  undoTurnId?: string
   /** Recorded server echo on a live answer; only the transcript serializer promotes it to a restored association. */
   pendingServerTurnId?: string
   /** Deserialised server answer association; only a fresh server read authorises restored next steps. */
