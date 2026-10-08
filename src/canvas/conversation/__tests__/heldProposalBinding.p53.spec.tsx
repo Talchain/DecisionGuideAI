@@ -192,7 +192,7 @@ describe('P53: an approval is bound to the message that issued it, from render t
   })
 
   it('B9: a matching reply already holding its own approve card gains the current record and keeps deduped controls and other chips', () => {
-    const other = { id: 'another-chat-action', label: 'Explore the risks', message: 'Explore the risks.' }
+    const [other] = buildSuggestedActionChips([], [{ id: 'another-chat-action', label: 'Explore the risks', message: 'Explore the risks.' }])
     const issued = proposal(PID_A, 'A', DIGEST_A, 't1')
     const raw = wire(issued)
     const oldRecord = wire(proposal(PID_A, 'A', 'd'.repeat(32)))
