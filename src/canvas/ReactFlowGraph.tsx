@@ -794,6 +794,8 @@ function claimCameraOnUserMoveEnd(event: MouseEvent | TouchEvent | null): void {
 }
 
 const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, showStarters = false }: ReactFlowGraphProps) {
+  // IDENTITY-EXACT (DL 8 Oct): the current Run's exact operand links, for the edges' accessible names (top: rules of hooks).
+  const identityExact = useCanvasStore(selectIdentityExactLinks)
   // ACCOUNTS viewer mode (CANVAS 5947752314): read-only, not inert. A viewer still
   // selects and inspects (click and marquee); nothing connects or opens an edit menu, and a drag moves
   // nothing (the store's onNodesChange keeps only select/dimensions changes for a viewer). React Flow's
@@ -1040,7 +1042,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
    * clause* on an already-correct name, never a wrong one — and the alternative
    * was a hook in a file where hooks crash.
    */
-  const identityExact = useCanvasStore(selectIdentityExactLinks)
   const memoizedEdges = useMemo(() => {
     const seen = new Set<string>()
     const unique = edges.filter((edge) => {

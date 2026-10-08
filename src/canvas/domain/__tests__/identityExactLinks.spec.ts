@@ -57,6 +57,10 @@ describe('identityExactLinks — CEE\'s exact rule over the canvas graph', () =>
   it('R4 CONTROL: the identity\'s OWN outbound link (support cost → strain) is not an operand link; stays unsized', () => {
     expect(exact.has(SUPPORT_TO_STRAIN.id)).toBe(false)
   })
+  it('R4b: a NON-operand link INTO an evaluated identity (existing customers → support cost, added) is not exact', () => {
+    const extra = { id: 'e-extra', source: 'existing_customers', target: 'starter_support_cost', data: {} }
+    expect(identityExactLinks(nodes, [...edges, extra], EVALUATED).has('e-extra')).toBe(false)
+  })
   it('an identity with an unreadable operation says nothing (no false "Exact")', () => {
     const n = nodes.find((x) => x.id === 'starter_support_cost')!
     expect(identityExactWords({ ...n, data: { ...(n.data as object), nonlinear_identity: { operation: 'ratio', factor_ids: ['a', 'b'] } } }, nodes)).toBeNull()

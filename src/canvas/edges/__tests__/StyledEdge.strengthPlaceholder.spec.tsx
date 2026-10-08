@@ -177,7 +177,7 @@ describe('IDENTITY-EXACT — an exact operand link is not a placeholder on the c
       expect(groupOf(container).getAttribute('data-strength-placeholder')).toBeNull()
       expect(styleOf(container).strokeDasharray).not.toBe(STRENGTH_NOT_SET_DASH)
       expect(container.querySelector('[data-edge-source-icon]')).toBeNull()
-      expect(container.innerHTML).toContain(WORDS)
+      // The words themselves are bound in identityExactLinks.spec (accessible name + inspector); the label is not mounted here.
       expect(container.innerHTML).not.toMatch(/strength not set/i)
     } finally { exactFor.clear() }
   })
