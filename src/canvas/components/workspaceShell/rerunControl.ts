@@ -23,6 +23,7 @@ import { WORKSPACE_SURFACES } from './shellContract'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useCanvasStore } from '../../store'
 import { selectHasRunOnRecord } from '../../state/hasRunOnRecord'
+import type { AnalysisRefusalNotice } from '../../store/analysisRefusalNotice'
 
 export interface ReanalyseBarInputs {
   /** `useAnalysisTrust().semantic`. */
@@ -54,7 +55,7 @@ const RERUN_REPRODUCES_REFUSAL: ReadonlySet<string> = new Set(['analysis_blocked
  * behaviour, the rerun is offered).
  */
 export function refusalHoldsRerun(
-  notice: { readonly blockedReason: string; readonly graphHashAtRefusal?: string | null } | null | undefined,
+  notice: AnalysisRefusalNotice | null | undefined,
   lastServerGraphHash: string | null | undefined,
 ): boolean {
   if (!notice || !RERUN_REPRODUCES_REFUSAL.has(notice.blockedReason)) return false

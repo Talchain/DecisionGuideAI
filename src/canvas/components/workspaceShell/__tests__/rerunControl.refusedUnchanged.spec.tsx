@@ -67,7 +67,7 @@ describe('ReanalyseBar, mounted: refused + unchanged → no press; refused + an 
   })
   it('walks the two rows on one mounted bar', async () => {
     const { ReanalyseBar } = await import('../../model-tab/ReanalyseBar')
-    render(<ReanalyseBar onReanalyse={() => {}} canRun isAnalysing={false} />)
+    render(<ReanalyseBar onReanalyse={() => {}} canRun blockedReason={undefined} isAnalysing={false} />)
     // Positive control: before the refusal, the changed model offers Re-analyse.
     expect(screen.getByTestId('reanalyse-button')).toBeInTheDocument()
 
