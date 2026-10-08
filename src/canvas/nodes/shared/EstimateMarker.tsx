@@ -291,6 +291,15 @@ export function SourceMark({
 }) {
   const classes = `${SOURCE_MARK_TYPE_CLASSES} inline-flex items-baseline gap-0.5 px-px align-baseline`
   if (!onOpen) {
+    // Off the card (an edge label) the static mark is unchanged from staging: its native title is that surface's
+    // recovery path (StyledEdge.strengthSettlementDisclosure). Design audit #13 (one tooltip system) covers CARD marks.
+    if (!cardMarkId) {
+      return (
+        <span className={classes} title={tip} data-testid={testId} data-value-source={dataValueSource}>
+          {children}
+        </span>
+      )
+    }
     return (
       <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={tip}>
         <span className={classes} aria-label={ariaLabel ?? tip} aria-description={ariaDescription} data-card-mark={cardMarkId} data-testid={testId} data-value-source={dataValueSource}>
